@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/HardwareTest.Core/HardwareTest.Core.csproj" />
+    <Project Path="src/HardwareTest/HardwareTest.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/HardwareTest.E2E.Tests/HardwareTest.E2E.Tests.csproj" />
+    <Project Path="tests/HardwareTest.Tests/HardwareTest.Tests.csproj" />
+    <Project Path="tests/HardwareTest.ViewModels.Tests/HardwareTest.ViewModels.Tests.csproj" />
+  </Folder>
+</Solution>

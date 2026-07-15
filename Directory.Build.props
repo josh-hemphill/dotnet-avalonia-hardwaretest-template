@@ -1,0 +1,15 @@
+<Project>
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <WarningsNotAsErrors>IL2026;IL2070;IL3050;CA1416</WarningsNotAsErrors>
+    <NoWarn>$(NoWarn);S1118;S2139;AVLN3001;CA1416</NoWarn>
+    <IsAotCompatible>true</IsAotCompatible>
+    <JsonSerializerIsReflectionEnabledByDefault>false</JsonSerializerIsReflectionEnabledByDefault>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+    <Deterministic>true</Deterministic>
+  </PropertyGroup>
+</Project>

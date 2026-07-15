@@ -1,0 +1,102 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:HardwareTest.Features.RunTest"
+             xmlns:widgets="using:HardwareTest.Widgets.MeasurementPlot"
+             x:Class="HardwareTest.Features.RunTest.RunTestView"
+             x:DataType="vm:RunTestViewModel">
+  <Grid ColumnDefinitions="*,300" ColumnSpacing="12">
+    <!-- Main: toolbar + test progress -->
+    <Grid Grid.Column="0" RowDefinitions="Auto,Auto,*,Auto" RowSpacing="10">
+      <StackPanel Orientation="Horizontal" Spacing="8">
+        <ToggleButton Content="Auto"
+                      IsChecked="{Binding IsAutoMode}"
+                      ToolTip.Tip="When on, advance to the next suite after a successful finish" />
+        <Button Content="Run" Command="{Binding RunCommand}" />
+        <Button Content="Cancel" Command="{Binding CancelCommand}" />
+        <Button Content="Details" Command="{Binding ToggleDetailsCommand}"
+                ToolTip.Tip="Show sparse log and plot for the selected test" />
+        <ProgressBar Value="{Binding OverallPercent}" Minimum="0" Maximum="100"
+                     Width="120" Height="8" VerticalAlignment="Center" />
+        <TextBlock Text="{Binding OverallPercent, StringFormat={}{0:0}%}"
+                   VerticalAlignment="Center" Opacity="0.75" />
+      </StackPanel>
+
+      <TextBlock Grid.Row="1" Text="{Binding Status}" TextWrapping="Wrap" Opacity="0.9" />
+
+      <StackPanel Grid.Row="2" Spacing="4">
+        <Grid ColumnDefinitions="*,2*,100,60" ColumnSpacing="12" Margin="4,0">
+          <TextBlock Text="Test" FontWeight="SemiBold" Opacity="0.7" />
+          <TextBlock Grid.Column="1" Text="Status" FontWeight="SemiBold" Opacity="0.7" />
+          <TextBlock Grid.Column="2" Text="Result" FontWeight="SemiBold" Opacity="0.7" />
+          <TextBlock Grid.Column="3" Text="%" FontWeight="SemiBold" Opacity="0.7" />
+        </Grid>
+        <ListBox ItemsSource="{Binding PlanItems}"
+                 SelectedItem="{Binding SelectedTestItem}">
+          <ListBox.ItemTemplate>
+            <DataTemplate x:DataType="vm:TestItemViewModel">
+              <Grid ColumnDefinitions="*,2*,100,60" ColumnSpacing="12">
+                <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="1" Text="{Binding StatusText}" Opacity="0.85" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="2" Text="{Binding Result}" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="3"
+                           Text="{Binding Percent, StringFormat={}{0:0}%}"
+                           Opacity="0.75"
+                           VerticalAlignment="Center" />
+              </Grid>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+      </StackPanel>
+
+      <Border Grid.Row="3"
+              IsVisible="{Binding ShowDetails}"
+              Padding="8"
+              Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}">
+        <Grid ColumnDefinitions="*,*" ColumnSpacing="12" RowDefinitions="Auto,*" RowSpacing="6">
+          <TextBlock Text="Details" FontWeight="SemiBold" Grid.ColumnSpan="2" />
+          <ListBox Grid.Row="1" Grid.Column="0"
+                   ItemsSource="{Binding SelectedTestItem.DetailLines}"
+                   MaxHeight="160" />
+          <StackPanel Grid.Row="1" Grid.Column="1" Spacing="4">
+            <widgets:MeasurementPlotView x:Name="Plot" Height="140" />
+            <TextBlock Text="{Binding LastRunId, StringFormat=Last suite run: {0}}" Opacity="0.7" />
+          </StackPanel>
+        </Grid>
+      </Border>
+    </Grid>
+
+    <!-- Right: suite list -->
+    <Border Grid.Column="1"
+            Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
+            Padding="12">
+      <DockPanel>
+        <StackPanel DockPanel.Dock="Top" Spacing="8">
+          <TextBlock Text="Suites" FontWeight="SemiBold" />
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <Button Content="Add sample" Command="{Binding LoadSampleSuiteCommand}" />
+            <Button Content="Open…" Command="{Binding OpenSuiteFileCommand}" />
+            <Button Content="Remove" Command="{Binding RemoveSelectedSuiteCommand}" />
+          </StackPanel>
+        </StackPanel>
+        <ListBox ItemsSource="{Binding SuiteQueue}"
+                 SelectedItem="{Binding SelectedSuiteItem}"
+                 Margin="0,8,0,0">
+          <ListBox.ItemTemplate>
+            <DataTemplate x:DataType="vm:SuiteQueueItemViewModel">
+              <StackPanel Spacing="2">
+                <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" />
+                <TextBlock Opacity="0.75" Text="{Binding StatusText}" />
+                <StackPanel Orientation="Horizontal" Spacing="4" Opacity="0.6">
+                  <TextBlock Text="{Binding Percent, StringFormat={}{0:0}%}" />
+                  <TextBlock Text="·" />
+                  <TextBlock Text="{Binding PlanCount}" />
+                  <TextBlock Text="tests" />
+                </StackPanel>
+              </StackPanel>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+      </DockPanel>
+    </Border>
+  </Grid>
+</UserControl>

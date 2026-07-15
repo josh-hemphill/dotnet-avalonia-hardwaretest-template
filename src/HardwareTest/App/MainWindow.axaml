@@ -1,0 +1,50 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ui="using:FluentAvalonia.UI.Controls"
+        xmlns:vm="using:HardwareTest.Features"
+        x:Class="HardwareTest.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Title="Hardware Test"
+        Width="1280"
+        Height="800"
+        MinWidth="900"
+        MinHeight="600">
+  <ui:FANavigationView x:Name="NavView"
+                       PaneDisplayMode="Left"
+                       IsSettingsVisible="False"
+                       IsBackButtonVisible="False"
+                       OpenPaneLength="220"
+                       MenuItemsSource="{Binding NavigationItems}"
+                       SelectedItem="{Binding SelectedItem, Mode=TwoWay}">
+    <ui:FANavigationView.MenuItemTemplate>
+      <DataTemplate x:DataType="vm:NavItem">
+        <ui:FANavigationViewItem Content="{Binding Title}" Tag="{Binding Id}">
+          <ui:FANavigationViewItem.IconSource>
+            <ui:FASymbolIconSource Symbol="{Binding Symbol}" />
+          </ui:FANavigationViewItem.IconSource>
+        </ui:FANavigationViewItem>
+      </DataTemplate>
+    </ui:FANavigationView.MenuItemTemplate>
+
+    <ui:FANavigationView.PaneFooter>
+      <StackPanel Margin="12" Spacing="8">
+        <TextBlock Text="{Binding ControlStatus}" Opacity="0.75" FontSize="12" />
+        <Button Content="Pause"
+                Command="{Binding PauseCommand}"
+                HorizontalAlignment="Stretch" />
+        <Button Content="Resume"
+                Command="{Binding ResumeCommand}"
+                HorizontalAlignment="Stretch" />
+        <Button Content="Safety Stop"
+                Command="{Binding SafetyStopCommand}"
+                HorizontalAlignment="Stretch"
+                Classes="accent"
+                ToolTip.Tip="Abort the run and execute suite safeShutdown steps with VISA priority" />
+      </StackPanel>
+    </ui:FANavigationView.PaneFooter>
+
+    <Panel Margin="16">
+      <ContentControl Content="{Binding CurrentPage}" />
+    </Panel>
+  </ui:FANavigationView>
+</Window>

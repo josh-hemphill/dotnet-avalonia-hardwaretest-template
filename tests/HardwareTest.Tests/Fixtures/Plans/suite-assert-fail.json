@@ -1,0 +1,26 @@
+{
+  "id": "suite-assert-fail",
+  "name": "Suite Assert Fail",
+  "executionMode": "Sequential",
+  "plans": [
+    {
+      "id": "fail-plan",
+      "name": "Fail Plan",
+      "resource": "MOCK::INSTR0",
+      "steps": [
+        { "type": "Open", "resource": "MOCK::INSTR0" },
+        { "type": "Acquire", "channel": "VDC", "sampleCount": 4, "intervalMs": 0 },
+        { "type": "Assert", "source": "channel:VDC:mean", "operator": "gt", "value": 1000 }
+      ]
+    },
+    {
+      "id": "should-not-run",
+      "name": "Should Not Run",
+      "resource": "MOCK::INSTR0",
+      "steps": [
+        { "type": "Open", "resource": "MOCK::INSTR0" },
+        { "type": "Delay", "milliseconds": 1 }
+      ]
+    }
+  ]
+}
