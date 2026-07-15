@@ -1,0 +1,10 @@
+{
+  "id": "query-store-assert",
+  "name": "Query Store Assert Fixture",
+  "resource": "MOCK::INSTR0",
+  "steps": [
+    { "type": "Open", "resource": "MOCK::INSTR0" },
+    { "type": "Query", "command": "READ?", "storeAs": "v" },
+    { "type": "Assert", "source": "v", "operator": "gte", "value": 0.0 }
+  ]
+}

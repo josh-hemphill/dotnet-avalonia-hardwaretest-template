@@ -1,0 +1,72 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:HardwareTest.Features.Settings"
+             x:Class="HardwareTest.Features.Settings.SettingsView"
+             x:DataType="vm:SettingsViewModel">
+  <ScrollViewer>
+    <StackPanel Spacing="10" Margin="0,0,16,0" MaxWidth="720">
+      <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
+        <TextBlock Text="Data directory" VerticalAlignment="Center" />
+        <TextBox Grid.Column="1" Text="{Binding DataDirectory}" IsReadOnly="True" />
+      </Grid>
+
+      <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
+        <TextBlock Text="Theme" VerticalAlignment="Center" />
+        <ComboBox Grid.Column="1"
+                  ItemsSource="{Binding ThemeOptions}"
+                  SelectedItem="{Binding ThemePreference}"
+                  MinWidth="160" />
+      </Grid>
+
+      <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
+        <TextBlock Text="Default VISA resource" VerticalAlignment="Center" />
+        <TextBox Grid.Column="1" Text="{Binding DefaultVisaResource}" />
+      </Grid>
+
+      <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
+        <TextBlock Text="Use mock VISA" VerticalAlignment="Center" />
+        <CheckBox Grid.Column="1" IsChecked="{Binding UseMockVisa}" />
+      </Grid>
+
+      <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
+        <TextBlock Text="Embed plots in report" VerticalAlignment="Center" />
+        <CheckBox Grid.Column="1" IsChecked="{Binding EmbedPlotsInReport}" />
+      </Grid>
+
+      <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
+        <TextBlock Text="Log level" VerticalAlignment="Center" />
+        <TextBox Grid.Column="1" Text="{Binding LogMinimumLevel}" />
+      </Grid>
+
+      <Grid ColumnDefinitions="220,*" ColumnSpacing="12" IsVisible="{Binding ShowEventLogOptions}">
+        <TextBlock Text="Windows Event Log" VerticalAlignment="Center" />
+        <CheckBox Grid.Column="1" IsChecked="{Binding EnableOsEventSink}" />
+      </Grid>
+
+      <StackPanel Spacing="10" IsVisible="{Binding ShowSyslogOptions}">
+        <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
+          <TextBlock Text="Unix Syslog" VerticalAlignment="Center" />
+          <CheckBox Grid.Column="1" IsChecked="{Binding EnableSyslogOnUnix}" />
+        </Grid>
+        <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
+          <TextBlock Text="Syslog host" VerticalAlignment="Center" />
+          <TextBox Grid.Column="1" Text="{Binding SyslogHost}" />
+        </Grid>
+        <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
+          <TextBlock Text="Syslog port" VerticalAlignment="Center" />
+          <TextBox Grid.Column="1" Text="{Binding SyslogPort}" />
+        </Grid>
+      </StackPanel>
+
+      <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
+        <TextBlock Text="Plot refresh Hz" VerticalAlignment="Center" />
+        <TextBox Grid.Column="1" Text="{Binding PlotRefreshHz}" />
+      </Grid>
+
+      <StackPanel Orientation="Horizontal" Spacing="12">
+        <Button Content="Save now" Command="{Binding SaveCommand}" />
+        <TextBlock Text="{Binding Status}" VerticalAlignment="Center" />
+      </StackPanel>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

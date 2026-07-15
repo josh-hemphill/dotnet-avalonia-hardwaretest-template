@@ -1,0 +1,33 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:HardwareTest.Features.Results"
+             xmlns:runs="using:HardwareTest.Core.Runs"
+             x:Class="HardwareTest.Features.Results.ResultsView"
+             x:DataType="vm:ResultsViewModel">
+  <Grid RowDefinitions="Auto,*,Auto,Auto" RowSpacing="12">
+    <StackPanel Orientation="Horizontal" Spacing="8">
+      <Button Content="Refresh" Command="{Binding RefreshCommand}" />
+      <Button Content="Open" Command="{Binding OpenCommand}" />
+      <Button Content="Regenerate PDF" Command="{Binding ReprintCommand}" />
+    </StackPanel>
+
+    <ListBox Grid.Row="1"
+             ItemsSource="{Binding Runs}"
+             SelectedItem="{Binding SelectedRun}"
+             MinHeight="240">
+      <ListBox.ItemTemplate>
+        <DataTemplate x:DataType="runs:TestRunSummary">
+          <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="12">
+            <TextBlock Text="{Binding PlanName}" />
+            <TextBlock Grid.Column="1" Text="{Binding Result}" />
+            <TextBlock Grid.Column="2" Text="{Binding StartedAt}" Opacity="0.7" />
+          </Grid>
+        </DataTemplate>
+      </ListBox.ItemTemplate>
+    </ListBox>
+
+    <TextBlock Grid.Row="2" Text="{Binding Status}" TextWrapping="Wrap" />
+    <TextBlock Grid.Row="3"
+               Text="{Binding OpenedRun.RunId, StringFormat=Details: {0}}" />
+  </Grid>
+</UserControl>

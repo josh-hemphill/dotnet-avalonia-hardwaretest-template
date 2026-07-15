@@ -1,0 +1,10 @@
+{
+  "id": "assert-pass",
+  "name": "Assert Pass Fixture",
+  "resource": "MOCK::INSTR0",
+  "steps": [
+    { "type": "Open", "resource": "MOCK::INSTR0" },
+    { "type": "Acquire", "channel": "VDC", "sampleCount": 8, "intervalMs": 0 },
+    { "type": "Assert", "source": "channel:VDC:mean", "operator": "gte", "value": 0.0 }
+  ]
+}

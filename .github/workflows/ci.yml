@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Build
+        run: dotnet build dirs.proj -c Release -r win-x64
+
+      - name: Core tests + coverage
+        run: >
+          dotnet test tests/HardwareTest.Tests/HardwareTest.Tests.csproj
+          -c Release -r win-x64 --no-build
+          --collect:"XPlat Code Coverage"
+          --settings tests/coverage.runsettings
+          --results-directory artifacts/coverage
+
+      - name: ViewModel tests
+        run: >
+          dotnet test tests/HardwareTest.ViewModels.Tests/HardwareTest.ViewModels.Tests.csproj
+          -c Release -r win-x64 --no-build
+
+      - name: E2E headless tests
+        run: >
+          dotnet test tests/HardwareTest.E2E.Tests/HardwareTest.E2E.Tests.csproj
+          -c Release -r win-x64 --no-build
+
+      - name: Coverage floors
+        shell: bash
+        run: |
+          set -euo pipefail
+          cobertura=$(find artifacts/coverage -name 'coverage.cobertura.xml' | head -n 1)
+          if [[ -z "${cobertura}" ]]; then
+            echo "coverage.cobertura.xml not found" >&2
+            exit 1
+          fi
+          python tests/check-coverage.py "${cobertura}"
+
+  publish-aot:
+    runs-on: windows-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: PublishAot smoke (win-x64)
+        run: dotnet publish src/HardwareTest -c Release -r win-x64 --self-contained

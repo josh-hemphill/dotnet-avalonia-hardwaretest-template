@@ -1,0 +1,43 @@
+{
+  "id": "sample-suite",
+  "name": "Sample Hardware Suite",
+  "description": "Inline suite wrapping a quick identity check and the voltage sweep plan.",
+  "executionMode": "Sequential",
+  "instruments": {
+    "dmm": "instr0"
+  },
+  "safeShutdown": [
+    { "type": "Write", "command": "OUTP OFF" },
+    { "type": "Write", "command": "*RST" }
+  ],
+  "plans": [
+    {
+      "id": "identity-check",
+      "name": "Identity Check",
+      "description": "Open mock DMM via role and query *IDN?.",
+      "dutSerial": "DUT-DEMO-001",
+      "resource": "dmm",
+      "steps": [
+        { "type": "Open", "resource": "dmm" },
+        { "type": "Query", "command": "*IDN?", "storeAs": "idn" },
+        { "type": "Delay", "milliseconds": 20 }
+      ]
+    },
+    {
+      "id": "sample-voltage-sweep",
+      "name": "Sample Voltage Sweep",
+      "description": "Acquire and analyze mock VDC readings.",
+      "dutSerial": "DUT-DEMO-001",
+      "resource": "dmm",
+      "steps": [
+        { "type": "Open", "resource": "dmm" },
+        { "type": "Write", "command": "*RST" },
+        { "type": "Query", "command": "*IDN?", "storeAs": "idn" },
+        { "type": "Write", "command": "CONF:VOLT:DC" },
+        { "type": "Acquire", "channel": "VDC", "sampleCount": 32, "intervalMs": 5 },
+        { "type": "Analyze", "algorithm": "mean-gte", "channel": "VDC", "value": 0.0, "storeAs": "meanVdc" },
+        { "type": "Delay", "milliseconds": 20 }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="using:HardwareTest"
+             xmlns:sty="using:FluentAvalonia.Styling"
+             x:Class="HardwareTest.App"
+             RequestedThemeVariant="Default">
+  <Application.DataTemplates>
+    <local:ViewLocator />
+  </Application.DataTemplates>
+
+  <Application.Styles>
+    <FluentTheme />
+    <sty:FluentAvaloniaTheme />
+  </Application.Styles>
+</Application>

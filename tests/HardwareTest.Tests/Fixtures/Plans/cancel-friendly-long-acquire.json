@@ -1,0 +1,9 @@
+{
+  "id": "cancel-friendly-long-acquire",
+  "name": "Cancel Friendly Long Acquire",
+  "resource": "MOCK::INSTR0",
+  "steps": [
+    { "type": "Open", "resource": "MOCK::INSTR0" },
+    { "type": "Acquire", "channel": "VDC", "sampleCount": 500, "intervalMs": 20 }
+  ]
+}
