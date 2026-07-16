@@ -1,27 +1,43 @@
 using Avalonia.Headless.XUnit;
 using HardwareTest.Core.Runs;
+using HardwareTest.Features.RunTest;
 using Xunit;
 
 namespace HardwareTest.E2E.Tests;
 
 public sealed class RunFlowE2ETests
 {
+    private static async Task RunToCompletionAsync(RunTestViewModel runVm)
+    {
+        var runTask = runVm.RunCommand.ExecuteAsync();
+        await E2EHarness.WaitUntilAsync(
+            () =>
+            {
+                if (runVm.IsAwaitingOperator)
+                {
+                    runVm.ContinueOperatorAttention();
+                }
+
+                return !runVm.IsRunning && runTask.IsCompleted;
+            },
+            TimeSpan.FromMinutes(2),
+            "Run did not finish (operator prompt may be stuck).");
+        await runTask;
+    }
+
     [AvaloniaFact]
-    public async Task Run_test_load_start_finish_sets_last_run_id()
+    public async Task Run_test_confirm_dut_start_finish_sets_last_run_id()
     {
         var window = E2EHarness.ShowMainWindow();
         var main = E2EHarness.MainVm(window);
         main.NavigateToPageId("RunTest");
         var runVm = E2EHarness.RunTestVm(main);
 
-        await runVm.LoadPlanCommand.ExecuteAsync();
-        Assert.NotNull(runVm.Suite);
+        await runVm.RefreshProgramsCommand.ExecuteAsync();
+        runVm.DutSerialInput = "E2E-SN-1";
+        await runVm.ConfirmDutCommand.ExecuteAsync();
 
-        await runVm.StartCommand.ExecuteAsync();
-        await E2EHarness.WaitUntilAsync(
-            () => !runVm.IsRunning,
-            TimeSpan.FromMinutes(2),
-            "Run did not finish.");
+        await RunToCompletionAsync(runVm);
 
         Assert.False(runVm.IsRunning);
         Assert.False(string.IsNullOrWhiteSpace(runVm.LastRunId));
@@ -35,19 +51,23 @@ public sealed class RunFlowE2ETests
         var main = E2EHarness.MainVm(window);
         var runVm = E2EHarness.RunTestVm(main);
 
-        await runVm.LoadPlanCommand.ExecuteAsync();
-        await runVm.StartCommand.ExecuteAsync();
-        await E2EHarness.WaitUntilAsync(() => !runVm.IsRunning, TimeSpan.FromMinutes(2));
+        await runVm.RefreshProgramsCommand.ExecuteAsync();
+        runVm.DutSerialInput = "E2E-SN-2";
+        await runVm.ConfirmDutCommand.ExecuteAsync();
+        await RunToCompletionAsync(runVm);
 
         main.NavigateToPageId("Results");
         var results = E2EHarness.ResultsVm(main);
         await results.RefreshCommand.ExecuteAsync();
         Assert.True(results.Runs.Count >= 1);
+        Assert.Equal("E2E-SN-2", results.Runs[0].DutSerial);
 
         results.SelectedRun = results.Runs[0];
         await results.OpenCommand.ExecuteAsync();
         Assert.NotNull(results.OpenedRun);
         Assert.Equal(RunResult.Passed, results.OpenedRun!.Result);
+        Assert.Equal("E2E-SN-2", results.OpenedRun.DutSerial);
+        Assert.True(results.ShowDetail);
     }
 
     [AvaloniaFact]
@@ -57,11 +77,13 @@ public sealed class RunFlowE2ETests
         var main = E2EHarness.MainVm(window);
         var runVm = E2EHarness.RunTestVm(main);
 
-        await runVm.LoadPlanCommand.ExecuteAsync();
-        await runVm.StartCommand.ExecuteAsync();
+        await runVm.RefreshProgramsCommand.ExecuteAsync();
+        runVm.DutSerialInput = "E2E-SN-3";
+        await runVm.ConfirmDutCommand.ExecuteAsync();
+        await RunToCompletionAsync(runVm);
         await E2EHarness.WaitUntilAsync(
-            () => !runVm.IsRunning && !string.IsNullOrWhiteSpace(runVm.LastRunId),
-            TimeSpan.FromMinutes(2));
+            () => !string.IsNullOrWhiteSpace(runVm.LastRunId),
+            TimeSpan.FromSeconds(30));
 
         main.NavigateToPageId("ReportPreview");
         var preview = E2EHarness.ReportPreviewVm(main);

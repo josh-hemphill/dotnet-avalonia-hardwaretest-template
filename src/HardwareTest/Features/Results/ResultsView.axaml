@@ -4,30 +4,68 @@
              xmlns:runs="using:HardwareTest.Core.Runs"
              x:Class="HardwareTest.Features.Results.ResultsView"
              x:DataType="vm:ResultsViewModel">
-  <Grid RowDefinitions="Auto,*,Auto,Auto" RowSpacing="12">
-    <StackPanel Orientation="Horizontal" Spacing="8">
+  <Grid RowDefinitions="Auto,*,Auto" ColumnDefinitions="*,320" ColumnSpacing="12" RowSpacing="12">
+    <StackPanel Orientation="Horizontal" Spacing="8" Grid.ColumnSpan="2">
       <Button Content="Refresh" Command="{Binding RefreshCommand}" />
       <Button Content="Open" Command="{Binding OpenCommand}" />
       <Button Content="Regenerate PDF" Command="{Binding ReprintCommand}" />
+      <TextBlock Text="{Binding Status}" VerticalAlignment="Center" Opacity="0.85" TextWrapping="Wrap" />
     </StackPanel>
 
-    <ListBox Grid.Row="1"
-             ItemsSource="{Binding Runs}"
-             SelectedItem="{Binding SelectedRun}"
-             MinHeight="240">
-      <ListBox.ItemTemplate>
-        <DataTemplate x:DataType="runs:TestRunSummary">
-          <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="12">
-            <TextBlock Text="{Binding PlanName}" />
-            <TextBlock Grid.Column="1" Text="{Binding Result}" />
-            <TextBlock Grid.Column="2" Text="{Binding StartedAt}" Opacity="0.7" />
-          </Grid>
-        </DataTemplate>
-      </ListBox.ItemTemplate>
-    </ListBox>
+    <DockPanel Grid.Row="1">
+      <Grid DockPanel.Dock="Top" ColumnDefinitions="*,100,90,90,70,140" Margin="8,0,8,4" Opacity="0.7">
+        <TextBlock Text="Plan / DUT" FontWeight="SemiBold" />
+        <TextBlock Grid.Column="1" Text="Part" FontWeight="SemiBold" />
+        <TextBlock Grid.Column="2" Text="Session" FontWeight="SemiBold" />
+        <TextBlock Grid.Column="3" Text="Operator" FontWeight="SemiBold" />
+        <TextBlock Grid.Column="4" Text="Result" FontWeight="SemiBold" />
+        <TextBlock Grid.Column="5" Text="Started" FontWeight="SemiBold" />
+      </Grid>
+      <ListBox ItemsSource="{Binding Runs}"
+               SelectedItem="{Binding SelectedRun}"
+               DoubleTapped="OnRunsDoubleTapped"
+               MinHeight="240">
+        <ListBox.ItemTemplate>
+          <DataTemplate x:DataType="runs:TestRunSummary">
+            <Grid ColumnDefinitions="*,100,90,90,70,140" ColumnSpacing="4">
+              <StackPanel>
+                <TextBlock Text="{Binding PlanName}" FontWeight="SemiBold" />
+                <TextBlock Text="{Binding DutSerial}" Opacity="0.8" FontSize="11" />
+              </StackPanel>
+              <TextBlock Grid.Column="1" Text="{Binding DutPartNumber}" VerticalAlignment="Center" />
+              <TextBlock Grid.Column="2" Text="{Binding SessionId}" VerticalAlignment="Center" FontSize="11" />
+              <TextBlock Grid.Column="3" Text="{Binding OperatorName}" VerticalAlignment="Center" />
+              <TextBlock Grid.Column="4" Text="{Binding Result}" VerticalAlignment="Center" />
+              <TextBlock Grid.Column="5" Text="{Binding StartedAt}" VerticalAlignment="Center" Opacity="0.75" FontSize="11" />
+            </Grid>
+          </DataTemplate>
+        </ListBox.ItemTemplate>
+      </ListBox>
+    </DockPanel>
 
-    <TextBlock Grid.Row="2" Text="{Binding Status}" TextWrapping="Wrap" />
-    <TextBlock Grid.Row="3"
-               Text="{Binding OpenedRun.RunId, StringFormat=Details: {0}}" />
+    <Border Grid.Row="1" Grid.Column="1"
+            IsVisible="{Binding ShowDetail}"
+            Padding="10"
+            Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}">
+      <DockPanel>
+        <StackPanel DockPanel.Dock="Top" Spacing="4" Margin="0,0,0,8">
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBlock Text="{Binding OpenedRun.RunId, StringFormat=Run {0}}" FontWeight="SemiBold" TextWrapping="Wrap" />
+            <Button Grid.Column="1" Content="Close" Command="{Binding CloseDetailCommand}" />
+          </Grid>
+          <TextBlock Text="{Binding OpenedRun.DutSerial, StringFormat=DUT: {0}}" Opacity="0.85" />
+          <TextBlock Text="{Binding OpenedRun.DutPartNumber, StringFormat=Part: {0}}" Opacity="0.75" />
+          <TextBlock Text="{Binding OpenedRun.OperatorName, StringFormat=Operator: {0}}" Opacity="0.75" />
+          <TextBlock Text="Steps" FontWeight="SemiBold" Margin="0,8,0,0" />
+        </StackPanel>
+        <ListBox DockPanel.Dock="Bottom" ItemsSource="{Binding SampleDetails}" MaxHeight="160" Margin="0,8,0,0" />
+        <TextBlock DockPanel.Dock="Bottom" Text="Samples" FontWeight="SemiBold" Margin="0,8,0,4" />
+        <ListBox ItemsSource="{Binding StepDetails}" />
+      </DockPanel>
+    </Border>
+
+    <TextBlock Grid.Row="2" Grid.ColumnSpan="2"
+               Text="Double-click a run to open step and sample detail."
+               Opacity="0.55" FontSize="11" />
   </Grid>
 </UserControl>

@@ -8,6 +8,48 @@ namespace HardwareTest.ViewModels.Tests;
 public sealed class ResultsViewModelTests
 {
     [Fact]
+    public async Task Open_shows_steps_and_dut_columns()
+    {
+        var store = new FakeRunStore();
+        store.Seed(new TestRunRecord
+        {
+            RunId = "r2",
+            PlanName = "Sample",
+            DutSerial = "SN-R",
+            DutPartNumber = "PN-R",
+            SessionId = "sess123456",
+            OperatorName = "Op",
+            StartedAt = DateTimeOffset.UtcNow,
+            Result = RunResult.Passed,
+            Steps =
+            [
+                new StepResultRecord
+                {
+                    StepId = "Identity",
+                    StepType = "IdentityCheckStep",
+                    Passed = true,
+                    Message = "ok",
+                    StartedAt = DateTimeOffset.UtcNow,
+                    CompletedAt = DateTimeOffset.UtcNow,
+                },
+            ],
+            Samples =
+            [
+                new StoredSample { Channel = "VDC", Timestamp = DateTimeOffset.UtcNow, Value = 1.1 },
+            ],
+        });
+        var vm = new ResultsViewModel(store, new FakeReportService());
+        await vm.RefreshCommand.ExecuteAsync();
+        Assert.Equal("SN-R", vm.Runs[0].DutSerial);
+        Assert.Equal("PN-R", vm.Runs[0].DutPartNumber);
+        vm.SelectedRun = vm.Runs[0];
+        await vm.OpenCommand.ExecuteAsync();
+        Assert.True(vm.ShowDetail);
+        Assert.NotEmpty(vm.StepDetails);
+        Assert.NotEmpty(vm.SampleDetails);
+    }
+
+    [Fact]
     public async Task Refresh_loads_runs()
     {
         var store = new FakeRunStore();

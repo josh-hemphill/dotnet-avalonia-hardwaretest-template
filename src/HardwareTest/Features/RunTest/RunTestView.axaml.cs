@@ -1,4 +1,5 @@
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 
@@ -22,10 +23,10 @@ public partial class RunTestView : UserControl
         {
             _subscribed = vm;
             vm.PlotDataChanged += OnPlotDataChanged;
-            vm.RequestSuiteFilePath = PickSuiteFileAsync;
+            vm.RequestPlanFilePath = PickPlanFileAsync;
             if (Plot is not null)
             {
-                Plot.UpdateData(vm.PlotYs);
+                Plot.UpdateData(vm.PlotYs, vm.PlotYsLength, force: true);
             }
         }
     }
@@ -38,11 +39,11 @@ public partial class RunTestView : UserControl
         }
 
         _subscribed.PlotDataChanged -= OnPlotDataChanged;
-        _subscribed.RequestSuiteFilePath = null;
+        _subscribed.RequestPlanFilePath = null;
         _subscribed = null;
     }
 
-    private async Task<string?> PickSuiteFileAsync(CancellationToken cancellationToken)
+    private async Task<string?> PickPlanFileAsync(CancellationToken cancellationToken)
     {
         var top = TopLevel.GetTopLevel(this);
         if (top is null)
@@ -52,11 +53,11 @@ public partial class RunTestView : UserControl
 
         var files = await top.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
         {
-            Title = "Open test suite",
+            Title = "Open OpenTAP plan",
             AllowMultiple = false,
             FileTypeFilter =
             [
-                new FilePickerFileType("Suite JSON") { Patterns = ["*.json"] },
+                new FilePickerFileType("OpenTAP Plan") { Patterns = ["*.TapPlan"] },
                 FilePickerFileTypes.All,
             ],
         });
@@ -71,12 +72,26 @@ public partial class RunTestView : UserControl
             return;
         }
 
+        var ys = _subscribed.PlotYs;
+        var length = _subscribed.PlotYsLength;
         if (!Dispatcher.UIThread.CheckAccess())
         {
-            Dispatcher.UIThread.Post(() => Plot.UpdateData(_subscribed.PlotYs));
+            Dispatcher.UIThread.Post(() => Plot.UpdateData(ys, length));
             return;
         }
 
-        Plot.UpdateData(_subscribed.PlotYs);
+        Plot.UpdateData(ys, length);
     }
+
+    private void OnStageDoubleTapped(object? sender, TappedEventArgs e)
+    {
+        if (_subscribed?.SelectedStage?.Step is { } stage)
+        {
+            _subscribed.SelectedStep = stage;
+            _subscribed.OpenSelectedStepDetail();
+        }
+    }
+
+    private void OnHierarchyDoubleTapped(object? sender, TappedEventArgs e)
+        => _subscribed?.OpenSelectedStepDetail();
 }

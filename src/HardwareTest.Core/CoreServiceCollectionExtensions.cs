@@ -1,7 +1,6 @@
 using HardwareTest.Core.Engine;
 using HardwareTest.Core.Hardware;
 using HardwareTest.Core.Logging;
-using HardwareTest.Core.Plans;
 using HardwareTest.Core.Reporting;
 using HardwareTest.Core.Runs;
 using HardwareTest.Core.Settings;
@@ -22,13 +21,7 @@ public static class CoreServiceCollectionExtensions
         services.AddSingleton(settingsStore.UiState);
         services.AddSingleton(new VisaSessionGate());
         services.AddSingleton<IRunControl>(sp => new RunControl(sp.GetRequiredService<VisaSessionGate>()));
-        services.AddSingleton<IAnalyzeAlgorithm, MeanGteAnalyzeAlgorithm>();
-        services.AddSingleton<IAnalyzeAlgorithmResolver>(sp =>
-            new AnalyzeAlgorithmResolver(sp.GetServices<IAnalyzeAlgorithm>()));
         services.AddSingleton<MeasurementAcquisition>();
-        services.AddSingleton<PlanLoader>();
-        services.AddSingleton<IPlanLoader>(sp => sp.GetRequiredService<PlanLoader>());
-        services.AddSingleton<ISuiteLoader>(sp => sp.GetRequiredService<PlanLoader>());
         services.AddSingleton<IRunStore>(_ => new FileRunStore(settingsStore.RunsDirectory));
         services.AddSingleton<ISuiteRunStore>(sp =>
             new FileSuiteRunStore(sp.GetRequiredService<IRunStore>(), settingsStore.RunsDirectory));
@@ -39,8 +32,6 @@ public static class CoreServiceCollectionExtensions
                 sp.GetRequiredService<VisaSessionGate>()));
         services.AddSingleton<IVisaResourceDiscovery>(_ =>
             new ConfigurableVisaResourceDiscovery(settingsStore.AppSettings.UseMockVisa));
-        services.AddSingleton<ITestEngine, TestEngine>();
-        services.AddSingleton<ISuiteEngine, SuiteEngine>();
         services.AddSingleton<IReportService>(sp =>
             new TypstReportService(
                 sp.GetRequiredService<IRunStore>(),

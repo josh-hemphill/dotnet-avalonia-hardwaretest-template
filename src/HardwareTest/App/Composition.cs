@@ -7,17 +7,21 @@ using HardwareTest.Features.ReportPreview;
 using HardwareTest.Features.Results;
 using HardwareTest.Features.RunTest;
 using HardwareTest.Features.Settings;
+using HardwareTest.OpenTap.Host;
 using Microsoft.Extensions.DependencyInjection;
+using Serilog;
 
 namespace HardwareTest;
 
 public static class Composition
 {
-    /// Explicit DI registration — no assembly scanning (AoT-safe).
+    /// Explicit DI registration — no assembly scanning (AoT-safe host shell).
     public static ServiceProvider Build(ISettingsStore settingsStore)
     {
         var services = new ServiceCollection();
         services.AddHardwareTestCore(settingsStore);
+        services.AddSingleton<IOpenTapSession, OpenTapSession>();
+        services.AddSingleton<OperatorSession>();
 
         services.AddSingleton<HomeViewModel>();
         services.AddSingleton<RunTestViewModel>();

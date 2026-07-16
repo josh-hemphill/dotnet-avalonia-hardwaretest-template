@@ -40,20 +40,26 @@ public sealed class TypstReportService : IReportService, IDisposable
 
     public async Task<string> GeneratePdfAsync(TestRunRecord run, CancellationToken cancellationToken = default)
     {
-        if (_settings.EmbedPlotsInReport && run.Samples.Count > 0 && run.PlotImagePaths.Count == 0)
-        {
-            var plotsDir = Path.Combine(_runStore.GetRunDirectory(run.RunId), "plots");
-            run.PlotImagePaths = SamplePlotExporter.ExportAllChannels(run, plotsDir).ToList();
-        }
+        return await Task.Run(
+            () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (_settings.EmbedPlotsInReport && run.Samples.Count > 0 && run.PlotImagePaths.Count == 0)
+                {
+                    var plotsDir = Path.Combine(_runStore.GetRunDirectory(run.RunId), "plots");
+                    run.PlotImagePaths = SamplePlotExporter.ExportAllChannels(run, plotsDir).ToList();
+                }
 
-        var pdfBytes = await CompileTemplateAsync(run, cancellationToken).ConfigureAwait(false);
-        var dir = _runStore.GetRunDirectory(run.RunId);
-        var path = Path.Combine(dir, "report.pdf");
-        await File.WriteAllBytesAsync(path, pdfBytes, cancellationToken).ConfigureAwait(false);
-        run.ReportPdfPath = path;
-        await _runStore.SaveAsync(run, cancellationToken).ConfigureAwait(false);
-        _logger.Information("Wrote report PDF for run {RunId} to {Path}", run.RunId, path);
-        return path;
+                var pdfBytes = CompileTemplateCore(run, cancellationToken);
+                var dir = _runStore.GetRunDirectory(run.RunId);
+                var path = Path.Combine(dir, "report.pdf");
+                File.WriteAllBytes(path, pdfBytes);
+                run.ReportPdfPath = path;
+                _runStore.SaveAsync(run, cancellationToken).GetAwaiter().GetResult();
+                _logger.Information("Wrote report PDF for run {RunId} to {Path}", run.RunId, path);
+                return path;
+            },
+            cancellationToken).ConfigureAwait(false);
     }
 
     public async Task<string> GenerateSuitePdfAsync(SuiteRunRecord suiteRun, CancellationToken cancellationToken = default)
@@ -64,10 +70,15 @@ public sealed class TypstReportService : IReportService, IDisposable
         var paths = new List<string>();
         if (_settings.EmbedPlotsInReport)
         {
-            foreach (var planRun in suiteRun.PlanRuns)
-            {
-                paths.AddRange(SamplePlotExporter.ExportAllChannels(planRun, plotsDir));
-            }
+            await Task.Run(
+                () =>
+                {
+                    foreach (var planRun in suiteRun.PlanRuns)
+                    {
+                        paths.AddRange(SamplePlotExporter.ExportAllChannels(planRun, plotsDir));
+                    }
+                },
+                cancellationToken).ConfigureAwait(false);
         }
 
         var aggregate = new TestRunRecord
@@ -95,6 +106,9 @@ public sealed class TypstReportService : IReportService, IDisposable
     }
 
     public Task<byte[]> CompileTemplateAsync(TestRunRecord run, CancellationToken cancellationToken = default)
+        => Task.Run(() => CompileTemplateCore(run, cancellationToken), cancellationToken);
+
+    private byte[] CompileTemplateCore(TestRunRecord run, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         var template = LoadEmbeddedTemplate();
@@ -126,17 +140,16 @@ public sealed class TypstReportService : IReportService, IDisposable
             }
         }
 
-        var mainTypPath = Path.Combine(workDir, "main.typ");
-        File.WriteAllText(mainTypPath, template);
+        File.WriteAllText(Path.Combine(workDir, "main.typ"), template);
 
         try
         {
-            return Task.FromResult(CompileOnce(workDir, template, run, resultJson, plotFiles, includePlots: plotFiles.Count > 0));
+            return CompileOnce(workDir, template, run, resultJson, plotFiles, includePlots: plotFiles.Count > 0);
         }
         catch (InvalidOperationException ex) when (plotFiles.Count > 0)
         {
             _logger.Warning(ex, "Typst could not embed plot images; compiling report without embeds.");
-            return Task.FromResult(CompileOnce(workDir, template, run, resultJson, plotFiles: [], includePlots: false));
+            return CompileOnce(workDir, template, run, resultJson, plotFiles: [], includePlots: false);
         }
     }
 

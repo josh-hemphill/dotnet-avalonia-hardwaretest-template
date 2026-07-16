@@ -63,6 +63,17 @@
         <TextBox Grid.Column="1" Text="{Binding PlotRefreshHz}" />
       </Grid>
 
+      <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
+        <TextBlock Text="DUT session idle (hours)" VerticalAlignment="Center" />
+        <TextBox Grid.Column="1" Text="{Binding OperatorSessionIdleHours}" />
+      </Grid>
+
+      <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
+        <TextBlock Text="Engineer / debug mode" VerticalAlignment="Center" />
+        <CheckBox Grid.Column="1" IsChecked="{Binding IsEngineerDebugMode}"
+                  ToolTip.Tip="Enables constrained on-bench plan overlays and opening arbitrary .TapPlan files" />
+      </Grid>
+
       <StackPanel Orientation="Horizontal" Spacing="12">
         <Button Content="Save now" Command="{Binding SaveCommand}" />
         <TextBlock Text="{Binding Status}" VerticalAlignment="Center" />

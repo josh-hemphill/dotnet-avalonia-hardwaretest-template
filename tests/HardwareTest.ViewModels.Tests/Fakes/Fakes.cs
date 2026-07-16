@@ -1,254 +1,224 @@
 using System.ComponentModel;
 using HardwareTest.Core.Engine;
 using HardwareTest.Core.Hardware;
-using HardwareTest.Core.Plans;
 using HardwareTest.Core.Reporting;
 using HardwareTest.Core.Runs;
 using HardwareTest.Core.Settings;
+using HardwareTest.OpenTap.Host;
 
 namespace HardwareTest.ViewModels.Tests.Fakes;
 
-public sealed class FakePlanLoader : IPlanLoader, ISuiteLoader
+public sealed class FakeOpenTapSession : IOpenTapSession
 {
-    public TestPlan Plan { get; set; } = new()
-    {
-        Id = "fake",
-        Name = "Fake Plan",
-        Resource = "MOCK::0",
-        Steps = [new DelayStep { Milliseconds = 1 }],
-    };
+    private CancellationTokenSource? _runCts;
 
-    public TestSuite Suite { get; set; } = new()
-    {
-        Id = "fake-suite",
-        Name = "Fake Suite",
-        Plans =
-        [
-            new TestPlan
-            {
-                Id = "fake",
-                Name = "Fake Plan",
-                Resource = "MOCK::0",
-                Steps = [new DelayStep { Milliseconds = 1 }],
-            },
-        ],
-    };
-
-    public Task<TestPlan> LoadFromFileAsync(string path, CancellationToken cancellationToken = default)
-        => Task.FromResult(Plan);
-
-    public Task<TestPlan> LoadSampleAsync(CancellationToken cancellationToken = default)
-        => Task.FromResult(Plan);
-
-    public IReadOnlyList<string> ListEmbeddedPlanNames() => ["fake.json"];
-
-    public Task<TestSuite> LoadSuiteFromFileAsync(string path, CancellationToken cancellationToken = default)
-        => Task.FromResult(Suite);
-
-    public Task<TestSuite> LoadSampleSuiteAsync(CancellationToken cancellationToken = default)
-        => Task.FromResult(Suite);
-
-    public IReadOnlyList<string> ListEmbeddedSuiteNames() => ["fake-suite.json"];
-}
-
-public sealed class FakeTestEngine : ITestEngine
-{
-    public TestRunRecord Result { get; set; } = new()
-    {
-        RunId = "run1",
-        PlanName = "Fake Plan",
-        StartedAt = DateTimeOffset.UtcNow,
-        CompletedAt = DateTimeOffset.UtcNow,
-        Result = RunResult.Passed,
-    };
-
-    public TimeSpan Delay { get; set; } = TimeSpan.FromMilliseconds(30);
-    public bool ReportProgressSamples { get; set; } = true;
-    public int ExecuteCount { get; private set; }
-
-    public async Task<TestRunRecord> ExecuteAsync(
-        TestPlan plan,
-        IProgress<TestRunProgress>? progress = null,
-        CancellationToken cancellationToken = default)
-    {
-        ExecuteCount++;
-        progress?.Report(new TestRunProgress { RunId = Result.RunId, Message = "Started" });
-        if (ReportProgressSamples)
+    public string? LoadedPlanPath { get; private set; } = SampleProgramFactory.EmbeddedName;
+    public string? LoadedPlanName { get; private set; } = "Sample Hardware Suite";
+    public List<OpenTapStepNode> Tree { get; } =
+    [
+        new()
         {
-            progress?.Report(new TestRunProgress
-            {
-                RunId = Result.RunId,
-                Message = "Sample",
-                Sample = new MeasurementSample("VDC", DateTimeOffset.UtcNow, 1.25),
-            });
-        }
-
-        try
-        {
-            await Task.Delay(Delay, cancellationToken);
-        }
-        catch (OperationCanceledException)
-        {
-            Result = new TestRunRecord
-            {
-                RunId = Result.RunId,
-                PlanName = plan.Name,
-                StartedAt = Result.StartedAt,
-                CompletedAt = DateTimeOffset.UtcNow,
-                Result = RunResult.Cancelled,
-            };
-            progress?.Report(new TestRunProgress
-            {
-                RunId = Result.RunId,
-                Message = $"Completed: {Result.Result}",
-                IsCompleted = true,
-                Result = Result.Result,
-            });
-            return Result;
-        }
-
-        progress?.Report(new TestRunProgress
-        {
-            RunId = Result.RunId,
-            Message = $"Completed: {Result.Result}",
-            IsCompleted = true,
-            Result = Result.Result,
-        });
-        return Result;
-    }
-}
-
-public sealed class FakeSuiteEngine : ISuiteEngine
-{
-    public SuiteRunRecord Result { get; set; } = new()
-    {
-        SuiteRunId = "suite1",
-        SuiteName = "Fake Suite",
-        StartedAt = DateTimeOffset.UtcNow,
-        CompletedAt = DateTimeOffset.UtcNow,
-        Result = RunResult.Passed,
-        PlanRuns =
-        [
-            new TestRunRecord
-            {
-                RunId = "run1",
-                PlanId = "fake",
-                PlanName = "Fake Plan",
-                StartedAt = DateTimeOffset.UtcNow,
-                Result = RunResult.Passed,
-                Samples = [new StoredSample { Channel = "VDC", Timestamp = DateTimeOffset.UtcNow, Value = 1.25 }],
-            },
-        ],
-    };
-
-    public TimeSpan Delay { get; set; } = TimeSpan.FromMilliseconds(30);
-    public int ExecuteCount { get; private set; }
-    public RunResult CompletionResult { get; set; } = RunResult.Passed;
-
-    public async Task<SuiteRunRecord> ExecuteAsync(
-        TestSuite suite,
-        IProgress<SuiteRunProgress>? progress = null,
-        CancellationToken cancellationToken = default)
-    {
-        ExecuteCount++;
-        progress?.Report(new SuiteRunProgress
-        {
-            SuiteRunId = Result.SuiteRunId,
-            Message = "Started",
-            PlanCount = suite.Plans.Count,
-        });
-
-        var plan = suite.Plans.FirstOrDefault();
-        if (plan is not null)
-        {
-            progress?.Report(new SuiteRunProgress
-            {
-                SuiteRunId = Result.SuiteRunId,
-                Message = "Sample",
-                PlanId = plan.Id,
-                PlanName = plan.Name,
-                PlanIndex = 0,
-                PlanCount = suite.Plans.Count,
-                PlanProgress = new TestRunProgress
+            Id = "root",
+            Name = "Sample Hardware Suite",
+            Path = "Sample Hardware Suite",
+            IsStage = true,
+            Children =
+            [
+                new()
                 {
-                    RunId = "run1",
-                    Message = "Sample",
-                    Sample = new MeasurementSample("VDC", DateTimeOffset.UtcNow, 1.25),
+                    Id = "id",
+                    Name = "Identity",
+                    Path = "Sample Hardware Suite/Identity",
+                    IsStage = true,
+                    Children =
+                    [
+                        new() { Id = "id-check", Name = "Identity Check", Path = "Sample Hardware Suite/Identity/Identity Check" },
+                    ],
                 },
+                new() { Id = "acq", Name = "Acquire VDC", Path = "Sample Hardware Suite/Acquire VDC" },
+            ],
+        },
+    ];
+
+    public List<OpenTapInstrumentSlot> Slots { get; } =
+    [
+        new()
+        {
+            Name = "DMM",
+            TypeName = "MockDmmInstrument",
+            RoleHint = "dmm",
+            ResourceName = "MOCK::INSTR0",
+        },
+    ];
+
+    public IReadOnlyList<OpenTapStepNode> StepTree => Tree;
+    public IReadOnlyList<OpenTapInstrumentSlot> InstrumentSlots => Slots;
+    public bool IsAwaitingOperator { get; set; }
+    public string? OperatorPromptMessage { get; set; }
+
+    public TimeSpan Delay { get; set; } = TimeSpan.FromMilliseconds(30);
+    public RunResult CompletionResult { get; set; } = RunResult.Passed;
+    public int RunCount { get; private set; }
+    public int SelectionRunCount { get; private set; }
+    public bool ReportSamples { get; set; } = true;
+    public DutIdentity? LastDut { get; private set; }
+    public StationProfile? LastStation { get; private set; }
+    public string? LastSelectionPath { get; private set; }
+
+    public Task LoadPlanAsync(string tapPlanPath, CancellationToken cancellationToken = default)
+    {
+        LoadedPlanPath = tapPlanPath;
+        LoadedPlanName = Path.GetFileNameWithoutExtension(tapPlanPath);
+        return Task.CompletedTask;
+    }
+
+    public Task LoadSampleProgramAsync(CancellationToken cancellationToken = default)
+    {
+        LoadedPlanPath = SampleProgramFactory.EmbeddedName;
+        LoadedPlanName = "Sample Hardware Suite";
+        return Task.CompletedTask;
+    }
+
+    public Task ApplyStationAndDutAsync(StationProfile station, DutIdentity dut, CancellationToken cancellationToken = default)
+    {
+        LastStation = station;
+        LastDut = dut;
+        return Task.CompletedTask;
+    }
+
+    public async Task<OpenTapRunSummary> RunAsync(IProgress<OpenTapProgress>? progress = null, CancellationToken cancellationToken = default)
+    {
+        RunCount++;
+        _runCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        progress?.Report(new OpenTapProgress { Message = "Started", OverallPercent = 0 });
+        if (ReportSamples)
+        {
+            progress?.Report(new OpenTapProgress
+            {
+                Message = "Sample",
+                Sample = new MeasurementSampleEvent("VDC", 0, 1.25, DateTimeOffset.UtcNow),
+                OverallPercent = 40,
             });
         }
 
         try
         {
-            await Task.Delay(Delay, cancellationToken);
+            await Task.Delay(Delay, _runCts.Token);
         }
         catch (OperationCanceledException)
         {
-            Result = new SuiteRunRecord
+            var cancelled = new OpenTapRunSummary
             {
-                SuiteRunId = Result.SuiteRunId,
-                SuiteName = suite.Name,
-                StartedAt = Result.StartedAt,
-                CompletedAt = DateTimeOffset.UtcNow,
+                RunId = Guid.NewGuid().ToString("N"),
+                PlanName = LoadedPlanName ?? "plan",
                 Result = RunResult.Cancelled,
+                DutSerial = LastDut?.Serial,
+                DutPartNumber = LastDut?.PartNumber,
+                DutRevision = LastDut?.Revision,
+                StartedAt = DateTimeOffset.UtcNow,
+                CompletedAt = DateTimeOffset.UtcNow,
             };
-            progress?.Report(new SuiteRunProgress
+            progress?.Report(new OpenTapProgress
             {
-                SuiteRunId = Result.SuiteRunId,
                 Message = "Cancelled",
+                OverallPercent = 100,
                 IsCompleted = true,
                 Result = RunResult.Cancelled,
             });
-            return Result;
+            return cancelled;
+        }
+        finally
+        {
+            _runCts.Dispose();
+            _runCts = null;
         }
 
-        var planResult = CompletionResult == RunResult.Passed ? RunResult.Passed : CompletionResult;
-        Result = new SuiteRunRecord
+        var summary = new OpenTapRunSummary
         {
-            SuiteRunId = Result.SuiteRunId,
-            SuiteId = suite.Id,
-            SuiteName = suite.Name,
-            StartedAt = Result.StartedAt,
-            CompletedAt = DateTimeOffset.UtcNow,
+            RunId = Guid.NewGuid().ToString("N"),
+            PlanName = LoadedPlanName ?? "plan",
             Result = CompletionResult,
-            PlanRuns = Result.PlanRuns.Count > 0
-                ? Result.PlanRuns.Select(p =>
+            DutSerial = LastDut?.Serial,
+            DutPartNumber = LastDut?.PartNumber,
+            DutRevision = LastDut?.Revision,
+            StartedAt = DateTimeOffset.UtcNow.AddSeconds(-1),
+            CompletedAt = DateTimeOffset.UtcNow,
+            Samples =
+            [
+                new StoredSample { Channel = "VDC", Timestamp = DateTimeOffset.UtcNow, Value = 1.25 },
+            ],
+            Steps =
+            [
+                new StepResultRecord
                 {
-                    p.Result = planResult;
-                    return p;
-                }).ToList()
-                :
-                [
-                    new TestRunRecord
-                    {
-                        RunId = "run1",
-                        PlanId = plan?.Id ?? "fake",
-                        PlanName = plan?.Name ?? "Fake Plan",
-                        StartedAt = DateTimeOffset.UtcNow,
-                        Result = planResult,
-                        Samples = [new StoredSample { Channel = "VDC", Timestamp = DateTimeOffset.UtcNow, Value = 1.25 }],
-                    },
-                ],
+                    StepId = "Identity Check",
+                    StepType = "IdentityCheckStep",
+                    Passed = CompletionResult == RunResult.Passed,
+                    Message = "ok",
+                    StartedAt = DateTimeOffset.UtcNow.AddSeconds(-1),
+                    CompletedAt = DateTimeOffset.UtcNow,
+                },
+            ],
         };
-
-        progress?.Report(new SuiteRunProgress
+        progress?.Report(new OpenTapProgress
         {
-            SuiteRunId = Result.SuiteRunId,
-            Message = $"Completed: {Result.Result}",
-            PlanCount = suite.Plans.Count,
+            Message = $"Completed: {summary.Result}",
             OverallPercent = 100,
             IsCompleted = true,
-            Result = Result.Result,
+            Result = summary.Result,
         });
-        return Result;
+        return summary;
     }
 
-    public async Task<SuiteRunRecord> ExecutePlanAsync(
-        TestSuite suite,
-        string planId,
-        IProgress<SuiteRunProgress>? progress = null,
+    public Task<OpenTapRunSummary> RunSelectionAsync(
+        string stepPath,
+        IProgress<OpenTapProgress>? progress = null,
         CancellationToken cancellationToken = default)
-        => await ExecuteAsync(suite, progress, cancellationToken);
+    {
+        SelectionRunCount++;
+        LastSelectionPath = stepPath;
+        return RunAsync(progress, cancellationToken);
+    }
+
+    public void Pause()
+    {
+        IsAwaitingOperator = true;
+        OperatorPromptMessage ??= "Paused for operator";
+    }
+
+    public void Resume()
+    {
+        IsAwaitingOperator = false;
+        OperatorPromptMessage = null;
+    }
+
+    public void Abort(bool safetyStop = false)
+    {
+        try
+        {
+            _runCts?.Cancel();
+        }
+        catch
+        {
+            // ignore
+        }
+    }
+
+    public bool TrySetStepEnabled(string stepPath, bool enabled) => true;
+    public bool TrySetAcquireSettings(string stepPath, int? sampleCount, int? intervalMs) => true;
+    public bool TrySetMeanGteThreshold(string stepPath, double threshold) => true;
+    public bool TryRebindDmmResource(string resource) => true;
+    public bool TryBindSlotResource(string slotName, string resource)
+    {
+        var slot = Slots.FirstOrDefault(s => string.Equals(s.Name, slotName, StringComparison.OrdinalIgnoreCase));
+        if (slot is null)
+        {
+            return false;
+        }
+
+        slot.ResourceName = resource;
+        return true;
+    }
 }
 
 public sealed class FakeRunControl : IRunControl
@@ -384,6 +354,9 @@ public sealed class FakeRunStore : IRunStore
                 StartedAt = r.StartedAt,
                 Result = r.Result,
                 DutSerial = r.DutSerial,
+                DutPartNumber = r.DutPartNumber,
+                SessionId = r.SessionId,
+                OperatorName = r.OperatorName,
             })
             .ToArray();
         return Task.FromResult(list);

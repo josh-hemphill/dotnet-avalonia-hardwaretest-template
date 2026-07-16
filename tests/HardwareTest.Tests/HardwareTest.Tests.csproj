@@ -9,10 +9,11 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\HardwareTest.Core\HardwareTest.Core.csproj" />
+    <ProjectReference Include="..\..\src\HardwareTest.OpenTap.Host\HardwareTest.OpenTap.Host.csproj" />
   </ItemGroup>
 
   <ItemGroup>
-    <None Include="Fixtures\Plans\**\*" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\plans\opentap\**\*" Link="Programs\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" Condition="Exists('..\..\plans\opentap')" />
   </ItemGroup>
 
   <ItemGroup>

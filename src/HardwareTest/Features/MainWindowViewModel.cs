@@ -9,6 +9,7 @@ using HardwareTest.Features.ReportPreview;
 using HardwareTest.Features.Results;
 using HardwareTest.Features.RunTest;
 using HardwareTest.Features.Settings;
+using HardwareTest.OpenTap.Host;
 using ReactiveUI;
 using ReactiveUI.SourceGenerators;
 
@@ -26,6 +27,7 @@ public partial class MainWindowViewModel : ReactiveObject
 {
     private readonly ISettingsStore _settingsStore;
     private readonly IRunControl _runControl;
+    private readonly IOpenTapSession _openTap;
 
     public MainWindowViewModel(
         ISettingsStore settingsStore,
@@ -35,10 +37,12 @@ public partial class MainWindowViewModel : ReactiveObject
         ReportPreviewViewModel reportPreview,
         InstrumentsViewModel instruments,
         SettingsViewModel settings,
-        IRunControl runControl)
+        IRunControl runControl,
+        IOpenTapSession openTap)
     {
         _settingsStore = settingsStore;
         _runControl = runControl;
+        _openTap = openTap;
         RunTest = runTest;
         NavigationItems =
         [
@@ -57,6 +61,8 @@ public partial class MainWindowViewModel : ReactiveObject
         PauseCommand = ReactiveCommand.Create(Pause);
         ResumeCommand = ReactiveCommand.Create(Resume);
         SafetyStopCommand = ReactiveCommand.Create(SafetyStop);
+
+        runTest.NavigateToResultsRequested += (_, _) => NavigateToPageId("Results");
 
         runControl.PropertyChanged += (_, e) =>
         {
@@ -127,9 +133,17 @@ public partial class MainWindowViewModel : ReactiveObject
         NavigateTo(item);
     }
 
-    private void Pause() => _runControl.Pause();
+    private void Pause()
+    {
+        _runControl.Pause();
+        _openTap.Pause();
+    }
 
-    private void Resume() => _runControl.Resume();
+    private void Resume()
+    {
+        _runControl.Resume();
+        _openTap.Resume();
+    }
 
     private void SafetyStop()
     {
@@ -141,10 +155,10 @@ public partial class MainWindowViewModel : ReactiveObject
 
         if (!_runControl.IsRunning)
         {
-            // Idle: nothing to abort; status stays Idle.
             return;
         }
 
         _runControl.RequestSafetyStop();
+        _openTap.Abort(safetyStop: true);
     }
 }

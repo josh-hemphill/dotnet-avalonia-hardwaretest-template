@@ -4,99 +4,183 @@
              xmlns:widgets="using:HardwareTest.Widgets.MeasurementPlot"
              x:Class="HardwareTest.Features.RunTest.RunTestView"
              x:DataType="vm:RunTestViewModel">
-  <Grid ColumnDefinitions="*,300" ColumnSpacing="12">
-    <!-- Main: toolbar + test progress -->
-    <Grid Grid.Column="0" RowDefinitions="Auto,Auto,*,Auto" RowSpacing="10">
-      <StackPanel Orientation="Horizontal" Spacing="8">
-        <ToggleButton Content="Auto"
-                      IsChecked="{Binding IsAutoMode}"
-                      ToolTip.Tip="When on, advance to the next suite after a successful finish" />
-        <Button Content="Run" Command="{Binding RunCommand}" />
-        <Button Content="Cancel" Command="{Binding CancelCommand}" />
-        <Button Content="Details" Command="{Binding ToggleDetailsCommand}"
-                ToolTip.Tip="Show sparse log and plot for the selected test" />
-        <ProgressBar Value="{Binding OverallPercent}" Minimum="0" Maximum="100"
-                     Width="120" Height="8" VerticalAlignment="Center" />
-        <TextBlock Text="{Binding OverallPercent, StringFormat={}{0:0}%}"
-                   VerticalAlignment="Center" Opacity="0.75" />
-      </StackPanel>
+  <Grid ColumnDefinitions="200,*,280" ColumnSpacing="12" RowDefinitions="Auto,*,Auto">
+    <!-- Header: program + run controls -->
+    <Border Grid.ColumnSpan="3"
+            Padding="10,8"
+            Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}">
+      <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+        <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+          <TextBlock Text="Program" VerticalAlignment="Center" Opacity="0.8" />
+          <ComboBox ItemsSource="{Binding Programs}"
+                    SelectedItem="{Binding SelectedProgram}"
+                    MinWidth="220"
+                    MaxDropDownHeight="320">
+            <ComboBox.ItemTemplate>
+              <DataTemplate x:DataType="vm:ProgramItemViewModel">
+                <TextBlock Text="{Binding DisplayName}" />
+              </DataTemplate>
+            </ComboBox.ItemTemplate>
+          </ComboBox>
+          <Button Content="Refresh" Command="{Binding RefreshProgramsCommand}" />
+          <Button Content="Open…" Command="{Binding OpenPlanFileCommand}"
+                  IsVisible="{Binding IsEngineerDebugMode}"
+                  ToolTip.Tip="Engineer/Debug: open an arbitrary .TapPlan" />
+        </StackPanel>
+        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+          <Button Content="Run" Command="{Binding RunCommand}" />
+          <Button Content="Run Selected" Command="{Binding RunSelectedCommand}" />
+          <Button Content="Continue" Command="{Binding ContinueOperatorCommand}"
+                  IsVisible="{Binding IsAwaitingOperator}" />
+          <Button Content="Cancel" Command="{Binding CancelCommand}" />
+          <ProgressBar Value="{Binding OverallPercent}" Minimum="0" Maximum="100"
+                       Width="100" Height="8" VerticalAlignment="Center" />
+          <TextBlock Text="{Binding OverallPercent, StringFormat={}{0:0}%}"
+                     VerticalAlignment="Center" Opacity="0.75" />
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <!-- Stage rail -->
+    <DockPanel Grid.Row="1" Grid.Column="0">
+      <TextBlock DockPanel.Dock="Top" Text="Stages" FontWeight="SemiBold" Margin="0,0,0,8" />
+      <ListBox ItemsSource="{Binding Stages}"
+               SelectedItem="{Binding SelectedStage}"
+               DoubleTapped="OnStageDoubleTapped">
+        <ListBox.ItemTemplate>
+          <DataTemplate x:DataType="vm:StageItemViewModel">
+            <StackPanel Spacing="2">
+              <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" TextWrapping="Wrap" />
+              <TextBlock Text="{Binding StatusText}" Opacity="0.75" FontSize="11" />
+              <TextBlock Text="{Binding KeyValue}" Opacity="0.7" FontSize="11" />
+            </StackPanel>
+          </DataTemplate>
+        </ListBox.ItemTemplate>
+      </ListBox>
+    </DockPanel>
+
+    <!-- Focused hierarchy + status -->
+    <Grid Grid.Row="1" Grid.Column="1" RowDefinitions="Auto,Auto,*,Auto" RowSpacing="8">
+      <Border Padding="10,8"
+              Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}">
+        <StackPanel Spacing="6">
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBlock Text="{Binding SessionSummary}" FontWeight="SemiBold" TextWrapping="Wrap" />
+            <Button Grid.Column="1" Content="Change Session" Command="{Binding ChangeSessionCommand}"
+                    IsVisible="{Binding !NeedsDutConfirm}" />
+          </Grid>
+          <StackPanel Spacing="6" IsVisible="{Binding ShowSessionForm}">
+            <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding IsStalePrompt}">
+              <TextBlock Text="Still testing this DUT?" VerticalAlignment="Center" />
+              <Button Content="Same DUT" Command="{Binding ConfirmSameDutCommand}" />
+              <Button Content="Change Session" Command="{Binding ChangeSessionCommand}" />
+            </StackPanel>
+            <WrapPanel IsVisible="{Binding NeedsDutConfirm}">
+              <TextBox PlaceholderText="DUT serial *" Text="{Binding DutSerialInput}"
+                       Width="160" Margin="0,0,8,8" />
+              <TextBox PlaceholderText="Part number" Text="{Binding DutPartInput}"
+                       Width="140" Margin="0,0,8,8"
+                       IsVisible="{Binding RequirePartNumber}" />
+              <TextBox PlaceholderText="Revision" Text="{Binding DutRevisionInput}"
+                       Width="100" Margin="0,0,8,8"
+                       IsVisible="{Binding RequireRevision}" />
+              <TextBox PlaceholderText="Operator" Text="{Binding OperatorInput}"
+                       Width="140" Margin="0,0,8,8"
+                       IsVisible="{Binding RequireOperator}" />
+              <Button Content="Confirm Session" Command="{Binding ConfirmSessionCommand}"
+                      Margin="0,0,8,8" VerticalAlignment="Top" />
+            </WrapPanel>
+          </StackPanel>
+          <TextBlock Text="{Binding OperatorPromptMessage}"
+                     IsVisible="{Binding IsAwaitingOperator}"
+                     TextWrapping="Wrap"
+                     FontWeight="SemiBold" />
+          <TextBlock Text="{Binding StationSlotSummary}" Opacity="0.7" FontSize="11" TextWrapping="Wrap" />
+        </StackPanel>
+      </Border>
 
       <TextBlock Grid.Row="1" Text="{Binding Status}" TextWrapping="Wrap" Opacity="0.9" />
 
-      <StackPanel Grid.Row="2" Spacing="4">
-        <Grid ColumnDefinitions="*,2*,100,60" ColumnSpacing="12" Margin="4,0">
-          <TextBlock Text="Test" FontWeight="SemiBold" Opacity="0.7" />
-          <TextBlock Grid.Column="1" Text="Status" FontWeight="SemiBold" Opacity="0.7" />
-          <TextBlock Grid.Column="2" Text="Result" FontWeight="SemiBold" Opacity="0.7" />
-          <TextBlock Grid.Column="3" Text="%" FontWeight="SemiBold" Opacity="0.7" />
-        </Grid>
-        <ListBox ItemsSource="{Binding PlanItems}"
-                 SelectedItem="{Binding SelectedTestItem}">
-          <ListBox.ItemTemplate>
-            <DataTemplate x:DataType="vm:TestItemViewModel">
-              <Grid ColumnDefinitions="*,2*,100,60" ColumnSpacing="12">
-                <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" VerticalAlignment="Center" />
-                <TextBlock Grid.Column="1" Text="{Binding StatusText}" Opacity="0.85" VerticalAlignment="Center" />
-                <TextBlock Grid.Column="2" Text="{Binding Result}" VerticalAlignment="Center" />
-                <TextBlock Grid.Column="3"
-                           Text="{Binding Percent, StringFormat={}{0:0}%}"
-                           Opacity="0.75"
-                           VerticalAlignment="Center" />
-              </Grid>
-            </DataTemplate>
-          </ListBox.ItemTemplate>
-        </ListBox>
-      </StackPanel>
+      <TreeView Grid.Row="2"
+                ItemsSource="{Binding Hierarchy}"
+                SelectedItem="{Binding SelectedStep}"
+                DoubleTapped="OnHierarchyDoubleTapped">
+        <TreeView.ItemTemplate>
+          <TreeDataTemplate ItemsSource="{Binding Children}" DataType="vm:HierarchyStepViewModel">
+            <Grid ColumnDefinitions="*,100,70,120" ColumnSpacing="8">
+              <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
+              <TextBlock Grid.Column="1" Text="{Binding StatusText}" Opacity="0.8" />
+              <TextBlock Grid.Column="2" Text="{Binding Verdict}" Opacity="0.75" />
+              <TextBlock Grid.Column="3" Text="{Binding KeyValue}" Opacity="0.7" />
+            </Grid>
+          </TreeDataTemplate>
+        </TreeView.ItemTemplate>
+      </TreeView>
 
       <Border Grid.Row="3"
               IsVisible="{Binding ShowDetails}"
               Padding="8"
               Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}">
         <Grid ColumnDefinitions="*,*" ColumnSpacing="12" RowDefinitions="Auto,*" RowSpacing="6">
-          <TextBlock Text="Details" FontWeight="SemiBold" Grid.ColumnSpan="2" />
-          <ListBox Grid.Row="1" Grid.Column="0"
-                   ItemsSource="{Binding SelectedTestItem.DetailLines}"
-                   MaxHeight="160" />
-          <StackPanel Grid.Row="1" Grid.Column="1" Spacing="4">
-            <widgets:MeasurementPlotView x:Name="Plot" Height="140" />
-            <TextBlock Text="{Binding LastRunId, StringFormat=Last suite run: {0}}" Opacity="0.7" />
+          <StackPanel Orientation="Horizontal" Spacing="8" Grid.ColumnSpan="2">
+            <TextBlock Text="Live details" FontWeight="SemiBold" VerticalAlignment="Center" />
+            <Button Content="Hide" Command="{Binding ToggleDetailsCommand}" />
           </StackPanel>
+          <ListBox Grid.Row="1" Grid.Column="0"
+                   ItemsSource="{Binding DetailLines}"
+                   MaxHeight="140" />
+          <widgets:MeasurementPlotView x:Name="Plot" Grid.Row="1" Grid.Column="1" Height="140" />
         </Grid>
       </Border>
     </Grid>
 
-    <!-- Right: suite list -->
-    <Border Grid.Column="1"
-            Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
-            Padding="12">
-      <DockPanel>
-        <StackPanel DockPanel.Dock="Top" Spacing="8">
-          <TextBlock Text="Suites" FontWeight="SemiBold" />
-          <StackPanel Orientation="Horizontal" Spacing="6">
-            <Button Content="Add sample" Command="{Binding LoadSampleSuiteCommand}" />
-            <Button Content="Open…" Command="{Binding OpenSuiteFileCommand}" />
-            <Button Content="Remove" Command="{Binding RemoveSelectedSuiteCommand}" />
-          </StackPanel>
+    <!-- Detail / debug pane -->
+    <DockPanel Grid.Row="1" Grid.Column="2">
+      <StackPanel DockPanel.Dock="Top" Spacing="8" Margin="0,0,0,8">
+        <TextBlock Text="Step detail" FontWeight="SemiBold" />
+        <StackPanel Orientation="Horizontal" Spacing="6">
+          <Button Content="Open" Command="{Binding OpenStepDetailCommand}" />
+          <Button Content="Details" Command="{Binding ToggleDetailsCommand}" />
+          <Button Content="Results" Command="{Binding OpenLastRunResultsCommand}" />
         </StackPanel>
-        <ListBox ItemsSource="{Binding SuiteQueue}"
-                 SelectedItem="{Binding SelectedSuiteItem}"
-                 Margin="0,8,0,0">
-          <ListBox.ItemTemplate>
-            <DataTemplate x:DataType="vm:SuiteQueueItemViewModel">
-              <StackPanel Spacing="2">
-                <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" />
-                <TextBlock Opacity="0.75" Text="{Binding StatusText}" />
-                <StackPanel Orientation="Horizontal" Spacing="4" Opacity="0.6">
-                  <TextBlock Text="{Binding Percent, StringFormat={}{0:0}%}" />
-                  <TextBlock Text="·" />
-                  <TextBlock Text="{Binding PlanCount}" />
-                  <TextBlock Text="tests" />
-                </StackPanel>
-              </StackPanel>
-            </DataTemplate>
-          </ListBox.ItemTemplate>
-        </ListBox>
-      </DockPanel>
-    </Border>
+        <TextBlock Text="{Binding LastRunId, StringFormat=Last run: {0}}" Opacity="0.7"
+                   TextWrapping="Wrap" />
+      </StackPanel>
+
+      <Border DockPanel.Dock="Bottom"
+              Margin="0,12,0,0"
+              Padding="8"
+              IsVisible="{Binding IsEngineerDebugMode}"
+              BorderBrush="{DynamicResource SystemControlForegroundBaseMediumBrush}"
+              BorderThickness="1">
+        <StackPanel Spacing="6">
+          <TextBlock Text="Debug overlay (session only)" FontWeight="SemiBold" />
+          <CheckBox Content="Step enabled" IsChecked="{Binding DebugStepEnabled}" />
+          <TextBox PlaceholderText="DMM resource" Text="{Binding DebugResource}" />
+          <NumericUpDown Value="{Binding DebugSampleCount}" Minimum="1" Maximum="4096"
+                         FormatString="0" />
+          <NumericUpDown Value="{Binding DebugIntervalMs}" Minimum="1" Maximum="60000"
+                         FormatString="0" />
+          <NumericUpDown Value="{Binding DebugThreshold}" Increment="0.1" />
+          <Button Content="Apply overlay" Command="{Binding ApplyDebugPatchCommand}" />
+        </StackPanel>
+      </Border>
+
+      <Border IsVisible="{Binding ShowDetailPane}"
+              Padding="8"
+              Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}">
+        <DockPanel>
+          <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="8" Margin="0,0,0,8">
+            <TextBlock Text="{Binding DetailStep.Name}" FontWeight="SemiBold" VerticalAlignment="Center" />
+            <Button Content="Close" Command="{Binding CloseDetailCommand}" HorizontalAlignment="Right" />
+          </StackPanel>
+          <ListBox ItemsSource="{Binding DetailKeyValues}" />
+        </DockPanel>
+      </Border>
+    </DockPanel>
+
+    <TextBlock Grid.Row="2" Grid.ColumnSpan="3"
+               Text="Double-click a stage or step for detail. Operator prompts pause the run until Continue."
+               Opacity="0.55" FontSize="11" Margin="0,8,0,0" />
   </Grid>
 </UserControl>

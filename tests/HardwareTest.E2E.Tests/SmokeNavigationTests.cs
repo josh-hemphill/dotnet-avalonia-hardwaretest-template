@@ -26,8 +26,8 @@ public sealed class SmokeNavigationTests
         Assert.Equal("RunTest", main.SelectedItem?.Id);
         var runVm = E2EHarness.RunTestVm(main);
         Assert.Same(runVm, main.CurrentPage);
-        Assert.True(runVm.IsAutoMode);
-        Assert.Empty(runVm.SuiteQueue);
+        Assert.NotEmpty(runVm.Programs);
+        Assert.True(runVm.NeedsDutConfirm);
         Assert.NotNull(main.PauseCommand);
         Assert.NotNull(main.ResumeCommand);
         Assert.NotNull(main.SafetyStopCommand);

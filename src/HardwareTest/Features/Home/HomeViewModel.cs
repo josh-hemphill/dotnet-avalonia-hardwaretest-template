@@ -7,5 +7,5 @@ public sealed class HomeViewModel : ReactiveObject
     public string Title { get; } = "Hardware Test";
 
     public string Summary { get; } =
-        "Run declarative instrument suites, manage VISA devices, and publish Typst reports — with live plots when a test needs them.";
+        "Confirm a DUT once, run locked OpenTAP programs from Avalonia, manage station instruments, and publish Typst reports with live plots when needed.";
 }

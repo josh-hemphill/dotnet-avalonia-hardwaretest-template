@@ -1,7 +1,6 @@
 using HardwareTest.Core;
 using HardwareTest.Core.Engine;
 using HardwareTest.Core.Hardware;
-using HardwareTest.Core.Plans;
 using HardwareTest.Core.Reporting;
 using HardwareTest.Core.Runs;
 using HardwareTest.Core.Settings;
@@ -28,14 +27,12 @@ public sealed class CoreCompositionTests
         await using var sp = services.BuildServiceProvider();
 
         Assert.NotNull(sp.GetRequiredService<IVisaSessionFactory>());
-        Assert.NotNull(sp.GetRequiredService<ITestEngine>());
-        Assert.NotNull(sp.GetRequiredService<IPlanLoader>());
         Assert.NotNull(sp.GetRequiredService<IRunStore>());
         Assert.NotNull(sp.GetRequiredService<IReportService>());
-        Assert.NotNull(sp.GetRequiredService<ISuiteEngine>());
-        Assert.NotNull(sp.GetRequiredService<ISuiteLoader>());
+        Assert.NotNull(sp.GetRequiredService<ISuiteRunStore>());
         Assert.NotNull(sp.GetRequiredService<IVisaResourceDiscovery>());
         Assert.NotNull(sp.GetRequiredService<VisaSessionGate>());
+        Assert.NotNull(sp.GetRequiredService<IRunControl>());
         Assert.NotNull(sp.GetRequiredService<MeasurementAcquisition>());
     }
 }

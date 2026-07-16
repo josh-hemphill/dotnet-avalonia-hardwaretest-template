@@ -15,6 +15,10 @@ public sealed class AppSettings
     /// System, Light, or Dark.
     public string ThemePreference { get; set; } = "System";
     public bool EmbedPlotsInReport { get; set; } = true;
+    /// Idle hours before Operator Session becomes Stale (soft re-confirm).
+    public int OperatorSessionIdleHours { get; set; } = 4;
+    /// When true, Run page exposes constrained on-bench debug edits.
+    public bool IsEngineerDebugMode { get; set; }
     public List<VisaInstrument> Instruments { get; set; } = [];
     /// Station overlay: logical role → registry instrument Id (bench-specific).
     public List<StationBinding> StationBindings { get; set; } = [];

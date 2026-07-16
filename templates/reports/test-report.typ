@@ -28,14 +28,14 @@
   #let p1 = sys.inputs.at("plot1", default: "")
   #let p2 = sys.inputs.at("plot2", default: "")
   #if p0 != "" [
-    #image(p0, width: 80%)
+    #figure(image(p0, width: 90%), caption: [Channel plot 1])
   ]
   #if p1 != "" [
-    #v(0.5em)
-    #image(p1, width: 80%)
+    #v(0.75em)
+    #figure(image(p1, width: 90%), caption: [Channel plot 2])
   ]
   #if p2 != "" [
-    #v(0.5em)
-    #image(p2, width: 80%)
+    #v(0.75em)
+    #figure(image(p2, width: 90%), caption: [Channel plot 3])
   ]
 ]

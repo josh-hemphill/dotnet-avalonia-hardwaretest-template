@@ -29,7 +29,7 @@
           <StackPanel Spacing="8">
             <TextBlock Text="Getting started" FontSize="18" FontWeight="SemiBold" />
             <TextBlock TextWrapping="Wrap"
-                       Text="Open Run, load the sample suite, and start. Identity check and voltage sweep run sequentially with mock VISA by default." />
+                       Text="Open Run, confirm the DUT serial, pick the sample OpenTAP program, and start. Identity check and voltage sweep run under OpenTAP with mock instruments by default." />
           </StackPanel>
         </Border>
 
@@ -40,9 +40,9 @@
                 BorderThickness="1"
                 Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}">
           <StackPanel Spacing="8">
-            <TextBlock Text="Suites &amp; instruments" FontSize="18" FontWeight="SemiBold" />
+            <TextBlock Text="Programs &amp; instruments" FontSize="18" FontWeight="SemiBold" />
             <TextBlock TextWrapping="Wrap"
-                       Text="Suites embed plans in one JSON file. Use Instruments to discover VISA resources and keep a named registry for multi-device labs." />
+                       Text="Locked OpenTAP .TapPlan programs ship under Programs/. Use Instruments to discover VISA resources and bind station roles for the bench." />
           </StackPanel>
         </Border>
 

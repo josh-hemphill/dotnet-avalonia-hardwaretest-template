@@ -10,6 +10,7 @@ public sealed class MeasurementPlotView : UserControl
     private readonly AvaPlot _plot = new();
     private DateTime _lastRefresh = DateTime.MinValue;
     private readonly TimeSpan _minInterval = TimeSpan.FromMilliseconds(50);
+    private double[] _signalBuffer = [];
 
     public MeasurementPlotView()
     {
@@ -19,27 +20,35 @@ public sealed class MeasurementPlotView : UserControl
         _plot.Plot.YLabel("Value");
     }
 
-    /// Updates the Signal plot with the latest Y values (UI thread; throttled).
-    public void UpdateData(double[] ys)
+    /// Updates the Signal plot from a reusable buffer (UI thread; throttled).
+    public void UpdateData(double[] ys, int count = -1, bool force = false)
     {
         if (!Dispatcher.UIThread.CheckAccess())
         {
-            Dispatcher.UIThread.Post(() => UpdateData(ys));
+            Dispatcher.UIThread.Post(() => UpdateData(ys, count, force));
             return;
         }
 
+        var length = count < 0 ? ys.Length : Math.Clamp(count, 0, ys.Length);
         var now = DateTime.UtcNow;
-        if (now - _lastRefresh < _minInterval)
+        if (!force && now - _lastRefresh < _minInterval)
         {
             return;
         }
 
         _lastRefresh = now;
         _plot.Plot.Clear();
-        if (ys is { Length: > 0 })
+        if (length > 0)
         {
-            // Signal plot for evenly spaced acquisition samples (prefer over Scatter).
-            var signal = _plot.Plot.Add.Signal(ys);
+            // Copy into an exact-length buffer so Signal does not plot unused tail zeros.
+            // Grows at most once up to the live window size (no per-flush List/ToArray on the VM).
+            if (_signalBuffer.Length != length)
+            {
+                _signalBuffer = new double[length];
+            }
+
+            Array.Copy(ys, 0, _signalBuffer, 0, length);
+            var signal = _plot.Plot.Add.Signal(_signalBuffer);
             signal.LegendText = "Channel";
             _plot.Plot.Axes.AutoScale();
         }
