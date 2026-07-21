@@ -41,6 +41,7 @@ dotnet test tests/HardwareTest.ViewModels.Tests -r win-x64
 dotnet test tests/HardwareTest.E2E.Tests -r win-x64
 ```
 
+See [docs/testing.md](docs/testing.md) for UI vs OpenTAP suite separation, plan-shape fixtures, and progress/summary recording.
 ## Operator Session / DUT
 
 - Confirm DUT serial once per session (sticky strip on Run).

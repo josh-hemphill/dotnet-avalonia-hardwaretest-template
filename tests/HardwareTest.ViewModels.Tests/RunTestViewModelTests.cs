@@ -695,6 +695,61 @@ public sealed class RunTestViewModelTests
         Assert.False(vm.SessionLogExpanded);
     }
 
+    [Fact]
+    public async Task Replay_recording_applies_pass_statuses_for_filters_and_inspect()
+    {
+        var openTap = new FakeOpenTapSession();
+        await openTap.LoadSampleProgramAsync();
+        var recordings = Path.GetFullPath(
+            Path.Combine(AppContext.BaseDirectory, "fixtures", "opentap", "recordings"));
+        var summary = openTap.ReplayRecording(recordings, "sample-pass");
+        Assert.Equal(RunResult.Passed, summary.Result);
+        Assert.Equal(
+            "Pass",
+            FlattenNodes(openTap.StepTree).First(n => n.Name == "Acquire VDC").StatusText);
+
+        var vm = CreateVm(openTap);
+        vm.UiScheduler = action => action();
+        await vm.RefreshProgramsCommand.ExecuteAsync();
+
+        var leaf = Flatten(vm.Hierarchy).First(s => s.Name == "Acquire VDC");
+        Assert.Equal("Pass", leaf.StatusText);
+
+        vm.StepStatusFilter = StepStatusFilter.Fail;
+        Assert.Empty(vm.StepRows);
+        vm.StepStatusFilter = StepStatusFilter.All;
+        Assert.Contains(vm.StepRows, r => r.Name == "Acquire VDC");
+        Assert.Equal(2, vm.SuitePassedCount);
+
+        var inspect = new HardwareTest.Features.Inspect.InspectViewModel(openTap);
+        inspect.Refresh();
+        var identity = Flatten(inspect.Hierarchy)
+            .First(s => s.Name == "Identity" || s.Path.EndsWith("/Identity", StringComparison.Ordinal));
+        Assert.Equal("Pass", identity.ChipText);
+    }
+
+    [Fact]
+    public async Task LoadPlanShape_empty_group_exposes_no_leaves_under_empty_section()
+    {
+        var openTap = new FakeOpenTapSession();
+        await openTap.LoadPlanShapeAsync(PlanShapeFixtures.EmptyGroupName);
+        var empty = FlattenNodes(openTap.StepTree)
+            .First(n => n.Name.Equals("Empty Section", StringComparison.OrdinalIgnoreCase));
+        Assert.Empty(empty.Children);
+    }
+
+    private static IEnumerable<OpenTapStepNode> FlattenNodes(IEnumerable<OpenTapStepNode> roots)
+    {
+        foreach (var node in roots)
+        {
+            yield return node;
+            foreach (var child in FlattenNodes(node.Children))
+            {
+                yield return child;
+            }
+        }
+    }
+
     private static IEnumerable<HierarchyStepViewModel> Flatten(IEnumerable<HierarchyStepViewModel> roots)
     {
         foreach (var root in roots)

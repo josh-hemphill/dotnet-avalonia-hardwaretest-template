@@ -16,7 +16,7 @@ public sealed class OperatorSessionTests
         var session = new OperatorSession();
         Assert.False(session.TryConfirm(ProgramRequirements.Sample, "  ", null, null, null, "demo", out var error));
         Assert.Contains("serial", error, StringComparison.OrdinalIgnoreCase);
-        Assert.True(session.TryConfirm(ProgramRequirements.Sample, "SN-9", null, null, null, "demo", out _));
+        Assert.True(session.TryConfirm(ProgramRequirements.Sample, "SN-9", null, null, "Tech", "demo", out _));
         Assert.True(session.CanRun);
         Assert.Equal("SN-9", session.DutSerial);
     }

@@ -70,6 +70,7 @@ public interface IOpenTapSession
     Task LoadPlanAsync(string tapPlanPath, CancellationToken cancellationToken = default);
     Task LoadSampleProgramAsync(CancellationToken cancellationToken = default);
     Task LoadBoardDemoProgramAsync(CancellationToken cancellationToken = default);
+    Task LoadPlanShapeAsync(string fixtureFileName, CancellationToken cancellationToken = default);
     Task ApplyStationAndDutAsync(StationProfile station, DutIdentity dut, CancellationToken cancellationToken = default);
     Task<OpenTapRunSummary> RunAsync(IProgress<OpenTapProgress>? progress = null, CancellationToken cancellationToken = default);
     Task<OpenTapRunSummary> RunSelectionAsync(string stepPath, IProgress<OpenTapProgress>? progress = null, CancellationToken cancellationToken = default);
@@ -148,6 +149,22 @@ public sealed class OpenTapSession : IOpenTapSession, INotifyPropertyChanged
         EnsurePlugins();
         var plan = BoardDemoProgramFactory.Create();
         BindPlan(plan, BoardDemoProgramFactory.EmbeddedName, BoardDemoProgramFactory.DisplayName);
+        return Task.CompletedTask;
+    }
+
+    public Task LoadPlanShapeAsync(string fixtureFileName, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        EnsurePlugins();
+        var match = PlanShapeFixtures.All.FirstOrDefault(f =>
+            string.Equals(f.FileName, fixtureFileName, StringComparison.OrdinalIgnoreCase));
+        if (match.Create is null)
+        {
+            throw new ArgumentException($"Unknown plan-shape fixture '{fixtureFileName}'.", nameof(fixtureFileName));
+        }
+
+        var display = Path.GetFileNameWithoutExtension(fixtureFileName);
+        BindPlan(match.Create(), fixtureFileName, display);
         return Task.CompletedTask;
     }
 

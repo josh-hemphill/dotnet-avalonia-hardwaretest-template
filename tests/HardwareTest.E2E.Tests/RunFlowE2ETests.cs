@@ -1,6 +1,7 @@
 using Avalonia.Headless.XUnit;
 using HardwareTest.Core.Runs;
 using HardwareTest.Features.RunTest;
+using HardwareTest.OpenTap.Host;
 using Xunit;
 
 namespace HardwareTest.E2E.Tests;
@@ -116,6 +117,30 @@ public sealed class RunFlowE2ETests
 
         Assert.Equal("RunTest", main.SelectedItem?.Id);
         Assert.Equal(leaf.Path, runVm.SelectedStep?.Path);
+    }
+
+    [AvaloniaFact]
+    public async Task Board_demo_program_loads_and_Inspect_shows_nested_sections()
+    {
+        var window = E2EHarness.ShowMainWindow();
+        var main = E2EHarness.MainVm(window);
+        main.NavigateToPageId("RunTest");
+        var runVm = E2EHarness.RunTestVm(main);
+
+        await runVm.RefreshProgramsCommand.ExecuteAsync();
+        runVm.SelectedProgram = runVm.Programs.First(p =>
+            string.Equals(p.Path, BoardDemoProgramFactory.EmbeddedName, StringComparison.OrdinalIgnoreCase));
+        await E2EHarness.WaitUntilAsync(
+            () => Flatten(runVm.Hierarchy).Any(s => s.Path.Contains("Power Rails", StringComparison.OrdinalIgnoreCase)),
+            TimeSpan.FromSeconds(30),
+            "Board demo hierarchy did not load.");
+
+        main.NavigateToPageId("Inspect");
+        main.Inspect.Refresh();
+        Assert.Contains(
+            Flatten(main.Inspect.Hierarchy),
+            s => s.Name.Contains("3V3", StringComparison.OrdinalIgnoreCase)
+                 || s.Path.Contains("3V3", StringComparison.OrdinalIgnoreCase));
     }
 
     private static IEnumerable<HierarchyStepViewModel> Flatten(IEnumerable<HierarchyStepViewModel> roots)

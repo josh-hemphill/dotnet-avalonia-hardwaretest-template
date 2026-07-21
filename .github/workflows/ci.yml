@@ -19,7 +19,7 @@ jobs:
       - name: Build
         run: dotnet build dirs.proj -c Release -r win-x64
 
-      - name: Core tests + coverage
+      - name: "OpenTAP host + fixtures (serial collection)"
         run: >
           dotnet test tests/HardwareTest.Tests/HardwareTest.Tests.csproj
           -c Release -r win-x64 --no-build
@@ -27,12 +27,12 @@ jobs:
           --settings tests/coverage.runsettings
           --results-directory artifacts/coverage
 
-      - name: ViewModel tests
+      - name: "ViewModels (FakeOpenTap — UI/board)"
         run: >
           dotnet test tests/HardwareTest.ViewModels.Tests/HardwareTest.ViewModels.Tests.csproj
           -c Release -r win-x64 --no-build
 
-      - name: E2E headless tests
+      - name: "E2E smoke (sample + Inspect shell wiring)"
         run: >
           dotnet test tests/HardwareTest.E2E.Tests/HardwareTest.E2E.Tests.csproj
           -c Release -r win-x64 --no-build

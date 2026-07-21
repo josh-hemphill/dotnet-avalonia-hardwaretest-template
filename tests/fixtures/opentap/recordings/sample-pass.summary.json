@@ -1,0 +1,39 @@
+{
+  "runId": "sample-pass-cassette-001",
+  "planName": "Sample Hardware Suite",
+  "result": "Passed",
+  "dutSerial": "DUT-RECORD",
+  "startedAt": "2026-01-15T12:00:00+00:00",
+  "completedAt": "2026-01-15T12:00:05+00:00",
+  "verdict": "Pass",
+  "samples": [
+    {
+      "channel": "VDC",
+      "stepPath": "Sample Hardware Suite/Acquire VDC",
+      "timestamp": "2026-01-15T12:00:02+00:00",
+      "value": 1.25
+    }
+  ],
+  "steps": [
+    {
+      "stepId": "id-check",
+      "stepType": "Identity Check",
+      "stepPath": "Sample Hardware Suite/Identity/Identity Check",
+      "attemptNumber": 1,
+      "passed": true,
+      "message": "Pass",
+      "startedAt": "2026-01-15T12:00:00+00:00",
+      "completedAt": "2026-01-15T12:00:01+00:00"
+    },
+    {
+      "stepId": "acq",
+      "stepType": "Acquire VDC",
+      "stepPath": "Sample Hardware Suite/Acquire VDC",
+      "attemptNumber": 1,
+      "passed": true,
+      "message": "Pass",
+      "startedAt": "2026-01-15T12:00:01+00:00",
+      "completedAt": "2026-01-15T12:00:04+00:00"
+    }
+  ]
+}

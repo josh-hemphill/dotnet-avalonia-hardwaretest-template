@@ -66,6 +66,170 @@ public sealed class FakeOpenTapSession : IOpenTapSession
         return Task.CompletedTask;
     }
 
+    public Task LoadPlanShapeAsync(string fixtureFileName, CancellationToken cancellationToken = default)
+    {
+        LoadedPlanPath = fixtureFileName;
+        LoadedPlanName = Path.GetFileNameWithoutExtension(fixtureFileName);
+        Tree.Clear();
+        foreach (var root in BuildPlanShapeTrees(fixtureFileName))
+        {
+            Tree.Add(root);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    /// Replace the in-memory tree (for UI/board tests without OpenTAP).
+    public void LoadTreeFromNodes(params OpenTapStepNode[] roots)
+    {
+        Tree.Clear();
+        Tree.AddRange(roots);
+    }
+
+    /// Apply a checked-in progress/summary cassette to the current tree.
+    public OpenTapRunSummary ReplayRecording(string directory, string baseName)
+    {
+        var recording = OpenTapRunRecordingStore.LoadBeside(directory, baseName);
+        LastReplayedRecording = recording;
+        ApplySummaryToTree(recording.Summary);
+        return recording.Summary.ToSummary();
+    }
+
+    public OpenTapRunRecording? LastReplayedRecording { get; private set; }
+
+    private void ApplySummaryToTree(OpenTapRunSummaryDto summary)
+    {
+        foreach (var node in Flatten(Tree))
+        {
+            node.StatusText = "Pending";
+            node.Verdict = "NotSet";
+        }
+
+        foreach (var step in summary.Steps)
+        {
+            var node = Flatten(Tree).FirstOrDefault(n =>
+                (!string.IsNullOrWhiteSpace(step.StepPath)
+                 && string.Equals(n.Path, step.StepPath, StringComparison.OrdinalIgnoreCase))
+                || (!string.IsNullOrWhiteSpace(step.StepId)
+                    && string.Equals(n.Id, step.StepId, StringComparison.OrdinalIgnoreCase)));
+            if (node is null)
+            {
+                continue;
+            }
+
+            node.StatusText = step.Passed ? "Pass" : "Fail";
+            node.Verdict = step.Passed ? "Pass" : "Fail";
+            node.KeyValue = step.Message;
+        }
+
+        if (summary.Steps.Count == 0)
+        {
+            MarkTreeStatuses(summary.Result);
+        }
+    }
+
+    private static IEnumerable<OpenTapStepNode> BuildPlanShapeTrees(string fixtureFileName)
+    {
+        if (!IsKnownPlanShape(fixtureFileName))
+        {
+            throw new ArgumentException($"Unknown plan-shape fixture '{fixtureFileName}'.", nameof(fixtureFileName));
+        }
+
+        return BuildPlanShapeTreesCore(fixtureFileName);
+    }
+
+    private static bool IsKnownPlanShape(string fixtureFileName)
+        => string.Equals(fixtureFileName, PlanShapeFixtures.FlatLeavesName, StringComparison.OrdinalIgnoreCase)
+           || string.Equals(fixtureFileName, PlanShapeFixtures.DeepNestName, StringComparison.OrdinalIgnoreCase)
+           || string.Equals(fixtureFileName, PlanShapeFixtures.DuplicateNamesName, StringComparison.OrdinalIgnoreCase)
+           || string.Equals(fixtureFileName, PlanShapeFixtures.EmptyGroupName, StringComparison.OrdinalIgnoreCase)
+           || string.Equals(fixtureFileName, PlanShapeFixtures.NoSafeShutdownName, StringComparison.OrdinalIgnoreCase);
+
+    private static IEnumerable<OpenTapStepNode> BuildPlanShapeTreesCore(string fixtureFileName)
+    {
+        static OpenTapStepNode Leaf(string id, string name, string path) => new()
+        {
+            Id = id,
+            Name = name,
+            Path = path,
+        };
+
+        static OpenTapStepNode Group(string id, string name, string path, params OpenTapStepNode[] children) => new()
+        {
+            Id = id,
+            Name = name,
+            Path = path,
+            IsStage = true,
+            Children = children.ToList(),
+        };
+
+        if (string.Equals(fixtureFileName, PlanShapeFixtures.FlatLeavesName, StringComparison.OrdinalIgnoreCase))
+        {
+            yield return Leaf("a", "Leaf A", "Leaf A");
+            yield return Leaf("b", "Leaf B", "Leaf B");
+            yield return Leaf("ss", "Safe Shutdown", "Safe Shutdown");
+            yield break;
+        }
+
+        if (string.Equals(fixtureFileName, PlanShapeFixtures.DeepNestName, StringComparison.OrdinalIgnoreCase))
+        {
+            var leaf = Leaf("deep", "Deep Acquire", "Deep Nest Suite/Level1/Level2/Level3/Level4/Deep Acquire");
+            var l4 = Group("l4", "Level4", "Deep Nest Suite/Level1/Level2/Level3/Level4", leaf);
+            var l3 = Group("l3", "Level3", "Deep Nest Suite/Level1/Level2/Level3", l4);
+            var l2 = Group("l2", "Level2", "Deep Nest Suite/Level1/Level2", l3);
+            var l1 = Group("l1", "Level1", "Deep Nest Suite/Level1", l2);
+            yield return Group(
+                "deep-root",
+                "Deep Nest Suite",
+                "Deep Nest Suite",
+                l1,
+                Leaf("ss", "Safe Shutdown", "Deep Nest Suite/Safe Shutdown"));
+            yield break;
+        }
+
+        if (string.Equals(fixtureFileName, PlanShapeFixtures.DuplicateNamesName, StringComparison.OrdinalIgnoreCase))
+        {
+            yield return Group(
+                "dup",
+                "Duplicate Names Suite",
+                "Duplicate Names Suite",
+                Group(
+                    "ba",
+                    "Bank A",
+                    "Duplicate Names Suite/Bank A",
+                    Leaf("a1", "Acquire", "Duplicate Names Suite/Bank A/Acquire")),
+                Group(
+                    "bb",
+                    "Bank B",
+                    "Duplicate Names Suite/Bank B",
+                    Leaf("a2", "Acquire", "Duplicate Names Suite/Bank B/Acquire")),
+                Leaf("ss", "Safe Shutdown", "Duplicate Names Suite/Safe Shutdown"));
+            yield break;
+        }
+
+        if (string.Equals(fixtureFileName, PlanShapeFixtures.EmptyGroupName, StringComparison.OrdinalIgnoreCase))
+        {
+            yield return Group(
+                "empty",
+                "Empty Group Suite",
+                "Empty Group Suite",
+                Group("es", "Empty Section", "Empty Group Suite/Empty Section"),
+                Group(
+                    "ps",
+                    "Populated Section",
+                    "Empty Group Suite/Populated Section",
+                    Leaf("id", "Identity Check", "Empty Group Suite/Populated Section/Identity Check")),
+                Leaf("ss", "Safe Shutdown", "Empty Group Suite/Safe Shutdown"));
+            yield break;
+        }
+
+        yield return Group(
+            "nss",
+            "No Safe Shutdown Suite",
+            "No Safe Shutdown Suite",
+            Leaf("acq", "Only Acquire", "No Safe Shutdown Suite/Only Acquire"));
+    }
+
     private static OpenTapStepNode BuildSampleTree() => new()
     {
         Id = "root",
