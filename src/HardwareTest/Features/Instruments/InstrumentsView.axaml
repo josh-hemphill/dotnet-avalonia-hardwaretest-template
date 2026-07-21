@@ -1,95 +1,76 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:HardwareTest.Features.Instruments"
-             xmlns:settings="using:HardwareTest.Core.Settings"
              x:Class="HardwareTest.Features.Instruments.InstrumentsView"
              x:DataType="vm:InstrumentsViewModel">
-  <Grid RowDefinitions="Auto,*,Auto,Auto,Auto" ColumnDefinitions="*,*" ColumnSpacing="16" RowSpacing="12">
+  <Grid RowDefinitions="Auto,*,Auto" ColumnDefinitions="*,280" ColumnSpacing="16" RowSpacing="12">
     <StackPanel Grid.ColumnSpan="2" Orientation="Horizontal" Spacing="8">
-      <Button Content="Discover" Command="{Binding RefreshDiscoverCommand}" />
-      <Button Content="Add selected" Command="{Binding AddSelectedCommand}" />
-      <Button Content="Remove" Command="{Binding RemoveSelectedCommand}" />
-      <Button Content="Refresh slots" Command="{Binding RefreshSlotsCommand}" />
-      <Button Content="Save registry" Command="{Binding SaveCommand}" />
+      <Button Content="Discover VISA" Command="{Binding RefreshDiscoverCommand}" />
+      <Button Content="Refresh plan slots" Command="{Binding RefreshSlotsCommand}" />
+      <Button Content="Apply selected resource" Command="{Binding ApplySelectedResourceCommand}" />
+      <Button Content="Clear override" Command="{Binding ClearOverrideCommand}" />
+      <Button Content="Save overrides" Command="{Binding SaveCommand}" />
       <TextBlock Text="{Binding Status}" VerticalAlignment="Center" Opacity="0.85" TextWrapping="Wrap" />
     </StackPanel>
 
     <DockPanel Grid.Row="1" Grid.Column="0">
-      <TextBlock DockPanel.Dock="Top" Text="Discovered resources" FontWeight="SemiBold" Margin="0,0,0,8" />
-      <ListBox ItemsSource="{Binding Discovered}"
-               SelectedItem="{Binding SelectedDiscovered}">
+      <TextBlock DockPanel.Dock="Top" Text="OpenTAP plan slot overrides" FontWeight="SemiBold" Margin="0,0,0,8" />
+      <TextBlock DockPanel.Dock="Bottom" Margin="0,8,0,0" Opacity="0.65" FontSize="11" TextWrapping="Wrap"
+                 Text="Select a plan slot, then a resource, then Apply." />
+      <ListBox ItemsSource="{Binding SlotOverrides}"
+               SelectedItem="{Binding SelectedSlot}">
         <ListBox.ItemTemplate>
-          <DataTemplate x:DataType="vm:DiscoveredResourceItem">
-            <StackPanel>
-              <TextBlock Text="{Binding Title}" FontWeight="SemiBold" />
-              <TextBlock Text="{Binding Subtitle}" Opacity="0.75" />
-            </StackPanel>
+          <DataTemplate x:DataType="vm:SlotOverrideItemViewModel">
+            <Grid ColumnDefinitions="*,140,100" ColumnSpacing="8" Margin="0,2">
+              <StackPanel Spacing="2">
+                <TextBlock Text="{Binding Summary}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                <TextBlock Opacity="0.7" FontSize="11"
+                           Text="{Binding TypeName, StringFormat=Type: {0}}" />
+                <TextBlock Opacity="0.7" FontSize="11"
+                           Text="{Binding PlanDefaultResource, StringFormat=Plan default: {0}}" />
+                <Border IsVisible="{Binding IsOverridden}"
+                        Padding="6,2"
+                        Margin="0,2,0,0"
+                        HorizontalAlignment="Left"
+                        BorderBrush="{DynamicResource SystemAccentColor}"
+                        BorderThickness="1"
+                        CornerRadius="3"
+                        Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}">
+                  <TextBlock FontWeight="SemiBold" FontSize="11"
+                             Text="{Binding OverrideResource, StringFormat=Override: {0}}" />
+                </Border>
+              </StackPanel>
+              <TextBox Grid.Column="1"
+                       PlaceholderText="Override resource"
+                       Text="{Binding OverrideResource}"
+                       VerticalAlignment="Center" />
+              <TextBlock Grid.Column="2"
+                         Text="{Binding StatusText}"
+                         FontWeight="SemiBold"
+                         VerticalAlignment="Center"
+                         Opacity="0.85" />
+            </Grid>
           </DataTemplate>
         </ListBox.ItemTemplate>
       </ListBox>
     </DockPanel>
 
     <DockPanel Grid.Row="1" Grid.Column="1">
-      <TextBlock DockPanel.Dock="Top" Text="Instrument registry" FontWeight="SemiBold" Margin="0,0,0,8" />
-      <ListBox ItemsSource="{Binding Instruments}"
-               SelectedItem="{Binding SelectedInstrument}">
+      <TextBlock DockPanel.Dock="Top" Text="Discovered VISA" FontWeight="SemiBold" Margin="0,0,0,8" />
+      <ListBox ItemsSource="{Binding Discovered}"
+               SelectedItem="{Binding SelectedDiscovered}">
         <ListBox.ItemTemplate>
-          <DataTemplate x:DataType="settings:VisaInstrument">
+          <DataTemplate x:DataType="vm:DiscoveredResourceItem">
             <StackPanel>
-              <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" />
-              <TextBlock Text="{Binding Resource}" Opacity="0.75" />
-              <TextBlock Text="{Binding Id, StringFormat=Id: {0}}" Opacity="0.55" FontSize="11" />
+              <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextWrapping="Wrap" />
+              <TextBlock Text="{Binding Subtitle}" Opacity="0.75" FontSize="11" />
             </StackPanel>
           </DataTemplate>
         </ListBox.ItemTemplate>
       </ListBox>
     </DockPanel>
 
-    <Grid Grid.Row="2" Grid.ColumnSpan="2" ColumnDefinitions="*,*,Auto" ColumnSpacing="8">
-      <TextBox PlaceholderText="Display name" Text="{Binding ManualName}" />
-      <TextBox Grid.Column="1" PlaceholderText="Resource (e.g. MOCK::SCOPE1)" Text="{Binding ManualResource}" />
-      <Button Grid.Column="2" Content="Add manual" Command="{Binding AddManualCommand}" />
-    </Grid>
-
-    <DockPanel Grid.Row="3" Grid.ColumnSpan="2">
-      <TextBlock DockPanel.Dock="Top" Text="OpenTAP instrument slots (from loaded plan)" FontWeight="SemiBold" Margin="0,0,0,8" />
-      <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Spacing="8" Margin="0,8,0,0">
-        <Button Content="Bind slot from selected instrument" Command="{Binding BindSlotFromSelectedCommand}" />
-      </StackPanel>
-      <ListBox ItemsSource="{Binding OpenTapSlots}"
-               SelectedItem="{Binding SelectedOpenTapSlot}"
-               MaxHeight="140">
-        <ListBox.ItemTemplate>
-          <DataTemplate x:DataType="vm:OpenTapSlotItemViewModel">
-            <StackPanel Spacing="2">
-              <TextBlock Text="{Binding Summary}" FontWeight="SemiBold" TextWrapping="Wrap" />
-              <TextBlock Text="{Binding TypeName}" Opacity="0.65" FontSize="11" />
-            </StackPanel>
-          </DataTemplate>
-        </ListBox.ItemTemplate>
-      </ListBox>
-    </DockPanel>
-
-    <DockPanel Grid.Row="4" Grid.ColumnSpan="2">
-      <TextBlock DockPanel.Dock="Top" Text="Station role bindings (persistent overlay)" FontWeight="SemiBold" Margin="0,0,0,8" />
-      <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Spacing="8" Margin="0,8,0,0">
-        <TextBox PlaceholderText="Role (e.g. dmm)" Text="{Binding NewRole}" MinWidth="140" />
-        <Button Content="Bind to selected instrument" Command="{Binding AddStationBindingCommand}" />
-        <Button Content="Remove binding" Command="{Binding RemoveStationBindingCommand}" />
-      </StackPanel>
-      <ListBox ItemsSource="{Binding StationBindings}"
-               SelectedItem="{Binding SelectedStationBinding}"
-               MaxHeight="120">
-        <ListBox.ItemTemplate>
-          <DataTemplate x:DataType="vm:StationBindingItemViewModel">
-            <StackPanel Orientation="Horizontal" Spacing="8">
-              <TextBlock Text="{Binding Role}" FontWeight="SemiBold" />
-              <TextBlock Text="→" Opacity="0.6" />
-              <TextBlock Text="{Binding InstrumentId}" Opacity="0.85" />
-            </StackPanel>
-          </DataTemplate>
-        </ListBox.ItemTemplate>
-      </ListBox>
-    </DockPanel>
+    <TextBlock Grid.Row="2" Grid.ColumnSpan="2" Opacity="0.55" FontSize="11"
+               Text="Overrides are station-local and applied when a program runs. Empty override keeps the plan default resource." />
   </Grid>
 </UserControl>

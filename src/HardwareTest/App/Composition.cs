@@ -2,6 +2,7 @@ using HardwareTest.Core;
 using HardwareTest.Core.Settings;
 using HardwareTest.Features;
 using HardwareTest.Features.Home;
+using HardwareTest.Features.Inspect;
 using HardwareTest.Features.Instruments;
 using HardwareTest.Features.ReportPreview;
 using HardwareTest.Features.Results;
@@ -25,6 +26,7 @@ public static class Composition
 
         services.AddSingleton<HomeViewModel>();
         services.AddSingleton<RunTestViewModel>();
+        services.AddSingleton<InspectViewModel>();
         services.AddSingleton<ResultsViewModel>();
         services.AddSingleton<ReportPreviewViewModel>();
         services.AddSingleton<InstrumentsViewModel>();

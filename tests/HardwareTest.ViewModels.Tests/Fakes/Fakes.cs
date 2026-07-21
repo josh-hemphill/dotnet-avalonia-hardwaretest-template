@@ -14,31 +14,7 @@ public sealed class FakeOpenTapSession : IOpenTapSession
 
     public string? LoadedPlanPath { get; private set; } = SampleProgramFactory.EmbeddedName;
     public string? LoadedPlanName { get; private set; } = "Sample Hardware Suite";
-    public List<OpenTapStepNode> Tree { get; } =
-    [
-        new()
-        {
-            Id = "root",
-            Name = "Sample Hardware Suite",
-            Path = "Sample Hardware Suite",
-            IsStage = true,
-            Children =
-            [
-                new()
-                {
-                    Id = "id",
-                    Name = "Identity",
-                    Path = "Sample Hardware Suite/Identity",
-                    IsStage = true,
-                    Children =
-                    [
-                        new() { Id = "id-check", Name = "Identity Check", Path = "Sample Hardware Suite/Identity/Identity Check" },
-                    ],
-                },
-                new() { Id = "acq", Name = "Acquire VDC", Path = "Sample Hardware Suite/Acquire VDC" },
-            ],
-        },
-    ];
+    public List<OpenTapStepNode> Tree { get; } = [BuildSampleTree()];
 
     public List<OpenTapInstrumentSlot> Slots { get; } =
     [
@@ -76,7 +52,107 @@ public sealed class FakeOpenTapSession : IOpenTapSession
     {
         LoadedPlanPath = SampleProgramFactory.EmbeddedName;
         LoadedPlanName = "Sample Hardware Suite";
+        Tree.Clear();
+        Tree.Add(BuildSampleTree());
         return Task.CompletedTask;
+    }
+
+    public Task LoadBoardDemoProgramAsync(CancellationToken cancellationToken = default)
+    {
+        LoadedPlanPath = BoardDemoProgramFactory.EmbeddedName;
+        LoadedPlanName = BoardDemoProgramFactory.DisplayName;
+        Tree.Clear();
+        Tree.Add(BuildBoardDemoTree());
+        return Task.CompletedTask;
+    }
+
+    private static OpenTapStepNode BuildSampleTree() => new()
+    {
+        Id = "root",
+        Name = "Sample Hardware Suite",
+        Path = "Sample Hardware Suite",
+        IsStage = true,
+        Children =
+        [
+            new()
+            {
+                Id = "id",
+                Name = "Identity",
+                Path = "Sample Hardware Suite/Identity",
+                IsStage = true,
+                Children =
+                [
+                    new() { Id = "id-check", Name = "Identity Check", Path = "Sample Hardware Suite/Identity/Identity Check" },
+                ],
+            },
+            new() { Id = "acq", Name = "Acquire VDC", Path = "Sample Hardware Suite/Acquire VDC" },
+        ],
+    };
+
+    private static OpenTapStepNode BuildBoardDemoTree()
+    {
+        static OpenTapStepNode Leaf(string id, string name, string path) => new()
+        {
+            Id = id,
+            Name = name,
+            Path = path,
+        };
+
+        static OpenTapStepNode Group(string id, string name, string path, params OpenTapStepNode[] children) => new()
+        {
+            Id = id,
+            Name = name,
+            Path = path,
+            IsStage = true,
+            Children = children.ToList(),
+        };
+
+        var root = BoardDemoProgramFactory.DisplayName;
+        return Group(
+            "demo-root",
+            root,
+            root,
+            Group(
+                "power",
+                "Power Rails",
+                $"{root}/Power Rails",
+                Group(
+                    "3v3",
+                    "3V3 Rail",
+                    $"{root}/Power Rails/3V3 Rail",
+                    Leaf("acq-3v3", "Acquire 3V3", $"{root}/Power Rails/3V3 Rail/Acquire 3V3"),
+                    Leaf("mean-3v3", "Mean GTE 3V3", $"{root}/Power Rails/3V3 Rail/Mean GTE 3V3")),
+                Group(
+                    "5v",
+                    "5V Rail",
+                    $"{root}/Power Rails/5V Rail",
+                    Leaf("acq-5v", "Acquire 5V", $"{root}/Power Rails/5V Rail/Acquire 5V"),
+                    Leaf("mean-5v", "Mean GTE 5V", $"{root}/Power Rails/5V Rail/Mean GTE 5V"))),
+            Group(
+                "comms",
+                "Communications",
+                $"{root}/Communications",
+                Group(
+                    "id",
+                    "Identity",
+                    $"{root}/Communications/Identity",
+                    Leaf("id-check", "Identity Check", $"{root}/Communications/Identity/Identity Check")),
+                Group(
+                    "bus",
+                    "Bus Stress",
+                    $"{root}/Communications/Bus Stress",
+                    Leaf("long-acq", "Long Acquire VDC", $"{root}/Communications/Bus Stress/Long Acquire VDC"),
+                    Leaf("mean-bus", "Mean GTE Bus", $"{root}/Communications/Bus Stress/Mean GTE Bus"))),
+            Group(
+                "op",
+                "Operator",
+                $"{root}/Operator",
+                Leaf("prompt", "Seat Board Fixture", $"{root}/Operator/Seat Board Fixture")),
+            Group(
+                "safe",
+                "Safety",
+                $"{root}/Safety",
+                Leaf("shutdown", "Safe Shutdown", $"{root}/Safety/Safe Shutdown")));
     }
 
     public Task ApplyStationAndDutAsync(StationProfile station, DutIdentity dut, CancellationToken cancellationToken = default)
@@ -107,6 +183,7 @@ public sealed class FakeOpenTapSession : IOpenTapSession
         }
         catch (OperationCanceledException)
         {
+            MarkTreeStatuses(RunResult.Cancelled);
             var cancelled = new OpenTapRunSummary
             {
                 RunId = Guid.NewGuid().ToString("N"),
@@ -133,6 +210,8 @@ public sealed class FakeOpenTapSession : IOpenTapSession
             _runCts = null;
         }
 
+        MarkTreeStatuses(CompletionResult);
+        var leaf = Flatten(Tree).FirstOrDefault(n => n.Children.Count == 0);
         var summary = new OpenTapRunSummary
         {
             RunId = Guid.NewGuid().ToString("N"),
@@ -147,18 +226,29 @@ public sealed class FakeOpenTapSession : IOpenTapSession
             [
                 new StoredSample { Channel = "VDC", Timestamp = DateTimeOffset.UtcNow, Value = 1.25 },
             ],
-            Steps =
-            [
-                new StepResultRecord
+            Steps = Flatten(Tree)
+                .Where(n => n.Children.Count == 0)
+                .Select(n => new StepResultRecord
                 {
-                    StepId = "Identity Check",
-                    StepType = "IdentityCheckStep",
+                    StepId = n.Id,
+                    StepType = n.Name,
+                    StepPath = n.Path,
                     Passed = CompletionResult == RunResult.Passed,
-                    Message = "ok",
+                    Message = CompletionResult == RunResult.Passed ? "Pass" : "Fail",
                     StartedAt = DateTimeOffset.UtcNow.AddSeconds(-1),
                     CompletedAt = DateTimeOffset.UtcNow,
-                },
-            ],
+                })
+                .DefaultIfEmpty(new StepResultRecord
+                {
+                    StepId = leaf?.Id ?? "Identity Check",
+                    StepType = leaf?.Name ?? "Identity Check",
+                    StepPath = leaf?.Path ?? "Sample Hardware Suite/Identity/Identity Check",
+                    Passed = CompletionResult == RunResult.Passed,
+                    Message = CompletionResult == RunResult.Passed ? "Pass" : "Fail",
+                    StartedAt = DateTimeOffset.UtcNow.AddSeconds(-1),
+                    CompletedAt = DateTimeOffset.UtcNow,
+                })
+                .ToList(),
         };
         progress?.Report(new OpenTapProgress
         {
@@ -166,9 +256,44 @@ public sealed class FakeOpenTapSession : IOpenTapSession
             OverallPercent = 100,
             IsCompleted = true,
             Result = summary.Result,
+            StepId = leaf?.Id,
+            StepPath = leaf?.Path,
+            StatusText = CompletionResult == RunResult.Passed ? "Pass" : "Fail",
+            Verdict = CompletionResult == RunResult.Passed ? "Pass" : "Fail",
         });
         return summary;
     }
+
+    private void MarkTreeStatuses(RunResult result)
+    {
+        var status = result switch
+        {
+            RunResult.Passed => "Pass",
+            RunResult.Cancelled => "Cancelled",
+            _ => "Fail",
+        };
+        foreach (var node in Flatten(Tree))
+        {
+            node.StatusText = status;
+            node.Verdict = status;
+        }
+    }
+
+    private static IEnumerable<OpenTapStepNode> Flatten(IEnumerable<OpenTapStepNode> roots)
+    {
+        foreach (var node in roots)
+        {
+            yield return node;
+            foreach (var child in Flatten(node.Children))
+            {
+                yield return child;
+            }
+        }
+    }
+
+    private static OpenTapStepNode? FindNode(IEnumerable<OpenTapStepNode> roots, string stepPath)
+        => Flatten(roots).FirstOrDefault(n =>
+            string.Equals(n.Path, stepPath, StringComparison.OrdinalIgnoreCase));
 
     public Task<OpenTapRunSummary> RunSelectionAsync(
         string stepPath,
@@ -207,6 +332,33 @@ public sealed class FakeOpenTapSession : IOpenTapSession
     public bool TrySetStepEnabled(string stepPath, bool enabled) => true;
     public bool TrySetAcquireSettings(string stepPath, int? sampleCount, int? intervalMs) => true;
     public bool TrySetMeanGteThreshold(string stepPath, double threshold) => true;
+
+    public bool TryGetStepConditionSummary(string stepPath, out string? summary)
+    {
+        var node = FindNode(Tree, stepPath);
+        if (node is null)
+        {
+            summary = null;
+            return false;
+        }
+
+        if (node.Name.Contains("Acquire", StringComparison.OrdinalIgnoreCase))
+        {
+            summary = "Samples=32, IntervalMs=5, Enabled=True";
+            return true;
+        }
+
+        if (node.Name.Contains("Mean", StringComparison.OrdinalIgnoreCase)
+            || node.Name.Contains("Check", StringComparison.OrdinalIgnoreCase))
+        {
+            summary = "Mean ≥ 0, Enabled=True";
+            return true;
+        }
+
+        summary = $"Enabled={node.Enabled}";
+        return true;
+    }
+
     public bool TryRebindDmmResource(string resource) => true;
     public bool TryBindSlotResource(string slotName, string resource)
     {

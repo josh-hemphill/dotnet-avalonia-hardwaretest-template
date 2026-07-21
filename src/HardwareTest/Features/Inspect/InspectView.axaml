@@ -1,0 +1,43 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:HardwareTest.Features.Inspect"
+             xmlns:run="using:HardwareTest.Features.RunTest"
+             x:Class="HardwareTest.Features.Inspect.InspectView"
+             x:DataType="vm:InspectViewModel">
+  <Grid RowDefinitions="Auto,*" RowSpacing="8">
+    <StackPanel Orientation="Horizontal" Spacing="8">
+      <TextBlock Text="Inspect plan" FontWeight="SemiBold" FontSize="16" VerticalAlignment="Center" />
+      <Button Content="Refresh" Command="{Binding RefreshCommand}" />
+      <Button Content="Open on Run" Command="{Binding OpenOnRunCommand}" />
+      <TextBlock Text="{Binding Status}" VerticalAlignment="Center" Opacity="0.85" TextWrapping="Wrap" />
+    </StackPanel>
+
+    <TreeView Grid.Row="1"
+              ItemsSource="{Binding Hierarchy}"
+              SelectedItem="{Binding SelectedStep}">
+      <TreeView.ItemTemplate>
+        <TreeDataTemplate ItemsSource="{Binding Children}" DataType="run:HierarchyStepViewModel">
+          <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+            <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
+            <Border Grid.Column="1"
+                    CornerRadius="4"
+                    Padding="6,1"
+                    Background="{Binding ChipText, Converter={x:Static run:ChipBrushConverter.Instance}}">
+              <TextBlock Text="{Binding ChipText}" FontSize="10" FontWeight="SemiBold" Foreground="White" />
+            </Border>
+            <TextBlock Grid.Column="2"
+                       Text="{Binding ProgressText}"
+                       FontSize="11"
+                       Opacity="0.8"
+                       VerticalAlignment="Center" />
+          </Grid>
+        </TreeDataTemplate>
+      </TreeView.ItemTemplate>
+      <TreeView.Styles>
+        <Style Selector="TreeViewItem" x:DataType="run:HierarchyStepViewModel">
+          <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
+        </Style>
+      </TreeView.Styles>
+    </TreeView>
+  </Grid>
+</UserControl>

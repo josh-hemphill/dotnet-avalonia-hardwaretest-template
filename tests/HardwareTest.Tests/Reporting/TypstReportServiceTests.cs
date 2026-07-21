@@ -27,21 +27,13 @@ public sealed class TypstReportServiceTests
     }
 
     [Fact]
-    public async Task CompileTemplateAsync_embeds_plots_from_workdir_beside_main_typ()
+    public async Task CompileTemplateAsync_charts_from_samples_without_png_paths()
     {
         using var temp = new TempDataDirectory();
         var runStore = new FileRunStore(temp.RunsDirectory);
         var run = CreateRun(sampleCount: 8);
         await runStore.SaveAsync(run);
-
-        var plotsDir = Path.Combine(runStore.GetRunDirectory(run.RunId), "plots");
-        run.PlotImagePaths = SamplePlotExporter.ExportAllChannels(run, plotsDir).ToList();
-        Assert.NotEmpty(run.PlotImagePaths);
-        Assert.All(run.PlotImagePaths, p =>
-        {
-            Assert.True(File.Exists(p));
-            Assert.True(new FileInfo(p).Length > 0);
-        });
+        Assert.Empty(run.PlotImagePaths);
 
         using var reports = new TypstReportService(runStore, new AppSettings { EmbedPlotsInReport = true });
         var pdf = await CompileOrSkipAsync(() => reports.CompileTemplateAsync(run));
@@ -49,8 +41,29 @@ public sealed class TypstReportServiceTests
 
         var workDir = Path.Combine(Path.GetTempPath(), "HardwareTestTypst", run.RunId);
         Assert.True(File.Exists(Path.Combine(workDir, "main.typ")));
-        Assert.True(File.Exists(Path.Combine(workDir, "plot-0.png")));
-        Assert.True(new FileInfo(Path.Combine(workDir, "plot-0.png")).Length > 0);
+        Assert.True(File.Exists(Path.Combine(workDir, "run.json")));
+        Assert.True(File.Exists(Path.Combine(workDir, "lib", "sample-chart.typ")));
+
+        var json = await File.ReadAllTextAsync(Path.Combine(workDir, "run.json"));
+        Assert.Contains("\"samples\"", json, StringComparison.Ordinal);
+        Assert.Contains("\"channel\"", json, StringComparison.Ordinal);
+        Assert.Contains("\"value\"", json, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"Samples\"", json, StringComparison.Ordinal);
+
+        var chartLib = await File.ReadAllTextAsync(Path.Combine(workDir, "lib", "sample-chart.typ"));
+        Assert.Contains("samples", chartLib, StringComparison.Ordinal);
+        Assert.Contains("channel", chartLib, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void SamplePlotExporter_still_writes_png_when_called_directly()
+    {
+        using var temp = new TempDataDirectory();
+        var run = CreateRun(sampleCount: 4);
+        var plotsDir = Path.Combine(temp.Path, "plots");
+        var paths = SamplePlotExporter.ExportAllChannels(run, plotsDir);
+        Assert.NotEmpty(paths);
+        Assert.All(paths, p => Assert.True(File.Exists(p) && new FileInfo(p).Length > 0));
     }
 
     private static TestRunRecord CreateRun(int sampleCount = 1)
@@ -59,6 +72,7 @@ public sealed class TypstReportServiceTests
             .Select(i => new StoredSample
             {
                 Channel = "VDC",
+                StepPath = "Sample Hardware Suite/Acquire VDC",
                 Timestamp = DateTimeOffset.UtcNow.AddMilliseconds(i),
                 Value = 1.0 + (i * 0.1),
             })

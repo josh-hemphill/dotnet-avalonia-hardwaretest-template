@@ -21,37 +21,62 @@ public sealed class DiscoveredResourceItem
     public string Subtitle => Resource;
 }
 
-public partial class StationBindingItemViewModel : ReactiveObject
+public partial class SlotOverrideItemViewModel : ReactiveObject
 {
-    public StationBindingItemViewModel(string role, string instrumentId)
+    public SlotOverrideItemViewModel(
+        string planId,
+        string planDisplayName,
+        OpenTapInstrumentSlot slot,
+        string? overrideResource)
     {
-        Role = role;
-        InstrumentId = instrumentId;
-    }
-
-    [Reactive] private string _role = string.Empty;
-    [Reactive] private string _instrumentId = string.Empty;
-}
-
-public partial class OpenTapSlotItemViewModel : ReactiveObject
-{
-    public OpenTapSlotItemViewModel(OpenTapInstrumentSlot slot)
-    {
-        Name = slot.Name;
+        PlanId = planId;
+        PlanDisplayName = planDisplayName;
+        SlotName = slot.Name;
         TypeName = slot.TypeName;
         RoleHint = slot.RoleHint;
-        ResourceName = slot.ResourceName;
+        PlanDefaultResource = slot.ResourceName;
+        OverrideResource = overrideResource ?? string.Empty;
+        PropertyChanged += (_, args) =>
+        {
+            if (args.PropertyName == nameof(OverrideResource))
+            {
+                this.RaisePropertyChanged(nameof(EffectiveResource));
+                this.RaisePropertyChanged(nameof(StatusText));
+                this.RaisePropertyChanged(nameof(Summary));
+                this.RaisePropertyChanged(nameof(IsOverridden));
+            }
+        };
     }
 
-    public string Name { get; }
+    public string PlanId { get; }
+    public string PlanDisplayName { get; }
+    public string SlotName { get; }
     public string TypeName { get; }
     public string RoleHint { get; }
+    public string PlanDefaultResource { get; }
 
-    [Reactive] private string _resourceName = string.Empty;
+    [Reactive] private string _overrideResource = string.Empty;
 
-    public string Summary => string.IsNullOrWhiteSpace(ResourceName)
-        ? $"{Name} ({RoleHint}) — unbound"
-        : $"{Name} ({RoleHint}) → {ResourceName}";
+    public bool IsOverridden => !string.IsNullOrWhiteSpace(OverrideResource);
+
+    public string EffectiveResource =>
+        string.IsNullOrWhiteSpace(OverrideResource) ? PlanDefaultResource : OverrideResource.Trim();
+
+    public string StatusText
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(EffectiveResource))
+            {
+                return "Unbound";
+            }
+
+            return IsOverridden ? "Overridden" : "Ready";
+        }
+    }
+
+    public string Summary =>
+        $"{PlanDisplayName} / {SlotName} ({RoleHint}) → {EffectiveResource}";
 }
 
 public partial class InstrumentsViewModel : ReactiveObject
@@ -68,98 +93,29 @@ public partial class InstrumentsViewModel : ReactiveObject
         _settingsStore = settingsStore;
         _discovery = discovery;
         _openTap = openTap;
-        Instruments = new ObservableCollection<VisaInstrument>(settingsStore.AppSettings.Instruments);
-        StationBindings = new ObservableCollection<StationBindingItemViewModel>(
-            settingsStore.AppSettings.StationBindings.Select(b =>
-                new StationBindingItemViewModel(b.Role, b.InstrumentId)));
-        OpenTapSlots = [];
         Discovered = [];
-        Status = "Discover VISA resources, bind OpenTAP slots via station roles, and save.";
-        RefreshSlots();
-        RefreshSlotsCommand = ReactiveCommand.Create(RefreshSlots);
+        SlotOverrides = [];
+        Status = "Discover VISA resources, then set per-plan OpenTAP slot overrides.";
         RefreshDiscoverCommand = ReactiveCommand.CreateFromTask(RefreshDiscoverAsync);
-        AddSelectedCommand = ReactiveCommand.Create(AddSelected);
-        RemoveSelectedCommand = ReactiveCommand.Create(RemoveSelected);
+        RefreshSlotsCommand = ReactiveCommand.CreateFromTask(RefreshSlotsAsync);
+        ApplySelectedResourceCommand = ReactiveCommand.Create(ApplySelectedResource);
+        ClearOverrideCommand = ReactiveCommand.Create(ClearOverride);
         SaveCommand = ReactiveCommand.CreateFromTask(SaveAsync);
-        AddManualCommand = ReactiveCommand.Create(AddManual);
-        AddStationBindingCommand = ReactiveCommand.Create(AddStationBinding);
-        RemoveStationBindingCommand = ReactiveCommand.Create(RemoveStationBinding);
-        BindSlotFromSelectedCommand = ReactiveCommand.Create(BindSlotFromSelected);
+        _ = RefreshSlotsAsync();
     }
 
-    public ObservableCollection<VisaInstrument> Instruments { get; }
     public ObservableCollection<DiscoveredResourceItem> Discovered { get; }
-    public ObservableCollection<StationBindingItemViewModel> StationBindings { get; }
-    public ObservableCollection<OpenTapSlotItemViewModel> OpenTapSlots { get; }
+    public ObservableCollection<SlotOverrideItemViewModel> SlotOverrides { get; }
 
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> RefreshSlotsCommand { get; }
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> RefreshDiscoverCommand { get; }
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> AddSelectedCommand { get; }
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> RemoveSelectedCommand { get; }
+    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> RefreshSlotsCommand { get; }
+    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> ApplySelectedResourceCommand { get; }
+    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> ClearOverrideCommand { get; }
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> SaveCommand { get; }
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> AddManualCommand { get; }
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> AddStationBindingCommand { get; }
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> RemoveStationBindingCommand { get; }
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> BindSlotFromSelectedCommand { get; }
 
     [Reactive] private DiscoveredResourceItem? _selectedDiscovered;
-    [Reactive] private VisaInstrument? _selectedInstrument;
-    [Reactive] private StationBindingItemViewModel? _selectedStationBinding;
-    [Reactive] private OpenTapSlotItemViewModel? _selectedOpenTapSlot;
-    [Reactive] private string _manualResource = "MOCK::INSTR0";
-    [Reactive] private string _manualName = "New instrument";
-    [Reactive] private string _newRole = "dmm";
+    [Reactive] private SlotOverrideItemViewModel? _selectedSlot;
     [Reactive] private string _status = string.Empty;
-
-    private void RefreshSlots()
-    {
-        OpenTapSlots.Clear();
-        foreach (var slot in _openTap.InstrumentSlots)
-        {
-            OpenTapSlots.Add(new OpenTapSlotItemViewModel(slot));
-        }
-
-        Status = OpenTapSlots.Count == 0
-            ? "No OpenTAP instrument slots (load a program on Run first)."
-            : $"Loaded {OpenTapSlots.Count} OpenTAP slot(s) from the active plan.";
-    }
-
-    private void BindSlotFromSelected()
-    {
-        if (SelectedOpenTapSlot is null)
-        {
-            Status = "Select an OpenTAP slot.";
-            return;
-        }
-
-        var resource = SelectedInstrument?.Resource
-                       ?? SelectedDiscovered?.Resource
-                       ?? ManualResource;
-        if (string.IsNullOrWhiteSpace(resource))
-        {
-            Status = "Select a registry instrument or discovered resource.";
-            return;
-        }
-
-        if (!_openTap.TryBindSlotResource(SelectedOpenTapSlot.Name, resource.Trim()))
-        {
-            Status = $"Could not bind slot '{SelectedOpenTapSlot.Name}'.";
-            return;
-        }
-
-        SelectedOpenTapSlot.ResourceName = resource.Trim();
-        var role = string.IsNullOrWhiteSpace(SelectedOpenTapSlot.RoleHint)
-            ? SelectedOpenTapSlot.Name
-            : SelectedOpenTapSlot.RoleHint;
-        NewRole = role;
-        if (SelectedInstrument is not null)
-        {
-            AddStationBinding();
-        }
-
-        Status = $"Bound slot '{SelectedOpenTapSlot.Name}' → {resource}.";
-        RefreshSlots();
-    }
 
     private async Task RefreshDiscoverAsync()
     {
@@ -178,7 +134,7 @@ public partial class InstrumentsViewModel : ReactiveObject
 
             Status = found.Count == 0
                 ? "No resources found (enable mock VISA or install a vendor runtime)."
-                : $"Found {found.Count} resource(s).";
+                : $"Found {found.Count} VISA resource(s).";
         }
         catch (Exception ex)
         {
@@ -186,118 +142,115 @@ public partial class InstrumentsViewModel : ReactiveObject
         }
     }
 
-    private void AddSelected()
+    private async Task RefreshSlotsAsync()
     {
+        SlotOverrides.Clear();
+        var saved = _settingsStore.AppSettings.PlanSlotOverrides;
+        try
+        {
+            await _openTap.LoadSampleProgramAsync();
+            AddSlotsFromLoadedPlan("sample", "Sample Hardware Suite", saved);
+
+            foreach (var path in EnumeratePlanFiles())
+            {
+                var id = Path.GetFileNameWithoutExtension(path);
+                if (string.Equals(id, "sample", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                await _openTap.LoadPlanAsync(path);
+                AddSlotsFromLoadedPlan(id, id, saved);
+            }
+
+            // Restore sample as default loaded plan for Run page.
+            await _openTap.LoadSampleProgramAsync();
+            Status = SlotOverrides.Count == 0
+                ? "No OpenTAP instrument slots found in available plans."
+                : $"Loaded {SlotOverrides.Count} slot(s) from available plans.";
+        }
+        catch (Exception ex)
+        {
+            Status = $"Failed to load plan slots: {ex.Message}";
+        }
+    }
+
+    private void AddSlotsFromLoadedPlan(string planId, string displayName, List<PlanSlotOverride> saved)
+    {
+        foreach (var slot in _openTap.InstrumentSlots)
+        {
+            var existing = saved.FirstOrDefault(o =>
+                string.Equals(o.PlanId, planId, StringComparison.OrdinalIgnoreCase)
+                && string.Equals(o.SlotName, slot.Name, StringComparison.OrdinalIgnoreCase));
+            SlotOverrides.Add(new SlotOverrideItemViewModel(planId, displayName, slot, existing?.Resource));
+        }
+    }
+
+    private static IEnumerable<string> EnumeratePlanFiles()
+    {
+        var dirs = new[]
+        {
+            Path.Combine(AppContext.BaseDirectory, "Programs"),
+            Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "plans", "opentap")),
+        };
+        foreach (var dir in dirs.Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            if (!Directory.Exists(dir))
+            {
+                continue;
+            }
+
+            foreach (var file in Directory.EnumerateFiles(dir, "*.TapPlan"))
+            {
+                yield return file;
+            }
+        }
+    }
+
+    private void ApplySelectedResource()
+    {
+        if (SelectedSlot is null)
+        {
+            Status = "Select a plan slot.";
+            return;
+        }
+
         if (SelectedDiscovered is null)
         {
-            Status = "Select a discovered resource first.";
+            Status = "Select a discovered VISA resource.";
             return;
         }
 
-        if (Instruments.Any(i => string.Equals(i.Resource, SelectedDiscovered.Resource, StringComparison.OrdinalIgnoreCase)))
-        {
-            Status = "Instrument already in registry.";
-            return;
-        }
-
-        Instruments.Add(new VisaInstrument
-        {
-            Id = Guid.NewGuid().ToString("N")[..8],
-            DisplayName = SelectedDiscovered.Description,
-            Resource = SelectedDiscovered.Resource,
-            Enabled = true,
-        });
-        Status = $"Added {SelectedDiscovered.Resource}.";
+        SelectedSlot.OverrideResource = SelectedDiscovered.Resource;
+        Status = $"Override {SelectedSlot.SlotName} → {SelectedDiscovered.Resource} (save to persist).";
     }
 
-    private void AddManual()
+    private void ClearOverride()
     {
-        if (string.IsNullOrWhiteSpace(ManualResource))
+        if (SelectedSlot is null)
         {
-            Status = "Enter a resource string.";
+            Status = "Select a slot override to clear.";
             return;
         }
 
-        Instruments.Add(new VisaInstrument
-        {
-            Id = Guid.NewGuid().ToString("N")[..8],
-            DisplayName = string.IsNullOrWhiteSpace(ManualName) ? ManualResource : ManualName,
-            Resource = ManualResource.Trim(),
-            Enabled = true,
-        });
-        Status = $"Added {ManualResource}.";
-    }
-
-    private void RemoveSelected()
-    {
-        if (SelectedInstrument is null)
-        {
-            Status = "Select a registry instrument to remove.";
-            return;
-        }
-
-        Instruments.Remove(SelectedInstrument);
-        SelectedInstrument = null;
-        Status = "Removed instrument.";
-    }
-
-    private void AddStationBinding()
-    {
-        if (string.IsNullOrWhiteSpace(NewRole))
-        {
-            Status = "Enter a role name (e.g. dmm).";
-            return;
-        }
-
-        var instrumentId = SelectedInstrument?.Id
-                           ?? Instruments.FirstOrDefault(i => i.Enabled)?.Id
-                           ?? string.Empty;
-        if (string.IsNullOrWhiteSpace(instrumentId))
-        {
-            Status = "Add a registry instrument before binding roles.";
-            return;
-        }
-
-        var role = NewRole.Trim();
-        var existing = StationBindings.FirstOrDefault(b =>
-            string.Equals(b.Role, role, StringComparison.OrdinalIgnoreCase));
-        if (existing is not null)
-        {
-            existing.InstrumentId = instrumentId;
-            Status = $"Updated role '{role}' → {instrumentId}.";
-            return;
-        }
-
-        StationBindings.Add(new StationBindingItemViewModel(role, instrumentId));
-        Status = $"Bound role '{role}' → {instrumentId}.";
-    }
-
-    private void RemoveStationBinding()
-    {
-        if (SelectedStationBinding is null)
-        {
-            Status = "Select a station binding to remove.";
-            return;
-        }
-
-        StationBindings.Remove(SelectedStationBinding);
-        SelectedStationBinding = null;
-        Status = "Removed station binding.";
+        SelectedSlot.OverrideResource = string.Empty;
+        Status = $"Cleared override for {SelectedSlot.SlotName}.";
     }
 
     private async Task SaveAsync()
     {
-        _settingsStore.AppSettings.Instruments = Instruments.ToList();
-        _settingsStore.AppSettings.StationBindings = StationBindings
-            .Where(b => !string.IsNullOrWhiteSpace(b.Role))
-            .Select(b => new StationBinding { Role = b.Role.Trim(), InstrumentId = b.InstrumentId.Trim() })
+        _settingsStore.AppSettings.PlanSlotOverrides = SlotOverrides
+            .Where(s => !string.IsNullOrWhiteSpace(s.OverrideResource))
+            .Select(s => new PlanSlotOverride
+            {
+                PlanId = s.PlanId,
+                SlotName = s.SlotName,
+                RoleHint = s.RoleHint,
+                Resource = s.OverrideResource.Trim(),
+            })
             .ToList();
-        if (Instruments.FirstOrDefault(i => i.Enabled) is { } first)
-        {
-            _settingsStore.AppSettings.DefaultVisaResource = first.Resource;
-        }
 
         await _settingsStore.SaveAppSettingsAsync();
-        Status = $"Saved {Instruments.Count} instrument(s), {StationBindings.Count} role binding(s).";
+        Status = $"Saved {_settingsStore.AppSettings.PlanSlotOverrides.Count} slot override(s).";
     }
 }

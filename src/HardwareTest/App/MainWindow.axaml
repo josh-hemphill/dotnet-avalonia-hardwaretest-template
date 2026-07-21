@@ -27,19 +27,38 @@
     </ui:FANavigationView.MenuItemTemplate>
 
     <ui:FANavigationView.PaneFooter>
-      <StackPanel Margin="12" Spacing="8">
-        <TextBlock Text="{Binding ControlStatus}" Opacity="0.75" FontSize="12" />
-        <Button Content="Pause"
-                Command="{Binding PauseCommand}"
-                HorizontalAlignment="Stretch" />
-        <Button Content="Resume"
-                Command="{Binding ResumeCommand}"
-                HorizontalAlignment="Stretch" />
-        <Button Content="Safety Stop"
-                Command="{Binding SafetyStopCommand}"
+      <StackPanel Margin="8,12" Spacing="6">
+        <TextBlock Text="{Binding ControlStatus}"
+                   FontSize="12"
+                   TextTrimming="CharacterEllipsis"
+                   Opacity="0.85"
+                   FontWeight="SemiBold"
+                   IsVisible="{Binding IsPaused}" />
+        <TextBlock Text="{Binding ControlStatus}"
+                   FontSize="12"
+                   TextTrimming="CharacterEllipsis"
+                   Opacity="0.75"
+                   IsVisible="{Binding !IsPaused}" />
+        <Button Command="{Binding PauseResumeCommand}"
                 HorizontalAlignment="Stretch"
-                Classes="accent"
-                ToolTip.Tip="Abort the run and execute suite safeShutdown steps with VISA priority" />
+                IsEnabled="{Binding IsRunning}"
+                ToolTip.Tip="{Binding PauseResumeTip}">
+          <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center">
+            <ui:FASymbolIcon Symbol="Pause" FontSize="16" IsVisible="{Binding ShowPauseIcon}" />
+            <ui:FASymbolIcon Symbol="Play" FontSize="16" IsVisible="{Binding IsPaused}" />
+            <TextBlock Text="{Binding PauseResumeLabel}" VerticalAlignment="Center" />
+          </StackPanel>
+        </Button>
+        <Button Command="{Binding SafetyStopCommand}"
+                HorizontalAlignment="Stretch"
+                Classes="danger"
+                IsEnabled="{Binding IsRunning}"
+                ToolTip.Tip="Safety Stop — abort and run safe shutdown">
+          <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center">
+            <ui:FASymbolIcon Symbol="Stop" FontSize="16" />
+            <TextBlock Text="Safety Stop" VerticalAlignment="Center" />
+          </StackPanel>
+        </Button>
       </StackPanel>
     </ui:FANavigationView.PaneFooter>
 

@@ -1,4 +1,3 @@
-using HardwareTest.Core.Hardware;
 using HardwareTest.Core.Settings;
 using HardwareTest.Features.Instruments;
 using HardwareTest.ViewModels.Tests.Fakes;
@@ -9,33 +8,33 @@ namespace HardwareTest.ViewModels.Tests;
 public sealed class InstrumentsViewModelTests
 {
     [Fact]
-    public void RefreshSlots_shows_opentap_instruments()
+    public async Task RefreshSlots_shows_plan_slot_overrides()
     {
         var store = new FakeSettingsStore();
         var openTap = new FakeOpenTapSession();
         var vm = new InstrumentsViewModel(store, new FakeVisaDiscovery(), openTap);
-        Assert.NotEmpty(vm.OpenTapSlots);
-        Assert.Contains(vm.OpenTapSlots, s => s.Name == "DMM");
+        await vm.RefreshSlotsCommand.ExecuteAsync();
+        Assert.NotEmpty(vm.SlotOverrides);
+        Assert.Contains(vm.SlotOverrides, s => s.SlotName == "DMM");
     }
 
     [Fact]
-    public async Task BindSlot_updates_resource_and_role()
+    public async Task Apply_and_save_override_persists_plan_slot()
     {
         var store = new FakeSettingsStore();
         var openTap = new FakeOpenTapSession();
         var vm = new InstrumentsViewModel(store, new FakeVisaDiscovery(), openTap);
-        vm.Instruments.Add(new VisaInstrument
-        {
-            Id = "inst1",
-            DisplayName = "Mock",
-            Resource = "MOCK::INSTR9",
-            Enabled = true,
-        });
-        vm.SelectedInstrument = vm.Instruments[^1];
-        vm.SelectedOpenTapSlot = vm.OpenTapSlots[0];
-        await vm.BindSlotFromSelectedCommand.ExecuteAsync();
-        Assert.Equal("MOCK::INSTR9", openTap.Slots[0].ResourceName);
-        Assert.Contains(vm.StationBindings, b => b.Role.Equals("dmm", StringComparison.OrdinalIgnoreCase));
+        await vm.RefreshSlotsCommand.ExecuteAsync();
+        await vm.RefreshDiscoverCommand.ExecuteAsync();
+        vm.SelectedSlot = vm.SlotOverrides[0];
+        vm.SelectedDiscovered = vm.Discovered[0];
+        await vm.ApplySelectedResourceCommand.ExecuteAsync();
+        Assert.Equal(vm.Discovered[0].Resource, vm.SelectedSlot.OverrideResource);
+        Assert.True(vm.SelectedSlot.IsOverridden);
+        Assert.Equal("Overridden", vm.SelectedSlot.StatusText);
+        await vm.SaveCommand.ExecuteAsync();
+        Assert.Contains(store.AppSettings.PlanSlotOverrides, o =>
+            o.SlotName == "DMM" && o.Resource == vm.Discovered[0].Resource);
     }
 
     [Fact]
@@ -48,19 +47,5 @@ public sealed class InstrumentsViewModelTests
         var item = vm.Discovered.First(d => !string.Equals(d.Description, d.Resource, StringComparison.Ordinal));
         Assert.Equal(item.Description, item.Title);
         Assert.Equal(item.Resource, item.Subtitle);
-    }
-
-    [Fact]
-    public async Task Discover_adds_mock_resources()
-    {
-        var store = new FakeSettingsStore();
-        var vm = new InstrumentsViewModel(store, new FakeVisaDiscovery(), new FakeOpenTapSession());
-        await vm.RefreshDiscoverCommand.ExecuteAsync();
-        Assert.True(vm.Discovered.Count >= 1);
-        vm.SelectedDiscovered = vm.Discovered[0];
-        await vm.AddSelectedCommand.ExecuteAsync();
-        Assert.Contains(vm.Instruments, i => i.Resource == vm.Discovered[0].Resource);
-        await vm.SaveCommand.ExecuteAsync();
-        Assert.True(store.SaveAppCount >= 1);
     }
 }

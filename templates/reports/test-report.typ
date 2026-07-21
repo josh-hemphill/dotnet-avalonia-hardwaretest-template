@@ -1,3 +1,5 @@
+#import "lib/sample-chart.typ": channel-names, samples-for, line-chart
+
 = Test Report
 #v(0.5em)
 #text(size: 14pt)[#sys.inputs.title]
@@ -23,19 +25,24 @@
 ]
 
 #if sys.inputs.includePlots == "true" [
-  == Plots
-  #let p0 = sys.inputs.at("plot0", default: "")
-  #let p1 = sys.inputs.at("plot1", default: "")
-  #let p2 = sys.inputs.at("plot2", default: "")
-  #if p0 != "" [
-    #figure(image(p0, width: 90%), caption: [Channel plot 1])
+  #let run = json("run.json")
+  #let channels = channel-names(run, max-count: 4)
+  #if channels.len() > 0 [
+    == Plots
+    #for ch in channels [
+      #let pts = samples-for(run, ch)
+      #if pts.len() > 0 [
+        #figure(
+          line-chart(pts, title: ch),
+          caption: [Channel #ch (from run Samples)],
+        )
+        #v(0.5em)
+      ]
+    ]
   ]
-  #if p1 != "" [
-    #v(0.75em)
-    #figure(image(p1, width: 90%), caption: [Channel plot 2])
-  ]
-  #if p2 != "" [
-    #v(0.75em)
-    #figure(image(p2, width: 90%), caption: [Channel plot 3])
-  ]
+]
+
+#if sys.inputs.attemptSummary != "" [
+  == Step attempts
+  #sys.inputs.attemptSummary
 ]

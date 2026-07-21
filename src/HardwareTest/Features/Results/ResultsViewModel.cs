@@ -36,11 +36,13 @@ public partial class ResultsViewModel : ReactiveObject
     [Reactive] private TestRunSummary? _selectedRun;
     [Reactive] private TestRunRecord? _openedRun;
     [Reactive] private bool _showDetail;
-    [Reactive] private string _status = "Click Refresh to load saved runs.";
+    [Reactive] private string _status = "Loading runs…";
 
     public event EventHandler<string>? ReportOpened;
 
     public async Task OpenSelectedRunAsync() => await OpenAsync();
+
+    public Task LoadRunsAsync() => RefreshAsync();
 
     private async Task RefreshAsync()
     {
@@ -50,7 +52,7 @@ public partial class ResultsViewModel : ReactiveObject
             Runs.Add(run);
         }
 
-        Status = $"Loaded {Runs.Count} run(s).";
+        Status = Runs.Count == 0 ? "No runs yet." : $"Loaded {Runs.Count} run(s).";
     }
 
     private async Task OpenAsync()

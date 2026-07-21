@@ -4,6 +4,7 @@ using FluentAvalonia.UI.Controls;
 using HardwareTest.Core.Engine;
 using HardwareTest.Core.Settings;
 using HardwareTest.Features.Home;
+using HardwareTest.Features.Inspect;
 using HardwareTest.Features.Instruments;
 using HardwareTest.Features.ReportPreview;
 using HardwareTest.Features.Results;
@@ -33,6 +34,7 @@ public partial class MainWindowViewModel : ReactiveObject
         ISettingsStore settingsStore,
         HomeViewModel home,
         RunTestViewModel runTest,
+        InspectViewModel inspect,
         ResultsViewModel results,
         ReportPreviewViewModel reportPreview,
         InstrumentsViewModel instruments,
@@ -44,10 +46,13 @@ public partial class MainWindowViewModel : ReactiveObject
         _runControl = runControl;
         _openTap = openTap;
         RunTest = runTest;
+        Inspect = inspect;
+        Results = results;
         NavigationItems =
         [
             new NavItem { Id = "Home", Title = "Home", ViewModel = home, Symbol = FASymbol.Home },
             new NavItem { Id = "RunTest", Title = "Run", ViewModel = runTest, Symbol = FASymbol.Play },
+            new NavItem { Id = "Inspect", Title = "Inspect", ViewModel = inspect, Symbol = FASymbol.Document },
             new NavItem { Id = "Results", Title = "Results", ViewModel = results, Symbol = FASymbol.List },
             new NavItem { Id = "ReportPreview", Title = "Report Preview", ViewModel = reportPreview, Symbol = FASymbol.Document },
             new NavItem { Id = "Instruments", Title = "Instruments", ViewModel = instruments, Symbol = FASymbol.Repair },
@@ -57,12 +62,27 @@ public partial class MainWindowViewModel : ReactiveObject
         var selectedId = settingsStore.UiState.SelectedPageId;
         SelectedItem = NavigationItems.FirstOrDefault(i => i.Id == selectedId) ?? NavigationItems[0];
         CurrentPage = SelectedItem.ViewModel;
+        if (SelectedItem.Id == "Results")
+        {
+            _ = Results.LoadRunsAsync();
+        }
+        else if (SelectedItem.Id == "Inspect")
+        {
+            Inspect.Refresh();
+        }
 
+        PauseResumeCommand = ReactiveCommand.Create(PauseResume);
         PauseCommand = ReactiveCommand.Create(Pause);
         ResumeCommand = ReactiveCommand.Create(Resume);
         SafetyStopCommand = ReactiveCommand.Create(SafetyStop);
 
         runTest.NavigateToResultsRequested += (_, _) => NavigateToPageId("Results");
+        runTest.NavigateToInspectRequested += (_, _) => NavigateToPageId("Inspect");
+        inspect.OpenOnRunRequested += (_, stepPath) =>
+        {
+            runTest.ApplySelectionFromInspect(stepPath);
+            NavigateToPageId("RunTest");
+        };
 
         runControl.PropertyChanged += (_, e) =>
         {
@@ -74,15 +94,21 @@ public partial class MainWindowViewModel : ReactiveObject
                 this.RaisePropertyChanged(nameof(IsRunning));
                 this.RaisePropertyChanged(nameof(IsSafetyStopping));
                 this.RaisePropertyChanged(nameof(ControlStatus));
+                this.RaisePropertyChanged(nameof(PauseResumeLabel));
+                this.RaisePropertyChanged(nameof(PauseResumeTip));
+                this.RaisePropertyChanged(nameof(ShowPauseIcon));
             }
         };
     }
 
     public RunTestViewModel RunTest { get; }
+    public InspectViewModel Inspect { get; }
+    public ResultsViewModel Results { get; }
     public IRunControl RunControl => _runControl;
 
     public ObservableCollection<NavItem> NavigationItems { get; }
 
+    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> PauseResumeCommand { get; }
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> PauseCommand { get; }
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> ResumeCommand { get; }
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> SafetyStopCommand { get; }
@@ -90,6 +116,9 @@ public partial class MainWindowViewModel : ReactiveObject
     public bool IsPaused => _runControl.IsPaused;
     public bool IsRunning => _runControl.IsRunning;
     public bool IsSafetyStopping => _runControl.IsSafetyStopping;
+    public bool ShowPauseIcon => !IsPaused;
+    public string PauseResumeLabel => IsPaused ? "Resume" : "Pause";
+    public string PauseResumeTip => IsPaused ? "Resume the run" : "Pause the run";
 
     public string ControlStatus
     {
@@ -125,12 +154,34 @@ public partial class MainWindowViewModel : ReactiveObject
         SelectedItem = item;
         CurrentPage = item.ViewModel;
         _settingsStore.UiState.SelectedPageId = item.Id;
+        if (item.Id == "Results")
+        {
+            _ = Results.LoadRunsAsync();
+        }
+        else if (item.Id == "Inspect")
+        {
+            Inspect.Refresh();
+        }
     }
 
     public void NavigateToPageId(string pageId)
     {
         var item = NavigationItems.FirstOrDefault(i => i.Id == pageId);
         NavigateTo(item);
+    }
+
+    private void PauseResume()
+    {
+        if (_runControl.IsPaused)
+        {
+            Resume();
+            return;
+        }
+
+        if (_runControl.IsRunning)
+        {
+            Pause();
+        }
     }
 
     private void Pause()

@@ -19,11 +19,6 @@
       </Grid>
 
       <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
-        <TextBlock Text="Default VISA resource" VerticalAlignment="Center" />
-        <TextBox Grid.Column="1" Text="{Binding DefaultVisaResource}" />
-      </Grid>
-
-      <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
         <TextBlock Text="Use mock VISA" VerticalAlignment="Center" />
         <CheckBox Grid.Column="1" IsChecked="{Binding UseMockVisa}" />
       </Grid>
@@ -35,7 +30,10 @@
 
       <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
         <TextBlock Text="Log level" VerticalAlignment="Center" />
-        <TextBox Grid.Column="1" Text="{Binding LogMinimumLevel}" />
+        <ComboBox Grid.Column="1"
+                  ItemsSource="{Binding LogLevelOptions}"
+                  SelectedItem="{Binding LogMinimumLevel}"
+                  MinWidth="160" />
       </Grid>
 
       <Grid ColumnDefinitions="220,*" ColumnSpacing="12" IsVisible="{Binding ShowEventLogOptions}">

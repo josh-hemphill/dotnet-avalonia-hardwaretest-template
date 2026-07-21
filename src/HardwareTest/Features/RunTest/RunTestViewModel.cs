@@ -12,6 +12,7 @@ using HardwareTest.Core.Settings;
 using HardwareTest.OpenTap.Host;
 using ReactiveUI;
 using ReactiveUI.SourceGenerators;
+using StepFilter = HardwareTest.Features.RunTest.StepStatusFilter;
 
 namespace HardwareTest.Features.RunTest;
 
@@ -24,6 +25,7 @@ public partial class HierarchyStepViewModel : ReactiveObject
         Path = node.Path;
         Id = node.Id;
         IsStage = node.IsStage;
+        IsExpanded = node.IsStage || node.Children.Count > 0;
         Children = new ObservableCollection<HierarchyStepViewModel>(
             node.Children.Select(c => new HierarchyStepViewModel(c)));
         SyncFromNode();
@@ -40,6 +42,15 @@ public partial class HierarchyStepViewModel : ReactiveObject
     [Reactive] private string _verdict = "NotSet";
     [Reactive] private bool _enabled = true;
     [Reactive] private string? _keyValue;
+    [Reactive] private string? _extra;
+    [Reactive] private string _attemptsText = string.Empty;
+    [Reactive] private bool _isExpanded;
+    [Reactive] private string _chipText = "Pending";
+    [Reactive] private string _progressText = string.Empty;
+    [Reactive] private double _progressPercent;
+    [Reactive] private int _completedLeaves;
+    [Reactive] private int _totalLeaves;
+    [Reactive] private int _failedLeaves;
 
     public void SyncFromNode()
     {
@@ -47,9 +58,20 @@ public partial class HierarchyStepViewModel : ReactiveObject
         Verdict = Node.Verdict;
         Enabled = Node.Enabled;
         KeyValue = Node.KeyValue;
+        Extra = Node.KeyValue;
+        ChipText = StatusChip.FromStatus(StatusText, Verdict);
         foreach (var child in Children)
         {
             child.SyncFromNode();
+        }
+    }
+
+    public void ExpandAll()
+    {
+        IsExpanded = true;
+        foreach (var child in Children)
+        {
+            child.ExpandAll();
         }
     }
 }
@@ -70,6 +92,12 @@ public partial class StageItemViewModel : ReactiveObject
     [Reactive] private string _statusText = "Pending";
     [Reactive] private string _verdict = "NotSet";
     [Reactive] private string? _keyValue;
+    [Reactive] private string _chipText = "Pending";
+    [Reactive] private string _progressText = "0/0";
+    [Reactive] private double _progressPercent;
+    [Reactive] private int _completedLeaves;
+    [Reactive] private int _totalLeaves;
+    [Reactive] private int _failedLeaves;
 }
 
 public partial class ProgramItemViewModel : ReactiveObject
@@ -86,6 +114,7 @@ public partial class RunTestViewModel : ReactiveObject
 {
     private const int PlotCapacity = 2048;
     private const int DetailCap = 200;
+    private const int MaxDetailLinesPerFlush = 16;
     private const int MaxDebugSampleCount = 4096;
     private const int MinDebugIntervalMs = 1;
 
@@ -101,27 +130,39 @@ public partial class RunTestViewModel : ReactiveObject
     private readonly double[] _plotPublish = new double[PlotCapacity];
     private readonly ThrottledOpenTapProgress _progress;
     private readonly List<HierarchyStepViewModel> _fullHierarchy = [];
+    private readonly Dictionary<string, StepAttemptSummary> _attemptLedger = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> _stepsWithSamples = new(StringComparer.OrdinalIgnoreCase);
 
     private long _lastUiFlushTicks;
     private MeasurementSampleEvent? _pendingSample;
+    private string? _pendingSampleStepPath;
     private string? _pendingStatus;
     private double _pendingPercent;
     private bool _pendingForceFlush;
     private bool _pendingAwaitingOperator;
     private string? _pendingOperatorPrompt;
     private string? _pendingStepId;
+    private string? _pendingStepPath;
+    private string? _pendingStepName;
+    private string? _pendingStatusText;
     private string? _pendingVerdict;
     private string? _pendingKeyValue;
     private int _plotCount;
     private int _plotWrite;
     private int _plotPublishLength;
     private int _flushScheduled;
+    private bool _suppressStageFilter;
+    private bool _suppressSubsectionFilter;
+    private bool _suppressNestedFilter;
 
     public int PlotUiFlushCount { get; private set; }
     public int PlotYsLength => _plotPublishLength;
     public Action<Action>? UiScheduler { get; set; }
     public event EventHandler? PlotDataChanged;
     public event EventHandler? NavigateToResultsRequested;
+    public event EventHandler? NavigateToInspectRequested;
+    public event EventHandler? RequestScrollToSelectedStep;
+    public event EventHandler? RequestFocusStepSearch;
 
     public RunTestViewModel(
         IOpenTapSession openTap,
@@ -142,6 +183,10 @@ public partial class RunTestViewModel : ReactiveObject
         Programs = [];
         Hierarchy = [];
         Stages = [];
+        StepRows = [];
+        Subsections = [];
+        NestedSubsections = [];
+        StepListItems = [];
         DetailLines = [];
         DetailKeyValues = [];
         PlotYs = _plotPublish;
@@ -158,10 +203,26 @@ public partial class RunTestViewModel : ReactiveObject
         CancelCommand = ReactiveCommand.Create(Cancel);
         ContinueOperatorCommand = ReactiveCommand.Create(ContinueOperator);
         OpenStepDetailCommand = ReactiveCommand.Create(OpenSelectedDetail);
-        CloseDetailCommand = ReactiveCommand.Create(() => { ShowDetailPane = false; });
-        ToggleDetailsCommand = ReactiveCommand.Create(() => { ShowDetails = !ShowDetails; });
+        CloseDetailCommand = ReactiveCommand.Create(() => { /* detail region always follows selection */ });
+        ToggleDetailsCommand = ReactiveCommand.Create(() => { ShowDetailRegion = !ShowDetailRegion; });
         ApplyDebugPatchCommand = ReactiveCommand.Create(ApplyDebugPatch);
         OpenLastRunResultsCommand = ReactiveCommand.Create(() => NavigateToResultsRequested?.Invoke(this, EventArgs.Empty));
+        InspectPlanCommand = ReactiveCommand.Create(() => NavigateToInspectRequested?.Invoke(this, EventArgs.Empty));
+        NextFailCommand = ReactiveCommand.Create(NextFail);
+        PrevFailCommand = ReactiveCommand.Create(PrevFail);
+        JumpToCurrentCommand = ReactiveCommand.Create(JumpToCurrent);
+        ClearSubsectionCommand = ReactiveCommand.Create(ClearSubsection);
+        FilterFailCommand = ReactiveCommand.Create(FilterFail);
+        ToggleCompactCommand = ReactiveCommand.Create(ToggleCompact);
+        FocusStepSearchCommand = ReactiveCommand.Create(
+            () => RequestFocusStepSearch?.Invoke(this, EventArgs.Empty));
+        SetStepFilterCommand = ReactiveCommand.Create<string>(filter =>
+        {
+            if (!string.IsNullOrWhiteSpace(filter))
+            {
+                StepStatusFilter = filter;
+            }
+        });
 
         LoadPlanCommand = RefreshProgramsCommand;
         StartCommand = RunCommand;
@@ -176,13 +237,62 @@ public partial class RunTestViewModel : ReactiveObject
                 Observe(LoadSelectedProgramAsync());
                 RefreshRequirementFlags();
             }
-            else if (args.PropertyName == nameof(SelectedStage))
+            else if (args.PropertyName == nameof(SelectedStage) && !_suppressStageFilter)
             {
+                _suppressSubsectionFilter = true;
+                try
+                {
+                    SelectedSubsection = null;
+                }
+                finally
+                {
+                    _suppressSubsectionFilter = false;
+                }
+
                 ApplyStageFilter();
+            }
+            else if (args.PropertyName == nameof(SelectedSubsection) && !_suppressSubsectionFilter)
+            {
+                _suppressNestedFilter = true;
+                try
+                {
+                    SelectedNestedSubsection = null;
+                }
+                finally
+                {
+                    _suppressNestedFilter = false;
+                }
+
+                RebuildNestedSubsections();
+                RebuildStepRows();
+                ResolveSelectedStep();
+            }
+            else if (args.PropertyName == nameof(SelectedNestedSubsection) && !_suppressNestedFilter)
+            {
+                RebuildStepRows();
+                ResolveSelectedStep();
+            }
+            else if (args.PropertyName is nameof(StepStatusFilter) or nameof(StepSearchText))
+            {
+                RebuildVisibleStepList();
+            }
+            else if (args.PropertyName == nameof(SelectedStepListItem))
+            {
+                if (SelectedStepListItem is { IsHeader: false, Step: not null } item)
+                {
+                    SelectedStep = item.Step;
+                }
             }
             else if (args.PropertyName == nameof(SelectedStep) && SelectedStep is not null)
             {
                 DebugStepEnabled = SelectedStep.Enabled;
+                OpenSelectedDetail();
+                RefreshPlotVisibility();
+                RefreshHero();
+            }
+            else if (args.PropertyName is nameof(IsRunning) or nameof(IsAwaitingOperator) or nameof(Status))
+            {
+                RefreshHero();
             }
         };
 
@@ -207,9 +317,14 @@ public partial class RunTestViewModel : ReactiveObject
     public OperatorSession Session => _session;
     public ObservableCollection<ProgramItemViewModel> Programs { get; }
     public ObservableCollection<HierarchyStepViewModel> Hierarchy { get; }
+    public ObservableCollection<HierarchyStepViewModel> StepRows { get; }
     public ObservableCollection<StageItemViewModel> Stages { get; }
+    public ObservableCollection<StageItemViewModel> Subsections { get; }
+    public ObservableCollection<StageItemViewModel> NestedSubsections { get; }
+    public ObservableCollection<StepListItemViewModel> StepListItems { get; }
     public ObservableCollection<string> DetailLines { get; }
     public ObservableCollection<string> DetailKeyValues { get; }
+    public ObservableCollection<string> AttemptHistoryLines { get; } = [];
     public Func<CancellationToken, Task<string?>>? RequestPlanFilePath { get; set; }
 
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> ConfirmSessionCommand { get; }
@@ -228,13 +343,34 @@ public partial class RunTestViewModel : ReactiveObject
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> ToggleDetailsCommand { get; }
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> ApplyDebugPatchCommand { get; }
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> OpenLastRunResultsCommand { get; }
+    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> InspectPlanCommand { get; }
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> LoadPlanCommand { get; }
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> StartCommand { get; }
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> LoadSampleSuiteCommand { get; }
+    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> NextFailCommand { get; }
+    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> PrevFailCommand { get; }
+    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> JumpToCurrentCommand { get; }
+    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> ClearSubsectionCommand { get; }
+    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> FilterFailCommand { get; }
+    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> ToggleCompactCommand { get; }
+    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> FocusStepSearchCommand { get; }
+    public ReactiveCommand<string, System.Reactive.Unit> SetStepFilterCommand { get; }
 
     [Reactive] private ProgramItemViewModel? _selectedProgram;
     [Reactive] private StageItemViewModel? _selectedStage;
+    [Reactive] private StageItemViewModel? _selectedSubsection;
+    [Reactive] private StageItemViewModel? _selectedNestedSubsection;
     [Reactive] private HierarchyStepViewModel? _selectedStep;
+    [Reactive] private StepListItemViewModel? _selectedStepListItem;
+    [Reactive] private string _stepStatusFilter = StepFilter.All;
+    [Reactive] private string _stepSearchText = string.Empty;
+    [Reactive] private bool _hasNestedSubsections;
+    [Reactive] private bool _compactStepRows;
+    [Reactive] private string _breadcrumbText = "Entire program";
+    [Reactive] private string _breadcrumbDetailText = string.Empty;
+    [Reactive] private int _suitePassedCount;
+    [Reactive] private int _suiteFailedCount;
+    [Reactive] private int _suitePendingCount;
     [Reactive] private HierarchyStepViewModel? _detailStep;
     [Reactive] private string _dutSerialInput = string.Empty;
     [Reactive] private string _dutPartInput = string.Empty;
@@ -242,14 +378,20 @@ public partial class RunTestViewModel : ReactiveObject
     [Reactive] private string _operatorInput = string.Empty;
     [Reactive] private bool _requirePartNumber;
     [Reactive] private bool _requireRevision;
-    [Reactive] private bool _requireOperator;
+    [Reactive] private bool _requireOperator = true;
     [Reactive] private bool _showSessionForm = true;
-    [Reactive] private bool _showDetailPane;
+    [Reactive] private bool _sessionBlocked = true;
+    [Reactive] private bool _showDetailRegion = true;
+    [Reactive] private bool _showLiveLog;
+    [Reactive] private bool _hasPlotData;
+    [Reactive] private bool _showPlotForSelection;
+    [Reactive] private bool _sessionLogExpanded;
+    [Reactive] private string _attemptSummaryChip = string.Empty;
     [Reactive] private string _status = string.Empty;
     [Reactive] private bool _isRunning;
     [Reactive] private string? _lastRunId;
     [Reactive] private double _overallPercent;
-    [Reactive] private bool _showDetails;
+    [Reactive] private bool _showDetails = true;
     [Reactive] private double[] _plotYs = Array.Empty<double>();
     [Reactive] private string _sessionSummary = "Session: (confirm required)";
     [Reactive] private bool _needsDutConfirm = true;
@@ -263,7 +405,16 @@ public partial class RunTestViewModel : ReactiveObject
     [Reactive] private double _debugThreshold;
     [Reactive] private bool _debugStepEnabled = true;
     [Reactive] private string _stationSlotSummary = "Station: (load program)";
-
+    [Reactive] private string _currentStepName = string.Empty;
+    [Reactive] private string _currentStepPath = string.Empty;
+    [Reactive] private string _heroLabel = "SELECTED:";
+    [Reactive] private string _heroStepName = string.Empty;
+    [Reactive] private string _heroChipText = "Pending";
+    [Reactive] private string _heroStatusLine = string.Empty;
+    [Reactive] private string _detailChipText = "Pending";
+    [Reactive] private string _detailPrimaryLine = string.Empty;
+    [Reactive] private string _conditionSummary = string.Empty;
+    [Reactive] private bool _hasSubsections;
     public void IngestProgress(OpenTapProgress progress)
     {
         lock (_progressSync)
@@ -279,7 +430,7 @@ public partial class RunTestViewModel : ReactiveObject
                 _pendingSample = sample;
             }
 
-            if (!string.IsNullOrWhiteSpace(progress.StepName) && (ShowDetails || ShowDetailPane))
+            if (!string.IsNullOrWhiteSpace(progress.StepName))
             {
                 EnqueueDetail_NoLock($"{progress.StepName}: {progress.Message}");
             }
@@ -291,8 +442,25 @@ public partial class RunTestViewModel : ReactiveObject
             }
 
             _pendingStepId = progress.StepId ?? _pendingStepId;
+            _pendingStepPath = progress.StepPath ?? _pendingStepPath;
+            _pendingStepName = progress.StepName ?? _pendingStepName;
+            _pendingStatusText = progress.StatusText ?? _pendingStatusText;
             _pendingVerdict = progress.Verdict ?? _pendingVerdict;
             _pendingKeyValue = progress.KeyValue ?? _pendingKeyValue;
+
+            if (progress.Sample is null
+                && (!string.IsNullOrWhiteSpace(progress.StepPath) || !string.IsNullOrWhiteSpace(progress.StepName))
+                && (!string.IsNullOrWhiteSpace(progress.StatusText)
+                    || !string.IsNullOrWhiteSpace(progress.Verdict)
+                    || progress.AwaitingOperator))
+            {
+                _pendingForceFlush = true;
+            }
+
+            if (progress.Sample is not null && !string.IsNullOrWhiteSpace(progress.StepPath))
+            {
+                _pendingSampleStepPath = progress.StepPath;
+            }
 
             if (progress.IsCompleted)
             {
@@ -311,16 +479,30 @@ public partial class RunTestViewModel : ReactiveObject
         if (!_session.TryConfirm(req, DutSerialInput, DutPartInput, DutRevisionInput, OperatorInput, family, out var error))
         {
             Status = error;
+            SessionBlocked = true;
             return;
         }
 
         ShowSessionForm = false;
         RefreshSessionSummary();
-        Status = $"Session confirmed: {_session.DutSerial}";
+        Status = $"Session confirmed: {_session.DutSerial} / {_session.OperatorName}";
     }
 
     private void ConfirmSameDut()
     {
+        if (string.IsNullOrWhiteSpace(OperatorInput) && string.IsNullOrWhiteSpace(_session.OperatorName))
+        {
+            Status = "Technician name is required.";
+            SessionBlocked = true;
+            ShowSessionForm = true;
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(OperatorInput))
+        {
+            _session.OperatorName = OperatorInput.Trim();
+        }
+
         _session.ConfirmSameDut();
         DutSerialInput = _session.DutSerial;
         DutPartInput = _session.DutPartNumber ?? string.Empty;
@@ -334,9 +516,12 @@ public partial class RunTestViewModel : ReactiveObject
     private void ChangeSession()
     {
         _session.ChangeSession();
+        _attemptLedger.Clear();
+        ClearAttemptTexts();
         DutSerialInput = string.Empty;
         DutPartInput = string.Empty;
         DutRevisionInput = string.Empty;
+        OperatorInput = string.Empty;
         ShowSessionForm = true;
         RefreshSessionSummary();
         Status = "Confirm DUT, then Run.";
@@ -358,6 +543,15 @@ public partial class RunTestViewModel : ReactiveObject
             Id = "sample",
             DisplayName = "Sample Hardware Suite",
             Path = SampleProgramFactory.EmbeddedName,
+            DutFamily = "demo",
+            IsSample = true,
+            Requirements = ProgramRequirements.Sample,
+        });
+        Programs.Add(new ProgramItemViewModel
+        {
+            Id = "board-demo",
+            DisplayName = BoardDemoProgramFactory.DisplayName,
+            Path = BoardDemoProgramFactory.EmbeddedName,
             DutFamily = "demo",
             IsSample = true,
             Requirements = ProgramRequirements.Sample,
@@ -404,7 +598,7 @@ public partial class RunTestViewModel : ReactiveObject
         }
     }
 
-    private async Task LoadSelectedProgramAsync()
+    private async Task LoadSelectedProgramAsync(string? preserveStagePath = null, string? preserveStepPath = null)
     {
         if (SelectedProgram is null)
         {
@@ -413,30 +607,63 @@ public partial class RunTestViewModel : ReactiveObject
 
         ApplyIdleStaleCheck();
         _session.SelectProgram(SelectedProgram.Id, SelectedProgram.Path, SelectedProgram.DisplayName, SelectedProgram.DutFamily);
-        if (SelectedProgram.IsSample)
+
+        var alreadyLoaded = string.Equals(_openTap.LoadedPlanPath, SelectedProgram.Path, StringComparison.OrdinalIgnoreCase);
+
+        if (!alreadyLoaded)
         {
-            await _openTap.LoadSampleProgramAsync();
+            if (string.Equals(SelectedProgram.Path, SampleProgramFactory.EmbeddedName, StringComparison.OrdinalIgnoreCase))
+            {
+                await _openTap.LoadSampleProgramAsync();
+            }
+            else if (string.Equals(SelectedProgram.Path, BoardDemoProgramFactory.EmbeddedName, StringComparison.OrdinalIgnoreCase))
+            {
+                await _openTap.LoadBoardDemoProgramAsync();
+            }
+            else
+            {
+                await _openTap.LoadPlanAsync(SelectedProgram.Path);
+            }
+
+            RebuildHierarchyFromHost(preserveStagePath, preserveStepPath);
         }
-        else
+        else if (Hierarchy.Count == 0 && _fullHierarchy.Count == 0)
         {
-            await _openTap.LoadPlanAsync(SelectedProgram.Path);
+            RebuildHierarchyFromHost(preserveStagePath, preserveStepPath);
+        }
+        else if (!string.IsNullOrWhiteSpace(preserveStepPath))
+        {
+            // Keep Hierarchy instances; only re-resolve selection by path.
+            ResolveSelectedStep(preserveStepPath);
+        }
+        else if (!string.IsNullOrWhiteSpace(preserveStagePath))
+        {
+            RestoreSelection(preserveStagePath, preserveStepPath);
         }
 
-        RebuildHierarchyFromHost();
         StationSlotSummary = _openTap.InstrumentSlots.Count == 0
             ? "Station: (no OpenTAP instruments)"
             : "Station: " + string.Join(", ", _openTap.InstrumentSlots.Select(s => $"{s.Name}→{s.ResourceName}"));
         RefreshSessionSummary();
     }
 
-    private void RebuildHierarchyFromHost()
+    private void RebuildHierarchyFromHost(string? preserveStagePath = null, string? preserveStepPath = null)
     {
         _fullHierarchy.Clear();
         Hierarchy.Clear();
         Stages.Clear();
+        Subsections.Clear();
+        NestedSubsections.Clear();
+        StepRows.Clear();
+        StepListItems.Clear();
         foreach (var node in _openTap.StepTree)
         {
             _fullHierarchy.Add(new HierarchyStepViewModel(node));
+        }
+
+        foreach (var root in _fullHierarchy)
+        {
+            Hierarchy.Add(root);
         }
 
         Stages.Add(new StageItemViewModel(null, "Entire program"));
@@ -448,8 +675,32 @@ public partial class RunTestViewModel : ReactiveObject
             }
         }
 
-        SelectedStage = Stages.FirstOrDefault();
-        ApplyStageFilter();
+        RollupParentStatuses();
+        RestoreSelection(preserveStagePath, preserveStepPath);
+    }
+
+    private void RestoreSelection(string? preserveStagePath, string? preserveStepPath)
+    {
+        _suppressStageFilter = true;
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(preserveStagePath))
+            {
+                SelectedStage = Stages.FirstOrDefault(s =>
+                    string.Equals(s.Path, preserveStagePath, StringComparison.OrdinalIgnoreCase))
+                    ?? Stages.FirstOrDefault();
+            }
+            else if (SelectedStage is null || !Stages.Contains(SelectedStage))
+            {
+                SelectedStage = Stages.FirstOrDefault();
+            }
+        }
+        finally
+        {
+            _suppressStageFilter = false;
+        }
+
+        ApplyStageFilter(preserveStepPath);
     }
 
     private static IEnumerable<HierarchyStepViewModel> EnumerateStages(HierarchyStepViewModel root)
@@ -470,22 +721,486 @@ public partial class RunTestViewModel : ReactiveObject
         }
     }
 
-    private void ApplyStageFilter()
+    private HierarchyStepViewModel? ActiveScopeStep
+        => SelectedNestedSubsection?.Step ?? SelectedSubsection?.Step ?? SelectedStage?.Step;
+
+    private void ApplyStageFilter(string? preserveStepPath = null)
     {
-        Hierarchy.Clear();
-        if (SelectedStage?.Step is null)
+        RebuildSubsections();
+        RebuildStepRows();
+        ResolveSelectedStep(preserveStepPath);
+        ApplyAttemptTexts();
+        RefreshHero();
+    }
+
+    private void RebuildSubsections()
+    {
+        Subsections.Clear();
+        var stageStep = SelectedStage?.Step;
+        if (stageStep is null)
         {
-            foreach (var root in _fullHierarchy)
+            HasSubsections = false;
+            ClearNestedSubsectionsInternal();
+            return;
+        }
+
+        foreach (var child in stageStep.Children.Where(c => c.IsStage || c.Children.Count > 0))
+        {
+            var item = new StageItemViewModel(child, child.Name);
+            HierarchyRollup.ApplyToStage(item, _fullHierarchy);
+            Subsections.Add(item);
+        }
+
+        HasSubsections = Subsections.Count > 0;
+        ClearNestedSubsectionsInternal();
+    }
+
+    private void ClearNestedSubsectionsInternal()
+    {
+        NestedSubsections.Clear();
+        HasNestedSubsections = false;
+        _suppressNestedFilter = true;
+        try
+        {
+            SelectedNestedSubsection = null;
+        }
+        finally
+        {
+            _suppressNestedFilter = false;
+        }
+    }
+
+    private void RebuildNestedSubsections()
+    {
+        NestedSubsections.Clear();
+        var subStep = SelectedSubsection?.Step;
+        if (subStep is null)
+        {
+            HasNestedSubsections = false;
+            return;
+        }
+
+        foreach (var child in subStep.Children.Where(c => c.IsStage || c.Children.Count > 0))
+        {
+            var item = new StageItemViewModel(child, child.Name);
+            HierarchyRollup.ApplyToStage(item, _fullHierarchy);
+            NestedSubsections.Add(item);
+        }
+
+        HasNestedSubsections = NestedSubsections.Count > 0;
+    }
+
+    private void RebuildStepRows() => RebuildVisibleStepList();
+
+    private void RebuildVisibleStepList()
+    {
+        var scope = ActiveScopeStep;
+        IEnumerable<HierarchyStepViewModel> roots = scope is null ? _fullHierarchy : [scope];
+        var useSections = scope is not null
+            && SelectedSubsection is null
+            && SelectedNestedSubsection is null
+            && scope.Children.Any(c => c.IsStage || c.Children.Count > 0);
+
+        var items = new List<StepListItemViewModel>();
+        if (useSections)
+        {
+            foreach (var section in scope!.Children.Where(c => c.IsStage || c.Children.Count > 0))
             {
-                Hierarchy.Add(root);
+                var sectionLeaves = FilterLeaves(HierarchyRollup.EnumerateLeaves([section]));
+                if (sectionLeaves.Count == 0)
+                {
+                    continue;
+                }
+
+                items.Add(StepListItemViewModel.Header(section.Name));
+                foreach (var leaf in sectionLeaves)
+                {
+                    items.Add(StepListItemViewModel.Leaf(leaf));
+                }
+            }
+
+            var directLeaves = FilterLeaves(scope.Children.Where(c => c.Children.Count == 0 && !c.IsStage));
+            foreach (var leaf in directLeaves)
+            {
+                items.Add(StepListItemViewModel.Leaf(leaf));
             }
         }
         else
         {
-            Hierarchy.Add(SelectedStage.Step);
+            var leaves = FilterLeaves(HierarchyRollup.EnumerateLeaves(roots));
+            foreach (var leaf in leaves)
+            {
+                items.Add(StepListItemViewModel.Leaf(leaf));
+            }
         }
 
-        SelectedStep = FlattenHierarchy(Hierarchy).FirstOrDefault();
+        StepListItems.Clear();
+        foreach (var item in items)
+        {
+            StepListItems.Add(item);
+        }
+
+        StepRows.Clear();
+        foreach (var item in items)
+        {
+            if (!item.IsHeader && item.Step is not null)
+            {
+                StepRows.Add(item.Step);
+            }
+        }
+
+        RefreshBreadcrumb();
+    }
+
+    private List<HierarchyStepViewModel> FilterLeaves(IEnumerable<HierarchyStepViewModel> leaves)
+    {
+        IEnumerable<HierarchyStepViewModel> query = leaves;
+        if (!string.Equals(StepStatusFilter, StepFilter.All, StringComparison.Ordinal))
+        {
+            query = query.Where(l =>
+                string.Equals(StatusChip.FromStatus(l.StatusText, l.Verdict), StepStatusFilter, StringComparison.Ordinal));
+        }
+
+        if (!string.IsNullOrWhiteSpace(StepSearchText))
+        {
+            var term = StepSearchText.Trim();
+            query = query.Where(l =>
+                l.Name.Contains(term, StringComparison.OrdinalIgnoreCase)
+                || l.Path.Contains(term, StringComparison.OrdinalIgnoreCase));
+        }
+
+        return query.ToList();
+    }
+
+    private void ResolveSelectedStep(string? preserveStepPath = null)
+    {
+        var flat = StepRows.ToList();
+        if (flat.Count == 0)
+        {
+            flat = HierarchyRollup.EnumerateLeaves(_fullHierarchy).ToList();
+        }
+
+        if (!string.IsNullOrWhiteSpace(preserveStepPath))
+        {
+            var match = flat.FirstOrDefault(s =>
+                string.Equals(s.Path, preserveStepPath, StringComparison.OrdinalIgnoreCase));
+            if (match is not null)
+            {
+                SelectedStep = match;
+                return;
+            }
+        }
+
+        if (SelectedStep is not null && flat.Any(s => ReferenceEquals(s, SelectedStep)))
+        {
+            return;
+        }
+
+        if (SelectedStep is not null)
+        {
+            var byPath = flat.FirstOrDefault(s =>
+                string.Equals(s.Path, SelectedStep.Path, StringComparison.OrdinalIgnoreCase));
+            if (byPath is not null)
+            {
+                SelectedStep = byPath;
+                return;
+            }
+        }
+
+        SelectedStep = flat.FirstOrDefault();
+    }
+
+    private void RollupParentStatuses()
+    {
+        HierarchyRollup.Apply(_fullHierarchy);
+        foreach (var stage in Stages)
+        {
+            HierarchyRollup.ApplyToStage(stage, _fullHierarchy);
+        }
+
+        foreach (var subsection in Subsections)
+        {
+            HierarchyRollup.ApplyToStage(subsection, _fullHierarchy);
+        }
+
+        foreach (var nested in NestedSubsections)
+        {
+            HierarchyRollup.ApplyToStage(nested, _fullHierarchy);
+        }
+
+        ReorderStagesByPriority();
+        RefreshSuiteSummary();
+        RebuildVisibleStepList();
+    }
+
+    private void ReorderStagesByPriority()
+    {
+        if (Stages.Count < 2)
+        {
+            return;
+        }
+
+        var ordered = Stages
+            .Select((stage, index) => (stage, index))
+            .OrderBy(x => StagePriority(x.stage))
+            .ThenBy(x => x.index)
+            .Select(x => x.stage)
+            .ToList();
+
+        for (var i = 0; i < ordered.Count; i++)
+        {
+            if (!ReferenceEquals(Stages[i], ordered[i]))
+            {
+                Stages.Move(Stages.IndexOf(ordered[i]), i);
+            }
+        }
+    }
+
+    private static int StagePriority(StageItemViewModel stage)
+    {
+        if (stage.Step is null)
+        {
+            return 0;
+        }
+
+        return stage.ChipText == "Fail" ? 1 : 2;
+    }
+
+    private void RefreshSuiteSummary()
+    {
+        var chips = HierarchyRollup.EnumerateLeaves(_fullHierarchy)
+            .Select(l => StatusChip.FromStatus(l.StatusText, l.Verdict))
+            .ToList();
+        SuitePassedCount = chips.Count(c => c == "Pass");
+        SuiteFailedCount = chips.Count(c => c == "Fail");
+        SuitePendingCount = chips.Count(c => c is not "Pass" and not "Fail");
+    }
+
+    private void RefreshBreadcrumb()
+    {
+        var parts = new List<string>
+        {
+            SelectedStage?.Step is null ? "Entire program" : SelectedStage.DisplayName,
+        };
+
+        if (SelectedSubsection is not null)
+        {
+            parts.Add(SelectedSubsection.DisplayName);
+        }
+
+        if (SelectedNestedSubsection is not null)
+        {
+            parts.Add(SelectedNestedSubsection.DisplayName);
+        }
+
+        BreadcrumbText = string.Join(" › ", parts);
+
+        var activeItem = SelectedNestedSubsection ?? SelectedSubsection ?? SelectedStage;
+        BreadcrumbDetailText = activeItem is null
+            ? string.Empty
+            : $"({HierarchyRollup.FormatProgressText(activeItem.CompletedLeaves, activeItem.TotalLeaves, activeItem.FailedLeaves)})";
+    }
+
+    private void MaybeAutoFocusFail()
+    {
+        var scope = ActiveScopeStep;
+        IEnumerable<HierarchyStepViewModel> roots = scope is null ? _fullHierarchy : [scope];
+        var firstFail = HierarchyRollup.EnumerateLeaves(roots)
+            .FirstOrDefault(l => StatusChip.FromStatus(l.StatusText, l.Verdict) == "Fail");
+        if (firstFail is null)
+        {
+            return;
+        }
+
+        SelectedStep = firstFail;
+        SyncSelectedStepListItem();
+        OpenSelectedDetail();
+    }
+
+    private void NextFail() => CycleFail(forward: true);
+
+    private void PrevFail() => CycleFail(forward: false);
+
+    private void CycleFail(bool forward)
+    {
+        var scope = ActiveScopeStep;
+        IEnumerable<HierarchyStepViewModel> roots = scope is null ? _fullHierarchy : [scope];
+        var fails = HierarchyRollup.EnumerateLeaves(roots)
+            .Where(l => StatusChip.FromStatus(l.StatusText, l.Verdict) == "Fail")
+            .ToList();
+        if (fails.Count == 0)
+        {
+            return;
+        }
+
+        var currentIndex = SelectedStep is null ? -1 : fails.FindIndex(f => ReferenceEquals(f, SelectedStep));
+        int nextIndex;
+        if (currentIndex < 0)
+        {
+            nextIndex = forward ? 0 : fails.Count - 1;
+        }
+        else
+        {
+            nextIndex = forward
+                ? (currentIndex + 1) % fails.Count
+                : (currentIndex - 1 + fails.Count) % fails.Count;
+        }
+
+        SelectedStep = fails[nextIndex];
+        SyncSelectedStepListItem();
+        OpenSelectedDetail();
+    }
+
+    private void SyncSelectedStepListItem()
+    {
+        var match = StepListItems.FirstOrDefault(i => !i.IsHeader && ReferenceEquals(i.Step, SelectedStep));
+        if (match is not null)
+        {
+            SelectedStepListItem = match;
+        }
+    }
+
+    private void JumpToCurrent()
+    {
+        if (string.IsNullOrWhiteSpace(CurrentStepPath))
+        {
+            return;
+        }
+
+        var match = FlattenHierarchy(_fullHierarchy)
+            .FirstOrDefault(s => string.Equals(s.Path, CurrentStepPath, StringComparison.OrdinalIgnoreCase));
+        if (match is null)
+        {
+            return;
+        }
+
+        SelectScopeForStep(match);
+        if (!StepRows.Any(r => ReferenceEquals(r, match)))
+        {
+            StepStatusFilter = StepFilter.All;
+        }
+
+        SelectedStep = match;
+        SyncSelectedStepListItem();
+        RequestScrollToSelectedStep?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void ClearSubsection() => SelectedSubsection = null;
+
+    public void ClearNestedSubsection() => SelectedNestedSubsection = null;
+
+    private void FilterFail()
+    {
+        var entire = Stages.FirstOrDefault(s => s.Step is null);
+        if (entire is not null)
+        {
+            SelectedStage = entire;
+        }
+
+        StepStatusFilter = StepFilter.Fail;
+    }
+
+    private void ToggleCompact() => CompactStepRows = !CompactStepRows;
+
+    private void SelectScopeForStep(HierarchyStepViewModel leaf)
+    {
+        var containingStage = Stages.FirstOrDefault(s => s.Step is not null && IsWithin(s.Step, leaf))
+            ?? Stages.FirstOrDefault(s => s.Step is null);
+        if (containingStage is not null && !ReferenceEquals(SelectedStage, containingStage))
+        {
+            SelectedStage = containingStage;
+        }
+
+        var containingSubsection = Subsections.FirstOrDefault(s => s.Step is not null && IsWithin(s.Step, leaf));
+        if (!ReferenceEquals(SelectedSubsection, containingSubsection))
+        {
+            SelectedSubsection = containingSubsection;
+        }
+
+        var containingNested = NestedSubsections.FirstOrDefault(s => s.Step is not null && IsWithin(s.Step, leaf));
+        if (!ReferenceEquals(SelectedNestedSubsection, containingNested))
+        {
+            SelectedNestedSubsection = containingNested;
+        }
+    }
+
+    private static bool IsWithin(HierarchyStepViewModel scope, HierarchyStepViewModel leaf)
+        => ReferenceEquals(scope, leaf)
+           || leaf.Path.StartsWith(scope.Path + "/", StringComparison.OrdinalIgnoreCase);
+
+    public void ApplySelectionFromInspect(string? stepPath)
+    {
+        if (string.IsNullOrWhiteSpace(stepPath))
+        {
+            return;
+        }
+
+        var leaf = FlattenHierarchy(_fullHierarchy)
+            .FirstOrDefault(s => s.Children.Count == 0
+                && string.Equals(s.Path, stepPath, StringComparison.OrdinalIgnoreCase));
+        if (leaf is null)
+        {
+            return;
+        }
+
+        SelectScopeForStep(leaf);
+        if (!StepRows.Any(r => ReferenceEquals(r, leaf)))
+        {
+            StepStatusFilter = StepFilter.All;
+        }
+
+        SelectedStep = leaf;
+        SyncSelectedStepListItem();
+        RebuildVisibleStepList();
+    }
+
+    private void RefreshHero()
+    {
+        HeroLabel = IsRunning ? "CURRENT:" : "SELECTED:";
+        if (IsRunning && !string.IsNullOrWhiteSpace(CurrentStepName))
+        {
+            HeroStepName = CurrentStepName;
+            var live = FindStepVm(
+                FlattenHierarchy(_fullHierarchy).ToList(),
+                stepId: null,
+                CurrentStepPath,
+                CurrentStepName);
+            if (live is not null)
+            {
+                HeroChipText = StatusChip.FromStatus(live.StatusText, live.Verdict);
+            }
+            else if (IsAwaitingOperator)
+            {
+                HeroChipText = "Awaiting";
+            }
+            else
+            {
+                HeroChipText = "Running";
+            }
+        }
+        else if (SelectedStep is not null)
+        {
+            HeroStepName = SelectedStep.Name;
+            HeroChipText = StatusChip.FromStatus(SelectedStep.StatusText, SelectedStep.Verdict);
+        }
+        else
+        {
+            HeroStepName = string.Empty;
+            HeroChipText = "Pending";
+        }
+
+        if (IsAwaitingOperator && !string.IsNullOrWhiteSpace(OperatorPromptMessage))
+        {
+            HeroStatusLine = OperatorPromptMessage!;
+            if (HeroChipText is not "Fail")
+            {
+                HeroChipText = "Awaiting";
+            }
+        }
+        else
+        {
+            HeroStatusLine = Status;
+        }
     }
 
     private async Task OpenPlanFileAsync()
@@ -569,13 +1284,28 @@ public partial class RunTestViewModel : ReactiveObject
             return;
         }
 
-        if (selectionOnly && SelectedStep is null)
+        var selectionPath = selectionOnly ? SelectedStep?.Path : null;
+        var selectionName = selectionOnly ? SelectedStep?.Name : null;
+        var stagePath = SelectedStage?.Path;
+        if (selectionOnly)
         {
-            Status = "Select a stage or step to run.";
-            return;
+            if (string.IsNullOrWhiteSpace(selectionPath))
+            {
+                Status = "Select a stage or step to run.";
+                return;
+            }
+
+            if (IsWholePlanSelection(selectionPath))
+            {
+                Status = "Run Selected needs a specific stage or step — not the entire program. Use Run for the full suite.";
+                return;
+            }
         }
 
         IsRunning = true;
+        HasPlotData = false;
+        ShowPlotForSelection = false;
+        _stepsWithSamples.Clear();
         PlotUiFlushCount = 0;
         _lastUiFlushTicks = 0;
         ResetPlotBuffer();
@@ -595,10 +1325,16 @@ public partial class RunTestViewModel : ReactiveObject
 
         try
         {
-            await LoadSelectedProgramAsync();
-            if (IsEngineerDebugMode && SelectedStep is not null)
+            await LoadSelectedProgramAsync(stagePath, selectionPath);
+            if (IsEngineerDebugMode && !string.IsNullOrWhiteSpace(selectionPath))
             {
-                ApplyDebugPatch();
+                SelectedStep = FlattenHierarchy(_fullHierarchy)
+                    .FirstOrDefault(s => string.Equals(s.Path, selectionPath, StringComparison.OrdinalIgnoreCase))
+                    ?? SelectedStep;
+                if (SelectedStep is not null)
+                {
+                    ApplyDebugPatch();
+                }
             }
 
             var station = BuildStationProfile();
@@ -618,7 +1354,7 @@ public partial class RunTestViewModel : ReactiveObject
             _session.TouchActivity();
 
             var summary = selectionOnly
-                ? await _openTap.RunSelectionAsync(SelectedStep!.Path, _progress, cts.Token).ConfigureAwait(false)
+                ? await _openTap.RunSelectionAsync(selectionPath!, _progress, cts.Token).ConfigureAwait(false)
                 : await _openTap.RunAsync(_progress, cts.Token).ConfigureAwait(false);
 
             lock (_progressSync)
@@ -628,9 +1364,36 @@ public partial class RunTestViewModel : ReactiveObject
 
             ScheduleUiFlush();
             await WaitForPendingFlushesAsync().ConfigureAwait(false);
-            SyncHierarchyLive();
 
             LastRunId = summary.RunId;
+            RecordAttempts(summary);
+
+            await RunOnUiAsync(() =>
+            {
+                SyncHierarchyLive();
+                ApplyResultsFromSummary(summary);
+                ApplyAttemptTexts();
+                if (!selectionOnly && summary.Result == RunResult.Failed)
+                {
+                    StepStatusFilter = StepFilter.Fail;
+                }
+
+                if (!string.IsNullOrWhiteSpace(selectionPath))
+                {
+                    ResolveSelectedStep(selectionPath);
+                }
+
+                OpenSelectedDetail();
+                Status = BuildCompletionStatus(selectionOnly, selectionPath, selectionName, summary);
+                AttemptSummaryChip = string.Empty;
+                if (selectionOnly
+                    && !string.IsNullOrWhiteSpace(selectionPath)
+                    && _attemptLedger.TryGetValue(selectionPath, out var led))
+                {
+                    AttemptSummaryChip = led.Display;
+                }
+            }).ConfigureAwait(false);
+
             var record = new TestRunRecord
             {
                 RunId = summary.RunId,
@@ -646,7 +1409,8 @@ public partial class RunTestViewModel : ReactiveObject
                 Result = summary.Result,
                 ErrorMessage = summary.ErrorMessage,
                 Samples = summary.Samples,
-                Steps = summary.Steps,
+                Steps = BuildRolledUpSteps(),
+                StepAttempts = _attemptLedger.Values.OrderBy(a => a.StepPath).ToList(),
             };
             await _runStore.SaveAsync(record).ConfigureAwait(false);
 
@@ -655,16 +1419,12 @@ public partial class RunTestViewModel : ReactiveObject
                 try
                 {
                     await _reportService.GeneratePdfAsync(record).ConfigureAwait(false);
-                    Status = $"Finished: {summary.Result}. Report generated.";
+                    await RunOnUiAsync(() => Status += " Report generated.").ConfigureAwait(false);
                 }
                 catch (Exception ex)
                 {
-                    Status = $"Finished: {summary.Result}. Report failed: {ex.Message}";
+                    await RunOnUiAsync(() => Status += $" Report failed: {ex.Message}").ConfigureAwait(false);
                 }
-            }
-            else
-            {
-                Status = $"Finished: {summary.Result}";
             }
         }
         catch (Exception ex)
@@ -679,19 +1439,70 @@ public partial class RunTestViewModel : ReactiveObject
             OverallPercent = 100;
             cts.Dispose();
             RefreshSessionSummary();
+            RefreshHero();
         }
     }
 
+    private bool IsWholePlanSelection(string path)
+        => _fullHierarchy.Any(r => string.Equals(r.Path, path, StringComparison.OrdinalIgnoreCase));
+
+    private string BuildCompletionStatus(
+        bool selectionOnly,
+        string? selectionPath,
+        string? selectionName,
+        OpenTapRunSummary summary)
+    {
+        if (selectionOnly && !string.IsNullOrWhiteSpace(selectionPath))
+        {
+            _attemptLedger.TryGetValue(selectionPath, out var ledger);
+            var attemptNo = ledger?.AttemptCount ?? 1;
+            var badge = ledger?.Display ?? $"{attemptNo}";
+            return $"Attempt #{attemptNo} for {selectionName ?? selectionPath} ({badge}). Snapshot also saved to Results.";
+        }
+
+        return $"Suite finished: {summary.Result}. Session attempts rolled up; Results entry {summary.RunId}.";
+    }
+
     private StationProfile BuildStationProfile()
-        => new(_settings.StationBindings.ToDictionary(
-            b => b.Role,
-            b =>
+    {
+        var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var planId = SelectedProgram?.Id ?? string.Empty;
+        foreach (var ov in _settings.PlanSlotOverrides.Where(o =>
+                     string.Equals(o.PlanId, planId, StringComparison.OrdinalIgnoreCase)
+                     || string.IsNullOrWhiteSpace(planId)))
+        {
+            if (string.IsNullOrWhiteSpace(ov.Resource))
+            {
+                continue;
+            }
+
+            if (!string.IsNullOrWhiteSpace(ov.RoleHint))
+            {
+                map[ov.RoleHint] = ov.Resource;
+            }
+
+            if (!string.IsNullOrWhiteSpace(ov.SlotName))
+            {
+                map[ov.SlotName] = ov.Resource;
+            }
+        }
+
+        // Legacy fallback: station bindings → instrument registry resources.
+        if (map.Count == 0)
+        {
+            foreach (var b in _settings.StationBindings)
             {
                 var instr = _settings.Instruments.FirstOrDefault(i =>
                     string.Equals(i.Id, b.InstrumentId, StringComparison.OrdinalIgnoreCase));
-                return instr?.Resource ?? b.InstrumentId;
-            },
-            StringComparer.OrdinalIgnoreCase));
+                if (instr is not null && !string.IsNullOrWhiteSpace(b.Role))
+                {
+                    map[b.Role] = instr.Resource;
+                }
+            }
+        }
+
+        return new StationProfile(map);
+    }
 
     public void OpenSelectedStepDetail() => OpenSelectedDetail();
 
@@ -703,7 +1514,12 @@ public partial class RunTestViewModel : ReactiveObject
         }
 
         DetailStep = SelectedStep;
-        ShowDetailPane = true;
+        ShowDetailRegion = true;
+        ShowDetails = true;
+        DetailChipText = StatusChip.FromStatus(SelectedStep.StatusText, SelectedStep.Verdict);
+        DetailPrimaryLine = !string.IsNullOrWhiteSpace(SelectedStep.KeyValue)
+            ? SelectedStep.KeyValue!
+            : SelectedStep.StatusText;
         DetailKeyValues.Clear();
         if (!string.IsNullOrWhiteSpace(SelectedStep.KeyValue))
         {
@@ -713,12 +1529,156 @@ public partial class RunTestViewModel : ReactiveObject
         DetailKeyValues.Add($"Status: {SelectedStep.StatusText}");
         DetailKeyValues.Add($"Verdict: {SelectedStep.Verdict}");
         DetailKeyValues.Add($"Path: {SelectedStep.Path}");
+        if (!string.IsNullOrWhiteSpace(SelectedStep.AttemptsText))
+        {
+            DetailKeyValues.Add($"Attempts: {SelectedStep.AttemptsText}");
+        }
+
+        AttemptHistoryLines.Clear();
+        if (_attemptLedger.TryGetValue(SelectedStep.Path, out var ledger))
+        {
+            AttemptSummaryChip = ledger.Display;
+            foreach (var attempt in ledger.Attempts)
+            {
+                AttemptHistoryLines.Add(
+                    $"#{attempt.AttemptNumber} {(attempt.Passed ? "PASS" : "FAIL")} — {attempt.Message} @ {attempt.CompletedAt:u}");
+            }
+        }
+        else if (!string.IsNullOrWhiteSpace(SelectedStep.AttemptsText))
+        {
+            AttemptSummaryChip = SelectedStep.AttemptsText;
+        }
+        else
+        {
+            AttemptSummaryChip = string.Empty;
+        }
+
+        ConditionSummary = string.Empty;
+        if (IsEngineerDebugMode
+            && _openTap.TryGetStepConditionSummary(SelectedStep.Path, out var summary)
+            && !string.IsNullOrWhiteSpace(summary))
+        {
+            ConditionSummary = summary!;
+        }
+
+        RefreshPlotVisibility();
+        RefreshHero();
+    }
+
+    private void RefreshPlotVisibility()
+    {
+        ShowPlotForSelection = SelectedStep is not null && StepHasSampleContext(SelectedStep);
+    }
+
+    private bool StepHasSampleContext(HierarchyStepViewModel step)
+        => _stepsWithSamples.Contains(step.Path);
+
+    private void RecordAttempts(OpenTapRunSummary summary)
+    {
+        foreach (var step in summary.Steps)
+        {
+            var path = string.IsNullOrWhiteSpace(step.StepPath) ? step.StepType : step.StepPath;
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                continue;
+            }
+
+            if (!_attemptLedger.TryGetValue(path, out var ledger))
+            {
+                ledger = new StepAttemptSummary
+                {
+                    StepPath = path,
+                    StepName = step.StepType,
+                };
+                _attemptLedger[path] = ledger;
+            }
+
+            var attempt = new StepResultRecord
+            {
+                StepId = step.StepId,
+                StepType = step.StepType,
+                StepPath = path,
+                AttemptNumber = ledger.AttemptCount + 1,
+                Passed = step.Passed,
+                Message = step.Message,
+                StartedAt = step.StartedAt,
+                CompletedAt = step.CompletedAt,
+            };
+            ledger.Attempts.Add(attempt);
+            ledger.AttemptCount++;
+            if (step.Passed)
+            {
+                ledger.PassedCount++;
+            }
+            else
+            {
+                ledger.FailedCount++;
+            }
+
+            ledger.LatestPassed = step.Passed;
+            ledger.LatestMessage = step.Message;
+            ledger.StepName = step.StepType;
+        }
+    }
+
+    private List<StepResultRecord> BuildRolledUpSteps()
+        => _attemptLedger.Values
+            .Select(l => l.Attempts.LastOrDefault())
+            .Where(a => a is not null)
+            .Cast<StepResultRecord>()
+            .OrderBy(a => a.StepPath)
+            .ToList();
+
+    private void ApplyAttemptTexts()
+    {
+        foreach (var root in _fullHierarchy)
+        {
+            ApplyAttemptTexts(root);
+        }
+    }
+
+    private void ApplyAttemptTexts(HierarchyStepViewModel node)
+    {
+        if (_attemptLedger.TryGetValue(node.Path, out var ledger))
+        {
+            node.AttemptsText = ledger.Display;
+        }
+
+        foreach (var child in node.Children)
+        {
+            ApplyAttemptTexts(child);
+        }
+    }
+
+    private void ClearAttemptTexts()
+    {
+        foreach (var root in _fullHierarchy)
+        {
+            ClearAttemptTexts(root);
+        }
+
+        AttemptHistoryLines.Clear();
+    }
+
+    private static void ClearAttemptTexts(HierarchyStepViewModel node)
+    {
+        node.AttemptsText = string.Empty;
+        foreach (var child in node.Children)
+        {
+            ClearAttemptTexts(child);
+        }
     }
 
     public void ContinueOperatorAttention() => ContinueOperator();
 
     private void ContinueOperator()
     {
+        lock (_progressSync)
+        {
+            _pendingAwaitingOperator = false;
+            _pendingOperatorPrompt = null;
+        }
+
         _openTap.Resume();
         _runControl.Resume();
         IsAwaitingOperator = false;
@@ -739,16 +1699,196 @@ public partial class RunTestViewModel : ReactiveObject
             root.SyncFromNode();
         }
 
-        foreach (var stage in Stages)
+        RollupParentStatuses();
+        RefreshHero();
+        if (DetailStep is not null && SelectedStep is not null
+            && ReferenceEquals(DetailStep, SelectedStep))
         {
-            if (stage.Step is null)
+            DetailChipText = StatusChip.FromStatus(SelectedStep.StatusText, SelectedStep.Verdict);
+            DetailPrimaryLine = !string.IsNullOrWhiteSpace(SelectedStep.KeyValue)
+                ? SelectedStep.KeyValue!
+                : SelectedStep.StatusText;
+        }
+    }
+
+    private void ApplyResultsFromSummary(OpenTapRunSummary summary)
+    {
+        var flat = FlattenHierarchy(_fullHierarchy).ToList();
+        foreach (var step in summary.Steps)
+        {
+            var vm = FindStepVm(flat, step.StepId, step.StepPath, step.StepType);
+            if (vm is null)
             {
                 continue;
             }
 
-            stage.StatusText = stage.Step.StatusText;
-            stage.Verdict = stage.Step.Verdict;
-            stage.KeyValue = stage.Step.KeyValue;
+            string status;
+            if (step.Passed)
+            {
+                status = string.IsNullOrWhiteSpace(step.Message)
+                    || string.Equals(step.Message, "NotSet", StringComparison.OrdinalIgnoreCase)
+                    || StatusChip.FromStatus(step.Message) == "Pending"
+                    ? "Pass"
+                    : step.Message!;
+                if (StatusChip.FromStatus(status) == "Pending")
+                {
+                    status = "Pass";
+                }
+            }
+            else if (!string.IsNullOrWhiteSpace(step.Message))
+            {
+                status = step.Message;
+            }
+            else
+            {
+                status = "Fail";
+            }
+
+            vm.StatusText = status;
+            vm.Verdict = status;
+            vm.Node.StatusText = status;
+            vm.Node.Verdict = status;
+            vm.ChipText = StatusChip.FromStatus(status);
+        }
+
+        RollupParentStatuses();
+        RefreshHero();
+        RefreshSuiteSummary();
+        MaybeAutoFocusFail();
+    }
+
+    private static HierarchyStepViewModel? FindStepVm(
+        IReadOnlyList<HierarchyStepViewModel> flat,
+        string? stepId,
+        string? stepPath,
+        string? stepName)
+    {
+        if (!string.IsNullOrWhiteSpace(stepPath))
+        {
+            var byPath = flat.FirstOrDefault(s =>
+                string.Equals(s.Path, stepPath, StringComparison.OrdinalIgnoreCase));
+            if (byPath is not null)
+            {
+                return byPath;
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(stepId))
+        {
+            var byId = flat.FirstOrDefault(s =>
+                string.Equals(s.Id, stepId, StringComparison.OrdinalIgnoreCase));
+            if (byId is not null)
+            {
+                return byId;
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(stepName))
+        {
+            return flat.FirstOrDefault(s =>
+                string.Equals(s.Name, stepName, StringComparison.OrdinalIgnoreCase));
+        }
+
+        return null;
+    }
+
+    private void ApplyPendingStepLive(
+        string? stepId,
+        string? stepPath,
+        string? statusText,
+        string? verdict,
+        string? keyValue)
+    {
+        if (string.IsNullOrWhiteSpace(stepId)
+            && string.IsNullOrWhiteSpace(stepPath)
+            && string.IsNullOrWhiteSpace(statusText)
+            && string.IsNullOrWhiteSpace(verdict)
+            && keyValue is null)
+        {
+            return;
+        }
+
+        var vm = FindStepVm(FlattenHierarchy(_fullHierarchy).ToList(), stepId, stepPath, stepName: null);
+        if (vm is null)
+        {
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(statusText))
+        {
+            vm.StatusText = statusText;
+            vm.Node.StatusText = statusText;
+        }
+
+        if (!string.IsNullOrWhiteSpace(verdict))
+        {
+            vm.Verdict = verdict;
+            vm.Node.Verdict = verdict;
+        }
+
+        if (keyValue is not null)
+        {
+            vm.KeyValue = keyValue;
+            vm.Extra = keyValue;
+            vm.Node.KeyValue = keyValue;
+        }
+
+        vm.ChipText = StatusChip.FromStatus(vm.StatusText, vm.Verdict);
+        if (!string.IsNullOrWhiteSpace(stepPath))
+        {
+            CurrentStepPath = stepPath;
+        }
+
+        if (!string.IsNullOrWhiteSpace(vm.Name))
+        {
+            CurrentStepName = vm.Name;
+        }
+
+        RollupParentStatuses();
+        RefreshHero();
+        if (string.Equals(vm.ChipText, "Fail", StringComparison.Ordinal))
+        {
+            MaybeAutoFocusFail();
+        }
+    }
+
+    private async Task RunOnUiAsync(Action action)
+    {
+        if (UiScheduler is not null)
+        {
+            UiScheduler(action);
+            return;
+        }
+
+        try
+        {
+            var dispatcher = Dispatcher.UIThread;
+            if (dispatcher.CheckAccess() || Avalonia.Application.Current is null)
+            {
+                action();
+                return;
+            }
+
+            var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            dispatcher.Post(
+                () =>
+                {
+                    try
+                    {
+                        action();
+                        tcs.TrySetResult();
+                    }
+                    catch (Exception ex)
+                    {
+                        tcs.TrySetException(ex);
+                    }
+                },
+                DispatcherPriority.Normal);
+            await tcs.Task.ConfigureAwait(false);
+        }
+        catch (InvalidOperationException)
+        {
+            action();
         }
     }
 
@@ -775,7 +1915,7 @@ public partial class RunTestViewModel : ReactiveObject
             await Task.Delay(5).ConfigureAwait(false);
         }
 
-        DrainUiFlush();
+        await RunOnUiAsync(DrainUiFlush).ConfigureAwait(false);
     }
 
     private void ScheduleUiFlush()
@@ -824,21 +1964,43 @@ public partial class RunTestViewModel : ReactiveObject
                 string? status;
                 double percent;
                 MeasurementSampleEvent? sample;
+                string? sampleStepPath;
                 bool force;
                 bool awaiting;
                 string? prompt;
                 List<string>? details;
+                string? stepId;
+                string? stepPath;
+                string? stepName;
+                string? statusText;
+                string? verdict;
+                string? keyValue;
                 lock (_progressSync)
                 {
                     status = _pendingStatus;
                     percent = _pendingPercent;
                     sample = _pendingSample;
+                    sampleStepPath = _pendingSampleStepPath;
                     force = _pendingForceFlush;
                     awaiting = _pendingAwaitingOperator;
                     prompt = _pendingOperatorPrompt;
-                    details = _pendingDetails.Count > 0 ? _pendingDetails.ToList() : null;
-                    _pendingDetails.Clear();
+                    details = DequeueDetailBatch_NoLock(MaxDetailLinesPerFlush);
+                    stepId = _pendingStepId;
+                    stepPath = _pendingStepPath;
+                    stepName = _pendingStepName;
+                    statusText = _pendingStatusText;
+                    verdict = _pendingVerdict;
+                    keyValue = _pendingKeyValue;
                     _pendingForceFlush = false;
+                    _pendingAwaitingOperator = false;
+                    _pendingOperatorPrompt = null;
+                    _pendingStepId = null;
+                    _pendingStepPath = null;
+                    _pendingStepName = null;
+                    _pendingStatusText = null;
+                    _pendingVerdict = null;
+                    _pendingKeyValue = null;
+                    _pendingSampleStepPath = null;
                     if (sample is not null)
                     {
                         _pendingSample = null;
@@ -876,6 +2038,16 @@ public partial class RunTestViewModel : ReactiveObject
                             _pendingAwaitingOperator = true;
                             _pendingOperatorPrompt = prompt;
                         }
+
+                        _pendingStepId ??= stepId;
+                        _pendingStepPath ??= stepPath;
+                        _pendingStepName ??= stepName;
+                        _pendingStatusText ??= statusText;
+                        _pendingVerdict ??= verdict;
+                        if (keyValue is not null)
+                        {
+                            _pendingKeyValue ??= keyValue;
+                        }
                     }
 
                     keepScheduledForDelay = true;
@@ -904,25 +2076,36 @@ public partial class RunTestViewModel : ReactiveObject
 
                 if (details is not null)
                 {
-                    foreach (var line in details)
-                    {
-                        if (DetailLines.Count >= DetailCap)
-                        {
-                            DetailLines.RemoveAt(0);
-                        }
-
-                        DetailLines.Add(line);
-                    }
+                    AppendDetailLines(details, MaxDetailLinesPerFlush);
                 }
 
                 SyncHierarchyLive();
-
-                if (sample is not null && (ShowDetails || ShowDetailPane))
+                if (!string.IsNullOrWhiteSpace(stepName))
                 {
+                    CurrentStepName = stepName;
+                }
+
+                if (!string.IsNullOrWhiteSpace(stepPath))
+                {
+                    CurrentStepPath = stepPath;
+                }
+
+                ApplyPendingStepLive(stepId, stepPath, statusText, verdict, keyValue);
+                RefreshHero();
+
+                if (sample is not null)
+                {
+                    HasPlotData = true;
+                    if (!string.IsNullOrWhiteSpace(sampleStepPath))
+                    {
+                        _stepsWithSamples.Add(sampleStepPath);
+                    }
+
                     AppendSampleToPlot(sample.Value);
                     PlotYs = _plotPublish;
                     PlotDataChanged?.Invoke(this, EventArgs.Empty);
                     PlotUiFlushCount++;
+                    RefreshPlotVisibility();
                 }
                 else if (force)
                 {
@@ -931,7 +2114,8 @@ public partial class RunTestViewModel : ReactiveObject
 
                 lock (_progressSync)
                 {
-                    if (_pendingForceFlush || _pendingSample is not null || _pendingDetails.Count > 0 || _pendingAwaitingOperator)
+                    // Leftover detail lines are flushed on a later UI frame (see finally).
+                    if (_pendingForceFlush || _pendingSample is not null || _pendingAwaitingOperator)
                     {
                         continue;
                     }
@@ -954,6 +2138,45 @@ public partial class RunTestViewModel : ReactiveObject
                 }
             }
         }
+    }
+
+    private List<string>? DequeueDetailBatch_NoLock(int maxCount)
+    {
+        if (_pendingDetails.Count == 0 || maxCount <= 0)
+        {
+            return null;
+        }
+
+        var batch = new List<string>(Math.Min(maxCount, _pendingDetails.Count));
+        while (batch.Count < maxCount && _pendingDetails.Count > 0)
+        {
+            batch.Add(_pendingDetails.Dequeue());
+        }
+
+        return batch;
+    }
+
+    /// Appends up to maxToAdd detail lines, dropping oldest when over DetailCap. Returns how many were added.
+    public int AppendDetailLines(IReadOnlyList<string> lines, int maxToAdd)
+    {
+        var added = 0;
+        foreach (var line in lines)
+        {
+            if (added >= maxToAdd)
+            {
+                break;
+            }
+
+            if (DetailLines.Count >= DetailCap)
+            {
+                DetailLines.RemoveAt(0);
+            }
+
+            DetailLines.Add(line);
+            added++;
+        }
+
+        return added;
     }
 
     private void EnqueueDetail_NoLock(string line)
@@ -1004,12 +2227,12 @@ public partial class RunTestViewModel : ReactiveObject
     {
         NeedsDutConfirm = _session.State == OperatorSessionState.NeedsDut;
         IsStalePrompt = _session.State == OperatorSessionState.Stale;
-        ShowSessionForm = NeedsDutConfirm || IsStalePrompt || ShowSessionForm && !_session.CanRun;
+        SessionBlocked = !_session.CanRun;
+        ShowSessionForm = NeedsDutConfirm || IsStalePrompt || SessionBlocked;
         var program = _session.ProgramDisplayName ?? "(none)";
         if (_session.CanRun)
         {
-            SessionSummary = $"DUT {_session.DutSerial} | {program}"
-                             + (_session.OperatorName is { } op ? $" | Op {op}" : string.Empty);
+            SessionSummary = $"DUT {_session.DutSerial} | Tech {_session.OperatorName ?? "—"} | {program}";
             return;
         }
 
@@ -1019,7 +2242,7 @@ public partial class RunTestViewModel : ReactiveObject
             return;
         }
 
-        SessionSummary = $"Session (confirm required) | {program}";
+        SessionSummary = $"Session blocked — confirm DUT + technician | {program}";
     }
 
     private static IEnumerable<HierarchyStepViewModel> FlattenHierarchy(IEnumerable<HierarchyStepViewModel> roots)

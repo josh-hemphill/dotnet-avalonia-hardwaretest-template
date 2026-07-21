@@ -1,3 +1,4 @@
+using System.Windows.Input;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Platform.Storage;
@@ -23,6 +24,8 @@ public partial class RunTestView : UserControl
         {
             _subscribed = vm;
             vm.PlotDataChanged += OnPlotDataChanged;
+            vm.RequestScrollToSelectedStep += OnRequestScrollToSelectedStep;
+            vm.RequestFocusStepSearch += OnRequestFocusStepSearch;
             vm.RequestPlanFilePath = PickPlanFileAsync;
             if (Plot is not null)
             {
@@ -39,6 +42,8 @@ public partial class RunTestView : UserControl
         }
 
         _subscribed.PlotDataChanged -= OnPlotDataChanged;
+        _subscribed.RequestScrollToSelectedStep -= OnRequestScrollToSelectedStep;
+        _subscribed.RequestFocusStepSearch -= OnRequestFocusStepSearch;
         _subscribed.RequestPlanFilePath = null;
         _subscribed = null;
     }
@@ -81,6 +86,50 @@ public partial class RunTestView : UserControl
         }
 
         Plot.UpdateData(ys, length);
+    }
+
+    private void OnRequestScrollToSelectedStep(object? sender, EventArgs e)
+    {
+        if (StepList?.SelectedItem is null)
+        {
+            return;
+        }
+
+        StepList.ScrollIntoView(StepList.SelectedItem);
+    }
+
+    private void OnRequestFocusStepSearch(object? sender, EventArgs e)
+        => StepSearchBox?.Focus();
+
+    private void OnKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (_subscribed is null)
+        {
+            return;
+        }
+
+        if (e.Key is Key.Oem2 or Key.Divide)
+        {
+            ((ICommand)_subscribed.FocusStepSearchCommand).Execute(null);
+            e.Handled = true;
+            return;
+        }
+
+        if (e.Key != Key.F)
+        {
+            return;
+        }
+
+        if (e.KeyModifiers.HasFlag(KeyModifiers.Shift))
+        {
+            ((ICommand)_subscribed.PrevFailCommand).Execute(null);
+        }
+        else
+        {
+            ((ICommand)_subscribed.NextFailCommand).Execute(null);
+        }
+
+        e.Handled = true;
     }
 
     private void OnStageDoubleTapped(object? sender, TappedEventArgs e)

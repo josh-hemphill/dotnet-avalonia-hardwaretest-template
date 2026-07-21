@@ -20,11 +20,13 @@ public sealed class AppSettings
     /// When true, Run page exposes constrained on-bench debug edits.
     public bool IsEngineerDebugMode { get; set; }
     public List<VisaInstrument> Instruments { get; set; } = [];
-    /// Station overlay: logical role → registry instrument Id (bench-specific).
+    /// Station overlay: logical role → registry instrument Id (bench-specific). Kept for migration; prefer PlanSlotOverrides.
     public List<StationBinding> StationBindings { get; set; } = [];
+    /// Per-plan OpenTAP slot → VISA resource overrides (station overlay).
+    public List<PlanSlotOverride> PlanSlotOverrides { get; set; } = [];
 }
 
-/// Named VISA instrument entry in the persisted registry.
+/// Named VISA instrument entry in the persisted registry (legacy; Instruments UI no longer edits this).
 public sealed class VisaInstrument
 {
     public string Id { get; set; } = string.Empty;
@@ -39,6 +41,15 @@ public sealed class StationBinding
 {
     public string Role { get; set; } = string.Empty;
     public string InstrumentId { get; set; } = string.Empty;
+}
+
+/// Overrides an OpenTAP instrument slot resource for a specific plan on this station.
+public sealed class PlanSlotOverride
+{
+    public string PlanId { get; set; } = string.Empty;
+    public string SlotName { get; set; } = string.Empty;
+    public string RoleHint { get; set; } = string.Empty;
+    public string Resource { get; set; } = string.Empty;
 }
 
 /// Window and navigation state persisted to ui-state.json.
@@ -56,4 +67,5 @@ public sealed class UiState
     public string SelectedPageId { get; set; } = "Home";
     /// Avalonia screen DeviceName last used for this window.
     public string? MonitorDeviceName { get; set; }
+    public bool CompactStepRows { get; set; }
 }

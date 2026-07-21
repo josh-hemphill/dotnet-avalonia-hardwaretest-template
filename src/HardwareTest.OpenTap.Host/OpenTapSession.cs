@@ -69,6 +69,7 @@ public interface IOpenTapSession
 
     Task LoadPlanAsync(string tapPlanPath, CancellationToken cancellationToken = default);
     Task LoadSampleProgramAsync(CancellationToken cancellationToken = default);
+    Task LoadBoardDemoProgramAsync(CancellationToken cancellationToken = default);
     Task ApplyStationAndDutAsync(StationProfile station, DutIdentity dut, CancellationToken cancellationToken = default);
     Task<OpenTapRunSummary> RunAsync(IProgress<OpenTapProgress>? progress = null, CancellationToken cancellationToken = default);
     Task<OpenTapRunSummary> RunSelectionAsync(string stepPath, IProgress<OpenTapProgress>? progress = null, CancellationToken cancellationToken = default);
@@ -79,6 +80,7 @@ public interface IOpenTapSession
     bool TrySetStepEnabled(string stepPath, bool enabled);
     bool TrySetAcquireSettings(string stepPath, int? sampleCount, int? intervalMs);
     bool TrySetMeanGteThreshold(string stepPath, double threshold);
+    bool TryGetStepConditionSummary(string stepPath, out string? summary);
     bool TryRebindDmmResource(string resource);
     bool TryBindSlotResource(string slotName, string resource);
 }
@@ -137,6 +139,15 @@ public sealed class OpenTapSession : IOpenTapSession, INotifyPropertyChanged
         EnsurePlugins();
         var plan = SampleProgramFactory.Create();
         BindPlan(plan, SampleProgramFactory.EmbeddedName, "Sample Hardware Suite");
+        return Task.CompletedTask;
+    }
+
+    public Task LoadBoardDemoProgramAsync(CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        EnsurePlugins();
+        var plan = BoardDemoProgramFactory.Create();
+        BindPlan(plan, BoardDemoProgramFactory.EmbeddedName, BoardDemoProgramFactory.DisplayName);
         return Task.CompletedTask;
     }
 
@@ -200,7 +211,8 @@ public sealed class OpenTapSession : IOpenTapSession, INotifyPropertyChanged
 
             foreach (var slot in _slots)
             {
-                if (station.RoleToResource.TryGetValue(slot.RoleHint, out var resource)
+                if ((station.RoleToResource.TryGetValue(slot.RoleHint, out var resource)
+                     || station.RoleToResource.TryGetValue(slot.Name, out resource))
                     && !string.IsNullOrWhiteSpace(resource))
                 {
                     TryBindSlotResource_NoLock(slot.Name, resource);
@@ -494,6 +506,37 @@ public sealed class OpenTapSession : IOpenTapSession, INotifyPropertyChanged
         }
 
         mean.Threshold = threshold;
+        return true;
+    }
+
+    public bool TryGetStepConditionSummary(string stepPath, out string? summary)
+    {
+        summary = null;
+        var step = FindStepByPath(stepPath);
+        if (step is null)
+        {
+            return false;
+        }
+
+        var parts = new List<string>();
+        switch (step)
+        {
+            case MeanGteStep mean:
+                parts.Add($"Mean ≥ {mean.Threshold}");
+                parts.Add($"Samples={mean.SampleCount}");
+                parts.Add($"Enabled={mean.Enabled}");
+                break;
+            case AcquireVoltageStep acquire:
+                parts.Add($"Samples={acquire.SampleCount}");
+                parts.Add($"IntervalMs={acquire.IntervalMs}");
+                parts.Add($"Enabled={acquire.Enabled}");
+                break;
+            default:
+                parts.Add($"Enabled={step.Enabled}");
+                break;
+        }
+
+        summary = string.Join(", ", parts);
         return true;
     }
 
@@ -856,6 +899,7 @@ internal sealed class ProgressResultListener : ResultListener
         {
             StepId = id,
             StepType = stepRun.TestStepName,
+            StepPath = _resolvePath(id, stepRun.TestStepName) ?? string.Empty,
             Passed = passed && stepRun.Verdict != Verdict.Fail && stepRun.Verdict != Verdict.Error,
             Message = verdict,
             StartedAt = started,
@@ -967,7 +1011,14 @@ internal sealed class ProgressResultListener : ResultListener
             var channel = channelCol is null ? "VDC" : Convert.ToString(channelCol.Data.GetValue(i)) ?? "VDC";
             var index = indexCol is null ? i : Convert.ToInt32(indexCol.Data.GetValue(i));
             var ts = DateTimeOffset.UtcNow;
-            _samples.Add(new StoredSample { Channel = channel, Timestamp = ts, Value = value });
+            var stepPath = _resolvePath(_currentStepId ?? string.Empty, _currentStepName) ?? string.Empty;
+            _samples.Add(new StoredSample
+            {
+                Channel = channel,
+                Timestamp = ts,
+                Value = value,
+                StepPath = stepPath,
+            });
 
             var sampleEvent = new MeasurementSampleEvent(channel, index, value, ts);
             var percent = (double)_stepIndex / _stepCount * 100;
@@ -984,6 +1035,7 @@ internal sealed class ProgressResultListener : ResultListener
                     Sample = sampleEvent,
                     StepId = _currentStepId,
                     StepName = _currentStepName,
+                    StepPath = stepPath,
                     KeyValue = $"{channel}={value:F3}",
                     OverallPercent = percent,
                 });

@@ -16,9 +16,8 @@ public partial class SettingsViewModel : ReactiveObject
     {
         _settingsStore = settingsStore;
         var s = settingsStore.AppSettings;
-        DefaultVisaResource = s.DefaultVisaResource;
         UseMockVisa = s.UseMockVisa;
-        LogMinimumLevel = s.LogMinimumLevel;
+        LogMinimumLevel = NormalizeLogLevel(s.LogMinimumLevel);
         EnableOsEventSink = s.EnableOsEventSink;
         EnableSyslogOnUnix = s.EnableSyslogOnUnix;
         SyslogHost = s.SyslogHost ?? "127.0.0.1";
@@ -31,6 +30,7 @@ public partial class SettingsViewModel : ReactiveObject
         DataDirectory = settingsStore.RootDirectory;
         Status = "Settings load from settings.json under ApplicationData/HardwareTest.";
         ThemeOptions = ["System", "Light", "Dark"];
+        LogLevelOptions = ["Verbose", "Debug", "Information", "Warning", "Error", "Fatal"];
         ShowEventLogOptions = OperatingSystem.IsWindows();
         ShowSyslogOptions = !OperatingSystem.IsWindows();
 
@@ -63,10 +63,10 @@ public partial class SettingsViewModel : ReactiveObject
 
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> SaveCommand { get; }
     public ObservableCollection<string> ThemeOptions { get; }
+    public ObservableCollection<string> LogLevelOptions { get; }
     public bool ShowEventLogOptions { get; }
     public bool ShowSyslogOptions { get; }
 
-    [Reactive] private string _defaultVisaResource = string.Empty;
     [Reactive] private bool _useMockVisa;
     [Reactive] private string _logMinimumLevel = "Information";
     [Reactive] private bool _enableOsEventSink;
@@ -84,9 +84,8 @@ public partial class SettingsViewModel : ReactiveObject
     private async Task SaveAsync()
     {
         var s = _settingsStore.AppSettings;
-        s.DefaultVisaResource = DefaultVisaResource;
         s.UseMockVisa = UseMockVisa;
-        s.LogMinimumLevel = LogMinimumLevel;
+        s.LogMinimumLevel = NormalizeLogLevel(LogMinimumLevel);
         s.EnableOsEventSink = EnableOsEventSink;
         s.EnableSyslogOnUnix = EnableSyslogOnUnix;
         s.SyslogHost = SyslogHost;
@@ -99,5 +98,15 @@ public partial class SettingsViewModel : ReactiveObject
         await _settingsStore.SaveAppSettingsAsync();
         ThemeApplier.Apply(s);
         Status = $"Saved at {DateTimeOffset.Now:T}. Restart may be required for logging sink / mock VISA changes.";
+    }
+
+    private static string NormalizeLogLevel(string? level)
+    {
+        var value = string.IsNullOrWhiteSpace(level) ? "Information" : level.Trim();
+        return value switch
+        {
+            "Verbose" or "Debug" or "Information" or "Warning" or "Error" or "Fatal" => value,
+            _ => "Information",
+        };
     }
 }

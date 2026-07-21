@@ -28,6 +28,7 @@ public sealed class TestRunRecord
     public RunResult Result { get; set; } = RunResult.Unknown;
     public string? ErrorMessage { get; set; }
     public List<StepResultRecord> Steps { get; set; } = [];
+    public List<StepAttemptSummary> StepAttempts { get; set; } = [];
     public List<StoredSample> Samples { get; set; } = [];
     public Dictionary<string, string> Variables { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     public string? ReportPdfPath { get; set; }
@@ -51,15 +52,35 @@ public sealed class StepResultRecord
 {
     public string StepId { get; set; } = string.Empty;
     public string StepType { get; set; } = string.Empty;
+    public string StepPath { get; set; } = string.Empty;
+    public int AttemptNumber { get; set; } = 1;
     public bool Passed { get; set; }
     public string? Message { get; set; }
     public DateTimeOffset StartedAt { get; set; }
     public DateTimeOffset CompletedAt { get; set; }
 }
 
+/// Rollup of attempts for one step path within an Operator Session.
+public sealed class StepAttemptSummary
+{
+    public string StepPath { get; set; } = string.Empty;
+    public string StepName { get; set; } = string.Empty;
+    public int AttemptCount { get; set; }
+    public int PassedCount { get; set; }
+    public int FailedCount { get; set; }
+    public bool? LatestPassed { get; set; }
+    public string? LatestMessage { get; set; }
+    public List<StepResultRecord> Attempts { get; set; } = [];
+
+    public string Display => AttemptCount == 0
+        ? string.Empty
+        : $"{AttemptCount} ({FailedCount}F/{PassedCount}P)";
+}
+
 public sealed class StoredSample
 {
     public string Channel { get; set; } = string.Empty;
+    public string StepPath { get; set; } = string.Empty;
     public DateTimeOffset Timestamp { get; set; }
     public double Value { get; set; }
 

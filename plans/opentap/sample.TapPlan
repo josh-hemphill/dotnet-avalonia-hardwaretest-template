@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <TestPlan type="OpenTap.TestPlan">
   <Steps>
-    <TestStep type="HardwareTest.OpenTap.Plugins.Basic.TestGroupStep" Id="566e8bb5-7825-4d23-85b8-353f1286b57a">
+    <TestStep type="HardwareTest.OpenTap.Plugins.Basic.TestGroupStep" Id="d6ffe0a3-3265-42ac-abb3-0888214afe14">
       <Name Metadata="Step Name">Sample Hardware Suite</Name>
       <ChildTestSteps>
-        <TestStep type="HardwareTest.OpenTap.Plugins.Basic.TestGroupStep" Id="8997f084-416e-4efc-9a0d-ea901fc5bbf7">
+        <TestStep type="HardwareTest.OpenTap.Plugins.Basic.TestGroupStep" Id="c7749a17-43e1-4e39-8b70-d5dc11b9e094">
           <Name Metadata="Step Name">Identity</Name>
           <ChildTestSteps>
-            <TestStep type="HardwareTest.OpenTap.Plugins.Basic.IdentityCheckStep" Id="f77633c7-6879-4cd3-a56c-88f5ca03f26d">
+            <TestStep type="HardwareTest.OpenTap.Plugins.Basic.IdentityCheckStep" Id="1bd692b8-2342-44a1-95fb-1cbaa1633c68">
               <Instrument>
                 <ResourceName>MOCK::INSTR0</ResourceName>
                 <Name>DMM</Name>
@@ -26,15 +26,15 @@
             </TestStep>
           </ChildTestSteps>
         </TestStep>
-        <TestStep type="HardwareTest.OpenTap.Plugins.Basic.OperatorPromptStep" Id="63ad1007-abb6-427b-b939-5573c9bbae40">
+        <TestStep type="HardwareTest.OpenTap.Plugins.Basic.OperatorPromptStep" Id="d2c8ec0c-a199-4134-bf68-b94dc476641e">
           <Message>Install the voltage-sweep fixture, then Continue.</Message>
           <Name Metadata="Step Name">Install Sweep Fixture</Name>
           <ChildTestSteps />
         </TestStep>
-        <TestStep type="HardwareTest.OpenTap.Plugins.Basic.TestGroupStep" Id="93060237-6fa4-43fe-a356-3dec37b208f0">
+        <TestStep type="HardwareTest.OpenTap.Plugins.Basic.TestGroupStep" Id="ef181e38-433f-47bf-af62-260b0dad80eb">
           <Name Metadata="Step Name">Voltage Sweep</Name>
           <ChildTestSteps>
-            <TestStep type="HardwareTest.OpenTap.Plugins.Basic.AcquireVoltageStep" Id="2493874f-222e-4121-97a8-8df52e26eec6">
+            <TestStep type="HardwareTest.OpenTap.Plugins.Basic.AcquireVoltageStep" Id="83183688-3943-40cf-b60b-ac5a1bc2f108">
               <Instrument>
                 <ResourceName>MOCK::INSTR0</ResourceName>
                 <Name>DMM</Name>
@@ -45,7 +45,7 @@
               <Name Metadata="Step Name">Acquire VDC</Name>
               <ChildTestSteps />
             </TestStep>
-            <TestStep type="HardwareTest.OpenTap.Plugins.Basic.MeanGteStep" Id="67ed2d2c-564a-4535-9deb-bd3a024b430c">
+            <TestStep type="HardwareTest.OpenTap.Plugins.Basic.MeanGteStep" Id="eedd5c24-a7d4-4c7d-ae36-6baf9e7427f8">
               <Instrument>
                 <ResourceName>MOCK::INSTR0</ResourceName>
                 <Name>DMM</Name>
@@ -57,7 +57,7 @@
             </TestStep>
           </ChildTestSteps>
         </TestStep>
-        <TestStep type="HardwareTest.OpenTap.Plugins.Basic.SafeShutdownStep" Id="073ab853-5b02-4014-816a-1473917d9e99">
+        <TestStep type="HardwareTest.OpenTap.Plugins.Basic.SafeShutdownStep" Id="b4d6d2b3-bb47-4383-9fc6-d7ade72ca012">
           <Instrument>
             <ResourceName>MOCK::INSTR0</ResourceName>
             <Name>DMM</Name>

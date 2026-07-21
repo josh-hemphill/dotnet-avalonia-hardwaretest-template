@@ -11,5 +11,47 @@
   <Application.Styles>
     <FluentTheme />
     <sty:FluentAvaloniaTheme />
+    <Style Selector="Button.danger">
+      <Setter Property="Background" Value="#C62828" />
+      <Setter Property="Foreground" Value="White" />
+      <Setter Property="BorderBrush" Value="#B71C1C" />
+    </Style>
+    <Style Selector="Button.danger:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="#E53935" />
+      <Setter Property="Foreground" Value="White" />
+    </Style>
+    <Style Selector="Button.danger:pressed /template/ ContentPresenter">
+      <Setter Property="Background" Value="#B71C1C" />
+      <Setter Property="Foreground" Value="White" />
+    </Style>
+    <Style Selector="Button.success">
+      <Setter Property="Background" Value="#2E7D32" />
+      <Setter Property="Foreground" Value="White" />
+      <Setter Property="BorderBrush" Value="#1B5E20" />
+    </Style>
+    <Style Selector="Button.success:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="#43A047" />
+      <Setter Property="Foreground" Value="White" />
+    </Style>
+    <Style Selector="Button.success:pressed /template/ ContentPresenter">
+      <Setter Property="Background" Value="#1B5E20" />
+      <Setter Property="Foreground" Value="White" />
+    </Style>
+    <Style Selector="Button.filter-chip">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Foreground" Value="{DynamicResource SystemControlForegroundBaseHighBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource SystemControlForegroundBaseMediumLowBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="12" />
+      <Setter Property="Padding" Value="10,4" />
+      <Setter Property="MinHeight" Value="28" />
+      <Setter Property="FontSize" Value="12" />
+    </Style>
+    <Style Selector="Button.filter-chip:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource SystemControlBackgroundChromeMediumBrush}" />
+    </Style>
+    <Style Selector="Button.filter-chip:pressed /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}" />
+    </Style>
   </Application.Styles>
 </Application>

@@ -35,13 +35,99 @@ public sealed class RunFlowE2ETests
 
         await runVm.RefreshProgramsCommand.ExecuteAsync();
         runVm.DutSerialInput = "E2E-SN-1";
+        runVm.OperatorInput = "E2E-Tech";
         await runVm.ConfirmDutCommand.ExecuteAsync();
 
         await RunToCompletionAsync(runVm);
 
         Assert.False(runVm.IsRunning);
         Assert.False(string.IsNullOrWhiteSpace(runVm.LastRunId));
-        Assert.Contains("Finished", runVm.Status, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("finished", runVm.Status, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [AvaloniaFact]
+    public async Task Run_selected_leaf_completes_with_attempt_status()
+    {
+        var window = E2EHarness.ShowMainWindow();
+        var main = E2EHarness.MainVm(window);
+        main.NavigateToPageId("RunTest");
+        var runVm = E2EHarness.RunTestVm(main);
+
+        await runVm.RefreshProgramsCommand.ExecuteAsync();
+        runVm.DutSerialInput = "E2E-SN-SEL";
+        runVm.OperatorInput = "E2E-Tech";
+        await runVm.ConfirmDutCommand.ExecuteAsync();
+
+        var leaf = runVm.StepRows.FirstOrDefault()
+            ?? Flatten(runVm.Hierarchy).FirstOrDefault(s => s.Children.Count == 0);
+        Assert.NotNull(leaf);
+        runVm.SelectedStep = leaf;
+
+        var runTask = runVm.RunSelectedCommand.ExecuteAsync();
+        await E2EHarness.WaitUntilAsync(
+            () =>
+            {
+                if (runVm.IsAwaitingOperator)
+                {
+                    runVm.ContinueOperatorAttention();
+                }
+
+                return !runVm.IsRunning && runTask.IsCompleted;
+            },
+            TimeSpan.FromMinutes(2),
+            "Run Selected did not finish.");
+        await runTask;
+
+        Assert.False(runVm.IsRunning);
+        Assert.False(string.IsNullOrWhiteSpace(runVm.LastRunId));
+        Assert.Contains("Attempt #", runVm.Status, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Results", runVm.Status, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [AvaloniaFact]
+    public async Task Inspect_page_loads_hierarchy_tree()
+    {
+        var window = E2EHarness.ShowMainWindow();
+        var main = E2EHarness.MainVm(window);
+        main.NavigateToPageId("RunTest");
+        var runVm = E2EHarness.RunTestVm(main);
+        await runVm.RefreshProgramsCommand.ExecuteAsync();
+
+        main.NavigateToPageId("Inspect");
+        Assert.Equal("Inspect", main.SelectedItem?.Id);
+        Assert.NotEmpty(main.Inspect.Hierarchy);
+        Assert.Contains(main.Inspect.Hierarchy, r => r.Children.Count > 0 || r.Name.Length > 0);
+    }
+
+    [AvaloniaFact]
+    public async Task Inspect_OpenOnRun_selects_step_on_run_board()
+    {
+        var window = E2EHarness.ShowMainWindow();
+        var main = E2EHarness.MainVm(window);
+        main.NavigateToPageId("RunTest");
+        var runVm = E2EHarness.RunTestVm(main);
+        await runVm.RefreshProgramsCommand.ExecuteAsync();
+
+        main.NavigateToPageId("Inspect");
+        main.Inspect.Refresh();
+        var leaf = Flatten(main.Inspect.Hierarchy).First(s => s.Children.Count == 0);
+        main.Inspect.SelectedStep = leaf;
+        await main.Inspect.OpenOnRunCommand.ExecuteAsync();
+
+        Assert.Equal("RunTest", main.SelectedItem?.Id);
+        Assert.Equal(leaf.Path, runVm.SelectedStep?.Path);
+    }
+
+    private static IEnumerable<HierarchyStepViewModel> Flatten(IEnumerable<HierarchyStepViewModel> roots)
+    {
+        foreach (var node in roots)
+        {
+            yield return node;
+            foreach (var child in Flatten(node.Children))
+            {
+                yield return child;
+            }
+        }
     }
 
     [AvaloniaFact]
@@ -53,6 +139,7 @@ public sealed class RunFlowE2ETests
 
         await runVm.RefreshProgramsCommand.ExecuteAsync();
         runVm.DutSerialInput = "E2E-SN-2";
+        runVm.OperatorInput = "E2E-Tech";
         await runVm.ConfirmDutCommand.ExecuteAsync();
         await RunToCompletionAsync(runVm);
 
@@ -79,6 +166,7 @@ public sealed class RunFlowE2ETests
 
         await runVm.RefreshProgramsCommand.ExecuteAsync();
         runVm.DutSerialInput = "E2E-SN-3";
+        runVm.OperatorInput = "E2E-Tech";
         await runVm.ConfirmDutCommand.ExecuteAsync();
         await RunToCompletionAsync(runVm);
         await E2EHarness.WaitUntilAsync(

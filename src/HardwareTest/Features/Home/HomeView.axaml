@@ -55,7 +55,7 @@
           <StackPanel Spacing="8">
             <TextBlock Text="Reports" FontSize="18" FontWeight="SemiBold" />
             <TextBlock TextWrapping="Wrap"
-                       Text="Passed and failed runs write Typst PDFs. Enable embed plots in Settings to include strip-chart PNGs from acquire steps." />
+                       Text="Passed and failed runs write Typst PDFs. Enable embed plots in Settings to include channel charts from run Samples." />
           </StackPanel>
         </Border>
       </UniformGrid>

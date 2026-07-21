@@ -12,7 +12,6 @@ public sealed class SettingsViewModelTests
         var store = new FakeSettingsStore();
         var vm = new SettingsViewModel(store)
         {
-            DefaultVisaResource = "MOCK::X",
             UseMockVisa = false,
             LogMinimumLevel = "Warning",
             PlotRefreshHz = 12,
@@ -20,11 +19,11 @@ public sealed class SettingsViewModelTests
 
         await vm.SaveCommand.ExecuteAsync();
 
-        Assert.Equal("MOCK::X", store.AppSettings.DefaultVisaResource);
         Assert.False(store.AppSettings.UseMockVisa);
         Assert.Equal("Warning", store.AppSettings.LogMinimumLevel);
         Assert.Equal(12, store.AppSettings.PlotRefreshHz);
         Assert.True(store.SaveAppCount >= 1);
         Assert.Contains("Saved", vm.Status, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains(vm.LogLevelOptions, l => l == "Information");
     }
 }
