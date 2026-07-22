@@ -10,6 +10,7 @@ using HardwareTest.Core.Reporting;
 using HardwareTest.Core.Runs;
 using HardwareTest.Core.Settings;
 using HardwareTest.OpenTap.Host;
+using HardwareTest.OpenTap.Plugins.Basic;
 using ReactiveUI;
 using ReactiveUI.SourceGenerators;
 using StepFilter = HardwareTest.Features.RunTest.StepStatusFilter;
@@ -142,6 +143,7 @@ public partial class RunTestViewModel : ReactiveObject
     private bool _pendingForceFlush;
     private bool _pendingAwaitingOperator;
     private string? _pendingOperatorPrompt;
+    private OperatorInteractionRequest? _pendingInteractionRequest;
     private string? _pendingStepId;
     private string? _pendingStepPath;
     private string? _pendingStepName;
@@ -190,6 +192,7 @@ public partial class RunTestViewModel : ReactiveObject
         StepListItems = [];
         DetailLines = [];
         DetailKeyValues = [];
+        InteractionFields = [];
         PlotYs = _plotPublish;
         IsEngineerDebugMode = settings.IsEngineerDebugMode;
         ShowSessionForm = true;
@@ -325,6 +328,7 @@ public partial class RunTestViewModel : ReactiveObject
     public ObservableCollection<StepListItemViewModel> StepListItems { get; }
     public ObservableCollection<string> DetailLines { get; }
     public ObservableCollection<string> DetailKeyValues { get; }
+    public ObservableCollection<InteractionFieldViewModel> InteractionFields { get; }
     public ObservableCollection<string> AttemptHistoryLines { get; } = [];
     public Func<CancellationToken, Task<string?>>? RequestPlanFilePath { get; set; }
 
@@ -399,6 +403,9 @@ public partial class RunTestViewModel : ReactiveObject
     [Reactive] private bool _isStalePrompt;
     [Reactive] private bool _isAwaitingOperator;
     [Reactive] private string? _operatorPromptMessage;
+    [Reactive] private string _interactionTitle = "Operator attention";
+    [Reactive] private bool _hasInteractionFields;
+    [Reactive] private string? _interactionValidationError;
     [Reactive] private bool _isEngineerDebugMode;
     [Reactive] private string _debugResource = "MOCK::INSTR0";
     [Reactive] private int _debugSampleCount = 32;
@@ -440,6 +447,7 @@ public partial class RunTestViewModel : ReactiveObject
             {
                 _pendingAwaitingOperator = true;
                 _pendingOperatorPrompt = progress.OperatorPromptMessage ?? progress.Message;
+                _pendingInteractionRequest = progress.InteractionRequest ?? _openTap.PendingInteraction;
             }
 
             _pendingStepId = progress.StepId ?? _pendingStepId;
@@ -1278,9 +1286,12 @@ public partial class RunTestViewModel : ReactiveObject
             _pendingStatus = null;
             _pendingForceFlush = false;
             _pendingAwaitingOperator = false;
+            _pendingOperatorPrompt = null;
+            _pendingInteractionRequest = null;
         }
 
         DetailLines.Clear();
+        ClearInteractionUi();
         OverallPercent = 0;
         var cts = new CancellationTokenSource();
         _runControl.AttachRun(cts);
@@ -1398,6 +1409,8 @@ public partial class RunTestViewModel : ReactiveObject
             _runControl.DetachRun();
             IsRunning = false;
             IsAwaitingOperator = false;
+            OperatorPromptMessage = null;
+            ClearInteractionUi();
             OverallPercent = 100;
             cts.Dispose();
             RefreshSessionSummary();
@@ -1635,17 +1648,81 @@ public partial class RunTestViewModel : ReactiveObject
 
     private void ContinueOperator()
     {
+        var request = _openTap.PendingInteraction;
+        if (request is not null && InteractionFields.Count > 0)
+        {
+            foreach (var field in InteractionFields.Where(f => f.Required))
+            {
+                if (field.IsBoolean)
+                {
+                    continue;
+                }
+
+                if (string.IsNullOrWhiteSpace(field.Value))
+                {
+                    InteractionValidationError = $"{field.Label} is required.";
+                    Status = InteractionValidationError;
+                    return;
+                }
+
+                if (field.Kind == OperatorInteractionFieldKind.Number
+                    && !double.TryParse(
+                        field.Value.Trim(),
+                        System.Globalization.NumberStyles.Float,
+                        System.Globalization.CultureInfo.InvariantCulture,
+                        out _))
+                {
+                    InteractionValidationError = $"{field.Label} must be a number.";
+                    Status = InteractionValidationError;
+                    return;
+                }
+            }
+        }
+
+        InteractionValidationError = null;
+        var values = InteractionFields.ToDictionary(f => f.Id, f => f.ToResponseValue(), StringComparer.OrdinalIgnoreCase);
+        var response = request is null
+            ? null
+            : OperatorInteractionResponse.Continue(request.Id, values);
+
         lock (_progressSync)
         {
             _pendingAwaitingOperator = false;
             _pendingOperatorPrompt = null;
+            _pendingInteractionRequest = null;
         }
 
-        _openTap.Resume();
+        _openTap.Resume(response);
         _runControl.Resume();
+        ClearInteractionUi();
         IsAwaitingOperator = false;
         OperatorPromptMessage = null;
         Status = "Continuing…";
+    }
+
+    private void ApplyInteractionUi(OperatorInteractionRequest? request, string? fallbackMessage)
+    {
+        InteractionValidationError = null;
+        InteractionTitle = request?.Title ?? "Operator attention";
+        OperatorPromptMessage = request?.Message ?? fallbackMessage;
+        InteractionFields.Clear();
+        if (request?.Fields is { Count: > 0 })
+        {
+            foreach (var field in request.Fields)
+            {
+                InteractionFields.Add(new InteractionFieldViewModel(field));
+            }
+        }
+
+        HasInteractionFields = InteractionFields.Count > 0;
+    }
+
+    private void ClearInteractionUi()
+    {
+        InteractionFields.Clear();
+        HasInteractionFields = false;
+        InteractionTitle = "Operator attention";
+        InteractionValidationError = null;
     }
 
     private void Cancel()
@@ -1930,6 +2007,7 @@ public partial class RunTestViewModel : ReactiveObject
                 bool force;
                 bool awaiting;
                 string? prompt;
+                OperatorInteractionRequest? interactionRequest;
                 List<string>? details;
                 string? stepId;
                 string? stepPath;
@@ -1946,6 +2024,7 @@ public partial class RunTestViewModel : ReactiveObject
                     force = _pendingForceFlush;
                     awaiting = _pendingAwaitingOperator;
                     prompt = _pendingOperatorPrompt;
+                    interactionRequest = _pendingInteractionRequest;
                     details = DequeueDetailBatch_NoLock(MaxDetailLinesPerFlush);
                     stepId = _pendingStepId;
                     stepPath = _pendingStepPath;
@@ -1956,6 +2035,7 @@ public partial class RunTestViewModel : ReactiveObject
                     _pendingForceFlush = false;
                     _pendingAwaitingOperator = false;
                     _pendingOperatorPrompt = null;
+                    _pendingInteractionRequest = null;
                     _pendingStepId = null;
                     _pendingStepPath = null;
                     _pendingStepName = null;
@@ -1999,6 +2079,7 @@ public partial class RunTestViewModel : ReactiveObject
                         {
                             _pendingAwaitingOperator = true;
                             _pendingOperatorPrompt = prompt;
+                            _pendingInteractionRequest = interactionRequest;
                         }
 
                         _pendingStepId ??= stepId;
@@ -2033,7 +2114,7 @@ public partial class RunTestViewModel : ReactiveObject
                 if (awaiting)
                 {
                     IsAwaitingOperator = true;
-                    OperatorPromptMessage = prompt;
+                    ApplyInteractionUi(interactionRequest ?? _openTap.PendingInteraction, prompt);
                 }
 
                 if (details is not null)

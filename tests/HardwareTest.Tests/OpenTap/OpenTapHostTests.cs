@@ -136,7 +136,7 @@ public sealed class OpenTapSessionTests
     }
 
     [Fact]
-    public async Task Operator_prompt_uses_interaction_contract_and_resume()
+    public async Task Operator_input_uses_interaction_contract_and_resume()
     {
         var session = new OpenTapSession();
         await session.LoadSampleProgramAsync();
@@ -158,13 +158,16 @@ public sealed class OpenTapSessionTests
 
         var runTask = session.RunAsync(progress);
         var sawPrompt = await Task.WhenAny(awaiting.Task, Task.Delay(TimeSpan.FromSeconds(30))) == awaiting.Task;
-        Assert.True(sawPrompt, "Expected operator prompt pause.");
+        Assert.True(sawPrompt, "Expected operator input pause.");
         Assert.True(session.IsAwaitingOperator);
         Assert.NotNull(session.PendingInteraction);
-        Assert.Empty(session.PendingInteraction!.Fields);
+        Assert.Contains(session.PendingInteraction!.Fields, f => f.Id == "fixtureId");
         Assert.NotNull(seenRequest);
+        Assert.Equal("fixtureId", seenRequest!.Fields[0].Id);
 
-        session.Resume(OperatorInteractionResponse.Continue(session.PendingInteraction.Id));
+        session.Resume(OperatorInteractionResponse.Continue(
+            session.PendingInteraction.Id,
+            new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { ["fixtureId"] = "HOST-TEST" }));
         var summary = await runTask;
         Assert.False(session.IsAwaitingOperator);
         Assert.Null(session.PendingInteraction);

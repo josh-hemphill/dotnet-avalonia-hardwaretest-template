@@ -47,7 +47,17 @@ DUT stamping still looks for Basic `IdentityCheckStep` / `HardwareDut`. Custom D
 - Include `SafeShutdownStep` when using Run Selected.
 - Details and diagnostic tests: [testing.md](testing.md).
 
-## 5. Reports (Typst)
+## 5. Operator interactions (no floating dialogs)
+
+Use Avalonia-owned mid-run prompts only:
+
+- **Confirm-only:** `OperatorPromptStep` or `StepRuntime.RequestOperatorAttention(message)`.
+- **Typed input:** `OperatorInputStep` (string + optional number) or a custom step calling `StepRuntime.RequestInteraction` with `OperatorInteractionField`s.
+- The Run board shows an in-panel host (title, message, fields). Continue / Cancel are toolbar actions — never OpenTAP `DialogStep`, WinForms/WPF message boxes, or a second window.
+
+Field editors (`InteractionFieldViewModel`) are shared with the upcoming Parameters panel (Phase C).
+
+## 6. Reports (Typst)
 
 Default embedded templates: `test-report.typ` + `lib/sample-chart.typ`.
 
@@ -59,15 +69,15 @@ Override without recompiling:
 
 Compile inputs: `run.json` (camelCase `TestRunRecord`), Typst inputs (`title`, `runId`, `planName`, `dutSerial`, `result`, …), and optional sample-driven charts via `sample-chart.typ`. `EmbedPlotsInReport` toggles chart notes.
 
-## 6. What stays demo-specific
+## 7. What stays demo-specific
 
-- Basic plugin steps (`AcquireVoltageStep`, `MeanGteStep`, …).
+- Basic plugin steps (`AcquireVoltageStep`, `MeanGteStep`, `OperatorInputStep`, …).
 - Engineer/Debug overlays `TrySetAcquireSettings` / `TrySetMeanGteThreshold` (sample step types only). Prefer `TryGetStepConditionSummary` for read-only display of unknown steps.
 - `LoadSampleProgramAsync` / `LoadBoardDemoProgramAsync` on `IOpenTapSession` — ignore once you only ship disk plans.
 
 Plan-shape fixtures (`LoadPlanShapeAsync`) live on the concrete `OpenTapSession` / `FakeOpenTapSession` for tests, not on `IOpenTapSession`.
 
-## 7. Rename checklist (optional)
+## 8. Rename checklist (optional)
 
 When productizing the template name:
 

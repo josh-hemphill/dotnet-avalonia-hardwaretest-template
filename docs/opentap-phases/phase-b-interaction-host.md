@@ -36,9 +36,9 @@ Replace ad-hoc prompt-only UX with an **in-panel** Run-board interaction host th
 
 ## Exit criteria
 
-- Confirm + at least one typed input works on Run board without a second window.
-- E2E green for input path.
-- Sample/board-demo prompts unchanged in behavior.
+- [x] Confirm + at least one typed input works on Run board without a second window.
+- [x] E2E green for input path (sample plan uses `OperatorInputStep`; harness fills fields then Continue).
+- [x] Sample/board-demo prompts unchanged in behavior (board-demo still `OperatorPromptStep`).
 
 ## Out of scope
 

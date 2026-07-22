@@ -60,9 +60,9 @@ flowchart TB
 
 Types live in [`OperatorInteraction.cs`](../src/HardwareTest.OpenTap.Plugins.Basic/OperatorInteraction.cs) (plugin assembly, shared with Host). Bridge: [`StepRuntime.RequestInteraction`](../src/HardwareTest.OpenTap.Plugins.Basic/StepRuntime.cs).
 
-Today: [`OperatorPromptStep`](../src/HardwareTest.OpenTap.Plugins.Basic/Steps.cs) calls `StepRuntime.RequestOperatorAttention(message)` (confirm-only wrapper) → Host `HandleInteraction` pauses → Run board Continue → `Resume(response?)`.
+Today: [`OperatorPromptStep`](../src/HardwareTest.OpenTap.Plugins.Basic/Steps.cs) (confirm-only) and [`OperatorInputStep`](../src/HardwareTest.OpenTap.Plugins.Basic/Steps.cs) (string/number fields) call `StepRuntime.RequestInteraction` / `RequestOperatorAttention` → Host `HandleInteraction` pauses → Run board **in-panel** host (title, message, fields) → Continue builds `OperatorInteractionResponse` → `Resume(response)`.
 
-Target (Phase B+):
+Flow:
 
 1. Step emits `OperatorInteractionRequest` (title, message, fields: string/number/bool, optional validation).
 2. Host pauses the plan thread (interaction gate + pause gate).
@@ -72,7 +72,9 @@ Target (Phase B+):
 
 **Forbidden on appliance:** OpenTAP `DialogStep`, WinForms/WPF message boxes, or any second top-level window for operator flow.
 
-Pre-run parameter edits and mid-run inputs share the **same field control types**.
+Pre-run parameter edits and mid-run inputs share the **same field control types** (`InteractionFieldViewModel`).
+
+**Authoring:** Prefer `OperatorInputStep` (or custom steps calling `StepRuntime.RequestInteraction`) for technician input. Keep `OperatorPromptStep` for confirm-only pauses. Do not add OpenTAP Dialog steps to appliance plans.
 
 ## Parameter model
 
@@ -108,7 +110,7 @@ Pre-run parameter edits and mid-run inputs share the **same field control types*
 | Phase | Plan | Status |
 | --- | --- | --- |
 | A | [Interaction contract skeleton](opentap-phases/phase-a-interaction-contract.md) | Done (API + host/Fake bridge) |
-| B | [Avalonia interaction host + input steps](opentap-phases/phase-b-interaction-host.md) | Planned |
+| B | [Avalonia interaction host + input steps](opentap-phases/phase-b-interaction-host.md) | Done |
 | C | [Parameters panel](opentap-phases/phase-c-parameters.md) | Planned |
 | D | [Mixin support](opentap-phases/phase-d-mixins.md) | Planned |
 | E | [Packages list](opentap-phases/phase-e-packages-list.md) | Planned |

@@ -153,6 +153,109 @@ public sealed class OperatorPromptStep : TestStep
     }
 }
 
+/// Pauses for Avalonia-owned typed input (no floating OpenTAP dialogs).
+[Display("Operator Input", Groups: ["HardwareTest", "Operator"], Description: "Collect string/number input from the Run board, then Continue.")]
+public sealed class OperatorInputStep : TestStep
+{
+    [Display("Title", Order: 1)]
+    public string Title { get; set; } = "Operator input";
+
+    [Display("Message", Order: 2)]
+    public string Message { get; set; } = "Enter the requested value(s), then Continue.";
+
+    [Display("String Field Id", Order: 10)]
+    public string StringFieldId { get; set; } = "value";
+
+    [Display("String Field Label", Order: 11)]
+    public string StringFieldLabel { get; set; } = "Value";
+
+    [Display("String Field Required", Order: 12)]
+    public bool StringFieldRequired { get; set; }
+
+    [Display("String Default", Order: 13)]
+    public string StringFieldDefault { get; set; } = string.Empty;
+
+    [Display("Number Field Id", Order: 20, Description: "Leave empty to omit the number field.")]
+    public string NumberFieldId { get; set; } = string.Empty;
+
+    [Display("Number Field Label", Order: 21)]
+    public string NumberFieldLabel { get; set; } = "Number";
+
+    [Display("Number Field Required", Order: 22)]
+    public bool NumberFieldRequired { get; set; }
+
+    public override void Run()
+    {
+        TapThread.ThrowIfAborted();
+        var fields = new List<OperatorInteractionField>
+        {
+            new()
+            {
+                Id = string.IsNullOrWhiteSpace(StringFieldId) ? "value" : StringFieldId.Trim(),
+                Label = string.IsNullOrWhiteSpace(StringFieldLabel) ? "Value" : StringFieldLabel.Trim(),
+                Kind = OperatorInteractionFieldKind.String,
+                Required = StringFieldRequired,
+                DefaultValue = StringFieldDefault,
+            },
+        };
+        if (!string.IsNullOrWhiteSpace(NumberFieldId))
+        {
+            fields.Add(new OperatorInteractionField
+            {
+                Id = NumberFieldId.Trim(),
+                Label = string.IsNullOrWhiteSpace(NumberFieldLabel) ? "Number" : NumberFieldLabel.Trim(),
+                Kind = OperatorInteractionFieldKind.Number,
+                Required = NumberFieldRequired,
+            });
+        }
+
+        var request = new OperatorInteractionRequest
+        {
+            Id = Guid.NewGuid().ToString("N"),
+            Title = string.IsNullOrWhiteSpace(Title) ? "Operator input" : Title.Trim(),
+            Message = Message,
+            Fields = fields,
+        };
+
+        Log.Info("Operator input: {0}", request.Message);
+        var response = StepRuntime.RequestInteraction?.Invoke(request)
+                       ?? OperatorInteractionResponse.Cancel(request.Id);
+        StepRuntime.WaitIfPaused?.Invoke();
+
+        if (response.Cancelled)
+        {
+            Log.Warning("Operator input cancelled.");
+            UpgradeVerdict(Verdict.Error);
+            return;
+        }
+
+        var stringId = fields[0].Id;
+        response.Values.TryGetValue(stringId, out var stringValue);
+        stringValue ??= string.Empty;
+        var numberValue = string.Empty;
+        if (fields.Count > 1)
+        {
+            response.Values.TryGetValue(fields[1].Id, out numberValue);
+            numberValue ??= string.Empty;
+        }
+
+        Results.Publish(
+            "OperatorInput",
+            new List<string> { "StringId", "StringValue", "NumberId", "NumberValue" },
+            stringId,
+            stringValue,
+            fields.Count > 1 ? fields[1].Id : string.Empty,
+            numberValue);
+        StepRun.Parameters["OperatorInput." + stringId] = stringValue;
+        if (fields.Count > 1)
+        {
+            StepRun.Parameters["OperatorInput." + fields[1].Id] = numberValue;
+        }
+
+        UpgradeVerdict(Verdict.Pass);
+    }
+}
+
 /// Parent grouping step for hierarchy (subsystem / domain).
 [Display("Test Group", Groups: ["HardwareTest"], Description: "Hierarchical group of child steps.")]
 [AllowAnyChild]

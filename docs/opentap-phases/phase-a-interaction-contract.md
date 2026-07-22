@@ -46,6 +46,5 @@ Introduce typed `OperatorInteractionRequest` / `OperatorInteractionResponse` and
 
 ## Out of scope
 
-- Rich interaction panel UI (Phase B).
-- `OperatorInputStep` (Phase B).
+- Rich interaction panel UI / `OperatorInputStep` — see [Phase B](phase-b-interaction-host.md) (Done).
 - Parameter panel (Phase C).

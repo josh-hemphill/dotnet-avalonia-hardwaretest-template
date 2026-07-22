@@ -16,6 +16,7 @@ public sealed class RunFlowE2ETests
             {
                 if (runVm.IsAwaitingOperator)
                 {
+                    FillInteractionFieldsIfNeeded(runVm);
                     runVm.ContinueOperatorAttention();
                 }
 
@@ -24,6 +25,24 @@ public sealed class RunFlowE2ETests
             TimeSpan.FromMinutes(2),
             "Run did not finish (operator prompt may be stuck).");
         await runTask;
+    }
+
+    private static void FillInteractionFieldsIfNeeded(RunTestViewModel runVm)
+    {
+        foreach (var field in runVm.InteractionFields)
+        {
+            if (field.IsBoolean)
+            {
+                continue;
+            }
+
+            if (!string.IsNullOrWhiteSpace(field.Value))
+            {
+                continue;
+            }
+
+            field.Value = field.IsNumber ? "0" : "e2e-fixture";
+        }
     }
 
     [AvaloniaFact]
@@ -70,6 +89,7 @@ public sealed class RunFlowE2ETests
             {
                 if (runVm.IsAwaitingOperator)
                 {
+                    FillInteractionFieldsIfNeeded(runVm);
                     runVm.ContinueOperatorAttention();
                 }
 

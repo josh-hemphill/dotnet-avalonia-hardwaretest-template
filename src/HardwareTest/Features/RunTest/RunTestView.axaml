@@ -156,9 +156,37 @@
                   CornerRadius="4"
                   Padding="8"
                   Margin="0,4,0,0">
-            <TextBlock Text="{Binding OperatorPromptMessage}"
-                       FontWeight="SemiBold"
-                       TextWrapping="Wrap" />
+            <StackPanel Spacing="6">
+              <TextBlock Text="{Binding InteractionTitle}"
+                         FontWeight="Bold"
+                         FontSize="13" />
+              <TextBlock Text="{Binding OperatorPromptMessage}"
+                         FontWeight="SemiBold"
+                         TextWrapping="Wrap" />
+              <TextBlock Text="{Binding InteractionValidationError}"
+                         Foreground="#E65100"
+                         TextWrapping="Wrap"
+                         FontSize="12" />
+              <ItemsControl ItemsSource="{Binding InteractionFields}"
+                            IsVisible="{Binding HasInteractionFields}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:InteractionFieldViewModel">
+                    <StackPanel Spacing="4" Margin="0,2,0,4">
+                      <TextBlock Text="{Binding Label}"
+                                 FontSize="12"
+                                 Opacity="0.85"
+                                 IsVisible="{Binding IsTextOrNumber}" />
+                      <TextBox Text="{Binding Value}"
+                               PlaceholderText="{Binding ValidationHint}"
+                               IsVisible="{Binding IsTextOrNumber}" />
+                      <CheckBox Content="{Binding Label}"
+                                IsChecked="{Binding BoolValue}"
+                                IsVisible="{Binding IsBoolean}" />
+                    </StackPanel>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
           </Border>
         </StackPanel>
       </Border>

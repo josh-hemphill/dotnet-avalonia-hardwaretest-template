@@ -21,10 +21,15 @@ public static class SampleProgramFactory
             Dut = dut,
         });
 
-        var prompt = new OperatorPromptStep
+        var prompt = new OperatorInputStep
         {
             Name = "Install Sweep Fixture",
-            Message = "Install the voltage-sweep fixture, then Continue.",
+            Title = "Install Sweep Fixture",
+            Message = "Install the voltage-sweep fixture, optionally note the fixture id, then Continue.",
+            StringFieldId = "fixtureId",
+            StringFieldLabel = "Fixture id",
+            StringFieldRequired = false,
+            NumberFieldId = string.Empty,
         };
 
         var measureGroup = new TestGroupStep { Name = "Voltage Sweep" };

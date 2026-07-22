@@ -2,6 +2,7 @@ using HardwareTest.Core.Runs;
 using HardwareTest.Core.Settings;
 using HardwareTest.Features.RunTest;
 using HardwareTest.OpenTap.Host;
+using HardwareTest.OpenTap.Plugins.Basic;
 using HardwareTest.ViewModels.Tests.Fakes;
 using Xunit;
 
@@ -191,6 +192,98 @@ public sealed class RunTestViewModelTests
         await vm.ContinueOperatorCommand.ExecuteAsync();
         Assert.False(openTap.IsAwaitingOperator);
         Assert.False(vm.IsAwaitingOperator);
+    }
+
+    [Fact]
+    public async Task Continue_operator_returns_typed_interaction_values()
+    {
+        var openTap = new FakeOpenTapSession();
+        var request = new OperatorInteractionRequest
+        {
+            Id = "req-input-1",
+            Title = "Install Sweep Fixture",
+            Message = "Enter fixture id",
+            Fields =
+            [
+                new OperatorInteractionField
+                {
+                    Id = "fixtureId",
+                    Label = "Fixture id",
+                    Kind = OperatorInteractionFieldKind.String,
+                    Required = false,
+                },
+            ],
+        };
+        openTap.BeginInteraction(request);
+
+        var vm = CreateVm(openTap);
+        vm.UiScheduler = action => action();
+        vm.IngestProgress(new OpenTapProgress
+        {
+            Message = request.Message,
+            AwaitingOperator = true,
+            OperatorPromptMessage = request.Message,
+            InteractionRequest = request,
+            OverallPercent = 15,
+        });
+        await Task.Delay(50);
+
+        Assert.True(vm.IsAwaitingOperator);
+        Assert.True(vm.HasInteractionFields);
+        Assert.Equal("Install Sweep Fixture", vm.InteractionTitle);
+        Assert.Single(vm.InteractionFields);
+        vm.InteractionFields[0].Value = "FIXTURE-9";
+
+        await vm.ContinueOperatorCommand.ExecuteAsync();
+
+        Assert.False(vm.IsAwaitingOperator);
+        Assert.False(vm.HasInteractionFields);
+        Assert.False(openTap.IsAwaitingOperator);
+        Assert.NotNull(openTap.LastInteractionResponse);
+        Assert.False(openTap.LastInteractionResponse!.Cancelled);
+        Assert.Equal("FIXTURE-9", openTap.LastInteractionResponse.Values["fixtureId"]);
+    }
+
+    [Fact]
+    public async Task Continue_operator_blocks_when_required_field_empty()
+    {
+        var openTap = new FakeOpenTapSession();
+        var request = new OperatorInteractionRequest
+        {
+            Id = "req-required",
+            Title = "Need serial",
+            Message = "Enter serial",
+            Fields =
+            [
+                new OperatorInteractionField
+                {
+                    Id = "serial",
+                    Label = "Serial",
+                    Kind = OperatorInteractionFieldKind.String,
+                    Required = true,
+                },
+            ],
+        };
+        openTap.BeginInteraction(request);
+
+        var vm = CreateVm(openTap);
+        vm.UiScheduler = action => action();
+        vm.IngestProgress(new OpenTapProgress
+        {
+            Message = request.Message,
+            AwaitingOperator = true,
+            OperatorPromptMessage = request.Message,
+            InteractionRequest = request,
+            OverallPercent = 15,
+        });
+        await Task.Delay(50);
+
+        await vm.ContinueOperatorCommand.ExecuteAsync();
+
+        Assert.True(vm.IsAwaitingOperator);
+        Assert.True(openTap.IsAwaitingOperator);
+        Assert.Contains("required", vm.InteractionValidationError, StringComparison.OrdinalIgnoreCase);
+        Assert.Null(openTap.LastInteractionResponse);
     }
 
     [Fact]
