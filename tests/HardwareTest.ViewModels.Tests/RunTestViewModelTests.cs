@@ -688,6 +688,18 @@ public sealed class RunTestViewModelTests
     }
 
     [Fact]
+    public async Task RefreshPrograms_lists_sample_and_board_demo_once()
+    {
+        var openTap = new FakeOpenTapSession();
+        var vm = CreateVm(openTap);
+        await vm.RefreshProgramsCommand.ExecuteAsync();
+        Assert.Equal(1, vm.Programs.Count(p => p.Id == "sample"));
+        Assert.Equal(1, vm.Programs.Count(p => p.Id == "board-demo"));
+        Assert.Equal(ProgramLoadKind.FactorySample, vm.Programs.First(p => p.Id == "sample").LoadKind);
+        Assert.Equal(ProgramLoadKind.FactoryBoardDemo, vm.Programs.First(p => p.Id == "board-demo").LoadKind);
+    }
+
+    [Fact]
     public async Task SessionLogExpanded_defaults_false()
     {
         var vm = CreateVm();

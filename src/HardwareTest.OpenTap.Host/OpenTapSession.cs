@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using HardwareTest.Core.Runs;
+using HardwareTest.Core.Settings;
 using HardwareTest.OpenTap.Plugins.Basic;
 using OpenTap;
 using Serilog;
@@ -34,6 +35,7 @@ public sealed class OpenTapProgress
     public bool IsCompleted { get; init; }
     public bool AwaitingOperator { get; init; }
     public string? OperatorPromptMessage { get; init; }
+    public OperatorInteractionRequest? InteractionRequest { get; init; }
     public RunResult? Result { get; init; }
     public MeasurementSampleEvent? Sample { get; init; }
 }
@@ -66,16 +68,16 @@ public interface IOpenTapSession
     IReadOnlyList<OpenTapInstrumentSlot> InstrumentSlots { get; }
     bool IsAwaitingOperator { get; }
     string? OperatorPromptMessage { get; }
+    OperatorInteractionRequest? PendingInteraction { get; }
 
     Task LoadPlanAsync(string tapPlanPath, CancellationToken cancellationToken = default);
     Task LoadSampleProgramAsync(CancellationToken cancellationToken = default);
     Task LoadBoardDemoProgramAsync(CancellationToken cancellationToken = default);
-    Task LoadPlanShapeAsync(string fixtureFileName, CancellationToken cancellationToken = default);
     Task ApplyStationAndDutAsync(StationProfile station, DutIdentity dut, CancellationToken cancellationToken = default);
     Task<OpenTapRunSummary> RunAsync(IProgress<OpenTapProgress>? progress = null, CancellationToken cancellationToken = default);
     Task<OpenTapRunSummary> RunSelectionAsync(string stepPath, IProgress<OpenTapProgress>? progress = null, CancellationToken cancellationToken = default);
     void Pause();
-    void Resume();
+    void Resume(OperatorInteractionResponse? response = null);
     void Abort(bool safetyStop = false);
 
     bool TrySetStepEnabled(string stepPath, bool enabled);
@@ -103,9 +105,10 @@ public sealed class OpenTapStepNode
 public sealed class OpenTapSession : IOpenTapSession, INotifyPropertyChanged
 {
     private readonly ILogger _logger;
+    private readonly AppSettings _settings;
     private readonly object _sync = new();
     private TestPlan? _plan;
-    private readonly List<MockDmmInstrument> _instruments = [];
+    private readonly List<Instrument> _instruments = [];
     private HardwareDut? _dut;
     private DutIdentity? _dutIdentity;
     private CancellationTokenSource? _runCts;
@@ -119,9 +122,13 @@ public sealed class OpenTapSession : IOpenTapSession, INotifyPropertyChanged
     private bool _pluginSearchDone;
     private bool _awaitingOperator;
     private string? _operatorPromptMessage;
+    private OperatorInteractionRequest? _pendingInteraction;
+    private OperatorInteractionResponse? _interactionResponse;
+    private readonly ManualResetEventSlim _interactionGate = new(false);
 
-    public OpenTapSession(ILogger? logger = null)
+    public OpenTapSession(AppSettings? settings = null, ILogger? logger = null)
     {
+        _settings = settings ?? new AppSettings();
         _logger = logger ?? Serilog.Log.ForContext<OpenTapSession>();
     }
 
@@ -131,6 +138,7 @@ public sealed class OpenTapSession : IOpenTapSession, INotifyPropertyChanged
     public IReadOnlyList<OpenTapInstrumentSlot> InstrumentSlots => _slots;
     public bool IsAwaitingOperator => _awaitingOperator;
     public string? OperatorPromptMessage => _operatorPromptMessage;
+    public OperatorInteractionRequest? PendingInteraction => _pendingInteraction;
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -188,7 +196,7 @@ public sealed class OpenTapSession : IOpenTapSession, INotifyPropertyChanged
         {
             _plan = plan;
             _instruments.Clear();
-            foreach (var instr in FlattenSteps(plan).Select(ExtractInstrument).Where(i => i is not null).Cast<MockDmmInstrument>().Distinct())
+            foreach (var instr in InstrumentResourceAccess.CollectFromPlan(plan))
             {
                 _instruments.Add(instr);
             }
@@ -199,10 +207,10 @@ public sealed class OpenTapSession : IOpenTapSession, INotifyPropertyChanged
             _stepTree = BuildTree(plan);
             _slots = _instruments.Select(i => new OpenTapInstrumentSlot
             {
-                Name = string.IsNullOrWhiteSpace(i.Name) ? "DMM" : i.Name,
-                TypeName = nameof(MockDmmInstrument),
+                Name = string.IsNullOrWhiteSpace(i.Name) ? i.GetType().Name : i.Name,
+                TypeName = i.GetType().Name,
                 RoleHint = GuessRole(i.Name),
-                ResourceName = i.ResourceName,
+                ResourceName = InstrumentResourceAccess.GetResource(i),
             }).ToList();
         }
 
@@ -241,11 +249,7 @@ public sealed class OpenTapSession : IOpenTapSession, INotifyPropertyChanged
                 && !string.IsNullOrWhiteSpace(dmm)
                 && _instruments.Count > 0)
             {
-                _instruments[0].ResourceName = dmm;
-                if (_slots.Count > 0)
-                {
-                    _slots[0].ResourceName = dmm;
-                }
+                TryBindSlotResource_NoLock(_slots.FirstOrDefault()?.Name ?? _instruments[0].Name, dmm);
             }
         }
 
@@ -306,6 +310,9 @@ public sealed class OpenTapSession : IOpenTapSession, INotifyPropertyChanged
             _stepStarted.Clear();
             _awaitingOperator = false;
             _operatorPromptMessage = null;
+            _pendingInteraction = null;
+            _interactionResponse = null;
+            _interactionGate.Reset();
             _runCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             _paused = false;
             _pauseGate.Set();
@@ -314,6 +321,7 @@ public sealed class OpenTapSession : IOpenTapSession, INotifyPropertyChanged
 
         Raise(nameof(IsAwaitingOperator));
         Raise(nameof(OperatorPromptMessage));
+        Raise(nameof(PendingInteraction));
 
         var started = DateTimeOffset.UtcNow;
         var runId = Guid.NewGuid().ToString("N");
@@ -338,7 +346,7 @@ public sealed class OpenTapSession : IOpenTapSession, INotifyPropertyChanged
                 () =>
                 {
                     StepRuntime.WaitIfPaused = WaitIfPaused;
-                    StepRuntime.RequestOperatorAttention = msg => OnOperatorAttention(msg, progress);
+                    StepRuntime.RequestInteraction = request => HandleInteraction(request, progress);
                     try
                     {
                         WaitIfPaused();
@@ -347,7 +355,7 @@ public sealed class OpenTapSession : IOpenTapSession, INotifyPropertyChanged
                     finally
                     {
                         StepRuntime.WaitIfPaused = null;
-                        StepRuntime.RequestOperatorAttention = null;
+                        StepRuntime.RequestInteraction = null;
                     }
                 },
                 _runCts.Token).ConfigureAwait(false);
@@ -386,12 +394,16 @@ public sealed class OpenTapSession : IOpenTapSession, INotifyPropertyChanged
             {
                 _awaitingOperator = false;
                 _operatorPromptMessage = null;
+                _pendingInteraction = null;
+                _interactionResponse = null;
+                _interactionGate.Set();
                 _runCts?.Dispose();
                 _runCts = null;
             }
 
             Raise(nameof(IsAwaitingOperator));
             Raise(nameof(OperatorPromptMessage));
+            Raise(nameof(PendingInteraction));
         }
     }
 
@@ -418,24 +430,52 @@ public sealed class OpenTapSession : IOpenTapSession, INotifyPropertyChanged
             Verdict = verdict,
         };
 
-    private void OnOperatorAttention(string message, IProgress<OpenTapProgress>? progress)
+    private OperatorInteractionResponse HandleInteraction(
+        OperatorInteractionRequest request,
+        IProgress<OpenTapProgress>? progress)
     {
-        Pause();
         lock (_sync)
         {
+            _pendingInteraction = request;
+            _interactionResponse = null;
+            _interactionGate.Reset();
             _awaitingOperator = true;
-            _operatorPromptMessage = message;
+            _operatorPromptMessage = request.Message;
+        }
+
+        Pause();
+        Raise(nameof(IsAwaitingOperator));
+        Raise(nameof(OperatorPromptMessage));
+        Raise(nameof(PendingInteraction));
+        progress?.Report(new OpenTapProgress
+        {
+            Message = request.Message,
+            AwaitingOperator = true,
+            OperatorPromptMessage = request.Message,
+            InteractionRequest = request,
+            StatusText = "Awaiting operator",
+        });
+
+        while (!_interactionGate.Wait(50))
+        {
+            _runCts?.Token.ThrowIfCancellationRequested();
+        }
+
+        OperatorInteractionResponse response;
+        lock (_sync)
+        {
+            response = _interactionResponse
+                       ?? OperatorInteractionResponse.Cancel(request.Id);
+            _pendingInteraction = null;
+            _interactionResponse = null;
+            _awaitingOperator = false;
+            _operatorPromptMessage = null;
         }
 
         Raise(nameof(IsAwaitingOperator));
         Raise(nameof(OperatorPromptMessage));
-        progress?.Report(new OpenTapProgress
-        {
-            Message = message,
-            AwaitingOperator = true,
-            OperatorPromptMessage = message,
-            StatusText = "Awaiting operator",
-        });
+        Raise(nameof(PendingInteraction));
+        return response;
     }
 
     public void Pause()
@@ -444,23 +484,48 @@ public sealed class OpenTapSession : IOpenTapSession, INotifyPropertyChanged
         _pauseGate.Reset();
     }
 
-    public void Resume()
+    public void Resume(OperatorInteractionResponse? response = null)
     {
         lock (_sync)
         {
+            if (_pendingInteraction is not null)
+            {
+                _interactionResponse = response
+                    ?? OperatorInteractionResponse.Continue(_pendingInteraction.Id);
+            }
+
             _awaitingOperator = false;
             _operatorPromptMessage = null;
+            _interactionGate.Set();
         }
 
         Raise(nameof(IsAwaitingOperator));
         Raise(nameof(OperatorPromptMessage));
+        Raise(nameof(PendingInteraction));
         _paused = false;
         _pauseGate.Set();
     }
 
     public void Abort(bool safetyStop = false)
     {
-        Resume();
+        lock (_sync)
+        {
+            if (_pendingInteraction is not null)
+            {
+                _interactionResponse = OperatorInteractionResponse.Cancel(_pendingInteraction.Id);
+            }
+
+            _awaitingOperator = false;
+            _operatorPromptMessage = null;
+            _interactionGate.Set();
+        }
+
+        Raise(nameof(IsAwaitingOperator));
+        Raise(nameof(OperatorPromptMessage));
+        Raise(nameof(PendingInteraction));
+        _paused = false;
+        _pauseGate.Set();
+
         try
         {
             _runCts?.Cancel();
@@ -584,10 +649,15 @@ public sealed class OpenTapSession : IOpenTapSession, INotifyPropertyChanged
             return false;
         }
 
-        instr.ResourceName = resource.Trim();
+        var trimmed = resource.Trim();
+        if (!InstrumentResourceAccess.TrySetResource(instr, trimmed))
+        {
+            return false;
+        }
+
         if (slot is not null)
         {
-            slot.ResourceName = instr.ResourceName;
+            slot.ResourceName = trimmed;
         }
 
         return true;
@@ -740,15 +810,40 @@ public sealed class OpenTapSession : IOpenTapSession, INotifyPropertyChanged
             return;
         }
 
-        var dir = Path.GetDirectoryName(typeof(MockDmmInstrument).Assembly.Location)
-                  ?? AppContext.BaseDirectory;
-        if (!PluginManager.DirectoriesToSearch.Contains(dir))
+        var basicDir = Path.GetDirectoryName(typeof(MockDmmInstrument).Assembly.Location)
+                       ?? AppContext.BaseDirectory;
+        AddPluginSearchDir(basicDir);
+
+        foreach (var dir in _settings.OpenTapPluginDirectories)
         {
-            PluginManager.DirectoriesToSearch.Add(dir);
+            AddPluginSearchDir(dir);
+        }
+
+        var env = Environment.GetEnvironmentVariable("HARDWARETEST_OPENTAP_PLUGIN_DIRS");
+        if (!string.IsNullOrWhiteSpace(env))
+        {
+            foreach (var part in env.Split([Path.PathSeparator, ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            {
+                AddPluginSearchDir(part);
+            }
         }
 
         PluginManager.Search();
         _pluginSearchDone = true;
+    }
+
+    private static void AddPluginSearchDir(string? dir)
+    {
+        if (string.IsNullOrWhiteSpace(dir) || !Directory.Exists(dir))
+        {
+            return;
+        }
+
+        var full = Path.GetFullPath(dir);
+        if (!PluginManager.DirectoriesToSearch.Contains(full))
+        {
+            PluginManager.DirectoriesToSearch.Add(full);
+        }
     }
 
     private static IEnumerable<ITestStep> FlattenSteps(ITestStepParent parent)
@@ -762,16 +857,6 @@ public sealed class OpenTapSession : IOpenTapSession, INotifyPropertyChanged
             }
         }
     }
-
-    private static MockDmmInstrument? ExtractInstrument(ITestStep step)
-        => step switch
-        {
-            IdentityCheckStep id => id.Instrument,
-            AcquireVoltageStep ac => ac.Instrument,
-            MeanGteStep mg => mg.Instrument,
-            SafeShutdownStep ss => ss.Instrument,
-            _ => null,
-        };
 
     private static HardwareDut? FindDut(TestPlan plan)
         => FlattenSteps(plan).OfType<IdentityCheckStep>().Select(s => s.Dut).FirstOrDefault();

@@ -12,6 +12,8 @@ src/
   HardwareTest.OpenTap.Plugins.Basic/# Instruments, DUT, sample TestSteps
 plans/opentap/                       # Locked .TapPlan programs
 docs/appliance-linux.md              # Appliance layout + publish notes
+docs/opentap-platform.md             # OpenTAP shell roadmap + phase checklist
+docs/opentap-phases/                 # Incremental implementation plans (A–H)
 tests/
   HardwareTest.Tests/                # Core + OpenTAP host unit tests
   HardwareTest.ViewModels.Tests/     # ViewModel unit tests (fakes)
@@ -42,6 +44,8 @@ dotnet test tests/HardwareTest.E2E.Tests -r win-x64
 ```
 
 See [docs/testing.md](docs/testing.md) for UI vs OpenTAP suite separation, plan-shape fixtures, and progress/summary recording.
+See [docs/adapting.md](docs/adapting.md) to replace sample plans, plugins, station bindings, and reports for your product.
+See [docs/opentap-platform.md](docs/opentap-platform.md) for the OpenTAP integration roadmap (interactions, parameters, mixins, packages) and [incremental phase plans](docs/opentap-phases/).
 ## Operator Session / DUT
 
 - Confirm DUT serial once per session (sticky strip on Run).

@@ -88,8 +88,11 @@ public sealed class TypstReportService : IReportService, IDisposable
     private byte[] CompileTemplateCore(TestRunRecord run, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var template = LoadEmbeddedResource("test-report.typ");
-        var chartLib = LoadEmbeddedResource("sample-chart.typ");
+        var templateName = string.IsNullOrWhiteSpace(_settings.ReportTemplateName)
+            ? "test-report.typ"
+            : _settings.ReportTemplateName.Trim();
+        var template = LoadReportFile(templateName);
+        var chartLib = LoadReportFile("sample-chart.typ", preferLibSubfolder: true);
         var resultJson = JsonSerializer.Serialize(run, AppJsonContext.Default.TestRunRecord);
         var workDir = Path.Combine(Path.GetTempPath(), "HardwareTestTypst", run.RunId);
         var libDir = Path.Combine(workDir, "lib");
@@ -173,6 +176,34 @@ public sealed class TypstReportService : IReportService, IDisposable
         }
 
         _disposed = true;
+    }
+
+    private string LoadReportFile(string fileName, bool preferLibSubfolder = false)
+    {
+        if (!string.IsNullOrWhiteSpace(_settings.DataDirectory))
+        {
+            var reportsRoot = Path.Combine(_settings.DataDirectory, "reports");
+            string[] candidates = preferLibSubfolder
+                ?
+                [
+                    Path.Combine(reportsRoot, "lib", fileName),
+                    Path.Combine(reportsRoot, fileName),
+                ]
+                :
+                [
+                    Path.Combine(reportsRoot, fileName),
+                    Path.Combine(reportsRoot, "lib", fileName),
+                ];
+            foreach (var path in candidates)
+            {
+                if (File.Exists(path))
+                {
+                    return File.ReadAllText(path, Encoding.UTF8);
+                }
+            }
+        }
+
+        return LoadEmbeddedResource(fileName);
     }
 
     private static string LoadEmbeddedResource(string fileName)

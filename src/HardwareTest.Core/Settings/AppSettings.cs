@@ -19,6 +19,10 @@ public sealed class AppSettings
     public int OperatorSessionIdleHours { get; set; } = 4;
     /// When true, Run page exposes constrained on-bench debug edits.
     public bool IsEngineerDebugMode { get; set; }
+    /// Extra OpenTAP plugin search directories (Basic plugins are always included).
+    public List<string> OpenTapPluginDirectories { get; set; } = [];
+    /// Embedded Typst template file name (override via DataDirectory/reports/{name}).
+    public string ReportTemplateName { get; set; } = "test-report.typ";
     public List<VisaInstrument> Instruments { get; set; } = [];
     /// Station overlay: logical role → registry instrument Id (bench-specific). Kept for migration; prefer PlanSlotOverrides.
     public List<StationBinding> StationBindings { get; set; } = [];

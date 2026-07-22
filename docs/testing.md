@@ -10,23 +10,26 @@ UI/board tests stay separate from OpenTAP plan-behavior tests. Both share the `I
 
 CI runs one `test` job with three labeled steps: ViewModels, OpenTAP host + fixtures, E2E smoke.
 
+Platform roadmap (interactions, parameters, mixins): [opentap-platform.md](opentap-platform.md).
+
 ## When to add which test
 
 ### UI / board (ViewModels)
 
-1. Build or load a tree via `FakeOpenTapSession` (`LoadSampleProgramAsync`, `LoadBoardDemoProgramAsync`, `LoadPlanShapeAsync`, or `LoadTreeFromNodes`).
+1. Build or load a tree via `FakeOpenTapSession` (`LoadSampleProgramAsync`, `LoadBoardDemoProgramAsync`, Fake-only `LoadPlanShapeAsync` / `LoadTreeFromNodes`).
 2. Drive `RunTestViewModel` / `InspectViewModel` and assert StepRows, rollup chips, filters, or Inspect parity.
 3. For a captured edge case offline: `ReplayRecording(dir, "cassette-name")` then refresh hierarchy/Inspect.
 
 ### Plan behavior (OpenTAP host)
 
 1. Prefer a C# factory in `PlanShapeFixtures` / `SampleProgramFactory` / `BoardDemoProgramFactory` (optionally `SaveBeside` under `plans/opentap/fixtures/`).
-2. Load with `OpenTapSession.LoadPlanShapeAsync(...)` or the sample/board-demo loaders.
+2. Load with concrete `OpenTapSession.LoadPlanShapeAsync(...)` or the sample/board-demo loaders (not on `IOpenTapSession`).
 3. Assert `StepTree` shape, unique paths, Run Selected enable-mask behavior, or SafeShutdown presence.
 4. Keep host tests in the `OpenTapSerial` collection (`DisableParallelization`).
 
 Named templates live in `PlanDiagnosticsTests` (`PlanDiagnostics_*`).
 
+See also [adapting.md](adapting.md) for productizing plans, plugins, and reports.
 ### Record and adapt (progress/summary cassette)
 
 Not a full SCPI VCR. Capture what the board already consumes:

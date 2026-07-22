@@ -21,7 +21,8 @@ public static class Composition
     {
         var services = new ServiceCollection();
         services.AddHardwareTestCore(settingsStore);
-        services.AddSingleton<IOpenTapSession, OpenTapSession>();
+        services.AddSingleton<IOpenTapSession>(sp =>
+            new OpenTapSession(sp.GetRequiredService<AppSettings>(), Log.Logger));
         services.AddSingleton<OperatorSession>();
 
         services.AddSingleton<HomeViewModel>();

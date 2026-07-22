@@ -84,6 +84,7 @@ public partial class InstrumentsViewModel : ReactiveObject
     private readonly ISettingsStore _settingsStore;
     private readonly IVisaResourceDiscovery _discovery;
     private readonly IOpenTapSession _openTap;
+    private string? _restorePlanPath;
 
     public InstrumentsViewModel(
         ISettingsStore settingsStore,
@@ -146,25 +147,16 @@ public partial class InstrumentsViewModel : ReactiveObject
     {
         SlotOverrides.Clear();
         var saved = _settingsStore.AppSettings.PlanSlotOverrides;
+        _restorePlanPath = _openTap.LoadedPlanPath;
         try
         {
-            await _openTap.LoadSampleProgramAsync();
-            AddSlotsFromLoadedPlan("sample", "Sample Hardware Suite", saved);
-
-            foreach (var path in EnumeratePlanFiles())
+            foreach (var entry in ProgramCatalog.Enumerate())
             {
-                var id = Path.GetFileNameWithoutExtension(path);
-                if (string.Equals(id, "sample", StringComparison.OrdinalIgnoreCase))
-                {
-                    continue;
-                }
-
-                await _openTap.LoadPlanAsync(path);
-                AddSlotsFromLoadedPlan(id, id, saved);
+                await LoadCatalogEntryAsync(entry).ConfigureAwait(false);
+                AddSlotsFromLoadedPlan(entry.Id, entry.DisplayName, saved);
             }
 
-            // Restore sample as default loaded plan for Run page.
-            await _openTap.LoadSampleProgramAsync();
+            await RestoreLoadedPlanAsync().ConfigureAwait(false);
             Status = SlotOverrides.Count == 0
                 ? "No OpenTAP instrument slots found in available plans."
                 : $"Loaded {SlotOverrides.Count} slot(s) from available plans.";
@@ -175,6 +167,29 @@ public partial class InstrumentsViewModel : ReactiveObject
         }
     }
 
+    private Task LoadCatalogEntryAsync(ProgramCatalogEntry entry)
+        => entry.LoadKind switch
+        {
+            ProgramLoadKind.FactorySample => _openTap.LoadSampleProgramAsync(),
+            ProgramLoadKind.FactoryBoardDemo => _openTap.LoadBoardDemoProgramAsync(),
+            _ => _openTap.LoadPlanAsync(entry.Path),
+        };
+
+    private async Task RestoreLoadedPlanAsync()
+    {
+        var catalog = ProgramCatalog.Enumerate();
+        var restore = catalog.FirstOrDefault(e =>
+            !string.IsNullOrWhiteSpace(_restorePlanPath)
+            && string.Equals(e.Path, _restorePlanPath, StringComparison.OrdinalIgnoreCase));
+        restore ??= catalog.FirstOrDefault();
+        if (restore is null)
+        {
+            return;
+        }
+
+        await LoadCatalogEntryAsync(restore).ConfigureAwait(false);
+    }
+
     private void AddSlotsFromLoadedPlan(string planId, string displayName, List<PlanSlotOverride> saved)
     {
         foreach (var slot in _openTap.InstrumentSlots)
@@ -183,27 +198,6 @@ public partial class InstrumentsViewModel : ReactiveObject
                 string.Equals(o.PlanId, planId, StringComparison.OrdinalIgnoreCase)
                 && string.Equals(o.SlotName, slot.Name, StringComparison.OrdinalIgnoreCase));
             SlotOverrides.Add(new SlotOverrideItemViewModel(planId, displayName, slot, existing?.Resource));
-        }
-    }
-
-    private static IEnumerable<string> EnumeratePlanFiles()
-    {
-        var dirs = new[]
-        {
-            Path.Combine(AppContext.BaseDirectory, "Programs"),
-            Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "plans", "opentap")),
-        };
-        foreach (var dir in dirs.Distinct(StringComparer.OrdinalIgnoreCase))
-        {
-            if (!Directory.Exists(dir))
-            {
-                continue;
-            }
-
-            foreach (var file in Directory.EnumerateFiles(dir, "*.TapPlan"))
-            {
-                yield return file;
-            }
         }
     }
 

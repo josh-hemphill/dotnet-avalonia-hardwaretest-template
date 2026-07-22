@@ -1,5 +1,7 @@
 using HardwareTest.Core.Runs;
+using HardwareTest.Core.Settings;
 using HardwareTest.OpenTap.Host;
+using HardwareTest.OpenTap.Plugins.Basic;
 using Xunit;
 
 namespace HardwareTest.Tests.OpenTap;
@@ -134,6 +136,44 @@ public sealed class OpenTapSessionTests
     }
 
     [Fact]
+    public async Task Operator_prompt_uses_interaction_contract_and_resume()
+    {
+        var session = new OpenTapSession();
+        await session.LoadSampleProgramAsync();
+        await session.ApplyStationAndDutAsync(
+            new StationProfile(new Dictionary<string, string> { ["dmm"] = "MOCK::INSTR0" }),
+            new DutIdentity("DUT-PROMPT", Family: "demo"));
+
+        var progress = new Progress<OpenTapProgress>();
+        OperatorInteractionRequest? seenRequest = null;
+        var awaiting = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        progress.ProgressChanged += (_, p) =>
+        {
+            if (p.AwaitingOperator)
+            {
+                seenRequest = p.InteractionRequest ?? session.PendingInteraction;
+                awaiting.TrySetResult(true);
+            }
+        };
+
+        var runTask = session.RunAsync(progress);
+        var sawPrompt = await Task.WhenAny(awaiting.Task, Task.Delay(TimeSpan.FromSeconds(30))) == awaiting.Task;
+        Assert.True(sawPrompt, "Expected operator prompt pause.");
+        Assert.True(session.IsAwaitingOperator);
+        Assert.NotNull(session.PendingInteraction);
+        Assert.Empty(session.PendingInteraction!.Fields);
+        Assert.NotNull(seenRequest);
+
+        session.Resume(OperatorInteractionResponse.Continue(session.PendingInteraction.Id));
+        var summary = await runTask;
+        Assert.False(session.IsAwaitingOperator);
+        Assert.Null(session.PendingInteraction);
+        Assert.True(
+            summary.Result is RunResult.Passed or RunResult.Failed or RunResult.Error or RunResult.Cancelled,
+            $"Unexpected result {summary.Result}: {summary.ErrorMessage}");
+    }
+
+    [Fact]
     public async Task Operator_prompt_pauses_until_resume()
     {
         var session = new OpenTapSession();
@@ -216,6 +256,37 @@ public sealed class OpenTapSessionTests
             {
                 Directory.Delete(dir, recursive: true);
             }
+        }
+    }
+
+    [Fact]
+    public async Task Sample_program_exposes_generic_instrument_slots()
+    {
+        var session = new OpenTapSession();
+        await session.LoadSampleProgramAsync();
+        Assert.NotEmpty(session.InstrumentSlots);
+        Assert.Contains(session.InstrumentSlots, s =>
+            s.TypeName.Contains("MockDmm", StringComparison.OrdinalIgnoreCase)
+            || s.Name.Contains("DMM", StringComparison.OrdinalIgnoreCase));
+        Assert.True(session.TryBindSlotResource(session.InstrumentSlots[0].Name, "MOCK::INSTR9"));
+        Assert.Equal("MOCK::INSTR9", session.InstrumentSlots[0].ResourceName);
+    }
+
+    [Fact]
+    public async Task EnsurePlugins_accepts_settings_plugin_directory()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "opentap-plugins-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var settings = new AppSettings { OpenTapPluginDirectories = [dir] };
+            var session = new OpenTapSession(settings);
+            await session.LoadSampleProgramAsync();
+            Assert.NotEmpty(session.StepTree);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
         }
     }
 

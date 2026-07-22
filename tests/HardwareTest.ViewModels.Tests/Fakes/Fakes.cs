@@ -5,6 +5,7 @@ using HardwareTest.Core.Reporting;
 using HardwareTest.Core.Runs;
 using HardwareTest.Core.Settings;
 using HardwareTest.OpenTap.Host;
+using HardwareTest.OpenTap.Plugins.Basic;
 
 namespace HardwareTest.ViewModels.Tests.Fakes;
 
@@ -31,6 +32,9 @@ public sealed class FakeOpenTapSession : IOpenTapSession
     public IReadOnlyList<OpenTapInstrumentSlot> InstrumentSlots => Slots;
     public bool IsAwaitingOperator { get; set; }
     public string? OperatorPromptMessage { get; set; }
+    public OperatorInteractionRequest? PendingInteraction { get; private set; }
+    public OperatorInteractionResponse? LastInteractionResponse { get; private set; }
+    public Queue<OperatorInteractionResponse> InteractionResponses { get; } = new();
 
     public TimeSpan Delay { get; set; } = TimeSpan.FromMilliseconds(30);
     public RunResult CompletionResult { get; set; } = RunResult.Passed;
@@ -473,12 +477,34 @@ public sealed class FakeOpenTapSession : IOpenTapSession
     {
         IsAwaitingOperator = true;
         OperatorPromptMessage ??= "Paused for operator";
+        PendingInteraction ??= OperatorInteractionRequest.ConfirmOnly(OperatorPromptMessage);
     }
 
-    public void Resume()
+    public void Resume(OperatorInteractionResponse? response = null)
     {
+        if (PendingInteraction is not null)
+        {
+            LastInteractionResponse = response
+                ?? (InteractionResponses.Count > 0
+                    ? InteractionResponses.Dequeue()
+                    : OperatorInteractionResponse.Continue(PendingInteraction.Id));
+        }
+
         IsAwaitingOperator = false;
         OperatorPromptMessage = null;
+        PendingInteraction = null;
+    }
+
+    /// Simulates a step requesting interaction (for ViewModel tests without OpenTAP).
+    public void BeginInteraction(OperatorInteractionRequest request)
+    {
+        PendingInteraction = request;
+        IsAwaitingOperator = true;
+        OperatorPromptMessage = request.Message;
+        if (InteractionResponses.Count > 0)
+        {
+            Resume(InteractionResponses.Dequeue());
+        }
     }
 
     public void Abort(bool safetyStop = false)

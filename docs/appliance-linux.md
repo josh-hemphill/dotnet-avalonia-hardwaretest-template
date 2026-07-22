@@ -11,13 +11,15 @@ appliance/
   app/                 # read-only publish output (Avalonia + OpenTAP + plugins)
     HardwareTest
     Programs/          # locked .TapPlan programs (sample.TapPlan)
+    (optional) Plugins/  # third-party OpenTAP DLLs; add path to OpenTapPluginDirectories
   station/             # writable: station bindings / overlays
   logs/                # Serilog files
   runs/                # run folders + Typst PDFs
+  reports/             # optional Typst overrides (see adapting.md)
   session/             # optional Operator Session resume file
 ```
 
-Map `AppSettings.DataDirectory` (or host env) to the writable root so `runs/`, `logs/`, and station overlays are outside the read-only app tree.
+Map `AppSettings.DataDirectory` (or host env) to the writable root so `runs/`, `logs/`, `reports/`, and station overlays are outside the read-only app tree. Register extra OpenTAP plugin folders via `OpenTapPluginDirectories` or `HARDWARETEST_OPENTAP_PLUGIN_DIRS`. Productization steps: [adapting.md](adapting.md).
 
 ## Publish
 

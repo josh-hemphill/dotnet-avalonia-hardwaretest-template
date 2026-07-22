@@ -107,6 +107,7 @@ public partial class ProgramItemViewModel : ReactiveObject
     public required string Path { get; init; }
     public string DutFamily { get; init; } = "generic";
     public bool IsSample { get; init; }
+    public ProgramLoadKind LoadKind { get; init; } = ProgramLoadKind.TapPlanFile;
     public ProgramRequirements Requirements { get; init; } = ProgramRequirements.Sample;
 }
 
@@ -538,44 +539,18 @@ public partial class RunTestViewModel : ReactiveObject
     private async Task RefreshProgramsAsync()
     {
         Programs.Clear();
-        Programs.Add(new ProgramItemViewModel
+        foreach (var entry in ProgramCatalog.Enumerate())
         {
-            Id = "sample",
-            DisplayName = "Sample Hardware Suite",
-            Path = SampleProgramFactory.EmbeddedName,
-            DutFamily = "demo",
-            IsSample = true,
-            Requirements = ProgramRequirements.Sample,
-        });
-        Programs.Add(new ProgramItemViewModel
-        {
-            Id = "board-demo",
-            DisplayName = BoardDemoProgramFactory.DisplayName,
-            Path = BoardDemoProgramFactory.EmbeddedName,
-            DutFamily = "demo",
-            IsSample = true,
-            Requirements = ProgramRequirements.Sample,
-        });
-
-        foreach (var dir in EnumerateProgramDirectories())
-        {
-            foreach (var file in Directory.EnumerateFiles(dir, "*.TapPlan"))
+            Programs.Add(new ProgramItemViewModel
             {
-                var id = Path.GetFileNameWithoutExtension(file);
-                if (Programs.Any(p => string.Equals(p.Id, id, StringComparison.OrdinalIgnoreCase)))
-                {
-                    continue;
-                }
-
-                Programs.Add(new ProgramItemViewModel
-                {
-                    Id = id,
-                    DisplayName = id,
-                    Path = file,
-                    DutFamily = "generic",
-                    Requirements = ProgramRequirements.FromFamily("generic"),
-                });
-            }
+                Id = entry.Id,
+                DisplayName = entry.DisplayName,
+                Path = entry.Path,
+                DutFamily = entry.DutFamily,
+                IsSample = entry.IsBuiltIn,
+                LoadKind = entry.LoadKind,
+                Requirements = entry.Requirements,
+            });
         }
 
         SelectedProgram ??= Programs.FirstOrDefault();
@@ -586,16 +561,6 @@ public partial class RunTestViewModel : ReactiveObject
 
         Status = $"Loaded {Programs.Count} program(s).";
         RefreshSessionSummary();
-    }
-
-    private static IEnumerable<string> EnumerateProgramDirectories()
-    {
-        yield return Path.Combine(AppContext.BaseDirectory, "Programs");
-        var repoPlans = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "plans", "opentap"));
-        if (Directory.Exists(repoPlans))
-        {
-            yield return repoPlans;
-        }
     }
 
     private async Task LoadSelectedProgramAsync(string? preserveStagePath = null, string? preserveStepPath = null)
@@ -612,19 +577,7 @@ public partial class RunTestViewModel : ReactiveObject
 
         if (!alreadyLoaded)
         {
-            if (string.Equals(SelectedProgram.Path, SampleProgramFactory.EmbeddedName, StringComparison.OrdinalIgnoreCase))
-            {
-                await _openTap.LoadSampleProgramAsync();
-            }
-            else if (string.Equals(SelectedProgram.Path, BoardDemoProgramFactory.EmbeddedName, StringComparison.OrdinalIgnoreCase))
-            {
-                await _openTap.LoadBoardDemoProgramAsync();
-            }
-            else
-            {
-                await _openTap.LoadPlanAsync(SelectedProgram.Path);
-            }
-
+            await LoadProgramEntryAsync(SelectedProgram).ConfigureAwait(false);
             RebuildHierarchyFromHost(preserveStagePath, preserveStepPath);
         }
         else if (Hierarchy.Count == 0 && _fullHierarchy.Count == 0)
@@ -646,6 +599,14 @@ public partial class RunTestViewModel : ReactiveObject
             : "Station: " + string.Join(", ", _openTap.InstrumentSlots.Select(s => $"{s.Name}→{s.ResourceName}"));
         RefreshSessionSummary();
     }
+
+    private Task LoadProgramEntryAsync(ProgramItemViewModel program)
+        => program.LoadKind switch
+        {
+            ProgramLoadKind.FactorySample => _openTap.LoadSampleProgramAsync(),
+            ProgramLoadKind.FactoryBoardDemo => _openTap.LoadBoardDemoProgramAsync(),
+            _ => _openTap.LoadPlanAsync(program.Path),
+        };
 
     private void RebuildHierarchyFromHost(string? preserveStagePath = null, string? preserveStepPath = null)
     {
@@ -1229,6 +1190,7 @@ public partial class RunTestViewModel : ReactiveObject
             DisplayName = Path.GetFileNameWithoutExtension(path),
             Path = path,
             DutFamily = "generic",
+            LoadKind = ProgramLoadKind.TapPlanFile,
             Requirements = ProgramRequirements.FromFamily("generic"),
         };
         Programs.Add(item);

@@ -66,6 +66,40 @@ public sealed class TypstReportServiceTests
         Assert.All(paths, p => Assert.True(File.Exists(p) && new FileInfo(p).Length > 0));
     }
 
+    [Fact]
+    public async Task CompileTemplateAsync_uses_DataDirectory_reports_override()
+    {
+        using var temp = new TempDataDirectory();
+        var reportsDir = Path.Combine(temp.Path, "reports");
+        Directory.CreateDirectory(reportsDir);
+        File.WriteAllText(
+            Path.Combine(reportsDir, "test-report.typ"),
+            """
+            #set page(width: 100mm, height: 50mm)
+            = Override template
+            Run: #sys.inputs.runId
+            """);
+
+        var runStore = new FileRunStore(temp.RunsDirectory);
+        var run = CreateRun();
+        await runStore.SaveAsync(run);
+
+        using var reports = new TypstReportService(
+            runStore,
+            new AppSettings
+            {
+                DataDirectory = temp.Path,
+                EmbedPlotsInReport = false,
+                ReportTemplateName = "test-report.typ",
+            });
+        var pdf = await CompileOrSkipAsync(() => reports.CompileTemplateAsync(run));
+        AssertPdfMagic(pdf);
+
+        var workDir = Path.Combine(Path.GetTempPath(), "HardwareTestTypst", run.RunId);
+        var main = await File.ReadAllTextAsync(Path.Combine(workDir, "main.typ"));
+        Assert.Contains("Override template", main, StringComparison.Ordinal);
+    }
+
     private static TestRunRecord CreateRun(int sampleCount = 1)
     {
         var samples = Enumerable.Range(0, sampleCount)
