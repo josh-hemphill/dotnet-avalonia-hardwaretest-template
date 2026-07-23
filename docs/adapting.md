@@ -37,6 +37,7 @@ For UI vs OpenTAP test suites, see [testing.md](testing.md). For sealed Linux pu
    - `AppSettings.OpenTapPluginDirectories`
    - Env `HARDWARETEST_OPENTAP_PLUGIN_DIRS` (`;` or `Path.PathSeparator` separated)
 4. On an appliance, drop third-party plugin DLLs under a writable/plugin folder and list that path in settings (see [appliance-linux.md](appliance-linux.md)).
+5. Verify installed packages and plugin dirs in **Settings → OpenTAP packages & plugins** (offline list only; install via `tap package install` / bake — see [phase-e-packages-list.md](opentap-phases/phase-e-packages-list.md)).
 
 ## 3. Station bindings (Instruments)
 

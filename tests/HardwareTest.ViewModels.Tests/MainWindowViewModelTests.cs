@@ -41,7 +41,7 @@ public sealed class MainWindowViewModelTests
             results,
             new ReportPreviewViewModel(runStore, new FakeReportService()),
             new InstrumentsViewModel(store, new FakeVisaDiscovery(), openTap),
-            new SettingsViewModel(store),
+            new SettingsViewModel(store, openTap),
             runControl,
             openTap);
     }

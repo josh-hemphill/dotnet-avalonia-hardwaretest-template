@@ -97,6 +97,9 @@ public interface IOpenTapSession
         OpenTapParameterListing listing = OpenTapParameterListing.StationOverrides);
     bool TryGetParameter(string memberKey, out string? value);
     bool TrySetParameter(string memberKey, string value);
+
+    IReadOnlyList<OpenTapPluginDirectoryInfo> ListPluginDirectories();
+    IReadOnlyList<OpenTapPackageInfo> ListInstalledPackages();
 }
 
 public sealed class OpenTapStepNode
@@ -1016,6 +1019,18 @@ public sealed class OpenTapSession : IOpenTapSession, INotifyPropertyChanged
             _runCts?.Token.ThrowIfCancellationRequested();
             _pauseGate.Wait(50);
         }
+    }
+
+    public IReadOnlyList<OpenTapPluginDirectoryInfo> ListPluginDirectories()
+    {
+        EnsurePlugins();
+        return OpenTapPackageCatalog.ListPluginDirectories(_settings);
+    }
+
+    public IReadOnlyList<OpenTapPackageInfo> ListInstalledPackages()
+    {
+        EnsurePlugins();
+        return OpenTapPackageCatalog.ListInstalledPackages(_settings, _logger);
     }
 
     private void EnsurePlugins()

@@ -861,6 +861,22 @@ public sealed class FakeOpenTapSession : IOpenTapSession
         return true;
     }
 
+    public List<OpenTapPluginDirectoryInfo> PluginDirectories { get; } =
+    [
+        new() { Path = @"C:\Plugins\Basic", Source = "Basic" },
+        new() { Path = @"C:\Plugins\Extra", Source = "Settings" },
+    ];
+
+    public List<OpenTapPackageInfo> InstalledPackages { get; } =
+    [
+        new() { Name = "OpenTAP", Version = "9.32.2", Path = @"C:\OpenTAP\Packages\OpenTAP" },
+        new() { Name = "HardwareTest.Basic", Version = "1.0.0", Path = @"C:\Plugins\Basic" },
+    ];
+
+    public IReadOnlyList<OpenTapPluginDirectoryInfo> ListPluginDirectories() => PluginDirectories;
+
+    public IReadOnlyList<OpenTapPackageInfo> ListInstalledPackages() => InstalledPackages;
+
     private OpenTapParameterInfo CloneWithLiveValue(OpenTapParameterInfo info)
     {
         var value = ParameterValues.TryGetValue(info.MemberKey, out var stored) ? stored : info.Value;

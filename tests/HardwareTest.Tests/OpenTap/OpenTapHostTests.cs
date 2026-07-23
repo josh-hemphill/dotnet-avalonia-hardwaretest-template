@@ -439,6 +439,44 @@ public sealed class OpenTapSessionTests
     }
 
     [Fact]
+    public void Package_catalog_lists_settings_plugin_dir_and_package_xml()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "opentap-pkg-" + Guid.NewGuid().ToString("N"));
+        var pluginDir = Path.Combine(root, "plugins");
+        var packageDir = Path.Combine(pluginDir, "DemoBench");
+        Directory.CreateDirectory(packageDir);
+        File.WriteAllText(
+            Path.Combine(packageDir, "package.xml"),
+            """
+            <?xml version="1.0" encoding="utf-8"?>
+            <Package Name="DemoBench" Version="1.2.3" xmlns="http://opentap.io/schemas/package">
+              <Description>Phase E smoke package</Description>
+            </Package>
+            """);
+
+        try
+        {
+            var settings = new AppSettings { OpenTapPluginDirectories = [pluginDir] };
+            var session = new OpenTapSession(settings);
+
+            var dirs = session.ListPluginDirectories();
+            Assert.Contains(dirs, d =>
+                string.Equals(d.Path, Path.GetFullPath(pluginDir), StringComparison.OrdinalIgnoreCase)
+                && d.Source == "Settings");
+
+            var packages = session.ListInstalledPackages();
+            Assert.Contains(packages, p =>
+                p.Name == "DemoBench"
+                && p.Version == "1.2.3"
+                && string.Equals(p.Path, Path.GetFullPath(packageDir), StringComparison.OrdinalIgnoreCase));
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task Annotation_mixin_parameters_enumerate_and_round_trip()
     {
         var session = new OpenTapSession();

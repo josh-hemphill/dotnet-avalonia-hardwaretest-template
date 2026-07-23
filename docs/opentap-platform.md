@@ -102,9 +102,10 @@ Two different concepts (do not conflate):
 
 ## Packages (list-only)
 
-- UI lists installed OpenTAP packages (package metadata / install folder) and configured plugin search directories.
-- Actions: refresh, reveal/copy path — **no** install from feed in-app.
-- Provisioning: `tap package install` or bake `.TapPackage` into the appliance image, then the list reflects them.
+- **Settings → OpenTAP packages & plugins** lists installed packages (from local `package.xml`) and configured plugin search directories (Basic, Mixins, `OpenTapPluginDirectories`, `HARDWARETEST_OPENTAP_PLUGIN_DIRS`, `PluginManager`).
+- Actions: refresh, copy path, open folder — **no** install from feed in-app.
+- Provisioning: `tap package install` or bake `.TapPackage` into the appliance image, then Refresh; see [appliance-linux.md](appliance-linux.md).
+- Host API: `IOpenTapSession.ListInstalledPackages` / `ListPluginDirectories` ([`OpenTapPackageCatalog`](../src/HardwareTest.OpenTap.Host/OpenTapPackageCatalog.cs)).
 
 ## Deferred (do not implement yet)
 
@@ -122,7 +123,7 @@ Two different concepts (do not conflate):
 | B | [Avalonia interaction host + input steps](opentap-phases/phase-b-interaction-host.md) | Done |
 | C | [Parameters panel](opentap-phases/phase-c-parameters.md) | Done |
 | D | [Mixin support](opentap-phases/phase-d-mixins.md) | Done |
-| E | [Packages list](opentap-phases/phase-e-packages-list.md) | Planned |
+| E | [Packages list](opentap-phases/phase-e-packages-list.md) | Done |
 | F | [Resource / VisaAddress alignment](opentap-phases/phase-f-resources.md) | Planned |
 | G | [Sweep / loop progress](opentap-phases/phase-g-sweeps.md) | Planned |
 | H | [Result export](opentap-phases/phase-h-results-export.md) | Planned |

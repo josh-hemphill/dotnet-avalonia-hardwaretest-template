@@ -21,6 +21,14 @@ appliance/
 
 Map `AppSettings.DataDirectory` (or host env) to the writable root so `runs/`, `logs/`, `reports/`, and station overlays are outside the read-only app tree. Register extra OpenTAP plugin folders via `OpenTapPluginDirectories` or `HARDWARETEST_OPENTAP_PLUGIN_DIRS`. Productization steps: [adapting.md](adapting.md).
 
+## Offline OpenTAP packages
+
+Install packages **outside** the Avalonia UI (no feed browser in-app):
+
+1. During image bake or provisioning, run `tap package install <Package.TapPackage>` into the OpenTAP/`Packages` tree under `app/`, **or** copy unpacked package folders (with `package.xml`) under `app/Plugins/` (or another folder listed in `OpenTapPluginDirectories`).
+2. On the bench, open **Settings → OpenTAP packages & plugins** and click **Refresh** to verify name, version, and path.
+3. **Open folder** may fail on a locked/read-only `app/` tree — that is expected; **Copy path** still works for SSH/docs.
+
 ## Publish
 
 ```bash
