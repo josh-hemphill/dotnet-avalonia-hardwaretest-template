@@ -138,6 +138,66 @@ public sealed class RunTestViewModelTests
     }
 
     [Fact]
+    public async Task Continue_requests_scroll_to_current_step_after_prompt()
+    {
+        var openTap = new FakeOpenTapSession
+        {
+            IsAwaitingOperator = true,
+            OperatorPromptMessage = "Install fixture",
+        };
+        var vm = CreateVm(openTap);
+        vm.UiScheduler = action => action();
+        await ConfirmReadyAsync(vm);
+        await vm.RefreshProgramsCommand.ExecuteAsync();
+        var leaf = Flatten(vm.Hierarchy).First(n => n.Children.Count == 0);
+        vm.CurrentStepPath = leaf.Path;
+        vm.CurrentStepName = leaf.Name;
+        vm.SelectedStep = leaf;
+
+        var scrollRequests = 0;
+        vm.RequestScrollToSelectedStep += (_, _) => scrollRequests++;
+
+        await vm.ContinueOperatorCommand.ExecuteAsync();
+
+        Assert.False(vm.IsAwaitingOperator);
+        Assert.True(scrollRequests >= 1, "Continue should re-anchor the step list after the prompt card collapses.");
+        Assert.Equal(leaf.Path, vm.SelectedStep?.Path);
+    }
+
+    [Fact]
+    public async Task Iteration_progress_appears_on_hero_status_line()
+    {
+        var vm = CreateVm();
+        vm.UiScheduler = action => action();
+        vm.IngestProgress(new OpenTapProgress
+        {
+            Message = "Running Acquire VDC",
+            StepName = "Acquire VDC",
+            StatusText = "Running",
+            OverallPercent = 20,
+            IterationIndex = 2,
+            IterationTotal = 3,
+            IterationText = "2/3",
+        });
+        await Task.Delay(50);
+        Assert.Equal("2/3", vm.IterationText);
+        Assert.Contains("iter 2/3", vm.HeroStatusLine, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Fake_EmitLoopProgress_drives_iteration_text()
+    {
+        var openTap = new FakeOpenTapSession { EmitLoopProgress = true, Delay = TimeSpan.FromMilliseconds(10) };
+        var vm = CreateVm(openTap);
+        vm.UiScheduler = action => action();
+        await ConfirmReadyAsync(vm);
+        await vm.RunCommand.ExecuteAsync();
+        await Task.Delay(80);
+        Assert.Equal("3/3", vm.IterationText);
+        Assert.Contains("3/3", vm.HeroStatusLine, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void AppendDetailLines_respects_max_per_flush()
     {
         var vm = CreateVm();
@@ -1049,15 +1109,17 @@ public sealed class RunTestViewModelTests
     }
 
     [Fact]
-    public async Task RefreshPrograms_lists_sample_and_board_demo_once()
+    public async Task RefreshPrograms_lists_built_in_demos_once()
     {
         var openTap = new FakeOpenTapSession();
         var vm = CreateVm(openTap);
         await vm.RefreshProgramsCommand.ExecuteAsync();
         Assert.Equal(1, vm.Programs.Count(p => p.Id == "sample"));
         Assert.Equal(1, vm.Programs.Count(p => p.Id == "board-demo"));
+        Assert.Equal(1, vm.Programs.Count(p => p.Id == "sweep-demo"));
         Assert.Equal(ProgramLoadKind.FactorySample, vm.Programs.First(p => p.Id == "sample").LoadKind);
         Assert.Equal(ProgramLoadKind.FactoryBoardDemo, vm.Programs.First(p => p.Id == "board-demo").LoadKind);
+        Assert.Equal(ProgramLoadKind.FactorySweepDemo, vm.Programs.First(p => p.Id == "sweep-demo").LoadKind);
     }
 
     [Fact]

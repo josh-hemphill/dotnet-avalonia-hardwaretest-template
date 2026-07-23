@@ -151,6 +151,7 @@ public partial class RunTestViewModel : ReactiveObject
     private string? _pendingStatusText;
     private string? _pendingVerdict;
     private string? _pendingKeyValue;
+    private string? _pendingIterationText;
     private int _plotCount;
     private int _plotWrite;
     private int _plotPublishLength;
@@ -432,6 +433,7 @@ public partial class RunTestViewModel : ReactiveObject
     [Reactive] private string _heroStepName = string.Empty;
     [Reactive] private string _heroChipText = "Pending";
     [Reactive] private string _heroStatusLine = string.Empty;
+    [Reactive] private string _iterationText = string.Empty;
     [Reactive] private string _detailChipText = "Pending";
     [Reactive] private string _detailPrimaryLine = string.Empty;
     [Reactive] private string _conditionSummary = string.Empty;
@@ -469,6 +471,14 @@ public partial class RunTestViewModel : ReactiveObject
             _pendingStatusText = progress.StatusText ?? _pendingStatusText;
             _pendingVerdict = progress.Verdict ?? _pendingVerdict;
             _pendingKeyValue = progress.KeyValue ?? _pendingKeyValue;
+            if (progress.IterationText is not null || progress.IterationIndex is not null)
+            {
+                _pendingIterationText = progress.IterationText
+                    ?? OpenTapLoopProgress.FormatIteration(
+                        progress.IterationIndex ?? 0,
+                        progress.IterationTotal);
+                _pendingForceFlush = true;
+            }
 
             if (progress.Sample is null
                 && (!string.IsNullOrWhiteSpace(progress.StepPath) || !string.IsNullOrWhiteSpace(progress.StepName))
@@ -628,6 +638,7 @@ public partial class RunTestViewModel : ReactiveObject
         {
             ProgramLoadKind.FactorySample => _openTap.LoadSampleProgramAsync(),
             ProgramLoadKind.FactoryBoardDemo => _openTap.LoadBoardDemoProgramAsync(),
+            ProgramLoadKind.FactorySweepDemo => _openTap.LoadSweepDemoProgramAsync(),
             _ => _openTap.LoadPlanAsync(program.Path),
         };
 
@@ -1254,9 +1265,17 @@ public partial class RunTestViewModel : ReactiveObject
                 HeroChipText = "Awaiting";
             }
         }
-        else
+        else if (string.IsNullOrWhiteSpace(IterationText))
         {
             HeroStatusLine = Status;
+        }
+        else if (string.IsNullOrWhiteSpace(Status))
+        {
+            HeroStatusLine = $"iter {IterationText}";
+        }
+        else
+        {
+            HeroStatusLine = $"{Status} · iter {IterationText}";
         }
     }
 
@@ -1501,6 +1520,7 @@ public partial class RunTestViewModel : ReactiveObject
         DetailLines.Clear();
         ClearInteractionUi();
         OverallPercent = 0;
+        IterationText = string.Empty;
         var cts = new CancellationTokenSource();
         _runControl.AttachRun(cts);
 
@@ -1911,6 +1931,30 @@ public partial class RunTestViewModel : ReactiveObject
         IsAwaitingOperator = false;
         OperatorPromptMessage = null;
         Status = "Continuing…";
+        // Interaction card collapse changes hero height; re-anchor the step list after layout.
+        ScheduleScrollToCurrentStep();
+    }
+
+    private void ScheduleScrollToCurrentStep()
+    {
+        void Scroll()
+        {
+            JumpToCurrent();
+            if (SelectedStep is null && !string.IsNullOrWhiteSpace(CurrentStepPath))
+            {
+                return;
+            }
+
+            RequestScrollToSelectedStep?.Invoke(this, EventArgs.Empty);
+        }
+
+        if (UiScheduler is not null)
+        {
+            UiScheduler(Scroll);
+            return;
+        }
+
+        Scroll();
     }
 
     private void ApplyInteractionUi(OperatorInteractionRequest? request, string? fallbackMessage)
@@ -2228,6 +2272,7 @@ public partial class RunTestViewModel : ReactiveObject
                 string? statusText;
                 string? verdict;
                 string? keyValue;
+                string? iterationText;
                 lock (_progressSync)
                 {
                     status = _pendingStatus;
@@ -2245,6 +2290,7 @@ public partial class RunTestViewModel : ReactiveObject
                     statusText = _pendingStatusText;
                     verdict = _pendingVerdict;
                     keyValue = _pendingKeyValue;
+                    iterationText = _pendingIterationText;
                     _pendingForceFlush = false;
                     _pendingAwaitingOperator = false;
                     _pendingOperatorPrompt = null;
@@ -2255,6 +2301,7 @@ public partial class RunTestViewModel : ReactiveObject
                     _pendingStatusText = null;
                     _pendingVerdict = null;
                     _pendingKeyValue = null;
+                    _pendingIterationText = null;
                     _pendingSampleStepPath = null;
                     if (sample is not null)
                     {
@@ -2304,6 +2351,11 @@ public partial class RunTestViewModel : ReactiveObject
                         {
                             _pendingKeyValue ??= keyValue;
                         }
+
+                        if (iterationText is not null)
+                        {
+                            _pendingIterationText ??= iterationText;
+                        }
                     }
 
                     keepScheduledForDelay = true;
@@ -2328,6 +2380,8 @@ public partial class RunTestViewModel : ReactiveObject
                 {
                     IsAwaitingOperator = true;
                     ApplyInteractionUi(interactionRequest ?? _openTap.PendingInteraction, prompt);
+                    // Growing operator card shrinks the step list; keep the awaiting step visible.
+                    ScheduleScrollToCurrentStep();
                 }
 
                 if (details is not null)
@@ -2347,6 +2401,11 @@ public partial class RunTestViewModel : ReactiveObject
                 }
 
                 ApplyPendingStepLive(stepId, stepPath, statusText, verdict, keyValue);
+                if (iterationText is not null)
+                {
+                    IterationText = iterationText;
+                }
+
                 RefreshHero();
 
                 if (sample is not null)

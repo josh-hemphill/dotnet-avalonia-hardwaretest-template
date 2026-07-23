@@ -464,6 +464,26 @@ public sealed class OpenTapSessionTests
     }
 
     [Fact]
+    public async Task Sweep_repeat_fixture_reports_iteration_progress()
+    {
+        var session = new OpenTapSession();
+        await session.LoadPlanShapeAsync(PlanShapeFixtures.SweepRepeatName);
+        await session.ApplyStationAndDutAsync(
+            new StationProfile(new Dictionary<string, string> { ["dmm"] = "MOCK::INSTR0" }),
+            new DutIdentity("DUT-SWEEP", Family: "demo"));
+
+        var frames = new List<OpenTapProgress>();
+        var summary = await session.RunAsync(new Progress<OpenTapProgress>(frames.Add));
+
+        Assert.Equal(RunResult.Passed, summary.Result);
+        var withIter = frames.Where(f => f.IterationIndex is > 0).ToList();
+        Assert.NotEmpty(withIter);
+        Assert.Contains(withIter, f => f.IterationTotal == 3);
+        Assert.Contains(withIter, f => f.IterationText == "1/3" || f.IterationIndex == 1);
+        Assert.Contains(withIter, f => f.IterationIndex >= 2);
+    }
+
+    [Fact]
     public async Task ListDiscoveredDeviceAddresses_does_not_throw_after_sample_load()
     {
         var session = new OpenTapSession();

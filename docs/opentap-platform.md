@@ -76,7 +76,7 @@ Pre-run parameter edits and mid-run inputs share the **same field control types*
 
 **Authoring:** Prefer `OperatorInputStep` (or custom steps calling `StepRuntime.RequestInteraction`) for technician input. Keep `OperatorPromptStep` for confirm-only pauses. Do not add OpenTAP Dialog steps to appliance plans.
 
-**In-repo demos:** `SampleProgramFactory` and `BoardDemoProgramFactory` each include confirm + typed prompts and overridable Acquire/Mean settings — see the table in [adapting.md](adapting.md#1-programs-tapplans--catalog).
+**In-repo demos:** `SampleProgramFactory`, `BoardDemoProgramFactory`, and `SweepDemoProgramFactory` (loop iteration chrome) — see the table in [adapting.md](adapting.md#1-programs-tapplans--catalog).
 
 ## Parameter model
 
@@ -115,6 +115,12 @@ Two different concepts (do not conflate):
 - Host does **not** Open/Close instruments around runs — OpenTAP opens them during plan execution (avoids double-open).
 - Full ComponentSettings / bench-profile editor remains deferred; SCPI adopter path: [adapting.md](adapting.md#3-station-bindings-instruments).
 
+## Sweep / loop progress
+
+- Run hero shows innermost Repeat/Sweep iteration as `iter i/N` when the listener detects a known loop step (`RepeatStep`, `RepeatLoopStep`, `SweepLoop*`, `SweepParameter*`).
+- Sweep bounds stay in OpenTAP Editor / Phase C station overrides — Avalonia does not edit sweep tables.
+- Nested loops: only the innermost active loop is shown.
+
 ## Deferred (do not implement yet)
 
 - Parallel steps / multi-DUT.
@@ -133,7 +139,7 @@ Two different concepts (do not conflate):
 | D | [Mixin support](opentap-phases/phase-d-mixins.md) | Done |
 | E | [Packages list](opentap-phases/phase-e-packages-list.md) | Done |
 | F | [Resource / VisaAddress alignment](opentap-phases/phase-f-resources.md) | Done |
-| G | [Sweep / loop progress](opentap-phases/phase-g-sweeps.md) | Planned |
+| G | [Sweep / loop progress](opentap-phases/phase-g-sweeps.md) | Done |
 | H | [Result export](opentap-phases/phase-h-results-export.md) | Planned |
 
 **Suggested order:** A → B → C → D; E can parallelize after the doc; F after C; G/H after parameters stabilize.

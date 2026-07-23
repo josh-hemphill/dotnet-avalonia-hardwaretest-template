@@ -2,7 +2,8 @@
 
 **Parent:** [opentap-platform.md](../opentap-platform.md)  
 **Depends on:** stable Run board + result listener ([OpenTapSession](../../src/HardwareTest.OpenTap.Host/OpenTapSession.cs))  
-**Unblocks:** long sweep plans that no longer look “stuck”
+**Unblocks:** long sweep plans that no longer look “stuck”  
+**Status:** Done
 
 ## Goal
 
@@ -12,18 +13,14 @@ Surface iteration progress for common OpenTAP flow steps (Sweep, Repeat, etc.) o
 
 - No flow-chart / graph editor.
 - Detection via type names / OpenTAP APIs; tolerate unknown flow steps as opaque groups.
+- Nested loops report the **innermost** active loop only.
 
-## Work items
+## Implementation
 
-1. **Detection:** identify Sweep/Repeat (and similar BasicSteps) in the step tree or during execute.
-
-2. **Progress:** publish iteration index/total via `ProgressResultListener` or step events into `OpenTapProgress` / stage chip.
-
-3. **UI:** hero or stage progress text shows `i/N` when available.
-
-4. **Fixture:** small TapPlan/factory with a short sweep for host + VM tests.
-
-5. **Docs:** what is and is not shown for nested sweeps.
+1. **Detection:** [`OpenTapLoopProgress`](../../src/HardwareTest.OpenTap.Host/OpenTapLoopProgress.cs) — `RepeatStep`, `RepeatLoopStep`, `SweepLoop`, `SweepLoopRange`, `SweepParameterStep`, `SweepParameterRangeStep`; totals via `Count` / `SweepPoints` / enabled rows.
+2. **Progress:** `ProgressResultListener` loop stack → `OpenTapProgress.IterationIndex` / `IterationTotal` / `IterationText`.
+3. **UI:** Run hero status includes `iter i/N` ([`RunTestViewModel.RefreshHero`](../../src/HardwareTest/Features/RunTest/RunTestViewModel.cs)).
+4. **Fixture / catalog:** [`RepeatLoopStep`](../../src/HardwareTest.OpenTap.Plugins.Basic/Steps.cs) + [`SweepDemoProgramFactory`](../../src/HardwareTest.OpenTap.Host/SweepDemoProgramFactory.cs) (`sweep-repeat.TapPlan`); built-in **sweep-demo** in [`ProgramCatalog`](../../src/HardwareTest.OpenTap.Host/ProgramCatalog.cs).
 
 ## Exit criteria
 

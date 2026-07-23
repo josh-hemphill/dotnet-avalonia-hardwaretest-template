@@ -39,6 +39,11 @@ public sealed class OpenTapProgress
     public OperatorInteractionRequest? InteractionRequest { get; init; }
     public RunResult? Result { get; init; }
     public MeasurementSampleEvent? Sample { get; init; }
+    /// 1-based iteration index for innermost active Repeat/Sweep loop.
+    public int? IterationIndex { get; init; }
+    public int? IterationTotal { get; init; }
+    /// Convenience text such as "3/5" or "#3".
+    public string? IterationText { get; init; }
 }
 
 public sealed record MeasurementSampleEvent(string Channel, int Index, double Value, DateTimeOffset Timestamp);
@@ -74,6 +79,7 @@ public interface IOpenTapSession
     Task LoadPlanAsync(string tapPlanPath, CancellationToken cancellationToken = default);
     Task LoadSampleProgramAsync(CancellationToken cancellationToken = default);
     Task LoadBoardDemoProgramAsync(CancellationToken cancellationToken = default);
+    Task LoadSweepDemoProgramAsync(CancellationToken cancellationToken = default);
     Task ApplyStationAndDutAsync(StationProfile station, DutIdentity dut, CancellationToken cancellationToken = default);
     Task<OpenTapRunSummary> RunAsync(IProgress<OpenTapProgress>? progress = null, CancellationToken cancellationToken = default);
     Task<OpenTapRunSummary> RunSelectionAsync(string stepPath, IProgress<OpenTapProgress>? progress = null, CancellationToken cancellationToken = default);
@@ -172,6 +178,15 @@ public sealed class OpenTapSession : IOpenTapSession, INotifyPropertyChanged
         EnsurePlugins();
         var plan = BoardDemoProgramFactory.Create();
         BindPlan(plan, BoardDemoProgramFactory.EmbeddedName, BoardDemoProgramFactory.DisplayName);
+        return Task.CompletedTask;
+    }
+
+    public Task LoadSweepDemoProgramAsync(CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        EnsurePlugins();
+        var plan = SweepDemoProgramFactory.Create();
+        BindPlan(plan, SweepDemoProgramFactory.EmbeddedName, SweepDemoProgramFactory.DisplayName);
         return Task.CompletedTask;
     }
 
@@ -380,7 +395,14 @@ public sealed class OpenTapSession : IOpenTapSession, INotifyPropertyChanged
 
         try
         {
-            var listener = new ProgressResultListener(progress, _samples, _steps, _stepStarted, UpdateNodeLive, ResolveStepPath);
+            var listener = new ProgressResultListener(
+                progress,
+                _samples,
+                _steps,
+                _stepStarted,
+                UpdateNodeLive,
+                ResolveStepPath,
+                plan);
             using var reg = _runCts!.Token.Register(() =>
             {
                 try
@@ -1164,6 +1186,13 @@ public sealed class OpenTapSession : IOpenTapSession, INotifyPropertyChanged
 
 internal sealed class ProgressResultListener : ResultListener
 {
+    private sealed class LoopContext
+    {
+        public required Guid StepId { get; init; }
+        public int? Total { get; init; }
+        public int Index { get; set; }
+    }
+
     private static readonly long SampleReportIntervalTicks = TimeSpan.FromMilliseconds(50).Ticks;
 
     private readonly IProgress<OpenTapProgress>? _progress;
@@ -1172,6 +1201,8 @@ internal sealed class ProgressResultListener : ResultListener
     private readonly Dictionary<string, DateTimeOffset> _stepStarted;
     private readonly Action<string, string?, string, string, string?> _updateNode;
     private readonly Func<string, string?, string?> _resolvePath;
+    private readonly TestPlan _plan;
+    private readonly Stack<LoopContext> _loops = new();
     private int _stepIndex;
     private int _stepCount = 1;
     private long _lastSampleReportTimestamp;
@@ -1186,7 +1217,8 @@ internal sealed class ProgressResultListener : ResultListener
         List<StepResultRecord> steps,
         Dictionary<string, DateTimeOffset> stepStarted,
         Action<string, string?, string, string, string?> updateNode,
-        Func<string, string?, string?> resolvePath)
+        Func<string, string?, string?> resolvePath,
+        TestPlan plan)
     {
         _progress = progress;
         _samples = samples;
@@ -1194,12 +1226,15 @@ internal sealed class ProgressResultListener : ResultListener
         _stepStarted = stepStarted;
         _updateNode = updateNode;
         _resolvePath = resolvePath;
+        _plan = plan;
         Name = "HardwareTestProgress";
     }
 
     public override void OnTestPlanRunStart(TestPlanRun planRun)
     {
-        _stepCount = 12;
+        _stepCount = OpenTapLoopProgress.CountEnabledLeaves(_plan);
+        _stepIndex = 0;
+        _loops.Clear();
         _lastSampleReportTimestamp = 0;
         _coalescedSample = null;
         _progress?.Report(new OpenTapProgress { Message = "Plan started", OverallPercent = 0 });
@@ -1213,16 +1248,37 @@ internal sealed class ProgressResultListener : ResultListener
         _currentStepName = stepRun.TestStepName;
         _stepStarted[id] = DateTimeOffset.UtcNow;
         _updateNode(id, stepRun.TestStepName, "Running", "NotSet", null);
-        _progress?.Report(new OpenTapProgress
+
+        var step = OpenTapLoopProgress.FindStepById(_plan, stepRun.TestStepId);
+        if (step is not null && OpenTapLoopProgress.IsLoopStep(step))
         {
-            Message = $"Running {stepRun.TestStepName}",
-            StepName = stepRun.TestStepName,
-            StepId = id,
-            StepPath = _resolvePath(id, stepRun.TestStepName),
-            StatusText = "Running",
-            Verdict = "NotSet",
-            OverallPercent = (double)_stepIndex / _stepCount * 100,
-        });
+            _loops.Push(new LoopContext
+            {
+                StepId = step.Id,
+                Total = OpenTapLoopProgress.TryGetLoopTotal(step),
+                Index = 0,
+            });
+        }
+        else if (step is not null && _loops.Count > 0)
+        {
+            var loopStep = OpenTapLoopProgress.FindStepById(_plan, _loops.Peek().StepId);
+            if (loopStep is not null && IsFirstEnabledDirectChild(step, loopStep))
+            {
+                var loop = _loops.Peek();
+                loop.Index++;
+                if (loop.Total is > 0)
+                {
+                    loop.Index = Math.Min(loop.Index, loop.Total.Value);
+                }
+            }
+        }
+
+        ReportStepProgress(
+            $"Running {stepRun.TestStepName}",
+            stepRun.TestStepName,
+            id,
+            "Running",
+            "NotSet");
     }
 
     public override void OnTestStepRunCompleted(TestStepRun stepRun)
@@ -1244,15 +1300,69 @@ internal sealed class ProgressResultListener : ResultListener
         });
         _updateNode(id, stepRun.TestStepName, verdict, verdict, null);
         _stepIndex++;
+
+        if (_loops.Count > 0 && _loops.Peek().StepId == stepRun.TestStepId)
+        {
+            _loops.Pop();
+        }
+
+        ReportStepProgress(
+            $"{stepRun.TestStepName}: {stepRun.Verdict}",
+            stepRun.TestStepName,
+            id,
+            verdict,
+            verdict);
+    }
+
+    private static bool IsFirstEnabledDirectChild(ITestStep child, ITestStep parent)
+    {
+        foreach (var sibling in parent.ChildTestSteps)
+        {
+            if (!sibling.Enabled)
+            {
+                continue;
+            }
+
+            return ReferenceEquals(sibling, child);
+        }
+
+        return false;
+    }
+
+    private void ReportStepProgress(
+        string message,
+        string? stepName,
+        string stepId,
+        string statusText,
+        string verdict)
+    {
+        int? iterationIndex = null;
+        int? iterationTotal = null;
+        string? iterationText = null;
+        if (_loops.Count > 0)
+        {
+            var loop = _loops.Peek();
+            if (loop.Index > 0)
+            {
+                iterationIndex = loop.Index;
+                iterationTotal = loop.Total;
+                iterationText = OpenTapLoopProgress.FormatIteration(loop.Index, loop.Total);
+            }
+        }
+
+        var denominator = Math.Max(_stepCount, _stepIndex);
         _progress?.Report(new OpenTapProgress
         {
-            Message = $"{stepRun.TestStepName}: {stepRun.Verdict}",
-            StepName = stepRun.TestStepName,
-            StepId = id,
-            StepPath = _resolvePath(id, stepRun.TestStepName),
-            StatusText = verdict,
+            Message = message,
+            StepName = stepName,
+            StepId = stepId,
+            StepPath = _resolvePath(stepId, stepName),
+            StatusText = statusText,
             Verdict = verdict,
-            OverallPercent = (double)_stepIndex / _stepCount * 100,
+            OverallPercent = (double)_stepIndex / denominator * 100,
+            IterationIndex = iterationIndex,
+            IterationTotal = iterationTotal,
+            IterationText = iterationText,
         });
     }
 

@@ -39,6 +39,7 @@ public sealed class FakeOpenTapSession : IOpenTapSession
     public List<OpenTapParameterInfo> ParameterCatalog { get; } = [];
 
     public TimeSpan Delay { get; set; } = TimeSpan.FromMilliseconds(30);
+    public bool EmitLoopProgress { get; set; }
     public RunResult CompletionResult { get; set; } = RunResult.Passed;
     public int RunCount { get; private set; }
     public int SelectionRunCount { get; private set; }
@@ -69,6 +70,19 @@ public sealed class FakeOpenTapSession : IOpenTapSession
         LoadedPlanName = BoardDemoProgramFactory.DisplayName;
         Tree.Clear();
         Tree.Add(BuildBoardDemoTree());
+        return Task.CompletedTask;
+    }
+
+    public Task LoadSweepDemoProgramAsync(CancellationToken cancellationToken = default)
+    {
+        LoadedPlanPath = SweepDemoProgramFactory.EmbeddedName;
+        LoadedPlanName = SweepDemoProgramFactory.DisplayName;
+        Tree.Clear();
+        foreach (var node in BuildSweepDemoTrees())
+        {
+            Tree.Add(node);
+        }
+
         return Task.CompletedTask;
     }
 
@@ -365,6 +379,32 @@ public sealed class FakeOpenTapSession : IOpenTapSession
                 Leaf("shutdown", "Safe Shutdown", $"{root}/Safety/Safe Shutdown")));
     }
 
+    private static IEnumerable<OpenTapStepNode> BuildSweepDemoTrees()
+    {
+        static OpenTapStepNode Leaf(string id, string name, string path) => new()
+        {
+            Id = id,
+            Name = name,
+            Path = path,
+        };
+
+        static OpenTapStepNode Group(string id, string name, string path, params OpenTapStepNode[] children) => new()
+        {
+            Id = id,
+            Name = name,
+            Path = path,
+            IsStage = true,
+            Children = children.ToList(),
+        };
+
+        yield return Group(
+            "repeat",
+            "Repeat Sweep",
+            "Repeat Sweep",
+            Leaf("acq", "Acquire VDC", "Repeat Sweep/Acquire VDC"));
+        yield return Leaf("ss", "Safe Shutdown", "Safe Shutdown");
+    }
+
     public Task ApplyStationAndDutAsync(StationProfile station, DutIdentity dut, CancellationToken cancellationToken = default)
     {
         LastStation = station;
@@ -377,6 +417,23 @@ public sealed class FakeOpenTapSession : IOpenTapSession
         RunCount++;
         _runCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         progress?.Report(new OpenTapProgress { Message = "Started", OverallPercent = 0 });
+        if (EmitLoopProgress)
+        {
+            for (var i = 1; i <= 3; i++)
+            {
+                progress?.Report(new OpenTapProgress
+                {
+                    Message = $"Loop body {i}/3",
+                    StepName = "Acquire VDC",
+                    StatusText = "Running",
+                    OverallPercent = i * 20,
+                    IterationIndex = i,
+                    IterationTotal = 3,
+                    IterationText = $"{i}/3",
+                });
+            }
+        }
+
         if (ReportSamples)
         {
             progress?.Report(new OpenTapProgress

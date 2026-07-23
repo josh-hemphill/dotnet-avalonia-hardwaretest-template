@@ -90,12 +90,24 @@ public partial class RunTestView : UserControl
 
     private void OnRequestScrollToSelectedStep(object? sender, EventArgs e)
     {
-        if (StepList?.SelectedItem is null)
+        void Scroll()
         {
+            if (StepList?.SelectedItem is null)
+            {
+                return;
+            }
+
+            StepList.ScrollIntoView(StepList.SelectedItem);
+        }
+
+        // Defer until after layout so Continue (card collapse) does not leave the step off-screen.
+        if (!Dispatcher.UIThread.CheckAccess())
+        {
+            Dispatcher.UIThread.Post(Scroll, DispatcherPriority.Loaded);
             return;
         }
 
-        StepList.ScrollIntoView(StepList.SelectedItem);
+        Dispatcher.UIThread.Post(Scroll, DispatcherPriority.Loaded);
     }
 
     private void OnRequestFocusStepSearch(object? sender, EventArgs e)

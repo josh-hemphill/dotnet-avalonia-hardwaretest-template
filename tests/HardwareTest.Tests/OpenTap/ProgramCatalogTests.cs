@@ -12,8 +12,10 @@ public sealed class ProgramCatalogTests
         Assert.Equal("sample", entries[0].Id);
         Assert.Contains(entries, e => e.Id == "sample" && e.LoadKind == ProgramLoadKind.FactorySample);
         Assert.Contains(entries, e => e.Id == "board-demo" && e.LoadKind == ProgramLoadKind.FactoryBoardDemo);
+        Assert.Contains(entries, e => e.Id == "sweep-demo" && e.LoadKind == ProgramLoadKind.FactorySweepDemo);
         Assert.Equal(1, entries.Count(e => e.Id == "sample"));
         Assert.Equal(1, entries.Count(e => e.Id == "board-demo"));
+        Assert.Equal(1, entries.Count(e => e.Id == "sweep-demo"));
     }
 
     [Fact]

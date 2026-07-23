@@ -22,8 +22,8 @@ Platform roadmap (interactions, parameters, mixins): [opentap-platform.md](opent
 
 ### Plan behavior (OpenTAP host)
 
-1. Prefer a C# factory in `PlanShapeFixtures` / `SampleProgramFactory` / `BoardDemoProgramFactory` (optionally `SaveBeside` under `plans/opentap/fixtures/`).
-2. Load with concrete `OpenTapSession.LoadPlanShapeAsync(...)` or the sample/board-demo loaders (not on `IOpenTapSession`).
+1. Prefer a C# factory in `PlanShapeFixtures` / `SampleProgramFactory` / `BoardDemoProgramFactory` / `SweepDemoProgramFactory` (optionally `SaveBeside` under `plans/opentap/fixtures/`).
+2. Load with concrete `OpenTapSession.LoadPlanShapeAsync(...)` (not on `IOpenTapSession`) or the sample / board-demo / sweep-demo loaders.
 3. Assert `StepTree` shape, unique paths, Run Selected enable-mask behavior, or SafeShutdown presence.
 4. Keep host tests in the `OpenTapSerial` collection (`DisableParallelization`).
 

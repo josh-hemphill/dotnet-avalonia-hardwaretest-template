@@ -11,6 +11,19 @@ internal static class OpenTapPluginSearch
     {
         Add(typeof(MockDmmInstrument).Assembly.Location);
         Add(typeof(AnnotationMixinBuilder).Assembly.Location);
+
+        // OpenTAP ships BasicSteps (Repeat/Sweep) under Packages/OpenTAP beside OpenTap.dll.
+        var openTapDir = Path.GetDirectoryName(typeof(TestPlan).Assembly.Location);
+        if (!string.IsNullOrWhiteSpace(openTapDir))
+        {
+            Add(Path.Combine(openTapDir, "Packages", "OpenTAP", "OpenTap.Plugins.BasicSteps.dll"));
+            var packagesRoot = Path.Combine(openTapDir, "Packages", "OpenTAP");
+            if (Directory.Exists(packagesRoot)
+                && !PluginManager.DirectoriesToSearch.Contains(Path.GetFullPath(packagesRoot)))
+            {
+                PluginManager.DirectoriesToSearch.Add(Path.GetFullPath(packagesRoot));
+            }
+        }
     }
 
     public static void Add(string? assemblyLocation)

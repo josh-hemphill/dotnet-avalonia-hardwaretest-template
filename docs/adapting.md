@@ -20,12 +20,13 @@ For UI vs OpenTAP test suites, see [testing.md](testing.md). For sealed Linux pu
 }
 ```
 
-3. Built-in **sample** / **board-demo** entries stay as factories for CI-stable demos. Disk plans with the same id are not double-listed (`ProgramCatalog`).
+3. Built-in **sample** / **board-demo** / **sweep-demo** entries stay as factories for CI-stable demos. Disk plans with the same id are not double-listed (`ProgramCatalog`).
 
    | Demo | Operator prompts | Station overrides (Engineer/Debug) |
    | --- | --- | --- |
    | **sample** (`SampleProgramFactory`) | `Confirm Sweep Area Clear` (confirm-only) → `Install Sweep Fixture` (typed: `fixtureId`, `fixtureTorqueNm`) | `Acquire VDC` / `Mean GTE` — `Channel`, `SampleCount`, `IntervalMs`, `Threshold`, `Enabled` (stable step Ids); **Identity Check** has Annotation mixin (`Note`, `IncludeInReport`) |
    | **board-demo** (`BoardDemoProgramFactory`) | `Seat Board Fixture` (confirm) → `Record Board Sticker` (typed: `boardLotId`) | Multi-rail Acquire/Mean with `Channel` / samples / thresholds; 3V3 rail uses stable Ids for override demos |
+   | **sweep-demo** (`SweepDemoProgramFactory`) | (none) | `RepeatLoopStep` ×3 around Acquire VDC — Run hero shows `iter i/N` (Phase G) |
 
 4. Run and Instruments both enumerate via `ProgramCatalog` — no need to hardcode program lists in ViewModels.
 
@@ -63,6 +64,7 @@ DUT stamping still looks for Basic `IdentityCheckStep` / `HardwareDut`. Custom D
 - Prefer unique step paths (duplicate sibling names need path-qualified selection).
 - Max useful nest depth for chrome is three levels (Stages → Sections → Nested).
 - Include `SafeShutdownStep` when using Run Selected.
+- Repeat/Sweep loops show innermost `iter i/N` on the Run hero during execute; edit bounds in OpenTAP Editor or Phase C overrides — not in Avalonia.
 - Details and diagnostic tests: [testing.md](testing.md).
 
 ## 5. Operator interactions (no floating dialogs)

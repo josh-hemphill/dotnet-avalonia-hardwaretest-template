@@ -11,6 +11,7 @@ public static class PlanShapeFixtures
     public const string DuplicateNamesName = "duplicate-names.TapPlan";
     public const string EmptyGroupName = "empty-group.TapPlan";
     public const string NoSafeShutdownName = "no-safe-shutdown.TapPlan";
+    public const string SweepRepeatName = SweepDemoProgramFactory.FixtureFileName;
 
     public static TestPlan CreateFlatLeaves()
     {
@@ -135,6 +136,7 @@ public static class PlanShapeFixtures
             yield return (DuplicateNamesName, CreateDuplicateNames);
             yield return (EmptyGroupName, CreateEmptyGroup);
             yield return (NoSafeShutdownName, CreateNoSafeShutdown);
+            yield return (SweepRepeatName, SweepDemoProgramFactory.Create);
         }
     }
 

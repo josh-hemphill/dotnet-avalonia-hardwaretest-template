@@ -268,3 +268,25 @@ public sealed class TestGroupStep : TestStep
         UpgradeVerdict(Verdict.Pass);
     }
 }
+
+/// Simple repeat loop for Phase G iteration chrome (and offline demos without BasicSteps).
+[Display("Repeat Loop", Groups: ["HardwareTest", "Flow"], Description: "Run child steps Count times.")]
+[AllowAnyChild]
+public sealed class RepeatLoopStep : TestStep
+{
+    [Display("Count", Order: 1)]
+    public int Count { get; set; } = 3;
+
+    public override void Run()
+    {
+        var n = Math.Max(1, Count);
+        for (var i = 0; i < n; i++)
+        {
+            TapThread.ThrowIfAborted();
+            StepRuntime.WaitIfPaused?.Invoke();
+            RunChildSteps();
+        }
+
+        UpgradeVerdict(Verdict.Pass);
+    }
+}

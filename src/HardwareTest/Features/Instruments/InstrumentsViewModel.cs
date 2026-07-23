@@ -319,6 +319,7 @@ public partial class InstrumentsViewModel : ReactiveObject
         {
             ProgramLoadKind.FactorySample => _openTap.LoadSampleProgramAsync(),
             ProgramLoadKind.FactoryBoardDemo => _openTap.LoadBoardDemoProgramAsync(),
+            ProgramLoadKind.FactorySweepDemo => _openTap.LoadSweepDemoProgramAsync(),
             _ => _openTap.LoadPlanAsync(entry.Path),
         };
 

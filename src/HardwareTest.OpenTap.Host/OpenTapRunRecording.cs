@@ -24,6 +24,9 @@ public sealed class OpenTapProgressFrameDto
     public string? OperatorPromptMessage { get; set; }
     public RunResult? Result { get; set; }
     public StoredSample? Sample { get; set; }
+    public int? IterationIndex { get; set; }
+    public int? IterationTotal { get; set; }
+    public string? IterationText { get; set; }
 
     public static OpenTapProgressFrameDto From(OpenTapProgress p) => new()
     {
@@ -47,6 +50,9 @@ public sealed class OpenTapProgressFrameDto
                 Timestamp = p.Sample.Timestamp,
                 Value = p.Sample.Value,
             },
+        IterationIndex = p.IterationIndex,
+        IterationTotal = p.IterationTotal,
+        IterationText = p.IterationText,
     };
 
     public OpenTapProgress ToProgress() => new()
@@ -66,6 +72,9 @@ public sealed class OpenTapProgressFrameDto
         Sample = Sample is null
             ? null
             : new MeasurementSampleEvent(Sample.Channel, 0, Sample.Value, Sample.Timestamp),
+        IterationIndex = IterationIndex,
+        IterationTotal = IterationTotal,
+        IterationText = IterationText,
     };
 }
 
