@@ -126,6 +126,7 @@ public partial class RunTestViewModel : ReactiveObject
     private readonly IReportService _reportService;
     private readonly IRunStore _runStore;
     private readonly AppSettings _settings;
+    private readonly ISettingsStore? _settingsStore;
     private readonly object _progressSync = new();
     private readonly Queue<string> _pendingDetails = new();
     private readonly double[] _plotRing = new double[PlotCapacity];
@@ -173,7 +174,8 @@ public partial class RunTestViewModel : ReactiveObject
         IRunControl runControl,
         IReportService reportService,
         IRunStore runStore,
-        AppSettings settings)
+        AppSettings settings,
+        ISettingsStore? settingsStore = null)
     {
         _openTap = openTap;
         _session = session;
@@ -181,6 +183,7 @@ public partial class RunTestViewModel : ReactiveObject
         _reportService = reportService;
         _runStore = runStore;
         _settings = settings;
+        _settingsStore = settingsStore;
         _progress = new ThrottledOpenTapProgress(IngestProgress);
         Status = "Confirm DUT, then Run.";
         Programs = [];
@@ -193,6 +196,7 @@ public partial class RunTestViewModel : ReactiveObject
         DetailLines = [];
         DetailKeyValues = [];
         InteractionFields = [];
+        ParameterFields = [];
         PlotYs = _plotPublish;
         IsEngineerDebugMode = settings.IsEngineerDebugMode;
         ShowSessionForm = true;
@@ -206,10 +210,11 @@ public partial class RunTestViewModel : ReactiveObject
         RunSelectedCommand = ReactiveCommand.CreateFromTask(() => ExecuteRunAsync(selectionOnly: true));
         CancelCommand = ReactiveCommand.Create(Cancel);
         ContinueOperatorCommand = ReactiveCommand.Create(ContinueOperator);
-        OpenStepDetailCommand = ReactiveCommand.Create(OpenSelectedDetail);
-        CloseDetailCommand = ReactiveCommand.Create(() => { /* detail region always follows selection */ });
+        OpenStepDetailCommand = ReactiveCommand.Create(() => OpenSelectedDetail(revealDetail: true));
+        CloseDetailCommand = ReactiveCommand.Create(() => { ShowDetailRegion = false; });
         ToggleDetailsCommand = ReactiveCommand.Create(() => { ShowDetailRegion = !ShowDetailRegion; });
         ApplyDebugPatchCommand = ReactiveCommand.Create(ApplyDebugPatch);
+        ApplyParametersCommand = ReactiveCommand.CreateFromTask(ApplyParametersAsync);
         OpenLastRunResultsCommand = ReactiveCommand.Create(() => NavigateToResultsRequested?.Invoke(this, EventArgs.Empty));
         InspectPlanCommand = ReactiveCommand.Create(() => NavigateToInspectRequested?.Invoke(this, EventArgs.Empty));
         NextFailCommand = ReactiveCommand.Create(NextFail);
@@ -282,17 +287,22 @@ public partial class RunTestViewModel : ReactiveObject
             }
             else if (args.PropertyName == nameof(SelectedStepListItem))
             {
-                if (SelectedStepListItem is { IsHeader: false, Step: not null } item)
+                if (SelectedStepListItem?.Step is not null)
                 {
-                    SelectedStep = item.Step;
+                    SelectedStep = SelectedStepListItem.Step;
                 }
             }
             else if (args.PropertyName == nameof(SelectedStep) && SelectedStep is not null)
             {
                 DebugStepEnabled = SelectedStep.Enabled;
-                OpenSelectedDetail();
+                OpenSelectedDetail(revealDetail: false);
+                RefreshParameterFields();
                 RefreshPlotVisibility();
                 RefreshHero();
+            }
+            else if (args.PropertyName == nameof(IsEngineerDebugMode))
+            {
+                RefreshParameterFields();
             }
             else if (args.PropertyName is nameof(IsRunning) or nameof(IsAwaitingOperator) or nameof(Status))
             {
@@ -329,6 +339,7 @@ public partial class RunTestViewModel : ReactiveObject
     public ObservableCollection<string> DetailLines { get; }
     public ObservableCollection<string> DetailKeyValues { get; }
     public ObservableCollection<InteractionFieldViewModel> InteractionFields { get; }
+    public ObservableCollection<InteractionFieldViewModel> ParameterFields { get; }
     public ObservableCollection<string> AttemptHistoryLines { get; } = [];
     public Func<CancellationToken, Task<string?>>? RequestPlanFilePath { get; set; }
 
@@ -347,6 +358,7 @@ public partial class RunTestViewModel : ReactiveObject
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> CloseDetailCommand { get; }
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> ToggleDetailsCommand { get; }
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> ApplyDebugPatchCommand { get; }
+    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> ApplyParametersCommand { get; }
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> OpenLastRunResultsCommand { get; }
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> InspectPlanCommand { get; }
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> LoadPlanCommand { get; }
@@ -406,6 +418,7 @@ public partial class RunTestViewModel : ReactiveObject
     [Reactive] private string _interactionTitle = "Operator attention";
     [Reactive] private bool _hasInteractionFields;
     [Reactive] private string? _interactionValidationError;
+    [Reactive] private bool _hasParameterFields;
     [Reactive] private bool _isEngineerDebugMode;
     [Reactive] private string _debugResource = "MOCK::INSTR0";
     [Reactive] private int _debugSampleCount = 32;
@@ -605,6 +618,8 @@ public partial class RunTestViewModel : ReactiveObject
         StationSlotSummary = _openTap.InstrumentSlots.Count == 0
             ? "Station: (no OpenTAP instruments)"
             : "Station: " + string.Join(", ", _openTap.InstrumentSlots.Select(s => $"{s.Name}→{s.ResourceName}"));
+        ApplySavedParameterOverrides();
+        RefreshParameterFields();
         RefreshSessionSummary();
     }
 
@@ -764,42 +779,32 @@ public partial class RunTestViewModel : ReactiveObject
     private void RebuildVisibleStepList()
     {
         var scope = ActiveScopeStep;
-        IEnumerable<HierarchyStepViewModel> roots = scope is null ? _fullHierarchy : [scope];
-        var useSections = scope is not null
-            && SelectedSubsection is null
-            && SelectedNestedSubsection is null
-            && scope.Children.Any(c => c.IsStage || c.Children.Count > 0);
-
         var items = new List<StepListItemViewModel>();
-        if (useSections)
+
+        if (scope is null)
         {
-            foreach (var section in scope!.Children.Where(c => c.IsStage || c.Children.Count > 0))
+            // Entire program: keep stage / section markers across the full hierarchy.
+            foreach (var root in _fullHierarchy)
             {
-                var sectionLeaves = FilterLeaves(HierarchyRollup.EnumerateLeaves([section]));
-                if (sectionLeaves.Count == 0)
-                {
-                    continue;
-                }
-
-                items.Add(StepListItemViewModel.Header(section.Name));
-                foreach (var leaf in sectionLeaves)
-                {
-                    items.Add(StepListItemViewModel.Leaf(leaf));
-                }
-            }
-
-            var directLeaves = FilterLeaves(scope.Children.Where(c => c.Children.Count == 0 && !c.IsStage));
-            foreach (var leaf in directLeaves)
-            {
-                items.Add(StepListItemViewModel.Leaf(leaf));
+                AppendScopeWithMarkers(root, items, pathPrefix: null);
             }
         }
         else
         {
-            var leaves = FilterLeaves(HierarchyRollup.EnumerateLeaves(roots));
-            foreach (var leaf in leaves)
+            var useSections = SelectedSubsection is null
+                && SelectedNestedSubsection is null
+                && scope.Children.Any(c => c.IsStage || c.Children.Count > 0);
+
+            if (useSections)
             {
-                items.Add(StepListItemViewModel.Leaf(leaf));
+                AppendScopeWithMarkers(scope, items, pathPrefix: null);
+            }
+            else
+            {
+                foreach (var leaf in FilterLeaves(HierarchyRollup.EnumerateLeaves([scope])))
+                {
+                    items.Add(StepListItemViewModel.Leaf(leaf));
+                }
             }
         }
 
@@ -819,6 +824,79 @@ public partial class RunTestViewModel : ReactiveObject
         }
 
         RefreshBreadcrumb();
+        SyncSelectedStepListItem();
+    }
+
+    private void AppendScopeWithMarkers(
+        HierarchyStepViewModel node,
+        List<StepListItemViewModel> items,
+        string? pathPrefix)
+    {
+        List<HierarchyStepViewModel>? pendingDirect = null;
+
+        void FlushDirectLeaves()
+        {
+            if (pendingDirect is null)
+            {
+                return;
+            }
+
+            var leaves = FilterLeaves(pendingDirect);
+            pendingDirect = null;
+            if (leaves.Count == 0)
+            {
+                return;
+            }
+
+            // At the suite root, keep ungrouped leaves inline between stage blocks (no fake "suite" header
+            // that would push them to the bottom). Under a named section path, group them with that header.
+            if (!string.IsNullOrWhiteSpace(pathPrefix))
+            {
+                items.Add(StepListItemViewModel.Header(pathPrefix, node));
+            }
+
+            foreach (var leaf in leaves)
+            {
+                items.Add(StepListItemViewModel.Leaf(leaf));
+            }
+        }
+
+        foreach (var child in node.Children)
+        {
+            var isSection = child.IsStage || child.Children.Count > 0;
+            if (!isSection)
+            {
+                pendingDirect ??= [];
+                pendingDirect.Add(child);
+                continue;
+            }
+
+            FlushDirectLeaves();
+
+            var header = string.IsNullOrWhiteSpace(pathPrefix)
+                ? child.Name
+                : $"{pathPrefix} / {child.Name}";
+
+            if (child.Children.Any(c => c.IsStage || c.Children.Count > 0))
+            {
+                AppendScopeWithMarkers(child, items, header);
+                continue;
+            }
+
+            var sectionLeaves = FilterLeaves(HierarchyRollup.EnumerateLeaves([child]));
+            if (sectionLeaves.Count == 0)
+            {
+                continue;
+            }
+
+            items.Add(StepListItemViewModel.Header(header, child));
+            foreach (var leaf in sectionLeaves)
+            {
+                items.Add(StepListItemViewModel.Leaf(leaf));
+            }
+        }
+
+        FlushDirectLeaves();
     }
 
     private List<HierarchyStepViewModel> FilterLeaves(IEnumerable<HierarchyStepViewModel> leaves)
@@ -843,7 +921,8 @@ public partial class RunTestViewModel : ReactiveObject
 
     private void ResolveSelectedStep(string? preserveStepPath = null)
     {
-        var flat = StepRows.ToList();
+        var listSteps = StepListItems.Where(i => i.Step is not null).Select(i => i.Step!).ToList();
+        var flat = StepRows.Count > 0 ? StepRows.ToList() : listSteps;
         if (flat.Count == 0)
         {
             flat = HierarchyRollup.EnumerateLeaves(_fullHierarchy).ToList();
@@ -851,32 +930,40 @@ public partial class RunTestViewModel : ReactiveObject
 
         if (!string.IsNullOrWhiteSpace(preserveStepPath))
         {
-            var match = flat.FirstOrDefault(s =>
-                string.Equals(s.Path, preserveStepPath, StringComparison.OrdinalIgnoreCase));
+            var match = listSteps.FirstOrDefault(s =>
+                            string.Equals(s.Path, preserveStepPath, StringComparison.OrdinalIgnoreCase))
+                        ?? flat.FirstOrDefault(s =>
+                            string.Equals(s.Path, preserveStepPath, StringComparison.OrdinalIgnoreCase));
             if (match is not null)
             {
                 SelectedStep = match;
+                SyncSelectedStepListItem();
                 return;
             }
         }
 
-        if (SelectedStep is not null && flat.Any(s => ReferenceEquals(s, SelectedStep)))
+        if (SelectedStep is not null && listSteps.Any(s => ReferenceEquals(s, SelectedStep)))
         {
+            SyncSelectedStepListItem();
             return;
         }
 
         if (SelectedStep is not null)
         {
-            var byPath = flat.FirstOrDefault(s =>
-                string.Equals(s.Path, SelectedStep.Path, StringComparison.OrdinalIgnoreCase));
+            var byPath = listSteps.FirstOrDefault(s =>
+                             string.Equals(s.Path, SelectedStep.Path, StringComparison.OrdinalIgnoreCase))
+                         ?? flat.FirstOrDefault(s =>
+                             string.Equals(s.Path, SelectedStep.Path, StringComparison.OrdinalIgnoreCase));
             if (byPath is not null)
             {
                 SelectedStep = byPath;
+                SyncSelectedStepListItem();
                 return;
             }
         }
 
         SelectedStep = flat.FirstOrDefault();
+        SyncSelectedStepListItem();
     }
 
     private void RollupParentStatuses()
@@ -983,7 +1070,7 @@ public partial class RunTestViewModel : ReactiveObject
 
         SelectedStep = firstFail;
         SyncSelectedStepListItem();
-        OpenSelectedDetail();
+        OpenSelectedDetail(revealDetail: true);
     }
 
     private void NextFail() => CycleFail(forward: true);
@@ -1017,12 +1104,12 @@ public partial class RunTestViewModel : ReactiveObject
 
         SelectedStep = fails[nextIndex];
         SyncSelectedStepListItem();
-        OpenSelectedDetail();
+        OpenSelectedDetail(revealDetail: true);
     }
 
     private void SyncSelectedStepListItem()
     {
-        var match = StepListItems.FirstOrDefault(i => !i.IsHeader && ReferenceEquals(i.Step, SelectedStep));
+        var match = StepListItems.FirstOrDefault(i => ReferenceEquals(i.Step, SelectedStep));
         if (match is not null)
         {
             SelectedStepListItem = match;
@@ -1158,9 +1245,10 @@ public partial class RunTestViewModel : ReactiveObject
             HeroChipText = "Pending";
         }
 
-        if (IsAwaitingOperator && !string.IsNullOrWhiteSpace(OperatorPromptMessage))
+        if (IsAwaitingOperator)
         {
-            HeroStatusLine = OperatorPromptMessage!;
+            // Prompt lives in the operator card; keep hero free of duplicate prose.
+            HeroStatusLine = string.Empty;
             if (HeroChipText is not "Fail")
             {
                 HeroChipText = "Awaiting";
@@ -1220,7 +1308,127 @@ public partial class RunTestViewModel : ReactiveObject
         _openTap.TrySetAcquireSettings(SelectedStep.Path, DebugSampleCount, DebugIntervalMs);
         _openTap.TrySetMeanGteThreshold(SelectedStep.Path, DebugThreshold);
         _openTap.TryRebindDmmResource(DebugResource);
+        RefreshParameterFields();
         Status = $"Applied debug overlay to {SelectedStep.Name} (not saved to golden plan).";
+    }
+
+    private void RefreshParameterFields()
+    {
+        ParameterFields.Clear();
+        if (!IsEngineerDebugMode || SelectedStep is null)
+        {
+            HasParameterFields = false;
+            return;
+        }
+
+        var parameters = _openTap.EnumerateParameters(
+            OpenTapParameterScope.Step,
+            SelectedStep.Path,
+            includeReadOnly: true,
+            listing: OpenTapParameterListing.StationOverrides);
+        foreach (var parameter in parameters)
+        {
+            ParameterFields.Add(new InteractionFieldViewModel(
+                new OperatorInteractionField
+                {
+                    Id = parameter.MemberKey,
+                    Label = string.IsNullOrWhiteSpace(parameter.Group)
+                        ? parameter.DisplayName
+                        : $"{parameter.Group}: {parameter.DisplayName}",
+                    Kind = parameter.Kind,
+                    DefaultValue = parameter.Value,
+                },
+                isReadOnly: parameter.IsReadOnly || IsRunning));
+        }
+
+        HasParameterFields = ParameterFields.Count > 0;
+    }
+
+    private void ApplySavedParameterOverrides()
+    {
+        if (SelectedProgram is null)
+        {
+            return;
+        }
+
+        var planId = SelectedProgram.Id;
+        foreach (var ov in _settings.PlanParameterOverrides.Where(o =>
+                     string.Equals(o.PlanId, planId, StringComparison.OrdinalIgnoreCase)
+                     && !string.IsNullOrWhiteSpace(o.MemberKey)))
+        {
+            _openTap.TrySetParameter(ov.MemberKey, ov.Value ?? string.Empty);
+        }
+    }
+
+    private async Task ApplyParametersAsync()
+    {
+        if (!IsEngineerDebugMode)
+        {
+            Status = "Parameter overrides require Engineer/Debug mode.";
+            return;
+        }
+
+        if (SelectedProgram is null)
+        {
+            Status = "Select a program.";
+            return;
+        }
+
+        if (ParameterFields.Count == 0)
+        {
+            Status = "Select a step with editable parameters.";
+            return;
+        }
+
+        var planId = SelectedProgram.Id;
+        var applied = 0;
+        foreach (var field in ParameterFields.Where(f => !f.IsReadOnly))
+        {
+            var value = field.ToResponseValue();
+            if (!_openTap.TrySetParameter(field.Id, value))
+            {
+                Status = $"Could not set {field.Label}.";
+                return;
+            }
+
+            UpsertParameterOverride(planId, field.Id, value);
+            applied++;
+        }
+
+        if (_settingsStore is not null)
+        {
+            await _settingsStore.SaveAppSettingsAsync().ConfigureAwait(false);
+        }
+
+        if (SelectedStep is not null
+            && _openTap.TryGetStepConditionSummary(SelectedStep.Path, out var summary)
+            && !string.IsNullOrWhiteSpace(summary))
+        {
+            ConditionSummary = summary!;
+        }
+
+        Status = applied == 0
+            ? "No writable parameters to apply."
+            : $"Applied {applied} parameter(s) for {SelectedProgram.DisplayName} (station override; TapPlan unchanged).";
+    }
+
+    private void UpsertParameterOverride(string planId, string memberKey, string value)
+    {
+        var existing = _settings.PlanParameterOverrides.FirstOrDefault(o =>
+            string.Equals(o.PlanId, planId, StringComparison.OrdinalIgnoreCase)
+            && string.Equals(o.MemberKey, memberKey, StringComparison.OrdinalIgnoreCase));
+        if (existing is null)
+        {
+            _settings.PlanParameterOverrides.Add(new PlanParameterOverride
+            {
+                PlanId = planId,
+                MemberKey = memberKey,
+                Value = value,
+            });
+            return;
+        }
+
+        existing.Value = value;
     }
 
     private void ClampDebugKnobs()
@@ -1299,6 +1507,7 @@ public partial class RunTestViewModel : ReactiveObject
         try
         {
             await LoadSelectedProgramAsync(stagePath, selectionPath);
+            ApplySavedParameterOverrides();
             if (IsEngineerDebugMode && !string.IsNullOrWhiteSpace(selectionPath))
             {
                 SelectedStep = FlattenHierarchy(_fullHierarchy)
@@ -1356,7 +1565,7 @@ public partial class RunTestViewModel : ReactiveObject
                     ResolveSelectedStep(selectionPath);
                 }
 
-                OpenSelectedDetail();
+                OpenSelectedDetail(revealDetail: false);
                 Status = BuildCompletionStatus(selectionOnly, selectionPath, selectionName, summary);
                 AttemptSummaryChip = string.Empty;
                 if (selectionOnly
@@ -1479,9 +1688,9 @@ public partial class RunTestViewModel : ReactiveObject
         return new StationProfile(map);
     }
 
-    public void OpenSelectedStepDetail() => OpenSelectedDetail();
+    public void OpenSelectedStepDetail() => OpenSelectedDetail(revealDetail: true);
 
-    private void OpenSelectedDetail()
+    private void OpenSelectedDetail(bool revealDetail = false)
     {
         if (SelectedStep is null)
         {
@@ -1489,7 +1698,11 @@ public partial class RunTestViewModel : ReactiveObject
         }
 
         DetailStep = SelectedStep;
-        ShowDetailRegion = true;
+        if (revealDetail)
+        {
+            ShowDetailRegion = true;
+        }
+
         ShowDetails = true;
         DetailChipText = StatusChip.FromStatus(SelectedStep.StatusText, SelectedStep.Verdict);
         DetailPrimaryLine = !string.IsNullOrWhiteSpace(SelectedStep.KeyValue)

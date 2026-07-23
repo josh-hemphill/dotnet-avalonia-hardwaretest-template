@@ -5,7 +5,7 @@
              x:Class="HardwareTest.Features.RunTest.RunTestView"
              x:DataType="vm:RunTestViewModel"
              KeyDown="OnKeyDown">
-  <Grid ColumnDefinitions="*,200" ColumnSpacing="12" RowDefinitions="Auto,Auto,Auto,*">
+  <Grid ColumnDefinitions="*,200" ColumnSpacing="12" RowDefinitions="Auto,Auto,*">
     <Border Grid.ColumnSpan="2"
             Padding="10,8"
             Margin="0,0,0,8"
@@ -32,9 +32,6 @@
         <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
           <Button Content="Run" Command="{Binding RunCommand}"
                   IsEnabled="{Binding !SessionBlocked}" />
-          <Button Content="Continue" Command="{Binding ContinueOperatorCommand}"
-                  Classes="success"
-                  IsVisible="{Binding IsAwaitingOperator}" />
           <Button Content="Cancel" Command="{Binding CancelCommand}" />
           <Button Content="Inspect" Command="{Binding InspectPlanCommand}" />
         </StackPanel>
@@ -50,36 +47,8 @@
                  Margin="0,0,0,4"
                  HorizontalAlignment="Stretch" />
 
-    <Border Grid.Row="2"
-            Grid.ColumnSpan="2"
-            Padding="8,6"
-            Margin="0,0,0,8"
-            CornerRadius="6"
-            BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
-            BorderThickness="1"
-            Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}">
-      <StackPanel Orientation="Horizontal" Spacing="8">
-        <TextBlock Text="Suite"
-                   Opacity="0.65"
-                   FontSize="11"
-                   VerticalAlignment="Center"
-                   Margin="0,0,4,0" />
-        <Button Classes="filter-chip"
-                Content="{Binding SuitePassedCount, StringFormat=Passed {0}}"
-                Command="{Binding SetStepFilterCommand}"
-                CommandParameter="{x:Static vm:StepStatusFilter.All}" />
-        <Button Classes="filter-chip"
-                Content="{Binding SuiteFailedCount, StringFormat=Failed {0}}"
-                Command="{Binding FilterFailCommand}" />
-        <Button Classes="filter-chip"
-                Content="{Binding SuitePendingCount, StringFormat=Pending {0}}"
-                Command="{Binding SetStepFilterCommand}"
-                CommandParameter="{x:Static vm:StepStatusFilter.Pending}" />
-      </StackPanel>
-    </Border>
-
-    <Grid Grid.Row="3" Grid.Column="0" RowDefinitions="Auto,Auto,Auto,Auto,*,Auto,*" RowSpacing="0">
-      <Border Padding="10,8"
+    <Grid Grid.Row="2" Grid.Column="0" RowDefinitions="Auto,Auto,Auto,Auto,*,Auto,Auto" RowSpacing="0">
+      <Border Padding="8,6"
               Margin="0,0,0,4"
               CornerRadius="6"
               BorderBrush="#FB8C00"
@@ -113,43 +82,58 @@
         </StackPanel>
       </Border>
 
-      <Border Padding="10,8"
+      <Border Padding="8,6"
               Margin="0,0,0,4"
               CornerRadius="6"
               Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
               IsVisible="{Binding !SessionBlocked}">
         <Grid ColumnDefinitions="*,Auto">
-          <TextBlock Text="{Binding SessionSummary}" FontWeight="SemiBold" TextWrapping="Wrap" />
-          <Button Grid.Column="1" Content="Change" Command="{Binding ChangeSessionCommand}" />
+          <TextBlock Text="{Binding SessionSummary}"
+                     FontWeight="SemiBold"
+                     FontSize="12"
+                     TextWrapping="NoWrap"
+                     TextTrimming="CharacterEllipsis"
+                     VerticalAlignment="Center" />
+          <Button Grid.Column="1" Content="Change" Command="{Binding ChangeSessionCommand}"
+                  FontSize="11" Padding="8,2" />
         </Grid>
       </Border>
 
       <Border Grid.Row="1"
-              Padding="10,8"
-              Margin="0,4,0,4"
+              Padding="8,6"
+              Margin="0,2,0,2"
               CornerRadius="6"
               Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}">
-        <StackPanel Spacing="4">
-          <StackPanel Orientation="Horizontal" Spacing="10">
-            <TextBlock Text="{Binding HeroLabel}" Opacity="0.7" VerticalAlignment="Center" />
-            <TextBlock Text="{Binding HeroStepName}" FontWeight="SemiBold" FontSize="16" VerticalAlignment="Center" />
-            <Border CornerRadius="4"
-                    Padding="8,2"
-                    VerticalAlignment="Center"
-                    Background="{Binding HeroChipText, Converter={x:Static vm:ChipBrushConverter.Instance}}">
-              <TextBlock Text="{Binding HeroChipText}" FontSize="11" FontWeight="SemiBold" Foreground="White" />
-            </Border>
-            <Button Content="Jump to current" Command="{Binding JumpToCurrentCommand}"
-                    IsVisible="{Binding IsRunning}" FontSize="11" />
-          </StackPanel>
-          <StackPanel Orientation="Horizontal" Spacing="8">
-            <Button Content="{Binding BreadcrumbText}"
-                    Command="{Binding ClearSubsectionCommand}"
-                    FontSize="12"
-                    Padding="4,2" />
-            <TextBlock Text="{Binding BreadcrumbDetailText}" Opacity="0.75" FontSize="12" VerticalAlignment="Center" />
-          </StackPanel>
-          <TextBlock Text="{Binding HeroStatusLine}" Opacity="0.85" TextWrapping="Wrap" FontSize="12" />
+        <StackPanel Spacing="2">
+          <WrapPanel Orientation="Horizontal">
+            <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,0,12,2">
+              <TextBlock Text="{Binding HeroLabel}" Opacity="0.7" VerticalAlignment="Center" FontSize="12" />
+              <TextBlock Text="{Binding HeroStepName}" FontWeight="SemiBold" FontSize="15" VerticalAlignment="Center" />
+              <Border CornerRadius="4"
+                      Padding="8,2"
+                      VerticalAlignment="Center"
+                      Background="{Binding HeroChipText, Converter={x:Static vm:ChipBrushConverter.Instance}}">
+                <TextBlock Text="{Binding HeroChipText}" FontSize="11" FontWeight="SemiBold" Foreground="White" />
+              </Border>
+              <Button Content="Jump to current" Command="{Binding JumpToCurrentCommand}"
+                      IsVisible="{Binding IsRunning}" FontSize="11" Padding="6,2" />
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,0,0,2" VerticalAlignment="Center">
+              <Button Content="{Binding BreadcrumbText}"
+                      Command="{Binding ClearSubsectionCommand}"
+                      FontSize="11"
+                      Padding="4,2" />
+              <TextBlock Text="{Binding BreadcrumbDetailText}"
+                         Opacity="0.75"
+                         FontSize="11"
+                         VerticalAlignment="Center" />
+            </StackPanel>
+          </WrapPanel>
+          <TextBlock Text="{Binding HeroStatusLine}"
+                     Opacity="0.85"
+                     TextWrapping="Wrap"
+                     FontSize="11"
+                     IsVisible="{Binding !IsAwaitingOperator}" />
           <Border IsVisible="{Binding IsAwaitingOperator}"
                   BorderBrush="#FB8C00"
                   BorderThickness="2"
@@ -166,7 +150,8 @@
               <TextBlock Text="{Binding InteractionValidationError}"
                          Foreground="#E65100"
                          TextWrapping="Wrap"
-                         FontSize="12" />
+                         FontSize="12"
+                         IsVisible="{Binding InteractionValidationError, Converter={x:Static ObjectConverters.IsNotNull}}" />
               <ItemsControl ItemsSource="{Binding InteractionFields}"
                             IsVisible="{Binding HasInteractionFields}">
                 <ItemsControl.ItemTemplate>
@@ -186,23 +171,31 @@
                   </DataTemplate>
                 </ItemsControl.ItemTemplate>
               </ItemsControl>
+              <Button Content="Continue"
+                      Command="{Binding ContinueOperatorCommand}"
+                      Classes="success"
+                      HorizontalAlignment="Left"
+                      MinWidth="120" />
             </StackPanel>
           </Border>
         </StackPanel>
       </Border>
 
-      <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="8" Margin="0,4,0,4">
+      <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="8" Margin="0,2,0,2">
         <Button Content="Run Selected" Command="{Binding RunSelectedCommand}"
                 IsEnabled="{Binding !SessionBlocked}"
-                ToolTip.Tip="Re-run the selected leaf step (records an attempt; use Run for the full suite)" />
+                ToolTip.Tip="Run the selected leaf or section (subtree + Safe Shutdown). Use Run for the full suite." />
         <Button Content="Prev fail" Command="{Binding PrevFailCommand}" />
         <Button Content="Next fail" Command="{Binding NextFailCommand}" />
-        <Button Content="Compact" Command="{Binding ToggleCompactCommand}" />
+        <ToggleButton Content="Details"
+                      IsChecked="{Binding ShowDetailRegion}"
+                      Classes="filter-chip"
+                      ToolTip.Tip="Show or hide bottom pane (detail, plot, diagnostics)" />
       </StackPanel>
 
       <Border Grid.Row="3"
               Padding="6,4"
-              Margin="0,0,0,8"
+              Margin="0,0,0,6"
               CornerRadius="6"
               BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
               BorderThickness="1">
@@ -224,6 +217,11 @@
           <Button Classes="filter-chip" Content="Pending"
                   Command="{Binding SetStepFilterCommand}"
                   CommandParameter="{x:Static vm:StepStatusFilter.Pending}" />
+          <ToggleButton Content="Compact"
+                        IsChecked="{Binding CompactStepRows}"
+                        Classes="filter-chip"
+                        Margin="4,0,0,0"
+                        ToolTip.Tip="Tighter step-list row spacing" />
           <TextBox x:Name="StepSearchBox"
                    PlaceholderText="Search steps…"
                    Text="{Binding StepSearchText}"
@@ -252,11 +250,27 @@
         <ListBox.ItemTemplate>
           <DataTemplate x:DataType="vm:StepListItemViewModel">
             <Panel>
-              <TextBlock Text="{Binding DisplayName}"
-                         FontWeight="Bold"
-                         Opacity="0.65"
-                         Margin="0,6,0,2"
-                         IsVisible="{Binding IsHeader}" />
+              <Border IsVisible="{Binding IsHeader}"
+                      Margin="0,8,0,2"
+                      Padding="0,3,0,4"
+                      BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
+                      BorderThickness="0,0,0,1"
+                      ToolTip.Tip="Select this section, then Run Selected to execute its steps">
+                <DockPanel LastChildFill="True">
+                  <Border DockPanel.Dock="Left"
+                          Width="3"
+                          Margin="0,1,8,1"
+                          CornerRadius="1"
+                          Background="{DynamicResource SystemAccentColor}"
+                          Opacity="0.85" />
+                  <TextBlock Text="{Binding DisplayName}"
+                             FontWeight="SemiBold"
+                             FontSize="11"
+                             Opacity="0.78"
+                             VerticalAlignment="Center"
+                             TextTrimming="CharacterEllipsis" />
+                </DockPanel>
+              </Border>
               <Grid ColumnDefinitions="*,Auto,*,Auto" ColumnSpacing="8"
                     IsVisible="{Binding !IsHeader}">
                 <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" VerticalAlignment="Center" />
@@ -281,29 +295,32 @@
                     Height="6"
                     HorizontalAlignment="Stretch"
                     ResizeDirection="Rows"
+                    IsVisible="{Binding ShowDetailRegion}"
                     Background="{DynamicResource SystemControlForegroundBaseMediumLowBrush}" />
 
-      <!-- Lower tray: scrolls as a unit so shrinking never crushes text into Diagnostics -->
+      <!-- Whole bottom tray collapses with Details (detail + diagnostics + debug). Auto height so list * expands. -->
       <ScrollViewer Grid.Row="6"
+                    IsVisible="{Binding ShowDetailRegion}"
                     VerticalScrollBarVisibility="Auto"
                     HorizontalScrollBarVisibility="Disabled"
-                    MinHeight="120">
+                    MaxHeight="360">
         <StackPanel Spacing="8" Margin="0,0,0,4">
-          <Border IsVisible="{Binding ShowDetailRegion}"
-                  Padding="8"
-                  MinHeight="160"
+          <Border Padding="8"
+                  MinHeight="120"
                   Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}">
             <StackPanel Spacing="6">
               <StackPanel Orientation="Horizontal" Spacing="10">
-                <Border CornerRadius="4"
-                        Padding="8,2"
-                        Background="{Binding DetailChipText, Converter={x:Static vm:ChipBrushConverter.Instance}}">
-                  <TextBlock Text="{Binding DetailChipText}" FontSize="11" FontWeight="SemiBold" Foreground="White" />
-                </Border>
-                <TextBlock Text="{Binding DetailStep.Name}" FontWeight="SemiBold" VerticalAlignment="Center" />
+                <TextBlock Text="Step detail"
+                           FontWeight="SemiBold"
+                           VerticalAlignment="Center" />
                 <Button Content="Results" Command="{Binding OpenLastRunResultsCommand}" />
+                <Button Content="Hide"
+                        Command="{Binding CloseDetailCommand}"
+                        FontSize="11" />
               </StackPanel>
-              <TextBlock Text="{Binding DetailPrimaryLine}" TextWrapping="Wrap" />
+              <TextBlock Text="{Binding DetailPrimaryLine}"
+                         TextWrapping="Wrap"
+                         Opacity="0.9" />
               <TextBlock Text="{Binding AttemptSummaryChip, StringFormat=Attempts: {0}}"
                          IsVisible="{Binding AttemptSummaryChip, Converter={x:Static ObjectConverters.IsNotNull}}"
                          FontWeight="SemiBold"
@@ -327,6 +344,48 @@
                 <StackPanel Spacing="2">
                   <TextBlock Text="Conditions applied" FontWeight="SemiBold" FontSize="12" />
                   <TextBlock Text="{Binding ConditionSummary}" TextWrapping="Wrap" Opacity="0.9" />
+                </StackPanel>
+              </Border>
+              <Border IsVisible="{Binding HasParameterFields}"
+                      Padding="8"
+                      BorderBrush="{DynamicResource SystemControlForegroundBaseMediumBrush}"
+                      BorderThickness="1"
+                      CornerRadius="4">
+                <StackPanel Spacing="6">
+                  <StackPanel Orientation="Horizontal" Spacing="8">
+                    <TextBlock Text="Station overrides"
+                               FontWeight="SemiBold"
+                               FontSize="12"
+                               VerticalAlignment="Center" />
+                    <Button Content="Apply &amp; save"
+                            Command="{Binding ApplyParametersCommand}"
+                            IsEnabled="{Binding !IsRunning}"
+                            FontSize="11" />
+                  </StackPanel>
+                  <TextBlock Text="Engineer/Debug only. Persists bench settings — does not rewrite the TapPlan. Operator-entered values still come from mid-run prompts."
+                             FontSize="11"
+                             Opacity="0.65"
+                             TextWrapping="Wrap" />
+                  <ItemsControl ItemsSource="{Binding ParameterFields}">
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate x:DataType="vm:InteractionFieldViewModel">
+                        <StackPanel Spacing="4" Margin="0,2,0,4">
+                          <TextBlock Text="{Binding Label}"
+                                     FontSize="12"
+                                     Opacity="0.85"
+                                     IsVisible="{Binding IsTextOrNumber}" />
+                          <TextBox Text="{Binding Value}"
+                                   PlaceholderText="{Binding ValidationHint}"
+                                   IsVisible="{Binding IsTextOrNumber}"
+                                   IsReadOnly="{Binding IsReadOnly}" />
+                          <CheckBox Content="{Binding Label}"
+                                    IsChecked="{Binding BoolValue}"
+                                    IsVisible="{Binding IsBoolean}"
+                                    IsEnabled="{Binding !IsReadOnly}" />
+                        </StackPanel>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
                 </StackPanel>
               </Border>
             </StackPanel>
@@ -354,8 +413,30 @@
       </ScrollViewer>
     </Grid>
 
-    <DockPanel Grid.Row="3" Grid.Column="1">
-      <TextBlock DockPanel.Dock="Top" Text="Stages" FontWeight="SemiBold" Margin="0,0,0,8" />
+    <DockPanel Grid.Row="2" Grid.Column="1">
+      <StackPanel DockPanel.Dock="Top" Spacing="6" Margin="0,0,0,10">
+        <TextBlock Text="Suite"
+                   Opacity="0.65"
+                   FontSize="11"
+                   FontWeight="SemiBold" />
+        <WrapPanel Orientation="Horizontal">
+          <Button Classes="filter-chip"
+                  Content="{Binding SuitePassedCount, StringFormat=Passed {0}}"
+                  Command="{Binding SetStepFilterCommand}"
+                  CommandParameter="{x:Static vm:StepStatusFilter.All}"
+                  Margin="0,0,4,4" />
+          <Button Classes="filter-chip"
+                  Content="{Binding SuiteFailedCount, StringFormat=Failed {0}}"
+                  Command="{Binding FilterFailCommand}"
+                  Margin="0,0,4,4" />
+          <Button Classes="filter-chip"
+                  Content="{Binding SuitePendingCount, StringFormat=Pending {0}}"
+                  Command="{Binding SetStepFilterCommand}"
+                  CommandParameter="{x:Static vm:StepStatusFilter.Pending}"
+                  Margin="0,0,4,4" />
+        </WrapPanel>
+        <TextBlock Text="Stages" FontWeight="SemiBold" Margin="0,4,0,0" />
+      </StackPanel>
       <StackPanel DockPanel.Dock="Bottom" Spacing="8" Margin="0,12,0,0">
         <StackPanel Spacing="6" IsVisible="{Binding HasSubsections}">
           <TextBlock Text="Sections" FontWeight="SemiBold" />

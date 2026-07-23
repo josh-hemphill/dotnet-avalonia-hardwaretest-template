@@ -21,6 +21,12 @@ For UI vs OpenTAP test suites, see [testing.md](testing.md). For sealed Linux pu
 ```
 
 3. Built-in **sample** / **board-demo** entries stay as factories for CI-stable demos. Disk plans with the same id are not double-listed (`ProgramCatalog`).
+
+   | Demo | Operator prompts | Station overrides (Engineer/Debug) |
+   | --- | --- | --- |
+   | **sample** (`SampleProgramFactory`) | `Confirm Sweep Area Clear` (confirm-only) → `Install Sweep Fixture` (typed: `fixtureId`, `fixtureTorqueNm`) | `Acquire VDC` / `Mean GTE` — `Channel`, `SampleCount`, `IntervalMs`, `Threshold`, `Enabled` (stable step Ids) |
+   | **board-demo** (`BoardDemoProgramFactory`) | `Seat Board Fixture` (confirm) → `Record Board Sticker` (typed: `boardLotId`) | Multi-rail Acquire/Mean with `Channel` / samples / thresholds; 3V3 rail uses stable Ids for override demos |
+
 4. Run and Instruments both enumerate via `ProgramCatalog` — no need to hardcode program lists in ViewModels.
 
 ## 2. Plugins
@@ -55,9 +61,18 @@ Use Avalonia-owned mid-run prompts only:
 - **Typed input:** `OperatorInputStep` (string + optional number) or a custom step calling `StepRuntime.RequestInteraction` with `OperatorInteractionField`s.
 - The Run board shows an in-panel host (title, message, fields). Continue / Cancel are toolbar actions — never OpenTAP `DialogStep`, WinForms/WPF message boxes, or a second window.
 
-Field editors (`InteractionFieldViewModel`) are shared with the upcoming Parameters panel (Phase C).
+Field editors (`InteractionFieldViewModel`) are shared widgets; override and prompt collections stay separate.
 
-## 6. Reports (Typst)
+## 6. Plan / step parameters vs operator prompts
+
+Keep these separate:
+
+- **Operator prompts (technician):** mid-run `OperatorInputStep` / `RequestInteraction` — values entered in the orange interaction host and returned to the step. Not saved as station overrides.
+- **Station overrides (Engineer/Debug only):** Run board **Station overrides** panel for limits/channels/`Enabled`. **Apply & save** → `TrySetParameter` + `PlanParameterOverrides`. Re-applied on program load / before run. Does not rewrite the TapPlan.
+- Prompt-schema properties on interaction steps (Message, field ids/labels) are not station overrides; only `Enabled` is overridable there.
+- Prefer `EnumerateParameters` / `TrySetParameter` for new product code. `TrySetAcquireSettings` / `TrySetMeanGteThreshold` remain sample-only adapters around the bridge.
+
+## 7. Reports (Typst)
 
 Default embedded templates: `test-report.typ` + `lib/sample-chart.typ`.
 
@@ -69,15 +84,15 @@ Override without recompiling:
 
 Compile inputs: `run.json` (camelCase `TestRunRecord`), Typst inputs (`title`, `runId`, `planName`, `dutSerial`, `result`, …), and optional sample-driven charts via `sample-chart.typ`. `EmbedPlotsInReport` toggles chart notes.
 
-## 7. What stays demo-specific
+## 8. What stays demo-specific
 
 - Basic plugin steps (`AcquireVoltageStep`, `MeanGteStep`, `OperatorInputStep`, …).
-- Engineer/Debug overlays `TrySetAcquireSettings` / `TrySetMeanGteThreshold` (sample step types only). Prefer `TryGetStepConditionSummary` for read-only display of unknown steps.
+- Engineer/Debug overlays `TrySetAcquireSettings` / `TrySetMeanGteThreshold` (sample step types only; prefer the parameter bridge). Prefer `TryGetStepConditionSummary` for read-only display of unknown steps.
 - `LoadSampleProgramAsync` / `LoadBoardDemoProgramAsync` on `IOpenTapSession` — ignore once you only ship disk plans.
 
 Plan-shape fixtures (`LoadPlanShapeAsync`) live on the concrete `OpenTapSession` / `FakeOpenTapSession` for tests, not on `IOpenTapSession`.
 
-## 8. Rename checklist (optional)
+## 9. Rename checklist (optional)
 
 When productizing the template name:
 

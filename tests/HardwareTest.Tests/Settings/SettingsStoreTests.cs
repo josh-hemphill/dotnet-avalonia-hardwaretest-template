@@ -40,6 +40,15 @@ public sealed class SettingsStoreTests
         [
             new VisaInstrument { Id = "a", DisplayName = "A", Resource = "MOCK::A", Enabled = true },
         ];
+        store.AppSettings.PlanParameterOverrides =
+        [
+            new PlanParameterOverride
+            {
+                PlanId = "sample",
+                MemberKey = "acq/SampleCount",
+                Value = "16",
+            },
+        ];
         store.UiState.SelectedPageId = "Results";
         store.UiState.Width = 1111;
         store.UiState.IsMaximized = true;
@@ -58,6 +67,8 @@ public sealed class SettingsStoreTests
         Assert.Equal("Dark", reload.AppSettings.ThemePreference);
         Assert.False(reload.AppSettings.EmbedPlotsInReport);
         Assert.Single(reload.AppSettings.Instruments);
+        Assert.Single(reload.AppSettings.PlanParameterOverrides);
+        Assert.Equal("16", reload.AppSettings.PlanParameterOverrides[0].Value);
         Assert.Equal("Results", reload.UiState.SelectedPageId);
         Assert.Equal(1111, reload.UiState.Width);
         Assert.True(reload.UiState.IsMaximized);

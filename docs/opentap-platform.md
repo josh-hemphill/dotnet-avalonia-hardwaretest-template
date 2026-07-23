@@ -76,12 +76,21 @@ Pre-run parameter edits and mid-run inputs share the **same field control types*
 
 **Authoring:** Prefer `OperatorInputStep` (or custom steps calling `StepRuntime.RequestInteraction`) for technician input. Keep `OperatorPromptStep` for confirm-only pauses. Do not add OpenTAP Dialog steps to appliance plans.
 
+**In-repo demos:** `SampleProgramFactory` and `BoardDemoProgramFactory` each include confirm + typed prompts and overridable Acquire/Mean settings — see the table in [adapting.md](adapting.md#1-programs-tapplans--catalog).
+
 ## Parameter model
 
-- Enumerate editable members on plan + selected step via OpenTAP TypeData (including mixin-embedded properties).
-- Show as grouped list on Run (pre-run) and/or Inspect/Engineer Debug.
-- Persist **station overrides** separately from the golden TapPlan (same spirit as `PlanSlotOverrides`).
-- Prefer the parameter bridge over growing sample-specific `TrySetAcquire*` / `TrySetMeanGte*` APIs.
+Two different concepts (do not conflate):
+
+| Lane | Who | UI | Persistence |
+| --- | --- | --- | --- |
+| **Operator prompts** | Technician | Mid-run orange Run-board interaction host (`OperatorInputStep` / `RequestInteraction`) | Run results / step parameters — **not** `PlanParameterOverrides` |
+| **Station overrides** | Engineer/Debug | Run board **Station overrides** panel (selected step) | `PlanParameterOverrides` in settings.json |
+
+- Enumerate station-overridable members via TypeData (`EnumerateParameters` default listing = `StationOverrides`). Prompt-schema authoring on `OperatorInputStep` / `OperatorPromptStep` (Message, field labels, …) is `OperatorPromptSchema` and is excluded from the override panel.
+- Member keys: `{stepId}/{MemberName}` (plan-level: `plan/{MemberName}`). Sample Acquire/Mean steps use stable Ids so overrides survive reloads.
+- Golden `.TapPlan` files are not rewritten. Prefer the parameter bridge over growing sample-specific `TrySetAcquire*` / `TrySetMeanGte*` APIs (those remain as thin adapters).
+- Shared control widgets (`InteractionFieldViewModel`) — separate collections / roles.
 
 ## Mixin support model
 
@@ -111,7 +120,7 @@ Pre-run parameter edits and mid-run inputs share the **same field control types*
 | --- | --- | --- |
 | A | [Interaction contract skeleton](opentap-phases/phase-a-interaction-contract.md) | Done (API + host/Fake bridge) |
 | B | [Avalonia interaction host + input steps](opentap-phases/phase-b-interaction-host.md) | Done |
-| C | [Parameters panel](opentap-phases/phase-c-parameters.md) | Planned |
+| C | [Parameters panel](opentap-phases/phase-c-parameters.md) | Done |
 | D | [Mixin support](opentap-phases/phase-d-mixins.md) | Planned |
 | E | [Packages list](opentap-phases/phase-e-packages-list.md) | Planned |
 | F | [Resource / VisaAddress alignment](opentap-phases/phase-f-resources.md) | Planned |

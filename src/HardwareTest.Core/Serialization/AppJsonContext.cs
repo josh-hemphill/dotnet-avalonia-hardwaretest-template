@@ -17,6 +17,8 @@ namespace HardwareTest.Core.Serialization;
 [JsonSerializable(typeof(List<StationBinding>))]
 [JsonSerializable(typeof(PlanSlotOverride))]
 [JsonSerializable(typeof(List<PlanSlotOverride>))]
+[JsonSerializable(typeof(PlanParameterOverride))]
+[JsonSerializable(typeof(List<PlanParameterOverride>))]
 [JsonSerializable(typeof(TestRunRecord))]
 [JsonSerializable(typeof(SuiteRunRecord))]
 [JsonSerializable(typeof(StepResultRecord))]

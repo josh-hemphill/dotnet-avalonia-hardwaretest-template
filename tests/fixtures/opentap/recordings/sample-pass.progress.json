@@ -19,7 +19,7 @@
   {
     "message": "Acquire VDC",
     "stepName": "Acquire VDC",
-    "stepPath": "Sample Hardware Suite/Acquire VDC",
+    "stepPath": "Sample Hardware Suite/Voltage Sweep/Acquire VDC",
     "stepId": "acq",
     "statusText": "Pass",
     "verdict": "Pass",

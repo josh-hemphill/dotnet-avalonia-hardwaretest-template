@@ -100,6 +100,70 @@ public sealed class OpenTapSessionTests
     }
 
     [Fact]
+    public async Task RunSelection_preserves_sibling_live_status()
+    {
+        var session = new OpenTapSession();
+        await session.LoadBoardDemoProgramAsync();
+        await session.ApplyStationAndDutAsync(
+            new StationProfile(new Dictionary<string, string> { ["dmm"] = "MOCK::INSTR0" }),
+            new DutIdentity("DUT-PRESERVE", Family: "demo"));
+
+        using var resume = new CancellationTokenSource();
+        async Task<OpenTapRunSummary> RunWithAutoResume(Func<Task<OpenTapRunSummary>> start)
+        {
+            var runTask = start();
+            _ = Task.Run(async () =>
+            {
+                while (!resume.IsCancellationRequested && !runTask.IsCompleted)
+                {
+                    if (session.IsAwaitingOperator)
+                    {
+                        var pending = session.PendingInteraction;
+                        if (pending is not null && pending.Fields.Count > 0)
+                        {
+                            var values = pending.Fields.ToDictionary(
+                                f => f.Id,
+                                f => f.Kind == OperatorInteractionFieldKind.Number ? "1.0" : "LOT-1",
+                                StringComparer.OrdinalIgnoreCase);
+                            session.Resume(OperatorInteractionResponse.Continue(pending.Id, values));
+                        }
+                        else
+                        {
+                            session.Resume();
+                        }
+                    }
+
+                    await Task.Delay(20);
+                }
+            });
+            return await runTask;
+        }
+
+        var full = await RunWithAutoResume(() => session.RunAsync());
+        Assert.True(
+            full.Result is RunResult.Passed or RunResult.Failed or RunResult.Error,
+            $"Full run unexpected: {full.Result}: {full.ErrorMessage}");
+
+        var leaves = session.StepTree.SelectMany(Flatten).Where(n => n.Children.Count == 0).ToList();
+        var acquire3V3 = leaves.First(n => n.Name.Contains("Acquire 3V3", StringComparison.OrdinalIgnoreCase));
+        var acquire5V = leaves.First(n => n.Name.Contains("Acquire 5V", StringComparison.OrdinalIgnoreCase));
+        Assert.False(string.Equals(acquire5V.StatusText, "Pending", StringComparison.OrdinalIgnoreCase));
+        var siblingStatusBefore = acquire5V.StatusText;
+        var siblingKeyBefore = acquire5V.KeyValue;
+
+        var selection = await RunWithAutoResume(() => session.RunSelectionAsync(acquire3V3.Path));
+        resume.Cancel();
+        Assert.True(
+            selection.Result is RunResult.Passed or RunResult.Failed or RunResult.Error or RunResult.Cancelled,
+            $"Selection unexpected: {selection.Result}: {selection.ErrorMessage}");
+
+        Assert.Equal(siblingStatusBefore, acquire5V.StatusText);
+        Assert.Equal(siblingKeyBefore, acquire5V.KeyValue);
+        Assert.NotEqual("Pending", acquire5V.StatusText);
+        Assert.NotEqual("NotSet", acquire3V3.StatusText);
+    }
+
+    [Fact]
     public async Task Sample_program_runs_and_stamps_dut()
     {
         var session = new OpenTapSession();
@@ -145,29 +209,46 @@ public sealed class OpenTapSessionTests
             new DutIdentity("DUT-PROMPT", Family: "demo"));
 
         var progress = new Progress<OpenTapProgress>();
-        OperatorInteractionRequest? seenRequest = null;
-        var awaiting = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        OperatorInteractionRequest? typedRequest = null;
+        var typedReady = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         progress.ProgressChanged += (_, p) =>
         {
-            if (p.AwaitingOperator)
+            if (!p.AwaitingOperator)
             {
-                seenRequest = p.InteractionRequest ?? session.PendingInteraction;
-                awaiting.TrySetResult(true);
+                return;
+            }
+
+            var request = p.InteractionRequest ?? session.PendingInteraction;
+            if (request?.Fields.Any(f => f.Id == "fixtureId") == true)
+            {
+                typedRequest = request;
+                typedReady.TrySetResult(true);
+                return;
+            }
+
+            // Confirm-only pause ahead of typed input.
+            if (session.IsAwaitingOperator && session.PendingInteraction is { } pending)
+            {
+                session.Resume(OperatorInteractionResponse.Continue(pending.Id));
             }
         };
 
         var runTask = session.RunAsync(progress);
-        var sawPrompt = await Task.WhenAny(awaiting.Task, Task.Delay(TimeSpan.FromSeconds(30))) == awaiting.Task;
-        Assert.True(sawPrompt, "Expected operator input pause.");
+        var sawTyped = await Task.WhenAny(typedReady.Task, Task.Delay(TimeSpan.FromSeconds(30))) == typedReady.Task;
+        Assert.True(sawTyped, "Expected typed operator input pause (fixtureId).");
         Assert.True(session.IsAwaitingOperator);
         Assert.NotNull(session.PendingInteraction);
         Assert.Contains(session.PendingInteraction!.Fields, f => f.Id == "fixtureId");
-        Assert.NotNull(seenRequest);
-        Assert.Equal("fixtureId", seenRequest!.Fields[0].Id);
+        Assert.Contains(session.PendingInteraction.Fields, f => f.Id == "fixtureTorqueNm");
+        Assert.NotNull(typedRequest);
 
         session.Resume(OperatorInteractionResponse.Continue(
             session.PendingInteraction.Id,
-            new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { ["fixtureId"] = "HOST-TEST" }));
+            new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fixtureId"] = "HOST-TEST",
+                ["fixtureTorqueNm"] = "1.5",
+            }));
         var summary = await runTask;
         Assert.False(session.IsAwaitingOperator);
         Assert.Null(session.PendingInteraction);
@@ -186,20 +267,28 @@ public sealed class OpenTapSessionTests
             new DutIdentity("DUT-PROMPT", Family: "demo"));
 
         var progress = new Progress<OpenTapProgress>();
-        var awaiting = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var sawAnyPause = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         progress.ProgressChanged += (_, p) =>
         {
-            if (p.AwaitingOperator)
+            if (!p.AwaitingOperator)
             {
-                awaiting.TrySetResult(true);
+                return;
+            }
+
+            sawAnyPause.TrySetResult(true);
+            if (session.PendingInteraction is { } pending)
+            {
+                session.Resume(OperatorInteractionResponse.Continue(pending.Id));
+            }
+            else
+            {
+                session.Resume();
             }
         };
 
         var runTask = session.RunAsync(progress);
-        var sawPrompt = await Task.WhenAny(awaiting.Task, Task.Delay(TimeSpan.FromSeconds(30))) == awaiting.Task;
+        var sawPrompt = await Task.WhenAny(sawAnyPause.Task, Task.Delay(TimeSpan.FromSeconds(30))) == sawAnyPause.Task;
         Assert.True(sawPrompt, "Expected operator prompt pause.");
-        Assert.True(session.IsAwaitingOperator);
-        session.Resume();
         var summary = await runTask;
         Assert.False(session.IsAwaitingOperator);
         Assert.True(
@@ -219,14 +308,14 @@ public sealed class OpenTapSessionTests
         var run = session.RunAsync();
         _ = Task.Run(async () =>
         {
-            await Task.Delay(30);
-            // Unblock operator prompt if hit before abort.
+            await Task.Delay(50);
+            // Unblock the first operator pause if we landed on it, then abort mid-suite.
             if (session.IsAwaitingOperator)
             {
                 session.Resume();
             }
 
-            await Task.Delay(30);
+            await Task.Delay(40);
             session.Abort(safetyStop: true);
         });
         var summary = await run;
@@ -242,6 +331,50 @@ public sealed class OpenTapSessionTests
         Assert.True(session.TrySetStepEnabled(path, false));
         Assert.True(session.TrySetAcquireSettings(path, 8, 1));
         Assert.True(session.TryRebindDmmResource("MOCK::INSTR1"));
+    }
+
+    [Fact]
+    public async Task Parameter_bridge_get_set_acquire_sample_count()
+    {
+        var session = new OpenTapSession();
+        await session.LoadSampleProgramAsync();
+        var acquire = session.StepTree.SelectMany(Flatten)
+            .First(n => n.Name.Contains("Acquire", StringComparison.OrdinalIgnoreCase));
+        var parameters = session.EnumerateParameters(OpenTapParameterScope.Step, acquire.Path);
+        Assert.Contains(parameters, p => p.DisplayName.Contains("Sample", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(parameters, p => p.DisplayName.Equals("Instrument", StringComparison.OrdinalIgnoreCase));
+        Assert.All(parameters, p => Assert.Equal(OpenTapParameterRole.StationOverride, p.Role));
+
+        var sampleKey = OpenTapParameterInfo.FormatStepMemberKey(
+            SampleProgramFactory.AcquireStepId.ToString(),
+            nameof(AcquireVoltageStep.SampleCount));
+        Assert.True(session.TrySetParameter(sampleKey, "12"));
+        Assert.True(session.TryGetParameter(sampleKey, out var value));
+        Assert.Equal("12", value);
+        Assert.True(session.TryGetStepConditionSummary(acquire.Path, out var summary));
+        Assert.Contains("Samples=12", summary);
+    }
+
+    [Fact]
+    public async Task Parameter_bridge_excludes_operator_prompt_schema_from_station_overrides()
+    {
+        var session = new OpenTapSession();
+        await session.LoadSampleProgramAsync();
+        var prompt = session.StepTree.SelectMany(Flatten)
+            .First(n => n.Name.Contains("Fixture", StringComparison.OrdinalIgnoreCase));
+
+        var overrides = session.EnumerateParameters(OpenTapParameterScope.Step, prompt.Path);
+        Assert.All(overrides, p => Assert.Equal(OpenTapParameterRole.StationOverride, p.Role));
+        Assert.DoesNotContain(overrides, p => p.DisplayName.Equals("Message", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(overrides, p => p.DisplayName.Contains("Field", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(overrides, p => p.DisplayName.Equals("Enabled", StringComparison.OrdinalIgnoreCase));
+
+        var all = session.EnumerateParameters(
+            OpenTapParameterScope.Step,
+            prompt.Path,
+            listing: OpenTapParameterListing.AllEditable);
+        Assert.Contains(all, p => p.Role == OpenTapParameterRole.OperatorPromptSchema
+                                  && p.DisplayName.Equals("Message", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]

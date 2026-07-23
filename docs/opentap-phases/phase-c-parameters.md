@@ -26,18 +26,20 @@ Expose OpenTAP editable plan/step members in Avalonia so benches can adjust limi
    - Apply on plan load / before run.
 
 3. **UI:**
-   - Parameters section on Run (pre-run) and/or Inspect when a step is selected.
-   - Engineer/Debug mode can unlock more members if needed.
+   - **Station overrides** section on Run when a step is selected — **Engineer/Debug only**.
+   - Mid-run operator prompts stay on the interaction host (Phase B); do not persist those values as `PlanParameterOverrides`.
+   - Prompt-schema members on `OperatorInputStep` / `OperatorPromptStep` are excluded from the override listing (role `OperatorPromptSchema`).
 
 4. **Deprecation path:** document `TrySetAcquireSettings` / `TrySetMeanGteThreshold` as sample adapters; new code uses the bridge.
 
-5. **Tests:** host set/get on sample Acquire settings; VM lists parameters for Fake tree; overrides round-trip settings store.
+5. **Tests:**
+   - host set/get on sample Acquire settings; VM lists overrides only in engineer mode; overrides round-trip settings store; prompt schema excluded from station listing.
 
 ## Exit criteria
 
-- Operator can change a sample step limit from the shell and see it affect the next run without saving the TapPlan.
-- Overrides survive app restart.
-
+- [x] Engineer can change a sample step limit from the shell (Engineer/Debug) and see it affect the next run without saving the TapPlan.
+- [x] Overrides survive app restart (`PlanParameterOverrides` in settings.json).
+- [x] Operator prompt fields remain mid-run interactions, not station overrides.
 ## Out of scope
 
 - Mixin-specific UX chrome (Phase D — bridge should already see embedded members if TypeData exposes them).

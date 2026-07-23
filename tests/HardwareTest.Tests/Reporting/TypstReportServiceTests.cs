@@ -106,7 +106,7 @@ public sealed class TypstReportServiceTests
             .Select(i => new StoredSample
             {
                 Channel = "VDC",
-                StepPath = "Sample Hardware Suite/Acquire VDC",
+                StepPath = "Sample Hardware Suite/Voltage Sweep/Acquire VDC",
                 Timestamp = DateTimeOffset.UtcNow.AddMilliseconds(i),
                 Value = 1.0 + (i * 0.1),
             })

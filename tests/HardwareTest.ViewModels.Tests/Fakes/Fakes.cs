@@ -35,6 +35,8 @@ public sealed class FakeOpenTapSession : IOpenTapSession
     public OperatorInteractionRequest? PendingInteraction { get; private set; }
     public OperatorInteractionResponse? LastInteractionResponse { get; private set; }
     public Queue<OperatorInteractionResponse> InteractionResponses { get; } = new();
+    public Dictionary<string, string> ParameterValues { get; } = new(StringComparer.OrdinalIgnoreCase);
+    public List<OpenTapParameterInfo> ParameterCatalog { get; } = [];
 
     public TimeSpan Delay { get; set; } = TimeSpan.FromMilliseconds(30);
     public RunResult CompletionResult { get; set; } = RunResult.Passed;
@@ -253,7 +255,46 @@ public sealed class FakeOpenTapSession : IOpenTapSession
                     new() { Id = "id-check", Name = "Identity Check", Path = "Sample Hardware Suite/Identity/Identity Check" },
                 ],
             },
-            new() { Id = "acq", Name = "Acquire VDC", Path = "Sample Hardware Suite/Acquire VDC" },
+            new()
+            {
+                Id = "confirm-clear",
+                Name = "Confirm Sweep Area Clear",
+                Path = "Sample Hardware Suite/Confirm Sweep Area Clear",
+            },
+            new()
+            {
+                Id = "fixture",
+                Name = "Install Sweep Fixture",
+                Path = "Sample Hardware Suite/Install Sweep Fixture",
+            },
+            new()
+            {
+                Id = "sweep",
+                Name = "Voltage Sweep",
+                Path = "Sample Hardware Suite/Voltage Sweep",
+                IsStage = true,
+                Children =
+                [
+                    new()
+                    {
+                        Id = SampleProgramFactory.AcquireStepId.ToString(),
+                        Name = "Acquire VDC",
+                        Path = "Sample Hardware Suite/Voltage Sweep/Acquire VDC",
+                    },
+                    new()
+                    {
+                        Id = SampleProgramFactory.MeanGteStepId.ToString(),
+                        Name = "Mean GTE",
+                        Path = "Sample Hardware Suite/Voltage Sweep/Mean GTE",
+                    },
+                ],
+            },
+            new()
+            {
+                Id = "safety",
+                Name = "Safe Shutdown",
+                Path = "Sample Hardware Suite/Safe Shutdown",
+            },
         ],
     };
 
@@ -288,8 +329,8 @@ public sealed class FakeOpenTapSession : IOpenTapSession
                     "3v3",
                     "3V3 Rail",
                     $"{root}/Power Rails/3V3 Rail",
-                    Leaf("acq-3v3", "Acquire 3V3", $"{root}/Power Rails/3V3 Rail/Acquire 3V3"),
-                    Leaf("mean-3v3", "Mean GTE 3V3", $"{root}/Power Rails/3V3 Rail/Mean GTE 3V3")),
+                    Leaf(BoardDemoProgramFactory.Acquire3V3StepId.ToString(), "Acquire 3V3", $"{root}/Power Rails/3V3 Rail/Acquire 3V3"),
+                    Leaf(BoardDemoProgramFactory.MeanGte3V3StepId.ToString(), "Mean GTE 3V3", $"{root}/Power Rails/3V3 Rail/Mean GTE 3V3")),
                 Group(
                     "5v",
                     "5V Rail",
@@ -315,7 +356,8 @@ public sealed class FakeOpenTapSession : IOpenTapSession
                 "op",
                 "Operator",
                 $"{root}/Operator",
-                Leaf("prompt", "Seat Board Fixture", $"{root}/Operator/Seat Board Fixture")),
+                Leaf("prompt", "Seat Board Fixture", $"{root}/Operator/Seat Board Fixture"),
+                Leaf("sticker", "Record Board Sticker", $"{root}/Operator/Record Board Sticker")),
             Group(
                 "safe",
                 "Safety",
@@ -432,7 +474,7 @@ public sealed class FakeOpenTapSession : IOpenTapSession
         return summary;
     }
 
-    private void MarkTreeStatuses(RunResult result)
+    private void MarkTreeStatuses(RunResult result, Func<OpenTapStepNode, bool>? include = null)
     {
         var status = result switch
         {
@@ -442,6 +484,11 @@ public sealed class FakeOpenTapSession : IOpenTapSession
         };
         foreach (var node in Flatten(Tree))
         {
+            if (include is not null && !include(node))
+            {
+                continue;
+            }
+
             node.StatusText = status;
             node.Verdict = status;
         }
@@ -463,14 +510,132 @@ public sealed class FakeOpenTapSession : IOpenTapSession
         => Flatten(roots).FirstOrDefault(n =>
             string.Equals(n.Path, stepPath, StringComparison.OrdinalIgnoreCase));
 
-    public Task<OpenTapRunSummary> RunSelectionAsync(
+    private static bool IsNodeInSelectionScope(OpenTapStepNode node, string selectionPath)
+    {
+        if (string.Equals(node.Path, selectionPath, StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        var prefix = selectionPath.TrimEnd('/') + "/";
+        if (node.Path.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        // SafeShutdown stays enabled on real selection runs.
+        return node.Name.Contains("Safe Shutdown", StringComparison.OrdinalIgnoreCase);
+    }
+
+    public async Task<OpenTapRunSummary> RunSelectionAsync(
         string stepPath,
         IProgress<OpenTapProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
         SelectionRunCount++;
         LastSelectionPath = stepPath;
-        return RunAsync(progress, cancellationToken);
+
+        _runCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        progress?.Report(new OpenTapProgress { Message = "Started selection", OverallPercent = 0 });
+
+        try
+        {
+            await Task.Delay(Delay, _runCts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            MarkTreeStatuses(RunResult.Cancelled, n => IsNodeInSelectionScope(n, stepPath));
+            var cancelled = new OpenTapRunSummary
+            {
+                RunId = Guid.NewGuid().ToString("N"),
+                PlanName = LoadedPlanName ?? "plan",
+                Result = RunResult.Cancelled,
+                DutSerial = LastDut?.Serial,
+                DutPartNumber = LastDut?.PartNumber,
+                DutRevision = LastDut?.Revision,
+                StartedAt = DateTimeOffset.UtcNow,
+                CompletedAt = DateTimeOffset.UtcNow,
+            };
+            progress?.Report(new OpenTapProgress
+            {
+                Message = "Cancelled",
+                OverallPercent = 100,
+                IsCompleted = true,
+                Result = RunResult.Cancelled,
+            });
+            return cancelled;
+        }
+        finally
+        {
+            _runCts.Dispose();
+            _runCts = null;
+        }
+
+        // Reset then mark only the selection scope so siblings keep prior live status.
+        foreach (var node in Flatten(Tree).Where(n => IsNodeInSelectionScope(n, stepPath)))
+        {
+            node.StatusText = "Pending";
+            node.Verdict = "NotSet";
+            node.KeyValue = null;
+        }
+
+        MarkTreeStatuses(CompletionResult, n => IsNodeInSelectionScope(n, stepPath));
+
+        var scopeLeaves = Flatten(Tree)
+            .Where(n => n.Children.Count == 0 && IsNodeInSelectionScope(n, stepPath))
+            .ToList();
+        var leaf = scopeLeaves.FirstOrDefault()
+                   ?? Flatten(Tree).FirstOrDefault(n => n.Children.Count == 0);
+
+        var summary = new OpenTapRunSummary
+        {
+            RunId = Guid.NewGuid().ToString("N"),
+            PlanName = LoadedPlanName ?? "plan",
+            Result = CompletionResult,
+            DutSerial = LastDut?.Serial,
+            DutPartNumber = LastDut?.PartNumber,
+            DutRevision = LastDut?.Revision,
+            StartedAt = DateTimeOffset.UtcNow.AddSeconds(-1),
+            CompletedAt = DateTimeOffset.UtcNow,
+            Samples =
+            [
+                new StoredSample { Channel = "VDC", Timestamp = DateTimeOffset.UtcNow, Value = 1.25, StepPath = leaf?.Path ?? stepPath },
+            ],
+            Steps = scopeLeaves
+                .Select(n => new StepResultRecord
+                {
+                    StepId = n.Id,
+                    StepType = n.Name,
+                    StepPath = n.Path,
+                    Passed = CompletionResult == RunResult.Passed,
+                    Message = CompletionResult == RunResult.Passed ? "Pass" : "Fail",
+                    StartedAt = DateTimeOffset.UtcNow.AddSeconds(-1),
+                    CompletedAt = DateTimeOffset.UtcNow,
+                })
+                .DefaultIfEmpty(new StepResultRecord
+                {
+                    StepId = leaf?.Id ?? "Identity Check",
+                    StepType = leaf?.Name ?? "Identity Check",
+                    StepPath = leaf?.Path ?? stepPath,
+                    Passed = CompletionResult == RunResult.Passed,
+                    Message = CompletionResult == RunResult.Passed ? "Pass" : "Fail",
+                    StartedAt = DateTimeOffset.UtcNow.AddSeconds(-1),
+                    CompletedAt = DateTimeOffset.UtcNow,
+                })
+                .ToList(),
+        };
+        progress?.Report(new OpenTapProgress
+        {
+            Message = $"Completed: {summary.Result}",
+            OverallPercent = 100,
+            IsCompleted = true,
+            Result = summary.Result,
+            StepId = leaf?.Id,
+            StepPath = leaf?.Path,
+            StatusText = CompletionResult == RunResult.Passed ? "Pass" : "Fail",
+            Verdict = CompletionResult == RunResult.Passed ? "Pass" : "Fail",
+        });
+        return summary;
     }
 
     public void Pause()
@@ -561,6 +726,156 @@ public sealed class FakeOpenTapSession : IOpenTapSession
         slot.ResourceName = resource;
         return true;
     }
+
+    public IReadOnlyList<OpenTapParameterInfo> EnumerateParameters(
+        OpenTapParameterScope scope,
+        string? stepPath = null,
+        bool includeReadOnly = false,
+        OpenTapParameterListing listing = OpenTapParameterListing.StationOverrides)
+    {
+        if (ParameterCatalog.Count > 0)
+        {
+            return ParameterCatalog
+                .Where(p =>
+                {
+                    if (scope == OpenTapParameterScope.Plan)
+                    {
+                        return p.MemberKey.StartsWith("plan/", StringComparison.OrdinalIgnoreCase);
+                    }
+
+                    return string.IsNullOrWhiteSpace(stepPath)
+                           || string.Equals(p.StepPath, stepPath, StringComparison.OrdinalIgnoreCase);
+                })
+                .Where(p => includeReadOnly || !p.IsReadOnly)
+                .Where(p => listing != OpenTapParameterListing.StationOverrides
+                            || p.Role == OpenTapParameterRole.StationOverride)
+                .Select(CloneWithLiveValue)
+                .ToList();
+        }
+
+        if (scope != OpenTapParameterScope.Step || string.IsNullOrWhiteSpace(stepPath))
+        {
+            return [];
+        }
+
+        var node = FindNode(Tree, stepPath);
+        if (node is null)
+        {
+            return [];
+        }
+
+        var list = new List<OpenTapParameterInfo>();
+        var isPromptStep = node.Name.Contains("Install", StringComparison.OrdinalIgnoreCase)
+                           || node.Name.Contains("Prompt", StringComparison.OrdinalIgnoreCase)
+                           || node.Name.Contains("Fixture", StringComparison.OrdinalIgnoreCase);
+
+        if (!isPromptStep && node.Name.Contains("Acquire", StringComparison.OrdinalIgnoreCase))
+        {
+            list.Add(MakeParam(node, "SampleCount", "Sample Count", OperatorInteractionFieldKind.Number, "32"));
+            list.Add(MakeParam(node, "IntervalMs", "Interval Ms", OperatorInteractionFieldKind.Number, "5"));
+            list.Add(MakeParam(node, "Channel", "Channel", OperatorInteractionFieldKind.String, "VDC"));
+        }
+
+        if (!isPromptStep && node.Name.Contains("Mean", StringComparison.OrdinalIgnoreCase))
+        {
+            list.Add(MakeParam(node, "SampleCount", "Sample Count", OperatorInteractionFieldKind.Number, "8"));
+            list.Add(MakeParam(node, "Threshold", "Threshold", OperatorInteractionFieldKind.Number, "0"));
+        }
+
+        if (isPromptStep && listing == OpenTapParameterListing.AllEditable)
+        {
+            list.Add(MakeParam(
+                node,
+                "Message",
+                "Message",
+                OperatorInteractionFieldKind.String,
+                "Paused for operator",
+                OpenTapParameterRole.OperatorPromptSchema));
+        }
+
+        list.Add(MakeParam(node, "Enabled", "Enabled", OperatorInteractionFieldKind.Boolean, node.Enabled ? "true" : "false"));
+        return list
+            .Where(p => includeReadOnly || !p.IsReadOnly)
+            .Where(p => listing != OpenTapParameterListing.StationOverrides
+                        || p.Role == OpenTapParameterRole.StationOverride)
+            .Select(CloneWithLiveValue)
+            .ToList();
+    }
+
+    public bool TryGetParameter(string memberKey, out string? value)
+    {
+        if (ParameterValues.TryGetValue(memberKey, out var stored))
+        {
+            value = stored;
+            return true;
+        }
+
+        var match = EnumerateParameters(OpenTapParameterScope.Step)
+            .Concat(EnumerateParameters(OpenTapParameterScope.Plan))
+            .FirstOrDefault(p => string.Equals(p.MemberKey, memberKey, StringComparison.OrdinalIgnoreCase));
+        if (match is null)
+        {
+            value = null;
+            return false;
+        }
+
+        value = match.Value;
+        return true;
+    }
+
+    public bool TrySetParameter(string memberKey, string value)
+    {
+        ParameterValues[memberKey] = value;
+        if (memberKey.EndsWith("/Enabled", StringComparison.OrdinalIgnoreCase)
+            && bool.TryParse(value, out var enabled)
+            && OpenTapParameterInfo.TryParseMemberKey(memberKey, out var stepId, out _))
+        {
+            var node = Flatten(Tree).FirstOrDefault(n =>
+                string.Equals(n.Id, stepId, StringComparison.OrdinalIgnoreCase));
+            if (node is not null)
+            {
+                node.Enabled = enabled;
+            }
+        }
+
+        return true;
+    }
+
+    private OpenTapParameterInfo CloneWithLiveValue(OpenTapParameterInfo info)
+    {
+        var value = ParameterValues.TryGetValue(info.MemberKey, out var stored) ? stored : info.Value;
+        return new OpenTapParameterInfo
+        {
+            MemberKey = info.MemberKey,
+            DisplayName = info.DisplayName,
+            Group = info.Group,
+            Kind = info.Kind,
+            Value = value,
+            IsExternal = info.IsExternal,
+            IsReadOnly = info.IsReadOnly,
+            Role = info.Role,
+            StepId = info.StepId,
+            StepPath = info.StepPath,
+        };
+    }
+
+    private static OpenTapParameterInfo MakeParam(
+        OpenTapStepNode node,
+        string memberName,
+        string displayName,
+        OperatorInteractionFieldKind kind,
+        string defaultValue,
+        OpenTapParameterRole role = OpenTapParameterRole.StationOverride)
+        => new()
+        {
+            MemberKey = OpenTapParameterInfo.FormatStepMemberKey(node.Id, memberName),
+            DisplayName = displayName,
+            Kind = kind,
+            Value = defaultValue,
+            Role = role,
+            StepId = node.Id,
+            StepPath = node.Path,
+        };
 }
 
 public sealed class FakeRunControl : IRunControl

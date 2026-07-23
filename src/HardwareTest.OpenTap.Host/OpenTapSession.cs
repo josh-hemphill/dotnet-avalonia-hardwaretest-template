@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Globalization;
 using System.Runtime.CompilerServices;
 using HardwareTest.Core.Runs;
 using HardwareTest.Core.Settings;
@@ -81,11 +82,21 @@ public interface IOpenTapSession
     void Abort(bool safetyStop = false);
 
     bool TrySetStepEnabled(string stepPath, bool enabled);
+    /// Sample adapter — prefer <see cref="TrySetParameter"/> / TypeData bridge for new code.
     bool TrySetAcquireSettings(string stepPath, int? sampleCount, int? intervalMs);
+    /// Sample adapter — prefer <see cref="TrySetParameter"/> / TypeData bridge for new code.
     bool TrySetMeanGteThreshold(string stepPath, double threshold);
     bool TryGetStepConditionSummary(string stepPath, out string? summary);
     bool TryRebindDmmResource(string resource);
     bool TryBindSlotResource(string slotName, string resource);
+
+    IReadOnlyList<OpenTapParameterInfo> EnumerateParameters(
+        OpenTapParameterScope scope,
+        string? stepPath = null,
+        bool includeReadOnly = false,
+        OpenTapParameterListing listing = OpenTapParameterListing.StationOverrides);
+    bool TryGetParameter(string memberKey, out string? value);
+    bool TrySetParameter(string memberKey, string value);
 }
 
 public sealed class OpenTapStepNode
@@ -270,6 +281,26 @@ public sealed class OpenTapSession : IOpenTapSession, INotifyPropertyChanged
         var selected = FindStepByPath(stepPath)
                        ?? throw new InvalidOperationException($"Step not found: {stepPath}");
         var mask = FlattenSteps(_plan).ToDictionary(s => s.Id, s => s.Enabled);
+
+        // Reset only steps that will execute (subtree + SafeShutdown). Ancestors stay enabled for
+        // OpenTAP structure but keep prior live status; rollup refreshes them afterward.
+        var resetStepIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var sampleScopePaths = new List<string>();
+        foreach (var step in FlattenSteps(_plan))
+        {
+            if (!IsInSubtree(step, selected) && step is not SafeShutdownStep)
+            {
+                continue;
+            }
+
+            resetStepIds.Add(step.Id.ToString());
+            var node = FindNode(_stepTree, step.Id.ToString());
+            if (node is not null && !string.IsNullOrWhiteSpace(node.Path))
+            {
+                sampleScopePaths.Add(node.Path);
+            }
+        }
+
         try
         {
             foreach (var step in FlattenSteps(_plan))
@@ -281,7 +312,8 @@ public sealed class OpenTapSession : IOpenTapSession, INotifyPropertyChanged
             }
 
             RefreshTreeEnabled();
-            return await RunAsync(progress, cancellationToken).ConfigureAwait(false);
+            return await RunAsyncCore(progress, cancellationToken, resetStepIds, sampleScopePaths)
+                .ConfigureAwait(false);
         }
         finally
         {
@@ -297,14 +329,29 @@ public sealed class OpenTapSession : IOpenTapSession, INotifyPropertyChanged
         }
     }
 
-    public async Task<OpenTapRunSummary> RunAsync(
+    public Task<OpenTapRunSummary> RunAsync(
         IProgress<OpenTapProgress>? progress = null,
         CancellationToken cancellationToken = default)
+        => RunAsyncCore(progress, cancellationToken, resetStepIds: null, sampleScopePaths: null);
+
+    private async Task<OpenTapRunSummary> RunAsyncCore(
+        IProgress<OpenTapProgress>? progress,
+        CancellationToken cancellationToken,
+        HashSet<string>? resetStepIds,
+        IReadOnlyList<string>? sampleScopePaths)
     {
         TestPlan plan;
+        List<StoredSample>? preservedSamples = null;
         lock (_sync)
         {
             plan = _plan ?? throw new InvalidOperationException("Load a plan before running.");
+            if (sampleScopePaths is not null)
+            {
+                preservedSamples = _samples
+                    .Where(s => !IsPathUnderAnyScope(s.StepPath, sampleScopePaths))
+                    .ToList();
+            }
+
             _samples.Clear();
             _steps.Clear();
             _stepStarted.Clear();
@@ -316,7 +363,7 @@ public sealed class OpenTapSession : IOpenTapSession, INotifyPropertyChanged
             _runCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             _paused = false;
             _pauseGate.Set();
-            ResetTreeLiveState(_stepTree);
+            ResetTreeLiveState(_stepTree, resetStepIds);
         }
 
         Raise(nameof(IsAwaitingOperator));
@@ -360,6 +407,8 @@ public sealed class OpenTapSession : IOpenTapSession, INotifyPropertyChanged
                 },
                 _runCts.Token).ConfigureAwait(false);
 
+            MergePreservedSamples(preservedSamples);
+
             var verdict = planRun.Verdict;
             var result = MapVerdict(verdict, cancelled: _runCts.IsCancellationRequested);
             var summary = BuildSummary(runId, plan, result, started, verdict.ToString(),
@@ -378,6 +427,7 @@ public sealed class OpenTapSession : IOpenTapSession, INotifyPropertyChanged
         }
         catch (Exception ex) when (ex is OperationCanceledException || ex.GetType().Name.Contains("Abort", StringComparison.Ordinal))
         {
+            MergePreservedSamples(preservedSamples);
             var summary = BuildSummary(runId, plan, RunResult.Cancelled, started, "Aborted", "Safety stop");
             progress?.Report(new OpenTapProgress
             {
@@ -404,6 +454,33 @@ public sealed class OpenTapSession : IOpenTapSession, INotifyPropertyChanged
             Raise(nameof(IsAwaitingOperator));
             Raise(nameof(OperatorPromptMessage));
             Raise(nameof(PendingInteraction));
+        }
+    }
+
+    private void MergePreservedSamples(List<StoredSample>? preservedSamples)
+    {
+        if (preservedSamples is null || preservedSamples.Count == 0)
+        {
+            return;
+        }
+
+        lock (_sync)
+        {
+            var runSamples = _samples.ToList();
+            var producedChannels = runSamples
+                .Select(s => s.Channel)
+                .Where(c => !string.IsNullOrWhiteSpace(c))
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            // Prior samples already exclude the selection scope by path. Drop path-less prior
+            // samples when this run produced the same channel so new samples win.
+            var kept = preservedSamples
+                .Where(s => !(producedChannels.Contains(s.Channel) && string.IsNullOrWhiteSpace(s.StepPath)))
+                .ToList();
+
+            _samples.Clear();
+            _samples.AddRange(kept);
+            _samples.AddRange(runSamples);
         }
     }
 
@@ -562,32 +639,137 @@ public sealed class OpenTapSession : IOpenTapSession, INotifyPropertyChanged
 
     public bool TrySetAcquireSettings(string stepPath, int? sampleCount, int? intervalMs)
     {
-        if (FindStepByPath(stepPath) is not AcquireVoltageStep acquire)
+        if (FindStepByPath(stepPath) is not AcquireVoltageStep)
         {
             return false;
         }
 
+        var ok = true;
         if (sampleCount is > 0)
         {
-            acquire.SampleCount = sampleCount.Value;
+            ok &= TrySetParameterForStepPath(stepPath, nameof(AcquireVoltageStep.SampleCount), sampleCount.Value.ToString(CultureInfo.InvariantCulture));
         }
 
         if (intervalMs is >= 0)
         {
-            acquire.IntervalMs = intervalMs.Value;
+            ok &= TrySetParameterForStepPath(stepPath, nameof(AcquireVoltageStep.IntervalMs), intervalMs.Value.ToString(CultureInfo.InvariantCulture));
         }
 
-        return true;
+        return ok;
     }
 
     public bool TrySetMeanGteThreshold(string stepPath, double threshold)
     {
-        if (FindStepByPath(stepPath) is not MeanGteStep mean)
+        if (FindStepByPath(stepPath) is not MeanGteStep)
         {
             return false;
         }
 
-        mean.Threshold = threshold;
+        return TrySetParameterForStepPath(
+            stepPath,
+            nameof(MeanGteStep.Threshold),
+            threshold.ToString(CultureInfo.InvariantCulture));
+    }
+
+    public IReadOnlyList<OpenTapParameterInfo> EnumerateParameters(
+        OpenTapParameterScope scope,
+        string? stepPath = null,
+        bool includeReadOnly = false,
+        OpenTapParameterListing listing = OpenTapParameterListing.StationOverrides)
+    {
+        if (_plan is null)
+        {
+            return [];
+        }
+
+        if (scope == OpenTapParameterScope.Plan)
+        {
+            return OpenTapParameterBridge.Enumerate(
+                _plan,
+                "plan",
+                stepId: null,
+                stepPath: null,
+                includeReadOnly,
+                listing);
+        }
+
+        var step = FindStepByPath(stepPath ?? string.Empty);
+        if (step is null)
+        {
+            return [];
+        }
+
+        var node = FindNode(_stepTree, step.Id.ToString());
+        return OpenTapParameterBridge.Enumerate(
+            step,
+            step.Id.ToString(),
+            step.Id.ToString(),
+            node?.Path ?? stepPath,
+            includeReadOnly,
+            listing);
+    }
+
+    public bool TryGetParameter(string memberKey, out string? value)
+    {
+        value = null;
+        if (!TryResolveOwner(memberKey, out var owner, out var memberName))
+        {
+            return false;
+        }
+
+        return OpenTapParameterBridge.TryGet(owner, memberName, out value);
+    }
+
+    public bool TrySetParameter(string memberKey, string value)
+    {
+        if (!TryResolveOwner(memberKey, out var owner, out var memberName))
+        {
+            return false;
+        }
+
+        var ok = OpenTapParameterBridge.TrySet(owner, memberName, value);
+        if (ok && owner is ITestStep && string.Equals(memberName, nameof(ITestStep.Enabled), StringComparison.OrdinalIgnoreCase))
+        {
+            RefreshTreeEnabled();
+        }
+
+        return ok;
+    }
+
+    private bool TrySetParameterForStepPath(string stepPath, string memberName, string value)
+    {
+        var step = FindStepByPath(stepPath);
+        if (step is null)
+        {
+            return false;
+        }
+
+        return TrySetParameter(OpenTapParameterBridge.FormatStepMemberKey(step.Id.ToString(), memberName), value);
+    }
+
+    private bool TryResolveOwner(string memberKey, out object owner, out string memberName)
+    {
+        owner = null!;
+        memberName = string.Empty;
+        if (_plan is null || !OpenTapParameterBridge.TryParseMemberKey(memberKey, out var ownerKey, out memberName))
+        {
+            return false;
+        }
+
+        if (string.Equals(ownerKey, "plan", StringComparison.OrdinalIgnoreCase))
+        {
+            owner = _plan;
+            return true;
+        }
+
+        var step = FlattenSteps(_plan).FirstOrDefault(s =>
+            string.Equals(s.Id.ToString(), ownerKey, StringComparison.OrdinalIgnoreCase));
+        if (step is null)
+        {
+            return false;
+        }
+
+        owner = step;
         return true;
     }
 
@@ -783,15 +965,48 @@ public sealed class OpenTapSession : IOpenTapSession, INotifyPropertyChanged
         Raise(nameof(StepTree));
     }
 
-    private static void ResetTreeLiveState(IEnumerable<OpenTapStepNode> nodes)
+    private static void ResetTreeLiveState(IEnumerable<OpenTapStepNode> nodes, HashSet<string>? resetIds = null)
     {
         foreach (var node in nodes)
         {
-            node.StatusText = "Pending";
-            node.Verdict = "NotSet";
-            node.KeyValue = null;
-            ResetTreeLiveState(node.Children);
+            if (resetIds is null || resetIds.Contains(node.Id))
+            {
+                node.StatusText = "Pending";
+                node.Verdict = "NotSet";
+                node.KeyValue = null;
+            }
+
+            ResetTreeLiveState(node.Children, resetIds);
         }
+    }
+
+    private static bool IsPathUnderAnyScope(string? path, IReadOnlyList<string> scopeRoots)
+    {
+        if (string.IsNullOrWhiteSpace(path) || scopeRoots.Count == 0)
+        {
+            return false;
+        }
+
+        foreach (var root in scopeRoots)
+        {
+            if (string.IsNullOrWhiteSpace(root))
+            {
+                continue;
+            }
+
+            if (string.Equals(path, root, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            var prefix = root.TrimEnd('/') + "/";
+            if (path.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private void WaitIfPaused()

@@ -28,6 +28,8 @@ public sealed class AppSettings
     public List<StationBinding> StationBindings { get; set; } = [];
     /// Per-plan OpenTAP slot → VISA resource overrides (station overlay).
     public List<PlanSlotOverride> PlanSlotOverrides { get; set; } = [];
+    /// Per-plan OpenTAP parameter overrides (station overlay; does not mutate TapPlan files).
+    public List<PlanParameterOverride> PlanParameterOverrides { get; set; } = [];
 }
 
 /// Named VISA instrument entry in the persisted registry (legacy; Instruments UI no longer edits this).
@@ -54,6 +56,14 @@ public sealed class PlanSlotOverride
     public string SlotName { get; set; } = string.Empty;
     public string RoleHint { get; set; } = string.Empty;
     public string Resource { get; set; } = string.Empty;
+}
+
+/// Overrides an OpenTAP plan/step parameter for a specific plan on this station.
+public sealed class PlanParameterOverride
+{
+    public string PlanId { get; set; } = string.Empty;
+    public string MemberKey { get; set; } = string.Empty;
+    public string Value { get; set; } = string.Empty;
 }
 
 /// Window and navigation state persisted to ui-state.json.
