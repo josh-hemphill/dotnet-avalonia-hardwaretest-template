@@ -782,6 +782,26 @@ public sealed class FakeOpenTapSession : IOpenTapSession
             list.Add(MakeParam(node, "Threshold", "Threshold", OperatorInteractionFieldKind.Number, "0"));
         }
 
+        if (node.Name.Contains("Identity", StringComparison.OrdinalIgnoreCase))
+        {
+            list.Add(MakeParam(
+                node,
+                "Note",
+                "Note",
+                OperatorInteractionFieldKind.String,
+                string.Empty,
+                group: "Annotation",
+                isMixinEmbedded: true));
+            list.Add(MakeParam(
+                node,
+                "IncludeInReport",
+                "Include in report",
+                OperatorInteractionFieldKind.Boolean,
+                "false",
+                group: "Annotation",
+                isMixinEmbedded: true));
+        }
+
         if (isPromptStep && listing == OpenTapParameterListing.AllEditable)
         {
             list.Add(MakeParam(
@@ -853,6 +873,7 @@ public sealed class FakeOpenTapSession : IOpenTapSession
             Value = value,
             IsExternal = info.IsExternal,
             IsReadOnly = info.IsReadOnly,
+            IsMixinEmbedded = info.IsMixinEmbedded,
             Role = info.Role,
             StepId = info.StepId,
             StepPath = info.StepPath,
@@ -865,14 +886,18 @@ public sealed class FakeOpenTapSession : IOpenTapSession
         string displayName,
         OperatorInteractionFieldKind kind,
         string defaultValue,
-        OpenTapParameterRole role = OpenTapParameterRole.StationOverride)
+        OpenTapParameterRole role = OpenTapParameterRole.StationOverride,
+        string? group = null,
+        bool isMixinEmbedded = false)
         => new()
         {
             MemberKey = OpenTapParameterInfo.FormatStepMemberKey(node.Id, memberName),
             DisplayName = displayName,
+            Group = group,
             Kind = kind,
             Value = defaultValue,
             Role = role,
+            IsMixinEmbedded = isMixinEmbedded,
             StepId = node.Id,
             StepPath = node.Path,
         };

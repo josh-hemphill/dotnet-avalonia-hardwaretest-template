@@ -128,13 +128,7 @@ public static class BoardDemoProgramFactory
     {
         Directory.CreateDirectory(directory);
         var path = Path.Combine(directory, EmbeddedName);
-        var pluginDir = Path.GetDirectoryName(typeof(MockDmmInstrument).Assembly.Location)
-                        ?? AppContext.BaseDirectory;
-        if (!PluginManager.DirectoriesToSearch.Contains(pluginDir))
-        {
-            PluginManager.DirectoriesToSearch.Add(pluginDir);
-        }
-
+        OpenTapPluginSearch.EnsureCorePluginDirectories();
         PluginManager.Search();
         Create().Save(path);
     }

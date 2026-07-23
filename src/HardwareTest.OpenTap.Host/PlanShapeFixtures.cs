@@ -160,13 +160,7 @@ public static class PlanShapeFixtures
 
     private static void EnsurePlugins()
     {
-        var pluginDir = Path.GetDirectoryName(typeof(MockDmmInstrument).Assembly.Location)
-                        ?? AppContext.BaseDirectory;
-        if (!PluginManager.DirectoriesToSearch.Contains(pluginDir))
-        {
-            PluginManager.DirectoriesToSearch.Add(pluginDir);
-        }
-
+        OpenTapPluginSearch.EnsureCorePluginDirectories();
         PluginManager.Search();
     }
 }

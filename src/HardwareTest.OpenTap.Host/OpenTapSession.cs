@@ -1025,9 +1025,7 @@ public sealed class OpenTapSession : IOpenTapSession, INotifyPropertyChanged
             return;
         }
 
-        var basicDir = Path.GetDirectoryName(typeof(MockDmmInstrument).Assembly.Location)
-                       ?? AppContext.BaseDirectory;
-        AddPluginSearchDir(basicDir);
+        OpenTapPluginSearch.EnsureCorePluginDirectories();
 
         foreach (var dir in _settings.OpenTapPluginDirectories)
         {

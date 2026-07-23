@@ -4,7 +4,7 @@ using OpenTap;
 namespace HardwareTest.OpenTap.Host;
 
 /// Builds the hierarchical sample program that replaces the former JSON sample suite.
-/// Demo coverage: confirm-only prompt, typed operator input, and station-overridable measure settings.
+/// Demo coverage: confirm-only prompt, typed operator input, station-overridable measure settings, Annotation mixin.
 public static class SampleProgramFactory
 {
     public const string EmbeddedName = "sample.TapPlan";
@@ -15,16 +15,22 @@ public static class SampleProgramFactory
 
     public static TestPlan Create()
     {
+        OpenTapPluginSearch.EnsureCorePluginDirectories();
+        PluginManager.Search();
+
         var instrument = new MockDmmInstrument { Name = "DMM", ResourceName = "MOCK::INSTR0" };
         var dut = new HardwareDut { Name = "DUT", Family = "demo" };
 
         var identityGroup = new TestGroupStep { Name = "Identity" };
-        identityGroup.ChildTestSteps.Add(new IdentityCheckStep
+        var identity = new IdentityCheckStep
         {
             Name = "Identity Check",
             Instrument = instrument,
             Dut = dut,
-        });
+        };
+        // Demo: Annotation mixin attached in-code (Editor attach is the production path).
+        OpenTapMixinAttach.AttachAnnotation(identity);
+        identityGroup.ChildTestSteps.Add(identity);
 
         // Operator prompt lane (technician): confirm-only, then typed input (string + number).
         var confirmFixture = new OperatorPromptStep
@@ -83,13 +89,7 @@ public static class SampleProgramFactory
     {
         Directory.CreateDirectory(directory);
         var path = Path.Combine(directory, EmbeddedName);
-        var pluginDir = Path.GetDirectoryName(typeof(MockDmmInstrument).Assembly.Location)
-                        ?? AppContext.BaseDirectory;
-        if (!PluginManager.DirectoriesToSearch.Contains(pluginDir))
-        {
-            PluginManager.DirectoriesToSearch.Add(pluginDir);
-        }
-
+        OpenTapPluginSearch.EnsureCorePluginDirectories();
         PluginManager.Search();
         var plan = Create();
         plan.Save(path);

@@ -94,11 +94,11 @@ Two different concepts (do not conflate):
 
 ## Mixin support model
 
-- Mixins load with plugins (`OpenTapPluginDirectories` / package install dirs).
-- Inspect/Debug shows mixin-backed groups (`EmbedProperties` / TypeData).
-- Get/set goes through the parameter bridge.
-- Author mixins with `IMixinBuilder`; attach mixins to steps in **OpenTAP Editor**; run/edit values in the shell.
-- See phase D plan for a sample mixin in-repo.
+- Mixins load with plugins (`OpenTapPluginDirectories` / package install dirs). Host always searches Basic + Mixins plugin assembly directories (`OpenTapPluginSearch`).
+- Demo: [`AnnotationMixin`](../src/HardwareTest.OpenTap.Plugins.Mixins/AnnotationMixin.cs) / [`AnnotationMixinBuilder`](../src/HardwareTest.OpenTap.Plugins.Mixins/AnnotationMixinBuilder.cs). Sample Identity Check attaches Annotation in-code for a self-contained demo; production plans attach mixins in **OpenTAP Editor**.
+- Engineer/Debug Station overrides lists mixin-embedded members via TypeData (`EmbedProperties`), with `OpenTapParameterInfo.IsMixinEmbedded` + Group (e.g. `Annotation: Note`). Get/set uses the Phase C parameter bridge.
+- Author mixins with `IMixin` + `IMixinBuilder` (`[MixinBuilder(typeof(ITestStep))]`). Avalonia does **not** offer “Add Mixin” — attach in Editor, edit values in the shell.
+- See [phase-d-mixins.md](opentap-phases/phase-d-mixins.md) and [adapting.md](adapting.md#10-custom-mixins).
 
 ## Packages (list-only)
 
@@ -121,7 +121,7 @@ Two different concepts (do not conflate):
 | A | [Interaction contract skeleton](opentap-phases/phase-a-interaction-contract.md) | Done (API + host/Fake bridge) |
 | B | [Avalonia interaction host + input steps](opentap-phases/phase-b-interaction-host.md) | Done |
 | C | [Parameters panel](opentap-phases/phase-c-parameters.md) | Done |
-| D | [Mixin support](opentap-phases/phase-d-mixins.md) | Planned |
+| D | [Mixin support](opentap-phases/phase-d-mixins.md) | Done |
 | E | [Packages list](opentap-phases/phase-e-packages-list.md) | Planned |
 | F | [Resource / VisaAddress alignment](opentap-phases/phase-f-resources.md) | Planned |
 | G | [Sweep / loop progress](opentap-phases/phase-g-sweeps.md) | Planned |

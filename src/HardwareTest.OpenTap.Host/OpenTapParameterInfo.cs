@@ -36,6 +36,8 @@ public sealed class OpenTapParameterInfo
     public string Value { get; init; } = string.Empty;
     public bool IsExternal { get; init; }
     public bool IsReadOnly { get; init; }
+    /// True when the member is flattened from a mixin / EmbedProperties embedding.
+    public bool IsMixinEmbedded { get; init; }
     public OpenTapParameterRole Role { get; init; } = OpenTapParameterRole.StationOverride;
     public string? StepId { get; init; }
     public string? StepPath { get; init; }

@@ -2,6 +2,8 @@ using HardwareTest.Core.Runs;
 using HardwareTest.Core.Settings;
 using HardwareTest.OpenTap.Host;
 using HardwareTest.OpenTap.Plugins.Basic;
+using HardwareTest.OpenTap.Plugins.Mixins;
+using OpenTap;
 using Xunit;
 
 namespace HardwareTest.Tests.OpenTap;
@@ -424,6 +426,44 @@ public sealed class OpenTapSessionTests
         {
             Directory.Delete(dir, recursive: true);
         }
+    }
+
+    [Fact]
+    public async Task Mixins_plugin_assembly_is_discoverable_after_EnsurePlugins()
+    {
+        var session = new OpenTapSession();
+        await session.LoadSampleProgramAsync();
+
+        var builders = PluginManager.GetPlugins<IMixinBuilder>();
+        Assert.Contains(builders, t => t == typeof(AnnotationMixinBuilder));
+    }
+
+    [Fact]
+    public async Task Annotation_mixin_parameters_enumerate_and_round_trip()
+    {
+        var session = new OpenTapSession();
+        await session.LoadSampleProgramAsync();
+
+        var identity = session.StepTree.SelectMany(Flatten)
+            .First(n => n.Name.Contains("Identity Check", StringComparison.OrdinalIgnoreCase)
+                        && n.Children.Count == 0);
+
+        var parameters = session.EnumerateParameters(OpenTapParameterScope.Step, identity.Path, includeReadOnly: true);
+        var note = parameters.FirstOrDefault(p =>
+            p.DisplayName.Contains("Note", StringComparison.OrdinalIgnoreCase)
+            || p.MemberKey.EndsWith("/Note", StringComparison.OrdinalIgnoreCase)
+            || p.MemberKey.Contains(".Note", StringComparison.OrdinalIgnoreCase));
+        Assert.NotNull(note);
+        Assert.False(note!.IsReadOnly);
+        Assert.True(
+            note.IsMixinEmbedded
+            || string.Equals(note.Group, "Annotation", StringComparison.OrdinalIgnoreCase)
+            || note.MemberKey.Contains("Annotation", StringComparison.OrdinalIgnoreCase),
+            $"Expected mixin grouping on {note.MemberKey} group={note.Group} mixin={note.IsMixinEmbedded}");
+
+        Assert.True(session.TrySetParameter(note.MemberKey, "bench-note-1"));
+        Assert.True(session.TryGetParameter(note.MemberKey, out var value));
+        Assert.Equal("bench-note-1", value);
     }
 
     private static IEnumerable<OpenTapStepNode> Flatten(OpenTapStepNode node)

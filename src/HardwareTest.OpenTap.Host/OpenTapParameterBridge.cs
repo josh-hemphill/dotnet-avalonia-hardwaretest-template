@@ -51,7 +51,7 @@ internal static class OpenTapParameterBridge
         var list = new List<OpenTapParameterInfo>();
         foreach (var member in typeData.GetMembers())
         {
-            if (!TryDescribe(member, out var kind, out var displayName, out var group, out var isExternal, out var readOnly))
+            if (!TryDescribe(member, owner, out var kind, out var displayName, out var group, out var isExternal, out var readOnly, out var isMixinEmbedded))
             {
                 continue;
             }
@@ -87,6 +87,7 @@ internal static class OpenTapParameterBridge
                 Value = FormatValue(raw, kind),
                 IsExternal = isExternal,
                 IsReadOnly = readOnly,
+                IsMixinEmbedded = isMixinEmbedded,
                 Role = role,
                 StepId = stepId,
                 StepPath = stepPath,
@@ -94,7 +95,8 @@ internal static class OpenTapParameterBridge
         }
 
         return list
-            .OrderBy(p => p.Group ?? string.Empty, StringComparer.OrdinalIgnoreCase)
+            .OrderBy(p => p.IsMixinEmbedded ? 1 : 0)
+            .ThenBy(p => p.Group ?? string.Empty, StringComparer.OrdinalIgnoreCase)
             .ThenBy(p => p.DisplayName, StringComparer.OrdinalIgnoreCase)
             .ToList();
     }
@@ -122,7 +124,7 @@ internal static class OpenTapParameterBridge
             return false;
         }
 
-        if (!TryDescribe(member, out var kind, out _, out _, out _, out _))
+        if (!TryDescribe(member, owner, out var kind, out _, out _, out _, out _, out _))
         {
             return false;
         }
@@ -146,7 +148,7 @@ internal static class OpenTapParameterBridge
             return false;
         }
 
-        if (!TryDescribe(member, out var kind, out _, out _, out _, out var readOnly) || readOnly)
+        if (!TryDescribe(member, owner, out var kind, out _, out _, out _, out var readOnly, out _) || readOnly)
         {
             return false;
         }
@@ -169,19 +171,28 @@ internal static class OpenTapParameterBridge
 
     private static bool TryDescribe(
         IMemberData member,
+        object? owner,
         out OperatorInteractionFieldKind kind,
         out string displayName,
         out string? group,
         out bool isExternal,
-        out bool readOnly)
+        out bool readOnly,
+        out bool isMixinEmbedded)
     {
         kind = OperatorInteractionFieldKind.String;
         displayName = member.Name;
         group = null;
         isExternal = member is IParameterMemberData;
         readOnly = !member.Writable;
+        isMixinEmbedded = IsMixinEmbeddedMember(member, owner);
 
         if (string.IsNullOrWhiteSpace(member.Name) || SkippedMemberNames.Contains(member.Name))
+        {
+            return false;
+        }
+
+        // Skip the mixin container itself; EmbedProperties flattens child settings onto the owner.
+        if (member is MixinMemberData)
         {
             return false;
         }
@@ -211,11 +222,19 @@ internal static class OpenTapParameterBridge
 
                     if (display.Group is { Length: > 0 })
                     {
-                        group = string.Join(" / ", display.Group);
+                        group = string.Join(
+                            " / ",
+                            display.Group.Distinct(StringComparer.OrdinalIgnoreCase));
                     }
 
                     break;
             }
+        }
+
+        if (string.IsNullOrWhiteSpace(group) && isMixinEmbedded)
+        {
+            var dot = member.Name.IndexOf('.');
+            group = dot > 0 ? member.Name[..dot] : "Mixin";
         }
 
         if (!TryMapKind(member.TypeDescriptor, out kind))
@@ -224,6 +243,43 @@ internal static class OpenTapParameterBridge
         }
 
         return true;
+    }
+
+    private static bool IsMixinEmbeddedMember(IMemberData member, object? owner)
+    {
+        if (member is MixinMemberData)
+        {
+            return true;
+        }
+
+        if (member.Name.Contains('.', StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        if (owner is null || member.DeclaringType is null)
+        {
+            return false;
+        }
+
+        var ownerType = TypeData.GetTypeData(owner);
+        if (ReferenceEquals(member.DeclaringType, ownerType))
+        {
+            return false;
+        }
+
+        // Embedded mixin properties often declare on the mixin type, not the step CLR type.
+        var ownerClr = (ownerType as TypeData)?.Load();
+        var declaringClr = (member.DeclaringType as TypeData)?.Load();
+        if (ownerClr is not null && declaringClr is not null && !ownerClr.IsAssignableFrom(declaringClr)
+            && declaringClr != ownerClr)
+        {
+            return typeof(IMixin).IsAssignableFrom(declaringClr)
+                   || declaringClr.Namespace?.Contains("Mixins", StringComparison.OrdinalIgnoreCase) == true
+                   || member.Attributes.Any(a => a is EmbedPropertiesAttribute);
+        }
+
+        return false;
     }
 
     private static bool TryMapKind(ITypeData? typeDescriptor, out OperatorInteractionFieldKind kind)

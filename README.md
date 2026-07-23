@@ -10,6 +10,7 @@ src/
   HardwareTest.Core/                 # Avalonia-free: logging, settings, VISA, runs, reporting
   HardwareTest.OpenTap.Host/         # OpenTAP session façade (load / run / pause / abort)
   HardwareTest.OpenTap.Plugins.Basic/# Instruments, DUT, sample TestSteps
+  HardwareTest.OpenTap.Plugins.Mixins/# Demo Annotation mixin (IMixinBuilder)
 plans/opentap/                       # Locked .TapPlan programs
 docs/appliance-linux.md              # Appliance layout + publish notes
 docs/opentap-platform.md             # OpenTAP shell roadmap + phase checklist

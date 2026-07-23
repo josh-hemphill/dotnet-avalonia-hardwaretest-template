@@ -321,6 +321,25 @@ public sealed class RunTestViewModelTests
     }
 
     [Fact]
+    public async Task Station_overrides_shows_annotation_mixin_group_on_identity()
+    {
+        var openTap = new FakeOpenTapSession();
+        var vm = CreateVm(openTap, settings: new AppSettings { IsEngineerDebugMode = true });
+        vm.IsEngineerDebugMode = true;
+        await vm.RefreshProgramsCommand.ExecuteAsync();
+        await ConfirmReadyAsync(vm, "SN-MIXIN");
+
+        var identity = Flatten(vm.Hierarchy).First(s =>
+            s.Children.Count == 0 && s.Name.Contains("Identity", StringComparison.OrdinalIgnoreCase));
+        vm.SelectedStep = identity;
+
+        Assert.True(vm.HasParameterFields);
+        Assert.Contains(vm.ParameterFields, f =>
+            f.Label.Contains("Annotation", StringComparison.OrdinalIgnoreCase)
+            && f.Label.Contains("Note", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
     public async Task Station_overrides_panel_hidden_without_engineer_mode()
     {
         var openTap = new FakeOpenTapSession();
