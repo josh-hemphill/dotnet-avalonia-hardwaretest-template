@@ -2,26 +2,24 @@
 
 **Parent:** [opentap-platform.md](../opentap-platform.md)  
 **Depends on:** run folder layout ([FileRunStore](../../src/HardwareTest.Core/Runs/FileRunStore.cs))  
-**Unblocks:** MES/QA handoff without scraping UI
+**Unblocks:** MES/QA handoff without scraping UI  
+**Status:** Done
 
 ## Goal
 
-Optional file ResultListener (CSV and/or SQLite / published-table dump) beside the run folder, in addition to Typst. Typst remains the operator PDF path.
+Optional file ResultListener (CSV) beside the run folder, in addition to Typst. Typst remains the operator PDF path.
 
 ## Locked rules
 
 - Do not replace Typst.
-- Toggle via `AppSettings` (default off or on for sample — prefer default off to keep CI light).
+- Toggle via `AppSettings.ExportOpenTapResults` (default **off** to keep CI light).
 
-## Work items
+## Implementation
 
-1. **Listener:** implement export `ResultListener` that writes under `runs/{runId}/` (e.g. `results.csv` or `opentap-results/`).
-
-2. **Wire:** `OpenTapSession.RunAsync` attaches listener when setting enabled.
-
-3. **Settings + UI:** checkbox on Settings; document MES handoff in adapting/opentap-platform.
-
-4. **Tests:** host run with export on produces non-empty artifact; off leaves no file.
+1. **Listener:** [`OpenTapFileResultExportListener`](../../src/HardwareTest.OpenTap.Host/OpenTapFileResultExportListener.cs) writes one CSV per OpenTAP `ResultTable.Name` under `{DataDirectory}/runs/{runId}/opentap-results/{Table}.csv` (header: `StepRunId` + column names).
+2. **Wire:** [`OpenTapSession.RunAsyncCore`](../../src/HardwareTest.OpenTap.Host/OpenTapSession.cs) attaches the listener when export is enabled and `DataDirectory` is set.
+3. **Settings + UI:** Settings checkbox “Export OpenTAP results (CSV)”; documented in [adapting.md](../adapting.md) §7.
+4. **Tests:** host run with export on → non-empty CSV; off → no `opentap-results` folder.
 
 ## Exit criteria
 
@@ -32,3 +30,4 @@ Optional file ResultListener (CSV and/or SQLite / published-table dump) beside t
 
 - Full OpenTAP HTML report UI inside Avalonia.
 - Remote result upload.
+- SQLite dump (CSV only for this phase).

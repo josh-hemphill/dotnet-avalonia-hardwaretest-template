@@ -140,7 +140,7 @@ Two different concepts (do not conflate):
 | E | [Packages list](opentap-phases/phase-e-packages-list.md) | Done |
 | F | [Resource / VisaAddress alignment](opentap-phases/phase-f-resources.md) | Done |
 | G | [Sweep / loop progress](opentap-phases/phase-g-sweeps.md) | Done |
-| H | [Result export](opentap-phases/phase-h-results-export.md) | Planned |
+| H | [Result export](opentap-phases/phase-h-results-export.md) | Done |
 
 **Suggested order:** A → B → C → D; E can parallelize after the doc; F after C; G/H after parameters stabilize.
 

@@ -403,6 +403,25 @@ public sealed class OpenTapSession : IOpenTapSession, INotifyPropertyChanged
                 UpdateNodeLive,
                 ResolveStepPath,
                 plan);
+            OpenTapFileResultExportListener? exportListener = null;
+            if (_settings.ExportOpenTapResults)
+            {
+                if (string.IsNullOrWhiteSpace(_settings.DataDirectory))
+                {
+                    _logger.Warning(
+                        "ExportOpenTapResults is enabled but DataDirectory is empty; skipping CSV export.");
+                }
+                else
+                {
+                    var exportDir = Path.Combine(
+                        _settings.DataDirectory,
+                        "runs",
+                        SanitizeRunId(runId),
+                        "opentap-results");
+                    exportListener = new OpenTapFileResultExportListener(exportDir, _logger);
+                }
+            }
+
             using var reg = _runCts!.Token.Register(() =>
             {
                 try
@@ -423,12 +442,16 @@ public sealed class OpenTapSession : IOpenTapSession, INotifyPropertyChanged
                     try
                     {
                         WaitIfPaused();
-                        return plan.Execute([listener], []);
+                        ResultListener[] listeners = exportListener is null
+                            ? [listener]
+                            : [listener, exportListener];
+                        return plan.Execute(listeners, []);
                     }
                     finally
                     {
                         StepRuntime.WaitIfPaused = null;
                         StepRuntime.RequestInteraction = null;
+                        exportListener?.Close();
                     }
                 },
                 _runCts.Token).ConfigureAwait(false);
@@ -1137,6 +1160,16 @@ public sealed class OpenTapSession : IOpenTapSession, INotifyPropertyChanged
         }
 
         return "dmm";
+    }
+
+    private static string SanitizeRunId(string runId)
+    {
+        foreach (var c in Path.GetInvalidFileNameChars())
+        {
+            runId = runId.Replace(c, '_');
+        }
+
+        return runId;
     }
 
     private static List<OpenTapStepNode> BuildTree(TestPlan plan)

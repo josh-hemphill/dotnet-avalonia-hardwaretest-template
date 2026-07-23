@@ -29,6 +29,12 @@
       </Grid>
 
       <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
+        <TextBlock Text="Export OpenTAP results (CSV)" VerticalAlignment="Center" />
+        <CheckBox Grid.Column="1" IsChecked="{Binding ExportOpenTapResults}"
+                  ToolTip.Tip="Writes published OpenTAP result tables under runs/{runId}/opentap-results/ for MES/QA handoff. Typst PDF is unchanged." />
+      </Grid>
+
+      <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
         <TextBlock Text="Log level" VerticalAlignment="Center" />
         <ComboBox Grid.Column="1"
                   ItemsSource="{Binding LogLevelOptions}"

@@ -586,6 +586,124 @@ public sealed class OpenTapSessionTests
         Assert.Equal("bench-note-1", value);
     }
 
+    [Fact]
+    public async Task Export_on_writes_opentap_results_csv()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "ht-export-on-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            var settings = new AppSettings
+            {
+                DataDirectory = root,
+                ExportOpenTapResults = true,
+            };
+            var session = new OpenTapSession(settings);
+            await session.LoadSampleProgramAsync();
+            await session.ApplyStationAndDutAsync(
+                new StationProfile(new Dictionary<string, string> { ["dmm"] = "MOCK::INSTR0" }),
+                new DutIdentity("DUT-EXPORT-ON", Family: "demo"));
+
+            var summary = await RunSampleWithAutoResumeAsync(session);
+            Assert.True(
+                summary.Result is RunResult.Passed or RunResult.Failed or RunResult.Error or RunResult.Cancelled,
+                $"Unexpected result {summary.Result}: {summary.ErrorMessage}");
+
+            var exportDir = Path.Combine(root, "runs", summary.RunId, "opentap-results");
+            Assert.True(Directory.Exists(exportDir), $"Expected export directory {exportDir}");
+            var csvFiles = Directory.GetFiles(exportDir, "*.csv");
+            Assert.NotEmpty(csvFiles);
+            Assert.Contains(csvFiles, f => new FileInfo(f).Length > 0);
+            Assert.True(
+                csvFiles.Any(f => Path.GetFileName(f) is "Sample.csv" or "Identity.csv" or "Analyze.csv"),
+                "Expected at least one known OpenTAP result table CSV.");
+        }
+        finally
+        {
+            try
+            {
+                Directory.Delete(root, recursive: true);
+            }
+            catch
+            {
+                // best-effort cleanup
+            }
+        }
+    }
+
+    [Fact]
+    public async Task Export_off_leaves_no_opentap_results()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "ht-export-off-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            var settings = new AppSettings
+            {
+                DataDirectory = root,
+                ExportOpenTapResults = false,
+            };
+            var session = new OpenTapSession(settings);
+            await session.LoadSampleProgramAsync();
+            await session.ApplyStationAndDutAsync(
+                new StationProfile(new Dictionary<string, string> { ["dmm"] = "MOCK::INSTR0" }),
+                new DutIdentity("DUT-EXPORT-OFF", Family: "demo"));
+
+            var summary = await RunSampleWithAutoResumeAsync(session);
+            Assert.True(
+                summary.Result is RunResult.Passed or RunResult.Failed or RunResult.Error or RunResult.Cancelled,
+                $"Unexpected result {summary.Result}: {summary.ErrorMessage}");
+
+            var exportDir = Path.Combine(root, "runs", summary.RunId, "opentap-results");
+            Assert.False(Directory.Exists(exportDir));
+        }
+        finally
+        {
+            try
+            {
+                Directory.Delete(root, recursive: true);
+            }
+            catch
+            {
+                // best-effort cleanup
+            }
+        }
+    }
+
+    private static async Task<OpenTapRunSummary> RunSampleWithAutoResumeAsync(OpenTapSession session)
+    {
+        using var resume = new CancellationTokenSource();
+        var runTask = session.RunAsync();
+        _ = Task.Run(async () =>
+        {
+            while (!resume.IsCancellationRequested && !runTask.IsCompleted)
+            {
+                if (session.IsAwaitingOperator)
+                {
+                    var pending = session.PendingInteraction;
+                    if (pending is not null && pending.Fields.Count > 0)
+                    {
+                        var values = pending.Fields.ToDictionary(
+                            f => f.Id,
+                            f => f.Kind == OperatorInteractionFieldKind.Number ? "1.5" : "EXPORT-FIXTURE",
+                            StringComparer.OrdinalIgnoreCase);
+                        session.Resume(OperatorInteractionResponse.Continue(pending.Id, values));
+                    }
+                    else
+                    {
+                        session.Resume();
+                    }
+                }
+
+                await Task.Delay(20);
+            }
+        });
+
+        var summary = await runTask;
+        resume.Cancel();
+        return summary;
+    }
+
     private static IEnumerable<OpenTapStepNode> Flatten(OpenTapStepNode node)
     {
         yield return node;

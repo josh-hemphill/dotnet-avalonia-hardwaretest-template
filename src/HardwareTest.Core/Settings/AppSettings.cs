@@ -15,6 +15,8 @@ public sealed class AppSettings
     /// System, Light, or Dark.
     public string ThemePreference { get; set; } = "System";
     public bool EmbedPlotsInReport { get; set; } = true;
+    /// When true, attach a ResultListener that writes OpenTAP tables as CSV under runs/{runId}/opentap-results/.
+    public bool ExportOpenTapResults { get; set; }
     /// Idle hours before Operator Session becomes Stale (soft re-confirm).
     public int OperatorSessionIdleHours { get; set; } = 4;
     /// When true, Run page exposes constrained on-bench debug edits.

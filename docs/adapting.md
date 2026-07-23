@@ -98,6 +98,14 @@ Override without recompiling:
 
 Compile inputs: `run.json` (camelCase `TestRunRecord`), Typst inputs (`title`, `runId`, `planName`, `dutSerial`, `result`, …), and optional sample-driven charts via `sample-chart.typ`. `EmbedPlotsInReport` toggles chart notes.
 
+### MES / QA file export (optional)
+
+Set `AppSettings.ExportOpenTapResults` (Settings → **Export OpenTAP results (CSV)**). During each run the host attaches a ResultListener that writes published OpenTAP tables beside the run folder:
+
+`{DataDirectory}/runs/{runId}/opentap-results/{TableName}.csv`
+
+(e.g. `Sample.csv`, `Identity.csv`, `Analyze.csv`). Typst `report.pdf` and `run.json` are unchanged. Default is off.
+
 ## 8. What stays demo-specific
 
 - Basic plugin steps (`AcquireVoltageStep`, `MeanGteStep`, `OperatorInputStep`, …).
