@@ -1,3 +1,4 @@
+using HardwareTest.Core.Hardware;
 using HardwareTest.Core.Settings;
 using HardwareTest.Features;
 using HardwareTest.Features.Home;
@@ -40,7 +41,7 @@ public sealed class MainWindowViewModelTests
             inspect,
             results,
             new ReportPreviewViewModel(runStore, new FakeReportService()),
-            new InstrumentsViewModel(store, new FakeVisaDiscovery(), openTap),
+            new InstrumentsViewModel(store, new FakeVisaDiscovery(), openTap, new MockVisaSessionFactory(new VisaSessionGate())),
             new SettingsViewModel(store, openTap),
             runControl,
             openTap);

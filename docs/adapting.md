@@ -42,8 +42,19 @@ For UI vs OpenTAP test suites, see [testing.md](testing.md). For sealed Linux pu
 ## 3. Station bindings (Instruments)
 
 1. Load programs → OpenTAP slots appear on Instruments.
-2. Discover VISA (or mock) resources and set per-plan slot overrides (`PlanSlotOverrides` in settings).
-3. Slots are discovered from any OpenTAP `Instrument` referenced by step properties. Resource strings use `ResourceName`, then `VisaAddress`, then `Address`. Instruments without a writable resource property will show on the page but cannot be rebound from the UI.
+2. Discover resources from either column, then set per-plan slot overrides (`PlanSlotOverrides` in settings):
+   - **VISA** — IVI `GlobalResourceManager.Find` (or mock catalog when `UseMockVisa`), with parsed interface hints (USB/TCPIP/…).
+   - **OpenTAP** — `IDeviceDiscovery` plugins for `VisaAddress` (`IOpenTapSession.ListDiscoveredDeviceAddresses`).
+   - **Query *IDN?** — opt-in; opens the selected address briefly to confirm manufacturer/model/serial. Not run on Discover.
+3. Slots are discovered from any OpenTAP `Instrument` referenced by step properties. Resource strings prefer **`VisaAddress`**, then `ResourceName`, then `Address` ([`InstrumentResourceAccess`](../src/HardwareTest.OpenTap.Host/InstrumentResourceAccess.cs)). Instruments without a writable resource property will show on the page but cannot be rebound from the UI.
+4. The Host does **not** call `Instrument.Open`/`Close` — OpenTAP opens instruments during plan execution. Avoid double-open from the shell.
+
+### Third-party SCPI instrument
+
+1. Author a TapPlan in OpenTAP Editor that references your SCPI plugin instrument (property named `VisaAddress` preferred).
+2. Ship the plugin DLL via offline package install or `OpenTapPluginDirectories` (see [appliance-linux.md](appliance-linux.md)). Prefer plugins that implement `IDeviceDiscovery` so **Discover OpenTAP** lists their addresses.
+3. On the bench, open **Instruments**, load the program, pick a discovered VISA or OpenTAP resource (or type one), save the slot override.
+4. On **Run**, `ApplyStationAndDutAsync` writes the override onto the instrument before execute. Full ComponentSettings / bench-profile UI is deferred.
 
 DUT stamping still looks for Basic `IdentityCheckStep` / `HardwareDut`. Custom DUT steps need a similar host hook or Identity-compatible step.
 

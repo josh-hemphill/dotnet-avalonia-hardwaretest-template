@@ -9,19 +9,31 @@ public sealed class MockDmmInstrument : Instrument
     private readonly object _sync = new();
     private bool _configured;
     private double _nextValue = 1.25;
+    private string _resource = "MOCK::INSTR0";
 
-    [Display("Resource Name", Order: 1)]
-    public string ResourceName { get; set; } = "MOCK::INSTR0";
+    [Display("Visa Address", Order: 1)]
+    public string VisaAddress
+    {
+        get => _resource;
+        set => _resource = value ?? string.Empty;
+    }
+
+    [Display("Resource Name", Order: 2)]
+    public string ResourceName
+    {
+        get => _resource;
+        set => _resource = value ?? string.Empty;
+    }
 
     public override void Open()
     {
-        Log.Info("Opened mock DMM {0}", ResourceName);
+        Log.Info("Opened mock DMM {0}", _resource);
         base.Open();
     }
 
     public override void Close()
     {
-        Log.Info("Closed mock DMM {0}", ResourceName);
+        Log.Info("Closed mock DMM {0}", _resource);
         base.Close();
     }
 
@@ -42,7 +54,7 @@ public sealed class MockDmmInstrument : Instrument
         }
     }
 
-    public string QueryIdn() => $"MockDMM,{ResourceName},1.0";
+    public string QueryIdn() => $"MockDMM,{_resource},1.0";
 
     public double ReadVoltage()
     {

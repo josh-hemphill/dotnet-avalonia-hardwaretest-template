@@ -5,9 +5,12 @@
              x:DataType="vm:InstrumentsViewModel">
   <Grid RowDefinitions="Auto,*,Auto" ColumnDefinitions="*,280" ColumnSpacing="16" RowSpacing="12">
     <StackPanel Grid.ColumnSpan="2" Orientation="Horizontal" Spacing="8">
-      <Button Content="Discover VISA" Command="{Binding RefreshDiscoverCommand}" />
+      <Button Content="Discover VISA" Command="{Binding RefreshVisaDiscoverCommand}" />
+      <Button Content="Discover OpenTAP" Command="{Binding RefreshOpenTapDiscoverCommand}" />
       <Button Content="Refresh plan slots" Command="{Binding RefreshSlotsCommand}" />
       <Button Content="Apply selected resource" Command="{Binding ApplySelectedResourceCommand}" />
+      <Button Content="Query *IDN?" Command="{Binding QuerySelectedIdnCommand}"
+              ToolTip.Tip="Opens the selected resource briefly and queries *IDN?. Use after narrowing with interface hints." />
       <Button Content="Clear override" Command="{Binding ClearOverrideCommand}" />
       <Button Content="Save overrides" Command="{Binding SaveCommand}" />
       <TextBlock Text="{Binding Status}" VerticalAlignment="Center" Opacity="0.85" TextWrapping="Wrap" />
@@ -16,7 +19,7 @@
     <DockPanel Grid.Row="1" Grid.Column="0">
       <TextBlock DockPanel.Dock="Top" Text="OpenTAP plan slot overrides" FontWeight="SemiBold" Margin="0,0,0,8" />
       <TextBlock DockPanel.Dock="Bottom" Margin="0,8,0,0" Opacity="0.65" FontSize="11" TextWrapping="Wrap"
-                 Text="Select a plan slot, then a resource, then Apply." />
+                 Text="Select a plan slot, then a VISA or OpenTAP resource, then Apply. Use Query *IDN? to confirm identity." />
       <ListBox ItemsSource="{Binding SlotOverrides}"
                SelectedItem="{Binding SelectedSlot}">
         <ListBox.ItemTemplate>
@@ -55,22 +58,49 @@
       </ListBox>
     </DockPanel>
 
-    <DockPanel Grid.Row="1" Grid.Column="1">
-      <TextBlock DockPanel.Dock="Top" Text="Discovered VISA" FontWeight="SemiBold" Margin="0,0,0,8" />
-      <ListBox ItemsSource="{Binding Discovered}"
-               SelectedItem="{Binding SelectedDiscovered}">
-        <ListBox.ItemTemplate>
-          <DataTemplate x:DataType="vm:DiscoveredResourceItem">
-            <StackPanel>
-              <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextWrapping="Wrap" />
-              <TextBlock Text="{Binding Subtitle}" Opacity="0.75" FontSize="11" />
-            </StackPanel>
-          </DataTemplate>
-        </ListBox.ItemTemplate>
-      </ListBox>
-    </DockPanel>
+    <Grid Grid.Row="1" Grid.Column="1" RowDefinitions="*,*" RowSpacing="12">
+      <DockPanel>
+        <TextBlock DockPanel.Dock="Top" Text="VISA" FontWeight="SemiBold" Margin="0,0,0,8" />
+        <ListBox ItemsSource="{Binding DiscoveredVisa}"
+                 SelectedItem="{Binding SelectedVisa}">
+          <ListBox.ItemTemplate>
+            <DataTemplate x:DataType="vm:DiscoveredResourceItem">
+              <StackPanel Spacing="2">
+                <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                <TextBlock Text="{Binding Subtitle}" Opacity="0.75" FontSize="11" TextWrapping="Wrap" />
+                <TextBlock IsVisible="{Binding HasIdn}"
+                           Text="{Binding IdnSummary, StringFormat=IDN: {0}}"
+                           FontSize="11"
+                           FontWeight="SemiBold"
+                           TextWrapping="Wrap" />
+              </StackPanel>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+      </DockPanel>
 
-    <TextBlock Grid.Row="2" Grid.ColumnSpan="2" Opacity="0.55" FontSize="11"
-               Text="Overrides are station-local and applied when a program runs. Empty override keeps the plan default resource." />
+      <DockPanel Grid.Row="1">
+        <TextBlock DockPanel.Dock="Top" Text="OpenTAP" FontWeight="SemiBold" Margin="0,0,0,8" />
+        <ListBox ItemsSource="{Binding DiscoveredOpenTap}"
+                 SelectedItem="{Binding SelectedOpenTap}">
+          <ListBox.ItemTemplate>
+            <DataTemplate x:DataType="vm:OpenTapDiscoveredResourceItem">
+              <StackPanel Spacing="2">
+                <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                <TextBlock Text="{Binding Subtitle}" Opacity="0.75" FontSize="11" TextWrapping="Wrap" />
+                <TextBlock IsVisible="{Binding HasIdn}"
+                           Text="{Binding IdnSummary, StringFormat=IDN: {0}}"
+                           FontSize="11"
+                           FontWeight="SemiBold"
+                           TextWrapping="Wrap" />
+              </StackPanel>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+      </DockPanel>
+    </Grid>
+
+    <TextBlock Grid.Row="2" Grid.ColumnSpan="2" Opacity="0.55" FontSize="11" TextWrapping="Wrap"
+               Text="Overrides are station-local and applied when a program runs. Discover shows interface hints only; Query *IDN? opens the selected resource briefly to confirm identity." />
   </Grid>
 </UserControl>

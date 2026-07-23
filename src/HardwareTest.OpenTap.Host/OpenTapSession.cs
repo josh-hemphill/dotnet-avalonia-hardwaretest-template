@@ -100,6 +100,7 @@ public interface IOpenTapSession
 
     IReadOnlyList<OpenTapPluginDirectoryInfo> ListPluginDirectories();
     IReadOnlyList<OpenTapPackageInfo> ListInstalledPackages();
+    IReadOnlyList<OpenTapDiscoveredAddress> ListDiscoveredDeviceAddresses();
 }
 
 public sealed class OpenTapStepNode
@@ -1031,6 +1032,12 @@ public sealed class OpenTapSession : IOpenTapSession, INotifyPropertyChanged
     {
         EnsurePlugins();
         return OpenTapPackageCatalog.ListInstalledPackages(_settings, _logger);
+    }
+
+    public IReadOnlyList<OpenTapDiscoveredAddress> ListDiscoveredDeviceAddresses()
+    {
+        EnsurePlugins();
+        return OpenTapDeviceDiscovery.ListVisaAddresses(_logger);
     }
 
     private void EnsurePlugins()

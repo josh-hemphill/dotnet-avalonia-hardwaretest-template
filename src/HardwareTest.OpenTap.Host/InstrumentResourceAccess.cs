@@ -6,7 +6,8 @@ namespace HardwareTest.OpenTap.Host;
 /// Reads/writes common VISA resource properties on OpenTAP instruments.
 public static class InstrumentResourceAccess
 {
-    private static readonly string[] ResourcePropertyNames = ["ResourceName", "VisaAddress", "Address"];
+    // Prefer VisaAddress (SCPI convention), then ResourceName / Address fallbacks.
+    private static readonly string[] ResourcePropertyNames = ["VisaAddress", "ResourceName", "Address"];
 
     public static string GetResource(Instrument instrument)
     {

@@ -107,6 +107,14 @@ Two different concepts (do not conflate):
 - Provisioning: `tap package install` or bake `.TapPackage` into the appliance image, then Refresh; see [appliance-linux.md](appliance-linux.md).
 - Host API: `IOpenTapSession.ListInstalledPackages` / `ListPluginDirectories` ([`OpenTapPackageCatalog`](../src/HardwareTest.OpenTap.Host/OpenTapPackageCatalog.cs)).
 
+## Resources / VisaAddress
+
+- Avalonia **Instruments** page owns discovery + per-plan `PlanSlotOverrides`; no OpenTAP resource manager window.
+- Device column has two sections: **VISA** (IVI Find / mock) and **OpenTAP** (`IDeviceDiscovery` for `VisaAddress` via [`OpenTapDeviceDiscovery`](../src/HardwareTest.OpenTap.Host/OpenTapDeviceDiscovery.cs)). Apply uses whichever list is selected. Rows show parsed interface hints; **Query *IDN?** is opt-in confirmation (opens the resource briefly).
+- Host bind order: **`VisaAddress` → `ResourceName` → `Address`** ([`InstrumentResourceAccess`](../src/HardwareTest.OpenTap.Host/InstrumentResourceAccess.cs)). Sample `MockDmmInstrument` exposes both `VisaAddress` and `ResourceName` on one backing field.
+- Host does **not** Open/Close instruments around runs — OpenTAP opens them during plan execution (avoids double-open).
+- Full ComponentSettings / bench-profile editor remains deferred; SCPI adopter path: [adapting.md](adapting.md#3-station-bindings-instruments).
+
 ## Deferred (do not implement yet)
 
 - Parallel steps / multi-DUT.
@@ -124,7 +132,7 @@ Two different concepts (do not conflate):
 | C | [Parameters panel](opentap-phases/phase-c-parameters.md) | Done |
 | D | [Mixin support](opentap-phases/phase-d-mixins.md) | Done |
 | E | [Packages list](opentap-phases/phase-e-packages-list.md) | Done |
-| F | [Resource / VisaAddress alignment](opentap-phases/phase-f-resources.md) | Planned |
+| F | [Resource / VisaAddress alignment](opentap-phases/phase-f-resources.md) | Done |
 | G | [Sweep / loop progress](opentap-phases/phase-g-sweeps.md) | Planned |
 | H | [Result export](opentap-phases/phase-h-results-export.md) | Planned |
 

@@ -2,7 +2,8 @@
 
 **Parent:** [opentap-platform.md](../opentap-platform.md)  
 **Depends on:** [Phase C](phase-c-parameters.md) helpful but not strictly required  
-**Unblocks:** third-party SCPI plugins feeling native on Instruments
+**Unblocks:** third-party SCPI plugins feeling native on Instruments  
+**Status:** Done
 
 ## Goal
 
@@ -12,18 +13,13 @@ Tighten Instruments and Host binding to OpenTAP resource conventions (`VisaAddre
 
 - Instruments UI stays Avalonia (no OpenTAP resource manager window).
 - Keep `ResourceName` fallback ([`InstrumentResourceAccess`](../../src/HardwareTest.OpenTap.Host/InstrumentResourceAccess.cs)).
+- Host does **not** call `Instrument.Open`/`Close` around runs (OpenTAP opens resources during plan execution).
 
-## Work items
+## Implementation
 
-1. **Lifecycle:** where safe, Open/Close instruments around plan run (or document OpenTAP’s own open behavior and avoid double-open).
-
-2. **Binding:** prefer writing `VisaAddress` when present; document SCPI instrument expectations for adopters.
-
-3. **MockDmm:** optionally add `VisaAddress` alias or dual property for demo parity — only if it clarifies adapters without breaking sample.
-
-4. **Docs:** adapting + opentap-platform — resource binding story; ComponentSettings / bench profiles noted as deferred full UI.
-
-5. **Tests:** sample bind + run still green; slot override still applies.
+1. **Binding:** `InstrumentResourceAccess` prefers `VisaAddress`, then `ResourceName`, then `Address`.
+2. **MockDmm:** `VisaAddress` and `ResourceName` share one backing field for demo parity.
+3. **Docs:** adapting SCPI recipe + platform lifecycle note; ComponentSettings remains deferred.
 
 ## Exit criteria
 

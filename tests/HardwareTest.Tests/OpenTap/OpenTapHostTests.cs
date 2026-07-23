@@ -411,6 +411,68 @@ public sealed class OpenTapSessionTests
     }
 
     [Fact]
+    public void InstrumentResourceAccess_prefers_VisaAddress_over_ResourceName()
+    {
+        var dual = new DualResourceInstrument
+        {
+            VisaAddress = "VISA::OLD",
+            ResourceName = "RES::OLD",
+        };
+
+        Assert.Equal("VISA::OLD", InstrumentResourceAccess.GetResource(dual));
+        Assert.True(InstrumentResourceAccess.TrySetResource(dual, "VISA::NEW"));
+        Assert.Equal("VISA::NEW", dual.VisaAddress);
+        Assert.Equal("RES::OLD", dual.ResourceName);
+        Assert.Equal("VISA::NEW", InstrumentResourceAccess.GetResource(dual));
+    }
+
+    [Fact]
+    public void InstrumentResourceAccess_round_trips_VisaAddress_only_instrument()
+    {
+        var visaOnly = new VisaAddressOnlyInstrument { VisaAddress = "USB0::INSTR" };
+        Assert.Equal("USB0::INSTR", InstrumentResourceAccess.GetResource(visaOnly));
+        Assert.True(InstrumentResourceAccess.TrySetResource(visaOnly, "TCPIP0::SCPI"));
+        Assert.Equal("TCPIP0::SCPI", visaOnly.VisaAddress);
+        Assert.Equal("TCPIP0::SCPI", InstrumentResourceAccess.GetResource(visaOnly));
+    }
+
+    [Fact]
+    public void MockDmm_VisaAddress_and_ResourceName_stay_in_sync()
+    {
+        var dmm = new MockDmmInstrument { ResourceName = "MOCK::INSTR0" };
+        Assert.Equal("MOCK::INSTR0", dmm.VisaAddress);
+        Assert.True(InstrumentResourceAccess.TrySetResource(dmm, "MOCK::INSTR9"));
+        Assert.Equal("MOCK::INSTR9", dmm.VisaAddress);
+        Assert.Equal("MOCK::INSTR9", dmm.ResourceName);
+        Assert.Equal("MOCK::INSTR9", InstrumentResourceAccess.GetResource(dmm));
+    }
+
+    [Fact]
+    public async Task ApplyStationAndDut_binds_slot_override_to_sample_dmm()
+    {
+        var session = new OpenTapSession();
+        await session.LoadSampleProgramAsync();
+        var slot = session.InstrumentSlots[0];
+        var station = new StationProfile(new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            [slot.RoleHint] = "MOCK::INSTR7",
+        });
+
+        await session.ApplyStationAndDutAsync(station, new DutIdentity("DUT-F", Family: "demo"));
+
+        Assert.Equal("MOCK::INSTR7", session.InstrumentSlots[0].ResourceName);
+    }
+
+    [Fact]
+    public async Task ListDiscoveredDeviceAddresses_does_not_throw_after_sample_load()
+    {
+        var session = new OpenTapSession();
+        await session.LoadSampleProgramAsync();
+        var addresses = session.ListDiscoveredDeviceAddresses();
+        Assert.NotNull(addresses);
+    }
+
+    [Fact]
     public async Task EnsurePlugins_accepts_settings_plugin_directory()
     {
         var dir = Path.Combine(Path.GetTempPath(), "opentap-plugins-" + Guid.NewGuid().ToString("N"));
@@ -511,5 +573,18 @@ public sealed class OpenTapSessionTests
         {
             yield return child;
         }
+    }
+
+    [Display("VisaAddress-only test instrument")]
+    private sealed class VisaAddressOnlyInstrument : Instrument
+    {
+        public string VisaAddress { get; set; } = string.Empty;
+    }
+
+    [Display("Dual resource test instrument")]
+    private sealed class DualResourceInstrument : Instrument
+    {
+        public string VisaAddress { get; set; } = string.Empty;
+        public string ResourceName { get; set; } = string.Empty;
     }
 }

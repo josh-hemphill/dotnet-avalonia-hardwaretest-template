@@ -877,6 +877,30 @@ public sealed class FakeOpenTapSession : IOpenTapSession
 
     public IReadOnlyList<OpenTapPackageInfo> ListInstalledPackages() => InstalledPackages;
 
+    public List<OpenTapDiscoveredAddress> OpenTapDiscoveredAddresses { get; } =
+    [
+        new()
+        {
+            Address = "MOCK::OPENTAP0",
+            Source = "FakeDeviceDiscovery",
+            Kind = "VisaAddress",
+            Interface = "MOCK",
+            Detail = "OPENTAP0",
+            SupportsMessageQuery = true,
+        },
+        new()
+        {
+            Address = "TCPIP0::FAKE::INSTR",
+            Source = "FakeDeviceDiscovery",
+            Kind = "VisaAddress",
+            Interface = "TCPIP",
+            Detail = "FAKE",
+            SupportsMessageQuery = true,
+        },
+    ];
+
+    public IReadOnlyList<OpenTapDiscoveredAddress> ListDiscoveredDeviceAddresses() => OpenTapDiscoveredAddresses;
+
     private OpenTapParameterInfo CloneWithLiveValue(OpenTapParameterInfo info)
     {
         var value = ParameterValues.TryGetValue(info.MemberKey, out var stored) ? stored : info.Value;
