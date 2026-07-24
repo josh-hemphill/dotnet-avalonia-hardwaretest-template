@@ -12,6 +12,9 @@ namespace HardwareTest.ViewModels.Tests.Fakes;
 public sealed class FakeOpenTapSession : IOpenTapSession
 {
     private CancellationTokenSource? _runCts;
+    private bool _isAwaitingOperator;
+
+    public event PropertyChangedEventHandler? PropertyChanged;
 
     public string? LoadedPlanPath { get; private set; } = SampleProgramFactory.EmbeddedName;
     public string? LoadedPlanName { get; private set; } = "Sample Hardware Suite";
@@ -30,7 +33,22 @@ public sealed class FakeOpenTapSession : IOpenTapSession
 
     public IReadOnlyList<OpenTapStepNode> StepTree => Tree;
     public IReadOnlyList<OpenTapInstrumentSlot> InstrumentSlots => Slots;
-    public bool IsAwaitingOperator { get; set; }
+    public bool IsAwaitingOperator
+    {
+        get => _isAwaitingOperator;
+        set
+        {
+            if (_isAwaitingOperator == value)
+            {
+                return;
+            }
+
+            _isAwaitingOperator = value;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsAwaitingOperator)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(OperatorPromptMessage)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(PendingInteraction)));
+        }
+    }
     public string? OperatorPromptMessage { get; set; }
     public OperatorInteractionRequest? PendingInteraction { get; private set; }
     public OperatorInteractionResponse? LastInteractionResponse { get; private set; }
@@ -697,9 +715,7 @@ public sealed class FakeOpenTapSession : IOpenTapSession
 
     public void Pause()
     {
-        IsAwaitingOperator = true;
-        OperatorPromptMessage ??= "Paused for operator";
-        PendingInteraction ??= OperatorInteractionRequest.ConfirmOnly(OperatorPromptMessage);
+        // Soft pause only (matches OpenTapSession). Operator prompts use BeginInteraction.
     }
 
     public void Resume(OperatorInteractionResponse? response = null)

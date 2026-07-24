@@ -106,6 +106,12 @@ Set `AppSettings.ExportOpenTapResults` (Settings → **Export OpenTAP results (C
 
 (e.g. `Sample.csv`, `Identity.csv`, `Analyze.csv`). Typst `report.pdf` and `run.json` are unchanged. Default is off.
 
+### DUT history (local)
+
+After Pass/Fail, the shell compares channel means on the current run to the last 10 local runs with the same DUT serial + plan ([`DutHistoryService`](../src/HardwareTest.Core/Runs/DutHistoryService.cs)). Watch ≥5% / Alert ≥10% vs prior mean — shown as a Run banner and on Results detail. No separate analytics app. Presentation roles/gauges are planned in [Phase I](opentap-phases/phase-i-presentation-contract.md) / [Phase J](opentap-phases/phase-j-presentation-ui.md).
+
+Loop samples stamp `IterationIndex` / `LoopPath` on `StoredSample` for report charts (last value per iteration); live Run plot stays chronological.
+
 ## 8. What stays demo-specific
 
 - Basic plugin steps (`AcquireVoltageStep`, `MeanGteStep`, `OperatorInputStep`, …).

@@ -481,6 +481,8 @@ public sealed class OpenTapSessionTests
         Assert.Contains(withIter, f => f.IterationTotal == 3);
         Assert.Contains(withIter, f => f.IterationText == "1/3" || f.IterationIndex == 1);
         Assert.Contains(withIter, f => f.IterationIndex >= 2);
+        Assert.Contains(summary.Samples, s => s.IterationIndex is > 0);
+        Assert.Contains(summary.Samples, s => !string.IsNullOrWhiteSpace(s.LoopPath));
     }
 
     [Fact]

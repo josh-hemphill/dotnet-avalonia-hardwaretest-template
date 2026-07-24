@@ -50,6 +50,53 @@ public sealed class ResultsViewModelTests
     }
 
     [Fact]
+    public async Task Open_shows_dut_history_when_priors_exist()
+    {
+        var store = new FakeRunStore();
+        store.Seed(new TestRunRecord
+        {
+            RunId = "prior",
+            PlanId = "sample",
+            PlanName = "Sample",
+            DutSerial = "SN-H",
+            StartedAt = DateTimeOffset.UtcNow.AddHours(-2),
+            Result = RunResult.Passed,
+            Samples = [new StoredSample { Channel = "VDC", Value = 10, Timestamp = DateTimeOffset.UtcNow }],
+        });
+        store.Seed(new TestRunRecord
+        {
+            RunId = "current",
+            PlanId = "sample",
+            PlanName = "Sample",
+            DutSerial = "SN-H",
+            StartedAt = DateTimeOffset.UtcNow,
+            Result = RunResult.Passed,
+            Samples = [new StoredSample { Channel = "VDC", Value = 8.5, Timestamp = DateTimeOffset.UtcNow }],
+            Steps =
+            [
+                new StepResultRecord
+                {
+                    StepId = "s1",
+                    StepType = "Acquire",
+                    Passed = true,
+                    Message = "ok",
+                    StartedAt = DateTimeOffset.UtcNow,
+                    CompletedAt = DateTimeOffset.UtcNow,
+                },
+            ],
+        });
+
+        var history = new DutHistoryService(store);
+        var vm = new ResultsViewModel(store, new FakeReportService(), history);
+        await vm.RefreshCommand.ExecuteAsync();
+        vm.SelectedRun = vm.Runs.First(r => r.RunId == "current");
+        await vm.OpenCommand.ExecuteAsync();
+        Assert.True(vm.HasHistory);
+        Assert.Contains("Alert", vm.HistorySummary, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(nameof(DutHistorySeverity.Alert), vm.HistorySeverity);
+    }
+
+    [Fact]
     public async Task Refresh_loads_runs()
     {
         var store = new FakeRunStore();

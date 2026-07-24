@@ -83,6 +83,10 @@ public sealed class StoredSample
     public string StepPath { get; set; } = string.Empty;
     public DateTimeOffset Timestamp { get; set; }
     public double Value { get; set; }
+    /// Innermost loop iteration when the sample was published (1-based); null if outside a loop.
+    public int? IterationIndex { get; set; }
+    /// Path/name of the innermost active loop step when stamped.
+    public string? LoopPath { get; set; }
 
     public static StoredSample From(MeasurementSample sample) => new()
     {

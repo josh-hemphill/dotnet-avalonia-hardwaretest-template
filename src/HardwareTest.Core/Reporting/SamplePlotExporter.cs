@@ -46,16 +46,65 @@ public static class SamplePlotExporter
 
     private static void WriteChannelPlotPng(StoredSample[] samples, string channel, string path)
     {
+        var plot = new Plot();
+        plot.YLabel(channel);
+
+        if (samples.Any(s => s.IterationIndex is > 0))
+        {
+            WriteIterationPlot(plot, samples, channel);
+        }
+        else
+        {
+            WriteTimeOrSignalPlot(plot, samples, channel);
+        }
+
+        plot.Axes.AutoScale();
+        plot.ShowLegend();
+        plot.SavePng(path, PlotWidth, PlotHeight);
+    }
+
+    /// Last value per iteration on X = iteration index.
+    private static void WriteIterationPlot(Plot plot, StoredSample[] samples, string channel)
+    {
+        var lastPerIter = samples
+            .Where(s => s.IterationIndex is > 0)
+            .GroupBy(s => s.IterationIndex!.Value)
+            .OrderBy(g => g.Key)
+            .Select(g => (Iteration: (double)g.Key, Value: g.Last().Value))
+            .ToArray();
+
+        var xs = lastPerIter.Select(p => p.Iteration).ToArray();
+        var ys = lastPerIter.Select(p => p.Value).ToArray();
+        var loopHint = samples.Select(s => s.LoopPath).FirstOrDefault(p => !string.IsNullOrWhiteSpace(p));
+        plot.Title(string.IsNullOrWhiteSpace(loopHint) ? $"{channel} (by iteration)" : $"{channel} ({loopHint})");
+        plot.XLabel("Iteration");
+
+        if (ys.Length == 1)
+        {
+            var signal = plot.Add.Signal(ys);
+            signal.LegendText = channel;
+            signal.LineWidth = 2;
+            signal.MarkerSize = 5;
+            return;
+        }
+
+        var scatter = plot.Add.Scatter(xs, ys);
+        scatter.LegendText = channel;
+        scatter.LineWidth = 2;
+        scatter.MarkerSize = ys.Length <= 64 ? 5 : 0;
+        scatter.Smooth = false;
+    }
+
+    private static void WriteTimeOrSignalPlot(Plot plot, StoredSample[] samples, string channel)
+    {
         var ys = samples.Select(s => s.Value).ToArray();
         var t0 = samples[0].Timestamp;
         var xs = samples
             .Select(s => (s.Timestamp - t0).TotalSeconds)
             .ToArray();
 
-        var plot = new Plot();
         plot.Title($"{channel}");
         plot.XLabel(samples.Length <= 1 || xs[^1] <= 0 ? "Sample" : "Time (s)");
-        plot.YLabel(channel);
 
         if (samples.Length == 1 || xs[^1] <= 0)
         {
@@ -72,10 +121,6 @@ public static class SamplePlotExporter
             scatter.MarkerSize = samples.Length <= 64 ? 5 : 0;
             scatter.Smooth = false;
         }
-
-        plot.Axes.AutoScale();
-        plot.ShowLegend();
-        plot.SavePng(path, PlotWidth, PlotHeight);
     }
 
     private static string Sanitize(string value)

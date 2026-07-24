@@ -9,6 +9,7 @@ using HardwareTest.Features.Results;
 using HardwareTest.Features.RunTest;
 using HardwareTest.Features.Settings;
 using HardwareTest.OpenTap.Host;
+using HardwareTest.OpenTap.Plugins.Basic;
 using HardwareTest.ViewModels.Tests.Fakes;
 using Xunit;
 
@@ -123,5 +124,35 @@ public sealed class MainWindowViewModelTests
         await vm.PauseResumeCommand.ExecuteAsync();
         Assert.False(runControl.IsPaused);
         Assert.Equal("Pause", vm.PauseResumeLabel);
+    }
+
+    [Fact]
+    public async Task PauseResume_when_awaiting_shows_Continue_and_invokes_run_continue()
+    {
+        var store = new FakeSettingsStore();
+        var openTap = new FakeOpenTapSession();
+        var runControl = new FakeRunControl();
+        var runTest = new RunTestViewModel(
+            openTap,
+            new OperatorSession(),
+            runControl,
+            new FakeReportService(),
+            new FakeRunStore(),
+            new AppSettings());
+        var vm = CreateMain(store, openTap, runControl, runTest: runTest);
+
+        using var cts = new CancellationTokenSource();
+        runControl.AttachRun(cts);
+        openTap.BeginInteraction(OperatorInteractionRequest.ConfirmOnly("Install fixture"));
+
+        Assert.Equal("Continue", vm.PauseResumeLabel);
+        Assert.True(vm.ShowContinueIcon);
+        Assert.False(vm.ShowPauseIcon);
+        Assert.False(vm.ShowResumeIcon);
+        Assert.Contains("Install fixture", vm.ControlStatus, StringComparison.OrdinalIgnoreCase);
+
+        await vm.PauseResumeCommand.ExecuteAsync();
+        Assert.False(openTap.IsAwaitingOperator);
+        Assert.Equal("RunTest", vm.SelectedItem?.Id);
     }
 }

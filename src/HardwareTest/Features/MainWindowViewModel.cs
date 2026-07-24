@@ -90,13 +90,17 @@ public partial class MainWindowViewModel : ReactiveObject
                 or nameof(IRunControl.IsRunning)
                 or nameof(IRunControl.IsSafetyStopping))
             {
-                this.RaisePropertyChanged(nameof(IsPaused));
-                this.RaisePropertyChanged(nameof(IsRunning));
-                this.RaisePropertyChanged(nameof(IsSafetyStopping));
-                this.RaisePropertyChanged(nameof(ControlStatus));
-                this.RaisePropertyChanged(nameof(PauseResumeLabel));
-                this.RaisePropertyChanged(nameof(PauseResumeTip));
-                this.RaisePropertyChanged(nameof(ShowPauseIcon));
+                RaiseTransportProps();
+            }
+        };
+
+        openTap.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName is nameof(IOpenTapSession.IsAwaitingOperator)
+                or nameof(IOpenTapSession.OperatorPromptMessage)
+                or nameof(IOpenTapSession.PendingInteraction))
+            {
+                RaiseTransportProps();
             }
         };
     }
@@ -116,9 +120,40 @@ public partial class MainWindowViewModel : ReactiveObject
     public bool IsPaused => _runControl.IsPaused;
     public bool IsRunning => _runControl.IsRunning;
     public bool IsSafetyStopping => _runControl.IsSafetyStopping;
-    public bool ShowPauseIcon => !IsPaused;
-    public string PauseResumeLabel => IsPaused ? "Resume" : "Pause";
-    public string PauseResumeTip => IsPaused ? "Resume the run" : "Pause the run";
+    public bool IsAwaitingOperator => _openTap.IsAwaitingOperator;
+
+    /// Pause icon when running and not awaiting / soft-paused.
+    public bool ShowPauseIcon => IsRunning && !IsPaused && !IsAwaitingOperator;
+    /// Resume (play) when soft-paused and not awaiting operator input.
+    public bool ShowResumeIcon => IsPaused && !IsAwaitingOperator;
+    /// Continue when the host is waiting on an operator interaction.
+    public bool ShowContinueIcon => IsAwaitingOperator;
+
+    public string PauseResumeLabel
+    {
+        get
+        {
+            if (IsAwaitingOperator)
+            {
+                return "Continue";
+            }
+
+            return IsPaused ? "Resume" : "Pause";
+        }
+    }
+
+    public string PauseResumeTip
+    {
+        get
+        {
+            if (IsAwaitingOperator)
+            {
+                return "Continue the operator prompt (same as Run board Continue)";
+            }
+
+            return IsPaused ? "Resume the run" : "Pause the run";
+        }
+    }
 
     public string ControlStatus
     {
@@ -127,6 +162,13 @@ public partial class MainWindowViewModel : ReactiveObject
             if (_runControl.IsSafetyStopping)
             {
                 return "Safety stop…";
+            }
+
+            if (IsAwaitingOperator)
+            {
+                return string.IsNullOrWhiteSpace(_openTap.OperatorPromptMessage)
+                    ? "Awaiting operator"
+                    : _openTap.OperatorPromptMessage!;
             }
 
             if (_runControl.IsPaused)
@@ -170,8 +212,28 @@ public partial class MainWindowViewModel : ReactiveObject
         NavigateTo(item);
     }
 
+    private void RaiseTransportProps()
+    {
+        this.RaisePropertyChanged(nameof(IsPaused));
+        this.RaisePropertyChanged(nameof(IsRunning));
+        this.RaisePropertyChanged(nameof(IsSafetyStopping));
+        this.RaisePropertyChanged(nameof(IsAwaitingOperator));
+        this.RaisePropertyChanged(nameof(ControlStatus));
+        this.RaisePropertyChanged(nameof(PauseResumeLabel));
+        this.RaisePropertyChanged(nameof(PauseResumeTip));
+        this.RaisePropertyChanged(nameof(ShowPauseIcon));
+        this.RaisePropertyChanged(nameof(ShowResumeIcon));
+        this.RaisePropertyChanged(nameof(ShowContinueIcon));
+    }
+
     private void PauseResume()
     {
+        if (IsAwaitingOperator)
+        {
+            ContinueOperator();
+            return;
+        }
+
         if (_runControl.IsPaused)
         {
             Resume();
@@ -182,6 +244,16 @@ public partial class MainWindowViewModel : ReactiveObject
         {
             Pause();
         }
+    }
+
+    private void ContinueOperator()
+    {
+        if (SelectedItem?.Id != "RunTest")
+        {
+            NavigateToPageId("RunTest");
+        }
+
+        RunTest.ContinueOperatorAttention();
     }
 
     private void Pause()

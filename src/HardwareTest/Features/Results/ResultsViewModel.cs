@@ -11,18 +11,28 @@ public partial class ResultsViewModel : ReactiveObject
 {
     private readonly IRunStore _runStore;
     private readonly IReportService _reportService;
+    private readonly IDutHistoryService? _dutHistory;
 
-    public ResultsViewModel(IRunStore runStore, IReportService reportService)
+    public ResultsViewModel(
+        IRunStore runStore,
+        IReportService reportService,
+        IDutHistoryService? dutHistory = null)
     {
         _runStore = runStore;
         _reportService = reportService;
+        _dutHistory = dutHistory;
         Runs = [];
         StepDetails = [];
         SampleDetails = [];
         RefreshCommand = ReactiveCommand.CreateFromTask(RefreshAsync);
         OpenCommand = ReactiveCommand.CreateFromTask(OpenAsync);
         ReprintCommand = ReactiveCommand.CreateFromTask(ReprintAsync);
-        CloseDetailCommand = ReactiveCommand.Create(() => { ShowDetail = false; });
+        CloseDetailCommand = ReactiveCommand.Create(() =>
+        {
+            ShowDetail = false;
+            HistorySummary = string.Empty;
+            HistorySeverity = string.Empty;
+        });
     }
 
     public ObservableCollection<TestRunSummary> Runs { get; }
@@ -37,6 +47,9 @@ public partial class ResultsViewModel : ReactiveObject
     [Reactive] private TestRunRecord? _openedRun;
     [Reactive] private bool _showDetail;
     [Reactive] private string _status = "Loading runs…";
+    [Reactive] private string _historySummary = string.Empty;
+    [Reactive] private string _historySeverity = string.Empty;
+    [Reactive] private bool _hasHistory;
 
     public event EventHandler<string>? ReportOpened;
 
@@ -66,6 +79,9 @@ public partial class ResultsViewModel : ReactiveObject
         OpenedRun = await _runStore.LoadAsync(SelectedRun.RunId);
         StepDetails.Clear();
         SampleDetails.Clear();
+        HistorySummary = string.Empty;
+        HistorySeverity = string.Empty;
+        HasHistory = false;
         if (OpenedRun is null)
         {
             ShowDetail = false;
@@ -86,6 +102,14 @@ public partial class ResultsViewModel : ReactiveObject
 
         Status = $"Opened {OpenedRun.RunId} ({OpenedRun.Result}) — {OpenedRun.Steps.Count} steps, {OpenedRun.Samples.Count} samples."
                  + (OpenedRun.SessionId is { } sid ? $" Session {sid[..Math.Min(8, sid.Length)]}." : string.Empty);
+
+        if (_dutHistory is not null)
+        {
+            var report = await _dutHistory.AnalyzeAsync(OpenedRun);
+            HistorySummary = report.OperatorSummary;
+            HistorySeverity = report.OverallSeverity.ToString();
+            HasHistory = !string.IsNullOrWhiteSpace(report.OperatorSummary);
+        }
 
         if (OpenedRun.ReportPdfPath is { } path && File.Exists(path))
         {

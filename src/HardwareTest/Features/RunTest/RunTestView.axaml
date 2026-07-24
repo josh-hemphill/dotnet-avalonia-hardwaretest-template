@@ -134,6 +134,13 @@
                      TextWrapping="Wrap"
                      FontSize="11"
                      IsVisible="{Binding !IsAwaitingOperator}" />
+          <TextBlock Text="{Binding HistoryBanner}"
+                     Opacity="0.9"
+                     TextWrapping="Wrap"
+                     FontSize="12"
+                     FontWeight="SemiBold"
+                     Margin="0,2,0,0"
+                     IsVisible="{Binding HistoryBanner, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
           <Border IsVisible="{Binding IsAwaitingOperator}"
                   BorderBrush="#FB8C00"
                   BorderThickness="2"

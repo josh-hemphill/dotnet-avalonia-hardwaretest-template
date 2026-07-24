@@ -56,6 +56,11 @@
           <TextBlock Text="{Binding OpenedRun.DutSerial, StringFormat=DUT: {0}}" Opacity="0.85" />
           <TextBlock Text="{Binding OpenedRun.DutPartNumber, StringFormat=Part: {0}}" Opacity="0.75" />
           <TextBlock Text="{Binding OpenedRun.OperatorName, StringFormat=Operator: {0}}" Opacity="0.75" />
+          <StackPanel Spacing="2" Margin="0,8,0,0" IsVisible="{Binding HasHistory}">
+            <TextBlock Text="DUT history" FontWeight="SemiBold" />
+            <TextBlock Text="{Binding HistorySeverity, StringFormat=Severity: {0}}" Opacity="0.8" FontSize="12" />
+            <TextBlock Text="{Binding HistorySummary}" TextWrapping="Wrap" Opacity="0.9" />
+          </StackPanel>
           <TextBlock Text="Steps" FontWeight="SemiBold" Margin="0,8,0,0" />
         </StackPanel>
         <ListBox DockPanel.Dock="Bottom" ItemsSource="{Binding SampleDetails}" MaxHeight="160" Margin="0,8,0,0" />

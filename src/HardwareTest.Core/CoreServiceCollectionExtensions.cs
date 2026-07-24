@@ -26,6 +26,8 @@ public static class CoreServiceCollectionExtensions
         services.AddSingleton<ISuiteRunStore>(sp =>
             new FileSuiteRunStore(sp.GetRequiredService<IRunStore>(), settingsStore.RunsDirectory));
         services.AddSingleton<IRunComparisonService, StubRunComparisonService>();
+        services.AddSingleton<IDutHistoryService>(sp =>
+            new DutHistoryService(sp.GetRequiredService<IRunStore>()));
         services.AddSingleton<IVisaSessionFactory>(sp =>
             new ConfigurableVisaSessionFactory(
                 settingsStore.AppSettings.UseMockVisa,

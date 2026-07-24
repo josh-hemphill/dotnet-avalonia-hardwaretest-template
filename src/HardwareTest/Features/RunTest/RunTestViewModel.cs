@@ -127,6 +127,7 @@ public partial class RunTestViewModel : ReactiveObject
     private readonly IRunStore _runStore;
     private readonly AppSettings _settings;
     private readonly ISettingsStore? _settingsStore;
+    private readonly IDutHistoryService? _dutHistory;
     private readonly object _progressSync = new();
     private readonly Queue<string> _pendingDetails = new();
     private readonly double[] _plotRing = new double[PlotCapacity];
@@ -176,7 +177,8 @@ public partial class RunTestViewModel : ReactiveObject
         IReportService reportService,
         IRunStore runStore,
         AppSettings settings,
-        ISettingsStore? settingsStore = null)
+        ISettingsStore? settingsStore = null,
+        IDutHistoryService? dutHistory = null)
     {
         _openTap = openTap;
         _session = session;
@@ -185,6 +187,7 @@ public partial class RunTestViewModel : ReactiveObject
         _runStore = runStore;
         _settings = settings;
         _settingsStore = settingsStore;
+        _dutHistory = dutHistory;
         _progress = new ThrottledOpenTapProgress(IngestProgress);
         Status = "Confirm DUT, then Run.";
         Programs = [];
@@ -406,6 +409,7 @@ public partial class RunTestViewModel : ReactiveObject
     [Reactive] private bool _sessionLogExpanded;
     [Reactive] private string _attemptSummaryChip = string.Empty;
     [Reactive] private string _status = string.Empty;
+    [Reactive] private string _historyBanner = string.Empty;
     [Reactive] private bool _isRunning;
     [Reactive] private string? _lastRunId;
     [Reactive] private double _overallPercent;
@@ -1502,6 +1506,7 @@ public partial class RunTestViewModel : ReactiveObject
         IsRunning = true;
         HasPlotData = false;
         ShowPlotForSelection = false;
+        HistoryBanner = string.Empty;
         _stepsWithSamples.Clear();
         PlotUiFlushCount = 0;
         _lastUiFlushTicks = 0;
@@ -1615,6 +1620,27 @@ public partial class RunTestViewModel : ReactiveObject
                 StepAttempts = _attemptLedger.Values.OrderBy(a => a.StepPath).ToList(),
             };
             await _runStore.SaveAsync(record).ConfigureAwait(false);
+
+            if (_dutHistory is not null && summary.Result is RunResult.Passed or RunResult.Failed)
+            {
+                try
+                {
+                    var history = await _dutHistory.AnalyzeAsync(record).ConfigureAwait(false);
+                    await RunOnUiAsync(() =>
+                    {
+                        HistoryBanner = history.OperatorSummary;
+                        if (!string.IsNullOrWhiteSpace(history.OperatorSummary))
+                        {
+                            Status += " " + history.OperatorSummary;
+                        }
+                    }).ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    await RunOnUiAsync(() => HistoryBanner = $"DUT history unavailable: {ex.Message}")
+                        .ConfigureAwait(false);
+                }
+            }
 
             if (summary.Result is RunResult.Passed or RunResult.Failed)
             {

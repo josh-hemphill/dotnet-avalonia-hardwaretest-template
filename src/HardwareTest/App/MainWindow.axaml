@@ -31,21 +31,15 @@
         <TextBlock Text="{Binding ControlStatus}"
                    FontSize="12"
                    TextTrimming="CharacterEllipsis"
-                   Opacity="0.85"
-                   FontWeight="SemiBold"
-                   IsVisible="{Binding IsPaused}" />
-        <TextBlock Text="{Binding ControlStatus}"
-                   FontSize="12"
-                   TextTrimming="CharacterEllipsis"
-                   Opacity="0.75"
-                   IsVisible="{Binding !IsPaused}" />
+                   Opacity="0.85" />
         <Button Command="{Binding PauseResumeCommand}"
                 HorizontalAlignment="Stretch"
                 IsEnabled="{Binding IsRunning}"
                 ToolTip.Tip="{Binding PauseResumeTip}">
           <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center">
             <ui:FASymbolIcon Symbol="Pause" FontSize="16" IsVisible="{Binding ShowPauseIcon}" />
-            <ui:FASymbolIcon Symbol="Play" FontSize="16" IsVisible="{Binding IsPaused}" />
+            <ui:FASymbolIcon Symbol="Play" FontSize="16" IsVisible="{Binding ShowResumeIcon}" />
+            <ui:FASymbolIcon Symbol="Accept" FontSize="16" IsVisible="{Binding ShowContinueIcon}" />
             <TextBlock Text="{Binding PauseResumeLabel}" VerticalAlignment="Center" />
           </StackPanel>
         </Button>

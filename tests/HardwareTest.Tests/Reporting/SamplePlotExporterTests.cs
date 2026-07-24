@@ -46,4 +46,40 @@ public sealed class SamplePlotExporterTests
             }
         }
     }
+
+    [Fact]
+    public void ExportChannelPng_uses_iteration_axis_when_samples_are_stamped()
+    {
+        var run = new TestRunRecord
+        {
+            RunId = Guid.NewGuid().ToString("N"),
+            PlanId = "sweep-demo",
+            PlanName = "Sweep Demo",
+            Samples =
+            [
+                new() { Channel = "VDC", Timestamp = DateTimeOffset.UtcNow, Value = 1.0, IterationIndex = 1, LoopPath = "Repeat Sweep" },
+                new() { Channel = "VDC", Timestamp = DateTimeOffset.UtcNow.AddMilliseconds(10), Value = 1.1, IterationIndex = 1, LoopPath = "Repeat Sweep" },
+                new() { Channel = "VDC", Timestamp = DateTimeOffset.UtcNow.AddMilliseconds(20), Value = 2.0, IterationIndex = 2, LoopPath = "Repeat Sweep" },
+                new() { Channel = "VDC", Timestamp = DateTimeOffset.UtcNow.AddMilliseconds(30), Value = 3.0, IterationIndex = 3, LoopPath = "Repeat Sweep" },
+            ],
+        };
+
+        var dir = Path.Combine(Path.GetTempPath(), "ht-plots-iter-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            var path = SamplePlotExporter.ExportChannelPng(run, "VDC", dir);
+            Assert.NotNull(path);
+            Assert.True(File.Exists(path));
+            var bytes = File.ReadAllBytes(path!);
+            Assert.True(bytes.Length > 1_000);
+            Assert.Equal(0x89, bytes[0]);
+        }
+        finally
+        {
+            if (Directory.Exists(dir))
+            {
+                Directory.Delete(dir, recursive: true);
+            }
+        }
+    }
 }

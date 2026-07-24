@@ -141,8 +141,10 @@ Two different concepts (do not conflate):
 | F | [Resource / VisaAddress alignment](opentap-phases/phase-f-resources.md) | Done |
 | G | [Sweep / loop progress](opentap-phases/phase-g-sweeps.md) | Done |
 | H | [Result export](opentap-phases/phase-h-results-export.md) | Done |
+| I | [Presentation contract](opentap-phases/phase-i-presentation-contract.md) | Planned |
+| J | [Presentation UI](opentap-phases/phase-j-presentation-ui.md) | Planned |
 
-**Suggested order:** A → B → C → D; E can parallelize after the doc; F after C; G/H after parameters stabilize.
+**Suggested order:** A → B → C → D; E can parallelize after the doc; F after C; G/H after parameters stabilize; I → J after loop-stamped samples / DUT history.
 
 ## Cross-cutting rules (every phase)
 

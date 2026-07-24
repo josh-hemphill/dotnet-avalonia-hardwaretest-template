@@ -34,5 +34,6 @@ public sealed class CoreCompositionTests
         Assert.NotNull(sp.GetRequiredService<VisaSessionGate>());
         Assert.NotNull(sp.GetRequiredService<IRunControl>());
         Assert.NotNull(sp.GetRequiredService<MeasurementAcquisition>());
+        Assert.NotNull(sp.GetRequiredService<IDutHistoryService>());
     }
 }

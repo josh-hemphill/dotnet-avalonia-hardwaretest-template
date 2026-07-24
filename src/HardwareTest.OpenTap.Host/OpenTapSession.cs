@@ -66,7 +66,7 @@ public sealed class OpenTapRunSummary
     public string Verdict { get; init; } = "NotSet";
 }
 
-public interface IOpenTapSession
+public interface IOpenTapSession : INotifyPropertyChanged
 {
     string? LoadedPlanPath { get; }
     string? LoadedPlanName { get; }
@@ -1492,12 +1492,26 @@ internal sealed class ProgressResultListener : ResultListener
             var index = indexCol is null ? i : Convert.ToInt32(indexCol.Data.GetValue(i));
             var ts = DateTimeOffset.UtcNow;
             var stepPath = _resolvePath(_currentStepId ?? string.Empty, _currentStepName) ?? string.Empty;
+            int? iterationIndex = null;
+            string? loopPath = null;
+            if (_loops.Count > 0)
+            {
+                var loop = _loops.Peek();
+                if (loop.Index > 0)
+                {
+                    iterationIndex = loop.Index;
+                    loopPath = _resolvePath(loop.StepId.ToString(), null);
+                }
+            }
+
             _samples.Add(new StoredSample
             {
                 Channel = channel,
                 Timestamp = ts,
                 Value = value,
                 StepPath = stepPath,
+                IterationIndex = iterationIndex,
+                LoopPath = loopPath,
             });
 
             var sampleEvent = new MeasurementSampleEvent(channel, index, value, ts);
