@@ -97,7 +97,7 @@ public partial class ResultsViewModel : ReactiveObject
 
         foreach (var sample in OpenedRun.Samples.Take(200))
         {
-            SampleDetails.Add($"{sample.Channel}: {sample.Value:G6} @ {sample.Timestamp:u}");
+            SampleDetails.Add(sample.ToDisplayLine());
         }
 
         Status = $"Opened {OpenedRun.RunId} ({OpenedRun.Result}) — {OpenedRun.Steps.Count} steps, {OpenedRun.Samples.Count} samples."

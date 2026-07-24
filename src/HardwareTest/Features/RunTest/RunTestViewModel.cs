@@ -1763,6 +1763,12 @@ public partial class RunTestViewModel : ReactiveObject
         DetailKeyValues.Add($"Status: {SelectedStep.StatusText}");
         DetailKeyValues.Add($"Verdict: {SelectedStep.Verdict}");
         DetailKeyValues.Add($"Path: {SelectedStep.Path}");
+        foreach (var field in ParameterFields.Where(f =>
+                     f.Label.Contains("Presentation", StringComparison.OrdinalIgnoreCase)))
+        {
+            DetailKeyValues.Add(field.Label + ": " + field.Value);
+        }
+
         if (!string.IsNullOrWhiteSpace(SelectedStep.AttemptsText))
         {
             DetailKeyValues.Add($"Attempts: {SelectedStep.AttemptsText}");

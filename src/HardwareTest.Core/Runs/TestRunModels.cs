@@ -87,6 +87,32 @@ public sealed class StoredSample
     public int? IterationIndex { get; set; }
     /// Path/name of the innermost active loop step when stamped.
     public string? LoopPath { get; set; }
+    /// Stable metric id (Presentation ChannelKey or Channel/Name).
+    public string MetricKey { get; set; } = string.Empty;
+    /// Presentation DisplayRole (timeseries / scalar / passband).
+    public string? DisplayRole { get; set; }
+    /// Unit label from Presentation YUnit or Scalar Unit column.
+    public string? Unit { get; set; }
+
+    /// History / grouping key: MetricKey when set, otherwise Channel.
+    public string EffectiveMetricKey
+        => string.IsNullOrWhiteSpace(MetricKey) ? Channel : MetricKey;
+
+    /// Operator-facing line for Results / detail (MetricKey, role, value, unit).
+    public string ToDisplayLine()
+    {
+        var key = EffectiveMetricKey;
+        var role = string.IsNullOrWhiteSpace(DisplayRole) ? null : DisplayRole;
+        var unit = string.IsNullOrWhiteSpace(Unit) ? null : Unit;
+        var value = Value.ToString("G6", System.Globalization.CultureInfo.InvariantCulture);
+        var core = role is null ? $"{key}: {value}" : $"{key} [{role}] {value}";
+        if (unit is not null)
+        {
+            core += $" {unit}";
+        }
+
+        return $"{core} @ {Timestamp:u}";
+    }
 
     public static StoredSample From(MeasurementSample sample) => new()
     {

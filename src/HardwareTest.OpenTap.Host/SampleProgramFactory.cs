@@ -1,4 +1,5 @@
 using HardwareTest.OpenTap.Plugins.Basic;
+using HardwareTest.OpenTap.Plugins.Mixins;
 using OpenTap;
 
 namespace HardwareTest.OpenTap.Host;
@@ -53,7 +54,7 @@ public static class SampleProgramFactory
 
         // Station override lane (Engineer/Debug): SampleCount / IntervalMs / Channel / Threshold / Enabled.
         var measureGroup = new TestGroupStep { Name = "Voltage Sweep" };
-        measureGroup.ChildTestSteps.Add(new AcquireVoltageStep
+        var acquire = new AcquireVoltageStep
         {
             Id = AcquireStepId,
             Name = "Acquire VDC",
@@ -61,15 +62,20 @@ public static class SampleProgramFactory
             Channel = "VDC",
             SampleCount = 32,
             IntervalMs = 5,
-        });
-        measureGroup.ChildTestSteps.Add(new MeanGteStep
+        };
+        OpenTapMixinAttach.AttachPresentation(acquire, "VDC", PresentationDisplayRoles.Timeseries, "V");
+        measureGroup.ChildTestSteps.Add(acquire);
+
+        var mean = new MeanGteStep
         {
             Id = MeanGteStepId,
             Name = "Mean GTE",
             Instrument = instrument,
             SampleCount = 8,
             Threshold = 0,
-        });
+        };
+        OpenTapMixinAttach.AttachPresentation(mean, "VDC.mean", PresentationDisplayRoles.Scalar, "V");
+        measureGroup.ChildTestSteps.Add(mean);
 
         var safety = new SafeShutdownStep { Name = "Safe Shutdown", Instrument = instrument };
 

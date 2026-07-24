@@ -847,12 +847,60 @@ public sealed class FakeOpenTapSession : IOpenTapSession
             list.Add(MakeParam(node, "SampleCount", "Sample Count", OperatorInteractionFieldKind.Number, "32"));
             list.Add(MakeParam(node, "IntervalMs", "Interval Ms", OperatorInteractionFieldKind.Number, "5"));
             list.Add(MakeParam(node, "Channel", "Channel", OperatorInteractionFieldKind.String, "VDC"));
+            list.Add(MakeParam(
+                node,
+                "ChannelKey",
+                "Channel key",
+                OperatorInteractionFieldKind.String,
+                "VDC",
+                group: "Presentation",
+                isMixinEmbedded: true));
+            list.Add(MakeParam(
+                node,
+                "DisplayRole",
+                "Display role",
+                OperatorInteractionFieldKind.String,
+                "timeseries",
+                group: "Presentation",
+                isMixinEmbedded: true));
+            list.Add(MakeParam(
+                node,
+                "YUnit",
+                "Y unit",
+                OperatorInteractionFieldKind.String,
+                "V",
+                group: "Presentation",
+                isMixinEmbedded: true));
         }
 
         if (!isPromptStep && node.Name.Contains("Mean", StringComparison.OrdinalIgnoreCase))
         {
             list.Add(MakeParam(node, "SampleCount", "Sample Count", OperatorInteractionFieldKind.Number, "8"));
             list.Add(MakeParam(node, "Threshold", "Threshold", OperatorInteractionFieldKind.Number, "0"));
+            list.Add(MakeParam(
+                node,
+                "ChannelKey",
+                "Channel key",
+                OperatorInteractionFieldKind.String,
+                "VDC.mean",
+                group: "Presentation",
+                isMixinEmbedded: true));
+            list.Add(MakeParam(
+                node,
+                "DisplayRole",
+                "Display role",
+                OperatorInteractionFieldKind.String,
+                "scalar",
+                group: "Presentation",
+                isMixinEmbedded: true));
+            list.Add(MakeParam(
+                node,
+                "YUnit",
+                "Y unit",
+                OperatorInteractionFieldKind.String,
+                "V",
+                group: "Presentation",
+                isMixinEmbedded: true));
         }
 
         if (node.Name.Contains("Identity", StringComparison.OrdinalIgnoreCase))

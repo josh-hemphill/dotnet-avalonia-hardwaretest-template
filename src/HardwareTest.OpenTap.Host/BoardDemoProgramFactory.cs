@@ -1,10 +1,11 @@
 using HardwareTest.OpenTap.Plugins.Basic;
+using HardwareTest.OpenTap.Plugins.Mixins;
 using OpenTap;
 
 namespace HardwareTest.OpenTap.Host;
 
 /// Nested demo plan for board UX (stages, subsections, longer acquires).
-/// Demo coverage: confirm-only + typed operator prompts, and multi-rail station-overridable settings.
+/// Demo coverage: confirm-only + typed operator prompts, multi-rail settings, Presentation roles.
 public static class BoardDemoProgramFactory
 {
     public const string EmbeddedName = "board-demo.TapPlan";
@@ -16,11 +17,14 @@ public static class BoardDemoProgramFactory
 
     public static TestPlan Create()
     {
+        OpenTapPluginSearch.EnsureCorePluginDirectories();
+        PluginManager.Search();
+
         var instrument = new MockDmmInstrument { Name = "DMM", ResourceName = "MOCK::INSTR0" };
         var dut = new HardwareDut { Name = "DUT", Family = "demo" };
 
         var rail3v3 = new TestGroupStep { Name = "3V3 Rail" };
-        rail3v3.ChildTestSteps.Add(new AcquireVoltageStep
+        var acquire3v3 = new AcquireVoltageStep
         {
             Id = Acquire3V3StepId,
             Name = "Acquire 3V3",
@@ -28,32 +32,42 @@ public static class BoardDemoProgramFactory
             Channel = "3V3",
             SampleCount = 64,
             IntervalMs = 15,
-        });
-        rail3v3.ChildTestSteps.Add(new MeanGteStep
+        };
+        OpenTapMixinAttach.AttachPresentation(acquire3v3, "rail.3v3", PresentationDisplayRoles.Timeseries, "V");
+        rail3v3.ChildTestSteps.Add(acquire3v3);
+
+        var mean3v3 = new MeanGteStep
         {
             Id = MeanGte3V3StepId,
             Name = "Mean GTE 3V3",
             Instrument = instrument,
             SampleCount = 12,
             Threshold = 0,
-        });
+        };
+        OpenTapMixinAttach.AttachPresentation(mean3v3, "rail.3v3.mean", PresentationDisplayRoles.Passband, "V");
+        rail3v3.ChildTestSteps.Add(mean3v3);
 
         var rail5v = new TestGroupStep { Name = "5V Rail" };
-        rail5v.ChildTestSteps.Add(new AcquireVoltageStep
+        var acquire5v = new AcquireVoltageStep
         {
             Name = "Acquire 5V",
             Instrument = instrument,
             Channel = "5V",
             SampleCount = 48,
             IntervalMs = 20,
-        });
-        rail5v.ChildTestSteps.Add(new MeanGteStep
+        };
+        OpenTapMixinAttach.AttachPresentation(acquire5v, "rail.5v", PresentationDisplayRoles.Timeseries, "V");
+        rail5v.ChildTestSteps.Add(acquire5v);
+
+        var mean5v = new MeanGteStep
         {
             Name = "Mean GTE 5V",
             Instrument = instrument,
             SampleCount = 10,
             Threshold = 0,
-        });
+        };
+        OpenTapMixinAttach.AttachPresentation(mean5v, "rail.5v.mean", PresentationDisplayRoles.Scalar, "V");
+        rail5v.ChildTestSteps.Add(mean5v);
 
         var powerRails = new TestGroupStep { Name = "Power Rails" };
         powerRails.ChildTestSteps.Add(rail3v3);
@@ -68,27 +82,31 @@ public static class BoardDemoProgramFactory
         });
 
         var busStress = new TestGroupStep { Name = "Bus Stress" };
-        busStress.ChildTestSteps.Add(new AcquireVoltageStep
+        var longAcquire = new AcquireVoltageStep
         {
             Name = "Long Acquire VDC",
             Instrument = instrument,
             Channel = "VDC",
             SampleCount = 120,
             IntervalMs = 25,
-        });
-        busStress.ChildTestSteps.Add(new MeanGteStep
+        };
+        OpenTapMixinAttach.AttachPresentation(longAcquire, "bus.vdc", PresentationDisplayRoles.Timeseries, "V");
+        busStress.ChildTestSteps.Add(longAcquire);
+
+        var meanBus = new MeanGteStep
         {
             Name = "Mean GTE Bus",
             Instrument = instrument,
             SampleCount = 16,
             Threshold = 0,
-        });
+        };
+        OpenTapMixinAttach.AttachPresentation(meanBus, "bus.vdc.mean", PresentationDisplayRoles.Passband, "V");
+        busStress.ChildTestSteps.Add(meanBus);
 
         var communications = new TestGroupStep { Name = "Communications" };
         communications.ChildTestSteps.Add(identity);
         communications.ChildTestSteps.Add(busStress);
 
-        // Operator prompt lane: confirm-only, then typed lot/board sticker input.
         var operatorGroup = new TestGroupStep { Name = "Operator" };
         operatorGroup.ChildTestSteps.Add(new OperatorPromptStep
         {

@@ -22,11 +22,11 @@ For UI vs OpenTAP test suites, see [testing.md](testing.md). For sealed Linux pu
 
 3. Built-in **sample** / **board-demo** / **sweep-demo** entries stay as factories for CI-stable demos. Disk plans with the same id are not double-listed (`ProgramCatalog`).
 
-   | Demo | Operator prompts | Station overrides (Engineer/Debug) |
+   | Demo | Operator prompts | Station overrides / Presentation |
    | --- | --- | --- |
-   | **sample** (`SampleProgramFactory`) | `Confirm Sweep Area Clear` (confirm-only) → `Install Sweep Fixture` (typed: `fixtureId`, `fixtureTorqueNm`) | `Acquire VDC` / `Mean GTE` — `Channel`, `SampleCount`, `IntervalMs`, `Threshold`, `Enabled` (stable step Ids); **Identity Check** has Annotation mixin (`Note`, `IncludeInReport`) |
-   | **board-demo** (`BoardDemoProgramFactory`) | `Seat Board Fixture` (confirm) → `Record Board Sticker` (typed: `boardLotId`) | Multi-rail Acquire/Mean with `Channel` / samples / thresholds; 3V3 rail uses stable Ids for override demos |
-   | **sweep-demo** (`SweepDemoProgramFactory`) | (none) | `RepeatLoopStep` ×3 around Acquire VDC — Run hero shows `iter i/N` (Phase G) |
+   | **sample** (`SampleProgramFactory`) | `Confirm Sweep Area Clear` (confirm-only) → `Install Sweep Fixture` (typed: `fixtureId`, `fixtureTorqueNm`) | Acquire/Mean settings + Annotation on Identity; Presentation: Acquire `VDC` timeseries, Mean `VDC.mean` scalar |
+   | **board-demo** (`BoardDemoProgramFactory`) | `Seat Board Fixture` (confirm) → `Record Board Sticker` (typed: `boardLotId`) | Multi-rail Acquire/Mean; Presentation: `rail.3v3` / `rail.5v` / `bus.vdc` timeseries + mean scalar/passband (see [phase-i](opentap-phases/phase-i-presentation-contract.md)) |
+   | **sweep-demo** (`SweepDemoProgramFactory`) | (none) | Repeat ×3; Presentation `sweep.vdc` timeseries + loop iteration stamps |
 
 4. Run and Instruments both enumerate via `ProgramCatalog` — no need to hardcode program lists in ViewModels.
 
@@ -108,7 +108,11 @@ Set `AppSettings.ExportOpenTapResults` (Settings → **Export OpenTAP results (C
 
 ### DUT history (local)
 
-After Pass/Fail, the shell compares channel means on the current run to the last 10 local runs with the same DUT serial + plan ([`DutHistoryService`](../src/HardwareTest.Core/Runs/DutHistoryService.cs)). Watch ≥5% / Alert ≥10% vs prior mean — shown as a Run banner and on Results detail. No separate analytics app. Presentation roles/gauges are planned in [Phase I](opentap-phases/phase-i-presentation-contract.md) / [Phase J](opentap-phases/phase-j-presentation-ui.md).
+After Pass/Fail, the shell compares channel means on the current run to the last 10 local runs with the same DUT serial + plan ([`DutHistoryService`](../src/HardwareTest.Core/Runs/DutHistoryService.cs)). Metrics group by Presentation `MetricKey` when set (else Channel). Watch ≥5% / Alert ≥10% vs prior mean — shown as a Run banner and on Results detail. No separate analytics app. Gauges / role widgets are [Phase J](opentap-phases/phase-j-presentation-ui.md).
+
+### Presentation contract (Phase I)
+
+Publish tables `Sample` (Channel, Index, Value) and `Scalar` (Name, Value, Unit). Attach **Presentation** mixin (`ChannelKey`, `DisplayRole`, `YUnit`) in Editor or via demos. Results lines show `MetricKey [role] value unit`. Full matrix and eval checklist: [phase-i-presentation-contract.md](opentap-phases/phase-i-presentation-contract.md).
 
 Loop samples stamp `IterationIndex` / `LoopPath` on `StoredSample` for report charts (last value per iteration); live Run plot stays chronological.
 

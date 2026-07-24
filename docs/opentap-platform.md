@@ -95,7 +95,7 @@ Two different concepts (do not conflate):
 ## Mixin support model
 
 - Mixins load with plugins (`OpenTapPluginDirectories` / package install dirs). Host always searches Basic + Mixins plugin assembly directories (`OpenTapPluginSearch`).
-- Demo: [`AnnotationMixin`](../src/HardwareTest.OpenTap.Plugins.Mixins/AnnotationMixin.cs) / [`AnnotationMixinBuilder`](../src/HardwareTest.OpenTap.Plugins.Mixins/AnnotationMixinBuilder.cs). Sample Identity Check attaches Annotation in-code for a self-contained demo; production plans attach mixins in **OpenTAP Editor**.
+- Demo: [`AnnotationMixin`](../src/HardwareTest.OpenTap.Plugins.Mixins/AnnotationMixin.cs) and [`PresentationMixin`](../src/HardwareTest.OpenTap.Plugins.Mixins/PresentationMixin.cs) (`ChannelKey` / `DisplayRole` / `YUnit`). Sample Identity Check attaches Annotation; Acquire/Mean steps across Sample, Board, and Sweep demos attach Presentation — see [phase-i-presentation-contract.md](opentap-phases/phase-i-presentation-contract.md). Production plans attach mixins in **OpenTAP Editor**.
 - Engineer/Debug Station overrides lists mixin-embedded members via TypeData (`EmbedProperties`), with `OpenTapParameterInfo.IsMixinEmbedded` + Group (e.g. `Annotation: Note`). Get/set uses the Phase C parameter bridge.
 - Author mixins with `IMixin` + `IMixinBuilder` (`[MixinBuilder(typeof(ITestStep))]`). Avalonia does **not** offer “Add Mixin” — attach in Editor, edit values in the shell.
 - See [phase-d-mixins.md](opentap-phases/phase-d-mixins.md) and [adapting.md](adapting.md#10-custom-mixins).
@@ -141,7 +141,7 @@ Two different concepts (do not conflate):
 | F | [Resource / VisaAddress alignment](opentap-phases/phase-f-resources.md) | Done |
 | G | [Sweep / loop progress](opentap-phases/phase-g-sweeps.md) | Done |
 | H | [Result export](opentap-phases/phase-h-results-export.md) | Done |
-| I | [Presentation contract](opentap-phases/phase-i-presentation-contract.md) | Planned |
+| I | [Presentation contract](opentap-phases/phase-i-presentation-contract.md) | Done |
 | J | [Presentation UI](opentap-phases/phase-j-presentation-ui.md) | Planned |
 
 **Suggested order:** A → B → C → D; E can parallelize after the doc; F after C; G/H after parameters stabilize; I → J after loop-stamped samples / DUT history.

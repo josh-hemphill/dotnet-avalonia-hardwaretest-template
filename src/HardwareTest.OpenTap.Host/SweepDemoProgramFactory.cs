@@ -1,4 +1,5 @@
 using HardwareTest.OpenTap.Plugins.Basic;
+using HardwareTest.OpenTap.Plugins.Mixins;
 using OpenTap;
 
 namespace HardwareTest.OpenTap.Host;
@@ -12,6 +13,9 @@ public static class SweepDemoProgramFactory
 
     public static TestPlan Create()
     {
+        OpenTapPluginSearch.EnsureCorePluginDirectories();
+        PluginManager.Search();
+
         var instrument = new MockDmmInstrument { Name = "DMM", ResourceName = "MOCK::INSTR0" };
         var body = new AcquireVoltageStep
         {
@@ -20,6 +24,7 @@ public static class SweepDemoProgramFactory
             SampleCount = 2,
             IntervalMs = 1,
         };
+        OpenTapMixinAttach.AttachPresentation(body, "sweep.vdc", PresentationDisplayRoles.Timeseries, "V");
 
         var repeat = new RepeatLoopStep
         {

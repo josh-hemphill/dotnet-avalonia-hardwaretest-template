@@ -41,7 +41,13 @@ public sealed class DutHistoryServiceTests
                 Result = RunResult.Passed,
                 Samples =
                 [
-                    new StoredSample { Channel = "VDC", Value = 9.2, Timestamp = DateTimeOffset.UtcNow },
+                    new StoredSample
+                    {
+                        Channel = "VDC",
+                        MetricKey = "VDC",
+                        Value = 9.2,
+                        Timestamp = DateTimeOffset.UtcNow,
+                    },
                 ],
             };
 
@@ -74,7 +80,16 @@ public sealed class DutHistoryServiceTests
                 DutSerial = "SN-OK",
                 StartedAt = DateTimeOffset.UtcNow.AddDays(-1),
                 Result = RunResult.Passed,
-                Samples = [new StoredSample { Channel = "VDC", Value = 1.0, Timestamp = DateTimeOffset.UtcNow }],
+                Samples =
+                [
+                    new StoredSample
+                    {
+                        Channel = "raw",
+                        MetricKey = "rail.3v3",
+                        Value = 1.0,
+                        Timestamp = DateTimeOffset.UtcNow,
+                    },
+                ],
             });
 
             var report = await new DutHistoryService(store).AnalyzeAsync(new TestRunRecord
@@ -85,10 +100,20 @@ public sealed class DutHistoryServiceTests
                 DutSerial = "SN-OK",
                 StartedAt = DateTimeOffset.UtcNow,
                 Result = RunResult.Passed,
-                Samples = [new StoredSample { Channel = "VDC", Value = 1.02, Timestamp = DateTimeOffset.UtcNow }],
+                Samples =
+                [
+                    new StoredSample
+                    {
+                        Channel = "other",
+                        MetricKey = "rail.3v3",
+                        Value = 1.02,
+                        Timestamp = DateTimeOffset.UtcNow,
+                    },
+                ],
             });
 
             Assert.Equal(DutHistorySeverity.Normal, report.OverallSeverity);
+            Assert.Contains(report.Metrics, m => m.Channel == "rail.3v3");
             Assert.Contains("OK", report.OperatorSummary, StringComparison.OrdinalIgnoreCase);
         }
         finally

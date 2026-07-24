@@ -97,6 +97,53 @@ public sealed class ResultsViewModelTests
     }
 
     [Fact]
+    public async Task Open_sample_details_include_metric_key_and_role()
+    {
+        var store = new FakeRunStore();
+        store.Seed(new TestRunRecord
+        {
+            RunId = "pres-1",
+            PlanName = "Sample",
+            DutSerial = "SN-P",
+            StartedAt = DateTimeOffset.UtcNow,
+            Result = RunResult.Passed,
+            Samples =
+            [
+                new StoredSample
+                {
+                    Channel = "VDC",
+                    MetricKey = "VDC",
+                    DisplayRole = "timeseries",
+                    Unit = "V",
+                    Value = 1.25,
+                    Timestamp = DateTimeOffset.UtcNow,
+                },
+            ],
+            Steps =
+            [
+                new StepResultRecord
+                {
+                    StepId = "s1",
+                    StepType = "Acquire",
+                    Passed = true,
+                    Message = "ok",
+                    StartedAt = DateTimeOffset.UtcNow,
+                    CompletedAt = DateTimeOffset.UtcNow,
+                },
+            ],
+        });
+
+        var vm = new ResultsViewModel(store, new FakeReportService());
+        await vm.RefreshCommand.ExecuteAsync();
+        vm.SelectedRun = vm.Runs[0];
+        await vm.OpenCommand.ExecuteAsync();
+        Assert.Contains(vm.SampleDetails, line =>
+            line.Contains("VDC", StringComparison.OrdinalIgnoreCase)
+            && line.Contains("timeseries", StringComparison.OrdinalIgnoreCase)
+            && line.Contains("V", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
     public async Task Refresh_loads_runs()
     {
         var store = new FakeRunStore();

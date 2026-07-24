@@ -520,6 +520,7 @@ public sealed class OpenTapSessionTests
 
         var builders = PluginManager.GetPlugins<IMixinBuilder>();
         Assert.Contains(builders, t => t == typeof(AnnotationMixinBuilder));
+        Assert.Contains(builders, t => t == typeof(PresentationMixinBuilder));
     }
 
     [Fact]
@@ -586,6 +587,100 @@ public sealed class OpenTapSessionTests
         Assert.True(session.TrySetParameter(note.MemberKey, "bench-note-1"));
         Assert.True(session.TryGetParameter(note.MemberKey, out var value));
         Assert.Equal("bench-note-1", value);
+    }
+
+    [Fact]
+    public async Task Presentation_mixin_parameters_enumerate_and_round_trip_on_acquire()
+    {
+        var session = new OpenTapSession();
+        await session.LoadSampleProgramAsync();
+
+        var acquire = session.StepTree.SelectMany(Flatten)
+            .First(n => n.Name.Contains("Acquire VDC", StringComparison.OrdinalIgnoreCase)
+                        && n.Children.Count == 0);
+
+        var parameters = session.EnumerateParameters(OpenTapParameterScope.Step, acquire.Path, includeReadOnly: true);
+        var channelKey = parameters.FirstOrDefault(p =>
+            p.DisplayName.Contains("Channel key", StringComparison.OrdinalIgnoreCase)
+            || p.MemberKey.EndsWith("/ChannelKey", StringComparison.OrdinalIgnoreCase));
+        Assert.NotNull(channelKey);
+        Assert.True(
+            channelKey!.IsMixinEmbedded
+            || string.Equals(channelKey.Group, "Presentation", StringComparison.OrdinalIgnoreCase)
+            || channelKey.MemberKey.Contains("Presentation", StringComparison.OrdinalIgnoreCase));
+
+        Assert.True(session.TrySetParameter(channelKey.MemberKey, "VDC.demo"));
+        Assert.True(session.TryGetParameter(channelKey.MemberKey, out var value));
+        Assert.Equal("VDC.demo", value);
+
+        var role = parameters.First(p =>
+            p.DisplayName.Contains("Display role", StringComparison.OrdinalIgnoreCase)
+            || p.MemberKey.EndsWith("/DisplayRole", StringComparison.OrdinalIgnoreCase));
+        Assert.True(session.TrySetParameter(role.MemberKey, PresentationDisplayRoles.Scalar));
+        Assert.True(session.TryGetParameter(role.MemberKey, out var roleValue));
+        Assert.Equal(PresentationDisplayRoles.Scalar, roleValue);
+    }
+
+    [Fact]
+    public async Task Sample_run_stores_presentation_metric_keys_for_acquire_and_mean()
+    {
+        var session = new OpenTapSession();
+        await session.LoadSampleProgramAsync();
+        await session.ApplyStationAndDutAsync(
+            new StationProfile(new Dictionary<string, string> { ["dmm"] = "MOCK::INSTR0" }),
+            new DutIdentity("DUT-PRES", Family: "demo"));
+
+        var summary = await RunSampleWithAutoResumeAsync(session);
+        Assert.Contains(summary.Samples, s =>
+            string.Equals(s.MetricKey, "VDC", StringComparison.OrdinalIgnoreCase)
+            && string.Equals(s.DisplayRole, PresentationDisplayRoles.Timeseries, StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(summary.Samples, s =>
+            string.Equals(s.MetricKey, "VDC.mean", StringComparison.OrdinalIgnoreCase)
+            && (string.Equals(s.DisplayRole, PresentationDisplayRoles.Scalar, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(s.Channel, "Mean", StringComparison.OrdinalIgnoreCase)));
+        Assert.Contains(summary.Samples, s =>
+            string.Equals(s.Unit, "V", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task Board_demo_exposes_presentation_on_3v3_acquire_and_mean()
+    {
+        var session = new OpenTapSession();
+        await session.LoadBoardDemoProgramAsync();
+
+        var acquire = session.StepTree.SelectMany(Flatten)
+            .First(n => n.Name.Contains("Acquire 3V3", StringComparison.OrdinalIgnoreCase) && n.Children.Count == 0);
+        var mean = session.StepTree.SelectMany(Flatten)
+            .First(n => n.Name.Contains("Mean GTE 3V3", StringComparison.OrdinalIgnoreCase) && n.Children.Count == 0);
+
+        var acquireParams = session.EnumerateParameters(OpenTapParameterScope.Step, acquire.Path, includeReadOnly: true);
+        Assert.Contains(acquireParams, p =>
+            p.MemberKey.Contains("ChannelKey", StringComparison.OrdinalIgnoreCase)
+            || p.DisplayName.Contains("Channel key", StringComparison.OrdinalIgnoreCase));
+
+        var meanParams = session.EnumerateParameters(OpenTapParameterScope.Step, mean.Path, includeReadOnly: true);
+        var role = meanParams.FirstOrDefault(p =>
+            p.DisplayName.Contains("Display role", StringComparison.OrdinalIgnoreCase)
+            || p.MemberKey.EndsWith("/DisplayRole", StringComparison.OrdinalIgnoreCase));
+        Assert.NotNull(role);
+        Assert.True(session.TryGetParameter(role!.MemberKey, out var roleValue));
+        Assert.Equal(PresentationDisplayRoles.Passband, roleValue);
+    }
+
+    [Fact]
+    public async Task Sweep_run_stamps_iteration_and_sweep_metric_key()
+    {
+        var session = new OpenTapSession();
+        await session.LoadSweepDemoProgramAsync();
+        await session.ApplyStationAndDutAsync(
+            new StationProfile(new Dictionary<string, string> { ["dmm"] = "MOCK::INSTR0" }),
+            new DutIdentity("DUT-SWEEP-PRES", Family: "demo"));
+
+        var summary = await session.RunAsync();
+        Assert.Equal(RunResult.Passed, summary.Result);
+        Assert.Contains(summary.Samples, s =>
+            s.IterationIndex is > 0
+            && string.Equals(s.MetricKey, "sweep.vdc", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]

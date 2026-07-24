@@ -1409,6 +1409,12 @@ internal sealed class ProgressResultListener : ResultListener
                 return;
             }
 
+            if (string.Equals(result.Name, "Scalar", StringComparison.OrdinalIgnoreCase))
+            {
+                PublishScalars(result);
+                return;
+            }
+
             if (string.Equals(result.Name, "Identity", StringComparison.OrdinalIgnoreCase))
             {
                 var idn = result.Columns.FirstOrDefault(c => c.Name == "Idn");
@@ -1485,6 +1491,7 @@ internal sealed class ProgressResultListener : ResultListener
             return;
         }
 
+        var hints = CurrentPresentationHints();
         for (var i = 0; i < valueCol.Data.Length; i++)
         {
             var value = Convert.ToDouble(valueCol.Data.GetValue(i));
@@ -1504,7 +1511,7 @@ internal sealed class ProgressResultListener : ResultListener
                 }
             }
 
-            _samples.Add(new StoredSample
+            var stored = new StoredSample
             {
                 Channel = channel,
                 Timestamp = ts,
@@ -1512,7 +1519,9 @@ internal sealed class ProgressResultListener : ResultListener
                 StepPath = stepPath,
                 IterationIndex = iterationIndex,
                 LoopPath = loopPath,
-            });
+            };
+            OpenTapPresentation.ApplySample(stored, channel, hints);
+            _samples.Add(stored);
 
             var sampleEvent = new MeasurementSampleEvent(channel, index, value, ts);
             var percent = (double)_stepIndex / _stepCount * 100;
@@ -1530,7 +1539,7 @@ internal sealed class ProgressResultListener : ResultListener
                     StepId = _currentStepId,
                     StepName = _currentStepName,
                     StepPath = stepPath,
-                    KeyValue = $"{channel}={value:F3}",
+                    KeyValue = FormatSampleKey(stored),
                     OverallPercent = percent,
                 });
             }
@@ -1540,6 +1549,88 @@ internal sealed class ProgressResultListener : ResultListener
                 _coalescedPercent = percent;
             }
         }
+    }
+
+    private void PublishScalars(ResultTable result)
+    {
+        var nameCol = result.Columns.FirstOrDefault(c => c.Name == "Name");
+        var valueCol = result.Columns.FirstOrDefault(c => c.Name == "Value");
+        var unitCol = result.Columns.FirstOrDefault(c => c.Name == "Unit");
+        if (valueCol is null)
+        {
+            return;
+        }
+
+        var hints = CurrentPresentationHints();
+        var stepPath = _resolvePath(_currentStepId ?? string.Empty, _currentStepName) ?? string.Empty;
+        for (var i = 0; i < valueCol.Data.Length; i++)
+        {
+            var value = Convert.ToDouble(valueCol.Data.GetValue(i));
+            var name = nameCol is null || i >= nameCol.Data.Length
+                ? "Scalar"
+                : Convert.ToString(nameCol.Data.GetValue(i)) ?? "Scalar";
+            var unit = unitCol is null || i >= unitCol.Data.Length
+                ? string.Empty
+                : Convert.ToString(unitCol.Data.GetValue(i)) ?? string.Empty;
+            var stored = new StoredSample
+            {
+                Timestamp = DateTimeOffset.UtcNow,
+                Value = value,
+                StepPath = stepPath,
+            };
+            OpenTapPresentation.ApplyScalar(stored, name, unit, hints);
+            _samples.Add(stored);
+
+            if (_currentStepId is not null)
+            {
+                _updateNode(_currentStepId, _currentStepName, "Running", "NotSet", FormatSampleKey(stored));
+            }
+
+            _progress?.Report(new OpenTapProgress
+            {
+                Message = FormatSampleKey(stored),
+                StepId = _currentStepId,
+                StepName = _currentStepName,
+                StepPath = stepPath,
+                KeyValue = FormatSampleKey(stored),
+                StatusText = stored.DisplayRole ?? "Scalar",
+                OverallPercent = (double)_stepIndex / Math.Max(_stepCount, 1) * 100,
+            });
+        }
+    }
+
+    private OpenTapPresentation.MixinHints? CurrentPresentationHints()
+    {
+        if (_currentStepId is null || !Guid.TryParse(_currentStepId, out var id))
+        {
+            return null;
+        }
+
+        return OpenTapPresentation.TryReadMixin(OpenTapLoopProgress.FindStepById(_plan, id));
+    }
+
+    private static string FormatSampleKey(StoredSample sample)
+    {
+        var key = sample.EffectiveMetricKey;
+        var role = string.IsNullOrWhiteSpace(sample.DisplayRole) ? null : sample.DisplayRole;
+        var unit = string.IsNullOrWhiteSpace(sample.Unit) ? null : sample.Unit;
+        var value = sample.Value.ToString("G6", System.Globalization.CultureInfo.InvariantCulture);
+        if (role is null && unit is null)
+        {
+            return $"{key}={value}";
+        }
+
+        if (unit is null)
+        {
+            return $"{key} [{role}] {value}";
+        }
+
+        if (role is null)
+        {
+            return $"{key}={value} {unit}";
+        }
+
+        return $"{key} [{role}] {value} {unit}";
     }
 
     private void FlushCoalescedSample()

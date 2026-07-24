@@ -208,8 +208,8 @@ public sealed class DutHistoryService : IDutHistoryService
 
     private static Dictionary<string, double> ChannelMeans(IEnumerable<StoredSample> samples)
         => samples
-            .Where(s => !string.IsNullOrWhiteSpace(s.Channel))
-            .GroupBy(s => s.Channel, StringComparer.OrdinalIgnoreCase)
+            .Where(s => !string.IsNullOrWhiteSpace(s.EffectiveMetricKey))
+            .GroupBy(s => s.EffectiveMetricKey, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(g => g.Key, g => g.Average(s => s.Value), StringComparer.OrdinalIgnoreCase);
 
     private static string BuildSummary(

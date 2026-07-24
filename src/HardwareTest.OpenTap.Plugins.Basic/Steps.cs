@@ -101,6 +101,7 @@ public sealed class MeanGteStep : TestStep
 
         var mean = values.Average();
         Results.Publish("Analyze", new List<string> { "Mean", "Threshold" }, mean, Threshold);
+        Results.Publish("Scalar", new List<string> { "Name", "Value", "Unit" }, "Mean", mean, string.Empty);
         if (mean >= Threshold)
         {
             UpgradeVerdict(Verdict.Pass);
