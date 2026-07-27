@@ -35,17 +35,17 @@ Two tests are red as a result, one of them a real adopter-facing regression.
 
 2. **`LICENSE`** — MIT, current year, project author. Add the SPDX id to each `.csproj` (`<PackageLicenseExpression>MIT</PackageLicenseExpression>`) and a license line to `README.md`.
 
-3. **CI triggers** — add the branches that exist:
+3. **CI triggers** — run on integration-branch pushes and on every PR; avoid double runs:
 
    ```yaml
    on:
      push:
-       branches: [latest, main, master, "cursor/**"]
+       branches: [latest, main, master]
      pull_request:
      workflow_dispatch:
    ```
 
-   `workflow_dispatch` matters: it lets you verify the workflow without inventing a commit.
+   Feature branches (`cursor/**`, etc.) get CI via `pull_request` only. That prevents the same commit from running once for `push` and again for `pull_request` when a PR is open. `workflow_dispatch` still lets you verify a branch without inventing a commit or opening a PR.
 
 4. **Fix the Typst template override regression.** `TypstReportServiceTests.CompileTemplateAsync_uses_DataDirectory_reports_override` fails because [`ResolveTemplateName`](../../src/HardwareTest.Core/Reporting/TypstReportService.cs) explicitly refuses to honor `ReportTemplateName` when its value is `test-report.typ` — which is its **default** value, and the exact filename [adapting.md §7](../adapting.md#7-reports-typst) tells adopters to drop into `{DataDirectory}/reports/`. The `InvalidOperationException` fallback never fires either, because `status-report.typ` is now embedded and always resolves.
 

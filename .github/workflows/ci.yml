@@ -1,8 +1,11 @@
 name: CI
 
 on:
+  # Push only on integration branches. Feature-branch CI is pull_request-only so a
+  # push to an open PR does not fire a second identical run for the same commit.
+  # Branches without a PR can still be verified via workflow_dispatch.
   push:
-    branches: [latest, main, master, "cursor/**"]
+    branches: [latest, main, master]
   pull_request:
   workflow_dispatch:
 
