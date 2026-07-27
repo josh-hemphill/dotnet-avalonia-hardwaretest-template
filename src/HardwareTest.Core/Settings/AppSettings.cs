@@ -17,6 +17,8 @@ public sealed class AppSettings
     public bool EmbedPlotsInReport { get; set; } = true;
     /// When true, attach a ResultListener that writes OpenTAP tables as CSV under runs/{runId}/opentap-results/.
     public bool ExportOpenTapResults { get; set; }
+    /// When true, show DUT history summary on the Run board after Pass/Fail (default off; use Results).
+    public bool ShowDutHistoryOnRun { get; set; }
     /// Idle hours before Operator Session becomes Stale (soft re-confirm).
     public int OperatorSessionIdleHours { get; set; } = 4;
     /// When true, Run page exposes constrained on-bench debug edits.

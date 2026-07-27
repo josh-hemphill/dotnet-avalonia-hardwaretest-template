@@ -1,6 +1,6 @@
 #import "lib/sample-chart.typ": channel-names, samples-for, line-chart
 
-= Test Report
+= Status Report
 #v(0.5em)
 #text(size: 14pt)[#sys.inputs.title]
 

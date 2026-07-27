@@ -33,6 +33,7 @@ public partial class SettingsViewModel : ReactiveObject
         ThemePreference = string.IsNullOrWhiteSpace(s.ThemePreference) ? "System" : s.ThemePreference;
         EmbedPlotsInReport = s.EmbedPlotsInReport;
         ExportOpenTapResults = s.ExportOpenTapResults;
+        ShowDutHistoryOnRun = s.ShowDutHistoryOnRun;
         IsEngineerDebugMode = s.IsEngineerDebugMode;
         OperatorSessionIdleHours = s.OperatorSessionIdleHours;
         DataDirectory = settingsStore.RootDirectory;
@@ -115,6 +116,7 @@ public partial class SettingsViewModel : ReactiveObject
     [Reactive] private string _themePreference = "System";
     [Reactive] private bool _embedPlotsInReport = true;
     [Reactive] private bool _exportOpenTapResults;
+    [Reactive] private bool _showDutHistoryOnRun;
     [Reactive] private bool _isEngineerDebugMode;
     [Reactive] private int _operatorSessionIdleHours = 4;
     [Reactive] private string _dataDirectory = string.Empty;
@@ -213,6 +215,7 @@ public partial class SettingsViewModel : ReactiveObject
         s.ThemePreference = ThemePreference;
         s.EmbedPlotsInReport = EmbedPlotsInReport;
         s.ExportOpenTapResults = ExportOpenTapResults;
+        s.ShowDutHistoryOnRun = ShowDutHistoryOnRun;
         s.IsEngineerDebugMode = IsEngineerDebugMode;
         s.OperatorSessionIdleHours = Math.Clamp(OperatorSessionIdleHours, 1, 168);
         await _settingsStore.SaveAppSettingsAsync();

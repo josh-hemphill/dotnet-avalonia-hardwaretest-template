@@ -35,6 +35,12 @@
       </Grid>
 
       <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
+        <TextBlock Text="DUT history on Run board" VerticalAlignment="Center" />
+        <CheckBox Grid.Column="1" IsChecked="{Binding ShowDutHistoryOnRun}"
+                  ToolTip.Tip="When off (default), history appears only on Results. When on, show a summary banner on Run after Pass/Fail." />
+      </Grid>
+
+      <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
         <TextBlock Text="Log level" VerticalAlignment="Center" />
         <ComboBox Grid.Column="1"
                   ItemsSource="{Binding LogLevelOptions}"

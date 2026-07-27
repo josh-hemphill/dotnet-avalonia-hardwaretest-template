@@ -39,7 +39,7 @@ public sealed class TypstReportServiceTests
         var pdf = await CompileOrSkipAsync(() => reports.CompileTemplateAsync(run));
         AssertPdfMagic(pdf);
 
-        var workDir = Path.Combine(Path.GetTempPath(), "HardwareTestTypst", run.RunId);
+        var workDir = Path.Combine(Path.GetTempPath(), "HardwareTestTypst", run.RunId, ReportKinds.Status);
         Assert.True(File.Exists(Path.Combine(workDir, "main.typ")));
         Assert.True(File.Exists(Path.Combine(workDir, "run.json")));
         Assert.True(File.Exists(Path.Combine(workDir, "lib", "sample-chart.typ")));
@@ -95,9 +95,33 @@ public sealed class TypstReportServiceTests
         var pdf = await CompileOrSkipAsync(() => reports.CompileTemplateAsync(run));
         AssertPdfMagic(pdf);
 
-        var workDir = Path.Combine(Path.GetTempPath(), "HardwareTestTypst", run.RunId);
+        var workDir = Path.Combine(Path.GetTempPath(), "HardwareTestTypst", run.RunId, ReportKinds.Status);
         var main = await File.ReadAllTextAsync(Path.Combine(workDir, "main.typ"));
         Assert.Contains("Override template", main, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task GenerateReportsAsync_writes_status_and_certification_pdfs()
+    {
+        using var temp = new TempDataDirectory();
+        var runStore = new FileRunStore(temp.RunsDirectory);
+        var run = CreateRun();
+        await runStore.SaveAsync(run);
+
+        using var reports = new TypstReportService(runStore, new AppSettings { EmbedPlotsInReport = false });
+        var artifacts = await CompileOrSkipAsync(() => reports.GenerateReportsAsync(
+            run,
+            [ReportKinds.Status, ReportKinds.Certification],
+            new DutHistoryReport { OperatorSummary = "DUT history OK vs last 1 run(s).", OverallSeverity = DutHistorySeverity.Normal }));
+
+        Assert.Equal(2, artifacts.Count);
+        Assert.All(artifacts, a => Assert.True(File.Exists(a.PdfPath)));
+        Assert.Contains(artifacts, a => a.Kind == ReportKinds.Status);
+        Assert.Contains(artifacts, a => a.Kind == ReportKinds.Certification);
+        Assert.Equal(artifacts.First(a => a.Kind == ReportKinds.Status).PdfPath, run.ReportPdfPath);
+
+        var reloaded = await runStore.LoadAsync(run.RunId);
+        Assert.Equal(2, reloaded!.Reports.Count);
     }
 
     private static TestRunRecord CreateRun(int sampleCount = 1)

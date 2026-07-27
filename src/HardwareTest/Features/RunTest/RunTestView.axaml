@@ -1,7 +1,9 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:HardwareTest.Features.RunTest"
+             xmlns:pres="using:HardwareTest.Features.Presentation"
              xmlns:widgets="using:HardwareTest.Widgets.MeasurementPlot"
+             xmlns:widgetsPres="using:HardwareTest.Widgets.Presentation"
              x:Class="HardwareTest.Features.RunTest.RunTestView"
              x:DataType="vm:RunTestViewModel"
              KeyDown="OnKeyDown">
@@ -336,6 +338,20 @@
                        MaxHeight="140"
                        MinHeight="48"
                        ScrollViewer.VerticalScrollBarVisibility="Auto" />
+              <ItemsControl ItemsSource="{Binding PresentationTiles}"
+                            IsVisible="{Binding HasPresentationTiles}"
+                            Margin="0,4,0,4">
+                <ItemsControl.ItemsPanel>
+                  <ItemsPanelTemplate>
+                    <WrapPanel Orientation="Horizontal" />
+                  </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="pres:PresentationTileViewModel">
+                    <widgetsPres:MetricGaugeView Width="160" Margin="0,0,8,4" DataContext="{Binding}" />
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
               <widgets:MeasurementPlotView x:Name="Plot"
                                            Height="140"
                                            IsVisible="{Binding ShowPlotForSelection}" />

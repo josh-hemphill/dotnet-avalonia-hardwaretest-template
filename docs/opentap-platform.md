@@ -4,6 +4,8 @@ North-star for deepening OpenTAP integration in this Avalonia hardware-test temp
 
 Related: [adapting.md](adapting.md) (productize), [testing.md](testing.md) (UI vs host tests), [appliance-linux.md](appliance-linux.md) (publish layout).
 
+**Sibling track:** [platform-roadmap.md](platform-roadmap.md) covers the non-OpenTAP hardening work (repo gates, configuration, diagnostics, crash capture, containerized CI, code structure). OpenTAP phases use **letters**; platform phases use **numbers** — "Phase C" and "Phase 3" are never the same thing.
+
 ## Locked product decisions
 
 | Topic | Decision |
@@ -24,7 +26,7 @@ Related: [adapting.md](adapting.md) (productize), [testing.md](testing.md) (UI v
 | Structured operator interactions (in-panel) | Steps that *request* interactions via Host bridge |
 | Typst PDF + optional result file export | `ResultListener` / `Results.Publish` |
 
-UI talks to OpenTAP only through [`IOpenTapSession`](../src/HardwareTest.OpenTap.Host/OpenTapSession.cs).
+UI talks to OpenTAP only through [`IOpenTapSession`](../src/HardwareTest.OpenTap.Host/OpenTapSession.cs). Typst reports: programs declare `reportKinds` (`status` / `certification`); see [adapting.md](adapting.md#reports-multi-pdf).
 
 ```mermaid
 flowchart TB
@@ -95,7 +97,7 @@ Two different concepts (do not conflate):
 ## Mixin support model
 
 - Mixins load with plugins (`OpenTapPluginDirectories` / package install dirs). Host always searches Basic + Mixins plugin assembly directories (`OpenTapPluginSearch`).
-- Demo: [`AnnotationMixin`](../src/HardwareTest.OpenTap.Plugins.Mixins/AnnotationMixin.cs) and [`PresentationMixin`](../src/HardwareTest.OpenTap.Plugins.Mixins/PresentationMixin.cs) (`ChannelKey` / `DisplayRole` / `YUnit`). Sample Identity Check attaches Annotation; Acquire/Mean steps across Sample, Board, and Sweep demos attach Presentation — see [phase-i-presentation-contract.md](opentap-phases/phase-i-presentation-contract.md). Production plans attach mixins in **OpenTAP Editor**.
+- Demo: [`AnnotationMixin`](../src/HardwareTest.OpenTap.Plugins.Mixins/AnnotationMixin.cs) and [`PresentationMixin`](../src/HardwareTest.OpenTap.Plugins.Mixins/PresentationMixin.cs) (`ChannelKey` / `DisplayRole` / `YUnit`). Sample Identity Check attaches Annotation; Acquire/Mean steps across Sample, Board, and Sweep demos attach Presentation — see [phase-i-presentation-contract.md](opentap-phases/phase-i-presentation-contract.md). Run/Results map roles to plot + gauges ([phase-j-presentation-ui.md](opentap-phases/phase-j-presentation-ui.md)). Production plans attach mixins in **OpenTAP Editor**.
 - Engineer/Debug Station overrides lists mixin-embedded members via TypeData (`EmbedProperties`), with `OpenTapParameterInfo.IsMixinEmbedded` + Group (e.g. `Annotation: Note`). Get/set uses the Phase C parameter bridge.
 - Author mixins with `IMixin` + `IMixinBuilder` (`[MixinBuilder(typeof(ITestStep))]`). Avalonia does **not** offer “Add Mixin” — attach in Editor, edit values in the shell.
 - See [phase-d-mixins.md](opentap-phases/phase-d-mixins.md) and [adapting.md](adapting.md#10-custom-mixins).
@@ -142,7 +144,7 @@ Two different concepts (do not conflate):
 | G | [Sweep / loop progress](opentap-phases/phase-g-sweeps.md) | Done |
 | H | [Result export](opentap-phases/phase-h-results-export.md) | Done |
 | I | [Presentation contract](opentap-phases/phase-i-presentation-contract.md) | Done |
-| J | [Presentation UI](opentap-phases/phase-j-presentation-ui.md) | Planned |
+| J | [Presentation UI](opentap-phases/phase-j-presentation-ui.md) | Done |
 
 **Suggested order:** A → B → C → D; E can parallelize after the doc; F after C; G/H after parameters stabilize; I → J after loop-stamped samples / DUT history.
 

@@ -49,6 +49,11 @@ public sealed class OpenTapProgressFrameDto
                 Channel = p.Sample.Channel,
                 Timestamp = p.Sample.Timestamp,
                 Value = p.Sample.Value,
+                MetricKey = p.Sample.MetricKey ?? string.Empty,
+                DisplayRole = p.Sample.DisplayRole,
+                Unit = p.Sample.Unit,
+                LimitLow = p.Sample.LimitLow,
+                LimitHigh = p.Sample.LimitHigh,
             },
         IterationIndex = p.IterationIndex,
         IterationTotal = p.IterationTotal,
@@ -71,7 +76,7 @@ public sealed class OpenTapProgressFrameDto
         Result = Result,
         Sample = Sample is null
             ? null
-            : new MeasurementSampleEvent(Sample.Channel, 0, Sample.Value, Sample.Timestamp),
+            : MeasurementSampleEvent.FromStored(Sample),
         IterationIndex = IterationIndex,
         IterationTotal = IterationTotal,
         IterationText = IterationText,

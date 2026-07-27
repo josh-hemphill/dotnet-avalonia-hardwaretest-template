@@ -640,6 +640,29 @@ public sealed class OpenTapSessionTests
                 || string.Equals(s.Channel, "Mean", StringComparison.OrdinalIgnoreCase)));
         Assert.Contains(summary.Samples, s =>
             string.Equals(s.Unit, "V", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(summary.Samples, s =>
+            string.Equals(s.MetricKey, "VDC.mean", StringComparison.OrdinalIgnoreCase)
+            && s.LimitLow is not null);
+    }
+
+    [Fact]
+    public async Task Sample_run_scalar_publishes_limit_low_from_threshold()
+    {
+        var session = new OpenTapSession();
+        await session.LoadSampleProgramAsync();
+        await session.ApplyStationAndDutAsync(
+            new StationProfile(new Dictionary<string, string> { ["dmm"] = "MOCK::INSTR0" }),
+            new DutIdentity("DUT-LIM", Family: "demo"));
+
+        var mean = session.StepTree.SelectMany(Flatten)
+            .First(n => n.Name.Contains("Mean", StringComparison.OrdinalIgnoreCase) && n.Children.Count == 0);
+        Assert.True(session.TrySetMeanGteThreshold(mean.Path, 0.25));
+
+        var summary = await RunSampleWithAutoResumeAsync(session);
+        Assert.Contains(summary.Samples, s =>
+            string.Equals(s.MetricKey, "VDC.mean", StringComparison.OrdinalIgnoreCase)
+            && s.LimitLow is { } low
+            && Math.Abs(low - 0.25) < 1e-9);
     }
 
     [Fact]

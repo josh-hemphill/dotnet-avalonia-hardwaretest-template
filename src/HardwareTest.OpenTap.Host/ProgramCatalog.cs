@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using HardwareTest.Core.Runs;
 
 namespace HardwareTest.OpenTap.Host;
 
@@ -21,6 +22,10 @@ public sealed class ProgramCatalogEntry
     public ProgramRequirements Requirements { get; init; } = ProgramRequirements.Sample;
     public ProgramLoadKind LoadKind { get; init; } = ProgramLoadKind.TapPlanFile;
     public bool IsBuiltIn { get; init; }
+    /// Report kinds to generate after a run (default status only).
+    public IReadOnlyList<string> ReportKinds { get; init; } = [HardwareTest.Core.Runs.ReportKinds.Status];
+    /// Kind opened by Results double-click / primary open (default status).
+    public string DefaultReportKind { get; init; } = HardwareTest.Core.Runs.ReportKinds.Status;
 }
 
 /// Optional sidecar beside a .TapPlan: `{planId}.program.json`.
@@ -32,6 +37,8 @@ public sealed class ProgramSidecar
     public bool? RequirePartNumber { get; set; }
     public bool? RequireRevision { get; set; }
     public bool? RequireOperator { get; set; }
+    public string[]? ReportKinds { get; set; }
+    public string? DefaultReportKind { get; set; }
 }
 
 [JsonSourceGenerationOptions(
@@ -78,6 +85,47 @@ public static class ProgramCatalog
             .ToList();
     }
 
+    /// Resolve report kinds for a plan id (catalog entry or default status).
+    public static IReadOnlyList<string> ResolveReportKinds(string? planId, IEnumerable<string>? extraDirectories = null)
+    {
+        if (string.IsNullOrWhiteSpace(planId))
+        {
+            return [HardwareTest.Core.Runs.ReportKinds.Status];
+        }
+
+        var entry = Enumerate(extraDirectories)
+            .FirstOrDefault(e => string.Equals(e.Id, planId, StringComparison.OrdinalIgnoreCase));
+        if (entry?.ReportKinds is { Count: > 0 })
+        {
+            return entry.ReportKinds;
+        }
+
+        return [HardwareTest.Core.Runs.ReportKinds.Status];
+    }
+
+    /// Resolve which report kind Results should open on double-click.
+    public static string ResolveDefaultReportKind(string? planId, IEnumerable<string>? extraDirectories = null)
+    {
+        if (string.IsNullOrWhiteSpace(planId))
+        {
+            return HardwareTest.Core.Runs.ReportKinds.Status;
+        }
+
+        var entry = Enumerate(extraDirectories)
+            .FirstOrDefault(e => string.Equals(e.Id, planId, StringComparison.OrdinalIgnoreCase));
+        if (entry is null)
+        {
+            return HardwareTest.Core.Runs.ReportKinds.Status;
+        }
+
+        if (!string.IsNullOrWhiteSpace(entry.DefaultReportKind))
+        {
+            return entry.DefaultReportKind.Trim();
+        }
+
+        return entry.ReportKinds.FirstOrDefault() ?? HardwareTest.Core.Runs.ReportKinds.Status;
+    }
+
     private static int CatalogSortKey(ProgramCatalogEntry entry)
         => entry.Id switch
         {
@@ -122,6 +170,7 @@ public static class ProgramCatalog
             Requirements = ProgramRequirements.Sample,
             LoadKind = ProgramLoadKind.FactorySample,
             IsBuiltIn = true,
+            ReportKinds = [HardwareTest.Core.Runs.ReportKinds.Status, HardwareTest.Core.Runs.ReportKinds.Certification],
         };
         yield return new ProgramCatalogEntry
         {
@@ -132,6 +181,7 @@ public static class ProgramCatalog
             Requirements = ProgramRequirements.Sample,
             LoadKind = ProgramLoadKind.FactoryBoardDemo,
             IsBuiltIn = true,
+            ReportKinds = [HardwareTest.Core.Runs.ReportKinds.Status, HardwareTest.Core.Runs.ReportKinds.Certification],
         };
         yield return new ProgramCatalogEntry
         {
@@ -142,6 +192,7 @@ public static class ProgramCatalog
             Requirements = ProgramRequirements.Sample,
             LoadKind = ProgramLoadKind.FactorySweepDemo,
             IsBuiltIn = true,
+            ReportKinds = [HardwareTest.Core.Runs.ReportKinds.Status],
         };
     }
 
@@ -150,6 +201,12 @@ public static class ProgramCatalog
         var sidecar = TryLoadSidecar(file, id);
         var family = string.IsNullOrWhiteSpace(sidecar?.DutFamily) ? "generic" : sidecar!.DutFamily!.Trim();
         var requirements = BuildRequirements(sidecar, family);
+        var kinds = sidecar?.ReportKinds is { Length: > 0 }
+            ? (IReadOnlyList<string>)sidecar.ReportKinds
+            : [HardwareTest.Core.Runs.ReportKinds.Status];
+        var defaultKind = string.IsNullOrWhiteSpace(sidecar?.DefaultReportKind)
+            ? kinds[0]
+            : sidecar!.DefaultReportKind!.Trim();
         return new ProgramCatalogEntry
         {
             Id = id,
@@ -159,6 +216,8 @@ public static class ProgramCatalog
             Requirements = requirements,
             LoadKind = ProgramLoadKind.TapPlanFile,
             IsBuiltIn = false,
+            ReportKinds = kinds,
+            DefaultReportKind = defaultKind,
         };
     }
 

@@ -29,4 +29,13 @@ public sealed class PresentationMixin : IMixin
 
     [Display("Y unit", Groups: ["Presentation"], Description: "Unit label for plots/gauges (e.g. V).", Order: 3)]
     public string YUnit { get; set; } = string.Empty;
+
+    [Display("History enabled", Groups: ["Presentation"], Description: "Include this metric in DUT history drift checks.", Order: 4)]
+    public bool HistoryEnabled { get; set; } = true;
+
+    [Display("History watch %", Groups: ["Presentation"], Description: "Watch when |delta| vs prior mean reaches this percent. Leave empty for shell default (5).", Order: 5)]
+    public double? HistoryWatchPercent { get; set; }
+
+    [Display("History alert %", Groups: ["Presentation"], Description: "Alert when |delta| vs prior mean reaches this percent. Leave empty for shell default (10).", Order: 6)]
+    public double? HistoryAlertPercent { get; set; }
 }

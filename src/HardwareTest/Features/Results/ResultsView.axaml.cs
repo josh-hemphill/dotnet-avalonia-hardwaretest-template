@@ -14,7 +14,7 @@ public partial class ResultsView : UserControl
     {
         if (DataContext is ResultsViewModel vm)
         {
-            await vm.OpenSelectedRunAsync();
+            await vm.OpenSelectedRunDefaultReportAsync();
         }
     }
 }

@@ -1,5 +1,6 @@
 using HardwareTest.Core.Runs;
 using HardwareTest.Core.Settings;
+using HardwareTest.Features.Presentation;
 using HardwareTest.Features.RunTest;
 using HardwareTest.OpenTap.Host;
 using HardwareTest.OpenTap.Plugins.Basic;
@@ -16,7 +17,8 @@ public sealed class RunTestViewModelTests
         AppSettings? settings = null,
         OperatorSession? session = null,
         FakeRunStore? store = null,
-        FakeSettingsStore? settingsStore = null)
+        FakeSettingsStore? settingsStore = null,
+        IDutHistoryService? dutHistory = null)
     {
         settings ??= settingsStore?.AppSettings ?? new AppSettings();
         return new RunTestViewModel(
@@ -26,7 +28,8 @@ public sealed class RunTestViewModelTests
             reports ?? new FakeReportService(),
             store ?? new FakeRunStore(),
             settings,
-            settingsStore);
+            settingsStore,
+            dutHistory);
     }
 
     private static async Task ConfirmReadyAsync(RunTestViewModel vm, string serial = "SN-1", string tech = "Tech")
@@ -207,6 +210,48 @@ public sealed class RunTestViewModelTests
         Assert.Equal(16, vm.DetailLines.Count);
         Assert.Equal("line 0", vm.DetailLines[0]);
         Assert.Equal("line 15", vm.DetailLines[^1]);
+    }
+
+    [Fact]
+    public async Task Presentation_gauge_tile_appears_for_selected_mean_step()
+    {
+        var openTap = new FakeOpenTapSession { Delay = TimeSpan.FromMilliseconds(5) };
+        var vm = CreateVm(openTap, settings: new AppSettings { PlotRefreshHz = 60 });
+        vm.UiScheduler = action => action();
+        await vm.RefreshProgramsCommand.ExecuteAsync();
+        await ConfirmReadyAsync(vm, "SN-GAUGE");
+        await vm.RunCommand.ExecuteAsync();
+        await Task.Delay(80);
+
+        var mean = Flatten(vm.Hierarchy).First(s =>
+            s.Children.Count == 0 && s.Name.Contains("Mean", StringComparison.OrdinalIgnoreCase));
+        vm.SelectedStep = mean;
+        Assert.True(vm.HasPresentationTiles);
+        Assert.Contains(vm.PresentationTiles, t =>
+            t.Kind == PresentationTileKind.Scalar
+            && t.MetricKey.Contains("mean", StringComparison.OrdinalIgnoreCase));
+        Assert.False(vm.ShowPlotForSelection);
+    }
+
+    [Fact]
+    public async Task Run_without_presentation_metrics_stays_usable_without_tiles()
+    {
+        var openTap = new FakeOpenTapSession
+        {
+            Delay = TimeSpan.FromMilliseconds(5),
+            ReportPresentationMetrics = false,
+            ReportSamples = true,
+        };
+        var vm = CreateVm(openTap, settings: new AppSettings { PlotRefreshHz = 60 });
+        vm.UiScheduler = action => action();
+        await vm.RefreshProgramsCommand.ExecuteAsync();
+        await ConfirmReadyAsync(vm, "SN-NOPRES");
+        await vm.RunCommand.ExecuteAsync();
+        await Task.Delay(80);
+
+        Assert.True(vm.HasPlotData);
+        Assert.False(vm.HasPresentationTiles);
+        Assert.Empty(vm.PresentationTiles);
     }
 
     [Fact]
@@ -486,6 +531,60 @@ public sealed class RunTestViewModelTests
         Assert.Equal(1, reports.GenerateCount);
         var saved = await store.LoadAsync(vm.LastRunId!);
         Assert.Equal("SN-100", saved!.DutSerial);
+    }
+
+    [Fact]
+    public async Task Run_does_not_set_history_banner_when_setting_disabled()
+    {
+        var openTap = new FakeOpenTapSession { Delay = TimeSpan.FromMilliseconds(5) };
+        var historyStore = new FakeRunStore();
+        historyStore.Seed(new TestRunRecord
+        {
+            RunId = "prior",
+            PlanId = "sample",
+            PlanName = "Sample Hardware Suite",
+            DutSerial = "SN-BANNER",
+            StartedAt = DateTimeOffset.UtcNow.AddHours(-1),
+            Result = RunResult.Passed,
+            Samples = [new StoredSample { Channel = "VDC", Value = 10, Timestamp = DateTimeOffset.UtcNow }],
+        });
+        var settings = new AppSettings { ShowDutHistoryOnRun = false, PlotRefreshHz = 60 };
+        var vm = CreateVm(
+            openTap,
+            settings: settings,
+            store: historyStore,
+            dutHistory: new DutHistoryService(historyStore));
+        await vm.RefreshProgramsCommand.ExecuteAsync();
+        await ConfirmReadyAsync(vm, "SN-BANNER");
+        await vm.RunCommand.ExecuteAsync();
+        Assert.True(string.IsNullOrEmpty(vm.HistoryBanner));
+    }
+
+    [Fact]
+    public async Task Run_sets_history_banner_when_setting_enabled()
+    {
+        var openTap = new FakeOpenTapSession { Delay = TimeSpan.FromMilliseconds(5) };
+        var historyStore = new FakeRunStore();
+        historyStore.Seed(new TestRunRecord
+        {
+            RunId = "prior",
+            PlanId = "sample",
+            PlanName = "Sample Hardware Suite",
+            DutSerial = "SN-BANNER-ON",
+            StartedAt = DateTimeOffset.UtcNow.AddHours(-1),
+            Result = RunResult.Passed,
+            Samples = [new StoredSample { Channel = "VDC", Value = 10, Timestamp = DateTimeOffset.UtcNow }],
+        });
+        var settings = new AppSettings { ShowDutHistoryOnRun = true, PlotRefreshHz = 60 };
+        var vm = CreateVm(
+            openTap,
+            settings: settings,
+            store: historyStore,
+            dutHistory: new DutHistoryService(historyStore));
+        await vm.RefreshProgramsCommand.ExecuteAsync();
+        await ConfirmReadyAsync(vm, "SN-BANNER-ON");
+        await vm.RunCommand.ExecuteAsync();
+        Assert.False(string.IsNullOrWhiteSpace(vm.HistoryBanner));
     }
 
     [Fact]

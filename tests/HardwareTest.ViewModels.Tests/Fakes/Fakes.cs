@@ -62,6 +62,8 @@ public sealed class FakeOpenTapSession : IOpenTapSession
     public int RunCount { get; private set; }
     public int SelectionRunCount { get; private set; }
     public bool ReportSamples { get; set; } = true;
+    /// When true with ReportSamples, also emits a scalar presentation Sample for gauge tiles.
+    public bool ReportPresentationMetrics { get; set; } = true;
     public DutIdentity? LastDut { get; private set; }
     public StationProfile? LastStation { get; private set; }
     public string? LastSelectionPath { get; private set; }
@@ -454,12 +456,50 @@ public sealed class FakeOpenTapSession : IOpenTapSession
 
         if (ReportSamples)
         {
+            var acquirePath = Flatten(Tree).FirstOrDefault(n =>
+                n.Name.Contains("Acquire", StringComparison.OrdinalIgnoreCase))?.Path
+                ?? Flatten(Tree).FirstOrDefault(n => n.Children.Count == 0)?.Path;
+            var meanPath = Flatten(Tree).FirstOrDefault(n =>
+                n.Name.Contains("Mean", StringComparison.OrdinalIgnoreCase))?.Path
+                ?? acquirePath;
+
             progress?.Report(new OpenTapProgress
             {
                 Message = "Sample",
-                Sample = new MeasurementSampleEvent("VDC", 0, 1.25, DateTimeOffset.UtcNow),
+                StepPath = acquirePath,
+                StepName = "Acquire VDC",
+                Sample = new MeasurementSampleEvent(
+                    "VDC",
+                    0,
+                    1.25,
+                    DateTimeOffset.UtcNow,
+                    MetricKey: "VDC",
+                    DisplayRole: "timeseries",
+                    Unit: "V"),
                 OverallPercent = 40,
             });
+
+            if (ReportPresentationMetrics)
+            {
+                progress?.Report(new OpenTapProgress
+                {
+                    Message = "VDC.mean [scalar] 1.25 V",
+                    StepPath = meanPath,
+                    StepName = "Mean GTE",
+                    KeyValue = "VDC.mean [scalar] 1.25 V",
+                    StatusText = "scalar",
+                    Sample = new MeasurementSampleEvent(
+                        "Mean",
+                        0,
+                        1.25,
+                        DateTimeOffset.UtcNow,
+                        MetricKey: "VDC.mean",
+                        DisplayRole: "scalar",
+                        Unit: "V",
+                        LimitLow: 0),
+                    OverallPercent = 70,
+                });
+            }
         }
 
         try
@@ -509,7 +549,25 @@ public sealed class FakeOpenTapSession : IOpenTapSession
             CompletedAt = DateTimeOffset.UtcNow,
             Samples =
             [
-                new StoredSample { Channel = "VDC", Timestamp = DateTimeOffset.UtcNow, Value = 1.25 },
+                new StoredSample
+                {
+                    Channel = "VDC",
+                    MetricKey = "VDC",
+                    DisplayRole = "timeseries",
+                    Unit = "V",
+                    Timestamp = DateTimeOffset.UtcNow,
+                    Value = 1.25,
+                },
+                new StoredSample
+                {
+                    Channel = "Mean",
+                    MetricKey = "VDC.mean",
+                    DisplayRole = "scalar",
+                    Unit = "V",
+                    LimitLow = 0,
+                    Timestamp = DateTimeOffset.UtcNow,
+                    Value = 1.25,
+                },
             ],
             Steps = Flatten(Tree)
                 .Where(n => n.Children.Count == 0)
@@ -1152,12 +1210,50 @@ public sealed class FakeReportService : IReportService
 {
     public int GenerateCount { get; private set; }
     public string PdfPath { get; set; } = Path.GetTempFileName();
+    public IReadOnlyList<string>? LastKinds { get; private set; }
 
-    public Task<string> GeneratePdfAsync(TestRunRecord run, CancellationToken cancellationToken = default)
+    public async Task<string> GeneratePdfAsync(TestRunRecord run, CancellationToken cancellationToken = default)
+    {
+        var artifacts = await GenerateReportsAsync(run, [ReportKinds.Status], null, cancellationToken);
+        return artifacts.FirstOrDefault()?.PdfPath ?? PdfPath;
+    }
+
+    public Task<IReadOnlyList<RunReportArtifact>> GenerateReportsAsync(
+        TestRunRecord run,
+        IReadOnlyList<string> kinds,
+        DutHistoryReport? history = null,
+        CancellationToken cancellationToken = default)
     {
         GenerateCount++;
-        run.ReportPdfPath = PdfPath;
-        return Task.FromResult(PdfPath);
+        LastKinds = kinds.ToArray();
+        var artifacts = kinds
+            .Select(k => new RunReportArtifact
+            {
+                Kind = k,
+                Title = k,
+                PdfPath = string.Equals(k, ReportKinds.Status, StringComparison.OrdinalIgnoreCase)
+                    ? PdfPath
+                    : PdfPath + "." + k + ".pdf",
+                GeneratedAt = DateTimeOffset.UtcNow,
+            })
+            .ToList();
+        if (artifacts.Count == 0)
+        {
+            artifacts.Add(new RunReportArtifact
+            {
+                Kind = ReportKinds.Status,
+                Title = "Status",
+                PdfPath = PdfPath,
+                GeneratedAt = DateTimeOffset.UtcNow,
+            });
+        }
+
+        run.Reports = artifacts;
+        run.ReportPdfPath = artifacts.FirstOrDefault(a =>
+                                string.Equals(a.Kind, ReportKinds.Status, StringComparison.OrdinalIgnoreCase))
+                            ?.PdfPath
+                            ?? artifacts[0].PdfPath;
+        return Task.FromResult((IReadOnlyList<RunReportArtifact>)artifacts);
     }
 
     public Task<string> GenerateSuitePdfAsync(SuiteRunRecord suiteRun, CancellationToken cancellationToken = default)
@@ -1194,6 +1290,7 @@ public sealed class FakeRunStore : IRunStore
             {
                 RunId = r.RunId,
                 PlanName = r.PlanName,
+                PlanId = r.PlanId,
                 StartedAt = r.StartedAt,
                 Result = r.Result,
                 DutSerial = r.DutSerial,

@@ -22,12 +22,12 @@ Let TapPlans declare **what** to show (metric identity + display role) without A
    | Table | Columns | Intent |
    | --- | --- | --- |
    | `Sample` | Channel, Index, Value | timeseries |
-   | `Scalar` | Name, Value, Unit | scalar / passband metric |
+   | `Scalar` | Name, Value, Unit, optional LimitLow / LimitHigh | scalar / passband metric |
    | `Identity` / `Analyze` | unchanged | chrome; Mean also published as Scalar |
 
-2. **Presentation mixin** — [`PresentationMixin`](../../src/HardwareTest.OpenTap.Plugins.Mixins/PresentationMixin.cs) / [`PresentationMixinBuilder`](../../src/HardwareTest.OpenTap.Plugins.Mixins/PresentationMixinBuilder.cs): `ChannelKey`, `DisplayRole` (`timeseries` / `scalar` / `passband`), `YUnit`. Attach via Editor or [`OpenTapMixinAttach.AttachPresentation`](../../src/HardwareTest.OpenTap.Host/OpenTapMixinAttach.cs).
+2. **Presentation mixin** — [`PresentationMixin`](../../src/HardwareTest.OpenTap.Plugins.Mixins/PresentationMixin.cs) / [`PresentationMixinBuilder`](../../src/HardwareTest.OpenTap.Plugins.Mixins/PresentationMixinBuilder.cs): `ChannelKey`, `DisplayRole` (`timeseries` / `scalar` / `passband`), `YUnit`, optional `HistoryEnabled` / `HistoryWatchPercent` / `HistoryAlertPercent`. Attach via Editor or [`OpenTapMixinAttach.AttachPresentation`](../../src/HardwareTest.OpenTap.Host/OpenTapMixinAttach.cs).
 
-3. **Host normalization** — [`OpenTapPresentation`](../../src/HardwareTest.OpenTap.Host/OpenTapPresentation.cs) fills `StoredSample.MetricKey` / `DisplayRole` / `Unit`. DUT history groups by `EffectiveMetricKey`.
+3. **Host normalization** — [`OpenTapPresentation`](../../src/HardwareTest.OpenTap.Host/OpenTapPresentation.cs) fills `StoredSample.MetricKey` / `DisplayRole` / `Unit` / history fields. DUT history groups by `EffectiveMetricKey` and uses stamped thresholds when present.
 
 4. **Visibility (pre–Phase J)** — Results sample lines use `ToDisplayLine()`; Run detail lists Presentation station fields; Engineer overrides show Presentation group.
 

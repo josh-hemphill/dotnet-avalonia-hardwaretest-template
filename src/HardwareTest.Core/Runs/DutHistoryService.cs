@@ -89,7 +89,7 @@ public sealed class DutHistoryService : IDutHistoryService
             }
 
             // Summaries expose PlanName; match current PlanId or PlanName.
-            if (!PlanMatches(summary.PlanName, current))
+            if (!PlanMatches(summary, current))
             {
                 continue;
             }
@@ -156,9 +156,26 @@ public sealed class DutHistoryService : IDutHistoryService
             };
         }
 
+        var policyByKey = ResolveHistoryPolicies(current.Samples);
         var metrics = new List<DutMetricDelta>();
         foreach (var (channel, mean) in currentMeans.OrderBy(kv => kv.Key, StringComparer.OrdinalIgnoreCase))
         {
+            if (policyByKey.TryGetValue(channel, out var policy) && !policy.Enabled)
+            {
+                continue;
+            }
+
+            var watch = policyByKey.TryGetValue(channel, out var p) && p.WatchPercent is { } w
+                ? w
+                : WatchPercentThreshold;
+            var alert = policyByKey.TryGetValue(channel, out var p2) && p2.AlertPercent is { } a
+                ? a
+                : AlertPercentThreshold;
+            if (alert < watch)
+            {
+                alert = watch;
+            }
+
             double? priorMean = null;
             double? percentDelta = null;
             var severity = DutHistorySeverity.Normal;
@@ -169,11 +186,11 @@ public sealed class DutHistoryService : IDutHistoryService
                 {
                     percentDelta = (mean - priorMean.Value) / Math.Abs(priorMean.Value) * 100.0;
                     var abs = Math.Abs(percentDelta.Value);
-                    if (abs >= AlertPercentThreshold)
+                    if (abs >= alert)
                     {
                         severity = DutHistorySeverity.Alert;
                     }
-                    else if (abs >= WatchPercentThreshold)
+                    else if (abs >= watch)
                     {
                         severity = DutHistorySeverity.Watch;
                     }
@@ -202,15 +219,41 @@ public sealed class DutHistoryService : IDutHistoryService
         };
     }
 
-    private static bool PlanMatches(string summaryPlanName, TestRunRecord current)
-        => string.Equals(summaryPlanName, current.PlanName, StringComparison.OrdinalIgnoreCase)
-           || string.Equals(summaryPlanName, current.PlanId, StringComparison.OrdinalIgnoreCase);
+    private static bool PlanMatches(TestRunSummary summary, TestRunRecord current)
+        => string.Equals(summary.PlanName, current.PlanName, StringComparison.OrdinalIgnoreCase)
+           || string.Equals(summary.PlanName, current.PlanId, StringComparison.OrdinalIgnoreCase)
+           || (!string.IsNullOrWhiteSpace(summary.PlanId)
+               && (string.Equals(summary.PlanId, current.PlanId, StringComparison.OrdinalIgnoreCase)
+                   || string.Equals(summary.PlanId, current.PlanName, StringComparison.OrdinalIgnoreCase)));
 
     private static Dictionary<string, double> ChannelMeans(IEnumerable<StoredSample> samples)
         => samples
             .Where(s => !string.IsNullOrWhiteSpace(s.EffectiveMetricKey))
             .GroupBy(s => s.EffectiveMetricKey, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(g => g.Key, g => g.Average(s => s.Value), StringComparer.OrdinalIgnoreCase);
+
+    private readonly record struct HistoryPolicy(bool Enabled, double? WatchPercent, double? AlertPercent);
+
+    /// Prefer the last sample's history stamps for each metric key.
+    private static Dictionary<string, HistoryPolicy> ResolveHistoryPolicies(IEnumerable<StoredSample> samples)
+    {
+        var map = new Dictionary<string, HistoryPolicy>(StringComparer.OrdinalIgnoreCase);
+        foreach (var sample in samples)
+        {
+            var key = sample.EffectiveMetricKey;
+            if (string.IsNullOrWhiteSpace(key))
+            {
+                continue;
+            }
+
+            map[key] = new HistoryPolicy(
+                sample.HistoryEnabled,
+                sample.HistoryWatchPercent,
+                sample.HistoryAlertPercent);
+        }
+
+        return map;
+    }
 
     private static string BuildSummary(
         DutHistorySeverity overall,

@@ -108,11 +108,15 @@ Set `AppSettings.ExportOpenTapResults` (Settings → **Export OpenTAP results (C
 
 ### DUT history (local)
 
-After Pass/Fail, the shell compares channel means on the current run to the last 10 local runs with the same DUT serial + plan ([`DutHistoryService`](../src/HardwareTest.Core/Runs/DutHistoryService.cs)). Metrics group by Presentation `MetricKey` when set (else Channel). Watch ≥5% / Alert ≥10% vs prior mean — shown as a Run banner and on Results detail. No separate analytics app. Gauges / role widgets are [Phase J](opentap-phases/phase-j-presentation-ui.md).
+After Pass/Fail, the shell compares channel means on the current run to the last 10 local runs with the same DUT serial + plan ([`DutHistoryService`](../src/HardwareTest.Core/Runs/DutHistoryService.cs)). Metrics group by Presentation `MetricKey` when set (else Channel). Watch/Alert thresholds default to 5%/10%, or per-metric via Presentation `HistoryWatchPercent` / `HistoryAlertPercent` / `HistoryEnabled`. History detail (metric table) lives on **Results**; the Run board banner is off by default (`ShowDutHistoryOnRun`).
 
-### Presentation contract (Phase I)
+### Presentation contract (Phase I) + UI (Phase J)
 
-Publish tables `Sample` (Channel, Index, Value) and `Scalar` (Name, Value, Unit). Attach **Presentation** mixin (`ChannelKey`, `DisplayRole`, `YUnit`) in Editor or via demos. Results lines show `MetricKey [role] value unit`. Full matrix and eval checklist: [phase-i-presentation-contract.md](opentap-phases/phase-i-presentation-contract.md).
+Publish tables `Sample` (Channel, Index, Value) and `Scalar` (Name, Value, Unit, optional LimitLow/LimitHigh). Attach **Presentation** mixin (`ChannelKey`, `DisplayRole`, `YUnit`, optional history thresholds) in Editor or via demos. Results lines show `MetricKey [role] value unit`. Run maps `timeseries` → live plot, `scalar`/`passband` → selected-step gauges; Results adds per-metric charts. Full matrix: [phase-i-presentation-contract.md](opentap-phases/phase-i-presentation-contract.md), [phase-j-presentation-ui.md](opentap-phases/phase-j-presentation-ui.md).
+
+### Reports (multi-PDF)
+
+Programs declare `reportKinds` in the catalog / `{planId}.program.json` (default `["status"]`). Optional `defaultReportKind` chooses which PDF Results opens on double-click (default `status`). Sample and Board demos generate **status** (includes DUT history when available) and **certification** (pass/fail + measurements only). PDFs land as `runs/{runId}/status.pdf` and `certification.pdf`; `ReportPdfPath` points at status for back compat. Results: click a run for detail, double-click for the default report, or Open a specific artifact.
 
 Loop samples stamp `IterationIndex` / `LoopPath` on `StoredSample` for report charts (last value per iteration); live Run plot stays chronological.
 

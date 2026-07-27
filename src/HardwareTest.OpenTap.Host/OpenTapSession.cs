@@ -46,7 +46,33 @@ public sealed class OpenTapProgress
     public string? IterationText { get; init; }
 }
 
-public sealed record MeasurementSampleEvent(string Channel, int Index, double Value, DateTimeOffset Timestamp);
+public sealed record MeasurementSampleEvent(
+    string Channel,
+    int Index,
+    double Value,
+    DateTimeOffset Timestamp,
+    string? MetricKey = null,
+    string? DisplayRole = null,
+    string? Unit = null,
+    double? LimitLow = null,
+    double? LimitHigh = null)
+{
+    /// Builds a live event from a normalized stored sample.
+    public static MeasurementSampleEvent FromStored(StoredSample sample, int index = 0) => new(
+        sample.Channel,
+        index,
+        sample.Value,
+        sample.Timestamp,
+        string.IsNullOrWhiteSpace(sample.MetricKey) ? null : sample.MetricKey,
+        sample.DisplayRole,
+        sample.Unit,
+        sample.LimitLow,
+        sample.LimitHigh);
+
+    /// Metric grouping key for tiles/charts.
+    public string EffectiveMetricKey
+        => string.IsNullOrWhiteSpace(MetricKey) ? Channel : MetricKey!;
+}
 
 public sealed class OpenTapRunSummary
 {
@@ -1523,7 +1549,7 @@ internal sealed class ProgressResultListener : ResultListener
             OpenTapPresentation.ApplySample(stored, channel, hints);
             _samples.Add(stored);
 
-            var sampleEvent = new MeasurementSampleEvent(channel, index, value, ts);
+            var sampleEvent = MeasurementSampleEvent.FromStored(stored, index);
             var percent = (double)_stepIndex / _stepCount * 100;
             var nowTicks = Stopwatch.GetTimestamp();
             var elapsed = nowTicks - _lastSampleReportTimestamp;
@@ -1556,6 +1582,8 @@ internal sealed class ProgressResultListener : ResultListener
         var nameCol = result.Columns.FirstOrDefault(c => c.Name == "Name");
         var valueCol = result.Columns.FirstOrDefault(c => c.Name == "Value");
         var unitCol = result.Columns.FirstOrDefault(c => c.Name == "Unit");
+        var limitLowCol = result.Columns.FirstOrDefault(c => c.Name == "LimitLow");
+        var limitHighCol = result.Columns.FirstOrDefault(c => c.Name == "LimitHigh");
         if (valueCol is null)
         {
             return;
@@ -1572,13 +1600,15 @@ internal sealed class ProgressResultListener : ResultListener
             var unit = unitCol is null || i >= unitCol.Data.Length
                 ? string.Empty
                 : Convert.ToString(unitCol.Data.GetValue(i)) ?? string.Empty;
+            var limitLow = TryReadOptionalDouble(limitLowCol, i);
+            var limitHigh = TryReadOptionalDouble(limitHighCol, i);
             var stored = new StoredSample
             {
                 Timestamp = DateTimeOffset.UtcNow,
                 Value = value,
                 StepPath = stepPath,
             };
-            OpenTapPresentation.ApplyScalar(stored, name, unit, hints);
+            OpenTapPresentation.ApplyScalar(stored, name, unit, hints, limitLow, limitHigh);
             _samples.Add(stored);
 
             if (_currentStepId is not null)
@@ -1594,8 +1624,32 @@ internal sealed class ProgressResultListener : ResultListener
                 StepPath = stepPath,
                 KeyValue = FormatSampleKey(stored),
                 StatusText = stored.DisplayRole ?? "Scalar",
+                Sample = MeasurementSampleEvent.FromStored(stored),
                 OverallPercent = (double)_stepIndex / Math.Max(_stepCount, 1) * 100,
             });
+        }
+    }
+
+    private static double? TryReadOptionalDouble(ResultColumn? column, int index)
+    {
+        if (column is null || index >= column.Data.Length)
+        {
+            return null;
+        }
+
+        var raw = column.Data.GetValue(index);
+        if (raw is null || raw is DBNull)
+        {
+            return null;
+        }
+
+        try
+        {
+            return Convert.ToDouble(raw);
+        }
+        catch
+        {
+            return null;
         }
     }
 

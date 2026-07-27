@@ -13,7 +13,8 @@ public static class SamplePlotExporter
     public static string? ExportChannelPng(TestRunRecord run, string channel, string outputDirectory)
     {
         var samples = run.Samples
-            .Where(s => string.Equals(s.Channel, channel, StringComparison.OrdinalIgnoreCase))
+            .Where(s => string.Equals(s.EffectiveMetricKey, channel, StringComparison.OrdinalIgnoreCase)
+                        || string.Equals(s.Channel, channel, StringComparison.OrdinalIgnoreCase))
             .OrderBy(s => s.Timestamp)
             .ToArray();
         if (samples.Length == 0)
@@ -23,14 +24,18 @@ public static class SamplePlotExporter
 
         Directory.CreateDirectory(outputDirectory);
         var safePlan = Sanitize(string.IsNullOrWhiteSpace(run.PlanId) ? run.PlanName : run.PlanId);
-        var path = Path.Combine(outputDirectory, $"{safePlan}-{Sanitize(channel)}.png");
-        WriteChannelPlotPng(samples, channel, path);
+        var key = samples[0].EffectiveMetricKey;
+        var path = Path.Combine(outputDirectory, $"{safePlan}-{Sanitize(key)}.png");
+        WriteChannelPlotPng(samples, key, path);
         return path;
     }
 
     public static IReadOnlyList<string> ExportAllChannels(TestRunRecord run, string outputDirectory)
     {
-        var channels = run.Samples.Select(s => s.Channel).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+        var channels = run.Samples
+            .Select(s => s.EffectiveMetricKey)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
         var paths = new List<string>();
         foreach (var channel in channels)
         {

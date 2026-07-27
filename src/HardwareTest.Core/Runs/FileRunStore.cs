@@ -15,6 +15,7 @@ public sealed class TestRunSummary
 {
     public required string RunId { get; init; }
     public required string PlanName { get; init; }
+    public string PlanId { get; init; } = string.Empty;
     public required DateTimeOffset StartedAt { get; init; }
     public required RunResult Result { get; init; }
     public string? DutSerial { get; init; }
@@ -84,6 +85,7 @@ public sealed class FileRunStore : IRunStore
             {
                 RunId = run.RunId,
                 PlanName = run.PlanName,
+                PlanId = run.PlanId,
                 StartedAt = run.StartedAt,
                 Result = run.Result,
                 DutSerial = run.DutSerial,

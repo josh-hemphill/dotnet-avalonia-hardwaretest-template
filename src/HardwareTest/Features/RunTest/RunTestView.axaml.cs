@@ -79,12 +79,20 @@ public partial class RunTestView : UserControl
 
         var ys = _subscribed.PlotYs;
         var length = _subscribed.PlotYsLength;
+        var title = _subscribed.PlotTitle;
+        var yLabel = _subscribed.PlotYLabel;
+        var legend = _subscribed.PlotLegendText;
         if (!Dispatcher.UIThread.CheckAccess())
         {
-            Dispatcher.UIThread.Post(() => Plot.UpdateData(ys, length));
+            Dispatcher.UIThread.Post(() =>
+            {
+                Plot.SetLabels(title, yLabel, legend);
+                Plot.UpdateData(ys, length);
+            });
             return;
         }
 
+        Plot.SetLabels(title, yLabel, legend);
         Plot.UpdateData(ys, length);
     }
 

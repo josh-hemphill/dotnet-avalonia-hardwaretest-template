@@ -1,6 +1,6 @@
 #import "lib/sample-chart.typ": channel-names, samples-for, line-chart
 
-= Test Report
+= Certification Report
 #v(0.5em)
 #text(size: 14pt)[#sys.inputs.title]
 
@@ -19,31 +19,22 @@
 #sys.inputs.notes
 
 #if sys.inputs.result == "Passed" [
-  #text(fill: green)[*PASS*]
+  #text(fill: green)[*CERTIFIED PASS*]
 ] else [
-  #text(fill: red)[*FAIL*]
-]
-
-#if sys.inputs.includeHistory == "true" [
-  == DUT history
-  - *Severity:* #sys.inputs.historySeverity
-  - #sys.inputs.historySummary
-  #if sys.inputs.historyMetrics != "" [
-    #sys.inputs.historyMetrics
-  ]
+  #text(fill: red)[*NOT CERTIFIED*]
 ]
 
 #if sys.inputs.includePlots == "true" [
   #let run = json("run.json")
   #let channels = channel-names(run, max-count: 4)
   #if channels.len() > 0 [
-    == Plots
+    == Measurements
     #for ch in channels [
       #let pts = samples-for(run, ch)
       #if pts.len() > 0 [
         #figure(
           line-chart(pts, title: ch),
-          caption: [Channel #ch (from run Samples)],
+          caption: [Channel #ch],
         )
         #v(0.5em)
       ]

@@ -31,8 +31,26 @@ public sealed class TestRunRecord
     public List<StepAttemptSummary> StepAttempts { get; set; } = [];
     public List<StoredSample> Samples { get; set; } = [];
     public Dictionary<string, string> Variables { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+    /// Primary/status PDF path (first status artifact, else first Reports entry) for back compat.
     public string? ReportPdfPath { get; set; }
+    public List<RunReportArtifact> Reports { get; set; } = [];
     public List<string> PlotImagePaths { get; set; } = [];
+}
+
+/// One Typst PDF generated for a run (status, certification, …).
+public sealed class RunReportArtifact
+{
+    public string Kind { get; set; } = ReportKinds.Status;
+    public string Title { get; set; } = string.Empty;
+    public string PdfPath { get; set; } = string.Empty;
+    public DateTimeOffset GeneratedAt { get; set; }
+}
+
+/// Well-known report kind ids for catalog + Typst generation.
+public static class ReportKinds
+{
+    public const string Status = "status";
+    public const string Certification = "certification";
 }
 
 public sealed class SuiteRunRecord
@@ -93,6 +111,16 @@ public sealed class StoredSample
     public string? DisplayRole { get; set; }
     /// Unit label from Presentation YUnit or Scalar Unit column.
     public string? Unit { get; set; }
+    /// Optional lower passband / threshold bound from Scalar LimitLow.
+    public double? LimitLow { get; set; }
+    /// Optional upper passband bound from Scalar LimitHigh.
+    public double? LimitHigh { get; set; }
+    /// When false, DutHistoryService skips this metric.
+    public bool HistoryEnabled { get; set; } = true;
+    /// Per-metric watch threshold (%); null uses DutHistoryService default.
+    public double? HistoryWatchPercent { get; set; }
+    /// Per-metric alert threshold (%); null uses DutHistoryService default.
+    public double? HistoryAlertPercent { get; set; }
 
     /// History / grouping key: MetricKey when set, otherwise Channel.
     public string EffectiveMetricKey

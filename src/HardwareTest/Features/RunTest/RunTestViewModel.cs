@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Threading;
@@ -9,6 +10,7 @@ using HardwareTest.Core.Engine;
 using HardwareTest.Core.Reporting;
 using HardwareTest.Core.Runs;
 using HardwareTest.Core.Settings;
+using HardwareTest.Features.Presentation;
 using HardwareTest.OpenTap.Host;
 using HardwareTest.OpenTap.Plugins.Basic;
 using ReactiveUI;
@@ -110,6 +112,7 @@ public partial class ProgramItemViewModel : ReactiveObject
     public bool IsSample { get; init; }
     public ProgramLoadKind LoadKind { get; init; } = ProgramLoadKind.TapPlanFile;
     public ProgramRequirements Requirements { get; init; } = ProgramRequirements.Sample;
+    public IReadOnlyList<string> ReportKinds { get; init; } = [HardwareTest.Core.Runs.ReportKinds.Status];
 }
 
 public partial class RunTestViewModel : ReactiveObject
@@ -136,6 +139,7 @@ public partial class RunTestViewModel : ReactiveObject
     private readonly List<HierarchyStepViewModel> _fullHierarchy = [];
     private readonly Dictionary<string, StepAttemptSummary> _attemptLedger = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> _stepsWithSamples = new(StringComparer.OrdinalIgnoreCase);
+    private readonly List<PresentationTileViewModel> _gaugeTiles = [];
 
     private long _lastUiFlushTicks;
     private MeasurementSampleEvent? _pendingSample;
@@ -201,6 +205,7 @@ public partial class RunTestViewModel : ReactiveObject
         DetailKeyValues = [];
         InteractionFields = [];
         ParameterFields = [];
+        PresentationTiles = [];
         PlotYs = _plotPublish;
         IsEngineerDebugMode = settings.IsEngineerDebugMode;
         ShowSessionForm = true;
@@ -302,6 +307,7 @@ public partial class RunTestViewModel : ReactiveObject
                 OpenSelectedDetail(revealDetail: false);
                 RefreshParameterFields();
                 RefreshPlotVisibility();
+                RefreshPresentationTiles();
                 RefreshHero();
             }
             else if (args.PropertyName == nameof(IsEngineerDebugMode))
@@ -344,6 +350,7 @@ public partial class RunTestViewModel : ReactiveObject
     public ObservableCollection<string> DetailKeyValues { get; }
     public ObservableCollection<InteractionFieldViewModel> InteractionFields { get; }
     public ObservableCollection<InteractionFieldViewModel> ParameterFields { get; }
+    public ObservableCollection<PresentationTileViewModel> PresentationTiles { get; }
     public ObservableCollection<string> AttemptHistoryLines { get; } = [];
     public Func<CancellationToken, Task<string?>>? RequestPlanFilePath { get; set; }
 
@@ -406,6 +413,10 @@ public partial class RunTestViewModel : ReactiveObject
     [Reactive] private bool _showLiveLog;
     [Reactive] private bool _hasPlotData;
     [Reactive] private bool _showPlotForSelection;
+    [Reactive] private bool _hasPresentationTiles;
+    [Reactive] private string _plotLegendText = "Channel";
+    [Reactive] private string _plotYLabel = "Value";
+    [Reactive] private string _plotTitle = "Live measurements";
     [Reactive] private bool _sessionLogExpanded;
     [Reactive] private string _attemptSummaryChip = string.Empty;
     [Reactive] private string _status = string.Empty;
@@ -585,6 +596,7 @@ public partial class RunTestViewModel : ReactiveObject
                 IsSample = entry.IsBuiltIn,
                 LoadKind = entry.LoadKind,
                 Requirements = entry.Requirements,
+                ReportKinds = entry.ReportKinds,
             });
         }
 
@@ -1508,6 +1520,12 @@ public partial class RunTestViewModel : ReactiveObject
         ShowPlotForSelection = false;
         HistoryBanner = string.Empty;
         _stepsWithSamples.Clear();
+        _gaugeTiles.Clear();
+        PresentationTiles.Clear();
+        HasPresentationTiles = false;
+        PlotLegendText = "Channel";
+        PlotYLabel = "Value";
+        PlotTitle = "Live measurements";
         PlotUiFlushCount = 0;
         _lastUiFlushTicks = 0;
         ResetPlotBuffer();
@@ -1621,24 +1639,31 @@ public partial class RunTestViewModel : ReactiveObject
             };
             await _runStore.SaveAsync(record).ConfigureAwait(false);
 
+            DutHistoryReport? historyReport = null;
             if (_dutHistory is not null && summary.Result is RunResult.Passed or RunResult.Failed)
             {
                 try
                 {
-                    var history = await _dutHistory.AnalyzeAsync(record).ConfigureAwait(false);
+                    historyReport = await _dutHistory.AnalyzeAsync(record).ConfigureAwait(false);
                     await RunOnUiAsync(() =>
                     {
-                        HistoryBanner = history.OperatorSummary;
-                        if (!string.IsNullOrWhiteSpace(history.OperatorSummary))
+                        if (_settings.ShowDutHistoryOnRun)
                         {
-                            Status += " " + history.OperatorSummary;
+                            HistoryBanner = historyReport.OperatorSummary;
+                            if (!string.IsNullOrWhiteSpace(historyReport.OperatorSummary))
+                            {
+                                Status += " " + historyReport.OperatorSummary;
+                            }
                         }
                     }).ConfigureAwait(false);
                 }
                 catch (Exception ex)
                 {
-                    await RunOnUiAsync(() => HistoryBanner = $"DUT history unavailable: {ex.Message}")
-                        .ConfigureAwait(false);
+                    if (_settings.ShowDutHistoryOnRun)
+                    {
+                        await RunOnUiAsync(() => HistoryBanner = $"DUT history unavailable: {ex.Message}")
+                            .ConfigureAwait(false);
+                    }
                 }
             }
 
@@ -1646,8 +1671,11 @@ public partial class RunTestViewModel : ReactiveObject
             {
                 try
                 {
-                    await _reportService.GeneratePdfAsync(record).ConfigureAwait(false);
-                    await RunOnUiAsync(() => Status += " Report generated.").ConfigureAwait(false);
+                    var kinds = SelectedProgram?.ReportKinds is { Count: > 0 }
+                        ? SelectedProgram.ReportKinds
+                        : ProgramCatalog.ResolveReportKinds(SelectedProgram?.Id);
+                    await _reportService.GenerateReportsAsync(record, kinds, historyReport).ConfigureAwait(false);
+                    await RunOnUiAsync(() => Status += " Report(s) generated.").ConfigureAwait(false);
                 }
                 catch (Exception ex)
                 {
@@ -1802,12 +1830,33 @@ public partial class RunTestViewModel : ReactiveObject
         }
 
         RefreshPlotVisibility();
+        RefreshPresentationTiles();
         RefreshHero();
     }
 
     private void RefreshPlotVisibility()
     {
         ShowPlotForSelection = SelectedStep is not null && StepHasSampleContext(SelectedStep);
+    }
+
+    private void RefreshPresentationTiles()
+    {
+        PresentationTiles.Clear();
+        var path = SelectedStep?.Path;
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            HasPresentationTiles = false;
+            return;
+        }
+
+        foreach (var tile in _gaugeTiles
+                     .Where(t => string.Equals(t.StepPath, path, StringComparison.OrdinalIgnoreCase))
+                     .Take(PresentationRoleMap.MaxRunGaugeTiles))
+        {
+            PresentationTiles.Add(tile);
+        }
+
+        HasPresentationTiles = PresentationTiles.Count > 0;
     }
 
     private bool StepHasSampleContext(HierarchyStepViewModel step)
@@ -2442,17 +2491,30 @@ public partial class RunTestViewModel : ReactiveObject
 
                 if (sample is not null)
                 {
-                    HasPlotData = true;
-                    if (!string.IsNullOrWhiteSpace(sampleStepPath))
+                    if (PresentationRoleMap.IsTimeseriesPlotSample(sample))
                     {
-                        _stepsWithSamples.Add(sampleStepPath);
+                        HasPlotData = true;
+                        if (!string.IsNullOrWhiteSpace(sampleStepPath))
+                        {
+                            _stepsWithSamples.Add(sampleStepPath);
+                        }
+
+                        var key = sample.EffectiveMetricKey;
+                        PlotLegendText = key;
+                        PlotTitle = key;
+                        PlotYLabel = string.IsNullOrWhiteSpace(sample.Unit) ? "Value" : sample.Unit!;
+                        AppendSampleToPlot(sample.Value);
+                        PlotYs = _plotPublish;
+                        PlotDataChanged?.Invoke(this, EventArgs.Empty);
+                        PlotUiFlushCount++;
+                        RefreshPlotVisibility();
                     }
 
-                    AppendSampleToPlot(sample.Value);
-                    PlotYs = _plotPublish;
-                    PlotDataChanged?.Invoke(this, EventArgs.Empty);
-                    PlotUiFlushCount++;
-                    RefreshPlotVisibility();
+                    if (PresentationRoleMap.IsRunGaugeSample(sample))
+                    {
+                        PresentationRoleMap.UpsertRunGauge(_gaugeTiles, sample, sampleStepPath ?? stepPath);
+                        RefreshPresentationTiles();
+                    }
                 }
                 else if (force)
                 {

@@ -24,10 +24,12 @@ namespace HardwareTest.Core.Serialization;
 [JsonSerializable(typeof(StepResultRecord))]
 [JsonSerializable(typeof(StepAttemptSummary))]
 [JsonSerializable(typeof(StoredSample))]
+[JsonSerializable(typeof(RunReportArtifact))]
 [JsonSerializable(typeof(List<TestRunRecord>))]
 [JsonSerializable(typeof(List<StepResultRecord>))]
 [JsonSerializable(typeof(List<StepAttemptSummary>))]
 [JsonSerializable(typeof(List<StoredSample>))]
+[JsonSerializable(typeof(List<RunReportArtifact>))]
 [JsonSerializable(typeof(List<string>))]
 [JsonSerializable(typeof(Dictionary<string, string>))]
 public partial class AppJsonContext : JsonSerializerContext;
