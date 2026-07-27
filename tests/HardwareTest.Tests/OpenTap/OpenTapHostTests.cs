@@ -220,43 +220,69 @@ public sealed class OpenTapSessionTests
                 return;
             }
 
-            var request = p.InteractionRequest ?? session.PendingInteraction;
-            if (request?.Fields.Any(f => f.Id == "fixtureId") == true)
+            // Prefer the event payload so a stale/partial Progress frame cannot Resume() a
+            // later typed interaction that is already pending.
+            var request = p.InteractionRequest;
+            if (request is null)
+            {
+                return;
+            }
+
+            if (request.Fields.Any(f => f.Id == "fixtureId"))
             {
                 typedRequest = request;
                 typedReady.TrySetResult(true);
                 return;
             }
 
-            // Confirm-only pause ahead of typed input.
-            if (session.IsAwaitingOperator && session.PendingInteraction is { } pending)
+            if (request.Fields.Count == 0
+                && session.PendingInteraction is { } pending
+                && string.Equals(pending.Id, request.Id, StringComparison.Ordinal))
             {
                 session.Resume(OperatorInteractionResponse.Continue(pending.Id));
             }
         };
 
         var runTask = session.RunAsync(progress);
-        var sawTyped = await Task.WhenAny(typedReady.Task, Task.Delay(TimeSpan.FromSeconds(30))) == typedReady.Task;
-        Assert.True(sawTyped, "Expected typed operator input pause (fixtureId).");
-        Assert.True(session.IsAwaitingOperator);
-        Assert.NotNull(session.PendingInteraction);
-        Assert.Contains(session.PendingInteraction!.Fields, f => f.Id == "fixtureId");
-        Assert.Contains(session.PendingInteraction.Fields, f => f.Id == "fixtureTorqueNm");
-        Assert.NotNull(typedRequest);
+        try
+        {
+            var sawTyped = await Task.WhenAny(typedReady.Task, Task.Delay(TimeSpan.FromSeconds(30))) == typedReady.Task;
+            Assert.True(sawTyped, "Expected typed operator input pause (fixtureId).");
+            Assert.True(session.IsAwaitingOperator);
+            Assert.NotNull(session.PendingInteraction);
+            Assert.Contains(session.PendingInteraction!.Fields, f => f.Id == "fixtureId");
+            Assert.Contains(session.PendingInteraction.Fields, f => f.Id == "fixtureTorqueNm");
+            Assert.NotNull(typedRequest);
 
-        session.Resume(OperatorInteractionResponse.Continue(
-            session.PendingInteraction.Id,
-            new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            session.Resume(OperatorInteractionResponse.Continue(
+                session.PendingInteraction.Id,
+                new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["fixtureId"] = "HOST-TEST",
+                    ["fixtureTorqueNm"] = "1.5",
+                }));
+            var summary = await runTask;
+            Assert.False(session.IsAwaitingOperator);
+            Assert.Null(session.PendingInteraction);
+            Assert.True(
+                summary.Result is RunResult.Passed or RunResult.Failed or RunResult.Error or RunResult.Cancelled,
+                $"Unexpected result {summary.Result}: {summary.ErrorMessage}");
+        }
+        finally
+        {
+            if (!runTask.IsCompleted)
             {
-                ["fixtureId"] = "HOST-TEST",
-                ["fixtureTorqueNm"] = "1.5",
-            }));
-        var summary = await runTask;
-        Assert.False(session.IsAwaitingOperator);
-        Assert.Null(session.PendingInteraction);
-        Assert.True(
-            summary.Result is RunResult.Passed or RunResult.Failed or RunResult.Error or RunResult.Cancelled,
-            $"Unexpected result {summary.Result}: {summary.ErrorMessage}");
+                session.Abort(safetyStop: true);
+                try
+                {
+                    await runTask;
+                }
+                catch
+                {
+                    // best-effort drain so Abort cannot poison later OpenTAP tests
+                }
+            }
+        }
     }
 
     [Fact]

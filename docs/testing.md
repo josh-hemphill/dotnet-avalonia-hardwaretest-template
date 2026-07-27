@@ -50,7 +50,11 @@ To regenerate the checked-in `sample-pass` cassette, build host tests with `/p:D
 ## Local commands
 
 ```bash
+# Prefer CI-shaped sequential suite runs (OpenTAP host + E2E share process-global TapThread state):
+dotnet test tests/HardwareTest.Tests -r win-x64
 dotnet test tests/HardwareTest.ViewModels.Tests -r win-x64
-dotnet test tests/HardwareTest.Tests -r win-x64 --filter "FullyQualifiedName~OpenTap"
 dotnet test tests/HardwareTest.E2E.Tests -r win-x64
+
+# Or traversal with serial MSBuild (dirs.proj sets BuildInParallel=false):
+dotnet test dirs.proj -r win-x64 -m:1
 ```

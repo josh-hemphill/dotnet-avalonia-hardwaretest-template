@@ -1,4 +1,8 @@
 <Project Sdk="Microsoft.Build.Traversal">
+  <!-- OpenTAP host + E2E both touch a real OpenTapSession; run test projects serially. -->
+  <PropertyGroup>
+    <BuildInParallel>false</BuildInParallel>
+  </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="src\**\*.csproj" />
     <ProjectReference Include="tests\**\*.csproj" />

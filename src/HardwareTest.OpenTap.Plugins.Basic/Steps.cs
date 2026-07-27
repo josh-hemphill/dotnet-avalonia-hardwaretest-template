@@ -153,9 +153,9 @@ public sealed class OperatorPromptStep : TestStep
     {
         TapThread.ThrowIfAborted();
         Log.Info("Operator prompt: {0}", Message);
-        Results.Publish("OperatorPrompt", new List<string> { "Message" }, Message);
         StepRuntime.RequestOperatorAttention(Message);
         StepRuntime.WaitIfPaused?.Invoke();
+        Results.Publish("OperatorPrompt", new List<string> { "Message" }, Message);
         UpgradeVerdict(Verdict.Pass);
     }
 }

@@ -69,7 +69,7 @@ Two tests are red as a result, one of them a real adopter-facing regression.
 - [x] `dotnet test dirs.proj -r win-x64` is green locally with zero failures.
 - [ ] `git status` is clean; no untracked source or test files.
 - [x] `LICENSE` exists and `README.md` states MIT.
-- [x] A fresh clone on Linux produces no CRLF warnings.
+- [x] A fresh clone on Linux produces no CRLF warnings (`.gitattributes` + `.editorconfig` `eol=lf`).
 
 ## Out of scope
 

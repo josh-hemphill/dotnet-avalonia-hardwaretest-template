@@ -448,11 +448,18 @@ public sealed class OpenTapSession : IOpenTapSession, INotifyPropertyChanged
                 }
             }
 
+            using var planThreadGate = new ManualResetEventSlim(false);
+            TapThread? planThread = null;
             using var reg = _runCts!.Token.Register(() =>
             {
                 try
                 {
-                    TapThread.Current?.Abort();
+                    // Abort the plan thread captured inside Execute — never TapThread.Current on
+                    // the Cancel() caller (often a test thread), which can poison later runs.
+                    if (planThreadGate.Wait(TimeSpan.FromSeconds(2)))
+                    {
+                        planThread?.Abort();
+                    }
                 }
                 catch
                 {
@@ -463,6 +470,8 @@ public sealed class OpenTapSession : IOpenTapSession, INotifyPropertyChanged
             var planRun = await Task.Run(
                 () =>
                 {
+                    planThread = TapThread.Current;
+                    planThreadGate.Set();
                     StepRuntime.WaitIfPaused = WaitIfPaused;
                     StepRuntime.RequestInteraction = request => HandleInteraction(request, progress);
                     try
@@ -681,15 +690,6 @@ public sealed class OpenTapSession : IOpenTapSession, INotifyPropertyChanged
         try
         {
             _runCts?.Cancel();
-        }
-        catch
-        {
-            // ignore
-        }
-
-        try
-        {
-            TapThread.Current?.Abort();
         }
         catch
         {
@@ -1489,14 +1489,16 @@ internal sealed class ProgressResultListener : ResultListener
                 var msg = msgCol is null || msgCol.Data.Length == 0
                     ? "Awaiting operator"
                     : Convert.ToString(msgCol.Data.GetValue(0));
+                // Do not set AwaitingOperator here — HandleInteraction already reports the
+                // authoritative pause (with InteractionRequest). Emitting a second
+                // AwaitingOperator=true frame without a request races Progress handlers.
                 _progress?.Report(new OpenTapProgress
                 {
                     Message = msg ?? "Awaiting operator",
                     StepId = _currentStepId,
                     StepName = _currentStepName,
-                    AwaitingOperator = true,
                     OperatorPromptMessage = msg,
-                    StatusText = "Awaiting operator",
+                    StatusText = "Operator prompt noted",
                     KeyValue = msg,
                 });
             }
