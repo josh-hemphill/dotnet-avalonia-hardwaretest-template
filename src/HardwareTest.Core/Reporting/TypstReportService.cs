@@ -164,16 +164,15 @@ public sealed class TypstReportService : IReportService, IDisposable
             return "certification-report.typ";
         }
 
-        // Engineer escape: global ReportTemplateName still applies to status.
-        if (!string.IsNullOrWhiteSpace(_settings.ReportTemplateName)
-            && !string.Equals(_settings.ReportTemplateName.Trim(), "test-report.typ", StringComparison.OrdinalIgnoreCase)
-            && !string.Equals(_settings.ReportTemplateName.Trim(), "status-report.typ", StringComparison.OrdinalIgnoreCase))
+        // Honor ReportTemplateName including the default (test-report.typ) so a
+        // {DataDirectory}/reports/ override of that filename wins. status-report.typ
+        // remains an alias resolved in CompileTemplateCore when needed.
+        if (!string.IsNullOrWhiteSpace(_settings.ReportTemplateName))
         {
             return _settings.ReportTemplateName.Trim();
         }
 
-        // Prefer status-report.typ when present; fall back to legacy test-report.typ.
-        return "status-report.typ";
+        return "test-report.typ";
     }
 
     private static string KindTitle(string kind)
@@ -195,9 +194,9 @@ public sealed class TypstReportService : IReportService, IDisposable
         {
             template = LoadReportFile(templateName);
         }
-        catch (InvalidOperationException) when (string.Equals(templateName, "status-report.typ", StringComparison.OrdinalIgnoreCase))
+        catch (InvalidOperationException) when (TryStatusTemplateAlias(templateName, out var alias))
         {
-            template = LoadReportFile("test-report.typ");
+            template = LoadReportFile(alias);
         }
 
         var chartLib = LoadReportFile("sample-chart.typ", preferLibSubfolder: true);
@@ -316,6 +315,24 @@ public sealed class TypstReportService : IReportService, IDisposable
         }
 
         _disposed = true;
+    }
+
+    private static bool TryStatusTemplateAlias(string templateName, out string alias)
+    {
+        if (string.Equals(templateName, "test-report.typ", StringComparison.OrdinalIgnoreCase))
+        {
+            alias = "status-report.typ";
+            return true;
+        }
+
+        if (string.Equals(templateName, "status-report.typ", StringComparison.OrdinalIgnoreCase))
+        {
+            alias = "test-report.typ";
+            return true;
+        }
+
+        alias = string.Empty;
+        return false;
     }
 
     private string LoadReportFile(string fileName, bool preferLibSubfolder = false)

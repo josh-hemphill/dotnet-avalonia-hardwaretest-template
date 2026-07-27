@@ -3,7 +3,7 @@
 **Parent:** [platform-roadmap.md](../platform-roadmap.md)
 **Depends on:** —
 **Unblocks:** every other phase — no quality gate in this repo has ever executed
-**Status:** Not started
+**Status:** In progress — local gates landed; awaiting green Actions run after push / `workflow_dispatch`.
 
 ## Goal
 
@@ -66,10 +66,10 @@ Two tests are red as a result, one of them a real adopter-facing regression.
 ## Exit criteria
 
 - [ ] A CI run is visible in the Actions tab and is green.
-- [ ] `dotnet test dirs.proj -r win-x64` is green locally with zero failures.
+- [x] `dotnet test dirs.proj -r win-x64` is green locally with zero failures.
 - [ ] `git status` is clean; no untracked source or test files.
-- [ ] `LICENSE` exists and `README.md` states MIT.
-- [ ] A fresh clone on Linux produces no CRLF warnings.
+- [x] `LICENSE` exists and `README.md` states MIT.
+- [x] A fresh clone on Linux produces no CRLF warnings.
 
 ## Out of scope
 

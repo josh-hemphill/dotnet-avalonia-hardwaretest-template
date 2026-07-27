@@ -2,8 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main, master]
+    branches: [latest, main, master, "cursor/**"]
   pull_request:
+  workflow_dispatch:
 
 jobs:
   test:
@@ -15,9 +16,19 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: "10.0.x"
+          cache: true
+          cache-dependency-path: |
+            **/*.csproj
+            **/packages.lock.json
+            Directory.Build.props
+            dirs.proj
 
       - name: Build
         run: dotnet build dirs.proj -c Release -r win-x64
+
+      - name: Format check
+        continue-on-error: true
+        run: dotnet format dirs.proj --verify-no-changes --no-restore
 
       - name: "OpenTAP host + fixtures (serial collection)"
         run: >
@@ -58,6 +69,12 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: "10.0.x"
+          cache: true
+          cache-dependency-path: |
+            **/*.csproj
+            **/packages.lock.json
+            Directory.Build.props
+            dirs.proj
 
       - name: Self-contained publish smoke (win-x64, non-AoT)
         run: dotnet publish src/HardwareTest -c Release -r win-x64 --self-contained -p:PublishAot=false

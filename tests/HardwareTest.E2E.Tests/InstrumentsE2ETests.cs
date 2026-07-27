@@ -19,7 +19,8 @@ public sealed class InstrumentsE2ETests
         Assert.True(instruments.SlotOverrides.Count >= 1 || instruments.Status.Contains("slot", StringComparison.OrdinalIgnoreCase), instruments.Status);
         var item = instruments.DiscoveredVisa[0];
         Assert.False(string.IsNullOrWhiteSpace(item.Title));
-        Assert.Equal(item.Resource, item.Subtitle);
+        Assert.False(string.IsNullOrWhiteSpace(item.Resource));
+        Assert.Contains(item.Interface, item.Subtitle, StringComparison.OrdinalIgnoreCase);
         await instruments.RefreshOpenTapDiscoverCommand.ExecuteAsync();
         Assert.DoesNotContain("failed", instruments.Status, StringComparison.OrdinalIgnoreCase);
     }

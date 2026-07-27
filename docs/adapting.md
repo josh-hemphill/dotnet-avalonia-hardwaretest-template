@@ -88,13 +88,13 @@ Keep these separate:
 
 ## 7. Reports (Typst)
 
-Default embedded templates: `test-report.typ` + `lib/sample-chart.typ`.
+Default embedded templates: `test-report.typ` (status; `status-report.typ` is an alias) + `certification-report.typ` + `lib/sample-chart.typ`.
 
 Override without recompiling:
 
 1. Set `AppSettings.DataDirectory` to your writable root.
 2. Place files under `{DataDirectory}/reports/` (and `reports/lib/` for chart lib).
-3. Optionally set `AppSettings.ReportTemplateName` (default `test-report.typ`).
+3. Optionally set `AppSettings.ReportTemplateName` (default `test-report.typ`). A file with that name under `{DataDirectory}/reports/` wins over the embedded template.
 
 Compile inputs: `run.json` (camelCase `TestRunRecord`), Typst inputs (`title`, `runId`, `planName`, `dutSerial`, `result`, …), and optional sample-driven charts via `sample-chart.typ`. `EmbedPlotsInReport` toggles chart notes.
 

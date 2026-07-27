@@ -43,7 +43,7 @@ Distinct namespaces on purpose — "Phase C" and "Phase 3" are never the same th
 
 | Phase | Plan | Depends on | Status |
 | --- | --- | --- | --- |
-| 1 | [Repo gates + green CI](platform-phases/phase-1-repo-gates.md) | — | Not started |
+| 1 | [Repo gates + green CI](platform-phases/phase-1-repo-gates.md) | — | In progress |
 | 2 | [Architecture compliance tests](platform-phases/phase-2-architecture-tests.md) | 1 | Not started |
 | 3 | [Configuration & environment model](platform-phases/phase-3-configuration-model.md) | 1 | Not started |
 | 4 | [Build & system info surface](platform-phases/phase-4-build-info.md) | 3 | Not started |
