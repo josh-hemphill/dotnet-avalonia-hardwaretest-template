@@ -3,7 +3,7 @@
 **Parent:** [platform-roadmap.md](../platform-roadmap.md)
 **Depends on:** [Phase 1](phase-1-repo-gates.md) (a rule nobody runs is not a rule)
 **Unblocks:** safe refactoring in Phase 9; confident adopter forks
-**Status:** Not started
+**Status:** Done
 
 ## Goal
 
@@ -42,11 +42,11 @@ The separation claims in [README](../../README.md) and [opentap-platform.md](../
 
 ## Exit criteria
 
-- [ ] Adding `<PackageReference Include="Avalonia" />` to `HardwareTest.Core.csproj` fails a test with a message naming the rule.
-- [ ] Adding a second `Window` subclass to the app fails a test.
-- [ ] Adding a persisted type without registering it in `AppJsonContext` fails a test.
-- [ ] The whole suite runs in under two seconds.
-- [ ] [testing.md](../testing.md) documents when a rule belongs here versus in a normal unit test.
+- [x] Adding `<PackageReference Include="Avalonia" />` to `HardwareTest.Core.csproj` fails a test with a message naming the rule.
+- [x] Adding a second `Window` subclass to the app fails a test.
+- [x] Adding a persisted type without registering it in `AppJsonContext` fails a test.
+- [x] The whole suite runs in under two seconds.
+- [x] [testing.md](../testing.md) documents when a rule belongs here versus in a normal unit test.
 
 ## Out of scope
 

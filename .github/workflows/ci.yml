@@ -33,6 +33,11 @@ jobs:
         continue-on-error: true
         run: dotnet format dirs.proj --verify-no-changes --no-restore
 
+      - name: "Architecture smoke (layering gates)"
+        run: >
+          dotnet test tests/HardwareTest.Architecture.Tests/HardwareTest.Architecture.Tests.csproj
+          -c Release -r win-x64 --no-build
+
       - name: "OpenTAP host + fixtures (serial collection)"
         run: >
           dotnet test tests/HardwareTest.Tests/HardwareTest.Tests.csproj

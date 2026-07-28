@@ -4,15 +4,21 @@ UI/board tests stay separate from OpenTAP plan-behavior tests. Both share the `I
 
 | Suite | Purpose | OpenTAP | Emulation |
 | --- | --- | --- | --- |
+| Architecture | Layering smoke (Avalonia/OpenTAP boundaries, single Window, `AppJsonContext`) | Load assemblies only | None |
 | ViewModels | Run board / session / filters / rollup UX | `FakeOpenTapSession` (in-memory trees + optional recording replay) | No real instruments |
 | Core/OpenTAP host | Plan load, hierarchy, Run Selected mask, SafeShutdown, progress/samples | Real `OpenTapSession` | `MockDmmInstrument` |
 | Avalonia E2E | Shell wiring only (DUT → Run → Results/Inspect) | Real session | MockDmm + `UseMockVisa` |
 
-CI runs one `test` job with three labeled steps: ViewModels, OpenTAP host + fixtures, E2E smoke.
+CI runs one `test` job with labeled steps: Architecture, ViewModels, OpenTAP host + fixtures, E2E smoke.
 
 Platform roadmap (interactions, parameters, mixins): [opentap-platform.md](opentap-platform.md).
+Hardening roadmap (gates, config, crash, CI): [platform-roadmap.md](platform-roadmap.md).
 
 ## When to add which test
+
+### Architecture (layering smoke)
+
+Put a rule here only when it is a short, stable layering claim already written in README / platform docs (e.g. "Core must not reference Avalonia"). Failure messages must name the rule and the doc. Behavioral coverage (plan runs, ViewModel flow, E2E) stays in the suites below — see [phase-2-architecture-tests.md](platform-phases/phase-2-architecture-tests.md).
 
 ### UI / board (ViewModels)
 
@@ -51,6 +57,7 @@ To regenerate the checked-in `sample-pass` cassette, build host tests with `/p:D
 
 ```bash
 # Prefer CI-shaped sequential suite runs (OpenTAP host + E2E share process-global TapThread state):
+dotnet test tests/HardwareTest.Architecture.Tests -r win-x64
 dotnet test tests/HardwareTest.Tests -r win-x64
 dotnet test tests/HardwareTest.ViewModels.Tests -r win-x64
 dotnet test tests/HardwareTest.E2E.Tests -r win-x64

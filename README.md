@@ -20,6 +20,7 @@ docs/opentap-phases/                 # Incremental implementation plans (A–J)
 docs/platform-roadmap.md             # Platform hardening roadmap + phase checklist
 docs/platform-phases/                # Gates, config, diagnostics, crash, CI (1–9)
 tests/
+  HardwareTest.Architecture.Tests/   # Layering smoke (Avalonia/OpenTAP boundaries)
   HardwareTest.Tests/                # Core + OpenTAP host unit tests
   HardwareTest.ViewModels.Tests/     # ViewModel unit tests (fakes)
   HardwareTest.E2E.Tests/            # Avalonia Headless UI flows
@@ -43,6 +44,7 @@ dotnet run --project src/HardwareTest -c Debug -r win-x64
 > **RID required:** TypstInterop only restores its native library when a runtime identifier is set.
 
 ```bash
+dotnet test tests/HardwareTest.Architecture.Tests -r win-x64
 dotnet test tests/HardwareTest.Tests -r win-x64
 dotnet test tests/HardwareTest.ViewModels.Tests -r win-x64
 dotnet test tests/HardwareTest.E2E.Tests -r win-x64
