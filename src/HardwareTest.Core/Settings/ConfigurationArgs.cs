@@ -4,6 +4,7 @@ namespace HardwareTest.Core.Settings;
 public sealed class ConfigurationArgs
 {
     public bool PrintConfig { get; init; }
+    public bool PrintVersion { get; init; }
     public string? SettingsPath { get; init; }
     public IReadOnlyDictionary<string, string> Overlays { get; init; }
         = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -16,6 +17,7 @@ public sealed class ConfigurationArgs
         var overlays = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         var passthrough = new List<string>();
         var printConfig = false;
+        var printVersion = false;
         string? settingsPath = null;
 
         for (var i = 0; i < args.Count; i++)
@@ -24,6 +26,13 @@ public sealed class ConfigurationArgs
             if (string.Equals(arg, "--print-config", StringComparison.OrdinalIgnoreCase))
             {
                 printConfig = true;
+                continue;
+            }
+
+            if (string.Equals(arg, "--version", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(arg, "-v", StringComparison.OrdinalIgnoreCase))
+            {
+                printVersion = true;
                 continue;
             }
 
@@ -68,6 +77,7 @@ public sealed class ConfigurationArgs
         return new ConfigurationArgs
         {
             PrintConfig = printConfig,
+            PrintVersion = printVersion,
             SettingsPath = settingsPath,
             Overlays = overlays,
             PassthroughArgs = passthrough,

@@ -1,4 +1,5 @@
 using HardwareTest.Core;
+using HardwareTest.Core.Diagnostics;
 using HardwareTest.Core.Settings;
 using HardwareTest.Features;
 using HardwareTest.Features.Home;
@@ -20,6 +21,8 @@ public static class Composition
     public static ServiceProvider Build(ISettingsStore settingsStore)
     {
         var services = new ServiceCollection();
+        var buildInfo = OpenTapBuildInfo.Attach(BuildInfo.FromEntryAssembly());
+        services.AddSingleton(buildInfo);
         services.AddHardwareTestCore(settingsStore);
         services.AddSingleton<IOpenTapSession>(sp =>
             new OpenTapSession(sp.GetRequiredService<AppSettings>(), Log.Logger));
@@ -43,7 +46,7 @@ public static class Composition
                 mainVm.NavigateToPageId("ReportPreview");
                 await preview.LoadFromPathAsync(path);
             };
-            return new MainWindow(mainVm, settingsStore);
+            return new MainWindow(mainVm, settingsStore, sp.GetRequiredService<BuildInfo>());
         });
 
         return services.BuildServiceProvider();

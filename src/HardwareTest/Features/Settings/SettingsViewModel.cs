@@ -1,10 +1,12 @@
 using System;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
+using System.Globalization;
 using System.Linq;
 using System.Runtime.Versioning;
 using System.Text;
 using System.Threading.Tasks;
+using HardwareTest.Core.Diagnostics;
 using HardwareTest.Core.Settings;
 using HardwareTest.OpenTap.Host;
 using ReactiveUI;
@@ -24,14 +26,17 @@ public partial class SettingsViewModel : ReactiveObject
 {
     private readonly ISettingsStore _settingsStore;
     private readonly IOpenTapSession _openTap;
+    private readonly BuildInfo _buildInfo;
     private readonly System.Timers.Timer _debounce;
 
     public SettingsViewModel(
         ISettingsStore settingsStore,
-        IOpenTapSession openTap)
+        IOpenTapSession openTap,
+        BuildInfo? buildInfo = null)
     {
         _settingsStore = settingsStore;
         _openTap = openTap;
+        _buildInfo = buildInfo ?? BuildInfo.FromAssembly(typeof(SettingsViewModel).Assembly);
         var s = settingsStore.AppSettings;
         UseMockVisa = s.UseMockVisa;
         LogMinimumLevel = NormalizeLogLevel(s.LogMinimumLevel);
@@ -110,6 +115,8 @@ public partial class SettingsViewModel : ReactiveObject
                 or nameof(SelectedPackage) or nameof(SelectedPluginDirectory)
                 or nameof(Packages) or nameof(PluginDirectories)
                 or nameof(ProvenanceRows)
+                or nameof(AboutVersion) or nameof(AboutCommit) or nameof(AboutBuildTimestamp)
+                or nameof(AboutRuntime) or nameof(AboutRuntimeIdentifier) or nameof(AboutOpenTapEngine)
                 or nameof(UseMockVisaReadOnly) or nameof(LogMinimumLevelReadOnly)
                 or nameof(EnableOsEventSinkReadOnly) or nameof(EnableSyslogOnUnixReadOnly)
                 or nameof(SyslogHostReadOnly) or nameof(SyslogPortReadOnly)
@@ -146,6 +153,14 @@ public partial class SettingsViewModel : ReactiveObject
     public ObservableCollection<SettingProvenanceRow> ProvenanceRows { get; }
     public bool ShowEventLogOptions { get; }
     public bool ShowSyslogOptions { get; }
+
+    public string AboutVersion => _buildInfo.InformationalVersion;
+    public string AboutCommit => _buildInfo.CommitSha;
+    public string AboutBuildTimestamp =>
+        _buildInfo.BuildTimestampUtc?.ToString("u", CultureInfo.InvariantCulture) ?? "unknown";
+    public string AboutRuntime => _buildInfo.RuntimeVersion;
+    public string AboutRuntimeIdentifier => _buildInfo.RuntimeIdentifier;
+    public string AboutOpenTapEngine => _buildInfo.OpenTapEngineVersion ?? "n/a";
 
     /// Optional clipboard hook (wired from the view); null means Copy shows a status message.
     public Func<string, Task>? CopyTextAsync { get; set; }
@@ -248,6 +263,8 @@ public partial class SettingsViewModel : ReactiveObject
         }
 
         var sb = new StringBuilder();
+        sb.AppendLine(_buildInfo.FormatSupportBlock(DataDirectory));
+        sb.AppendLine();
         sb.AppendLine("Key\tEffectiveValue\tSource\tSourceDetail");
         foreach (var row in ProvenanceRows)
         {
@@ -260,7 +277,7 @@ public partial class SettingsViewModel : ReactiveObject
         try
         {
             await CopyTextAsync(sb.ToString());
-            Status = $"Copied {ProvenanceRows.Count} diagnostics rows.";
+            Status = "Copied diagnostics support block.";
         }
         catch (Exception ex)
         {

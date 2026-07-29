@@ -99,11 +99,42 @@
 
       <Separator Margin="0,8" />
 
-      <TextBlock Text="Diagnostics" FontWeight="SemiBold" />
-      <TextBlock Text="Effective configuration and provenance (defaults → settings.json → environment → command line). Env/CLI overrides are read-only above and are not written back on Save."
+      <TextBlock Text="About" FontWeight="SemiBold" />
+      <TextBlock Text="What is running on this bench (build-stamped version, runtime, OpenTAP engine)."
                  TextWrapping="Wrap"
                  Opacity="0.8" />
-      <Button Content="Copy all" Command="{Binding CopyDiagnosticsCommand}" HorizontalAlignment="Left" />
+      <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
+        <TextBlock Text="Version" VerticalAlignment="Center" />
+        <TextBox Grid.Column="1" Text="{Binding AboutVersion}" IsReadOnly="True" />
+      </Grid>
+      <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
+        <TextBlock Text="Commit" VerticalAlignment="Center" />
+        <TextBox Grid.Column="1" Text="{Binding AboutCommit}" IsReadOnly="True" />
+      </Grid>
+      <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
+        <TextBlock Text="Build (UTC)" VerticalAlignment="Center" />
+        <TextBox Grid.Column="1" Text="{Binding AboutBuildTimestamp}" IsReadOnly="True" />
+      </Grid>
+      <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
+        <TextBlock Text="Runtime" VerticalAlignment="Center" />
+        <TextBox Grid.Column="1" Text="{Binding AboutRuntime}" IsReadOnly="True" />
+      </Grid>
+      <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
+        <TextBlock Text="RID" VerticalAlignment="Center" />
+        <TextBox Grid.Column="1" Text="{Binding AboutRuntimeIdentifier}" IsReadOnly="True" />
+      </Grid>
+      <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
+        <TextBlock Text="OpenTAP engine" VerticalAlignment="Center" />
+        <TextBox Grid.Column="1" Text="{Binding AboutOpenTapEngine}" IsReadOnly="True" />
+      </Grid>
+
+      <Separator Margin="0,8" />
+
+      <TextBlock Text="Diagnostics" FontWeight="SemiBold" />
+      <TextBlock Text="Effective configuration and provenance (defaults → settings.json → environment → command line). Env/CLI overlays are read-only above and are not written back on Save. Copy diagnostics includes the About support block."
+                 TextWrapping="Wrap"
+                 Opacity="0.8" />
+      <Button Content="Copy diagnostics" Command="{Binding CopyDiagnosticsCommand}" HorizontalAlignment="Left" />
       <Border BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
               BorderThickness="1"
               Padding="8"

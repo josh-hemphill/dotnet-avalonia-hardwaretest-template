@@ -137,6 +137,17 @@ public sealed class ConfigurationBootstrapTests
     }
 
     [Fact]
+    public void Parse_version_flag_sets_print_version()
+    {
+        var longForm = ConfigurationArgs.Parse(["--version", "--log-level", "Debug"]);
+        Assert.True(longForm.PrintVersion);
+        Assert.Equal("Debug", longForm.Overlays["LogMinimumLevel"]);
+
+        var shortForm = ConfigurationArgs.Parse(["-v"]);
+        Assert.True(shortForm.PrintVersion);
+    }
+
+    [Fact]
     public async Task Env_override_is_not_persisted_on_save()
     {
         using var temp = new TempDataDirectory();

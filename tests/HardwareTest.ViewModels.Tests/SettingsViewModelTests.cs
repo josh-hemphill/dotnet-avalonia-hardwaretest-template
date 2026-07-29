@@ -1,3 +1,4 @@
+using HardwareTest.Core.Diagnostics;
 using HardwareTest.Core.Settings;
 using HardwareTest.Features.Settings;
 using HardwareTest.ViewModels.Tests.Fakes;
@@ -112,5 +113,43 @@ public sealed class SettingsViewModelTests
         };
         var vm = new SettingsViewModel(store, new FakeOpenTapSession());
         Assert.Contains(vm.ProvenanceRows, r => r.Key == "LogMinimumLevel" && r.Source == "CommandLine");
+    }
+
+    [Fact]
+    public async Task Copy_diagnostics_includes_build_support_block()
+    {
+        var buildInfo = BuildInfo.FromAssembly(typeof(SettingsViewModel).Assembly)
+            .WithOpenTapEngineVersion("1.2.3");
+        var store = new FakeSettingsStore
+        {
+            Provenance =
+            [
+                new SettingProvenance
+                {
+                    Key = "ThemePreference",
+                    EffectiveValue = "Dark",
+                    Source = SettingSource.SettingsFile,
+                    SourceDetail = "settings.json",
+                },
+            ],
+        };
+        var vm = new SettingsViewModel(store, new FakeOpenTapSession(), buildInfo);
+        string? copied = null;
+        vm.CopyTextAsync = text =>
+        {
+            copied = text;
+            return Task.CompletedTask;
+        };
+
+        await vm.CopyDiagnosticsCommand.ExecuteAsync();
+
+        Assert.NotNull(copied);
+        Assert.Contains("HardwareTest diagnostics", copied, StringComparison.Ordinal);
+        Assert.Contains(buildInfo.InformationalVersion, copied, StringComparison.Ordinal);
+        Assert.Contains("OpenTAP: 1.2.3", copied, StringComparison.Ordinal);
+        Assert.Contains("ThemePreference", copied, StringComparison.Ordinal);
+        Assert.Contains("Copied diagnostics", vm.Status, StringComparison.OrdinalIgnoreCase);
+        Assert.False(string.IsNullOrWhiteSpace(vm.AboutVersion));
+        Assert.Equal("1.2.3", vm.AboutOpenTapEngine);
     }
 }

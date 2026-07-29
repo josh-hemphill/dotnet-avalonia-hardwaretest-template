@@ -6,6 +6,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Threading;
+using HardwareTest.Core.Diagnostics;
 using HardwareTest.Core.Engine;
 using HardwareTest.Core.Reporting;
 using HardwareTest.Core.Runs;
@@ -15,6 +16,7 @@ using HardwareTest.OpenTap.Host;
 using HardwareTest.OpenTap.Plugins.Basic;
 using ReactiveUI;
 using ReactiveUI.SourceGenerators;
+using Serilog.Context;
 using StepFilter = HardwareTest.Features.RunTest.StepStatusFilter;
 
 namespace HardwareTest.Features.RunTest;
@@ -131,6 +133,7 @@ public partial class RunTestViewModel : ReactiveObject
     private readonly AppSettings _settings;
     private readonly ISettingsStore? _settingsStore;
     private readonly IDutHistoryService? _dutHistory;
+    private readonly BuildInfo _buildInfo;
     private readonly object _progressSync = new();
     private readonly Queue<string> _pendingDetails = new();
     private readonly double[] _plotRing = new double[PlotCapacity];
@@ -182,7 +185,8 @@ public partial class RunTestViewModel : ReactiveObject
         IRunStore runStore,
         AppSettings settings,
         ISettingsStore? settingsStore = null,
-        IDutHistoryService? dutHistory = null)
+        IDutHistoryService? dutHistory = null,
+        BuildInfo? buildInfo = null)
     {
         _openTap = openTap;
         _session = session;
@@ -192,6 +196,7 @@ public partial class RunTestViewModel : ReactiveObject
         _settings = settings;
         _settingsStore = settingsStore;
         _dutHistory = dutHistory;
+        _buildInfo = buildInfo ?? BuildInfo.FromAssembly(typeof(RunTestViewModel).Assembly);
         _progress = new ThrottledOpenTapProgress(IngestProgress);
         Status = "Confirm DUT, then Run.";
         Programs = [];
@@ -1578,9 +1583,29 @@ public partial class RunTestViewModel : ReactiveObject
             await _openTap.ApplyStationAndDutAsync(station, _session.ToDutIdentity());
             _session.TouchActivity();
 
+            var runId = Guid.NewGuid().ToString("N");
+            var startedAt = DateTimeOffset.UtcNow;
+            var stub = new TestRunRecord
+            {
+                RunId = runId,
+                PlanId = SelectedProgram.Id,
+                PlanName = SelectedProgram.DisplayName,
+                DutSerial = _session.DutSerial,
+                DutPartNumber = _session.DutPartNumber,
+                DutRevision = _session.DutRevision,
+                SessionId = _session.SessionId,
+                OperatorName = _session.OperatorName,
+                StartedAt = startedAt,
+                Result = RunResult.Unknown,
+                AppVersion = _buildInfo.InformationalVersion,
+                AppCommitSha = _buildInfo.CommitSha,
+            };
+            await _runStore.SaveAsync(stub).ConfigureAwait(false);
+
+            using var runLog = LogContext.PushProperty("TestRunId", runId);
             var summary = selectionOnly
-                ? await _openTap.RunSelectionAsync(selectionPath!, _progress, cts.Token).ConfigureAwait(false)
-                : await _openTap.RunAsync(_progress, cts.Token).ConfigureAwait(false);
+                ? await _openTap.RunSelectionAsync(selectionPath!, _progress, cts.Token, runId).ConfigureAwait(false)
+                : await _openTap.RunAsync(_progress, cts.Token, runId).ConfigureAwait(false);
 
             lock (_progressSync)
             {
@@ -1636,6 +1661,8 @@ public partial class RunTestViewModel : ReactiveObject
                 Samples = summary.Samples,
                 Steps = BuildRolledUpSteps(),
                 StepAttempts = _attemptLedger.Values.OrderBy(a => a.StepPath).ToList(),
+                AppVersion = _buildInfo.InformationalVersion,
+                AppCommitSha = _buildInfo.CommitSha,
             };
             await _runStore.SaveAsync(record).ConfigureAwait(false);
 

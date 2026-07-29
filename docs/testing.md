@@ -14,6 +14,8 @@ CI runs one `test` job with labeled steps: Architecture, ViewModels, OpenTAP hos
 Platform roadmap (interactions, parameters, mixins): [opentap-platform.md](opentap-platform.md).
 Hardening roadmap (gates, config, crash, CI): [platform-roadmap.md](platform-roadmap.md).
 
+Build/version coverage (`BuildInfo`, `AppVersion` on `TestRunRecord`, Settings **Copy diagnostics**, `--version` parsing) lives in Core + ViewModels tests — see [phase-4-build-info.md](platform-phases/phase-4-build-info.md).
+
 ## When to add which test
 
 ### Architecture (layering smoke)

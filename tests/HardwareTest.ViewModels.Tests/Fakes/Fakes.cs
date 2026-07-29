@@ -432,11 +432,15 @@ public sealed class FakeOpenTapSession : IOpenTapSession
         return Task.CompletedTask;
     }
 
-    public async Task<OpenTapRunSummary> RunAsync(IProgress<OpenTapProgress>? progress = null, CancellationToken cancellationToken = default)
+    public async Task<OpenTapRunSummary> RunAsync(
+        IProgress<OpenTapProgress>? progress = null,
+        CancellationToken cancellationToken = default,
+        string? runId = null)
     {
         RunCount++;
         _runCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         progress?.Report(new OpenTapProgress { Message = "Started", OverallPercent = 0 });
+        runId = string.IsNullOrWhiteSpace(runId) ? Guid.NewGuid().ToString("N") : runId.Trim();
         if (EmitLoopProgress)
         {
             for (var i = 1; i <= 3; i++)
@@ -511,7 +515,7 @@ public sealed class FakeOpenTapSession : IOpenTapSession
             MarkTreeStatuses(RunResult.Cancelled);
             var cancelled = new OpenTapRunSummary
             {
-                RunId = Guid.NewGuid().ToString("N"),
+                RunId = runId,
                 PlanName = LoadedPlanName ?? "plan",
                 Result = RunResult.Cancelled,
                 DutSerial = LastDut?.Serial,
@@ -539,7 +543,7 @@ public sealed class FakeOpenTapSession : IOpenTapSession
         var leaf = Flatten(Tree).FirstOrDefault(n => n.Children.Count == 0);
         var summary = new OpenTapRunSummary
         {
-            RunId = Guid.NewGuid().ToString("N"),
+            RunId = runId,
             PlanName = LoadedPlanName ?? "plan",
             Result = CompletionResult,
             DutSerial = LastDut?.Serial,
@@ -663,10 +667,12 @@ public sealed class FakeOpenTapSession : IOpenTapSession
     public async Task<OpenTapRunSummary> RunSelectionAsync(
         string stepPath,
         IProgress<OpenTapProgress>? progress = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        string? runId = null)
     {
         SelectionRunCount++;
         LastSelectionPath = stepPath;
+        runId = string.IsNullOrWhiteSpace(runId) ? Guid.NewGuid().ToString("N") : runId.Trim();
 
         _runCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         progress?.Report(new OpenTapProgress { Message = "Started selection", OverallPercent = 0 });
@@ -680,7 +686,7 @@ public sealed class FakeOpenTapSession : IOpenTapSession
             MarkTreeStatuses(RunResult.Cancelled, n => IsNodeInSelectionScope(n, stepPath));
             var cancelled = new OpenTapRunSummary
             {
-                RunId = Guid.NewGuid().ToString("N"),
+                RunId = runId,
                 PlanName = LoadedPlanName ?? "plan",
                 Result = RunResult.Cancelled,
                 DutSerial = LastDut?.Serial,
@@ -722,7 +728,7 @@ public sealed class FakeOpenTapSession : IOpenTapSession
 
         var summary = new OpenTapRunSummary
         {
-            RunId = Guid.NewGuid().ToString("N"),
+            RunId = runId,
             PlanName = LoadedPlanName ?? "plan",
             Result = CompletionResult,
             DutSerial = LastDut?.Serial,

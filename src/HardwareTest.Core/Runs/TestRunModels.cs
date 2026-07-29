@@ -23,6 +23,10 @@ public sealed class TestRunRecord
     public string? SessionId { get; set; }
     public string? OperatorName { get; set; }
     public string? Resource { get; set; }
+    /// Software version that produced this record (stamped at run start).
+    public string? AppVersion { get; set; }
+    /// Source revision / commit of the software that produced this record.
+    public string? AppCommitSha { get; set; }
     public DateTimeOffset StartedAt { get; set; }
     public DateTimeOffset? CompletedAt { get; set; }
     public RunResult Result { get; set; } = RunResult.Unknown;

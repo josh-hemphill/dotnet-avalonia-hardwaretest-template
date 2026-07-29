@@ -66,4 +66,27 @@ public sealed class FileRunStoreTests
         Assert.True(File.Exists(Path.Combine(dir, "run.json")));
         Assert.DoesNotContain(':', Path.GetFileName(dir));
     }
+
+    [Fact]
+    public async Task AppVersion_round_trips_through_file_store()
+    {
+        using var temp = new TempDataDirectory();
+        var store = new FileRunStore(temp.RunsDirectory);
+        var run = new TestRunRecord
+        {
+            RunId = "run-versioned",
+            PlanName = "Plan",
+            StartedAt = DateTimeOffset.UtcNow,
+            Result = RunResult.Passed,
+            AppVersion = "0.1.0+abc1234.20260728220000",
+            AppCommitSha = "abc1234",
+        };
+
+        await store.SaveAsync(run);
+        var loaded = await store.LoadAsync(run.RunId);
+
+        Assert.NotNull(loaded);
+        Assert.Equal(run.AppVersion, loaded!.AppVersion);
+        Assert.Equal(run.AppCommitSha, loaded.AppCommitSha);
+    }
 }

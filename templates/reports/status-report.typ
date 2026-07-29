@@ -14,6 +14,7 @@
 - *Started:* #sys.inputs.startedAt
 - *Completed:* #sys.inputs.completedAt
 - *Sample count:* #sys.inputs.sampleCount
+- *Software:* #sys.inputs.appVersion (#sys.inputs.appCommit)
 
 == Notes
 #sys.inputs.notes

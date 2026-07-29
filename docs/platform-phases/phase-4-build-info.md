@@ -3,7 +3,7 @@
 **Parent:** [platform-roadmap.md](../platform-roadmap.md)
 **Depends on:** [Phase 3](phase-3-configuration-model.md) (shares the Diagnostics panel)
 **Unblocks:** [Phase 5](phase-5-schema-versioning.md) (needs a version constant), [Phase 6](phase-6-crash-reporting.md) (a crash report without a version is nearly useless)
-**Status:** Not started
+**Status:** Done
 
 ## Goal
 
@@ -59,10 +59,10 @@ The sharpest consequence is a traceability gap: `TestRunRecord` records the DUT,
 
 ## Exit criteria
 
-- [ ] Settings shows version, commit, runtime, and OpenTAP engine version.
-- [ ] **Copy diagnostics** yields a support block that identifies the build unambiguously.
-- [ ] Every new `run.json` names the software version that produced it.
-- [ ] A local `dotnet build` with no git present still produces a usable `InformationalVersion`.
+- [x] Settings shows version, commit, runtime, and OpenTAP engine version.
+- [x] **Copy diagnostics** yields a support block that identifies the build unambiguously.
+- [x] Every new `run.json` names the software version that produced it.
+- [x] A local `dotnet build` with no git present still produces a usable `InformationalVersion`.
 
 ## Out of scope
 

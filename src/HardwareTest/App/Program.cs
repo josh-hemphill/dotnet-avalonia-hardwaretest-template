@@ -1,8 +1,10 @@
 using System;
 using Avalonia;
 using ReactiveUI.Avalonia;
+using HardwareTest.Core.Diagnostics;
 using HardwareTest.Core.Logging;
 using HardwareTest.Core.Settings;
+using HardwareTest.OpenTap.Host;
 using Serilog;
 
 namespace HardwareTest;
@@ -15,6 +17,13 @@ static class Program
         // Stage 1: resolve DataDirectory + LogMinimumLevel from env + command line only
         // (before logging / settings.json). Stage 2 re-applies overlays after the file load.
         var parsed = ConfigurationArgs.Parse(args);
+        if (parsed.PrintVersion)
+        {
+            var versionInfo = OpenTapBuildInfo.Attach(BuildInfo.FromEntryAssembly());
+            Console.Out.WriteLine(versionInfo.InformationalVersion);
+            return 0;
+        }
+
         var stage1 = ConfigurationBootstrap.ResolveStage1(parsed);
         Directory.CreateDirectory(stage1.RootDirectory);
 
@@ -29,6 +38,15 @@ static class Program
         };
         var logDir = Path.Combine(stage1.RootDirectory, "logs");
         using var logging = LoggingBootstrap.Initialize(bootstrapSettings, logDir);
+
+        var buildInfo = OpenTapBuildInfo.Attach(BuildInfo.FromEntryAssembly());
+        Log.Information(
+            "HardwareTest {InformationalVersion} commit={Commit} runtime={Runtime} rid={Rid} opentap={OpenTap}",
+            buildInfo.InformationalVersion,
+            buildInfo.CommitSha,
+            buildInfo.RuntimeVersion,
+            buildInfo.RuntimeIdentifier,
+            buildInfo.OpenTapEngineVersion ?? "n/a");
 
         store.LoadAsync(
             AppSettingsEnvironmentBinder.ReadEnvironment(),

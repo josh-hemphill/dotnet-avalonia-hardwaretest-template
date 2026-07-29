@@ -164,7 +164,7 @@ Env alone is enough for a sealed install. Missing or read-only `settings.json` i
 | `OpenTapPluginDirectories` | `HARDWARETEST_OPENTAP_PLUGIN_DIRS` *(legacy name; `;` / `Path.PathSeparator`)* | `--opentap-plugin-dirs` |
 | `ReportTemplateName` | `HARDWARETEST_REPORT_TEMPLATE_NAME` | `--report-template` |
 
-Also: `--settings <path>` (settings file path), `--print-config` (dump effective config + provenance to stdout and exit 0). Nested lists use `HARDWARETEST_<LIST>__{n}__<PROP>` (e.g. `HARDWARETEST_INSTRUMENTS__0__RESOURCE`).
+Also: `--settings <path>` (settings file path), `--print-config` (dump effective config + provenance to stdout and exit 0), `--version` / `-v` (print informational version and exit 0). Nested lists use `HARDWARETEST_<LIST>__{n}__<PROP>` (e.g. `HARDWARETEST_INSTRUMENTS__0__RESOURCE`).
 
 Bootstrap is two-stage: stage 1 resolves `DataDirectory` + `LogMinimumLevel` from env/CLI before logging; stage 2 loads `settings.json` then re-applies overlays. See [phase-3-configuration-model.md](platform-phases/phase-3-configuration-model.md).
 

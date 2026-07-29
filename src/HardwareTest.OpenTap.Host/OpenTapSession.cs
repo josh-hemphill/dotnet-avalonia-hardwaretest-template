@@ -107,8 +107,15 @@ public interface IOpenTapSession : INotifyPropertyChanged
     Task LoadBoardDemoProgramAsync(CancellationToken cancellationToken = default);
     Task LoadSweepDemoProgramAsync(CancellationToken cancellationToken = default);
     Task ApplyStationAndDutAsync(StationProfile station, DutIdentity dut, CancellationToken cancellationToken = default);
-    Task<OpenTapRunSummary> RunAsync(IProgress<OpenTapProgress>? progress = null, CancellationToken cancellationToken = default);
-    Task<OpenTapRunSummary> RunSelectionAsync(string stepPath, IProgress<OpenTapProgress>? progress = null, CancellationToken cancellationToken = default);
+    Task<OpenTapRunSummary> RunAsync(
+        IProgress<OpenTapProgress>? progress = null,
+        CancellationToken cancellationToken = default,
+        string? runId = null);
+    Task<OpenTapRunSummary> RunSelectionAsync(
+        string stepPath,
+        IProgress<OpenTapProgress>? progress = null,
+        CancellationToken cancellationToken = default,
+        string? runId = null);
     void Pause();
     void Resume(OperatorInteractionResponse? response = null);
     void Abort(bool safetyStop = false);
@@ -316,7 +323,8 @@ public sealed class OpenTapSession : IOpenTapSession, INotifyPropertyChanged
     public async Task<OpenTapRunSummary> RunSelectionAsync(
         string stepPath,
         IProgress<OpenTapProgress>? progress = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        string? runId = null)
     {
         if (_plan is null)
         {
@@ -357,7 +365,7 @@ public sealed class OpenTapSession : IOpenTapSession, INotifyPropertyChanged
             }
 
             RefreshTreeEnabled();
-            return await RunAsyncCore(progress, cancellationToken, resetStepIds, sampleScopePaths)
+            return await RunAsyncCore(progress, cancellationToken, resetStepIds, sampleScopePaths, runId)
                 .ConfigureAwait(false);
         }
         finally
@@ -376,14 +384,16 @@ public sealed class OpenTapSession : IOpenTapSession, INotifyPropertyChanged
 
     public Task<OpenTapRunSummary> RunAsync(
         IProgress<OpenTapProgress>? progress = null,
-        CancellationToken cancellationToken = default)
-        => RunAsyncCore(progress, cancellationToken, resetStepIds: null, sampleScopePaths: null);
+        CancellationToken cancellationToken = default,
+        string? runId = null)
+        => RunAsyncCore(progress, cancellationToken, resetStepIds: null, sampleScopePaths: null, runId);
 
     private async Task<OpenTapRunSummary> RunAsyncCore(
         IProgress<OpenTapProgress>? progress,
         CancellationToken cancellationToken,
         HashSet<string>? resetStepIds,
-        IReadOnlyList<string>? sampleScopePaths)
+        IReadOnlyList<string>? sampleScopePaths,
+        string? runId = null)
     {
         TestPlan plan;
         List<StoredSample>? preservedSamples = null;
@@ -416,7 +426,7 @@ public sealed class OpenTapSession : IOpenTapSession, INotifyPropertyChanged
         Raise(nameof(PendingInteraction));
 
         var started = DateTimeOffset.UtcNow;
-        var runId = Guid.NewGuid().ToString("N");
+        runId = string.IsNullOrWhiteSpace(runId) ? Guid.NewGuid().ToString("N") : runId.Trim();
         progress?.Report(new OpenTapProgress { Message = $"Starting '{LoadedPlanName ?? plan.Name}'", OverallPercent = 0 });
 
         try
