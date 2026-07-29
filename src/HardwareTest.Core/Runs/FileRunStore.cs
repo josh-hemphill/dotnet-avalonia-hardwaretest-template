@@ -22,6 +22,9 @@ public sealed class TestRunSummary
     public string? DutPartNumber { get; init; }
     public string? SessionId { get; init; }
     public string? OperatorName { get; init; }
+    public bool IsLegacy { get; init; }
+    public bool IsSchemaReadOnly { get; init; }
+    public int SchemaVersion { get; init; }
 }
 
 public sealed class FileRunStore : IRunStore
@@ -43,6 +46,17 @@ public sealed class FileRunStore : IRunStore
 
     public async Task SaveAsync(TestRunRecord run, CancellationToken cancellationToken = default)
     {
+        if (run.IsSchemaReadOnly)
+        {
+            throw new SchemaReadOnlyException(
+                DocumentSchemaGate.Evaluate(
+                    SchemaDocumentTypes.TestRunRecord,
+                    run.StoredSchemaVersion > 0 ? run.StoredSchemaVersion : run.SchemaVersion,
+                    SchemaVersions.TestRunRecord,
+                    run.AppVersion));
+        }
+
+        run.SchemaVersion = SchemaVersions.TestRunRecord;
         var dir = GetRunDirectory(run.RunId);
         var path = Path.Combine(dir, "run.json");
         await using var stream = File.Create(path);
@@ -58,7 +72,14 @@ public sealed class FileRunStore : IRunStore
         }
 
         await using var stream = File.OpenRead(path);
-        return await JsonSerializer.DeserializeAsync(stream, AppJsonContext.Default.TestRunRecord, cancellationToken);
+        var run = await JsonSerializer.DeserializeAsync(stream, AppJsonContext.Default.TestRunRecord, cancellationToken);
+        if (run is null)
+        {
+            return null;
+        }
+
+        ApplySchemaGate(run, path);
+        return run;
     }
 
     public async Task<IReadOnlyList<TestRunSummary>> ListAsync(CancellationToken cancellationToken = default)
@@ -81,6 +102,7 @@ public sealed class FileRunStore : IRunStore
                 continue;
             }
 
+            ApplySchemaGate(run, path);
             results.Add(new TestRunSummary
             {
                 RunId = run.RunId,
@@ -92,12 +114,33 @@ public sealed class FileRunStore : IRunStore
                 DutPartNumber = run.DutPartNumber,
                 SessionId = run.SessionId,
                 OperatorName = run.OperatorName,
+                IsLegacy = run.IsLegacy,
+                IsSchemaReadOnly = run.IsSchemaReadOnly,
+                SchemaVersion = run.StoredSchemaVersion,
             });
         }
 
         return results
             .OrderByDescending(r => r.StartedAt)
             .ToArray();
+    }
+
+    private static void ApplySchemaGate(TestRunRecord run, string path)
+    {
+        var status = DocumentSchemaGate.Apply(
+            SchemaDocumentTypes.TestRunRecord,
+            run.SchemaVersion,
+            SchemaVersions.TestRunRecord,
+            path,
+            run.AppVersion,
+            run);
+        run.StoredSchemaVersion = status.StoredVersion;
+        run.IsLegacy = status.IsLegacy;
+        run.IsSchemaReadOnly = status.IsReadOnly;
+        if (status.Kind is DocumentSchemaKind.Current or DocumentSchemaKind.UpgradeNeeded)
+        {
+            run.SchemaVersion = SchemaVersions.TestRunRecord;
+        }
     }
 
     private static string Sanitize(string runId)

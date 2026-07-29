@@ -15,6 +15,7 @@ Platform roadmap (interactions, parameters, mixins): [opentap-platform.md](opent
 Hardening roadmap (gates, config, crash, CI): [platform-roadmap.md](platform-roadmap.md).
 
 Build/version coverage (`BuildInfo`, `AppVersion` on `TestRunRecord`, Settings **Copy diagnostics**, `--version` parsing) lives in Core + ViewModels tests — see [phase-4-build-info.md](platform-phases/phase-4-build-info.md).
+Schema gates and golden files under `tests/fixtures/schema/` are covered in Core tests — see [phase-5-schema-versioning.md](platform-phases/phase-5-schema-versioning.md).
 
 ## When to add which test
 

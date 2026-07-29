@@ -15,6 +15,7 @@
   <ItemGroup>
     <None Include="..\..\plans\opentap\**\*" Link="Programs\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" Condition="Exists('..\..\plans\opentap')" />
     <None Include="..\fixtures\opentap\recordings\**\*" Link="fixtures\opentap\recordings\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" Condition="Exists('..\fixtures\opentap\recordings')" />
+    <None Include="..\fixtures\schema\**\*" Link="fixtures\schema\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" Condition="Exists('..\fixtures\schema')" />
   </ItemGroup>
 
   <ItemGroup>

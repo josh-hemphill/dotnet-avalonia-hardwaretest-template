@@ -158,19 +158,23 @@ public sealed class DutHistoryService : IDutHistoryService
 
         var policyByKey = ResolveHistoryPolicies(current.Samples);
         var metrics = new List<DutMetricDelta>();
+        var skippedUnknownPolicy = 0;
         foreach (var (channel, mean) in currentMeans.OrderBy(kv => kv.Key, StringComparer.OrdinalIgnoreCase))
         {
-            if (policyByKey.TryGetValue(channel, out var policy) && !policy.Enabled)
+            if (!policyByKey.TryGetValue(channel, out var policy) || policy.Enabled is null)
+            {
+                // Unknown policy (legacy / absent HistoryEnabled) — do not invent defaults.
+                skippedUnknownPolicy++;
+                continue;
+            }
+
+            if (!policy.Enabled.Value)
             {
                 continue;
             }
 
-            var watch = policyByKey.TryGetValue(channel, out var p) && p.WatchPercent is { } w
-                ? w
-                : WatchPercentThreshold;
-            var alert = policyByKey.TryGetValue(channel, out var p2) && p2.AlertPercent is { } a
-                ? a
-                : AlertPercentThreshold;
+            var watch = policy.WatchPercent ?? WatchPercentThreshold;
+            var alert = policy.AlertPercent ?? AlertPercentThreshold;
             if (alert < watch)
             {
                 alert = watch;
@@ -207,6 +211,17 @@ public sealed class DutHistoryService : IDutHistoryService
             });
         }
 
+        if (metrics.Count == 0 && skippedUnknownPolicy > 0)
+        {
+            return new DutHistoryReport
+            {
+                PriorRunCount = loadedPriors,
+                OperatorSummary = current.IsLegacy
+                    ? "No comparison available (legacy run record)."
+                    : "No comparison available (history policy unknown for metrics).",
+            };
+        }
+
         var overall = metrics.Count == 0
             ? DutHistorySeverity.Normal
             : metrics.Max(m => m.Severity);
@@ -232,21 +247,18 @@ public sealed class DutHistoryService : IDutHistoryService
             .GroupBy(s => s.EffectiveMetricKey, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(g => g.Key, g => g.Average(s => s.Value), StringComparer.OrdinalIgnoreCase);
 
-    private readonly record struct HistoryPolicy(bool Enabled, double? WatchPercent, double? AlertPercent);
+    private readonly record struct HistoryPolicy(bool? Enabled, double? WatchPercent, double? AlertPercent);
 
-    /// Prefer the last sample's history stamps for each metric key.
+    /// Prefer the latest sample by Timestamp (then Channel) for each metric key's history stamps.
     private static Dictionary<string, HistoryPolicy> ResolveHistoryPolicies(IEnumerable<StoredSample> samples)
     {
         var map = new Dictionary<string, HistoryPolicy>(StringComparer.OrdinalIgnoreCase);
-        foreach (var sample in samples)
+        foreach (var sample in samples
+                     .Where(s => !string.IsNullOrWhiteSpace(s.EffectiveMetricKey))
+                     .OrderBy(s => s.Timestamp)
+                     .ThenBy(s => s.EffectiveMetricKey, StringComparer.OrdinalIgnoreCase))
         {
-            var key = sample.EffectiveMetricKey;
-            if (string.IsNullOrWhiteSpace(key))
-            {
-                continue;
-            }
-
-            map[key] = new HistoryPolicy(
+            map[sample.EffectiveMetricKey] = new HistoryPolicy(
                 sample.HistoryEnabled,
                 sample.HistoryWatchPercent,
                 sample.HistoryAlertPercent);

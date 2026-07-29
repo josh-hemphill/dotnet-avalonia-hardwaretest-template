@@ -73,6 +73,10 @@ public partial class ResultsViewModel : ReactiveObject
             HasPresentationTiles = false;
             ReportItems.Clear();
             HasReports = false;
+            SchemaBadge = string.Empty;
+            HasSchemaBadge = false;
+            SchemaWarning = string.Empty;
+            HasSchemaWarning = false;
         });
 
         PropertyChanged += (_, args) =>
@@ -130,6 +134,10 @@ public partial class ResultsViewModel : ReactiveObject
     [Reactive] private string _planFilter = AllFilter;
     [Reactive] private string _dutFilter = AllFilter;
     [Reactive] private string _filterStatus = string.Empty;
+    [Reactive] private string _schemaBadge = string.Empty;
+    [Reactive] private bool _hasSchemaBadge;
+    [Reactive] private string _schemaWarning = string.Empty;
+    [Reactive] private bool _hasSchemaWarning;
 
     public event EventHandler<string>? ReportOpened;
 
@@ -287,6 +295,10 @@ public partial class ResultsViewModel : ReactiveObject
         HistoryMetrics.Clear();
         ReportItems.Clear();
         HasReports = false;
+        SchemaBadge = string.Empty;
+        HasSchemaBadge = false;
+        SchemaWarning = string.Empty;
+        HasSchemaWarning = false;
         if (OpenedRun is null)
         {
             ShowDetail = false;
@@ -295,6 +307,21 @@ public partial class ResultsViewModel : ReactiveObject
         }
 
         ShowDetail = true;
+        if (OpenedRun.IsSchemaReadOnly)
+        {
+            SchemaBadge = "Read-only";
+            HasSchemaBadge = true;
+            SchemaWarning =
+                $"Schema {OpenedRun.StoredSchemaVersion} is newer than this app ({HardwareTest.Core.Serialization.SchemaVersions.TestRunRecord}). "
+                + $"Written by {OpenedRun.AppVersion ?? "unknown"}.";
+            HasSchemaWarning = true;
+        }
+        else if (OpenedRun.IsLegacy)
+        {
+            SchemaBadge = "Legacy";
+            HasSchemaBadge = true;
+        }
+
         foreach (var step in OpenedRun.Steps)
         {
             StepDetails.Add($"{step.StepId} [{step.StepType}] {(step.Passed ? "PASS" : "FAIL")} — {step.Message}");
@@ -315,6 +342,10 @@ public partial class ResultsViewModel : ReactiveObject
 
         Status = $"Opened {OpenedRun.RunId} ({OpenedRun.Result}) — {OpenedRun.Steps.Count} steps, {OpenedRun.Samples.Count} samples."
                  + (OpenedRun.SessionId is { } sid ? $" Session {sid[..Math.Min(8, sid.Length)]}." : string.Empty);
+        if (!string.IsNullOrWhiteSpace(SchemaWarning))
+        {
+            Status += " " + SchemaWarning;
+        }
 
         if (_dutHistory is not null)
         {

@@ -1281,6 +1281,17 @@ public sealed class FakeRunStore : IRunStore
 
     public Task SaveAsync(TestRunRecord run, CancellationToken cancellationToken = default)
     {
+        if (run.IsSchemaReadOnly)
+        {
+            throw new HardwareTest.Core.Serialization.SchemaReadOnlyException(
+                HardwareTest.Core.Serialization.DocumentSchemaGate.Evaluate(
+                    HardwareTest.Core.Serialization.SchemaDocumentTypes.TestRunRecord,
+                    run.StoredSchemaVersion > 0 ? run.StoredSchemaVersion : run.SchemaVersion,
+                    HardwareTest.Core.Serialization.SchemaVersions.TestRunRecord,
+                    run.AppVersion));
+        }
+
+        run.SchemaVersion = HardwareTest.Core.Serialization.SchemaVersions.TestRunRecord;
         _runs[run.RunId] = run;
         return Task.CompletedTask;
     }
@@ -1303,6 +1314,9 @@ public sealed class FakeRunStore : IRunStore
                 DutPartNumber = r.DutPartNumber,
                 SessionId = r.SessionId,
                 OperatorName = r.OperatorName,
+                IsLegacy = r.IsLegacy,
+                IsSchemaReadOnly = r.IsSchemaReadOnly,
+                SchemaVersion = r.StoredSchemaVersion > 0 ? r.StoredSchemaVersion : r.SchemaVersion,
             })
             .ToArray();
         return Task.FromResult(list);
@@ -1333,6 +1347,7 @@ public sealed class FakeSettingsStore : ISettingsStore
     public IReadOnlyList<SettingProvenance> Provenance { get; set; }
     public bool IsSettingsWritable { get; set; }
     public string? LastPersistenceError { get; set; }
+    public string? SettingsSchemaWarning { get; set; }
     public int SaveAppCount { get; private set; }
     public int SaveUiCount { get; private set; }
 

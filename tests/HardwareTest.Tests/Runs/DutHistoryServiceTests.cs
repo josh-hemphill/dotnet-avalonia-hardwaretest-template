@@ -47,6 +47,7 @@ public sealed class DutHistoryServiceTests
                         MetricKey = "VDC",
                         Value = 9.2,
                         Timestamp = DateTimeOffset.UtcNow,
+                        HistoryEnabled = true,
                     },
                 ],
             };
@@ -108,6 +109,7 @@ public sealed class DutHistoryServiceTests
                         MetricKey = "rail.3v3",
                         Value = 1.02,
                         Timestamp = DateTimeOffset.UtcNow,
+                        HistoryEnabled = true,
                     },
                 ],
             });
@@ -156,6 +158,7 @@ public sealed class DutHistoryServiceTests
                         Channel = "VDC",
                         MetricKey = "VDC",
                         Value = 9.2, // 8% — default watch, but watch raised to 20 so Normal
+                        HistoryEnabled = true,
                         HistoryWatchPercent = 20,
                         HistoryAlertPercent = 30,
                         Timestamp = DateTimeOffset.UtcNow,

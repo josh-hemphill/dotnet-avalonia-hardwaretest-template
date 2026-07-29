@@ -55,6 +55,10 @@ public partial class SettingsViewModel : ReactiveObject
         Status = settingsStore.IsSettingsWritable
             ? "Settings load from settings.json; env/CLI overlays win and stay read-only."
             : $"Settings file not writable: {settingsStore.LastPersistenceError}";
+        if (!string.IsNullOrWhiteSpace(settingsStore.SettingsSchemaWarning))
+        {
+            Status = settingsStore.SettingsSchemaWarning;
+        }
         ThemeOptions = ["System", "Light", "Dark"];
         LogLevelOptions = ["Verbose", "Debug", "Information", "Warning", "Error", "Fatal"];
         ShowEventLogOptions = OperatingSystem.IsWindows();

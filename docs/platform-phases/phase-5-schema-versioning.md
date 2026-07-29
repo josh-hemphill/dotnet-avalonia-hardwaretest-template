@@ -3,7 +3,7 @@
 **Parent:** [platform-roadmap.md](../platform-roadmap.md)
 **Depends on:** [Phase 4](phase-4-build-info.md) (records the writing app version alongside the schema version)
 **Unblocks:** shipping to users you cannot ask to delete their data directory
-**Status:** Not started
+**Status:** Done
 
 ## Goal
 
@@ -61,10 +61,10 @@ This gets worse, not better, with every field added. The window to do it cheaply
 
 ## Exit criteria
 
-- [ ] Every persisted document carries a schema version.
-- [ ] Downgrading the app cannot overwrite newer run history.
-- [ ] A pre-Phase-I run record cannot produce a false history alert.
-- [ ] The upgrade hook exists and is exercised by at least one no-op registration.
+- [x] Every persisted document carries a schema version.
+- [x] Downgrading the app cannot overwrite newer run history.
+- [x] A pre-Phase-I run record cannot produce a false history alert.
+- [x] The upgrade hook exists and is exercised by at least one no-op registration.
 
 ## Out of scope
 

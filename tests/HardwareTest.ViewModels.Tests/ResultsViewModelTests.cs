@@ -71,7 +71,7 @@ public sealed class ResultsViewModelTests
             DutSerial = "SN-H",
             StartedAt = DateTimeOffset.UtcNow,
             Result = RunResult.Passed,
-            Samples = [new StoredSample { Channel = "VDC", Value = 8.5, Timestamp = DateTimeOffset.UtcNow }],
+            Samples = [new StoredSample { Channel = "VDC", Value = 8.5, Timestamp = DateTimeOffset.UtcNow, HistoryEnabled = true }],
             Steps =
             [
                 new StepResultRecord
@@ -428,7 +428,7 @@ public sealed class ResultsViewModelTests
             DutSerial = "SN-M",
             StartedAt = DateTimeOffset.UtcNow,
             Result = RunResult.Passed,
-            Samples = [new StoredSample { Channel = "VDC", MetricKey = "VDC", Value = 8, Timestamp = DateTimeOffset.UtcNow }],
+            Samples = [new StoredSample { Channel = "VDC", MetricKey = "VDC", Value = 8, Timestamp = DateTimeOffset.UtcNow, HistoryEnabled = true }],
             Reports =
             [
                 new RunReportArtifact

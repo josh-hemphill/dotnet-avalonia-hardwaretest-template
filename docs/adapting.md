@@ -108,7 +108,7 @@ Set `AppSettings.ExportOpenTapResults` (Settings → **Export OpenTAP results (C
 
 ### DUT history (local)
 
-After Pass/Fail, the shell compares channel means on the current run to the last 10 local runs with the same DUT serial + plan ([`DutHistoryService`](../src/HardwareTest.Core/Runs/DutHistoryService.cs)). Metrics group by Presentation `MetricKey` when set (else Channel). Watch/Alert thresholds default to 5%/10%, or per-metric via Presentation `HistoryWatchPercent` / `HistoryAlertPercent` / `HistoryEnabled`. History detail (metric table) lives on **Results**; the Run board banner is off by default (`ShowDutHistoryOnRun`).
+After Pass/Fail, the shell compares channel means on the current run to the last 10 local runs with the same DUT serial + plan ([`DutHistoryService`](../src/HardwareTest.Core/Runs/DutHistoryService.cs)). Metrics group by Presentation `MetricKey` when set (else Channel). Watch/Alert thresholds default to 5%/10%, or per-metric via Presentation `HistoryWatchPercent` / `HistoryAlertPercent` / `HistoryEnabled`. Absent `HistoryEnabled` (legacy records) means **no comparison**, not default thresholds. History detail (metric table) lives on **Results**; the Run board banner is off by default (`ShowDutHistoryOnRun`).
 
 ### Presentation contract (Phase I) + UI (Phase J)
 
@@ -167,6 +167,17 @@ Env alone is enough for a sealed install. Missing or read-only `settings.json` i
 Also: `--settings <path>` (settings file path), `--print-config` (dump effective config + provenance to stdout and exit 0), `--version` / `-v` (print informational version and exit 0). Nested lists use `HARDWARETEST_<LIST>__{n}__<PROP>` (e.g. `HARDWARETEST_INSTRUMENTS__0__RESOURCE`).
 
 Bootstrap is two-stage: stage 1 resolves `DataDirectory` + `LogMinimumLevel` from env/CLI before logging; stage 2 loads `settings.json` then re-applies overlays. See [phase-3-configuration-model.md](platform-phases/phase-3-configuration-model.md).
+
+### Schema versions
+
+Every persisted JSON document carries an integer `schemaVersion`. Bumps are deliberate (see [`SchemaVersions`](../src/HardwareTest.Core/Serialization/SchemaVersions.cs)). Absent/`0` = legacy; greater than current = load read-only (never overwrite). Golden fixtures live under `tests/fixtures/schema/`.
+
+| Document | Current | Changelog |
+| --- | --- | --- |
+| `AppSettings` (`settings.json`) | 1 | Initial stamped shape (Phase 5). |
+| `UiState` (`ui-state.json`) | 1 | Initial stamped shape (Phase 5). |
+| `TestRunRecord` (`runs/{id}/run.json`) | 1 | Initial stamped shape (Phase 5). `StoredSample.HistoryEnabled` is nullable so absent ≠ default. |
+| `SuiteRunRecord` (`runs/suites/{id}/suite-run.json`) | 1 | Initial stamped shape (Phase 5). |
 
 ## 11. Custom mixins
 

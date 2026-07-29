@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "runId": "current-run-1",
+  "traceId": "trace-v1",
+  "planId": "sample",
+  "planName": "Sample Hardware Suite",
+  "dutSerial": "SN-V1",
+  "operatorName": "Tech",
+  "appVersion": "0.1.0+abc1234.20260728220000",
+  "appCommitSha": "abc1234",
+  "startedAt": "2026-07-01T12:00:00Z",
+  "completedAt": "2026-07-01T12:05:00Z",
+  "result": "Passed",
+  "steps": [],
+  "samples": [
+    {
+      "channel": "VDC",
+      "metricKey": "VDC",
+      "timestamp": "2026-07-01T12:00:01Z",
+      "value": 10.0,
+      "historyEnabled": true,
+      "historyWatchPercent": 5,
+      "historyAlertPercent": 10
+    }
+  ],
+  "variables": {},
+  "reports": [],
+  "plotImagePaths": []
+}

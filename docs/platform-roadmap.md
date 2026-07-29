@@ -47,7 +47,7 @@ Distinct namespaces on purpose — "Phase C" and "Phase 3" are never the same th
 | 2 | [Architecture compliance tests](platform-phases/phase-2-architecture-tests.md) | 1 | Done |
 | 3 | [Configuration & environment model](platform-phases/phase-3-configuration-model.md) | 1 | Done |
 | 4 | [Build & system info surface](platform-phases/phase-4-build-info.md) | 3 | Done |
-| 5 | [Schema versioning](platform-phases/phase-5-schema-versioning.md) | 4 | Not started |
+| 5 | [Schema versioning](platform-phases/phase-5-schema-versioning.md) | 4 | Done |
 | 6 | [Crash reporting](platform-phases/phase-6-crash-reporting.md) | 3, 4 | Not started |
 | 7 | [Containerized local CI](platform-phases/phase-7-containers-local-ci.md) | 1 | Not started |
 | 8 | [Session contract test suite](platform-phases/phase-8-session-contract-tests.md) | 1 | Not started |

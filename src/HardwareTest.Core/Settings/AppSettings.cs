@@ -3,6 +3,8 @@ namespace HardwareTest.Core.Settings;
 /// Application preferences persisted to settings.json.
 public sealed class AppSettings
 {
+    /// Persisted document schema version (see SchemaVersions.AppSettings).
+    public int SchemaVersion { get; set; }
     public string DataDirectory { get; set; } = string.Empty;
     public string DefaultVisaResource { get; set; } = "MOCK::INSTR0";
     public bool UseMockVisa { get; set; } = true;
@@ -73,6 +75,8 @@ public sealed class PlanParameterOverride
 /// Window and navigation state persisted to ui-state.json.
 public sealed class UiState
 {
+    /// Persisted document schema version (see SchemaVersions.UiState).
+    public int SchemaVersion { get; set; }
     public double X { get; set; } = 100;
     public double Y { get; set; } = 100;
     public double Width { get; set; } = 1280;

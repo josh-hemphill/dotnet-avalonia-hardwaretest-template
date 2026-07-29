@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using HardwareTest.Core.Hardware;
 
 namespace HardwareTest.Core.Runs;
@@ -13,6 +14,8 @@ public enum RunResult
 
 public sealed class TestRunRecord
 {
+    /// Persisted document schema version (see SchemaVersions.TestRunRecord).
+    public int SchemaVersion { get; set; }
     public string RunId { get; set; } = string.Empty;
     public string TraceId { get; set; } = string.Empty;
     public string PlanId { get; set; } = string.Empty;
@@ -39,6 +42,18 @@ public sealed class TestRunRecord
     public string? ReportPdfPath { get; set; }
     public List<RunReportArtifact> Reports { get; set; } = [];
     public List<string> PlotImagePaths { get; set; } = [];
+
+    /// Runtime: loaded without SchemaVersion (absent/0).
+    [JsonIgnore]
+    public bool IsLegacy { get; set; }
+
+    /// Runtime: stored schema newer than this app — do not overwrite.
+    [JsonIgnore]
+    public bool IsSchemaReadOnly { get; set; }
+
+    /// Runtime: version found on disk before upgrades.
+    [JsonIgnore]
+    public int StoredSchemaVersion { get; set; }
 }
 
 /// One Typst PDF generated for a run (status, certification, …).
@@ -59,6 +74,8 @@ public static class ReportKinds
 
 public sealed class SuiteRunRecord
 {
+    /// Persisted document schema version (see SchemaVersions.SuiteRunRecord).
+    public int SchemaVersion { get; set; }
     public string SuiteRunId { get; set; } = string.Empty;
     public string SuiteId { get; set; } = string.Empty;
     public string SuiteName { get; set; } = string.Empty;
@@ -68,6 +85,15 @@ public sealed class SuiteRunRecord
     public string? ErrorMessage { get; set; }
     public List<TestRunRecord> PlanRuns { get; set; } = [];
     public string? ReportPdfPath { get; set; }
+
+    [JsonIgnore]
+    public bool IsLegacy { get; set; }
+
+    [JsonIgnore]
+    public bool IsSchemaReadOnly { get; set; }
+
+    [JsonIgnore]
+    public int StoredSchemaVersion { get; set; }
 }
 
 public sealed class StepResultRecord
@@ -119,8 +145,8 @@ public sealed class StoredSample
     public double? LimitLow { get; set; }
     /// Optional upper passband bound from Scalar LimitHigh.
     public double? LimitHigh { get; set; }
-    /// When false, DutHistoryService skips this metric.
-    public bool HistoryEnabled { get; set; } = true;
+    /// When false, DutHistoryService skips this metric. Null means unknown (legacy / absent).
+    public bool? HistoryEnabled { get; set; }
     /// Per-metric watch threshold (%); null uses DutHistoryService default.
     public double? HistoryWatchPercent { get; set; }
     /// Per-metric alert threshold (%); null uses DutHistoryService default.

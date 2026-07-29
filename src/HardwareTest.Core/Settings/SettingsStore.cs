@@ -13,6 +13,7 @@ public interface ISettingsStore
     IReadOnlyList<SettingProvenance> Provenance { get; }
     bool IsSettingsWritable { get; }
     string? LastPersistenceError { get; }
+    string? SettingsSchemaWarning { get; }
     bool IsOverridden(string key);
     Task LoadAsync(CancellationToken cancellationToken = default);
     Task LoadAsync(
@@ -37,6 +38,10 @@ public sealed class SettingsStore : ISettingsStore
         new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
     private IReadOnlyDictionary<string, string> _commandLineOverlays =
         new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+    private bool _settingsSchemaReadOnly;
+    private bool _uiStateSchemaReadOnly;
+    private string? _settingsSchemaWarning;
+    private string? _uiStateSchemaWarning;
 
     public SettingsStore(string? rootDirectory = null, string? settingsFilePath = null)
     {
@@ -51,7 +56,7 @@ public sealed class SettingsStore : ISettingsStore
         _uiStatePath = Path.Combine(_rootDirectory, "ui-state.json");
         _fileBaseline = CreateDefaultAppSettings(_rootDirectory);
         AppSettings = CloneSettings(_fileBaseline);
-        UiState = new UiState();
+        UiState = new UiState { SchemaVersion = SchemaVersions.UiState };
         SeedDefaultProvenance();
         IsSettingsWritable = true;
     }
@@ -64,6 +69,10 @@ public sealed class SettingsStore : ISettingsStore
     public IReadOnlyList<SettingProvenance> Provenance => _provenance;
     public bool IsSettingsWritable { get; private set; }
     public string? LastPersistenceError { get; private set; }
+    /// In-panel warning when settings.json schema is newer than this app.
+    public string? SettingsSchemaWarning => _settingsSchemaWarning;
+    /// In-panel warning when ui-state.json schema is newer than this app.
+    public string? UiStateSchemaWarning => _uiStateSchemaWarning;
 
     public bool IsOverridden(string key)
         => AppSettingsEnvironmentBinder.IsOverridden(_provenance, key)
@@ -105,6 +114,24 @@ public sealed class SettingsStore : ISettingsStore
                         loaded.DataDirectory = _rootDirectory;
                     }
 
+                    var status = DocumentSchemaGate.Apply(
+                        SchemaDocumentTypes.AppSettings,
+                        loaded.SchemaVersion,
+                        SchemaVersions.AppSettings,
+                        _settingsPath,
+                        document: loaded);
+                    _settingsSchemaReadOnly = status.IsReadOnly;
+                    _settingsSchemaWarning = status.IsReadOnly ? status.FormatOperatorWarning() : null;
+                    if (status.IsReadOnly)
+                    {
+                        IsSettingsWritable = false;
+                        warn?.Invoke(status.FormatOperatorWarning());
+                    }
+                    else if (status.Kind is DocumentSchemaKind.Current or DocumentSchemaKind.UpgradeNeeded)
+                    {
+                        loaded.SchemaVersion = SchemaVersions.AppSettings;
+                    }
+
                     _fileBaseline = loaded;
                     MarkFileProvenance(provenance, _fileBaseline);
                 }
@@ -142,6 +169,23 @@ public sealed class SettingsStore : ISettingsStore
                     cancellationToken).ConfigureAwait(false);
                 if (loaded is not null)
                 {
+                    var status = DocumentSchemaGate.Apply(
+                        SchemaDocumentTypes.UiState,
+                        loaded.SchemaVersion,
+                        SchemaVersions.UiState,
+                        _uiStatePath,
+                        document: loaded);
+                    _uiStateSchemaReadOnly = status.IsReadOnly;
+                    _uiStateSchemaWarning = status.IsReadOnly ? status.FormatOperatorWarning() : null;
+                    if (status.IsReadOnly)
+                    {
+                        warn?.Invoke(status.FormatOperatorWarning());
+                    }
+                    else if (status.Kind is DocumentSchemaKind.Current or DocumentSchemaKind.UpgradeNeeded)
+                    {
+                        loaded.SchemaVersion = SchemaVersions.UiState;
+                    }
+
                     UiState = loaded;
                 }
             }
@@ -154,6 +198,14 @@ public sealed class SettingsStore : ISettingsStore
 
     public async Task SaveAppSettingsAsync(CancellationToken cancellationToken = default)
     {
+        if (_settingsSchemaReadOnly)
+        {
+            IsSettingsWritable = false;
+            LastPersistenceError = _settingsSchemaWarning
+                ?? "settings.json schema is newer than this app; refusing to overwrite.";
+            return;
+        }
+
         // Write-back: persist only keys not overridden by env/CLI.
         var toWrite = CloneSettings(_fileBaseline);
         CopyNonOverridden(AppSettings, toWrite);
@@ -162,6 +214,8 @@ public sealed class SettingsStore : ISettingsStore
         {
             toWrite.DataDirectory = AppSettings.DataDirectory;
         }
+
+        toWrite.SchemaVersion = SchemaVersions.AppSettings;
 
         try
         {
@@ -191,8 +245,16 @@ public sealed class SettingsStore : ISettingsStore
 
     public async Task SaveUiStateAsync(CancellationToken cancellationToken = default)
     {
+        if (_uiStateSchemaReadOnly)
+        {
+            LastPersistenceError = _uiStateSchemaWarning
+                ?? "ui-state.json schema is newer than this app; refusing to overwrite.";
+            return;
+        }
+
         try
         {
+            UiState.SchemaVersion = SchemaVersions.UiState;
             await using var stream = File.Create(_uiStatePath);
             await JsonSerializer.SerializeAsync(
                 stream,
@@ -346,6 +408,7 @@ public sealed class SettingsStore : ISettingsStore
     {
         return new AppSettings
         {
+            SchemaVersion = SchemaVersions.AppSettings,
             DataDirectory = root,
             DefaultVisaResource = "MOCK::INSTR0",
             UseMockVisa = true,

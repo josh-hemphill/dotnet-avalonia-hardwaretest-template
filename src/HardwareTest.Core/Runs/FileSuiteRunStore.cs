@@ -31,6 +31,16 @@ public sealed class FileSuiteRunStore : ISuiteRunStore
 
     public async Task SaveAsync(SuiteRunRecord suiteRun, CancellationToken cancellationToken = default)
     {
+        if (suiteRun.IsSchemaReadOnly)
+        {
+            throw new SchemaReadOnlyException(
+                DocumentSchemaGate.Evaluate(
+                    SchemaDocumentTypes.SuiteRunRecord,
+                    suiteRun.StoredSchemaVersion > 0 ? suiteRun.StoredSchemaVersion : suiteRun.SchemaVersion,
+                    SchemaVersions.SuiteRunRecord));
+        }
+
+        suiteRun.SchemaVersion = SchemaVersions.SuiteRunRecord;
         var dir = GetSuiteRunDirectory(suiteRun.SuiteRunId);
         foreach (var planRun in suiteRun.PlanRuns)
         {
@@ -52,8 +62,28 @@ public sealed class FileSuiteRunStore : ISuiteRunStore
         }
 
         await using var stream = File.OpenRead(path);
-        return await JsonSerializer.DeserializeAsync(stream, AppJsonContext.Default.SuiteRunRecord, cancellationToken)
+        var suite = await JsonSerializer.DeserializeAsync(stream, AppJsonContext.Default.SuiteRunRecord, cancellationToken)
             .ConfigureAwait(false);
+        if (suite is null)
+        {
+            return null;
+        }
+
+        var status = DocumentSchemaGate.Apply(
+            SchemaDocumentTypes.SuiteRunRecord,
+            suite.SchemaVersion,
+            SchemaVersions.SuiteRunRecord,
+            path,
+            document: suite);
+        suite.StoredSchemaVersion = status.StoredVersion;
+        suite.IsLegacy = status.IsLegacy;
+        suite.IsSchemaReadOnly = status.IsReadOnly;
+        if (status.Kind is DocumentSchemaKind.Current or DocumentSchemaKind.UpgradeNeeded)
+        {
+            suite.SchemaVersion = SchemaVersions.SuiteRunRecord;
+        }
+
+        return suite;
     }
 
     private static string Sanitize(string id)
