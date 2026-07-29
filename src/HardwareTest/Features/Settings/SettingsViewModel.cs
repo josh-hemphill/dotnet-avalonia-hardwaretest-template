@@ -1,7 +1,9 @@
 using System;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
+using System.Linq;
 using System.Runtime.Versioning;
+using System.Text;
 using System.Threading.Tasks;
 using HardwareTest.Core.Settings;
 using HardwareTest.OpenTap.Host;
@@ -9,6 +11,14 @@ using ReactiveUI;
 using ReactiveUI.SourceGenerators;
 
 namespace HardwareTest.Features.Settings;
+
+public sealed class SettingProvenanceRow
+{
+    public required string Key { get; init; }
+    public required string EffectiveValue { get; init; }
+    public required string Source { get; init; }
+    public required string SourceDetail { get; init; }
+}
 
 public partial class SettingsViewModel : ReactiveObject
 {
@@ -37,18 +47,36 @@ public partial class SettingsViewModel : ReactiveObject
         IsEngineerDebugMode = s.IsEngineerDebugMode;
         OperatorSessionIdleHours = s.OperatorSessionIdleHours;
         DataDirectory = settingsStore.RootDirectory;
-        Status = "Settings load from settings.json under ApplicationData/HardwareTest.";
+        Status = settingsStore.IsSettingsWritable
+            ? "Settings load from settings.json; env/CLI overlays win and stay read-only."
+            : $"Settings file not writable: {settingsStore.LastPersistenceError}";
         ThemeOptions = ["System", "Light", "Dark"];
         LogLevelOptions = ["Verbose", "Debug", "Information", "Warning", "Error", "Fatal"];
         ShowEventLogOptions = OperatingSystem.IsWindows();
         ShowSyslogOptions = !OperatingSystem.IsWindows();
         Packages = [];
         PluginDirectories = [];
+        ProvenanceRows = [];
+
+        UseMockVisaReadOnly = settingsStore.IsOverridden(nameof(AppSettings.UseMockVisa));
+        LogMinimumLevelReadOnly = settingsStore.IsOverridden(nameof(AppSettings.LogMinimumLevel));
+        EnableOsEventSinkReadOnly = settingsStore.IsOverridden(nameof(AppSettings.EnableOsEventSink));
+        EnableSyslogOnUnixReadOnly = settingsStore.IsOverridden(nameof(AppSettings.EnableSyslogOnUnix));
+        SyslogHostReadOnly = settingsStore.IsOverridden(nameof(AppSettings.SyslogHost));
+        SyslogPortReadOnly = settingsStore.IsOverridden(nameof(AppSettings.SyslogPort));
+        PlotRefreshHzReadOnly = settingsStore.IsOverridden(nameof(AppSettings.PlotRefreshHz));
+        ThemePreferenceReadOnly = settingsStore.IsOverridden(nameof(AppSettings.ThemePreference));
+        EmbedPlotsInReportReadOnly = settingsStore.IsOverridden(nameof(AppSettings.EmbedPlotsInReport));
+        ExportOpenTapResultsReadOnly = settingsStore.IsOverridden(nameof(AppSettings.ExportOpenTapResults));
+        ShowDutHistoryOnRunReadOnly = settingsStore.IsOverridden(nameof(AppSettings.ShowDutHistoryOnRun));
+        IsEngineerDebugModeReadOnly = settingsStore.IsOverridden(nameof(AppSettings.IsEngineerDebugMode));
+        OperatorSessionIdleHoursReadOnly = settingsStore.IsOverridden(nameof(AppSettings.OperatorSessionIdleHours));
 
         SaveCommand = ReactiveCommand.CreateFromTask(SaveAsync);
         RefreshPackagesCommand = ReactiveCommand.Create(RefreshPackages);
         CopyPathCommand = ReactiveCommand.CreateFromTask(CopySelectedPathAsync);
         OpenFolderCommand = ReactiveCommand.Create(OpenSelectedFolder);
+        CopyDiagnosticsCommand = ReactiveCommand.CreateFromTask(CopyDiagnosticsAsync);
 
         _debounce = new System.Timers.Timer(400) { AutoReset = false };
         _debounce.Elapsed += async (_, _) =>
@@ -80,7 +108,20 @@ public partial class SettingsViewModel : ReactiveObject
             if (args.PropertyName is nameof(Status) or nameof(DataDirectory)
                 or nameof(ShowEventLogOptions) or nameof(ShowSyslogOptions)
                 or nameof(SelectedPackage) or nameof(SelectedPluginDirectory)
-                or nameof(Packages) or nameof(PluginDirectories))
+                or nameof(Packages) or nameof(PluginDirectories)
+                or nameof(ProvenanceRows)
+                or nameof(UseMockVisaReadOnly) or nameof(LogMinimumLevelReadOnly)
+                or nameof(EnableOsEventSinkReadOnly) or nameof(EnableSyslogOnUnixReadOnly)
+                or nameof(SyslogHostReadOnly) or nameof(SyslogPortReadOnly)
+                or nameof(PlotRefreshHzReadOnly) or nameof(ThemePreferenceReadOnly)
+                or nameof(EmbedPlotsInReportReadOnly) or nameof(ExportOpenTapResultsReadOnly)
+                or nameof(ShowDutHistoryOnRunReadOnly) or nameof(IsEngineerDebugModeReadOnly)
+                or nameof(OperatorSessionIdleHoursReadOnly))
+            {
+                return;
+            }
+
+            if (IsPropertyOverridden(args.PropertyName))
             {
                 return;
             }
@@ -90,16 +131,19 @@ public partial class SettingsViewModel : ReactiveObject
         };
 
         RefreshPackages();
+        RefreshProvenance();
     }
 
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> SaveCommand { get; }
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> RefreshPackagesCommand { get; }
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> CopyPathCommand { get; }
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> OpenFolderCommand { get; }
+    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> CopyDiagnosticsCommand { get; }
     public ObservableCollection<string> ThemeOptions { get; }
     public ObservableCollection<string> LogLevelOptions { get; }
     public ObservableCollection<OpenTapPackageInfo> Packages { get; }
     public ObservableCollection<OpenTapPluginDirectoryInfo> PluginDirectories { get; }
+    public ObservableCollection<SettingProvenanceRow> ProvenanceRows { get; }
     public bool ShowEventLogOptions { get; }
     public bool ShowSyslogOptions { get; }
 
@@ -123,6 +167,34 @@ public partial class SettingsViewModel : ReactiveObject
     [Reactive] private string _status = string.Empty;
     [Reactive] private OpenTapPackageInfo? _selectedPackage;
     [Reactive] private OpenTapPluginDirectoryInfo? _selectedPluginDirectory;
+    [Reactive] private bool _useMockVisaReadOnly;
+    [Reactive] private bool _logMinimumLevelReadOnly;
+    [Reactive] private bool _enableOsEventSinkReadOnly;
+    [Reactive] private bool _enableSyslogOnUnixReadOnly;
+    [Reactive] private bool _syslogHostReadOnly;
+    [Reactive] private bool _syslogPortReadOnly;
+    [Reactive] private bool _plotRefreshHzReadOnly;
+    [Reactive] private bool _themePreferenceReadOnly;
+    [Reactive] private bool _embedPlotsInReportReadOnly;
+    [Reactive] private bool _exportOpenTapResultsReadOnly;
+    [Reactive] private bool _showDutHistoryOnRunReadOnly;
+    [Reactive] private bool _isEngineerDebugModeReadOnly;
+    [Reactive] private bool _operatorSessionIdleHoursReadOnly;
+
+    private void RefreshProvenance()
+    {
+        ProvenanceRows.Clear();
+        foreach (var row in _settingsStore.Provenance.OrderBy(p => p.Key, StringComparer.OrdinalIgnoreCase))
+        {
+            ProvenanceRows.Add(new SettingProvenanceRow
+            {
+                Key = row.Key,
+                EffectiveValue = row.EffectiveValue,
+                Source = row.Source.ToString(),
+                SourceDetail = row.SourceDetail ?? string.Empty,
+            });
+        }
+    }
 
     private void RefreshPackages()
     {
@@ -160,6 +232,35 @@ public partial class SettingsViewModel : ReactiveObject
         {
             await CopyTextAsync(path);
             Status = $"Copied path: {path}";
+        }
+        catch (Exception ex)
+        {
+            Status = $"Copy failed: {ex.Message}";
+        }
+    }
+
+    private async Task CopyDiagnosticsAsync()
+    {
+        if (CopyTextAsync is null)
+        {
+            Status = "Clipboard is not available in this host.";
+            return;
+        }
+
+        var sb = new StringBuilder();
+        sb.AppendLine("Key\tEffectiveValue\tSource\tSourceDetail");
+        foreach (var row in ProvenanceRows)
+        {
+            sb.Append(row.Key).Append('\t')
+                .Append(row.EffectiveValue).Append('\t')
+                .Append(row.Source).Append('\t')
+                .Append(row.SourceDetail).AppendLine();
+        }
+
+        try
+        {
+            await CopyTextAsync(sb.ToString());
+            Status = $"Copied {ProvenanceRows.Count} diagnostics rows.";
         }
         catch (Exception ex)
         {
@@ -205,23 +306,101 @@ public partial class SettingsViewModel : ReactiveObject
     private async Task SaveAsync()
     {
         var s = _settingsStore.AppSettings;
-        s.UseMockVisa = UseMockVisa;
-        s.LogMinimumLevel = NormalizeLogLevel(LogMinimumLevel);
-        s.EnableOsEventSink = EnableOsEventSink;
-        s.EnableSyslogOnUnix = EnableSyslogOnUnix;
-        s.SyslogHost = SyslogHost;
-        s.SyslogPort = SyslogPort;
-        s.PlotRefreshHz = PlotRefreshHz;
-        s.ThemePreference = ThemePreference;
-        s.EmbedPlotsInReport = EmbedPlotsInReport;
-        s.ExportOpenTapResults = ExportOpenTapResults;
-        s.ShowDutHistoryOnRun = ShowDutHistoryOnRun;
-        s.IsEngineerDebugMode = IsEngineerDebugMode;
-        s.OperatorSessionIdleHours = Math.Clamp(OperatorSessionIdleHours, 1, 168);
+        if (!UseMockVisaReadOnly)
+        {
+            s.UseMockVisa = UseMockVisa;
+        }
+
+        if (!LogMinimumLevelReadOnly)
+        {
+            s.LogMinimumLevel = NormalizeLogLevel(LogMinimumLevel);
+        }
+
+        if (!EnableOsEventSinkReadOnly)
+        {
+            s.EnableOsEventSink = EnableOsEventSink;
+        }
+
+        if (!EnableSyslogOnUnixReadOnly)
+        {
+            s.EnableSyslogOnUnix = EnableSyslogOnUnix;
+        }
+
+        if (!SyslogHostReadOnly)
+        {
+            s.SyslogHost = SyslogHost;
+        }
+
+        if (!SyslogPortReadOnly)
+        {
+            s.SyslogPort = SyslogPort;
+        }
+
+        if (!PlotRefreshHzReadOnly)
+        {
+            s.PlotRefreshHz = PlotRefreshHz;
+        }
+
+        if (!ThemePreferenceReadOnly)
+        {
+            s.ThemePreference = ThemePreference;
+        }
+
+        if (!EmbedPlotsInReportReadOnly)
+        {
+            s.EmbedPlotsInReport = EmbedPlotsInReport;
+        }
+
+        if (!ExportOpenTapResultsReadOnly)
+        {
+            s.ExportOpenTapResults = ExportOpenTapResults;
+        }
+
+        if (!ShowDutHistoryOnRunReadOnly)
+        {
+            s.ShowDutHistoryOnRun = ShowDutHistoryOnRun;
+        }
+
+        if (!IsEngineerDebugModeReadOnly)
+        {
+            s.IsEngineerDebugMode = IsEngineerDebugMode;
+        }
+
+        if (!OperatorSessionIdleHoursReadOnly)
+        {
+            s.OperatorSessionIdleHours = Math.Clamp(OperatorSessionIdleHours, 1, 168);
+        }
+
         await _settingsStore.SaveAppSettingsAsync();
         ThemeApplier.Apply(s);
+        RefreshProvenance();
+        if (!_settingsStore.IsSettingsWritable)
+        {
+            Status = $"Could not write settings.json ({_settingsStore.LastPersistenceError}). Continuing in memory.";
+            return;
+        }
+
         Status = $"Saved at {DateTimeOffset.Now:T}. Restart may be required for logging sink / mock VISA changes.";
     }
+
+    private bool IsPropertyOverridden(string? propertyName)
+        => propertyName switch
+        {
+            nameof(UseMockVisa) => UseMockVisaReadOnly,
+            nameof(LogMinimumLevel) => LogMinimumLevelReadOnly,
+            nameof(EnableOsEventSink) => EnableOsEventSinkReadOnly,
+            nameof(EnableSyslogOnUnix) => EnableSyslogOnUnixReadOnly,
+            nameof(SyslogHost) => SyslogHostReadOnly,
+            nameof(SyslogPort) => SyslogPortReadOnly,
+            nameof(PlotRefreshHz) => PlotRefreshHzReadOnly,
+            nameof(ThemePreference) => ThemePreferenceReadOnly,
+            nameof(EmbedPlotsInReport) => EmbedPlotsInReportReadOnly,
+            nameof(ExportOpenTapResults) => ExportOpenTapResultsReadOnly,
+            nameof(ShowDutHistoryOnRun) => ShowDutHistoryOnRunReadOnly,
+            nameof(IsEngineerDebugMode) => IsEngineerDebugModeReadOnly,
+            nameof(OperatorSessionIdleHours) => OperatorSessionIdleHoursReadOnly,
+            _ => false,
+        };
 
     private static string NormalizeLogLevel(string? level)
     {

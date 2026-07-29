@@ -7,16 +7,20 @@ namespace HardwareTest.Tests.Settings;
 public sealed class SettingsStoreTests
 {
     [Fact]
-    public async Task First_load_creates_default_files()
+    public async Task First_load_uses_defaults_without_requiring_files()
     {
         using var temp = new TempDataDirectory();
         var store = new SettingsStore(temp.Path);
         await store.LoadAsync();
 
-        Assert.True(File.Exists(Path.Combine(temp.Path, "settings.json")));
-        Assert.True(File.Exists(Path.Combine(temp.Path, "ui-state.json")));
+        Assert.False(File.Exists(Path.Combine(temp.Path, "settings.json")));
         Assert.True(store.AppSettings.UseMockVisa);
         Assert.Equal("MOCK::INSTR0", store.AppSettings.DefaultVisaResource);
+
+        await store.SaveAppSettingsAsync();
+        await store.SaveUiStateAsync();
+        Assert.True(File.Exists(Path.Combine(temp.Path, "settings.json")));
+        Assert.True(File.Exists(Path.Combine(temp.Path, "ui-state.json")));
     }
 
     [Fact]

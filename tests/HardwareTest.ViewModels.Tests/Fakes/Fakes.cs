@@ -1314,16 +1314,35 @@ public sealed class FakeSettingsStore : ISettingsStore
         UiState = new UiState { SelectedPageId = "Home" };
         RootDirectory = Path.Combine(Path.GetTempPath(), "fake-settings");
         RunsDirectory = Path.Combine(RootDirectory, "runs");
+        SettingsPath = Path.Combine(RootDirectory, "settings.json");
+        Provenance = [];
+        IsSettingsWritable = true;
     }
 
     public AppSettings AppSettings { get; }
     public UiState UiState { get; }
     public string RootDirectory { get; }
     public string RunsDirectory { get; }
+    public string SettingsPath { get; }
+    public IReadOnlyList<SettingProvenance> Provenance { get; set; }
+    public bool IsSettingsWritable { get; set; }
+    public string? LastPersistenceError { get; set; }
     public int SaveAppCount { get; private set; }
     public int SaveUiCount { get; private set; }
 
+    public bool IsOverridden(string key)
+        => Provenance.Any(p =>
+            string.Equals(p.Key, key, StringComparison.OrdinalIgnoreCase)
+            && p.Source is SettingSource.Environment or SettingSource.CommandLine);
+
     public Task LoadAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+    public Task LoadAsync(
+        IReadOnlyDictionary<string, string>? environmentOverlays,
+        IReadOnlyDictionary<string, string>? commandLineOverlays,
+        Action<string>? warn = null,
+        CancellationToken cancellationToken = default)
+        => Task.CompletedTask;
 
     public Task SaveAppSettingsAsync(CancellationToken cancellationToken = default)
     {

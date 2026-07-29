@@ -1,3 +1,4 @@
+using HardwareTest.Core.Settings;
 using HardwareTest.Features.Settings;
 using HardwareTest.ViewModels.Tests.Fakes;
 using Xunit;
@@ -62,5 +63,54 @@ public sealed class SettingsViewModelTests
 
         Assert.Equal(vm.Packages[0].Path, copied);
         Assert.Contains("Copied path", vm.Status, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Save_skips_env_overridden_fields()
+    {
+        var store = new FakeSettingsStore
+        {
+            Provenance =
+            [
+                new SettingProvenance
+                {
+                    Key = "UseMockVisa",
+                    EffectiveValue = "false",
+                    Source = SettingSource.Environment,
+                    SourceDetail = "HARDWARETEST_USE_MOCK_VISA",
+                },
+            ],
+        };
+        store.AppSettings.UseMockVisa = false;
+        var vm = new SettingsViewModel(store, new FakeOpenTapSession())
+        {
+            UseMockVisa = true,
+            ThemePreference = "Dark",
+        };
+
+        Assert.True(vm.UseMockVisaReadOnly);
+        await vm.SaveCommand.ExecuteAsync();
+        Assert.False(store.AppSettings.UseMockVisa);
+        Assert.Equal("Dark", store.AppSettings.ThemePreference);
+    }
+
+    [Fact]
+    public void Diagnostics_lists_provenance_rows()
+    {
+        var store = new FakeSettingsStore
+        {
+            Provenance =
+            [
+                new SettingProvenance
+                {
+                    Key = "LogMinimumLevel",
+                    EffectiveValue = "Debug",
+                    Source = SettingSource.CommandLine,
+                    SourceDetail = "--log-level",
+                },
+            ],
+        };
+        var vm = new SettingsViewModel(store, new FakeOpenTapSession());
+        Assert.Contains(vm.ProvenanceRows, r => r.Key == "LogMinimumLevel" && r.Source == "CommandLine");
     }
 }

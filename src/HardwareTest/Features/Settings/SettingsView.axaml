@@ -4,7 +4,7 @@
              x:Class="HardwareTest.Features.Settings.SettingsView"
              x:DataType="vm:SettingsViewModel">
   <ScrollViewer>
-    <StackPanel Spacing="10" Margin="0,0,16,0" MaxWidth="720">
+    <StackPanel Spacing="10" Margin="0,0,16,0" MaxWidth="920">
       <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
         <TextBlock Text="Data directory" VerticalAlignment="Center" />
         <TextBox Grid.Column="1" Text="{Binding DataDirectory}" IsReadOnly="True" />
@@ -15,28 +15,33 @@
         <ComboBox Grid.Column="1"
                   ItemsSource="{Binding ThemeOptions}"
                   SelectedItem="{Binding ThemePreference}"
+                  IsEnabled="{Binding !ThemePreferenceReadOnly}"
                   MinWidth="160" />
       </Grid>
 
       <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
         <TextBlock Text="Use mock VISA" VerticalAlignment="Center" />
-        <CheckBox Grid.Column="1" IsChecked="{Binding UseMockVisa}" />
+        <CheckBox Grid.Column="1" IsChecked="{Binding UseMockVisa}"
+                  IsEnabled="{Binding !UseMockVisaReadOnly}" />
       </Grid>
 
       <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
         <TextBlock Text="Embed plots in report" VerticalAlignment="Center" />
-        <CheckBox Grid.Column="1" IsChecked="{Binding EmbedPlotsInReport}" />
+        <CheckBox Grid.Column="1" IsChecked="{Binding EmbedPlotsInReport}"
+                  IsEnabled="{Binding !EmbedPlotsInReportReadOnly}" />
       </Grid>
 
       <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
         <TextBlock Text="Export OpenTAP results (CSV)" VerticalAlignment="Center" />
         <CheckBox Grid.Column="1" IsChecked="{Binding ExportOpenTapResults}"
+                  IsEnabled="{Binding !ExportOpenTapResultsReadOnly}"
                   ToolTip.Tip="Writes published OpenTAP result tables under runs/{runId}/opentap-results/ for MES/QA handoff. Typst PDF is unchanged." />
       </Grid>
 
       <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
         <TextBlock Text="DUT history on Run board" VerticalAlignment="Center" />
         <CheckBox Grid.Column="1" IsChecked="{Binding ShowDutHistoryOnRun}"
+                  IsEnabled="{Binding !ShowDutHistoryOnRunReadOnly}"
                   ToolTip.Tip="When off (default), history appears only on Results. When on, show a summary banner on Run after Pass/Fail." />
       </Grid>
 
@@ -45,44 +50,87 @@
         <ComboBox Grid.Column="1"
                   ItemsSource="{Binding LogLevelOptions}"
                   SelectedItem="{Binding LogMinimumLevel}"
+                  IsEnabled="{Binding !LogMinimumLevelReadOnly}"
                   MinWidth="160" />
       </Grid>
 
       <Grid ColumnDefinitions="220,*" ColumnSpacing="12" IsVisible="{Binding ShowEventLogOptions}">
         <TextBlock Text="Windows Event Log" VerticalAlignment="Center" />
-        <CheckBox Grid.Column="1" IsChecked="{Binding EnableOsEventSink}" />
+        <CheckBox Grid.Column="1" IsChecked="{Binding EnableOsEventSink}"
+                  IsEnabled="{Binding !EnableOsEventSinkReadOnly}" />
       </Grid>
 
       <StackPanel Spacing="10" IsVisible="{Binding ShowSyslogOptions}">
         <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
           <TextBlock Text="Unix Syslog" VerticalAlignment="Center" />
-          <CheckBox Grid.Column="1" IsChecked="{Binding EnableSyslogOnUnix}" />
+          <CheckBox Grid.Column="1" IsChecked="{Binding EnableSyslogOnUnix}"
+                    IsEnabled="{Binding !EnableSyslogOnUnixReadOnly}" />
         </Grid>
         <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
           <TextBlock Text="Syslog host" VerticalAlignment="Center" />
-          <TextBox Grid.Column="1" Text="{Binding SyslogHost}" />
+          <TextBox Grid.Column="1" Text="{Binding SyslogHost}"
+                   IsReadOnly="{Binding SyslogHostReadOnly}" />
         </Grid>
         <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
           <TextBlock Text="Syslog port" VerticalAlignment="Center" />
-          <TextBox Grid.Column="1" Text="{Binding SyslogPort}" />
+          <TextBox Grid.Column="1" Text="{Binding SyslogPort}"
+                   IsReadOnly="{Binding SyslogPortReadOnly}" />
         </Grid>
       </StackPanel>
 
       <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
         <TextBlock Text="Plot refresh Hz" VerticalAlignment="Center" />
-        <TextBox Grid.Column="1" Text="{Binding PlotRefreshHz}" />
+        <TextBox Grid.Column="1" Text="{Binding PlotRefreshHz}"
+                 IsReadOnly="{Binding PlotRefreshHzReadOnly}" />
       </Grid>
 
       <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
         <TextBlock Text="DUT session idle (hours)" VerticalAlignment="Center" />
-        <TextBox Grid.Column="1" Text="{Binding OperatorSessionIdleHours}" />
+        <TextBox Grid.Column="1" Text="{Binding OperatorSessionIdleHours}"
+                 IsReadOnly="{Binding OperatorSessionIdleHoursReadOnly}" />
       </Grid>
 
       <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
         <TextBlock Text="Engineer / debug mode" VerticalAlignment="Center" />
         <CheckBox Grid.Column="1" IsChecked="{Binding IsEngineerDebugMode}"
+                  IsEnabled="{Binding !IsEngineerDebugModeReadOnly}"
                   ToolTip.Tip="Enables constrained on-bench plan overlays and opening arbitrary .TapPlan files" />
       </Grid>
+
+      <Separator Margin="0,8" />
+
+      <TextBlock Text="Diagnostics" FontWeight="SemiBold" />
+      <TextBlock Text="Effective configuration and provenance (defaults → settings.json → environment → command line). Env/CLI overrides are read-only above and are not written back on Save."
+                 TextWrapping="Wrap"
+                 Opacity="0.8" />
+      <Button Content="Copy all" Command="{Binding CopyDiagnosticsCommand}" HorizontalAlignment="Left" />
+      <Border BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
+              BorderThickness="1"
+              Padding="8"
+              MaxHeight="280">
+        <ScrollViewer>
+          <StackPanel Spacing="4">
+            <Grid ColumnDefinitions="2*,2*,*,2*" ColumnSpacing="8">
+              <TextBlock Text="Key" FontWeight="SemiBold" FontSize="12" />
+              <TextBlock Grid.Column="1" Text="Value" FontWeight="SemiBold" FontSize="12" />
+              <TextBlock Grid.Column="2" Text="Source" FontWeight="SemiBold" FontSize="12" />
+              <TextBlock Grid.Column="3" Text="Detail" FontWeight="SemiBold" FontSize="12" />
+            </Grid>
+            <ItemsControl ItemsSource="{Binding ProvenanceRows}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <Grid ColumnDefinitions="2*,2*,*,2*" ColumnSpacing="8" Margin="0,2">
+                    <TextBlock Text="{Binding Key}" FontSize="12" TextTrimming="CharacterEllipsis" />
+                    <TextBlock Grid.Column="1" Text="{Binding EffectiveValue}" FontSize="12" TextTrimming="CharacterEllipsis" />
+                    <TextBlock Grid.Column="2" Text="{Binding Source}" FontSize="12" />
+                    <TextBlock Grid.Column="3" Text="{Binding SourceDetail}" FontSize="12" TextTrimming="CharacterEllipsis" Opacity="0.8" />
+                  </Grid>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
+        </ScrollViewer>
+      </Border>
 
       <Separator Margin="0,8" />
 
@@ -139,12 +187,12 @@
       <Separator Margin="0,8" />
 
       <TextBlock Text="Page settings" FontWeight="SemiBold" />
-      <TextBlock Text="Saves every setting on this page (theme, logging, engineer mode, etc.). Edits also auto-save after a short delay."
+      <TextBlock Text="Saves writable settings on this page to settings.json. Overridden (env/CLI) rows stay out of the file."
                  TextWrapping="Wrap"
                  Opacity="0.8" />
       <StackPanel Orientation="Horizontal" Spacing="12">
         <Button Content="Save all settings" Command="{Binding SaveCommand}"
-                ToolTip.Tip="Writes all Settings fields on this page to settings.json" />
+                ToolTip.Tip="Writes writable Settings fields to settings.json" />
         <TextBlock Text="{Binding Status}" VerticalAlignment="Center" TextWrapping="Wrap" />
       </StackPanel>
     </StackPanel>

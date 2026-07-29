@@ -45,7 +45,7 @@ Distinct namespaces on purpose — "Phase C" and "Phase 3" are never the same th
 | --- | --- | --- | --- |
 | 1 | [Repo gates + green CI](platform-phases/phase-1-repo-gates.md) | — | In progress |
 | 2 | [Architecture compliance tests](platform-phases/phase-2-architecture-tests.md) | 1 | Done |
-| 3 | [Configuration & environment model](platform-phases/phase-3-configuration-model.md) | 1 | Not started |
+| 3 | [Configuration & environment model](platform-phases/phase-3-configuration-model.md) | 1 | Done |
 | 4 | [Build & system info surface](platform-phases/phase-4-build-info.md) | 3 | Not started |
 | 5 | [Schema versioning](platform-phases/phase-5-schema-versioning.md) | 4 | Not started |
 | 6 | [Crash reporting](platform-phases/phase-6-crash-reporting.md) | 3, 4 | Not started |

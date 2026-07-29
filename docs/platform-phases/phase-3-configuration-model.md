@@ -3,7 +3,7 @@
 **Parent:** [platform-roadmap.md](../platform-roadmap.md)
 **Depends on:** [Phase 1](phase-1-repo-gates.md)
 **Unblocks:** [Phase 4](phase-4-build-info.md) (shares the diagnostics surface), [Phase 6](phase-6-crash-reporting.md) (dossier records effective config), [Phase 7](phase-7-containers-local-ci.md) (containers configure by env only)
-**Status:** Not started
+**Status:** Done
 
 ## Goal
 
@@ -76,10 +76,10 @@ Today [`SettingsStore`](../../src/HardwareTest.Core/Settings/SettingsStore.cs) r
 
 ## Exit criteria
 
-- [ ] Every `AppSettings` member is settable by environment variable.
-- [ ] Settings → Diagnostics shows the source of every effective value.
-- [ ] `--print-config` works on a machine with no `settings.json`.
-- [ ] An env-overridden setting cannot be silently overwritten by a UI save.
+- [x] Every `AppSettings` member is settable by environment variable.
+- [x] Settings → Diagnostics shows the source of every effective value.
+- [x] `--print-config` works on a machine with no `settings.json`.
+- [x] An env-overridden setting cannot be silently overwritten by a UI save.
 
 ## Out of scope
 
