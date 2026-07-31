@@ -5,6 +5,8 @@ public sealed class ConfigurationArgs
 {
     public bool PrintConfig { get; init; }
     public bool PrintVersion { get; init; }
+    /// Debug-only: fatal | recoverable | command.
+    public string? SimulateCrash { get; init; }
     public string? SettingsPath { get; init; }
     public IReadOnlyDictionary<string, string> Overlays { get; init; }
         = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -18,6 +20,7 @@ public sealed class ConfigurationArgs
         var passthrough = new List<string>();
         var printConfig = false;
         var printVersion = false;
+        string? simulateCrash = null;
         string? settingsPath = null;
 
         for (var i = 0; i < args.Count; i++)
@@ -41,6 +44,12 @@ public sealed class ConfigurationArgs
                 if (string.Equals(flag, "--settings", StringComparison.OrdinalIgnoreCase))
                 {
                     settingsPath = inlineValue ?? TakeNext(args, ref i);
+                    continue;
+                }
+
+                if (string.Equals(flag, "--simulate-crash", StringComparison.OrdinalIgnoreCase))
+                {
+                    simulateCrash = inlineValue ?? TakeNext(args, ref i) ?? "fatal";
                     continue;
                 }
 
@@ -78,6 +87,7 @@ public sealed class ConfigurationArgs
         {
             PrintConfig = printConfig,
             PrintVersion = printVersion,
+            SimulateCrash = simulateCrash,
             SettingsPath = settingsPath,
             Overlays = overlays,
             PassthroughArgs = passthrough,
@@ -87,7 +97,7 @@ public sealed class ConfigurationArgs
     private static bool LooksBoolBinding(SettingBinding binding)
         => binding.Key is "UseMockVisa" or "EnableOsEventSink" or "EnableSyslogOnUnix"
             or "EmbedPlotsInReport" or "ExportOpenTapResults" or "ShowDutHistoryOnRun"
-            or "IsEngineerDebugMode";
+            or "IsEngineerDebugMode" or "CrashEnabled" or "RedactIdentifiersInDiagnostics";
 
     private static bool TrySplit(string arg, out string flag, out string? inlineValue)
     {

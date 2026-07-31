@@ -36,6 +36,14 @@ public sealed class AppSettings
     public List<PlanSlotOverride> PlanSlotOverrides { get; set; } = [];
     /// Per-plan OpenTAP parameter overrides (station overlay; does not mutate TapPlan files).
     public List<PlanParameterOverride> PlanParameterOverrides { get; set; } = [];
+    /// When false, crash capture surfaces are no-ops.
+    public bool CrashEnabled { get; set; } = true;
+    /// Crash dossier root; empty means {DataDirectory}/crashes.
+    public string CrashDirectory { get; set; } = string.Empty;
+    /// Max retained crash dossiers (newest kept).
+    public int CrashRetentionCount { get; set; } = 20;
+    /// When true, DUT serial / operator names are hashed in diagnostics and crash dossiers.
+    public bool RedactIdentifiersInDiagnostics { get; set; } = true;
 }
 
 /// Named VISA instrument entry in the persisted registry (legacy; Instruments UI no longer edits this).

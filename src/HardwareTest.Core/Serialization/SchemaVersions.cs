@@ -7,6 +7,7 @@ public static class SchemaVersions
     public const int UiState = 1;
     public const int TestRunRecord = 1;
     public const int SuiteRunRecord = 1;
+    public const int CrashReport = 1;
 }
 
 /// Stable document-type keys for upgrade registration and log messages.
@@ -16,4 +17,5 @@ public static class SchemaDocumentTypes
     public const string UiState = "UiState";
     public const string TestRunRecord = "TestRunRecord";
     public const string SuiteRunRecord = "SuiteRunRecord";
+    public const string CrashReport = "CrashReport";
 }

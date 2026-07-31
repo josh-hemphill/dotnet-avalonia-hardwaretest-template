@@ -3,7 +3,7 @@
 **Parent:** [platform-roadmap.md](../platform-roadmap.md)
 **Depends on:** [Phase 3](phase-3-configuration-model.md) (effective config in the dossier), [Phase 4](phase-4-build-info.md) (a crash report without a version is nearly useless)
 **Unblocks:** handing the app to operators you cannot stand behind
-**Status:** Not started
+**Status:** Done
 
 ## Goal
 
@@ -11,9 +11,7 @@ When the app dies, three things must happen in this order: **the hardware is mad
 
 ## Current state
 
-[`Program.cs`](../../src/HardwareTest/App/Program.cs) wraps `StartWithClassicDesktopLifetime` in a `try/catch` that logs `Log.Fatal` and rethrows. That is the only handler in the repo. Not hooked: `AppDomain.UnhandledException`, `TaskScheduler.UnobservedTaskException`, `Dispatcher.UIThread.UnhandledException`, and `RxApp.DefaultExceptionHandler`.
-
-That last omission is the live one. ReactiveUI routes any unhandled exception from a `ReactiveCommand` to `RxApp.DefaultExceptionHandler`, and the default implementation **rethrows on the main scheduler**. The Run board alone exposes ~26 commands, several of them `CreateFromTask` doing file I/O, plan loading, and OpenTAP calls. Today a failed `OpenPlanFileAsync` takes down the process, mid-run, with an instrument possibly still sourcing.
+[`Program.cs`](../../src/HardwareTest/App/Program.cs) wraps `StartWithClassicDesktopLifetime` in a `try/catch` that logs `Log.Fatal` and rethrows. That is the only handler in the repo. Not hooked: `AppDomain.UnhandledException`, `TaskScheduler.UnobservedTaskException`, `Dispatcher.UIThread.UnhandledException`, and ReactiveUI's exception handler (`RxState` / `WithExceptionHandler` — ReactiveUI 23 replaced `RxApp.DefaultExceptionHandler`).
 
 ## Locked rules
 
@@ -34,7 +32,7 @@ Install all four in `Program.Main` before Avalonia starts, in a `CrashHandler.In
 | `AppDomain.CurrentDomain.UnhandledException` | Yes | Last chance; process is going down regardless |
 | `Dispatcher.UIThread.UnhandledException` | Recoverable | Avalonia lets you mark handled — log, dossier, keep running |
 | `TaskScheduler.UnobservedTaskException` | No | Observe and log; these are usually leaks, not crashes |
-| `RxApp.DefaultExceptionHandler` | Recoverable | Replace the rethrowing default with a handler that dossiers and surfaces a status message |
+| `RxState` / `WithExceptionHandler` | Recoverable | Replace the rethrowing ReactiveUI default with a handler that dossiers and surfaces a status message |
 
 Distinguish **fatal** (dossier, then terminate) from **recoverable** (dossier, keep running, banner). Recoverable events must be rate-limited — a command failing in a loop must not fill the disk with dossiers.
 
@@ -87,11 +85,11 @@ One `CrashRedaction` policy shared with [Phase 3](phase-3-configuration-model.md
 
 ## Exit criteria
 
-- [ ] An exception thrown from a `ReactiveCommand` no longer terminates the process.
-- [ ] A fatal crash during a run attempts a safe stop and records the outcome.
-- [ ] After a forced crash, the next launch shows a recovery banner and the interrupted run reads as aborted, not running.
-- [ ] **Export support bundle** produces one zip that identifies build, config, and fault without any identifying data.
-- [ ] A crash loop cannot exhaust the disk.
+- [x] An exception thrown from a `ReactiveCommand` no longer terminates the process.
+- [x] A fatal crash during a run attempts a safe stop and records the outcome.
+- [x] After a forced crash, the next launch shows a recovery banner and the interrupted run reads as aborted, not running.
+- [x] **Export support bundle** produces one zip that identifies build, config, and fault without any identifying data.
+- [x] A crash loop cannot exhaust the disk.
 
 ## Out of scope
 

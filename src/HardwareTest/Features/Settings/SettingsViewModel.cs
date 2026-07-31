@@ -85,6 +85,7 @@ public partial class SettingsViewModel : ReactiveObject
         RefreshPackagesCommand = ReactiveCommand.Create(RefreshPackages);
         CopyPathCommand = ReactiveCommand.CreateFromTask(CopySelectedPathAsync);
         OpenFolderCommand = ReactiveCommand.Create(OpenSelectedFolder);
+        OpenCrashesFolderCommand = ReactiveCommand.Create(OpenCrashesFolder);
         CopyDiagnosticsCommand = ReactiveCommand.CreateFromTask(CopyDiagnosticsAsync);
 
         _debounce = new System.Timers.Timer(400) { AutoReset = false };
@@ -149,6 +150,7 @@ public partial class SettingsViewModel : ReactiveObject
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> RefreshPackagesCommand { get; }
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> CopyPathCommand { get; }
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> OpenFolderCommand { get; }
+    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> OpenCrashesFolderCommand { get; }
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> CopyDiagnosticsCommand { get; }
     public ObservableCollection<string> ThemeOptions { get; }
     public ObservableCollection<string> LogLevelOptions { get; }
@@ -306,6 +308,23 @@ public partial class SettingsViewModel : ReactiveObject
         catch (Exception ex)
         {
             Status = $"Open folder failed (locked appliance?): {ex.Message}";
+        }
+    }
+
+    private void OpenCrashesFolder()
+    {
+        try
+        {
+            var root = string.IsNullOrWhiteSpace(_settingsStore.AppSettings.CrashDirectory)
+                ? Path.Combine(_settingsStore.RootDirectory, "crashes")
+                : _settingsStore.AppSettings.CrashDirectory;
+            Directory.CreateDirectory(root);
+            OpenFolder(root);
+            Status = $"Opened crashes: {root}";
+        }
+        catch (Exception ex)
+        {
+            Status = $"Open crashes folder failed: {ex.Message}";
         }
     }
 

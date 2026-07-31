@@ -4,6 +4,7 @@ using ReactiveUI.Avalonia;
 using HardwareTest.Core.Diagnostics;
 using HardwareTest.Core.Logging;
 using HardwareTest.Core.Settings;
+using HardwareTest.Crash;
 using HardwareTest.OpenTap.Host;
 using Serilog;
 
@@ -11,6 +12,8 @@ namespace HardwareTest;
 
 static class Program
 {
+    internal static string? SimulateCrashMode { get; private set; }
+
     [STAThread]
     public static int Main(string[] args)
     {
@@ -39,6 +42,8 @@ static class Program
         var logDir = Path.Combine(stage1.RootDirectory, "logs");
         using var logging = LoggingBootstrap.Initialize(bootstrapSettings, logDir);
 
+        CrashHandler.InstallProcessHooks();
+
         var buildInfo = OpenTapBuildInfo.Attach(BuildInfo.FromEntryAssembly());
         Log.Information(
             "HardwareTest {InformationalVersion} commit={Commit} runtime={Runtime} rid={Rid} opentap={OpenTap}",
@@ -53,6 +58,7 @@ static class Program
             parsed.Overlays,
             warn: message => Log.Warning("{ConfigWarning}", message)).GetAwaiter().GetResult();
 
+        CrashHandler.Configure(store, buildInfo);
         LogStageDelta(stage1, store);
 
         if (parsed.PrintConfig)
@@ -60,6 +66,35 @@ static class Program
             Console.Out.Write(ConfigurationBootstrap.FormatPrintConfig(store));
             return 0;
         }
+
+#if DEBUG
+        SimulateCrashMode = parsed.SimulateCrash;
+        if (!string.IsNullOrWhiteSpace(parsed.SimulateCrash))
+        {
+            var mode = parsed.SimulateCrash!;
+            var isFatal = string.Equals(mode, "fatal", StringComparison.OrdinalIgnoreCase);
+            var dir = CrashHandler.Capture(
+                new InvalidOperationException($"Simulated crash (--simulate-crash {mode})"),
+                isFatal: isFatal,
+                source: "simulate-crash");
+            var message = dir is null
+                ? "simulate-crash: dossier write failed (see logs)."
+                : $"simulate-crash: wrote dossier to{Environment.NewLine}  {dir}";
+            Console.Out.WriteLine(message);
+            Log.Information("{SimulateCrashMessage}", message);
+            if (isFatal)
+            {
+                return 1;
+            }
+
+            Console.Out.WriteLine("simulate-crash: launching UI — open Home for the recovery banner.");
+        }
+#else
+        if (!string.IsNullOrWhiteSpace(parsed.SimulateCrash))
+        {
+            Log.Warning("--simulate-crash is ignored outside DEBUG builds");
+        }
+#endif
 
         try
         {
@@ -69,6 +104,7 @@ static class Program
         }
         catch (Exception ex)
         {
+            CrashHandler.Capture(ex, isFatal: true, source: "Program.Main");
             Log.Fatal(ex, "Application terminated unexpectedly");
             throw;
         }
@@ -84,11 +120,11 @@ static class Program
                 MaxGpuResourceSizeBytes = 256 * 1024 * 1024,
             })
             .WithInterFont()
-            .UseReactiveUI(_ => { })
+            .UseReactiveUI(CrashHandler.ConfigureReactiveUi)
 #if DEBUG
             .WithDeveloperTools()
 #endif
-            .LogToTrace();
+            ;
 
     private static void LogStageDelta(ConfigurationBootstrap.Stage1Result stage1, SettingsStore store)
     {

@@ -163,8 +163,14 @@ Env alone is enough for a sealed install. Missing or read-only `settings.json` i
 | `IsEngineerDebugMode` | `HARDWARETEST_ENGINEER_DEBUG` | `--engineer-debug` |
 | `OpenTapPluginDirectories` | `HARDWARETEST_OPENTAP_PLUGIN_DIRS` *(legacy name; `;` / `Path.PathSeparator`)* | `--opentap-plugin-dirs` |
 | `ReportTemplateName` | `HARDWARETEST_REPORT_TEMPLATE_NAME` | `--report-template` |
+| `CrashEnabled` | `HARDWARETEST_CRASH_ENABLED` | `--crash-enabled` |
+| `CrashDirectory` | `HARDWARETEST_CRASH_DIRECTORY` | `--crash-directory` |
+| `CrashRetentionCount` | `HARDWARETEST_CRASH_RETENTION_COUNT` | `--crash-retention` |
+| `RedactIdentifiersInDiagnostics` | `HARDWARETEST_REDACT_IDENTIFIERS` | `--redact-identifiers` |
 
-Also: `--settings <path>` (settings file path), `--print-config` (dump effective config + provenance to stdout and exit 0), `--version` / `-v` (print informational version and exit 0). Nested lists use `HARDWARETEST_<LIST>__{n}__<PROP>` (e.g. `HARDWARETEST_INSTRUMENTS__0__RESOURCE`).
+Also: `--settings <path>` (settings file path), `--print-config` (dump effective config + provenance to stdout and exit 0), `--version` / `-v` (print informational version and exit 0). Debug builds: `--simulate-crash {fatal|recoverable|command}`. Nested lists use `HARDWARETEST_<LIST>__{n}__<PROP>` (e.g. `HARDWARETEST_INSTRUMENTS__0__RESOURCE`).
+
+Crash dossiers land under `{DataDirectory}/crashes/` (or `CrashDirectory`): `crash.json`, `log-tail.txt`, `config.json`, `session.json`. Home shows a dismissible recovery banner for unreviewed dossiers; Settings → **Open crashes folder**. See [phase-6-crash-reporting.md](platform-phases/phase-6-crash-reporting.md).
 
 Bootstrap is two-stage: stage 1 resolves `DataDirectory` + `LogMinimumLevel` from env/CLI before logging; stage 2 loads `settings.json` then re-applies overlays. See [phase-3-configuration-model.md](platform-phases/phase-3-configuration-model.md).
 
@@ -178,6 +184,7 @@ Every persisted JSON document carries an integer `schemaVersion`. Bumps are deli
 | `UiState` (`ui-state.json`) | 1 | Initial stamped shape (Phase 5). |
 | `TestRunRecord` (`runs/{id}/run.json`) | 1 | Initial stamped shape (Phase 5). `StoredSample.HistoryEnabled` is nullable so absent ≠ default. |
 | `SuiteRunRecord` (`runs/suites/{id}/suite-run.json`) | 1 | Initial stamped shape (Phase 5). |
+| `CrashReport` (`crashes/{id}/crash.json`) | 1 | Initial crash dossier (Phase 6). |
 
 ## 11. Custom mixins
 

@@ -16,6 +16,7 @@ Hardening roadmap (gates, config, crash, CI): [platform-roadmap.md](platform-roa
 
 Build/version coverage (`BuildInfo`, `AppVersion` on `TestRunRecord`, Settings **Copy diagnostics**, `--version` parsing) lives in Core + ViewModels tests — see [phase-4-build-info.md](platform-phases/phase-4-build-info.md).
 Schema gates and golden files under `tests/fixtures/schema/` are covered in Core tests — see [phase-5-schema-versioning.md](platform-phases/phase-5-schema-versioning.md).
+Crash dossiers (writer, ring sink, redaction, dangling-run reconciliation) live in Core tests under `Crash/` — see [phase-6-crash-reporting.md](platform-phases/phase-6-crash-reporting.md).
 
 ## When to add which test
 

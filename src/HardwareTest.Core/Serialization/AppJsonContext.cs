@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using HardwareTest.Core.Crash;
 using HardwareTest.Core.Runs;
 using HardwareTest.Core.Settings;
 
@@ -32,4 +33,11 @@ namespace HardwareTest.Core.Serialization;
 [JsonSerializable(typeof(List<RunReportArtifact>))]
 [JsonSerializable(typeof(List<string>))]
 [JsonSerializable(typeof(Dictionary<string, string>))]
+[JsonSerializable(typeof(CrashReportDocument))]
+[JsonSerializable(typeof(CrashExceptionFrame))]
+[JsonSerializable(typeof(List<CrashExceptionFrame>))]
+[JsonSerializable(typeof(CrashSessionSnapshot))]
+[JsonSerializable(typeof(CrashConfigSnapshot))]
+[JsonSerializable(typeof(CrashConfigProvenanceRow))]
+[JsonSerializable(typeof(List<CrashConfigProvenanceRow>))]
 public partial class AppJsonContext : JsonSerializerContext;

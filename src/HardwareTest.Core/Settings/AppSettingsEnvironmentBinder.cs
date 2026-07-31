@@ -554,6 +554,30 @@ public static class AppSettingsEnvironmentBinder
                 (s, v) => s.ReportTemplateName = v,
                 env: ["HARDWARETEST_REPORT_TEMPLATE_NAME"],
                 cli: ["--report-template"]),
+            SettingBinding.Bool(
+                "CrashEnabled",
+                s => s.CrashEnabled,
+                (s, v) => s.CrashEnabled = v,
+                env: ["HARDWARETEST_CRASH_ENABLED"],
+                cli: ["--crash-enabled"]),
+            SettingBinding.String(
+                "CrashDirectory",
+                s => s.CrashDirectory,
+                (s, v) => s.CrashDirectory = v,
+                env: ["HARDWARETEST_CRASH_DIRECTORY"],
+                cli: ["--crash-directory"]),
+            SettingBinding.Int(
+                "CrashRetentionCount",
+                s => s.CrashRetentionCount,
+                (s, v) => s.CrashRetentionCount = v,
+                env: ["HARDWARETEST_CRASH_RETENTION_COUNT"],
+                cli: ["--crash-retention"]),
+            SettingBinding.Bool(
+                "RedactIdentifiersInDiagnostics",
+                s => s.RedactIdentifiersInDiagnostics,
+                (s, v) => s.RedactIdentifiersInDiagnostics = v,
+                env: ["HARDWARETEST_REDACT_IDENTIFIERS"],
+                cli: ["--redact-identifiers"]),
         ];
 }
 

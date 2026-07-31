@@ -1584,6 +1584,7 @@ public partial class RunTestViewModel : ReactiveObject
             _session.TouchActivity();
 
             var runId = Guid.NewGuid().ToString("N");
+            LastRunId = runId;
             var startedAt = DateTimeOffset.UtcNow;
             var stub = new TestRunRecord
             {

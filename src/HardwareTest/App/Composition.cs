@@ -28,7 +28,8 @@ public static class Composition
             new OpenTapSession(sp.GetRequiredService<AppSettings>(), Log.Logger));
         services.AddSingleton<OperatorSession>();
 
-        services.AddSingleton<HomeViewModel>();
+        services.AddSingleton<HomeViewModel>(sp =>
+            new HomeViewModel(settingsStore));
         services.AddSingleton<RunTestViewModel>();
         services.AddSingleton<InspectViewModel>();
         services.AddSingleton<ResultsViewModel>();

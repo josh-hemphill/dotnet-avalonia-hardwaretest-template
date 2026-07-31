@@ -127,6 +127,7 @@
         <TextBlock Text="OpenTAP engine" VerticalAlignment="Center" />
         <TextBox Grid.Column="1" Text="{Binding AboutOpenTapEngine}" IsReadOnly="True" />
       </Grid>
+      <Button Content="Open crashes folder" Command="{Binding OpenCrashesFolderCommand}" HorizontalAlignment="Left" />
 
       <Separator Margin="0,8" />
 
