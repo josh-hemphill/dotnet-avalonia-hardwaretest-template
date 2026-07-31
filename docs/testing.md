@@ -9,7 +9,7 @@ UI/board tests stay separate from OpenTAP plan-behavior tests. Both share the `I
 | Core/OpenTAP host | Plan load, hierarchy, Run Selected mask, SafeShutdown, progress/samples | Real `OpenTapSession` | `MockDmmInstrument` |
 | Avalonia E2E | Shell wiring only (DUT → Run → Results/Inspect) | Real session | MockDmm + `UseMockVisa` |
 
-CI runs one `test` job with labeled steps: Architecture, ViewModels, OpenTAP host + fixtures, E2E smoke.
+CI runs Deno tasks from [`tools/ci/`](../tools/ci/) on **windows-latest** (required E2E) and **ubuntu-latest** (`linux-x64`; E2E advisory). See [containers.md](containers.md).
 
 Platform roadmap (interactions, parameters, mixins): [opentap-platform.md](opentap-platform.md).
 Hardening roadmap (gates, config, crash, CI): [platform-roadmap.md](platform-roadmap.md).
@@ -17,6 +17,7 @@ Hardening roadmap (gates, config, crash, CI): [platform-roadmap.md](platform-roa
 Build/version coverage (`BuildInfo`, `AppVersion` on `TestRunRecord`, Settings **Copy diagnostics**, `--version` parsing) lives in Core + ViewModels tests — see [phase-4-build-info.md](platform-phases/phase-4-build-info.md).
 Schema gates and golden files under `tests/fixtures/schema/` are covered in Core tests — see [phase-5-schema-versioning.md](platform-phases/phase-5-schema-versioning.md).
 Crash dossiers (writer, ring sink, redaction, dangling-run reconciliation) live in Core tests under `Crash/` — see [phase-6-crash-reporting.md](platform-phases/phase-6-crash-reporting.md).
+Local CI tasks, coverage floors (TypeScript), and container rails — see [containers.md](containers.md) and [phase-7-containers-local-ci.md](platform-phases/phase-7-containers-local-ci.md).
 
 ## When to add which test
 
@@ -60,12 +61,15 @@ To regenerate the checked-in `sample-pass` cassette, build host tests with `/p:D
 ## Local commands
 
 ```bash
-# Prefer CI-shaped sequential suite runs (OpenTAP host + E2E share process-global TapThread state):
-dotnet test tests/HardwareTest.Architecture.Tests -r win-x64
-dotnet test tests/HardwareTest.Tests -r win-x64
-dotnet test tests/HardwareTest.ViewModels.Tests -r win-x64
-dotnet test tests/HardwareTest.E2E.Tests -r win-x64
+# Same tasks CI runs (RID defaults to the host):
+deno task --cwd tools/ci all -- --rid win-x64
 
-# Or traversal with serial MSBuild (dirs.proj sets BuildInParallel=false):
+# Or individual suites (OpenTAP host + E2E share process-global TapThread state):
+deno run -A tools/ci/main.ts test:arch --rid win-x64
+deno run -A tools/ci/main.ts test:host --rid win-x64
+deno run -A tools/ci/main.ts test:vm --rid win-x64
+deno run -A tools/ci/main.ts test:e2e --rid win-x64
+
+# Raw dotnet still works:
 dotnet test dirs.proj -r win-x64 -m:1
 ```

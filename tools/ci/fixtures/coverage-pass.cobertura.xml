@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<coverage line-rate="0.7" branch-rate="0" version="1.9" timestamp="0">
+  <packages>
+    <package name="HardwareTest.Core" line-rate="0.7" branch-rate="0" complexity="0">
+      <classes>
+        <class name="HardwareTest.Core.Engine.SampleEngine" filename="Engine/SampleEngine.cs" line-rate="0.8" branch-rate="0" complexity="0">
+          <methods />
+          <lines>
+            <line number="1" hits="1" />
+            <line number="2" hits="1" />
+            <line number="3" hits="1" />
+            <line number="4" hits="1" />
+            <line number="5" hits="0" />
+          </lines>
+        </class>
+        <class name="HardwareTest.Core.Hardware.MockVisa" filename="Hardware/MockVisa.cs" line-rate="1" branch-rate="0" complexity="0">
+          <methods />
+          <lines>
+            <line number="1" hits="1" />
+            <line number="2" hits="1" />
+            <line number="3" hits="1" />
+            <line number="4" hits="1" />
+            <line number="5" hits="1" />
+          </lines>
+        </class>
+        <class name="HardwareTest.Core.Settings.AppSettings" filename="Settings/AppSettings.cs" line-rate="0.333" branch-rate="0" complexity="0">
+          <methods />
+          <lines>
+            <line number="1" hits="1" />
+            <line number="2" hits="0" />
+            <line number="3" hits="0" />
+          </lines>
+        </class>
+        <class name="HardwareTest.Core.Hardware.IviVisaResourceDiscovery" filename="Hardware/IviVisaResourceDiscovery.cs" line-rate="0" branch-rate="0" complexity="0">
+          <methods />
+          <lines>
+            <line number="1" hits="0" />
+          </lines>
+        </class>
+      </classes>
+    </package>
+    <package name="Other.Assembly" line-rate="1" branch-rate="0" complexity="0">
+      <classes>
+        <class name="Other.Ignored" filename="Ignored.cs" line-rate="1" branch-rate="0" complexity="0">
+          <methods />
+          <lines>
+            <line number="1" hits="1" />
+          </lines>
+        </class>
+      </classes>
+    </package>
+  </packages>
+</coverage>

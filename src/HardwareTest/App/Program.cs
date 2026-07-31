@@ -12,8 +12,6 @@ namespace HardwareTest;
 
 static class Program
 {
-    internal static string? SimulateCrashMode { get; private set; }
-
     [STAThread]
     public static int Main(string[] args)
     {
@@ -68,7 +66,6 @@ static class Program
         }
 
 #if DEBUG
-        SimulateCrashMode = parsed.SimulateCrash;
         if (!string.IsNullOrWhiteSpace(parsed.SimulateCrash))
         {
             var mode = parsed.SimulateCrash!;

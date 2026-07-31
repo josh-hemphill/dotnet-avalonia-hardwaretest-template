@@ -49,7 +49,7 @@ Distinct namespaces on purpose — "Phase C" and "Phase 3" are never the same th
 | 4 | [Build & system info surface](platform-phases/phase-4-build-info.md) | 3 | Done |
 | 5 | [Schema versioning](platform-phases/phase-5-schema-versioning.md) | 4 | Done |
 | 6 | [Crash reporting](platform-phases/phase-6-crash-reporting.md) | 3, 4 | Done |
-| 7 | [Containerized local CI](platform-phases/phase-7-containers-local-ci.md) | 1 | Not started |
+| 7 | [Containerized local CI](platform-phases/phase-7-containers-local-ci.md) | 1 | Done |
 | 8 | [Session contract test suite](platform-phases/phase-8-session-contract-tests.md) | 1 | Not started |
 | 9 | [Run board decomposition](platform-phases/phase-9-runboard-decomposition.md) | 8 | Not started |
 

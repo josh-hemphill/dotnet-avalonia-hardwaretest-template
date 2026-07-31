@@ -1,0 +1,24 @@
+# Appliance image rails only — not a product image.
+# Fills in later per docs/appliance-linux.md (kiosk, systemd, bake are out of scope).
+# Built locally for tooling verification; never published to a registry in this phase.
+
+# Digest for mcr.microsoft.com/dotnet/runtime-deps:10.0.10-noble-amd64
+ARG RUNTIME_DEPS_DIGEST=sha256:d03fa14b43097a51002c265a1031278898962367b5f62cd14116e30b570156cc
+FROM mcr.microsoft.com/dotnet/runtime-deps@${RUNTIME_DEPS_DIGEST}
+
+LABEL org.opencontainers.image.title="hardwaretest-appliance-stub" \
+      org.opencontainers.image.description="Rails-only stub for the future Linux appliance image. No kiosk, no systemd service, no baked app."
+
+# Placeholder layout matching docs/appliance-linux.md — empty until a publish is copied in.
+RUN mkdir -p /appliance/app /appliance/data \
+    && printf '%s\n' \
+         "HardwareTest appliance stub" \
+         "Replace /appliance/app with a linux-x64 self-contained publish." \
+         "Set HARDWARETEST_DATA_DIRECTORY=/appliance/data at runtime." \
+         > /appliance/README.stub.txt
+
+ENV HARDWARETEST_DATA_DIRECTORY=/appliance/data \
+    DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=0
+
+WORKDIR /appliance
+CMD ["cat", "/appliance/README.stub.txt"]

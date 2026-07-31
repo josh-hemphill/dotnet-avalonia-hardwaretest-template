@@ -15,10 +15,12 @@ src/
   HardwareTest.OpenTap.Plugins.Mixins/# Demo Annotation mixin (IMixinBuilder)
 plans/opentap/                       # Locked .TapPlan programs
 docs/appliance-linux.md              # Appliance layout + publish notes
+docs/containers.md                   # Local CI tasks, Podman, appliance image rails
 docs/opentap-platform.md             # OpenTAP shell roadmap + phase checklist
 docs/opentap-phases/                 # Incremental implementation plans (A–J)
 docs/platform-roadmap.md             # Platform hardening roadmap + phase checklist
 docs/platform-phases/                # Gates, config, diagnostics, crash, CI (1–9)
+tools/ci/                            # Deno CI tasks shared by Actions + local runs
 tests/
   HardwareTest.Architecture.Tests/   # Layering smoke (Avalonia/OpenTAP boundaries)
   HardwareTest.Tests/                # Core + OpenTAP host unit tests
@@ -32,7 +34,9 @@ templates/reports/                   # Typst templates (embedded)
 ## Prerequisites
 
 - [.NET 10 SDK](https://dotnet.microsoft.com/download) (pinned via `global.json`)
+- [Deno](https://deno.land/) 2.x for the shared CI task runner (`tools/ci/`)
 - Optional: vendor VISA runtime for real instruments — mock instruments are the default
+- Optional: [Podman](https://podman.io/) for Linux container CI / appliance rails — [docs/containers.md](docs/containers.md)
 
 ## Build & run
 
@@ -44,6 +48,10 @@ dotnet run --project src/HardwareTest -c Debug -r win-x64
 > **RID required:** TypstInterop only restores its native library when a runtime identifier is set.
 
 ```bash
+# Full CI-shaped matrix (preferred):
+deno task --cwd tools/ci all -- --rid win-x64
+
+# Or individual suites:
 dotnet test tests/HardwareTest.Architecture.Tests -r win-x64
 dotnet test tests/HardwareTest.Tests -r win-x64
 dotnet test tests/HardwareTest.ViewModels.Tests -r win-x64
@@ -51,6 +59,7 @@ dotnet test tests/HardwareTest.E2E.Tests -r win-x64
 ```
 
 See [docs/testing.md](docs/testing.md) for UI vs OpenTAP suite separation, plan-shape fixtures, and progress/summary recording.
+See [docs/containers.md](docs/containers.md) for Deno tasks, Podman CI image, and appliance stub rails.
 See [docs/adapting.md](docs/adapting.md) to replace sample plans, plugins, station bindings, and reports for your product.
 See [docs/opentap-platform.md](docs/opentap-platform.md) for the OpenTAP integration roadmap (interactions, parameters, mixins, packages) and [incremental phase plans](docs/opentap-phases/).
 See [docs/platform-roadmap.md](docs/platform-roadmap.md) for the platform hardening roadmap (repo gates, configuration, diagnostics, crash reporting, containerized CI, code structure) and [its phase plans](docs/platform-phases/).
@@ -67,11 +76,11 @@ Author structure in **OpenTAP Editor**; ship locked `.TapPlan` files under `plan
 
 ## Appliance publish
 
-See [docs/appliance-linux.md](docs/appliance-linux.md). CI `publish-appliance` smokes self-contained `win-x64` with `PublishAot=false`.
+See [docs/appliance-linux.md](docs/appliance-linux.md). CI `publish-win` / `test-linux` smoke self-contained publishes via Deno tasks.
 
 ```bash
-dotnet publish src/HardwareTest -c Release -r win-x64 --self-contained -p:PublishAot=false
-dotnet publish src/HardwareTest -c Release -r linux-x64 --self-contained -p:PublishAot=false
+deno run -A tools/ci/main.ts publish --rid win-x64
+deno run -A tools/ci/main.ts publish --rid linux-x64
 ```
 
 NativeAOT is **not** a product gate for the OpenTAP host.

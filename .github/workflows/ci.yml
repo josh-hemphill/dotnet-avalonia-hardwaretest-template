@@ -9,6 +9,10 @@ on:
   pull_request:
   workflow_dispatch:
 
+env:
+  DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+  DOTNET_NOLOGO: "1"
+
 jobs:
   test:
     runs-on: windows-latest
@@ -26,48 +30,52 @@ jobs:
             Directory.Build.props
             dirs.proj
 
+      - name: Setup Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.7.7
+
+      - name: Assert CI task catalog
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected=$'all\nbuild\ncoverage\nlist\npublish\ntest:arch\ntest:e2e\ntest:host\ntest:vm\nverify'
+          actual=$(deno run -A tools/ci/main.ts list)
+          if [[ "$actual" != "$expected" ]]; then
+            echo "Deno task catalog drift:" >&2
+            echo "expected:" >&2
+            printf '%s\n' "$expected" >&2
+            echo "actual:" >&2
+            printf '%s\n' "$actual" >&2
+            exit 1
+          fi
+
       - name: Build
-        run: dotnet build dirs.proj -c Release -r win-x64
+        run: deno run -A tools/ci/main.ts build --rid win-x64
 
       - name: Format check
         continue-on-error: true
         run: dotnet format dirs.proj --verify-no-changes --no-restore
 
       - name: "Architecture smoke (layering gates)"
-        run: >
-          dotnet test tests/HardwareTest.Architecture.Tests/HardwareTest.Architecture.Tests.csproj
-          -c Release -r win-x64 --no-build
+        run: deno run -A tools/ci/main.ts test:arch --rid win-x64
 
       - name: "OpenTAP host + fixtures (serial collection)"
-        run: >
-          dotnet test tests/HardwareTest.Tests/HardwareTest.Tests.csproj
-          -c Release -r win-x64 --no-build
-          --collect:"XPlat Code Coverage"
-          --settings tests/coverage.runsettings
-          --results-directory artifacts/coverage
+        run: deno run -A tools/ci/main.ts test:host --rid win-x64
 
       - name: "ViewModels (FakeOpenTap — UI/board)"
-        run: >
-          dotnet test tests/HardwareTest.ViewModels.Tests/HardwareTest.ViewModels.Tests.csproj
-          -c Release -r win-x64 --no-build
+        run: deno run -A tools/ci/main.ts test:vm --rid win-x64
 
       - name: "E2E smoke (sample + Inspect shell wiring)"
-        run: >
-          dotnet test tests/HardwareTest.E2E.Tests/HardwareTest.E2E.Tests.csproj
-          -c Release -r win-x64 --no-build
+        run: deno run -A tools/ci/main.ts test:e2e --rid win-x64
 
       - name: Coverage floors
-        shell: bash
-        run: |
-          set -euo pipefail
-          cobertura=$(find artifacts/coverage -name 'coverage.cobertura.xml' | head -n 1)
-          if [[ -z "${cobertura}" ]]; then
-            echo "coverage.cobertura.xml not found" >&2
-            exit 1
-          fi
-          python tests/check-coverage.py "${cobertura}"
+        run: deno run -A tools/ci/main.ts coverage
 
-  publish-appliance:
+      - name: Deno coverage / catalog unit tests
+        run: deno task --cwd tools/ci test
+
+  publish-win:
     runs-on: windows-latest
     needs: test
     steps:
@@ -84,7 +92,87 @@ jobs:
             Directory.Build.props
             dirs.proj
 
-      - name: Self-contained publish smoke (win-x64, non-AoT)
-        run: dotnet publish src/HardwareTest -c Release -r win-x64 --self-contained -p:PublishAot=false
+      - name: Setup Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.7.7
 
-  # Optional follow-up: add linux-x64 publish + DUT→run→report smoke when runners are ready.
+      - name: Self-contained publish (win-x64, non-AoT)
+        run: deno run -A tools/ci/main.ts publish --rid win-x64
+
+      - name: Verify publish + print-config
+        run: deno run -A tools/ci/main.ts verify --rid win-x64
+
+      - name: Upload win-x64 publish
+        uses: actions/upload-artifact@v4
+        with:
+          name: hardwaretest-win-x64
+          path: artifacts/publish/win-x64
+          retention-days: 14
+
+  test-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+          cache: true
+          cache-dependency-path: |
+            **/*.csproj
+            **/packages.lock.json
+            Directory.Build.props
+            dirs.proj
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.7.7
+
+      - name: Install Avalonia headless dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libfontconfig1 libfreetype6 libice6 libsm6 \
+            libx11-6 libxcursor1 libxext6 libxi6 libxrandr2 libxrender1
+
+      - name: Assert CI task catalog
+        run: |
+          set -euo pipefail
+          expected=$'all\nbuild\ncoverage\nlist\npublish\ntest:arch\ntest:e2e\ntest:host\ntest:vm\nverify'
+          actual=$(deno run -A tools/ci/main.ts list)
+          test "$actual" = "$expected"
+
+      - name: Build
+        run: deno run -A tools/ci/main.ts build --rid linux-x64
+
+      - name: Architecture smoke
+        run: deno run -A tools/ci/main.ts test:arch --rid linux-x64
+
+      - name: OpenTAP host + fixtures
+        run: deno run -A tools/ci/main.ts test:host --rid linux-x64
+
+      - name: ViewModels
+        run: deno run -A tools/ci/main.ts test:vm --rid linux-x64
+
+      - name: E2E smoke (advisory on Linux)
+        continue-on-error: true
+        run: deno run -A tools/ci/main.ts test:e2e --rid linux-x64
+
+      - name: Coverage floors
+        run: deno run -A tools/ci/main.ts coverage
+
+      - name: Publish linux-x64
+        run: deno run -A tools/ci/main.ts publish --rid linux-x64
+
+      - name: Verify publish + print-config
+        run: deno run -A tools/ci/main.ts verify --rid linux-x64
+
+      - name: Upload linux-x64 publish
+        uses: actions/upload-artifact@v4
+        with:
+          name: hardwaretest-linux-x64
+          path: artifacts/publish/linux-x64
+          retention-days: 14
