@@ -57,6 +57,7 @@ public partial class ProgramSelectionViewModel : ReactiveObject
                 LoadKind = entry.LoadKind,
                 Requirements = entry.Requirements,
                 ReportKinds = entry.ReportKinds,
+                SelectionIncludesCleanup = entry.SelectionIncludesCleanup,
             });
         }
 

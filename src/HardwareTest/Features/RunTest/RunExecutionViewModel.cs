@@ -8,6 +8,7 @@ using HardwareTest.Core.Engine;
 using HardwareTest.Core.Reporting;
 using HardwareTest.Core.Runs;
 using HardwareTest.Core.Settings;
+using HardwareTest.Core.Storage;
 using HardwareTest.OpenTap.Host;
 using ReactiveUI;
 using Serilog.Context;
@@ -35,6 +36,7 @@ public sealed class RunExecutionViewModel
     private readonly StepDetailViewModel _stepDetail;
     private readonly InteractionHostViewModel _interaction;
     private readonly LivePresentationViewModel _live;
+    private readonly IStorageHealthService? _storageHealth;
 
     private readonly Dictionary<string, StepAttemptSummary> _attemptLedger =
         new(StringComparer.OrdinalIgnoreCase);
@@ -56,7 +58,8 @@ public sealed class RunExecutionViewModel
         StepTreeViewModel stepTree,
         StepDetailViewModel stepDetail,
         InteractionHostViewModel interaction,
-        LivePresentationViewModel live)
+        LivePresentationViewModel live,
+        IStorageHealthService? storageHealth = null)
     {
         _host = host;
         _openTap = openTap;
@@ -75,6 +78,7 @@ public sealed class RunExecutionViewModel
         _stepDetail = stepDetail;
         _interaction = interaction;
         _live = live;
+        _storageHealth = storageHealth;
 
         RunCommand = ReactiveCommand.CreateFromTask(() => ExecuteRunAsync(selectionOnly: false));
         RunSelectedCommand = ReactiveCommand.CreateFromTask(() => ExecuteRunAsync(selectionOnly: true));
@@ -101,6 +105,18 @@ public sealed class RunExecutionViewModel
         if (_host.IsRunning)
         {
             _host.Status = "Already running.";
+            return;
+        }
+
+        if (_host is RunTestViewModel runBoard)
+        {
+            runBoard.RefreshStorageHealth();
+        }
+
+        var health = _storageHealth?.GetDataVolumeHealth();
+        if (health?.Level == StorageHealthLevel.Critical)
+        {
+            _host.Status = health.Message + " Clear space or adjust retention in Settings.";
             return;
         }
 
@@ -228,7 +244,12 @@ public sealed class RunExecutionViewModel
 
         using var runLog = LogContext.PushProperty("TestRunId", runId);
         var summary = selectionOnly
-            ? await _openTap.RunSelectionAsync(selectionPath!, _progress, cancellationToken, runId).ConfigureAwait(false)
+            ? await _openTap.RunSelectionAsync(
+                selectionPath!,
+                _progress,
+                cancellationToken,
+                runId,
+                includeCleanup: program.SelectionIncludesCleanup).ConfigureAwait(false)
             : await _openTap.RunAsync(_progress, cancellationToken, runId).ConfigureAwait(false);
 
         _host.ForceUiFlush();

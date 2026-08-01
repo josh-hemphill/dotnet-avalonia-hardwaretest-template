@@ -16,10 +16,12 @@ For UI vs OpenTAP test suites, see [testing.md](testing.md). For sealed Linux pu
   "requireSerial": true,
   "requireOperator": true,
   "requirePartNumber": false,
-  "requireRevision": false
+  "requireRevision": false,
+  "selectionIncludesCleanup": true
 }
 ```
 
+`selectionIncludesCleanup` defaults to **true** (omit or set true). Set **false** only when SafeShutdown is suite-scoped and Run Selected is software-only — then the selection mask excludes `SafeShutdownStep`. Full **Run** always executes the plan as authored. Disabled siblings outside the mask may show NotExecuted/Invalidated; that is expected and is not “cleanup skipped.”
 3. Built-in **sample** / **board-demo** / **sweep-demo** entries stay as factories for CI-stable demos. Disk plans with the same id are not double-listed (`ProgramCatalog`).
 
    | Demo | Operator prompts | Station overrides / Presentation |
@@ -63,7 +65,7 @@ DUT stamping still looks for Basic `IdentityCheckStep` / `HardwareDut`. Custom D
 
 - Prefer unique step paths (duplicate sibling names need path-qualified selection).
 - Max useful nest depth for chrome is three levels (Stages → Sections → Nested).
-- Include `SafeShutdownStep` when using Run Selected.
+- Include `SafeShutdownStep` when using Run Selected (selection keeps it enabled by default; opt out via `selectionIncludesCleanup: false` in `{planId}.program.json`). Disabled siblings may show NotExecuted/Invalidated — that is not cleanup being skipped.
 - Repeat/Sweep loops show innermost `iter i/N` on the Run hero during execute; edit bounds in OpenTAP Editor or Phase C overrides — not in Avalonia.
 - Details and diagnostic tests: [testing.md](testing.md).
 
@@ -167,10 +169,19 @@ Env alone is enough for a sealed install. Missing or read-only `settings.json` i
 | `CrashDirectory` | `HARDWARETEST_CRASH_DIRECTORY` | `--crash-directory` |
 | `CrashRetentionCount` | `HARDWARETEST_CRASH_RETENTION_COUNT` | `--crash-retention` |
 | `RedactIdentifiersInDiagnostics` | `HARDWARETEST_REDACT_IDENTIFIERS` | `--redact-identifiers` |
+| `ExportDirectory` | `HARDWARETEST_EXPORT_DIRECTORY` | `--export-directory` |
+| `PreferRemovableExport` | `HARDWARETEST_PREFER_REMOVABLE_EXPORT` | `--prefer-removable-export` |
+| `RunRetentionDays` | `HARDWARETEST_RUN_RETENTION_DAYS` | `--run-retention-days` |
+| `RunRetentionMaxRuns` | `HARDWARETEST_RUN_RETENTION_MAX_RUNS` | `--run-retention-max-runs` |
+| `DataFreeSpaceWarnBytes` | `HARDWARETEST_DATA_FREE_SPACE_WARN_BYTES` | `--data-free-space-warn-bytes` |
+| `DataFreeSpaceCriticalBytes` | `HARDWARETEST_DATA_FREE_SPACE_CRITICAL_BYTES` | `--data-free-space-critical-bytes` |
+| `AllowOsFolderBrowse` | `HARDWARETEST_ALLOW_OS_FOLDER_BROWSE` | `--allow-os-folder-browse` |
 
 Also: `--settings <path>` (settings file path), `--print-config` (dump effective config + provenance to stdout and exit 0), `--version` / `-v` (print informational version and exit 0). Debug builds: `--simulate-crash {fatal|recoverable|command}`. Nested lists use `HARDWARETEST_<LIST>__{n}__<PROP>` (e.g. `HARDWARETEST_INSTRUMENTS__0__RESOURCE`).
 
-Crash dossiers land under `{DataDirectory}/crashes/` (or `CrashDirectory`): `crash.json`, `log-tail.txt`, `config.json`, `session.json`. Home shows a dismissible recovery banner for unreviewed dossiers; Settings → **Open crashes folder**. See [phase-6-crash-reporting.md](platform-phases/phase-6-crash-reporting.md).
+Crash dossiers land under `{DataDirectory}/crashes/` (or `CrashDirectory`): `crash.json`, `log-tail.txt`, `config.json`, `session.json`. Home shows a dismissible recovery banner for unreviewed dossiers; Settings → **Open crashes folder** (hidden when `AllowOsFolderBrowse` is false and Engineer debug is off). See [phase-6-crash-reporting.md](platform-phases/phase-6-crash-reporting.md).
+
+**Export / storage (Phase 10):** Results **Export to…** copies run PDFs + `run.json` (+ optional CSV) to removable media or `ExportDirectory`. Home crash **Export support bundle** uses the same targets (falls back to `{DataDirectory}/exports`). Retention prunes completed `runs/` folders by age/count; free-space warn/critical gates Run. See [phase-10-export-storage-chrome.md](platform-phases/phase-10-export-storage-chrome.md).
 
 Bootstrap is two-stage: stage 1 resolves `DataDirectory` + `LogMinimumLevel` from env/CLI before logging; stage 2 loads `settings.json` then re-applies overlays. See [phase-3-configuration-model.md](platform-phases/phase-3-configuration-model.md).
 

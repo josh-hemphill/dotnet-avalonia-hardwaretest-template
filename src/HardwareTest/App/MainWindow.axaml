@@ -14,6 +14,7 @@
                        IsSettingsVisible="False"
                        IsBackButtonVisible="False"
                        OpenPaneLength="220"
+                       IsPaneOpen="{Binding IsNavPaneOpen, Mode=TwoWay}"
                        MenuItemsSource="{Binding NavigationItems}"
                        SelectedItem="{Binding SelectedItem, Mode=TwoWay}">
     <ui:FANavigationView.MenuItemTemplate>
@@ -31,16 +32,22 @@
         <TextBlock Text="{Binding ControlStatus}"
                    FontSize="12"
                    TextTrimming="CharacterEllipsis"
-                   Opacity="0.85" />
+                   Opacity="0.85"
+                   IsVisible="{Binding IsNavPaneOpen}" />
         <Button Command="{Binding PauseResumeCommand}"
                 HorizontalAlignment="Stretch"
                 IsEnabled="{Binding IsRunning}"
+                Classes.success="{Binding ShowContinueIcon}"
                 ToolTip.Tip="{Binding PauseResumeTip}">
-          <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center">
+          <StackPanel Orientation="Horizontal"
+                      Spacing="8"
+                      HorizontalAlignment="Center">
             <ui:FASymbolIcon Symbol="Pause" FontSize="16" IsVisible="{Binding ShowPauseIcon}" />
             <ui:FASymbolIcon Symbol="Play" FontSize="16" IsVisible="{Binding ShowResumeIcon}" />
             <ui:FASymbolIcon Symbol="Accept" FontSize="16" IsVisible="{Binding ShowContinueIcon}" />
-            <TextBlock Text="{Binding PauseResumeLabel}" VerticalAlignment="Center" />
+            <TextBlock Text="{Binding PauseResumeLabel}"
+                       VerticalAlignment="Center"
+                       IsVisible="{Binding IsNavPaneOpen}" />
           </StackPanel>
         </Button>
         <Button Command="{Binding SafetyStopCommand}"
@@ -48,9 +55,13 @@
                 Classes="danger"
                 IsEnabled="{Binding IsRunning}"
                 ToolTip.Tip="Safety Stop — abort and run safe shutdown">
-          <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center">
+          <StackPanel Orientation="Horizontal"
+                      Spacing="8"
+                      HorizontalAlignment="Center">
             <ui:FASymbolIcon Symbol="Stop" FontSize="16" />
-            <TextBlock Text="Safety Stop" VerticalAlignment="Center" />
+            <TextBlock Text="Safety Stop"
+                       VerticalAlignment="Center"
+                       IsVisible="{Binding IsNavPaneOpen}" />
           </StackPanel>
         </Button>
       </StackPanel>

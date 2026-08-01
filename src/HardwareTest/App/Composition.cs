@@ -29,7 +29,9 @@ public static class Composition
         services.AddSingleton<OperatorSession>();
 
         services.AddSingleton<HomeViewModel>(sp =>
-            new HomeViewModel(settingsStore));
+            new HomeViewModel(
+                settingsStore,
+                sp.GetRequiredService<HardwareTest.Core.Storage.IExportTargetService>()));
         services.AddSingleton<RunTestViewModel>();
         services.AddSingleton<InspectViewModel>();
         services.AddSingleton<ResultsViewModel>();

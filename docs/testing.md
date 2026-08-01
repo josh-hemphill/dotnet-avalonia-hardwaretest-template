@@ -20,6 +20,7 @@ Schema gates and golden files under `tests/fixtures/schema/` are covered in Core
 Crash dossiers (writer, ring sink, redaction, dangling-run reconciliation) live in Core tests under `Crash/` — see [phase-6-crash-reporting.md](platform-phases/phase-6-crash-reporting.md).
 Local CI tasks, coverage floors (TypeScript), and container rails — see [containers.md](containers.md) and [phase-7-containers-local-ci.md](platform-phases/phase-7-containers-local-ci.md).
 Session contract tests (`HardwareTest.Session.Contracts`) run against both real and fake `IOpenTapSession` via the host and ViewModel suites — see [phase-8-session-contract-tests.md](platform-phases/phase-8-session-contract-tests.md).
+Export targets, run retention, and free-space gates live in Core tests under `Storage/` — see [phase-10-export-storage-chrome.md](platform-phases/phase-10-export-storage-chrome.md).
 
 ## When to add which test
 
@@ -71,7 +72,7 @@ To regenerate the checked-in `sample-pass` cassette, build host tests with `/p:D
 
 - Prefer unique step paths (duplicate sibling names need path-qualified selection).
 - Max useful nest depth for chrome is three levels (Stages → Sections → Nested); deeper nodes still appear as leaves under path.
-- Include `SafeShutdownStep` when using Run Selected (selection keeps SafeShutdown enabled).
+- Include `SafeShutdownStep` when using Run Selected (selection keeps SafeShutdown enabled by default). Opt out with `selectionIncludesCleanup: false` in `{planId}.program.json` only when shutdown is suite-scoped and selection is software-only. Disabled siblings showing NotExecuted/Invalidated is expected — not “cleanup skipped.”
 - Instruments must be extractable for the Instruments page (or document limits for foreign plugins).
 
 ## Local commands

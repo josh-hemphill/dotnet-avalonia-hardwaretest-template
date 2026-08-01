@@ -100,6 +100,34 @@ public partial class App : Application
             Log.Warning(ex, "Dangling run reconciliation failed");
         }
 
+        try
+        {
+            var retention = _services.GetRequiredService<HardwareTest.Core.Storage.IRunRetentionService>();
+            var pruned = retention.Prune();
+            if (pruned.DeletedCount > 0)
+            {
+                Log.Information("Run retention removed {Count} folder(s)", pruned.DeletedCount);
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "Run retention pass failed");
+        }
+
+        try
+        {
+            var health = _services.GetRequiredService<HardwareTest.Core.Storage.IStorageHealthService>()
+                .GetDataVolumeHealth();
+            if (health.Level != HardwareTest.Core.Storage.StorageHealthLevel.Ok)
+            {
+                Log.Warning("Storage health {Level}: {Message}", health.Level, health.Message);
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "Storage health snapshot failed");
+        }
+
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             var mainWindow = _services.GetRequiredService<MainWindow>();

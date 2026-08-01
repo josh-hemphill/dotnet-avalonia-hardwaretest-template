@@ -13,7 +13,7 @@ method System.Threading.Tasks.Task LoadSweepDemoProgramAsync(System.Threading.Ca
 method void Pause()
 method void Resume(HardwareTest.OpenTap.Plugins.Basic.OperatorInteractionResponse response)
 method System.Threading.Tasks.Task<HardwareTest.OpenTap.Host.OpenTapRunSummary> RunAsync(System.IProgress<HardwareTest.OpenTap.Host.OpenTapProgress> progress, System.Threading.CancellationToken cancellationToken, string runId)
-method System.Threading.Tasks.Task<HardwareTest.OpenTap.Host.OpenTapRunSummary> RunSelectionAsync(string stepPath, System.IProgress<HardwareTest.OpenTap.Host.OpenTapProgress> progress, System.Threading.CancellationToken cancellationToken, string runId)
+method System.Threading.Tasks.Task<HardwareTest.OpenTap.Host.OpenTapRunSummary> RunSelectionAsync(string stepPath, System.IProgress<HardwareTest.OpenTap.Host.OpenTapProgress> progress, System.Threading.CancellationToken cancellationToken, string runId, bool includeCleanup)
 method bool TryBindSlotResource(string slotName, string resource)
 method bool TryGetParameter(string memberKey, out string value)
 method bool TryGetStepConditionSummary(string stepPath, out string summary)

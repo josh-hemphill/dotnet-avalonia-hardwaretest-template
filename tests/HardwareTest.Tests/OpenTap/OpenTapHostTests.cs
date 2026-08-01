@@ -99,6 +99,44 @@ public sealed class OpenTapSessionTests
             summary.Result is RunResult.Passed or RunResult.Failed or RunResult.Error or RunResult.Cancelled,
             $"Unexpected result {summary.Result}: {summary.ErrorMessage}");
         Assert.NotEmpty(session.InstrumentSlots);
+
+        var shutdown = summary.Steps.FirstOrDefault(s =>
+            s.StepType.Contains("Safe Shutdown", StringComparison.OrdinalIgnoreCase)
+            || s.StepPath.Contains("Safe Shutdown", StringComparison.OrdinalIgnoreCase));
+        Assert.NotNull(shutdown);
+        Assert.True(
+            shutdown!.Passed
+            || string.Equals(shutdown.Message, "Pass", StringComparison.OrdinalIgnoreCase),
+            $"SafeShutdown should execute on Run Selected; got Passed={shutdown.Passed} Message={shutdown.Message}");
+        Assert.Contains(
+            session.StepTree.SelectMany(Flatten),
+            n => n.Name.Contains("Safe Shutdown", StringComparison.OrdinalIgnoreCase)
+                 && (n.Verdict is "Pass" or "NotSet" || n.StatusText is "Pass" or "NotExecuted"));
+    }
+
+    [Fact]
+    public async Task RunSelection_can_opt_out_of_safe_shutdown()
+    {
+        var session = new OpenTapSession();
+        await session.LoadSampleProgramAsync();
+        await session.ApplyStationAndDutAsync(
+            new StationProfile(new Dictionary<string, string> { ["dmm"] = "MOCK::INSTR0" }),
+            new DutIdentity("DUT-SEL-NOCLEAN", Family: "demo"));
+
+        var identity = session.StepTree.SelectMany(Flatten)
+            .First(n => n.Name.Contains("Identity", StringComparison.OrdinalIgnoreCase)
+                        && n.Children.Count == 0);
+        var summary = await session.RunSelectionAsync(identity.Path, includeCleanup: false);
+        Assert.True(
+            summary.Result is RunResult.Passed or RunResult.Failed or RunResult.Error or RunResult.Cancelled,
+            $"Unexpected result {summary.Result}: {summary.ErrorMessage}");
+
+        var shutdown = summary.Steps.FirstOrDefault(s =>
+            s.StepType.Contains("Safe Shutdown", StringComparison.OrdinalIgnoreCase)
+            || s.StepPath.Contains("Safe Shutdown", StringComparison.OrdinalIgnoreCase));
+        Assert.True(
+            shutdown is null || !shutdown.Passed,
+            "Opt-out selection should not record a passed SafeShutdown execution.");
     }
 
     [Fact]

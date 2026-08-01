@@ -7,6 +7,7 @@ using HardwareTest.Core.Engine;
 using HardwareTest.Core.Reporting;
 using HardwareTest.Core.Runs;
 using HardwareTest.Core.Settings;
+using HardwareTest.Core.Storage;
 using HardwareTest.OpenTap.Host;
 using HardwareTest.OpenTap.Plugins.Basic;
 using ReactiveUI;
@@ -22,6 +23,7 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
     private readonly IRunControl _runControl;
     private readonly AppSettings _settings;
     private readonly ThrottledOpenTapProgress _progress;
+    private readonly IStorageHealthService? _storageHealth;
 
     public RunTestViewModel(
         IOpenTapSession openTap,
@@ -32,12 +34,14 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
         AppSettings settings,
         ISettingsStore? settingsStore = null,
         IDutHistoryService? dutHistory = null,
-        BuildInfo? buildInfo = null)
+        BuildInfo? buildInfo = null,
+        IStorageHealthService? storageHealth = null)
     {
         _openTap = openTap;
         _session = session;
         _runControl = runControl;
         _settings = settings;
+        _storageHealth = storageHealth;
         _progress = new ThrottledOpenTapProgress(IngestProgress);
         Status = "Confirm DUT, then Run.";
         IsEngineerDebugMode = settings.IsEngineerDebugMode;
@@ -91,16 +95,23 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
             StepTree,
             StepDetail,
             Interaction,
-            Live);
+            Live,
+            storageHealth);
 
         ContinueOperatorCommand = ReactiveCommand.Create(ContinueOperator);
         OpenLastRunResultsCommand = ReactiveCommand.Create(
             () => NavigateToResultsRequested?.Invoke(this, EventArgs.Empty));
         InspectPlanCommand = ReactiveCommand.Create(
             () => NavigateToInspectRequested?.Invoke(this, EventArgs.Empty));
+        DismissStorageBannerCommand = ReactiveCommand.Create(() =>
+        {
+            StorageBannerDismissed = true;
+            HasStorageBanner = false;
+        });
 
         SubscribeToChildren();
         Observe(ProgramSelection.RefreshProgramsAsync());
+        RefreshStorageHealth();
     }
 
     public StepDetailViewModel StepDetail { get; }
@@ -120,6 +131,7 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> ContinueOperatorCommand { get; }
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> OpenLastRunResultsCommand { get; }
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> InspectPlanCommand { get; }
+    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> DismissStorageBannerCommand { get; }
 
     [Reactive] private string _status = string.Empty;
     [Reactive] private bool _isRunning;
@@ -134,6 +146,35 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
     [Reactive] private string _heroChipText = "Pending";
     [Reactive] private string _heroStatusLine = string.Empty;
     [Reactive] private string _iterationText = string.Empty;
+    [Reactive] private bool _hasStorageBanner;
+    [Reactive] private bool _storageBannerIsCritical;
+    [Reactive] private string _storageBannerMessage = string.Empty;
+    [Reactive] private bool _storageBannerDismissed;
+
+    /// Refresh free-space banner (call after Settings changes or before Run).
+    public void RefreshStorageHealth()
+    {
+        if (_storageHealth is null)
+        {
+            HasStorageBanner = false;
+            StorageBannerIsCritical = false;
+            StorageBannerMessage = string.Empty;
+            return;
+        }
+
+        var snap = _storageHealth.GetDataVolumeHealth();
+        StorageBannerIsCritical = snap.Level == StorageHealthLevel.Critical;
+        if (snap.Level == StorageHealthLevel.Ok)
+        {
+            HasStorageBanner = false;
+            StorageBannerMessage = string.Empty;
+            StorageBannerDismissed = false;
+            return;
+        }
+
+        StorageBannerMessage = snap.Message;
+        HasStorageBanner = StorageBannerIsCritical || !StorageBannerDismissed;
+    }
 
     /// Reveals the selected step in the bottom tray (double-tap / keyboard entry point from the view).
     public void OpenSelectedStepDetail() => OpenSelectedDetail(revealDetail: true);

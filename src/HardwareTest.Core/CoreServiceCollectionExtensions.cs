@@ -4,6 +4,7 @@ using HardwareTest.Core.Logging;
 using HardwareTest.Core.Reporting;
 using HardwareTest.Core.Runs;
 using HardwareTest.Core.Settings;
+using HardwareTest.Core.Storage;
 using Microsoft.Extensions.DependencyInjection;
 using Serilog;
 
@@ -39,6 +40,12 @@ public static class CoreServiceCollectionExtensions
                 sp.GetRequiredService<IRunStore>(),
                 settingsStore.AppSettings,
                 sp.GetRequiredService<ISuiteRunStore>()));
+        services.AddSingleton<IStorageHealthService>(_ =>
+            new StorageHealthService(settingsStore.AppSettings, settingsStore.RootDirectory));
+        services.AddSingleton<IRunRetentionService>(_ =>
+            new RunRetentionService(settingsStore.AppSettings, settingsStore.RunsDirectory, Log.Logger));
+        services.AddSingleton<IExportTargetService>(_ =>
+            new ExportTargetService(settingsStore.AppSettings, settingsStore.RootDirectory, Log.Logger));
         services.AddSingleton(Log.Logger);
         return services;
     }

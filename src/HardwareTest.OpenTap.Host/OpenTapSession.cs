@@ -115,7 +115,8 @@ public interface IOpenTapSession : INotifyPropertyChanged
         string stepPath,
         IProgress<OpenTapProgress>? progress = null,
         CancellationToken cancellationToken = default,
-        string? runId = null);
+        string? runId = null,
+        bool includeCleanup = true);
     void Pause();
     void Resume(OperatorInteractionResponse? response = null);
     void Abort(bool safetyStop = false);
@@ -324,7 +325,8 @@ public sealed class OpenTapSession : IOpenTapSession, INotifyPropertyChanged
         string stepPath,
         IProgress<OpenTapProgress>? progress = null,
         CancellationToken cancellationToken = default,
-        string? runId = null)
+        string? runId = null,
+        bool includeCleanup = true)
     {
         if (_plan is null)
         {
@@ -335,13 +337,14 @@ public sealed class OpenTapSession : IOpenTapSession, INotifyPropertyChanged
                        ?? throw new InvalidOperationException($"Step not found: {stepPath}");
         var mask = FlattenSteps(_plan).ToDictionary(s => s.Id, s => s.Enabled);
 
-        // Reset only steps that will execute (subtree + SafeShutdown). Ancestors stay enabled for
+        // Reset only steps that will execute (subtree + optional SafeShutdown). Ancestors stay enabled for
         // OpenTAP structure but keep prior live status; rollup refreshes them afterward.
         var resetStepIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var sampleScopePaths = new List<string>();
         foreach (var step in FlattenSteps(_plan))
         {
-            if (!IsInSubtree(step, selected) && step is not SafeShutdownStep)
+            var isCleanup = includeCleanup && step is SafeShutdownStep;
+            if (!IsInSubtree(step, selected) && !isCleanup)
             {
                 continue;
             }
@@ -360,7 +363,7 @@ public sealed class OpenTapSession : IOpenTapSession, INotifyPropertyChanged
             {
                 var keep = IsInSubtree(step, selected)
                            || IsAncestorOf(step, selected)
-                           || step is SafeShutdownStep;
+                           || (includeCleanup && step is SafeShutdownStep);
                 step.Enabled = keep;
             }
 

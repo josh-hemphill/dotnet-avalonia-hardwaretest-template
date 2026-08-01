@@ -4,6 +4,7 @@ using System.Runtime.Versioning;
 using System.Threading.Tasks;
 using HardwareTest.Core.Crash;
 using HardwareTest.Core.Settings;
+using HardwareTest.Core.Storage;
 using HardwareTest.Crash;
 using ReactiveUI;
 using ReactiveUI.SourceGenerators;
@@ -14,20 +15,24 @@ public partial class HomeViewModel : ReactiveObject
 {
     private readonly ISettingsStore? _settingsStore;
     private readonly CrashDossierWriter? _writer;
+    private readonly IExportTargetService? _exportTargets;
 
     public HomeViewModel()
         : this(null)
     {
     }
 
-    public HomeViewModel(ISettingsStore? settingsStore)
+    public HomeViewModel(ISettingsStore? settingsStore, IExportTargetService? exportTargets = null)
     {
         _settingsStore = settingsStore;
+        _exportTargets = exportTargets;
         if (settingsStore is not null)
         {
             _writer = CrashDossierWriter.FromSettings(settingsStore.AppSettings, settingsStore.RootDirectory);
         }
 
+        AllowOsFolderBrowse = settingsStore?.AppSettings.AllowOsFolderBrowse == true
+                              || settingsStore?.AppSettings.IsEngineerDebugMode == true;
         OpenCrashFolderCommand = ReactiveCommand.Create(OpenCrashFolder);
         ExportSupportBundleCommand = ReactiveCommand.Create(ExportSupportBundle);
         DismissCrashBannerCommand = ReactiveCommand.Create(DismissCrashBanner);
@@ -48,6 +53,7 @@ public partial class HomeViewModel : ReactiveObject
     [Reactive] private string _crashBannerTitle = string.Empty;
     [Reactive] private string _crashBannerDetail = string.Empty;
     [Reactive] private string _crashStatus = string.Empty;
+    [Reactive] private bool _allowOsFolderBrowse;
 
     private CrashDossierSummary? _activeDossier;
 
@@ -78,7 +84,8 @@ public partial class HomeViewModel : ReactiveObject
             var when = _activeDossier.CapturedAtUtc.ToString("u");
             var ver = _activeDossier.AppVersion ?? "unknown";
             var fault = _activeDossier.ExceptionType ?? "Exception";
-            CrashBannerDetail = $"{when} — {fault} — app {ver}. Open the dossier folder or export a support bundle.";
+            CrashBannerDetail = $"{when} — {fault} — app {ver}. Export a support bundle" +
+                                (AllowOsFolderBrowse ? " or open the dossier folder." : ".");
         }
         catch
         {
@@ -88,6 +95,12 @@ public partial class HomeViewModel : ReactiveObject
 
     private void OpenCrashFolder()
     {
+        if (!AllowOsFolderBrowse)
+        {
+            CrashStatus = "Open folder is disabled on this appliance. Export a support bundle instead.";
+            return;
+        }
+
         var path = _activeDossier?.DirectoryPath ?? _writer?.CrashRoot;
         if (string.IsNullOrWhiteSpace(path))
         {
@@ -117,14 +130,54 @@ public partial class HomeViewModel : ReactiveObject
 
         try
         {
-            var exports = Path.Combine(_settingsStore.RootDirectory, "exports");
-            Directory.CreateDirectory(exports);
             var zipName = $"crash-{_activeDossier.DossierId}.zip";
-            var dest = Path.Combine(exports, zipName);
-            var written = CrashDossierWriter.TryExportZip(_activeDossier.DirectoryPath, dest);
-            CrashStatus = written is null
-                ? "Export failed."
-                : $"Exported support bundle: {written}";
+            var target = _exportTargets?.ListTargets().FirstOrDefault();
+            string dest;
+            if (target is not null && _exportTargets is not null)
+            {
+                // Stage zip then atomic-copy via package write of bytes.
+                var tempDir = Path.Combine(Path.GetTempPath(), "hwtest-export-" + Guid.NewGuid().ToString("N"));
+                Directory.CreateDirectory(tempDir);
+                try
+                {
+                    var staged = Path.Combine(tempDir, zipName);
+                    var written = CrashDossierWriter.TryExportZip(_activeDossier.DirectoryPath, staged);
+                    if (written is null || !File.Exists(written))
+                    {
+                        CrashStatus = "Export failed.";
+                        return;
+                    }
+
+                    dest = _exportTargets.WriteAtomic(target, zipName, File.ReadAllBytes(written));
+                }
+                finally
+                {
+                    try
+                    {
+                        Directory.Delete(tempDir, recursive: true);
+                    }
+                    catch
+                    {
+                        // best effort
+                    }
+                }
+            }
+            else
+            {
+                var exports = Path.Combine(_settingsStore.RootDirectory, "exports");
+                Directory.CreateDirectory(exports);
+                dest = Path.Combine(exports, zipName);
+                var written = CrashDossierWriter.TryExportZip(_activeDossier.DirectoryPath, dest);
+                if (written is null)
+                {
+                    CrashStatus = "Export failed.";
+                    return;
+                }
+
+                dest = written;
+            }
+
+            CrashStatus = $"Exported support bundle: {dest}";
         }
         catch (Exception ex)
         {

@@ -11,7 +11,7 @@ Related: [adapting.md](adapting.md) (productize), [testing.md](testing.md) (suit
 | Track | Folder | Naming | Scope |
 | --- | --- | --- | --- |
 | OpenTAP integration | [opentap-phases/](opentap-phases/) | Letters (A–J) | Interactions, parameters, mixins, packages, presentation |
-| Platform hardening | [platform-phases/](platform-phases/) | Numbers (1–9) | Gates, config, diagnostics, crash, CI, structure |
+| Platform hardening | [platform-phases/](platform-phases/) | Numbers (1–10) | Gates, config, diagnostics, crash, CI, structure, storage |
 
 Distinct namespaces on purpose — "Phase C" and "Phase 3" are never the same thing.
 
@@ -52,8 +52,9 @@ Distinct namespaces on purpose — "Phase C" and "Phase 3" are never the same th
 | 7 | [Containerized local CI](platform-phases/phase-7-containers-local-ci.md) | 1 | Done |
 | 8 | [Session contract test suite](platform-phases/phase-8-session-contract-tests.md) | 1 | Done |
 | 9 | [Run board decomposition](platform-phases/phase-9-runboard-decomposition.md) | 8 | Done |
+| 10 | [Export, storage, cleanup, chrome](platform-phases/phase-10-export-storage-chrome.md) | 3, 6, 9 | Done |
 
-**Suggested order:** 1 first and alone — nothing else is verifiable until CI actually runs. Then 2 / 7 / 8 can proceed in parallel (independent seams). 3 → 4 → 5 is a chain and should stay one series. 6 lands after 4. 9 last, because it is the largest refactor and wants 8's safety net underneath it.
+**Suggested order:** 1 first and alone — nothing else is verifiable until CI actually runs. Then 2 / 7 / 8 can proceed in parallel (independent seams). 3 → 4 → 5 is a chain and should stay one series. 6 lands after 4. 9 after 8. 10 after 3/6/9 (storage + chrome).
 
 ## Deferred (do not implement yet)
 
@@ -61,14 +62,12 @@ Distinct namespaces on purpose — "Phase C" and "Phase 3" are never the same th
 - A general schema migration engine or data-conversion tooling.
 - Appliance OS integration: systemd units, kiosk session, image bake automation.
 - Auto-update / delivery channel.
-- Run-history retention and disk-quota policy (tracked, unplanned — see [Known gaps](#known-gaps)).
 - Localization / multi-language operator UI.
 
 ## Known gaps
 
 Real, acknowledged, and deliberately unscheduled. Revisit before the first unattended deployment.
 
-- **`runs/` grows without bound.** App logs rotate at 14 days ([`LoggingBootstrap`](../src/HardwareTest.Core/Logging/LoggingBootstrap.cs)); run folders, PDFs, and CSV exports do not. No free-space check anywhere.
 - **No clock discipline.** Timestamps are `DateTimeOffset.UtcNow` with no NTP sync or skew detection — a bench with a drifted RTC produces misordered run history.
 - **`IOpenTapSession` is a 29-member god interface.** Phase 8 pins its behavior; splitting it is a later decision.
 - **Real vendor VISA paths are untested.** [`IviVisaResourceDiscovery`](../src/HardwareTest.Core/Hardware/VisaResourceDiscovery.cs) swallows every exception into an empty list with no log line.

@@ -26,6 +26,8 @@ public sealed class ProgramCatalogEntry
     public IReadOnlyList<string> ReportKinds { get; init; } = [HardwareTest.Core.Runs.ReportKinds.Status];
     /// Kind opened by Results double-click / primary open (default status).
     public string DefaultReportKind { get; init; } = HardwareTest.Core.Runs.ReportKinds.Status;
+    /// When true (default), Run Selected keeps SafeShutdown enabled. Set false only for software-only selection scopes.
+    public bool SelectionIncludesCleanup { get; init; } = true;
 }
 
 /// Optional sidecar beside a .TapPlan: `{planId}.program.json`.
@@ -39,6 +41,8 @@ public sealed class ProgramSidecar
     public bool? RequireOperator { get; set; }
     public string[]? ReportKinds { get; set; }
     public string? DefaultReportKind { get; set; }
+    /// When false, Run Selected excludes SafeShutdownStep (suite-scoped cleanup only). Default true.
+    public bool? SelectionIncludesCleanup { get; set; }
 }
 
 [JsonSourceGenerationOptions(
@@ -218,6 +222,7 @@ public static class ProgramCatalog
             IsBuiltIn = false,
             ReportKinds = kinds,
             DefaultReportKind = defaultKind,
+            SelectionIncludesCleanup = sidecar?.SelectionIncludesCleanup ?? true,
         };
     }
 

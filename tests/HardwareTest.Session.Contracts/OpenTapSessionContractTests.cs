@@ -146,6 +146,47 @@ public abstract class OpenTapSessionContractTests
         var shutdown = Flatten(session.StepTree)
             .First(n => n.Name.Contains("Safe Shutdown", StringComparison.OrdinalIgnoreCase));
         Assert.True(shutdown.Enabled, "SafeShutdown must stay enabled under selection mask.");
+
+        // After selection, SafeShutdown should have an executed/pass-like verdict (not missing from the run).
+        var shutdownStep = summary.Steps.FirstOrDefault(s =>
+            s.StepPath.Contains("Safe Shutdown", StringComparison.OrdinalIgnoreCase)
+            || s.StepType.Contains("Safe Shutdown", StringComparison.OrdinalIgnoreCase));
+        if (shutdownStep is not null)
+        {
+            Assert.True(
+                shutdownStep.Passed
+                || string.Equals(shutdown.Verdict, "Pass", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(shutdown.StatusText, "Pass", StringComparison.OrdinalIgnoreCase),
+                $"Expected SafeShutdown executed; verdict={shutdown.Verdict} status={shutdown.StatusText}");
+        }
+        else
+        {
+            Assert.True(
+                string.Equals(shutdown.Verdict, "Pass", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(shutdown.StatusText, "Pass", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(shutdown.StatusText, "Completed", StringComparison.OrdinalIgnoreCase),
+                $"Expected SafeShutdown live status after selection; verdict={shutdown.Verdict} status={shutdown.StatusText}");
+        }
+    }
+
+    [Fact]
+    public async Task Run_selection_opt_out_excludes_safe_shutdown_from_mask()
+    {
+        var session = await CreateLoadedSessionAsync(ContractPlan.Simple);
+        await ApplyDefaultStationAsync(session);
+
+        var leaf = Flatten(session.StepTree)
+            .First(n => n.Children.Count == 0
+                        && !n.Name.Contains("Safe Shutdown", StringComparison.OrdinalIgnoreCase));
+        var summary = await session.RunSelectionAsync(leaf.Path, includeCleanup: false);
+        Assert.True(IsTerminal(summary.Result), $"Non-terminal result: {summary.Result}");
+
+        var shutdownStep = summary.Steps.FirstOrDefault(s =>
+            s.StepPath.Contains("Safe Shutdown", StringComparison.OrdinalIgnoreCase)
+            || s.StepType.Contains("Safe Shutdown", StringComparison.OrdinalIgnoreCase));
+        Assert.True(
+            shutdownStep is null || !shutdownStep.Passed,
+            "includeCleanup:false must not execute SafeShutdown as a passed selection step.");
     }
 
     [Fact]

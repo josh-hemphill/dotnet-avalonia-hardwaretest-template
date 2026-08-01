@@ -578,6 +578,48 @@ public static class AppSettingsEnvironmentBinder
                 (s, v) => s.RedactIdentifiersInDiagnostics = v,
                 env: ["HARDWARETEST_REDACT_IDENTIFIERS"],
                 cli: ["--redact-identifiers"]),
+            SettingBinding.String(
+                "ExportDirectory",
+                s => s.ExportDirectory,
+                (s, v) => s.ExportDirectory = v,
+                env: ["HARDWARETEST_EXPORT_DIRECTORY"],
+                cli: ["--export-directory"]),
+            SettingBinding.Bool(
+                "PreferRemovableExport",
+                s => s.PreferRemovableExport,
+                (s, v) => s.PreferRemovableExport = v,
+                env: ["HARDWARETEST_PREFER_REMOVABLE_EXPORT"],
+                cli: ["--prefer-removable-export"]),
+            SettingBinding.Int(
+                "RunRetentionDays",
+                s => s.RunRetentionDays,
+                (s, v) => s.RunRetentionDays = v,
+                env: ["HARDWARETEST_RUN_RETENTION_DAYS"],
+                cli: ["--run-retention-days"]),
+            SettingBinding.Int(
+                "RunRetentionMaxRuns",
+                s => s.RunRetentionMaxRuns,
+                (s, v) => s.RunRetentionMaxRuns = v,
+                env: ["HARDWARETEST_RUN_RETENTION_MAX_RUNS"],
+                cli: ["--run-retention-max-runs"]),
+            SettingBinding.Long(
+                "DataFreeSpaceWarnBytes",
+                s => s.DataFreeSpaceWarnBytes,
+                (s, v) => s.DataFreeSpaceWarnBytes = v,
+                env: ["HARDWARETEST_DATA_FREE_SPACE_WARN_BYTES"],
+                cli: ["--data-free-space-warn-bytes"]),
+            SettingBinding.Long(
+                "DataFreeSpaceCriticalBytes",
+                s => s.DataFreeSpaceCriticalBytes,
+                (s, v) => s.DataFreeSpaceCriticalBytes = v,
+                env: ["HARDWARETEST_DATA_FREE_SPACE_CRITICAL_BYTES"],
+                cli: ["--data-free-space-critical-bytes"]),
+            SettingBinding.Bool(
+                "AllowOsFolderBrowse",
+                s => s.AllowOsFolderBrowse,
+                (s, v) => s.AllowOsFolderBrowse = v,
+                env: ["HARDWARETEST_ALLOW_OS_FOLDER_BROWSE"],
+                cli: ["--allow-os-folder-browse"]),
         ];
 }
 
@@ -670,6 +712,28 @@ public sealed class SettingBinding
                 if (!int.TryParse(raw.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var value))
                 {
                     return (false, get(s).ToString(CultureInfo.InvariantCulture), $"expected int, got '{raw}'");
+                }
+
+                set(s, value);
+                return (true, value.ToString(CultureInfo.InvariantCulture), null);
+            });
+
+    public static SettingBinding Long(
+        string key,
+        Func<AppSettings, long> get,
+        Action<AppSettings, long> set,
+        string[] env,
+        string[] cli)
+        => new(
+            key,
+            env,
+            cli,
+            s => get(s).ToString(CultureInfo.InvariantCulture),
+            (s, raw) =>
+            {
+                if (!long.TryParse(raw.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var value))
+                {
+                    return (false, get(s).ToString(CultureInfo.InvariantCulture), $"expected long, got '{raw}'");
                 }
 
                 set(s, value);

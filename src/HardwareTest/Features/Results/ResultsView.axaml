@@ -3,6 +3,7 @@
              xmlns:vm="using:HardwareTest.Features.Results"
              xmlns:runs="using:HardwareTest.Core.Runs"
              xmlns:pres="using:HardwareTest.Features.Presentation"
+             xmlns:storage="using:HardwareTest.Core.Storage"
              xmlns:widgetsPres="using:HardwareTest.Widgets.Presentation"
              x:Class="HardwareTest.Features.Results.ResultsView"
              x:Name="Root"
@@ -128,6 +129,22 @@
                 </DataTemplate>
               </ItemsControl.ItemTemplate>
             </ItemsControl>
+          </StackPanel>
+
+          <StackPanel Spacing="4" Margin="0,8,0,0" IsVisible="{Binding HasExportTargets}">
+            <TextBlock Text="Export package" FontWeight="SemiBold" />
+            <TextBlock Text="Copies PDFs, run.json, and optional CSV to removable media or ExportDirectory."
+                       Opacity="0.75" FontSize="11" TextWrapping="Wrap" />
+            <ComboBox ItemsSource="{Binding ExportTargets}"
+                      SelectedItem="{Binding SelectedExportTarget}"
+                      MinWidth="180">
+              <ComboBox.ItemTemplate>
+                <DataTemplate x:DataType="storage:ExportTarget">
+                  <TextBlock Text="{Binding DisplayName}" />
+                </DataTemplate>
+              </ComboBox.ItemTemplate>
+            </ComboBox>
+            <Button Content="Export to…" Command="{Binding ExportPackageCommand}" HorizontalAlignment="Left" />
           </StackPanel>
 
           <StackPanel Spacing="2" Margin="0,8,0,0" IsVisible="{Binding HasHistory}">

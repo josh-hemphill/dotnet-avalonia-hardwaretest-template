@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Threading.Tasks;
 using HardwareTest.Core.Reporting;
 using HardwareTest.Core.Runs;
+using HardwareTest.Core.Storage;
 using HardwareTest.Features.Presentation;
 using HardwareTest.OpenTap.Host;
 using ReactiveUI;
@@ -35,22 +36,26 @@ public partial class ResultsViewModel : ReactiveObject
     private readonly IRunStore _runStore;
     private readonly IReportService _reportService;
     private readonly IDutHistoryService? _dutHistory;
+    private readonly IExportTargetService? _exportTargets;
     private readonly List<TestRunSummary> _allRuns = [];
 
     public ResultsViewModel(
         IRunStore runStore,
         IReportService reportService,
-        IDutHistoryService? dutHistory = null)
+        IDutHistoryService? dutHistory = null,
+        IExportTargetService? exportTargets = null)
     {
         _runStore = runStore;
         _reportService = reportService;
         _dutHistory = dutHistory;
+        _exportTargets = exportTargets;
         Runs = [];
         StepDetails = [];
         SampleDetails = [];
         PresentationTiles = [];
         HistoryMetrics = [];
         ReportItems = [];
+        ExportTargets = [];
         ResultFilterOptions = [AllFilter, nameof(RunResult.Passed), nameof(RunResult.Failed), "Other"];
         PlanFilterOptions = [AllFilter];
         DutFilterOptions = [AllFilter];
@@ -62,6 +67,7 @@ public partial class ResultsViewModel : ReactiveObject
         OpenDefaultReportCommand = ReactiveCommand.CreateFromTask(OpenDefaultReportAsync);
         ReprintCommand = ReactiveCommand.CreateFromTask(ReprintAsync);
         OpenReportCommand = ReactiveCommand.Create<RunReportItemViewModel?>(OpenReport);
+        ExportPackageCommand = ReactiveCommand.Create(ExportPackage);
         CloseDetailCommand = ReactiveCommand.Create(() =>
         {
             ShowDetail = false;
@@ -91,6 +97,8 @@ public partial class ResultsViewModel : ReactiveObject
                 ScheduleOpenDetail();
             }
         };
+
+        RefreshExportTargets();
     }
 
     private void ScheduleOpenDetail()
@@ -110,6 +118,7 @@ public partial class ResultsViewModel : ReactiveObject
     public ObservableCollection<PresentationTileViewModel> PresentationTiles { get; }
     public ObservableCollection<DutHistoryMetricRow> HistoryMetrics { get; }
     public ObservableCollection<RunReportItemViewModel> ReportItems { get; }
+    public ObservableCollection<ExportTarget> ExportTargets { get; }
     public ObservableCollection<string> ResultFilterOptions { get; }
     public ObservableCollection<string> PlanFilterOptions { get; }
     public ObservableCollection<string> DutFilterOptions { get; }
@@ -118,6 +127,7 @@ public partial class ResultsViewModel : ReactiveObject
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> OpenDefaultReportCommand { get; }
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> ReprintCommand { get; }
     public ReactiveCommand<RunReportItemViewModel?, System.Reactive.Unit> OpenReportCommand { get; }
+    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> ExportPackageCommand { get; }
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> CloseDetailCommand { get; }
 
     [Reactive] private TestRunSummary? _selectedRun;
@@ -138,6 +148,8 @@ public partial class ResultsViewModel : ReactiveObject
     [Reactive] private bool _hasSchemaBadge;
     [Reactive] private string _schemaWarning = string.Empty;
     [Reactive] private bool _hasSchemaWarning;
+    [Reactive] private ExportTarget? _selectedExportTarget;
+    [Reactive] private bool _hasExportTargets;
 
     public event EventHandler<string>? ReportOpened;
 

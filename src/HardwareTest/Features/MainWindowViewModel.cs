@@ -186,6 +186,10 @@ public partial class MainWindowViewModel : ReactiveObject
     [Reactive]
     private object? _currentPage;
 
+    /// Whether the left nav pane is expanded (false = compact / icon-only footer).
+    [Reactive]
+    private bool _isNavPaneOpen = true;
+
     public void NavigateTo(NavItem? item)
     {
         if (item is null)

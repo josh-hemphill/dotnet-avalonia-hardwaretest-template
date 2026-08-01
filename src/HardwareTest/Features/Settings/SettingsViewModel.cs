@@ -52,6 +52,7 @@ public partial class SettingsViewModel : ReactiveObject
         IsEngineerDebugMode = s.IsEngineerDebugMode;
         OperatorSessionIdleHours = s.OperatorSessionIdleHours;
         DataDirectory = settingsStore.RootDirectory;
+        AllowOsFolderBrowse = s.AllowOsFolderBrowse || s.IsEngineerDebugMode;
         Status = settingsStore.IsSettingsWritable
             ? "Settings load from settings.json; env/CLI overlays win and stay read-only."
             : $"Settings file not writable: {settingsStore.LastPersistenceError}";
@@ -183,6 +184,7 @@ public partial class SettingsViewModel : ReactiveObject
     [Reactive] private bool _exportOpenTapResults;
     [Reactive] private bool _showDutHistoryOnRun;
     [Reactive] private bool _isEngineerDebugMode;
+    [Reactive] private bool _allowOsFolderBrowse;
     [Reactive] private int _operatorSessionIdleHours = 4;
     [Reactive] private string _dataDirectory = string.Empty;
     [Reactive] private string _status = string.Empty;
@@ -293,6 +295,12 @@ public partial class SettingsViewModel : ReactiveObject
 
     private void OpenSelectedFolder()
     {
+        if (!AllowOsFolderBrowse)
+        {
+            Status = "Open folder is disabled. Enable AllowOsFolderBrowse or Engineer debug, or use Copy path.";
+            return;
+        }
+
         var path = ResolveSelectedPath();
         if (string.IsNullOrWhiteSpace(path))
         {
@@ -313,6 +321,12 @@ public partial class SettingsViewModel : ReactiveObject
 
     private void OpenCrashesFolder()
     {
+        if (!AllowOsFolderBrowse)
+        {
+            Status = "Open folder is disabled. Use Copy path or export a support bundle from Home.";
+            return;
+        }
+
         try
         {
             var root = string.IsNullOrWhiteSpace(_settingsStore.AppSettings.CrashDirectory)

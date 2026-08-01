@@ -86,6 +86,7 @@ public sealed class FakeOpenTapSession : IOpenTapSession
     public DutIdentity? LastDut { get; private set; }
     public StationProfile? LastStation { get; private set; }
     public string? LastSelectionPath { get; private set; }
+    public bool? LastSelectionIncludeCleanup { get; private set; }
 
     public Task LoadPlanAsync(string tapPlanPath, CancellationToken cancellationToken = default)
     {
@@ -695,7 +696,7 @@ public sealed class FakeOpenTapSession : IOpenTapSession
         => Flatten(roots).FirstOrDefault(n =>
             string.Equals(n.Path, stepPath, StringComparison.OrdinalIgnoreCase));
 
-    private static bool IsNodeInSelectionScope(OpenTapStepNode node, string selectionPath)
+    private static bool IsNodeInSelectionScope(OpenTapStepNode node, string selectionPath, bool includeCleanup)
     {
         if (string.Equals(node.Path, selectionPath, StringComparison.OrdinalIgnoreCase))
         {
@@ -708,18 +709,21 @@ public sealed class FakeOpenTapSession : IOpenTapSession
             return true;
         }
 
-        // SafeShutdown stays enabled on real selection runs.
-        return node.Name.Contains("Safe Shutdown", StringComparison.OrdinalIgnoreCase);
+        // SafeShutdown stays enabled on real selection runs unless the plan opts out.
+        return includeCleanup
+               && node.Name.Contains("Safe Shutdown", StringComparison.OrdinalIgnoreCase);
     }
 
     public async Task<OpenTapRunSummary> RunSelectionAsync(
         string stepPath,
         IProgress<OpenTapProgress>? progress = null,
         CancellationToken cancellationToken = default,
-        string? runId = null)
+        string? runId = null,
+        bool includeCleanup = true)
     {
         SelectionRunCount++;
         LastSelectionPath = stepPath;
+        LastSelectionIncludeCleanup = includeCleanup;
         runId = string.IsNullOrWhiteSpace(runId) ? Guid.NewGuid().ToString("N") : runId.Trim();
 
         _runCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -731,7 +735,7 @@ public sealed class FakeOpenTapSession : IOpenTapSession
         }
         catch (OperationCanceledException)
         {
-            MarkTreeStatuses(RunResult.Cancelled, n => IsNodeInSelectionScope(n, stepPath));
+            MarkTreeStatuses(RunResult.Cancelled, n => IsNodeInSelectionScope(n, stepPath, includeCleanup));
             var cancelled = new OpenTapRunSummary
             {
                 RunId = runId,
@@ -759,17 +763,17 @@ public sealed class FakeOpenTapSession : IOpenTapSession
         }
 
         // Reset then mark only the selection scope so siblings keep prior live status.
-        foreach (var node in Flatten(Tree).Where(n => IsNodeInSelectionScope(n, stepPath)))
+        foreach (var node in Flatten(Tree).Where(n => IsNodeInSelectionScope(n, stepPath, includeCleanup)))
         {
             node.StatusText = "Pending";
             node.Verdict = "NotSet";
             node.KeyValue = null;
         }
 
-        MarkTreeStatuses(CompletionResult, n => IsNodeInSelectionScope(n, stepPath));
+        MarkTreeStatuses(CompletionResult, n => IsNodeInSelectionScope(n, stepPath, includeCleanup));
 
         var scopeLeaves = Flatten(Tree)
-            .Where(n => n.Children.Count == 0 && IsNodeInSelectionScope(n, stepPath))
+            .Where(n => n.Children.Count == 0 && IsNodeInSelectionScope(n, stepPath, includeCleanup))
             .ToList();
         var leaf = scopeLeaves.FirstOrDefault()
                    ?? Flatten(Tree).FirstOrDefault(n => n.Children.Count == 0);

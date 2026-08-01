@@ -44,6 +44,20 @@ public sealed class AppSettings
     public int CrashRetentionCount { get; set; } = 20;
     /// When true, DUT serial / operator names are hashed in diagnostics and crash dossiers.
     public bool RedactIdentifiersInDiagnostics { get; set; } = true;
+    /// Fixed share / docked export path (empty = none). Prefer removable when PreferRemovableExport.
+    public string ExportDirectory { get; set; } = string.Empty;
+    /// When true, list detected removable roots ahead of ExportDirectory.
+    public bool PreferRemovableExport { get; set; } = true;
+    /// Delete completed run folders older than N days (0 = age retention off).
+    public int RunRetentionDays { get; set; } = 30;
+    /// Keep at most N newest completed run folders (0 = count retention off).
+    public int RunRetentionMaxRuns { get; set; } = 500;
+    /// Soft-warn free space on DataDirectory volume before Run (bytes).
+    public long DataFreeSpaceWarnBytes { get; set; } = 2L * 1024 * 1024 * 1024;
+    /// Block new Run when free space is at or below this (bytes).
+    public long DataFreeSpaceCriticalBytes { get; set; } = 512L * 1024 * 1024;
+    /// When true, Settings/Home may open OS folders (Explorer). Appliance profiles set false.
+    public bool AllowOsFolderBrowse { get; set; } = true;
 }
 
 /// Named VISA instrument entry in the persisted registry (legacy; Instruments UI no longer edits this).

@@ -15,4 +15,6 @@ public partial class ProgramItemViewModel : ReactiveObject
     public ProgramLoadKind LoadKind { get; init; } = ProgramLoadKind.TapPlanFile;
     public ProgramRequirements Requirements { get; init; } = ProgramRequirements.Sample;
     public IReadOnlyList<string> ReportKinds { get; init; } = [HardwareTest.Core.Runs.ReportKinds.Status];
+    /// When true (default), Run Selected keeps SafeShutdown enabled.
+    public bool SelectionIncludesCleanup { get; init; } = true;
 }

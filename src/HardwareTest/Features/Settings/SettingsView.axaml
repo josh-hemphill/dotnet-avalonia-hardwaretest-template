@@ -127,7 +127,10 @@
         <TextBlock Text="OpenTAP engine" VerticalAlignment="Center" />
         <TextBox Grid.Column="1" Text="{Binding AboutOpenTapEngine}" IsReadOnly="True" />
       </Grid>
-      <Button Content="Open crashes folder" Command="{Binding OpenCrashesFolderCommand}" HorizontalAlignment="Left" />
+      <Button Content="Open crashes folder"
+              Command="{Binding OpenCrashesFolderCommand}"
+              IsVisible="{Binding AllowOsFolderBrowse}"
+              HorizontalAlignment="Left" />
 
       <Separator Margin="0,8" />
 
@@ -174,7 +177,9 @@
       <StackPanel Orientation="Horizontal" Spacing="8">
         <Button Content="Refresh" Command="{Binding RefreshPackagesCommand}" />
         <Button Content="Copy path" Command="{Binding CopyPathCommand}" />
-        <Button Content="Open folder" Command="{Binding OpenFolderCommand}" />
+        <Button Content="Open folder"
+                Command="{Binding OpenFolderCommand}"
+                IsVisible="{Binding AllowOsFolderBrowse}" />
       </StackPanel>
 
       <TextBlock Text="Installed packages" FontWeight="SemiBold" Margin="0,4,0,0" />
