@@ -1,10 +1,11 @@
+using System.Globalization;
 using OpenTap;
 
 namespace HardwareTest.OpenTap.Plugins.Basic;
 
 /// Mock DMM instrument for bring-up without a VISA runtime.
-[Display("Mock DMM", Groups: ["HardwareTest"], Description: "Simulated DC voltmeter.")]
-public sealed class MockDmmInstrument : Instrument
+[Display("Mock DMM", Groups: ["HardwareTest"], Description: "Simulated DC voltmeter (demo only).")]
+public sealed class MockDmmInstrument : HardwareDmm
 {
     private readonly object _sync = new();
     private bool _configured;
@@ -37,7 +38,7 @@ public sealed class MockDmmInstrument : Instrument
         base.Close();
     }
 
-    public void Reset()
+    public override void Reset()
     {
         lock (_sync)
         {
@@ -46,7 +47,7 @@ public sealed class MockDmmInstrument : Instrument
         }
     }
 
-    public void ConfigureDcVolts()
+    public override void ConfigureDcVolts()
     {
         lock (_sync)
         {
@@ -54,9 +55,9 @@ public sealed class MockDmmInstrument : Instrument
         }
     }
 
-    public string QueryIdn() => $"MockDMM,{_resource},1.0";
+    public override string QueryIdn() => $"MockDMM,{_resource},1.0";
 
-    public double ReadVoltage()
+    public override double ReadVoltage()
     {
         lock (_sync)
         {
@@ -71,7 +72,7 @@ public sealed class MockDmmInstrument : Instrument
         }
     }
 
-    public void OutputOff()
+    public override void OutputOff()
     {
         lock (_sync)
         {

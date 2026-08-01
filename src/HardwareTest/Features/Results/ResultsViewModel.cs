@@ -160,6 +160,44 @@ public partial class ResultsViewModel : ReactiveObject
 
     public Task LoadRunsAsync() => RefreshAsync();
 
+    /// Reloads the run list and selects the matching run when present.
+    public async Task OpenRunByIdAsync(string? runId)
+    {
+        await RefreshAsync();
+        if (string.IsNullOrWhiteSpace(runId))
+        {
+            return;
+        }
+
+        var match = Runs.FirstOrDefault(r =>
+            string.Equals(r.RunId, runId, StringComparison.OrdinalIgnoreCase));
+        if (match is null)
+        {
+            match = _allRuns.FirstOrDefault(r =>
+                string.Equals(r.RunId, runId, StringComparison.OrdinalIgnoreCase));
+            if (match is not null)
+            {
+                ResultFilter = AllFilter;
+                PlanFilter = AllFilter;
+                DutFilter = AllFilter;
+                SearchText = string.Empty;
+                ApplyFilters();
+                match = Runs.FirstOrDefault(r =>
+                    string.Equals(r.RunId, runId, StringComparison.OrdinalIgnoreCase));
+            }
+        }
+
+        if (match is not null)
+        {
+            SelectedRun = match;
+            Status = $"Opened run {runId}.";
+        }
+        else
+        {
+            Status = $"Run '{runId}' not found in history.";
+        }
+    }
+
     private async Task RefreshAsync()
     {
         _allRuns.Clear();

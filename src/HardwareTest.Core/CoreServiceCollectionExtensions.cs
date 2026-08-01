@@ -34,7 +34,9 @@ public static class CoreServiceCollectionExtensions
                 settingsStore.AppSettings.UseMockVisa,
                 sp.GetRequiredService<VisaSessionGate>()));
         services.AddSingleton<IVisaResourceDiscovery>(_ =>
-            new ConfigurableVisaResourceDiscovery(settingsStore.AppSettings.UseMockVisa));
+            new ConfigurableVisaResourceDiscovery(
+                settingsStore.AppSettings.UseMockVisa,
+                message => Log.Warning("{Message}", message)));
         services.AddSingleton<IReportService>(sp =>
             new TypstReportService(
                 sp.GetRequiredService<IRunStore>(),

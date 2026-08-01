@@ -202,7 +202,7 @@ public sealed class OpenTapSession : IOpenTapSession, INotifyPropertyChanged
         cancellationToken.ThrowIfCancellationRequested();
         EnsurePlugins();
         var plan = SampleProgramFactory.Create();
-        BindPlan(plan, SampleProgramFactory.EmbeddedName, "Sample Hardware Suite");
+        BindPlan(plan, SampleProgramFactory.EmbeddedName, "Sample Hardware Suite (Demo)");
         return Task.CompletedTask;
     }
 
@@ -269,13 +269,7 @@ public sealed class OpenTapSession : IOpenTapSession, INotifyPropertyChanged
             LoadedPlanPath = path;
             LoadedPlanName = displayName;
             _stepTree = BuildTree(plan);
-            _slots = _instruments.Select(i => new OpenTapInstrumentSlot
-            {
-                Name = string.IsNullOrWhiteSpace(i.Name) ? i.GetType().Name : i.Name,
-                TypeName = i.GetType().Name,
-                RoleHint = GuessRole(i.Name),
-                ResourceName = InstrumentResourceAccess.GetResource(i),
-            }).ToList();
+            _slots = InstrumentSlotCollector.FromPlan(plan).ToList();
         }
 
         Raise(nameof(LoadedPlanPath));
@@ -1179,27 +1173,6 @@ public sealed class OpenTapSession : IOpenTapSession, INotifyPropertyChanged
 
     private static HardwareDut? FindDut(TestPlan plan)
         => FlattenSteps(plan).OfType<IdentityCheckStep>().Select(s => s.Dut).FirstOrDefault();
-
-    private static string GuessRole(string? name)
-    {
-        if (string.IsNullOrWhiteSpace(name))
-        {
-            return "dmm";
-        }
-
-        var n = name.Trim().ToLowerInvariant();
-        if (n.Contains("scope", StringComparison.Ordinal))
-        {
-            return "scope";
-        }
-
-        if (n.Contains("supply", StringComparison.Ordinal) || n.Contains("psu", StringComparison.Ordinal))
-        {
-            return "psu";
-        }
-
-        return "dmm";
-    }
 
     private static string SanitizeRunId(string runId)
     {

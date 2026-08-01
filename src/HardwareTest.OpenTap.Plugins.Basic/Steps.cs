@@ -7,7 +7,7 @@ namespace HardwareTest.OpenTap.Plugins.Basic;
 public sealed class IdentityCheckStep : TestStep
 {
     [Display("Instrument")]
-    public MockDmmInstrument Instrument { get; set; } = null!;
+    public HardwareDmm Instrument { get; set; } = null!;
 
     [Display("DUT")]
     public HardwareDut Dut { get; set; } = null!;
@@ -17,7 +17,7 @@ public sealed class IdentityCheckStep : TestStep
         if (Instrument is null)
         {
             UpgradeVerdict(Verdict.Error);
-            Log.Error("No instrument assigned.");
+            Log.Error("No IDmmInstrument assigned.");
             return;
         }
 
@@ -28,11 +28,11 @@ public sealed class IdentityCheckStep : TestStep
     }
 }
 
-[Display("Acquire Voltage", Groups: ["HardwareTest", "Measure"], Description: "Acquire mock VDC samples.")]
+[Display("Acquire Voltage", Groups: ["HardwareTest", "Measure"], Description: "Acquire VDC samples from an IDmmInstrument.")]
 public sealed class AcquireVoltageStep : TestStep
 {
     [Display("Instrument")]
-    public MockDmmInstrument Instrument { get; set; } = null!;
+    public HardwareDmm Instrument { get; set; } = null!;
 
     [Display("Sample Count")]
     public int SampleCount { get; set; } = 32;
@@ -75,7 +75,7 @@ public sealed class AcquireVoltageStep : TestStep
 public sealed class MeanGteStep : TestStep
 {
     [Display("Instrument")]
-    public MockDmmInstrument Instrument { get; set; } = null!;
+    public HardwareDmm Instrument { get; set; } = null!;
 
     [Display("Sample Count")]
     public int SampleCount { get; set; } = 8;
@@ -124,7 +124,7 @@ public sealed class MeanGteStep : TestStep
 public sealed class SafeShutdownStep : TestStep
 {
     [Display("Instrument")]
-    public MockDmmInstrument Instrument { get; set; } = null!;
+    public HardwareDmm Instrument { get; set; } = null!;
 
     public override void Run()
     {
@@ -137,8 +137,26 @@ public sealed class SafeShutdownStep : TestStep
 
         Instrument.OutputOff();
         Instrument.Reset();
-        Log.Info("Safe shutdown complete for {0}", Instrument.ResourceName);
+        Log.Info("Safe shutdown complete for {0}", DmmStepAccess.InstrumentResourceLabel(Instrument));
         UpgradeVerdict(Verdict.Pass);
+    }
+}
+
+internal static class DmmStepAccess
+{
+    public static string InstrumentResourceLabel(HardwareDmm instrument)
+    {
+        if (instrument is MockDmmInstrument mock && !string.IsNullOrWhiteSpace(mock.ResourceName))
+        {
+            return mock.ResourceName;
+        }
+
+        if (instrument is VisaDmmInstrument visa && !string.IsNullOrWhiteSpace(visa.VisaAddress))
+        {
+            return visa.VisaAddress;
+        }
+
+        return string.IsNullOrWhiteSpace(instrument.Name) ? instrument.GetType().Name : instrument.Name;
     }
 }
 

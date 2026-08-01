@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using HardwareTest.Core.Diagnostics;
 using HardwareTest.Core.Engine;
+using HardwareTest.Core.Hardware;
 using HardwareTest.Core.Reporting;
 using HardwareTest.Core.Runs;
 using HardwareTest.Core.Settings;
@@ -116,7 +117,7 @@ public sealed class RunExecutionViewModel
         var health = _storageHealth?.GetDataVolumeHealth();
         if (health?.Level == StorageHealthLevel.Critical)
         {
-            _host.Status = health.Message + " Clear space or adjust retention in Settings.";
+            _host.Status = health.Message + " Clear space or adjust retention under Settings → Storage.";
             return;
         }
 
@@ -219,6 +220,38 @@ public sealed class RunExecutionViewModel
         {
             _host.Status = $"Bind unbound instrument slots on Instruments page: {string.Join(", ", unbound)}";
             return;
+        }
+
+        if (!_settings.UseMockVisa)
+        {
+            var mockSlots = _openTap.InstrumentSlots
+                .Select(s =>
+                {
+                    if (station.RoleToResource.TryGetValue(s.RoleHint, out var byRole)
+                        && !string.IsNullOrWhiteSpace(byRole))
+                    {
+                        return (Slot: s, Resource: byRole.Trim());
+                    }
+
+                    if (station.RoleToResource.TryGetValue(s.Name, out var byName)
+                        && !string.IsNullOrWhiteSpace(byName))
+                    {
+                        return (Slot: s, Resource: byName.Trim());
+                    }
+
+                    return (Slot: s, Resource: s.ResourceName?.Trim() ?? string.Empty);
+                })
+                .Where(x => MockResourceGuard.LooksLikeMockResource(x.Resource)
+                            || MockResourceGuard.IsMockInstrumentType(x.Slot.TypeName))
+                .Select(x => x.Slot.Name)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            if (mockSlots.Count > 0)
+            {
+                _host.Status =
+                    $"Mock instruments/resources blocked while Use mock VISA is off. Bind real addresses on Instruments for: {string.Join(", ", mockSlots)}";
+                return;
+            }
         }
 
         await _openTap.ApplyStationAndDutAsync(station, _session.ToDutIdentity());

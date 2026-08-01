@@ -45,6 +45,13 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
         _progress = new ThrottledOpenTapProgress(IngestProgress);
         Status = "Confirm DUT, then Run.";
         IsEngineerDebugMode = settings.IsEngineerDebugMode;
+        if (settingsStore is not null)
+        {
+            settingsStore.AppSettingsSaved += (_, _) =>
+            {
+                IsEngineerDebugMode = settingsStore.AppSettings.IsEngineerDebugMode;
+            };
+        }
 
         // Panels reference each other, so the wiring uses lambdas; every capture resolves only
         // after this constructor has assigned all of them.

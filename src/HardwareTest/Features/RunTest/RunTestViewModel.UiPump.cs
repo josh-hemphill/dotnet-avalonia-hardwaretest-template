@@ -313,7 +313,18 @@ public partial class RunTestViewModel
         OverallPercent = frame.Percent;
         if (frame.Status is not null)
         {
-            Status = _runControl.IsPaused || frame.Awaiting ? $"Paused — {frame.Status}" : frame.Status;
+            if (_runControl.IsPaused)
+            {
+                Status = $"Paused — {frame.Status}";
+            }
+            else if (frame.Awaiting)
+            {
+                Status = $"Awaiting — {frame.Status}";
+            }
+            else
+            {
+                Status = frame.Status;
+            }
         }
 
         if (frame.Awaiting)

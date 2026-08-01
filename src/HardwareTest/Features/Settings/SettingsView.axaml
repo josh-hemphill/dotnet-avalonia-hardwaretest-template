@@ -20,10 +20,65 @@
       </Grid>
 
       <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
-        <TextBlock Text="Use mock VISA" VerticalAlignment="Center" />
-        <CheckBox Grid.Column="1" IsChecked="{Binding UseMockVisa}"
-                  IsEnabled="{Binding !UseMockVisaReadOnly}" />
+        <TextBlock Text="Engineer / debug mode" VerticalAlignment="Center" />
+        <CheckBox Grid.Column="1" IsChecked="{Binding IsEngineerDebugMode}"
+                  IsEnabled="{Binding !IsEngineerDebugModeReadOnly}"
+                  ToolTip.Tip="Unlocks mock VISA, logging sinks, on-bench overlays, and opening arbitrary .TapPlan files" />
       </Grid>
+
+      <StackPanel Spacing="10" IsVisible="{Binding IsEngineerDebugMode}">
+        <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
+          <TextBlock Text="Use mock VISA" VerticalAlignment="Center" />
+          <CheckBox Grid.Column="1" IsChecked="{Binding UseMockVisa}"
+                    IsEnabled="{Binding !UseMockVisaReadOnly}"
+                    ToolTip.Tip="Requires app restart. When off, demo MOCK:: resources cannot run." />
+        </Grid>
+
+        <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
+          <TextBlock Text="Log level" VerticalAlignment="Center" />
+          <ComboBox Grid.Column="1"
+                    ItemsSource="{Binding LogLevelOptions}"
+                    SelectedItem="{Binding LogMinimumLevel}"
+                    IsEnabled="{Binding !LogMinimumLevelReadOnly}"
+                    MinWidth="160" />
+        </Grid>
+
+        <Grid ColumnDefinitions="220,*" ColumnSpacing="12" IsVisible="{Binding ShowEventLogOptions}">
+          <TextBlock Text="Windows Event Log" VerticalAlignment="Center" />
+          <CheckBox Grid.Column="1" IsChecked="{Binding EnableOsEventSink}"
+                    IsEnabled="{Binding !EnableOsEventSinkReadOnly}" />
+        </Grid>
+
+        <StackPanel Spacing="10" IsVisible="{Binding ShowSyslogOptions}">
+          <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
+            <TextBlock Text="Unix Syslog" VerticalAlignment="Center" />
+            <CheckBox Grid.Column="1" IsChecked="{Binding EnableSyslogOnUnix}"
+                      IsEnabled="{Binding !EnableSyslogOnUnixReadOnly}" />
+          </Grid>
+          <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
+            <TextBlock Text="Syslog host" VerticalAlignment="Center" />
+            <TextBox Grid.Column="1" Text="{Binding SyslogHost}"
+                     IsReadOnly="{Binding SyslogHostReadOnly}" />
+          </Grid>
+          <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
+            <TextBlock Text="Syslog port" VerticalAlignment="Center" />
+            <TextBox Grid.Column="1" Text="{Binding SyslogPort}"
+                     IsReadOnly="{Binding SyslogPortReadOnly}" />
+          </Grid>
+        </StackPanel>
+
+        <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
+          <TextBlock Text="Plot refresh Hz" VerticalAlignment="Center" />
+          <TextBox Grid.Column="1" Text="{Binding PlotRefreshHz}"
+                   IsReadOnly="{Binding PlotRefreshHzReadOnly}" />
+        </Grid>
+
+        <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
+          <TextBlock Text="DUT session idle (hours)" VerticalAlignment="Center" />
+          <TextBox Grid.Column="1" Text="{Binding OperatorSessionIdleHours}"
+                   IsReadOnly="{Binding OperatorSessionIdleHoursReadOnly}" />
+        </Grid>
+      </StackPanel>
 
       <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
         <TextBlock Text="Embed plots in report" VerticalAlignment="Center" />
@@ -45,56 +100,39 @@
                   ToolTip.Tip="When off (default), history appears only on Results. When on, show a summary banner on Run after Pass/Fail." />
       </Grid>
 
+      <Separator Margin="0,8" />
+
+      <TextBlock Text="Storage" FontWeight="SemiBold" />
+      <TextBlock Text="Retention and free-space gates for the data directory. Critical free space blocks new runs."
+                 TextWrapping="Wrap"
+                 Opacity="0.8" />
       <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
-        <TextBlock Text="Log level" VerticalAlignment="Center" />
-        <ComboBox Grid.Column="1"
-                  ItemsSource="{Binding LogLevelOptions}"
-                  SelectedItem="{Binding LogMinimumLevel}"
-                  IsEnabled="{Binding !LogMinimumLevelReadOnly}"
-                  MinWidth="160" />
+        <TextBlock Text="Retention days" VerticalAlignment="Center" />
+        <TextBox Grid.Column="1" Text="{Binding RunRetentionDays}"
+                 IsReadOnly="{Binding RunRetentionDaysReadOnly}"
+                 ToolTip.Tip="0 disables age-based retention" />
       </Grid>
-
-      <Grid ColumnDefinitions="220,*" ColumnSpacing="12" IsVisible="{Binding ShowEventLogOptions}">
-        <TextBlock Text="Windows Event Log" VerticalAlignment="Center" />
-        <CheckBox Grid.Column="1" IsChecked="{Binding EnableOsEventSink}"
-                  IsEnabled="{Binding !EnableOsEventSinkReadOnly}" />
-      </Grid>
-
-      <StackPanel Spacing="10" IsVisible="{Binding ShowSyslogOptions}">
-        <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
-          <TextBlock Text="Unix Syslog" VerticalAlignment="Center" />
-          <CheckBox Grid.Column="1" IsChecked="{Binding EnableSyslogOnUnix}"
-                    IsEnabled="{Binding !EnableSyslogOnUnixReadOnly}" />
-        </Grid>
-        <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
-          <TextBlock Text="Syslog host" VerticalAlignment="Center" />
-          <TextBox Grid.Column="1" Text="{Binding SyslogHost}"
-                   IsReadOnly="{Binding SyslogHostReadOnly}" />
-        </Grid>
-        <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
-          <TextBlock Text="Syslog port" VerticalAlignment="Center" />
-          <TextBox Grid.Column="1" Text="{Binding SyslogPort}"
-                   IsReadOnly="{Binding SyslogPortReadOnly}" />
-        </Grid>
-      </StackPanel>
-
       <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
-        <TextBlock Text="Plot refresh Hz" VerticalAlignment="Center" />
-        <TextBox Grid.Column="1" Text="{Binding PlotRefreshHz}"
-                 IsReadOnly="{Binding PlotRefreshHzReadOnly}" />
+        <TextBlock Text="Max retained runs" VerticalAlignment="Center" />
+        <TextBox Grid.Column="1" Text="{Binding RunRetentionMaxRuns}"
+                 IsReadOnly="{Binding RunRetentionMaxRunsReadOnly}"
+                 ToolTip.Tip="0 disables count-based retention" />
       </Grid>
-
       <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
-        <TextBlock Text="DUT session idle (hours)" VerticalAlignment="Center" />
-        <TextBox Grid.Column="1" Text="{Binding OperatorSessionIdleHours}"
-                 IsReadOnly="{Binding OperatorSessionIdleHoursReadOnly}" />
+        <TextBlock Text="Export directory" VerticalAlignment="Center" />
+        <TextBox Grid.Column="1" Text="{Binding ExportDirectory}"
+                 IsReadOnly="{Binding ExportDirectoryReadOnly}"
+                 PlaceholderText="Optional fixed export path" />
       </Grid>
-
       <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
-        <TextBlock Text="Engineer / debug mode" VerticalAlignment="Center" />
-        <CheckBox Grid.Column="1" IsChecked="{Binding IsEngineerDebugMode}"
-                  IsEnabled="{Binding !IsEngineerDebugModeReadOnly}"
-                  ToolTip.Tip="Enables constrained on-bench plan overlays and opening arbitrary .TapPlan files" />
+        <TextBlock Text="Warn free space (GB)" VerticalAlignment="Center" />
+        <TextBox Grid.Column="1" Text="{Binding DataFreeSpaceWarnGb}"
+                 IsReadOnly="{Binding DataFreeSpaceWarnGbReadOnly}" />
+      </Grid>
+      <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
+        <TextBlock Text="Critical free space (GB)" VerticalAlignment="Center" />
+        <TextBox Grid.Column="1" Text="{Binding DataFreeSpaceCriticalGb}"
+                 IsReadOnly="{Binding DataFreeSpaceCriticalGbReadOnly}" />
       </Grid>
 
       <Separator Margin="0,8" />

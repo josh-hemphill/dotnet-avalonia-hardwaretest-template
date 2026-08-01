@@ -168,7 +168,7 @@ public static class ProgramCatalog
         yield return new ProgramCatalogEntry
         {
             Id = "sample",
-            DisplayName = "Sample Hardware Suite",
+            DisplayName = "Sample Hardware Suite (Demo)",
             Path = SampleProgramFactory.EmbeddedName,
             DutFamily = "demo",
             Requirements = ProgramRequirements.Sample,

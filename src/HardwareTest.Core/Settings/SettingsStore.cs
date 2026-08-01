@@ -23,6 +23,8 @@ public interface ISettingsStore
         CancellationToken cancellationToken = default);
     Task SaveAppSettingsAsync(CancellationToken cancellationToken = default);
     Task SaveUiStateAsync(CancellationToken cancellationToken = default);
+    /// Raised after a successful settings.json write (and overlay reapply).
+    event EventHandler? AppSettingsSaved;
 }
 
 /// Loads and saves settings.json / ui-state.json with STJ source generation.
@@ -196,6 +198,8 @@ public sealed class SettingsStore : ISettingsStore
         }
     }
 
+    public event EventHandler? AppSettingsSaved;
+
     public async Task SaveAppSettingsAsync(CancellationToken cancellationToken = default)
     {
         if (_settingsSchemaReadOnly)
@@ -235,6 +239,7 @@ public sealed class SettingsStore : ISettingsStore
             IsSettingsWritable = true;
             LastPersistenceError = null;
             ReapplyOverlays();
+            AppSettingsSaved?.Invoke(this, EventArgs.Empty);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {

@@ -91,7 +91,8 @@ public partial class SlotOverrideItemViewModel : ReactiveObject
         string planId,
         string planDisplayName,
         OpenTapInstrumentSlot slot,
-        string? overrideResource)
+        string? overrideResource,
+        bool useMockVisa)
     {
         PlanId = planId;
         PlanDisplayName = planDisplayName;
@@ -99,6 +100,7 @@ public partial class SlotOverrideItemViewModel : ReactiveObject
         TypeName = slot.TypeName;
         RoleHint = slot.RoleHint;
         PlanDefaultResource = slot.ResourceName;
+        UseMockVisa = useMockVisa;
         OverrideResource = overrideResource ?? string.Empty;
         PropertyChanged += (_, args) =>
         {
@@ -118,6 +120,7 @@ public partial class SlotOverrideItemViewModel : ReactiveObject
     public string TypeName { get; }
     public string RoleHint { get; }
     public string PlanDefaultResource { get; }
+    public bool UseMockVisa { get; }
 
     [Reactive] private string _overrideResource = string.Empty;
 
@@ -133,6 +136,13 @@ public partial class SlotOverrideItemViewModel : ReactiveObject
             if (string.IsNullOrWhiteSpace(EffectiveResource))
             {
                 return "Unbound";
+            }
+
+            if (!UseMockVisa
+                && (MockResourceGuard.LooksLikeMockResource(EffectiveResource)
+                    || MockResourceGuard.IsMockInstrumentType(TypeName)))
+            {
+                return "Demo only";
             }
 
             return IsOverridden ? "Overridden" : "Ready";
@@ -151,7 +161,6 @@ public partial class InstrumentsViewModel : ReactiveObject
     private readonly IVisaResourceDiscovery _discovery;
     private readonly IOpenTapSession _openTap;
     private readonly IVisaSessionFactory _visaSessions;
-    private string? _restorePlanPath;
     private bool _suppressSelectionSync;
 
     public InstrumentsViewModel(
@@ -290,20 +299,19 @@ public partial class InstrumentsViewModel : ReactiveObject
         return Task.CompletedTask;
     }
 
-    private async Task RefreshSlotsAsync()
+    private Task RefreshSlotsAsync()
     {
         SlotOverrides.Clear();
         var saved = _settingsStore.AppSettings.PlanSlotOverrides;
-        _restorePlanPath = _openTap.LoadedPlanPath;
+        var useMockVisa = _settingsStore.AppSettings.UseMockVisa;
         try
         {
             foreach (var entry in ProgramCatalog.Enumerate())
             {
-                await LoadCatalogEntryAsync(entry).ConfigureAwait(false);
-                AddSlotsFromLoadedPlan(entry.Id, entry.DisplayName, saved);
+                var plan = InstrumentSlotCollector.CreatePlan(entry);
+                AddSlotsFromPlan(entry.Id, entry.DisplayName, InstrumentSlotCollector.FromPlan(plan), saved, useMockVisa);
             }
 
-            await RestoreLoadedPlanAsync().ConfigureAwait(false);
             Status = SlotOverrides.Count == 0
                 ? "No OpenTAP instrument slots found in available plans."
                 : $"Loaded {SlotOverrides.Count} slot(s) from available plans.";
@@ -312,40 +320,23 @@ public partial class InstrumentsViewModel : ReactiveObject
         {
             Status = $"Failed to load plan slots: {ex.Message}";
         }
+
+        return Task.CompletedTask;
     }
 
-    private Task LoadCatalogEntryAsync(ProgramCatalogEntry entry)
-        => entry.LoadKind switch
-        {
-            ProgramLoadKind.FactorySample => _openTap.LoadSampleProgramAsync(),
-            ProgramLoadKind.FactoryBoardDemo => _openTap.LoadBoardDemoProgramAsync(),
-            ProgramLoadKind.FactorySweepDemo => _openTap.LoadSweepDemoProgramAsync(),
-            _ => _openTap.LoadPlanAsync(entry.Path),
-        };
-
-    private async Task RestoreLoadedPlanAsync()
+    private void AddSlotsFromPlan(
+        string planId,
+        string displayName,
+        IReadOnlyList<OpenTapInstrumentSlot> slots,
+        List<PlanSlotOverride> saved,
+        bool useMockVisa)
     {
-        var catalog = ProgramCatalog.Enumerate();
-        var restore = catalog.FirstOrDefault(e =>
-            !string.IsNullOrWhiteSpace(_restorePlanPath)
-            && string.Equals(e.Path, _restorePlanPath, StringComparison.OrdinalIgnoreCase));
-        restore ??= catalog.FirstOrDefault();
-        if (restore is null)
-        {
-            return;
-        }
-
-        await LoadCatalogEntryAsync(restore).ConfigureAwait(false);
-    }
-
-    private void AddSlotsFromLoadedPlan(string planId, string displayName, List<PlanSlotOverride> saved)
-    {
-        foreach (var slot in _openTap.InstrumentSlots)
+        foreach (var slot in slots)
         {
             var existing = saved.FirstOrDefault(o =>
                 string.Equals(o.PlanId, planId, StringComparison.OrdinalIgnoreCase)
                 && string.Equals(o.SlotName, slot.Name, StringComparison.OrdinalIgnoreCase));
-            SlotOverrides.Add(new SlotOverrideItemViewModel(planId, displayName, slot, existing?.Resource));
+            SlotOverrides.Add(new SlotOverrideItemViewModel(planId, displayName, slot, existing?.Resource, useMockVisa));
         }
     }
 
@@ -375,6 +366,12 @@ public partial class InstrumentsViewModel : ReactiveObject
         if (string.IsNullOrWhiteSpace(resource) || source is null)
         {
             Status = "Select a VISA or OpenTAP discovered resource.";
+            return;
+        }
+
+        if (!_settingsStore.AppSettings.UseMockVisa && MockResourceGuard.LooksLikeMockResource(resource))
+        {
+            Status = $"Cannot bind mock resource '{resource}' while Use mock VISA is off.";
             return;
         }
 

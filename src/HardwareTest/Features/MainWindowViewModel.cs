@@ -76,7 +76,11 @@ public partial class MainWindowViewModel : ReactiveObject
         ResumeCommand = ReactiveCommand.Create(Resume);
         SafetyStopCommand = ReactiveCommand.Create(SafetyStop);
 
-        runTest.NavigateToResultsRequested += (_, _) => NavigateToPageId("Results");
+        runTest.NavigateToResultsRequested += (_, _) =>
+        {
+            NavigateToPageId("Results");
+            _ = Results.OpenRunByIdAsync(runTest.LastRunId);
+        };
         runTest.NavigateToInspectRequested += (_, _) => NavigateToPageId("Inspect");
         inspect.OpenOnRunRequested += (_, stepPath) =>
         {
@@ -155,6 +159,12 @@ public partial class MainWindowViewModel : ReactiveObject
         }
     }
 
+    public string SafetyStopLabel => IsSafetyStopping ? "Cancel shutdown" : "Safety Stop";
+
+    public string SafetyStopTip => IsSafetyStopping
+        ? "Cancel the in-progress safety shutdown"
+        : "Safety Stop — abort and run safe shutdown";
+
     public string ControlStatus
     {
         get
@@ -225,6 +235,8 @@ public partial class MainWindowViewModel : ReactiveObject
         this.RaisePropertyChanged(nameof(ControlStatus));
         this.RaisePropertyChanged(nameof(PauseResumeLabel));
         this.RaisePropertyChanged(nameof(PauseResumeTip));
+        this.RaisePropertyChanged(nameof(SafetyStopLabel));
+        this.RaisePropertyChanged(nameof(SafetyStopTip));
         this.RaisePropertyChanged(nameof(ShowPauseIcon));
         this.RaisePropertyChanged(nameof(ShowResumeIcon));
         this.RaisePropertyChanged(nameof(ShowContinueIcon));

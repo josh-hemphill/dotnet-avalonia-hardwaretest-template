@@ -1208,6 +1208,35 @@ public sealed class RunTestViewModelTests
     }
 
     [Fact]
+    public async Task AppSettingsSaved_syncs_engineer_mode_to_run_board()
+    {
+        var store = new FakeSettingsStore { AppSettings = { IsEngineerDebugMode = false } };
+        var vm = CreateVm(settings: store.AppSettings, settingsStore: store);
+        Assert.False(vm.IsEngineerDebugMode);
+
+        store.AppSettings.IsEngineerDebugMode = true;
+        await store.SaveAppSettingsAsync();
+
+        Assert.True(vm.IsEngineerDebugMode);
+    }
+
+    [Fact]
+    public async Task Run_blocks_mock_resources_when_UseMockVisa_false()
+    {
+        var openTap = new FakeOpenTapSession();
+        await openTap.LoadSampleProgramAsync();
+        var settings = new AppSettings { UseMockVisa = false };
+        var vm = CreateVm(openTap, settings: settings);
+        await vm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
+        await ConfirmReadyAsync(vm, "SN-MOCK");
+
+        await vm.Run.RunCommand.ExecuteAsync();
+
+        Assert.Contains("Mock instruments/resources blocked", vm.Status, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(0, openTap.RunCount);
+    }
+
+    [Fact]
     public async Task RefreshPrograms_lists_built_in_demos_once()
     {
         var openTap = new FakeOpenTapSession();

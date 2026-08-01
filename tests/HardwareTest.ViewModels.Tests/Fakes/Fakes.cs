@@ -1528,9 +1528,12 @@ public sealed class FakeSettingsStore : ISettingsStore
         CancellationToken cancellationToken = default)
         => Task.CompletedTask;
 
+    public event EventHandler? AppSettingsSaved;
+
     public Task SaveAppSettingsAsync(CancellationToken cancellationToken = default)
     {
         SaveAppCount++;
+        AppSettingsSaved?.Invoke(this, EventArgs.Empty);
         return Task.CompletedTask;
     }
 

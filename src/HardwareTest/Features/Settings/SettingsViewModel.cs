@@ -51,6 +51,11 @@ public partial class SettingsViewModel : ReactiveObject
         ShowDutHistoryOnRun = s.ShowDutHistoryOnRun;
         IsEngineerDebugMode = s.IsEngineerDebugMode;
         OperatorSessionIdleHours = s.OperatorSessionIdleHours;
+        RunRetentionDays = s.RunRetentionDays;
+        RunRetentionMaxRuns = s.RunRetentionMaxRuns;
+        ExportDirectory = s.ExportDirectory ?? string.Empty;
+        DataFreeSpaceWarnGb = BytesToGb(s.DataFreeSpaceWarnBytes);
+        DataFreeSpaceCriticalGb = BytesToGb(s.DataFreeSpaceCriticalBytes);
         DataDirectory = settingsStore.RootDirectory;
         AllowOsFolderBrowse = s.AllowOsFolderBrowse || s.IsEngineerDebugMode;
         Status = settingsStore.IsSettingsWritable
@@ -81,6 +86,11 @@ public partial class SettingsViewModel : ReactiveObject
         ShowDutHistoryOnRunReadOnly = settingsStore.IsOverridden(nameof(AppSettings.ShowDutHistoryOnRun));
         IsEngineerDebugModeReadOnly = settingsStore.IsOverridden(nameof(AppSettings.IsEngineerDebugMode));
         OperatorSessionIdleHoursReadOnly = settingsStore.IsOverridden(nameof(AppSettings.OperatorSessionIdleHours));
+        RunRetentionDaysReadOnly = settingsStore.IsOverridden(nameof(AppSettings.RunRetentionDays));
+        RunRetentionMaxRunsReadOnly = settingsStore.IsOverridden(nameof(AppSettings.RunRetentionMaxRuns));
+        ExportDirectoryReadOnly = settingsStore.IsOverridden(nameof(AppSettings.ExportDirectory));
+        DataFreeSpaceWarnGbReadOnly = settingsStore.IsOverridden(nameof(AppSettings.DataFreeSpaceWarnBytes));
+        DataFreeSpaceCriticalGbReadOnly = settingsStore.IsOverridden(nameof(AppSettings.DataFreeSpaceCriticalBytes));
 
         SaveCommand = ReactiveCommand.CreateFromTask(SaveAsync);
         RefreshPackagesCommand = ReactiveCommand.Create(RefreshPackages);
@@ -129,7 +139,10 @@ public partial class SettingsViewModel : ReactiveObject
                 or nameof(PlotRefreshHzReadOnly) or nameof(ThemePreferenceReadOnly)
                 or nameof(EmbedPlotsInReportReadOnly) or nameof(ExportOpenTapResultsReadOnly)
                 or nameof(ShowDutHistoryOnRunReadOnly) or nameof(IsEngineerDebugModeReadOnly)
-                or nameof(OperatorSessionIdleHoursReadOnly))
+                or nameof(OperatorSessionIdleHoursReadOnly)
+                or nameof(RunRetentionDaysReadOnly) or nameof(RunRetentionMaxRunsReadOnly)
+                or nameof(ExportDirectoryReadOnly)
+                or nameof(DataFreeSpaceWarnGbReadOnly) or nameof(DataFreeSpaceCriticalGbReadOnly))
             {
                 return;
             }
@@ -186,6 +199,11 @@ public partial class SettingsViewModel : ReactiveObject
     [Reactive] private bool _isEngineerDebugMode;
     [Reactive] private bool _allowOsFolderBrowse;
     [Reactive] private int _operatorSessionIdleHours = 4;
+    [Reactive] private int _runRetentionDays = 30;
+    [Reactive] private int _runRetentionMaxRuns = 500;
+    [Reactive] private string _exportDirectory = string.Empty;
+    [Reactive] private double _dataFreeSpaceWarnGb = 2;
+    [Reactive] private double _dataFreeSpaceCriticalGb = 0.5;
     [Reactive] private string _dataDirectory = string.Empty;
     [Reactive] private string _status = string.Empty;
     [Reactive] private OpenTapPackageInfo? _selectedPackage;
@@ -203,6 +221,11 @@ public partial class SettingsViewModel : ReactiveObject
     [Reactive] private bool _showDutHistoryOnRunReadOnly;
     [Reactive] private bool _isEngineerDebugModeReadOnly;
     [Reactive] private bool _operatorSessionIdleHoursReadOnly;
+    [Reactive] private bool _runRetentionDaysReadOnly;
+    [Reactive] private bool _runRetentionMaxRunsReadOnly;
+    [Reactive] private bool _exportDirectoryReadOnly;
+    [Reactive] private bool _dataFreeSpaceWarnGbReadOnly;
+    [Reactive] private bool _dataFreeSpaceCriticalGbReadOnly;
 
     private void RefreshProvenance()
     {
@@ -425,8 +448,34 @@ public partial class SettingsViewModel : ReactiveObject
             s.OperatorSessionIdleHours = Math.Clamp(OperatorSessionIdleHours, 1, 168);
         }
 
+        if (!RunRetentionDaysReadOnly)
+        {
+            s.RunRetentionDays = Math.Max(0, RunRetentionDays);
+        }
+
+        if (!RunRetentionMaxRunsReadOnly)
+        {
+            s.RunRetentionMaxRuns = Math.Max(0, RunRetentionMaxRuns);
+        }
+
+        if (!ExportDirectoryReadOnly)
+        {
+            s.ExportDirectory = ExportDirectory?.Trim() ?? string.Empty;
+        }
+
+        if (!DataFreeSpaceWarnGbReadOnly)
+        {
+            s.DataFreeSpaceWarnBytes = GbToBytes(DataFreeSpaceWarnGb);
+        }
+
+        if (!DataFreeSpaceCriticalGbReadOnly)
+        {
+            s.DataFreeSpaceCriticalBytes = GbToBytes(DataFreeSpaceCriticalGb);
+        }
+
         await _settingsStore.SaveAppSettingsAsync();
         ThemeApplier.Apply(s);
+        AllowOsFolderBrowse = s.AllowOsFolderBrowse || s.IsEngineerDebugMode;
         RefreshProvenance();
         if (!_settingsStore.IsSettingsWritable)
         {
@@ -436,6 +485,12 @@ public partial class SettingsViewModel : ReactiveObject
 
         Status = $"Saved at {DateTimeOffset.Now:T}. Restart may be required for logging sink / mock VISA changes.";
     }
+
+    private static double BytesToGb(long bytes)
+        => Math.Round(bytes / (1024d * 1024d * 1024d), 2, MidpointRounding.AwayFromZero);
+
+    private static long GbToBytes(double gb)
+        => (long)Math.Round(Math.Max(0, gb) * 1024d * 1024d * 1024d, MidpointRounding.AwayFromZero);
 
     private bool IsPropertyOverridden(string? propertyName)
         => propertyName switch
@@ -453,6 +508,11 @@ public partial class SettingsViewModel : ReactiveObject
             nameof(ShowDutHistoryOnRun) => ShowDutHistoryOnRunReadOnly,
             nameof(IsEngineerDebugMode) => IsEngineerDebugModeReadOnly,
             nameof(OperatorSessionIdleHours) => OperatorSessionIdleHoursReadOnly,
+            nameof(RunRetentionDays) => RunRetentionDaysReadOnly,
+            nameof(RunRetentionMaxRuns) => RunRetentionMaxRunsReadOnly,
+            nameof(ExportDirectory) => ExportDirectoryReadOnly,
+            nameof(DataFreeSpaceWarnGb) => DataFreeSpaceWarnGbReadOnly,
+            nameof(DataFreeSpaceCriticalGb) => DataFreeSpaceCriticalGbReadOnly,
             _ => false,
         };
 

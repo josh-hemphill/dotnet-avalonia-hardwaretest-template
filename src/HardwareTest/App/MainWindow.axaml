@@ -54,12 +54,12 @@
                 HorizontalAlignment="Stretch"
                 Classes="danger"
                 IsEnabled="{Binding IsRunning}"
-                ToolTip.Tip="Safety Stop — abort and run safe shutdown">
+                ToolTip.Tip="{Binding SafetyStopTip}">
           <StackPanel Orientation="Horizontal"
                       Spacing="8"
                       HorizontalAlignment="Center">
             <ui:FASymbolIcon Symbol="Stop" FontSize="16" />
-            <TextBlock Text="Safety Stop"
+            <TextBlock Text="{Binding SafetyStopLabel}"
                        VerticalAlignment="Center"
                        IsVisible="{Binding IsNavPaneOpen}" />
           </StackPanel>
