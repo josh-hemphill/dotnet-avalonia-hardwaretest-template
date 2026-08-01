@@ -10,6 +10,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\HardwareTest.Core\HardwareTest.Core.csproj" />
     <ProjectReference Include="..\..\src\HardwareTest.OpenTap.Host\HardwareTest.OpenTap.Host.csproj" />
+    <ProjectReference Include="..\HardwareTest.Session.Contracts\HardwareTest.Session.Contracts.csproj" />
   </ItemGroup>
 
   <ItemGroup>

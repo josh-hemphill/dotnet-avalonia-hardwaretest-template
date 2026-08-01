@@ -13,23 +13,40 @@ public sealed class FakeOpenTapSession : IOpenTapSession
 {
     private CancellationTokenSource? _runCts;
     private bool _isAwaitingOperator;
+    private bool _paused;
+    private readonly ManualResetEventSlim _pauseGate = new(true);
+    private readonly ManualResetEventSlim _interactionGate = new(true);
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
-    public string? LoadedPlanPath { get; private set; } = SampleProgramFactory.EmbeddedName;
-    public string? LoadedPlanName { get; private set; } = "Sample Hardware Suite";
-    public List<OpenTapStepNode> Tree { get; } = [BuildSampleTree()];
+    public FakeOpenTapSession()
+        : this(preloadSample: true)
+    {
+    }
 
-    public List<OpenTapInstrumentSlot> Slots { get; } =
-    [
-        new()
+    /// Creates an unloaded session (empty tree) for contract initial-state tests.
+    public FakeOpenTapSession(bool preloadSample)
+    {
+        if (preloadSample)
         {
-            Name = "DMM",
-            TypeName = "MockDmmInstrument",
-            RoleHint = "dmm",
-            ResourceName = "MOCK::INSTR0",
-        },
-    ];
+            LoadedPlanPath = SampleProgramFactory.EmbeddedName;
+            LoadedPlanName = "Sample Hardware Suite";
+            Tree.Add(BuildSampleTree());
+            Slots.Add(new OpenTapInstrumentSlot
+            {
+                Name = "DMM",
+                TypeName = "MockDmmInstrument",
+                RoleHint = "dmm",
+                ResourceName = "MOCK::INSTR0",
+            });
+        }
+    }
+
+    public string? LoadedPlanPath { get; private set; }
+    public string? LoadedPlanName { get; private set; }
+    public List<OpenTapStepNode> Tree { get; } = [];
+
+    public List<OpenTapInstrumentSlot> Slots { get; } = [];
 
     public IReadOnlyList<OpenTapStepNode> StepTree => Tree;
     public IReadOnlyList<OpenTapInstrumentSlot> InstrumentSlots => Slots;
@@ -58,6 +75,8 @@ public sealed class FakeOpenTapSession : IOpenTapSession
 
     public TimeSpan Delay { get; set; } = TimeSpan.FromMilliseconds(30);
     public bool EmitLoopProgress { get; set; }
+    /// When true, <see cref="RunAsync"/> raises one confirm interaction and waits for Resume.
+    public bool EmitOperatorInteractionDuringRun { get; set; }
     public RunResult CompletionResult { get; set; } = RunResult.Passed;
     public int RunCount { get; private set; }
     public int SelectionRunCount { get; private set; }
@@ -81,6 +100,7 @@ public sealed class FakeOpenTapSession : IOpenTapSession
         LoadedPlanName = "Sample Hardware Suite";
         Tree.Clear();
         Tree.Add(BuildSampleTree());
+        EnsureDefaultSlot();
         return Task.CompletedTask;
     }
 
@@ -90,6 +110,7 @@ public sealed class FakeOpenTapSession : IOpenTapSession
         LoadedPlanName = BoardDemoProgramFactory.DisplayName;
         Tree.Clear();
         Tree.Add(BuildBoardDemoTree());
+        EnsureDefaultSlot();
         return Task.CompletedTask;
     }
 
@@ -103,7 +124,24 @@ public sealed class FakeOpenTapSession : IOpenTapSession
             Tree.Add(node);
         }
 
+        EnsureDefaultSlot();
         return Task.CompletedTask;
+    }
+
+    private void EnsureDefaultSlot()
+    {
+        if (Slots.Count > 0)
+        {
+            return;
+        }
+
+        Slots.Add(new OpenTapInstrumentSlot
+        {
+            Name = "DMM",
+            TypeName = "MockDmmInstrument",
+            RoleHint = "dmm",
+            ResourceName = "MOCK::INSTR0",
+        });
     }
 
     public Task LoadPlanShapeAsync(string fixtureFileName, CancellationToken cancellationToken = default)
@@ -116,6 +154,7 @@ public sealed class FakeOpenTapSession : IOpenTapSession
             Tree.Add(root);
         }
 
+        EnsureDefaultSlot();
         return Task.CompletedTask;
     }
 
@@ -439,6 +478,9 @@ public sealed class FakeOpenTapSession : IOpenTapSession
     {
         RunCount++;
         _runCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        _pauseGate.Set();
+        _paused = false;
+        _interactionGate.Set();
         progress?.Report(new OpenTapProgress { Message = "Started", OverallPercent = 0 });
         runId = string.IsNullOrWhiteSpace(runId) ? Guid.NewGuid().ToString("N") : runId.Trim();
         if (EmitLoopProgress)
@@ -508,11 +550,17 @@ public sealed class FakeOpenTapSession : IOpenTapSession
 
         try
         {
-            await Task.Delay(Delay, _runCts.Token);
+            if (EmitOperatorInteractionDuringRun)
+            {
+                await EmitAndWaitForInteractionAsync(progress, _runCts.Token);
+            }
+
+            await DelayWithPauseAsync(_runCts.Token);
         }
         catch (OperationCanceledException)
         {
             MarkTreeStatuses(RunResult.Cancelled);
+            ClearInteractionState();
             var cancelled = new OpenTapRunSummary
             {
                 RunId = runId,
@@ -779,7 +827,8 @@ public sealed class FakeOpenTapSession : IOpenTapSession
 
     public void Pause()
     {
-        // Soft pause only (matches OpenTapSession). Operator prompts use BeginInteraction.
+        _paused = true;
+        _pauseGate.Reset();
     }
 
     public void Resume(OperatorInteractionResponse? response = null)
@@ -795,6 +844,9 @@ public sealed class FakeOpenTapSession : IOpenTapSession
         IsAwaitingOperator = false;
         OperatorPromptMessage = null;
         PendingInteraction = null;
+        _interactionGate.Set();
+        _paused = false;
+        _pauseGate.Set();
     }
 
     /// Simulates a step requesting interaction (for ViewModel tests without OpenTAP).
@@ -803,6 +855,7 @@ public sealed class FakeOpenTapSession : IOpenTapSession
         PendingInteraction = request;
         IsAwaitingOperator = true;
         OperatorPromptMessage = request.Message;
+        _interactionGate.Reset();
         if (InteractionResponses.Count > 0)
         {
             Resume(InteractionResponses.Dequeue());
@@ -811,6 +864,15 @@ public sealed class FakeOpenTapSession : IOpenTapSession
 
     public void Abort(bool safetyStop = false)
     {
+        if (PendingInteraction is not null)
+        {
+            LastInteractionResponse = OperatorInteractionResponse.Cancel(PendingInteraction.Id);
+        }
+
+        ClearInteractionState();
+        _paused = false;
+        _pauseGate.Set();
+
         try
         {
             _runCts?.Cancel();
@@ -818,6 +880,57 @@ public sealed class FakeOpenTapSession : IOpenTapSession
         catch
         {
             // ignore
+        }
+    }
+
+    private void ClearInteractionState()
+    {
+        IsAwaitingOperator = false;
+        OperatorPromptMessage = null;
+        PendingInteraction = null;
+        _interactionGate.Set();
+    }
+
+    private async Task EmitAndWaitForInteractionAsync(
+        IProgress<OpenTapProgress>? progress,
+        CancellationToken cancellationToken)
+    {
+        var request = OperatorInteractionRequest.ConfirmOnly("Contract operator confirm");
+        PendingInteraction = request;
+        OperatorPromptMessage = request.Message;
+        IsAwaitingOperator = true;
+        _interactionGate.Reset();
+        progress?.Report(new OpenTapProgress
+        {
+            Message = request.Message,
+            AwaitingOperator = true,
+            InteractionRequest = request,
+            OverallPercent = 10,
+        });
+
+        while (IsAwaitingOperator)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            await Task.Run(() => _interactionGate.Wait(50), cancellationToken);
+        }
+    }
+
+    private async Task DelayWithPauseAsync(CancellationToken cancellationToken)
+    {
+        var remaining = Delay;
+        var slice = TimeSpan.FromMilliseconds(25);
+        while (remaining > TimeSpan.Zero)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            while (_paused)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                await Task.Run(() => _pauseGate.Wait(50), cancellationToken);
+            }
+
+            var step = remaining < slice ? remaining : slice;
+            await Task.Delay(step, cancellationToken);
+            remaining -= step;
         }
     }
 
@@ -1015,8 +1128,13 @@ public sealed class FakeOpenTapSession : IOpenTapSession
             return true;
         }
 
-        var match = EnumerateParameters(OpenTapParameterScope.Step)
-            .Concat(EnumerateParameters(OpenTapParameterScope.Plan))
+        if (!OpenTapParameterInfo.TryParseMemberKey(memberKey, out _, out _))
+        {
+            value = null;
+            return false;
+        }
+
+        var match = EnumerateKnownParameters()
             .FirstOrDefault(p => string.Equals(p.MemberKey, memberKey, StringComparison.OrdinalIgnoreCase));
         if (match is null)
         {
@@ -1030,13 +1148,31 @@ public sealed class FakeOpenTapSession : IOpenTapSession
 
     public bool TrySetParameter(string memberKey, string value)
     {
+        if (!OpenTapParameterInfo.TryParseMemberKey(memberKey, out var ownerKey, out var memberName))
+        {
+            return false;
+        }
+
+        var known = EnumerateKnownParameters()
+            .Any(p => string.Equals(p.MemberKey, memberKey, StringComparison.OrdinalIgnoreCase));
+        if (!known && ParameterCatalog.Count > 0)
+        {
+            known = ParameterCatalog.Any(p =>
+                string.Equals(p.MemberKey, memberKey, StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (!known)
+        {
+            // Match real session: unresolved keys return false rather than throwing.
+            return false;
+        }
+
         ParameterValues[memberKey] = value;
-        if (memberKey.EndsWith("/Enabled", StringComparison.OrdinalIgnoreCase)
-            && bool.TryParse(value, out var enabled)
-            && OpenTapParameterInfo.TryParseMemberKey(memberKey, out var stepId, out _))
+        if (string.Equals(memberName, "Enabled", StringComparison.OrdinalIgnoreCase)
+            && bool.TryParse(value, out var enabled))
         {
             var node = Flatten(Tree).FirstOrDefault(n =>
-                string.Equals(n.Id, stepId, StringComparison.OrdinalIgnoreCase));
+                string.Equals(n.Id, ownerKey, StringComparison.OrdinalIgnoreCase));
             if (node is not null)
             {
                 node.Enabled = enabled;
@@ -1044,6 +1180,29 @@ public sealed class FakeOpenTapSession : IOpenTapSession
         }
 
         return true;
+    }
+
+    private IEnumerable<OpenTapParameterInfo> EnumerateKnownParameters()
+    {
+        foreach (var node in Flatten(Tree))
+        {
+            foreach (var p in EnumerateParameters(
+                         OpenTapParameterScope.Step,
+                         node.Path,
+                         includeReadOnly: true,
+                         listing: OpenTapParameterListing.AllEditable))
+            {
+                yield return p;
+            }
+        }
+
+        foreach (var p in EnumerateParameters(
+                     OpenTapParameterScope.Plan,
+                     includeReadOnly: true,
+                     listing: OpenTapParameterListing.AllEditable))
+        {
+            yield return p;
+        }
     }
 
     public List<OpenTapPluginDirectoryInfo> PluginDirectories { get; } =

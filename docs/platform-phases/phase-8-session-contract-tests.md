@@ -3,7 +3,7 @@
 **Parent:** [platform-roadmap.md](../platform-roadmap.md)
 **Depends on:** [Phase 1](phase-1-repo-gates.md)
 **Unblocks:** [Phase 9](phase-9-runboard-decomposition.md) — a large refactor wants this underneath it
-**Status:** Not started
+**Status:** Done
 
 ## Goal
 
@@ -62,10 +62,10 @@ The phase is tests. Its own success criterion is a deliberate mutation: make `Fa
 
 ## Exit criteria
 
-- [ ] One suite executes against both implementations.
-- [ ] A behavioral divergence introduced on purpose is caught.
-- [ ] Adding an `IOpenTapSession` member without updating the approved snapshot fails CI.
-- [ ] The fake variant adds under two seconds to the ViewModel suite.
+- [x] One suite executes against both implementations.
+- [x] A behavioral divergence introduced on purpose is caught.
+- [x] Adding an `IOpenTapSession` member without updating the approved snapshot fails CI.
+- [x] The fake variant adds under two seconds to the ViewModel suite.
 
 ## Out of scope
 

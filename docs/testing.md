@@ -5,6 +5,7 @@ UI/board tests stay separate from OpenTAP plan-behavior tests. Both share the `I
 | Suite | Purpose | OpenTAP | Emulation |
 | --- | --- | --- | --- |
 | Architecture | Layering smoke (Avalonia/OpenTAP boundaries, single Window, `AppJsonContext`) | Load assemblies only | None |
+| Session contracts | Shared `IOpenTapSession` behavior (real + fake) | Real or `FakeOpenTapSession` | MockDmm / canned trees |
 | ViewModels | Run board / session / filters / rollup UX | `FakeOpenTapSession` (in-memory trees + optional recording replay) | No real instruments |
 | Core/OpenTAP host | Plan load, hierarchy, Run Selected mask, SafeShutdown, progress/samples | Real `OpenTapSession` | `MockDmmInstrument` |
 | Avalonia E2E | Shell wiring only (DUT → Run → Results/Inspect) | Real session | MockDmm + `UseMockVisa` |
@@ -18,8 +19,13 @@ Build/version coverage (`BuildInfo`, `AppVersion` on `TestRunRecord`, Settings *
 Schema gates and golden files under `tests/fixtures/schema/` are covered in Core tests — see [phase-5-schema-versioning.md](platform-phases/phase-5-schema-versioning.md).
 Crash dossiers (writer, ring sink, redaction, dangling-run reconciliation) live in Core tests under `Crash/` — see [phase-6-crash-reporting.md](platform-phases/phase-6-crash-reporting.md).
 Local CI tasks, coverage floors (TypeScript), and container rails — see [containers.md](containers.md) and [phase-7-containers-local-ci.md](platform-phases/phase-7-containers-local-ci.md).
+Session contract tests (`HardwareTest.Session.Contracts`) run against both real and fake `IOpenTapSession` via the host and ViewModel suites — see [phase-8-session-contract-tests.md](platform-phases/phase-8-session-contract-tests.md).
 
 ## When to add which test
+
+### Session contract (both implementations)
+
+Put an assertion in `OpenTapSessionContractTests` only when it must hold for **both** the real session and `FakeOpenTapSession` (load/run/abort/pause/parameters/catalog). Implementation-specific edges (fake-only `BeginInteraction` / `LoadTreeFromNodes`, real instrument timing) stay in the host or ViewModel suite. Changing `IOpenTapSession` requires updating `IOpenTapSession.approved.txt` in the same commit.
 
 ### Architecture (layering smoke)
 

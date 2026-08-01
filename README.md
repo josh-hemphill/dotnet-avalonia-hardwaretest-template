@@ -23,6 +23,7 @@ docs/platform-phases/                # Gates, config, diagnostics, crash, CI (1â
 tools/ci/                            # Deno CI tasks shared by Actions + local runs
 tests/
   HardwareTest.Architecture.Tests/   # Layering smoke (Avalonia/OpenTAP boundaries)
+  HardwareTest.Session.Contracts/    # Shared IOpenTapSession contract (real + fake)
   HardwareTest.Tests/                # Core + OpenTAP host unit tests
   HardwareTest.ViewModels.Tests/     # ViewModel unit tests (fakes)
   HardwareTest.E2E.Tests/            # Avalonia Headless UI flows
