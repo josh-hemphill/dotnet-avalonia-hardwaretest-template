@@ -48,7 +48,9 @@ public abstract class OpenTapSessionContractTests
         await ApplyDefaultStationAsync(session);
 
         var percents = new List<double>();
-        var progress = new Progress<OpenTapProgress>(p => percents.Add(p.OverallPercent));
+        // Progress<T> posts to the sync context / thread pool and can reorder frames under
+        // parallel xUnit load; invoke handlers inline so monotonicity is meaningful.
+        var progress = new SyncProgress<OpenTapProgress>(p => percents.Add(p.OverallPercent));
         var summary = await session.RunAsync(progress);
 
         Assert.NotEmpty(percents);
@@ -163,7 +165,7 @@ public abstract class OpenTapSessionContractTests
 
         var awaiting = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         var sawFirst = false;
-        var progress = new Progress<OpenTapProgress>(p =>
+        var progress = new SyncProgress<OpenTapProgress>(p =>
         {
             if (!p.AwaitingOperator && !session.IsAwaitingOperator)
             {
@@ -445,4 +447,10 @@ public abstract class OpenTapSessionContractTests
 
         return type.FullName ?? type.Name;
     }
+}
+
+/// Invokes <see cref="IProgress{T}.Report"/> handlers inline (no sync-context hop).
+file sealed class SyncProgress<T>(Action<T> handler) : IProgress<T>
+{
+    public void Report(T value) => handler(value);
 }

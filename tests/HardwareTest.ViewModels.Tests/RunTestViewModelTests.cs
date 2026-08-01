@@ -34,9 +34,9 @@ public sealed class RunTestViewModelTests
 
     private static async Task ConfirmReadyAsync(RunTestViewModel vm, string serial = "SN-1", string tech = "Tech")
     {
-        vm.DutSerialInput = serial;
-        vm.OperatorInput = tech;
-        await vm.ConfirmDutCommand.ExecuteAsync();
+        vm.SessionPanel.DutSerialInput = serial;
+        vm.SessionPanel.OperatorInput = tech;
+        await vm.SessionPanel.ConfirmSessionCommand.ExecuteAsync();
     }
 
     [Fact]
@@ -44,11 +44,11 @@ public sealed class RunTestViewModelTests
     {
         var openTap = new FakeOpenTapSession();
         var vm = CreateVm(openTap);
-        await vm.RefreshProgramsCommand.ExecuteAsync();
+        await vm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
         await ConfirmReadyAsync(vm, "SN-SEL");
-        var leaf = Flatten(vm.Hierarchy).First(s => s.Children.Count == 0);
-        vm.SelectedStep = leaf;
-        await vm.RunSelectedCommand.ExecuteAsync();
+        var leaf = Flatten(vm.StepTree.Hierarchy).First(s => s.Children.Count == 0);
+        vm.StepTree.SelectedStep = leaf;
+        await vm.Run.RunSelectedCommand.ExecuteAsync();
         Assert.Equal(1, openTap.SelectionRunCount);
         Assert.Equal(leaf.Path, openTap.LastSelectionPath);
         Assert.Contains("Attempt #", vm.Status, StringComparison.OrdinalIgnoreCase);
@@ -60,10 +60,10 @@ public sealed class RunTestViewModelTests
     {
         var openTap = new FakeOpenTapSession();
         var vm = CreateVm(openTap);
-        await vm.RefreshProgramsCommand.ExecuteAsync();
+        await vm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
         await ConfirmReadyAsync(vm, "SN-ROOT");
-        vm.SelectedStep = vm.Hierarchy[0];
-        await vm.RunSelectedCommand.ExecuteAsync();
+        vm.StepTree.SelectedStep = vm.StepTree.Hierarchy[0];
+        await vm.Run.RunSelectedCommand.ExecuteAsync();
         Assert.Equal(0, openTap.SelectionRunCount);
         Assert.Contains("entire program", vm.Status, StringComparison.OrdinalIgnoreCase);
     }
@@ -74,16 +74,16 @@ public sealed class RunTestViewModelTests
         var openTap = new FakeOpenTapSession();
         var vm = CreateVm(openTap);
         vm.UiScheduler = action => action();
-        await vm.RefreshProgramsCommand.ExecuteAsync();
+        await vm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
         await ConfirmReadyAsync(vm, "SN-STATUS");
-        await vm.RunCommand.ExecuteAsync();
+        await vm.Run.RunCommand.ExecuteAsync();
 
-        var leaf = Flatten(vm.Hierarchy).First(s => s.Children.Count == 0);
+        var leaf = Flatten(vm.StepTree.Hierarchy).First(s => s.Children.Count == 0);
         Assert.NotEqual("Pending", leaf.StatusText);
         Assert.Equal("Pass", leaf.StatusText);
-        Assert.Contains(vm.DetailKeyValues, line => line.Contains("Status:", StringComparison.Ordinal)
+        Assert.Contains(vm.StepDetail.DetailKeyValues, line => line.Contains("Status:", StringComparison.Ordinal)
             && !line.Contains("Pending", StringComparison.Ordinal));
-        var stageWithStep = vm.Stages.FirstOrDefault(s => s.Step is not null);
+        var stageWithStep = vm.StepTree.Stages.FirstOrDefault(s => s.Step is not null);
         Assert.NotNull(stageWithStep);
         Assert.NotEqual("Pending", stageWithStep!.StatusText);
     }
@@ -94,23 +94,23 @@ public sealed class RunTestViewModelTests
         var openTap = new FakeOpenTapSession();
         var vm = CreateVm(openTap);
         vm.UiScheduler = action => action();
-        await vm.RefreshProgramsCommand.ExecuteAsync();
+        await vm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
         await ConfirmReadyAsync(vm, "SN-STABLE");
-        var leaf = Flatten(vm.Hierarchy).First(s => s.Children.Count == 0);
-        vm.SelectedStep = leaf;
-        var rootBefore = vm.Hierarchy[0];
-        var hierarchyCount = vm.Hierarchy.Count;
-        var fullCount = Flatten(vm.Hierarchy).Count();
+        var leaf = Flatten(vm.StepTree.Hierarchy).First(s => s.Children.Count == 0);
+        vm.StepTree.SelectedStep = leaf;
+        var rootBefore = vm.StepTree.Hierarchy[0];
+        var hierarchyCount = vm.StepTree.Hierarchy.Count;
+        var fullCount = Flatten(vm.StepTree.Hierarchy).Count();
 
-        await vm.RunSelectedCommand.ExecuteAsync();
-        await vm.RunSelectedCommand.ExecuteAsync();
+        await vm.Run.RunSelectedCommand.ExecuteAsync();
+        await vm.Run.RunSelectedCommand.ExecuteAsync();
 
         Assert.Equal(2, openTap.SelectionRunCount);
         Assert.Equal(leaf.Path, openTap.LastSelectionPath);
-        Assert.Equal(hierarchyCount, vm.Hierarchy.Count);
-        Assert.Equal(fullCount, Flatten(vm.Hierarchy).Count());
-        Assert.Same(rootBefore, vm.Hierarchy[0]);
-        Assert.Equal(leaf.Path, vm.SelectedStep?.Path);
+        Assert.Equal(hierarchyCount, vm.StepTree.Hierarchy.Count);
+        Assert.Equal(fullCount, Flatten(vm.StepTree.Hierarchy).Count());
+        Assert.Same(rootBefore, vm.StepTree.Hierarchy[0]);
+        Assert.Equal(leaf.Path, vm.StepTree.SelectedStep?.Path);
     }
 
     [Fact]
@@ -126,10 +126,10 @@ public sealed class RunTestViewModelTests
             OverallPercent = 10,
         });
         await Task.Delay(50);
-        Assert.True(vm.IsAwaitingOperator);
+        Assert.True(vm.Interaction.IsAwaitingOperator);
 
         await vm.ContinueOperatorCommand.ExecuteAsync();
-        Assert.False(vm.IsAwaitingOperator);
+        Assert.False(vm.Interaction.IsAwaitingOperator);
 
         vm.IngestProgress(new OpenTapProgress
         {
@@ -137,7 +137,7 @@ public sealed class RunTestViewModelTests
             OverallPercent = 20,
         });
         await Task.Delay(50);
-        Assert.False(vm.IsAwaitingOperator);
+        Assert.False(vm.Interaction.IsAwaitingOperator);
     }
 
     [Fact]
@@ -151,20 +151,20 @@ public sealed class RunTestViewModelTests
         var vm = CreateVm(openTap);
         vm.UiScheduler = action => action();
         await ConfirmReadyAsync(vm);
-        await vm.RefreshProgramsCommand.ExecuteAsync();
-        var leaf = Flatten(vm.Hierarchy).First(n => n.Children.Count == 0);
+        await vm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
+        var leaf = Flatten(vm.StepTree.Hierarchy).First(n => n.Children.Count == 0);
         vm.CurrentStepPath = leaf.Path;
         vm.CurrentStepName = leaf.Name;
-        vm.SelectedStep = leaf;
+        vm.StepTree.SelectedStep = leaf;
 
         var scrollRequests = 0;
-        vm.RequestScrollToSelectedStep += (_, _) => scrollRequests++;
+        vm.StepTree.RequestScrollToSelectedStep += (_, _) => scrollRequests++;
 
         await vm.ContinueOperatorCommand.ExecuteAsync();
 
-        Assert.False(vm.IsAwaitingOperator);
+        Assert.False(vm.Interaction.IsAwaitingOperator);
         Assert.True(scrollRequests >= 1, "Continue should re-anchor the step list after the prompt card collapses.");
-        Assert.Equal(leaf.Path, vm.SelectedStep?.Path);
+        Assert.Equal(leaf.Path, vm.StepTree.SelectedStep?.Path);
     }
 
     [Fact]
@@ -194,7 +194,7 @@ public sealed class RunTestViewModelTests
         var vm = CreateVm(openTap);
         vm.UiScheduler = action => action();
         await ConfirmReadyAsync(vm);
-        await vm.RunCommand.ExecuteAsync();
+        await vm.Run.RunCommand.ExecuteAsync();
         await Task.Delay(80);
         Assert.Equal("3/3", vm.IterationText);
         Assert.Contains("3/3", vm.HeroStatusLine, StringComparison.Ordinal);
@@ -205,11 +205,11 @@ public sealed class RunTestViewModelTests
     {
         var vm = CreateVm();
         var lines = Enumerable.Range(0, 80).Select(i => $"line {i}").ToList();
-        var added = vm.AppendDetailLines(lines, 16);
+        var added = vm.StepDetail.AppendDetailLines(lines, 16);
         Assert.Equal(16, added);
-        Assert.Equal(16, vm.DetailLines.Count);
-        Assert.Equal("line 0", vm.DetailLines[0]);
-        Assert.Equal("line 15", vm.DetailLines[^1]);
+        Assert.Equal(16, vm.StepDetail.DetailLines.Count);
+        Assert.Equal("line 0", vm.StepDetail.DetailLines[0]);
+        Assert.Equal("line 15", vm.StepDetail.DetailLines[^1]);
     }
 
     [Fact]
@@ -218,19 +218,19 @@ public sealed class RunTestViewModelTests
         var openTap = new FakeOpenTapSession { Delay = TimeSpan.FromMilliseconds(5) };
         var vm = CreateVm(openTap, settings: new AppSettings { PlotRefreshHz = 60 });
         vm.UiScheduler = action => action();
-        await vm.RefreshProgramsCommand.ExecuteAsync();
+        await vm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
         await ConfirmReadyAsync(vm, "SN-GAUGE");
-        await vm.RunCommand.ExecuteAsync();
+        await vm.Run.RunCommand.ExecuteAsync();
         await Task.Delay(80);
 
-        var mean = Flatten(vm.Hierarchy).First(s =>
+        var mean = Flatten(vm.StepTree.Hierarchy).First(s =>
             s.Children.Count == 0 && s.Name.Contains("Mean", StringComparison.OrdinalIgnoreCase));
-        vm.SelectedStep = mean;
-        Assert.True(vm.HasPresentationTiles);
-        Assert.Contains(vm.PresentationTiles, t =>
+        vm.StepTree.SelectedStep = mean;
+        Assert.True(vm.Live.HasPresentationTiles);
+        Assert.Contains(vm.Live.PresentationTiles, t =>
             t.Kind == PresentationTileKind.Scalar
             && t.MetricKey.Contains("mean", StringComparison.OrdinalIgnoreCase));
-        Assert.False(vm.ShowPlotForSelection);
+        Assert.False(vm.Live.ShowPlotForSelection);
     }
 
     [Fact]
@@ -244,14 +244,14 @@ public sealed class RunTestViewModelTests
         };
         var vm = CreateVm(openTap, settings: new AppSettings { PlotRefreshHz = 60 });
         vm.UiScheduler = action => action();
-        await vm.RefreshProgramsCommand.ExecuteAsync();
+        await vm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
         await ConfirmReadyAsync(vm, "SN-NOPRES");
-        await vm.RunCommand.ExecuteAsync();
+        await vm.Run.RunCommand.ExecuteAsync();
         await Task.Delay(80);
 
-        Assert.True(vm.HasPlotData);
-        Assert.False(vm.HasPresentationTiles);
-        Assert.Empty(vm.PresentationTiles);
+        Assert.True(vm.Live.HasPlotData);
+        Assert.False(vm.Live.HasPresentationTiles);
+        Assert.Empty(vm.Live.PresentationTiles);
     }
 
     [Fact]
@@ -259,7 +259,7 @@ public sealed class RunTestViewModelTests
     {
         var vm = CreateVm(settings: new AppSettings { PlotRefreshHz = 60 });
         vm.UiScheduler = action => action();
-        await vm.RefreshProgramsCommand.ExecuteAsync();
+        await vm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
         const string acquirePath = "Sample Hardware Suite/Voltage Sweep/Acquire VDC";
         for (var i = 0; i < 5; i++)
         {
@@ -274,20 +274,20 @@ public sealed class RunTestViewModelTests
         }
 
         await Task.Delay(50);
-        Assert.True(vm.HasPlotData);
+        Assert.True(vm.Live.HasPlotData);
 
-        vm.SelectedStep = vm.Hierarchy[0];
-        Assert.False(vm.ShowPlotForSelection);
+        vm.StepTree.SelectedStep = vm.StepTree.Hierarchy[0];
+        Assert.False(vm.Live.ShowPlotForSelection);
 
-        var identity = Flatten(vm.Hierarchy).First(s =>
+        var identity = Flatten(vm.StepTree.Hierarchy).First(s =>
             s.Children.Count == 0 && s.Path.Contains("Identity", StringComparison.OrdinalIgnoreCase));
-        vm.SelectedStep = identity;
-        Assert.False(vm.ShowPlotForSelection);
+        vm.StepTree.SelectedStep = identity;
+        Assert.False(vm.Live.ShowPlotForSelection);
 
-        var acquire = Flatten(vm.Hierarchy).First(s =>
+        var acquire = Flatten(vm.StepTree.Hierarchy).First(s =>
             string.Equals(s.Path, acquirePath, StringComparison.OrdinalIgnoreCase));
-        vm.SelectedStep = acquire;
-        Assert.True(vm.ShowPlotForSelection);
+        vm.StepTree.SelectedStep = acquire;
+        Assert.True(vm.Live.ShowPlotForSelection);
     }
 
     [Fact]
@@ -295,11 +295,11 @@ public sealed class RunTestViewModelTests
     {
         var openTap = new FakeOpenTapSession { IsAwaitingOperator = true, OperatorPromptMessage = "Install fixture" };
         var vm = CreateVm(openTap);
-        vm.IsAwaitingOperator = true;
-        vm.OperatorPromptMessage = "Install fixture";
+        vm.Interaction.IsAwaitingOperator = true;
+        vm.Interaction.OperatorPromptMessage = "Install fixture";
         await vm.ContinueOperatorCommand.ExecuteAsync();
         Assert.False(openTap.IsAwaitingOperator);
-        Assert.False(vm.IsAwaitingOperator);
+        Assert.False(vm.Interaction.IsAwaitingOperator);
     }
 
     [Fact]
@@ -336,16 +336,16 @@ public sealed class RunTestViewModelTests
         });
         await Task.Delay(50);
 
-        Assert.True(vm.IsAwaitingOperator);
-        Assert.True(vm.HasInteractionFields);
-        Assert.Equal("Install Sweep Fixture", vm.InteractionTitle);
-        Assert.Single(vm.InteractionFields);
-        vm.InteractionFields[0].Value = "FIXTURE-9";
+        Assert.True(vm.Interaction.IsAwaitingOperator);
+        Assert.True(vm.Interaction.HasInteractionFields);
+        Assert.Equal("Install Sweep Fixture", vm.Interaction.InteractionTitle);
+        Assert.Single(vm.Interaction.InteractionFields);
+        vm.Interaction.InteractionFields[0].Value = "FIXTURE-9";
 
         await vm.ContinueOperatorCommand.ExecuteAsync();
 
-        Assert.False(vm.IsAwaitingOperator);
-        Assert.False(vm.HasInteractionFields);
+        Assert.False(vm.Interaction.IsAwaitingOperator);
+        Assert.False(vm.Interaction.HasInteractionFields);
         Assert.False(openTap.IsAwaitingOperator);
         Assert.NotNull(openTap.LastInteractionResponse);
         Assert.False(openTap.LastInteractionResponse!.Cancelled);
@@ -388,9 +388,9 @@ public sealed class RunTestViewModelTests
 
         await vm.ContinueOperatorCommand.ExecuteAsync();
 
-        Assert.True(vm.IsAwaitingOperator);
+        Assert.True(vm.Interaction.IsAwaitingOperator);
         Assert.True(openTap.IsAwaitingOperator);
-        Assert.Contains("required", vm.InteractionValidationError, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("required", vm.Interaction.InteractionValidationError, StringComparison.OrdinalIgnoreCase);
         Assert.Null(openTap.LastInteractionResponse);
     }
 
@@ -401,19 +401,19 @@ public sealed class RunTestViewModelTests
         var settingsStore = new FakeSettingsStore { AppSettings = { IsEngineerDebugMode = true } };
         var vm = CreateVm(openTap, settings: settingsStore.AppSettings, settingsStore: settingsStore);
         vm.IsEngineerDebugMode = true;
-        await vm.RefreshProgramsCommand.ExecuteAsync();
+        await vm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
         await ConfirmReadyAsync(vm, "SN-PARAM");
 
-        var acquire = Flatten(vm.Hierarchy).First(s =>
+        var acquire = Flatten(vm.StepTree.Hierarchy).First(s =>
             s.Children.Count == 0 && s.Name.Contains("Acquire", StringComparison.OrdinalIgnoreCase));
-        vm.SelectedStep = acquire;
+        vm.StepTree.SelectedStep = acquire;
 
-        Assert.True(vm.HasParameterFields);
-        Assert.Contains(vm.ParameterFields, f => f.Label.Contains("Sample", StringComparison.OrdinalIgnoreCase));
-        var sampleField = vm.ParameterFields.First(f => f.Id.EndsWith("/SampleCount", StringComparison.OrdinalIgnoreCase));
+        Assert.True(vm.StationOverrides.HasParameterFields);
+        Assert.Contains(vm.StationOverrides.ParameterFields, f => f.Label.Contains("Sample", StringComparison.OrdinalIgnoreCase));
+        var sampleField = vm.StationOverrides.ParameterFields.First(f => f.Id.EndsWith("/SampleCount", StringComparison.OrdinalIgnoreCase));
         sampleField.Value = "24";
 
-        await vm.ApplyParametersCommand.ExecuteAsync();
+        await vm.StationOverrides.ApplyParametersCommand.ExecuteAsync();
 
         Assert.Equal(1, settingsStore.SaveAppCount);
         Assert.True(openTap.TryGetParameter(sampleField.Id, out var value));
@@ -431,15 +431,15 @@ public sealed class RunTestViewModelTests
         var openTap = new FakeOpenTapSession();
         var vm = CreateVm(openTap, settings: new AppSettings { IsEngineerDebugMode = true });
         vm.IsEngineerDebugMode = true;
-        await vm.RefreshProgramsCommand.ExecuteAsync();
+        await vm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
         await ConfirmReadyAsync(vm, "SN-MIXIN");
 
-        var identity = Flatten(vm.Hierarchy).First(s =>
+        var identity = Flatten(vm.StepTree.Hierarchy).First(s =>
             s.Children.Count == 0 && s.Name.Contains("Identity", StringComparison.OrdinalIgnoreCase));
-        vm.SelectedStep = identity;
+        vm.StepTree.SelectedStep = identity;
 
-        Assert.True(vm.HasParameterFields);
-        Assert.Contains(vm.ParameterFields, f =>
+        Assert.True(vm.StationOverrides.HasParameterFields);
+        Assert.Contains(vm.StationOverrides.ParameterFields, f =>
             f.Label.Contains("Annotation", StringComparison.OrdinalIgnoreCase)
             && f.Label.Contains("Note", StringComparison.OrdinalIgnoreCase));
     }
@@ -450,15 +450,15 @@ public sealed class RunTestViewModelTests
         var openTap = new FakeOpenTapSession();
         var vm = CreateVm(openTap, settings: new AppSettings { IsEngineerDebugMode = false });
         vm.IsEngineerDebugMode = false;
-        await vm.RefreshProgramsCommand.ExecuteAsync();
+        await vm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
         await ConfirmReadyAsync(vm, "SN-PARAM-OP");
 
-        var acquire = Flatten(vm.Hierarchy).First(s =>
+        var acquire = Flatten(vm.StepTree.Hierarchy).First(s =>
             s.Children.Count == 0 && s.Name.Contains("Acquire", StringComparison.OrdinalIgnoreCase));
-        vm.SelectedStep = acquire;
+        vm.StepTree.SelectedStep = acquire;
 
-        Assert.False(vm.HasParameterFields);
-        Assert.Empty(vm.ParameterFields);
+        Assert.False(vm.StationOverrides.HasParameterFields);
+        Assert.Empty(vm.StationOverrides.ParameterFields);
     }
 
     [Fact]
@@ -468,11 +468,11 @@ public sealed class RunTestViewModelTests
         var store = new FakeRunStore();
         var session = new OperatorSession();
         var vm = CreateVm(openTap, store: store, session: session);
-        await vm.RefreshProgramsCommand.ExecuteAsync();
-        vm.DutSerialInput = "SN-PART";
-        vm.DutPartInput = "PN-1";
-        vm.DutRevisionInput = "A";
-        vm.OperatorInput = "Tech";
+        await vm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
+        vm.SessionPanel.DutSerialInput = "SN-PART";
+        vm.SessionPanel.DutPartInput = "PN-1";
+        vm.SessionPanel.DutRevisionInput = "A";
+        vm.SessionPanel.OperatorInput = "Tech";
         // Sample requirements do not require part/operator; stamp via ConfirmDut fields through TryConfirm
         Assert.True(session.TryConfirm(
             new ProgramRequirements { RequireSerial = true, RequirePartNumber = true, RequireOperator = true },
@@ -482,9 +482,9 @@ public sealed class RunTestViewModelTests
             "Tech",
             "demo",
             out _));
-        vm.ShowSessionForm = false;
-        vm.SessionBlocked = false;
-        await vm.RunCommand.ExecuteAsync();
+        vm.SessionPanel.ShowSessionForm = false;
+        vm.SessionPanel.SessionBlocked = false;
+        await vm.Run.RunCommand.ExecuteAsync();
         var saved = await store.LoadAsync(vm.LastRunId!);
         Assert.Equal("SN-PART", saved!.DutSerial);
         Assert.Equal("PN-1", saved.DutPartNumber);
@@ -498,9 +498,9 @@ public sealed class RunTestViewModelTests
     public async Task RefreshPrograms_loads_sample()
     {
         var vm = CreateVm();
-        await vm.RefreshProgramsCommand.ExecuteAsync();
-        Assert.NotEmpty(vm.Programs);
-        Assert.Contains(vm.Programs, p => p.IsSample);
+        await vm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
+        Assert.NotEmpty(vm.ProgramSelection.Programs);
+        Assert.Contains(vm.ProgramSelection.Programs, p => p.IsSample);
     }
 
     [Fact]
@@ -508,8 +508,8 @@ public sealed class RunTestViewModelTests
     {
         var openTap = new FakeOpenTapSession();
         var vm = CreateVm(openTap);
-        await vm.RefreshProgramsCommand.ExecuteAsync();
-        await vm.RunCommand.ExecuteAsync();
+        await vm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
+        await vm.Run.RunCommand.ExecuteAsync();
         Assert.Equal(0, openTap.RunCount);
         Assert.Contains("Confirm DUT", vm.Status, StringComparison.OrdinalIgnoreCase);
     }
@@ -521,9 +521,9 @@ public sealed class RunTestViewModelTests
         var reports = new FakeReportService();
         var store = new FakeRunStore();
         var vm = CreateVm(openTap, reports, store: store);
-        await vm.RefreshProgramsCommand.ExecuteAsync();
+        await vm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
         await ConfirmReadyAsync(vm, "SN-100");
-        await vm.RunCommand.ExecuteAsync();
+        await vm.Run.RunCommand.ExecuteAsync();
 
         Assert.Equal(1, openTap.RunCount);
         Assert.Equal("SN-100", openTap.LastDut?.Serial);
@@ -554,9 +554,9 @@ public sealed class RunTestViewModelTests
             settings: settings,
             store: historyStore,
             dutHistory: new DutHistoryService(historyStore));
-        await vm.RefreshProgramsCommand.ExecuteAsync();
+        await vm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
         await ConfirmReadyAsync(vm, "SN-BANNER");
-        await vm.RunCommand.ExecuteAsync();
+        await vm.Run.RunCommand.ExecuteAsync();
         Assert.True(string.IsNullOrEmpty(vm.HistoryBanner));
     }
 
@@ -581,9 +581,9 @@ public sealed class RunTestViewModelTests
             settings: settings,
             store: historyStore,
             dutHistory: new DutHistoryService(historyStore));
-        await vm.RefreshProgramsCommand.ExecuteAsync();
+        await vm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
         await ConfirmReadyAsync(vm, "SN-BANNER-ON");
-        await vm.RunCommand.ExecuteAsync();
+        await vm.Run.RunCommand.ExecuteAsync();
         Assert.False(string.IsNullOrWhiteSpace(vm.HistoryBanner));
     }
 
@@ -592,12 +592,12 @@ public sealed class RunTestViewModelTests
     {
         var openTap = new FakeOpenTapSession();
         var vm = CreateVm(openTap);
-        await vm.RefreshProgramsCommand.ExecuteAsync();
+        await vm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
         await ConfirmReadyAsync(vm, "SN-1");
-        await vm.ChangeDutCommand.ExecuteAsync();
-        await vm.RunCommand.ExecuteAsync();
+        await vm.SessionPanel.ChangeSessionCommand.ExecuteAsync();
+        await vm.Run.RunCommand.ExecuteAsync();
         Assert.Equal(0, openTap.RunCount);
-        Assert.True(vm.NeedsDutConfirm);
+        Assert.True(vm.SessionPanel.NeedsDutConfirm);
     }
 
     [Fact]
@@ -605,10 +605,10 @@ public sealed class RunTestViewModelTests
     {
         var openTap = new FakeOpenTapSession();
         var vm = CreateVm(openTap);
-        await vm.RefreshProgramsCommand.ExecuteAsync();
+        await vm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
         await ConfirmReadyAsync(vm, "SN-22");
-        await vm.RunCommand.ExecuteAsync();
-        await vm.RunCommand.ExecuteAsync();
+        await vm.Run.RunCommand.ExecuteAsync();
+        await vm.Run.RunCommand.ExecuteAsync();
         Assert.Equal(2, openTap.RunCount);
     }
 
@@ -617,11 +617,11 @@ public sealed class RunTestViewModelTests
     {
         var openTap = new FakeOpenTapSession { Delay = TimeSpan.FromSeconds(5) };
         var vm = CreateVm(openTap);
-        await vm.RefreshProgramsCommand.ExecuteAsync();
+        await vm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
         await ConfirmReadyAsync(vm, "SN-C");
-        var runTask = vm.RunCommand.ExecuteAsync();
+        var runTask = vm.Run.RunCommand.ExecuteAsync();
         await Task.Delay(50);
-        await vm.CancelCommand.ExecuteAsync();
+        await vm.Run.CancelCommand.ExecuteAsync();
         await runTask;
         Assert.Contains("Cancelled", vm.Status, StringComparison.OrdinalIgnoreCase);
     }
@@ -632,9 +632,9 @@ public sealed class RunTestViewModelTests
         var openTap = new FakeOpenTapSession { CompletionResult = RunResult.Failed };
         var reports = new FakeReportService();
         var vm = CreateVm(openTap, reports);
-        await vm.RefreshProgramsCommand.ExecuteAsync();
+        await vm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
         await ConfirmReadyAsync(vm, "SN-F");
-        await vm.RunCommand.ExecuteAsync();
+        await vm.Run.RunCommand.ExecuteAsync();
         Assert.Equal(1, reports.GenerateCount);
         Assert.Contains("Failed", vm.Status, StringComparison.OrdinalIgnoreCase);
     }
@@ -648,12 +648,12 @@ public sealed class RunTestViewModelTests
         session.MarkStale();
         var openTap = new FakeOpenTapSession();
         var vm = CreateVm(openTap, session: session);
-        await vm.RefreshProgramsCommand.ExecuteAsync();
-        vm.OperatorInput = "Tech";
-        await vm.RunCommand.ExecuteAsync();
+        await vm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
+        vm.SessionPanel.OperatorInput = "Tech";
+        await vm.Run.RunCommand.ExecuteAsync();
         Assert.Equal(0, openTap.RunCount);
-        await vm.ConfirmSameDutCommand.ExecuteAsync();
-        await vm.RunCommand.ExecuteAsync();
+        await vm.SessionPanel.ConfirmSameDutCommand.ExecuteAsync();
+        await vm.Run.RunCommand.ExecuteAsync();
         Assert.Equal(1, openTap.RunCount);
     }
 
@@ -663,12 +663,12 @@ public sealed class RunTestViewModelTests
         var openTap = new FakeOpenTapSession();
         var store = new FakeRunStore();
         var vm = CreateVm(openTap, store: store);
-        await vm.RefreshProgramsCommand.ExecuteAsync();
+        await vm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
         await ConfirmReadyAsync(vm, "SN-ATT");
-        vm.SelectedStep = Flatten(vm.Hierarchy).First(s => s.Children.Count == 0);
-        Assert.NotNull(vm.SelectedStep);
-        await vm.RunSelectedCommand.ExecuteAsync();
-        await vm.RunSelectedCommand.ExecuteAsync();
+        vm.StepTree.SelectedStep = Flatten(vm.StepTree.Hierarchy).First(s => s.Children.Count == 0);
+        Assert.NotNull(vm.StepTree.SelectedStep);
+        await vm.Run.RunSelectedCommand.ExecuteAsync();
+        await vm.Run.RunSelectedCommand.ExecuteAsync();
         var saved = await store.LoadAsync(vm.LastRunId!);
         Assert.NotNull(saved);
         Assert.NotEmpty(saved!.StepAttempts);
@@ -679,10 +679,10 @@ public sealed class RunTestViewModelTests
     public async Task Session_blocked_until_confirmed()
     {
         var vm = CreateVm();
-        await vm.RefreshProgramsCommand.ExecuteAsync();
-        Assert.True(vm.SessionBlocked);
+        await vm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
+        Assert.True(vm.SessionPanel.SessionBlocked);
         await ConfirmReadyAsync(vm);
-        Assert.False(vm.SessionBlocked);
+        Assert.False(vm.SessionPanel.SessionBlocked);
     }
 
     [Fact]
@@ -691,10 +691,10 @@ public sealed class RunTestViewModelTests
         var settings = new AppSettings { PlotRefreshHz = 20 };
         var vm = CreateVm(settings: settings);
         vm.UiScheduler = action => action();
-        vm.ShowLiveLog = true;
-        await vm.RefreshProgramsCommand.ExecuteAsync();
+        vm.StepDetail.ShowLiveLog = true;
+        await vm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
 
-        var publishRef = vm.PlotYs;
+        var publishRef = vm.Live.PlotYs;
         const int burst = 500;
         for (var i = 0; i < burst; i++)
         {
@@ -717,9 +717,9 @@ public sealed class RunTestViewModelTests
         await Task.Delay(250);
 
         Assert.True(vm.PlotUiFlushCount < burst / 4, $"PlotUiFlushCount={vm.PlotUiFlushCount} for burst={burst}");
-        Assert.True(vm.DetailLines.Count <= 200);
-        Assert.True(vm.PlotYsLength <= 2048);
-        Assert.Same(publishRef, vm.PlotYs);
+        Assert.True(vm.StepDetail.DetailLines.Count <= 200);
+        Assert.True(vm.Live.PlotYsLength <= 2048);
+        Assert.Same(publishRef, vm.Live.PlotYs);
     }
 
     [Fact]
@@ -728,21 +728,21 @@ public sealed class RunTestViewModelTests
         var openTap = new FakeOpenTapSession();
         var vm = CreateVm(openTap, settings: new AppSettings { IsEngineerDebugMode = true });
         vm.IsEngineerDebugMode = true;
-        await vm.RefreshProgramsCommand.ExecuteAsync();
-        vm.SelectedStep = vm.Hierarchy.Count > 0
-            ? Flatten(vm.Hierarchy).FirstOrDefault()
+        await vm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
+        vm.StepTree.SelectedStep = vm.StepTree.Hierarchy.Count > 0
+            ? Flatten(vm.StepTree.Hierarchy).FirstOrDefault()
             : null;
-        if (vm.SelectedStep is null)
+        if (vm.StepTree.SelectedStep is null)
         {
             // Sample tree should exist after load.
             Assert.Fail("Expected hierarchy after loading sample program.");
         }
 
-        vm.DebugSampleCount = 50_000;
-        vm.DebugIntervalMs = 0;
-        await vm.ApplyDebugPatchCommand.ExecuteAsync();
-        Assert.Equal(4096, vm.DebugSampleCount);
-        Assert.Equal(1, vm.DebugIntervalMs);
+        vm.StationOverrides.DebugSampleCount = 50_000;
+        vm.StationOverrides.DebugIntervalMs = 0;
+        await vm.StationOverrides.ApplyDebugPatchCommand.ExecuteAsync();
+        Assert.Equal(4096, vm.StationOverrides.DebugSampleCount);
+        Assert.Equal(1, vm.StationOverrides.DebugIntervalMs);
     }
 
     [Fact]
@@ -826,17 +826,17 @@ public sealed class RunTestViewModelTests
         var openTap = new FakeOpenTapSession();
         var vm = CreateVm(openTap);
         vm.UiScheduler = action => action();
-        await vm.RefreshProgramsCommand.ExecuteAsync();
+        await vm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
         await ConfirmReadyAsync(vm, "SN-FILT");
-        await vm.RunCommand.ExecuteAsync();
+        await vm.Run.RunCommand.ExecuteAsync();
 
-        vm.StepStatusFilter = StepStatusFilter.Fail;
-        Assert.Empty(vm.StepRows);
+        vm.StepTree.StepStatusFilter = StepStatusFilter.Fail;
+        Assert.Empty(vm.StepTree.StepRows);
 
-        vm.StepStatusFilter = StepStatusFilter.All;
-        vm.StepSearchText = "Acquire";
-        Assert.Contains(vm.StepRows, r => r.Name.Contains("Acquire", StringComparison.OrdinalIgnoreCase));
-        Assert.DoesNotContain(vm.StepRows, r => r.Name.Contains("Identity", StringComparison.OrdinalIgnoreCase));
+        vm.StepTree.StepStatusFilter = StepStatusFilter.All;
+        vm.StepTree.StepSearchText = "Acquire";
+        Assert.Contains(vm.StepTree.StepRows, r => r.Name.Contains("Acquire", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(vm.StepTree.StepRows, r => r.Name.Contains("Identity", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
@@ -845,13 +845,13 @@ public sealed class RunTestViewModelTests
         var openTap = new FakeOpenTapSession { CompletionResult = RunResult.Failed };
         var vm = CreateVm(openTap);
         vm.UiScheduler = action => action();
-        await vm.RefreshProgramsCommand.ExecuteAsync();
+        await vm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
         await ConfirmReadyAsync(vm, "SN-NF");
-        await vm.RunCommand.ExecuteAsync();
+        await vm.Run.RunCommand.ExecuteAsync();
 
-        await vm.NextFailCommand.ExecuteAsync();
-        Assert.NotNull(vm.SelectedStep);
-        Assert.Equal("Fail", StatusChip.FromStatus(vm.SelectedStep!.StatusText, vm.SelectedStep.Verdict));
+        await vm.StepTree.NextFailCommand.ExecuteAsync();
+        Assert.NotNull(vm.StepTree.SelectedStep);
+        Assert.Equal("Fail", StatusChip.FromStatus(vm.StepTree.SelectedStep!.StatusText, vm.StepTree.SelectedStep.Verdict));
     }
 
     [Fact]
@@ -860,9 +860,9 @@ public sealed class RunTestViewModelTests
         var openTap = new FakeOpenTapSession();
         var vm = CreateVm(openTap);
         vm.UiScheduler = action => action();
-        await vm.RefreshProgramsCommand.ExecuteAsync();
+        await vm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
         await ConfirmReadyAsync(vm, "SN-INSP");
-        await vm.RunCommand.ExecuteAsync();
+        await vm.Run.RunCommand.ExecuteAsync();
 
         var inspect = new HardwareTest.Features.Inspect.InspectViewModel(openTap);
         inspect.Refresh();
@@ -875,10 +875,10 @@ public sealed class RunTestViewModelTests
     {
         var openTap = new FakeOpenTapSession();
         var vm = CreateVm(openTap);
-        await vm.RefreshProgramsCommand.ExecuteAsync();
+        await vm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
         const string path = "Sample Hardware Suite/Voltage Sweep/Acquire VDC";
         vm.ApplySelectionFromInspect(path);
-        Assert.Equal(path, vm.SelectedStep?.Path);
+        Assert.Equal(path, vm.StepTree.SelectedStep?.Path);
     }
 
     [Fact]
@@ -887,11 +887,11 @@ public sealed class RunTestViewModelTests
         var openTap = new FakeOpenTapSession();
         var vm = CreateVm(openTap);
         vm.UiScheduler = action => action();
-        await vm.RefreshProgramsCommand.ExecuteAsync();
+        await vm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
         await ConfirmReadyAsync(vm, "SN-SUM");
-        await vm.RunCommand.ExecuteAsync();
-        Assert.Equal(6, vm.SuitePassedCount);
-        Assert.Equal(0, vm.SuiteFailedCount);
+        await vm.Run.RunCommand.ExecuteAsync();
+        Assert.Equal(6, vm.StepTree.SuitePassedCount);
+        Assert.Equal(0, vm.StepTree.SuiteFailedCount);
     }
 
     [Fact]
@@ -899,21 +899,21 @@ public sealed class RunTestViewModelTests
     {
         var openTap = new FakeOpenTapSession();
         var vm = CreateVm(openTap);
-        await vm.RefreshProgramsCommand.ExecuteAsync();
-        Assert.Contains(vm.Programs, p => p.Path == BoardDemoProgramFactory.EmbeddedName);
-        vm.SelectedProgram = vm.Programs.First(p => p.Path == BoardDemoProgramFactory.EmbeddedName);
-        for (var i = 0; i < 40 && vm.Stages.All(s => s.DisplayName != "Power Rails"); i++)
+        await vm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
+        Assert.Contains(vm.ProgramSelection.Programs, p => p.Path == BoardDemoProgramFactory.EmbeddedName);
+        vm.ProgramSelection.SelectedProgram = vm.ProgramSelection.Programs.First(p => p.Path == BoardDemoProgramFactory.EmbeddedName);
+        for (var i = 0; i < 40 && vm.StepTree.Stages.All(s => s.DisplayName != "Power Rails"); i++)
         {
             await Task.Delay(25);
         }
 
-        var power = vm.Stages.FirstOrDefault(s => s.DisplayName == "Power Rails");
+        var power = vm.StepTree.Stages.FirstOrDefault(s => s.DisplayName == "Power Rails");
         Assert.NotNull(power);
-        vm.SelectedStage = power;
-        Assert.True(vm.HasSubsections);
-        Assert.Contains(vm.Subsections, s => s.DisplayName == "3V3 Rail");
-        vm.SelectedSubsection = vm.Subsections.First(s => s.DisplayName == "3V3 Rail");
-        Assert.Contains(vm.StepRows, r => r.Name.Contains("Acquire 3V3", StringComparison.Ordinal));
+        vm.StepTree.SelectedStage = power;
+        Assert.True(vm.StepTree.HasSubsections);
+        Assert.Contains(vm.StepTree.Subsections, s => s.DisplayName == "3V3 Rail");
+        vm.StepTree.SelectedSubsection = vm.StepTree.Subsections.First(s => s.DisplayName == "3V3 Rail");
+        Assert.Contains(vm.StepTree.StepRows, r => r.Name.Contains("Acquire 3V3", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -921,21 +921,21 @@ public sealed class RunTestViewModelTests
     {
         var openTap = new FakeOpenTapSession();
         var vm = CreateVm(openTap);
-        await vm.RefreshProgramsCommand.ExecuteAsync();
-        vm.SelectedProgram = vm.Programs.First(p => p.Path == BoardDemoProgramFactory.EmbeddedName);
-        for (var i = 0; i < 40 && vm.Stages.All(s => s.DisplayName != "Power Rails"); i++)
+        await vm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
+        vm.ProgramSelection.SelectedProgram = vm.ProgramSelection.Programs.First(p => p.Path == BoardDemoProgramFactory.EmbeddedName);
+        for (var i = 0; i < 40 && vm.StepTree.Stages.All(s => s.DisplayName != "Power Rails"); i++)
         {
             await Task.Delay(25);
         }
 
-        var entire = vm.Stages.First(s => s.Step is null);
-        vm.SelectedStage = entire;
+        var entire = vm.StepTree.Stages.First(s => s.Step is null);
+        vm.StepTree.SelectedStage = entire;
 
-        Assert.Contains(vm.StepListItems, i => i.IsHeader && i.DisplayName == "Power Rails / 3V3 Rail");
-        Assert.Contains(vm.StepListItems, i => i.IsHeader && i.DisplayName == "Power Rails / 5V Rail");
-        Assert.Contains(vm.StepListItems, i => i.IsHeader && i.DisplayName.Contains("Communications", StringComparison.Ordinal));
-        Assert.Contains(vm.StepListItems, i => !i.IsHeader && i.DisplayName.Contains("Acquire 3V3", StringComparison.Ordinal));
-        Assert.Contains(vm.StepListItems, i => !i.IsHeader && i.DisplayName == "Seat Board Fixture");
+        Assert.Contains(vm.StepTree.StepListItems, i => i.IsHeader && i.DisplayName == "Power Rails / 3V3 Rail");
+        Assert.Contains(vm.StepTree.StepListItems, i => i.IsHeader && i.DisplayName == "Power Rails / 5V Rail");
+        Assert.Contains(vm.StepTree.StepListItems, i => i.IsHeader && i.DisplayName.Contains("Communications", StringComparison.Ordinal));
+        Assert.Contains(vm.StepTree.StepListItems, i => !i.IsHeader && i.DisplayName.Contains("Acquire 3V3", StringComparison.Ordinal));
+        Assert.Contains(vm.StepTree.StepListItems, i => !i.IsHeader && i.DisplayName == "Seat Board Fixture");
     }
 
     [Fact]
@@ -943,25 +943,25 @@ public sealed class RunTestViewModelTests
     {
         var openTap = new FakeOpenTapSession();
         var vm = CreateVm(openTap);
-        await vm.RefreshProgramsCommand.ExecuteAsync();
+        await vm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
         await ConfirmReadyAsync(vm, "SN-SECTION");
-        vm.SelectedProgram = vm.Programs.First(p => p.Path == BoardDemoProgramFactory.EmbeddedName);
-        for (var i = 0; i < 40 && vm.Stages.All(s => s.DisplayName != "Power Rails"); i++)
+        vm.ProgramSelection.SelectedProgram = vm.ProgramSelection.Programs.First(p => p.Path == BoardDemoProgramFactory.EmbeddedName);
+        for (var i = 0; i < 40 && vm.StepTree.Stages.All(s => s.DisplayName != "Power Rails"); i++)
         {
             await Task.Delay(25);
         }
 
-        var entire = vm.Stages.First(s => s.Step is null);
-        vm.SelectedStage = entire;
+        var entire = vm.StepTree.Stages.First(s => s.Step is null);
+        vm.StepTree.SelectedStage = entire;
 
-        var sectionHeader = vm.StepListItems.First(i =>
+        var sectionHeader = vm.StepTree.StepListItems.First(i =>
             i.IsHeader && i.DisplayName == "Power Rails / 3V3 Rail" && i.Step is not null);
-        vm.SelectedStepListItem = sectionHeader;
+        vm.StepTree.SelectedStepListItem = sectionHeader;
 
-        Assert.Equal(sectionHeader.Step!.Path, vm.SelectedStep?.Path);
+        Assert.Equal(sectionHeader.Step!.Path, vm.StepTree.SelectedStep?.Path);
         Assert.True(sectionHeader.IsRunnable);
 
-        await vm.RunSelectedCommand.ExecuteAsync();
+        await vm.Run.RunSelectedCommand.ExecuteAsync();
 
         Assert.Equal(1, openTap.SelectionRunCount);
         Assert.Equal(sectionHeader.Step.Path, openTap.LastSelectionPath);
@@ -974,15 +974,15 @@ public sealed class RunTestViewModelTests
         var openTap = new FakeOpenTapSession();
         var vm = CreateVm(openTap);
         vm.UiScheduler = action => action();
-        await vm.RefreshProgramsCommand.ExecuteAsync();
+        await vm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
         await ConfirmReadyAsync(vm, "SN-PRESERVE");
-        vm.SelectedProgram = vm.Programs.First(p => p.Path == BoardDemoProgramFactory.EmbeddedName);
-        for (var i = 0; i < 40 && vm.Stages.All(s => s.DisplayName != "Power Rails"); i++)
+        vm.ProgramSelection.SelectedProgram = vm.ProgramSelection.Programs.First(p => p.Path == BoardDemoProgramFactory.EmbeddedName);
+        for (var i = 0; i < 40 && vm.StepTree.Stages.All(s => s.DisplayName != "Power Rails"); i++)
         {
             await Task.Delay(25);
         }
 
-        await vm.RunCommand.ExecuteAsync();
+        await vm.Run.RunCommand.ExecuteAsync();
 
         static IEnumerable<HierarchyStepViewModel> Flat(IEnumerable<HierarchyStepViewModel> roots)
         {
@@ -996,37 +996,37 @@ public sealed class RunTestViewModelTests
             }
         }
 
-        var acquire5V = Flat(vm.Hierarchy).First(s => s.Name.Contains("Acquire 5V", StringComparison.Ordinal));
+        var acquire5V = Flat(vm.StepTree.Hierarchy).First(s => s.Name.Contains("Acquire 5V", StringComparison.Ordinal));
         Assert.Equal("Pass", acquire5V.StatusText);
         acquire5V.KeyValue = "5V=5.010";
         acquire5V.Node.KeyValue = "5V=5.010";
 
-        var entire = vm.Stages.First(s => s.Step is null);
-        vm.SelectedStage = entire;
-        var sectionHeader = vm.StepListItems.First(i =>
+        var entire = vm.StepTree.Stages.First(s => s.Step is null);
+        vm.StepTree.SelectedStage = entire;
+        var sectionHeader = vm.StepTree.StepListItems.First(i =>
             i.IsHeader && i.DisplayName == "Power Rails / 3V3 Rail" && i.Step is not null);
-        vm.SelectedStepListItem = sectionHeader;
-        await vm.RunSelectedCommand.ExecuteAsync();
+        vm.StepTree.SelectedStepListItem = sectionHeader;
+        await vm.Run.RunSelectedCommand.ExecuteAsync();
 
         Assert.Equal(1, openTap.SelectionRunCount);
         Assert.Equal("Pass", acquire5V.StatusText);
         Assert.Equal("5V=5.010", acquire5V.KeyValue);
-        Assert.True(vm.SuitePassedCount > 0);
-        Assert.True(vm.SuitePendingCount < Flat(vm.Hierarchy).Count(s => s.Children.Count == 0));
+        Assert.True(vm.StepTree.SuitePassedCount > 0);
+        Assert.True(vm.StepTree.SuitePendingCount < Flat(vm.StepTree.Hierarchy).Count(s => s.Children.Count == 0));
     }
 
     [Fact]
     public async Task Sample_entire_program_step_list_follows_plan_order_with_stage_headers()
     {
         var vm = CreateVm();
-        await vm.RefreshProgramsCommand.ExecuteAsync();
-        var entire = vm.Stages.First(s => s.Step is null);
-        vm.SelectedStage = entire;
+        await vm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
+        var entire = vm.StepTree.Stages.First(s => s.Step is null);
+        vm.StepTree.SelectedStage = entire;
 
-        var names = vm.StepListItems.Select(i => i.DisplayName).ToList();
+        var names = vm.StepTree.StepListItems.Select(i => i.DisplayName).ToList();
         Assert.Contains("Identity", names);
         Assert.Contains("Voltage Sweep", names);
-        Assert.DoesNotContain(vm.StepListItems, i => i.IsHeader && i.DisplayName == "Sample Hardware Suite");
+        Assert.DoesNotContain(vm.StepTree.StepListItems, i => i.IsHeader && i.DisplayName == "Sample Hardware Suite");
 
         var identity = names.IndexOf("Identity");
         var confirm = names.IndexOf("Confirm Sweep Area Clear");
@@ -1044,11 +1044,11 @@ public sealed class RunTestViewModelTests
     public void Compact_toggle_updates_compact_step_rows()
     {
         var vm = CreateVm();
-        Assert.False(vm.CompactStepRows);
-        vm.ToggleCompactCommand.Execute().Subscribe();
-        Assert.True(vm.CompactStepRows);
-        vm.ToggleCompactCommand.Execute().Subscribe();
-        Assert.False(vm.CompactStepRows);
+        Assert.False(vm.StepTree.CompactStepRows);
+        vm.StepTree.ToggleCompactCommand.Execute().Subscribe();
+        Assert.True(vm.StepTree.CompactStepRows);
+        vm.StepTree.ToggleCompactCommand.Execute().Subscribe();
+        Assert.False(vm.StepTree.CompactStepRows);
     }
 
     [Fact]
@@ -1057,10 +1057,10 @@ public sealed class RunTestViewModelTests
         var openTap = new FakeOpenTapSession { CompletionResult = RunResult.Failed };
         var vm = CreateVm(openTap);
         vm.UiScheduler = action => action();
-        await vm.RefreshProgramsCommand.ExecuteAsync();
+        await vm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
         await ConfirmReadyAsync(vm, "SN-PF");
-        await vm.RunCommand.ExecuteAsync();
-        var entire = vm.Stages.First(s => s.Step is null);
+        await vm.Run.RunCommand.ExecuteAsync();
+        var entire = vm.StepTree.Stages.First(s => s.Step is null);
         Assert.Contains("F", entire.ProgressText, StringComparison.Ordinal);
         Assert.Equal("Fail", entire.ChipText);
     }
@@ -1068,12 +1068,12 @@ public sealed class RunTestViewModelTests
     public async Task StepRows_are_leaves_under_selected_stage()
     {
         var vm = CreateVm();
-        await vm.RefreshProgramsCommand.ExecuteAsync();
-        var identity = vm.Stages.First(s => s.DisplayName == "Identity");
-        vm.SelectedStage = identity;
-        Assert.All(vm.StepRows, r => Assert.Empty(r.Children));
-        Assert.Contains(vm.StepRows, r => r.Name == "Identity Check");
-        Assert.DoesNotContain(vm.StepRows, r => r.Name == "Acquire VDC");
+        await vm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
+        var identity = vm.StepTree.Stages.First(s => s.DisplayName == "Identity");
+        vm.StepTree.SelectedStage = identity;
+        Assert.All(vm.StepTree.StepRows, r => Assert.Empty(r.Children));
+        Assert.Contains(vm.StepTree.StepRows, r => r.Name == "Identity Check");
+        Assert.DoesNotContain(vm.StepTree.StepRows, r => r.Name == "Acquire VDC");
     }
 
     [Fact]
@@ -1082,11 +1082,11 @@ public sealed class RunTestViewModelTests
         var openTap = new FakeOpenTapSession();
         var vm = CreateVm(openTap);
         vm.UiScheduler = action => action();
-        await vm.RefreshProgramsCommand.ExecuteAsync();
-        var entire = vm.Stages.First(s => s.Step is null);
+        await vm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
+        var entire = vm.StepTree.Stages.First(s => s.Step is null);
         Assert.Equal("0/6", entire.ProgressText);
         await ConfirmReadyAsync(vm, "SN-PROG");
-        await vm.RunCommand.ExecuteAsync();
+        await vm.Run.RunCommand.ExecuteAsync();
         Assert.Equal("6/6", entire.ProgressText);
         Assert.Equal("Pass", entire.ChipText);
     }
@@ -1096,7 +1096,7 @@ public sealed class RunTestViewModelTests
     {
         var vm = CreateVm();
         vm.UiScheduler = action => action();
-        await vm.RefreshProgramsCommand.ExecuteAsync();
+        await vm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
         vm.IsRunning = true;
         vm.IngestProgress(new OpenTapProgress
         {
@@ -1118,47 +1118,47 @@ public sealed class RunTestViewModelTests
     {
         var openTap = new FakeOpenTapSession();
         var vm = CreateVm(openTap, settings: new AppSettings { IsEngineerDebugMode = false });
-        await vm.RefreshProgramsCommand.ExecuteAsync();
-        var acquire = Flatten(vm.Hierarchy).First(s => s.Name.Contains("Acquire", StringComparison.OrdinalIgnoreCase));
-        vm.SelectedStep = acquire;
-        Assert.True(string.IsNullOrEmpty(vm.ConditionSummary));
+        await vm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
+        var acquire = Flatten(vm.StepTree.Hierarchy).First(s => s.Name.Contains("Acquire", StringComparison.OrdinalIgnoreCase));
+        vm.StepTree.SelectedStep = acquire;
+        Assert.True(string.IsNullOrEmpty(vm.StepDetail.ConditionSummary));
 
         vm.IsEngineerDebugMode = true;
         vm.OpenSelectedStepDetail();
-        Assert.Contains("Samples=", vm.ConditionSummary, StringComparison.Ordinal);
+        Assert.Contains("Samples=", vm.StepDetail.ConditionSummary, StringComparison.Ordinal);
     }
 
     [Fact]
     public async Task Detail_uses_failure_first_bindings()
     {
         var vm = CreateVm();
-        await vm.RefreshProgramsCommand.ExecuteAsync();
-        var leaf = Flatten(vm.Hierarchy).First(s => s.Children.Count == 0);
+        await vm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
+        var leaf = Flatten(vm.StepTree.Hierarchy).First(s => s.Children.Count == 0);
         leaf.StatusText = "Fail";
         leaf.KeyValue = "mean=0.1";
-        vm.SelectedStep = null;
-        vm.SelectedStep = leaf;
+        vm.StepTree.SelectedStep = null;
+        vm.StepTree.SelectedStep = leaf;
         vm.OpenSelectedStepDetail();
-        Assert.Equal("Fail", vm.DetailChipText);
-        Assert.Equal("mean=0.1", vm.DetailPrimaryLine);
-        Assert.Equal(leaf.Name, vm.DetailStep?.Name);
+        Assert.Equal("Fail", vm.StepDetail.DetailChipText);
+        Assert.Equal("mean=0.1", vm.StepDetail.DetailPrimaryLine);
+        Assert.Equal(leaf.Name, vm.StepDetail.DetailStep?.Name);
     }
 
     [Fact]
     public async Task Selecting_step_does_not_force_open_collapsed_detail()
     {
         var vm = CreateVm();
-        await vm.RefreshProgramsCommand.ExecuteAsync();
-        var leaves = Flatten(vm.Hierarchy).Where(s => s.Children.Count == 0).Take(2).ToList();
+        await vm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
+        var leaves = Flatten(vm.StepTree.Hierarchy).Where(s => s.Children.Count == 0).Take(2).ToList();
         Assert.True(leaves.Count >= 2);
 
-        vm.SelectedStep = leaves[0];
-        await vm.CloseDetailCommand.ExecuteAsync();
-        Assert.False(vm.ShowDetailRegion);
+        vm.StepTree.SelectedStep = leaves[0];
+        await vm.StepDetail.CloseDetailCommand.ExecuteAsync();
+        Assert.False(vm.StepDetail.ShowDetailRegion);
 
-        vm.SelectedStep = leaves[1];
-        Assert.False(vm.ShowDetailRegion);
-        Assert.Equal(leaves[1].Name, vm.DetailStep?.Name);
+        vm.StepTree.SelectedStep = leaves[1];
+        Assert.False(vm.StepDetail.ShowDetailRegion);
+        Assert.Equal(leaves[1].Name, vm.StepDetail.DetailStep?.Name);
     }
 
     [Fact]
@@ -1167,23 +1167,23 @@ public sealed class RunTestViewModelTests
         var openTap = new FakeOpenTapSession { CompletionResult = RunResult.Failed };
         var vm = CreateVm(openTap);
         vm.UiScheduler = action => action();
-        await vm.RefreshProgramsCommand.ExecuteAsync();
+        await vm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
         await ConfirmReadyAsync(vm, "SN-DETAIL");
-        await vm.RunCommand.ExecuteAsync();
+        await vm.Run.RunCommand.ExecuteAsync();
 
-        var leaf = Flatten(vm.Hierarchy).First(s => s.Children.Count == 0);
-        vm.SelectedStep = leaf;
-        await vm.CloseDetailCommand.ExecuteAsync();
-        Assert.False(vm.ShowDetailRegion);
+        var leaf = Flatten(vm.StepTree.Hierarchy).First(s => s.Children.Count == 0);
+        vm.StepTree.SelectedStep = leaf;
+        await vm.StepDetail.CloseDetailCommand.ExecuteAsync();
+        Assert.False(vm.StepDetail.ShowDetailRegion);
 
         vm.OpenSelectedStepDetail();
-        Assert.True(vm.ShowDetailRegion);
+        Assert.True(vm.StepDetail.ShowDetailRegion);
 
-        await vm.CloseDetailCommand.ExecuteAsync();
-        Assert.False(vm.ShowDetailRegion);
+        await vm.StepDetail.CloseDetailCommand.ExecuteAsync();
+        Assert.False(vm.StepDetail.ShowDetailRegion);
 
-        await vm.NextFailCommand.ExecuteAsync();
-        Assert.True(vm.ShowDetailRegion);
+        await vm.StepTree.NextFailCommand.ExecuteAsync();
+        Assert.True(vm.StepDetail.ShowDetailRegion);
     }
 
     [Fact]
@@ -1201,8 +1201,8 @@ public sealed class RunTestViewModelTests
         });
         await Task.Delay(50);
 
-        Assert.True(vm.IsAwaitingOperator);
-        Assert.Equal("Install fixture", vm.OperatorPromptMessage);
+        Assert.True(vm.Interaction.IsAwaitingOperator);
+        Assert.Equal("Install fixture", vm.Interaction.OperatorPromptMessage);
         Assert.True(string.IsNullOrEmpty(vm.HeroStatusLine));
         Assert.Equal("Awaiting", vm.HeroChipText);
     }
@@ -1212,21 +1212,21 @@ public sealed class RunTestViewModelTests
     {
         var openTap = new FakeOpenTapSession();
         var vm = CreateVm(openTap);
-        await vm.RefreshProgramsCommand.ExecuteAsync();
-        Assert.Equal(1, vm.Programs.Count(p => p.Id == "sample"));
-        Assert.Equal(1, vm.Programs.Count(p => p.Id == "board-demo"));
-        Assert.Equal(1, vm.Programs.Count(p => p.Id == "sweep-demo"));
-        Assert.Equal(ProgramLoadKind.FactorySample, vm.Programs.First(p => p.Id == "sample").LoadKind);
-        Assert.Equal(ProgramLoadKind.FactoryBoardDemo, vm.Programs.First(p => p.Id == "board-demo").LoadKind);
-        Assert.Equal(ProgramLoadKind.FactorySweepDemo, vm.Programs.First(p => p.Id == "sweep-demo").LoadKind);
+        await vm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
+        Assert.Equal(1, vm.ProgramSelection.Programs.Count(p => p.Id == "sample"));
+        Assert.Equal(1, vm.ProgramSelection.Programs.Count(p => p.Id == "board-demo"));
+        Assert.Equal(1, vm.ProgramSelection.Programs.Count(p => p.Id == "sweep-demo"));
+        Assert.Equal(ProgramLoadKind.FactorySample, vm.ProgramSelection.Programs.First(p => p.Id == "sample").LoadKind);
+        Assert.Equal(ProgramLoadKind.FactoryBoardDemo, vm.ProgramSelection.Programs.First(p => p.Id == "board-demo").LoadKind);
+        Assert.Equal(ProgramLoadKind.FactorySweepDemo, vm.ProgramSelection.Programs.First(p => p.Id == "sweep-demo").LoadKind);
     }
 
     [Fact]
     public async Task SessionLogExpanded_defaults_false()
     {
         var vm = CreateVm();
-        await vm.RefreshProgramsCommand.ExecuteAsync();
-        Assert.False(vm.SessionLogExpanded);
+        await vm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
+        Assert.False(vm.StepDetail.SessionLogExpanded);
     }
 
     [Fact]
@@ -1244,16 +1244,16 @@ public sealed class RunTestViewModelTests
 
         var vm = CreateVm(openTap);
         vm.UiScheduler = action => action();
-        await vm.RefreshProgramsCommand.ExecuteAsync();
+        await vm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
 
-        var leaf = Flatten(vm.Hierarchy).First(s => s.Name == "Acquire VDC");
+        var leaf = Flatten(vm.StepTree.Hierarchy).First(s => s.Name == "Acquire VDC");
         Assert.Equal("Pass", leaf.StatusText);
 
-        vm.StepStatusFilter = StepStatusFilter.Fail;
-        Assert.Empty(vm.StepRows);
-        vm.StepStatusFilter = StepStatusFilter.All;
-        Assert.Contains(vm.StepRows, r => r.Name == "Acquire VDC");
-        Assert.Equal(2, vm.SuitePassedCount);
+        vm.StepTree.StepStatusFilter = StepStatusFilter.Fail;
+        Assert.Empty(vm.StepTree.StepRows);
+        vm.StepTree.StepStatusFilter = StepStatusFilter.All;
+        Assert.Contains(vm.StepTree.StepRows, r => r.Name == "Acquire VDC");
+        Assert.Equal(2, vm.StepTree.SuitePassedCount);
 
         var inspect = new HardwareTest.Features.Inspect.InspectViewModel(openTap);
         inspect.Refresh();

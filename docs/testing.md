@@ -37,6 +37,16 @@ Put a rule here only when it is a short, stable layering claim already written i
 2. Drive `RunTestViewModel` / `InspectViewModel` and assert StepRows, rollup chips, filters, or Inspect parity.
 3. For a captured edge case offline: `ReplayRecording(dir, "cassette-name")` then refresh hierarchy/Inspect.
 
+#### Run board child ViewModels (coordinator + owned children)
+
+`RunTestViewModel` is a coordinator that owns one child ViewModel per panel (`StepDetail`, `Interaction`, `SessionPanel`, `ProgramSelection`, `StationOverrides`, `Live`, `StepTree`, `Run`). Children are constructed by the parent — not registered in DI — and receive services plus small `Func`/`Action` callbacks instead of a back-reference to the parent. The run pipeline takes the coordinator through `IRunBoardHost` so a stub can replace it. The UI flush pump (`IngestProgress`, `UiScheduler`, `RunOnUiAsync`) stays on the coordinator, which keeps every child dispatcher-agnostic. Feature files are capped at 600 lines by `ArchitectureRulesTests.Feature_source_files_stay_under_line_budget`; split into another child or a partial rather than raising the cap.
+
+Pick the narrowest suite for what you are asserting:
+
+- **One panel's own behavior** → construct the child directly with fakes/no-op callbacks, as in `RunBoardChildViewModelTests`. No dispatcher and no parent needed.
+- **Cross-panel coordination** (a selection change refreshing detail, hero, plot and overrides together) → build the whole `RunTestViewModel`, set `UiScheduler = action => action()`, and assert through child paths such as `vm.StepTree.SelectedStep` or `vm.StepDetail.DetailChipText`.
+- **AXAML bindings** use the same child paths (`{Binding StepDetail.DetailLines}`), so a test written against the child path matches what the view binds to.
+
 ### Plan behavior (OpenTAP host)
 
 1. Prefer a C# factory in `PlanShapeFixtures` / `SampleProgramFactory` / `BoardDemoProgramFactory` / `SweepDemoProgramFactory` (optionally `SaveBeside` under `plans/opentap/fixtures/`).

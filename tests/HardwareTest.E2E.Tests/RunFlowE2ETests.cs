@@ -10,11 +10,11 @@ public sealed class RunFlowE2ETests
 {
     private static async Task RunToCompletionAsync(RunTestViewModel runVm)
     {
-        var runTask = runVm.RunCommand.ExecuteAsync();
+        var runTask = runVm.Run.RunCommand.ExecuteAsync();
         await E2EHarness.WaitUntilAsync(
             () =>
             {
-                if (runVm.IsAwaitingOperator)
+                if (runVm.Interaction.IsAwaitingOperator)
                 {
                     FillInteractionFieldsIfNeeded(runVm);
                     runVm.ContinueOperatorAttention();
@@ -29,7 +29,7 @@ public sealed class RunFlowE2ETests
 
     private static void FillInteractionFieldsIfNeeded(RunTestViewModel runVm)
     {
-        foreach (var field in runVm.InteractionFields)
+        foreach (var field in runVm.Interaction.InteractionFields)
         {
             if (field.IsBoolean)
             {
@@ -53,10 +53,10 @@ public sealed class RunFlowE2ETests
         main.NavigateToPageId("RunTest");
         var runVm = E2EHarness.RunTestVm(main);
 
-        await runVm.RefreshProgramsCommand.ExecuteAsync();
-        runVm.DutSerialInput = "E2E-SN-1";
-        runVm.OperatorInput = "E2E-Tech";
-        await runVm.ConfirmDutCommand.ExecuteAsync();
+        await runVm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
+        runVm.SessionPanel.DutSerialInput = "E2E-SN-1";
+        runVm.SessionPanel.OperatorInput = "E2E-Tech";
+        await runVm.SessionPanel.ConfirmSessionCommand.ExecuteAsync();
 
         await RunToCompletionAsync(runVm);
 
@@ -73,21 +73,21 @@ public sealed class RunFlowE2ETests
         main.NavigateToPageId("RunTest");
         var runVm = E2EHarness.RunTestVm(main);
 
-        await runVm.RefreshProgramsCommand.ExecuteAsync();
-        runVm.DutSerialInput = "E2E-SN-SEL";
-        runVm.OperatorInput = "E2E-Tech";
-        await runVm.ConfirmDutCommand.ExecuteAsync();
+        await runVm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
+        runVm.SessionPanel.DutSerialInput = "E2E-SN-SEL";
+        runVm.SessionPanel.OperatorInput = "E2E-Tech";
+        await runVm.SessionPanel.ConfirmSessionCommand.ExecuteAsync();
 
-        var leaf = runVm.StepRows.FirstOrDefault()
-            ?? Flatten(runVm.Hierarchy).FirstOrDefault(s => s.Children.Count == 0);
+        var leaf = runVm.StepTree.StepRows.FirstOrDefault()
+            ?? Flatten(runVm.StepTree.Hierarchy).FirstOrDefault(s => s.Children.Count == 0);
         Assert.NotNull(leaf);
-        runVm.SelectedStep = leaf;
+        runVm.StepTree.SelectedStep = leaf;
 
-        var runTask = runVm.RunSelectedCommand.ExecuteAsync();
+        var runTask = runVm.Run.RunSelectedCommand.ExecuteAsync();
         await E2EHarness.WaitUntilAsync(
             () =>
             {
-                if (runVm.IsAwaitingOperator)
+                if (runVm.Interaction.IsAwaitingOperator)
                 {
                     FillInteractionFieldsIfNeeded(runVm);
                     runVm.ContinueOperatorAttention();
@@ -112,7 +112,7 @@ public sealed class RunFlowE2ETests
         var main = E2EHarness.MainVm(window);
         main.NavigateToPageId("RunTest");
         var runVm = E2EHarness.RunTestVm(main);
-        await runVm.RefreshProgramsCommand.ExecuteAsync();
+        await runVm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
 
         main.NavigateToPageId("Inspect");
         Assert.Equal("Inspect", main.SelectedItem?.Id);
@@ -127,7 +127,7 @@ public sealed class RunFlowE2ETests
         var main = E2EHarness.MainVm(window);
         main.NavigateToPageId("RunTest");
         var runVm = E2EHarness.RunTestVm(main);
-        await runVm.RefreshProgramsCommand.ExecuteAsync();
+        await runVm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
 
         main.NavigateToPageId("Inspect");
         main.Inspect.Refresh();
@@ -136,7 +136,7 @@ public sealed class RunFlowE2ETests
         await main.Inspect.OpenOnRunCommand.ExecuteAsync();
 
         Assert.Equal("RunTest", main.SelectedItem?.Id);
-        Assert.Equal(leaf.Path, runVm.SelectedStep?.Path);
+        Assert.Equal(leaf.Path, runVm.StepTree.SelectedStep?.Path);
     }
 
     [AvaloniaFact]
@@ -147,11 +147,11 @@ public sealed class RunFlowE2ETests
         main.NavigateToPageId("RunTest");
         var runVm = E2EHarness.RunTestVm(main);
 
-        await runVm.RefreshProgramsCommand.ExecuteAsync();
-        runVm.SelectedProgram = runVm.Programs.First(p =>
+        await runVm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
+        runVm.ProgramSelection.SelectedProgram = runVm.ProgramSelection.Programs.First(p =>
             string.Equals(p.Path, BoardDemoProgramFactory.EmbeddedName, StringComparison.OrdinalIgnoreCase));
         await E2EHarness.WaitUntilAsync(
-            () => Flatten(runVm.Hierarchy).Any(s => s.Path.Contains("Power Rails", StringComparison.OrdinalIgnoreCase)),
+            () => Flatten(runVm.StepTree.Hierarchy).Any(s => s.Path.Contains("Power Rails", StringComparison.OrdinalIgnoreCase)),
             TimeSpan.FromSeconds(30),
             "Board demo hierarchy did not load.");
 
@@ -182,10 +182,10 @@ public sealed class RunFlowE2ETests
         var main = E2EHarness.MainVm(window);
         var runVm = E2EHarness.RunTestVm(main);
 
-        await runVm.RefreshProgramsCommand.ExecuteAsync();
-        runVm.DutSerialInput = "E2E-SN-2";
-        runVm.OperatorInput = "E2E-Tech";
-        await runVm.ConfirmDutCommand.ExecuteAsync();
+        await runVm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
+        runVm.SessionPanel.DutSerialInput = "E2E-SN-2";
+        runVm.SessionPanel.OperatorInput = "E2E-Tech";
+        await runVm.SessionPanel.ConfirmSessionCommand.ExecuteAsync();
         await RunToCompletionAsync(runVm);
 
         main.NavigateToPageId("Results");
@@ -209,10 +209,10 @@ public sealed class RunFlowE2ETests
         var main = E2EHarness.MainVm(window);
         var runVm = E2EHarness.RunTestVm(main);
 
-        await runVm.RefreshProgramsCommand.ExecuteAsync();
-        runVm.DutSerialInput = "E2E-SN-3";
-        runVm.OperatorInput = "E2E-Tech";
-        await runVm.ConfirmDutCommand.ExecuteAsync();
+        await runVm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
+        runVm.SessionPanel.DutSerialInput = "E2E-SN-3";
+        runVm.SessionPanel.OperatorInput = "E2E-Tech";
+        await runVm.SessionPanel.ConfirmSessionCommand.ExecuteAsync();
         await RunToCompletionAsync(runVm);
         await E2EHarness.WaitUntilAsync(
             () => !string.IsNullOrWhiteSpace(runVm.LastRunId),

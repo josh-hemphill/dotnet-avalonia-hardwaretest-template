@@ -51,7 +51,7 @@ Distinct namespaces on purpose — "Phase C" and "Phase 3" are never the same th
 | 6 | [Crash reporting](platform-phases/phase-6-crash-reporting.md) | 3, 4 | Done |
 | 7 | [Containerized local CI](platform-phases/phase-7-containers-local-ci.md) | 1 | Done |
 | 8 | [Session contract test suite](platform-phases/phase-8-session-contract-tests.md) | 1 | Done |
-| 9 | [Run board decomposition](platform-phases/phase-9-runboard-decomposition.md) | 8 | Not started |
+| 9 | [Run board decomposition](platform-phases/phase-9-runboard-decomposition.md) | 8 | Done |
 
 **Suggested order:** 1 first and alone — nothing else is verifiable until CI actually runs. Then 2 / 7 / 8 can proceed in parallel (independent seams). 3 → 4 → 5 is a chain and should stay one series. 6 lands after 4. 9 last, because it is the largest refactor and wants 8's safety net underneath it.
 

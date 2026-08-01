@@ -3,7 +3,7 @@
 **Parent:** [platform-roadmap.md](../platform-roadmap.md)
 **Depends on:** [Phase 8](phase-8-session-contract-tests.md) (a safety net under the largest refactor in the plan)
 **Unblocks:** further modularization elsewhere, using whatever pattern this phase proves
-**Status:** Not started
+**Status:** Done
 
 ## Goal
 
@@ -72,11 +72,11 @@ Ordered by risk, lowest first, so the pattern is proven on cheap extractions bef
 
 ## Exit criteria
 
-- [ ] No file in `Features/RunTest/` exceeds ~600 lines.
-- [ ] `RunTestViewModel` is a coordinator: composition, events, dispatcher pump.
-- [ ] Each child is constructible and unit-testable without the parent.
-- [ ] No behavior change observable from the E2E suite.
-- [ ] The pattern is written down for use on `ResultsViewModel` and `InstrumentsViewModel` next.
+- [x] No file in `Features/RunTest/` exceeds ~600 lines.
+- [x] `RunTestViewModel` is a coordinator: composition, events, dispatcher pump.
+- [x] Each child is constructible and unit-testable without the parent.
+- [x] No behavior change observable from the E2E suite.
+- [x] The pattern is written down for use on `ResultsViewModel` and `InstrumentsViewModel` next.
 
 ## Out of scope
 

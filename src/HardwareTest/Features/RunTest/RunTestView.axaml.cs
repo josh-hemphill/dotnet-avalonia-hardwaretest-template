@@ -23,13 +23,13 @@ public partial class RunTestView : UserControl
         if (DataContext is RunTestViewModel vm)
         {
             _subscribed = vm;
-            vm.PlotDataChanged += OnPlotDataChanged;
-            vm.RequestScrollToSelectedStep += OnRequestScrollToSelectedStep;
-            vm.RequestFocusStepSearch += OnRequestFocusStepSearch;
-            vm.RequestPlanFilePath = PickPlanFileAsync;
+            vm.Live.PlotDataChanged += OnPlotDataChanged;
+            vm.StepTree.RequestScrollToSelectedStep += OnRequestScrollToSelectedStep;
+            vm.StepTree.RequestFocusStepSearch += OnRequestFocusStepSearch;
+            vm.ProgramSelection.RequestPlanFilePath = PickPlanFileAsync;
             if (Plot is not null)
             {
-                Plot.UpdateData(vm.PlotYs, vm.PlotYsLength, force: true);
+                Plot.UpdateData(vm.Live.PlotYs, vm.Live.PlotYsLength, force: true);
             }
         }
     }
@@ -41,10 +41,10 @@ public partial class RunTestView : UserControl
             return;
         }
 
-        _subscribed.PlotDataChanged -= OnPlotDataChanged;
-        _subscribed.RequestScrollToSelectedStep -= OnRequestScrollToSelectedStep;
-        _subscribed.RequestFocusStepSearch -= OnRequestFocusStepSearch;
-        _subscribed.RequestPlanFilePath = null;
+        _subscribed.Live.PlotDataChanged -= OnPlotDataChanged;
+        _subscribed.StepTree.RequestScrollToSelectedStep -= OnRequestScrollToSelectedStep;
+        _subscribed.StepTree.RequestFocusStepSearch -= OnRequestFocusStepSearch;
+        _subscribed.ProgramSelection.RequestPlanFilePath = null;
         _subscribed = null;
     }
 
@@ -77,11 +77,12 @@ public partial class RunTestView : UserControl
             return;
         }
 
-        var ys = _subscribed.PlotYs;
-        var length = _subscribed.PlotYsLength;
-        var title = _subscribed.PlotTitle;
-        var yLabel = _subscribed.PlotYLabel;
-        var legend = _subscribed.PlotLegendText;
+        var live = _subscribed.Live;
+        var ys = live.PlotYs;
+        var length = live.PlotYsLength;
+        var title = live.PlotTitle;
+        var yLabel = live.PlotYLabel;
+        var legend = live.PlotLegendText;
         if (!Dispatcher.UIThread.CheckAccess())
         {
             Dispatcher.UIThread.Post(() =>
@@ -130,7 +131,7 @@ public partial class RunTestView : UserControl
 
         if (e.Key is Key.Oem2 or Key.Divide)
         {
-            ((ICommand)_subscribed.FocusStepSearchCommand).Execute(null);
+            ((ICommand)_subscribed.StepTree.FocusStepSearchCommand).Execute(null);
             e.Handled = true;
             return;
         }
@@ -142,11 +143,11 @@ public partial class RunTestView : UserControl
 
         if (e.KeyModifiers.HasFlag(KeyModifiers.Shift))
         {
-            ((ICommand)_subscribed.PrevFailCommand).Execute(null);
+            ((ICommand)_subscribed.StepTree.PrevFailCommand).Execute(null);
         }
         else
         {
-            ((ICommand)_subscribed.NextFailCommand).Execute(null);
+            ((ICommand)_subscribed.StepTree.NextFailCommand).Execute(null);
         }
 
         e.Handled = true;
@@ -154,9 +155,9 @@ public partial class RunTestView : UserControl
 
     private void OnStageDoubleTapped(object? sender, TappedEventArgs e)
     {
-        if (_subscribed?.SelectedStage?.Step is { } stage)
+        if (_subscribed?.StepTree.SelectedStage?.Step is { } stage)
         {
-            _subscribed.SelectedStep = stage;
+            _subscribed.StepTree.SelectedStep = stage;
             _subscribed.OpenSelectedStepDetail();
         }
     }

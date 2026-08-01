@@ -25,6 +25,10 @@ public sealed class ArchitectureRulesTests
         "docs/opentap-platform.md#interaction-contract-avalonia-owned — only MainWindow; operator flow stays in-panel.";
     private const string JsonContextRule =
         "Directory.Build.props JsonSerializerIsReflectionEnabledByDefault=false — every disk-persisted type must be in AppJsonContext.";
+    private const string FeatureFileSizeRule =
+        "docs/platform-phases/phase-9-runboard-decomposition.md — feature files stay decomposed; split into a child ViewModel or a partial.";
+
+    private const int MaxFeatureFileLines = 600;
 
     [Fact]
     public void Core_must_not_reference_Avalonia()
@@ -150,6 +154,51 @@ public sealed class ArchitectureRulesTests
         Assert.True(
             missing.Count == 0,
             $"{JsonContextRule} Missing registrations:{Environment.NewLine}{string.Join(Environment.NewLine, missing)}");
+    }
+
+    [Fact]
+    public void Feature_source_files_stay_under_line_budget()
+    {
+        var featuresRoot = Path.Combine(FindRepoRoot(), "src", "HardwareTest", "Features");
+        Assert.True(Directory.Exists(featuresRoot), $"Features root not found at '{featuresRoot}'.");
+
+        var offenders = Directory.EnumerateFiles(featuresRoot, "*.cs", SearchOption.AllDirectories)
+            .Where(path => !IsBuildArtifact(path, featuresRoot))
+            .Select(path => (Path: path, Lines: File.ReadAllLines(path).Length))
+            .Where(file => file.Lines > MaxFeatureFileLines)
+            .OrderByDescending(file => file.Lines)
+            .Select(file => $"{Path.GetRelativePath(featuresRoot, file.Path)} ({file.Lines} lines)")
+            .ToArray();
+
+        Assert.True(
+            offenders.Length == 0,
+            $"{FeatureFileSizeRule} Over {MaxFeatureFileLines} lines:{Environment.NewLine}{string.Join(Environment.NewLine, offenders)}");
+    }
+
+    private static readonly char[] PathSeparators =
+        [Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar];
+
+    private static bool IsBuildArtifact(string path, string root)
+        => Path.GetRelativePath(root, path)
+            .Split(PathSeparators)
+            .Any(segment => segment is "bin" or "obj");
+
+    /// Walks up from the test output directory to the folder holding the solution file.
+    private static string FindRepoRoot()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir is not null)
+        {
+            if (dir.EnumerateFiles("HardwareTest.slnx").Any())
+            {
+                return dir.FullName;
+            }
+
+            dir = dir.Parent;
+        }
+
+        throw new InvalidOperationException(
+            $"Could not locate HardwareTest.slnx above '{AppContext.BaseDirectory}'.");
     }
 
     private static bool IsAvaloniaOrScottPlot(string name)
