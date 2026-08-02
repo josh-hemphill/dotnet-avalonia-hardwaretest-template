@@ -2,7 +2,7 @@
 
 This repo is a working Avalonia + OpenTAP hardware-test shell. Keep the layering (`HardwareTest` UI → `IOpenTapSession` → plugins/plans → `HardwareTest.Core`) and replace the sample product pieces below.
 
-For UI vs OpenTAP test suites, see [testing.md](testing.md). For sealed Linux publish layout, see [appliance-linux.md](appliance-linux.md). For the deeper OpenTAP platform roadmap (Avalonia-owned interactions, parameters, mixins, packages list), see [opentap-platform.md](opentap-platform.md) and [opentap-phases/](opentap-phases/).
+For UI vs OpenTAP test suites, see [testing.md](testing.md). For sealed Linux publish layout, see [appliance-linux.md](appliance-linux.md). For the deeper OpenTAP platform roadmap (Avalonia-owned interactions, parameters, mixins, packages list, multi-DUT), see [opentap-platform.md](opentap-platform.md) and [opentap-phases/](opentap-phases/). Platform hardening (config, crash, storage, operator UX) is [platform-roadmap.md](platform-roadmap.md). Longer-horizon items live under [deferred/](deferred/).
 
 ## 1. Programs (TapPlans + catalog)
 
@@ -57,7 +57,7 @@ For UI vs OpenTAP test suites, see [testing.md](testing.md). For sealed Linux pu
 1. Author a TapPlan in OpenTAP Editor that references your SCPI plugin instrument (property named `VisaAddress` preferred).
 2. Ship the plugin DLL via offline package install or `OpenTapPluginDirectories` (see [appliance-linux.md](appliance-linux.md)). Prefer plugins that implement `IDeviceDiscovery` so **Discover OpenTAP** lists their addresses.
 3. On the bench, open **Instruments**, load the program, pick a discovered VISA or OpenTAP resource (or type one), save the slot override.
-4. On **Run**, `ApplyStationAndDutAsync` writes the override onto the instrument before execute. Full ComponentSettings / bench-profile UI is deferred.
+4. On **Run**, `ApplyStationAndDutAsync` writes the override onto the instrument before execute. Full ComponentSettings / bench-profile UI is deferred — see [deferred-bench-profile-ui.md](deferred/deferred-bench-profile-ui.md).
 
 DUT stamping still looks for Basic `IdentityCheckStep` / `HardwareDut`. Custom DUT steps need a similar host hook or Identity-compatible step.
 
@@ -68,6 +68,14 @@ DUT stamping still looks for Basic `IdentityCheckStep` / `HardwareDut`. Custom D
 - Include `SafeShutdownStep` when using Run Selected (selection keeps it enabled by default; opt out via `selectionIncludesCleanup: false` in `{planId}.program.json`). Disabled siblings may show NotExecuted/Invalidated — that is not cleanup being skipped.
 - Repeat/Sweep loops show innermost `iter i/N` on the Run hero during execute; edit bounds in OpenTAP Editor or Phase C overrides — not in Avalonia.
 - Details and diagnostic tests: [testing.md](testing.md).
+
+### Operator session (DUT confirm / idle)
+
+- Confirm DUT (and operator when `requireOperator` is true) once per session; sticky strip on Run; idle → soft-warn → Stale with Same DUT / Change Session.
+- Idle uses **last operator activity**, not only wall-clock since confirm — reviewing Results / reports between runs should refresh activity ([phase-11-session-activity-stale.md](platform-phases/phase-11-session-activity-stale.md)).
+- **Configurable (Phase 11):** idle window in **minutes** (alias for today’s `OperatorSessionIdleHours`), soft-warn percent, and optional **confirm every run** for high-throughput lines that must re-confirm DUT before each test.
+- Until Phase 11 ships, configure the window via `OperatorSessionIdleHours` (see configuration table below).
+- **Multi-DUT:** near-term [Phase K](opentap-phases/phase-k-multi-dut-parallel.md) adds multiple DUT sessions with one plan at a time (K.1). Today the shell is single-session.
 
 ## 5. Operator interactions (no floating dialogs)
 

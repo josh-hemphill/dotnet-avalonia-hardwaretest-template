@@ -4,14 +4,14 @@ North-star for the **non-OpenTAP** work needed before this shell can be handed t
 
 The [OpenTAP roadmap](opentap-platform.md) tracks *feature* parity with the test-executive. This track covers everything that makes those features **supportable**: knowing what version is running, why a setting has the value it does, what happened when it crashed, and whether a change broke a layering rule.
 
-Related: [adapting.md](adapting.md) (productize), [testing.md](testing.md) (suite separation), [appliance-linux.md](appliance-linux.md) (long-term appliance layout).
+Related: [adapting.md](adapting.md) (productize), [testing.md](testing.md) (suite separation), [appliance-linux.md](appliance-linux.md) (long-term appliance layout), [deferred/](deferred/) (longer-horizon product plans).
 
 ## Two phase tracks
 
 | Track | Folder | Naming | Scope |
 | --- | --- | --- | --- |
-| OpenTAP integration | [opentap-phases/](opentap-phases/) | Letters (A–J) | Interactions, parameters, mixins, packages, presentation |
-| Platform hardening | [platform-phases/](platform-phases/) | Numbers (1–10) | Gates, config, diagnostics, crash, CI, structure, storage |
+| OpenTAP integration | [opentap-phases/](opentap-phases/) | Letters (A–K) | Interactions, parameters, mixins, packages, presentation, multi-DUT |
+| Platform hardening | [platform-phases/](platform-phases/) | Numbers (1–14) | Gates, config, diagnostics, crash, CI, structure, storage, operator UX |
 
 Distinct namespaces on purpose — "Phase C" and "Phase 3" are never the same thing.
 
@@ -53,21 +53,35 @@ Distinct namespaces on purpose — "Phase C" and "Phase 3" are never the same th
 | 8 | [Session contract test suite](platform-phases/phase-8-session-contract-tests.md) | 1 | Done |
 | 9 | [Run board decomposition](platform-phases/phase-9-runboard-decomposition.md) | 8 | Done |
 | 10 | [Export, storage, cleanup, chrome](platform-phases/phase-10-export-storage-chrome.md) | 3, 6, 9 | Done |
+| 11 | [Session activity & stale UX](platform-phases/phase-11-session-activity-stale.md) | 9, 10 | Planned |
+| 12 | [Error surfacing & chrome polish](platform-phases/phase-12-error-surfacing-chrome.md) | 9, 11 | Planned |
+| 13 | [Settings live semantics](platform-phases/phase-13-settings-live-semantics.md) | 3, 10 | Planned |
+| 14 | [Session façade split](platform-phases/phase-14-session-facade-split.md) | 8, 9 | Planned |
 
-**Suggested order:** 1 first and alone — nothing else is verifiable until CI actually runs. Then 2 / 7 / 8 can proceed in parallel (independent seams). 3 → 4 → 5 is a chain and should stay one series. 6 lands after 4. 9 after 8. 10 after 3/6/9 (storage + chrome).
+**Suggested order (1–10):** 1 first and alone — nothing else is verifiable until CI actually runs. Then 2 / 7 / 8 can proceed in parallel (independent seams). 3 → 4 → 5 is a chain and should stay one series. 6 lands after 4. 9 after 8. 10 after 3/6/9 (storage + chrome).
 
-## Deferred (do not implement yet)
+**Suggested order (11–14):** 11 → 12 (session UX then errors/chrome). 13 can parallelize with 11/12. **14 before** OpenTAP [Phase K](opentap-phases/phase-k-multi-dut-parallel.md) (multi-DUT).
 
-- Remote crash/telemetry upload, third-party crash SDKs.
-- A general schema migration engine or data-conversion tooling.
-- Appliance OS integration: systemd units, kiosk session, image bake automation.
-- Auto-update / delivery channel.
-- Localization / multi-language operator UI.
+## Deferred (detailed plans — do not implement yet)
+
+Longer-horizon product work lives under [`docs/deferred/`](deferred/). Each file has Goal, Locked decisions, Workstreams, Exit criteria, and Out of scope.
+
+| Plan | Topic |
+| --- | --- |
+| [Run comparison](deferred/deferred-run-comparison.md) | Replace `StubRunComparisonService` |
+| [Appliance kiosk](deferred/deferred-appliance-kiosk.md) | systemd / kiosk / image bake |
+| [Package feed install](deferred/deferred-package-feed-install.md) | In-app OpenTAP feed install |
+| [Bench profile UI](deferred/deferred-bench-profile-ui.md) | Full ComponentSettings / bench-profile editor |
+| [Schema migration](deferred/deferred-schema-migration.md) | General schema migration engine |
+| [Remote crash upload](deferred/deferred-remote-crash-upload.md) | Additive uploader on local dossiers |
+| [Localization](deferred/deferred-localization.md) | Multi-language operator UI |
+| [Auto-update](deferred/deferred-auto-update.md) | Delivery / update channel |
+| [Clock discipline](deferred/deferred-clock-discipline.md) | NTP / skew detection for run history |
 
 ## Known gaps
 
-Real, acknowledged, and deliberately unscheduled. Revisit before the first unattended deployment.
+Real, acknowledged, and deliberately unscheduled (or scheduled as phases above). Revisit before the first unattended deployment.
 
-- **No clock discipline.** Timestamps are `DateTimeOffset.UtcNow` with no NTP sync or skew detection — a bench with a drifted RTC produces misordered run history.
-- **`IOpenTapSession` is a 29-member god interface.** Phase 8 pins its behavior; splitting it is a later decision.
-- **Real vendor VISA paths are untested.** [`IviVisaResourceDiscovery`](../src/HardwareTest.Core/Hardware/VisaResourceDiscovery.cs) swallows every exception into an empty list with no log line.
+- **No clock discipline.** Timestamps are `DateTimeOffset.UtcNow` with no NTP sync or skew detection — see [deferred-clock-discipline.md](deferred/deferred-clock-discipline.md).
+- **`IOpenTapSession` is a fat façade.** Phase 8 pins its behavior; splitting is [Phase 14](platform-phases/phase-14-session-facade-split.md) (unblocks multi-DUT).
+- **Vendor VISA in CI is still unproven.** Discovery now surfaces failures (no silent empty list); real IVI runtimes remain outside the default CI matrix.

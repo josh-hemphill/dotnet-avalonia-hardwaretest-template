@@ -4,14 +4,14 @@ North-star for deepening OpenTAP integration in this Avalonia hardware-test temp
 
 Related: [adapting.md](adapting.md) (productize), [testing.md](testing.md) (UI vs host tests), [appliance-linux.md](appliance-linux.md) (publish layout).
 
-**Sibling track:** [platform-roadmap.md](platform-roadmap.md) covers the non-OpenTAP hardening work (repo gates, configuration, diagnostics, crash capture, containerized CI, code structure). OpenTAP phases use **letters**; platform phases use **numbers** — "Phase C" and "Phase 3" are never the same thing.
+**Sibling track:** [platform-roadmap.md](platform-roadmap.md) covers the non-OpenTAP hardening work (repo gates, configuration, diagnostics, crash capture, containerized CI, code structure, operator UX). OpenTAP phases use **letters (A–K)**; platform phases use **numbers (1–14)** — "Phase C" and "Phase 3" are never the same thing.
 
 ## Locked product decisions
 
 | Topic | Decision |
 | --- | --- |
 | Packages | In-app **list** of installed packages + plugin dirs; install/update is **offline** (CLI / image bake). No feed browser. |
-| Multi-DUT / Parallel | **Deferred** — document only; single DUT + single plan for now. |
+| Multi-DUT / Parallel | **Near-term — [Phase K](opentap-phases/phase-k-multi-dut-parallel.md).** K.1 = multiple operator DUT sessions, one plan at a time. Parallel plan execution is K.2. Depends on platform [Phase 14](platform-phases/phase-14-session-facade-split.md). |
 | Dialogs / inputs / parameters | **Avalonia owns** all operator UI. No OpenTAP floating windows or OS modals on the bench. |
 | Mixins | In scope — load, inspect, edit mixin-backed settings; custom mixins for complex cases. |
 | Delivery | Architecture doc (this file) + [incremental phase plans](opentap-phases/) — implement one phase per PR series. |
@@ -115,7 +115,7 @@ Two different concepts (do not conflate):
 - Device column has two sections: **VISA** (IVI Find / mock) and **OpenTAP** (`IDeviceDiscovery` for `VisaAddress` via [`OpenTapDeviceDiscovery`](../src/HardwareTest.OpenTap.Host/OpenTapDeviceDiscovery.cs)). Apply uses whichever list is selected. Rows show parsed interface hints; **Query *IDN?** is opt-in confirmation (opens the resource briefly).
 - Host bind order: **`VisaAddress` → `ResourceName` → `Address`** ([`InstrumentResourceAccess`](../src/HardwareTest.OpenTap.Host/InstrumentResourceAccess.cs)). Sample `MockDmmInstrument` exposes both `VisaAddress` and `ResourceName` on one backing field.
 - Host does **not** Open/Close instruments around runs — OpenTAP opens them during plan execution (avoids double-open).
-- Full ComponentSettings / bench-profile editor remains deferred; SCPI adopter path: [adapting.md](adapting.md#3-station-bindings-instruments).
+- Full ComponentSettings / bench-profile editor remains deferred ([deferred-bench-profile-ui.md](deferred/deferred-bench-profile-ui.md)); SCPI adopter path: [adapting.md](adapting.md#3-station-bindings-instruments).
 
 ## Sweep / loop progress
 
@@ -123,13 +123,18 @@ Two different concepts (do not conflate):
 - Sweep bounds stay in OpenTAP Editor / Phase C station overrides — Avalonia does not edit sweep tables.
 - Nested loops: only the innermost active loop is shown.
 
-## Deferred (do not implement yet)
+## Deferred (detailed plans — do not implement yet)
 
-- Parallel steps / multi-DUT.
-- In-app package feed install/update.
-- Native OpenTAP dialog windows.
-- Remote Agent / REST execution.
-- Full ComponentSettings editor clone.
+Longer-horizon OpenTAP / product work. Prefer the detailed plans under [`docs/deferred/`](deferred/) over one-line bullets.
+
+| Plan | Topic |
+| --- | --- |
+| [Package feed install](deferred/deferred-package-feed-install.md) | In-app OpenTAP feed install/update (today list-only) |
+| [Bench profile UI](deferred/deferred-bench-profile-ui.md) | Full ComponentSettings / bench-profile editor |
+| — | Native OpenTAP dialog windows (**forbidden** on appliance; do not schedule) |
+| — | Remote Agent / REST execution (out of shell scope for now) |
+
+Multi-DUT / parallel is **no longer deferred** — see Phase K below.
 
 ## Phase checklist
 
@@ -145,12 +150,13 @@ Two different concepts (do not conflate):
 | H | [Result export](opentap-phases/phase-h-results-export.md) | Done |
 | I | [Presentation contract](opentap-phases/phase-i-presentation-contract.md) | Done |
 | J | [Presentation UI](opentap-phases/phase-j-presentation-ui.md) | Done |
+| K | [Multi-DUT / parallel](opentap-phases/phase-k-multi-dut-parallel.md) | Planned (after platform Phase 14) |
 
-**Suggested order:** A → B → C → D; E can parallelize after the doc; F after C; G/H after parameters stabilize; I → J after loop-stamped samples / DUT history.
+**Suggested order:** A → B → C → D; E can parallelize after the doc; F after C; G/H after parameters stabilize; I → J after loop-stamped samples / DUT history. **K after** platform [Phase 14](platform-phases/phase-14-session-facade-split.md).
 
 ## Cross-cutting rules (every phase)
 
-- Extend `IOpenTapSession` carefully; keep Fake + `OpenTapSerial` host tests in sync.
+- Extend `IOpenTapSession` carefully; keep Fake + `OpenTapSerial` host tests in sync. Prefer façade split (platform Phase 14) over growing the god interface further.
 - Appliance/headless: **zero** new Window/dialog dependencies for operator flow.
 - Update [testing.md](testing.md) when adding interaction/parameter cassettes.
 - Check off the phase row in this doc when the incremental plan ships.
