@@ -4,7 +4,7 @@
              xmlns:run="using:HardwareTest.Features.RunTest"
              x:Class="HardwareTest.Features.Inspect.InspectView"
              x:DataType="vm:InspectViewModel">
-  <Grid RowDefinitions="Auto,*" RowSpacing="8">
+  <Grid RowDefinitions="Auto,Auto,*" RowSpacing="8">
     <StackPanel Orientation="Horizontal" Spacing="8">
       <TextBlock Text="Inspect plan" FontWeight="SemiBold" FontSize="16" VerticalAlignment="Center" />
       <Button Content="Refresh" Command="{Binding RefreshCommand}" />
@@ -12,9 +12,26 @@
       <TextBlock Text="{Binding Status}" VerticalAlignment="Center" Opacity="0.85" TextWrapping="Wrap" />
     </StackPanel>
 
-    <TreeView Grid.Row="1"
+    <!-- Empty state: no plan loaded -->
+    <Border Grid.Row="1"
+            Padding="12,10"
+            CornerRadius="6"
+            Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
+            IsVisible="{Binding !HasPlan}">
+      <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+        <TextBlock Text="No plan loaded — select a program on the Run page first."
+                   VerticalAlignment="Center"
+                   Opacity="0.85" />
+        <Button Content="Go to Run"
+                Command="{Binding NavigateToRunCommand}"
+                VerticalAlignment="Center" />
+      </StackPanel>
+    </Border>
+
+    <TreeView Grid.Row="2"
               ItemsSource="{Binding Hierarchy}"
-              SelectedItem="{Binding SelectedStep}">
+              SelectedItem="{Binding SelectedStep}"
+              IsVisible="{Binding HasPlan}">
       <TreeView.ItemTemplate>
         <TreeDataTemplate ItemsSource="{Binding Children}" DataType="run:HierarchyStepViewModel">
           <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">

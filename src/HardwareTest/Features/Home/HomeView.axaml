@@ -49,10 +49,13 @@
                 BorderBrush="{DynamicResource SystemControlForegroundBaseMediumBrush}"
                 BorderThickness="1"
                 Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}">
-          <StackPanel Spacing="8">
+          <StackPanel Spacing="12">
             <TextBlock Text="Getting started" FontSize="18" FontWeight="SemiBold" />
             <TextBlock TextWrapping="Wrap"
                        Text="Open Run, confirm the DUT serial, pick the sample OpenTAP program, and start. Identity check and voltage sweep run under OpenTAP with mock instruments by default." />
+            <Button Content="Open Run →"
+                    Command="{Binding NavigateToRunCommand}"
+                    HorizontalAlignment="Left" />
           </StackPanel>
         </Border>
 
@@ -62,10 +65,13 @@
                 BorderBrush="{DynamicResource SystemControlForegroundBaseMediumBrush}"
                 BorderThickness="1"
                 Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}">
-          <StackPanel Spacing="8">
+          <StackPanel Spacing="12">
             <TextBlock Text="Programs &amp; instruments" FontSize="18" FontWeight="SemiBold" />
             <TextBlock TextWrapping="Wrap"
                        Text="Locked OpenTAP .TapPlan programs ship under Programs/. Use Instruments to discover VISA resources and bind station roles for the bench." />
+            <Button Content="Open Instruments →"
+                    Command="{Binding NavigateToInstrumentsCommand}"
+                    HorizontalAlignment="Left" />
           </StackPanel>
         </Border>
 
@@ -75,10 +81,13 @@
                 BorderBrush="{DynamicResource SystemControlForegroundBaseMediumBrush}"
                 BorderThickness="1"
                 Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}">
-          <StackPanel Spacing="8">
+          <StackPanel Spacing="12">
             <TextBlock Text="Reports" FontSize="18" FontWeight="SemiBold" />
             <TextBlock TextWrapping="Wrap"
                        Text="Passed and failed runs write Typst PDFs. Enable embed plots in Settings to include channel charts from run Samples." />
+            <Button Content="Open Results →"
+                    Command="{Binding NavigateToResultsCommand}"
+                    HorizontalAlignment="Left" />
           </StackPanel>
         </Border>
       </UniformGrid>

@@ -7,7 +7,7 @@
              x:Class="HardwareTest.Features.RunTest.RunTestView"
              x:DataType="vm:RunTestViewModel"
              KeyDown="OnKeyDown">
-  <Grid ColumnDefinitions="*,200" ColumnSpacing="12" RowDefinitions="Auto,Auto,Auto,*">
+  <Grid ColumnDefinitions="*,200" ColumnSpacing="12" RowDefinitions="Auto,Auto,Auto,Auto,*">
     <Border Grid.ColumnSpan="2"
             Padding="10,8"
             Margin="0,0,0,8"
@@ -26,7 +26,35 @@
       </Grid>
     </Border>
 
+    <!-- Sticky error/warning/info banner from the run pipeline -->
     <Border Grid.Row="1"
+            Grid.ColumnSpan="2"
+            Padding="10,8"
+            Margin="0,0,0,6"
+            CornerRadius="6"
+            IsVisible="{Binding HasBanner}"
+            Background="{Binding BannerSeverity, Converter={x:Static vm:BannerBrushConverter.Background}}"
+            BorderBrush="{Binding BannerSeverity, Converter={x:Static vm:BannerBrushConverter.Border}}"
+            BorderThickness="1">
+      <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+        <TextBlock Grid.Column="0"
+                   Text="{Binding BannerSeverity, Converter={x:Static vm:BannerBrushConverter.Icon}}"
+                   FontSize="14"
+                   FontWeight="Bold"
+                   VerticalAlignment="Center" />
+        <TextBlock Grid.Column="1"
+                   Text="{Binding BannerMessage}"
+                   TextWrapping="Wrap"
+                   VerticalAlignment="Center"
+                   FontWeight="SemiBold" />
+        <Button Grid.Column="2"
+                Content="Dismiss"
+                Command="{Binding DismissBannerCommand}"
+                VerticalAlignment="Center" />
+      </Grid>
+    </Border>
+
+    <Border Grid.Row="2"
             Grid.ColumnSpan="2"
             Padding="10,8"
             Margin="0,0,0,8"
@@ -52,16 +80,17 @@
         </StackPanel>
         <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
           <Button Content="Run" Command="{Binding Run.RunCommand}"
-                  IsEnabled="{Binding !SessionPanel.SessionBlocked}" />
+                  IsEnabled="{Binding CanStartRun}"
+                  ToolTip.Tip="Run the full suite" />
           <Button Content="Safety Stop" Command="{Binding Run.CancelCommand}"
                   Classes="danger"
-                  ToolTip.Tip="Abort the run and perform safe shutdown" />
+                  ToolTip.Tip="Abort the run (also cancels an in-panel operator prompt). Prefer Continue when answering a prompt." />
           <Button Content="Inspect" Command="{Binding InspectPlanCommand}" />
         </StackPanel>
       </Grid>
     </Border>
 
-    <ProgressBar Grid.Row="2"
+    <ProgressBar Grid.Row="3"
                  Grid.ColumnSpan="2"
                  Value="{Binding OverallPercent}"
                  Minimum="0"
@@ -70,7 +99,7 @@
                  Margin="0,0,0,4"
                  HorizontalAlignment="Stretch" />
 
-    <Grid Grid.Row="3" Grid.Column="0" RowDefinitions="Auto,Auto,Auto,Auto,*,Auto,Auto" RowSpacing="0">
+    <Grid Grid.Row="4" Grid.Column="0" RowDefinitions="Auto,Auto,Auto,Auto,*,Auto,Auto" RowSpacing="0">
       <Border Padding="8,6"
               Margin="0,0,0,4"
               CornerRadius="6"
@@ -229,7 +258,8 @@
                       Command="{Binding ContinueOperatorCommand}"
                       Classes="success"
                       HorizontalAlignment="Left"
-                      MinWidth="120" />
+                      MinWidth="120"
+                      ToolTip.Tip="Submit the interaction response and continue the run" />
             </StackPanel>
           </Border>
         </StackPanel>
@@ -237,7 +267,7 @@
 
       <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="8" Margin="0,2,0,8">
         <Button Content="Run Selected" Command="{Binding Run.RunSelectedCommand}"
-                IsEnabled="{Binding !SessionPanel.SessionBlocked}"
+                IsEnabled="{Binding CanStartRun}"
                 ToolTip.Tip="Run the selected leaf or section (subtree + Safe Shutdown). Use Run for the full suite." />
         <Button Content="Prev fail" Command="{Binding StepTree.PrevFailCommand}" />
         <Button Content="Next fail" Command="{Binding StepTree.NextFailCommand}" />
@@ -276,6 +306,27 @@
                         Classes="filter-chip"
                         Margin="4,0,0,0"
                         ToolTip.Tip="Tighter step-list row spacing" />
+          <!-- Auto-filter status chip: shown after suite Fail auto-filters the list -->
+          <Border CornerRadius="4"
+                  Padding="8,2"
+                  Background="#4A1010"
+                  BorderBrush="#D32F2F"
+                  BorderThickness="1"
+                  VerticalAlignment="Center"
+                  IsVisible="{Binding StepTree.IsFilteredToFail}">
+            <StackPanel Orientation="Horizontal" Spacing="6">
+              <TextBlock Text="Showing Fail only"
+                         FontSize="11"
+                         FontWeight="SemiBold"
+                         VerticalAlignment="Center" />
+              <Button Content="Clear"
+                      Command="{Binding StepTree.ClearFailFilterCommand}"
+                      FontSize="10"
+                      Padding="6,1"
+                      VerticalAlignment="Center"
+                      ToolTip.Tip="Clear fail filter — show all steps" />
+            </StackPanel>
+          </Border>
           <TextBox x:Name="StepSearchBox"
                    PlaceholderText="Search steps…"
                    Text="{Binding StepTree.StepSearchText}"
@@ -478,7 +529,7 @@
       </ScrollViewer>
     </Grid>
 
-    <DockPanel Grid.Row="3" Grid.Column="1">
+    <DockPanel Grid.Row="4" Grid.Column="1">
       <StackPanel DockPanel.Dock="Top" Spacing="6" Margin="0,0,0,10">
         <TextBlock Text="Suite"
                    Opacity="0.65"

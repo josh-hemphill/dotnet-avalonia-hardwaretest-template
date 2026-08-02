@@ -47,6 +47,12 @@ public partial class ReportPreviewViewModel : ReactiveObject
     {
         _operatorSession?.TouchActivity();
         PdfPath = path;
+        // Dispose any previously rendered bitmaps before clearing the collection to avoid leaks.
+        foreach (var bitmap in Pages)
+        {
+            bitmap.Dispose();
+        }
+
         Pages.Clear();
         if (!File.Exists(path))
         {

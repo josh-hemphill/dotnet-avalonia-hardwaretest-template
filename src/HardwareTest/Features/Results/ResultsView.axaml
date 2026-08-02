@@ -42,6 +42,25 @@
           <TextBlock Grid.Column="5" Text="Started" FontWeight="SemiBold" />
         </Grid>
       </StackPanel>
+
+      <!-- Empty state: no runs yet -->
+      <Border DockPanel.Dock="Top"
+              Padding="12,10"
+              CornerRadius="6"
+              Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
+              IsVisible="{Binding !HasRuns}"
+              Margin="0,0,0,8">
+        <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+          <TextBlock Text="No runs yet — confirm a DUT and run a program on the Run page to see results here."
+                     VerticalAlignment="Center"
+                     Opacity="0.85"
+                     TextWrapping="Wrap" />
+          <Button Content="Go to Run"
+                  Command="{Binding NavigateToRunCommand}"
+                  VerticalAlignment="Center" />
+        </StackPanel>
+      </Border>
+
       <ListBox ItemsSource="{Binding Runs}"
                SelectedItem="{Binding SelectedRun}"
                DoubleTapped="OnRunsDoubleTapped"

@@ -164,6 +164,8 @@ public sealed class RunExecutionViewModel
         _stepDetail.DetailLines.Clear();
         _interaction.Clear();
         _host.OverallPercent = 0;
+        _host.HasBanner = false;
+        _host.BannerMessage = string.Empty;
         _host.IterationText = string.Empty;
         var cts = new CancellationTokenSource();
         _runControl.AttachRun(cts);
@@ -175,6 +177,7 @@ public sealed class RunExecutionViewModel
         catch (Exception ex)
         {
             _host.Status = $"Error: {ex.Message}";
+            _host.SetBanner(RunBannerSeverity.Error, $"Run error: {ex.Message}");
         }
         finally
         {
@@ -183,7 +186,7 @@ public sealed class RunExecutionViewModel
             _interaction.IsAwaitingOperator = false;
             _interaction.OperatorPromptMessage = null;
             _interaction.Clear();
-            _host.OverallPercent = 100;
+            _host.OverallPercent = 0;
             cts.Dispose();
             _sessionPanel.RefreshSessionSummary();
             _host.RefreshHero();
@@ -218,7 +221,10 @@ public sealed class RunExecutionViewModel
             .ToList();
         if (unbound.Count > 0)
         {
-            _host.Status = $"Bind unbound instrument slots on Instruments page: {string.Join(", ", unbound)}";
+            var msg = $"Bind unbound instrument slots on Instruments page: {string.Join(", ", unbound)}";
+            _host.Status = msg;
+            _host.SetBanner(RunBannerSeverity.Error, msg);
+            _host.OverallPercent = 0;
             return;
         }
 
@@ -248,8 +254,11 @@ public sealed class RunExecutionViewModel
                 .ToList();
             if (mockSlots.Count > 0)
             {
-                _host.Status =
+                var msg =
                     $"Mock instruments/resources blocked while Use mock VISA is off. Bind real addresses on Instruments for: {string.Join(", ", mockSlots)}";
+                _host.Status = msg;
+                _host.SetBanner(RunBannerSeverity.Error, msg);
+                _host.OverallPercent = 0;
                 return;
             }
         }
