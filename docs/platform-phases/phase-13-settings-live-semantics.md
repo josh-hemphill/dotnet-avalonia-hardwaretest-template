@@ -32,8 +32,8 @@ Close the gap where Settings toggles look live but **VISA mock/real wiring is fr
 ### B — Unsafe change UX
 
 - If Run is active or VISA sessions are gated busy: reject applying UseMockVisa flip; Status explains "finish or safety-stop the run, then save again" (or "restart required").
-- Settings checkbox / effective-mode readout reflects **effective** mode when rebuild was refused.
-- Align tooltip + Status strings with the actual apply path (rebuild vs refuse vs restart-only).
+- Settings checkbox reflects effective mode (reverts on refuse). Tooltip documents live apply vs refuse — never "requires restart" for UseMockVisa.
+- Align tooltip + Status strings with the actual apply path (rebuild vs refuse). Logging-sink Status may still note restart.
 
 ### C — Tests
 

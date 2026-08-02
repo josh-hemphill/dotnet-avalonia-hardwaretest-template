@@ -45,7 +45,8 @@ public partial class SettingsViewModel : ReactiveObject
         _visaModeController = visaModeController;
         _buildInfo = buildInfo ?? BuildInfo.FromAssembly(typeof(SettingsViewModel).Assembly);
         var s = settingsStore.AppSettings;
-        UseMockVisa = s.UseMockVisa;
+        // Prefer the live factory mode so the checkbox never claims a mode the DI façade is not using.
+        UseMockVisa = visaModeController?.EffectiveUseMockVisa ?? s.UseMockVisa;
         LogMinimumLevel = NormalizeLogLevel(s.LogMinimumLevel);
         EnableOsEventSink = s.EnableOsEventSink;
         EnableSyslogOnUnix = s.EnableSyslogOnUnix;

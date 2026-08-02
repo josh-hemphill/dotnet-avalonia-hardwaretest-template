@@ -31,7 +31,7 @@
           <TextBlock Text="Use mock VISA" VerticalAlignment="Center" />
           <CheckBox Grid.Column="1" IsChecked="{Binding UseMockVisa}"
                     IsEnabled="{Binding !UseMockVisaReadOnly}"
-                    ToolTip.Tip="Requires app restart. When off, demo MOCK:: resources cannot run." />
+                    ToolTip.Tip="Applies immediately when idle (no active run or open VISA session). Refused flips revert this checkbox. When off, demo MOCK:: resources cannot run." />
         </Grid>
 
         <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
