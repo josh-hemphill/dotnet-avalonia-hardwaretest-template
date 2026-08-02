@@ -29,14 +29,15 @@ public static class CoreServiceCollectionExtensions
         services.AddSingleton<IRunComparisonService, StubRunComparisonService>();
         services.AddSingleton<IDutHistoryService>(sp =>
             new DutHistoryService(sp.GetRequiredService<IRunStore>()));
-        services.AddSingleton<IVisaSessionFactory>(sp =>
-            new ConfigurableVisaSessionFactory(
+        services.AddSingleton<VisaModeController>(sp =>
+            new VisaModeController(
                 settingsStore.AppSettings.UseMockVisa,
-                sp.GetRequiredService<VisaSessionGate>()));
-        services.AddSingleton<IVisaResourceDiscovery>(_ =>
-            new ConfigurableVisaResourceDiscovery(
-                settingsStore.AppSettings.UseMockVisa,
+                sp.GetRequiredService<VisaSessionGate>(),
+                sp.GetRequiredService<IRunControl>(),
                 message => Log.Warning("{Message}", message)));
+        services.AddSingleton<IVisaModeController>(sp => sp.GetRequiredService<VisaModeController>());
+        services.AddSingleton<IVisaSessionFactory>(sp => sp.GetRequiredService<VisaModeController>());
+        services.AddSingleton<IVisaResourceDiscovery>(sp => sp.GetRequiredService<VisaModeController>());
         services.AddSingleton<IReportService>(sp =>
             new TypstReportService(
                 sp.GetRequiredService<IRunStore>(),

@@ -4,6 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using HardwareTest.Core.Diagnostics;
 using HardwareTest.Core.Engine;
+using HardwareTest.Core.Hardware;
 using HardwareTest.Core.Reporting;
 using HardwareTest.Core.Runs;
 using HardwareTest.Core.Settings;
@@ -35,7 +36,8 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
         ISettingsStore? settingsStore = null,
         IDutHistoryService? dutHistory = null,
         BuildInfo? buildInfo = null,
-        IStorageHealthService? storageHealth = null)
+        IStorageHealthService? storageHealth = null,
+        IVisaModeController? visaModeController = null)
     {
         _openTap = openTap;
         _session = session;
@@ -103,7 +105,8 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
             StepDetail,
             Interaction,
             Live,
-            storageHealth);
+            storageHealth,
+            visaModeController);
 
         ContinueOperatorCommand = ReactiveCommand.Create(ContinueOperator);
         OpenLastRunResultsCommand = ReactiveCommand.Create(

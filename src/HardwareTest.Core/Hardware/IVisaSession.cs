@@ -92,6 +92,9 @@ public sealed class VisaSessionGate
         }
     }
 
+    /// True when a VISA session is actively holding the gate.
+    public bool IsBusy => _gate.CurrentCount == 0;
+
     private async Task EnterAsync(CancellationToken cancellationToken)
     {
         if (_critical.Value)

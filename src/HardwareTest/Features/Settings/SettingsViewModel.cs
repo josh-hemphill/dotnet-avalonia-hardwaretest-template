@@ -7,6 +7,7 @@ using System.Runtime.Versioning;
 using System.Text;
 using System.Threading.Tasks;
 using HardwareTest.Core.Diagnostics;
+using HardwareTest.Core.Hardware;
 using HardwareTest.Core.Settings;
 using HardwareTest.OpenTap.Host;
 using ReactiveUI;
@@ -28,17 +29,20 @@ public partial class SettingsViewModel : ReactiveObject
     private readonly IOpenTapSession _openTap;
     private readonly BuildInfo _buildInfo;
     private readonly OperatorSession? _operatorSession;
+    private readonly IVisaModeController? _visaModeController;
     private readonly System.Timers.Timer _debounce;
 
     public SettingsViewModel(
         ISettingsStore settingsStore,
         IOpenTapSession openTap,
         BuildInfo? buildInfo = null,
-        OperatorSession? operatorSession = null)
+        OperatorSession? operatorSession = null,
+        IVisaModeController? visaModeController = null)
     {
         _settingsStore = settingsStore;
         _openTap = openTap;
         _operatorSession = operatorSession;
+        _visaModeController = visaModeController;
         _buildInfo = buildInfo ?? BuildInfo.FromAssembly(typeof(SettingsViewModel).Assembly);
         var s = settingsStore.AppSettings;
         UseMockVisa = s.UseMockVisa;
@@ -404,9 +408,30 @@ public partial class SettingsViewModel : ReactiveObject
     {
         _operatorSession?.TouchActivity();
         var s = _settingsStore.AppSettings;
+        string? visaApplyStatus = null;
+        var visaRefused = false;
         if (!UseMockVisaReadOnly)
         {
-            s.UseMockVisa = UseMockVisa;
+            if (_visaModeController is not null && UseMockVisa != _visaModeController.EffectiveUseMockVisa)
+            {
+                if (_visaModeController.TryApply(UseMockVisa, out var applyMsg))
+                {
+                    visaApplyStatus = applyMsg;
+                    s.UseMockVisa = UseMockVisa;
+                }
+                else
+                {
+                    visaRefused = true;
+                    visaApplyStatus = applyMsg;
+                    var effective = _visaModeController.EffectiveUseMockVisa;
+                    s.UseMockVisa = effective;
+                    UseMockVisa = effective;
+                }
+            }
+            else
+            {
+                s.UseMockVisa = UseMockVisa;
+            }
         }
 
         if (!LogMinimumLevelReadOnly)
@@ -516,7 +541,18 @@ public partial class SettingsViewModel : ReactiveObject
             return;
         }
 
-        Status = $"Saved at {DateTimeOffset.Now:T}. Restart may be required for logging sink / mock VISA changes.";
+        if (visaRefused && visaApplyStatus is not null)
+        {
+            Status = visaApplyStatus;
+        }
+        else if (visaApplyStatus is not null)
+        {
+            Status = $"Saved at {DateTimeOffset.Now:T}. {visaApplyStatus}";
+        }
+        else
+        {
+            Status = $"Saved at {DateTimeOffset.Now:T}. Restart may be required for logging sink changes.";
+        }
     }
 
     private static double BytesToGb(long bytes)

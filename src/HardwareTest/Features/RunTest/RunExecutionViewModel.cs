@@ -38,6 +38,7 @@ public sealed class RunExecutionViewModel
     private readonly InteractionHostViewModel _interaction;
     private readonly LivePresentationViewModel _live;
     private readonly IStorageHealthService? _storageHealth;
+    private readonly IVisaModeController? _visaModeController;
 
     private readonly Dictionary<string, StepAttemptSummary> _attemptLedger =
         new(StringComparer.OrdinalIgnoreCase);
@@ -60,7 +61,8 @@ public sealed class RunExecutionViewModel
         StepDetailViewModel stepDetail,
         InteractionHostViewModel interaction,
         LivePresentationViewModel live,
-        IStorageHealthService? storageHealth = null)
+        IStorageHealthService? storageHealth = null,
+        IVisaModeController? visaModeController = null)
     {
         _host = host;
         _openTap = openTap;
@@ -80,6 +82,7 @@ public sealed class RunExecutionViewModel
         _interaction = interaction;
         _live = live;
         _storageHealth = storageHealth;
+        _visaModeController = visaModeController;
 
         RunCommand = ReactiveCommand.CreateFromTask(() => ExecuteRunAsync(selectionOnly: false));
         RunSelectedCommand = ReactiveCommand.CreateFromTask(() => ExecuteRunAsync(selectionOnly: true));
@@ -228,7 +231,8 @@ public sealed class RunExecutionViewModel
             return;
         }
 
-        if (!_settings.UseMockVisa)
+        var effectiveMock = _visaModeController?.EffectiveUseMockVisa ?? _settings.UseMockVisa;
+        if (!effectiveMock)
         {
             var mockSlots = _openTap.InstrumentSlots
                 .Select(s =>

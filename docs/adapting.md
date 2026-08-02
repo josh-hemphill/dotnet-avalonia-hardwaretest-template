@@ -46,7 +46,7 @@ For UI vs OpenTAP test suites, see [testing.md](testing.md). For sealed Linux pu
 
 1. Load programs → OpenTAP slots appear on Instruments.
 2. Discover resources from either column, then set per-plan slot overrides (`PlanSlotOverrides` in settings):
-   - **VISA** — IVI `GlobalResourceManager.Find` (or mock catalog when `UseMockVisa`), with parsed interface hints (USB/TCPIP/…).
+   - **VISA** — IVI `GlobalResourceManager.Find` (or mock catalog when `UseMockVisa`), with parsed interface hints (USB/TCPIP/…). Toggling `UseMockVisa` in Settings takes effect immediately (no restart required) when no run is active and no VISA sessions are open; refused flips revert the checkbox to the current effective mode.
    - **OpenTAP** — `IDeviceDiscovery` plugins for `VisaAddress` (`IOpenTapSession.ListDiscoveredDeviceAddresses`).
    - **Query *IDN?** — opt-in; opens the selected address briefly to confirm manufacturer/model/serial. Not run on Discover.
 3. Slots are discovered from any OpenTAP `Instrument` referenced by step properties. Resource strings prefer **`VisaAddress`**, then `ResourceName`, then `Address` ([`InstrumentResourceAccess`](../src/HardwareTest.OpenTap.Host/InstrumentResourceAccess.cs)). Instruments without a writable resource property will show on the page but cannot be rebound from the UI.

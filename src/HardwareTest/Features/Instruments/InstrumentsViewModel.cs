@@ -1,3 +1,4 @@
+using System;
 using System.Collections.ObjectModel;
 using System.Threading;
 using System.Threading.Tasks;
@@ -162,6 +163,7 @@ public partial class InstrumentsViewModel : ReactiveObject
     private readonly IOpenTapSession _openTap;
     private readonly IVisaSessionFactory _visaSessions;
     private readonly OperatorSession? _operatorSession;
+    private readonly IVisaModeController? _visaModeController;
     private bool _suppressSelectionSync;
 
     public InstrumentsViewModel(
@@ -169,17 +171,25 @@ public partial class InstrumentsViewModel : ReactiveObject
         IVisaResourceDiscovery discovery,
         IOpenTapSession openTap,
         IVisaSessionFactory visaSessions,
-        OperatorSession? operatorSession = null)
+        OperatorSession? operatorSession = null,
+        IVisaModeController? visaModeController = null)
     {
         _settingsStore = settingsStore;
         _discovery = discovery;
         _openTap = openTap;
         _visaSessions = visaSessions;
         _operatorSession = operatorSession;
+        _visaModeController = visaModeController;
         DiscoveredVisa = [];
         DiscoveredOpenTap = [];
         SlotOverrides = [];
         Status = "Discover VISA or OpenTAP resources, then set per-plan OpenTAP slot overrides.";
+
+        if (visaModeController is not null)
+        {
+            visaModeController.ModeApplied += OnVisaModeApplied;
+        }
+
         RefreshVisaDiscoverCommand = ReactiveCommand.CreateFromTask(RefreshVisaDiscoverAsync);
         RefreshOpenTapDiscoverCommand = ReactiveCommand.CreateFromTask(RefreshOpenTapDiscoverAsync);
         RefreshSlotsCommand = ReactiveCommand.CreateFromTask(RefreshSlotsAsync);
@@ -239,6 +249,14 @@ public partial class InstrumentsViewModel : ReactiveObject
     {
         get => SelectedVisa;
         set => SelectedVisa = value;
+    }
+
+    private void OnVisaModeApplied(object? sender, EventArgs e)
+    {
+        DiscoveredVisa.Clear();
+        DiscoveredOpenTap.Clear();
+        _ = RefreshVisaDiscoverAsync();
+        _ = RefreshSlotsAsync();
     }
 
     private async Task RefreshVisaDiscoverAsync()
@@ -307,7 +325,7 @@ public partial class InstrumentsViewModel : ReactiveObject
     {
         SlotOverrides.Clear();
         var saved = _settingsStore.AppSettings.PlanSlotOverrides;
-        var useMockVisa = _settingsStore.AppSettings.UseMockVisa;
+        var useMockVisa = _visaModeController?.EffectiveUseMockVisa ?? _settingsStore.AppSettings.UseMockVisa;
         try
         {
             foreach (var entry in ProgramCatalog.Enumerate())
@@ -373,7 +391,8 @@ public partial class InstrumentsViewModel : ReactiveObject
             return;
         }
 
-        if (!_settingsStore.AppSettings.UseMockVisa && MockResourceGuard.LooksLikeMockResource(resource))
+        var effectiveMock = _visaModeController?.EffectiveUseMockVisa ?? _settingsStore.AppSettings.UseMockVisa;
+        if (!effectiveMock && MockResourceGuard.LooksLikeMockResource(resource))
         {
             Status = $"Cannot bind mock resource '{resource}' while Use mock VISA is off.";
             return;

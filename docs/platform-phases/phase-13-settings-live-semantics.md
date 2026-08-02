@@ -2,19 +2,19 @@
 
 **Parent:** [platform-roadmap.md](../platform-roadmap.md)
 **Depends on:** [Phase 3](phase-3-configuration-model.md), [Phase 10](phase-10-export-storage-chrome.md)
-**Status:** Planned
-**Also absorbs:** Review finding — UseMockVisa save vs frozen VISA DI (silent split-brain); soft “may need restart” Status vs hard mismatch — see [review-remediation.md](review-remediation.md)
+**Status:** Done
+**Also absorbs:** Review finding — UseMockVisa save vs frozen VISA DI (silent split-brain); soft "may need restart" Status vs hard mismatch — see [review-remediation.md](review-remediation.md)
 
 ## Goal
 
-Close the gap where Settings toggles look live but **VISA mock/real wiring is frozen at DI build**. Engineer mode already syncs via `AppSettingsSaved` (hardware readiness); this phase makes mock VISA semantics honest so operators never see “mock off” while discovery still serves `MOCK::` (and Run then blocks those resources).
+Close the gap where Settings toggles look live but **VISA mock/real wiring is frozen at DI build**. Engineer mode already syncs via `AppSettingsSaved` (hardware readiness); this phase makes mock VISA semantics honest so operators never see "mock off" while discovery still serves `MOCK::` (and Run then blocks those resources).
 
 ## Locked decisions
 
-- **`UseMockVisa` change must either rebuild VISA factories/discovery in-process or hard-block the toggle until restart** — no silent “looks off but still mock” path.
+- **`UseMockVisa` change must either rebuild VISA factories/discovery in-process or hard-block the toggle until restart** — no silent "looks off but still mock" path.
 - Prefer **in-process rebuild** when safe (no open VISA sessions / not mid-run). If a run is active or sessions are open, refuse the change and keep the prior effective mode with clear Status copy.
 - Settings UI must show **effective** mock/real mode (and provenance) after save — checkbox / diagnostics must not claim a mode the factory is not using.
-- Tooltip / Status copy must be consistent: if restart is required, say so; if rebuild applied, say applied; never “may be required” when the mismatch is already present.
+- Tooltip / Status copy must be consistent: if restart is required, say so; if rebuild applied, say applied; never "may be required" when the mismatch is already present.
 - Env/CLI overlays remain read-only ([Phase 3](phase-3-configuration-model.md) provenance).
 - Engineer-gated dangerous settings stay behind Engineer mode (already landed); this phase does not reopen that lock-down.
 - Document effective mode in Settings diagnostics / provenance after save.
@@ -31,24 +31,32 @@ Close the gap where Settings toggles look live but **VISA mock/real wiring is fr
 
 ### B — Unsafe change UX
 
-- If Run is active or VISA sessions are gated busy: reject applying UseMockVisa flip; Status explains “finish or safety-stop the run, then save again” (or “restart required”).
+- If Run is active or VISA sessions are gated busy: reject applying UseMockVisa flip; Status explains "finish or safety-stop the run, then save again" (or "restart required").
 - Settings checkbox / effective-mode readout reflects **effective** mode when rebuild was refused.
 - Align tooltip + Status strings with the actual apply path (rebuild vs refuse vs restart-only).
 
 ### C — Tests
 
-- Unit/DI test: save with UseMockVisa flip rebuilds discovery catalog (mock catalog ↔ empty/throwing IVI stub).
+- Unit/DI test: save with UseMockVisa flip rebuilds discovery catalog (mock catalog vs empty/throwing IVI stub).
 - ViewModel test: flip refused while `IRunControl.IsRunning`.
 - Regression: no path where UI shows mock off while factory still serves MockVisa* resources.
 
 ## Exit criteria
 
-- [ ] Toggling UseMockVisa either takes effect without restart or is clearly refused with reason
-- [ ] No path where UI shows mock off while factory still serves MockVisa*
-- [ ] Instruments discover reflects the new mode after a successful apply
-- [ ] Run mock-guards and discovery agree on effective mode
-- [ ] Tooltip / Status copy match the apply outcome (no soft “may be required” when mismatch exists)
-- [ ] Env/CLI override still wins and stays read-only
+- [x] Toggling UseMockVisa either takes effect without restart or is clearly refused with reason
+- [x] No path where UI shows mock off while factory still serves MockVisa*
+- [x] Instruments discover reflects the new mode after a successful apply
+- [x] Run mock-guards and discovery agree on effective mode
+- [x] Tooltip / Status copy match the apply outcome (no soft "may be required" when mismatch exists)
+- [x] Env/CLI override still wins and stays read-only
+
+## Implementation notes
+
+- `IVisaModeController` / `VisaModeController` in `HardwareTest.Core.Hardware` is the authoritative holder of effective mock/real mode. Registered as singleton for `IVisaModeController`, `IVisaSessionFactory`, and `IVisaResourceDiscovery`.
+- `VisaSessionGate.IsBusy` added to detect open sessions.
+- `SettingsViewModel.SaveAsync` calls `TryApply` before persisting; on refuse it reverts `AppSettings.UseMockVisa` and the checkbox to effective mode so the settings file never diverges from the live factory.
+- `InstrumentsViewModel` subscribes to `ModeApplied` and re-discovers VISA resources automatically after a successful swap.
+- `RunExecutionViewModel` mock-resource guard reads `IVisaModeController.EffectiveUseMockVisa` when available, eliminating the stale-AppSettings split after multiple saves.
 
 ## Out of scope
 
