@@ -658,6 +658,27 @@ public sealed class RunTestViewModelTests
     }
 
     [Fact]
+    public async Task Require_dut_confirm_every_run_marks_stale_after_pass()
+    {
+        var session = new OperatorSession();
+        session.ConfirmDut("SN-EVERY");
+        session.OperatorName = "Tech";
+        var settings = new AppSettings { RequireDutConfirmEveryRun = true, UseMockVisa = true };
+        var openTap = new FakeOpenTapSession();
+        var vm = CreateVm(openTap, session: session, settings: settings);
+        await vm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
+        await vm.Run.RunCommand.ExecuteAsync();
+        Assert.Equal(1, openTap.RunCount);
+        Assert.Equal(OperatorSessionState.Stale, session.State);
+        Assert.True(vm.SessionPanel.SessionBlocked);
+        await vm.Run.RunCommand.ExecuteAsync();
+        Assert.Equal(1, openTap.RunCount);
+        await vm.SessionPanel.ConfirmSameDutCommand.ExecuteAsync();
+        await vm.Run.RunCommand.ExecuteAsync();
+        Assert.Equal(2, openTap.RunCount);
+    }
+
+    [Fact]
     public async Task Run_selected_records_attempt_counts()
     {
         var openTap = new FakeOpenTapSession();

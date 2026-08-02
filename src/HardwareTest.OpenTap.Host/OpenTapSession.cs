@@ -353,12 +353,28 @@ public sealed class OpenTapSession : IOpenTapSession, INotifyPropertyChanged
 
         try
         {
+            var cleanupSteps = includeCleanup
+                ? FlattenSteps(_plan).Where(s => s is SafeShutdownStep).ToList()
+                : [];
             foreach (var step in FlattenSteps(_plan))
             {
                 var keep = IsInSubtree(step, selected)
                            || IsAncestorOf(step, selected)
-                           || (includeCleanup && step is SafeShutdownStep);
+                           || cleanupSteps.Any(c =>
+                               ReferenceEquals(step, c) || IsAncestorOf(step, c));
                 step.Enabled = keep;
+            }
+
+            // Also reset ancestors of cleanup so live status is refreshed.
+            foreach (var cleanup in cleanupSteps)
+            {
+                foreach (var step in FlattenSteps(_plan))
+                {
+                    if (ReferenceEquals(step, cleanup) || IsAncestorOf(step, cleanup))
+                    {
+                        resetStepIds.Add(step.Id.ToString());
+                    }
+                }
             }
 
             RefreshTreeEnabled();
@@ -1175,14 +1191,7 @@ public sealed class OpenTapSession : IOpenTapSession, INotifyPropertyChanged
         => FlattenSteps(plan).OfType<IdentityCheckStep>().Select(s => s.Dut).FirstOrDefault();
 
     private static string SanitizeRunId(string runId)
-    {
-        foreach (var c in Path.GetInvalidFileNameChars())
-        {
-            runId = runId.Replace(c, '_');
-        }
-
-        return runId;
-    }
+        => HardwareTest.Core.IO.PortableFileNames.Sanitize(runId);
 
     private static List<OpenTapStepNode> BuildTree(TestPlan plan)
     {

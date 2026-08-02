@@ -146,15 +146,7 @@ public sealed class FileRunStore : IRunStore
         }
     }
 
-    private static string Sanitize(string runId)
-    {
-        foreach (var c in Path.GetInvalidFileNameChars())
-        {
-            runId = runId.Replace(c, '_');
-        }
-
-        return runId;
-    }
+    private static string Sanitize(string runId) => HardwareTest.Core.IO.PortableFileNames.Sanitize(runId);
 }
 
 /// Placeholder for future run-to-run comparison.

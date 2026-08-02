@@ -21,8 +21,14 @@ public sealed class AppSettings
     public bool ExportOpenTapResults { get; set; }
     /// When true, show DUT history summary on the Run board after Pass/Fail (default off; use Results).
     public bool ShowDutHistoryOnRun { get; set; }
-    /// Idle hours before Operator Session becomes Stale (soft re-confirm).
+    /// Canonical idle window in minutes before Operator Session becomes Stale (default 240 = 4h).
+    public int OperatorSessionIdleMinutes { get; set; } = 240;
+    /// Compatibility alias for idle window in hours (env/CLI / older settings.json). Prefer minutes.
     public int OperatorSessionIdleHours { get; set; } = 4;
+    /// Soft-warn when idle elapsed reaches this percent of the idle window (50–95, default 80).
+    public int OperatorSessionIdleWarnPercent { get; set; } = 80;
+    /// When true, each terminal run marks the session Stale so the next Run requires Same DUT / Change Session.
+    public bool RequireDutConfirmEveryRun { get; set; }
     /// When true, Run page exposes constrained on-bench debug edits.
     public bool IsEngineerDebugMode { get; set; }
     /// Extra OpenTAP plugin search directories (Basic plugins are always included).

@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Avalonia.Media.Imaging;
 using HardwareTest.Core.Reporting;
 using HardwareTest.Core.Runs;
+using HardwareTest.OpenTap.Host;
 using PDFtoImage;
 using ReactiveUI;
 using ReactiveUI.SourceGenerators;
@@ -18,11 +19,16 @@ public partial class ReportPreviewViewModel : ReactiveObject
     private static readonly object PdfGate = new();
     private readonly IRunStore _runStore;
     private readonly IReportService _reportService;
+    private readonly OperatorSession? _operatorSession;
 
-    public ReportPreviewViewModel(IRunStore runStore, IReportService reportService)
+    public ReportPreviewViewModel(
+        IRunStore runStore,
+        IReportService reportService,
+        OperatorSession? operatorSession = null)
     {
         _runStore = runStore;
         _reportService = reportService;
+        _operatorSession = operatorSession;
         Pages = [];
         Status = "Select a run PDF to preview.";
 
@@ -39,6 +45,7 @@ public partial class ReportPreviewViewModel : ReactiveObject
 
     public async Task LoadFromPathAsync(string path)
     {
+        _operatorSession?.TouchActivity();
         PdfPath = path;
         Pages.Clear();
         if (!File.Exists(path))

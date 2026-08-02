@@ -53,9 +53,9 @@ Distinct namespaces on purpose — "Phase C" and "Phase 3" are never the same th
 | 8 | [Session contract test suite](platform-phases/phase-8-session-contract-tests.md) | 1 | Done |
 | 9 | [Run board decomposition](platform-phases/phase-9-runboard-decomposition.md) | 8 | Done |
 | 10 | [Export, storage, cleanup, chrome](platform-phases/phase-10-export-storage-chrome.md) | 3, 6, 9 | Done |
-| 11 | [Session activity & stale UX](platform-phases/phase-11-session-activity-stale.md) | 9, 10 | Planned |
-| 12 | [Error surfacing & chrome polish](platform-phases/phase-12-error-surfacing-chrome.md) | 9, 11 | Planned |
-| 13 | [Settings live semantics](platform-phases/phase-13-settings-live-semantics.md) | 3, 10 | Planned |
+| 11 | [Session activity & stale UX](platform-phases/phase-11-session-activity-stale.md) (+ Same DUT / `RequireOperator`) | 9, 10 | Done |
+| 12 | [Error surfacing & chrome polish](platform-phases/phase-12-error-surfacing-chrome.md) (+ wayfinding) | 9, 11 | Planned |
+| 13 | [Settings live semantics](platform-phases/phase-13-settings-live-semantics.md) (`UseMockVisa` honesty) | 3, 10 | Planned |
 | 14 | [Session façade split](platform-phases/phase-14-session-facade-split.md) | 8, 9 | Planned |
 
 **Suggested order (1–10):** 1 first and alone — nothing else is verifiable until CI actually runs. Then 2 / 7 / 8 can proceed in parallel (independent seams). 3 → 4 → 5 is a chain and should stay one series. 6 lands after 4. 9 after 8. 10 after 3/6/9 (storage + chrome).

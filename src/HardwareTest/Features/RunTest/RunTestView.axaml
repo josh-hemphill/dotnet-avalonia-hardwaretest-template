@@ -81,9 +81,25 @@
           <TextBlock Text="Session confirmation required before Run"
                      FontWeight="SemiBold" />
           <TextBlock Text="{Binding SessionPanel.SessionSummary}" TextWrapping="Wrap" Opacity="0.9" />
+          <TextBlock Text="{Binding SessionPanel.IdleCountdownText}"
+                     IsVisible="{Binding SessionPanel.ShowIdleCountdown}"
+                     FontSize="12"
+                     Opacity="0.8"
+                     TextWrapping="Wrap" />
           <StackPanel Spacing="6" IsVisible="{Binding SessionPanel.IsStalePrompt}">
             <StackPanel Orientation="Horizontal" Spacing="8">
               <TextBlock Text="Still testing this DUT?" VerticalAlignment="Center" />
+              <Button Content="Same DUT" Command="{Binding SessionPanel.ConfirmSameDutCommand}" />
+              <Button Content="Change Session" Command="{Binding SessionPanel.ChangeSessionCommand}" />
+            </StackPanel>
+            <TextBox PlaceholderText="{Binding SessionPanel.TechnicianPlaceholder}"
+                     Text="{Binding SessionPanel.OperatorInput}"
+                     Width="180"
+                     IsVisible="{Binding SessionPanel.ShowStaleTechnicianField}" />
+          </StackPanel>
+          <StackPanel Spacing="6" IsVisible="{Binding SessionPanel.IsIdleWarningPrompt}">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <TextBlock Text="Session idle soon — still testing this DUT?" VerticalAlignment="Center" />
               <Button Content="Same DUT" Command="{Binding SessionPanel.ConfirmSameDutCommand}" />
               <Button Content="Change Session" Command="{Binding SessionPanel.ChangeSessionCommand}" />
             </StackPanel>
@@ -97,7 +113,8 @@
             <TextBox PlaceholderText="Revision" Text="{Binding SessionPanel.DutRevisionInput}"
                      Width="90" Margin="0,0,8,8"
                      IsVisible="{Binding SessionPanel.RequireRevision}" />
-            <TextBox PlaceholderText="Technician *" Text="{Binding SessionPanel.OperatorInput}"
+            <TextBox PlaceholderText="{Binding SessionPanel.TechnicianPlaceholder}"
+                     Text="{Binding SessionPanel.OperatorInput}"
                      Width="140" Margin="0,0,8,8" />
             <Button Content="Confirm Session" Command="{Binding SessionPanel.ConfirmSessionCommand}"
                     Margin="0,0,8,8" />
@@ -111,12 +128,19 @@
               Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
               IsVisible="{Binding !SessionPanel.SessionBlocked}">
         <Grid ColumnDefinitions="*,Auto">
-          <TextBlock Text="{Binding SessionPanel.SessionSummary}"
-                     FontWeight="SemiBold"
-                     FontSize="13"
-                     TextWrapping="NoWrap"
-                     TextTrimming="CharacterEllipsis"
-                     VerticalAlignment="Center" />
+          <StackPanel Spacing="2" VerticalAlignment="Center">
+            <TextBlock Text="{Binding SessionPanel.SessionSummary}"
+                       FontWeight="SemiBold"
+                       FontSize="13"
+                       TextWrapping="NoWrap"
+                       TextTrimming="CharacterEllipsis" />
+            <TextBlock Text="{Binding SessionPanel.IdleCountdownText}"
+                       IsVisible="{Binding SessionPanel.ShowIdleCountdown}"
+                       FontSize="11"
+                       Opacity="0.75"
+                       TextWrapping="NoWrap"
+                       TextTrimming="CharacterEllipsis" />
+          </StackPanel>
           <Button Grid.Column="1" Content="Change" Command="{Binding SessionPanel.ChangeSessionCommand}"
                   FontSize="12" Padding="10,4" VerticalAlignment="Center" />
         </Grid>

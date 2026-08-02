@@ -71,6 +71,8 @@ public abstract class OpenTapSessionContractTests
         var session = await CreateLoadedSessionAsync(ContractPlan.WithLoop);
         await ApplyDefaultStationAsync(session);
 
+        // Pause before Run so short sweep demos cannot finish before the pause lands.
+        session.Pause();
         var completed = new TaskCompletionSource<OpenTapRunSummary>(
             TaskCreationOptions.RunContinuationsAsynchronously);
         var runTask = session.RunAsync().ContinueWith(
@@ -91,8 +93,6 @@ public abstract class OpenTapSessionContractTests
             },
             TaskScheduler.Default);
 
-        await Task.Delay(20);
-        session.Pause();
         var stillRunning = await Task.WhenAny(completed.Task, Task.Delay(150)) != completed.Task;
         Assert.True(stillRunning, "Run completed while paused.");
 
