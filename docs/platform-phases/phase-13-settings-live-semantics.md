@@ -31,7 +31,7 @@ Close the gap where Settings toggles look live but **VISA mock/real wiring is fr
 
 ### B — Unsafe change UX
 
-- If Run is active or VISA sessions are gated busy: reject applying UseMockVisa flip; Status explains "finish or safety-stop the run, then save again" (or "restart required").
+- If Run is active or VISA sessions are gated busy: reject applying UseMockVisa flip; Status explains "finish or safety-stop the run, then save again."
 - Settings checkbox reflects effective mode (reverts on refuse). Tooltip documents live apply vs refuse — never "requires restart" for UseMockVisa.
 - Align tooltip + Status strings with the actual apply path (rebuild vs refuse). Logging-sink Status may still note restart.
 
@@ -54,7 +54,7 @@ Close the gap where Settings toggles look live but **VISA mock/real wiring is fr
 
 - `IVisaModeController` / `VisaModeController` in `HardwareTest.Core.Hardware` is the authoritative holder of effective mock/real mode. Registered as singleton for `IVisaModeController`, `IVisaSessionFactory`, and `IVisaResourceDiscovery`.
 - `VisaSessionGate.IsBusy` added to detect open sessions.
-- `SettingsViewModel.SaveAsync` calls `TryApply` before persisting; on refuse it reverts `AppSettings.UseMockVisa` and the checkbox to effective mode so the settings file never diverges from the live factory.
+- `SettingsViewModel` initializes the checkbox from `EffectiveUseMockVisa` when a controller is present; `SaveAsync` calls `TryApply` before persisting and on refuse reverts `AppSettings.UseMockVisa` and the checkbox so the settings file never diverges from the live factory. Tooltip copy matches live apply/refuse (not restart).
 - `InstrumentsViewModel` subscribes to `ModeApplied` and re-discovers VISA resources automatically after a successful swap.
 - `RunExecutionViewModel` mock-resource guard reads `IVisaModeController.EffectiveUseMockVisa` when available, eliminating the stale-AppSettings split after multiple saves.
 
