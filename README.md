@@ -67,10 +67,11 @@ See [docs/opentap-platform.md](docs/opentap-platform.md) for the OpenTAP integra
 See [docs/platform-roadmap.md](docs/platform-roadmap.md) for the platform hardening roadmap (repo gates, configuration, diagnostics, crash reporting, containerized CI, code structure) and [its phase plans](docs/platform-phases/).
 ## Operator Session / DUT
 
-- Confirm DUT serial once per session (sticky strip on Run).
+- Confirm DUT serial once per session (sticky strip on Run shows last activity + idle countdown).
 - **Change DUT** clears and blocks Run until re-confirmed.
-- Idle timeout (default 4h) or program-family mismatch marks session **Stale** — Same DUT / Change DUT.
-- Do **not** re-prompt on every successful Run while Active.
+- Idle uses **last activity** (default 240 minutes); soft-warn then Stale — Same DUT / Change Session.
+- Optional station policy: confirm DUT every run (`RequireDutConfirmEveryRun`).
+- Technician required UI follows program `requireOperator`.
 
 ## OpenTAP programs
 

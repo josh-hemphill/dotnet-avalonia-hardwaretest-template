@@ -399,6 +399,7 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
             : OperatorInteractionResponse.Continue(request.Id, values);
 
         ClearPendingOperatorState();
+        _session.TouchActivity();
         _openTap.Resume(response);
         _runControl.Resume();
         Interaction.Clear();

@@ -3,7 +3,7 @@
 **Parent:** [platform-roadmap.md](../platform-roadmap.md)
 **Depends on:** [Phase 9](phase-9-runboard-decomposition.md), [Phase 10](phase-10-export-storage-chrome.md)
 **Unblocks:** [Phase 12](phase-12-error-surfacing-chrome.md) (clearer session banners feed error hierarchy)
-**Status:** Planned
+**Status:** Done
 **Also absorbs:** Review findings on idle/confirm-clock, Same DUT dead end, `RequireOperator` hard-coding, incomplete session strip — see [review-remediation.md](review-remediation.md)
 
 ## Goal
@@ -90,18 +90,18 @@ Make DUT session idle / stale tracking **activity-aware** and **station-configur
 
 ## Exit criteria
 
-- [ ] Idle stale uses `LastActivityAt`; confirm time remains distinct
-- [ ] Idle window configurable in **minutes** (default 240); hours env/CLI still accepted
-- [ ] Soft-warn percent configurable (default 80); Same DUT / Change Session still the only resolutions
-- [ ] Idle/soft-warn update on an interval without requiring Run / program load
-- [ ] `RequireDutConfirmEveryRun` forces re-confirm after each terminal run; next Run blocked until Same DUT / Change Session
-- [ ] Opening/using Results or Report Preview between runs refreshes activity when confirm-every-run is off
-- [ ] Strip shows last activity + time remaining (when applicable); interval check updates without Run
-- [ ] Technician required indicator follows `RequireOperator` on full confirm
-- [ ] Same DUT does not require technician when `RequireOperator` is false
-- [ ] Stale + required technician with no stored name: inline field visible; Same DUT can succeed after fill; Change Session still works
-- [ ] [adapting.md](../adapting.md) session section matches shipped behavior (no present-tense Phase 11 promises left as “current”)
-- [ ] ViewModel + E2E: short idle soft-warn → Same DUT; confirm-every-run → second Run blocked until Same DUT; activity touch from Results; RequireOperator Same DUT cases above
+- [x] Idle stale uses `LastActivityAt`; confirm time remains distinct
+- [x] Idle window configurable in **minutes** (default 240); hours env/CLI still accepted
+- [x] Soft-warn percent configurable (default 80); Same DUT / Change Session still the only resolutions
+- [x] Idle/soft-warn update on an interval without requiring Run / program load
+- [x] `RequireDutConfirmEveryRun` forces re-confirm after each terminal run; next Run blocked until Same DUT / Change Session
+- [x] Opening/using Results or Report Preview between runs refreshes activity when confirm-every-run is off
+- [x] Strip shows last activity + time remaining (when applicable); interval check updates without Run
+- [x] Technician required indicator follows `RequireOperator` on full confirm
+- [x] Same DUT does not require technician when `RequireOperator` is false
+- [x] Stale + required technician with no stored name: inline field visible; Same DUT can succeed after fill; Change Session still works
+- [x] [adapting.md](../adapting.md) session section matches shipped behavior (no present-tense Phase 11 promises left as “current”)
+- [x] ViewModel + E2E: short idle soft-warn → Same DUT; confirm-every-run → second Run blocked until Same DUT; activity touch from Results; RequireOperator Same DUT cases above
 
 ## Out of scope
 

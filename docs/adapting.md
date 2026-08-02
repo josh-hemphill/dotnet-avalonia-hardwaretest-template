@@ -71,15 +71,12 @@ DUT stamping still looks for Basic `IdentityCheckStep` / `HardwareDut`. Custom D
 
 ### Operator session (DUT confirm / idle)
 
-**Today (pre–Phase 11):**
-- Confirm DUT (and operator when `requireOperator` is true) once per session; sticky strip on Run; idle timeout uses **confirm time** (`ConfirmedAt`) and is checked mainly around program load / Run — see configuration table (`OperatorSessionIdleHours`, default 4h).
-- Stale → Same DUT / Change Session. Same DUT currently always demands a technician name in the ViewModel even when `requireOperator` is false; full confirm XAML always shows `Technician *` — fixed in Phase 11.
-
-**Planned ([Phase 11](platform-phases/phase-11-session-activity-stale.md)):**
-- Idle uses **last operator activity** (`LastActivityAt`), not only wall-clock since confirm — reviewing Results / reports between runs refreshes activity.
-- Configurable idle window in **minutes** (hours env/CLI remain aliases), soft-warn percent, optional **confirm every run**, strip countdown, and `RequireOperator`-honest Same DUT / Stale UI.
-- Finding map: [review-remediation.md](platform-phases/review-remediation.md).
-
+- Confirm DUT (and operator when `requireOperator` is true) once per session; sticky strip on Run shows last activity and time remaining to soft-warn / Stale.
+- Idle uses **last operator activity** (`LastActivityAt`), not confirm time — reviewing Results / reports / navigating between pages refreshes activity.
+- Soft-warn (default 80% of idle window) then hard Stale; resolutions are **Same DUT** / **Change Session** (in-panel only). Idle is checked on an interval, not only at Run.
+- Canonical idle setting: **`OperatorSessionIdleMinutes`** (default 240). Hours env/CLI (`OperatorSessionIdleHours` / `HARDWARETEST_OPERATOR_SESSION_IDLE_HOURS` / `--session-idle-hours`) remain aliases; minutes wins when both are set.
+- Optional station policy **`RequireDutConfirmEveryRun`**: after each terminal run, session goes Stale until Same DUT / Change Session.
+- Technician required indicator and Same DUT validation follow program `requireOperator` (Stale prompt shows a technician field when required and none is stored).
 - **Multi-DUT:** near-term [Phase K](opentap-phases/phase-k-multi-dut-parallel.md) adds multiple DUT sessions with one plan at a time (K.1). Today the shell is single-session.
 
 ## 5. Operator interactions (no floating dialogs)
@@ -174,7 +171,10 @@ Env alone is enough for a sealed install. Missing or read-only `settings.json` i
 | `EmbedPlotsInReport` | `HARDWARETEST_EMBED_PLOTS_IN_REPORT` | `--embed-plots` |
 | `ExportOpenTapResults` | `HARDWARETEST_EXPORT_OPENTAP_RESULTS` | `--export-opentap-results` |
 | `ShowDutHistoryOnRun` | `HARDWARETEST_SHOW_DUT_HISTORY_ON_RUN` | `--show-dut-history-on-run` |
-| `OperatorSessionIdleHours` | `HARDWARETEST_OPERATOR_SESSION_IDLE_HOURS` | `--session-idle-hours` |
+| `OperatorSessionIdleMinutes` | `HARDWARETEST_OPERATOR_SESSION_IDLE_MINUTES` | `--session-idle-minutes` |
+| `OperatorSessionIdleHours` *(alias)* | `HARDWARETEST_OPERATOR_SESSION_IDLE_HOURS` | `--session-idle-hours` |
+| `OperatorSessionIdleWarnPercent` | `HARDWARETEST_OPERATOR_SESSION_IDLE_WARN_PERCENT` | `--session-idle-warn-percent` |
+| `RequireDutConfirmEveryRun` | `HARDWARETEST_REQUIRE_DUT_CONFIRM_EVERY_RUN` | `--require-dut-confirm-every-run` |
 | `IsEngineerDebugMode` | `HARDWARETEST_ENGINEER_DEBUG` | `--engineer-debug` |
 | `OpenTapPluginDirectories` | `HARDWARETEST_OPENTAP_PLUGIN_DIRS` *(legacy name; `;` / `Path.PathSeparator`)* | `--opentap-plugin-dirs` |
 | `ReportTemplateName` | `HARDWARETEST_REPORT_TEMPLATE_NAME` | `--report-template` |

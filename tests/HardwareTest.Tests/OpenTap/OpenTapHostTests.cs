@@ -61,12 +61,43 @@ public sealed class OperatorSessionTests
     {
         var session = new OperatorSession();
         session.ConfirmDut("SN-1");
+        var confirmed = session.ConfirmedAt;
+        Assert.NotNull(session.LastActivityAt);
         session.CheckIdleStale(TimeSpan.FromHours(1), DateTimeOffset.UtcNow.AddHours(2));
         Assert.Equal(OperatorSessionState.Stale, session.State);
         Assert.False(session.CanRun);
+        Assert.Equal(confirmed, session.ConfirmedAt);
 
         session.ConfirmSameDut();
         Assert.True(session.CanRun);
+    }
+
+    [Fact]
+    public void TouchActivity_updates_last_activity_not_confirm_time()
+    {
+        var session = new OperatorSession();
+        session.ConfirmDut("SN-1");
+        var confirmed = session.ConfirmedAt;
+        var later = DateTimeOffset.UtcNow.AddMinutes(5);
+        session.TouchActivity(later);
+        Assert.Equal(confirmed, session.ConfirmedAt);
+        Assert.Equal(later, session.LastActivityAt);
+        session.CheckIdleStale(TimeSpan.FromMinutes(10), later.AddMinutes(11));
+        Assert.Equal(OperatorSessionState.Stale, session.State);
+    }
+
+    [Fact]
+    public void Soft_warn_fires_before_stale()
+    {
+        var session = new OperatorSession();
+        session.ConfirmDut("SN-1");
+        var start = session.LastActivityAt!.Value;
+        session.EvaluateIdle(TimeSpan.FromMinutes(100), warnPercent: 80, start.AddMinutes(80));
+        Assert.True(session.IsIdleWarning);
+        Assert.Equal(OperatorSessionState.Active, session.State);
+        session.EvaluateIdle(TimeSpan.FromMinutes(100), warnPercent: 80, start.AddMinutes(100));
+        Assert.Equal(OperatorSessionState.Stale, session.State);
+        Assert.False(session.IsIdleWarning);
     }
 
     [Fact]

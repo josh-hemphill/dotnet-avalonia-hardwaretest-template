@@ -132,6 +132,87 @@ public sealed class RunBoardChildViewModelTests
     }
 
     [Fact]
+    public void SessionPanel_same_dut_without_require_operator_allows_empty_tech()
+    {
+        var session = new OperatorSession();
+        session.ConfirmDut("SN-1");
+        session.MarkStale();
+        var panel = new OperatorSessionPanelViewModel(
+            session,
+            new AppSettings(),
+            _ => { },
+            () => new ProgramItemViewModel
+            {
+                Id = "sample",
+                DisplayName = "Sample",
+                Path = "sample",
+                DutFamily = "demo",
+                Requirements = new ProgramRequirements { RequireSerial = true, RequireOperator = false },
+            });
+
+        panel.RefreshRequirementFlags();
+        Assert.False(panel.RequireOperator);
+        Assert.Equal("Technician", panel.TechnicianPlaceholder);
+        panel.ConfirmSameDutCommand.Execute().Subscribe();
+        Assert.True(session.CanRun);
+        Assert.False(panel.SessionBlocked);
+    }
+
+    [Fact]
+    public void SessionPanel_same_dut_require_operator_shows_stale_tech_field()
+    {
+        var session = new OperatorSession();
+        session.ConfirmDut("SN-1");
+        session.OperatorName = null;
+        session.MarkStale();
+        var panel = new OperatorSessionPanelViewModel(
+            session,
+            new AppSettings(),
+            status => { },
+            () => new ProgramItemViewModel
+            {
+                Id = "sample",
+                DisplayName = "Sample",
+                Path = "sample",
+                DutFamily = "demo",
+                Requirements = new ProgramRequirements { RequireSerial = true, RequireOperator = true },
+            });
+
+        panel.RefreshRequirementFlags();
+        panel.RefreshSessionSummary();
+        Assert.True(panel.ShowStaleTechnicianField);
+        panel.ConfirmSameDutCommand.Execute().Subscribe();
+        Assert.False(session.CanRun);
+
+        panel.OperatorInput = "Tech";
+        panel.ConfirmSameDutCommand.Execute().Subscribe();
+        Assert.True(session.CanRun);
+        Assert.Equal("Tech", session.OperatorName);
+    }
+
+    [Fact]
+    public void SessionPanel_idle_soft_warn_blocks_until_same_dut()
+    {
+        var session = new OperatorSession();
+        session.ConfirmDut("SN-1");
+        session.OperatorName = "Tech";
+        var settings = new AppSettings
+        {
+            OperatorSessionIdleMinutes = 100,
+            OperatorSessionIdleWarnPercent = 80,
+        };
+        var panel = new OperatorSessionPanelViewModel(session, settings, _ => { });
+        session.EvaluateIdle(TimeSpan.FromMinutes(100), 80, session.LastActivityAt!.Value.AddMinutes(80));
+        panel.RefreshSessionSummary();
+        Assert.True(panel.IsIdleWarningPrompt);
+        Assert.True(panel.SessionBlocked);
+
+        panel.ConfirmSameDutCommand.Execute().Subscribe();
+        Assert.False(panel.IsIdleWarningPrompt);
+        Assert.True(session.CanRun);
+    }
+
+    [Fact]
     public async Task ProgramSelection_refresh_fills_catalog_and_loads_selection()
     {
         var loads = 0;
