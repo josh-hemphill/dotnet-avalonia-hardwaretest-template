@@ -25,8 +25,8 @@ public static class BannerBrushConverter
     public static readonly IValueConverter Icon = new FuncValueConverter<RunBannerSeverity, string>(s =>
         s switch
         {
-            RunBannerSeverity.Error => "✕",
-            RunBannerSeverity.Warning => "⚠",
-            _ => "ℹ",
+            RunBannerSeverity.Error => "Error",
+            RunBannerSeverity.Warning => "Warning",
+            _ => "Info",
         });
 }

@@ -84,7 +84,7 @@
                   ToolTip.Tip="Run the full suite" />
           <Button Content="Safety Stop" Command="{Binding Run.CancelCommand}"
                   Classes="danger"
-                  ToolTip.Tip="Safety Stop — abort the run and perform safe shutdown" />
+                  ToolTip.Tip="Abort the run (also cancels an in-panel operator prompt). Prefer Continue when answering a prompt." />
           <Button Content="Inspect" Command="{Binding InspectPlanCommand}" />
         </StackPanel>
       </Grid>

@@ -65,7 +65,7 @@ Make operator-visible failures hard to miss, keep async faults on the UI thread,
 - [x] Interaction Cancel / Safety Stop labeling is distinct under stress
 - [x] Home has navigation CTAs; Inspect (and Results empty) offer a path back to Run
 - [x] Crash dossier load failure is not silently discarded
-- [ ] E2E smoke still green
+- [x] E2E smoke still green
 
 ## Out of scope
 
