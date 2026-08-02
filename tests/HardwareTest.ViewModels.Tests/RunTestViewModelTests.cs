@@ -660,16 +660,14 @@ public sealed class RunTestViewModelTests
     [Fact]
     public async Task Require_dut_confirm_every_run_marks_stale_after_pass()
     {
-        var session = new OperatorSession();
-        session.ConfirmDut("SN-EVERY");
-        session.OperatorName = "Tech";
         var settings = new AppSettings { RequireDutConfirmEveryRun = true, UseMockVisa = true };
         var openTap = new FakeOpenTapSession();
-        var vm = CreateVm(openTap, session: session, settings: settings);
+        var vm = CreateVm(openTap, settings: settings);
         await vm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
+        await ConfirmReadyAsync(vm, "SN-EVERY");
         await vm.Run.RunCommand.ExecuteAsync();
         Assert.Equal(1, openTap.RunCount);
-        Assert.Equal(OperatorSessionState.Stale, session.State);
+        Assert.Equal(OperatorSessionState.Stale, vm.SessionPanel.Session.State);
         Assert.True(vm.SessionPanel.SessionBlocked);
         await vm.Run.RunCommand.ExecuteAsync();
         Assert.Equal(1, openTap.RunCount);
