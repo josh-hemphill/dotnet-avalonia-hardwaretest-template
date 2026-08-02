@@ -71,10 +71,15 @@ DUT stamping still looks for Basic `IdentityCheckStep` / `HardwareDut`. Custom D
 
 ### Operator session (DUT confirm / idle)
 
-- Confirm DUT (and operator when `requireOperator` is true) once per session; sticky strip on Run; idle → soft-warn → Stale with Same DUT / Change Session.
-- Idle uses **last operator activity**, not only wall-clock since confirm — reviewing Results / reports between runs should refresh activity ([phase-11-session-activity-stale.md](platform-phases/phase-11-session-activity-stale.md)).
-- **Configurable (Phase 11):** idle window in **minutes** (alias for today’s `OperatorSessionIdleHours`), soft-warn percent, and optional **confirm every run** for high-throughput lines that must re-confirm DUT before each test.
-- Until Phase 11 ships, configure the window via `OperatorSessionIdleHours` (see configuration table below).
+**Today (pre–Phase 11):**
+- Confirm DUT (and operator when `requireOperator` is true) once per session; sticky strip on Run; idle timeout uses **confirm time** (`ConfirmedAt`) and is checked mainly around program load / Run — see configuration table (`OperatorSessionIdleHours`, default 4h).
+- Stale → Same DUT / Change Session. Same DUT currently always demands a technician name in the ViewModel even when `requireOperator` is false; full confirm XAML always shows `Technician *` — fixed in Phase 11.
+
+**Planned ([Phase 11](platform-phases/phase-11-session-activity-stale.md)):**
+- Idle uses **last operator activity** (`LastActivityAt`), not only wall-clock since confirm — reviewing Results / reports between runs refreshes activity.
+- Configurable idle window in **minutes** (hours env/CLI remain aliases), soft-warn percent, optional **confirm every run**, strip countdown, and `RequireOperator`-honest Same DUT / Stale UI.
+- Finding map: [review-remediation.md](platform-phases/review-remediation.md).
+
 - **Multi-DUT:** near-term [Phase K](opentap-phases/phase-k-multi-dut-parallel.md) adds multiple DUT sessions with one plan at a time (K.1). Today the shell is single-session.
 
 ## 5. Operator interactions (no floating dialogs)

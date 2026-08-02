@@ -51,3 +51,8 @@ Split the ~29-member [`IOpenTapSession`](../../src/HardwareTest.OpenTap.Host/Ope
 - Multiple concurrent OpenTAP plan executions (Phase K.2)
 - Rewriting parameter/mixin bridges
 - Remote Agent / REST
+- Re-litigating Phase 9 line budgets for the Run board coordinator / UiPump (optional follow-on after this split if features still drag the mega-session into UI)
+
+## Related
+
+- Fresh-eyes finding map: [review-remediation.md](review-remediation.md) (façade size → this phase; Run board weight is not a Phase 11–13 gate)
