@@ -89,7 +89,8 @@ public partial class App : Application
                 : _settingsStore.AppSettings.CrashDirectory;
             var dossierId = DanglingRunReconciler.TryCorrelateNewestDossierId(crashRoot, TimeSpan.FromHours(24));
             var reconciler = new DanglingRunReconciler(_services.GetRequiredService<IRunStore>());
-            var n = reconciler.ReconcileAsync(dossierId).GetAwaiter().GetResult();
+            // Must not block the Avalonia UI thread on async I/O (SyncContext deadlock).
+            var n = Task.Run(() => reconciler.ReconcileAsync(dossierId)).GetAwaiter().GetResult();
             if (n > 0)
             {
                 Log.Information("Reconciled {Count} dangling run(s) on startup", n);

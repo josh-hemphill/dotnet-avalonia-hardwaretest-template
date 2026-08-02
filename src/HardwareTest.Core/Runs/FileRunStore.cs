@@ -60,7 +60,8 @@ public sealed class FileRunStore : IRunStore
         var dir = GetRunDirectory(run.RunId);
         var path = Path.Combine(dir, "run.json");
         await using var stream = File.Create(path);
-        await JsonSerializer.SerializeAsync(stream, run, AppJsonContext.Default.TestRunRecord, cancellationToken);
+        await JsonSerializer.SerializeAsync(stream, run, AppJsonContext.Default.TestRunRecord, cancellationToken)
+            .ConfigureAwait(false);
     }
 
     public async Task<TestRunRecord?> LoadAsync(string runId, CancellationToken cancellationToken = default)
@@ -72,7 +73,8 @@ public sealed class FileRunStore : IRunStore
         }
 
         await using var stream = File.OpenRead(path);
-        var run = await JsonSerializer.DeserializeAsync(stream, AppJsonContext.Default.TestRunRecord, cancellationToken);
+        var run = await JsonSerializer.DeserializeAsync(stream, AppJsonContext.Default.TestRunRecord, cancellationToken)
+            .ConfigureAwait(false);
         if (run is null)
         {
             return null;
@@ -96,7 +98,8 @@ public sealed class FileRunStore : IRunStore
             }
 
             await using var stream = File.OpenRead(path);
-            var run = await JsonSerializer.DeserializeAsync(stream, AppJsonContext.Default.TestRunRecord, cancellationToken);
+            var run = await JsonSerializer.DeserializeAsync(stream, AppJsonContext.Default.TestRunRecord, cancellationToken)
+                .ConfigureAwait(false);
             if (run is null)
             {
                 continue;
