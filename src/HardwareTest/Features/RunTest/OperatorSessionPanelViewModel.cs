@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using HardwareTest.Core.Settings;
 using HardwareTest.OpenTap.Host;
 using ReactiveUI;
@@ -14,6 +15,7 @@ public partial class OperatorSessionPanelViewModel : ReactiveObject
     private readonly Action<string> _setStatus;
     private readonly Func<ProgramItemViewModel?> _getSelectedProgram;
     private readonly Action _onSessionCleared;
+    private readonly System.Timers.Timer _idleTimer;
 
     public OperatorSessionPanelViewModel(
         OperatorSession session,
@@ -31,6 +33,30 @@ public partial class OperatorSessionPanelViewModel : ReactiveObject
         ConfirmSessionCommand = ReactiveCommand.Create(ConfirmSession);
         ConfirmSameDutCommand = ReactiveCommand.Create(ConfirmSameDut);
         ChangeSessionCommand = ReactiveCommand.Create(ChangeSession);
+
+        _idleTimer = new System.Timers.Timer(15_000) { AutoReset = true };
+        _idleTimer.Elapsed += (_, _) =>
+        {
+            try
+            {
+                ApplyIdleStaleCheck();
+                RefreshSessionSummary();
+            }
+            catch
+            {
+                // Timer must not crash the process.
+            }
+        };
+        _session.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName is nameof(OperatorSession.State)
+                or nameof(OperatorSession.CanRun)
+                or nameof(OperatorSession.IsIdleWarning))
+            {
+                UpdateIdleTimer();
+            }
+        };
+        UpdateIdleTimer();
     }
 
     public OperatorSession Session => _session;
@@ -46,17 +72,46 @@ public partial class OperatorSessionPanelViewModel : ReactiveObject
     [Reactive] private bool _requirePartNumber;
     [Reactive] private bool _requireRevision;
     [Reactive] private bool _requireOperator = true;
+    [Reactive] private string _technicianPlaceholder = "Technician *";
     [Reactive] private bool _showSessionForm = true;
     [Reactive] private bool _sessionBlocked = true;
     [Reactive] private string _sessionSummary = "Session: (confirm required)";
     [Reactive] private bool _needsDutConfirm = true;
     [Reactive] private bool _isStalePrompt;
+    [Reactive] private bool _isIdleWarningPrompt;
+    [Reactive] private bool _showStaleTechnicianField;
+    [Reactive] private string _idleCountdownText = string.Empty;
+    [Reactive] private bool _showIdleCountdown;
+    [Reactive] private bool _pendingConfirmEveryRun;
 
     /// Marks the session stale once it has been idle past the configured window.
     public void ApplyIdleStaleCheck()
     {
-        var hours = Math.Max(1, _settings.OperatorSessionIdleHours);
-        _session.CheckIdleStale(TimeSpan.FromHours(hours));
+        var minutes = OperatorSessionIdle.ClampMinutes(_settings.OperatorSessionIdleMinutes);
+        if (minutes <= 0 && _settings.OperatorSessionIdleHours > 0)
+        {
+            minutes = OperatorSessionIdle.HoursToMinutes(_settings.OperatorSessionIdleHours);
+        }
+
+        var warn = OperatorSessionIdle.ClampWarnPercent(_settings.OperatorSessionIdleWarnPercent);
+        _session.EvaluateIdle(TimeSpan.FromMinutes(minutes), warn);
+    }
+
+    /// Bumps last-activity while the session is Active (navigation / meaningful page use).
+    public void TouchActivity() => _session.TouchActivity();
+
+    /// After a terminal run when station policy requires re-confirm.
+    public void ApplyConfirmEveryRunPolicy(bool runReachedTerminal)
+    {
+        if (!runReachedTerminal || !_settings.RequireDutConfirmEveryRun)
+        {
+            return;
+        }
+
+        _session.MarkStale();
+        PendingConfirmEveryRun = true;
+        ShowSessionForm = true;
+        RefreshSessionSummary();
     }
 
     public void RefreshRequirementFlags()
@@ -65,28 +120,101 @@ public partial class OperatorSessionPanelViewModel : ReactiveObject
         RequirePartNumber = req.RequirePartNumber;
         RequireRevision = req.RequireRevision;
         RequireOperator = req.RequireOperator;
+        TechnicianPlaceholder = RequireOperator ? "Technician *" : "Technician";
     }
 
     public void RefreshSessionSummary()
     {
         NeedsDutConfirm = _session.State == OperatorSessionState.NeedsDut;
         IsStalePrompt = _session.State == OperatorSessionState.Stale;
-        SessionBlocked = !_session.CanRun;
-        ShowSessionForm = NeedsDutConfirm || IsStalePrompt || SessionBlocked;
+        IsIdleWarningPrompt = _session.State == OperatorSessionState.Active && _session.IsIdleWarning;
+        SessionBlocked = !_session.CanRun || IsIdleWarningPrompt;
+        ShowSessionForm = NeedsDutConfirm || IsStalePrompt || IsIdleWarningPrompt || SessionBlocked;
+        ShowStaleTechnicianField = (IsStalePrompt || IsIdleWarningPrompt)
+            && RequireOperator
+            && string.IsNullOrWhiteSpace(_session.OperatorName);
+        RefreshIdleCountdown();
+
         var program = _session.ProgramDisplayName ?? "(none)";
-        if (_session.CanRun)
+        if (_session.CanRun && !IsIdleWarningPrompt)
         {
-            SessionSummary = $"DUT {_session.DutSerial} | Tech {_session.OperatorName ?? "—"} | {program}";
+            var tech = string.IsNullOrWhiteSpace(_session.OperatorName) ? "—" : _session.OperatorName;
+            SessionSummary = $"DUT {_session.DutSerial} | Tech {tech} | {program}";
+            return;
+        }
+
+        if (IsIdleWarningPrompt)
+        {
+            SessionSummary = $"Still testing {_session.DutSerial}? Session idle soon — Same DUT or Change Session.";
             return;
         }
 
         if (_session.State == OperatorSessionState.Stale)
         {
-            SessionSummary = $"DUT {_session.DutSerial} (re-confirm) | {program}";
+            SessionSummary = PendingConfirmEveryRun
+                ? $"DUT {_session.DutSerial} — confirm Same DUT before next Run | {program}"
+                : $"DUT {_session.DutSerial} (re-confirm) | {program}";
             return;
         }
 
-        SessionSummary = $"Session blocked — confirm DUT + technician | {program}";
+        SessionSummary = RequireOperator
+            ? $"Session blocked — confirm DUT + technician | {program}"
+            : $"Session blocked — confirm DUT | {program}";
+    }
+
+    private void RefreshIdleCountdown()
+    {
+        if (_settings.RequireDutConfirmEveryRun && IsStalePrompt)
+        {
+            ShowIdleCountdown = false;
+            IdleCountdownText = string.Empty;
+            return;
+        }
+
+        if (_session.State != OperatorSessionState.Active || _session.LastActivityAt is null)
+        {
+            ShowIdleCountdown = false;
+            IdleCountdownText = string.Empty;
+            return;
+        }
+
+        var parts = new List<string>();
+        if (_session.LastActivityAt is { } activity)
+        {
+            parts.Add($"Last activity {FormatRelative(activity)}");
+        }
+
+        if (_session.TimeUntilSoftWarn is { } warn && warn > TimeSpan.Zero && !_session.IsIdleWarning)
+        {
+            parts.Add($"soft-warn in {FormatDuration(warn)}");
+        }
+
+        if (_session.TimeUntilStale is { } stale && stale > TimeSpan.Zero)
+        {
+            parts.Add($"stale in {FormatDuration(stale)}");
+        }
+
+        IdleCountdownText = string.Join(" · ", parts);
+        ShowIdleCountdown = parts.Count > 0;
+    }
+
+    private void UpdateIdleTimer()
+    {
+        var minutes = OperatorSessionIdle.ClampMinutes(
+            _settings.OperatorSessionIdleMinutes > 0
+                ? _settings.OperatorSessionIdleMinutes
+                : OperatorSessionIdle.HoursToMinutes(_settings.OperatorSessionIdleHours));
+        // Poll every 15–60s, or ≤10% of idle window.
+        var intervalMs = Math.Clamp(minutes * 60_000 / 10, 15_000, 60_000);
+        _idleTimer.Interval = intervalMs;
+        if (_session.State == OperatorSessionState.Active)
+        {
+            _idleTimer.Start();
+        }
+        else
+        {
+            _idleTimer.Stop();
+        }
     }
 
     private void ConfirmSession()
@@ -94,6 +222,7 @@ public partial class OperatorSessionPanelViewModel : ReactiveObject
         var program = _getSelectedProgram();
         var req = program?.Requirements ?? ProgramRequirements.Sample;
         var family = program?.DutFamily ?? "generic";
+        RefreshRequirementFlags();
         if (!_session.TryConfirm(req, DutSerialInput, DutPartInput, DutRevisionInput, OperatorInput, family, out var error))
         {
             _setStatus(error);
@@ -101,18 +230,24 @@ public partial class OperatorSessionPanelViewModel : ReactiveObject
             return;
         }
 
+        PendingConfirmEveryRun = false;
         ShowSessionForm = false;
         RefreshSessionSummary();
-        _setStatus($"Session confirmed: {_session.DutSerial} / {_session.OperatorName}");
+        UpdateIdleTimer();
+        _setStatus($"Session confirmed: {_session.DutSerial} / {_session.OperatorName ?? "—"}");
     }
 
     private void ConfirmSameDut()
     {
-        if (string.IsNullOrWhiteSpace(OperatorInput) && string.IsNullOrWhiteSpace(_session.OperatorName))
+        RefreshRequirementFlags();
+        if (RequireOperator
+            && string.IsNullOrWhiteSpace(OperatorInput)
+            && string.IsNullOrWhiteSpace(_session.OperatorName))
         {
             _setStatus("Technician name is required.");
             SessionBlocked = true;
             ShowSessionForm = true;
+            ShowStaleTechnicianField = true;
             return;
         }
 
@@ -122,18 +257,21 @@ public partial class OperatorSessionPanelViewModel : ReactiveObject
         }
 
         _session.ConfirmSameDut();
+        PendingConfirmEveryRun = false;
         DutSerialInput = _session.DutSerial;
         DutPartInput = _session.DutPartNumber ?? string.Empty;
         DutRevisionInput = _session.DutRevision ?? string.Empty;
         OperatorInput = _session.OperatorName ?? string.Empty;
         ShowSessionForm = !_session.CanRun;
         RefreshSessionSummary();
+        UpdateIdleTimer();
         _setStatus(_session.CanRun ? $"Still testing {_session.DutSerial}." : "Confirm DUT, then Run.");
     }
 
     private void ChangeSession()
     {
         _session.ChangeSession();
+        PendingConfirmEveryRun = false;
         _onSessionCleared();
         DutSerialInput = string.Empty;
         DutPartInput = string.Empty;
@@ -141,6 +279,43 @@ public partial class OperatorSessionPanelViewModel : ReactiveObject
         OperatorInput = string.Empty;
         ShowSessionForm = true;
         RefreshSessionSummary();
+        UpdateIdleTimer();
         _setStatus("Confirm DUT, then Run.");
+    }
+
+    private static string FormatRelative(DateTimeOffset when)
+    {
+        var delta = DateTimeOffset.UtcNow - when;
+        if (delta < TimeSpan.FromMinutes(1))
+        {
+            return "just now";
+        }
+
+        if (delta < TimeSpan.FromHours(1))
+        {
+            return $"{(int)delta.TotalMinutes}m ago";
+        }
+
+        if (delta < TimeSpan.FromDays(1))
+        {
+            return $"{(int)delta.TotalHours}h ago";
+        }
+
+        return when.ToLocalTime().ToString("g", CultureInfo.CurrentCulture);
+    }
+
+    private static string FormatDuration(TimeSpan span)
+    {
+        if (span.TotalHours >= 2)
+        {
+            return $"{(int)span.TotalHours}h";
+        }
+
+        if (span.TotalMinutes >= 2)
+        {
+            return $"{(int)span.TotalMinutes}m";
+        }
+
+        return $"{Math.Max(1, (int)span.TotalSeconds)}s";
     }
 }

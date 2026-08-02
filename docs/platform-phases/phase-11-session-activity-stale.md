@@ -3,11 +3,12 @@
 **Parent:** [platform-roadmap.md](../platform-roadmap.md)
 **Depends on:** [Phase 9](phase-9-runboard-decomposition.md), [Phase 10](phase-10-export-storage-chrome.md)
 **Unblocks:** [Phase 12](phase-12-error-surfacing-chrome.md) (clearer session banners feed error hierarchy)
-**Status:** Planned
+**Status:** Done
+**Also absorbs:** Review findings on idle/confirm-clock, Same DUT dead end, `RequireOperator` hard-coding, incomplete session strip — see [review-remediation.md](review-remediation.md)
 
 ## Goal
 
-Make DUT session idle / stale tracking **activity-aware** and **station-configurable**: operators reviewing Results between runs are not bounced into Stale from wall-clock alone, while high-throughput lines can use short timeouts or force a DUT confirm before every run. Surface remaining time and soft-warn before hard Stale. Fix `RequireOperator` labeling.
+Make DUT session idle / stale tracking **activity-aware** and **station-configurable**: operators reviewing Results between runs are not bounced into Stale from wall-clock alone, while high-throughput lines can use short timeouts or force a DUT confirm before every run. Surface remaining time and soft-warn before hard Stale. Close the live **Same DUT / `RequireOperator`** footguns so Stale resolution always has a reachable path.
 
 ## Locked decisions
 
@@ -22,6 +23,7 @@ Make DUT session idle / stale tracking **activity-aware** and **station-configur
   - In-app navigation to a page **and** meaningful page use: Results list/open, Report Preview load, Inspect refresh, Instruments discover/save, Settings save
 - Viewing reports / history **does** count as activity when idle-timer mode is on — do not invalidate a confirmed DUT while the operator is still using the shell between runs.
 - Pure wall-clock with **no** shell interaction may still stale after the configured idle window.
+- Idle must be **checked on an interval** while the session is Active (not only on program load / Run start), so soft-warn and Stale appear without waiting for the next Run click.
 
 ### Configurable idle window (high throughput)
 
@@ -39,9 +41,14 @@ Make DUT session idle / stale tracking **activity-aware** and **station-configur
 - When **true**, idle soft-warn / countdown are secondary; the post-run re-confirm is the primary gate. Idle timer may still stale a parked session that never runs.
 - Confirm-every-run is **station policy**, not per-program sidecar (keeps high-churn lines consistent across plans). Program `requireSerial` / `requireOperator` still apply on the confirm form.
 
-### RequireOperator
+### RequireOperator & Same DUT (review absorption)
 
-- Technician field required asterisk / validation follows program `RequireOperator` (today XAML always shows required).
+- Technician field **required asterisk / placeholder** follows program `RequireOperator` on the full confirm form (today XAML always shows `Technician *`).
+- **`ConfirmSameDut` validation** follows `RequireOperator`:
+  - When `RequireOperator` is **false**: Same DUT must succeed without a technician name (stored or typed).
+  - When `RequireOperator` is **true**: require a non-empty technician — either already on the session **or** typed in the stale prompt.
+- **Stale prompt UI must not be a dead end:** when Same DUT needs a technician (required and session has none), show an inline technician field on the Stale banner — do not rely only on `NeedsDutConfirm` WrapPanel visibility. Change Session remains always available.
+- Soft-warn and confirm-every-run post-run banners use the same Same DUT / Change Session resolutions (no OS dialogs).
 
 ## Workstreams
 
@@ -59,34 +66,42 @@ Make DUT session idle / stale tracking **activity-aware** and **station-configur
 - Keep `OperatorSessionIdleHours` as compatibility alias (derive or dual-bind; document precedence: minutes override wins if both set).
 - Settings UI (Engineer section): idle minutes, warn %, confirm-every-run checkbox + short tooltips for high-throughput vs long-dwell benches.
 - Relax Settings clamp that today forces hours ∈ [1, 168].
+- Update [adapting.md](../adapting.md) configuration table for minutes / warn % / confirm-every-run; keep hours as alias.
 
 ### C — Activity wiring
 
 - Touch from `MainWindowViewModel.NavigateTo` and Results / ReportPreview / Inspect / Instruments / Settings meaningful commands.
 - Keep Run pipeline touches; branch on confirm-every-run at completion.
-- Document the activity matrix + station knobs in [adapting.md](../adapting.md) (session section).
+- Document the activity matrix + station knobs in [adapting.md](../adapting.md) (session section) in **current** tense only after this phase ships; until then keep “Planned (Phase 11)” wording.
 
 ### D — Strip + timer UX
 
 - Sticky DUT strip: serial, last activity relative time, countdown to soft-warn / stale (hide or simplify countdown when confirm-every-run is on and session is already pending re-confirm).
 - Soft-warn banner copy: still testing this DUT? Same DUT extends activity; Change Session clears.
 - Post-run banner when confirm-every-run: confirm same DUT or change before next Run.
-- `DispatcherTimer` (or equivalent) while session is Active.
+- `DispatcherTimer` (or equivalent) while session is Active so idle/soft-warn update without Run.
 
-### E — RequireOperator
+### E — RequireOperator & Same DUT (expanded)
 
-- Bind technician required UI to selected program requirements (`RequireOperator`), not a hard-coded `*`.
+- Bind technician required UI (placeholder / asterisk / validation) to selected program `RequireOperator` on full confirm.
+- Fix `ConfirmSameDut` to honor `RequireOperator` (no forced technician when false).
+- When Stale and technician is required but missing from session, show technician TextBox on the Stale prompt row (not only behind `NeedsDutConfirm`).
+- ViewModel tests: `RequireOperator=false` → Same DUT with empty tech succeeds; `RequireOperator=true` + empty session tech + empty input → fails with visible field path; Stale prompt exposes tech when needed.
 
 ## Exit criteria
 
-- [ ] Idle stale uses `LastActivityAt`; confirm time remains distinct
-- [ ] Idle window configurable in **minutes** (default 240); hours env/CLI still accepted
-- [ ] Soft-warn percent configurable (default 80); Same DUT / Change Session still the only resolutions
-- [ ] `RequireDutConfirmEveryRun` forces re-confirm after each terminal run; next Run blocked until Same DUT / Change Session
-- [ ] Opening/using Results or Report Preview between runs refreshes activity when confirm-every-run is off
-- [ ] Strip shows last activity + time remaining (when applicable); interval check updates without Run
-- [ ] Technician required indicator follows `RequireOperator`
-- [ ] ViewModel + E2E: short idle soft-warn → Same DUT; confirm-every-run → second Run blocked until Same DUT; activity touch from Results
+- [x] Idle stale uses `LastActivityAt`; confirm time remains distinct
+- [x] Idle window configurable in **minutes** (default 240); hours env/CLI still accepted
+- [x] Soft-warn percent configurable (default 80); Same DUT / Change Session still the only resolutions
+- [x] Idle/soft-warn update on an interval without requiring Run / program load
+- [x] `RequireDutConfirmEveryRun` forces re-confirm after each terminal run; next Run blocked until Same DUT / Change Session
+- [x] Opening/using Results or Report Preview between runs refreshes activity when confirm-every-run is off
+- [x] Strip shows last activity + time remaining (when applicable); interval check updates without Run
+- [x] Technician required indicator follows `RequireOperator` on full confirm
+- [x] Same DUT does not require technician when `RequireOperator` is false
+- [x] Stale + required technician with no stored name: inline field visible; Same DUT can succeed after fill; Change Session still works
+- [x] [adapting.md](../adapting.md) session section matches shipped behavior (no present-tense Phase 11 promises left as “current”)
+- [x] ViewModel + E2E: short idle soft-warn → Same DUT; confirm-every-run → second Run blocked until Same DUT; activity touch from Results; RequireOperator Same DUT cases above
 
 ## Out of scope
 
@@ -94,3 +109,5 @@ Make DUT session idle / stale tracking **activity-aware** and **station-configur
 - Multi-DUT lanes ([Phase K](../opentap-phases/phase-k-multi-dut-parallel.md)) — per-session knobs can reuse these settings globally in K.1
 - Clock / NTP discipline ([deferred-clock-discipline.md](../deferred/deferred-clock-discipline.md))
 - Per-program override of confirm-every-run (station policy only in this phase)
+- Sticky error severity hierarchy for non-session failures ([Phase 12](phase-12-error-surfacing-chrome.md))
+- UseMockVisa hot-apply honesty ([Phase 13](phase-13-settings-live-semantics.md))

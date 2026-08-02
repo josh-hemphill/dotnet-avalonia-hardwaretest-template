@@ -135,6 +135,7 @@ public sealed class SettingsStore : ISettingsStore
                     }
 
                     _fileBaseline = loaded;
+                    OperatorSessionIdle.NormalizeAfterFileLoad(_fileBaseline);
                     MarkFileProvenance(provenance, _fileBaseline);
                 }
             }
@@ -158,6 +159,7 @@ public sealed class SettingsStore : ISettingsStore
             SettingSource.CommandLine,
             _commandLineOverlays,
             warn);
+        NormalizeIdleAfterOverlays(provenance);
         _provenance = provenance;
 
         if (File.Exists(_uiStatePath))
@@ -211,6 +213,7 @@ public sealed class SettingsStore : ISettingsStore
         }
 
         // Write-back: persist only keys not overridden by env/CLI.
+        OperatorSessionIdle.Normalize(AppSettings, preferMinutes: true);
         var toWrite = CloneSettings(_fileBaseline);
         CopyNonOverridden(AppSettings, toWrite);
         // DataDirectory in the file should stay the root we manage unless overridden.
@@ -289,7 +292,31 @@ public sealed class SettingsStore : ISettingsStore
             provenance,
             SettingSource.CommandLine,
             _commandLineOverlays);
+        NormalizeIdleAfterOverlays(provenance);
         _provenance = provenance;
+    }
+
+    private void NormalizeIdleAfterOverlays(List<SettingProvenance> provenance)
+    {
+        var minutesFromOverlay = provenance.Any(p =>
+            string.Equals(p.Key, nameof(AppSettings.OperatorSessionIdleMinutes), StringComparison.OrdinalIgnoreCase)
+            && p.Source is SettingSource.Environment or SettingSource.CommandLine);
+        var hoursFromOverlay = provenance.Any(p =>
+            string.Equals(p.Key, nameof(AppSettings.OperatorSessionIdleHours), StringComparison.OrdinalIgnoreCase)
+            && p.Source is SettingSource.Environment or SettingSource.CommandLine);
+
+        if (minutesFromOverlay)
+        {
+            OperatorSessionIdle.Normalize(AppSettings, preferMinutes: true);
+        }
+        else if (hoursFromOverlay)
+        {
+            OperatorSessionIdle.Normalize(AppSettings, preferMinutes: false);
+        }
+        else
+        {
+            OperatorSessionIdle.Normalize(AppSettings, preferMinutes: true);
+        }
     }
 
     private void CopyNonOverridden(AppSettings from, AppSettings to)

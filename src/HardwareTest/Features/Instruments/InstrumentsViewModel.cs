@@ -161,18 +161,21 @@ public partial class InstrumentsViewModel : ReactiveObject
     private readonly IVisaResourceDiscovery _discovery;
     private readonly IOpenTapSession _openTap;
     private readonly IVisaSessionFactory _visaSessions;
+    private readonly OperatorSession? _operatorSession;
     private bool _suppressSelectionSync;
 
     public InstrumentsViewModel(
         ISettingsStore settingsStore,
         IVisaResourceDiscovery discovery,
         IOpenTapSession openTap,
-        IVisaSessionFactory visaSessions)
+        IVisaSessionFactory visaSessions,
+        OperatorSession? operatorSession = null)
     {
         _settingsStore = settingsStore;
         _discovery = discovery;
         _openTap = openTap;
         _visaSessions = visaSessions;
+        _operatorSession = operatorSession;
         DiscoveredVisa = [];
         DiscoveredOpenTap = [];
         SlotOverrides = [];
@@ -240,6 +243,7 @@ public partial class InstrumentsViewModel : ReactiveObject
 
     private async Task RefreshVisaDiscoverAsync()
     {
+        _operatorSession?.TouchActivity();
         DiscoveredVisa.Clear();
         try
         {
@@ -445,6 +449,7 @@ public partial class InstrumentsViewModel : ReactiveObject
 
     private async Task SaveAsync()
     {
+        _operatorSession?.TouchActivity();
         _settingsStore.AppSettings.PlanSlotOverrides = SlotOverrides
             .Where(s => !string.IsNullOrWhiteSpace(s.OverrideResource))
             .Select(s => new PlanSlotOverride

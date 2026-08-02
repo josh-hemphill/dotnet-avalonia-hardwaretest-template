@@ -536,6 +536,24 @@ public static class AppSettingsEnvironmentBinder
                 (s, v) => s.OperatorSessionIdleHours = v,
                 env: ["HARDWARETEST_OPERATOR_SESSION_IDLE_HOURS"],
                 cli: ["--session-idle-hours"]),
+            SettingBinding.Int(
+                "OperatorSessionIdleMinutes",
+                s => s.OperatorSessionIdleMinutes,
+                (s, v) => s.OperatorSessionIdleMinutes = v,
+                env: ["HARDWARETEST_OPERATOR_SESSION_IDLE_MINUTES"],
+                cli: ["--session-idle-minutes"]),
+            SettingBinding.Int(
+                "OperatorSessionIdleWarnPercent",
+                s => s.OperatorSessionIdleWarnPercent,
+                (s, v) => s.OperatorSessionIdleWarnPercent = v,
+                env: ["HARDWARETEST_OPERATOR_SESSION_IDLE_WARN_PERCENT"],
+                cli: ["--session-idle-warn-percent"]),
+            SettingBinding.Bool(
+                "RequireDutConfirmEveryRun",
+                s => s.RequireDutConfirmEveryRun,
+                (s, v) => s.RequireDutConfirmEveryRun = v,
+                env: ["HARDWARETEST_REQUIRE_DUT_CONFIRM_EVERY_RUN"],
+                cli: ["--require-dut-confirm-every-run"]),
             SettingBinding.Bool(
                 "IsEngineerDebugMode",
                 s => s.IsEngineerDebugMode,
