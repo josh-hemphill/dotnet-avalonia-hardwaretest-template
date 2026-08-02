@@ -42,6 +42,10 @@ public partial class StepTreeViewModel : ReactiveObject
         JumpToCurrentCommand = ReactiveCommand.Create(JumpToCurrent);
         ClearSubsectionCommand = ReactiveCommand.Create(() => { SelectedSubsection = null; });
         FilterFailCommand = ReactiveCommand.Create(FilterFail);
+        ClearFailFilterCommand = ReactiveCommand.Create(() =>
+        {
+            StepStatusFilter = StepFilter.All;
+        });
         ToggleCompactCommand = ReactiveCommand.Create(() => { CompactStepRows = !CompactStepRows; });
         FocusStepSearchCommand = ReactiveCommand.Create(
             () => RequestFocusStepSearch?.Invoke(this, EventArgs.Empty));
@@ -93,6 +97,10 @@ public partial class StepTreeViewModel : ReactiveObject
             else if (args.PropertyName is nameof(StepStatusFilter) or nameof(StepSearchText))
             {
                 RebuildVisibleStepList();
+                if (args.PropertyName == nameof(StepStatusFilter))
+                {
+                    this.RaisePropertyChanged(nameof(IsFilteredToFail));
+                }
             }
             else if (args.PropertyName == nameof(SelectedStepListItem)
                      && SelectedStepListItem?.Step is not null)
@@ -119,6 +127,7 @@ public partial class StepTreeViewModel : ReactiveObject
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> JumpToCurrentCommand { get; }
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> ClearSubsectionCommand { get; }
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> FilterFailCommand { get; }
+    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> ClearFailFilterCommand { get; }
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> ToggleCompactCommand { get; }
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> FocusStepSearchCommand { get; }
     public ReactiveCommand<string, System.Reactive.Unit> SetStepFilterCommand { get; }
@@ -138,6 +147,9 @@ public partial class StepTreeViewModel : ReactiveObject
     [Reactive] private int _suitePassedCount;
     [Reactive] private int _suiteFailedCount;
     [Reactive] private int _suitePendingCount;
+
+    /// True when the step list is currently narrowed to failed steps only (set automatically after a suite fail).
+    public bool IsFilteredToFail => string.Equals(_stepStatusFilter, StepFilter.Fail, StringComparison.Ordinal);
 
     public HierarchyStepViewModel? ActiveScopeStep
         => SelectedNestedSubsection?.Step ?? SelectedSubsection?.Step ?? SelectedStage?.Step;

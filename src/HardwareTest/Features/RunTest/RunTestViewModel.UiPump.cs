@@ -239,9 +239,12 @@ public partial class RunTestViewModel
                 dispatcher.Post(action, DispatcherPriority.Background);
             }
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            action();
+            // Dispatcher is unavailable (e.g., application shutting down).
+            // Do NOT run action() on the current (background) thread — that would mutate
+            // UI-bound state off the UI thread. Log and no-op instead.
+            Debug.WriteLine($"[PostToUi] Dispatcher unavailable; dropping UI flush. {ex.GetType().Name}: {ex.Message}");
         }
     }
 

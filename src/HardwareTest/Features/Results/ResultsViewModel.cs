@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
+using System.Reactive.Concurrency;
 using System.Threading.Tasks;
 using HardwareTest.Core.Reporting;
 using HardwareTest.Core.Runs;
@@ -87,6 +88,8 @@ public partial class ResultsViewModel : ReactiveObject
             SchemaWarning = string.Empty;
             HasSchemaWarning = false;
         });
+        NavigateToRunCommand = ReactiveCommand.Create(
+            () => NavigateToRunRequested?.Invoke(this, EventArgs.Empty));
 
         PropertyChanged += (_, args) =>
         {
@@ -104,13 +107,24 @@ public partial class ResultsViewModel : ReactiveObject
         RefreshExportTargets();
     }
 
+    /// Test seam: routes UI work synchronously instead of through the Avalonia dispatcher.
+    public Action<Action>? UiScheduler { get; set; }
+
     private void ScheduleOpenDetail()
         => OpenAsync().ContinueWith(
             t =>
             {
                 if (t.Exception is not null)
                 {
-                    Status = $"Open failed: {t.Exception.GetBaseException().Message}";
+                    var msg = $"Open failed: {t.Exception.GetBaseException().Message}";
+                    if (UiScheduler is not null)
+                    {
+                        UiScheduler(() => Status = msg);
+                    }
+                    else
+                    {
+                        System.Diagnostics.Debug.WriteLine($"[ResultsViewModel] UiScheduler not set; dropping UI update: {msg}");
+                    }
                 }
             },
             TaskScheduler.Default);
@@ -132,6 +146,7 @@ public partial class ResultsViewModel : ReactiveObject
     public ReactiveCommand<RunReportItemViewModel?, System.Reactive.Unit> OpenReportCommand { get; }
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> ExportPackageCommand { get; }
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> CloseDetailCommand { get; }
+    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> NavigateToRunCommand { get; }
 
     [Reactive] private TestRunSummary? _selectedRun;
     [Reactive] private TestRunRecord? _openedRun;
@@ -155,6 +170,11 @@ public partial class ResultsViewModel : ReactiveObject
     [Reactive] private bool _hasExportTargets;
 
     public event EventHandler<string>? ReportOpened;
+
+    public bool HasRuns => Runs.Count > 0;
+
+    /// Raised when the operator wants to navigate to the Run page from the empty state.
+    public event EventHandler? NavigateToRunRequested;
 
     public async Task OpenSelectedRunAsync() => await OpenAsync();
 
@@ -265,6 +285,8 @@ public partial class ResultsViewModel : ReactiveObject
         FilterStatus = _allRuns.Count == 0
             ? string.Empty
             : $"Showing {Runs.Count} of {_allRuns.Count}";
+
+        this.RaisePropertyChanged(nameof(HasRuns));
 
         if (selectedId is not null)
         {

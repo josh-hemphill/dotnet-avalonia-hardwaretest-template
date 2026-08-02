@@ -402,6 +402,16 @@ public sealed class RunBoardChildViewModelTests
         public string HistoryBanner { get; set; } = string.Empty;
         public string IterationText { get; set; } = string.Empty;
         public bool IsEngineerDebugMode => false;
+        public bool HasBanner { get; set; }
+        public RunBannerSeverity BannerSeverity { get; set; }
+        public string BannerMessage { get; set; } = string.Empty;
+
+        public void SetBanner(RunBannerSeverity severity, string message)
+        {
+            BannerSeverity = severity;
+            BannerMessage = message;
+            HasBanner = true;
+        }
 
         public Task RunOnUiAsync(Action action)
         {

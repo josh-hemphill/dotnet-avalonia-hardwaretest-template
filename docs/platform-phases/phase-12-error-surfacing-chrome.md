@@ -2,7 +2,7 @@
 
 **Parent:** [platform-roadmap.md](../platform-roadmap.md)
 **Depends on:** [Phase 9](phase-9-runboard-decomposition.md), [Phase 11](phase-11-session-activity-stale.md)
-**Status:** Planned
+**Status:** Done
 **Also absorbs:** Review findings on Status overwrite, async UI marshaling, Run-while-running, progress 100%, fail-filter chip, PDF dispose, interaction Cancel confusion, Home/Inspect/Results wayfinding, `PostToUi` swallow, crash-banner silent catch — see [review-remediation.md](review-remediation.md)
 
 ## Goal
@@ -57,14 +57,14 @@ Make operator-visible failures hard to miss, keep async faults on the UI thread,
 
 ## Exit criteria
 
-- [ ] Blocking errors appear in-panel with severity; not only a fleeting Status overwrite
-- [ ] Observed task faults update UI on the dispatcher; regression test exists
-- [ ] `PostToUi` (or equivalent) does not silently execute UI mutations off-thread
-- [ ] Run / Run Selected disabled while running; fail-filter is visible/clearable; progress resets when idle **and** after early-exit paths
-- [ ] Report Preview page clear disposes bitmaps
-- [ ] Interaction Cancel / Safety Stop labeling is distinct under stress
-- [ ] Home has navigation CTAs; Inspect (and Results empty) offer a path back to Run
-- [ ] Crash dossier load failure is not silently discarded
+- [x] Blocking errors appear in-panel with severity; not only a fleeting Status overwrite
+- [x] Observed task faults update UI on the dispatcher; regression test exists
+- [x] `PostToUi` (or equivalent) does not silently execute UI mutations off-thread
+- [x] Run / Run Selected disabled while running; fail-filter is visible/clearable; progress resets when idle **and** after early-exit paths
+- [x] Report Preview page clear disposes bitmaps
+- [x] Interaction Cancel / Safety Stop labeling is distinct under stress
+- [x] Home has navigation CTAs; Inspect (and Results empty) offer a path back to Run
+- [x] Crash dossier load failure is not silently discarded
 - [ ] E2E smoke still green
 
 ## Out of scope

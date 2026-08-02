@@ -87,6 +87,9 @@ public partial class MainWindowViewModel : ReactiveObject
             runTest.ApplySelectionFromInspect(stepPath);
             NavigateToPageId("RunTest");
         };
+        inspect.NavigateToRunRequested += (_, _) => NavigateToPageId("RunTest");
+        home.NavigateToPageRequested += (_, pageId) => NavigateToPageId(pageId);
+        results.NavigateToRunRequested += (_, _) => NavigateToPageId("RunTest");
 
         runControl.PropertyChanged += (_, e) =>
         {
@@ -159,11 +162,27 @@ public partial class MainWindowViewModel : ReactiveObject
         }
     }
 
-    public string SafetyStopLabel => IsSafetyStopping ? "Cancel shutdown" : "Safety Stop";
+    public string SafetyStopLabel
+    {
+        get
+        {
+            if (IsAwaitingOperator) return "Cancel prompt";
+            if (IsSafetyStopping) return "Cancel shutdown";
+            return "Safety Stop";
+        }
+    }
 
-    public string SafetyStopTip => IsSafetyStopping
-        ? "Cancel the in-progress safety shutdown"
-        : "Safety Stop — abort and run safe shutdown";
+    public string SafetyStopTip
+    {
+        get
+        {
+            if (IsAwaitingOperator)
+                return "Cancel prompt (aborts run) — operator interaction is cancelled via Safety Stop";
+            if (IsSafetyStopping)
+                return "Cancel the in-progress safety shutdown";
+            return "Safety Stop — abort and run safe shutdown";
+        }
+    }
 
     public string ControlStatus
     {

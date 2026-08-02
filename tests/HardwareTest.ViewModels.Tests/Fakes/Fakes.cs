@@ -42,7 +42,7 @@ public sealed class FakeOpenTapSession : IOpenTapSession
         }
     }
 
-    public string? LoadedPlanPath { get; private set; }
+    public string? LoadedPlanPath { get; set; }
     public string? LoadedPlanName { get; private set; }
     public List<OpenTapStepNode> Tree { get; } = [];
 
@@ -75,6 +75,8 @@ public sealed class FakeOpenTapSession : IOpenTapSession
 
     public TimeSpan Delay { get; set; } = TimeSpan.FromMilliseconds(30);
     public bool EmitLoopProgress { get; set; }
+    /// When true, all Load* methods throw to simulate a load failure.
+    public bool ThrowOnLoad { get; set; }
     /// When true, <see cref="RunAsync"/> raises one confirm interaction and waits for Resume.
     public bool EmitOperatorInteractionDuringRun { get; set; }
     public RunResult CompletionResult { get; set; } = RunResult.Passed;
@@ -97,6 +99,11 @@ public sealed class FakeOpenTapSession : IOpenTapSession
 
     public Task LoadSampleProgramAsync(CancellationToken cancellationToken = default)
     {
+        if (ThrowOnLoad)
+        {
+            throw new InvalidOperationException("Simulated load failure");
+        }
+
         LoadedPlanPath = SampleProgramFactory.EmbeddedName;
         LoadedPlanName = "Sample Hardware Suite";
         Tree.Clear();

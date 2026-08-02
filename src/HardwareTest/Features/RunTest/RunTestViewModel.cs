@@ -115,6 +115,11 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
             StorageBannerDismissed = true;
             HasStorageBanner = false;
         });
+        DismissBannerCommand = ReactiveCommand.Create(() =>
+        {
+            HasBanner = false;
+            BannerMessage = string.Empty;
+        });
 
         SubscribeToChildren();
         Observe(ProgramSelection.RefreshProgramsAsync());
@@ -132,6 +137,9 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
 
     public OperatorSession Session => _session;
 
+    /// True when neither a run is in progress nor the session is blocking the start.
+    public bool CanStartRun => !IsRunning && !SessionPanel.SessionBlocked;
+
     public event EventHandler? NavigateToResultsRequested;
     public event EventHandler? NavigateToInspectRequested;
 
@@ -139,6 +147,7 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> OpenLastRunResultsCommand { get; }
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> InspectPlanCommand { get; }
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> DismissStorageBannerCommand { get; }
+    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> DismissBannerCommand { get; }
 
     [Reactive] private string _status = string.Empty;
     [Reactive] private bool _isRunning;
@@ -157,6 +166,9 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
     [Reactive] private bool _storageBannerIsCritical;
     [Reactive] private string _storageBannerMessage = string.Empty;
     [Reactive] private bool _storageBannerDismissed;
+    [Reactive] private bool _hasBanner;
+    [Reactive] private RunBannerSeverity _bannerSeverity;
+    [Reactive] private string _bannerMessage = string.Empty;
 
     /// Refresh free-space banner (call after Settings changes or before Run).
     public void RefreshStorageHealth()
@@ -206,6 +218,14 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
             SessionPanel.RefreshRequirementFlags();
         };
 
+        SessionPanel.PropertyChanged += (_, args) =>
+        {
+            if (args.PropertyName == nameof(OperatorSessionPanelViewModel.SessionBlocked))
+            {
+                this.RaisePropertyChanged(nameof(CanStartRun));
+            }
+        };
+
         StepTree.PropertyChanged += (_, args) =>
         {
             if (args.PropertyName != nameof(StepTreeViewModel.SelectedStep)
@@ -239,6 +259,10 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
             else if (args.PropertyName is nameof(IsRunning) or nameof(Status))
             {
                 RefreshHero();
+                if (args.PropertyName == nameof(IsRunning))
+                {
+                    this.RaisePropertyChanged(nameof(CanStartRun));
+                }
             }
         };
     }
@@ -432,18 +456,39 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
         Scroll();
     }
 
-    private void Observe(Task task)
+    internal void Observe(Task task)
         => task.ContinueWith(
             t =>
             {
                 if (t.Exception?.GetBaseException() is { } ex)
                 {
-                    Status = $"Error: {ex.Message}";
+                    void SetError()
+                    {
+                        Status = $"Error: {ex.Message}";
+                        SetBanner(RunBannerSeverity.Error, $"Error: {ex.Message}");
+                    }
+
+                    if (UiScheduler is not null)
+                    {
+                        UiScheduler(SetError);
+                    }
+                    else
+                    {
+                        PostToUi(SetError);
+                    }
                 }
             },
             CancellationToken.None,
             TaskContinuationOptions.OnlyOnFaulted,
             TaskScheduler.Default);
+
+    /// Sets a sticky in-panel error/warning banner; does not overwrite Status (kept for transient progress).
+    public void SetBanner(RunBannerSeverity severity, string message)
+    {
+        BannerSeverity = severity;
+        BannerMessage = message;
+        HasBanner = true;
+    }
 
     Task IRunBoardHost.RunOnUiAsync(Action action) => RunOnUiAsync(action);
 

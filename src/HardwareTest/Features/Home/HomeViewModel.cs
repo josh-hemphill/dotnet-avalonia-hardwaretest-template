@@ -36,6 +36,12 @@ public partial class HomeViewModel : ReactiveObject
         OpenCrashFolderCommand = ReactiveCommand.Create(OpenCrashFolder);
         ExportSupportBundleCommand = ReactiveCommand.Create(ExportSupportBundle);
         DismissCrashBannerCommand = ReactiveCommand.Create(DismissCrashBanner);
+        NavigateToRunCommand = ReactiveCommand.Create(
+            () => NavigateToPageRequested?.Invoke(this, "RunTest"));
+        NavigateToInstrumentsCommand = ReactiveCommand.Create(
+            () => NavigateToPageRequested?.Invoke(this, "Instruments"));
+        NavigateToResultsCommand = ReactiveCommand.Create(
+            () => NavigateToPageRequested?.Invoke(this, "Results"));
         RefreshCrashBanner();
         CrashHandler.RecoverableCrashOccurred += (_, _) => RefreshCrashBanner();
     }
@@ -48,6 +54,12 @@ public partial class HomeViewModel : ReactiveObject
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> OpenCrashFolderCommand { get; }
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> ExportSupportBundleCommand { get; }
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> DismissCrashBannerCommand { get; }
+    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> NavigateToRunCommand { get; }
+    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> NavigateToInstrumentsCommand { get; }
+    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> NavigateToResultsCommand { get; }
+
+    /// Raised with the target page ID when a CTA button is pressed.
+    public event EventHandler<string>? NavigateToPageRequested;
 
     [Reactive] private bool _hasCrashBanner;
     [Reactive] private string _crashBannerTitle = string.Empty;
@@ -87,9 +99,12 @@ public partial class HomeViewModel : ReactiveObject
             CrashBannerDetail = $"{when} — {fault} — app {ver}. Export a support bundle" +
                                 (AllowOsFolderBrowse ? " or open the dossier folder." : ".");
         }
-        catch
+        catch (Exception ex)
         {
             HasCrashBanner = false;
+            CrashBannerTitle = string.Empty;
+            CrashBannerDetail = string.Empty;
+            CrashStatus = $"Could not load crash dossier: {ex.Message}";
         }
     }
 
