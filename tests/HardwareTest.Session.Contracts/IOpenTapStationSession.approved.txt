@@ -1,0 +1,11 @@
+# Approved surface: HardwareTest.OpenTap.Host.IOpenTapStationSession
+# Update this file in the same commit when IOpenTapSession (or a focused surface) changes.
+method System.Threading.Tasks.Task ApplyStationAndDutAsync(HardwareTest.OpenTap.Host.StationProfile station, HardwareTest.OpenTap.Host.DutIdentity dut, System.Threading.CancellationToken cancellationToken)
+method System.Collections.Generic.IReadOnlyList<HardwareTest.OpenTap.Host.OpenTapParameterInfo> EnumerateParameters(HardwareTest.OpenTap.Host.OpenTapParameterScope scope, string stepPath, bool includeReadOnly, HardwareTest.OpenTap.Host.OpenTapParameterListing listing)
+method bool TryBindSlotResource(string slotName, string resource)
+method bool TryGetParameter(string memberKey, out string value)
+method bool TryRebindDmmResource(string resource)
+method bool TrySetAcquireSettings(string stepPath, System.Nullable<int> sampleCount, System.Nullable<int> intervalMs)
+method bool TrySetMeanGteThreshold(string stepPath, double threshold)
+method bool TrySetParameter(string memberKey, string value)
+prop System.Collections.Generic.IReadOnlyList<HardwareTest.OpenTap.Host.OpenTapInstrumentSlot> InstrumentSlots { get; }

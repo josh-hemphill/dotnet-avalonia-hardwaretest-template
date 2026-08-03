@@ -1,3 +1,5 @@
+#import "lib/sample-chart.typ": channel-names, samples-for, line-chart
+
 = Test Report
 #v(0.5em)
 #text(size: 14pt)[#sys.inputs.title]
@@ -12,6 +14,7 @@
 - *Started:* #sys.inputs.startedAt
 - *Completed:* #sys.inputs.completedAt
 - *Sample count:* #sys.inputs.sampleCount
+- *Software:* #sys.inputs.appVersion (#sys.inputs.appCommit)
 
 == Notes
 #sys.inputs.notes
@@ -22,20 +25,34 @@
   #text(fill: red)[*FAIL*]
 ]
 
+#if sys.inputs.includeHistory == "true" [
+  == DUT history
+  - *Severity:* #sys.inputs.historySeverity
+  - #sys.inputs.historySummary
+  #if sys.inputs.historyMetrics != "" [
+    #sys.inputs.historyMetrics
+  ]
+]
+
 #if sys.inputs.includePlots == "true" [
-  == Plots
-  #let p0 = sys.inputs.at("plot0", default: "")
-  #let p1 = sys.inputs.at("plot1", default: "")
-  #let p2 = sys.inputs.at("plot2", default: "")
-  #if p0 != "" [
-    #image(p0, width: 80%)
+  #let run = json("run.json")
+  #let channels = channel-names(run, max-count: 4)
+  #if channels.len() > 0 [
+    == Plots
+    #for ch in channels [
+      #let pts = samples-for(run, ch)
+      #if pts.len() > 0 [
+        #figure(
+          line-chart(pts, title: ch),
+          caption: [Channel #ch (from run Samples)],
+        )
+        #v(0.5em)
+      ]
+    ]
   ]
-  #if p1 != "" [
-    #v(0.5em)
-    #image(p1, width: 80%)
-  ]
-  #if p2 != "" [
-    #v(0.5em)
-    #image(p2, width: 80%)
-  ]
+]
+
+#if sys.inputs.attemptSummary != "" [
+  == Step attempts
+  #sys.inputs.attemptSummary
 ]

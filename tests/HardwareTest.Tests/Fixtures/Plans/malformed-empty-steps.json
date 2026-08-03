@@ -1,6 +1,0 @@
-{
-  "id": "malformed-empty-steps",
-  "name": "Malformed Empty Steps",
-  "resource": "MOCK::INSTR0",
-  "steps": []
-}

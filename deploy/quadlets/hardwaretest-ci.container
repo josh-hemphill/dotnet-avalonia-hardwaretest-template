@@ -1,0 +1,30 @@
+# Quadlet: one-shot Linux CI matrix against a bind-mounted checkout.
+# Install (user scope):
+#   mkdir -p ~/.config/containers/systemd
+#   cp deploy/quadlets/hardwaretest-ci.* ~/.config/containers/systemd/
+#   systemctl --user daemon-reload
+#   systemctl --user start hardwaretest-ci.service
+#
+# Or without systemd: see docs/containers.md (podman run).
+
+[Unit]
+Description=HardwareTest CI matrix (linux-x64)
+After=network-online.target
+
+[Container]
+Image=localhost/hardwaretest-ci:latest
+# Edit the host path below to your checkout before enabling the unit.
+Volume=%h/dev/dotnet-avalonia-hardwaretest-template:/src:Z
+Volume=hardwaretest-nuget.volume:/home/ciuser/.nuget/packages:Z
+WorkingDir=/src
+Exec=deno task --cwd tools/ci all -- --rid linux-x64
+User=ciuser
+# One-shot: do not restart after the matrix finishes.
+PodmanArgs=--rm
+
+[Service]
+Type=oneshot
+RemainAfterExit=no
+
+[Install]
+WantedBy=default.target

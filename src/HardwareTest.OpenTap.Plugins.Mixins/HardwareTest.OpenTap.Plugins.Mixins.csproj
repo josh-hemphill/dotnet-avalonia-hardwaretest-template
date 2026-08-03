@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>HardwareTest.OpenTap.Plugins.Mixins</RootNamespace>
+    <Description>Demo OpenTAP mixins for HardwareTest (Annotation)</Description>
+    <CreateOpenTapPackage>false</CreateOpenTapPackage>
+    <IsAotCompatible>false</IsAotCompatible>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="OpenTAP" Version="9.32.2" />
+  </ItemGroup>
+</Project>

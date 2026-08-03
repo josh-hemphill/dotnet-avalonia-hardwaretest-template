@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<TestPlan type="OpenTap.TestPlan">
+  <Steps>
+    <TestStep type="HardwareTest.OpenTap.Plugins.Basic.TestGroupStep" Id="3b0551bf-21fa-494b-a965-25b1f311bdc6">
+      <Name Metadata="Step Name">Empty Group Suite</Name>
+      <ChildTestSteps>
+        <TestStep type="HardwareTest.OpenTap.Plugins.Basic.TestGroupStep" Id="f2f03319-7e37-4424-b650-b46e9082590a">
+          <Name Metadata="Step Name">Empty Section</Name>
+          <ChildTestSteps />
+        </TestStep>
+        <TestStep type="HardwareTest.OpenTap.Plugins.Basic.TestGroupStep" Id="b735f836-505b-4878-8914-1b13311670ef">
+          <Name Metadata="Step Name">Populated Section</Name>
+          <ChildTestSteps>
+            <TestStep type="HardwareTest.OpenTap.Plugins.Basic.IdentityCheckStep" Id="69da4703-aa41-4eb5-b000-e5c24d11c997">
+              <Instrument>
+                <ResourceName>MOCK::INSTR0</ResourceName>
+                <Name>DMM</Name>
+              </Instrument>
+              <Dut>
+                <SerialNumber></SerialNumber>
+                <PartNumber></PartNumber>
+                <Revision></Revision>
+                <Family>demo</Family>
+                <ID Metadata="ID" />
+                <Comment Metadata="Comment" />
+                <Name>DUT</Name>
+              </Dut>
+              <Name Metadata="Step Name">Identity Check</Name>
+              <ChildTestSteps />
+            </TestStep>
+          </ChildTestSteps>
+        </TestStep>
+        <TestStep type="HardwareTest.OpenTap.Plugins.Basic.SafeShutdownStep" Id="94fbce66-a872-4099-bd73-bcefd6903781">
+          <Instrument>
+            <ResourceName>MOCK::INSTR0</ResourceName>
+            <Name>DMM</Name>
+          </Instrument>
+          <Name Metadata="Step Name">Safe Shutdown</Name>
+          <ChildTestSteps />
+        </TestStep>
+      </ChildTestSteps>
+    </TestStep>
+  </Steps>
+</TestPlan>

@@ -1,33 +1,239 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:HardwareTest.Features.Results"
+             xmlns:runVm="using:HardwareTest.Features.RunTest"
              xmlns:runs="using:HardwareTest.Core.Runs"
+             xmlns:pres="using:HardwareTest.Features.Presentation"
+             xmlns:storage="using:HardwareTest.Core.Storage"
+             xmlns:widgetsPres="using:HardwareTest.Widgets.Presentation"
              x:Class="HardwareTest.Features.Results.ResultsView"
+             x:Name="Root"
              x:DataType="vm:ResultsViewModel">
-  <Grid RowDefinitions="Auto,*,Auto,Auto" RowSpacing="12">
-    <StackPanel Orientation="Horizontal" Spacing="8">
-      <Button Content="Refresh" Command="{Binding RefreshCommand}" />
-      <Button Content="Open" Command="{Binding OpenCommand}" />
-      <Button Content="Regenerate PDF" Command="{Binding ReprintCommand}" />
+  <Grid RowDefinitions="Auto,*,Auto" ColumnDefinitions="*,360" ColumnSpacing="12" RowSpacing="12">
+    <StackPanel Orientation="Horizontal" Spacing="8" Grid.ColumnSpan="2">
+      <Button Content="Refresh" Command="{Binding RefreshCommand}"
+              IsEnabled="{Binding !IsBusy}" />
+      <Button Content="Regenerate reports" Command="{Binding ReprintCommand}"
+              IsEnabled="{Binding !IsBusy}" />
+      <TextBlock Text="Working…"
+                 IsVisible="{Binding IsBusy}"
+                 VerticalAlignment="Center"
+                 FontWeight="SemiBold"
+                 Opacity="0.8" />
+      <TextBlock Text="{Binding Status}" VerticalAlignment="Center" Opacity="0.85" TextWrapping="Wrap" />
     </StackPanel>
 
-    <ListBox Grid.Row="1"
-             ItemsSource="{Binding Runs}"
-             SelectedItem="{Binding SelectedRun}"
-             MinHeight="240">
-      <ListBox.ItemTemplate>
-        <DataTemplate x:DataType="runs:TestRunSummary">
-          <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="12">
-            <TextBlock Text="{Binding PlanName}" />
-            <TextBlock Grid.Column="1" Text="{Binding Result}" />
-            <TextBlock Grid.Column="2" Text="{Binding StartedAt}" Opacity="0.7" />
-          </Grid>
-        </DataTemplate>
-      </ListBox.ItemTemplate>
-    </ListBox>
+    <DockPanel Grid.Row="1">
+      <StackPanel DockPanel.Dock="Top" Spacing="6" Margin="0,0,0,8">
+        <TextBox PlaceholderText="Search plan, DUT, operator, run id…"
+                 Text="{Binding SearchText}" />
+        <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8">
+          <ComboBox ItemsSource="{Binding ResultFilterOptions}"
+                    SelectedItem="{Binding ResultFilter}"
+                    MinWidth="100" />
+          <ComboBox Grid.Column="1"
+                    ItemsSource="{Binding PlanFilterOptions}"
+                    SelectedItem="{Binding PlanFilter}"
+                    MinWidth="120" />
+          <ComboBox Grid.Column="2"
+                    ItemsSource="{Binding DutFilterOptions}"
+                    SelectedItem="{Binding DutFilter}"
+                    MinWidth="120" />
+        </Grid>
+        <TextBlock Text="{Binding FilterStatus}" Opacity="0.7" FontSize="11" />
+        <Grid ColumnDefinitions="*,100,90,90,70,140" Margin="8,0,8,0" Opacity="0.7">
+          <TextBlock Text="Plan / DUT" FontWeight="SemiBold" />
+          <TextBlock Grid.Column="1" Text="Part" FontWeight="SemiBold" />
+          <TextBlock Grid.Column="2" Text="Session" FontWeight="SemiBold" />
+          <TextBlock Grid.Column="3" Text="Operator" FontWeight="SemiBold" />
+          <TextBlock Grid.Column="4" Text="Result" FontWeight="SemiBold" />
+          <TextBlock Grid.Column="5" Text="Started" FontWeight="SemiBold" />
+        </Grid>
+      </StackPanel>
 
-    <TextBlock Grid.Row="2" Text="{Binding Status}" TextWrapping="Wrap" />
-    <TextBlock Grid.Row="3"
-               Text="{Binding OpenedRun.RunId, StringFormat=Details: {0}}" />
+      <!-- Empty state: no runs yet -->
+      <Border DockPanel.Dock="Top"
+              Padding="12,10"
+              CornerRadius="6"
+              Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
+              IsVisible="{Binding !HasRuns}"
+              Margin="0,0,0,8">
+        <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+          <TextBlock Text="No runs yet — confirm a DUT and run a program on the Run page to see results here."
+                     VerticalAlignment="Center"
+                     Opacity="0.85"
+                     TextWrapping="Wrap" />
+          <Button Content="Go to Run"
+                  Command="{Binding NavigateToRunCommand}"
+                  VerticalAlignment="Center" />
+        </StackPanel>
+      </Border>
+
+      <ListBox ItemsSource="{Binding Runs}"
+               SelectedItem="{Binding SelectedRun}"
+               DoubleTapped="OnRunsDoubleTapped"
+               MinHeight="240">
+        <ListBox.ItemTemplate>
+          <DataTemplate x:DataType="runs:TestRunSummary">
+            <Grid ColumnDefinitions="*,100,90,90,70,140" ColumnSpacing="4">
+              <StackPanel>
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                  <TextBlock Text="{Binding PlanName}" FontWeight="SemiBold" />
+                  <TextBlock Text="Legacy"
+                             FontSize="10"
+                             Opacity="0.7"
+                             VerticalAlignment="Center"
+                             IsVisible="{Binding IsLegacy}" />
+                  <TextBlock Text="Read-only"
+                             FontSize="10"
+                             Opacity="0.7"
+                             VerticalAlignment="Center"
+                             IsVisible="{Binding IsSchemaReadOnly}" />
+                </StackPanel>
+                <TextBlock Text="{Binding DutSerial}" Opacity="0.8" FontSize="11" />
+              </StackPanel>
+              <TextBlock Grid.Column="1" Text="{Binding DutPartNumber}" VerticalAlignment="Center" />
+              <TextBlock Grid.Column="2" Text="{Binding SessionId}" VerticalAlignment="Center" FontSize="11" />
+              <TextBlock Grid.Column="3" Text="{Binding OperatorName}" VerticalAlignment="Center" />
+              <Border Grid.Column="4"
+                      CornerRadius="4"
+                      Padding="6,2"
+                      HorizontalAlignment="Left"
+                      VerticalAlignment="Center"
+                      Background="{Binding Result, Converter={x:Static runVm:ChipBrushConverter.Instance}}">
+                <TextBlock Text="{Binding Result}"
+                           Foreground="White"
+                           FontSize="11"
+                           FontWeight="SemiBold" />
+              </Border>
+              <TextBlock Grid.Column="5" Text="{Binding StartedAt}" VerticalAlignment="Center" Opacity="0.75" FontSize="11" />
+            </Grid>
+          </DataTemplate>
+        </ListBox.ItemTemplate>
+      </ListBox>
+    </DockPanel>
+
+    <Border Grid.Row="1" Grid.Column="1"
+            IsVisible="{Binding ShowDetail}"
+            Padding="10"
+            Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}">
+      <ScrollViewer>
+        <StackPanel Spacing="6">
+          <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+            <TextBlock Text="{Binding OpenedRun.RunId, StringFormat=Run {0}}" FontWeight="SemiBold" TextWrapping="Wrap" />
+            <Border Grid.Column="1"
+                    IsVisible="{Binding HasSchemaBadge}"
+                    Padding="6,2"
+                    CornerRadius="3"
+                    Background="{DynamicResource SystemControlBackgroundBaseMediumBrush}"
+                    VerticalAlignment="Center">
+              <TextBlock Text="{Binding SchemaBadge}" FontSize="11" Opacity="0.9" />
+            </Border>
+            <Button Grid.Column="2" Content="Close" Command="{Binding CloseDetailCommand}" />
+          </Grid>
+          <TextBlock Text="{Binding SchemaWarning}"
+                     IsVisible="{Binding HasSchemaWarning}"
+                     TextWrapping="Wrap"
+                     Opacity="0.85"
+                     FontSize="11" />
+          <TextBlock Text="{Binding OpenedRun.DutSerial, StringFormat=DUT: {0}}" Opacity="0.85" />
+          <TextBlock Text="{Binding OpenedRun.DutPartNumber, StringFormat=Part: {0}}" Opacity="0.75" />
+          <TextBlock Text="{Binding OpenedRun.OperatorName, StringFormat=Operator: {0}}" Opacity="0.75" />
+
+          <StackPanel Spacing="2" Margin="0,8,0,0" IsVisible="{Binding HasReports}">
+            <TextBlock Text="Reports" FontWeight="SemiBold" />
+            <ItemsControl ItemsSource="{Binding ReportItems}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:RunReportItemViewModel">
+                  <Grid ColumnDefinitions="*,Auto" Margin="0,2">
+                    <StackPanel>
+                      <StackPanel Orientation="Horizontal" Spacing="6">
+                        <TextBlock Text="{Binding Title}" FontWeight="SemiBold" />
+                        <TextBlock Text="(default)"
+                                   Opacity="0.65"
+                                   FontSize="11"
+                                   VerticalAlignment="Center"
+                                   IsVisible="{Binding IsDefault}" />
+                      </StackPanel>
+                      <TextBlock Text="{Binding Kind}" Opacity="0.7" FontSize="11" />
+                    </StackPanel>
+                    <Button Grid.Column="1"
+                            Content="Open"
+                            Command="{Binding #Root.((vm:ResultsViewModel)DataContext).OpenReportCommand}"
+                            CommandParameter="{Binding}"
+                            FontSize="11" />
+                  </Grid>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
+
+          <StackPanel Spacing="4" Margin="0,8,0,0" IsVisible="{Binding HasExportTargets}">
+            <TextBlock Text="Export package" FontWeight="SemiBold" />
+            <TextBlock Text="Copies PDFs, run.json, and optional CSV to removable media or ExportDirectory."
+                       Opacity="0.75" FontSize="11" TextWrapping="Wrap" />
+            <ComboBox ItemsSource="{Binding ExportTargets}"
+                      SelectedItem="{Binding SelectedExportTarget}"
+                      MinWidth="180">
+              <ComboBox.ItemTemplate>
+                <DataTemplate x:DataType="storage:ExportTarget">
+                  <TextBlock Text="{Binding DisplayName}" />
+                </DataTemplate>
+              </ComboBox.ItemTemplate>
+            </ComboBox>
+            <Button Content="Export to…" Command="{Binding ExportPackageCommand}" HorizontalAlignment="Left" />
+          </StackPanel>
+
+          <StackPanel Spacing="2" Margin="0,8,0,0" IsVisible="{Binding HasHistory}">
+            <TextBlock Text="DUT history" FontWeight="SemiBold" />
+            <TextBlock Text="{Binding HistorySeverity, StringFormat=Severity: {0}}" Opacity="0.8" FontSize="12" />
+            <TextBlock Text="{Binding HistorySummary}" TextWrapping="Wrap" Opacity="0.9" />
+            <Grid ColumnDefinitions="*,70,70,60,60" Margin="0,4,0,0" Opacity="0.7">
+              <TextBlock Text="Metric" FontWeight="SemiBold" FontSize="11" />
+              <TextBlock Grid.Column="1" Text="Current" FontWeight="SemiBold" FontSize="11" />
+              <TextBlock Grid.Column="2" Text="Prior" FontWeight="SemiBold" FontSize="11" />
+              <TextBlock Grid.Column="3" Text="Delta" FontWeight="SemiBold" FontSize="11" />
+              <TextBlock Grid.Column="4" Text="Sev" FontWeight="SemiBold" FontSize="11" />
+            </Grid>
+            <ItemsControl ItemsSource="{Binding HistoryMetrics}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:DutHistoryMetricRow">
+                  <Grid ColumnDefinitions="*,70,70,60,60" ColumnSpacing="2" Margin="0,1">
+                    <TextBlock Text="{Binding Channel}" TextTrimming="CharacterEllipsis" FontSize="11" />
+                    <TextBlock Grid.Column="1" Text="{Binding CurrentMeanText}" FontSize="11" />
+                    <TextBlock Grid.Column="2" Text="{Binding PriorMeanText}" FontSize="11" />
+                    <TextBlock Grid.Column="3" Text="{Binding PercentDeltaText}" FontSize="11" />
+                    <TextBlock Grid.Column="4" Text="{Binding Severity}" FontSize="11" />
+                  </Grid>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
+
+          <StackPanel Spacing="4" Margin="0,8,0,0" IsVisible="{Binding HasPresentationTiles}">
+            <TextBlock Text="Metrics" FontWeight="SemiBold" />
+            <ItemsControl ItemsSource="{Binding PresentationTiles}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="pres:PresentationTileViewModel">
+                  <StackPanel Margin="0,0,0,8">
+                    <widgetsPres:MetricGaugeView IsVisible="{Binding IsGauge}" DataContext="{Binding}" />
+                    <vm:ResultsChartHost IsVisible="{Binding IsChart}" DataContext="{Binding}" />
+                  </StackPanel>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
+
+          <TextBlock Text="Steps" FontWeight="SemiBold" Margin="0,8,0,0" />
+          <ListBox ItemsSource="{Binding StepDetails}" MaxHeight="160" />
+          <TextBlock Text="Samples" FontWeight="SemiBold" Margin="0,8,0,0" />
+          <ListBox ItemsSource="{Binding SampleDetails}" MaxHeight="160" />
+        </StackPanel>
+      </ScrollViewer>
+    </Border>
+
+    <TextBlock Grid.Row="2" Grid.ColumnSpan="2"
+               Text="Click a run to open detail. Double-click opens the default report. Use filters to narrow the list."
+               Opacity="0.55" FontSize="11" />
   </Grid>
 </UserControl>

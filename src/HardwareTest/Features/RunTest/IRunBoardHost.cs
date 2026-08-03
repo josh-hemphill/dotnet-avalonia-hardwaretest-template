@@ -1,0 +1,56 @@
+using System;
+using System.Threading.Tasks;
+
+namespace HardwareTest.Features.RunTest;
+
+/// Severity level for the in-panel error/status banner on the Run board.
+public enum RunBannerSeverity
+{
+    Info,
+    Warning,
+    Error,
+}
+
+/// Coordinator surface the run pipeline needs: shared run status, the UI flush pump and cross-child refreshes.
+/// Implemented by <see cref="RunTestViewModel"/>; a stub implementation makes the children unit-testable.
+public interface IRunBoardHost
+{
+    string Status { get; set; }
+    bool IsRunning { get; set; }
+    double OverallPercent { get; set; }
+    string? LastRunId { get; set; }
+    string HistoryBanner { get; set; }
+    string IterationText { get; set; }
+    bool IsEngineerDebugMode { get; }
+
+    /// Whether a sticky error/warning banner is currently shown on the Run board.
+    bool HasBanner { get; set; }
+    /// Severity of the sticky banner.
+    RunBannerSeverity BannerSeverity { get; set; }
+    /// Message text of the sticky banner.
+    string BannerMessage { get; set; }
+
+    /// Sets a sticky banner and (for errors) leaves Status unchanged for transient progress.
+    void SetBanner(RunBannerSeverity severity, string message);
+
+    /// Marshals onto the UI thread (or the injected test scheduler) and completes when the action has run.
+    Task RunOnUiAsync(Action action);
+
+    /// Completes once queued progress has been drained onto the UI.
+    Task WaitForPendingFlushesAsync();
+
+    /// Marks the pump dirty and schedules a flush even if the throttle window has not elapsed.
+    void ForceUiFlush();
+
+    /// Drops queued progress and resets flush accounting before a new run starts.
+    void ResetPumpForRun();
+
+    Task LoadSelectedProgramAsync(string? preserveStagePath = null, string? preserveStepPath = null);
+
+    /// Re-mirrors host node state onto the tree and refreshes hero + shown detail.
+    void SyncHierarchyLive();
+
+    void OpenSelectedDetail(bool revealDetail);
+
+    void RefreshHero();
+}

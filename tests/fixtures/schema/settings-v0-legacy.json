@@ -1,0 +1,6 @@
+{
+  "useMockVisa": true,
+  "logMinimumLevel": "Information",
+  "themePreference": "System",
+  "dataDirectory": ""
+}

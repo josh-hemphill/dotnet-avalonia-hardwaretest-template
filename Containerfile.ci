@@ -1,0 +1,53 @@
+# CI image: .NET 10 SDK + Deno + Linux Avalonia/headless deps.
+# Pin by digest so the base cannot drift silently under us.
+# Digest for mcr.microsoft.com/dotnet/sdk:10.0.302-noble-amd64 (amd64 manifest).
+ARG DOTNET_SDK_DIGEST=sha256:3dae2f7699441af56216ff64d5c9b6dfce7cd7dc7f4f71d353d29662b10a384f
+FROM mcr.microsoft.com/dotnet/sdk@${DOTNET_SDK_DIGEST}
+
+ARG DENO_VERSION=2.7.7
+ARG USERNAME=ciuser
+ARG USER_UID=10001
+ARG USER_GID=10001
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    DOTNET_CLI_TELEMETRY_OPTOUT=1 \
+    DOTNET_SKIP_FIRST_TIME_EXPERIENCE=1 \
+    DOTNET_NOLOGO=1 \
+    NUGET_PACKAGES=/home/${USERNAME}/.nuget/packages \
+    DENO_DIR=/home/${USERNAME}/.cache/deno \
+    DENO_INSTALL=/home/${USERNAME}/.deno \
+    PATH=/home/${USERNAME}/.deno/bin:${PATH}
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        ca-certificates \
+        curl \
+        fontconfig \
+        fonts-dejavu-core \
+        git \
+        libfontconfig1 \
+        libfreetype6 \
+        libice6 \
+        libsm6 \
+        libx11-6 \
+        libxcursor1 \
+        libxext6 \
+        libxi6 \
+        libxinerama1 \
+        libxrandr2 \
+        libxrender1 \
+        unzip \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN groupadd --gid ${USER_GID} ${USERNAME} \
+    && useradd --uid ${USER_UID} --gid ${USER_GID} --create-home --shell /bin/bash ${USERNAME}
+
+USER ${USERNAME}
+WORKDIR /home/${USERNAME}
+
+RUN curl -fsSL https://deno.land/install.sh | sh -s v${DENO_VERSION} \
+    && deno --version
+
+WORKDIR /src
+# Expect the repo bind-mounted at /src; NuGet cache via volume at $NUGET_PACKAGES.
+CMD ["deno", "task", "--cwd", "tools/ci", "all", "--", "--rid", "linux-x64"]

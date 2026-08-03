@@ -1,17 +1,17 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <RootNamespace>HardwareTest.Core</RootNamespace>
-    <Description>Avalonia-free core: logging, settings, VISA, plans, runs, reporting</Description>
+    <Description>Avalonia-free core: logging, settings, VISA, runs, reporting</Description>
   </PropertyGroup>
 
   <ItemGroup>
     <EmbeddedResource Include="..\..\templates\reports\**\*" Link="Templates\Reports\%(RecursiveDir)%(Filename)%(Extension)" />
-    <EmbeddedResource Include="..\..\templates\plans\**\*" Link="Templates\Plans\%(RecursiveDir)%(Filename)%(Extension)" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="IviFoundation.Visa" Version="8.0.2" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.10" />
+    <PackageReference Include="ScottPlot" Version="5.1.59" />
     <PackageReference Include="Serilog" Version="4.4.0" />
     <PackageReference Include="Serilog.Enrichers.Environment" Version="3.0.1" />
     <PackageReference Include="Serilog.Enrichers.Thread" Version="4.0.0" />

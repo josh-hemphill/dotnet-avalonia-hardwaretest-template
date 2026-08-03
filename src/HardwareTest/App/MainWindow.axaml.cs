@@ -3,6 +3,7 @@ using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Platform;
+using HardwareTest.Core.Diagnostics;
 using HardwareTest.Core.Settings;
 using HardwareTest.Features;
 
@@ -13,12 +14,13 @@ public partial class MainWindow : Window
     private readonly ISettingsStore _settingsStore;
     private readonly MainWindowViewModel _viewModel;
 
-    public MainWindow(MainWindowViewModel viewModel, ISettingsStore settingsStore)
+    public MainWindow(MainWindowViewModel viewModel, ISettingsStore settingsStore, BuildInfo? buildInfo = null)
     {
         _viewModel = viewModel;
         _settingsStore = settingsStore;
         InitializeComponent();
         DataContext = viewModel;
+        ApplyTitle(buildInfo);
         RestoreWindowState();
 
         if (NavView is not null)
@@ -27,6 +29,22 @@ public partial class MainWindow : Window
         }
 
         Closing += OnClosing;
+    }
+
+    private void ApplyTitle(BuildInfo? buildInfo)
+    {
+#if DEBUG
+        var showVersion = true;
+#else
+        var showVersion = _settingsStore.AppSettings.IsEngineerDebugMode;
+#endif
+        if (!showVersion || buildInfo is null)
+        {
+            Title = "Hardware Test";
+            return;
+        }
+
+        Title = $"Hardware Test {buildInfo.Version}";
     }
 
     private void OnNavigationSelectionChanged(object? sender, FluentAvalonia.UI.Controls.FANavigationViewSelectionChangedEventArgs e)

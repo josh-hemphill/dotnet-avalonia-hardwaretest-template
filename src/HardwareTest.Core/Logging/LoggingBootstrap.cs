@@ -28,15 +28,20 @@ public sealed class LoggingBootstrap : ILoggingBootstrap
     {
         Directory.CreateDirectory(logDirectory);
         var level = ParseLevel(settings.LogMinimumLevel);
+        var ring = new RingBufferSink();
+        RingBufferSink.Shared = ring;
 
         var config = new LoggerConfiguration()
             .MinimumLevel.Is(level)
             .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
+            .MinimumLevel.Override("Avalonia", LogEventLevel.Warning)
+            .Filter.ByExcluding(IsNoisyAvaloniaLog)
             .Enrich.FromLogContext()
             .Enrich.WithMachineName()
             .Enrich.WithEnvironmentName()
             .Enrich.WithThreadId()
             .Enrich.WithProperty("Application", "HardwareTest")
+            .WriteTo.Sink(ring)
             .WriteTo.Console(
                 outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] ({TestRunId}) {Message:lj}{NewLine}{Exception}")
             .WriteTo.File(
@@ -84,6 +89,22 @@ public sealed class LoggingBootstrap : ILoggingBootstrap
         return Enum.TryParse(level, ignoreCase: true, out LogEventLevel parsed)
             ? parsed
             : LogEventLevel.Information;
+    }
+
+    /// Avalonia DeveloperTools / style system emits thousands of Information events that drown the console.
+    private static bool IsNoisyAvaloniaLog(LogEvent logEvent)
+    {
+        if (logEvent.Level > LogEventLevel.Information)
+        {
+            return false;
+        }
+
+        var text = logEvent.MessageTemplate.Text;
+        return text.StartsWith("Avalonia.", StringComparison.Ordinal)
+               || text.Contains("FindingResource", StringComparison.Ordinal)
+               || text.Contains("AttachingStyle", StringComparison.Ordinal)
+               || text.Contains("PerformingHitTest", StringComparison.Ordinal)
+               || text.Contains("RaisingRoutedEvent", StringComparison.Ordinal);
     }
 }
 
