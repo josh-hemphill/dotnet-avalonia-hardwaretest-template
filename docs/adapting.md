@@ -126,6 +126,8 @@ After Pass/Fail, the shell compares channel means on the current run to the last
 
 Publish tables `Sample` (Channel, Index, Value) and `Scalar` (Name, Value, Unit, optional LimitLow/LimitHigh). Attach **Presentation** mixin (`ChannelKey`, `DisplayRole`, `YUnit`, optional history thresholds) in Editor or via demos. Results lines show `MetricKey [role] value unit`. Run maps `timeseries` → live plot, `scalar`/`passband` → selected-step gauges; Results adds per-metric charts. Full matrix: [phase-i-presentation-contract.md](opentap-phases/phase-i-presentation-contract.md), [phase-j-presentation-ui.md](opentap-phases/phase-j-presentation-ui.md).
 
+**Band-first authoring (planned):** Prefer `scalar` / `passband` with limits for pass criteria; keep `timeseries` for shape/debug. Cookbook + bump/return/envelope recipes: [phase-l-presentation-authoring.md](opentap-phases/phase-l-presentation-authoring.md). Shell Band board + earned Focus trend: [phase-16-band-focus-presentation.md](platform-phases/phase-16-band-focus-presentation.md).
+
 ### Reports (multi-PDF)
 
 Programs declare `reportKinds` in the catalog / `{planId}.program.json` (default `["status"]`). Optional `defaultReportKind` chooses which PDF Results opens on double-click (default `status`). Sample and Board demos generate **status** (includes DUT history when available) and **certification** (pass/fail + measurements only). PDFs land as `runs/{runId}/status.pdf` and `certification.pdf`; `ReportPdfPath` points at status for back compat. Results: click a run for detail, double-click for the default report, or Open a specific artifact.
