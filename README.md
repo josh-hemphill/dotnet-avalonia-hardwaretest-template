@@ -19,7 +19,7 @@ docs/containers.md                   # Local CI tasks, Podman, appliance image r
 docs/opentap-platform.md             # OpenTAP shell roadmap + phase checklist
 docs/opentap-phases/                 # Incremental implementation plans (A–K)
 docs/platform-roadmap.md             # Platform hardening roadmap + phase checklist
-docs/platform-phases/                # Gates, config, diagnostics, crash, CI, operator UX (1–14)
+docs/platform-phases/                # Gates, config, diagnostics, crash, CI, operator UX (1–15)
 docs/platform-phases/review-remediation.md # Fresh-eyes findings → phase map
 tools/ci/                            # Deno CI tasks shared by Actions + local runs
 tests/

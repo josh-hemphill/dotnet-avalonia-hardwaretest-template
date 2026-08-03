@@ -1,4 +1,5 @@
 using System.Text.Json;
+using HardwareTest.Core.IO;
 using HardwareTest.Core.Serialization;
 
 namespace HardwareTest.Core.Settings;
@@ -146,20 +147,23 @@ public sealed class SettingsStore : ISettingsStore
             }
         }
 
-        AppSettings = CloneSettings(_fileBaseline);
+        // Rebuild effective settings into a temp instance, then copy onto the stable identity
+        // so DI-injected AppSettings consumers stay live across Load / Save.
+        var next = CloneSettings(_fileBaseline);
         AppSettingsEnvironmentBinder.Apply(
-            AppSettings,
+            next,
             provenance,
             SettingSource.Environment,
             _environmentOverlays,
             warn);
         AppSettingsEnvironmentBinder.Apply(
-            AppSettings,
+            next,
             provenance,
             SettingSource.CommandLine,
             _commandLineOverlays,
             warn);
-        NormalizeIdleAfterOverlays(provenance);
+        NormalizeIdle(next, provenance);
+        CopyOnto(next, AppSettings);
         _provenance = provenance;
 
         if (File.Exists(_uiStatePath))
@@ -190,7 +194,7 @@ public sealed class SettingsStore : ISettingsStore
                         loaded.SchemaVersion = SchemaVersions.UiState;
                     }
 
-                    UiState = loaded;
+                    CopyOnto(loaded, UiState);
                 }
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
@@ -232,12 +236,12 @@ public sealed class SettingsStore : ISettingsStore
                 Directory.CreateDirectory(directory);
             }
 
-            await using var stream = File.Create(_settingsPath);
-            await JsonSerializer.SerializeAsync(
-                stream,
-                toWrite,
-                AppJsonContext.Default.AppSettings,
-                cancellationToken).ConfigureAwait(false);
+            await AtomicFile.WriteJsonAsync(
+                    _settingsPath,
+                    toWrite,
+                    AppJsonContext.Default.AppSettings,
+                    cancellationToken)
+                .ConfigureAwait(false);
             _fileBaseline = CloneSettings(toWrite);
             IsSettingsWritable = true;
             LastPersistenceError = null;
@@ -263,12 +267,12 @@ public sealed class SettingsStore : ISettingsStore
         try
         {
             UiState.SchemaVersion = SchemaVersions.UiState;
-            await using var stream = File.Create(_uiStatePath);
-            await JsonSerializer.SerializeAsync(
-                stream,
-                UiState,
-                AppJsonContext.Default.UiState,
-                cancellationToken).ConfigureAwait(false);
+            await AtomicFile.WriteJsonAsync(
+                    _uiStatePath,
+                    UiState,
+                    AppJsonContext.Default.UiState,
+                    cancellationToken)
+                .ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
@@ -278,25 +282,28 @@ public sealed class SettingsStore : ISettingsStore
 
     private void ReapplyOverlays()
     {
-        AppSettings = CloneSettings(_fileBaseline);
+        // Rebuild into a temp instance, then copy onto the existing AppSettings identity so
+        // DI-injected consumers (retention, export, reports, OpenTAP) see live values.
+        var next = CloneSettings(_fileBaseline);
         var provenance = new List<SettingProvenance>();
         SeedDefaultProvenance(provenance, _fileBaseline);
         MarkFileProvenance(provenance, _fileBaseline);
         AppSettingsEnvironmentBinder.Apply(
-            AppSettings,
+            next,
             provenance,
             SettingSource.Environment,
             _environmentOverlays);
         AppSettingsEnvironmentBinder.Apply(
-            AppSettings,
+            next,
             provenance,
             SettingSource.CommandLine,
             _commandLineOverlays);
-        NormalizeIdleAfterOverlays(provenance);
+        NormalizeIdle(next, provenance);
+        CopyOnto(next, AppSettings);
         _provenance = provenance;
     }
 
-    private void NormalizeIdleAfterOverlays(List<SettingProvenance> provenance)
+    private static void NormalizeIdle(AppSettings settings, List<SettingProvenance> provenance)
     {
         var minutesFromOverlay = provenance.Any(p =>
             string.Equals(p.Key, nameof(AppSettings.OperatorSessionIdleMinutes), StringComparison.OrdinalIgnoreCase)
@@ -307,17 +314,20 @@ public sealed class SettingsStore : ISettingsStore
 
         if (minutesFromOverlay)
         {
-            OperatorSessionIdle.Normalize(AppSettings, preferMinutes: true);
+            OperatorSessionIdle.Normalize(settings, preferMinutes: true);
         }
         else if (hoursFromOverlay)
         {
-            OperatorSessionIdle.Normalize(AppSettings, preferMinutes: false);
+            OperatorSessionIdle.Normalize(settings, preferMinutes: false);
         }
         else
         {
-            OperatorSessionIdle.Normalize(AppSettings, preferMinutes: true);
+            OperatorSessionIdle.Normalize(settings, preferMinutes: true);
         }
     }
+
+    private void NormalizeIdleAfterOverlays(List<SettingProvenance> provenance)
+        => NormalizeIdle(AppSettings, provenance);
 
     private void CopyNonOverridden(AppSettings from, AppSettings to)
     {
@@ -469,6 +479,87 @@ public sealed class SettingsStore : ISettingsStore
         var json = JsonSerializer.Serialize(source, AppJsonContext.Default.AppSettings);
         return JsonSerializer.Deserialize(json, AppJsonContext.Default.AppSettings)
                ?? CreateDefaultAppSettings(source.DataDirectory);
+    }
+
+    /// Copies all settings fields onto <paramref name="target"/> without replacing its identity.
+    private static void CopyOnto(AppSettings source, AppSettings target)
+    {
+        target.SchemaVersion = source.SchemaVersion;
+        target.DataDirectory = source.DataDirectory;
+        target.DefaultVisaResource = source.DefaultVisaResource;
+        target.UseMockVisa = source.UseMockVisa;
+        target.LogMinimumLevel = source.LogMinimumLevel;
+        target.EnableOsEventSink = source.EnableOsEventSink;
+        target.EnableSyslogOnUnix = source.EnableSyslogOnUnix;
+        target.SyslogHost = source.SyslogHost;
+        target.SyslogPort = source.SyslogPort;
+        target.PlotRefreshHz = source.PlotRefreshHz;
+        target.ThemePreference = source.ThemePreference;
+        target.EmbedPlotsInReport = source.EmbedPlotsInReport;
+        target.ExportOpenTapResults = source.ExportOpenTapResults;
+        target.ShowDutHistoryOnRun = source.ShowDutHistoryOnRun;
+        target.OperatorSessionIdleMinutes = source.OperatorSessionIdleMinutes;
+        target.OperatorSessionIdleHours = source.OperatorSessionIdleHours;
+        target.OperatorSessionIdleWarnPercent = source.OperatorSessionIdleWarnPercent;
+        target.RequireDutConfirmEveryRun = source.RequireDutConfirmEveryRun;
+        target.IsEngineerDebugMode = source.IsEngineerDebugMode;
+        target.OpenTapPluginDirectories = CloneList(source.OpenTapPluginDirectories, static s => s);
+        target.ReportTemplateName = source.ReportTemplateName;
+        target.Instruments = CloneList(source.Instruments, static i => new VisaInstrument
+        {
+            Id = i.Id,
+            DisplayName = i.DisplayName,
+            Resource = i.Resource,
+            Enabled = i.Enabled,
+            Notes = i.Notes,
+        });
+        target.StationBindings = CloneList(source.StationBindings, static b => new StationBinding
+        {
+            Role = b.Role,
+            InstrumentId = b.InstrumentId,
+        });
+        target.PlanSlotOverrides = CloneList(source.PlanSlotOverrides, static o => new PlanSlotOverride
+        {
+            PlanId = o.PlanId,
+            SlotName = o.SlotName,
+            RoleHint = o.RoleHint,
+            Resource = o.Resource,
+        });
+        target.PlanParameterOverrides = CloneList(source.PlanParameterOverrides, static o => new PlanParameterOverride
+        {
+            PlanId = o.PlanId,
+            MemberKey = o.MemberKey,
+            Value = o.Value,
+        });
+        target.CrashEnabled = source.CrashEnabled;
+        target.CrashDirectory = source.CrashDirectory;
+        target.CrashRetentionCount = source.CrashRetentionCount;
+        target.RedactIdentifiersInDiagnostics = source.RedactIdentifiersInDiagnostics;
+        target.ExportDirectory = source.ExportDirectory;
+        target.PreferRemovableExport = source.PreferRemovableExport;
+        target.RunRetentionDays = source.RunRetentionDays;
+        target.RunRetentionMaxRuns = source.RunRetentionMaxRuns;
+        target.DataFreeSpaceWarnBytes = source.DataFreeSpaceWarnBytes;
+        target.DataFreeSpaceCriticalBytes = source.DataFreeSpaceCriticalBytes;
+        target.AllowOsFolderBrowse = source.AllowOsFolderBrowse;
+    }
+
+    /// Copies UI state fields onto <paramref name="target"/> without replacing its identity.
+    private static void CopyOnto(UiState source, UiState target)
+    {
+        target.SchemaVersion = source.SchemaVersion;
+        target.X = source.X;
+        target.Y = source.Y;
+        target.Width = source.Width;
+        target.Height = source.Height;
+        target.NormalX = source.NormalX;
+        target.NormalY = source.NormalY;
+        target.NormalWidth = source.NormalWidth;
+        target.NormalHeight = source.NormalHeight;
+        target.IsMaximized = source.IsMaximized;
+        target.SelectedPageId = source.SelectedPageId;
+        target.MonitorDeviceName = source.MonitorDeviceName;
+        target.CompactStepRows = source.CompactStepRows;
     }
 
     private static List<T> CloneList<T>(IEnumerable<T> source, Func<T, T> clone)

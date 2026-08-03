@@ -9,6 +9,7 @@ public enum ProgramLoadKind
     FactorySample,
     FactoryBoardDemo,
     FactorySweepDemo,
+    FactoryTimingDemo,
     TapPlanFile,
 }
 
@@ -136,7 +137,8 @@ public static class ProgramCatalog
             "sample" => 0,
             "board-demo" => 1,
             "sweep-demo" => 2,
-            _ => entry.IsBuiltIn ? 3 : 4,
+            "timing-demo" => 3,
+            _ => entry.IsBuiltIn ? 4 : 5,
         };
 
     public static IEnumerable<string> EnumerateDirectories(IEnumerable<string>? extraDirectories = null)
@@ -195,6 +197,17 @@ public static class ProgramCatalog
             DutFamily = "demo",
             Requirements = ProgramRequirements.Sample,
             LoadKind = ProgramLoadKind.FactorySweepDemo,
+            IsBuiltIn = true,
+            ReportKinds = [HardwareTest.Core.Runs.ReportKinds.Status],
+        };
+        yield return new ProgramCatalogEntry
+        {
+            Id = "timing-demo",
+            DisplayName = TimingDemoProgramFactory.DisplayName,
+            Path = TimingDemoProgramFactory.EmbeddedName,
+            DutFamily = "demo",
+            Requirements = ProgramRequirements.Sample,
+            LoadKind = ProgramLoadKind.FactoryTimingDemo,
             IsBuiltIn = true,
             ReportKinds = [HardwareTest.Core.Runs.ReportKinds.Status],
         };

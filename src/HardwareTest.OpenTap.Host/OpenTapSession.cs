@@ -141,6 +141,8 @@ public sealed class OpenTapSession : IOpenTapSession, INotifyPropertyChanged
     private OperatorInteractionRequest? _pendingInteraction;
     private OperatorInteractionResponse? _interactionResponse;
     private readonly ManualResetEventSlim _interactionGate = new(false);
+    /// 0 = idle, 1 = a run holds the single-flight gate.
+    private int _runGate;
 
     public OpenTapSession(AppSettings? settings = null, ILogger? logger = null)
     {
@@ -152,6 +154,7 @@ public sealed class OpenTapSession : IOpenTapSession, INotifyPropertyChanged
     public string? LoadedPlanName { get; private set; }
     public IReadOnlyList<OpenTapStepNode> StepTree => _stepTree;
     public IReadOnlyList<OpenTapInstrumentSlot> InstrumentSlots => _slots;
+    public bool IsExecuting => Volatile.Read(ref _runGate) != 0;
     public bool IsAwaitingOperator => _awaitingOperator;
     public string? OperatorPromptMessage => _operatorPromptMessage;
     public OperatorInteractionRequest? PendingInteraction => _pendingInteraction;
@@ -182,6 +185,15 @@ public sealed class OpenTapSession : IOpenTapSession, INotifyPropertyChanged
         EnsurePlugins();
         var plan = SweepDemoProgramFactory.Create();
         BindPlan(plan, SweepDemoProgramFactory.EmbeddedName, SweepDemoProgramFactory.DisplayName);
+        return Task.CompletedTask;
+    }
+
+    public Task LoadTimingDemoProgramAsync(CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        EnsurePlugins();
+        var plan = TimingDemoProgramFactory.Create();
+        BindPlan(plan, TimingDemoProgramFactory.EmbeddedName, TimingDemoProgramFactory.DisplayName);
         return Task.CompletedTask;
     }
 
@@ -219,6 +231,7 @@ public sealed class OpenTapSession : IOpenTapSession, INotifyPropertyChanged
     {
         lock (_sync)
         {
+            ThrowIfExecuting("load or bind a plan");
             _plan = plan;
             _instruments.Clear();
             foreach (var instr in InstrumentResourceAccess.CollectFromPlan(plan))
@@ -244,6 +257,7 @@ public sealed class OpenTapSession : IOpenTapSession, INotifyPropertyChanged
         cancellationToken.ThrowIfCancellationRequested();
         lock (_sync)
         {
+            ThrowIfExecuting("apply station or DUT bindings");
             _dutIdentity = dut;
             if (_dut is not null)
             {
@@ -368,6 +382,36 @@ public sealed class OpenTapSession : IOpenTapSession, INotifyPropertyChanged
         HashSet<string>? resetStepIds,
         IReadOnlyList<string>? sampleScopePaths,
         string? runId = null)
+    {
+        if (Interlocked.CompareExchange(ref _runGate, 1, 0) != 0)
+        {
+            throw new InvalidOperationException("A run is already in progress.");
+        }
+
+        Raise(nameof(IsExecuting));
+        try
+        {
+            return await RunAsyncCoreUnderGate(
+                    progress,
+                    cancellationToken,
+                    resetStepIds,
+                    sampleScopePaths,
+                    runId)
+                .ConfigureAwait(false);
+        }
+        finally
+        {
+            Interlocked.Exchange(ref _runGate, 0);
+            Raise(nameof(IsExecuting));
+        }
+    }
+
+    private async Task<OpenTapRunSummary> RunAsyncCoreUnderGate(
+        IProgress<OpenTapProgress>? progress,
+        CancellationToken cancellationToken,
+        HashSet<string>? resetStepIds,
+        IReadOnlyList<string>? sampleScopePaths,
+        string? runId)
     {
         TestPlan plan;
         List<StoredSample>? preservedSamples = null;
@@ -681,6 +725,11 @@ public sealed class OpenTapSession : IOpenTapSession, INotifyPropertyChanged
 
     public bool TrySetStepEnabled(string stepPath, bool enabled)
     {
+        if (IsExecuting)
+        {
+            return false;
+        }
+
         var step = FindStepByPath(stepPath);
         if (step is null)
         {
@@ -694,6 +743,11 @@ public sealed class OpenTapSession : IOpenTapSession, INotifyPropertyChanged
 
     public bool TrySetAcquireSettings(string stepPath, int? sampleCount, int? intervalMs)
     {
+        if (IsExecuting)
+        {
+            return false;
+        }
+
         if (FindStepByPath(stepPath) is not AcquireVoltageStep)
         {
             return false;
@@ -715,6 +769,11 @@ public sealed class OpenTapSession : IOpenTapSession, INotifyPropertyChanged
 
     public bool TrySetMeanGteThreshold(string stepPath, double threshold)
     {
+        if (IsExecuting)
+        {
+            return false;
+        }
+
         if (FindStepByPath(stepPath) is not MeanGteStep)
         {
             return false;
@@ -777,6 +836,11 @@ public sealed class OpenTapSession : IOpenTapSession, INotifyPropertyChanged
 
     public bool TrySetParameter(string memberKey, string value)
     {
+        if (IsExecuting)
+        {
+            return false;
+        }
+
         if (!TryResolveOwner(memberKey, out var owner, out var memberName))
         {
             return false;
@@ -864,6 +928,11 @@ public sealed class OpenTapSession : IOpenTapSession, INotifyPropertyChanged
 
     public bool TryBindSlotResource(string slotName, string resource)
     {
+        if (IsExecuting)
+        {
+            return false;
+        }
+
         lock (_sync)
         {
             return TryBindSlotResource_NoLock(slotName, resource);
@@ -1194,6 +1263,14 @@ public sealed class OpenTapSession : IOpenTapSession, INotifyPropertyChanged
             Verdict.Aborted => RunResult.Cancelled,
             _ => RunResult.Unknown,
         };
+    }
+
+    private void ThrowIfExecuting(string action)
+    {
+        if (IsExecuting)
+        {
+            throw new InvalidOperationException($"Cannot {action} while a run is in progress.");
+        }
     }
 
     private void Raise([CallerMemberName] string? name = null)
@@ -1604,7 +1681,8 @@ internal sealed class ProgressResultListener : ResultListener
 
         try
         {
-            return Convert.ToDouble(raw);
+            var value = Convert.ToDouble(raw);
+            return double.IsNaN(value) ? null : value;
         }
         catch
         {

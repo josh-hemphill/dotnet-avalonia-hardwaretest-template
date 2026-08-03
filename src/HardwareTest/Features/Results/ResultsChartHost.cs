@@ -8,7 +8,7 @@ namespace HardwareTest.Features.Results;
 /// Hosts a MeasurementPlotView bound to a timeseries PresentationTileViewModel.
 public sealed class ResultsChartHost : UserControl
 {
-    private readonly MeasurementPlotView _plot = new() { Height = 120 };
+    private readonly MeasurementPlotView _plot = new() { MinHeight = 240 };
 
     public ResultsChartHost()
     {

@@ -281,6 +281,67 @@ public sealed class OperatorInputStep : TestStep
     }
 }
 
+/// Publishes one Scalar row with optional LimitLow/LimitHigh for band-first Presentation authoring.
+[Display(
+    "Publish Band Scalar",
+    Groups: ["HardwareTest", "Analyze"],
+    Description: "Publish a derived Scalar metric with limits (bump timing, envelope, thresholds). Prefer this over waveforms for pass criteria.")]
+public sealed class PublishBandScalarStep : TestStep
+{
+    [Display("Metric name", Order: 1, Description: "Scalar Name / ChannelKey (e.g. bump.rise.ms).")]
+    public string MetricName { get; set; } = "metric";
+
+    [Display("Value", Order: 2)]
+    public double Value { get; set; }
+
+    [Display("Unit", Order: 3)]
+    public string Unit { get; set; } = string.Empty;
+
+    [Display("Limit low", Order: 4, Description: "Optional lower bound (passband / GTE).")]
+    public double? LimitLow { get; set; }
+
+    [Display("Limit high", Order: 5, Description: "Optional upper bound (passband / LTE).")]
+    public double? LimitHigh { get; set; }
+
+    [Display("Fail when out of band", Order: 6)]
+    public bool FailWhenOutOfBand { get; set; } = true;
+
+    public override void Run()
+    {
+        StepRuntime.WaitIfPaused?.Invoke();
+        Results.Publish(
+            "Scalar",
+            new List<string> { "Name", "Value", "Unit", "LimitLow", "LimitHigh" },
+            MetricName,
+            Value,
+            Unit ?? string.Empty,
+            LimitLow ?? double.NaN,
+            LimitHigh ?? double.NaN);
+
+        if (!FailWhenOutOfBand)
+        {
+            UpgradeVerdict(Verdict.Pass);
+            return;
+        }
+
+        if (LimitLow is { } lo && Value < lo)
+        {
+            Log.Error("{0}={1} < LimitLow={2}", MetricName, Value, lo);
+            UpgradeVerdict(Verdict.Fail);
+            return;
+        }
+
+        if (LimitHigh is { } hi && Value > hi)
+        {
+            Log.Error("{0}={1} > LimitHigh={2}", MetricName, Value, hi);
+            UpgradeVerdict(Verdict.Fail);
+            return;
+        }
+
+        UpgradeVerdict(Verdict.Pass);
+    }
+}
+
 /// Parent grouping step for hierarchy (subsystem / domain).
 [Display("Test Group", Groups: ["HardwareTest"], Description: "Hierarchical group of child steps.")]
 [AllowAnyChild]
