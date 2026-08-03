@@ -21,8 +21,11 @@ public sealed class RunTestViewModelTests
         IDutHistoryService? dutHistory = null)
     {
         settings ??= settingsStore?.AppSettings ?? new AppSettings();
+        var openTapSession = openTap ?? new FakeOpenTapSession();
         return new RunTestViewModel(
-            openTap ?? new FakeOpenTapSession(),
+            openTapSession,
+            openTapSession,
+            openTapSession,
             session ?? new OperatorSession(),
             new FakeRunControl(),
             reports ?? new FakeReportService(),

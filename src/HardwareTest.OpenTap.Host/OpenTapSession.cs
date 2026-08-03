@@ -92,55 +92,16 @@ public sealed class OpenTapRunSummary
     public string Verdict { get; init; } = "NotSet";
 }
 
-public interface IOpenTapSession : INotifyPropertyChanged
+/// Aggregating OpenTAP session façade (plan + run + station + catalog).
+/// Prefer injecting a focused surface (<see cref="IOpenTapPlanSession"/>, <see cref="IOpenTapRunSession"/>,
+/// <see cref="IOpenTapStationSession"/>, or <see cref="IOpenTapHostCatalog"/>) from Feature ViewModels.
+/// Kept for Phase 8 contract suites and Composition until OpenTAP Phase K no longer needs the aggregate.
+public interface IOpenTapSession :
+    IOpenTapPlanSession,
+    IOpenTapRunSession,
+    IOpenTapStationSession,
+    IOpenTapHostCatalog
 {
-    string? LoadedPlanPath { get; }
-    string? LoadedPlanName { get; }
-    IReadOnlyList<OpenTapStepNode> StepTree { get; }
-    IReadOnlyList<OpenTapInstrumentSlot> InstrumentSlots { get; }
-    bool IsAwaitingOperator { get; }
-    string? OperatorPromptMessage { get; }
-    OperatorInteractionRequest? PendingInteraction { get; }
-
-    Task LoadPlanAsync(string tapPlanPath, CancellationToken cancellationToken = default);
-    Task LoadSampleProgramAsync(CancellationToken cancellationToken = default);
-    Task LoadBoardDemoProgramAsync(CancellationToken cancellationToken = default);
-    Task LoadSweepDemoProgramAsync(CancellationToken cancellationToken = default);
-    Task ApplyStationAndDutAsync(StationProfile station, DutIdentity dut, CancellationToken cancellationToken = default);
-    Task<OpenTapRunSummary> RunAsync(
-        IProgress<OpenTapProgress>? progress = null,
-        CancellationToken cancellationToken = default,
-        string? runId = null);
-    Task<OpenTapRunSummary> RunSelectionAsync(
-        string stepPath,
-        IProgress<OpenTapProgress>? progress = null,
-        CancellationToken cancellationToken = default,
-        string? runId = null,
-        bool includeCleanup = true);
-    void Pause();
-    void Resume(OperatorInteractionResponse? response = null);
-    void Abort(bool safetyStop = false);
-
-    bool TrySetStepEnabled(string stepPath, bool enabled);
-    /// Sample adapter — prefer <see cref="TrySetParameter"/> / TypeData bridge for new code.
-    bool TrySetAcquireSettings(string stepPath, int? sampleCount, int? intervalMs);
-    /// Sample adapter — prefer <see cref="TrySetParameter"/> / TypeData bridge for new code.
-    bool TrySetMeanGteThreshold(string stepPath, double threshold);
-    bool TryGetStepConditionSummary(string stepPath, out string? summary);
-    bool TryRebindDmmResource(string resource);
-    bool TryBindSlotResource(string slotName, string resource);
-
-    IReadOnlyList<OpenTapParameterInfo> EnumerateParameters(
-        OpenTapParameterScope scope,
-        string? stepPath = null,
-        bool includeReadOnly = false,
-        OpenTapParameterListing listing = OpenTapParameterListing.StationOverrides);
-    bool TryGetParameter(string memberKey, out string? value);
-    bool TrySetParameter(string memberKey, string value);
-
-    IReadOnlyList<OpenTapPluginDirectoryInfo> ListPluginDirectories();
-    IReadOnlyList<OpenTapPackageInfo> ListInstalledPackages();
-    IReadOnlyList<OpenTapDiscoveredAddress> ListDiscoveredDeviceAddresses();
 }
 
 public sealed class OpenTapStepNode

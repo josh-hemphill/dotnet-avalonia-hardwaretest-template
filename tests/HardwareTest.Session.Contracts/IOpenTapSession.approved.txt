@@ -1,5 +1,5 @@
 # Approved surface: HardwareTest.OpenTap.Host.IOpenTapSession
-# Update this file in the same commit when IOpenTapSession changes.
+# Update this file in the same commit when IOpenTapSession (or a focused surface) changes.
 method void Abort(bool safetyStop)
 method System.Threading.Tasks.Task ApplyStationAndDutAsync(HardwareTest.OpenTap.Host.StationProfile station, HardwareTest.OpenTap.Host.DutIdentity dut, System.Threading.CancellationToken cancellationToken)
 method System.Collections.Generic.IReadOnlyList<HardwareTest.OpenTap.Host.OpenTapParameterInfo> EnumerateParameters(HardwareTest.OpenTap.Host.OpenTapParameterScope scope, string stepPath, bool includeReadOnly, HardwareTest.OpenTap.Host.OpenTapParameterListing listing)

@@ -28,6 +28,8 @@ public sealed class MainWindowViewModelTests
         runStore ??= new FakeRunStore();
         runTest ??= new RunTestViewModel(
             openTap,
+            openTap,
+            openTap,
             new OperatorSession(),
             runControl,
             new FakeReportService(),
@@ -133,6 +135,8 @@ public sealed class MainWindowViewModelTests
         var openTap = new FakeOpenTapSession();
         var runControl = new FakeRunControl();
         var runTest = new RunTestViewModel(
+            openTap,
+            openTap,
             openTap,
             new OperatorSession(),
             runControl,

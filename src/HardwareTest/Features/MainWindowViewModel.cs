@@ -28,7 +28,7 @@ public partial class MainWindowViewModel : ReactiveObject
 {
     private readonly ISettingsStore _settingsStore;
     private readonly IRunControl _runControl;
-    private readonly IOpenTapSession _openTap;
+    private readonly IOpenTapRunSession _openTap;
 
     public MainWindowViewModel(
         ISettingsStore settingsStore,
@@ -40,7 +40,7 @@ public partial class MainWindowViewModel : ReactiveObject
         InstrumentsViewModel instruments,
         SettingsViewModel settings,
         IRunControl runControl,
-        IOpenTapSession openTap)
+        IOpenTapRunSession openTap)
     {
         _settingsStore = settingsStore;
         _runControl = runControl;
@@ -103,9 +103,9 @@ public partial class MainWindowViewModel : ReactiveObject
 
         openTap.PropertyChanged += (_, e) =>
         {
-            if (e.PropertyName is nameof(IOpenTapSession.IsAwaitingOperator)
-                or nameof(IOpenTapSession.OperatorPromptMessage)
-                or nameof(IOpenTapSession.PendingInteraction))
+            if (e.PropertyName is nameof(IOpenTapRunSession.IsAwaitingOperator)
+                or nameof(IOpenTapRunSession.OperatorPromptMessage)
+                or nameof(IOpenTapRunSession.PendingInteraction))
             {
                 RaiseTransportProps();
             }

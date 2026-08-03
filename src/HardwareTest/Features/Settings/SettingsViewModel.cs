@@ -26,7 +26,7 @@ public sealed class SettingProvenanceRow
 public partial class SettingsViewModel : ReactiveObject
 {
     private readonly ISettingsStore _settingsStore;
-    private readonly IOpenTapSession _openTap;
+    private readonly IOpenTapHostCatalog _openTap;
     private readonly BuildInfo _buildInfo;
     private readonly OperatorSession? _operatorSession;
     private readonly IVisaModeController? _visaModeController;
@@ -34,7 +34,7 @@ public partial class SettingsViewModel : ReactiveObject
 
     public SettingsViewModel(
         ISettingsStore settingsStore,
-        IOpenTapSession openTap,
+        IOpenTapHostCatalog openTap,
         BuildInfo? buildInfo = null,
         OperatorSession? operatorSession = null,
         IVisaModeController? visaModeController = null)

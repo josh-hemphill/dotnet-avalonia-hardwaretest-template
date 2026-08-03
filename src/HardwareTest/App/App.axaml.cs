@@ -49,7 +49,7 @@ public partial class App : Application
         ThemeApplier.Apply(_settingsStore.AppSettings);
 
         var buildInfo = _services.GetRequiredService<BuildInfo>();
-        var openTap = _services.GetRequiredService<IOpenTapSession>();
+        var openTap = _services.GetRequiredService<IOpenTapRunSession>();
         var runControl = _services.GetRequiredService<IRunControl>();
         var session = _services.GetRequiredService<OperatorSession>();
         var runTest = _services.GetRequiredService<RunTestViewModel>();

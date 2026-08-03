@@ -18,5 +18,9 @@
 
   <ItemGroup>
     <None Update="IOpenTapSession.approved.txt" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="IOpenTapPlanSession.approved.txt" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="IOpenTapRunSession.approved.txt" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="IOpenTapStationSession.approved.txt" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="IOpenTapHostCatalog.approved.txt" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

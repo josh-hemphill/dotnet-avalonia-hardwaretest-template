@@ -8,10 +8,10 @@ namespace HardwareTest.Features.Inspect;
 
 public partial class InspectViewModel : ReactiveObject
 {
-    private readonly IOpenTapSession _openTap;
+    private readonly IOpenTapPlanSession _openTap;
     private readonly OperatorSession? _operatorSession;
 
-    public InspectViewModel(IOpenTapSession openTap, OperatorSession? operatorSession = null)
+    public InspectViewModel(IOpenTapPlanSession openTap, OperatorSession? operatorSession = null)
     {
         _openTap = openTap;
         _operatorSession = operatorSession;

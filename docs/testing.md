@@ -1,6 +1,6 @@
 # Testing
 
-UI/board tests stay separate from OpenTAP plan-behavior tests. Both share the `IOpenTapSession` contract; Avalonia never talks to OpenTAP except through that façade.
+UI/board tests stay separate from OpenTAP plan-behavior tests. Both share the OpenTAP session contract (aggregating `IOpenTapSession` and focused surfaces); Avalonia Feature ViewModels inject the narrow surfaces from [Phase 14](platform-phases/phase-14-session-facade-split.md).
 
 | Suite | Purpose | OpenTAP | Emulation |
 | --- | --- | --- | --- |
@@ -26,7 +26,7 @@ Export targets, run retention, and free-space gates live in Core tests under `St
 
 ### Session contract (both implementations)
 
-Put an assertion in `OpenTapSessionContractTests` only when it must hold for **both** the real session and `FakeOpenTapSession` (load/run/abort/pause/parameters/catalog). Implementation-specific edges (fake-only `BeginInteraction` / `LoadTreeFromNodes`, real instrument timing) stay in the host or ViewModel suite. Changing `IOpenTapSession` requires updating `IOpenTapSession.approved.txt` in the same commit.
+Put an assertion in `OpenTapSessionContractTests` only when it must hold for **both** the real session and `FakeOpenTapSession` (load/run/abort/pause/parameters/catalog). Implementation-specific edges (fake-only `BeginInteraction` / `LoadTreeFromNodes`, real instrument timing) stay in the host or ViewModel suite. Changing `IOpenTapSession` or a focused surface requires updating the matching `*.approved.txt` snapshot(s) in the same commit.
 
 ### Architecture (layering smoke)
 

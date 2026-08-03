@@ -235,8 +235,10 @@ public sealed class RunBoardChildViewModelTests
     public void StationOverrides_apply_debug_patch_clamps_knobs()
     {
         var step = Leaf();
+        var openTap = new FakeOpenTapSession();
         var overrides = new StationOverridesViewModel(
-            new FakeOpenTapSession(),
+            openTap,
+            openTap,
             new AppSettings { IsEngineerDebugMode = true },
             settingsStore: null,
             setStatus: _ => { },
@@ -368,6 +370,7 @@ public sealed class RunBoardChildViewModelTests
         return new RunExecutionViewModel(
             host,
             openTap,
+            openTap,
             session,
             new FakeRunControl(),
             new FakeReportService(),
@@ -378,7 +381,7 @@ public sealed class RunBoardChildViewModelTests
             new NoopProgress(),
             programs,
             new OperatorSessionPanelViewModel(session, settings, _ => { }),
-            new StationOverridesViewModel(openTap, settings, settingsStore: null, setStatus: _ => { }),
+            new StationOverridesViewModel(openTap, openTap, settings, settingsStore: null, setStatus: _ => { }),
             new StepTreeViewModel(() => openTap.StepTree),
             new StepDetailViewModel(),
             new InteractionHostViewModel(),

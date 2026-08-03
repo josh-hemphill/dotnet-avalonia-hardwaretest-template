@@ -160,7 +160,7 @@ public partial class InstrumentsViewModel : ReactiveObject
 
     private readonly ISettingsStore _settingsStore;
     private readonly IVisaResourceDiscovery _discovery;
-    private readonly IOpenTapSession _openTap;
+    private readonly IOpenTapHostCatalog _openTap;
     private readonly IVisaSessionFactory _visaSessions;
     private readonly OperatorSession? _operatorSession;
     private readonly IVisaModeController? _visaModeController;
@@ -169,7 +169,7 @@ public partial class InstrumentsViewModel : ReactiveObject
     public InstrumentsViewModel(
         ISettingsStore settingsStore,
         IVisaResourceDiscovery discovery,
-        IOpenTapSession openTap,
+        IOpenTapHostCatalog openTap,
         IVisaSessionFactory visaSessions,
         OperatorSession? operatorSession = null,
         IVisaModeController? visaModeController = null)

@@ -1,6 +1,6 @@
 # Adapting this template to your product
 
-This repo is a working Avalonia + OpenTAP hardware-test shell. Keep the layering (`HardwareTest` UI → `IOpenTapSession` → plugins/plans → `HardwareTest.Core`) and replace the sample product pieces below.
+This repo is a working Avalonia + OpenTAP hardware-test shell. Keep the layering (`HardwareTest` UI → focused `IOpenTap*` session surfaces → plugins/plans → `HardwareTest.Core`) and replace the sample product pieces below.
 
 For UI vs OpenTAP test suites, see [testing.md](testing.md). For sealed Linux publish layout, see [appliance-linux.md](appliance-linux.md). For the deeper OpenTAP platform roadmap (Avalonia-owned interactions, parameters, mixins, packages list, multi-DUT), see [opentap-platform.md](opentap-platform.md) and [opentap-phases/](opentap-phases/). Platform hardening (config, crash, storage, operator UX) is [platform-roadmap.md](platform-roadmap.md). Longer-horizon items live under [deferred/](deferred/).
 
@@ -47,7 +47,7 @@ For UI vs OpenTAP test suites, see [testing.md](testing.md). For sealed Linux pu
 1. Load programs → OpenTAP slots appear on Instruments.
 2. Discover resources from either column, then set per-plan slot overrides (`PlanSlotOverrides` in settings):
    - **VISA** — IVI `GlobalResourceManager.Find` (or mock catalog when `UseMockVisa`), with parsed interface hints (USB/TCPIP/…). Toggling `UseMockVisa` in Settings takes effect immediately (no restart required) when no run is active and no VISA sessions are open; refused flips revert the checkbox to the current effective mode.
-   - **OpenTAP** — `IDeviceDiscovery` plugins for `VisaAddress` (`IOpenTapSession.ListDiscoveredDeviceAddresses`).
+   - **OpenTAP** — `IDeviceDiscovery` plugins for `VisaAddress` (`IOpenTapHostCatalog.ListDiscoveredDeviceAddresses`).
    - **Query *IDN?** — opt-in; opens the selected address briefly to confirm manufacturer/model/serial. Not run on Discover.
 3. Slots are discovered from any OpenTAP `Instrument` referenced by step properties. Resource strings prefer **`VisaAddress`**, then `ResourceName`, then `Address` ([`InstrumentResourceAccess`](../src/HardwareTest.OpenTap.Host/InstrumentResourceAccess.cs)). Instruments without a writable resource property will show on the page but cannot be rebound from the UI.
 4. The Host does **not** call `Instrument.Open`/`Close` — OpenTAP opens instruments during plan execution. Avoid double-open from the shell.
