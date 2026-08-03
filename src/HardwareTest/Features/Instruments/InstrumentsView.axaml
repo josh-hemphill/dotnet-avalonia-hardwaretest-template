@@ -5,16 +5,50 @@
              x:DataType="vm:InstrumentsViewModel">
   <Grid RowDefinitions="Auto,*,Auto" ColumnDefinitions="*,280" ColumnSpacing="16" RowSpacing="12">
     <StackPanel Grid.ColumnSpan="2" Orientation="Horizontal" Spacing="8">
-      <Button Content="Discover VISA" Command="{Binding RefreshVisaDiscoverCommand}" />
-      <Button Content="Discover OpenTAP" Command="{Binding RefreshOpenTapDiscoverCommand}" />
-      <Button Content="Refresh plan slots" Command="{Binding RefreshSlotsCommand}" />
-      <Button Content="Apply selected resource" Command="{Binding ApplySelectedResourceCommand}" />
+      <Button Content="Discover VISA"
+              Command="{Binding RefreshVisaDiscoverCommand}"
+              IsEnabled="{Binding !IsBusy}" />
+      <Button Content="Discover OpenTAP" Command="{Binding RefreshOpenTapDiscoverCommand}"
+              IsEnabled="{Binding !IsBusy}" />
+      <Button Content="Refresh plan slots" Command="{Binding RefreshSlotsCommand}"
+              IsEnabled="{Binding !IsBusy}" />
+      <Button Content="Apply selected resource" Command="{Binding ApplySelectedResourceCommand}"
+              IsEnabled="{Binding !IsBusy}" />
       <Button Content="Query *IDN?" Command="{Binding QuerySelectedIdnCommand}"
+              IsEnabled="{Binding !IsBusy}"
               ToolTip.Tip="Opens the selected resource briefly and queries *IDN?. Use after narrowing with interface hints." />
-      <Button Content="Clear override" Command="{Binding ClearOverrideCommand}" />
-      <Button Content="Save overrides" Command="{Binding SaveCommand}" />
+      <Button Content="Clear override" Command="{Binding ClearOverrideCommand}"
+              IsEnabled="{Binding !IsBusy}" />
+      <Button Content="Save overrides" Command="{Binding SaveCommand}"
+              IsEnabled="{Binding !IsBusy}" />
       <TextBlock Text="{Binding Status}" VerticalAlignment="Center" Opacity="0.85" TextWrapping="Wrap" />
+      <TextBlock Text="Working…"
+                 IsVisible="{Binding IsBusy}"
+                 VerticalAlignment="Center"
+                 FontWeight="SemiBold"
+                 Opacity="0.8" />
     </StackPanel>
+
+    <Border Grid.Row="1" Grid.ColumnSpan="2"
+            Padding="12,10"
+            CornerRadius="6"
+            Margin="0,0,0,8"
+            Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
+            IsVisible="{Binding ShowDiscoverEmpty}">
+      <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+        <TextBlock Text="No resources discovered yet — Discover VISA to list instruments, then bind plan slots."
+                   VerticalAlignment="Center"
+                   Opacity="0.85"
+                   TextWrapping="Wrap" />
+        <Button Content="Discover VISA"
+                Command="{Binding RefreshVisaDiscoverCommand}"
+                IsEnabled="{Binding !IsBusy}"
+                VerticalAlignment="Center" />
+        <Button Content="Go to Run"
+                Command="{Binding NavigateToRunCommand}"
+                VerticalAlignment="Center" />
+      </StackPanel>
+    </Border>
 
     <DockPanel Grid.Row="1" Grid.Column="0">
       <TextBlock DockPanel.Dock="Top" Text="OpenTAP plan slot overrides" FontWeight="SemiBold" Margin="0,0,0,8" />

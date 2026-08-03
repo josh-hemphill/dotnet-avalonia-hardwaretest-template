@@ -197,12 +197,19 @@ public partial class InstrumentsViewModel : ReactiveObject
         ClearOverrideCommand = ReactiveCommand.Create(ClearOverride);
         QuerySelectedIdnCommand = ReactiveCommand.CreateFromTask(QuerySelectedIdnAsync);
         SaveCommand = ReactiveCommand.CreateFromTask(SaveAsync);
+        NavigateToRunCommand = ReactiveCommand.Create(
+            () => NavigateToRunRequested?.Invoke(this, EventArgs.Empty));
 
         PropertyChanged += (_, args) =>
         {
             if (_suppressSelectionSync)
             {
                 return;
+            }
+
+            if (args.PropertyName is nameof(HasDiscoveredVisa) or nameof(HasDiscoveredOpenTap) or nameof(IsBusy))
+            {
+                this.RaisePropertyChanged(nameof(ShowDiscoverEmpty));
             }
 
             if (args.PropertyName == nameof(SelectedVisa) && SelectedVisa is not null)
@@ -238,11 +245,19 @@ public partial class InstrumentsViewModel : ReactiveObject
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> ClearOverrideCommand { get; }
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> QuerySelectedIdnCommand { get; }
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> SaveCommand { get; }
+    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> NavigateToRunCommand { get; }
 
     [Reactive] private DiscoveredResourceItem? _selectedVisa;
     [Reactive] private OpenTapDiscoveredResourceItem? _selectedOpenTap;
     [Reactive] private SlotOverrideItemViewModel? _selectedSlot;
     [Reactive] private string _status = string.Empty;
+    [Reactive] private bool _isBusy;
+    [Reactive] private bool _hasDiscoveredVisa;
+    [Reactive] private bool _hasDiscoveredOpenTap;
+
+    public bool ShowDiscoverEmpty => !HasDiscoveredVisa && !HasDiscoveredOpenTap && !IsBusy;
+
+    public event EventHandler? NavigateToRunRequested;
 
     /// Backward-compatible alias for SelectedVisa.
     public DiscoveredResourceItem? SelectedDiscovered
@@ -262,6 +277,7 @@ public partial class InstrumentsViewModel : ReactiveObject
     private async Task RefreshVisaDiscoverAsync()
     {
         _operatorSession?.TouchActivity();
+        IsBusy = true;
         DiscoveredVisa.Clear();
         try
         {
@@ -279,18 +295,25 @@ public partial class InstrumentsViewModel : ReactiveObject
                 });
             }
 
+            HasDiscoveredVisa = found.Count > 0;
             Status = found.Count == 0
                 ? "No VISA resources found (enable mock VISA or install a vendor runtime)."
                 : $"Found {found.Count} VISA resource(s).";
         }
         catch (Exception ex)
         {
+            HasDiscoveredVisa = false;
             Status = $"VISA discovery failed: {ex.Message}";
+        }
+        finally
+        {
+            IsBusy = false;
         }
     }
 
-    private Task RefreshOpenTapDiscoverAsync()
+    private async Task RefreshOpenTapDiscoverAsync()
     {
+        IsBusy = true;
         DiscoveredOpenTap.Clear();
         try
         {
@@ -309,16 +332,22 @@ public partial class InstrumentsViewModel : ReactiveObject
                 });
             }
 
+            HasDiscoveredOpenTap = found.Count > 0;
             Status = found.Count == 0
                 ? "No OpenTAP device addresses found (IDeviceDiscovery / VisaAddress)."
                 : $"Found {found.Count} OpenTAP device address(es).";
         }
         catch (Exception ex)
         {
+            HasDiscoveredOpenTap = false;
             Status = $"OpenTAP discovery failed: {ex.Message}";
         }
+        finally
+        {
+            IsBusy = false;
+        }
 
-        return Task.CompletedTask;
+        await Task.CompletedTask;
     }
 
     private Task RefreshSlotsAsync()
@@ -419,6 +448,7 @@ public partial class InstrumentsViewModel : ReactiveObject
         }
 
         Status = $"Querying *IDN? on {address}…";
+        IsBusy = true;
         using var cts = new CancellationTokenSource(IdnTimeout);
         try
         {
@@ -452,6 +482,10 @@ public partial class InstrumentsViewModel : ReactiveObject
         {
             Status = $"*IDN? failed for {address}: {ex.Message}";
         }
+        finally
+        {
+            IsBusy = false;
+        }
     }
 
     private void ClearOverride()
@@ -469,18 +503,26 @@ public partial class InstrumentsViewModel : ReactiveObject
     private async Task SaveAsync()
     {
         _operatorSession?.TouchActivity();
-        _settingsStore.AppSettings.PlanSlotOverrides = SlotOverrides
-            .Where(s => !string.IsNullOrWhiteSpace(s.OverrideResource))
-            .Select(s => new PlanSlotOverride
-            {
-                PlanId = s.PlanId,
-                SlotName = s.SlotName,
-                RoleHint = s.RoleHint,
-                Resource = s.OverrideResource.Trim(),
-            })
-            .ToList();
+        IsBusy = true;
+        try
+        {
+            _settingsStore.AppSettings.PlanSlotOverrides = SlotOverrides
+                .Where(s => !string.IsNullOrWhiteSpace(s.OverrideResource))
+                .Select(s => new PlanSlotOverride
+                {
+                    PlanId = s.PlanId,
+                    SlotName = s.SlotName,
+                    RoleHint = s.RoleHint,
+                    Resource = s.OverrideResource.Trim(),
+                })
+                .ToList();
 
-        await _settingsStore.SaveAppSettingsAsync();
-        Status = $"Saved {_settingsStore.AppSettings.PlanSlotOverrides.Count} slot override(s).";
+            await _settingsStore.SaveAppSettingsAsync();
+            Status = $"Saved {_settingsStore.AppSettings.PlanSlotOverrides.Count} slot override(s).";
+        }
+        finally
+        {
+            IsBusy = false;
+        }
     }
 }

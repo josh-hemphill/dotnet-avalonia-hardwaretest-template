@@ -111,7 +111,7 @@ public sealed class RunExecutionViewModel
     {
         if (_host.IsRunning)
         {
-            _host.Status = "Already running.";
+            BlockStart(RunBannerSeverity.Warning, "Already running.");
             return;
         }
 
@@ -123,7 +123,9 @@ public sealed class RunExecutionViewModel
         var health = _storageHealth?.GetDataVolumeHealth();
         if (health?.Level == StorageHealthLevel.Critical)
         {
-            _host.Status = health.Message + " Clear space or adjust retention under Settings → Storage.";
+            BlockStart(
+                RunBannerSeverity.Error,
+                health.Message + " Clear space or adjust retention under Settings → Storage.");
             return;
         }
 
@@ -131,9 +133,10 @@ public sealed class RunExecutionViewModel
         if (!_session.CanRun)
         {
             _sessionPanel.ShowSessionForm = true;
-            _host.Status = _session.State == OperatorSessionState.Stale
+            var msg = _session.State == OperatorSessionState.Stale
                 ? $"Still testing {_session.DutSerial}? Confirm Same DUT or Change Session."
                 : "Confirm DUT to run.";
+            BlockStart(RunBannerSeverity.Warning, msg);
             _sessionPanel.RefreshSessionSummary();
             return;
         }
@@ -141,7 +144,7 @@ public sealed class RunExecutionViewModel
         var program = _programs.SelectedProgram;
         if (program is null)
         {
-            _host.Status = "Select a program.";
+            BlockStart(RunBannerSeverity.Warning, "Select a program.");
             return;
         }
 
@@ -152,13 +155,15 @@ public sealed class RunExecutionViewModel
         {
             if (string.IsNullOrWhiteSpace(selectionPath))
             {
-                _host.Status = "Select a stage or step to run.";
+                BlockStart(RunBannerSeverity.Warning, "Select a stage or step to run.");
                 return;
             }
 
             if (_stepTree.IsWholePlanSelection(selectionPath))
             {
-                _host.Status = "Run Selected needs a specific stage or step — not the entire program. Use Run for the full suite.";
+                BlockStart(
+                    RunBannerSeverity.Warning,
+                    "Run Selected needs a specific stage or step — not the entire program. Use Run for the full suite.");
                 return;
             }
         }
@@ -197,6 +202,12 @@ public sealed class RunExecutionViewModel
             _sessionPanel.RefreshSessionSummary();
             _host.RefreshHero();
         }
+    }
+
+    private void BlockStart(RunBannerSeverity severity, string message)
+    {
+        _host.Status = message;
+        _host.SetBanner(severity, message);
     }
 
     private async Task RunPipelineAsync(
@@ -370,6 +381,13 @@ public sealed class RunExecutionViewModel
 
         _host.OpenSelectedDetail(revealDetail: false);
         _host.Status = BuildCompletionStatus(selectionOnly, selectionPath, selectionName, summary);
+        _host.SetBanner(
+            summary.Result is RunResult.Passed
+                ? RunBannerSeverity.Info
+                : summary.Result is RunResult.Failed or RunResult.Error
+                    ? RunBannerSeverity.Error
+                    : RunBannerSeverity.Warning,
+            _host.Status);
         _stepDetail.AttemptSummaryChip = string.Empty;
         if (selectionOnly
             && !string.IsNullOrWhiteSpace(selectionPath)

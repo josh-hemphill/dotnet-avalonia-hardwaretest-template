@@ -13,11 +13,12 @@
             Margin="0,0,0,8"
             CornerRadius="6"
             IsVisible="{Binding HasStorageBanner}"
-            Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
-            BorderBrush="{DynamicResource SystemControlForegroundBaseMediumBrush}"
-            BorderThickness="1">
+            Background="{Binding StorageBannerIsCritical, Converter={x:Static vm:BannerBrushConverter.StorageBackground}}"
+            BorderBrush="{Binding StorageBannerIsCritical, Converter={x:Static vm:BannerBrushConverter.StorageBorder}}"
+            BorderThickness="1"
+            Classes="feedback-banner">
       <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-        <TextBlock Text="{Binding StorageBannerMessage}" TextWrapping="Wrap" VerticalAlignment="Center" />
+        <TextBlock Text="{Binding StorageBannerMessage}" TextWrapping="Wrap" VerticalAlignment="Center" FontWeight="SemiBold" />
         <Button Grid.Column="1"
                 Content="Dismiss"
                 Command="{Binding DismissStorageBannerCommand}"
@@ -35,7 +36,8 @@
             IsVisible="{Binding HasBanner}"
             Background="{Binding BannerSeverity, Converter={x:Static vm:BannerBrushConverter.Background}}"
             BorderBrush="{Binding BannerSeverity, Converter={x:Static vm:BannerBrushConverter.Border}}"
-            BorderThickness="1">
+            BorderThickness="1"
+            Classes="feedback-banner">
       <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
         <TextBlock Grid.Column="0"
                    Text="{Binding BannerSeverity, Converter={x:Static vm:BannerBrushConverter.Icon}}"
@@ -74,14 +76,22 @@
               </DataTemplate>
             </ComboBox.ItemTemplate>
           </ComboBox>
-          <Button Content="Refresh" Command="{Binding ProgramSelection.RefreshProgramsCommand}" />
+          <Button Content="Refresh" Command="{Binding ProgramSelection.RefreshProgramsCommand}"
+                  IsEnabled="{Binding !ProgramSelection.IsBusy}"
+                  ToolTip.Tip="Reload the program catalog" />
           <Button Content="Open…" Command="{Binding ProgramSelection.OpenPlanFileCommand}"
+                  IsEnabled="{Binding !ProgramSelection.IsBusy}"
                   IsVisible="{Binding IsEngineerDebugMode}" />
+          <TextBlock Text="Loading…"
+                     IsVisible="{Binding ProgramSelection.IsBusy}"
+                     VerticalAlignment="Center"
+                     Opacity="0.8"
+                     FontWeight="SemiBold" />
         </StackPanel>
         <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
           <Button Content="Run" Command="{Binding Run.RunCommand}"
                   IsEnabled="{Binding CanStartRun}"
-                  ToolTip.Tip="Run the full suite" />
+                  ToolTip.Tip="{Binding CanStartRunTip}" />
           <Button Content="Safety Stop" Command="{Binding Run.CancelCommand}"
                   Classes="danger"
                   ToolTip.Tip="Abort the run (also cancels an in-panel operator prompt). Prefer Continue when answering a prompt." />
@@ -97,7 +107,8 @@
                  Maximum="100"
                  Height="5"
                  Margin="0,0,0,4"
-                 HorizontalAlignment="Stretch" />
+                 HorizontalAlignment="Stretch"
+                 IsVisible="{Binding ShowOverallProgress}" />
 
     <Grid Grid.Row="4" Grid.Column="0" RowDefinitions="Auto,Auto,Auto,Auto,*,Auto,Auto" RowSpacing="0">
       <Border Padding="8,6"
@@ -105,6 +116,7 @@
               CornerRadius="6"
               BorderBrush="#FB8C00"
               BorderThickness="2"
+              Classes="session-block"
               IsVisible="{Binding SessionPanel.SessionBlocked}">
         <StackPanel Spacing="6">
           <TextBlock Text="Session confirmation required before Run"
@@ -134,17 +146,31 @@
             </StackPanel>
           </StackPanel>
           <WrapPanel IsVisible="{Binding SessionPanel.NeedsDutConfirm}">
-            <TextBox PlaceholderText="DUT serial *" Text="{Binding SessionPanel.DutSerialInput}"
-                     Width="150" Margin="0,0,8,8" />
+            <StackPanel Width="150" Margin="0,0,8,8" Spacing="2">
+              <TextBox PlaceholderText="DUT serial *" Text="{Binding SessionPanel.DutSerialInput}"
+                       Classes.error="{Binding SessionPanel.HasDutSerialError}" />
+              <TextBlock Text="{Binding SessionPanel.DutSerialError}"
+                         IsVisible="{Binding SessionPanel.HasDutSerialError}"
+                         Foreground="#C62828"
+                         FontSize="11"
+                         TextWrapping="Wrap" />
+            </StackPanel>
             <TextBox PlaceholderText="Part number" Text="{Binding SessionPanel.DutPartInput}"
                      Width="130" Margin="0,0,8,8"
                      IsVisible="{Binding SessionPanel.RequirePartNumber}" />
             <TextBox PlaceholderText="Revision" Text="{Binding SessionPanel.DutRevisionInput}"
                      Width="90" Margin="0,0,8,8"
                      IsVisible="{Binding SessionPanel.RequireRevision}" />
-            <TextBox PlaceholderText="{Binding SessionPanel.TechnicianPlaceholder}"
-                     Text="{Binding SessionPanel.OperatorInput}"
-                     Width="140" Margin="0,0,8,8" />
+            <StackPanel Width="140" Margin="0,0,8,8" Spacing="2">
+              <TextBox PlaceholderText="{Binding SessionPanel.TechnicianPlaceholder}"
+                       Text="{Binding SessionPanel.OperatorInput}"
+                       Classes.error="{Binding SessionPanel.HasOperatorError}" />
+              <TextBlock Text="{Binding SessionPanel.OperatorError}"
+                         IsVisible="{Binding SessionPanel.HasOperatorError}"
+                         Foreground="#C62828"
+                         FontSize="11"
+                         TextWrapping="Wrap" />
+            </StackPanel>
             <Button Content="Confirm Session" Command="{Binding SessionPanel.ConfirmSessionCommand}"
                     Margin="0,0,8,8" />
           </WrapPanel>
@@ -268,7 +294,7 @@
       <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="8" Margin="0,2,0,8">
         <Button Content="Run Selected" Command="{Binding Run.RunSelectedCommand}"
                 IsEnabled="{Binding CanStartRun}"
-                ToolTip.Tip="Run the selected leaf or section (subtree + Safe Shutdown). Use Run for the full suite." />
+                ToolTip.Tip="{Binding CanStartRunSelectedTip}" />
         <Button Content="Prev fail" Command="{Binding StepTree.PrevFailCommand}" />
         <Button Content="Next fail" Command="{Binding StepTree.NextFailCommand}" />
         <ToggleButton Content="Details"
@@ -289,18 +315,22 @@
                      FontSize="11"
                      VerticalAlignment="Center"
                      Margin="2,0,4,0" />
-          <Button Classes="filter-chip" Content="All"
-                  Command="{Binding StepTree.SetStepFilterCommand}"
-                  CommandParameter="{x:Static vm:StepStatusFilter.All}" />
-          <Button Classes="filter-chip" Content="Fail"
-                  Command="{Binding StepTree.SetStepFilterCommand}"
-                  CommandParameter="{x:Static vm:StepStatusFilter.Fail}" />
-          <Button Classes="filter-chip" Content="Running"
-                  Command="{Binding StepTree.SetStepFilterCommand}"
-                  CommandParameter="{x:Static vm:StepStatusFilter.Running}" />
-          <Button Classes="filter-chip" Content="Pending"
-                  Command="{Binding StepTree.SetStepFilterCommand}"
-                  CommandParameter="{x:Static vm:StepStatusFilter.Pending}" />
+          <ToggleButton Classes="filter-chip" Content="All"
+                        IsChecked="{Binding StepTree.IsFilterAll, Mode=OneWay}"
+                        Command="{Binding StepTree.SetStepFilterCommand}"
+                        CommandParameter="{x:Static vm:StepStatusFilter.All}" />
+          <ToggleButton Classes="filter-chip" Content="Fail"
+                        IsChecked="{Binding StepTree.IsFilterFail, Mode=OneWay}"
+                        Command="{Binding StepTree.SetStepFilterCommand}"
+                        CommandParameter="{x:Static vm:StepStatusFilter.Fail}" />
+          <ToggleButton Classes="filter-chip" Content="Running"
+                        IsChecked="{Binding StepTree.IsFilterRunning, Mode=OneWay}"
+                        Command="{Binding StepTree.SetStepFilterCommand}"
+                        CommandParameter="{x:Static vm:StepStatusFilter.Running}" />
+          <ToggleButton Classes="filter-chip" Content="Pending"
+                        IsChecked="{Binding StepTree.IsFilterPending, Mode=OneWay}"
+                        Command="{Binding StepTree.SetStepFilterCommand}"
+                        CommandParameter="{x:Static vm:StepStatusFilter.Pending}" />
           <ToggleButton Content="Compact"
                         IsChecked="{Binding StepTree.CompactStepRows}"
                         Classes="filter-chip"
@@ -309,8 +339,8 @@
           <!-- Auto-filter status chip: shown after suite Fail auto-filters the list -->
           <Border CornerRadius="4"
                   Padding="8,2"
-                  Background="#4A1010"
-                  BorderBrush="#D32F2F"
+                  Background="#FFCDD2"
+                  BorderBrush="#C62828"
                   BorderThickness="1"
                   VerticalAlignment="Center"
                   IsVisible="{Binding StepTree.IsFilteredToFail}">
@@ -536,20 +566,23 @@
                    FontSize="11"
                    FontWeight="SemiBold" />
         <WrapPanel Orientation="Horizontal">
-          <Button Classes="filter-chip"
-                  Content="{Binding StepTree.SuitePassedCount, StringFormat=Passed {0}}"
-                  Command="{Binding StepTree.SetStepFilterCommand}"
-                  CommandParameter="{x:Static vm:StepStatusFilter.All}"
-                  Margin="0,0,4,4" />
-          <Button Classes="filter-chip"
-                  Content="{Binding StepTree.SuiteFailedCount, StringFormat=Failed {0}}"
-                  Command="{Binding StepTree.FilterFailCommand}"
-                  Margin="0,0,4,4" />
-          <Button Classes="filter-chip"
-                  Content="{Binding StepTree.SuitePendingCount, StringFormat=Pending {0}}"
-                  Command="{Binding StepTree.SetStepFilterCommand}"
-                  CommandParameter="{x:Static vm:StepStatusFilter.Pending}"
-                  Margin="0,0,4,4" />
+          <ToggleButton Classes="filter-chip"
+                        Content="{Binding StepTree.SuitePassedCount, StringFormat=Passed {0}}"
+                        IsChecked="{Binding StepTree.IsFilterAll, Mode=OneWay}"
+                        Command="{Binding StepTree.SetStepFilterCommand}"
+                        CommandParameter="{x:Static vm:StepStatusFilter.All}"
+                        Margin="0,0,4,4" />
+          <ToggleButton Classes="filter-chip"
+                        Content="{Binding StepTree.SuiteFailedCount, StringFormat=Failed {0}}"
+                        IsChecked="{Binding StepTree.IsFilterFail, Mode=OneWay}"
+                        Command="{Binding StepTree.FilterFailCommand}"
+                        Margin="0,0,4,4" />
+          <ToggleButton Classes="filter-chip"
+                        Content="{Binding StepTree.SuitePendingCount, StringFormat=Pending {0}}"
+                        IsChecked="{Binding StepTree.IsFilterPending, Mode=OneWay}"
+                        Command="{Binding StepTree.SetStepFilterCommand}"
+                        CommandParameter="{x:Static vm:StepStatusFilter.Pending}"
+                        Margin="0,0,4,4" />
         </WrapPanel>
         <TextBlock Text="Stages" FontWeight="SemiBold" Margin="0,4,0,0" />
       </StackPanel>

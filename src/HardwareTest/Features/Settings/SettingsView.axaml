@@ -11,7 +11,13 @@
                  Opacity="0.8" />
       <StackPanel Orientation="Horizontal" Spacing="12">
         <Button Content="Save all settings" Command="{Binding SaveCommand}"
+                IsEnabled="{Binding !IsBusy}"
                 ToolTip.Tip="Writes writable Settings fields to settings.json" />
+        <TextBlock Text="Saving…"
+                   IsVisible="{Binding IsBusy}"
+                   VerticalAlignment="Center"
+                   FontWeight="SemiBold"
+                   Opacity="0.8" />
         <TextBlock Text="{Binding Status}" VerticalAlignment="Center" TextWrapping="Wrap" />
       </StackPanel>
     </StackPanel>
