@@ -26,7 +26,7 @@ public sealed class SettingProvenanceRow
 public partial class SettingsViewModel : ReactiveObject
 {
     private readonly ISettingsStore _settingsStore;
-    private readonly IOpenTapHostCatalog _openTap;
+    private readonly IOpenTapHostCatalog _hostCatalog;
     private readonly BuildInfo _buildInfo;
     private readonly OperatorSession? _operatorSession;
     private readonly IVisaModeController? _visaModeController;
@@ -34,13 +34,13 @@ public partial class SettingsViewModel : ReactiveObject
 
     public SettingsViewModel(
         ISettingsStore settingsStore,
-        IOpenTapHostCatalog openTap,
+        IOpenTapHostCatalog hostCatalog,
         BuildInfo? buildInfo = null,
         OperatorSession? operatorSession = null,
         IVisaModeController? visaModeController = null)
     {
         _settingsStore = settingsStore;
-        _openTap = openTap;
+        _hostCatalog = hostCatalog;
         _operatorSession = operatorSession;
         _visaModeController = visaModeController;
         _buildInfo = buildInfo ?? BuildInfo.FromAssembly(typeof(SettingsViewModel).Assembly);
@@ -270,13 +270,13 @@ public partial class SettingsViewModel : ReactiveObject
     private void RefreshPackages()
     {
         Packages.Clear();
-        foreach (var pkg in _openTap.ListInstalledPackages())
+        foreach (var pkg in _hostCatalog.ListInstalledPackages())
         {
             Packages.Add(pkg);
         }
 
         PluginDirectories.Clear();
-        foreach (var dir in _openTap.ListPluginDirectories())
+        foreach (var dir in _hostCatalog.ListPluginDirectories())
         {
             PluginDirectories.Add(dir);
         }
