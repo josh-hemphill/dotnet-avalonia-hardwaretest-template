@@ -1,6 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:HardwareTest.Features.Settings"
+             xmlns:conv="using:HardwareTest.Converters"
              x:Class="HardwareTest.Features.Settings.SettingsView"
              x:DataType="vm:SettingsViewModel">
   <DockPanel>
@@ -179,7 +180,10 @@
         </Grid>
         <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
           <TextBlock Text="Commit" VerticalAlignment="Center" />
-          <TextBlock Grid.Column="1" Text="{Binding AboutCommit}" VerticalAlignment="Center" TextWrapping="Wrap" />
+          <TextBlock Grid.Column="1"
+                     Text="{Binding AboutCommit, Converter={x:Static conv:ShortIdConverter.Instance}}"
+                     VerticalAlignment="Center"
+                     ToolTip.Tip="{Binding AboutCommit}" />
         </Grid>
         <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
           <TextBlock Text="Build (UTC)" VerticalAlignment="Center" />

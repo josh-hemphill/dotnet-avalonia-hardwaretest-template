@@ -1,12 +1,14 @@
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
+using Avalonia.Threading;
 using HardwareTest.Core.Crash;
 using HardwareTest.Core.Diagnostics;
 using HardwareTest.Core.Engine;
 using HardwareTest.Core.Runs;
 using HardwareTest.Core.Settings;
 using HardwareTest.Crash;
+using HardwareTest.Features;
 using HardwareTest.Features.RunTest;
 using HardwareTest.OpenTap.Host;
 using Microsoft.Extensions.DependencyInjection;
@@ -49,11 +51,6 @@ public partial class App : Application
         ThemeApplier.Apply(_settingsStore.AppSettings);
 
         var buildInfo = _services.GetRequiredService<BuildInfo>();
-        var openTap = _services.GetRequiredService<IOpenTapRunSession>();
-        var runControl = _services.GetRequiredService<IRunControl>();
-        var session = _services.GetRequiredService<OperatorSession>();
-        var runTest = _services.GetRequiredService<RunTestViewModel>();
-
         CrashHandler.Configure(
             _settingsStore,
             buildInfo,
@@ -61,6 +58,8 @@ public partial class App : Application
             {
                 try
                 {
+                    var runControl = _services.GetRequiredService<IRunControl>();
+                    var openTap = _services.GetRequiredService<IOpenTapRunSession>();
                     runControl.RequestSafetyStop();
                     openTap.Abort(safetyStop: true);
                     return SafeStopOutcome.Confirmed;
@@ -71,67 +70,25 @@ public partial class App : Application
                 }
             },
             sessionSnapshot: () =>
-            (
-                runTest.LastRunId,
-                session.ProgramId,
-                session.DutSerial,
-                session.OperatorName,
-                !string.IsNullOrWhiteSpace(session.DutSerial),
-                session.ProgramId,
-                _settingsStore.AppSettings.IsEngineerDebugMode
-            ));
+            {
+                var runTest = _services.GetRequiredService<RunTestViewModel>();
+                var session = _services.GetRequiredService<OperatorSession>();
+                return (
+                    runTest.LastRunId,
+                    session.ProgramId,
+                    session.DutSerial,
+                    session.OperatorName,
+                    !string.IsNullOrWhiteSpace(session.DutSerial),
+                    session.ProgramId,
+                    _settingsStore.AppSettings.IsEngineerDebugMode);
+            });
         CrashHandler.InstallUiHooks();
-
-        try
-        {
-            var crashRoot = string.IsNullOrWhiteSpace(_settingsStore.AppSettings.CrashDirectory)
-                ? Path.Combine(_settingsStore.RootDirectory, "crashes")
-                : _settingsStore.AppSettings.CrashDirectory;
-            var dossierId = DanglingRunReconciler.TryCorrelateNewestDossierId(crashRoot, TimeSpan.FromHours(24));
-            var reconciler = new DanglingRunReconciler(_services.GetRequiredService<IRunStore>());
-            // Must not block the Avalonia UI thread on async I/O (SyncContext deadlock).
-            var n = Task.Run(() => reconciler.ReconcileAsync(dossierId)).GetAwaiter().GetResult();
-            if (n > 0)
-            {
-                Log.Information("Reconciled {Count} dangling run(s) on startup", n);
-            }
-        }
-        catch (Exception ex)
-        {
-            Log.Warning(ex, "Dangling run reconciliation failed");
-        }
-
-        try
-        {
-            var retention = _services.GetRequiredService<HardwareTest.Core.Storage.IRunRetentionService>();
-            var pruned = retention.Prune();
-            if (pruned.DeletedCount > 0)
-            {
-                Log.Information("Run retention removed {Count} folder(s)", pruned.DeletedCount);
-            }
-        }
-        catch (Exception ex)
-        {
-            Log.Warning(ex, "Run retention pass failed");
-        }
-
-        try
-        {
-            var health = _services.GetRequiredService<HardwareTest.Core.Storage.IStorageHealthService>()
-                .GetDataVolumeHealth();
-            if (health.Level != HardwareTest.Core.Storage.StorageHealthLevel.Ok)
-            {
-                Log.Warning("Storage health {Level}: {Message}", health.Level, health.Message);
-            }
-        }
-        catch (Exception ex)
-        {
-            Log.Warning(ex, "Storage health snapshot failed");
-        }
 
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             var mainWindow = _services.GetRequiredService<MainWindow>();
+            var shell = _services.GetRequiredService<MainWindowViewModel>();
+            shell.BeginStartup("Starting Hardware Test…");
             desktop.MainWindow = mainWindow;
             desktop.ShutdownRequested += async (_, _) =>
             {
@@ -145,8 +102,97 @@ public partial class App : Application
                     // best effort on shutdown
                 }
             };
+
+            // First paint happens before OpenTAP plugin search / plan load / retention.
+            _ = RunDeferredStartupAsync(shell);
         }
 
         base.OnFrameworkInitializationCompleted();
+    }
+
+    private async Task RunDeferredStartupAsync(MainWindowViewModel shell)
+    {
+        try
+        {
+            await SetStartupStatusAsync(shell, "Checking prior runs…");
+            await Task.Run(() => ReconcileDanglingRuns()).ConfigureAwait(false);
+
+            await SetStartupStatusAsync(shell, "Applying retention…");
+            await Task.Run(() => PruneRetentionAndLogHealth()).ConfigureAwait(false);
+
+            await SetStartupStatusAsync(shell, "Loading programs…");
+            // Bind collections on the UI thread while the startup overlay is visible.
+            await Dispatcher.UIThread.InvokeAsync(async () =>
+            {
+                await shell.RunTest.WarmProgramsAsync().ConfigureAwait(true);
+            });
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "Deferred startup work failed");
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                shell.StartupStatus = $"Startup warning: {ex.Message}";
+            });
+        }
+        finally
+        {
+            await Dispatcher.UIThread.InvokeAsync(shell.CompleteStartup);
+        }
+    }
+
+    private static Task SetStartupStatusAsync(MainWindowViewModel shell, string status)
+        => Dispatcher.UIThread.InvokeAsync(() => shell.StartupStatus = status).GetTask();
+
+    private void ReconcileDanglingRuns()
+    {
+        try
+        {
+            var crashRoot = string.IsNullOrWhiteSpace(_settingsStore.AppSettings.CrashDirectory)
+                ? Path.Combine(_settingsStore.RootDirectory, "crashes")
+                : _settingsStore.AppSettings.CrashDirectory;
+            var dossierId = DanglingRunReconciler.TryCorrelateNewestDossierId(crashRoot, TimeSpan.FromHours(24));
+            var reconciler = new DanglingRunReconciler(Services.GetRequiredService<IRunStore>());
+            var n = reconciler.ReconcileAsync(dossierId).GetAwaiter().GetResult();
+            if (n > 0)
+            {
+                Log.Information("Reconciled {Count} dangling run(s) on startup", n);
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "Dangling run reconciliation failed");
+        }
+    }
+
+    private void PruneRetentionAndLogHealth()
+    {
+        try
+        {
+            var retention = Services.GetRequiredService<HardwareTest.Core.Storage.IRunRetentionService>();
+            var pruned = retention.Prune();
+            if (pruned.DeletedCount > 0)
+            {
+                Log.Information("Run retention removed {Count} folder(s)", pruned.DeletedCount);
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "Run retention pass failed");
+        }
+
+        try
+        {
+            var health = Services.GetRequiredService<HardwareTest.Core.Storage.IStorageHealthService>()
+                .GetDataVolumeHealth();
+            if (health.Level != HardwareTest.Core.Storage.StorageHealthLevel.Ok)
+            {
+                Log.Warning("Storage health {Level}: {Message}", health.Level, health.Message);
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "Storage health snapshot failed");
+        }
     }
 }

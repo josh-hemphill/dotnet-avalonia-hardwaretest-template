@@ -10,6 +10,7 @@ using HardwareTest.Core.Reporting;
 using HardwareTest.Core.Runs;
 using HardwareTest.Core.Settings;
 using HardwareTest.Core.Storage;
+using HardwareTest.Core.Text;
 using HardwareTest.OpenTap.Host;
 using ReactiveUI;
 using Serilog.Context;
@@ -484,7 +485,7 @@ public sealed class RunExecutionViewModel
             return $"Attempt #{attemptNo} for {selectionName ?? selectionPath} ({badge}). Snapshot also saved to Results.";
         }
 
-        return $"Suite finished: {summary.Result}. Session attempts rolled up; Results entry {summary.RunId}.";
+        return $"Suite finished: {summary.Result}. Session attempts rolled up; Results entry {ShortId.Display(summary.RunId)}.";
     }
 
     private void RecordAttempts(OpenTapRunSummary summary)

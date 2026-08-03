@@ -14,7 +14,6 @@ public static class SweepDemoProgramFactory
     public static TestPlan Create()
     {
         OpenTapPluginSearch.EnsureCorePluginDirectories();
-        PluginManager.Search();
 
         var instrument = new MockDmmInstrument { Name = "DMM", ResourceName = "MOCK::INSTR0" };
         var body = new AcquireVoltageStep

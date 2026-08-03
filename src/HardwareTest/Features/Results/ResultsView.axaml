@@ -6,6 +6,7 @@
              xmlns:pres="using:HardwareTest.Features.Presentation"
              xmlns:storage="using:HardwareTest.Core.Storage"
              xmlns:widgetsPres="using:HardwareTest.Widgets.Presentation"
+             xmlns:conv="using:HardwareTest.Converters"
              x:Class="HardwareTest.Features.Results.ResultsView"
              x:Name="Root"
              x:DataType="vm:ResultsViewModel">
@@ -93,7 +94,8 @@
                 <TextBlock Text="{Binding DutSerial}" Opacity="0.8" FontSize="11" />
               </StackPanel>
               <TextBlock Grid.Column="1" Text="{Binding DutPartNumber}" VerticalAlignment="Center" />
-              <TextBlock Grid.Column="2" Text="{Binding SessionId}" VerticalAlignment="Center" FontSize="11" />
+              <TextBlock Grid.Column="2" Text="{Binding SessionId, Converter={x:Static conv:ShortIdConverter.Instance}}" VerticalAlignment="Center" FontSize="11"
+                         ToolTip.Tip="{Binding SessionId}" />
               <TextBlock Grid.Column="3" Text="{Binding OperatorName}" VerticalAlignment="Center" />
               <Border Grid.Column="4"
                       CornerRadius="4"
@@ -120,7 +122,9 @@
       <ScrollViewer>
         <StackPanel Spacing="6">
           <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
-            <TextBlock Text="{Binding OpenedRun.RunId, StringFormat=Run {0}}" FontWeight="SemiBold" TextWrapping="Wrap" />
+            <TextBlock Text="{Binding OpenedRun.RunId, Converter={x:Static conv:ShortIdConverter.Instance}, StringFormat=Run {0}}"
+                       FontWeight="SemiBold"
+                       ToolTip.Tip="{Binding OpenedRun.RunId}" />
             <Border Grid.Column="1"
                     IsVisible="{Binding HasSchemaBadge}"
                     Padding="6,2"

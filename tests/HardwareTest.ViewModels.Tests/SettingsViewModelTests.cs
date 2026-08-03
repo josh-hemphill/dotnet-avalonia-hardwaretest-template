@@ -39,6 +39,7 @@ public sealed class SettingsViewModelTests
         openTap.PluginDirectories.Add(new() { Path = "/tmp/plugins", Source = "Settings" });
 
         var vm = new SettingsViewModel(new FakeSettingsStore(), openTap);
+        vm.EnsurePackagesLoaded();
 
         Assert.Single(vm.Packages);
         Assert.Equal("DemoPkg", vm.Packages[0].Name);
@@ -52,6 +53,7 @@ public sealed class SettingsViewModelTests
     {
         var openTap = new FakeOpenTapSession();
         var vm = new SettingsViewModel(new FakeSettingsStore(), openTap);
+        vm.EnsurePackagesLoaded();
         string? copied = null;
         vm.CopyTextAsync = text =>
         {

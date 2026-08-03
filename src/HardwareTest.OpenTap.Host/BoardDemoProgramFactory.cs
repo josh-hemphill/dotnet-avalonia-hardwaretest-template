@@ -18,7 +18,6 @@ public static class BoardDemoProgramFactory
     public static TestPlan Create()
     {
         OpenTapPluginSearch.EnsureCorePluginDirectories();
-        PluginManager.Search();
 
         var instrument = new MockDmmInstrument { Name = "DMM", ResourceName = "MOCK::INSTR0" };
         var dut = new HardwareDut { Name = "DUT", Family = "demo" };

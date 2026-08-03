@@ -221,6 +221,31 @@ public partial class MainWindowViewModel : ReactiveObject
     [Reactive]
     private bool _isNavPaneOpen = true;
 
+    /// True while deferred startup (OpenTAP warm / retention) is still running after first paint.
+    [Reactive]
+    private bool _isStartingUp;
+
+    [Reactive]
+    private string _startupStatus = string.Empty;
+
+    /// Marks the shell as starting so the overlay shows before heavy work.
+    public void BeginStartup(string status)
+    {
+        IsStartingUp = true;
+        StartupStatus = status;
+    }
+
+    /// Clears the startup overlay after deferred work finishes.
+    public void CompleteStartup()
+    {
+        IsStartingUp = false;
+        StartupStatus = string.Empty;
+        if (SelectedItem?.Id == "Settings" && CurrentPage is SettingsViewModel settings)
+        {
+            settings.EnsurePackagesLoaded();
+        }
+    }
+
     public void NavigateTo(NavItem? item)
     {
         if (item is null)
@@ -239,6 +264,10 @@ public partial class MainWindowViewModel : ReactiveObject
         else if (item.Id == "Inspect")
         {
             Inspect.Refresh();
+        }
+        else if (item.Id == "Settings" && CurrentPage is SettingsViewModel settings)
+        {
+            settings.EnsurePackagesLoaded();
         }
     }
 

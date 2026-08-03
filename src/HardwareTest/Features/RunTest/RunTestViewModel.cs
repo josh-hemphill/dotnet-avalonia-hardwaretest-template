@@ -131,9 +131,11 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
         });
 
         SubscribeToChildren();
-        Observe(ProgramSelection.RefreshProgramsAsync());
         RefreshStorageHealth();
     }
+
+    /// Loads the program catalog and default plan (OpenTAP plugin search). Call after first paint.
+    public Task WarmProgramsAsync() => ProgramSelection.RefreshProgramsAsync();
 
     public StepDetailViewModel StepDetail { get; }
     public InteractionHostViewModel Interaction { get; }

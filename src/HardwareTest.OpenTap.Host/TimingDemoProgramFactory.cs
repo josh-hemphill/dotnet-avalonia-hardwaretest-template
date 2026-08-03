@@ -14,7 +14,6 @@ public static class TimingDemoProgramFactory
     public static TestPlan Create()
     {
         OpenTapPluginSearch.EnsureCorePluginDirectories();
-        PluginManager.Search();
 
         var instrument = new MockDmmInstrument { Name = "DMM", ResourceName = "MOCK::INSTR0" };
 
