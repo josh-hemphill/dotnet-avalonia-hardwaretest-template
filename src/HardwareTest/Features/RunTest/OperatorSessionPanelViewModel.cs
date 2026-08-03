@@ -4,6 +4,7 @@ using HardwareTest.Core.Settings;
 using HardwareTest.OpenTap.Host;
 using ReactiveUI;
 using ReactiveUI.SourceGenerators;
+using HardwareTest.UiThreading;
 
 namespace HardwareTest.Features.RunTest;
 
@@ -16,6 +17,9 @@ public partial class OperatorSessionPanelViewModel : ReactiveObject
     private readonly Func<ProgramItemViewModel?> _getSelectedProgram;
     private readonly Action _onSessionCleared;
     private readonly System.Timers.Timer _idleTimer;
+
+    /// Test seam: routes idle-timer UI work synchronously instead of through the Avalonia dispatcher.
+    public Action<Action>? UiScheduler { get; set; }
 
     public OperatorSessionPanelViewModel(
         OperatorSession session,
@@ -39,8 +43,20 @@ public partial class OperatorSessionPanelViewModel : ReactiveObject
         {
             try
             {
-                ApplyIdleStaleCheck();
-                RefreshSessionSummary();
+                UiDispatch.Post(
+                    () =>
+                    {
+                        try
+                        {
+                            ApplyIdleStaleCheck();
+                            RefreshSessionSummary();
+                        }
+                        catch
+                        {
+                            // Timer must not crash the process (Post runs later on the UI thread).
+                        }
+                    },
+                    UiScheduler);
             }
             catch
             {

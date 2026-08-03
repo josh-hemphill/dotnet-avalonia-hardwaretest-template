@@ -1,7 +1,7 @@
 # Fresh-eyes review after Phase 15 (findings → phases)
 
 **Parent:** [platform-roadmap.md](../platform-roadmap.md)
-**Status:** Findings only — no behavior changed by this document
+**Status:** Findings addressed in follow-up commits on this branch (F1–F6 implemented with regression tests). Kept as the round-2 finding map.
 **Source:** Fresh-context review of `latest` @ `58cee18`, after platform Phases 1–15 and OpenTAP A–J
 **Predecessor:** [review-remediation.md](review-remediation.md) (all of its routed findings were re-checked; see [Closed from the previous review](#closed-from-the-previous-review))
 
@@ -23,16 +23,16 @@ Run on `linux-x64` with .NET `10.0.302`:
 
 ## Priority order
 
-| Order | Finding | Why first |
+| Order | Finding | Status |
 | --- | --- | --- |
-| 1 | [F1 — Injected `AppSettings` goes stale after save](#f1--injected-appsettings-goes-stale-after-the-first-save) | Silent wrong behavior in retention, export, reports after any Settings save |
-| 2 | [F2 — Results / session-timer mutate UI state off the UI thread](#f2--results-and-the-session-idle-timer-mutate-ui-bound-state-off-the-ui-thread) | Crash / stale-gate risk on the operator's critical path |
-| 3 | [F3 — `OpenTapSession` has no run-in-progress guard](#f3--opentapsession-has-no-run-in-progress-guard) | Silently corrupts run records; blocks OpenTAP Phase K |
-| 4 | [F4 — Safety Stop is live while idle](#f4--safety-stop-is-live-while-idle) | Operator-visible wrong state on the Run board |
-| 5 | [F5 — Path containment is prefix-based](#f5--path-containment-checks-are-prefix-based) | Latent today; cheap to close permanently |
-| 6 | [F6 — Non-atomic writes for settings and runs](#f6--settings-and-run-writes-are-not-atomic) | Bench power loss corrupts config / run records |
-| — | [Doc drift](#doc-drift) | Roadmap actively contradicts shipped state |
-| — | [CI and supply chain](#ci-and-supply-chain) | The format gate is inert, not just advisory; no dependency pinning or vulnerability scan |
+| 1 | [F1 — Injected `AppSettings` goes stale after save](#f1--injected-appsettings-goes-stale-after-the-first-save) | **Fixed** — `ReapplyOverlays` / `LoadAsync` copy onto the existing instance |
+| 2 | [F2 — Results / session-timer mutate UI state off the UI thread](#f2--results-and-the-session-idle-timer-mutate-ui-bound-state-off-the-ui-thread) | **Fixed** — shared `UiDispatch` + Results/timers/Instruments/Preview marshalling |
+| 3 | [F3 — `OpenTapSession` has no run-in-progress guard](#f3--opentapsession-has-no-run-in-progress-guard) | **Fixed** — single-flight gate + mid-run mutation reject (`IsExecuting`) |
+| 4 | [F4 — Safety Stop is live while idle](#f4--safety-stop-is-live-while-idle) | **Fixed** — `CanSafetyStop` binding + `Cancel()` guard |
+| 5 | [F5 — Path containment is prefix-based](#f5--path-containment-checks-are-prefix-based) | **Fixed** — `PathContainment` + `PortableFileNames` rejects `.` / `..` |
+| 6 | [F6 — Non-atomic writes for settings and runs](#f6--settings-and-run-writes-are-not-atomic) | **Fixed** — shared `AtomicFile` used by settings / runs / suites |
+| — | [Doc drift](#doc-drift) | **Fixed** in the docs commit on this branch |
+| — | [CI and supply chain](#ci-and-supply-chain) | Still open (format gate inert, no lock files) |
 
 ---
 

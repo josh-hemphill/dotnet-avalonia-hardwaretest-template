@@ -1,3 +1,4 @@
+using HardwareTest.Core.IO;
 using HardwareTest.Core.Settings;
 using Serilog;
 
@@ -101,13 +102,12 @@ public sealed class ExportTargetService : IExportTargetService
         }
 
         EnsureSpace(target, content.LongLength, minFreeBytes);
-        var dest = Path.GetFullPath(Path.Combine(target.RootPath, relativePath));
-        if (!dest.StartsWith(Path.GetFullPath(target.RootPath), StringComparison.OrdinalIgnoreCase))
-        {
-            throw new InvalidOperationException("Export path escapes target root.");
-        }
-
-        var dir = Path.GetDirectoryName(dest) ?? target.RootPath;
+        var relative = SanitizeRelative(relativePath);
+        var segments = relative.Split(
+            [Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar],
+            StringSplitOptions.RemoveEmptyEntries);
+        var dest = PathContainment.CombineUnderRoot(target.RootPath, segments);
+        var dir = Path.GetDirectoryName(dest) ?? NormalizeRootPath(target.RootPath);
         Directory.CreateDirectory(dir);
         var temp = dest + ".tmp-" + Guid.NewGuid().ToString("N");
         try
@@ -149,8 +149,8 @@ public sealed class ExportTargetService : IExportTargetService
     {
         ArgumentNullException.ThrowIfNull(target);
         var safeName = Sanitize(packageFolderName);
-        var packageRoot = Path.Combine(target.RootPath, safeName);
-        Directory.CreateDirectory(target.RootPath);
+        var packageRoot = PathContainment.CombineUnderRoot(target.RootPath, safeName);
+        Directory.CreateDirectory(NormalizeRootPath(target.RootPath));
 
         long total = 0;
         var fileList = files.ToList();
@@ -298,16 +298,28 @@ public sealed class ExportTargetService : IExportTargetService
         }
     }
 
+    private static string NormalizeRootPath(string root)
+        => Path.GetFullPath(root).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
     private static string Sanitize(string name)
     {
-        var invalid = Path.GetInvalidFileNameChars();
-        var cleaned = new string(name.Select(c => invalid.Contains(c) ? '_' : c).ToArray());
-        return string.IsNullOrWhiteSpace(cleaned) ? "export" : cleaned.Trim();
+        var cleaned = PortableFileNames.Sanitize(name);
+        return string.IsNullOrWhiteSpace(cleaned) || cleaned is "_" ? "export" : cleaned.Trim();
     }
 
     private static string SanitizeRelative(string relative)
     {
-        var parts = relative.Replace('\\', '/').Split('/', StringSplitOptions.RemoveEmptyEntries);
-        return Path.Combine(parts.Select(Sanitize).ToArray());
+        var parts = relative.Replace('\\', '/')
+            .Split('/', StringSplitOptions.RemoveEmptyEntries)
+            .Where(part => part is not "." and not "..")
+            .Select(Sanitize)
+            .Where(part => !string.IsNullOrWhiteSpace(part))
+            .ToArray();
+        if (parts.Length == 0)
+        {
+            throw new ArgumentException("Relative path is required.", nameof(relative));
+        }
+
+        return Path.Combine(parts);
     }
 }
