@@ -127,12 +127,15 @@ public partial class SettingsViewModel : ReactiveObject
         {
             try
             {
-                UiDispatch.Post(
-                    () =>
-                    {
-                        _ = SaveAsync();
-                    },
-                    UiScheduler);
+UiDispatch.Post(
+    () =>
+    {
+        _ = SaveAsync().ContinueWith(
+            t => Debug.WriteLine(
+                $"[SettingsViewModel] Debounced save failed: {t.Exception?.GetBaseException().Message}"),
+            TaskContinuationOptions.OnlyOnFaulted);
+    },
+    UiScheduler);
             }
             catch
             {
