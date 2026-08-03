@@ -101,5 +101,40 @@ public sealed class PresentationRoleMapTests
 
         Assert.Contains(tiles, t => t.IsChart && t.MetricKey == "VDC" && t.YsLength == 2);
         Assert.Contains(tiles, t => t.IsGauge && t.Kind == PresentationTileKind.Passband && t.ShowBand);
+        Assert.True(tiles[0].IsGauge, "Band gauges should sort before timeseries charts");
+    }
+
+    [Fact]
+    public void BuildFromStoredSamples_keeps_timing_passband_gauges()
+    {
+        var tiles = PresentationRoleMap.BuildFromStoredSamples(
+        [
+            new Core.Runs.StoredSample
+            {
+                Channel = "bump.rise.ms",
+                MetricKey = "bump.rise.ms",
+                DisplayRole = "passband",
+                Unit = "ms",
+                Value = 8,
+                LimitLow = 5,
+                LimitHigh = 15,
+                Timestamp = DateTimeOffset.UtcNow,
+            },
+            new Core.Runs.StoredSample
+            {
+                Channel = "envelope.error",
+                MetricKey = "envelope.error",
+                DisplayRole = "passband",
+                Unit = "V",
+                Value = 0.02,
+                LimitLow = 0,
+                LimitHigh = 0.1,
+                Timestamp = DateTimeOffset.UtcNow,
+            },
+        ]);
+
+        Assert.Equal(2, tiles.Count);
+        Assert.All(tiles, t => Assert.True(t.IsGauge));
+        Assert.Contains(tiles, t => t.MetricKey == "bump.rise.ms" && !t.IsOutOfBand);
     }
 }

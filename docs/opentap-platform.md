@@ -151,7 +151,7 @@ Multi-DUT / parallel is **no longer deferred** — see Phase K below.
 | I | [Presentation contract](opentap-phases/phase-i-presentation-contract.md) | Done |
 | J | [Presentation UI](opentap-phases/phase-j-presentation-ui.md) | Done |
 | K | [Multi-DUT / parallel](opentap-phases/phase-k-multi-dut-parallel.md) | Planned (after platform Phase 14) |
-| L | [Presentation authoring (band-first)](opentap-phases/phase-l-presentation-authoring.md) | Planned (unblocks platform Phase 16) |
+| L | [Presentation authoring (band-first)](opentap-phases/phase-l-presentation-authoring.md) | Done |
 
 **Suggested order:** A → B → C → D; E can parallelize after the doc; F after C; G/H after parameters stabilize; I → J after loop-stamped samples / DUT history. **K after** platform [Phase 14](platform-phases/phase-14-session-facade-split.md). **L before / with** platform [Phase 16](platform-phases/phase-16-band-focus-presentation.md) (Band board + Focus trend)—cookbook and demos first so shell work has maintainable authoring patterns.
 

@@ -4,6 +4,7 @@ method System.Threading.Tasks.Task LoadBoardDemoProgramAsync(System.Threading.Ca
 method System.Threading.Tasks.Task LoadPlanAsync(string tapPlanPath, System.Threading.CancellationToken cancellationToken)
 method System.Threading.Tasks.Task LoadSampleProgramAsync(System.Threading.CancellationToken cancellationToken)
 method System.Threading.Tasks.Task LoadSweepDemoProgramAsync(System.Threading.CancellationToken cancellationToken)
+method System.Threading.Tasks.Task LoadTimingDemoProgramAsync(System.Threading.CancellationToken cancellationToken)
 method bool TryGetStepConditionSummary(string stepPath, out string summary)
 method bool TrySetStepEnabled(string stepPath, bool enabled)
 prop string LoadedPlanName { get; }

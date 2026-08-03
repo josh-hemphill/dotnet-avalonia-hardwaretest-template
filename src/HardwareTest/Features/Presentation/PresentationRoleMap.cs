@@ -146,6 +146,9 @@ public static class PresentationRoleMap
             tiles.Add(tile);
         }
 
-        return tiles;
+        return tiles
+            .OrderByDescending(t => t.IsGauge)
+            .ThenBy(t => t.MetricKey, StringComparer.OrdinalIgnoreCase)
+            .ToList();
     }
 }

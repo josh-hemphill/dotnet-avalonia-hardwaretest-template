@@ -13,10 +13,18 @@ public static class PresentationDisplayRoles
 /// Declares metric identity and display role for shell charts/gauges (Phase J) without Avalonia types.
 public sealed class PresentationMixin : IMixin
 {
-    [Display("Channel key", Groups: ["Presentation"], Description: "Stable metric id for history and charts (e.g. rail.3v3).", Order: 1)]
+    [Display(
+        "Channel key",
+        Groups: ["Presentation"],
+        Description: "Stable metric id for history and gauges (e.g. rail.3v3.mean). Keep stable across plan revisions.",
+        Order: 1)]
     public string ChannelKey { get; set; } = string.Empty;
 
-    [Display("Display role", Groups: ["Presentation"], Description: "How the shell should present this step's metrics.", Order: 2)]
+    [Display(
+        "Display role",
+        Groups: ["Presentation"],
+        Description: "Band-first: use scalar/passband for pass criteria with limits; timeseries only when operators need the waveform shape.",
+        Order: 2)]
     [AvailableValues(nameof(DisplayRoleChoices))]
     public string DisplayRole { get; set; } = PresentationDisplayRoles.Timeseries;
 
@@ -27,7 +35,7 @@ public sealed class PresentationMixin : IMixin
         PresentationDisplayRoles.Passband,
     ];
 
-    [Display("Y unit", Groups: ["Presentation"], Description: "Unit label for plots/gauges (e.g. V).", Order: 3)]
+    [Display("Y unit", Groups: ["Presentation"], Description: "Unit label for plots/gauges (e.g. V or ms).", Order: 3)]
     public string YUnit { get; set; } = string.Empty;
 
     [Display("History enabled", Groups: ["Presentation"], Description: "Include this metric in DUT history drift checks.", Order: 4)]

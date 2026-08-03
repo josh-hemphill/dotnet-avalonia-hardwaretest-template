@@ -2,7 +2,7 @@
 
 **Parent:** [platform-roadmap.md](../platform-roadmap.md)
 **Depends on:** [Phase 15](phase-15-operator-feedback-chrome.md), [Phase J](../opentap-phases/phase-j-presentation-ui.md), [Phase L](../opentap-phases/phase-l-presentation-authoring.md) (authoring cookbook + demos; may land same PR train)
-**Status:** Planned
+**Status:** Done
 **Also absorbs:** Live chart squash (fixed 140px plot in MaxHeight-360 tray; Results 120px charts in 360px sidebar); band-first operator chrome with earned trend
 
 ## Goal
@@ -58,12 +58,12 @@ Make live measurement feedback **glanceable and maintainable**: default Run chro
 
 ## Exit criteria
 
-- [ ] Run default chrome is Band (KPI strip); no always-on squashed primary plot
-- [ ] Focus trend uses stretch + MinHeight + splitter; fixed 140px primary path removed for Focus
-- [ ] Focus opens on selection / out-of-band / explicit expand; returns to Band cleanly
-- [ ] Results Metrics prefer band gauges; timeseries not forced into unreadably short stacks
-- [ ] Phase L cookbook recipes work end-to-end on demos without plan-side layout hacks
-- [ ] Feature line budgets + ViewModels / architecture / host suites green
+- [x] Run default chrome is Band (KPI strip); no always-on squashed primary plot
+- [x] Focus trend uses stretch + MinHeight + splitter; fixed 140px primary path removed for Focus
+- [x] Focus opens on selection / out-of-band / explicit expand; returns to Band cleanly
+- [x] Results Metrics prefer band gauges; timeseries not forced into unreadably short stacks
+- [x] Phase L cookbook recipes work end-to-end on demos without plan-side layout hacks
+- [x] Feature line budgets + ViewModels / architecture / host suites green
 
 ## Out of scope
 
