@@ -17,7 +17,7 @@ This map routes every finding into an existing phase (or deferred). **Overlaps w
 | — | Doc hygiene (this PR / with each phase) | README phase ranges; adapting tense; checklist status |
 | — | [Deferred](../deferred/) | Localization, appliance kiosk/touch, clock discipline |
 
-Phases **11** and **13** may proceed in parallel (independent seams). Phase **12** depends on **11** for session-banner hierarchy. Phase **14** may start after **8/9** but should land before **K**.
+Phases **11** and **13** may proceed in parallel (independent seams). Phase **12** depends on **11** for session-banner hierarchy. Phase **14** may start after **8/9** but should land before **K**. Phase **15** (operator feedback + Settings chrome) follows **12/13**.
 
 ## Finding → destination
 
@@ -54,9 +54,10 @@ Phases **11** and **13** may proceed in parallel (independent seams). Phase **12
 | --- | --- | --- |
 | Report Preview bitmap leak on clear | **Phase 12** C | Already planned |
 | `PostToUi` swallows dispatcher failures | **Phase 12** B | Log + avoid silent wrong-thread fallback |
-| Home crash banner bare `catch` | **Phase 12** E | Surface dossier load failure in Status, don’t hide |
-| Fat `IOpenTapSession` (~29 members) | **Phase 14** | Unchanged intent |
-| Run board still heavy after Phase 9 | **Phase 14** out-of-scope note / optional follow-on | Do not block 11–13; optional size budget after façade split |
+| Home crash banner bare `catch` | **Phase 12** E → finish in **Phase 15** A | Phase 12 set CrashStatus but it sits inside HasCrashBanner; load failure still invisible — fix visibility in 15 |
+| Fat `IOpenTapSession` (~29 members) | **Phase 14** | Done — focused surfaces |
+| Run board still heavy after Phase 9 | Optional follow-on | Do not block 15 |
+| Disabled Run without reason tip; Status-only pre-run blocks; busy affordances; Instruments/Preview empty; filter selection; theme-hardcoded banners; Settings sticky Save / About redundancy | **Phase 15** | First-impression cluster |
 | Stub run comparison TODOs | [deferred-run-comparison.md](../deferred/deferred-run-comparison.md) | |
 
 ### Doc / code mismatches
