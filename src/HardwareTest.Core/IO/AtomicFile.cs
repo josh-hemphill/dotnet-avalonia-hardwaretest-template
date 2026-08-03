@@ -71,21 +71,19 @@ public static class AtomicFile
         fs.Flush(flushToDisk: true);
     }
 
-    private static void ReplaceDestination(string tempPath, string destinationPath)
+private static void ReplaceDestination(string tempPath, string destinationPath)
+{
+    if (File.Exists(destinationPath))
     {
-        if (File.Exists(destinationPath))
+        var attrs = File.GetAttributes(destinationPath);
+        if ((attrs & FileAttributes.ReadOnly) != 0)
         {
-            var attrs = File.GetAttributes(destinationPath);
-            if ((attrs & FileAttributes.ReadOnly) != 0)
-            {
-                throw new UnauthorizedAccessException($"Destination is read-only: {destinationPath}");
-            }
-
-            File.Delete(destinationPath);
+            throw new UnauthorizedAccessException($"Destination is read-only: {destinationPath}");
         }
-
-        File.Move(tempPath, destinationPath);
     }
+
+    File.Move(tempPath, destinationPath, overwrite: true);
+}
 
     private static void TryDelete(string path)
     {
