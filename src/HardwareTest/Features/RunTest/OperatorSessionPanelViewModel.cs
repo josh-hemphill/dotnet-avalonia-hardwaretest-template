@@ -43,13 +43,20 @@ public partial class OperatorSessionPanelViewModel : ReactiveObject
         {
             try
             {
-                UiDispatch.Post(
-                    () =>
-                    {
-                        ApplyIdleStaleCheck();
-                        RefreshSessionSummary();
-                    },
-                    UiScheduler);
+UiDispatch.Post(
+    () =>
+    {
+        try
+        {
+            ApplyIdleStaleCheck();
+            RefreshSessionSummary();
+        }
+        catch
+        {
+            // Timer must not crash the process.
+        }
+    },
+    UiScheduler);
             }
             catch
             {
