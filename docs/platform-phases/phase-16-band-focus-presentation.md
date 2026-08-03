@@ -16,7 +16,7 @@ Make live measurement feedback **glanceable and maintainable**: default Run chro
 - **Shell owns layout; plans own intent.** Mode switching never requires TapPlan changes beyond Phase L roles/limits.
 - **No new OS dialogs / second windows** — Focus stays in-panel ([appliance rule](../opentap-platform.md#interaction-contract-avalonia-owned)). No separate Monitor page in this phase.
 - **Constraint trigger is usable plot area + operator/alert intent**, not raw window width alone ([constraint-based breakpoints](https://arxiv.org/html/2409.01339) idea, applied thinly).
-- **When Focus is shown, drop fixed `Height="140"` / Results `Height="120"` for that surface** — use stretch + `MinHeight` floor (~220–280px Operate) and a `GridSplitter`.
+- **When Focus is shown, drop fixed `Height="140"` / Results `Height="120"` for that surface** — use stretch + `MinHeight` floor (~220–280px Operate) and a `GridSplitter`. Focus’s grid row is `*` only while open; when collapsed the row height is `0` (a permanent `*` row still reserves empty space in Avalonia even if children are `IsVisible=false`).
 - **Sparklines are optional cues under KPIs**, not a substitute for Focus when shape diagnosis is required.
 - **Bump / hi-low / return** prefer Phase L derived scalars + limits (timing bar widget optional). Full waveform remains the Focus path.
 - Keep Feature line budgets (~600); extend `LivePresentationViewModel` / plot host via partials rather than raising the cap.
