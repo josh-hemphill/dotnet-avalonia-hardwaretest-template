@@ -71,19 +71,21 @@ public static class AtomicFile
         fs.Flush(flushToDisk: true);
     }
 
-private static void ReplaceDestination(string tempPath, string destinationPath)
-{
-    if (File.Exists(destinationPath))
+    private static void ReplaceDestination(string tempPath, string destinationPath)
     {
-        var attrs = File.GetAttributes(destinationPath);
-        if ((attrs & FileAttributes.ReadOnly) != 0)
+        if (File.Exists(destinationPath))
         {
-            throw new UnauthorizedAccessException($"Destination is read-only: {destinationPath}");
+            var attrs = File.GetAttributes(destinationPath);
+            if ((attrs & FileAttributes.ReadOnly) != 0)
+            {
+                throw new UnauthorizedAccessException($"Destination is read-only: {destinationPath}");
+            }
         }
-    }
 
-    File.Move(tempPath, destinationPath, overwrite: true);
-}
+        // Same-directory temp + overwrite rename is atomic on Unix (rename) and uses
+        // MoveFileEx(REPLACE_EXISTING) on Windows — avoids delete-then-move data loss.
+        File.Move(tempPath, destinationPath, overwrite: true);
+    }
 
     private static void TryDelete(string path)
     {

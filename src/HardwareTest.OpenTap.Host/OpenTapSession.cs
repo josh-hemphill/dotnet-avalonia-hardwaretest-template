@@ -227,12 +227,12 @@ public sealed class OpenTapSession : IOpenTapSession, INotifyPropertyChanged
         return Task.CompletedTask;
     }
 
-private void BindPlan(TestPlan plan, string path, string displayName)
-{
-    lock (_sync)
+    private void BindPlan(TestPlan plan, string path, string displayName)
     {
-        ThrowIfExecuting("load or bind a plan");
-        _plan = plan;
+        lock (_sync)
+        {
+            ThrowIfExecuting("load or bind a plan");
+            _plan = plan;
             _instruments.Clear();
             foreach (var instr in InstrumentResourceAccess.CollectFromPlan(plan))
             {
@@ -255,9 +255,9 @@ private void BindPlan(TestPlan plan, string path, string displayName)
     public Task ApplyStationAndDutAsync(StationProfile station, DutIdentity dut, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        ThrowIfExecuting("apply station or DUT bindings");
         lock (_sync)
         {
+            ThrowIfExecuting("apply station or DUT bindings");
             _dutIdentity = dut;
             if (_dut is not null)
             {

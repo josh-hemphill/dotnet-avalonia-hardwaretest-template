@@ -127,15 +127,18 @@ public partial class SettingsViewModel : ReactiveObject
         {
             try
             {
-UiDispatch.Post(
-    () =>
-    {
-        _ = SaveAsync().ContinueWith(
-            t => Debug.WriteLine(
-                $"[SettingsViewModel] Debounced save failed: {t.Exception?.GetBaseException().Message}"),
-            TaskContinuationOptions.OnlyOnFaulted);
-    },
-    UiScheduler);
+                UiDispatch.Post(
+                    () =>
+                    {
+                        // Observe faults: fire-and-forget SaveAsync is not caught by the outer try.
+                        _ = SaveAsync().ContinueWith(
+                            t => Debug.WriteLine(
+                                $"[SettingsViewModel] Debounced save failed: {t.Exception?.GetBaseException().Message}"),
+                            CancellationToken.None,
+                            TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
+                            TaskScheduler.Default);
+                    },
+                    UiScheduler);
             }
             catch
             {
