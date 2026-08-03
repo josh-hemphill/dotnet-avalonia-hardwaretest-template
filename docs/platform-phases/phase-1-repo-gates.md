@@ -59,15 +59,19 @@ Two tests are red as a result, one of them a real adopter-facing regression.
 
 6. **Commit the working tree.** ~1,500 changed lines and seven untracked files, including `Features/Presentation/` and `PresentationRoleMapTests.cs`. Untracked tests cannot fail CI and untracked source is not backed up.
 
-7. **Format check** — add a non-blocking `dotnet format --verify-no-changes` step. Start it as `continue-on-error: true`, fix the backlog, then make it blocking in a follow-up. Blocking it on day one turns Phase 1 into a whitespace project.
+7. **Format check** — add a non-blocking `dotnet format --verify-no-changes` step. Start it as `continue-on-error: true`, fix the backlog, then make it blocking in a follow-up. Blocking it on day one turns Phase 1 into a whitespace project. **Still open, and worse than advisory:** the step runs `dotnet format dirs.proj`, which cannot format a traversal project — it exits 0 without checking anything, so `continue-on-error` never even comes into play. Against `HardwareTest.slnx` it exits 2 with 132 findings across 48 files (mostly `RCS1139`, which conflicts with this repo's one-line `///` convention and should be configured in `.editorconfig`). `test-linux` has no format step at all.
 
-8. **NuGet caching** — `actions/setup-dotnet` with `cache: true` and a `packages.lock.json`-or-csproj cache key. Cheap, and the OpenTAP + Avalonia restore is not small.
+8. **NuGet caching** — `actions/setup-dotnet` with `cache: true` and a `packages.lock.json`-or-csproj cache key. Cheap, and the OpenTAP + Avalonia restore is not small. **Partially open:** the cache key references `**/packages.lock.json` but no lock files exist, so restores still float.
+
+> **Follow-ups tracked in the round-2 review.** Blocking format gate, NuGet lock files, vulnerability
+> scanning, SHA-pinned actions, and workflow `permissions:` / `timeout-minutes:` / `concurrency:` are
+> listed in [review-post-phase-15.md](review-post-phase-15.md#ci-and-supply-chain).
 
 ## Exit criteria
 
-- [ ] A CI run is visible in the Actions tab and is green.
+- [x] A CI run is visible in the Actions tab and is green.
 - [x] `dotnet test dirs.proj -r win-x64` is green locally with zero failures.
-- [ ] `git status` is clean; no untracked source or test files.
+- [x] `git status` is clean; no untracked source or test files.
 - [x] `LICENSE` exists and `README.md` states MIT.
 - [x] A fresh clone on Linux produces no CRLF warnings (`.gitattributes` + `.editorconfig` `eol=lf`).
 

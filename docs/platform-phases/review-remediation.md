@@ -1,7 +1,7 @@
 # Review remediation map (fresh-eyes findings → phases)
 
 **Parent:** [platform-roadmap.md](../platform-roadmap.md)
-**Status:** Planning (this doc only — implementation tracks the phase plans below)
+**Status:** Implemented — Phases 11–15 shipped. Kept as the round-1 finding map; see [review-post-phase-15.md](review-post-phase-15.md) for the round-2 review (which re-verified every routed finding below).
 **Source:** Fresh-context codebase review (operator UX, correctness, doc drift)
 
 This map routes every finding into an existing phase (or deferred). **Overlaps with session/idle/Same DUT/`RequireOperator` are absorbed into [Phase 11](phase-11-session-activity-stale.md)** so finishing Phase 11 closes that cluster in one pass. Non-session chrome, async safety, and VISA honesty stay in 12 / 13. Façade weight stays in 14. Localization / kiosk / touch density stay deferred.

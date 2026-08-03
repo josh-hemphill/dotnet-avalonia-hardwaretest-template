@@ -4,7 +4,7 @@ North-star for deepening OpenTAP integration in this Avalonia hardware-test temp
 
 Related: [adapting.md](adapting.md) (productize), [testing.md](testing.md) (UI vs host tests), [appliance-linux.md](appliance-linux.md) (publish layout).
 
-**Sibling track:** [platform-roadmap.md](platform-roadmap.md) covers the non-OpenTAP hardening work (repo gates, configuration, diagnostics, crash capture, containerized CI, code structure, operator UX). OpenTAP phases use **letters (A–K)**; platform phases use **numbers (1–14)** — "Phase C" and "Phase 3" are never the same thing.
+**Sibling track:** [platform-roadmap.md](platform-roadmap.md) covers the non-OpenTAP hardening work (repo gates, configuration, diagnostics, crash capture, containerized CI, code structure, operator UX). OpenTAP phases use **letters (A–K)**; platform phases use **numbers (1–15)** — "Phase C" and "Phase 3" are never the same thing.
 
 ## Locked product decisions
 
@@ -26,7 +26,7 @@ Related: [adapting.md](adapting.md) (productize), [testing.md](testing.md) (UI v
 | Structured operator interactions (in-panel) | Steps that *request* interactions via Host bridge |
 | Typst PDF + optional result file export | `ResultListener` / `Results.Publish` |
 
-UI talks to OpenTAP only through [`IOpenTapSession`](../src/HardwareTest.OpenTap.Host/OpenTapSession.cs). Typst reports: programs declare `reportKinds` (`status` / `certification`); see [adapting.md](adapting.md#reports-multi-pdf).
+UI talks to OpenTAP only through the focused session surfaces split out in [Phase 14](platform-phases/phase-14-session-facade-split.md) — `IOpenTapPlanSession` / `IOpenTapRunSession` / `IOpenTapStationSession` / `IOpenTapHostCatalog` in [`IOpenTapSessionSurfaces.cs`](../src/HardwareTest.OpenTap.Host/IOpenTapSessionSurfaces.cs), all implemented by [`OpenTapSession`](../src/HardwareTest.OpenTap.Host/OpenTapSession.cs). The aggregating `IOpenTapSession` is reserved for Composition and Phase 8 contract tests; an architecture test forbids it in Features. Typst reports: programs declare `reportKinds` (`status` / `certification`); see [adapting.md](adapting.md#reports-multi-pdf).
 
 ```mermaid
 flowchart TB
@@ -100,7 +100,7 @@ Two different concepts (do not conflate):
 - Demo: [`AnnotationMixin`](../src/HardwareTest.OpenTap.Plugins.Mixins/AnnotationMixin.cs) and [`PresentationMixin`](../src/HardwareTest.OpenTap.Plugins.Mixins/PresentationMixin.cs) (`ChannelKey` / `DisplayRole` / `YUnit`). Sample Identity Check attaches Annotation; Acquire/Mean steps across Sample, Board, and Sweep demos attach Presentation — see [phase-i-presentation-contract.md](opentap-phases/phase-i-presentation-contract.md). Run/Results map roles to plot + gauges ([phase-j-presentation-ui.md](opentap-phases/phase-j-presentation-ui.md)). Production plans attach mixins in **OpenTAP Editor**.
 - Engineer/Debug Station overrides lists mixin-embedded members via TypeData (`EmbedProperties`), with `OpenTapParameterInfo.IsMixinEmbedded` + Group (e.g. `Annotation: Note`). Get/set uses the Phase C parameter bridge.
 - Author mixins with `IMixin` + `IMixinBuilder` (`[MixinBuilder(typeof(ITestStep))]`). Avalonia does **not** offer “Add Mixin” — attach in Editor, edit values in the shell.
-- See [phase-d-mixins.md](opentap-phases/phase-d-mixins.md) and [adapting.md](adapting.md#10-custom-mixins).
+- See [phase-d-mixins.md](opentap-phases/phase-d-mixins.md) and [adapting.md](adapting.md#11-custom-mixins).
 
 ## Packages (list-only)
 
