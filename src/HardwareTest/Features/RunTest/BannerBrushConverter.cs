@@ -41,9 +41,14 @@ public static class BannerBrushConverter
 
     /// Storage banner background: critical → error surface, warn → warning surface.
     public static readonly IValueConverter StorageBackground = new FuncValueConverter<bool, IBrush>(critical =>
-        critical
-            ? (IsDarkTheme() ? Brush("#3B1010") : Brush("#FFEBEE"))
-            : (IsDarkTheme() ? Brush("#2C2000") : Brush("#FFF8E1")));
+    {
+        if (critical)
+        {
+            return IsDarkTheme() ? Brush("#3B1010") : Brush("#FFEBEE");
+        }
+
+        return IsDarkTheme() ? Brush("#2C2000") : Brush("#FFF8E1");
+    });
 
     public static readonly IValueConverter StorageBorder = new FuncValueConverter<bool, IBrush>(critical =>
         critical ? Brush("#C62828") : Brush("#F57F17"));

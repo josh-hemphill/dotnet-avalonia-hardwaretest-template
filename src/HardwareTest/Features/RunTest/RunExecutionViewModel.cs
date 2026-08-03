@@ -381,13 +381,13 @@ public sealed class RunExecutionViewModel
 
         _host.OpenSelectedDetail(revealDetail: false);
         _host.Status = BuildCompletionStatus(selectionOnly, selectionPath, selectionName, summary);
-        _host.SetBanner(
-            summary.Result is RunResult.Passed
-                ? RunBannerSeverity.Info
-                : summary.Result is RunResult.Failed or RunResult.Error
-                    ? RunBannerSeverity.Error
-                    : RunBannerSeverity.Warning,
-            _host.Status);
+        var completionSeverity = summary.Result switch
+        {
+            RunResult.Passed => RunBannerSeverity.Info,
+            RunResult.Failed or RunResult.Error => RunBannerSeverity.Error,
+            _ => RunBannerSeverity.Warning,
+        };
+        _host.SetBanner(completionSeverity, _host.Status);
         _stepDetail.AttemptSummaryChip = string.Empty;
         if (selectionOnly
             && !string.IsNullOrWhiteSpace(selectionPath)

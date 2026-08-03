@@ -202,12 +202,19 @@ public sealed class Phase15ChromeTests
     [Fact]
     public void ChipBrushConverter_maps_RunResult_Passed_and_Failed()
     {
-        var pass = Assert.IsType<IBrush>(ChipBrushConverter.Instance.Convert(
-            RunResult.Passed, typeof(IBrush), null, System.Globalization.CultureInfo.InvariantCulture));
-        var fail = Assert.IsType<IBrush>(ChipBrushConverter.Instance.Convert(
-            RunResult.Failed, typeof(IBrush), null, System.Globalization.CultureInfo.InvariantCulture));
-        Assert.NotNull(pass);
-        Assert.NotNull(fail);
+        var culture = System.Globalization.CultureInfo.InvariantCulture;
+        var pass = ChipBrushConverter.Instance.Convert(
+            RunResult.Passed,
+            typeof(IBrush),
+            null,
+            culture);
+        var fail = ChipBrushConverter.Instance.Convert(
+            RunResult.Failed,
+            typeof(IBrush),
+            null,
+            culture);
+        Assert.IsAssignableFrom<IBrush>(pass);
+        Assert.IsAssignableFrom<IBrush>(fail);
     }
 
     [Fact]
@@ -218,7 +225,9 @@ public sealed class Phase15ChromeTests
             Version = "1.2.3",
             InformationalVersion = "1.2.3+deadbeef.20260101",
             CommitSha = "deadbeef",
-            BuildTimestampUtc = DateTimeOffset.Parse("2026-01-01T00:00:00Z"),
+            BuildTimestampUtc = DateTimeOffset.Parse(
+                "2026-01-01T00:00:00Z",
+                System.Globalization.CultureInfo.InvariantCulture),
             RuntimeVersion = "10.0",
             RuntimeIdentifier = "linux-x64",
             OsDescription = "test",
