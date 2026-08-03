@@ -212,6 +212,10 @@
 
           <StackPanel Spacing="4" Margin="0,8,0,0" IsVisible="{Binding HasPresentationTiles}">
             <TextBlock Text="Metrics" FontWeight="SemiBold" />
+            <TextBlock Text="Band gauges first; expand a timeseries chart only when you need the waveform."
+                       Opacity="0.65"
+                       FontSize="11"
+                       TextWrapping="Wrap" />
             <ItemsControl ItemsSource="{Binding PresentationTiles}">
               <ItemsControl.ItemTemplate>
                 <DataTemplate x:DataType="pres:PresentationTileViewModel">

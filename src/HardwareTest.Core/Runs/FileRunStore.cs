@@ -1,5 +1,7 @@
 using System.Text.Json;
+using HardwareTest.Core.IO;
 using HardwareTest.Core.Serialization;
+using Serilog;
 
 namespace HardwareTest.Core.Runs;
 
@@ -39,7 +41,7 @@ public sealed class FileRunStore : IRunStore
 
     public string GetRunDirectory(string runId)
     {
-        var dir = Path.Combine(_runsDirectory, Sanitize(runId));
+        var dir = PathContainment.CombineUnderRoot(_runsDirectory, Sanitize(runId));
         Directory.CreateDirectory(dir);
         return dir;
     }
@@ -59,8 +61,7 @@ public sealed class FileRunStore : IRunStore
         run.SchemaVersion = SchemaVersions.TestRunRecord;
         var dir = GetRunDirectory(run.RunId);
         var path = Path.Combine(dir, "run.json");
-        await using var stream = File.Create(path);
-        await JsonSerializer.SerializeAsync(stream, run, AppJsonContext.Default.TestRunRecord, cancellationToken)
+        await AtomicFile.WriteJsonAsync(path, run, AppJsonContext.Default.TestRunRecord, cancellationToken)
             .ConfigureAwait(false);
     }
 
@@ -97,9 +98,22 @@ public sealed class FileRunStore : IRunStore
                 continue;
             }
 
-            await using var stream = File.OpenRead(path);
-            var run = await JsonSerializer.DeserializeAsync(stream, AppJsonContext.Default.TestRunRecord, cancellationToken)
-                .ConfigureAwait(false);
+            TestRunRecord? run;
+            try
+            {
+                await using var stream = File.OpenRead(path);
+                run = await JsonSerializer.DeserializeAsync(
+                        stream,
+                        AppJsonContext.Default.TestRunRecord,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
+            {
+                Log.Warning(ex, "Skipping unreadable run record at {Path}", path);
+                continue;
+            }
+
             if (run is null)
             {
                 continue;

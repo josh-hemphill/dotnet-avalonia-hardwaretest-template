@@ -1,4 +1,5 @@
 using System.Text.Json;
+using HardwareTest.Core.IO;
 using HardwareTest.Core.Serialization;
 
 namespace HardwareTest.Core.Runs;
@@ -24,7 +25,7 @@ public sealed class FileSuiteRunStore : ISuiteRunStore
 
     public string GetSuiteRunDirectory(string suiteRunId)
     {
-        var dir = Path.Combine(_runsDirectory, "suites", Sanitize(suiteRunId));
+        var dir = PathContainment.CombineUnderRoot(_runsDirectory, "suites", Sanitize(suiteRunId));
         Directory.CreateDirectory(dir);
         return dir;
     }
@@ -48,8 +49,11 @@ public sealed class FileSuiteRunStore : ISuiteRunStore
         }
 
         var path = Path.Combine(dir, "suite-run.json");
-        await using var stream = File.Create(path);
-        await JsonSerializer.SerializeAsync(stream, suiteRun, AppJsonContext.Default.SuiteRunRecord, cancellationToken)
+        await AtomicFile.WriteJsonAsync(
+                path,
+                suiteRun,
+                AppJsonContext.Default.SuiteRunRecord,
+                cancellationToken)
             .ConfigureAwait(false);
     }
 
