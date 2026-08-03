@@ -110,7 +110,13 @@
                  HorizontalAlignment="Stretch"
                  IsVisible="{Binding ShowOverallProgress}" />
 
-    <Grid Grid.Row="4" Grid.Column="0" RowDefinitions="Auto,Auto,Auto,Auto,*,Auto,Auto,Auto" RowSpacing="0">
+    <!-- Focus row height is toggled in code-behind: Star when ShowFocusTrend, else 0.
+         A permanent Star row keeps empty space when Focus is collapsed (Avalonia Grid quirk). -->
+    <Grid x:Name="BoardGrid"
+          Grid.Row="4"
+          Grid.Column="0"
+          RowDefinitions="Auto,Auto,Auto,Auto,*,Auto,0,Auto"
+          RowSpacing="0">
       <Border Padding="8,6"
               Margin="0,0,0,4"
               CornerRadius="6"
@@ -479,7 +485,7 @@
                 <Button Content="Results" Command="{Binding OpenLastRunResultsCommand}" />
                 <Button Content="Show trend"
                         Command="{Binding Live.ToggleFocusTrendCommand}"
-                        IsVisible="{Binding Live.HasPlotData}"
+                        IsVisible="{Binding Live.OfferShowTrend}"
                         FontSize="11"
                         Padding="8,2"
                         ToolTip.Tip="{Binding Live.FocusTrendTip}" />

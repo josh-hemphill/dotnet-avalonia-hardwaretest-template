@@ -51,13 +51,16 @@ public sealed class Phase16PresentationChromeTests
             step);
 
         Assert.True(live.ShowFocusTrend);
+        Assert.False(live.OfferShowTrend);
         live.ToggleFocusTrendCommand.Execute().Subscribe();
         Assert.False(live.ShowFocusTrend);
         Assert.Equal(PresentationChromeMode.Band, live.ChromeMode);
+        Assert.True(live.OfferShowTrend);
 
         live.ToggleFocusTrendCommand.Execute().Subscribe();
         Assert.True(live.ShowFocusTrend);
         Assert.Equal(PresentationChromeMode.Focus, live.ChromeMode);
+        Assert.False(live.OfferShowTrend);
     }
 
     [Fact]

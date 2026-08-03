@@ -50,6 +50,8 @@ public partial class LivePresentationViewModel : ReactiveObject
     [Reactive] private bool _hasPlotData;
     [Reactive] private bool _showPlotForSelection;
     [Reactive] private bool _showFocusTrend;
+    /// True when Band chrome can offer an explicit "Show trend" control (hidden while Focus is open).
+    [Reactive] private bool _offerShowTrend;
     [Reactive] private bool _hasPresentationTiles;
     [Reactive] private bool _userWantsFocus;
     [Reactive] private PresentationChromeMode _chromeMode = PresentationChromeMode.Band;
@@ -64,6 +66,7 @@ public partial class LivePresentationViewModel : ReactiveObject
         HasPlotData = false;
         ShowPlotForSelection = false;
         ShowFocusTrend = false;
+        OfferShowTrend = false;
         UserWantsFocus = false;
         ChromeMode = PresentationChromeMode.Band;
         FocusTrendTip = string.Empty;
@@ -158,6 +161,7 @@ public partial class LivePresentationViewModel : ReactiveObject
         {
             ChromeMode = PresentationChromeMode.Band;
             ShowFocusTrend = false;
+            OfferShowTrend = false;
             ShowPlotForSelection = false;
             FocusTrendTip = outOfBand
                 ? "Out of band — no timeseries buffered for Focus trend."
@@ -169,6 +173,7 @@ public partial class LivePresentationViewModel : ReactiveObject
         {
             ChromeMode = PresentationChromeMode.Focus;
             ShowFocusTrend = true;
+            OfferShowTrend = false;
             ShowPlotForSelection = true;
             FocusTrendTip = string.Empty;
             return;
@@ -176,6 +181,7 @@ public partial class LivePresentationViewModel : ReactiveObject
 
         ChromeMode = PresentationChromeMode.Band;
         ShowFocusTrend = false;
+        OfferShowTrend = HasPlotData;
         ShowPlotForSelection = false;
         FocusTrendTip = HasPlotData
             ? "Show trend for waveform detail."
