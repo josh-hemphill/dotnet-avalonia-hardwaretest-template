@@ -10,8 +10,8 @@ Related: [adapting.md](adapting.md) (productize), [testing.md](testing.md) (suit
 
 | Track | Folder | Naming | Scope |
 | --- | --- | --- | --- |
-| OpenTAP integration | [opentap-phases/](opentap-phases/) | Letters (A–K) | Interactions, parameters, mixins, packages, presentation, multi-DUT |
-| Platform hardening | [platform-phases/](platform-phases/) | Numbers (1–15) | Gates, config, diagnostics, crash, CI, structure, storage, operator UX |
+| OpenTAP integration | [opentap-phases/](opentap-phases/) | Letters (A–L) | Interactions, parameters, mixins, packages, presentation, multi-DUT, authoring |
+| Platform hardening | [platform-phases/](platform-phases/) | Numbers (1–16) | Gates, config, diagnostics, crash, CI, structure, storage, operator UX, live presentation chrome |
 
 Distinct namespaces on purpose — "Phase C" and "Phase 3" are never the same thing.
 
@@ -58,15 +58,17 @@ Distinct namespaces on purpose — "Phase C" and "Phase 3" are never the same th
 | 13 | [Settings live semantics](platform-phases/phase-13-settings-live-semantics.md) (`UseMockVisa` honesty) | 3, 10 | Done |
 | 14 | [Session façade split](platform-phases/phase-14-session-facade-split.md) | 8, 9 | Done |
 | 15 | [Operator feedback & Settings chrome](platform-phases/phase-15-operator-feedback-chrome.md) | 12, 13 | Done |
+| 16 | [Band board & Focus trend](platform-phases/phase-16-band-focus-presentation.md) | 15, J, L | Planned |
 
 **Suggested order (1–10):** 1 first and alone — nothing else is verifiable until CI actually runs. Then 2 / 7 / 8 can proceed in parallel (independent seams). 3 → 4 → 5 is a chain and should stay one series. 6 lands after 4. 9 after 8. 10 after 3/6/9 (storage + chrome).
 
-**Suggested order (11–15):** Prefer **13 ∥ 11**, then **12**, then **14 before** OpenTAP [Phase K](opentap-phases/phase-k-multi-dut-parallel.md) (multi-DUT), then **15** (first-impression feedback + Settings chrome) once 12/13 foundations exist. Phase 13 (UseMockVisa honesty) and Phase 11 (session activity / Same DUT) are independent; Phase 12 depends on 11 for session-banner hierarchy.
+**Suggested order (11–16):** Prefer **13 ∥ 11**, then **12**, then **14 before** OpenTAP [Phase K](opentap-phases/phase-k-multi-dut-parallel.md) (multi-DUT), then **15** (first-impression feedback + Settings chrome) once 12/13 foundations exist. Phase 13 (UseMockVisa honesty) and Phase 11 (session activity / Same DUT) are independent; Phase 12 depends on 11 for session-banner hierarchy. **16** (Band board + Focus trend) after 15 and OpenTAP [Phase L](opentap-phases/phase-l-presentation-authoring.md) (L may share a PR train with 16). Round-2 correctness items in [review-post-phase-15.md](platform-phases/review-post-phase-15.md) should not be blocked by 16, and the `OpenTapSession` run guard remains a **prerequisite** for Phase K.
 
 **Fresh-eyes reviews:**
 
 - **Round 1 (pre–Phase 11):** [platform-phases/review-remediation.md](platform-phases/review-remediation.md) — routed into Phases 11–15, all implemented.
 - **Round 2 (post–Phase 15):** [platform-phases/review-post-phase-15.md](platform-phases/review-post-phase-15.md) — open items are the stale DI `AppSettings` snapshot, off-UI-thread mutation in Results and the session/Settings timers, the missing `OpenTapSession` run guard (a **prerequisite** for OpenTAP [Phase K](opentap-phases/phase-k-multi-dut-parallel.md)), path/atomic-write hardening, and the Phase 1 CI follow-ups.
+- **Live presentation:** Squashed charts / band-first + earned Focus → [Phase 16](platform-phases/phase-16-band-focus-presentation.md) + OpenTAP [Phase L](opentap-phases/phase-l-presentation-authoring.md).
 
 ## Deferred (detailed plans — do not implement yet)
 
@@ -96,3 +98,4 @@ Real, acknowledged, and deliberately unscheduled (or scheduled as phases above).
 - **Storage hardening.** Prefix-based path containment and non-atomic `settings.json` / `run.json` writes — [round 2 F5/F6](platform-phases/review-post-phase-15.md#f5--path-containment-checks-are-prefix-based).
 - **Phase 1 CI follow-ups.** The `dotnet format` gate is inert (it targets `dirs.proj` and exits 0 without checking anything, hiding 132 findings), no NuGet lock files, no vulnerability scan, and coverage floors cover only `HardwareTest.Core` — [round 2](platform-phases/review-post-phase-15.md#ci-and-supply-chain).
 - **Finding → phase maps.** [review-remediation.md](platform-phases/review-remediation.md) (round 1, closed) and [review-post-phase-15.md](platform-phases/review-post-phase-15.md) (round 2, open).
+- **Live charts squashed; band-first + earned Focus trend.** [Phase 16](platform-phases/phase-16-band-focus-presentation.md); authoring maintainability [Phase L](opentap-phases/phase-l-presentation-authoring.md).
