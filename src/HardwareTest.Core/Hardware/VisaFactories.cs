@@ -81,11 +81,15 @@ public sealed class MockVisaSessionFactory : IVisaSessionFactory
 /// Opens real IVI VISA message-based sessions when a vendor runtime is installed.
 public sealed class IviVisaSessionFactory : IVisaSessionFactory
 {
-    private readonly VisaSessionGate _gate;
+    public const int DefaultIoTimeoutMilliseconds = 5000;
 
-    public IviVisaSessionFactory(VisaSessionGate gate)
+    private readonly VisaSessionGate _gate;
+    private readonly int _ioTimeoutMilliseconds;
+
+    public IviVisaSessionFactory(VisaSessionGate gate, int ioTimeoutMilliseconds = DefaultIoTimeoutMilliseconds)
     {
         _gate = gate;
+        _ioTimeoutMilliseconds = Math.Clamp(ioTimeoutMilliseconds, 100, 120_000);
     }
 
     public Task<IVisaSession> OpenAsync(string resourceName, CancellationToken cancellationToken = default)
@@ -101,6 +105,7 @@ public sealed class IviVisaSessionFactory : IVisaSessionFactory
                     $"Resource '{resourceName}' is not a message-based VISA session.");
             }
 
+            messageSession.TimeoutMilliseconds = _ioTimeoutMilliseconds;
             IVisaSession session = new TracingVisaSession(
                 new IviMessageVisaSession(messageSession),
                 _gate);
@@ -132,6 +137,7 @@ internal sealed class IviMessageVisaSession : IVisaSession
         cancellationToken.ThrowIfCancellationRequested();
         var payload = command.EndsWith('\n') ? command : command + "\n";
         _session.FormattedIO.Write(payload);
+        cancellationToken.ThrowIfCancellationRequested();
         return Task.CompletedTask;
     }
 
@@ -140,7 +146,9 @@ internal sealed class IviMessageVisaSession : IVisaSession
         cancellationToken.ThrowIfCancellationRequested();
         var payload = command.EndsWith('\n') ? command : command + "\n";
         _session.FormattedIO.Write(payload);
+        cancellationToken.ThrowIfCancellationRequested();
         var response = _session.FormattedIO.ReadString().TrimEnd('\r', '\n');
+        cancellationToken.ThrowIfCancellationRequested();
         return Task.FromResult(response);
     }
 

@@ -1,0 +1,17 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>HardwareTest.OpenTap.Host</RootNamespace>
+    <Description>Avalonia-free OpenTAP session host for HardwareTest</Description>
+    <CreateOpenTapPackage>false</CreateOpenTapPackage>
+    <IsAotCompatible>false</IsAotCompatible>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="OpenTAP" Version="9.32.2" />
+    <ProjectReference Include="..\HardwareTest.OpenTap.Plugins.Basic\HardwareTest.OpenTap.Plugins.Basic.csproj" />
+    <ProjectReference Include="..\HardwareTest.OpenTap.Plugins.Mixins\HardwareTest.OpenTap.Plugins.Mixins.csproj" />
+    <ProjectReference Include="..\HardwareTest.Core\HardwareTest.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\..\plans\opentap\**\*" Link="Programs\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

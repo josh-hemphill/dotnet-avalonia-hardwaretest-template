@@ -1,4 +1,6 @@
+using System.Windows.Input;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 
@@ -21,11 +23,13 @@ public partial class RunTestView : UserControl
         if (DataContext is RunTestViewModel vm)
         {
             _subscribed = vm;
-            vm.PlotDataChanged += OnPlotDataChanged;
-            vm.RequestSuiteFilePath = PickSuiteFileAsync;
+            vm.Live.PlotDataChanged += OnPlotDataChanged;
+            vm.StepTree.RequestScrollToSelectedStep += OnRequestScrollToSelectedStep;
+            vm.StepTree.RequestFocusStepSearch += OnRequestFocusStepSearch;
+            vm.ProgramSelection.RequestPlanFilePath = PickPlanFileAsync;
             if (Plot is not null)
             {
-                Plot.UpdateData(vm.PlotYs);
+                Plot.UpdateData(vm.Live.PlotYs, vm.Live.PlotYsLength, force: true);
             }
         }
     }
@@ -37,12 +41,14 @@ public partial class RunTestView : UserControl
             return;
         }
 
-        _subscribed.PlotDataChanged -= OnPlotDataChanged;
-        _subscribed.RequestSuiteFilePath = null;
+        _subscribed.Live.PlotDataChanged -= OnPlotDataChanged;
+        _subscribed.StepTree.RequestScrollToSelectedStep -= OnRequestScrollToSelectedStep;
+        _subscribed.StepTree.RequestFocusStepSearch -= OnRequestFocusStepSearch;
+        _subscribed.ProgramSelection.RequestPlanFilePath = null;
         _subscribed = null;
     }
 
-    private async Task<string?> PickSuiteFileAsync(CancellationToken cancellationToken)
+    private async Task<string?> PickPlanFileAsync(CancellationToken cancellationToken)
     {
         var top = TopLevel.GetTopLevel(this);
         if (top is null)
@@ -52,11 +58,11 @@ public partial class RunTestView : UserControl
 
         var files = await top.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
         {
-            Title = "Open test suite",
+            Title = "Open OpenTAP plan",
             AllowMultiple = false,
             FileTypeFilter =
             [
-                new FilePickerFileType("Suite JSON") { Patterns = ["*.json"] },
+                new FilePickerFileType("OpenTAP Plan") { Patterns = ["*.TapPlan"] },
                 FilePickerFileTypes.All,
             ],
         });
@@ -71,12 +77,91 @@ public partial class RunTestView : UserControl
             return;
         }
 
+        var live = _subscribed.Live;
+        var ys = live.PlotYs;
+        var length = live.PlotYsLength;
+        var title = live.PlotTitle;
+        var yLabel = live.PlotYLabel;
+        var legend = live.PlotLegendText;
         if (!Dispatcher.UIThread.CheckAccess())
         {
-            Dispatcher.UIThread.Post(() => Plot.UpdateData(_subscribed.PlotYs));
+            Dispatcher.UIThread.Post(() =>
+            {
+                Plot.SetLabels(title, yLabel, legend);
+                Plot.UpdateData(ys, length);
+            });
             return;
         }
 
-        Plot.UpdateData(_subscribed.PlotYs);
+        Plot.SetLabels(title, yLabel, legend);
+        Plot.UpdateData(ys, length);
     }
+
+    private void OnRequestScrollToSelectedStep(object? sender, EventArgs e)
+    {
+        void Scroll()
+        {
+            if (StepList?.SelectedItem is null)
+            {
+                return;
+            }
+
+            StepList.ScrollIntoView(StepList.SelectedItem);
+        }
+
+        // Defer until after layout so Continue (card collapse) does not leave the step off-screen.
+        if (!Dispatcher.UIThread.CheckAccess())
+        {
+            Dispatcher.UIThread.Post(Scroll, DispatcherPriority.Loaded);
+            return;
+        }
+
+        Dispatcher.UIThread.Post(Scroll, DispatcherPriority.Loaded);
+    }
+
+    private void OnRequestFocusStepSearch(object? sender, EventArgs e)
+        => StepSearchBox?.Focus();
+
+    private void OnKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (_subscribed is null)
+        {
+            return;
+        }
+
+        if (e.Key is Key.Oem2 or Key.Divide)
+        {
+            ((ICommand)_subscribed.StepTree.FocusStepSearchCommand).Execute(null);
+            e.Handled = true;
+            return;
+        }
+
+        if (e.Key != Key.F)
+        {
+            return;
+        }
+
+        if (e.KeyModifiers.HasFlag(KeyModifiers.Shift))
+        {
+            ((ICommand)_subscribed.StepTree.PrevFailCommand).Execute(null);
+        }
+        else
+        {
+            ((ICommand)_subscribed.StepTree.NextFailCommand).Execute(null);
+        }
+
+        e.Handled = true;
+    }
+
+    private void OnStageDoubleTapped(object? sender, TappedEventArgs e)
+    {
+        if (_subscribed?.StepTree.SelectedStage?.Step is { } stage)
+        {
+            _subscribed.StepTree.SelectedStep = stage;
+            _subscribed.OpenSelectedStepDetail();
+        }
+    }
+
+    private void OnHierarchyDoubleTapped(object? sender, TappedEventArgs e)
+        => _subscribed?.OpenSelectedStepDetail();
 }

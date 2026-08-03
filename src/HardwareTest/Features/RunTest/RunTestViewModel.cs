@@ -1,516 +1,563 @@
 using System;
-using System.Collections.ObjectModel;
-using System.Diagnostics;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using HardwareTest.Core.Diagnostics;
 using HardwareTest.Core.Engine;
 using HardwareTest.Core.Hardware;
-using HardwareTest.Core.Plans;
 using HardwareTest.Core.Reporting;
 using HardwareTest.Core.Runs;
 using HardwareTest.Core.Settings;
+using HardwareTest.Core.Storage;
+using HardwareTest.OpenTap.Host;
+using HardwareTest.OpenTap.Plugins.Basic;
 using ReactiveUI;
 using ReactiveUI.SourceGenerators;
 
 namespace HardwareTest.Features.RunTest;
 
-public partial class TestItemViewModel : ReactiveObject
+/// Run board coordinator: owns the child panels, the shared run status, the hero line and the UI flush pump.
+public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
 {
-    public TestItemViewModel(TestPlan plan)
-    {
-        Plan = plan;
-        StatusText = "Pending";
-        DetailLines = [];
-    }
-
-    public TestPlan Plan { get; }
-    public ObservableCollection<string> DetailLines { get; }
-    public string DisplayName => Plan.Name;
-
-    [Reactive] private RunResult _result = RunResult.Unknown;
-    [Reactive] private string _statusText = "Pending";
-    [Reactive] private double _percent;
-    [Reactive] private bool _hasPlot;
-    [Reactive] private double[] _plotYs = Array.Empty<double>();
-    [Reactive] private TestRunRecord? _lastRun;
-}
-
-public partial class SuiteQueueItemViewModel : ReactiveObject
-{
-    public SuiteQueueItemViewModel(TestSuite suite)
-    {
-        Suite = suite;
-        StatusText = "Pending";
-        Tests = new ObservableCollection<TestItemViewModel>(
-            suite.Plans.Select(p => new TestItemViewModel(p)));
-    }
-
-    public TestSuite Suite { get; }
-    public ObservableCollection<TestItemViewModel> Tests { get; }
-    public string DisplayName => Suite.Name;
-    public int PlanCount => Suite.Plans.Count;
-
-    [Reactive] private RunResult _result = RunResult.Unknown;
-    [Reactive] private string _statusText = "Pending";
-    [Reactive] private double _percent;
-}
-
-public partial class RunTestViewModel : ReactiveObject
-{
-    private readonly ISuiteLoader _suiteLoader;
-    private readonly ISuiteEngine _suiteEngine;
-    private readonly IReportService _reportService;
+    private readonly IOpenTapPlanSession _plan;
+    private readonly IOpenTapRunSession _runSession;
+    private readonly OperatorSession _session;
     private readonly IRunControl _runControl;
     private readonly AppSettings _settings;
-    private CancellationTokenSource? _cts;
-    private readonly MeasurementAcquisition _liveBuffer = new(4096);
-    private bool _stopAuto;
-    private long _lastUiFlushTicks;
-    private string? _pendingStatus;
-    private double _pendingOverallPercent;
-    private string? _pendingDetailLine;
-    private bool _pendingPlot;
-
-    /// Counts throttled plot UI flushes (tests).
-    public int PlotUiFlushCount { get; private set; }
+    private readonly ThrottledOpenTapProgress _progress;
+    private readonly IStorageHealthService? _storageHealth;
 
     public RunTestViewModel(
-        ISuiteLoader suiteLoader,
-        ISuiteEngine suiteEngine,
+        IOpenTapPlanSession plan,
+        IOpenTapRunSession runSession,
+        IOpenTapStationSession station,
+        OperatorSession session,
+        IRunControl runControl,
         IReportService reportService,
+        IRunStore runStore,
         AppSettings settings,
-        IRunControl runControl)
+        ISettingsStore? settingsStore = null,
+        IDutHistoryService? dutHistory = null,
+        BuildInfo? buildInfo = null,
+        IStorageHealthService? storageHealth = null,
+        IVisaModeController? visaModeController = null)
     {
-        _suiteLoader = suiteLoader;
-        _suiteEngine = suiteEngine;
-        _reportService = reportService;
-        _settings = settings;
+        _plan = plan;
+        _runSession = runSession;
+        _session = session;
         _runControl = runControl;
-        Status = "Add suites to the list, then Run (Auto advances).";
-        SuiteQueue = [];
-        EnabledInstruments = new ObservableCollection<VisaInstrument>(
-            settings.Instruments.Where(i => i.Enabled));
-        EmbeddedSuiteNames = new ObservableCollection<string>(_suiteLoader.ListEmbeddedSuiteNames());
-
-        LoadSampleSuiteCommand = ReactiveCommand.CreateFromTask(LoadSampleSuiteAsync);
-        OpenSuiteFileCommand = ReactiveCommand.CreateFromTask(OpenSuiteFileAsync);
-        RemoveSelectedSuiteCommand = ReactiveCommand.Create(RemoveSelectedSuite);
-        RunCommand = ReactiveCommand.CreateFromTask(RunAsync);
-        CancelCommand = ReactiveCommand.Create(Cancel);
-        ToggleDetailsCommand = ReactiveCommand.Create(() => { ShowDetails = !ShowDetails; });
-
-        LoadPlanCommand = LoadSampleSuiteCommand;
-        StartCommand = RunCommand;
-        RunSuiteCommand = RunCommand;
-        RunSelectedPlanCommand = RunCommand;
-
-        PropertyChanged += (_, e) =>
+        _settings = settings;
+        _storageHealth = storageHealth;
+        _progress = new ThrottledOpenTapProgress(IngestProgress);
+        Status = "Confirm DUT, then Run.";
+        IsEngineerDebugMode = settings.IsEngineerDebugMode;
+        if (settingsStore is not null)
         {
-            if (e.PropertyName == nameof(SelectedSuiteItem))
+            settingsStore.AppSettingsSaved += (_, _) =>
             {
-                OnSelectedSuiteItemChanged();
+                IsEngineerDebugMode = settingsStore.AppSettings.IsEngineerDebugMode;
+            };
+        }
+
+        // Panels reference each other, so the wiring uses lambdas; every capture resolves only
+        // after this constructor has assigned all of them.
+        StepDetail = new StepDetailViewModel(() => OpenSelectedDetail(revealDetail: true));
+        Interaction = new InteractionHostViewModel();
+        Live = new LivePresentationViewModel();
+        ProgramSelection = new ProgramSelectionViewModel(
+            status => Status = status,
+            () => IsEngineerDebugMode,
+            () => LoadSelectedProgramAsync(),
+            () => SessionPanel!.RefreshSessionSummary());
+        SessionPanel = new OperatorSessionPanelViewModel(
+            session,
+            settings,
+            status => Status = status,
+            () => ProgramSelection.SelectedProgram,
+            ClearSessionAttempts);
+        StationOverrides = new StationOverridesViewModel(
+            plan,
+            station,
+            settings,
+            settingsStore,
+            status => Status = status,
+            () => IsEngineerDebugMode,
+            () => IsRunning,
+            () => StepTree!.SelectedStep,
+            () => ProgramSelection.SelectedProgram,
+            summary => StepDetail.ConditionSummary = summary);
+        StepTree = new StepTreeViewModel(
+            () => _plan.StepTree,
+            path => Run!.FindAttempt(path),
+            () => OpenSelectedDetail(revealDetail: true),
+            RefreshHero,
+            () => CurrentStepPath);
+        Run = new RunExecutionViewModel(
+            this,
+            runSession,
+            station,
+            session,
+            runControl,
+            reportService,
+            runStore,
+            settings,
+            dutHistory,
+            buildInfo ?? BuildInfo.FromAssembly(typeof(RunTestViewModel).Assembly),
+            _progress,
+            ProgramSelection,
+            SessionPanel,
+            StationOverrides,
+            StepTree,
+            StepDetail,
+            Interaction,
+            Live,
+            storageHealth,
+            visaModeController);
+
+        ContinueOperatorCommand = ReactiveCommand.Create(ContinueOperator);
+        OpenLastRunResultsCommand = ReactiveCommand.Create(
+            () => NavigateToResultsRequested?.Invoke(this, EventArgs.Empty));
+        InspectPlanCommand = ReactiveCommand.Create(
+            () => NavigateToInspectRequested?.Invoke(this, EventArgs.Empty));
+        DismissStorageBannerCommand = ReactiveCommand.Create(() =>
+        {
+            StorageBannerDismissed = true;
+            HasStorageBanner = false;
+        });
+        DismissBannerCommand = ReactiveCommand.Create(() =>
+        {
+            HasBanner = false;
+            BannerMessage = string.Empty;
+        });
+
+        SubscribeToChildren();
+        Observe(ProgramSelection.RefreshProgramsAsync());
+        RefreshStorageHealth();
+    }
+
+    public StepDetailViewModel StepDetail { get; }
+    public InteractionHostViewModel Interaction { get; }
+    public LivePresentationViewModel Live { get; }
+    public ProgramSelectionViewModel ProgramSelection { get; }
+    public OperatorSessionPanelViewModel SessionPanel { get; }
+    public StationOverridesViewModel StationOverrides { get; }
+    public StepTreeViewModel StepTree { get; }
+    public RunExecutionViewModel Run { get; }
+
+    public OperatorSession Session => _session;
+
+    /// True when neither a run is in progress nor the session is blocking the start.
+    public bool CanStartRun => !IsRunning && !SessionPanel.SessionBlocked;
+
+    /// Tooltip for Run / Run Selected reflecting why start is blocked when disabled.
+    public string CanStartRunTip
+    {
+        get
+        {
+            if (IsRunning)
+            {
+                return "Run in progress — use Safety Stop to abort.";
             }
-            else if (e.PropertyName == nameof(SelectedTestItem))
+
+            if (SessionPanel.SessionBlocked)
             {
-                OnSelectedTestItemChanged();
+                if (SessionPanel.IsStalePrompt || SessionPanel.IsIdleWarningPrompt)
+                {
+                    return "Confirm Same DUT or Change Session before Run.";
+                }
+
+                return "Confirm DUT first.";
             }
-            else if (e.PropertyName == nameof(ShowDetails))
+
+            return "Run the full suite.";
+        }
+    }
+
+    /// Tooltip for Run Selected (same gates, different idle copy).
+    public string CanStartRunSelectedTip
+        => CanStartRun
+            ? "Run the selected leaf or section (subtree + Safe Shutdown). Use Run for the full suite."
+            : CanStartRunTip;
+
+    /// Hide the overall progress bar when idle (not stuck at 0%).
+    public bool ShowOverallProgress => IsRunning;
+
+    public event EventHandler? NavigateToResultsRequested;
+    public event EventHandler? NavigateToInspectRequested;
+
+    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> ContinueOperatorCommand { get; }
+    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> OpenLastRunResultsCommand { get; }
+    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> InspectPlanCommand { get; }
+    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> DismissStorageBannerCommand { get; }
+    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> DismissBannerCommand { get; }
+
+    [Reactive] private string _status = string.Empty;
+    [Reactive] private bool _isRunning;
+    [Reactive] private double _overallPercent;
+    [Reactive] private string? _lastRunId;
+    [Reactive] private string _historyBanner = string.Empty;
+    [Reactive] private bool _isEngineerDebugMode;
+    [Reactive] private string _currentStepName = string.Empty;
+    [Reactive] private string _currentStepPath = string.Empty;
+    [Reactive] private string _heroLabel = "SELECTED:";
+    [Reactive] private string _heroStepName = string.Empty;
+    [Reactive] private string _heroChipText = "Pending";
+    [Reactive] private string _heroStatusLine = string.Empty;
+    [Reactive] private string _iterationText = string.Empty;
+    [Reactive] private bool _hasStorageBanner;
+    [Reactive] private bool _storageBannerIsCritical;
+    [Reactive] private string _storageBannerMessage = string.Empty;
+    [Reactive] private bool _storageBannerDismissed;
+    [Reactive] private bool _hasBanner;
+    [Reactive] private RunBannerSeverity _bannerSeverity;
+    [Reactive] private string _bannerMessage = string.Empty;
+
+    /// Refresh free-space banner (call after Settings changes or before Run).
+    public void RefreshStorageHealth()
+    {
+        if (_storageHealth is null)
+        {
+            HasStorageBanner = false;
+            StorageBannerIsCritical = false;
+            StorageBannerMessage = string.Empty;
+            return;
+        }
+
+        var snap = _storageHealth.GetDataVolumeHealth();
+        StorageBannerIsCritical = snap.Level == StorageHealthLevel.Critical;
+        if (snap.Level == StorageHealthLevel.Ok)
+        {
+            HasStorageBanner = false;
+            StorageBannerMessage = string.Empty;
+            StorageBannerDismissed = false;
+            return;
+        }
+
+        StorageBannerMessage = snap.Message;
+        HasStorageBanner = StorageBannerIsCritical || !StorageBannerDismissed;
+    }
+
+    /// Reveals the selected step in the bottom tray (double-tap / keyboard entry point from the view).
+    public void OpenSelectedStepDetail() => OpenSelectedDetail(revealDetail: true);
+
+    /// Selects a step the Inspect page asked to open on the Run board.
+    public void ApplySelectionFromInspect(string? stepPath) => StepTree.ApplySelectionFromInspect(stepPath);
+
+    /// Continue entry point for the window-level transport bar.
+    public void ContinueOperatorAttention() => ContinueOperator();
+
+    private void SubscribeToChildren()
+    {
+        ProgramSelection.PropertyChanged += (_, args) =>
+        {
+            if (args.PropertyName != nameof(ProgramSelectionViewModel.SelectedProgram)
+                || ProgramSelection.SelectedProgram is null)
             {
-                RefreshPlotFromSelection();
+                return;
+            }
+
+            Observe(LoadSelectedProgramAsync());
+            SessionPanel.RefreshRequirementFlags();
+        };
+
+        SessionPanel.PropertyChanged += (_, args) =>
+        {
+            if (args.PropertyName is nameof(OperatorSessionPanelViewModel.SessionBlocked)
+                or nameof(OperatorSessionPanelViewModel.IsStalePrompt)
+                or nameof(OperatorSessionPanelViewModel.IsIdleWarningPrompt))
+            {
+                this.RaisePropertyChanged(nameof(CanStartRun));
+                this.RaisePropertyChanged(nameof(CanStartRunTip));
+                this.RaisePropertyChanged(nameof(CanStartRunSelectedTip));
+            }
+        };
+
+        StepTree.PropertyChanged += (_, args) =>
+        {
+            if (args.PropertyName != nameof(StepTreeViewModel.SelectedStep)
+                || StepTree.SelectedStep is not { } step)
+            {
+                return;
+            }
+
+            StationOverrides.DebugStepEnabled = step.Enabled;
+            OpenSelectedDetail(revealDetail: false);
+            StationOverrides.RefreshParameterFields();
+            Live.RefreshPlotVisibility(step);
+            Live.RefreshPresentationTiles(step.Path);
+            RefreshHero();
+        };
+
+        Interaction.PropertyChanged += (_, args) =>
+        {
+            if (args.PropertyName == nameof(InteractionHostViewModel.IsAwaitingOperator))
+            {
+                RefreshHero();
+            }
+        };
+
+        PropertyChanged += (_, args) =>
+        {
+            if (args.PropertyName == nameof(IsEngineerDebugMode))
+            {
+                StationOverrides.RefreshParameterFields();
+            }
+            else if (args.PropertyName is nameof(IsRunning) or nameof(Status))
+            {
+                RefreshHero();
+                if (args.PropertyName == nameof(IsRunning))
+                {
+                    this.RaisePropertyChanged(nameof(CanStartRun));
+                    this.RaisePropertyChanged(nameof(CanStartRunTip));
+                    this.RaisePropertyChanged(nameof(CanStartRunSelectedTip));
+                    this.RaisePropertyChanged(nameof(ShowOverallProgress));
+                }
             }
         };
     }
 
-    public IRunControl RunControl => _runControl;
-
-    public Func<CancellationToken, Task<string?>>? RequestSuiteFilePath { get; set; }
-
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> LoadSampleSuiteCommand { get; }
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> OpenSuiteFileCommand { get; }
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> RemoveSelectedSuiteCommand { get; }
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> RunCommand { get; }
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> CancelCommand { get; }
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> ToggleDetailsCommand { get; }
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> LoadPlanCommand { get; }
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> StartCommand { get; }
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> RunSuiteCommand { get; }
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> RunSelectedPlanCommand { get; }
-
-    public ObservableCollection<SuiteQueueItemViewModel> SuiteQueue { get; }
-    public ObservableCollection<VisaInstrument> EnabledInstruments { get; }
-    public ObservableCollection<string> EmbeddedSuiteNames { get; }
-
-    public ObservableCollection<TestItemViewModel> PlanItems =>
-        SelectedSuiteItem?.Tests ?? _emptyTests;
-
-    private static readonly ObservableCollection<TestItemViewModel> _emptyTests = [];
-
-    [Reactive] private SuiteQueueItemViewModel? _selectedSuiteItem;
-    [Reactive] private TestItemViewModel? _selectedTestItem;
-    [Reactive] private VisaInstrument? _selectedInstrument;
-    [Reactive] private string _status = string.Empty;
-    [Reactive] private bool _isRunning;
-    [Reactive] private string? _lastRunId;
-    [Reactive] private double _overallPercent;
-    [Reactive] private bool _isAutoMode = true;
-    [Reactive] private bool _showDetails;
-    [Reactive] private double[] _plotYs = Array.Empty<double>();
-
-    public TestSuite? Suite => SelectedSuiteItem?.Suite;
-    public TestPlan? Plan => SelectedTestItem?.Plan ?? SelectedSuiteItem?.Suite.Plans.FirstOrDefault();
-    public ObservableCollection<string> Samples => SelectedTestItem?.DetailLines ?? [];
-
-    public event EventHandler? PlotDataChanged;
-
-    private void OnSelectedSuiteItemChanged()
+    private void ClearSessionAttempts()
     {
-        SelectedTestItem = SelectedSuiteItem?.Tests.FirstOrDefault();
-        this.RaisePropertyChanged(nameof(PlanItems));
-        this.RaisePropertyChanged(nameof(Suite));
-        this.RaisePropertyChanged(nameof(Plan));
-        RefreshPlotFromSelection();
+        Run.ClearAttempts();
+        StepTree.ClearAttemptTexts();
+        StepDetail.AttemptHistoryLines.Clear();
     }
 
-    private void OnSelectedTestItemChanged()
+    private async Task LoadSelectedProgramAsync(string? preserveStagePath = null, string? preserveStepPath = null)
     {
-        this.RaisePropertyChanged(nameof(Plan));
-        this.RaisePropertyChanged(nameof(Samples));
-        RefreshPlotFromSelection();
-    }
-
-    private async Task LoadSampleSuiteAsync()
-    {
-        var suite = await _suiteLoader.LoadSampleSuiteAsync();
-        EnqueueSuite(suite);
-        Status = $"Added suite '{suite.Name}' ({suite.Plans.Count} tests).";
-    }
-
-    private async Task OpenSuiteFileAsync()
-    {
-        if (RequestSuiteFilePath is null)
+        if (ProgramSelection.SelectedProgram is not { } program)
         {
-            Status = "File picker is unavailable in this host.";
             return;
         }
 
-        var path = await RequestSuiteFilePath(CancellationToken.None);
-        if (string.IsNullOrWhiteSpace(path))
+        SessionPanel.ApplyIdleStaleCheck();
+        _session.SelectProgram(program.Id, program.Path, program.DisplayName, program.DutFamily);
+
+        var alreadyLoaded = string.Equals(_plan.LoadedPlanPath, program.Path, StringComparison.OrdinalIgnoreCase);
+        if (!alreadyLoaded)
         {
-            Status = "Open cancelled.";
+            await LoadProgramEntryAsync(program).ConfigureAwait(false);
+            StepTree.RebuildFromHost(preserveStagePath, preserveStepPath);
+        }
+        else if (StepTree.Hierarchy.Count == 0 && StepTree.FullHierarchy.Count == 0)
+        {
+            StepTree.RebuildFromHost(preserveStagePath, preserveStepPath);
+        }
+        else if (!string.IsNullOrWhiteSpace(preserveStepPath))
+        {
+            // Keep Hierarchy instances; only re-resolve selection by path.
+            StepTree.ResolveSelectedStep(preserveStepPath);
+        }
+        else if (!string.IsNullOrWhiteSpace(preserveStagePath))
+        {
+            StepTree.RestoreSelection(preserveStagePath, preserveStepPath);
+        }
+
+        StationOverrides.RefreshStationSlotSummary();
+        StationOverrides.ApplySavedParameterOverrides();
+        StationOverrides.RefreshParameterFields();
+        SessionPanel.RefreshSessionSummary();
+    }
+
+    private Task LoadProgramEntryAsync(ProgramItemViewModel program)
+        => program.LoadKind switch
+        {
+            ProgramLoadKind.FactorySample => _plan.LoadSampleProgramAsync(),
+            ProgramLoadKind.FactoryBoardDemo => _plan.LoadBoardDemoProgramAsync(),
+            ProgramLoadKind.FactorySweepDemo => _plan.LoadSweepDemoProgramAsync(),
+            _ => _plan.LoadPlanAsync(program.Path),
+        };
+
+    private void OpenSelectedDetail(bool revealDetail = false)
+    {
+        if (StepTree.SelectedStep is not { } step)
+        {
             return;
         }
 
-        var suite = await _suiteLoader.LoadSuiteFromFileAsync(path);
-        EnqueueSuite(suite);
-        Status = $"Added suite '{suite.Name}' from file.";
+        StepDetail.Show(
+            step,
+            StationOverrides.ParameterFields,
+            Run.FindAttempt(step.Path),
+            ResolveConditionSummary(step),
+            revealDetail);
+        Live.RefreshPlotVisibility(step);
+        Live.RefreshPresentationTiles(step.Path);
+        RefreshHero();
     }
 
-    public void EnqueueSuite(TestSuite suite)
-    {
-        var item = new SuiteQueueItemViewModel(suite);
-        SuiteQueue.Add(item);
-        SelectedSuiteItem ??= item;
-    }
+    private string? ResolveConditionSummary(HierarchyStepViewModel step)
+        => IsEngineerDebugMode
+           && _plan.TryGetStepConditionSummary(step.Path, out var summary)
+           && !string.IsNullOrWhiteSpace(summary)
+            ? summary
+            : null;
 
-    private void RemoveSelectedSuite()
+    private void RefreshHero()
     {
-        if (SelectedSuiteItem is null || IsRunning)
+        HeroLabel = IsRunning ? "CURRENT:" : "SELECTED:";
+        if (IsRunning && !string.IsNullOrWhiteSpace(CurrentStepName))
         {
-            Status = IsRunning ? "Cannot remove while running." : "Select a suite to remove.";
+            HeroStepName = CurrentStepName;
+            var live = StepHierarchy.Find(
+                StepHierarchy.Flatten(StepTree.FullHierarchy).ToList(),
+                stepId: null,
+                CurrentStepPath,
+                CurrentStepName);
+            var fallbackChip = Interaction.IsAwaitingOperator ? "Awaiting" : "Running";
+            HeroChipText = live is null
+                ? fallbackChip
+                : StatusChip.FromStatus(live.StatusText, live.Verdict);
+        }
+        else if (StepTree.SelectedStep is { } selected)
+        {
+            HeroStepName = selected.Name;
+            HeroChipText = StatusChip.FromStatus(selected.StatusText, selected.Verdict);
+        }
+        else
+        {
+            HeroStepName = string.Empty;
+            HeroChipText = "Pending";
+        }
+
+        if (Interaction.IsAwaitingOperator)
+        {
+            // Prompt lives in the operator card; keep hero free of duplicate prose.
+            HeroStatusLine = string.Empty;
+            if (HeroChipText is not "Fail")
+            {
+                HeroChipText = "Awaiting";
+            }
+
             return;
         }
 
-        var idx = SuiteQueue.IndexOf(SelectedSuiteItem);
-        SuiteQueue.Remove(SelectedSuiteItem);
-        SelectedSuiteItem = SuiteQueue.Count == 0
+        if (string.IsNullOrWhiteSpace(IterationText))
+        {
+            HeroStatusLine = Status;
+        }
+        else if (string.IsNullOrWhiteSpace(Status))
+        {
+            HeroStatusLine = $"iter {IterationText}";
+        }
+        else
+        {
+            HeroStatusLine = $"{Status} · iter {IterationText}";
+        }
+    }
+
+    private void SyncHierarchyLive()
+    {
+        StepTree.SyncFromNodes();
+        RefreshHero();
+        if (StepTree.SelectedStep is { } selected
+            && StepDetail.DetailStep is { } shown
+            && ReferenceEquals(shown, selected))
+        {
+            StepDetail.SyncLive(selected);
+        }
+    }
+
+    private void ContinueOperator()
+    {
+        var request = _runSession.PendingInteraction;
+        if (!Interaction.TryCollectResponse(request, out var values))
+        {
+            Status = Interaction.InteractionValidationError!;
+            return;
+        }
+
+        var response = request is null
             ? null
-            : SuiteQueue[Math.Clamp(idx, 0, SuiteQueue.Count - 1)];
-        Status = "Removed suite from list.";
+            : OperatorInteractionResponse.Continue(request.Id, values);
+
+        ClearPendingOperatorState();
+        _session.TouchActivity();
+        _runSession.Resume(response);
+        _runControl.Resume();
+        Interaction.Clear();
+        Interaction.IsAwaitingOperator = false;
+        Interaction.OperatorPromptMessage = null;
+        Status = "Continuing…";
+        // Interaction card collapse changes hero height; re-anchor the step list after layout.
+        ScheduleScrollToCurrentStep();
     }
 
-    private async Task RunAsync()
+    private void ScheduleScrollToCurrentStep()
     {
-        if (IsRunning)
+        void Scroll()
         {
-            Status = "Already running.";
-            return;
-        }
-
-        if (SuiteQueue.Count == 0)
-        {
-            Status = "Load a suite first.";
-            return;
-        }
-
-        _cts = new CancellationTokenSource();
-        _stopAuto = false;
-        PlotUiFlushCount = 0;
-        _lastUiFlushTicks = 0;
-        IsRunning = true;
-        OverallPercent = 0;
-        _runControl.AttachRun(_cts);
-
-        try
-        {
-            var startIndex = SelectedSuiteItem is null
-                ? 0
-                : Math.Max(0, SuiteQueue.IndexOf(SelectedSuiteItem));
-
-            if (startIndex < 0)
+            StepTree.JumpToCurrent();
+            if (StepTree.SelectedStep is null && !string.IsNullOrWhiteSpace(CurrentStepPath))
             {
-                startIndex = 0;
-            }
-
-            for (var i = startIndex; i < SuiteQueue.Count; i++)
-            {
-                if (_cts.IsCancellationRequested || _stopAuto)
-                {
-                    Status = _runControl.WasSafetyStopRequested ? "Safety stop." : "Cancelled.";
-                    break;
-                }
-
-                var queueItem = SuiteQueue[i];
-                SelectedSuiteItem = queueItem;
-                SelectedTestItem = queueItem.Tests.FirstOrDefault();
-                ResetSuiteItem(queueItem);
-
-                Status = IsAutoMode
-                    ? $"Running suite '{queueItem.DisplayName}' (Auto)…"
-                    : $"Running suite '{queueItem.DisplayName}'…";
-
-                var suiteRun = await _suiteEngine.ExecuteAsync(queueItem.Suite, CreateProgress(queueItem), _cts.Token);
-                FlushUi(force: true, queueItem, queueItem.Tests.FirstOrDefault());
-                LastRunId = suiteRun.SuiteRunId;
-                ApplySuiteResults(queueItem, suiteRun);
-
-                if (suiteRun.Result is RunResult.Passed or RunResult.Failed)
-                {
-                    try
-                    {
-                        await _reportService.GenerateSuitePdfAsync(suiteRun);
-                        Status = $"Finished '{queueItem.DisplayName}': {suiteRun.Result}. Report generated.";
-                    }
-                    catch (Exception ex)
-                    {
-                        Status = $"Finished '{queueItem.DisplayName}': {suiteRun.Result}. Report failed: {ex.Message}";
-                    }
-                }
-                else
-                {
-                    Status = $"Finished '{queueItem.DisplayName}': {suiteRun.Result}";
-                    if (_runControl.WasSafetyStopRequested)
-                    {
-                        Status = $"{Status} (safety stop)";
-                    }
-                }
-
-                var shouldStop =
-                    !IsAutoMode
-                    || suiteRun.Result is RunResult.Failed or RunResult.Error or RunResult.Cancelled
-                    || _cts.IsCancellationRequested
-                    || _stopAuto;
-
-                if (shouldStop)
-                {
-                    if (IsAutoMode && suiteRun.Result is RunResult.Failed or RunResult.Error)
-                    {
-                        Status = $"{Status} Auto stopped — select another suite or fix and Run again.";
-                    }
-
-                    break;
-                }
-            }
-        }
-        catch (OperationCanceledException)
-        {
-            Status = _runControl.WasSafetyStopRequested ? "Safety stop." : "Cancelled.";
-        }
-        catch (Exception ex)
-        {
-            Status = $"Error: {ex.Message}";
-        }
-        finally
-        {
-            _runControl.DetachRun();
-            IsRunning = false;
-            _cts?.Dispose();
-            _cts = null;
-            OverallPercent = 100;
-        }
-    }
-
-    private static void ResetSuiteItem(SuiteQueueItemViewModel queueItem)
-    {
-        queueItem.StatusText = "Running";
-        queueItem.Result = RunResult.Unknown;
-        queueItem.Percent = 0;
-        foreach (var test in queueItem.Tests)
-        {
-            test.StatusText = "Queued";
-            test.Result = RunResult.Unknown;
-            test.Percent = 0;
-            test.DetailLines.Clear();
-            test.HasPlot = false;
-            test.PlotYs = [];
-            test.LastRun = null;
-        }
-    }
-
-    private Progress<SuiteRunProgress> CreateProgress(SuiteQueueItemViewModel queueItem)
-        => new(p => OnSuiteProgress(queueItem, p));
-
-    private void OnSuiteProgress(SuiteQueueItemViewModel queueItem, SuiteRunProgress progress)
-    {
-        _pendingOverallPercent = progress.OverallPercent;
-        if (!string.IsNullOrWhiteSpace(progress.Message))
-        {
-            _pendingStatus = progress.Message;
-        }
-
-        var item = queueItem.Tests.FirstOrDefault(p =>
-            string.Equals(p.Plan.Id, progress.PlanId, StringComparison.OrdinalIgnoreCase)
-            || string.Equals(p.Plan.Name, progress.PlanName, StringComparison.OrdinalIgnoreCase));
-
-        if (item is null)
-        {
-            FlushUi(force: progress.IsCompleted, queueItem, null);
-            return;
-        }
-
-        if (progress.PlanCount > 0)
-        {
-            item.Percent = ((progress.PlanIndex + 0.5) / progress.PlanCount) * 100.0;
-        }
-
-        if (progress.PlanProgress is { } planProgress)
-        {
-            if (planProgress.StepId is { } stepId)
-            {
-                _pendingDetailLine = $"{stepId}: {planProgress.Message}";
-            }
-
-            if (planProgress.Sample is { } sample)
-            {
-                // Always ingest samples (no data loss).
-                _liveBuffer.Add(sample.Timestamp, sample.Value);
-                item.HasPlot = true;
-                item.PlotYs = _liveBuffer.Snapshot().Select(s => s.Value).ToArray();
-                _pendingPlot = true;
-                _pendingDetailLine =
-                    $"{sample.Timestamp:HH:mm:ss.fff} {sample.Channel}={sample.Value:F4}";
-            }
-
-            if (planProgress.IsCompleted && planProgress.Result is { } result)
-            {
-                item.Result = result;
-                item.StatusText = result.ToString();
-                item.Percent = 100;
-                FlushUi(force: true, queueItem, item);
                 return;
             }
+
+            StepTree.RaiseRequestScroll();
         }
 
-        FlushUi(force: false, queueItem, item);
-    }
-
-    private void FlushUi(bool force, SuiteQueueItemViewModel queueItem, TestItemViewModel? item)
-    {
-        var hz = Math.Clamp(_settings.PlotRefreshHz, 1, 120);
-        var intervalTicks = Stopwatch.Frequency / hz;
-        var now = Stopwatch.GetTimestamp();
-        if (!force && _lastUiFlushTicks != 0 && now - _lastUiFlushTicks < intervalTicks)
+        if (UiScheduler is not null)
         {
+            UiScheduler(Scroll);
             return;
         }
 
-        _lastUiFlushTicks = now;
-        OverallPercent = _pendingOverallPercent;
-        queueItem.Percent = _pendingOverallPercent;
-        if (_pendingStatus is not null)
-        {
-            queueItem.StatusText = _pendingStatus;
-            Status = _runControl.IsPaused ? $"Paused — {_pendingStatus}" : _pendingStatus;
-            if (item is not null && item.Result == RunResult.Unknown)
-            {
-                item.StatusText = _pendingStatus;
-            }
-        }
-
-        if (item is not null && _pendingDetailLine is not null && ShowDetails)
-        {
-            AppendDetail(item, _pendingDetailLine);
-        }
-
-        _pendingDetailLine = null;
-
-        if (_pendingPlot && item is not null)
-        {
-            if (ReferenceEquals(SelectedTestItem, item) && ShowDetails)
-            {
-                PlotYs = item.PlotYs;
-                PlotDataChanged?.Invoke(this, EventArgs.Empty);
-                PlotUiFlushCount++;
-            }
-
-            _pendingPlot = false;
-        }
+        Scroll();
     }
 
-    private static void AppendDetail(TestItemViewModel item, string line)
-    {
-        if (item.DetailLines.Count > 200)
-        {
-            item.DetailLines.RemoveAt(0);
-        }
-
-        item.DetailLines.Add(line);
-    }
-
-    private void ApplySuiteResults(SuiteQueueItemViewModel queueItem, SuiteRunRecord suiteRun)
-    {
-        queueItem.Result = suiteRun.Result;
-        queueItem.StatusText = suiteRun.Result.ToString();
-        queueItem.Percent = 100;
-
-        foreach (var planRun in suiteRun.PlanRuns)
-        {
-            var item = queueItem.Tests.FirstOrDefault(p =>
-                string.Equals(p.Plan.Id, planRun.PlanId, StringComparison.OrdinalIgnoreCase)
-                || string.Equals(p.Plan.Name, planRun.PlanName, StringComparison.OrdinalIgnoreCase));
-            if (item is null)
+    internal void Observe(Task task)
+        => task.ContinueWith(
+            t =>
             {
-                continue;
-            }
+                if (t.Exception?.GetBaseException() is { } ex)
+                {
+                    void SetError()
+                    {
+                        Status = $"Error: {ex.Message}";
+                        SetBanner(RunBannerSeverity.Error, $"Error: {ex.Message}");
+                    }
 
-            item.LastRun = planRun;
-            item.Result = planRun.Result;
-            item.StatusText = planRun.Result.ToString();
-            item.Percent = 100;
-            item.HasPlot = planRun.Samples.Count > 0;
-            if (item.HasPlot)
-            {
-                item.PlotYs = planRun.Samples.Select(s => s.Value).ToArray();
-            }
-        }
+                    if (UiScheduler is not null)
+                    {
+                        UiScheduler(SetError);
+                    }
+                    else
+                    {
+                        PostToUi(SetError);
+                    }
+                }
+            },
+            CancellationToken.None,
+            TaskContinuationOptions.OnlyOnFaulted,
+            TaskScheduler.Default);
 
-        RefreshPlotFromSelection();
+    /// Sets a sticky in-panel error/warning banner; does not overwrite Status (kept for transient progress).
+    public void SetBanner(RunBannerSeverity severity, string message)
+    {
+        BannerSeverity = severity;
+        BannerMessage = message;
+        HasBanner = true;
     }
 
-    private void RefreshPlotFromSelection()
-    {
-        if (!ShowDetails || SelectedTestItem is null || !SelectedTestItem.HasPlot)
-        {
-            return;
-        }
+    Task IRunBoardHost.RunOnUiAsync(Action action) => RunOnUiAsync(action);
 
-        PlotYs = SelectedTestItem.PlotYs;
-        PlotDataChanged?.Invoke(this, EventArgs.Empty);
-    }
+    Task IRunBoardHost.WaitForPendingFlushesAsync() => WaitForPendingFlushesAsync();
 
-    private void Cancel()
+    void IRunBoardHost.ForceUiFlush() => ForceUiFlush();
+
+    void IRunBoardHost.ResetPumpForRun() => ResetPumpForRun();
+
+    Task IRunBoardHost.LoadSelectedProgramAsync(string? preserveStagePath, string? preserveStepPath)
+        => LoadSelectedProgramAsync(preserveStagePath, preserveStepPath);
+
+    void IRunBoardHost.SyncHierarchyLive() => SyncHierarchyLive();
+
+    void IRunBoardHost.OpenSelectedDetail(bool revealDetail) => OpenSelectedDetail(revealDetail);
+
+    void IRunBoardHost.RefreshHero() => RefreshHero();
+
+    private sealed class ThrottledOpenTapProgress(Action<OpenTapProgress> ingest) : IProgress<OpenTapProgress>
     {
-        _stopAuto = true;
-        _runControl.RequestCancel();
-        _cts?.Cancel();
+        public void Report(OpenTapProgress value) => ingest(value);
     }
 }

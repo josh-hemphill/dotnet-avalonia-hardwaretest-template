@@ -6,6 +6,24 @@ public sealed class VisaResourceInfo
 {
     public required string Resource { get; init; }
     public string Description { get; init; } = string.Empty;
+    public string Interface { get; init; } = "Other";
+    public string Detail { get; init; } = string.Empty;
+    public bool LooksLikeAlias { get; init; }
+    public bool SupportsMessageQuery { get; init; }
+
+    public static VisaResourceInfo FromResource(string resource, string? description = null)
+    {
+        var parsed = VisaResourceParser.Parse(resource);
+        return new VisaResourceInfo
+        {
+            Resource = resource,
+            Description = description ?? resource,
+            Interface = parsed.Interface,
+            Detail = parsed.Detail,
+            LooksLikeAlias = parsed.LooksLikeAlias,
+            SupportsMessageQuery = parsed.SupportsMessageQuery,
+        };
+    }
 }
 
 public interface IVisaResourceDiscovery
@@ -18,9 +36,9 @@ public sealed class MockVisaResourceDiscovery : IVisaResourceDiscovery
 {
     public static readonly IReadOnlyList<VisaResourceInfo> Catalog =
     [
-        new() { Resource = "MOCK::INSTR0", Description = "Mock DMM INSTR0" },
-        new() { Resource = "MOCK::SCOPE1", Description = "Mock oscilloscope SCOPE1" },
-        new() { Resource = "MOCK::PSU2", Description = "Mock power supply PSU2" },
+        VisaResourceInfo.FromResource("MOCK::INSTR0", "Mock DMM INSTR0"),
+        VisaResourceInfo.FromResource("MOCK::SCOPE1", "Mock oscilloscope SCOPE1"),
+        VisaResourceInfo.FromResource("MOCK::PSU2", "Mock power supply PSU2"),
     ];
 
     public Task<IReadOnlyList<VisaResourceInfo>> FindAsync(CancellationToken cancellationToken = default)
@@ -30,9 +48,16 @@ public sealed class MockVisaResourceDiscovery : IVisaResourceDiscovery
     }
 }
 
-/// Discovers resources via IVI GlobalResourceManager.Find; soft-fails if runtime missing.
+/// Discovers resources via IVI GlobalResourceManager.Find; reports failures instead of silent empty.
 public sealed class IviVisaResourceDiscovery : IVisaResourceDiscovery
 {
+    private readonly Action<string>? _onError;
+
+    public IviVisaResourceDiscovery(Action<string>? onError = null)
+    {
+        _onError = onError;
+    }
+
     public Task<IReadOnlyList<VisaResourceInfo>> FindAsync(CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -40,13 +65,16 @@ public sealed class IviVisaResourceDiscovery : IVisaResourceDiscovery
         {
             var found = global::Ivi.Visa.GlobalResourceManager.Find("?*");
             IReadOnlyList<VisaResourceInfo> list = found
-                .Select(r => new VisaResourceInfo { Resource = r, Description = r })
+                .Select(r => VisaResourceInfo.FromResource(r))
                 .ToArray();
             return Task.FromResult(list);
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            return Task.FromResult<IReadOnlyList<VisaResourceInfo>>([]);
+            var message =
+                $"VISA discovery failed: {ex.Message}. Install a vendor VISA runtime or enable Use mock VISA.";
+            _onError?.Invoke(message);
+            throw new InvalidOperationException(message, ex);
         }
     }
 }
@@ -55,11 +83,11 @@ public sealed class ConfigurableVisaResourceDiscovery : IVisaResourceDiscovery
 {
     private readonly IVisaResourceDiscovery _inner;
 
-    public ConfigurableVisaResourceDiscovery(bool useMockVisa)
+    public ConfigurableVisaResourceDiscovery(bool useMockVisa, Action<string>? onIviError = null)
     {
         _inner = useMockVisa
             ? new MockVisaResourceDiscovery()
-            : new IviVisaResourceDiscovery();
+            : new IviVisaResourceDiscovery(onIviError);
     }
 
     public Task<IReadOnlyList<VisaResourceInfo>> FindAsync(CancellationToken cancellationToken = default)

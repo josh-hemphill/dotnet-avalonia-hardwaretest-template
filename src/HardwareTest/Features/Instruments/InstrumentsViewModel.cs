@@ -1,218 +1,528 @@
+using System;
 using System.Collections.ObjectModel;
+using System.Threading;
 using System.Threading.Tasks;
 using HardwareTest.Core.Hardware;
 using HardwareTest.Core.Settings;
+using HardwareTest.OpenTap.Host;
 using ReactiveUI;
 using ReactiveUI.SourceGenerators;
 
 namespace HardwareTest.Features.Instruments;
 
-public sealed class DiscoveredResourceItem
+public partial class DiscoveredResourceItem : ReactiveObject
 {
     public required string Resource { get; init; }
     public required string Description { get; init; }
+    public string Interface { get; init; } = "Other";
+    public string Detail { get; init; } = string.Empty;
+    public bool LooksLikeAlias { get; init; }
+    public bool SupportsMessageQuery { get; init; }
+
+    [Reactive] private string _idnRaw = string.Empty;
+    [Reactive] private string _idnSummary = string.Empty;
 
     public string Title =>
         string.IsNullOrWhiteSpace(Description) || string.Equals(Description, Resource, StringComparison.Ordinal)
             ? Resource
             : Description;
 
-    public string Subtitle => Resource;
-}
-
-public partial class StationBindingItemViewModel : ReactiveObject
-{
-    public StationBindingItemViewModel(string role, string instrumentId)
+    public string Subtitle
     {
-        Role = role;
-        InstrumentId = instrumentId;
+        get
+        {
+            var parts = new List<string> { Interface };
+            if (!string.IsNullOrWhiteSpace(Detail))
+            {
+                parts.Add(Detail);
+            }
+
+            if (LooksLikeAlias)
+            {
+                parts.Add("Alias?");
+            }
+
+            return string.Join(" · ", parts);
+        }
     }
 
-    [Reactive] private string _role = string.Empty;
-    [Reactive] private string _instrumentId = string.Empty;
+    public bool HasIdn => !string.IsNullOrWhiteSpace(IdnSummary);
+}
+
+public partial class OpenTapDiscoveredResourceItem : ReactiveObject
+{
+    public required string Address { get; init; }
+    public required string Source { get; init; }
+    public required string Kind { get; init; }
+    public string Interface { get; init; } = "Other";
+    public string Detail { get; init; } = string.Empty;
+    public bool LooksLikeAlias { get; init; }
+    public bool SupportsMessageQuery { get; init; }
+
+    [Reactive] private string _idnRaw = string.Empty;
+    [Reactive] private string _idnSummary = string.Empty;
+
+    public string Title => Address;
+
+    public string Subtitle
+    {
+        get
+        {
+            var parts = new List<string> { Interface, Source };
+            if (!string.IsNullOrWhiteSpace(Detail))
+            {
+                parts.Add(Detail);
+            }
+
+            if (LooksLikeAlias)
+            {
+                parts.Add("Alias?");
+            }
+
+            return string.Join(" · ", parts);
+        }
+    }
+
+    public bool HasIdn => !string.IsNullOrWhiteSpace(IdnSummary);
+}
+
+public partial class SlotOverrideItemViewModel : ReactiveObject
+{
+    public SlotOverrideItemViewModel(
+        string planId,
+        string planDisplayName,
+        OpenTapInstrumentSlot slot,
+        string? overrideResource,
+        bool useMockVisa)
+    {
+        PlanId = planId;
+        PlanDisplayName = planDisplayName;
+        SlotName = slot.Name;
+        TypeName = slot.TypeName;
+        RoleHint = slot.RoleHint;
+        PlanDefaultResource = slot.ResourceName;
+        UseMockVisa = useMockVisa;
+        OverrideResource = overrideResource ?? string.Empty;
+        PropertyChanged += (_, args) =>
+        {
+            if (args.PropertyName == nameof(OverrideResource))
+            {
+                this.RaisePropertyChanged(nameof(EffectiveResource));
+                this.RaisePropertyChanged(nameof(StatusText));
+                this.RaisePropertyChanged(nameof(Summary));
+                this.RaisePropertyChanged(nameof(IsOverridden));
+            }
+        };
+    }
+
+    public string PlanId { get; }
+    public string PlanDisplayName { get; }
+    public string SlotName { get; }
+    public string TypeName { get; }
+    public string RoleHint { get; }
+    public string PlanDefaultResource { get; }
+    public bool UseMockVisa { get; }
+
+    [Reactive] private string _overrideResource = string.Empty;
+
+    public bool IsOverridden => !string.IsNullOrWhiteSpace(OverrideResource);
+
+    public string EffectiveResource =>
+        string.IsNullOrWhiteSpace(OverrideResource) ? PlanDefaultResource : OverrideResource.Trim();
+
+    public string StatusText
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(EffectiveResource))
+            {
+                return "Unbound";
+            }
+
+            if (!UseMockVisa
+                && (MockResourceGuard.LooksLikeMockResource(EffectiveResource)
+                    || MockResourceGuard.IsMockInstrumentType(TypeName)))
+            {
+                return "Demo only";
+            }
+
+            return IsOverridden ? "Overridden" : "Ready";
+        }
+    }
+
+    public string Summary =>
+        $"{PlanDisplayName} / {SlotName} ({RoleHint}) → {EffectiveResource}";
 }
 
 public partial class InstrumentsViewModel : ReactiveObject
 {
+    private static readonly TimeSpan IdnTimeout = TimeSpan.FromSeconds(5);
+
     private readonly ISettingsStore _settingsStore;
     private readonly IVisaResourceDiscovery _discovery;
+    private readonly IOpenTapHostCatalog _hostCatalog;
+    private readonly IVisaSessionFactory _visaSessions;
+    private readonly OperatorSession? _operatorSession;
+    private readonly IVisaModeController? _visaModeController;
+    private bool _suppressSelectionSync;
 
-    public InstrumentsViewModel(ISettingsStore settingsStore, IVisaResourceDiscovery discovery)
+    public InstrumentsViewModel(
+        ISettingsStore settingsStore,
+        IVisaResourceDiscovery discovery,
+        IOpenTapHostCatalog hostCatalog,
+        IVisaSessionFactory visaSessions,
+        OperatorSession? operatorSession = null,
+        IVisaModeController? visaModeController = null)
     {
         _settingsStore = settingsStore;
         _discovery = discovery;
-        Instruments = new ObservableCollection<VisaInstrument>(settingsStore.AppSettings.Instruments);
-        StationBindings = new ObservableCollection<StationBindingItemViewModel>(
-            settingsStore.AppSettings.StationBindings.Select(b =>
-                new StationBindingItemViewModel(b.Role, b.InstrumentId)));
-        Discovered = [];
-        Status = "Discover VISA resources, bind roles to registry ids, and save.";
-        RefreshDiscoverCommand = ReactiveCommand.CreateFromTask(RefreshDiscoverAsync);
-        AddSelectedCommand = ReactiveCommand.Create(AddSelected);
-        RemoveSelectedCommand = ReactiveCommand.Create(RemoveSelected);
+        _hostCatalog = hostCatalog;
+        _visaSessions = visaSessions;
+        _operatorSession = operatorSession;
+        _visaModeController = visaModeController;
+        DiscoveredVisa = [];
+        DiscoveredOpenTap = [];
+        SlotOverrides = [];
+        Status = "Discover VISA or OpenTAP resources, then set per-plan OpenTAP slot overrides.";
+
+        if (visaModeController is not null)
+        {
+            visaModeController.ModeApplied += OnVisaModeApplied;
+        }
+
+        RefreshVisaDiscoverCommand = ReactiveCommand.CreateFromTask(RefreshVisaDiscoverAsync);
+        RefreshOpenTapDiscoverCommand = ReactiveCommand.CreateFromTask(RefreshOpenTapDiscoverAsync);
+        RefreshSlotsCommand = ReactiveCommand.CreateFromTask(RefreshSlotsAsync);
+        ApplySelectedResourceCommand = ReactiveCommand.Create(ApplySelectedResource);
+        ClearOverrideCommand = ReactiveCommand.Create(ClearOverride);
+        QuerySelectedIdnCommand = ReactiveCommand.CreateFromTask(QuerySelectedIdnAsync);
         SaveCommand = ReactiveCommand.CreateFromTask(SaveAsync);
-        AddManualCommand = ReactiveCommand.Create(AddManual);
-        AddStationBindingCommand = ReactiveCommand.Create(AddStationBinding);
-        RemoveStationBindingCommand = ReactiveCommand.Create(RemoveStationBinding);
+        NavigateToRunCommand = ReactiveCommand.Create(
+            () => NavigateToRunRequested?.Invoke(this, EventArgs.Empty));
+
+        PropertyChanged += (_, args) =>
+        {
+            if (_suppressSelectionSync)
+            {
+                return;
+            }
+
+            if (args.PropertyName is nameof(HasDiscoveredVisa) or nameof(HasDiscoveredOpenTap) or nameof(IsBusy))
+            {
+                this.RaisePropertyChanged(nameof(ShowDiscoverEmpty));
+            }
+
+            if (args.PropertyName == nameof(SelectedVisa) && SelectedVisa is not null)
+            {
+                _suppressSelectionSync = true;
+                SelectedOpenTap = null;
+                _suppressSelectionSync = false;
+            }
+            else if (args.PropertyName == nameof(SelectedOpenTap) && SelectedOpenTap is not null)
+            {
+                _suppressSelectionSync = true;
+                SelectedVisa = null;
+                _suppressSelectionSync = false;
+            }
+        };
+
+        _ = RefreshSlotsAsync();
     }
 
-    public ObservableCollection<VisaInstrument> Instruments { get; }
-    public ObservableCollection<DiscoveredResourceItem> Discovered { get; }
-    public ObservableCollection<StationBindingItemViewModel> StationBindings { get; }
+    public ObservableCollection<DiscoveredResourceItem> DiscoveredVisa { get; }
+    public ObservableCollection<OpenTapDiscoveredResourceItem> DiscoveredOpenTap { get; }
+    public ObservableCollection<SlotOverrideItemViewModel> SlotOverrides { get; }
 
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> RefreshDiscoverCommand { get; }
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> AddSelectedCommand { get; }
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> RemoveSelectedCommand { get; }
+    /// Backward-compatible alias used by older tests/callers.
+    public ObservableCollection<DiscoveredResourceItem> Discovered => DiscoveredVisa;
+
+    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> RefreshVisaDiscoverCommand { get; }
+    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> RefreshOpenTapDiscoverCommand { get; }
+    /// Alias for VISA discover (toolbar / existing tests).
+    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> RefreshDiscoverCommand => RefreshVisaDiscoverCommand;
+    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> RefreshSlotsCommand { get; }
+    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> ApplySelectedResourceCommand { get; }
+    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> ClearOverrideCommand { get; }
+    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> QuerySelectedIdnCommand { get; }
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> SaveCommand { get; }
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> AddManualCommand { get; }
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> AddStationBindingCommand { get; }
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> RemoveStationBindingCommand { get; }
+    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> NavigateToRunCommand { get; }
 
-    [Reactive] private DiscoveredResourceItem? _selectedDiscovered;
-    [Reactive] private VisaInstrument? _selectedInstrument;
-    [Reactive] private StationBindingItemViewModel? _selectedStationBinding;
-    [Reactive] private string _manualResource = "MOCK::INSTR0";
-    [Reactive] private string _manualName = "New instrument";
-    [Reactive] private string _newRole = "dmm";
+    [Reactive] private DiscoveredResourceItem? _selectedVisa;
+    [Reactive] private OpenTapDiscoveredResourceItem? _selectedOpenTap;
+    [Reactive] private SlotOverrideItemViewModel? _selectedSlot;
     [Reactive] private string _status = string.Empty;
+    [Reactive] private bool _isBusy;
+    [Reactive] private bool _hasDiscoveredVisa;
+    [Reactive] private bool _hasDiscoveredOpenTap;
 
-    private async Task RefreshDiscoverAsync()
+    public bool ShowDiscoverEmpty => !HasDiscoveredVisa && !HasDiscoveredOpenTap && !IsBusy;
+
+    public event EventHandler? NavigateToRunRequested;
+
+    /// Backward-compatible alias for SelectedVisa.
+    public DiscoveredResourceItem? SelectedDiscovered
     {
-        Discovered.Clear();
+        get => SelectedVisa;
+        set => SelectedVisa = value;
+    }
+
+    private void OnVisaModeApplied(object? sender, EventArgs e)
+    {
+        DiscoveredVisa.Clear();
+        DiscoveredOpenTap.Clear();
+        _ = RefreshVisaDiscoverAsync();
+        _ = RefreshSlotsAsync();
+    }
+
+    private async Task RefreshVisaDiscoverAsync()
+    {
+        _operatorSession?.TouchActivity();
+        IsBusy = true;
+        DiscoveredVisa.Clear();
         try
         {
             var found = await _discovery.FindAsync();
             foreach (var item in found)
             {
-                Discovered.Add(new DiscoveredResourceItem
+                DiscoveredVisa.Add(new DiscoveredResourceItem
                 {
                     Resource = item.Resource,
                     Description = item.Description,
+                    Interface = item.Interface,
+                    Detail = item.Detail,
+                    LooksLikeAlias = item.LooksLikeAlias,
+                    SupportsMessageQuery = item.SupportsMessageQuery,
                 });
             }
 
+            HasDiscoveredVisa = found.Count > 0;
             Status = found.Count == 0
-                ? "No resources found (enable mock VISA or install a vendor runtime)."
-                : $"Found {found.Count} resource(s).";
+                ? "No VISA resources found (enable mock VISA or install a vendor runtime)."
+                : $"Found {found.Count} VISA resource(s).";
         }
         catch (Exception ex)
         {
-            Status = $"Discovery failed: {ex.Message}";
+            HasDiscoveredVisa = false;
+            Status = $"VISA discovery failed: {ex.Message}";
+        }
+        finally
+        {
+            IsBusy = false;
         }
     }
 
-    private void AddSelected()
+    private async Task RefreshOpenTapDiscoverAsync()
     {
-        if (SelectedDiscovered is null)
+        IsBusy = true;
+        DiscoveredOpenTap.Clear();
+        try
         {
-            Status = "Select a discovered resource first.";
-            return;
+            var found = _hostCatalog.ListDiscoveredDeviceAddresses();
+            foreach (var item in found)
+            {
+                DiscoveredOpenTap.Add(new OpenTapDiscoveredResourceItem
+                {
+                    Address = item.Address,
+                    Source = item.Source,
+                    Kind = item.Kind,
+                    Interface = item.Interface,
+                    Detail = item.Detail,
+                    LooksLikeAlias = item.LooksLikeAlias,
+                    SupportsMessageQuery = item.SupportsMessageQuery,
+                });
+            }
+
+            HasDiscoveredOpenTap = found.Count > 0;
+            Status = found.Count == 0
+                ? "No OpenTAP device addresses found (IDeviceDiscovery / VisaAddress)."
+                : $"Found {found.Count} OpenTAP device address(es).";
+        }
+        catch (Exception ex)
+        {
+            HasDiscoveredOpenTap = false;
+            Status = $"OpenTAP discovery failed: {ex.Message}";
+        }
+        finally
+        {
+            IsBusy = false;
         }
 
-        if (Instruments.Any(i => string.Equals(i.Resource, SelectedDiscovered.Resource, StringComparison.OrdinalIgnoreCase)))
-        {
-            Status = "Instrument already in registry.";
-            return;
-        }
-
-        Instruments.Add(new VisaInstrument
-        {
-            Id = Guid.NewGuid().ToString("N")[..8],
-            DisplayName = SelectedDiscovered.Description,
-            Resource = SelectedDiscovered.Resource,
-            Enabled = true,
-        });
-        Status = $"Added {SelectedDiscovered.Resource}.";
+        await Task.CompletedTask;
     }
 
-    private void AddManual()
+    private Task RefreshSlotsAsync()
     {
-        if (string.IsNullOrWhiteSpace(ManualResource))
+        SlotOverrides.Clear();
+        var saved = _settingsStore.AppSettings.PlanSlotOverrides;
+        var useMockVisa = _visaModeController?.EffectiveUseMockVisa ?? _settingsStore.AppSettings.UseMockVisa;
+        try
         {
-            Status = "Enter a resource string.";
-            return;
+            foreach (var entry in ProgramCatalog.Enumerate())
+            {
+                var plan = InstrumentSlotCollector.CreatePlan(entry);
+                AddSlotsFromPlan(entry.Id, entry.DisplayName, InstrumentSlotCollector.FromPlan(plan), saved, useMockVisa);
+            }
+
+            Status = SlotOverrides.Count == 0
+                ? "No OpenTAP instrument slots found in available plans."
+                : $"Loaded {SlotOverrides.Count} slot(s) from available plans.";
+        }
+        catch (Exception ex)
+        {
+            Status = $"Failed to load plan slots: {ex.Message}";
         }
 
-        Instruments.Add(new VisaInstrument
-        {
-            Id = Guid.NewGuid().ToString("N")[..8],
-            DisplayName = string.IsNullOrWhiteSpace(ManualName) ? ManualResource : ManualName,
-            Resource = ManualResource.Trim(),
-            Enabled = true,
-        });
-        Status = $"Added {ManualResource}.";
+        return Task.CompletedTask;
     }
 
-    private void RemoveSelected()
+    private void AddSlotsFromPlan(
+        string planId,
+        string displayName,
+        IReadOnlyList<OpenTapInstrumentSlot> slots,
+        List<PlanSlotOverride> saved,
+        bool useMockVisa)
     {
-        if (SelectedInstrument is null)
+        foreach (var slot in slots)
         {
-            Status = "Select a registry instrument to remove.";
-            return;
+            var existing = saved.FirstOrDefault(o =>
+                string.Equals(o.PlanId, planId, StringComparison.OrdinalIgnoreCase)
+                && string.Equals(o.SlotName, slot.Name, StringComparison.OrdinalIgnoreCase));
+            SlotOverrides.Add(new SlotOverrideItemViewModel(planId, displayName, slot, existing?.Resource, useMockVisa));
         }
-
-        Instruments.Remove(SelectedInstrument);
-        SelectedInstrument = null;
-        Status = "Removed instrument.";
     }
 
-    private void AddStationBinding()
+    private void ApplySelectedResource()
     {
-        if (string.IsNullOrWhiteSpace(NewRole))
+        if (SelectedSlot is null)
         {
-            Status = "Enter a role name (e.g. dmm).";
+            Status = "Select a plan slot.";
             return;
         }
 
-        var instrumentId = SelectedInstrument?.Id
-                           ?? Instruments.FirstOrDefault(i => i.Enabled)?.Id
-                           ?? string.Empty;
-        if (string.IsNullOrWhiteSpace(instrumentId))
+        var resource = SelectedVisa?.Resource ?? SelectedOpenTap?.Address;
+        string? source;
+        if (SelectedVisa is not null)
         {
-            Status = "Add a registry instrument before binding roles.";
+            source = "VISA";
+        }
+        else if (SelectedOpenTap is not null)
+        {
+            source = "OpenTAP";
+        }
+        else
+        {
+            source = null;
+        }
+
+        if (string.IsNullOrWhiteSpace(resource) || source is null)
+        {
+            Status = "Select a VISA or OpenTAP discovered resource.";
             return;
         }
 
-        var role = NewRole.Trim();
-        var existing = StationBindings.FirstOrDefault(b =>
-            string.Equals(b.Role, role, StringComparison.OrdinalIgnoreCase));
-        if (existing is not null)
+        var effectiveMock = _visaModeController?.EffectiveUseMockVisa ?? _settingsStore.AppSettings.UseMockVisa;
+        if (!effectiveMock && MockResourceGuard.LooksLikeMockResource(resource))
         {
-            existing.InstrumentId = instrumentId;
-            Status = $"Updated role '{role}' → {instrumentId}.";
+            Status = $"Cannot bind mock resource '{resource}' while Use mock VISA is off.";
             return;
         }
 
-        StationBindings.Add(new StationBindingItemViewModel(role, instrumentId));
-        Status = $"Bound role '{role}' → {instrumentId}.";
+        SelectedSlot.OverrideResource = resource;
+        Status = $"Override {SelectedSlot.SlotName} → {resource} ({source}; save to persist).";
     }
 
-    private void RemoveStationBinding()
+    private async Task QuerySelectedIdnAsync()
     {
-        if (SelectedStationBinding is null)
+        var address = SelectedVisa?.Resource ?? SelectedOpenTap?.Address;
+        var supports = SelectedVisa?.SupportsMessageQuery ?? SelectedOpenTap?.SupportsMessageQuery ?? false;
+        if (string.IsNullOrWhiteSpace(address))
         {
-            Status = "Select a station binding to remove.";
+            Status = "Select a VISA or OpenTAP resource to query.";
             return;
         }
 
-        StationBindings.Remove(SelectedStationBinding);
-        SelectedStationBinding = null;
-        Status = "Removed station binding.";
+        if (!supports)
+        {
+            Status = $"Skipping *IDN? for '{address}' (interface not typically message-based). Narrow with hints, then pick USB/TCPIP/GPIB/ASRL/MOCK.";
+            return;
+        }
+
+        Status = $"Querying *IDN? on {address}…";
+        IsBusy = true;
+        using var cts = new CancellationTokenSource(IdnTimeout);
+        try
+        {
+            await using var session = await _visaSessions.OpenAsync(address, cts.Token).ConfigureAwait(false);
+            var raw = await session.QueryAsync("*IDN?", cts.Token).ConfigureAwait(false);
+            var (_, _, _, _, summary) = VisaResourceParser.FormatIdn(raw);
+            if (SelectedVisa is not null
+                && string.Equals(SelectedVisa.Resource, address, StringComparison.OrdinalIgnoreCase))
+            {
+                SelectedVisa.IdnRaw = raw;
+                SelectedVisa.IdnSummary = summary;
+                SelectedVisa.RaisePropertyChanged(nameof(DiscoveredResourceItem.HasIdn));
+            }
+            else if (SelectedOpenTap is not null
+                     && string.Equals(SelectedOpenTap.Address, address, StringComparison.OrdinalIgnoreCase))
+            {
+                SelectedOpenTap.IdnRaw = raw;
+                SelectedOpenTap.IdnSummary = summary;
+                SelectedOpenTap.RaisePropertyChanged(nameof(OpenTapDiscoveredResourceItem.HasIdn));
+            }
+
+            Status = string.IsNullOrWhiteSpace(summary)
+                ? $"*IDN? returned empty for {address}."
+                : $"IDN {address}: {summary}";
+        }
+        catch (OperationCanceledException)
+        {
+            Status = $"*IDN? timed out for {address}.";
+        }
+        catch (Exception ex)
+        {
+            Status = $"*IDN? failed for {address}: {ex.Message}";
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private void ClearOverride()
+    {
+        if (SelectedSlot is null)
+        {
+            Status = "Select a slot override to clear.";
+            return;
+        }
+
+        SelectedSlot.OverrideResource = string.Empty;
+        Status = $"Cleared override for {SelectedSlot.SlotName}.";
     }
 
     private async Task SaveAsync()
     {
-        _settingsStore.AppSettings.Instruments = Instruments.ToList();
-        _settingsStore.AppSettings.StationBindings = StationBindings
-            .Where(b => !string.IsNullOrWhiteSpace(b.Role))
-            .Select(b => new StationBinding { Role = b.Role.Trim(), InstrumentId = b.InstrumentId.Trim() })
-            .ToList();
-        if (Instruments.FirstOrDefault(i => i.Enabled) is { } first)
+        _operatorSession?.TouchActivity();
+        IsBusy = true;
+        try
         {
-            _settingsStore.AppSettings.DefaultVisaResource = first.Resource;
-        }
+            _settingsStore.AppSettings.PlanSlotOverrides = SlotOverrides
+                .Where(s => !string.IsNullOrWhiteSpace(s.OverrideResource))
+                .Select(s => new PlanSlotOverride
+                {
+                    PlanId = s.PlanId,
+                    SlotName = s.SlotName,
+                    RoleHint = s.RoleHint,
+                    Resource = s.OverrideResource.Trim(),
+                })
+                .ToList();
 
-        await _settingsStore.SaveAppSettingsAsync();
-        Status = $"Saved {Instruments.Count} instrument(s), {StationBindings.Count} role binding(s).";
+            await _settingsStore.SaveAppSettingsAsync();
+            Status = $"Saved {_settingsStore.AppSettings.PlanSlotOverrides.Count} slot override(s).";
+        }
+        finally
+        {
+            IsBusy = false;
+        }
     }
 }

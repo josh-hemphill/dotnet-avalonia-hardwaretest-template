@@ -1,0 +1,11 @@
+# Approved surface: HardwareTest.OpenTap.Host.IOpenTapRunSession
+# Update this file in the same commit when IOpenTapSession (or a focused surface) changes.
+method void Abort(bool safetyStop)
+method void Pause()
+method void Resume(HardwareTest.OpenTap.Plugins.Basic.OperatorInteractionResponse response)
+method System.Threading.Tasks.Task<HardwareTest.OpenTap.Host.OpenTapRunSummary> RunAsync(System.IProgress<HardwareTest.OpenTap.Host.OpenTapProgress> progress, System.Threading.CancellationToken cancellationToken, string runId)
+method System.Threading.Tasks.Task<HardwareTest.OpenTap.Host.OpenTapRunSummary> RunSelectionAsync(string stepPath, System.IProgress<HardwareTest.OpenTap.Host.OpenTapProgress> progress, System.Threading.CancellationToken cancellationToken, string runId, bool includeCleanup)
+prop bool IsAwaitingOperator { get; }
+prop string OperatorPromptMessage { get; }
+prop HardwareTest.OpenTap.Plugins.Basic.OperatorInteractionRequest PendingInteraction { get; }
+event System.ComponentModel.PropertyChangedEventHandler PropertyChanged
