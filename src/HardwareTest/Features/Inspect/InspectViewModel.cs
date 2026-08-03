@@ -8,12 +8,12 @@ namespace HardwareTest.Features.Inspect;
 
 public partial class InspectViewModel : ReactiveObject
 {
-    private readonly IOpenTapSession _openTap;
+    private readonly IOpenTapPlanSession _planSession;
     private readonly OperatorSession? _operatorSession;
 
-    public InspectViewModel(IOpenTapSession openTap, OperatorSession? operatorSession = null)
+    public InspectViewModel(IOpenTapPlanSession planSession, OperatorSession? operatorSession = null)
     {
-        _openTap = openTap;
+        _planSession = planSession;
         _operatorSession = operatorSession;
         Hierarchy = [];
         RefreshCommand = ReactiveCommand.Create(Refresh);
@@ -42,7 +42,7 @@ public partial class InspectViewModel : ReactiveObject
     {
         _operatorSession?.TouchActivity();
         Hierarchy.Clear();
-        foreach (var node in _openTap.StepTree)
+        foreach (var node in _planSession.StepTree)
         {
             var vm = new HierarchyStepViewModel(node);
             vm.ExpandAll();
@@ -52,7 +52,7 @@ public partial class InspectViewModel : ReactiveObject
         HierarchyRollup.Apply(Hierarchy);
         Status = Hierarchy.Count == 0
             ? "No plan loaded. Open Run and select a program."
-            : $"Inspecting {_openTap.LoadedPlanName ?? "plan"} ({CountLeaves(Hierarchy)} leaves).";
+            : $"Inspecting {_planSession.LoadedPlanName ?? "plan"} ({CountLeaves(Hierarchy)} leaves).";
         SelectedStep = Hierarchy.FirstOrDefault();
         this.RaisePropertyChanged(nameof(HasPlan));
     }

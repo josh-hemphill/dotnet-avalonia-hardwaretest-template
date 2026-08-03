@@ -17,7 +17,8 @@ public partial class StationOverridesViewModel : ReactiveObject
     private const int MaxDebugSampleCount = 4096;
     private const int MinDebugIntervalMs = 1;
 
-    private readonly IOpenTapSession _openTap;
+    private readonly IOpenTapPlanSession _plan;
+    private readonly IOpenTapStationSession _station;
     private readonly AppSettings _settings;
     private readonly ISettingsStore? _settingsStore;
     private readonly Action<string> _setStatus;
@@ -28,7 +29,8 @@ public partial class StationOverridesViewModel : ReactiveObject
     private readonly Action<string> _setConditionSummary;
 
     public StationOverridesViewModel(
-        IOpenTapSession openTap,
+        IOpenTapPlanSession plan,
+        IOpenTapStationSession station,
         AppSettings settings,
         ISettingsStore? settingsStore,
         Action<string> setStatus,
@@ -38,7 +40,8 @@ public partial class StationOverridesViewModel : ReactiveObject
         Func<ProgramItemViewModel?>? getSelectedProgram = null,
         Action<string>? setConditionSummary = null)
     {
-        _openTap = openTap;
+        _plan = plan;
+        _station = station;
         _settings = settings;
         _settingsStore = settingsStore;
         _setStatus = setStatus;
@@ -66,9 +69,9 @@ public partial class StationOverridesViewModel : ReactiveObject
     [Reactive] private string _stationSlotSummary = "Station: (load program)";
 
     public void RefreshStationSlotSummary()
-        => StationSlotSummary = _openTap.InstrumentSlots.Count == 0
+        => StationSlotSummary = _station.InstrumentSlots.Count == 0
             ? "Station: (no OpenTAP instruments)"
-            : "Station: " + string.Join(", ", _openTap.InstrumentSlots.Select(s => $"{s.Name}→{s.ResourceName}"));
+            : "Station: " + string.Join(", ", _station.InstrumentSlots.Select(s => $"{s.Name}→{s.ResourceName}"));
 
     public void RefreshParameterFields()
     {
@@ -80,7 +83,7 @@ public partial class StationOverridesViewModel : ReactiveObject
             return;
         }
 
-        var parameters = _openTap.EnumerateParameters(
+        var parameters = _station.EnumerateParameters(
             OpenTapParameterScope.Step,
             step.Path,
             includeReadOnly: true,
@@ -117,7 +120,7 @@ public partial class StationOverridesViewModel : ReactiveObject
                      string.Equals(o.PlanId, planId, StringComparison.OrdinalIgnoreCase)
                      && !string.IsNullOrWhiteSpace(o.MemberKey)))
         {
-            _openTap.TrySetParameter(ov.MemberKey, ov.Value ?? string.Empty);
+            _station.TrySetParameter(ov.MemberKey, ov.Value ?? string.Empty);
         }
     }
 
@@ -173,11 +176,11 @@ public partial class StationOverridesViewModel : ReactiveObject
         }
 
         ClampDebugKnobs();
-        _openTap.TrySetStepEnabled(step.Path, DebugStepEnabled);
+        _plan.TrySetStepEnabled(step.Path, DebugStepEnabled);
         step.Enabled = DebugStepEnabled;
-        _openTap.TrySetAcquireSettings(step.Path, DebugSampleCount, DebugIntervalMs);
-        _openTap.TrySetMeanGteThreshold(step.Path, DebugThreshold);
-        _openTap.TryRebindDmmResource(DebugResource);
+        _station.TrySetAcquireSettings(step.Path, DebugSampleCount, DebugIntervalMs);
+        _station.TrySetMeanGteThreshold(step.Path, DebugThreshold);
+        _station.TryRebindDmmResource(DebugResource);
         RefreshParameterFields();
         _setStatus($"Applied debug overlay to {step.Name} (not saved to golden plan).");
     }
@@ -208,7 +211,7 @@ public partial class StationOverridesViewModel : ReactiveObject
         foreach (var field in ParameterFields.Where(f => !f.IsReadOnly))
         {
             var value = field.ToResponseValue();
-            if (!_openTap.TrySetParameter(field.Id, value))
+            if (!_station.TrySetParameter(field.Id, value))
             {
                 _setStatus($"Could not set {field.Label}.");
                 return;
@@ -225,7 +228,7 @@ public partial class StationOverridesViewModel : ReactiveObject
 
         var step = _getSelectedStep();
         if (step is not null
-            && _openTap.TryGetStepConditionSummary(step.Path, out var summary)
+            && _plan.TryGetStepConditionSummary(step.Path, out var summary)
             && !string.IsNullOrWhiteSpace(summary))
         {
             _setConditionSummary(summary!);

@@ -19,7 +19,8 @@ namespace HardwareTest.Features.RunTest;
 /// Run board coordinator: owns the child panels, the shared run status, the hero line and the UI flush pump.
 public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
 {
-    private readonly IOpenTapSession _openTap;
+    private readonly IOpenTapPlanSession _plan;
+    private readonly IOpenTapRunSession _runSession;
     private readonly OperatorSession _session;
     private readonly IRunControl _runControl;
     private readonly AppSettings _settings;
@@ -27,7 +28,9 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
     private readonly IStorageHealthService? _storageHealth;
 
     public RunTestViewModel(
-        IOpenTapSession openTap,
+        IOpenTapPlanSession plan,
+        IOpenTapRunSession runSession,
+        IOpenTapStationSession station,
         OperatorSession session,
         IRunControl runControl,
         IReportService reportService,
@@ -39,7 +42,8 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
         IStorageHealthService? storageHealth = null,
         IVisaModeController? visaModeController = null)
     {
-        _openTap = openTap;
+        _plan = plan;
+        _runSession = runSession;
         _session = session;
         _runControl = runControl;
         _settings = settings;
@@ -72,7 +76,8 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
             () => ProgramSelection.SelectedProgram,
             ClearSessionAttempts);
         StationOverrides = new StationOverridesViewModel(
-            openTap,
+            plan,
+            station,
             settings,
             settingsStore,
             status => Status = status,
@@ -82,14 +87,15 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
             () => ProgramSelection.SelectedProgram,
             summary => StepDetail.ConditionSummary = summary);
         StepTree = new StepTreeViewModel(
-            () => _openTap.StepTree,
+            () => _plan.StepTree,
             path => Run!.FindAttempt(path),
             () => OpenSelectedDetail(revealDetail: true),
             RefreshHero,
             () => CurrentStepPath);
         Run = new RunExecutionViewModel(
             this,
-            openTap,
+            runSession,
+            station,
             session,
             runControl,
             reportService,
@@ -287,7 +293,7 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
         SessionPanel.ApplyIdleStaleCheck();
         _session.SelectProgram(program.Id, program.Path, program.DisplayName, program.DutFamily);
 
-        var alreadyLoaded = string.Equals(_openTap.LoadedPlanPath, program.Path, StringComparison.OrdinalIgnoreCase);
+        var alreadyLoaded = string.Equals(_plan.LoadedPlanPath, program.Path, StringComparison.OrdinalIgnoreCase);
         if (!alreadyLoaded)
         {
             await LoadProgramEntryAsync(program).ConfigureAwait(false);
@@ -316,10 +322,10 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
     private Task LoadProgramEntryAsync(ProgramItemViewModel program)
         => program.LoadKind switch
         {
-            ProgramLoadKind.FactorySample => _openTap.LoadSampleProgramAsync(),
-            ProgramLoadKind.FactoryBoardDemo => _openTap.LoadBoardDemoProgramAsync(),
-            ProgramLoadKind.FactorySweepDemo => _openTap.LoadSweepDemoProgramAsync(),
-            _ => _openTap.LoadPlanAsync(program.Path),
+            ProgramLoadKind.FactorySample => _plan.LoadSampleProgramAsync(),
+            ProgramLoadKind.FactoryBoardDemo => _plan.LoadBoardDemoProgramAsync(),
+            ProgramLoadKind.FactorySweepDemo => _plan.LoadSweepDemoProgramAsync(),
+            _ => _plan.LoadPlanAsync(program.Path),
         };
 
     private void OpenSelectedDetail(bool revealDetail = false)
@@ -342,7 +348,7 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
 
     private string? ResolveConditionSummary(HierarchyStepViewModel step)
         => IsEngineerDebugMode
-           && _openTap.TryGetStepConditionSummary(step.Path, out var summary)
+           && _plan.TryGetStepConditionSummary(step.Path, out var summary)
            && !string.IsNullOrWhiteSpace(summary)
             ? summary
             : null;
@@ -414,7 +420,7 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
 
     private void ContinueOperator()
     {
-        var request = _openTap.PendingInteraction;
+        var request = _runSession.PendingInteraction;
         if (!Interaction.TryCollectResponse(request, out var values))
         {
             Status = Interaction.InteractionValidationError!;
@@ -427,7 +433,7 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
 
         ClearPendingOperatorState();
         _session.TouchActivity();
-        _openTap.Resume(response);
+        _runSession.Resume(response);
         _runControl.Resume();
         Interaction.Clear();
         Interaction.IsAwaitingOperator = false;

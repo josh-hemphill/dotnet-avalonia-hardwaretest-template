@@ -65,7 +65,7 @@ public partial class RunTestViewModel
             {
                 _pendingAwaitingOperator = true;
                 _pendingOperatorPrompt = progress.OperatorPromptMessage ?? progress.Message;
-                _pendingInteractionRequest = progress.InteractionRequest ?? _openTap.PendingInteraction;
+                _pendingInteractionRequest = progress.InteractionRequest ?? _runSession.PendingInteraction;
             }
 
             _pendingStepId = progress.StepId ?? _pendingStepId;
@@ -333,7 +333,7 @@ public partial class RunTestViewModel
         if (frame.Awaiting)
         {
             Interaction.IsAwaitingOperator = true;
-            Interaction.Apply(frame.InteractionRequest ?? _openTap.PendingInteraction, frame.Prompt);
+            Interaction.Apply(frame.InteractionRequest ?? _runSession.PendingInteraction, frame.Prompt);
             // Growing operator card shrinks the step list; keep the awaiting step visible.
             ScheduleScrollToCurrentStep();
         }

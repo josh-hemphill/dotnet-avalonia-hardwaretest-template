@@ -363,11 +363,36 @@ public abstract class OpenTapSessionContractTests
     public void Approved_surface_matches_IOpenTapSession()
     {
         var actual = FormatApprovedSurface(typeof(IOpenTapSession));
-        var approvedPath = FindApprovedSnapshotPath();
+        var approvedPath = FindApprovedSnapshotPath("IOpenTapSession.approved.txt");
         Assert.True(File.Exists(approvedPath), $"Missing approved snapshot: {approvedPath}");
         var expected = NormalizeNewlines(File.ReadAllText(approvedPath).TrimEnd() + "\n");
         var normalizedActual = NormalizeNewlines(actual.TrimEnd() + "\n");
         Assert.Equal(expected, normalizedActual);
+    }
+
+    [Theory]
+    [InlineData(typeof(IOpenTapPlanSession), "IOpenTapPlanSession.approved.txt")]
+    [InlineData(typeof(IOpenTapRunSession), "IOpenTapRunSession.approved.txt")]
+    [InlineData(typeof(IOpenTapStationSession), "IOpenTapStationSession.approved.txt")]
+    [InlineData(typeof(IOpenTapHostCatalog), "IOpenTapHostCatalog.approved.txt")]
+    public void Approved_surface_matches_focused_session_interface(Type surface, string snapshotFile)
+    {
+        var actual = FormatApprovedSurface(surface);
+        var approvedPath = FindApprovedSnapshotPath(snapshotFile);
+        Assert.True(File.Exists(approvedPath), $"Missing approved snapshot: {approvedPath}");
+        var expected = NormalizeNewlines(File.ReadAllText(approvedPath).TrimEnd() + "\n");
+        var normalizedActual = NormalizeNewlines(actual.TrimEnd() + "\n");
+        Assert.Equal(expected, normalizedActual);
+    }
+
+    [Fact]
+    public void IOpenTapSession_is_aggregate_of_focused_surfaces()
+    {
+        var aggregate = typeof(IOpenTapSession);
+        Assert.Contains(typeof(IOpenTapPlanSession), aggregate.GetInterfaces());
+        Assert.Contains(typeof(IOpenTapRunSession), aggregate.GetInterfaces());
+        Assert.Contains(typeof(IOpenTapStationSession), aggregate.GetInterfaces());
+        Assert.Contains(typeof(IOpenTapHostCatalog), aggregate.GetInterfaces());
     }
 
     public static TheoryData<ContractPlan> AllPlans()
@@ -396,10 +421,10 @@ public abstract class OpenTapSessionContractTests
     private static string NormalizeNewlines(string text)
         => text.Replace("\r\n", "\n", StringComparison.Ordinal);
 
-    private static string FindApprovedSnapshotPath()
+    private static string FindApprovedSnapshotPath(string fileName)
     {
         var asmDir = Path.GetDirectoryName(typeof(OpenTapSessionContractTests).Assembly.Location)!;
-        var beside = Path.Combine(asmDir, "IOpenTapSession.approved.txt");
+        var beside = Path.Combine(asmDir, fileName);
         if (File.Exists(beside))
         {
             return beside;
@@ -409,7 +434,7 @@ public abstract class OpenTapSessionContractTests
         var dir = new DirectoryInfo(asmDir);
         while (dir is not null)
         {
-            var candidate = Path.Combine(dir.FullName, "tests", "HardwareTest.Session.Contracts", "IOpenTapSession.approved.txt");
+            var candidate = Path.Combine(dir.FullName, "tests", "HardwareTest.Session.Contracts", fileName);
             if (File.Exists(candidate))
             {
                 return candidate;
@@ -425,11 +450,18 @@ public abstract class OpenTapSessionContractTests
     {
         var sb = new StringBuilder();
         sb.AppendLine($"# Approved surface: {type.FullName}");
-        sb.AppendLine("# Update this file in the same commit when IOpenTapSession changes.");
+        sb.AppendLine("# Update this file in the same commit when IOpenTapSession (or a focused surface) changes.");
 
-        foreach (var member in type.GetMembers(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)
-                     .OrderBy(m => m.MemberType)
-                     .ThenBy(m => m.Name, StringComparer.Ordinal))
+        // IOpenTapSession is an empty aggregate of focused surfaces — flatten DeclaredOnly
+        // members from the type and every Host IOpenTap* interface it implements.
+        var members = SurfacesToScan(type)
+            .SelectMany(t => t.GetMembers(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly))
+            .GroupBy(m => MemberKey(m), StringComparer.Ordinal)
+            .Select(g => g.First())
+            .OrderBy(m => m.MemberType)
+            .ThenBy(m => m.Name, StringComparer.Ordinal);
+
+        foreach (var member in members)
         {
             switch (member)
             {
@@ -453,10 +485,47 @@ public abstract class OpenTapSessionContractTests
             }
         }
 
-        // INotifyPropertyChanged.PropertyChanged is inherited — include it explicitly.
-        sb.AppendLine("event System.ComponentModel.PropertyChangedEventHandler PropertyChanged");
+        // INotifyPropertyChanged.PropertyChanged is inherited — include it when applicable.
+        if (typeof(System.ComponentModel.INotifyPropertyChanged).IsAssignableFrom(type))
+        {
+            sb.AppendLine("event System.ComponentModel.PropertyChangedEventHandler PropertyChanged");
+        }
+
         return sb.ToString();
     }
+
+    private static IEnumerable<Type> SurfacesToScan(Type type)
+    {
+        yield return type;
+        foreach (var iface in type.GetInterfaces())
+        {
+            if (iface == typeof(System.ComponentModel.INotifyPropertyChanged))
+            {
+                continue;
+            }
+
+            if (iface.Namespace != typeof(IOpenTapSession).Namespace)
+            {
+                continue;
+            }
+
+            if (!iface.Name.StartsWith("IOpenTap", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            yield return iface;
+        }
+    }
+
+    private static string MemberKey(MemberInfo member)
+        => member switch
+        {
+            MethodInfo method => $"M:{method.Name}({string.Join(",", method.GetParameters().Select(p => p.ParameterType.FullName))})",
+            PropertyInfo prop => $"P:{prop.Name}",
+            EventInfo evt => $"E:{evt.Name}",
+            _ => $"{member.MemberType}:{member.Name}",
+        };
 
     private static string FormatParam(ParameterInfo p)
     {

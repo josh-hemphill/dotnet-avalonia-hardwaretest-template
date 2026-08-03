@@ -27,6 +27,8 @@ public sealed class ArchitectureRulesTests
         "Directory.Build.props JsonSerializerIsReflectionEnabledByDefault=false — every disk-persisted type must be in AppJsonContext.";
     private const string FeatureFileSizeRule =
         "docs/platform-phases/phase-9-runboard-decomposition.md — feature files stay decomposed; split into a child ViewModel or a partial.";
+    private const string SessionFacadeSplitRule =
+        "docs/platform-phases/phase-14-session-facade-split.md — Feature ViewModels take focused IOpenTap* surfaces, not the aggregating IOpenTapSession.";
 
     private const int MaxFeatureFileLines = 600;
 
@@ -173,6 +175,25 @@ public sealed class ArchitectureRulesTests
         Assert.True(
             offenders.Length == 0,
             $"{FeatureFileSizeRule} Over {MaxFeatureFileLines} lines:{Environment.NewLine}{string.Join(Environment.NewLine, offenders)}");
+    }
+
+    [Fact]
+    public void Feature_viewmodels_do_not_depend_on_aggregating_IOpenTapSession()
+    {
+        var featuresRoot = Path.Combine(FindRepoRoot(), "src", "HardwareTest", "Features");
+        Assert.True(Directory.Exists(featuresRoot), $"Features root not found at '{featuresRoot}'.");
+
+        var offenders = Directory.EnumerateFiles(featuresRoot, "*.cs", SearchOption.AllDirectories)
+            .Where(path => !IsBuildArtifact(path, featuresRoot))
+            .Select(path => (Path: path, Text: File.ReadAllText(path)))
+            .Where(file => file.Text.Contains("IOpenTapSession", StringComparison.Ordinal))
+            .Select(file => Path.GetRelativePath(featuresRoot, file.Path))
+            .OrderBy(path => path, StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.True(
+            offenders.Length == 0,
+            $"{SessionFacadeSplitRule} Offenders:{Environment.NewLine}{string.Join(Environment.NewLine, offenders)}");
     }
 
     private static readonly char[] PathSeparators =

@@ -21,7 +21,8 @@ namespace HardwareTest.Features.RunTest;
 public sealed class RunExecutionViewModel
 {
     private readonly IRunBoardHost _host;
-    private readonly IOpenTapSession _openTap;
+    private readonly IOpenTapRunSession _runSession;
+    private readonly IOpenTapStationSession _station;
     private readonly OperatorSession _session;
     private readonly IRunControl _runControl;
     private readonly IReportService _reportService;
@@ -45,7 +46,8 @@ public sealed class RunExecutionViewModel
 
     public RunExecutionViewModel(
         IRunBoardHost host,
-        IOpenTapSession openTap,
+        IOpenTapRunSession runSession,
+        IOpenTapStationSession station,
         OperatorSession session,
         IRunControl runControl,
         IReportService reportService,
@@ -65,7 +67,8 @@ public sealed class RunExecutionViewModel
         IVisaModeController? visaModeController = null)
     {
         _host = host;
-        _openTap = openTap;
+        _runSession = runSession;
+        _station = station;
         _session = session;
         _runControl = runControl;
         _reportService = reportService;
@@ -101,7 +104,7 @@ public sealed class RunExecutionViewModel
     public void Cancel()
     {
         _runControl.RequestSafetyStop();
-        _openTap.Abort(safetyStop: true);
+        _runSession.Abort(safetyStop: true);
     }
 
     private async Task ExecuteRunAsync(bool selectionOnly)
@@ -216,7 +219,7 @@ public sealed class RunExecutionViewModel
         }
 
         var station = _stationOverrides.BuildStationProfile();
-        var unbound = _openTap.InstrumentSlots
+        var unbound = _station.InstrumentSlots
             .Where(s => string.IsNullOrWhiteSpace(s.ResourceName)
                         && !station.RoleToResource.ContainsKey(s.RoleHint)
                         && !station.RoleToResource.ContainsKey(s.Name))
@@ -234,7 +237,7 @@ public sealed class RunExecutionViewModel
         var effectiveMock = _visaModeController?.EffectiveUseMockVisa ?? _settings.UseMockVisa;
         if (!effectiveMock)
         {
-            var mockSlots = _openTap.InstrumentSlots
+            var mockSlots = _station.InstrumentSlots
                 .Select(s =>
                 {
                     if (station.RoleToResource.TryGetValue(s.RoleHint, out var byRole)
@@ -267,7 +270,7 @@ public sealed class RunExecutionViewModel
             }
         }
 
-        await _openTap.ApplyStationAndDutAsync(station, _session.ToDutIdentity());
+        await _station.ApplyStationAndDutAsync(station, _session.ToDutIdentity());
         _session.TouchActivity();
 
         var runId = Guid.NewGuid().ToString("N");
@@ -290,13 +293,13 @@ public sealed class RunExecutionViewModel
 
         using var runLog = LogContext.PushProperty("TestRunId", runId);
         var summary = selectionOnly
-            ? await _openTap.RunSelectionAsync(
+            ? await _runSession.RunSelectionAsync(
                 selectionPath!,
                 _progress,
                 cancellationToken,
                 runId,
                 includeCleanup: program.SelectionIncludesCleanup).ConfigureAwait(false)
-            : await _openTap.RunAsync(_progress, cancellationToken, runId).ConfigureAwait(false);
+            : await _runSession.RunAsync(_progress, cancellationToken, runId).ConfigureAwait(false);
 
         _host.ForceUiFlush();
         await _host.WaitForPendingFlushesAsync().ConfigureAwait(false);

@@ -1,0 +1,5 @@
+# Approved surface: HardwareTest.OpenTap.Host.IOpenTapHostCatalog
+# Update this file in the same commit when IOpenTapSession (or a focused surface) changes.
+method System.Collections.Generic.IReadOnlyList<HardwareTest.OpenTap.Host.OpenTapDiscoveredAddress> ListDiscoveredDeviceAddresses()
+method System.Collections.Generic.IReadOnlyList<HardwareTest.OpenTap.Host.OpenTapPackageInfo> ListInstalledPackages()
+method System.Collections.Generic.IReadOnlyList<HardwareTest.OpenTap.Host.OpenTapPluginDirectoryInfo> ListPluginDirectories()

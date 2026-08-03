@@ -24,8 +24,14 @@ public static class Composition
         var buildInfo = OpenTapBuildInfo.Attach(BuildInfo.FromEntryAssembly());
         services.AddSingleton(buildInfo);
         services.AddHardwareTestCore(settingsStore);
-        services.AddSingleton<IOpenTapSession>(sp =>
+        services.AddSingleton<OpenTapSession>(sp =>
             new OpenTapSession(sp.GetRequiredService<AppSettings>(), Log.Logger));
+        // Same singleton instance for the aggregate and each focused surface (Phase 14).
+        services.AddSingleton<IOpenTapSession>(sp => sp.GetRequiredService<OpenTapSession>());
+        services.AddSingleton<IOpenTapPlanSession>(sp => sp.GetRequiredService<OpenTapSession>());
+        services.AddSingleton<IOpenTapRunSession>(sp => sp.GetRequiredService<OpenTapSession>());
+        services.AddSingleton<IOpenTapStationSession>(sp => sp.GetRequiredService<OpenTapSession>());
+        services.AddSingleton<IOpenTapHostCatalog>(sp => sp.GetRequiredService<OpenTapSession>());
         services.AddSingleton<OperatorSession>();
 
         services.AddSingleton<HomeViewModel>(sp =>

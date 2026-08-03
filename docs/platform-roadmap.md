@@ -56,7 +56,7 @@ Distinct namespaces on purpose — "Phase C" and "Phase 3" are never the same th
 | 11 | [Session activity & stale UX](platform-phases/phase-11-session-activity-stale.md) (+ Same DUT / `RequireOperator`) | 9, 10 | Done |
 | 12 | [Error surfacing & chrome polish](platform-phases/phase-12-error-surfacing-chrome.md) (+ wayfinding) | 9, 11 | Done |
 | 13 | [Settings live semantics](platform-phases/phase-13-settings-live-semantics.md) (`UseMockVisa` honesty) | 3, 10 | Done |
-| 14 | [Session façade split](platform-phases/phase-14-session-facade-split.md) | 8, 9 | Planned |
+| 14 | [Session façade split](platform-phases/phase-14-session-facade-split.md) | 8, 9 | Done |
 
 **Suggested order (1–10):** 1 first and alone — nothing else is verifiable until CI actually runs. Then 2 / 7 / 8 can proceed in parallel (independent seams). 3 → 4 → 5 is a chain and should stay one series. 6 lands after 4. 9 after 8. 10 after 3/6/9 (storage + chrome).
 
@@ -85,7 +85,7 @@ Longer-horizon product work lives under [`docs/deferred/`](deferred/). Each file
 Real, acknowledged, and deliberately unscheduled (or scheduled as phases above). Revisit before the first unattended deployment.
 
 - **No clock discipline.** Timestamps are `DateTimeOffset.UtcNow` with no NTP sync or skew detection — see [deferred-clock-discipline.md](deferred/deferred-clock-discipline.md).
-- **`IOpenTapSession` is a fat façade.** Phase 8 pins its behavior; splitting is [Phase 14](platform-phases/phase-14-session-facade-split.md) (unblocks multi-DUT).
+- **`IOpenTapSession` was a fat façade; Phase 14 split it.** Focused surfaces (`IOpenTapPlanSession` / `IOpenTapRunSession` / `IOpenTapStationSession` / `IOpenTapHostCatalog`) are what Feature ViewModels inject; the aggregating `IOpenTapSession` remains for Phase 8 contracts until OpenTAP [Phase K](opentap-phases/phase-k-multi-dut-parallel.md).
 - **Vendor VISA in CI is still unproven.** Discovery now surfaces failures (no silent empty list); real IVI runtimes remain outside the default CI matrix.
 - **Operator session still confirm-clock based.** Activity-aware idle, soft-warn, Same DUT / `RequireOperator` fixes — [Phase 11](platform-phases/phase-11-session-activity-stale.md).
 - **UseMockVisa can diverge from DI factories after save.** Honest rebuild or refuse — [Phase 13](platform-phases/phase-13-settings-live-semantics.md).
