@@ -160,7 +160,7 @@ public partial class InstrumentsViewModel : ReactiveObject
 
     private readonly ISettingsStore _settingsStore;
     private readonly IVisaResourceDiscovery _discovery;
-    private readonly IOpenTapHostCatalog _openTap;
+    private readonly IOpenTapHostCatalog _hostCatalog;
     private readonly IVisaSessionFactory _visaSessions;
     private readonly OperatorSession? _operatorSession;
     private readonly IVisaModeController? _visaModeController;
@@ -169,14 +169,14 @@ public partial class InstrumentsViewModel : ReactiveObject
     public InstrumentsViewModel(
         ISettingsStore settingsStore,
         IVisaResourceDiscovery discovery,
-        IOpenTapHostCatalog openTap,
+        IOpenTapHostCatalog hostCatalog,
         IVisaSessionFactory visaSessions,
         OperatorSession? operatorSession = null,
         IVisaModeController? visaModeController = null)
     {
         _settingsStore = settingsStore;
         _discovery = discovery;
-        _openTap = openTap;
+        _hostCatalog = hostCatalog;
         _visaSessions = visaSessions;
         _operatorSession = operatorSession;
         _visaModeController = visaModeController;
@@ -294,7 +294,7 @@ public partial class InstrumentsViewModel : ReactiveObject
         DiscoveredOpenTap.Clear();
         try
         {
-            var found = _openTap.ListDiscoveredDeviceAddresses();
+            var found = _hostCatalog.ListDiscoveredDeviceAddresses();
             foreach (var item in found)
             {
                 DiscoveredOpenTap.Add(new OpenTapDiscoveredResourceItem
