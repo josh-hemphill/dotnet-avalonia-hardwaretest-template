@@ -1,0 +1,4 @@
+# Writable data volume for the appliance stub quadlet.
+
+[Volume]
+Label=org.hardwaretest.volume=appliance-data

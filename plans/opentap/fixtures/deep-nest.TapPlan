@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<TestPlan type="OpenTap.TestPlan">
+  <Steps>
+    <TestStep type="HardwareTest.OpenTap.Plugins.Basic.TestGroupStep" Id="f1817b7b-974c-40fa-848c-692e25f01e30">
+      <Name Metadata="Step Name">Deep Nest Suite</Name>
+      <ChildTestSteps>
+        <TestStep type="HardwareTest.OpenTap.Plugins.Basic.TestGroupStep" Id="bc6289e6-ad2e-4330-a5e3-5921de9498f3">
+          <Name Metadata="Step Name">Level1</Name>
+          <ChildTestSteps>
+            <TestStep type="HardwareTest.OpenTap.Plugins.Basic.TestGroupStep" Id="388cda89-51d7-4023-a6ba-c8bf1e49351f">
+              <Name Metadata="Step Name">Level2</Name>
+              <ChildTestSteps>
+                <TestStep type="HardwareTest.OpenTap.Plugins.Basic.TestGroupStep" Id="a934e190-3f41-410b-b1ff-43686e012a85">
+                  <Name Metadata="Step Name">Level3</Name>
+                  <ChildTestSteps>
+                    <TestStep type="HardwareTest.OpenTap.Plugins.Basic.TestGroupStep" Id="d732fb38-e892-4974-85b8-3019cb808cc3">
+                      <Name Metadata="Step Name">Level4</Name>
+                      <ChildTestSteps>
+                        <TestStep type="HardwareTest.OpenTap.Plugins.Basic.AcquireVoltageStep" Id="910eed1c-ca90-4abb-896b-5b43775f3f8e">
+                          <Instrument>
+                            <ResourceName>MOCK::INSTR0</ResourceName>
+                            <Name>DMM</Name>
+                          </Instrument>
+                          <SampleCount>4</SampleCount>
+                          <IntervalMs>1</IntervalMs>
+                          <Channel>VDC</Channel>
+                          <Name Metadata="Step Name">Deep Acquire</Name>
+                          <ChildTestSteps />
+                        </TestStep>
+                      </ChildTestSteps>
+                    </TestStep>
+                  </ChildTestSteps>
+                </TestStep>
+              </ChildTestSteps>
+            </TestStep>
+          </ChildTestSteps>
+        </TestStep>
+        <TestStep type="HardwareTest.OpenTap.Plugins.Basic.SafeShutdownStep" Id="a40ff17e-9fe2-4f0b-9a3a-7adfccba2212">
+          <Instrument>
+            <ResourceName>MOCK::INSTR0</ResourceName>
+            <Name>DMM</Name>
+          </Instrument>
+          <Name Metadata="Step Name">Safe Shutdown</Name>
+          <ChildTestSteps />
+        </TestStep>
+      </ChildTestSteps>
+    </TestStep>
+  </Steps>
+</TestPlan>

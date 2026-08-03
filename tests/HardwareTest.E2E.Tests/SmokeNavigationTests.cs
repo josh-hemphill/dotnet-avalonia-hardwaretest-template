@@ -12,10 +12,11 @@ public sealed class SmokeNavigationTests
         var window = E2EHarness.ShowMainWindow();
         var main = E2EHarness.MainVm(window);
 
-        Assert.Equal(6, main.NavigationItems.Count);
+        Assert.Equal(7, main.NavigationItems.Count);
         Assert.All(main.NavigationItems, i => Assert.True((int)i.Symbol >= 0));
         Assert.Contains(main.NavigationItems, i => i.Id == "Home");
         Assert.Contains(main.NavigationItems, i => i.Id == "RunTest");
+        Assert.Contains(main.NavigationItems, i => i.Id == "Inspect");
         Assert.Contains(main.NavigationItems, i => i.Id == "Results");
         Assert.Contains(main.NavigationItems, i => i.Id == "ReportPreview");
         Assert.Contains(main.NavigationItems, i => i.Id == "Instruments");
@@ -26,8 +27,8 @@ public sealed class SmokeNavigationTests
         Assert.Equal("RunTest", main.SelectedItem?.Id);
         var runVm = E2EHarness.RunTestVm(main);
         Assert.Same(runVm, main.CurrentPage);
-        Assert.True(runVm.IsAutoMode);
-        Assert.Empty(runVm.SuiteQueue);
+        Assert.NotEmpty(runVm.ProgramSelection.Programs);
+        Assert.True(runVm.SessionPanel.NeedsDutConfirm);
         Assert.NotNull(main.PauseCommand);
         Assert.NotNull(main.ResumeCommand);
         Assert.NotNull(main.SafetyStopCommand);

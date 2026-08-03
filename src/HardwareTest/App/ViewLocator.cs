@@ -2,6 +2,7 @@ using System;
 using Avalonia.Controls;
 using Avalonia.Controls.Templates;
 using HardwareTest.Features.Home;
+using HardwareTest.Features.Inspect;
 using HardwareTest.Features.Instruments;
 using HardwareTest.Features.ReportPreview;
 using HardwareTest.Features.Results;
@@ -17,6 +18,7 @@ public sealed class ViewLocator : IDataTemplate
     {
         [typeof(HomeViewModel)] = static () => new HomeView(),
         [typeof(RunTestViewModel)] = static () => new RunTestView(),
+        [typeof(InspectViewModel)] = static () => new InspectView(),
         [typeof(ResultsViewModel)] = static () => new ResultsView(),
         [typeof(ReportPreviewViewModel)] = static () => new ReportPreviewView(),
         [typeof(InstrumentsViewModel)] = static () => new InstrumentsView(),

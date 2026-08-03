@@ -1,0 +1,23 @@
+{
+  "runId": "legacy-run-1",
+  "traceId": "trace-legacy",
+  "planId": "sample",
+  "planName": "Sample Hardware Suite",
+  "dutSerial": "SN-LEGACY",
+  "operatorName": "Tech",
+  "startedAt": "2026-01-01T12:00:00Z",
+  "completedAt": "2026-01-01T12:05:00Z",
+  "result": "Passed",
+  "steps": [],
+  "samples": [
+    {
+      "channel": "VDC",
+      "metricKey": "VDC",
+      "timestamp": "2026-01-01T12:00:01Z",
+      "value": 10.0
+    }
+  ],
+  "variables": {},
+  "reports": [],
+  "plotImagePaths": []
+}

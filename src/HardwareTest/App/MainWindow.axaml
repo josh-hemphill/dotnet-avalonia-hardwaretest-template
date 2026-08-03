@@ -14,6 +14,7 @@
                        IsSettingsVisible="False"
                        IsBackButtonVisible="False"
                        OpenPaneLength="220"
+                       IsPaneOpen="{Binding IsNavPaneOpen, Mode=TwoWay}"
                        MenuItemsSource="{Binding NavigationItems}"
                        SelectedItem="{Binding SelectedItem, Mode=TwoWay}">
     <ui:FANavigationView.MenuItemTemplate>
@@ -27,19 +28,42 @@
     </ui:FANavigationView.MenuItemTemplate>
 
     <ui:FANavigationView.PaneFooter>
-      <StackPanel Margin="12" Spacing="8">
-        <TextBlock Text="{Binding ControlStatus}" Opacity="0.75" FontSize="12" />
-        <Button Content="Pause"
-                Command="{Binding PauseCommand}"
-                HorizontalAlignment="Stretch" />
-        <Button Content="Resume"
-                Command="{Binding ResumeCommand}"
-                HorizontalAlignment="Stretch" />
-        <Button Content="Safety Stop"
-                Command="{Binding SafetyStopCommand}"
+      <StackPanel Margin="8,12" Spacing="6">
+        <TextBlock Text="{Binding ControlStatus}"
+                   FontSize="12"
+                   TextTrimming="CharacterEllipsis"
+                   Opacity="0.85"
+                   IsVisible="{Binding IsNavPaneOpen}" />
+        <Button Command="{Binding PauseResumeCommand}"
                 HorizontalAlignment="Stretch"
-                Classes="accent"
-                ToolTip.Tip="Abort the run and execute suite safeShutdown steps with VISA priority" />
+                IsEnabled="{Binding IsRunning}"
+                Classes.success="{Binding ShowContinueIcon}"
+                ToolTip.Tip="{Binding PauseResumeTip}">
+          <StackPanel Orientation="Horizontal"
+                      Spacing="8"
+                      HorizontalAlignment="Center">
+            <ui:FASymbolIcon Symbol="Pause" FontSize="16" IsVisible="{Binding ShowPauseIcon}" />
+            <ui:FASymbolIcon Symbol="Play" FontSize="16" IsVisible="{Binding ShowResumeIcon}" />
+            <ui:FASymbolIcon Symbol="Accept" FontSize="16" IsVisible="{Binding ShowContinueIcon}" />
+            <TextBlock Text="{Binding PauseResumeLabel}"
+                       VerticalAlignment="Center"
+                       IsVisible="{Binding IsNavPaneOpen}" />
+          </StackPanel>
+        </Button>
+        <Button Command="{Binding SafetyStopCommand}"
+                HorizontalAlignment="Stretch"
+                Classes="danger"
+                IsEnabled="{Binding IsRunning}"
+                ToolTip.Tip="{Binding SafetyStopTip}">
+          <StackPanel Orientation="Horizontal"
+                      Spacing="8"
+                      HorizontalAlignment="Center">
+            <ui:FASymbolIcon Symbol="Stop" FontSize="16" />
+            <TextBlock Text="{Binding SafetyStopLabel}"
+                       VerticalAlignment="Center"
+                       IsVisible="{Binding IsNavPaneOpen}" />
+          </StackPanel>
+        </Button>
       </StackPanel>
     </ui:FANavigationView.PaneFooter>
 

@@ -3,11 +3,17 @@
     <OutputType>WinExe</OutputType>
     <RootNamespace>HardwareTest</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
-    <PublishAot>true</PublishAot>
+    <PublishAot>false</PublishAot>
     <RuntimeIdentifiers>win-x64;linux-x64;osx-arm64</RuntimeIdentifiers>
     <OptimizationPreference>Speed</OptimizationPreference>
     <BuiltInComInteropSupport>false</BuiltInComInteropSupport>
   </PropertyGroup>
+
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
+      <_Parameter1>HardwareTest.ViewModels.Tests</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
 
   <ItemGroup>
     <AvaloniaResource Include="Assets\**" />
@@ -15,6 +21,11 @@
 
   <ItemGroup>
     <ProjectReference Include="..\HardwareTest.Core\HardwareTest.Core.csproj" />
+    <ProjectReference Include="..\HardwareTest.OpenTap.Host\HardwareTest.OpenTap.Host.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\plans\opentap\**\*" Link="Programs\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" Condition="Exists('..\..\plans\opentap')" />
   </ItemGroup>
 
   <ItemGroup>

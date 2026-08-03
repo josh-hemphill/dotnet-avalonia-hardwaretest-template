@@ -1,0 +1,22 @@
+{
+  "name": "hardwaretest-ci",
+  "tasks": {
+    "build": "deno run -A main.ts build",
+    "test:host": "deno run -A main.ts test:host",
+    "test:vm": "deno run -A main.ts test:vm",
+    "test:e2e": "deno run -A main.ts test:e2e",
+    "test:arch": "deno run -A main.ts test:arch",
+    "coverage": "deno run -A main.ts coverage",
+    "publish": "deno run -A main.ts publish",
+    "verify": "deno run -A main.ts verify",
+    "all": "deno run -A main.ts all",
+    "list": "deno run -A main.ts list",
+    "test": "deno test -A --quiet"
+  },
+  "exports": "./main.ts",
+  "imports": {
+    "@std/assert": "jsr:@std/assert@1",
+    "@std/cli": "jsr:@std/cli@1",
+    "@std/path": "jsr:@std/path@1"
+  }
+}

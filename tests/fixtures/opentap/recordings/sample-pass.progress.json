@@ -1,0 +1,42 @@
+[
+  {
+    "message": "Started",
+    "overallPercent": 0,
+    "isCompleted": false,
+    "awaitingOperator": false
+  },
+  {
+    "message": "Identity Check",
+    "stepName": "Identity Check",
+    "stepPath": "Sample Hardware Suite/Identity/Identity Check",
+    "stepId": "id-check",
+    "statusText": "Pass",
+    "verdict": "Pass",
+    "overallPercent": 40,
+    "isCompleted": false,
+    "awaitingOperator": false
+  },
+  {
+    "message": "Acquire VDC",
+    "stepName": "Acquire VDC",
+    "stepPath": "Sample Hardware Suite/Voltage Sweep/Acquire VDC",
+    "stepId": "acq",
+    "statusText": "Pass",
+    "verdict": "Pass",
+    "overallPercent": 80,
+    "isCompleted": false,
+    "awaitingOperator": false,
+    "sample": {
+      "channel": "VDC",
+      "timestamp": "2026-01-15T12:00:00+00:00",
+      "value": 1.25
+    }
+  },
+  {
+    "message": "Completed: Passed",
+    "overallPercent": 100,
+    "isCompleted": true,
+    "awaitingOperator": false,
+    "result": "Passed"
+  }
+]

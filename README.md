@@ -1,142 +1,89 @@
 # Avalonia Hardware Test Template
 
-NativeAOT-ready Avalonia 12 desktop template for **declarative hardware test plans**, **IVI VISA I/O with traced messaging**, **ScottPlot live plots**, and **Typst PDF reports**.
+Avalonia 12 desktop shell for **OpenTAP-sequenced hardware tests**, **IVI VISA discovery**, **ScottPlot live plots**, and **Typst PDF reports**. Self-contained (non-NativeAOT) publishes target sealed Linux appliance images.
+
+**License:** [MIT](LICENSE)
 
 ## Layout
 
 ```
 src/
-  HardwareTest/           # Avalonia exe — App / Features / Widgets
-  HardwareTest.Core/      # Avalonia-free: logging, settings, VISA, plans, engine, runs, reporting
+  HardwareTest/                      # Avalonia exe — App / Features / Widgets
+  HardwareTest.Core/                 # Avalonia-free: logging, settings, VISA, runs, reporting
+  HardwareTest.OpenTap.Host/         # OpenTAP session façade (load / run / pause / abort)
+  HardwareTest.OpenTap.Plugins.Basic/# Instruments, DUT, sample TestSteps
+  HardwareTest.OpenTap.Plugins.Mixins/# Demo Annotation mixin (IMixinBuilder)
+plans/opentap/                       # Locked .TapPlan programs
+docs/appliance-linux.md              # Appliance layout + publish notes
+docs/containers.md                   # Local CI tasks, Podman, appliance image rails
+docs/opentap-platform.md             # OpenTAP shell roadmap + phase checklist
+docs/opentap-phases/                 # Incremental implementation plans (A–K)
+docs/platform-roadmap.md             # Platform hardening roadmap + phase checklist
+docs/platform-phases/                # Gates, config, diagnostics, crash, CI, operator UX (1–14)
+docs/platform-phases/review-remediation.md # Fresh-eyes findings → phase map
+tools/ci/                            # Deno CI tasks shared by Actions + local runs
 tests/
-  HardwareTest.Tests/              # Core unit + plan regression fixtures
-  HardwareTest.ViewModels.Tests/   # ViewModel unit tests (fakes)
-  HardwareTest.E2E.Tests/          # Avalonia Headless UI flows
-templates/
-  plans/                  # sample JSON plans (also embedded)
-  reports/                # Typst templates (also embedded)
-dirs.proj                 # Microsoft.Build.Traversal entry
+  HardwareTest.Architecture.Tests/   # Layering smoke (Avalonia/OpenTAP boundaries)
+  HardwareTest.Session.Contracts/    # Shared IOpenTapSession contract (real + fake)
+  HardwareTest.Tests/                # Core + OpenTAP host unit tests
+  HardwareTest.ViewModels.Tests/     # ViewModel unit tests (fakes)
+  HardwareTest.E2E.Tests/            # Avalonia Headless UI flows
+templates/reports/                   # Typst templates (embedded)
 ```
 
-**Hard separation:** `HardwareTest.Core` has zero Avalonia references. Features call Core services via explicit DI in `App/Composition.cs`.
+**Hard separation:** `HardwareTest.Core` has zero Avalonia references. OpenTAP Host is Avalonia-free. Features call services via explicit DI in `App/Composition.cs`.
 
 ## Prerequisites
 
-- [.NET 10 SDK](https://dotnet.microsoft.com/download) (this repo pins via `global.json`)
-- On Windows, [Desktop development with C++](https://learn.microsoft.com/cpp/windows/overview-of-windows-programming) workload for NativeAOT publish
-- Optional: vendor VISA runtime (NI-VISA / Keysight IO Libraries) for real instruments — mock VISA is the default
+- [.NET 10 SDK](https://dotnet.microsoft.com/download) (pinned via `global.json`)
+- [Deno](https://deno.land/) 2.x for the shared CI task runner (`tools/ci/`)
+- Optional: vendor VISA runtime for real instruments — mock instruments are the default
+- Optional: [Podman](https://podman.io/) for Linux container CI / appliance rails — [docs/containers.md](docs/containers.md)
 
 ## Build & run
 
 ```bash
-dotnet build dirs.proj
+dotnet build dirs.proj -r win-x64
 dotnet run --project src/HardwareTest -c Debug -r win-x64
 ```
 
-> **RID required:** TypstInterop only restores its native library when a runtime identifier is set (`-r win-x64`, `linux-x64`, or `osx-arm64`). Building the app without a RID emits `TYPST0001` and PDF generation will fail with `DllNotFoundException`.
+> **RID required:** TypstInterop only restores its native library when a runtime identifier is set.
 
 ```bash
-# Always pass a RID so Typst native assets restore (required for report tests)
+# Full CI-shaped matrix (preferred):
+deno task --cwd tools/ci all -- --rid win-x64
+
+# Or individual suites:
+dotnet test tests/HardwareTest.Architecture.Tests -r win-x64
 dotnet test tests/HardwareTest.Tests -r win-x64
 dotnet test tests/HardwareTest.ViewModels.Tests -r win-x64
 dotnet test tests/HardwareTest.E2E.Tests -r win-x64
 ```
 
-## Testing
+See [docs/testing.md](docs/testing.md) for UI vs OpenTAP suite separation, plan-shape fixtures, and progress/summary recording.
+See [docs/containers.md](docs/containers.md) for Deno tasks, Podman CI image, and appliance stub rails.
+See [docs/adapting.md](docs/adapting.md) to replace sample plans, plugins, station bindings, and reports for your product.
+See [docs/opentap-platform.md](docs/opentap-platform.md) for the OpenTAP integration roadmap (interactions, parameters, mixins, packages) and [incremental phase plans](docs/opentap-phases/).
+See [docs/platform-roadmap.md](docs/platform-roadmap.md) for the platform hardening roadmap (repo gates, configuration, diagnostics, crash reporting, containerized CI, code structure) and [its phase plans](docs/platform-phases/).
+## Operator Session / DUT
 
-Four layers:
+- Confirm DUT serial once per session (sticky strip on Run shows last activity + idle countdown).
+- **Change DUT** clears and blocks Run until re-confirmed.
+- Idle uses **last activity** (default 240 minutes); soft-warn then Stale — Same DUT / Change Session.
+- Optional station policy: confirm DUT every run (`RequireDutConfirmEveryRun`).
+- Technician required UI follows program `requireOperator`.
 
-| Layer | Project | Focus |
-|---|---|---|
-| Core unit | `HardwareTest.Tests` | VISA gate/mock/acquire, engine cancel/assert/error, plans, runs, Typst |
-| ViewModel unit | `HardwareTest.ViewModels.Tests` | Run/Results/Settings/MainWindow VMs behind fakes |
-| Headless E2E | `HardwareTest.E2E.Tests` | Avalonia Headless: nav, run→finish, results, report preview |
-| Regression + CI | plan fixtures + GitHub Actions | Declared plan outcomes + coverage floors + PublishAot smoke |
+## OpenTAP programs
 
-**RID:** always use `-r win-x64` (or another declared RID) when testing Typst PDF generation. Without a RID, TypstInterop native binaries are missing and `GeneratePdfAsync` fails.
+Author structure in **OpenTAP Editor**; ship locked `.TapPlan` files under `plans/opentap/` (copied to `Programs/` on build). Avalonia supports constrained Engineer/Debug overlays (enable/disable, limits, resource rebind) without mutating the golden plan.
 
-**Coverage:** Core tests collect Coverlet (`tests/coverage.runsettings`). `tests/check-coverage.py` enforces floors — Core ≥ 70%, `Engine` + `Hardware` ≥ 80%:
+## Appliance publish
 
-```bash
-dotnet test tests/HardwareTest.Tests -r win-x64 --collect:"XPlat Code Coverage" --settings tests/coverage.runsettings --results-directory artifacts/coverage
-python tests/check-coverage.py artifacts/coverage/**/coverage.cobertura.xml
-```
-
-**Plan fixtures** live under `tests/HardwareTest.Tests/Fixtures/Plans/` and are executed by `PlanRegressionTests` (pass/fail/cancel/variable assert + loader rejection).
-
-CI (`.github/workflows/ci.yml`) builds/tests on `windows-latest` with `win-x64`, then runs a PublishAot smoke publish of the app.
-
-## NativeAOT publish
+See [docs/appliance-linux.md](docs/appliance-linux.md). CI `publish-win` / `test-linux` smoke self-contained publishes via Deno tasks.
 
 ```bash
-dotnet publish src/HardwareTest -c Release -r win-x64
+deno run -A tools/ci/main.ts publish --rid win-x64
+deno run -A tools/ci/main.ts publish --rid linux-x64
 ```
 
-Other RIDs declared on the app project: `linux-x64`, `osx-arm64`.
-
-### AoT / trim checklist
-
-- Compiled bindings (`AvaloniaUseCompiledBindingsByDefault`) + `x:DataType` on views
-- Explicit `ViewLocator` factory map (no `Activator` / reflection ViewLocator)
-- Explicit DI registration (no assembly scanning)
-- STJ source generation; `JsonSerializerIsReflectionEnabledByDefault=false`
-- Serilog sinks configured in code (not reflection `ReadFrom.Configuration`)
-- ScottPlot: prefer `Signal` / mutate buffers; throttle UI refresh
-- VISA: single-threaded session gate + tracing decorator; prefer mock until vendor runtime is present
-
-## Architecture notes
-
-| Area | Location |
-|---|---|
-| Serilog + Activities | `HardwareTest.Core/Logging` |
-| `settings.json` / `ui-state.json` | `%AppData%/HardwareTest/` via `SettingsStore` |
-| VISA wrap + mock | `HardwareTest.Core/Hardware` |
-| Declarative plans + engine | `HardwareTest.Core/Plans`, `Engine` |
-| Run persistence | `%AppData%/HardwareTest/runs/<runId>/` |
-| Typst reports | `HardwareTest.Core/Reporting` + `templates/reports` |
-| UI features | `HardwareTest/Features/*` |
-| Plot / PDF widgets | `HardwareTest/Widgets/*` |
-
-### Sample UX
-
-1. Launch restores window geometry, **last monitor**, theme preference, and last page from `ui-state.json` / `settings.json`
-2. **Instruments** → Discover resources, save the registry, and bind logical **roles** (e.g. `dmm`) to registry instrument ids for this station
-3. **Run** → Add sample / Open suite JSON into the **right-side suite list** → **Auto** (default) advances suite→suite after success (stops on Failed/Error/Cancelled)
-4. Always-visible nav footer: **Pause** / **Resume** / **Safety Stop** (abort + suite `safeShutdown` with VISA priority)
-5. Main area shows per-test progress/status; **Details** for sparse log + plot (plot UI throttled by `PlotRefreshHz`)
-6. On completion, suite/plan `run.json` + Typst `report.pdf` (plot PNGs beside on-disk `main.typ`; soft-fallback if embeds fail)
-7. **Results** / **Report Preview** reopen and print the PDF
-
-### Suites
-
-Suites are single JSON files that **embed full plans inline** (`templates/plans/sample-suite.json`). Default execution is **sequential**; set `"executionMode": "Parallel"` to overlap plan tasks (VISA I/O remains gated).
-
-Prefer **roles** (`"resource": "dmm"`) plus suite/plan `"instruments": { "dmm": "instr0" }` and station bindings in settings — not hard-coded VISA strings. Literal addresses and registry ids still resolve for back-compat.
-
-**Safe shutdown:** declare suite-level `"safeShutdown": [ …steps… ]` (inherited by all plans; a plan may override). Safety Stop / cancel / failure runs those steps before disposing the session.
-
-**Analyze plugins:** `{ "type": "Analyze", "algorithm": "mean-gte", "channel": "VDC", "value": 0.0 }` calls an in-process `IAnalyzeAlgorithm`. Ship complex math later as C# plugins or a MATLAB/Python host — suite JSON only references algorithm ids.
-
-The Run page treats the right-hand list as a prescribed suite sequence for the lab workflow.
-
-### Theme & platform settings
-
-- `ThemePreference`: `System` (default), `Light`, or `Dark`
-- `PlotRefreshHz`: caps Run UI/plot refresh rate (samples are still fully recorded)
-- Windows Event Log options appear only on Windows; Syslog options only on Unix
-
-### Extending
-
-- **New screen:** add `Features/<Name>/<Name>View(.axaml)` + `ViewModel`, register in `Composition.cs`, add to `ViewLocator` + `MainWindowViewModel.NavigationItems`
-- **New plan step:** add a `PlanStep` derived type with `[JsonDerivedType]`, handle it in `TestEngine`, update sample JSON
-- **New analyze algorithm:** implement `IAnalyzeAlgorithm`, register in DI
-- **New suite:** add an embedded JSON under `templates/plans/` with inline `plans[]`
-- **New report:** edit / embed another `.typ` under `templates/reports`
-
-### Run-to-run comparison
-
-`IRunComparisonService` is stubbed for a later iteration.
-
-## License
-
-Template scaffolding — adapt for your product.
+NativeAOT is **not** a product gate for the OpenTAP host.

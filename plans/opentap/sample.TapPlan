@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<TestPlan type="OpenTap.TestPlan">
+  <Steps>
+    <TestStep type="HardwareTest.OpenTap.Plugins.Basic.TestGroupStep" Id="69eb7f30-a503-4ae7-86ad-5db8b41f58ed">
+      <Name Metadata="Step Name">Sample Hardware Suite</Name>
+      <ChildTestSteps>
+        <TestStep type="HardwareTest.OpenTap.Plugins.Basic.TestGroupStep" Id="2ad779ee-df0f-4658-b894-2d95107926c8">
+          <Name Metadata="Step Name">Identity</Name>
+          <ChildTestSteps>
+            <TestStep type="HardwareTest.OpenTap.Plugins.Basic.IdentityCheckStep" Id="1cf8ff4f-0930-47a5-bee6-c64fc5ba8294">
+              <Instrument>
+                <ResourceName>MOCK::INSTR0</ResourceName>
+                <Name>DMM</Name>
+              </Instrument>
+              <Dut>
+                <SerialNumber></SerialNumber>
+                <PartNumber></PartNumber>
+                <Revision></Revision>
+                <Family>demo</Family>
+                <ID Metadata="ID" />
+                <Comment Metadata="Comment" />
+                <Name>DUT</Name>
+              </Dut>
+              <Name Metadata="Step Name">Identity Check</Name>
+              <ChildTestSteps />
+            </TestStep>
+          </ChildTestSteps>
+        </TestStep>
+        <TestStep type="HardwareTest.OpenTap.Plugins.Basic.OperatorPromptStep" Id="a0f1081b-10aa-48b3-9086-bb958dc1c671">
+          <Message>Install the voltage-sweep fixture, then Continue.</Message>
+          <Name Metadata="Step Name">Install Sweep Fixture</Name>
+          <ChildTestSteps />
+        </TestStep>
+        <TestStep type="HardwareTest.OpenTap.Plugins.Basic.TestGroupStep" Id="4e860ebf-bf8b-4a44-b3a3-67bf14c77711">
+          <Name Metadata="Step Name">Voltage Sweep</Name>
+          <ChildTestSteps>
+            <TestStep type="HardwareTest.OpenTap.Plugins.Basic.AcquireVoltageStep" Id="1b448017-c632-45be-a295-65a18b2cecdc">
+              <Instrument>
+                <ResourceName>MOCK::INSTR0</ResourceName>
+                <Name>DMM</Name>
+              </Instrument>
+              <SampleCount>32</SampleCount>
+              <IntervalMs>5</IntervalMs>
+              <Channel>VDC</Channel>
+              <Name Metadata="Step Name">Acquire VDC</Name>
+              <ChildTestSteps />
+            </TestStep>
+            <TestStep type="HardwareTest.OpenTap.Plugins.Basic.MeanGteStep" Id="42c00a1d-091c-400c-a38a-d15cd6a21969">
+              <Instrument>
+                <ResourceName>MOCK::INSTR0</ResourceName>
+                <Name>DMM</Name>
+              </Instrument>
+              <SampleCount>8</SampleCount>
+              <Threshold>0</Threshold>
+              <Name Metadata="Step Name">Mean GTE</Name>
+              <ChildTestSteps />
+            </TestStep>
+          </ChildTestSteps>
+        </TestStep>
+        <TestStep type="HardwareTest.OpenTap.Plugins.Basic.SafeShutdownStep" Id="4deb8fc0-33c4-4e75-8848-f192f3df29e1">
+          <Instrument>
+            <ResourceName>MOCK::INSTR0</ResourceName>
+            <Name>DMM</Name>
+          </Instrument>
+          <Name Metadata="Step Name">Safe Shutdown</Name>
+          <ChildTestSteps />
+        </TestStep>
+      </ChildTestSteps>
+    </TestStep>
+  </Steps>
+</TestPlan>

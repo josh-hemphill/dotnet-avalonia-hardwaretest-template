@@ -1,0 +1,82 @@
+using System.Globalization;
+using OpenTap;
+
+namespace HardwareTest.OpenTap.Plugins.Basic;
+
+/// Mock DMM instrument for bring-up without a VISA runtime.
+[Display("Mock DMM", Groups: ["HardwareTest"], Description: "Simulated DC voltmeter (demo only).")]
+public sealed class MockDmmInstrument : HardwareDmm
+{
+    private readonly object _sync = new();
+    private bool _configured;
+    private double _nextValue = 1.25;
+    private string _resource = "MOCK::INSTR0";
+
+    [Display("Visa Address", Order: 1)]
+    public string VisaAddress
+    {
+        get => _resource;
+        set => _resource = value ?? string.Empty;
+    }
+
+    [Display("Resource Name", Order: 2)]
+    public string ResourceName
+    {
+        get => _resource;
+        set => _resource = value ?? string.Empty;
+    }
+
+    public override void Open()
+    {
+        Log.Info("Opened mock DMM {0}", _resource);
+        base.Open();
+    }
+
+    public override void Close()
+    {
+        Log.Info("Closed mock DMM {0}", _resource);
+        base.Close();
+    }
+
+    public override void Reset()
+    {
+        lock (_sync)
+        {
+            _configured = false;
+            _nextValue = 1.25;
+        }
+    }
+
+    public override void ConfigureDcVolts()
+    {
+        lock (_sync)
+        {
+            _configured = true;
+        }
+    }
+
+    public override string QueryIdn() => $"MockDMM,{_resource},1.0";
+
+    public override double ReadVoltage()
+    {
+        lock (_sync)
+        {
+            if (!_configured)
+            {
+                ConfigureDcVolts();
+            }
+
+            // Mild variation so plots are non-flat.
+            _nextValue += (_nextValue * 0.001) % 0.05;
+            return _nextValue;
+        }
+    }
+
+    public override void OutputOff()
+    {
+        lock (_sync)
+        {
+            _configured = false;
+        }
+    }
+}

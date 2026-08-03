@@ -1,0 +1,20 @@
+# Placeholder quadlet for the future appliance image.
+# Not started by default — rails only (see docs/appliance-linux.md, docs/containers.md).
+
+[Unit]
+Description=HardwareTest appliance stub (rails only)
+After=network-online.target
+
+[Container]
+Image=localhost/hardwaretest-appliance:stub
+Volume=hardwaretest-appliance-data.volume:/appliance/data:Z
+Environment=HARDWARETEST_DATA_DIRECTORY=/appliance/data
+# No kiosk session, no published app binary yet.
+Exec=cat /appliance/README.stub.txt
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<TestPlan type="OpenTap.TestPlan">
+  <Steps>
+    <TestStep type="HardwareTest.OpenTap.Plugins.Basic.TestGroupStep" Id="b68581b4-e4dd-4b2d-9500-d4f262a593e9">
+      <Name Metadata="Step Name">Duplicate Names Suite</Name>
+      <ChildTestSteps>
+        <TestStep type="HardwareTest.OpenTap.Plugins.Basic.TestGroupStep" Id="e000cde0-d42d-4c57-91dc-4e8a62d6d1c4">
+          <Name Metadata="Step Name">Bank A</Name>
+          <ChildTestSteps>
+            <TestStep type="HardwareTest.OpenTap.Plugins.Basic.AcquireVoltageStep" Id="2f50e6ff-4fac-4bac-8ae2-2b3db0376a2d">
+              <Instrument>
+                <ResourceName>MOCK::INSTR0</ResourceName>
+                <Name>DMM</Name>
+              </Instrument>
+              <SampleCount>4</SampleCount>
+              <IntervalMs>1</IntervalMs>
+              <Channel>A</Channel>
+              <Name Metadata="Step Name">Acquire</Name>
+              <ChildTestSteps />
+            </TestStep>
+          </ChildTestSteps>
+        </TestStep>
+        <TestStep type="HardwareTest.OpenTap.Plugins.Basic.TestGroupStep" Id="3e6c9af2-0df1-4186-a312-f409e3f3c385">
+          <Name Metadata="Step Name">Bank B</Name>
+          <ChildTestSteps>
+            <TestStep type="HardwareTest.OpenTap.Plugins.Basic.AcquireVoltageStep" Id="a6538fff-eda0-42a6-80f4-31126b24ca40">
+              <Instrument>
+                <ResourceName>MOCK::INSTR0</ResourceName>
+                <Name>DMM</Name>
+              </Instrument>
+              <SampleCount>4</SampleCount>
+              <IntervalMs>1</IntervalMs>
+              <Channel>B</Channel>
+              <Name Metadata="Step Name">Acquire</Name>
+              <ChildTestSteps />
+            </TestStep>
+          </ChildTestSteps>
+        </TestStep>
+        <TestStep type="HardwareTest.OpenTap.Plugins.Basic.SafeShutdownStep" Id="fdb8f3a3-0992-465e-89bf-2100c81e83eb">
+          <Instrument>
+            <ResourceName>MOCK::INSTR0</ResourceName>
+            <Name>DMM</Name>
+          </Instrument>
+          <Name Metadata="Step Name">Safe Shutdown</Name>
+          <ChildTestSteps />
+        </TestStep>
+      </ChildTestSteps>
+    </TestStep>
+  </Steps>
+</TestPlan>

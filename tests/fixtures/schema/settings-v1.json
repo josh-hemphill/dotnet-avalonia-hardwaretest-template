@@ -1,0 +1,7 @@
+{
+  "schemaVersion": 1,
+  "useMockVisa": true,
+  "logMinimumLevel": "Information",
+  "themePreference": "Dark",
+  "dataDirectory": ""
+}

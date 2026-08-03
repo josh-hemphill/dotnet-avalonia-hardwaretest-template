@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text;
 using System.Text.Json;
 using HardwareTest.Core.Runs;
 using HardwareTest.Core.Serialization;
@@ -11,6 +12,11 @@ namespace HardwareTest.Core.Reporting;
 public interface IReportService
 {
     Task<string> GeneratePdfAsync(TestRunRecord run, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<RunReportArtifact>> GenerateReportsAsync(
+        TestRunRecord run,
+        IReadOnlyList<string> kinds,
+        DutHistoryReport? history = null,
+        CancellationToken cancellationToken = default);
     Task<string> GenerateSuitePdfAsync(SuiteRunRecord suiteRun, CancellationToken cancellationToken = default);
     Task<byte[]> CompileTemplateAsync(TestRunRecord run, CancellationToken cancellationToken = default);
 }
@@ -40,36 +46,58 @@ public sealed class TypstReportService : IReportService, IDisposable
 
     public async Task<string> GeneratePdfAsync(TestRunRecord run, CancellationToken cancellationToken = default)
     {
-        if (_settings.EmbedPlotsInReport && run.Samples.Count > 0 && run.PlotImagePaths.Count == 0)
-        {
-            var plotsDir = Path.Combine(_runStore.GetRunDirectory(run.RunId), "plots");
-            run.PlotImagePaths = SamplePlotExporter.ExportAllChannels(run, plotsDir).ToList();
-        }
+        var artifacts = await GenerateReportsAsync(run, [ReportKinds.Status], history: null, cancellationToken)
+            .ConfigureAwait(false);
+        return artifacts.FirstOrDefault()?.PdfPath
+               ?? run.ReportPdfPath
+               ?? string.Empty;
+    }
 
-        var pdfBytes = await CompileTemplateAsync(run, cancellationToken).ConfigureAwait(false);
-        var dir = _runStore.GetRunDirectory(run.RunId);
-        var path = Path.Combine(dir, "report.pdf");
-        await File.WriteAllBytesAsync(path, pdfBytes, cancellationToken).ConfigureAwait(false);
-        run.ReportPdfPath = path;
-        await _runStore.SaveAsync(run, cancellationToken).ConfigureAwait(false);
-        _logger.Information("Wrote report PDF for run {RunId} to {Path}", run.RunId, path);
-        return path;
+    public async Task<IReadOnlyList<RunReportArtifact>> GenerateReportsAsync(
+        TestRunRecord run,
+        IReadOnlyList<string> kinds,
+        DutHistoryReport? history = null,
+        CancellationToken cancellationToken = default)
+    {
+        var normalized = NormalizeKinds(kinds);
+        return await Task.Run(
+            () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var dir = _runStore.GetRunDirectory(run.RunId);
+                var artifacts = new List<RunReportArtifact>();
+                var now = DateTimeOffset.UtcNow;
+                foreach (var kind in normalized)
+                {
+                    var templateName = ResolveTemplateName(kind);
+                    var fileName = $"{kind}.pdf";
+                    var title = KindTitle(kind);
+                    var pdfBytes = CompileTemplateCore(run, templateName, kind, history, title, cancellationToken);
+                    var path = Path.Combine(dir, fileName);
+                    File.WriteAllBytes(path, pdfBytes);
+                    artifacts.Add(new RunReportArtifact
+                    {
+                        Kind = kind,
+                        Title = title,
+                        PdfPath = path,
+                        GeneratedAt = now,
+                    });
+                    _logger.Information("Wrote {Kind} PDF for run {RunId} to {Path}", kind, run.RunId, path);
+                }
+
+                run.Reports = artifacts.ToList();
+                run.ReportPdfPath = artifacts.FirstOrDefault(a =>
+                                        string.Equals(a.Kind, ReportKinds.Status, StringComparison.OrdinalIgnoreCase))
+                                    ?.PdfPath
+                                    ?? artifacts.FirstOrDefault()?.PdfPath;
+                _runStore.SaveAsync(run, cancellationToken).GetAwaiter().GetResult();
+                return (IReadOnlyList<RunReportArtifact>)artifacts;
+            },
+            cancellationToken).ConfigureAwait(false);
     }
 
     public async Task<string> GenerateSuitePdfAsync(SuiteRunRecord suiteRun, CancellationToken cancellationToken = default)
     {
-        var root = _suiteRunStore?.GetSuiteRunDirectory(suiteRun.SuiteRunId)
-                   ?? _runStore.GetRunDirectory(suiteRun.SuiteRunId);
-        var plotsDir = Path.Combine(root, "plots");
-        var paths = new List<string>();
-        if (_settings.EmbedPlotsInReport)
-        {
-            foreach (var planRun in suiteRun.PlanRuns)
-            {
-                paths.AddRange(SamplePlotExporter.ExportAllChannels(planRun, plotsDir));
-            }
-        }
-
         var aggregate = new TestRunRecord
         {
             RunId = suiteRun.SuiteRunId,
@@ -81,7 +109,6 @@ public sealed class TypstReportService : IReportService, IDisposable
             ErrorMessage = suiteRun.ErrorMessage,
             Samples = suiteRun.PlanRuns.SelectMany(p => p.Samples).ToList(),
             Steps = suiteRun.PlanRuns.SelectMany(p => p.Steps).ToList(),
-            PlotImagePaths = paths,
         };
 
         var path = await GeneratePdfAsync(aggregate, cancellationToken).ConfigureAwait(false);
@@ -95,49 +122,98 @@ public sealed class TypstReportService : IReportService, IDisposable
     }
 
     public Task<byte[]> CompileTemplateAsync(TestRunRecord run, CancellationToken cancellationToken = default)
+        => Task.Run(
+            () => CompileTemplateCore(
+                run,
+                ResolveTemplateName(ReportKinds.Status),
+                ReportKinds.Status,
+                history: null,
+                KindTitle(ReportKinds.Status),
+                cancellationToken),
+            cancellationToken);
+
+    private static IReadOnlyList<string> NormalizeKinds(IReadOnlyList<string> kinds)
     {
-        cancellationToken.ThrowIfCancellationRequested();
-        var template = LoadEmbeddedTemplate();
-        var resultJson = JsonSerializer.Serialize(run, AppJsonContext.Default.TestRunRecord);
-        var workDir = Path.Combine(Path.GetTempPath(), "HardwareTestTypst", run.RunId);
-        Directory.CreateDirectory(workDir);
-
-        var plotFiles = new List<(string Name, byte[] Bytes)>();
-        if (_settings.EmbedPlotsInReport)
+        if (kinds.Count == 0)
         {
-            var plotPaths = run.PlotImagePaths ?? [];
-            for (var i = 0; i < plotPaths.Count && i < 3; i++)
+            return [ReportKinds.Status];
+        }
+
+        var list = new List<string>();
+        foreach (var raw in kinds)
+        {
+            if (string.IsNullOrWhiteSpace(raw))
             {
-                var src = plotPaths[i];
-                if (!File.Exists(src))
-                {
-                    continue;
-                }
+                continue;
+            }
 
-                var bytes = File.ReadAllBytes(src);
-                if (bytes.Length == 0)
-                {
-                    continue;
-                }
-
-                var name = $"plot-{i}.png";
-                File.WriteAllBytes(Path.Combine(workDir, name), bytes);
-                plotFiles.Add((name, bytes));
+            var kind = raw.Trim().ToLowerInvariant();
+            if (!list.Contains(kind, StringComparer.OrdinalIgnoreCase))
+            {
+                list.Add(kind);
             }
         }
 
-        var mainTypPath = Path.Combine(workDir, "main.typ");
-        File.WriteAllText(mainTypPath, template);
+        return list.Count == 0 ? [ReportKinds.Status] : list;
+    }
 
+    private string ResolveTemplateName(string kind)
+    {
+        if (string.Equals(kind, ReportKinds.Certification, StringComparison.OrdinalIgnoreCase))
+        {
+            return "certification-report.typ";
+        }
+
+        // Honor ReportTemplateName including the default (test-report.typ) so a
+        // {DataDirectory}/reports/ override of that filename wins. status-report.typ
+        // remains an alias resolved in CompileTemplateCore when needed.
+        if (!string.IsNullOrWhiteSpace(_settings.ReportTemplateName))
+        {
+            return _settings.ReportTemplateName.Trim();
+        }
+
+        return "test-report.typ";
+    }
+
+    private static string KindTitle(string kind)
+        => string.Equals(kind, ReportKinds.Certification, StringComparison.OrdinalIgnoreCase)
+            ? "Certification Report"
+            : "Status Report";
+
+    private byte[] CompileTemplateCore(
+        TestRunRecord run,
+        string templateName,
+        string kind,
+        DutHistoryReport? history,
+        string title,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        string template;
         try
         {
-            return Task.FromResult(CompileOnce(workDir, template, run, resultJson, plotFiles, includePlots: plotFiles.Count > 0));
+            template = LoadReportFile(templateName);
         }
-        catch (InvalidOperationException ex) when (plotFiles.Count > 0)
+        catch (InvalidOperationException) when (TryStatusTemplateAlias(templateName, out var alias))
         {
-            _logger.Warning(ex, "Typst could not embed plot images; compiling report without embeds.");
-            return Task.FromResult(CompileOnce(workDir, template, run, resultJson, plotFiles: [], includePlots: false));
+            template = LoadReportFile(alias);
         }
+
+        var chartLib = LoadReportFile("sample-chart.typ", preferLibSubfolder: true);
+        var resultJson = JsonSerializer.Serialize(run, AppJsonContext.Default.TestRunRecord);
+        var workDir = Path.Combine(Path.GetTempPath(), "HardwareTestTypst", run.RunId, kind);
+        var libDir = Path.Combine(workDir, "lib");
+        Directory.CreateDirectory(libDir);
+
+        File.WriteAllText(Path.Combine(workDir, "main.typ"), template, Encoding.UTF8);
+        File.WriteAllText(Path.Combine(libDir, "sample-chart.typ"), chartLib, Encoding.UTF8);
+        File.WriteAllText(Path.Combine(workDir, "run.json"), resultJson, Encoding.UTF8);
+
+        var includePlots = _settings.EmbedPlotsInReport && run.Samples.Count > 0;
+        var includeHistory = string.Equals(kind, ReportKinds.Status, StringComparison.OrdinalIgnoreCase)
+                             && history is not null
+                             && !string.IsNullOrWhiteSpace(history.OperatorSummary);
+        return CompileOnce(workDir, template, run, resultJson, chartLib, includePlots, includeHistory, history, title);
     }
 
     private byte[] CompileOnce(
@@ -145,15 +221,24 @@ public sealed class TypstReportService : IReportService, IDisposable
         string template,
         TestRunRecord run,
         string resultJson,
-        IReadOnlyList<(string Name, byte[] Bytes)> plotFiles,
-        bool includePlots)
+        string chartLib,
+        bool includePlots,
+        bool includeHistory,
+        DutHistoryReport? history,
+        string title)
     {
+        var historySummary = includeHistory ? history!.OperatorSummary : string.Empty;
+        var historySeverity = includeHistory ? history!.OverallSeverity.ToString() : string.Empty;
+        var historyMetrics = includeHistory ? FormatHistoryMetrics(history!) : string.Empty;
+
         var result = _compiler.Value.Compile(c =>
         {
             var builder = c
                 .WithRoot(workDir)
                 .WithSource(template)
-                .WithInput("title", "Hardware Test Report")
+                .WithFile("run.json", Encoding.UTF8.GetBytes(resultJson))
+                .WithFile("lib/sample-chart.typ", Encoding.UTF8.GetBytes(chartLib))
+                .WithInput("title", title)
                 .WithInput("runId", run.RunId)
                 .WithInput("planName", run.PlanName)
                 .WithInput("dutSerial", run.DutSerial ?? "n/a")
@@ -161,34 +246,20 @@ public sealed class TypstReportService : IReportService, IDisposable
                 .WithInput("startedAt", run.StartedAt.ToString("u", CultureInfo.InvariantCulture))
                 .WithInput("completedAt", run.CompletedAt?.ToString("u", CultureInfo.InvariantCulture) ?? "n/a")
                 .WithInput("sampleCount", run.Samples.Count.ToString(CultureInfo.InvariantCulture))
+                .WithInput("appVersion", run.AppVersion ?? "unknown")
+                .WithInput("appCommit", run.AppCommitSha ?? "unknown")
                 .WithInput(
                     "notes",
                     includePlots
-                        ? $"Generated by HardwareTest. Samples={run.Samples.Count}. Trace={run.TraceId}. Plots embedded."
-                        : $"Generated by HardwareTest. Samples={run.Samples.Count}. Trace={run.TraceId}. Plot PNGs saved beside the run when available.")
+                        ? $"Generated by HardwareTest {run.AppVersion ?? "unknown"} (commit {run.AppCommitSha ?? "unknown"}). Samples={run.Samples.Count}. Trace={run.TraceId}. Charts from sample data."
+                        : $"Generated by HardwareTest {run.AppVersion ?? "unknown"} (commit {run.AppCommitSha ?? "unknown"}). Samples={run.Samples.Count}. Trace={run.TraceId}.")
+                .WithInput("attemptSummary", FormatAttemptSummary(run))
                 .WithInput("runJson", resultJson)
                 .WithInput("includePlots", includePlots ? "true" : "false")
-                .WithInput("plotCount", plotFiles.Count.ToString(CultureInfo.InvariantCulture));
-
-            foreach (var (name, bytes) in plotFiles)
-            {
-                builder = builder.WithFile(name, bytes);
-            }
-
-            if (plotFiles.Count > 0)
-            {
-                builder = builder.WithInput("plot0", plotFiles[0].Name);
-            }
-
-            if (plotFiles.Count > 1)
-            {
-                builder = builder.WithInput("plot1", plotFiles[1].Name);
-            }
-
-            if (plotFiles.Count > 2)
-            {
-                builder = builder.WithInput("plot2", plotFiles[2].Name);
-            }
+                .WithInput("includeHistory", includeHistory ? "true" : "false")
+                .WithInput("historySummary", historySummary)
+                .WithInput("historySeverity", historySeverity)
+                .WithInput("historyMetrics", historyMetrics);
 
             return builder;
         });
@@ -199,6 +270,38 @@ public sealed class TypstReportService : IReportService, IDisposable
         }
 
         return result.Output.ToArray();
+    }
+
+    private static string FormatHistoryMetrics(DutHistoryReport history)
+    {
+        if (history.Metrics.Count == 0)
+        {
+            return string.Empty;
+        }
+
+        var lines = history.Metrics.Select(m =>
+        {
+            var prior = m.PriorMean?.ToString("G6", CultureInfo.InvariantCulture) ?? "n/a";
+            var pct = m.PercentDelta is { } d
+                ? d.ToString("0.#", CultureInfo.InvariantCulture) + "%"
+                : "n/a";
+            return $"- {m.Channel}: current={m.CurrentMean.ToString("G6", CultureInfo.InvariantCulture)}, prior={prior}, delta={pct}, {m.Severity}";
+        });
+        return string.Join("\n", lines);
+    }
+
+    private static string FormatAttemptSummary(TestRunRecord run)
+    {
+        if (run.StepAttempts.Count == 0)
+        {
+            return string.Empty;
+        }
+
+        var lines = run.StepAttempts
+            .OrderBy(a => a.StepPath)
+            .Select(a =>
+                $"- {a.StepName}: {a.AttemptCount} attempts ({a.FailedCount} failed / {a.PassedCount} passed); latest={(a.LatestPassed == true ? "PASS" : "FAIL")}");
+        return string.Join("\n", lines);
     }
 
     public void Dispose()
@@ -216,12 +319,58 @@ public sealed class TypstReportService : IReportService, IDisposable
         _disposed = true;
     }
 
-    private static string LoadEmbeddedTemplate()
+    private static bool TryStatusTemplateAlias(string templateName, out string alias)
+    {
+        if (string.Equals(templateName, "test-report.typ", StringComparison.OrdinalIgnoreCase))
+        {
+            alias = "status-report.typ";
+            return true;
+        }
+
+        if (string.Equals(templateName, "status-report.typ", StringComparison.OrdinalIgnoreCase))
+        {
+            alias = "test-report.typ";
+            return true;
+        }
+
+        alias = string.Empty;
+        return false;
+    }
+
+    private string LoadReportFile(string fileName, bool preferLibSubfolder = false)
+    {
+        if (!string.IsNullOrWhiteSpace(_settings.DataDirectory))
+        {
+            var reportsRoot = Path.Combine(_settings.DataDirectory, "reports");
+            string[] candidates = preferLibSubfolder
+                ?
+                [
+                    Path.Combine(reportsRoot, "lib", fileName),
+                    Path.Combine(reportsRoot, fileName),
+                ]
+                :
+                [
+                    Path.Combine(reportsRoot, fileName),
+                    Path.Combine(reportsRoot, "lib", fileName),
+                ];
+            foreach (var path in candidates)
+            {
+                if (File.Exists(path))
+                {
+                    return File.ReadAllText(path, Encoding.UTF8);
+                }
+            }
+        }
+
+        return LoadEmbeddedResource(fileName);
+    }
+
+    private static string LoadEmbeddedResource(string fileName)
     {
         var assembly = typeof(TypstReportService).Assembly;
         var name = assembly.GetManifestResourceNames()
-            .FirstOrDefault(n => n.EndsWith("test-report.typ", StringComparison.OrdinalIgnoreCase))
-            ?? throw new InvalidOperationException("Embedded Typst template 'test-report.typ' was not found.");
+            .FirstOrDefault(n => n.EndsWith(fileName, StringComparison.OrdinalIgnoreCase))
+            ?? throw new InvalidOperationException($"Embedded Typst resource '{fileName}' was not found.");
 
         using var stream = assembly.GetManifestResourceStream(name)
             ?? throw new InvalidOperationException($"Unable to open embedded resource '{name}'.");

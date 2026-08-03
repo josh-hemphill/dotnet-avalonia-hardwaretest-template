@@ -1,0 +1,60 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:HardwareTest.Features.Inspect"
+             xmlns:run="using:HardwareTest.Features.RunTest"
+             x:Class="HardwareTest.Features.Inspect.InspectView"
+             x:DataType="vm:InspectViewModel">
+  <Grid RowDefinitions="Auto,Auto,*" RowSpacing="8">
+    <StackPanel Orientation="Horizontal" Spacing="8">
+      <TextBlock Text="Inspect plan" FontWeight="SemiBold" FontSize="16" VerticalAlignment="Center" />
+      <Button Content="Refresh" Command="{Binding RefreshCommand}" />
+      <Button Content="Open on Run" Command="{Binding OpenOnRunCommand}" />
+      <TextBlock Text="{Binding Status}" VerticalAlignment="Center" Opacity="0.85" TextWrapping="Wrap" />
+    </StackPanel>
+
+    <!-- Empty state: no plan loaded -->
+    <Border Grid.Row="1"
+            Padding="12,10"
+            CornerRadius="6"
+            Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
+            IsVisible="{Binding !HasPlan}">
+      <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+        <TextBlock Text="No plan loaded — select a program on the Run page first."
+                   VerticalAlignment="Center"
+                   Opacity="0.85" />
+        <Button Content="Go to Run"
+                Command="{Binding NavigateToRunCommand}"
+                VerticalAlignment="Center" />
+      </StackPanel>
+    </Border>
+
+    <TreeView Grid.Row="2"
+              ItemsSource="{Binding Hierarchy}"
+              SelectedItem="{Binding SelectedStep}"
+              IsVisible="{Binding HasPlan}">
+      <TreeView.ItemTemplate>
+        <TreeDataTemplate ItemsSource="{Binding Children}" DataType="run:HierarchyStepViewModel">
+          <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+            <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
+            <Border Grid.Column="1"
+                    CornerRadius="4"
+                    Padding="6,1"
+                    Background="{Binding ChipText, Converter={x:Static run:ChipBrushConverter.Instance}}">
+              <TextBlock Text="{Binding ChipText}" FontSize="10" FontWeight="SemiBold" Foreground="White" />
+            </Border>
+            <TextBlock Grid.Column="2"
+                       Text="{Binding ProgressText}"
+                       FontSize="11"
+                       Opacity="0.8"
+                       VerticalAlignment="Center" />
+          </Grid>
+        </TreeDataTemplate>
+      </TreeView.ItemTemplate>
+      <TreeView.Styles>
+        <Style Selector="TreeViewItem" x:DataType="run:HierarchyStepViewModel">
+          <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
+        </Style>
+      </TreeView.Styles>
+    </TreeView>
+  </Grid>
+</UserControl>

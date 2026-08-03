@@ -44,5 +44,4 @@ desktop.ini
 
 ## App runtime data (local)
 **/AppData/
-runs/
 *.log

@@ -1,0 +1,32 @@
+# Approved surface: HardwareTest.OpenTap.Host.IOpenTapSession
+# Update this file in the same commit when IOpenTapSession (or a focused surface) changes.
+method void Abort(bool safetyStop)
+method System.Threading.Tasks.Task ApplyStationAndDutAsync(HardwareTest.OpenTap.Host.StationProfile station, HardwareTest.OpenTap.Host.DutIdentity dut, System.Threading.CancellationToken cancellationToken)
+method System.Collections.Generic.IReadOnlyList<HardwareTest.OpenTap.Host.OpenTapParameterInfo> EnumerateParameters(HardwareTest.OpenTap.Host.OpenTapParameterScope scope, string stepPath, bool includeReadOnly, HardwareTest.OpenTap.Host.OpenTapParameterListing listing)
+method System.Collections.Generic.IReadOnlyList<HardwareTest.OpenTap.Host.OpenTapDiscoveredAddress> ListDiscoveredDeviceAddresses()
+method System.Collections.Generic.IReadOnlyList<HardwareTest.OpenTap.Host.OpenTapPackageInfo> ListInstalledPackages()
+method System.Collections.Generic.IReadOnlyList<HardwareTest.OpenTap.Host.OpenTapPluginDirectoryInfo> ListPluginDirectories()
+method System.Threading.Tasks.Task LoadBoardDemoProgramAsync(System.Threading.CancellationToken cancellationToken)
+method System.Threading.Tasks.Task LoadPlanAsync(string tapPlanPath, System.Threading.CancellationToken cancellationToken)
+method System.Threading.Tasks.Task LoadSampleProgramAsync(System.Threading.CancellationToken cancellationToken)
+method System.Threading.Tasks.Task LoadSweepDemoProgramAsync(System.Threading.CancellationToken cancellationToken)
+method void Pause()
+method void Resume(HardwareTest.OpenTap.Plugins.Basic.OperatorInteractionResponse response)
+method System.Threading.Tasks.Task<HardwareTest.OpenTap.Host.OpenTapRunSummary> RunAsync(System.IProgress<HardwareTest.OpenTap.Host.OpenTapProgress> progress, System.Threading.CancellationToken cancellationToken, string runId)
+method System.Threading.Tasks.Task<HardwareTest.OpenTap.Host.OpenTapRunSummary> RunSelectionAsync(string stepPath, System.IProgress<HardwareTest.OpenTap.Host.OpenTapProgress> progress, System.Threading.CancellationToken cancellationToken, string runId, bool includeCleanup)
+method bool TryBindSlotResource(string slotName, string resource)
+method bool TryGetParameter(string memberKey, out string value)
+method bool TryGetStepConditionSummary(string stepPath, out string summary)
+method bool TryRebindDmmResource(string resource)
+method bool TrySetAcquireSettings(string stepPath, System.Nullable<int> sampleCount, System.Nullable<int> intervalMs)
+method bool TrySetMeanGteThreshold(string stepPath, double threshold)
+method bool TrySetParameter(string memberKey, string value)
+method bool TrySetStepEnabled(string stepPath, bool enabled)
+prop System.Collections.Generic.IReadOnlyList<HardwareTest.OpenTap.Host.OpenTapInstrumentSlot> InstrumentSlots { get; }
+prop bool IsAwaitingOperator { get; }
+prop string LoadedPlanName { get; }
+prop string LoadedPlanPath { get; }
+prop string OperatorPromptMessage { get; }
+prop HardwareTest.OpenTap.Plugins.Basic.OperatorInteractionRequest PendingInteraction { get; }
+prop System.Collections.Generic.IReadOnlyList<HardwareTest.OpenTap.Host.OpenTapStepNode> StepTree { get; }
+event System.ComponentModel.PropertyChangedEventHandler PropertyChanged

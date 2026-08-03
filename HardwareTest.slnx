@@ -1,6 +1,8 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/HardwareTest.Core/HardwareTest.Core.csproj" />
+    <Project Path="src/HardwareTest.OpenTap.Plugins.Basic/HardwareTest.OpenTap.Plugins.Basic.csproj" />
+    <Project Path="src/HardwareTest.OpenTap.Host/HardwareTest.OpenTap.Host.csproj" />
     <Project Path="src/HardwareTest/HardwareTest.csproj" />
   </Folder>
   <Folder Name="/tests/">

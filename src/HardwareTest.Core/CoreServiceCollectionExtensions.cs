@@ -1,10 +1,10 @@
 using HardwareTest.Core.Engine;
 using HardwareTest.Core.Hardware;
 using HardwareTest.Core.Logging;
-using HardwareTest.Core.Plans;
 using HardwareTest.Core.Reporting;
 using HardwareTest.Core.Runs;
 using HardwareTest.Core.Settings;
+using HardwareTest.Core.Storage;
 using Microsoft.Extensions.DependencyInjection;
 using Serilog;
 
@@ -22,30 +22,33 @@ public static class CoreServiceCollectionExtensions
         services.AddSingleton(settingsStore.UiState);
         services.AddSingleton(new VisaSessionGate());
         services.AddSingleton<IRunControl>(sp => new RunControl(sp.GetRequiredService<VisaSessionGate>()));
-        services.AddSingleton<IAnalyzeAlgorithm, MeanGteAnalyzeAlgorithm>();
-        services.AddSingleton<IAnalyzeAlgorithmResolver>(sp =>
-            new AnalyzeAlgorithmResolver(sp.GetServices<IAnalyzeAlgorithm>()));
         services.AddSingleton<MeasurementAcquisition>();
-        services.AddSingleton<PlanLoader>();
-        services.AddSingleton<IPlanLoader>(sp => sp.GetRequiredService<PlanLoader>());
-        services.AddSingleton<ISuiteLoader>(sp => sp.GetRequiredService<PlanLoader>());
         services.AddSingleton<IRunStore>(_ => new FileRunStore(settingsStore.RunsDirectory));
         services.AddSingleton<ISuiteRunStore>(sp =>
             new FileSuiteRunStore(sp.GetRequiredService<IRunStore>(), settingsStore.RunsDirectory));
         services.AddSingleton<IRunComparisonService, StubRunComparisonService>();
-        services.AddSingleton<IVisaSessionFactory>(sp =>
-            new ConfigurableVisaSessionFactory(
+        services.AddSingleton<IDutHistoryService>(sp =>
+            new DutHistoryService(sp.GetRequiredService<IRunStore>()));
+        services.AddSingleton<VisaModeController>(sp =>
+            new VisaModeController(
                 settingsStore.AppSettings.UseMockVisa,
-                sp.GetRequiredService<VisaSessionGate>()));
-        services.AddSingleton<IVisaResourceDiscovery>(_ =>
-            new ConfigurableVisaResourceDiscovery(settingsStore.AppSettings.UseMockVisa));
-        services.AddSingleton<ITestEngine, TestEngine>();
-        services.AddSingleton<ISuiteEngine, SuiteEngine>();
+                sp.GetRequiredService<VisaSessionGate>(),
+                sp.GetRequiredService<IRunControl>(),
+                message => Log.Warning("{Message}", message)));
+        services.AddSingleton<IVisaModeController>(sp => sp.GetRequiredService<VisaModeController>());
+        services.AddSingleton<IVisaSessionFactory>(sp => sp.GetRequiredService<VisaModeController>());
+        services.AddSingleton<IVisaResourceDiscovery>(sp => sp.GetRequiredService<VisaModeController>());
         services.AddSingleton<IReportService>(sp =>
             new TypstReportService(
                 sp.GetRequiredService<IRunStore>(),
                 settingsStore.AppSettings,
                 sp.GetRequiredService<ISuiteRunStore>()));
+        services.AddSingleton<IStorageHealthService>(_ =>
+            new StorageHealthService(settingsStore.AppSettings, settingsStore.RootDirectory));
+        services.AddSingleton<IRunRetentionService>(_ =>
+            new RunRetentionService(settingsStore.AppSettings, settingsStore.RunsDirectory, Log.Logger));
+        services.AddSingleton<IExportTargetService>(_ =>
+            new ExportTargetService(settingsStore.AppSettings, settingsStore.RootDirectory, Log.Logger));
         services.AddSingleton(Log.Logger);
         return services;
     }

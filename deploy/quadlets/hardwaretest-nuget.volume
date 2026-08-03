@@ -1,0 +1,4 @@
+# Persistent NuGet package cache for hardwaretest-ci.container.
+
+[Volume]
+Label=org.hardwaretest.volume=nuget-cache

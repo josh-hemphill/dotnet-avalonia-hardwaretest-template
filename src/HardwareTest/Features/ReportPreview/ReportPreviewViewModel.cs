@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Avalonia.Media.Imaging;
 using HardwareTest.Core.Reporting;
 using HardwareTest.Core.Runs;
+using HardwareTest.OpenTap.Host;
 using PDFtoImage;
 using ReactiveUI;
 using ReactiveUI.SourceGenerators;
@@ -18,48 +19,83 @@ public partial class ReportPreviewViewModel : ReactiveObject
     private static readonly object PdfGate = new();
     private readonly IRunStore _runStore;
     private readonly IReportService _reportService;
+    private readonly OperatorSession? _operatorSession;
 
-    public ReportPreviewViewModel(IRunStore runStore, IReportService reportService)
+    public ReportPreviewViewModel(
+        IRunStore runStore,
+        IReportService reportService,
+        OperatorSession? operatorSession = null)
     {
         _runStore = runStore;
         _reportService = reportService;
+        _operatorSession = operatorSession;
         Pages = [];
         Status = "Select a run PDF to preview.";
 
         LoadLatestCommand = ReactiveCommand.CreateFromTask(LoadLatestAsync);
         PrintCommand = ReactiveCommand.Create(Print);
+        NavigateToResultsCommand = ReactiveCommand.Create(
+            () => NavigateToResultsRequested?.Invoke(this, EventArgs.Empty));
     }
 
     public ObservableCollection<Bitmap> Pages { get; }
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> LoadLatestCommand { get; }
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> PrintCommand { get; }
+    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> NavigateToResultsCommand { get; }
+
+    /// Raised when the operator wants to open Results to pick a PDF.
+    public event EventHandler? NavigateToResultsRequested;
 
     [Reactive] private string? _pdfPath;
     [Reactive] private string _status = string.Empty;
+    [Reactive] private bool _isBusy;
+
+    public bool ShowEmptyState => Pages.Count == 0 && !IsBusy;
 
     public async Task LoadFromPathAsync(string path)
     {
-        PdfPath = path;
-        Pages.Clear();
-        if (!File.Exists(path))
-        {
-            Status = $"File not found: {path}";
-            return;
-        }
-
+        _operatorSession?.TouchActivity();
+        IsBusy = true;
         try
         {
-            var bitmaps = await Task.Run(() => RenderPages(path));
-            foreach (var bitmap in bitmaps)
+            PdfPath = path;
+            // Dispose any previously rendered bitmaps before clearing the collection to avoid leaks.
+            foreach (var bitmap in Pages)
             {
-                Pages.Add(bitmap);
+                bitmap.Dispose();
             }
 
-            Status = $"Previewing {path} ({Pages.Count} page(s) shown).";
+            Pages.Clear();
+            this.RaisePropertyChanged(nameof(ShowEmptyState));
+            if (!File.Exists(path))
+            {
+                Status = $"File not found: {path}";
+                return;
+            }
+
+            try
+            {
+                var bitmaps = await Task.Run(() => RenderPages(path));
+                foreach (var bitmap in bitmaps)
+                {
+                    Pages.Add(bitmap);
+                }
+
+                Status = $"Previewing {path} ({Pages.Count} page(s) shown).";
+            }
+            catch (Exception ex)
+            {
+                Status = $"Preview failed: {ex.Message}";
+            }
+            finally
+            {
+                this.RaisePropertyChanged(nameof(ShowEmptyState));
+            }
         }
-        catch (Exception ex)
+        finally
         {
-            Status = $"Preview failed: {ex.Message}";
+            IsBusy = false;
+            this.RaisePropertyChanged(nameof(ShowEmptyState));
         }
     }
 

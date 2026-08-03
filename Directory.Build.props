@@ -7,9 +7,47 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <WarningsNotAsErrors>IL2026;IL2070;IL3050;CA1416</WarningsNotAsErrors>
     <NoWarn>$(NoWarn);S1118;S2139;AVLN3001;CA1416</NoWarn>
-    <IsAotCompatible>true</IsAotCompatible>
+    <IsAotCompatible>false</IsAotCompatible>
     <JsonSerializerIsReflectionEnabledByDefault>false</JsonSerializerIsReflectionEnabledByDefault>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
     <Deterministic>true</Deterministic>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+
+    <!-- Phase 4: single source of truth for product version. -->
+    <VersionPrefix>0.1.0</VersionPrefix>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+    <ContinuousIntegrationBuild Condition="'$(CI)' != ''">true</ContinuousIntegrationBuild>
   </PropertyGroup>
+
+  <!-- SourceRevisionId: GITHUB_SHA → git short HEAD → local (never fail the build). -->
+  <Target Name="ResolveHardwareTestSourceRevision"
+          BeforeTargets="StampHardwareTestInformationalVersion;GenerateAssemblyInfo;GetAssemblyVersion;InitializeSourceControlInformation"
+          Condition="'$(SourceRevisionId)' == ''">
+    <PropertyGroup>
+      <SourceRevisionId Condition="'$(GITHUB_SHA)' != '' And $([System.String]::Copy('$(GITHUB_SHA)').Length) &gt;= 7">$([System.String]::Copy('$(GITHUB_SHA)').Substring(0, 7))</SourceRevisionId>
+      <SourceRevisionId Condition="'$(SourceRevisionId)' == '' And '$(GITHUB_SHA)' != ''">$(GITHUB_SHA)</SourceRevisionId>
+    </PropertyGroup>
+    <Exec Command="git rev-parse --short HEAD"
+          ConsoleToMSBuild="true"
+          IgnoreExitCode="true"
+          StandardOutputImportance="Low"
+          Condition="'$(SourceRevisionId)' == ''">
+      <Output TaskParameter="ConsoleOutput" PropertyName="_GitShortSha" />
+      <Output TaskParameter="ExitCode" PropertyName="_GitExitCode" />
+    </Exec>
+    <PropertyGroup>
+      <SourceRevisionId Condition="'$(SourceRevisionId)' == '' And '$(_GitExitCode)' == '0' And '$(_GitShortSha)' != ''">$(_GitShortSha)</SourceRevisionId>
+      <SourceRevisionId Condition="'$(SourceRevisionId)' == ''">local</SourceRevisionId>
+    </PropertyGroup>
+  </Target>
+
+  <Target Name="StampHardwareTestInformationalVersion"
+          BeforeTargets="GenerateAssemblyInfo;GetAssemblyVersion"
+          Condition="'$(InformationalVersion)' == ''">
+    <PropertyGroup>
+      <SourceRevisionId Condition="'$(SourceRevisionId)' == ''">local</SourceRevisionId>
+      <_UtcBuildDate>$([System.DateTime]::UtcNow.ToString('yyyyMMddHHmmss'))</_UtcBuildDate>
+      <InformationalVersion>$(VersionPrefix)+$(SourceRevisionId).$(_UtcBuildDate)</InformationalVersion>
+    </PropertyGroup>
+  </Target>
 </Project>

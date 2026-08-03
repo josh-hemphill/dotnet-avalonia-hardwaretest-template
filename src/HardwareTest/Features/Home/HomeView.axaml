@@ -5,6 +5,40 @@
              x:DataType="vm:HomeViewModel">
   <ScrollViewer>
     <StackPanel Spacing="24" Margin="0,24,0,24">
+      <Border IsVisible="{Binding HasCrashBanner}"
+              Margin="16,0"
+              Padding="12"
+              CornerRadius="6"
+              BorderBrush="#C62828"
+              BorderThickness="1"
+              Background="#FFEBEE"
+              MaxWidth="920"
+              HorizontalAlignment="Center">
+        <StackPanel Spacing="8">
+          <TextBlock Text="{Binding CrashBannerTitle}" FontWeight="SemiBold" TextWrapping="Wrap" />
+          <TextBlock Text="{Binding CrashBannerDetail}" TextWrapping="Wrap" Opacity="0.9" />
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <Button Content="Open folder"
+                    Command="{Binding OpenCrashFolderCommand}"
+                    IsVisible="{Binding AllowOsFolderBrowse}" />
+            <Button Content="Export support bundle" Command="{Binding ExportSupportBundleCommand}" />
+            <Button Content="Dismiss" Command="{Binding DismissCrashBannerCommand}" />
+          </StackPanel>
+        </StackPanel>
+      </Border>
+
+      <Border IsVisible="{Binding CrashStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+              Margin="16,0"
+              Padding="12"
+              CornerRadius="6"
+              BorderBrush="{DynamicResource SystemControlForegroundBaseMediumBrush}"
+              BorderThickness="1"
+              Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
+              MaxWidth="920"
+              HorizontalAlignment="Center">
+        <TextBlock Text="{Binding CrashStatus}" TextWrapping="Wrap" Opacity="0.9" />
+      </Border>
+
       <StackPanel Spacing="8" HorizontalAlignment="Center" MaxWidth="720">
         <TextBlock Text="{Binding Title}"
                    FontSize="36"
@@ -26,10 +60,13 @@
                 BorderBrush="{DynamicResource SystemControlForegroundBaseMediumBrush}"
                 BorderThickness="1"
                 Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}">
-          <StackPanel Spacing="8">
+          <StackPanel Spacing="12">
             <TextBlock Text="Getting started" FontSize="18" FontWeight="SemiBold" />
             <TextBlock TextWrapping="Wrap"
-                       Text="Open Run, load the sample suite, and start. Identity check and voltage sweep run sequentially with mock VISA by default." />
+                       Text="Open Run, confirm the DUT serial, pick the sample OpenTAP program, and start. Identity check and voltage sweep run under OpenTAP with mock instruments by default." />
+            <Button Content="Open Run →"
+                    Command="{Binding NavigateToRunCommand}"
+                    HorizontalAlignment="Left" />
           </StackPanel>
         </Border>
 
@@ -39,10 +76,13 @@
                 BorderBrush="{DynamicResource SystemControlForegroundBaseMediumBrush}"
                 BorderThickness="1"
                 Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}">
-          <StackPanel Spacing="8">
-            <TextBlock Text="Suites &amp; instruments" FontSize="18" FontWeight="SemiBold" />
+          <StackPanel Spacing="12">
+            <TextBlock Text="Programs &amp; instruments" FontSize="18" FontWeight="SemiBold" />
             <TextBlock TextWrapping="Wrap"
-                       Text="Suites embed plans in one JSON file. Use Instruments to discover VISA resources and keep a named registry for multi-device labs." />
+                       Text="Locked OpenTAP .TapPlan programs ship under Programs/. Use Instruments to discover VISA resources and bind station roles for the bench." />
+            <Button Content="Open Instruments →"
+                    Command="{Binding NavigateToInstrumentsCommand}"
+                    HorizontalAlignment="Left" />
           </StackPanel>
         </Border>
 
@@ -52,10 +92,13 @@
                 BorderBrush="{DynamicResource SystemControlForegroundBaseMediumBrush}"
                 BorderThickness="1"
                 Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}">
-          <StackPanel Spacing="8">
+          <StackPanel Spacing="12">
             <TextBlock Text="Reports" FontSize="18" FontWeight="SemiBold" />
             <TextBlock TextWrapping="Wrap"
-                       Text="Passed and failed runs write Typst PDFs. Enable embed plots in Settings to include strip-chart PNGs from acquire steps." />
+                       Text="Passed and failed runs write Typst PDFs. Enable embed plots in Settings to include channel charts from run Samples." />
+            <Button Content="Open Results →"
+                    Command="{Binding NavigateToResultsCommand}"
+                    HorizontalAlignment="Left" />
           </StackPanel>
         </Border>
       </UniformGrid>

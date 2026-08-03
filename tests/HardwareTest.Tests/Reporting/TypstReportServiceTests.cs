@@ -27,30 +27,101 @@ public sealed class TypstReportServiceTests
     }
 
     [Fact]
-    public async Task CompileTemplateAsync_embeds_plots_from_workdir_beside_main_typ()
+    public async Task CompileTemplateAsync_charts_from_samples_without_png_paths()
     {
         using var temp = new TempDataDirectory();
         var runStore = new FileRunStore(temp.RunsDirectory);
         var run = CreateRun(sampleCount: 8);
         await runStore.SaveAsync(run);
-
-        var plotsDir = Path.Combine(runStore.GetRunDirectory(run.RunId), "plots");
-        run.PlotImagePaths = SamplePlotExporter.ExportAllChannels(run, plotsDir).ToList();
-        Assert.NotEmpty(run.PlotImagePaths);
-        Assert.All(run.PlotImagePaths, p =>
-        {
-            Assert.True(File.Exists(p));
-            Assert.True(new FileInfo(p).Length > 0);
-        });
+        Assert.Empty(run.PlotImagePaths);
 
         using var reports = new TypstReportService(runStore, new AppSettings { EmbedPlotsInReport = true });
         var pdf = await CompileOrSkipAsync(() => reports.CompileTemplateAsync(run));
         AssertPdfMagic(pdf);
 
-        var workDir = Path.Combine(Path.GetTempPath(), "HardwareTestTypst", run.RunId);
+        var workDir = Path.Combine(Path.GetTempPath(), "HardwareTestTypst", run.RunId, ReportKinds.Status);
         Assert.True(File.Exists(Path.Combine(workDir, "main.typ")));
-        Assert.True(File.Exists(Path.Combine(workDir, "plot-0.png")));
-        Assert.True(new FileInfo(Path.Combine(workDir, "plot-0.png")).Length > 0);
+        Assert.True(File.Exists(Path.Combine(workDir, "run.json")));
+        Assert.True(File.Exists(Path.Combine(workDir, "lib", "sample-chart.typ")));
+
+        var json = await File.ReadAllTextAsync(Path.Combine(workDir, "run.json"));
+        Assert.Contains("\"samples\"", json, StringComparison.Ordinal);
+        Assert.Contains("\"channel\"", json, StringComparison.Ordinal);
+        Assert.Contains("\"value\"", json, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"Samples\"", json, StringComparison.Ordinal);
+
+        var chartLib = await File.ReadAllTextAsync(Path.Combine(workDir, "lib", "sample-chart.typ"));
+        Assert.Contains("samples", chartLib, StringComparison.Ordinal);
+        Assert.Contains("channel", chartLib, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void SamplePlotExporter_still_writes_png_when_called_directly()
+    {
+        using var temp = new TempDataDirectory();
+        var run = CreateRun(sampleCount: 4);
+        var plotsDir = Path.Combine(temp.Path, "plots");
+        var paths = SamplePlotExporter.ExportAllChannels(run, plotsDir);
+        Assert.NotEmpty(paths);
+        Assert.All(paths, p => Assert.True(File.Exists(p) && new FileInfo(p).Length > 0));
+    }
+
+    [Fact]
+    public async Task CompileTemplateAsync_uses_DataDirectory_reports_override()
+    {
+        using var temp = new TempDataDirectory();
+        var reportsDir = Path.Combine(temp.Path, "reports");
+        Directory.CreateDirectory(reportsDir);
+        File.WriteAllText(
+            Path.Combine(reportsDir, "test-report.typ"),
+            """
+            #set page(width: 100mm, height: 50mm)
+            = Override template
+            Run: #sys.inputs.runId
+            """);
+
+        var runStore = new FileRunStore(temp.RunsDirectory);
+        var run = CreateRun();
+        await runStore.SaveAsync(run);
+
+        using var reports = new TypstReportService(
+            runStore,
+            new AppSettings
+            {
+                DataDirectory = temp.Path,
+                EmbedPlotsInReport = false,
+                ReportTemplateName = "test-report.typ",
+            });
+        var pdf = await CompileOrSkipAsync(() => reports.CompileTemplateAsync(run));
+        AssertPdfMagic(pdf);
+
+        var workDir = Path.Combine(Path.GetTempPath(), "HardwareTestTypst", run.RunId, ReportKinds.Status);
+        var main = await File.ReadAllTextAsync(Path.Combine(workDir, "main.typ"));
+        Assert.Contains("Override template", main, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task GenerateReportsAsync_writes_status_and_certification_pdfs()
+    {
+        using var temp = new TempDataDirectory();
+        var runStore = new FileRunStore(temp.RunsDirectory);
+        var run = CreateRun();
+        await runStore.SaveAsync(run);
+
+        using var reports = new TypstReportService(runStore, new AppSettings { EmbedPlotsInReport = false });
+        var artifacts = await CompileOrSkipAsync(() => reports.GenerateReportsAsync(
+            run,
+            [ReportKinds.Status, ReportKinds.Certification],
+            new DutHistoryReport { OperatorSummary = "DUT history OK vs last 1 run(s).", OverallSeverity = DutHistorySeverity.Normal }));
+
+        Assert.Equal(2, artifacts.Count);
+        Assert.All(artifacts, a => Assert.True(File.Exists(a.PdfPath)));
+        Assert.Contains(artifacts, a => a.Kind == ReportKinds.Status);
+        Assert.Contains(artifacts, a => a.Kind == ReportKinds.Certification);
+        Assert.Equal(artifacts.First(a => a.Kind == ReportKinds.Status).PdfPath, run.ReportPdfPath);
+
+        var reloaded = await runStore.LoadAsync(run.RunId);
+        Assert.Equal(2, reloaded!.Reports.Count);
     }
 
     private static TestRunRecord CreateRun(int sampleCount = 1)
@@ -59,6 +130,7 @@ public sealed class TypstReportServiceTests
             .Select(i => new StoredSample
             {
                 Channel = "VDC",
+                StepPath = "Sample Hardware Suite/Voltage Sweep/Acquire VDC",
                 Timestamp = DateTimeOffset.UtcNow.AddMilliseconds(i),
                 Value = 1.0 + (i * 0.1),
             })
