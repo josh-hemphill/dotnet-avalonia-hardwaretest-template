@@ -25,6 +25,7 @@ method bool TrySetParameter(string memberKey, string value)
 method bool TrySetStepEnabled(string stepPath, bool enabled)
 prop System.Collections.Generic.IReadOnlyList<HardwareTest.OpenTap.Host.OpenTapInstrumentSlot> InstrumentSlots { get; }
 prop bool IsAwaitingOperator { get; }
+prop bool IsExecuting { get; }
 prop string LoadedPlanName { get; }
 prop string LoadedPlanPath { get; }
 prop string OperatorPromptMessage { get; }

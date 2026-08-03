@@ -7,6 +7,7 @@ using HardwareTest.Core.Settings;
 using HardwareTest.OpenTap.Host;
 using ReactiveUI;
 using ReactiveUI.SourceGenerators;
+using HardwareTest.UiThreading;
 
 namespace HardwareTest.Features.Instruments;
 
@@ -281,29 +282,35 @@ public partial class InstrumentsViewModel : ReactiveObject
         DiscoveredVisa.Clear();
         try
         {
-            var found = await _discovery.FindAsync();
-            foreach (var item in found)
+            var found = await _discovery.FindAsync().ConfigureAwait(false);
+            await UiDispatch.RunAsync(() =>
             {
-                DiscoveredVisa.Add(new DiscoveredResourceItem
+                foreach (var item in found)
                 {
-                    Resource = item.Resource,
-                    Description = item.Description,
-                    Interface = item.Interface,
-                    Detail = item.Detail,
-                    LooksLikeAlias = item.LooksLikeAlias,
-                    SupportsMessageQuery = item.SupportsMessageQuery,
-                });
-            }
+                    DiscoveredVisa.Add(new DiscoveredResourceItem
+                    {
+                        Resource = item.Resource,
+                        Description = item.Description,
+                        Interface = item.Interface,
+                        Detail = item.Detail,
+                        LooksLikeAlias = item.LooksLikeAlias,
+                        SupportsMessageQuery = item.SupportsMessageQuery,
+                    });
+                }
 
-            HasDiscoveredVisa = found.Count > 0;
-            Status = found.Count == 0
-                ? "No VISA resources found (enable mock VISA or install a vendor runtime)."
-                : $"Found {found.Count} VISA resource(s).";
+                HasDiscoveredVisa = found.Count > 0;
+                Status = found.Count == 0
+                    ? "No VISA resources found (enable mock VISA or install a vendor runtime)."
+                    : $"Found {found.Count} VISA resource(s).";
+            }).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
-            HasDiscoveredVisa = false;
-            Status = $"VISA discovery failed: {ex.Message}";
+            await UiDispatch.RunAsync(() =>
+            {
+                HasDiscoveredVisa = false;
+                Status = $"VISA discovery failed: {ex.Message}";
+            }).ConfigureAwait(false);
         }
         finally
         {
@@ -455,24 +462,27 @@ public partial class InstrumentsViewModel : ReactiveObject
             await using var session = await _visaSessions.OpenAsync(address, cts.Token).ConfigureAwait(false);
             var raw = await session.QueryAsync("*IDN?", cts.Token).ConfigureAwait(false);
             var (_, _, _, _, summary) = VisaResourceParser.FormatIdn(raw);
-            if (SelectedVisa is not null
-                && string.Equals(SelectedVisa.Resource, address, StringComparison.OrdinalIgnoreCase))
+            await UiDispatch.RunAsync(() =>
             {
-                SelectedVisa.IdnRaw = raw;
-                SelectedVisa.IdnSummary = summary;
-                SelectedVisa.RaisePropertyChanged(nameof(DiscoveredResourceItem.HasIdn));
-            }
-            else if (SelectedOpenTap is not null
-                     && string.Equals(SelectedOpenTap.Address, address, StringComparison.OrdinalIgnoreCase))
-            {
-                SelectedOpenTap.IdnRaw = raw;
-                SelectedOpenTap.IdnSummary = summary;
-                SelectedOpenTap.RaisePropertyChanged(nameof(OpenTapDiscoveredResourceItem.HasIdn));
-            }
+                if (SelectedVisa is not null
+                    && string.Equals(SelectedVisa.Resource, address, StringComparison.OrdinalIgnoreCase))
+                {
+                    SelectedVisa.IdnRaw = raw;
+                    SelectedVisa.IdnSummary = summary;
+                    SelectedVisa.RaisePropertyChanged(nameof(DiscoveredResourceItem.HasIdn));
+                }
+                else if (SelectedOpenTap is not null
+                         && string.Equals(SelectedOpenTap.Address, address, StringComparison.OrdinalIgnoreCase))
+                {
+                    SelectedOpenTap.IdnRaw = raw;
+                    SelectedOpenTap.IdnSummary = summary;
+                    SelectedOpenTap.RaisePropertyChanged(nameof(OpenTapDiscoveredResourceItem.HasIdn));
+                }
 
-            Status = string.IsNullOrWhiteSpace(summary)
-                ? $"*IDN? returned empty for {address}."
-                : $"IDN {address}: {summary}";
+                Status = string.IsNullOrWhiteSpace(summary)
+                    ? $"*IDN? returned empty for {address}."
+                    : $"IDN {address}: {summary}";
+            }).ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {

@@ -12,6 +12,7 @@ using HardwareTest.Core.Settings;
 using HardwareTest.OpenTap.Host;
 using ReactiveUI;
 using ReactiveUI.SourceGenerators;
+using HardwareTest.UiThreading;
 
 namespace HardwareTest.Features.Settings;
 
@@ -31,6 +32,9 @@ public partial class SettingsViewModel : ReactiveObject
     private readonly OperatorSession? _operatorSession;
     private readonly IVisaModeController? _visaModeController;
     private readonly System.Timers.Timer _debounce;
+
+    /// Test seam: routes debounce UI work synchronously instead of through the Avalonia dispatcher.
+    public Action<Action>? UiScheduler { get; set; }
 
     public SettingsViewModel(
         ISettingsStore settingsStore,
@@ -119,11 +123,22 @@ public partial class SettingsViewModel : ReactiveObject
         CopyDiagnosticsCommand = ReactiveCommand.CreateFromTask(CopyDiagnosticsAsync);
 
         _debounce = new System.Timers.Timer(400) { AutoReset = false };
-        _debounce.Elapsed += async (_, _) =>
+        _debounce.Elapsed += (_, _) =>
         {
             try
             {
-                await SaveAsync();
+                UiDispatch.Post(
+                    () =>
+                    {
+                        // Observe faults: fire-and-forget SaveAsync is not caught by the outer try.
+                        _ = SaveAsync().ContinueWith(
+                            t => Debug.WriteLine(
+                                $"[SettingsViewModel] Debounced save failed: {t.Exception?.GetBaseException().Message}"),
+                            CancellationToken.None,
+                            TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
+                            TaskScheduler.Default);
+                    },
+                    UiScheduler);
             }
             catch
             {

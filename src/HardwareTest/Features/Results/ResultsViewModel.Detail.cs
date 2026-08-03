@@ -8,6 +8,7 @@ using HardwareTest.Features.Presentation;
 using HardwareTest.OpenTap.Host;
 using ReactiveUI;
 using ReactiveUI.SourceGenerators;
+using HardwareTest.UiThreading;
 
 namespace HardwareTest.Features.Results;
 
@@ -15,6 +16,10 @@ public partial class ResultsViewModel
 {
     /// Test seam: routes UI work synchronously instead of through the Avalonia dispatcher.
     public Action<Action>? UiScheduler { get; set; }
+
+    private void PostToUi(Action action) => UiDispatch.Post(action, UiScheduler);
+
+    private Task RunOnUiAsync(Action action) => UiDispatch.RunAsync(action, UiScheduler);
 
     private void ScheduleOpenDetail()
         => OpenAsync().ContinueWith(
@@ -26,30 +31,7 @@ public partial class ResultsViewModel
                 }
 
                 var msg = $"Open failed: {t.Exception.GetBaseException().Message}";
-                void Apply() => Status = msg;
-                if (UiScheduler is not null)
-                {
-                    UiScheduler(Apply);
-                    return;
-                }
-
-                try
-                {
-                    var dispatcher = Avalonia.Threading.Dispatcher.UIThread;
-                    if (dispatcher.CheckAccess())
-                    {
-                        Apply();
-                    }
-                    else
-                    {
-                        dispatcher.Post(Apply, Avalonia.Threading.DispatcherPriority.Normal);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    System.Diagnostics.Debug.WriteLine(
-                        $"[ResultsViewModel] Dispatcher unavailable; dropping UI update: {msg} ({ex.GetType().Name})");
-                }
+                PostToUi(() => Status = msg);
             },
             TaskScheduler.Default);
 
@@ -149,23 +131,27 @@ public partial class ResultsViewModel
     private async Task RefreshAsync()
     {
         await _busyGate.WaitAsync().ConfigureAwait(false);
-        IsBusy = true;
         try
         {
+            await RunOnUiAsync(() => IsBusy = true).ConfigureAwait(false);
             _operatorSession?.TouchActivity();
-            _allRuns.Clear();
-            foreach (var run in await _runStore.ListAsync())
+            var listed = await _runStore.ListAsync().ConfigureAwait(false);
+            await RunOnUiAsync(() =>
             {
-                _allRuns.Add(run);
-            }
+                _allRuns.Clear();
+                foreach (var run in listed)
+                {
+                    _allRuns.Add(run);
+                }
 
-            RebuildFilterOptions();
-            ApplyFilters();
-            Status = _allRuns.Count == 0 ? "No runs yet." : $"Loaded {_allRuns.Count} run(s).";
+                RebuildFilterOptions();
+                ApplyFilters();
+                Status = _allRuns.Count == 0 ? "No runs yet." : $"Loaded {_allRuns.Count} run(s).";
+            }).ConfigureAwait(false);
         }
         finally
         {
-            IsBusy = false;
+            await RunOnUiAsync(() => IsBusy = false).ConfigureAwait(false);
             _busyGate.Release();
         }
     }
@@ -291,11 +277,25 @@ public partial class ResultsViewModel
     {
         if (SelectedRun is null)
         {
-            Status = "Select a run first.";
+            await RunOnUiAsync(() => Status = "Select a run first.").ConfigureAwait(false);
             return;
         }
 
-        OpenedRun = await _runStore.LoadAsync(SelectedRun.RunId);
+        var runId = SelectedRun.RunId;
+        var opened = await _runStore.LoadAsync(runId).ConfigureAwait(false);
+        await RunOnUiAsync(() => ApplyOpenedRun(opened)).ConfigureAwait(false);
+        if (opened is null || _dutHistory is null)
+        {
+            return;
+        }
+
+        var report = await _dutHistory.AnalyzeAsync(opened).ConfigureAwait(false);
+        await RunOnUiAsync(() => ApplyDutHistory(report)).ConfigureAwait(false);
+    }
+
+    private void ApplyOpenedRun(TestRunRecord? opened)
+    {
+        OpenedRun = opened;
         StepDetails.Clear();
         SampleDetails.Clear();
         PresentationTiles.Clear();
@@ -358,28 +358,28 @@ public partial class ResultsViewModel
             Status += " " + SchemaWarning;
         }
 
-        if (_dutHistory is not null)
-        {
-            var report = await _dutHistory.AnalyzeAsync(OpenedRun);
-            HistorySummary = report.OperatorSummary;
-            HistorySeverity = report.OverallSeverity.ToString();
-            HasHistory = !string.IsNullOrWhiteSpace(report.OperatorSummary);
-            foreach (var metric in report.Metrics)
-            {
-                HistoryMetrics.Add(new DutHistoryMetricRow
-                {
-                    Channel = metric.Channel,
-                    CurrentMeanText = metric.CurrentMean.ToString("G6", CultureInfo.InvariantCulture),
-                    PriorMeanText = metric.PriorMean?.ToString("G6", CultureInfo.InvariantCulture) ?? "—",
-                    PercentDeltaText = metric.PercentDelta is { } d
-                        ? d.ToString("0.#", CultureInfo.InvariantCulture) + "%"
-                        : "—",
-                    Severity = metric.Severity.ToString(),
-                });
-            }
-        }
-
         // Detail pane only — default PDF is opened via double-click / OpenDefaultReportCommand.
+    }
+
+    private void ApplyDutHistory(DutHistoryReport report)
+    {
+        HistorySummary = report.OperatorSummary;
+        HistorySeverity = report.OverallSeverity.ToString();
+        HasHistory = !string.IsNullOrWhiteSpace(report.OperatorSummary);
+        HistoryMetrics.Clear();
+        foreach (var metric in report.Metrics)
+        {
+            HistoryMetrics.Add(new DutHistoryMetricRow
+            {
+                Channel = metric.Channel,
+                CurrentMeanText = metric.CurrentMean.ToString("G6", CultureInfo.InvariantCulture),
+                PriorMeanText = metric.PriorMean?.ToString("G6", CultureInfo.InvariantCulture) ?? "—",
+                PercentDeltaText = metric.PercentDelta is { } d
+                    ? d.ToString("0.#", CultureInfo.InvariantCulture) + "%"
+                    : "—",
+                Severity = metric.Severity.ToString(),
+            });
+        }
     }
 
     private void LoadReportItems(TestRunRecord run)
