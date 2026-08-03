@@ -227,12 +227,12 @@ public sealed class OpenTapSession : IOpenTapSession, INotifyPropertyChanged
         return Task.CompletedTask;
     }
 
-    private void BindPlan(TestPlan plan, string path, string displayName)
+private void BindPlan(TestPlan plan, string path, string displayName)
+{
+    lock (_sync)
     {
         ThrowIfExecuting("load or bind a plan");
-        lock (_sync)
-        {
-            _plan = plan;
+        _plan = plan;
             _instruments.Clear();
             foreach (var instr in InstrumentResourceAccess.CollectFromPlan(plan))
             {
