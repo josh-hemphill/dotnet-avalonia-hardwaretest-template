@@ -66,7 +66,7 @@ Distinct namespaces on purpose — "Phase C" and "Phase 3" are never the same th
 **Fresh-eyes reviews:**
 
 - **Round 1 (pre–Phase 11):** [platform-phases/review-remediation.md](platform-phases/review-remediation.md) — routed into Phases 11–15, all implemented.
-- **Round 2 (post–Phase 15):** [platform-phases/review-post-phase-15.md](platform-phases/review-post-phase-15.md) — open items are the stale DI `AppSettings` snapshot, off-UI-thread mutation in Results and the session/Settings timers, the missing `OpenTapSession` run guard (a **prerequisite** for OpenTAP [Phase K](opentap-phases/phase-k-multi-dut-parallel.md)), path/atomic-write hardening, and the Phase 1 CI follow-ups.
+- **Round 2 (post–Phase 15):** [platform-phases/review-post-phase-15.md](platform-phases/review-post-phase-15.md) — F1–F6 (stale DI `AppSettings`, off-UI-thread mutation, run gate, Safety Stop, path/atomic storage) are fixed; CI follow-ups (inert format gate, lock files, vulnerability scan) remain open.
 
 ## Deferred (detailed plans — do not implement yet)
 
@@ -90,9 +90,5 @@ Real, acknowledged, and deliberately unscheduled (or scheduled as phases above).
 
 - **No clock discipline.** Timestamps are `DateTimeOffset.UtcNow` with no NTP sync or skew detection — see [deferred-clock-discipline.md](deferred/deferred-clock-discipline.md). Every idle/stale decision, run ordering, and retention prune depends on it; [round 2](platform-phases/review-post-phase-15.md#deferred-work-risk) recommends promoting this out of deferred.
 - **Vendor VISA in CI is still unproven.** Discovery now surfaces failures (no silent empty list); real IVI runtimes remain outside the default CI matrix. The OpenTAP `VisaDmmInstrument` also opens IVI directly rather than through the Core `VisaSessionGate`.
-- **Injected `AppSettings` is a frozen snapshot.** Services built from the DI-registered `AppSettings` keep pre-save values after any Settings save (retention, export dir, report options, OpenTAP result export) — [round 2 F1](platform-phases/review-post-phase-15.md#f1--injected-appsettings-goes-stale-after-the-first-save).
-- **Results and the session/Settings timers mutate UI-bound state off the UI thread.** The Run board's `PostToUi` pattern was never extended to them — [round 2 F2](platform-phases/review-post-phase-15.md#f2--results-and-the-session-idle-timer-mutate-ui-bound-state-off-the-ui-thread).
-- **`OpenTapSession` has no run-in-progress guard.** Not reachable from today's UI, but overlapping runs silently merge run records — a **prerequisite** to fix before OpenTAP [Phase K](opentap-phases/phase-k-multi-dut-parallel.md) — [round 2 F3](platform-phases/review-post-phase-15.md#f3--opentapsession-has-no-run-in-progress-guard).
-- **Storage hardening.** Prefix-based path containment and non-atomic `settings.json` / `run.json` writes — [round 2 F5/F6](platform-phases/review-post-phase-15.md#f5--path-containment-checks-are-prefix-based).
 - **Phase 1 CI follow-ups.** The `dotnet format` gate is inert (it targets `dirs.proj` and exits 0 without checking anything, hiding 132 findings), no NuGet lock files, no vulnerability scan, and coverage floors cover only `HardwareTest.Core` — [round 2](platform-phases/review-post-phase-15.md#ci-and-supply-chain).
-- **Finding → phase maps.** [review-remediation.md](platform-phases/review-remediation.md) (round 1, closed) and [review-post-phase-15.md](platform-phases/review-post-phase-15.md) (round 2, open).
+- **Finding → phase maps.** [review-remediation.md](platform-phases/review-remediation.md) (round 1, closed) and [review-post-phase-15.md](platform-phases/review-post-phase-15.md) (round 2 — F1–F6 fixed; CI follow-ups still open).

@@ -103,6 +103,11 @@ public sealed class RunExecutionViewModel
 
     public void Cancel()
     {
+        if (!_runControl.IsRunning && !_runSession.IsAwaitingOperator)
+        {
+            return;
+        }
+
         _runControl.RequestSafetyStop();
         _runSession.Abort(safetyStop: true);
     }
@@ -187,20 +192,26 @@ public sealed class RunExecutionViewModel
         }
         catch (Exception ex)
         {
-            _host.Status = $"Error: {ex.Message}";
-            _host.SetBanner(RunBannerSeverity.Error, $"Run error: {ex.Message}");
+            await _host.RunOnUiAsync(() =>
+            {
+                _host.Status = $"Error: {ex.Message}";
+                _host.SetBanner(RunBannerSeverity.Error, $"Run error: {ex.Message}");
+            }).ConfigureAwait(false);
         }
         finally
         {
-            _runControl.DetachRun();
-            _host.IsRunning = false;
-            _interaction.IsAwaitingOperator = false;
-            _interaction.OperatorPromptMessage = null;
-            _interaction.Clear();
-            _host.OverallPercent = 0;
+            await _host.RunOnUiAsync(() =>
+            {
+                _runControl.DetachRun();
+                _host.IsRunning = false;
+                _interaction.IsAwaitingOperator = false;
+                _interaction.OperatorPromptMessage = null;
+                _interaction.Clear();
+                _host.OverallPercent = 0;
+                _sessionPanel.RefreshSessionSummary();
+                _host.RefreshHero();
+            }).ConfigureAwait(false);
             cts.Dispose();
-            _sessionPanel.RefreshSessionSummary();
-            _host.RefreshHero();
         }
     }
 

@@ -9,11 +9,12 @@ public static class PortableFileNames
     ];
 
     /// Replaces path-invalid filename characters with underscores for cross-platform run folders.
+    /// Rejects empty, ".", and ".." (returns a stable fallback) so Path.Combine cannot escape a root.
     public static string Sanitize(string name)
     {
         if (string.IsNullOrEmpty(name))
         {
-            return name;
+            return "_";
         }
 
         var invalid = Path.GetInvalidFileNameChars()
@@ -29,6 +30,12 @@ public static class PortableFileNames
         for (var i = 1; i <= 31; i++)
         {
             name = name.Replace((char)i, '_');
+        }
+
+        name = name.Trim();
+        if (string.IsNullOrEmpty(name) || name is "." or "..")
+        {
+            return "_";
         }
 
         return name;

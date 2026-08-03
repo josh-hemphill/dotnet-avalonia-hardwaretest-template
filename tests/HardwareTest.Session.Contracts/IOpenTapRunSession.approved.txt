@@ -6,6 +6,7 @@ method void Resume(HardwareTest.OpenTap.Plugins.Basic.OperatorInteractionRespons
 method System.Threading.Tasks.Task<HardwareTest.OpenTap.Host.OpenTapRunSummary> RunAsync(System.IProgress<HardwareTest.OpenTap.Host.OpenTapProgress> progress, System.Threading.CancellationToken cancellationToken, string runId)
 method System.Threading.Tasks.Task<HardwareTest.OpenTap.Host.OpenTapRunSummary> RunSelectionAsync(string stepPath, System.IProgress<HardwareTest.OpenTap.Host.OpenTapProgress> progress, System.Threading.CancellationToken cancellationToken, string runId, bool includeCleanup)
 prop bool IsAwaitingOperator { get; }
+prop bool IsExecuting { get; }
 prop string OperatorPromptMessage { get; }
 prop HardwareTest.OpenTap.Plugins.Basic.OperatorInteractionRequest PendingInteraction { get; }
 event System.ComponentModel.PropertyChangedEventHandler PropertyChanged
