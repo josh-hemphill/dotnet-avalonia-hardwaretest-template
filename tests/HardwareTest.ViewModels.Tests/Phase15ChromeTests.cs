@@ -249,4 +249,28 @@ public sealed class Phase15ChromeTests
         await vm.RefreshCommand.ExecuteAsync();
         Assert.False(vm.IsBusy);
     }
+
+    [Fact]
+    public async Task Results_concurrent_Refresh_does_not_drop_second_load()
+    {
+        var store = new FakeRunStore();
+        var vm = new ResultsViewModel(store, new FakeReportService());
+
+        // Simulate navigate-to-Results LoadRunsAsync racing with an explicit Refresh.
+        var first = vm.LoadRunsAsync();
+        store.Seed(new TestRunRecord
+        {
+            RunId = "race-1",
+            PlanName = "P",
+            DutSerial = "SN-RACE",
+            StartedAt = DateTimeOffset.UtcNow,
+            Result = RunResult.Passed,
+        });
+        await vm.RefreshCommand.ExecuteAsync();
+        await first;
+
+        Assert.False(vm.IsBusy);
+        Assert.True(vm.HasRuns);
+        Assert.Contains(vm.Runs, r => r.RunId == "race-1");
+    }
 }

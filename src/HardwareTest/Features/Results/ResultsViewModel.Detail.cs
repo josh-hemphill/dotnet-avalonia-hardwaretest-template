@@ -148,11 +148,7 @@ public partial class ResultsViewModel
 
     private async Task RefreshAsync()
     {
-        if (IsBusy)
-        {
-            return;
-        }
-
+        await _busyGate.WaitAsync().ConfigureAwait(false);
         IsBusy = true;
         try
         {
@@ -170,6 +166,7 @@ public partial class ResultsViewModel
         finally
         {
             IsBusy = false;
+            _busyGate.Release();
         }
     }
 
@@ -489,11 +486,7 @@ public partial class ResultsViewModel
             return;
         }
 
-        if (IsBusy)
-        {
-            return;
-        }
-
+        await _busyGate.WaitAsync().ConfigureAwait(false);
         IsBusy = true;
         try
         {
@@ -533,6 +526,7 @@ public partial class ResultsViewModel
         finally
         {
             IsBusy = false;
+            _busyGate.Release();
         }
     }
 }

@@ -31,7 +31,7 @@ public partial class ResultsViewModel
             return;
         }
 
-        if (IsBusy)
+        if (!_busyGate.Wait(0))
         {
             return;
         }
@@ -95,6 +95,7 @@ public partial class ResultsViewModel
         finally
         {
             IsBusy = false;
+            _busyGate.Release();
         }
     }
 }
