@@ -188,6 +188,15 @@ public sealed class OpenTapSession : IOpenTapSession, INotifyPropertyChanged
         return Task.CompletedTask;
     }
 
+    public Task LoadTimingDemoProgramAsync(CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        EnsurePlugins();
+        var plan = TimingDemoProgramFactory.Create();
+        BindPlan(plan, TimingDemoProgramFactory.EmbeddedName, TimingDemoProgramFactory.DisplayName);
+        return Task.CompletedTask;
+    }
+
     public Task LoadPlanShapeAsync(string fixtureFileName, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -1672,7 +1681,8 @@ internal sealed class ProgressResultListener : ResultListener
 
         try
         {
-            return Convert.ToDouble(raw);
+            var value = Convert.ToDouble(raw);
+            return double.IsNaN(value) ? null : value;
         }
         catch
         {

@@ -8,6 +8,13 @@ using ReactiveUI.SourceGenerators;
 
 namespace HardwareTest.Features.RunTest;
 
+/// Band (KPI strip) vs Focus (earned trend pane) for live Presentation chrome.
+public enum PresentationChromeMode
+{
+    Band,
+    Focus,
+}
+
 /// Live measurement feed: the plot ring buffer and the per-step gauge tiles.
 public partial class LivePresentationViewModel : ReactiveObject
 {
@@ -17,12 +24,18 @@ public partial class LivePresentationViewModel : ReactiveObject
     private readonly double[] _plotPublish = new double[PlotCapacity];
     private readonly HashSet<string> _stepsWithSamples = new(StringComparer.OrdinalIgnoreCase);
     private readonly List<PresentationTileViewModel> _gaugeTiles = [];
+    private HierarchyStepViewModel? _lastSelectedStep;
+    private bool _suppressAutoFocus;
 
     private int _plotCount;
     private int _plotWrite;
     private int _plotPublishLength;
 
-    public LivePresentationViewModel() => PlotYs = _plotPublish;
+    public LivePresentationViewModel()
+    {
+        PlotYs = _plotPublish;
+        ToggleFocusTrendCommand = ReactiveCommand.Create(ToggleFocusTrend);
+    }
 
     public ObservableCollection<PresentationTileViewModel> PresentationTiles { get; } = [];
 
@@ -31,19 +44,31 @@ public partial class LivePresentationViewModel : ReactiveObject
 
     public int PlotYsLength => _plotPublishLength;
 
+    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> ToggleFocusTrendCommand { get; }
+
     [Reactive] private double[] _plotYs = Array.Empty<double>();
     [Reactive] private bool _hasPlotData;
     [Reactive] private bool _showPlotForSelection;
+    [Reactive] private bool _showFocusTrend;
     [Reactive] private bool _hasPresentationTiles;
+    [Reactive] private bool _userWantsFocus;
+    [Reactive] private PresentationChromeMode _chromeMode = PresentationChromeMode.Band;
     [Reactive] private string _plotLegendText = "Channel";
     [Reactive] private string _plotYLabel = "Value";
     [Reactive] private string _plotTitle = "Live measurements";
+    [Reactive] private string _focusTrendTip = string.Empty;
 
     /// Clears every live artifact so a new run does not inherit the previous run's feed.
     public void ResetForRun()
     {
         HasPlotData = false;
         ShowPlotForSelection = false;
+        ShowFocusTrend = false;
+        UserWantsFocus = false;
+        ChromeMode = PresentationChromeMode.Band;
+        FocusTrendTip = string.Empty;
+        _suppressAutoFocus = false;
+        _lastSelectedStep = null;
         _stepsWithSamples.Clear();
         _gaugeTiles.Clear();
         PresentationTiles.Clear();
@@ -78,7 +103,6 @@ public partial class LivePresentationViewModel : ReactiveObject
             PlotYs = _plotPublish;
             PlotDataChanged?.Invoke(this, EventArgs.Empty);
             plotted = true;
-            RefreshPlotVisibility(selectedStep);
         }
 
         if (PresentationRoleMap.IsRunGaugeSample(sample))
@@ -87,11 +111,12 @@ public partial class LivePresentationViewModel : ReactiveObject
             RefreshPresentationTiles(selectedStep?.Path);
         }
 
+        RefreshChrome(selectedStep);
         return plotted;
     }
 
     public void RefreshPlotVisibility(HierarchyStepViewModel? selectedStep)
-        => ShowPlotForSelection = selectedStep is not null && _stepsWithSamples.Contains(selectedStep.Path);
+        => RefreshChrome(selectedStep);
 
     public void RefreshPresentationTiles(string? stepPath)
     {
@@ -110,6 +135,67 @@ public partial class LivePresentationViewModel : ReactiveObject
         }
 
         HasPresentationTiles = PresentationTiles.Count > 0;
+    }
+
+    /// Recomputes Band vs Focus from selection, out-of-band gauges, and explicit expand.
+    public void RefreshChrome(HierarchyStepViewModel? selectedStep)
+    {
+        if (!ReferenceEquals(selectedStep, _lastSelectedStep)
+            && !string.Equals(selectedStep?.Path, _lastSelectedStep?.Path, StringComparison.OrdinalIgnoreCase))
+        {
+            _suppressAutoFocus = false;
+        }
+
+        _lastSelectedStep = selectedStep;
+        var path = selectedStep?.Path;
+        var stepHasSeries = !string.IsNullOrWhiteSpace(path)
+            && _stepsWithSamples.Contains(path);
+        var outOfBand = PresentationTiles.Any(t => t.IsOutOfBand);
+        var autoFocus = !_suppressAutoFocus && (stepHasSeries || (outOfBand && HasPlotData));
+        var wantFocus = UserWantsFocus || autoFocus;
+
+        if (wantFocus && !HasPlotData)
+        {
+            ChromeMode = PresentationChromeMode.Band;
+            ShowFocusTrend = false;
+            ShowPlotForSelection = false;
+            FocusTrendTip = outOfBand
+                ? "Out of band — no timeseries buffered for Focus trend."
+                : string.Empty;
+            return;
+        }
+
+        if (wantFocus)
+        {
+            ChromeMode = PresentationChromeMode.Focus;
+            ShowFocusTrend = true;
+            ShowPlotForSelection = true;
+            FocusTrendTip = string.Empty;
+            return;
+        }
+
+        ChromeMode = PresentationChromeMode.Band;
+        ShowFocusTrend = false;
+        ShowPlotForSelection = false;
+        FocusTrendTip = HasPlotData
+            ? "Show trend for waveform detail."
+            : string.Empty;
+    }
+
+    private void ToggleFocusTrend()
+    {
+        if (ShowFocusTrend)
+        {
+            UserWantsFocus = false;
+            _suppressAutoFocus = true;
+        }
+        else
+        {
+            UserWantsFocus = true;
+            _suppressAutoFocus = false;
+        }
+
+        RefreshChrome(_lastSelectedStep);
     }
 
     private void ResetPlotBuffer()

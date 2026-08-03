@@ -47,6 +47,10 @@ public partial class PresentationTileViewModel : ReactiveObject
     public bool IsGauge => Kind is PresentationTileKind.Scalar or PresentationTileKind.Passband;
     public bool IsChart => Kind == PresentationTileKind.Timeseries;
 
+    /// True when Value sits outside LimitLow / LimitHigh (used to auto-promote Focus trend).
+    public bool IsOutOfBand
+        => (LimitLow is { } lo && Value < lo) || (LimitHigh is { } hi && Value > hi);
+
     /// Applies a live or stored value and optional limits.
     public void Apply(double value, double? limitLow, double? limitHigh)
     {
@@ -56,6 +60,7 @@ public partial class PresentationTileViewModel : ReactiveObject
         ValueText = FormatValue(value, Unit);
         ShowBand = Kind == PresentationTileKind.Passband && (limitLow is not null || limitHigh is not null);
         LimitsText = FormatLimits(limitLow, limitHigh, Unit);
+        this.RaisePropertyChanged(nameof(IsOutOfBand));
     }
 
     /// Replaces the timeseries Y buffer for Results charts.

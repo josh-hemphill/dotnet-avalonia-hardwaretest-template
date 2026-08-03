@@ -370,6 +370,7 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
             ProgramLoadKind.FactorySample => _plan.LoadSampleProgramAsync(),
             ProgramLoadKind.FactoryBoardDemo => _plan.LoadBoardDemoProgramAsync(),
             ProgramLoadKind.FactorySweepDemo => _plan.LoadSweepDemoProgramAsync(),
+            ProgramLoadKind.FactoryTimingDemo => _plan.LoadTimingDemoProgramAsync(),
             _ => _plan.LoadPlanAsync(program.Path),
         };
 

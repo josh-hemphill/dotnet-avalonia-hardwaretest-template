@@ -802,6 +802,48 @@ public sealed class OpenTapSessionTests
     }
 
     [Fact]
+    public async Task Timing_demo_publishes_passband_scalars_with_limits()
+    {
+        var session = new OpenTapSession();
+        await session.LoadTimingDemoProgramAsync();
+        await session.ApplyStationAndDutAsync(
+            new StationProfile(new Dictionary<string, string> { ["dmm"] = "MOCK::INSTR0" }),
+            new DutIdentity("DUT-TIMING-PRES", Family: "demo"));
+
+        var rise = session.StepTree.SelectMany(Flatten)
+            .First(n => n.Name.Contains("Bump rise", StringComparison.OrdinalIgnoreCase) && n.Children.Count == 0);
+        var riseParams = session.EnumerateParameters(OpenTapParameterScope.Step, rise.Path, includeReadOnly: true);
+        var role = riseParams.FirstOrDefault(p =>
+            p.DisplayName.Contains("Display role", StringComparison.OrdinalIgnoreCase)
+            || p.MemberKey.EndsWith("/DisplayRole", StringComparison.OrdinalIgnoreCase));
+        Assert.NotNull(role);
+        Assert.True(session.TryGetParameter(role!.MemberKey, out var roleValue));
+        Assert.Equal(PresentationDisplayRoles.Passband, roleValue);
+
+        var summary = await session.RunAsync();
+        Assert.Equal(RunResult.Passed, summary.Result);
+        Assert.Contains(summary.Samples, s =>
+            string.Equals(s.MetricKey, "bump.v", StringComparison.OrdinalIgnoreCase)
+            && string.Equals(s.DisplayRole, PresentationDisplayRoles.Timeseries, StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(summary.Samples, s =>
+            string.Equals(s.MetricKey, "bump.rise.ms", StringComparison.OrdinalIgnoreCase)
+            && string.Equals(s.DisplayRole, PresentationDisplayRoles.Passband, StringComparison.OrdinalIgnoreCase)
+            && s.LimitLow is { } lo
+            && Math.Abs(lo - 5) < 1e-9
+            && s.LimitHigh is { } hi
+            && Math.Abs(hi - 15) < 1e-9);
+        Assert.Contains(summary.Samples, s =>
+            string.Equals(s.MetricKey, "return.low.at.ms", StringComparison.OrdinalIgnoreCase)
+            && s.LimitLow is null
+            && s.LimitHigh is { } retHi
+            && Math.Abs(retHi - 50) < 1e-9);
+        Assert.Contains(summary.Samples, s =>
+            string.Equals(s.MetricKey, "envelope.error", StringComparison.OrdinalIgnoreCase)
+            && s.LimitLow is not null
+            && s.LimitHigh is not null);
+    }
+
+    [Fact]
     public async Task Export_on_writes_opentap_results_csv()
     {
         var root = Path.Combine(Path.GetTempPath(), "ht-export-on-" + Guid.NewGuid().ToString("N"));
