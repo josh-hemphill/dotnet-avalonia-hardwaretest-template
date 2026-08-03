@@ -11,6 +11,13 @@ namespace HardwareTest.Tests.Hardware;
 
 public sealed class VisaModeControllerTests
 {
+    /// Builds mock/real inners without touching Ivi.Visa — constructing real IVI types without a
+    /// vendor runtime leaves ConflictManager finalizers that throw DllNotFoundException (xUnit FATAL).
+    private static VisaModeInnerBuilder TestInners { get; } = (useMock, gate, _) =>
+        useMock
+            ? (new MockVisaSessionFactory(gate), new MockVisaResourceDiscovery())
+            : (new UnavailableVisaSessionFactory(), new UnavailableVisaResourceDiscovery());
+
     private static VisaModeController MakeController(
         bool initialMock,
         VisaSessionGate? gate = null,
@@ -18,7 +25,7 @@ public sealed class VisaModeControllerTests
     {
         gate ??= new VisaSessionGate();
         runControl ??= new StubRunControl(isRunning: false);
-        return new VisaModeController(initialMock, gate, runControl);
+        return new VisaModeController(initialMock, gate, runControl, buildInners: TestInners);
     }
 
     // ── Initial state: mock ────────────────────────────────────────────────
@@ -229,6 +236,28 @@ public sealed class VisaModeControllerTests
         Assert.False(controller.EffectiveUseMockVisa);
         await Assert.ThrowsAsync<InvalidOperationException>(
             () => ((IVisaSessionFactory)controller).OpenAsync("GPIB0::1::INSTR"));
+    }
+}
+
+/// Stand-in for real IVI discovery when no vendor VISA runtime is present (unit tests / CI).
+file sealed class UnavailableVisaResourceDiscovery : IVisaResourceDiscovery
+{
+    public Task<IReadOnlyList<VisaResourceInfo>> FindAsync(CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        throw new InvalidOperationException(
+            "VISA discovery failed: IVI runtime unavailable in this test host. Install a vendor VISA runtime or enable Use mock VISA.");
+    }
+}
+
+/// Stand-in for real IVI session open when no vendor VISA runtime is present (unit tests / CI).
+file sealed class UnavailableVisaSessionFactory : IVisaSessionFactory
+{
+    public Task<IVisaSession> OpenAsync(string resourceName, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        throw new InvalidOperationException(
+            $"Failed to open VISA resource '{resourceName}'. Ensure a vendor VISA runtime is installed, or enable UseMockVisa.");
     }
 }
 
