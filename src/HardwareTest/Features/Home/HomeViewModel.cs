@@ -82,6 +82,7 @@ public partial class HomeViewModel : ReactiveObject
                     HasCrashBanner = true;
                     CrashBannerTitle = "Recoverable fault captured";
                     CrashBannerDetail = CrashHandler.LastRecoverableMessage!;
+                    CrashStatus = string.Empty;
                     return;
                 }
 
@@ -98,6 +99,7 @@ public partial class HomeViewModel : ReactiveObject
             var fault = _activeDossier.ExceptionType ?? "Exception";
             CrashBannerDetail = $"{when} — {fault} — app {ver}. Export a support bundle" +
                                 (AllowOsFolderBrowse ? " or open the dossier folder." : ".");
+            CrashStatus = string.Empty;
         }
         catch (Exception ex)
         {

@@ -3,286 +3,294 @@
              xmlns:vm="using:HardwareTest.Features.Settings"
              x:Class="HardwareTest.Features.Settings.SettingsView"
              x:DataType="vm:SettingsViewModel">
-  <ScrollViewer>
-    <StackPanel Spacing="10" Margin="0,0,16,0" MaxWidth="920">
-      <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
-        <TextBlock Text="Data directory" VerticalAlignment="Center" />
-        <TextBox Grid.Column="1" Text="{Binding DataDirectory}" IsReadOnly="True" />
-      </Grid>
-
-      <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
-        <TextBlock Text="Theme" VerticalAlignment="Center" />
-        <ComboBox Grid.Column="1"
-                  ItemsSource="{Binding ThemeOptions}"
-                  SelectedItem="{Binding ThemePreference}"
-                  IsEnabled="{Binding !ThemePreferenceReadOnly}"
-                  MinWidth="160" />
-      </Grid>
-
-      <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
-        <TextBlock Text="Engineer / debug mode" VerticalAlignment="Center" />
-        <CheckBox Grid.Column="1" IsChecked="{Binding IsEngineerDebugMode}"
-                  IsEnabled="{Binding !IsEngineerDebugModeReadOnly}"
-                  ToolTip.Tip="Unlocks mock VISA, logging sinks, on-bench overlays, and opening arbitrary .TapPlan files" />
-      </Grid>
-
-      <StackPanel Spacing="10" IsVisible="{Binding IsEngineerDebugMode}">
-        <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
-          <TextBlock Text="Use mock VISA" VerticalAlignment="Center" />
-          <CheckBox Grid.Column="1" IsChecked="{Binding UseMockVisa}"
-                    IsEnabled="{Binding !UseMockVisaReadOnly}"
-                    ToolTip.Tip="Applies immediately when idle (no active run or open VISA session). Refused flips revert this checkbox. When off, demo MOCK:: resources cannot run." />
-        </Grid>
-
-        <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
-          <TextBlock Text="Log level" VerticalAlignment="Center" />
-          <ComboBox Grid.Column="1"
-                    ItemsSource="{Binding LogLevelOptions}"
-                    SelectedItem="{Binding LogMinimumLevel}"
-                    IsEnabled="{Binding !LogMinimumLevelReadOnly}"
-                    MinWidth="160" />
-        </Grid>
-
-        <Grid ColumnDefinitions="220,*" ColumnSpacing="12" IsVisible="{Binding ShowEventLogOptions}">
-          <TextBlock Text="Windows Event Log" VerticalAlignment="Center" />
-          <CheckBox Grid.Column="1" IsChecked="{Binding EnableOsEventSink}"
-                    IsEnabled="{Binding !EnableOsEventSinkReadOnly}" />
-        </Grid>
-
-        <StackPanel Spacing="10" IsVisible="{Binding ShowSyslogOptions}">
-          <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
-            <TextBlock Text="Unix Syslog" VerticalAlignment="Center" />
-            <CheckBox Grid.Column="1" IsChecked="{Binding EnableSyslogOnUnix}"
-                      IsEnabled="{Binding !EnableSyslogOnUnixReadOnly}" />
-          </Grid>
-          <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
-            <TextBlock Text="Syslog host" VerticalAlignment="Center" />
-            <TextBox Grid.Column="1" Text="{Binding SyslogHost}"
-                     IsReadOnly="{Binding SyslogHostReadOnly}" />
-          </Grid>
-          <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
-            <TextBlock Text="Syslog port" VerticalAlignment="Center" />
-            <TextBox Grid.Column="1" Text="{Binding SyslogPort}"
-                     IsReadOnly="{Binding SyslogPortReadOnly}" />
-          </Grid>
-        </StackPanel>
-
-        <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
-          <TextBlock Text="Plot refresh Hz" VerticalAlignment="Center" />
-          <TextBox Grid.Column="1" Text="{Binding PlotRefreshHz}"
-                   IsReadOnly="{Binding PlotRefreshHzReadOnly}" />
-        </Grid>
-
-        <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
-          <TextBlock Text="DUT session idle (minutes)" VerticalAlignment="Center"
-                     ToolTip.Tip="Idle window before Soft-warn → Stale. Default 240 (4 hours). High-throughput lines may use shorter values." />
-          <TextBox Grid.Column="1" Text="{Binding OperatorSessionIdleMinutes}"
-                   IsReadOnly="{Binding OperatorSessionIdleMinutesReadOnly}" />
-        </Grid>
-        <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
-          <TextBlock Text="Idle soft-warn %" VerticalAlignment="Center"
-                     ToolTip.Tip="Warn when idle elapsed reaches this percent of the idle window (50–95, default 80)." />
-          <TextBox Grid.Column="1" Text="{Binding OperatorSessionIdleWarnPercent}"
-                   IsReadOnly="{Binding OperatorSessionIdleWarnPercentReadOnly}" />
-        </Grid>
-        <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
-          <TextBlock Text="Confirm DUT every run" VerticalAlignment="Center"
-                     ToolTip.Tip="After each terminal run, require Same DUT / Change Session before the next Run." />
-          <CheckBox Grid.Column="1" IsChecked="{Binding RequireDutConfirmEveryRun}"
-                    IsEnabled="{Binding !RequireDutConfirmEveryRunReadOnly}" />
-        </Grid>
-      </StackPanel>
-
-      <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
-        <TextBlock Text="Embed plots in report" VerticalAlignment="Center" />
-        <CheckBox Grid.Column="1" IsChecked="{Binding EmbedPlotsInReport}"
-                  IsEnabled="{Binding !EmbedPlotsInReportReadOnly}" />
-      </Grid>
-
-      <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
-        <TextBlock Text="Export OpenTAP results (CSV)" VerticalAlignment="Center" />
-        <CheckBox Grid.Column="1" IsChecked="{Binding ExportOpenTapResults}"
-                  IsEnabled="{Binding !ExportOpenTapResultsReadOnly}"
-                  ToolTip.Tip="Writes published OpenTAP result tables under runs/{runId}/opentap-results/ for MES/QA handoff. Typst PDF is unchanged." />
-      </Grid>
-
-      <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
-        <TextBlock Text="DUT history on Run board" VerticalAlignment="Center" />
-        <CheckBox Grid.Column="1" IsChecked="{Binding ShowDutHistoryOnRun}"
-                  IsEnabled="{Binding !ShowDutHistoryOnRunReadOnly}"
-                  ToolTip.Tip="When off (default), history appears only on Results. When on, show a summary banner on Run after Pass/Fail." />
-      </Grid>
-
-      <Separator Margin="0,8" />
-
-      <TextBlock Text="Storage" FontWeight="SemiBold" />
-      <TextBlock Text="Retention and free-space gates for the data directory. Critical free space blocks new runs."
-                 TextWrapping="Wrap"
-                 Opacity="0.8" />
-      <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
-        <TextBlock Text="Retention days" VerticalAlignment="Center" />
-        <TextBox Grid.Column="1" Text="{Binding RunRetentionDays}"
-                 IsReadOnly="{Binding RunRetentionDaysReadOnly}"
-                 ToolTip.Tip="0 disables age-based retention" />
-      </Grid>
-      <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
-        <TextBlock Text="Max retained runs" VerticalAlignment="Center" />
-        <TextBox Grid.Column="1" Text="{Binding RunRetentionMaxRuns}"
-                 IsReadOnly="{Binding RunRetentionMaxRunsReadOnly}"
-                 ToolTip.Tip="0 disables count-based retention" />
-      </Grid>
-      <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
-        <TextBlock Text="Export directory" VerticalAlignment="Center" />
-        <TextBox Grid.Column="1" Text="{Binding ExportDirectory}"
-                 IsReadOnly="{Binding ExportDirectoryReadOnly}"
-                 PlaceholderText="Optional fixed export path" />
-      </Grid>
-      <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
-        <TextBlock Text="Warn free space (GB)" VerticalAlignment="Center" />
-        <TextBox Grid.Column="1" Text="{Binding DataFreeSpaceWarnGb}"
-                 IsReadOnly="{Binding DataFreeSpaceWarnGbReadOnly}" />
-      </Grid>
-      <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
-        <TextBlock Text="Critical free space (GB)" VerticalAlignment="Center" />
-        <TextBox Grid.Column="1" Text="{Binding DataFreeSpaceCriticalGb}"
-                 IsReadOnly="{Binding DataFreeSpaceCriticalGbReadOnly}" />
-      </Grid>
-
-      <Separator Margin="0,8" />
-
-      <TextBlock Text="About" FontWeight="SemiBold" />
-      <TextBlock Text="What is running on this bench (build-stamped version, runtime, OpenTAP engine)."
-                 TextWrapping="Wrap"
-                 Opacity="0.8" />
-      <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
-        <TextBlock Text="Version" VerticalAlignment="Center" />
-        <TextBox Grid.Column="1" Text="{Binding AboutVersion}" IsReadOnly="True" />
-      </Grid>
-      <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
-        <TextBlock Text="Commit" VerticalAlignment="Center" />
-        <TextBox Grid.Column="1" Text="{Binding AboutCommit}" IsReadOnly="True" />
-      </Grid>
-      <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
-        <TextBlock Text="Build (UTC)" VerticalAlignment="Center" />
-        <TextBox Grid.Column="1" Text="{Binding AboutBuildTimestamp}" IsReadOnly="True" />
-      </Grid>
-      <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
-        <TextBlock Text="Runtime" VerticalAlignment="Center" />
-        <TextBox Grid.Column="1" Text="{Binding AboutRuntime}" IsReadOnly="True" />
-      </Grid>
-      <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
-        <TextBlock Text="RID" VerticalAlignment="Center" />
-        <TextBox Grid.Column="1" Text="{Binding AboutRuntimeIdentifier}" IsReadOnly="True" />
-      </Grid>
-      <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
-        <TextBlock Text="OpenTAP engine" VerticalAlignment="Center" />
-        <TextBox Grid.Column="1" Text="{Binding AboutOpenTapEngine}" IsReadOnly="True" />
-      </Grid>
-      <Button Content="Open crashes folder"
-              Command="{Binding OpenCrashesFolderCommand}"
-              IsVisible="{Binding AllowOsFolderBrowse}"
-              HorizontalAlignment="Left" />
-
-      <Separator Margin="0,8" />
-
-      <TextBlock Text="Diagnostics" FontWeight="SemiBold" />
-      <TextBlock Text="Effective configuration and provenance (defaults → settings.json → environment → command line). Env/CLI overlays are read-only above and are not written back on Save. Copy diagnostics includes the About support block."
-                 TextWrapping="Wrap"
-                 Opacity="0.8" />
-      <Button Content="Copy diagnostics" Command="{Binding CopyDiagnosticsCommand}" HorizontalAlignment="Left" />
-      <Border BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
-              BorderThickness="1"
-              Padding="8"
-              MaxHeight="280">
-        <ScrollViewer>
-          <StackPanel Spacing="4">
-            <Grid ColumnDefinitions="2*,2*,*,2*" ColumnSpacing="8">
-              <TextBlock Text="Key" FontWeight="SemiBold" FontSize="12" />
-              <TextBlock Grid.Column="1" Text="Value" FontWeight="SemiBold" FontSize="12" />
-              <TextBlock Grid.Column="2" Text="Source" FontWeight="SemiBold" FontSize="12" />
-              <TextBlock Grid.Column="3" Text="Detail" FontWeight="SemiBold" FontSize="12" />
-            </Grid>
-            <ItemsControl ItemsSource="{Binding ProvenanceRows}">
-              <ItemsControl.ItemTemplate>
-                <DataTemplate>
-                  <Grid ColumnDefinitions="2*,2*,*,2*" ColumnSpacing="8" Margin="0,2">
-                    <TextBlock Text="{Binding Key}" FontSize="12" TextTrimming="CharacterEllipsis" />
-                    <TextBlock Grid.Column="1" Text="{Binding EffectiveValue}" FontSize="12" TextTrimming="CharacterEllipsis" />
-                    <TextBlock Grid.Column="2" Text="{Binding Source}" FontSize="12" />
-                    <TextBlock Grid.Column="3" Text="{Binding SourceDetail}" FontSize="12" TextTrimming="CharacterEllipsis" Opacity="0.8" />
-                  </Grid>
-                </DataTemplate>
-              </ItemsControl.ItemTemplate>
-            </ItemsControl>
-          </StackPanel>
-        </ScrollViewer>
-      </Border>
-
-      <Separator Margin="0,8" />
-
-      <TextBlock Text="OpenTAP packages &amp; plugins" FontWeight="SemiBold" />
-      <TextBlock Text="Offline install only (tap package install / bake .TapPackage). Refresh rescans local package.xml and plugin dirs."
-                 TextWrapping="Wrap"
-                 Opacity="0.8" />
-
-      <StackPanel Orientation="Horizontal" Spacing="8">
-        <Button Content="Refresh" Command="{Binding RefreshPackagesCommand}" />
-        <Button Content="Copy path" Command="{Binding CopyPathCommand}" />
-        <Button Content="Open folder"
-                Command="{Binding OpenFolderCommand}"
-                IsVisible="{Binding AllowOsFolderBrowse}" />
-      </StackPanel>
-
-      <TextBlock Text="Installed packages" FontWeight="SemiBold" Margin="0,4,0,0" />
-      <ListBox ItemsSource="{Binding Packages}"
-               SelectedItem="{Binding SelectedPackage}"
-               MinHeight="100"
-               MaxHeight="180">
-        <ListBox.ItemTemplate>
-          <DataTemplate>
-            <TextBlock>
-              <TextBlock.Text>
-                <MultiBinding StringFormat="{}{0}  {1}  —  {2}">
-                  <Binding Path="Name" />
-                  <Binding Path="Version" />
-                  <Binding Path="Path" />
-                </MultiBinding>
-              </TextBlock.Text>
-            </TextBlock>
-          </DataTemplate>
-        </ListBox.ItemTemplate>
-      </ListBox>
-
-      <TextBlock Text="Plugin directories" FontWeight="SemiBold" Margin="0,4,0,0" />
-      <ListBox ItemsSource="{Binding PluginDirectories}"
-               SelectedItem="{Binding SelectedPluginDirectory}"
-               MinHeight="80"
-               MaxHeight="140">
-        <ListBox.ItemTemplate>
-          <DataTemplate>
-            <TextBlock>
-              <TextBlock.Text>
-                <MultiBinding StringFormat="{}{0}  [{1}]">
-                  <Binding Path="Path" />
-                  <Binding Path="Source" />
-                </MultiBinding>
-              </TextBlock.Text>
-            </TextBlock>
-          </DataTemplate>
-        </ListBox.ItemTemplate>
-      </ListBox>
-
-      <Separator Margin="0,8" />
-
-      <TextBlock Text="Page settings" FontWeight="SemiBold" />
-      <TextBlock Text="Saves writable settings on this page to settings.json. Overridden (env/CLI) rows stay out of the file."
+  <DockPanel>
+    <StackPanel DockPanel.Dock="Top" Spacing="6" Margin="0,0,16,12" MaxWidth="920">
+      <TextBlock Text="Settings" FontSize="22" FontWeight="SemiBold" />
+      <TextBlock Text="Theme, engineer options, storage gates, and About. Save writes writable fields to settings.json; env/CLI overlays stay out of the file."
                  TextWrapping="Wrap"
                  Opacity="0.8" />
       <StackPanel Orientation="Horizontal" Spacing="12">
         <Button Content="Save all settings" Command="{Binding SaveCommand}"
+                IsEnabled="{Binding !IsBusy}"
                 ToolTip.Tip="Writes writable Settings fields to settings.json" />
+        <TextBlock Text="Saving…"
+                   IsVisible="{Binding IsBusy}"
+                   VerticalAlignment="Center"
+                   FontWeight="SemiBold"
+                   Opacity="0.8" />
         <TextBlock Text="{Binding Status}" VerticalAlignment="Center" TextWrapping="Wrap" />
       </StackPanel>
     </StackPanel>
-  </ScrollViewer>
+
+    <ScrollViewer>
+      <StackPanel Spacing="10" Margin="0,0,16,0" MaxWidth="920">
+        <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
+          <TextBlock Text="Data directory" VerticalAlignment="Center" />
+          <TextBox Grid.Column="1" Text="{Binding DataDirectory}" IsReadOnly="True" />
+        </Grid>
+
+        <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
+          <TextBlock Text="Theme" VerticalAlignment="Center" />
+          <ComboBox Grid.Column="1"
+                    ItemsSource="{Binding ThemeOptions}"
+                    SelectedItem="{Binding ThemePreference}"
+                    IsEnabled="{Binding !ThemePreferenceReadOnly}"
+                    MinWidth="160" />
+        </Grid>
+
+        <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
+          <TextBlock Text="Engineer / debug mode" VerticalAlignment="Center" />
+          <CheckBox Grid.Column="1" IsChecked="{Binding IsEngineerDebugMode}"
+                    IsEnabled="{Binding !IsEngineerDebugModeReadOnly}"
+                    ToolTip.Tip="Unlocks mock VISA, logging sinks, on-bench overlays, and opening arbitrary .TapPlan files" />
+        </Grid>
+
+        <StackPanel Spacing="10" IsVisible="{Binding IsEngineerDebugMode}">
+          <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
+            <TextBlock Text="Use mock VISA" VerticalAlignment="Center" />
+            <CheckBox Grid.Column="1" IsChecked="{Binding UseMockVisa}"
+                      IsEnabled="{Binding !UseMockVisaReadOnly}"
+                      ToolTip.Tip="Applies immediately when idle (no active run or open VISA session). Refused flips revert this checkbox. When off, demo MOCK:: resources cannot run." />
+          </Grid>
+
+          <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
+            <TextBlock Text="Log level" VerticalAlignment="Center" />
+            <ComboBox Grid.Column="1"
+                      ItemsSource="{Binding LogLevelOptions}"
+                      SelectedItem="{Binding LogMinimumLevel}"
+                      IsEnabled="{Binding !LogMinimumLevelReadOnly}"
+                      MinWidth="160" />
+          </Grid>
+
+          <Grid ColumnDefinitions="220,*" ColumnSpacing="12" IsVisible="{Binding ShowEventLogOptions}">
+            <TextBlock Text="Windows Event Log" VerticalAlignment="Center" />
+            <CheckBox Grid.Column="1" IsChecked="{Binding EnableOsEventSink}"
+                      IsEnabled="{Binding !EnableOsEventSinkReadOnly}" />
+          </Grid>
+
+          <StackPanel Spacing="10" IsVisible="{Binding ShowSyslogOptions}">
+            <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
+              <TextBlock Text="Unix Syslog" VerticalAlignment="Center" />
+              <CheckBox Grid.Column="1" IsChecked="{Binding EnableSyslogOnUnix}"
+                        IsEnabled="{Binding !EnableSyslogOnUnixReadOnly}" />
+            </Grid>
+            <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
+              <TextBlock Text="Syslog host" VerticalAlignment="Center" />
+              <TextBox Grid.Column="1" Text="{Binding SyslogHost}"
+                       IsReadOnly="{Binding SyslogHostReadOnly}" />
+            </Grid>
+            <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
+              <TextBlock Text="Syslog port" VerticalAlignment="Center" />
+              <TextBox Grid.Column="1" Text="{Binding SyslogPort}"
+                       IsReadOnly="{Binding SyslogPortReadOnly}" />
+            </Grid>
+          </StackPanel>
+
+          <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
+            <TextBlock Text="Plot refresh Hz" VerticalAlignment="Center" />
+            <TextBox Grid.Column="1" Text="{Binding PlotRefreshHz}"
+                     IsReadOnly="{Binding PlotRefreshHzReadOnly}" />
+          </Grid>
+
+          <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
+            <TextBlock Text="DUT session idle (minutes)" VerticalAlignment="Center"
+                       ToolTip.Tip="Idle window before Soft-warn → Stale. Default 240 (4 hours). High-throughput lines may use shorter values." />
+            <TextBox Grid.Column="1" Text="{Binding OperatorSessionIdleMinutes}"
+                     IsReadOnly="{Binding OperatorSessionIdleMinutesReadOnly}" />
+          </Grid>
+          <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
+            <TextBlock Text="Idle soft-warn %" VerticalAlignment="Center"
+                       ToolTip.Tip="Warn when idle elapsed reaches this percent of the idle window (50–95, default 80)." />
+            <TextBox Grid.Column="1" Text="{Binding OperatorSessionIdleWarnPercent}"
+                     IsReadOnly="{Binding OperatorSessionIdleWarnPercentReadOnly}" />
+          </Grid>
+          <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
+            <TextBlock Text="Confirm DUT every run" VerticalAlignment="Center"
+                       ToolTip.Tip="After each terminal run, require Same DUT / Change Session before the next Run." />
+            <CheckBox Grid.Column="1" IsChecked="{Binding RequireDutConfirmEveryRun}"
+                      IsEnabled="{Binding !RequireDutConfirmEveryRunReadOnly}" />
+          </Grid>
+        </StackPanel>
+
+        <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
+          <TextBlock Text="Embed plots in report" VerticalAlignment="Center" />
+          <CheckBox Grid.Column="1" IsChecked="{Binding EmbedPlotsInReport}"
+                    IsEnabled="{Binding !EmbedPlotsInReportReadOnly}" />
+        </Grid>
+
+        <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
+          <TextBlock Text="Export OpenTAP results (CSV)" VerticalAlignment="Center" />
+          <CheckBox Grid.Column="1" IsChecked="{Binding ExportOpenTapResults}"
+                    IsEnabled="{Binding !ExportOpenTapResultsReadOnly}"
+                    ToolTip.Tip="Writes published OpenTAP result tables under runs/{runId}/opentap-results/ for MES/QA handoff. Typst PDF is unchanged." />
+        </Grid>
+
+        <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
+          <TextBlock Text="DUT history on Run board" VerticalAlignment="Center" />
+          <CheckBox Grid.Column="1" IsChecked="{Binding ShowDutHistoryOnRun}"
+                    IsEnabled="{Binding !ShowDutHistoryOnRunReadOnly}"
+                    ToolTip.Tip="When off (default), history appears only on Results. When on, show a summary banner on Run after Pass/Fail." />
+        </Grid>
+
+        <Separator Margin="0,8" />
+
+        <TextBlock Text="Storage" FontWeight="SemiBold" />
+        <TextBlock Text="Retention and free-space gates for the data directory. Critical free space blocks new runs."
+                   TextWrapping="Wrap"
+                   Opacity="0.8" />
+        <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
+          <TextBlock Text="Retention days" VerticalAlignment="Center" />
+          <TextBox Grid.Column="1" Text="{Binding RunRetentionDays}"
+                   IsReadOnly="{Binding RunRetentionDaysReadOnly}"
+                   ToolTip.Tip="0 disables age-based retention" />
+        </Grid>
+        <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
+          <TextBlock Text="Max retained runs" VerticalAlignment="Center" />
+          <TextBox Grid.Column="1" Text="{Binding RunRetentionMaxRuns}"
+                   IsReadOnly="{Binding RunRetentionMaxRunsReadOnly}"
+                   ToolTip.Tip="0 disables count-based retention" />
+        </Grid>
+        <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
+          <TextBlock Text="Export directory" VerticalAlignment="Center" />
+          <TextBox Grid.Column="1" Text="{Binding ExportDirectory}"
+                   IsReadOnly="{Binding ExportDirectoryReadOnly}"
+                   PlaceholderText="Optional fixed export path" />
+        </Grid>
+        <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
+          <TextBlock Text="Warn free space (GB)" VerticalAlignment="Center" />
+          <TextBox Grid.Column="1" Text="{Binding DataFreeSpaceWarnGb}"
+                   IsReadOnly="{Binding DataFreeSpaceWarnGbReadOnly}" />
+        </Grid>
+        <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
+          <TextBlock Text="Critical free space (GB)" VerticalAlignment="Center" />
+          <TextBox Grid.Column="1" Text="{Binding DataFreeSpaceCriticalGb}"
+                   IsReadOnly="{Binding DataFreeSpaceCriticalGbReadOnly}" />
+        </Grid>
+
+        <Separator Margin="0,8" />
+
+        <TextBlock Text="About" FontWeight="SemiBold" />
+        <TextBlock Text="What is running on this bench (build-stamped version, runtime, OpenTAP engine)."
+                   TextWrapping="Wrap"
+                   Opacity="0.8" />
+        <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
+          <TextBlock Text="Version" VerticalAlignment="Center" />
+          <TextBlock Grid.Column="1" Text="{Binding AboutVersion}" VerticalAlignment="Center" TextWrapping="Wrap" />
+        </Grid>
+        <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
+          <TextBlock Text="Commit" VerticalAlignment="Center" />
+          <TextBlock Grid.Column="1" Text="{Binding AboutCommit}" VerticalAlignment="Center" TextWrapping="Wrap" />
+        </Grid>
+        <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
+          <TextBlock Text="Build (UTC)" VerticalAlignment="Center" />
+          <TextBlock Grid.Column="1" Text="{Binding AboutBuildTimestamp}" VerticalAlignment="Center" TextWrapping="Wrap" />
+        </Grid>
+        <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
+          <TextBlock Text="Runtime" VerticalAlignment="Center" />
+          <TextBlock Grid.Column="1" Text="{Binding AboutRuntime}" VerticalAlignment="Center" TextWrapping="Wrap" />
+        </Grid>
+        <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
+          <TextBlock Text="RID" VerticalAlignment="Center" />
+          <TextBlock Grid.Column="1" Text="{Binding AboutRuntimeIdentifier}" VerticalAlignment="Center" TextWrapping="Wrap" />
+        </Grid>
+        <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
+          <TextBlock Text="OpenTAP engine" VerticalAlignment="Center" />
+          <TextBlock Grid.Column="1" Text="{Binding AboutOpenTapEngine}" VerticalAlignment="Center" TextWrapping="Wrap" />
+        </Grid>
+        <Button Content="Open crashes folder"
+                Command="{Binding OpenCrashesFolderCommand}"
+                IsVisible="{Binding AllowOsFolderBrowse}"
+                HorizontalAlignment="Left" />
+
+        <Separator Margin="0,8" />
+
+        <TextBlock Text="Diagnostics" FontWeight="SemiBold" />
+        <TextBlock Text="Effective configuration and provenance (defaults → settings.json → environment → command line). Env/CLI overlays are read-only above and are not written back on Save. Copy diagnostics includes the About support block."
+                   TextWrapping="Wrap"
+                   Opacity="0.8" />
+        <Button Content="Copy diagnostics" Command="{Binding CopyDiagnosticsCommand}" HorizontalAlignment="Left" />
+        <Border BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
+                BorderThickness="1"
+                Padding="8"
+                MaxHeight="280">
+          <ScrollViewer>
+            <StackPanel Spacing="4">
+              <Grid ColumnDefinitions="2*,2*,*,2*" ColumnSpacing="8">
+                <TextBlock Text="Key" FontWeight="SemiBold" FontSize="12" />
+                <TextBlock Grid.Column="1" Text="Value" FontWeight="SemiBold" FontSize="12" />
+                <TextBlock Grid.Column="2" Text="Source" FontWeight="SemiBold" FontSize="12" />
+                <TextBlock Grid.Column="3" Text="Detail" FontWeight="SemiBold" FontSize="12" />
+              </Grid>
+              <ItemsControl ItemsSource="{Binding ProvenanceRows}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <Grid ColumnDefinitions="2*,2*,*,2*" ColumnSpacing="8" Margin="0,2">
+                      <TextBlock Text="{Binding Key}" FontSize="12" TextTrimming="CharacterEllipsis" />
+                      <TextBlock Grid.Column="1" Text="{Binding EffectiveValue}" FontSize="12" TextTrimming="CharacterEllipsis" />
+                      <TextBlock Grid.Column="2" Text="{Binding Source}" FontSize="12" />
+                      <TextBlock Grid.Column="3" Text="{Binding SourceDetail}" FontSize="12" TextTrimming="CharacterEllipsis" Opacity="0.8" />
+                    </Grid>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
+          </ScrollViewer>
+        </Border>
+
+        <Separator Margin="0,8" />
+
+        <TextBlock Text="OpenTAP packages &amp; plugins" FontWeight="SemiBold" />
+        <TextBlock Text="Offline install only (tap package install / bake .TapPackage). Refresh rescans local package.xml and plugin dirs."
+                   TextWrapping="Wrap"
+                   Opacity="0.8" />
+
+        <StackPanel Orientation="Horizontal" Spacing="8">
+          <Button Content="Refresh" Command="{Binding RefreshPackagesCommand}" />
+          <Button Content="Copy path" Command="{Binding CopyPathCommand}" />
+          <Button Content="Open folder"
+                  Command="{Binding OpenFolderCommand}"
+                  IsVisible="{Binding AllowOsFolderBrowse}" />
+        </StackPanel>
+
+        <TextBlock Text="Installed packages" FontWeight="SemiBold" Margin="0,4,0,0" />
+        <ListBox ItemsSource="{Binding Packages}"
+                 SelectedItem="{Binding SelectedPackage}"
+                 MinHeight="100"
+                 MaxHeight="180">
+          <ListBox.ItemTemplate>
+            <DataTemplate>
+              <TextBlock>
+                <TextBlock.Text>
+                  <MultiBinding StringFormat="{}{0}  {1}  —  {2}">
+                    <Binding Path="Name" />
+                    <Binding Path="Version" />
+                    <Binding Path="Path" />
+                  </MultiBinding>
+                </TextBlock.Text>
+              </TextBlock>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+
+        <TextBlock Text="Plugin directories" FontWeight="SemiBold" Margin="0,4,0,0" />
+        <ListBox ItemsSource="{Binding PluginDirectories}"
+                 SelectedItem="{Binding SelectedPluginDirectory}"
+                 MinHeight="80"
+                 MaxHeight="140">
+          <ListBox.ItemTemplate>
+            <DataTemplate>
+              <TextBlock>
+                <TextBlock.Text>
+                  <MultiBinding StringFormat="{}{0}  [{1}]">
+                    <Binding Path="Path" />
+                    <Binding Path="Source" />
+                  </MultiBinding>
+                </TextBlock.Text>
+              </TextBlock>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+      </StackPanel>
+    </ScrollViewer>
+  </DockPanel>
 </UserControl>

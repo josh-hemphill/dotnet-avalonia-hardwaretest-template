@@ -150,6 +150,7 @@ public sealed class SettingsViewModelTests
         Assert.Contains("ThemePreference", copied, StringComparison.Ordinal);
         Assert.Contains("Copied diagnostics", vm.Status, StringComparison.OrdinalIgnoreCase);
         Assert.False(string.IsNullOrWhiteSpace(vm.AboutVersion));
+        Assert.Equal(buildInfo.Version, vm.AboutVersion);
         Assert.Equal("1.2.3", vm.AboutOpenTapEngine);
     }
 }

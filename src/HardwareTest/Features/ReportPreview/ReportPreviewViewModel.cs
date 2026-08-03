@@ -34,45 +34,68 @@ public partial class ReportPreviewViewModel : ReactiveObject
 
         LoadLatestCommand = ReactiveCommand.CreateFromTask(LoadLatestAsync);
         PrintCommand = ReactiveCommand.Create(Print);
+        NavigateToResultsCommand = ReactiveCommand.Create(
+            () => NavigateToResultsRequested?.Invoke(this, EventArgs.Empty));
     }
 
     public ObservableCollection<Bitmap> Pages { get; }
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> LoadLatestCommand { get; }
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> PrintCommand { get; }
+    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> NavigateToResultsCommand { get; }
+
+    /// Raised when the operator wants to open Results to pick a PDF.
+    public event EventHandler? NavigateToResultsRequested;
 
     [Reactive] private string? _pdfPath;
     [Reactive] private string _status = string.Empty;
+    [Reactive] private bool _isBusy;
+
+    public bool ShowEmptyState => Pages.Count == 0 && !IsBusy;
 
     public async Task LoadFromPathAsync(string path)
     {
         _operatorSession?.TouchActivity();
-        PdfPath = path;
-        // Dispose any previously rendered bitmaps before clearing the collection to avoid leaks.
-        foreach (var bitmap in Pages)
-        {
-            bitmap.Dispose();
-        }
-
-        Pages.Clear();
-        if (!File.Exists(path))
-        {
-            Status = $"File not found: {path}";
-            return;
-        }
-
+        IsBusy = true;
         try
         {
-            var bitmaps = await Task.Run(() => RenderPages(path));
-            foreach (var bitmap in bitmaps)
+            PdfPath = path;
+            // Dispose any previously rendered bitmaps before clearing the collection to avoid leaks.
+            foreach (var bitmap in Pages)
             {
-                Pages.Add(bitmap);
+                bitmap.Dispose();
             }
 
-            Status = $"Previewing {path} ({Pages.Count} page(s) shown).";
+            Pages.Clear();
+            this.RaisePropertyChanged(nameof(ShowEmptyState));
+            if (!File.Exists(path))
+            {
+                Status = $"File not found: {path}";
+                return;
+            }
+
+            try
+            {
+                var bitmaps = await Task.Run(() => RenderPages(path));
+                foreach (var bitmap in bitmaps)
+                {
+                    Pages.Add(bitmap);
+                }
+
+                Status = $"Previewing {path} ({Pages.Count} page(s) shown).";
+            }
+            catch (Exception ex)
+            {
+                Status = $"Preview failed: {ex.Message}";
+            }
+            finally
+            {
+                this.RaisePropertyChanged(nameof(ShowEmptyState));
+            }
         }
-        catch (Exception ex)
+        finally
         {
-            Status = $"Preview failed: {ex.Message}";
+            IsBusy = false;
+            this.RaisePropertyChanged(nameof(ShowEmptyState));
         }
     }
 

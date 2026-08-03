@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Threading;
 using System.Threading.Tasks;
 using HardwareTest.Core.Reporting;
 using HardwareTest.Core.Runs;
@@ -37,6 +38,7 @@ public partial class ResultsViewModel : ReactiveObject
     private readonly IExportTargetService? _exportTargets;
     private readonly OperatorSession? _operatorSession;
     private readonly List<TestRunSummary> _allRuns = [];
+    private readonly SemaphoreSlim _busyGate = new(1, 1);
 
     public ResultsViewModel(
         IRunStore runStore,

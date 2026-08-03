@@ -57,7 +57,7 @@ Distinct namespaces on purpose — "Phase C" and "Phase 3" are never the same th
 | 12 | [Error surfacing & chrome polish](platform-phases/phase-12-error-surfacing-chrome.md) (+ wayfinding) | 9, 11 | Done |
 | 13 | [Settings live semantics](platform-phases/phase-13-settings-live-semantics.md) (`UseMockVisa` honesty) | 3, 10 | Done |
 | 14 | [Session façade split](platform-phases/phase-14-session-facade-split.md) | 8, 9 | Done |
-| 15 | [Operator feedback & Settings chrome](platform-phases/phase-15-operator-feedback-chrome.md) | 12, 13 | Planned |
+| 15 | [Operator feedback & Settings chrome](platform-phases/phase-15-operator-feedback-chrome.md) | 12, 13 | Done |
 
 **Suggested order (1–10):** 1 first and alone — nothing else is verifiable until CI actually runs. Then 2 / 7 / 8 can proceed in parallel (independent seams). 3 → 4 → 5 is a chain and should stay one series. 6 lands after 4. 9 after 8. 10 after 3/6/9 (storage + chrome).
 

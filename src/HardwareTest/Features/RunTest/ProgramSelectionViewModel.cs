@@ -41,34 +41,48 @@ public partial class ProgramSelectionViewModel : ReactiveObject
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> OpenPlanFileCommand { get; }
 
     [Reactive] private ProgramItemViewModel? _selectedProgram;
+    [Reactive] private bool _isBusy;
 
     public async Task RefreshProgramsAsync()
     {
-        Programs.Clear();
-        foreach (var entry in ProgramCatalog.Enumerate())
+        if (IsBusy)
         {
-            Programs.Add(new ProgramItemViewModel
+            return;
+        }
+
+        IsBusy = true;
+        try
+        {
+            Programs.Clear();
+            foreach (var entry in ProgramCatalog.Enumerate())
             {
-                Id = entry.Id,
-                DisplayName = entry.DisplayName,
-                Path = entry.Path,
-                DutFamily = entry.DutFamily,
-                IsSample = entry.IsBuiltIn,
-                LoadKind = entry.LoadKind,
-                Requirements = entry.Requirements,
-                ReportKinds = entry.ReportKinds,
-                SelectionIncludesCleanup = entry.SelectionIncludesCleanup,
-            });
-        }
+                Programs.Add(new ProgramItemViewModel
+                {
+                    Id = entry.Id,
+                    DisplayName = entry.DisplayName,
+                    Path = entry.Path,
+                    DutFamily = entry.DutFamily,
+                    IsSample = entry.IsBuiltIn,
+                    LoadKind = entry.LoadKind,
+                    Requirements = entry.Requirements,
+                    ReportKinds = entry.ReportKinds,
+                    SelectionIncludesCleanup = entry.SelectionIncludesCleanup,
+                });
+            }
 
-        SelectedProgram ??= Programs.FirstOrDefault();
-        if (SelectedProgram is not null)
+            SelectedProgram ??= Programs.FirstOrDefault();
+            if (SelectedProgram is not null)
+            {
+                await _loadSelectedProgramAsync();
+            }
+
+            _setStatus($"Loaded {Programs.Count} program(s).");
+            _onCatalogRefreshed();
+        }
+        finally
         {
-            await _loadSelectedProgramAsync();
+            IsBusy = false;
         }
-
-        _setStatus($"Loaded {Programs.Count} program(s).");
-        _onCatalogRefreshed();
     }
 
     private async Task OpenPlanFileAsync()
@@ -85,23 +99,36 @@ public partial class ProgramSelectionViewModel : ReactiveObject
             return;
         }
 
-        var path = await RequestPlanFilePath(CancellationToken.None);
-        if (string.IsNullOrWhiteSpace(path))
+        if (IsBusy)
         {
             return;
         }
 
-        var item = new ProgramItemViewModel
+        IsBusy = true;
+        try
         {
-            Id = System.IO.Path.GetFileNameWithoutExtension(path),
-            DisplayName = System.IO.Path.GetFileNameWithoutExtension(path),
-            Path = path,
-            DutFamily = "generic",
-            LoadKind = ProgramLoadKind.TapPlanFile,
-            Requirements = ProgramRequirements.FromFamily("generic"),
-        };
-        Programs.Add(item);
-        SelectedProgram = item;
-        _setStatus($"Opened {item.DisplayName}");
+            var path = await RequestPlanFilePath(CancellationToken.None);
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                return;
+            }
+
+            var item = new ProgramItemViewModel
+            {
+                Id = System.IO.Path.GetFileNameWithoutExtension(path),
+                DisplayName = System.IO.Path.GetFileNameWithoutExtension(path),
+                Path = path,
+                DutFamily = "generic",
+                LoadKind = ProgramLoadKind.TapPlanFile,
+                Requirements = ProgramRequirements.FromFamily("generic"),
+            };
+            Programs.Add(item);
+            SelectedProgram = item;
+            _setStatus($"Opened {item.DisplayName}");
+        }
+        finally
+        {
+            IsBusy = false;
+        }
     }
 }

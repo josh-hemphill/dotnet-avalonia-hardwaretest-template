@@ -2,7 +2,7 @@
 
 **Parent:** [platform-roadmap.md](../platform-roadmap.md)
 **Depends on:** [Phase 12](phase-12-error-surfacing-chrome.md), [Phase 13](phase-13-settings-live-semantics.md)
-**Status:** Planned
+**Status:** Done
 **Also absorbs:** First-impression review (disabled Run without reason, Status-only pre-run blocks, crash-load Status invisible, busy affordances, empty Instruments/Report Preview, filter selection, theme-hardcoded banner/chip colors, suite completion flash) plus Settings sticky Save / About display cleanup
 
 ## Goal
@@ -61,17 +61,17 @@ Make the first session with initial users feel **responsive and honest**: every 
 
 ## Exit criteria
 
-- [ ] Disabled Run / Run Selected tooltips state the blocking reason
-- [ ] Pre-run / storage-critical blocks use sticky severity banner (not Status-only)
-- [ ] Crash dossier load failure is visible on Home without requiring `HasCrashBanner`
-- [ ] Discover / Save / Load / *IDN?* (and agreed peers) show busy/disabled-while-executing
-- [ ] DUT confirm validation visible at the field; step filters show selection
-- [ ] Instruments + Report Preview empty states include a next-step CTA
-- [ ] ProgressBar hidden (or equivalent) when idle; suite Pass/Fail has a brief severity cue
-- [ ] Banner/chip colors work in Light and Dark
-- [ ] Settings: Save + Status sticky at top; body scrolls
-- [ ] About is display-only TextBlocks; Version is short product version without duplicating commit/date
-- [ ] Feature line budgets still pass; ViewModels + architecture + host suites green
+- [x] Disabled Run / Run Selected tooltips state the blocking reason
+- [x] Pre-run / storage-critical blocks use sticky severity banner (not Status-only)
+- [x] Crash dossier load failure is visible on Home without requiring `HasCrashBanner`
+- [x] Discover / Save / Load / *IDN?* (and agreed peers) show busy/disabled-while-executing
+- [x] DUT confirm validation visible at the field; step filters show selection
+- [x] Instruments + Report Preview empty states include a next-step CTA
+- [x] ProgressBar hidden (or equivalent) when idle; suite Pass/Fail has a brief severity cue
+- [x] Banner/chip colors work in Light and Dark
+- [x] Settings: Save + Status sticky at top; body scrolls
+- [x] About is display-only TextBlocks; Version is short product version without duplicating commit/date
+- [x] Feature line budgets still pass; ViewModels + architecture + host suites green
 
 ## Out of scope
 

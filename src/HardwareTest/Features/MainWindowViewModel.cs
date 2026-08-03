@@ -90,6 +90,8 @@ public partial class MainWindowViewModel : ReactiveObject
         inspect.NavigateToRunRequested += (_, _) => NavigateToPageId("RunTest");
         home.NavigateToPageRequested += (_, pageId) => NavigateToPageId(pageId);
         results.NavigateToRunRequested += (_, _) => NavigateToPageId("RunTest");
+        instruments.NavigateToRunRequested += (_, _) => NavigateToPageId("RunTest");
+        reportPreview.NavigateToResultsRequested += (_, _) => NavigateToPageId("Results");
 
         runControl.PropertyChanged += (_, e) =>
         {

@@ -83,6 +83,11 @@ public partial class OperatorSessionPanelViewModel : ReactiveObject
     [Reactive] private string _idleCountdownText = string.Empty;
     [Reactive] private bool _showIdleCountdown;
     [Reactive] private bool _pendingConfirmEveryRun;
+    [Reactive] private string _dutSerialError = string.Empty;
+    [Reactive] private string _operatorError = string.Empty;
+
+    public bool HasDutSerialError => !string.IsNullOrWhiteSpace(DutSerialError);
+    public bool HasOperatorError => !string.IsNullOrWhiteSpace(OperatorError);
 
     /// Marks the session stale once it has been idle past the configured window.
     public void ApplyIdleStaleCheck()
@@ -223,8 +228,10 @@ public partial class OperatorSessionPanelViewModel : ReactiveObject
         var req = program?.Requirements ?? ProgramRequirements.Sample;
         var family = program?.DutFamily ?? "generic";
         RefreshRequirementFlags();
+        ClearFieldErrors();
         if (!_session.TryConfirm(req, DutSerialInput, DutPartInput, DutRevisionInput, OperatorInput, family, out var error))
         {
+            ApplyFieldError(error);
             _setStatus(error);
             SessionBlocked = true;
             return;
@@ -240,11 +247,14 @@ public partial class OperatorSessionPanelViewModel : ReactiveObject
     private void ConfirmSameDut()
     {
         RefreshRequirementFlags();
+        ClearFieldErrors();
         if (RequireOperator
             && string.IsNullOrWhiteSpace(OperatorInput)
             && string.IsNullOrWhiteSpace(_session.OperatorName))
         {
-            _setStatus("Technician name is required.");
+            OperatorError = "Technician name is required.";
+            this.RaisePropertyChanged(nameof(HasOperatorError));
+            _setStatus(OperatorError);
             SessionBlocked = true;
             ShowSessionForm = true;
             ShowStaleTechnicianField = true;
@@ -272,6 +282,7 @@ public partial class OperatorSessionPanelViewModel : ReactiveObject
     {
         _session.ChangeSession();
         PendingConfirmEveryRun = false;
+        ClearFieldErrors();
         _onSessionCleared();
         DutSerialInput = string.Empty;
         DutPartInput = string.Empty;
@@ -281,6 +292,40 @@ public partial class OperatorSessionPanelViewModel : ReactiveObject
         RefreshSessionSummary();
         UpdateIdleTimer();
         _setStatus("Confirm DUT, then Run.");
+    }
+
+    private void ClearFieldErrors()
+    {
+        DutSerialError = string.Empty;
+        OperatorError = string.Empty;
+        this.RaisePropertyChanged(nameof(HasDutSerialError));
+        this.RaisePropertyChanged(nameof(HasOperatorError));
+    }
+
+    private void ApplyFieldError(string error)
+    {
+        if (error.Contains("serial", StringComparison.OrdinalIgnoreCase))
+        {
+            DutSerialError = error;
+        }
+        else if (error.Contains("Operator", StringComparison.OrdinalIgnoreCase)
+                 || error.Contains("Technician", StringComparison.OrdinalIgnoreCase))
+        {
+            OperatorError = error;
+        }
+        else if (error.Contains("part", StringComparison.OrdinalIgnoreCase)
+                 || error.Contains("revision", StringComparison.OrdinalIgnoreCase))
+        {
+            // Surface under serial as the primary confirm field when part/rev fail.
+            DutSerialError = error;
+        }
+        else
+        {
+            DutSerialError = error;
+        }
+
+        this.RaisePropertyChanged(nameof(HasDutSerialError));
+        this.RaisePropertyChanged(nameof(HasOperatorError));
     }
 
     private static string FormatRelative(DateTimeOffset when)

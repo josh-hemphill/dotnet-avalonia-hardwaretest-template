@@ -1,6 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:HardwareTest.Features.Results"
+             xmlns:runVm="using:HardwareTest.Features.RunTest"
              xmlns:runs="using:HardwareTest.Core.Runs"
              xmlns:pres="using:HardwareTest.Features.Presentation"
              xmlns:storage="using:HardwareTest.Core.Storage"
@@ -10,8 +11,15 @@
              x:DataType="vm:ResultsViewModel">
   <Grid RowDefinitions="Auto,*,Auto" ColumnDefinitions="*,360" ColumnSpacing="12" RowSpacing="12">
     <StackPanel Orientation="Horizontal" Spacing="8" Grid.ColumnSpan="2">
-      <Button Content="Refresh" Command="{Binding RefreshCommand}" />
-      <Button Content="Regenerate reports" Command="{Binding ReprintCommand}" />
+      <Button Content="Refresh" Command="{Binding RefreshCommand}"
+              IsEnabled="{Binding !IsBusy}" />
+      <Button Content="Regenerate reports" Command="{Binding ReprintCommand}"
+              IsEnabled="{Binding !IsBusy}" />
+      <TextBlock Text="Working…"
+                 IsVisible="{Binding IsBusy}"
+                 VerticalAlignment="Center"
+                 FontWeight="SemiBold"
+                 Opacity="0.8" />
       <TextBlock Text="{Binding Status}" VerticalAlignment="Center" Opacity="0.85" TextWrapping="Wrap" />
     </StackPanel>
 
@@ -87,7 +95,17 @@
               <TextBlock Grid.Column="1" Text="{Binding DutPartNumber}" VerticalAlignment="Center" />
               <TextBlock Grid.Column="2" Text="{Binding SessionId}" VerticalAlignment="Center" FontSize="11" />
               <TextBlock Grid.Column="3" Text="{Binding OperatorName}" VerticalAlignment="Center" />
-              <TextBlock Grid.Column="4" Text="{Binding Result}" VerticalAlignment="Center" />
+              <Border Grid.Column="4"
+                      CornerRadius="4"
+                      Padding="6,2"
+                      HorizontalAlignment="Left"
+                      VerticalAlignment="Center"
+                      Background="{Binding Result, Converter={x:Static runVm:ChipBrushConverter.Instance}}">
+                <TextBlock Text="{Binding Result}"
+                           Foreground="White"
+                           FontSize="11"
+                           FontWeight="SemiBold" />
+              </Border>
               <TextBlock Grid.Column="5" Text="{Binding StartedAt}" VerticalAlignment="Center" Opacity="0.75" FontSize="11" />
             </Grid>
           </DataTemplate>
