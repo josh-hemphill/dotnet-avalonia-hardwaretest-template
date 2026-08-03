@@ -31,57 +31,71 @@ public partial class ResultsViewModel
             return;
         }
 
-        RefreshExportTargets();
-        var target = SelectedExportTarget ?? ExportTargets.FirstOrDefault();
-        if (target is null || _exportTargets is null)
+        if (!_busyGate.Wait(0))
         {
-            Status = "No export target available. Set ExportDirectory or insert removable media.";
             return;
         }
 
+        IsBusy = true;
         try
         {
-            var runDir = _runStore.GetRunDirectory(OpenedRun.RunId);
-            var files = new List<(string SourcePath, string RelativeName)>();
-            var runJson = Path.Combine(runDir, "run.json");
-            if (File.Exists(runJson))
+            RefreshExportTargets();
+            var target = SelectedExportTarget ?? ExportTargets.FirstOrDefault();
+            if (target is null || _exportTargets is null)
             {
-                files.Add((runJson, "run.json"));
-            }
-
-            files.AddRange(
-                OpenedRun.Reports
-                    .Where(r => !string.IsNullOrWhiteSpace(r.PdfPath) && File.Exists(r.PdfPath))
-                    .Select(r => (r.PdfPath, Path.GetFileName(r.PdfPath))));
-
-            if (!string.IsNullOrWhiteSpace(OpenedRun.ReportPdfPath)
-                && File.Exists(OpenedRun.ReportPdfPath)
-                && files.All(f => !string.Equals(f.SourcePath, OpenedRun.ReportPdfPath, StringComparison.OrdinalIgnoreCase)))
-            {
-                files.Add((OpenedRun.ReportPdfPath!, Path.GetFileName(OpenedRun.ReportPdfPath)));
-            }
-
-            var csvDir = Path.Combine(runDir, "opentap-results");
-            if (Directory.Exists(csvDir))
-            {
-                files.AddRange(
-                    Directory.EnumerateFiles(csvDir, "*.csv")
-                        .Select(csv => (csv, Path.Combine("opentap-results", Path.GetFileName(csv)))));
-            }
-
-            if (files.Count == 0)
-            {
-                Status = "Nothing to export for this run.";
+                Status = "No export target available. Set ExportDirectory or insert removable media.";
                 return;
             }
 
-            var packageName = $"run-{OpenedRun.RunId}";
-            var dest = _exportTargets.ExportPackage(target, packageName, files);
-            Status = $"Exported package to {dest}";
+            try
+            {
+                var runDir = _runStore.GetRunDirectory(OpenedRun.RunId);
+                var files = new List<(string SourcePath, string RelativeName)>();
+                var runJson = Path.Combine(runDir, "run.json");
+                if (File.Exists(runJson))
+                {
+                    files.Add((runJson, "run.json"));
+                }
+
+                files.AddRange(
+                    OpenedRun.Reports
+                        .Where(r => !string.IsNullOrWhiteSpace(r.PdfPath) && File.Exists(r.PdfPath))
+                        .Select(r => (r.PdfPath, Path.GetFileName(r.PdfPath))));
+
+                if (!string.IsNullOrWhiteSpace(OpenedRun.ReportPdfPath)
+                    && File.Exists(OpenedRun.ReportPdfPath)
+                    && files.All(f => !string.Equals(f.SourcePath, OpenedRun.ReportPdfPath, StringComparison.OrdinalIgnoreCase)))
+                {
+                    files.Add((OpenedRun.ReportPdfPath!, Path.GetFileName(OpenedRun.ReportPdfPath)));
+                }
+
+                var csvDir = Path.Combine(runDir, "opentap-results");
+                if (Directory.Exists(csvDir))
+                {
+                    files.AddRange(
+                        Directory.EnumerateFiles(csvDir, "*.csv")
+                            .Select(csv => (csv, Path.Combine("opentap-results", Path.GetFileName(csv)))));
+                }
+
+                if (files.Count == 0)
+                {
+                    Status = "Nothing to export for this run.";
+                    return;
+                }
+
+                var packageName = $"run-{OpenedRun.RunId}";
+                var dest = _exportTargets.ExportPackage(target, packageName, files);
+                Status = $"Exported package to {dest}";
+            }
+            catch (Exception ex)
+            {
+                Status = $"Export failed: {ex.Message}";
+            }
         }
-        catch (Exception ex)
+        finally
         {
-            Status = $"Export failed: {ex.Message}";
+            IsBusy = false;
+            _busyGate.Release();
         }
     }
 }

@@ -92,6 +92,7 @@ public partial class ResultsViewModel
     [Reactive] private bool _hasSchemaWarning;
     [Reactive] private ExportTarget? _selectedExportTarget;
     [Reactive] private bool _hasExportTargets;
+    [Reactive] private bool _isBusy;
 
     public event EventHandler<string>? ReportOpened;
 
@@ -147,16 +148,26 @@ public partial class ResultsViewModel
 
     private async Task RefreshAsync()
     {
-        _operatorSession?.TouchActivity();
-        _allRuns.Clear();
-        foreach (var run in await _runStore.ListAsync())
+        await _busyGate.WaitAsync().ConfigureAwait(false);
+        IsBusy = true;
+        try
         {
-            _allRuns.Add(run);
-        }
+            _operatorSession?.TouchActivity();
+            _allRuns.Clear();
+            foreach (var run in await _runStore.ListAsync())
+            {
+                _allRuns.Add(run);
+            }
 
-        RebuildFilterOptions();
-        ApplyFilters();
-        Status = _allRuns.Count == 0 ? "No runs yet." : $"Loaded {_allRuns.Count} run(s).";
+            RebuildFilterOptions();
+            ApplyFilters();
+            Status = _allRuns.Count == 0 ? "No runs yet." : $"Loaded {_allRuns.Count} run(s).";
+        }
+        finally
+        {
+            IsBusy = false;
+            _busyGate.Release();
+        }
     }
 
     private void RebuildFilterOptions()
@@ -475,37 +486,47 @@ public partial class ResultsViewModel
             return;
         }
 
-        var run = await _runStore.LoadAsync(SelectedRun.RunId);
-        if (run is null)
-        {
-            Status = "Run not found.";
-            return;
-        }
-
+        await _busyGate.WaitAsync().ConfigureAwait(false);
+        IsBusy = true;
         try
         {
-            DutHistoryReport? history = null;
-            if (_dutHistory is not null)
+            var run = await _runStore.LoadAsync(SelectedRun.RunId);
+            if (run is null)
             {
-                history = await _dutHistory.AnalyzeAsync(run);
+                Status = "Run not found.";
+                return;
             }
 
-            var kinds = run.Reports.Count > 0
-                ? run.Reports.Select(r => r.Kind).Distinct(StringComparer.OrdinalIgnoreCase).ToArray()
-                : ProgramCatalog.ResolveReportKinds(run.PlanId);
-            var artifacts = await _reportService.GenerateReportsAsync(run, kinds, history);
-            OpenedRun = run;
-            LoadReportItems(run);
-            Status = $"Regenerated {artifacts.Count} report(s).";
-            var primary = run.ReportPdfPath ?? artifacts.FirstOrDefault()?.PdfPath;
-            if (primary is not null)
+            try
             {
-                ReportOpened?.Invoke(this, primary);
+                DutHistoryReport? history = null;
+                if (_dutHistory is not null)
+                {
+                    history = await _dutHistory.AnalyzeAsync(run);
+                }
+
+                var kinds = run.Reports.Count > 0
+                    ? run.Reports.Select(r => r.Kind).Distinct(StringComparer.OrdinalIgnoreCase).ToArray()
+                    : ProgramCatalog.ResolveReportKinds(run.PlanId);
+                var artifacts = await _reportService.GenerateReportsAsync(run, kinds, history);
+                OpenedRun = run;
+                LoadReportItems(run);
+                Status = $"Regenerated {artifacts.Count} report(s).";
+                var primary = run.ReportPdfPath ?? artifacts.FirstOrDefault()?.PdfPath;
+                if (primary is not null)
+                {
+                    ReportOpened?.Invoke(this, primary);
+                }
+            }
+            catch (Exception ex)
+            {
+                Status = $"Reprint failed: {ex.Message}";
             }
         }
-        catch (Exception ex)
+        finally
         {
-            Status = $"Reprint failed: {ex.Message}";
+            IsBusy = false;
+            _busyGate.Release();
         }
     }
 }

@@ -100,6 +100,10 @@ public partial class StepTreeViewModel : ReactiveObject
                 if (args.PropertyName == nameof(StepStatusFilter))
                 {
                     this.RaisePropertyChanged(nameof(IsFilteredToFail));
+                    this.RaisePropertyChanged(nameof(IsFilterAll));
+                    this.RaisePropertyChanged(nameof(IsFilterFail));
+                    this.RaisePropertyChanged(nameof(IsFilterRunning));
+                    this.RaisePropertyChanged(nameof(IsFilterPending));
                 }
             }
             else if (args.PropertyName == nameof(SelectedStepListItem)
@@ -150,6 +154,10 @@ public partial class StepTreeViewModel : ReactiveObject
 
     /// True when the step list is currently narrowed to failed steps only (set automatically after a suite fail).
     public bool IsFilteredToFail => string.Equals(_stepStatusFilter, StepFilter.Fail, StringComparison.Ordinal);
+    public bool IsFilterAll => string.Equals(_stepStatusFilter, StepFilter.All, StringComparison.Ordinal);
+    public bool IsFilterFail => string.Equals(_stepStatusFilter, StepFilter.Fail, StringComparison.Ordinal);
+    public bool IsFilterRunning => string.Equals(_stepStatusFilter, StepFilter.Running, StringComparison.Ordinal);
+    public bool IsFilterPending => string.Equals(_stepStatusFilter, StepFilter.Pending, StringComparison.Ordinal);
 
     public HierarchyStepViewModel? ActiveScopeStep
         => SelectedNestedSubsection?.Step ?? SelectedSubsection?.Step ?? SelectedStage?.Step;

@@ -11,7 +11,7 @@ Related: [adapting.md](adapting.md) (productize), [testing.md](testing.md) (suit
 | Track | Folder | Naming | Scope |
 | --- | --- | --- | --- |
 | OpenTAP integration | [opentap-phases/](opentap-phases/) | Letters (A–K) | Interactions, parameters, mixins, packages, presentation, multi-DUT |
-| Platform hardening | [platform-phases/](platform-phases/) | Numbers (1–14) | Gates, config, diagnostics, crash, CI, structure, storage, operator UX |
+| Platform hardening | [platform-phases/](platform-phases/) | Numbers (1–15) | Gates, config, diagnostics, crash, CI, structure, storage, operator UX |
 
 Distinct namespaces on purpose — "Phase C" and "Phase 3" are never the same thing.
 
@@ -57,12 +57,13 @@ Distinct namespaces on purpose — "Phase C" and "Phase 3" are never the same th
 | 12 | [Error surfacing & chrome polish](platform-phases/phase-12-error-surfacing-chrome.md) (+ wayfinding) | 9, 11 | Done |
 | 13 | [Settings live semantics](platform-phases/phase-13-settings-live-semantics.md) (`UseMockVisa` honesty) | 3, 10 | Done |
 | 14 | [Session façade split](platform-phases/phase-14-session-facade-split.md) | 8, 9 | Done |
+| 15 | [Operator feedback & Settings chrome](platform-phases/phase-15-operator-feedback-chrome.md) | 12, 13 | Done |
 
 **Suggested order (1–10):** 1 first and alone — nothing else is verifiable until CI actually runs. Then 2 / 7 / 8 can proceed in parallel (independent seams). 3 → 4 → 5 is a chain and should stay one series. 6 lands after 4. 9 after 8. 10 after 3/6/9 (storage + chrome).
 
-**Suggested order (11–14):** Prefer **13 ∥ 11**, then **12**, then **14 before** OpenTAP [Phase K](opentap-phases/phase-k-multi-dut-parallel.md) (multi-DUT). Phase 13 (UseMockVisa honesty) and Phase 11 (session activity / Same DUT) are independent; Phase 12 depends on 11 for session-banner hierarchy.
+**Suggested order (11–15):** Prefer **13 ∥ 11**, then **12**, then **14 before** OpenTAP [Phase K](opentap-phases/phase-k-multi-dut-parallel.md) (multi-DUT), then **15** (first-impression feedback + Settings chrome) once 12/13 foundations exist. Phase 13 (UseMockVisa honesty) and Phase 11 (session activity / Same DUT) are independent; Phase 12 depends on 11 for session-banner hierarchy.
 
-**Fresh-eyes review:** Findings (idle/Same DUT/`RequireOperator`, Status/async chrome, UseMockVisa split-brain, wayfinding, doc drift) are mapped in [platform-phases/review-remediation.md](platform-phases/review-remediation.md). Overlaps with session work are **absorbed into Phase 11**; chrome/async into **12**; VISA honesty into **13**.
+**Fresh-eyes review:** Findings (idle/Same DUT/`RequireOperator`, Status/async chrome, UseMockVisa split-brain, wayfinding, doc drift) are mapped in [platform-phases/review-remediation.md](platform-phases/review-remediation.md). Overlaps with session work are **absorbed into Phase 11**; chrome/async into **12**; VISA honesty into **13**. Post–14 first-impression feedback (disabled reasons, busy affordances, empty Instruments/Preview, Settings sticky Save / About) → **[Phase 15](platform-phases/phase-15-operator-feedback-chrome.md)**.
 
 ## Deferred (detailed plans — do not implement yet)
 
@@ -91,3 +92,4 @@ Real, acknowledged, and deliberately unscheduled (or scheduled as phases above).
 - **UseMockVisa can diverge from DI factories after save.** Honest rebuild or refuse — [Phase 13](platform-phases/phase-13-settings-live-semantics.md).
 - **Errors / async UI / Run chrome / Home wayfinding.** [Phase 12](platform-phases/phase-12-error-surfacing-chrome.md) — **Done**.
 - **Finding → phase map.** [platform-phases/review-remediation.md](platform-phases/review-remediation.md).
+- **First-impression feedback / Settings Save & About.** [Phase 15](platform-phases/phase-15-operator-feedback-chrome.md).

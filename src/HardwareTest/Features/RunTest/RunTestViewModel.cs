@@ -149,6 +149,39 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
     /// True when neither a run is in progress nor the session is blocking the start.
     public bool CanStartRun => !IsRunning && !SessionPanel.SessionBlocked;
 
+    /// Tooltip for Run / Run Selected reflecting why start is blocked when disabled.
+    public string CanStartRunTip
+    {
+        get
+        {
+            if (IsRunning)
+            {
+                return "Run in progress — use Safety Stop to abort.";
+            }
+
+            if (SessionPanel.SessionBlocked)
+            {
+                if (SessionPanel.IsStalePrompt || SessionPanel.IsIdleWarningPrompt)
+                {
+                    return "Confirm Same DUT or Change Session before Run.";
+                }
+
+                return "Confirm DUT first.";
+            }
+
+            return "Run the full suite.";
+        }
+    }
+
+    /// Tooltip for Run Selected (same gates, different idle copy).
+    public string CanStartRunSelectedTip
+        => CanStartRun
+            ? "Run the selected leaf or section (subtree + Safe Shutdown). Use Run for the full suite."
+            : CanStartRunTip;
+
+    /// Hide the overall progress bar when idle (not stuck at 0%).
+    public bool ShowOverallProgress => IsRunning;
+
     public event EventHandler? NavigateToResultsRequested;
     public event EventHandler? NavigateToInspectRequested;
 
@@ -229,9 +262,13 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
 
         SessionPanel.PropertyChanged += (_, args) =>
         {
-            if (args.PropertyName == nameof(OperatorSessionPanelViewModel.SessionBlocked))
+            if (args.PropertyName is nameof(OperatorSessionPanelViewModel.SessionBlocked)
+                or nameof(OperatorSessionPanelViewModel.IsStalePrompt)
+                or nameof(OperatorSessionPanelViewModel.IsIdleWarningPrompt))
             {
                 this.RaisePropertyChanged(nameof(CanStartRun));
+                this.RaisePropertyChanged(nameof(CanStartRunTip));
+                this.RaisePropertyChanged(nameof(CanStartRunSelectedTip));
             }
         };
 
@@ -271,6 +308,9 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
                 if (args.PropertyName == nameof(IsRunning))
                 {
                     this.RaisePropertyChanged(nameof(CanStartRun));
+                    this.RaisePropertyChanged(nameof(CanStartRunTip));
+                    this.RaisePropertyChanged(nameof(CanStartRunSelectedTip));
+                    this.RaisePropertyChanged(nameof(ShowOverallProgress));
                 }
             }
         };
