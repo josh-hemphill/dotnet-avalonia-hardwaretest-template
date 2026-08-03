@@ -122,11 +122,21 @@ Set `AppSettings.ExportOpenTapResults` (Settings → **Export OpenTAP results (C
 
 After Pass/Fail, the shell compares channel means on the current run to the last 10 local runs with the same DUT serial + plan ([`DutHistoryService`](../src/HardwareTest.Core/Runs/DutHistoryService.cs)). Metrics group by Presentation `MetricKey` when set (else Channel). Watch/Alert thresholds default to 5%/10%, or per-metric via Presentation `HistoryWatchPercent` / `HistoryAlertPercent` / `HistoryEnabled`. Absent `HistoryEnabled` (legacy records) means **no comparison**, not default thresholds. History detail (metric table) lives on **Results**; the Run board banner is off by default (`ShowDutHistoryOnRun`).
 
-### Presentation contract (Phase I) + UI (Phase J)
+### Presentation contract (Phase I) + UI (Phase J) + band-first authoring (Phase L)
 
-Publish tables `Sample` (Channel, Index, Value) and `Scalar` (Name, Value, Unit, optional LimitLow/LimitHigh). Attach **Presentation** mixin (`ChannelKey`, `DisplayRole`, `YUnit`, optional history thresholds) in Editor or via demos. Results lines show `MetricKey [role] value unit`. Run maps `timeseries` → live plot, `scalar`/`passband` → selected-step gauges; Results adds per-metric charts. Full matrix: [phase-i-presentation-contract.md](opentap-phases/phase-i-presentation-contract.md), [phase-j-presentation-ui.md](opentap-phases/phase-j-presentation-ui.md).
+Publish tables `Sample` (Channel, Index, Value) and `Scalar` (Name, Value, Unit, optional LimitLow/LimitHigh). Attach **Presentation** mixin (`ChannelKey`, `DisplayRole`, `YUnit`, optional history thresholds) in Editor or via demos. Results lines show `MetricKey [role] value unit`. Run maps `timeseries` → Focus trend when earned, `scalar`/`passband` → Band gauges; Results prefers gauges then charts. Full matrix: [phase-i-presentation-contract.md](opentap-phases/phase-i-presentation-contract.md), [phase-j-presentation-ui.md](opentap-phases/phase-j-presentation-ui.md), [phase-l-presentation-authoring.md](opentap-phases/phase-l-presentation-authoring.md). Shell Band/Focus: [phase-16-band-focus-presentation.md](platform-phases/phase-16-band-focus-presentation.md).
 
-**Band-first authoring (planned):** Prefer `scalar` / `passband` with limits for pass criteria; keep `timeseries` for shape/debug. Cookbook + bump/return/envelope recipes: [phase-l-presentation-authoring.md](opentap-phases/phase-l-presentation-authoring.md). Shell Band board + earned Focus trend: [phase-16-band-focus-presentation.md](platform-phases/phase-16-band-focus-presentation.md).
+#### Band-first authoring cookbook
+
+| Recipe | What to publish | Role | Limits | When to also publish timeseries |
+| --- | --- | --- | --- | --- |
+| Rail / mean in band | `rail.X.mean` (or equivalent) final value | `passband` | LimitLow / LimitHigh = spec | Acquire series optional for Focus/debug |
+| Scalar threshold (GTE/LTE) | Mean / computed value | `scalar` or `passband` | One-sided or two-sided limits | Only if shape matters |
+| Bump / pulse timing | Derived: `bump.rise.ms`, `bump.width.ms`, `bump.peak` | `scalar` / `passband` | Window bounds as limits | Raw series only for Focus |
+| Hi → Low return | Derived: `return.high.at.ms`, `return.low.at.ms`, or excursion | `scalar` / `passband` | Timing + amplitude limits | Raw series only for Focus |
+| Envelope / return bounds | Derived: `envelope.error` / `overshoot` / `undershoot` | `passband` | Spec envelope | Raw series for Focus |
+
+Rules of thumb: (1) write pass criteria in words first; (2) publish **one Scalar per criterion** with limits; (3) keep `ChannelKey` stable; (4) add `timeseries` only when Focus trend is useful. Demo: **Timing / Envelope Demo (Band-first)** (`timing-demo`) plus Sample/Board.
 
 ### Reports (multi-PDF)
 
@@ -138,7 +148,7 @@ Loop samples stamp `IterationIndex` / `LoopPath` on `StoredSample` for report ch
 
 - Basic plugin steps (`AcquireVoltageStep`, `MeanGteStep`, `OperatorInputStep`, …).
 - Engineer/Debug overlays `TrySetAcquireSettings` / `TrySetMeanGteThreshold` (sample step types only; prefer the parameter bridge). Prefer `TryGetStepConditionSummary` for read-only display of unknown steps.
-- `LoadSampleProgramAsync` / `LoadBoardDemoProgramAsync` on `IOpenTapSession` — ignore once you only ship disk plans.
+- `LoadSampleProgramAsync` / `LoadBoardDemoProgramAsync` / `LoadTimingDemoProgramAsync` on `IOpenTapSession` — ignore once you only ship disk plans.
 
 Plan-shape fixtures (`LoadPlanShapeAsync`) live on the concrete `OpenTapSession` / `FakeOpenTapSession` for tests, not on `IOpenTapSession`.
 

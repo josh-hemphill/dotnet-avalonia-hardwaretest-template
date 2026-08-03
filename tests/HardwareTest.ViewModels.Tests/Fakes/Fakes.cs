@@ -136,6 +136,20 @@ public sealed class FakeOpenTapSession : IOpenTapSession
         return Task.CompletedTask;
     }
 
+    public Task LoadTimingDemoProgramAsync(CancellationToken cancellationToken = default)
+    {
+        LoadedPlanPath = TimingDemoProgramFactory.EmbeddedName;
+        LoadedPlanName = TimingDemoProgramFactory.DisplayName;
+        Tree.Clear();
+        foreach (var node in BuildTimingDemoTrees())
+        {
+            Tree.Add(node);
+        }
+
+        EnsureDefaultSlot();
+        return Task.CompletedTask;
+    }
+
     private void EnsureDefaultSlot()
     {
         if (Slots.Count > 0)
@@ -469,6 +483,22 @@ public sealed class FakeOpenTapSession : IOpenTapSession
             "Repeat Sweep",
             "Repeat Sweep",
             Leaf("acq", "Acquire VDC", "Repeat Sweep/Acquire VDC"));
+        yield return Leaf("ss", "Safe Shutdown", "Safe Shutdown");
+    }
+
+    private static IEnumerable<OpenTapStepNode> BuildTimingDemoTrees()
+    {
+        static OpenTapStepNode Leaf(string id, string name, string path) => new()
+        {
+            Id = id,
+            Name = name,
+            Path = path,
+        };
+
+        yield return Leaf("wave", "Simulate bump waveform", "Simulate bump waveform");
+        yield return Leaf("rise", "Bump rise time", "Bump rise time");
+        yield return Leaf("ret", "Return low time", "Return low time");
+        yield return Leaf("env", "Envelope error", "Envelope error");
         yield return Leaf("ss", "Safe Shutdown", "Safe Shutdown");
     }
 

@@ -3,7 +3,7 @@
 **Parent:** [opentap-platform.md](../opentap-platform.md)
 **Depends on:** [Phase I](phase-i-presentation-contract.md), [Phase J](phase-j-presentation-ui.md)
 **Unblocks:** [Platform Phase 16](../platform-phases/phase-16-band-focus-presentation.md) (Band board + Focus trend)
-**Status:** Planned
+**Status:** Done
 
 ## Goal
 
@@ -70,13 +70,23 @@ Rules of thumb for authors:
 - New `DisplayRole` strings per bench (“gauge-big”, “plot-main”) — extend the shared enum/list instead.
 - Duplicating the same mean as both unlabeled Sample and Scalar without `ChannelKey` stability.
 
+
+### Demo matrix
+
+| Plan | Step | ChannelKey | DisplayRole | YUnit |
+| --- | --- | --- | --- | --- |
+| Timing | Simulate bump waveform | `bump.v` | timeseries | V |
+| Timing | Bump rise time | `bump.rise.ms` | passband | ms |
+| Timing | Return low time | `return.low.at.ms` | passband | ms |
+| Timing | Envelope error | `envelope.error` | passband | V |
+
 ## Exit criteria
 
-- [ ] `adapting.md` Presentation cookbook with the recipes above (band / bump / return / envelope)
-- [ ] Mixin Display text steers authors to band-first verdicts
-- [ ] At least one demo publishes derived timing or envelope scalars with limits
-- [ ] Role map + host tests cover scalar/passband/timeseries; unknown roles still degrade
-- [ ] Phase 16 can consume existing roles without requiring every live metric to be a waveform
+- [x] `adapting.md` Presentation cookbook with the recipes above (band / bump / return / envelope)
+- [x] Mixin Display text steers authors to band-first verdicts
+- [x] At least one demo publishes derived timing or envelope scalars with limits
+- [x] Role map + host tests cover scalar/passband/timeseries; unknown roles still degrade
+- [x] Phase 16 can consume existing roles without requiring every live metric to be a waveform
 
 ## Out of scope
 
