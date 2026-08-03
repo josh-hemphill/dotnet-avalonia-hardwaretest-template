@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text;
 using System.Text.Json;
+using HardwareTest.Core.IO;
 using HardwareTest.Core.Runs;
 using HardwareTest.Core.Serialization;
 using HardwareTest.Core.Settings;
@@ -339,30 +340,43 @@ public sealed class TypstReportService : IReportService, IDisposable
 
     private string LoadReportFile(string fileName, bool preferLibSubfolder = false)
     {
+        // Template names are single file names only — reject traversal before combining.
+        var safeName = Path.GetFileName(fileName.Replace('\\', '/').Trim());
+        if (string.IsNullOrWhiteSpace(safeName) || safeName is "." or "..")
+        {
+            throw new InvalidOperationException($"Invalid report template name '{fileName}'.");
+        }
+
         if (!string.IsNullOrWhiteSpace(_settings.DataDirectory))
         {
             var reportsRoot = Path.Combine(_settings.DataDirectory, "reports");
             string[] candidates = preferLibSubfolder
                 ?
                 [
-                    Path.Combine(reportsRoot, "lib", fileName),
-                    Path.Combine(reportsRoot, fileName),
+                    Path.Combine(reportsRoot, "lib", safeName),
+                    Path.Combine(reportsRoot, safeName),
                 ]
                 :
                 [
-                    Path.Combine(reportsRoot, fileName),
-                    Path.Combine(reportsRoot, "lib", fileName),
+                    Path.Combine(reportsRoot, safeName),
+                    Path.Combine(reportsRoot, "lib", safeName),
                 ];
             foreach (var path in candidates)
             {
-                if (File.Exists(path))
+                var full = Path.GetFullPath(path);
+                if (!PathContainment.IsUnderRoot(reportsRoot, full))
                 {
-                    return File.ReadAllText(path, Encoding.UTF8);
+                    continue;
+                }
+
+                if (File.Exists(full))
+                {
+                    return File.ReadAllText(full, Encoding.UTF8);
                 }
             }
         }
 
-        return LoadEmbeddedResource(fileName);
+        return LoadEmbeddedResource(safeName);
     }
 
     private static string LoadEmbeddedResource(string fileName)

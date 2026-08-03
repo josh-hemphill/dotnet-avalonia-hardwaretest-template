@@ -93,6 +93,7 @@
                   IsEnabled="{Binding CanStartRun}"
                   ToolTip.Tip="{Binding CanStartRunTip}" />
           <Button Content="Safety Stop" Command="{Binding Run.CancelCommand}"
+                  IsEnabled="{Binding CanSafetyStop}"
                   Classes="danger"
                   ToolTip.Tip="Abort the run (also cancels an in-panel operator prompt). Prefer Continue when answering a prompt." />
           <Button Content="Inspect" Command="{Binding InspectPlanCommand}" />

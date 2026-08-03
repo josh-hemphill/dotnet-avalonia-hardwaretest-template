@@ -11,6 +11,7 @@ using PDFtoImage;
 using ReactiveUI;
 using ReactiveUI.SourceGenerators;
 using SkiaSharp;
+using HardwareTest.UiThreading;
 
 namespace HardwareTest.Features.ReportPreview;
 
@@ -75,21 +76,25 @@ public partial class ReportPreviewViewModel : ReactiveObject
 
             try
             {
-                var bitmaps = await Task.Run(() => RenderPages(path));
-                foreach (var bitmap in bitmaps)
+                var bitmaps = await Task.Run(() => RenderPages(path)).ConfigureAwait(false);
+                await UiDispatch.RunAsync(() =>
                 {
-                    Pages.Add(bitmap);
-                }
+                    foreach (var bitmap in bitmaps)
+                    {
+                        Pages.Add(bitmap);
+                    }
 
-                Status = $"Previewing {path} ({Pages.Count} page(s) shown).";
+                    Status = $"Previewing {path} ({Pages.Count} page(s) shown).";
+                    this.RaisePropertyChanged(nameof(ShowEmptyState));
+                }).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
-                Status = $"Preview failed: {ex.Message}";
-            }
-            finally
-            {
-                this.RaisePropertyChanged(nameof(ShowEmptyState));
+                await UiDispatch.RunAsync(() =>
+                {
+                    Status = $"Preview failed: {ex.Message}";
+                    this.RaisePropertyChanged(nameof(ShowEmptyState));
+                }).ConfigureAwait(false);
             }
         }
         finally

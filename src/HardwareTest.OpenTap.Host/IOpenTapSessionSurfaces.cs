@@ -23,6 +23,8 @@ public interface IOpenTapPlanSession
 /// Named to avoid collision with Core <c>IRunControl</c> (VISA/engine pause-cancel).
 public interface IOpenTapRunSession : INotifyPropertyChanged
 {
+    /// True while <see cref="RunAsync"/> / <see cref="RunSelectionAsync"/> holds the single-flight gate.
+    bool IsExecuting { get; }
     bool IsAwaitingOperator { get; }
     string? OperatorPromptMessage { get; }
     OperatorInteractionRequest? PendingInteraction { get; }

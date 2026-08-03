@@ -14,6 +14,7 @@ public sealed class FakeOpenTapSession : IOpenTapSession
     private CancellationTokenSource? _runCts;
     private bool _isAwaitingOperator;
     private bool _paused;
+    private int _runGate;
     private readonly ManualResetEventSlim _pauseGate = new(true);
     private readonly ManualResetEventSlim _interactionGate = new(true);
 
@@ -50,6 +51,7 @@ public sealed class FakeOpenTapSession : IOpenTapSession
 
     public IReadOnlyList<OpenTapStepNode> StepTree => Tree;
     public IReadOnlyList<OpenTapInstrumentSlot> InstrumentSlots => Slots;
+    public bool IsExecuting => Volatile.Read(ref _runGate) != 0;
     public bool IsAwaitingOperator
     {
         get => _isAwaitingOperator;
@@ -474,6 +476,11 @@ public sealed class FakeOpenTapSession : IOpenTapSession
 
     public Task ApplyStationAndDutAsync(StationProfile station, DutIdentity dut, CancellationToken cancellationToken = default)
     {
+        if (IsExecuting)
+        {
+            throw new InvalidOperationException("Cannot apply station or DUT bindings while a run is in progress.");
+        }
+
         LastStation = station;
         LastDut = dut;
         return Task.CompletedTask;
@@ -483,6 +490,22 @@ public sealed class FakeOpenTapSession : IOpenTapSession
         IProgress<OpenTapProgress>? progress = null,
         CancellationToken cancellationToken = default,
         string? runId = null)
+    {
+        EnterRunGate();
+        try
+        {
+            return await RunAsyncUnguarded(progress, cancellationToken, runId).ConfigureAwait(false);
+        }
+        finally
+        {
+            ExitRunGate();
+        }
+    }
+
+    private async Task<OpenTapRunSummary> RunAsyncUnguarded(
+        IProgress<OpenTapProgress>? progress,
+        CancellationToken cancellationToken,
+        string? runId)
     {
         RunCount++;
         _runCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -728,6 +751,30 @@ public sealed class FakeOpenTapSession : IOpenTapSession
         string? runId = null,
         bool includeCleanup = true)
     {
+        EnterRunGate();
+        try
+        {
+            return await RunSelectionUnguarded(
+                    stepPath,
+                    progress,
+                    cancellationToken,
+                    runId,
+                    includeCleanup)
+                .ConfigureAwait(false);
+        }
+        finally
+        {
+            ExitRunGate();
+        }
+    }
+
+    private async Task<OpenTapRunSummary> RunSelectionUnguarded(
+        string stepPath,
+        IProgress<OpenTapProgress>? progress,
+        CancellationToken cancellationToken,
+        string? runId,
+        bool includeCleanup)
+    {
         SelectionRunCount++;
         LastSelectionPath = stepPath;
         LastSelectionIncludeCleanup = includeCleanup;
@@ -894,6 +941,22 @@ public sealed class FakeOpenTapSession : IOpenTapSession
         }
     }
 
+    private void EnterRunGate()
+    {
+        if (Interlocked.CompareExchange(ref _runGate, 1, 0) != 0)
+        {
+            throw new InvalidOperationException("A run is already in progress.");
+        }
+
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsExecuting)));
+    }
+
+    private void ExitRunGate()
+    {
+        Interlocked.Exchange(ref _runGate, 0);
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsExecuting)));
+    }
+
     private void ClearInteractionState()
     {
         IsAwaitingOperator = false;
@@ -945,9 +1008,9 @@ public sealed class FakeOpenTapSession : IOpenTapSession
         }
     }
 
-    public bool TrySetStepEnabled(string stepPath, bool enabled) => true;
-    public bool TrySetAcquireSettings(string stepPath, int? sampleCount, int? intervalMs) => true;
-    public bool TrySetMeanGteThreshold(string stepPath, double threshold) => true;
+    public bool TrySetStepEnabled(string stepPath, bool enabled) => !IsExecuting;
+    public bool TrySetAcquireSettings(string stepPath, int? sampleCount, int? intervalMs) => !IsExecuting;
+    public bool TrySetMeanGteThreshold(string stepPath, double threshold) => !IsExecuting;
 
     public bool TryGetStepConditionSummary(string stepPath, out string? summary)
     {
@@ -975,9 +1038,13 @@ public sealed class FakeOpenTapSession : IOpenTapSession
         return true;
     }
 
-    public bool TryRebindDmmResource(string resource) => true;
+    public bool TryRebindDmmResource(string resource) => !IsExecuting;
     public bool TryBindSlotResource(string slotName, string resource)
     {
+        if (IsExecuting)
+        {
+            return false;
+        }
         var slot = Slots.FirstOrDefault(s => string.Equals(s.Name, slotName, StringComparison.OrdinalIgnoreCase));
         if (slot is null)
         {
@@ -1159,6 +1226,11 @@ public sealed class FakeOpenTapSession : IOpenTapSession
 
     public bool TrySetParameter(string memberKey, string value)
     {
+        if (IsExecuting)
+        {
+            return false;
+        }
+
         if (!OpenTapParameterInfo.TryParseMemberKey(memberKey, out var ownerKey, out var memberName))
         {
             return false;

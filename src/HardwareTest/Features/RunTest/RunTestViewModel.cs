@@ -149,6 +149,9 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
     /// True when neither a run is in progress nor the session is blocking the start.
     public bool CanStartRun => !IsRunning && !SessionPanel.SessionBlocked;
 
+    /// True when Safety Stop can abort a run or cancel an in-panel operator prompt.
+    public bool CanSafetyStop => IsRunning || Interaction.IsAwaitingOperator;
+
     /// Tooltip for Run / Run Selected reflecting why start is blocked when disabled.
     public string CanStartRunTip
     {
@@ -293,6 +296,7 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
             if (args.PropertyName == nameof(InteractionHostViewModel.IsAwaitingOperator))
             {
                 RefreshHero();
+                this.RaisePropertyChanged(nameof(CanSafetyStop));
             }
         };
 
@@ -311,6 +315,7 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
                     this.RaisePropertyChanged(nameof(CanStartRunTip));
                     this.RaisePropertyChanged(nameof(CanStartRunSelectedTip));
                     this.RaisePropertyChanged(nameof(ShowOverallProgress));
+                    this.RaisePropertyChanged(nameof(CanSafetyStop));
                 }
             }
         };
