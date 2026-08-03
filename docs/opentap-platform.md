@@ -97,7 +97,7 @@ Two different concepts (do not conflate):
 ## Mixin support model
 
 - Mixins load with plugins (`OpenTapPluginDirectories` / package install dirs). Host always searches Basic + Mixins plugin assembly directories (`OpenTapPluginSearch`).
-- Demo: [`AnnotationMixin`](../src/HardwareTest.OpenTap.Plugins.Mixins/AnnotationMixin.cs) and [`PresentationMixin`](../src/HardwareTest.OpenTap.Plugins.Mixins/PresentationMixin.cs) (`ChannelKey` / `DisplayRole` / `YUnit`). Sample Identity Check attaches Annotation; Acquire/Mean steps across Sample, Board, and Sweep demos attach Presentation — see [phase-i-presentation-contract.md](opentap-phases/phase-i-presentation-contract.md). Run/Results map roles to plot + gauges ([phase-j-presentation-ui.md](opentap-phases/phase-j-presentation-ui.md)). Production plans attach mixins in **OpenTAP Editor**.
+- Demo: [`AnnotationMixin`](../src/HardwareTest.OpenTap.Plugins.Mixins/AnnotationMixin.cs) and [`PresentationMixin`](../src/HardwareTest.OpenTap.Plugins.Mixins/PresentationMixin.cs) (`ChannelKey` / `DisplayRole` / `YUnit`). Sample Identity Check attaches Annotation; Acquire/Mean steps across Sample, Board, and Sweep demos attach Presentation — see [phase-i-presentation-contract.md](opentap-phases/phase-i-presentation-contract.md). Run/Results map roles to plot + gauges ([phase-j-presentation-ui.md](opentap-phases/phase-j-presentation-ui.md)). Band-first authoring cookbook: [phase-l-presentation-authoring.md](opentap-phases/phase-l-presentation-authoring.md). Production plans attach mixins in **OpenTAP Editor**.
 - Engineer/Debug Station overrides lists mixin-embedded members via TypeData (`EmbedProperties`), with `OpenTapParameterInfo.IsMixinEmbedded` + Group (e.g. `Annotation: Note`). Get/set uses the Phase C parameter bridge.
 - Author mixins with `IMixin` + `IMixinBuilder` (`[MixinBuilder(typeof(ITestStep))]`). Avalonia does **not** offer “Add Mixin” — attach in Editor, edit values in the shell.
 - See [phase-d-mixins.md](opentap-phases/phase-d-mixins.md) and [adapting.md](adapting.md#11-custom-mixins).
@@ -151,8 +151,9 @@ Multi-DUT / parallel is **no longer deferred** — see Phase K below.
 | I | [Presentation contract](opentap-phases/phase-i-presentation-contract.md) | Done |
 | J | [Presentation UI](opentap-phases/phase-j-presentation-ui.md) | Done |
 | K | [Multi-DUT / parallel](opentap-phases/phase-k-multi-dut-parallel.md) | Planned (after platform Phase 14) |
+| L | [Presentation authoring (band-first)](opentap-phases/phase-l-presentation-authoring.md) | Planned (unblocks platform Phase 16) |
 
-**Suggested order:** A → B → C → D; E can parallelize after the doc; F after C; G/H after parameters stabilize; I → J after loop-stamped samples / DUT history. **K after** platform [Phase 14](platform-phases/phase-14-session-facade-split.md).
+**Suggested order:** A → B → C → D; E can parallelize after the doc; F after C; G/H after parameters stabilize; I → J after loop-stamped samples / DUT history. **K after** platform [Phase 14](platform-phases/phase-14-session-facade-split.md). **L before / with** platform [Phase 16](platform-phases/phase-16-band-focus-presentation.md) (Band board + Focus trend)—cookbook and demos first so shell work has maintainable authoring patterns.
 
 ## Cross-cutting rules (every phase)
 
