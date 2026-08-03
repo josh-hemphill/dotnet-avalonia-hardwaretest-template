@@ -18,6 +18,13 @@ public interface IVisaModeController
     bool TryApply(bool wantMock, out string statusMessage);
 }
 
+/// Builds the active factory/discovery pair for a mock-or-real mode.
+/// Tests inject stubs for the real branch so CI never loads the IVI native runtime.
+public delegate (IVisaSessionFactory Factory, IVisaResourceDiscovery Discovery) VisaModeInnerBuilder(
+    bool useMock,
+    VisaSessionGate gate,
+    Action<string>? onIviError);
+
 /// Delegating façade that forwards IVisaSessionFactory / IVisaResourceDiscovery calls to swappable
 /// inners. Swaps are allowed only when no run is active and the VISA gate holds no open sessions.
 public sealed class VisaModeController : IVisaModeController, IVisaSessionFactory, IVisaResourceDiscovery
@@ -25,6 +32,7 @@ public sealed class VisaModeController : IVisaModeController, IVisaSessionFactor
     private readonly VisaSessionGate _gate;
     private readonly IRunControl _runControl;
     private readonly Action<string>? _onIviError;
+    private readonly VisaModeInnerBuilder _buildInners;
     private readonly object _sync = new();
 
     private IVisaSessionFactory _factory;
@@ -34,13 +42,15 @@ public sealed class VisaModeController : IVisaModeController, IVisaSessionFactor
         bool initialUseMockVisa,
         VisaSessionGate gate,
         IRunControl runControl,
-        Action<string>? onIviError = null)
+        Action<string>? onIviError = null,
+        VisaModeInnerBuilder? buildInners = null)
     {
         _gate = gate;
         _runControl = runControl;
         _onIviError = onIviError;
+        _buildInners = buildInners ?? DefaultBuildInners;
         EffectiveUseMockVisa = initialUseMockVisa;
-        (_factory, _discovery) = BuildInners(initialUseMockVisa);
+        (_factory, _discovery) = _buildInners(initialUseMockVisa, gate, onIviError);
     }
 
     /// <inheritdoc/>
@@ -76,7 +86,7 @@ public sealed class VisaModeController : IVisaModeController, IVisaSessionFactor
             return false;
         }
 
-        var (newFactory, newDiscovery) = BuildInners(wantMock);
+        var (newFactory, newDiscovery) = _buildInners(wantMock, _gate, _onIviError);
         lock (_sync)
         {
             _factory = newFactory;
@@ -116,13 +126,16 @@ public sealed class VisaModeController : IVisaModeController, IVisaSessionFactor
         return discovery.FindAsync(cancellationToken);
     }
 
-    private (IVisaSessionFactory factory, IVisaResourceDiscovery discovery) BuildInners(bool useMock)
+    private static (IVisaSessionFactory Factory, IVisaResourceDiscovery Discovery) DefaultBuildInners(
+        bool useMock,
+        VisaSessionGate gate,
+        Action<string>? onIviError)
     {
         if (useMock)
         {
-            return (new MockVisaSessionFactory(_gate), new MockVisaResourceDiscovery());
+            return (new MockVisaSessionFactory(gate), new MockVisaResourceDiscovery());
         }
 
-        return (new IviVisaSessionFactory(_gate), new IviVisaResourceDiscovery(_onIviError));
+        return (new IviVisaSessionFactory(gate), new IviVisaResourceDiscovery(onIviError));
     }
 }
