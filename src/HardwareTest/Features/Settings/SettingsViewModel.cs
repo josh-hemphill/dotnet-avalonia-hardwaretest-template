@@ -195,7 +195,7 @@ public partial class SettingsViewModel : ReactiveObject
     public bool ShowEventLogOptions { get; }
     public bool ShowSyslogOptions { get; }
 
-    public string AboutVersion => _buildInfo.InformationalVersion;
+    public string AboutVersion => _buildInfo.Version;
     public string AboutCommit => _buildInfo.CommitSha;
     public string AboutBuildTimestamp =>
         _buildInfo.BuildTimestampUtc?.ToString("u", CultureInfo.InvariantCulture) ?? "unknown";

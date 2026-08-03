@@ -9,9 +9,9 @@
               Margin="16,0"
               Padding="12"
               CornerRadius="6"
-              BorderBrush="{DynamicResource SystemControlForegroundBaseMediumBrush}"
+              BorderBrush="#C62828"
               BorderThickness="1"
-              Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
+              Background="#FFEBEE"
               MaxWidth="920"
               HorizontalAlignment="Center">
         <StackPanel Spacing="8">
@@ -24,8 +24,19 @@
             <Button Content="Export support bundle" Command="{Binding ExportSupportBundleCommand}" />
             <Button Content="Dismiss" Command="{Binding DismissCrashBannerCommand}" />
           </StackPanel>
-          <TextBlock Text="{Binding CrashStatus}" Opacity="0.75" FontSize="12" TextWrapping="Wrap" />
         </StackPanel>
+      </Border>
+
+      <Border IsVisible="{Binding CrashStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+              Margin="16,0"
+              Padding="12"
+              CornerRadius="6"
+              BorderBrush="{DynamicResource SystemControlForegroundBaseMediumBrush}"
+              BorderThickness="1"
+              Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
+              MaxWidth="920"
+              HorizontalAlignment="Center">
+        <TextBlock Text="{Binding CrashStatus}" TextWrapping="Wrap" Opacity="0.9" />
       </Border>
 
       <StackPanel Spacing="8" HorizontalAlignment="Center" MaxWidth="720">
