@@ -162,7 +162,6 @@ public static class PlanShapeFixtures
 
     private static void EnsurePlugins()
     {
-        OpenTapPluginSearch.EnsureCorePluginDirectories();
-        PluginManager.Search();
+        OpenTapPluginSearch.SearchSerialized();
     }
 }

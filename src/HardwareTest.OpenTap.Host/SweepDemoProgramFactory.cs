@@ -13,7 +13,7 @@ public static class SweepDemoProgramFactory
 
     public static TestPlan Create()
     {
-        OpenTapPluginSearch.EnsureCorePluginDirectories();
+        OpenTapPluginSearch.SearchSerialized();
 
         var instrument = new MockDmmInstrument { Name = "DMM", ResourceName = "MOCK::INSTR0" };
         var body = new AcquireVoltageStep
@@ -41,8 +41,7 @@ public static class SweepDemoProgramFactory
     public static void SaveBeside(string directory)
     {
         Directory.CreateDirectory(directory);
-        OpenTapPluginSearch.EnsureCorePluginDirectories();
-        PluginManager.Search();
+        OpenTapPluginSearch.SearchSerialized();
         Create().Save(Path.Combine(directory, FixtureFileName));
     }
 }

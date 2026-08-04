@@ -7,6 +7,8 @@ namespace HardwareTest.OpenTap.Host;
 /// Registers Basic + Mixins plugin directories for PluginManager.Search.
 internal static class OpenTapPluginSearch
 {
+    private static readonly object SearchGate = new();
+
     public static void EnsureCorePluginDirectories()
     {
         Add(typeof(MockDmmInstrument).Assembly.Location);
@@ -38,6 +40,16 @@ internal static class OpenTapPluginSearch
         if (!PluginManager.DirectoriesToSearch.Contains(full))
         {
             PluginManager.DirectoriesToSearch.Add(full);
+        }
+    }
+
+    /// Serializes PluginManager.Search — OpenTAP plugin discovery is not safe under parallel test hosts.
+    public static void SearchSerialized()
+    {
+        lock (SearchGate)
+        {
+            EnsureCorePluginDirectories();
+            PluginManager.Search();
         }
     }
 }

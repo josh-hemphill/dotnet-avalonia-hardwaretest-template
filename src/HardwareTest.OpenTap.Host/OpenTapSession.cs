@@ -1172,8 +1172,6 @@ public sealed class OpenTapSession : IOpenTapSession, INotifyPropertyChanged
             return;
         }
 
-        OpenTapPluginSearch.EnsureCorePluginDirectories();
-
         foreach (var dir in _settings.OpenTapPluginDirectories)
         {
             AddPluginSearchDir(dir);
@@ -1188,7 +1186,7 @@ public sealed class OpenTapSession : IOpenTapSession, INotifyPropertyChanged
             }
         }
 
-        PluginManager.Search();
+        OpenTapPluginSearch.SearchSerialized();
         _pluginSearchDone = true;
     }
 

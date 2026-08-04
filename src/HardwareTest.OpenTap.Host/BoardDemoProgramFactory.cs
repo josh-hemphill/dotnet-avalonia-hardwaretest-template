@@ -17,7 +17,7 @@ public static class BoardDemoProgramFactory
 
     public static TestPlan Create()
     {
-        OpenTapPluginSearch.EnsureCorePluginDirectories();
+        OpenTapPluginSearch.SearchSerialized();
 
         var instrument = new MockDmmInstrument { Name = "DMM", ResourceName = "MOCK::INSTR0" };
         var dut = new HardwareDut { Name = "DUT", Family = "demo" };
@@ -145,8 +145,7 @@ public static class BoardDemoProgramFactory
     {
         Directory.CreateDirectory(directory);
         var path = Path.Combine(directory, EmbeddedName);
-        OpenTapPluginSearch.EnsureCorePluginDirectories();
-        PluginManager.Search();
+        OpenTapPluginSearch.SearchSerialized();
         Create().Save(path);
     }
 }
