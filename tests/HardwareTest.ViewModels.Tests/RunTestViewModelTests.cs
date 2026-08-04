@@ -1064,6 +1064,52 @@ public sealed class RunTestViewModelTests
     }
 
     [Fact]
+    public async Task Live_status_updates_preserve_step_list_item_identity()
+    {
+        var vm = CreateVm();
+        vm.UiScheduler = action => action();
+        await vm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
+        var entire = vm.StepTree.Stages.First(s => s.Step is null);
+        vm.StepTree.SelectedStage = entire;
+
+        var before = vm.StepTree.StepListItems.ToList();
+        Assert.NotEmpty(before);
+        var selectedBefore = vm.StepTree.SelectedStepListItem;
+        Assert.NotNull(selectedBefore);
+
+        vm.IsRunning = true;
+        vm.IngestProgress(new OpenTapProgress
+        {
+            Message = "Working",
+            StepName = "Acquire VDC",
+            StepPath = "Sample Hardware Suite/Voltage Sweep/Acquire VDC",
+            StatusText = "Running",
+            KeyValue = "V=1.2",
+            OverallPercent = 40,
+        });
+        vm.IngestProgress(new OpenTapProgress
+        {
+            Message = "Working",
+            StepName = "Acquire VDC",
+            StepPath = "Sample Hardware Suite/Voltage Sweep/Acquire VDC",
+            StatusText = "Pass",
+            Verdict = "Pass",
+            KeyValue = "V=1.25",
+            OverallPercent = 55,
+        });
+
+        Assert.Equal(before.Count, vm.StepTree.StepListItems.Count);
+        Assert.True(
+            before.Zip(vm.StepTree.StepListItems).All(pair => ReferenceEquals(pair.First, pair.Second)),
+            "Live status flushes must not recreate step list rows (hover/focus jumps under the pointer).");
+        Assert.Same(selectedBefore, vm.StepTree.SelectedStepListItem);
+
+        var acquire = before.First(i => !i.IsHeader && i.DisplayName == "Acquire VDC");
+        Assert.Equal("Pass", acquire.Step!.ChipText);
+        Assert.Equal("V=1.25", acquire.Step.KeyValue);
+    }
+
+    [Fact]
     public void Compact_toggle_updates_compact_step_rows()
     {
         var vm = CreateVm();

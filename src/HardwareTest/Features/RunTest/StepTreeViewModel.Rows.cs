@@ -84,6 +84,15 @@ public partial class StepTreeViewModel
 
         var items = StepRowBuilder.Build(_fullHierarchy, scope, scopeUsesSections, StepStatusFilter, StepSearchText);
 
+        // Keep list-item identity when only live status/key fields changed. Clearing the
+        // ObservableCollection under the pointer recreates ListBox rows and jumps focus/scroll.
+        if (HasSameStepListStructure(StepListItems, items))
+        {
+            RefreshBreadcrumb();
+            SyncSelectedStepListItem();
+            return;
+        }
+
         StepListItems.Clear();
         foreach (var item in items)
         {
@@ -101,6 +110,30 @@ public partial class StepTreeViewModel
 
         RefreshBreadcrumb();
         SyncSelectedStepListItem();
+    }
+
+    private static bool HasSameStepListStructure(
+        IReadOnlyList<StepListItemViewModel> current,
+        IReadOnlyList<StepListItemViewModel> next)
+    {
+        if (current.Count != next.Count)
+        {
+            return false;
+        }
+
+        for (var i = 0; i < current.Count; i++)
+        {
+            var a = current[i];
+            var b = next[i];
+            if (a.IsHeader != b.IsHeader
+                || !string.Equals(a.DisplayName, b.DisplayName, StringComparison.Ordinal)
+                || !ReferenceEquals(a.Step, b.Step))
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /// Keeps a usable selection after a rebuild: preferred path, then the same instance, then same path, then first row.
@@ -154,10 +187,12 @@ public partial class StepTreeViewModel
     private void SyncSelectedStepListItem()
     {
         var match = StepListItems.FirstOrDefault(i => ReferenceEquals(i.Step, SelectedStep));
-        if (match is not null)
+        if (match is null || ReferenceEquals(SelectedStepListItem, match))
         {
-            SelectedStepListItem = match;
+            return;
         }
+
+        SelectedStepListItem = match;
     }
 
     public void RollupParentStatuses()
