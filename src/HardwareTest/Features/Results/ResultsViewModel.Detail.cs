@@ -15,6 +15,9 @@ namespace HardwareTest.Features.Results;
 
 public partial class ResultsViewModel
 {
+    /// Caps sidebar step/sample rows — ItemsControl is not virtualized inside the detail scroller.
+    private const int SidebarDetailCap = 200;
+
     /// Test seam: routes UI work synchronously instead of through the Avalonia dispatcher.
     public Action<Action>? UiScheduler { get; set; }
 
@@ -334,14 +337,24 @@ public partial class ResultsViewModel
             HasSchemaBadge = true;
         }
 
-        foreach (var step in OpenedRun.Steps)
+        foreach (var step in OpenedRun.Steps.Take(SidebarDetailCap))
         {
             StepDetails.Add($"{ShortId.Display(step.StepId)} [{step.StepType}] {(step.Passed ? "PASS" : "FAIL")} — {step.Message}");
         }
 
-        foreach (var sample in OpenedRun.Samples.Take(200))
+        if (OpenedRun.Steps.Count > SidebarDetailCap)
+        {
+            StepDetails.Add($"…and {OpenedRun.Steps.Count - SidebarDetailCap} more steps (see run.json / report).");
+        }
+
+        foreach (var sample in OpenedRun.Samples.Take(SidebarDetailCap))
         {
             SampleDetails.Add(sample.ToDisplayLine());
+        }
+
+        if (OpenedRun.Samples.Count > SidebarDetailCap)
+        {
+            SampleDetails.Add($"…and {OpenedRun.Samples.Count - SidebarDetailCap} more samples (see run.json / report).");
         }
 
         foreach (var tile in PresentationRoleMap.BuildFromStoredSamples(OpenedRun.Samples))
