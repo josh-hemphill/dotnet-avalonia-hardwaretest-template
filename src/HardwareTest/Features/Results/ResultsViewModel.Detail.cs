@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using HardwareTest.Core.Reporting;
 using HardwareTest.Core.Runs;
 using HardwareTest.Core.Storage;
+using HardwareTest.Core.Text;
 using HardwareTest.Features.Presentation;
 using HardwareTest.OpenTap.Host;
 using ReactiveUI;
@@ -120,11 +121,11 @@ public partial class ResultsViewModel
         if (match is not null)
         {
             SelectedRun = match;
-            Status = $"Opened run {runId}.";
+            Status = $"Opened run {ShortId.Display(runId)}.";
         }
         else
         {
-            Status = $"Run '{runId}' not found in history.";
+            Status = $"Run '{ShortId.Display(runId)}' not found in history.";
         }
     }
 
@@ -335,7 +336,7 @@ public partial class ResultsViewModel
 
         foreach (var step in OpenedRun.Steps)
         {
-            StepDetails.Add($"{step.StepId} [{step.StepType}] {(step.Passed ? "PASS" : "FAIL")} — {step.Message}");
+            StepDetails.Add($"{ShortId.Display(step.StepId)} [{step.StepType}] {(step.Passed ? "PASS" : "FAIL")} — {step.Message}");
         }
 
         foreach (var sample in OpenedRun.Samples.Take(200))
@@ -351,8 +352,8 @@ public partial class ResultsViewModel
         HasPresentationTiles = PresentationTiles.Count > 0;
         LoadReportItems(OpenedRun);
 
-        Status = $"Opened {OpenedRun.RunId} ({OpenedRun.Result}) — {OpenedRun.Steps.Count} steps, {OpenedRun.Samples.Count} samples."
-                 + (OpenedRun.SessionId is { } sid ? $" Session {sid[..Math.Min(8, sid.Length)]}." : string.Empty);
+        Status = $"Opened {ShortId.Display(OpenedRun.RunId)} ({OpenedRun.Result}) — {OpenedRun.Steps.Count} steps, {OpenedRun.Samples.Count} samples."
+                 + (OpenedRun.SessionId is { } sid ? $" Session {ShortId.Display(sid)}." : string.Empty);
         if (!string.IsNullOrWhiteSpace(SchemaWarning))
         {
             Status += " " + SchemaWarning;

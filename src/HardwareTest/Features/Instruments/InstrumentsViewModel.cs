@@ -165,6 +165,7 @@ public partial class InstrumentsViewModel : ReactiveObject
     private readonly IVisaSessionFactory _visaSessions;
     private readonly OperatorSession? _operatorSession;
     private readonly IVisaModeController? _visaModeController;
+    private readonly object _slotsGate = new();
     private bool _suppressSelectionSync;
 
     public InstrumentsViewModel(
@@ -359,24 +360,47 @@ public partial class InstrumentsViewModel : ReactiveObject
 
     private Task RefreshSlotsAsync()
     {
-        SlotOverrides.Clear();
-        var saved = _settingsStore.AppSettings.PlanSlotOverrides;
-        var useMockVisa = _visaModeController?.EffectiveUseMockVisa ?? _settingsStore.AppSettings.UseMockVisa;
-        try
+        lock (_slotsGate)
         {
-            foreach (var entry in ProgramCatalog.Enumerate())
+            SlotOverrides.Clear();
+            var saved = _settingsStore.AppSettings.PlanSlotOverrides;
+            var useMockVisa = _visaModeController?.EffectiveUseMockVisa ?? _settingsStore.AppSettings.UseMockVisa;
+            var failures = 0;
+            try
             {
-                var plan = InstrumentSlotCollector.CreatePlan(entry);
-                AddSlotsFromPlan(entry.Id, entry.DisplayName, InstrumentSlotCollector.FromPlan(plan), saved, useMockVisa);
-            }
+                foreach (var entry in ProgramCatalog.Enumerate())
+                {
+                    try
+                    {
+                        var plan = InstrumentSlotCollector.CreatePlan(entry);
+                        AddSlotsFromPlan(entry.Id, entry.DisplayName, InstrumentSlotCollector.FromPlan(plan), saved, useMockVisa);
+                    }
+                    catch (Exception ex)
+                    {
+                        failures++;
+                        Status = $"Plan '{entry.DisplayName}' slots skipped: {ex.Message}";
+                    }
+                }
 
-            Status = SlotOverrides.Count == 0
-                ? "No OpenTAP instrument slots found in available plans."
-                : $"Loaded {SlotOverrides.Count} slot(s) from available plans.";
-        }
-        catch (Exception ex)
-        {
-            Status = $"Failed to load plan slots: {ex.Message}";
+                if (SlotOverrides.Count == 0)
+                {
+                    Status = failures > 0
+                        ? $"No OpenTAP instrument slots found ({failures} plan load error(s))."
+                        : "No OpenTAP instrument slots found in available plans.";
+                }
+                else if (failures == 0)
+                {
+                    Status = $"Loaded {SlotOverrides.Count} slot(s) from available plans.";
+                }
+                else
+                {
+                    Status = $"Loaded {SlotOverrides.Count} slot(s); {failures} plan(s) failed.";
+                }
+            }
+            catch (Exception ex)
+            {
+                Status = $"Failed to load plan slots: {ex.Message}";
+            }
         }
 
         return Task.CompletedTask;
