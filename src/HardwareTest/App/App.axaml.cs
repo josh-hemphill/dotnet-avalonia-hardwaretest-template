@@ -84,11 +84,12 @@ public partial class App : Application
             });
         CrashHandler.InstallUiHooks();
 
+        var shell = _services.GetRequiredService<MainWindowViewModel>();
+        shell.BeginStartup("Starting Hardware Test…");
+
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             var mainWindow = _services.GetRequiredService<MainWindow>();
-            var shell = _services.GetRequiredService<MainWindowViewModel>();
-            shell.BeginStartup("Starting Hardware Test…");
             desktop.MainWindow = mainWindow;
             desktop.ShutdownRequested += async (_, _) =>
             {
@@ -102,10 +103,10 @@ public partial class App : Application
                     // best effort on shutdown
                 }
             };
-
-            // First paint happens before OpenTAP plugin search / plan load / retention.
-            _ = RunDeferredStartupAsync(shell);
         }
+
+        // First paint (or headless E2E) before OpenTAP plugin search / plan load / retention.
+        _ = RunDeferredStartupAsync(shell);
 
         base.OnFrameworkInitializationCompleted();
     }

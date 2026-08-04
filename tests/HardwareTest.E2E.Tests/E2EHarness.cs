@@ -3,6 +3,7 @@ using System.Reactive;
 using System.Reactive.Linq;
 using System.Reactive.Threading.Tasks;
 using Avalonia;
+using Avalonia.Threading;
 using HardwareTest;
 using HardwareTest.Features;
 using HardwareTest.Features.ReportPreview;
@@ -24,7 +25,33 @@ internal static class E2EHarness
         var app = RequireApp();
         var window = app.Services.GetRequiredService<MainWindow>();
         window.Show();
+        WaitForStartup(MainVm(window));
         return window;
+    }
+
+    /// Pumps the dispatcher until deferred OpenTAP warm-up finishes (or warms explicitly if needed).
+    public static void WaitForStartup(MainWindowViewModel main)
+    {
+        var limit = TimeSpan.FromMinutes(2);
+        var sw = Stopwatch.StartNew();
+        while (main.IsStartingUp && sw.Elapsed < limit)
+        {
+            Dispatcher.UIThread.RunJobs();
+            Thread.Sleep(20);
+        }
+
+        if (main.IsStartingUp)
+        {
+            throw new TimeoutException($"Startup overlay did not clear ({main.StartupStatus}).");
+        }
+
+        if (main.RunTest.ProgramSelection.Programs.Count > 0)
+        {
+            return;
+        }
+
+        // Headless hosts that skipped deferred startup still need a catalog for Run/Inspect smoke.
+        main.RunTest.WarmProgramsAsync().GetAwaiter().GetResult();
     }
 
     public static MainWindowViewModel MainVm(MainWindow window)
