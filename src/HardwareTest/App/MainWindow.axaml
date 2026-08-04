@@ -68,7 +68,35 @@
     </ui:FANavigationView.PaneFooter>
 
     <Panel Margin="16">
-      <ContentControl Content="{Binding CurrentPage}" />
+      <ContentControl Content="{Binding CurrentPage}"
+                      IsEnabled="{Binding !IsStartingUp}" />
+      <Border IsVisible="{Binding IsStartingUp}"
+              Classes="startup-overlay"
+              Background="#CC1A1A1A"
+              CornerRadius="8"
+              HorizontalAlignment="Stretch"
+              VerticalAlignment="Stretch">
+        <StackPanel VerticalAlignment="Center"
+                    HorizontalAlignment="Center"
+                    Spacing="14"
+                    Margin="24">
+          <TextBlock Text="Hardware Test"
+                     FontSize="22"
+                     FontWeight="SemiBold"
+                     Foreground="White"
+                     HorizontalAlignment="Center" />
+          <ProgressBar IsIndeterminate="True"
+                       Width="280"
+                       Height="4" />
+          <TextBlock Text="{Binding StartupStatus}"
+                     Foreground="White"
+                     Opacity="0.9"
+                     HorizontalAlignment="Center"
+                     TextWrapping="Wrap"
+                     MaxWidth="360"
+                     TextAlignment="Center" />
+        </StackPanel>
+      </Border>
     </Panel>
   </ui:FANavigationView>
 </Window>
