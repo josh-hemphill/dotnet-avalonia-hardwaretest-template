@@ -117,15 +117,19 @@ public sealed class MainWindowViewModelTests
         runControl.AttachRun(cts);
         Assert.Equal("Pause", vm.PauseResumeLabel);
         Assert.True(vm.ShowPauseIcon);
+        Assert.Equal(FluentAvalonia.UI.Controls.FASymbol.PauseFilled, vm.PauseResumeSymbol);
 
         await vm.PauseResumeCommand.ExecuteAsync();
         Assert.True(runControl.IsPaused);
         Assert.Equal("Resume", vm.PauseResumeLabel);
         Assert.False(vm.ShowPauseIcon);
+        Assert.True(vm.ShowResumeIcon);
+        Assert.Equal(FluentAvalonia.UI.Controls.FASymbol.PlayFilled, vm.PauseResumeSymbol);
 
         await vm.PauseResumeCommand.ExecuteAsync();
         Assert.False(runControl.IsPaused);
         Assert.Equal("Pause", vm.PauseResumeLabel);
+        Assert.Equal(FluentAvalonia.UI.Controls.FASymbol.PauseFilled, vm.PauseResumeSymbol);
     }
 
     [Fact]
@@ -153,6 +157,7 @@ public sealed class MainWindowViewModelTests
         Assert.True(vm.ShowContinueIcon);
         Assert.False(vm.ShowPauseIcon);
         Assert.False(vm.ShowResumeIcon);
+        Assert.Equal(FluentAvalonia.UI.Controls.FASymbol.Accept, vm.PauseResumeSymbol);
         Assert.Contains("Install fixture", vm.ControlStatus, StringComparison.OrdinalIgnoreCase);
 
         await vm.PauseResumeCommand.ExecuteAsync();

@@ -131,12 +131,26 @@ public partial class MainWindowViewModel : ReactiveObject
     public bool IsSafetyStopping => _runControl.IsSafetyStopping;
     public bool IsAwaitingOperator => _openTap.IsAwaitingOperator;
 
-    /// Pause icon when running and not awaiting / soft-paused.
-    public bool ShowPauseIcon => IsRunning && !IsPaused && !IsAwaitingOperator;
+    /// Pause glyph when not soft-paused and not awaiting (including idle affordance).
+    public bool ShowPauseIcon => !IsPaused && !IsAwaitingOperator;
     /// Resume (play) when soft-paused and not awaiting operator input.
     public bool ShowResumeIcon => IsPaused && !IsAwaitingOperator;
     /// Continue when the host is waiting on an operator interaction.
     public bool ShowContinueIcon => IsAwaitingOperator;
+
+    /// Single glyph for the Pause/Resume/Continue footer button (always visible).
+    public FASymbol PauseResumeSymbol
+    {
+        get
+        {
+            if (IsAwaitingOperator)
+            {
+                return FASymbol.Accept;
+            }
+
+            return IsPaused ? FASymbol.PlayFilled : FASymbol.PauseFilled;
+        }
+    }
 
     public string PauseResumeLabel
     {
@@ -291,6 +305,7 @@ public partial class MainWindowViewModel : ReactiveObject
         this.RaisePropertyChanged(nameof(ShowPauseIcon));
         this.RaisePropertyChanged(nameof(ShowResumeIcon));
         this.RaisePropertyChanged(nameof(ShowContinueIcon));
+        this.RaisePropertyChanged(nameof(PauseResumeSymbol));
     }
 
     private void PauseResume()
