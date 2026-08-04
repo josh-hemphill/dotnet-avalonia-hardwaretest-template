@@ -196,6 +196,7 @@ public sealed class RunTestViewModelTests
         var openTap = new FakeOpenTapSession { EmitLoopProgress = true, Delay = TimeSpan.FromMilliseconds(10) };
         var vm = CreateVm(openTap);
         vm.UiScheduler = action => action();
+        await vm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
         await ConfirmReadyAsync(vm);
         await vm.Run.RunCommand.ExecuteAsync();
         await Task.Delay(80);

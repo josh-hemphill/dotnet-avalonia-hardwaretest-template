@@ -32,6 +32,7 @@ public partial class SettingsViewModel : ReactiveObject
     private readonly OperatorSession? _operatorSession;
     private readonly IVisaModeController? _visaModeController;
     private readonly System.Timers.Timer _debounce;
+    private bool _packagesLoaded;
 
     /// Test seam: routes debounce UI work synchronously instead of through the Avalonia dispatcher.
     public Action<Action>? UiScheduler { get; set; }
@@ -192,8 +193,18 @@ public partial class SettingsViewModel : ReactiveObject
             _debounce.Start();
         };
 
-        RefreshPackages();
         RefreshProvenance();
+    }
+
+    /// Scans OpenTAP packages once Settings is opened (avoids blocking first paint).
+    public void EnsurePackagesLoaded()
+    {
+        if (_packagesLoaded)
+        {
+            return;
+        }
+
+        RefreshPackages();
     }
 
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> SaveCommand { get; }
@@ -297,6 +308,7 @@ public partial class SettingsViewModel : ReactiveObject
             PluginDirectories.Add(dir);
         }
 
+        _packagesLoaded = true;
         Status = $"Packages: {Packages.Count}, plugin dirs: {PluginDirectories.Count}. Offline install only (CLI / image bake).";
     }
 

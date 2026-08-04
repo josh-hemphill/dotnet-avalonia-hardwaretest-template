@@ -23,7 +23,7 @@ public sealed class InstrumentsViewModelTests
     {
         var vm = CreateVm();
         await vm.RefreshSlotsCommand.ExecuteAsync();
-        Assert.NotEmpty(vm.SlotOverrides);
+        Assert.True(vm.SlotOverrides.Count > 0, vm.Status);
         Assert.Contains(vm.SlotOverrides, s => s.SlotName == "DMM");
     }
 

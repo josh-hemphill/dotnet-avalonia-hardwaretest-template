@@ -23,8 +23,7 @@ public static class InstrumentSlotCollector
     public static TestPlan CreatePlan(ProgramCatalogEntry entry)
     {
         ArgumentNullException.ThrowIfNull(entry);
-        OpenTapPluginSearch.EnsureCorePluginDirectories();
-        PluginManager.Search();
+        OpenTapPluginSearch.SearchSerialized();
 
         return entry.LoadKind switch
         {
