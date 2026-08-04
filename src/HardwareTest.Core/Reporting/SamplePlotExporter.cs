@@ -52,6 +52,8 @@ public static class SamplePlotExporter
     private static void WriteChannelPlotPng(StoredSample[] samples, string channel, string path)
     {
         var plot = new Plot();
+        // Report PNGs stay light for print/PDF; series uses the shell primary accent.
+        plot.SetStyle(new ScottPlot.PlotStyles.Light());
         plot.YLabel(channel);
 
         if (samples.Any(s => s.IterationIndex is > 0))
@@ -67,6 +69,8 @@ public static class SamplePlotExporter
         plot.ShowLegend();
         plot.SavePng(path, PlotWidth, PlotHeight);
     }
+
+    private static readonly Color SeriesColor = Color.FromHex("#1565C0");
 
     /// Last value per iteration on X = iteration index.
     private static void WriteIterationPlot(Plot plot, StoredSample[] samples, string channel)
@@ -90,6 +94,7 @@ public static class SamplePlotExporter
             signal.LegendText = channel;
             signal.LineWidth = 2;
             signal.MarkerSize = 5;
+            signal.Color = SeriesColor;
             return;
         }
 
@@ -98,6 +103,7 @@ public static class SamplePlotExporter
         scatter.LineWidth = 2;
         scatter.MarkerSize = ys.Length <= 64 ? 5 : 0;
         scatter.Smooth = false;
+        scatter.Color = SeriesColor;
     }
 
     private static void WriteTimeOrSignalPlot(Plot plot, StoredSample[] samples, string channel)
@@ -117,6 +123,7 @@ public static class SamplePlotExporter
             signal.LegendText = channel;
             signal.LineWidth = 2;
             signal.MarkerSize = samples.Length <= 64 ? 5 : 0;
+            signal.Color = SeriesColor;
         }
         else
         {
@@ -125,6 +132,7 @@ public static class SamplePlotExporter
             scatter.LineWidth = 2;
             scatter.MarkerSize = samples.Length <= 64 ? 5 : 0;
             scatter.Smooth = false;
+            scatter.Color = SeriesColor;
         }
     }
 

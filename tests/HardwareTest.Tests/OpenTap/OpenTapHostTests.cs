@@ -841,6 +841,11 @@ public sealed class OpenTapSessionTests
             string.Equals(s.MetricKey, "envelope.error", StringComparison.OrdinalIgnoreCase)
             && s.LimitLow is not null
             && s.LimitHigh is not null);
+        Assert.Contains(summary.Samples, s =>
+            string.Equals(s.MetricKey, "bump.overshoot.v", StringComparison.OrdinalIgnoreCase)
+            && string.Equals(s.DisplayRole, PresentationDisplayRoles.Passband, StringComparison.OrdinalIgnoreCase)
+            && s.LimitHigh is { } overHi
+            && Math.Abs(overHi - 0.1) < 1e-9);
     }
 
     [Fact]

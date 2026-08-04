@@ -487,15 +487,15 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
         Interaction.IsAwaitingOperator = false;
         Interaction.OperatorPromptMessage = null;
         Status = "Continuing…";
-        // Interaction card collapse changes hero height; re-anchor the step list after layout.
-        ScheduleScrollToCurrentStep();
+        // Interaction card collapse changes hero height; re-anchor without changing stage scope.
+        ScheduleScrollToCurrentStep(changeScope: false);
     }
 
-    private void ScheduleScrollToCurrentStep()
+    private void ScheduleScrollToCurrentStep(bool changeScope = true)
     {
         void Scroll()
         {
-            StepTree.JumpToCurrent();
+            StepTree.JumpToCurrent(changeScope);
             if (StepTree.SelectedStep is null && !string.IsNullOrWhiteSpace(CurrentStepPath))
             {
                 return;

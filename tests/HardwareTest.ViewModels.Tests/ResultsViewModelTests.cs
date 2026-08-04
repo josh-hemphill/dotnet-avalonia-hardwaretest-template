@@ -50,6 +50,51 @@ public sealed class ResultsViewModelTests
     }
 
     [Fact]
+    public async Task Open_caps_step_and_sample_sidebar_rows()
+    {
+        var store = new FakeRunStore();
+        var steps = Enumerable.Range(0, 250)
+            .Select(i => new StepResultRecord
+            {
+                StepId = $"step-{i}",
+                StepType = "Acquire",
+                Passed = true,
+                Message = "ok",
+                StartedAt = DateTimeOffset.UtcNow,
+                CompletedAt = DateTimeOffset.UtcNow,
+            })
+            .ToList();
+        var samples = Enumerable.Range(0, 250)
+            .Select(i => new StoredSample
+            {
+                Channel = "VDC",
+                Timestamp = DateTimeOffset.UtcNow.AddMilliseconds(i),
+                Value = i,
+            })
+            .ToList();
+        store.Seed(new TestRunRecord
+        {
+            RunId = "big",
+            PlanName = "Sample",
+            DutSerial = "SN-BIG",
+            StartedAt = DateTimeOffset.UtcNow,
+            Result = RunResult.Passed,
+            Steps = steps,
+            Samples = samples,
+        });
+
+        var vm = new ResultsViewModel(store, new FakeReportService());
+        await vm.RefreshCommand.ExecuteAsync();
+        vm.SelectedRun = vm.Runs[0];
+        await vm.OpenCommand.ExecuteAsync();
+
+        Assert.Equal(201, vm.StepDetails.Count);
+        Assert.Contains(vm.StepDetails, line => line.Contains("more steps", StringComparison.Ordinal));
+        Assert.Equal(201, vm.SampleDetails.Count);
+        Assert.Contains(vm.SampleDetails, line => line.Contains("more samples", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public async Task Open_shows_dut_history_when_priors_exist()
     {
         var store = new FakeRunStore();
