@@ -9,7 +9,7 @@ internal static class OpenTapPluginSearch
 {
     private static readonly object SearchGate = new();
 
-    public static void EnsureCorePluginDirectories()
+private static void EnsureCorePluginDirectories()
     {
         Add(typeof(MockDmmInstrument).Assembly.Location);
         Add(typeof(AnnotationMixinBuilder).Assembly.Location);
