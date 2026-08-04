@@ -28,40 +28,96 @@
     </ui:FANavigationView.MenuItemTemplate>
 
     <ui:FANavigationView.PaneFooter>
-      <StackPanel Margin="8,12" Spacing="6">
+      <!-- Compact: fixed-width centered icon buttons. Expanded: stretch with icon+label. -->
+      <StackPanel Margin="0,12" Spacing="6" HorizontalAlignment="Stretch">
         <TextBlock Text="{Binding ControlStatus}"
                    FontSize="12"
+                   Margin="12,0"
                    TextTrimming="CharacterEllipsis"
                    Opacity="0.85"
                    IsVisible="{Binding IsNavPaneOpen}" />
+
+        <!-- Pause / Resume / Continue -->
         <Button Command="{Binding PauseResumeCommand}"
-                HorizontalAlignment="Stretch"
+                Width="40"
+                Height="36"
+                Padding="0"
+                HorizontalAlignment="Center"
+                HorizontalContentAlignment="Center"
+                VerticalContentAlignment="Center"
                 IsEnabled="{Binding IsRunning}"
                 Classes.success="{Binding ShowContinueIcon}"
-                ToolTip.Tip="{Binding PauseResumeTip}">
+                ToolTip.Tip="{Binding PauseResumeTip}"
+                IsVisible="{Binding !IsNavPaneOpen}">
+          <ui:FASymbolIcon Symbol="{Binding PauseResumeSymbol}"
+                           FontSize="16"
+                           Width="16"
+                           Height="16"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center" />
+        </Button>
+        <Button Command="{Binding PauseResumeCommand}"
+                HorizontalAlignment="Stretch"
+                HorizontalContentAlignment="Center"
+                Padding="12,6"
+                MinHeight="36"
+                IsEnabled="{Binding IsRunning}"
+                Classes.success="{Binding ShowContinueIcon}"
+                ToolTip.Tip="{Binding PauseResumeTip}"
+                IsVisible="{Binding IsNavPaneOpen}">
           <StackPanel Orientation="Horizontal"
                       Spacing="8"
-                      HorizontalAlignment="Center">
-            <ui:FASymbolIcon Symbol="Pause" FontSize="16" IsVisible="{Binding ShowPauseIcon}" />
-            <ui:FASymbolIcon Symbol="Play" FontSize="16" IsVisible="{Binding ShowResumeIcon}" />
-            <ui:FASymbolIcon Symbol="Accept" FontSize="16" IsVisible="{Binding ShowContinueIcon}" />
+                      HorizontalAlignment="Center"
+                      VerticalAlignment="Center">
+            <ui:FASymbolIcon Symbol="{Binding PauseResumeSymbol}"
+                             FontSize="16"
+                             Width="16"
+                             Height="16"
+                             VerticalAlignment="Center" />
             <TextBlock Text="{Binding PauseResumeLabel}"
-                       VerticalAlignment="Center"
-                       IsVisible="{Binding IsNavPaneOpen}" />
+                       VerticalAlignment="Center" />
           </StackPanel>
+        </Button>
+
+        <!-- Safety Stop -->
+        <Button Command="{Binding SafetyStopCommand}"
+                Width="40"
+                Height="36"
+                Padding="0"
+                HorizontalAlignment="Center"
+                HorizontalContentAlignment="Center"
+                VerticalContentAlignment="Center"
+                Classes="danger"
+                IsEnabled="{Binding IsRunning}"
+                ToolTip.Tip="{Binding SafetyStopTip}"
+                IsVisible="{Binding !IsNavPaneOpen}">
+          <ui:FASymbolIcon Symbol="StopFilled"
+                           FontSize="16"
+                           Width="16"
+                           Height="16"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center" />
         </Button>
         <Button Command="{Binding SafetyStopCommand}"
                 HorizontalAlignment="Stretch"
+                HorizontalContentAlignment="Center"
+                Padding="12,6"
+                MinHeight="36"
                 Classes="danger"
                 IsEnabled="{Binding IsRunning}"
-                ToolTip.Tip="{Binding SafetyStopTip}">
+                ToolTip.Tip="{Binding SafetyStopTip}"
+                IsVisible="{Binding IsNavPaneOpen}">
           <StackPanel Orientation="Horizontal"
                       Spacing="8"
-                      HorizontalAlignment="Center">
-            <ui:FASymbolIcon Symbol="Stop" FontSize="16" />
+                      HorizontalAlignment="Center"
+                      VerticalAlignment="Center">
+            <ui:FASymbolIcon Symbol="StopFilled"
+                             FontSize="16"
+                             Width="16"
+                             Height="16"
+                             VerticalAlignment="Center" />
             <TextBlock Text="{Binding SafetyStopLabel}"
-                       VerticalAlignment="Center"
-                       IsVisible="{Binding IsNavPaneOpen}" />
+                       VerticalAlignment="Center" />
           </StackPanel>
         </Button>
       </StackPanel>
