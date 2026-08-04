@@ -1172,36 +1172,29 @@ public sealed class OpenTapSession : IOpenTapSession, INotifyPropertyChanged
             return;
         }
 
+        var extras = new List<string>();
         foreach (var dir in _settings.OpenTapPluginDirectories)
         {
-            AddPluginSearchDir(dir);
+            if (!string.IsNullOrWhiteSpace(dir))
+            {
+                extras.Add(dir);
+            }
         }
 
         var env = Environment.GetEnvironmentVariable("HARDWARETEST_OPENTAP_PLUGIN_DIRS");
         if (!string.IsNullOrWhiteSpace(env))
         {
-            foreach (var part in env.Split([Path.PathSeparator, ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            foreach (var part in env.Split(
+                         [Path.PathSeparator, ';'],
+                         StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
             {
-                AddPluginSearchDir(part);
+                extras.Add(part);
             }
         }
 
-        OpenTapPluginSearch.SearchSerialized();
+        // Directory list mutations + Search share one gate (OpenTapPluginSearch.SearchSerialized).
+        OpenTapPluginSearch.SearchSerialized(extras);
         _pluginSearchDone = true;
-    }
-
-    private static void AddPluginSearchDir(string? dir)
-    {
-        if (string.IsNullOrWhiteSpace(dir) || !Directory.Exists(dir))
-        {
-            return;
-        }
-
-        var full = Path.GetFullPath(dir);
-        if (!PluginManager.DirectoriesToSearch.Contains(full))
-        {
-            PluginManager.DirectoriesToSearch.Add(full);
-        }
     }
 
     private static IEnumerable<ITestStep> FlattenSteps(ITestStepParent parent)
