@@ -119,8 +119,9 @@
             IsVisible="{Binding ShowDetail}"
             Padding="10"
             Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}">
-      <ScrollViewer>
-        <StackPanel Spacing="6">
+      <DockPanel>
+        <!-- Sticky chrome: keep Close/schema out of the scroller so the bar cannot cover them. -->
+        <StackPanel DockPanel.Dock="Top" Spacing="6" Margin="0,0,0,8">
           <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
             <TextBlock Text="{Binding OpenedRun.RunId, Converter={x:Static conv:ShortIdConverter.Instance}, StringFormat=Run {0}}"
                        FontWeight="SemiBold"
@@ -143,101 +144,118 @@
           <TextBlock Text="{Binding OpenedRun.DutSerial, StringFormat=DUT: {0}}" Opacity="0.85" />
           <TextBlock Text="{Binding OpenedRun.DutPartNumber, StringFormat=Part: {0}}" Opacity="0.75" />
           <TextBlock Text="{Binding OpenedRun.OperatorName, StringFormat=Operator: {0}}" Opacity="0.75" />
-
-          <StackPanel Spacing="2" Margin="0,8,0,0" IsVisible="{Binding HasReports}">
-            <TextBlock Text="Reports" FontWeight="SemiBold" />
-            <ItemsControl ItemsSource="{Binding ReportItems}">
-              <ItemsControl.ItemTemplate>
-                <DataTemplate x:DataType="vm:RunReportItemViewModel">
-                  <Grid ColumnDefinitions="*,Auto" Margin="0,2">
-                    <StackPanel>
-                      <StackPanel Orientation="Horizontal" Spacing="6">
-                        <TextBlock Text="{Binding Title}" FontWeight="SemiBold" />
-                        <TextBlock Text="(default)"
-                                   Opacity="0.65"
-                                   FontSize="11"
-                                   VerticalAlignment="Center"
-                                   IsVisible="{Binding IsDefault}" />
-                      </StackPanel>
-                      <TextBlock Text="{Binding Kind}" Opacity="0.7" FontSize="11" />
-                    </StackPanel>
-                    <Button Grid.Column="1"
-                            Content="Open"
-                            Command="{Binding #Root.((vm:ResultsViewModel)DataContext).OpenReportCommand}"
-                            CommandParameter="{Binding}"
-                            FontSize="11" />
-                  </Grid>
-                </DataTemplate>
-              </ItemsControl.ItemTemplate>
-            </ItemsControl>
-          </StackPanel>
-
-          <StackPanel Spacing="4" Margin="0,8,0,0" IsVisible="{Binding HasExportTargets}">
-            <TextBlock Text="Export package" FontWeight="SemiBold" />
-            <TextBlock Text="Copies PDFs, run.json, and optional CSV to removable media or ExportDirectory."
-                       Opacity="0.75" FontSize="11" TextWrapping="Wrap" />
-            <ComboBox ItemsSource="{Binding ExportTargets}"
-                      SelectedItem="{Binding SelectedExportTarget}"
-                      MinWidth="180">
-              <ComboBox.ItemTemplate>
-                <DataTemplate x:DataType="storage:ExportTarget">
-                  <TextBlock Text="{Binding DisplayName}" />
-                </DataTemplate>
-              </ComboBox.ItemTemplate>
-            </ComboBox>
-            <Button Content="Export to…" Command="{Binding ExportPackageCommand}" HorizontalAlignment="Left" />
-          </StackPanel>
-
-          <StackPanel Spacing="2" Margin="0,8,0,0" IsVisible="{Binding HasHistory}">
-            <TextBlock Text="DUT history" FontWeight="SemiBold" />
-            <TextBlock Text="{Binding HistorySeverity, StringFormat=Severity: {0}}" Opacity="0.8" FontSize="12" />
-            <TextBlock Text="{Binding HistorySummary}" TextWrapping="Wrap" Opacity="0.9" />
-            <Grid ColumnDefinitions="*,70,70,60,60" Margin="0,4,0,0" Opacity="0.7">
-              <TextBlock Text="Metric" FontWeight="SemiBold" FontSize="11" />
-              <TextBlock Grid.Column="1" Text="Current" FontWeight="SemiBold" FontSize="11" />
-              <TextBlock Grid.Column="2" Text="Prior" FontWeight="SemiBold" FontSize="11" />
-              <TextBlock Grid.Column="3" Text="Delta" FontWeight="SemiBold" FontSize="11" />
-              <TextBlock Grid.Column="4" Text="Sev" FontWeight="SemiBold" FontSize="11" />
-            </Grid>
-            <ItemsControl ItemsSource="{Binding HistoryMetrics}">
-              <ItemsControl.ItemTemplate>
-                <DataTemplate x:DataType="vm:DutHistoryMetricRow">
-                  <Grid ColumnDefinitions="*,70,70,60,60" ColumnSpacing="2" Margin="0,1">
-                    <TextBlock Text="{Binding Channel}" TextTrimming="CharacterEllipsis" FontSize="11" />
-                    <TextBlock Grid.Column="1" Text="{Binding CurrentMeanText}" FontSize="11" />
-                    <TextBlock Grid.Column="2" Text="{Binding PriorMeanText}" FontSize="11" />
-                    <TextBlock Grid.Column="3" Text="{Binding PercentDeltaText}" FontSize="11" />
-                    <TextBlock Grid.Column="4" Text="{Binding Severity}" FontSize="11" />
-                  </Grid>
-                </DataTemplate>
-              </ItemsControl.ItemTemplate>
-            </ItemsControl>
-          </StackPanel>
-
-          <StackPanel Spacing="4" Margin="0,8,0,0" IsVisible="{Binding HasPresentationTiles}">
-            <TextBlock Text="Metrics" FontWeight="SemiBold" />
-            <TextBlock Text="Band gauges first; expand a timeseries chart only when you need the waveform."
-                       Opacity="0.65"
-                       FontSize="11"
-                       TextWrapping="Wrap" />
-            <ItemsControl ItemsSource="{Binding PresentationTiles}">
-              <ItemsControl.ItemTemplate>
-                <DataTemplate x:DataType="pres:PresentationTileViewModel">
-                  <StackPanel Margin="0,0,0,8">
-                    <widgetsPres:MetricGaugeView IsVisible="{Binding IsGauge}" DataContext="{Binding}" />
-                    <vm:ResultsChartHost IsVisible="{Binding IsChart}" DataContext="{Binding}" />
-                  </StackPanel>
-                </DataTemplate>
-              </ItemsControl.ItemTemplate>
-            </ItemsControl>
-          </StackPanel>
-
-          <TextBlock Text="Steps" FontWeight="SemiBold" Margin="0,8,0,0" />
-          <ListBox ItemsSource="{Binding StepDetails}" MaxHeight="160" />
-          <TextBlock Text="Samples" FontWeight="SemiBold" Margin="0,8,0,0" />
-          <ListBox ItemsSource="{Binding SampleDetails}" MaxHeight="160" />
         </StackPanel>
-      </ScrollViewer>
+
+        <ScrollViewer Padding="0,0,4,0">
+          <StackPanel Spacing="6">
+            <StackPanel Spacing="2" IsVisible="{Binding HasReports}">
+              <TextBlock Text="Reports" FontWeight="SemiBold" />
+              <ItemsControl ItemsSource="{Binding ReportItems}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:RunReportItemViewModel">
+                    <Grid ColumnDefinitions="*,Auto" Margin="0,2" ColumnSpacing="8">
+                      <StackPanel>
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                          <TextBlock Text="{Binding Title}" FontWeight="SemiBold" />
+                          <TextBlock Text="(default)"
+                                     Opacity="0.65"
+                                     FontSize="11"
+                                     VerticalAlignment="Center"
+                                     IsVisible="{Binding IsDefault}" />
+                        </StackPanel>
+                        <TextBlock Text="{Binding Kind}" Opacity="0.7" FontSize="11" />
+                      </StackPanel>
+                      <Button Grid.Column="1"
+                              Content="Open"
+                              Command="{Binding #Root.((vm:ResultsViewModel)DataContext).OpenReportCommand}"
+                              CommandParameter="{Binding}"
+                              FontSize="11"
+                              Margin="0,0,8,0" />
+                    </Grid>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
+
+            <StackPanel Spacing="4" Margin="0,8,0,0" IsVisible="{Binding HasExportTargets}">
+              <TextBlock Text="Export package" FontWeight="SemiBold" />
+              <TextBlock Text="Copies PDFs, run.json, and optional CSV to removable media or ExportDirectory."
+                         Opacity="0.75" FontSize="11" TextWrapping="Wrap" />
+              <ComboBox ItemsSource="{Binding ExportTargets}"
+                        SelectedItem="{Binding SelectedExportTarget}"
+                        MinWidth="180">
+                <ComboBox.ItemTemplate>
+                  <DataTemplate x:DataType="storage:ExportTarget">
+                    <TextBlock Text="{Binding DisplayName}" />
+                  </DataTemplate>
+                </ComboBox.ItemTemplate>
+              </ComboBox>
+              <Button Content="Export to…" Command="{Binding ExportPackageCommand}" HorizontalAlignment="Left" />
+            </StackPanel>
+
+            <StackPanel Spacing="2" Margin="0,8,0,0" IsVisible="{Binding HasHistory}">
+              <TextBlock Text="DUT history" FontWeight="SemiBold" />
+              <TextBlock Text="{Binding HistorySeverity, StringFormat=Severity: {0}}" Opacity="0.8" FontSize="12" />
+              <TextBlock Text="{Binding HistorySummary}" TextWrapping="Wrap" Opacity="0.9" />
+              <Grid ColumnDefinitions="*,70,70,60,60" Margin="0,4,0,0" Opacity="0.7">
+                <TextBlock Text="Metric" FontWeight="SemiBold" FontSize="11" />
+                <TextBlock Grid.Column="1" Text="Current" FontWeight="SemiBold" FontSize="11" />
+                <TextBlock Grid.Column="2" Text="Prior" FontWeight="SemiBold" FontSize="11" />
+                <TextBlock Grid.Column="3" Text="Delta" FontWeight="SemiBold" FontSize="11" />
+                <TextBlock Grid.Column="4" Text="Sev" FontWeight="SemiBold" FontSize="11" />
+              </Grid>
+              <ItemsControl ItemsSource="{Binding HistoryMetrics}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:DutHistoryMetricRow">
+                    <Grid ColumnDefinitions="*,70,70,60,60" ColumnSpacing="2" Margin="0,1">
+                      <TextBlock Text="{Binding Channel}" TextTrimming="CharacterEllipsis" FontSize="11" />
+                      <TextBlock Grid.Column="1" Text="{Binding CurrentMeanText}" FontSize="11" />
+                      <TextBlock Grid.Column="2" Text="{Binding PriorMeanText}" FontSize="11" />
+                      <TextBlock Grid.Column="3" Text="{Binding PercentDeltaText}" FontSize="11" />
+                      <TextBlock Grid.Column="4" Text="{Binding Severity}" FontSize="11" />
+                    </Grid>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
+
+            <StackPanel Spacing="4" Margin="0,8,0,0" IsVisible="{Binding HasPresentationTiles}">
+              <TextBlock Text="Metrics" FontWeight="SemiBold" />
+              <TextBlock Text="Band gauges first; expand a timeseries chart only when you need the waveform."
+                         Opacity="0.65"
+                         FontSize="11"
+                         TextWrapping="Wrap" />
+              <ItemsControl ItemsSource="{Binding PresentationTiles}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="pres:PresentationTileViewModel">
+                    <StackPanel Margin="0,0,0,8">
+                      <widgetsPres:MetricGaugeView IsVisible="{Binding IsGauge}" DataContext="{Binding}" />
+                      <vm:ResultsChartHost IsVisible="{Binding IsChart}" DataContext="{Binding}" />
+                    </StackPanel>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
+
+            <TextBlock Text="Steps" FontWeight="SemiBold" Margin="0,8,0,0" />
+            <ItemsControl ItemsSource="{Binding StepDetails}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <TextBlock Text="{Binding}" FontSize="11" Margin="0,1" TextWrapping="Wrap" />
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <TextBlock Text="Samples" FontWeight="SemiBold" Margin="0,8,0,0" />
+            <ItemsControl ItemsSource="{Binding SampleDetails}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <TextBlock Text="{Binding}" FontSize="11" Margin="0,1" TextWrapping="Wrap" />
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
+        </ScrollViewer>
+      </DockPanel>
     </Border>
 
     <TextBlock Grid.Row="2" Grid.ColumnSpan="2"

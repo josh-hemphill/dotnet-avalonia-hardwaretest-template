@@ -261,6 +261,22 @@
               <TextBlock Text="{Binding Interaction.InteractionTitle}"
                          FontWeight="Bold"
                          FontSize="13" />
+              <DockPanel LastChildFill="True">
+                <Button DockPanel.Dock="Right"
+                        Content="Show this step"
+                        Command="{Binding StepTree.JumpToCurrentCommand}"
+                        FontSize="11"
+                        Padding="8,2"
+                        Margin="8,0,0,0"
+                        VerticalAlignment="Center"
+                        ToolTip.Tip="Jump to the stage and step waiting for input" />
+                <TextBlock Text="{Binding CurrentStepName, StringFormat=Waiting at: {0}}"
+                           FontSize="12"
+                           Opacity="0.85"
+                           VerticalAlignment="Center"
+                           TextTrimming="CharacterEllipsis"
+                           IsVisible="{Binding CurrentStepName, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+              </DockPanel>
               <TextBlock Text="{Binding Interaction.OperatorPromptMessage}"
                          FontWeight="SemiBold"
                          TextWrapping="Wrap" />

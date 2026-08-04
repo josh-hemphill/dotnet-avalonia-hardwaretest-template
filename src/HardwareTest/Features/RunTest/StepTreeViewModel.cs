@@ -39,7 +39,7 @@ public partial class StepTreeViewModel : ReactiveObject
 
         NextFailCommand = ReactiveCommand.Create(() => CycleFail(forward: true));
         PrevFailCommand = ReactiveCommand.Create(() => CycleFail(forward: false));
-        JumpToCurrentCommand = ReactiveCommand.Create(JumpToCurrent);
+        JumpToCurrentCommand = ReactiveCommand.Create(() => JumpToCurrent(changeScope: true));
         ClearSubsectionCommand = ReactiveCommand.Create(() => { SelectedSubsection = null; });
         FilterFailCommand = ReactiveCommand.Create(FilterFail);
         ClearFailFilterCommand = ReactiveCommand.Create(() =>
@@ -257,7 +257,9 @@ public partial class StepTreeViewModel : ReactiveObject
         RebuildVisibleStepList();
     }
 
-    public void JumpToCurrent()
+    /// Reveals the current step. When <paramref name="changeScope"/> is false, only selects/scrolls
+    /// if that step is already in the visible list — avoids ejecting the operator from another stage.
+    public void JumpToCurrent(bool changeScope = true)
     {
         var currentPath = _getCurrentStepPath();
         if (string.IsNullOrWhiteSpace(currentPath))
@@ -272,10 +274,19 @@ public partial class StepTreeViewModel : ReactiveObject
             return;
         }
 
-        SelectScopeForStep(match);
-        if (!StepRows.Any(r => ReferenceEquals(r, match)))
+        if (changeScope)
         {
-            StepStatusFilter = StepFilter.All;
+            SelectScopeForStep(match);
+            if (!StepRows.Any(r => ReferenceEquals(r, match)))
+            {
+                StepStatusFilter = StepFilter.All;
+            }
+        }
+        else if (!StepListItems.Any(i =>
+                     ReferenceEquals(i.Step, match)
+                     || string.Equals(i.Path, match.Path, StringComparison.OrdinalIgnoreCase)))
+        {
+            return;
         }
 
         SelectedStep = match;

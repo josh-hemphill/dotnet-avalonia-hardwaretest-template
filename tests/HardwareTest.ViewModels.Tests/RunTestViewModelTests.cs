@@ -171,6 +171,48 @@ public sealed class RunTestViewModelTests
     }
 
     [Fact]
+    public async Task Awaiting_operator_does_not_change_stage_scope()
+    {
+        var openTap = new FakeOpenTapSession();
+        var vm = CreateVm(openTap);
+        vm.UiScheduler = action => action();
+        await vm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
+        vm.ProgramSelection.SelectedProgram =
+            vm.ProgramSelection.Programs.First(p => p.Id == "board-demo");
+        for (var i = 0; i < 40 && vm.StepTree.Stages.All(s => s.DisplayName != "Power Rails"); i++)
+        {
+            await Task.Delay(25);
+        }
+
+        var powerRails = vm.StepTree.Stages.First(s => s.DisplayName == "Power Rails");
+        vm.StepTree.SelectedStage = powerRails;
+        var beforeItems = vm.StepTree.StepListItems.Select(i => i.DisplayName).ToList();
+        Assert.Contains(beforeItems, n => n.Contains("3V3", StringComparison.OrdinalIgnoreCase));
+
+        var seat = Flatten(vm.StepTree.Hierarchy)
+            .First(n => n.Name.Contains("Seat Board", StringComparison.OrdinalIgnoreCase));
+        vm.IsRunning = true;
+        vm.CurrentStepPath = seat.Path;
+        vm.CurrentStepName = seat.Name;
+        vm.IngestProgress(new OpenTapProgress
+        {
+            Message = "Seat the board",
+            StepName = seat.Name,
+            StepPath = seat.Path,
+            AwaitingOperator = true,
+            OperatorPromptMessage = "Seat the board in the demo fixture, then Continue.",
+            StatusText = "Awaiting operator",
+            OverallPercent = 40,
+        });
+
+        Assert.True(vm.Interaction.IsAwaitingOperator);
+        Assert.Same(powerRails, vm.StepTree.SelectedStage);
+        Assert.Equal(beforeItems, vm.StepTree.StepListItems.Select(i => i.DisplayName).ToList());
+        Assert.Equal("Awaiting", vm.HeroChipText);
+        Assert.Equal(seat.Name, vm.HeroStepName);
+    }
+
+    [Fact]
     public async Task Iteration_progress_appears_on_hero_status_line()
     {
         var vm = CreateVm();
@@ -1319,6 +1361,32 @@ public sealed class RunTestViewModelTests
         Assert.Equal(ProgramLoadKind.FactoryBoardDemo, vm.ProgramSelection.Programs.First(p => p.Id == "board-demo").LoadKind);
         Assert.Equal(ProgramLoadKind.FactorySweepDemo, vm.ProgramSelection.Programs.First(p => p.Id == "sweep-demo").LoadKind);
         Assert.Equal(ProgramLoadKind.FactoryTimingDemo, vm.ProgramSelection.Programs.First(p => p.Id == "timing-demo").LoadKind);
+    }
+
+    [Fact]
+    public async Task Timing_demo_shows_stages_and_step_list()
+    {
+        var openTap = new FakeOpenTapSession();
+        var vm = CreateVm(openTap);
+        await vm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
+        vm.ProgramSelection.SelectedProgram =
+            vm.ProgramSelection.Programs.First(p => p.Id == "timing-demo");
+        for (var i = 0; i < 40 && vm.StepTree.Stages.All(s => s.DisplayName != "Derived timing checks"); i++)
+        {
+            await Task.Delay(25);
+        }
+
+        Assert.Contains(vm.StepTree.Stages, s => s.DisplayName == "Bump waveform");
+        Assert.Contains(vm.StepTree.Stages, s => s.DisplayName == "Derived timing checks");
+        Assert.Contains(vm.StepTree.Stages, s => s.DisplayName == "Safety");
+
+        var entire = vm.StepTree.Stages.First(s => s.Step is null);
+        vm.StepTree.SelectedStage = entire;
+        var names = vm.StepTree.StepListItems.Select(i => i.DisplayName).ToList();
+        Assert.Contains(names, n => n.Contains("Simulate bump waveform", StringComparison.Ordinal));
+        Assert.Contains(names, n => n.Contains("Bump rise time", StringComparison.Ordinal));
+        Assert.Contains(names, n => n.Contains("Peak overshoot", StringComparison.Ordinal));
+        Assert.Contains(names, n => n.Contains("Safe Shutdown", StringComparison.Ordinal));
     }
 
     [Fact]
