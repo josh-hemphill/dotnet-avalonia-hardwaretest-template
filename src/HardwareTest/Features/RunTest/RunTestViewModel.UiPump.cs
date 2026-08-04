@@ -334,8 +334,8 @@ public partial class RunTestViewModel
         {
             Interaction.IsAwaitingOperator = true;
             Interaction.Apply(frame.InteractionRequest ?? _runSession.PendingInteraction, frame.Prompt);
-            // Growing operator card shrinks the step list; keep the awaiting step visible.
-            ScheduleScrollToCurrentStep();
+            // Soft reveal only: keep the operator's stage selection; hero + card identify the waiting step.
+            ScheduleScrollToCurrentStep(changeScope: false);
         }
 
         if (frame.Details is not null)

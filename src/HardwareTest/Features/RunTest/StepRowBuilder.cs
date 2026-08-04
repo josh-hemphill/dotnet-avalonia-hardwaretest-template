@@ -100,6 +100,15 @@ public static class StepRowBuilder
             }
         }
 
+        // Entire-program roots that are themselves leaves (or orphan siblings like Sweep Safe Shutdown)
+        // never appear as children — include them so the step list is not empty.
+        if (!node.IsStage && node.Children.Count == 0)
+        {
+            pendingDirect = [node];
+            FlushDirectLeaves();
+            return;
+        }
+
         foreach (var child in node.Children)
         {
             var isSection = child.IsStage || child.Children.Count > 0;

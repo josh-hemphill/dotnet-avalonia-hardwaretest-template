@@ -1,4 +1,5 @@
 using System;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Threading;
 using ScottPlot.Avalonia;
@@ -16,11 +17,26 @@ public sealed class MeasurementPlotView : UserControl
     private string _legendText = "Channel";
     private double? _limitLow;
     private double? _limitHigh;
+    private bool _themeHooked;
 
     public MeasurementPlotView()
     {
         Content = _plot;
-        ApplyAxisLabels();
+        ApplyThemeAndLabels();
+    }
+
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        HookTheme();
+        ApplyThemeAndLabels();
+        _plot.Refresh();
+    }
+
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        UnhookTheme();
+        base.OnDetachedFromVisualTree(e);
     }
 
     /// Sets plot chrome (title, axis, legend) without requiring a data refresh.
@@ -41,7 +57,7 @@ public sealed class MeasurementPlotView : UserControl
             _legendText = legendText;
         }
 
-        ApplyAxisLabels();
+        ApplyThemeAndLabels();
     }
 
     /// Optional horizontal limit lines for passband overlays.
@@ -69,7 +85,7 @@ public sealed class MeasurementPlotView : UserControl
 
         _lastRefresh = now;
         _plot.Plot.Clear();
-        ApplyAxisLabels();
+        ApplyThemeAndLabels();
         if (length > 0)
         {
             // Copy into an exact-length buffer so Signal does not plot unused tail zeros.
@@ -82,6 +98,8 @@ public sealed class MeasurementPlotView : UserControl
             Array.Copy(ys, 0, _signalBuffer, 0, length);
             var signal = _plot.Plot.Add.Signal(_signalBuffer);
             signal.LegendText = _legendText;
+            signal.Color = PlotTheme.SeriesColor;
+            signal.LineWidth = 2;
             _plot.Plot.Axes.AutoScale();
             AddLimitLines();
         }
@@ -89,8 +107,9 @@ public sealed class MeasurementPlotView : UserControl
         _plot.Refresh();
     }
 
-    private void ApplyAxisLabels()
+    private void ApplyThemeAndLabels()
     {
+        PlotTheme.Apply(_plot.Plot);
         _plot.Plot.Title(_title);
         _plot.Plot.XLabel("Sample");
         _plot.Plot.YLabel(_yLabel);
@@ -102,14 +121,61 @@ public sealed class MeasurementPlotView : UserControl
         {
             var line = _plot.Plot.Add.HorizontalLine(low);
             line.LegendText = "LimitLow";
-            line.LineWidth = 1;
+            line.LineWidth = 1.5f;
+            line.Color = PlotTheme.LimitColor;
         }
 
         if (_limitHigh is { } high)
         {
             var line = _plot.Plot.Add.HorizontalLine(high);
             line.LegendText = "LimitHigh";
-            line.LineWidth = 1;
+            line.LineWidth = 1.5f;
+            line.Color = PlotTheme.LimitColor;
         }
+    }
+
+    private void HookTheme()
+    {
+        if (_themeHooked || Application.Current is null)
+        {
+            return;
+        }
+
+        Application.Current.ActualThemeVariantChanged += OnThemeVariantChanged;
+        _themeHooked = true;
+    }
+
+    private void UnhookTheme()
+    {
+        if (!_themeHooked || Application.Current is null)
+        {
+            return;
+        }
+
+        Application.Current.ActualThemeVariantChanged -= OnThemeVariantChanged;
+        _themeHooked = false;
+    }
+
+    private void OnThemeVariantChanged(object? sender, EventArgs e)
+    {
+        void RefreshTheme()
+        {
+            ApplyThemeAndLabels();
+            if (_signalBuffer.Length > 0)
+            {
+                UpdateData(_signalBuffer, _signalBuffer.Length, force: true);
+                return;
+            }
+
+            _plot.Refresh();
+        }
+
+        if (!Dispatcher.UIThread.CheckAccess())
+        {
+            Dispatcher.UIThread.Post(RefreshTheme);
+            return;
+        }
+
+        RefreshTheme();
     }
 }

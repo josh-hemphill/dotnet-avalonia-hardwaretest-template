@@ -497,11 +497,38 @@ public sealed class FakeOpenTapSession : IOpenTapSession
             Path = path,
         };
 
-        yield return Leaf("wave", "Simulate bump waveform", "Simulate bump waveform");
-        yield return Leaf("rise", "Bump rise time", "Bump rise time");
-        yield return Leaf("ret", "Return low time", "Return low time");
-        yield return Leaf("env", "Envelope error", "Envelope error");
-        yield return Leaf("ss", "Safe Shutdown", "Safe Shutdown");
+        static OpenTapStepNode Group(string id, string name, string path, params OpenTapStepNode[] children) => new()
+        {
+            Id = id,
+            Name = name,
+            Path = path,
+            IsStage = true,
+            Children = children.ToList(),
+        };
+
+        var root = TimingDemoProgramFactory.DisplayName;
+        yield return Group(
+            "timing-root",
+            TimingDemoProgramFactory.DisplayName,
+            root,
+            Group(
+                "bump",
+                "Bump waveform",
+                $"{root}/Bump waveform",
+                Leaf("wave", "Simulate bump waveform", $"{root}/Bump waveform/Simulate bump waveform")),
+            Group(
+                "derived",
+                "Derived timing checks",
+                $"{root}/Derived timing checks",
+                Leaf("rise", "Bump rise time (5–15 ms)", $"{root}/Derived timing checks/Bump rise time (5–15 ms)"),
+                Leaf("ret", "Return low time (≤50 ms)", $"{root}/Derived timing checks/Return low time (≤50 ms)"),
+                Leaf("env", "Envelope error (0–0.1 V)", $"{root}/Derived timing checks/Envelope error (0–0.1 V)"),
+                Leaf("over", "Peak overshoot (Band only)", $"{root}/Derived timing checks/Peak overshoot (Band only)")),
+            Group(
+                "safe",
+                "Safety",
+                $"{root}/Safety",
+                Leaf("ss", "Safe Shutdown", $"{root}/Safety/Safe Shutdown")));
     }
 
     public Task ApplyStationAndDutAsync(StationProfile station, DutIdentity dut, CancellationToken cancellationToken = default)
