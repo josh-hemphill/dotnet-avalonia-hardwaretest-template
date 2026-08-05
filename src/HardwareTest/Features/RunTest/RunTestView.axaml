@@ -112,12 +112,12 @@
                  HorizontalAlignment="Stretch"
                  IsVisible="{Binding ShowOverallProgress}" />
 
-    <!-- Focus row height is toggled in code-behind: Star when ShowFocusTrend, else 0.
-         A permanent Star row keeps empty space when Focus is collapsed (Avalonia Grid quirk). -->
+    <!-- Step list (*) vs detail drawer (*): one splitter. Focus plot lives inside the drawer
+         (not a third star row) so resize/toggle cannot leave Absolute heights fighting Band. -->
     <Grid x:Name="BoardGrid"
           Grid.Row="4"
           Grid.Column="0"
-          RowDefinitions="Auto,Auto,Auto,Auto,*,Auto,0,Auto"
+          RowDefinitions="Auto,Auto,Auto,Auto,*,Auto,0"
           RowSpacing="0">
       <Border Padding="8,6"
               Margin="0,0,0,4"
@@ -457,11 +457,15 @@
                     IsVisible="{Binding StepDetail.ShowDetailRegion}"
                     Background="{DynamicResource SystemControlForegroundBaseMediumLowBrush}" />
 
-      <!-- Focus trend: earned pane with real height (not the old fixed 140px scrap). -->
-      <Panel Grid.Row="6" IsVisible="{Binding StepDetail.ShowDetailRegion}">
-        <Border Margin="0,0,0,4"
+      <!-- Detail drawer: nested * rows so Focus can stretch while gauges keep a bounded ScrollViewer. -->
+      <Grid x:Name="DetailDrawerGrid"
+            Grid.Row="6"
+            IsVisible="{Binding StepDetail.ShowDetailRegion}"
+            RowDefinitions="0,*"
+            RowSpacing="4">
+        <Border Grid.Row="0"
                 Padding="8"
-                MinHeight="240"
+                MinHeight="180"
                 Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
                 IsVisible="{Binding Live.ShowFocusTrend}">
           <DockPanel>
@@ -479,144 +483,142 @@
                       VerticalAlignment="Center" />
             </StackPanel>
             <widgets:MeasurementPlotView x:Name="Plot"
-                                         MinHeight="220"
+                                         MinHeight="160"
                                          VerticalAlignment="Stretch" />
           </DockPanel>
         </Border>
-      </Panel>
 
-      <!-- Band tray: step detail + KPI gauges (no squashed plot). -->
-      <ScrollViewer Grid.Row="7"
-                    IsVisible="{Binding StepDetail.ShowDetailRegion}"
-                    VerticalScrollBarVisibility="Auto"
-                    HorizontalScrollBarVisibility="Disabled"
-                    MaxHeight="280">
-        <StackPanel Spacing="8" Margin="0,0,0,4">
-          <Border Padding="8"
-                  MinHeight="80"
-                  Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}">
-            <StackPanel Spacing="6">
-              <StackPanel Orientation="Horizontal" Spacing="10">
-                <TextBlock Text="Step detail"
-                           FontWeight="SemiBold"
-                           VerticalAlignment="Center" />
-                <Button Content="Results" Command="{Binding OpenLastRunResultsCommand}" />
-                <Button Content="Show trend"
-                        Command="{Binding Live.ToggleFocusTrendCommand}"
-                        IsVisible="{Binding Live.OfferShowTrend}"
-                        FontSize="11"
-                        Padding="8,2"
-                        ToolTip.Tip="{Binding Live.FocusTrendTip}" />
-                <TextBlock Text="{Binding Live.FocusTrendTip}"
-                           Opacity="0.7"
-                           FontSize="11"
-                           VerticalAlignment="Center"
-                           IsVisible="{Binding Live.FocusTrendTip, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
-              </StackPanel>
-              <TextBlock Text="{Binding StepDetail.DetailPrimaryLine}"
-                         TextWrapping="Wrap"
-                         Opacity="0.9" />
-              <TextBlock Text="{Binding StepDetail.AttemptSummaryChip, StringFormat=Attempts: {0}}"
-                         IsVisible="{Binding StepDetail.AttemptSummaryChip, Converter={x:Static ObjectConverters.IsNotNull}}"
-                         FontWeight="SemiBold"
-                         Opacity="0.9" />
-              <ListBox ItemsSource="{Binding StepDetail.AttemptHistoryLines}"
-                       MaxHeight="140"
-                       MinHeight="48"
-                       ScrollViewer.VerticalScrollBarVisibility="Auto" />
-              <ItemsControl ItemsSource="{Binding Live.PresentationTiles}"
-                            IsVisible="{Binding Live.HasPresentationTiles}"
-                            Margin="0,4,0,4">
-                <ItemsControl.ItemsPanel>
-                  <ItemsPanelTemplate>
-                    <WrapPanel Orientation="Horizontal" />
-                  </ItemsPanelTemplate>
-                </ItemsControl.ItemsPanel>
-                <ItemsControl.ItemTemplate>
-                  <DataTemplate x:DataType="pres:PresentationTileViewModel">
-                    <widgetsPres:MetricGaugeView Width="160" Margin="0,0,8,4" DataContext="{Binding}" />
-                  </DataTemplate>
-                </ItemsControl.ItemTemplate>
-              </ItemsControl>
-              <TextBlock Text="{Binding StepDetail.DetailStep.Path, StringFormat=Path: {0}}"
-                         FontSize="11"
-                         Opacity="0.55"
-                         TextWrapping="Wrap" />
-              <Border IsVisible="{Binding IsEngineerDebugMode}"
-                      Padding="8"
-                      BorderBrush="{DynamicResource SystemControlForegroundBaseMediumBrush}"
-                      BorderThickness="1"
-                      CornerRadius="4">
-                <StackPanel Spacing="2">
-                  <TextBlock Text="Conditions applied" FontWeight="SemiBold" FontSize="12" />
-                  <TextBlock Text="{Binding StepDetail.ConditionSummary}" TextWrapping="Wrap" Opacity="0.9" />
-                </StackPanel>
-              </Border>
-              <Border IsVisible="{Binding StationOverrides.HasParameterFields}"
-                      Padding="8"
-                      BorderBrush="{DynamicResource SystemControlForegroundBaseMediumBrush}"
-                      BorderThickness="1"
-                      CornerRadius="4">
-                <StackPanel Spacing="6">
-                  <StackPanel Orientation="Horizontal" Spacing="8">
-                    <TextBlock Text="Station overrides"
-                               FontWeight="SemiBold"
-                               FontSize="12"
-                               VerticalAlignment="Center" />
-                    <Button Content="Apply &amp; save"
-                            Command="{Binding StationOverrides.ApplyParametersCommand}"
-                            IsEnabled="{Binding !IsRunning}"
-                            FontSize="11" />
-                  </StackPanel>
-                  <TextBlock Text="Engineer/Debug only. Persists bench settings — does not rewrite the TapPlan. Operator-entered values still come from mid-run prompts."
+        <!-- * row (never Auto): ScrollViewer must have a bounded viewport to stay scrollable. -->
+        <ScrollViewer Grid.Row="1"
+                      VerticalScrollBarVisibility="Auto"
+                      HorizontalScrollBarVisibility="Disabled">
+          <StackPanel Spacing="8" Margin="0,0,0,4">
+            <Border Padding="8"
+                    MinHeight="80"
+                    Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}">
+              <StackPanel Spacing="6">
+                <StackPanel Orientation="Horizontal" Spacing="10">
+                  <TextBlock Text="Step detail"
+                             FontWeight="SemiBold"
+                             VerticalAlignment="Center" />
+                  <Button Content="Results" Command="{Binding OpenLastRunResultsCommand}" />
+                  <Button Content="Show trend"
+                          Command="{Binding Live.ToggleFocusTrendCommand}"
+                          IsVisible="{Binding Live.OfferShowTrend}"
+                          FontSize="11"
+                          Padding="8,2"
+                          ToolTip.Tip="{Binding Live.FocusTrendTip}" />
+                  <TextBlock Text="{Binding Live.FocusTrendTip}"
+                             Opacity="0.7"
                              FontSize="11"
-                             Opacity="0.65"
-                             TextWrapping="Wrap" />
-                  <ItemsControl ItemsSource="{Binding StationOverrides.ParameterFields}">
-                    <ItemsControl.ItemTemplate>
-                      <DataTemplate x:DataType="vm:InteractionFieldViewModel">
-                        <StackPanel Spacing="4" Margin="0,2,0,4">
-                          <TextBlock Text="{Binding Label}"
-                                     FontSize="12"
-                                     Opacity="0.85"
-                                     IsVisible="{Binding IsTextOrNumber}" />
-                          <TextBox Text="{Binding Value}"
-                                   PlaceholderText="{Binding ValidationHint}"
-                                   IsVisible="{Binding IsTextOrNumber}"
-                                   IsReadOnly="{Binding IsReadOnly}" />
-                          <CheckBox Content="{Binding Label}"
-                                    IsChecked="{Binding BoolValue}"
-                                    IsVisible="{Binding IsBoolean}"
-                                    IsEnabled="{Binding !IsReadOnly}" />
-                        </StackPanel>
-                      </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                  </ItemsControl>
+                             VerticalAlignment="Center"
+                             IsVisible="{Binding Live.FocusTrendTip, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
                 </StackPanel>
-              </Border>
-            </StackPanel>
-          </Border>
+                <TextBlock Text="{Binding StepDetail.DetailPrimaryLine}"
+                           TextWrapping="Wrap"
+                           Opacity="0.9" />
+                <TextBlock Text="{Binding StepDetail.AttemptSummaryChip, StringFormat=Attempts: {0}}"
+                           IsVisible="{Binding StepDetail.AttemptSummaryChip, Converter={x:Static ObjectConverters.IsNotNull}}"
+                           FontWeight="SemiBold"
+                           Opacity="0.9" />
+                <ListBox ItemsSource="{Binding StepDetail.AttemptHistoryLines}"
+                         MaxHeight="140"
+                         MinHeight="48"
+                         ScrollViewer.VerticalScrollBarVisibility="Auto" />
+                <ItemsControl ItemsSource="{Binding Live.PresentationTiles}"
+                              IsVisible="{Binding Live.HasPresentationTiles}"
+                              Margin="0,4,0,4">
+                  <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                      <WrapPanel Orientation="Horizontal" />
+                    </ItemsPanelTemplate>
+                  </ItemsControl.ItemsPanel>
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="pres:PresentationTileViewModel">
+                      <widgetsPres:MetricGaugeView Width="160" Margin="0,0,8,4" DataContext="{Binding}" />
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <TextBlock Text="{Binding StepDetail.DetailStep.Path, StringFormat=Path: {0}}"
+                           FontSize="11"
+                           Opacity="0.55"
+                           TextWrapping="Wrap" />
+                <Border IsVisible="{Binding IsEngineerDebugMode}"
+                        Padding="8"
+                        BorderBrush="{DynamicResource SystemControlForegroundBaseMediumBrush}"
+                        BorderThickness="1"
+                        CornerRadius="4">
+                  <StackPanel Spacing="2">
+                    <TextBlock Text="Conditions applied" FontWeight="SemiBold" FontSize="12" />
+                    <TextBlock Text="{Binding StepDetail.ConditionSummary}" TextWrapping="Wrap" Opacity="0.9" />
+                  </StackPanel>
+                </Border>
+                <Border IsVisible="{Binding StationOverrides.HasParameterFields}"
+                        Padding="8"
+                        BorderBrush="{DynamicResource SystemControlForegroundBaseMediumBrush}"
+                        BorderThickness="1"
+                        CornerRadius="4">
+                  <StackPanel Spacing="6">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                      <TextBlock Text="Station overrides"
+                                 FontWeight="SemiBold"
+                                 FontSize="12"
+                                 VerticalAlignment="Center" />
+                      <Button Content="Apply &amp; save"
+                              Command="{Binding StationOverrides.ApplyParametersCommand}"
+                              IsEnabled="{Binding !IsRunning}"
+                              FontSize="11" />
+                    </StackPanel>
+                    <TextBlock Text="Engineer/Debug only. Persists bench settings — does not rewrite the TapPlan. Operator-entered values still come from mid-run prompts."
+                               FontSize="11"
+                               Opacity="0.65"
+                               TextWrapping="Wrap" />
+                    <ItemsControl ItemsSource="{Binding StationOverrides.ParameterFields}">
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:InteractionFieldViewModel">
+                          <StackPanel Spacing="4" Margin="0,2,0,4">
+                            <TextBlock Text="{Binding Label}"
+                                       FontSize="12"
+                                       Opacity="0.85"
+                                       IsVisible="{Binding IsTextOrNumber}" />
+                            <TextBox Text="{Binding Value}"
+                                     PlaceholderText="{Binding ValidationHint}"
+                                     IsVisible="{Binding IsTextOrNumber}"
+                                     IsReadOnly="{Binding IsReadOnly}" />
+                            <CheckBox Content="{Binding Label}"
+                                      IsChecked="{Binding BoolValue}"
+                                      IsVisible="{Binding IsBoolean}"
+                                      IsEnabled="{Binding !IsReadOnly}" />
+                          </StackPanel>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                  </StackPanel>
+                </Border>
+              </StackPanel>
+            </Border>
 
-          <Expander Header="Diagnostics — Session log"
-                    IsExpanded="{Binding StepDetail.SessionLogExpanded}">
-            <ListBox ItemsSource="{Binding StepDetail.DetailLines}" MaxHeight="140" MinHeight="60" />
-          </Expander>
+            <Expander Header="Diagnostics — Session log"
+                      IsExpanded="{Binding StepDetail.SessionLogExpanded}">
+              <ListBox ItemsSource="{Binding StepDetail.DetailLines}" MaxHeight="140" MinHeight="60" />
+            </Expander>
 
-          <Border Padding="8"
-                  IsVisible="{Binding IsEngineerDebugMode}"
-                  BorderBrush="{DynamicResource SystemControlForegroundBaseMediumBrush}"
-                  BorderThickness="1">
-            <StackPanel Orientation="Horizontal" Spacing="8">
-              <TextBlock Text="Debug overlay" FontWeight="SemiBold" VerticalAlignment="Center" />
-              <CheckBox Content="Enabled" IsChecked="{Binding StationOverrides.DebugStepEnabled}" />
-              <TextBox PlaceholderText="Resource" Text="{Binding StationOverrides.DebugResource}" Width="140" />
-              <NumericUpDown Value="{Binding StationOverrides.DebugSampleCount}" Minimum="1" Maximum="4096" Width="90" FormatString="0" />
-              <NumericUpDown Value="{Binding StationOverrides.DebugIntervalMs}" Minimum="1" Maximum="60000" Width="90" FormatString="0" />
-              <Button Content="Apply" Command="{Binding StationOverrides.ApplyDebugPatchCommand}" />
-            </StackPanel>
-          </Border>
-        </StackPanel>
-      </ScrollViewer>
+            <Border Padding="8"
+                    IsVisible="{Binding IsEngineerDebugMode}"
+                    BorderBrush="{DynamicResource SystemControlForegroundBaseMediumBrush}"
+                    BorderThickness="1">
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <TextBlock Text="Debug overlay" FontWeight="SemiBold" VerticalAlignment="Center" />
+                <CheckBox Content="Enabled" IsChecked="{Binding StationOverrides.DebugStepEnabled}" />
+                <TextBox PlaceholderText="Resource" Text="{Binding StationOverrides.DebugResource}" Width="140" />
+                <NumericUpDown Value="{Binding StationOverrides.DebugSampleCount}" Minimum="1" Maximum="4096" Width="90" FormatString="0" />
+                <NumericUpDown Value="{Binding StationOverrides.DebugIntervalMs}" Minimum="1" Maximum="60000" Width="90" FormatString="0" />
+                <Button Content="Apply" Command="{Binding StationOverrides.ApplyDebugPatchCommand}" />
+              </StackPanel>
+            </Border>
+          </StackPanel>
+        </ScrollViewer>
+      </Grid>
     </Grid>
 
     <DockPanel Grid.Row="4" Grid.Column="1">

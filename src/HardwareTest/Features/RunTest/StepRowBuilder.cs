@@ -27,6 +27,9 @@ public static class StepRowBuilder
             return items;
         }
 
+        // Keep the active stage/section as a clickable header so Run Selected can target the whole scope.
+        items.Add(StepListItemViewModel.Header(scope.Name, scope));
+
         if (scopeUsesSections)
         {
             AppendScopeWithMarkers(scope, items, pathPrefix: null, statusFilter, searchText);

@@ -16,7 +16,7 @@ Make live measurement feedback **glanceable and maintainable**: default Run chro
 - **Shell owns layout; plans own intent.** Mode switching never requires TapPlan changes beyond Phase L roles/limits.
 - **No new OS dialogs / second windows** — Focus stays in-panel ([appliance rule](../opentap-platform.md#interaction-contract-avalonia-owned)). No separate Monitor page in this phase.
 - **Constraint trigger is usable plot area + operator/alert intent**, not raw window width alone ([constraint-based breakpoints](https://arxiv.org/html/2409.01339) idea, applied thinly).
-- **When Focus is shown, drop fixed `Height="140"` / Results `Height="120"` for that surface** — use stretch + `MinHeight` floor (~220–280px Operate) and a `GridSplitter`. Focus’s grid row is `*` only while open; when collapsed the row height is `0` (a permanent `*` row still reserves empty space in Avalonia even if children are `IsVisible=false`).
+- **When Focus is shown, drop fixed `Height="140"` / Results `Height="120"` for that surface** — use stretch + `MinHeight` floor (~160–180px Operate). Focus lives **inside** the Details drawer as a nested `*` row (0 when closed); gauges stay in a sibling `*` row with a `ScrollViewer` so the band pane remains scrollable. Step list and Details share one outer splitter; chrome toggles reset star rows so Absolute heights from drag cannot stick.
 - **Sparklines are optional cues under KPIs**, not a substitute for Focus when shape diagnosis is required.
 - **Bump / hi-low / return** prefer Phase L derived scalars + limits (timing bar widget optional). Full waveform remains the Focus path.
 - Keep Feature line budgets (~600); extend `LivePresentationViewModel` / plot host via partials rather than raising the cap.
@@ -27,7 +27,7 @@ Make live measurement feedback **glanceable and maintainable**: default Run chro
 
 - Restructure the Details tray so **gauges are not competing with a fixed-height plot inside `MaxHeight="360"`**.
 - **Band mode:** selected-step (or active) KPI strip visible; plot collapsed or sparkline-only.
-- **Focus mode:** KPI strip retained; **one** `MeasurementPlotView` in a star-sized row with splitter vs step list (or vs upper chrome)—operator-resizable.
+- **Focus mode:** KPI strip retained; **one** `MeasurementPlotView` stretches in a nested star row inside Details (`MinHeight` floor, no fixed Height); gauges/detail scroll in the sibling star row. Operator resizes list vs drawer via the outer splitter.
 - Enter Focus when: operator selects a timeseries-bearing step/metric, a watched gauge goes out of band, or “Show trend” is toggled. Exit Focus restores Band without destroying sample buffers.
 - Preserve session / interaction / Safety Stop hierarchy; do not bury transport.
 
