@@ -977,8 +977,42 @@ public sealed class RunTestViewModelTests
         vm.StepTree.SelectedStage = power;
         Assert.True(vm.StepTree.HasSubsections);
         Assert.Contains(vm.StepTree.Subsections, s => s.DisplayName == "3V3 Rail");
+        Assert.Contains(
+            vm.StepTree.StepListItems,
+            i => i.IsHeader
+                 && i.DisplayName == "Power Rails"
+                 && i.Step is not null
+                 && string.Equals(i.Step.Path, power!.Step!.Path, StringComparison.Ordinal));
         vm.StepTree.SelectedSubsection = vm.StepTree.Subsections.First(s => s.DisplayName == "3V3 Rail");
         Assert.Contains(vm.StepTree.StepRows, r => r.Name.Contains("Acquire 3V3", StringComparison.Ordinal));
+        Assert.Contains(
+            vm.StepTree.StepListItems,
+            i => i.IsHeader && i.DisplayName == "3V3 Rail" && i.IsRunnable);
+    }
+
+    [Fact]
+    public async Task Stage_filter_header_run_selected_targets_whole_stage()
+    {
+        var openTap = new FakeOpenTapSession();
+        var vm = CreateVm(openTap);
+        await vm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
+        await ConfirmReadyAsync(vm, "SN-STAGE-HDR");
+        vm.ProgramSelection.SelectedProgram = vm.ProgramSelection.Programs.First(p => p.Path == BoardDemoProgramFactory.EmbeddedName);
+        for (var i = 0; i < 40 && vm.StepTree.Stages.All(s => s.DisplayName != "Power Rails"); i++)
+        {
+            await Task.Delay(25);
+        }
+
+        var power = vm.StepTree.Stages.First(s => s.DisplayName == "Power Rails");
+        vm.StepTree.SelectedStage = power;
+        var stageHeader = vm.StepTree.StepListItems.First(i =>
+            i.IsHeader && i.DisplayName == "Power Rails" && i.Step is not null);
+        vm.StepTree.SelectedStepListItem = stageHeader;
+
+        Assert.Equal(stageHeader.Step!.Path, vm.StepTree.SelectedStep?.Path);
+        await vm.Run.RunSelectedCommand.ExecuteAsync();
+        Assert.Equal(1, openTap.SelectionRunCount);
+        Assert.Equal(stageHeader.Step.Path, openTap.LastSelectionPath);
     }
 
     [Fact]
