@@ -14,6 +14,8 @@ public partial class RunTestView : UserControl
 {
     private const int StepListRowIndex = 4;
     private const int DetailDrawerRowIndex = 6;
+    private const int DetailFocusRowIndex = 0;
+    private const int DetailBandRowIndex = 1;
 
     private RunTestViewModel? _subscribed;
     private readonly SerialDisposable _chromeLayout = new();
@@ -35,23 +37,23 @@ public partial class RunTestView : UserControl
             vm.StepTree.RequestScrollToSelectedStep += OnRequestScrollToSelectedStep;
             vm.StepTree.RequestFocusStepSearch += OnRequestFocusStepSearch;
             vm.ProgramSelection.RequestPlanFilePath = PickPlanFileAsync;
-            // Detail open/close (and Focus toggle) must reset list+drawer star rows: GridSplitter
-            // converts * to Absolute, and leaving Absolute after Hide/Show breaks the drawer.
+            // Detail/Focus chrome must reset star rows: GridSplitter converts * to Absolute,
+            // and a permanent * Focus row still reserves space when IsVisible=false.
             _chromeLayout.Disposable = Observable.CombineLatest(
                     vm.Live.WhenAnyValue(x => x.ShowFocusTrend),
                     vm.StepDetail.WhenAnyValue(x => x.ShowDetailRegion),
-                    (_, showDetails) => showDetails)
-                .Subscribe(showDetails =>
+                    (showFocus, showDetails) => (showFocus, showDetails))
+                .Subscribe(state =>
                 {
                     if (Dispatcher.UIThread.CheckAccess())
                     {
-                        ApplyDetailDrawerRows(showDetails);
+                        ApplyDetailDrawerRows(state.showDetails, state.showFocus);
                         return;
                     }
 
-                    Dispatcher.UIThread.Post(() => ApplyDetailDrawerRows(showDetails));
+                    Dispatcher.UIThread.Post(() => ApplyDetailDrawerRows(state.showDetails, state.showFocus));
                 });
-            ApplyDetailDrawerRows(vm.StepDetail.ShowDetailRegion);
+            ApplyDetailDrawerRows(vm.StepDetail.ShowDetailRegion, vm.Live.ShowFocusTrend);
             if (Plot is not null)
             {
                 Plot.UpdateData(vm.Live.PlotYs, vm.Live.PlotYsLength, force: true);
@@ -74,8 +76,8 @@ public partial class RunTestView : UserControl
         _subscribed = null;
     }
 
-    /// Restores step-list and detail-drawer star shares after Details/Focus chrome changes.
-    private void ApplyDetailDrawerRows(bool showDetails)
+    /// Restores list/drawer/Focus star shares after Details or Focus chrome changes.
+    private void ApplyDetailDrawerRows(bool showDetails, bool showFocus)
     {
         if (BoardGrid is null || BoardGrid.RowDefinitions.Count <= DetailDrawerRowIndex)
         {
@@ -86,6 +88,19 @@ public partial class RunTestView : UserControl
         BoardGrid.RowDefinitions[DetailDrawerRowIndex].Height = showDetails
             ? new GridLength(1, GridUnitType.Star)
             : new GridLength(0);
+
+        if (DetailDrawerGrid is null || DetailDrawerGrid.RowDefinitions.Count <= DetailBandRowIndex)
+        {
+            return;
+        }
+
+        // Focus * only while open (0 otherwise). Band stays * so its ScrollViewer keeps a viewport.
+        DetailDrawerGrid.RowDefinitions[DetailFocusRowIndex].Height = showDetails && showFocus
+            ? new GridLength(3, GridUnitType.Star)
+            : new GridLength(0);
+        DetailDrawerGrid.RowDefinitions[DetailBandRowIndex].Height = showDetails && showFocus
+            ? new GridLength(2, GridUnitType.Star)
+            : new GridLength(1, GridUnitType.Star);
     }
 
     private async Task<string?> PickPlanFileAsync(CancellationToken cancellationToken)
