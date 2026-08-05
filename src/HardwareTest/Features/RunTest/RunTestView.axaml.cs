@@ -12,7 +12,8 @@ namespace HardwareTest.Features.RunTest;
 
 public partial class RunTestView : UserControl
 {
-    private const int FocusTrendRowIndex = 6;
+    private const int StepListRowIndex = 4;
+    private const int DetailDrawerRowIndex = 6;
 
     private RunTestViewModel? _subscribed;
     private readonly SerialDisposable _chromeLayout = new();
@@ -34,21 +35,23 @@ public partial class RunTestView : UserControl
             vm.StepTree.RequestScrollToSelectedStep += OnRequestScrollToSelectedStep;
             vm.StepTree.RequestFocusStepSearch += OnRequestFocusStepSearch;
             vm.ProgramSelection.RequestPlanFilePath = PickPlanFileAsync;
+            // Detail open/close (and Focus toggle) must reset list+drawer star rows: GridSplitter
+            // converts * to Absolute, and leaving Absolute after Hide/Show breaks the drawer.
             _chromeLayout.Disposable = Observable.CombineLatest(
                     vm.Live.WhenAnyValue(x => x.ShowFocusTrend),
                     vm.StepDetail.WhenAnyValue(x => x.ShowDetailRegion),
-                    (showFocus, showDetails) => showFocus && showDetails)
-                .Subscribe(show =>
+                    (_, showDetails) => showDetails)
+                .Subscribe(showDetails =>
                 {
                     if (Dispatcher.UIThread.CheckAccess())
                     {
-                        ApplyFocusTrendRowHeight(show);
+                        ApplyDetailDrawerRows(showDetails);
                         return;
                     }
 
-                    Dispatcher.UIThread.Post(() => ApplyFocusTrendRowHeight(show));
+                    Dispatcher.UIThread.Post(() => ApplyDetailDrawerRows(showDetails));
                 });
-            ApplyFocusTrendRowHeight(vm.Live.ShowFocusTrend && vm.StepDetail.ShowDetailRegion);
+            ApplyDetailDrawerRows(vm.StepDetail.ShowDetailRegion);
             if (Plot is not null)
             {
                 Plot.UpdateData(vm.Live.PlotYs, vm.Live.PlotYsLength, force: true);
@@ -71,15 +74,16 @@ public partial class RunTestView : UserControl
         _subscribed = null;
     }
 
-    /// Star when Focus is open so the plot can take honest height; Height=0 when closed so the row does not keep a star share.
-    private void ApplyFocusTrendRowHeight(bool showFocusTrend)
+    /// Restores step-list and detail-drawer star shares after Details/Focus chrome changes.
+    private void ApplyDetailDrawerRows(bool showDetails)
     {
-        if (BoardGrid is null || BoardGrid.RowDefinitions.Count <= FocusTrendRowIndex)
+        if (BoardGrid is null || BoardGrid.RowDefinitions.Count <= DetailDrawerRowIndex)
         {
             return;
         }
 
-        BoardGrid.RowDefinitions[FocusTrendRowIndex].Height = showFocusTrend
+        BoardGrid.RowDefinitions[StepListRowIndex].Height = new GridLength(1, GridUnitType.Star);
+        BoardGrid.RowDefinitions[DetailDrawerRowIndex].Height = showDetails
             ? new GridLength(1, GridUnitType.Star)
             : new GridLength(0);
     }
