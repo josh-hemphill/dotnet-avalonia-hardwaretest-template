@@ -14,6 +14,7 @@
                        IsSettingsVisible="False"
                        IsBackButtonVisible="False"
                        OpenPaneLength="220"
+                       CompactPaneLength="48"
                        IsPaneOpen="{Binding IsNavPaneOpen, Mode=TwoWay}"
                        MenuItemsSource="{Binding NavigationItems}"
                        SelectedItem="{Binding SelectedItem, Mode=TwoWay}">
@@ -28,8 +29,8 @@
     </ui:FANavigationView.MenuItemTemplate>
 
     <ui:FANavigationView.PaneFooter>
-      <!-- Compact: fixed-width centered icon buttons. Expanded: stretch with icon+label. -->
-      <StackPanel Margin="0,12" Spacing="6" HorizontalAlignment="Stretch">
+      <!-- Compact buttons are full CompactPaneLength wide so glyphs share the same center as menu icons. -->
+      <StackPanel Margin="0,8,0,12" Spacing="6" HorizontalAlignment="Stretch">
         <TextBlock Text="{Binding ControlStatus}"
                    FontSize="12"
                    Margin="12,0"
@@ -39,8 +40,8 @@
 
         <!-- Pause / Resume / Continue -->
         <Button Command="{Binding PauseResumeCommand}"
-                Width="40"
-                Height="36"
+                Width="48"
+                Height="40"
                 Padding="0"
                 HorizontalAlignment="Center"
                 HorizontalContentAlignment="Center"
@@ -81,8 +82,8 @@
 
         <!-- Safety Stop -->
         <Button Command="{Binding SafetyStopCommand}"
-                Width="40"
-                Height="36"
+                Width="48"
+                Height="40"
                 Padding="0"
                 HorizontalAlignment="Center"
                 HorizontalContentAlignment="Center"
