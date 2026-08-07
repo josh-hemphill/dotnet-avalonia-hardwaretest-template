@@ -15,7 +15,7 @@ public sealed class Phase18TouchDensityTests
     {
         Assert.True(OperatorTouchDensity.OperatorControlMinHeight >= 40);
         Assert.Equal(48, OperatorTouchDensity.CompactNavTargetSize);
-        Assert.True(OperatorTouchDensity.DetailsSplitterMinHeight >= 12);
+        Assert.Equal(16, OperatorTouchDensity.DetailsSplitterMinHeight);
     }
 
     [Fact]
