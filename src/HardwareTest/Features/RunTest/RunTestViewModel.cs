@@ -197,6 +197,9 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
             ? "Run the selected leaf or section (subtree + Safe Shutdown). Use Run for the full suite."
             : CanStartRunTip;
 
+    /// True when Run / Run Selected is gated — show the tip inline (Phase 18; not ToolTip-only).
+    public bool ShowStartBlockedTip => !CanStartRun;
+
     /// Hide the overall progress bar when idle (not stuck at 0%).
     public bool ShowOverallProgress => IsRunning;
 
@@ -290,6 +293,7 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
                 this.RaisePropertyChanged(nameof(CanStartRun));
                 this.RaisePropertyChanged(nameof(CanStartRunTip));
                 this.RaisePropertyChanged(nameof(CanStartRunSelectedTip));
+                this.RaisePropertyChanged(nameof(ShowStartBlockedTip));
             }
         };
 
@@ -332,6 +336,7 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
                     this.RaisePropertyChanged(nameof(CanStartRun));
                     this.RaisePropertyChanged(nameof(CanStartRunTip));
                     this.RaisePropertyChanged(nameof(CanStartRunSelectedTip));
+                    this.RaisePropertyChanged(nameof(ShowStartBlockedTip));
                     this.RaisePropertyChanged(nameof(ShowOverallProgress));
                     this.RaisePropertyChanged(nameof(CanSafetyStop));
                 }

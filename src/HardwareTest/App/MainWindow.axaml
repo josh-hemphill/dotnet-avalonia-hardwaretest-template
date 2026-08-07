@@ -42,7 +42,7 @@
         <!-- Pause / Resume / Continue -->
         <Button Command="{Binding PauseResumeCommand}"
                 Width="48"
-                Height="40"
+                Height="48"
                 Padding="0"
                 HorizontalAlignment="Center"
                 HorizontalContentAlignment="Center"
@@ -50,6 +50,7 @@
                 IsEnabled="{Binding IsRunning}"
                 Classes.success="{Binding ShowContinueIcon}"
                 ToolTip.Tip="{Binding PauseResumeTip}"
+                AutomationProperties.Name="{Binding PauseResumeLabel}"
                 IsVisible="{Binding !IsNavPaneOpen}">
           <ui:FASymbolIcon Symbol="{Binding PauseResumeSymbol}"
                            FontSize="16"
@@ -61,11 +62,12 @@
         <Button Command="{Binding PauseResumeCommand}"
                 HorizontalAlignment="Stretch"
                 HorizontalContentAlignment="Center"
-                Padding="12,6"
-                MinHeight="36"
+                Padding="12,8"
+                MinHeight="40"
                 IsEnabled="{Binding IsRunning}"
                 Classes.success="{Binding ShowContinueIcon}"
                 ToolTip.Tip="{Binding PauseResumeTip}"
+                AutomationProperties.Name="{Binding PauseResumeLabel}"
                 IsVisible="{Binding IsNavPaneOpen}">
           <StackPanel Orientation="Horizontal"
                       Spacing="8"
@@ -84,7 +86,7 @@
         <!-- Safety Stop -->
         <Button Command="{Binding SafetyStopCommand}"
                 Width="48"
-                Height="40"
+                Height="48"
                 Padding="0"
                 HorizontalAlignment="Center"
                 HorizontalContentAlignment="Center"
@@ -92,6 +94,7 @@
                 Classes="danger"
                 IsEnabled="{Binding IsRunning}"
                 ToolTip.Tip="{Binding SafetyStopTip}"
+                AutomationProperties.Name="{Binding SafetyStopLabel}"
                 IsVisible="{Binding !IsNavPaneOpen}">
           <ui:FASymbolIcon Symbol="StopFilled"
                            FontSize="16"
@@ -103,11 +106,12 @@
         <Button Command="{Binding SafetyStopCommand}"
                 HorizontalAlignment="Stretch"
                 HorizontalContentAlignment="Center"
-                Padding="12,6"
-                MinHeight="36"
+                Padding="12,8"
+                MinHeight="40"
                 Classes="danger"
                 IsEnabled="{Binding IsRunning}"
                 ToolTip.Tip="{Binding SafetyStopTip}"
+                AutomationProperties.Name="{Binding SafetyStopLabel}"
                 IsVisible="{Binding IsNavPaneOpen}">
           <StackPanel Orientation="Horizontal"
                       Spacing="8"
