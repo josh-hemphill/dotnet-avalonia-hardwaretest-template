@@ -46,14 +46,4 @@ public static class StatusChip
 
         return raw.Length <= 12 ? raw : raw[..12];
     }
-
-    public static string ChipClass(string chip)
-        => chip switch
-        {
-            "Pass" => "chip-pass",
-            "Fail" => "chip-fail",
-            "Running" => "chip-running",
-            "Awaiting" => "chip-awaiting",
-            _ => "chip-pending",
-        };
 }

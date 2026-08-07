@@ -2,6 +2,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:local="using:HardwareTest"
              xmlns:sty="using:FluentAvalonia.Styling"
+             xmlns:shell="using:HardwareTest.Features.Shell"
              x:Class="HardwareTest.App"
              RequestedThemeVariant="Default">
   <Application.DataTemplates>
@@ -15,7 +16,7 @@
       <Setter Property="Background" Value="#C62828" />
       <Setter Property="Foreground" Value="White" />
       <Setter Property="BorderBrush" Value="#B71C1C" />
-      <Setter Property="MinHeight" Value="40" />
+      <Setter Property="MinHeight" Value="{x:Static shell:OperatorTouchDensity.OperatorControlMinHeight}" />
       <Setter Property="Padding" Value="14,8" />
     </Style>
     <Style Selector="Button.danger:pointerover /template/ ContentPresenter">
@@ -30,7 +31,7 @@
       <Setter Property="Background" Value="#2E7D32" />
       <Setter Property="Foreground" Value="White" />
       <Setter Property="BorderBrush" Value="#1B5E20" />
-      <Setter Property="MinHeight" Value="40" />
+      <Setter Property="MinHeight" Value="{x:Static shell:OperatorTouchDensity.OperatorControlMinHeight}" />
       <Setter Property="Padding" Value="14,8" />
     </Style>
     <Style Selector="Button.success:pointerover /template/ ContentPresenter">
@@ -48,7 +49,7 @@
       <Setter Property="FontWeight" Value="SemiBold" />
       <Setter Property="Padding" Value="18,8" />
       <Setter Property="MinWidth" Value="88" />
-      <Setter Property="MinHeight" Value="40" />
+      <Setter Property="MinHeight" Value="{x:Static shell:OperatorTouchDensity.OperatorControlMinHeight}" />
     </Style>
     <Style Selector="Button.primary:pointerover /template/ ContentPresenter">
       <Setter Property="Background" Value="#1E88E5" />
@@ -65,7 +66,7 @@
     </Style>
     <!-- Phase 18: default operator Button floor (override with denser classes only when intentional). -->
     <Style Selector="Button.operator">
-      <Setter Property="MinHeight" Value="40" />
+      <Setter Property="MinHeight" Value="{x:Static shell:OperatorTouchDensity.OperatorControlMinHeight}" />
       <Setter Property="Padding" Value="14,8" />
     </Style>
     <Style Selector="Border.startup-overlay">
@@ -87,7 +88,7 @@
       <Setter Property="BorderThickness" Value="1" />
       <Setter Property="CornerRadius" Value="12" />
       <Setter Property="Padding" Value="12,6" />
-      <Setter Property="MinHeight" Value="40" />
+      <Setter Property="MinHeight" Value="{x:Static shell:OperatorTouchDensity.OperatorControlMinHeight}" />
       <Setter Property="FontSize" Value="12" />
     </Style>
     <Style Selector="Button.filter-chip:pointerover /template/ ContentPresenter">
@@ -103,7 +104,7 @@
       <Setter Property="BorderThickness" Value="1" />
       <Setter Property="CornerRadius" Value="12" />
       <Setter Property="Padding" Value="12,6" />
-      <Setter Property="MinHeight" Value="40" />
+      <Setter Property="MinHeight" Value="{x:Static shell:OperatorTouchDensity.OperatorControlMinHeight}" />
       <Setter Property="FontSize" Value="12" />
     </Style>
     <Style Selector="ToggleButton.filter-chip:pointerover /template/ ContentPresenter">
@@ -126,7 +127,7 @@
       <Setter Property="Foreground" Value="White" />
     </Style>
     <Style Selector="ListBox.operator-list ListBoxItem">
-      <Setter Property="MinHeight" Value="40" />
+      <Setter Property="MinHeight" Value="{x:Static shell:OperatorTouchDensity.OperatorControlMinHeight}" />
       <Setter Property="Padding" Value="8,6" />
     </Style>
     <Style Selector="TextBox.error">

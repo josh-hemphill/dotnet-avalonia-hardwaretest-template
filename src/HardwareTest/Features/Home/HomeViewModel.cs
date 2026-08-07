@@ -75,6 +75,7 @@ public partial class HomeViewModel : ReactiveObject
 
     private CrashDossierSummary? _activeDossier;
 
+    /// Host state for an unreviewed crash (presented by the shell strip — not an in-page card).
     public void RefreshCrashBanner()
     {
         try

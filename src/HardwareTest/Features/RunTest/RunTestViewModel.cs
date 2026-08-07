@@ -64,40 +64,9 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
         }
 
         // Panels reference each other, so the wiring uses lambdas; every capture resolves only
-        // after this constructor has assigned all of them.
-        StepDetail = new StepDetailViewModel(() => OpenSelectedDetail(revealDetail: true));
-        Interaction = new InteractionHostViewModel();
-        Live = new LivePresentationViewModel();
-        ProgramSelection = new ProgramSelectionViewModel(
-            status => Status = status,
-            () => IsEngineerDebugMode,
-            () => LoadSelectedProgramAsync(),
-            () => SessionPanel!.RefreshSessionSummary());
-        SessionPanel = new OperatorSessionPanelViewModel(
-            session,
-            settings,
-            status => Status = status,
-            () => ProgramSelection.SelectedProgram,
-            ClearSessionAttempts);
-        StationOverrides = new StationOverridesViewModel(
+        // after CreateChildPanels has assigned all of them.
+        CreateChildPanels(
             plan,
-            station,
-            settings,
-            settingsStore,
-            status => Status = status,
-            () => IsEngineerDebugMode,
-            () => IsRunning,
-            () => StepTree!.SelectedStep,
-            () => ProgramSelection.SelectedProgram,
-            summary => StepDetail.ConditionSummary = summary);
-        StepTree = new StepTreeViewModel(
-            () => _plan.StepTree,
-            path => Run!.FindAttempt(path),
-            () => OpenSelectedDetail(revealDetail: true),
-            RefreshHero,
-            () => CurrentStepPath);
-        Run = new RunExecutionViewModel(
-            this,
             runSession,
             station,
             session,
@@ -105,16 +74,9 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
             reportService,
             runStore,
             settings,
+            settingsStore,
             dutHistory,
             buildInfo ?? BuildInfo.FromAssembly(typeof(RunTestViewModel).Assembly),
-            _progress,
-            ProgramSelection,
-            SessionPanel,
-            StationOverrides,
-            StepTree,
-            StepDetail,
-            Interaction,
-            Live,
             storageHealth,
             visaModeController);
 
@@ -131,8 +93,7 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
         });
         DismissBannerCommand = ReactiveCommand.Create(() =>
         {
-            HasBanner = false;
-            BannerMessage = string.Empty;
+            ClearLocalRunBanner();
             ClearRunBannerFromShell();
         });
 
@@ -150,14 +111,14 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
     /// Loads the program catalog and default plan (OpenTAP plugin search). Call after first paint.
     public Task WarmProgramsAsync() => ProgramSelection.RefreshProgramsAsync();
 
-    public StepDetailViewModel StepDetail { get; }
-    public InteractionHostViewModel Interaction { get; }
-    public LivePresentationViewModel Live { get; }
-    public ProgramSelectionViewModel ProgramSelection { get; }
-    public OperatorSessionPanelViewModel SessionPanel { get; }
-    public StationOverridesViewModel StationOverrides { get; }
-    public StepTreeViewModel StepTree { get; }
-    public RunExecutionViewModel Run { get; }
+    public StepDetailViewModel StepDetail { get; private set; } = null!;
+    public InteractionHostViewModel Interaction { get; private set; } = null!;
+    public LivePresentationViewModel Live { get; private set; } = null!;
+    public ProgramSelectionViewModel ProgramSelection { get; private set; } = null!;
+    public OperatorSessionPanelViewModel SessionPanel { get; private set; } = null!;
+    public StationOverridesViewModel StationOverrides { get; private set; } = null!;
+    public StepTreeViewModel StepTree { get; private set; } = null!;
+    public RunExecutionViewModel Run { get; private set; } = null!;
 
     public OperatorSession Session => _session;
 
@@ -560,7 +521,7 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
             TaskContinuationOptions.OnlyOnFaulted,
             TaskScheduler.Default);
 
-    /// Sets a sticky severity banner (mirrored to the shell strip); does not overwrite Status.
+    /// Sets sticky severity notice state and publishes it to the shell strip when wired.
     public void SetBanner(RunBannerSeverity severity, string message)
     {
         BannerSeverity = severity;
@@ -569,13 +530,13 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
         PublishRunBannerToShell(severity, message);
     }
 
-    Task IRunBoardHost.RunOnUiAsync(Action action) => RunOnUiAsync(action);
+    Task IRunBoardUiPump.RunOnUiAsync(Action action) => RunOnUiAsync(action);
 
-    Task IRunBoardHost.WaitForPendingFlushesAsync() => WaitForPendingFlushesAsync();
+    Task IRunBoardUiPump.WaitForPendingFlushesAsync() => WaitForPendingFlushesAsync();
 
-    void IRunBoardHost.ForceUiFlush() => ForceUiFlush();
+    void IRunBoardUiPump.ForceUiFlush() => ForceUiFlush();
 
-    void IRunBoardHost.ResetPumpForRun() => ResetPumpForRun();
+    void IRunBoardUiPump.ResetPumpForRun() => ResetPumpForRun();
 
     Task IRunBoardHost.LoadSelectedProgramAsync(string? preserveStagePath, string? preserveStepPath)
         => LoadSelectedProgramAsync(preserveStagePath, preserveStepPath);

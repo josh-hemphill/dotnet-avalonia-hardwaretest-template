@@ -51,6 +51,7 @@ public partial class MainWindowViewModel : ReactiveObject
         RunTest = runTest;
         Inspect = inspect;
         Results = results;
+        ReportPreview = reportPreview;
         NavigationItems =
         [
             new NavItem { Id = "Home", Title = "Home", ViewModel = home, Symbol = FASymbol.Home },
@@ -95,6 +96,11 @@ public partial class MainWindowViewModel : ReactiveObject
         results.NavigateToRunRequested += (_, _) => NavigateToPageId("RunTest");
         instruments.NavigateToRunRequested += (_, _) => NavigateToPageId("RunTest");
         reportPreview.NavigateToResultsRequested += (_, _) => NavigateToPageId("Results");
+        results.ReportOpened += async (_, path) =>
+        {
+            NavigateToPageId("ReportPreview");
+            await reportPreview.LoadFromPathAsync(path);
+        };
 
         runControl.PropertyChanged += (_, e) =>
         {
@@ -120,6 +126,7 @@ public partial class MainWindowViewModel : ReactiveObject
     public RunTestViewModel RunTest { get; }
     public InspectViewModel Inspect { get; }
     public ResultsViewModel Results { get; }
+    public ReportPreviewViewModel ReportPreview { get; }
     public ShellNotificationViewModel ShellNotification { get; }
     public IRunControl RunControl => _runControl;
 

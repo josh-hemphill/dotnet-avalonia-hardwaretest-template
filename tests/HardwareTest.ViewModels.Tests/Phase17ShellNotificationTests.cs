@@ -90,7 +90,7 @@ public sealed class Phase17ShellNotificationTests
     public void RunTest_SetBanner_publishes_to_shell()
     {
         var shell = new ShellNotificationViewModel();
-        var vm = CreateRun(shell);
+        var vm = RunTestViewModelTestFactory.Create(shellNotification: shell);
 
         vm.SetBanner(RunBannerSeverity.Error, "Run failed");
 
@@ -101,10 +101,23 @@ public sealed class Phase17ShellNotificationTests
     }
 
     [Fact]
+    public void RunTest_shell_Dismiss_clears_host_banner_state()
+    {
+        var shell = new ShellNotificationViewModel();
+        var vm = RunTestViewModelTestFactory.Create(shellNotification: shell);
+
+        vm.SetBanner(RunBannerSeverity.Warning, "Check program");
+        Assert.True(vm.HasBanner);
+        shell.Dismiss();
+        Assert.False(shell.HasContent);
+        Assert.False(vm.HasBanner);
+    }
+
+    [Fact]
     public async Task RunTest_DismissBanner_clears_shell_run_source()
     {
         var shell = new ShellNotificationViewModel();
-        var vm = CreateRun(shell);
+        var vm = RunTestViewModelTestFactory.Create(shellNotification: shell);
 
         vm.SetBanner(RunBannerSeverity.Warning, "Check program");
         Assert.True(shell.HasContent);
@@ -117,7 +130,7 @@ public sealed class Phase17ShellNotificationTests
     public void RunTest_HistoryBanner_publishes_info_to_shell()
     {
         var shell = new ShellNotificationViewModel();
-        var vm = CreateRun(shell);
+        var vm = RunTestViewModelTestFactory.Create(shellNotification: shell);
 
         vm.HistoryBanner = "DUT drift watch on channel A";
         Assert.True(shell.HasContent);
@@ -143,18 +156,7 @@ public sealed class Phase17ShellNotificationTests
                 Message = "Data volume critically low",
             },
         };
-        var openTap = new FakeOpenTapSession();
-        var vm = new RunTestViewModel(
-            openTap,
-            openTap,
-            openTap,
-            new OperatorSession(),
-            new FakeRunControl(),
-            new FakeReportService(),
-            new FakeRunStore(),
-            new AppSettings(),
-            storageHealth: storage,
-            shellNotification: shell);
+        var vm = RunTestViewModelTestFactory.Create(storageHealth: storage, shellNotification: shell);
 
         Assert.True(vm.HasStorageBanner);
         Assert.True(shell.HasContent);
@@ -179,7 +181,7 @@ public sealed class Phase17ShellNotificationTests
         var store = new FakeSettingsStore();
         var openTap = new FakeOpenTapSession();
         var runControl = new FakeRunControl();
-        var runTest = CreateRun(shell, openTap, runControl);
+        var runTest = RunTestViewModelTestFactory.Create(openTap, runControl: runControl, shellNotification: shell);
         var vm = new MainWindowViewModel(
             store,
             new HomeViewModel(null, shellNotification: shell),
@@ -196,24 +198,5 @@ public sealed class Phase17ShellNotificationTests
         Assert.Same(shell, vm.ShellNotification);
         Assert.Equal("Ready", vm.ShellNotification.IdleHint);
         Assert.False(vm.ShellNotification.HasContent);
-    }
-
-    private static RunTestViewModel CreateRun(
-        ShellNotificationViewModel shell,
-        FakeOpenTapSession? openTap = null,
-        FakeRunControl? runControl = null)
-    {
-        openTap ??= new FakeOpenTapSession();
-        runControl ??= new FakeRunControl();
-        return new RunTestViewModel(
-            openTap,
-            openTap,
-            openTap,
-            new OperatorSession(),
-            runControl,
-            new FakeReportService(),
-            new FakeRunStore(),
-            new AppSettings(),
-            shellNotification: shell);
     }
 }
