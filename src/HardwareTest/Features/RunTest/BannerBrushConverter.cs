@@ -62,7 +62,8 @@ public static class BannerBrushConverter
 
     private static string IconFor(ShellNotificationSeverity s) => s switch
     {
-        ShellNotificationSeverity.Critical or ShellNotificationSeverity.Error => "Error",
+        ShellNotificationSeverity.Critical => "Critical",
+        ShellNotificationSeverity.Error => "Error",
         ShellNotificationSeverity.Warning => "Warning",
         _ => "Info",
     };
