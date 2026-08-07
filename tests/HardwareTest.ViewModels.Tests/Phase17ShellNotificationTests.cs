@@ -11,7 +11,6 @@ using HardwareTest.Features.RunTest;
 using HardwareTest.Features.Settings;
 using HardwareTest.Features.Shell;
 using HardwareTest.OpenTap.Host;
-using HardwareTest.OpenTap.Plugins.Basic;
 using HardwareTest.ViewModels.Tests.Fakes;
 using Xunit;
 
