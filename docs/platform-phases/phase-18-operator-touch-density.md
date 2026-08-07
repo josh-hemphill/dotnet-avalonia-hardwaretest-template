@@ -2,7 +2,7 @@
 
 **Parent:** [platform-roadmap.md](../platform-roadmap.md)
 **Depends on:** [Phase 17](phase-17-shell-notification-strip.md) (prefer strip first so density work is not fighting layout jump; may share a PR train if 17 is nearly done)
-**Status:** Planned
+**Status:** Done
 **Also absorbs:** Filter-chip / list-row undersizing; 6px GridSplitter; ToolTip-only operator tips; double-tap-only open paths; compact nav footer hit targets — previously parked under “touch-density kiosk” in Phases 12/15
 
 ## Goal
@@ -61,12 +61,12 @@ Phase 12/15 deferred touch density to [deferred-appliance-kiosk.md](../deferred/
 
 ## Exit criteria
 
-- [ ] Operator buttons/chips/nav compact targets meet the documented MinHeight/MinWidth floor
-- [ ] List↔Details splitter is usable with a finger (or explicit nudge controls exist)
-- [ ] Disabled Run / critical transport tips visible without hover
-- [ ] Stage / step detail / Results report open paths work without requiring double-tap
-- [ ] No regression of Phase 16/17 strip and drawer behavior
-- [ ] Suites green; Feature line budgets pass
+- [x] Operator buttons/chips/nav compact targets meet the documented MinHeight/MinWidth floor
+- [x] List↔Details splitter is usable with a finger (or explicit nudge controls exist)
+- [x] Disabled Run / critical transport tips visible without hover
+- [x] Stage / step detail / Results report open paths work without requiring double-tap
+- [x] No regression of Phase 16/17 strip and drawer behavior
+- [x] Suites green; Feature line budgets pass
 
 ## Out of scope
 

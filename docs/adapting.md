@@ -210,6 +210,16 @@ Crash dossiers land under `{DataDirectory}/crashes/` (or `CrashDirectory`): `cra
 
 **Shell notifications (Phase 17):** MainWindow keeps a reserved-height strip above page content (idle caption **Ready**). Run severity, storage health, suite completion, DUT history one-liners, and Home crash recovery publish into [`ShellNotificationViewModel`](../src/HardwareTest/Features/Shell/ShellNotificationViewModel.cs). Precedence: Critical > Error > Warning > Info across sources; session confirm and operator interaction stay on the Run board (height-capped). Sticky severity is **not** a collapsing Auto row on Run.
 
+**Operator touch density (Phase 18):** Interactive operator controls use a **MinHeight ≥ 40** floor (filter chips, primary/danger/success buttons, step/stage/Results list rows); compact nav Pause/Stop are **48×48**. List↔Details splitter is **16px** with **Details + / − / Reset split** nudge buttons. Disabled Run / Run Selected show the blocking reason as an inline tip (not ToolTip-only). Double-tap remains an accelerator:
+
+| Surface | Primary (touch) | Accelerator |
+| --- | --- | --- |
+| Step / stage | Select + **Open detail** (or Details toggle) | Double-tap row |
+| Results report | Select + **Open report** | Double-click row |
+| Details height | Drag splitter or **Details +/−** | — |
+
+Constants: [`OperatorTouchDensity`](../src/HardwareTest/Features/Shell/OperatorTouchDensity.cs). Full kiosk bake remains [deferred](deferred/deferred-appliance-kiosk.md).
+
 Bootstrap is two-stage: stage 1 resolves `DataDirectory` + `LogMinimumLevel` from env/CLI before logging; stage 2 loads `settings.json` then re-applies overlays. See [phase-3-configuration-model.md](platform-phases/phase-3-configuration-model.md).
 
 ### Schema versions

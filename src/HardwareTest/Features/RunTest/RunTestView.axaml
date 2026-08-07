@@ -13,44 +13,56 @@
             Margin="0,0,0,8"
             CornerRadius="6"
             Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}">
-      <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
-        <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-          <TextBlock Text="Program" VerticalAlignment="Center" Opacity="0.8" />
-          <ComboBox ItemsSource="{Binding ProgramSelection.Programs}"
-                    SelectedItem="{Binding ProgramSelection.SelectedProgram}"
-                    MinWidth="260"
-                    MaxDropDownHeight="320"
-                    IsEnabled="{Binding !IsRunning}">
-            <ComboBox.ItemTemplate>
-              <DataTemplate x:DataType="vm:ProgramItemViewModel">
-                <TextBlock Text="{Binding DisplayName}" />
-              </DataTemplate>
-            </ComboBox.ItemTemplate>
-          </ComboBox>
-          <Button Content="Refresh" Command="{Binding ProgramSelection.RefreshProgramsCommand}"
-                  IsEnabled="{Binding !ProgramSelection.IsBusy}"
-                  ToolTip.Tip="Reload the program catalog" />
-          <Button Content="Open…" Command="{Binding ProgramSelection.OpenPlanFileCommand}"
-                  IsEnabled="{Binding !ProgramSelection.IsBusy}"
-                  IsVisible="{Binding IsEngineerDebugMode}" />
-          <TextBlock Text="Loading…"
-                     IsVisible="{Binding ProgramSelection.IsBusy}"
-                     VerticalAlignment="Center"
-                     Opacity="0.8"
-                     FontWeight="SemiBold" />
-        </StackPanel>
-        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-          <Button Content="Run" Command="{Binding Run.RunCommand}"
-                  Classes="primary"
-                  IsEnabled="{Binding CanStartRun}"
-                  ToolTip.Tip="{Binding CanStartRunTip}" />
-          <Button Content="Safety Stop" Command="{Binding Run.CancelCommand}"
-                  IsEnabled="{Binding CanSafetyStop}"
-                  Classes="danger"
-                  ToolTip.Tip="Abort the run (also cancels an in-panel operator prompt). Prefer Continue when answering a prompt." />
-          <Button Content="Inspect" Command="{Binding InspectPlanCommand}" />
-        </StackPanel>
-      </Grid>
+      <StackPanel Spacing="6">
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+          <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+            <TextBlock Text="Program" VerticalAlignment="Center" Opacity="0.8" />
+            <ComboBox ItemsSource="{Binding ProgramSelection.Programs}"
+                      SelectedItem="{Binding ProgramSelection.SelectedProgram}"
+                      MinWidth="260"
+                      MaxDropDownHeight="320"
+                      IsEnabled="{Binding !IsRunning}">
+              <ComboBox.ItemTemplate>
+                <DataTemplate x:DataType="vm:ProgramItemViewModel">
+                  <TextBlock Text="{Binding DisplayName}" />
+                </DataTemplate>
+              </ComboBox.ItemTemplate>
+            </ComboBox>
+            <Button Content="Refresh" Command="{Binding ProgramSelection.RefreshProgramsCommand}"
+                    Classes="operator"
+                    IsEnabled="{Binding !ProgramSelection.IsBusy}"
+                    ToolTip.Tip="Reload the program catalog" />
+            <Button Content="Open…" Command="{Binding ProgramSelection.OpenPlanFileCommand}"
+                    Classes="operator"
+                    IsEnabled="{Binding !ProgramSelection.IsBusy}"
+                    IsVisible="{Binding IsEngineerDebugMode}" />
+            <TextBlock Text="Loading…"
+                       IsVisible="{Binding ProgramSelection.IsBusy}"
+                       VerticalAlignment="Center"
+                       Opacity="0.8"
+                       FontWeight="SemiBold" />
+          </StackPanel>
+          <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+            <Button Content="Run" Command="{Binding Run.RunCommand}"
+                    Classes="primary"
+                    IsEnabled="{Binding CanStartRun}"
+                    ToolTip.Tip="{Binding CanStartRunTip}" />
+            <Button Content="Safety Stop" Command="{Binding Run.CancelCommand}"
+                    IsEnabled="{Binding CanSafetyStop}"
+                    Classes="danger"
+                    ToolTip.Tip="Abort the run (also cancels an in-panel operator prompt). Prefer Continue when answering a prompt." />
+            <Button Content="Inspect" Command="{Binding InspectPlanCommand}" Classes="operator" />
+          </StackPanel>
+        </Grid>
+        <!-- Phase 18: blocking reason visible without hover (ToolTip remains secondary). -->
+        <TextBlock FontSize="12"
+                   Opacity="0.95"
+                   FontWeight="SemiBold"
+                   TextWrapping="Wrap"
+                   Foreground="#E65100"
+                   Text="{Binding CanStartRunTip}"
+                   IsVisible="{Binding ShowStartBlockedTip}" />
+      </StackPanel>
     </Border>
 
     <ProgressBar Grid.Row="1"
@@ -265,16 +277,44 @@
         </StackPanel>
       </Border>
 
-      <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="8" Margin="0,2,0,8">
-        <Button Content="Run Selected" Command="{Binding Run.RunSelectedCommand}"
-                IsEnabled="{Binding CanStartRun}"
-                ToolTip.Tip="{Binding CanStartRunSelectedTip}" />
-        <Button Content="Prev fail" Command="{Binding StepTree.PrevFailCommand}" />
-        <Button Content="Next fail" Command="{Binding StepTree.NextFailCommand}" />
-        <ToggleButton Content="Details"
-                      IsChecked="{Binding StepDetail.ShowDetailRegion}"
-                      Padding="10,6"
-                      ToolTip.Tip="Show or hide bottom pane (detail, plot, diagnostics)" />
+      <StackPanel Grid.Row="2" Spacing="4" Margin="0,2,0,8">
+        <StackPanel Orientation="Horizontal" Spacing="8">
+          <Button Content="Run Selected" Command="{Binding Run.RunSelectedCommand}"
+                  Classes="operator"
+                  IsEnabled="{Binding CanStartRun}"
+                  ToolTip.Tip="{Binding CanStartRunSelectedTip}" />
+          <Button Content="Open detail" Command="{Binding StepDetail.OpenStepDetailCommand}"
+                  Classes="operator"
+                  ToolTip.Tip="Open Details for the selected step (double-tap remains a shortcut)" />
+          <Button Content="Prev fail" Command="{Binding StepTree.PrevFailCommand}" Classes="operator" />
+          <Button Content="Next fail" Command="{Binding StepTree.NextFailCommand}" Classes="operator" />
+          <ToggleButton Content="Details"
+                        IsChecked="{Binding StepDetail.ShowDetailRegion}"
+                        Classes="filter-chip"
+                        ToolTip.Tip="Show or hide bottom pane (detail, plot, diagnostics)" />
+          <Button Content="Details +"
+                  Click="OnDetailsTallerClick"
+                  Classes="operator"
+                  IsVisible="{Binding StepDetail.ShowDetailRegion}"
+                  ToolTip.Tip="Give the Details drawer more height" />
+          <Button Content="Details −"
+                  Click="OnDetailsShorterClick"
+                  Classes="operator"
+                  IsVisible="{Binding StepDetail.ShowDetailRegion}"
+                  ToolTip.Tip="Give the step list more height" />
+          <Button Content="Reset split"
+                  Click="OnDetailsResetSplitClick"
+                  Classes="operator"
+                  IsVisible="{Binding StepDetail.ShowDetailRegion}"
+                  ToolTip.Tip="Reset list vs Details star shares" />
+        </StackPanel>
+        <TextBlock FontSize="12"
+                   Opacity="0.95"
+                   FontWeight="SemiBold"
+                   TextWrapping="Wrap"
+                   Foreground="#E65100"
+                   Text="{Binding CanStartRunSelectedTip}"
+                   IsVisible="{Binding ShowStartBlockedTip}" />
       </StackPanel>
 
       <Border Grid.Row="3"
@@ -335,13 +375,14 @@
                    PlaceholderText="Search steps…"
                    Text="{Binding StepTree.StepSearchText}"
                    Width="180"
-                   MinHeight="28"
+                   MinHeight="40"
                    Margin="8,0,0,0" />
         </StackPanel>
       </Border>
 
       <ListBox x:Name="StepList"
                Grid.Row="4"
+               Classes="operator-list"
                ItemsSource="{Binding StepTree.StepListItems}"
                SelectedItem="{Binding StepTree.SelectedStepListItem}"
                DoubleTapped="OnHierarchyDoubleTapped"
@@ -349,8 +390,8 @@
                Classes.compact="{Binding StepTree.CompactStepRows}">
         <ListBox.Styles>
           <Style Selector="ListBox.compact ListBoxItem">
-            <Setter Property="Padding" Value="4,2" />
-            <Setter Property="MinHeight" Value="28" />
+            <Setter Property="Padding" Value="6,4" />
+            <Setter Property="MinHeight" Value="40" />
           </Style>
           <Style Selector="ListBox.compact TextBlock">
             <Setter Property="FontSize" Value="11" />
@@ -401,11 +442,13 @@
       </ListBox>
 
       <GridSplitter Grid.Row="5"
-                    Height="6"
+                    Height="16"
+                    MinHeight="16"
                     HorizontalAlignment="Stretch"
                     ResizeDirection="Rows"
                     IsVisible="{Binding StepDetail.ShowDetailRegion}"
-                    Background="{DynamicResource SystemControlForegroundBaseMediumLowBrush}" />
+                    Background="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
+                    ToolTip.Tip="Drag to resize step list vs Details (or use Details +/−)" />
 
       <!-- Detail drawer: nested * rows so Focus can stretch while gauges keep a bounded ScrollViewer. -->
       <Grid x:Name="DetailDrawerGrid"
@@ -647,6 +690,7 @@
         </StackPanel>
       </StackPanel>
       <ListBox ItemsSource="{Binding StepTree.Stages}"
+               Classes="operator-list"
                SelectedItem="{Binding StepTree.SelectedStage}"
                DoubleTapped="OnStageDoubleTapped">
         <ListBox.ItemTemplate>
