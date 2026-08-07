@@ -7,102 +7,65 @@
              x:Class="HardwareTest.Features.RunTest.RunTestView"
              x:DataType="vm:RunTestViewModel"
              KeyDown="OnKeyDown">
-  <Grid ColumnDefinitions="*,200" ColumnSpacing="12" RowDefinitions="Auto,Auto,Auto,Auto,*">
+  <Grid ColumnDefinitions="*,200" ColumnSpacing="12" RowDefinitions="Auto,Auto,*">
     <Border Grid.ColumnSpan="2"
             Padding="10,8"
             Margin="0,0,0,8"
             CornerRadius="6"
-            IsVisible="{Binding HasStorageBanner}"
-            Background="{Binding StorageBannerIsCritical, Converter={x:Static vm:BannerBrushConverter.StorageBackground}}"
-            BorderBrush="{Binding StorageBannerIsCritical, Converter={x:Static vm:BannerBrushConverter.StorageBorder}}"
-            BorderThickness="1"
-            Classes="feedback-banner">
-      <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-        <TextBlock Text="{Binding StorageBannerMessage}" TextWrapping="Wrap" VerticalAlignment="Center" FontWeight="SemiBold" />
-        <Button Grid.Column="1"
-                Content="Dismiss"
-                Command="{Binding DismissStorageBannerCommand}"
-                IsVisible="{Binding !StorageBannerIsCritical}"
-                VerticalAlignment="Center" />
-      </Grid>
-    </Border>
-
-    <!-- Sticky error/warning/info banner from the run pipeline -->
-    <Border Grid.Row="1"
-            Grid.ColumnSpan="2"
-            Padding="10,8"
-            Margin="0,0,0,6"
-            CornerRadius="6"
-            IsVisible="{Binding HasBanner}"
-            Background="{Binding BannerSeverity, Converter={x:Static vm:BannerBrushConverter.Background}}"
-            BorderBrush="{Binding BannerSeverity, Converter={x:Static vm:BannerBrushConverter.Border}}"
-            BorderThickness="1"
-            Classes="feedback-banner">
-      <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
-        <TextBlock Grid.Column="0"
-                   Text="{Binding BannerSeverity, Converter={x:Static vm:BannerBrushConverter.Icon}}"
-                   FontSize="14"
-                   FontWeight="Bold"
-                   VerticalAlignment="Center" />
-        <TextBlock Grid.Column="1"
-                   Text="{Binding BannerMessage}"
-                   TextWrapping="Wrap"
-                   VerticalAlignment="Center"
-                   FontWeight="SemiBold" />
-        <Button Grid.Column="2"
-                Content="Dismiss"
-                Command="{Binding DismissBannerCommand}"
-                VerticalAlignment="Center" />
-      </Grid>
-    </Border>
-
-    <Border Grid.Row="2"
-            Grid.ColumnSpan="2"
-            Padding="10,8"
-            Margin="0,0,0,8"
-            CornerRadius="6"
             Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}">
-      <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
-        <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-          <TextBlock Text="Program" VerticalAlignment="Center" Opacity="0.8" />
-          <ComboBox ItemsSource="{Binding ProgramSelection.Programs}"
-                    SelectedItem="{Binding ProgramSelection.SelectedProgram}"
-                    MinWidth="260"
-                    MaxDropDownHeight="320"
-                    IsEnabled="{Binding !IsRunning}">
-            <ComboBox.ItemTemplate>
-              <DataTemplate x:DataType="vm:ProgramItemViewModel">
-                <TextBlock Text="{Binding DisplayName}" />
-              </DataTemplate>
-            </ComboBox.ItemTemplate>
-          </ComboBox>
-          <Button Content="Refresh" Command="{Binding ProgramSelection.RefreshProgramsCommand}"
-                  IsEnabled="{Binding !ProgramSelection.IsBusy}"
-                  ToolTip.Tip="Reload the program catalog" />
-          <Button Content="Open…" Command="{Binding ProgramSelection.OpenPlanFileCommand}"
-                  IsEnabled="{Binding !ProgramSelection.IsBusy}"
-                  IsVisible="{Binding IsEngineerDebugMode}" />
-          <TextBlock Text="Loading…"
-                     IsVisible="{Binding ProgramSelection.IsBusy}"
-                     VerticalAlignment="Center"
-                     Opacity="0.8"
-                     FontWeight="SemiBold" />
-        </StackPanel>
-        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-          <Button Content="Run" Command="{Binding Run.RunCommand}"
-                  Classes="primary"
-                  IsEnabled="{Binding CanStartRun}"
-                  ToolTip.Tip="{Binding CanStartRunTip}" />
-          <Button Content="Safety Stop" Command="{Binding Run.CancelCommand}"
-                  IsEnabled="{Binding CanSafetyStop}"
-                  Classes="danger"
-                  ToolTip.Tip="Abort the run (also cancels an in-panel operator prompt). Prefer Continue when answering a prompt." />
-          <Button Content="Inspect" Command="{Binding InspectPlanCommand}" />
-        </StackPanel>
-      </Grid>
+      <StackPanel Spacing="6">
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+          <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+            <TextBlock Text="Program" VerticalAlignment="Center" Opacity="0.8" />
+            <ComboBox ItemsSource="{Binding ProgramSelection.Programs}"
+                      SelectedItem="{Binding ProgramSelection.SelectedProgram}"
+                      MinWidth="260"
+                      MaxDropDownHeight="320"
+                      IsEnabled="{Binding !IsRunning}">
+              <ComboBox.ItemTemplate>
+                <DataTemplate x:DataType="vm:ProgramItemViewModel">
+                  <TextBlock Text="{Binding DisplayName}" />
+                </DataTemplate>
+              </ComboBox.ItemTemplate>
+            </ComboBox>
+            <Button Content="Refresh" Command="{Binding ProgramSelection.RefreshProgramsCommand}"
+                    Classes="operator"
+                    IsEnabled="{Binding !ProgramSelection.IsBusy}"
+                    ToolTip.Tip="Reload the program catalog" />
+            <Button Content="Open…" Command="{Binding ProgramSelection.OpenPlanFileCommand}"
+                    Classes="operator"
+                    IsEnabled="{Binding !ProgramSelection.IsBusy}"
+                    IsVisible="{Binding IsEngineerDebugMode}" />
+            <TextBlock Text="Loading…"
+                       IsVisible="{Binding ProgramSelection.IsBusy}"
+                       VerticalAlignment="Center"
+                       Opacity="0.8"
+                       FontWeight="SemiBold" />
+          </StackPanel>
+          <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+            <Button Content="Run" Command="{Binding Run.RunCommand}"
+                    Classes="primary"
+                    IsEnabled="{Binding CanStartRun}"
+                    ToolTip.Tip="{Binding CanStartRunTip}" />
+            <Button Content="Safety Stop" Command="{Binding Run.CancelCommand}"
+                    IsEnabled="{Binding CanSafetyStop}"
+                    Classes="danger"
+                    ToolTip.Tip="Abort the run (also cancels an in-panel operator prompt). Prefer Continue when answering a prompt." />
+            <Button Content="Inspect" Command="{Binding InspectPlanCommand}" Classes="operator" />
+          </StackPanel>
+        </Grid>
+        <!-- Phase 18: blocking reason visible without hover (ToolTip remains secondary). -->
+        <TextBlock FontSize="12"
+                   Opacity="0.95"
+                   FontWeight="SemiBold"
+                   TextWrapping="Wrap"
+                   Foreground="#E65100"
+                   Text="{Binding CanStartRunTip}"
+                   IsVisible="{Binding ShowStartBlockedTip}" />
+      </StackPanel>
     </Border>
 
-    <ProgressBar Grid.Row="3"
+    <ProgressBar Grid.Row="1"
                  Grid.ColumnSpan="2"
                  Value="{Binding OverallPercent}"
                  Minimum="0"
@@ -115,17 +78,19 @@
     <!-- Step list (*) vs detail drawer (*): one splitter. Focus plot lives inside the drawer
          (not a third star row) so resize/toggle cannot leave Absolute heights fighting Band. -->
     <Grid x:Name="BoardGrid"
-          Grid.Row="4"
+          Grid.Row="2"
           Grid.Column="0"
           RowDefinitions="Auto,Auto,Auto,Auto,*,Auto,0"
           RowSpacing="0">
-      <Border Padding="8,6"
+      <Border MaxHeight="220"
+              Padding="8,6"
               Margin="0,0,0,4"
               CornerRadius="6"
               BorderBrush="#FB8C00"
               BorderThickness="2"
               Classes="session-block"
               IsVisible="{Binding SessionPanel.SessionBlocked}">
+        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
         <StackPanel Spacing="6">
           <TextBlock Text="Session confirmation required before Run"
                      FontWeight="SemiBold" />
@@ -183,6 +148,7 @@
                     Margin="0,0,8,8" />
           </WrapPanel>
         </StackPanel>
+        </ScrollViewer>
       </Border>
 
       <Border Padding="10,8"
@@ -244,19 +210,14 @@
                      TextWrapping="Wrap"
                      FontSize="11"
                      IsVisible="{Binding !Interaction.IsAwaitingOperator}" />
-          <TextBlock Text="{Binding HistoryBanner}"
-                     Opacity="0.9"
-                     TextWrapping="Wrap"
-                     FontSize="12"
-                     FontWeight="SemiBold"
-                     Margin="0,2,0,0"
-                     IsVisible="{Binding HistoryBanner, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
-          <Border IsVisible="{Binding Interaction.IsAwaitingOperator}"
+          <Border MaxHeight="200"
+                  IsVisible="{Binding Interaction.IsAwaitingOperator}"
                   BorderBrush="#FB8C00"
                   BorderThickness="2"
                   CornerRadius="4"
                   Padding="8"
                   Margin="0,4,0,0">
+            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
             <StackPanel Spacing="6">
               <TextBlock Text="{Binding Interaction.InteractionTitle}"
                          FontWeight="Bold"
@@ -311,20 +272,49 @@
                       MinWidth="120"
                       ToolTip.Tip="Submit the interaction response and continue the run" />
             </StackPanel>
+            </ScrollViewer>
           </Border>
         </StackPanel>
       </Border>
 
-      <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="8" Margin="0,2,0,8">
-        <Button Content="Run Selected" Command="{Binding Run.RunSelectedCommand}"
-                IsEnabled="{Binding CanStartRun}"
-                ToolTip.Tip="{Binding CanStartRunSelectedTip}" />
-        <Button Content="Prev fail" Command="{Binding StepTree.PrevFailCommand}" />
-        <Button Content="Next fail" Command="{Binding StepTree.NextFailCommand}" />
-        <ToggleButton Content="Details"
-                      IsChecked="{Binding StepDetail.ShowDetailRegion}"
-                      Padding="10,6"
-                      ToolTip.Tip="Show or hide bottom pane (detail, plot, diagnostics)" />
+      <StackPanel Grid.Row="2" Spacing="4" Margin="0,2,0,8">
+        <StackPanel Orientation="Horizontal" Spacing="8">
+          <Button Content="Run Selected" Command="{Binding Run.RunSelectedCommand}"
+                  Classes="operator"
+                  IsEnabled="{Binding CanStartRun}"
+                  ToolTip.Tip="{Binding CanStartRunSelectedTip}" />
+          <Button Content="Open detail" Command="{Binding StepDetail.OpenStepDetailCommand}"
+                  Classes="operator"
+                  ToolTip.Tip="Open Details for the selected step (double-tap remains a shortcut)" />
+          <Button Content="Prev fail" Command="{Binding StepTree.PrevFailCommand}" Classes="operator" />
+          <Button Content="Next fail" Command="{Binding StepTree.NextFailCommand}" Classes="operator" />
+          <ToggleButton Content="Details"
+                        IsChecked="{Binding StepDetail.ShowDetailRegion}"
+                        Classes="filter-chip"
+                        ToolTip.Tip="Show or hide bottom pane (detail, plot, diagnostics)" />
+          <Button Content="Details +"
+                  Click="OnDetailsTallerClick"
+                  Classes="operator"
+                  IsVisible="{Binding StepDetail.ShowDetailRegion}"
+                  ToolTip.Tip="Give the Details drawer more height" />
+          <Button Content="Details −"
+                  Click="OnDetailsShorterClick"
+                  Classes="operator"
+                  IsVisible="{Binding StepDetail.ShowDetailRegion}"
+                  ToolTip.Tip="Give the step list more height" />
+          <Button Content="Reset split"
+                  Click="OnDetailsResetSplitClick"
+                  Classes="operator"
+                  IsVisible="{Binding StepDetail.ShowDetailRegion}"
+                  ToolTip.Tip="Reset list vs Details star shares" />
+        </StackPanel>
+        <TextBlock FontSize="12"
+                   Opacity="0.95"
+                   FontWeight="SemiBold"
+                   TextWrapping="Wrap"
+                   Foreground="#E65100"
+                   Text="{Binding CanStartRunSelectedTip}"
+                   IsVisible="{Binding ShowStartBlockedTip}" />
       </StackPanel>
 
       <Border Grid.Row="3"
@@ -385,13 +375,14 @@
                    PlaceholderText="Search steps…"
                    Text="{Binding StepTree.StepSearchText}"
                    Width="180"
-                   MinHeight="28"
+                   MinHeight="40"
                    Margin="8,0,0,0" />
         </StackPanel>
       </Border>
 
       <ListBox x:Name="StepList"
                Grid.Row="4"
+               Classes="operator-list"
                ItemsSource="{Binding StepTree.StepListItems}"
                SelectedItem="{Binding StepTree.SelectedStepListItem}"
                DoubleTapped="OnHierarchyDoubleTapped"
@@ -399,8 +390,8 @@
                Classes.compact="{Binding StepTree.CompactStepRows}">
         <ListBox.Styles>
           <Style Selector="ListBox.compact ListBoxItem">
-            <Setter Property="Padding" Value="4,2" />
-            <Setter Property="MinHeight" Value="28" />
+            <Setter Property="Padding" Value="6,4" />
+            <Setter Property="MinHeight" Value="40" />
           </Style>
           <Style Selector="ListBox.compact TextBlock">
             <Setter Property="FontSize" Value="11" />
@@ -451,11 +442,13 @@
       </ListBox>
 
       <GridSplitter Grid.Row="5"
-                    Height="6"
+                    Height="16"
+                    MinHeight="16"
                     HorizontalAlignment="Stretch"
                     ResizeDirection="Rows"
                     IsVisible="{Binding StepDetail.ShowDetailRegion}"
-                    Background="{DynamicResource SystemControlForegroundBaseMediumLowBrush}" />
+                    Background="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
+                    ToolTip.Tip="Drag to resize step list vs Details (or use Details +/−)" />
 
       <!-- Detail drawer: nested * rows so Focus can stretch while gauges keep a bounded ScrollViewer. -->
       <Grid x:Name="DetailDrawerGrid"
@@ -621,7 +614,7 @@
       </Grid>
     </Grid>
 
-    <DockPanel Grid.Row="4" Grid.Column="1">
+    <DockPanel Grid.Row="2" Grid.Column="1">
       <StackPanel DockPanel.Dock="Top" Spacing="6" Margin="0,0,0,10">
         <TextBlock Text="Suite"
                    Opacity="0.65"
@@ -697,6 +690,7 @@
         </StackPanel>
       </StackPanel>
       <ListBox ItemsSource="{Binding StepTree.Stages}"
+               Classes="operator-list"
                SelectedItem="{Binding StepTree.SelectedStage}"
                DoubleTapped="OnStageDoubleTapped">
         <ListBox.ItemTemplate>

@@ -43,5 +43,5 @@ Turn the portable `linux-x64` publish into a **sealed appliance image**: kiosk s
 
 - Green `linux-x64` CI advisory path (Phase 7 — Done)
 - Hardware readiness gates for mock vs real VISA on the target bench
-- [Phase 17](../platform-phases/phase-17-shell-notification-strip.md) shell notification strip (Planned)
-- [Phase 18](../platform-phases/phase-18-operator-touch-density.md) touch density floor (Planned)
+- [Phase 17](../platform-phases/phase-17-shell-notification-strip.md) shell notification strip (Done)
+- [Phase 18](../platform-phases/phase-18-operator-touch-density.md) touch density floor (Done)

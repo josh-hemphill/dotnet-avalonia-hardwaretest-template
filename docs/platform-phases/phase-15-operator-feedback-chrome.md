@@ -75,7 +75,7 @@ Make the first session with initial users feel **responsive and honest**: every 
 
 ## Out of scope
 
-- Localization / full AutomationProperties / kiosk compositor ([deferred](../deferred/deferred-appliance-kiosk.md), [deferred-localization.md](../deferred/deferred-localization.md)); operator hit-target floor is scheduled as [Phase 18](phase-18-operator-touch-density.md) after [Phase 17](phase-17-shell-notification-strip.md)
+- Localization / full AutomationProperties / kiosk compositor ([deferred](../deferred/deferred-appliance-kiosk.md), [deferred-localization.md](../deferred/deferred-localization.md)); operator hit-target floor shipped in [Phase 18](phase-18-operator-touch-density.md) after [Phase 17](phase-17-shell-notification-strip.md)
 - Removing Settings debounce auto-save
 - OpenTAP Phase K / multi-DUT
 - Rewriting FluentAvalonia theme wholesale

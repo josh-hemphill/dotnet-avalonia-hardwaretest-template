@@ -19,6 +19,8 @@ public partial class RunTestView : UserControl
 
     private RunTestViewModel? _subscribed;
     private readonly SerialDisposable _chromeLayout = new();
+    private double _listStarShare = 1;
+    private double _detailStarShare = 1;
 
     public RunTestView()
     {
@@ -84,10 +86,9 @@ public partial class RunTestView : UserControl
             return;
         }
 
-        BoardGrid.RowDefinitions[StepListRowIndex].Height = new GridLength(1, GridUnitType.Star);
-        BoardGrid.RowDefinitions[DetailDrawerRowIndex].Height = showDetails
-            ? new GridLength(1, GridUnitType.Star)
-            : new GridLength(0);
+        _listStarShare = 1;
+        _detailStarShare = 1;
+        ApplyListDetailShares(showDetails);
 
         if (DetailDrawerGrid is null || DetailDrawerGrid.RowDefinitions.Count <= DetailBandRowIndex)
         {
@@ -101,6 +102,53 @@ public partial class RunTestView : UserControl
         DetailDrawerGrid.RowDefinitions[DetailBandRowIndex].Height = showDetails && showFocus
             ? new GridLength(2, GridUnitType.Star)
             : new GridLength(1, GridUnitType.Star);
+    }
+
+    private void ApplyListDetailShares(bool showDetails)
+    {
+        if (BoardGrid is null || BoardGrid.RowDefinitions.Count <= DetailDrawerRowIndex)
+        {
+            return;
+        }
+
+        BoardGrid.RowDefinitions[StepListRowIndex].Height = new GridLength(_listStarShare, GridUnitType.Star);
+        BoardGrid.RowDefinitions[DetailDrawerRowIndex].Height = showDetails
+            ? new GridLength(_detailStarShare, GridUnitType.Star)
+            : new GridLength(0);
+    }
+
+    private void OnDetailsTallerClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (_subscribed?.StepDetail.ShowDetailRegion != true)
+        {
+            return;
+        }
+
+        _detailStarShare = Math.Min(3.0, _detailStarShare + 0.35);
+        _listStarShare = Math.Max(0.45, _listStarShare - 0.35);
+        ApplyListDetailShares(showDetails: true);
+    }
+
+    private void OnDetailsShorterClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (_subscribed?.StepDetail.ShowDetailRegion != true)
+        {
+            return;
+        }
+
+        _listStarShare = Math.Min(3.0, _listStarShare + 0.35);
+        _detailStarShare = Math.Max(0.45, _detailStarShare - 0.35);
+        ApplyListDetailShares(showDetails: true);
+    }
+
+    private void OnDetailsResetSplitClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (_subscribed is null)
+        {
+            return;
+        }
+
+        ApplyDetailDrawerRows(_subscribed.StepDetail.ShowDetailRegion, _subscribed.Live.ShowFocusTrend);
     }
 
     private async Task<string?> PickPlanFileAsync(CancellationToken cancellationToken)
