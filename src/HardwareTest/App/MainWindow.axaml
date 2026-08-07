@@ -165,6 +165,7 @@
                       Command="{Binding ShellNotification.PrimaryCommand}"
                       IsVisible="{Binding ShellNotification.HasPrimaryAction}"
                       VerticalAlignment="Center"
+                      MinHeight="40"
                       FontSize="12"
                       Padding="10,4" />
               <Button Grid.Column="3"
@@ -172,6 +173,7 @@
                       Command="{Binding ShellNotification.SecondaryCommand}"
                       IsVisible="{Binding ShellNotification.HasSecondaryAction}"
                       VerticalAlignment="Center"
+                      MinHeight="40"
                       FontSize="12"
                       Padding="10,4" />
               <Button Grid.Column="4"
@@ -179,6 +181,7 @@
                       Command="{Binding ShellNotification.DismissCommand}"
                       IsVisible="{Binding ShellNotification.IsDismissible}"
                       VerticalAlignment="Center"
+                      MinHeight="40"
                       FontSize="12"
                       Padding="10,4" />
             </Grid>
