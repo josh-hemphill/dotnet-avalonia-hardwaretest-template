@@ -9,6 +9,7 @@ using HardwareTest.Features.ReportPreview;
 using HardwareTest.Features.Results;
 using HardwareTest.Features.RunTest;
 using HardwareTest.Features.Settings;
+using HardwareTest.Features.Shell;
 using HardwareTest.OpenTap.Host;
 using Microsoft.Extensions.DependencyInjection;
 using Serilog;
@@ -34,10 +35,12 @@ public static class Composition
         services.AddSingleton<IOpenTapHostCatalog>(sp => sp.GetRequiredService<OpenTapSession>());
         services.AddSingleton<OperatorSession>();
 
+        services.AddSingleton<ShellNotificationViewModel>();
         services.AddSingleton<HomeViewModel>(sp =>
             new HomeViewModel(
                 settingsStore,
-                sp.GetRequiredService<HardwareTest.Core.Storage.IExportTargetService>()));
+                sp.GetRequiredService<HardwareTest.Core.Storage.IExportTargetService>(),
+                sp.GetRequiredService<ShellNotificationViewModel>()));
         services.AddSingleton<RunTestViewModel>();
         services.AddSingleton<InspectViewModel>();
         services.AddSingleton<ResultsViewModel>();

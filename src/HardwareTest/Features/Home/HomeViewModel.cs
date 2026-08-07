@@ -6,6 +6,7 @@ using HardwareTest.Core.Crash;
 using HardwareTest.Core.Settings;
 using HardwareTest.Core.Storage;
 using HardwareTest.Crash;
+using HardwareTest.Features.Shell;
 using ReactiveUI;
 using ReactiveUI.SourceGenerators;
 
@@ -16,16 +17,21 @@ public partial class HomeViewModel : ReactiveObject
     private readonly ISettingsStore? _settingsStore;
     private readonly CrashDossierWriter? _writer;
     private readonly IExportTargetService? _exportTargets;
+    private readonly ShellNotificationViewModel? _shellNotification;
 
     public HomeViewModel()
         : this(null)
     {
     }
 
-    public HomeViewModel(ISettingsStore? settingsStore, IExportTargetService? exportTargets = null)
+    public HomeViewModel(
+        ISettingsStore? settingsStore,
+        IExportTargetService? exportTargets = null,
+        ShellNotificationViewModel? shellNotification = null)
     {
         _settingsStore = settingsStore;
         _exportTargets = exportTargets;
+        _shellNotification = shellNotification;
         if (settingsStore is not null)
         {
             _writer = CrashDossierWriter.FromSettings(settingsStore.AppSettings, settingsStore.RootDirectory);
@@ -83,12 +89,14 @@ public partial class HomeViewModel : ReactiveObject
                     CrashBannerTitle = "Recoverable fault captured";
                     CrashBannerDetail = CrashHandler.LastRecoverableMessage!;
                     CrashStatus = string.Empty;
+                    PublishCrashToShell(isFatal: false);
                     return;
                 }
 
                 HasCrashBanner = false;
                 CrashBannerTitle = string.Empty;
                 CrashBannerDetail = string.Empty;
+                ClearCrashFromShell();
                 return;
             }
 
@@ -100,6 +108,7 @@ public partial class HomeViewModel : ReactiveObject
             CrashBannerDetail = $"{when} — {fault} — app {ver}. Export a support bundle" +
                                 (AllowOsFolderBrowse ? " or open the dossier folder." : ".");
             CrashStatus = string.Empty;
+            PublishCrashToShell(isFatal: _activeDossier.IsFatal);
         }
         catch (Exception ex)
         {
@@ -107,8 +116,39 @@ public partial class HomeViewModel : ReactiveObject
             CrashBannerTitle = string.Empty;
             CrashBannerDetail = string.Empty;
             CrashStatus = $"Could not load crash dossier: {ex.Message}";
+            ClearCrashFromShell();
         }
     }
+
+    private void PublishCrashToShell(bool isFatal)
+    {
+        if (_shellNotification is null)
+        {
+            return;
+        }
+
+        var message = string.IsNullOrWhiteSpace(CrashBannerDetail)
+            ? CrashBannerTitle
+            : $"{CrashBannerTitle}. {CrashBannerDetail}";
+        ShellNotificationAction? secondary = AllowOsFolderBrowse
+            ? new ShellNotificationAction { Label = "Open folder", Command = OpenCrashFolderCommand }
+            : null;
+        _shellNotification.Publish(
+            isFatal ? ShellNotificationSeverity.Critical : ShellNotificationSeverity.Error,
+            message,
+            dismissible: true,
+            sourceKey: ShellNotificationViewModel.SourceCrash,
+            primary: new ShellNotificationAction
+            {
+                Label = "Export support bundle",
+                Command = ExportSupportBundleCommand,
+            },
+            secondary: secondary,
+            onDismissed: MarkCrashReviewedQuiet);
+    }
+
+    private void ClearCrashFromShell()
+        => _shellNotification?.Clear(ShellNotificationViewModel.SourceCrash);
 
     private void OpenCrashFolder()
     {
@@ -204,6 +244,15 @@ public partial class HomeViewModel : ReactiveObject
 
     private void DismissCrashBanner()
     {
+        MarkCrashReviewedQuiet();
+        ClearCrashFromShell();
+        CrashStatus = "Dismissed. Dossier kept on disk.";
+        RefreshCrashBanner();
+    }
+
+    /// Marks the active dossier reviewed without republishing the shell strip.
+    private void MarkCrashReviewedQuiet()
+    {
         if (_activeDossier is not null)
         {
             CrashDossierWriter.TryMarkReviewed(_activeDossier.DirectoryPath);
@@ -213,8 +262,6 @@ public partial class HomeViewModel : ReactiveObject
         HasCrashBanner = false;
         CrashBannerTitle = string.Empty;
         CrashBannerDetail = string.Empty;
-        CrashStatus = "Dismissed. Dossier kept on disk.";
-        RefreshCrashBanner();
     }
 
     [SupportedOSPlatform("windows")]
