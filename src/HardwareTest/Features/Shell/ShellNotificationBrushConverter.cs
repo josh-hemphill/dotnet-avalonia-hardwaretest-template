@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Data.Converters;
 using Avalonia.Media;
 using Avalonia.Styling;
+using HardwareTest.Features.RunTest;
 
 namespace HardwareTest.Features.Shell;
 
@@ -18,10 +19,10 @@ public static class ShellNotificationBrushConverter
         new FuncValueConverter<ShellNotificationSeverity, string>(IconFor);
 
     /// Maps Run board severity into shell strip severity (single mapping for host + chrome).
-    public static ShellNotificationSeverity FromRun(RunTest.RunBannerSeverity severity) => severity switch
+    public static ShellNotificationSeverity FromRun(RunBannerSeverity severity) => severity switch
     {
-        RunTest.RunBannerSeverity.Error => ShellNotificationSeverity.Error,
-        RunTest.RunBannerSeverity.Warning => ShellNotificationSeverity.Warning,
+        RunBannerSeverity.Error => ShellNotificationSeverity.Error,
+        RunBannerSeverity.Warning => ShellNotificationSeverity.Warning,
         _ => ShellNotificationSeverity.Info,
     };
 
@@ -49,7 +50,8 @@ public static class ShellNotificationBrushConverter
 
     private static string IconFor(ShellNotificationSeverity s) => s switch
     {
-        ShellNotificationSeverity.Critical or ShellNotificationSeverity.Error => "Error",
+        ShellNotificationSeverity.Critical => "Critical",
+        ShellNotificationSeverity.Error => "Error",
         ShellNotificationSeverity.Warning => "Warning",
         _ => "Info",
     };

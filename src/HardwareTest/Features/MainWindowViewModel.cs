@@ -96,10 +96,10 @@ public partial class MainWindowViewModel : ReactiveObject
         results.NavigateToRunRequested += (_, _) => NavigateToPageId("RunTest");
         instruments.NavigateToRunRequested += (_, _) => NavigateToPageId("RunTest");
         reportPreview.NavigateToResultsRequested += (_, _) => NavigateToPageId("Results");
-        results.ReportOpened += async (_, path) =>
+        results.ReportOpened += (_, path) =>
         {
             NavigateToPageId("ReportPreview");
-            await reportPreview.LoadFromPathAsync(path);
+            _ = reportPreview.LoadFromPathAsync(path);
         };
 
         runControl.PropertyChanged += (_, e) =>

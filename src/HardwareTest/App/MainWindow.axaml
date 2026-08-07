@@ -164,21 +164,27 @@
                       Content="{Binding ShellNotification.PrimaryLabel}"
                       Command="{Binding ShellNotification.PrimaryCommand}"
                       IsVisible="{Binding ShellNotification.HasPrimaryAction}"
+                      Classes="operator"
                       VerticalAlignment="Center"
+                      MinHeight="{x:Static shell:OperatorTouchDensity.OperatorControlMinHeight}"
                       FontSize="12"
                       Padding="10,4" />
               <Button Grid.Column="3"
                       Content="{Binding ShellNotification.SecondaryLabel}"
                       Command="{Binding ShellNotification.SecondaryCommand}"
                       IsVisible="{Binding ShellNotification.HasSecondaryAction}"
+                      Classes="operator"
                       VerticalAlignment="Center"
+                      MinHeight="{x:Static shell:OperatorTouchDensity.OperatorControlMinHeight}"
                       FontSize="12"
                       Padding="10,4" />
               <Button Grid.Column="4"
                       Content="Dismiss"
                       Command="{Binding ShellNotification.DismissCommand}"
                       IsVisible="{Binding ShellNotification.IsDismissible}"
+                      Classes="operator"
                       VerticalAlignment="Center"
+                      MinHeight="{x:Static shell:OperatorTouchDensity.OperatorControlMinHeight}"
                       FontSize="12"
                       Padding="10,4" />
             </Grid>
