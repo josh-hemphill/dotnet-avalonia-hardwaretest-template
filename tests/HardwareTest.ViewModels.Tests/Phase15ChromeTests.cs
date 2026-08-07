@@ -21,18 +21,7 @@ namespace HardwareTest.ViewModels.Tests;
 public sealed class Phase15ChromeTests
 {
     private static RunTestViewModel CreateRunVm(FakeOpenTapSession? openTap = null)
-    {
-        var session = openTap ?? new FakeOpenTapSession();
-        return new(
-            session,
-            session,
-            session,
-            new OperatorSession(),
-            new FakeRunControl(),
-            new FakeReportService(),
-            new FakeRunStore(),
-            new AppSettings());
-    }
+        => RunTestViewModelTestFactory.Create(openTap);
 
     [Fact]
     public void CanStartRunTip_mentions_confirm_dut_when_session_blocked()

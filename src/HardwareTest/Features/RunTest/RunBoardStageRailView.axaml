@@ -1,0 +1,72 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:HardwareTest.Features.RunTest"
+             x:Class="HardwareTest.Features.RunTest.RunBoardStageRailView"
+             x:DataType="vm:RunTestViewModel">
+  <UserControl.Resources>
+    <DataTemplate x:Key="StageItemTemplate" x:DataType="vm:StageItemViewModel">
+      <StackPanel Spacing="2">
+        <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" TextWrapping="Wrap" />
+        <StackPanel Orientation="Horizontal" Spacing="8">
+          <Border CornerRadius="4"
+                  Padding="6,1"
+                  Background="{Binding ChipText, Converter={x:Static vm:ChipBrushConverter.Instance}}">
+            <TextBlock Text="{Binding ChipText}" FontSize="10" FontWeight="SemiBold" Foreground="White" />
+          </Border>
+          <TextBlock Text="{Binding ProgressText}" FontSize="11" Opacity="0.8" VerticalAlignment="Center" />
+        </StackPanel>
+        <ProgressBar Value="{Binding ProgressPercent}" Minimum="0" Maximum="100" Height="3" />
+      </StackPanel>
+    </DataTemplate>
+  </UserControl.Resources>
+
+  <DockPanel>
+    <StackPanel DockPanel.Dock="Top" Spacing="6" Margin="0,0,0,10">
+      <TextBlock Text="Suite"
+                 Opacity="0.65"
+                 FontSize="11"
+                 FontWeight="SemiBold" />
+      <WrapPanel Orientation="Horizontal">
+        <ToggleButton Classes="filter-chip"
+                      Content="{Binding StepTree.SuitePassedCount, StringFormat=Passed {0}}"
+                      IsChecked="{Binding StepTree.IsFilterAll, Mode=OneWay}"
+                      Command="{Binding StepTree.SetStepFilterCommand}"
+                      CommandParameter="{x:Static vm:StepStatusFilter.All}"
+                      Margin="0,0,4,4" />
+        <ToggleButton Classes="filter-chip"
+                      Content="{Binding StepTree.SuiteFailedCount, StringFormat=Failed {0}}"
+                      IsChecked="{Binding StepTree.IsFilterFail, Mode=OneWay}"
+                      Command="{Binding StepTree.FilterFailCommand}"
+                      Margin="0,0,4,4" />
+        <ToggleButton Classes="filter-chip"
+                      Content="{Binding StepTree.SuitePendingCount, StringFormat=Pending {0}}"
+                      IsChecked="{Binding StepTree.IsFilterPending, Mode=OneWay}"
+                      Command="{Binding StepTree.SetStepFilterCommand}"
+                      CommandParameter="{x:Static vm:StepStatusFilter.Pending}"
+                      Margin="0,0,4,4" />
+      </WrapPanel>
+      <TextBlock Text="Stages" FontWeight="SemiBold" Margin="0,4,0,0" />
+    </StackPanel>
+    <StackPanel DockPanel.Dock="Bottom" Spacing="8" Margin="0,12,0,0">
+      <StackPanel Spacing="6" IsVisible="{Binding StepTree.HasSubsections}">
+        <TextBlock Text="Sections" FontWeight="SemiBold" />
+        <ListBox ItemsSource="{Binding StepTree.Subsections}"
+                 SelectedItem="{Binding StepTree.SelectedSubsection}"
+                 ItemTemplate="{StaticResource StageItemTemplate}"
+                 MaxHeight="140" />
+      </StackPanel>
+      <StackPanel Spacing="6" IsVisible="{Binding StepTree.HasNestedSubsections}">
+        <TextBlock Text="Subsections" FontWeight="SemiBold" />
+        <ListBox ItemsSource="{Binding StepTree.NestedSubsections}"
+                 SelectedItem="{Binding StepTree.SelectedNestedSubsection}"
+                 ItemTemplate="{StaticResource StageItemTemplate}"
+                 MaxHeight="120" />
+      </StackPanel>
+    </StackPanel>
+    <ListBox ItemsSource="{Binding StepTree.Stages}"
+             Classes="operator-list"
+             SelectedItem="{Binding StepTree.SelectedStage}"
+             ItemTemplate="{StaticResource StageItemTemplate}"
+             DoubleTapped="OnStageDoubleTapped" />
+  </DockPanel>
+</UserControl>

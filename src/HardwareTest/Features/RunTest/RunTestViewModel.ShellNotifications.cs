@@ -2,24 +2,28 @@ using HardwareTest.Features.Shell;
 
 namespace HardwareTest.Features.RunTest;
 
+/// Mirrors Run/storage/history severity into the shell strip (Phase 17). Host props remain the
+/// pipeline contract; the strip is the only presentation chrome.
 public partial class RunTestViewModel
 {
     private void PublishRunBannerToShell(RunBannerSeverity severity, string message)
     {
         _shellNotification?.Publish(
-            MapSeverity(severity),
+            ShellNotificationBrushConverter.FromRun(severity),
             message,
             dismissible: true,
             sourceKey: ShellNotificationViewModel.SourceRun,
-            onDismissed: () =>
-            {
-                HasBanner = false;
-                BannerMessage = string.Empty;
-            });
+            onDismissed: ClearLocalRunBanner);
     }
 
     private void ClearRunBannerFromShell()
         => _shellNotification?.Clear(ShellNotificationViewModel.SourceRun);
+
+    private void ClearLocalRunBanner()
+    {
+        HasBanner = false;
+        BannerMessage = string.Empty;
+    }
 
     private void PublishStorageToShell()
     {
@@ -72,11 +76,4 @@ public partial class RunTestViewModel
             dismissible: true,
             sourceKey: ShellNotificationViewModel.SourceHistory);
     }
-
-    private static ShellNotificationSeverity MapSeverity(RunBannerSeverity severity) => severity switch
-    {
-        RunBannerSeverity.Error => ShellNotificationSeverity.Error,
-        RunBannerSeverity.Warning => ShellNotificationSeverity.Warning,
-        _ => ShellNotificationSeverity.Info,
-    };
 }

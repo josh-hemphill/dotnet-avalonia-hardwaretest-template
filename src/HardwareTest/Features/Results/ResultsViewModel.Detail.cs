@@ -13,6 +13,7 @@ using HardwareTest.UiThreading;
 
 namespace HardwareTest.Features.Results;
 
+/// Detail pane, default-report open, history tiles, and regenerate — not list/filter chrome.
 public partial class ResultsViewModel
 {
     /// Caps sidebar step/sample rows — ItemsControl is not virtualized inside the detail scroller.
