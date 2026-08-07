@@ -120,7 +120,7 @@ Set `AppSettings.ExportOpenTapResults` (Settings → **Export OpenTAP results (C
 
 ### DUT history (local)
 
-After Pass/Fail, the shell compares channel means on the current run to the last 10 local runs with the same DUT serial + plan ([`DutHistoryService`](../src/HardwareTest.Core/Runs/DutHistoryService.cs)). Metrics group by Presentation `MetricKey` when set (else Channel). Watch/Alert thresholds default to 5%/10%, or per-metric via Presentation `HistoryWatchPercent` / `HistoryAlertPercent` / `HistoryEnabled`. Absent `HistoryEnabled` (legacy records) means **no comparison**, not default thresholds. History detail (metric table) lives on **Results**; the Run board banner is off by default (`ShowDutHistoryOnRun`).
+After Pass/Fail, the shell compares channel means on the current run to the last 10 local runs with the same DUT serial + plan ([`DutHistoryService`](../src/HardwareTest.Core/Runs/DutHistoryService.cs)). Metrics group by Presentation `MetricKey` when set (else Channel). Watch/Alert thresholds default to 5%/10%, or per-metric via Presentation `HistoryWatchPercent` / `HistoryAlertPercent` / `HistoryEnabled`. Absent `HistoryEnabled` (legacy records) means **no comparison**, not default thresholds. History detail (metric table) lives on **Results**; when `ShowDutHistoryOnRun` is on, the one-line operator summary goes to the **shell notification strip** (Phase 17), not a growing Run hero row.
 
 ### Presentation contract (Phase I) + UI (Phase J) + band-first authoring (Phase L)
 
@@ -204,9 +204,21 @@ Env alone is enough for a sealed install. Missing or read-only `settings.json` i
 
 Also: `--settings <path>` (settings file path), `--print-config` (dump effective config + provenance to stdout and exit 0), `--version` / `-v` (print informational version and exit 0). Debug builds: `--simulate-crash {fatal|recoverable|command}`. Nested lists use `HARDWARETEST_<LIST>__{n}__<PROP>` (e.g. `HARDWARETEST_INSTRUMENTS__0__RESOURCE`).
 
-Crash dossiers land under `{DataDirectory}/crashes/` (or `CrashDirectory`): `crash.json`, `log-tail.txt`, `config.json`, `session.json`. Home shows a dismissible recovery banner for unreviewed dossiers; Settings → **Open crashes folder** (hidden when `AllowOsFolderBrowse` is false and Engineer debug is off). See [phase-6-crash-reporting.md](platform-phases/phase-6-crash-reporting.md).
+Crash dossiers land under `{DataDirectory}/crashes/` (or `CrashDirectory`): `crash.json`, `log-tail.txt`, `config.json`, `session.json`. Unreviewed dossiers and recoverable faults publish to the **shell notification strip** (Phase 17) with Export / Open folder / Dismiss — not a competing Home hero card. Settings → **Open crashes folder** (hidden when `AllowOsFolderBrowse` is false and Engineer debug is off). See [phase-6-crash-reporting.md](platform-phases/phase-6-crash-reporting.md) and [phase-17-shell-notification-strip.md](platform-phases/phase-17-shell-notification-strip.md).
 
-**Export / storage (Phase 10):** Results **Export to…** copies run PDFs + `run.json` (+ optional CSV) to removable media or `ExportDirectory`. Home crash **Export support bundle** uses the same targets (falls back to `{DataDirectory}/exports`). Retention prunes completed `runs/` folders by age/count; free-space warn/critical gates Run. See [phase-10-export-storage-chrome.md](platform-phases/phase-10-export-storage-chrome.md).
+**Export / storage (Phase 10):** Results **Export to…** copies run PDFs + `run.json` (+ optional CSV) to removable media or `ExportDirectory`. Home crash **Export support bundle** uses the same targets (falls back to `{DataDirectory}/exports`). Retention prunes completed `runs/` folders by age/count; free-space warn/critical gates Run and surfaces on the **shell strip** (Critical is non-dismissible). See [phase-10-export-storage-chrome.md](platform-phases/phase-10-export-storage-chrome.md) and [phase-17-shell-notification-strip.md](platform-phases/phase-17-shell-notification-strip.md).
+
+**Shell notifications (Phase 17):** MainWindow keeps a reserved-height strip above page content (idle caption **Ready**). Run severity, storage health, suite completion, DUT history one-liners, and Home crash recovery publish into [`ShellNotificationViewModel`](../src/HardwareTest/Features/Shell/ShellNotificationViewModel.cs). Precedence: Critical > Error > Warning > Info across sources; session confirm and operator interaction stay on the Run board (height-capped). Sticky severity is **not** a collapsing Auto row on Run.
+
+**Operator touch density (Phase 18):** Interactive operator controls use a **MinHeight ≥ 40** floor (filter chips, primary/danger/success buttons, step/stage/Results list rows); compact nav Pause/Stop are **48×48**. List↔Details splitter is **16px** with **Details + / − / Reset split** nudge buttons. Disabled Run / Run Selected show the blocking reason as an inline tip (not ToolTip-only). Double-tap remains an accelerator:
+
+| Surface | Primary (touch) | Accelerator |
+| --- | --- | --- |
+| Step / stage | Select + **Open detail** (or Details toggle) | Double-tap row |
+| Results report | Select + **Open report** | Double-click row |
+| Details height | Drag splitter or **Details +/−** | — |
+
+Constants: [`OperatorTouchDensity`](../src/HardwareTest/Features/Shell/OperatorTouchDensity.cs). Full kiosk bake remains [deferred](deferred/deferred-appliance-kiosk.md).
 
 Bootstrap is two-stage: stage 1 resolves `DataDirectory` + `LogMinimumLevel` from env/CLI before logging; stage 2 loads `settings.json` then re-applies overlays. See [phase-3-configuration-model.md](platform-phases/phase-3-configuration-model.md).
 
