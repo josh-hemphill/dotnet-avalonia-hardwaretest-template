@@ -10,7 +10,12 @@ public partial class RunTestViewModel
             MapSeverity(severity),
             message,
             dismissible: true,
-            sourceKey: ShellNotificationViewModel.SourceRun);
+            sourceKey: ShellNotificationViewModel.SourceRun,
+            onDismissed: () =>
+            {
+                HasBanner = false;
+                BannerMessage = string.Empty;
+            });
     }
 
     private void ClearRunBannerFromShell()
