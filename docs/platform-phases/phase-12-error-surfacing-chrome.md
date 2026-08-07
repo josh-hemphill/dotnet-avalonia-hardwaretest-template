@@ -12,7 +12,7 @@ Make operator-visible failures hard to miss, keep async faults on the UI thread,
 ## Locked decisions
 
 - **No new OS dialogs / second windows** for errors — in-panel only ([appliance rule](../opentap-platform.md#interaction-contract-avalonia-owned)).
-- Prefer a **sticky in-panel error/status banner** (or severity-aware hero Status) over silent overwrite of the run status line.
+- Prefer a **sticky in-panel error/status banner** (or severity-aware hero Status) over silent overwrite of the run status line. **Phase 17:** that sticky surface is the reserved MainWindow **shell notification strip** (not collapsing Auto rows on Run).
 - Interaction validation stays on the orange host; do not permanently clobber the run hero with field errors.
 - Fire-and-forget `Observe` / `ContinueWith` paths must marshal to the Avalonia UI dispatcher (same pattern as the Run board UI pump).
 - **`PostToUi` must not silently run work on a random thread** when the dispatcher throws — prefer log + drop or a single documented fallback that still targets the UI scheduler fake in tests.

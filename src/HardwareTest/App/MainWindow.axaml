@@ -2,6 +2,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:ui="using:FluentAvalonia.UI.Controls"
         xmlns:vm="using:HardwareTest.Features"
+        xmlns:run="using:HardwareTest.Features.RunTest"
         x:Class="HardwareTest.MainWindow"
         x:DataType="vm:MainWindowViewModel"
         Title="Hardware Test"
@@ -124,36 +125,98 @@
       </StackPanel>
     </ui:FANavigationView.PaneFooter>
 
-    <Panel Margin="16">
-      <ContentControl Content="{Binding CurrentPage}"
-                      IsEnabled="{Binding !IsStartingUp}" />
-      <Border IsVisible="{Binding IsStartingUp}"
-              Classes="startup-overlay"
-              Background="#CC1A1A1A"
-              CornerRadius="8"
-              HorizontalAlignment="Stretch"
-              VerticalAlignment="Stretch">
-        <StackPanel VerticalAlignment="Center"
-                    HorizontalAlignment="Center"
-                    Spacing="14"
-                    Margin="24">
-          <TextBlock Text="Hardware Test"
-                     FontSize="22"
-                     FontWeight="SemiBold"
-                     Foreground="White"
-                     HorizontalAlignment="Center" />
-          <ProgressBar IsIndeterminate="True"
-                       Width="280"
-                       Height="4" />
-          <TextBlock Text="{Binding StartupStatus}"
-                     Foreground="White"
-                     Opacity="0.9"
-                     HorizontalAlignment="Center"
-                     TextWrapping="Wrap"
-                     MaxWidth="360"
-                     TextAlignment="Center" />
-        </StackPanel>
+    <Grid Margin="16" RowDefinitions="Auto,*" RowSpacing="8">
+      <!-- Phase 17: reserved height even when idle — notifications must not shift page content. -->
+      <Border MinHeight="56"
+              Padding="10,8"
+              CornerRadius="6"
+              BorderThickness="1"
+              Classes="feedback-banner">
+        <Border.Styles>
+          <Style Selector="Border">
+            <Setter Property="Background" Value="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource SystemControlForegroundBaseMediumLowBrush}" />
+          </Style>
+        </Border.Styles>
+        <Panel>
+          <Border IsVisible="{Binding ShellNotification.HasContent}"
+                  Background="{Binding ShellNotification.Severity, Converter={x:Static run:BannerBrushConverter.ShellBackground}}"
+                  BorderBrush="{Binding ShellNotification.Severity, Converter={x:Static run:BannerBrushConverter.ShellBorder}}"
+                  BorderThickness="1"
+                  CornerRadius="6"
+                  Margin="-10,-8"
+                  Padding="10,8">
+            <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto" ColumnSpacing="8">
+              <TextBlock Text="{Binding ShellNotification.Severity, Converter={x:Static run:BannerBrushConverter.ShellIcon}}"
+                         FontSize="14"
+                         FontWeight="Bold"
+                         VerticalAlignment="Center" />
+              <TextBlock Grid.Column="1"
+                         Text="{Binding ShellNotification.Message}"
+                         TextWrapping="Wrap"
+                         VerticalAlignment="Center"
+                         FontWeight="SemiBold" />
+              <Button Grid.Column="2"
+                      Content="{Binding ShellNotification.PrimaryLabel}"
+                      Command="{Binding ShellNotification.PrimaryCommand}"
+                      IsVisible="{Binding ShellNotification.HasPrimaryAction}"
+                      VerticalAlignment="Center"
+                      FontSize="12"
+                      Padding="10,4" />
+              <Button Grid.Column="3"
+                      Content="{Binding ShellNotification.SecondaryLabel}"
+                      Command="{Binding ShellNotification.SecondaryCommand}"
+                      IsVisible="{Binding ShellNotification.HasSecondaryAction}"
+                      VerticalAlignment="Center"
+                      FontSize="12"
+                      Padding="10,4" />
+              <Button Grid.Column="4"
+                      Content="Dismiss"
+                      Command="{Binding ShellNotification.DismissCommand}"
+                      IsVisible="{Binding ShellNotification.IsDismissible}"
+                      VerticalAlignment="Center"
+                      FontSize="12"
+                      Padding="10,4" />
+            </Grid>
+          </Border>
+          <TextBlock Text="{Binding ShellNotification.IdleHint}"
+                     Opacity="0.55"
+                     VerticalAlignment="Center"
+                     IsVisible="{Binding !ShellNotification.HasContent}" />
+        </Panel>
       </Border>
-    </Panel>
+
+      <Panel Grid.Row="1">
+        <ContentControl Content="{Binding CurrentPage}"
+                        IsEnabled="{Binding !IsStartingUp}" />
+        <Border IsVisible="{Binding IsStartingUp}"
+                Classes="startup-overlay"
+                Background="#CC1A1A1A"
+                CornerRadius="8"
+                HorizontalAlignment="Stretch"
+                VerticalAlignment="Stretch">
+          <StackPanel VerticalAlignment="Center"
+                      HorizontalAlignment="Center"
+                      Spacing="14"
+                      Margin="24">
+            <TextBlock Text="Hardware Test"
+                       FontSize="22"
+                       FontWeight="SemiBold"
+                       Foreground="White"
+                       HorizontalAlignment="Center" />
+            <ProgressBar IsIndeterminate="True"
+                         Width="280"
+                         Height="4" />
+            <TextBlock Text="{Binding StartupStatus}"
+                       Foreground="White"
+                       Opacity="0.9"
+                       HorizontalAlignment="Center"
+                       TextWrapping="Wrap"
+                       MaxWidth="360"
+                       TextAlignment="Center" />
+          </StackPanel>
+        </Border>
+      </Panel>
+    </Grid>
   </ui:FANavigationView>
 </Window>

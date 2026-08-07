@@ -9,6 +9,7 @@ using HardwareTest.Core.Reporting;
 using HardwareTest.Core.Runs;
 using HardwareTest.Core.Settings;
 using HardwareTest.Core.Storage;
+using HardwareTest.Features.Shell;
 using HardwareTest.OpenTap.Host;
 using HardwareTest.OpenTap.Plugins.Basic;
 using ReactiveUI;
@@ -26,6 +27,7 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
     private readonly AppSettings _settings;
     private readonly ThrottledOpenTapProgress _progress;
     private readonly IStorageHealthService? _storageHealth;
+    private readonly ShellNotificationViewModel? _shellNotification;
 
     public RunTestViewModel(
         IOpenTapPlanSession plan,
@@ -40,7 +42,8 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
         IDutHistoryService? dutHistory = null,
         BuildInfo? buildInfo = null,
         IStorageHealthService? storageHealth = null,
-        IVisaModeController? visaModeController = null)
+        IVisaModeController? visaModeController = null,
+        ShellNotificationViewModel? shellNotification = null)
     {
         _plan = plan;
         _runSession = runSession;
@@ -48,6 +51,7 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
         _runControl = runControl;
         _settings = settings;
         _storageHealth = storageHealth;
+        _shellNotification = shellNotification;
         _progress = new ThrottledOpenTapProgress(IngestProgress);
         Status = "Confirm DUT, then Run.";
         IsEngineerDebugMode = settings.IsEngineerDebugMode;
@@ -123,14 +127,17 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
         {
             StorageBannerDismissed = true;
             HasStorageBanner = false;
+            ClearStorageFromShell();
         });
         DismissBannerCommand = ReactiveCommand.Create(() =>
         {
             HasBanner = false;
             BannerMessage = string.Empty;
+            ClearRunBannerFromShell();
         });
 
         SubscribeToChildren();
+        this.WhenAnyValue(x => x.HistoryBanner).Subscribe(SyncHistoryBannerToShell);
         RefreshStorageHealth();
     }
 
@@ -225,6 +232,7 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
             HasStorageBanner = false;
             StorageBannerIsCritical = false;
             StorageBannerMessage = string.Empty;
+            ClearStorageFromShell();
             return;
         }
 
@@ -235,11 +243,13 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
             HasStorageBanner = false;
             StorageBannerMessage = string.Empty;
             StorageBannerDismissed = false;
+            ClearStorageFromShell();
             return;
         }
 
         StorageBannerMessage = snap.Message;
         HasStorageBanner = StorageBannerIsCritical || !StorageBannerDismissed;
+        PublishStorageToShell();
     }
 
     /// Reveals the selected step in the bottom tray (double-tap / keyboard entry point from the view).
@@ -539,12 +549,13 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
             TaskContinuationOptions.OnlyOnFaulted,
             TaskScheduler.Default);
 
-    /// Sets a sticky in-panel error/warning banner; does not overwrite Status (kept for transient progress).
+    /// Sets a sticky severity banner (mirrored to the shell strip); does not overwrite Status.
     public void SetBanner(RunBannerSeverity severity, string message)
     {
         BannerSeverity = severity;
         BannerMessage = message;
         HasBanner = true;
+        PublishRunBannerToShell(severity, message);
     }
 
     Task IRunBoardHost.RunOnUiAsync(Action action) => RunOnUiAsync(action);

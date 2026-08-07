@@ -10,6 +10,7 @@ using HardwareTest.Features.ReportPreview;
 using HardwareTest.Features.Results;
 using HardwareTest.Features.RunTest;
 using HardwareTest.Features.Settings;
+using HardwareTest.Features.Shell;
 using HardwareTest.OpenTap.Host;
 using ReactiveUI;
 using ReactiveUI.SourceGenerators;
@@ -40,11 +41,13 @@ public partial class MainWindowViewModel : ReactiveObject
         InstrumentsViewModel instruments,
         SettingsViewModel settings,
         IRunControl runControl,
-        IOpenTapRunSession openTap)
+        IOpenTapRunSession openTap,
+        ShellNotificationViewModel? shellNotification = null)
     {
         _settingsStore = settingsStore;
         _runControl = runControl;
         _openTap = openTap;
+        ShellNotification = shellNotification ?? new ShellNotificationViewModel();
         RunTest = runTest;
         Inspect = inspect;
         Results = results;
@@ -117,6 +120,7 @@ public partial class MainWindowViewModel : ReactiveObject
     public RunTestViewModel RunTest { get; }
     public InspectViewModel Inspect { get; }
     public ResultsViewModel Results { get; }
+    public ShellNotificationViewModel ShellNotification { get; }
     public IRunControl RunControl => _runControl;
 
     public ObservableCollection<NavItem> NavigationItems { get; }

@@ -59,7 +59,7 @@ Distinct namespaces on purpose — "Phase C" and "Phase 3" are never the same th
 | 14 | [Session façade split](platform-phases/phase-14-session-facade-split.md) | 8, 9 | Done |
 | 15 | [Operator feedback & Settings chrome](platform-phases/phase-15-operator-feedback-chrome.md) | 12, 13 | Done |
 | 16 | [Band board & Focus trend](platform-phases/phase-16-band-focus-presentation.md) | 15, J, L | Done |
-| 17 | [Shell notification strip & layout-shift hygiene](platform-phases/phase-17-shell-notification-strip.md) | 12, 15, 16 | Planned |
+| 17 | [Shell notification strip & layout-shift hygiene](platform-phases/phase-17-shell-notification-strip.md) | 12, 15, 16 | Done |
 | 18 | [Operator touch density floor](platform-phases/phase-18-operator-touch-density.md) | 17 | Planned |
 
 **Suggested order (1–10):** 1 first and alone — nothing else is verifiable until CI actually runs. Then 2 / 7 / 8 can proceed in parallel (independent seams). 3 → 4 → 5 is a chain and should stay one series. 6 lands after 4. 9 after 8. 10 after 3/6/9 (storage + chrome).

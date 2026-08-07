@@ -3,7 +3,7 @@
 **Parent:** [platform-roadmap.md](../platform-roadmap.md)
 **Depends on:** [Phase 12](phase-12-error-surfacing-chrome.md), [Phase 15](phase-15-operator-feedback-chrome.md), [Phase 16](phase-16-band-focus-presentation.md)
 **Unblocks:** [Phase 18](phase-18-operator-touch-density.md) (density is easier once notification chrome stops shoving content)
-**Status:** Planned
+**Status:** Done
 **Also absorbs:** Cross-page notification consistency; Auto-row layout shift from storage/severity/crash/completion banners; Run session/interaction height thrash; DUT history blurb growing the hero after Pass/Fail
 
 ## Goal
@@ -59,12 +59,12 @@ Today severity/storage live as **Auto-height rows at the top of Run**, crash liv
 
 ## Exit criteria
 
-- [ ] MainWindow reserved notification strip present on every page with stable MinHeight when idle
-- [ ] Storage + Run severity + Home crash + completion no longer use collapsing Auto rows that push primary content
-- [ ] Session confirm / interaction remain on Run and are height-capped
-- [ ] History/completion do not grow the Run hero Auto row as the primary surface
-- [ ] Multi-page navigation keeps strip position and does not clobber session/interaction chrome
-- [ ] ViewModels / architecture / host suites green; Feature line budgets pass
+- [x] MainWindow reserved notification strip present on every page with stable MinHeight when idle
+- [x] Storage + Run severity + Home crash + completion no longer use collapsing Auto rows that push primary content
+- [x] Session confirm / interaction remain on Run and are height-capped
+- [x] History/completion do not grow the Run hero Auto row as the primary surface
+- [x] Multi-page navigation keeps strip position and does not clobber session/interaction chrome
+- [x] ViewModels / architecture / host suites green; Feature line budgets pass
 
 ## Out of scope
 
