@@ -4,6 +4,7 @@
              xmlns:pres="using:HardwareTest.Features.Presentation"
              xmlns:widgets="using:HardwareTest.Widgets.MeasurementPlot"
              xmlns:widgetsPres="using:HardwareTest.Widgets.Presentation"
+             xmlns:shell="using:HardwareTest.Features.Shell"
              x:Class="HardwareTest.Features.RunTest.RunTestView"
              x:DataType="vm:RunTestViewModel"
              KeyDown="OnKeyDown">
@@ -277,44 +278,35 @@
         </StackPanel>
       </Border>
 
-      <StackPanel Grid.Row="2" Spacing="4" Margin="0,2,0,8">
-        <StackPanel Orientation="Horizontal" Spacing="8">
-          <Button Content="Run Selected" Command="{Binding Run.RunSelectedCommand}"
-                  Classes="operator"
-                  IsEnabled="{Binding CanStartRun}"
-                  ToolTip.Tip="{Binding CanStartRunSelectedTip}" />
-          <Button Content="Open detail" Command="{Binding StepDetail.OpenStepDetailCommand}"
-                  Classes="operator"
-                  ToolTip.Tip="Open Details for the selected step (double-tap remains a shortcut)" />
-          <Button Content="Prev fail" Command="{Binding StepTree.PrevFailCommand}" Classes="operator" />
-          <Button Content="Next fail" Command="{Binding StepTree.NextFailCommand}" Classes="operator" />
-          <ToggleButton Content="Details"
-                        IsChecked="{Binding StepDetail.ShowDetailRegion}"
-                        Classes="filter-chip"
-                        ToolTip.Tip="Show or hide bottom pane (detail, plot, diagnostics)" />
-          <Button Content="Details +"
-                  Click="OnDetailsTallerClick"
-                  Classes="operator"
-                  IsVisible="{Binding StepDetail.ShowDetailRegion}"
-                  ToolTip.Tip="Give the Details drawer more height" />
-          <Button Content="Details −"
-                  Click="OnDetailsShorterClick"
-                  Classes="operator"
-                  IsVisible="{Binding StepDetail.ShowDetailRegion}"
-                  ToolTip.Tip="Give the step list more height" />
-          <Button Content="Reset split"
-                  Click="OnDetailsResetSplitClick"
-                  Classes="operator"
-                  IsVisible="{Binding StepDetail.ShowDetailRegion}"
-                  ToolTip.Tip="Reset list vs Details star shares" />
-        </StackPanel>
-        <TextBlock FontSize="12"
-                   Opacity="0.95"
-                   FontWeight="SemiBold"
-                   TextWrapping="Wrap"
-                   Foreground="#E65100"
-                   Text="{Binding CanStartRunSelectedTip}"
-                   IsVisible="{Binding ShowStartBlockedTip}" />
+      <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="8" Margin="0,2,0,8">
+        <Button Content="Run Selected" Command="{Binding Run.RunSelectedCommand}"
+                Classes="operator"
+                IsEnabled="{Binding CanStartRun}"
+                ToolTip.Tip="{Binding CanStartRunSelectedTip}" />
+        <Button Content="Open detail" Command="{Binding StepDetail.OpenStepDetailCommand}"
+                Classes="operator"
+                ToolTip.Tip="Open Details for the selected step (double-tap remains a shortcut)" />
+        <Button Content="Prev fail" Command="{Binding StepTree.PrevFailCommand}" Classes="operator" />
+        <Button Content="Next fail" Command="{Binding StepTree.NextFailCommand}" Classes="operator" />
+        <ToggleButton Content="Details"
+                      IsChecked="{Binding StepDetail.ShowDetailRegion}"
+                      Classes="filter-chip"
+                      ToolTip.Tip="Show or hide bottom pane (detail, plot, diagnostics)" />
+        <Button Content="Details +"
+                Click="OnDetailsTallerClick"
+                Classes="operator"
+                IsVisible="{Binding StepDetail.ShowDetailRegion}"
+                ToolTip.Tip="Give the Details drawer more height" />
+        <Button Content="Details −"
+                Click="OnDetailsShorterClick"
+                Classes="operator"
+                IsVisible="{Binding StepDetail.ShowDetailRegion}"
+                ToolTip.Tip="Give the step list more height" />
+        <Button Content="Reset split"
+                Click="OnDetailsResetSplitClick"
+                Classes="operator"
+                IsVisible="{Binding StepDetail.ShowDetailRegion}"
+                ToolTip.Tip="Reset list vs Details star shares" />
       </StackPanel>
 
       <Border Grid.Row="3"
@@ -375,7 +367,7 @@
                    PlaceholderText="Search steps…"
                    Text="{Binding StepTree.StepSearchText}"
                    Width="180"
-                   MinHeight="40"
+                   MinHeight="{x:Static shell:OperatorTouchDensity.OperatorControlMinHeight}"
                    Margin="8,0,0,0" />
         </StackPanel>
       </Border>
@@ -391,7 +383,7 @@
         <ListBox.Styles>
           <Style Selector="ListBox.compact ListBoxItem">
             <Setter Property="Padding" Value="6,4" />
-            <Setter Property="MinHeight" Value="40" />
+            <Setter Property="MinHeight" Value="{x:Static shell:OperatorTouchDensity.OperatorControlMinHeight}" />
           </Style>
           <Style Selector="ListBox.compact TextBlock">
             <Setter Property="FontSize" Value="11" />
@@ -442,8 +434,8 @@
       </ListBox>
 
       <GridSplitter Grid.Row="5"
-                    Height="16"
-                    MinHeight="16"
+                    Height="{x:Static shell:OperatorTouchDensity.DetailsSplitterMinHeight}"
+                    MinHeight="{x:Static shell:OperatorTouchDensity.DetailsSplitterMinHeight}"
                     HorizontalAlignment="Stretch"
                     ResizeDirection="Rows"
                     IsVisible="{Binding StepDetail.ShowDetailRegion}"
@@ -614,102 +606,6 @@
       </Grid>
     </Grid>
 
-    <DockPanel Grid.Row="2" Grid.Column="1">
-      <StackPanel DockPanel.Dock="Top" Spacing="6" Margin="0,0,0,10">
-        <TextBlock Text="Suite"
-                   Opacity="0.65"
-                   FontSize="11"
-                   FontWeight="SemiBold" />
-        <WrapPanel Orientation="Horizontal">
-          <ToggleButton Classes="filter-chip"
-                        Content="{Binding StepTree.SuitePassedCount, StringFormat=Passed {0}}"
-                        IsChecked="{Binding StepTree.IsFilterAll, Mode=OneWay}"
-                        Command="{Binding StepTree.SetStepFilterCommand}"
-                        CommandParameter="{x:Static vm:StepStatusFilter.All}"
-                        Margin="0,0,4,4" />
-          <ToggleButton Classes="filter-chip"
-                        Content="{Binding StepTree.SuiteFailedCount, StringFormat=Failed {0}}"
-                        IsChecked="{Binding StepTree.IsFilterFail, Mode=OneWay}"
-                        Command="{Binding StepTree.FilterFailCommand}"
-                        Margin="0,0,4,4" />
-          <ToggleButton Classes="filter-chip"
-                        Content="{Binding StepTree.SuitePendingCount, StringFormat=Pending {0}}"
-                        IsChecked="{Binding StepTree.IsFilterPending, Mode=OneWay}"
-                        Command="{Binding StepTree.SetStepFilterCommand}"
-                        CommandParameter="{x:Static vm:StepStatusFilter.Pending}"
-                        Margin="0,0,4,4" />
-        </WrapPanel>
-        <TextBlock Text="Stages" FontWeight="SemiBold" Margin="0,4,0,0" />
-      </StackPanel>
-      <StackPanel DockPanel.Dock="Bottom" Spacing="8" Margin="0,12,0,0">
-        <StackPanel Spacing="6" IsVisible="{Binding StepTree.HasSubsections}">
-          <TextBlock Text="Sections" FontWeight="SemiBold" />
-          <ListBox ItemsSource="{Binding StepTree.Subsections}"
-                   SelectedItem="{Binding StepTree.SelectedSubsection}"
-                   MaxHeight="140">
-            <ListBox.ItemTemplate>
-              <DataTemplate x:DataType="vm:StageItemViewModel">
-                <StackPanel Spacing="2">
-                  <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" TextWrapping="Wrap" />
-                  <StackPanel Orientation="Horizontal" Spacing="8">
-                    <Border CornerRadius="4"
-                            Padding="6,1"
-                            Background="{Binding ChipText, Converter={x:Static vm:ChipBrushConverter.Instance}}">
-                      <TextBlock Text="{Binding ChipText}" FontSize="10" FontWeight="SemiBold" Foreground="White" />
-                    </Border>
-                    <TextBlock Text="{Binding ProgressText}" FontSize="11" Opacity="0.8" VerticalAlignment="Center" />
-                  </StackPanel>
-                  <ProgressBar Value="{Binding ProgressPercent}" Minimum="0" Maximum="100" Height="3" />
-                </StackPanel>
-              </DataTemplate>
-            </ListBox.ItemTemplate>
-          </ListBox>
-        </StackPanel>
-        <StackPanel Spacing="6" IsVisible="{Binding StepTree.HasNestedSubsections}">
-          <TextBlock Text="Subsections" FontWeight="SemiBold" />
-          <ListBox ItemsSource="{Binding StepTree.NestedSubsections}"
-                   SelectedItem="{Binding StepTree.SelectedNestedSubsection}"
-                   MaxHeight="120">
-            <ListBox.ItemTemplate>
-              <DataTemplate x:DataType="vm:StageItemViewModel">
-                <StackPanel Spacing="2">
-                  <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" TextWrapping="Wrap" />
-                  <StackPanel Orientation="Horizontal" Spacing="8">
-                    <Border CornerRadius="4"
-                            Padding="6,1"
-                            Background="{Binding ChipText, Converter={x:Static vm:ChipBrushConverter.Instance}}">
-                      <TextBlock Text="{Binding ChipText}" FontSize="10" FontWeight="SemiBold" Foreground="White" />
-                    </Border>
-                    <TextBlock Text="{Binding ProgressText}" FontSize="11" Opacity="0.8" VerticalAlignment="Center" />
-                  </StackPanel>
-                  <ProgressBar Value="{Binding ProgressPercent}" Minimum="0" Maximum="100" Height="3" />
-                </StackPanel>
-              </DataTemplate>
-            </ListBox.ItemTemplate>
-          </ListBox>
-        </StackPanel>
-      </StackPanel>
-      <ListBox ItemsSource="{Binding StepTree.Stages}"
-               Classes="operator-list"
-               SelectedItem="{Binding StepTree.SelectedStage}"
-               DoubleTapped="OnStageDoubleTapped">
-        <ListBox.ItemTemplate>
-          <DataTemplate x:DataType="vm:StageItemViewModel">
-            <StackPanel Spacing="2">
-              <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" TextWrapping="Wrap" />
-              <StackPanel Orientation="Horizontal" Spacing="8">
-                <Border CornerRadius="4"
-                        Padding="6,1"
-                        Background="{Binding ChipText, Converter={x:Static vm:ChipBrushConverter.Instance}}">
-                  <TextBlock Text="{Binding ChipText}" FontSize="10" FontWeight="SemiBold" Foreground="White" />
-                </Border>
-                <TextBlock Text="{Binding ProgressText}" FontSize="11" Opacity="0.8" VerticalAlignment="Center" />
-              </StackPanel>
-              <ProgressBar Value="{Binding ProgressPercent}" Minimum="0" Maximum="100" Height="3" />
-            </StackPanel>
-          </DataTemplate>
-        </ListBox.ItemTemplate>
-      </ListBox>
-    </DockPanel>
+    <vm:RunBoardStageRailView Grid.Row="2" Grid.Column="1" />
   </Grid>
 </UserControl>

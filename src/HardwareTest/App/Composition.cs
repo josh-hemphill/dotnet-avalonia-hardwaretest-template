@@ -49,17 +49,10 @@ public static class Composition
         services.AddSingleton<SettingsViewModel>();
         services.AddSingleton<MainWindowViewModel>();
         services.AddSingleton<MainWindow>(sp =>
-        {
-            var mainVm = sp.GetRequiredService<MainWindowViewModel>();
-            var results = sp.GetRequiredService<ResultsViewModel>();
-            var preview = sp.GetRequiredService<ReportPreviewViewModel>();
-            results.ReportOpened += async (_, path) =>
-            {
-                mainVm.NavigateToPageId("ReportPreview");
-                await preview.LoadFromPathAsync(path);
-            };
-            return new MainWindow(mainVm, settingsStore, sp.GetRequiredService<BuildInfo>());
-        });
+            new MainWindow(
+                sp.GetRequiredService<MainWindowViewModel>(),
+                settingsStore,
+                sp.GetRequiredService<BuildInfo>()));
 
         return services.BuildServiceProvider();
     }
