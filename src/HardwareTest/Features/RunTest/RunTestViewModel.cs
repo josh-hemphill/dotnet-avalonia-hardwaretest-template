@@ -137,7 +137,13 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
         });
 
         SubscribeToChildren();
-        this.WhenAnyValue(x => x.HistoryBanner).Subscribe(SyncHistoryBannerToShell);
+        PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(HistoryBanner))
+            {
+                SyncHistoryBannerToShell(HistoryBanner);
+            }
+        };
         RefreshStorageHealth();
     }
 

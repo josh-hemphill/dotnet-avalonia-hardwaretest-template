@@ -10,44 +10,19 @@ namespace HardwareTest.Features.RunTest;
 public static class BannerBrushConverter
 {
     public static readonly IValueConverter Background = new FuncValueConverter<RunBannerSeverity, IBrush>(s =>
-        ShellBackground.Convert(Map(s), typeof(IBrush), null, null) as IBrush ?? Brush("#E3F2FD"));
+        BackgroundFor(Map(s)));
 
     public static readonly IValueConverter Border = new FuncValueConverter<RunBannerSeverity, IBrush>(s =>
-        ShellBorder.Convert(Map(s), typeof(IBrush), null, null) as IBrush ?? Brush("#1565C0"));
+        BorderFor(Map(s)));
 
     public static readonly IValueConverter Icon = new FuncValueConverter<RunBannerSeverity, string>(s =>
-        ShellIcon.Convert(Map(s), typeof(string), null, null) as string ?? "Info");
+        IconFor(Map(s)));
 
-    public static readonly IValueConverter ShellBackground = new FuncValueConverter<ShellNotificationSeverity, IBrush>(s =>
-        IsDarkTheme()
-            ? s switch
-            {
-                ShellNotificationSeverity.Critical or ShellNotificationSeverity.Error => Brush("#3B1010"),
-                ShellNotificationSeverity.Warning => Brush("#2C2000"),
-                _ => Brush("#1A2530"),
-            }
-            : s switch
-            {
-                ShellNotificationSeverity.Critical or ShellNotificationSeverity.Error => Brush("#FFEBEE"),
-                ShellNotificationSeverity.Warning => Brush("#FFF8E1"),
-                _ => Brush("#E3F2FD"),
-            });
+    public static readonly IValueConverter ShellBackground = new FuncValueConverter<ShellNotificationSeverity, IBrush>(BackgroundFor);
 
-    public static readonly IValueConverter ShellBorder = new FuncValueConverter<ShellNotificationSeverity, IBrush>(s =>
-        s switch
-        {
-            ShellNotificationSeverity.Critical or ShellNotificationSeverity.Error => Brush("#C62828"),
-            ShellNotificationSeverity.Warning => Brush("#F57F17"),
-            _ => Brush("#1565C0"),
-        });
+    public static readonly IValueConverter ShellBorder = new FuncValueConverter<ShellNotificationSeverity, IBrush>(BorderFor);
 
-    public static readonly IValueConverter ShellIcon = new FuncValueConverter<ShellNotificationSeverity, string>(s =>
-        s switch
-        {
-            ShellNotificationSeverity.Critical or ShellNotificationSeverity.Error => "Error",
-            ShellNotificationSeverity.Warning => "Warning",
-            _ => "Info",
-        });
+    public static readonly IValueConverter ShellIcon = new FuncValueConverter<ShellNotificationSeverity, string>(IconFor);
 
     /// Storage banner background: critical → error surface, warn → warning surface.
     public static readonly IValueConverter StorageBackground = new FuncValueConverter<bool, IBrush>(critical =>
@@ -62,6 +37,35 @@ public static class BannerBrushConverter
 
     public static readonly IValueConverter StorageBorder = new FuncValueConverter<bool, IBrush>(critical =>
         critical ? Brush("#C62828") : Brush("#F57F17"));
+
+    private static IBrush BackgroundFor(ShellNotificationSeverity s) =>
+        IsDarkTheme()
+            ? s switch
+            {
+                ShellNotificationSeverity.Critical or ShellNotificationSeverity.Error => Brush("#3B1010"),
+                ShellNotificationSeverity.Warning => Brush("#2C2000"),
+                _ => Brush("#1A2530"),
+            }
+            : s switch
+            {
+                ShellNotificationSeverity.Critical or ShellNotificationSeverity.Error => Brush("#FFEBEE"),
+                ShellNotificationSeverity.Warning => Brush("#FFF8E1"),
+                _ => Brush("#E3F2FD"),
+            };
+
+    private static IBrush BorderFor(ShellNotificationSeverity s) => s switch
+    {
+        ShellNotificationSeverity.Critical or ShellNotificationSeverity.Error => Brush("#C62828"),
+        ShellNotificationSeverity.Warning => Brush("#F57F17"),
+        _ => Brush("#1565C0"),
+    };
+
+    private static string IconFor(ShellNotificationSeverity s) => s switch
+    {
+        ShellNotificationSeverity.Critical or ShellNotificationSeverity.Error => "Error",
+        ShellNotificationSeverity.Warning => "Warning",
+        _ => "Info",
+    };
 
     private static ShellNotificationSeverity Map(RunBannerSeverity s) => s switch
     {

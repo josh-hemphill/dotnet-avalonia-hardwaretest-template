@@ -34,7 +34,7 @@ public partial class ShellNotificationViewModel : ReactiveObject
 
     public ShellNotificationViewModel()
     {
-        DismissCommand = ReactiveCommand.Create(Dismiss, this.WhenAnyValue(x => x.IsDismissible));
+        DismissCommand = ReactiveCommand.Create(Dismiss);
     }
 
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> DismissCommand { get; }

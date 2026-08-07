@@ -1,3 +1,4 @@
+using HardwareTest.Core.Hardware;
 using HardwareTest.Core.Settings;
 using HardwareTest.Core.Storage;
 using HardwareTest.Features;
@@ -181,7 +182,7 @@ public sealed class Phase17ShellNotificationTests
         var runTest = CreateRun(shell, openTap, runControl);
         var vm = new MainWindowViewModel(
             store,
-            new HomeViewModel(shellNotification: shell),
+            new HomeViewModel(null, shellNotification: shell),
             runTest,
             new InspectViewModel(openTap),
             new ResultsViewModel(new FakeRunStore(), new FakeReportService()),
