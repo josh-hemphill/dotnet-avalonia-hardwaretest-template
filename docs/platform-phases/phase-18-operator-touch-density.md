@@ -23,7 +23,7 @@ Phase 12/15 deferred touch density to [deferred-appliance-kiosk.md](../deferred/
 - **GridSplitter:** increase hit area to **≥ 12px** (preferably 16) and/or add explicit “Details taller / shorter” (or reset) controls so fingers are not required to grab a 6px line.
 - Nested scroll in Details: avoid adding more nested ListBox scrollers; prefer one drawer ScrollViewer + non-scrolling short lists, or clearly separated panes (already improved in Phase 16 — do not regress).
 - Keep Feature line budgets; prefer `App.axaml` style setters over per-control one-offs where possible.
-- Full **AutomationProperties / narrator / kiosk compositor** stay deferred with the appliance image plan.
+- Full **AutomationProperties / Narrator / kiosk compositor** stay deferred with the appliance image plan.
 
 ## Workstreams
 
