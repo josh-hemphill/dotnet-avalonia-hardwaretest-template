@@ -74,5 +74,5 @@ Make operator-visible failures hard to miss, keep async faults on the UI thread,
 - Rewriting the entire OpenTAP host serial test suite for flake
 - Session idle / Same DUT / `RequireOperator` (Phase 11)
 - UseMockVisa rebuild (Phase 13)
-- Full Accessibility / AutomationProperties / touch-target pass ([deferred-appliance-kiosk.md](../deferred/deferred-appliance-kiosk.md))
+- Full Accessibility / AutomationProperties / kiosk compositor ([deferred-appliance-kiosk.md](../deferred/deferred-appliance-kiosk.md)); operator hit-target floor is [Phase 18](phase-18-operator-touch-density.md) after [Phase 17](phase-17-shell-notification-strip.md)
 - Localization ([deferred-localization.md](../deferred/deferred-localization.md))
