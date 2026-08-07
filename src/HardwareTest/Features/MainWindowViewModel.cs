@@ -96,11 +96,7 @@ public partial class MainWindowViewModel : ReactiveObject
         results.NavigateToRunRequested += (_, _) => NavigateToPageId("RunTest");
         instruments.NavigateToRunRequested += (_, _) => NavigateToPageId("RunTest");
         reportPreview.NavigateToResultsRequested += (_, _) => NavigateToPageId("Results");
-        results.ReportOpened += (_, path) =>
-        {
-            NavigateToPageId("ReportPreview");
-            _ = reportPreview.LoadFromPathAsync(path);
-        };
+        results.ReportOpened += OnReportOpened;
 
         runControl.PropertyChanged += (_, e) =>
         {
@@ -300,6 +296,12 @@ public partial class MainWindowViewModel : ReactiveObject
     {
         var item = NavigationItems.FirstOrDefault(i => i.Id == pageId);
         NavigateTo(item);
+    }
+
+    private void OnReportOpened(object? sender, string path)
+    {
+        NavigateToPageId("ReportPreview");
+        _ = ReportPreview.LoadFromPathAsync(path);
     }
 
     private void RaiseTransportProps()
