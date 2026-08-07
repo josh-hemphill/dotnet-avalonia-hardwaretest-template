@@ -3,7 +3,6 @@ using System.Reactive.Linq;
 using System.Windows.Input;
 using Avalonia.Controls;
 using Avalonia.Input;
-using Avalonia.Layout;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using ReactiveUI;
@@ -19,12 +18,18 @@ public partial class RunTestView : UserControl
 
     private RunTestViewModel? _subscribed;
     private readonly SerialDisposable _chromeLayout = new();
-    private double _listStarShare = 1;
-    private double _detailStarShare = 1;
+    private readonly RunBoardLayoutController _layout;
 
     public RunTestView()
     {
         InitializeComponent();
+        _layout = new RunBoardLayoutController(
+            () => BoardGrid,
+            () => DetailDrawerGrid,
+            StepListRowIndex,
+            DetailDrawerRowIndex,
+            DetailFocusRowIndex,
+            DetailBandRowIndex);
         DataContextChanged += OnDataContextChanged;
         DetachedFromVisualTree += (_, _) => Unsubscribe();
     }
@@ -49,13 +54,14 @@ public partial class RunTestView : UserControl
                 {
                     if (Dispatcher.UIThread.CheckAccess())
                     {
-                        ApplyDetailDrawerRows(state.showDetails, state.showFocus);
+                        _layout.ApplyDetailDrawerRows(state.showDetails, state.showFocus);
                         return;
                     }
 
-                    Dispatcher.UIThread.Post(() => ApplyDetailDrawerRows(state.showDetails, state.showFocus));
+                    Dispatcher.UIThread.Post(() =>
+                        _layout.ApplyDetailDrawerRows(state.showDetails, state.showFocus));
                 });
-            ApplyDetailDrawerRows(vm.StepDetail.ShowDetailRegion, vm.Live.ShowFocusTrend);
+            _layout.ApplyDetailDrawerRows(vm.StepDetail.ShowDetailRegion, vm.Live.ShowFocusTrend);
             if (Plot is not null)
             {
                 Plot.UpdateData(vm.Live.PlotYs, vm.Live.PlotYsLength, force: true);
@@ -78,45 +84,6 @@ public partial class RunTestView : UserControl
         _subscribed = null;
     }
 
-    /// Restores list/drawer/Focus star shares after Details or Focus chrome changes.
-    private void ApplyDetailDrawerRows(bool showDetails, bool showFocus)
-    {
-        if (BoardGrid is null || BoardGrid.RowDefinitions.Count <= DetailDrawerRowIndex)
-        {
-            return;
-        }
-
-        _listStarShare = 1;
-        _detailStarShare = 1;
-        ApplyListDetailShares(showDetails);
-
-        if (DetailDrawerGrid is null || DetailDrawerGrid.RowDefinitions.Count <= DetailBandRowIndex)
-        {
-            return;
-        }
-
-        // Focus * only while open (0 otherwise). Band stays * so its ScrollViewer keeps a viewport.
-        DetailDrawerGrid.RowDefinitions[DetailFocusRowIndex].Height = showDetails && showFocus
-            ? new GridLength(3, GridUnitType.Star)
-            : new GridLength(0);
-        DetailDrawerGrid.RowDefinitions[DetailBandRowIndex].Height = showDetails && showFocus
-            ? new GridLength(2, GridUnitType.Star)
-            : new GridLength(1, GridUnitType.Star);
-    }
-
-    private void ApplyListDetailShares(bool showDetails)
-    {
-        if (BoardGrid is null || BoardGrid.RowDefinitions.Count <= DetailDrawerRowIndex)
-        {
-            return;
-        }
-
-        BoardGrid.RowDefinitions[StepListRowIndex].Height = new GridLength(_listStarShare, GridUnitType.Star);
-        BoardGrid.RowDefinitions[DetailDrawerRowIndex].Height = showDetails
-            ? new GridLength(_detailStarShare, GridUnitType.Star)
-            : new GridLength(0);
-    }
-
     private void OnDetailsTallerClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         if (_subscribed?.StepDetail.ShowDetailRegion != true)
@@ -124,9 +91,7 @@ public partial class RunTestView : UserControl
             return;
         }
 
-        _detailStarShare = Math.Min(3.0, _detailStarShare + 0.35);
-        _listStarShare = Math.Max(0.45, _listStarShare - 0.35);
-        ApplyListDetailShares(showDetails: true);
+        _layout.NudgeDetailsTaller();
     }
 
     private void OnDetailsShorterClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
@@ -136,9 +101,7 @@ public partial class RunTestView : UserControl
             return;
         }
 
-        _listStarShare = Math.Min(3.0, _listStarShare + 0.35);
-        _detailStarShare = Math.Max(0.45, _detailStarShare - 0.35);
-        ApplyListDetailShares(showDetails: true);
+        _layout.NudgeDetailsShorter();
     }
 
     private void OnDetailsResetSplitClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
@@ -148,7 +111,9 @@ public partial class RunTestView : UserControl
             return;
         }
 
-        ApplyDetailDrawerRows(_subscribed.StepDetail.ShowDetailRegion, _subscribed.Live.ShowFocusTrend);
+        _layout.ApplyDetailDrawerRows(
+            _subscribed.StepDetail.ShowDetailRegion,
+            _subscribed.Live.ShowFocusTrend);
     }
 
     private async Task<string?> PickPlanFileAsync(CancellationToken cancellationToken)
@@ -254,15 +219,6 @@ public partial class RunTestView : UserControl
         }
 
         e.Handled = true;
-    }
-
-    private void OnStageDoubleTapped(object? sender, TappedEventArgs e)
-    {
-        if (_subscribed?.StepTree.SelectedStage?.Step is { } stage)
-        {
-            _subscribed.StepTree.SelectedStep = stage;
-            _subscribed.OpenSelectedStepDetail();
-        }
     }
 
     private void OnHierarchyDoubleTapped(object? sender, TappedEventArgs e)

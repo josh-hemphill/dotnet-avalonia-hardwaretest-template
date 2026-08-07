@@ -2,7 +2,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:ui="using:FluentAvalonia.UI.Controls"
         xmlns:vm="using:HardwareTest.Features"
-        xmlns:run="using:HardwareTest.Features.RunTest"
+        xmlns:shell="using:HardwareTest.Features.Shell"
         x:Class="HardwareTest.MainWindow"
         x:DataType="vm:MainWindowViewModel"
         Title="Hardware Test"
@@ -41,8 +41,8 @@
 
         <!-- Pause / Resume / Continue -->
         <Button Command="{Binding PauseResumeCommand}"
-                Width="48"
-                Height="48"
+                Width="{x:Static shell:OperatorTouchDensity.CompactNavTargetSize}"
+                Height="{x:Static shell:OperatorTouchDensity.CompactNavTargetSize}"
                 Padding="0"
                 HorizontalAlignment="Center"
                 HorizontalContentAlignment="Center"
@@ -63,7 +63,7 @@
                 HorizontalAlignment="Stretch"
                 HorizontalContentAlignment="Center"
                 Padding="12,8"
-                MinHeight="40"
+                MinHeight="{x:Static shell:OperatorTouchDensity.OperatorControlMinHeight}"
                 IsEnabled="{Binding IsRunning}"
                 Classes.success="{Binding ShowContinueIcon}"
                 ToolTip.Tip="{Binding PauseResumeTip}"
@@ -85,8 +85,8 @@
 
         <!-- Safety Stop -->
         <Button Command="{Binding SafetyStopCommand}"
-                Width="48"
-                Height="48"
+                Width="{x:Static shell:OperatorTouchDensity.CompactNavTargetSize}"
+                Height="{x:Static shell:OperatorTouchDensity.CompactNavTargetSize}"
                 Padding="0"
                 HorizontalAlignment="Center"
                 HorizontalContentAlignment="Center"
@@ -107,7 +107,7 @@
                 HorizontalAlignment="Stretch"
                 HorizontalContentAlignment="Center"
                 Padding="12,8"
-                MinHeight="40"
+                MinHeight="{x:Static shell:OperatorTouchDensity.OperatorControlMinHeight}"
                 Classes="danger"
                 IsEnabled="{Binding IsRunning}"
                 ToolTip.Tip="{Binding SafetyStopTip}"
@@ -144,14 +144,14 @@
         </Border.Styles>
         <Panel>
           <Border IsVisible="{Binding ShellNotification.HasContent}"
-                  Background="{Binding ShellNotification.Severity, Converter={x:Static run:BannerBrushConverter.ShellBackground}}"
-                  BorderBrush="{Binding ShellNotification.Severity, Converter={x:Static run:BannerBrushConverter.ShellBorder}}"
+                  Background="{Binding ShellNotification.Severity, Converter={x:Static shell:ShellNotificationBrushConverter.Background}}"
+                  BorderBrush="{Binding ShellNotification.Severity, Converter={x:Static shell:ShellNotificationBrushConverter.Border}}"
                   BorderThickness="1"
                   CornerRadius="6"
                   Margin="-10,-8"
                   Padding="10,8">
             <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto" ColumnSpacing="8">
-              <TextBlock Text="{Binding ShellNotification.Severity, Converter={x:Static run:BannerBrushConverter.ShellIcon}}"
+              <TextBlock Text="{Binding ShellNotification.Severity, Converter={x:Static shell:ShellNotificationBrushConverter.Icon}}"
                          FontSize="14"
                          FontWeight="Bold"
                          VerticalAlignment="Center" />
@@ -164,24 +164,27 @@
                       Content="{Binding ShellNotification.PrimaryLabel}"
                       Command="{Binding ShellNotification.PrimaryCommand}"
                       IsVisible="{Binding ShellNotification.HasPrimaryAction}"
+                      Classes="operator"
                       VerticalAlignment="Center"
-                      MinHeight="40"
+                      MinHeight="{x:Static shell:OperatorTouchDensity.OperatorControlMinHeight}"
                       FontSize="12"
                       Padding="10,4" />
               <Button Grid.Column="3"
                       Content="{Binding ShellNotification.SecondaryLabel}"
                       Command="{Binding ShellNotification.SecondaryCommand}"
                       IsVisible="{Binding ShellNotification.HasSecondaryAction}"
+                      Classes="operator"
                       VerticalAlignment="Center"
-                      MinHeight="40"
+                      MinHeight="{x:Static shell:OperatorTouchDensity.OperatorControlMinHeight}"
                       FontSize="12"
                       Padding="10,4" />
               <Button Grid.Column="4"
                       Content="Dismiss"
                       Command="{Binding ShellNotification.DismissCommand}"
                       IsVisible="{Binding ShellNotification.IsDismissible}"
+                      Classes="operator"
                       VerticalAlignment="Center"
-                      MinHeight="40"
+                      MinHeight="{x:Static shell:OperatorTouchDensity.OperatorControlMinHeight}"
                       FontSize="12"
                       Padding="10,4" />
             </Grid>

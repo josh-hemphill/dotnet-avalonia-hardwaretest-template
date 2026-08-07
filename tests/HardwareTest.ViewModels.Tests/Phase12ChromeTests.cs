@@ -16,18 +16,7 @@ public sealed class Phase12ChromeTests
     private static RunTestViewModel CreateVm(
         FakeOpenTapSession? openTap = null,
         AppSettings? settings = null)
-    {
-        var session = openTap ?? new FakeOpenTapSession();
-        return new(
-            session,
-            session,
-            session,
-            new OperatorSession(),
-            new FakeRunControl(),
-            new FakeReportService(),
-            new FakeRunStore(),
-            settings ?? new AppSettings());
-    }
+        => RunTestViewModelTestFactory.Create(openTap, settings);
 
     private static async Task ConfirmReadyAsync(RunTestViewModel vm, string serial = "SN-1")
     {
