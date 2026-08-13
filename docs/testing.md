@@ -54,6 +54,7 @@ Pick the narrowest suite for what you are asserting:
 2. Load with concrete `OpenTapSession.LoadPlanShapeAsync(...)` (not on `IOpenTapSession`) or the sample / board-demo / sweep-demo loaders.
 3. Assert `StepTree` shape, unique paths, Run Selected enable-mask behavior, or SafeShutdown presence.
 4. Keep host tests in the `OpenTapSerial` collection (`DisableParallelization`).
+5. **Abort isolation:** Host `Abort` cancels cooperatively via CTS + `WaitIfPaused` / interaction gates — it does **not** call `TapThread.Abort`, which can poison later `Execute` calls in the same process. Prefer draining run tasks in `finally` after Abort in tests.
 
 Named templates live in `PlanDiagnosticsTests` (`PlanDiagnostics_*`).
 

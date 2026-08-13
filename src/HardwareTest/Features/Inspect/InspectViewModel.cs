@@ -9,10 +9,12 @@ namespace HardwareTest.Features.Inspect;
 public partial class InspectViewModel : ReactiveObject
 {
     private readonly IOpenTapSession _openTap;
+    private readonly OperatorSession? _operatorSession;
 
-    public InspectViewModel(IOpenTapSession openTap)
+    public InspectViewModel(IOpenTapSession openTap, OperatorSession? operatorSession = null)
     {
         _openTap = openTap;
+        _operatorSession = operatorSession;
         Hierarchy = [];
         RefreshCommand = ReactiveCommand.Create(Refresh);
         OpenOnRunCommand = ReactiveCommand.Create(
@@ -32,6 +34,7 @@ public partial class InspectViewModel : ReactiveObject
 
     public void Refresh()
     {
+        _operatorSession?.TouchActivity();
         Hierarchy.Clear();
         foreach (var node in _openTap.StepTree)
         {

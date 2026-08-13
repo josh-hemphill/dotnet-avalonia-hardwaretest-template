@@ -97,7 +97,8 @@ public sealed class ConfigurationArgs
     private static bool LooksBoolBinding(SettingBinding binding)
         => binding.Key is "UseMockVisa" or "EnableOsEventSink" or "EnableSyslogOnUnix"
             or "EmbedPlotsInReport" or "ExportOpenTapResults" or "ShowDutHistoryOnRun"
-            or "IsEngineerDebugMode" or "CrashEnabled" or "RedactIdentifiersInDiagnostics";
+            or "IsEngineerDebugMode" or "CrashEnabled" or "RedactIdentifiersInDiagnostics"
+            or "RequireDutConfirmEveryRun" or "PreferRemovableExport" or "AllowOsFolderBrowse";
 
     private static bool TrySplit(string arg, out string flag, out string? inlineValue)
     {

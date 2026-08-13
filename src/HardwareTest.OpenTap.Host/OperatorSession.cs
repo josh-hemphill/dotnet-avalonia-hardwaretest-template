@@ -23,6 +23,10 @@ public sealed class OperatorSession : INotifyPropertyChanged
     private string? _programDisplayName;
     private string? _operatorName;
     private DateTimeOffset? _confirmedAt;
+    private DateTimeOffset? _lastActivityAt;
+    private bool _isIdleWarning;
+    private TimeSpan? _timeUntilSoftWarn;
+    private TimeSpan? _timeUntilStale;
     private OperatorSessionState _state = OperatorSessionState.NeedsDut;
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -81,10 +85,37 @@ public sealed class OperatorSession : INotifyPropertyChanged
         set => Set(ref _operatorName, value);
     }
 
+    /// When the DUT identity was last confirmed (not refreshed by activity touches).
     public DateTimeOffset? ConfirmedAt
     {
         get => _confirmedAt;
         private set => Set(ref _confirmedAt, value);
+    }
+
+    /// Last meaningful operator activity used for idle / stale timing.
+    public DateTimeOffset? LastActivityAt
+    {
+        get => _lastActivityAt;
+        private set => Set(ref _lastActivityAt, value);
+    }
+
+    /// True when idle elapsed has reached the soft-warn fraction but not hard Stale.
+    public bool IsIdleWarning
+    {
+        get => _isIdleWarning;
+        private set => Set(ref _isIdleWarning, value);
+    }
+
+    public TimeSpan? TimeUntilSoftWarn
+    {
+        get => _timeUntilSoftWarn;
+        private set => Set(ref _timeUntilSoftWarn, value);
+    }
+
+    public TimeSpan? TimeUntilStale
+    {
+        get => _timeUntilStale;
+        private set => Set(ref _timeUntilStale, value);
     }
 
     public OperatorSessionState State
@@ -137,11 +168,14 @@ public sealed class OperatorSession : INotifyPropertyChanged
             throw new ArgumentException("DUT serial is required.", nameof(serial));
         }
 
+        var now = DateTimeOffset.UtcNow;
         DutSerial = serial.Trim();
         DutPartNumber = string.IsNullOrWhiteSpace(partNumber) ? null : partNumber.Trim();
         DutRevision = string.IsNullOrWhiteSpace(revision) ? null : revision.Trim();
         DutFamily = string.IsNullOrWhiteSpace(family) ? "generic" : family.Trim();
-        ConfirmedAt = DateTimeOffset.UtcNow;
+        ConfirmedAt = now;
+        LastActivityAt = now;
+        ClearIdleCountdown();
         State = OperatorSessionState.Active;
         Raise(nameof(CanRun));
     }
@@ -158,6 +192,8 @@ public sealed class OperatorSession : INotifyPropertyChanged
         DutPartNumber = null;
         DutRevision = null;
         ConfirmedAt = null;
+        LastActivityAt = null;
+        ClearIdleCountdown();
         State = OperatorSessionState.NeedsDut;
         SessionId = Guid.NewGuid().ToString("N");
         Raise(nameof(CanRun));
@@ -170,6 +206,7 @@ public sealed class OperatorSession : INotifyPropertyChanged
             && !string.Equals(DutFamily, dutFamily, StringComparison.OrdinalIgnoreCase))
         {
             State = OperatorSessionState.Stale;
+            ClearIdleCountdown();
             Raise(nameof(CanRun));
         }
 
@@ -184,9 +221,10 @@ public sealed class OperatorSession : INotifyPropertyChanged
 
     public void MarkStale()
     {
-        if (State == OperatorSessionState.Active)
+        if (State == OperatorSessionState.Active || State == OperatorSessionState.Stale)
         {
             State = OperatorSessionState.Stale;
+            ClearIdleCountdown();
             Raise(nameof(CanRun));
         }
     }
@@ -196,37 +234,74 @@ public sealed class OperatorSession : INotifyPropertyChanged
         if (string.IsNullOrWhiteSpace(DutSerial))
         {
             State = OperatorSessionState.NeedsDut;
+            ClearIdleCountdown();
         }
         else
         {
-            ConfirmedAt = DateTimeOffset.UtcNow;
+            var now = DateTimeOffset.UtcNow;
+            ConfirmedAt = now;
+            LastActivityAt = now;
+            ClearIdleCountdown();
             State = OperatorSessionState.Active;
         }
 
         Raise(nameof(CanRun));
     }
 
-    public void TouchActivity()
+    /// Refreshes last activity only (identity confirm time stays unchanged).
+    public void TouchActivity(DateTimeOffset? now = null)
     {
-        if (State == OperatorSessionState.Active)
-        {
-            ConfirmedAt = DateTimeOffset.UtcNow;
-        }
-    }
-
-    /// Marks session Stale when idle longer than the configured timeout.
-    public void CheckIdleStale(TimeSpan idleTimeout, DateTimeOffset? now = null)
-    {
-        if (State != OperatorSessionState.Active || ConfirmedAt is null)
+        if (State != OperatorSessionState.Active)
         {
             return;
         }
 
-        var clock = now ?? DateTimeOffset.UtcNow;
-        if (clock - ConfirmedAt.Value >= idleTimeout)
+        LastActivityAt = now ?? DateTimeOffset.UtcNow;
+    }
+
+    /// Marks session Stale when idle longer than the configured timeout (uses last activity).
+    public void CheckIdleStale(TimeSpan idleTimeout, DateTimeOffset? now = null)
+        => EvaluateIdle(idleTimeout, warnPercent: 100, now);
+
+    /// Updates soft-warn / remaining-time and may mark Stale from last activity.
+    public void EvaluateIdle(TimeSpan idleTimeout, int warnPercent, DateTimeOffset? now = null)
+    {
+        if (State != OperatorSessionState.Active || LastActivityAt is null)
+        {
+            ClearIdleCountdown();
+            return;
+        }
+
+        if (idleTimeout <= TimeSpan.Zero)
         {
             MarkStale();
+            return;
         }
+
+        var clock = now ?? DateTimeOffset.UtcNow;
+        var elapsed = clock - LastActivityAt.Value;
+        var remainingStale = idleTimeout - elapsed;
+        TimeUntilStale = remainingStale > TimeSpan.Zero ? remainingStale : TimeSpan.Zero;
+
+        var clampedWarn = Math.Clamp(warnPercent, 50, 95);
+        var softAt = TimeSpan.FromTicks(idleTimeout.Ticks * clampedWarn / 100);
+        var remainingWarn = softAt - elapsed;
+        TimeUntilSoftWarn = remainingWarn > TimeSpan.Zero ? remainingWarn : TimeSpan.Zero;
+
+        if (elapsed >= idleTimeout)
+        {
+            MarkStale();
+            return;
+        }
+
+        IsIdleWarning = elapsed >= softAt;
+    }
+
+    private void ClearIdleCountdown()
+    {
+        IsIdleWarning = false;
+        TimeUntilSoftWarn = null;
+        TimeUntilStale = null;
     }
 
     private void Set<T>(ref T field, T value, [CallerMemberName] string? name = null)

@@ -37,18 +37,21 @@ public partial class ResultsViewModel : ReactiveObject
     private readonly IReportService _reportService;
     private readonly IDutHistoryService? _dutHistory;
     private readonly IExportTargetService? _exportTargets;
+    private readonly OperatorSession? _operatorSession;
     private readonly List<TestRunSummary> _allRuns = [];
 
     public ResultsViewModel(
         IRunStore runStore,
         IReportService reportService,
         IDutHistoryService? dutHistory = null,
-        IExportTargetService? exportTargets = null)
+        IExportTargetService? exportTargets = null,
+        OperatorSession? operatorSession = null)
     {
         _runStore = runStore;
         _reportService = reportService;
         _dutHistory = dutHistory;
         _exportTargets = exportTargets;
+        _operatorSession = operatorSession;
         Runs = [];
         StepDetails = [];
         SampleDetails = [];
@@ -200,6 +203,7 @@ public partial class ResultsViewModel : ReactiveObject
 
     private async Task RefreshAsync()
     {
+        _operatorSession?.TouchActivity();
         _allRuns.Clear();
         foreach (var run in await _runStore.ListAsync())
         {

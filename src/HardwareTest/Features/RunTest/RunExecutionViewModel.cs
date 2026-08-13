@@ -291,8 +291,21 @@ public sealed class RunExecutionViewModel
         _host.LastRunId = summary.RunId;
         RecordAttempts(summary);
 
+        var terminal = summary.Result is RunResult.Passed or RunResult.Failed
+            or RunResult.Error or RunResult.Cancelled;
         await _host.RunOnUiAsync(() =>
-            PublishRunOutcome(selectionOnly, selectionPath, selectionName, summary)).ConfigureAwait(false);
+        {
+            PublishRunOutcome(selectionOnly, selectionPath, selectionName, summary);
+            if (terminal && _settings.RequireDutConfirmEveryRun)
+            {
+                _sessionPanel.ApplyConfirmEveryRunPolicy(runReachedTerminal: true);
+            }
+            else if (terminal)
+            {
+                _session.TouchActivity();
+                _sessionPanel.RefreshSessionSummary();
+            }
+        }).ConfigureAwait(false);
 
         var record = new TestRunRecord
         {

@@ -353,12 +353,28 @@ public sealed class OpenTapSession : IOpenTapSession, INotifyPropertyChanged
 
         try
         {
+            var cleanupSteps = includeCleanup
+                ? FlattenSteps(_plan).Where(s => s is SafeShutdownStep).ToList()
+                : [];
             foreach (var step in FlattenSteps(_plan))
             {
                 var keep = IsInSubtree(step, selected)
                            || IsAncestorOf(step, selected)
-                           || (includeCleanup && step is SafeShutdownStep);
+                           || cleanupSteps.Any(c =>
+                               ReferenceEquals(step, c) || IsAncestorOf(step, c));
                 step.Enabled = keep;
+            }
+
+            // Also reset ancestors of cleanup so live status is refreshed.
+            foreach (var cleanup in cleanupSteps)
+            {
+                foreach (var step in FlattenSteps(_plan))
+                {
+                    if (ReferenceEquals(step, cleanup) || IsAncestorOf(step, cleanup))
+                    {
+                        resetStepIds.Add(step.Id.ToString());
+                    }
+                }
             }
 
             RefreshTreeEnabled();
@@ -413,8 +429,7 @@ public sealed class OpenTapSession : IOpenTapSession, INotifyPropertyChanged
             _interactionResponse = null;
             _interactionGate.Reset();
             _runCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            _paused = false;
-            _pauseGate.Set();
+            // Preserve an existing Pause so WaitIfPaused at execute-start can block short plans.
             ResetTreeLiveState(_stepTree, resetStepIds);
         }
 
@@ -455,18 +470,15 @@ public sealed class OpenTapSession : IOpenTapSession, INotifyPropertyChanged
                 }
             }
 
-            using var planThreadGate = new ManualResetEventSlim(false);
-            TapThread? planThread = null;
             using var reg = _runCts!.Token.Register(() =>
             {
+                // Prefer cooperative cancel via WaitIfPaused / interaction gates.
+                // TapThread.Abort can poison later Execute calls in the same process (serial host suite).
                 try
                 {
-                    // Abort the plan thread captured inside Execute — never TapThread.Current on
-                    // the Cancel() caller (often a test thread), which can poison later runs.
-                    if (planThreadGate.Wait(TimeSpan.FromSeconds(2)))
-                    {
-                        planThread?.Abort();
-                    }
+                    _paused = false;
+                    _pauseGate.Set();
+                    _interactionGate.Set();
                 }
                 catch
                 {
@@ -477,8 +489,6 @@ public sealed class OpenTapSession : IOpenTapSession, INotifyPropertyChanged
             var planRun = await Task.Run(
                 () =>
                 {
-                    planThread = TapThread.Current;
-                    planThreadGate.Set();
                     StepRuntime.WaitIfPaused = WaitIfPaused;
                     StepRuntime.RequestInteraction = request => HandleInteraction(request, progress);
                     try
@@ -496,7 +506,7 @@ public sealed class OpenTapSession : IOpenTapSession, INotifyPropertyChanged
                         exportListener?.Close();
                     }
                 },
-                _runCts.Token).ConfigureAwait(false);
+                CancellationToken.None).ConfigureAwait(false);
 
             MergePreservedSamples(preservedSamples);
 
@@ -538,6 +548,8 @@ public sealed class OpenTapSession : IOpenTapSession, INotifyPropertyChanged
                 _pendingInteraction = null;
                 _interactionResponse = null;
                 _interactionGate.Set();
+                _paused = false;
+                _pauseGate.Set();
                 _runCts?.Dispose();
                 _runCts = null;
             }
@@ -1093,9 +1105,14 @@ public sealed class OpenTapSession : IOpenTapSession, INotifyPropertyChanged
 
     private void WaitIfPaused()
     {
-        while (_paused)
+        while (true)
         {
             _runCts?.Token.ThrowIfCancellationRequested();
+            if (!_paused)
+            {
+                return;
+            }
+
             _pauseGate.Wait(50);
         }
     }
@@ -1175,14 +1192,7 @@ public sealed class OpenTapSession : IOpenTapSession, INotifyPropertyChanged
         => FlattenSteps(plan).OfType<IdentityCheckStep>().Select(s => s.Dut).FirstOrDefault();
 
     private static string SanitizeRunId(string runId)
-    {
-        foreach (var c in Path.GetInvalidFileNameChars())
-        {
-            runId = runId.Replace(c, '_');
-        }
-
-        return runId;
-    }
+        => HardwareTest.Core.IO.PortableFileNames.Sanitize(runId);
 
     private static List<OpenTapStepNode> BuildTree(TestPlan plan)
     {

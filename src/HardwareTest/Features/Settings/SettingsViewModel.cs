@@ -27,15 +27,18 @@ public partial class SettingsViewModel : ReactiveObject
     private readonly ISettingsStore _settingsStore;
     private readonly IOpenTapSession _openTap;
     private readonly BuildInfo _buildInfo;
+    private readonly OperatorSession? _operatorSession;
     private readonly System.Timers.Timer _debounce;
 
     public SettingsViewModel(
         ISettingsStore settingsStore,
         IOpenTapSession openTap,
-        BuildInfo? buildInfo = null)
+        BuildInfo? buildInfo = null,
+        OperatorSession? operatorSession = null)
     {
         _settingsStore = settingsStore;
         _openTap = openTap;
+        _operatorSession = operatorSession;
         _buildInfo = buildInfo ?? BuildInfo.FromAssembly(typeof(SettingsViewModel).Assembly);
         var s = settingsStore.AppSettings;
         UseMockVisa = s.UseMockVisa;
@@ -50,7 +53,12 @@ public partial class SettingsViewModel : ReactiveObject
         ExportOpenTapResults = s.ExportOpenTapResults;
         ShowDutHistoryOnRun = s.ShowDutHistoryOnRun;
         IsEngineerDebugMode = s.IsEngineerDebugMode;
-        OperatorSessionIdleHours = s.OperatorSessionIdleHours;
+        OperatorSessionIdleMinutes = OperatorSessionIdle.ClampMinutes(
+            s.OperatorSessionIdleMinutes > 0
+                ? s.OperatorSessionIdleMinutes
+                : OperatorSessionIdle.HoursToMinutes(s.OperatorSessionIdleHours));
+        OperatorSessionIdleWarnPercent = OperatorSessionIdle.ClampWarnPercent(s.OperatorSessionIdleWarnPercent);
+        RequireDutConfirmEveryRun = s.RequireDutConfirmEveryRun;
         RunRetentionDays = s.RunRetentionDays;
         RunRetentionMaxRuns = s.RunRetentionMaxRuns;
         ExportDirectory = s.ExportDirectory ?? string.Empty;
@@ -85,7 +93,13 @@ public partial class SettingsViewModel : ReactiveObject
         ExportOpenTapResultsReadOnly = settingsStore.IsOverridden(nameof(AppSettings.ExportOpenTapResults));
         ShowDutHistoryOnRunReadOnly = settingsStore.IsOverridden(nameof(AppSettings.ShowDutHistoryOnRun));
         IsEngineerDebugModeReadOnly = settingsStore.IsOverridden(nameof(AppSettings.IsEngineerDebugMode));
-        OperatorSessionIdleHoursReadOnly = settingsStore.IsOverridden(nameof(AppSettings.OperatorSessionIdleHours));
+        OperatorSessionIdleMinutesReadOnly =
+            settingsStore.IsOverridden(nameof(AppSettings.OperatorSessionIdleMinutes))
+            || settingsStore.IsOverridden(nameof(AppSettings.OperatorSessionIdleHours));
+        OperatorSessionIdleWarnPercentReadOnly =
+            settingsStore.IsOverridden(nameof(AppSettings.OperatorSessionIdleWarnPercent));
+        RequireDutConfirmEveryRunReadOnly =
+            settingsStore.IsOverridden(nameof(AppSettings.RequireDutConfirmEveryRun));
         RunRetentionDaysReadOnly = settingsStore.IsOverridden(nameof(AppSettings.RunRetentionDays));
         RunRetentionMaxRunsReadOnly = settingsStore.IsOverridden(nameof(AppSettings.RunRetentionMaxRuns));
         ExportDirectoryReadOnly = settingsStore.IsOverridden(nameof(AppSettings.ExportDirectory));
@@ -139,7 +153,9 @@ public partial class SettingsViewModel : ReactiveObject
                 or nameof(PlotRefreshHzReadOnly) or nameof(ThemePreferenceReadOnly)
                 or nameof(EmbedPlotsInReportReadOnly) or nameof(ExportOpenTapResultsReadOnly)
                 or nameof(ShowDutHistoryOnRunReadOnly) or nameof(IsEngineerDebugModeReadOnly)
-                or nameof(OperatorSessionIdleHoursReadOnly)
+                or nameof(OperatorSessionIdleMinutesReadOnly)
+                or nameof(OperatorSessionIdleWarnPercentReadOnly)
+                or nameof(RequireDutConfirmEveryRunReadOnly)
                 or nameof(RunRetentionDaysReadOnly) or nameof(RunRetentionMaxRunsReadOnly)
                 or nameof(ExportDirectoryReadOnly)
                 or nameof(DataFreeSpaceWarnGbReadOnly) or nameof(DataFreeSpaceCriticalGbReadOnly))
@@ -198,7 +214,9 @@ public partial class SettingsViewModel : ReactiveObject
     [Reactive] private bool _showDutHistoryOnRun;
     [Reactive] private bool _isEngineerDebugMode;
     [Reactive] private bool _allowOsFolderBrowse;
-    [Reactive] private int _operatorSessionIdleHours = 4;
+    [Reactive] private int _operatorSessionIdleMinutes = 240;
+    [Reactive] private int _operatorSessionIdleWarnPercent = 80;
+    [Reactive] private bool _requireDutConfirmEveryRun;
     [Reactive] private int _runRetentionDays = 30;
     [Reactive] private int _runRetentionMaxRuns = 500;
     [Reactive] private string _exportDirectory = string.Empty;
@@ -220,7 +238,9 @@ public partial class SettingsViewModel : ReactiveObject
     [Reactive] private bool _exportOpenTapResultsReadOnly;
     [Reactive] private bool _showDutHistoryOnRunReadOnly;
     [Reactive] private bool _isEngineerDebugModeReadOnly;
-    [Reactive] private bool _operatorSessionIdleHoursReadOnly;
+    [Reactive] private bool _operatorSessionIdleMinutesReadOnly;
+    [Reactive] private bool _operatorSessionIdleWarnPercentReadOnly;
+    [Reactive] private bool _requireDutConfirmEveryRunReadOnly;
     [Reactive] private bool _runRetentionDaysReadOnly;
     [Reactive] private bool _runRetentionMaxRunsReadOnly;
     [Reactive] private bool _exportDirectoryReadOnly;
@@ -382,6 +402,7 @@ public partial class SettingsViewModel : ReactiveObject
 
     private async Task SaveAsync()
     {
+        _operatorSession?.TouchActivity();
         var s = _settingsStore.AppSettings;
         if (!UseMockVisaReadOnly)
         {
@@ -443,9 +464,21 @@ public partial class SettingsViewModel : ReactiveObject
             s.IsEngineerDebugMode = IsEngineerDebugMode;
         }
 
-        if (!OperatorSessionIdleHoursReadOnly)
+        if (!OperatorSessionIdleMinutesReadOnly)
         {
-            s.OperatorSessionIdleHours = Math.Clamp(OperatorSessionIdleHours, 1, 168);
+            s.OperatorSessionIdleMinutes = OperatorSessionIdle.ClampMinutes(OperatorSessionIdleMinutes);
+            s.OperatorSessionIdleHours = OperatorSessionIdle.MinutesToHoursDisplay(s.OperatorSessionIdleMinutes);
+        }
+
+        if (!OperatorSessionIdleWarnPercentReadOnly)
+        {
+            s.OperatorSessionIdleWarnPercent =
+                OperatorSessionIdle.ClampWarnPercent(OperatorSessionIdleWarnPercent);
+        }
+
+        if (!RequireDutConfirmEveryRunReadOnly)
+        {
+            s.RequireDutConfirmEveryRun = RequireDutConfirmEveryRun;
         }
 
         if (!RunRetentionDaysReadOnly)
@@ -507,7 +540,9 @@ public partial class SettingsViewModel : ReactiveObject
             nameof(ExportOpenTapResults) => ExportOpenTapResultsReadOnly,
             nameof(ShowDutHistoryOnRun) => ShowDutHistoryOnRunReadOnly,
             nameof(IsEngineerDebugMode) => IsEngineerDebugModeReadOnly,
-            nameof(OperatorSessionIdleHours) => OperatorSessionIdleHoursReadOnly,
+            nameof(OperatorSessionIdleMinutes) => OperatorSessionIdleMinutesReadOnly,
+            nameof(OperatorSessionIdleWarnPercent) => OperatorSessionIdleWarnPercentReadOnly,
+            nameof(RequireDutConfirmEveryRun) => RequireDutConfirmEveryRunReadOnly,
             nameof(RunRetentionDays) => RunRetentionDaysReadOnly,
             nameof(RunRetentionMaxRuns) => RunRetentionMaxRunsReadOnly,
             nameof(ExportDirectory) => ExportDirectoryReadOnly,

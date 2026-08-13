@@ -74,9 +74,22 @@
         </Grid>
 
         <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
-          <TextBlock Text="DUT session idle (hours)" VerticalAlignment="Center" />
-          <TextBox Grid.Column="1" Text="{Binding OperatorSessionIdleHours}"
-                   IsReadOnly="{Binding OperatorSessionIdleHoursReadOnly}" />
+          <TextBlock Text="DUT session idle (minutes)" VerticalAlignment="Center"
+                     ToolTip.Tip="Idle window before Soft-warn → Stale. Default 240 (4 hours). High-throughput lines may use shorter values." />
+          <TextBox Grid.Column="1" Text="{Binding OperatorSessionIdleMinutes}"
+                   IsReadOnly="{Binding OperatorSessionIdleMinutesReadOnly}" />
+        </Grid>
+        <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
+          <TextBlock Text="Idle soft-warn %" VerticalAlignment="Center"
+                     ToolTip.Tip="Warn when idle elapsed reaches this percent of the idle window (50–95, default 80)." />
+          <TextBox Grid.Column="1" Text="{Binding OperatorSessionIdleWarnPercent}"
+                   IsReadOnly="{Binding OperatorSessionIdleWarnPercentReadOnly}" />
+        </Grid>
+        <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
+          <TextBlock Text="Confirm DUT every run" VerticalAlignment="Center"
+                     ToolTip.Tip="After each terminal run, require Same DUT / Change Session before the next Run." />
+          <CheckBox Grid.Column="1" IsChecked="{Binding RequireDutConfirmEveryRun}"
+                    IsEnabled="{Binding !RequireDutConfirmEveryRunReadOnly}" />
         </Grid>
       </StackPanel>
 

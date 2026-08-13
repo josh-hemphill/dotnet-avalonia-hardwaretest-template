@@ -86,13 +86,5 @@ public sealed class FileSuiteRunStore : ISuiteRunStore
         return suite;
     }
 
-    private static string Sanitize(string id)
-    {
-        foreach (var c in Path.GetInvalidFileNameChars())
-        {
-            id = id.Replace(c, '_');
-        }
-
-        return id;
-    }
+    private static string Sanitize(string id) => HardwareTest.Core.IO.PortableFileNames.Sanitize(id);
 }

@@ -210,6 +210,7 @@ public partial class MainWindowViewModel : ReactiveObject
         SelectedItem = item;
         CurrentPage = item.ViewModel;
         _settingsStore.UiState.SelectedPageId = item.Id;
+        RunTest.SessionPanel.TouchActivity();
         if (item.Id == "Results")
         {
             _ = Results.LoadRunsAsync();

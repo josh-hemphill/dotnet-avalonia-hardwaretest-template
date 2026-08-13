@@ -71,10 +71,12 @@ DUT stamping still looks for Basic `IdentityCheckStep` / `HardwareDut`. Custom D
 
 ### Operator session (DUT confirm / idle)
 
-- Confirm DUT (and operator when `requireOperator` is true) once per session; sticky strip on Run; idle → soft-warn → Stale with Same DUT / Change Session.
-- Idle uses **last operator activity**, not only wall-clock since confirm — reviewing Results / reports between runs should refresh activity ([phase-11-session-activity-stale.md](platform-phases/phase-11-session-activity-stale.md)).
-- **Configurable (Phase 11):** idle window in **minutes** (alias for today’s `OperatorSessionIdleHours`), soft-warn percent, and optional **confirm every run** for high-throughput lines that must re-confirm DUT before each test.
-- Until Phase 11 ships, configure the window via `OperatorSessionIdleHours` (see configuration table below).
+- Confirm DUT (and operator when `requireOperator` is true) once per session; sticky strip on Run shows last activity and time remaining to soft-warn / Stale.
+- Idle uses **last operator activity** (`LastActivityAt`), not confirm time — reviewing Results / reports / navigating between pages refreshes activity.
+- Soft-warn (default 80% of idle window) then hard Stale; resolutions are **Same DUT** / **Change Session** (in-panel only). Idle is checked on an interval, not only at Run.
+- Canonical idle setting: **`OperatorSessionIdleMinutes`** (default 240). Hours env/CLI (`OperatorSessionIdleHours` / `HARDWARETEST_OPERATOR_SESSION_IDLE_HOURS` / `--session-idle-hours`) remain aliases; minutes wins when both are set.
+- Optional station policy **`RequireDutConfirmEveryRun`**: after each terminal run, session goes Stale until Same DUT / Change Session.
+- Technician required indicator and Same DUT validation follow program `requireOperator` (Stale prompt shows a technician field when required and none is stored).
 - **Multi-DUT:** near-term [Phase K](opentap-phases/phase-k-multi-dut-parallel.md) adds multiple DUT sessions with one plan at a time (K.1). Today the shell is single-session.
 
 ## 5. Operator interactions (no floating dialogs)
@@ -169,7 +171,10 @@ Env alone is enough for a sealed install. Missing or read-only `settings.json` i
 | `EmbedPlotsInReport` | `HARDWARETEST_EMBED_PLOTS_IN_REPORT` | `--embed-plots` |
 | `ExportOpenTapResults` | `HARDWARETEST_EXPORT_OPENTAP_RESULTS` | `--export-opentap-results` |
 | `ShowDutHistoryOnRun` | `HARDWARETEST_SHOW_DUT_HISTORY_ON_RUN` | `--show-dut-history-on-run` |
-| `OperatorSessionIdleHours` | `HARDWARETEST_OPERATOR_SESSION_IDLE_HOURS` | `--session-idle-hours` |
+| `OperatorSessionIdleMinutes` | `HARDWARETEST_OPERATOR_SESSION_IDLE_MINUTES` | `--session-idle-minutes` |
+| `OperatorSessionIdleHours` *(alias)* | `HARDWARETEST_OPERATOR_SESSION_IDLE_HOURS` | `--session-idle-hours` |
+| `OperatorSessionIdleWarnPercent` | `HARDWARETEST_OPERATOR_SESSION_IDLE_WARN_PERCENT` | `--session-idle-warn-percent` |
+| `RequireDutConfirmEveryRun` | `HARDWARETEST_REQUIRE_DUT_CONFIRM_EVERY_RUN` | `--require-dut-confirm-every-run` |
 | `IsEngineerDebugMode` | `HARDWARETEST_ENGINEER_DEBUG` | `--engineer-debug` |
 | `OpenTapPluginDirectories` | `HARDWARETEST_OPENTAP_PLUGIN_DIRS` *(legacy name; `;` / `Path.PathSeparator`)* | `--opentap-plugin-dirs` |
 | `ReportTemplateName` | `HARDWARETEST_REPORT_TEMPLATE_NAME` | `--report-template` |

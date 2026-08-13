@@ -53,14 +53,16 @@ Distinct namespaces on purpose — "Phase C" and "Phase 3" are never the same th
 | 8 | [Session contract test suite](platform-phases/phase-8-session-contract-tests.md) | 1 | Done |
 | 9 | [Run board decomposition](platform-phases/phase-9-runboard-decomposition.md) | 8 | Done |
 | 10 | [Export, storage, cleanup, chrome](platform-phases/phase-10-export-storage-chrome.md) | 3, 6, 9 | Done |
-| 11 | [Session activity & stale UX](platform-phases/phase-11-session-activity-stale.md) | 9, 10 | Planned |
-| 12 | [Error surfacing & chrome polish](platform-phases/phase-12-error-surfacing-chrome.md) | 9, 11 | Planned |
-| 13 | [Settings live semantics](platform-phases/phase-13-settings-live-semantics.md) | 3, 10 | Planned |
+| 11 | [Session activity & stale UX](platform-phases/phase-11-session-activity-stale.md) (+ Same DUT / `RequireOperator`) | 9, 10 | Done |
+| 12 | [Error surfacing & chrome polish](platform-phases/phase-12-error-surfacing-chrome.md) (+ wayfinding) | 9, 11 | Planned |
+| 13 | [Settings live semantics](platform-phases/phase-13-settings-live-semantics.md) (`UseMockVisa` honesty) | 3, 10 | Planned |
 | 14 | [Session façade split](platform-phases/phase-14-session-facade-split.md) | 8, 9 | Planned |
 
 **Suggested order (1–10):** 1 first and alone — nothing else is verifiable until CI actually runs. Then 2 / 7 / 8 can proceed in parallel (independent seams). 3 → 4 → 5 is a chain and should stay one series. 6 lands after 4. 9 after 8. 10 after 3/6/9 (storage + chrome).
 
-**Suggested order (11–14):** 11 → 12 (session UX then errors/chrome). 13 can parallelize with 11/12. **14 before** OpenTAP [Phase K](opentap-phases/phase-k-multi-dut-parallel.md) (multi-DUT).
+**Suggested order (11–14):** Prefer **13 ∥ 11**, then **12**, then **14 before** OpenTAP [Phase K](opentap-phases/phase-k-multi-dut-parallel.md) (multi-DUT). Phase 13 (UseMockVisa honesty) and Phase 11 (session activity / Same DUT) are independent; Phase 12 depends on 11 for session-banner hierarchy.
+
+**Fresh-eyes review:** Findings (idle/Same DUT/`RequireOperator`, Status/async chrome, UseMockVisa split-brain, wayfinding, doc drift) are mapped in [platform-phases/review-remediation.md](platform-phases/review-remediation.md). Overlaps with session work are **absorbed into Phase 11**; chrome/async into **12**; VISA honesty into **13**.
 
 ## Deferred (detailed plans — do not implement yet)
 
@@ -85,3 +87,7 @@ Real, acknowledged, and deliberately unscheduled (or scheduled as phases above).
 - **No clock discipline.** Timestamps are `DateTimeOffset.UtcNow` with no NTP sync or skew detection — see [deferred-clock-discipline.md](deferred/deferred-clock-discipline.md).
 - **`IOpenTapSession` is a fat façade.** Phase 8 pins its behavior; splitting is [Phase 14](platform-phases/phase-14-session-facade-split.md) (unblocks multi-DUT).
 - **Vendor VISA in CI is still unproven.** Discovery now surfaces failures (no silent empty list); real IVI runtimes remain outside the default CI matrix.
+- **Operator session still confirm-clock based.** Activity-aware idle, soft-warn, Same DUT / `RequireOperator` fixes — [Phase 11](platform-phases/phase-11-session-activity-stale.md).
+- **UseMockVisa can diverge from DI factories after save.** Honest rebuild or refuse — [Phase 13](platform-phases/phase-13-settings-live-semantics.md).
+- **Errors / async UI / Run chrome / Home wayfinding.** [Phase 12](platform-phases/phase-12-error-surfacing-chrome.md).
+- **Finding → phase map.** [platform-phases/review-remediation.md](platform-phases/review-remediation.md).
