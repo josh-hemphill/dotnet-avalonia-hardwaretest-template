@@ -579,6 +579,12 @@
         "dependencies": {
           "OpenTAP": "[9.32.2, )"
         }
+      },
+      "hardwaretest.opentap.worker": {
+        "type": "Project",
+        "dependencies": {
+          "HardwareTest.OpenTap.Host": "[0.1.0, )"
+        }
       }
     },
     "net10.0/linux-x64": {

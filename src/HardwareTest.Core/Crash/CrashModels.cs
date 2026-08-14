@@ -38,6 +38,10 @@ public sealed class CrashReportDocument
     public string? FaultingThreadName { get; set; }
     public string? ActiveRunId { get; set; }
     public string? ActivePlanId { get; set; }
+    /// Exit code of a killed or crashed OpenTAP worker (schema 1 additive).
+    public int? WorkerExitCode { get; set; }
+    /// Tail of worker stderr captured at kill/crash (schema 1 additive).
+    public string? WorkerStdErrTail { get; set; }
     public List<CrashExceptionFrame> Exceptions { get; set; } = [];
 }
 

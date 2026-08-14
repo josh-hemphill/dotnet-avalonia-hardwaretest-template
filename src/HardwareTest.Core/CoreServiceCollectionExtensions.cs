@@ -23,6 +23,7 @@ public static class CoreServiceCollectionExtensions
         services.AddSingleton(new VisaSessionGate());
         services.AddSingleton<IBenchOperationCoordinator, BenchOperationCoordinator>();
         services.AddSingleton<IRunControl>(sp => new RunControl(sp.GetRequiredService<VisaSessionGate>()));
+        services.AddSingleton<ISafetyController, NoOpSafetyController>();
         services.AddSingleton<MeasurementAcquisition>();
         services.AddSingleton<IRunStore>(_ => new FileRunStore(settingsStore.RunsDirectory));
         services.AddSingleton<ISuiteRunStore>(sp =>

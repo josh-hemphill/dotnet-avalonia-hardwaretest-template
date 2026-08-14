@@ -43,7 +43,8 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
         BuildInfo? buildInfo = null,
         IStorageHealthService? storageHealth = null,
         IVisaModeController? visaModeController = null,
-        ShellNotificationViewModel? shellNotification = null)
+        ShellNotificationViewModel? shellNotification = null,
+        ISafetyController? safety = null)
     {
         _plan = plan;
         _runSession = runSession;
@@ -78,7 +79,8 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
             dutHistory,
             buildInfo ?? BuildInfo.FromAssembly(typeof(RunTestViewModel).Assembly),
             storageHealth,
-            visaModeController);
+            visaModeController,
+            safety);
 
         ContinueOperatorCommand = ReactiveCommand.Create(ContinueOperator);
         OpenLastRunResultsCommand = ReactiveCommand.Create(
