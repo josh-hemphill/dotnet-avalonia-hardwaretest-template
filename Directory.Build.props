@@ -33,8 +33,6 @@
     <PropertyGroup>
       <SourceRevisionId Condition="'$(SourceRevisionId)' == '' And '$(GITHUB_SHA)' != '' And $([System.String]::Copy('$(GITHUB_SHA)').Length) &gt;= 7">$([System.String]::Copy('$(GITHUB_SHA)').Substring(0, 7))</SourceRevisionId>
       <SourceRevisionId Condition="'$(SourceRevisionId)' == '' And '$(GITHUB_SHA)' != ''">$(GITHUB_SHA)</SourceRevisionId>
-      <!-- %25cI → %cI (ISO-8601 committer date). MSBuild requires %25 for a literal %. -->
-      <_GitCommitDateFormat>%25cI</_GitCommitDateFormat>
     </PropertyGroup>
     <Exec Command="git rev-parse --short HEAD"
           ConsoleToMSBuild="true"
@@ -44,18 +42,34 @@
       <Output TaskParameter="ConsoleOutput" PropertyName="_GitShortSha" />
       <Output TaskParameter="ExitCode" PropertyName="_GitShaExitCode" />
     </Exec>
-    <Exec Command="git log -1 --format=$(_GitCommitDateFormat)"
+    <!-- Git pretty-format %cI is ISO-8601 committer date.
+         Do not stash %25cI in a property: MSBuild unescapes %25 when the property
+         is defined, so Exec would see %cI. On Windows Exec wraps cmd.exe, which
+         treats a lone % as a batch metavariable and often eats it (git then gets
+         "cI" and the stamp is dropped). Windows needs %% after MSBuild unescape
+         (%25%25cI in XML). Unix shells must receive a single %. -->
+    <Exec Command="git log -1 --format=%25cI"
           ConsoleToMSBuild="true"
           IgnoreExitCode="true"
           StandardOutputImportance="Low"
-          Condition="'$(SourceRevisionDate)' == ''">
+          Condition="'$(SourceRevisionDate)' == '' And $([MSBuild]::IsOSUnixLike())">
+      <Output TaskParameter="ConsoleOutput" PropertyName="_GitCommitDate" />
+      <Output TaskParameter="ExitCode" PropertyName="_GitDateExitCode" />
+    </Exec>
+    <Exec Command="git log -1 --format=%25%25cI"
+          ConsoleToMSBuild="true"
+          IgnoreExitCode="true"
+          StandardOutputImportance="Low"
+          Condition="'$(SourceRevisionDate)' == '' And !$([MSBuild]::IsOSUnixLike())">
       <Output TaskParameter="ConsoleOutput" PropertyName="_GitCommitDate" />
       <Output TaskParameter="ExitCode" PropertyName="_GitDateExitCode" />
     </Exec>
     <PropertyGroup>
       <SourceRevisionId Condition="'$(SourceRevisionId)' == '' And '$(_GitShaExitCode)' == '0' And '$(_GitShortSha)' != ''">$(_GitShortSha)</SourceRevisionId>
       <SourceRevisionId Condition="'$(SourceRevisionId)' == ''">local</SourceRevisionId>
-      <SourceRevisionDate Condition="'$(SourceRevisionDate)' == '' And '$(_GitDateExitCode)' == '0' And '$(_GitCommitDate)' != ''">$(_GitCommitDate)</SourceRevisionDate>
+      <_GitCommitDate Condition="'$(_GitCommitDate)' != ''">$([System.String]::Copy('$(_GitCommitDate)').Trim())</_GitCommitDate>
+      <_GitCommitDateLooksIso Condition="'$(_GitCommitDate)' != '' And $([System.String]::Copy('$(_GitCommitDate)').Length) &gt;= 20 And $([System.String]::Copy('$(_GitCommitDate)').Contains('T'))">true</_GitCommitDateLooksIso>
+      <SourceRevisionDate Condition="'$(SourceRevisionDate)' == '' And '$(_GitDateExitCode)' == '0' And '$(_GitCommitDateLooksIso)' == 'true'">$(_GitCommitDate)</SourceRevisionDate>
     </PropertyGroup>
   </Target>
 

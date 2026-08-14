@@ -37,9 +37,14 @@ public sealed class BuildInfoTests
         var commitDate = typeof(BuildInfo).Assembly
             .GetCustomAttributes<AssemblyMetadataAttribute>()
             .FirstOrDefault(a => a.Key == "CommitDate");
-        if (commitDate is not null)
+        // Git builds (CI and a normal checkout) must stamp CommitDate. "local" is the
+        // no-git fallback and has no committer time — do not require it there.
+        if (!string.Equals(info.CommitSha, "local", StringComparison.Ordinal))
         {
+            Assert.False(string.IsNullOrWhiteSpace(commitDate?.Value),
+                "CommitDate metadata missing; Windows cmd.exe likely ate git %cI");
             Assert.NotNull(info.BuildTimestampUtc);
+            Assert.DoesNotContain("unknown", info.FormatSupportBlock(), StringComparison.Ordinal);
         }
     }
 

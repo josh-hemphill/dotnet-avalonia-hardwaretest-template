@@ -51,6 +51,8 @@ public sealed class BuildInfo
         }
 
         ParseInformational(informational, out var commit, out var stampUtc);
+        // Prefer AssemblyMetadata CommitDate (git committer time). InformationalVersion
+        // is {version}+{sha} and no longer embeds a wall-clock stamp.
         var buildUtc = ReadCommitDate(assembly) ?? stampUtc;
 
         return new BuildInfo
