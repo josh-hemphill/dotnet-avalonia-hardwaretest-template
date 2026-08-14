@@ -579,7 +579,7 @@ public sealed class FakeOpenTapSession : IOpenTapSession
         string? runId)
     {
         RunCount++;
-        _runControl.BeginRun(cancellationToken, startPaused: false);
+        _runControl.BeginRun(cancellationToken);
         progress?.Report(new OpenTapProgress { Message = "Started", OverallPercent = 0 });
         runId = string.IsNullOrWhiteSpace(runId) ? Guid.NewGuid().ToString("N") : runId.Trim();
         if (EmitLoopProgress)
@@ -847,7 +847,7 @@ public sealed class FakeOpenTapSession : IOpenTapSession
         LastSelectionIncludeCleanup = includeCleanup;
         runId = string.IsNullOrWhiteSpace(runId) ? Guid.NewGuid().ToString("N") : runId.Trim();
 
-        _runControl.BeginRun(cancellationToken, startPaused: false);
+        _runControl.BeginRun(cancellationToken);
         progress?.Report(new OpenTapProgress { Message = "Started selection", OverallPercent = 0 });
 
         try

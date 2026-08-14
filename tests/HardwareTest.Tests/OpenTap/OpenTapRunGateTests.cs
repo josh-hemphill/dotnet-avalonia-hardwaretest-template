@@ -1,4 +1,5 @@
 using HardwareTest.Core.Hardware;
+using HardwareTest.Core.Runs;
 using HardwareTest.OpenTap.Host;
 using Xunit;
 
@@ -31,6 +32,19 @@ public sealed class OpenTapRunGateTests
 
         Assert.IsType<InvalidOperationException>(secondEx);
         Assert.Contains("already in progress", secondEx!.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Resume_during_run_start_is_not_overwritten_by_begin_run()
+    {
+        var session = await LoadAsync(PlanShapeFixtures.FlatLeavesName);
+        session.Pause();
+        var run = session.RunAsync();
+        session.Resume();
+        var summary = await run.WaitAsync(TimeSpan.FromSeconds(30));
+        Assert.True(
+            summary.Result is RunResult.Passed or RunResult.Failed or RunResult.Cancelled or RunResult.Error,
+            $"Non-terminal result: {summary.Result}");
     }
 
     private static async Task WaitUntilAsync(Func<bool> condition, TimeSpan timeout)

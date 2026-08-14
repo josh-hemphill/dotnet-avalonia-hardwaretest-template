@@ -57,7 +57,7 @@ Pick the narrowest suite for what you are asserting:
 4. Keep in-process host tests that call `TestPlan.Execute` in the `OpenTapSerial` collection (`DisableParallelization`). Serial is required because TapThread / PluginManager are still process-global — not because of `StepRuntime` statics (those are gone).
 5. **Abort isolation:** Host `Abort` cancels cooperatively via CTS + `WaitIfPaused` / interaction gates — it does **not** call `TapThread.Abort`. Prefer draining run tasks in `finally` after Abort in tests.
 6. **Worker kill:** `OpenTapWorkerKillTests` loads `HangForeverStep` through `OpenTapWorkerClient` (not `IOpenTapSession`). Abort then kill-timeout must run `ISafetyController.SafeIdle` and leave the client able to start a second run. ViewModels stay on `FakeOpenTapSession`. The UI process uses the worker via Composition.
-7. **Run context isolation:** `OpenTapRunContextTests` may run in parallel. Two `OpenTapRunContext` / `IStepRuntime` instances must not share pause or interaction. Do not require `TestPlan.Execute` for that proof.
+7. **Run context isolation:** `OpenTapRunContextTests` may run in parallel. Two `OpenTapRunContext` / `IStepRuntime` instances must not share pause or interaction. Do not require `TestPlan.Execute` for that proof. Pause/Resume mutate the live control gate; `BeginRun` must not re-apply a snapshot (worker Run is background while Pause/Resume stay on the IPC loop).
 
 Named templates live in `PlanDiagnosticsTests` (`PlanDiagnostics_*`).
 

@@ -47,26 +47,21 @@ public sealed class OpenTapRunControlState : IDisposable
 
     public event Action? OperatorStateChanged;
 
-    /// <param name="startPaused">
-    /// When true, WaitIfPaused at execute-start blocks (session Pause before Run).
-    /// </param>
-    public void BeginRun(CancellationToken externalToken, bool startPaused)
+    /// Starts the run CTS and interaction gate. Does not write the pause gate —
+    /// Pause/Resume already mutated it, and a snapshot-apply here would overwrite a
+    /// Pause or Resume that landed after the session assigned this context (worker IPC
+    /// loop vs background Run). Same as the pre-split session: preserve live pause so
+    /// WaitIfPaused at execute-start can still block short plans.
+    public void BeginRun(CancellationToken externalToken)
     {
         lock (_sync)
         {
-            DisposeCts_NoLock();
-            _cts = CancellationTokenSource.CreateLinkedTokenSource(externalToken);
-            if (startPaused)
+            if (_cts is not null)
             {
-                _paused = true;
-                _pauseGate.Reset();
-            }
-            else
-            {
-                _paused = false;
-                _pauseGate.Set();
+                return;
             }
 
+            _cts = CancellationTokenSource.CreateLinkedTokenSource(externalToken);
             IsAwaitingOperator = false;
             OperatorPromptMessage = null;
             PendingInteraction = null;

@@ -46,6 +46,8 @@ public sealed class OpenTapRunContext : IStepRuntime, IDisposable
 
     public event Action? OperatorStateChanged;
 
+    public void BeginRun(CancellationToken cancellationToken) => _control.BeginRun(cancellationToken);
+
     public void Pause() => _control.Pause();
 
     public void Resume(OperatorInteractionResponse? response = null) => _control.Resume(response);
@@ -76,7 +78,6 @@ public sealed class OpenTapRunContext : IStepRuntime, IDisposable
         IProgress<OpenTapProgress>? progress,
         CancellationToken cancellationToken,
         string runId,
-        bool startPaused,
         Action<string, string?, string, string, string?> updateNode,
         Func<string, string?, string?> resolvePath,
         IReadOnlyList<StoredSample>? preservedSamples,
@@ -86,7 +87,7 @@ public sealed class OpenTapRunContext : IStepRuntime, IDisposable
         _samples.Clear();
         _steps.Clear();
         _stepStarted.Clear();
-        _control.BeginRun(cancellationToken, startPaused: startPaused);
+        _control.BeginRun(cancellationToken);
 
         var started = DateTimeOffset.UtcNow;
         runId = string.IsNullOrWhiteSpace(runId) ? Guid.NewGuid().ToString("N") : runId.Trim();

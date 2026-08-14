@@ -16,8 +16,8 @@ public sealed class OpenTapRunContextTests
     {
         using var a = CreateContext();
         using var b = CreateContext();
-        a.Control.BeginRun(CancellationToken.None, startPaused: false);
-        b.Control.BeginRun(CancellationToken.None, startPaused: false);
+        a.Control.BeginRun(CancellationToken.None);
+        b.Control.BeginRun(CancellationToken.None);
 
         a.Pause();
         var sw = Stopwatch.StartNew();
@@ -39,6 +39,36 @@ public sealed class OpenTapRunContextTests
         var response = await waiting.WaitAsync(TimeSpan.FromSeconds(2));
         Assert.False(response.Cancelled);
         Assert.False(a.IsAwaitingOperator);
+    }
+
+    [Fact]
+    public async Task BeginRun_does_not_clear_a_pause_already_on_the_context()
+    {
+        using var context = CreateContext();
+        // Worker: Run assigned the context; Pause IPC lands before ExecuteAsync.BeginRun.
+        context.Pause();
+        context.BeginRun(CancellationToken.None);
+
+        var blocked = Task.Run(() => context.WaitIfPaused());
+        var finishedEarly = await Task.WhenAny(blocked, Task.Delay(80)) == blocked;
+        Assert.False(finishedEarly, "BeginRun cleared a live pause.");
+        context.Resume();
+        await blocked.WaitAsync(TimeSpan.FromSeconds(2));
+    }
+
+    [Fact]
+    public async Task BeginRun_does_not_restore_a_pause_cleared_by_resume()
+    {
+        using var context = CreateContext();
+        context.Pause();
+        context.Resume();
+        context.BeginRun(CancellationToken.None);
+
+        var sw = Stopwatch.StartNew();
+        context.WaitIfPaused();
+        Assert.True(
+            sw.Elapsed < TimeSpan.FromMilliseconds(250),
+            $"BeginRun re-applied a snapshot pause after Resume ({sw.Elapsed}).");
     }
 
     private static OpenTapRunContext CreateContext()

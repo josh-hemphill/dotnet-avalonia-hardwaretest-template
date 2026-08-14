@@ -327,7 +327,6 @@ public sealed partial class OpenTapSession : IOpenTapSession, INotifyPropertyCha
         TestPlan plan;
         List<StoredSample>? preservedSamples = null;
         OpenTapRunContext context;
-        bool startPaused;
         lock (_sync)
         {
             plan = _plan ?? throw new InvalidOperationException("Load a plan before running.");
@@ -337,10 +336,18 @@ public sealed partial class OpenTapSession : IOpenTapSession, INotifyPropertyCha
             }
 
             OpenTapStepTree.ResetLiveState(_stepTree, resetStepIds);
-            startPaused = _pausedBeforeRun;
             context = new OpenTapRunContext(_settings, _logger, _cancelExecuteWithToken);
-            context.OperatorStateChanged += RaiseOperatorState;
             _activeContext = context;
+            // Begin CTS before releasing the lock so Abort in the worker IPC loop cannot
+            // miss the run token. Apply live pause here (not a snapshot into BeginRun).
+            // Subscribe after BeginRun so its OperatorStateChanged cannot re-enter Pause
+            // on this lock via PropertyChanged handlers.
+            context.BeginRun(cancellationToken);
+            context.OperatorStateChanged += RaiseOperatorState;
+            if (_pausedBeforeRun)
+            {
+                context.Pause();
+            }
         }
 
         RaiseOperatorState();
@@ -354,7 +361,6 @@ public sealed partial class OpenTapSession : IOpenTapSession, INotifyPropertyCha
                     progress,
                     cancellationToken,
                     runId ?? string.Empty,
-                    startPaused,
                     UpdateNodeLive,
                     ResolveStepPath,
                     preservedSamples,
@@ -383,21 +389,32 @@ public sealed partial class OpenTapSession : IOpenTapSession, INotifyPropertyCha
 
     public void Pause()
     {
-        _pausedBeforeRun = true;
-        _activeContext?.Pause();
+        lock (_sync)
+        {
+            _pausedBeforeRun = true;
+            _activeContext?.Pause();
+        }
     }
 
     public void Resume(OperatorInteractionResponse? response = null)
     {
-        _pausedBeforeRun = false;
-        _activeContext?.Resume(response);
+        lock (_sync)
+        {
+            _pausedBeforeRun = false;
+            _activeContext?.Resume(response);
+        }
+
         RaiseOperatorState();
     }
 
     public void Abort(bool safetyStop = false)
     {
-        _pausedBeforeRun = false;
-        _activeContext?.Abort();
+        lock (_sync)
+        {
+            _pausedBeforeRun = false;
+            _activeContext?.Abort();
+        }
+
         RaiseOperatorState();
         _logger.Warning("OpenTAP abort requested (safety={Safety})", safetyStop);
     }
