@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using HardwareTest.Core.Runs;
+using HardwareTest.Core.Time;
 using OpenTap;
 
 namespace HardwareTest.OpenTap.Host;
@@ -22,6 +23,7 @@ internal sealed class ProgressResultListener : ResultListener
     private readonly Action<string, string?, string, string, string?> _updateNode;
     private readonly Func<string, string?, string?> _resolvePath;
     private readonly TestPlan _plan;
+    private readonly IClock _clock;
     private readonly Stack<LoopContext> _loops = new();
     private int _stepIndex;
     private int _stepCount = 1;
@@ -38,7 +40,8 @@ internal sealed class ProgressResultListener : ResultListener
         Dictionary<string, DateTimeOffset> stepStarted,
         Action<string, string?, string, string, string?> updateNode,
         Func<string, string?, string?> resolvePath,
-        TestPlan plan)
+        TestPlan plan,
+        IClock clock)
     {
         _progress = progress;
         _samples = samples;
@@ -47,6 +50,7 @@ internal sealed class ProgressResultListener : ResultListener
         _updateNode = updateNode;
         _resolvePath = resolvePath;
         _plan = plan;
+        _clock = clock;
         Name = "HardwareTestProgress";
     }
 
@@ -66,7 +70,7 @@ internal sealed class ProgressResultListener : ResultListener
         var id = stepRun.TestStepId.ToString();
         _currentStepId = id;
         _currentStepName = stepRun.TestStepName;
-        _stepStarted[id] = DateTimeOffset.UtcNow;
+        _stepStarted[id] = _clock.UtcNow;
         _updateNode(id, stepRun.TestStepName, "Running", "NotSet", null);
 
         var step = OpenTapLoopProgress.FindStepById(_plan, stepRun.TestStepId);
@@ -105,7 +109,7 @@ internal sealed class ProgressResultListener : ResultListener
     {
         FlushCoalescedSample();
         var id = stepRun.TestStepId.ToString();
-        var started = _stepStarted.TryGetValue(id, out var s) ? s : DateTimeOffset.UtcNow;
+        var started = _stepStarted.TryGetValue(id, out var s) ? s : _clock.UtcNow;
         var verdict = stepRun.Verdict.ToString();
         var passed = stepRun.Verdict is Verdict.Pass or Verdict.NotSet;
         _steps.Add(new StepResultRecord
@@ -116,7 +120,7 @@ internal sealed class ProgressResultListener : ResultListener
             Passed = passed && stepRun.Verdict != Verdict.Fail && stepRun.Verdict != Verdict.Error,
             Message = verdict,
             StartedAt = started,
-            CompletedAt = DateTimeOffset.UtcNow,
+            CompletedAt = _clock.UtcNow,
         });
         _updateNode(id, stepRun.TestStepName, verdict, verdict, null);
         _stepIndex++;
@@ -286,7 +290,7 @@ internal sealed class ProgressResultListener : ResultListener
             var value = Convert.ToDouble(valueCol.Data.GetValue(i));
             var channel = channelCol is null ? "VDC" : Convert.ToString(channelCol.Data.GetValue(i)) ?? "VDC";
             var index = indexCol is null ? i : Convert.ToInt32(indexCol.Data.GetValue(i));
-            var ts = DateTimeOffset.UtcNow;
+            var ts = _clock.UtcNow;
             var stepPath = _resolvePath(_currentStepId ?? string.Empty, _currentStepName) ?? string.Empty;
             int? iterationIndex = null;
             string? loopPath = null;
@@ -367,7 +371,7 @@ internal sealed class ProgressResultListener : ResultListener
             var limitHigh = TryReadOptionalDouble(limitHighCol, i);
             var stored = new StoredSample
             {
-                Timestamp = DateTimeOffset.UtcNow,
+                Timestamp = _clock.UtcNow,
                 Value = value,
                 StepPath = stepPath,
             };

@@ -5,6 +5,7 @@ using HardwareTest.Core.Reporting;
 using HardwareTest.Core.Runs;
 using HardwareTest.Core.Settings;
 using HardwareTest.Core.Storage;
+using HardwareTest.Core.Time;
 using Microsoft.Extensions.DependencyInjection;
 using Serilog;
 
@@ -20,6 +21,15 @@ public static class CoreServiceCollectionExtensions
         services.AddSingleton(settingsStore);
         services.AddSingleton(settingsStore.AppSettings);
         services.AddSingleton(settingsStore.UiState);
+        services.AddSingleton<IClock>(_ => SystemClock.Instance);
+        services.AddSingleton<INtpTimeSource, UdpNtpTimeSource>();
+        services.AddSingleton<IClockSkewDetector>(sp =>
+            new ClockSkewDetector(
+                settingsStore.AppSettings,
+                sp.GetRequiredService<IClock>(),
+                settingsStore.RootDirectory,
+                sp.GetRequiredService<INtpTimeSource>(),
+                Log.Logger));
         services.AddSingleton(new VisaSessionGate());
         services.AddSingleton<IBenchOperationCoordinator, BenchOperationCoordinator>();
         services.AddSingleton<IRunControl>(sp => new RunControl(sp.GetRequiredService<VisaSessionGate>()));
@@ -49,8 +59,12 @@ public static class CoreServiceCollectionExtensions
                 sp.GetRequiredService<ISuiteRunStore>()));
         services.AddSingleton<IStorageHealthService>(_ =>
             new StorageHealthService(settingsStore.AppSettings, settingsStore.RootDirectory));
-        services.AddSingleton<IRunRetentionService>(_ =>
-            new RunRetentionService(settingsStore.AppSettings, settingsStore.RunsDirectory, Log.Logger));
+        services.AddSingleton<IRunRetentionService>(sp =>
+            new RunRetentionService(
+                settingsStore.AppSettings,
+                settingsStore.RunsDirectory,
+                Log.Logger,
+                sp.GetRequiredService<IClock>()));
         services.AddSingleton<IExportTargetService>(_ =>
             new ExportTargetService(settingsStore.AppSettings, settingsStore.RootDirectory, Log.Logger));
         services.AddSingleton(Log.Logger);

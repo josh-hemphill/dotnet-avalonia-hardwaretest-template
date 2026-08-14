@@ -4,6 +4,7 @@ using HardwareTest.Core.Diagnostics;
 using HardwareTest.Core.Engine;
 using HardwareTest.Core.Hardware;
 using HardwareTest.Core.Settings;
+using HardwareTest.Core.Time;
 using HardwareTest.Features;
 using HardwareTest.Features.Home;
 using HardwareTest.Features.Inspect;
@@ -38,7 +39,8 @@ public static class Composition
                 sp.GetRequiredService<ISafetyController>(),
                 sp.GetRequiredService<IBenchOperationCoordinator>(),
                 sp.GetRequiredService<CrashDossierWriter>(),
-                sp.GetRequiredService<BuildInfo>()));
+                sp.GetRequiredService<BuildInfo>(),
+                clock: sp.GetRequiredService<IClock>()));
         // Same singleton instance for the aggregate and each focused surface (Phase 14).
         // UI process talks to the killable worker; in-process OpenTapSession is the test-only host.
         services.AddSingleton<IOpenTapSession>(sp => sp.GetRequiredService<OpenTapWorkerClient>());
@@ -46,7 +48,7 @@ public static class Composition
         services.AddSingleton<IOpenTapRunSession>(sp => sp.GetRequiredService<OpenTapWorkerClient>());
         services.AddSingleton<IOpenTapStationSession>(sp => sp.GetRequiredService<OpenTapWorkerClient>());
         services.AddSingleton<IOpenTapHostCatalog>(sp => sp.GetRequiredService<OpenTapWorkerClient>());
-        services.AddSingleton<OperatorSession>();
+        services.AddSingleton(sp => new OperatorSession(sp.GetRequiredService<IClock>()));
 
         services.AddSingleton<ShellNotificationViewModel>();
         services.AddSingleton<HomeViewModel>(sp =>

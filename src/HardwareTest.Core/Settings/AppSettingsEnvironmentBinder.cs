@@ -647,6 +647,21 @@ public static class AppSettingsEnvironmentBinder
                     AppSettings.MaxOpenTapWorkerKillTimeoutMilliseconds),
                 env: ["HARDWARETEST_OPENTAP_WORKER_KILL_TIMEOUT_MS"],
                 cli: ["--opentap-worker-kill-timeout-ms"]),
+            SettingBinding.Int(
+                "ClockSkewWarnThresholdMinutes",
+                s => s.ClockSkewWarnThresholdMinutes,
+                (s, v) => s.ClockSkewWarnThresholdMinutes = Math.Clamp(
+                    v,
+                    AppSettings.MinClockSkewWarnThresholdMinutes,
+                    AppSettings.MaxClockSkewWarnThresholdMinutes),
+                env: ["HARDWARETEST_CLOCK_SKEW_WARN_THRESHOLD_MINUTES"],
+                cli: ["--clock-skew-warn-threshold-minutes"]),
+            SettingBinding.String(
+                "NtpHost",
+                s => s.NtpHost,
+                (s, v) => s.NtpHost = v.Trim(),
+                env: ["HARDWARETEST_NTP_HOST"],
+                cli: ["--ntp-host"]),
         ];
 }
 

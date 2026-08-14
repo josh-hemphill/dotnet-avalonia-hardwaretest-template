@@ -37,7 +37,7 @@ Run on `linux-x64` with .NET 10:
 | R3-13 | Dual VISA paths: Core `VisaSessionGate` vs plugin `Ivi.Visa.GlobalResourceManager.Open` | **22** |
 | R3-14 | Stop cannot preempt third-party / blocking OpenTAP steps (`CancellationToken.None`); no `ISafetyController` | **23** |
 | R3-15 | `OpenTapSession` ~1738 LOC god object; `StepRuntime` statics; host tests must be serial; Coverlet flakes | **24** (prerequisite for OpenTAP K) |
-| R3-16 | Wall-clock idle/retention/run ordering; no `TimeProvider` | **25** (promoted from deferred) |
+| R3-16 | Wall-clock idle/retention/run ordering; no `TimeProvider` | **25** (Done — `IClock` + skew strip) |
 
 ## Confirmed defects (round 3)
 
@@ -117,7 +117,7 @@ White-on-`#607D8B` Pending ~4.37:1; Awaiting `#EF6C00` ~3.08:1. Settings uses ad
 
 ## Larger work (do not implement in 19)
 
-See phases [20](phase-20-ci-honesty.md)–[25](phase-25-clock-discipline.md). OpenTAP letter track is unchanged: keep public `IOpenTap*` surfaces. [Phase 24](phase-24-session-decomposition.md) landed R3-15 (`OpenTapRunContext` + `IStepRuntime`; `TestPlan.Execute` stays serial because TapThread / PluginManager are process-global). Phase 24 remains the structural prerequisite for [Phase K](../opentap-phases/phase-k-multi-dut-parallel.md).
+See phases [20](phase-20-ci-honesty.md)–[25](phase-25-clock-discipline.md). OpenTAP letter track is unchanged: keep public `IOpenTap*` surfaces. [Phase 24](phase-24-session-decomposition.md) landed R3-15 (`OpenTapRunContext` + `IStepRuntime`; `TestPlan.Execute` stays serial because TapThread / PluginManager are process-global). Phase 24 remains the structural prerequisite for [Phase K](../opentap-phases/phase-k-multi-dut-parallel.md). [Phase 25](phase-25-clock-discipline.md) landed R3-16 (`IClock`, last-known-good / optional NTP skew warning; Run is not blocked).
 
 ## Out of this map
 
