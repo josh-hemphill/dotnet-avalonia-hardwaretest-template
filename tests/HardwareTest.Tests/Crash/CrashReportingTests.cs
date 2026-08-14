@@ -4,6 +4,7 @@ using HardwareTest.Core.Logging;
 using HardwareTest.Core.Runs;
 using HardwareTest.Core.Serialization;
 using HardwareTest.Core.Settings;
+using HardwareTest.Core.Time;
 using HardwareTest.Tests.Fixtures;
 using Serilog;
 using Serilog.Events;
@@ -219,12 +220,13 @@ public sealed class DanglingRunReconcilerTests
             SchemaVersion = SchemaVersions.TestRunRecord,
         });
 
-        var count = await new DanglingRunReconciler(store).ReconcileAsync("abc12345");
+        var clock = new HardwareTest.Tests.Time.FakeClock(new DateTimeOffset(2026, 6, 1, 10, 0, 0, TimeSpan.Zero));
+        var count = await new DanglingRunReconciler(store, clock).ReconcileAsync("abc12345");
         Assert.Equal(1, count);
         var loaded = await store.LoadAsync("dangling-1");
         Assert.NotNull(loaded);
         Assert.Equal(RunResult.Cancelled, loaded!.Result);
-        Assert.NotNull(loaded.CompletedAt);
+        Assert.Equal(clock.UtcNow, loaded.CompletedAt);
         Assert.Contains(DanglingRunReconciler.ProcessInterruptedReason, loaded.ErrorMessage, StringComparison.Ordinal);
         Assert.Contains("abc12345", loaded.ErrorMessage, StringComparison.Ordinal);
     }
