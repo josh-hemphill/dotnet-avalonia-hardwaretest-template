@@ -1,5 +1,6 @@
 using System;
 using System.Collections.ObjectModel;
+using Avalonia.Automation;
 using FluentAvalonia.UI.Controls;
 using HardwareTest.Core.Engine;
 using HardwareTest.Core.Settings;
@@ -232,6 +233,12 @@ public partial class MainWindowViewModel : ReactiveObject
         }
     }
 
+    /// Polite for idle/running/paused; assertive for Stop in progress and operator prompts.
+    public AutomationLiveSetting ControlStatusLiveSetting
+        => IsSafetyStopping || IsAwaitingOperator
+            ? AutomationLiveSetting.Assertive
+            : AutomationLiveSetting.Polite;
+
     [Reactive]
     private NavItem? _selectedItem;
 
@@ -311,6 +318,7 @@ public partial class MainWindowViewModel : ReactiveObject
         this.RaisePropertyChanged(nameof(IsSafetyStopping));
         this.RaisePropertyChanged(nameof(IsAwaitingOperator));
         this.RaisePropertyChanged(nameof(ControlStatus));
+        this.RaisePropertyChanged(nameof(ControlStatusLiveSetting));
         this.RaisePropertyChanged(nameof(PauseResumeLabel));
         this.RaisePropertyChanged(nameof(PauseResumeTip));
         this.RaisePropertyChanged(nameof(SafetyStopLabel));

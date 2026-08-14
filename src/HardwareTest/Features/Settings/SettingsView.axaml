@@ -6,7 +6,8 @@
              x:DataType="vm:SettingsViewModel">
   <DockPanel>
     <StackPanel DockPanel.Dock="Top" Spacing="6" Margin="0,0,16,12" MaxWidth="920">
-      <TextBlock Text="Settings" FontSize="22" FontWeight="SemiBold" />
+      <TextBlock Text="Settings" FontSize="22" FontWeight="SemiBold"
+                 AutomationProperties.HeadingLevel="1" />
       <TextBlock Text="Theme, engineer options, storage gates, and About. Save writes writable fields to settings.json; env/CLI overlays stay out of the file."
                  TextWrapping="Wrap"
                  Opacity="0.8" />
@@ -25,6 +26,8 @@
 
     <ScrollViewer>
       <StackPanel Spacing="10" Margin="0,0,16,0" MaxWidth="920">
+        <TextBlock Text="Theme" Classes="settings-h2"
+                   AutomationProperties.HeadingLevel="2" />
         <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
           <TextBlock x:Name="DataDirectoryLabel" Text="Data directory" VerticalAlignment="Center" />
           <TextBox Grid.Column="1" Text="{Binding DataDirectory}" IsReadOnly="True"
@@ -43,6 +46,8 @@
                     AutomationProperties.Name="Theme" />
         </Grid>
 
+        <TextBlock Text="Engineer" Classes="settings-h2"
+                   AutomationProperties.HeadingLevel="2" />
         <CheckBox Content="Engineer / debug mode"
                   IsChecked="{Binding IsEngineerDebugMode}"
                   IsEnabled="{Binding !IsEngineerDebugModeReadOnly}"
@@ -136,7 +141,8 @@
 
         <Separator Margin="0,8" />
 
-        <TextBlock Text="Storage" FontWeight="SemiBold" />
+        <TextBlock Text="Storage" Classes="settings-h2"
+                   AutomationProperties.HeadingLevel="2" />
         <TextBlock Text="Retention and free-space gates for the data directory. Critical free space blocks new runs."
                    TextWrapping="Wrap"
                    Opacity="0.8" />
@@ -181,7 +187,8 @@
 
         <Separator Margin="0,8" />
 
-        <TextBlock Text="About" FontWeight="SemiBold" />
+        <TextBlock Text="About" Classes="settings-h2"
+                   AutomationProperties.HeadingLevel="2" />
         <TextBlock Text="What is running on this bench (build-stamped version, runtime, OpenTAP engine)."
                    TextWrapping="Wrap"
                    Opacity="0.8" />
@@ -219,7 +226,8 @@
 
         <Separator Margin="0,8" />
 
-        <TextBlock Text="Diagnostics" FontWeight="SemiBold" />
+        <TextBlock Text="Diagnostics" Classes="settings-h2"
+                   AutomationProperties.HeadingLevel="2" />
         <TextBlock Text="Effective configuration and provenance (defaults → settings.json → environment → command line). Env/CLI overlays are read-only above and are not written back on Save. Copy diagnostics includes the About support block."
                    TextWrapping="Wrap"
                    Opacity="0.8" />
@@ -254,7 +262,8 @@
 
         <Separator Margin="0,8" />
 
-        <TextBlock Text="OpenTAP packages &amp; plugins" FontWeight="SemiBold" />
+        <TextBlock Text="OpenTAP packages &amp; plugins" Classes="settings-h2"
+                   AutomationProperties.HeadingLevel="2" />
         <TextBlock Text="Offline install only (tap package install / bake .TapPackage). Extra plugin directories load from the data directory's plugins folder at startup unless Engineer debug is on. Changing plugin directories requires an application restart — Refresh does not reload assemblies."
                    TextWrapping="Wrap"
                    Opacity="0.8" />
