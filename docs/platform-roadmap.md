@@ -11,7 +11,7 @@ Related: [adapting.md](adapting.md) (productize), [testing.md](testing.md) (suit
 | Track | Folder | Naming | Scope |
 | --- | --- | --- | --- |
 | OpenTAP integration | [opentap-phases/](opentap-phases/) | Letters (A–L) | Interactions, parameters, mixins, packages, presentation, multi-DUT, authoring |
-| Platform hardening | [platform-phases/](platform-phases/) | Numbers (1–18) | Gates, config, diagnostics, crash, CI, structure, storage, operator UX, live presentation, shell strip, touch density |
+| Platform hardening | [platform-phases/](platform-phases/) | Numbers (1–25) | Gates, config, diagnostics, crash, CI, structure, storage, operator UX, live presentation, shell strip, touch density, correctness, supply chain, VISA, safety worker, session split, clock |
 
 Distinct namespaces on purpose — "Phase C" and "Phase 3" are never the same thing.
 
@@ -61,6 +61,13 @@ Distinct namespaces on purpose — "Phase C" and "Phase 3" are never the same th
 | 16 | [Band board & Focus trend](platform-phases/phase-16-band-focus-presentation.md) | 15, J, L | Done |
 | 17 | [Shell notification strip & layout-shift hygiene](platform-phases/phase-17-shell-notification-strip.md) | 12, 15, 16 | Done |
 | 18 | [Operator touch density floor](platform-phases/phase-18-operator-touch-density.md) | 17 | Done |
+| 19 | [Immediate correctness](platform-phases/phase-19-immediate-correctness.md) | 18 | Done |
+| 20 | [CI honesty & supply chain](platform-phases/phase-20-ci-honesty.md) | 19 | Planned |
+| 21 | [Operator chrome & accessibility](platform-phases/phase-21-operator-chrome-a11y.md) | 18, 19 | Planned |
+| 22 | [VISA broker unification](platform-phases/phase-22-visa-broker.md) | 13, 19 | Planned |
+| 23 | [Safety Stop + OpenTAP worker](platform-phases/phase-23-safety-opentap-worker.md) | 19, 22 | Planned |
+| 24 | [OpenTAP session decomposition](platform-phases/phase-24-session-decomposition.md) | 14 | Planned — prerequisite for OpenTAP K |
+| 25 | [Clock discipline](platform-phases/phase-25-clock-discipline.md) | 11 | Planned — promoted from deferred |
 
 **Suggested order (1–10):** 1 first and alone — nothing else is verifiable until CI actually runs. Then 2 / 7 / 8 can proceed in parallel (independent seams). 3 → 4 → 5 is a chain and should stay one series. 6 lands after 4. 9 after 8. 10 after 3/6/9 (storage + chrome).
 
@@ -68,10 +75,13 @@ Distinct namespaces on purpose — "Phase C" and "Phase 3" are never the same th
 
 **Suggested order (17–18):** **17 then 18** (or a short shared PR train once 17’s strip host exists). Shell strip stops notification Auto-rows from shoving the board; touch density then lands on a calmer layout. Full kiosk image bake stays [deferred](deferred/deferred-appliance-kiosk.md) and assumes Phase 18’s floor.
 
+**Suggested order (19–25):** **19 first** (contained correctness + format gate). Then **20 ∥ 21**. **22 before 23** (plan VISA must be preemptable before a killable worker is useful). **24** can overlap 22/23 on the Host types but is the structural prerequisite for OpenTAP K. **25** before the first unattended deployment; it does not block 19–24.
+
 **Fresh-eyes reviews:**
 
 - **Round 1 (pre–Phase 11):** [platform-phases/review-remediation.md](platform-phases/review-remediation.md) — routed into Phases 11–15, all implemented.
 - **Round 2 (post–Phase 15):** [platform-phases/review-post-phase-15.md](platform-phases/review-post-phase-15.md) — F1–F6 (stale DI `AppSettings`, off-UI-thread mutation, run gate, Safety Stop, path/atomic storage) are fixed; CI follow-ups (inert format gate, lock files, vulnerability scan) remain open.
+- **Round 3 (post–Phase 18):** [platform-phases/review-round-3.md](platform-phases/review-round-3.md) — keyboard, remaining UI-thread, PDF/export, plugin trust, Stop copy, chips/Settings names, slnx/format → Phase 19; CI honesty → 20; chrome/a11y → 21; VISA broker → 22; safety worker → 23; session split → 24; clock → 25.
 - **Live presentation:** Squashed charts / band-first + earned Focus → [Phase 16](platform-phases/phase-16-band-focus-presentation.md) + OpenTAP [Phase L](opentap-phases/phase-l-presentation-authoring.md).
 - **Touch + layout shift:** Reserved shell strip + Run height caps → [Phase 17](platform-phases/phase-17-shell-notification-strip.md); operator hit-target floor → [Phase 18](platform-phases/phase-18-operator-touch-density.md).
 
@@ -89,15 +99,16 @@ Longer-horizon product work lives under [`docs/deferred/`](deferred/). Each file
 | [Remote crash upload](deferred/deferred-remote-crash-upload.md) | Additive uploader on local dossiers |
 | [Localization](deferred/deferred-localization.md) | Multi-language operator UI |
 | [Auto-update](deferred/deferred-auto-update.md) | Delivery / update channel |
-| [Clock discipline](deferred/deferred-clock-discipline.md) | NTP / skew detection for run history |
+| [Clock discipline](deferred/deferred-clock-discipline.md) | NTP / skew detection — **promoted to [Phase 25](platform-phases/phase-25-clock-discipline.md)** |
 
 ## Known gaps
 
 Real, acknowledged, and deliberately unscheduled (or scheduled as phases above). Revisit before the first unattended deployment.
 
-- **No clock discipline.** Timestamps are `DateTimeOffset.UtcNow` with no NTP sync or skew detection — see [deferred-clock-discipline.md](deferred/deferred-clock-discipline.md). Every idle/stale decision, run ordering, and retention prune depends on it; [round 2](platform-phases/review-post-phase-15.md#deferred-work-risk) recommends promoting this out of deferred.
-- **Vendor VISA in CI is still unproven.** Discovery now surfaces failures (no silent empty list); real IVI runtimes remain outside the default CI matrix. The OpenTAP `VisaDmmInstrument` also opens IVI directly rather than through the Core `VisaSessionGate`.
-- **Phase 1 CI follow-ups.** The `dotnet format` gate is inert (it targets `dirs.proj` and exits 0 without checking anything, hiding 132 findings), no NuGet lock files, no vulnerability scan, and coverage floors cover only `HardwareTest.Core` — [round 2](platform-phases/review-post-phase-15.md#ci-and-supply-chain).
-- **Finding → phase maps.** [review-remediation.md](platform-phases/review-remediation.md) (round 1, closed) and [review-post-phase-15.md](platform-phases/review-post-phase-15.md) (round 2 — F1–F6 fixed; CI follow-ups still open).
+- **Clock discipline is scheduled.** Timestamps are still `DateTimeOffset.UtcNow` until [Phase 25](platform-phases/phase-25-clock-discipline.md). Every idle/stale decision, run ordering, and retention prune depends on it.
+- **Vendor VISA in CI is still unproven.** Discovery now surfaces failures (no silent empty list); real IVI runtimes remain outside the default CI matrix. The OpenTAP `VisaDmmInstrument` also opens IVI directly rather than through the Core `VisaSessionGate` — [Phase 22](platform-phases/phase-22-visa-broker.md).
+- **Phase 1 / round-2 CI follow-ups.** Format gate is repaired in [Phase 19](platform-phases/phase-19-immediate-correctness.md). Lock files, vulnerability scan, coverage split, and Action pins remain [Phase 20](platform-phases/phase-20-ci-honesty.md).
+- **Finding → phase maps.** [review-remediation.md](platform-phases/review-remediation.md) (round 1, closed), [review-post-phase-15.md](platform-phases/review-post-phase-15.md) (round 2 — F1–F6 fixed; CI follow-ups still open), [review-round-3.md](platform-phases/review-round-3.md) (round 3 → Phases 19–25).
+- **Safety Stop is cooperative until Phase 23.** Phase 19 only corrects operator copy to **Stop Run**. Real interlocks + killable OpenTAP worker are [Phase 23](platform-phases/phase-23-safety-opentap-worker.md). Do not use `TapThread.Abort`.
 - **Live charts squashed; band-first + earned Focus trend.** [Phase 16](platform-phases/phase-16-band-focus-presentation.md); authoring maintainability [Phase L](opentap-phases/phase-l-presentation-authoring.md).
 - **Notification Auto-rows shift the work surface; touch targets undersized.** [Phase 17](platform-phases/phase-17-shell-notification-strip.md) (reserved shell strip) → [Phase 18](platform-phases/phase-18-operator-touch-density.md) (hit-target floor). Full kiosk bake remains [deferred](deferred/deferred-appliance-kiosk.md).

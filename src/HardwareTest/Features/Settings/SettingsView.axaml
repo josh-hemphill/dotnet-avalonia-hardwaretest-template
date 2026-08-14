@@ -26,112 +26,113 @@
     <ScrollViewer>
       <StackPanel Spacing="10" Margin="0,0,16,0" MaxWidth="920">
         <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
-          <TextBlock Text="Data directory" VerticalAlignment="Center" />
-          <TextBox Grid.Column="1" Text="{Binding DataDirectory}" IsReadOnly="True" />
+          <TextBlock x:Name="DataDirectoryLabel" Text="Data directory" VerticalAlignment="Center" />
+          <TextBox Grid.Column="1" Text="{Binding DataDirectory}" IsReadOnly="True"
+                   AutomationProperties.LabeledBy="{Binding #DataDirectoryLabel}"
+                   AutomationProperties.Name="Data directory" />
         </Grid>
 
         <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
-          <TextBlock Text="Theme" VerticalAlignment="Center" />
+          <TextBlock x:Name="ThemeLabel" Text="Theme" VerticalAlignment="Center" />
           <ComboBox Grid.Column="1"
                     ItemsSource="{Binding ThemeOptions}"
                     SelectedItem="{Binding ThemePreference}"
                     IsEnabled="{Binding !ThemePreferenceReadOnly}"
-                    MinWidth="160" />
+                    MinWidth="160"
+                    AutomationProperties.LabeledBy="{Binding #ThemeLabel}"
+                    AutomationProperties.Name="Theme" />
         </Grid>
 
-        <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
-          <TextBlock Text="Engineer / debug mode" VerticalAlignment="Center" />
-          <CheckBox Grid.Column="1" IsChecked="{Binding IsEngineerDebugMode}"
-                    IsEnabled="{Binding !IsEngineerDebugModeReadOnly}"
-                    ToolTip.Tip="Unlocks mock VISA, logging sinks, on-bench overlays, and opening arbitrary .TapPlan files" />
-        </Grid>
+        <CheckBox Content="Engineer / debug mode"
+                  IsChecked="{Binding IsEngineerDebugMode}"
+                  IsEnabled="{Binding !IsEngineerDebugModeReadOnly}"
+                  ToolTip.Tip="Unlocks mock VISA, logging sinks, on-bench overlays, and opening arbitrary .TapPlan files" />
 
         <StackPanel Spacing="10" IsVisible="{Binding IsEngineerDebugMode}">
-          <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
-            <TextBlock Text="Use mock VISA" VerticalAlignment="Center" />
-            <CheckBox Grid.Column="1" IsChecked="{Binding UseMockVisa}"
-                      IsEnabled="{Binding !UseMockVisaReadOnly}"
-                      ToolTip.Tip="Applies immediately when idle (no active run or open VISA session). Refused flips revert this checkbox. When off, demo MOCK:: resources cannot run." />
-          </Grid>
+          <CheckBox Content="Use mock VISA"
+                    IsChecked="{Binding UseMockVisa}"
+                    IsEnabled="{Binding !UseMockVisaReadOnly}"
+                    ToolTip.Tip="Applies immediately when idle (no active run or open VISA session). Refused flips revert this checkbox. When off, demo MOCK:: resources cannot run." />
 
           <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
-            <TextBlock Text="Log level" VerticalAlignment="Center" />
+            <TextBlock x:Name="LogLevelLabel" Text="Log level" VerticalAlignment="Center" />
             <ComboBox Grid.Column="1"
                       ItemsSource="{Binding LogLevelOptions}"
                       SelectedItem="{Binding LogMinimumLevel}"
                       IsEnabled="{Binding !LogMinimumLevelReadOnly}"
-                      MinWidth="160" />
+                      MinWidth="160"
+                      AutomationProperties.LabeledBy="{Binding #LogLevelLabel}"
+                      AutomationProperties.Name="Log level" />
           </Grid>
 
-          <Grid ColumnDefinitions="220,*" ColumnSpacing="12" IsVisible="{Binding ShowEventLogOptions}">
-            <TextBlock Text="Windows Event Log" VerticalAlignment="Center" />
-            <CheckBox Grid.Column="1" IsChecked="{Binding EnableOsEventSink}"
-                      IsEnabled="{Binding !EnableOsEventSinkReadOnly}" />
-          </Grid>
+          <CheckBox Content="Windows Event Log"
+                    IsVisible="{Binding ShowEventLogOptions}"
+                    IsChecked="{Binding EnableOsEventSink}"
+                    IsEnabled="{Binding !EnableOsEventSinkReadOnly}" />
 
           <StackPanel Spacing="10" IsVisible="{Binding ShowSyslogOptions}">
+            <CheckBox Content="Unix Syslog"
+                      IsChecked="{Binding EnableSyslogOnUnix}"
+                      IsEnabled="{Binding !EnableSyslogOnUnixReadOnly}" />
             <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
-              <TextBlock Text="Unix Syslog" VerticalAlignment="Center" />
-              <CheckBox Grid.Column="1" IsChecked="{Binding EnableSyslogOnUnix}"
-                        IsEnabled="{Binding !EnableSyslogOnUnixReadOnly}" />
-            </Grid>
-            <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
-              <TextBlock Text="Syslog host" VerticalAlignment="Center" />
+              <TextBlock x:Name="SyslogHostLabel" Text="Syslog host" VerticalAlignment="Center" />
               <TextBox Grid.Column="1" Text="{Binding SyslogHost}"
-                       IsReadOnly="{Binding SyslogHostReadOnly}" />
+                       IsReadOnly="{Binding SyslogHostReadOnly}"
+                       AutomationProperties.LabeledBy="{Binding #SyslogHostLabel}"
+                       AutomationProperties.Name="Syslog host" />
             </Grid>
             <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
-              <TextBlock Text="Syslog port" VerticalAlignment="Center" />
+              <TextBlock x:Name="SyslogPortLabel" Text="Syslog port" VerticalAlignment="Center" />
               <TextBox Grid.Column="1" Text="{Binding SyslogPort}"
-                       IsReadOnly="{Binding SyslogPortReadOnly}" />
+                       IsReadOnly="{Binding SyslogPortReadOnly}"
+                       AutomationProperties.LabeledBy="{Binding #SyslogPortLabel}"
+                       AutomationProperties.Name="Syslog port" />
             </Grid>
           </StackPanel>
 
           <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
-            <TextBlock Text="Plot refresh Hz" VerticalAlignment="Center" />
+            <TextBlock x:Name="PlotRefreshLabel" Text="Plot refresh Hz" VerticalAlignment="Center" />
             <TextBox Grid.Column="1" Text="{Binding PlotRefreshHz}"
-                     IsReadOnly="{Binding PlotRefreshHzReadOnly}" />
+                     IsReadOnly="{Binding PlotRefreshHzReadOnly}"
+                     AutomationProperties.LabeledBy="{Binding #PlotRefreshLabel}"
+                     AutomationProperties.Name="Plot refresh Hz" />
           </Grid>
 
           <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
-            <TextBlock Text="DUT session idle (minutes)" VerticalAlignment="Center"
+            <TextBlock x:Name="IdleMinutesLabel" Text="DUT session idle (minutes)" VerticalAlignment="Center"
                        ToolTip.Tip="Idle window before Soft-warn → Stale. Default 240 (4 hours). High-throughput lines may use shorter values." />
             <TextBox Grid.Column="1" Text="{Binding OperatorSessionIdleMinutes}"
-                     IsReadOnly="{Binding OperatorSessionIdleMinutesReadOnly}" />
+                     IsReadOnly="{Binding OperatorSessionIdleMinutesReadOnly}"
+                     AutomationProperties.LabeledBy="{Binding #IdleMinutesLabel}"
+                     AutomationProperties.Name="DUT session idle (minutes)" />
           </Grid>
           <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
-            <TextBlock Text="Idle soft-warn %" VerticalAlignment="Center"
+            <TextBlock x:Name="IdleWarnLabel" Text="Idle soft-warn %" VerticalAlignment="Center"
                        ToolTip.Tip="Warn when idle elapsed reaches this percent of the idle window (50–95, default 80)." />
             <TextBox Grid.Column="1" Text="{Binding OperatorSessionIdleWarnPercent}"
-                     IsReadOnly="{Binding OperatorSessionIdleWarnPercentReadOnly}" />
+                     IsReadOnly="{Binding OperatorSessionIdleWarnPercentReadOnly}"
+                     AutomationProperties.LabeledBy="{Binding #IdleWarnLabel}"
+                     AutomationProperties.Name="Idle soft-warn %" />
           </Grid>
-          <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
-            <TextBlock Text="Confirm DUT every run" VerticalAlignment="Center"
-                       ToolTip.Tip="After each terminal run, require Same DUT / Change Session before the next Run." />
-            <CheckBox Grid.Column="1" IsChecked="{Binding RequireDutConfirmEveryRun}"
-                      IsEnabled="{Binding !RequireDutConfirmEveryRunReadOnly}" />
-          </Grid>
+          <CheckBox Content="Confirm DUT every run"
+                    IsChecked="{Binding RequireDutConfirmEveryRun}"
+                    IsEnabled="{Binding !RequireDutConfirmEveryRunReadOnly}"
+                    ToolTip.Tip="After each terminal run, require Same DUT / Change Session before the next Run." />
         </StackPanel>
 
-        <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
-          <TextBlock Text="Embed plots in report" VerticalAlignment="Center" />
-          <CheckBox Grid.Column="1" IsChecked="{Binding EmbedPlotsInReport}"
-                    IsEnabled="{Binding !EmbedPlotsInReportReadOnly}" />
-        </Grid>
+        <CheckBox Content="Embed plots in report"
+                  IsChecked="{Binding EmbedPlotsInReport}"
+                  IsEnabled="{Binding !EmbedPlotsInReportReadOnly}" />
 
-        <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
-          <TextBlock Text="Export OpenTAP results (CSV)" VerticalAlignment="Center" />
-          <CheckBox Grid.Column="1" IsChecked="{Binding ExportOpenTapResults}"
-                    IsEnabled="{Binding !ExportOpenTapResultsReadOnly}"
-                    ToolTip.Tip="Writes published OpenTAP result tables under runs/{runId}/opentap-results/ for MES/QA handoff. Typst PDF is unchanged." />
-        </Grid>
+        <CheckBox Content="Export OpenTAP results (CSV)"
+                  IsChecked="{Binding ExportOpenTapResults}"
+                  IsEnabled="{Binding !ExportOpenTapResultsReadOnly}"
+                  ToolTip.Tip="Writes published OpenTAP result tables under runs/{runId}/opentap-results/ for MES/QA handoff. Typst PDF is unchanged." />
 
-        <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
-          <TextBlock Text="DUT history on Run board" VerticalAlignment="Center" />
-          <CheckBox Grid.Column="1" IsChecked="{Binding ShowDutHistoryOnRun}"
-                    IsEnabled="{Binding !ShowDutHistoryOnRunReadOnly}"
-                    ToolTip.Tip="When off (default), history appears only on Results. When on, show a summary banner on Run after Pass/Fail." />
-        </Grid>
+        <CheckBox Content="DUT history on Run board"
+                  IsChecked="{Binding ShowDutHistoryOnRun}"
+                  IsEnabled="{Binding !ShowDutHistoryOnRunReadOnly}"
+                  ToolTip.Tip="When off (default), history appears only on Results. When on, show a summary banner on Run after Pass/Fail." />
 
         <Separator Margin="0,8" />
 
@@ -140,32 +141,42 @@
                    TextWrapping="Wrap"
                    Opacity="0.8" />
         <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
-          <TextBlock Text="Retention days" VerticalAlignment="Center" />
+          <TextBlock x:Name="RetentionDaysLabel" Text="Retention days" VerticalAlignment="Center" />
           <TextBox Grid.Column="1" Text="{Binding RunRetentionDays}"
                    IsReadOnly="{Binding RunRetentionDaysReadOnly}"
-                   ToolTip.Tip="0 disables age-based retention" />
+                   ToolTip.Tip="0 disables age-based retention"
+                   AutomationProperties.LabeledBy="{Binding #RetentionDaysLabel}"
+                   AutomationProperties.Name="Retention days" />
         </Grid>
         <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
-          <TextBlock Text="Max retained runs" VerticalAlignment="Center" />
+          <TextBlock x:Name="MaxRunsLabel" Text="Max retained runs" VerticalAlignment="Center" />
           <TextBox Grid.Column="1" Text="{Binding RunRetentionMaxRuns}"
                    IsReadOnly="{Binding RunRetentionMaxRunsReadOnly}"
-                   ToolTip.Tip="0 disables count-based retention" />
+                   ToolTip.Tip="0 disables count-based retention"
+                   AutomationProperties.LabeledBy="{Binding #MaxRunsLabel}"
+                   AutomationProperties.Name="Max retained runs" />
         </Grid>
         <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
-          <TextBlock Text="Export directory" VerticalAlignment="Center" />
+          <TextBlock x:Name="ExportDirectoryLabel" Text="Export directory" VerticalAlignment="Center" />
           <TextBox Grid.Column="1" Text="{Binding ExportDirectory}"
                    IsReadOnly="{Binding ExportDirectoryReadOnly}"
-                   PlaceholderText="Optional fixed export path" />
+                   PlaceholderText="Optional fixed export path"
+                   AutomationProperties.LabeledBy="{Binding #ExportDirectoryLabel}"
+                   AutomationProperties.Name="Export directory" />
         </Grid>
         <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
-          <TextBlock Text="Warn free space (GB)" VerticalAlignment="Center" />
+          <TextBlock x:Name="WarnFreeLabel" Text="Warn free space (GB)" VerticalAlignment="Center" />
           <TextBox Grid.Column="1" Text="{Binding DataFreeSpaceWarnGb}"
-                   IsReadOnly="{Binding DataFreeSpaceWarnGbReadOnly}" />
+                   IsReadOnly="{Binding DataFreeSpaceWarnGbReadOnly}"
+                   AutomationProperties.LabeledBy="{Binding #WarnFreeLabel}"
+                   AutomationProperties.Name="Warn free space (GB)" />
         </Grid>
         <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
-          <TextBlock Text="Critical free space (GB)" VerticalAlignment="Center" />
+          <TextBlock x:Name="CriticalFreeLabel" Text="Critical free space (GB)" VerticalAlignment="Center" />
           <TextBox Grid.Column="1" Text="{Binding DataFreeSpaceCriticalGb}"
-                   IsReadOnly="{Binding DataFreeSpaceCriticalGbReadOnly}" />
+                   IsReadOnly="{Binding DataFreeSpaceCriticalGbReadOnly}"
+                   AutomationProperties.LabeledBy="{Binding #CriticalFreeLabel}"
+                   AutomationProperties.Name="Critical free space (GB)" />
         </Grid>
 
         <Separator Margin="0,8" />
@@ -244,7 +255,7 @@
         <Separator Margin="0,8" />
 
         <TextBlock Text="OpenTAP packages &amp; plugins" FontWeight="SemiBold" />
-        <TextBlock Text="Offline install only (tap package install / bake .TapPackage). Refresh rescans local package.xml and plugin dirs."
+        <TextBlock Text="Offline install only (tap package install / bake .TapPackage). Extra plugin directories load from the data directory's plugins folder at startup unless Engineer debug is on. Changing plugin directories requires an application restart — Refresh does not reload assemblies."
                    TextWrapping="Wrap"
                    Opacity="0.8" />
 

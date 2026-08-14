@@ -1,5 +1,5 @@
-using System.Diagnostics;
 using Avalonia.Threading;
+using Serilog;
 
 namespace HardwareTest.UiThreading;
 
@@ -40,8 +40,9 @@ internal static class UiDispatch
         {
             // Do NOT run action() on the current (background) thread under a live app —
             // that would mutate UI-bound state off the UI thread. Log and no-op instead.
-            Debug.WriteLine(
-                $"[UiDispatch.Post] Dispatcher unavailable; dropping UI update. {ex.GetType().Name}: {ex.Message}");
+            Log.Warning(
+                ex,
+                "UiDispatch.Post dropped a UI update because the dispatcher was unavailable");
         }
     }
 
@@ -77,8 +78,9 @@ internal static class UiDispatch
         }
         catch (Exception ex)
         {
-            Debug.WriteLine(
-                $"[UiDispatch.RunAsync] Dispatcher unavailable; dropping UI update. {ex.GetType().Name}: {ex.Message}");
+            Log.Warning(
+                ex,
+                "UiDispatch.RunAsync dropped a UI update because the dispatcher was unavailable");
             return Task.CompletedTask;
         }
     }

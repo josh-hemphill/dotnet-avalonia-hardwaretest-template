@@ -3,6 +3,7 @@ using HardwareTest.Core.Settings;
 using HardwareTest.OpenTap.Host;
 using HardwareTest.OpenTap.Plugins.Basic;
 using HardwareTest.OpenTap.Plugins.Mixins;
+using HardwareTest.Tests.Fixtures;
 using OpenTap;
 using Xunit;
 
@@ -590,20 +591,46 @@ public sealed class OpenTapSessionTests
     }
 
     [Fact]
-    public async Task EnsurePlugins_accepts_settings_plugin_directory()
+    public async Task EnsurePlugins_accepts_trusted_settings_plugin_directory()
     {
-        var dir = Path.Combine(Path.GetTempPath(), "opentap-plugins-" + Guid.NewGuid().ToString("N"));
+        using var temp = new TempDataDirectory();
+        var dir = Path.Combine(temp.Path, "plugins", "extra");
         Directory.CreateDirectory(dir);
+        var settings = new AppSettings
+        {
+            DataDirectory = temp.Path,
+            OpenTapPluginDirectories = [dir],
+        };
+        var session = new OpenTapSession(settings);
+        await session.LoadSampleProgramAsync();
+        Assert.NotEmpty(session.StepTree);
+        Assert.Contains(
+            PluginManager.DirectoriesToSearch,
+            d => string.Equals(d, Path.GetFullPath(dir), StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task EnsurePlugins_skips_untrusted_plugin_directory()
+    {
+        using var temp = new TempDataDirectory();
+        var untrusted = Path.Combine(Path.GetTempPath(), "opentap-untrusted-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(untrusted);
         try
         {
-            var settings = new AppSettings { OpenTapPluginDirectories = [dir] };
+            var settings = new AppSettings
+            {
+                DataDirectory = temp.Path,
+                OpenTapPluginDirectories = [untrusted],
+            };
             var session = new OpenTapSession(settings);
             await session.LoadSampleProgramAsync();
-            Assert.NotEmpty(session.StepTree);
+            Assert.DoesNotContain(
+                PluginManager.DirectoriesToSearch,
+                d => string.Equals(d, Path.GetFullPath(untrusted), StringComparison.OrdinalIgnoreCase));
         }
         finally
         {
-            Directory.Delete(dir, recursive: true);
+            Directory.Delete(untrusted, recursive: true);
         }
     }
 

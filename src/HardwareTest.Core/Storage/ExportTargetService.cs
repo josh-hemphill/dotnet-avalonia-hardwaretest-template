@@ -176,7 +176,11 @@ public sealed class ExportTargetService : IExportTargetService
                     continue;
                 }
 
-                var dest = Path.Combine(staging, SanitizeRelative(relative));
+                var dest = PathContainment.CombineUnderRoot(
+                    staging,
+                    SanitizeRelative(relative).Split(
+                        [Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar],
+                        StringSplitOptions.RemoveEmptyEntries));
                 Directory.CreateDirectory(Path.GetDirectoryName(dest)!);
                 File.Copy(source, dest, overwrite: true);
             }

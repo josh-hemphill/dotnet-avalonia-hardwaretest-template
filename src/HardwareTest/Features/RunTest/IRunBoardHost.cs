@@ -14,7 +14,8 @@ public enum RunBannerSeverity
 /// UI flush pump used by the run pipeline (and stubs in child unit tests).
 public interface IRunBoardUiPump
 {
-    /// Marshals onto the UI thread (or the injected test scheduler) and completes when the action has run.
+    /// Marshals onto the UI thread (or the injected test scheduler). Under a live app,
+    /// a missing dispatcher logs and drops — the action is never run off-thread.
     Task RunOnUiAsync(Action action);
 
     /// Completes once queued progress has been drained onto the UI.

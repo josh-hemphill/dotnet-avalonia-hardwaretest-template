@@ -5,9 +5,9 @@ using System.Threading.Tasks;
 using HardwareTest.Core.Hardware;
 using HardwareTest.Core.Settings;
 using HardwareTest.OpenTap.Host;
+using HardwareTest.UiThreading;
 using ReactiveUI;
 using ReactiveUI.SourceGenerators;
-using HardwareTest.UiThreading;
 
 namespace HardwareTest.Features.Instruments;
 
@@ -231,6 +231,11 @@ public partial class InstrumentsViewModel : ReactiveObject
         _ = RefreshSlotsAsync();
     }
 
+    /// Test seam: routes UI work synchronously instead of through the Avalonia dispatcher.
+    public Action<Action>? UiScheduler { get; set; }
+
+    private Task RunOnUiAsync(Action action) => UiDispatch.RunAsync(action, UiScheduler);
+
     public ObservableCollection<DiscoveredResourceItem> DiscoveredVisa { get; }
     public ObservableCollection<OpenTapDiscoveredResourceItem> DiscoveredOpenTap { get; }
     public ObservableCollection<SlotOverrideItemViewModel> SlotOverrides { get; }
@@ -279,12 +284,15 @@ public partial class InstrumentsViewModel : ReactiveObject
     private async Task RefreshVisaDiscoverAsync()
     {
         _operatorSession?.TouchActivity();
-        IsBusy = true;
-        DiscoveredVisa.Clear();
+        await RunOnUiAsync(() =>
+        {
+            IsBusy = true;
+            DiscoveredVisa.Clear();
+        }).ConfigureAwait(false);
         try
         {
             var found = await _discovery.FindAsync().ConfigureAwait(false);
-            await UiDispatch.RunAsync(() =>
+            await RunOnUiAsync(() =>
             {
                 foreach (var item in found)
                 {
@@ -307,7 +315,7 @@ public partial class InstrumentsViewModel : ReactiveObject
         }
         catch (Exception ex)
         {
-            await UiDispatch.RunAsync(() =>
+            await RunOnUiAsync(() =>
             {
                 HasDiscoveredVisa = false;
                 Status = $"VISA discovery failed: {ex.Message}";
@@ -315,7 +323,7 @@ public partial class InstrumentsViewModel : ReactiveObject
         }
         finally
         {
-            IsBusy = false;
+            await RunOnUiAsync(() => IsBusy = false).ConfigureAwait(false);
         }
     }
 
@@ -479,14 +487,14 @@ public partial class InstrumentsViewModel : ReactiveObject
         }
 
         Status = $"Querying *IDN? on {address}…";
-        IsBusy = true;
+        await RunOnUiAsync(() => IsBusy = true).ConfigureAwait(false);
         using var cts = new CancellationTokenSource(IdnTimeout);
         try
         {
             await using var session = await _visaSessions.OpenAsync(address, cts.Token).ConfigureAwait(false);
             var raw = await session.QueryAsync("*IDN?", cts.Token).ConfigureAwait(false);
             var (_, _, _, _, summary) = VisaResourceParser.FormatIdn(raw);
-            await UiDispatch.RunAsync(() =>
+            await RunOnUiAsync(() =>
             {
                 if (SelectedVisa is not null
                     && string.Equals(SelectedVisa.Resource, address, StringComparison.OrdinalIgnoreCase))
@@ -510,15 +518,15 @@ public partial class InstrumentsViewModel : ReactiveObject
         }
         catch (OperationCanceledException)
         {
-            Status = $"*IDN? timed out for {address}.";
+            await RunOnUiAsync(() => Status = $"*IDN? timed out for {address}.").ConfigureAwait(false);
         }
         catch (Exception ex)
         {
-            Status = $"*IDN? failed for {address}: {ex.Message}";
+            await RunOnUiAsync(() => Status = $"*IDN? failed for {address}: {ex.Message}").ConfigureAwait(false);
         }
         finally
         {
-            IsBusy = false;
+            await RunOnUiAsync(() => IsBusy = false).ConfigureAwait(false);
         }
     }
 
@@ -537,7 +545,7 @@ public partial class InstrumentsViewModel : ReactiveObject
     private async Task SaveAsync()
     {
         _operatorSession?.TouchActivity();
-        IsBusy = true;
+        await RunOnUiAsync(() => IsBusy = true).ConfigureAwait(false);
         try
         {
             _settingsStore.AppSettings.PlanSlotOverrides = SlotOverrides
@@ -551,12 +559,14 @@ public partial class InstrumentsViewModel : ReactiveObject
                 })
                 .ToList();
 
-            await _settingsStore.SaveAppSettingsAsync();
-            Status = $"Saved {_settingsStore.AppSettings.PlanSlotOverrides.Count} slot override(s).";
+            await _settingsStore.SaveAppSettingsAsync().ConfigureAwait(false);
+            await RunOnUiAsync(() =>
+                Status = $"Saved {_settingsStore.AppSettings.PlanSlotOverrides.Count} slot override(s).")
+                .ConfigureAwait(false);
         }
         finally
         {
-            IsBusy = false;
+            await RunOnUiAsync(() => IsBusy = false).ConfigureAwait(false);
         }
     }
 }

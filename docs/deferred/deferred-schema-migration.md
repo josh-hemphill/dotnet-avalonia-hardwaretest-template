@@ -10,7 +10,7 @@ Replace “newer schema → read-only / fail loudly” with an explicit, testabl
 
 ## Locked decisions
 
-- Migrations are **forward-only**, pure functions, covered by fixture tests.
+- Migrations are **forward-only**, pure functions on `JsonNode` (document in → document out), covered by fixture tests. Do not deserialize to CLR types until the migrator chain has produced the current schema.
 - Failed migration leaves originals intact and surfaces an in-panel error (no silent coerce).
 - Unknown future schema remains fail-loud until a migrator exists (keep Phase 5 safety).
 - No reflection-based serializer binding — source-generated STJ contexts stay required.
