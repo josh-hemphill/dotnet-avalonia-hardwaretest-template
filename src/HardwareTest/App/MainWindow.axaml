@@ -83,7 +83,7 @@
           </StackPanel>
         </Button>
 
-        <!-- Safety Stop -->
+        <!-- Stop Run (cooperative software abort) -->
         <Button Command="{Binding SafetyStopCommand}"
                 Width="{x:Static shell:OperatorTouchDensity.CompactNavTargetSize}"
                 Height="{x:Static shell:OperatorTouchDensity.CompactNavTargetSize}"

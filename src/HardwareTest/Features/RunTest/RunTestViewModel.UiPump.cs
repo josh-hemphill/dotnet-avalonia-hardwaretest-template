@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
-using Avalonia.Threading;
 using HardwareTest.OpenTap.Host;
 using HardwareTest.OpenTap.Plugins.Basic;
+using HardwareTest.UiThreading;
 
 namespace HardwareTest.Features.RunTest;
 
@@ -143,45 +143,9 @@ public partial class RunTestViewModel
         }
     }
 
-    private async Task RunOnUiAsync(Action action)
-    {
-        if (UiScheduler is not null)
-        {
-            UiScheduler(action);
-            return;
-        }
-
-        try
-        {
-            var dispatcher = Dispatcher.UIThread;
-            if (dispatcher.CheckAccess() || Avalonia.Application.Current is null)
-            {
-                action();
-                return;
-            }
-
-            var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-            dispatcher.Post(
-                () =>
-                {
-                    try
-                    {
-                        action();
-                        tcs.TrySetResult();
-                    }
-                    catch (Exception ex)
-                    {
-                        tcs.TrySetException(ex);
-                    }
-                },
-                DispatcherPriority.Normal);
-            await tcs.Task.ConfigureAwait(false);
-        }
-        catch (InvalidOperationException)
-        {
-            action();
-        }
-    }
+    /// Marshals onto the UI thread (or <see cref="UiScheduler"/>). When the dispatcher is
+    /// unavailable under a live app, drops the action instead of mutating off-thread.
+    private Task RunOnUiAsync(Action action) => UiDispatch.RunAsync(action, UiScheduler);
 
     private async Task WaitForPendingFlushesAsync()
     {
@@ -219,34 +183,7 @@ public partial class RunTestViewModel
         PostToUi(DrainUiFlush);
     }
 
-    private void PostToUi(Action action)
-    {
-        if (UiScheduler is not null)
-        {
-            UiScheduler(action);
-            return;
-        }
-
-        try
-        {
-            var dispatcher = Dispatcher.UIThread;
-            if (dispatcher.CheckAccess())
-            {
-                action();
-            }
-            else
-            {
-                dispatcher.Post(action, DispatcherPriority.Background);
-            }
-        }
-        catch (Exception ex)
-        {
-            // Dispatcher is unavailable (e.g., application shutting down).
-            // Do NOT run action() on the current (background) thread — that would mutate
-            // UI-bound state off the UI thread. Log and no-op instead.
-            Debug.WriteLine($"[PostToUi] Dispatcher unavailable; dropping UI flush. {ex.GetType().Name}: {ex.Message}");
-        }
-    }
+    private void PostToUi(Action action) => UiDispatch.Post(action, UiScheduler);
 
     private void DrainUiFlush()
     {

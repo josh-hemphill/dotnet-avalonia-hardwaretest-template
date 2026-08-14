@@ -14,6 +14,7 @@ Replace the stub run-to-run comparison service with a real, operator-useful comp
 - Prefer Presentation `MetricKey` grouping when present (same rules as DUT history).
 - UI stays in-panel on Results (side-by-side or delta table) — no second Window.
 - Do not block Run on comparison failures.
+- Do **not** register `StubRunComparisonService` as an operator-facing Results feature until this plan is implemented. Keep the stub out of operator chrome.
 
 ## Workstreams
 

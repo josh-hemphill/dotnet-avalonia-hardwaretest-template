@@ -191,7 +191,7 @@ public partial class MainWindowViewModel : ReactiveObject
         {
             if (IsAwaitingOperator) return "Cancel prompt";
             if (IsSafetyStopping) return "Cancel shutdown";
-            return "Safety Stop";
+            return "Stop Run";
         }
     }
 
@@ -200,10 +200,10 @@ public partial class MainWindowViewModel : ReactiveObject
         get
         {
             if (IsAwaitingOperator)
-                return "Cancel prompt (aborts run) — operator interaction is cancelled via Safety Stop";
+                return "Cancel prompt (aborts run) — operator interaction is cancelled via Stop Run";
             if (IsSafetyStopping)
-                return "Cancel the in-progress safety shutdown";
-            return "Safety Stop — abort and run safe shutdown";
+                return "Cancel the in-progress software stop";
+            return "Stop Run — cooperative software stop (not a hardware interlock). Blocking steps may continue until they return.";
         }
     }
 
@@ -213,7 +213,7 @@ public partial class MainWindowViewModel : ReactiveObject
         {
             if (_runControl.IsSafetyStopping)
             {
-                return "Safety stop…";
+                return "Stopping…";
             }
 
             if (IsAwaitingOperator)

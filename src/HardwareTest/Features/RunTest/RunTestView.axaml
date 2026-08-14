@@ -48,10 +48,10 @@
                     Classes="primary"
                     IsEnabled="{Binding CanStartRun}"
                     ToolTip.Tip="{Binding CanStartRunTip}" />
-            <Button Content="Safety Stop" Command="{Binding Run.CancelCommand}"
+            <Button Content="Stop Run" Command="{Binding Run.CancelCommand}"
                     IsEnabled="{Binding CanSafetyStop}"
                     Classes="danger"
-                    ToolTip.Tip="Abort the run (also cancels an in-panel operator prompt). Prefer Continue when answering a prompt." />
+                    ToolTip.Tip="Software stop — cancels this run and in-panel prompts. Blocking instrument I/O may continue until the step returns. This is not a hardware interlock." />
             <Button Content="Inspect" Command="{Binding InspectPlanCommand}" Classes="operator" />
           </StackPanel>
         </Grid>

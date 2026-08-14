@@ -1,16 +1,16 @@
 using System;
 using Avalonia;
-using ReactiveUI.Avalonia;
 using HardwareTest.Core.Diagnostics;
 using HardwareTest.Core.Logging;
 using HardwareTest.Core.Settings;
 using HardwareTest.Crash;
 using HardwareTest.OpenTap.Host;
+using ReactiveUI.Avalonia;
 using Serilog;
 
 namespace HardwareTest;
 
-static class Program
+internal static class Program
 {
     [STAThread]
     public static int Main(string[] args)

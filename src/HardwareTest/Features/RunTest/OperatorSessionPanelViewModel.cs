@@ -2,9 +2,9 @@ using System;
 using System.Globalization;
 using HardwareTest.Core.Settings;
 using HardwareTest.OpenTap.Host;
+using HardwareTest.UiThreading;
 using ReactiveUI;
 using ReactiveUI.SourceGenerators;
-using HardwareTest.UiThreading;
 
 namespace HardwareTest.Features.RunTest;
 
