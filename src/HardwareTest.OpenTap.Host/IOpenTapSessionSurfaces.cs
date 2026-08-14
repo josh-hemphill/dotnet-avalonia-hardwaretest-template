@@ -75,3 +75,15 @@ public interface IOpenTapHostCatalog
     IReadOnlyList<OpenTapPackageInfo> ListInstalledPackages();
     IReadOnlyList<OpenTapDiscoveredAddress> ListDiscoveredDeviceAddresses();
 }
+
+/// Aggregating OpenTAP session façade (plan + run + station + catalog).
+/// Prefer injecting a focused surface (<see cref="IOpenTapPlanSession"/>, <see cref="IOpenTapRunSession"/>,
+/// <see cref="IOpenTapStationSession"/>, or <see cref="IOpenTapHostCatalog"/>) from Feature ViewModels.
+/// Kept for Phase 8 contract suites and Composition until OpenTAP Phase K no longer needs the aggregate.
+public interface IOpenTapSession :
+    IOpenTapPlanSession,
+    IOpenTapRunSession,
+    IOpenTapStationSession,
+    IOpenTapHostCatalog
+{
+}

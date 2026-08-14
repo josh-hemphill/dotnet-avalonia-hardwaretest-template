@@ -11,12 +11,8 @@ namespace HardwareTest.ViewModels.Tests.Fakes;
 
 public sealed class FakeOpenTapSession : IOpenTapSession
 {
-    private CancellationTokenSource? _runCts;
-    private bool _isAwaitingOperator;
-    private bool _paused;
+    private readonly OpenTapRunControlState _runControl = new();
     private int _runGate;
-    private readonly ManualResetEventSlim _pauseGate = new(true);
-    private readonly ManualResetEventSlim _interactionGate = new(true);
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -28,6 +24,7 @@ public sealed class FakeOpenTapSession : IOpenTapSession
     /// Creates an unloaded session (empty tree) for contract initial-state tests.
     public FakeOpenTapSession(bool preloadSample)
     {
+        _runControl.OperatorStateChanged += OnRunControlOperatorStateChanged;
         if (preloadSample)
         {
             LoadedPlanPath = SampleProgramFactory.EmbeddedName;
@@ -54,23 +51,29 @@ public sealed class FakeOpenTapSession : IOpenTapSession
     public bool IsExecuting => Volatile.Read(ref _runGate) != 0;
     public bool IsAwaitingOperator
     {
-        get => _isAwaitingOperator;
+        get => _runControl.IsAwaitingOperator;
         set
         {
-            if (_isAwaitingOperator == value)
+            if (_runControl.IsAwaitingOperator == value)
             {
                 return;
             }
 
-            _isAwaitingOperator = value;
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsAwaitingOperator)));
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(OperatorPromptMessage)));
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(PendingInteraction)));
+            _runControl.IsAwaitingOperator = value;
+            OnRunControlOperatorStateChanged();
         }
     }
-    public string? OperatorPromptMessage { get; set; }
-    public OperatorInteractionRequest? PendingInteraction { get; private set; }
-    public OperatorInteractionResponse? LastInteractionResponse { get; private set; }
+    public string? OperatorPromptMessage
+    {
+        get => _runControl.OperatorPromptMessage;
+        set => _runControl.OperatorPromptMessage = value;
+    }
+    public OperatorInteractionRequest? PendingInteraction
+    {
+        get => _runControl.PendingInteraction;
+        private set => _runControl.PendingInteraction = value;
+    }
+    public OperatorInteractionResponse? LastInteractionResponse => _runControl.LastInteractionResponse;
     public Queue<OperatorInteractionResponse> InteractionResponses { get; } = new();
     public Dictionary<string, string> ParameterValues { get; } = new(StringComparer.OrdinalIgnoreCase);
     public List<OpenTapParameterInfo> ParameterCatalog { get; } = [];
@@ -576,10 +579,7 @@ public sealed class FakeOpenTapSession : IOpenTapSession
         string? runId)
     {
         RunCount++;
-        _runCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        _pauseGate.Set();
-        _paused = false;
-        _interactionGate.Set();
+        _runControl.BeginRun(cancellationToken);
         progress?.Report(new OpenTapProgress { Message = "Started", OverallPercent = 0 });
         runId = string.IsNullOrWhiteSpace(runId) ? Guid.NewGuid().ToString("N") : runId.Trim();
         if (EmitLoopProgress)
@@ -651,10 +651,10 @@ public sealed class FakeOpenTapSession : IOpenTapSession
         {
             if (EmitOperatorInteractionDuringRun)
             {
-                await EmitAndWaitForInteractionAsync(progress, _runCts.Token);
+                await EmitAndWaitForInteractionAsync(progress, _runControl.Token);
             }
 
-            await DelayWithPauseAsync(_runCts.Token);
+            await DelayWithPauseAsync(_runControl.Token);
         }
         catch (OperationCanceledException)
         {
@@ -682,8 +682,7 @@ public sealed class FakeOpenTapSession : IOpenTapSession
         }
         finally
         {
-            _runCts.Dispose();
-            _runCts = null;
+            _runControl.EndRun();
         }
 
         MarkTreeStatuses(CompletionResult);
@@ -848,12 +847,12 @@ public sealed class FakeOpenTapSession : IOpenTapSession
         LastSelectionIncludeCleanup = includeCleanup;
         runId = string.IsNullOrWhiteSpace(runId) ? Guid.NewGuid().ToString("N") : runId.Trim();
 
-        _runCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        _runControl.BeginRun(cancellationToken);
         progress?.Report(new OpenTapProgress { Message = "Started selection", OverallPercent = 0 });
 
         try
         {
-            await Task.Delay(Delay, _runCts.Token);
+            await Task.Delay(Delay, _runControl.Token);
         }
         catch (OperationCanceledException)
         {
@@ -880,8 +879,7 @@ public sealed class FakeOpenTapSession : IOpenTapSession
         }
         finally
         {
-            _runCts.Dispose();
-            _runCts = null;
+            _runControl.EndRun();
         }
 
         // Reset then mark only the selection scope so siblings keep prior live status.
@@ -951,63 +949,32 @@ public sealed class FakeOpenTapSession : IOpenTapSession
         return summary;
     }
 
-    public void Pause()
-    {
-        _paused = true;
-        _pauseGate.Reset();
-    }
+    public void Pause() => _runControl.Pause();
 
     public void Resume(OperatorInteractionResponse? response = null)
     {
-        if (PendingInteraction is not null)
+        if (response is null && _runControl.PendingInteraction is not null && InteractionResponses.Count > 0)
         {
-            LastInteractionResponse = response
-                ?? (InteractionResponses.Count > 0
-                    ? InteractionResponses.Dequeue()
-                    : OperatorInteractionResponse.Continue(PendingInteraction.Id));
+            response = InteractionResponses.Dequeue();
         }
 
-        IsAwaitingOperator = false;
-        OperatorPromptMessage = null;
-        PendingInteraction = null;
-        _interactionGate.Set();
-        _paused = false;
-        _pauseGate.Set();
+        _runControl.Resume(response);
     }
 
     /// Simulates a step requesting interaction (for ViewModel tests without OpenTAP).
     public void BeginInteraction(OperatorInteractionRequest request)
     {
         PendingInteraction = request;
-        IsAwaitingOperator = true;
         OperatorPromptMessage = request.Message;
-        _interactionGate.Reset();
+        IsAwaitingOperator = true;
+        _runControl.ResetInteractionGate();
         if (InteractionResponses.Count > 0)
         {
             Resume(InteractionResponses.Dequeue());
         }
     }
 
-    public void Abort(bool safetyStop = false)
-    {
-        if (PendingInteraction is not null)
-        {
-            LastInteractionResponse = OperatorInteractionResponse.Cancel(PendingInteraction.Id);
-        }
-
-        ClearInteractionState();
-        _paused = false;
-        _pauseGate.Set();
-
-        try
-        {
-            _runCts?.Cancel();
-        }
-        catch
-        {
-            // ignore
-        }
-    }
+    public void Abort(bool safetyStop = false) => _runControl.Abort();
 
     private void EnterRunGate()
     {
@@ -1025,12 +992,19 @@ public sealed class FakeOpenTapSession : IOpenTapSession
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsExecuting)));
     }
 
+    private void OnRunControlOperatorStateChanged()
+    {
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsAwaitingOperator)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(OperatorPromptMessage)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(PendingInteraction)));
+    }
+
     private void ClearInteractionState()
     {
         IsAwaitingOperator = false;
         OperatorPromptMessage = null;
         PendingInteraction = null;
-        _interactionGate.Set();
+        _runControl.OpenInteractionGate();
     }
 
     private async Task EmitAndWaitForInteractionAsync(
@@ -1038,10 +1012,7 @@ public sealed class FakeOpenTapSession : IOpenTapSession
         CancellationToken cancellationToken)
     {
         var request = OperatorInteractionRequest.ConfirmOnly("Contract operator confirm");
-        PendingInteraction = request;
-        OperatorPromptMessage = request.Message;
-        IsAwaitingOperator = true;
-        _interactionGate.Reset();
+        _runControl.BeginPendingInteraction(request);
         progress?.Report(new OpenTapProgress
         {
             Message = request.Message,
@@ -1053,7 +1024,7 @@ public sealed class FakeOpenTapSession : IOpenTapSession
         while (IsAwaitingOperator)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            await Task.Run(() => _interactionGate.Wait(50), cancellationToken);
+            await Task.Run(() => _runControl.WaitInteractionGate(50), cancellationToken);
         }
     }
 
@@ -1064,10 +1035,10 @@ public sealed class FakeOpenTapSession : IOpenTapSession
         while (remaining > TimeSpan.Zero)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            while (_paused)
+            while (_runControl.IsPaused)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                await Task.Run(() => _pauseGate.Wait(50), cancellationToken);
+                await Task.Run(() => _runControl.WaitPauseGate(50), cancellationToken);
             }
 
             var step = remaining < slice ? remaining : slice;

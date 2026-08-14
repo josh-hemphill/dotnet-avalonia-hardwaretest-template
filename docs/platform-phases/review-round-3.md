@@ -117,7 +117,7 @@ White-on-`#607D8B` Pending ~4.37:1; Awaiting `#EF6C00` ~3.08:1. Settings uses ad
 
 ## Larger work (do not implement in 19)
 
-See phases [20](phase-20-ci-honesty.md)–[25](phase-25-clock-discipline.md). OpenTAP letter track is unchanged: keep public `IOpenTap*` surfaces; Phase 24 is a prerequisite for [Phase K](../opentap-phases/phase-k-multi-dut-parallel.md).
+See phases [20](phase-20-ci-honesty.md)–[25](phase-25-clock-discipline.md). OpenTAP letter track is unchanged: keep public `IOpenTap*` surfaces. [Phase 24](phase-24-session-decomposition.md) landed R3-15 (`OpenTapRunContext` + `IStepRuntime`; `TestPlan.Execute` stays serial because TapThread / PluginManager are process-global). Phase 24 remains the structural prerequisite for [Phase K](../opentap-phases/phase-k-multi-dut-parallel.md).
 
 ## Out of this map
 

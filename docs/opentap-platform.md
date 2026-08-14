@@ -60,9 +60,9 @@ flowchart TB
 
 ## Interaction contract (Avalonia-owned)
 
-Types live in [`OperatorInteraction.cs`](../src/HardwareTest.OpenTap.Plugins.Basic/OperatorInteraction.cs) (plugin assembly, shared with Host). Bridge: [`StepRuntime.RequestInteraction`](../src/HardwareTest.OpenTap.Plugins.Basic/StepRuntime.cs).
+Types live in [`OperatorInteraction.cs`](../src/HardwareTest.OpenTap.Plugins.Basic/OperatorInteraction.cs) (plugin assembly, shared with Host). Bridge: [`IStepRuntime.RequestInteraction`](../src/HardwareTest.OpenTap.Plugins.Basic/IStepRuntime.cs) attached per run via [`StepRuntimeBinder`](../src/HardwareTest.OpenTap.Plugins.Basic/StepRuntimeBinder.cs).
 
-Today: [`OperatorPromptStep`](../src/HardwareTest.OpenTap.Plugins.Basic/Steps.cs) (confirm-only) and [`OperatorInputStep`](../src/HardwareTest.OpenTap.Plugins.Basic/Steps.cs) (string/number fields) call `StepRuntime.RequestInteraction` / `RequestOperatorAttention` → Host `HandleInteraction` pauses → Run board **in-panel** host (title, message, fields) → Continue builds `OperatorInteractionResponse` → `Resume(response)`.
+Today: [`OperatorPromptStep`](../src/HardwareTest.OpenTap.Plugins.Basic/Steps.cs) (confirm-only) and [`OperatorInputStep`](../src/HardwareTest.OpenTap.Plugins.Basic/Steps.cs) (string/number fields) call `IStepRuntime.RequestInteraction` / `RequestOperatorAttention` → Host `OpenTapRunContext` pauses → Run board **in-panel** host (title, message, fields) → Continue builds `OperatorInteractionResponse` → `Resume(response)`.
 
 Flow:
 
@@ -76,7 +76,7 @@ Flow:
 
 Pre-run parameter edits and mid-run inputs share the **same field control types** (`InteractionFieldViewModel`).
 
-**Authoring:** Prefer `OperatorInputStep` (or custom steps calling `StepRuntime.RequestInteraction`) for technician input. Keep `OperatorPromptStep` for confirm-only pauses. Do not add OpenTAP Dialog steps to appliance plans.
+**Authoring:** Prefer `OperatorInputStep` (or custom steps calling `IStepRuntime.RequestInteraction`) for technician input. Keep `OperatorPromptStep` for confirm-only pauses. Do not add OpenTAP Dialog steps to appliance plans.
 
 **In-repo demos:** `SampleProgramFactory`, `BoardDemoProgramFactory`, and `SweepDemoProgramFactory` (loop iteration chrome) — see the table in [adapting.md](adapting.md#1-programs-tapplans--catalog).
 
