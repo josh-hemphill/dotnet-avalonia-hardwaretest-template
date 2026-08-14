@@ -7,9 +7,11 @@ using HardwareTest.Core.Diagnostics;
 using HardwareTest.Core.Engine;
 using HardwareTest.Core.Runs;
 using HardwareTest.Core.Settings;
+using HardwareTest.Core.Time;
 using HardwareTest.Crash;
 using HardwareTest.Features;
 using HardwareTest.Features.RunTest;
+using HardwareTest.Features.Shell;
 using HardwareTest.OpenTap.Host;
 using Microsoft.Extensions.DependencyInjection;
 using Serilog;
@@ -117,6 +119,9 @@ public partial class App : Application
     {
         try
         {
+            await SetStartupStatusAsync(shell, "Checking clock…");
+            await Task.Run(() => CheckClockSkew(shell)).ConfigureAwait(false);
+
             await SetStartupStatusAsync(shell, "Checking prior runs…");
             await Task.Run(() => ReconcileDanglingRuns()).ConfigureAwait(false);
 
@@ -154,8 +159,13 @@ public partial class App : Application
             var crashRoot = string.IsNullOrWhiteSpace(_settingsStore.AppSettings.CrashDirectory)
                 ? Path.Combine(_settingsStore.RootDirectory, "crashes")
                 : _settingsStore.AppSettings.CrashDirectory;
-            var dossierId = DanglingRunReconciler.TryCorrelateNewestDossierId(crashRoot, TimeSpan.FromHours(24));
-            var reconciler = new DanglingRunReconciler(Services.GetRequiredService<IRunStore>());
+            var dossierId = DanglingRunReconciler.TryCorrelateNewestDossierId(
+                crashRoot,
+                TimeSpan.FromHours(24),
+                Services.GetRequiredService<IClock>());
+            var reconciler = new DanglingRunReconciler(
+                Services.GetRequiredService<IRunStore>(),
+                Services.GetRequiredService<IClock>());
             var n = reconciler.ReconcileAsync(dossierId).GetAwaiter().GetResult();
             if (n > 0)
             {
@@ -196,6 +206,24 @@ public partial class App : Application
         catch (Exception ex)
         {
             Log.Warning(ex, "Storage health snapshot failed");
+        }
+    }
+
+    private void CheckClockSkew(MainWindowViewModel shell)
+    {
+        try
+        {
+            var result = Services.GetRequiredService<IClockSkewDetector>().Check();
+            if (!result.ExceedsThreshold)
+            {
+                return;
+            }
+
+            Dispatcher.UIThread.Post(() => ClockSkewNotification.Apply(shell.ShellNotification, result));
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "Clock skew check failed");
         }
     }
 }

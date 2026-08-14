@@ -66,10 +66,17 @@ public sealed class AppSettings
     public bool AllowOsFolderBrowse { get; set; } = true;
     /// Milliseconds to wait after Abort before killing the OpenTAP worker (clamped 1000–120000).
     public int OpenTapWorkerKillTimeoutMilliseconds { get; set; } = DefaultOpenTapWorkerKillTimeoutMilliseconds;
+    /// Soft-warn when |local − NTP| or a backward last-known-good jump exceeds this many minutes.
+    public int ClockSkewWarnThresholdMinutes { get; set; } = DefaultClockSkewWarnThresholdMinutes;
+    /// Optional local NTP / domain time host. Empty skips the NTP query (last-known-good only).
+    public string NtpHost { get; set; } = string.Empty;
 
     public const int DefaultOpenTapWorkerKillTimeoutMilliseconds = 8000;
     public const int MinOpenTapWorkerKillTimeoutMilliseconds = 1000;
     public const int MaxOpenTapWorkerKillTimeoutMilliseconds = 120_000;
+    public const int DefaultClockSkewWarnThresholdMinutes = 5;
+    public const int MinClockSkewWarnThresholdMinutes = 1;
+    public const int MaxClockSkewWarnThresholdMinutes = 1440;
 }
 
 /// Named VISA instrument entry in the persisted registry (legacy; Instruments UI no longer edits this).

@@ -21,6 +21,7 @@ Crash dossiers (writer, ring sink, redaction, dangling-run reconciliation) live 
 Local CI tasks, coverage floors (TypeScript), and container rails — see [containers.md](containers.md) and [phase-7-containers-local-ci.md](platform-phases/phase-7-containers-local-ci.md).
 Session contract tests (`HardwareTest.Session.Contracts`) run against both real and fake `IOpenTapSession` via the host and ViewModel suites — see [phase-8-session-contract-tests.md](platform-phases/phase-8-session-contract-tests.md).
 Export targets, run retention, and free-space gates live in Core tests under `Storage/` — see [phase-10-export-storage-chrome.md](platform-phases/phase-10-export-storage-chrome.md).
+Idle/stale and retention must use an injected `IClock` (`FakeClock` in tests), not `DateTimeOffset.UtcNow`. Clock-skew detector tests live under `Time/` — see [phase-25-clock-discipline.md](platform-phases/phase-25-clock-discipline.md).
 
 ## When to add which test
 
@@ -30,7 +31,7 @@ Put an assertion in `OpenTapSessionContractTests` only when it must hold for **b
 
 ### Architecture (layering smoke)
 
-Put a rule here only when it is a short, stable layering claim already written in README / platform docs (e.g. "Core must not reference Avalonia"). Failure messages must name the rule and the doc. Behavioral coverage (plan runs, ViewModel flow, E2E) stays in the suites below — see [phase-2-architecture-tests.md](platform-phases/phase-2-architecture-tests.md). Plugin VISA must go through Core `IVisaBroker`; `ArchitectureRulesTests.Plugin_source_must_not_use_Ivi_Visa` scans `Plugins.Basic` / `Plugins.Mixins` source and csproj — see [phase-22-visa-broker.md](platform-phases/phase-22-visa-broker.md). Pause/interaction must not be process-global statics; `ArchitectureRulesTests.StepRuntime_must_not_expose_static_pause_or_interaction` scans `src/` — see [phase-24-session-decomposition.md](platform-phases/phase-24-session-decomposition.md).
+Put a rule here only when it is a short, stable layering claim already written in README / platform docs (e.g. "Core must not reference Avalonia"). Failure messages must name the rule and the doc. Behavioral coverage (plan runs, ViewModel flow, E2E) stays in the suites below — see [phase-2-architecture-tests.md](platform-phases/phase-2-architecture-tests.md). Plugin VISA must go through Core `IVisaBroker`; `ArchitectureRulesTests.Plugin_source_must_not_use_Ivi_Visa` scans `Plugins.Basic` / `Plugins.Mixins` source and csproj — see [phase-22-visa-broker.md](platform-phases/phase-22-visa-broker.md). Pause/interaction must not be process-global statics; `ArchitectureRulesTests.StepRuntime_must_not_expose_static_pause_or_interaction` scans `src/` — see [phase-24-session-decomposition.md](platform-phases/phase-24-session-decomposition.md). Idle/retention/run-complete production paths must not call `DateTime.UtcNow` / `DateTimeOffset.UtcNow`; Safety Stop / worker kill must not wait on NTP — `ArchitectureRulesTests.Idle_retention_and_run_complete_must_not_use_wall_clock_UtcNow` and `Safety_stop_and_worker_kill_must_not_wait_on_NTP` — see [phase-25-clock-discipline.md](platform-phases/phase-25-clock-discipline.md).
 
 ### UI / board (ViewModels)
 

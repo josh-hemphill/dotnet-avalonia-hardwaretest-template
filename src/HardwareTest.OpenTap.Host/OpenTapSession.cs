@@ -3,6 +3,7 @@ using System.Runtime.CompilerServices;
 using HardwareTest.Core.Hardware;
 using HardwareTest.Core.Runs;
 using HardwareTest.Core.Settings;
+using HardwareTest.Core.Time;
 using HardwareTest.OpenTap.Plugins.Basic;
 using OpenTap;
 using Serilog;
@@ -29,6 +30,7 @@ public sealed partial class OpenTapSession : IOpenTapSession, INotifyPropertyCha
     private List<StoredSample> _lastSamples = [];
     private readonly IBenchOperationCoordinator? _bench;
     private readonly bool _cancelExecuteWithToken;
+    private readonly IClock _clock;
     /// 0 = idle, 1 = a run holds the single-flight gate.
     private int _runGate;
     private OpenTapRunContext? _activeContext;
@@ -44,12 +46,14 @@ public sealed partial class OpenTapSession : IOpenTapSession, INotifyPropertyCha
         ILogger? logger = null,
         IVisaBroker? visaBroker = null,
         IBenchOperationCoordinator? bench = null,
-        bool cancelExecuteWithToken = false)
+        bool cancelExecuteWithToken = false,
+        IClock? clock = null)
     {
         _settings = settings ?? new AppSettings();
         _logger = logger ?? Serilog.Log.ForContext<OpenTapSession>();
         _bench = bench;
         _cancelExecuteWithToken = cancelExecuteWithToken;
+        _clock = clock ?? SystemClock.Instance;
         _catalog = new OpenTapHostCatalog(_settings, _logger, visaBroker);
     }
 
@@ -336,7 +340,7 @@ public sealed partial class OpenTapSession : IOpenTapSession, INotifyPropertyCha
             }
 
             OpenTapStepTree.ResetLiveState(_stepTree, resetStepIds);
-            context = new OpenTapRunContext(_settings, _logger, _cancelExecuteWithToken);
+            context = new OpenTapRunContext(_settings, _logger, _cancelExecuteWithToken, _clock);
             _activeContext = context;
             // Begin CTS before releasing the lock so Abort in the worker IPC loop cannot
             // miss the run token. Apply live pause here (not a snapshot into BeginRun).

@@ -46,6 +46,15 @@ Windows primary smoke (CI `publish-win`):
 dotnet publish src/HardwareTest -c Release -r win-x64 --self-contained -p:PublishAot=false
 ```
 
+## Time sync
+
+Sealed benches must run a local time-sync unit so idle/stale, run ordering, and retention stay trustworthy. The app **detects and warns**; it does not write the RTC.
+
+- **Linux:** `chrony` (preferred) or `systemd-timesyncd`, pointed at the site NTP / domain time server. Enable and start the unit in the image (for example `chronyd.service` or `systemd-timesyncd.service`).
+- **Windows:** `w32time` (Windows Time) against the domain or a local NTP host.
+- Optional app-level check: set `NtpHost` / `HARDWARETEST_NTP_HOST` to the same local server. Empty skips NTP and uses `{DataDirectory}/clock-last-good.json` (backward-jump detection only). Timeout is 500ms; **Safety Stop never waits on NTP**.
+- Skew above `ClockSkewWarnThresholdMinutes` (default 5) shows on the shell strip and does not block Run.
+
 ## Smoke checklist
 
 1. Confirm DUT serial on Run (sticky session strip).

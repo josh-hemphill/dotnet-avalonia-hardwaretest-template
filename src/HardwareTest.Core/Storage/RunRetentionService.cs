@@ -2,6 +2,7 @@ using System.Text.Json;
 using HardwareTest.Core.Runs;
 using HardwareTest.Core.Serialization;
 using HardwareTest.Core.Settings;
+using HardwareTest.Core.Time;
 using Serilog;
 
 namespace HardwareTest.Core.Storage;
@@ -25,18 +26,18 @@ public sealed class RunRetentionService : IRunRetentionService
     private readonly AppSettings _settings;
     private readonly string _runsDirectory;
     private readonly ILogger? _log;
-    private readonly Func<DateTimeOffset> _utcNow;
+    private readonly IClock _clock;
 
     public RunRetentionService(
         AppSettings settings,
         string runsDirectory,
         ILogger? log = null,
-        Func<DateTimeOffset>? utcNow = null)
+        IClock? clock = null)
     {
         _settings = settings;
         _runsDirectory = runsDirectory;
         _log = log;
-        _utcNow = utcNow ?? (() => DateTimeOffset.UtcNow);
+        _clock = clock ?? SystemClock.Instance;
     }
 
     public RunRetentionResult Prune(bool dryRun = false)
@@ -51,7 +52,7 @@ public sealed class RunRetentionService : IRunRetentionService
 
         var toDelete = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var skipped = new List<string>();
-        var now = _utcNow();
+        var now = _clock.UtcNow;
         var maxAgeDays = Math.Max(0, _settings.RunRetentionDays);
         var maxCount = Math.Max(0, _settings.RunRetentionMaxRuns);
 

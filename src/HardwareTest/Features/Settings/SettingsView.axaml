@@ -190,6 +190,31 @@
 
         <Separator Margin="0,8" />
 
+        <TextBlock Text="Clock" Classes="settings-h2"
+                   AutomationProperties.HeadingLevel="2" />
+        <TextBlock Text="Idle, retention, and run timestamps use an injected clock. Skew above the threshold warns on the shell strip and does not block Run."
+                   TextWrapping="Wrap"
+                   Opacity="0.8" />
+        <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
+          <TextBlock x:Name="ClockSkewLabel" Text="Clock skew warn (minutes)" VerticalAlignment="Center"
+                     ToolTip.Tip="Warn when the local clock differs from NTP, or jumps backward vs last-known-good, by more than this many minutes. Default 5." />
+          <TextBox Grid.Column="1" Text="{Binding ClockSkewWarnThresholdMinutes}"
+                   IsReadOnly="{Binding ClockSkewWarnThresholdMinutesReadOnly}"
+                   AutomationProperties.LabeledBy="{Binding #ClockSkewLabel}"
+                   AutomationProperties.Name="Clock skew warn (minutes)" />
+        </Grid>
+        <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
+          <TextBlock x:Name="NtpHostLabel" Text="NTP host (optional)" VerticalAlignment="Center"
+                     ToolTip.Tip="Local NTP or domain time host. Empty skips the NTP query and uses last-known-good only. Safety Stop never waits on NTP." />
+          <TextBox Grid.Column="1" Text="{Binding NtpHost}"
+                   IsReadOnly="{Binding NtpHostReadOnly}"
+                   PlaceholderText="Empty = last-known-good only"
+                   AutomationProperties.LabeledBy="{Binding #NtpHostLabel}"
+                   AutomationProperties.Name="NTP host (optional)" />
+        </Grid>
+
+        <Separator Margin="0,8" />
+
         <TextBlock Text="About" Classes="settings-h2"
                    AutomationProperties.HeadingLevel="2" />
         <TextBlock Text="What is running on this bench (build-stamped version, runtime, OpenTAP engine)."
