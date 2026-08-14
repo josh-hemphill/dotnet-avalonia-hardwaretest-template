@@ -542,6 +542,9 @@ public sealed class SettingsStore : ISettingsStore
         target.DataFreeSpaceWarnBytes = source.DataFreeSpaceWarnBytes;
         target.DataFreeSpaceCriticalBytes = source.DataFreeSpaceCriticalBytes;
         target.AllowOsFolderBrowse = source.AllowOsFolderBrowse;
+        target.OpenTapWorkerKillTimeoutMilliseconds = source.OpenTapWorkerKillTimeoutMilliseconds;
+        target.ClockSkewWarnThresholdMinutes = source.ClockSkewWarnThresholdMinutes;
+        target.NtpHost = source.NtpHost;
     }
 
     /// Copies UI state fields onto <paramref name="target"/> without replacing its identity.

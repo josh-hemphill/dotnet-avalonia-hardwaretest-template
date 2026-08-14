@@ -1,6 +1,7 @@
 using HardwareTest.Core.IO;
 using HardwareTest.Core.Runs;
 using HardwareTest.Core.Settings;
+using HardwareTest.Core.Time;
 using HardwareTest.OpenTap.Plugins.Basic;
 using OpenTap;
 using Serilog;
@@ -19,16 +20,19 @@ public sealed class OpenTapRunContext : IStepRuntime, IDisposable
     private readonly AppSettings _settings;
     private readonly ILogger _logger;
     private readonly bool _cancelExecuteWithToken;
+    private readonly IClock _clock;
     private IProgress<OpenTapProgress>? _progress;
 
     public OpenTapRunContext(
         AppSettings settings,
         ILogger logger,
-        bool cancelExecuteWithToken = false)
+        bool cancelExecuteWithToken = false,
+        IClock? clock = null)
     {
         _settings = settings;
         _logger = logger;
         _cancelExecuteWithToken = cancelExecuteWithToken;
+        _clock = clock ?? SystemClock.Instance;
         _control.OperatorStateChanged += () => OperatorStateChanged?.Invoke();
     }
 
@@ -89,7 +93,7 @@ public sealed class OpenTapRunContext : IStepRuntime, IDisposable
         _stepStarted.Clear();
         _control.BeginRun(cancellationToken);
 
-        var started = DateTimeOffset.UtcNow;
+        var started = _clock.UtcNow;
         runId = string.IsNullOrWhiteSpace(runId) ? Guid.NewGuid().ToString("N") : runId.Trim();
         progress?.Report(new OpenTapProgress { Message = $"Starting '{planDisplayName ?? plan.Name}'", OverallPercent = 0 });
 
@@ -102,7 +106,8 @@ public sealed class OpenTapRunContext : IStepRuntime, IDisposable
                 _stepStarted,
                 updateNode,
                 resolvePath,
-                plan);
+                plan,
+                _clock);
             OpenTapFileResultExportListener? exportListener = null;
             if (_settings.ExportOpenTapResults)
             {
@@ -258,7 +263,7 @@ public sealed class OpenTapRunContext : IStepRuntime, IDisposable
             DutPartNumber = dutIdentity?.PartNumber ?? dut?.PartNumber,
             DutRevision = dutIdentity?.Revision ?? dut?.Revision,
             StartedAt = started,
-            CompletedAt = DateTimeOffset.UtcNow,
+            CompletedAt = _clock.UtcNow,
             Samples = _samples.ToList(),
             Steps = _steps.ToList(),
             Verdict = verdict,

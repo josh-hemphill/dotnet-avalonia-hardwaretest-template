@@ -10,6 +10,7 @@ using HardwareTest.Core.Diagnostics;
 using HardwareTest.Core.Engine;
 using HardwareTest.Core.Hardware;
 using HardwareTest.Core.Settings;
+using HardwareTest.Core.Time;
 using HardwareTest.OpenTap.Host;
 using HardwareTest.UiThreading;
 using ReactiveUI;
@@ -75,6 +76,11 @@ public partial class SettingsViewModel : ReactiveObject
         RequireDutConfirmEveryRun = s.RequireDutConfirmEveryRun;
         RunRetentionDays = s.RunRetentionDays;
         RunRetentionMaxRuns = s.RunRetentionMaxRuns;
+        ClockSkewWarnThresholdMinutes = ClockSkew.ClampThresholdMinutes(
+            s.ClockSkewWarnThresholdMinutes > 0
+                ? s.ClockSkewWarnThresholdMinutes
+                : AppSettings.DefaultClockSkewWarnThresholdMinutes);
+        NtpHost = s.NtpHost ?? string.Empty;
         ExportDirectory = s.ExportDirectory ?? string.Empty;
         DataFreeSpaceWarnGb = BytesToGb(s.DataFreeSpaceWarnBytes);
         DataFreeSpaceCriticalGb = BytesToGb(s.DataFreeSpaceCriticalBytes);
@@ -116,6 +122,9 @@ public partial class SettingsViewModel : ReactiveObject
             settingsStore.IsOverridden(nameof(AppSettings.RequireDutConfirmEveryRun));
         RunRetentionDaysReadOnly = settingsStore.IsOverridden(nameof(AppSettings.RunRetentionDays));
         RunRetentionMaxRunsReadOnly = settingsStore.IsOverridden(nameof(AppSettings.RunRetentionMaxRuns));
+        ClockSkewWarnThresholdMinutesReadOnly =
+            settingsStore.IsOverridden(nameof(AppSettings.ClockSkewWarnThresholdMinutes));
+        NtpHostReadOnly = settingsStore.IsOverridden(nameof(AppSettings.NtpHost));
         ExportDirectoryReadOnly = settingsStore.IsOverridden(nameof(AppSettings.ExportDirectory));
         DataFreeSpaceWarnGbReadOnly = settingsStore.IsOverridden(nameof(AppSettings.DataFreeSpaceWarnBytes));
         DataFreeSpaceCriticalGbReadOnly = settingsStore.IsOverridden(nameof(AppSettings.DataFreeSpaceCriticalBytes));
@@ -174,6 +183,7 @@ public partial class SettingsViewModel : ReactiveObject
                 or nameof(OperatorSessionIdleWarnPercentReadOnly)
                 or nameof(RequireDutConfirmEveryRunReadOnly)
                 or nameof(RunRetentionDaysReadOnly) or nameof(RunRetentionMaxRunsReadOnly)
+                or nameof(ClockSkewWarnThresholdMinutesReadOnly) or nameof(NtpHostReadOnly)
                 or nameof(ExportDirectoryReadOnly)
                 or nameof(DataFreeSpaceWarnGbReadOnly) or nameof(DataFreeSpaceCriticalGbReadOnly))
             {
@@ -263,6 +273,8 @@ public partial class SettingsViewModel : ReactiveObject
     [Reactive] private bool _requireDutConfirmEveryRun;
     [Reactive] private int _runRetentionDays = 30;
     [Reactive] private int _runRetentionMaxRuns = 500;
+    [Reactive] private int _clockSkewWarnThresholdMinutes = AppSettings.DefaultClockSkewWarnThresholdMinutes;
+    [Reactive] private string _ntpHost = string.Empty;
     [Reactive] private string _exportDirectory = string.Empty;
     [Reactive] private double _dataFreeSpaceWarnGb = 2;
     [Reactive] private double _dataFreeSpaceCriticalGb = 0.5;
@@ -288,6 +300,8 @@ public partial class SettingsViewModel : ReactiveObject
     [Reactive] private bool _requireDutConfirmEveryRunReadOnly;
     [Reactive] private bool _runRetentionDaysReadOnly;
     [Reactive] private bool _runRetentionMaxRunsReadOnly;
+    [Reactive] private bool _clockSkewWarnThresholdMinutesReadOnly;
+    [Reactive] private bool _ntpHostReadOnly;
     [Reactive] private bool _exportDirectoryReadOnly;
     [Reactive] private bool _dataFreeSpaceWarnGbReadOnly;
     [Reactive] private bool _dataFreeSpaceCriticalGbReadOnly;

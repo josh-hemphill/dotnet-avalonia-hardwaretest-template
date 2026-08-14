@@ -6,6 +6,7 @@ using HardwareTest.Core.Engine;
 using HardwareTest.Core.Hardware;
 using HardwareTest.Core.Runs;
 using HardwareTest.Core.Settings;
+using HardwareTest.Core.Time;
 using HardwareTest.OpenTap.Plugins.Basic;
 using Serilog;
 using ILogger = Serilog.ILogger;
@@ -21,6 +22,7 @@ public sealed class OpenTapWorkerClient : IOpenTapSession, INotifyPropertyChange
     private readonly IBenchOperationCoordinator? _bench;
     private readonly CrashDossierWriter? _crashWriter;
     private readonly BuildInfo? _buildInfo;
+    private readonly IClock _clock;
     private readonly TimeSpan _killTimeout;
     private readonly OpenTapWorkerProcess _process;
     private List<OpenTapStepNode> _stepTree = [];
@@ -41,7 +43,8 @@ public sealed class OpenTapWorkerClient : IOpenTapSession, INotifyPropertyChange
         CrashDossierWriter? crashWriter = null,
         BuildInfo? buildInfo = null,
         TimeSpan? killTimeout = null,
-        string? executablePath = null)
+        string? executablePath = null,
+        IClock? clock = null)
     {
         _settings = settings;
         _logger = logger ?? Log.ForContext<OpenTapWorkerClient>();
@@ -49,6 +52,7 @@ public sealed class OpenTapWorkerClient : IOpenTapSession, INotifyPropertyChange
         _bench = bench;
         _crashWriter = crashWriter;
         _buildInfo = buildInfo;
+        _clock = clock ?? SystemClock.Instance;
         _killTimeout = killTimeout is { } overrideTimeout && overrideTimeout > TimeSpan.Zero
             ? overrideTimeout
             : TimeSpan.FromMilliseconds(Math.Clamp(
@@ -654,15 +658,15 @@ public sealed class OpenTapWorkerClient : IOpenTapSession, INotifyPropertyChange
         }
     }
 
-    private static OpenTapRunSummary CancelledSummary(string message)
+    private OpenTapRunSummary CancelledSummary(string message)
         => new()
         {
             RunId = string.Empty,
             PlanName = string.Empty,
             Result = RunResult.Cancelled,
             ErrorMessage = message,
-            StartedAt = DateTimeOffset.UtcNow,
-            CompletedAt = DateTimeOffset.UtcNow,
+            StartedAt = _clock.UtcNow,
+            CompletedAt = _clock.UtcNow,
             Verdict = "Aborted",
         };
 

@@ -1,4 +1,5 @@
 using HardwareTest.Core.Runs;
+using HardwareTest.Core.Time;
 using Serilog;
 
 namespace HardwareTest.Core.Crash;
@@ -9,10 +10,12 @@ public sealed class DanglingRunReconciler
     public const string ProcessInterruptedReason = "ProcessInterrupted";
 
     private readonly IRunStore _runStore;
+    private readonly IClock _clock;
 
-    public DanglingRunReconciler(IRunStore runStore)
+    public DanglingRunReconciler(IRunStore runStore, IClock? clock = null)
     {
         _runStore = runStore;
+        _clock = clock ?? SystemClock.Instance;
     }
 
     public async Task<int> ReconcileAsync(
@@ -61,7 +64,7 @@ public sealed class DanglingRunReconciler
             }
 
             run.Result = RunResult.Cancelled;
-            run.CompletedAt = DateTimeOffset.UtcNow;
+            run.CompletedAt = _clock.UtcNow;
             var reason = ProcessInterruptedReason;
             if (!string.IsNullOrWhiteSpace(correlatedCrashDossierId))
             {
@@ -88,7 +91,7 @@ public sealed class DanglingRunReconciler
     }
 
     /// Picks the newest crash dossier id under crashRoot (folder name suffix after last '-').
-    public static string? TryCorrelateNewestDossierId(string? crashRoot, TimeSpan maxAge)
+    public static string? TryCorrelateNewestDossierId(string? crashRoot, TimeSpan maxAge, IClock? clock = null)
     {
         try
         {
@@ -106,8 +109,9 @@ public sealed class DanglingRunReconciler
                 return null;
             }
 
-            if (DateTime.UtcNow - newest.CreationTimeUtc > maxAge
-                && DateTime.UtcNow - newest.LastWriteTimeUtc > maxAge)
+            var now = (clock ?? SystemClock.Instance).UtcNow.UtcDateTime;
+            if (now - newest.CreationTimeUtc > maxAge
+                && now - newest.LastWriteTimeUtc > maxAge)
             {
                 return null;
             }

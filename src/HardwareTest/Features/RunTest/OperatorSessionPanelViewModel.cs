@@ -1,6 +1,7 @@
 using System;
 using System.Globalization;
 using HardwareTest.Core.Settings;
+using HardwareTest.Core.Time;
 using HardwareTest.OpenTap.Host;
 using HardwareTest.UiThreading;
 using ReactiveUI;
@@ -16,6 +17,7 @@ public partial class OperatorSessionPanelViewModel : ReactiveObject
     private readonly Action<string> _setStatus;
     private readonly Func<ProgramItemViewModel?> _getSelectedProgram;
     private readonly Action _onSessionCleared;
+    private readonly IClock _clock;
     private readonly System.Timers.Timer _idleTimer;
 
     /// Test seam: routes idle-timer UI work synchronously instead of through the Avalonia dispatcher.
@@ -26,13 +28,15 @@ public partial class OperatorSessionPanelViewModel : ReactiveObject
         AppSettings settings,
         Action<string> setStatus,
         Func<ProgramItemViewModel?>? getSelectedProgram = null,
-        Action? onSessionCleared = null)
+        Action? onSessionCleared = null,
+        IClock? clock = null)
     {
         _session = session;
         _settings = settings;
         _setStatus = setStatus;
         _getSelectedProgram = getSelectedProgram ?? (() => null);
         _onSessionCleared = onSessionCleared ?? (() => { });
+        _clock = clock ?? SystemClock.Instance;
 
         ConfirmSessionCommand = ReactiveCommand.Create(ConfirmSession);
         ConfirmSameDutCommand = ReactiveCommand.Create(ConfirmSameDut);
@@ -344,9 +348,9 @@ public partial class OperatorSessionPanelViewModel : ReactiveObject
         this.RaisePropertyChanged(nameof(HasOperatorError));
     }
 
-    private static string FormatRelative(DateTimeOffset when)
+    private string FormatRelative(DateTimeOffset when)
     {
-        var delta = DateTimeOffset.UtcNow - when;
+        var delta = _clock.UtcNow - when;
         if (delta < TimeSpan.FromMinutes(1))
         {
             return "just now";
