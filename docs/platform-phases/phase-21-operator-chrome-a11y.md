@@ -2,7 +2,7 @@
 
 **Parent:** [platform-roadmap.md](../platform-roadmap.md)
 **Depends on:** [Phase 18](phase-18-operator-touch-density.md), [Phase 19](phase-19-immediate-correctness.md) (Stop Run copy, chip contrast, Settings names)
-**Status:** Planned
+**Status:** Done
 **Also absorbs:** Round-3 R3-12 (Run density, compact tooltips, live regions)
 
 ## Goal
@@ -48,12 +48,12 @@ Phase 18 raised hit targets. Phase 19 fixed chip contrast and Settings control n
 
 ## Exit criteria
 
-- [ ] Run operational text meets the documented type floor on Light and Dark
-- [ ] Compact Pause/Stop meaning is available without hover
-- [ ] Status / strip / interaction changes are live-region backed
-- [ ] Settings sections are headings in the automation tree
-- [ ] Phase 18 touch floors and Phase 19 contrast/names do not regress
-- [ ] ViewModels + E2E green
+- [x] Run operational text meets the documented type floor on Light and Dark
+- [x] Compact Pause/Stop meaning is available without hover
+- [x] Status / strip / interaction changes are live-region backed
+- [x] Settings sections are headings in the automation tree
+- [x] Phase 18 touch floors and Phase 19 contrast/names do not regress
+- [x] ViewModels + E2E green
 
 ## Out of scope
 
@@ -62,7 +62,15 @@ Phase 18 raised hit targets. Phase 19 fixed chip contrast and Settings control n
 - systemd / Cage / Weston image bake
 - Changing Safety Stop into a real interlock ([Phase 23](phase-23-safety-opentap-worker.md))
 
+## Landed
+
+- `OperatorTouchDensity.OperationalFontSize` is 12px; Run chips/steps/hero secondary and compact captions bind to it (`TextBlock.op-type` in `App.axaml`).
+- Compact-nav Pause/Stop keep 48×48 targets and show `PauseResumeLabel` / `SafetyStopLabel` plus a one-line `CompactControlStatus` (ellipsis, never the full operator prompt).
+- Shell notification strip is a polite live region; Run status is polite unless Stop / operator prompt (assertive). Interaction host is assertive. Hero status is not a live region.
+- Settings keeps one page; Theme / Engineer / Storage / About / Diagnostics / OpenTAP packages are `HeadingLevel` 2. Data directory sits above Theme so it is not a theme control.
+
 ## Related
 
 - [phase-18-operator-touch-density.md](phase-18-operator-touch-density.md)
+- [phase-19-immediate-correctness.md](phase-19-immediate-correctness.md)
 - [phase-17-shell-notification-strip.md](phase-17-shell-notification-strip.md)

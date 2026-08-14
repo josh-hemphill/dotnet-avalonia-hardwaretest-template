@@ -8,7 +8,7 @@
 
 Turn the portable `linux-x64` publish into a **sealed appliance image**: kiosk session, systemd/quadlet units, read-only app + writable data partition, offline plugin bake.
 
-**Prerequisite UI (scheduled, not deferred):** [Phase 17](../platform-phases/phase-17-shell-notification-strip.md) reserved notification strip + [Phase 18](../platform-phases/phase-18-operator-touch-density.md) operator hit-target floor. This deferred plan assumes those land first; it does **not** re-litigate density or banner placement.
+**Prerequisite UI (scheduled, not deferred):** [Phase 17](../platform-phases/phase-17-shell-notification-strip.md) reserved notification strip + [Phase 18](../platform-phases/phase-18-operator-touch-density.md) operator hit-target floor + [Phase 21](../platform-phases/phase-21-operator-chrome-a11y.md) operator type scale, compact Pause/Stop labels, live regions, and Settings headings (not full Narrator certification). This deferred plan assumes those land first; it does **not** re-litigate density or banner placement.
 
 ## Locked decisions
 
@@ -45,3 +45,4 @@ Turn the portable `linux-x64` publish into a **sealed appliance image**: kiosk s
 - Hardware readiness gates for mock vs real VISA on the target bench
 - [Phase 17](../platform-phases/phase-17-shell-notification-strip.md) shell notification strip (Done)
 - [Phase 18](../platform-phases/phase-18-operator-touch-density.md) touch density floor (Done)
+- [Phase 21](../platform-phases/phase-21-operator-chrome-a11y.md) operator chrome & live regions (Done — not Narrator certification)

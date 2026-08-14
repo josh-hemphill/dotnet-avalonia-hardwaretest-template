@@ -126,7 +126,7 @@
               <TextBlock Text="{Binding SessionPanel.DutSerialError}"
                          IsVisible="{Binding SessionPanel.HasDutSerialError}"
                          Foreground="#C62828"
-                         FontSize="11"
+                         FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}"
                          TextWrapping="Wrap" />
             </StackPanel>
             <TextBox PlaceholderText="Part number" Text="{Binding SessionPanel.DutPartInput}"
@@ -142,7 +142,7 @@
               <TextBlock Text="{Binding SessionPanel.OperatorError}"
                          IsVisible="{Binding SessionPanel.HasOperatorError}"
                          Foreground="#C62828"
-                         FontSize="11"
+                         FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}"
                          TextWrapping="Wrap" />
             </StackPanel>
             <Button Content="Confirm Session" Command="{Binding SessionPanel.ConfirmSessionCommand}"
@@ -166,7 +166,7 @@
                        TextTrimming="CharacterEllipsis" />
             <TextBlock Text="{Binding SessionPanel.IdleCountdownText}"
                        IsVisible="{Binding SessionPanel.ShowIdleCountdown}"
-                       FontSize="11"
+                       FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}"
                        Opacity="0.75"
                        TextWrapping="NoWrap"
                        TextTrimming="CharacterEllipsis" />
@@ -190,26 +190,26 @@
                       Padding="8,2"
                       VerticalAlignment="Center"
                       Background="{Binding HeroChipText, Converter={x:Static vm:ChipBrushConverter.Instance}}">
-                <TextBlock Text="{Binding HeroChipText}" FontSize="11" FontWeight="SemiBold" Foreground="White" />
+                <TextBlock Text="{Binding HeroChipText}" FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}" FontWeight="SemiBold" Foreground="White" />
               </Border>
               <Button Content="Jump to current" Command="{Binding StepTree.JumpToCurrentCommand}"
-                      IsVisible="{Binding IsRunning}" FontSize="11" Padding="6,2" />
+                      IsVisible="{Binding IsRunning}" FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}" Padding="6,2" />
             </StackPanel>
             <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,0,0,2" VerticalAlignment="Center">
               <Button Content="{Binding StepTree.BreadcrumbText}"
                       Command="{Binding StepTree.ClearSubsectionCommand}"
-                      FontSize="11"
+                      FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}"
                       Padding="4,2" />
               <TextBlock Text="{Binding StepTree.BreadcrumbDetailText}"
                          Opacity="0.75"
-                         FontSize="11"
+                         FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}"
                          VerticalAlignment="Center" />
             </StackPanel>
           </WrapPanel>
           <TextBlock Text="{Binding HeroStatusLine}"
                      Opacity="0.85"
                      TextWrapping="Wrap"
-                     FontSize="11"
+                     FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}"
                      IsVisible="{Binding !Interaction.IsAwaitingOperator}" />
           <Border MaxHeight="200"
                   IsVisible="{Binding Interaction.IsAwaitingOperator}"
@@ -217,7 +217,9 @@
                   BorderThickness="2"
                   CornerRadius="4"
                   Padding="8"
-                  Margin="0,4,0,0">
+                  Margin="0,4,0,0"
+                  AutomationProperties.LiveSetting="Assertive"
+                  AutomationProperties.Name="Operator prompt">
             <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
             <StackPanel Spacing="6">
               <TextBlock Text="{Binding Interaction.InteractionTitle}"
@@ -227,7 +229,7 @@
                 <Button DockPanel.Dock="Right"
                         Content="Show this step"
                         Command="{Binding StepTree.JumpToCurrentCommand}"
-                        FontSize="11"
+                        FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}"
                         Padding="8,2"
                         Margin="8,0,0,0"
                         VerticalAlignment="Center"
@@ -318,7 +320,7 @@
         <StackPanel Orientation="Horizontal" Spacing="6">
           <TextBlock Text="Show"
                      Opacity="0.65"
-                     FontSize="11"
+                     FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}"
                      VerticalAlignment="Center"
                      Margin="2,0,4,0" />
           <ToggleButton Classes="filter-chip" Content="All"
@@ -352,12 +354,12 @@
                   IsVisible="{Binding StepTree.IsFilteredToFail}">
             <StackPanel Orientation="Horizontal" Spacing="6">
               <TextBlock Text="Showing Fail only"
-                         FontSize="11"
+                         FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}"
                          FontWeight="SemiBold"
                          VerticalAlignment="Center" />
               <Button Content="Clear"
                       Command="{Binding StepTree.ClearFailFilterCommand}"
-                      FontSize="10"
+                      FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}"
                       Padding="6,1"
                       VerticalAlignment="Center"
                       ToolTip.Tip="Clear fail filter — show all steps" />
@@ -386,7 +388,7 @@
             <Setter Property="MinHeight" Value="{x:Static shell:OperatorTouchDensity.OperatorControlMinHeight}" />
           </Style>
           <Style Selector="ListBox.compact TextBlock">
-            <Setter Property="FontSize" Value="11" />
+            <Setter Property="FontSize" Value="{x:Static shell:OperatorTouchDensity.OperationalFontSize}" />
           </Style>
         </ListBox.Styles>
         <ListBox.ItemTemplate>
@@ -407,7 +409,7 @@
                           Opacity="0.85" />
                   <TextBlock Text="{Binding DisplayName}"
                              FontWeight="SemiBold"
-                             FontSize="11"
+                             FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}"
                              Opacity="0.78"
                              VerticalAlignment="Center"
                              TextTrimming="CharacterEllipsis" />
@@ -421,11 +423,11 @@
                         Padding="8,2"
                         VerticalAlignment="Center"
                         Background="{Binding Step.ChipText, Converter={x:Static vm:ChipBrushConverter.Instance}}">
-                  <TextBlock Text="{Binding Step.ChipText}" FontSize="11" FontWeight="SemiBold" Foreground="White" />
+                  <TextBlock Text="{Binding Step.ChipText}" FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}" FontWeight="SemiBold" Foreground="White" />
                 </Border>
-                <TextBlock Grid.Column="2" Text="{Binding Step.KeyValue}" Opacity="0.8" FontSize="11"
+                <TextBlock Grid.Column="2" Text="{Binding Step.KeyValue}" Opacity="0.8" FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}"
                            VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-                <TextBlock Grid.Column="3" Text="{Binding Step.AttemptsText}" FontWeight="SemiBold" FontSize="11"
+                <TextBlock Grid.Column="3" Text="{Binding Step.AttemptsText}" FontWeight="SemiBold" FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}"
                            VerticalAlignment="Center" />
               </Grid>
             </Panel>
@@ -463,7 +465,7 @@
                          VerticalAlignment="Center" />
               <Button Content="Hide trend"
                       Command="{Binding Live.ToggleFocusTrendCommand}"
-                      FontSize="11"
+                      FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}"
                       Padding="8,2"
                       VerticalAlignment="Center" />
             </StackPanel>
@@ -490,12 +492,12 @@
                   <Button Content="Show trend"
                           Command="{Binding Live.ToggleFocusTrendCommand}"
                           IsVisible="{Binding Live.OfferShowTrend}"
-                          FontSize="11"
+                          FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}"
                           Padding="8,2"
                           ToolTip.Tip="{Binding Live.FocusTrendTip}" />
                   <TextBlock Text="{Binding Live.FocusTrendTip}"
                              Opacity="0.7"
-                             FontSize="11"
+                             FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}"
                              VerticalAlignment="Center"
                              IsVisible="{Binding Live.FocusTrendTip, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
                 </StackPanel>
@@ -525,7 +527,7 @@
                   </ItemsControl.ItemTemplate>
                 </ItemsControl>
                 <TextBlock Text="{Binding StepDetail.DetailStep.Path, StringFormat=Path: {0}}"
-                           FontSize="11"
+                           FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}"
                            Opacity="0.55"
                            TextWrapping="Wrap" />
                 <Border IsVisible="{Binding IsEngineerDebugMode}"

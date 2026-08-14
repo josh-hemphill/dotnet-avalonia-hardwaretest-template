@@ -33,32 +33,54 @@
       <!-- Compact buttons are full CompactPaneLength wide so glyphs share the same center as menu icons. -->
       <StackPanel Margin="0,8,0,12" Spacing="6" HorizontalAlignment="Stretch">
         <TextBlock Text="{Binding ControlStatus}"
-                   FontSize="12"
+                   FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}"
                    Margin="12,0"
                    TextTrimming="CharacterEllipsis"
                    Opacity="0.85"
+                   AutomationProperties.LiveSetting="{Binding ControlStatusLiveSetting}"
+                   AutomationProperties.Name="Run status"
                    IsVisible="{Binding IsNavPaneOpen}" />
+        <TextBlock Text="{Binding CompactControlStatus}"
+                   FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}"
+                   Margin="4,0"
+                   MaxWidth="{x:Static shell:OperatorTouchDensity.CompactNavTargetSize}"
+                   MaxLines="1"
+                   TextWrapping="NoWrap"
+                   TextTrimming="CharacterEllipsis"
+                   TextAlignment="Center"
+                   Opacity="0.85"
+                   AutomationProperties.LiveSetting="{Binding ControlStatusLiveSetting}"
+                   AutomationProperties.Name="Run status"
+                   IsVisible="{Binding !IsNavPaneOpen}" />
 
         <!-- Pause / Resume / Continue -->
-        <Button Command="{Binding PauseResumeCommand}"
-                Width="{x:Static shell:OperatorTouchDensity.CompactNavTargetSize}"
-                Height="{x:Static shell:OperatorTouchDensity.CompactNavTargetSize}"
-                Padding="0"
-                HorizontalAlignment="Center"
-                HorizontalContentAlignment="Center"
-                VerticalContentAlignment="Center"
-                IsEnabled="{Binding IsRunning}"
-                Classes.success="{Binding ShowContinueIcon}"
-                ToolTip.Tip="{Binding PauseResumeTip}"
-                AutomationProperties.Name="{Binding PauseResumeLabel}"
-                IsVisible="{Binding !IsNavPaneOpen}">
-          <ui:FASymbolIcon Symbol="{Binding PauseResumeSymbol}"
-                           FontSize="16"
-                           Width="16"
-                           Height="16"
-                           HorizontalAlignment="Center"
-                           VerticalAlignment="Center" />
-        </Button>
+        <StackPanel Spacing="2" HorizontalAlignment="Stretch" IsVisible="{Binding !IsNavPaneOpen}">
+          <Button Command="{Binding PauseResumeCommand}"
+                  Width="{x:Static shell:OperatorTouchDensity.CompactNavTargetSize}"
+                  Height="{x:Static shell:OperatorTouchDensity.CompactNavTargetSize}"
+                  Padding="0"
+                  HorizontalAlignment="Center"
+                  HorizontalContentAlignment="Center"
+                  VerticalContentAlignment="Center"
+                  IsEnabled="{Binding IsRunning}"
+                  Classes.success="{Binding ShowContinueIcon}"
+                  ToolTip.Tip="{Binding PauseResumeTip}"
+                  AutomationProperties.Name="{Binding PauseResumeLabel}">
+            <ui:FASymbolIcon Symbol="{Binding PauseResumeSymbol}"
+                             FontSize="16"
+                             Width="16"
+                             Height="16"
+                             HorizontalAlignment="Center"
+                             VerticalAlignment="Center" />
+          </Button>
+          <TextBlock Text="{Binding PauseResumeLabel}"
+                     FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}"
+                     TextAlignment="Center"
+                     TextWrapping="Wrap"
+                     Margin="2,0"
+                     MaxWidth="{x:Static shell:OperatorTouchDensity.CompactNavTargetSize}"
+                     IsHitTestVisible="False" />
+        </StackPanel>
         <Button Command="{Binding PauseResumeCommand}"
                 HorizontalAlignment="Stretch"
                 HorizontalContentAlignment="Center"
@@ -84,25 +106,33 @@
         </Button>
 
         <!-- Stop Run (cooperative software abort) -->
-        <Button Command="{Binding SafetyStopCommand}"
-                Width="{x:Static shell:OperatorTouchDensity.CompactNavTargetSize}"
-                Height="{x:Static shell:OperatorTouchDensity.CompactNavTargetSize}"
-                Padding="0"
-                HorizontalAlignment="Center"
-                HorizontalContentAlignment="Center"
-                VerticalContentAlignment="Center"
-                Classes="danger"
-                IsEnabled="{Binding IsRunning}"
-                ToolTip.Tip="{Binding SafetyStopTip}"
-                AutomationProperties.Name="{Binding SafetyStopLabel}"
-                IsVisible="{Binding !IsNavPaneOpen}">
-          <ui:FASymbolIcon Symbol="StopFilled"
-                           FontSize="16"
-                           Width="16"
-                           Height="16"
-                           HorizontalAlignment="Center"
-                           VerticalAlignment="Center" />
-        </Button>
+        <StackPanel Spacing="2" HorizontalAlignment="Stretch" IsVisible="{Binding !IsNavPaneOpen}">
+          <Button Command="{Binding SafetyStopCommand}"
+                  Width="{x:Static shell:OperatorTouchDensity.CompactNavTargetSize}"
+                  Height="{x:Static shell:OperatorTouchDensity.CompactNavTargetSize}"
+                  Padding="0"
+                  HorizontalAlignment="Center"
+                  HorizontalContentAlignment="Center"
+                  VerticalContentAlignment="Center"
+                  Classes="danger"
+                  IsEnabled="{Binding IsRunning}"
+                  ToolTip.Tip="{Binding SafetyStopTip}"
+                  AutomationProperties.Name="{Binding SafetyStopLabel}">
+            <ui:FASymbolIcon Symbol="StopFilled"
+                             FontSize="16"
+                             Width="16"
+                             Height="16"
+                             HorizontalAlignment="Center"
+                             VerticalAlignment="Center" />
+          </Button>
+          <TextBlock Text="{Binding SafetyStopLabel}"
+                     FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}"
+                     TextAlignment="Center"
+                     TextWrapping="Wrap"
+                     Margin="2,0"
+                     MaxWidth="{x:Static shell:OperatorTouchDensity.CompactNavTargetSize}"
+                     IsHitTestVisible="False" />
+        </StackPanel>
         <Button Command="{Binding SafetyStopCommand}"
                 HorizontalAlignment="Stretch"
                 HorizontalContentAlignment="Center"
@@ -159,7 +189,9 @@
                          Text="{Binding ShellNotification.Message}"
                          TextWrapping="Wrap"
                          VerticalAlignment="Center"
-                         FontWeight="SemiBold" />
+                         FontWeight="SemiBold"
+                         AutomationProperties.LiveSetting="Polite"
+                         AutomationProperties.Name="Shell notification" />
               <Button Grid.Column="2"
                       Content="{Binding ShellNotification.PrimaryLabel}"
                       Command="{Binding ShellNotification.PrimaryCommand}"
