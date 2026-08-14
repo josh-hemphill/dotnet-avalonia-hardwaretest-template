@@ -3,7 +3,7 @@
 **Parent:** [platform-roadmap.md](../platform-roadmap.md)
 **Depends on:** [Phase 19](phase-19-immediate-correctness.md) (format gate already points at `HardwareTest.slnx`)
 **Unblocks:** trustworthy release artifacts before unattended / LTS talk
-**Status:** Planned
+**Status:** Done
 **Also absorbs:** Round-2 CI follow-ups still open in [review-post-phase-15.md](review-post-phase-15.md#ci-and-supply-chain); round-3 R3-11
 
 ## Goal
@@ -32,7 +32,7 @@ Phase 1 made CI run. Phase 7 added Linux. The format gate was inert until Phase 
 
 - Enable lock files on all `.csproj` (or `Directory.Packages.props` + locks).
 - CI `dotnet restore --locked-mode`.
-- Document how to refresh locks after a package bump.
+- Document how to refresh locks after a package bump: `env -u CI dotnet restore dirs.proj --force-evaluate` (and the gen-sample-plan project). Commit every `packages.lock.json`. See [containers.md](../containers.md#nuget-lockfiles).
 
 ### B — Coverage split
 
@@ -59,13 +59,13 @@ Phase 1 made CI run. Phase 7 added Linux. The format gate was inert until Phase 
 
 ## Exit criteria
 
-- [ ] `packages.lock.json` exists and CI restore uses locked mode
-- [ ] Host tests do not load Coverlet; coverage floors still gate Core
-- [ ] Actions pinned by SHA; jobs have permissions, timeouts, concurrency
-- [ ] Informational version is reproducible for a given commit
-- [ ] Vulnerability scan runs in CI
-- [ ] Linux E2E is either blocking-green or explicitly advisory in the step name
-- [ ] Catalog assertion stays in sync with `tools/ci/main.ts`
+- [x] `packages.lock.json` exists and CI restore uses locked mode
+- [x] Host tests do not load Coverlet; coverage floors still gate Core
+- [x] Actions pinned by SHA; jobs have permissions, timeouts, concurrency
+- [x] Informational version is reproducible for a given commit
+- [x] Vulnerability scan runs in CI
+- [x] Linux E2E is either blocking-green or explicitly advisory in the step name
+- [x] Catalog assertion stays in sync with `tools/ci/main.ts`
 
 ## Out of scope
 
