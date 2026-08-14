@@ -1,16 +1,31 @@
 using System.Buffers.Binary;
+using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
 
 namespace HardwareTest.Core.Time;
 
-/// UDP/123 NTP query with a hard receive timeout. Never used from Safety Stop / worker kill.
+/// UDP/123 NTP query whose DNS + send + receive share one timeout budget. Never used from Safety Stop / worker kill.
 public sealed class UdpNtpTimeSource : INtpTimeSource
 {
     private const int NtpPort = 123;
     private const int PacketSize = 48;
     private const int TransmitTimestampOffset = 40;
     private const long NtpEpochOffsetSeconds = 2208988800L;
+
+    internal delegate bool NtpResolve(string host, TimeSpan timeout, out IPAddress address, out string? error);
+
+    private readonly NtpResolve _resolve;
+
+    public UdpNtpTimeSource()
+        : this(TryResolve)
+    {
+    }
+
+    internal UdpNtpTimeSource(NtpResolve resolve)
+    {
+        _resolve = resolve;
+    }
 
     public bool TryGetUtcNow(string host, TimeSpan timeout, out DateTimeOffset utc, out string? error)
     {
@@ -22,28 +37,45 @@ public sealed class UdpNtpTimeSource : INtpTimeSource
             return false;
         }
 
-        timeout = ClockSkew.NtpTimeout(timeout);
+        var budget = ClockSkew.NtpTimeout(timeout);
+        var clock = Stopwatch.StartNew();
         try
         {
-            if (!TryResolve(host.Trim(), timeout, out var address, out error))
+            if (!TryRemaining(clock, budget, out var remaining))
+            {
+                error = "NTP lookup timed out.";
+                return false;
+            }
+
+            if (!_resolve(host.Trim(), remaining, out var address, out error))
             {
                 return false;
             }
 
-            using var socket = new Socket(address.AddressFamily, SocketType.Dgram, ProtocolType.Udp)
+            if (!TryRemaining(clock, budget, out remaining))
             {
-                SendTimeout = (int)timeout.TotalMilliseconds,
-                ReceiveTimeout = (int)timeout.TotalMilliseconds,
-            };
+                error = "NTP lookup timed out.";
+                return false;
+            }
+
+            using var socket = new Socket(address.AddressFamily, SocketType.Dgram, ProtocolType.Udp);
             var endpoint = new IPEndPoint(address, NtpPort);
             var request = new byte[PacketSize];
             request[0] = 0x23; // LI=0, VN=4, Mode=3 (client)
+            socket.SendTimeout = SocketTimeoutMs(remaining);
             socket.SendTo(request, endpoint);
+
+            if (!TryRemaining(clock, budget, out remaining))
+            {
+                error = "NTP lookup timed out.";
+                return false;
+            }
 
             var buffer = new byte[PacketSize];
             EndPoint remote = new IPEndPoint(address.AddressFamily == AddressFamily.InterNetworkV6
                 ? IPAddress.IPv6Any
                 : IPAddress.Any, 0);
+            socket.ReceiveTimeout = SocketTimeoutMs(remaining);
             var received = socket.ReceiveFrom(buffer, ref remote);
             if (received < PacketSize)
             {
@@ -88,6 +120,21 @@ public sealed class UdpNtpTimeSource : INtpTimeSource
         utc = DateTimeOffset.FromUnixTimeSeconds(unixSeconds).AddMilliseconds(extraMs);
         return true;
     }
+
+    internal static bool TryRemaining(Stopwatch clock, TimeSpan budget, out TimeSpan remaining)
+    {
+        remaining = budget - clock.Elapsed;
+        if (remaining <= TimeSpan.Zero)
+        {
+            remaining = TimeSpan.Zero;
+            return false;
+        }
+
+        return true;
+    }
+
+    private static int SocketTimeoutMs(TimeSpan remaining)
+        => (int)Math.Clamp(remaining.TotalMilliseconds, 1, ClockSkew.MaxNtpTimeoutMilliseconds);
 
     private static bool TryResolve(string host, TimeSpan timeout, out IPAddress address, out string? error)
     {
