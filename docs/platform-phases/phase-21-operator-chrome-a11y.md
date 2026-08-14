@@ -65,9 +65,9 @@ Phase 18 raised hit targets. Phase 19 fixed chip contrast and Settings control n
 ## Landed
 
 - `OperatorTouchDensity.OperationalFontSize` is 12px; Run chips/steps/hero secondary and compact captions bind to it (`TextBlock.op-type` in `App.axaml`).
-- Compact-nav Pause/Stop keep 48×48 targets and show `PauseResumeLabel` / `SafetyStopLabel` plus `ControlStatus` without hover.
+- Compact-nav Pause/Stop keep 48×48 targets and show `PauseResumeLabel` / `SafetyStopLabel` plus a one-line `CompactControlStatus` (ellipsis, never the full operator prompt).
 - Shell notification strip is a polite live region; Run status is polite unless Stop / operator prompt (assertive). Interaction host is assertive. Hero status is not a live region.
-- Settings keeps one page; Theme / Engineer / Storage / About / Diagnostics / OpenTAP packages are `HeadingLevel` 2.
+- Settings keeps one page; Theme / Engineer / Storage / About / Diagnostics / OpenTAP packages are `HeadingLevel` 2. Data directory sits above Theme so it is not a theme control.
 
 ## Related
 

@@ -56,8 +56,10 @@ public sealed class Phase21OperatorChromeTests
         Assert.Contains("PauseResumeLabel", axaml, StringComparison.Ordinal);
         Assert.Contains("SafetyStopLabel", axaml, StringComparison.Ordinal);
         Assert.Contains("IsHitTestVisible=\"False\"", axaml, StringComparison.Ordinal);
-        Assert.Contains("ControlStatusLiveSetting", axaml, StringComparison.Ordinal);
+        Assert.Contains("CompactControlStatus", axaml, StringComparison.Ordinal);
         Assert.Contains("LiveSetting=\"Polite\"", axaml, StringComparison.Ordinal);
+        Assert.Contains("MaxLines=\"1\"", axaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("TextWrapping=\"Wrap\"", CompactStatusBlock(axaml), StringComparison.Ordinal);
         var run = File.ReadAllText(FindRepoFile("src/HardwareTest/Features/RunTest/RunTestView.axaml"));
         Assert.Contains("LiveSetting=\"Assertive\"", run, StringComparison.Ordinal);
     }
@@ -87,6 +89,12 @@ public sealed class Phase21OperatorChromeTests
         Assert.Contains("Text=\"Diagnostics\"", axaml, StringComparison.Ordinal);
         Assert.Contains("OpenTAP packages", axaml, StringComparison.Ordinal);
         Assert.Equal(6, CountOccurrences(axaml, "HeadingLevel=\"2\""));
+        var dataIdx = axaml.IndexOf("Text=\"Data directory\"", StringComparison.Ordinal);
+        var themeHeadingIdx = axaml.IndexOf("Text=\"Theme\" Classes=\"settings-h2\"", StringComparison.Ordinal);
+        var themeComboIdx = axaml.IndexOf("x:Name=\"ThemeLabel\"", StringComparison.Ordinal);
+        Assert.True(dataIdx >= 0 && themeHeadingIdx >= 0 && themeComboIdx >= 0);
+        Assert.True(dataIdx < themeHeadingIdx, "Data directory must not sit under the Theme heading.");
+        Assert.True(themeHeadingIdx < themeComboIdx, "Theme heading must precede the theme combo.");
     }
 
     [Fact]
@@ -110,6 +118,7 @@ public sealed class Phase21OperatorChromeTests
 
         runControl.RequestSafetyStop();
         Assert.Equal("Stopping…", vm.ControlStatus);
+        Assert.Equal("Stopping…", vm.CompactControlStatus);
         Assert.Equal(AutomationLiveSetting.Assertive, vm.ControlStatusLiveSetting);
 
         runControl = new FakeRunControl();
@@ -127,6 +136,22 @@ public sealed class Phase21OperatorChromeTests
         Assert.Equal("Pause", vm.PauseResumeLabel);
         Assert.Equal("Stop Run", vm.SafetyStopLabel);
         Assert.Equal("Idle", vm.ControlStatus);
+        Assert.Equal("Idle", vm.CompactControlStatus);
+    }
+
+    [Fact]
+    public void CompactControlStatus_does_not_use_the_operator_prompt()
+    {
+        var openTap = new FakeOpenTapSession();
+        var runControl = new FakeRunControl();
+        var vm = CreateMain(openTap, runControl);
+        runControl.AttachRun(new CancellationTokenSource());
+        openTap.BeginInteraction(OperatorInteractionRequest.ConfirmOnly(
+            "Install fixture and confirm the sweep area is clear before continuing"));
+
+        Assert.Contains("Install fixture", vm.ControlStatus, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal("Awaiting operator", vm.CompactControlStatus);
+        Assert.True(vm.CompactControlStatus.Length < 24);
     }
 
     private static MainWindowViewModel CreateMain(
@@ -157,6 +182,15 @@ public sealed class Phase21OperatorChromeTests
             new SettingsViewModel(store, openTap),
             runControl,
             openTap);
+    }
+
+    private static string CompactStatusBlock(string axaml)
+    {
+        var start = axaml.IndexOf("CompactControlStatus", StringComparison.Ordinal);
+        Assert.True(start >= 0);
+        var end = axaml.IndexOf("<!-- Pause", start, StringComparison.Ordinal);
+        Assert.True(end > start);
+        return axaml[start..end];
     }
 
     private static int CountOccurrences(string haystack, string needle)

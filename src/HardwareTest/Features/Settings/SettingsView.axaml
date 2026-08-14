@@ -29,8 +29,6 @@
 
     <ScrollViewer>
       <StackPanel Spacing="10" Margin="0,0,16,0" MaxWidth="920">
-        <TextBlock Text="Theme" Classes="settings-h2"
-                   AutomationProperties.HeadingLevel="2" />
         <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
           <TextBlock x:Name="DataDirectoryLabel" Text="Data directory" VerticalAlignment="Center" />
           <TextBox Grid.Column="1" Text="{Binding DataDirectory}" IsReadOnly="True"
@@ -38,6 +36,8 @@
                    AutomationProperties.Name="Data directory" />
         </Grid>
 
+        <TextBlock Text="Theme" Classes="settings-h2"
+                   AutomationProperties.HeadingLevel="2" />
         <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
           <TextBlock x:Name="ThemeLabel" Text="Theme" VerticalAlignment="Center" />
           <ComboBox Grid.Column="1"
