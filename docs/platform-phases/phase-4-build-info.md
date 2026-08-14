@@ -26,7 +26,7 @@ The sharpest consequence is a traceability gap: `TestRunRecord` records the DUT,
 1. **MSBuild version stamping** in [`Directory.Build.props`](../../Directory.Build.props):
    - `VersionPrefix` as the single source of truth (start `0.1.0`).
    - `SourceRevisionId` from `GITHUB_SHA`, falling back to `git rev-parse --short HEAD`, falling back to `local`.
-   - `InformationalVersion` = `{VersionPrefix}+{sha}.{utcBuildDate}`.
+   - `InformationalVersion` = `{VersionPrefix}+{sha}` (deterministic for a given commit). Build time is **not** part of the version string — [Phase 20](phase-20-ci-honesty.md) stores git committer date as `AssemblyMetadata` `CommitDate` instead of embedding `DateTime.UtcNow`.
    - `ContinuousIntegrationBuild=true` when `CI` is set, which pairs with the `Deterministic` flag already enabled.
 
 2. **`BuildInfo` in Core** — an immutable record read once at startup:

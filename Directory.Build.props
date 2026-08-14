@@ -17,14 +17,21 @@
     <VersionPrefix>0.1.0</VersionPrefix>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <ContinuousIntegrationBuild Condition="'$(CI)' != ''">true</ContinuousIntegrationBuild>
+
+    <!-- Phase 20: lockfiles are committed; CI restore is locked. Local restore (CI unset) may refresh them.
+         RuntimeIdentifiers so each lock file includes the RIDs CI builds (TypstInterop natives). -->
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+    <RestoreLockedMode Condition="'$(CI)' != '' And '$(RestoreLockedMode)' == ''">true</RestoreLockedMode>
+    <RuntimeIdentifiers Condition="'$(RuntimeIdentifiers)' == ''">win-x64;linux-x64;osx-arm64</RuntimeIdentifiers>
   </PropertyGroup>
 
-  <!-- SourceRevisionId: GITHUB_SHA → git short HEAD → local (never fail the build). -->
+  <!-- SourceRevisionId: GITHUB_SHA → git short HEAD → local (never fail the build).
+       Commit date is git committer time, never wall-clock UtcNow. -->
   <Target Name="ResolveHardwareTestSourceRevision"
           BeforeTargets="StampHardwareTestInformationalVersion;GenerateAssemblyInfo;GetAssemblyVersion;InitializeSourceControlInformation"
-          Condition="'$(SourceRevisionId)' == ''">
+          Condition="'$(SourceRevisionId)' == '' Or '$(SourceRevisionDate)' == ''">
     <PropertyGroup>
-      <SourceRevisionId Condition="'$(GITHUB_SHA)' != '' And $([System.String]::Copy('$(GITHUB_SHA)').Length) &gt;= 7">$([System.String]::Copy('$(GITHUB_SHA)').Substring(0, 7))</SourceRevisionId>
+      <SourceRevisionId Condition="'$(SourceRevisionId)' == '' And '$(GITHUB_SHA)' != '' And $([System.String]::Copy('$(GITHUB_SHA)').Length) &gt;= 7">$([System.String]::Copy('$(GITHUB_SHA)').Substring(0, 7))</SourceRevisionId>
       <SourceRevisionId Condition="'$(SourceRevisionId)' == '' And '$(GITHUB_SHA)' != ''">$(GITHUB_SHA)</SourceRevisionId>
     </PropertyGroup>
     <Exec Command="git rev-parse --short HEAD"
@@ -33,11 +40,36 @@
           StandardOutputImportance="Low"
           Condition="'$(SourceRevisionId)' == ''">
       <Output TaskParameter="ConsoleOutput" PropertyName="_GitShortSha" />
-      <Output TaskParameter="ExitCode" PropertyName="_GitExitCode" />
+      <Output TaskParameter="ExitCode" PropertyName="_GitShaExitCode" />
+    </Exec>
+    <!-- Git pretty-format %cI is ISO-8601 committer date.
+         Do not stash %25cI in a property: MSBuild unescapes %25 when the property
+         is defined, so Exec would see %cI. On Windows Exec wraps cmd.exe, which
+         treats a lone % as a batch metavariable and often eats it (git then gets
+         "cI" and the stamp is dropped). Windows needs %% after MSBuild unescape
+         (%25%25cI in XML). Unix shells must receive a single %. -->
+    <Exec Command="git log -1 --format=%25cI"
+          ConsoleToMSBuild="true"
+          IgnoreExitCode="true"
+          StandardOutputImportance="Low"
+          Condition="'$(SourceRevisionDate)' == '' And $([MSBuild]::IsOSUnixLike())">
+      <Output TaskParameter="ConsoleOutput" PropertyName="_GitCommitDate" />
+      <Output TaskParameter="ExitCode" PropertyName="_GitDateExitCode" />
+    </Exec>
+    <Exec Command="git log -1 --format=%25%25cI"
+          ConsoleToMSBuild="true"
+          IgnoreExitCode="true"
+          StandardOutputImportance="Low"
+          Condition="'$(SourceRevisionDate)' == '' And !$([MSBuild]::IsOSUnixLike())">
+      <Output TaskParameter="ConsoleOutput" PropertyName="_GitCommitDate" />
+      <Output TaskParameter="ExitCode" PropertyName="_GitDateExitCode" />
     </Exec>
     <PropertyGroup>
-      <SourceRevisionId Condition="'$(SourceRevisionId)' == '' And '$(_GitExitCode)' == '0' And '$(_GitShortSha)' != ''">$(_GitShortSha)</SourceRevisionId>
+      <SourceRevisionId Condition="'$(SourceRevisionId)' == '' And '$(_GitShaExitCode)' == '0' And '$(_GitShortSha)' != ''">$(_GitShortSha)</SourceRevisionId>
       <SourceRevisionId Condition="'$(SourceRevisionId)' == ''">local</SourceRevisionId>
+      <_GitCommitDate Condition="'$(_GitCommitDate)' != ''">$([System.String]::Copy('$(_GitCommitDate)').Trim())</_GitCommitDate>
+      <_GitCommitDateLooksIso Condition="'$(_GitCommitDate)' != '' And $([System.String]::Copy('$(_GitCommitDate)').Length) &gt;= 20 And $([System.String]::Copy('$(_GitCommitDate)').Contains('T'))">true</_GitCommitDateLooksIso>
+      <SourceRevisionDate Condition="'$(SourceRevisionDate)' == '' And '$(_GitDateExitCode)' == '0' And '$(_GitCommitDateLooksIso)' == 'true'">$(_GitCommitDate)</SourceRevisionDate>
     </PropertyGroup>
   </Target>
 
@@ -46,8 +78,10 @@
           Condition="'$(InformationalVersion)' == ''">
     <PropertyGroup>
       <SourceRevisionId Condition="'$(SourceRevisionId)' == ''">local</SourceRevisionId>
-      <_UtcBuildDate>$([System.DateTime]::UtcNow.ToString('yyyyMMddHHmmss'))</_UtcBuildDate>
-      <InformationalVersion>$(VersionPrefix)+$(SourceRevisionId).$(_UtcBuildDate)</InformationalVersion>
+      <InformationalVersion>$(VersionPrefix)+$(SourceRevisionId)</InformationalVersion>
     </PropertyGroup>
+    <ItemGroup Condition="'$(SourceRevisionDate)' != ''">
+      <AssemblyMetadata Include="CommitDate" Value="$(SourceRevisionDate)" />
+    </ItemGroup>
   </Target>
 </Project>

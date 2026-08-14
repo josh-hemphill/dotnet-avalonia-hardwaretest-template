@@ -54,6 +54,7 @@ Deno.test("coverage fails when Hardware floor is missed", () => {
 Deno.test("TASKS catalog is sorted and complete", () => {
   const expected = [
     "all",
+    "audit",
     "build",
     "coverage",
     "list",
@@ -74,6 +75,7 @@ Deno.test("ci.yml references every required Deno task", async () => {
   );
   const yaml = await Deno.readTextFile(path.join(root, ".github/workflows/ci.yml"));
   const required = [
+    "audit",
     "build",
     "test:host",
     "test:vm",
@@ -91,4 +93,23 @@ Deno.test("ci.yml references every required Deno task", async () => {
     );
   }
   assert(yaml.includes("Assert CI task catalog"));
+});
+
+Deno.test("ci.yml pins GitHub Actions by commit SHA", async () => {
+  const root = path.resolve(
+    path.dirname(path.fromFileUrl(import.meta.url)),
+    "../..",
+  );
+  const yaml = await Deno.readTextFile(path.join(root, ".github/workflows/ci.yml"));
+  const uses = [...yaml.matchAll(/^\s+uses:\s+(\S+)/gm)].map((m) => m[1]!);
+  assert(uses.length > 0, "ci.yml must use GitHub Actions");
+  for (const spec of uses) {
+    assert(
+      /@[0-9a-f]{40}$/i.test(spec),
+      `Action must be pinned by 40-char SHA: ${spec}`,
+    );
+  }
+  assert(yaml.includes("permissions:"));
+  assert(yaml.includes("timeout-minutes:"));
+  assert(yaml.includes("concurrency:"));
 });

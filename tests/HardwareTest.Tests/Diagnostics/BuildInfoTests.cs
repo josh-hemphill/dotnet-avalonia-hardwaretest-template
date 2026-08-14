@@ -1,3 +1,5 @@
+using System.Reflection;
+using System.Text.RegularExpressions;
 using HardwareTest.Core.Diagnostics;
 using Xunit;
 
@@ -18,6 +20,50 @@ public sealed class BuildInfoTests
         Assert.StartsWith("0.1.0", info.InformationalVersion, StringComparison.Ordinal);
         Assert.Contains('+', info.InformationalVersion);
         Assert.Null(info.OpenTapEngineVersion);
+    }
+
+    [Fact]
+    public void InformationalVersion_is_deterministic_commit_metadata_without_wall_clock()
+    {
+        var info = BuildInfo.FromAssembly(typeof(BuildInfo).Assembly);
+        Assert.False(
+            Regex.IsMatch(info.InformationalVersion, @"\.\d{14}$"),
+            $"InformationalVersion must not embed yyyyMMddHHmmss: {info.InformationalVersion}");
+
+        BuildInfo.ParseInformational(info.InformationalVersion, out var parsedCommit, out var stampUtc);
+        Assert.Equal(info.CommitSha, parsedCommit);
+        Assert.Null(stampUtc);
+
+        var commitDate = typeof(BuildInfo).Assembly
+            .GetCustomAttributes<AssemblyMetadataAttribute>()
+            .FirstOrDefault(a => a.Key == "CommitDate");
+        // Git builds (CI and a normal checkout) must stamp CommitDate. "local" is the
+        // no-git fallback and has no committer time — do not require it there.
+        if (!string.Equals(info.CommitSha, "local", StringComparison.Ordinal))
+        {
+            Assert.False(string.IsNullOrWhiteSpace(commitDate?.Value),
+                "CommitDate metadata missing; Windows cmd.exe likely ate git %cI");
+            Assert.NotNull(info.BuildTimestampUtc);
+            Assert.DoesNotContain("unknown", info.FormatSupportBlock(), StringComparison.Ordinal);
+        }
+    }
+
+    [Theory]
+    [InlineData("0.1.0+abc1234", "abc1234", false)]
+    [InlineData("0.1.0+local", "local", false)]
+    [InlineData("0.1.0+abc1234.20260728220000", "abc1234", true)]
+    public void ParseInformational_accepts_current_and_legacy_stamps(
+        string informational, string commit, bool hasStamp)
+    {
+        BuildInfo.ParseInformational(informational, out var parsed, out var stamp);
+        Assert.Equal(commit, parsed);
+        Assert.Equal(hasStamp, stamp.HasValue);
+        if (hasStamp)
+        {
+            Assert.Equal(2026, stamp!.Value.UtcDateTime.Year);
+            Assert.Equal(7, stamp.Value.UtcDateTime.Month);
+            Assert.Equal(28, stamp.Value.UtcDateTime.Day);
+        }
     }
 
     [Fact]

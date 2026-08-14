@@ -21,7 +21,8 @@ deno task --cwd tools/ci test:arch -- --rid win-x64
 deno task --cwd tools/ci test:host -- --rid win-x64
 deno task --cwd tools/ci test:vm -- --rid win-x64
 deno task --cwd tools/ci test:e2e -- --rid win-x64
-deno task --cwd tools/ci coverage
+deno task --cwd tools/ci coverage -- --rid win-x64
+deno task --cwd tools/ci audit
 deno task --cwd tools/ci publish -- --rid win-x64
 deno task --cwd tools/ci verify -- --rid win-x64
 deno task --cwd tools/ci all -- --rid win-x64            # full host matrix
@@ -39,8 +40,8 @@ deno task --cwd tools/ci test
 
 | Surface | Windows host | Linux container / ubuntu CI |
 | --- | --- | --- |
-| `build` / `test:arch` / `test:host` / `test:vm` / `publish` | Required | Required (`linux-x64`) |
-| `test:e2e` (Avalonia headless) | Required | **Advisory** at first |
+| `build` / `test:arch` / `test:host` / `test:vm` / `publish` / `audit` / `coverage` | Required | Required (`linux-x64`) |
+| `test:e2e` (Avalonia headless) | Required | **Advisory** (`E2E smoke (advisory on Linux)` + `continue-on-error`) |
 | Event Log sink, `win-x64` TypstInterop, WinExe | Covered | Not testable |
 
 ## CI image (`Containerfile.ci`)
@@ -58,6 +59,21 @@ podman run --rm \
 ```
 
 `verify` inside that run asserts `--version` and `--print-config` (DataDirectory overlay provenance) against the published `linux-x64` binary.
+
+## NuGet lockfiles
+
+Each project has a committed `packages.lock.json`. `Directory.Build.props` sets `RestorePackagesWithLockFile=true` and `RestoreLockedMode=true` when `CI` is set, so GitHub Actions restore cannot float.
+
+To refresh locks after a package bump (CI **unset**):
+
+```bash
+env -u CI dotnet restore dirs.proj --force-evaluate
+env -u CI dotnet restore tools/gen-sample-plan/gen-sample-plan.csproj --force-evaluate
+```
+
+Commit every updated `packages.lock.json` in the same change as the package version bump.
+
+`.dockerignore` keeps `bin/`, `obj/`, `artifacts/`, tests results, and crash dossiers out of image build contexts.
 
 ## Quadlets (`deploy/quadlets/`)
 
@@ -96,6 +112,8 @@ Product layout and publish flags: [appliance-linux.md](appliance-linux.md). No `
 [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) is a thin runner over the Deno tasks:
 
 - **windows-latest** — primary shipping matrix (`win-x64`), including required E2E and coverage.
-- **ubuntu-latest** — `linux-x64` build / host / VM / arch / publish / verify; E2E is advisory (`continue-on-error`).
+- **ubuntu-latest** — `linux-x64` build / host / VM / arch / coverage / publish / verify; E2E is **advisory** (step name says so; `continue-on-error`).
+- Actions are pinned by commit SHA. Workflow default token is `contents: read`; artifact-upload jobs add `actions: write`. Jobs have `timeout-minutes` and PR concurrency cancel-in-progress.
 - Publish artifacts retain self-contained outputs for demo pulls.
 - A catalog assert step fails if a Deno task is renamed without updating the workflow.
+- `audit` fails the job when `dotnet list package --vulnerable --include-transitive` reports known vulns.

@@ -5,6 +5,12 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
+      <_Parameter1>HardwareTest.Tests</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
+
+  <ItemGroup>
     <EmbeddedResource Include="..\..\templates\reports\**\*" Link="Templates\Reports\%(RecursiveDir)%(Filename)%(Extension)" />
   </ItemGroup>
 

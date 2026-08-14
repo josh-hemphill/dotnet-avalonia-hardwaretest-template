@@ -43,7 +43,7 @@ Distinct namespaces on purpose — "Phase C" and "Phase 3" are never the same th
 
 | Phase | Plan | Depends on | Status |
 | --- | --- | --- | --- |
-| 1 | [Repo gates + green CI](platform-phases/phase-1-repo-gates.md) | — | Done — CI green; the `dotnet format` gate is still inert ([review](platform-phases/review-post-phase-15.md#ci-and-supply-chain)) |
+| 1 | [Repo gates + green CI](platform-phases/phase-1-repo-gates.md) | — | Done — format gate repaired in [Phase 19](platform-phases/phase-19-immediate-correctness.md); lockfiles/pins/audit in [Phase 20](platform-phases/phase-20-ci-honesty.md) |
 | 2 | [Architecture compliance tests](platform-phases/phase-2-architecture-tests.md) | 1 | Done |
 | 3 | [Configuration & environment model](platform-phases/phase-3-configuration-model.md) | 1 | Done |
 | 4 | [Build & system info surface](platform-phases/phase-4-build-info.md) | 3 | Done |
@@ -62,7 +62,7 @@ Distinct namespaces on purpose — "Phase C" and "Phase 3" are never the same th
 | 17 | [Shell notification strip & layout-shift hygiene](platform-phases/phase-17-shell-notification-strip.md) | 12, 15, 16 | Done |
 | 18 | [Operator touch density floor](platform-phases/phase-18-operator-touch-density.md) | 17 | Done |
 | 19 | [Immediate correctness](platform-phases/phase-19-immediate-correctness.md) | 18 | Done |
-| 20 | [CI honesty & supply chain](platform-phases/phase-20-ci-honesty.md) | 19 | Planned |
+| 20 | [CI honesty & supply chain](platform-phases/phase-20-ci-honesty.md) | 19 | Done |
 | 21 | [Operator chrome & accessibility](platform-phases/phase-21-operator-chrome-a11y.md) | 18, 19 | Planned |
 | 22 | [VISA broker unification](platform-phases/phase-22-visa-broker.md) | 13, 19 | Planned |
 | 23 | [Safety Stop + OpenTAP worker](platform-phases/phase-23-safety-opentap-worker.md) | 19, 22 | Planned |
@@ -80,7 +80,7 @@ Distinct namespaces on purpose — "Phase C" and "Phase 3" are never the same th
 **Fresh-eyes reviews:**
 
 - **Round 1 (pre–Phase 11):** [platform-phases/review-remediation.md](platform-phases/review-remediation.md) — routed into Phases 11–15, all implemented.
-- **Round 2 (post–Phase 15):** [platform-phases/review-post-phase-15.md](platform-phases/review-post-phase-15.md) — F1–F6 (stale DI `AppSettings`, off-UI-thread mutation, run gate, Safety Stop, path/atomic storage) are fixed; CI follow-ups (inert format gate, lock files, vulnerability scan) remain open.
+- **Round 2 (post–Phase 15):** [platform-phases/review-post-phase-15.md](platform-phases/review-post-phase-15.md) — F1–F6 (stale DI `AppSettings`, off-UI-thread mutation, run gate, Safety Stop, path/atomic storage) are fixed; CI follow-ups closed in [Phase 19](platform-phases/phase-19-immediate-correctness.md) (format gate) and [Phase 20](platform-phases/phase-20-ci-honesty.md) (lockfiles, audit, Action pins).
 - **Round 3 (post–Phase 18):** [platform-phases/review-round-3.md](platform-phases/review-round-3.md) — keyboard, remaining UI-thread, PDF/export, plugin trust, Stop copy, chips/Settings names, slnx/format → Phase 19; CI honesty → 20; chrome/a11y → 21; VISA broker → 22; safety worker → 23; session split → 24; clock → 25.
 - **Live presentation:** Squashed charts / band-first + earned Focus → [Phase 16](platform-phases/phase-16-band-focus-presentation.md) + OpenTAP [Phase L](opentap-phases/phase-l-presentation-authoring.md).
 - **Touch + layout shift:** Reserved shell strip + Run height caps → [Phase 17](platform-phases/phase-17-shell-notification-strip.md); operator hit-target floor → [Phase 18](platform-phases/phase-18-operator-touch-density.md).
@@ -107,7 +107,7 @@ Real, acknowledged, and deliberately unscheduled (or scheduled as phases above).
 
 - **Clock discipline is scheduled.** Timestamps are still `DateTimeOffset.UtcNow` until [Phase 25](platform-phases/phase-25-clock-discipline.md). Every idle/stale decision, run ordering, and retention prune depends on it.
 - **Vendor VISA in CI is still unproven.** Discovery now surfaces failures (no silent empty list); real IVI runtimes remain outside the default CI matrix. The OpenTAP `VisaDmmInstrument` also opens IVI directly rather than through the Core `VisaSessionGate` — [Phase 22](platform-phases/phase-22-visa-broker.md).
-- **Phase 1 / round-2 CI follow-ups.** Format gate is repaired in [Phase 19](platform-phases/phase-19-immediate-correctness.md). Lock files, vulnerability scan, coverage split, and Action pins remain [Phase 20](platform-phases/phase-20-ci-honesty.md).
+- **Phase 1 / round-2 CI follow-ups.** Format gate is repaired in [Phase 19](platform-phases/phase-19-immediate-correctness.md). Lock files, vulnerability scan, coverage split, and Action pins shipped in [Phase 20](platform-phases/phase-20-ci-honesty.md).
 - **Finding → phase maps.** [review-remediation.md](platform-phases/review-remediation.md) (round 1, closed), [review-post-phase-15.md](platform-phases/review-post-phase-15.md) (round 2 — F1–F6 fixed; CI follow-ups still open), [review-round-3.md](platform-phases/review-round-3.md) (round 3 → Phases 19–25).
 - **Safety Stop is cooperative until Phase 23.** Phase 19 only corrects operator copy to **Stop Run**. Real interlocks + killable OpenTAP worker are [Phase 23](platform-phases/phase-23-safety-opentap-worker.md). Do not use `TapThread.Abort`.
 - **Live charts squashed; band-first + earned Focus trend.** [Phase 16](platform-phases/phase-16-band-focus-presentation.md); authoring maintainability [Phase L](opentap-phases/phase-l-presentation-authoring.md).
