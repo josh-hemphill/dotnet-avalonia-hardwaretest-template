@@ -3,7 +3,7 @@
 **Parent:** [platform-roadmap.md](../platform-roadmap.md)
 **Depends on:** [Phase 14](phase-14-session-facade-split.md) (public `IOpenTap*` surfaces already exist)
 **Unblocks:** [Phase K](../opentap-phases/phase-k-multi-dut-parallel.md) (multi-DUT must not share one 1738-line god object)
-**Status:** Planned
+**Status:** Done
 **Also absorbs:** Round-3 R3-15 (`OpenTapSession` size, `StepRuntime` statics, serial host tests)
 
 ## Goal
@@ -46,12 +46,12 @@ Phase 14 split the **injection** surface so Feature ViewModels no longer take th
 
 ## Exit criteria
 
-- [ ] `OpenTapSession` is a façade over context + catalog + station, not a god object
-- [ ] No static pause/interaction on `StepRuntime`
-- [ ] Two run contexts can exist in-process in a unit test (even if production still single-flights)
-- [ ] Session.Contracts snapshots match the public surfaces
-- [ ] ViewModels unchanged except DI if a new constructor appears
-- [ ] Host tests no longer require static `StepRuntime` coupling (serial collection may remain until Phase 23)
+- [x] `OpenTapSession` is a façade over context + catalog + station, not a god object
+- [x] No static pause/interaction on `StepRuntime`
+- [x] Two run contexts can exist in-process in a unit test (even if production still single-flights)
+- [x] Session.Contracts snapshots match the public surfaces
+- [x] ViewModels unchanged except DI if a new constructor appears
+- [x] Host tests no longer require static `StepRuntime` coupling (serial collection may remain until Phase 23)
 
 ## Out of scope
 
@@ -59,7 +59,16 @@ Phase 14 split the **injection** surface so Feature ViewModels no longer take th
 - Worker IPC (Phase 23) — consume the thinner types; do not block K’s design on IPC details
 - UI Run board decomposition (already Phase 9)
 
+## Landed
+
+- `OpenTapSession` is a façade over `OpenTapRunContext` (execute / pause / interaction / samples), `OpenTapHostCatalog` (plugin search + packages + discovery), and station/plan helpers. Public `IOpenTap*` method sets are unchanged.
+- `IStepRuntime` / `IRuntimeAwareStep` / `StepRuntimeBinder` replace process-global `StepRuntime.WaitIfPaused` / `RequestInteraction`. The host attaches the active context onto plan steps before Execute and detaches afterward.
+- `OpenTapRunControlState` is shared by `OpenTapRunContext` and `FakeOpenTapSession` (pause + interaction gates, no OpenTAP types).
+- `OpenTapRunContextTests.Two_run_contexts_do_not_share_pause_or_interaction` proves two in-process contexts. Real `TestPlan.Execute` stays in the serial `OpenTapSerial` collection because TapThread / PluginManager are still process-global; Phase 23’s worker already isolates the UI process.
+- Architecture forbids static `StepRuntime` pause/interaction. ViewModels stay on `FakeOpenTapSession`.
+
 ## Related
 
 - [phase-14-session-facade-split.md](phase-14-session-facade-split.md)
 - [phase-8-session-contract-tests.md](phase-8-session-contract-tests.md)
+- [phase-23-safety-opentap-worker.md](phase-23-safety-opentap-worker.md)
