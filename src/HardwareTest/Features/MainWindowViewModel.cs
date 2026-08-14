@@ -208,29 +208,34 @@ public partial class MainWindowViewModel : ReactiveObject
         }
     }
 
-    public string ControlStatus
+    public string ControlStatus => FormatControlStatus(includePrompt: true);
+
+    /// Compact pane is 48px — never the full operator prompt (that lives on the Run board).
+    public string CompactControlStatus => FormatControlStatus(includePrompt: false);
+
+    private string FormatControlStatus(bool includePrompt)
     {
-        get
+        if (_runControl.IsSafetyStopping)
         {
-            if (_runControl.IsSafetyStopping)
-            {
-                return "Stopping…";
-            }
-
-            if (IsAwaitingOperator)
-            {
-                return string.IsNullOrWhiteSpace(_openTap.OperatorPromptMessage)
-                    ? "Awaiting operator"
-                    : _openTap.OperatorPromptMessage!;
-            }
-
-            if (_runControl.IsPaused)
-            {
-                return "Paused";
-            }
-
-            return _runControl.IsRunning ? "Running" : "Idle";
+            return "Stopping…";
         }
+
+        if (IsAwaitingOperator)
+        {
+            if (includePrompt && !string.IsNullOrWhiteSpace(_openTap.OperatorPromptMessage))
+            {
+                return _openTap.OperatorPromptMessage!;
+            }
+
+            return "Awaiting operator";
+        }
+
+        if (_runControl.IsPaused)
+        {
+            return "Paused";
+        }
+
+        return _runControl.IsRunning ? "Running" : "Idle";
     }
 
     /// Polite for idle/running/paused; assertive for Stop in progress and operator prompts.
@@ -318,6 +323,7 @@ public partial class MainWindowViewModel : ReactiveObject
         this.RaisePropertyChanged(nameof(IsSafetyStopping));
         this.RaisePropertyChanged(nameof(IsAwaitingOperator));
         this.RaisePropertyChanged(nameof(ControlStatus));
+        this.RaisePropertyChanged(nameof(CompactControlStatus));
         this.RaisePropertyChanged(nameof(ControlStatusLiveSetting));
         this.RaisePropertyChanged(nameof(PauseResumeLabel));
         this.RaisePropertyChanged(nameof(PauseResumeTip));
