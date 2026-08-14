@@ -32,7 +32,7 @@ Run on `linux-x64` with .NET `10.0.302`:
 | 5 | [F5 — Path containment is prefix-based](#f5--path-containment-checks-are-prefix-based) | **Fixed** — `PathContainment` + `PortableFileNames` rejects `.` / `..` |
 | 6 | [F6 — Non-atomic writes for settings and runs](#f6--settings-and-run-writes-are-not-atomic) | **Fixed** — shared `AtomicFile` used by settings / runs / suites |
 | — | [Doc drift](#doc-drift) | **Fixed** in the docs commit on this branch |
-| — | [CI and supply chain](#ci-and-supply-chain) | Still open (format gate inert, no lock files) |
+| — | [CI and supply chain](#ci-and-supply-chain) | Format gate → [Phase 19](phase-19-immediate-correctness.md); lockfiles / audit / pins / coverage split / `.dockerignore` → [Phase 20](phase-20-ci-honesty.md). Linux still does not gate `publish-win`; Core-only coverage floors stay. |
 
 ---
 
@@ -405,7 +405,10 @@ rather than 404-ing.
 CI is structurally good — a Deno task catalog shared by Actions and local runs, a drift test that
 asserts `ci.yml` invokes every task, coverage floors with their own parser tests, a digest-pinned
 non-root `Containerfile.ci`, and `Nullable=enable` + `TreatWarningsAsErrors=true` repo-wide. The
-gaps are all Phase 1 follow-ups that were never closed.
+gaps are all Phase 1 follow-ups. Format gate: [Phase 19](phase-19-immediate-correctness.md). Lockfiles,
+audit, Action pins, coverage split, deterministic `InformationalVersion`, `.dockerignore`:
+[Phase 20](phase-20-ci-honesty.md). Remaining from this table: Linux does not gate `publish-win`;
+coverage floors stay on Core (UI/Host gating is out of Phase 20 scope).
 
 | Sev | Gap | Evidence |
 | --- | --- | --- |

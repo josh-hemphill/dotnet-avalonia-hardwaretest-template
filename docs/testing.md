@@ -10,7 +10,7 @@ UI/board tests stay separate from OpenTAP plan-behavior tests. Both share the Op
 | Core/OpenTAP host | Plan load, hierarchy, Run Selected mask, SafeShutdown, progress/samples | Real `OpenTapSession` | `MockDmmInstrument` |
 | Avalonia E2E | Shell wiring only (DUT → Run → Results/Inspect) | Real session | MockDmm + `UseMockVisa` |
 
-CI runs Deno tasks from [`tools/ci/`](../tools/ci/) on **windows-latest** (required E2E) and **ubuntu-latest** (`linux-x64`; E2E advisory). See [containers.md](containers.md).
+CI runs Deno tasks from [`tools/ci/`](../tools/ci/) on **windows-latest** (required E2E) and **ubuntu-latest** (`linux-x64`; E2E advisory — the step is named **E2E smoke (advisory on Linux)**). Host tests run **without Coverlet**; `coverage` collects Core-safe tests only. See [containers.md](containers.md).
 
 Platform roadmap (interactions, parameters, mixins): [opentap-platform.md](opentap-platform.md).
 Hardening roadmap (gates, config, crash, CI): [platform-roadmap.md](platform-roadmap.md).
@@ -87,6 +87,8 @@ deno run -A tools/ci/main.ts test:arch --rid win-x64
 deno run -A tools/ci/main.ts test:host --rid win-x64
 deno run -A tools/ci/main.ts test:vm --rid win-x64
 deno run -A tools/ci/main.ts test:e2e --rid win-x64
+deno run -A tools/ci/main.ts coverage --rid win-x64
+deno run -A tools/ci/main.ts audit
 
 # Raw dotnet still works:
 dotnet test dirs.proj -r win-x64 -m:1
