@@ -11,6 +11,7 @@ using HardwareTest.Core.Runs;
 using HardwareTest.Core.Settings;
 using HardwareTest.Core.Storage;
 using HardwareTest.Core.Text;
+using HardwareTest.Core.Time;
 using HardwareTest.OpenTap.Host;
 using ReactiveUI;
 using Serilog.Context;
@@ -42,6 +43,7 @@ public sealed class RunExecutionViewModel
     private readonly IStorageHealthService? _storageHealth;
     private readonly IVisaModeController? _visaModeController;
     private readonly ISafetyController? _safety;
+    private readonly IClock _clock;
 
     private readonly Dictionary<string, StepAttemptSummary> _attemptLedger =
         new(StringComparer.OrdinalIgnoreCase);
@@ -67,7 +69,8 @@ public sealed class RunExecutionViewModel
         LivePresentationViewModel live,
         IStorageHealthService? storageHealth = null,
         IVisaModeController? visaModeController = null,
-        ISafetyController? safety = null)
+        ISafetyController? safety = null,
+        IClock? clock = null)
     {
         _host = host;
         _runSession = runSession;
@@ -90,6 +93,7 @@ public sealed class RunExecutionViewModel
         _storageHealth = storageHealth;
         _visaModeController = visaModeController;
         _safety = safety;
+        _clock = clock ?? SystemClock.Instance;
 
         RunCommand = ReactiveCommand.CreateFromTask(() => ExecuteRunAsync(selectionOnly: false));
         RunSelectedCommand = ReactiveCommand.CreateFromTask(() => ExecuteRunAsync(selectionOnly: true));
@@ -320,7 +324,7 @@ public sealed class RunExecutionViewModel
             DutRevision = _session.DutRevision,
             SessionId = _session.SessionId,
             OperatorName = _session.OperatorName,
-            StartedAt = DateTimeOffset.UtcNow,
+            StartedAt = _clock.UtcNow,
             Result = RunResult.Unknown,
             AppVersion = _buildInfo.InformationalVersion,
             AppCommitSha = _buildInfo.CommitSha,

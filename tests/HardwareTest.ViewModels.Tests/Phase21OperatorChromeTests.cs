@@ -85,16 +85,31 @@ public sealed class Phase21OperatorChromeTests
         Assert.Contains("Text=\"Theme\"", axaml, StringComparison.Ordinal);
         Assert.Contains("Text=\"Engineer\"", axaml, StringComparison.Ordinal);
         Assert.Contains("Text=\"Storage\"", axaml, StringComparison.Ordinal);
+        Assert.Contains("Text=\"Clock\"", axaml, StringComparison.Ordinal);
         Assert.Contains("Text=\"About\"", axaml, StringComparison.Ordinal);
         Assert.Contains("Text=\"Diagnostics\"", axaml, StringComparison.Ordinal);
         Assert.Contains("OpenTAP packages", axaml, StringComparison.Ordinal);
-        Assert.Equal(6, CountOccurrences(axaml, "HeadingLevel=\"2\""));
+        Assert.Equal(7, CountOccurrences(axaml, "HeadingLevel=\"2\""));
         var dataIdx = axaml.IndexOf("Text=\"Data directory\"", StringComparison.Ordinal);
         var themeHeadingIdx = axaml.IndexOf("Text=\"Theme\" Classes=\"settings-h2\"", StringComparison.Ordinal);
         var themeComboIdx = axaml.IndexOf("x:Name=\"ThemeLabel\"", StringComparison.Ordinal);
         Assert.True(dataIdx >= 0 && themeHeadingIdx >= 0 && themeComboIdx >= 0);
         Assert.True(dataIdx < themeHeadingIdx, "Data directory must not sit under the Theme heading.");
         Assert.True(themeHeadingIdx < themeComboIdx, "Theme heading must precede the theme combo.");
+
+        var storageIdx = axaml.IndexOf("Text=\"Storage\" Classes=\"settings-h2\"", StringComparison.Ordinal);
+        var clockIdx = axaml.IndexOf("Text=\"Clock\" Classes=\"settings-h2\"", StringComparison.Ordinal);
+        var aboutIdx = axaml.IndexOf("Text=\"About\" Classes=\"settings-h2\"", StringComparison.Ordinal);
+        var exportIdx = axaml.IndexOf("x:Name=\"ExportDirectoryLabel\"", StringComparison.Ordinal);
+        var warnIdx = axaml.IndexOf("x:Name=\"WarnFreeLabel\"", StringComparison.Ordinal);
+        var criticalIdx = axaml.IndexOf("x:Name=\"CriticalFreeLabel\"", StringComparison.Ordinal);
+        var ntpIdx = axaml.IndexOf("x:Name=\"NtpHostLabel\"", StringComparison.Ordinal);
+        Assert.True(storageIdx >= 0 && clockIdx >= 0 && aboutIdx >= 0);
+        Assert.True(exportIdx >= 0 && warnIdx >= 0 && criticalIdx >= 0 && ntpIdx >= 0);
+        Assert.True(
+            storageIdx < exportIdx && exportIdx < warnIdx && warnIdx < criticalIdx && criticalIdx < clockIdx,
+            "Export and free-space controls must stay under Storage, not Clock.");
+        Assert.True(clockIdx < ntpIdx && ntpIdx < aboutIdx, "Clock controls must sit between Storage and About.");
     }
 
     [Fact]

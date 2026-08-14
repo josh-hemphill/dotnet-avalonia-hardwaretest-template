@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using HardwareTest.Core.Time;
 
 namespace HardwareTest.OpenTap.Host;
 
@@ -28,8 +29,14 @@ public sealed class OperatorSession : INotifyPropertyChanged
     private TimeSpan? _timeUntilSoftWarn;
     private TimeSpan? _timeUntilStale;
     private OperatorSessionState _state = OperatorSessionState.NeedsDut;
+    private readonly IClock _clock;
 
     public event PropertyChangedEventHandler? PropertyChanged;
+
+    public OperatorSession(IClock? clock = null)
+    {
+        _clock = clock ?? SystemClock.Instance;
+    }
 
     public string SessionId
     {
@@ -168,7 +175,7 @@ public sealed class OperatorSession : INotifyPropertyChanged
             throw new ArgumentException("DUT serial is required.", nameof(serial));
         }
 
-        var now = DateTimeOffset.UtcNow;
+        var now = _clock.UtcNow;
         DutSerial = serial.Trim();
         DutPartNumber = string.IsNullOrWhiteSpace(partNumber) ? null : partNumber.Trim();
         DutRevision = string.IsNullOrWhiteSpace(revision) ? null : revision.Trim();
@@ -238,7 +245,7 @@ public sealed class OperatorSession : INotifyPropertyChanged
         }
         else
         {
-            var now = DateTimeOffset.UtcNow;
+            var now = _clock.UtcNow;
             ConfirmedAt = now;
             LastActivityAt = now;
             ClearIdleCountdown();
@@ -256,7 +263,7 @@ public sealed class OperatorSession : INotifyPropertyChanged
             return;
         }
 
-        LastActivityAt = now ?? DateTimeOffset.UtcNow;
+        LastActivityAt = now ?? _clock.UtcNow;
     }
 
     /// Marks session Stale when idle longer than the configured timeout (uses last activity).
@@ -278,7 +285,7 @@ public sealed class OperatorSession : INotifyPropertyChanged
             return;
         }
 
-        var clock = now ?? DateTimeOffset.UtcNow;
+        var clock = now ?? _clock.UtcNow;
         var elapsed = clock - LastActivityAt.Value;
         var remainingStale = idleTimeout - elapsed;
         TimeUntilStale = remainingStale > TimeSpan.Zero ? remainingStale : TimeSpan.Zero;

@@ -5,6 +5,7 @@ using HardwareTest.Features.RunTest;
 using HardwareTest.OpenTap.Host;
 using HardwareTest.OpenTap.Plugins.Basic;
 using HardwareTest.ViewModels.Tests.Fakes;
+using HardwareTest.ViewModels.Tests.Time;
 using Xunit;
 
 namespace HardwareTest.ViewModels.Tests;
@@ -210,6 +211,31 @@ public sealed class RunBoardChildViewModelTests
         panel.ConfirmSameDutCommand.Execute().Subscribe();
         Assert.False(panel.IsIdleWarningPrompt);
         Assert.True(session.CanRun);
+    }
+
+    [Fact]
+    public void SessionPanel_idle_stale_uses_injected_clock()
+    {
+        var clock = new FakeClock(new DateTimeOffset(2026, 5, 1, 9, 0, 0, TimeSpan.Zero));
+        var session = new OperatorSession(clock);
+        session.ConfirmDut("SN-1");
+        var settings = new AppSettings
+        {
+            OperatorSessionIdleMinutes = 60,
+            OperatorSessionIdleWarnPercent = 80,
+        };
+        var panel = new OperatorSessionPanelViewModel(session, settings, _ => { }, clock: clock);
+
+        clock.Advance(TimeSpan.FromMinutes(48));
+        session.EvaluateIdle(TimeSpan.FromMinutes(60), 80);
+        panel.RefreshSessionSummary();
+        Assert.True(panel.IsIdleWarningPrompt);
+
+        clock.Advance(TimeSpan.FromMinutes(15));
+        session.EvaluateIdle(TimeSpan.FromMinutes(60), 80);
+        panel.RefreshSessionSummary();
+        Assert.Equal(OperatorSessionState.Stale, session.State);
+        Assert.True(panel.SessionBlocked);
     }
 
     [Fact]

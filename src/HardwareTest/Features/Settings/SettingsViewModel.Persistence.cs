@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Threading.Tasks;
 using HardwareTest.Core.Hardware;
 using HardwareTest.Core.Settings;
+using HardwareTest.Core.Time;
 
 namespace HardwareTest.Features.Settings;
 
@@ -138,6 +139,16 @@ public partial class SettingsViewModel
             s.RunRetentionMaxRuns = Math.Max(0, RunRetentionMaxRuns);
         }
 
+        if (!ClockSkewWarnThresholdMinutesReadOnly)
+        {
+            s.ClockSkewWarnThresholdMinutes = ClockSkew.ClampThresholdMinutes(ClockSkewWarnThresholdMinutes);
+        }
+
+        if (!NtpHostReadOnly)
+        {
+            s.NtpHost = NtpHost?.Trim() ?? string.Empty;
+        }
+
         if (!ExportDirectoryReadOnly)
         {
             s.ExportDirectory = ExportDirectory?.Trim() ?? string.Empty;
@@ -207,6 +218,8 @@ public partial class SettingsViewModel
             nameof(RequireDutConfirmEveryRun) => RequireDutConfirmEveryRunReadOnly,
             nameof(RunRetentionDays) => RunRetentionDaysReadOnly,
             nameof(RunRetentionMaxRuns) => RunRetentionMaxRunsReadOnly,
+            nameof(ClockSkewWarnThresholdMinutes) => ClockSkewWarnThresholdMinutesReadOnly,
+            nameof(NtpHost) => NtpHostReadOnly,
             nameof(ExportDirectory) => ExportDirectoryReadOnly,
             nameof(DataFreeSpaceWarnGb) => DataFreeSpaceWarnGbReadOnly,
             nameof(DataFreeSpaceCriticalGb) => DataFreeSpaceCriticalGbReadOnly,

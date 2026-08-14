@@ -5,6 +5,7 @@ using HardwareTest.Core.Reporting;
 using HardwareTest.Core.Runs;
 using HardwareTest.Core.Settings;
 using HardwareTest.Core.Storage;
+using HardwareTest.Core.Time;
 using HardwareTest.OpenTap.Host;
 
 namespace HardwareTest.Features.RunTest;
@@ -26,7 +27,8 @@ public partial class RunTestViewModel
         BuildInfo buildInfo,
         IStorageHealthService? storageHealth,
         IVisaModeController? visaModeController,
-        ISafetyController? safety)
+        ISafetyController? safety,
+        IClock clock)
     {
         StepDetail = new StepDetailViewModel(() => OpenSelectedDetail(revealDetail: true));
         Interaction = new InteractionHostViewModel();
@@ -41,7 +43,8 @@ public partial class RunTestViewModel
             settings,
             status => Status = status,
             () => ProgramSelection.SelectedProgram,
-            ClearSessionAttempts);
+            ClearSessionAttempts,
+            clock);
         StationOverrides = new StationOverridesViewModel(
             plan,
             station,
@@ -80,6 +83,7 @@ public partial class RunTestViewModel
             Live,
             storageHealth,
             visaModeController,
-            safety);
+            safety,
+            clock);
     }
 }

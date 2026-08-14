@@ -9,6 +9,7 @@ using HardwareTest.Core.Reporting;
 using HardwareTest.Core.Runs;
 using HardwareTest.Core.Settings;
 using HardwareTest.Core.Storage;
+using HardwareTest.Core.Time;
 using HardwareTest.Features.Shell;
 using HardwareTest.OpenTap.Host;
 using HardwareTest.OpenTap.Plugins.Basic;
@@ -44,7 +45,8 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
         IStorageHealthService? storageHealth = null,
         IVisaModeController? visaModeController = null,
         ShellNotificationViewModel? shellNotification = null,
-        ISafetyController? safety = null)
+        ISafetyController? safety = null,
+        IClock? clock = null)
     {
         _plan = plan;
         _runSession = runSession;
@@ -80,7 +82,8 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
             buildInfo ?? BuildInfo.FromAssembly(typeof(RunTestViewModel).Assembly),
             storageHealth,
             visaModeController,
-            safety);
+            safety,
+            clock ?? SystemClock.Instance);
 
         ContinueOperatorCommand = ReactiveCommand.Create(ContinueOperator);
         OpenLastRunResultsCommand = ReactiveCommand.Create(

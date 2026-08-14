@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using HardwareTest.Core.Runs;
 using HardwareTest.Core.Serialization;
 using HardwareTest.Core.Settings;
+using HardwareTest.Core.Time;
 using HardwareTest.OpenTap.Host;
 using HardwareTest.OpenTap.Plugins.Basic;
 using HardwareTest.OpenTap.Plugins.Mixins;
@@ -35,6 +36,8 @@ public sealed class ArchitectureRulesTests
         "docs/platform-phases/phase-23-safety-opentap-worker.md — OpenTAP worker is Avalonia-free; no TapThread.Abort in the UI process.";
     private const string Phase24SessionSplitRule =
         "docs/platform-phases/phase-24-session-decomposition.md — no static pause/interaction on StepRuntime; run state is per OpenTapRunContext.";
+    private const string Phase25ClockRule =
+        "docs/platform-phases/phase-25-clock-discipline.md — idle/retention/run-complete use IClock; Safety Stop must not wait on NTP.";
 
     private const int MaxFeatureFileLines = 600;
 
@@ -116,6 +119,74 @@ public sealed class ArchitectureRulesTests
         Assert.True(
             offenders.Count == 0,
             $"{Phase24SessionSplitRule} Offenders:{Environment.NewLine}{string.Join(Environment.NewLine, offenders)}");
+    }
+
+    [Fact]
+    public void Idle_retention_and_run_complete_must_not_use_wall_clock_UtcNow()
+    {
+        var repo = FindRepoRoot();
+        string[] relativePaths =
+        [
+            Path.Combine("src", "HardwareTest.OpenTap.Host", "OperatorSession.cs"),
+            Path.Combine("src", "HardwareTest.Core", "Settings", "OperatorSessionIdle.cs"),
+            Path.Combine("src", "HardwareTest.Core", "Storage", "RunRetentionService.cs"),
+            Path.Combine("src", "HardwareTest.Core", "Runs", "FileRunStore.cs"),
+            Path.Combine("src", "HardwareTest", "Features", "RunTest", "OperatorSessionPanelViewModel.cs"),
+            Path.Combine("src", "HardwareTest", "Features", "RunTest", "RunExecutionViewModel.cs"),
+            Path.Combine("src", "HardwareTest.OpenTap.Host", "OpenTapRunContext.cs"),
+            Path.Combine("src", "HardwareTest.OpenTap.Host", "OpenTapProgressResultListener.cs"),
+            Path.Combine("src", "HardwareTest.OpenTap.Host", "Worker", "OpenTapWorkerClient.cs"),
+            Path.Combine("src", "HardwareTest.Core", "Crash", "DanglingRunReconciler.cs"),
+        ];
+
+        var offenders = new List<string>();
+        foreach (var relative in relativePaths)
+        {
+            var path = Path.Combine(repo, relative);
+            Assert.True(File.Exists(path), $"Expected clock-disciplined file '{relative}'.");
+            var text = File.ReadAllText(path);
+            if (text.Contains("DateTime.UtcNow", StringComparison.Ordinal)
+                || text.Contains("DateTimeOffset.UtcNow", StringComparison.Ordinal))
+            {
+                offenders.Add(relative);
+            }
+        }
+
+        Assert.True(
+            offenders.Count == 0,
+            $"{Phase25ClockRule} Wall-clock UtcNow in idle/retention/run-complete:{Environment.NewLine}{string.Join(Environment.NewLine, offenders)}");
+    }
+
+    [Fact]
+    public void Safety_stop_and_worker_kill_must_not_wait_on_NTP()
+    {
+        var repo = FindRepoRoot();
+        string[] relativePaths =
+        [
+            Path.Combine("src", "HardwareTest.OpenTap.Host", "Worker", "OpenTapWorkerClient.cs"),
+            Path.Combine("src", "HardwareTest.OpenTap.Host", "Worker", "OpenTapWorkerProcess.cs"),
+            Path.Combine("src", "HardwareTest", "Features", "RunTest", "RunExecutionViewModel.cs"),
+            Path.Combine("src", "HardwareTest", "Crash", "CrashHandler.cs"),
+        ];
+        string[] needles = ["INtpTimeSource", "ClockSkewDetector", "UdpNtpTimeSource", "NtpHost"];
+        var offenders = new List<string>();
+        foreach (var relative in relativePaths)
+        {
+            var path = Path.Combine(repo, relative);
+            Assert.True(File.Exists(path), $"Expected safety-stop file '{relative}'.");
+            var text = File.ReadAllText(path);
+            foreach (var needle in needles)
+            {
+                if (text.Contains(needle, StringComparison.Ordinal))
+                {
+                    offenders.Add($"{relative} contains '{needle}'");
+                }
+            }
+        }
+
+        Assert.True(
+            offenders.Count == 0,
+            $"{Phase25ClockRule} Offenders:{Environment.NewLine}{string.Join(Environment.NewLine, offenders)}");
     }
 
     /// True when source mentions <c>StepRuntime.Member</c> but not <c>IStepRuntime.Member</c>.
@@ -220,6 +291,7 @@ public sealed class ArchitectureRulesTests
             typeof(UiState),
             typeof(TestRunRecord),
             typeof(SuiteRunRecord),
+            typeof(ClockLastGoodRecord),
         ];
 
         var missing = new List<string>();

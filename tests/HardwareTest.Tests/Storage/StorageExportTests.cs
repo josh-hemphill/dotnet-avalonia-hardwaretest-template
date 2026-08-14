@@ -1,6 +1,7 @@
 using HardwareTest.Core.Runs;
 using HardwareTest.Core.Settings;
 using HardwareTest.Core.Storage;
+using HardwareTest.Core.Time;
 using Xunit;
 
 namespace HardwareTest.Tests.Storage;
@@ -34,15 +35,17 @@ public sealed class RunRetentionServiceTests
         Directory.CreateDirectory(root);
         try
         {
+            var now = new DateTimeOffset(2026, 4, 1, 12, 0, 0, TimeSpan.Zero);
+            var clock = new HardwareTest.Tests.Time.FakeClock(now);
             var oldDir = Path.Combine(root, "old-run");
             var freshDir = Path.Combine(root, "fresh-run");
             var activeDir = Path.Combine(root, "active-run");
-            WriteRun(oldDir, DateTimeOffset.UtcNow.AddDays(-60), RunResult.Passed);
-            WriteRun(freshDir, DateTimeOffset.UtcNow.AddDays(-1), RunResult.Passed);
-            WriteRun(activeDir, DateTimeOffset.UtcNow, RunResult.Unknown);
+            WriteRun(oldDir, now.AddDays(-60), RunResult.Passed);
+            WriteRun(freshDir, now.AddDays(-1), RunResult.Passed);
+            WriteRun(activeDir, now, RunResult.Unknown);
 
             var settings = new AppSettings { RunRetentionDays = 30, RunRetentionMaxRuns = 500 };
-            var svc = new RunRetentionService(settings, root, utcNow: () => DateTimeOffset.UtcNow);
+            var svc = new RunRetentionService(settings, root, clock: clock);
             var result = svc.Prune(dryRun: true);
             Assert.Contains(oldDir, result.DeletedPaths);
             Assert.DoesNotContain(freshDir, result.DeletedPaths);
@@ -69,16 +72,18 @@ public sealed class RunRetentionServiceTests
         Directory.CreateDirectory(root);
         try
         {
+            var now = new DateTimeOffset(2026, 4, 1, 12, 0, 0, TimeSpan.Zero);
+            var clock = new HardwareTest.Tests.Time.FakeClock(now);
             for (var i = 0; i < 5; i++)
             {
                 WriteRun(
                     Path.Combine(root, $"run-{i}"),
-                    DateTimeOffset.UtcNow.AddHours(-i),
+                    now.AddHours(-i),
                     RunResult.Passed);
             }
 
             var settings = new AppSettings { RunRetentionDays = 0, RunRetentionMaxRuns = 2 };
-            var svc = new RunRetentionService(settings, root, utcNow: () => DateTimeOffset.UtcNow);
+            var svc = new RunRetentionService(settings, root, clock: clock);
             var result = svc.Prune();
             Assert.Equal(3, result.DeletedCount);
             Assert.Equal(2, Directory.GetDirectories(root).Length);
