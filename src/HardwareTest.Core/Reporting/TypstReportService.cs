@@ -61,40 +61,47 @@ public sealed class TypstReportService : IReportService, IDisposable
         CancellationToken cancellationToken = default)
     {
         var normalized = NormalizeKinds(kinds);
-        return await Task.Run(
-            () =>
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                var dir = _runStore.GetRunDirectory(run.RunId);
-                var artifacts = new List<RunReportArtifact>();
-                var now = DateTimeOffset.UtcNow;
-                foreach (var kind in normalized)
-                {
-                    var templateName = ResolveTemplateName(kind);
-                    var fileName = $"{kind}.pdf";
-                    var title = KindTitle(kind);
-                    var pdfBytes = CompileTemplateCore(run, templateName, kind, history, title, cancellationToken);
-                    var path = Path.Combine(dir, fileName);
-                    File.WriteAllBytes(path, pdfBytes);
-                    artifacts.Add(new RunReportArtifact
-                    {
-                        Kind = kind,
-                        Title = title,
-                        PdfPath = path,
-                        GeneratedAt = now,
-                    });
-                    _logger.Information("Wrote {Kind} PDF for run {RunId} to {Path}", kind, run.RunId, path);
-                }
+        return await GenerateReportsCoreAsync(run, normalized, history, cancellationToken).ConfigureAwait(false);
+    }
 
-                run.Reports = artifacts.ToList();
-                run.ReportPdfPath = artifacts.FirstOrDefault(a =>
-                                        string.Equals(a.Kind, ReportKinds.Status, StringComparison.OrdinalIgnoreCase))
-                                    ?.PdfPath
-                                    ?? artifacts.FirstOrDefault()?.PdfPath;
-                _runStore.SaveAsync(run, cancellationToken).GetAwaiter().GetResult();
-                return (IReadOnlyList<RunReportArtifact>)artifacts;
-            },
-            cancellationToken).ConfigureAwait(false);
+    private async Task<IReadOnlyList<RunReportArtifact>> GenerateReportsCoreAsync(
+        TestRunRecord run,
+        IReadOnlyList<string> kinds,
+        DutHistoryReport? history,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var dir = _runStore.GetRunDirectory(run.RunId);
+        var artifacts = new List<RunReportArtifact>();
+        var now = DateTimeOffset.UtcNow;
+        foreach (var kind in kinds)
+        {
+            var templateName = ResolveTemplateName(kind);
+            var fileName = $"{kind}.pdf";
+            var title = KindTitle(kind);
+            var pdfBytes = await Task.Run(
+                    () => CompileTemplateCore(run, templateName, kind, history, title, cancellationToken),
+                    cancellationToken)
+                .ConfigureAwait(false);
+            var path = Path.Combine(dir, fileName);
+            await AtomicFile.WriteAllBytesAsync(path, pdfBytes, cancellationToken).ConfigureAwait(false);
+            artifacts.Add(new RunReportArtifact
+            {
+                Kind = kind,
+                Title = title,
+                PdfPath = path,
+                GeneratedAt = now,
+            });
+            _logger.Information("Wrote {Kind} PDF for run {RunId} to {Path}", kind, run.RunId, path);
+        }
+
+        run.Reports = artifacts.ToList();
+        run.ReportPdfPath = artifacts.FirstOrDefault(a =>
+                                string.Equals(a.Kind, ReportKinds.Status, StringComparison.OrdinalIgnoreCase))
+                            ?.PdfPath
+                            ?? artifacts.FirstOrDefault()?.PdfPath;
+        await _runStore.SaveAsync(run, cancellationToken).ConfigureAwait(false);
+        return artifacts;
     }
 
     public async Task<string> GenerateSuitePdfAsync(SuiteRunRecord suiteRun, CancellationToken cancellationToken = default)

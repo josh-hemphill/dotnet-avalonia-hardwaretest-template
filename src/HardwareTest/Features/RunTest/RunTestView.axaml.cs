@@ -192,30 +192,30 @@ public partial class RunTestView : UserControl
 
     private void OnKeyDown(object? sender, KeyEventArgs e)
     {
-        if (_subscribed is null)
+        if (_subscribed is null || e.Handled)
         {
             return;
         }
 
-        if (e.Key is Key.Oem2 or Key.Divide)
-        {
-            ((ICommand)_subscribed.StepTree.FocusStepSearchCommand).Execute(null);
-            e.Handled = true;
-            return;
-        }
-
-        if (e.Key != Key.F)
+        var textInput = RunBoardKeyboard.IsTextInputTarget(e.Source);
+        if (!RunBoardKeyboard.TryMap(e.Key, e.KeyModifiers, textInput, out var shortcut))
         {
             return;
         }
 
-        if (e.KeyModifiers.HasFlag(KeyModifiers.Shift))
+        switch (shortcut)
         {
-            ((ICommand)_subscribed.StepTree.PrevFailCommand).Execute(null);
-        }
-        else
-        {
-            ((ICommand)_subscribed.StepTree.NextFailCommand).Execute(null);
+            case RunBoardShortcut.FocusSearch:
+                ((ICommand)_subscribed.StepTree.FocusStepSearchCommand).Execute(null);
+                break;
+            case RunBoardShortcut.NextFail:
+                ((ICommand)_subscribed.StepTree.NextFailCommand).Execute(null);
+                break;
+            case RunBoardShortcut.PrevFail:
+                ((ICommand)_subscribed.StepTree.PrevFailCommand).Execute(null);
+                break;
+            default:
+                return;
         }
 
         e.Handled = true;

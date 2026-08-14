@@ -155,4 +155,18 @@ public sealed class SettingsViewModelTests
         Assert.Equal(buildInfo.Version, vm.AboutVersion);
         Assert.Equal("1.2.3", vm.AboutOpenTapEngine);
     }
+
+    [Fact]
+    public void Debounced_save_fault_surfaces_on_Status()
+    {
+        var vm = new SettingsViewModel(new FakeSettingsStore(), new FakeOpenTapSession())
+        {
+            UiScheduler = action => action(),
+        };
+
+        vm.ObserveDebouncedSave(Task.FromException(new IOException("disk full")));
+
+        Assert.Contains("disk full", vm.Status, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Could not save settings", vm.Status, StringComparison.OrdinalIgnoreCase);
+    }
 }
