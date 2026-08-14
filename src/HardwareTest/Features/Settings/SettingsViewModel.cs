@@ -10,9 +10,9 @@ using HardwareTest.Core.Diagnostics;
 using HardwareTest.Core.Hardware;
 using HardwareTest.Core.Settings;
 using HardwareTest.OpenTap.Host;
+using HardwareTest.UiThreading;
 using ReactiveUI;
 using ReactiveUI.SourceGenerators;
-using HardwareTest.UiThreading;
 
 namespace HardwareTest.Features.Settings;
 
@@ -129,16 +129,7 @@ public partial class SettingsViewModel : ReactiveObject
             try
             {
                 UiDispatch.Post(
-                    () =>
-                    {
-                        // Observe faults: fire-and-forget SaveAsync is not caught by the outer try.
-                        _ = SaveAsync().ContinueWith(
-                            t => Debug.WriteLine(
-                                $"[SettingsViewModel] Debounced save failed: {t.Exception?.GetBaseException().Message}"),
-                            CancellationToken.None,
-                            TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
-                            TaskScheduler.Default);
-                    },
+                    () => ObserveDebouncedSave(SaveAsync()),
                     UiScheduler);
             }
             catch
@@ -194,6 +185,22 @@ public partial class SettingsViewModel : ReactiveObject
         };
 
         RefreshProvenance();
+    }
+
+    /// Observes a fire-and-forget save (debounce) and surfaces faults on Status.
+    internal void ObserveDebouncedSave(Task save)
+    {
+        _ = save.ContinueWith(
+            t =>
+            {
+                var message = t.Exception?.GetBaseException().Message ?? "Debounced save failed.";
+                UiDispatch.Post(
+                    () => Status = $"Could not save settings: {message}",
+                    UiScheduler);
+            },
+            CancellationToken.None,
+            TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
+            TaskScheduler.Default);
     }
 
     /// Scans OpenTAP packages once Settings is opened (avoids blocking first paint).

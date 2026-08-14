@@ -28,6 +28,9 @@ csharp_prefer_braces = true:suggestion
 csharp_style_namespace_declarations = file_scoped:warning
 csharp_using_directive_placement = outside_namespace:warning
 
+# One-line `///` summaries are intentional; do not require <summary> wrappers.
+dotnet_diagnostic.RCS1139.severity = none
+
 # Naming
 dotnet_naming_rule.interfaces_should_be_iproto.severity = interface
 dotnet_naming_rule.interfaces_should_be_iproto.style = begins_with_i

@@ -7,11 +7,11 @@ using Avalonia.Media.Imaging;
 using HardwareTest.Core.Reporting;
 using HardwareTest.Core.Runs;
 using HardwareTest.OpenTap.Host;
+using HardwareTest.UiThreading;
 using PDFtoImage;
 using ReactiveUI;
 using ReactiveUI.SourceGenerators;
 using SkiaSharp;
-using HardwareTest.UiThreading;
 
 namespace HardwareTest.Features.ReportPreview;
 
@@ -21,6 +21,9 @@ public partial class ReportPreviewViewModel : ReactiveObject
     private readonly IRunStore _runStore;
     private readonly IReportService _reportService;
     private readonly OperatorSession? _operatorSession;
+
+    /// Test seam: routes UI work synchronously instead of through the Avalonia dispatcher.
+    public Action<Action>? UiScheduler { get; set; }
 
     public ReportPreviewViewModel(
         IRunStore runStore,
@@ -53,12 +56,14 @@ public partial class ReportPreviewViewModel : ReactiveObject
 
     public bool ShowEmptyState => Pages.Count == 0 && !IsBusy;
 
+    private Task RunOnUiAsync(Action action) => UiDispatch.RunAsync(action, UiScheduler);
+
     public async Task LoadFromPathAsync(string path)
     {
         _operatorSession?.TouchActivity();
-        IsBusy = true;
-        try
+        await RunOnUiAsync(() =>
         {
+            IsBusy = true;
             PdfPath = path;
             // Dispose any previously rendered bitmaps before clearing the collection to avoid leaks.
             foreach (var bitmap in Pages)
@@ -68,16 +73,19 @@ public partial class ReportPreviewViewModel : ReactiveObject
 
             Pages.Clear();
             this.RaisePropertyChanged(nameof(ShowEmptyState));
+        }).ConfigureAwait(false);
+        try
+        {
             if (!File.Exists(path))
             {
-                Status = $"File not found: {path}";
+                await RunOnUiAsync(() => Status = $"File not found: {path}").ConfigureAwait(false);
                 return;
             }
 
             try
             {
                 var bitmaps = await Task.Run(() => RenderPages(path)).ConfigureAwait(false);
-                await UiDispatch.RunAsync(() =>
+                await RunOnUiAsync(() =>
                 {
                     foreach (var bitmap in bitmaps)
                     {
@@ -90,7 +98,7 @@ public partial class ReportPreviewViewModel : ReactiveObject
             }
             catch (Exception ex)
             {
-                await UiDispatch.RunAsync(() =>
+                await RunOnUiAsync(() =>
                 {
                     Status = $"Preview failed: {ex.Message}";
                     this.RaisePropertyChanged(nameof(ShowEmptyState));
@@ -99,35 +107,38 @@ public partial class ReportPreviewViewModel : ReactiveObject
         }
         finally
         {
-            IsBusy = false;
-            this.RaisePropertyChanged(nameof(ShowEmptyState));
+            await RunOnUiAsync(() =>
+            {
+                IsBusy = false;
+                this.RaisePropertyChanged(nameof(ShowEmptyState));
+            }).ConfigureAwait(false);
         }
     }
 
     private async Task LoadLatestAsync()
     {
-        var runs = await _runStore.ListAsync();
+        var runs = await _runStore.ListAsync().ConfigureAwait(false);
         var latest = runs.FirstOrDefault();
         if (latest is null)
         {
-            Status = "No saved runs.";
+            await RunOnUiAsync(() => Status = "No saved runs.").ConfigureAwait(false);
             return;
         }
 
-        var run = await _runStore.LoadAsync(latest.RunId);
+        var run = await _runStore.LoadAsync(latest.RunId).ConfigureAwait(false);
         if (run is null)
         {
-            Status = "Failed to load run.";
+            await RunOnUiAsync(() => Status = "Failed to load run.").ConfigureAwait(false);
             return;
         }
 
         var path = run.ReportPdfPath;
         if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
         {
-            path = await _reportService.GeneratePdfAsync(run);
+            path = await _reportService.GeneratePdfAsync(run).ConfigureAwait(false);
         }
 
-        await LoadFromPathAsync(path);
+        await LoadFromPathAsync(path).ConfigureAwait(false);
     }
 
     private void Print()

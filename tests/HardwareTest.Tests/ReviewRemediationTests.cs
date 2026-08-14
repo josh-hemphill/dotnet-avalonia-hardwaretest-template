@@ -73,6 +73,35 @@ public sealed class ReviewRemediationTests
     }
 
     [Fact]
+    public void ExportPackage_dotdot_relative_stays_under_package_root()
+    {
+        using var temp = new TempDataDirectory();
+        var root = Path.Combine(temp.Path, "export");
+        Directory.CreateDirectory(root);
+        var settings = new AppSettings { DataDirectory = temp.Path };
+        var svc = new ExportTargetService(settings, temp.Path, Log.Logger);
+        var target = new ExportTarget
+        {
+            Id = "t",
+            DisplayName = "t",
+            RootPath = root,
+            IsRemovable = false,
+            AvailableBytes = long.MaxValue,
+        };
+
+        var source = Path.Combine(temp.Path, "payload.bin");
+        File.WriteAllBytes(source, [9, 9, 9]);
+        var package = svc.ExportPackage(
+            target,
+            "pkg",
+            [(source, Path.Combine("..", "export-evil", "payload.bin"))]);
+
+        Assert.False(File.Exists(Path.Combine(temp.Path, "export-evil", "payload.bin")));
+        Assert.True(PathContainment.IsUnderRoot(root, package));
+        Assert.True(File.Exists(Path.Combine(package, "export-evil", "payload.bin")));
+    }
+
+    [Fact]
     public void PathContainment_rejects_sibling_prefix_match()
     {
         using var temp = new TempDataDirectory();

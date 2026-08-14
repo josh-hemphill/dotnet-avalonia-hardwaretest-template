@@ -1,7 +1,7 @@
 # Deferred — Clock discipline
 
 **Parent:** [platform-roadmap.md](../platform-roadmap.md)
-**Status:** Deferred
+**Status:** Promoted — scheduled as [Phase 25](../platform-phases/phase-25-clock-discipline.md). This file stays as the deferred-track original; implement against the phase plan.
 
 ## Goal
 

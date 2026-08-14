@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.CompilerServices;
+using HardwareTest.Core.IO;
 using HardwareTest.Core.Runs;
 using HardwareTest.Core.Settings;
 using HardwareTest.OpenTap.Plugins.Basic;
@@ -1173,28 +1174,47 @@ public sealed class OpenTapSession : IOpenTapSession, INotifyPropertyChanged
         }
 
         var extras = new List<string>();
-        foreach (var dir in _settings.OpenTapPluginDirectories)
+        foreach (var dir in CollectConfiguredPluginDirectories())
         {
-            if (!string.IsNullOrWhiteSpace(dir))
+            if (PluginDirectoryTrust.Allows(_settings.DataDirectory, dir, _settings.IsEngineerDebugMode))
             {
                 extras.Add(dir);
+                continue;
             }
-        }
 
-        var env = Environment.GetEnvironmentVariable("HARDWARETEST_OPENTAP_PLUGIN_DIRS");
-        if (!string.IsNullOrWhiteSpace(env))
-        {
-            foreach (var part in env.Split(
-                         [Path.PathSeparator, ';'],
-                         StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
-            {
-                extras.Add(part);
-            }
+            _logger.Warning(
+                "Skipping OpenTAP plugin directory outside trusted root {Root}: {Dir}",
+                PluginDirectoryTrust.TrustedRoot(_settings.DataDirectory),
+                dir);
         }
 
         // Directory list mutations + Search share one gate (OpenTapPluginSearch.SearchSerialized).
         OpenTapPluginSearch.SearchSerialized(extras);
         _pluginSearchDone = true;
+    }
+
+    private IEnumerable<string> CollectConfiguredPluginDirectories()
+    {
+        foreach (var dir in _settings.OpenTapPluginDirectories)
+        {
+            if (!string.IsNullOrWhiteSpace(dir))
+            {
+                yield return dir;
+            }
+        }
+
+        var env = Environment.GetEnvironmentVariable("HARDWARETEST_OPENTAP_PLUGIN_DIRS");
+        if (string.IsNullOrWhiteSpace(env))
+        {
+            yield break;
+        }
+
+        foreach (var part in env.Split(
+                     [Path.PathSeparator, ';'],
+                     StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            yield return part;
+        }
     }
 
     private static IEnumerable<ITestStep> FlattenSteps(ITestStepParent parent)

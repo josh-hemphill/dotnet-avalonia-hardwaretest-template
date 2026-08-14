@@ -32,7 +32,7 @@ public sealed class Phase15ChromeTests
     }
 
     [Fact]
-    public async Task CanStartRunTip_mentions_safety_stop_while_running()
+    public async Task CanStartRunTip_mentions_stop_run_while_running()
     {
         var vm = CreateRunVm();
         vm.SessionPanel.DutSerialInput = "SN-1";
@@ -41,7 +41,7 @@ public sealed class Phase15ChromeTests
         vm.IsRunning = true;
 
         Assert.False(vm.CanStartRun);
-        Assert.Contains("Safety Stop", vm.CanStartRunTip, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Stop Run", vm.CanStartRunTip, StringComparison.OrdinalIgnoreCase);
         Assert.True(vm.ShowOverallProgress);
     }
 
@@ -204,6 +204,21 @@ public sealed class Phase15ChromeTests
             culture);
         Assert.IsAssignableFrom<IBrush>(pass);
         Assert.IsAssignableFrom<IBrush>(fail);
+    }
+
+    [Theory]
+    [InlineData(ChipPalette.Pass)]
+    [InlineData(ChipPalette.Fail)]
+    [InlineData(ChipPalette.Running)]
+    [InlineData(ChipPalette.Awaiting)]
+    [InlineData(ChipPalette.Error)]
+    [InlineData(ChipPalette.Pending)]
+    public void Chip_backgrounds_meet_wcag_aa_against_white(string backgroundHex)
+    {
+        var ratio = HardwareTest.Core.Presentation.ContrastMath.RatioHex(ChipPalette.Foreground, backgroundHex);
+        Assert.True(
+            ratio >= HardwareTest.Core.Presentation.ContrastMath.WcagAaNormalText,
+            $"{backgroundHex} vs white ratio={ratio:F2}");
     }
 
     [Fact]

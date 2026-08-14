@@ -125,7 +125,7 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
     /// True when neither a run is in progress nor the session is blocking the start.
     public bool CanStartRun => !IsRunning && !SessionPanel.SessionBlocked;
 
-    /// True when Safety Stop can abort a run or cancel an in-panel operator prompt.
+    /// True when Stop Run can abort a run or cancel an in-panel operator prompt.
     public bool CanSafetyStop => IsRunning || Interaction.IsAwaitingOperator;
 
     /// Tooltip for Run / Run Selected reflecting why start is blocked when disabled.
@@ -135,7 +135,7 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
         {
             if (IsRunning)
             {
-                return "Run in progress — use Safety Stop to abort.";
+                return "Run in progress — use Stop Run to abort.";
             }
 
             if (SessionPanel.SessionBlocked)
@@ -326,26 +326,30 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
         if (!alreadyLoaded)
         {
             await LoadProgramEntryAsync(program).ConfigureAwait(false);
-            StepTree.RebuildFromHost(preserveStagePath, preserveStepPath);
-        }
-        else if (StepTree.Hierarchy.Count == 0 && StepTree.FullHierarchy.Count == 0)
-        {
-            StepTree.RebuildFromHost(preserveStagePath, preserveStepPath);
-        }
-        else if (!string.IsNullOrWhiteSpace(preserveStepPath))
-        {
-            // Keep Hierarchy instances; only re-resolve selection by path.
-            StepTree.ResolveSelectedStep(preserveStepPath);
-        }
-        else if (!string.IsNullOrWhiteSpace(preserveStagePath))
-        {
-            StepTree.RestoreSelection(preserveStagePath, preserveStepPath);
         }
 
-        StationOverrides.RefreshStationSlotSummary();
-        StationOverrides.ApplySavedParameterOverrides();
-        StationOverrides.RefreshParameterFields();
-        SessionPanel.RefreshSessionSummary();
+        await RunOnUiAsync(() =>
+        {
+            if (!alreadyLoaded
+                || (StepTree.Hierarchy.Count == 0 && StepTree.FullHierarchy.Count == 0))
+            {
+                StepTree.RebuildFromHost(preserveStagePath, preserveStepPath);
+            }
+            else if (!string.IsNullOrWhiteSpace(preserveStepPath))
+            {
+                // Keep Hierarchy instances; only re-resolve selection by path.
+                StepTree.ResolveSelectedStep(preserveStepPath);
+            }
+            else if (!string.IsNullOrWhiteSpace(preserveStagePath))
+            {
+                StepTree.RestoreSelection(preserveStagePath, preserveStepPath);
+            }
+
+            StationOverrides.RefreshStationSlotSummary();
+            StationOverrides.ApplySavedParameterOverrides();
+            StationOverrides.RefreshParameterFields();
+            SessionPanel.RefreshSessionSummary();
+        }).ConfigureAwait(false);
     }
 
     private Task LoadProgramEntryAsync(ProgramItemViewModel program)

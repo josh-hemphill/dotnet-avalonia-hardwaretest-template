@@ -7,9 +7,9 @@ using HardwareTest.Core.Storage;
 using HardwareTest.Core.Text;
 using HardwareTest.Features.Presentation;
 using HardwareTest.OpenTap.Host;
+using HardwareTest.UiThreading;
 using ReactiveUI;
 using ReactiveUI.SourceGenerators;
-using HardwareTest.UiThreading;
 
 namespace HardwareTest.Features.Results;
 
