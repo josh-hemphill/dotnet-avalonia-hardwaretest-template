@@ -22,6 +22,12 @@ public sealed class TracingVisaSession : IVisaSession
 
     public string ResourceName => _inner.ResourceName;
 
+    public int IoTimeoutMilliseconds
+    {
+        get => _inner.IoTimeoutMilliseconds;
+        set => _inner.IoTimeoutMilliseconds = value;
+    }
+
     public Task WriteAsync(string command, CancellationToken cancellationToken = default)
     {
         return _gate.RunAsync(

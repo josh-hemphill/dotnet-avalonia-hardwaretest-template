@@ -301,6 +301,15 @@ public sealed class VisaModeControllerTests
         await Assert.ThrowsAsync<InvalidOperationException>(
             () => ((IVisaSessionFactory)controller).OpenAsync("GPIB0::1::INSTR"));
     }
+
+    [Fact]
+    public async Task Broker_session_forwards_io_timeout()
+    {
+        var controller = MakeController(initialMock: true);
+        await using var session = await ((IVisaBroker)controller).OpenAsync("MOCK::INSTR0");
+        session.IoTimeoutMilliseconds = 25_000;
+        Assert.Equal(25_000, session.IoTimeoutMilliseconds);
+    }
 }
 
 /// Stand-in for real IVI discovery when no vendor VISA runtime is present (unit tests / CI).

@@ -32,7 +32,7 @@ public sealed class VisaDmmInstrument : HardwareDmm
     }
 
     [Display("IO Timeout (ms)", Order: 2)]
-    public int IoTimeoutMilliseconds { get; set; } = 5000;
+    public int IoTimeoutMilliseconds { get; set; } = IviVisaSessionFactory.DefaultIoTimeoutMilliseconds;
 
     public override void Open()
     {
@@ -44,7 +44,9 @@ public sealed class VisaDmmInstrument : HardwareDmm
         }
 
         using var cts = new CancellationTokenSource(ClampTimeout());
-        _session = ResolveBroker().OpenAsync(VisaAddress, cts.Token).GetAwaiter().GetResult();
+        var session = ResolveBroker().OpenAsync(VisaAddress, cts.Token).GetAwaiter().GetResult();
+        session.IoTimeoutMilliseconds = ClampTimeout();
+        _session = session;
         base.Open();
     }
 
@@ -80,18 +82,25 @@ public sealed class VisaDmmInstrument : HardwareDmm
 
     private IVisaBroker ResolveBroker() => _injected ?? VisaBrokerHost.Require();
 
-    private int ClampTimeout() => Math.Clamp(IoTimeoutMilliseconds, 100, 120_000);
+    private int ClampTimeout() => Math.Clamp(
+        IoTimeoutMilliseconds,
+        IviVisaSessionFactory.MinIoTimeoutMilliseconds,
+        IviVisaSessionFactory.MaxIoTimeoutMilliseconds);
 
     private void Write(string command)
     {
+        var session = RequireSession();
+        session.IoTimeoutMilliseconds = ClampTimeout();
         using var cts = new CancellationTokenSource(ClampTimeout());
-        RequireSession().WriteAsync(command, cts.Token).GetAwaiter().GetResult();
+        session.WriteAsync(command, cts.Token).GetAwaiter().GetResult();
     }
 
     private string Query(string command)
     {
+        var session = RequireSession();
+        session.IoTimeoutMilliseconds = ClampTimeout();
         using var cts = new CancellationTokenSource(ClampTimeout());
-        return RequireSession().QueryAsync(command, cts.Token).GetAwaiter().GetResult();
+        return session.QueryAsync(command, cts.Token).GetAwaiter().GetResult();
     }
 
     private IVisaSession RequireSession()

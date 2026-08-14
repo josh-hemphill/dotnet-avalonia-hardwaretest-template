@@ -35,4 +35,14 @@ public sealed class MockVisaSessionTests
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => session.WriteAsync("*RST", cts.Token));
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => session.QueryAsync("*IDN?", cts.Token));
     }
+
+    [Fact]
+    public void Io_timeout_is_stored_on_the_session()
+    {
+        var session = new MockVisaSession("MOCK::1")
+        {
+            IoTimeoutMilliseconds = 30_000,
+        };
+        Assert.Equal(30_000, session.IoTimeoutMilliseconds);
+    }
 }

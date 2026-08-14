@@ -31,6 +31,38 @@ public sealed class VisaDmmInstrumentTests
     }
 
     [Fact]
+    public void Open_applies_io_timeout_to_broker_session()
+    {
+        var broker = new RecordingVisaBroker();
+        var dmm = new VisaDmmInstrument(broker)
+        {
+            VisaAddress = "MOCK::INSTR0",
+            IoTimeoutMilliseconds = 30_000,
+        };
+
+        dmm.Open();
+        Assert.Equal(30_000, broker.LastSession!.IoTimeoutMilliseconds);
+        dmm.QueryIdn();
+        Assert.Equal(30_000, broker.LastSession.IoTimeoutMilliseconds);
+        dmm.Close();
+    }
+
+    [Fact]
+    public void Open_clamps_io_timeout_onto_broker_session()
+    {
+        var broker = new RecordingVisaBroker();
+        var dmm = new VisaDmmInstrument(broker)
+        {
+            VisaAddress = "MOCK::INSTR0",
+            IoTimeoutMilliseconds = 1,
+        };
+
+        dmm.Open();
+        Assert.Equal(IviVisaSessionFactory.MinIoTimeoutMilliseconds, broker.LastSession!.IoTimeoutMilliseconds);
+        dmm.Close();
+    }
+
+    [Fact]
     public void Open_without_registered_broker_fails_closed()
     {
         var dmm = new VisaDmmInstrument { VisaAddress = "MOCK::INSTR0" };
@@ -70,6 +102,7 @@ file sealed class RecordingVisaSession : IVisaSession
     public RecordingVisaSession(string resourceName) => ResourceName = resourceName;
 
     public string ResourceName { get; }
+    public int IoTimeoutMilliseconds { get; set; } = IviVisaSessionFactory.DefaultIoTimeoutMilliseconds;
     public List<string> Queries { get; } = [];
     public bool Disposed { get; private set; }
 

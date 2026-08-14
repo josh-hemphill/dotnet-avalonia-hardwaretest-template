@@ -170,6 +170,12 @@ public sealed class VisaModeController : IVisaModeController, IVisaSessionFactor
 
         public string ResourceName => inner.ResourceName;
 
+        public int IoTimeoutMilliseconds
+        {
+            get => inner.IoTimeoutMilliseconds;
+            set => inner.IoTimeoutMilliseconds = value;
+        }
+
         public Task WriteAsync(string command, CancellationToken cancellationToken = default)
             => inner.WriteAsync(command, cancellationToken);
 
