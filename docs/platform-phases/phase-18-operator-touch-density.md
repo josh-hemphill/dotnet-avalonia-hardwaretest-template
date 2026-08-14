@@ -79,4 +79,5 @@ Phase 12/15 deferred touch density to [deferred-appliance-kiosk.md](../deferred/
 
 - [Phase 17](phase-17-shell-notification-strip.md) — reserved strip (do first or same train)
 - [Phase 12](phase-12-error-surfacing-chrome.md) / [Phase 15](phase-15-operator-feedback-chrome.md) — deferred touch notes → this phase
+- [Phase 21](phase-21-operator-chrome-a11y.md) — operational type scale, compact Pause/Stop captions, live regions
 - [deferred-appliance-kiosk.md](../deferred/deferred-appliance-kiosk.md) — assumes this density floor later

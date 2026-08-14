@@ -2,6 +2,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:HardwareTest.Features.Inspect"
              xmlns:run="using:HardwareTest.Features.RunTest"
+             xmlns:shell="using:HardwareTest.Features.Shell"
              x:Class="HardwareTest.Features.Inspect.InspectView"
              x:DataType="vm:InspectViewModel">
   <Grid RowDefinitions="Auto,Auto,*" RowSpacing="8">
@@ -40,11 +41,11 @@
                     CornerRadius="4"
                     Padding="6,1"
                     Background="{Binding ChipText, Converter={x:Static run:ChipBrushConverter.Instance}}">
-              <TextBlock Text="{Binding ChipText}" FontSize="10" FontWeight="SemiBold" Foreground="White" />
+              <TextBlock Text="{Binding ChipText}" FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}" FontWeight="SemiBold" Foreground="White" />
             </Border>
             <TextBlock Grid.Column="2"
                        Text="{Binding ProgressText}"
-                       FontSize="11"
+                       FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}"
                        Opacity="0.8"
                        VerticalAlignment="Center" />
           </Grid>
