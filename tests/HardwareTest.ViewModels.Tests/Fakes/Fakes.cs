@@ -82,6 +82,9 @@ public sealed class FakeOpenTapSession : IOpenTapSession
     /// When true, <see cref="RunAsync"/> raises one confirm interaction and waits for Resume.
     public bool EmitOperatorInteractionDuringRun { get; set; }
     public RunResult CompletionResult { get; set; } = RunResult.Passed;
+    /// When true, <see cref="LoadSampleProgramAsync"/> (and other Load*) yield so
+    /// <c>ConfigureAwait(false)</c> continuations leave the caller thread.
+    public bool YieldOnLoad { get; set; }
     public int RunCount { get; private set; }
     public int SelectionRunCount { get; private set; }
     public bool ReportSamples { get; set; } = true;
@@ -92,40 +95,41 @@ public sealed class FakeOpenTapSession : IOpenTapSession
     public string? LastSelectionPath { get; private set; }
     public bool? LastSelectionIncludeCleanup { get; private set; }
 
-    public Task LoadPlanAsync(string tapPlanPath, CancellationToken cancellationToken = default)
+    public async Task LoadPlanAsync(string tapPlanPath, CancellationToken cancellationToken = default)
     {
+        await YieldIfRequestedAsync().ConfigureAwait(false);
         LoadedPlanPath = tapPlanPath;
         LoadedPlanName = Path.GetFileNameWithoutExtension(tapPlanPath);
-        return Task.CompletedTask;
     }
 
-    public Task LoadSampleProgramAsync(CancellationToken cancellationToken = default)
+    public async Task LoadSampleProgramAsync(CancellationToken cancellationToken = default)
     {
         if (ThrowOnLoad)
         {
             throw new InvalidOperationException("Simulated load failure");
         }
 
+        await YieldIfRequestedAsync().ConfigureAwait(false);
         LoadedPlanPath = SampleProgramFactory.EmbeddedName;
         LoadedPlanName = "Sample Hardware Suite";
         Tree.Clear();
         Tree.Add(BuildSampleTree());
         EnsureDefaultSlot();
-        return Task.CompletedTask;
     }
 
-    public Task LoadBoardDemoProgramAsync(CancellationToken cancellationToken = default)
+    public async Task LoadBoardDemoProgramAsync(CancellationToken cancellationToken = default)
     {
+        await YieldIfRequestedAsync().ConfigureAwait(false);
         LoadedPlanPath = BoardDemoProgramFactory.EmbeddedName;
         LoadedPlanName = BoardDemoProgramFactory.DisplayName;
         Tree.Clear();
         Tree.Add(BuildBoardDemoTree());
         EnsureDefaultSlot();
-        return Task.CompletedTask;
     }
 
-    public Task LoadSweepDemoProgramAsync(CancellationToken cancellationToken = default)
+    public async Task LoadSweepDemoProgramAsync(CancellationToken cancellationToken = default)
     {
+        await YieldIfRequestedAsync().ConfigureAwait(false);
         LoadedPlanPath = SweepDemoProgramFactory.EmbeddedName;
         LoadedPlanName = SweepDemoProgramFactory.DisplayName;
         Tree.Clear();
@@ -135,11 +139,11 @@ public sealed class FakeOpenTapSession : IOpenTapSession
         }
 
         EnsureDefaultSlot();
-        return Task.CompletedTask;
     }
 
-    public Task LoadTimingDemoProgramAsync(CancellationToken cancellationToken = default)
+    public async Task LoadTimingDemoProgramAsync(CancellationToken cancellationToken = default)
     {
+        await YieldIfRequestedAsync().ConfigureAwait(false);
         LoadedPlanPath = TimingDemoProgramFactory.EmbeddedName;
         LoadedPlanName = TimingDemoProgramFactory.DisplayName;
         Tree.Clear();
@@ -149,7 +153,14 @@ public sealed class FakeOpenTapSession : IOpenTapSession
         }
 
         EnsureDefaultSlot();
-        return Task.CompletedTask;
+    }
+
+    private async Task YieldIfRequestedAsync()
+    {
+        if (YieldOnLoad)
+        {
+            await Task.Yield();
+        }
     }
 
     private void EnsureDefaultSlot()
