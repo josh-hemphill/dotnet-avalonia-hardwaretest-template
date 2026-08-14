@@ -222,6 +222,10 @@
           <TextBlock Text="OpenTAP engine" VerticalAlignment="Center" />
           <TextBlock Grid.Column="1" Text="{Binding AboutOpenTapEngine}" VerticalAlignment="Center" TextWrapping="Wrap" />
         </Grid>
+        <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
+          <TextBlock Text="Hardware interlock" VerticalAlignment="Center" />
+          <TextBlock Grid.Column="1" Text="{Binding SafetyInterlockStatus}" VerticalAlignment="Center" TextWrapping="Wrap" />
+        </Grid>
         <Button Content="Open crashes folder"
                 Command="{Binding OpenCrashesFolderCommand}"
                 IsVisible="{Binding AllowOsFolderBrowse}"

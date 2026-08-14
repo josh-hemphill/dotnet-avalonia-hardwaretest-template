@@ -7,8 +7,8 @@ UI/board tests stay separate from OpenTAP plan-behavior tests. Both share the Op
 | Architecture | Layering smoke (Avalonia/OpenTAP boundaries, single Window, `AppJsonContext`, plugin source must not use `Ivi.Visa`) | Load assemblies only | None |
 | Session contracts | Shared `IOpenTapSession` behavior (real + fake) | Real or `FakeOpenTapSession` | MockDmm / canned trees |
 | ViewModels | Run board / session / filters / rollup UX | `FakeOpenTapSession` (in-memory trees + optional recording replay) | No real instruments |
-| Core/OpenTAP host | Plan load, hierarchy, Run Selected mask, SafeShutdown, progress/samples | Real `OpenTapSession` | `MockDmmInstrument` |
-| Avalonia E2E | Shell wiring only (DUT → Run → Results/Inspect) | Real session | MockDmm + `UseMockVisa` |
+| Core/OpenTAP host | Plan load, hierarchy, Run Selected mask, SafeShutdown, progress/samples | Real in-process `OpenTapSession` (documented test-only host) | `MockDmmInstrument` |
+| Avalonia E2E | Shell wiring only (DUT → Run → Results/Inspect) | Worker-backed session (`OpenTapWorkerClient`) | MockDmm + `UseMockVisa` |
 
 CI runs Deno tasks from [`tools/ci/`](../tools/ci/) on **windows-latest** (required E2E) and **ubuntu-latest** (`linux-x64`; E2E advisory — the step is named **E2E smoke (advisory on Linux)**). Host tests run **without Coverlet**; `coverage` collects Core-safe tests only. See [containers.md](containers.md).
 
@@ -52,10 +52,11 @@ Pick the narrowest suite for what you are asserting:
 ### Plan behavior (OpenTAP host)
 
 1. Prefer a C# factory in `PlanShapeFixtures` / `SampleProgramFactory` / `BoardDemoProgramFactory` / `SweepDemoProgramFactory` (optionally `SaveBeside` under `plans/opentap/fixtures/`).
-2. Load with concrete `OpenTapSession.LoadPlanShapeAsync(...)` (not on `IOpenTapSession`) or the sample / board-demo / sweep-demo loaders.
+2. Load with concrete `OpenTapSession.LoadPlanShapeAsync(...)` (not on `IOpenTapSession`) or the sample / board-demo / sweep-demo loaders. The in-process `OpenTapSession` is the **documented test-only host** for the serial `OpenTapSerial` suite — it does not pass a cancel token into `Execute` so Abort cannot poison `TapThread`.
 3. Assert `StepTree` shape, unique paths, Run Selected enable-mask behavior, or SafeShutdown presence.
-4. Keep host tests in the `OpenTapSerial` collection (`DisableParallelization`).
-5. **Abort isolation:** Host `Abort` cancels cooperatively via CTS + `WaitIfPaused` / interaction gates — it does **not** call `TapThread.Abort`, which can poison later `Execute` calls in the same process. Prefer draining run tasks in `finally` after Abort in tests.
+4. Keep in-process host tests in the `OpenTapSerial` collection (`DisableParallelization`).
+5. **Abort isolation:** Host `Abort` cancels cooperatively via CTS + `WaitIfPaused` / interaction gates — it does **not** call `TapThread.Abort`. Prefer draining run tasks in `finally` after Abort in tests.
+6. **Worker kill:** `OpenTapWorkerKillTests` loads `HangForeverStep` through `OpenTapWorkerClient` (not `IOpenTapSession`). Abort then kill-timeout must run `ISafetyController.SafeIdle` and leave the client able to start a second run. ViewModels stay on `FakeOpenTapSession`. The UI process uses the worker via Composition.
 
 Named templates live in `PlanDiagnosticsTests` (`PlanDiagnostics_*`).
 

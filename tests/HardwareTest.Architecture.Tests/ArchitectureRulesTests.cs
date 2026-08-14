@@ -31,6 +31,8 @@ public sealed class ArchitectureRulesTests
         "docs/platform-phases/phase-14-session-facade-split.md — Feature ViewModels take focused IOpenTap* surfaces, not the aggregating IOpenTapSession.";
     private const string Phase22PluginIviRule =
         "docs/platform-phases/phase-22-visa-broker.md — plugins must not call Ivi.Visa / GlobalResourceManager; Core owns the broker.";
+    private const string Phase23WorkerRule =
+        "docs/platform-phases/phase-23-safety-opentap-worker.md — OpenTAP worker is Avalonia-free; no TapThread.Abort in the UI process.";
 
     private const int MaxFeatureFileLines = 600;
 
@@ -53,12 +55,30 @@ public sealed class ArchitectureRulesTests
     }
 
     [Fact]
-    public void OpenTapHost_must_not_reference_Avalonia()
+    public void OpenTapWorker_must_not_reference_Avalonia()
     {
         AssertNoForbiddenReference(
-            typeof(OpenTapSession).Assembly,
+            typeof(global::HardwareTest.OpenTap.Worker.Program).Assembly,
             name => name.StartsWith("Avalonia", StringComparison.OrdinalIgnoreCase),
-            ReadmeHardSeparation);
+            Phase23WorkerRule);
+    }
+
+    [Fact]
+    public void Source_must_not_call_TapThread_Abort()
+    {
+        var srcRoot = Path.Combine(FindRepoRoot(), "src");
+        Assert.True(Directory.Exists(srcRoot), $"src root not found at '{srcRoot}'.");
+        var offenders = Directory.EnumerateFiles(srcRoot, "*.cs", SearchOption.AllDirectories)
+            .Where(path => !IsBuildArtifact(path, srcRoot))
+            .Select(path => (Path: path, Text: File.ReadAllText(path)))
+            .Where(file => file.Text.Contains("TapThread.Abort(", StringComparison.Ordinal))
+            .Select(file => Path.GetRelativePath(srcRoot, file.Path))
+            .OrderBy(path => path, StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.True(
+            offenders.Length == 0,
+            $"{Phase23WorkerRule} TapThread.Abort( callers:{Environment.NewLine}{string.Join(Environment.NewLine, offenders)}");
     }
 
     [Fact]
@@ -85,6 +105,7 @@ public sealed class ArchitectureRulesTests
     [InlineData(typeof(AcquireVoltageStep))]
     [InlineData(typeof(AnnotationMixin))]
     [InlineData(typeof(global::HardwareTest.MainWindow))]
+    [InlineData(typeof(global::HardwareTest.OpenTap.Worker.Program))]
     public void Assemblies_must_not_reference_WinForms_or_Wpf(Type marker)
     {
         AssertNoForbiddenReference(

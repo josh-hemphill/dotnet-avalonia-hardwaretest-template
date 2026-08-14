@@ -3,7 +3,7 @@
 **Parent:** [platform-roadmap.md](../platform-roadmap.md)
 **Depends on:** [Phase 19](phase-19-immediate-correctness.md) (honest Stop Run copy), [Phase 22](phase-22-visa-broker.md) (plan I/O on a preemptable broker)
 **Unblocks:** unattended benches; [Phase 24](phase-24-session-decomposition.md) may share a train but worker isolation should land first if they conflict
-**Status:** Planned
+**Status:** Done
 **Also absorbs:** Round-3 R3-14 (cooperative abort, `CancellationToken.None`, no hardware interlock)
 
 ## Goal
@@ -54,18 +54,27 @@ Phase 19 only renamed the chrome. `plan.Execute` still runs with `CancellationTo
 
 ## Exit criteria
 
-- [ ] Operator Stop Run cancels cooperative steps
-- [ ] Hung step: worker is killed, `SafeIdle` runs, UI can start another run
-- [ ] `ISafetyController` exists; no-op cannot be labeled as an armed interlock
-- [ ] No `TapThread.Abort` in the UI process
-- [ ] Phase 8 contracts still pass on the client surfaces
-- [ ] ViewModels stay on fakes; host tests do not poison the UI process
+- [x] Operator Stop Run cancels cooperative steps
+- [x] Hung step: worker is killed, `SafeIdle` runs, UI can start another run
+- [x] `ISafetyController` exists; no-op cannot be labeled as an armed interlock
+- [x] No `TapThread.Abort` in the UI process
+- [x] Phase 8 contracts still pass on the client surfaces
+- [x] ViewModels stay on fakes; host tests do not poison the UI process
 
 ## Out of scope
 
 - Wiring a specific ESTOP PLC / bench relay (adapter is a follow-up once the seam exists)
 - Multi-DUT parallel workers ([Phase K](../opentap-phases/phase-k-multi-dut-parallel.md) — this phase should not paint K into a corner)
 - Splitting `OpenTapSession` internals ([Phase 24](phase-24-session-decomposition.md) — may proceed in parallel on the worker side)
+
+## Landed
+
+- `ISafetyController` / `NoOpSafetyController` in Core. `IsArmed` is false; Settings About shows **Not wired** and never “armed”. Stop Run and crash capture call `SafeIdle` before abort/bookkeeping.
+- UI `Composition` registers `OpenTapWorkerClient` for all `IOpenTap*` surfaces. The OpenTAP engine runs in `HardwareTest.OpenTap.Worker` (NDJSON IPC on stdout, logs on stderr). Public `IOpenTap*` are unchanged.
+- Abort sends cooperative cancel; after `OpenTapWorkerKillTimeoutMilliseconds` (default 8000) the client calls `SafeIdle`, kills the process tree, writes an `opentap-worker` crash dossier (exit code / stderr, schema 1 additive), and respawns on the next call.
+- In-process `OpenTapSession` remains the documented test-only host for the serial `OpenTapSerial` suite (`cancelExecuteWithToken: false` so Execute does not map onto `TapThread.Abort`). The worker passes the run CTS into `ExecuteAsync`.
+- `HangForeverStep` is a test-only plugin step (not in sample/operator plans). `OpenTapWorkerKillTests` proves kill + `SafeIdle` + a second run.
+- Architecture forbids `TapThread.Abort(` in `src/` and Avalonia references from the worker. ViewModels stay on `FakeOpenTapSession`.
 
 ## Related
 

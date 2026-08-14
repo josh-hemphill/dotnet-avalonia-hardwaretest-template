@@ -41,6 +41,7 @@ public sealed class RunExecutionViewModel
     private readonly LivePresentationViewModel _live;
     private readonly IStorageHealthService? _storageHealth;
     private readonly IVisaModeController? _visaModeController;
+    private readonly ISafetyController? _safety;
 
     private readonly Dictionary<string, StepAttemptSummary> _attemptLedger =
         new(StringComparer.OrdinalIgnoreCase);
@@ -65,7 +66,8 @@ public sealed class RunExecutionViewModel
         InteractionHostViewModel interaction,
         LivePresentationViewModel live,
         IStorageHealthService? storageHealth = null,
-        IVisaModeController? visaModeController = null)
+        IVisaModeController? visaModeController = null,
+        ISafetyController? safety = null)
     {
         _host = host;
         _runSession = runSession;
@@ -87,6 +89,7 @@ public sealed class RunExecutionViewModel
         _live = live;
         _storageHealth = storageHealth;
         _visaModeController = visaModeController;
+        _safety = safety;
 
         RunCommand = ReactiveCommand.CreateFromTask(() => ExecuteRunAsync(selectionOnly: false));
         RunSelectedCommand = ReactiveCommand.CreateFromTask(() => ExecuteRunAsync(selectionOnly: true));
@@ -110,6 +113,15 @@ public sealed class RunExecutionViewModel
         }
 
         _runControl.RequestSafetyStop();
+        try
+        {
+            _safety?.SafeIdle();
+        }
+        catch
+        {
+            // continue abort even if the adapter throws
+        }
+
         _runSession.Abort(safetyStop: true);
     }
 

@@ -12,6 +12,7 @@
     <ProjectReference Include="..\..\src\HardwareTest.OpenTap.Host\HardwareTest.OpenTap.Host.csproj" />
     <ProjectReference Include="..\..\src\HardwareTest.OpenTap.Plugins.Basic\HardwareTest.OpenTap.Plugins.Basic.csproj" />
     <ProjectReference Include="..\..\src\HardwareTest.OpenTap.Plugins.Mixins\HardwareTest.OpenTap.Plugins.Mixins.csproj" />
+    <ProjectReference Include="..\..\src\HardwareTest.OpenTap.Worker\HardwareTest.OpenTap.Worker.csproj" />
     <ProjectReference Include="..\..\src\HardwareTest\HardwareTest.csproj" />
   </ItemGroup>
 

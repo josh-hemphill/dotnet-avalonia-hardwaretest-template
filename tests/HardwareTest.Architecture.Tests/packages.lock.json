@@ -675,6 +675,7 @@
           "FluentAvaloniaUI": "[3.0.2, )",
           "HardwareTest.Core": "[0.1.0, )",
           "HardwareTest.OpenTap.Host": "[0.1.0, )",
+          "HardwareTest.OpenTap.Worker": "[0.1.0, )",
           "Microsoft.Extensions.DependencyInjection": "[10.0.10, )",
           "PDFtoImage": "[5.2.1, )",
           "ReactiveUI": "[23.2.28, )",
@@ -721,6 +722,12 @@
         "type": "Project",
         "dependencies": {
           "OpenTAP": "[9.32.2, )"
+        }
+      },
+      "hardwaretest.opentap.worker": {
+        "type": "Project",
+        "dependencies": {
+          "HardwareTest.OpenTap.Host": "[0.1.0, )"
         }
       }
     },

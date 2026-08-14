@@ -65,7 +65,7 @@ Core already serializes Instruments-page I/O through `VisaModeController` / `Vis
 - `IBenchOperationCoordinator` is fail-closed. Mode swap, run start, and Instruments `*IDN?` take the same exclusive lease; overlap returns in-panel status (or `InvalidOperationException` on the run path, which the Run board already surfaces).
 - `VisaDmmInstrument` opens through `IVisaBroker` (constructor injection or `VisaBrokerHost` `SessionLocal` registered inside `OpenTapPluginSearch.SearchSerialized` before `PluginManager.Search`). Plugins.Basic no longer references `IviFoundation.Visa`.
 - Architecture scans plugin `.cs` / `.csproj` for `Ivi.Visa`, `GlobalResourceManager`, and `IviFoundation.Visa`. Core IVI stays in `VisaFactories.cs` / `VisaResourceDiscovery.cs`.
-- Public `IOpenTap*` surfaces are unchanged. Mid-call Write/Query still cannot be aborted in-process — that remains [Phase 23](phase-23-safety-opentap-worker.md).
+- Public `IOpenTap*` surfaces are unchanged. Mid-call Write/Query still cannot be aborted in-process; hung plan I/O is preempted by killing the OpenTAP worker ([Phase 23](phase-23-safety-opentap-worker.md)).
 
 ## Related
 
