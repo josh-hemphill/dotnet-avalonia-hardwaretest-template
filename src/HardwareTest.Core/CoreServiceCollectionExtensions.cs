@@ -21,6 +21,7 @@ public static class CoreServiceCollectionExtensions
         services.AddSingleton(settingsStore.AppSettings);
         services.AddSingleton(settingsStore.UiState);
         services.AddSingleton(new VisaSessionGate());
+        services.AddSingleton<IBenchOperationCoordinator, BenchOperationCoordinator>();
         services.AddSingleton<IRunControl>(sp => new RunControl(sp.GetRequiredService<VisaSessionGate>()));
         services.AddSingleton<MeasurementAcquisition>();
         services.AddSingleton<IRunStore>(_ => new FileRunStore(settingsStore.RunsDirectory));
@@ -34,9 +35,11 @@ public static class CoreServiceCollectionExtensions
                 settingsStore.AppSettings.UseMockVisa,
                 sp.GetRequiredService<VisaSessionGate>(),
                 sp.GetRequiredService<IRunControl>(),
-                message => Log.Warning("{Message}", message)));
+                message => Log.Warning("{Message}", message),
+                bench: sp.GetRequiredService<IBenchOperationCoordinator>()));
         services.AddSingleton<IVisaModeController>(sp => sp.GetRequiredService<VisaModeController>());
         services.AddSingleton<IVisaSessionFactory>(sp => sp.GetRequiredService<VisaModeController>());
+        services.AddSingleton<IVisaBroker>(sp => sp.GetRequiredService<VisaModeController>());
         services.AddSingleton<IVisaResourceDiscovery>(sp => sp.GetRequiredService<VisaModeController>());
         services.AddSingleton<IReportService>(sp =>
             new TypstReportService(

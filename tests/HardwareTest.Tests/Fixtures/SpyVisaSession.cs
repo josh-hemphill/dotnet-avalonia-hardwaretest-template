@@ -18,6 +18,7 @@ public sealed class SpyVisaSession : IVisaSession
     }
 
     public string ResourceName { get; }
+    public int IoTimeoutMilliseconds { get; set; } = IviVisaSessionFactory.DefaultIoTimeoutMilliseconds;
     public TimeSpan WriteDelay { get; }
     public int MaxActive => _maxActive;
     public IReadOnlyList<string> Log => _log.ToArray();
@@ -88,6 +89,7 @@ public sealed class SpyVisaSessionFactory : IVisaSessionFactory
 public sealed class FailingVisaSession : IVisaSession
 {
     public string ResourceName => "MOCK::FAIL";
+    public int IoTimeoutMilliseconds { get; set; } = IviVisaSessionFactory.DefaultIoTimeoutMilliseconds;
 
     public Task WriteAsync(string command, CancellationToken cancellationToken = default)
         => throw new InvalidOperationException("write failed");
