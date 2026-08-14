@@ -31,6 +31,7 @@ public partial class MainWindowViewModel : ReactiveObject
     private readonly ISettingsStore _settingsStore;
     private readonly IRunControl _runControl;
     private readonly IOpenTapRunSession _openTap;
+    private readonly ISafetyController? _safety;
 
     public MainWindowViewModel(
         ISettingsStore settingsStore,
@@ -43,11 +44,13 @@ public partial class MainWindowViewModel : ReactiveObject
         SettingsViewModel settings,
         IRunControl runControl,
         IOpenTapRunSession openTap,
-        ShellNotificationViewModel? shellNotification = null)
+        ShellNotificationViewModel? shellNotification = null,
+        ISafetyController? safety = null)
     {
         _settingsStore = settingsStore;
         _runControl = runControl;
         _openTap = openTap;
+        _safety = safety;
         ShellNotification = shellNotification ?? new ShellNotificationViewModel();
         RunTest = runTest;
         Inspect = inspect;
@@ -204,7 +207,7 @@ public partial class MainWindowViewModel : ReactiveObject
                 return "Cancel prompt (aborts run) — operator interaction is cancelled via Stop Run";
             if (IsSafetyStopping)
                 return "Cancel the in-progress software stop";
-            return "Stop Run — cooperative software stop (not a hardware interlock). Blocking steps may continue until they return.";
+            return "Stop Run — cooperative software stop, then kill the OpenTAP worker if a step ignores cancel. Not a hardware interlock.";
         }
     }
 
@@ -391,6 +394,15 @@ public partial class MainWindowViewModel : ReactiveObject
         }
 
         _runControl.RequestSafetyStop();
+        try
+        {
+            _safety?.SafeIdle();
+        }
+        catch
+        {
+            // safety outranks diagnostics; continue abort even if the adapter throws
+        }
+
         _openTap.Abort(safetyStop: true);
     }
 }

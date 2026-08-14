@@ -119,7 +119,9 @@ public sealed class OpenTapStepNode
     public List<OpenTapStepNode> Children { get; init; } = [];
 }
 
-/// OpenTAP-backed run session used by the Avalonia shell.
+/// OpenTAP-backed run session used by the killable worker process.
+/// Host tests may construct this in-process as the documented test-only host
+/// (serial <c>OpenTapSerial</c> suite). The UI process uses <c>OpenTapWorkerClient</c>.
 public sealed class OpenTapSession : IOpenTapSession, INotifyPropertyChanged
 {
     private readonly ILogger _logger;
@@ -145,19 +147,27 @@ public sealed class OpenTapSession : IOpenTapSession, INotifyPropertyChanged
     private readonly ManualResetEventSlim _interactionGate = new(false);
     private readonly IVisaBroker? _visaBroker;
     private readonly IBenchOperationCoordinator? _bench;
+    private readonly bool _cancelExecuteWithToken;
     /// 0 = idle, 1 = a run holds the single-flight gate.
     private int _runGate;
 
+    /// <param name="cancelExecuteWithToken">
+    /// When true (OpenTAP worker), pass the run CTS into <c>TestPlan.ExecuteAsync</c>.
+    /// When false (in-process test-only host), keep <c>Execute</c> with
+    /// <see cref="CancellationToken.None"/> so cooperative Abort cannot poison TapThread.
+    /// </param>
     public OpenTapSession(
         AppSettings? settings = null,
         ILogger? logger = null,
         IVisaBroker? visaBroker = null,
-        IBenchOperationCoordinator? bench = null)
+        IBenchOperationCoordinator? bench = null,
+        bool cancelExecuteWithToken = false)
     {
         _settings = settings ?? new AppSettings();
         _logger = logger ?? Serilog.Log.ForContext<OpenTapSession>();
         _visaBroker = visaBroker;
         _bench = bench;
+        _cancelExecuteWithToken = cancelExecuteWithToken;
     }
 
     public string? LoadedPlanPath { get; private set; }
@@ -510,7 +520,7 @@ public sealed class OpenTapSession : IOpenTapSession, INotifyPropertyChanged
             });
 
             var planRun = await Task.Run(
-                () =>
+                async () =>
                 {
                     StepRuntime.WaitIfPaused = WaitIfPaused;
                     StepRuntime.RequestInteraction = request => HandleInteraction(request, progress);
@@ -520,6 +530,19 @@ public sealed class OpenTapSession : IOpenTapSession, INotifyPropertyChanged
                         ResultListener[] listeners = exportListener is null
                             ? [listener]
                             : [listener, exportListener];
+                        if (_cancelExecuteWithToken)
+                        {
+                            return await plan.ExecuteAsync(
+                                    listeners,
+                                    Array.Empty<ResultParameter>(),
+                                    stepsOverride: null,
+                                    _runCts!.Token)
+                                .ConfigureAwait(false);
+                        }
+
+                        // In-process test host: do not pass the run token into Execute.
+                        // OpenTAP may map a cancelled token onto TapThread.Abort, which poisons
+                        // later Execute calls in the same process (serial host suite).
                         return plan.Execute(listeners, []);
                     }
                     finally

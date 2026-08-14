@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\HardwareTest\HardwareTest.csproj" />
+    <ProjectReference Include="..\..\src\HardwareTest.OpenTap.Worker\HardwareTest.OpenTap.Worker.csproj" />
   </ItemGroup>
 
   <ItemGroup>

@@ -376,3 +376,17 @@ public sealed class RepeatLoopStep : TestStep
         UpgradeVerdict(Verdict.Pass);
     }
 }
+
+/// Test-only: ignores cooperative abort so the worker kill path can be proven.
+/// Do not put this step in sample or operator plans.
+[Display("Hang Forever", Groups: ["HardwareTest", "Test"], Description: "Ignores cancel; used to test worker kill.")]
+public sealed class HangForeverStep : TestStep
+{
+    public override void Run()
+    {
+        while (true)
+        {
+            Thread.Sleep(200);
+        }
+    }
+}

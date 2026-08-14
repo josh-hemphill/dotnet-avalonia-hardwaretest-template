@@ -149,6 +149,8 @@ public sealed class SettingsViewModelTests
         Assert.Contains("HardwareTest diagnostics", copied, StringComparison.Ordinal);
         Assert.Contains(buildInfo.InformationalVersion, copied, StringComparison.Ordinal);
         Assert.Contains("OpenTAP: 1.2.3", copied, StringComparison.Ordinal);
+        Assert.Contains("Hardware interlock: Not wired", copied, StringComparison.Ordinal);
+        Assert.Contains("OpenTAP worker: killable child process", copied, StringComparison.Ordinal);
         Assert.Contains("ThemePreference", copied, StringComparison.Ordinal);
         Assert.Contains("Copied diagnostics", vm.Status, StringComparison.OrdinalIgnoreCase);
         Assert.False(string.IsNullOrWhiteSpace(vm.AboutVersion));
@@ -205,5 +207,13 @@ public sealed class SettingsViewModelTests
 
         Assert.Equal(count, store.SaveAppCount);
         Assert.False(vm.IsBusy);
+    }
+
+    [Fact]
+    public void Hardware_interlock_status_is_not_wired_for_no_op()
+    {
+        var vm = new SettingsViewModel(new FakeSettingsStore(), new FakeOpenTapSession());
+        Assert.Equal("Not wired", vm.SafetyInterlockStatus);
+        Assert.DoesNotContain("armed", vm.SafetyInterlockStatus, StringComparison.OrdinalIgnoreCase);
     }
 }

@@ -1,5 +1,7 @@
 using HardwareTest.Core;
+using HardwareTest.Core.Crash;
 using HardwareTest.Core.Diagnostics;
+using HardwareTest.Core.Engine;
 using HardwareTest.Core.Hardware;
 using HardwareTest.Core.Settings;
 using HardwareTest.Features;
@@ -12,6 +14,7 @@ using HardwareTest.Features.RunTest;
 using HardwareTest.Features.Settings;
 using HardwareTest.Features.Shell;
 using HardwareTest.OpenTap.Host;
+using HardwareTest.OpenTap.Host.Worker;
 using Microsoft.Extensions.DependencyInjection;
 using Serilog;
 
@@ -26,18 +29,23 @@ public static class Composition
         var buildInfo = OpenTapBuildInfo.Attach(BuildInfo.FromEntryAssembly());
         services.AddSingleton(buildInfo);
         services.AddHardwareTestCore(settingsStore);
-        services.AddSingleton<OpenTapSession>(sp =>
-            new OpenTapSession(
+        services.AddSingleton(sp =>
+            CrashDossierWriter.FromSettings(settingsStore.AppSettings, settingsStore.RootDirectory));
+        services.AddSingleton<OpenTapWorkerClient>(sp =>
+            new OpenTapWorkerClient(
                 sp.GetRequiredService<AppSettings>(),
                 Log.Logger,
-                sp.GetRequiredService<IVisaBroker>(),
-                sp.GetRequiredService<IBenchOperationCoordinator>()));
+                sp.GetRequiredService<ISafetyController>(),
+                sp.GetRequiredService<IBenchOperationCoordinator>(),
+                sp.GetRequiredService<CrashDossierWriter>(),
+                sp.GetRequiredService<BuildInfo>()));
         // Same singleton instance for the aggregate and each focused surface (Phase 14).
-        services.AddSingleton<IOpenTapSession>(sp => sp.GetRequiredService<OpenTapSession>());
-        services.AddSingleton<IOpenTapPlanSession>(sp => sp.GetRequiredService<OpenTapSession>());
-        services.AddSingleton<IOpenTapRunSession>(sp => sp.GetRequiredService<OpenTapSession>());
-        services.AddSingleton<IOpenTapStationSession>(sp => sp.GetRequiredService<OpenTapSession>());
-        services.AddSingleton<IOpenTapHostCatalog>(sp => sp.GetRequiredService<OpenTapSession>());
+        // UI process talks to the killable worker; in-process OpenTapSession is the test-only host.
+        services.AddSingleton<IOpenTapSession>(sp => sp.GetRequiredService<OpenTapWorkerClient>());
+        services.AddSingleton<IOpenTapPlanSession>(sp => sp.GetRequiredService<OpenTapWorkerClient>());
+        services.AddSingleton<IOpenTapRunSession>(sp => sp.GetRequiredService<OpenTapWorkerClient>());
+        services.AddSingleton<IOpenTapStationSession>(sp => sp.GetRequiredService<OpenTapWorkerClient>());
+        services.AddSingleton<IOpenTapHostCatalog>(sp => sp.GetRequiredService<OpenTapWorkerClient>());
         services.AddSingleton<OperatorSession>();
 
         services.AddSingleton<ShellNotificationViewModel>();
