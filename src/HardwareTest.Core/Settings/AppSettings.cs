@@ -64,6 +64,12 @@ public sealed class AppSettings
     public long DataFreeSpaceCriticalBytes { get; set; } = 512L * 1024 * 1024;
     /// When true, Settings/Home may open OS folders (Explorer). Appliance profiles set false.
     public bool AllowOsFolderBrowse { get; set; } = true;
+    /// Milliseconds to wait after Abort before killing the OpenTAP worker (clamped 1000–120000).
+    public int OpenTapWorkerKillTimeoutMilliseconds { get; set; } = DefaultOpenTapWorkerKillTimeoutMilliseconds;
+
+    public const int DefaultOpenTapWorkerKillTimeoutMilliseconds = 8000;
+    public const int MinOpenTapWorkerKillTimeoutMilliseconds = 1000;
+    public const int MaxOpenTapWorkerKillTimeoutMilliseconds = 120_000;
 }
 
 /// Named VISA instrument entry in the persisted registry (legacy; Instruments UI no longer edits this).
