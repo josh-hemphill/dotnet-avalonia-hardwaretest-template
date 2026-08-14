@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "dependencies": {
+    "net10.0": {
+      "IviFoundation.Visa": {
+        "type": "Direct",
+        "requested": "[8.0.2, )",
+        "resolved": "8.0.2",
+        "contentHash": "M7gBB5H9WyPwF5MKK0Q5+I9sYaKH1GMHdezjwsmtYwH7t0oy5nSK7B9ooGnX043eoDkY7o/5DvNy8DEzKHqW3Q=="
+      },
+      "OpenTAP": {
+        "type": "Direct",
+        "requested": "[9.32.2, )",
+        "resolved": "9.32.2",
+        "contentHash": "/2ifJOKrJzHQoqCGyL1gqdlcy20l1tCQkUr6QZyULzJdWoPZusP5yY67i8rGGIgqAkzrM7ES5s3wEz15MwwdOw=="
+      }
+    },
+    "net10.0/linux-x64": {},
+    "net10.0/osx-arm64": {},
+    "net10.0/win-x64": {}
+  }
+}
