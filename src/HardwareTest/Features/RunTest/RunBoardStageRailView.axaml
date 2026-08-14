@@ -1,6 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:HardwareTest.Features.RunTest"
+             xmlns:shell="using:HardwareTest.Features.Shell"
              x:Class="HardwareTest.Features.RunTest.RunBoardStageRailView"
              x:DataType="vm:RunTestViewModel">
   <UserControl.Resources>
@@ -11,9 +12,9 @@
           <Border CornerRadius="4"
                   Padding="6,1"
                   Background="{Binding ChipText, Converter={x:Static vm:ChipBrushConverter.Instance}}">
-            <TextBlock Text="{Binding ChipText}" FontSize="10" FontWeight="SemiBold" Foreground="White" />
+            <TextBlock Text="{Binding ChipText}" FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}" FontWeight="SemiBold" Foreground="White" />
           </Border>
-          <TextBlock Text="{Binding ProgressText}" FontSize="11" Opacity="0.8" VerticalAlignment="Center" />
+          <TextBlock Text="{Binding ProgressText}" FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}" Opacity="0.8" VerticalAlignment="Center" />
         </StackPanel>
         <ProgressBar Value="{Binding ProgressPercent}" Minimum="0" Maximum="100" Height="3" />
       </StackPanel>
@@ -24,7 +25,7 @@
     <StackPanel DockPanel.Dock="Top" Spacing="6" Margin="0,0,0,10">
       <TextBlock Text="Suite"
                  Opacity="0.65"
-                 FontSize="11"
+                 FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}"
                  FontWeight="SemiBold" />
       <WrapPanel Orientation="Horizontal">
         <ToggleButton Classes="filter-chip"

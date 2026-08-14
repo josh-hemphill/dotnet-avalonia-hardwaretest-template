@@ -169,4 +169,41 @@ public sealed class SettingsViewModelTests
         Assert.Contains("disk full", vm.Status, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("Could not save settings", vm.Status, StringComparison.OrdinalIgnoreCase);
     }
+
+    [Fact]
+    public void FormatSavedAt_is_whole_seconds_without_fraction()
+    {
+        var stamp = SettingsViewModel.FormatSavedAt(new DateTimeOffset(2026, 8, 14, 5, 4, 32, 847, TimeSpan.Zero));
+        Assert.Equal("05:04:32", stamp);
+        Assert.DoesNotContain('.', stamp);
+    }
+
+    [Fact]
+    public async Task Save_status_uses_whole_seconds_not_milliseconds()
+    {
+        var vm = new SettingsViewModel(new FakeSettingsStore(), new FakeOpenTapSession());
+        await vm.SaveCommand.ExecuteAsync();
+
+        Assert.Matches(@"Saved at \d{2}:\d{2}:\d{2}\.", vm.Status);
+        Assert.DoesNotMatch(@"Saved at \d{2}:\d{2}:\d{2}\.\d", vm.Status);
+    }
+
+    [Fact]
+    public async Task Save_does_not_retrigger_debounce_from_IsBusy()
+    {
+        var store = new FakeSettingsStore();
+        var vm = new SettingsViewModel(store, new FakeOpenTapSession())
+        {
+            UiScheduler = action => action(),
+        };
+
+        await vm.SaveCommand.ExecuteAsync();
+        var count = store.SaveAppCount;
+        Assert.True(count >= 1);
+
+        await Task.Delay(700);
+
+        Assert.Equal(count, store.SaveAppCount);
+        Assert.False(vm.IsBusy);
+    }
 }
