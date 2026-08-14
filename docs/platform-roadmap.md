@@ -63,7 +63,7 @@ Distinct namespaces on purpose — "Phase C" and "Phase 3" are never the same th
 | 18 | [Operator touch density floor](platform-phases/phase-18-operator-touch-density.md) | 17 | Done |
 | 19 | [Immediate correctness](platform-phases/phase-19-immediate-correctness.md) | 18 | Done |
 | 20 | [CI honesty & supply chain](platform-phases/phase-20-ci-honesty.md) | 19 | Done |
-| 21 | [Operator chrome & accessibility](platform-phases/phase-21-operator-chrome-a11y.md) | 18, 19 | Planned |
+| 21 | [Operator chrome & accessibility](platform-phases/phase-21-operator-chrome-a11y.md) | 18, 19 | Done |
 | 22 | [VISA broker unification](platform-phases/phase-22-visa-broker.md) | 13, 19 | Planned |
 | 23 | [Safety Stop + OpenTAP worker](platform-phases/phase-23-safety-opentap-worker.md) | 19, 22 | Planned |
 | 24 | [OpenTAP session decomposition](platform-phases/phase-24-session-decomposition.md) | 14 | Planned — prerequisite for OpenTAP K |
