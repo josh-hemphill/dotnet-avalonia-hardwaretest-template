@@ -305,6 +305,8 @@ public static class OpenTapWorkerServer
                     var req = WorkerProtocol.ReadPayload(envelope, WorkerJsonContext.Default.WorkerRunRequest)
                               ?? new WorkerRunRequest();
                     var progress = new Progress<OpenTapProgress>(p => writeEvent(envelope.Id, WorkerProtocol.Progress, p));
+                    // Cooperative cancel is Abort (cancels OpenTapSession._runCts). Do not bind this
+                    // wait to a client token — abandoning IPC does not stop the plan thread.
                     var summary = await requireSession()
                         .RunAsync(progress, CancellationToken.None, req.RunId)
                         .ConfigureAwait(false);
@@ -322,6 +324,7 @@ public static class OpenTapWorkerServer
                     var req = WorkerProtocol.ReadPayload(envelope, WorkerJsonContext.Default.WorkerRunSelectionRequest)
                               ?? throw new InvalidOperationException("runSelection requires a payload.");
                     var progress = new Progress<OpenTapProgress>(p => writeEvent(envelope.Id, WorkerProtocol.Progress, p));
+                    // Cooperative cancel is Abort; see Run above.
                     var summary = await requireSession()
                         .RunSelectionAsync(req.StepPath, progress, CancellationToken.None, req.RunId, req.IncludeCleanup)
                         .ConfigureAwait(false);

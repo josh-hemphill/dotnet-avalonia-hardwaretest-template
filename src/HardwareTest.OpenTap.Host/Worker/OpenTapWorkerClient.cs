@@ -359,32 +359,49 @@ public sealed class OpenTapWorkerClient : IOpenTapSession, INotifyPropertyChange
         Raise(nameof(IsExecuting));
         try
         {
-            var envelope = await _process.Request(
+            // Do not pass the caller token into the IPC wait. RequestSafetyStop cancels that
+            // token, but the worker run only stops via Abort (it uses CancellationToken.None).
+            // Cancelling the wait would throw, skip DisarmKillTimer, and leave a kill timer
+            // that can tear down a later run.
+            var requestTask = _process.Request(
                     method,
                     payload,
                     typeInfo,
-                    cancellationToken,
-                    onEvent: ev => HandleRunEvent(ev, progress))
-                .ConfigureAwait(false);
-            ThrowIfFailed(envelope);
-            var result = WorkerProtocol.ReadPayload(envelope, WorkerJsonContext.Default.WorkerRunResult)
-                         ?? throw new InvalidOperationException("Worker run response was empty.");
-            if (result.Snapshot is not null)
+                    CancellationToken.None,
+                    onEvent: ev => HandleRunEvent(ev, progress));
+            using (cancellationToken.Register(() => Abort(safetyStop: false)))
             {
-                ApplySnapshot(result.Snapshot);
-            }
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    Abort(safetyStop: false);
+                }
 
-            DisarmKillTimer();
-            return result.Summary;
+                var envelope = await requestTask.ConfigureAwait(false);
+                ThrowIfFailed(envelope);
+                var result = WorkerProtocol.ReadPayload(envelope, WorkerJsonContext.Default.WorkerRunResult)
+                             ?? throw new InvalidOperationException("Worker run response was empty.");
+                if (result.Snapshot is not null)
+                {
+                    ApplySnapshot(result.Snapshot);
+                }
+
+                return result.Summary;
+            }
         }
-        catch (Exception ex) when (_process.IsAlive == false || ex is InvalidOperationException)
+        catch (Exception ex) when (!_process.IsAlive || ex is OpenTapWorkerProcessException)
         {
-            DisarmKillTimer();
             HandleWorkerDeath(ex);
             return CancelledSummary("OpenTAP worker was terminated.");
         }
         finally
         {
+            DisarmKillTimer();
+            if (_isExecuting)
+            {
+                _isExecuting = false;
+                Raise(nameof(IsExecuting));
+            }
+
             benchLease?.Dispose();
         }
     }
@@ -536,15 +553,21 @@ public sealed class OpenTapWorkerClient : IOpenTapSession, INotifyPropertyChange
                 return;
             }
 
+            if (!ReferenceEquals(_killCts, cts))
+            {
+                return;
+            }
+
             KillWorkerAfterTimeout();
         });
     }
 
     private void DisarmKillTimer()
     {
+        var cts = Interlocked.Exchange(ref _killCts, null);
         try
         {
-            _killCts?.Cancel();
+            cts?.Cancel();
         }
         catch (ObjectDisposedException)
         {

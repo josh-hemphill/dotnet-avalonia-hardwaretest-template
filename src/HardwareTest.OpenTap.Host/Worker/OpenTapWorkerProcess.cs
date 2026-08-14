@@ -7,6 +7,15 @@ using ILogger = Serilog.ILogger;
 
 namespace HardwareTest.OpenTap.Host.Worker;
 
+/// Raised when the worker process died or the IPC channel closed — not a protocol Ok:false error.
+public sealed class OpenTapWorkerProcessException : InvalidOperationException
+{
+    public OpenTapWorkerProcessException(string message)
+        : base(message)
+    {
+    }
+}
+
 /// Owns the OpenTAP worker child process and NDJSON stdin/stdout.
 public sealed class OpenTapWorkerProcess : IDisposable
 {
@@ -179,12 +188,14 @@ public sealed class OpenTapWorkerProcess : IDisposable
     {
         if (!IsAlive)
         {
-            throw new InvalidOperationException("OpenTAP worker is not running.");
+            throw new OpenTapWorkerProcessException("OpenTAP worker is not running.");
         }
 
         var id = Interlocked.Increment(ref _nextId);
         var pending = new PendingRequest(onEvent);
         _pending[id] = pending;
+        // Cancelling this token only abandons the IPC wait; it does not abort the worker.
+        // Run/runSelection must pass CancellationToken.None and stop via Abort.
         using var reg = cancellationToken.Register(() => pending.TryCancel());
 
         var envelope = new WorkerEnvelope
@@ -360,7 +371,7 @@ public sealed class OpenTapWorkerProcess : IDisposable
                 continue;
             }
 
-            pending.Completion.TrySetException(new InvalidOperationException(message));
+            pending.Completion.TrySetException(new OpenTapWorkerProcessException(message));
         }
     }
 
