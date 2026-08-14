@@ -2,6 +2,8 @@
   <!-- OpenTAP host + E2E both touch a real OpenTapSession; run test projects serially. -->
   <PropertyGroup>
     <BuildInParallel>false</BuildInParallel>
+    <RestorePackagesWithLockFile>false</RestorePackagesWithLockFile>
+    <RestoreLockedMode>false</RestoreLockedMode>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="src\**\*.csproj" />

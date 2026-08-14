@@ -37,11 +37,12 @@ A Deno CLI exposing one task per CI step, each independently runnable:
 | Task        | Does                                                          |
 | ----------- | ------------------------------------------------------------- |
 | `build`     | `dotnet build dirs.proj -c Release -r {rid}`                  |
-| `test:host` | OpenTAP host + fixtures, with coverage collection             |
+| `test:host` | OpenTAP host + fixtures, **without** Coverlet                  |
 | `test:vm`   | ViewModels suite                                              |
 | `test:e2e`  | Avalonia headless E2E                                         |
 | `test:arch` | Architecture suite ([Phase 2](phase-2-architecture-tests.md)) |
-| `coverage`  | Parse Cobertura, enforce floors                               |
+| `coverage`  | Collect Core-safe tests (exclude `HardwareTest.Tests.OpenTap`) then enforce floors |
+| `audit`     | `dotnet list HardwareTest.slnx package --vulnerable --include-transitive`; fail if any reported |
 | `publish`   | Self-contained publish for a given RID                        |
 | `all`       | The full matrix for the current platform                      |
 

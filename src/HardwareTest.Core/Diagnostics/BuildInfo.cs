@@ -50,7 +50,10 @@ public sealed class BuildInfo
             informational = version;
         }
 
-        ParseInformational(informational, out var commit, out var buildUtc);
+        ParseInformational(informational, out var commit, out var stampUtc);
+        // Prefer AssemblyMetadata CommitDate (git committer time). InformationalVersion
+        // is {version}+{sha} and no longer embeds a wall-clock stamp.
+        var buildUtc = ReadCommitDate(assembly) ?? stampUtc;
 
         return new BuildInfo
         {
@@ -111,12 +114,43 @@ public sealed class BuildInfo
         }
     }
 
-    private static void ParseInformational(string informational, out string commit, out DateTimeOffset? buildUtc)
+    internal static DateTimeOffset? ReadCommitDate(Assembly assembly)
+    {
+        foreach (var meta in assembly.GetCustomAttributes<AssemblyMetadataAttribute>())
+        {
+            if (!string.Equals(meta.Key, "CommitDate", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            var value = meta.Value?.Trim();
+            if (string.IsNullOrEmpty(value))
+            {
+                return null;
+            }
+
+            if (DateTimeOffset.TryParse(
+                    value,
+                    CultureInfo.InvariantCulture,
+                    DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal,
+                    out var parsed))
+            {
+                return parsed.ToUniversalTime();
+            }
+
+            return null;
+        }
+
+        return null;
+    }
+
+    internal static void ParseInformational(string informational, out string commit, out DateTimeOffset? buildUtc)
     {
         commit = "local";
         buildUtc = null;
 
-        // Expected: 0.1.0+abc1234.20260728220000  or  0.1.0+local.20260728220000
+        // Current: 0.1.0+abc1234  or  0.1.0+local
+        // Legacy:  0.1.0+abc1234.20260728220000 (wall-clock suffix, no longer stamped)
         var plus = informational.IndexOf('+');
         if (plus < 0 || plus >= informational.Length - 1)
         {
