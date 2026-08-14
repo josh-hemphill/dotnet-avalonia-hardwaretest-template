@@ -29,6 +29,8 @@ public sealed class MockVisaSession : IVisaSession
 
     public string ResourceName { get; }
 
+    public int IoTimeoutMilliseconds { get; set; } = IviVisaSessionFactory.DefaultIoTimeoutMilliseconds;
+
     public Task WriteAsync(string command, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -82,6 +84,8 @@ public sealed class MockVisaSessionFactory : IVisaSessionFactory
 public sealed class IviVisaSessionFactory : IVisaSessionFactory
 {
     public const int DefaultIoTimeoutMilliseconds = 5000;
+    public const int MinIoTimeoutMilliseconds = 100;
+    public const int MaxIoTimeoutMilliseconds = 120_000;
 
     private readonly VisaSessionGate _gate;
     private readonly int _ioTimeoutMilliseconds;
@@ -89,7 +93,7 @@ public sealed class IviVisaSessionFactory : IVisaSessionFactory
     public IviVisaSessionFactory(VisaSessionGate gate, int ioTimeoutMilliseconds = DefaultIoTimeoutMilliseconds)
     {
         _gate = gate;
-        _ioTimeoutMilliseconds = Math.Clamp(ioTimeoutMilliseconds, 100, 120_000);
+        _ioTimeoutMilliseconds = Math.Clamp(ioTimeoutMilliseconds, MinIoTimeoutMilliseconds, MaxIoTimeoutMilliseconds);
     }
 
     public Task<IVisaSession> OpenAsync(string resourceName, CancellationToken cancellationToken = default)
@@ -131,6 +135,15 @@ internal sealed class IviMessageVisaSession : IVisaSession
     }
 
     public string ResourceName { get; }
+
+    public int IoTimeoutMilliseconds
+    {
+        get => _session.TimeoutMilliseconds;
+        set => _session.TimeoutMilliseconds = Math.Clamp(
+            value,
+            IviVisaSessionFactory.MinIoTimeoutMilliseconds,
+            IviVisaSessionFactory.MaxIoTimeoutMilliseconds);
+    }
 
     public Task WriteAsync(string command, CancellationToken cancellationToken = default)
     {

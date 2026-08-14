@@ -11,12 +11,14 @@ public sealed class InstrumentsViewModelTests
     private static InstrumentsViewModel CreateVm(
         FakeSettingsStore? store = null,
         FakeOpenTapSession? openTap = null,
-        IVisaSessionFactory? visaSessions = null)
+        IVisaSessionFactory? visaSessions = null,
+        IBenchOperationCoordinator? bench = null)
         => new(
             store ?? new FakeSettingsStore(),
             new FakeVisaDiscovery(),
             openTap ?? new FakeOpenTapSession(),
-            visaSessions ?? new MockVisaSessionFactory(new VisaSessionGate()));
+            visaSessions ?? new MockVisaSessionFactory(new VisaSessionGate()),
+            bench: bench);
 
     [Fact]
     public async Task RefreshSlots_shows_plan_slot_overrides()
@@ -106,5 +108,59 @@ public sealed class InstrumentsViewModelTests
         await vm.QuerySelectedIdnCommand.ExecuteAsync();
         Assert.True(vm.SelectedOpenTap.HasIdn);
         Assert.False(string.IsNullOrWhiteSpace(vm.SelectedOpenTap.IdnSummary));
+    }
+
+    [Fact]
+    public async Task Query_IDN_refused_when_bench_holds_a_run()
+    {
+        var bench = new BenchOperationCoordinator();
+        Assert.True(bench.TryEnter(BenchOperation.Run, out var lease, out _));
+        using (lease)
+        {
+            var vm = CreateVm(bench: bench);
+            await vm.RefreshVisaDiscoverCommand.ExecuteAsync();
+            vm.SelectedVisa = vm.DiscoveredVisa[0];
+            await vm.QuerySelectedIdnCommand.ExecuteAsync();
+            Assert.Contains("run", vm.Status, StringComparison.OrdinalIgnoreCase);
+            Assert.False(vm.SelectedVisa.HasIdn);
+        }
+    }
+
+    [Fact]
+    public async Task Query_IDN_succeeds_when_coordinator_is_idle()
+    {
+        var bench = new BenchOperationCoordinator();
+        var vm = CreateVm(bench: bench);
+        await vm.RefreshVisaDiscoverCommand.ExecuteAsync();
+        vm.SelectedVisa = vm.DiscoveredVisa[0];
+        await vm.QuerySelectedIdnCommand.ExecuteAsync();
+        Assert.True(vm.SelectedVisa.HasIdn);
+        Assert.Null(bench.Current);
+    }
+
+    [Fact]
+    public async Task Query_IDN_releases_bench_when_ui_dispatch_fails()
+    {
+        var bench = new BenchOperationCoordinator();
+        var vm = CreateVm(bench: bench);
+        await vm.RefreshVisaDiscoverCommand.ExecuteAsync();
+        vm.SelectedVisa = vm.DiscoveredVisa[0];
+        var calls = 0;
+        vm.UiScheduler = action =>
+        {
+            if (Interlocked.Increment(ref calls) == 1)
+            {
+                throw new InvalidOperationException("dispatcher failed");
+            }
+
+            action();
+        };
+
+        await vm.QuerySelectedIdnCommand.ExecuteAsync();
+
+        Assert.Null(bench.Current);
+        Assert.Contains("dispatcher failed", vm.Status, StringComparison.OrdinalIgnoreCase);
+        Assert.True(bench.TryEnter(BenchOperation.ModeSwap, out var lease, out _));
+        lease!.Dispose();
     }
 }

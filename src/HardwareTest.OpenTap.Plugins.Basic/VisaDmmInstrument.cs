@@ -1,18 +1,27 @@
 using System.Globalization;
+using HardwareTest.Core.Hardware;
 using OpenTap;
 
 namespace HardwareTest.OpenTap.Plugins.Basic;
 
-/// SCPI DC voltmeter over IVI VISA (real hardware path).
+/// SCPI DC voltmeter over the process IVisaBroker (mock or real).
 [Display("VISA DMM", Groups: ["HardwareTest"], Description: "SCPI DC voltmeter via VisaAddress.")]
 public sealed class VisaDmmInstrument : HardwareDmm
 {
-    private global::Ivi.Visa.IMessageBasedSession? _session;
+    private readonly IVisaBroker? _injected;
+    private IVisaSession? _session;
     private string _visaAddress = string.Empty;
 
     public VisaDmmInstrument()
     {
         Name = "VISA DMM";
+    }
+
+    /// Test / host constructor — skips the session-local binding.
+    public VisaDmmInstrument(IVisaBroker broker)
+        : this()
+    {
+        _injected = broker ?? throw new ArgumentNullException(nameof(broker));
     }
 
     [Display("Visa Address", Order: 1)]
@@ -23,7 +32,7 @@ public sealed class VisaDmmInstrument : HardwareDmm
     }
 
     [Display("IO Timeout (ms)", Order: 2)]
-    public int IoTimeoutMilliseconds { get; set; } = 5000;
+    public int IoTimeoutMilliseconds { get; set; } = IviVisaSessionFactory.DefaultIoTimeoutMilliseconds;
 
     public override void Open()
     {
@@ -34,22 +43,18 @@ public sealed class VisaDmmInstrument : HardwareDmm
             return;
         }
 
-        var raw = global::Ivi.Visa.GlobalResourceManager.Open(VisaAddress);
-        if (raw is not global::Ivi.Visa.IMessageBasedSession message)
-        {
-            raw.Dispose();
-            throw new InvalidOperationException($"Resource '{VisaAddress}' is not message-based.");
-        }
-
-        message.TimeoutMilliseconds = Math.Clamp(IoTimeoutMilliseconds, 100, 120_000);
-        _session = message;
+        using var cts = new CancellationTokenSource(ClampTimeout());
+        var session = ResolveBroker().OpenAsync(VisaAddress, cts.Token).GetAwaiter().GetResult();
+        session.IoTimeoutMilliseconds = ClampTimeout();
+        _session = session;
         base.Open();
     }
 
     public override void Close()
     {
-        _session?.Dispose();
+        var session = _session;
         _session = null;
+        session?.DisposeAsync().AsTask().GetAwaiter().GetResult();
         base.Close();
     }
 
@@ -75,19 +80,29 @@ public sealed class VisaDmmInstrument : HardwareDmm
 
     public override void Reset() => Write("*RST");
 
+    private IVisaBroker ResolveBroker() => _injected ?? VisaBrokerHost.Require();
+
+    private int ClampTimeout() => Math.Clamp(
+        IoTimeoutMilliseconds,
+        IviVisaSessionFactory.MinIoTimeoutMilliseconds,
+        IviVisaSessionFactory.MaxIoTimeoutMilliseconds);
+
     private void Write(string command)
     {
         var session = RequireSession();
-        var payload = command.EndsWith('\n') ? command : command + "\n";
-        session.FormattedIO.Write(payload);
+        session.IoTimeoutMilliseconds = ClampTimeout();
+        using var cts = new CancellationTokenSource(ClampTimeout());
+        session.WriteAsync(command, cts.Token).GetAwaiter().GetResult();
     }
 
     private string Query(string command)
     {
-        Write(command);
-        return RequireSession().FormattedIO.ReadString().TrimEnd('\r', '\n');
+        var session = RequireSession();
+        session.IoTimeoutMilliseconds = ClampTimeout();
+        using var cts = new CancellationTokenSource(ClampTimeout());
+        return session.QueryAsync(command, cts.Token).GetAwaiter().GetResult();
     }
 
-    private global::Ivi.Visa.IMessageBasedSession RequireSession()
+    private IVisaSession RequireSession()
         => _session ?? throw new InvalidOperationException("VISA DMM is not open.");
 }

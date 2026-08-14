@@ -3,7 +3,7 @@ using HardwareTest.Core.Engine;
 namespace HardwareTest.Core.Hardware;
 
 /// Controls the effective VISA mock/real mode and enables in-process swapping of factories.
-/// Registered as the singleton for IVisaModeController, IVisaSessionFactory, and IVisaResourceDiscovery.
+/// Registered as the singleton for IVisaModeController, IVisaSessionFactory, IVisaResourceDiscovery, and IVisaBroker.
 public interface IVisaModeController
 {
     /// The mode the active factories are actually using (may differ from AppSettings during a refused flip).
@@ -26,14 +26,16 @@ public delegate (IVisaSessionFactory Factory, IVisaResourceDiscovery Discovery) 
     Action<string>? onIviError);
 
 /// Delegating façade that forwards IVisaSessionFactory / IVisaResourceDiscovery calls to swappable
-/// inners. Swaps are allowed only when no run is active and the VISA gate holds no open sessions.
-public sealed class VisaModeController : IVisaModeController, IVisaSessionFactory, IVisaResourceDiscovery
+/// inners. Swaps are allowed only when no run is active and no broker sessions are open.
+public sealed class VisaModeController : IVisaModeController, IVisaSessionFactory, IVisaResourceDiscovery, IVisaBroker
 {
     private readonly VisaSessionGate _gate;
     private readonly IRunControl _runControl;
+    private readonly IBenchOperationCoordinator? _bench;
     private readonly Action<string>? _onIviError;
     private readonly VisaModeInnerBuilder _buildInners;
     private readonly object _sync = new();
+    private int _openSessions;
 
     private IVisaSessionFactory _factory;
     private IVisaResourceDiscovery _discovery;
@@ -43,10 +45,12 @@ public sealed class VisaModeController : IVisaModeController, IVisaSessionFactor
         VisaSessionGate gate,
         IRunControl runControl,
         Action<string>? onIviError = null,
-        VisaModeInnerBuilder? buildInners = null)
+        VisaModeInnerBuilder? buildInners = null,
+        IBenchOperationCoordinator? bench = null)
     {
         _gate = gate;
         _runControl = runControl;
+        _bench = bench;
         _onIviError = onIviError;
         _buildInners = buildInners ?? DefaultBuildInners;
         EffectiveUseMockVisa = initialUseMockVisa;
@@ -59,8 +63,25 @@ public sealed class VisaModeController : IVisaModeController, IVisaSessionFactor
     /// <inheritdoc/>
     public event EventHandler? ModeApplied;
 
+    /// True when at least one broker session has not been disposed.
+    public bool HasOpenSessions => Volatile.Read(ref _openSessions) > 0;
+
     /// <inheritdoc/>
     public bool TryApply(bool wantMock, out string statusMessage)
+    {
+        IDisposable? lease = null;
+        if (_bench is not null && !_bench.TryEnter(BenchOperation.ModeSwap, out lease, out statusMessage))
+        {
+            return false;
+        }
+
+        using (lease)
+        {
+            return TryApplyCore(wantMock, out statusMessage);
+        }
+    }
+
+    private bool TryApplyCore(bool wantMock, out string statusMessage)
     {
         if (wantMock == EffectiveUseMockVisa)
         {
@@ -78,7 +99,7 @@ public sealed class VisaModeController : IVisaModeController, IVisaSessionFactor
             return false;
         }
 
-        if (_gate.IsBusy)
+        if (HasOpenSessions || _gate.IsBusy)
         {
             statusMessage =
                 "Cannot switch VISA mode while VISA sessions are open. " +
@@ -103,7 +124,7 @@ public sealed class VisaModeController : IVisaModeController, IVisaSessionFactor
     }
 
     /// Forwards to the active inner factory (thread-safe snapshot of current inner).
-    public Task<IVisaSession> OpenAsync(string resourceName, CancellationToken cancellationToken = default)
+    public async Task<IVisaSession> OpenAsync(string resourceName, CancellationToken cancellationToken = default)
     {
         IVisaSessionFactory factory;
         lock (_sync)
@@ -111,8 +132,12 @@ public sealed class VisaModeController : IVisaModeController, IVisaSessionFactor
             factory = _factory;
         }
 
-        return factory.OpenAsync(resourceName, cancellationToken);
+        var inner = await factory.OpenAsync(resourceName, cancellationToken).ConfigureAwait(false);
+        Interlocked.Increment(ref _openSessions);
+        return new TrackedVisaSession(inner, this);
     }
+
+    private void ReleaseSession() => Interlocked.Decrement(ref _openSessions);
 
     /// Forwards to the active inner discovery (thread-safe snapshot of current inner).
     public Task<IReadOnlyList<VisaResourceInfo>> FindAsync(CancellationToken cancellationToken = default)
@@ -137,5 +162,39 @@ public sealed class VisaModeController : IVisaModeController, IVisaSessionFactor
         }
 
         return (new IviVisaSessionFactory(gate), new IviVisaResourceDiscovery(onIviError));
+    }
+
+    private sealed class TrackedVisaSession(IVisaSession inner, VisaModeController owner) : IVisaSession
+    {
+        private int _released;
+
+        public string ResourceName => inner.ResourceName;
+
+        public int IoTimeoutMilliseconds
+        {
+            get => inner.IoTimeoutMilliseconds;
+            set => inner.IoTimeoutMilliseconds = value;
+        }
+
+        public Task WriteAsync(string command, CancellationToken cancellationToken = default)
+            => inner.WriteAsync(command, cancellationToken);
+
+        public Task<string> QueryAsync(string command, CancellationToken cancellationToken = default)
+            => inner.QueryAsync(command, cancellationToken);
+
+        public async ValueTask DisposeAsync()
+        {
+            try
+            {
+                await inner.DisposeAsync().ConfigureAwait(false);
+            }
+            finally
+            {
+                if (Interlocked.Exchange(ref _released, 1) == 0)
+                {
+                    owner.ReleaseSession();
+                }
+            }
+        }
     }
 }

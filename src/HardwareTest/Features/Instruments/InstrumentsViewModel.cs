@@ -165,6 +165,7 @@ public partial class InstrumentsViewModel : ReactiveObject
     private readonly IVisaSessionFactory _visaSessions;
     private readonly OperatorSession? _operatorSession;
     private readonly IVisaModeController? _visaModeController;
+    private readonly IBenchOperationCoordinator? _bench;
     private readonly object _slotsGate = new();
     private bool _suppressSelectionSync;
 
@@ -174,7 +175,8 @@ public partial class InstrumentsViewModel : ReactiveObject
         IOpenTapHostCatalog hostCatalog,
         IVisaSessionFactory visaSessions,
         OperatorSession? operatorSession = null,
-        IVisaModeController? visaModeController = null)
+        IVisaModeController? visaModeController = null,
+        IBenchOperationCoordinator? bench = null)
     {
         _settingsStore = settingsStore;
         _discovery = discovery;
@@ -182,6 +184,7 @@ public partial class InstrumentsViewModel : ReactiveObject
         _visaSessions = visaSessions;
         _operatorSession = operatorSession;
         _visaModeController = visaModeController;
+        _bench = bench;
         DiscoveredVisa = [];
         DiscoveredOpenTap = [];
         SlotOverrides = [];
@@ -486,47 +489,61 @@ public partial class InstrumentsViewModel : ReactiveObject
             return;
         }
 
-        Status = $"Querying *IDN? on {address}…";
-        await RunOnUiAsync(() => IsBusy = true).ConfigureAwait(false);
-        using var cts = new CancellationTokenSource(IdnTimeout);
+        IDisposable? lease = null;
+        if (_bench is not null && !_bench.TryEnter(BenchOperation.IdQuery, out lease, out var busy))
+        {
+            Status = busy;
+            return;
+        }
+
         try
         {
-            await using var session = await _visaSessions.OpenAsync(address, cts.Token).ConfigureAwait(false);
-            var raw = await session.QueryAsync("*IDN?", cts.Token).ConfigureAwait(false);
-            var (_, _, _, _, summary) = VisaResourceParser.FormatIdn(raw);
-            await RunOnUiAsync(() =>
+            Status = $"Querying *IDN? on {address}…";
+            using var cts = new CancellationTokenSource(IdnTimeout);
+            try
             {
-                if (SelectedVisa is not null
-                    && string.Equals(SelectedVisa.Resource, address, StringComparison.OrdinalIgnoreCase))
+                await RunOnUiAsync(() => IsBusy = true).ConfigureAwait(false);
+                await using var session = await _visaSessions.OpenAsync(address, cts.Token).ConfigureAwait(false);
+                var raw = await session.QueryAsync("*IDN?", cts.Token).ConfigureAwait(false);
+                var (_, _, _, _, summary) = VisaResourceParser.FormatIdn(raw);
+                await RunOnUiAsync(() =>
                 {
-                    SelectedVisa.IdnRaw = raw;
-                    SelectedVisa.IdnSummary = summary;
-                    SelectedVisa.RaisePropertyChanged(nameof(DiscoveredResourceItem.HasIdn));
-                }
-                else if (SelectedOpenTap is not null
-                         && string.Equals(SelectedOpenTap.Address, address, StringComparison.OrdinalIgnoreCase))
-                {
-                    SelectedOpenTap.IdnRaw = raw;
-                    SelectedOpenTap.IdnSummary = summary;
-                    SelectedOpenTap.RaisePropertyChanged(nameof(OpenTapDiscoveredResourceItem.HasIdn));
-                }
+                    if (SelectedVisa is not null
+                        && string.Equals(SelectedVisa.Resource, address, StringComparison.OrdinalIgnoreCase))
+                    {
+                        SelectedVisa.IdnRaw = raw;
+                        SelectedVisa.IdnSummary = summary;
+                        SelectedVisa.RaisePropertyChanged(nameof(DiscoveredResourceItem.HasIdn));
+                    }
+                    else if (SelectedOpenTap is not null
+                             && string.Equals(SelectedOpenTap.Address, address, StringComparison.OrdinalIgnoreCase))
+                    {
+                        SelectedOpenTap.IdnRaw = raw;
+                        SelectedOpenTap.IdnSummary = summary;
+                        SelectedOpenTap.RaisePropertyChanged(nameof(OpenTapDiscoveredResourceItem.HasIdn));
+                    }
 
-                Status = string.IsNullOrWhiteSpace(summary)
-                    ? $"*IDN? returned empty for {address}."
-                    : $"IDN {address}: {summary}";
-            }).ConfigureAwait(false);
-        }
-        catch (OperationCanceledException)
-        {
-            await RunOnUiAsync(() => Status = $"*IDN? timed out for {address}.").ConfigureAwait(false);
-        }
-        catch (Exception ex)
-        {
-            await RunOnUiAsync(() => Status = $"*IDN? failed for {address}: {ex.Message}").ConfigureAwait(false);
+                    Status = string.IsNullOrWhiteSpace(summary)
+                        ? $"*IDN? returned empty for {address}."
+                        : $"IDN {address}: {summary}";
+                }).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                await RunOnUiAsync(() => Status = $"*IDN? timed out for {address}.").ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                await RunOnUiAsync(() => Status = $"*IDN? failed for {address}: {ex.Message}").ConfigureAwait(false);
+            }
+            finally
+            {
+                await RunOnUiAsync(() => IsBusy = false).ConfigureAwait(false);
+            }
         }
         finally
         {
-            await RunOnUiAsync(() => IsBusy = false).ConfigureAwait(false);
+            lease?.Dispose();
         }
     }
 

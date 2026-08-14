@@ -21,11 +21,12 @@ public sealed class VisaModeControllerTests
     private static VisaModeController MakeController(
         bool initialMock,
         VisaSessionGate? gate = null,
-        IRunControl? runControl = null)
+        IRunControl? runControl = null,
+        IBenchOperationCoordinator? bench = null)
     {
         gate ??= new VisaSessionGate();
         runControl ??= new StubRunControl(isRunning: false);
-        return new VisaModeController(initialMock, gate, runControl, buildInners: TestInners);
+        return new VisaModeController(initialMock, gate, runControl, buildInners: TestInners, bench: bench);
     }
 
     // ── Initial state: mock ────────────────────────────────────────────────
@@ -189,6 +190,67 @@ public sealed class VisaModeControllerTests
         Assert.False(gate.IsBusy);
     }
 
+    // ── TryApply: refused while a broker session is still open ─────────────
+
+    [Fact]
+    public async Task TryApply_refused_while_broker_session_is_open()
+    {
+        var controller = MakeController(initialMock: true);
+        await using var session = await ((IVisaBroker)controller).OpenAsync("MOCK::INSTR0");
+        Assert.True(controller.HasOpenSessions);
+
+        var result = controller.TryApply(wantMock: false, out var msg);
+
+        Assert.False(result);
+        Assert.True(controller.EffectiveUseMockVisa, "effective mode unchanged on refuse");
+        Assert.Contains("session", msg, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task TryApply_succeeds_after_broker_session_is_disposed()
+    {
+        var controller = MakeController(initialMock: true);
+        var session = await ((IVisaBroker)controller).OpenAsync("MOCK::INSTR0");
+        await session.DisposeAsync();
+        Assert.False(controller.HasOpenSessions);
+
+        var result = controller.TryApply(wantMock: false, out _);
+
+        Assert.True(result);
+        Assert.False(controller.EffectiveUseMockVisa);
+    }
+
+    // ── TryApply: refused while the bench coordinator is held ──────────────
+
+    [Fact]
+    public void TryApply_refused_while_coordinator_holds_id_query()
+    {
+        var bench = new BenchOperationCoordinator();
+        var controller = MakeController(initialMock: true, bench: bench);
+        Assert.True(bench.TryEnter(BenchOperation.IdQuery, out var lease, out _));
+        using (lease)
+        {
+            var result = controller.TryApply(wantMock: false, out var msg);
+            Assert.False(result);
+            Assert.True(controller.EffectiveUseMockVisa);
+            Assert.Contains("Instruments query", msg, StringComparison.OrdinalIgnoreCase);
+        }
+    }
+
+    [Fact]
+    public void TryApply_refused_while_coordinator_holds_run()
+    {
+        var bench = new BenchOperationCoordinator();
+        var controller = MakeController(initialMock: true, bench: bench);
+        Assert.True(bench.TryEnter(BenchOperation.Run, out var lease, out _));
+        using (lease)
+        {
+            var result = controller.TryApply(wantMock: false, out var msg);
+            Assert.False(result);
+            Assert.Contains("run", msg, StringComparison.OrdinalIgnoreCase);
+        }
+    }
+
     // ── DI composition resolves IVisaModeController ────────────────────────
 
     [Fact]
@@ -207,10 +269,12 @@ public sealed class VisaModeControllerTests
         var controller = sp.GetRequiredService<IVisaModeController>();
         var factory = sp.GetRequiredService<IVisaSessionFactory>();
         var discovery = sp.GetRequiredService<IVisaResourceDiscovery>();
+        var broker = sp.GetRequiredService<IVisaBroker>();
 
         Assert.NotNull(controller);
         Assert.Same(controller, factory);
         Assert.Same(controller, discovery);
+        Assert.Same(controller, broker);
         Assert.True(controller.EffectiveUseMockVisa);
     }
 
@@ -236,6 +300,15 @@ public sealed class VisaModeControllerTests
         Assert.False(controller.EffectiveUseMockVisa);
         await Assert.ThrowsAsync<InvalidOperationException>(
             () => ((IVisaSessionFactory)controller).OpenAsync("GPIB0::1::INSTR"));
+    }
+
+    [Fact]
+    public async Task Broker_session_forwards_io_timeout()
+    {
+        var controller = MakeController(initialMock: true);
+        await using var session = await ((IVisaBroker)controller).OpenAsync("MOCK::INSTR0");
+        session.IoTimeoutMilliseconds = 25_000;
+        Assert.Equal(25_000, session.IoTimeoutMilliseconds);
     }
 }
 
