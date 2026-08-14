@@ -101,7 +101,7 @@ internal static class OpenTapParameterBridge
             .ToList();
     }
 
-    /// Interaction steps collect values at run time via <see cref="StepRuntime.RequestInteraction"/>;
+    /// Interaction steps collect values at run time via <see cref="IStepRuntime.RequestInteraction"/>;
     /// their Message/field-label properties are prompt schema, not station overrides.
     private static OpenTapParameterRole ClassifyRole(object owner, string memberName)
     {

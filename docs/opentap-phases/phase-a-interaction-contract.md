@@ -22,7 +22,7 @@ Introduce typed `OperatorInteractionRequest` / `OperatorInteractionResponse` and
    - `OperatorInteractionRequest`: id, title, message, fields (empty = confirm-only).
    - `OperatorInteractionResponse`: request id, cancelled flag, `Dictionary<string, string>` (or typed) values.
 
-2. **`StepRuntime` generalization** ([`StepRuntime.cs`](../../src/HardwareTest.OpenTap.Plugins.Basic/StepRuntime.cs)):
+2. **`StepRuntime` generalization** ([`StepRuntime.cs`](../../src/HardwareTest.OpenTap.Plugins.Basic/StepRuntime.cs) at the time; [Phase 24](../platform-phases/phase-24-session-decomposition.md) replaced the statics with [`IStepRuntime`](../../src/HardwareTest.OpenTap.Plugins.Basic/IStepRuntime.cs)):
    - Prefer `Func<OperatorInteractionRequest, OperatorInteractionResponse>? RequestInteraction` (or Host-assigned callback that blocks until response).
    - Keep `RequestOperatorAttention(string)` as a thin wrapper that builds a confirm-only request (compat for existing steps).
    - Document thread rules: called from OpenTAP plan thread; must not touch Avalonia controls directly.

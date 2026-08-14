@@ -66,7 +66,7 @@ Distinct namespaces on purpose — "Phase C" and "Phase 3" are never the same th
 | 21 | [Operator chrome & accessibility](platform-phases/phase-21-operator-chrome-a11y.md) | 18, 19 | Done |
 | 22 | [VISA broker unification](platform-phases/phase-22-visa-broker.md) | 13, 19 | Done |
 | 23 | [Safety Stop + OpenTAP worker](platform-phases/phase-23-safety-opentap-worker.md) | 19, 22 | Done |
-| 24 | [OpenTAP session decomposition](platform-phases/phase-24-session-decomposition.md) | 14 | Planned — prerequisite for OpenTAP K |
+| 24 | [OpenTAP session decomposition](platform-phases/phase-24-session-decomposition.md) | 14 | Done |
 | 25 | [Clock discipline](platform-phases/phase-25-clock-discipline.md) | 11 | Planned — promoted from deferred |
 
 **Suggested order (1–10):** 1 first and alone — nothing else is verifiable until CI actually runs. Then 2 / 7 / 8 can proceed in parallel (independent seams). 3 → 4 → 5 is a chain and should stay one series. 6 lands after 4. 9 after 8. 10 after 3/6/9 (storage + chrome).

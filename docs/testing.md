@@ -4,7 +4,7 @@ UI/board tests stay separate from OpenTAP plan-behavior tests. Both share the Op
 
 | Suite | Purpose | OpenTAP | Emulation |
 | --- | --- | --- | --- |
-| Architecture | Layering smoke (Avalonia/OpenTAP boundaries, single Window, `AppJsonContext`, plugin source must not use `Ivi.Visa`) | Load assemblies only | None |
+| Architecture | Layering smoke (Avalonia/OpenTAP boundaries, single Window, `AppJsonContext`, plugin source must not use `Ivi.Visa`, no static `StepRuntime` pause/interaction) | Load assemblies only | None |
 | Session contracts | Shared `IOpenTapSession` behavior (real + fake) | Real or `FakeOpenTapSession` | MockDmm / canned trees |
 | ViewModels | Run board / session / filters / rollup UX | `FakeOpenTapSession` (in-memory trees + optional recording replay) | No real instruments |
 | Core/OpenTAP host | Plan load, hierarchy, Run Selected mask, SafeShutdown, progress/samples | Real in-process `OpenTapSession` (documented test-only host) | `MockDmmInstrument` |
@@ -30,7 +30,7 @@ Put an assertion in `OpenTapSessionContractTests` only when it must hold for **b
 
 ### Architecture (layering smoke)
 
-Put a rule here only when it is a short, stable layering claim already written in README / platform docs (e.g. "Core must not reference Avalonia"). Failure messages must name the rule and the doc. Behavioral coverage (plan runs, ViewModel flow, E2E) stays in the suites below — see [phase-2-architecture-tests.md](platform-phases/phase-2-architecture-tests.md). Plugin VISA must go through Core `IVisaBroker`; `ArchitectureRulesTests.Plugin_source_must_not_use_Ivi_Visa` scans `Plugins.Basic` / `Plugins.Mixins` source and csproj — see [phase-22-visa-broker.md](platform-phases/phase-22-visa-broker.md).
+Put a rule here only when it is a short, stable layering claim already written in README / platform docs (e.g. "Core must not reference Avalonia"). Failure messages must name the rule and the doc. Behavioral coverage (plan runs, ViewModel flow, E2E) stays in the suites below — see [phase-2-architecture-tests.md](platform-phases/phase-2-architecture-tests.md). Plugin VISA must go through Core `IVisaBroker`; `ArchitectureRulesTests.Plugin_source_must_not_use_Ivi_Visa` scans `Plugins.Basic` / `Plugins.Mixins` source and csproj — see [phase-22-visa-broker.md](platform-phases/phase-22-visa-broker.md). Pause/interaction must not be process-global statics; `ArchitectureRulesTests.StepRuntime_must_not_expose_static_pause_or_interaction` scans `src/` — see [phase-24-session-decomposition.md](platform-phases/phase-24-session-decomposition.md).
 
 ### UI / board (ViewModels)
 
@@ -54,9 +54,10 @@ Pick the narrowest suite for what you are asserting:
 1. Prefer a C# factory in `PlanShapeFixtures` / `SampleProgramFactory` / `BoardDemoProgramFactory` / `SweepDemoProgramFactory` (optionally `SaveBeside` under `plans/opentap/fixtures/`).
 2. Load with concrete `OpenTapSession.LoadPlanShapeAsync(...)` (not on `IOpenTapSession`) or the sample / board-demo / sweep-demo loaders. The in-process `OpenTapSession` is the **documented test-only host** for the serial `OpenTapSerial` suite — it does not pass a cancel token into `Execute` so Abort cannot poison `TapThread`.
 3. Assert `StepTree` shape, unique paths, Run Selected enable-mask behavior, or SafeShutdown presence.
-4. Keep in-process host tests in the `OpenTapSerial` collection (`DisableParallelization`).
+4. Keep in-process host tests that call `TestPlan.Execute` in the `OpenTapSerial` collection (`DisableParallelization`). Serial is required because TapThread / PluginManager are still process-global — not because of `StepRuntime` statics (those are gone).
 5. **Abort isolation:** Host `Abort` cancels cooperatively via CTS + `WaitIfPaused` / interaction gates — it does **not** call `TapThread.Abort`. Prefer draining run tasks in `finally` after Abort in tests.
 6. **Worker kill:** `OpenTapWorkerKillTests` loads `HangForeverStep` through `OpenTapWorkerClient` (not `IOpenTapSession`). Abort then kill-timeout must run `ISafetyController.SafeIdle` and leave the client able to start a second run. ViewModels stay on `FakeOpenTapSession`. The UI process uses the worker via Composition.
+7. **Run context isolation:** `OpenTapRunContextTests` may run in parallel. Two `OpenTapRunContext` / `IStepRuntime` instances must not share pause or interaction. Do not require `TestPlan.Execute` for that proof. Pause/Resume mutate the live control gate; `BeginRun` must not re-apply a snapshot (worker Run is background while Pause/Resume stay on the IPC loop).
 
 Named templates live in `PlanDiagnosticsTests` (`PlanDiagnostics_*`).
 
