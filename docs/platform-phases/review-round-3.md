@@ -97,7 +97,7 @@ The 400ms timer fire-and-forget `SaveAsync` continuation writes faults to `Debug
 
 `OpenTapSession.Abort()` cancels a CTS and interaction gates. `plan.Execute` is called with `CancellationToken.None`. `TapThread.Abort` is deliberately avoided because it poisons in-process OpenTAP. `VisaDmmInstrument` used to open IVI directly, so Core `VisaSessionGate` preemption did not cover plan I/O.
 
-**Fix in 19:** operator-facing **Stop Run** copy that states this is a cooperative software stop, not a hardware interlock. **Fix in 22:** plan VISA goes through `IVisaBroker` / `VisaSessionGate`. Real interlocks + killable worker are Phase 23. Do not use `TapThread.Abort`.
+**Fix in 19:** operator-facing **Stop Run** copy that states this is a cooperative software stop, not a hardware interlock. **Fix in 22:** plan VISA goes through `IVisaBroker` / `VisaSessionGate`. **Fix in 23:** `ISafetyController` (no-op is “Not wired”), killable OpenTAP worker, `SafeIdle` before kill/bookkeeping. Do not use `TapThread.Abort` in the UI process. A real ESTOP adapter remains a follow-up.
 
 ### R3-8 / R3-9 — Contrast and Settings names
 

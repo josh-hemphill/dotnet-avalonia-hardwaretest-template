@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>HardwareTest.OpenTap.Worker</RootNamespace>
+    <Description>Killable OpenTAP worker process for HardwareTest</Description>
+    <CreateOpenTapPackage>false</CreateOpenTapPackage>
+    <IsAotCompatible>false</IsAotCompatible>
+    <RuntimeIdentifiers>win-x64;linux-x64;osx-arm64</RuntimeIdentifiers>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\HardwareTest.OpenTap.Host\HardwareTest.OpenTap.Host.csproj" />
+  </ItemGroup>
+</Project>

@@ -12,6 +12,7 @@ public static class PlanShapeFixtures
     public const string EmptyGroupName = "empty-group.TapPlan";
     public const string NoSafeShutdownName = "no-safe-shutdown.TapPlan";
     public const string SweepRepeatName = SweepDemoProgramFactory.FixtureFileName;
+    public const string HangForeverName = "hang-forever.TapPlan";
 
     public static TestPlan CreateFlatLeaves()
     {
@@ -127,6 +128,13 @@ public static class PlanShapeFixtures
         return plan;
     }
 
+    public static TestPlan CreateHangForever()
+    {
+        var plan = new TestPlan();
+        plan.ChildTestSteps.Add(new HangForeverStep { Name = "Hang Forever" });
+        return plan;
+    }
+
     public static IEnumerable<(string FileName, Func<TestPlan> Create)> All
     {
         get
@@ -137,6 +145,7 @@ public static class PlanShapeFixtures
             yield return (EmptyGroupName, CreateEmptyGroup);
             yield return (NoSafeShutdownName, CreateNoSafeShutdown);
             yield return (SweepRepeatName, SweepDemoProgramFactory.Create);
+            yield return (HangForeverName, CreateHangForever);
         }
     }
 

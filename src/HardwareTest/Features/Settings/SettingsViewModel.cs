@@ -7,6 +7,7 @@ using System.Runtime.Versioning;
 using System.Text;
 using System.Threading.Tasks;
 using HardwareTest.Core.Diagnostics;
+using HardwareTest.Core.Engine;
 using HardwareTest.Core.Hardware;
 using HardwareTest.Core.Settings;
 using HardwareTest.OpenTap.Host;
@@ -31,6 +32,7 @@ public partial class SettingsViewModel : ReactiveObject
     private readonly BuildInfo _buildInfo;
     private readonly OperatorSession? _operatorSession;
     private readonly IVisaModeController? _visaModeController;
+    private readonly ISafetyController? _safety;
     private readonly System.Timers.Timer _debounce;
     private bool _packagesLoaded;
 
@@ -42,12 +44,14 @@ public partial class SettingsViewModel : ReactiveObject
         IOpenTapHostCatalog hostCatalog,
         BuildInfo? buildInfo = null,
         OperatorSession? operatorSession = null,
-        IVisaModeController? visaModeController = null)
+        IVisaModeController? visaModeController = null,
+        ISafetyController? safety = null)
     {
         _settingsStore = settingsStore;
         _hostCatalog = hostCatalog;
         _operatorSession = operatorSession;
         _visaModeController = visaModeController;
+        _safety = safety;
         _buildInfo = buildInfo ?? BuildInfo.FromAssembly(typeof(SettingsViewModel).Assembly);
         var s = settingsStore.AppSettings;
         // Prefer the live factory mode so the checkbox never claims a mode the DI façade is not using.
@@ -236,6 +240,7 @@ public partial class SettingsViewModel : ReactiveObject
     public string AboutRuntime => _buildInfo.RuntimeVersion;
     public string AboutRuntimeIdentifier => _buildInfo.RuntimeIdentifier;
     public string AboutOpenTapEngine => _buildInfo.OpenTapEngineVersion ?? "n/a";
+    public string SafetyInterlockStatus => _safety?.StatusText ?? NoOpSafetyController.NotWiredStatus;
 
     /// Optional clipboard hook (wired from the view); null means Copy shows a status message.
     public Func<string, Task>? CopyTextAsync { get; set; }
@@ -356,6 +361,8 @@ public partial class SettingsViewModel : ReactiveObject
 
         var sb = new StringBuilder();
         sb.AppendLine(_buildInfo.FormatSupportBlock(DataDirectory));
+        sb.AppendLine($"Hardware interlock: {SafetyInterlockStatus}");
+        sb.AppendLine("OpenTAP worker: killable child process");
         sb.AppendLine();
         sb.AppendLine("Key\tEffectiveValue\tSource\tSourceDetail");
         foreach (var row in ProvenanceRows)

@@ -58,6 +58,8 @@ public partial class App : Application
             {
                 try
                 {
+                    var safety = _services.GetRequiredService<ISafetyController>();
+                    safety.SafeIdle();
                     var runControl = _services.GetRequiredService<IRunControl>();
                     var openTap = _services.GetRequiredService<IOpenTapRunSession>();
                     runControl.RequestSafetyStop();

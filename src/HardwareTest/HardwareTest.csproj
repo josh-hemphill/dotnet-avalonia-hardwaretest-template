@@ -22,6 +22,7 @@
   <ItemGroup>
     <ProjectReference Include="..\HardwareTest.Core\HardwareTest.Core.csproj" />
     <ProjectReference Include="..\HardwareTest.OpenTap.Host\HardwareTest.OpenTap.Host.csproj" />
+    <ProjectReference Include="..\HardwareTest.OpenTap.Worker\HardwareTest.OpenTap.Worker.csproj" />
   </ItemGroup>
 
   <ItemGroup>

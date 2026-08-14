@@ -638,6 +638,15 @@ public static class AppSettingsEnvironmentBinder
                 (s, v) => s.AllowOsFolderBrowse = v,
                 env: ["HARDWARETEST_ALLOW_OS_FOLDER_BROWSE"],
                 cli: ["--allow-os-folder-browse"]),
+            SettingBinding.Int(
+                "OpenTapWorkerKillTimeoutMilliseconds",
+                s => s.OpenTapWorkerKillTimeoutMilliseconds,
+                (s, v) => s.OpenTapWorkerKillTimeoutMilliseconds = Math.Clamp(
+                    v,
+                    AppSettings.MinOpenTapWorkerKillTimeoutMilliseconds,
+                    AppSettings.MaxOpenTapWorkerKillTimeoutMilliseconds),
+                env: ["HARDWARETEST_OPENTAP_WORKER_KILL_TIMEOUT_MS"],
+                cli: ["--opentap-worker-kill-timeout-ms"]),
         ];
 }
 

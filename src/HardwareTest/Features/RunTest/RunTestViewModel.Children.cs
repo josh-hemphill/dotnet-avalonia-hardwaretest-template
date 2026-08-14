@@ -25,7 +25,8 @@ public partial class RunTestViewModel
         IDutHistoryService? dutHistory,
         BuildInfo buildInfo,
         IStorageHealthService? storageHealth,
-        IVisaModeController? visaModeController)
+        IVisaModeController? visaModeController,
+        ISafetyController? safety)
     {
         StepDetail = new StepDetailViewModel(() => OpenSelectedDetail(revealDetail: true));
         Interaction = new InteractionHostViewModel();
@@ -78,6 +79,7 @@ public partial class RunTestViewModel
             Interaction,
             Live,
             storageHealth,
-            visaModeController);
+            visaModeController,
+            safety);
     }
 }
