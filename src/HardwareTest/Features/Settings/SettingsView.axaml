@@ -20,8 +20,11 @@
                    VerticalAlignment="Center"
                    FontWeight="SemiBold"
                    Opacity="0.8" />
-        <TextBlock Text="{Binding Status}" VerticalAlignment="Center" TextWrapping="Wrap" />
       </StackPanel>
+      <TextBlock Text="{Binding Status}"
+                 MinHeight="20"
+                 TextWrapping="NoWrap"
+                 TextTrimming="CharacterEllipsis" />
     </StackPanel>
 
     <ScrollViewer>

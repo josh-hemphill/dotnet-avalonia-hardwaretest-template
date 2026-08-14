@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.Threading.Tasks;
 using HardwareTest.Core.Hardware;
 using HardwareTest.Core.Settings;
@@ -168,13 +169,17 @@ public partial class SettingsViewModel
         }
         else if (visaApplyStatus is not null)
         {
-            Status = $"Saved at {DateTimeOffset.Now:T}. {visaApplyStatus}";
+            Status = $"Saved at {FormatSavedAt()}. {visaApplyStatus}";
         }
         else
         {
-            Status = $"Saved at {DateTimeOffset.Now:T}. Restart may be required for logging sink changes.";
+            Status = $"Saved at {FormatSavedAt()}. Restart may be required for logging sink changes.";
         }
     }
+
+    /// Whole seconds only — culture `T` can include fractional seconds and reflow the sticky Save row.
+    internal static string FormatSavedAt(DateTimeOffset? now = null)
+        => (now ?? DateTimeOffset.Now).ToString("HH:mm:ss", CultureInfo.InvariantCulture);
 
     private static double BytesToGb(long bytes)
         => Math.Round(bytes / (1024d * 1024d * 1024d), 2, MidpointRounding.AwayFromZero);

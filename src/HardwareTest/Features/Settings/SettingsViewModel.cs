@@ -153,6 +153,7 @@ public partial class SettingsViewModel : ReactiveObject
             }
 
             if (args.PropertyName is nameof(Status) or nameof(DataDirectory)
+                or nameof(IsBusy) or nameof(AllowOsFolderBrowse)
                 or nameof(ShowEventLogOptions) or nameof(ShowSyslogOptions)
                 or nameof(SelectedPackage) or nameof(SelectedPluginDirectory)
                 or nameof(Packages) or nameof(PluginDirectories)
