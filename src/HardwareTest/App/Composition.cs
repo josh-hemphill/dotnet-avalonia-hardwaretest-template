@@ -1,5 +1,6 @@
 using HardwareTest.Core;
 using HardwareTest.Core.Diagnostics;
+using HardwareTest.Core.Hardware;
 using HardwareTest.Core.Settings;
 using HardwareTest.Features;
 using HardwareTest.Features.Home;
@@ -26,7 +27,11 @@ public static class Composition
         services.AddSingleton(buildInfo);
         services.AddHardwareTestCore(settingsStore);
         services.AddSingleton<OpenTapSession>(sp =>
-            new OpenTapSession(sp.GetRequiredService<AppSettings>(), Log.Logger));
+            new OpenTapSession(
+                sp.GetRequiredService<AppSettings>(),
+                Log.Logger,
+                sp.GetRequiredService<IVisaBroker>(),
+                sp.GetRequiredService<IBenchOperationCoordinator>()));
         // Same singleton instance for the aggregate and each focused surface (Phase 14).
         services.AddSingleton<IOpenTapSession>(sp => sp.GetRequiredService<OpenTapSession>());
         services.AddSingleton<IOpenTapPlanSession>(sp => sp.GetRequiredService<OpenTapSession>());
