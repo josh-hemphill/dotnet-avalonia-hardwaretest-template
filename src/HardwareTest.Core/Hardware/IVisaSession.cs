@@ -5,6 +5,10 @@ public readonly record struct MeasurementSample(string Channel, DateTimeOffset T
 public interface IVisaSession : IAsyncDisposable
 {
     string ResourceName { get; }
+
+    /// Bounds blocking IVI FormattedIO; cancellation tokens do not abort a mid-call Write/Query.
+    int IoTimeoutMilliseconds { get; set; }
+
     Task WriteAsync(string command, CancellationToken cancellationToken = default);
     Task<string> QueryAsync(string command, CancellationToken cancellationToken = default);
 }

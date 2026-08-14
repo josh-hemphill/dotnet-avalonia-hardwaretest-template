@@ -1,3 +1,4 @@
+using HardwareTest.Core.Hardware;
 using HardwareTest.OpenTap.Plugins.Basic;
 using HardwareTest.OpenTap.Plugins.Mixins;
 using OpenTap;
@@ -10,10 +11,17 @@ internal static class OpenTapPluginSearch
     private static readonly object SearchGate = new();
 
     /// Adds optional extra plugin roots, then runs PluginManager.Search under one lock.
-    public static void SearchSerialized(IEnumerable<string>? extraDirectories = null)
+    public static void SearchSerialized(
+        IEnumerable<string>? extraDirectories = null,
+        IVisaBroker? visaBroker = null)
     {
         lock (SearchGate)
         {
+            if (visaBroker is not null)
+            {
+                VisaBrokerHost.Register(visaBroker);
+            }
+
             EnsureCorePluginDirectories();
             if (extraDirectories is not null)
             {

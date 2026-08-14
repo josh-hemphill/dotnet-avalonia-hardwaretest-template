@@ -29,6 +29,8 @@ public sealed class ArchitectureRulesTests
         "docs/platform-phases/phase-9-runboard-decomposition.md — feature files stay decomposed; split into a child ViewModel or a partial.";
     private const string SessionFacadeSplitRule =
         "docs/platform-phases/phase-14-session-facade-split.md — Feature ViewModels take focused IOpenTap* surfaces, not the aggregating IOpenTapSession.";
+    private const string Phase22PluginIviRule =
+        "docs/platform-phases/phase-22-visa-broker.md — plugins must not call Ivi.Visa / GlobalResourceManager; Core owns the broker.";
 
     private const int MaxFeatureFileLines = 600;
 
@@ -62,7 +64,7 @@ public sealed class ArchitectureRulesTests
     [Fact]
     public void BasicPlugins_must_not_reference_Avalonia_or_ScottPlot()
     {
-        AssertNoForbiddenReference(
+        AssertNoForbiddenDirectReference(
             typeof(AcquireVoltageStep).Assembly,
             IsAvaloniaOrScottPlot,
             PhaseIPresentation);
@@ -71,7 +73,7 @@ public sealed class ArchitectureRulesTests
     [Fact]
     public void MixinsPlugins_must_not_reference_Avalonia_or_ScottPlot()
     {
-        AssertNoForbiddenReference(
+        AssertNoForbiddenDirectReference(
             typeof(AnnotationMixin).Assembly,
             IsAvaloniaOrScottPlot,
             PhaseIPresentation);
@@ -196,6 +198,45 @@ public sealed class ArchitectureRulesTests
             $"{SessionFacadeSplitRule} Offenders:{Environment.NewLine}{string.Join(Environment.NewLine, offenders)}");
     }
 
+    [Fact]
+    public void Plugin_source_must_not_use_Ivi_Visa()
+    {
+        var srcRoot = Path.Combine(FindRepoRoot(), "src");
+        string[] pluginRoots =
+        [
+            Path.Combine(srcRoot, "HardwareTest.OpenTap.Plugins.Basic"),
+            Path.Combine(srcRoot, "HardwareTest.OpenTap.Plugins.Mixins"),
+        ];
+
+        string[] needles = ["Ivi.Visa", "GlobalResourceManager", "IviFoundation.Visa"];
+        var offenders = new List<string>();
+        foreach (var root in pluginRoots)
+        {
+            Assert.True(Directory.Exists(root), $"Plugin root not found at '{root}'.");
+            foreach (var path in Directory.EnumerateFiles(root, "*.cs", SearchOption.AllDirectories)
+                .Concat(Directory.EnumerateFiles(root, "*.csproj", SearchOption.TopDirectoryOnly)))
+            {
+                if (IsBuildArtifact(path, root))
+                {
+                    continue;
+                }
+
+                var text = File.ReadAllText(path);
+                foreach (var needle in needles)
+                {
+                    if (text.Contains(needle, StringComparison.Ordinal))
+                    {
+                        offenders.Add($"{Path.GetRelativePath(FindRepoRoot(), path)} contains '{needle}'");
+                    }
+                }
+            }
+        }
+
+        Assert.True(
+            offenders.Count == 0,
+            $"{Phase22PluginIviRule} Offenders:{Environment.NewLine}{string.Join(Environment.NewLine, offenders)}");
+    }
+
     private static readonly char[] PathSeparators =
         [Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar];
 
@@ -237,6 +278,21 @@ public sealed class ArchitectureRulesTests
         Assert.True(
             hits.Length == 0,
             $"{rule} Assembly '{assembly.GetName().Name}' references forbidden: [{string.Join(", ", hits)}].");
+    }
+
+    /// Direct references only — Plugins.Basic may ProjectReference Core for IVisaBroker; Core's ScottPlot must not count as a plugin UI reference.
+    private static void AssertNoForbiddenDirectReference(Assembly assembly, Func<string, bool> isForbidden, string rule)
+    {
+        var hits = assembly.GetReferencedAssemblies()
+            .Select(name => name.Name)
+            .Where(name => !string.IsNullOrWhiteSpace(name) && isForbidden(name!))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(n => n, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.True(
+            hits.Length == 0,
+            $"{rule} Assembly '{assembly.GetName().Name}' directly references forbidden: [{string.Join(", ", hits)}].");
     }
 
     private static IEnumerable<string> GetReferencedAssemblyNames(Assembly root)

@@ -4,7 +4,7 @@ UI/board tests stay separate from OpenTAP plan-behavior tests. Both share the Op
 
 | Suite | Purpose | OpenTAP | Emulation |
 | --- | --- | --- | --- |
-| Architecture | Layering smoke (Avalonia/OpenTAP boundaries, single Window, `AppJsonContext`) | Load assemblies only | None |
+| Architecture | Layering smoke (Avalonia/OpenTAP boundaries, single Window, `AppJsonContext`, plugin source must not use `Ivi.Visa`) | Load assemblies only | None |
 | Session contracts | Shared `IOpenTapSession` behavior (real + fake) | Real or `FakeOpenTapSession` | MockDmm / canned trees |
 | ViewModels | Run board / session / filters / rollup UX | `FakeOpenTapSession` (in-memory trees + optional recording replay) | No real instruments |
 | Core/OpenTAP host | Plan load, hierarchy, Run Selected mask, SafeShutdown, progress/samples | Real `OpenTapSession` | `MockDmmInstrument` |
@@ -30,7 +30,7 @@ Put an assertion in `OpenTapSessionContractTests` only when it must hold for **b
 
 ### Architecture (layering smoke)
 
-Put a rule here only when it is a short, stable layering claim already written in README / platform docs (e.g. "Core must not reference Avalonia"). Failure messages must name the rule and the doc. Behavioral coverage (plan runs, ViewModel flow, E2E) stays in the suites below — see [phase-2-architecture-tests.md](platform-phases/phase-2-architecture-tests.md).
+Put a rule here only when it is a short, stable layering claim already written in README / platform docs (e.g. "Core must not reference Avalonia"). Failure messages must name the rule and the doc. Behavioral coverage (plan runs, ViewModel flow, E2E) stays in the suites below — see [phase-2-architecture-tests.md](platform-phases/phase-2-architecture-tests.md). Plugin VISA must go through Core `IVisaBroker`; `ArchitectureRulesTests.Plugin_source_must_not_use_Ivi_Visa` scans `Plugins.Basic` / `Plugins.Mixins` source and csproj — see [phase-22-visa-broker.md](platform-phases/phase-22-visa-broker.md).
 
 ### UI / board (ViewModels)
 

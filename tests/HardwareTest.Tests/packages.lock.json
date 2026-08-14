@@ -380,7 +380,7 @@
       "hardwaretest.opentap.plugins.basic": {
         "type": "Project",
         "dependencies": {
-          "IviFoundation.Visa": "[8.0.2, )",
+          "HardwareTest.Core": "[0.1.0, )",
           "OpenTAP": "[9.32.2, )"
         }
       },

@@ -32,6 +32,16 @@ public sealed class TracingVisaSessionTests
     }
 
     [Fact]
+    public void Forwards_io_timeout_to_inner_session()
+    {
+        var inner = new MockVisaSession("MOCK::1");
+        var session = new TracingVisaSession(inner, new VisaSessionGate());
+        session.IoTimeoutMilliseconds = 12_000;
+        Assert.Equal(12_000, inner.IoTimeoutMilliseconds);
+        Assert.Equal(12_000, session.IoTimeoutMilliseconds);
+    }
+
+    [Fact]
     public async Task Logs_errors_from_inner_session()
     {
         InMemorySink.Instance.Dispose();

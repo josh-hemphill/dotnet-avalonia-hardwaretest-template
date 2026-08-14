@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.CompilerServices;
+using HardwareTest.Core.Hardware;
 using HardwareTest.Core.IO;
 using HardwareTest.Core.Runs;
 using HardwareTest.Core.Settings;
@@ -142,13 +143,21 @@ public sealed class OpenTapSession : IOpenTapSession, INotifyPropertyChanged
     private OperatorInteractionRequest? _pendingInteraction;
     private OperatorInteractionResponse? _interactionResponse;
     private readonly ManualResetEventSlim _interactionGate = new(false);
+    private readonly IVisaBroker? _visaBroker;
+    private readonly IBenchOperationCoordinator? _bench;
     /// 0 = idle, 1 = a run holds the single-flight gate.
     private int _runGate;
 
-    public OpenTapSession(AppSettings? settings = null, ILogger? logger = null)
+    public OpenTapSession(
+        AppSettings? settings = null,
+        ILogger? logger = null,
+        IVisaBroker? visaBroker = null,
+        IBenchOperationCoordinator? bench = null)
     {
         _settings = settings ?? new AppSettings();
         _logger = logger ?? Serilog.Log.ForContext<OpenTapSession>();
+        _visaBroker = visaBroker;
+        _bench = bench;
     }
 
     public string? LoadedPlanPath { get; private set; }
@@ -384,8 +393,15 @@ public sealed class OpenTapSession : IOpenTapSession, INotifyPropertyChanged
         IReadOnlyList<string>? sampleScopePaths,
         string? runId = null)
     {
+        IDisposable? benchLease = null;
+        if (_bench is not null && !_bench.TryEnter(BenchOperation.Run, out benchLease, out var busy))
+        {
+            throw new InvalidOperationException(busy);
+        }
+
         if (Interlocked.CompareExchange(ref _runGate, 1, 0) != 0)
         {
+            benchLease?.Dispose();
             throw new InvalidOperationException("A run is already in progress.");
         }
 
@@ -404,6 +420,7 @@ public sealed class OpenTapSession : IOpenTapSession, INotifyPropertyChanged
         {
             Interlocked.Exchange(ref _runGate, 0);
             Raise(nameof(IsExecuting));
+            benchLease?.Dispose();
         }
     }
 
@@ -1189,7 +1206,7 @@ public sealed class OpenTapSession : IOpenTapSession, INotifyPropertyChanged
         }
 
         // Directory list mutations + Search share one gate (OpenTapPluginSearch.SearchSerialized).
-        OpenTapPluginSearch.SearchSerialized(extras);
+        OpenTapPluginSearch.SearchSerialized(extras, _visaBroker);
         _pluginSearchDone = true;
     }
 

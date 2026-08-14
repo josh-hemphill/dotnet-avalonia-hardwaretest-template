@@ -3,7 +3,7 @@
 **Parent:** [platform-roadmap.md](../platform-roadmap.md)
 **Depends on:** [Phase 19](phase-19-immediate-correctness.md), [Phase 13](phase-13-settings-live-semantics.md)
 **Unblocks:** [Phase 23](phase-23-safety-opentap-worker.md) (plan I/O must go through a preemptable gate)
-**Status:** Planned
+**Status:** Done
 **Also absorbs:** Round-3 R3-13 (dual VISA paths)
 
 ## Goal
@@ -12,7 +12,7 @@ Give the process **one VISA I/O path**. Instruments-page queries, mode switch, a
 
 ## Why this exists
 
-Core already serializes Instruments-page I/O through `VisaModeController` / `VisaSessionGate`. `VisaDmmInstrument.Open()` uses `Ivi.Visa.GlobalResourceManager.Open` directly, so plan steps bypass the gate. Mode-switch checks `IsRunning` / `IsBusy` **outside** the factory-swap lock. Safety Stop cannot preempt plan VISA because it never entered the gate.
+Core already serializes Instruments-page I/O through `VisaModeController` / `VisaSessionGate`. `VisaDmmInstrument.Open()` used `Ivi.Visa.GlobalResourceManager.Open` directly, so plan steps bypassed the gate. Mode-switch checks `IsRunning` / `IsBusy` **outside** the factory-swap lock. Safety Stop cannot preempt plan VISA because it never entered the gate.
 
 ## Locked decisions
 
@@ -47,17 +47,25 @@ Core already serializes Instruments-page I/O through `VisaModeController` / `Vis
 
 ## Exit criteria
 
-- [ ] Plan VISA I/O uses `IVisaBroker`; plugin IVI open is gone
-- [ ] Mode swap, run, and ID query cannot overlap
-- [ ] Architecture test forbids leftover IVI opens in plugins
-- [ ] Mock/real honesty from Phase 13 still holds
-- [ ] Host + Core tests green (serial host collection unchanged until Phase 23/24)
+- [x] Plan VISA I/O uses `IVisaBroker`; plugin IVI open is gone
+- [x] Mode swap, run, and ID query cannot overlap
+- [x] Architecture test forbids leftover IVI opens in plugins
+- [x] Mock/real honesty from Phase 13 still holds
+- [x] Host + Core tests green (serial host collection unchanged until Phase 23/24)
 
 ## Out of scope
 
 - Killable OpenTAP worker ([Phase 23](phase-23-safety-opentap-worker.md))
 - Multi-session / multi-DUT VISA ([Phase K](../opentap-phases/phase-k-multi-dut-parallel.md))
 - Vendor VISA in default CI (still unproven; broker should make a future vendor job easier)
+
+## Landed
+
+- `VisaModeController` is the process `IVisaBroker`. Open sessions are tracked so `TryApply` refuses while a broker session is still open (in addition to `VisaSessionGate.IsBusy` / `IRunControl.IsRunning`).
+- `IBenchOperationCoordinator` is fail-closed. Mode swap, run start, and Instruments `*IDN?` take the same exclusive lease; overlap returns in-panel status (or `InvalidOperationException` on the run path, which the Run board already surfaces).
+- `VisaDmmInstrument` opens through `IVisaBroker` (constructor injection or `VisaBrokerHost` `SessionLocal` registered inside `OpenTapPluginSearch.SearchSerialized` before `PluginManager.Search`). Plugins.Basic no longer references `IviFoundation.Visa`.
+- Architecture scans plugin `.cs` / `.csproj` for `Ivi.Visa`, `GlobalResourceManager`, and `IviFoundation.Visa`. Core IVI stays in `VisaFactories.cs` / `VisaResourceDiscovery.cs`.
+- Public `IOpenTap*` surfaces are unchanged. Mid-call Write/Query still cannot be aborted in-process — that remains [Phase 23](phase-23-safety-opentap-worker.md).
 
 ## Related
 

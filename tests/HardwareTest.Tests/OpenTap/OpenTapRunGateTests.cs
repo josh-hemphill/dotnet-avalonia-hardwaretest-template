@@ -1,3 +1,4 @@
+using HardwareTest.Core.Hardware;
 using HardwareTest.OpenTap.Host;
 using Xunit;
 
@@ -67,5 +68,36 @@ public sealed class OpenTapRunGateTests
 
         await run;
         Assert.Equal(0, accepted);
+    }
+
+    [Fact]
+    public async Task RunAsync_refused_when_coordinator_holds_id_query()
+    {
+        var bench = new BenchOperationCoordinator();
+        var session = new OpenTapSession(bench: bench);
+        Assert.True(bench.TryEnter(BenchOperation.IdQuery, out var lease, out _));
+        using (lease)
+        {
+            var ex = await Record.ExceptionAsync(() => session.RunAsync());
+            Assert.IsType<InvalidOperationException>(ex);
+            Assert.Contains("Instruments query", ex!.Message, StringComparison.OrdinalIgnoreCase);
+        }
+    }
+
+    [Fact]
+    public async Task RunAsync_releases_coordinator_when_finished()
+    {
+        var bench = new BenchOperationCoordinator();
+        var session = new OpenTapSession(bench: bench);
+        await session.LoadPlanShapeAsync(PlanShapeFixtures.FlatLeavesName);
+        await session.ApplyStationAndDutAsync(
+            new StationProfile(new Dictionary<string, string> { ["dmm"] = "MOCK::INSTR0" }),
+            new DutIdentity("DUT-GATE", Family: "demo"));
+
+        await session.RunAsync();
+
+        Assert.Null(bench.Current);
+        Assert.True(bench.TryEnter(BenchOperation.ModeSwap, out var lease, out _));
+        lease!.Dispose();
     }
 }
