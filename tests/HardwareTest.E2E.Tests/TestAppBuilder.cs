@@ -1,8 +1,8 @@
 using Avalonia;
 using Avalonia.Headless;
-using ReactiveUI.Avalonia;
 using HardwareTest;
 using HardwareTest.Core.Settings;
+using ReactiveUI.Avalonia;
 
 [assembly: AvaloniaTestApplication(typeof(HardwareTest.E2E.Tests.TestAppBuilder))]
 

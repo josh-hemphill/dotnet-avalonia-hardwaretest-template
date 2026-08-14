@@ -1,5 +1,5 @@
-using HardwareTest.Core.Hardware;
 using HardwareTest.Core.Engine;
+using HardwareTest.Core.Hardware;
 using Xunit;
 
 namespace HardwareTest.Tests.Engine;
