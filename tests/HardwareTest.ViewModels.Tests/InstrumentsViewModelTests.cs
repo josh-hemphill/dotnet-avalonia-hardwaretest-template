@@ -137,4 +137,30 @@ public sealed class InstrumentsViewModelTests
         Assert.True(vm.SelectedVisa.HasIdn);
         Assert.Null(bench.Current);
     }
+
+    [Fact]
+    public async Task Query_IDN_releases_bench_when_ui_dispatch_fails()
+    {
+        var bench = new BenchOperationCoordinator();
+        var vm = CreateVm(bench: bench);
+        await vm.RefreshVisaDiscoverCommand.ExecuteAsync();
+        vm.SelectedVisa = vm.DiscoveredVisa[0];
+        var calls = 0;
+        vm.UiScheduler = action =>
+        {
+            if (Interlocked.Increment(ref calls) == 1)
+            {
+                throw new InvalidOperationException("dispatcher failed");
+            }
+
+            action();
+        };
+
+        await vm.QuerySelectedIdnCommand.ExecuteAsync();
+
+        Assert.Null(bench.Current);
+        Assert.Contains("dispatcher failed", vm.Status, StringComparison.OrdinalIgnoreCase);
+        Assert.True(bench.TryEnter(BenchOperation.ModeSwap, out var lease, out _));
+        lease!.Dispose();
+    }
 }

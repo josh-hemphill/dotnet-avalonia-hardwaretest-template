@@ -496,13 +496,13 @@ public partial class InstrumentsViewModel : ReactiveObject
             return;
         }
 
-        Status = $"Querying *IDN? on {address}…";
-        await RunOnUiAsync(() => IsBusy = true).ConfigureAwait(false);
-        using var cts = new CancellationTokenSource(IdnTimeout);
-        using (lease)
+        try
         {
+            Status = $"Querying *IDN? on {address}…";
+            using var cts = new CancellationTokenSource(IdnTimeout);
             try
             {
+                await RunOnUiAsync(() => IsBusy = true).ConfigureAwait(false);
                 await using var session = await _visaSessions.OpenAsync(address, cts.Token).ConfigureAwait(false);
                 var raw = await session.QueryAsync("*IDN?", cts.Token).ConfigureAwait(false);
                 var (_, _, _, _, summary) = VisaResourceParser.FormatIdn(raw);
@@ -540,6 +540,10 @@ public partial class InstrumentsViewModel : ReactiveObject
             {
                 await RunOnUiAsync(() => IsBusy = false).ConfigureAwait(false);
             }
+        }
+        finally
+        {
+            lease?.Dispose();
         }
     }
 
