@@ -29,7 +29,7 @@ public sealed class IdentityCheckStep : TestStep
 }
 
 [Display("Acquire Voltage", Groups: ["HardwareTest", "Measure"], Description: "Acquire VDC samples from an IDmmInstrument.")]
-public sealed class AcquireVoltageStep : TestStep
+public sealed class AcquireVoltageStep : RuntimeAwareTestStep
 {
     [Display("Instrument")]
     public HardwareDmm Instrument { get; set; } = null!;
@@ -56,7 +56,7 @@ public sealed class AcquireVoltageStep : TestStep
         for (var i = 0; i < SampleCount; i++)
         {
             TapThread.ThrowIfAborted();
-            StepRuntime.WaitIfPaused?.Invoke();
+            WaitIfPaused();
             var v = Instrument.ReadVoltage();
             values.Add(v);
             Results.Publish("Sample", new List<string> { "Channel", "Index", "Value" }, Channel, i, v);
@@ -72,7 +72,7 @@ public sealed class AcquireVoltageStep : TestStep
 }
 
 [Display("Mean GTE", Groups: ["HardwareTest", "Analyze"], Description: "Pass if mean of last published samples meets threshold.")]
-public sealed class MeanGteStep : TestStep
+public sealed class MeanGteStep : RuntimeAwareTestStep
 {
     [Display("Instrument")]
     public HardwareDmm Instrument { get; set; } = null!;
@@ -95,7 +95,7 @@ public sealed class MeanGteStep : TestStep
         for (var i = 0; i < SampleCount; i++)
         {
             TapThread.ThrowIfAborted();
-            StepRuntime.WaitIfPaused?.Invoke();
+            WaitIfPaused();
             values.Add(Instrument.ReadVoltage());
         }
 
@@ -121,14 +121,14 @@ public sealed class MeanGteStep : TestStep
 }
 
 [Display("Safe Shutdown", Groups: ["HardwareTest", "Safety"], Description: "Return instrument to a safe idle.")]
-public sealed class SafeShutdownStep : TestStep
+public sealed class SafeShutdownStep : RuntimeAwareTestStep
 {
     [Display("Instrument")]
     public HardwareDmm Instrument { get; set; } = null!;
 
     public override void Run()
     {
-        StepRuntime.WaitIfPaused?.Invoke();
+        WaitIfPaused();
         if (Instrument is null)
         {
             UpgradeVerdict(Verdict.Pass);
@@ -162,7 +162,7 @@ internal static class DmmStepAccess
 
 /// Pauses execution until the operator confirms a hardware change / fixture step.
 [Display("Operator Prompt", Groups: ["HardwareTest", "Operator"], Description: "Pause for hardware change; resume from UI Continue.")]
-public sealed class OperatorPromptStep : TestStep
+public sealed class OperatorPromptStep : RuntimeAwareTestStep
 {
     [Display("Message", Description: "Shown to the technician while waiting.")]
     public string Message { get; set; } = "Complete the hardware change, then Continue.";
@@ -171,8 +171,8 @@ public sealed class OperatorPromptStep : TestStep
     {
         TapThread.ThrowIfAborted();
         Log.Info("Operator prompt: {0}", Message);
-        StepRuntime.RequestOperatorAttention(Message);
-        StepRuntime.WaitIfPaused?.Invoke();
+        RequestOperatorAttention(Message);
+        WaitIfPaused();
         Results.Publish("OperatorPrompt", new List<string> { "Message" }, Message);
         UpgradeVerdict(Verdict.Pass);
     }
@@ -180,7 +180,7 @@ public sealed class OperatorPromptStep : TestStep
 
 /// Pauses for Avalonia-owned typed input (no floating OpenTAP dialogs).
 [Display("Operator Input", Groups: ["HardwareTest", "Operator"], Description: "Collect string/number input from the Run board, then Continue.")]
-public sealed class OperatorInputStep : TestStep
+public sealed class OperatorInputStep : RuntimeAwareTestStep
 {
     [Display("Title", Order: 1)]
     public string Title { get; set; } = "Operator input";
@@ -243,9 +243,8 @@ public sealed class OperatorInputStep : TestStep
         };
 
         Log.Info("Operator input: {0}", request.Message);
-        var response = StepRuntime.RequestInteraction?.Invoke(request)
-                       ?? OperatorInteractionResponse.Cancel(request.Id);
-        StepRuntime.WaitIfPaused?.Invoke();
+        var response = RequestInteraction(request);
+        WaitIfPaused();
 
         if (response.Cancelled)
         {
@@ -286,7 +285,7 @@ public sealed class OperatorInputStep : TestStep
     "Publish Band Scalar",
     Groups: ["HardwareTest", "Analyze"],
     Description: "Publish a derived Scalar metric with limits (bump timing, envelope, thresholds). Prefer this over waveforms for pass criteria.")]
-public sealed class PublishBandScalarStep : TestStep
+public sealed class PublishBandScalarStep : RuntimeAwareTestStep
 {
     [Display("Metric name", Order: 1, Description: "Scalar Name / ChannelKey (e.g. bump.rise.ms).")]
     public string MetricName { get; set; } = "metric";
@@ -308,7 +307,7 @@ public sealed class PublishBandScalarStep : TestStep
 
     public override void Run()
     {
-        StepRuntime.WaitIfPaused?.Invoke();
+        WaitIfPaused();
         Results.Publish(
             "Scalar",
             new List<string> { "Name", "Value", "Unit", "LimitLow", "LimitHigh" },
@@ -345,11 +344,11 @@ public sealed class PublishBandScalarStep : TestStep
 /// Parent grouping step for hierarchy (subsystem / domain).
 [Display("Test Group", Groups: ["HardwareTest"], Description: "Hierarchical group of child steps.")]
 [AllowAnyChild]
-public sealed class TestGroupStep : TestStep
+public sealed class TestGroupStep : RuntimeAwareTestStep
 {
     public override void Run()
     {
-        StepRuntime.WaitIfPaused?.Invoke();
+        WaitIfPaused();
         RunChildSteps();
         UpgradeVerdict(Verdict.Pass);
     }
@@ -358,7 +357,7 @@ public sealed class TestGroupStep : TestStep
 /// Simple repeat loop for Phase G iteration chrome (and offline demos without BasicSteps).
 [Display("Repeat Loop", Groups: ["HardwareTest", "Flow"], Description: "Run child steps Count times.")]
 [AllowAnyChild]
-public sealed class RepeatLoopStep : TestStep
+public sealed class RepeatLoopStep : RuntimeAwareTestStep
 {
     [Display("Count", Order: 1)]
     public int Count { get; set; } = 3;
@@ -369,7 +368,7 @@ public sealed class RepeatLoopStep : TestStep
         for (var i = 0; i < n; i++)
         {
             TapThread.ThrowIfAborted();
-            StepRuntime.WaitIfPaused?.Invoke();
+            WaitIfPaused();
             RunChildSteps();
         }
 

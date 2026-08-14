@@ -83,8 +83,8 @@ DUT stamping still looks for Basic `IdentityCheckStep` / `HardwareDut`. Custom D
 
 Use Avalonia-owned mid-run prompts only:
 
-- **Confirm-only:** `OperatorPromptStep` or `StepRuntime.RequestOperatorAttention(message)`.
-- **Typed input:** `OperatorInputStep` (string + optional number) or a custom step calling `StepRuntime.RequestInteraction` with `OperatorInteractionField`s.
+- **Confirm-only:** `OperatorPromptStep` or `IStepRuntime.RequestOperatorAttention(message)`.
+- **Typed input:** `OperatorInputStep` (string + optional number) or a custom step calling `IStepRuntime.RequestInteraction` with `OperatorInteractionField`s.
 - The Run board shows an in-panel host (title, message, fields). Continue / Cancel are toolbar actions — never OpenTAP `DialogStep`, WinForms/WPF message boxes, or a second window.
 
 Field editors (`InteractionFieldViewModel`) are shared widgets; override and prompt collections stay separate.
