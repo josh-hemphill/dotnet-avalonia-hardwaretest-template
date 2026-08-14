@@ -1,0 +1,18 @@
+# Keep image and publish contexts free of tests, build output, and crash dossiers.
+.git
+.github
+**/.vs/
+**/.idea/
+**/bin/
+**/obj/
+artifacts/
+**/TestResults/
+**/*.user
+**/*.trx
+**/*.coverage
+**/*.coveragexml
+coverage/
+**/AppData/
+*.log
+crash-dossiers/
+dossiers/

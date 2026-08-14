@@ -1,5 +1,6 @@
 import * as path from "@std/path";
 import { parseArgs } from "@std/cli/parse-args";
+import { formatAuditFailure, hasVulnerablePackages } from "./lib/audit.ts";
 import { evaluateCobertura, findCobertura } from "./lib/coverage.ts";
 import { coverageDir, publishDir, repoRoot } from "./lib/paths.ts";
 import { defaultRid } from "./lib/rid.ts";
@@ -8,6 +9,7 @@ import { run, runCapture } from "./lib/run.ts";
 /** Canonical CI task names — workflow and `list` must stay in sync. */
 export const TASKS = [
   "all",
+  "audit",
   "build",
   "coverage",
   "list",
@@ -18,6 +20,9 @@ export const TASKS = [
   "test:vm",
   "verify",
 ] as const;
+
+/** OpenTAP host tests must not load Coverlet (process-global TapThread flakes). */
+const CORE_COVERAGE_FILTER = "FullyQualifiedName!~HardwareTest.Tests.OpenTap";
 
 export type TaskName = (typeof TASKS)[number];
 
@@ -90,8 +95,6 @@ async function build(opts: Options): Promise<void> {
 }
 
 async function testHost(opts: Options): Promise<void> {
-  const results = coverageDir(opts.root);
-  await Deno.mkdir(results, { recursive: true });
   await run([
     "dotnet",
     "test",
@@ -101,11 +104,6 @@ async function testHost(opts: Options): Promise<void> {
     "-r",
     opts.rid,
     "--no-build",
-    "--collect:XPlat Code Coverage",
-    "--settings",
-    "tests/coverage.runsettings",
-    "--results-directory",
-    results,
   ], { cwd: opts.root });
 }
 
@@ -148,7 +146,35 @@ async function testArch(opts: Options): Promise<void> {
   ], { cwd: opts.root });
 }
 
+async function collectCoreCoverage(opts: Options): Promise<void> {
+  const results = coverageDir(opts.root);
+  try {
+    await Deno.remove(results, { recursive: true });
+  } catch (err) {
+    if (!(err instanceof Deno.errors.NotFound)) throw err;
+  }
+  await Deno.mkdir(results, { recursive: true });
+  await run([
+    "dotnet",
+    "test",
+    "tests/HardwareTest.Tests/HardwareTest.Tests.csproj",
+    "-c",
+    opts.configuration,
+    "-r",
+    opts.rid,
+    "--no-build",
+    "--filter",
+    CORE_COVERAGE_FILTER,
+    "--collect:XPlat Code Coverage",
+    "--settings",
+    "tests/coverage.runsettings",
+    "--results-directory",
+    results,
+  ], { cwd: opts.root });
+}
+
 async function coverage(opts: Options): Promise<void> {
+  await collectCoreCoverage(opts);
   const cobertura = await findCobertura(coverageDir(opts.root));
   if (!cobertura) {
     throw new Error("coverage.cobertura.xml not found under artifacts/coverage");
@@ -163,6 +189,33 @@ async function coverage(opts: Options): Promise<void> {
   if (!report.ok) {
     Deno.exit(1);
   }
+}
+
+async function audit(opts: Options): Promise<void> {
+  const result = await runCapture([
+    "dotnet",
+    "list",
+    "HardwareTest.slnx",
+    "package",
+    "--vulnerable",
+    "--include-transitive",
+  ], { cwd: opts.root });
+  const combined = `${result.stdout}\n${result.stderr}`;
+  if (result.stdout.trim().length > 0) {
+    console.log(result.stdout.trimEnd());
+  }
+  if (result.stderr.trim().length > 0) {
+    console.error(result.stderr.trimEnd());
+  }
+  if (hasVulnerablePackages(combined)) {
+    throw new Error(formatAuditFailure(combined));
+  }
+  if (result.code !== 0) {
+    throw new Error(
+      `dotnet list package --vulnerable failed (exit ${result.code})`,
+    );
+  }
+  console.log("audit ok: no known vulnerable packages");
 }
 
 async function publish(opts: Options): Promise<void> {
@@ -262,6 +315,7 @@ async function verify(opts: Options): Promise<void> {
 
 async function all(opts: Options): Promise<void> {
   await build(opts);
+  await audit(opts);
   await testArch(opts);
   await testHost(opts);
   await testVm(opts);
@@ -310,6 +364,9 @@ export async function main(argv = Deno.args): Promise<void> {
   switch (task as TaskName) {
     case "build":
       await build(opts);
+      break;
+    case "audit":
+      await audit(opts);
       break;
     case "test:host":
       await testHost(opts);
