@@ -65,7 +65,7 @@ Distinct namespaces on purpose — "Phase C" and "Phase 3" are never the same th
 | 20 | [CI honesty & supply chain](platform-phases/phase-20-ci-honesty.md) | 19 | Done |
 | 21 | [Operator chrome & accessibility](platform-phases/phase-21-operator-chrome-a11y.md) | 18, 19 | Done |
 | 22 | [VISA broker unification](platform-phases/phase-22-visa-broker.md) | 13, 19 | Done |
-| 23 | [Safety Stop + OpenTAP worker](platform-phases/phase-23-safety-opentap-worker.md) | 19, 22 | Planned |
+| 23 | [Safety Stop + OpenTAP worker](platform-phases/phase-23-safety-opentap-worker.md) | 19, 22 | Done |
 | 24 | [OpenTAP session decomposition](platform-phases/phase-24-session-decomposition.md) | 14 | Planned — prerequisite for OpenTAP K |
 | 25 | [Clock discipline](platform-phases/phase-25-clock-discipline.md) | 11 | Planned — promoted from deferred |
 
@@ -106,9 +106,9 @@ Longer-horizon product work lives under [`docs/deferred/`](deferred/). Each file
 Real, acknowledged, and deliberately unscheduled (or scheduled as phases above). Revisit before the first unattended deployment.
 
 - **Clock discipline is scheduled.** Timestamps are still `DateTimeOffset.UtcNow` until [Phase 25](platform-phases/phase-25-clock-discipline.md). Every idle/stale decision, run ordering, and retention prune depends on it.
-- **Vendor VISA in CI is still unproven.** Discovery now surfaces failures (no silent empty list); real IVI runtimes remain outside the default CI matrix. Plan and Instruments I/O share `IVisaBroker` / `VisaSessionGate` as of [Phase 22](platform-phases/phase-22-visa-broker.md); mid-call preemption still waits on [Phase 23](platform-phases/phase-23-safety-opentap-worker.md).
+- **Vendor VISA in CI is still unproven.** Discovery now surfaces failures (no silent empty list); real IVI runtimes remain outside the default CI matrix. Plan and Instruments I/O share `IVisaBroker` / `VisaSessionGate` as of [Phase 22](platform-phases/phase-22-visa-broker.md); hung plan I/O is preempted by killing the OpenTAP worker as of [Phase 23](platform-phases/phase-23-safety-opentap-worker.md).
 - **Phase 1 / round-2 CI follow-ups.** Format gate is repaired in [Phase 19](platform-phases/phase-19-immediate-correctness.md). Lock files, vulnerability scan, coverage split, and Action pins shipped in [Phase 20](platform-phases/phase-20-ci-honesty.md).
 - **Finding → phase maps.** [review-remediation.md](platform-phases/review-remediation.md) (round 1, closed), [review-post-phase-15.md](platform-phases/review-post-phase-15.md) (round 2 — F1–F6 fixed; CI follow-ups still open), [review-round-3.md](platform-phases/review-round-3.md) (round 3 → Phases 19–25).
-- **Safety Stop is cooperative until Phase 23.** Phase 19 only corrects operator copy to **Stop Run**. Real interlocks + killable OpenTAP worker are [Phase 23](platform-phases/phase-23-safety-opentap-worker.md). Do not use `TapThread.Abort`.
+- **Stop Run is layered as of Phase 23.** Cooperative cancel, `ISafetyController` (default no-op, never labeled armed), then kill the OpenTAP worker after timeout. Do not use `TapThread.Abort` in the UI process. A real ESTOP/PLC adapter is still a follow-up.
 - **Live charts squashed; band-first + earned Focus trend.** [Phase 16](platform-phases/phase-16-band-focus-presentation.md); authoring maintainability [Phase L](opentap-phases/phase-l-presentation-authoring.md).
 - **Notification Auto-rows shift the work surface; touch targets undersized.** [Phase 17](platform-phases/phase-17-shell-notification-strip.md) (reserved shell strip) → [Phase 18](platform-phases/phase-18-operator-touch-density.md) (hit-target floor). Full kiosk bake remains [deferred](deferred/deferred-appliance-kiosk.md).
