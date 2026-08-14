@@ -33,6 +33,8 @@ public sealed class ArchitectureRulesTests
         "docs/platform-phases/phase-22-visa-broker.md — plugins must not call Ivi.Visa / GlobalResourceManager; Core owns the broker.";
     private const string Phase23WorkerRule =
         "docs/platform-phases/phase-23-safety-opentap-worker.md — OpenTAP worker is Avalonia-free; no TapThread.Abort in the UI process.";
+    private const string Phase24SessionSplitRule =
+        "docs/platform-phases/phase-24-session-decomposition.md — no static pause/interaction on StepRuntime; run state is per OpenTapRunContext.";
 
     private const int MaxFeatureFileLines = 600;
 
@@ -79,6 +81,59 @@ public sealed class ArchitectureRulesTests
         Assert.True(
             offenders.Length == 0,
             $"{Phase23WorkerRule} TapThread.Abort( callers:{Environment.NewLine}{string.Join(Environment.NewLine, offenders)}");
+    }
+
+    [Fact]
+    public void StepRuntime_must_not_expose_static_pause_or_interaction()
+    {
+        var srcRoot = Path.Combine(FindRepoRoot(), "src");
+        Assert.True(Directory.Exists(srcRoot), $"src root not found at '{srcRoot}'.");
+        string[] members = ["WaitIfPaused", "RequestInteraction", "RequestOperatorAttention"];
+        var offenders = new List<string>();
+        foreach (var path in Directory.EnumerateFiles(srcRoot, "*.cs", SearchOption.AllDirectories))
+        {
+            if (IsBuildArtifact(path, srcRoot))
+            {
+                continue;
+            }
+
+            var text = File.ReadAllText(path);
+            if (text.Contains("static Action? WaitIfPaused", StringComparison.Ordinal)
+                || text.Contains("static Func<OperatorInteractionRequest", StringComparison.Ordinal))
+            {
+                offenders.Add($"{Path.GetRelativePath(srcRoot, path)} contains static WaitIfPaused/RequestInteraction");
+            }
+
+            foreach (var member in members)
+            {
+                if (ContainsNonInterfaceStepRuntimeMember(text, member))
+                {
+                    offenders.Add($"{Path.GetRelativePath(srcRoot, path)} contains StepRuntime.{member}");
+                }
+            }
+        }
+
+        Assert.True(
+            offenders.Count == 0,
+            $"{Phase24SessionSplitRule} Offenders:{Environment.NewLine}{string.Join(Environment.NewLine, offenders)}");
+    }
+
+    /// True when source mentions <c>StepRuntime.Member</c> but not <c>IStepRuntime.Member</c>.
+    private static bool ContainsNonInterfaceStepRuntimeMember(string text, string member)
+    {
+        var needle = "StepRuntime." + member;
+        var idx = 0;
+        while ((idx = text.IndexOf(needle, idx, StringComparison.Ordinal)) >= 0)
+        {
+            if (idx == 0 || text[idx - 1] != 'I')
+            {
+                return true;
+            }
+
+            idx += needle.Length;
+        }
+
+        return false;
     }
 
     [Fact]
