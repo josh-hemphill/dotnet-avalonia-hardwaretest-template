@@ -1376,7 +1376,7 @@ public sealed class RunTestViewModelTests
         var settings = new AppSettings { UseMockVisa = false };
         var shell = new ShellNotificationViewModel();
         var vm = CreateVm(openTap, settings: settings, shellNotification: shell);
-        StationBindRequest? bind = null;
+        StationBindRequestedEventArgs? bind = null;
         vm.NavigateToInstrumentsRequested += (_, e) => bind = e;
         await vm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
         await ConfirmReadyAsync(vm, "SN-MOCK");
@@ -1399,7 +1399,7 @@ public sealed class RunTestViewModelTests
         await openTap.LoadSampleProgramAsync();
         openTap.Slots[0].ResourceName = string.Empty;
         var vm = CreateVm(openTap);
-        StationBindRequest? bind = null;
+        StationBindRequestedEventArgs? bind = null;
         vm.NavigateToInstrumentsRequested += (_, e) => bind = e;
         await vm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
         await ConfirmReadyAsync(vm, "SN-UNBOUND");

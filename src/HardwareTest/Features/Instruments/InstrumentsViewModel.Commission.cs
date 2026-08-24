@@ -82,13 +82,11 @@ public partial class InstrumentsViewModel
     private void ApplyPlanFilter()
     {
         VisibleSlots.Clear();
-        foreach (var slot in SlotOverrides)
+        foreach (var slot in SlotOverrides.Where(s =>
+            string.Equals(PlanFilter, AllPlanFilter, StringComparison.Ordinal)
+            || string.Equals(s.PlanDisplayName, PlanFilter, StringComparison.OrdinalIgnoreCase)))
         {
-            if (string.Equals(PlanFilter, AllPlanFilter, StringComparison.Ordinal)
-                || string.Equals(slot.PlanDisplayName, PlanFilter, StringComparison.OrdinalIgnoreCase))
-            {
-                VisibleSlots.Add(slot);
-            }
+            VisibleSlots.Add(slot);
         }
 
         if (SelectedSlot is not null && !VisibleSlots.Contains(SelectedSlot))

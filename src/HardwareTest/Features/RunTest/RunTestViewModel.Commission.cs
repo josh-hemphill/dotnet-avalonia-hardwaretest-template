@@ -7,9 +7,9 @@ namespace HardwareTest.Features.RunTest;
 
 public partial class RunTestViewModel
 {
-    private StationBindRequest? _pendingBindRequest;
+    private StationBindRequestedEventArgs? _pendingBindRequest;
 
-    public event EventHandler<StationBindRequest>? NavigateToInstrumentsRequested;
+    public event EventHandler<StationBindRequestedEventArgs>? NavigateToInstrumentsRequested;
 
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> OpenInstrumentsFromBannerCommand { get; private set; } = null!;
 
@@ -21,7 +21,7 @@ public partial class RunTestViewModel
     /// Run gate: persist the bind request, offer Open Instruments on the shell strip, and deep-link.
     private void OnStationNotReady(string planId, IReadOnlyList<string> slotNames)
     {
-        _pendingBindRequest = new StationBindRequest
+        _pendingBindRequest = new StationBindRequestedEventArgs
         {
             PlanId = planId,
             SlotNames = slotNames,

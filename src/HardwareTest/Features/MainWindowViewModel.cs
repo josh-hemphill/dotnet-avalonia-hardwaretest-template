@@ -362,7 +362,7 @@ public partial class MainWindowViewModel : ReactiveObject
         return NavigationItems[0];
     }
 
-    private void OnStationBindRequested(object? sender, StationBindRequest request)
+    private void OnStationBindRequested(object? sender, StationBindRequestedEventArgs request)
     {
         var slot = request.SlotNames.Count > 0 ? request.SlotNames[0] : null;
         Instruments.FocusProgram(request.PlanId, slot);
