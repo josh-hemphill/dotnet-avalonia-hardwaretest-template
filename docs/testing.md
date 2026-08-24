@@ -50,6 +50,7 @@ Pick the narrowest suite for what you are asserting:
 - **AXAML bindings** use the same child paths (`{Binding StepDetail.DetailLines}`), so a test written against the child path matches what the view binds to.
 - **Operator chrome / a11y (Phase 21)** — type floor, compact Pause/Stop captions, live regions, and Settings headings live in `Phase21OperatorChromeTests`. Do not announce plot-sample floods; Engineer/debug tables may stay tighter than the Run operational floor.
 - **Operator prompt / session (900×600)** — Continue stays docked outside `PromptBodyScroller` (`InteractionHostView`); session Enter confirms DUT; typed fields bind `TwoWay` + `PropertyChanged`. Contracts live in `OperatorPromptChromeTests`; control-level bind/focus is in E2E (`RunFlowE2ETests`). Checklist: Continue visible without scrolling the prompt body; Enter confirms session; setting `DutSerialBox.Text` updates `SessionPanel.DutSerialInput`.
+- **Operator vs engineer nav** — default (engineer mode off) left nav is Home / Run / Results / Settings. Inspect and Instruments appear after saving Engineer / debug mode (presentation, not auth). Report Preview is contextual from Results (`ShellNavigationPolicyTests`, `MainWindowViewModelTests`). Compact Run board (stage rail collapsed, wrapped toolbars) is `IsCompactLayout` below `ShellLayoutBreakpoints.CompactBoardWidth`.
 
 ### Plan behavior (OpenTAP host)
 
