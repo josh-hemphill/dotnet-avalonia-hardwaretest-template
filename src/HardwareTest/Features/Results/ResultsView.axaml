@@ -50,6 +50,14 @@
                     SelectedItem="{Binding DutFilter}"
                     MinWidth="120"
                     Margin="0,0,8,4" />
+          <ComboBox ItemsSource="{Binding OperatorFilterOptions}"
+                    SelectedItem="{Binding OperatorFilter}"
+                    MinWidth="120"
+                    Margin="0,0,8,4" />
+          <ComboBox ItemsSource="{Binding DateFilterOptions}"
+                    SelectedItem="{Binding DateFilter}"
+                    MinWidth="120"
+                    Margin="0,0,8,4" />
         </WrapPanel>
         <TextBlock Text="{Binding FilterStatus}" Opacity="0.7" FontSize="11" />
         <Grid ColumnDefinitions="*,100,90,90,70,140" Margin="8,0,8,0" Opacity="0.7">
@@ -250,6 +258,21 @@
             </StackPanel>
 
             <TextBlock Text="Steps" FontWeight="SemiBold" Margin="0,8,0,0" />
+            <TextBlock Text="{Binding FirstFailSummary}"
+                       IsVisible="{Binding HasFirstFail}"
+                       FontWeight="SemiBold"
+                       TextWrapping="Wrap" />
+            <TextBlock Text="{Binding TriageSummary}"
+                       Opacity="0.8"
+                       FontSize="11"
+                       TextWrapping="Wrap"
+                       IsVisible="{Binding TriageSummary, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+            <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding ShowFailedStepsBanner}">
+              <TextBlock Text="Showing failed steps only" VerticalAlignment="Center" Opacity="0.85" />
+              <Button Content="Show all steps"
+                      Command="{Binding ClearFailedStepsFilterCommand}"
+                      FontSize="11" />
+            </StackPanel>
             <ItemsControl ItemsSource="{Binding StepDetails}">
               <ItemsControl.ItemTemplate>
                 <DataTemplate>
@@ -271,7 +294,7 @@
     </Border>
 
     <TextBlock Grid.Row="2" Grid.ColumnSpan="2"
-               Text="Click a run to open detail. Double-click opens the default report. Use filters to narrow the list."
+               Text="Click a run to open detail. Double-click opens the default report. After a fail, Results filters to Failed and shows failed steps first."
                Opacity="0.55" FontSize="11" />
   </Grid>
 </UserControl>

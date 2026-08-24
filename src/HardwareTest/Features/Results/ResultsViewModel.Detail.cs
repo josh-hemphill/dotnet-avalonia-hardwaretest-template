@@ -58,6 +58,7 @@ public partial class ResultsViewModel
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> ExportPackageCommand { get; }
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> CloseDetailCommand { get; }
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> NavigateToRunCommand { get; }
+    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> ClearFailedStepsFilterCommand { get; }
 
     [Reactive] private TestRunSummary? _selectedRun;
     [Reactive] private TestRunRecord? _openedRun;
@@ -104,27 +105,42 @@ public partial class ResultsViewModel
             return;
         }
 
+        var stored = _allRuns.FirstOrDefault(r =>
+            string.Equals(r.RunId, runId, StringComparison.OrdinalIgnoreCase));
+        if (stored is null)
+        {
+            Status = $"Run '{ShortId.Display(runId)}' not found in history.";
+            return;
+        }
+
+        if (stored.Result == RunResult.Failed)
+        {
+            ResultFilter = nameof(RunResult.Failed);
+            ApplyFilters();
+        }
+
         var match = Runs.FirstOrDefault(r =>
             string.Equals(r.RunId, runId, StringComparison.OrdinalIgnoreCase));
         if (match is null)
         {
-            match = _allRuns.FirstOrDefault(r =>
+            WidenFiltersForHiddenRun(stored.Result == RunResult.Failed);
+            match = Runs.FirstOrDefault(r =>
                 string.Equals(r.RunId, runId, StringComparison.OrdinalIgnoreCase));
-            if (match is not null)
-            {
-                ResultFilter = AllFilter;
-                PlanFilter = AllFilter;
-                DutFilter = AllFilter;
-                SearchText = string.Empty;
-                ApplyFilters();
-                match = Runs.FirstOrDefault(r =>
-                    string.Equals(r.RunId, runId, StringComparison.OrdinalIgnoreCase));
-            }
         }
 
         if (match is not null)
         {
-            SelectedRun = match;
+            _suppressAutoOpen = true;
+            try
+            {
+                SelectedRun = match;
+            }
+            finally
+            {
+                _suppressAutoOpen = false;
+            }
+
+            await OpenAsync().ConfigureAwait(false);
             Status = $"Opened run {ShortId.Display(runId)}.";
         }
         else
@@ -159,123 +175,6 @@ public partial class ResultsViewModel
             await RunOnUiAsync(() => IsBusy = false).ConfigureAwait(false);
             _busyGate.Release();
         }
-    }
-
-    private void RebuildFilterOptions()
-    {
-        var plans = _allRuns
-            .Select(r => string.IsNullOrWhiteSpace(r.PlanName) ? r.PlanId : r.PlanName)
-            .Where(p => !string.IsNullOrWhiteSpace(p))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .OrderBy(p => p, StringComparer.OrdinalIgnoreCase)
-            .ToArray();
-        PlanFilterOptions.Clear();
-        PlanFilterOptions.Add(AllFilter);
-        foreach (var plan in plans)
-        {
-            PlanFilterOptions.Add(plan);
-        }
-
-        if (!PlanFilterOptions.Contains(PlanFilter))
-        {
-            PlanFilter = AllFilter;
-        }
-
-        var duts = _allRuns
-            .Select(r => string.IsNullOrWhiteSpace(r.DutSerial) ? NoneDutFilter : r.DutSerial!)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .OrderBy(d => d, StringComparer.OrdinalIgnoreCase)
-            .ToArray();
-        DutFilterOptions.Clear();
-        DutFilterOptions.Add(AllFilter);
-        foreach (var dut in duts)
-        {
-            DutFilterOptions.Add(dut);
-        }
-
-        if (!DutFilterOptions.Contains(DutFilter))
-        {
-            DutFilter = AllFilter;
-        }
-    }
-
-    private void ApplyFilters()
-    {
-        var selectedId = SelectedRun?.RunId;
-        Runs.Clear();
-        foreach (var run in _allRuns.Where(MatchesFilters))
-        {
-            Runs.Add(run);
-        }
-
-        FilterStatus = _allRuns.Count == 0
-            ? string.Empty
-            : $"Showing {Runs.Count} of {_allRuns.Count}";
-
-        this.RaisePropertyChanged(nameof(HasRuns));
-
-        if (selectedId is not null)
-        {
-            SelectedRun = Runs.FirstOrDefault(r =>
-                string.Equals(r.RunId, selectedId, StringComparison.OrdinalIgnoreCase));
-        }
-    }
-
-    private bool MatchesFilters(TestRunSummary run)
-    {
-        if (!string.IsNullOrWhiteSpace(SearchText))
-        {
-            var q = SearchText.Trim();
-            var haystack = string.Join(
-                ' ',
-                run.PlanName,
-                run.PlanId,
-                run.DutSerial,
-                run.DutPartNumber,
-                run.OperatorName,
-                run.RunId,
-                run.SessionId);
-            if (haystack.IndexOf(q, StringComparison.OrdinalIgnoreCase) < 0)
-            {
-                return false;
-            }
-        }
-
-        if (!string.Equals(ResultFilter, AllFilter, StringComparison.OrdinalIgnoreCase))
-        {
-            if (string.Equals(ResultFilter, "Other", StringComparison.OrdinalIgnoreCase))
-            {
-                if (run.Result is RunResult.Passed or RunResult.Failed)
-                {
-                    return false;
-                }
-            }
-            else if (!string.Equals(run.Result.ToString(), ResultFilter, StringComparison.OrdinalIgnoreCase))
-            {
-                return false;
-            }
-        }
-
-        if (!string.Equals(PlanFilter, AllFilter, StringComparison.OrdinalIgnoreCase))
-        {
-            var planLabel = string.IsNullOrWhiteSpace(run.PlanName) ? run.PlanId : run.PlanName;
-            if (!string.Equals(planLabel, PlanFilter, StringComparison.OrdinalIgnoreCase)
-                && !string.Equals(run.PlanId, PlanFilter, StringComparison.OrdinalIgnoreCase))
-            {
-                return false;
-            }
-        }
-
-        if (!string.Equals(DutFilter, AllFilter, StringComparison.OrdinalIgnoreCase))
-        {
-            var dutLabel = string.IsNullOrWhiteSpace(run.DutSerial) ? NoneDutFilter : run.DutSerial!;
-            if (!string.Equals(dutLabel, DutFilter, StringComparison.OrdinalIgnoreCase))
-            {
-                return false;
-            }
-        }
-
-        return true;
     }
 
     private async Task OpenAsync()
@@ -338,15 +237,8 @@ public partial class ResultsViewModel
             HasSchemaBadge = true;
         }
 
-        foreach (var step in OpenedRun.Steps.Take(SidebarDetailCap))
-        {
-            StepDetails.Add($"{ShortId.Display(step.StepId)} [{step.StepType}] {(step.Passed ? "PASS" : "FAIL")} — {step.Message}");
-        }
-
-        if (OpenedRun.Steps.Count > SidebarDetailCap)
-        {
-            StepDetails.Add($"…and {OpenedRun.Steps.Count - SidebarDetailCap} more steps (see run.json / report).");
-        }
+        ShowFailedStepsOnly = OpenedRun.Result == RunResult.Failed;
+        RebuildStepDetails();
 
         foreach (var sample in OpenedRun.Samples.Take(SidebarDetailCap))
         {
@@ -368,6 +260,10 @@ public partial class ResultsViewModel
 
         Status = $"Opened {ShortId.Display(OpenedRun.RunId)} ({OpenedRun.Result}) — {OpenedRun.Steps.Count} steps, {OpenedRun.Samples.Count} samples."
                  + (OpenedRun.SessionId is { } sid ? $" Session {ShortId.Display(sid)}." : string.Empty);
+        if (!string.IsNullOrWhiteSpace(TriageSummary))
+        {
+            Status += " " + TriageSummary;
+        }
         if (!string.IsNullOrWhiteSpace(SchemaWarning))
         {
             Status += " " + SchemaWarning;
