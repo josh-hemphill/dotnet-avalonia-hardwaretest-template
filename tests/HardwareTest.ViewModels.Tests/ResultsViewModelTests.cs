@@ -623,4 +623,61 @@ public sealed class ResultsViewModelTests
         vm.ShowFailedStepsOnly = false;
         Assert.Contains(vm.StepDetails, line => line.Contains("[Id]", StringComparison.Ordinal));
     }
+
+    [Fact]
+    public async Task First_fail_marker_and_attempts_follow_path_across_retries()
+    {
+        var store = new FakeRunStore();
+        var t1 = new DateTimeOffset(2026, 4, 2, 0, 0, 0, TimeSpan.Zero);
+        var t2 = new DateTimeOffset(2026, 4, 2, 0, 0, 2, TimeSpan.Zero);
+        store.Seed(new TestRunRecord
+        {
+            RunId = "retry-fail",
+            PlanName = "Sample",
+            StartedAt = t2,
+            Result = RunResult.Failed,
+            StepAttempts =
+            [
+                new StepAttemptSummary
+                {
+                    StepPath = "Bad",
+                    StepName = "Bad",
+                    AttemptCount = 2,
+                    FailedCount = 2,
+                    LatestPassed = false,
+                    Attempts =
+                    [
+                        new StepResultRecord
+                        {
+                            StepId = "Bad",
+                            StepPath = "Bad",
+                            StepType = "Acquire",
+                            Passed = false,
+                            AttemptNumber = 1,
+                            Message = "first",
+                            CompletedAt = t1,
+                        },
+                        new StepResultRecord
+                        {
+                            StepId = "Bad",
+                            StepPath = "Bad",
+                            StepType = "Acquire",
+                            Passed = false,
+                            AttemptNumber = 2,
+                            Message = "retry",
+                            CompletedAt = t2,
+                        },
+                    ],
+                },
+            ],
+        });
+
+        var vm = new ResultsViewModel(store, new FakeReportService());
+        await vm.OpenRunByIdAsync("retry-fail");
+
+        Assert.True(vm.HasFirstFail);
+        Assert.Contains(vm.StepDetails, line => line.Contains("First fail", StringComparison.Ordinal));
+        Assert.Contains(vm.StepDetails, line => line.Contains("#1 FAIL", StringComparison.Ordinal));
+        Assert.Contains(vm.StepDetails, line => line.Contains("#2 FAIL", StringComparison.Ordinal));
+    }
 }

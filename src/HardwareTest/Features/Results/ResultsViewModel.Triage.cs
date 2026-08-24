@@ -59,14 +59,14 @@ public partial class ResultsViewModel
                 break;
             }
 
-            var marker = IsSameAttempt(latest, triage.FirstFail) ? "First fail · " : string.Empty;
+            var marker = IsFirstFailPath(latest, triage.FirstFail) ? "First fail · " : string.Empty;
             var rollup = ledger.AttemptCount > 0 ? $" · {ledger.Display}" : string.Empty;
             StepDetails.Add(
                 $"{marker}{ShortId.Display(latest.StepId)} [{latest.StepType}] {(latest.Passed ? "PASS" : "FAIL")} — {latest.Message}{rollup}");
             remaining--;
             pathsShown++;
 
-            if (IsSameAttempt(latest, triage.FirstFail) && ledger.Attempts.Count > 1)
+            if (IsFirstFailPath(latest, triage.FirstFail) && ledger.Attempts.Count > 1)
             {
                 foreach (var attempt in ledger.Attempts)
                 {
@@ -101,7 +101,7 @@ public partial class ResultsViewModel
         return null;
     }
 
-    private static bool IsSameAttempt(StepResultRecord latest, StepResultRecord? firstFail)
+    private static bool IsFirstFailPath(StepResultRecord latest, StepResultRecord? firstFail)
     {
         if (firstFail is null)
         {
@@ -110,7 +110,6 @@ public partial class ResultsViewModel
 
         var latestPath = string.IsNullOrWhiteSpace(latest.StepPath) ? latest.StepId : latest.StepPath;
         var failPath = string.IsNullOrWhiteSpace(firstFail.StepPath) ? firstFail.StepId : firstFail.StepPath;
-        return string.Equals(latestPath, failPath, StringComparison.OrdinalIgnoreCase)
-               && latest.AttemptNumber == firstFail.AttemptNumber;
+        return string.Equals(latestPath, failPath, StringComparison.OrdinalIgnoreCase);
     }
 }
