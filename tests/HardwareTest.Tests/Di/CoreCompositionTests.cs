@@ -35,6 +35,8 @@ public sealed class CoreCompositionTests
         Assert.NotNull(sp.GetRequiredService<IRunControl>());
         Assert.NotNull(sp.GetRequiredService<MeasurementAcquisition>());
         Assert.NotNull(sp.GetRequiredService<IDutHistoryService>());
+        Assert.NotNull(sp.GetRequiredService<IStationIdnStore>());
+        Assert.IsType<FileStationIdnStore>(sp.GetRequiredService<IStationIdnStore>());
         Assert.NotNull(sp.GetRequiredService<ISafetyController>());
         Assert.IsType<NoOpSafetyController>(sp.GetRequiredService<ISafetyController>());
         Assert.False(sp.GetRequiredService<ISafetyController>().IsArmed);

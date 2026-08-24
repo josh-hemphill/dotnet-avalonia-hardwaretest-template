@@ -41,6 +41,8 @@ public static class CoreServiceCollectionExtensions
         services.AddSingleton<IRunComparisonService, StubRunComparisonService>();
         services.AddSingleton<IDutHistoryService>(sp =>
             new DutHistoryService(sp.GetRequiredService<IRunStore>()));
+        services.AddSingleton<IStationIdnStore>(_ =>
+            new FileStationIdnStore(settingsStore.RootDirectory, Log.Logger));
         services.AddSingleton<VisaModeController>(sp =>
             new VisaModeController(
                 settingsStore.AppSettings.UseMockVisa,
