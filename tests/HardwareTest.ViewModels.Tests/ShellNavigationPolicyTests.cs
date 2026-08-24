@@ -19,6 +19,8 @@ public sealed class ShellNavigationPolicyTests
         Assert.False(ShellNavigationPolicy.IsPersistentNav(ShellNavigationPolicy.ReportPreview, engineerMode: false));
         Assert.True(ShellNavigationPolicy.IsContextual(ShellNavigationPolicy.ReportPreview));
         Assert.Equal(ShellNavigationPolicy.Results, ShellNavigationPolicy.ContextualParentId(ShellNavigationPolicy.ReportPreview));
+        Assert.True(ShellNavigationPolicy.CanRemainOnPage(ShellNavigationPolicy.Instruments, engineerMode: false));
+        Assert.False(ShellNavigationPolicy.CanRemainOnPage(ShellNavigationPolicy.Inspect, engineerMode: false));
     }
 
     [Fact]

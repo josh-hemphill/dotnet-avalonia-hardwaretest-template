@@ -27,6 +27,17 @@ public static class ShellNavigationPolicy
     public static string ContextualParentId(string pageId)
         => IsContextual(pageId) ? Results : pageId;
 
+    /// Operator commissioning is reachable without a left-nav item (Run deep-link / shell action).
+    public static bool CanRemainOnPage(string pageId, bool engineerMode)
+    {
+        if (IsPersistentNav(pageId, engineerMode) || IsContextual(pageId))
+        {
+            return true;
+        }
+
+        return string.Equals(pageId, Instruments, StringComparison.Ordinal);
+    }
+
     public static bool IsPersistentNav(string pageId, bool engineerMode)
     {
         if (IsContextual(pageId))

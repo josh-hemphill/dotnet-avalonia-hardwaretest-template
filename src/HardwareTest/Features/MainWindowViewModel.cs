@@ -56,6 +56,7 @@ public partial class MainWindowViewModel : ReactiveObject
         Inspect = inspect;
         Results = results;
         ReportPreview = reportPreview;
+        Instruments = instruments;
         _allPages =
         [
             new NavItem { Id = ShellNavigationPolicy.Home, Title = "Home", ViewModel = home, Symbol = FASymbol.Home },
@@ -83,6 +84,7 @@ public partial class MainWindowViewModel : ReactiveObject
             _ = Results.OpenRunByIdAsync(runTest.LastRunId);
         };
         runTest.NavigateToInspectRequested += (_, _) => NavigateToPageId(ShellNavigationPolicy.Inspect);
+        runTest.NavigateToInstrumentsRequested += OnStationBindRequested;
         inspect.OpenOnRunRequested += (_, stepPath) =>
         {
             runTest.ApplySelectionFromInspect(stepPath);
@@ -120,6 +122,7 @@ public partial class MainWindowViewModel : ReactiveObject
     public InspectViewModel Inspect { get; }
     public ResultsViewModel Results { get; }
     public ReportPreviewViewModel ReportPreview { get; }
+    public InstrumentsViewModel Instruments { get; }
     public ShellNotificationViewModel ShellNotification { get; }
     public IRunControl RunControl => _runControl;
 
@@ -337,8 +340,7 @@ public partial class MainWindowViewModel : ReactiveObject
             return;
         }
 
-        if (ShellNavigationPolicy.IsPersistentNav(currentId, engineer)
-            || ShellNavigationPolicy.IsContextual(currentId))
+        if (ShellNavigationPolicy.CanRemainOnPage(currentId, engineer))
         {
             NavigateToPageId(currentId);
             return;
@@ -352,14 +354,19 @@ public partial class MainWindowViewModel : ReactiveObject
         var id = _settingsStore.UiState.SelectedPageId;
         var page = _allPages.FirstOrDefault(i => i.Id == id);
         var engineer = _settingsStore.AppSettings.IsEngineerDebugMode;
-        if (page is not null
-            && (ShellNavigationPolicy.IsPersistentNav(page.Id, engineer)
-                || ShellNavigationPolicy.IsContextual(page.Id)))
+        if (page is not null && ShellNavigationPolicy.CanRemainOnPage(page.Id, engineer))
         {
             return page;
         }
 
         return NavigationItems[0];
+    }
+
+    private void OnStationBindRequested(object? sender, StationBindRequest request)
+    {
+        var slot = request.SlotNames.Count > 0 ? request.SlotNames[0] : null;
+        Instruments.FocusProgram(request.PlanId, slot);
+        NavigateToPageId(ShellNavigationPolicy.Instruments);
     }
 
     private void OnReportOpened(object? sender, string path)

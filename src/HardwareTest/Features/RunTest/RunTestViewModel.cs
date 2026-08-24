@@ -68,6 +68,7 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
 
         // Panels reference each other, so the wiring uses lambdas; every capture resolves only
         // after CreateChildPanels has assigned all of them.
+        InitCommissioningCommands();
         CreateChildPanels(
             plan,
             runSession,

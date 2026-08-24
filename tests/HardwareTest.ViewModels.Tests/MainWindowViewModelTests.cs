@@ -142,6 +142,59 @@ public sealed class MainWindowViewModelTests
     }
 
     [Fact]
+    public void Startup_on_instruments_stays_for_operator_commissioning()
+    {
+        var store = new FakeSettingsStore();
+        store.UiState.SelectedPageId = ShellNavigationPolicy.Instruments;
+        var vm = CreateMain(store, new FakeOpenTapSession(), new FakeRunControl());
+        Assert.Same(vm.Instruments, vm.CurrentPage);
+        Assert.DoesNotContain(vm.NavigationItems, i => i.Id == ShellNavigationPolicy.Instruments);
+    }
+
+    [Fact]
+    public async Task Operator_instruments_deep_link_survives_settings_save()
+    {
+        var store = new FakeSettingsStore();
+        var vm = CreateMain(store, new FakeOpenTapSession(), new FakeRunControl());
+        vm.NavigateToPageId(ShellNavigationPolicy.Instruments);
+        Assert.Same(vm.Instruments, vm.CurrentPage);
+
+        await store.SaveAppSettingsAsync();
+
+        Assert.Same(vm.Instruments, vm.CurrentPage);
+        Assert.DoesNotContain(vm.NavigationItems, i => i.Id == ShellNavigationPolicy.Instruments);
+    }
+
+    [Fact]
+    public async Task Station_not_ready_navigates_to_instruments_and_focuses_program()
+    {
+        var store = new FakeSettingsStore();
+        var openTap = new FakeOpenTapSession();
+        var runControl = new FakeRunControl();
+        var runTest = new RunTestViewModel(
+            openTap,
+            openTap,
+            openTap,
+            new OperatorSession(),
+            runControl,
+            new FakeReportService(),
+            new FakeRunStore(),
+            new AppSettings { UseMockVisa = false });
+        var vm = CreateMain(store, openTap, runControl, runTest: runTest);
+        vm.NavigateToPageId(ShellNavigationPolicy.RunTest);
+        await runTest.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
+        runTest.SessionPanel.DutSerialInput = "SN-BIND";
+        runTest.SessionPanel.OperatorInput = "Tech";
+        await runTest.SessionPanel.ConfirmSessionCommand.ExecuteAsync();
+
+        await runTest.Run.RunCommand.ExecuteAsync();
+
+        Assert.Same(vm.Instruments, vm.CurrentPage);
+        Assert.NotEqual(InstrumentsViewModel.AllPlanFilter, vm.Instruments.PlanFilter);
+        Assert.Equal("DMM", vm.Instruments.SelectedSlot?.SlotName);
+    }
+
+    [Fact]
     public void NavigationItems_include_Inspect()
     {
         var store = new FakeSettingsStore();
