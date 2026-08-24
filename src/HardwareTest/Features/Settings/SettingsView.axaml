@@ -54,7 +54,12 @@
         <CheckBox Content="Engineer / debug mode"
                   IsChecked="{Binding IsEngineerDebugMode}"
                   IsEnabled="{Binding !IsEngineerDebugModeReadOnly}"
-                  ToolTip.Tip="Unlocks mock VISA, logging sinks, on-bench overlays, and opening arbitrary .TapPlan files" />
+                  ToolTip.Tip="Presentation only — not authentication. Unlocks Inspect, Instruments, on-bench overlays, and opening arbitrary .TapPlan files." />
+        <TextBlock Text="Presentation only — not a login. Operators keep Home, Run, Results, and Settings; Inspect and Instruments appear after Save."
+                   TextWrapping="Wrap"
+                   Opacity="0.75"
+                   FontSize="12"
+                   Margin="28,0,0,8" />
 
         <StackPanel Spacing="10" IsVisible="{Binding IsEngineerDebugMode}">
           <CheckBox Content="Use mock VISA"

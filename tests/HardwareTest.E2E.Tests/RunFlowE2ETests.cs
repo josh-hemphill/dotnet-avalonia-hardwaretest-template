@@ -1,4 +1,7 @@
+using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
+using Avalonia.Threading;
+using Avalonia.VisualTree;
 using HardwareTest.Core.Runs;
 using HardwareTest.Features.RunTest;
 using HardwareTest.OpenTap.Host;
@@ -43,6 +46,36 @@ public sealed class RunFlowE2ETests
 
             field.Value = field.IsNumber ? "0" : "e2e-fixture";
         }
+    }
+
+    [AvaloniaFact]
+    public void Session_dut_serial_textbox_binds_two_way_without_assigning_viewmodel()
+    {
+        var window = E2EHarness.ShowMainWindow();
+        var main = E2EHarness.MainVm(window);
+        main.NavigateToPageId("RunTest");
+        Dispatcher.UIThread.RunJobs();
+
+        var box = window.GetVisualDescendants()
+            .OfType<TextBox>()
+            .FirstOrDefault(t => t.Name == "DutSerialBox");
+        Assert.NotNull(box);
+
+        box.Text = "E2E-TYPED-SN";
+        Dispatcher.UIThread.RunJobs();
+
+        var runVm = E2EHarness.RunTestVm(main);
+        Assert.Equal("E2E-TYPED-SN", runVm.SessionPanel.DutSerialInput);
+
+        var host = window.GetVisualDescendants().OfType<InteractionHostView>().FirstOrDefault();
+        Assert.NotNull(host);
+        var continueButton = host.FindControl<Button>("ContinueButton");
+        var scroller = host.FindControl<ScrollViewer>("PromptBodyScroller");
+        Assert.NotNull(continueButton);
+        Assert.NotNull(scroller);
+        Assert.False(
+            scroller.GetVisualDescendants().Contains(continueButton),
+            "Continue must stay outside the prompt body scroller so it remains visible at 900×600.");
     }
 
     [AvaloniaFact]
@@ -115,8 +148,7 @@ public sealed class RunFlowE2ETests
         await runVm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
 
         main.NavigateToPageId("Inspect");
-        Assert.Equal("Inspect", main.SelectedItem?.Id);
-        Assert.NotEmpty(main.Inspect.Hierarchy);
+        Assert.Same(main.Inspect, main.CurrentPage);
         Assert.Contains(main.Inspect.Hierarchy, r => r.Children.Count > 0 || r.Name.Length > 0);
     }
 

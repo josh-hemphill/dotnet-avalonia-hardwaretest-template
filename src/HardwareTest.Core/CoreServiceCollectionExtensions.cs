@@ -38,9 +38,12 @@ public static class CoreServiceCollectionExtensions
         services.AddSingleton<IRunStore>(_ => new FileRunStore(settingsStore.RunsDirectory));
         services.AddSingleton<ISuiteRunStore>(sp =>
             new FileSuiteRunStore(sp.GetRequiredService<IRunStore>(), settingsStore.RunsDirectory));
-        services.AddSingleton<IRunComparisonService, StubRunComparisonService>();
+        services.AddSingleton<IRunComparisonService>(sp =>
+            new RunComparisonService(sp.GetRequiredService<IRunStore>()));
         services.AddSingleton<IDutHistoryService>(sp =>
             new DutHistoryService(sp.GetRequiredService<IRunStore>()));
+        services.AddSingleton<IStationIdnStore>(_ =>
+            new FileStationIdnStore(settingsStore.RootDirectory, Log.Logger));
         services.AddSingleton<VisaModeController>(sp =>
             new VisaModeController(
                 settingsStore.AppSettings.UseMockVisa,

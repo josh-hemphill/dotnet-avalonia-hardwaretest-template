@@ -84,6 +84,7 @@ public partial class RunTestViewModel
             storageHealth,
             visaModeController,
             safety,
-            clock);
+            clock,
+            OnStationNotReady);
     }
 }

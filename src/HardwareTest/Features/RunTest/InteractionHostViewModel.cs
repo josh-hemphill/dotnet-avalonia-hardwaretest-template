@@ -20,6 +20,9 @@ public partial class InteractionHostViewModel : ReactiveObject
     [Reactive] private bool _hasInteractionFields;
     [Reactive] private string? _interactionValidationError;
 
+    /// Raised after fields are rebuilt so the view can focus the first editable control.
+    public event EventHandler? RequestFocusFirstField;
+
     /// Shows the prompt card for a host request, falling back to a plain progress message.
     public void Apply(OperatorInteractionRequest? request, string? fallbackMessage)
     {
@@ -36,6 +39,7 @@ public partial class InteractionHostViewModel : ReactiveObject
         }
 
         HasInteractionFields = InteractionFields.Count > 0;
+        RequestFocusFirstField?.Invoke(this, EventArgs.Empty);
     }
 
     public void Clear()

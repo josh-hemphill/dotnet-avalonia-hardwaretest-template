@@ -91,7 +91,7 @@ Longer-horizon product work lives under [`docs/deferred/`](deferred/). Each file
 
 | Plan | Topic |
 | --- | --- |
-| [Run comparison](deferred/deferred-run-comparison.md) | Replace `StubRunComparisonService` |
+| [Run comparison](deferred/deferred-run-comparison.md) | Replace stub comparison — **promoted (Results compare with previous)** |
 | [Appliance kiosk](deferred/deferred-appliance-kiosk.md) | systemd / kiosk / image bake |
 | [Package feed install](deferred/deferred-package-feed-install.md) | In-app OpenTAP feed install |
 | [Bench profile UI](deferred/deferred-bench-profile-ui.md) | Full ComponentSettings / bench-profile editor |
@@ -105,6 +105,7 @@ Longer-horizon product work lives under [`docs/deferred/`](deferred/). Each file
 
 Real, acknowledged, and deliberately unscheduled (or scheduled as phases above). Revisit before the first unattended deployment.
 
+- **Compare with previous shipped on Results.** Opening a run compares means to the latest earlier same DUT + plan via `IRunComparisonService`. Missing metrics are listed as unavailable. Run is not blocked. Historical deferred text: [deferred-run-comparison.md](deferred/deferred-run-comparison.md).
 - **Clock discipline shipped in [Phase 25](platform-phases/phase-25-clock-discipline.md).** Idle/stale, retention, and run-complete stamps use `IClock`. Skew vs NTP or last-known-good warns on the shell strip and does not block Run. Safety Stop still must not wait on NTP. Historical timestamps are not rewritten.
 - **Vendor VISA in CI is still unproven.** Discovery now surfaces failures (no silent empty list); real IVI runtimes remain outside the default CI matrix. Plan and Instruments I/O share `IVisaBroker` / `VisaSessionGate` as of [Phase 22](platform-phases/phase-22-visa-broker.md); hung plan I/O is preempted by killing the OpenTAP worker as of [Phase 23](platform-phases/phase-23-safety-opentap-worker.md).
 - **Phase 1 / round-2 CI follow-ups.** Format gate is repaired in [Phase 19](platform-phases/phase-19-immediate-correctness.md). Lock files, vulnerability scan, coverage split, and Action pins shipped in [Phase 20](platform-phases/phase-20-ci-honesty.md).

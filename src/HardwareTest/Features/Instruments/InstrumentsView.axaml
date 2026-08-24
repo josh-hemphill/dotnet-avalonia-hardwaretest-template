@@ -3,36 +3,67 @@
              xmlns:vm="using:HardwareTest.Features.Instruments"
              x:Class="HardwareTest.Features.Instruments.InstrumentsView"
              x:DataType="vm:InstrumentsViewModel">
-  <Grid RowDefinitions="Auto,*,Auto" ColumnDefinitions="*,280" ColumnSpacing="16" RowSpacing="12">
-    <StackPanel Grid.ColumnSpan="2" Orientation="Horizontal" Spacing="8">
+  <Grid RowDefinitions="Auto,Auto,Auto,*,Auto" ColumnDefinitions="*,280" ColumnSpacing="16" RowSpacing="12">
+    <WrapPanel Grid.ColumnSpan="2">
       <Button Content="Discover VISA"
               Command="{Binding RefreshVisaDiscoverCommand}"
+              Margin="0,0,8,4"
               IsEnabled="{Binding !IsBusy}" />
       <Button Content="Discover OpenTAP" Command="{Binding RefreshOpenTapDiscoverCommand}"
+              Margin="0,0,8,4"
               IsEnabled="{Binding !IsBusy}" />
       <Button Content="Refresh plan slots" Command="{Binding RefreshSlotsCommand}"
+              Margin="0,0,8,4"
               IsEnabled="{Binding !IsBusy}" />
       <Button Content="Apply selected resource" Command="{Binding ApplySelectedResourceCommand}"
+              Margin="0,0,8,4"
               IsEnabled="{Binding !IsBusy}" />
       <Button Content="Query *IDN?" Command="{Binding QuerySelectedIdnCommand}"
+              Margin="0,0,8,4"
               IsEnabled="{Binding !IsBusy}"
               ToolTip.Tip="Opens the selected resource briefly and queries *IDN?. Use after narrowing with interface hints." />
       <Button Content="Clear override" Command="{Binding ClearOverrideCommand}"
+              Margin="0,0,8,4"
               IsEnabled="{Binding !IsBusy}" />
       <Button Content="Save overrides" Command="{Binding SaveCommand}"
+              Margin="0,0,8,4"
               IsEnabled="{Binding !IsBusy}" />
-      <TextBlock Text="{Binding Status}" VerticalAlignment="Center" Opacity="0.85" TextWrapping="Wrap" />
+      <TextBlock Text="{Binding Status}" VerticalAlignment="Center" Opacity="0.85" TextWrapping="Wrap" Margin="0,0,8,4" />
       <TextBlock Text="Working…"
                  IsVisible="{Binding IsBusy}"
                  VerticalAlignment="Center"
                  FontWeight="SemiBold"
-                 Opacity="0.8" />
-    </StackPanel>
+                 Opacity="0.8"
+                 Margin="0,0,8,4" />
+    </WrapPanel>
 
     <Border Grid.Row="1" Grid.ColumnSpan="2"
+            Padding="10,8"
+            CornerRadius="6"
+            Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
+            IsVisible="{Binding ShowCommissionStrip}">
+      <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
+        <StackPanel Spacing="6">
+          <TextBlock Text="Program" FontWeight="SemiBold" />
+          <ComboBox ItemsSource="{Binding PlanFilterOptions}"
+                    SelectedItem="{Binding PlanFilter}"
+                    MinWidth="180" />
+        </StackPanel>
+        <StackPanel Spacing="4">
+          <TextBlock Text="{Binding CommissionTitle}" FontWeight="SemiBold" />
+          <TextBlock Text="{Binding CommissionHint}" TextWrapping="Wrap" Opacity="0.85" />
+          <TextBlock Text="{Binding ReadinessSummary}" TextWrapping="Wrap" FontWeight="SemiBold" />
+          <Button Content="Go to Run"
+                  Command="{Binding NavigateToRunCommand}"
+                  HorizontalAlignment="Left"
+                  Margin="0,4,0,0" />
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <Border Grid.Row="2" Grid.ColumnSpan="2"
             Padding="12,10"
             CornerRadius="6"
-            Margin="0,0,0,8"
             Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
             IsVisible="{Binding ShowDiscoverEmpty}">
       <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
@@ -44,17 +75,14 @@
                 Command="{Binding RefreshVisaDiscoverCommand}"
                 IsEnabled="{Binding !IsBusy}"
                 VerticalAlignment="Center" />
-        <Button Content="Go to Run"
-                Command="{Binding NavigateToRunCommand}"
-                VerticalAlignment="Center" />
       </StackPanel>
     </Border>
 
-    <DockPanel Grid.Row="1" Grid.Column="0">
+    <DockPanel Grid.Row="3" Grid.Column="0">
       <TextBlock DockPanel.Dock="Top" Text="OpenTAP plan slot overrides" FontWeight="SemiBold" Margin="0,0,0,8" />
       <TextBlock DockPanel.Dock="Bottom" Margin="0,8,0,0" Opacity="0.65" FontSize="11" TextWrapping="Wrap"
                  Text="Select a plan slot, then a VISA or OpenTAP resource, then Apply. Use Query *IDN? to confirm identity." />
-      <ListBox ItemsSource="{Binding SlotOverrides}"
+      <ListBox ItemsSource="{Binding VisibleSlots}"
                SelectedItem="{Binding SelectedSlot}">
         <ListBox.ItemTemplate>
           <DataTemplate x:DataType="vm:SlotOverrideItemViewModel">
@@ -63,8 +91,10 @@
                 <TextBlock Text="{Binding Summary}" FontWeight="SemiBold" TextWrapping="Wrap" />
                 <TextBlock Opacity="0.7" FontSize="11"
                            Text="{Binding TypeName, StringFormat=Type: {0}}" />
-                <TextBlock Opacity="0.7" FontSize="11"
-                           Text="{Binding PlanDefaultResource, StringFormat=Plan default: {0}}" />
+                <TextBlock IsVisible="{Binding HasLastIdn}"
+                           Opacity="0.75"
+                           FontSize="11"
+                           Text="{Binding LastIdnSummary, StringFormat=Last IDN: {0}}" />
                 <Border IsVisible="{Binding IsOverridden}"
                         Padding="6,2"
                         Margin="0,2,0,0"
@@ -92,7 +122,7 @@
       </ListBox>
     </DockPanel>
 
-    <Grid Grid.Row="1" Grid.Column="1" RowDefinitions="*,*" RowSpacing="12">
+    <Grid Grid.Row="3" Grid.Column="1" RowDefinitions="*,*" RowSpacing="12">
       <DockPanel>
         <TextBlock DockPanel.Dock="Top" Text="VISA" FontWeight="SemiBold" Margin="0,0,0,8" />
         <ListBox ItemsSource="{Binding DiscoveredVisa}"
@@ -134,7 +164,7 @@
       </DockPanel>
     </Grid>
 
-    <TextBlock Grid.Row="2" Grid.ColumnSpan="2" Opacity="0.55" FontSize="11" TextWrapping="Wrap"
-               Text="Overrides are station-local and applied when a program runs. Discover shows interface hints only; Query *IDN? opens the selected resource briefly to confirm identity." />
+    <TextBlock Grid.Row="4" Grid.ColumnSpan="2" Opacity="0.55" FontSize="11" TextWrapping="Wrap"
+               Text="Overrides are station-local and applied when a program runs. Last *IDN? is stored in station-idn.json under the data directory (not AppSettings). Discover shows interface hints only; Query *IDN? opens the selected resource briefly to confirm identity." />
   </Grid>
 </UserControl>

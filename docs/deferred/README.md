@@ -6,7 +6,7 @@ Parent indexes: [platform-roadmap.md](../platform-roadmap.md) · [opentap-platfo
 
 | Plan | Topic |
 | --- | --- |
-| [deferred-run-comparison.md](deferred-run-comparison.md) | Run-to-run comparison UI/service |
+| [deferred-run-comparison.md](deferred-run-comparison.md) | Run-to-run comparison UI/service — **promoted (Results compare with previous)** |
 | [deferred-appliance-kiosk.md](deferred-appliance-kiosk.md) | Linux kiosk / image bake (assumes [Phase 17](../platform-phases/phase-17-shell-notification-strip.md)–[Phase 18](../platform-phases/phase-18-operator-touch-density.md) UI floors) |
 | [deferred-package-feed-install.md](deferred-package-feed-install.md) | In-app OpenTAP package install |
 | [deferred-bench-profile-ui.md](deferred-bench-profile-ui.md) | ComponentSettings / bench profile editor |

@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization;
 using HardwareTest.Core.Crash;
+using HardwareTest.Core.Hardware;
 using HardwareTest.Core.Runs;
 using HardwareTest.Core.Settings;
 using HardwareTest.Core.Time;
@@ -42,4 +43,7 @@ namespace HardwareTest.Core.Serialization;
 [JsonSerializable(typeof(CrashConfigProvenanceRow))]
 [JsonSerializable(typeof(List<CrashConfigProvenanceRow>))]
 [JsonSerializable(typeof(ClockLastGoodRecord))]
+[JsonSerializable(typeof(StationIdnDocument))]
+[JsonSerializable(typeof(StationIdnRecord))]
+[JsonSerializable(typeof(List<StationIdnRecord>))]
 public partial class AppJsonContext : JsonSerializerContext;
