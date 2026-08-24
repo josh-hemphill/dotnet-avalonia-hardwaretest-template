@@ -49,6 +49,7 @@ Pick the narrowest suite for what you are asserting:
 - **Cross-panel coordination** (a selection change refreshing detail, hero, plot and overrides together) → build the whole `RunTestViewModel`, set `UiScheduler = action => action()`, and assert through child paths such as `vm.StepTree.SelectedStep` or `vm.StepDetail.DetailChipText`.
 - **AXAML bindings** use the same child paths (`{Binding StepDetail.DetailLines}`), so a test written against the child path matches what the view binds to.
 - **Operator chrome / a11y (Phase 21)** — type floor, compact Pause/Stop captions, live regions, and Settings headings live in `Phase21OperatorChromeTests`. Do not announce plot-sample floods; Engineer/debug tables may stay tighter than the Run operational floor.
+- **Operator prompt / session (900×600)** — Continue stays docked outside `PromptBodyScroller` (`InteractionHostView`); session Enter confirms DUT; typed fields bind `TwoWay` + `PropertyChanged`. Contracts live in `OperatorPromptChromeTests`; control-level bind/focus is in E2E (`RunFlowE2ETests`). Checklist: Continue visible without scrolling the prompt body; Enter confirms session; setting `DutSerialBox.Text` updates `SessionPanel.DutSerialInput`.
 
 ### Plan behavior (OpenTAP host)
 
