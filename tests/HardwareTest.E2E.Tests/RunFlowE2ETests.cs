@@ -73,7 +73,8 @@ public sealed class RunFlowE2ETests
         var scroller = host.FindControl<ScrollViewer>("PromptBodyScroller");
         Assert.NotNull(continueButton);
         Assert.NotNull(scroller);
-        Assert.False(scroller.GetVisualDescendants().Contains(continueButton),
+        Assert.False(
+            scroller.GetVisualDescendants().Contains(continueButton),
             "Continue must stay outside the prompt body scroller so it remains visible at 900×600.");
     }
 
