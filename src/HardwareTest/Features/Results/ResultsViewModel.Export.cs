@@ -96,16 +96,7 @@ public partial class ResultsViewModel
                 }
                 finally
                 {
-                    try
-                    {
-                        File.Delete(diagnosticsPath);
-                    }
-                    catch (IOException)
-                    {
-                    }
-                    catch (UnauthorizedAccessException)
-                    {
-                    }
+                    TryDeleteTemp(diagnosticsPath);
                 }
             }
             catch (Exception ex)
@@ -136,5 +127,20 @@ public partial class ResultsViewModel
             $"SchemaVersion: {OpenedRun?.StoredSchemaVersion}",
             $"AppVersion: {OpenedRun?.AppVersion ?? "unknown"}",
             catalogBlock);
+    }
+
+    private static void TryDeleteTemp(string path)
+    {
+        try
+        {
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            System.Diagnostics.Trace.TraceWarning($"Could not delete temp diagnostics '{path}': {ex.Message}");
+        }
     }
 }
