@@ -98,8 +98,7 @@ public sealed class ResultsUiThreadTests
                 }
             };
 
-        vm.SelectedRun = vm.Runs[0];
-        await vm.OpenCommand.ExecuteAsync();
+        await vm.OpenRunByIdAsync("r1");
 
         Assert.NotEmpty(vm.StepDetails);
         Assert.Equal(0, offScheduler);
@@ -160,8 +159,7 @@ public sealed class ResultsUiThreadTests
                 }
             };
 
-        vm.SelectedRun = vm.Runs.First(r => r.RunId == "cur");
-        await vm.OpenCommand.ExecuteAsync();
+        await vm.OpenRunByIdAsync("cur");
 
         Assert.NotEmpty(vm.ComparisonMetrics);
         Assert.Equal(0, offScheduler);

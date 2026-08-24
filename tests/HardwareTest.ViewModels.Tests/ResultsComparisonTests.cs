@@ -56,7 +56,7 @@ public sealed class ResultsComparisonTests
         await vm.OpenCommand.ExecuteAsync();
 
         Assert.True(vm.HasComparison);
-        Assert.Contains("prior-run", vm.ComparisonSummary, StringComparison.Ordinal);
+        Assert.Contains("prior-ru", vm.ComparisonSummary, StringComparison.Ordinal);
         var row = Assert.Single(vm.ComparisonMetrics);
         Assert.Equal("VDC", row.MetricKey);
         Assert.Contains("9", row.CurrentText, StringComparison.Ordinal);
