@@ -122,5 +122,5 @@ See phases [20](phase-20-ci-honesty.md)–[25](phase-25-clock-discipline.md). Op
 ## Out of this map
 
 - Schema migration engine stays [deferred](../deferred/deferred-schema-migration.md) until the first real schema bump (migrator-on-`JsonNode` approach is sketched there).
-- `StubRunComparisonService` stays [deferred](../deferred/deferred-run-comparison.md) — do not register it as an operator feature until implemented.
+- Run comparison shipped on Results (same DUT + plan; missing metrics listed as unavailable) — original deferred text remains in [deferred-run-comparison.md](../deferred/deferred-run-comparison.md).
 - Appliance kiosk, package feed install, bench profile UI, localization, auto-update, remote crash upload remain deferred.
