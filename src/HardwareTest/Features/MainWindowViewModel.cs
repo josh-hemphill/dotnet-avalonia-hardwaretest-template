@@ -277,19 +277,29 @@ public partial class MainWindowViewModel : ReactiveObject
         }
     }
 
+    private bool _syncingNavSelection;
+
     public void NavigateTo(NavItem? item)
     {
-        if (item is null)
+        if (item is null || _syncingNavSelection)
         {
             return;
         }
 
         CurrentPage = item.ViewModel;
-        SelectedItem = NavigationItems.Contains(item)
-            ? item
-            : NavigationItems.FirstOrDefault(i =>
-                  i.Id == ShellNavigationPolicy.ContextualParentId(item.Id))
-              ?? SelectedItem;
+        _syncingNavSelection = true;
+        try
+        {
+            SelectedItem = NavigationItems.Contains(item)
+                ? item
+                : NavigationItems.FirstOrDefault(i =>
+                      i.Id == ShellNavigationPolicy.ContextualParentId(item.Id))
+                  ?? SelectedItem;
+        }
+        finally
+        {
+            _syncingNavSelection = false;
+        }
         _settingsStore.UiState.SelectedPageId = item.Id;
         RunTest.SessionPanel.TouchActivity();
         if (item.Id == ShellNavigationPolicy.Results)

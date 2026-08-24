@@ -112,6 +112,27 @@ public sealed class MainWindowViewModelTests
     }
 
     [Fact]
+    public void Report_preview_survives_nav_selection_echo_from_results_parent()
+    {
+        var store = new FakeSettingsStore();
+        var vm = CreateMain(store, new FakeOpenTapSession(), new FakeRunControl());
+        vm.NavigateToPageId(ShellNavigationPolicy.Home);
+        vm.PropertyChanged += (_, args) =>
+        {
+            if (args.PropertyName == nameof(MainWindowViewModel.SelectedItem) && vm.SelectedItem is { } item)
+            {
+                vm.NavigateTo(item);
+            }
+        };
+
+        vm.NavigateToPageId(ShellNavigationPolicy.ReportPreview);
+
+        Assert.Same(vm.ReportPreview, vm.CurrentPage);
+        Assert.Equal(ShellNavigationPolicy.Results, vm.SelectedItem?.Id);
+        Assert.Equal(ShellNavigationPolicy.ReportPreview, store.UiState.SelectedPageId);
+    }
+
+    [Fact]
     public void Startup_on_hidden_engineer_page_falls_back_to_home()
     {
         var store = new FakeSettingsStore();
