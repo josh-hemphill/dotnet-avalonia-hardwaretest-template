@@ -15,7 +15,9 @@ public partial class ResultsViewModel
 
     public bool ShowFailedStepsBanner => ShowFailedStepsOnly && OpenedRun is not null;
 
-    private void RebuildStepDetails()
+    private void RebuildStepDetails() => PostToUi(RebuildStepDetailsCore);
+
+    private void RebuildStepDetailsCore()
     {
         StepDetails.Clear();
         FirstFailSummary = string.Empty;

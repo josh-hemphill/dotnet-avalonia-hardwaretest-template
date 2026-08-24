@@ -200,7 +200,6 @@ public partial class ResultsViewModel
     private void ApplyOpenedRun(TestRunRecord? opened)
     {
         OpenedRun = opened;
-        StepDetails.Clear();
         SampleDetails.Clear();
         PresentationTiles.Clear();
         HasPresentationTiles = false;
@@ -218,6 +217,7 @@ public partial class ResultsViewModel
         {
             ShowDetail = false;
             Status = "Run not found.";
+            RebuildStepDetails();
             return;
         }
 
