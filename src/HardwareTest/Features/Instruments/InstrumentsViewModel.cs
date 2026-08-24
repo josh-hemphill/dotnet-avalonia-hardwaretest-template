@@ -11,150 +11,6 @@ using ReactiveUI.SourceGenerators;
 
 namespace HardwareTest.Features.Instruments;
 
-public partial class DiscoveredResourceItem : ReactiveObject
-{
-    public required string Resource { get; init; }
-    public required string Description { get; init; }
-    public string Interface { get; init; } = "Other";
-    public string Detail { get; init; } = string.Empty;
-    public bool LooksLikeAlias { get; init; }
-    public bool SupportsMessageQuery { get; init; }
-
-    [Reactive] private string _idnRaw = string.Empty;
-    [Reactive] private string _idnSummary = string.Empty;
-
-    public string Title =>
-        string.IsNullOrWhiteSpace(Description) || string.Equals(Description, Resource, StringComparison.Ordinal)
-            ? Resource
-            : Description;
-
-    public string Subtitle
-    {
-        get
-        {
-            var parts = new List<string> { Interface };
-            if (!string.IsNullOrWhiteSpace(Detail))
-            {
-                parts.Add(Detail);
-            }
-
-            if (LooksLikeAlias)
-            {
-                parts.Add("Alias?");
-            }
-
-            return string.Join(" · ", parts);
-        }
-    }
-
-    public bool HasIdn => !string.IsNullOrWhiteSpace(IdnSummary);
-}
-
-public partial class OpenTapDiscoveredResourceItem : ReactiveObject
-{
-    public required string Address { get; init; }
-    public required string Source { get; init; }
-    public required string Kind { get; init; }
-    public string Interface { get; init; } = "Other";
-    public string Detail { get; init; } = string.Empty;
-    public bool LooksLikeAlias { get; init; }
-    public bool SupportsMessageQuery { get; init; }
-
-    [Reactive] private string _idnRaw = string.Empty;
-    [Reactive] private string _idnSummary = string.Empty;
-
-    public string Title => Address;
-
-    public string Subtitle
-    {
-        get
-        {
-            var parts = new List<string> { Interface, Source };
-            if (!string.IsNullOrWhiteSpace(Detail))
-            {
-                parts.Add(Detail);
-            }
-
-            if (LooksLikeAlias)
-            {
-                parts.Add("Alias?");
-            }
-
-            return string.Join(" · ", parts);
-        }
-    }
-
-    public bool HasIdn => !string.IsNullOrWhiteSpace(IdnSummary);
-}
-
-public partial class SlotOverrideItemViewModel : ReactiveObject
-{
-    public SlotOverrideItemViewModel(
-        string planId,
-        string planDisplayName,
-        OpenTapInstrumentSlot slot,
-        string? overrideResource,
-        bool useMockVisa)
-    {
-        PlanId = planId;
-        PlanDisplayName = planDisplayName;
-        SlotName = slot.Name;
-        TypeName = slot.TypeName;
-        RoleHint = slot.RoleHint;
-        PlanDefaultResource = slot.ResourceName;
-        UseMockVisa = useMockVisa;
-        OverrideResource = overrideResource ?? string.Empty;
-        PropertyChanged += (_, args) =>
-        {
-            if (args.PropertyName == nameof(OverrideResource))
-            {
-                this.RaisePropertyChanged(nameof(EffectiveResource));
-                this.RaisePropertyChanged(nameof(StatusText));
-                this.RaisePropertyChanged(nameof(Summary));
-                this.RaisePropertyChanged(nameof(IsOverridden));
-            }
-        };
-    }
-
-    public string PlanId { get; }
-    public string PlanDisplayName { get; }
-    public string SlotName { get; }
-    public string TypeName { get; }
-    public string RoleHint { get; }
-    public string PlanDefaultResource { get; }
-    public bool UseMockVisa { get; }
-
-    [Reactive] private string _overrideResource = string.Empty;
-
-    public bool IsOverridden => !string.IsNullOrWhiteSpace(OverrideResource);
-
-    public string EffectiveResource =>
-        string.IsNullOrWhiteSpace(OverrideResource) ? PlanDefaultResource : OverrideResource.Trim();
-
-    public string StatusText
-    {
-        get
-        {
-            if (string.IsNullOrWhiteSpace(EffectiveResource))
-            {
-                return "Unbound";
-            }
-
-            if (!UseMockVisa
-                && (MockResourceGuard.LooksLikeMockResource(EffectiveResource)
-                    || MockResourceGuard.IsMockInstrumentType(TypeName)))
-            {
-                return "Demo only";
-            }
-
-            return IsOverridden ? "Overridden" : "Ready";
-        }
-    }
-
-    public string Summary =>
-        $"{PlanDisplayName} / {SlotName} ({RoleHint}) → {EffectiveResource}";
-}
-
 public partial class InstrumentsViewModel : ReactiveObject
 {
     private static readonly TimeSpan IdnTimeout = TimeSpan.FromSeconds(5);
@@ -166,8 +22,11 @@ public partial class InstrumentsViewModel : ReactiveObject
     private readonly OperatorSession? _operatorSession;
     private readonly IVisaModeController? _visaModeController;
     private readonly IBenchOperationCoordinator? _bench;
+    private readonly IStationIdnStore? _idnStore;
     private readonly object _slotsGate = new();
     private bool _suppressSelectionSync;
+
+    public const string AllPlanFilter = "All programs";
 
     public InstrumentsViewModel(
         ISettingsStore settingsStore,
@@ -176,7 +35,8 @@ public partial class InstrumentsViewModel : ReactiveObject
         IVisaSessionFactory visaSessions,
         OperatorSession? operatorSession = null,
         IVisaModeController? visaModeController = null,
-        IBenchOperationCoordinator? bench = null)
+        IBenchOperationCoordinator? bench = null,
+        IStationIdnStore? idnStore = null)
     {
         _settingsStore = settingsStore;
         _discovery = discovery;
@@ -185,9 +45,13 @@ public partial class InstrumentsViewModel : ReactiveObject
         _operatorSession = operatorSession;
         _visaModeController = visaModeController;
         _bench = bench;
+        _idnStore = idnStore;
         DiscoveredVisa = [];
         DiscoveredOpenTap = [];
         SlotOverrides = [];
+        VisibleSlots = [];
+        PlanFilterOptions = [AllPlanFilter];
+        PlanFilter = AllPlanFilter;
         Status = "Discover VISA or OpenTAP resources, then set per-plan OpenTAP slot overrides.";
 
         if (visaModeController is not null)
@@ -215,6 +79,12 @@ public partial class InstrumentsViewModel : ReactiveObject
             if (args.PropertyName is nameof(HasDiscoveredVisa) or nameof(HasDiscoveredOpenTap) or nameof(IsBusy))
             {
                 this.RaisePropertyChanged(nameof(ShowDiscoverEmpty));
+                RefreshCommission();
+            }
+
+            if (args.PropertyName == nameof(PlanFilter))
+            {
+                ApplyPlanFilter();
             }
 
             if (args.PropertyName == nameof(SelectedVisa) && SelectedVisa is not null)
@@ -242,6 +112,8 @@ public partial class InstrumentsViewModel : ReactiveObject
     public ObservableCollection<DiscoveredResourceItem> DiscoveredVisa { get; }
     public ObservableCollection<OpenTapDiscoveredResourceItem> DiscoveredOpenTap { get; }
     public ObservableCollection<SlotOverrideItemViewModel> SlotOverrides { get; }
+    public ObservableCollection<SlotOverrideItemViewModel> VisibleSlots { get; }
+    public ObservableCollection<string> PlanFilterOptions { get; }
 
     /// Backward-compatible alias used by older tests/callers.
     public ObservableCollection<DiscoveredResourceItem> Discovered => DiscoveredVisa;
@@ -264,6 +136,7 @@ public partial class InstrumentsViewModel : ReactiveObject
     [Reactive] private bool _isBusy;
     [Reactive] private bool _hasDiscoveredVisa;
     [Reactive] private bool _hasDiscoveredOpenTap;
+    [Reactive] private string _planFilter = AllPlanFilter;
 
     public bool ShowDiscoverEmpty => !HasDiscoveredVisa && !HasDiscoveredOpenTap && !IsBusy;
 
@@ -412,6 +285,9 @@ public partial class InstrumentsViewModel : ReactiveObject
             {
                 Status = $"Failed to load plan slots: {ex.Message}";
             }
+
+            RebuildPlanFilters();
+            ApplyPlanFilter();
         }
 
         return Task.CompletedTask;
@@ -429,7 +305,13 @@ public partial class InstrumentsViewModel : ReactiveObject
             var existing = saved.FirstOrDefault(o =>
                 string.Equals(o.PlanId, planId, StringComparison.OrdinalIgnoreCase)
                 && string.Equals(o.SlotName, slot.Name, StringComparison.OrdinalIgnoreCase));
-            SlotOverrides.Add(new SlotOverrideItemViewModel(planId, displayName, slot, existing?.Resource, useMockVisa));
+            SlotOverrides.Add(new SlotOverrideItemViewModel(
+                planId,
+                displayName,
+                slot,
+                existing?.Resource,
+                useMockVisa,
+                _idnStore?.Find(planId, slot.Name)?.IdnSummary));
         }
     }
 
@@ -471,15 +353,22 @@ public partial class InstrumentsViewModel : ReactiveObject
 
         SelectedSlot.OverrideResource = resource;
         Status = $"Override {SelectedSlot.SlotName} → {resource} ({source}; save to persist).";
+        RefreshCommission();
     }
 
     private async Task QuerySelectedIdnAsync()
     {
         var address = SelectedVisa?.Resource ?? SelectedOpenTap?.Address;
         var supports = SelectedVisa?.SupportsMessageQuery ?? SelectedOpenTap?.SupportsMessageQuery ?? false;
+        if (string.IsNullOrWhiteSpace(address) && SelectedSlot is not null)
+        {
+            address = SelectedSlot.EffectiveResource;
+            supports = VisaResourceParser.Parse(address).SupportsMessageQuery;
+        }
+
         if (string.IsNullOrWhiteSpace(address))
         {
-            Status = "Select a VISA or OpenTAP resource to query.";
+            Status = "Select a VISA or OpenTAP resource, or a bound slot, to query.";
             return;
         }
 
@@ -526,6 +415,8 @@ public partial class InstrumentsViewModel : ReactiveObject
                     Status = string.IsNullOrWhiteSpace(summary)
                         ? $"*IDN? returned empty for {address}."
                         : $"IDN {address}: {summary}";
+                    PersistIdn(address, raw, summary);
+                    RefreshCommission();
                 }).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
@@ -557,6 +448,7 @@ public partial class InstrumentsViewModel : ReactiveObject
 
         SelectedSlot.OverrideResource = string.Empty;
         Status = $"Cleared override for {SelectedSlot.SlotName}.";
+        RefreshCommission();
     }
 
     private async Task SaveAsync()
@@ -578,8 +470,10 @@ public partial class InstrumentsViewModel : ReactiveObject
 
             await _settingsStore.SaveAppSettingsAsync().ConfigureAwait(false);
             await RunOnUiAsync(() =>
-                Status = $"Saved {_settingsStore.AppSettings.PlanSlotOverrides.Count} slot override(s).")
-                .ConfigureAwait(false);
+            {
+                Status = $"Saved {_settingsStore.AppSettings.PlanSlotOverrides.Count} slot override(s).";
+                RefreshCommission();
+            }).ConfigureAwait(false);
         }
         finally
         {

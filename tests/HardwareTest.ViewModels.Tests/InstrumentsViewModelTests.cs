@@ -12,13 +12,15 @@ public sealed class InstrumentsViewModelTests
         FakeSettingsStore? store = null,
         FakeOpenTapSession? openTap = null,
         IVisaSessionFactory? visaSessions = null,
-        IBenchOperationCoordinator? bench = null)
+        IBenchOperationCoordinator? bench = null,
+        IStationIdnStore? idnStore = null)
         => new(
             store ?? new FakeSettingsStore(),
             new FakeVisaDiscovery(),
             openTap ?? new FakeOpenTapSession(),
             visaSessions ?? new MockVisaSessionFactory(new VisaSessionGate()),
-            bench: bench);
+            bench: bench,
+            idnStore: idnStore);
 
     [Fact]
     public async Task RefreshSlots_shows_plan_slot_overrides()
@@ -162,5 +164,60 @@ public sealed class InstrumentsViewModelTests
         Assert.Contains("dispatcher failed", vm.Status, StringComparison.OrdinalIgnoreCase);
         Assert.True(bench.TryEnter(BenchOperation.ModeSwap, out var lease, out _));
         lease!.Dispose();
+    }
+
+    [Fact]
+    public async Task Plan_filter_limits_visible_slots_and_focus_program_selects_slot()
+    {
+        var vm = CreateVm();
+        await vm.RefreshSlotsCommand.ExecuteAsync();
+        Assert.True(vm.SlotOverrides.Count > 0, vm.Status);
+        Assert.Contains(vm.PlanFilterOptions, p => p == InstrumentsViewModel.AllPlanFilter);
+
+        var sampleName = vm.SlotOverrides.First(s =>
+            string.Equals(s.PlanId, "sample", StringComparison.OrdinalIgnoreCase)).PlanDisplayName;
+        vm.FocusProgram("sample", "DMM");
+
+        Assert.Equal(sampleName, vm.PlanFilter);
+        Assert.True(vm.VisibleSlots.All(s =>
+            string.Equals(s.PlanId, "sample", StringComparison.OrdinalIgnoreCase)));
+        Assert.Equal("DMM", vm.SelectedSlot?.SlotName);
+        Assert.True(vm.ShowCommissionStrip);
+        Assert.False(string.IsNullOrWhiteSpace(vm.ReadinessSummary));
+    }
+
+    [Fact]
+    public async Task Query_IDN_on_bound_slot_persists_sidecar_without_settings_schema()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "hwtest-idn-vm-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var idn = new FileStationIdnStore(dir);
+            var vm = CreateVm(idnStore: idn);
+            await vm.RefreshSlotsCommand.ExecuteAsync();
+            vm.SelectedSlot = vm.SlotOverrides.First(s =>
+                s.SlotName == "DMM"
+                && string.Equals(s.PlanId, "sample", StringComparison.OrdinalIgnoreCase));
+            vm.SelectedVisa = null;
+            vm.SelectedOpenTap = null;
+            await vm.QuerySelectedIdnCommand.ExecuteAsync();
+
+            Assert.True(vm.SelectedSlot.HasLastIdn, vm.Status);
+            var stored = idn.Find(vm.SelectedSlot.PlanId, vm.SelectedSlot.SlotName);
+            Assert.NotNull(stored);
+            Assert.Contains("MOCK", stored.IdnSummary, StringComparison.OrdinalIgnoreCase);
+        }
+        finally
+        {
+            try
+            {
+                Directory.Delete(dir, recursive: true);
+            }
+            catch
+            {
+                // best effort
+            }
+        }
     }
 }
