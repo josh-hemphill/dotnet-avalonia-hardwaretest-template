@@ -1,10 +1,12 @@
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using System.Windows.Input;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
+using HardwareTest.Features.Shell;
 using ReactiveUI;
 
 namespace HardwareTest.Features.RunTest;
@@ -31,6 +33,7 @@ public partial class RunTestView : UserControl
             DetailFocusRowIndex,
             DetailBandRowIndex);
         DataContextChanged += OnDataContextChanged;
+        SizeChanged += OnSizeChanged;
         DetachedFromVisualTree += (_, _) => Unsubscribe();
     }
 
@@ -63,6 +66,7 @@ public partial class RunTestView : UserControl
                         _layout.ApplyDetailDrawerRows(state.showDetails, state.showFocus));
                 });
             _layout.ApplyDetailDrawerRows(vm.StepDetail.ShowDetailRegion, vm.Live.ShowFocusTrend);
+            ApplyCompactLayout(Bounds.Width);
             if (vm.SessionPanel.NeedsDutConfirm)
             {
                 ScheduleFocusDutSerial();
@@ -72,6 +76,19 @@ public partial class RunTestView : UserControl
                 Plot.UpdateData(vm.Live.PlotYs, vm.Live.PlotYsLength, force: true);
             }
         }
+    }
+
+    private void OnSizeChanged(object? sender, SizeChangedEventArgs e)
+        => ApplyCompactLayout(e.NewSize.Width);
+
+    private void ApplyCompactLayout(double width)
+    {
+        if (_subscribed is null)
+        {
+            return;
+        }
+
+        _subscribed.IsCompactLayout = width < ShellLayoutBreakpoints.CompactBoardWidth;
     }
 
     private void Unsubscribe()

@@ -56,28 +56,21 @@ public partial class MainWindowViewModel : ReactiveObject
         Inspect = inspect;
         Results = results;
         ReportPreview = reportPreview;
-        NavigationItems =
+        _allPages =
         [
-            new NavItem { Id = "Home", Title = "Home", ViewModel = home, Symbol = FASymbol.Home },
-            new NavItem { Id = "RunTest", Title = "Run", ViewModel = runTest, Symbol = FASymbol.Play },
-            new NavItem { Id = "Inspect", Title = "Inspect", ViewModel = inspect, Symbol = FASymbol.Document },
-            new NavItem { Id = "Results", Title = "Results", ViewModel = results, Symbol = FASymbol.List },
-            new NavItem { Id = "ReportPreview", Title = "Report Preview", ViewModel = reportPreview, Symbol = FASymbol.Document },
-            new NavItem { Id = "Instruments", Title = "Instruments", ViewModel = instruments, Symbol = FASymbol.Repair },
-            new NavItem { Id = "Settings", Title = "Settings", ViewModel = settings, Symbol = FASymbol.Settings },
+            new NavItem { Id = ShellNavigationPolicy.Home, Title = "Home", ViewModel = home, Symbol = FASymbol.Home },
+            new NavItem { Id = ShellNavigationPolicy.RunTest, Title = "Run", ViewModel = runTest, Symbol = FASymbol.Play },
+            new NavItem { Id = ShellNavigationPolicy.Inspect, Title = "Inspect", ViewModel = inspect, Symbol = FASymbol.Document },
+            new NavItem { Id = ShellNavigationPolicy.Results, Title = "Results", ViewModel = results, Symbol = FASymbol.List },
+            new NavItem { Id = ShellNavigationPolicy.ReportPreview, Title = "Report Preview", ViewModel = reportPreview, Symbol = FASymbol.Document },
+            new NavItem { Id = ShellNavigationPolicy.Instruments, Title = "Instruments", ViewModel = instruments, Symbol = FASymbol.Repair },
+            new NavItem { Id = ShellNavigationPolicy.Settings, Title = "Settings", ViewModel = settings, Symbol = FASymbol.Settings },
         ];
+        NavigationItems = [];
+        ApplyNavigationPolicy();
+        NavigateTo(ResolveStartupPage());
 
-        var selectedId = settingsStore.UiState.SelectedPageId;
-        SelectedItem = NavigationItems.FirstOrDefault(i => i.Id == selectedId) ?? NavigationItems[0];
-        CurrentPage = SelectedItem.ViewModel;
-        if (SelectedItem.Id == "Results")
-        {
-            _ = Results.LoadRunsAsync();
-        }
-        else if (SelectedItem.Id == "Inspect")
-        {
-            Inspect.Refresh();
-        }
+        settingsStore.AppSettingsSaved += (_, _) => ApplyNavigationPolicy();
 
         PauseResumeCommand = ReactiveCommand.Create(PauseResume);
         PauseCommand = ReactiveCommand.Create(Pause);
@@ -86,20 +79,20 @@ public partial class MainWindowViewModel : ReactiveObject
 
         runTest.NavigateToResultsRequested += (_, _) =>
         {
-            NavigateToPageId("Results");
+            NavigateToPageId(ShellNavigationPolicy.Results);
             _ = Results.OpenRunByIdAsync(runTest.LastRunId);
         };
-        runTest.NavigateToInspectRequested += (_, _) => NavigateToPageId("Inspect");
+        runTest.NavigateToInspectRequested += (_, _) => NavigateToPageId(ShellNavigationPolicy.Inspect);
         inspect.OpenOnRunRequested += (_, stepPath) =>
         {
             runTest.ApplySelectionFromInspect(stepPath);
-            NavigateToPageId("RunTest");
+            NavigateToPageId(ShellNavigationPolicy.RunTest);
         };
-        inspect.NavigateToRunRequested += (_, _) => NavigateToPageId("RunTest");
+        inspect.NavigateToRunRequested += (_, _) => NavigateToPageId(ShellNavigationPolicy.RunTest);
         home.NavigateToPageRequested += (_, pageId) => NavigateToPageId(pageId);
-        results.NavigateToRunRequested += (_, _) => NavigateToPageId("RunTest");
-        instruments.NavigateToRunRequested += (_, _) => NavigateToPageId("RunTest");
-        reportPreview.NavigateToResultsRequested += (_, _) => NavigateToPageId("Results");
+        results.NavigateToRunRequested += (_, _) => NavigateToPageId(ShellNavigationPolicy.RunTest);
+        instruments.NavigateToRunRequested += (_, _) => NavigateToPageId(ShellNavigationPolicy.RunTest);
+        reportPreview.NavigateToResultsRequested += (_, _) => NavigateToPageId(ShellNavigationPolicy.Results);
         results.ReportOpened += OnReportOpened;
 
         runControl.PropertyChanged += (_, e) =>
@@ -131,6 +124,8 @@ public partial class MainWindowViewModel : ReactiveObject
     public IRunControl RunControl => _runControl;
 
     public ObservableCollection<NavItem> NavigationItems { get; }
+
+    private readonly NavItem[] _allPages;
 
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> PauseResumeCommand { get; }
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> PauseCommand { get; }
@@ -289,19 +284,23 @@ public partial class MainWindowViewModel : ReactiveObject
             return;
         }
 
-        SelectedItem = item;
         CurrentPage = item.ViewModel;
+        SelectedItem = NavigationItems.Contains(item)
+            ? item
+            : NavigationItems.FirstOrDefault(i =>
+                  i.Id == ShellNavigationPolicy.ContextualParentId(item.Id))
+              ?? SelectedItem;
         _settingsStore.UiState.SelectedPageId = item.Id;
         RunTest.SessionPanel.TouchActivity();
-        if (item.Id == "Results")
+        if (item.Id == ShellNavigationPolicy.Results)
         {
             _ = Results.LoadRunsAsync();
         }
-        else if (item.Id == "Inspect")
+        else if (item.Id == ShellNavigationPolicy.Inspect)
         {
             Inspect.Refresh();
         }
-        else if (item.Id == "Settings" && CurrentPage is SettingsViewModel settings)
+        else if (item.Id == ShellNavigationPolicy.Settings && CurrentPage is SettingsViewModel settings)
         {
             settings.EnsurePackagesLoaded();
         }
@@ -309,13 +308,53 @@ public partial class MainWindowViewModel : ReactiveObject
 
     public void NavigateToPageId(string pageId)
     {
-        var item = NavigationItems.FirstOrDefault(i => i.Id == pageId);
+        var item = _allPages.FirstOrDefault(i => i.Id == pageId);
         NavigateTo(item);
+    }
+
+    /// Rebuilds left nav for the saved engineer-mode presentation (not authentication).
+    public void ApplyNavigationPolicy()
+    {
+        var engineer = _settingsStore.AppSettings.IsEngineerDebugMode;
+        var visible = _allPages.Where(p => ShellNavigationPolicy.IsPersistentNav(p.Id, engineer)).ToArray();
+        ShellNavigationPolicy.SyncCollection(NavigationItems, visible);
+
+        var currentId = CurrentPage is null
+            ? null
+            : _allPages.FirstOrDefault(p => ReferenceEquals(p.ViewModel, CurrentPage))?.Id;
+        if (currentId is null)
+        {
+            return;
+        }
+
+        if (ShellNavigationPolicy.IsPersistentNav(currentId, engineer)
+            || ShellNavigationPolicy.IsContextual(currentId))
+        {
+            NavigateToPageId(currentId);
+            return;
+        }
+
+        NavigateTo(NavigationItems[0]);
+    }
+
+    private NavItem ResolveStartupPage()
+    {
+        var id = _settingsStore.UiState.SelectedPageId;
+        var page = _allPages.FirstOrDefault(i => i.Id == id);
+        var engineer = _settingsStore.AppSettings.IsEngineerDebugMode;
+        if (page is not null
+            && (ShellNavigationPolicy.IsPersistentNav(page.Id, engineer)
+                || ShellNavigationPolicy.IsContextual(page.Id)))
+        {
+            return page;
+        }
+
+        return NavigationItems[0];
     }
 
     private void OnReportOpened(object? sender, string path)
     {
-        NavigateToPageId("ReportPreview");
+        NavigateToPageId(ShellNavigationPolicy.ReportPreview);
         _ = ReportPreview.LoadFromPathAsync(path);
     }
 
@@ -360,9 +399,9 @@ public partial class MainWindowViewModel : ReactiveObject
 
     private void ContinueOperator()
     {
-        if (SelectedItem?.Id != "RunTest")
+        if (SelectedItem?.Id != ShellNavigationPolicy.RunTest)
         {
-            NavigateToPageId("RunTest");
+            NavigateToPageId(ShellNavigationPolicy.RunTest);
         }
 
         RunTest.ContinueOperatorAttention();

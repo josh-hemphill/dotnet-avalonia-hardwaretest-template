@@ -11,41 +11,46 @@
              x:Name="Root"
              x:DataType="vm:ResultsViewModel">
   <Grid RowDefinitions="Auto,*,Auto" ColumnDefinitions="*,360" ColumnSpacing="12" RowSpacing="12">
-    <StackPanel Orientation="Horizontal" Spacing="8" Grid.ColumnSpan="2">
+    <WrapPanel Orientation="Horizontal" Grid.ColumnSpan="2">
       <Button Content="Refresh" Command="{Binding RefreshCommand}"
               Classes="operator"
+              Margin="0,0,8,4"
               IsEnabled="{Binding !IsBusy}" />
       <Button Content="Open report" Command="{Binding OpenDefaultReportCommand}"
               Classes="operator"
+              Margin="0,0,8,4"
               ToolTip.Tip="Open the default PDF for the selected run (double-click the row also works)" />
       <Button Content="Regenerate reports" Command="{Binding ReprintCommand}"
               Classes="operator"
+              Margin="0,0,8,4"
               IsEnabled="{Binding !IsBusy}" />
       <TextBlock Text="Working…"
                  IsVisible="{Binding IsBusy}"
                  VerticalAlignment="Center"
                  FontWeight="SemiBold"
-                 Opacity="0.8" />
-      <TextBlock Text="{Binding Status}" VerticalAlignment="Center" Opacity="0.85" TextWrapping="Wrap" />
-    </StackPanel>
+                 Opacity="0.8"
+                 Margin="0,0,8,4" />
+      <TextBlock Text="{Binding Status}" VerticalAlignment="Center" Opacity="0.85" TextWrapping="Wrap" Margin="0,0,8,4" />
+    </WrapPanel>
 
     <DockPanel Grid.Row="1">
       <StackPanel DockPanel.Dock="Top" Spacing="6" Margin="0,0,0,8">
         <TextBox PlaceholderText="Search plan, DUT, operator, run id…"
                  Text="{Binding SearchText}" />
-        <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8">
+        <WrapPanel>
           <ComboBox ItemsSource="{Binding ResultFilterOptions}"
                     SelectedItem="{Binding ResultFilter}"
-                    MinWidth="100" />
-          <ComboBox Grid.Column="1"
-                    ItemsSource="{Binding PlanFilterOptions}"
+                    MinWidth="100"
+                    Margin="0,0,8,4" />
+          <ComboBox ItemsSource="{Binding PlanFilterOptions}"
                     SelectedItem="{Binding PlanFilter}"
-                    MinWidth="120" />
-          <ComboBox Grid.Column="2"
-                    ItemsSource="{Binding DutFilterOptions}"
+                    MinWidth="120"
+                    Margin="0,0,8,4" />
+          <ComboBox ItemsSource="{Binding DutFilterOptions}"
                     SelectedItem="{Binding DutFilter}"
-                    MinWidth="120" />
-        </Grid>
+                    MinWidth="120"
+                    Margin="0,0,8,4" />
+        </WrapPanel>
         <TextBlock Text="{Binding FilterStatus}" Opacity="0.7" FontSize="11" />
         <Grid ColumnDefinitions="*,100,90,90,70,140" Margin="8,0,8,0" Opacity="0.7">
           <TextBlock Text="Plan / DUT" FontWeight="SemiBold" />
