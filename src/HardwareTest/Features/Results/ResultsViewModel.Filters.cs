@@ -98,6 +98,8 @@ public partial class ResultsViewModel
         }
 
         this.RaisePropertyChanged(nameof(HasRuns));
+        this.RaisePropertyChanged(nameof(HasSchemaDrift));
+        this.RaisePropertyChanged(nameof(SchemaDriftSummary));
 
         if (selectedId is not null)
         {

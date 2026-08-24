@@ -1,4 +1,5 @@
 using HardwareTest.Core.Storage;
+using HardwareTest.OpenTap.Host;
 
 namespace HardwareTest.Features.Results;
 
@@ -77,15 +78,35 @@ public partial class ResultsViewModel
                             .Select(csv => (csv, Path.Combine("opentap-results", Path.GetFileName(csv)))));
                 }
 
-                if (files.Count == 0)
+                var diagnosticsPath = Path.Combine(Path.GetTempPath(), $"hwtest-diag-{OpenedRun.RunId}.txt");
+                try
                 {
-                    Status = "Nothing to export for this run.";
-                    return;
-                }
+                    File.WriteAllText(diagnosticsPath, BuildExportDiagnostics());
+                    files.Add((diagnosticsPath, "diagnostics.txt"));
 
-                var packageName = $"run-{OpenedRun.RunId}";
-                var dest = _exportTargets.ExportPackage(target, packageName, files);
-                Status = $"Exported package to {dest}";
+                    if (files.Count == 0)
+                    {
+                        Status = "Nothing to export for this run.";
+                        return;
+                    }
+
+                    var packageName = $"run-{OpenedRun.RunId}";
+                    var dest = _exportTargets.ExportPackage(target, packageName, files);
+                    Status = $"Exported package to {dest}";
+                }
+                finally
+                {
+                    try
+                    {
+                        File.Delete(diagnosticsPath);
+                    }
+                    catch (IOException)
+                    {
+                    }
+                    catch (UnauthorizedAccessException)
+                    {
+                    }
+                }
             }
             catch (Exception ex)
             {
@@ -97,5 +118,23 @@ public partial class ResultsViewModel
             IsBusy = false;
             _busyGate.Release();
         }
+    }
+
+    private string BuildExportDiagnostics()
+    {
+        var block = _buildInfo?.FormatSupportBlock() ?? "HardwareTest diagnostics";
+        var catalog = ProgramCatalog.SelfCheck();
+        var catalogBlock = catalog.Count == 0
+            ? "Catalog self-check: ok"
+            : "Catalog self-check:" + Environment.NewLine + string.Join(Environment.NewLine, catalog);
+        return string.Join(
+            Environment.NewLine,
+            block,
+            $"RunId: {OpenedRun?.RunId}",
+            $"PlanId: {OpenedRun?.PlanId}",
+            $"Result: {OpenedRun?.Result}",
+            $"SchemaVersion: {OpenedRun?.StoredSchemaVersion}",
+            $"AppVersion: {OpenedRun?.AppVersion ?? "unknown"}",
+            catalogBlock);
     }
 }

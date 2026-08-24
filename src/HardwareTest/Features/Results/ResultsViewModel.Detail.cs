@@ -86,6 +86,13 @@ public partial class ResultsViewModel
 
     public bool HasRuns => Runs.Count > 0;
 
+    public bool HasSchemaDrift => _allRuns.Any(r => r.IsSchemaReadOnly);
+
+    public string SchemaDriftSummary =>
+        HasSchemaDrift
+            ? "One or more runs used a newer schema and are read-only on this app."
+            : string.Empty;
+
     /// Raised when the operator wants to navigate to the Run page from the empty state.
     public event EventHandler? NavigateToRunRequested;
 
@@ -188,7 +195,18 @@ public partial class ResultsViewModel
         var runId = SelectedRun.RunId;
         var opened = await _runStore.LoadAsync(runId).ConfigureAwait(false);
         await RunOnUiAsync(() => ApplyOpenedRun(opened)).ConfigureAwait(false);
-        if (opened is null || _dutHistory is null)
+        if (opened is null)
+        {
+            return;
+        }
+
+        if (_comparison is not null)
+        {
+            var comparison = await _comparison.CompareToPreviousAsync(opened).ConfigureAwait(false);
+            await RunOnUiAsync(() => ApplyComparison(comparison)).ConfigureAwait(false);
+        }
+
+        if (_dutHistory is null)
         {
             return;
         }
@@ -203,6 +221,7 @@ public partial class ResultsViewModel
         SampleDetails.Clear();
         PresentationTiles.Clear();
         HasPresentationTiles = false;
+        ClearComparison();
         HistorySummary = string.Empty;
         HistorySeverity = string.Empty;
         HasHistory = false;

@@ -60,6 +60,11 @@
                     Margin="0,0,8,4" />
         </WrapPanel>
         <TextBlock Text="{Binding FilterStatus}" Opacity="0.7" FontSize="11" />
+        <TextBlock Text="{Binding SchemaDriftSummary}"
+                   IsVisible="{Binding HasSchemaDrift}"
+                   TextWrapping="Wrap"
+                   Opacity="0.85"
+                   FontSize="11" />
         <Grid ColumnDefinitions="*,100,90,90,70,140" Margin="8,0,8,0" Opacity="0.7">
           <TextBlock Text="Plan / DUT" FontWeight="SemiBold" />
           <TextBlock Grid.Column="1" Text="Part" FontWeight="SemiBold" />
@@ -233,6 +238,31 @@
                       <TextBlock Grid.Column="2" Text="{Binding PriorMeanText}" FontSize="11" />
                       <TextBlock Grid.Column="3" Text="{Binding PercentDeltaText}" FontSize="11" />
                       <TextBlock Grid.Column="4" Text="{Binding Severity}" FontSize="11" />
+                    </Grid>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
+
+            <StackPanel Spacing="2" Margin="0,8,0,0" IsVisible="{Binding HasComparison}">
+              <TextBlock Text="Compare with previous" FontWeight="SemiBold" />
+              <TextBlock Text="{Binding ComparisonSummary}" TextWrapping="Wrap" Opacity="0.9" />
+              <Grid ColumnDefinitions="*,80,80,60,*" Margin="0,4,0,0" Opacity="0.7">
+                <TextBlock Text="Metric" FontWeight="SemiBold" FontSize="11" />
+                <TextBlock Grid.Column="1" Text="This run" FontWeight="SemiBold" FontSize="11" />
+                <TextBlock Grid.Column="2" Text="Previous" FontWeight="SemiBold" FontSize="11" />
+                <TextBlock Grid.Column="3" Text="Delta" FontWeight="SemiBold" FontSize="11" />
+                <TextBlock Grid.Column="4" Text="Note" FontWeight="SemiBold" FontSize="11" />
+              </Grid>
+              <ItemsControl ItemsSource="{Binding ComparisonMetrics}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:RunComparisonRow">
+                    <Grid ColumnDefinitions="*,80,80,60,*" ColumnSpacing="2" Margin="0,1">
+                      <TextBlock Text="{Binding MetricKey}" TextTrimming="CharacterEllipsis" FontSize="11" />
+                      <TextBlock Grid.Column="1" Text="{Binding CurrentText}" FontSize="11" />
+                      <TextBlock Grid.Column="2" Text="{Binding PreviousText}" FontSize="11" />
+                      <TextBlock Grid.Column="3" Text="{Binding DeltaText}" FontSize="11" />
+                      <TextBlock Grid.Column="4" Text="{Binding Note}" TextTrimming="CharacterEllipsis" FontSize="11" />
                     </Grid>
                   </DataTemplate>
                 </ItemsControl.ItemTemplate>

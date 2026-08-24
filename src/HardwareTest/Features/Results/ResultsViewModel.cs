@@ -1,6 +1,6 @@
-using System.Collections.ObjectModel;
 using System.Threading;
 using System.Threading.Tasks;
+using HardwareTest.Core.Diagnostics;
 using HardwareTest.Core.Reporting;
 using HardwareTest.Core.Runs;
 using HardwareTest.Core.Storage;
@@ -39,6 +39,8 @@ public partial class ResultsViewModel : ReactiveObject
     private readonly IExportTargetService? _exportTargets;
     private readonly OperatorSession? _operatorSession;
     private readonly IClock _clock;
+    private readonly IRunComparisonService? _comparison;
+    private readonly BuildInfo? _buildInfo;
     private readonly List<TestRunSummary> _allRuns = [];
     private readonly SemaphoreSlim _busyGate = new(1, 1);
     private bool _suppressAutoOpen;
@@ -49,7 +51,9 @@ public partial class ResultsViewModel : ReactiveObject
         IDutHistoryService? dutHistory = null,
         IExportTargetService? exportTargets = null,
         OperatorSession? operatorSession = null,
-        IClock? clock = null)
+        IClock? clock = null,
+        IRunComparisonService? comparison = null,
+        BuildInfo? buildInfo = null)
     {
         _runStore = runStore;
         _reportService = reportService;
@@ -57,11 +61,14 @@ public partial class ResultsViewModel : ReactiveObject
         _exportTargets = exportTargets;
         _operatorSession = operatorSession;
         _clock = clock ?? SystemClock.Instance;
+        _comparison = comparison;
+        _buildInfo = buildInfo;
         Runs = [];
         StepDetails = [];
         SampleDetails = [];
         PresentationTiles = [];
         HistoryMetrics = [];
+        ComparisonMetrics = [];
         ReportItems = [];
         ExportTargets = [];
         ResultFilterOptions = [AllFilter, nameof(RunResult.Passed), nameof(RunResult.Failed), "Other"];
@@ -101,6 +108,7 @@ public partial class ResultsViewModel : ReactiveObject
             FirstFailSummary = string.Empty;
             HasFirstFail = false;
             TriageSummary = string.Empty;
+            ClearComparison();
         });
         NavigateToRunCommand = ReactiveCommand.Create(
             () => NavigateToRunRequested?.Invoke(this, EventArgs.Empty));
