@@ -1,7 +1,6 @@
 using HardwareTest.Core.Hardware;
 using HardwareTest.Core.Settings;
 using HardwareTest.Features;
-using HardwareTest.Features.Shell;
 using HardwareTest.Features.Home;
 using HardwareTest.Features.Inspect;
 using HardwareTest.Features.Instruments;
@@ -9,6 +8,7 @@ using HardwareTest.Features.ReportPreview;
 using HardwareTest.Features.Results;
 using HardwareTest.Features.RunTest;
 using HardwareTest.Features.Settings;
+using HardwareTest.Features.Shell;
 using HardwareTest.OpenTap.Host;
 using HardwareTest.OpenTap.Plugins.Basic;
 using HardwareTest.ViewModels.Tests.Fakes;
