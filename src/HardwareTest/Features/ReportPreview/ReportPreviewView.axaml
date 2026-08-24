@@ -5,6 +5,8 @@
              x:DataType="vm:ReportPreviewViewModel">
   <Grid RowDefinitions="Auto,*,Auto" RowSpacing="12">
     <StackPanel Orientation="Horizontal" Spacing="8">
+      <Button Content="Back to Results" Command="{Binding NavigateToResultsCommand}"
+              Classes="operator" />
       <Button Content="Load Latest Report" Command="{Binding LoadLatestCommand}"
               IsEnabled="{Binding !IsBusy}" />
       <Button Content="Print" Command="{Binding PrintCommand}"

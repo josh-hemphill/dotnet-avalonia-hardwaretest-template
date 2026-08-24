@@ -1,6 +1,7 @@
 using HardwareTest.Core.Runs;
 using HardwareTest.Features.Results;
 using HardwareTest.ViewModels.Tests.Fakes;
+using HardwareTest.ViewModels.Tests.Time;
 using Xunit;
 
 namespace HardwareTest.ViewModels.Tests;
@@ -495,5 +496,188 @@ public sealed class ResultsViewModelTests
         Assert.NotEmpty(vm.HistoryMetrics);
         Assert.True(vm.HasReports);
         Assert.Contains(vm.ReportItems, r => r.Kind == ReportKinds.Status);
+    }
+
+    [Fact]
+    public async Task Operator_and_date_filters_narrow_run_list_with_yield()
+    {
+        var clock = new FakeClock(new DateTimeOffset(2026, 8, 24, 18, 0, 0, TimeSpan.Zero));
+        var store = new FakeRunStore();
+        store.Seed(new TestRunRecord
+        {
+            RunId = "today-pass",
+            PlanName = "Sample",
+            OperatorName = "Ada",
+            StartedAt = new DateTimeOffset(2026, 8, 24, 10, 0, 0, TimeSpan.Zero),
+            Result = RunResult.Passed,
+        });
+        store.Seed(new TestRunRecord
+        {
+            RunId = "today-fail",
+            PlanName = "Sample",
+            OperatorName = "Ada",
+            StartedAt = new DateTimeOffset(2026, 8, 24, 12, 0, 0, TimeSpan.Zero),
+            Result = RunResult.Failed,
+        });
+        store.Seed(new TestRunRecord
+        {
+            RunId = "old-fail",
+            PlanName = "Sample",
+            OperatorName = "Bob",
+            StartedAt = new DateTimeOffset(2026, 8, 1, 12, 0, 0, TimeSpan.Zero),
+            Result = RunResult.Failed,
+        });
+
+        var vm = new ResultsViewModel(store, new FakeReportService(), clock: clock);
+        await vm.RefreshCommand.ExecuteAsync();
+        Assert.Equal(3, vm.Runs.Count);
+        Assert.Contains("Passed 1", vm.FilterStatus, StringComparison.Ordinal);
+        Assert.Contains("Failed 2", vm.FilterStatus, StringComparison.Ordinal);
+
+        vm.OperatorFilter = "Ada";
+        Assert.Equal(2, vm.Runs.Count);
+        Assert.Contains("Passed 1", vm.YieldSummary, StringComparison.Ordinal);
+        Assert.Contains("Failed 1", vm.YieldSummary, StringComparison.Ordinal);
+
+        vm.DateFilter = ResultsViewModel.DateToday;
+        Assert.Equal(2, vm.Runs.Count);
+        Assert.DoesNotContain(vm.Runs, r => r.RunId == "old-fail");
+
+        vm.OperatorFilter = ResultsViewModel.AllFilter;
+        vm.DateFilter = ResultsViewModel.DateLast7Days;
+        Assert.Equal(2, vm.Runs.Count);
+        Assert.Contains(vm.Runs, r => r.RunId == "today-pass");
+        Assert.Contains(vm.Runs, r => r.RunId == "today-fail");
+    }
+
+    [Fact]
+    public async Task OpenRunById_after_fail_sets_result_filter_and_failed_steps_only()
+    {
+        var store = new FakeRunStore();
+        store.Seed(new TestRunRecord
+        {
+            RunId = "pass",
+            PlanName = "Sample",
+            StartedAt = DateTimeOffset.UtcNow.AddMinutes(-2),
+            Result = RunResult.Passed,
+            Steps = [new StepResultRecord { StepId = "Ok", StepType = "Id", Passed = true, Message = "ok" }],
+        });
+        var t1 = new DateTimeOffset(2026, 4, 1, 0, 0, 0, TimeSpan.Zero);
+        var t2 = new DateTimeOffset(2026, 4, 1, 0, 0, 2, TimeSpan.Zero);
+        store.Seed(new TestRunRecord
+        {
+            RunId = "fail",
+            PlanName = "Sample",
+            StartedAt = DateTimeOffset.UtcNow.AddMinutes(-1),
+            Result = RunResult.Failed,
+            Steps =
+            [
+                new StepResultRecord { StepId = "Ok", StepPath = "Ok", StepType = "Id", Passed = true, Message = "ok", CompletedAt = t1 },
+                new StepResultRecord { StepId = "Bad", StepPath = "Bad", StepType = "Acquire", Passed = false, Message = "out", CompletedAt = t2 },
+            ],
+            StepAttempts =
+            [
+                new StepAttemptSummary
+                {
+                    StepPath = "Ok",
+                    StepName = "Ok",
+                    AttemptCount = 1,
+                    PassedCount = 1,
+                    LatestPassed = true,
+                    Attempts =
+                    [
+                        new StepResultRecord { StepId = "Ok", StepPath = "Ok", StepType = "Id", Passed = true, Message = "ok", CompletedAt = t1 },
+                    ],
+                },
+                new StepAttemptSummary
+                {
+                    StepPath = "Bad",
+                    StepName = "Bad",
+                    AttemptCount = 2,
+                    PassedCount = 1,
+                    FailedCount = 1,
+                    LatestPassed = false,
+                    Attempts =
+                    [
+                        new StepResultRecord { StepId = "Bad", StepPath = "Bad", StepType = "Acquire", Passed = true, AttemptNumber = 1, Message = "ok", CompletedAt = t1 },
+                        new StepResultRecord { StepId = "Bad", StepPath = "Bad", StepType = "Acquire", Passed = false, AttemptNumber = 2, Message = "out", CompletedAt = t2 },
+                    ],
+                },
+            ],
+        });
+
+        var vm = new ResultsViewModel(store, new FakeReportService());
+        await vm.OpenRunByIdAsync("fail");
+
+        Assert.Equal(nameof(RunResult.Failed), vm.ResultFilter);
+        Assert.Single(vm.Runs);
+        Assert.Equal("fail", vm.SelectedRun?.RunId);
+        Assert.True(vm.ShowFailedStepsOnly);
+        Assert.True(vm.HasFirstFail);
+        Assert.Contains("Bad", vm.FirstFailSummary, StringComparison.Ordinal);
+        Assert.Contains(vm.StepDetails, line => line.Contains("First fail", StringComparison.Ordinal));
+        Assert.Contains(vm.StepDetails, line => line.Contains("2 (1F/1P)", StringComparison.Ordinal));
+        Assert.Contains(vm.StepDetails, line => line.Contains("#2 FAIL", StringComparison.Ordinal));
+        Assert.DoesNotContain(vm.StepDetails, line => line.Contains("[Id]", StringComparison.Ordinal) && line.Contains("PASS"));
+
+        vm.ShowFailedStepsOnly = false;
+        Assert.Contains(vm.StepDetails, line => line.Contains("[Id]", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task First_fail_marker_and_attempts_follow_path_across_retries()
+    {
+        var store = new FakeRunStore();
+        var t1 = new DateTimeOffset(2026, 4, 2, 0, 0, 0, TimeSpan.Zero);
+        var t2 = new DateTimeOffset(2026, 4, 2, 0, 0, 2, TimeSpan.Zero);
+        store.Seed(new TestRunRecord
+        {
+            RunId = "retry-fail",
+            PlanName = "Sample",
+            StartedAt = t2,
+            Result = RunResult.Failed,
+            StepAttempts =
+            [
+                new StepAttemptSummary
+                {
+                    StepPath = "Bad",
+                    StepName = "Bad",
+                    AttemptCount = 2,
+                    FailedCount = 2,
+                    LatestPassed = false,
+                    Attempts =
+                    [
+                        new StepResultRecord
+                        {
+                            StepId = "Bad",
+                            StepPath = "Bad",
+                            StepType = "Acquire",
+                            Passed = false,
+                            AttemptNumber = 1,
+                            Message = "first",
+                            CompletedAt = t1,
+                        },
+                        new StepResultRecord
+                        {
+                            StepId = "Bad",
+                            StepPath = "Bad",
+                            StepType = "Acquire",
+                            Passed = false,
+                            AttemptNumber = 2,
+                            Message = "retry",
+                            CompletedAt = t2,
+                        },
+                    ],
+                },
+            ],
+        });
+
+        var vm = new ResultsViewModel(store, new FakeReportService());
+        await vm.OpenRunByIdAsync("retry-fail");
+
+        Assert.True(vm.HasFirstFail);
+        Assert.Contains(vm.StepDetails, line => line.Contains("First fail", StringComparison.Ordinal));
+        Assert.Contains(vm.StepDetails, line => line.Contains("#1 FAIL", StringComparison.Ordinal));
+        Assert.Contains(vm.StepDetails, line => line.Contains("#2 FAIL", StringComparison.Ordinal));
     }
 }

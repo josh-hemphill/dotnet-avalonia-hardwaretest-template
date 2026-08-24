@@ -44,6 +44,7 @@ public sealed class RunExecutionViewModel
     private readonly IVisaModeController? _visaModeController;
     private readonly ISafetyController? _safety;
     private readonly IClock _clock;
+    private readonly Action<string, IReadOnlyList<string>>? _onStationNotReady;
 
     private readonly Dictionary<string, StepAttemptSummary> _attemptLedger =
         new(StringComparer.OrdinalIgnoreCase);
@@ -70,7 +71,8 @@ public sealed class RunExecutionViewModel
         IStorageHealthService? storageHealth = null,
         IVisaModeController? visaModeController = null,
         ISafetyController? safety = null,
-        IClock? clock = null)
+        IClock? clock = null,
+        Action<string, IReadOnlyList<string>>? onStationNotReady = null)
     {
         _host = host;
         _runSession = runSession;
@@ -94,6 +96,7 @@ public sealed class RunExecutionViewModel
         _visaModeController = visaModeController;
         _safety = safety;
         _clock = clock ?? SystemClock.Instance;
+        _onStationNotReady = onStationNotReady;
 
         RunCommand = ReactiveCommand.CreateFromTask(() => ExecuteRunAsync(selectionOnly: false));
         RunSelectedCommand = ReactiveCommand.CreateFromTask(() => ExecuteRunAsync(selectionOnly: true));
@@ -258,55 +261,39 @@ public sealed class RunExecutionViewModel
         }
 
         var station = _stationOverrides.BuildStationProfile();
-        var unbound = _station.InstrumentSlots
-            .Where(s => string.IsNullOrWhiteSpace(s.ResourceName)
-                        && !station.RoleToResource.ContainsKey(s.RoleHint)
-                        && !station.RoleToResource.ContainsKey(s.Name))
-            .Select(s => s.Name)
-            .ToList();
-        if (unbound.Count > 0)
+        var snapshots = _station.InstrumentSlots.Select(s =>
         {
-            var msg = $"Bind unbound instrument slots on Instruments page: {string.Join(", ", unbound)}";
-            _host.Status = msg;
-            _host.SetBanner(RunBannerSeverity.Error, msg);
-            _host.OverallPercent = 0;
-            return;
-        }
-
-        var effectiveMock = _visaModeController?.EffectiveUseMockVisa ?? _settings.UseMockVisa;
-        if (!effectiveMock)
-        {
-            var mockSlots = _station.InstrumentSlots
-                .Select(s =>
-                {
-                    if (station.RoleToResource.TryGetValue(s.RoleHint, out var byRole)
-                        && !string.IsNullOrWhiteSpace(byRole))
-                    {
-                        return (Slot: s, Resource: byRole.Trim());
-                    }
-
-                    if (station.RoleToResource.TryGetValue(s.Name, out var byName)
-                        && !string.IsNullOrWhiteSpace(byName))
-                    {
-                        return (Slot: s, Resource: byName.Trim());
-                    }
-
-                    return (Slot: s, Resource: s.ResourceName?.Trim() ?? string.Empty);
-                })
-                .Where(x => MockResourceGuard.LooksLikeMockResource(x.Resource)
-                            || MockResourceGuard.IsMockInstrumentType(x.Slot.TypeName))
-                .Select(x => x.Slot.Name)
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .ToList();
-            if (mockSlots.Count > 0)
+            var resource = s.ResourceName?.Trim() ?? string.Empty;
+            if (station.RoleToResource.TryGetValue(s.RoleHint, out var byRole)
+                && !string.IsNullOrWhiteSpace(byRole))
             {
-                var msg =
-                    $"Mock instruments/resources blocked while Use mock VISA is off. Bind real addresses on Instruments for: {string.Join(", ", mockSlots)}";
-                _host.Status = msg;
-                _host.SetBanner(RunBannerSeverity.Error, msg);
-                _host.OverallPercent = 0;
-                return;
+                resource = byRole.Trim();
             }
+            else if (station.RoleToResource.TryGetValue(s.Name, out var byName)
+                     && !string.IsNullOrWhiteSpace(byName))
+            {
+                resource = byName.Trim();
+            }
+
+            return new StationSlotSnapshot
+            {
+                SlotName = s.Name,
+                PlanId = program.Id,
+                RoleHint = s.RoleHint,
+                TypeName = s.TypeName,
+                EffectiveResource = resource,
+            };
+        }).ToList();
+        var readiness = StationReadinessEvaluator.Evaluate(
+            snapshots,
+            _visaModeController?.EffectiveUseMockVisa ?? _settings.UseMockVisa);
+        if (!readiness.CanRun)
+        {
+            _host.Status = readiness.OperatorSummary;
+            _host.SetBanner(RunBannerSeverity.Error, readiness.OperatorSummary);
+            _host.OverallPercent = 0;
+            _onStationNotReady?.Invoke(program.Id, readiness.BlockingSlotNames);
+            return;
         }
 
         await _station.ApplyStationAndDutAsync(station, _session.ToDutIdentity());

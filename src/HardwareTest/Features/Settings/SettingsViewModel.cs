@@ -378,6 +378,21 @@ public partial class SettingsViewModel : ReactiveObject
         sb.AppendLine($"Hardware interlock: {SafetyInterlockStatus}");
         sb.AppendLine("OpenTAP worker: killable child process");
         sb.AppendLine();
+        var catalog = ProgramCatalog.SelfCheck();
+        if (catalog.Count == 0)
+        {
+            sb.AppendLine("Catalog self-check: ok");
+        }
+        else
+        {
+            sb.AppendLine("Program catalog:");
+            foreach (var warning in catalog)
+            {
+                sb.AppendLine(warning);
+            }
+        }
+
+        sb.AppendLine();
         sb.AppendLine("Key\tEffectiveValue\tSource\tSourceDetail");
         foreach (var row in ProvenanceRows)
         {

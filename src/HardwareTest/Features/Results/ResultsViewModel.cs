@@ -1,9 +1,10 @@
-using System.Collections.ObjectModel;
 using System.Threading;
 using System.Threading.Tasks;
+using HardwareTest.Core.Diagnostics;
 using HardwareTest.Core.Reporting;
 using HardwareTest.Core.Runs;
 using HardwareTest.Core.Storage;
+using HardwareTest.Core.Time;
 using HardwareTest.OpenTap.Host;
 using ReactiveUI;
 using ReactiveUI.SourceGenerators;
@@ -37,26 +38,37 @@ public partial class ResultsViewModel : ReactiveObject
     private readonly IDutHistoryService? _dutHistory;
     private readonly IExportTargetService? _exportTargets;
     private readonly OperatorSession? _operatorSession;
+    private readonly IClock _clock;
+    private readonly IRunComparisonService? _comparison;
+    private readonly BuildInfo? _buildInfo;
     private readonly List<TestRunSummary> _allRuns = [];
     private readonly SemaphoreSlim _busyGate = new(1, 1);
+    private bool _suppressAutoOpen;
 
     public ResultsViewModel(
         IRunStore runStore,
         IReportService reportService,
         IDutHistoryService? dutHistory = null,
         IExportTargetService? exportTargets = null,
-        OperatorSession? operatorSession = null)
+        OperatorSession? operatorSession = null,
+        IClock? clock = null,
+        IRunComparisonService? comparison = null,
+        BuildInfo? buildInfo = null)
     {
         _runStore = runStore;
         _reportService = reportService;
         _dutHistory = dutHistory;
         _exportTargets = exportTargets;
         _operatorSession = operatorSession;
+        _clock = clock ?? SystemClock.Instance;
+        _comparison = comparison;
+        _buildInfo = buildInfo;
         Runs = [];
         StepDetails = [];
         SampleDetails = [];
         PresentationTiles = [];
         HistoryMetrics = [];
+        ComparisonMetrics = [];
         ReportItems = [];
         ExportTargets = [];
         ResultFilterOptions = [AllFilter, nameof(RunResult.Passed), nameof(RunResult.Failed), "Other"];
@@ -65,6 +77,12 @@ public partial class ResultsViewModel : ReactiveObject
         ResultFilter = AllFilter;
         PlanFilter = AllFilter;
         DutFilter = AllFilter;
+        OperatorFilter = AllFilter;
+        DateFilter = DateAll;
+        ClearFailedStepsFilterCommand = ReactiveCommand.Create(() =>
+        {
+            ShowFailedStepsOnly = false;
+        });
         RefreshCommand = ReactiveCommand.CreateFromTask(RefreshAsync);
         OpenCommand = ReactiveCommand.CreateFromTask(OpenAsync);
         OpenDefaultReportCommand = ReactiveCommand.CreateFromTask(OpenDefaultReportAsync);
@@ -86,6 +104,11 @@ public partial class ResultsViewModel : ReactiveObject
             HasSchemaBadge = false;
             SchemaWarning = string.Empty;
             HasSchemaWarning = false;
+            ShowFailedStepsOnly = false;
+            FirstFailSummary = string.Empty;
+            HasFirstFail = false;
+            TriageSummary = string.Empty;
+            ClearComparison();
         });
         NavigateToRunCommand = ReactiveCommand.Create(
             () => NavigateToRunRequested?.Invoke(this, EventArgs.Empty));
@@ -93,11 +116,16 @@ public partial class ResultsViewModel : ReactiveObject
         PropertyChanged += (_, args) =>
         {
             if (args.PropertyName is nameof(SearchText) or nameof(ResultFilter)
-                or nameof(PlanFilter) or nameof(DutFilter))
+                or nameof(PlanFilter) or nameof(DutFilter)
+                or nameof(OperatorFilter) or nameof(DateFilter))
             {
                 ApplyFilters();
             }
-            else if (args.PropertyName == nameof(SelectedRun) && SelectedRun is not null)
+            else if (args.PropertyName == nameof(ShowFailedStepsOnly) && OpenedRun is not null)
+            {
+                RebuildStepDetails();
+            }
+            else if (args.PropertyName == nameof(SelectedRun) && SelectedRun is not null && !_suppressAutoOpen)
             {
                 ScheduleOpenDetail();
             }

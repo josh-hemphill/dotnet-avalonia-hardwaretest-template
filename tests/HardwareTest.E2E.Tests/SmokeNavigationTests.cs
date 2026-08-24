@@ -12,14 +12,14 @@ public sealed class SmokeNavigationTests
         var window = E2EHarness.ShowMainWindow();
         var main = E2EHarness.MainVm(window);
 
-        Assert.Equal(7, main.NavigationItems.Count);
+        Assert.Equal(4, main.NavigationItems.Count);
         Assert.All(main.NavigationItems, i => Assert.True((int)i.Symbol >= 0));
         Assert.Contains(main.NavigationItems, i => i.Id == "Home");
         Assert.Contains(main.NavigationItems, i => i.Id == "RunTest");
-        Assert.Contains(main.NavigationItems, i => i.Id == "Inspect");
+        Assert.DoesNotContain(main.NavigationItems, i => i.Id == "Inspect");
         Assert.Contains(main.NavigationItems, i => i.Id == "Results");
-        Assert.Contains(main.NavigationItems, i => i.Id == "ReportPreview");
-        Assert.Contains(main.NavigationItems, i => i.Id == "Instruments");
+        Assert.DoesNotContain(main.NavigationItems, i => i.Id == "ReportPreview");
+        Assert.DoesNotContain(main.NavigationItems, i => i.Id == "Instruments");
         Assert.Contains(main.NavigationItems, i => i.Id == "Settings");
         Assert.IsType<HomeViewModel>(main.CurrentPage);
 

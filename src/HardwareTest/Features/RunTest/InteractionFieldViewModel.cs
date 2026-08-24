@@ -34,6 +34,11 @@ public partial class InteractionFieldViewModel : ReactiveObject
     public bool IsNumber => Kind == OperatorInteractionFieldKind.Number;
     public bool IsTextOrNumber => !IsBoolean;
 
+    /// Label with a required marker so operators do not rely on asterisk-only placeholders.
+    public string DisplayLabel => Required ? $"{Label} *" : Label;
+
+    public string AutomationName => DisplayLabel;
+
     [Reactive] private string _value = string.Empty;
     [Reactive] private bool _boolValue;
 

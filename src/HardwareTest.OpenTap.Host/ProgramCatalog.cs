@@ -90,6 +90,53 @@ public static class ProgramCatalog
             .ToList();
     }
 
+    /// Warns on disk TapPlans with missing or invalid `{id}.program.json` sidecars.
+    public static IReadOnlyList<string> SelfCheck(IEnumerable<string>? extraDirectories = null)
+    {
+        var builtInIds = BuiltIns().Select(e => e.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var warnings = new List<string>();
+        foreach (var dir in EnumerateDirectories(extraDirectories))
+        {
+            if (!Directory.Exists(dir))
+            {
+                continue;
+            }
+
+            foreach (var file in Directory.EnumerateFiles(dir, "*.TapPlan"))
+            {
+                var id = Path.GetFileNameWithoutExtension(file);
+                var sidecarPath = Path.Combine(Path.GetDirectoryName(file) ?? string.Empty, $"{id}.program.json");
+                if (!File.Exists(sidecarPath))
+                {
+                    if (builtInIds.Contains(id))
+                    {
+                        continue;
+                    }
+
+                    warnings.Add($"Missing sidecar {id}.program.json beside {Path.GetFileName(file)}");
+                    continue;
+                }
+
+                try
+                {
+                    var parsed = JsonSerializer.Deserialize(
+                        File.ReadAllText(sidecarPath),
+                        ProgramCatalogJsonContext.Default.ProgramSidecar);
+                    if (parsed is null)
+                    {
+                        warnings.Add($"Empty sidecar {id}.program.json");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    warnings.Add($"Invalid sidecar {id}.program.json: {ex.Message}");
+                }
+            }
+        }
+
+        return warnings;
+    }
+
     /// Resolve report kinds for a plan id (catalog entry or default status).
     public static IReadOnlyList<string> ResolveReportKinds(string? planId, IEnumerable<string>? extraDirectories = null)
     {

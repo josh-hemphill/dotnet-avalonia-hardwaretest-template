@@ -15,4 +15,10 @@ public static class OperatorTouchDensity
 
     /// Phase 21 floor for Run chip / step / hero secondary / compact transport captions (px).
     public const double OperationalFontSize = 12;
+
+    /// Outer operator-prompt card — keeps Continue docked in view at the 900×600 floor.
+    public const double InteractionHostMaxHeight = 280;
+
+    /// Scrollable prompt body (title, message, fields) inside the interaction host.
+    public const double InteractionHostBodyMaxHeight = 180;
 }

@@ -98,10 +98,70 @@ public sealed class ResultsUiThreadTests
                 }
             };
 
-        vm.SelectedRun = vm.Runs[0];
-        await vm.OpenCommand.ExecuteAsync();
+        await vm.OpenRunByIdAsync("r1");
 
         Assert.NotEmpty(vm.StepDetails);
+        Assert.Equal(0, offScheduler);
+    }
+
+    [Fact]
+    public async Task Open_mutates_ComparisonMetrics_only_via_UiScheduler()
+    {
+        var store = new YieldingRunStore();
+        var t0 = new DateTimeOffset(2026, 8, 24, 15, 0, 0, TimeSpan.Zero);
+        store.Seed(new TestRunRecord
+        {
+            RunId = "prior",
+            PlanId = "sample",
+            PlanName = "Sample",
+            DutSerial = "SN-UI",
+            StartedAt = t0,
+            Result = RunResult.Passed,
+            Samples = [new StoredSample { Channel = "VDC", Timestamp = t0, Value = 2.0 }],
+        });
+        store.Seed(new TestRunRecord
+        {
+            RunId = "cur",
+            PlanId = "sample",
+            PlanName = "Sample",
+            DutSerial = "SN-UI",
+            StartedAt = t0.AddHours(1),
+            Result = RunResult.Passed,
+            Samples = [new StoredSample { Channel = "VDC", Timestamp = t0.AddHours(1), Value = 2.2 }],
+        });
+
+        var vm = new ResultsViewModel(
+            store,
+            new FakeReportService(),
+            comparison: new RunComparisonService(store));
+        var inScheduler = false;
+        vm.UiScheduler = action =>
+        {
+            inScheduler = true;
+            try
+            {
+                action();
+            }
+            finally
+            {
+                inScheduler = false;
+            }
+        };
+
+        await vm.RefreshCommand.ExecuteAsync();
+        var offScheduler = 0;
+        ((INotifyCollectionChanged)vm.ComparisonMetrics).CollectionChanged +=
+            (_, _) =>
+            {
+                if (!inScheduler)
+                {
+                    Interlocked.Increment(ref offScheduler);
+                }
+            };
+
+        await vm.OpenRunByIdAsync("cur");
+
+        Assert.NotEmpty(vm.ComparisonMetrics);
         Assert.Equal(0, offScheduler);
     }
 }

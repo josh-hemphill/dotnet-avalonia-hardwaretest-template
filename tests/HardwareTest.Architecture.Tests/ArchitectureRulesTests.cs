@@ -1,5 +1,6 @@
 using System.Reflection;
 using Avalonia.Controls;
+using HardwareTest.Core.Hardware;
 using HardwareTest.Core.Runs;
 using HardwareTest.Core.Serialization;
 using HardwareTest.Core.Settings;
@@ -292,6 +293,7 @@ public sealed class ArchitectureRulesTests
             typeof(TestRunRecord),
             typeof(SuiteRunRecord),
             typeof(ClockLastGoodRecord),
+            typeof(StationIdnDocument),
         ];
 
         var missing = new List<string>();

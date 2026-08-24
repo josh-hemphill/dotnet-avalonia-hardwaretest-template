@@ -68,6 +68,7 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
 
         // Panels reference each other, so the wiring uses lambdas; every capture resolves only
         // after CreateChildPanels has assigned all of them.
+        InitCommissioningCommands();
         CreateChildPanels(
             plan,
             runSession,
@@ -140,7 +141,7 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
         {
             if (IsRunning)
             {
-                return "Run in progress — use Stop Run to abort.";
+                return StopRunCopy.InProgressTip;
             }
 
             if (SessionPanel.SessionBlocked)
@@ -169,6 +170,9 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
     /// Hide the overall progress bar when idle (not stuck at 0%).
     public bool ShowOverallProgress => IsRunning;
 
+    /// Stage rail stays on wide boards; compact 900×600 uses the hero stage picker instead.
+    public bool ShowStageRail => !IsCompactLayout;
+
     public event EventHandler? NavigateToResultsRequested;
     public event EventHandler? NavigateToInspectRequested;
 
@@ -184,6 +188,7 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
     [Reactive] private string? _lastRunId;
     [Reactive] private string _historyBanner = string.Empty;
     [Reactive] private bool _isEngineerDebugMode;
+    [Reactive] private bool _isCompactLayout;
     [Reactive] private string _currentStepName = string.Empty;
     [Reactive] private string _currentStepPath = string.Empty;
     [Reactive] private string _heroLabel = "SELECTED:";
@@ -293,6 +298,10 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
             if (args.PropertyName == nameof(IsEngineerDebugMode))
             {
                 StationOverrides.RefreshParameterFields();
+            }
+            else if (args.PropertyName == nameof(IsCompactLayout))
+            {
+                this.RaisePropertyChanged(nameof(ShowStageRail));
             }
             else if (args.PropertyName is nameof(IsRunning) or nameof(Status))
             {
