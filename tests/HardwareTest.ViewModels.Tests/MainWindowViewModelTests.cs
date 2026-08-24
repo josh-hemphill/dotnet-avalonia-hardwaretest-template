@@ -1,6 +1,7 @@
 using HardwareTest.Core.Hardware;
 using HardwareTest.Core.Settings;
 using HardwareTest.Features;
+using HardwareTest.Features.Shell;
 using HardwareTest.Features.Home;
 using HardwareTest.Features.Inspect;
 using HardwareTest.Features.Instruments;
@@ -163,5 +164,14 @@ public sealed class MainWindowViewModelTests
         await vm.PauseResumeCommand.ExecuteAsync();
         Assert.False(openTap.IsAwaitingOperator);
         Assert.Equal("RunTest", vm.SelectedItem?.Id);
+    }
+
+    [Fact]
+    public void SafetyStopTip_matches_shared_stop_run_copy()
+    {
+        var vm = CreateMain(new FakeSettingsStore(), new FakeOpenTapSession(), new FakeRunControl());
+        Assert.Equal(StopRunCopy.Label, vm.SafetyStopLabel);
+        Assert.Equal(StopRunCopy.CooperativeTip, vm.SafetyStopTip);
+        Assert.Contains("Not a hardware interlock", vm.SafetyStopTip, StringComparison.Ordinal);
     }
 }
