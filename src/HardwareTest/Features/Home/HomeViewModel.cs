@@ -39,6 +39,16 @@ public partial class HomeViewModel : ReactiveObject
 
         AllowOsFolderBrowse = settingsStore?.AppSettings.AllowOsFolderBrowse == true
                               || settingsStore?.AppSettings.IsEngineerDebugMode == true;
+        IsEngineerMode = settingsStore?.AppSettings.IsEngineerDebugMode == true;
+        if (settingsStore is not null)
+        {
+            settingsStore.AppSettingsSaved += (_, _) =>
+            {
+                AllowOsFolderBrowse = settingsStore.AppSettings.AllowOsFolderBrowse
+                                      || settingsStore.AppSettings.IsEngineerDebugMode;
+                IsEngineerMode = settingsStore.AppSettings.IsEngineerDebugMode;
+            };
+        }
         OpenCrashFolderCommand = ReactiveCommand.Create(OpenCrashFolder);
         ExportSupportBundleCommand = ReactiveCommand.Create(ExportSupportBundle);
         DismissCrashBannerCommand = ReactiveCommand.Create(DismissCrashBanner);
@@ -72,6 +82,7 @@ public partial class HomeViewModel : ReactiveObject
     [Reactive] private string _crashBannerDetail = string.Empty;
     [Reactive] private string _crashStatus = string.Empty;
     [Reactive] private bool _allowOsFolderBrowse;
+    [Reactive] private bool _isEngineerMode;
 
     private CrashDossierSummary? _activeDossier;
 

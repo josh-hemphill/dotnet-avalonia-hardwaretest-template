@@ -162,19 +162,3 @@ public sealed class FileRunStore : IRunStore
 
     private static string Sanitize(string runId) => HardwareTest.Core.IO.PortableFileNames.Sanitize(runId);
 }
-
-/// Placeholder for future run-to-run comparison.
-public interface IRunComparisonService
-{
-    // TODO: Implement run-to-run comparison between persisted test runs.
-    Task<string> CompareAsync(string leftRunId, string rightRunId, CancellationToken cancellationToken = default);
-}
-
-public sealed class StubRunComparisonService : IRunComparisonService
-{
-    public Task<string> CompareAsync(string leftRunId, string rightRunId, CancellationToken cancellationToken = default)
-    {
-        // TODO: Implement run-to-run comparison between persisted test runs.
-        return Task.FromResult($"Comparison of {leftRunId} vs {rightRunId} is not implemented yet.");
-    }
-}

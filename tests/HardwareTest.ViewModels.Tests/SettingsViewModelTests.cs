@@ -151,6 +151,7 @@ public sealed class SettingsViewModelTests
         Assert.Contains("OpenTAP: 1.2.3", copied, StringComparison.Ordinal);
         Assert.Contains("Hardware interlock: Not wired", copied, StringComparison.Ordinal);
         Assert.Contains("OpenTAP worker: killable child process", copied, StringComparison.Ordinal);
+        Assert.Contains("Catalog self-check: ok", copied, StringComparison.Ordinal);
         Assert.Contains("ThemePreference", copied, StringComparison.Ordinal);
         Assert.Contains("Copied diagnostics", vm.Status, StringComparison.OrdinalIgnoreCase);
         Assert.False(string.IsNullOrWhiteSpace(vm.AboutVersion));

@@ -77,11 +77,11 @@ internal static class E2EHarness
     }
 
     public static RunTestViewModel RunTestVm(MainWindowViewModel main)
-        => (RunTestViewModel)main.NavigationItems.First(i => i.Id == "RunTest").ViewModel;
+        => main.RunTest;
 
     public static ResultsViewModel ResultsVm(MainWindowViewModel main)
-        => (ResultsViewModel)main.NavigationItems.First(i => i.Id == "Results").ViewModel;
+        => main.Results;
 
     public static ReportPreviewViewModel ReportPreviewVm(MainWindowViewModel main)
-        => (ReportPreviewViewModel)main.NavigationItems.First(i => i.Id == "ReportPreview").ViewModel;
+        => main.ReportPreview;
 }

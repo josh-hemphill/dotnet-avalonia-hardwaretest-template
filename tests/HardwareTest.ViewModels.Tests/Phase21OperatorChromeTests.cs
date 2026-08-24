@@ -60,20 +60,20 @@ public sealed class Phase21OperatorChromeTests
         Assert.Contains("LiveSetting=\"Polite\"", axaml, StringComparison.Ordinal);
         Assert.Contains("MaxLines=\"1\"", axaml, StringComparison.Ordinal);
         Assert.DoesNotContain("TextWrapping=\"Wrap\"", CompactStatusBlock(axaml), StringComparison.Ordinal);
-        var run = File.ReadAllText(FindRepoFile("src/HardwareTest/Features/RunTest/RunTestView.axaml"));
-        Assert.Contains("LiveSetting=\"Assertive\"", run, StringComparison.Ordinal);
+        var host = File.ReadAllText(FindRepoFile("src/HardwareTest/Features/RunTest/InteractionHostView.axaml"));
+        Assert.Contains("LiveSetting=\"Assertive\"", host, StringComparison.Ordinal);
     }
 
     [Fact]
     public void Run_board_does_not_live_announce_hero_or_plot_floods()
     {
         var run = File.ReadAllText(FindRepoFile("src/HardwareTest/Features/RunTest/RunTestView.axaml"));
-        Assert.Equal(1, CountOccurrences(run, "AutomationProperties.LiveSetting"));
-        Assert.Contains("AutomationProperties.Name=\"Operator prompt\"", run, StringComparison.Ordinal);
-        var heroIdx = run.IndexOf("HeroStatusLine", StringComparison.Ordinal);
-        Assert.True(heroIdx >= 0);
-        var liveIdx = run.IndexOf("AutomationProperties.LiveSetting", StringComparison.Ordinal);
-        Assert.True(liveIdx > heroIdx, "HeroStatusLine must not be the live region (plot/progress floods).");
+        var host = File.ReadAllText(FindRepoFile("src/HardwareTest/Features/RunTest/InteractionHostView.axaml"));
+        Assert.Equal(0, CountOccurrences(run, "AutomationProperties.LiveSetting"));
+        Assert.Equal(1, CountOccurrences(host, "AutomationProperties.LiveSetting"));
+        Assert.Contains("AutomationProperties.Name=\"Operator prompt\"", host, StringComparison.Ordinal);
+        Assert.Contains("HeroStatusLine", run, StringComparison.Ordinal);
+        Assert.DoesNotContain("AutomationProperties.LiveSetting", run, StringComparison.Ordinal);
     }
 
     [Fact]

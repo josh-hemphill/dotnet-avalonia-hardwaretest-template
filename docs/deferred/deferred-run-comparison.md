@@ -1,8 +1,8 @@
 # Deferred — Run comparison
 
 **Parent:** [platform-roadmap.md](../platform-roadmap.md)
-**Status:** Deferred
-**Related code:** [`StubRunComparisonService`](../../src/HardwareTest.Core/Runs/FileRunStore.cs), `IRunComparisonService`
+**Status:** Promoted — implemented as Results **Compare with previous** (same DUT + plan). This file stays as the deferred-track original.
+**Related code:** [`RunComparisonService`](../../src/HardwareTest.Core/Runs/RunComparisonService.cs), `IRunComparisonService`, Results detail pane
 
 ## Goal
 
@@ -14,7 +14,7 @@ Replace the stub run-to-run comparison service with a real, operator-useful comp
 - Prefer Presentation `MetricKey` grouping when present (same rules as DUT history).
 - UI stays in-panel on Results (side-by-side or delta table) — no second Window.
 - Do not block Run on comparison failures.
-- Do **not** register `StubRunComparisonService` as an operator-facing Results feature until this plan is implemented. Keep the stub out of operator chrome.
+- Do **not** register a stub as an operator-facing Results feature.
 
 ## Workstreams
 
@@ -25,9 +25,9 @@ Replace the stub run-to-run comparison service with a real, operator-useful comp
 
 ## Exit criteria
 
-- [ ] Stub removed; DI registers a real implementation
-- [ ] Operator can compare two completed runs and see per-metric deltas
-- [ ] Missing metrics degrade gracefully (listed as unavailable, not crash)
+- [x] Stub removed; DI registers a real implementation
+- [x] Operator can compare two completed runs and see per-metric deltas
+- [x] Missing metrics degrade gracefully (listed as unavailable, not crash)
 
 ## Out of scope
 

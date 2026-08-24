@@ -2,6 +2,7 @@ using HardwareTest.Core.Runs;
 using HardwareTest.Core.Settings;
 using HardwareTest.Features.Presentation;
 using HardwareTest.Features.RunTest;
+using HardwareTest.Features.Shell;
 using HardwareTest.OpenTap.Host;
 using HardwareTest.OpenTap.Plugins.Basic;
 using HardwareTest.ViewModels.Tests.Fakes;
@@ -18,7 +19,8 @@ public sealed class RunTestViewModelTests
         OperatorSession? session = null,
         FakeRunStore? store = null,
         FakeSettingsStore? settingsStore = null,
-        IDutHistoryService? dutHistory = null)
+        IDutHistoryService? dutHistory = null,
+        ShellNotificationViewModel? shellNotification = null)
     {
         settings ??= settingsStore?.AppSettings ?? new AppSettings();
         var openTapSession = openTap ?? new FakeOpenTapSession();
@@ -32,7 +34,8 @@ public sealed class RunTestViewModelTests
             store ?? new FakeRunStore(),
             settings,
             settingsStore,
-            dutHistory);
+            dutHistory,
+            shellNotification: shellNotification);
     }
 
     private static async Task ConfirmReadyAsync(RunTestViewModel vm, string serial = "SN-1", string tech = "Tech")
@@ -1371,14 +1374,42 @@ public sealed class RunTestViewModelTests
         var openTap = new FakeOpenTapSession();
         await openTap.LoadSampleProgramAsync();
         var settings = new AppSettings { UseMockVisa = false };
-        var vm = CreateVm(openTap, settings: settings);
+        var shell = new ShellNotificationViewModel();
+        var vm = CreateVm(openTap, settings: settings, shellNotification: shell);
+        StationBindRequestedEventArgs? bind = null;
+        vm.NavigateToInstrumentsRequested += (_, e) => bind = e;
         await vm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
         await ConfirmReadyAsync(vm, "SN-MOCK");
 
         await vm.Run.RunCommand.ExecuteAsync();
 
-        Assert.Contains("Mock instruments/resources blocked", vm.Status, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Use mock VISA is off", vm.Status, StringComparison.OrdinalIgnoreCase);
         Assert.Equal(0, openTap.RunCount);
+        Assert.NotNull(bind);
+        Assert.Equal("sample", bind.PlanId);
+        Assert.Contains("DMM", bind.SlotNames);
+        Assert.Equal("Open Instruments", shell.PrimaryLabel);
+        Assert.True(shell.HasPrimaryAction);
+    }
+
+    [Fact]
+    public async Task Run_blocks_unbound_slots_and_requests_instruments_bind()
+    {
+        var openTap = new FakeOpenTapSession();
+        await openTap.LoadSampleProgramAsync();
+        openTap.Slots[0].ResourceName = string.Empty;
+        var vm = CreateVm(openTap);
+        StationBindRequestedEventArgs? bind = null;
+        vm.NavigateToInstrumentsRequested += (_, e) => bind = e;
+        await vm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
+        await ConfirmReadyAsync(vm, "SN-UNBOUND");
+
+        await vm.Run.RunCommand.ExecuteAsync();
+
+        Assert.Contains("unbound", vm.Status, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(0, openTap.RunCount);
+        Assert.NotNull(bind);
+        Assert.Contains("DMM", bind.SlotNames);
     }
 
     [Fact]

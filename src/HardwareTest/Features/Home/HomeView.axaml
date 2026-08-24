@@ -1,6 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:HardwareTest.Features.Home"
+             xmlns:shell="using:HardwareTest.Features.Shell"
              x:Class="HardwareTest.Features.Home.HomeView"
              x:DataType="vm:HomeViewModel">
   <ScrollViewer>
@@ -31,10 +32,12 @@
                    TextAlignment="Center" />
       </StackPanel>
 
-      <UniformGrid Columns="3" HorizontalAlignment="Stretch" Margin="0,8,0,0">
+      <WrapPanel HorizontalAlignment="Stretch" Margin="0,8,0,0">
         <Border Margin="8"
                 Padding="16"
                 CornerRadius="8"
+                MinWidth="{x:Static shell:ShellLayoutBreakpoints.HomeTileMinWidth}"
+                MaxWidth="420"
                 BorderBrush="{DynamicResource SystemControlForegroundBaseMediumBrush}"
                 BorderThickness="1"
                 Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}">
@@ -51,9 +54,12 @@
         <Border Margin="8"
                 Padding="16"
                 CornerRadius="8"
+                MinWidth="{x:Static shell:ShellLayoutBreakpoints.HomeTileMinWidth}"
+                MaxWidth="420"
                 BorderBrush="{DynamicResource SystemControlForegroundBaseMediumBrush}"
                 BorderThickness="1"
-                Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}">
+                Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
+                IsVisible="{Binding IsEngineerMode}">
           <StackPanel Spacing="12">
             <TextBlock Text="Programs &amp; instruments" FontSize="18" FontWeight="SemiBold" />
             <TextBlock TextWrapping="Wrap"
@@ -67,19 +73,21 @@
         <Border Margin="8"
                 Padding="16"
                 CornerRadius="8"
+                MinWidth="{x:Static shell:ShellLayoutBreakpoints.HomeTileMinWidth}"
+                MaxWidth="420"
                 BorderBrush="{DynamicResource SystemControlForegroundBaseMediumBrush}"
                 BorderThickness="1"
                 Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}">
           <StackPanel Spacing="12">
             <TextBlock Text="Reports" FontSize="18" FontWeight="SemiBold" />
             <TextBlock TextWrapping="Wrap"
-                       Text="Passed and failed runs write Typst PDFs. Enable embed plots in Settings to include channel charts from run Samples." />
+                       Text="Passed and failed runs write Typst PDFs. Open a run from Results, then preview or export the report from there." />
             <Button Content="Open Results →"
                     Command="{Binding NavigateToResultsCommand}"
                     HorizontalAlignment="Left" />
           </StackPanel>
         </Border>
-      </UniformGrid>
+      </WrapPanel>
     </StackPanel>
   </ScrollViewer>
 </UserControl>
