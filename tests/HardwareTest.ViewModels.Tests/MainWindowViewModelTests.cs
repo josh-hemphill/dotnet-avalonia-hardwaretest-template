@@ -70,9 +70,61 @@ public sealed class MainWindowViewModelTests
     }
 
     [Fact]
+    public void Operator_navigation_hides_engineer_pages()
+    {
+        var store = new FakeSettingsStore();
+        var vm = CreateMain(store, new FakeOpenTapSession(), new FakeRunControl());
+        Assert.Equal(4, vm.NavigationItems.Count);
+        Assert.DoesNotContain(vm.NavigationItems, i => i.Id == ShellNavigationPolicy.Inspect);
+        Assert.DoesNotContain(vm.NavigationItems, i => i.Id == ShellNavigationPolicy.Instruments);
+        Assert.DoesNotContain(vm.NavigationItems, i => i.Id == ShellNavigationPolicy.ReportPreview);
+        Assert.Contains(vm.NavigationItems, i => i.Id == ShellNavigationPolicy.Home);
+        Assert.Contains(vm.NavigationItems, i => i.Id == ShellNavigationPolicy.RunTest);
+        Assert.Contains(vm.NavigationItems, i => i.Id == ShellNavigationPolicy.Results);
+        Assert.Contains(vm.NavigationItems, i => i.Id == ShellNavigationPolicy.Settings);
+    }
+
+    [Fact]
+    public void Engineer_navigation_includes_inspect_and_instruments()
+    {
+        var store = new FakeSettingsStore();
+        store.AppSettings.IsEngineerDebugMode = true;
+        var vm = CreateMain(store, new FakeOpenTapSession(), new FakeRunControl());
+        Assert.Contains(vm.NavigationItems, i => i.Id == ShellNavigationPolicy.Inspect);
+        Assert.Contains(vm.NavigationItems, i => i.Id == ShellNavigationPolicy.Instruments);
+        Assert.DoesNotContain(vm.NavigationItems, i => i.Id == ShellNavigationPolicy.ReportPreview);
+    }
+
+    [Fact]
+    public async Task Saving_engineer_mode_rebuilds_nav_and_report_preview_stays_reachable()
+    {
+        var store = new FakeSettingsStore();
+        var vm = CreateMain(store, new FakeOpenTapSession(), new FakeRunControl());
+        Assert.DoesNotContain(vm.NavigationItems, i => i.Id == ShellNavigationPolicy.Inspect);
+
+        store.AppSettings.IsEngineerDebugMode = true;
+        await store.SaveAppSettingsAsync();
+        Assert.Contains(vm.NavigationItems, i => i.Id == ShellNavigationPolicy.Inspect);
+
+        vm.NavigateToPageId(ShellNavigationPolicy.ReportPreview);
+        Assert.Same(vm.ReportPreview, vm.CurrentPage);
+        Assert.Equal(ShellNavigationPolicy.Results, vm.SelectedItem?.Id);
+    }
+
+    [Fact]
+    public void Startup_on_hidden_engineer_page_falls_back_to_home()
+    {
+        var store = new FakeSettingsStore();
+        store.UiState.SelectedPageId = ShellNavigationPolicy.Inspect;
+        var vm = CreateMain(store, new FakeOpenTapSession(), new FakeRunControl());
+        Assert.Equal(ShellNavigationPolicy.Home, vm.SelectedItem?.Id);
+    }
+
+    [Fact]
     public void NavigationItems_include_Inspect()
     {
         var store = new FakeSettingsStore();
+        store.AppSettings.IsEngineerDebugMode = true;
         var openTap = new FakeOpenTapSession();
         var vm = CreateMain(store, openTap, new FakeRunControl());
         Assert.Contains(vm.NavigationItems, i => i.Id == "Inspect");

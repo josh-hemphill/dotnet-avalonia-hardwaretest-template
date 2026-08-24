@@ -148,8 +148,7 @@ public sealed class RunFlowE2ETests
         await runVm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
 
         main.NavigateToPageId("Inspect");
-        Assert.Equal("Inspect", main.SelectedItem?.Id);
-        Assert.NotEmpty(main.Inspect.Hierarchy);
+        Assert.Same(main.Inspect, main.CurrentPage);
         Assert.Contains(main.Inspect.Hierarchy, r => r.Children.Count > 0 || r.Name.Length > 0);
     }
 
