@@ -28,6 +28,8 @@ public sealed class CoreCompositionTests
 
         Assert.NotNull(sp.GetRequiredService<IVisaSessionFactory>());
         Assert.NotNull(sp.GetRequiredService<IRunStore>());
+        Assert.NotNull(sp.GetRequiredService<IRunComparisonService>());
+        Assert.IsType<RunComparisonService>(sp.GetRequiredService<IRunComparisonService>());
         Assert.NotNull(sp.GetRequiredService<IReportService>());
         Assert.NotNull(sp.GetRequiredService<ISuiteRunStore>());
         Assert.NotNull(sp.GetRequiredService<IVisaResourceDiscovery>());
