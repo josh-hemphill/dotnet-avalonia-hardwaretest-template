@@ -140,7 +140,7 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
         {
             if (IsRunning)
             {
-                return "Run in progress — use Stop Run to abort.";
+                return StopRunCopy.InProgressTip;
             }
 
             if (SessionPanel.SessionBlocked)

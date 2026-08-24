@@ -85,6 +85,9 @@ public partial class OperatorSessionPanelViewModel : ReactiveObject
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> ConfirmSameDutCommand { get; }
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> ChangeSessionCommand { get; }
 
+    /// Raised when the DUT serial field should take keyboard/scanner focus.
+    public event EventHandler? RequestFocusDutSerial;
+
     [Reactive] private string _dutSerialInput = string.Empty;
     [Reactive] private string _dutPartInput = string.Empty;
     [Reactive] private string _dutRevisionInput = string.Empty;
@@ -249,6 +252,10 @@ public partial class OperatorSessionPanelViewModel : ReactiveObject
         var family = program?.DutFamily ?? "generic";
         RefreshRequirementFlags();
         ClearFieldErrors();
+        DutSerialInput = NormalizeScan(DutSerialInput);
+        DutPartInput = NormalizeScan(DutPartInput);
+        DutRevisionInput = NormalizeScan(DutRevisionInput);
+        OperatorInput = NormalizeScan(OperatorInput);
         if (!_session.TryConfirm(req, DutSerialInput, DutPartInput, DutRevisionInput, OperatorInput, family, out var error))
         {
             ApplyFieldError(error);
@@ -283,7 +290,8 @@ public partial class OperatorSessionPanelViewModel : ReactiveObject
 
         if (!string.IsNullOrWhiteSpace(OperatorInput))
         {
-            _session.OperatorName = OperatorInput.Trim();
+            OperatorInput = NormalizeScan(OperatorInput);
+            _session.OperatorName = OperatorInput;
         }
 
         _session.ConfirmSameDut();
@@ -312,7 +320,12 @@ public partial class OperatorSessionPanelViewModel : ReactiveObject
         RefreshSessionSummary();
         UpdateIdleTimer();
         _setStatus("Confirm DUT, then Run.");
+        RequestFocusDutSerial?.Invoke(this, EventArgs.Empty);
     }
+
+    /// Trims keyboard-wedge scanner suffixes without starting a run.
+    public static string NormalizeScan(string value)
+        => string.IsNullOrEmpty(value) ? string.Empty : value.Trim().Trim('\0');
 
     private void ClearFieldErrors()
     {

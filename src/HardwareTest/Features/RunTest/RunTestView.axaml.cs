@@ -43,6 +43,7 @@ public partial class RunTestView : UserControl
             vm.Live.PlotDataChanged += OnPlotDataChanged;
             vm.StepTree.RequestScrollToSelectedStep += OnRequestScrollToSelectedStep;
             vm.StepTree.RequestFocusStepSearch += OnRequestFocusStepSearch;
+            vm.SessionPanel.RequestFocusDutSerial += OnRequestFocusDutSerial;
             vm.ProgramSelection.RequestPlanFilePath = PickPlanFileAsync;
             // Detail/Focus chrome must reset star rows: GridSplitter converts * to Absolute,
             // and a permanent * Focus row still reserves space when IsVisible=false.
@@ -62,6 +63,10 @@ public partial class RunTestView : UserControl
                         _layout.ApplyDetailDrawerRows(state.showDetails, state.showFocus));
                 });
             _layout.ApplyDetailDrawerRows(vm.StepDetail.ShowDetailRegion, vm.Live.ShowFocusTrend);
+            if (vm.SessionPanel.NeedsDutConfirm)
+            {
+                ScheduleFocusDutSerial();
+            }
             if (Plot is not null)
             {
                 Plot.UpdateData(vm.Live.PlotYs, vm.Live.PlotYsLength, force: true);
@@ -80,6 +85,7 @@ public partial class RunTestView : UserControl
         _subscribed.Live.PlotDataChanged -= OnPlotDataChanged;
         _subscribed.StepTree.RequestScrollToSelectedStep -= OnRequestScrollToSelectedStep;
         _subscribed.StepTree.RequestFocusStepSearch -= OnRequestFocusStepSearch;
+        _subscribed.SessionPanel.RequestFocusDutSerial -= OnRequestFocusDutSerial;
         _subscribed.ProgramSelection.RequestPlanFilePath = null;
         _subscribed = null;
     }
@@ -189,6 +195,38 @@ public partial class RunTestView : UserControl
 
     private void OnRequestFocusStepSearch(object? sender, EventArgs e)
         => StepSearchBox?.Focus();
+
+    private void OnRequestFocusDutSerial(object? sender, EventArgs e)
+        => ScheduleFocusDutSerial();
+
+    private void ScheduleFocusDutSerial()
+    {
+        Dispatcher.UIThread.Post(
+            () => DutSerialBox?.Focus(),
+            DispatcherPriority.Loaded);
+    }
+
+    private void OnSessionFieldKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter || e.KeyModifiers != KeyModifiers.None || _subscribed is null)
+        {
+            return;
+        }
+
+        ((ICommand)_subscribed.SessionPanel.ConfirmSessionCommand).Execute(null);
+        e.Handled = true;
+    }
+
+    private void OnStaleTechnicianKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter || e.KeyModifiers != KeyModifiers.None || _subscribed is null)
+        {
+            return;
+        }
+
+        ((ICommand)_subscribed.SessionPanel.ConfirmSameDutCommand).Execute(null);
+        e.Handled = true;
+    }
 
     private void OnKeyDown(object? sender, KeyEventArgs e)
     {

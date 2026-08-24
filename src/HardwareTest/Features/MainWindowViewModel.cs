@@ -195,7 +195,7 @@ public partial class MainWindowViewModel : ReactiveObject
         {
             if (IsAwaitingOperator) return "Cancel prompt";
             if (IsSafetyStopping) return "Cancel shutdown";
-            return "Stop Run";
+            return StopRunCopy.Label;
         }
     }
 
@@ -204,10 +204,10 @@ public partial class MainWindowViewModel : ReactiveObject
         get
         {
             if (IsAwaitingOperator)
-                return "Cancel prompt (aborts run) — operator interaction is cancelled via Stop Run";
+                return StopRunCopy.CancelPromptTip;
             if (IsSafetyStopping)
-                return "Cancel the in-progress software stop";
-            return "Stop Run — cooperative software stop, then kill the OpenTAP worker if a step ignores cancel. Not a hardware interlock.";
+                return StopRunCopy.CancelShutdownTip;
+            return StopRunCopy.CooperativeTip;
         }
     }
 

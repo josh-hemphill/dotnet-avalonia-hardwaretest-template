@@ -51,7 +51,8 @@
             <Button Content="Stop Run" Command="{Binding Run.CancelCommand}"
                     IsEnabled="{Binding CanSafetyStop}"
                     Classes="danger"
-                    ToolTip.Tip="Software stop — cancels this run and in-panel prompts. Blocking instrument I/O may continue until the step returns. This is not a hardware interlock." />
+                    ToolTip.Tip="{x:Static shell:StopRunCopy.CooperativeTip}"
+                    AutomationProperties.Name="{x:Static shell:StopRunCopy.Label}" />
             <Button Content="Inspect" Command="{Binding InspectPlanCommand}" Classes="operator" />
           </StackPanel>
         </Grid>
@@ -108,9 +109,12 @@
               <Button Content="Change Session" Command="{Binding SessionPanel.ChangeSessionCommand}" />
             </StackPanel>
             <TextBox PlaceholderText="{Binding SessionPanel.TechnicianPlaceholder}"
-                     Text="{Binding SessionPanel.OperatorInput}"
+                     Text="{Binding SessionPanel.OperatorInput, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                      Width="180"
-                     IsVisible="{Binding SessionPanel.ShowStaleTechnicianField}" />
+                     MinHeight="{x:Static shell:OperatorTouchDensity.OperatorControlMinHeight}"
+                     IsVisible="{Binding SessionPanel.ShowStaleTechnicianField}"
+                     AutomationProperties.Name="Technician"
+                     KeyDown="OnStaleTechnicianKeyDown" />
           </StackPanel>
           <StackPanel Spacing="6" IsVisible="{Binding SessionPanel.IsIdleWarningPrompt}">
             <StackPanel Orientation="Horizontal" Spacing="8">
@@ -120,25 +124,39 @@
             </StackPanel>
           </StackPanel>
           <WrapPanel IsVisible="{Binding SessionPanel.NeedsDutConfirm}">
-            <StackPanel Width="150" Margin="0,0,8,8" Spacing="2">
-              <TextBox PlaceholderText="DUT serial *" Text="{Binding SessionPanel.DutSerialInput}"
-                       Classes.error="{Binding SessionPanel.HasDutSerialError}" />
+            <StackPanel Width="180" Margin="0,0,8,8" Spacing="2">
+              <TextBox x:Name="DutSerialBox"
+                       PlaceholderText="DUT serial *"
+                       Text="{Binding SessionPanel.DutSerialInput, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                       Classes.error="{Binding SessionPanel.HasDutSerialError}"
+                       MinHeight="{x:Static shell:OperatorTouchDensity.OperatorControlMinHeight}"
+                       AutomationProperties.Name="DUT serial"
+                       KeyDown="OnSessionFieldKeyDown" />
               <TextBlock Text="{Binding SessionPanel.DutSerialError}"
                          IsVisible="{Binding SessionPanel.HasDutSerialError}"
                          Foreground="#C62828"
                          FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}"
                          TextWrapping="Wrap" />
             </StackPanel>
-            <TextBox PlaceholderText="Part number" Text="{Binding SessionPanel.DutPartInput}"
+            <TextBox PlaceholderText="Part number" Text="{Binding SessionPanel.DutPartInput, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                      Width="130" Margin="0,0,8,8"
-                     IsVisible="{Binding SessionPanel.RequirePartNumber}" />
-            <TextBox PlaceholderText="Revision" Text="{Binding SessionPanel.DutRevisionInput}"
+                     MinHeight="{x:Static shell:OperatorTouchDensity.OperatorControlMinHeight}"
+                     IsVisible="{Binding SessionPanel.RequirePartNumber}"
+                     AutomationProperties.Name="DUT part number"
+                     KeyDown="OnSessionFieldKeyDown" />
+            <TextBox PlaceholderText="Revision" Text="{Binding SessionPanel.DutRevisionInput, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                      Width="90" Margin="0,0,8,8"
-                     IsVisible="{Binding SessionPanel.RequireRevision}" />
-            <StackPanel Width="140" Margin="0,0,8,8" Spacing="2">
+                     MinHeight="{x:Static shell:OperatorTouchDensity.OperatorControlMinHeight}"
+                     IsVisible="{Binding SessionPanel.RequireRevision}"
+                     AutomationProperties.Name="DUT revision"
+                     KeyDown="OnSessionFieldKeyDown" />
+            <StackPanel Width="160" Margin="0,0,8,8" Spacing="2">
               <TextBox PlaceholderText="{Binding SessionPanel.TechnicianPlaceholder}"
-                       Text="{Binding SessionPanel.OperatorInput}"
-                       Classes.error="{Binding SessionPanel.HasOperatorError}" />
+                       Text="{Binding SessionPanel.OperatorInput, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                       Classes.error="{Binding SessionPanel.HasOperatorError}"
+                       MinHeight="{x:Static shell:OperatorTouchDensity.OperatorControlMinHeight}"
+                       AutomationProperties.Name="Technician"
+                       KeyDown="OnSessionFieldKeyDown" />
               <TextBlock Text="{Binding SessionPanel.OperatorError}"
                          IsVisible="{Binding SessionPanel.HasOperatorError}"
                          Foreground="#C62828"
@@ -211,72 +229,7 @@
                      TextWrapping="Wrap"
                      FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}"
                      IsVisible="{Binding !Interaction.IsAwaitingOperator}" />
-          <Border MaxHeight="200"
-                  IsVisible="{Binding Interaction.IsAwaitingOperator}"
-                  BorderBrush="#FB8C00"
-                  BorderThickness="2"
-                  CornerRadius="4"
-                  Padding="8"
-                  Margin="0,4,0,0"
-                  AutomationProperties.LiveSetting="Assertive"
-                  AutomationProperties.Name="Operator prompt">
-            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-            <StackPanel Spacing="6">
-              <TextBlock Text="{Binding Interaction.InteractionTitle}"
-                         FontWeight="Bold"
-                         FontSize="13" />
-              <DockPanel LastChildFill="True">
-                <Button DockPanel.Dock="Right"
-                        Content="Show this step"
-                        Command="{Binding StepTree.JumpToCurrentCommand}"
-                        FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}"
-                        Padding="8,2"
-                        Margin="8,0,0,0"
-                        VerticalAlignment="Center"
-                        ToolTip.Tip="Jump to the stage and step waiting for input" />
-                <TextBlock Text="{Binding CurrentStepName, StringFormat=Waiting at: {0}}"
-                           FontSize="12"
-                           Opacity="0.85"
-                           VerticalAlignment="Center"
-                           TextTrimming="CharacterEllipsis"
-                           IsVisible="{Binding CurrentStepName, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
-              </DockPanel>
-              <TextBlock Text="{Binding Interaction.OperatorPromptMessage}"
-                         FontWeight="SemiBold"
-                         TextWrapping="Wrap" />
-              <TextBlock Text="{Binding Interaction.InteractionValidationError}"
-                         Foreground="#E65100"
-                         TextWrapping="Wrap"
-                         FontSize="12"
-                         IsVisible="{Binding Interaction.InteractionValidationError, Converter={x:Static ObjectConverters.IsNotNull}}" />
-              <ItemsControl ItemsSource="{Binding Interaction.InteractionFields}"
-                            IsVisible="{Binding Interaction.HasInteractionFields}">
-                <ItemsControl.ItemTemplate>
-                  <DataTemplate x:DataType="vm:InteractionFieldViewModel">
-                    <StackPanel Spacing="4" Margin="0,2,0,4">
-                      <TextBlock Text="{Binding Label}"
-                                 FontSize="12"
-                                 Opacity="0.85"
-                                 IsVisible="{Binding IsTextOrNumber}" />
-                      <TextBox Text="{Binding Value}"
-                               PlaceholderText="{Binding ValidationHint}"
-                               IsVisible="{Binding IsTextOrNumber}" />
-                      <CheckBox Content="{Binding Label}"
-                                IsChecked="{Binding BoolValue}"
-                                IsVisible="{Binding IsBoolean}" />
-                    </StackPanel>
-                  </DataTemplate>
-                </ItemsControl.ItemTemplate>
-              </ItemsControl>
-              <Button Content="Continue"
-                      Command="{Binding ContinueOperatorCommand}"
-                      Classes="success"
-                      HorizontalAlignment="Left"
-                      MinWidth="120"
-                      ToolTip.Tip="Submit the interaction response and continue the run" />
-            </StackPanel>
-            </ScrollViewer>
-          </Border>
+          <vm:InteractionHostView />
         </StackPanel>
       </Border>
 
@@ -568,7 +521,7 @@
                                        FontSize="12"
                                        Opacity="0.85"
                                        IsVisible="{Binding IsTextOrNumber}" />
-                            <TextBox Text="{Binding Value}"
+                            <TextBox Text="{Binding Value, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                      PlaceholderText="{Binding ValidationHint}"
                                      IsVisible="{Binding IsTextOrNumber}"
                                      IsReadOnly="{Binding IsReadOnly}" />

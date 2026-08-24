@@ -1,0 +1,91 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:HardwareTest.Features.RunTest"
+             xmlns:shell="using:HardwareTest.Features.Shell"
+             x:Class="HardwareTest.Features.RunTest.InteractionHostView"
+             x:Name="Root"
+             x:DataType="vm:RunTestViewModel">
+  <!-- Continue stays docked outside the body scroller so required actions stay visible at 900×600. -->
+  <Border MaxHeight="{x:Static shell:OperatorTouchDensity.InteractionHostMaxHeight}"
+          IsVisible="{Binding Interaction.IsAwaitingOperator}"
+          BorderBrush="#FB8C00"
+          BorderThickness="2"
+          CornerRadius="4"
+          Padding="8"
+          Margin="0,4,0,0"
+          AutomationProperties.LiveSetting="Assertive"
+          AutomationProperties.Name="Operator prompt">
+    <DockPanel LastChildFill="True">
+      <StackPanel DockPanel.Dock="Bottom" Spacing="6" Margin="0,8,0,0">
+        <TextBlock Text="{Binding Interaction.InteractionValidationError}"
+                   Foreground="#E65100"
+                   TextWrapping="Wrap"
+                   FontSize="12"
+                   IsVisible="{Binding Interaction.InteractionValidationError, Converter={x:Static ObjectConverters.IsNotNull}}" />
+        <Button x:Name="ContinueButton"
+                Content="Continue"
+                Command="{Binding ContinueOperatorCommand}"
+                Classes="success"
+                HorizontalAlignment="Left"
+                MinWidth="120"
+                MinHeight="{x:Static shell:OperatorTouchDensity.OperatorControlMinHeight}"
+                ToolTip.Tip="Submit the interaction response and continue the run"
+                AutomationProperties.Name="Continue operator prompt" />
+      </StackPanel>
+
+      <ScrollViewer x:Name="PromptBodyScroller"
+                    MaxHeight="{x:Static shell:OperatorTouchDensity.InteractionHostBodyMaxHeight}"
+                    VerticalScrollBarVisibility="Auto"
+                    HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Spacing="6">
+          <TextBlock Text="{Binding Interaction.InteractionTitle}"
+                     FontWeight="Bold"
+                     FontSize="13" />
+          <DockPanel LastChildFill="True">
+            <Button DockPanel.Dock="Right"
+                    Content="Show this step"
+                    Command="{Binding StepTree.JumpToCurrentCommand}"
+                    FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}"
+                    Padding="8,2"
+                    Margin="8,0,0,0"
+                    VerticalAlignment="Center"
+                    ToolTip.Tip="Jump to the stage and step waiting for input" />
+            <TextBlock Text="{Binding CurrentStepName, StringFormat=Waiting at: {0}}"
+                       FontSize="12"
+                       Opacity="0.85"
+                       VerticalAlignment="Center"
+                       TextTrimming="CharacterEllipsis"
+                       IsVisible="{Binding CurrentStepName, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+          </DockPanel>
+          <TextBlock Text="{Binding Interaction.OperatorPromptMessage}"
+                     FontWeight="SemiBold"
+                     TextWrapping="Wrap" />
+          <ItemsControl x:Name="InteractionFieldsHost"
+                        ItemsSource="{Binding Interaction.InteractionFields}"
+                        IsVisible="{Binding Interaction.HasInteractionFields}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:InteractionFieldViewModel">
+                <StackPanel Spacing="4" Margin="0,2,0,4">
+                  <TextBlock Text="{Binding DisplayLabel}"
+                             FontSize="12"
+                             Opacity="0.85"
+                             IsVisible="{Binding IsTextOrNumber}" />
+                  <TextBox Text="{Binding Value, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                           PlaceholderText="{Binding ValidationHint}"
+                           IsVisible="{Binding IsTextOrNumber}"
+                           MinHeight="{x:Static shell:OperatorTouchDensity.OperatorControlMinHeight}"
+                           AutomationProperties.Name="{Binding AutomationName}"
+                           KeyDown="OnInteractionFieldKeyDown" />
+                  <CheckBox Content="{Binding DisplayLabel}"
+                            IsChecked="{Binding BoolValue}"
+                            IsVisible="{Binding IsBoolean}"
+                            AutomationProperties.Name="{Binding AutomationName}" />
+                </StackPanel>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
+      </ScrollViewer>
+    </DockPanel>
+  </Border>
+</UserControl>
