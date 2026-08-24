@@ -220,4 +220,44 @@ public sealed class InstrumentsViewModelTests
             }
         }
     }
+
+    [Fact]
+    public async Task Query_IDN_persists_onto_slot_matching_queried_resource()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "hwtest-idn-slot-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var idn = new FileStationIdnStore(dir);
+            var vm = CreateVm(idnStore: idn);
+            await vm.RefreshSlotsCommand.ExecuteAsync();
+            await vm.RefreshVisaDiscoverCommand.ExecuteAsync();
+            var slots = vm.SlotOverrides.ToList();
+            Assert.True(slots.Count >= 2, $"Need two slots, got {slots.Count}. {vm.Status}");
+            var selected = slots[0];
+            var bound = slots[1];
+            var visa = vm.DiscoveredVisa[0];
+            selected.OverrideResource = "MOCK::not-queried";
+            bound.OverrideResource = visa.Resource;
+            vm.SelectedSlot = selected;
+            vm.SelectedVisa = visa;
+            await vm.QuerySelectedIdnCommand.ExecuteAsync();
+
+            Assert.False(selected.HasLastIdn);
+            Assert.True(bound.HasLastIdn, vm.Status);
+            Assert.Null(idn.Find(selected.PlanId, selected.SlotName));
+            Assert.NotNull(idn.Find(bound.PlanId, bound.SlotName));
+        }
+        finally
+        {
+            try
+            {
+                Directory.Delete(dir, recursive: true);
+            }
+            catch
+            {
+                // best effort
+            }
+        }
+    }
 }

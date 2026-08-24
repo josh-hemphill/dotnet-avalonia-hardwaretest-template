@@ -99,16 +99,24 @@ public partial class InstrumentsViewModel
 
     private void PersistIdn(string resource, string raw, string summary)
     {
-        if (SelectedSlot is null || _idnStore is null || string.IsNullOrWhiteSpace(summary))
+        if (_idnStore is null || string.IsNullOrWhiteSpace(summary))
         {
             return;
         }
 
-        SelectedSlot.LastIdnSummary = summary;
+        var slot = SlotOverrides.FirstOrDefault(s =>
+            !string.IsNullOrWhiteSpace(s.EffectiveResource)
+            && string.Equals(s.EffectiveResource, resource, StringComparison.OrdinalIgnoreCase));
+        if (slot is null)
+        {
+            return;
+        }
+
+        slot.LastIdnSummary = summary;
         _idnStore.Upsert(new StationIdnRecord
         {
-            PlanId = SelectedSlot.PlanId,
-            SlotName = SelectedSlot.SlotName,
+            PlanId = slot.PlanId,
+            SlotName = slot.SlotName,
             Resource = resource,
             IdnRaw = raw,
             IdnSummary = summary,
