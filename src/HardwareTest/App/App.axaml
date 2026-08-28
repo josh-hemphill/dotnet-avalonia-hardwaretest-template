@@ -126,6 +126,32 @@
       <Setter Property="Background" Value="{DynamicResource SystemAccentColorDark1}" />
       <Setter Property="Foreground" Value="White" />
     </Style>
+    <Style Selector="ToggleButton.workspace-tab">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Foreground" Value="{DynamicResource SystemControlForegroundBaseHighBrush}" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0,0,0,2" />
+      <Setter Property="CornerRadius" Value="0" />
+      <Setter Property="Padding" Value="16,8" />
+      <Setter Property="MinHeight" Value="{x:Static shell:OperatorTouchDensity.OperatorControlMinHeight}" />
+      <Setter Property="FontSize" Value="13" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="ToggleButton.workspace-tab:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource SystemControlBackgroundChromeMediumBrush}" />
+    </Style>
+    <Style Selector="ToggleButton.workspace-tab:pressed /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}" />
+    </Style>
+    <Style Selector="ToggleButton.workspace-tab:checked">
+      <Setter Property="BorderBrush" Value="{DynamicResource SystemAccentColor}" />
+      <Setter Property="Foreground" Value="{DynamicResource SystemAccentColor}" />
+    </Style>
+    <Style Selector="ToggleButton.workspace-tab:checked /template/ ContentPresenter">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Foreground" Value="{DynamicResource SystemAccentColor}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource SystemAccentColor}" />
+    </Style>
     <Style Selector="ListBox.operator-list ListBoxItem">
       <Setter Property="MinHeight" Value="{x:Static shell:OperatorTouchDensity.OperatorControlMinHeight}" />
       <Setter Property="Padding" Value="8,6" />

@@ -1,0 +1,64 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:HardwareTest.Features.RunTest"
+             xmlns:widgets="using:HardwareTest.Widgets.MeasurementPlot"
+             xmlns:shell="using:HardwareTest.Features.Shell"
+             x:Class="HardwareTest.Features.RunTest.RunChartWorkspaceView"
+             x:DataType="vm:RunTestViewModel">
+  <DockPanel>
+    <StackPanel DockPanel.Dock="Top" Spacing="8" Margin="0,0,0,8">
+      <StackPanel Orientation="Horizontal" Spacing="8">
+        <Button Content="Back to steps"
+                Command="{Binding Workspace.OpenStepsCommand}"
+                Classes="operator" />
+        <ComboBox ItemsSource="{Binding Live.AvailableSeries}"
+                   SelectedItem="{Binding Live.SelectedSeries, Mode=TwoWay}"
+                   MinWidth="200"
+                   MaxDropDownHeight="280"
+                   AutomationProperties.Name="Metric">
+          <ComboBox.ItemTemplate>
+            <DataTemplate x:DataType="vm:LiveSeriesItemViewModel">
+              <TextBlock Text="{Binding DisplayName}" />
+            </DataTemplate>
+          </ComboBox.ItemTemplate>
+        </ComboBox>
+        <ComboBox ItemsSource="{Binding Live.TimeWindows}"
+                   SelectedItem="{Binding Live.SelectedTimeWindow, Mode=TwoWay}"
+                   MinWidth="110"
+                   AutomationProperties.Name="Time window">
+          <ComboBox.ItemTemplate>
+            <DataTemplate x:DataType="vm:ChartTimeWindow">
+              <TextBlock Text="{Binding Label}" />
+            </DataTemplate>
+          </ComboBox.ItemTemplate>
+        </ComboBox>
+        <ToggleButton Content="Follow live"
+                      Classes="filter-chip"
+                      IsChecked="{Binding Live.FollowLive}" />
+        <Button Content="Reset"
+                Command="{Binding Live.ResetViewCommand}"
+                Classes="operator" />
+      </StackPanel>
+    </StackPanel>
+    <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Spacing="16" Margin="0,8,0,0">
+      <TextBlock Text="{Binding Live.ChartValueText}" FontWeight="SemiBold" FontSize="16" />
+      <TextBlock Text="{Binding Live.ChartBandText}"
+                 VerticalAlignment="Center"
+                 FontWeight="SemiBold" />
+      <TextBlock Text="{Binding Live.ChartAgeText}"
+                 Opacity="0.75"
+                 VerticalAlignment="Center"
+                 FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}" />
+    </StackPanel>
+    <Panel>
+      <widgets:MeasurementPlotView x:Name="Plot"
+                                   MinHeight="{x:Static shell:OperatorTouchDensity.ChartPlotMinHeight}"
+                                   VerticalAlignment="Stretch" />
+      <TextBlock Text="{Binding Live.ChartEmptyText}"
+                 HorizontalAlignment="Center"
+                 VerticalAlignment="Center"
+                 Opacity="0.7"
+                 IsVisible="{Binding Live.ChartEmptyText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+    </Panel>
+  </DockPanel>
+</UserControl>

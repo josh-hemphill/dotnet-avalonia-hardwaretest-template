@@ -16,11 +16,43 @@ public partial class StepDetailViewModel : ReactiveObject
     /// <param name="openSelectedStepDetail">
     /// Coordinator hook that re-opens the currently selected step; the child does not know the selection.
     /// </param>
-    public StepDetailViewModel(Action? openSelectedStepDetail = null)
+    /// <param name="closeDetail">Coordinator hook that returns to the Steps workspace.</param>
+    public StepDetailViewModel(Action? openSelectedStepDetail = null, Action? closeDetail = null)
     {
         OpenStepDetailCommand = ReactiveCommand.Create(() => openSelectedStepDetail?.Invoke());
-        CloseDetailCommand = ReactiveCommand.Create(() => { ShowDetailRegion = false; });
-        ToggleDetailsCommand = ReactiveCommand.Create(() => { ShowDetailRegion = !ShowDetailRegion; });
+        CloseDetailCommand = ReactiveCommand.Create(() =>
+        {
+            ShowDetailRegion = false;
+            closeDetail?.Invoke();
+        });
+        ToggleDetailsCommand = ReactiveCommand.Create(() =>
+        {
+            if (ShowDetailRegion)
+            {
+                ShowDetailRegion = false;
+                closeDetail?.Invoke();
+                return;
+            }
+
+            openSelectedStepDetail?.Invoke();
+        });
+        SelectPaneCommand = ReactiveCommand.Create<string>(pane =>
+        {
+            if (!string.IsNullOrWhiteSpace(pane))
+            {
+                SelectedPane = pane;
+            }
+        });
+        PropertyChanged += (_, args) =>
+        {
+            if (args.PropertyName == nameof(SelectedPane))
+            {
+                this.RaisePropertyChanged(nameof(IsSummaryPane));
+                this.RaisePropertyChanged(nameof(IsMeasurementsPane));
+                this.RaisePropertyChanged(nameof(IsSetupPane));
+                this.RaisePropertyChanged(nameof(IsLogPane));
+            }
+        };
     }
 
     public ObservableCollection<string> DetailLines { get; } = [];
@@ -30,9 +62,11 @@ public partial class StepDetailViewModel : ReactiveObject
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> OpenStepDetailCommand { get; }
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> CloseDetailCommand { get; }
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> ToggleDetailsCommand { get; }
+    public ReactiveCommand<string, System.Reactive.Unit> SelectPaneCommand { get; }
 
     [Reactive] private HierarchyStepViewModel? _detailStep;
-    [Reactive] private bool _showDetailRegion = true;
+    [Reactive] private bool _showDetailRegion;
+    [Reactive] private string _selectedPane = StepDetailPane.Summary;
     [Reactive] private bool _showLiveLog;
     [Reactive] private bool _showDetails = true;
     [Reactive] private bool _sessionLogExpanded;
@@ -40,6 +74,11 @@ public partial class StepDetailViewModel : ReactiveObject
     [Reactive] private string _detailChipText = "Pending";
     [Reactive] private string _detailPrimaryLine = string.Empty;
     [Reactive] private string _conditionSummary = string.Empty;
+
+    public bool IsSummaryPane => string.Equals(SelectedPane, StepDetailPane.Summary, StringComparison.Ordinal);
+    public bool IsMeasurementsPane => string.Equals(SelectedPane, StepDetailPane.Measurements, StringComparison.Ordinal);
+    public bool IsSetupPane => string.Equals(SelectedPane, StepDetailPane.Setup, StringComparison.Ordinal);
+    public bool IsLogPane => string.Equals(SelectedPane, StepDetailPane.Log, StringComparison.Ordinal);
 
     /// Rebuilds the detail pane for one step; caller supplies the cross-cluster inputs.
     public void Show(

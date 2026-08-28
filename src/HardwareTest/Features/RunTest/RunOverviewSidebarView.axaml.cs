@@ -3,9 +3,9 @@ using Avalonia.Input;
 
 namespace HardwareTest.Features.RunTest;
 
-public partial class RunBoardStageRailView : UserControl
+public partial class RunOverviewSidebarView : UserControl
 {
-    public RunBoardStageRailView()
+    public RunOverviewSidebarView()
     {
         InitializeComponent();
     }

@@ -6,13 +6,12 @@
              x:Name="Root"
              x:DataType="vm:RunTestViewModel">
   <!-- Continue stays docked outside the body scroller so required actions stay visible at 900×600. -->
-  <Border MaxHeight="{x:Static shell:OperatorTouchDensity.InteractionHostMaxHeight}"
-          IsVisible="{Binding Interaction.IsAwaitingOperator}"
-          BorderBrush="#FB8C00"
+  <Border BorderBrush="#FB8C00"
           BorderThickness="2"
           CornerRadius="4"
           Padding="8"
-          Margin="0,4,0,0"
+          HorizontalAlignment="Stretch"
+          VerticalAlignment="Stretch"
           AutomationProperties.LiveSetting="Assertive"
           AutomationProperties.Name="Operator prompt">
     <DockPanel LastChildFill="True">
@@ -34,7 +33,6 @@
       </StackPanel>
 
       <ScrollViewer x:Name="PromptBodyScroller"
-                    MaxHeight="{x:Static shell:OperatorTouchDensity.InteractionHostBodyMaxHeight}"
                     VerticalScrollBarVisibility="Auto"
                     HorizontalScrollBarVisibility="Disabled">
         <StackPanel Spacing="6">

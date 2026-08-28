@@ -1,0 +1,94 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:HardwareTest.Features.RunTest"
+             xmlns:shell="using:HardwareTest.Features.Shell"
+             x:Class="HardwareTest.Features.RunTest.RunPreparationView"
+             x:DataType="vm:RunTestViewModel">
+  <Border MaxWidth="640"
+          HorizontalAlignment="Left"
+          Padding="12"
+          CornerRadius="6"
+          BorderBrush="#FB8C00"
+          BorderThickness="2"
+          Classes="session-block">
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+      <StackPanel Spacing="8">
+        <TextBlock Text="Session confirmation required before Run" FontWeight="SemiBold" />
+        <TextBlock Text="{Binding SessionPanel.SessionSummary}" TextWrapping="Wrap" Opacity="0.9" />
+        <TextBlock Text="{Binding SessionPanel.IdleCountdownText}"
+                   IsVisible="{Binding SessionPanel.ShowIdleCountdown}"
+                   FontSize="12"
+                   Opacity="0.8"
+                   TextWrapping="Wrap" />
+        <StackPanel Spacing="6" IsVisible="{Binding SessionPanel.IsStalePrompt}">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <TextBlock Text="Still testing this DUT?" VerticalAlignment="Center" />
+            <Button Content="Same DUT" Command="{Binding SessionPanel.ConfirmSameDutCommand}" Classes="operator" />
+            <Button Content="Change Session" Command="{Binding SessionPanel.ChangeSessionCommand}" Classes="operator" />
+          </StackPanel>
+          <TextBox PlaceholderText="{Binding SessionPanel.TechnicianPlaceholder}"
+                     Text="{Binding SessionPanel.OperatorInput, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                     Width="180"
+                     MinHeight="{x:Static shell:OperatorTouchDensity.OperatorControlMinHeight}"
+                     IsVisible="{Binding SessionPanel.ShowStaleTechnicianField}"
+                     AutomationProperties.Name="Technician"
+                     KeyDown="OnStaleTechnicianKeyDown" />
+        </StackPanel>
+        <StackPanel Spacing="6" IsVisible="{Binding SessionPanel.IsIdleWarningPrompt}">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <TextBlock Text="Session idle soon — still testing this DUT?" VerticalAlignment="Center" />
+            <Button Content="Same DUT" Command="{Binding SessionPanel.ConfirmSameDutCommand}" Classes="operator" />
+            <Button Content="Change Session" Command="{Binding SessionPanel.ChangeSessionCommand}" Classes="operator" />
+          </StackPanel>
+        </StackPanel>
+        <WrapPanel IsVisible="{Binding SessionPanel.NeedsDutConfirm}">
+          <StackPanel Width="180" Margin="0,0,8,8" Spacing="2">
+            <TextBox x:Name="DutSerialBox"
+                     PlaceholderText="DUT serial *"
+                     Text="{Binding SessionPanel.DutSerialInput, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                     Classes.error="{Binding SessionPanel.HasDutSerialError}"
+                     MinHeight="{x:Static shell:OperatorTouchDensity.OperatorControlMinHeight}"
+                     AutomationProperties.Name="DUT serial"
+                     KeyDown="OnSessionFieldKeyDown" />
+            <TextBlock Text="{Binding SessionPanel.DutSerialError}"
+                       IsVisible="{Binding SessionPanel.HasDutSerialError}"
+                       Foreground="#C62828"
+                       FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}"
+                       TextWrapping="Wrap" />
+          </StackPanel>
+          <TextBox PlaceholderText="Part number"
+                   Text="{Binding SessionPanel.DutPartInput, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                   Width="130" Margin="0,0,8,8"
+                   MinHeight="{x:Static shell:OperatorTouchDensity.OperatorControlMinHeight}"
+                   IsVisible="{Binding SessionPanel.RequirePartNumber}"
+                   AutomationProperties.Name="DUT part number"
+                   KeyDown="OnSessionFieldKeyDown" />
+          <TextBox PlaceholderText="Revision"
+                   Text="{Binding SessionPanel.DutRevisionInput, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                   Width="90" Margin="0,0,8,8"
+                   MinHeight="{x:Static shell:OperatorTouchDensity.OperatorControlMinHeight}"
+                   IsVisible="{Binding SessionPanel.RequireRevision}"
+                   AutomationProperties.Name="DUT revision"
+                   KeyDown="OnSessionFieldKeyDown" />
+          <StackPanel Width="160" Margin="0,0,8,8" Spacing="2">
+            <TextBox PlaceholderText="{Binding SessionPanel.TechnicianPlaceholder}"
+                     Text="{Binding SessionPanel.OperatorInput, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                     Classes.error="{Binding SessionPanel.HasOperatorError}"
+                     MinHeight="{x:Static shell:OperatorTouchDensity.OperatorControlMinHeight}"
+                     AutomationProperties.Name="Technician"
+                     KeyDown="OnSessionFieldKeyDown" />
+            <TextBlock Text="{Binding SessionPanel.OperatorError}"
+                       IsVisible="{Binding SessionPanel.HasOperatorError}"
+                       Foreground="#C62828"
+                       FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}"
+                       TextWrapping="Wrap" />
+          </StackPanel>
+          <Button Content="Confirm Session"
+                  Command="{Binding SessionPanel.ConfirmSessionCommand}"
+                  Classes="primary"
+                  Margin="0,0,8,8" />
+        </WrapPanel>
+      </StackPanel>
+    </ScrollViewer>
+  </Border>
+</UserControl>
