@@ -729,6 +729,12 @@
         "dependencies": {
           "HardwareTest.OpenTap.Host": "[0.1.0, )"
         }
+      },
+      "hardwaretest.planvalidate": {
+        "type": "Project",
+        "dependencies": {
+          "HardwareTest.OpenTap.Host": "[0.1.0, )"
+        }
       }
     },
     "net10.0/linux-x64": {

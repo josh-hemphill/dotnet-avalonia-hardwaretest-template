@@ -6,7 +6,14 @@ For UI vs OpenTAP test suites, see [testing.md](testing.md). For sealed Linux pu
 
 ## 1. Programs (TapPlans + catalog)
 
-1. Author plans in **OpenTAP Editor** and ship locked `.TapPlan` files under [`plans/opentap/`](../plans/opentap/) (copied to `Programs/` on build).
+1. Author plans in **OpenTAP Editor** or the free **OpenTAP TUI** and ship locked `.TapPlan` files under [`plans/opentap/`](../plans/opentap/) (copied to `Programs/` on build). Copy [`plans/opentap/template.program.json`](../plans/opentap/template.program.json) to `{planId}.program.json` beside the plan. Validate before dropping onto the bench:
+
+   ```bash
+   HardwareTest --validate-plan path/to/plan.TapPlan
+   HardwareTest.PlanValidate path/to/plans/
+   ```
+
+   Both entry points reuse `PlanContractValidator` in Host (Avalonia-free). Exit `1` on errors, `0` when only warnings remain. Authoring warnings do **not** block operator Run. Engineer loop: TUI/Editor save → validate → copy into `Programs/` → Inspect + mock Run (`UseMockVisa`). `plans/opentap/fixtures/` are shape examples, not product plans; start from `sample.TapPlan` / board-demo.
 2. Optional sidecar beside a plan: `{planId}.program.json` for display name, DUT family, and session requirements:
 
 ```json
@@ -54,7 +61,7 @@ For UI vs OpenTAP test suites, see [testing.md](testing.md). For sealed Linux pu
 
 ### Third-party SCPI instrument
 
-1. Author a TapPlan in OpenTAP Editor that references your SCPI plugin instrument (property named `VisaAddress` preferred).
+1. Author a TapPlan in OpenTAP Editor or OpenTAP TUI that references your SCPI plugin instrument (property named `VisaAddress` preferred). Run `HardwareTest --validate-plan` (or `HardwareTest.PlanValidate`) before installing it on the bench.
 2. Ship the plugin DLL via offline package install or `OpenTapPluginDirectories` (see [appliance-linux.md](appliance-linux.md)). Prefer plugins that implement `IDeviceDiscovery` so **Discover OpenTAP** lists their addresses.
 3. On the bench, open **Instruments**, load the program, pick a discovered VISA or OpenTAP resource (or type one), save the slot override.
 4. On **Run**, `ApplyStationAndDutAsync` writes the override onto the instrument before execute. Full ComponentSettings / bench-profile UI is deferred — see [deferred-bench-profile-ui.md](deferred/deferred-bench-profile-ui.md).
@@ -63,11 +70,21 @@ DUT stamping still looks for Basic `IdentityCheckStep` / `HardwareDut`. Custom D
 
 ## 4. Plan contract (Run board)
 
-- Prefer unique step paths (duplicate sibling names need path-qualified selection).
-- Max useful nest depth for chrome is three levels (Stages → Sections → Nested).
+`PlanContractValidator` (and the CLIs above) checks this contract. It does not replace a mock Run.
+
+**TUI / Editor checklist** (same plugins as the bench: Basic + Mixins):
+
+- Unique leaf paths (duplicate sibling names are fine when the full path is unique).
+- Max useful nest depth for chrome is three levels (Stages → Sections → Nested); deeper still runs as leaves (warning, not a hard fail).
 - Include `SafeShutdownStep` when using Run Selected (selection keeps it enabled by default; opt out via `selectionIncludesCleanup: false` in `{planId}.program.json`). Disabled siblings may show NotExecuted/Invalidated — that is not cleanup being skipped.
-- Repeat/Sweep loops show innermost `iter i/N` on the Run hero during execute; edit bounds in OpenTAP Editor or Phase C overrides — not in Avalonia.
-- Details and diagnostic tests: [testing.md](testing.md).
+- At least one instrument with a writable `VisaAddress` / `ResourceName` / `Address` so Instruments can rebind.
+- Use `OperatorPromptStep` / `OperatorInputStep`, never OpenTAP `DialogStep` or WinForms/WPF dialogs.
+- Presentation: band-first (`scalar` / `passband` for pass criteria; `timeseries` only when shape matters).
+- Sidecar `{planId}.program.json` present and schema-sane (missing is a warning; invalid JSON is an error).
+
+Repeat/Sweep loops show innermost `iter i/N` on the Run hero during execute; edit bounds in OpenTAP Editor / TUI or Phase C overrides — not in Avalonia.
+
+Details and diagnostic tests: [testing.md](testing.md).
 
 ### Operator session (DUT confirm / idle)
 
@@ -206,7 +223,7 @@ Env alone is enough for a sealed install. Missing or read-only `settings.json` i
 | `ClockSkewWarnThresholdMinutes` | `HARDWARETEST_CLOCK_SKEW_WARN_THRESHOLD_MINUTES` | `--clock-skew-warn-threshold-minutes` |
 | `NtpHost` | `HARDWARETEST_NTP_HOST` | `--ntp-host` |
 
-Also: `--settings <path>` (settings file path), `--print-config` (dump effective config + provenance to stdout and exit 0), `--version` / `-v` (print informational version and exit 0). Debug builds: `--simulate-crash {fatal|recoverable|command}`. Nested lists use `HARDWARETEST_<LIST>__{n}__<PROP>` (e.g. `HARDWARETEST_INSTRUMENTS__0__RESOURCE`).
+Also: `--settings <path>` (settings file path), `--print-config` (dump effective config + provenance to stdout and exit 0), `--validate-plan <path>` (validate a `.TapPlan` or a directory of plans and exit; `1` on errors, `0` if only warnings), `--version` / `-v` (print informational version and exit 0). Avalonia-free equivalent: `HardwareTest.PlanValidate <path> [...]`. Debug builds: `--simulate-crash {fatal|recoverable|command}`. Nested lists use `HARDWARETEST_<LIST>__{n}__<PROP>` (e.g. `HARDWARETEST_INSTRUMENTS__0__RESOURCE`).
 
 Crash dossiers land under `{DataDirectory}/crashes/` (or `CrashDirectory`): `crash.json`, `log-tail.txt`, `config.json`, `session.json`. Unreviewed dossiers and recoverable faults publish to the **shell notification strip** (Phase 17) with Export / Open folder / Dismiss — not a competing Home hero card. Settings → **Open crashes folder** (hidden when `AllowOsFolderBrowse` is false and Engineer debug is off). See [phase-6-crash-reporting.md](platform-phases/phase-6-crash-reporting.md) and [phase-17-shell-notification-strip.md](platform-phases/phase-17-shell-notification-strip.md).
 
@@ -248,6 +265,6 @@ Use mixins for product-specific step settings without forking every step type.
    - An embed type implementing `IMixin` and `[Display]` properties.
    - An `IMixinBuilder` marked `[MixinBuilder(typeof(ITestStep))]` that returns `MixinMemberData` with `EmbedPropertiesAttribute`.
 2. Ship the DLL beside Basic or add its folder to `OpenTapPluginDirectories`.
-3. Attach in **OpenTAP Editor** (right-click step → Add Mixin). Do not expect an Avalonia “Add Mixin” control.
+3. Attach in **OpenTAP Editor** or **OpenTAP TUI** (right-click / mixin menu → Add Mixin). Do not expect an Avalonia “Add Mixin” control.
 4. On the Run board (Engineer/Debug), select the step → **Station overrides** shows grouped mixin fields → **Apply & save** persists `PlanParameterOverrides` (TapPlan unchanged).
 5. Demo reference: `AnnotationMixin` / `AnnotationMixinBuilder`; sample Identity Check is pre-attached for CI/UI demos. Details: [phase-d-mixins.md](opentap-phases/phase-d-mixins.md).

@@ -1,11 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <TestPlan type="OpenTap.TestPlan">
   <Steps>
-    <TestStep type="HardwareTest.OpenTap.Plugins.Basic.TestGroupStep" Id="4a43cca8-11b6-4767-a44c-1d8f8b0487c4">
+    <TestStep type="HardwareTest.OpenTap.Plugins.Basic.TestGroupStep" Id="ecc43c43-b5c2-437e-b733-57a5a72ed974">
       <Name Metadata="Step Name">No Safe Shutdown Suite</Name>
       <ChildTestSteps>
-        <TestStep type="HardwareTest.OpenTap.Plugins.Basic.AcquireVoltageStep" Id="f93ce935-7c0e-454f-9732-ca6d440a130c">
-          <Instrument>
+        <TestStep type="HardwareTest.OpenTap.Plugins.Basic.AcquireVoltageStep" Id="f3ce8ad2-d6ec-49ff-885a-0efdd6d31a6d">
+          <Instrument type="HardwareTest.OpenTap.Plugins.Basic.MockDmmInstrument">
+            <VisaAddress>MOCK::INSTR0</VisaAddress>
             <ResourceName>MOCK::INSTR0</ResourceName>
             <Name>DMM</Name>
           </Instrument>
