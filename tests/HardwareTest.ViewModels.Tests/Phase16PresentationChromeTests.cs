@@ -1,8 +1,7 @@
+using System.Reactive.Linq;
 using HardwareTest.Features.Presentation;
 using HardwareTest.Features.RunTest;
 using HardwareTest.OpenTap.Host;
-using ReactiveUI;
-using System.Reactive.Linq;
 using Xunit;
 
 namespace HardwareTest.ViewModels.Tests;
