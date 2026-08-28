@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <TestPlan type="OpenTap.TestPlan">
   <Steps>
-    <TestStep type="HardwareTest.OpenTap.Plugins.Basic.AcquireVoltageStep" Id="00c0353b-33f2-4bd2-99ac-6f5d29c6b75f">
-      <Instrument>
+    <TestStep type="HardwareTest.OpenTap.Plugins.Basic.AcquireVoltageStep" Id="5e4c1a42-2658-47ed-8984-9256335cd7f2">
+      <Instrument type="HardwareTest.OpenTap.Plugins.Basic.MockDmmInstrument">
+        <VisaAddress>MOCK::INSTR0</VisaAddress>
         <ResourceName>MOCK::INSTR0</ResourceName>
         <Name>DMM</Name>
       </Instrument>
@@ -12,8 +13,9 @@
       <Name Metadata="Step Name">Leaf A</Name>
       <ChildTestSteps />
     </TestStep>
-    <TestStep type="HardwareTest.OpenTap.Plugins.Basic.AcquireVoltageStep" Id="7095cff8-95b3-4d58-9875-72bcbcd2c604">
-      <Instrument>
+    <TestStep type="HardwareTest.OpenTap.Plugins.Basic.AcquireVoltageStep" Id="25200eb3-e65c-4050-a2f6-83a28b3407d2">
+      <Instrument type="HardwareTest.OpenTap.Plugins.Basic.MockDmmInstrument">
+        <VisaAddress>MOCK::INSTR0</VisaAddress>
         <ResourceName>MOCK::INSTR0</ResourceName>
         <Name>DMM</Name>
       </Instrument>
@@ -23,8 +25,9 @@
       <Name Metadata="Step Name">Leaf B</Name>
       <ChildTestSteps />
     </TestStep>
-    <TestStep type="HardwareTest.OpenTap.Plugins.Basic.SafeShutdownStep" Id="fa22355a-653c-41b4-a283-039d5ab8a78f">
-      <Instrument>
+    <TestStep type="HardwareTest.OpenTap.Plugins.Basic.SafeShutdownStep" Id="0cfa5d74-7b04-4fbf-9832-219cb6b5b32f">
+      <Instrument type="HardwareTest.OpenTap.Plugins.Basic.MockDmmInstrument">
+        <VisaAddress>MOCK::INSTR0</VisaAddress>
         <ResourceName>MOCK::INSTR0</ResourceName>
         <Name>DMM</Name>
       </Instrument>

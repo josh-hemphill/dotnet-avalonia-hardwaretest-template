@@ -148,6 +148,19 @@ public sealed class ConfigurationBootstrapTests
     }
 
     [Fact]
+    public void Parse_validate_plan_flag_sets_path_and_is_not_passthrough()
+    {
+        var spaced = ConfigurationArgs.Parse(["--validate-plan", "plans/opentap/sample.TapPlan", "--log-level", "Debug"]);
+        Assert.Equal("plans/opentap/sample.TapPlan", spaced.ValidatePlanPath);
+        Assert.Empty(spaced.PassthroughArgs);
+        Assert.Equal("Debug", spaced.Overlays["LogMinimumLevel"]);
+
+        var inline = ConfigurationArgs.Parse(["--validate-plan=fixtures/no-safe-shutdown.TapPlan"]);
+        Assert.Equal("fixtures/no-safe-shutdown.TapPlan", inline.ValidatePlanPath);
+        Assert.Empty(inline.PassthroughArgs);
+    }
+
+    [Fact]
     public async Task Env_override_is_not_persisted_on_save()
     {
         using var temp = new TempDataDirectory();

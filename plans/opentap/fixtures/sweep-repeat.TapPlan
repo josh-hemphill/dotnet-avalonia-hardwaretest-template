@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<TestPlan type="OpenTap.TestPlan">
+  <Steps>
+    <TestStep type="HardwareTest.OpenTap.Plugins.Basic.RepeatLoopStep" Id="c27f0a8d-2e6b-40c0-92c1-8db0568256f7">
+      <Count>3</Count>
+      <Name Metadata="Step Name">Repeat Sweep</Name>
+      <ChildTestSteps>
+        <TestStep type="emb:HardwareTest.OpenTap.Plugins.Basic.AcquireVoltageStep" Id="6c734bed-a818-41ca-9e46-004a805835d3">
+          <OpenTap.Mixins>
+            <HardwareTest.Presentation_x003A_Presentation type="HardwareTest.OpenTap.Plugins.Mixins.PresentationMixinBuilder">
+              <MemberName>Presentation</MemberName>
+            </HardwareTest.Presentation_x003A_Presentation>
+          </OpenTap.Mixins>
+          <Instrument type="HardwareTest.OpenTap.Plugins.Basic.MockDmmInstrument">
+            <VisaAddress>MOCK::INSTR0</VisaAddress>
+            <ResourceName>MOCK::INSTR0</ResourceName>
+            <Name>DMM</Name>
+          </Instrument>
+          <SampleCount>2</SampleCount>
+          <IntervalMs>1</IntervalMs>
+          <Channel>VDC</Channel>
+          <Name Metadata="Step Name">Acquire VDC</Name>
+          <ChildTestSteps />
+          <HardwareTest.Presentation_x003A_Presentation.ChannelKey>sweep.vdc</HardwareTest.Presentation_x003A_Presentation.ChannelKey>
+          <HardwareTest.Presentation_x003A_Presentation.DisplayRole>timeseries</HardwareTest.Presentation_x003A_Presentation.DisplayRole>
+          <HardwareTest.Presentation_x003A_Presentation.YUnit>V</HardwareTest.Presentation_x003A_Presentation.YUnit>
+          <HardwareTest.Presentation_x003A_Presentation.HistoryEnabled>true</HardwareTest.Presentation_x003A_Presentation.HistoryEnabled>
+          <HardwareTest.Presentation_x003A_Presentation.HistoryWatchPercent />
+          <HardwareTest.Presentation_x003A_Presentation.HistoryAlertPercent />
+        </TestStep>
+      </ChildTestSteps>
+    </TestStep>
+    <TestStep type="HardwareTest.OpenTap.Plugins.Basic.SafeShutdownStep" Id="807845d3-791a-4724-8313-287d5bd497ed">
+      <Instrument type="HardwareTest.OpenTap.Plugins.Basic.MockDmmInstrument">
+        <VisaAddress>MOCK::INSTR0</VisaAddress>
+        <ResourceName>MOCK::INSTR0</ResourceName>
+        <Name>DMM</Name>
+      </Instrument>
+      <Name Metadata="Step Name">Safe Shutdown</Name>
+      <ChildTestSteps />
+    </TestStep>
+  </Steps>
+</TestPlan>

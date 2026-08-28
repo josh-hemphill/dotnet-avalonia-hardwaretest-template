@@ -97,7 +97,7 @@ Two different concepts (do not conflate):
 ## Mixin support model
 
 - Mixins load with plugins (`OpenTapPluginDirectories` / package install dirs). Host always searches Basic + Mixins plugin assembly directories (`OpenTapPluginSearch`).
-- Demo: [`AnnotationMixin`](../src/HardwareTest.OpenTap.Plugins.Mixins/AnnotationMixin.cs) and [`PresentationMixin`](../src/HardwareTest.OpenTap.Plugins.Mixins/PresentationMixin.cs) (`ChannelKey` / `DisplayRole` / `YUnit`). Sample Identity Check attaches Annotation; Acquire/Mean steps across Sample, Board, and Sweep demos attach Presentation — see [phase-i-presentation-contract.md](opentap-phases/phase-i-presentation-contract.md). Run/Results map roles to plot + gauges ([phase-j-presentation-ui.md](opentap-phases/phase-j-presentation-ui.md)). Band-first authoring cookbook: [phase-l-presentation-authoring.md](opentap-phases/phase-l-presentation-authoring.md). Production plans attach mixins in **OpenTAP Editor**.
+- Demo: [`AnnotationMixin`](../src/HardwareTest.OpenTap.Plugins.Mixins/AnnotationMixin.cs) and [`PresentationMixin`](../src/HardwareTest.OpenTap.Plugins.Mixins/PresentationMixin.cs) (`ChannelKey` / `DisplayRole` / `YUnit`). Sample Identity Check attaches Annotation; Acquire/Mean steps across Sample, Board, and Sweep demos attach Presentation — see [phase-i-presentation-contract.md](opentap-phases/phase-i-presentation-contract.md). Run/Results map roles to plot + gauges ([phase-j-presentation-ui.md](opentap-phases/phase-j-presentation-ui.md)). Band-first authoring cookbook: [phase-l-presentation-authoring.md](opentap-phases/phase-l-presentation-authoring.md). Production plans attach mixins in **OpenTAP Editor** or **OpenTAP TUI**.
 - Engineer/Debug Station overrides lists mixin-embedded members via TypeData (`EmbedProperties`), with `OpenTapParameterInfo.IsMixinEmbedded` + Group (e.g. `Annotation: Note`). Get/set uses the Phase C parameter bridge.
 - Author mixins with `IMixin` + `IMixinBuilder` (`[MixinBuilder(typeof(ITestStep))]`). Avalonia does **not** offer “Add Mixin” — attach in Editor, edit values in the shell.
 - See [phase-d-mixins.md](opentap-phases/phase-d-mixins.md) and [adapting.md](adapting.md#11-custom-mixins).
@@ -120,7 +120,7 @@ Two different concepts (do not conflate):
 ## Sweep / loop progress
 
 - Run hero shows innermost Repeat/Sweep iteration as `iter i/N` when the listener detects a known loop step (`RepeatStep`, `RepeatLoopStep`, `SweepLoop*`, `SweepParameter*`).
-- Sweep bounds stay in OpenTAP Editor / Phase C station overrides — Avalonia does not edit sweep tables.
+- Sweep bounds stay in OpenTAP Editor / OpenTAP TUI / Phase C station overrides — Avalonia does not edit sweep tables.
 - Nested loops: only the innermost active loop is shown.
 
 ## Deferred (detailed plans — do not implement yet)

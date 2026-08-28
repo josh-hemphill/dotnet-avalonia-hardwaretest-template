@@ -35,6 +35,8 @@ public sealed class ArchitectureRulesTests
         "docs/platform-phases/phase-22-visa-broker.md — plugins must not call Ivi.Visa / GlobalResourceManager; Core owns the broker.";
     private const string Phase23WorkerRule =
         "docs/platform-phases/phase-23-safety-opentap-worker.md — OpenTAP worker is Avalonia-free; no TapThread.Abort in the UI process.";
+    private const string PlanValidateAvaloniaFree =
+        "docs/adapting.md — HardwareTest.PlanValidate stays Avalonia-free and reuses Host plan-contract checks.";
     private const string Phase24SessionSplitRule =
         "docs/platform-phases/phase-24-session-decomposition.md — no static pause/interaction on StepRuntime; run state is per OpenTapRunContext.";
     private const string Phase25ClockRule =
@@ -67,6 +69,15 @@ public sealed class ArchitectureRulesTests
             typeof(global::HardwareTest.OpenTap.Worker.Program).Assembly,
             name => name.StartsWith("Avalonia", StringComparison.OrdinalIgnoreCase),
             Phase23WorkerRule);
+    }
+
+    [Fact]
+    public void PlanValidate_must_not_reference_Avalonia()
+    {
+        AssertNoForbiddenReference(
+            typeof(global::HardwareTest.PlanValidate.Program).Assembly,
+            name => name.StartsWith("Avalonia", StringComparison.OrdinalIgnoreCase),
+            PlanValidateAvaloniaFree);
     }
 
     [Fact]
@@ -233,6 +244,7 @@ public sealed class ArchitectureRulesTests
     [InlineData(typeof(AnnotationMixin))]
     [InlineData(typeof(global::HardwareTest.MainWindow))]
     [InlineData(typeof(global::HardwareTest.OpenTap.Worker.Program))]
+    [InlineData(typeof(global::HardwareTest.PlanValidate.Program))]
     public void Assemblies_must_not_reference_WinForms_or_Wpf(Type marker)
     {
         AssertNoForbiddenReference(

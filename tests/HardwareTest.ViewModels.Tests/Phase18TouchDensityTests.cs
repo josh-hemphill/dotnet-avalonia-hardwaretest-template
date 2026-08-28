@@ -32,6 +32,9 @@ public sealed class Phase18TouchDensityTests
         Assert.Contains("OperatorTouchDensity.CompactNavTargetSize", axaml, StringComparison.Ordinal);
         Assert.Contains("OperatorTouchDensity.OperatorControlMinHeight", axaml, StringComparison.Ordinal);
         Assert.Contains("ShellNotificationBrushConverter", axaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"ShellNotificationStrip\"", axaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"PageContentHost\"", axaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("<Grid Margin=\"16\"", axaml, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -39,11 +42,14 @@ public sealed class Phase18TouchDensityTests
     {
         var axaml = File.ReadAllText(FindRepoFile("src/HardwareTest/Features/RunTest/RunTestView.axaml"));
         Assert.Contains("OperatorTouchDensity.DetailsSplitterMinHeight", axaml, StringComparison.Ordinal);
-        Assert.Contains("Open detail", axaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("Open detail", axaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"DetailPaneCluster\"", axaml, StringComparison.Ordinal);
         Assert.Contains("ShowStartBlockedTip", axaml, StringComparison.Ordinal);
         Assert.Contains("Details +", axaml, StringComparison.Ordinal);
         Assert.Contains("Reset split", axaml, StringComparison.Ordinal);
         Assert.Contains("RunBoardStageRailView", axaml, StringComparison.Ordinal);
+        Assert.Contains("Hide trend", axaml, StringComparison.Ordinal);
+        Assert.Contains("RowDefinitions=\"Auto,*\"", axaml, StringComparison.Ordinal);
         // One inline tip only (program toolbar) — not duplicated near Run Selected.
         Assert.Equal(1, CountOccurrences(axaml, "ShowStartBlockedTip"));
     }
