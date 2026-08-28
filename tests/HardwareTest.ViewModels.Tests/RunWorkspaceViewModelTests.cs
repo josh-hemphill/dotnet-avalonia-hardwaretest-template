@@ -72,6 +72,32 @@ public sealed class RunWorkspaceViewModelTests
     }
 
     [Fact]
+    public void Awaiting_operator_outranks_session_overlay()
+    {
+        var sessionBlocked = true;
+        var awaiting = true;
+        var workspace = Create(() => sessionBlocked, () => awaiting, () => true, () => true);
+        workspace.OpenChart();
+        workspace.Refresh();
+
+        Assert.True(workspace.ShowInteraction);
+        Assert.False(workspace.ShowPreparation);
+        Assert.False(workspace.ShowChart);
+        Assert.False(workspace.ShowModeSwitcher);
+        Assert.Equal(RunWorkspace.Chart, workspace.Selected);
+
+        awaiting = false;
+        workspace.Refresh();
+        Assert.True(workspace.ShowPreparation);
+        Assert.False(workspace.ShowInteraction);
+
+        sessionBlocked = false;
+        workspace.Refresh();
+        Assert.True(workspace.ShowChart);
+        Assert.False(workspace.ShowPreparation);
+    }
+
+    [Fact]
     public void OpenDetails_requires_a_step_selection()
     {
         var hasStep = false;

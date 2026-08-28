@@ -1,6 +1,7 @@
 using HardwareTest.Features.Presentation;
 using HardwareTest.Features.RunTest;
 using HardwareTest.OpenTap.Host;
+using ReactiveUI;
 using Xunit;
 
 namespace HardwareTest.ViewModels.Tests;
@@ -114,6 +115,71 @@ public sealed class Phase16PresentationChromeTests
         live.RefreshChrome(step);
         Assert.True(live.HasChartData);
         Assert.Equal(LivePresentationViewModel.MaximumLiveSeries, live.AvailableSeries.Count);
+    }
+
+    [Fact]
+    public void Additional_samples_do_not_lock_metric_to_the_combo_item()
+    {
+        var live = new LivePresentationViewModel();
+        var acquire = Leaf("Acquire", "Suite/Acquire");
+        var mean = Leaf("Mean", "Suite/Mean");
+        var t0 = DateTimeOffset.UtcNow;
+        live.ApplySample(Timeseries("VDC", 1.0, t0), acquire.Path, null, acquire);
+        live.ApplySample(Timeseries("VDC", 1.1, t0.AddSeconds(1)), acquire.Path, null, acquire);
+        live.ApplySample(Timeseries("VDC", 1.2, t0.AddSeconds(2)), mean.Path, null, mean);
+
+        Assert.Equal("Suite/Mean", live.SelectedSeries?.Key.StepPath);
+
+        live.ApplySample(Timeseries("VDC", 1.3, t0.AddSeconds(3)), acquire.Path, null, mean);
+        live.ApplySample(Timeseries("VDC", 1.4, t0.AddSeconds(4)), mean.Path, null, mean);
+        Assert.Equal("Suite/Mean", live.SelectedSeries?.Key.StepPath);
+        Assert.Equal(2, live.AvailableSeries.Count);
+        Assert.Same(live.AvailableSeries.First(s => s.Key.StepPath == "Suite/Mean"), live.SelectedSeries);
+    }
+
+    [Fact]
+    public async Task SelectSeries_locks_until_reset()
+    {
+        var live = new LivePresentationViewModel();
+        var acquire = Leaf("Acquire", "Suite/Acquire");
+        var mean = Leaf("Mean", "Suite/Mean");
+        var t0 = DateTimeOffset.UtcNow;
+        live.ApplySample(Timeseries("VDC", 1.0, t0), acquire.Path, null, acquire);
+        live.ApplySample(Timeseries("IDC", 0.2, t0.AddSeconds(1)), mean.Path, null, mean);
+        var acquireItem = live.AvailableSeries.First(s => s.Key.StepPath == "Suite/Acquire");
+        await live.SelectSeriesCommand.ExecuteAsync(acquireItem);
+
+        Assert.Equal("Suite/Acquire", live.SelectedSeries?.Key.StepPath);
+
+        live.ApplySample(Timeseries("VDC", 1.5, t0.AddSeconds(2)), mean.Path, null, mean);
+        Assert.Equal("Suite/Acquire", live.SelectedSeries?.Key.StepPath);
+
+        live.SelectedSeries = live.AvailableSeries.First(s => s.Key.StepPath == "Suite/Mean");
+        live.ApplySample(Timeseries("VDC", 1.6, t0.AddSeconds(3)), acquire.Path, null, acquire);
+        Assert.Equal("Suite/Mean", live.SelectedSeries?.Key.StepPath);
+    }
+
+    [Fact]
+    public void Changing_time_window_republishes_the_snapshot()
+    {
+        var live = new LivePresentationViewModel();
+        var step = Leaf();
+        var t0 = DateTimeOffset.UtcNow;
+        live.ApplySample(Timeseries("VDC", 1.0, t0), step.Path, null, step);
+        live.ApplySample(Timeseries("VDC", 1.5, t0.AddSeconds(40)), step.Path, null, step);
+
+        Assert.Equal(1, live.PlotYsLength);
+        live.SelectedTimeWindow = ChartTimeWindow.All;
+        Assert.Equal(2, live.PlotYsLength);
+    }
+
+    [Fact]
+    public async Task ResetView_restores_follow_live()
+    {
+        var live = new LivePresentationViewModel();
+        live.FollowLive = false;
+        await live.ResetViewCommand.ExecuteAsync();
+        Assert.True(live.FollowLive);
     }
 
     [Fact]

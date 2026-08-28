@@ -1,4 +1,6 @@
 using System;
+using System.ComponentModel;
+using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using Avalonia.Controls;
 using Avalonia.Threading;
@@ -7,6 +9,7 @@ namespace HardwareTest.Features.RunTest;
 
 public partial class RunChartWorkspaceView : UserControl
 {
+    private readonly CompositeDisposable _subscriptions = new();
     private RunTestViewModel? _subscribed;
 
     public RunChartWorkspaceView()
@@ -26,17 +29,21 @@ public partial class RunChartWorkspaceView : UserControl
 
         _subscribed = vm;
         vm.Live.PlotDataChanged += OnPlotDataChanged;
+        vm.Live.PropertyChanged += OnLivePropertyChanged;
+        _subscriptions.Add(vm.Live.ResetViewCommand.Subscribe(_ => ApplyPlot(vm, force: true)));
         ApplyPlot(vm, force: true);
     }
 
     private void Unsubscribe()
     {
+        _subscriptions.Clear();
         if (_subscribed is null)
         {
             return;
         }
 
         _subscribed.Live.PlotDataChanged -= OnPlotDataChanged;
+        _subscribed.Live.PropertyChanged -= OnLivePropertyChanged;
         _subscribed = null;
     }
 
@@ -50,24 +57,34 @@ public partial class RunChartWorkspaceView : UserControl
         ApplyPlot(_subscribed, force: false);
     }
 
-    private void OnSeriesSelectionChanged(object? sender, SelectionChangedEventArgs e)
+    private void OnLivePropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (_subscribed is null || sender is not ComboBox { SelectedItem: LiveSeriesItemViewModel item })
+        if (_subscribed is null || e.PropertyName != nameof(LivePresentationViewModel.FollowLive))
         {
             return;
         }
 
-        _subscribed.Live.SelectSeriesCommand.Execute(item).Subscribe();
+        ApplyFollowLive(_subscribed);
     }
 
-    private void OnTimeWindowSelectionChanged(object? sender, SelectionChangedEventArgs e)
+    private void ApplyFollowLive(RunTestViewModel vm)
     {
-        if (_subscribed is null || sender is not ComboBox { SelectedItem: ChartTimeWindow window })
+        void Push()
         {
+            Plot.SetFollowLive(vm.Live.FollowLive);
+            if (vm.Live.FollowLive)
+            {
+                Plot.ResetView();
+            }
+        }
+
+        if (!Dispatcher.UIThread.CheckAccess())
+        {
+            Dispatcher.UIThread.Post(() => ApplyFollowLive(vm));
             return;
         }
 
-        _subscribed.Live.SelectTimeWindowCommand.Execute(window).Subscribe();
+        Push();
     }
 
     private void ApplyPlot(RunTestViewModel vm, bool force)

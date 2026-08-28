@@ -35,8 +35,8 @@ public sealed class RunWorkspaceViewModel : ReactiveObject
 
     public RunWorkspace Selected { get; private set; } = RunWorkspace.Steps;
 
-    public bool ShowPreparation => _sessionBlocked();
-    public bool ShowInteraction => !ShowPreparation && _awaitingOperator();
+    public bool ShowInteraction => _awaitingOperator();
+    public bool ShowPreparation => _sessionBlocked() && !ShowInteraction;
     public bool ShowModeSwitcher => !ShowPreparation && !ShowInteraction;
     public bool ShowSteps => ShowWorkspace(RunWorkspace.Steps);
     public bool ShowDetails => ShowWorkspace(RunWorkspace.Details);
@@ -49,6 +49,7 @@ public sealed class RunWorkspaceViewModel : ReactiveObject
     public bool IsChartSelected => Selected.Equals(RunWorkspace.Chart);
 
     /// Recomputes overlay visibility after session, interaction, or chart-data changes.
+    /// Operator prompts take precedence over session confirmation so Continue stays reachable.
     public void Refresh()
     {
         this.RaisePropertyChanged(nameof(ShowPreparation));

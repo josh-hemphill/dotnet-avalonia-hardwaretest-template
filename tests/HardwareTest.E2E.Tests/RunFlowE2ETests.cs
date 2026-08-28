@@ -264,4 +264,18 @@ public sealed class RunFlowE2ETests
 
         Assert.True(preview.Pages.Count >= 1, preview.Status);
     }
+
+    [AvaloniaFact]
+    public void SetLimits_does_not_drop_the_next_live_sample()
+    {
+        var plot = new HardwareTest.Widgets.MeasurementPlot.MeasurementPlotView();
+        plot.UpdateTimeSeries([0], [1.0], 1, followLive: true, force: true);
+        Assert.Equal(1, plot.LastRenderedPointCount);
+
+        plot.SetLimits(0, 2);
+        plot.UpdateTimeSeries([0, 1], [1.0, 2.0], 2, followLive: true, force: false);
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.Equal(2, plot.LastRenderedPointCount);
+    }
 }

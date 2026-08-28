@@ -65,19 +65,18 @@ public sealed class MeasurementPlotView : UserControl
         ApplyThemeAndLabels();
     }
 
-    /// Optional horizontal limit lines / passband overlay.
+    /// Optional horizontal limit lines / passband overlay. Applied on the next render.
     public void SetLimits(double? limitLow, double? limitHigh)
     {
         _limitLow = limitLow;
         _limitHigh = limitHigh;
-        if (_ys.Length > 0 || _signalBuffer.Length > 0)
-        {
-            Render(force: true);
-        }
     }
 
     /// When true, each data update auto-scales axes to the visible window.
     public void SetFollowLive(bool followLive) => _followLive = followLive;
+
+    /// Points drawn by the last completed render. Unchanged when a refresh is throttled.
+    internal int LastRenderedPointCount { get; private set; }
 
     /// Restores follow-live autoscale on the current buffer.
     public void ResetView()
@@ -133,6 +132,7 @@ public sealed class MeasurementPlotView : UserControl
         }
 
         _lastRefresh = now;
+        LastRenderedPointCount = _useTimeAxis ? _ys.Length : _signalBuffer.Length;
         _plot.Plot.Clear();
         ApplyThemeAndLabels();
         if (_useTimeAxis)

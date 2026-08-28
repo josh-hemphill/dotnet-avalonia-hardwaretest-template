@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
+using System.Reactive.Linq;
 using HardwareTest.Features.Presentation;
 using HardwareTest.OpenTap.Host;
 using ReactiveUI;
@@ -26,6 +27,7 @@ public partial class LivePresentationViewModel : ReactiveObject
     private readonly HashSet<LiveSeriesKey> _announcedOutOfBand = [];
     private HierarchyStepViewModel? _lastSelectedStep;
     private LiveSeriesKey? _manualSeries;
+    private int _seriesSyncDepth;
 
     public LivePresentationViewModel()
     {
@@ -33,6 +35,11 @@ public partial class LivePresentationViewModel : ReactiveObject
         ResetViewCommand = ReactiveCommand.Create(ResetView);
         SelectSeriesCommand = ReactiveCommand.Create<LiveSeriesItemViewModel?>(SelectSeries);
         SelectTimeWindowCommand = ReactiveCommand.Create<ChartTimeWindow>(SelectTimeWindow);
+        this.WhenAnyValue(x => x.SelectedSeries)
+            .Subscribe(OnUserSelectedSeries);
+        this.WhenAnyValue(x => x.SelectedTimeWindow)
+            .Skip(1)
+            .Subscribe(_ => PublishSelectedSnapshot(_lastSelectedStep));
     }
 
     public ObservableCollection<PresentationTileViewModel> PresentationTiles { get; } = [];
@@ -100,10 +107,18 @@ public partial class LivePresentationViewModel : ReactiveObject
         _series.Clear();
         _seriesOrder.Clear();
         _announcedOutOfBand.Clear();
-        PresentationTiles.Clear();
-        AvailableSeries.Clear();
-        HasPresentationTiles = false;
-        SelectedSeries = null;
+        BeginSeriesSync();
+        try
+        {
+            PresentationTiles.Clear();
+            AvailableSeries.Clear();
+            HasPresentationTiles = false;
+            SelectedSeries = null;
+        }
+        finally
+        {
+            EndSeriesSync();
+        }
         SelectedTimeWindow = ChartTimeWindow.ThirtySeconds;
         PlotLegendText = "Channel";
         PlotYLabel = "Value";
@@ -136,8 +151,16 @@ public partial class LivePresentationViewModel : ReactiveObject
             HasPlotData = true;
             HasChartData = true;
             plotted = true;
-            RefreshSeriesList();
-            PublishSelectedSnapshot(selectedStep);
+            BeginSeriesSync();
+            try
+            {
+                RefreshSeriesList();
+                PublishSelectedSnapshot(selectedStep);
+            }
+            finally
+            {
+                EndSeriesSync();
+            }
         }
 
         if (PresentationRoleMap.IsRunGaugeSample(sample))
@@ -225,10 +248,21 @@ public partial class LivePresentationViewModel : ReactiveObject
         PublishSelectedSnapshot(_lastSelectedStep);
     }
 
-    private void SelectTimeWindow(ChartTimeWindow window)
+    private void SelectTimeWindow(ChartTimeWindow window) => SelectedTimeWindow = window;
+
+    private void OnUserSelectedSeries(LiveSeriesItemViewModel? item)
     {
-        SelectedTimeWindow = window;
-        PublishSelectedSnapshot(_lastSelectedStep);
+        if (IsSyncingSeries || item is null)
+        {
+            return;
+        }
+
+        var alreadyLocked = _manualSeries is { } existing && existing.Equals(item.Key);
+        _manualSeries = item.Key;
+        if (!alreadyLocked)
+        {
+            PublishSelectedSnapshot(_lastSelectedStep);
+        }
     }
 
     private void ResetView()
@@ -274,7 +308,7 @@ public partial class LivePresentationViewModel : ReactiveObject
 
     private void RefreshSeriesList()
     {
-        AvailableSeries.Clear();
+        var desired = new List<LiveSeriesKey>();
         foreach (var key in _seriesOrder)
         {
             if (!_series.TryGetValue(key, out var buffer) || buffer.Count == 0)
@@ -282,8 +316,40 @@ public partial class LivePresentationViewModel : ReactiveObject
                 continue;
             }
 
+            desired.Add(key);
+        }
+
+        if (SeriesKeysMatch(AvailableSeries, desired))
+        {
+            return;
+        }
+
+        AvailableSeries.Clear();
+        foreach (var key in desired)
+        {
+            var buffer = _series[key];
             AvailableSeries.Add(new LiveSeriesItemViewModel(key, buffer.Unit, buffer.IsOutOfBand));
         }
+    }
+
+    private static bool SeriesKeysMatch(
+        ObservableCollection<LiveSeriesItemViewModel> current,
+        IReadOnlyList<LiveSeriesKey> desired)
+    {
+        if (current.Count != desired.Count)
+        {
+            return false;
+        }
+
+        for (var i = 0; i < desired.Count; i++)
+        {
+            if (!current[i].Key.Equals(desired[i]))
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private void PublishSelectedSnapshot(HierarchyStepViewModel? selectedStep)
@@ -316,12 +382,26 @@ public partial class LivePresentationViewModel : ReactiveObject
         ChartEmptyText = snapshot.Length == 0 ? "No samples in this window." : string.Empty;
         if (SelectedSeries is null || !SelectedSeries.Key.Equals(key.Value))
         {
-            SelectedSeries = AvailableSeries.FirstOrDefault(s => s.Key.Equals(key.Value))
-                ?? new LiveSeriesItemViewModel(key.Value, snapshot.Unit, snapshot.IsOutOfBand);
+            BeginSeriesSync();
+            try
+            {
+                SelectedSeries = AvailableSeries.FirstOrDefault(s => s.Key.Equals(key.Value))
+                    ?? new LiveSeriesItemViewModel(key.Value, snapshot.Unit, snapshot.IsOutOfBand);
+            }
+            finally
+            {
+                EndSeriesSync();
+            }
         }
 
         PlotDataChanged?.Invoke(this, EventArgs.Empty);
     }
+
+    private bool IsSyncingSeries => _seriesSyncDepth > 0;
+
+    private void BeginSeriesSync() => _seriesSyncDepth++;
+
+    private void EndSeriesSync() => _seriesSyncDepth--;
 
     private LiveSeriesKey? ResolveSelectedKey(HierarchyStepViewModel? selectedStep)
     {

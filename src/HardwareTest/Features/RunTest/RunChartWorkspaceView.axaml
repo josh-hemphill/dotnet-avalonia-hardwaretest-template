@@ -12,11 +12,10 @@
                 Command="{Binding Workspace.OpenStepsCommand}"
                 Classes="operator" />
         <ComboBox ItemsSource="{Binding Live.AvailableSeries}"
-                   SelectedItem="{Binding Live.SelectedSeries}"
+                   SelectedItem="{Binding Live.SelectedSeries, Mode=TwoWay}"
                    MinWidth="200"
                    MaxDropDownHeight="280"
-                   AutomationProperties.Name="Metric"
-                   SelectionChanged="OnSeriesSelectionChanged">
+                   AutomationProperties.Name="Metric">
           <ComboBox.ItemTemplate>
             <DataTemplate x:DataType="vm:LiveSeriesItemViewModel">
               <TextBlock Text="{Binding DisplayName}" />
@@ -24,10 +23,9 @@
           </ComboBox.ItemTemplate>
         </ComboBox>
         <ComboBox ItemsSource="{Binding Live.TimeWindows}"
-                   SelectedItem="{Binding Live.SelectedTimeWindow}"
+                   SelectedItem="{Binding Live.SelectedTimeWindow, Mode=TwoWay}"
                    MinWidth="110"
-                   AutomationProperties.Name="Time window"
-                   SelectionChanged="OnTimeWindowSelectionChanged">
+                   AutomationProperties.Name="Time window">
           <ComboBox.ItemTemplate>
             <DataTemplate x:DataType="vm:ChartTimeWindow">
               <TextBlock Text="{Binding Label}" />
