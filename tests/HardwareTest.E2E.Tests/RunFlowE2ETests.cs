@@ -66,6 +66,7 @@ public sealed class RunFlowE2ETests
 
         var runVm = E2EHarness.RunTestVm(main);
         Assert.Equal("E2E-TYPED-SN", runVm.SessionPanel.DutSerialInput);
+        Assert.True(runVm.Workspace.ShowPreparation);
 
         var host = window.GetVisualDescendants().OfType<InteractionHostView>().FirstOrDefault();
         Assert.NotNull(host);
@@ -90,6 +91,9 @@ public sealed class RunFlowE2ETests
         runVm.SessionPanel.DutSerialInput = "E2E-SN-1";
         runVm.SessionPanel.OperatorInput = "E2E-Tech";
         await runVm.SessionPanel.ConfirmSessionCommand.ExecuteAsync();
+        Dispatcher.UIThread.RunJobs();
+        Assert.True(runVm.Workspace.ShowSteps);
+        Assert.False(runVm.Workspace.CanOpenChart);
 
         await RunToCompletionAsync(runVm);
 
@@ -259,5 +263,20 @@ public sealed class RunFlowE2ETests
             "Report preview did not load pages.");
 
         Assert.True(preview.Pages.Count >= 1, preview.Status);
+    }
+
+    [AvaloniaFact]
+    public async Task SetLimits_does_not_drop_the_next_live_sample()
+    {
+        var plot = new HardwareTest.Widgets.MeasurementPlot.MeasurementPlotView();
+        plot.UpdateTimeSeries([0], [1.0], 1, followLive: true, force: true);
+        Assert.Equal(1, plot.LastRenderedPointCount);
+
+        await Task.Delay(60);
+        plot.SetLimits(0, 2);
+        plot.UpdateTimeSeries([0, 1], [1.0, 2.0], 2, followLive: true, force: false);
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.Equal(2, plot.LastRenderedPointCount);
     }
 }

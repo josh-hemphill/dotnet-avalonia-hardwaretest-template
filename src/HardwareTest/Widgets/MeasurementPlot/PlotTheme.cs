@@ -19,9 +19,14 @@ internal static class PlotTheme
     /// Matches Awaiting chip / warning accents.
     private static readonly SpColor LimitLine = SpColor.FromHex("#EF6C00");
 
+    /// Translucent passband fill (same hue as limit lines).
+    private static readonly SpColor LimitFill = new(239, 108, 0, 40);
+
     public static SpColor SeriesColor => IsDarkTheme() ? SeriesDark : SeriesLight;
 
     public static SpColor LimitColor => LimitLine;
+
+    public static SpColor LimitFillColor => LimitFill;
 
     public static void Apply(Plot plot)
     {

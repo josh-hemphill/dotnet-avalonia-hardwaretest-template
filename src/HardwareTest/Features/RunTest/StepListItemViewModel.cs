@@ -39,6 +39,7 @@ public partial class StepListItemViewModel : ReactiveObject
 public static class StepStatusFilter
 {
     public const string All = "All";
+    public const string Pass = "Pass";
     public const string Fail = "Fail";
     public const string Running = "Running";
     public const string Pending = "Pending";

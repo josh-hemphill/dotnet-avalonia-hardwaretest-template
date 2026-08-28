@@ -10,8 +10,14 @@ public static class OperatorTouchDensity
     /// Compact icon-only nav footer targets (matches FANavigationView CompactPaneLength).
     public const double CompactNavTargetSize = 48;
 
-    /// List↔Details GridSplitter hit area.
+    /// List↔Details GridSplitter hit area (legacy; Details is now a full workspace).
     public const double DetailsSplitterMinHeight = 16;
+
+    /// Chart workspace plot floor so the trend is readable at 900×600.
+    public const double ChartPlotMinHeight = 300;
+
+    /// Optional hierarchy overview rail to the right of the Run tabs.
+    public const double OverviewSidebarWidth = 200;
 
     /// Phase 21 floor for Run chip / step / hero secondary / compact transport captions (px).
     public const double OperationalFontSize = 12;

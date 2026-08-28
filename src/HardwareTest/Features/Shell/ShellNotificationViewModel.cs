@@ -29,6 +29,7 @@ public partial class ShellNotificationViewModel : ReactiveObject
     public const string SourceCrash = "crash";
     public const string SourceHistory = "history";
     public const string SourceClock = "clock";
+    public const string SourceChart = "chart";
 
     private string? _sourceKey;
     private Action? _onDismissed;

@@ -76,4 +76,29 @@ public partial class RunTestViewModel
             dismissible: true,
             sourceKey: ShellNotificationViewModel.SourceHistory);
     }
+
+    private void PublishChartAttentionToShell()
+    {
+        if (_shellNotification is null)
+        {
+            return;
+        }
+
+        if (!Live.HasChartAttention)
+        {
+            _shellNotification.Clear(ShellNotificationViewModel.SourceChart);
+            return;
+        }
+
+        _shellNotification.Publish(
+            ShellNotificationSeverity.Warning,
+            Live.FocusTrendTip,
+            dismissible: true,
+            sourceKey: ShellNotificationViewModel.SourceChart,
+            primary: new ShellNotificationAction
+            {
+                Label = "View chart",
+                Command = Workspace.OpenChartCommand,
+            });
+    }
 }
