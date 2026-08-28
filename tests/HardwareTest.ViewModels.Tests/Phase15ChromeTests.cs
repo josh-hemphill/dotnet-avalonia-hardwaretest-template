@@ -92,6 +92,11 @@ public sealed class Phase15ChromeTests
         Assert.True(tree.IsFilterFail);
         Assert.False(tree.IsFilterAll);
 
+        tree.StepStatusFilter = StepStatusFilter.Pass;
+        Assert.True(tree.IsFilterPass);
+        Assert.False(tree.IsFilterAll);
+        Assert.False(tree.IsFilterFail);
+
         tree.StepStatusFilter = StepStatusFilter.Running;
         Assert.True(tree.IsFilterRunning);
 

@@ -56,6 +56,13 @@ public partial class StepTreeViewModel : ReactiveObject
                 StepStatusFilter = filter;
             }
         });
+        SetSuiteFilterCommand = ReactiveCommand.Create<string>(filter =>
+        {
+            if (!string.IsNullOrWhiteSpace(filter))
+            {
+                SetSuiteStatusFilter(filter);
+            }
+        });
 
         PropertyChanged += (_, args) =>
         {
@@ -101,6 +108,7 @@ public partial class StepTreeViewModel : ReactiveObject
                 {
                     this.RaisePropertyChanged(nameof(IsFilteredToFail));
                     this.RaisePropertyChanged(nameof(IsFilterAll));
+                    this.RaisePropertyChanged(nameof(IsFilterPass));
                     this.RaisePropertyChanged(nameof(IsFilterFail));
                     this.RaisePropertyChanged(nameof(IsFilterRunning));
                     this.RaisePropertyChanged(nameof(IsFilterPending));
@@ -135,6 +143,7 @@ public partial class StepTreeViewModel : ReactiveObject
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> ToggleCompactCommand { get; }
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> FocusStepSearchCommand { get; }
     public ReactiveCommand<string, System.Reactive.Unit> SetStepFilterCommand { get; }
+    public ReactiveCommand<string, System.Reactive.Unit> SetSuiteFilterCommand { get; }
 
     [Reactive] private StageItemViewModel? _selectedStage;
     [Reactive] private StageItemViewModel? _selectedSubsection;
@@ -155,6 +164,7 @@ public partial class StepTreeViewModel : ReactiveObject
     /// True when the step list is currently narrowed to failed steps only (set automatically after a suite fail).
     public bool IsFilteredToFail => string.Equals(_stepStatusFilter, StepFilter.Fail, StringComparison.Ordinal);
     public bool IsFilterAll => string.Equals(_stepStatusFilter, StepFilter.All, StringComparison.Ordinal);
+    public bool IsFilterPass => string.Equals(_stepStatusFilter, StepFilter.Pass, StringComparison.Ordinal);
     public bool IsFilterFail => string.Equals(_stepStatusFilter, StepFilter.Fail, StringComparison.Ordinal);
     public bool IsFilterRunning => string.Equals(_stepStatusFilter, StepFilter.Running, StringComparison.Ordinal);
     public bool IsFilterPending => string.Equals(_stepStatusFilter, StepFilter.Pending, StringComparison.Ordinal);
@@ -347,7 +357,10 @@ public partial class StepTreeViewModel : ReactiveObject
         _openSelectedDetail();
     }
 
-    private void FilterFail()
+    private void FilterFail() => SetSuiteStatusFilter(StepFilter.Fail);
+
+    /// Suite chips are program-wide counts; select Entire program before applying the status filter.
+    private void SetSuiteStatusFilter(string filter)
     {
         var entire = Stages.FirstOrDefault(s => s.Step is null);
         if (entire is not null)
@@ -355,7 +368,7 @@ public partial class StepTreeViewModel : ReactiveObject
             SelectedStage = entire;
         }
 
-        StepStatusFilter = StepFilter.Fail;
+        StepStatusFilter = filter;
     }
 
     private void SelectScopeForStep(HierarchyStepViewModel leaf)

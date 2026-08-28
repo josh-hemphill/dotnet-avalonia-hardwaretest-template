@@ -36,19 +36,20 @@
       <WrapPanel Orientation="Horizontal">
         <ToggleButton Classes="filter-chip"
                       Content="{Binding StepTree.SuitePassedCount, StringFormat=Passed {0}}"
-                      IsChecked="{Binding StepTree.IsFilterAll, Mode=OneWay}"
-                      Command="{Binding StepTree.SetStepFilterCommand}"
-                      CommandParameter="{x:Static vm:StepStatusFilter.All}"
+                      IsChecked="{Binding StepTree.IsFilterPass, Mode=OneWay}"
+                      Command="{Binding StepTree.SetSuiteFilterCommand}"
+                      CommandParameter="{x:Static vm:StepStatusFilter.Pass}"
                       Margin="0,0,4,4" />
         <ToggleButton Classes="filter-chip"
                       Content="{Binding StepTree.SuiteFailedCount, StringFormat=Failed {0}}"
                       IsChecked="{Binding StepTree.IsFilterFail, Mode=OneWay}"
-                      Command="{Binding StepTree.FilterFailCommand}"
+                      Command="{Binding StepTree.SetSuiteFilterCommand}"
+                      CommandParameter="{x:Static vm:StepStatusFilter.Fail}"
                       Margin="0,0,4,4" />
         <ToggleButton Classes="filter-chip"
                       Content="{Binding StepTree.SuitePendingCount, StringFormat=Pending {0}}"
                       IsChecked="{Binding StepTree.IsFilterPending, Mode=OneWay}"
-                      Command="{Binding StepTree.SetStepFilterCommand}"
+                      Command="{Binding StepTree.SetSuiteFilterCommand}"
                       CommandParameter="{x:Static vm:StepStatusFilter.Pending}"
                       Margin="0,0,4,4" />
       </WrapPanel>
