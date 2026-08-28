@@ -75,7 +75,7 @@ See [docs/platform-roadmap.md](docs/platform-roadmap.md) for the platform harden
 
 ## OpenTAP programs
 
-Author structure in **OpenTAP Editor**; ship locked `.TapPlan` files under `plans/opentap/` (copied to `Programs/` on build). Avalonia supports constrained Engineer/Debug overlays (enable/disable, limits, resource rebind) without mutating the golden plan.
+Author structure in **OpenTAP Editor** or the free **OpenTAP TUI**; ship locked `.TapPlan` files under `plans/opentap/` (copied to `Programs/` on build). Validate with `HardwareTest --validate-plan` or `HardwareTest.PlanValidate` before install. Avalonia supports constrained Engineer/Debug overlays (enable/disable, limits, resource rebind) without mutating the golden plan.
 
 ## Appliance publish
 

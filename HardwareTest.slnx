@@ -5,6 +5,7 @@
     <Project Path="src/HardwareTest.OpenTap.Plugins.Mixins/HardwareTest.OpenTap.Plugins.Mixins.csproj" />
     <Project Path="src/HardwareTest.OpenTap.Host/HardwareTest.OpenTap.Host.csproj" />
     <Project Path="src/HardwareTest.OpenTap.Worker/HardwareTest.OpenTap.Worker.csproj" />
+    <Project Path="src/HardwareTest.PlanValidate/HardwareTest.PlanValidate.csproj" />
     <Project Path="src/HardwareTest/HardwareTest.csproj" />
   </Folder>
   <Folder Name="/tests/">

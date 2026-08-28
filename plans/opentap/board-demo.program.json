@@ -1,0 +1,9 @@
+{
+  "displayName": "Board Demo (nested / long run)",
+  "dutFamily": "demo",
+  "requireSerial": true,
+  "requireOperator": true,
+  "requirePartNumber": false,
+  "requireRevision": false,
+  "selectionIncludesCleanup": true
+}

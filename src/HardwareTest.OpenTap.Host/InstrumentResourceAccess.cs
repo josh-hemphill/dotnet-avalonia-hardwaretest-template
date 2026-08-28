@@ -38,6 +38,21 @@ public static class InstrumentResourceAccess
         return false;
     }
 
+    /// True when the instrument exposes a writable VisaAddress / ResourceName / Address for Instruments rebind.
+    public static bool HasWritableResourceProperty(Instrument instrument)
+    {
+        foreach (var name in ResourcePropertyNames)
+        {
+            var prop = instrument.GetType().GetProperty(name, BindingFlags.Instance | BindingFlags.Public);
+            if (prop?.PropertyType == typeof(string) && prop.CanWrite)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     public static IEnumerable<Instrument> CollectFromPlan(TestPlan plan)
     {
         var seen = new HashSet<Instrument>(ReferenceEqualityComparer.Instance);

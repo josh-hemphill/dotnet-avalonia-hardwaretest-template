@@ -1,14 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <TestPlan type="OpenTap.TestPlan">
   <Steps>
-    <TestStep type="HardwareTest.OpenTap.Plugins.Basic.TestGroupStep" Id="b68581b4-e4dd-4b2d-9500-d4f262a593e9">
+    <TestStep type="HardwareTest.OpenTap.Plugins.Basic.TestGroupStep" Id="a82131bf-fd85-4105-8c5e-a356471a727a">
       <Name Metadata="Step Name">Duplicate Names Suite</Name>
       <ChildTestSteps>
-        <TestStep type="HardwareTest.OpenTap.Plugins.Basic.TestGroupStep" Id="e000cde0-d42d-4c57-91dc-4e8a62d6d1c4">
+        <TestStep type="HardwareTest.OpenTap.Plugins.Basic.TestGroupStep" Id="e4f78bd0-0f6a-4cae-9087-0535ce62ba3a">
           <Name Metadata="Step Name">Bank A</Name>
           <ChildTestSteps>
-            <TestStep type="HardwareTest.OpenTap.Plugins.Basic.AcquireVoltageStep" Id="2f50e6ff-4fac-4bac-8ae2-2b3db0376a2d">
-              <Instrument>
+            <TestStep type="HardwareTest.OpenTap.Plugins.Basic.AcquireVoltageStep" Id="a13957ff-ec8f-45be-9327-b3f3c67a2d6a">
+              <Instrument type="HardwareTest.OpenTap.Plugins.Basic.MockDmmInstrument">
+                <VisaAddress>MOCK::INSTR0</VisaAddress>
                 <ResourceName>MOCK::INSTR0</ResourceName>
                 <Name>DMM</Name>
               </Instrument>
@@ -20,11 +21,12 @@
             </TestStep>
           </ChildTestSteps>
         </TestStep>
-        <TestStep type="HardwareTest.OpenTap.Plugins.Basic.TestGroupStep" Id="3e6c9af2-0df1-4186-a312-f409e3f3c385">
+        <TestStep type="HardwareTest.OpenTap.Plugins.Basic.TestGroupStep" Id="ec20f55c-df90-4fb6-929d-7148b0014ded">
           <Name Metadata="Step Name">Bank B</Name>
           <ChildTestSteps>
-            <TestStep type="HardwareTest.OpenTap.Plugins.Basic.AcquireVoltageStep" Id="a6538fff-eda0-42a6-80f4-31126b24ca40">
-              <Instrument>
+            <TestStep type="HardwareTest.OpenTap.Plugins.Basic.AcquireVoltageStep" Id="b3d440ed-372c-4f5f-87b5-85f14c4769c1">
+              <Instrument type="HardwareTest.OpenTap.Plugins.Basic.MockDmmInstrument">
+                <VisaAddress>MOCK::INSTR0</VisaAddress>
                 <ResourceName>MOCK::INSTR0</ResourceName>
                 <Name>DMM</Name>
               </Instrument>
@@ -36,8 +38,9 @@
             </TestStep>
           </ChildTestSteps>
         </TestStep>
-        <TestStep type="HardwareTest.OpenTap.Plugins.Basic.SafeShutdownStep" Id="fdb8f3a3-0992-465e-89bf-2100c81e83eb">
-          <Instrument>
+        <TestStep type="HardwareTest.OpenTap.Plugins.Basic.SafeShutdownStep" Id="301ec330-2cbf-4c75-902f-2e482898c96b">
+          <Instrument type="HardwareTest.OpenTap.Plugins.Basic.MockDmmInstrument">
+            <VisaAddress>MOCK::INSTR0</VisaAddress>
             <ResourceName>MOCK::INSTR0</ResourceName>
             <Name>DMM</Name>
           </Instrument>

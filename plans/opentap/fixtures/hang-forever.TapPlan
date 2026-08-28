@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<TestPlan type="OpenTap.TestPlan">
+  <Steps>
+    <TestStep type="HardwareTest.OpenTap.Plugins.Basic.HangForeverStep" Id="837361db-d7c0-4a98-90f2-343662e3b42c">
+      <Name Metadata="Step Name">Hang Forever</Name>
+      <ChildTestSteps />
+    </TestStep>
+  </Steps>
+</TestPlan>
