@@ -1,6 +1,6 @@
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Globalization;
-using System.Reactive.Linq;
 using HardwareTest.Features.Presentation;
 using HardwareTest.OpenTap.Host;
 using ReactiveUI;
@@ -35,11 +35,7 @@ public partial class LivePresentationViewModel : ReactiveObject
         ResetViewCommand = ReactiveCommand.Create(ResetView);
         SelectSeriesCommand = ReactiveCommand.Create<LiveSeriesItemViewModel?>(SelectSeries);
         SelectTimeWindowCommand = ReactiveCommand.Create<ChartTimeWindow>(SelectTimeWindow);
-        this.WhenAnyValue(x => x.SelectedSeries)
-            .Subscribe(OnUserSelectedSeries);
-        this.WhenAnyValue(x => x.SelectedTimeWindow)
-            .Skip(1)
-            .Subscribe(_ => PublishSelectedSnapshot(_lastSelectedStep));
+        PropertyChanged += OnLivePropertyChanged;
     }
 
     public ObservableCollection<PresentationTileViewModel> PresentationTiles { get; } = [];
@@ -249,6 +245,20 @@ public partial class LivePresentationViewModel : ReactiveObject
     }
 
     private void SelectTimeWindow(ChartTimeWindow window) => SelectedTimeWindow = window;
+
+    private void OnLivePropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(SelectedSeries))
+        {
+            OnUserSelectedSeries(SelectedSeries);
+            return;
+        }
+
+        if (e.PropertyName == nameof(SelectedTimeWindow))
+        {
+            PublishSelectedSnapshot(_lastSelectedStep);
+        }
+    }
 
     private void OnUserSelectedSeries(LiveSeriesItemViewModel? item)
     {

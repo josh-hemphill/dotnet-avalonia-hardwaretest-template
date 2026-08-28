@@ -266,12 +266,13 @@ public sealed class RunFlowE2ETests
     }
 
     [AvaloniaFact]
-    public void SetLimits_does_not_drop_the_next_live_sample()
+    public async Task SetLimits_does_not_drop_the_next_live_sample()
     {
         var plot = new HardwareTest.Widgets.MeasurementPlot.MeasurementPlotView();
         plot.UpdateTimeSeries([0], [1.0], 1, followLive: true, force: true);
         Assert.Equal(1, plot.LastRenderedPointCount);
 
+        await Task.Delay(60);
         plot.SetLimits(0, 2);
         plot.UpdateTimeSeries([0, 1], [1.0, 2.0], 2, followLive: true, force: false);
         Dispatcher.UIThread.RunJobs();

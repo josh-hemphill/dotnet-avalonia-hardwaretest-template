@@ -2,6 +2,7 @@ using HardwareTest.Features.Presentation;
 using HardwareTest.Features.RunTest;
 using HardwareTest.OpenTap.Host;
 using ReactiveUI;
+using System.Reactive.Linq;
 using Xunit;
 
 namespace HardwareTest.ViewModels.Tests;
@@ -138,7 +139,7 @@ public sealed class Phase16PresentationChromeTests
     }
 
     [Fact]
-    public async Task SelectSeries_locks_until_reset()
+    public void SelectSeries_locks_until_a_later_user_pick()
     {
         var live = new LivePresentationViewModel();
         var acquire = Leaf("Acquire", "Suite/Acquire");
@@ -147,7 +148,7 @@ public sealed class Phase16PresentationChromeTests
         live.ApplySample(Timeseries("VDC", 1.0, t0), acquire.Path, null, acquire);
         live.ApplySample(Timeseries("IDC", 0.2, t0.AddSeconds(1)), mean.Path, null, mean);
         var acquireItem = live.AvailableSeries.First(s => s.Key.StepPath == "Suite/Acquire");
-        await live.SelectSeriesCommand.ExecuteAsync(acquireItem);
+        live.SelectSeriesCommand.Execute(acquireItem).Subscribe();
 
         Assert.Equal("Suite/Acquire", live.SelectedSeries?.Key.StepPath);
 
