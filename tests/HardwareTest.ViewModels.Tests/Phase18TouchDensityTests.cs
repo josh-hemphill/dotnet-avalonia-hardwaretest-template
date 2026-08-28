@@ -55,7 +55,12 @@ public sealed class Phase18TouchDensityTests
         Assert.Contains("Content=\"Overview\"", run, StringComparison.Ordinal);
         Assert.DoesNotContain("Content=\"Steps\"", header, StringComparison.Ordinal);
         Assert.Contains("OperatorTouchDensity.ChartPlotMinHeight", chart, StringComparison.Ordinal);
+        Assert.Contains("ColumnDefinitions=\"*,Auto\"", run, StringComparison.Ordinal);
         Assert.Contains("OperatorTouchDensity.OverviewSidebarWidth", run, StringComparison.Ordinal);
+        Assert.True(
+            run.IndexOf("Content=\"Overview\"", StringComparison.Ordinal)
+            < run.IndexOf("OperatorTouchDensity.OverviewSidebarWidth", StringComparison.Ordinal),
+            "Overview rail must sit in the right column under the Overview toggle.");
         Assert.Contains("Plan overview", overview, StringComparison.Ordinal);
         Assert.Contains("IsFilterPass", overview, StringComparison.Ordinal);
         Assert.Contains("SetSuiteFilterCommand", overview, StringComparison.Ordinal);

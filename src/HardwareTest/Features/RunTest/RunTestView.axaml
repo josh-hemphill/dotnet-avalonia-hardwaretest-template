@@ -22,17 +22,8 @@
                  IsHitTestVisible="False"
                  Opacity="{Binding ShowOverallProgress, Converter={x:Static vm:BoolToOpacityConverter.Instance}}" />
 
-    <Grid Grid.Row="2" ColumnDefinitions="Auto,*">
-      <Border Width="{x:Static shell:OperatorTouchDensity.OverviewSidebarWidth}"
-              Margin="0,0,8,0"
-              Padding="8,6"
-              CornerRadius="6"
-              Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
-              IsVisible="{Binding Workspace.ShowOverviewSidebar}">
-        <vm:RunOverviewSidebarView />
-      </Border>
-
-      <DockPanel Grid.Column="1">
+    <Grid Grid.Row="2" ColumnDefinitions="*,Auto">
+      <DockPanel>
         <Border DockPanel.Dock="Top"
                 BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
                 BorderThickness="0,0,0,1"
@@ -75,6 +66,16 @@
           <vm:RunChartWorkspaceView IsVisible="{Binding Workspace.ShowChart}" />
         </Panel>
       </DockPanel>
+
+      <Border Grid.Column="1"
+              Width="{x:Static shell:OperatorTouchDensity.OverviewSidebarWidth}"
+              Margin="8,0,0,0"
+              Padding="8,6"
+              CornerRadius="6"
+              Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
+              IsVisible="{Binding Workspace.ShowOverviewSidebar}">
+        <vm:RunOverviewSidebarView />
+      </Border>
     </Grid>
   </Grid>
 </UserControl>
