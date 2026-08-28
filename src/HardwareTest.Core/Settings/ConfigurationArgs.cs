@@ -7,6 +7,8 @@ public sealed class ConfigurationArgs
     public bool PrintVersion { get; init; }
     /// Debug-only: fatal | recoverable | command.
     public string? SimulateCrash { get; init; }
+    /// File or directory of `.TapPlan` files; when set, validate and exit before the UI.
+    public string? ValidatePlanPath { get; init; }
     public string? SettingsPath { get; init; }
     public IReadOnlyDictionary<string, string> Overlays { get; init; }
         = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -21,6 +23,7 @@ public sealed class ConfigurationArgs
         var printConfig = false;
         var printVersion = false;
         string? simulateCrash = null;
+        string? validatePlanPath = null;
         string? settingsPath = null;
 
         for (var i = 0; i < args.Count; i++)
@@ -50,6 +53,12 @@ public sealed class ConfigurationArgs
                 if (string.Equals(flag, "--simulate-crash", StringComparison.OrdinalIgnoreCase))
                 {
                     simulateCrash = inlineValue ?? TakeNext(args, ref i) ?? "fatal";
+                    continue;
+                }
+
+                if (string.Equals(flag, "--validate-plan", StringComparison.OrdinalIgnoreCase))
+                {
+                    validatePlanPath = inlineValue ?? TakeNext(args, ref i);
                     continue;
                 }
 
@@ -88,6 +97,7 @@ public sealed class ConfigurationArgs
             PrintConfig = printConfig,
             PrintVersion = printVersion,
             SimulateCrash = simulateCrash,
+            ValidatePlanPath = validatePlanPath,
             SettingsPath = settingsPath,
             Overlays = overlays,
             PassthroughArgs = passthrough,
