@@ -2,13 +2,15 @@ using ReactiveUI;
 
 namespace HardwareTest.Features.RunTest;
 
-/// Owns Steps / Details / Chart selection and overlay precedence (preparation, interaction).
+/// Owns Steps / Details / Chart selection, optional overview, and overlay precedence.
 public sealed class RunWorkspaceViewModel : ReactiveObject
 {
     private readonly Func<bool> _sessionBlocked;
     private readonly Func<bool> _awaitingOperator;
     private readonly Func<bool> _hasChartData;
     private readonly Func<bool> _hasStepSelection;
+    private readonly Func<bool> _hasHierarchy;
+    private readonly Func<bool> _isCompactLayout;
     private readonly Action<bool> _setDetailVisible;
 
     public RunWorkspaceViewModel(
@@ -16,22 +18,28 @@ public sealed class RunWorkspaceViewModel : ReactiveObject
         Func<bool> awaitingOperator,
         Func<bool> hasChartData,
         Func<bool> hasStepSelection,
-        Action<bool>? setDetailVisible = null)
+        Action<bool>? setDetailVisible = null,
+        Func<bool>? hasHierarchy = null,
+        Func<bool>? isCompactLayout = null)
     {
         _sessionBlocked = sessionBlocked;
         _awaitingOperator = awaitingOperator;
         _hasChartData = hasChartData;
         _hasStepSelection = hasStepSelection;
+        _hasHierarchy = hasHierarchy ?? (() => false);
+        _isCompactLayout = isCompactLayout ?? (() => false);
         _setDetailVisible = setDetailVisible ?? (_ => { });
 
         OpenStepsCommand = ReactiveCommand.Create(OpenSteps);
         OpenDetailsCommand = ReactiveCommand.Create(OpenDetails);
         OpenChartCommand = ReactiveCommand.Create(OpenChart);
+        ToggleOverviewCommand = ReactiveCommand.Create(ToggleOverview);
     }
 
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> OpenStepsCommand { get; }
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> OpenDetailsCommand { get; }
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> OpenChartCommand { get; }
+    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> ToggleOverviewCommand { get; }
 
     public RunWorkspace Selected { get; private set; } = RunWorkspace.Steps;
 
@@ -48,7 +56,19 @@ public sealed class RunWorkspaceViewModel : ReactiveObject
     public bool IsDetailsSelected => Selected.Equals(RunWorkspace.Details);
     public bool IsChartSelected => Selected.Equals(RunWorkspace.Chart);
 
-    /// Recomputes overlay visibility after session, interaction, or chart-data changes.
+    /// Operator preference; compact boards and overlays still hide the rail.
+    public bool UserWantsOverview { get; private set; } = true;
+
+    /// Hierarchy exists and the board is wide enough for a 200px rail.
+    public bool CanOfferOverview => _hasHierarchy() && !_isCompactLayout();
+
+    /// Overview rail beside the tab content.
+    public bool ShowOverviewSidebar => CanOfferOverview && UserWantsOverview && ShowModeSwitcher;
+
+    /// Stage chips in the Steps tab when the overview rail is off.
+    public bool ShowInlineStageChips => _hasHierarchy() && !_isCompactLayout() && !ShowOverviewSidebar;
+
+    /// Recomputes overlay, tab, and overview visibility.
     /// Operator prompts take precedence over session confirmation so Continue stays reachable.
     public void Refresh()
     {
@@ -64,6 +84,10 @@ public sealed class RunWorkspaceViewModel : ReactiveObject
         this.RaisePropertyChanged(nameof(IsStepsSelected));
         this.RaisePropertyChanged(nameof(IsDetailsSelected));
         this.RaisePropertyChanged(nameof(IsChartSelected));
+        this.RaisePropertyChanged(nameof(UserWantsOverview));
+        this.RaisePropertyChanged(nameof(CanOfferOverview));
+        this.RaisePropertyChanged(nameof(ShowOverviewSidebar));
+        this.RaisePropertyChanged(nameof(ShowInlineStageChips));
     }
 
     /// Returns to the step list (program load / Esc / Back).
@@ -93,6 +117,13 @@ public sealed class RunWorkspaceViewModel : ReactiveObject
 
     /// Program change always lands on Steps.
     public void ResetToSteps() => OpenSteps();
+
+    /// Shows or hides the hierarchy overview when the board can host it.
+    public void ToggleOverview()
+    {
+        UserWantsOverview = !UserWantsOverview;
+        Refresh();
+    }
 
     private bool ShowWorkspace(RunWorkspace workspace)
         => !ShowPreparation && !ShowInteraction && Selected.Equals(workspace);

@@ -26,6 +26,61 @@ public sealed class RunBoardChildViewModelTests
         ],
     };
 
+    private static OpenTapStepNode HierarchicalStatusTree() => new()
+    {
+        Id = "root",
+        Name = "Suite",
+        Path = "Suite",
+        IsStage = true,
+        Children =
+        [
+            new()
+            {
+                Id = "identity",
+                Name = "Identity",
+                Path = "Suite/Identity",
+                IsStage = true,
+                StatusText = "Pass",
+                Verdict = "Pass",
+                Children =
+                [
+                    new()
+                    {
+                        Id = "read-id",
+                        Name = "Read ID",
+                        Path = "Suite/Identity/Read ID",
+                        StatusText = "Pass",
+                        Verdict = "Pass",
+                    },
+                ],
+            },
+            new()
+            {
+                Id = "sweep",
+                Name = "Voltage Sweep",
+                Path = "Suite/Voltage Sweep",
+                IsStage = true,
+                Children =
+                [
+                    new()
+                    {
+                        Id = "acquire-5v",
+                        Name = "Acquire 5V",
+                        Path = "Suite/Voltage Sweep/Acquire 5V",
+                    },
+                    new()
+                    {
+                        Id = "acquire-12v",
+                        Name = "Acquire 12V",
+                        Path = "Suite/Voltage Sweep/Acquire 12V",
+                        StatusText = "Fail",
+                        Verdict = "Fail",
+                    },
+                ],
+            },
+        ],
+    };
+
     private static HierarchyStepViewModel Leaf(string name = "Acquire VDC")
         => new(new OpenTapStepNode { Id = "leaf", Name = name, Path = $"Suite/{name}" });
 
@@ -325,6 +380,43 @@ public sealed class RunBoardChildViewModelTests
 
         tree.StepSearchText = string.Empty;
         Assert.Equal(2, tree.SuitePendingCount);
+    }
+
+    [Fact]
+    public void Overview_suite_chips_filter_the_whole_plan()
+    {
+        var tree = new StepTreeViewModel(() => [HierarchicalStatusTree()]);
+        tree.RebuildFromHost();
+
+        Assert.Equal(1, tree.SuitePassedCount);
+        Assert.Equal(1, tree.SuiteFailedCount);
+        Assert.Equal(1, tree.SuitePendingCount);
+
+        var identity = tree.Stages.First(s => s.DisplayName == "Identity");
+        tree.SelectedStage = identity;
+        Assert.NotNull(identity.Step);
+        tree.SetStepFilterCommand.Execute(StepStatusFilter.Pending).Subscribe();
+        Assert.Empty(tree.StepRows);
+        Assert.Equal(1, tree.SuitePendingCount);
+
+        tree.SetSuiteFilterCommand.Execute(StepStatusFilter.Pending).Subscribe();
+        Assert.True(tree.SelectedStage?.Step is null);
+        Assert.True(tree.IsFilterPending);
+        Assert.Equal(tree.SuitePendingCount, tree.StepRows.Count);
+        Assert.Equal("Acquire 5V", tree.StepRows[0].Name);
+
+        tree.SetSuiteFilterCommand.Execute(StepStatusFilter.Pass).Subscribe();
+        Assert.True(tree.IsFilterPass);
+        Assert.False(tree.IsFilterAll);
+        Assert.Equal(tree.SuitePassedCount, tree.StepRows.Count);
+        Assert.Equal("Read ID", tree.StepRows[0].Name);
+        Assert.DoesNotContain(tree.StepRows, r => r.Name == "Acquire 5V");
+        Assert.DoesNotContain(tree.StepRows, r => r.Name == "Acquire 12V");
+
+        tree.SetSuiteFilterCommand.Execute(StepStatusFilter.Fail).Subscribe();
+        Assert.True(tree.IsFilterFail);
+        Assert.Equal(tree.SuiteFailedCount, tree.StepRows.Count);
+        Assert.Equal("Acquire 12V", tree.StepRows[0].Name);
     }
 
     [Fact]

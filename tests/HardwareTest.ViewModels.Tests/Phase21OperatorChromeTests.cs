@@ -80,7 +80,8 @@ public sealed class Phase21OperatorChromeTests
             File.ReadAllText(FindRepoFile("src/HardwareTest/Features/RunTest/RunHeaderView.axaml")),
             File.ReadAllText(FindRepoFile("src/HardwareTest/Features/RunTest/RunStepsWorkspaceView.axaml")),
             File.ReadAllText(FindRepoFile("src/HardwareTest/Features/RunTest/RunDetailsWorkspaceView.axaml")),
-            File.ReadAllText(FindRepoFile("src/HardwareTest/Features/RunTest/RunChartWorkspaceView.axaml")));
+            File.ReadAllText(FindRepoFile("src/HardwareTest/Features/RunTest/RunChartWorkspaceView.axaml")),
+            File.ReadAllText(FindRepoFile("src/HardwareTest/Features/RunTest/RunOverviewSidebarView.axaml")));
 
     [Fact]
     public void Settings_sections_are_automation_headings()

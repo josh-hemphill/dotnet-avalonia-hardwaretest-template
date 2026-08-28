@@ -1,6 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:HardwareTest.Features.RunTest"
+             xmlns:shell="using:HardwareTest.Features.Shell"
              x:Class="HardwareTest.Features.RunTest.RunTestView"
              x:DataType="vm:RunTestViewModel"
              KeyDown="OnKeyDown">
@@ -21,12 +22,60 @@
                  IsHitTestVisible="False"
                  Opacity="{Binding ShowOverallProgress, Converter={x:Static vm:BoolToOpacityConverter.Instance}}" />
 
-    <Panel Grid.Row="2">
-      <vm:RunPreparationView IsVisible="{Binding Workspace.ShowPreparation}" />
-      <vm:InteractionHostView IsVisible="{Binding Workspace.ShowInteraction}" />
-      <vm:RunStepsWorkspaceView IsVisible="{Binding Workspace.ShowSteps}" />
-      <vm:RunDetailsWorkspaceView IsVisible="{Binding Workspace.ShowDetails}" />
-      <vm:RunChartWorkspaceView IsVisible="{Binding Workspace.ShowChart}" />
-    </Panel>
+    <Grid Grid.Row="2" ColumnDefinitions="*,Auto">
+      <DockPanel>
+        <Border DockPanel.Dock="Top"
+                BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
+                BorderThickness="0,0,0,1"
+                Margin="0,0,0,8"
+                IsVisible="{Binding Workspace.ShowModeSwitcher}">
+          <Grid ColumnDefinitions="*,Auto">
+            <StackPanel Orientation="Horizontal">
+              <ToggleButton Content="Steps"
+                          Classes="workspace-tab"
+                          IsChecked="{Binding Workspace.IsStepsSelected, Mode=OneWay}"
+                          Command="{Binding Workspace.OpenStepsCommand}"
+                          AutomationProperties.Name="Steps" />
+              <ToggleButton Content="Details"
+                          Classes="workspace-tab"
+                          IsChecked="{Binding Workspace.IsDetailsSelected, Mode=OneWay}"
+                          Command="{Binding Workspace.OpenDetailsCommand}"
+                          IsEnabled="{Binding Workspace.CanOpenDetails}"
+                          AutomationProperties.Name="Details" />
+              <ToggleButton Content="Chart"
+                          Classes="workspace-tab"
+                          IsChecked="{Binding Workspace.IsChartSelected, Mode=OneWay}"
+                          Command="{Binding Workspace.OpenChartCommand}"
+                          IsEnabled="{Binding Workspace.CanOpenChart}"
+                          AutomationProperties.Name="Chart" />
+            </StackPanel>
+            <ToggleButton Grid.Column="1"
+                          Content="Overview"
+                          Classes="workspace-tab"
+                          IsChecked="{Binding Workspace.UserWantsOverview, Mode=OneWay}"
+                          Command="{Binding Workspace.ToggleOverviewCommand}"
+                          IsVisible="{Binding Workspace.CanOfferOverview}"
+                          AutomationProperties.Name="Overview" />
+          </Grid>
+        </Border>
+        <Panel>
+          <vm:RunPreparationView IsVisible="{Binding Workspace.ShowPreparation}" />
+          <vm:InteractionHostView IsVisible="{Binding Workspace.ShowInteraction}" />
+          <vm:RunStepsWorkspaceView IsVisible="{Binding Workspace.ShowSteps}" />
+          <vm:RunDetailsWorkspaceView IsVisible="{Binding Workspace.ShowDetails}" />
+          <vm:RunChartWorkspaceView IsVisible="{Binding Workspace.ShowChart}" />
+        </Panel>
+      </DockPanel>
+
+      <Border Grid.Column="1"
+              Width="{x:Static shell:OperatorTouchDensity.OverviewSidebarWidth}"
+              Margin="8,0,0,0"
+              Padding="8,6"
+              CornerRadius="6"
+              Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
+              IsVisible="{Binding Workspace.ShowOverviewSidebar}">
+        <vm:RunOverviewSidebarView />
+      </Border>
+    </Grid>
   </Grid>
 </UserControl>

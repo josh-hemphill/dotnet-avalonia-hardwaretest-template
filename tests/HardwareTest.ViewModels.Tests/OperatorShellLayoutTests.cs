@@ -8,11 +8,14 @@ namespace HardwareTest.ViewModels.Tests;
 public sealed class OperatorShellLayoutTests
 {
     [Fact]
-    public void Compact_run_board_keeps_stage_rail_hidden()
+    public void Compact_run_board_keeps_overview_sidebar_hidden()
     {
         var vm = RunTestViewModelTestFactory.Create();
         Assert.False(vm.IsRunning);
         vm.IsCompactLayout = true;
+        vm.Workspace.Refresh();
+        Assert.False(vm.Workspace.ShowOverviewSidebar);
+        Assert.False(vm.Workspace.CanOfferOverview);
         Assert.True(ShellLayoutBreakpoints.CompactBoardWidth < 900);
         Assert.True(ShellLayoutBreakpoints.CompactBoardHeight < 600);
     }
