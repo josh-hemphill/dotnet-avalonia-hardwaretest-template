@@ -1,0 +1,121 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:HardwareTest.Features.RunTest"
+             xmlns:shell="using:HardwareTest.Features.Shell"
+             x:Class="HardwareTest.Features.RunTest.RunHeaderView"
+             x:DataType="vm:RunTestViewModel">
+  <StackPanel Spacing="6">
+    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+      <WrapPanel Orientation="Horizontal">
+        <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,0,12,4">
+          <ComboBox ItemsSource="{Binding ProgramSelection.Programs}"
+                    SelectedItem="{Binding ProgramSelection.SelectedProgram}"
+                    MinWidth="220"
+                    MaxDropDownHeight="320"
+                    IsEnabled="{Binding !IsRunning}"
+                    AutomationProperties.Name="Program">
+            <ComboBox.ItemTemplate>
+              <DataTemplate x:DataType="vm:ProgramItemViewModel">
+                <TextBlock Text="{Binding DisplayName}" />
+              </DataTemplate>
+            </ComboBox.ItemTemplate>
+          </ComboBox>
+          <Button Content="More"
+                  Classes="operator"
+                  IsVisible="{Binding IsEngineerDebugMode}"
+                  ToolTip.Tip="Engineer actions">
+            <Button.Flyout>
+              <MenuFlyout>
+                <MenuItem Header="Refresh programs"
+                          Command="{Binding ProgramSelection.RefreshProgramsCommand}" />
+                <MenuItem Header="Open plan…"
+                          Command="{Binding ProgramSelection.OpenPlanFileCommand}" />
+                <MenuItem Header="Inspect"
+                          Command="{Binding InspectPlanCommand}" />
+              </MenuFlyout>
+            </Button.Flyout>
+          </Button>
+          <TextBlock Text="Loading…"
+                     IsVisible="{Binding ProgramSelection.IsBusy}"
+                     VerticalAlignment="Center"
+                     Opacity="0.8"
+                     FontWeight="SemiBold" />
+        </StackPanel>
+        <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,0,12,4" VerticalAlignment="Center">
+          <TextBlock Text="{Binding SessionPanel.SessionSummary}"
+                     FontWeight="SemiBold"
+                     FontSize="13"
+                     VerticalAlignment="Center"
+                     TextTrimming="CharacterEllipsis"
+                     MaxWidth="360" />
+          <Button Content="Change"
+                  Command="{Binding SessionPanel.ChangeSessionCommand}"
+                  Classes="operator"
+                  FontSize="12"
+                  Padding="10,4"
+                  IsVisible="{Binding !SessionPanel.SessionBlocked}" />
+        </StackPanel>
+        <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,0,8,4" VerticalAlignment="Center">
+          <TextBlock Text="{Binding HeroStepName}"
+                     FontWeight="SemiBold"
+                     FontSize="15"
+                     VerticalAlignment="Center"
+                     IsVisible="{Binding HeroStepName, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+          <Border CornerRadius="4"
+                  Padding="8,2"
+                  VerticalAlignment="Center"
+                  Background="{Binding HeroChipText, Converter={x:Static vm:ChipBrushConverter.Instance}}">
+            <TextBlock Text="{Binding HeroChipText}"
+                       FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}"
+                       FontWeight="SemiBold"
+                       Foreground="White" />
+          </Border>
+          <TextBlock Text="{Binding HeroStatusLine}"
+                     Opacity="0.85"
+                     FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}"
+                     VerticalAlignment="Center"
+                     TextTrimming="CharacterEllipsis"
+                     IsVisible="{Binding !Interaction.IsAwaitingOperator}" />
+        </StackPanel>
+      </WrapPanel>
+      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+        <Button Content="Run"
+                Command="{Binding Run.RunCommand}"
+                Classes="primary"
+                IsEnabled="{Binding CanStartRun}"
+                IsVisible="{Binding ShowHeaderRun}"
+                ToolTip.Tip="{Binding CanStartRunTip}" />
+        <Button Content="Stop Run"
+                Command="{Binding Run.CancelCommand}"
+                IsEnabled="{Binding CanSafetyStop}"
+                IsVisible="{Binding ShowHeaderStop}"
+                Classes="danger"
+                ToolTip.Tip="{x:Static shell:StopRunCopy.CooperativeTip}"
+                AutomationProperties.Name="{x:Static shell:StopRunCopy.Label}" />
+      </StackPanel>
+    </Grid>
+    <TextBlock FontSize="12"
+               Opacity="0.95"
+               FontWeight="SemiBold"
+               TextWrapping="Wrap"
+               Foreground="#E65100"
+               Text="{Binding CanStartRunTip}"
+               IsVisible="{Binding ShowStartBlockedTip}" />
+    <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding Workspace.ShowModeSwitcher}">
+      <ToggleButton Content="Steps"
+                    Classes="filter-chip"
+                    IsChecked="{Binding Workspace.IsStepsSelected, Mode=OneWay}"
+                    Command="{Binding Workspace.OpenStepsCommand}" />
+      <ToggleButton Content="Details"
+                    Classes="filter-chip"
+                    IsChecked="{Binding Workspace.IsDetailsSelected, Mode=OneWay}"
+                    Command="{Binding Workspace.OpenDetailsCommand}"
+                    IsEnabled="{Binding Workspace.CanOpenDetails}" />
+      <ToggleButton Content="Chart"
+                    Classes="filter-chip"
+                    IsChecked="{Binding Workspace.IsChartSelected, Mode=OneWay}"
+                    Command="{Binding Workspace.OpenChartCommand}"
+                    IsEnabled="{Binding Workspace.CanOpenChart}" />
+    </StackPanel>
+  </StackPanel>
+</UserControl>

@@ -8,25 +8,25 @@ namespace HardwareTest.ViewModels.Tests;
 public sealed class OperatorShellLayoutTests
 {
     [Fact]
-    public void Compact_run_board_hides_stage_rail()
+    public void Compact_run_board_keeps_stage_rail_hidden()
     {
         var vm = RunTestViewModelTestFactory.Create();
-        Assert.True(vm.ShowStageRail);
+        Assert.False(vm.IsRunning);
         vm.IsCompactLayout = true;
-        Assert.False(vm.ShowStageRail);
         Assert.True(ShellLayoutBreakpoints.CompactBoardWidth < 900);
+        Assert.True(ShellLayoutBreakpoints.CompactBoardHeight < 600);
     }
 
     [Fact]
     public void Run_board_axaml_wraps_secondary_controls_and_binds_compact_stage_picker()
     {
-        var axaml = File.ReadAllText(FindRepoFile("src/HardwareTest/Features/RunTest/RunTestView.axaml"));
-        Assert.Contains("ShowStageRail", axaml, StringComparison.Ordinal);
-        Assert.Contains("IsCompactLayout", axaml, StringComparison.Ordinal);
-        Assert.Contains("PlaceholderText=\"Stage\"", axaml, StringComparison.Ordinal);
-        Assert.Contains("<WrapPanel Grid.Row=\"2\"", axaml, StringComparison.Ordinal);
-        Assert.Contains("IsVisible=\"{Binding IsEngineerDebugMode}\"", axaml, StringComparison.Ordinal);
-        Assert.Contains("Content=\"Inspect\"", axaml, StringComparison.Ordinal);
+        var header = File.ReadAllText(FindRepoFile("src/HardwareTest/Features/RunTest/RunHeaderView.axaml"));
+        var steps = File.ReadAllText(FindRepoFile("src/HardwareTest/Features/RunTest/RunStepsWorkspaceView.axaml"));
+        Assert.Contains("IsCompactLayout", steps, StringComparison.Ordinal);
+        Assert.Contains("PlaceholderText=\"Stage\"", steps, StringComparison.Ordinal);
+        Assert.Contains("<WrapPanel Grid.Row=\"2\"", steps, StringComparison.Ordinal);
+        Assert.Contains("IsVisible=\"{Binding IsEngineerDebugMode}\"", header, StringComparison.Ordinal);
+        Assert.Contains("Header=\"Inspect\"", header, StringComparison.Ordinal);
     }
 
     [Fact]

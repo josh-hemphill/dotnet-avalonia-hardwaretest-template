@@ -1,6 +1,5 @@
-using System;
 using System.Collections.ObjectModel;
-using System.Linq;
+using System.Globalization;
 using HardwareTest.Features.Presentation;
 using HardwareTest.OpenTap.Host;
 using ReactiveUI;
@@ -8,78 +7,115 @@ using ReactiveUI.SourceGenerators;
 
 namespace HardwareTest.Features.RunTest;
 
-/// Band (KPI strip) vs Focus (earned trend pane) for live Presentation chrome.
+/// Band (KPI strip) vs Focus (legacy earned trend). Chart now lives in a Run workspace.
 public enum PresentationChromeMode
 {
     Band,
     Focus,
 }
 
-/// Live measurement feed: the plot ring buffer and the per-step gauge tiles.
+/// Live measurement feed: per-metric series buffers and per-step gauge tiles.
 public partial class LivePresentationViewModel : ReactiveObject
 {
-    private const int PlotCapacity = 2048;
+    public const int MaximumLiveSeries = 8;
 
-    private readonly double[] _plotRing = new double[PlotCapacity];
-    private readonly double[] _plotPublish = new double[PlotCapacity];
+    private readonly Dictionary<LiveSeriesKey, LiveSeriesBuffer> _series = [];
+    private readonly List<LiveSeriesKey> _seriesOrder = [];
     private readonly HashSet<string> _stepsWithSamples = new(StringComparer.OrdinalIgnoreCase);
     private readonly List<PresentationTileViewModel> _gaugeTiles = [];
+    private readonly HashSet<LiveSeriesKey> _announcedOutOfBand = [];
     private HierarchyStepViewModel? _lastSelectedStep;
-    private bool _suppressAutoFocus;
-
-    private int _plotCount;
-    private int _plotWrite;
-    private int _plotPublishLength;
+    private LiveSeriesKey? _manualSeries;
 
     public LivePresentationViewModel()
     {
-        PlotYs = _plotPublish;
+        PlotXs = [];
+        PlotYs = [];
         ToggleFocusTrendCommand = ReactiveCommand.Create(ToggleFocusTrend);
+        ResetViewCommand = ReactiveCommand.Create(ResetView);
+        SelectSeriesCommand = ReactiveCommand.Create<LiveSeriesItemViewModel?>(SelectSeries);
+        SelectTimeWindowCommand = ReactiveCommand.Create<ChartTimeWindow>(SelectTimeWindow);
     }
 
     public ObservableCollection<PresentationTileViewModel> PresentationTiles { get; } = [];
+    public ObservableCollection<LiveSeriesItemViewModel> AvailableSeries { get; } = [];
+    public ObservableCollection<ChartTimeWindow> TimeWindows { get; } = new(ChartTimeWindow.AllWindows);
 
     /// Raised after the publish buffer changes so the plot widget can pull without binding to an array.
     public event EventHandler? PlotDataChanged;
 
-    public int PlotYsLength => _plotPublishLength;
+    public int PlotYsLength { get; private set; }
 
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> ToggleFocusTrendCommand { get; }
+    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> ResetViewCommand { get; }
+    public ReactiveCommand<LiveSeriesItemViewModel?, System.Reactive.Unit> SelectSeriesCommand { get; }
+    public ReactiveCommand<ChartTimeWindow, System.Reactive.Unit> SelectTimeWindowCommand { get; }
 
-    [Reactive] private double[] _plotYs = Array.Empty<double>();
+    [Reactive] private double[] _plotXs = [];
+    [Reactive] private double[] _plotYs = [];
     [Reactive] private bool _hasPlotData;
+    [Reactive] private bool _hasChartData;
+    [Reactive] private bool _hasChartAttention;
     [Reactive] private bool _showPlotForSelection;
     [Reactive] private bool _showFocusTrend;
-    /// True when Band chrome can offer an explicit "Show trend" control (hidden while Focus is open).
     [Reactive] private bool _offerShowTrend;
+    [Reactive] private bool _offerOpenChart;
     [Reactive] private bool _hasPresentationTiles;
     [Reactive] private bool _userWantsFocus;
+    [Reactive] private bool _followLive = true;
     [Reactive] private PresentationChromeMode _chromeMode = PresentationChromeMode.Band;
     [Reactive] private string _plotLegendText = "Channel";
     [Reactive] private string _plotYLabel = "Value";
     [Reactive] private string _plotTitle = "Live measurements";
     [Reactive] private string _focusTrendTip = string.Empty;
+    [Reactive] private string _chartValueText = "—";
+    [Reactive] private string _chartBandText = "No limits";
+    [Reactive] private string _chartAgeText = string.Empty;
+    [Reactive] private string _chartEmptyText = "No live measurements yet.";
+    [Reactive] private LiveSeriesItemViewModel? _selectedSeries;
+    [Reactive] private ChartTimeWindow _selectedTimeWindow = ChartTimeWindow.ThirtySeconds;
+    [Reactive] private double? _plotLimitLow;
+    [Reactive] private double? _plotLimitHigh;
 
     /// Clears every live artifact so a new run does not inherit the previous run's feed.
     public void ResetForRun()
     {
         HasPlotData = false;
+        HasChartData = false;
+        HasChartAttention = false;
         ShowPlotForSelection = false;
         ShowFocusTrend = false;
         OfferShowTrend = false;
+        OfferOpenChart = false;
         UserWantsFocus = false;
+        FollowLive = true;
         ChromeMode = PresentationChromeMode.Band;
         FocusTrendTip = string.Empty;
-        _suppressAutoFocus = false;
+        ChartValueText = "—";
+        ChartBandText = "No limits";
+        ChartAgeText = string.Empty;
+        ChartEmptyText = "No live measurements yet.";
         _lastSelectedStep = null;
+        _manualSeries = null;
         _stepsWithSamples.Clear();
         _gaugeTiles.Clear();
+        _series.Clear();
+        _seriesOrder.Clear();
+        _announcedOutOfBand.Clear();
         PresentationTiles.Clear();
+        AvailableSeries.Clear();
         HasPresentationTiles = false;
+        SelectedSeries = null;
+        SelectedTimeWindow = ChartTimeWindow.ThirtySeconds;
         PlotLegendText = "Channel";
         PlotYLabel = "Value";
         PlotTitle = "Live measurements";
-        ResetPlotBuffer();
+        PlotLimitLow = null;
+        PlotLimitHigh = null;
+        PlotXs = [];
+        PlotYs = [];
+        PlotYsLength = 0;
+        PlotDataChanged?.Invoke(this, EventArgs.Empty);
     }
 
     /// Routes one sample to the plot and/or gauge tiles. Returns true when the plot published a frame.
@@ -92,20 +128,20 @@ public partial class LivePresentationViewModel : ReactiveObject
         var plotted = false;
         if (PresentationRoleMap.IsTimeseriesPlotSample(sample))
         {
-            HasPlotData = true;
-            if (!string.IsNullOrWhiteSpace(sampleStepPath))
+            var path = sampleStepPath ?? fallbackStepPath ?? string.Empty;
+            var key = new LiveSeriesKey(path, sample.EffectiveMetricKey);
+            var buffer = GetOrCreateSeries(key);
+            buffer.Append(sample.Value, sample.Timestamp, sample.LimitLow, sample.LimitHigh, sample.Unit);
+            if (!string.IsNullOrWhiteSpace(path))
             {
-                _stepsWithSamples.Add(sampleStepPath);
+                _stepsWithSamples.Add(path);
             }
 
-            var key = sample.EffectiveMetricKey;
-            PlotLegendText = key;
-            PlotTitle = key;
-            PlotYLabel = string.IsNullOrWhiteSpace(sample.Unit) ? "Value" : sample.Unit!;
-            AppendSampleToPlot(sample.Value);
-            PlotYs = _plotPublish;
-            PlotDataChanged?.Invoke(this, EventArgs.Empty);
+            HasPlotData = true;
+            HasChartData = true;
             plotted = true;
+            RefreshSeriesList();
+            PublishSelectedSnapshot(selectedStep);
         }
 
         if (PresentationRoleMap.IsRunGaugeSample(sample))
@@ -140,95 +176,208 @@ public partial class LivePresentationViewModel : ReactiveObject
         HasPresentationTiles = PresentationTiles.Count > 0;
     }
 
-    /// Recomputes Band vs Focus from selection, out-of-band gauges, and explicit expand.
+    /// Recomputes chart availability and attention from selection and out-of-band gauges.
     public void RefreshChrome(HierarchyStepViewModel? selectedStep)
     {
-        if (!ReferenceEquals(selectedStep, _lastSelectedStep)
-            && !string.Equals(selectedStep?.Path, _lastSelectedStep?.Path, StringComparison.OrdinalIgnoreCase))
-        {
-            _suppressAutoFocus = false;
-        }
-
         _lastSelectedStep = selectedStep;
-        var path = selectedStep?.Path;
-        var stepHasSeries = !string.IsNullOrWhiteSpace(path)
-            && _stepsWithSamples.Contains(path);
-        var outOfBand = PresentationTiles.Any(t => t.IsOutOfBand);
-        var autoFocus = !_suppressAutoFocus && (stepHasSeries || (outOfBand && HasPlotData));
-        var wantFocus = UserWantsFocus || autoFocus;
-
-        if (wantFocus && !HasPlotData)
+        HasChartData = _series.Values.Any(s => s.Count > 0);
+        var outOfBand = PresentationTiles.Any(t => t.IsOutOfBand)
+            || _series.Values.Any(s => s.IsOutOfBand);
+        HasChartAttention = outOfBand && HasChartData;
+        OfferOpenChart = HasChartData;
+        OfferShowTrend = HasChartData;
+        if (HasChartAttention)
         {
-            ChromeMode = PresentationChromeMode.Band;
-            ShowFocusTrend = false;
-            OfferShowTrend = false;
-            ShowPlotForSelection = false;
-            FocusTrendTip = outOfBand
-                ? "Out of band — no timeseries buffered for Focus trend."
-                : string.Empty;
-            return;
+            FocusTrendTip = "Out of band — open Chart for waveform detail.";
         }
-
-        if (wantFocus)
+        else if (HasChartData)
         {
-            ChromeMode = PresentationChromeMode.Focus;
-            ShowFocusTrend = true;
-            OfferShowTrend = false;
-            ShowPlotForSelection = true;
+            FocusTrendTip = "Open Chart for waveform detail.";
+        }
+        else
+        {
             FocusTrendTip = string.Empty;
-            return;
         }
 
         ChromeMode = PresentationChromeMode.Band;
         ShowFocusTrend = false;
-        OfferShowTrend = HasPlotData;
         ShowPlotForSelection = false;
-        FocusTrendTip = HasPlotData
-            ? "Show trend for waveform detail."
-            : string.Empty;
+        if (HasChartData)
+        {
+            PublishSelectedSnapshot(selectedStep);
+        }
     }
 
     private void ToggleFocusTrend()
     {
-        if (ShowFocusTrend)
-        {
-            UserWantsFocus = false;
-            _suppressAutoFocus = true;
-        }
-        else
-        {
-            UserWantsFocus = true;
-            _suppressAutoFocus = false;
-        }
-
+        UserWantsFocus = !UserWantsFocus;
         RefreshChrome(_lastSelectedStep);
     }
 
-    private void ResetPlotBuffer()
+    private void SelectSeries(LiveSeriesItemViewModel? item)
     {
-        Array.Clear(_plotRing);
-        Array.Clear(_plotPublish);
-        _plotCount = 0;
-        _plotWrite = 0;
-        _plotPublishLength = 0;
-        PlotYs = _plotPublish;
+        if (item is null)
+        {
+            return;
+        }
+
+        _manualSeries = item.Key;
+        SelectedSeries = item;
+        PublishSelectedSnapshot(_lastSelectedStep);
     }
 
-    private void AppendSampleToPlot(double value)
+    private void SelectTimeWindow(ChartTimeWindow window)
     {
-        _plotRing[_plotWrite] = value;
-        _plotWrite = (_plotWrite + 1) % PlotCapacity;
-        if (_plotCount < PlotCapacity)
+        SelectedTimeWindow = window;
+        PublishSelectedSnapshot(_lastSelectedStep);
+    }
+
+    private void ResetView()
+    {
+        FollowLive = true;
+        PublishSelectedSnapshot(_lastSelectedStep);
+        PlotDataChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    private LiveSeriesBuffer GetOrCreateSeries(LiveSeriesKey key)
+    {
+        if (_series.TryGetValue(key, out var existing))
         {
-            _plotCount++;
+            return existing;
         }
 
-        var start = _plotCount == PlotCapacity ? _plotWrite : 0;
-        for (var i = 0; i < _plotCount; i++)
+        if (_series.Count >= MaximumLiveSeries)
         {
-            _plotPublish[i] = _plotRing[(start + i) % PlotCapacity];
+            LiveSeriesKey? drop = null;
+            foreach (var candidate in _seriesOrder)
+            {
+                if (_manualSeries is { } keep && keep.Equals(candidate))
+                {
+                    continue;
+                }
+
+                drop = candidate;
+                break;
+            }
+
+            if (drop is { } dropped && _series.ContainsKey(dropped))
+            {
+                _series.Remove(dropped);
+                _seriesOrder.Remove(dropped);
+            }
         }
 
-        _plotPublishLength = _plotCount;
+        var created = new LiveSeriesBuffer(key);
+        _series[key] = created;
+        _seriesOrder.Add(key);
+        return created;
+    }
+
+    private void RefreshSeriesList()
+    {
+        AvailableSeries.Clear();
+        foreach (var key in _seriesOrder)
+        {
+            if (!_series.TryGetValue(key, out var buffer) || buffer.Count == 0)
+            {
+                continue;
+            }
+
+            AvailableSeries.Add(new LiveSeriesItemViewModel(key, buffer.Unit, buffer.IsOutOfBand));
+        }
+    }
+
+    private void PublishSelectedSnapshot(HierarchyStepViewModel? selectedStep)
+    {
+        var key = ResolveSelectedKey(selectedStep);
+        if (key is null || !_series.TryGetValue(key.Value, out var buffer))
+        {
+            PlotYsLength = 0;
+            PlotXs = [];
+            PlotYs = [];
+            ChartValueText = "—";
+            ChartBandText = "No limits";
+            ChartAgeText = string.Empty;
+            PlotLimitLow = null;
+            PlotLimitHigh = null;
+            PlotDataChanged?.Invoke(this, EventArgs.Empty);
+            return;
+        }
+
+        var snapshot = buffer.Snapshot(SelectedTimeWindow.Duration);
+        PlotXs = snapshot.Xs;
+        PlotYs = snapshot.Ys;
+        PlotYsLength = snapshot.Length;
+        PlotLegendText = key.Value.MetricKey;
+        PlotTitle = key.Value.DisplayName;
+        PlotYLabel = string.IsNullOrWhiteSpace(snapshot.Unit) ? "Value" : snapshot.Unit!;
+        PlotLimitLow = snapshot.LimitLow;
+        PlotLimitHigh = snapshot.LimitHigh;
+        ChartValueText = snapshot.ValueText;
+        ChartBandText = snapshot.BandText;
+        ChartAgeText = FormatAge(snapshot.LatestTimestamp);
+        ChartEmptyText = snapshot.Length == 0 ? "No samples in this window." : string.Empty;
+        if (SelectedSeries is null || !SelectedSeries.Key.Equals(key.Value))
+        {
+            SelectedSeries = AvailableSeries.FirstOrDefault(s => s.Key.Equals(key.Value))
+                ?? new LiveSeriesItemViewModel(key.Value, snapshot.Unit, snapshot.IsOutOfBand);
+        }
+
+        PlotDataChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    private LiveSeriesKey? ResolveSelectedKey(HierarchyStepViewModel? selectedStep)
+    {
+        if (_manualSeries is { } manual && _series.ContainsKey(manual))
+        {
+            return manual;
+        }
+
+        var path = selectedStep?.Path;
+        if (!string.IsNullOrWhiteSpace(path))
+        {
+            for (var i = _seriesOrder.Count - 1; i >= 0; i--)
+            {
+                var key = _seriesOrder[i];
+                if (string.Equals(key.StepPath, path, StringComparison.OrdinalIgnoreCase)
+                    && _series.TryGetValue(key, out var buf)
+                    && buf.Count > 0)
+                {
+                    return key;
+                }
+            }
+        }
+
+        for (var i = _seriesOrder.Count - 1; i >= 0; i--)
+        {
+            var key = _seriesOrder[i];
+            if (_series.TryGetValue(key, out var buf) && buf.Count > 0)
+            {
+                return key;
+            }
+        }
+
+        return null;
+    }
+
+    private static string FormatAge(DateTimeOffset? timestamp)
+    {
+        if (timestamp is null)
+        {
+            return string.Empty;
+        }
+
+        var age = DateTimeOffset.UtcNow - timestamp.Value;
+        if (age < TimeSpan.Zero)
+        {
+            age = TimeSpan.Zero;
+        }
+
+        if (age.TotalSeconds < 1)
+        {
+            return "Sample age <1 s";
+        }
+
+        return $"Sample age {age.TotalSeconds.ToString("0", CultureInfo.InvariantCulture)} s";
     }
 }

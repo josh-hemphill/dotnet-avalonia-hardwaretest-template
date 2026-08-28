@@ -158,6 +158,7 @@ public partial class StepTreeViewModel : ReactiveObject
     public bool IsFilterFail => string.Equals(_stepStatusFilter, StepFilter.Fail, StringComparison.Ordinal);
     public bool IsFilterRunning => string.Equals(_stepStatusFilter, StepFilter.Running, StringComparison.Ordinal);
     public bool IsFilterPending => string.Equals(_stepStatusFilter, StepFilter.Pending, StringComparison.Ordinal);
+    public bool HasFailedLeaves => SuiteFailedCount > 0;
 
     public HierarchyStepViewModel? ActiveScopeStep
         => SelectedNestedSubsection?.Step ?? SelectedSubsection?.Step ?? SelectedStage?.Step;
@@ -310,7 +311,6 @@ public partial class StepTreeViewModel : ReactiveObject
 
         SelectedStep = firstFail;
         SyncSelectedStepListItem();
-        _openSelectedDetail();
     }
 
     private void CycleFail(bool forward)

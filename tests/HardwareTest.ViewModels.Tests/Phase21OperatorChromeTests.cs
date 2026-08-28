@@ -39,14 +39,10 @@ public sealed class Phase21OperatorChromeTests
     [Fact]
     public void Run_board_operational_text_uses_type_floor_not_10_or_11px()
     {
-        var run = File.ReadAllText(FindRepoFile("src/HardwareTest/Features/RunTest/RunTestView.axaml"));
-        var rail = File.ReadAllText(FindRepoFile("src/HardwareTest/Features/RunTest/RunBoardStageRailView.axaml"));
-        Assert.Contains("OperatorTouchDensity.OperationalFontSize", run, StringComparison.Ordinal);
-        Assert.Contains("OperatorTouchDensity.OperationalFontSize", rail, StringComparison.Ordinal);
-        Assert.DoesNotContain("FontSize=\"10\"", run, StringComparison.Ordinal);
-        Assert.DoesNotContain("FontSize=\"10\"", rail, StringComparison.Ordinal);
-        // Remaining FontSize="11" is Engineer/debug-only station-override copy.
-        Assert.Contains("Engineer/Debug only", run, StringComparison.Ordinal);
+        var markup = ConcatRunBoardMarkup();
+        Assert.Contains("OperatorTouchDensity.OperationalFontSize", markup, StringComparison.Ordinal);
+        Assert.DoesNotContain("FontSize=\"10\"", markup, StringComparison.Ordinal);
+        Assert.Contains("Engineer/Debug only", markup, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -68,13 +64,23 @@ public sealed class Phase21OperatorChromeTests
     public void Run_board_does_not_live_announce_hero_or_plot_floods()
     {
         var run = File.ReadAllText(FindRepoFile("src/HardwareTest/Features/RunTest/RunTestView.axaml"));
+        var header = File.ReadAllText(FindRepoFile("src/HardwareTest/Features/RunTest/RunHeaderView.axaml"));
         var host = File.ReadAllText(FindRepoFile("src/HardwareTest/Features/RunTest/InteractionHostView.axaml"));
         Assert.Equal(0, CountOccurrences(run, "AutomationProperties.LiveSetting"));
+        Assert.Equal(0, CountOccurrences(header, "AutomationProperties.LiveSetting"));
         Assert.Equal(1, CountOccurrences(host, "AutomationProperties.LiveSetting"));
         Assert.Contains("AutomationProperties.Name=\"Operator prompt\"", host, StringComparison.Ordinal);
-        Assert.Contains("HeroStatusLine", run, StringComparison.Ordinal);
+        Assert.Contains("HeroStatusLine", header, StringComparison.Ordinal);
         Assert.DoesNotContain("AutomationProperties.LiveSetting", run, StringComparison.Ordinal);
     }
+
+    private static string ConcatRunBoardMarkup()
+        => string.Concat(
+            File.ReadAllText(FindRepoFile("src/HardwareTest/Features/RunTest/RunTestView.axaml")),
+            File.ReadAllText(FindRepoFile("src/HardwareTest/Features/RunTest/RunHeaderView.axaml")),
+            File.ReadAllText(FindRepoFile("src/HardwareTest/Features/RunTest/RunStepsWorkspaceView.axaml")),
+            File.ReadAllText(FindRepoFile("src/HardwareTest/Features/RunTest/RunDetailsWorkspaceView.axaml")),
+            File.ReadAllText(FindRepoFile("src/HardwareTest/Features/RunTest/RunChartWorkspaceView.axaml")));
 
     [Fact]
     public void Settings_sections_are_automation_headings()

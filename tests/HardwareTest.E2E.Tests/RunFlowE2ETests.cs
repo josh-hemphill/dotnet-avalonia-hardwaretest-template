@@ -66,6 +66,7 @@ public sealed class RunFlowE2ETests
 
         var runVm = E2EHarness.RunTestVm(main);
         Assert.Equal("E2E-TYPED-SN", runVm.SessionPanel.DutSerialInput);
+        Assert.True(runVm.Workspace.ShowPreparation);
 
         var host = window.GetVisualDescendants().OfType<InteractionHostView>().FirstOrDefault();
         Assert.NotNull(host);
@@ -90,6 +91,9 @@ public sealed class RunFlowE2ETests
         runVm.SessionPanel.DutSerialInput = "E2E-SN-1";
         runVm.SessionPanel.OperatorInput = "E2E-Tech";
         await runVm.SessionPanel.ConfirmSessionCommand.ExecuteAsync();
+        Dispatcher.UIThread.RunJobs();
+        Assert.True(runVm.Workspace.ShowSteps);
+        Assert.False(runVm.Workspace.CanOpenChart);
 
         await RunToCompletionAsync(runVm);
 

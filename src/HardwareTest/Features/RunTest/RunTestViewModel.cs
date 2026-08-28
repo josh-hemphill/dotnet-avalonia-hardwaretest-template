@@ -125,6 +125,7 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
     public StationOverridesViewModel StationOverrides { get; private set; } = null!;
     public StepTreeViewModel StepTree { get; private set; } = null!;
     public RunExecutionViewModel Run { get; private set; } = null!;
+    public RunWorkspaceViewModel Workspace { get; private set; } = null!;
 
     public OperatorSession Session => _session;
 
@@ -164,14 +165,8 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
             ? "Run the selected leaf or section (subtree + Safe Shutdown). Use Run for the full suite."
             : CanStartRunTip;
 
-    /// True when Run / Run Selected is gated — show the tip inline (Phase 18; not ToolTip-only).
     public bool ShowStartBlockedTip => !CanStartRun;
-
-    /// Hide the overall progress bar when idle (not stuck at 0%).
     public bool ShowOverallProgress => IsRunning;
-
-    /// Stage rail stays on wide boards; compact 900×600 uses the hero stage picker instead.
-    public bool ShowStageRail => !IsCompactLayout;
 
     public event EventHandler? NavigateToResultsRequested;
     public event EventHandler? NavigateToInspectRequested;
@@ -189,6 +184,7 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
     [Reactive] private string _historyBanner = string.Empty;
     [Reactive] private bool _isEngineerDebugMode;
     [Reactive] private bool _isCompactLayout;
+    [Reactive] private bool _isCompactHeight;
     [Reactive] private string _currentStepName = string.Empty;
     [Reactive] private string _currentStepPath = string.Empty;
     [Reactive] private string _heroLabel = "SELECTED:";
@@ -265,11 +261,17 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
                 this.RaisePropertyChanged(nameof(CanStartRunTip));
                 this.RaisePropertyChanged(nameof(CanStartRunSelectedTip));
                 this.RaisePropertyChanged(nameof(ShowStartBlockedTip));
+                Workspace.Refresh();
             }
         };
 
         StepTree.PropertyChanged += (_, args) =>
         {
+            if (args.PropertyName == nameof(StepTreeViewModel.SelectedStep))
+            {
+                Workspace.Refresh();
+            }
+
             if (args.PropertyName != nameof(StepTreeViewModel.SelectedStep)
                 || StepTree.SelectedStep is not { } step)
             {
@@ -290,6 +292,19 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
             {
                 RefreshHero();
                 this.RaisePropertyChanged(nameof(CanSafetyStop));
+                this.RaisePropertyChanged(nameof(ShowHeaderRun));
+                this.RaisePropertyChanged(nameof(ShowHeaderStop));
+                Workspace.Refresh();
+            }
+        };
+
+        Live.PropertyChanged += (_, args) =>
+        {
+            if (args.PropertyName is nameof(LivePresentationViewModel.HasChartData)
+                or nameof(LivePresentationViewModel.HasChartAttention))
+            {
+                Workspace.Refresh();
+                PublishChartAttentionToShell();
             }
         };
 
@@ -298,10 +313,6 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
             if (args.PropertyName == nameof(IsEngineerDebugMode))
             {
                 StationOverrides.RefreshParameterFields();
-            }
-            else if (args.PropertyName == nameof(IsCompactLayout))
-            {
-                this.RaisePropertyChanged(nameof(ShowStageRail));
             }
             else if (args.PropertyName is nameof(IsRunning) or nameof(Status))
             {
@@ -314,6 +325,9 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
                     this.RaisePropertyChanged(nameof(ShowStartBlockedTip));
                     this.RaisePropertyChanged(nameof(ShowOverallProgress));
                     this.RaisePropertyChanged(nameof(CanSafetyStop));
+                    this.RaisePropertyChanged(nameof(ShowHeaderRun));
+                    this.RaisePropertyChanged(nameof(ShowHeaderStop));
+                    Workspace.Refresh();
                 }
             }
         };
@@ -363,6 +377,10 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
             StationOverrides.ApplySavedParameterOverrides();
             StationOverrides.RefreshParameterFields();
             SessionPanel.RefreshSessionSummary();
+            if (!alreadyLoaded)
+            {
+                Workspace.ResetToSteps();
+            }
         }).ConfigureAwait(false);
     }
 
@@ -389,6 +407,11 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
             Run.FindAttempt(step.Path),
             ResolveConditionSummary(step),
             revealDetail);
+        if (revealDetail)
+        {
+            Workspace.OpenDetails();
+        }
+
         Live.RefreshPlotVisibility(step);
         Live.RefreshPresentationTiles(step.Path);
         RefreshHero();

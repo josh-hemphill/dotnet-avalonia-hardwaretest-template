@@ -15,18 +15,20 @@ public sealed partial class RunTestViewBindingPathTests
         "vm:InteractionFieldViewModel",
         "vm:StepListItemViewModel",
         "vm:StageItemViewModel",
+        "vm:LiveSeriesItemViewModel",
+        "vm:ChartTimeWindow",
         "pres:PresentationTileViewModel",
     ];
 
     [Fact]
     public void Every_page_level_binding_resolves_on_RunTestViewModel()
     {
-        var markup = File.ReadAllText(FindViewPath());
+        var markup = ConcatRunBoardMarkup();
         var paths = PageLevelBindingRoots(markup).ToArray();
 
         // Guard against a silently-empty scrape making this assertion vacuous.
         Assert.True(paths.Length > 40, $"Expected the view to declare many bindings; found {paths.Length}.");
-        Assert.Contains("StepDetail.DetailLines", paths);
+        Assert.Contains("Workspace.ShowSteps", paths);
         Assert.Contains("StepTree.StepListItems", paths);
 
         var unresolved = paths
@@ -37,7 +39,33 @@ public sealed partial class RunTestViewBindingPathTests
 
         Assert.True(
             unresolved.Length == 0,
-            $"RunTestView.axaml binds paths that do not exist on RunTestViewModel: {string.Join(", ", unresolved)}");
+            $"Run board AXAML binds paths that do not exist on RunTestViewModel: {string.Join(", ", unresolved)}");
+    }
+
+    private static string ConcatRunBoardMarkup()
+    {
+        var root = FindRunTestDirectory();
+        return string.Concat(
+            Directory.EnumerateFiles(root, "*.axaml")
+                .OrderBy(path => path, StringComparer.Ordinal)
+                .Select(File.ReadAllText));
+    }
+
+    private static string FindRunTestDirectory()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir is not null)
+        {
+            var candidate = Path.Combine(dir.FullName, "src", "HardwareTest", "Features", "RunTest");
+            if (Directory.Exists(candidate))
+            {
+                return candidate;
+            }
+
+            dir = dir.Parent;
+        }
+
+        throw new InvalidOperationException($"RunTest views not found above '{AppContext.BaseDirectory}'.");
     }
 
     /// Yields binding paths declared outside item DataTemplates, stripped of `!` and converter arguments.
@@ -87,29 +115,6 @@ public sealed partial class RunTestViewBindingPathTests
         }
 
         return true;
-    }
-
-    private static string FindViewPath()
-    {
-        var dir = new DirectoryInfo(AppContext.BaseDirectory);
-        while (dir is not null)
-        {
-            var candidate = Path.Combine(
-                dir.FullName,
-                "src",
-                "HardwareTest",
-                "Features",
-                "RunTest",
-                "RunTestView.axaml");
-            if (File.Exists(candidate))
-            {
-                return candidate;
-            }
-
-            dir = dir.Parent;
-        }
-
-        throw new InvalidOperationException($"RunTestView.axaml not found above '{AppContext.BaseDirectory}'.");
     }
 
     [GeneratedRegex("""\{Binding\s+(?<path>[^,}]*)""")]

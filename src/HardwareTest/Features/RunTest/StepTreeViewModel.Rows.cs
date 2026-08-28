@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using HardwareTest.Core.Runs;
+using ReactiveUI;
 
 namespace HardwareTest.Features.RunTest;
 
@@ -399,6 +400,7 @@ public partial class StepTreeViewModel
         SuitePassedCount = chips.Count(c => c == "Pass");
         SuiteFailedCount = chips.Count(c => c == "Fail");
         SuitePendingCount = chips.Count(c => c is not "Pass" and not "Fail");
+        this.RaisePropertyChanged(nameof(HasFailedLeaves));
     }
 
     private void RefreshBreadcrumb()

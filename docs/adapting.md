@@ -216,13 +216,13 @@ Crash dossiers land under `{DataDirectory}/crashes/` (or `CrashDirectory`): `cra
 
 **Shell notifications (Phase 17):** MainWindow keeps a reserved-height strip above page content (idle caption **Ready**). Run severity, storage health, suite completion, DUT history one-liners, Home crash recovery, and clock-skew warnings publish into [`ShellNotificationViewModel`](../src/HardwareTest/Features/Shell/ShellNotificationViewModel.cs). Precedence: Critical > Error > Warning > Info across sources; session confirm and operator interaction stay on the Run board (height-capped). Sticky severity is **not** a collapsing Auto row on Run.
 
-**Operator touch density (Phase 18):** Interactive operator controls use a **MinHeight ≥ 40** floor (filter chips, primary/danger/success buttons, step/stage/Results list rows); compact nav Pause/Stop are **48×48**. List↔Details splitter is **16px** with **Details + / − / Reset split** nudge buttons. Disabled Run / Run Selected show the blocking reason as an inline tip (not ToolTip-only). Double-tap remains an accelerator:
+**Operator touch density (Phase 18):** Interactive operator controls use a **MinHeight ≥ 40** floor (filter chips, primary/danger/success buttons, step/stage/Results list rows); compact nav Pause/Stop are **48×48**. The Run page uses mutually exclusive **Steps / Details / Chart** workspaces (preparation and operator prompts overlay the workspace). Disabled Run / Run Selected show the blocking reason as an inline tip (not ToolTip-only). Double-tap remains an accelerator:
 
 | Surface | Primary (touch) | Accelerator |
 | --- | --- | --- |
-| Step / stage | Select + **Open detail** (or Details toggle) | Double-tap row |
+| Step / stage | Select + **Details** | Double-tap row |
 | Results report | Select + **Open report** | Double-click row |
-| Details height | Drag splitter or **Details +/−** | — |
+| Live trend | **Chart** workspace | Shell **View chart** when out of band |
 
 Constants: [`OperatorTouchDensity`](../src/HardwareTest/Features/Shell/OperatorTouchDensity.cs). Full kiosk bake remains [deferred](deferred/deferred-appliance-kiosk.md).
 

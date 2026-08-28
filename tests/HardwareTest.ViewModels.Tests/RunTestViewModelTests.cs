@@ -324,9 +324,13 @@ public sealed class RunTestViewModelTests
 
         await Task.Delay(50);
         Assert.True(vm.Live.HasPlotData);
+        Assert.True(vm.Live.HasChartData);
+        Assert.True(vm.Workspace.CanOpenChart);
+        Assert.Equal(RunWorkspace.Steps, vm.Workspace.Selected);
 
         vm.StepTree.SelectedStep = vm.StepTree.Hierarchy[0];
         Assert.False(vm.Live.ShowPlotForSelection);
+        Assert.Equal(RunWorkspace.Steps, vm.Workspace.Selected);
 
         var identity = Flatten(vm.StepTree.Hierarchy).First(s =>
             s.Children.Count == 0 && s.Path.Contains("Identity", StringComparison.OrdinalIgnoreCase));
@@ -336,7 +340,10 @@ public sealed class RunTestViewModelTests
         var acquire = Flatten(vm.StepTree.Hierarchy).First(s =>
             string.Equals(s.Path, acquirePath, StringComparison.OrdinalIgnoreCase));
         vm.StepTree.SelectedStep = acquire;
-        Assert.True(vm.Live.ShowPlotForSelection);
+        Assert.False(vm.Live.ShowPlotForSelection);
+        Assert.True(vm.Live.HasChartData);
+        vm.Workspace.OpenChart();
+        Assert.True(vm.Workspace.ShowChart);
     }
 
     [Fact]
@@ -1307,6 +1314,7 @@ public sealed class RunTestViewModelTests
         vm.StepTree.SelectedStep = leaves[1];
         Assert.False(vm.StepDetail.ShowDetailRegion);
         Assert.Equal(leaves[1].Name, vm.StepDetail.DetailStep?.Name);
+        Assert.Equal(RunWorkspace.Steps, vm.Workspace.Selected);
     }
 
     [Fact]
@@ -1326,12 +1334,15 @@ public sealed class RunTestViewModelTests
 
         vm.OpenSelectedStepDetail();
         Assert.True(vm.StepDetail.ShowDetailRegion);
+        Assert.Equal(RunWorkspace.Details, vm.Workspace.Selected);
 
         await vm.StepDetail.CloseDetailCommand.ExecuteAsync();
         Assert.False(vm.StepDetail.ShowDetailRegion);
+        Assert.Equal(RunWorkspace.Steps, vm.Workspace.Selected);
 
         await vm.StepTree.NextFailCommand.ExecuteAsync();
         Assert.True(vm.StepDetail.ShowDetailRegion);
+        Assert.Equal(RunWorkspace.Details, vm.Workspace.Selected);
     }
 
     [Fact]
@@ -1353,6 +1364,75 @@ public sealed class RunTestViewModelTests
         Assert.Equal("Install fixture", vm.Interaction.OperatorPromptMessage);
         Assert.True(string.IsNullOrEmpty(vm.HeroStatusLine));
         Assert.Equal("Awaiting", vm.HeroChipText);
+    }
+
+    [Fact]
+    public async Task Chart_workspace_restores_after_operator_prompt()
+    {
+        var vm = CreateVm(settings: new AppSettings { PlotRefreshHz = 60 });
+        vm.UiScheduler = action => action();
+        await vm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
+        await ConfirmReadyAsync(vm, "SN-CHART");
+        vm.IngestProgress(new OpenTapProgress
+        {
+            Message = "Acquire",
+            StepName = "Acquire VDC",
+            StepPath = "Sample Hardware Suite/Voltage Sweep/Acquire VDC",
+            Sample = new MeasurementSampleEvent("VDC", 0, 1.2, DateTimeOffset.UtcNow, DisplayRole: "timeseries"),
+            OverallPercent = 20,
+        });
+        await Task.Delay(50);
+        Assert.True(vm.Live.HasChartData);
+        vm.Workspace.OpenChart();
+        Assert.True(vm.Workspace.ShowChart);
+
+        vm.IngestProgress(new OpenTapProgress
+        {
+            Message = "Install fixture",
+            AwaitingOperator = true,
+            OperatorPromptMessage = "Install fixture",
+            OverallPercent = 30,
+        });
+        await Task.Delay(50);
+        Assert.True(vm.Workspace.ShowInteraction);
+        Assert.False(vm.Workspace.ShowChart);
+        Assert.Equal(RunWorkspace.Chart, vm.Workspace.Selected);
+
+        await vm.ContinueOperatorCommand.ExecuteAsync();
+        Assert.False(vm.Workspace.ShowInteraction);
+        Assert.True(vm.Workspace.ShowChart);
+    }
+
+    [Fact]
+    public async Task Out_of_band_warns_via_shell_without_leaving_steps()
+    {
+        var shell = new ShellNotificationViewModel();
+        var vm = CreateVm(settings: new AppSettings { PlotRefreshHz = 60 }, shellNotification: shell);
+        vm.UiScheduler = action => action();
+        await vm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
+        await ConfirmReadyAsync(vm, "SN-OOB");
+        vm.IngestProgress(new OpenTapProgress
+        {
+            Message = "Acquire",
+            StepName = "Acquire VDC",
+            StepPath = "Sample Hardware Suite/Voltage Sweep/Acquire VDC",
+            Sample = new MeasurementSampleEvent(
+                "VDC",
+                0,
+                9.9,
+                DateTimeOffset.UtcNow,
+                DisplayRole: "timeseries",
+                LimitLow: 0,
+                LimitHigh: 1),
+            OverallPercent = 20,
+        });
+        await Task.Delay(50);
+
+        Assert.True(vm.Live.HasChartAttention);
+        Assert.Equal(RunWorkspace.Steps, vm.Workspace.Selected);
+        Assert.True(shell.HasContent);
+        Assert.Contains("Out of band", shell.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal("View chart", shell.PrimaryLabel);
     }
 
     [Fact]
