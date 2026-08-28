@@ -1,7 +1,5 @@
 using System.Text;
 using System.Text.Json;
-using HardwareTest.Core.Engine;
-using HardwareTest.Core.Hardware;
 using HardwareTest.Core.Settings;
 using HardwareTest.OpenTap.Plugins.Basic;
 using HardwareTest.OpenTap.Plugins.Mixins;
@@ -126,11 +124,11 @@ public static class PlanContractValidator
 
         try
         {
-            var effective = settings ?? new AppSettings { UseMockVisa = true };
-            var logger = Serilog.Log.Logger.ForContext(typeof(PlanContractValidator));
-            var gate = new VisaSessionGate();
-            var visa = new VisaModeController(effective.UseMockVisa, gate, new RunControl(gate));
-            var catalog = new OpenTapHostCatalog(effective, logger, visa);
+            // Load-only: do not Register a VISA broker. Typed instrument XML deserializes
+            // without Open(); registering would leak into the serial OpenTapSerial suite.
+            var catalog = new OpenTapHostCatalog(
+                settings ?? new AppSettings { UseMockVisa = true },
+                Serilog.Log.Logger.ForContext(typeof(PlanContractValidator)));
             catalog.EnsurePlugins();
             var plan = TestPlan.Load(tapPlanPath);
             AnalyzePlan(plan, includeCleanup, findings);

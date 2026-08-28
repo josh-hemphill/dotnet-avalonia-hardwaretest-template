@@ -1,5 +1,6 @@
 using HardwareTest.Core.Settings;
 using HardwareTest.OpenTap.Host;
+using HardwareTest.OpenTap.Plugins.Basic;
 using Xunit;
 
 namespace HardwareTest.Tests.OpenTap;
@@ -47,6 +48,20 @@ public sealed class PlanContractValidatorTests
         Assert.False(
             report.HasErrors,
             string.Join("; ", report.Findings.Select(f => $"{f.Code}: {f.Message}")));
+    }
+
+    [Fact]
+    public void Validate_does_not_register_a_process_visa_broker()
+    {
+        using var dir = new TempPlanDir();
+        SampleProgramFactory.SaveBeside(dir.Path);
+        WriteSidecar(dir.Path, "sample", selectionIncludesCleanup: true);
+        var report = PlanContractValidator.ValidateFile(Path.Combine(dir.Path, SampleProgramFactory.EmbeddedName));
+        Assert.False(report.HasErrors);
+
+        var dmm = new VisaDmmInstrument { VisaAddress = "MOCK::INSTR0" };
+        var ex = Assert.Throws<InvalidOperationException>(dmm.Open);
+        Assert.Contains("IVisaBroker", ex.Message, StringComparison.Ordinal);
     }
 
     [Fact]
