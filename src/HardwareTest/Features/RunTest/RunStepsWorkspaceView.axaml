@@ -8,7 +8,7 @@
     <StackPanel>
     <ListBox ItemsSource="{Binding StepTree.Stages}"
              SelectedItem="{Binding StepTree.SelectedStage}"
-             IsVisible="{Binding !IsCompactLayout}"
+             IsVisible="{Binding Workspace.ShowInlineStageChips}"
              Background="Transparent"
              BorderThickness="0">
       <ListBox.ItemsPanel>
@@ -62,16 +62,6 @@
               IsEnabled="{Binding CanStartRun}"
               IsVisible="{Binding !IsRunning}"
               ToolTip.Tip="{Binding CanStartRunSelectedTip}" />
-      <Button Content="Details"
-              Command="{Binding Workspace.OpenDetailsCommand}"
-              Classes="operator"
-              Margin="0,0,8,4"
-              IsEnabled="{Binding Workspace.CanOpenDetails}" />
-      <Button Content="Chart"
-              Command="{Binding Workspace.OpenChartCommand}"
-              Classes="operator"
-              Margin="0,0,8,4"
-              IsEnabled="{Binding Workspace.CanOpenChart}" />
       <ToggleButton Classes="filter-chip" Content="All"
                     Margin="0,0,4,4"
                     IsChecked="{Binding StepTree.IsFilterAll, Mode=OneWay}"

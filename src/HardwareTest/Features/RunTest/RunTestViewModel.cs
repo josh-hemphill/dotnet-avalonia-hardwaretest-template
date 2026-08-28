@@ -267,7 +267,8 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
 
         StepTree.PropertyChanged += (_, args) =>
         {
-            if (args.PropertyName == nameof(StepTreeViewModel.SelectedStep))
+            if (args.PropertyName is nameof(StepTreeViewModel.SelectedStep)
+                or nameof(StepTreeViewModel.HasHierarchyOverview))
             {
                 Workspace.Refresh();
             }
@@ -313,6 +314,10 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
             if (args.PropertyName == nameof(IsEngineerDebugMode))
             {
                 StationOverrides.RefreshParameterFields();
+            }
+            else if (args.PropertyName == nameof(IsCompactLayout))
+            {
+                Workspace.Refresh();
             }
             else if (args.PropertyName is nameof(IsRunning) or nameof(Status))
             {

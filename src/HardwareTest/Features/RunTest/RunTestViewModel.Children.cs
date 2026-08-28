@@ -93,7 +93,9 @@ public partial class RunTestViewModel
             () => Interaction.IsAwaitingOperator,
             () => Live.HasChartData,
             () => StepTree.SelectedStep is not null,
-            visible => StepDetail.ShowDetailRegion = visible);
+            visible => StepDetail.ShowDetailRegion = visible,
+            () => StepTree.HasHierarchyOverview,
+            () => IsCompactLayout);
     }
 
     /// True when Stop occupies the header action slot (run in progress or operator prompt).

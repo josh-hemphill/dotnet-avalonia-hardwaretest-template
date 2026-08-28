@@ -101,21 +101,5 @@
                Foreground="#E65100"
                Text="{Binding CanStartRunTip}"
                IsVisible="{Binding ShowStartBlockedTip}" />
-    <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding Workspace.ShowModeSwitcher}">
-      <ToggleButton Content="Steps"
-                    Classes="filter-chip"
-                    IsChecked="{Binding Workspace.IsStepsSelected, Mode=OneWay}"
-                    Command="{Binding Workspace.OpenStepsCommand}" />
-      <ToggleButton Content="Details"
-                    Classes="filter-chip"
-                    IsChecked="{Binding Workspace.IsDetailsSelected, Mode=OneWay}"
-                    Command="{Binding Workspace.OpenDetailsCommand}"
-                    IsEnabled="{Binding Workspace.CanOpenDetails}" />
-      <ToggleButton Content="Chart"
-                    Classes="filter-chip"
-                    IsChecked="{Binding Workspace.IsChartSelected, Mode=OneWay}"
-                    Command="{Binding Workspace.OpenChartCommand}"
-                    IsEnabled="{Binding Workspace.CanOpenChart}" />
-    </StackPanel>
   </StackPanel>
 </UserControl>

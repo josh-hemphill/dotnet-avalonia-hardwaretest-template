@@ -16,6 +16,9 @@ public static class OperatorTouchDensity
     /// Chart workspace plot floor so the trend is readable at 900×600.
     public const double ChartPlotMinHeight = 300;
 
+    /// Optional hierarchy overview rail beside the Run tabs.
+    public const double OverviewSidebarWidth = 200;
+
     /// Phase 21 floor for Run chip / step / hero secondary / compact transport captions (px).
     public const double OperationalFontSize = 12;
 

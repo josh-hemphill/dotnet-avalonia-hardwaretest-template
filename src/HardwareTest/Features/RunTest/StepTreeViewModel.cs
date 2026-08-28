@@ -194,7 +194,11 @@ public partial class StepTreeViewModel : ReactiveObject
 
         RollupParentStatuses();
         RestoreSelection(preserveStagePath, preserveStepPath);
+        this.RaisePropertyChanged(nameof(HasHierarchyOverview));
     }
+
+    /// True when the plan has at least one named stage besides Entire program.
+    public bool HasHierarchyOverview => Stages.Count > 1;
 
     public void RestoreSelection(string? preserveStagePath, string? preserveStepPath)
     {

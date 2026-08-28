@@ -158,6 +158,62 @@ public sealed class RunWorkspaceViewModelTests
         Assert.False(detailVisible);
     }
 
+    [Fact]
+    public void Overview_sidebar_is_optional_and_hides_when_compact_or_overlay()
+    {
+        var hasHierarchy = true;
+        var compact = false;
+        var sessionBlocked = false;
+        var awaiting = false;
+        var workspace = new RunWorkspaceViewModel(
+            () => sessionBlocked,
+            () => awaiting,
+            () => true,
+            () => true,
+            setDetailVisible: null,
+            hasHierarchy: () => hasHierarchy,
+            isCompactLayout: () => compact);
+
+        Assert.True(workspace.CanOfferOverview);
+        Assert.True(workspace.ShowOverviewSidebar);
+        Assert.False(workspace.ShowInlineStageChips);
+
+        workspace.ToggleOverview();
+        Assert.False(workspace.UserWantsOverview);
+        Assert.False(workspace.ShowOverviewSidebar);
+        Assert.True(workspace.ShowInlineStageChips);
+
+        workspace.ToggleOverview();
+        compact = true;
+        workspace.Refresh();
+        Assert.False(workspace.CanOfferOverview);
+        Assert.False(workspace.ShowOverviewSidebar);
+        Assert.False(workspace.ShowInlineStageChips);
+
+        compact = false;
+        awaiting = true;
+        workspace.Refresh();
+        Assert.True(workspace.CanOfferOverview);
+        Assert.False(workspace.ShowOverviewSidebar);
+        Assert.False(workspace.ShowModeSwitcher);
+    }
+
+    [Fact]
+    public void Flat_plans_do_not_offer_overview()
+    {
+        var workspace = new RunWorkspaceViewModel(
+            () => false,
+            () => false,
+            () => false,
+            () => false,
+            hasHierarchy: () => false,
+            isCompactLayout: () => false);
+
+        Assert.False(workspace.CanOfferOverview);
+        Assert.False(workspace.ShowOverviewSidebar);
+        Assert.False(workspace.ShowInlineStageChips);
+    }
+
     private static RunWorkspaceViewModel Create(
         Func<bool> sessionBlocked,
         Func<bool> awaiting,
