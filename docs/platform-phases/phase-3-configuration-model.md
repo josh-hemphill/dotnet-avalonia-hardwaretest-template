@@ -58,6 +58,7 @@ Today [`SettingsStore`](../../src/HardwareTest.Core/Settings/SettingsStore.cs) r
    - **Settings → Diagnostics** in-panel table (key, effective value, source), read-only, with copy-all. Shares the card layout with [Phase 4](phase-4-build-info.md).
    - **Startup log** at Debug: one line per non-default setting.
    - **`--print-config`**: dump effective config + provenance to stdout and exit `0`. Invaluable for supporting a locked bench over the phone, and it is how [Phase 7](phase-7-containers-local-ci.md) asserts container configuration without launching a UI.
+   - **`--validate-plan`**: validate a `.TapPlan` (or a directory of plans) against the Run-board contract and exit without launching a UI. See [adapting.md §4](../adapting.md#4-plan-contract-run-board).
 
 7. **Write-back semantics.** Saving from the Settings page writes `settings.json` only. A value currently overridden by env or command line must show as overridden and **not** be silently persisted — otherwise the override becomes permanent the first time someone touches an unrelated toggle. Mark those rows read-only in the UI with the reason.
 

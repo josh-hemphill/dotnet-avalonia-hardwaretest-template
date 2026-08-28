@@ -11,7 +11,7 @@ First-class mixin awareness: load mixin assemblies, show mixin-backed settings i
 
 ## Locked rules
 
-- Mixins are authored/attached in OpenTAP Editor; shell runs and edits values.
+- Mixins are authored/attached in OpenTAP Editor or OpenTAP TUI; shell runs and edits values.
 - Avalonia does not implement “Add Mixin” Editor UX in this phase (document Editor workflow).
 - Custom mixins load through existing plugin directory / package install paths.
 
@@ -29,7 +29,7 @@ First-class mixin awareness: load mixin assemblies, show mixin-backed settings i
 2. Implement embed type (`IMixin`) with `[Display]` settings.
 3. Implement `[MixinBuilder(typeof(ITestStep))]` `IMixinBuilder` → `MixinMemberData` + `EmbedPropertiesAttribute`.
 4. Ship DLL next to Basic or add folder to `OpenTapPluginDirectories`.
-5. In **OpenTAP Editor**: right-click step → Add Mixin → Annotation (or your builder) → save `.TapPlan`.
+5. In **OpenTAP Editor** or **OpenTAP TUI**: add mixin → Annotation (or your builder) → save `.TapPlan`. Validate with `HardwareTest --validate-plan` / `HardwareTest.PlanValidate`.
 6. On the bench: Engineer/Debug → select step → Station overrides → edit mixin fields → Apply & save.
 
 ## Out of scope
