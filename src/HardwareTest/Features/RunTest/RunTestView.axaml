@@ -253,35 +253,37 @@
                 Margin="0,0,8,4"
                 IsEnabled="{Binding CanStartRun}"
                 ToolTip.Tip="{Binding CanStartRunSelectedTip}" />
-        <Button Content="Open detail" Command="{Binding StepDetail.OpenStepDetailCommand}"
-                Classes="operator"
-                Margin="0,0,8,4"
-                ToolTip.Tip="Open Details for the selected step (double-tap remains a shortcut)" />
         <Button Content="Prev fail" Command="{Binding StepTree.PrevFailCommand}" Classes="operator" Margin="0,0,8,4" />
         <Button Content="Next fail" Command="{Binding StepTree.NextFailCommand}" Classes="operator" Margin="0,0,8,4" />
-        <ToggleButton Content="Details"
-                      IsChecked="{Binding StepDetail.ShowDetailRegion}"
-                      Classes="filter-chip"
-                      Margin="0,0,8,4"
-                      ToolTip.Tip="Show or hide bottom pane (detail, plot, diagnostics)" />
-        <Button Content="Details +"
-                Click="OnDetailsTallerClick"
-                Classes="operator"
+        <Border x:Name="DetailPaneCluster"
+                Padding="6,4"
                 Margin="0,0,8,4"
-                IsVisible="{Binding StepDetail.ShowDetailRegion}"
-                ToolTip.Tip="Give the Details drawer more height" />
-        <Button Content="Details −"
-                Click="OnDetailsShorterClick"
-                Classes="operator"
-                Margin="0,0,8,4"
-                IsVisible="{Binding StepDetail.ShowDetailRegion}"
-                ToolTip.Tip="Give the step list more height" />
-        <Button Content="Reset split"
-                Click="OnDetailsResetSplitClick"
-                Classes="operator"
-                Margin="0,0,8,4"
-                IsVisible="{Binding StepDetail.ShowDetailRegion}"
-                ToolTip.Tip="Reset list vs Details star shares" />
+                CornerRadius="6"
+                BorderBrush="{DynamicResource SystemControlForegroundBaseMediumBrush}"
+                BorderThickness="1"
+                Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <ToggleButton Content="Details"
+                          IsChecked="{Binding StepDetail.ShowDetailRegion}"
+                          Classes="filter-chip"
+                          ToolTip.Tip="Show or hide bottom pane (detail, plot, diagnostics)" />
+            <Button Content="Details +"
+                    Click="OnDetailsTallerClick"
+                    Classes="operator"
+                    IsVisible="{Binding StepDetail.ShowDetailRegion}"
+                    ToolTip.Tip="Give the Details drawer more height" />
+            <Button Content="Details −"
+                    Click="OnDetailsShorterClick"
+                    Classes="operator"
+                    IsVisible="{Binding StepDetail.ShowDetailRegion}"
+                    ToolTip.Tip="Give the step list more height" />
+            <Button Content="Reset split"
+                    Click="OnDetailsResetSplitClick"
+                    Classes="operator"
+                    IsVisible="{Binding StepDetail.ShowDetailRegion}"
+                    ToolTip.Tip="Reset list vs Details star shares" />
+          </StackPanel>
+        </Border>
       </WrapPanel>
 
       <Border Grid.Row="3"
@@ -430,27 +432,30 @@
             RowSpacing="4">
         <Border Grid.Row="0"
                 Padding="8"
-                MinHeight="180"
                 Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
-                IsVisible="{Binding Live.ShowFocusTrend}">
-          <DockPanel>
-            <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="8" Margin="0,0,0,6">
-              <TextBlock Text="Focus trend"
-                         FontWeight="SemiBold"
-                         VerticalAlignment="Center" />
-              <TextBlock Text="{Binding Live.PlotTitle}"
-                         Opacity="0.75"
-                         VerticalAlignment="Center" />
-              <Button Content="Hide trend"
-                      Command="{Binding Live.ToggleFocusTrendCommand}"
-                      FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}"
-                      Padding="8,2"
-                      VerticalAlignment="Center" />
-            </StackPanel>
+                IsVisible="{Binding Live.ShowFocusTrend}"
+                ClipToBounds="False">
+          <Grid RowDefinitions="Auto,*">
+            <DockPanel Grid.Row="0">
+              <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,0,0,6">
+                <TextBlock Text="Focus trend"
+                           FontWeight="SemiBold"
+                           VerticalAlignment="Center" />
+                <TextBlock Text="{Binding Live.PlotTitle}"
+                           Opacity="0.75"
+                           VerticalAlignment="Center" />
+                <Button Content="Hide trend"
+                        Command="{Binding Live.ToggleFocusTrendCommand}"
+                        FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}"
+                        Padding="8,2"
+                        VerticalAlignment="Center" />
+              </StackPanel>
+            </DockPanel>
             <widgets:MeasurementPlotView x:Name="Plot"
-                                         MinHeight="160"
+                                         Grid.Row="1"
+                                         MinHeight="80"
                                          VerticalAlignment="Stretch" />
-          </DockPanel>
+          </Grid>
         </Border>
 
         <!-- * row (never Auto): ScrollViewer must have a bounded viewport to stay scrollable. -->

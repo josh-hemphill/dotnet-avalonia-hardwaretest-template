@@ -159,12 +159,14 @@
       </StackPanel>
     </ui:FANavigationView.PaneFooter>
 
-    <Grid Margin="16" RowDefinitions="Auto,*" RowSpacing="8">
-      <!-- Phase 17: reserved height even when idle — notifications must not shift page content. -->
-      <Border MinHeight="56"
-              Padding="10,8"
-              CornerRadius="6"
-              BorderThickness="1"
+    <Grid RowDefinitions="Auto,*">
+      <!-- Phase 17: reserved height even when idle — notifications must not shift page content.
+           Full content-pane width, outside the padded page area. -->
+      <Border x:Name="ShellNotificationStrip"
+              MinHeight="56"
+              Padding="16,8"
+              CornerRadius="0"
+              BorderThickness="0,0,0,1"
               Classes="feedback-banner">
         <Border.Styles>
           <Style Selector="Border">
@@ -176,10 +178,10 @@
           <Border IsVisible="{Binding ShellNotification.HasContent}"
                   Background="{Binding ShellNotification.Severity, Converter={x:Static shell:ShellNotificationBrushConverter.Background}}"
                   BorderBrush="{Binding ShellNotification.Severity, Converter={x:Static shell:ShellNotificationBrushConverter.Border}}"
-                  BorderThickness="1"
-                  CornerRadius="6"
-                  Margin="-10,-8"
-                  Padding="10,8">
+                  BorderThickness="0,0,0,1"
+                  CornerRadius="0"
+                  Margin="-16,-8"
+                  Padding="16,8">
             <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto" ColumnSpacing="8">
               <TextBlock Text="{Binding ShellNotification.Severity, Converter={x:Static shell:ShellNotificationBrushConverter.Icon}}"
                          FontSize="14"
@@ -228,7 +230,9 @@
         </Panel>
       </Border>
 
-      <Panel Grid.Row="1">
+      <Panel x:Name="PageContentHost"
+             Grid.Row="1"
+             Margin="16">
         <ContentControl Content="{Binding CurrentPage}"
                         IsEnabled="{Binding !IsStartingUp}" />
         <Border IsVisible="{Binding IsStartingUp}"
