@@ -133,6 +133,17 @@ public sealed class Phase16PresentationChromeTests
     }
 
     [Fact]
+    public void Timeseries_out_of_band_sets_attention()
+    {
+        var live = new LivePresentationViewModel();
+        var step = Leaf();
+        live.ApplySample(Timeseries("VDC", 9.9, low: 0, high: 1), step.Path, null, step);
+        Assert.True(live.HasChartData);
+        Assert.True(live.HasChartAttention);
+        Assert.Contains("Out of band", live.ChartBandText, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void Tile_IsOutOfBand_respects_limits()
     {
         var tile = new PresentationTileViewModel("m", PresentationTileKind.Passband, "passband", "V", "p");

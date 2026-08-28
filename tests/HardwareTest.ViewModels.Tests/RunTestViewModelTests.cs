@@ -309,6 +309,7 @@ public sealed class RunTestViewModelTests
         var vm = CreateVm(settings: new AppSettings { PlotRefreshHz = 60 });
         vm.UiScheduler = action => action();
         await vm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
+        await ConfirmReadyAsync(vm, "SN-PLOT");
         const string acquirePath = "Sample Hardware Suite/Voltage Sweep/Acquire VDC";
         for (var i = 0; i < 5; i++)
         {
@@ -1411,12 +1412,10 @@ public sealed class RunTestViewModelTests
         vm.UiScheduler = action => action();
         await vm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
         await ConfirmReadyAsync(vm, "SN-OOB");
-        vm.IngestProgress(new OpenTapProgress
-        {
-            Message = "Acquire",
-            StepName = "Acquire VDC",
-            StepPath = "Sample Hardware Suite/Voltage Sweep/Acquire VDC",
-            Sample = new MeasurementSampleEvent(
+        var acquire = Flatten(vm.StepTree.Hierarchy).First(s =>
+            s.Name.Contains("Acquire", StringComparison.OrdinalIgnoreCase));
+        vm.Live.ApplySample(
+            new MeasurementSampleEvent(
                 "VDC",
                 0,
                 9.9,
@@ -1424,10 +1423,9 @@ public sealed class RunTestViewModelTests
                 DisplayRole: "timeseries",
                 LimitLow: 0,
                 LimitHigh: 1),
-            OverallPercent = 20,
-        });
-        await Task.Delay(50);
-
+            acquire.Path,
+            null,
+            acquire);
         Assert.True(vm.Live.HasChartAttention);
         Assert.Equal(RunWorkspace.Steps, vm.Workspace.Selected);
         Assert.True(shell.HasContent);

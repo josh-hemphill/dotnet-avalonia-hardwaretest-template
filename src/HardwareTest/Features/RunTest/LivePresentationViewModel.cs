@@ -29,8 +29,6 @@ public partial class LivePresentationViewModel : ReactiveObject
 
     public LivePresentationViewModel()
     {
-        PlotXs = [];
-        PlotYs = [];
         ToggleFocusTrendCommand = ReactiveCommand.Create(ToggleFocusTrend);
         ResetViewCommand = ReactiveCommand.Create(ResetView);
         SelectSeriesCommand = ReactiveCommand.Create<LiveSeriesItemViewModel?>(SelectSeries);
@@ -51,8 +49,8 @@ public partial class LivePresentationViewModel : ReactiveObject
     public ReactiveCommand<LiveSeriesItemViewModel?, System.Reactive.Unit> SelectSeriesCommand { get; }
     public ReactiveCommand<ChartTimeWindow, System.Reactive.Unit> SelectTimeWindowCommand { get; }
 
-    [Reactive] private double[] _plotXs = [];
-    [Reactive] private double[] _plotYs = [];
+    [Reactive] private double[] _plotXs = new double[LiveSeriesBuffer.Capacity];
+    [Reactive] private double[] _plotYs = new double[LiveSeriesBuffer.Capacity];
     [Reactive] private bool _hasPlotData;
     [Reactive] private bool _hasChartData;
     [Reactive] private bool _hasChartAttention;
@@ -112,8 +110,6 @@ public partial class LivePresentationViewModel : ReactiveObject
         PlotTitle = "Live measurements";
         PlotLimitLow = null;
         PlotLimitHigh = null;
-        PlotXs = [];
-        PlotYs = [];
         PlotYsLength = 0;
         PlotDataChanged?.Invoke(this, EventArgs.Empty);
     }
@@ -181,12 +177,21 @@ public partial class LivePresentationViewModel : ReactiveObject
     {
         _lastSelectedStep = selectedStep;
         HasChartData = _series.Values.Any(s => s.Count > 0);
-        var outOfBand = PresentationTiles.Any(t => t.IsOutOfBand)
-            || _series.Values.Any(s => s.IsOutOfBand);
-        HasChartAttention = outOfBand && HasChartData;
         OfferOpenChart = HasChartData;
         OfferShowTrend = HasChartData;
-        if (HasChartAttention)
+        ChromeMode = PresentationChromeMode.Band;
+        ShowFocusTrend = false;
+        ShowPlotForSelection = false;
+        if (HasChartData)
+        {
+            PublishSelectedSnapshot(selectedStep);
+        }
+
+        var attention = HasChartData
+            && (PresentationTiles.Any(t => t.IsOutOfBand)
+                || _series.Values.Any(s => s.IsOutOfBand)
+                || ChartBandText.Contains("Out of band", StringComparison.OrdinalIgnoreCase));
+        if (attention)
         {
             FocusTrendTip = "Out of band — open Chart for waveform detail.";
         }
@@ -199,13 +204,7 @@ public partial class LivePresentationViewModel : ReactiveObject
             FocusTrendTip = string.Empty;
         }
 
-        ChromeMode = PresentationChromeMode.Band;
-        ShowFocusTrend = false;
-        ShowPlotForSelection = false;
-        if (HasChartData)
-        {
-            PublishSelectedSnapshot(selectedStep);
-        }
+        HasChartAttention = attention;
     }
 
     private void ToggleFocusTrend()
@@ -293,8 +292,6 @@ public partial class LivePresentationViewModel : ReactiveObject
         if (key is null || !_series.TryGetValue(key.Value, out var buffer))
         {
             PlotYsLength = 0;
-            PlotXs = [];
-            PlotYs = [];
             ChartValueText = "—";
             ChartBandText = "No limits";
             ChartAgeText = string.Empty;
@@ -305,8 +302,8 @@ public partial class LivePresentationViewModel : ReactiveObject
         }
 
         var snapshot = buffer.Snapshot(SelectedTimeWindow.Duration);
-        PlotXs = snapshot.Xs;
-        PlotYs = snapshot.Ys;
+        CopyPlotBuffer(PlotXs, snapshot.Xs, snapshot.Length);
+        CopyPlotBuffer(PlotYs, snapshot.Ys, snapshot.Length);
         PlotYsLength = snapshot.Length;
         PlotLegendText = key.Value.MetricKey;
         PlotTitle = key.Value.DisplayName;
@@ -358,6 +355,14 @@ public partial class LivePresentationViewModel : ReactiveObject
         }
 
         return null;
+    }
+
+    private static void CopyPlotBuffer(double[] target, double[] source, int length)
+    {
+        if (length > 0)
+        {
+            Array.Copy(source, 0, target, 0, Math.Min(length, target.Length));
+        }
     }
 
     private static string FormatAge(DateTimeOffset? timestamp)
