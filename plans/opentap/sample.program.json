@@ -1,0 +1,9 @@
+{
+  "displayName": "Sample Hardware Suite (Demo)",
+  "dutFamily": "demo",
+  "requireSerial": true,
+  "requireOperator": true,
+  "requirePartNumber": false,
+  "requireRevision": false,
+  "selectionIncludesCleanup": true
+}
