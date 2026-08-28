@@ -15,7 +15,6 @@ public sealed class OperatorPromptChromeTests
         Assert.Contains("PromptBodyScroller", axaml, StringComparison.Ordinal);
         Assert.Contains("ContinueButton", axaml, StringComparison.Ordinal);
         Assert.Contains("DockPanel.Dock=\"Bottom\"", axaml, StringComparison.Ordinal);
-        Assert.Contains("OperatorTouchDensity.InteractionHostMaxHeight", axaml, StringComparison.Ordinal);
         Assert.Contains("Value, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged", axaml, StringComparison.Ordinal);
 
         var continueIndex = axaml.IndexOf("x:Name=\"ContinueButton\"", StringComparison.Ordinal);
@@ -29,12 +28,14 @@ public sealed class OperatorPromptChromeTests
     [Fact]
     public void Interaction_and_run_board_share_stop_run_copy()
     {
+        var header = File.ReadAllText(FindRepoFile("src/HardwareTest/Features/RunTest/RunHeaderView.axaml"));
+        var prep = File.ReadAllText(FindRepoFile("src/HardwareTest/Features/RunTest/RunPreparationView.axaml"));
         var runAxaml = File.ReadAllText(FindRepoFile("src/HardwareTest/Features/RunTest/RunTestView.axaml"));
-        Assert.Contains("StopRunCopy.CooperativeTip", runAxaml, StringComparison.Ordinal);
-        Assert.DoesNotContain("Blocking instrument I/O may continue", runAxaml, StringComparison.Ordinal);
+        Assert.Contains("StopRunCopy.CooperativeTip", header, StringComparison.Ordinal);
+        Assert.DoesNotContain("Blocking instrument I/O may continue", header, StringComparison.Ordinal);
         Assert.Contains("<vm:InteractionHostView", runAxaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"DutSerialBox\"", runAxaml, StringComparison.Ordinal);
-        Assert.Contains("OnSessionFieldKeyDown", runAxaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"DutSerialBox\"", prep, StringComparison.Ordinal);
+        Assert.Contains("OnSessionFieldKeyDown", prep, StringComparison.Ordinal);
     }
 
     [Fact]

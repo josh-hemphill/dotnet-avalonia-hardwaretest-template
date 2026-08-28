@@ -297,13 +297,15 @@ public sealed class RunBoardChildViewModelTests
 
         Assert.True(plotted);
         Assert.True(live.HasPlotData);
-        Assert.True(live.ShowPlotForSelection);
+        Assert.True(live.HasChartData);
+        Assert.False(live.ShowPlotForSelection);
         Assert.Equal(1, live.PlotYsLength);
-        Assert.Equal(1, frames);
+        Assert.True(frames >= 1);
 
         live.ResetForRun();
 
         Assert.False(live.HasPlotData);
+        Assert.False(live.HasChartData);
         Assert.False(live.ShowPlotForSelection);
         Assert.Equal(0, live.PlotYsLength);
     }

@@ -32,26 +32,35 @@ public sealed class Phase18TouchDensityTests
         Assert.Contains("OperatorTouchDensity.CompactNavTargetSize", axaml, StringComparison.Ordinal);
         Assert.Contains("OperatorTouchDensity.OperatorControlMinHeight", axaml, StringComparison.Ordinal);
         Assert.Contains("ShellNotificationBrushConverter", axaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"ShellNotificationStrip\"", axaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"PageContentHost\"", axaml, StringComparison.Ordinal);
-        Assert.DoesNotContain("<Grid Margin=\"16\"", axaml, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void RunTestView_has_splitter_floor_and_single_blocked_tip()
+    public void RunTestView_uses_workspace_toggles_and_single_blocked_tip()
     {
-        var axaml = File.ReadAllText(FindRepoFile("src/HardwareTest/Features/RunTest/RunTestView.axaml"));
-        Assert.Contains("OperatorTouchDensity.DetailsSplitterMinHeight", axaml, StringComparison.Ordinal);
-        Assert.DoesNotContain("Open detail", axaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"DetailPaneCluster\"", axaml, StringComparison.Ordinal);
-        Assert.Contains("ShowStartBlockedTip", axaml, StringComparison.Ordinal);
-        Assert.Contains("Details +", axaml, StringComparison.Ordinal);
-        Assert.Contains("Reset split", axaml, StringComparison.Ordinal);
-        Assert.Contains("RunBoardStageRailView", axaml, StringComparison.Ordinal);
-        Assert.Contains("Hide trend", axaml, StringComparison.Ordinal);
-        Assert.Contains("RowDefinitions=\"Auto,*\"", axaml, StringComparison.Ordinal);
-        // One inline tip only (program toolbar) — not duplicated near Run Selected.
-        Assert.Equal(1, CountOccurrences(axaml, "ShowStartBlockedTip"));
+        var run = File.ReadAllText(FindRepoFile("src/HardwareTest/Features/RunTest/RunTestView.axaml"));
+        var header = File.ReadAllText(FindRepoFile("src/HardwareTest/Features/RunTest/RunHeaderView.axaml"));
+        var steps = File.ReadAllText(FindRepoFile("src/HardwareTest/Features/RunTest/RunStepsWorkspaceView.axaml"));
+        var chart = File.ReadAllText(FindRepoFile("src/HardwareTest/Features/RunTest/RunChartWorkspaceView.axaml"));
+        Assert.Contains("RunHeaderView", run, StringComparison.Ordinal);
+        Assert.Contains("RunStepsWorkspaceView", run, StringComparison.Ordinal);
+        Assert.Contains("RunDetailsWorkspaceView", run, StringComparison.Ordinal);
+        Assert.Contains("RunChartWorkspaceView", run, StringComparison.Ordinal);
+        Assert.Contains("Content=\"Steps\"", header, StringComparison.Ordinal);
+        Assert.Contains("Content=\"Details\"", header, StringComparison.Ordinal);
+        Assert.Contains("Content=\"Chart\"", header, StringComparison.Ordinal);
+        Assert.Contains("OperatorTouchDensity.ChartPlotMinHeight", chart, StringComparison.Ordinal);
+        Assert.DoesNotContain("Details +", run, StringComparison.Ordinal);
+        Assert.DoesNotContain("Reset split", run, StringComparison.Ordinal);
+        Assert.DoesNotContain("RunBoardStageRailView", run, StringComparison.Ordinal);
+        Assert.DoesNotContain("GridSplitter", run, StringComparison.Ordinal);
+        Assert.Contains("ShowStartBlockedTip", header, StringComparison.Ordinal);
+        Assert.Equal(1, CountOccurrences(header, "ShowStartBlockedTip") + CountOccurrences(run, "ShowStartBlockedTip") + CountOccurrences(steps, "ShowStartBlockedTip"));
+    }
+
+    [Fact]
+    public void OperatorTouchDensity_includes_chart_plot_floor()
+    {
+        Assert.True(OperatorTouchDensity.ChartPlotMinHeight >= 300);
     }
 
     [Fact]

@@ -30,7 +30,9 @@ public partial class RunTestViewModel
         ISafetyController? safety,
         IClock clock)
     {
-        StepDetail = new StepDetailViewModel(() => OpenSelectedDetail(revealDetail: true));
+        StepDetail = new StepDetailViewModel(
+            () => OpenSelectedDetail(revealDetail: true),
+            () => Workspace?.OpenSteps());
         Interaction = new InteractionHostViewModel();
         Live = new LivePresentationViewModel();
         ProgramSelection = new ProgramSelectionViewModel(
@@ -86,5 +88,17 @@ public partial class RunTestViewModel
             safety,
             clock,
             OnStationNotReady);
+        Workspace = new RunWorkspaceViewModel(
+            () => SessionPanel.SessionBlocked,
+            () => Interaction.IsAwaitingOperator,
+            () => Live.HasChartData,
+            () => StepTree.SelectedStep is not null,
+            visible => StepDetail.ShowDetailRegion = visible);
     }
+
+    /// True when Stop occupies the header action slot (run in progress or operator prompt).
+    public bool ShowHeaderStop => CanSafetyStop;
+
+    /// True when Run occupies the header action slot (idle, including gated-disabled).
+    public bool ShowHeaderRun => !CanSafetyStop;
 }
