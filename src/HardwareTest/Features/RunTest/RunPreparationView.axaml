@@ -33,6 +33,13 @@
                      IsVisible="{Binding SessionPanel.ShowStaleTechnicianField}"
                      AutomationProperties.Name="Technician"
                      KeyDown="OnStaleTechnicianKeyDown" />
+          <Button Content="Tap or insert"
+                  Command="{Binding SessionPanel.CaptureCredentialCommand}"
+                  Classes="operator"
+                  MinHeight="{x:Static shell:OperatorTouchDensity.OperatorControlMinHeight}"
+                  IsVisible="{Binding SessionPanel.ShowCredentialCapture}"
+                  IsEnabled="{Binding !SessionPanel.IsCapturingCredential}"
+                  AutomationProperties.Name="Tap or insert badge" />
         </StackPanel>
         <StackPanel Spacing="6" IsVisible="{Binding SessionPanel.IsIdleWarningPrompt}">
           <StackPanel Orientation="Horizontal" Spacing="8">
@@ -82,6 +89,19 @@
                        Foreground="#C62828"
                        FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}"
                        TextWrapping="Wrap" />
+          </StackPanel>
+          <StackPanel Margin="0,0,8,8" Spacing="2" IsVisible="{Binding SessionPanel.ShowCredentialCapture}">
+            <Button Content="Tap or insert"
+                    Command="{Binding SessionPanel.CaptureCredentialCommand}"
+                    Classes="operator"
+                    MinHeight="{x:Static shell:OperatorTouchDensity.OperatorControlMinHeight}"
+                    IsEnabled="{Binding !SessionPanel.IsCapturingCredential}"
+                    AutomationProperties.Name="Tap or insert badge" />
+            <TextBlock Text="{Binding SessionPanel.CredentialStatus}"
+                       FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}"
+                       Opacity="0.8"
+                       TextWrapping="Wrap"
+                       MaxWidth="220" />
           </StackPanel>
           <Button Content="Confirm Session"
                   Command="{Binding SessionPanel.ConfirmSessionCommand}"

@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text;
 using System.Text.Json;
+using HardwareTest.Core.Credentials;
 using HardwareTest.Core.IO;
 using HardwareTest.Core.Runs;
 using HardwareTest.Core.Serialization;
@@ -72,6 +73,7 @@ public sealed class TypstReportService : IReportService, IDisposable
     {
         cancellationToken.ThrowIfCancellationRequested();
         var dir = _runStore.GetRunDirectory(run.RunId);
+        ReportAttestationService.InvalidateForKinds(run, dir, kinds);
         var artifacts = new List<RunReportArtifact>();
         var now = DateTimeOffset.UtcNow;
         foreach (var kind in kinds)
@@ -221,7 +223,7 @@ public sealed class TypstReportService : IReportService, IDisposable
         var includeHistory = string.Equals(kind, ReportKinds.Status, StringComparison.OrdinalIgnoreCase)
                              && history is not null
                              && !string.IsNullOrWhiteSpace(history.OperatorSummary);
-        return CompileOnce(workDir, template, run, resultJson, chartLib, includePlots, includeHistory, history, title);
+        return CompileOnce(workDir, template, run, resultJson, chartLib, includePlots, includeHistory, history, title, kind);
     }
 
     private byte[] CompileOnce(
@@ -233,11 +235,21 @@ public sealed class TypstReportService : IReportService, IDisposable
         bool includePlots,
         bool includeHistory,
         DutHistoryReport? history,
-        string title)
+        string title,
+        string kind)
     {
         var historySummary = includeHistory ? history!.OperatorSummary : string.Empty;
         var historySeverity = includeHistory ? history!.OverallSeverity.ToString() : string.Empty;
         var historyMetrics = includeHistory ? FormatHistoryMetrics(history!) : string.Empty;
+        var operatorName = string.IsNullOrWhiteSpace(run.OperatorName) ? "n/a" : run.OperatorName;
+        // Attestation is a detached sidecar hashed to these PDF bytes. Do not compile a
+        // prior stamp into a newly generated file (reprint would otherwise name the old party).
+        var attestation = run.Attestations.LastOrDefault(a =>
+            string.Equals(a.ReportKind, kind, StringComparison.OrdinalIgnoreCase));
+        var attestationKind = attestation?.Kind ?? string.Empty;
+        var attestationDetail = attestation is null
+            ? string.Empty
+            : $"{attestation.DisplayName} ({attestation.Transport}, {attestation.Serial})";
 
         var result = _compiler.Value.Compile(c =>
         {
@@ -267,7 +279,10 @@ public sealed class TypstReportService : IReportService, IDisposable
                 .WithInput("includeHistory", includeHistory ? "true" : "false")
                 .WithInput("historySummary", historySummary)
                 .WithInput("historySeverity", historySeverity)
-                .WithInput("historyMetrics", historyMetrics);
+                .WithInput("historyMetrics", historyMetrics)
+                .WithInput("operatorName", operatorName)
+                .WithInput("attestationKind", attestationKind)
+                .WithInput("attestationDetail", attestationDetail);
 
             return builder;
         });

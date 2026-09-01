@@ -164,6 +164,8 @@ public partial class SettingsViewModel
             s.DataFreeSpaceCriticalBytes = GbToBytes(DataFreeSpaceCriticalGb);
         }
 
+        ApplyCredentialSettings(s);
+
         await _settingsStore.SaveAppSettingsAsync();
         ThemeApplier.Apply(s);
         AllowOsFolderBrowse = s.AllowOsFolderBrowse || s.IsEngineerDebugMode;
@@ -223,6 +225,10 @@ public partial class SettingsViewModel
             nameof(ExportDirectory) => ExportDirectoryReadOnly,
             nameof(DataFreeSpaceWarnGb) => DataFreeSpaceWarnGbReadOnly,
             nameof(DataFreeSpaceCriticalGb) => DataFreeSpaceCriticalGbReadOnly,
+            nameof(UseMockOperatorCredential) => UseMockOperatorCredentialReadOnly,
+            nameof(RequireCredentialForOperator) => RequireCredentialForOperatorReadOnly,
+            nameof(RequireAttestationBeforeExport) => RequireAttestationBeforeExportReadOnly,
+            nameof(AllowPresenceInLieuOfSigning) => AllowPresenceInLieuOfSigningReadOnly,
             _ => false,
         };
 

@@ -128,6 +128,7 @@ public partial class SettingsViewModel : ReactiveObject
         ExportDirectoryReadOnly = settingsStore.IsOverridden(nameof(AppSettings.ExportDirectory));
         DataFreeSpaceWarnGbReadOnly = settingsStore.IsOverridden(nameof(AppSettings.DataFreeSpaceWarnBytes));
         DataFreeSpaceCriticalGbReadOnly = settingsStore.IsOverridden(nameof(AppSettings.DataFreeSpaceCriticalBytes));
+        InitCredentialSettings(settingsStore);
 
         SaveCommand = ReactiveCommand.CreateFromTask(SaveAsync);
         RefreshPackagesCommand = ReactiveCommand.Create(RefreshPackages);
@@ -185,12 +186,16 @@ public partial class SettingsViewModel : ReactiveObject
                 or nameof(RunRetentionDaysReadOnly) or nameof(RunRetentionMaxRunsReadOnly)
                 or nameof(ClockSkewWarnThresholdMinutesReadOnly) or nameof(NtpHostReadOnly)
                 or nameof(ExportDirectoryReadOnly)
-                or nameof(DataFreeSpaceWarnGbReadOnly) or nameof(DataFreeSpaceCriticalGbReadOnly))
+                or nameof(DataFreeSpaceWarnGbReadOnly) or nameof(DataFreeSpaceCriticalGbReadOnly)
+                or nameof(UseMockOperatorCredentialReadOnly)
+                or nameof(RequireCredentialForOperatorReadOnly)
+                or nameof(RequireAttestationBeforeExportReadOnly)
+                or nameof(AllowPresenceInLieuOfSigningReadOnly))
             {
                 return;
             }
 
-            if (IsPropertyOverridden(args.PropertyName))
+            if (IsPropertyOverridden(args.PropertyName) || IsCredentialPropertyOverridden(args.PropertyName))
             {
                 return;
             }

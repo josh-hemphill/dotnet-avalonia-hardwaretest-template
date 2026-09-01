@@ -108,7 +108,9 @@ public sealed class ConfigurationArgs
         => binding.Key is "UseMockVisa" or "EnableOsEventSink" or "EnableSyslogOnUnix"
             or "EmbedPlotsInReport" or "ExportOpenTapResults" or "ShowDutHistoryOnRun"
             or "IsEngineerDebugMode" or "CrashEnabled" or "RedactIdentifiersInDiagnostics"
-            or "RequireDutConfirmEveryRun" or "PreferRemovableExport" or "AllowOsFolderBrowse";
+            or "RequireDutConfirmEveryRun" or "PreferRemovableExport" or "AllowOsFolderBrowse"
+            or "UseMockOperatorCredential" or "RequireCredentialForOperator"
+            or "RequireAttestationBeforeExport" or "AllowPresenceInLieuOfSigning";
 
     private static bool TrySplit(string arg, out string flag, out string? inlineValue)
     {

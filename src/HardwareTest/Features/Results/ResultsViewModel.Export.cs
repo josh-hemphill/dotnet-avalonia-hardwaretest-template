@@ -1,3 +1,4 @@
+using HardwareTest.Core.Credentials;
 using HardwareTest.Core.Storage;
 using HardwareTest.OpenTap.Host;
 
@@ -24,7 +25,24 @@ public partial class ResultsViewModel
         SelectedExportTarget = ExportTargets.FirstOrDefault();
     }
 
-    private void ExportPackage()
+    private Task ExportPackageAsync()
+    {
+        if (OpenedRun is null)
+        {
+            Status = "Open a run first.";
+            return Task.CompletedTask;
+        }
+
+        if (!TryBeginCertifiedAction(OpenedRun, ReportAttestationService.PackageKind, PendingExport))
+        {
+            return Task.CompletedTask;
+        }
+
+        ExportPackageCore();
+        return Task.CompletedTask;
+    }
+
+    private void ExportPackageCore()
     {
         if (OpenedRun is null)
         {
@@ -68,6 +86,14 @@ public partial class ResultsViewModel
                     && files.All(f => !string.Equals(f.SourcePath, OpenedRun.ReportPdfPath, StringComparison.OrdinalIgnoreCase)))
                 {
                     files.Add((OpenedRun.ReportPdfPath!, Path.GetFileName(OpenedRun.ReportPdfPath)));
+                }
+
+                if (Directory.Exists(runDir))
+                {
+                    foreach (var sidecar in Directory.EnumerateFiles(runDir, "*.attestation.json"))
+                    {
+                        files.Add((sidecar, Path.GetFileName(sidecar)));
+                    }
                 }
 
                 var csvDir = Path.Combine(runDir, "opentap-results");

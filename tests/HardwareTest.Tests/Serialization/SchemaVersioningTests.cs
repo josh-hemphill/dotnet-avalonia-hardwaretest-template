@@ -86,6 +86,7 @@ public sealed class SchemaVersioningTests
         Assert.False(run!.IsLegacy);
         Assert.False(run.IsSchemaReadOnly);
         Assert.Equal(1, run.StoredSchemaVersion);
+        Assert.Equal(SchemaVersions.TestRunRecord, run.SchemaVersion);
         Assert.True(run.Samples[0].HistoryEnabled);
     }
 

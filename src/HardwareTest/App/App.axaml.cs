@@ -84,7 +84,8 @@ public partial class App : Application
                     session.OperatorName,
                     !string.IsNullOrWhiteSpace(session.DutSerial),
                     session.ProgramId,
-                    _settingsStore.AppSettings.IsEngineerDebugMode);
+                    _settingsStore.AppSettings.IsEngineerDebugMode,
+                    session.OperatorCredentialSerial);
             });
         CrashHandler.InstallUiHooks();
 

@@ -1,3 +1,4 @@
+using HardwareTest.Core.Credentials;
 using HardwareTest.Core.Engine;
 using HardwareTest.Core.Hardware;
 using HardwareTest.Core.Logging;
@@ -55,6 +56,17 @@ public static class CoreServiceCollectionExtensions
         services.AddSingleton<IVisaSessionFactory>(sp => sp.GetRequiredService<VisaModeController>());
         services.AddSingleton<IVisaBroker>(sp => sp.GetRequiredService<VisaModeController>());
         services.AddSingleton<IVisaResourceDiscovery>(sp => sp.GetRequiredService<VisaModeController>());
+        services.AddSingleton<IOperatorCredentialBroker>(sp =>
+            new SettingsBackedCredentialBroker(
+                settingsStore.AppSettings,
+                new MockOperatorCredentialBroker(sp.GetRequiredService<IClock>()),
+                new PcscOperatorCredentialBroker(sp.GetRequiredService<IClock>())));
+        services.AddSingleton<IReportAttestationService>(sp =>
+            new ReportAttestationService(
+                sp.GetRequiredService<IOperatorCredentialBroker>(),
+                sp.GetRequiredService<IRunStore>(),
+                settingsStore.AppSettings,
+                sp.GetRequiredService<IClock>()));
         services.AddSingleton<IReportService>(sp =>
             new TypstReportService(
                 sp.GetRequiredService<IRunStore>(),

@@ -70,6 +70,14 @@ public sealed class AppSettings
     public int ClockSkewWarnThresholdMinutes { get; set; } = DefaultClockSkewWarnThresholdMinutes;
     /// Optional local NTP / domain time host. Empty skips the NTP query (last-known-good only).
     public string NtpHost { get; set; } = string.Empty;
+    /// When true, chip/tap uses the in-process mock (CI / no reader).
+    public bool UseMockOperatorCredential { get; set; } = true;
+    /// When true, confirming a session that requires an operator also requires a chip or tap.
+    public bool RequireCredentialForOperator { get; set; }
+    /// When true, exporting or opening a certification PDF requires a badge attestation.
+    public bool RequireAttestationBeforeExport { get; set; }
+    /// When true, a tap/insert presence record is accepted if the card cannot sign yet.
+    public bool AllowPresenceInLieuOfSigning { get; set; } = true;
 
     public const int DefaultOpenTapWorkerKillTimeoutMilliseconds = 8000;
     public const int MinOpenTapWorkerKillTimeoutMilliseconds = 1000;

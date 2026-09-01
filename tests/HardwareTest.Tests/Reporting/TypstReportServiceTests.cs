@@ -1,3 +1,4 @@
+using HardwareTest.Core.Credentials;
 using HardwareTest.Core.Reporting;
 using HardwareTest.Core.Runs;
 using HardwareTest.Core.Settings;
@@ -122,6 +123,34 @@ public sealed class TypstReportServiceTests
 
         var reloaded = await runStore.LoadAsync(run.RunId);
         Assert.Equal(2, reloaded!.Reports.Count);
+    }
+
+    [Fact]
+    public async Task GenerateReportsAsync_clears_prior_certification_attestation()
+    {
+        using var temp = new TempDataDirectory();
+        var runStore = new FileRunStore(temp.RunsDirectory);
+        var run = CreateRun();
+        await runStore.SaveAsync(run);
+        var sidecar = Path.Combine(runStore.GetRunDirectory(run.RunId), "certification.attestation.json");
+        await File.WriteAllTextAsync(sidecar, "{}");
+        run.Attestations.Add(new ReportAttestation
+        {
+            Kind = AttestationKind.Presence,
+            ReportKind = ReportKinds.Certification,
+            DisplayName = "Previous Certifier",
+            Serial = "OLD-CARD",
+            SidecarPath = sidecar,
+        });
+
+        using var reports = new TypstReportService(runStore, new AppSettings { EmbedPlotsInReport = false });
+        await CompileOrSkipAsync(() => reports.GenerateReportsAsync(run, [ReportKinds.Certification]));
+
+        Assert.Empty(run.Attestations);
+        Assert.False(File.Exists(sidecar));
+        var workDir = Path.Combine(Path.GetTempPath(), "HardwareTestTypst", run.RunId, ReportKinds.Certification);
+        var json = await File.ReadAllTextAsync(Path.Combine(workDir, "run.json"));
+        Assert.DoesNotContain("Previous Certifier", json, StringComparison.Ordinal);
     }
 
     private static TestRunRecord CreateRun(int sampleCount = 1)
