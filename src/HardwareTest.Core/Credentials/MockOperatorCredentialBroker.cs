@@ -50,18 +50,24 @@ public sealed class MockOperatorCredentialBroker : IOperatorCredentialBroker
         return Task.FromResult(new CredentialCaptureResult { Credential = credential });
     }
 
-    public Task<byte[]?> TrySignPayloadAsync(
+    public Task<CredentialSignResult> TrySignPayloadAsync(
         byte[] payload,
         OperatorCredential credential,
+        string? pin = null,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        _ = pin;
         if (!CanSign || payload.Length == 0 || credential.Serial != MockSerial)
         {
-            return Task.FromResult<byte[]?>(null);
+            return Task.FromResult(CredentialSignResult.Failed("Mock badge cannot sign."));
         }
 
-        return Task.FromResult<byte[]?>(HMACSHA256.HashData(MockHmacKey, payload));
+        return Task.FromResult(CredentialSignResult.Signed(
+            HMACSHA256.HashData(MockHmacKey, payload),
+            MockAlgorithm,
+            certificateDer: null,
+            thumbprint: credential.Thumbprint));
     }
 
     /// Verifies a mock HMAC produced by this broker.

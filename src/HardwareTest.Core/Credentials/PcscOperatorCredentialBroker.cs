@@ -15,8 +15,8 @@ public sealed class PcscOperatorCredentialBroker : IOperatorCredentialBroker
     }
 
     public bool IsMock => false;
-    public bool CanSign => false;
-    public string? SigningAlgorithm => null;
+    public bool CanSign => true;
+    public string? SigningAlgorithm => AttestationAlgorithm.PivRsaPkcs1Sha256;
     public string StatusText { get; private set; } = "PC/SC not queried yet.";
 
     public async Task<CredentialCaptureResult> WaitForPresenceAsync(
@@ -70,15 +70,97 @@ public sealed class PcscOperatorCredentialBroker : IOperatorCredentialBroker
         }
     }
 
-    public Task<byte[]?> TrySignPayloadAsync(
+    public Task<CredentialSignResult> TrySignPayloadAsync(
         byte[] payload,
         OperatorCredential credential,
+        string? pin = null,
         CancellationToken cancellationToken = default)
     {
-        _ = payload;
-        _ = credential;
         cancellationToken.ThrowIfCancellationRequested();
-        return Task.FromResult<byte[]?>(null);
+        if (payload.Length == 0)
+        {
+            return Task.FromResult(CredentialSignResult.Failed("Nothing to sign."));
+        }
+
+        if (!PcscNative.TryLoad(out var loadError))
+        {
+            return Task.FromResult(CredentialSignResult.Failed(
+                loadError ?? "PC/SC library not found (install pcscd / winscard)."));
+        }
+
+        nint context = 0;
+        if (PcscNative.EstablishContext(out context) != PcscNative.Success)
+        {
+            return Task.FromResult(CredentialSignResult.Failed("PC/SC context failed. Is pcscd running?"));
+        }
+
+        try
+        {
+            return Task.FromResult(SignOnPresentedCard(context, credential, payload, pin));
+        }
+        finally
+        {
+            _ = PcscNative.ReleaseContext(context);
+        }
+    }
+
+    private CredentialSignResult SignOnPresentedCard(
+        nint context,
+        OperatorCredential credential,
+        byte[] payload,
+        string? pin)
+    {
+        var readers = PcscNative.ListReaders(context);
+        IEnumerable<string> ordered = readers;
+        if (!string.IsNullOrWhiteSpace(credential.ReaderName)
+            && readers.Any(r => string.Equals(r, credential.ReaderName, StringComparison.Ordinal)))
+        {
+            ordered = readers.OrderBy(r =>
+                string.Equals(r, credential.ReaderName, StringComparison.Ordinal) ? 0 : 1);
+        }
+
+        CredentialSignResult? last = null;
+        foreach (var reader in ordered)
+        {
+            if (PcscNative.Connect(context, reader, out var card, out var protocol) != PcscNative.Success)
+            {
+                continue;
+            }
+
+            try
+            {
+                var result = PivSigner.Sign(new PcscApduChannel(card, protocol), payload, pin);
+                if (result.Succeeded || result.PinRequired || result.PinRetriesRemaining is not null)
+                {
+                    StatusText = result.Succeeded
+                        ? $"Signed with {credential.DisplayName}."
+                        : (result.Error ?? StatusText);
+                    return result;
+                }
+
+                last = result;
+            }
+            finally
+            {
+                _ = PcscNative.Disconnect(card);
+            }
+        }
+
+        return last ?? CredentialSignResult.Failed("Present the same badge to sign.");
+    }
+
+    private sealed class PcscApduChannel : IApduChannel
+    {
+        private readonly nint _card;
+        private readonly int _protocol;
+
+        public PcscApduChannel(nint card, int protocol)
+        {
+            _card = card;
+            _protocol = protocol;
+        }
+
+        public byte[]? Transmit(byte[] command) => PcscNative.Transmit(_card, _protocol, command);
     }
 
     private CredentialCaptureResult TryCaptureOnce(nint context)

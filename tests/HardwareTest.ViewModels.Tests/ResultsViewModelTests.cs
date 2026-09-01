@@ -372,6 +372,105 @@ public sealed class ResultsViewModelTests
     }
 
     [Fact]
+    public async Task Export_certification_signs_with_mock_without_pin()
+    {
+        var store = new FakeRunStore();
+        var pdf = Path.Combine(store.GetRunDirectory("cert-sign"), "certification.pdf");
+        Directory.CreateDirectory(Path.GetDirectoryName(pdf)!);
+        await File.WriteAllBytesAsync(pdf, "%PDF-1.4"u8.ToArray());
+        var run = new TestRunRecord
+        {
+            RunId = "cert-sign",
+            PlanName = "Sample",
+            StartedAt = DateTimeOffset.UtcNow,
+            Result = RunResult.Passed,
+            Reports =
+            [
+                new RunReportArtifact
+                {
+                    Kind = ReportKinds.Certification,
+                    Title = "Certification Report",
+                    PdfPath = pdf,
+                    GeneratedAt = DateTimeOffset.UtcNow,
+                },
+            ],
+        };
+        store.Seed(run);
+        var settings = new AppSettings
+        {
+            RequireAttestationBeforeExport = true,
+            AllowPresenceInLieuOfSigning = false,
+        };
+        var vm = new ResultsViewModel(
+            store,
+            new FakeReportService(),
+            attestation: new ReportAttestationService(
+                new MockOperatorCredentialBroker(canSign: true),
+                store,
+                settings),
+            settings: settings);
+        await vm.RefreshCommand.ExecuteAsync();
+        vm.SelectedRun = vm.Runs[0];
+        await vm.OpenCommand.ExecuteAsync();
+        vm.OpenReportCommand.Execute(vm.ReportItems[0]).Subscribe();
+        await vm.CaptureAttestationCommand.ExecuteAsync();
+        Assert.False(vm.ShowAttestationPrompt);
+        Assert.False(vm.ShowAttestationPin);
+        Assert.Equal(AttestationKind.Signed, run.Attestations[0].Kind);
+    }
+
+    [Fact]
+    public async Task Certification_overlay_prompts_pin_then_signs()
+    {
+        var store = new FakeRunStore();
+        var pdf = Path.Combine(store.GetRunDirectory("cert-pin"), "certification.pdf");
+        Directory.CreateDirectory(Path.GetDirectoryName(pdf)!);
+        await File.WriteAllBytesAsync(pdf, "%PDF-1.4"u8.ToArray());
+        var run = new TestRunRecord
+        {
+            RunId = "cert-pin",
+            PlanName = "Sample",
+            StartedAt = DateTimeOffset.UtcNow,
+            Result = RunResult.Passed,
+            Reports =
+            [
+                new RunReportArtifact
+                {
+                    Kind = ReportKinds.Certification,
+                    Title = "Certification Report",
+                    PdfPath = pdf,
+                    GeneratedAt = DateTimeOffset.UtcNow,
+                },
+            ],
+        };
+        store.Seed(run);
+        var settings = new AppSettings
+        {
+            RequireAttestationBeforeExport = true,
+            AllowPresenceInLieuOfSigning = false,
+        };
+        var vm = new ResultsViewModel(
+            store,
+            new FakeReportService(),
+            attestation: new ReportAttestationService(new PinRequiredMockBroker(), store, settings),
+            settings: settings);
+        await vm.RefreshCommand.ExecuteAsync();
+        vm.SelectedRun = vm.Runs[0];
+        await vm.OpenCommand.ExecuteAsync();
+        vm.OpenReportCommand.Execute(vm.ReportItems[0]).Subscribe();
+        await vm.CaptureAttestationCommand.ExecuteAsync();
+        Assert.True(vm.ShowAttestationPrompt);
+        Assert.True(vm.ShowAttestationPin);
+        Assert.Empty(run.Attestations);
+
+        vm.AttestationPin = PinRequiredMockBroker.Pin;
+        await vm.CaptureAttestationCommand.ExecuteAsync();
+        Assert.False(vm.ShowAttestationPrompt);
+        Assert.Equal(AttestationKind.Signed, run.Attestations[0].Kind);
+        Assert.Equal(string.Empty, vm.AttestationPin);
+    }
+
+    [Fact]
     public async Task Selecting_run_opens_detail_without_opening_report()
     {
         var store = new FakeRunStore();
@@ -745,5 +844,41 @@ public sealed class ResultsViewModelTests
         Assert.Contains(vm.StepDetails, line => line.Contains("First fail", StringComparison.Ordinal));
         Assert.Contains(vm.StepDetails, line => line.Contains("#1 FAIL", StringComparison.Ordinal));
         Assert.Contains(vm.StepDetails, line => line.Contains("#2 FAIL", StringComparison.Ordinal));
+    }
+}
+
+internal sealed class PinRequiredMockBroker : IOperatorCredentialBroker
+{
+    public const string Pin = "123456";
+
+    private readonly MockOperatorCredentialBroker _inner = new(canSign: true);
+
+    public bool IsMock => true;
+    public bool CanSign => true;
+    public string? SigningAlgorithm => MockOperatorCredentialBroker.MockAlgorithm;
+    public string StatusText => _inner.StatusText;
+
+    public Task<CredentialCaptureResult> WaitForPresenceAsync(
+        TimeSpan timeout,
+        CancellationToken cancellationToken = default)
+        => _inner.WaitForPresenceAsync(timeout, cancellationToken);
+
+    public Task<CredentialSignResult> TrySignPayloadAsync(
+        byte[] payload,
+        OperatorCredential credential,
+        string? pin = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrEmpty(pin))
+        {
+            return Task.FromResult(CredentialSignResult.NeedPin("Enter badge PIN to sign."));
+        }
+
+        if (pin != Pin)
+        {
+            return Task.FromResult(CredentialSignResult.Failed("Incorrect PIN (2 retries left).", 2));
+        }
+
+        return _inner.TrySignPayloadAsync(payload, credential, pin, cancellationToken);
     }
 }

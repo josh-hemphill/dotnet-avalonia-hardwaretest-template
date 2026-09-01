@@ -98,6 +98,7 @@ public partial class ResultsViewModel : ReactiveObject
         OpenReportCommand = ReactiveCommand.CreateFromTask<RunReportItemViewModel?>(OpenReportAsync);
         ExportPackageCommand = ReactiveCommand.CreateFromTask(ExportPackageAsync);
         CaptureAttestationCommand = ReactiveCommand.CreateFromTask(CaptureAttestationAsync);
+        UsePresenceAttestationCommand = ReactiveCommand.CreateFromTask(UsePresenceAttestationAsync);
         CancelAttestationCommand = ReactiveCommand.Create(DismissAttestationPrompt);
         CloseDetailCommand = ReactiveCommand.Create(() =>
         {

@@ -242,10 +242,44 @@ internal static class PcscNative
         return atr[..atrLen];
     }
 
+    private const int TransmitBufferSize = 4096;
+    private const int MaxGetResponseRounds = 16;
+
     public static byte[]? Transmit(nint card, int protocol, byte[] send)
     {
+        var first = TransmitOnce(card, protocol, send);
+        if (first is not { Length: >= 2 })
+        {
+            return null;
+        }
+
+        var payload = new List<byte>(first.Length);
+        payload.AddRange(first.AsSpan(0, first.Length - 2).ToArray());
+        var sw1 = first[^2];
+        var sw2 = first[^1];
+        for (var round = 0; round < MaxGetResponseRounds && sw1 == 0x61; round++)
+        {
+            var le = sw2 == 0 ? (byte)0x00 : sw2;
+            var more = TransmitOnce(card, protocol, [0x00, 0xC0, 0x00, 0x00, le]);
+            if (more is not { Length: >= 2 })
+            {
+                return null;
+            }
+
+            payload.AddRange(more.AsSpan(0, more.Length - 2).ToArray());
+            sw1 = more[^2];
+            sw2 = more[^1];
+        }
+
+        payload.Add(sw1);
+        payload.Add(sw2);
+        return payload.ToArray();
+    }
+
+    private static byte[]? TransmitOnce(nint card, int protocol, byte[] send)
+    {
         var proto = protocol == 0 ? ProtocolT1 : protocol;
-        var recv = new byte[256];
+        var recv = new byte[TransmitBufferSize];
         var recvLen = recv.Length;
         int rc;
         if (OperatingSystem.IsWindows())
