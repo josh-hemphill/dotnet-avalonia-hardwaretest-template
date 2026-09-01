@@ -177,11 +177,14 @@ public sealed class ReportAttestationService : IReportAttestationService
         var kind = signature is { Length: > 0 } ? AttestationKind.Signed : AttestationKind.Presence;
         if (kind == AttestationKind.Presence && !_settings.AllowPresenceInLieuOfSigning)
         {
+            var detail = string.IsNullOrWhiteSpace(sign?.Error)
+                ? string.Empty
+                : " " + sign.Error;
             return new ReportAttestationResult
             {
                 Succeeded = false,
                 Credential = captured,
-                Message = sign?.Error ?? "This badge cannot sign, and presence-only attestation is disabled.",
+                Message = "This badge cannot sign, and presence-only attestation is disabled." + detail,
             };
         }
 
