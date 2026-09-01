@@ -555,6 +555,30 @@ public static class AppSettingsEnvironmentBinder
                 env: ["HARDWARETEST_REQUIRE_DUT_CONFIRM_EVERY_RUN"],
                 cli: ["--require-dut-confirm-every-run"]),
             SettingBinding.Bool(
+                "UseMockOperatorCredential",
+                s => s.UseMockOperatorCredential,
+                (s, v) => s.UseMockOperatorCredential = v,
+                env: ["HARDWARETEST_USE_MOCK_OPERATOR_CREDENTIAL"],
+                cli: ["--mock-operator-credential"]),
+            SettingBinding.Bool(
+                "RequireCredentialForOperator",
+                s => s.RequireCredentialForOperator,
+                (s, v) => s.RequireCredentialForOperator = v,
+                env: ["HARDWARETEST_REQUIRE_CREDENTIAL_FOR_OPERATOR"],
+                cli: ["--require-credential-for-operator"]),
+            SettingBinding.Bool(
+                "RequireAttestationBeforeExport",
+                s => s.RequireAttestationBeforeExport,
+                (s, v) => s.RequireAttestationBeforeExport = v,
+                env: ["HARDWARETEST_REQUIRE_ATTESTATION_BEFORE_EXPORT"],
+                cli: ["--require-attestation-before-export"]),
+            SettingBinding.Bool(
+                "AllowPresenceInLieuOfSigning",
+                s => s.AllowPresenceInLieuOfSigning,
+                (s, v) => s.AllowPresenceInLieuOfSigning = v,
+                env: ["HARDWARETEST_ALLOW_PRESENCE_IN_LIEU_OF_SIGNING"],
+                cli: ["--allow-presence-in-lieu-of-signing"]),
+            SettingBinding.Bool(
                 "IsEngineerDebugMode",
                 s => s.IsEngineerDebugMode,
                 (s, v) => s.IsEngineerDebugMode = v,

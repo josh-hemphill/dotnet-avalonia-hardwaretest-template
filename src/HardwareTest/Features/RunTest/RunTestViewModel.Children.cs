@@ -1,3 +1,4 @@
+using HardwareTest.Core.Credentials;
 using HardwareTest.Core.Diagnostics;
 using HardwareTest.Core.Engine;
 using HardwareTest.Core.Hardware;
@@ -28,7 +29,8 @@ public partial class RunTestViewModel
         IStorageHealthService? storageHealth,
         IVisaModeController? visaModeController,
         ISafetyController? safety,
-        IClock clock)
+        IClock clock,
+        IOperatorCredentialBroker? credentialBroker)
     {
         StepDetail = new StepDetailViewModel(
             () => OpenSelectedDetail(revealDetail: true),
@@ -46,7 +48,8 @@ public partial class RunTestViewModel
             status => Status = status,
             () => ProgramSelection.SelectedProgram,
             ClearSessionAttempts,
-            clock);
+            clock,
+            credentialBroker);
         StationOverrides = new StationOverridesViewModel(
             plan,
             station,

@@ -10,6 +10,7 @@
 - *Run ID:* #sys.inputs.runId
 - *Plan / Suite:* #sys.inputs.planName
 - *DUT Serial:* #sys.inputs.dutSerial
+- *Operator:* #sys.inputs.operatorName
 - *Result:* #sys.inputs.result
 - *Started:* #sys.inputs.startedAt
 - *Completed:* #sys.inputs.completedAt
@@ -23,6 +24,12 @@
   #text(fill: green)[*CERTIFIED PASS*]
 ] else [
   #text(fill: red)[*NOT CERTIFIED*]
+]
+
+#if sys.inputs.attestationKind != "" [
+  == Responsible party
+  - *Attestation:* #sys.inputs.attestationKind
+  - *Present:* #sys.inputs.attestationDetail
 ]
 
 #if sys.inputs.includePlots == "true" [

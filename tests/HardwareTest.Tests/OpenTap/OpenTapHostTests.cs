@@ -1,3 +1,4 @@
+using HardwareTest.Core.Credentials;
 using HardwareTest.Core.Runs;
 using HardwareTest.Core.Settings;
 using HardwareTest.OpenTap.Host;
@@ -24,6 +25,20 @@ public sealed class OperatorSessionTests
         Assert.True(session.TryConfirm(ProgramRequirements.Sample, "SN-9", null, null, "Tech", "demo", out _));
         Assert.True(session.CanRun);
         Assert.Equal("SN-9", session.DutSerial);
+    }
+
+    [Fact]
+    public void ApplyOperatorCredential_fills_name_and_clears_on_change_session()
+    {
+        var session = new OperatorSession();
+        session.ApplyOperatorCredential("AABBCC", CredentialTransport.Contactless, "Badge Tech");
+        Assert.Equal("AABBCC", session.OperatorCredentialSerial);
+        Assert.Equal(CredentialTransport.Contactless, session.OperatorCredentialTransport);
+        Assert.Equal("Badge Tech", session.OperatorName);
+        session.ConfirmDut("SN-1");
+        session.ChangeSession();
+        Assert.Null(session.OperatorCredentialSerial);
+        Assert.Null(session.OperatorName);
     }
 
     [Fact]

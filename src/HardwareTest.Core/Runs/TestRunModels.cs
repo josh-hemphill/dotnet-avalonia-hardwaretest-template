@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using HardwareTest.Core.Credentials;
 using HardwareTest.Core.Hardware;
 
 namespace HardwareTest.Core.Runs;
@@ -25,6 +26,7 @@ public sealed class TestRunRecord
     public string? DutRevision { get; set; }
     public string? SessionId { get; set; }
     public string? OperatorName { get; set; }
+    public List<ReportAttestation> Attestations { get; set; } = [];
     public string? Resource { get; set; }
     /// Software version that produced this record (stamped at run start).
     public string? AppVersion { get; set; }

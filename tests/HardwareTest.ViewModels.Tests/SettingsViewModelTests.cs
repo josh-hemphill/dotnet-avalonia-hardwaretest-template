@@ -30,6 +30,26 @@ public sealed class SettingsViewModelTests
     }
 
     [Fact]
+    public async Task Save_maps_operator_credential_flags()
+    {
+        var store = new FakeSettingsStore();
+        var vm = new SettingsViewModel(store, new FakeOpenTapSession())
+        {
+            UseMockOperatorCredential = false,
+            RequireCredentialForOperator = true,
+            RequireAttestationBeforeExport = true,
+            AllowPresenceInLieuOfSigning = false,
+        };
+
+        await vm.SaveCommand.ExecuteAsync();
+
+        Assert.False(store.AppSettings.UseMockOperatorCredential);
+        Assert.True(store.AppSettings.RequireCredentialForOperator);
+        Assert.True(store.AppSettings.RequireAttestationBeforeExport);
+        Assert.False(store.AppSettings.AllowPresenceInLieuOfSigning);
+    }
+
+    [Fact]
     public void Refresh_loads_packages_and_plugin_directories_from_session()
     {
         var openTap = new FakeOpenTapSession();

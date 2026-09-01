@@ -1,4 +1,7 @@
+using System.Reactive;
+using HardwareTest.Core.Credentials;
 using HardwareTest.Core.Runs;
+using HardwareTest.Core.Settings;
 using HardwareTest.Features.Results;
 using HardwareTest.ViewModels.Tests.Fakes;
 using HardwareTest.ViewModels.Tests.Time;
@@ -303,6 +306,69 @@ public sealed class ResultsViewModelTests
 
         Assert.Equal(reports.PdfPath, opened);
         Assert.Equal(1, reports.GenerateCount);
+    }
+
+    [Fact]
+    public async Task Export_and_open_certification_show_attestation_overlay_until_badge()
+    {
+        var store = new FakeRunStore();
+        var pdf = Path.Combine(store.GetRunDirectory("cert-1"), "certification.pdf");
+        Directory.CreateDirectory(Path.GetDirectoryName(pdf)!);
+        await File.WriteAllBytesAsync(pdf, "%PDF-1.4"u8.ToArray());
+        var run = new TestRunRecord
+        {
+            RunId = "cert-1",
+            PlanId = "sample",
+            PlanName = "Sample",
+            StartedAt = DateTimeOffset.UtcNow,
+            Result = RunResult.Passed,
+            Reports =
+            [
+                new RunReportArtifact
+                {
+                    Kind = ReportKinds.Certification,
+                    Title = "Certification Report",
+                    PdfPath = pdf,
+                    GeneratedAt = DateTimeOffset.UtcNow,
+                },
+            ],
+        };
+        store.Seed(run);
+        var settings = new AppSettings
+        {
+            RequireAttestationBeforeExport = true,
+            AllowPresenceInLieuOfSigning = true,
+        };
+        var attestation = new ReportAttestationService(
+            new MockOperatorCredentialBroker(canSign: false),
+            store,
+            settings);
+        var export = new CapturingExportTargetService();
+        var vm = new ResultsViewModel(
+            store,
+            new FakeReportService(),
+            exportTargets: export,
+            attestation: attestation,
+            settings: settings);
+        await vm.RefreshCommand.ExecuteAsync();
+        vm.SelectedRun = vm.Runs[0];
+        await vm.OpenCommand.ExecuteAsync();
+
+        string? opened = null;
+        vm.ReportOpened += (_, path) => opened = path;
+        vm.OpenReportCommand.Execute(vm.ReportItems[0]).Subscribe();
+        Assert.True(vm.ShowAttestationPrompt);
+        Assert.Null(opened);
+
+        await vm.CaptureAttestationCommand.ExecuteAsync();
+        Assert.False(vm.ShowAttestationPrompt);
+        Assert.Equal(pdf, opened);
+        Assert.Equal(AttestationKind.Presence, run.Attestations[0].Kind);
+
+        await vm.ExportPackageCommand.ExecuteAsync();
+        Assert.Contains("Exported package", vm.Status, StringComparison.OrdinalIgnoreCase);
+        Assert.NotNull(export.LastPackageDir);
+        Assert.True(File.Exists(Path.Combine(export.LastPackageDir!, "certification.attestation.json")));
     }
 
     [Fact]

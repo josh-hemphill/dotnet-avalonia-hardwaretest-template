@@ -12,14 +12,13 @@ public sealed class SchemaUpgradeStep
     public Action<object>? Transform { get; init; }
 }
 
-/// Registry of schema upgrade steps. Production current versions are 1; a no-op 1→2
-/// step is registered so the hook is exercised before any real bump.
+/// Registry of schema upgrade steps.
 public static class SchemaUpgradeRegistry
 {
     private static readonly object Gate = new();
     private static readonly List<SchemaUpgradeStep> Steps =
     [
-        // No-op registration — delivers the upgrade hook without changing shipped shape (still v1).
+        // Identity 1→2: optional ReportAttestation list on TestRunRecord.
         new()
         {
             DocumentType = SchemaDocumentTypes.TestRunRecord,

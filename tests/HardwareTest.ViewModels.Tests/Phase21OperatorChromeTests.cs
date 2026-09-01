@@ -96,7 +96,8 @@ public sealed class Phase21OperatorChromeTests
         Assert.Contains("Text=\"About\"", axaml, StringComparison.Ordinal);
         Assert.Contains("Text=\"Diagnostics\"", axaml, StringComparison.Ordinal);
         Assert.Contains("OpenTAP packages", axaml, StringComparison.Ordinal);
-        Assert.Equal(7, CountOccurrences(axaml, "HeadingLevel=\"2\""));
+        Assert.Contains("Text=\"Operator credential\"", axaml, StringComparison.Ordinal);
+        Assert.Equal(8, CountOccurrences(axaml, "HeadingLevel=\"2\""));
         var dataIdx = axaml.IndexOf("Text=\"Data directory\"", StringComparison.Ordinal);
         var themeHeadingIdx = axaml.IndexOf("Text=\"Theme\" Classes=\"settings-h2\"", StringComparison.Ordinal);
         var themeComboIdx = axaml.IndexOf("x:Name=\"ThemeLabel\"", StringComparison.Ordinal);

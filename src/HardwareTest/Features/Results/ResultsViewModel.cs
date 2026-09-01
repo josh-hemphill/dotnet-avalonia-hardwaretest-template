@@ -1,8 +1,10 @@
 using System.Threading;
 using System.Threading.Tasks;
+using HardwareTest.Core.Credentials;
 using HardwareTest.Core.Diagnostics;
 using HardwareTest.Core.Reporting;
 using HardwareTest.Core.Runs;
+using HardwareTest.Core.Settings;
 using HardwareTest.Core.Storage;
 using HardwareTest.Core.Time;
 using HardwareTest.OpenTap.Host;
@@ -41,6 +43,8 @@ public partial class ResultsViewModel : ReactiveObject
     private readonly IClock _clock;
     private readonly IRunComparisonService? _comparison;
     private readonly BuildInfo? _buildInfo;
+    private readonly IReportAttestationService? _attestation;
+    private readonly AppSettings? _settings;
     private readonly List<TestRunSummary> _allRuns = [];
     private readonly SemaphoreSlim _busyGate = new(1, 1);
     private bool _suppressAutoOpen;
@@ -53,7 +57,9 @@ public partial class ResultsViewModel : ReactiveObject
         OperatorSession? operatorSession = null,
         IClock? clock = null,
         IRunComparisonService? comparison = null,
-        BuildInfo? buildInfo = null)
+        BuildInfo? buildInfo = null,
+        IReportAttestationService? attestation = null,
+        AppSettings? settings = null)
     {
         _runStore = runStore;
         _reportService = reportService;
@@ -63,6 +69,8 @@ public partial class ResultsViewModel : ReactiveObject
         _clock = clock ?? SystemClock.Instance;
         _comparison = comparison;
         _buildInfo = buildInfo;
+        _attestation = attestation;
+        _settings = settings;
         Runs = [];
         StepDetails = [];
         SampleDetails = [];
@@ -87,8 +95,10 @@ public partial class ResultsViewModel : ReactiveObject
         OpenCommand = ReactiveCommand.CreateFromTask(OpenAsync);
         OpenDefaultReportCommand = ReactiveCommand.CreateFromTask(OpenDefaultReportAsync);
         ReprintCommand = ReactiveCommand.CreateFromTask(ReprintAsync);
-        OpenReportCommand = ReactiveCommand.Create<RunReportItemViewModel?>(OpenReport);
-        ExportPackageCommand = ReactiveCommand.Create(ExportPackage);
+        OpenReportCommand = ReactiveCommand.CreateFromTask<RunReportItemViewModel?>(OpenReportAsync);
+        ExportPackageCommand = ReactiveCommand.CreateFromTask(ExportPackageAsync);
+        CaptureAttestationCommand = ReactiveCommand.CreateFromTask(CaptureAttestationAsync);
+        CancelAttestationCommand = ReactiveCommand.Create(DismissAttestationPrompt);
         CloseDetailCommand = ReactiveCommand.Create(() =>
         {
             ShowDetail = false;
@@ -108,6 +118,7 @@ public partial class ResultsViewModel : ReactiveObject
             FirstFailSummary = string.Empty;
             HasFirstFail = false;
             TriageSummary = string.Empty;
+            DismissAttestationPrompt();
             ClearComparison();
         });
         NavigateToRunCommand = ReactiveCommand.Create(

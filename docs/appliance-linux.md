@@ -55,6 +55,15 @@ Sealed benches must run a local time-sync unit so idle/stale, run ordering, and 
 - Optional app-level check: set `NtpHost` / `HARDWARETEST_NTP_HOST` to the same local server. Empty skips NTP and uses `{DataDirectory}/clock-last-good.json` (backward-jump detection only). Timeout is 500ms; **Safety Stop never waits on NTP**.
 - Skew above `ClockSkewWarnThresholdMinutes` (default 5) shows on the shell strip and does not block Run.
 
+## Smart card readers (chip and tap)
+
+Real badges use PC/SC (`pcscd` + CCID). Mock badges (`UseMockOperatorCredential`, default on) do not need a reader.
+
+- **Linux:** install `pcscd` and `libccid` (or the vendor CCID package), enable `pcscd.service`, and confirm `pcsc_scan` sees the reader. Contactless readers usually appear with `contactless`, `NFC`, or `PICC` in the PC/SC name.
+- **Windows:** Winscard is built in; install the reader’s CCID driver if the OS does not.
+- **macOS:** PCSC.framework. Signing on-card is not implemented yet; with `AllowPresenceInLieuOfSigning` (default on) a tap or insert still records that the responsible party was present at export time.
+- Do not persist PIN or private keys. There is no on-disk card session.
+
 ## Smoke checklist
 
 1. Confirm DUT serial on Run (sticky session strip).
@@ -62,6 +71,7 @@ Sealed benches must run a local time-sync unit so idle/stale, run ordering, and 
 3. Open Results — run record includes `DutSerial`.
 4. Generate / preview Typst report — serial present in report data.
 5. Safety Stop / Pause still visible in PaneFooter and abort OpenTAP cleanly.
+6. Optional: with mock credential, tap on session confirm fills technician; export with `RequireAttestationBeforeExport` writes `certification.attestation.json`.
 
 ## Notes
 
