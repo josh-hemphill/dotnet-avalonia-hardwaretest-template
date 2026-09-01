@@ -221,7 +221,7 @@ public sealed class TypstReportService : IReportService, IDisposable
         var includeHistory = string.Equals(kind, ReportKinds.Status, StringComparison.OrdinalIgnoreCase)
                              && history is not null
                              && !string.IsNullOrWhiteSpace(history.OperatorSummary);
-        return CompileOnce(workDir, template, run, resultJson, chartLib, includePlots, includeHistory, history, title);
+        return CompileOnce(workDir, template, run, resultJson, chartLib, includePlots, includeHistory, history, title, kind);
     }
 
     private byte[] CompileOnce(
@@ -233,11 +233,19 @@ public sealed class TypstReportService : IReportService, IDisposable
         bool includePlots,
         bool includeHistory,
         DutHistoryReport? history,
-        string title)
+        string title,
+        string kind)
     {
         var historySummary = includeHistory ? history!.OperatorSummary : string.Empty;
         var historySeverity = includeHistory ? history!.OverallSeverity.ToString() : string.Empty;
         var historyMetrics = includeHistory ? FormatHistoryMetrics(history!) : string.Empty;
+        var operatorName = string.IsNullOrWhiteSpace(run.OperatorName) ? "n/a" : run.OperatorName;
+        var attestation = run.Attestations.LastOrDefault(a =>
+            string.Equals(a.ReportKind, kind, StringComparison.OrdinalIgnoreCase));
+        var attestationKind = attestation?.Kind ?? string.Empty;
+        var attestationDetail = attestation is null
+            ? string.Empty
+            : $"{attestation.DisplayName} ({attestation.Transport}, {attestation.Serial})";
 
         var result = _compiler.Value.Compile(c =>
         {
@@ -267,7 +275,10 @@ public sealed class TypstReportService : IReportService, IDisposable
                 .WithInput("includeHistory", includeHistory ? "true" : "false")
                 .WithInput("historySummary", historySummary)
                 .WithInput("historySeverity", historySeverity)
-                .WithInput("historyMetrics", historyMetrics);
+                .WithInput("historyMetrics", historyMetrics)
+                .WithInput("operatorName", operatorName)
+                .WithInput("attestationKind", attestationKind)
+                .WithInput("attestationDetail", attestationDetail);
 
             return builder;
         });

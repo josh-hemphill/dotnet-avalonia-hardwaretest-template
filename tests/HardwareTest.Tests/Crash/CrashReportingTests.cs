@@ -176,6 +176,44 @@ public sealed class CrashDossierWriterTests
             Assert.DoesNotContain(serial, text, StringComparison.OrdinalIgnoreCase);
         }
     }
+
+    [Fact]
+    public void Session_snapshot_redacts_credential_serial()
+    {
+        using var temp = new TempDataDirectory();
+        var serial = "MOCK-CARD-SERIAL-XYZ";
+        var writer = new CrashDossierWriter(Path.Combine(temp.Path, "crashes"), redactIdentifiers: true);
+        var report = CrashDossierWriter.BuildReport(
+            new Exception($"badge {serial}"),
+            true,
+            "redact-card",
+            SafeStopOutcome.NotAttempted,
+            null,
+            null,
+            null,
+            redact: true,
+            serial);
+        var dir = writer.TryWrite(new CrashCaptureContext
+        {
+            Report = report,
+            Session = CrashDossierWriter.BuildSessionSnapshot(
+                true,
+                "p",
+                false,
+                "SN-1",
+                "Op",
+                true,
+                serial),
+            LogTail = $"presented {serial}",
+            IdentifiersToRedact = [serial],
+        });
+
+        Assert.NotNull(dir);
+        var sessionJson = File.ReadAllText(Path.Combine(dir!, "session.json"));
+        Assert.DoesNotContain(serial, sessionJson, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("credentialSerialRedacted", sessionJson, StringComparison.Ordinal);
+        Assert.DoesNotContain(serial, File.ReadAllText(Path.Combine(dir!, "log-tail.txt")), StringComparison.OrdinalIgnoreCase);
+    }
 }
 
 public sealed class RingBufferSinkTests

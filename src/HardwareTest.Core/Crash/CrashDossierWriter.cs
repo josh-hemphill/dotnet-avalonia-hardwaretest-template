@@ -299,7 +299,8 @@ public sealed class CrashDossierWriter
         bool engineerMode,
         string? dutSerial,
         string? operatorName,
-        bool redact)
+        bool redact,
+        string? credentialSerial = null)
         => new()
         {
             DutPresent = dutPresent,
@@ -311,6 +312,9 @@ public sealed class CrashDossierWriter
             OperatorNameRedacted = string.IsNullOrWhiteSpace(operatorName)
                 ? null
                 : CrashRedaction.HashIdentifier(operatorName, redact),
+            CredentialSerialRedacted = string.IsNullOrWhiteSpace(credentialSerial)
+                ? null
+                : CrashRedaction.HashIdentifier(credentialSerial, redact),
         };
 
     public static CrashReportDocument BuildReport(

@@ -5,7 +5,7 @@ public static class SchemaVersions
 {
     public const int AppSettings = 1;
     public const int UiState = 1;
-    public const int TestRunRecord = 1;
+    public const int TestRunRecord = 2;
     public const int SuiteRunRecord = 1;
     public const int CrashReport = 1;
 }
