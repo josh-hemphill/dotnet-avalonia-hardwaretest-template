@@ -1,3 +1,4 @@
+using HardwareTest.Core.Credentials;
 using HardwareTest.Core.Diagnostics;
 using HardwareTest.Core.Runs;
 using HardwareTest.Core.Settings;
@@ -185,6 +186,31 @@ public sealed class RunBoardChildViewModelTests
         Assert.True(panel.SessionBlocked);
         Assert.Equal(string.Empty, panel.DutSerialInput);
         Assert.NotEmpty(statuses);
+    }
+
+    [Fact]
+    public async Task SessionPanel_tap_fills_technician_and_required_badge_blocks_confirm()
+    {
+        var session = new OperatorSession();
+        var settings = new AppSettings { RequireCredentialForOperator = true };
+        var panel = new OperatorSessionPanelViewModel(
+            session,
+            settings,
+            _ => { },
+            getSelectedProgram: () => null,
+            credentialBroker: new MockOperatorCredentialBroker());
+        panel.RefreshRequirementFlags();
+        panel.DutSerialInput = "SN-BADGE";
+        panel.ConfirmSessionCommand.Execute().Subscribe();
+        Assert.True(panel.SessionBlocked);
+        Assert.Contains("badge", panel.OperatorError, StringComparison.OrdinalIgnoreCase);
+
+        await panel.CaptureCredentialCommand.ExecuteAsync();
+        Assert.Equal(MockOperatorCredentialBroker.MockDisplayName, panel.OperatorInput);
+        Assert.Equal(MockOperatorCredentialBroker.MockSerial, session.OperatorCredentialSerial);
+        panel.ConfirmSessionCommand.Execute().Subscribe();
+        Assert.False(panel.SessionBlocked);
+        Assert.Equal(MockOperatorCredentialBroker.MockDisplayName, session.OperatorName);
     }
 
     [Fact]

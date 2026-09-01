@@ -23,6 +23,8 @@ public sealed class OperatorSession : INotifyPropertyChanged
     private string? _programPath;
     private string? _programDisplayName;
     private string? _operatorName;
+    private string? _operatorCredentialSerial;
+    private string? _operatorCredentialTransport;
     private DateTimeOffset? _confirmedAt;
     private DateTimeOffset? _lastActivityAt;
     private bool _isIdleWarning;
@@ -90,6 +92,20 @@ public sealed class OperatorSession : INotifyPropertyChanged
     {
         get => _operatorName;
         set => Set(ref _operatorName, value);
+    }
+
+    /// Card serial captured from a chip insert or contactless tap.
+    public string? OperatorCredentialSerial
+    {
+        get => _operatorCredentialSerial;
+        private set => Set(ref _operatorCredentialSerial, value);
+    }
+
+    /// `contact` or `contactless` when a badge has been presented.
+    public string? OperatorCredentialTransport
+    {
+        get => _operatorCredentialTransport;
+        private set => Set(ref _operatorCredentialTransport, value);
     }
 
     /// When the DUT identity was last confirmed (not refreshed by activity touches).
@@ -168,6 +184,22 @@ public sealed class OperatorSession : INotifyPropertyChanged
         return true;
     }
 
+    /// Records the presented badge without replacing DUT identity.
+    public void ApplyOperatorCredential(string serial, string transport, string? displayName)
+    {
+        if (string.IsNullOrWhiteSpace(serial))
+        {
+            throw new ArgumentException("Credential serial is required.", nameof(serial));
+        }
+
+        OperatorCredentialSerial = serial.Trim();
+        OperatorCredentialTransport = string.IsNullOrWhiteSpace(transport) ? null : transport.Trim();
+        if (!string.IsNullOrWhiteSpace(displayName))
+        {
+            OperatorName = displayName.Trim();
+        }
+    }
+
     public void ConfirmDut(string serial, string? partNumber = null, string? revision = null, string family = "generic")
     {
         if (string.IsNullOrWhiteSpace(serial))
@@ -191,6 +223,8 @@ public sealed class OperatorSession : INotifyPropertyChanged
     {
         ChangeDut();
         OperatorName = null;
+        OperatorCredentialSerial = null;
+        OperatorCredentialTransport = null;
     }
 
     public void ChangeDut()

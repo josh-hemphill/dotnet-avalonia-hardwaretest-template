@@ -545,6 +545,10 @@ public sealed class SettingsStore : ISettingsStore
         target.OpenTapWorkerKillTimeoutMilliseconds = source.OpenTapWorkerKillTimeoutMilliseconds;
         target.ClockSkewWarnThresholdMinutes = source.ClockSkewWarnThresholdMinutes;
         target.NtpHost = source.NtpHost;
+        target.UseMockOperatorCredential = source.UseMockOperatorCredential;
+        target.RequireCredentialForOperator = source.RequireCredentialForOperator;
+        target.RequireAttestationBeforeExport = source.RequireAttestationBeforeExport;
+        target.AllowPresenceInLieuOfSigning = source.AllowPresenceInLieuOfSigning;
     }
 
     /// Copies UI state fields onto <paramref name="target"/> without replacing its identity.

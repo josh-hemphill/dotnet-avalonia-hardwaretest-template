@@ -53,6 +53,7 @@ public sealed class CrashSessionSnapshot
     public bool IsEngineerDebugMode { get; set; }
     public string? DutSerialRedacted { get; set; }
     public string? OperatorNameRedacted { get; set; }
+    public string? CredentialSerialRedacted { get; set; }
 }
 
 /// One provenance row in config.json (values already redacted).

@@ -125,7 +125,7 @@ Override without recompiling:
 2. Place files under `{DataDirectory}/reports/` (and `reports/lib/` for chart lib).
 3. Optionally set `AppSettings.ReportTemplateName` (default `test-report.typ`). A file with that name under `{DataDirectory}/reports/` wins over the embedded template.
 
-Compile inputs: `run.json` (camelCase `TestRunRecord`), Typst inputs (`title`, `runId`, `planName`, `dutSerial`, `result`, …), and optional sample-driven charts via `sample-chart.typ`. `EmbedPlotsInReport` toggles chart notes.
+Compile inputs: `run.json` (camelCase `TestRunRecord`), Typst inputs (`title`, `runId`, `planName`, `dutSerial`, `operatorName`, `attestationKind`, `attestationDetail`, `result`, …), and optional sample-driven charts via `sample-chart.typ`. `EmbedPlotsInReport` toggles chart notes. Certification export can require a detached `{kind}.attestation.json` sidecar (chip/tap presence or mock signature) when `RequireAttestationBeforeExport` is on.
 
 ### MES / QA file export (optional)
 
@@ -222,12 +222,16 @@ Env alone is enough for a sealed install. Missing or read-only `settings.json` i
 | `AllowOsFolderBrowse` | `HARDWARETEST_ALLOW_OS_FOLDER_BROWSE` | `--allow-os-folder-browse` |
 | `ClockSkewWarnThresholdMinutes` | `HARDWARETEST_CLOCK_SKEW_WARN_THRESHOLD_MINUTES` | `--clock-skew-warn-threshold-minutes` |
 | `NtpHost` | `HARDWARETEST_NTP_HOST` | `--ntp-host` |
+| `UseMockOperatorCredential` | `HARDWARETEST_USE_MOCK_OPERATOR_CREDENTIAL` | `--mock-operator-credential` |
+| `RequireCredentialForOperator` | `HARDWARETEST_REQUIRE_CREDENTIAL_FOR_OPERATOR` | `--require-credential-for-operator` |
+| `RequireAttestationBeforeExport` | `HARDWARETEST_REQUIRE_ATTESTATION_BEFORE_EXPORT` | `--require-attestation-before-export` |
+| `AllowPresenceInLieuOfSigning` | `HARDWARETEST_ALLOW_PRESENCE_IN_LIEU_OF_SIGNING` | `--allow-presence-in-lieu-of-signing` |
 
 Also: `--settings <path>` (settings file path), `--print-config` (dump effective config + provenance to stdout and exit 0), `--validate-plan <path>` (validate a `.TapPlan` or a directory of plans and exit; `1` on errors, `0` if only warnings), `--version` / `-v` (print informational version and exit 0). Avalonia-free equivalent: `HardwareTest.PlanValidate <path> [...]`. Debug builds: `--simulate-crash {fatal|recoverable|command}`. Nested lists use `HARDWARETEST_<LIST>__{n}__<PROP>` (e.g. `HARDWARETEST_INSTRUMENTS__0__RESOURCE`).
 
 Crash dossiers land under `{DataDirectory}/crashes/` (or `CrashDirectory`): `crash.json`, `log-tail.txt`, `config.json`, `session.json`. Unreviewed dossiers and recoverable faults publish to the **shell notification strip** (Phase 17) with Export / Open folder / Dismiss — not a competing Home hero card. Settings → **Open crashes folder** (hidden when `AllowOsFolderBrowse` is false and Engineer debug is off). See [phase-6-crash-reporting.md](platform-phases/phase-6-crash-reporting.md) and [phase-17-shell-notification-strip.md](platform-phases/phase-17-shell-notification-strip.md).
 
-**Export / storage (Phase 10):** Results **Export to…** copies run PDFs + `run.json` (+ optional CSV) to removable media or `ExportDirectory`. Home crash **Export support bundle** uses the same targets (falls back to `{DataDirectory}/exports`). Retention prunes completed `runs/` folders by age/count using the injected clock; free-space warn/critical gates Run and surfaces on the **shell strip** (Critical is non-dismissible). See [phase-10-export-storage-chrome.md](platform-phases/phase-10-export-storage-chrome.md) and [phase-17-shell-notification-strip.md](platform-phases/phase-17-shell-notification-strip.md).
+**Export / storage (Phase 10):** Results **Export to…** copies run PDFs + `run.json` + optional `*.attestation.json` (+ optional CSV) to removable media or `ExportDirectory`. Home crash **Export support bundle** uses the same targets (falls back to `{DataDirectory}/exports`). Retention prunes completed `runs/` folders by age/count using the injected clock; free-space warn/critical gates Run and surfaces on the **shell strip** (Critical is non-dismissible). See [phase-10-export-storage-chrome.md](platform-phases/phase-10-export-storage-chrome.md) and [phase-17-shell-notification-strip.md](platform-phases/phase-17-shell-notification-strip.md).
 
 **Clock discipline (Phase 25):** Idle/stale, retention, and run-complete stamps use `IClock` (`SystemClock` → `TimeProvider`). Startup compares the clock to optional `NtpHost` (500ms timeout) or `{DataDirectory}/clock-last-good.json`. Skew above `ClockSkewWarnThresholdMinutes` (default 5) publishes a dismissible Warning on the shell strip with the measured delta and **does not block Run**. Safety Stop / worker kill must not wait on NTP. Appliance time sync: [appliance-linux.md](appliance-linux.md).
 
@@ -253,7 +257,7 @@ Every persisted JSON document carries an integer `schemaVersion`. Bumps are deli
 | --- | --- | --- |
 | `AppSettings` (`settings.json`) | 1 | Initial stamped shape (Phase 5). |
 | `UiState` (`ui-state.json`) | 1 | Initial stamped shape (Phase 5). |
-| `TestRunRecord` (`runs/{id}/run.json`) | 1 | Initial stamped shape (Phase 5). `StoredSample.HistoryEnabled` is nullable so absent ≠ default. |
+| `TestRunRecord` (`runs/{id}/run.json`) | 2 | `Attestations` (optional chip/tap presence or signed sidecar stamps). Identity upgrade from 1. |
 | `SuiteRunRecord` (`runs/suites/{id}/suite-run.json`) | 1 | Initial stamped shape (Phase 5). |
 | `CrashReport` (`crashes/{id}/crash.json`) | 1 | Initial crash dossier (Phase 6). |
 

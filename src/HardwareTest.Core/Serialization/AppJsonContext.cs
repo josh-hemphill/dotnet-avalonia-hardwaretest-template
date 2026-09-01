@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization;
 using HardwareTest.Core.Crash;
+using HardwareTest.Core.Credentials;
 using HardwareTest.Core.Hardware;
 using HardwareTest.Core.Runs;
 using HardwareTest.Core.Settings;
@@ -33,6 +34,9 @@ namespace HardwareTest.Core.Serialization;
 [JsonSerializable(typeof(List<StepAttemptSummary>))]
 [JsonSerializable(typeof(List<StoredSample>))]
 [JsonSerializable(typeof(List<RunReportArtifact>))]
+[JsonSerializable(typeof(ReportAttestation))]
+[JsonSerializable(typeof(List<ReportAttestation>))]
+[JsonSerializable(typeof(ReportAttestationSidecar))]
 [JsonSerializable(typeof(List<string>))]
 [JsonSerializable(typeof(Dictionary<string, string>))]
 [JsonSerializable(typeof(CrashReportDocument))]

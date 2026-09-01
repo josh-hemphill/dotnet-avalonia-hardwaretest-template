@@ -36,6 +36,7 @@ public sealed class OperatorPromptChromeTests
         Assert.Contains("<vm:InteractionHostView", runAxaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"DutSerialBox\"", prep, StringComparison.Ordinal);
         Assert.Contains("OnSessionFieldKeyDown", prep, StringComparison.Ordinal);
+        Assert.Contains("Tap or insert", prep, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -17,7 +17,7 @@ public static class CrashHandler
     private static ISettingsStore? _settingsStore;
     private static BuildInfo? _buildInfo;
     private static Func<SafeStopOutcome>? _safeStop;
-    private static Func<(string? RunId, string? PlanId, string? DutSerial, string? OperatorName, bool DutPresent, string? PlanIdForSession, bool EngineerMode)>? _sessionSnapshot;
+    private static Func<(string? RunId, string? PlanId, string? DutSerial, string? OperatorName, bool DutPresent, string? PlanIdForSession, bool EngineerMode, string? CredentialSerial)>? _sessionSnapshot;
     private static DateTimeOffset _lastRecoverableWriteUtc = DateTimeOffset.MinValue;
     private static readonly TimeSpan RecoverableMinInterval = TimeSpan.FromSeconds(30);
 
@@ -30,7 +30,7 @@ public static class CrashHandler
         ISettingsStore settingsStore,
         BuildInfo buildInfo,
         Func<SafeStopOutcome>? safeStop = null,
-        Func<(string? RunId, string? PlanId, string? DutSerial, string? OperatorName, bool DutPresent, string? PlanIdForSession, bool EngineerMode)>? sessionSnapshot = null)
+        Func<(string? RunId, string? PlanId, string? DutSerial, string? OperatorName, bool DutPresent, string? PlanIdForSession, bool EngineerMode, string? CredentialSerial)>? sessionSnapshot = null)
     {
         lock (Gate)
         {
@@ -168,7 +168,7 @@ public static class CrashHandler
             ISettingsStore? store;
             BuildInfo? buildInfo;
             Func<SafeStopOutcome>? safeStop;
-            Func<(string? RunId, string? PlanId, string? DutSerial, string? OperatorName, bool DutPresent, string? PlanIdForSession, bool EngineerMode)>? sessionSnapshot;
+            Func<(string? RunId, string? PlanId, string? DutSerial, string? OperatorName, bool DutPresent, string? PlanIdForSession, bool EngineerMode, string? CredentialSerial)>? sessionSnapshot;
             lock (Gate)
             {
                 writer = _writer;
@@ -218,6 +218,7 @@ public static class CrashHandler
             string? planId = null;
             string? dutSerial = null;
             string? operatorName = null;
+            string? credentialSerial = null;
             var dutPresent = false;
             string? sessionPlanId = null;
             var engineer = store?.AppSettings.IsEngineerDebugMode ?? false;
@@ -225,7 +226,7 @@ public static class CrashHandler
             {
                 if (sessionSnapshot is not null)
                 {
-                    (runId, planId, dutSerial, operatorName, dutPresent, sessionPlanId, engineer) = sessionSnapshot();
+                    (runId, planId, dutSerial, operatorName, dutPresent, sessionPlanId, engineer, credentialSerial) = sessionSnapshot();
                 }
             }
             catch
@@ -244,14 +245,15 @@ public static class CrashHandler
                 planId,
                 redact,
                 dutSerial,
-                operatorName);
+                operatorName,
+                credentialSerial);
 
             CrashConfigSnapshot? config = null;
             try
             {
                 if (store is not null)
                 {
-                    config = CrashDossierWriter.BuildConfigSnapshot(store.Provenance, redact, dutSerial, operatorName);
+                    config = CrashDossierWriter.BuildConfigSnapshot(store.Provenance, redact, dutSerial, operatorName, credentialSerial);
                 }
             }
             catch
@@ -268,7 +270,8 @@ public static class CrashHandler
                     engineer,
                     dutSerial,
                     operatorName,
-                    redact);
+                    redact,
+                    credentialSerial);
             }
             catch
             {
@@ -281,7 +284,7 @@ public static class CrashHandler
                 Config = config,
                 Session = session,
                 LogTail = CrashDossierWriter.CaptureLogTail(),
-                IdentifiersToRedact = [dutSerial, operatorName],
+                IdentifiersToRedact = [dutSerial, operatorName, credentialSerial],
             };
 
             var dir = writer.TryWrite(context);
