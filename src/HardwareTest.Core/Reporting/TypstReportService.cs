@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text;
 using System.Text.Json;
+using HardwareTest.Core.Credentials;
 using HardwareTest.Core.IO;
 using HardwareTest.Core.Runs;
 using HardwareTest.Core.Serialization;
@@ -72,6 +73,7 @@ public sealed class TypstReportService : IReportService, IDisposable
     {
         cancellationToken.ThrowIfCancellationRequested();
         var dir = _runStore.GetRunDirectory(run.RunId);
+        ReportAttestationService.InvalidateForKinds(run, dir, kinds);
         var artifacts = new List<RunReportArtifact>();
         var now = DateTimeOffset.UtcNow;
         foreach (var kind in kinds)
@@ -240,6 +242,8 @@ public sealed class TypstReportService : IReportService, IDisposable
         var historySeverity = includeHistory ? history!.OverallSeverity.ToString() : string.Empty;
         var historyMetrics = includeHistory ? FormatHistoryMetrics(history!) : string.Empty;
         var operatorName = string.IsNullOrWhiteSpace(run.OperatorName) ? "n/a" : run.OperatorName;
+        // Attestation is a detached sidecar hashed to these PDF bytes. Do not compile a
+        // prior stamp into a newly generated file (reprint would otherwise name the old party).
         var attestation = run.Attestations.LastOrDefault(a =>
             string.Equals(a.ReportKind, kind, StringComparison.OrdinalIgnoreCase));
         var attestationKind = attestation?.Kind ?? string.Empty;

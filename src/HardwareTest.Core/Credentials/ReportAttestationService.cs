@@ -192,6 +192,29 @@ public sealed class ReportAttestationService : IReportAttestationService
         };
     }
 
+    /// Drops stamps and sidecars for kinds that are about to be regenerated (PDF bytes will change).
+    public static void InvalidateForKinds(TestRunRecord run, string runDirectory, IEnumerable<string> kinds)
+    {
+        foreach (var kind in kinds)
+        {
+            var existing = run.Attestations
+                .Where(a => string.Equals(a.ReportKind, kind, StringComparison.OrdinalIgnoreCase))
+                .ToArray();
+            foreach (var attestation in existing)
+            {
+                TryDeleteSidecar(attestation.SidecarPath);
+            }
+
+            run.Attestations.RemoveAll(a =>
+                string.Equals(a.ReportKind, kind, StringComparison.OrdinalIgnoreCase));
+
+            if (!string.IsNullOrWhiteSpace(runDirectory))
+            {
+                TryDeleteSidecar(Path.Combine(runDirectory, $"{kind}.attestation.json"));
+            }
+        }
+    }
+
     public static ReportAttestation? Find(TestRunRecord run, string reportKind)
         => run.Attestations.LastOrDefault(a =>
             string.Equals(a.ReportKind, reportKind, StringComparison.OrdinalIgnoreCase));
@@ -214,6 +237,23 @@ public sealed class ReportAttestationService : IReportAttestationService
     {
         using var stream = File.OpenRead(path);
         return Convert.ToHexString(SHA256.HashData(stream));
+    }
+
+    private static void TryDeleteSidecar(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+        {
+            return;
+        }
+
+        try
+        {
+            File.Delete(path);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // Reprint must still proceed; a leftover sidecar is dropped from the run record.
+        }
     }
 }
 

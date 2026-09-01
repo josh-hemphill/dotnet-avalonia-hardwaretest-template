@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using HardwareTest.Core.Credentials;
 using HardwareTest.Core.Runs;
 using HardwareTest.Core.Settings;
@@ -176,6 +177,64 @@ public sealed class ReportAttestationServiceTests
         Assert.True(PivCardIdentity.IsContactlessReader("ACS ACR122U PICC Interface"));
         Assert.True(PivCardIdentity.IsContactlessReader("Broadcom NFC Contactless"));
         Assert.False(PivCardIdentity.IsContactlessReader("SCM Microsystems Contact Reader"));
+    }
+
+    [Fact]
+    public void ScardIoRequest_layouts_match_platform_headers()
+    {
+        Assert.Equal(8, Marshal.SizeOf<PcscNative.ScardIoRequestDword>());
+        Assert.Equal(IntPtr.Size * 2, Marshal.SizeOf<PcscNative.ScardIoRequestULong>());
+    }
+
+    [Fact]
+    public async Task InvalidateForKinds_drops_stamp_and_sidecar_for_regenerated_kind()
+    {
+        using var temp = new TempDataDirectory();
+        var store = new FileRunStore(temp.RunsDirectory);
+        var run = await SeedCertificationRunAsync(store);
+        var settings = new AppSettings
+        {
+            RequireAttestationBeforeExport = true,
+            AllowPresenceInLieuOfSigning = true,
+        };
+        var service = new ReportAttestationService(
+            new MockOperatorCredentialBroker(canSign: false),
+            store,
+            settings);
+        var attested = await service.AttestAsync(run, ReportKinds.Certification);
+        Assert.True(attested.Succeeded);
+        Assert.True(File.Exists(attested.Attestation!.SidecarPath));
+
+        ReportAttestationService.InvalidateForKinds(
+            run,
+            store.GetRunDirectory(run.RunId),
+            [ReportKinds.Certification]);
+
+        Assert.Empty(run.Attestations);
+        Assert.False(File.Exists(attested.Attestation.SidecarPath));
+        Assert.False(service.HasValidAttestation(run, ReportKinds.Certification));
+    }
+
+    [Fact]
+    public async Task InvalidateForKinds_leaves_other_kinds_in_place()
+    {
+        using var temp = new TempDataDirectory();
+        var store = new FileRunStore(temp.RunsDirectory);
+        var run = await SeedCertificationRunAsync(store);
+        run.Attestations.Add(new ReportAttestation
+        {
+            Kind = AttestationKind.Presence,
+            ReportKind = ReportKinds.Status,
+            DisplayName = "Other",
+            Serial = "KEEP",
+            PdfSha256 = "abc",
+        });
+        ReportAttestationService.InvalidateForKinds(
+            run,
+            store.GetRunDirectory(run.RunId),
+            [ReportKinds.Certification]);
+        Assert.Single(run.Attestations);
+        Assert.Equal(ReportKinds.Status, run.Attestations[0].ReportKind);
     }
 
     private static async Task<TestRunRecord> SeedCertificationRunAsync(FileRunStore store)

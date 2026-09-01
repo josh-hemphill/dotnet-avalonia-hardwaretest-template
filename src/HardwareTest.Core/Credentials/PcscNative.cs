@@ -127,7 +127,7 @@ internal static class PcscNative
     [DllImport("winscard", EntryPoint = "SCardTransmit")]
     private static extern int TransmitWin(
         nint card,
-        ref ScardIoRequest sendPci,
+        ref ScardIoRequestDword sendPci,
         byte[] send,
         int sendLen,
         nint recvPci,
@@ -135,9 +135,19 @@ internal static class PcscNative
         ref int recvLen);
 
     [DllImport("libpcsclite.so.1", EntryPoint = "SCardTransmit")]
-    private static extern int TransmitUnix(
+    private static extern int TransmitUnixDword(
         nint card,
-        ref ScardIoRequest sendPci,
+        ref ScardIoRequestDword sendPci,
+        byte[] send,
+        int sendLen,
+        nint recvPci,
+        byte[] recv,
+        ref int recvLen);
+
+    [DllImport("libpcsclite.so.1", EntryPoint = "SCardTransmit")]
+    private static extern int TransmitUnixULong(
+        nint card,
+        ref ScardIoRequestULong sendPci,
         byte[] send,
         int sendLen,
         nint recvPci,
@@ -234,16 +244,40 @@ internal static class PcscNative
 
     public static byte[]? Transmit(nint card, int protocol, byte[] send)
     {
-        var pci = new ScardIoRequest
-        {
-            Protocol = protocol == 0 ? ProtocolT1 : protocol,
-            Length = (uint)Marshal.SizeOf<ScardIoRequest>(),
-        };
+        var proto = protocol == 0 ? ProtocolT1 : protocol;
         var recv = new byte[256];
         var recvLen = recv.Length;
-        var rc = OperatingSystem.IsWindows()
-            ? TransmitWin(card, ref pci, send, send.Length, 0, recv, ref recvLen)
-            : TransmitUnix(card, ref pci, send, send.Length, 0, recv, ref recvLen);
+        int rc;
+        if (OperatingSystem.IsWindows())
+        {
+            var pci = new ScardIoRequestDword
+            {
+                Protocol = proto,
+                Length = (uint)Marshal.SizeOf<ScardIoRequestDword>(),
+            };
+            rc = TransmitWin(card, ref pci, send, send.Length, 0, recv, ref recvLen);
+        }
+        else if (OperatingSystem.IsMacOS())
+        {
+            // PCSC.framework uses uint32_t members (same as Winscard DWORD).
+            var pci = new ScardIoRequestDword
+            {
+                Protocol = proto,
+                Length = (uint)Marshal.SizeOf<ScardIoRequestDword>(),
+            };
+            rc = TransmitUnixDword(card, ref pci, send, send.Length, 0, recv, ref recvLen);
+        }
+        else
+        {
+            // pcsclite SCARD_IO_REQUEST uses unsigned long (pointer-sized on LP64).
+            var pci = new ScardIoRequestULong
+            {
+                Protocol = (nuint)proto,
+                Length = (nuint)Marshal.SizeOf<ScardIoRequestULong>(),
+            };
+            rc = TransmitUnixULong(card, ref pci, send, send.Length, 0, recv, ref recvLen);
+        }
+
         if (rc != Success || recvLen < 2)
         {
             return null;
@@ -258,10 +292,19 @@ internal static class PcscNative
         return parts.Where(p => !string.IsNullOrWhiteSpace(p)).ToArray();
     }
 
+    /// Winscard / macOS PCSC: DWORD / uint32_t protocol and pci length.
     [StructLayout(LayoutKind.Sequential)]
-    public struct ScardIoRequest
+    internal struct ScardIoRequestDword
     {
         public int Protocol;
         public uint Length;
+    }
+
+    /// Linux pcsclite: unsigned long protocol and pci length.
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct ScardIoRequestULong
+    {
+        public nuint Protocol;
+        public nuint Length;
     }
 }
