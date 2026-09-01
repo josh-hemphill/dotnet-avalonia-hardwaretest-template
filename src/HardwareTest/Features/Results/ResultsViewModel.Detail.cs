@@ -56,6 +56,8 @@ public partial class ResultsViewModel
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> ReprintCommand { get; }
     public ReactiveCommand<RunReportItemViewModel?, System.Reactive.Unit> OpenReportCommand { get; }
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> ExportPackageCommand { get; }
+    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> CaptureAttestationCommand { get; }
+    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> CancelAttestationCommand { get; }
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> CloseDetailCommand { get; }
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> NavigateToRunCommand { get; }
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> ClearFailedStepsFilterCommand { get; }
@@ -366,6 +368,12 @@ public partial class ResultsViewModel
             return;
         }
 
+        var defaultKind = ProgramCatalog.ResolveDefaultReportKind(run.PlanId);
+        if (!TryBeginCertifiedAction(run, defaultKind, PendingOpenDefault))
+        {
+            return;
+        }
+
         ReportOpened?.Invoke(this, path);
         Status = $"Opened default report ({ProgramCatalog.ResolveDefaultReportKind(run.PlanId)}).";
     }
@@ -396,16 +404,22 @@ public partial class ResultsViewModel
         return run.Reports.FirstOrDefault()?.PdfPath;
     }
 
-    private void OpenReport(RunReportItemViewModel? item)
+    private Task OpenReportAsync(RunReportItemViewModel? item)
     {
         if (item is null || string.IsNullOrWhiteSpace(item.PdfPath) || !File.Exists(item.PdfPath))
         {
             Status = "Report PDF not found.";
-            return;
+            return Task.CompletedTask;
+        }
+
+        if (OpenedRun is not null && !TryBeginCertifiedAction(OpenedRun, item.Kind, PendingOpenItem, item))
+        {
+            return Task.CompletedTask;
         }
 
         ReportOpened?.Invoke(this, item.PdfPath);
         Status = $"Opened {item.Title}.";
+        return Task.CompletedTask;
     }
 
     private async Task ReprintAsync()
@@ -442,6 +456,11 @@ public partial class ResultsViewModel
                 OpenedRun = run;
                 LoadReportItems(run);
                 Status = $"Regenerated {artifacts.Count} report(s).";
+                if (!TryBeginCertifiedAction(run, ReportKinds.Certification, PendingReprintOpen))
+                {
+                    return;
+                }
+
                 var primary = run.ReportPdfPath ?? artifacts.FirstOrDefault()?.PdfPath;
                 if (primary is not null)
                 {

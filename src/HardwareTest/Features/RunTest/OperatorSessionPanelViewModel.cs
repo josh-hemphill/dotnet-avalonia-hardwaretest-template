@@ -1,5 +1,6 @@
 using System;
 using System.Globalization;
+using HardwareTest.Core.Credentials;
 using HardwareTest.Core.Settings;
 using HardwareTest.Core.Time;
 using HardwareTest.OpenTap.Host;
@@ -18,6 +19,7 @@ public partial class OperatorSessionPanelViewModel : ReactiveObject
     private readonly Func<ProgramItemViewModel?> _getSelectedProgram;
     private readonly Action _onSessionCleared;
     private readonly IClock _clock;
+    private readonly IOperatorCredentialBroker? _credentialBroker;
     private readonly System.Timers.Timer _idleTimer;
 
     /// Test seam: routes idle-timer UI work synchronously instead of through the Avalonia dispatcher.
@@ -29,7 +31,8 @@ public partial class OperatorSessionPanelViewModel : ReactiveObject
         Action<string> setStatus,
         Func<ProgramItemViewModel?>? getSelectedProgram = null,
         Action? onSessionCleared = null,
-        IClock? clock = null)
+        IClock? clock = null,
+        IOperatorCredentialBroker? credentialBroker = null)
     {
         _session = session;
         _settings = settings;
@@ -37,10 +40,14 @@ public partial class OperatorSessionPanelViewModel : ReactiveObject
         _getSelectedProgram = getSelectedProgram ?? (() => null);
         _onSessionCleared = onSessionCleared ?? (() => { });
         _clock = clock ?? SystemClock.Instance;
+        _credentialBroker = credentialBroker;
 
         ConfirmSessionCommand = ReactiveCommand.Create(ConfirmSession);
         ConfirmSameDutCommand = ReactiveCommand.Create(ConfirmSameDut);
         ChangeSessionCommand = ReactiveCommand.Create(ChangeSession);
+        CaptureCredentialCommand = ReactiveCommand.CreateFromTask(CaptureCredentialAsync);
+        ShowCredentialCapture = _credentialBroker is not null;
+        CredentialStatus = _credentialBroker?.StatusText ?? string.Empty;
 
         _idleTimer = new System.Timers.Timer(15_000) { AutoReset = true };
         _idleTimer.Elapsed += (_, _) =>
@@ -84,6 +91,7 @@ public partial class OperatorSessionPanelViewModel : ReactiveObject
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> ConfirmSessionCommand { get; }
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> ConfirmSameDutCommand { get; }
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> ChangeSessionCommand { get; }
+    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> CaptureCredentialCommand { get; }
 
     /// Raised when the DUT serial field should take keyboard/scanner focus.
     public event EventHandler? RequestFocusDutSerial;
@@ -108,6 +116,9 @@ public partial class OperatorSessionPanelViewModel : ReactiveObject
     [Reactive] private bool _pendingConfirmEveryRun;
     [Reactive] private string _dutSerialError = string.Empty;
     [Reactive] private string _operatorError = string.Empty;
+    [Reactive] private string _credentialStatus = string.Empty;
+    [Reactive] private bool _isCapturingCredential;
+    [Reactive] private bool _showCredentialCapture;
 
     public bool HasDutSerialError => !string.IsNullOrWhiteSpace(DutSerialError);
     public bool HasOperatorError => !string.IsNullOrWhiteSpace(OperatorError);
@@ -256,6 +267,14 @@ public partial class OperatorSessionPanelViewModel : ReactiveObject
         DutPartInput = NormalizeScan(DutPartInput);
         DutRevisionInput = NormalizeScan(DutRevisionInput);
         OperatorInput = NormalizeScan(OperatorInput);
+        if (!TryRequireCredential(req, out var credentialError))
+        {
+            ApplyFieldError(credentialError);
+            _setStatus(credentialError);
+            SessionBlocked = true;
+            return;
+        }
+
         if (!_session.TryConfirm(req, DutSerialInput, DutPartInput, DutRevisionInput, OperatorInput, family, out var error))
         {
             ApplyFieldError(error);
@@ -316,6 +335,7 @@ public partial class OperatorSessionPanelViewModel : ReactiveObject
         DutPartInput = string.Empty;
         DutRevisionInput = string.Empty;
         OperatorInput = string.Empty;
+        CredentialStatus = _credentialBroker?.StatusText ?? string.Empty;
         ShowSessionForm = true;
         RefreshSessionSummary();
         UpdateIdleTimer();

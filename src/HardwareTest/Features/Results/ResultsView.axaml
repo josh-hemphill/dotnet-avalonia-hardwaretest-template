@@ -7,9 +7,11 @@
              xmlns:storage="using:HardwareTest.Core.Storage"
              xmlns:widgetsPres="using:HardwareTest.Widgets.Presentation"
              xmlns:conv="using:HardwareTest.Converters"
+             xmlns:shell="using:HardwareTest.Features.Shell"
              x:Class="HardwareTest.Features.Results.ResultsView"
              x:Name="Root"
              x:DataType="vm:ResultsViewModel">
+  <Grid>
   <Grid RowDefinitions="Auto,*,Auto" ColumnDefinitions="*,360" ColumnSpacing="12" RowSpacing="12">
     <WrapPanel Orientation="Horizontal" Grid.ColumnSpan="2">
       <Button Content="Refresh" Command="{Binding RefreshCommand}"
@@ -204,7 +206,7 @@
 
             <StackPanel Spacing="4" Margin="0,8,0,0" IsVisible="{Binding HasExportTargets}">
               <TextBlock Text="Export package" FontWeight="SemiBold" />
-              <TextBlock Text="Copies PDFs, run.json, and optional CSV to removable media or ExportDirectory."
+              <TextBlock Text="Copies PDFs, run.json, attestation sidecars, and optional CSV to removable media or ExportDirectory."
                          Opacity="0.75" FontSize="11" TextWrapping="Wrap" />
               <ComboBox ItemsSource="{Binding ExportTargets}"
                         SelectedItem="{Binding SelectedExportTarget}"
@@ -326,5 +328,41 @@
     <TextBlock Grid.Row="2" Grid.ColumnSpan="2"
                Text="Click a run to open detail. Double-click opens the default report. After a fail, Results filters to Failed and shows failed steps first."
                Opacity="0.55" FontSize="11" />
+  </Grid>
+
+    <Border IsVisible="{Binding ShowAttestationPrompt}"
+            Background="#CC000000"
+            HorizontalAlignment="Stretch"
+            VerticalAlignment="Stretch">
+      <Border MaxWidth="520"
+              HorizontalAlignment="Center"
+              VerticalAlignment="Center"
+              Padding="16"
+              CornerRadius="6"
+              BorderBrush="#FB8C00"
+              BorderThickness="2"
+              Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}">
+        <StackPanel Spacing="10">
+          <TextBlock Text="Certify before export or print"
+                     FontWeight="SemiBold" />
+          <TextBlock Text="{Binding AttestationPromptStatus}"
+                     TextWrapping="Wrap"
+                     FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}" />
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <Button Content="Tap or insert"
+                    Command="{Binding CaptureAttestationCommand}"
+                    Classes="primary"
+                    MinHeight="{x:Static shell:OperatorTouchDensity.OperatorControlMinHeight}"
+                    IsEnabled="{Binding !IsCapturingAttestation}"
+                    AutomationProperties.Name="Tap or insert badge" />
+            <Button Content="Cancel"
+                    Command="{Binding CancelAttestationCommand}"
+                    Classes="operator"
+                    MinHeight="{x:Static shell:OperatorTouchDensity.OperatorControlMinHeight}"
+                    IsEnabled="{Binding !IsCapturingAttestation}" />
+          </StackPanel>
+        </StackPanel>
+      </Border>
+    </Border>
   </Grid>
 </UserControl>

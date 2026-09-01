@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using HardwareTest.Core.Credentials;
 using HardwareTest.Core.Diagnostics;
 using HardwareTest.Core.Engine;
 using HardwareTest.Core.Hardware;
@@ -46,7 +47,8 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
         IVisaModeController? visaModeController = null,
         ShellNotificationViewModel? shellNotification = null,
         ISafetyController? safety = null,
-        IClock? clock = null)
+        IClock? clock = null,
+        IOperatorCredentialBroker? credentialBroker = null)
     {
         _plan = plan;
         _runSession = runSession;
@@ -56,15 +58,7 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
         _storageHealth = storageHealth;
         _shellNotification = shellNotification;
         _progress = new ThrottledOpenTapProgress(IngestProgress);
-        Status = "Confirm DUT, then Run.";
-        IsEngineerDebugMode = settings.IsEngineerDebugMode;
-        if (settingsStore is not null)
-        {
-            settingsStore.AppSettingsSaved += (_, _) =>
-            {
-                IsEngineerDebugMode = settingsStore.AppSettings.IsEngineerDebugMode;
-            };
-        }
+        BindLiveSettings(settingsStore, settings);
 
         // Panels reference each other, so the wiring uses lambdas; every capture resolves only
         // after CreateChildPanels has assigned all of them.
@@ -84,7 +78,8 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
             storageHealth,
             visaModeController,
             safety,
-            clock ?? SystemClock.Instance);
+            clock ?? SystemClock.Instance,
+            credentialBroker);
 
         ContinueOperatorCommand = ReactiveCommand.Create(ContinueOperator);
         OpenLastRunResultsCommand = ReactiveCommand.Create(

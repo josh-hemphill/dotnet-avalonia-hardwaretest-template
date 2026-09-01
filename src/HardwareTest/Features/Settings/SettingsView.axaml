@@ -149,6 +149,30 @@
 
         <Separator Margin="0,8" />
 
+        <TextBlock Text="Operator credential" Classes="settings-h2"
+                   AutomationProperties.HeadingLevel="2" />
+        <TextBlock Text="Chip (insert) and tap (contactless) fill the technician field and can certify a report before export or print. When signing is not available, presence-only records that the responsible party was at the bench."
+                   TextWrapping="Wrap"
+                   Opacity="0.8" />
+        <CheckBox Content="Use mock badge"
+                  IsChecked="{Binding UseMockOperatorCredential}"
+                  IsEnabled="{Binding !UseMockOperatorCredentialReadOnly}"
+                  ToolTip.Tip="CI and benches without a reader. Applies on the next tap." />
+        <CheckBox Content="Require badge when technician is required"
+                  IsChecked="{Binding RequireCredentialForOperator}"
+                  IsEnabled="{Binding !RequireCredentialForOperatorReadOnly}"
+                  ToolTip.Tip="Session confirm still needs DUT identity. This only requires a chip or tap when the program requires a technician." />
+        <CheckBox Content="Require attestation before certification export"
+                  IsChecked="{Binding RequireAttestationBeforeExport}"
+                  IsEnabled="{Binding !RequireAttestationBeforeExportReadOnly}"
+                  ToolTip.Tip="Gates opening, reprinting, or exporting a certification PDF until a badge is presented." />
+        <CheckBox Content="Allow tap presence instead of signing"
+                  IsChecked="{Binding AllowPresenceInLieuOfSigning}"
+                  IsEnabled="{Binding !AllowPresenceInLieuOfSigningReadOnly}"
+                  ToolTip.Tip="When the card cannot sign yet, record chip/tap presence bound to the PDF hash." />
+
+        <Separator Margin="0,8" />
+
         <TextBlock Text="Storage" Classes="settings-h2"
                    AutomationProperties.HeadingLevel="2" />
         <TextBlock Text="Retention and free-space gates for the data directory. Critical free space blocks new runs."
