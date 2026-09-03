@@ -6,10 +6,10 @@ public interface IOperatorCredentialBroker
     /// True when this broker is the in-process mock (CI / no reader).
     bool IsMock { get; }
 
-    /// True when TrySignPayloadAsync can produce a signature.
+    /// True when this broker implements signing (PIN may still be required on the card).
     bool CanSign { get; }
 
-    /// Algorithm id written on signed sidecars; null when this broker cannot sign.
+    /// Algorithm id written on signed sidecars when the broker uses a fixed algorithm.
     string? SigningAlgorithm { get; }
 
     /// Operator-facing reader status (no reader, waiting, mock, …).
@@ -20,9 +20,10 @@ public interface IOperatorCredentialBroker
         TimeSpan timeout,
         CancellationToken cancellationToken = default);
 
-    /// Signs payload with the presented credential. Returns null when signing is unavailable.
-    Task<byte[]?> TrySignPayloadAsync(
+    /// Signs payload with the presented credential. PIN is used only for this call and is not stored.
+    Task<CredentialSignResult> TrySignPayloadAsync(
         byte[] payload,
         OperatorCredential credential,
+        string? pin = null,
         CancellationToken cancellationToken = default);
 }

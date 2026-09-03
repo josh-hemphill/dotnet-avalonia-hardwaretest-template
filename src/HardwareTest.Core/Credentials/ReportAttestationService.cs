@@ -22,6 +22,9 @@ public interface IReportAttestationService
     Task<ReportAttestationResult> AttestAsync(
         TestRunRecord run,
         string reportKind,
+        OperatorCredential? credential = null,
+        string? pin = null,
+        bool skipSigning = false,
         CancellationToken cancellationToken = default);
 }
 
@@ -91,11 +94,9 @@ public sealed class ReportAttestationService : IReportAttestationService
             return false;
         }
 
-        if (string.Equals(attestation.Kind, AttestationKind.Signed, StringComparison.OrdinalIgnoreCase)
-            && !string.IsNullOrWhiteSpace(attestation.SidecarPath)
-            && File.Exists(attestation.SidecarPath))
+        if (string.Equals(attestation.Kind, AttestationKind.Signed, StringComparison.OrdinalIgnoreCase))
         {
-            return true;
+            return SignatureMatches(attestation, pdfHash);
         }
 
         return string.Equals(attestation.Kind, AttestationKind.Presence, StringComparison.OrdinalIgnoreCase)
@@ -105,19 +106,28 @@ public sealed class ReportAttestationService : IReportAttestationService
     public async Task<ReportAttestationResult> AttestAsync(
         TestRunRecord run,
         string reportKind,
+        OperatorCredential? credential = null,
+        string? pin = null,
+        bool skipSigning = false,
         CancellationToken cancellationToken = default)
     {
         var targetKind = string.Equals(reportKind, PackageKind, StringComparison.OrdinalIgnoreCase)
             ? ReportKinds.Certification
             : reportKind;
-        var capture = await _broker.WaitForPresenceAsync(PresenceTimeout, cancellationToken).ConfigureAwait(false);
-        if (!capture.Succeeded || capture.Credential is null)
+        var captured = credential;
+        if (captured is null)
         {
-            return new ReportAttestationResult
+            var capture = await _broker.WaitForPresenceAsync(PresenceTimeout, cancellationToken).ConfigureAwait(false);
+            if (!capture.Succeeded || capture.Credential is null)
             {
-                Succeeded = false,
-                Message = capture.Error ?? "Present a badge to certify this report.",
-            };
+                return new ReportAttestationResult
+                {
+                    Succeeded = false,
+                    Message = capture.Error ?? "Present a badge to certify this report.",
+                };
+            }
+
+            captured = capture.Credential;
         }
 
         var pdfPath = ResolvePdfPath(run, targetKind);
@@ -127,6 +137,7 @@ public sealed class ReportAttestationService : IReportAttestationService
             {
                 Succeeded = false,
                 Message = "Certification PDF is missing. Generate reports first.",
+                Credential = captured,
             };
         }
 
@@ -134,18 +145,63 @@ public sealed class ReportAttestationService : IReportAttestationService
         var runJson = JsonSerializer.Serialize(run, AppJsonContext.Default.TestRunRecord);
         var runHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(runJson)));
         var payload = Encoding.UTF8.GetBytes($"{pdfHash}:{runHash}");
-        var signature = await _broker.TrySignPayloadAsync(payload, capture.Credential, cancellationToken)
-            .ConfigureAwait(false);
-
-        var kind = signature is { Length: > 0 } ? AttestationKind.Signed : AttestationKind.Presence;
-        if (kind == AttestationKind.Presence && !_settings.AllowPresenceInLieuOfSigning)
+        CredentialSignResult? sign = null;
+        if (!skipSigning)
         {
-            return new ReportAttestationResult
+            sign = await _broker.TrySignPayloadAsync(payload, captured, pin, cancellationToken)
+                .ConfigureAwait(false);
+            if (sign.PinRequired)
             {
-                Succeeded = false,
-                Message = "This badge cannot sign, and presence-only attestation is disabled.",
-            };
+                return new ReportAttestationResult
+                {
+                    Succeeded = false,
+                    PinRequired = true,
+                    Credential = captured,
+                    Message = sign.Error ?? "Enter badge PIN to sign.",
+                };
+            }
+
+            if (!sign.Succeeded && sign.PinRetriesRemaining is not null)
+            {
+                return new ReportAttestationResult
+                {
+                    Succeeded = false,
+                    PinRequired = true,
+                    Credential = captured,
+                    Message = sign.Error ?? "Incorrect PIN.",
+                };
+            }
         }
+
+        var signature = sign is { Succeeded: true } ? sign.Signature : null;
+        var kind = signature is { Length: > 0 } ? AttestationKind.Signed : AttestationKind.Presence;
+        if (kind == AttestationKind.Presence)
+        {
+            if (!CanRecordPresence(skipSigning, pin, sign))
+            {
+                return new ReportAttestationResult
+                {
+                    Succeeded = false,
+                    Credential = captured,
+                    Message = sign?.Error ?? "Signing failed.",
+                };
+            }
+
+            if (!_settings.AllowPresenceInLieuOfSigning)
+            {
+                var detail = string.IsNullOrWhiteSpace(sign?.Error)
+                    ? string.Empty
+                    : " " + sign.Error;
+                return new ReportAttestationResult
+                {
+                    Succeeded = false,
+                    Credential = captured,
+                    Message = "This badge cannot sign, and presence-only attestation is disabled." + detail,
+                };
+            }
+        }
+
+        var party = sign?.Credential ?? captured;
 
         var sidecarName = $"{targetKind}.attestation.json";
         var sidecarPath = Path.Combine(_runStore.GetRunDirectory(run.RunId), sidecarName);
@@ -153,23 +209,26 @@ public sealed class ReportAttestationService : IReportAttestationService
         {
             Kind = kind,
             ReportKind = targetKind,
-            DisplayName = capture.Credential.DisplayName,
-            Serial = capture.Credential.Serial,
-            Transport = capture.Credential.Transport,
-            Thumbprint = capture.Credential.Thumbprint,
+            DisplayName = party.DisplayName,
+            Serial = party.Serial,
+            Transport = party.Transport,
+            Thumbprint = sign?.Thumbprint ?? party.Thumbprint,
             PdfSha256 = pdfHash,
             RunJsonSha256 = runHash,
             SidecarPath = sidecarPath,
             Algorithm = signature is { Length: > 0 }
-                ? (_broker.SigningAlgorithm ?? AttestationAlgorithm.MockHmac)
+                ? (sign?.Algorithm ?? _broker.SigningAlgorithm ?? AttestationAlgorithm.MockHmac)
                 : AttestationAlgorithm.Presence,
-            CapturedAt = capture.Credential.CapturedAt == default ? _clock.UtcNow : capture.Credential.CapturedAt,
+            CapturedAt = party.CapturedAt == default ? _clock.UtcNow : party.CapturedAt,
         };
 
         var sidecar = new ReportAttestationSidecar
         {
             Attestation = document,
             SignatureBase64 = signature is { Length: > 0 } ? Convert.ToBase64String(signature) : null,
+            CertificateBase64 = sign?.CertificateDer is { Length: > 0 }
+                ? Convert.ToBase64String(sign.CertificateDer)
+                : null,
         };
         await AtomicFile.WriteJsonAsync(sidecarPath, sidecar, AppJsonContext.Default.ReportAttestationSidecar, cancellationToken)
             .ConfigureAwait(false);
@@ -178,7 +237,7 @@ public sealed class ReportAttestationService : IReportAttestationService
         run.Attestations.Add(document);
         if (string.IsNullOrWhiteSpace(run.OperatorName))
         {
-            run.OperatorName = capture.Credential.DisplayName;
+            run.OperatorName = party.DisplayName;
         }
 
         await _runStore.SaveAsync(run, cancellationToken).ConfigureAwait(false);
@@ -187,7 +246,8 @@ public sealed class ReportAttestationService : IReportAttestationService
         return new ReportAttestationResult
         {
             Succeeded = true,
-            Message = $"{verb} for {capture.Credential.DisplayName} ({capture.Credential.Transport}).",
+            Credential = party,
+            Message = $"{verb} for {party.DisplayName} ({party.Transport}).",
             Attestation = document,
         };
     }
@@ -233,10 +293,83 @@ public sealed class ReportAttestationService : IReportAttestationService
             : run.ReportPdfPath;
     }
 
+    private static bool CanRecordPresence(bool skipSigning, string? pin, CredentialSignResult? sign)
+    {
+        if (skipSigning)
+        {
+            return true;
+        }
+
+        if (!string.IsNullOrEmpty(pin))
+        {
+            return false;
+        }
+
+        var error = sign?.Error;
+        if (string.IsNullOrWhiteSpace(error))
+        {
+            return true;
+        }
+
+        return error.Contains("cannot sign", StringComparison.OrdinalIgnoreCase)
+            || error.Contains("No PIV signing certificate", StringComparison.OrdinalIgnoreCase)
+            || error.Contains("PIV applet not found", StringComparison.OrdinalIgnoreCase);
+    }
+
     private static string HashFile(string path)
     {
         using var stream = File.OpenRead(path);
         return Convert.ToHexString(SHA256.HashData(stream));
+    }
+
+    private static bool SignatureMatches(ReportAttestation attestation, string pdfHash)
+    {
+        if (string.IsNullOrWhiteSpace(attestation.SidecarPath) || !File.Exists(attestation.SidecarPath))
+        {
+            return false;
+        }
+
+        using var stream = File.OpenRead(attestation.SidecarPath);
+        var sidecar = JsonSerializer.Deserialize(stream, AppJsonContext.Default.ReportAttestationSidecar);
+        if (sidecar?.SignatureBase64 is null
+            || !string.Equals(pdfHash, attestation.PdfSha256, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        byte[] signature;
+        try
+        {
+            signature = Convert.FromBase64String(sidecar.SignatureBase64);
+        }
+        catch (FormatException)
+        {
+            return false;
+        }
+
+        var payload = Encoding.UTF8.GetBytes($"{attestation.PdfSha256}:{attestation.RunJsonSha256}");
+        var algorithm = attestation.Algorithm ?? sidecar.Attestation.Algorithm;
+        if (string.Equals(algorithm, AttestationAlgorithm.MockHmac, StringComparison.Ordinal))
+        {
+            return MockOperatorCredentialBroker.VerifyMockSignature(payload, signature);
+        }
+
+        if (string.IsNullOrWhiteSpace(sidecar.CertificateBase64))
+        {
+            return false;
+        }
+
+        byte[] cert;
+        try
+        {
+            cert = Convert.FromBase64String(sidecar.CertificateBase64);
+        }
+        catch (FormatException)
+        {
+            return false;
+        }
+
+        return PivSigner.Verify(payload, signature, cert, algorithm ?? string.Empty);
     }
 
     private static void TryDeleteSidecar(string? path)
@@ -262,4 +395,5 @@ public sealed class ReportAttestationSidecar
 {
     public ReportAttestation Attestation { get; set; } = new();
     public string? SignatureBase64 { get; set; }
+    public string? CertificateBase64 { get; set; }
 }

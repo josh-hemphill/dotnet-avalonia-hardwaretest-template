@@ -57,6 +57,7 @@ public partial class ResultsViewModel
     public ReactiveCommand<RunReportItemViewModel?, System.Reactive.Unit> OpenReportCommand { get; }
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> ExportPackageCommand { get; }
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> CaptureAttestationCommand { get; }
+    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> UsePresenceAttestationCommand { get; }
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> CancelAttestationCommand { get; }
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> CloseDetailCommand { get; }
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> NavigateToRunCommand { get; }
