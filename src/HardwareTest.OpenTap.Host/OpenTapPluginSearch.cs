@@ -5,7 +5,7 @@ using OpenTap;
 
 namespace HardwareTest.OpenTap.Host;
 
-/// Registers Basic + Mixins plugin directories for PluginManager.Search.
+/// Registers Basic + Visa + Mixins plugin directories for PluginManager.Search.
 internal static class OpenTapPluginSearch
 {
     private static readonly object SearchGate = new();
