@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Package Name="HardwareTest Mixins" xmlns="http://opentap.io/schemas/package" Version="0.1.0" OS="Windows,Linux,MacOS">
+  <Description>HardwareTest Presentation and Annotation mixins for Editor/TUI authoring.</Description>
+  <Owner>HardwareTest</Owner>
+  <Dependencies>
+    <PackageDependency Package="OpenTAP" Version="^9.32.2" />
+  </Dependencies>
+  <Files>
+    <File Path="HardwareTest.OpenTap.Plugins.Mixins.dll">
+      <SetAssemblyInfo Attributes="Version" />
+    </File>
+  </Files>
+</Package>

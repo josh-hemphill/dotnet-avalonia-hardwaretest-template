@@ -38,6 +38,7 @@ internal static class OpenTapPluginSearch
     private static void EnsureCorePluginDirectories()
     {
         AddAssemblyDirectory(typeof(MockDmmInstrument).Assembly.Location);
+        AddAssemblyDirectory(typeof(VisaDmmInstrument).Assembly.Location);
         AddAssemblyDirectory(typeof(AnnotationMixinBuilder).Assembly.Location);
 
         // OpenTAP ships BasicSteps (Repeat/Sweep) under Packages/OpenTAP beside OpenTap.dll.

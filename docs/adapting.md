@@ -44,13 +44,26 @@ For UI vs OpenTAP test suites, see [testing.md](testing.md). For sealed Linux pu
 
 ## 2. Plugins
 
-1. Add an OpenTAP plugin project (see [`HardwareTest.OpenTap.Plugins.Basic`](../src/HardwareTest.OpenTap.Plugins.Basic/) and mixins in [`HardwareTest.OpenTap.Plugins.Mixins`](../src/HardwareTest.OpenTap.Plugins.Mixins/)).
-2. The host always searches the Basic and Mixins plugin assembly directories.
+1. Add an OpenTAP plugin project (see [`HardwareTest.OpenTap.Plugins.Basic`](../src/HardwareTest.OpenTap.Plugins.Basic/) and mixins in [`HardwareTest.OpenTap.Plugins.Mixins`](../src/HardwareTest.OpenTap.Plugins.Mixins/)). The VISA broker adapter lives in [`HardwareTest.OpenTap.Plugins.Visa`](../src/HardwareTest.OpenTap.Plugins.Visa/) (bench only; not the Editor authoring pack).
+2. The host always searches the Basic, Visa, and Mixins plugin assembly directories.
 3. Extra search paths:
    - `AppSettings.OpenTapPluginDirectories`
    - Env `HARDWARETEST_OPENTAP_PLUGIN_DIRS` (`;` or `Path.PathSeparator` separated)
 4. On an appliance, drop third-party plugin DLLs under a writable/plugin folder and list that path in settings (see [appliance-linux.md](appliance-linux.md)).
 5. Verify installed packages and plugin dirs in **Settings → OpenTAP packages & plugins** (offline list only; install via `tap package install` / bake — see [phase-e-packages-list.md](opentap-phases/phase-e-packages-list.md)).
+
+### Authoring packs (Editor / TUI)
+
+Install the same **HardwareTest Basic** and **HardwareTest Mixins** versions the bench uses:
+
+```bash
+dotnet build src/HardwareTest.OpenTap.Plugins.Basic -c Release -r linux-x64 -p:CreateOpenTapPackage=true -p:InstallCreatedOpenTapPackage=false
+dotnet build src/HardwareTest.OpenTap.Plugins.Mixins -c Release -r linux-x64 -p:CreateOpenTapPackage=true -p:InstallCreatedOpenTapPackage=false
+tap package install path/to/HardwareTest\ Basic*.TapPackage
+tap package install path/to/HardwareTest\ Mixins*.TapPackage
+```
+
+`package.xml` lists only the plugin DLL (no `HardwareTest.Core`). The VISA adapter is not an authoring pack; product instrument types come from the visa/SCPI library later. Default builds keep `CreateOpenTapPackage=false` so CI does not run `tap package create`.
 
 ## 3. Station bindings (Instruments)
 

@@ -151,9 +151,10 @@ internal static class DmmStepAccess
             return mock.ResourceName;
         }
 
-        if (instrument is VisaDmmInstrument visa && !string.IsNullOrWhiteSpace(visa.VisaAddress))
+        if (instrument.GetType().GetProperty("VisaAddress")?.GetValue(instrument) is string visa
+            && !string.IsNullOrWhiteSpace(visa))
         {
-            return visa.VisaAddress;
+            return visa;
         }
 
         return string.IsNullOrWhiteSpace(instrument.Name) ? instrument.GetType().Name : instrument.Name;
