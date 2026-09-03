@@ -66,7 +66,8 @@ public static class PlanContractValidator
 
     public static PlanContractBatchReport Validate(
         IReadOnlyList<string> targets,
-        AppSettings? settings = null)
+        AppSettings? settings = null,
+        bool trustConfiguredPluginDirectories = false)
     {
         ArgumentNullException.ThrowIfNull(targets);
         if (targets.Count == 0)
@@ -92,14 +93,17 @@ public static class PlanContractValidator
         {
             foreach (var path in ExpandTarget(target))
             {
-                reports.Add(ValidateFile(path, settings));
+                reports.Add(ValidateFile(path, settings, trustConfiguredPluginDirectories));
             }
         }
 
         return new PlanContractBatchReport { Plans = reports };
     }
 
-    public static PlanContractReport ValidateFile(string tapPlanPath, AppSettings? settings = null)
+    public static PlanContractReport ValidateFile(
+        string tapPlanPath,
+        AppSettings? settings = null,
+        bool trustConfiguredPluginDirectories = false)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(tapPlanPath);
         var findings = new List<PlanContractFinding>();
@@ -128,7 +132,9 @@ public static class PlanContractValidator
             // without Open(); registering would leak into the serial OpenTapSerial suite.
             var catalog = new OpenTapHostCatalog(
                 settings ?? new AppSettings { UseMockVisa = true },
-                Serilog.Log.Logger.ForContext(typeof(PlanContractValidator)));
+                Serilog.Log.Logger.ForContext(typeof(PlanContractValidator)),
+                visaBroker: null,
+                trustConfiguredPluginDirectories: trustConfiguredPluginDirectories);
             catalog.EnsurePlugins();
             var plan = TestPlan.Load(tapPlanPath);
             AnalyzePlan(plan, includeCleanup, findings);
@@ -394,7 +400,11 @@ public static class PlanContractCli
 {
     public const int UsageExitCode = 2;
 
-    public static int Run(IReadOnlyList<string> targets, AppSettings? settings, TextWriter output)
+    public static int Run(
+        IReadOnlyList<string> targets,
+        AppSettings? settings,
+        TextWriter output,
+        bool trustConfiguredPluginDirectories = false)
     {
         ArgumentNullException.ThrowIfNull(targets);
         ArgumentNullException.ThrowIfNull(output);
@@ -406,7 +416,10 @@ public static class PlanContractCli
             return UsageExitCode;
         }
 
-        var batch = PlanContractValidator.Validate(targets.Where(t => !string.IsNullOrWhiteSpace(t)).ToList(), settings);
+        var batch = PlanContractValidator.Validate(
+            targets.Where(t => !string.IsNullOrWhiteSpace(t)).ToList(),
+            settings,
+            trustConfiguredPluginDirectories);
         output.Write(PlanContractValidator.Format(batch));
         return PlanContractValidator.ExitCode(batch);
     }

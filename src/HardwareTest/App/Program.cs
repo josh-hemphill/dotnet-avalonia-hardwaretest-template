@@ -65,8 +65,13 @@ internal static class Program
             return 0;
         }
 
-        if (parsed.ValidatePlanPath is not null)
+        if (parsed.ValidatePlan)
         {
+            if (string.IsNullOrWhiteSpace(parsed.ValidatePlanPath))
+            {
+                return PlanContractCli.Run([], store.AppSettings, Console.Out);
+            }
+
             return PlanContractCli.Run([parsed.ValidatePlanPath], store.AppSettings, Console.Out);
         }
 

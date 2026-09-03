@@ -12,13 +12,19 @@ public sealed class OpenTapHostCatalog : IOpenTapHostCatalog
     private readonly AppSettings _settings;
     private readonly ILogger _logger;
     private readonly IVisaBroker? _visaBroker;
+    private readonly bool _trustConfiguredPluginDirectories;
     private bool _pluginSearchDone;
 
-    public OpenTapHostCatalog(AppSettings settings, ILogger logger, IVisaBroker? visaBroker = null)
+    public OpenTapHostCatalog(
+        AppSettings settings,
+        ILogger logger,
+        IVisaBroker? visaBroker = null,
+        bool trustConfiguredPluginDirectories = false)
     {
         _settings = settings;
         _logger = logger;
         _visaBroker = visaBroker;
+        _trustConfiguredPluginDirectories = trustConfiguredPluginDirectories;
     }
 
     public void EnsurePlugins()
@@ -31,7 +37,8 @@ public sealed class OpenTapHostCatalog : IOpenTapHostCatalog
         var extras = new List<string>();
         foreach (var dir in CollectConfiguredPluginDirectories())
         {
-            if (PluginDirectoryTrust.Allows(_settings.DataDirectory, dir, _settings.IsEngineerDebugMode))
+            if (_trustConfiguredPluginDirectories
+                || PluginDirectoryTrust.Allows(_settings.DataDirectory, dir, _settings.IsEngineerDebugMode))
             {
                 extras.Add(dir);
                 continue;

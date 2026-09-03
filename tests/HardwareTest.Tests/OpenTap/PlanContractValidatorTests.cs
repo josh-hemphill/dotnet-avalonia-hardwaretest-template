@@ -1,6 +1,7 @@
 using HardwareTest.Core.Settings;
 using HardwareTest.OpenTap.Host;
 using HardwareTest.OpenTap.Plugins.Basic;
+using OpenTap;
 using Xunit;
 
 namespace HardwareTest.Tests.OpenTap;
@@ -157,6 +158,47 @@ public sealed class PlanContractValidatorTests
         var code = PlanContractCli.Run([], settings: null, writer);
         Assert.Equal(PlanContractCli.UsageExitCode, code);
         Assert.Contains("--validate-plan", writer.ToString(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Cli_blank_path_is_usage_exit()
+    {
+        using var writer = new StringWriter();
+        var code = PlanContractCli.Run([""], settings: null, writer);
+        Assert.Equal(PlanContractCli.UsageExitCode, code);
+    }
+
+    [Fact]
+    public void Validate_trusts_configured_plugin_dirs_when_requested()
+    {
+        using var dir = new TempPlanDir();
+        SampleProgramFactory.SaveBeside(dir.Path);
+        WriteSidecar(dir.Path, "sample", selectionIncludesCleanup: true);
+        var extra = Path.Combine(dir.Path, "author-plugins");
+        Directory.CreateDirectory(extra);
+        var settings = new AppSettings
+        {
+            UseMockVisa = true,
+            OpenTapPluginDirectories = [extra],
+        };
+
+        var skipped = PlanContractValidator.ValidateFile(
+            Path.Combine(dir.Path, SampleProgramFactory.EmbeddedName),
+            settings,
+            trustConfiguredPluginDirectories: false);
+        Assert.False(skipped.HasErrors);
+        Assert.DoesNotContain(
+            PluginManager.DirectoriesToSearch,
+            d => string.Equals(d, Path.GetFullPath(extra), StringComparison.OrdinalIgnoreCase));
+
+        var trusted = PlanContractValidator.ValidateFile(
+            Path.Combine(dir.Path, SampleProgramFactory.EmbeddedName),
+            settings,
+            trustConfiguredPluginDirectories: true);
+        Assert.False(trusted.HasErrors);
+        Assert.Contains(
+            PluginManager.DirectoriesToSearch,
+            d => string.Equals(d, Path.GetFullPath(extra), StringComparison.OrdinalIgnoreCase));
     }
 
     private static void WriteSidecar(string directory, string planId, bool selectionIncludesCleanup)
