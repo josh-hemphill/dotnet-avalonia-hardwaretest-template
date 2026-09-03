@@ -14,7 +14,7 @@ src/
   HardwareTest.OpenTap.Plugins.Basic/# Operator/safety/measure steps (Editor pack)
   HardwareTest.OpenTap.Plugins.Visa/ # VISA DMM adapter over IVisaBroker (bench)
   HardwareTest.OpenTap.Plugins.Mixins/# Presentation + Annotation mixins (Editor pack)
-plans/opentap/                       # Locked .TapPlan programs
+plans/opentap/                       # Locked .TapPlan programs + template program TapPackage
 docs/appliance-linux.md              # Appliance layout + publish notes
 docs/containers.md                   # Local CI tasks, Podman, appliance image rails
 docs/opentap-platform.md             # OpenTAP shell roadmap + phase checklist

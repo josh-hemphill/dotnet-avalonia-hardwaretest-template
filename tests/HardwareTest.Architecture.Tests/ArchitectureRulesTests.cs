@@ -428,6 +428,24 @@ public sealed class ArchitectureRulesTests
         }
     }
 
+    [Fact]
+    public void Template_program_package_xml_lists_plan_sidecar_and_depends_on_authoring_packs()
+    {
+        var path = Path.Combine(FindRepoRoot(), "plans", "opentap", "package.xml");
+        Assert.True(File.Exists(path), path);
+        var xml = File.ReadAllText(path);
+        Assert.Contains("HardwareTest Template Program", xml, StringComparison.Ordinal);
+        Assert.Contains("sample.TapPlan", xml, StringComparison.Ordinal);
+        Assert.Contains("sample.program.json", xml, StringComparison.Ordinal);
+        Assert.Contains("template.program.json", xml, StringComparison.Ordinal);
+        Assert.Contains("program.schema.json", xml, StringComparison.Ordinal);
+        Assert.Contains("Package=\"HardwareTest Basic\"", xml, StringComparison.Ordinal);
+        Assert.Contains("Package=\"HardwareTest Mixins\"", xml, StringComparison.Ordinal);
+        Assert.DoesNotContain("HardwareTest.Core", xml, StringComparison.Ordinal);
+        Assert.DoesNotContain("HardwareTest.OpenTap.Host", xml, StringComparison.Ordinal);
+        Assert.DoesNotContain("VisaAddress", xml, StringComparison.Ordinal);
+    }
+
     private static readonly char[] PathSeparators =
         [Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar];
 
