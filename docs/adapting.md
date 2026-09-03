@@ -118,7 +118,7 @@ The HardwareTest Template Program pack does **not** declare this. `sample.TapPla
 
 ### Authoring packs (Editor / TUI)
 
-Install the same **HardwareTest Basic** and **HardwareTest Mixins** versions the bench uses (commands in [§1 step 1](#engineer-loop)). `package.xml` lists only the plugin DLL (no `HardwareTest.Core`). The VISA adapter is not an authoring pack; product instrument types come from the visa/SCPI library later. Default builds keep `CreateOpenTapPackage=false` so CI does not run `tap package create`.
+Install the same **HardwareTest Basic** and **HardwareTest Mixins** versions the bench uses (commands in [§1 step 1](#engineer-loop)). `package.xml` lists only the plugin DLL (no `HardwareTest.Core`). The VISA adapter is not an authoring pack; product instrument types come from the visa/SCPI library later ([deferred-instrument-pack-binding.md](deferred/deferred-instrument-pack-binding.md)). Default builds keep `CreateOpenTapPackage=false` so CI does not run `tap package create`.
 
 ## 3. Station bindings (Instruments)
 
@@ -135,7 +135,7 @@ Install the same **HardwareTest Basic** and **HardwareTest Mixins** versions the
 1. Author a TapPlan in OpenTAP Editor or OpenTAP TUI that references your SCPI plugin instrument (property named `VisaAddress` preferred). Run `HardwareTest --validate-plan` (or `HardwareTest.PlanValidate`) before installing it on the bench.
 2. Ship the plugin DLL via offline package install or `OpenTapPluginDirectories` (see [appliance-linux.md](appliance-linux.md)). Prefer plugins that implement `IDeviceDiscovery` so **Discover OpenTAP** lists their addresses.
 3. On the bench, open **Instruments**, load the program, pick a discovered VISA or OpenTAP resource (or type one), save the slot override.
-4. On **Run**, `ApplyStationAndDutAsync` writes the override onto the instrument before execute. Full ComponentSettings / bench-profile UI is deferred — see [deferred-bench-profile-ui.md](deferred/deferred-bench-profile-ui.md).
+4. On **Run**, `ApplyStationAndDutAsync` writes the override onto the instrument before execute. Full ComponentSettings / bench-profile UI is deferred — see [deferred-bench-profile-ui.md](deferred/deferred-bench-profile-ui.md). First-party SCPI maps and typed instrument functions belong in a **separate visa/SCPI library pack**, not this repo — see [deferred-instrument-pack-binding.md](deferred/deferred-instrument-pack-binding.md).
 
 DUT stamping still looks for Basic `IdentityCheckStep` / `HardwareDut`. Custom DUT steps need a similar host hook or Identity-compatible step.
 
