@@ -10,7 +10,7 @@ Parent indexes: [platform-roadmap.md](../platform-roadmap.md) · [opentap-platfo
 | [deferred-appliance-kiosk.md](deferred-appliance-kiosk.md) | Linux kiosk / image bake (assumes [Phase 17](../platform-phases/phase-17-shell-notification-strip.md)–[Phase 18](../platform-phases/phase-18-operator-touch-density.md) UI floors) |
 | [deferred-package-feed-install.md](deferred-package-feed-install.md) | In-app OpenTAP package install |
 | [deferred-bench-profile-ui.md](deferred-bench-profile-ui.md) | ComponentSettings / bench profile editor |
-| [deferred-instrument-pack-binding.md](deferred-instrument-pack-binding.md) | Consume visa/SCPI library pack; thin IVisaBroker wrapper |
+| [deferred-instrument-pack-binding.md](deferred-instrument-pack-binding.md) | Consume visa/SCPI library pack; thin wrapper via IVisaBroker |
 | [deferred-schema-migration.md](deferred-schema-migration.md) | Schema migration engine |
 | [deferred-remote-crash-upload.md](deferred-remote-crash-upload.md) | Optional crash dossier upload |
 | [deferred-localization.md](deferred-localization.md) | Multi-language operator UI |

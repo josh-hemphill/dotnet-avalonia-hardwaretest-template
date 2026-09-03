@@ -22,7 +22,7 @@ Typed instrument functions belong in the library, not here. Growing `IDmmInstrum
 - Keep a **thin** Mock/Visa wrapper only while in-repo demos still need `HardwareDmm` / `IDmmInstrument`. Do not grow `IDmmInstrument`.
 - `IdentityCheckStep` and `SafeShutdownStep` stay HardwareTest **step types** (operator/safety contract, DUT stamping). They should eventually bind `OpenTap.Instrument` plus library identity/shutdown **capabilities**, not a HardwareTest-only DMM interface.
 - **One OpenTAP `Instrument` per physical device.** Nested capabilities are methods or `[EmbedProperties]` on that instrument — not extra Instrument slots.
-- `IVisaBroker` stays here (process coordination, mock/real mode, Safety Stop preemption). The Host injects a small `Open` / `Write` / `Query` session into the library wrapper. Plugins still must not call `Ivi.Visa`.
+- `IVisaBroker` stays here (process coordination, mock/real mode, Safety Stop preemption). The host supplies an `IVisaSession` from `IVisaBroker.OpenAsync` (`WriteAsync` / `QueryAsync`) to the thin in-repo wrapper around the library instrument. Plugins still must not call `Ivi.Visa`.
 - The library must **not** depend on `HardwareTest.Core`.
 
 ### The visa/SCPI library (separate repo)

@@ -95,7 +95,7 @@ Longer-horizon product work lives under [`docs/deferred/`](deferred/). Each file
 | [Appliance kiosk](deferred/deferred-appliance-kiosk.md) | systemd / kiosk / image bake |
 | [Package feed install](deferred/deferred-package-feed-install.md) | In-app OpenTAP feed install |
 | [Bench profile UI](deferred/deferred-bench-profile-ui.md) | Full ComponentSettings / bench-profile editor |
-| [Instrument pack binding](deferred/deferred-instrument-pack-binding.md) | Consume visa/SCPI library pack; thin IVisaBroker wrapper |
+| [Instrument pack binding](deferred/deferred-instrument-pack-binding.md) | Consume visa/SCPI library pack; thin wrapper via IVisaBroker |
 | [Schema migration](deferred/deferred-schema-migration.md) | General schema migration engine |
 | [Remote crash upload](deferred/deferred-remote-crash-upload.md) | Additive uploader on local dossiers |
 | [Localization](deferred/deferred-localization.md) | Multi-language operator UI |

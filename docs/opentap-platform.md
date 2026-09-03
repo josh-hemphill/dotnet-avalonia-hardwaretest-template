@@ -131,7 +131,7 @@ Longer-horizon OpenTAP / product work. Prefer the detailed plans under [`docs/de
 | --- | --- |
 | [Package feed install](deferred/deferred-package-feed-install.md) | In-app OpenTAP feed install/update (today list-only) |
 | [Bench profile UI](deferred/deferred-bench-profile-ui.md) | Full ComponentSettings / bench-profile editor |
-| [Instrument pack binding](deferred/deferred-instrument-pack-binding.md) | Consume visa/SCPI library pack; thin IVisaBroker wrapper |
+| [Instrument pack binding](deferred/deferred-instrument-pack-binding.md) | Consume visa/SCPI library pack; thin wrapper via IVisaBroker |
 | — | Native OpenTAP dialog windows (**forbidden** on appliance; do not schedule) |
 | — | Remote Agent / REST execution (out of shell scope for now) |
 
