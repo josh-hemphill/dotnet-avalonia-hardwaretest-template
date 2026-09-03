@@ -33,8 +33,8 @@ public sealed class MockOperatorCredentialBrokerTests
         var capture = await broker.WaitForPresenceAsync(TimeSpan.FromSeconds(1));
         var payload = "pdf:run"u8.ToArray();
         var signature = await broker.TrySignPayloadAsync(payload, capture.Credential!);
-        Assert.NotNull(signature);
-        Assert.True(MockOperatorCredentialBroker.VerifyMockSignature(payload, signature!));
+        Assert.True(signature.Succeeded);
+        Assert.True(MockOperatorCredentialBroker.VerifyMockSignature(payload, signature.Signature!));
     }
 
     [Fact]
@@ -43,7 +43,7 @@ public sealed class MockOperatorCredentialBrokerTests
         var broker = new MockOperatorCredentialBroker(canSign: false);
         var capture = await broker.WaitForPresenceAsync(TimeSpan.FromSeconds(1));
         var signature = await broker.TrySignPayloadAsync("x"u8.ToArray(), capture.Credential!);
-        Assert.Null(signature);
+        Assert.False(signature.Succeeded);
         Assert.Null(broker.SigningAlgorithm);
     }
 }
@@ -168,7 +168,7 @@ public sealed class ReportAttestationServiceTests
         Assert.True(broker.IsMock);
         settings.UseMockOperatorCredential = false;
         Assert.False(broker.IsMock);
-        Assert.False(broker.CanSign);
+        Assert.True(broker.CanSign);
     }
 
     [Fact]
@@ -237,6 +237,159 @@ public sealed class ReportAttestationServiceTests
         Assert.Equal(ReportKinds.Status, run.Attestations[0].ReportKind);
     }
 
+    [Fact]
+    public async Task Attest_pin_required_then_signed_with_piv_rsa()
+    {
+        using var temp = new TempDataDirectory();
+        var store = new FileRunStore(temp.RunsDirectory);
+        var run = await SeedCertificationRunAsync(store);
+        using var card = FakePivCard.CreateRsa2048();
+        var broker = new ScriptedPivBroker(card);
+        var service = new ReportAttestationService(
+            broker,
+            store,
+            new AppSettings
+            {
+                RequireAttestationBeforeExport = true,
+                AllowPresenceInLieuOfSigning = false,
+            });
+
+        var first = await service.AttestAsync(run, ReportKinds.Certification);
+        Assert.True(first.PinRequired);
+        Assert.False(first.Succeeded);
+        Assert.Empty(run.Attestations);
+
+        var signed = await service.AttestAsync(
+            run,
+            ReportKinds.Certification,
+            first.Credential,
+            FakePivCard.DefaultPin);
+        Assert.True(signed.Succeeded);
+        Assert.Equal(AttestationKind.Signed, signed.Attestation!.Kind);
+        Assert.Equal(AttestationAlgorithm.PivRsaPkcs1Sha256, signed.Attestation.Algorithm);
+        Assert.True(service.HasValidAttestation(run, ReportKinds.Certification));
+        var sidecar = await File.ReadAllTextAsync(signed.Attestation.SidecarPath!);
+        Assert.Contains("certificateBase64", sidecar, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task HasValidAttestation_false_when_signed_sidecar_tampered()
+    {
+        using var temp = new TempDataDirectory();
+        var store = new FileRunStore(temp.RunsDirectory);
+        var run = await SeedCertificationRunAsync(store);
+        using var card = FakePivCard.CreateRsa2048();
+        var service = new ReportAttestationService(
+            new ScriptedPivBroker(card),
+            store,
+            new AppSettings
+            {
+                RequireAttestationBeforeExport = true,
+                AllowPresenceInLieuOfSigning = false,
+            });
+        var signed = await service.AttestAsync(
+            run,
+            ReportKinds.Certification,
+            pin: FakePivCard.DefaultPin);
+        Assert.True(signed.Succeeded);
+        var path = signed.Attestation!.SidecarPath!;
+        var json = await File.ReadAllTextAsync(path);
+        var bad = json.Replace(
+            "\"signatureBase64\":",
+            "\"signatureBase64\":\"AAAA\", \"_was\":",
+            StringComparison.Ordinal);
+        await File.WriteAllTextAsync(path, bad);
+        Assert.False(service.HasValidAttestation(run, ReportKinds.Certification));
+    }
+
+    [Fact]
+    public async Task Attest_skip_signing_records_presence_when_flag_on()
+    {
+        using var temp = new TempDataDirectory();
+        var store = new FileRunStore(temp.RunsDirectory);
+        var run = await SeedCertificationRunAsync(store);
+        var service = new ReportAttestationService(
+            new MockOperatorCredentialBroker(canSign: true),
+            store,
+            new AppSettings
+            {
+                RequireAttestationBeforeExport = true,
+                AllowPresenceInLieuOfSigning = true,
+            });
+        var result = await service.AttestAsync(run, ReportKinds.Certification, skipSigning: true);
+        Assert.True(result.Succeeded);
+        Assert.Equal(AttestationKind.Presence, result.Attestation!.Kind);
+    }
+
+    [Fact]
+    public async Task Attest_failed_sign_after_pin_does_not_record_presence()
+    {
+        using var temp = new TempDataDirectory();
+        var store = new FileRunStore(temp.RunsDirectory);
+        var run = await SeedCertificationRunAsync(store);
+        using var card = FakePivCard.CreateRsa2048();
+        card.FailVerifyAsSecurityStatus = true;
+        var service = new ReportAttestationService(
+            new ScriptedPivBroker(card),
+            store,
+            new AppSettings
+            {
+                RequireAttestationBeforeExport = true,
+                AllowPresenceInLieuOfSigning = true,
+            });
+        var result = await service.AttestAsync(
+            run,
+            ReportKinds.Certification,
+            pin: FakePivCard.DefaultPin);
+        Assert.False(result.Succeeded);
+        Assert.Contains("Insert the chip", result.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Empty(run.Attestations);
+    }
+
+    [Fact]
+    public async Task Attest_same_badge_mismatch_does_not_record_presence()
+    {
+        using var temp = new TempDataDirectory();
+        var store = new FileRunStore(temp.RunsDirectory);
+        var run = await SeedCertificationRunAsync(store);
+        var service = new ReportAttestationService(
+            new MockOperatorCredentialBroker(canSign: true),
+            store,
+            new AppSettings
+            {
+                RequireAttestationBeforeExport = true,
+                AllowPresenceInLieuOfSigning = true,
+            });
+        var foreign = new OperatorCredential
+        {
+            DisplayName = "Other Badge",
+            Serial = "OTHER-SERIAL",
+            Transport = CredentialTransport.Contact,
+        };
+        var result = await service.AttestAsync(run, ReportKinds.Certification, foreign);
+        Assert.False(result.Succeeded);
+        Assert.Equal(CredentialSignBinding.SameBadgeRequired, result.Message);
+        Assert.Empty(run.Attestations);
+    }
+
+    [Fact]
+    public async Task Attest_keeps_session_operator_distinct_from_certifier()
+    {
+        using var temp = new TempDataDirectory();
+        var store = new FileRunStore(temp.RunsDirectory);
+        var run = await SeedCertificationRunAsync(store);
+        run.OperatorName = "Session Technician";
+        await store.SaveAsync(run);
+        var service = new ReportAttestationService(
+            new MockOperatorCredentialBroker(canSign: true),
+            store,
+            new AppSettings { RequireAttestationBeforeExport = true });
+        var result = await service.AttestAsync(run, ReportKinds.Certification);
+        Assert.True(result.Succeeded);
+        Assert.Equal("Session Technician", run.OperatorName);
+        Assert.Equal(MockOperatorCredentialBroker.MockDisplayName, result.Attestation!.DisplayName);
+    }
+
     private static async Task<TestRunRecord> SeedCertificationRunAsync(FileRunStore store)
     {
         var run = new TestRunRecord
@@ -258,5 +411,34 @@ public sealed class ReportAttestationServiceTests
         });
         await store.SaveAsync(run);
         return run;
+    }
+}
+
+internal sealed class ScriptedPivBroker : IOperatorCredentialBroker
+{
+    private readonly FakePivCard _card;
+    private readonly MockOperatorCredentialBroker _identity = new(canSign: false);
+
+    public ScriptedPivBroker(FakePivCard card) => _card = card;
+
+    public bool IsMock => true;
+    public bool CanSign => true;
+    public string? SigningAlgorithm => AttestationAlgorithm.PivRsaPkcs1Sha256;
+    public string StatusText => "Fake PIV";
+
+    public Task<CredentialCaptureResult> WaitForPresenceAsync(
+        TimeSpan timeout,
+        CancellationToken cancellationToken = default)
+        => _identity.WaitForPresenceAsync(timeout, cancellationToken);
+
+    public Task<CredentialSignResult> TrySignPayloadAsync(
+        byte[] payload,
+        OperatorCredential credential,
+        string? pin = null,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        _ = credential;
+        return Task.FromResult(PivSigner.Sign(_card, payload, pin));
     }
 }

@@ -242,10 +242,93 @@ internal static class PcscNative
         return atr[..atrLen];
     }
 
+    private const int TransmitBufferSize = 4096;
+    private const int MaxGetResponseRounds = 16;
+
     public static byte[]? Transmit(nint card, int protocol, byte[] send)
     {
+        var first = TransmitOnce(card, protocol, send);
+        if (first is not { Length: >= 2 })
+        {
+            return null;
+        }
+
+        if (first[^2] == 0x6C)
+        {
+            first = TransmitOnce(card, protocol, ApplyLe(send, first[^1]));
+            if (first is not { Length: >= 2 })
+            {
+                return null;
+            }
+        }
+
+        var payload = new List<byte>(first.Length);
+        payload.AddRange(first.AsSpan(0, first.Length - 2).ToArray());
+        var sw1 = first[^2];
+        var sw2 = first[^1];
+        for (var round = 0; round < MaxGetResponseRounds && sw1 == 0x61; round++)
+        {
+            var le = sw2 == 0 ? (byte)0x00 : sw2;
+            var more = TransmitOnce(card, protocol, [0x00, 0xC0, 0x00, 0x00, le]);
+            if (more is not { Length: >= 2 })
+            {
+                return null;
+            }
+
+            payload.AddRange(more.AsSpan(0, more.Length - 2).ToArray());
+            sw1 = more[^2];
+            sw2 = more[^1];
+        }
+
+        payload.Add(sw1);
+        payload.Add(sw2);
+        return payload.ToArray();
+    }
+
+    /// Sets or replaces Le (ISO 7816 Case 2/3/4) for a 6C XX retry.
+    internal static byte[] ApplyLe(ReadOnlySpan<byte> send, byte le)
+    {
+        if (send.Length <= 4)
+        {
+            var shortCmd = new byte[5];
+            send.CopyTo(shortCmd);
+            shortCmd[4] = le;
+            return shortCmd;
+        }
+
+        if (send.Length == 5)
+        {
+            var case2 = send.ToArray();
+            case2[4] = le;
+            return case2;
+        }
+
+        var lc = send[4];
+        if (lc != 0 && send.Length == 5 + lc)
+        {
+            var case4 = new byte[send.Length + 1];
+            send.CopyTo(case4);
+            case4[^1] = le;
+            return case4;
+        }
+
+        if (lc != 0 && send.Length == 5 + lc + 1)
+        {
+            var replaced = send.ToArray();
+            replaced[^1] = le;
+            return replaced;
+        }
+
+        var appended = new byte[send.Length + 1];
+        send.CopyTo(appended);
+        appended[^1] = le;
+        return appended;
+    }
+
+    private static byte[]? TransmitOnce(nint card, int protocol, byte[] send)
+    {
         var proto = protocol == 0 ? ProtocolT1 : protocol;
-        var recv = new byte[256];
+        var recv = new byte[TransmitBufferSize];
         var recvLen = recv.Length;
         int rc;
         if (OperatingSystem.IsWindows())

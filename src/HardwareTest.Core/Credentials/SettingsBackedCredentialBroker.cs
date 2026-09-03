@@ -29,11 +29,12 @@ public sealed class SettingsBackedCredentialBroker : IOperatorCredentialBroker
         CancellationToken cancellationToken = default)
         => Active.WaitForPresenceAsync(timeout, cancellationToken);
 
-    public Task<byte[]?> TrySignPayloadAsync(
+    public Task<CredentialSignResult> TrySignPayloadAsync(
         byte[] payload,
         OperatorCredential credential,
+        string? pin = null,
         CancellationToken cancellationToken = default)
-        => Active.TrySignPayloadAsync(payload, credential, cancellationToken);
+        => Active.TrySignPayloadAsync(payload, credential, pin, cancellationToken);
 
     private IOperatorCredentialBroker Active
         => _settings.UseMockOperatorCredential ? _mock : _pcsc;
