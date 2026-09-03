@@ -360,6 +360,34 @@ public sealed class PlanContractValidatorTests
     }
 
     [Fact]
+    public void Validate_require_serial_identity_without_dut_is_error()
+    {
+        using var dir = new TempPlanDir();
+        PlanShapeFixtures.SaveAllBeside(dir.Path);
+        var path = Path.Combine(dir.Path, "no-dut.TapPlan");
+        PlanShapeFixtures.CreateIdentityWithoutDut().Save(path);
+        File.WriteAllText(
+            Path.Combine(dir.Path, "no-dut.program.json"),
+            """{ "requireSerial": true, "selectionIncludesCleanup": true }""");
+        var report = PlanContractValidator.ValidateFile(path);
+        Assert.Contains(report.Findings, f => f.Code == PlanContractValidator.Codes.MissingDut
+            && f.Severity == PlanContractSeverity.Error);
+    }
+
+    [Fact]
+    public void Validate_empty_channel_key_is_error()
+    {
+        using var dir = new TempPlanDir();
+        PlanShapeFixtures.SaveAllBeside(dir.Path);
+        var path = Path.Combine(dir.Path, "empty-key.TapPlan");
+        PlanShapeFixtures.CreateEmptyChannelKey().Save(path);
+        WriteSidecar(dir.Path, "empty-key", true);
+        var report = PlanContractValidator.ValidateFile(path);
+        Assert.Contains(report.Findings, f => f.Code == PlanContractValidator.Codes.EmptyChannelKey
+            && f.Severity == PlanContractSeverity.Error);
+    }
+
+    [Fact]
     public void Validate_duplicate_channel_key_is_error()
     {
         using var dir = new TempPlanDir();

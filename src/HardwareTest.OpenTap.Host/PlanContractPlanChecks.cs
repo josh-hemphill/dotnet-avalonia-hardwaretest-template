@@ -71,9 +71,9 @@ internal static class PlanContractPlanChecks
             if (string.IsNullOrWhiteSpace(hints.ChannelKey))
             {
                 findings.Add(new PlanContractFinding(
-                    PlanContractSeverity.Warning,
+                    PlanContractSeverity.Error,
                     PlanContractValidator.Codes.EmptyChannelKey,
-                    "Presentation mixin has an empty ChannelKey.",
+                    "Presentation mixin has an empty ChannelKey. ChannelKey must be unique and non-empty.",
                     leaf.Path));
             }
             else if (keys.TryGetValue(hints.ChannelKey, out var existing))

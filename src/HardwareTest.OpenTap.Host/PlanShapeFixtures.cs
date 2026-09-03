@@ -166,6 +166,32 @@ public static class PlanShapeFixtures
         return plan;
     }
 
+    public static TestPlan CreateIdentityWithoutDut()
+    {
+        var instrument = SharedInstrument();
+        var identity = new IdentityCheckStep
+        {
+            Name = "Identity Check",
+            Instrument = instrument,
+            Dut = null!,
+        };
+        var plan = new TestPlan();
+        plan.ChildTestSteps.Add(identity);
+        plan.ChildTestSteps.Add(new SafeShutdownStep { Name = "Safe Shutdown", Instrument = instrument });
+        return plan;
+    }
+
+    public static TestPlan CreateEmptyChannelKey()
+    {
+        var instrument = SharedInstrument();
+        var acquire = new AcquireVoltageStep { Name = "Acquire", Instrument = instrument, SampleCount = 2 };
+        OpenTapMixinAttach.AttachPresentation(acquire, string.Empty, PresentationDisplayRoles.Timeseries, "V");
+        var plan = new TestPlan();
+        plan.ChildTestSteps.Add(acquire);
+        plan.ChildTestSteps.Add(new SafeShutdownStep { Name = "Safe Shutdown", Instrument = instrument });
+        return plan;
+    }
+
     public static IEnumerable<(string FileName, Func<TestPlan> Create)> All
     {
         get
