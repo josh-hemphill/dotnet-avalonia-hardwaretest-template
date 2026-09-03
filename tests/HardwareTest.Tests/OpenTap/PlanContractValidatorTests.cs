@@ -195,6 +195,19 @@ public sealed class PlanContractValidatorTests
     }
 
     [Fact]
+    public void Validate_unknown_default_report_kind_is_error()
+    {
+        using var dir = new TempPlanDir();
+        SampleProgramFactory.SaveBeside(dir.Path);
+        File.WriteAllText(
+            Path.Combine(dir.Path, "sample.program.json"),
+            """{ "defaultReportKind": "mes" }""");
+        var report = PlanContractValidator.ValidateFile(Path.Combine(dir.Path, SampleProgramFactory.EmbeddedName));
+        Assert.Contains(report.Findings, f => f.Code == PlanContractValidator.Codes.SidecarDefaultReportKind
+            && f.Severity == PlanContractSeverity.Error);
+    }
+
+    [Fact]
     public void Validate_directory_globs_tap_plans()
     {
         using var dir = new TempPlanDir();
