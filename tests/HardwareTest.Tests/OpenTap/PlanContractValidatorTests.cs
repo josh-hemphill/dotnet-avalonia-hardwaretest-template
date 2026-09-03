@@ -248,6 +248,7 @@ public sealed class PlanContractValidatorTests
         var code = PlanContractCli.Run([], settings: null, writer);
         Assert.Equal(PlanContractCli.UsageExitCode, code);
         Assert.Contains("--validate-plan", writer.ToString(), StringComparison.Ordinal);
+        Assert.Contains("--strict", writer.ToString(), StringComparison.Ordinal);
     }
 
     [Fact]
@@ -328,6 +329,114 @@ public sealed class PlanContractValidatorTests
         }
     }
 
+    [Fact]
+    public void Validate_strict_missing_sidecar_is_error()
+    {
+        using var dir = new TempPlanDir();
+        SampleProgramFactory.SaveBeside(dir.Path);
+        var path = Path.Combine(dir.Path, SampleProgramFactory.EmbeddedName);
+        var lenient = PlanContractValidator.ValidateFile(path);
+        Assert.Contains(lenient.Findings, f => f.Code == PlanContractValidator.Codes.SidecarMissing
+            && f.Severity == PlanContractSeverity.Warning);
+
+        var strict = PlanContractValidator.ValidateFile(path, new PlanContractOptions { Strict = true });
+        Assert.Contains(strict.Findings, f => f.Code == PlanContractValidator.Codes.SidecarMissing
+            && f.Severity == PlanContractSeverity.Error);
+        Assert.True(strict.HasErrors);
+    }
+
+    [Fact]
+    public void Validate_require_serial_without_identity_is_error()
+    {
+        using var dir = new TempPlanDir();
+        PlanShapeFixtures.SaveAllBeside(dir.Path);
+        var planId = Path.GetFileNameWithoutExtension(PlanShapeFixtures.DeepNestName);
+        File.WriteAllText(
+            Path.Combine(dir.Path, $"{planId}.program.json"),
+            """{ "requireSerial": true, "selectionIncludesCleanup": true }""");
+        var report = PlanContractValidator.ValidateFile(Path.Combine(dir.Path, PlanShapeFixtures.DeepNestName));
+        Assert.Contains(report.Findings, f => f.Code == PlanContractValidator.Codes.MissingIdentity
+            && f.Severity == PlanContractSeverity.Error);
+    }
+
+    [Fact]
+    public void Validate_duplicate_channel_key_is_error()
+    {
+        using var dir = new TempPlanDir();
+        PlanShapeFixtures.SaveAllBeside(dir.Path);
+        var path = Path.Combine(dir.Path, "dup.TapPlan");
+        PlanShapeFixtures.CreateDuplicateChannelKey().Save(path);
+        WriteSidecar(dir.Path, "dup", selectionIncludesCleanup: true);
+        var report = PlanContractValidator.ValidateFile(path);
+        Assert.Contains(report.Findings, f => f.Code == PlanContractValidator.Codes.DuplicateChannelKey
+            && f.Severity == PlanContractSeverity.Error);
+    }
+
+    [Fact]
+    public void Validate_measure_leaf_without_presentation_warns()
+    {
+        using var dir = new TempPlanDir();
+        PlanShapeFixtures.SaveAllBeside(dir.Path);
+        WriteSidecar(dir.Path, Path.GetFileNameWithoutExtension(PlanShapeFixtures.FlatLeavesName), true);
+        var report = PlanContractValidator.ValidateFile(Path.Combine(dir.Path, PlanShapeFixtures.FlatLeavesName));
+        Assert.Contains(report.Findings, f => f.Code == PlanContractValidator.Codes.MissingPresentation
+            && f.Severity == PlanContractSeverity.Warning);
+        Assert.False(report.HasErrors);
+    }
+
+    [Fact]
+    public void Validate_passband_without_limits_warns()
+    {
+        using var dir = new TempPlanDir();
+        PlanShapeFixtures.SaveAllBeside(dir.Path);
+        var path = Path.Combine(dir.Path, "band.TapPlan");
+        PlanShapeFixtures.CreatePassbandWithoutLimits().Save(path);
+        WriteSidecar(dir.Path, "band", true);
+        var report = PlanContractValidator.ValidateFile(path);
+        Assert.Contains(report.Findings, f => f.Code == PlanContractValidator.Codes.MissingLimits
+            && f.Severity == PlanContractSeverity.Warning);
+        Assert.False(report.HasErrors);
+    }
+
+    [Fact]
+    public void Cli_json_and_sarif_include_finding_codes()
+    {
+        using var dir = new TempPlanDir();
+        PlanShapeFixtures.SaveAllBeside(dir.Path);
+        var path = Path.Combine(dir.Path, PlanShapeFixtures.NoSafeShutdownName);
+        using var jsonWriter = new StringWriter();
+        var jsonCode = PlanContractCli.Run(
+            [path],
+            jsonWriter,
+            new PlanContractOptions { Format = PlanContractFormat.Json });
+        Assert.Equal(1, jsonCode);
+        var json = jsonWriter.ToString();
+        Assert.Contains("MISSING_SAFE_SHUTDOWN", json, StringComparison.Ordinal);
+        Assert.Contains("\"hasErrors\": true", json, StringComparison.Ordinal);
+
+        using var sarifWriter = new StringWriter();
+        PlanContractCli.Run([path], sarifWriter, new PlanContractOptions { Format = PlanContractFormat.Sarif });
+        var sarif = sarifWriter.ToString();
+        Assert.Contains("\"ruleId\": \"MISSING_SAFE_SHUTDOWN\"", sarif, StringComparison.Ordinal);
+        Assert.Contains("sarif-2.1.0", sarif, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Validate_committed_product_plans_have_no_errors_when_strict()
+    {
+        var programs = Path.Combine(AppContext.BaseDirectory, "Programs");
+        Assert.True(Directory.Exists(programs), programs);
+        var plans = Directory.EnumerateFiles(programs, "*.TapPlan", SearchOption.TopDirectoryOnly).ToList();
+        Assert.Contains(plans, p => p.EndsWith("sample.TapPlan", StringComparison.OrdinalIgnoreCase));
+        var batch = PlanContractValidator.Validate(plans, new PlanContractOptions { Strict = true });
+        Assert.DoesNotContain(
+            batch.Plans,
+            p => p.TargetPath.Contains($"{Path.DirectorySeparatorChar}fixtures{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase));
+        Assert.False(
+            batch.HasErrors,
+            string.Join("; ", batch.Plans.SelectMany(p => p.Findings).Select(f => $"{f.Code}: {f.Message}")));
+    }
+
     private static void WriteSidecar(string directory, string planId, bool selectionIncludesCleanup)
     {
         File.WriteAllText(
@@ -336,7 +445,7 @@ public sealed class PlanContractValidatorTests
             {
               "displayName": "{{planId}}",
               "dutFamily": "demo",
-              "requireSerial": true,
+              "requireSerial": false,
               "selectionIncludesCleanup": {{(selectionIncludesCleanup ? "true" : "false")}}
             }
             """);

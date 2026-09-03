@@ -9,6 +9,8 @@ public static class Program
     {
         var pluginDirs = new List<string>();
         var targets = new List<string>();
+        var strict = false;
+        var format = PlanContractFormat.Text;
         for (var i = 0; i < args.Length; i++)
         {
             var arg = args[i];
@@ -21,6 +23,25 @@ public static class Program
                     pluginDirs.AddRange(value.Split(
                         [Path.PathSeparator, ';'],
                         StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+                }
+
+                continue;
+            }
+
+            if (string.Equals(arg, "--strict", StringComparison.OrdinalIgnoreCase))
+            {
+                strict = true;
+                continue;
+            }
+
+            if (TrySplit(arg, out flag, out inline)
+                && string.Equals(flag, "--format", StringComparison.OrdinalIgnoreCase))
+            {
+                var value = inline ?? TakeNext(args, ref i);
+                if (!TryParseFormat(value, out format))
+                {
+                    Console.Error.WriteLine("Unknown --format. Use text, json, or sarif.");
+                    return PlanContractCli.UsageExitCode;
                 }
 
                 continue;
@@ -44,9 +65,14 @@ public static class Program
         // HardwareTest --validate-plan still uses appliance PluginDirectoryTrust.
         return PlanContractCli.Run(
             targets,
-            settings,
             Console.Out,
-            trustConfiguredPluginDirectories: pluginDirs.Count > 0);
+            new PlanContractOptions
+            {
+                Settings = settings,
+                TrustConfiguredPluginDirectories = pluginDirs.Count > 0,
+                Strict = strict,
+                Format = format,
+            });
     }
 
     private static bool TrySplit(string arg, out string flag, out string? inlineValue)
@@ -77,5 +103,34 @@ public static class Program
 
         i++;
         return args[i];
+    }
+
+    private static bool TryParseFormat(string? value, out PlanContractFormat format)
+    {
+        format = PlanContractFormat.Text;
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return false;
+        }
+
+        if (string.Equals(value, "text", StringComparison.OrdinalIgnoreCase))
+        {
+            format = PlanContractFormat.Text;
+            return true;
+        }
+
+        if (string.Equals(value, "json", StringComparison.OrdinalIgnoreCase))
+        {
+            format = PlanContractFormat.Json;
+            return true;
+        }
+
+        if (string.Equals(value, "sarif", StringComparison.OrdinalIgnoreCase))
+        {
+            format = PlanContractFormat.Sarif;
+            return true;
+        }
+
+        return false;
     }
 }
