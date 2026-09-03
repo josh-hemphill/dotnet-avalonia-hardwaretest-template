@@ -35,8 +35,13 @@ public sealed class OpenTapHostCatalog : IOpenTapHostCatalog
         }
 
         var extras = new List<string>();
-        foreach (var dir in CollectConfiguredPluginDirectories())
+        foreach (var dir in _settings.OpenTapPluginDirectories)
         {
+            if (string.IsNullOrWhiteSpace(dir))
+            {
+                continue;
+            }
+
             if (_trustConfiguredPluginDirectories
                 || PluginDirectoryTrust.Allows(_settings.DataDirectory, dir, _settings.IsEngineerDebugMode))
             {
@@ -44,10 +49,18 @@ public sealed class OpenTapHostCatalog : IOpenTapHostCatalog
                 continue;
             }
 
-            _logger.Warning(
-                "Skipping OpenTAP plugin directory outside trusted root {Root}: {Dir}",
-                PluginDirectoryTrust.TrustedRoot(_settings.DataDirectory),
-                dir);
+            WarnUntrusted(dir);
+        }
+
+        foreach (var dir in CollectEnvironmentPluginDirectories())
+        {
+            if (PluginDirectoryTrust.Allows(_settings.DataDirectory, dir, _settings.IsEngineerDebugMode))
+            {
+                extras.Add(dir);
+                continue;
+            }
+
+            WarnUntrusted(dir);
         }
 
         // Directory list mutations + Search share one gate (OpenTapPluginSearch.SearchSerialized).
@@ -73,16 +86,16 @@ public sealed class OpenTapHostCatalog : IOpenTapHostCatalog
         return OpenTapDeviceDiscovery.ListVisaAddresses(_logger);
     }
 
-    private IEnumerable<string> CollectConfiguredPluginDirectories()
+    private void WarnUntrusted(string dir)
     {
-        foreach (var dir in _settings.OpenTapPluginDirectories)
-        {
-            if (!string.IsNullOrWhiteSpace(dir))
-            {
-                yield return dir;
-            }
-        }
+        _logger.Warning(
+            "Skipping OpenTAP plugin directory outside trusted root {Root}: {Dir}",
+            PluginDirectoryTrust.TrustedRoot(_settings.DataDirectory),
+            dir);
+    }
 
+    private static IEnumerable<string> CollectEnvironmentPluginDirectories()
+    {
         var env = Environment.GetEnvironmentVariable("HARDWARETEST_OPENTAP_PLUGIN_DIRS");
         if (string.IsNullOrWhiteSpace(env))
         {

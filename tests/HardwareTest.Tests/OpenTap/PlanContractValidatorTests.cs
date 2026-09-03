@@ -201,6 +201,43 @@ public sealed class PlanContractValidatorTests
             d => string.Equals(d, Path.GetFullPath(extra), StringComparison.OrdinalIgnoreCase));
     }
 
+    [Fact]
+    public void Validate_trust_flag_does_not_admit_environment_plugin_dirs()
+    {
+        using var dir = new TempPlanDir();
+        SampleProgramFactory.SaveBeside(dir.Path);
+        WriteSidecar(dir.Path, "sample", selectionIncludesCleanup: true);
+        var cliDir = Path.Combine(dir.Path, "cli-plugins");
+        var envDir = Path.Combine(dir.Path, "env-plugins");
+        Directory.CreateDirectory(cliDir);
+        Directory.CreateDirectory(envDir);
+        var previous = Environment.GetEnvironmentVariable("HARDWARETEST_OPENTAP_PLUGIN_DIRS");
+        try
+        {
+            Environment.SetEnvironmentVariable("HARDWARETEST_OPENTAP_PLUGIN_DIRS", envDir);
+            var settings = new AppSettings
+            {
+                UseMockVisa = true,
+                OpenTapPluginDirectories = [cliDir],
+            };
+            var report = PlanContractValidator.ValidateFile(
+                Path.Combine(dir.Path, SampleProgramFactory.EmbeddedName),
+                settings,
+                trustConfiguredPluginDirectories: true);
+            Assert.False(report.HasErrors);
+            Assert.Contains(
+                PluginManager.DirectoriesToSearch,
+                d => string.Equals(d, Path.GetFullPath(cliDir), StringComparison.OrdinalIgnoreCase));
+            Assert.DoesNotContain(
+                PluginManager.DirectoriesToSearch,
+                d => string.Equals(d, Path.GetFullPath(envDir), StringComparison.OrdinalIgnoreCase));
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("HARDWARETEST_OPENTAP_PLUGIN_DIRS", previous);
+        }
+    }
+
     private static void WriteSidecar(string directory, string planId, bool selectionIncludesCleanup)
     {
         File.WriteAllText(
