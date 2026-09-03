@@ -151,7 +151,7 @@
 
         <TextBlock Text="Operator credential" Classes="settings-h2"
                    AutomationProperties.HeadingLevel="2" />
-        <TextBlock Text="Chip (insert) and tap (contactless) fill the technician field and can certify a report before export or print. When signing is not available, presence-only records that the responsible party was at the bench."
+        <TextBlock Text="Chip (insert) and tap (contactless) fill the technician field and sign a certification report before export or print. Presence-only is a site-policy fallback when the organization cannot use on-card signatures — it is not a substitute for signing."
                    TextWrapping="Wrap"
                    Opacity="0.8" />
         <CheckBox Content="Use mock badge"
@@ -166,10 +166,10 @@
                   IsChecked="{Binding RequireAttestationBeforeExport}"
                   IsEnabled="{Binding !RequireAttestationBeforeExportReadOnly}"
                   ToolTip.Tip="Gates opening, reprinting, or exporting a certification PDF until a badge is presented." />
-        <CheckBox Content="Allow tap presence instead of signing"
+        <CheckBox Content="Allow presence when signing cannot be used"
                   IsChecked="{Binding AllowPresenceInLieuOfSigning}"
                   IsEnabled="{Binding !AllowPresenceInLieuOfSigningReadOnly}"
-                  ToolTip.Tip="When the card cannot sign yet, record chip/tap presence bound to the PDF hash." />
+                  ToolTip.Tip="Site-policy fallback when the organization cannot use on-card signatures. The app still signs when the card can." />
 
         <Separator Margin="0,8" />
 

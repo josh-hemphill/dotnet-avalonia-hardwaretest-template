@@ -125,7 +125,7 @@ Override without recompiling:
 2. Place files under `{DataDirectory}/reports/` (and `reports/lib/` for chart lib).
 3. Optionally set `AppSettings.ReportTemplateName` (default `test-report.typ`). A file with that name under `{DataDirectory}/reports/` wins over the embedded template.
 
-Compile inputs: `run.json` (camelCase `TestRunRecord`), Typst inputs (`title`, `runId`, `planName`, `dutSerial`, `operatorName`, `attestationKind`, `attestationDetail`, `result`, …), and optional sample-driven charts via `sample-chart.typ`. `EmbedPlotsInReport` toggles chart notes. Certification export can require a detached `{kind}.attestation.json` sidecar (chip/tap presence or mock signature) when `RequireAttestationBeforeExport` is on.
+Compile inputs: `run.json` (camelCase `TestRunRecord`), Typst inputs (`title`, `runId`, `planName`, `dutSerial`, `operatorName`, `attestationKind`, `attestationDetail`, `result`, …), and optional sample-driven charts via `sample-chart.typ`. `EmbedPlotsInReport` toggles chart notes. Certification export can require a detached `{kind}.attestation.json` sidecar (PIV on-card signature, or presence as a site-policy fallback) when `RequireAttestationBeforeExport` is on.
 
 ### MES / QA file export (optional)
 
@@ -257,7 +257,7 @@ Every persisted JSON document carries an integer `schemaVersion`. Bumps are deli
 | --- | --- | --- |
 | `AppSettings` (`settings.json`) | 1 | Initial stamped shape (Phase 5). |
 | `UiState` (`ui-state.json`) | 1 | Initial stamped shape (Phase 5). |
-| `TestRunRecord` (`runs/{id}/run.json`) | 2 | `Attestations` (optional chip/tap presence or signed sidecar stamps). Identity upgrade from 1. |
+| `TestRunRecord` (`runs/{id}/run.json`) | 2 | `Attestations` (optional chip/tap presence or PIV-signed sidecar stamps). Identity upgrade from 1. |
 | `SuiteRunRecord` (`runs/suites/{id}/suite-run.json`) | 1 | Initial stamped shape (Phase 5). |
 | `CrashReport` (`crashes/{id}/crash.json`) | 1 | Initial crash dossier (Phase 6). |
 

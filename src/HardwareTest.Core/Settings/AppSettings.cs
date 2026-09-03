@@ -76,7 +76,7 @@ public sealed class AppSettings
     public bool RequireCredentialForOperator { get; set; }
     /// When true, exporting or opening a certification PDF requires a badge attestation.
     public bool RequireAttestationBeforeExport { get; set; }
-    /// When true, a tap/insert presence record is accepted if the card cannot sign yet.
+    /// When true, a presence stamp is accepted only as a site-policy fallback if on-card signing cannot be used.
     public bool AllowPresenceInLieuOfSigning { get; set; } = true;
 
     public const int DefaultOpenTapWorkerKillTimeoutMilliseconds = 8000;

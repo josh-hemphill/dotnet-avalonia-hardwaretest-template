@@ -45,6 +45,30 @@ internal static class PivCardIdentity
         return (serial, name);
     }
 
+    public static (string? Serial, string? DisplayName) TryRead(IApduChannel channel)
+    {
+        string? serial = null;
+        string? name = null;
+
+        var uid = channel.Transmit(GetUid);
+        if (IsSuccess(uid) && uid!.Length > 2)
+        {
+            serial = Convert.ToHexString(uid.AsSpan(0, uid.Length - 2));
+        }
+
+        var select = channel.Transmit(SelectPiv);
+        if (IsSuccess(select))
+        {
+            var printed = channel.Transmit(GetPrinted);
+            if (IsSuccess(printed))
+            {
+                name = TryParsePrintedName(printed!);
+            }
+        }
+
+        return (serial, name);
+    }
+
     private static bool IsSuccess(byte[]? response)
         => response is { Length: >= 2 }
            && response[^2] == 0x90
