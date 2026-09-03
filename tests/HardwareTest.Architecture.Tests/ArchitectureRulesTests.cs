@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Xml.Linq;
 using Avalonia.Controls;
 using HardwareTest.Core.Hardware;
 using HardwareTest.Core.Runs;
@@ -434,15 +435,35 @@ public sealed class ArchitectureRulesTests
         var path = Path.Combine(FindRepoRoot(), "plans", "opentap", "package.xml");
         Assert.True(File.Exists(path), path);
         var xml = File.ReadAllText(path);
-        Assert.Contains("HardwareTest Template Program", xml, StringComparison.Ordinal);
-        Assert.Contains("sample.TapPlan", xml, StringComparison.Ordinal);
-        Assert.Contains("sample.program.json", xml, StringComparison.Ordinal);
-        Assert.Contains("template.program.json", xml, StringComparison.Ordinal);
-        Assert.Contains("program.schema.json", xml, StringComparison.Ordinal);
-        Assert.Contains("Package=\"HardwareTest Basic\"", xml, StringComparison.Ordinal);
-        Assert.Contains("Package=\"HardwareTest Mixins\"", xml, StringComparison.Ordinal);
+        var doc = XDocument.Parse(xml);
+        XNamespace ns = "http://opentap.io/schemas/package";
+        Assert.Equal("HardwareTest Template Program", (string?)doc.Root?.Attribute("Name"));
+
+        var files = doc.Descendants(ns + "File")
+            .Select(e => (string?)e.Attribute("Path"))
+            .Where(p => !string.IsNullOrWhiteSpace(p))
+            .ToArray();
+        Assert.Contains("sample.TapPlan", files);
+        Assert.Contains("sample.program.json", files);
+        Assert.Contains("template.program.json", files);
+        Assert.Contains("program.schema.json", files);
+        Assert.DoesNotContain(files, f => f!.EndsWith(".dll", StringComparison.OrdinalIgnoreCase));
+
+        var deps = doc.Descendants(ns + "PackageDependency")
+            .Select(e => (string?)e.Attribute("Package"))
+            .ToArray();
+        Assert.Contains("OpenTAP", deps);
+        Assert.Contains("HardwareTest Basic", deps);
+        Assert.Contains("HardwareTest Mixins", deps);
+        Assert.Equal(3, deps.Length);
+        Assert.DoesNotContain(
+            deps,
+            d => d is not null && d.Contains("Visa", StringComparison.OrdinalIgnoreCase));
+
         Assert.DoesNotContain("HardwareTest.Core", xml, StringComparison.Ordinal);
         Assert.DoesNotContain("HardwareTest.OpenTap.Host", xml, StringComparison.Ordinal);
+        Assert.DoesNotContain("Ivi.Visa", xml, StringComparison.Ordinal);
+        // Manifest metadata only — Description may mention visa/SCPI; bundled TapPlans are not scanned.
         Assert.DoesNotContain("VisaAddress", xml, StringComparison.Ordinal);
     }
 

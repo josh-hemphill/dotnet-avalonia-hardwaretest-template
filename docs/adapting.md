@@ -6,7 +6,7 @@ For UI vs OpenTAP test suites, see [testing.md](testing.md). For sealed Linux pu
 
 ## 1. Author a locked program (cookbook)
 
-A **locked program** is the bake-ready unit: `.TapPlan` + `{planId}.program.json` sidecar + Presentation/limits on function steps + plugin set (`.TapPackage` Dependencies) + Typst `reportKinds`. Author in **OpenTAP Editor / TUI**. This shell does not edit plans. `PlanContractValidator --strict` must fail a bad package **before** appliance bake. Operator Run is not blocked by authoring warnings.
+A **locked program** is the bake-ready unit: `.TapPlan` + `{planId}.program.json` sidecar + Presentation/limits on function steps + plugin set (`.TapPackage` Dependencies) + Typst `reportKinds`. Author in **OpenTAP Editor / TUI**. This shell does not edit plans. `HardwareTest.PlanValidate --strict` (Host `PlanContractValidator`) must fail a bad package **before** appliance bake. Operator Run is not blocked by authoring warnings.
 
 ### Deliverables
 
@@ -48,6 +48,11 @@ Instrument / component requirements belong in `.TapPackage` Dependencies, not th
    ```bash
    HardwareTest.PlanValidate plans/opentap --strict
    HardwareTest.PlanValidate plans/opentap --strict --format json
+   ```
+
+   Ad-hoc single-plan check (same Host validator; missing sidecar stays a **warning** because `--strict` is not set):
+
+   ```bash
    HardwareTest --validate-plan path/to/plan.TapPlan
    ```
 
@@ -98,16 +103,7 @@ Built-in **sample** / **board-demo** / **sweep-demo** stay as factories for CI-s
 
 ### Authoring packs (Editor / TUI)
 
-Install the same **HardwareTest Basic** and **HardwareTest Mixins** versions the bench uses:
-
-```bash
-dotnet build src/HardwareTest.OpenTap.Plugins.Basic -c Release -r linux-x64 -p:CreateOpenTapPackage=true -p:InstallCreatedOpenTapPackage=false
-dotnet build src/HardwareTest.OpenTap.Plugins.Mixins -c Release -r linux-x64 -p:CreateOpenTapPackage=true -p:InstallCreatedOpenTapPackage=false
-tap package install path/to/HardwareTest\ Basic*.TapPackage
-tap package install path/to/HardwareTest\ Mixins*.TapPackage
-```
-
-`package.xml` lists only the plugin DLL (no `HardwareTest.Core`). The VISA adapter is not an authoring pack; product instrument types come from the visa/SCPI library later. Default builds keep `CreateOpenTapPackage=false` so CI does not run `tap package create`.
+Install the same **HardwareTest Basic** and **HardwareTest Mixins** versions the bench uses (commands in [§1 step 1](#engineer-loop)). `package.xml` lists only the plugin DLL (no `HardwareTest.Core`). The VISA adapter is not an authoring pack; product instrument types come from the visa/SCPI library later. Default builds keep `CreateOpenTapPackage=false` so CI does not run `tap package create`.
 
 ## 3. Station bindings (Instruments)
 
