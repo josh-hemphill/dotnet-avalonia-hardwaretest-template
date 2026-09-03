@@ -28,6 +28,8 @@ internal sealed class FakePivCard : IApduChannel, IDisposable
         Pin = pin;
     }
 
+    public byte[]? Uid { get; set; }
+    public bool FailSign { get; set; }
     public string Pin { get; }
     public int PinRetries { get; set; } = 3;
     public bool FailVerifyAsSecurityStatus { get; set; }
@@ -62,6 +64,11 @@ internal sealed class FakePivCard : IApduChannel, IDisposable
         if (command.Length < 4)
         {
             return [0x6D, 0x00];
+        }
+
+        if (command[0] == 0xFF && command[1] == 0xCA)
+        {
+            return Uid is { Length: > 0 } ? PivApdu.Concat(Uid, [0x90, 0x00]) : [0x6A, 0x82];
         }
 
         if (command[1] == 0xA4)
@@ -140,7 +147,7 @@ internal sealed class FakePivCard : IApduChannel, IDisposable
 
     private byte[] Sign(byte[] command)
     {
-        if (command[3] != _slot || command[2] != _algId)
+        if (FailSign || command[3] != _slot || command[2] != _algId)
         {
             return [0x6A, 0x88];
         }
@@ -166,5 +173,61 @@ internal sealed class FakePivCard : IApduChannel, IDisposable
 
         var inner = PivApdu.EncodeTlv(0x82, signature);
         return PivApdu.Concat(PivApdu.EncodeTlv(0x7C, inner), [0x90, 0x00]);
+    }
+}
+
+/// Routes GET DATA / AUTH to the slot that owns the object or key.
+internal sealed class CompositePivCard : IApduChannel, IDisposable
+{
+    private readonly FakePivCard[] _slots;
+
+    public CompositePivCard(params FakePivCard[] slots) => _slots = slots;
+
+    public byte[]? Transmit(byte[] command)
+    {
+        if (command.Length >= 2 && command[0] == 0xFF && command[1] == 0xCA)
+        {
+            foreach (var slot in _slots)
+            {
+                var uid = slot.Transmit(command);
+                if (PivApdu.IsSuccess(uid))
+                {
+                    return uid;
+                }
+            }
+
+            return [0x6A, 0x82];
+        }
+
+        if (command.Length >= 2 && command[1] == 0xA4)
+        {
+            return [0x90, 0x00];
+        }
+
+        if (command.Length >= 2 && command[1] == 0x20)
+        {
+            return _slots[0].Transmit(command);
+        }
+
+        byte[]? last = null;
+        foreach (var slot in _slots)
+        {
+            var response = slot.Transmit(command);
+            last = response;
+            if (PivApdu.IsSuccess(response))
+            {
+                return response;
+            }
+        }
+
+        return last ?? [0x6A, 0x88];
+    }
+
+    public void Dispose()
+    {
+        foreach (var slot in _slots)
+        {
+            slot.Dispose();
+        }
     }
 }

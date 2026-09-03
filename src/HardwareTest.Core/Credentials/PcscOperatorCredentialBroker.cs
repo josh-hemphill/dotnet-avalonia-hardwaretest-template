@@ -120,6 +120,7 @@ public sealed class PcscOperatorCredentialBroker : IOperatorCredentialBroker
         }
 
         CredentialSignResult? last = null;
+        var sawMatchingSerial = false;
         foreach (var reader in ordered)
         {
             if (PcscNative.Connect(context, reader, out var card, out var protocol) != PcscNative.Success)
@@ -129,11 +130,34 @@ public sealed class PcscOperatorCredentialBroker : IOperatorCredentialBroker
 
             try
             {
-                var result = PivSigner.Sign(new PcscApduChannel(card, protocol), payload, pin);
+                var channel = new PcscApduChannel(card, protocol);
+                var (serial, printedName) = PivCardIdentity.TryRead(channel);
+                if (string.IsNullOrWhiteSpace(serial))
+                {
+                    var atr = PcscNative.ReadAtr(card);
+                    if (atr is { Length: > 0 })
+                    {
+                        serial = Convert.ToHexString(atr);
+                    }
+                }
+
+                if (!CredentialSignBinding.SerialsMatch(credential.Serial, serial))
+                {
+                    continue;
+                }
+
+                sawMatchingSerial = true;
+                var result = CredentialSignBinding.SignMatching(
+                    channel,
+                    payload,
+                    pin,
+                    credential,
+                    serial,
+                    printedName);
                 if (result.Succeeded || result.PinRequired || result.PinRetriesRemaining is not null)
                 {
                     StatusText = result.Succeeded
-                        ? $"Signed with {credential.DisplayName}."
+                        ? $"Signed with {result.Credential?.DisplayName ?? credential.DisplayName}."
                         : (result.Error ?? StatusText);
                     return result;
                 }
@@ -146,7 +170,12 @@ public sealed class PcscOperatorCredentialBroker : IOperatorCredentialBroker
             }
         }
 
-        return last ?? CredentialSignResult.Failed("Present the same badge to sign.");
+        if (!sawMatchingSerial)
+        {
+            return CredentialSignResult.Failed(CredentialSignBinding.SameBadgeRequired);
+        }
+
+        return last ?? CredentialSignResult.Failed(CredentialSignBinding.SameBadgeRequired);
     }
 
     private sealed class PcscApduChannel : IApduChannel

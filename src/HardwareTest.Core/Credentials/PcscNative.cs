@@ -253,6 +253,15 @@ internal static class PcscNative
             return null;
         }
 
+        if (first[^2] == 0x6C)
+        {
+            first = TransmitOnce(card, protocol, ApplyLe(send, first[^1]));
+            if (first is not { Length: >= 2 })
+            {
+                return null;
+            }
+        }
+
         var payload = new List<byte>(first.Length);
         payload.AddRange(first.AsSpan(0, first.Length - 2).ToArray());
         var sw1 = first[^2];
@@ -274,6 +283,46 @@ internal static class PcscNative
         payload.Add(sw1);
         payload.Add(sw2);
         return payload.ToArray();
+    }
+
+    /// Sets or replaces Le (ISO 7816 Case 2/3/4) for a 6C XX retry.
+    internal static byte[] ApplyLe(ReadOnlySpan<byte> send, byte le)
+    {
+        if (send.Length <= 4)
+        {
+            var shortCmd = new byte[5];
+            send.CopyTo(shortCmd);
+            shortCmd[4] = le;
+            return shortCmd;
+        }
+
+        if (send.Length == 5)
+        {
+            var case2 = send.ToArray();
+            case2[4] = le;
+            return case2;
+        }
+
+        var lc = send[4];
+        if (lc != 0 && send.Length == 5 + lc)
+        {
+            var case4 = new byte[send.Length + 1];
+            send.CopyTo(case4);
+            case4[^1] = le;
+            return case4;
+        }
+
+        if (lc != 0 && send.Length == 5 + lc + 1)
+        {
+            var replaced = send.ToArray();
+            replaced[^1] = le;
+            return replaced;
+        }
+
+        var appended = new byte[send.Length + 1];
+        send.CopyTo(appended);
+        appended[^1] = le;
+        return appended;
     }
 
     private static byte[]? TransmitOnce(nint card, int protocol, byte[] send)

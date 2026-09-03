@@ -58,7 +58,12 @@ public sealed class MockOperatorCredentialBroker : IOperatorCredentialBroker
     {
         cancellationToken.ThrowIfCancellationRequested();
         _ = pin;
-        if (!CanSign || payload.Length == 0 || credential.Serial != MockSerial)
+        if (!CredentialSignBinding.SerialsMatch(MockSerial, credential.Serial))
+        {
+            return Task.FromResult(CredentialSignResult.Failed(CredentialSignBinding.SameBadgeRequired));
+        }
+
+        if (!CanSign || payload.Length == 0)
         {
             return Task.FromResult(CredentialSignResult.Failed("Mock badge cannot sign."));
         }

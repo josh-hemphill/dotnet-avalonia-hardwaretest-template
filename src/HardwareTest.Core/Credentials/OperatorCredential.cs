@@ -69,19 +69,22 @@ public sealed class CredentialSignResult
     public bool PinRequired { get; init; }
     public int? PinRetriesRemaining { get; init; }
     public string? Error { get; init; }
+    public OperatorCredential? Credential { get; init; }
     public bool Succeeded => Signature is { Length: > 0 };
 
     public static CredentialSignResult Signed(
         byte[] signature,
         string algorithm,
         byte[]? certificateDer = null,
-        string? thumbprint = null)
+        string? thumbprint = null,
+        OperatorCredential? credential = null)
         => new()
         {
             Signature = signature,
             Algorithm = algorithm,
             CertificateDer = certificateDer,
             Thumbprint = thumbprint,
+            Credential = credential,
         };
 
     public static CredentialSignResult NeedPin(string message)

@@ -27,6 +27,7 @@ internal static class PivSigner
             return CredentialSignResult.Failed("PIV applet not found on this card.");
         }
 
+        CredentialSignResult? lastAuthFailure = null;
         foreach (var (slot, objectId, requiresPin) in SlotOrder)
         {
             var certDer = TryReadCertificate(channel, objectId);
@@ -78,18 +79,21 @@ internal static class PivSigner
             var auth = channel.Transmit(PivApdu.GeneralAuthenticate(algId, slot, challenge));
             if (!PivApdu.IsSuccess(auth))
             {
-                return CredentialSignResult.Failed("On-card sign failed.");
+                lastAuthFailure = CredentialSignResult.Failed("On-card sign failed.");
+                continue;
             }
 
             var signature = TryReadSignature(PivApdu.Body(auth!));
             if (signature is not { Length: > 0 })
             {
-                return CredentialSignResult.Failed("Card returned an empty signature.");
+                lastAuthFailure = CredentialSignResult.Failed("Card returned an empty signature.");
+                continue;
             }
 
             if (!Verify(payload, signature, certDer, algorithm, hashName))
             {
-                return CredentialSignResult.Failed("Card signature did not verify with the on-card certificate.");
+                lastAuthFailure = CredentialSignResult.Failed("Card signature did not verify with the on-card certificate.");
+                continue;
             }
 
             return CredentialSignResult.Signed(
@@ -99,7 +103,7 @@ internal static class PivSigner
                 Convert.ToHexString(SHA256.HashData(certDer)));
         }
 
-        return CredentialSignResult.Failed("No PIV signing certificate on this card.");
+        return lastAuthFailure ?? CredentialSignResult.Failed("No PIV signing certificate on this card.");
     }
 
     public static bool Verify(

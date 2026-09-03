@@ -31,11 +31,11 @@ internal static class PivApdu
         data[0] = 0x5C;
         data[1] = (byte)objectId.Length;
         objectId.CopyTo(data.AsSpan(2));
-        return [0x00, 0xCB, 0x3F, 0xFF, (byte)data.Length, .. data];
+        return Command(0x00, 0xCB, 0x3F, 0xFF, data);
     }
 
     public static byte[] VerifyPin(ReadOnlySpan<char> pin)
-        => [0x00, 0x20, 0x00, 0x80, 0x08, .. PadPin(pin)];
+        => Command(0x00, 0x20, 0x00, 0x80, PadPin(pin));
 
     public static byte[] PadPin(ReadOnlySpan<char> pin)
     {
@@ -54,7 +54,18 @@ internal static class PivApdu
     {
         var inner = Concat(EncodeTlv(0x82, []), EncodeTlv(0x81, challenge));
         var body = EncodeTlv(0x7C, inner);
-        return [0x00, 0x87, algorithm, slot, (byte)body.Length, .. body];
+        return Command(0x00, 0x87, algorithm, slot, body);
+    }
+
+    /// Builds a Case-3/4 APDU; uses extended length when data is longer than 255 bytes.
+    public static byte[] Command(byte cla, byte ins, byte p1, byte p2, ReadOnlySpan<byte> data)
+    {
+        if (data.Length <= 255)
+        {
+            return [cla, ins, p1, p2, (byte)data.Length, .. data];
+        }
+
+        return [cla, ins, p1, p2, 0x00, (byte)(data.Length >> 8), (byte)data.Length, .. data];
     }
 
     public static byte[] Sha256DigestInfo(ReadOnlySpan<byte> sha256)

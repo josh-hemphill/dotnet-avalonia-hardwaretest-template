@@ -104,4 +104,84 @@ public sealed class PivSignerTests
         Assert.False(result.Succeeded);
         Assert.Contains("Insert the chip", result.Error, StringComparison.OrdinalIgnoreCase);
     }
+
+    [Fact]
+    public void Sign_falls_through_dead_9c_to_card_auth()
+    {
+        using var dead = FakePivCard.CreateRsa2048();
+        dead.FailSign = true;
+        using var live = FakePivCard.CreateCardAuthRsa();
+        using var card = new CompositePivCard(dead, live);
+        var payload = "fallback-slot"u8.ToArray();
+        var result = PivSigner.Sign(card, payload, FakePivCard.DefaultPin);
+        Assert.True(result.Succeeded, result.Error);
+        Assert.True(PivSigner.Verify(payload, result.Signature!, result.CertificateDer!, result.Algorithm!));
+    }
+
+    [Fact]
+    public void SignMatching_rejects_different_serial_in_the_same_call()
+    {
+        using var card = FakePivCard.CreateCardAuthRsa();
+        card.Uid = [0xAA, 0xBB, 0xCC, 0xDD];
+        var expected = new OperatorCredential { Serial = "DEADBEEF", DisplayName = "Other" };
+        var (presented, name) = PivCardIdentity.TryRead(card);
+        var result = CredentialSignBinding.SignMatching(
+            card,
+            "payload"u8.ToArray(),
+            pin: null,
+            expected,
+            presented,
+            name);
+        Assert.False(result.Succeeded);
+        Assert.Equal(CredentialSignBinding.SameBadgeRequired, result.Error);
+    }
+
+    [Fact]
+    public void SignMatching_stamps_the_presented_serial_when_it_matches()
+    {
+        using var card = FakePivCard.CreateCardAuthRsa();
+        card.Uid = [0x01, 0x02, 0x03, 0x04];
+        var expected = new OperatorCredential
+        {
+            Serial = "01020304",
+            DisplayName = "Session Name",
+            Transport = CredentialTransport.Contact,
+        };
+        var (presented, name) = PivCardIdentity.TryRead(card);
+        var result = CredentialSignBinding.SignMatching(
+            card,
+            "payload"u8.ToArray(),
+            pin: null,
+            expected,
+            presented,
+            name);
+        Assert.True(result.Succeeded, result.Error);
+        Assert.Equal("01020304", result.Credential!.Serial);
+        Assert.Equal(CredentialTransport.Contact, result.Credential.Transport);
+    }
+
+    [Fact]
+    public void Command_uses_extended_length_when_data_exceeds_255()
+    {
+        var data = new byte[300];
+        var apdu = PivApdu.Command(0x00, 0x87, 0x07, 0x9C, data);
+        Assert.Equal(0x00, apdu[4]);
+        Assert.Equal(0x01, apdu[5]);
+        Assert.Equal(0x2C, apdu[6]);
+        Assert.Equal(307, apdu.Length);
+    }
+
+    [Fact]
+    public void ApplyLe_appends_on_case3_and_replaces_on_case2()
+    {
+        var case3 = PivApdu.GetData(PivApdu.ObjectSignature);
+        var withLe = PcscNative.ApplyLe(case3, 0x40);
+        Assert.Equal(case3.Length + 1, withLe.Length);
+        Assert.Equal(0x40, withLe[^1]);
+
+        var case2 = new byte[] { 0x00, 0xC0, 0x00, 0x00, 0x00 };
+        var replaced = PcscNative.ApplyLe(case2, 0x20);
+        Assert.Equal(5, replaced.Length);
+        Assert.Equal(0x20, replaced[4]);
+    }
 }

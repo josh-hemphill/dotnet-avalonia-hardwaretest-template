@@ -10,7 +10,7 @@
 - *Run ID:* #sys.inputs.runId
 - *Plan / Suite:* #sys.inputs.planName
 - *DUT Serial:* #sys.inputs.dutSerial
-- *Operator:* #sys.inputs.operatorName
+- *Session operator:* #sys.inputs.operatorName
 - *Result:* #sys.inputs.result
 - *Started:* #sys.inputs.startedAt
 - *Completed:* #sys.inputs.completedAt
@@ -27,9 +27,10 @@
 ]
 
 #if sys.inputs.attestationKind != "" [
-  == Responsible party
-  - *Attestation:* #sys.inputs.attestationKind
-  - *Present:* #sys.inputs.attestationDetail
+  == Certified by
+  The session operator (technician on the run) and the person who certifies this report may be different.
+  - *Kind:* #sys.inputs.attestationKind
+  - *Name / serial:* #sys.inputs.attestationDetail
 ]
 
 #if sys.inputs.includePlots == "true" [

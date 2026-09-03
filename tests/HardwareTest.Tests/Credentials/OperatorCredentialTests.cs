@@ -321,6 +321,75 @@ public sealed class ReportAttestationServiceTests
         Assert.Equal(AttestationKind.Presence, result.Attestation!.Kind);
     }
 
+    [Fact]
+    public async Task Attest_failed_sign_after_pin_does_not_record_presence()
+    {
+        using var temp = new TempDataDirectory();
+        var store = new FileRunStore(temp.RunsDirectory);
+        var run = await SeedCertificationRunAsync(store);
+        using var card = FakePivCard.CreateRsa2048();
+        card.FailVerifyAsSecurityStatus = true;
+        var service = new ReportAttestationService(
+            new ScriptedPivBroker(card),
+            store,
+            new AppSettings
+            {
+                RequireAttestationBeforeExport = true,
+                AllowPresenceInLieuOfSigning = true,
+            });
+        var result = await service.AttestAsync(
+            run,
+            ReportKinds.Certification,
+            pin: FakePivCard.DefaultPin);
+        Assert.False(result.Succeeded);
+        Assert.Contains("Insert the chip", result.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Empty(run.Attestations);
+    }
+
+    [Fact]
+    public async Task Attest_same_badge_mismatch_does_not_record_presence()
+    {
+        using var temp = new TempDataDirectory();
+        var store = new FileRunStore(temp.RunsDirectory);
+        var run = await SeedCertificationRunAsync(store);
+        var service = new ReportAttestationService(
+            new MockOperatorCredentialBroker(canSign: true),
+            store,
+            new AppSettings
+            {
+                RequireAttestationBeforeExport = true,
+                AllowPresenceInLieuOfSigning = true,
+            });
+        var foreign = new OperatorCredential
+        {
+            DisplayName = "Other Badge",
+            Serial = "OTHER-SERIAL",
+            Transport = CredentialTransport.Contact,
+        };
+        var result = await service.AttestAsync(run, ReportKinds.Certification, foreign);
+        Assert.False(result.Succeeded);
+        Assert.Equal(CredentialSignBinding.SameBadgeRequired, result.Message);
+        Assert.Empty(run.Attestations);
+    }
+
+    [Fact]
+    public async Task Attest_keeps_session_operator_distinct_from_certifier()
+    {
+        using var temp = new TempDataDirectory();
+        var store = new FileRunStore(temp.RunsDirectory);
+        var run = await SeedCertificationRunAsync(store);
+        run.OperatorName = "Session Technician";
+        await store.SaveAsync(run);
+        var service = new ReportAttestationService(
+            new MockOperatorCredentialBroker(canSign: true),
+            store,
+            new AppSettings { RequireAttestationBeforeExport = true });
+        var result = await service.AttestAsync(run, ReportKinds.Certification);
+        Assert.True(result.Succeeded);
+        Assert.Equal("Session Technician", run.OperatorName);
+        Assert.Equal(MockOperatorCredentialBroker.MockDisplayName, result.Attestation!.DisplayName);
+    }
+
     private static async Task<TestRunRecord> SeedCertificationRunAsync(FileRunStore store)
     {
         var run = new TestRunRecord
