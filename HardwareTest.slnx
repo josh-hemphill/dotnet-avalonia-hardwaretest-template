@@ -2,6 +2,7 @@
   <Folder Name="/src/">
     <Project Path="src/HardwareTest.Core/HardwareTest.Core.csproj" />
     <Project Path="src/HardwareTest.OpenTap.Plugins.Basic/HardwareTest.OpenTap.Plugins.Basic.csproj" />
+    <Project Path="src/HardwareTest.OpenTap.Plugins.Visa/HardwareTest.OpenTap.Plugins.Visa.csproj" />
     <Project Path="src/HardwareTest.OpenTap.Plugins.Mixins/HardwareTest.OpenTap.Plugins.Mixins.csproj" />
     <Project Path="src/HardwareTest.OpenTap.Host/HardwareTest.OpenTap.Host.csproj" />
     <Project Path="src/HardwareTest.OpenTap.Worker/HardwareTest.OpenTap.Worker.csproj" />

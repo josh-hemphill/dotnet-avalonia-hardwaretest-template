@@ -26,7 +26,7 @@ public static class OpenTapPackageCatalog
 {
     private static readonly XNamespace PackageNs = "http://opentap.io/schemas/package";
 
-    /// Merge Basic, Mixins, settings, env, and PluginManager search dirs (first source wins).
+    /// Merge Basic, Visa, Mixins, settings, env, and PluginManager search dirs (first source wins).
     public static IReadOnlyList<OpenTapPluginDirectoryInfo> ListPluginDirectories(AppSettings settings)
     {
         var byPath = new Dictionary<string, OpenTapPluginDirectoryInfo>(StringComparer.OrdinalIgnoreCase);
@@ -57,6 +57,7 @@ public static class OpenTapPackageCatalog
         }
 
         Add(Path.GetDirectoryName(typeof(MockDmmInstrument).Assembly.Location), "Basic");
+        Add(Path.GetDirectoryName(typeof(VisaDmmInstrument).Assembly.Location), "Visa");
         Add(Path.GetDirectoryName(typeof(AnnotationMixinBuilder).Assembly.Location), "Mixins");
 
         foreach (var dir in settings.OpenTapPluginDirectories)

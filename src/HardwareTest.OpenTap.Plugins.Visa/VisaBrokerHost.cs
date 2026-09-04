@@ -4,6 +4,8 @@ using OpenTap;
 namespace HardwareTest.OpenTap.Plugins.Basic;
 
 /// Host-owned IVisaBroker slot, assigned before PluginManager.Search.
+/// Lives in assembly HardwareTest.OpenTap.Plugins.Visa so the Basic authoring pack
+/// does not reference Core. CLR namespace stays Plugins.Basic for TapPlan XML.
 /// OpenTAP session-local (not a second process-wide service locator).
 public static class VisaBrokerHost
 {

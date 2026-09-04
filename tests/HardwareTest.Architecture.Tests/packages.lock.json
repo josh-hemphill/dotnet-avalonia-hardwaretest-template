@@ -708,19 +708,27 @@
           "HardwareTest.Core": "[0.1.0, )",
           "HardwareTest.OpenTap.Plugins.Basic": "[0.1.0, )",
           "HardwareTest.OpenTap.Plugins.Mixins": "[0.1.0, )",
+          "HardwareTest.OpenTap.Plugins.Visa": "[0.1.0, )",
           "OpenTAP": "[9.32.2, )"
         }
       },
       "hardwaretest.opentap.plugins.basic": {
         "type": "Project",
         "dependencies": {
-          "HardwareTest.Core": "[0.1.0, )",
           "OpenTAP": "[9.32.2, )"
         }
       },
       "hardwaretest.opentap.plugins.mixins": {
         "type": "Project",
         "dependencies": {
+          "OpenTAP": "[9.32.2, )"
+        }
+      },
+      "hardwaretest.opentap.plugins.visa": {
+        "type": "Project",
+        "dependencies": {
+          "HardwareTest.Core": "[0.1.0, )",
+          "HardwareTest.OpenTap.Plugins.Basic": "[0.1.0, )",
           "OpenTAP": "[9.32.2, )"
         }
       },
