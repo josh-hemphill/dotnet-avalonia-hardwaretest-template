@@ -1,5 +1,4 @@
 using System.Text;
-using System.Text.Json;
 using HardwareTest.Core.Settings;
 using HardwareTest.OpenTap.Plugins.Basic;
 using HardwareTest.OpenTap.Plugins.Mixins;
@@ -61,6 +60,9 @@ public static class PlanContractValidator
         public const string SidecarMissing = "SIDECAR_MISSING";
         public const string SidecarInvalid = "SIDECAR_INVALID";
         public const string SidecarEmpty = "SIDECAR_EMPTY";
+        public const string SidecarUnknownProperty = "SIDECAR_UNKNOWN_PROPERTY";
+        public const string SidecarReportKinds = "SIDECAR_REPORT_KINDS";
+        public const string SidecarDefaultReportKind = "SIDECAR_DEFAULT_REPORT_KIND";
         public const string PresentationTimeseriesOnly = "PRESENTATION_TIMESERIES_ONLY";
     }
 
@@ -244,23 +246,13 @@ public static class PlanContractValidator
             return;
         }
 
-        try
+        var parsed = PlanContractSidecar.Analyze(sidecarPath, id, findings);
+        if (parsed is null)
         {
-            var parsed = JsonSerializer.Deserialize(
-                File.ReadAllText(sidecarPath),
-                ProgramCatalogJsonContext.Default.ProgramSidecar);
-            if (parsed is null)
-            {
-                findings.Add(Error(Codes.SidecarEmpty, $"Empty sidecar {id}.program.json"));
-                return;
-            }
+            return;
+        }
 
-            includeCleanup = parsed.SelectionIncludesCleanup ?? true;
-        }
-        catch (Exception ex)
-        {
-            findings.Add(Error(Codes.SidecarInvalid, $"Invalid sidecar {id}.program.json: {ex.Message}"));
-        }
+        includeCleanup = parsed.SelectionIncludesCleanup ?? true;
     }
 
     private static void AnalyzePlan(TestPlan plan, bool includeCleanup, List<PlanContractFinding> findings)

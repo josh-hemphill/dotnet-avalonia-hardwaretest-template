@@ -87,7 +87,7 @@ Host `PlanContractValidator` encodes these checks for TUI/Editor authors (`Hardw
 - Include `SafeShutdownStep` when using Run Selected (selection keeps SafeShutdown enabled by default). Opt out with `selectionIncludesCleanup: false` in `{planId}.program.json` only when shutdown is suite-scoped and selection is software-only. Disabled siblings showing NotExecuted/Invalidated is expected — not “cleanup skipped.”
 - Instruments must be extractable for the Instruments page (or document limits for foreign plugins).
 - No OpenTAP `DialogStep` / OS dialogs; Presentation mixins should not be timeseries-only when the verdict is a band/threshold.
-- Sidecar `{planId}.program.json` present (warning if missing) and valid JSON (error if not). Copy `plans/opentap/template.program.json`.
+- Sidecar `{planId}.program.json` present (warning if missing) and valid JSON (error if not). Copy `plans/opentap/template.program.json`. Unknown properties warn; `reportKinds` / `defaultReportKind` must be `status` or `certification`.
 
 Coverage lives in `PlanContractValidatorTests` (OpenTapSerial) plus `ConfigurationArgs` parse for `--validate-plan` (including the bare flag). Named shape templates remain in `PlanDiagnosticsTests` (`PlanDiagnostics_*`).
 
