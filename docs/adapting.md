@@ -14,7 +14,7 @@ A **locked program** is the bake-ready unit: `.TapPlan` + `{planId}.program.json
 | --- | --- | --- |
 | `.TapPlan` | [`plans/opentap/`](../plans/opentap/) (copied to `Programs/` on build) | Locked XML. Start from `sample.TapPlan`. |
 | `{planId}.program.json` | Same folder | Session / DUT / Typst only. Copy [`template.program.json`](../plans/opentap/template.program.json). Keep `"$schema": "./program.schema.json"`. |
-| Plugin set | TapPackage **Dependencies** | HardwareTest Basic + Mixins (+ product packs). Not listed in the sidecar. |
+| Plugin set | TapPackage **Dependencies** | HardwareTest Basic + Mixins (+ official **Expressions** when used, + product packs). Not listed in the sidecar. |
 | Presentation / limits | Mixins on **function** leaves | Unique `ChannelKey`; scalar/passband need `LimitLow`/`LimitHigh`/`Threshold`. |
 | `reportKinds` | Sidecar | `status` and/or `certification`. |
 
@@ -58,10 +58,11 @@ Instrument / component requirements belong in `.TapPackage` Dependencies, not th
 
    Both entry points reuse `PlanContractValidator` in Host (Avalonia-free). Exit `1` on errors, `0` when only warnings remain. Missing `--validate-plan` path prints usage and exits `2` — it does not launch the UI. `HardwareTest.PlanValidate --opentap-plugin-dirs` trusts those **CLI** directories (authoring machine); `HARDWARETEST_OPENTAP_PLUGIN_DIRS` still requires appliance `PluginDirectoryTrust`. `HardwareTest --validate-plan` applies appliance trust (`{DataDirectory}/plugins` unless Engineer debug). `--format json|sarif` is for CI annotations.
 
-6. **Pack** from [`plans/opentap/package.xml`](../plans/opentap/package.xml) (HardwareTest Template Program — sample plan + sidecar + schema; depends on Basic + Mixins, not Core). `tap package create` requires those authoring packs already installed (step 1):
+6. **Pack** from [`plans/opentap/package.xml`](../plans/opentap/package.xml) (HardwareTest Template Program — sample plan + sidecar + schema; depends on Basic + Mixins, not Core). `tap package create` requires those authoring packs already installed (step 1). Run it from `plans/opentap` so `File Path` entries resolve:
 
    ```bash
-   tap package create plans/opentap/package.xml
+   cd plans/opentap
+   tap package create package.xml
    ```
 
 7. **Bake** the program pack and plugin packs onto the appliance. Inspect + mock Run (`UseMockVisa`) is still required before shipping.
@@ -90,6 +91,20 @@ Built-in **sample** / **board-demo** / **sweep-demo** stay as factories for CI-s
 | **sample** (`SampleProgramFactory`) | `Confirm Sweep Area Clear` (confirm-only) → `Install Sweep Fixture` (typed: `fixtureId`, `fixtureTorqueNm`) | Acquire/Mean settings + Annotation on Identity; Presentation: Acquire `VDC` timeseries, Mean `VDC.mean` scalar |
 | **board-demo** (`BoardDemoProgramFactory`) | `Seat Board Fixture` (confirm) → `Record Board Sticker` (typed: `boardLotId`) | Multi-rail Acquire/Mean; Presentation: `rail.3v3` / `rail.5v` / `bus.vdc` timeseries + mean scalar/passband (see [phase-i](opentap-phases/phase-i-presentation-contract.md)) |
 | **sweep-demo** (`SweepDemoProgramFactory`) | (none) | Repeat ×3; Presentation `sweep.vdc` timeseries + loop iteration stamps |
+
+### OpenTAP Expressions (plan-package dependency)
+
+Do **not** reimplement expression evaluation or a formula editor in Avalonia. If a product plan uses OpenTAP expression steps or mixins, install the official **Expressions** pack in Editor/TUI **and** on the bench, and declare it on the **program** TapPackage (not in `program.json`):
+
+```xml
+<PackageDependency Package="Expressions" Version="^1.5.0" />
+```
+
+The HardwareTest Template Program pack does **not** declare this. `sample.TapPlan` / `board-demo` stay numeric so `TestPlan.Load` and `tap package create` work without Expressions installed. `plans/opentap/fixtures/` stay numeric for the same reason.
+
+- Pin a caret version you actually install (`tap package list` / Package Manager). `^1.5.0` matches OpenTAP's documented example; it is not a HardwareTest CI pin.
+- **Run Selected:** expressions that read **disabled siblings** outside the selection mask may see NotExecuted/Invalidated values — that is expected. Prefer expressions that only read enabled siblings, or keep the selection so referenced steps stay enabled.
+- Station overrides can edit expression **strings** when those members are writable primitives (`EnumerateParameters` / `TrySetParameter`). Do not add an Avalonia formula builder.
 
 ## 2. Plugins
 
@@ -170,6 +185,7 @@ Keep these separate:
 - **Station overrides (Engineer/Debug only):** Run board **Station overrides** panel for limits/channels/`Enabled`. **Apply & save** → `TrySetParameter` + `PlanParameterOverrides`. Re-applied on program load / before run. Does not rewrite the TapPlan.
 - Prompt-schema properties on interaction steps (Message, field ids/labels) are not station overrides; only `Enabled` is overridable there.
 - Prefer `EnumerateParameters` / `TrySetParameter` for new product code. `TrySetAcquireSettings` / `TrySetMeanGteThreshold` remain sample-only adapters around the bridge.
+- OpenTAP **Expressions** strings are station-overridable when they are writable primitives. Do not add a formula UI in Avalonia; see [§1 Expressions](#opentap-expressions-plan-package-dependency).
 
 ## 7. Reports (Typst)
 
