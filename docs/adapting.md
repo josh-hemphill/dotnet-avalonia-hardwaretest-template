@@ -14,16 +14,19 @@ For UI vs OpenTAP test suites, see [testing.md](testing.md). For sealed Linux pu
    ```
 
    Both entry points reuse `PlanContractValidator` in Host (Avalonia-free). Exit `1` on errors, `0` when only warnings remain. Missing `--validate-plan` path (bare flag or empty) prints usage and exits `2` — it does not launch the UI. `HardwareTest.PlanValidate --opentap-plugin-dirs` trusts those **CLI** directories for the process (authoring machine); `HARDWARETEST_OPENTAP_PLUGIN_DIRS` still requires appliance `PluginDirectoryTrust`. `HardwareTest --validate-plan` still applies appliance `PluginDirectoryTrust` (`{DataDirectory}/plugins` unless Engineer debug). Authoring warnings do **not** block operator Run. Engineer loop: TUI/Editor save → validate → copy into `Programs/` → Inspect + mock Run (`UseMockVisa`). `plans/opentap/fixtures/` are shape examples, not product plans; start from `sample.TapPlan` / board-demo.
-2. Optional sidecar beside a plan: `{planId}.program.json` for display name, DUT family, and session requirements:
+2. Optional sidecar beside a plan: `{planId}.program.json` for display name, DUT family, session requirements, and Typst `reportKinds`. Copy [`plans/opentap/template.program.json`](../plans/opentap/template.program.json) and keep `"$schema": "./program.schema.json"` for editor intellisense ([`program.schema.json`](../plans/opentap/program.schema.json)). Instrument / component requirements belong in `.TapPackage` Dependencies, not this file.
 
 ```json
 {
+  "$schema": "./program.schema.json",
   "displayName": "Power Board Suite",
   "dutFamily": "power",
   "requireSerial": true,
   "requireOperator": true,
   "requirePartNumber": false,
   "requireRevision": false,
+  "reportKinds": ["status", "certification"],
+  "defaultReportKind": "status",
   "selectionIncludesCleanup": true
 }
 ```
@@ -80,7 +83,7 @@ DUT stamping still looks for Basic `IdentityCheckStep` / `HardwareDut`. Custom D
 - At least one instrument with a writable `VisaAddress` / `ResourceName` / `Address` so Instruments can rebind.
 - Use `OperatorPromptStep` / `OperatorInputStep`, never OpenTAP `DialogStep` or WinForms/WPF dialogs.
 - Presentation: band-first (`scalar` / `passband` for pass criteria; `timeseries` only when shape matters).
-- Sidecar `{planId}.program.json` present and schema-sane (missing is a warning; invalid JSON is an error).
+- Sidecar `{planId}.program.json` present (warning if missing) and schema-sane (missing is a warning; invalid JSON is an error). Copy `plans/opentap/template.program.json` (`$schema` + `reportKinds`). Unknown sidecar properties warn; empty or unknown `reportKinds` / `defaultReportKind` error.
 
 Repeat/Sweep loops show innermost `iter i/N` on the Run hero during execute; edit bounds in OpenTAP Editor / TUI or Phase C overrides — not in Avalonia.
 
