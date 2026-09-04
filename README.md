@@ -11,8 +11,9 @@ src/
   HardwareTest/                      # Avalonia exe — App / Features / Widgets
   HardwareTest.Core/                 # Avalonia-free: logging, settings, VISA, runs, reporting
   HardwareTest.OpenTap.Host/         # OpenTAP session façade (load / run / pause / abort)
-  HardwareTest.OpenTap.Plugins.Basic/# Instruments, DUT, sample TestSteps
-  HardwareTest.OpenTap.Plugins.Mixins/# Demo Annotation mixin (IMixinBuilder)
+  HardwareTest.OpenTap.Plugins.Basic/# Operator/safety/measure steps (Editor pack)
+  HardwareTest.OpenTap.Plugins.Visa/ # VISA DMM adapter over IVisaBroker (bench)
+  HardwareTest.OpenTap.Plugins.Mixins/# Presentation + Annotation mixins (Editor pack)
 plans/opentap/                       # Locked .TapPlan programs
 docs/appliance-linux.md              # Appliance layout + publish notes
 docs/containers.md                   # Local CI tasks, Podman, appliance image rails

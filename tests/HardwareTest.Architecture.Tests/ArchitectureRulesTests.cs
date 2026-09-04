@@ -237,10 +237,20 @@ public sealed class ArchitectureRulesTests
             PhaseIPresentation);
     }
 
+    [Fact]
+    public void BasicPlugins_must_not_reference_Core()
+    {
+        AssertNoForbiddenDirectReference(
+            typeof(AcquireVoltageStep).Assembly,
+            name => string.Equals(name, "HardwareTest.Core", StringComparison.Ordinal),
+            "docs/adapting.md — HardwareTest Basic is the Editor authoring pack and must not pull Core (VISA broker stays in Plugins.Visa).");
+    }
+
     [Theory]
     [InlineData(typeof(AppSettings))]
     [InlineData(typeof(OpenTapSession))]
     [InlineData(typeof(AcquireVoltageStep))]
+    [InlineData(typeof(VisaDmmInstrument))]
     [InlineData(typeof(AnnotationMixin))]
     [InlineData(typeof(global::HardwareTest.MainWindow))]
     [InlineData(typeof(global::HardwareTest.OpenTap.Worker.Program))]
@@ -367,6 +377,7 @@ public sealed class ArchitectureRulesTests
         string[] pluginRoots =
         [
             Path.Combine(srcRoot, "HardwareTest.OpenTap.Plugins.Basic"),
+            Path.Combine(srcRoot, "HardwareTest.OpenTap.Plugins.Visa"),
             Path.Combine(srcRoot, "HardwareTest.OpenTap.Plugins.Mixins"),
         ];
 
@@ -397,6 +408,24 @@ public sealed class ArchitectureRulesTests
         Assert.True(
             offenders.Count == 0,
             $"{Phase22PluginIviRule} Offenders:{Environment.NewLine}{string.Join(Environment.NewLine, offenders)}");
+    }
+
+    [Fact]
+    public void Authoring_plugin_package_xml_excludes_core()
+    {
+        var srcRoot = Path.Combine(FindRepoRoot(), "src");
+        string[] packages =
+        [
+            Path.Combine(srcRoot, "HardwareTest.OpenTap.Plugins.Basic", "package.xml"),
+            Path.Combine(srcRoot, "HardwareTest.OpenTap.Plugins.Mixins", "package.xml"),
+        ];
+        foreach (var path in packages)
+        {
+            Assert.True(File.Exists(path), path);
+            var xml = File.ReadAllText(path);
+            Assert.DoesNotContain("HardwareTest.Core.dll", xml, StringComparison.Ordinal);
+            Assert.Contains("OpenTAP", xml, StringComparison.Ordinal);
+        }
     }
 
     private static readonly char[] PathSeparators =
@@ -442,7 +471,7 @@ public sealed class ArchitectureRulesTests
             $"{rule} Assembly '{assembly.GetName().Name}' references forbidden: [{string.Join(", ", hits)}].");
     }
 
-    /// Direct references only — Plugins.Basic may ProjectReference Core for IVisaBroker; Core's ScottPlot must not count as a plugin UI reference.
+    /// Direct references only — Plugins.Visa may ProjectReference Core for IVisaBroker; Core's ScottPlot must not count as a plugin UI reference.
     private static void AssertNoForbiddenDirectReference(Assembly assembly, Func<string, bool> isForbidden, string rule)
     {
         var hits = assembly.GetReferencedAssemblies()

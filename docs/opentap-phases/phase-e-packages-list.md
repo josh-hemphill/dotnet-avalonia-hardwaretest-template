@@ -16,7 +16,7 @@ In-app **list** of installed OpenTAP packages and configured plugin search direc
 
 ## Implementation
 
-- Host: [`OpenTapPackageCatalog`](../../src/HardwareTest.OpenTap.Host/OpenTapPackageCatalog.cs) + `IOpenTapSession.ListPluginDirectories` / `ListInstalledPackages` (filesystem `package.xml` + Basic/Mixins/settings/env/`PluginManager` dirs).
+- Host: [`OpenTapPackageCatalog`](../../src/HardwareTest.OpenTap.Host/OpenTapPackageCatalog.cs) + `IOpenTapSession.ListPluginDirectories` / `ListInstalledPackages` (filesystem `package.xml` + Basic/Visa/Mixins/settings/env/`PluginManager` dirs).
 - UI: Settings subsection **OpenTAP packages & plugins** ([`SettingsViewModel`](../../src/HardwareTest/Features/Settings/SettingsViewModel.cs)) — Refresh, Copy path, Open folder.
 - Fake catalog for ViewModel tests; Host temp-dir smoke in `OpenTapHostTests`.
 

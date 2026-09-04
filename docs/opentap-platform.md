@@ -96,7 +96,7 @@ Two different concepts (do not conflate):
 
 ## Mixin support model
 
-- Mixins load with plugins (`OpenTapPluginDirectories` / package install dirs). Host always searches Basic + Mixins plugin assembly directories (`OpenTapPluginSearch`).
+- Mixins load with plugins (`OpenTapPluginDirectories` / package install dirs). Host always searches Basic + Visa + Mixins plugin assembly directories (`OpenTapPluginSearch`).
 - Demo: [`AnnotationMixin`](../src/HardwareTest.OpenTap.Plugins.Mixins/AnnotationMixin.cs) and [`PresentationMixin`](../src/HardwareTest.OpenTap.Plugins.Mixins/PresentationMixin.cs) (`ChannelKey` / `DisplayRole` / `YUnit`). Sample Identity Check attaches Annotation; Acquire/Mean steps across Sample, Board, and Sweep demos attach Presentation — see [phase-i-presentation-contract.md](opentap-phases/phase-i-presentation-contract.md). Run/Results map roles to plot + gauges ([phase-j-presentation-ui.md](opentap-phases/phase-j-presentation-ui.md)). Band-first authoring cookbook: [phase-l-presentation-authoring.md](opentap-phases/phase-l-presentation-authoring.md). Production plans attach mixins in **OpenTAP Editor** or **OpenTAP TUI**.
 - Engineer/Debug Station overrides lists mixin-embedded members via TypeData (`EmbedProperties`), with `OpenTapParameterInfo.IsMixinEmbedded` + Group (e.g. `Annotation: Note`). Get/set uses the Phase C parameter bridge.
 - Author mixins with `IMixin` + `IMixinBuilder` (`[MixinBuilder(typeof(ITestStep))]`). Avalonia does **not** offer “Add Mixin” — attach in Editor, edit values in the shell.
