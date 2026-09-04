@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <!-- Same CLR namespace as Basic so existing TapPlan type names stay stable. -->
+    <RootNamespace>HardwareTest.OpenTap.Plugins.Basic</RootNamespace>
+    <AssemblyName>HardwareTest.OpenTap.Plugins.Visa</AssemblyName>
+    <Description>OpenTAP VISA DMM adapter over HardwareTest IVisaBroker (bench, not Editor SDK)</Description>
+    <CreateOpenTapPackage>false</CreateOpenTapPackage>
+    <InstallCreatedOpenTapPackage>false</InstallCreatedOpenTapPackage>
+    <IsAotCompatible>false</IsAotCompatible>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="OpenTAP" Version="9.32.2" />
+    <ProjectReference Include="..\HardwareTest.OpenTap.Plugins.Basic\HardwareTest.OpenTap.Plugins.Basic.csproj" />
+    <ProjectReference Include="..\HardwareTest.Core\HardwareTest.Core.csproj" />
+  </ItemGroup>
+</Project>

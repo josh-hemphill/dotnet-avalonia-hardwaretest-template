@@ -17,7 +17,7 @@ First-class mixin awareness: load mixin assemblies, show mixin-backed settings i
 
 ## Delivered
 
-1. **Load path:** [`OpenTapPluginSearch`](../../src/HardwareTest.OpenTap.Host/OpenTapPluginSearch.cs) registers Basic + Mixins DLLs; `OpenTapPluginDirectories` / `HARDWARETEST_OPENTAP_PLUGIN_DIRS` remain for adopters.
+1. **Load path:** [`OpenTapPluginSearch`](../../src/HardwareTest.OpenTap.Host/OpenTapPluginSearch.cs) registers Basic + Visa + Mixins DLLs; `OpenTapPluginDirectories` / `HARDWARETEST_OPENTAP_PLUGIN_DIRS` remain for adopters.
 2. **Parameters:** [`OpenTapParameterBridge`](../../src/HardwareTest.OpenTap.Host/OpenTapParameterBridge.cs) tags `IsMixinEmbedded`, groups Display/`Annotation` labels; Station overrides panel shows them (Engineer/Debug).
 3. **Sample mixin:** [`HardwareTest.OpenTap.Plugins.Mixins`](../../src/HardwareTest.OpenTap.Plugins.Mixins/) — `AnnotationMixin` + `AnnotationMixinBuilder`. Sample Identity Check attaches via [`OpenTapMixinAttach`](../../src/HardwareTest.OpenTap.Host/OpenTapMixinAttach.cs) (`DynamicMember.AddDynamicMember` + instance init; `MixinFactory` is internal in OpenTAP 9.32).
 4. **Docs:** adapting “Custom mixins” + platform mixin model.

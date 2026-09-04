@@ -5,7 +5,7 @@ using OpenTap;
 
 namespace HardwareTest.OpenTap.Host;
 
-/// Registers Basic + Mixins plugin directories for PluginManager.Search.
+/// Registers Basic + Visa + Mixins plugin directories for PluginManager.Search.
 internal static class OpenTapPluginSearch
 {
     private static readonly object SearchGate = new();
@@ -38,6 +38,7 @@ internal static class OpenTapPluginSearch
     private static void EnsureCorePluginDirectories()
     {
         AddAssemblyDirectory(typeof(MockDmmInstrument).Assembly.Location);
+        AddAssemblyDirectory(typeof(VisaDmmInstrument).Assembly.Location);
         AddAssemblyDirectory(typeof(AnnotationMixinBuilder).Assembly.Location);
 
         // OpenTAP ships BasicSteps (Repeat/Sweep) under Packages/OpenTAP beside OpenTap.dll.

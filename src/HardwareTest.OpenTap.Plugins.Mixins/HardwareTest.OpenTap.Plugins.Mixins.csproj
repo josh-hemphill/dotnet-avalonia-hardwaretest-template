@@ -3,6 +3,7 @@
     <RootNamespace>HardwareTest.OpenTap.Plugins.Mixins</RootNamespace>
     <Description>Demo OpenTAP mixins for HardwareTest (Annotation)</Description>
     <CreateOpenTapPackage>false</CreateOpenTapPackage>
+    <InstallCreatedOpenTapPackage>false</InstallCreatedOpenTapPackage>
     <IsAotCompatible>false</IsAotCompatible>
   </PropertyGroup>
   <ItemGroup>
