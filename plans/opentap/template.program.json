@@ -1,9 +1,12 @@
 {
+  "$schema": "./program.schema.json",
   "displayName": "Power Board Suite",
   "dutFamily": "power",
   "requireSerial": true,
   "requireOperator": true,
   "requirePartNumber": false,
   "requireRevision": false,
+  "reportKinds": ["status", "certification"],
+  "defaultReportKind": "status",
   "selectionIncludesCleanup": true
 }

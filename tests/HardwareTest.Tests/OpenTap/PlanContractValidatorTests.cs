@@ -118,6 +118,96 @@ public sealed class PlanContractValidatorTests
     }
 
     [Fact]
+    public void Validate_shipped_sample_sidecar_has_status_and_certification()
+    {
+        var shipped = Path.Combine(AppContext.BaseDirectory, "Programs", "sample.program.json");
+        Assert.True(File.Exists(shipped), shipped);
+        using var dir = new TempPlanDir();
+        File.Copy(Path.Combine(AppContext.BaseDirectory, "Programs", SampleProgramFactory.EmbeddedName),
+            Path.Combine(dir.Path, SampleProgramFactory.EmbeddedName));
+        File.Copy(shipped, Path.Combine(dir.Path, "sample.program.json"));
+        var report = PlanContractValidator.ValidateFile(Path.Combine(dir.Path, SampleProgramFactory.EmbeddedName));
+        Assert.DoesNotContain(report.Findings, f => f.Code == PlanContractValidator.Codes.SidecarReportKinds);
+        Assert.DoesNotContain(report.Findings, f => f.Code == PlanContractValidator.Codes.SidecarDefaultReportKind);
+        Assert.False(report.HasErrors, string.Join("; ", report.Findings.Select(f => $"{f.Code}: {f.Message}")));
+        var json = File.ReadAllText(shipped);
+        Assert.Contains("\"status\"", json, StringComparison.Ordinal);
+        Assert.Contains("\"certification\"", json, StringComparison.Ordinal);
+        Assert.Contains("program.schema.json", json, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Validate_unknown_sidecar_property_is_warning()
+    {
+        using var dir = new TempPlanDir();
+        SampleProgramFactory.SaveBeside(dir.Path);
+        File.WriteAllText(
+            Path.Combine(dir.Path, "sample.program.json"),
+            """
+            {
+              "displayName": "sample",
+              "dutFamily": "demo",
+              "needsDmm": true
+            }
+            """);
+        var report = PlanContractValidator.ValidateFile(Path.Combine(dir.Path, SampleProgramFactory.EmbeddedName));
+        Assert.Contains(report.Findings, f => f.Code == PlanContractValidator.Codes.SidecarUnknownProperty
+            && f.Severity == PlanContractSeverity.Warning);
+        Assert.False(report.HasErrors);
+    }
+
+    [Fact]
+    public void Validate_empty_or_unknown_report_kinds_are_errors()
+    {
+        using var dir = new TempPlanDir();
+        SampleProgramFactory.SaveBeside(dir.Path);
+        File.WriteAllText(
+            Path.Combine(dir.Path, "sample.program.json"),
+            """{ "displayName": "sample", "reportKinds": [] }""");
+        var empty = PlanContractValidator.ValidateFile(Path.Combine(dir.Path, SampleProgramFactory.EmbeddedName));
+        Assert.Contains(empty.Findings, f => f.Code == PlanContractValidator.Codes.SidecarReportKinds
+            && f.Severity == PlanContractSeverity.Error);
+
+        File.WriteAllText(
+            Path.Combine(dir.Path, "sample.program.json"),
+            """{ "displayName": "sample", "reportKinds": ["status", "mes"] }""");
+        var unknown = PlanContractValidator.ValidateFile(Path.Combine(dir.Path, SampleProgramFactory.EmbeddedName));
+        Assert.Contains(unknown.Findings, f => f.Code == PlanContractValidator.Codes.SidecarReportKinds
+            && f.Message.Contains("mes", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Validate_default_report_kind_must_be_listed()
+    {
+        using var dir = new TempPlanDir();
+        SampleProgramFactory.SaveBeside(dir.Path);
+        File.WriteAllText(
+            Path.Combine(dir.Path, "sample.program.json"),
+            """
+            {
+              "reportKinds": ["status"],
+              "defaultReportKind": "certification"
+            }
+            """);
+        var report = PlanContractValidator.ValidateFile(Path.Combine(dir.Path, SampleProgramFactory.EmbeddedName));
+        Assert.Contains(report.Findings, f => f.Code == PlanContractValidator.Codes.SidecarDefaultReportKind
+            && f.Severity == PlanContractSeverity.Error);
+    }
+
+    [Fact]
+    public void Validate_unknown_default_report_kind_is_error()
+    {
+        using var dir = new TempPlanDir();
+        SampleProgramFactory.SaveBeside(dir.Path);
+        File.WriteAllText(
+            Path.Combine(dir.Path, "sample.program.json"),
+            """{ "defaultReportKind": "mes" }""");
+        var report = PlanContractValidator.ValidateFile(Path.Combine(dir.Path, SampleProgramFactory.EmbeddedName));
+        Assert.Contains(report.Findings, f => f.Code == PlanContractValidator.Codes.SidecarDefaultReportKind
+            && f.Severity == PlanContractSeverity.Error);
+    }
+
+    [Fact]
     public void Validate_directory_globs_tap_plans()
     {
         using var dir = new TempPlanDir();

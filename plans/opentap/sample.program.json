@@ -1,9 +1,12 @@
 {
+  "$schema": "./program.schema.json",
   "displayName": "Sample Hardware Suite (Demo)",
   "dutFamily": "demo",
   "requireSerial": true,
   "requireOperator": true,
   "requirePartNumber": false,
   "requireRevision": false,
+  "reportKinds": ["status", "certification"],
+  "defaultReportKind": "status",
   "selectionIncludesCleanup": true
 }
