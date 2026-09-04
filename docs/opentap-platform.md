@@ -78,7 +78,7 @@ Pre-run parameter edits and mid-run inputs share the **same field control types*
 
 **Authoring:** Prefer `OperatorInputStep` (or custom steps calling `IStepRuntime.RequestInteraction`) for technician input. Keep `OperatorPromptStep` for confirm-only pauses. Do not add OpenTAP Dialog steps to appliance plans.
 
-**In-repo demos:** `SampleProgramFactory`, `BoardDemoProgramFactory`, and `SweepDemoProgramFactory` (loop iteration chrome) — see the table in [adapting.md](adapting.md#1-programs-tapplans--catalog).
+**In-repo demos:** `SampleProgramFactory`, `BoardDemoProgramFactory`, and `SweepDemoProgramFactory` (loop iteration chrome) — see the table in [adapting.md](adapting.md#1-author-a-locked-program-cookbook).
 
 ## Parameter model
 
@@ -115,7 +115,7 @@ Two different concepts (do not conflate):
 - Device column has two sections: **VISA** (IVI Find / mock) and **OpenTAP** (`IDeviceDiscovery` for `VisaAddress` via [`OpenTapDeviceDiscovery`](../src/HardwareTest.OpenTap.Host/OpenTapDeviceDiscovery.cs)). Apply uses whichever list is selected. Rows show parsed interface hints; **Query *IDN?** is opt-in confirmation (opens the resource briefly).
 - Host bind order: **`VisaAddress` → `ResourceName` → `Address`** ([`InstrumentResourceAccess`](../src/HardwareTest.OpenTap.Host/InstrumentResourceAccess.cs)). Sample `MockDmmInstrument` exposes both `VisaAddress` and `ResourceName` on one backing field.
 - Host does **not** Open/Close instruments around runs — OpenTAP opens them during plan execution (avoids double-open).
-- Full ComponentSettings / bench-profile editor remains deferred ([deferred-bench-profile-ui.md](deferred/deferred-bench-profile-ui.md)); SCPI adopter path: [adapting.md](adapting.md#3-station-bindings-instruments).
+- Full ComponentSettings / bench-profile editor remains deferred ([deferred-bench-profile-ui.md](deferred/deferred-bench-profile-ui.md)); SCPI adopter path: [adapting.md](adapting.md#3-station-bindings-instruments). Typed instrument functions and SCPI maps belong in a separate library pack ([deferred-instrument-pack-binding.md](deferred/deferred-instrument-pack-binding.md)).
 
 ## Sweep / loop progress
 
@@ -131,6 +131,7 @@ Longer-horizon OpenTAP / product work. Prefer the detailed plans under [`docs/de
 | --- | --- |
 | [Package feed install](deferred/deferred-package-feed-install.md) | In-app OpenTAP feed install/update (today list-only) |
 | [Bench profile UI](deferred/deferred-bench-profile-ui.md) | Full ComponentSettings / bench-profile editor |
+| [Instrument pack binding](deferred/deferred-instrument-pack-binding.md) | Consume visa/SCPI library pack; thin wrapper via IVisaBroker |
 | — | Native OpenTAP dialog windows (**forbidden** on appliance; do not schedule) |
 | — | Remote Agent / REST execution (out of shell scope for now) |
 
