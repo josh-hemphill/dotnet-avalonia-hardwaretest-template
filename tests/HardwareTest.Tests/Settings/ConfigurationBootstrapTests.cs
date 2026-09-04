@@ -151,13 +151,33 @@ public sealed class ConfigurationBootstrapTests
     public void Parse_validate_plan_flag_sets_path_and_is_not_passthrough()
     {
         var spaced = ConfigurationArgs.Parse(["--validate-plan", "plans/opentap/sample.TapPlan", "--log-level", "Debug"]);
+        Assert.True(spaced.ValidatePlan);
         Assert.Equal("plans/opentap/sample.TapPlan", spaced.ValidatePlanPath);
         Assert.Empty(spaced.PassthroughArgs);
         Assert.Equal("Debug", spaced.Overlays["LogMinimumLevel"]);
 
         var inline = ConfigurationArgs.Parse(["--validate-plan=fixtures/no-safe-shutdown.TapPlan"]);
+        Assert.True(inline.ValidatePlan);
         Assert.Equal("fixtures/no-safe-shutdown.TapPlan", inline.ValidatePlanPath);
         Assert.Empty(inline.PassthroughArgs);
+    }
+
+    [Fact]
+    public void Parse_bare_validate_plan_sets_flag_without_path()
+    {
+        var bare = ConfigurationArgs.Parse(["--validate-plan"]);
+        Assert.True(bare.ValidatePlan);
+        Assert.Null(bare.ValidatePlanPath);
+        Assert.Empty(bare.PassthroughArgs);
+
+        var empty = ConfigurationArgs.Parse(["--validate-plan="]);
+        Assert.True(empty.ValidatePlan);
+        Assert.Equal(string.Empty, empty.ValidatePlanPath);
+        Assert.Empty(empty.PassthroughArgs);
+
+        var other = ConfigurationArgs.Parse(["--print-config"]);
+        Assert.False(other.ValidatePlan);
+        Assert.Null(other.ValidatePlanPath);
     }
 
     [Fact]
