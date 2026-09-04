@@ -89,7 +89,7 @@ Host `PlanContractValidator` encodes these checks for TUI/Editor authors (`Hardw
 - No OpenTAP `DialogStep` / OS dialogs; Presentation mixins should not be timeseries-only when the verdict is a band/threshold.
 - Sidecar `{planId}.program.json` present (warning if missing) and valid JSON (error if not). Copy `plans/opentap/template.program.json`.
 
-Coverage lives in `PlanContractValidatorTests` (OpenTapSerial) plus `ConfigurationArgs` parse for `--validate-plan`. Named shape templates remain in `PlanDiagnosticsTests` (`PlanDiagnostics_*`).
+Coverage lives in `PlanContractValidatorTests` (OpenTapSerial) plus `ConfigurationArgs` parse for `--validate-plan` (including the bare flag). Named shape templates remain in `PlanDiagnosticsTests` (`PlanDiagnostics_*`).
 
 ## Local commands
 

@@ -40,7 +40,13 @@ public static class Program
             UseMockVisa = true,
             OpenTapPluginDirectories = pluginDirs,
         };
-        return PlanContractCli.Run(targets, settings, Console.Out);
+        // Explicit --opentap-plugin-dirs on this authoring CLI are trusted for the process.
+        // HardwareTest --validate-plan still uses appliance PluginDirectoryTrust.
+        return PlanContractCli.Run(
+            targets,
+            settings,
+            Console.Out,
+            trustConfiguredPluginDirectories: pluginDirs.Count > 0);
     }
 
     private static bool TrySplit(string arg, out string flag, out string? inlineValue)
