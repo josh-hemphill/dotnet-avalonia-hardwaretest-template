@@ -1,4 +1,5 @@
 using HardwareTest.OpenTap.Plugins.Basic;
+using HardwareTest.OpenTap.Plugins.Mixins;
 using OpenTap;
 
 namespace HardwareTest.OpenTap.Host;
@@ -132,6 +133,62 @@ public static class PlanShapeFixtures
     {
         var plan = new TestPlan();
         plan.ChildTestSteps.Add(new HangForeverStep { Name = "Hang Forever" });
+        return plan;
+    }
+
+    public static TestPlan CreateDuplicateChannelKey()
+    {
+        var instrument = SharedInstrument();
+        var a = new AcquireVoltageStep { Name = "A", Instrument = instrument, SampleCount = 2 };
+        var b = new AcquireVoltageStep { Name = "B", Instrument = instrument, SampleCount = 2 };
+        OpenTapMixinAttach.AttachPresentation(a, "dup", PresentationDisplayRoles.Timeseries, "V");
+        OpenTapMixinAttach.AttachPresentation(b, "dup", PresentationDisplayRoles.Timeseries, "V");
+        var plan = new TestPlan();
+        plan.ChildTestSteps.Add(a);
+        plan.ChildTestSteps.Add(b);
+        plan.ChildTestSteps.Add(new SafeShutdownStep { Name = "Safe Shutdown", Instrument = instrument });
+        return plan;
+    }
+
+    public static TestPlan CreatePassbandWithoutLimits()
+    {
+        var instrument = SharedInstrument();
+        var scalar = new PublishBandScalarStep
+        {
+            Name = "Band",
+            MetricName = "rail.mean",
+            FailWhenOutOfBand = false,
+        };
+        OpenTapMixinAttach.AttachPresentation(scalar, "rail.mean", PresentationDisplayRoles.Passband, "V");
+        var plan = new TestPlan();
+        plan.ChildTestSteps.Add(scalar);
+        plan.ChildTestSteps.Add(new SafeShutdownStep { Name = "Safe Shutdown", Instrument = instrument });
+        return plan;
+    }
+
+    public static TestPlan CreateIdentityWithoutDut()
+    {
+        var instrument = SharedInstrument();
+        var identity = new IdentityCheckStep
+        {
+            Name = "Identity Check",
+            Instrument = instrument,
+            Dut = null!,
+        };
+        var plan = new TestPlan();
+        plan.ChildTestSteps.Add(identity);
+        plan.ChildTestSteps.Add(new SafeShutdownStep { Name = "Safe Shutdown", Instrument = instrument });
+        return plan;
+    }
+
+    public static TestPlan CreateEmptyChannelKey()
+    {
+        var instrument = SharedInstrument();
+        var acquire = new AcquireVoltageStep { Name = "Acquire", Instrument = instrument, SampleCount = 2 };
+        OpenTapMixinAttach.AttachPresentation(acquire, string.Empty, PresentationDisplayRoles.Timeseries, "V");
+        var plan = new TestPlan();
+        plan.ChildTestSteps.Add(acquire);
+        plan.ChildTestSteps.Add(new SafeShutdownStep { Name = "Safe Shutdown", Instrument = instrument });
         return plan;
     }
 
