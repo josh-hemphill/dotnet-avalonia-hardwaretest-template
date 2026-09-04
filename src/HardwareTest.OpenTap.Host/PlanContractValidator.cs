@@ -63,6 +63,12 @@ public static class PlanContractValidator
         public const string SidecarUnknownProperty = "SIDECAR_UNKNOWN_PROPERTY";
         public const string SidecarReportKinds = "SIDECAR_REPORT_KINDS";
         public const string SidecarDefaultReportKind = "SIDECAR_DEFAULT_REPORT_KIND";
+        public const string MissingIdentity = "MISSING_IDENTITY";
+        public const string MissingDut = "MISSING_DUT";
+        public const string DuplicateChannelKey = "DUPLICATE_CHANNEL_KEY";
+        public const string EmptyChannelKey = "EMPTY_CHANNEL_KEY";
+        public const string MissingPresentation = "MISSING_PRESENTATION";
+        public const string MissingLimits = "MISSING_LIMITS";
         public const string PresentationTimeseriesOnly = "PRESENTATION_TIMESERIES_ONLY";
     }
 
@@ -70,8 +76,20 @@ public static class PlanContractValidator
         IReadOnlyList<string> targets,
         AppSettings? settings = null,
         bool trustConfiguredPluginDirectories = false)
+        => Validate(
+            targets,
+            new PlanContractOptions
+            {
+                Settings = settings,
+                TrustConfiguredPluginDirectories = trustConfiguredPluginDirectories,
+            });
+
+    public static PlanContractBatchReport Validate(
+        IReadOnlyList<string> targets,
+        PlanContractOptions options)
     {
         ArgumentNullException.ThrowIfNull(targets);
+        ArgumentNullException.ThrowIfNull(options);
         if (targets.Count == 0)
         {
             return new PlanContractBatchReport
@@ -95,7 +113,7 @@ public static class PlanContractValidator
         {
             foreach (var path in ExpandTarget(target))
             {
-                reports.Add(ValidateFile(path, settings, trustConfiguredPluginDirectories));
+                reports.Add(ValidateFile(path, options));
             }
         }
 
@@ -106,8 +124,18 @@ public static class PlanContractValidator
         string tapPlanPath,
         AppSettings? settings = null,
         bool trustConfiguredPluginDirectories = false)
+        => ValidateFile(
+            tapPlanPath,
+            new PlanContractOptions
+            {
+                Settings = settings,
+                TrustConfiguredPluginDirectories = trustConfiguredPluginDirectories,
+            });
+
+    public static PlanContractReport ValidateFile(string tapPlanPath, PlanContractOptions options)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(tapPlanPath);
+        ArgumentNullException.ThrowIfNull(options);
         var findings = new List<PlanContractFinding>();
         if (!File.Exists(tapPlanPath))
         {
@@ -126,20 +154,20 @@ public static class PlanContractValidator
         }
 
         var includeCleanup = true;
-        AnalyzeSidecar(tapPlanPath, findings, ref includeCleanup);
+        var sidecar = AnalyzeSidecar(tapPlanPath, options.Strict, findings, ref includeCleanup);
 
         try
         {
             // Load-only: do not Register a VISA broker. Typed instrument XML deserializes
             // without Open(); registering would leak into the serial OpenTapSerial suite.
             var catalog = new OpenTapHostCatalog(
-                settings ?? new AppSettings { UseMockVisa = true },
+                options.Settings ?? new AppSettings { UseMockVisa = true },
                 Serilog.Log.Logger.ForContext(typeof(PlanContractValidator)),
                 visaBroker: null,
-                trustConfiguredPluginDirectories: trustConfiguredPluginDirectories);
+                trustConfiguredPluginDirectories: options.TrustConfiguredPluginDirectories);
             catalog.EnsurePlugins();
             var plan = TestPlan.Load(tapPlanPath);
-            AnalyzePlan(plan, includeCleanup, findings);
+            AnalyzePlan(plan, includeCleanup, sidecar, findings);
         }
         catch (Exception ex)
         {
@@ -231,8 +259,9 @@ public static class PlanContractValidator
         return [target];
     }
 
-    private static void AnalyzeSidecar(
+    private static ProgramSidecar? AnalyzeSidecar(
         string tapPlanPath,
+        bool strict,
         List<PlanContractFinding> findings,
         ref bool includeCleanup)
     {
@@ -240,22 +269,29 @@ public static class PlanContractValidator
         var sidecarPath = Path.Combine(Path.GetDirectoryName(tapPlanPath) ?? string.Empty, $"{id}.program.json");
         if (!File.Exists(sidecarPath))
         {
-            findings.Add(Warning(
-                Codes.SidecarMissing,
-                $"Missing sidecar {id}.program.json beside {Path.GetFileName(tapPlanPath)}. Copy plans/opentap/template.program.json."));
-            return;
+            var message =
+                $"Missing sidecar {id}.program.json beside {Path.GetFileName(tapPlanPath)}. Copy plans/opentap/template.program.json.";
+            findings.Add(strict
+                ? Error(Codes.SidecarMissing, message)
+                : Warning(Codes.SidecarMissing, message));
+            return null;
         }
 
         var parsed = PlanContractSidecar.Analyze(sidecarPath, id, findings);
         if (parsed is null)
         {
-            return;
+            return null;
         }
 
         includeCleanup = parsed.SelectionIncludesCleanup ?? true;
+        return parsed;
     }
 
-    private static void AnalyzePlan(TestPlan plan, bool includeCleanup, List<PlanContractFinding> findings)
+    private static void AnalyzePlan(
+        TestPlan plan,
+        bool includeCleanup,
+        ProgramSidecar? sidecar,
+        List<PlanContractFinding> findings)
     {
         var tree = OpenTapStepTree.Build(plan);
         var leaves = Flatten(tree).Where(n => n.Children.Count == 0).ToList();
@@ -335,6 +371,8 @@ public static class PlanContractValidator
                 Codes.PresentationTimeseriesOnly,
                 "Every Presentation mixin uses DisplayRole timeseries. Prefer scalar/passband for pass criteria (band-first cookbook)."));
         }
+
+        PlanContractPlanChecks.Analyze(plan, sidecar, findings);
     }
 
     private static int MaxGroupDepth(ITestStepParent parent, int groupDepth)
@@ -397,22 +435,32 @@ public static class PlanContractCli
         AppSettings? settings,
         TextWriter output,
         bool trustConfiguredPluginDirectories = false)
+        => Run(
+            targets,
+            output,
+            new PlanContractOptions
+            {
+                Settings = settings,
+                TrustConfiguredPluginDirectories = trustConfiguredPluginDirectories,
+            });
+
+    public static int Run(IReadOnlyList<string> targets, TextWriter output, PlanContractOptions options)
     {
         ArgumentNullException.ThrowIfNull(targets);
         ArgumentNullException.ThrowIfNull(output);
+        ArgumentNullException.ThrowIfNull(options);
         if (targets.Count == 0 || targets.All(string.IsNullOrWhiteSpace))
         {
             output.WriteLine("Usage: pass a .TapPlan file or a directory of .TapPlan files.");
             output.WriteLine("HardwareTest --validate-plan <path>");
-            output.WriteLine("HardwareTest.PlanValidate <path> [<path>...] [--opentap-plugin-dirs <dir>]");
+            output.WriteLine("HardwareTest.PlanValidate <path> [<path>...] [--strict] [--format text|json|sarif] [--opentap-plugin-dirs <dir>]");
             return UsageExitCode;
         }
 
         var batch = PlanContractValidator.Validate(
             targets.Where(t => !string.IsNullOrWhiteSpace(t)).ToList(),
-            settings,
-            trustConfiguredPluginDirectories);
-        output.Write(PlanContractValidator.Format(batch));
+            options);
+        output.Write(PlanContractFormatWriter.Write(batch, options.Format));
         return PlanContractValidator.ExitCode(batch);
     }
 }
