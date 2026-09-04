@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Package Name="HardwareTest Template Program" xmlns="http://opentap.io/schemas/package" Version="0.1.0" OS="Windows,Linux,MacOS">
+  <Description>
+    Copy-target locked program: sample.TapPlan plus session/DUT/Typst sidecar.
+    Depends on HardwareTest Basic and Mixins (same versions as the bench).
+    Instrument types come from those packs (and later the visa/SCPI library pack), not from this package.
+  </Description>
+  <Owner>HardwareTest</Owner>
+  <Dependencies>
+    <PackageDependency Package="OpenTAP" Version="^9.32.2" />
+    <PackageDependency Package="HardwareTest Basic" Version="^0.1.0" />
+    <PackageDependency Package="HardwareTest Mixins" Version="^0.1.0" />
+  </Dependencies>
+  <Files>
+    <File Path="sample.TapPlan" />
+    <File Path="sample.program.json" />
+    <File Path="template.program.json" />
+    <File Path="program.schema.json" />
+  </Files>
+</Package>
