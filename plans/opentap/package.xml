@@ -10,6 +10,9 @@
     <PackageDependency Package="OpenTAP" Version="^9.32.2" />
     <PackageDependency Package="HardwareTest Basic" Version="^0.1.0" />
     <PackageDependency Package="HardwareTest Mixins" Version="^0.1.0" />
+    <!-- Product packs that use OpenTAP Expressions steps add:
+         <PackageDependency Package="Expressions" Version="^1.5.0" />
+         Install Expressions in Editor/TUI and on the bench. Sample/board-demo stay numeric so this template pack does not declare it. -->
   </Dependencies>
   <Files>
     <File Path="sample.TapPlan" />
