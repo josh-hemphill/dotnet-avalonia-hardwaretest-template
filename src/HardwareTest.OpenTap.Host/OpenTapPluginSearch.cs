@@ -32,6 +32,11 @@ internal static class OpenTapPluginSearch
             }
 
             PluginManager.Search();
+            if (visaBroker is not null && !InstrumentComponentsScpiIo.TryRegisterProvider(visaBroker))
+            {
+                Serilog.Log.Debug(
+                    "InstrumentComponents.OpenTap is not loaded; SCPI provider was not registered. Product plans that use that pack need it on the plugin search path.");
+            }
         }
     }
 
