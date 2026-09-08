@@ -34,7 +34,7 @@ internal static class PlanContractPlanChecks
             return;
         }
 
-        if (identities.OfType<IdentityCheckStep>().Any(step => step.Dut is null))
+        if (identities.Where(OpenTapStepKinds.RequiresHardwareDut).OfType<IdentityCheckStep>().Any(step => step.Dut is null))
         {
             findings.Add(new PlanContractFinding(
                 PlanContractSeverity.Error,

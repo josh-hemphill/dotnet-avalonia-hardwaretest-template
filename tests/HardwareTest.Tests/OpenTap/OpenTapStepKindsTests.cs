@@ -12,14 +12,14 @@ public sealed class OpenTapStepKindsTests
     public void Recognizes_basic_and_library_identity_and_shutdown_type_names()
     {
         Assert.True(OpenTapStepKinds.IsIdentity(new IdentityCheckStep()));
-        Assert.True(OpenTapStepKinds.IsIdentity(new IdentityQueryStep()));
+        Assert.True(OpenTapStepKinds.IsIdentity(new InstrumentComponents.OpenTap.IdentityQueryStep()));
         Assert.True(OpenTapStepKinds.IsSafeShutdown(new SafeShutdownStep()));
-        Assert.True(OpenTapStepKinds.IsSafeShutdown(new LibraryStubs.SafeShutdownStep()));
-        Assert.True(OpenTapStepKinds.IsPresentationExempt(new IdentityQueryStep()));
-        Assert.True(OpenTapStepKinds.IsPresentationExempt(new LibraryStubs.SafeShutdownStep()));
+        Assert.True(OpenTapStepKinds.IsSafeShutdown(new InstrumentComponents.OpenTap.SafeShutdownStep()));
+        Assert.True(OpenTapStepKinds.IsPresentationExempt(new InstrumentComponents.OpenTap.IdentityQueryStep()));
         Assert.True(OpenTapStepKinds.RequiresHardwareDut(new IdentityCheckStep()));
-        Assert.False(OpenTapStepKinds.RequiresHardwareDut(new IdentityQueryStep()));
+        Assert.False(OpenTapStepKinds.RequiresHardwareDut(new InstrumentComponents.OpenTap.IdentityQueryStep()));
         Assert.False(OpenTapStepKinds.IsIdentity(new AcquireVoltageStep()));
+        Assert.False(OpenTapStepKinds.IsSafeShutdown(new OtherVendor.SafeShutdownStep()));
     }
 }
 
@@ -47,6 +47,22 @@ public sealed class InstrumentComponentsScpiIoTests
     }
 
     [Fact]
+    public void CreateProvider_open_uses_the_visa_broker()
+    {
+        var broker = new RecordingVisaBroker();
+        var provider = (ITestScpiIoProvider)InstrumentComponentsScpiIo.CreateProvider(
+            typeof(ITestScpiIoProvider),
+            broker);
+
+        var io = provider.Open("MOCK::DMM", TimeSpan.FromMilliseconds(1500));
+        Assert.Equal("MOCK::DMM", broker.LastOpened);
+        Assert.Equal(1500, broker.LastSession!.IoTimeoutMilliseconds);
+        Assert.Equal("FAKE,Broker,SN-1,0", io.Query("*IDN?"));
+        io.Dispose();
+        Assert.True(broker.LastSession.Disposed);
+    }
+
+    [Fact]
     public void TryRegisterProvider_is_false_when_the_library_pack_is_not_loaded()
     {
         Assert.False(InstrumentComponentsScpiIo.TryRegisterProvider(new RecordingVisaBroker()));
@@ -62,27 +78,22 @@ public interface ITestScpiIo : IDisposable
     string Query(string command);
 }
 
-public sealed class IdentityQueryStep : TestStep
+public interface ITestScpiIoProvider
 {
-    public override void Run()
-    {
-    }
-}
-
-file static class LibraryStubs
-{
-    public sealed class SafeShutdownStep : TestStep
-    {
-        public override void Run()
-        {
-        }
-    }
+    ITestScpiIo Open(string visaAddress, TimeSpan ioTimeout);
 }
 
 file sealed class RecordingVisaBroker : IVisaBroker
 {
+    public string? LastOpened { get; private set; }
+    public RecordingVisaSession? LastSession { get; private set; }
+
     public Task<IVisaSession> OpenAsync(string resourceName, CancellationToken cancellationToken = default)
-        => Task.FromResult<IVisaSession>(new RecordingVisaSession(resourceName));
+    {
+        LastOpened = resourceName;
+        LastSession = new RecordingVisaSession(resourceName);
+        return Task.FromResult<IVisaSession>(LastSession);
+    }
 }
 
 file sealed class RecordingVisaSession : IVisaSession

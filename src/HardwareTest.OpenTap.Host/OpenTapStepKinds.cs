@@ -35,5 +35,14 @@ public static class OpenTapStepKinds
         => step is IdentityCheckStep || TypeNameIs(step, "IdentityCheckStep");
 
     private static bool TypeNameIs(ITestStep step, string typeName)
-        => string.Equals(step.GetType().Name, typeName, StringComparison.Ordinal);
+    {
+        if (!string.Equals(step.GetType().Name, typeName, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        var ns = step.GetType().Namespace ?? string.Empty;
+        return ns.StartsWith("InstrumentComponents.OpenTap", StringComparison.Ordinal)
+               || ns.StartsWith("HardwareTest.OpenTap.Plugins.Basic", StringComparison.Ordinal);
+    }
 }

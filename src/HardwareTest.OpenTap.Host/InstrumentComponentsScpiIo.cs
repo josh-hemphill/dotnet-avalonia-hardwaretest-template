@@ -33,6 +33,9 @@ internal static class InstrumentComponentsScpiIo
     internal static object CreateIo(Type scpiIoType, IVisaSession session, TimeSpan timeout)
         => VisaBrokerScpiIoProxy.Create(scpiIoType, session, timeout);
 
+    internal static object CreateProvider(Type providerType, IVisaBroker broker)
+        => ScpiIoProviderProxy.Create(providerType, broker);
+
     private static Type? FindType(string fullName)
     {
         foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
@@ -82,7 +85,8 @@ internal static class InstrumentComponentsScpiIo
                 return VisaBrokerScpiIoProxy.Create(targetMethod.ReturnType, session, timeout);
             }
 
-            return null;
+            throw new NotImplementedException(
+                $"InstrumentComponents SCPI provider proxy does not implement '{targetMethod.DeclaringType?.FullName}.{targetMethod.Name}'.");
         }
     }
 
@@ -126,7 +130,8 @@ internal static class InstrumentComponentsScpiIo
                     _session.DisposeAsync().AsTask().GetAwaiter().GetResult();
                     return null;
                 default:
-                    return null;
+                    throw new NotImplementedException(
+                        $"InstrumentComponents SCPI proxy does not implement '{targetMethod.DeclaringType?.FullName}.{targetMethod.Name}'.");
             }
         }
 
