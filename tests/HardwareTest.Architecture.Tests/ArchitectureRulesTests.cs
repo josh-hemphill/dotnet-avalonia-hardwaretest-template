@@ -457,6 +457,7 @@ public sealed class ArchitectureRulesTests
         Assert.Contains("HardwareTest Mixins", deps);
         Assert.Equal(3, deps.Length);
         Assert.DoesNotContain("Expressions", deps);
+        Assert.DoesNotContain("InstrumentComponents.OpenTap", deps);
         Assert.DoesNotContain(
             deps,
             d => d is not null && d.Contains("Visa", StringComparison.OrdinalIgnoreCase));

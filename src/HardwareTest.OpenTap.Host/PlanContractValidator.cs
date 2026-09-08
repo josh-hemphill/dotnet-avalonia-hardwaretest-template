@@ -316,12 +316,12 @@ public static class PlanContractValidator
                 $"Nest depth {nestDepth} exceeds chrome-useful depth {ChromeUsefulNestDepth} (Stages → Sections → Nested). Deeper groups still run as leaves."));
         }
 
-        var hasSafeShutdown = OpenTapStepTree.Flatten(plan).Any(s => s is SafeShutdownStep);
+        var hasSafeShutdown = OpenTapStepTree.Flatten(plan).Any(OpenTapStepKinds.IsSafeShutdown);
         if (includeCleanup && !hasSafeShutdown)
         {
             findings.Add(Error(
                 Codes.MissingSafeShutdown,
-                "Plan has no SafeShutdownStep. Add one, or set selectionIncludesCleanup: false in the sidecar for software-only selection."));
+                "Plan has no Safe Shutdown step (HardwareTest or Instrument Components). Add one, or set selectionIncludesCleanup: false in the sidecar for software-only selection."));
         }
 
         var hasRebindable = InstrumentResourceAccess.CollectFromPlan(plan).Any(InstrumentResourceAccess.HasWritableResourceProperty);

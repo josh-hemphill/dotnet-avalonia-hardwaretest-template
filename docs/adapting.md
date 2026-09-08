@@ -6,68 +6,40 @@ For UI vs OpenTAP test suites, see [testing.md](testing.md). For sealed Linux pu
 
 ## 1. Author a locked program (cookbook)
 
-A **locked program** is the bake-ready unit: `.TapPlan` + `{planId}.program.json` sidecar + Presentation/limits on function steps + plugin set (`.TapPackage` Dependencies) + Typst `reportKinds`. Author in **OpenTAP Editor / TUI**. This shell does not edit plans. `HardwareTest.PlanValidate --strict` (Host `PlanContractValidator`) must fail a bad package **before** appliance bake. Operator Run is not blocked by authoring warnings.
+Author in **OpenTAP Editor / TUI**. This shell does not edit plans. A locked program is `.TapPlan` + `{planId}.program.json` + Presentation on function leaves + TapPackage Dependencies + Typst `reportKinds`. `HardwareTest.PlanValidate --strict` must fail a bad pack **before bake**. Authoring warnings do not block operator Run.
+
+Typed SCPI lives in **InstrumentComponents.OpenTap** ([user guide](https://josh-hemphill.github.io/instrument-components/csharp/opentap/)). HardwareTest Basic is operator/safety chrome and in-repo demos; Mixins is Presentation/Annotation.
 
 ### Deliverables
 
-| Piece | Where | Notes |
-| --- | --- | --- |
-| `.TapPlan` | [`plans/opentap/`](../plans/opentap/) (copied to `Programs/` on build) | Locked XML. Start from `sample.TapPlan`. |
-| `{planId}.program.json` | Same folder | Session / DUT / Typst only. Copy [`template.program.json`](../plans/opentap/template.program.json). Keep `"$schema": "./program.schema.json"`. |
-| Plugin set | TapPackage **Dependencies** | HardwareTest Basic + Mixins (+ official **Expressions** when used, + product packs). Not listed in the sidecar. |
-| Presentation / limits | Mixins on **function** leaves | Unique `ChannelKey`; scalar/passband need `LimitLow`/`LimitHigh`/`Threshold`. |
-| `reportKinds` | Sidecar | `status` and/or `certification`. |
+| Piece | Notes |
+| --- | --- |
+| `.TapPlan` | [`plans/opentap/`](../plans/opentap/) (copied to `Programs/`). Product plans: library instruments/steps. In-repo sample/board-demo stay Basic for CI. |
+| `{planId}.program.json` | Session/DUT/Typst only. Copy [`template.program.json`](../plans/opentap/template.program.json); keep `"$schema": "./program.schema.json"`. |
+| Dependencies | OpenTAP + HardwareTest Basic + Mixins + **InstrumentComponents.OpenTap** (product) + **Expressions** when used. Not in the sidecar. |
+| Presentation | Mixin on function leaves: unique `ChannelKey`; `scalar`/`passband` + `LimitLow`/`LimitHigh`/`Threshold`. |
 
-Instrument / component requirements belong in `.TapPackage` Dependencies, not the sidecar.
+### TUI recipe
 
-### Engineer loop
-
-1. **Install authoring packs** into Editor/TUI (same versions the bench uses):
-
-   ```bash
-   dotnet build src/HardwareTest.OpenTap.Plugins.Basic -c Release -r linux-x64 -p:CreateOpenTapPackage=true -p:InstallCreatedOpenTapPackage=false
-   dotnet build src/HardwareTest.OpenTap.Plugins.Mixins -c Release -r linux-x64 -p:CreateOpenTapPackage=true -p:InstallCreatedOpenTapPackage=false
-   tap package install path/to/HardwareTest\ Basic*.TapPackage
-   tap package install path/to/HardwareTest\ Mixins*.TapPackage
-   ```
-
-2. **Copy** `sample.TapPlan` + `sample.program.json` (or `template.program.json` renamed to `{planId}.program.json`). Keep `"$schema": "./program.schema.json"` for editor intellisense.
-
-3. **Author** in TUI/Editor:
-   - Three-level groups (`Setup` / function groups / `Cleanup`).
-   - Unique leaf names; Identity when `requireSerial` is true.
-   - Operator flow: `OperatorPromptStep` / `OperatorInputStep` — not `DialogStep`.
-   - Presentation mixin on every function leaf (`ChannelKey` unique).
-   - `SafeShutdownStep` in Cleanup.
-   - Resource property named `VisaAddress` (or `ResourceName` / `Address`) so Instruments can rebind.
-
-4. **Function steps** must publish Phase L `Sample` / `Scalar` and carry Presentation. Identity / Prompt / Input / SafeShutdown / HangForever / RepeatLoop / TestGroup are exempt.
-
-5. **Validate pack-mode** (missing sidecar is an error; authoring warnings do not block operator Run):
+1. **Install** the same pack versions the bench bakes (Basic, Mixins, InstrumentComponents.OpenTap). Commands: [§2](#authoring-packs-editor--tui).
+2. **Copy** `template.program.json` → `{planId}.program.json`.
+3. **One instrument resource per box** from *Instrument Components* (DMM, PSU, FGen, scope, switch, counter, power meter, spectrum analyzer). Extra capabilities are nested views on that resource, not a second slot. Keep **`VisaAddress`** writable so Instruments can rebind.
+4. **Shape:** three-level groups (`Setup` / measure / `Cleanup`); unique leaf paths.
+5. **Setup:** *Identity Query* (library) when `requireSerial` — DUT serial is the shell confirm, not a `HardwareDut` resource. Operator pauses: Basic `OperatorPromptStep` / `OperatorInputStep`, never `DialogStep`.
+6. **Measure:** library function steps (they already publish Phase I `Sample` / `Scalar`). Attach **Presentation** (unique `ChannelKey`; band-first `scalar`/`passband` with limits; `timeseries` only for shape). Identity / Prompt / Input / Safe Shutdown / HangForever / RepeatLoop / TestGroup are exempt.
+7. **Cleanup:** library *Safe Shutdown* (Run Selected keeps it unless `selectionIncludesCleanup: false`).
+8. **Validate / pack / bake:**
 
    ```bash
    HardwareTest.PlanValidate plans/opentap --strict
-   HardwareTest.PlanValidate plans/opentap --strict --format json
+   cd plans/opentap && tap package create package.xml   # File Path is relative to this directory
    ```
 
-   Ad-hoc single-plan check (same Host validator; missing sidecar stays a **warning** because `--strict` is not set):
+   Ad-hoc (missing sidecar = warning): `HardwareTest --validate-plan path/to/plan.TapPlan`. Then bake packs onto the appliance and mock-run (`UseMockVisa`).
 
-   ```bash
-   HardwareTest --validate-plan path/to/plan.TapPlan
-   ```
+CLI notes: exit `1` on errors, `0` if only warnings; bare `--validate-plan` prints usage and exits `2` (no UI). `HardwareTest.PlanValidate --opentap-plugin-dirs` trusts those CLI dirs; `HARDWARETEST_OPENTAP_PLUGIN_DIRS` still needs appliance `PluginDirectoryTrust`. `--format json|sarif` is for CI. `tap package create` needs the declared authoring packs already installed.
 
-   Both entry points reuse `PlanContractValidator` in Host (Avalonia-free). Exit `1` on errors, `0` when only warnings remain. Missing `--validate-plan` path prints usage and exits `2` — it does not launch the UI. `HardwareTest.PlanValidate --opentap-plugin-dirs` trusts those **CLI** directories (authoring machine); `HARDWARETEST_OPENTAP_PLUGIN_DIRS` still requires appliance `PluginDirectoryTrust`. `HardwareTest --validate-plan` applies appliance trust (`{DataDirectory}/plugins` unless Engineer debug). `--format json|sarif` is for CI annotations.
-
-6. **Pack** from [`plans/opentap/package.xml`](../plans/opentap/package.xml) (HardwareTest Template Program — sample plan + sidecar + schema; depends on Basic + Mixins, not Core). `tap package create` requires those authoring packs already installed (step 1). Run it from `plans/opentap` so `File Path` entries resolve:
-
-   ```bash
-   cd plans/opentap
-   tap package create package.xml
-   ```
-
-7. **Bake** the program pack and plugin packs onto the appliance. Inspect + mock Run (`UseMockVisa`) is still required before shipping.
-
-`plans/opentap/fixtures/` are shape examples, not product plans. Top-level `plans/opentap/*.TapPlan` are the pack set (fixtures are a subdirectory and are not globbed). `selectionIncludesCleanup` defaults to **true**. Set **false** only when SafeShutdown is suite-scoped and Run Selected is software-only — then the selection mask excludes `SafeShutdownStep`. Full **Run** always executes the plan as authored. Disabled siblings outside the mask may show NotExecuted/Invalidated; that is expected and is not “cleanup skipped.”
+`plans/opentap/fixtures/` are shape examples, not product plans. Top-level `*.TapPlan` are the pack set. Full **Run** always executes the authored plan. Disabled siblings outside a Run Selected mask may show NotExecuted/Invalidated — that is not “cleanup skipped.”
 
 ```json
 {
@@ -84,27 +56,17 @@ Instrument / component requirements belong in `.TapPackage` Dependencies, not th
 }
 ```
 
-Built-in **sample** / **board-demo** / **sweep-demo** stay as factories for CI-stable demos. Disk plans with the same id are not double-listed (`ProgramCatalog`). Run and Instruments both enumerate via `ProgramCatalog` — no need to hardcode program lists in ViewModels.
+Built-in **sample** / **board-demo** / **sweep-demo** stay factories (Basic DMM) so CI does not need the library pack. Disk plans with the same id are not double-listed. Run and Instruments enumerate via `ProgramCatalog`.
 
 | Demo | Operator prompts | Station overrides / Presentation |
 | --- | --- | --- |
-| **sample** (`SampleProgramFactory`) | `Confirm Sweep Area Clear` (confirm-only) → `Install Sweep Fixture` (typed: `fixtureId`, `fixtureTorqueNm`) | Acquire/Mean settings + Annotation on Identity; Presentation: Acquire `VDC` timeseries, Mean `VDC.mean` scalar |
-| **board-demo** (`BoardDemoProgramFactory`) | `Seat Board Fixture` (confirm) → `Record Board Sticker` (typed: `boardLotId`) | Multi-rail Acquire/Mean; Presentation: `rail.3v3` / `rail.5v` / `bus.vdc` timeseries + mean scalar/passband (see [phase-i](opentap-phases/phase-i-presentation-contract.md)) |
-| **sweep-demo** (`SweepDemoProgramFactory`) | (none) | Repeat ×3; Presentation `sweep.vdc` timeseries + loop iteration stamps |
+| **sample** | Confirm → typed fixture install | Acquire `VDC` timeseries, Mean `VDC.mean` scalar |
+| **board-demo** | Seat fixture → board sticker | Multi-rail timeseries + mean scalar/passband |
+| **sweep-demo** | (none) | Repeat ×3; `sweep.vdc` timeseries |
 
-### OpenTAP Expressions (plan-package dependency)
+### OpenTAP Expressions (optional)
 
-Do **not** reimplement expression evaluation or a formula editor in Avalonia. If a product plan uses OpenTAP expression steps or mixins, install the official **Expressions** pack in Editor/TUI **and** on the bench, and declare it on the **program** TapPackage (not in `program.json`):
-
-```xml
-<PackageDependency Package="Expressions" Version="^1.5.0" />
-```
-
-The HardwareTest Template Program pack does **not** declare this. `sample.TapPlan` / `board-demo` stay numeric so `TestPlan.Load` and `tap package create` work without Expressions installed. `plans/opentap/fixtures/` stay numeric for the same reason.
-
-- Pin a caret version you actually install (`tap package list` / Package Manager). `^1.5.0` matches OpenTAP's documented example; it is not a HardwareTest CI pin.
-- **Run Selected:** expressions that read **disabled siblings** outside the selection mask may see NotExecuted/Invalidated values — that is expected. Prefer expressions that only read enabled siblings, or keep the selection so referenced steps stay enabled.
-- Station overrides can edit expression **strings** when those members are writable primitives (`EnumerateParameters` / `TrySetParameter`). Do not add an Avalonia formula builder.
+Do not reimplement evaluation in Avalonia. If the plan uses expression steps, install **Expressions** in Editor and on the bench and declare `<PackageDependency Package="Expressions" Version="^1.5.0" />` on the **program** pack (`^1.5.0` is OpenTAP’s example, not a CI pin). Sample/board-demo/fixtures stay numeric. Run Selected: expressions that read disabled siblings may see NotExecuted/Invalidated. Station overrides may edit expression **strings** when they are writable primitives.
 
 ## 2. Plugins
 
@@ -118,7 +80,19 @@ The HardwareTest Template Program pack does **not** declare this. `sample.TapPla
 
 ### Authoring packs (Editor / TUI)
 
-Install the same **HardwareTest Basic** and **HardwareTest Mixins** versions the bench uses (commands in [§1 step 1](#engineer-loop)). `package.xml` lists only the plugin DLL (no `HardwareTest.Core`). The VISA adapter is not an authoring pack; product instrument types come from the visa/SCPI library later ([deferred-instrument-pack-binding.md](deferred/deferred-instrument-pack-binding.md)). Default builds keep `CreateOpenTapPackage=false` so CI does not run `tap package create`.
+Install the same **HardwareTest Basic**, **HardwareTest Mixins**, and **InstrumentComponents.OpenTap** versions the bench uses:
+
+```bash
+dotnet build src/HardwareTest.OpenTap.Plugins.Basic -c Release -r linux-x64 -p:CreateOpenTapPackage=true -p:InstallCreatedOpenTapPackage=false
+dotnet build src/HardwareTest.OpenTap.Plugins.Mixins -c Release -r linux-x64 -p:CreateOpenTapPackage=true -p:InstallCreatedOpenTapPackage=false
+# Library pack (from the instrument-components repo; NuGet publish is deferred):
+dotnet build path/to/InstrumentComponents.OpenTap.csproj -c Release -p:CreateOpenTapPackage=true
+tap package install path/to/HardwareTest\ Basic*.TapPackage
+tap package install path/to/HardwareTest\ Mixins*.TapPackage
+tap package install path/to/InstrumentComponents.OpenTap*.TapPackage
+```
+
+HardwareTest `package.xml` files list only the plugin DLL (no `HardwareTest.Core`). The VISA adapter is bench-only. Default HardwareTest builds keep `CreateOpenTapPackage=false` so CI does not run `tap package create`. The bench injects `IVisaBroker` as the library pack's SCPI session (`OpenTapScpiIo.Provider`); the pack does not open a vendor VISA resource manager. See [deferred-instrument-pack-binding.md](deferred/deferred-instrument-pack-binding.md) and the [OpenTAP pack guide](https://josh-hemphill.github.io/instrument-components/csharp/opentap/).
 
 ## 3. Station bindings (Instruments)
 
@@ -135,27 +109,26 @@ Install the same **HardwareTest Basic** and **HardwareTest Mixins** versions the
 1. Author a TapPlan in OpenTAP Editor or OpenTAP TUI that references your SCPI plugin instrument (property named `VisaAddress` preferred). Run `HardwareTest --validate-plan` (or `HardwareTest.PlanValidate`) before installing it on the bench.
 2. Ship the plugin DLL via offline package install or `OpenTapPluginDirectories` (see [appliance-linux.md](appliance-linux.md)). Prefer plugins that implement `IDeviceDiscovery` so **Discover OpenTAP** lists their addresses.
 3. On the bench, open **Instruments**, load the program, pick a discovered VISA or OpenTAP resource (or type one), save the slot override.
-4. On **Run**, `ApplyStationAndDutAsync` writes the override onto the instrument before execute. Full ComponentSettings / bench-profile UI is deferred — see [deferred-bench-profile-ui.md](deferred/deferred-bench-profile-ui.md). First-party SCPI maps and typed instrument functions belong in a **separate visa/SCPI library pack**, not this repo — see [deferred-instrument-pack-binding.md](deferred/deferred-instrument-pack-binding.md).
+4. On **Run**, `ApplyStationAndDutAsync` writes the override onto the instrument before execute. Full ComponentSettings / bench-profile UI is deferred — see [deferred-bench-profile-ui.md](deferred/deferred-bench-profile-ui.md). Product SCPI maps and typed steps come from **InstrumentComponents.OpenTap**; HardwareTest injects broker-backed SCPI I/O so that pack never calls IVI. Third-party instruments still work if they expose writable `VisaAddress`.
 
-DUT stamping still looks for Basic `IdentityCheckStep` / `HardwareDut`. Custom DUT steps need a similar host hook or Identity-compatible step.
+DUT serial is the operator session. Library *Identity Query* does not need `HardwareDut`. Basic `IdentityCheckStep` (in-repo demos) still stamps `HardwareDut` when present.
 
 ## 4. Plan contract (Run board)
 
-`PlanContractValidator` (and the CLIs above) checks this contract. It does not replace a mock Run.
+`PlanContractValidator` (and the CLIs in [§1](#1-author-a-locked-program-cookbook)) checks this contract. It does not replace a mock Run.
 
-**TUI / Editor checklist** (same plugins as the bench: Basic + Mixins):
+| Check | Error unless noted |
+| --- | --- |
+| Unique leaf paths | Duplicate path |
+| Nest depth > 3 | Warning (still runs) |
+| Safe Shutdown present | Error when `selectionIncludesCleanup` is true (HardwareTest **or** Instrument Components type name) |
+| Writable `VisaAddress` / `ResourceName` / `Address` | Error |
+| `DialogStep` / OS dialog | Error — use Basic operator steps |
+| Presentation on function leaves | Warning if missing; empty/duplicate `ChannelKey` is an error; band roles without limits warn |
+| Sidecar | Missing: warning, or **error** under `--strict`. Invalid JSON / unknown `reportKinds`: error |
+| `requireSerial` | Needs *Identity Query* or `IdentityCheckStep`. `HardwareDut` required only on Basic Identity Check |
 
-- Unique leaf paths (duplicate sibling names are fine when the full path is unique).
-- Max useful nest depth for chrome is three levels (Stages → Sections → Nested); deeper still runs as leaves (warning, not a hard fail).
-- Include `SafeShutdownStep` when using Run Selected (selection keeps it enabled by default; opt out via `selectionIncludesCleanup: false` in `{planId}.program.json`). Disabled siblings may show NotExecuted/Invalidated — that is not cleanup being skipped.
-- At least one instrument with a writable `VisaAddress` / `ResourceName` / `Address` so Instruments can rebind.
-- Use `OperatorPromptStep` / `OperatorInputStep`, never OpenTAP `DialogStep` or WinForms/WPF dialogs.
-- Presentation: band-first (`scalar` / `passband` for pass criteria; `timeseries` only when shape matters).
-- Sidecar `{planId}.program.json` present (warning if missing in ad-hoc validate; **error** under `--strict`) and schema-sane (invalid JSON is an error). Copy `plans/opentap/template.program.json` (`$schema` + `reportKinds`). Unknown sidecar properties warn; empty or unknown `reportKinds` / `defaultReportKind` error.
-
-Repeat/Sweep loops show innermost `iter i/N` on the Run hero during execute; edit bounds in OpenTAP Editor / TUI or Phase C overrides — not in Avalonia.
-
-Details and diagnostic tests: [testing.md](testing.md).
+Repeat/Sweep loops show innermost `iter i/N` on the Run hero; edit bounds in Editor/TUI or Phase C overrides — not in Avalonia. Details: [testing.md](testing.md).
 
 ### Operator session (DUT confirm / idle)
 
@@ -185,7 +158,7 @@ Keep these separate:
 - **Station overrides (Engineer/Debug only):** Run board **Station overrides** panel for limits/channels/`Enabled`. **Apply & save** → `TrySetParameter` + `PlanParameterOverrides`. Re-applied on program load / before run. Does not rewrite the TapPlan.
 - Prompt-schema properties on interaction steps (Message, field ids/labels) are not station overrides; only `Enabled` is overridable there.
 - Prefer `EnumerateParameters` / `TrySetParameter` for new product code. `TrySetAcquireSettings` / `TrySetMeanGteThreshold` remain sample-only adapters around the bridge.
-- OpenTAP **Expressions** strings are station-overridable when they are writable primitives. Do not add a formula UI in Avalonia; see [§1 Expressions](#opentap-expressions-plan-package-dependency).
+- OpenTAP **Expressions** strings are station-overridable when they are writable primitives. Do not add a formula UI in Avalonia; see [§1 Expressions](#opentap-expressions-optional).
 
 ## 7. Reports (Typst)
 

@@ -32,6 +32,10 @@ internal static class OpenTapPluginSearch
             }
 
             PluginManager.Search();
+            if (visaBroker is not null)
+            {
+                InstrumentComponentsScpiIo.TryRegisterProvider(visaBroker);
+            }
         }
     }
 
