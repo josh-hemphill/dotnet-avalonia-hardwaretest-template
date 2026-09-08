@@ -127,6 +127,8 @@ internal static class InstrumentComponentsScpiIo
                 case "Query":
                     return Query((string)args![0]!);
                 case nameof(IDisposable.Dispose):
+                    // Library IScpiIo is IDisposable only. Session close is IVisaSession.DisposeAsync;
+                    // GetAwaiter().GetResult() is the host-side sync adapter (same as IviVisaSession).
                     _session.DisposeAsync().AsTask().GetAwaiter().GetResult();
                     return null;
                 default:

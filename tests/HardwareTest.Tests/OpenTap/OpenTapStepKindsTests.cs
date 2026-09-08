@@ -12,14 +12,27 @@ public sealed class OpenTapStepKindsTests
     public void Recognizes_basic_and_library_identity_and_shutdown_type_names()
     {
         Assert.True(OpenTapStepKinds.IsIdentity(new IdentityCheckStep()));
-        Assert.True(OpenTapStepKinds.IsIdentity(new InstrumentComponents.OpenTap.IdentityQueryStep()));
         Assert.True(OpenTapStepKinds.IsSafeShutdown(new SafeShutdownStep()));
-        Assert.True(OpenTapStepKinds.IsSafeShutdown(new InstrumentComponents.OpenTap.SafeShutdownStep()));
-        Assert.True(OpenTapStepKinds.IsPresentationExempt(new InstrumentComponents.OpenTap.IdentityQueryStep()));
         Assert.True(OpenTapStepKinds.RequiresHardwareDut(new IdentityCheckStep()));
-        Assert.False(OpenTapStepKinds.RequiresHardwareDut(new InstrumentComponents.OpenTap.IdentityQueryStep()));
         Assert.False(OpenTapStepKinds.IsIdentity(new AcquireVoltageStep()));
-        Assert.False(OpenTapStepKinds.IsSafeShutdown(new OtherVendor.SafeShutdownStep()));
+
+        Assert.True(OpenTapStepKinds.MatchesAuthoringStepType(
+            typeof(InstrumentComponents.OpenTap.IdentityQueryStep),
+            "IdentityQueryStep",
+            "IdentityCheckStep"));
+        Assert.False(OpenTapStepKinds.MatchesAuthoringStepType(
+            typeof(InstrumentComponents.OpenTap.IdentityQueryStep),
+            "IdentityCheckStep"));
+        Assert.True(OpenTapStepKinds.MatchesAuthoringStepType(
+            typeof(InstrumentComponents.OpenTap.SafeShutdownStep),
+            "SafeShutdownStep"));
+        Assert.False(typeof(InstrumentComponents.OpenTap.IdentityQueryStep).IsAssignableTo(typeof(HardwareDut)));
+        Assert.False(OpenTapStepKinds.MatchesAuthoringStepType(
+            typeof(OtherVendor.SafeShutdownStep),
+            "SafeShutdownStep"));
+        Assert.DoesNotContain(
+            typeof(OpenTapStepKindsTests).Assembly.GetTypes(),
+            t => t.IsClass && !t.IsAbstract && typeof(ITestStep).IsAssignableFrom(t));
     }
 }
 

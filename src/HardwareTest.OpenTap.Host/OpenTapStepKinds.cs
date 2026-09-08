@@ -34,15 +34,38 @@ public static class OpenTapStepKinds
     public static bool RequiresHardwareDut(ITestStep step)
         => step is IdentityCheckStep || TypeNameIs(step, "IdentityCheckStep");
 
-    private static bool TypeNameIs(ITestStep step, string typeName)
+    /// True when <paramref name="type"/> is a Basic or InstrumentComponents.OpenTap
+    /// step whose name is one of <paramref name="typeNames"/>. Used so tests can
+    /// cover library type names without putting <see cref="TestStep"/> subclasses
+    /// in the test assembly (those are picked up by PluginManager.Search).
+    internal static bool MatchesAuthoringStepType(Type type, params string[] typeNames)
     {
-        if (!string.Equals(step.GetType().Name, typeName, StringComparison.Ordinal))
+        ArgumentNullException.ThrowIfNull(type);
+        var ns = type.Namespace ?? string.Empty;
+        if (!IsAuthoringNamespace(ns))
         {
             return false;
         }
 
-        var ns = step.GetType().Namespace ?? string.Empty;
-        return ns.StartsWith("InstrumentComponents.OpenTap", StringComparison.Ordinal)
-               || ns.StartsWith("HardwareTest.OpenTap.Plugins.Basic", StringComparison.Ordinal);
+        foreach (var name in typeNames)
+        {
+            if (string.Equals(type.Name, name, StringComparison.Ordinal))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
+
+    private static bool TypeNameIs(ITestStep step, string typeName)
+        => MatchesAuthoringStepType(step.GetType(), typeName);
+
+    private static bool IsAuthoringNamespace(string ns)
+        => IsExactOrChildNamespace(ns, "InstrumentComponents.OpenTap")
+           || IsExactOrChildNamespace(ns, "HardwareTest.OpenTap.Plugins.Basic");
+
+    private static bool IsExactOrChildNamespace(string ns, string prefix)
+        => string.Equals(ns, prefix, StringComparison.Ordinal)
+           || ns.StartsWith(prefix + ".", StringComparison.Ordinal);
 }

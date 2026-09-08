@@ -1,17 +1,9 @@
-using OpenTap;
-
 namespace InstrumentComponents.OpenTap;
 
-public sealed class IdentityQueryStep : TestStep
-{
-    public override void Run()
-    {
-    }
-}
+/// <summary>
+/// Type-name stand-ins for the library pack. These are not <c>TestStep</c>
+/// subclasses so OpenTAP plugin search does not pick them up from the test assembly.
+/// </summary>
+public sealed class IdentityQueryStep;
 
-public sealed class SafeShutdownStep : TestStep
-{
-    public override void Run()
-    {
-    }
-}
+public sealed class SafeShutdownStep;
