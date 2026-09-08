@@ -219,7 +219,7 @@ public sealed partial class OpenTapSession : IOpenTapSession, INotifyPropertyCha
         var sampleScopePaths = new List<string>();
         foreach (var step in OpenTapStepTree.Flatten(_plan))
         {
-            var isCleanup = includeCleanup && step is SafeShutdownStep;
+            var isCleanup = includeCleanup && OpenTapStepKinds.IsSafeShutdown(step);
             if (!OpenTapStepTree.IsInSubtree(step, selected) && !isCleanup)
             {
                 continue;
@@ -236,7 +236,7 @@ public sealed partial class OpenTapSession : IOpenTapSession, INotifyPropertyCha
         try
         {
             var cleanupSteps = includeCleanup
-                ? OpenTapStepTree.Flatten(_plan).Where(s => s is SafeShutdownStep).ToList()
+                ? OpenTapStepTree.Flatten(_plan).Where(OpenTapStepKinds.IsSafeShutdown).ToList()
                 : [];
             foreach (var step in OpenTapStepTree.Flatten(_plan))
             {

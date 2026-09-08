@@ -24,22 +24,22 @@ internal static class PlanContractPlanChecks
             return;
         }
 
-        var identities = OpenTapStepTree.Flatten(plan).OfType<IdentityCheckStep>().ToList();
+        var identities = OpenTapStepTree.Flatten(plan).Where(OpenTapStepKinds.IsIdentity).ToList();
         if (identities.Count == 0)
         {
             findings.Add(new PlanContractFinding(
                 PlanContractSeverity.Error,
                 PlanContractValidator.Codes.MissingIdentity,
-                "Sidecar requireSerial is true but the plan has no IdentityCheckStep."));
+                "Sidecar requireSerial is true but the plan has no Identity Query / IdentityCheckStep."));
             return;
         }
 
-        if (identities.Any(step => step.Dut is null))
+        if (identities.Where(OpenTapStepKinds.RequiresHardwareDut).OfType<IdentityCheckStep>().Any(step => step.Dut is null))
         {
             findings.Add(new PlanContractFinding(
                 PlanContractSeverity.Error,
                 PlanContractValidator.Codes.MissingDut,
-                "IdentityCheckStep has no HardwareDut. DUT confirm cannot stamp this plan."));
+                "IdentityCheckStep has no HardwareDut. DUT confirm cannot stamp this plan. Library Identity Query does not need HardwareDut."));
         }
     }
 
@@ -52,7 +52,7 @@ internal static class PlanContractPlanChecks
         foreach (var leaf in leaves)
         {
             var step = FindStep(plan, leaf.Id);
-            if (step is null || IsPresentationExempt(step))
+            if (step is null || OpenTapStepKinds.IsPresentationExempt(step))
             {
                 continue;
             }
@@ -99,15 +99,6 @@ internal static class PlanContractPlanChecks
             }
         }
     }
-
-    private static bool IsPresentationExempt(ITestStep step)
-        => step is IdentityCheckStep
-            or OperatorPromptStep
-            or OperatorInputStep
-            or SafeShutdownStep
-            or HangForeverStep
-            or RepeatLoopStep
-            or TestGroupStep;
 
     private static bool IsBandRole(string role)
         => string.Equals(role, PresentationDisplayRoles.Scalar, StringComparison.OrdinalIgnoreCase)

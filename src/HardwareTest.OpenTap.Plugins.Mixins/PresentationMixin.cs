@@ -23,16 +23,16 @@ public sealed class PresentationMixin : IMixin
     [Display(
         "Display role",
         Groups: ["Presentation"],
-        Description: "Band-first: use scalar/passband for pass criteria with limits; timeseries only when operators need the waveform shape.",
+        Description: "Band-first: scalar/passband for pass criteria with limits; timeseries only when operators need the waveform shape.",
         Order: 2)]
     [AvailableValues(nameof(DisplayRoleChoices))]
-    public string DisplayRole { get; set; } = PresentationDisplayRoles.Timeseries;
+    public string DisplayRole { get; set; } = PresentationDisplayRoles.Scalar;
 
     public IEnumerable<string> DisplayRoleChoices { get; } =
     [
-        PresentationDisplayRoles.Timeseries,
         PresentationDisplayRoles.Scalar,
         PresentationDisplayRoles.Passband,
+        PresentationDisplayRoles.Timeseries,
     ];
 
     [Display("Y unit", Groups: ["Presentation"], Description: "Unit label for plots/gauges (e.g. V or ms).", Order: 3)]
