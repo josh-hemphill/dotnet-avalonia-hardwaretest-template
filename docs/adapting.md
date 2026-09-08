@@ -16,23 +16,30 @@ Typed SCPI lives in **InstrumentComponents.OpenTap** ([user guide](https://josh-
 | --- | --- |
 | `.TapPlan` | [`plans/opentap/`](../plans/opentap/) (copied to `Programs/`). Product plans: library instruments/steps. In-repo sample/board-demo stay Basic for CI. |
 | `{planId}.program.json` | Session/DUT/Typst only. Copy [`template.program.json`](../plans/opentap/template.program.json); keep `"$schema": "./program.schema.json"`. |
-| Dependencies | OpenTAP + HardwareTest Basic + Mixins + **InstrumentComponents.OpenTap** (product) + **Expressions** when used. Not in the sidecar. |
+| Dependencies | Product pack: OpenTAP + HardwareTest Basic + Mixins + **InstrumentComponents.OpenTap** + **Expressions** when used. This template `package.xml` keeps three live deps (OpenTAP, Basic, Mixins) so CI can load sample/board-demo. |
+| Presentation | Mixin on function leaves: unique `ChannelKey`; `scalar`/`passband` + `LimitLow`/`LimitHigh`/`Threshold`. New mixin default `DisplayRole` is `scalar`. |
 | Presentation | Mixin on function leaves: unique `ChannelKey`; `scalar`/`passband` + `LimitLow`/`LimitHigh`/`Threshold`. New mixin default `DisplayRole` is `scalar`. |
 
 ### TUI recipe
 
 1. **Install** the same pack versions the bench bakes (Basic, Mixins, InstrumentComponents.OpenTap). Commands: [§2](#authoring-packs-editor--tui).
-2. **Copy** `template.program.json` → `{planId}.program.json`.
+2. **Save** `{planId}.TapPlan` and copy `template.program.json` → `{planId}.program.json`.
 3. **One instrument resource per box** from *Instrument Components* (DMM, PSU, FGen, scope, switch, counter, power meter, spectrum analyzer). Extra capabilities are nested views on that resource, not a second slot. Keep **`VisaAddress`** writable so Instruments can rebind.
 4. **Shape:** three-level groups (`Setup` / measure / `Cleanup`); unique leaf paths.
 5. **Setup:** *Identity Query* (library) when `requireSerial` — DUT serial is the shell confirm, not a `HardwareDut` resource. Operator pauses: Basic `OperatorPromptStep` / `OperatorInputStep`, never `DialogStep`.
 6. **Measure:** library function steps (they already publish Phase I `Sample` / `Scalar`). Attach **Presentation** (unique `ChannelKey`; band-first `scalar`/`passband` with limits; `timeseries` only for shape). Identity / Prompt / Input / Safe Shutdown / HangForever / RepeatLoop / TestGroup are exempt.
 7. **Cleanup:** library *Safe Shutdown*. `selectionIncludesCleanup` defaults to **true** (Run Selected keeps it). Set **false** only when shutdown is suite-scoped and Run Selected is software-only.
-8. **Validate / pack / bake:**
+8. **Validate / pack / bake.** Template pack (this repo, Basic sample only):
 
    ```bash
    HardwareTest.PlanValidate plans/opentap --strict
    cd plans/opentap && tap package create package.xml   # File Path is relative to this directory
+   ```
+
+   Product plans that use library steps need that pack on the search path, and declare it on the **product** `package.xml` (do not add a live `PackageDependency` on `InstrumentComponents.OpenTap` to this template):
+
+   ```bash
+   HardwareTest.PlanValidate path/to/product-plans --strict --opentap-plugin-dirs path/to/InstrumentComponents.OpenTap
    ```
 
    Ad-hoc (missing sidecar = warning): `HardwareTest --validate-plan path/to/plan.TapPlan`. Then bake packs onto the appliance and mock-run (`UseMockVisa`).
