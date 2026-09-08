@@ -205,28 +205,43 @@ public abstract class OpenTapSessionContractTests
         };
 
         var awaiting = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var sawFirst = false;
+        string? firstPromptId = null;
+        var promptGate = new object();
         var progress = new SyncProgress<OpenTapProgress>(p =>
         {
-            if (!p.AwaitingOperator && !session.IsAwaitingOperator)
+            var pending = session.PendingInteraction;
+            // Only AwaitingOperator frames are interaction events. Overlapping step-progress
+            // ("Running Confirm Sweep Area Clear") can arrive after the first prompt has
+            // already set session.IsAwaitingOperator; that tick must not Resume the first
+            // prompt before the test asserts.
+            if (!p.AwaitingOperator)
             {
                 return;
             }
 
-            if (session.PendingInteraction is not { } pending)
+            var request = p.InteractionRequest ?? pending;
+            if (request is null)
             {
                 return;
             }
 
-            if (!sawFirst)
+            lock (promptGate)
             {
-                sawFirst = true;
-                awaiting.TrySetResult(true);
-                return;
+                if (firstPromptId is null)
+                {
+                    firstPromptId = request.Id;
+                    awaiting.TrySetResult(true);
+                    return;
+                }
+
+                if (string.Equals(firstPromptId, request.Id, StringComparison.Ordinal))
+                {
+                    return;
+                }
             }
 
             // Later prompts in the same plan must also be cleared so the run can finish.
-            session.Resume(BuildContinueResponse(pending));
+            session.Resume(BuildContinueResponse(request));
         });
 
         var runTask = session.RunAsync(progress);
