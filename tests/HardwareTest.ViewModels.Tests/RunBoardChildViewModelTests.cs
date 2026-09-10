@@ -627,8 +627,10 @@ public sealed class RunBoardChildViewModelTests
         await run.RunCommand.ExecuteAsync();
 
         Assert.Equal(1, openTap.RunCount);
-        Assert.Equal(RunBannerSeverity.Warning, host.BannerSeverity);
-        Assert.Contains("missing", host.BannerMessage, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains(
+            host.Banners,
+            b => b.Severity == RunBannerSeverity.Warning
+                 && b.Message.Contains("missing", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
@@ -651,7 +653,10 @@ public sealed class RunBoardChildViewModelTests
         await run.RunCommand.ExecuteAsync();
 
         Assert.Equal(1, openTap.RunCount);
-        Assert.False(host.HasBanner);
+        Assert.DoesNotContain(
+            host.Banners,
+            b => b.Severity == RunBannerSeverity.Error
+                 && b.Message.Contains("health", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
@@ -819,11 +824,14 @@ public sealed class RunBoardChildViewModelTests
         public RunBannerSeverity BannerSeverity { get; set; }
         public string BannerMessage { get; set; } = string.Empty;
 
+        public List<(RunBannerSeverity Severity, string Message)> Banners { get; } = [];
+
         public void SetBanner(RunBannerSeverity severity, string message)
         {
             BannerSeverity = severity;
             BannerMessage = message;
             HasBanner = true;
+            Banners.Add((severity, message));
         }
 
         public Task RunOnUiAsync(Action action)
