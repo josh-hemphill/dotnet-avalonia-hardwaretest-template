@@ -57,6 +57,15 @@ internal static class PlanContractPlanChecks
                 continue;
             }
 
+            if (HasSeriesCompliance(step) && !HasLimitSetting(step))
+            {
+                findings.Add(new PlanContractFinding(
+                    PlanContractSeverity.Warning,
+                    PlanContractValidator.Codes.ComplianceWithoutLimits,
+                    "SeriesCompliance is on but the step has no LimitLow/LimitHigh. allSamples/dwell need a band.",
+                    leaf.Path));
+            }
+
             var hints = OpenTapPresentation.TryReadMixin(step);
             if (hints is null || string.IsNullOrWhiteSpace(hints.DisplayRole))
             {
@@ -122,6 +131,18 @@ internal static class PlanContractPlanChecks
         }
 
         return false;
+    }
+
+    private static bool HasSeriesCompliance(ITestStep step)
+    {
+        var prop = step.GetType().GetProperty("SeriesCompliance", BindingFlags.Instance | BindingFlags.Public);
+        if (prop is null || !prop.CanRead)
+        {
+            return false;
+        }
+
+        var raw = Convert.ToString(prop.GetValue(step));
+        return SeriesComplianceModes.IsEnabled(raw);
     }
 
     private static ITestStep? FindStep(TestPlan plan, string id)
