@@ -39,6 +39,7 @@ public sealed class TestRunRecord
     public List<StepResultRecord> Steps { get; set; } = [];
     public List<StepAttemptSummary> StepAttempts { get; set; } = [];
     public List<StoredSample> Samples { get; set; } = [];
+    public List<StoredEvent> Events { get; set; } = [];
     public Dictionary<string, string> Variables { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     /// Primary/status PDF path (first status artifact, else first Reports entry) for back compat.
     public string? ReportPdfPath { get; set; }
@@ -147,6 +148,10 @@ public sealed class StoredSample
     public double? LimitLow { get; set; }
     /// Optional upper passband bound from Scalar LimitHigh.
     public double? LimitHigh { get; set; }
+    /// Plan-owned elapsed time from step start (ms). Null = host ingest time only (legacy).
+    public double? ElapsedMs { get; set; }
+    /// measured | cached. Null = unknown / legacy.
+    public string? ResultSource { get; set; }
     /// When false, DutHistoryService skips this metric. Null means unknown (legacy / absent).
     public bool? HistoryEnabled { get; set; }
     /// Per-metric watch threshold (%); null uses DutHistoryService default.
@@ -180,6 +185,24 @@ public sealed class StoredSample
         Timestamp = sample.Timestamp,
         Value = sample.Value,
     };
+}
+
+/// Well-known StoredSample.ResultSource values.
+public static class SampleResultSources
+{
+    public const string Measured = "measured";
+    public const string Cached = "cached";
+}
+
+/// Config / timing mark published on the same elapsed clock as Sample.
+public sealed class StoredEvent
+{
+    public string Name { get; set; } = string.Empty;
+    public double ElapsedMs { get; set; }
+    public string? Label { get; set; }
+    public double? Value { get; set; }
+    public string StepPath { get; set; } = string.Empty;
+    public DateTimeOffset Timestamp { get; set; }
 }
 
 public sealed class TestRunProgress

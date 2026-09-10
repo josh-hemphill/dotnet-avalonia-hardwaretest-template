@@ -313,7 +313,7 @@ Every persisted JSON document carries an integer `schemaVersion`. Bumps are deli
 | --- | --- | --- |
 | `AppSettings` (`settings.json`) | 1 | Initial stamped shape (Phase 5). |
 | `UiState` (`ui-state.json`) | 1 | Initial stamped shape (Phase 5). |
-| `TestRunRecord` (`runs/{id}/run.json`) | 2 | `Attestations` (optional chip/tap presence or PIV-signed sidecar stamps). Identity upgrade from 1. |
+| `TestRunRecord` (`runs/{id}/run.json`) | 3 | `Events`, `Sample.ElapsedMs`, `Sample.ResultSource`. Identity upgrades 1→2→3. |
 | `SuiteRunRecord` (`runs/suites/{id}/suite-run.json`) | 1 | Initial stamped shape (Phase 5). |
 | `CrashReport` (`crashes/{id}/crash.json`) | 1 | Initial crash dossier (Phase 6). |
 

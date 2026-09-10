@@ -15,6 +15,7 @@ public sealed class OpenTapRunContext : IStepRuntime, IDisposable
 {
     private readonly OpenTapRunControlState _control = new();
     private readonly List<StoredSample> _samples = [];
+    private readonly List<StoredEvent> _events = [];
     private readonly List<StepResultRecord> _steps = [];
     private readonly Dictionary<string, DateTimeOffset> _stepStarted = new(StringComparer.OrdinalIgnoreCase);
     private readonly AppSettings _settings;
@@ -39,6 +40,8 @@ public sealed class OpenTapRunContext : IStepRuntime, IDisposable
     public OpenTapRunControlState Control => _control;
 
     public IReadOnlyList<StoredSample> Samples => _samples;
+
+    public IReadOnlyList<StoredEvent> Events => _events;
 
     public IReadOnlyList<StepResultRecord> Steps => _steps;
 
@@ -85,10 +88,12 @@ public sealed class OpenTapRunContext : IStepRuntime, IDisposable
         Action<string, string?, string, string, string?> updateNode,
         Func<string, string?, string?> resolvePath,
         IReadOnlyList<StoredSample>? preservedSamples,
+        IReadOnlyList<StoredEvent>? preservedEvents,
         IReadOnlyList<string>? sampleScopePaths)
     {
         _progress = progress;
         _samples.Clear();
+        _events.Clear();
         _steps.Clear();
         _stepStarted.Clear();
         _control.BeginRun(cancellationToken);
@@ -102,6 +107,7 @@ public sealed class OpenTapRunContext : IStepRuntime, IDisposable
             var listener = new ProgressResultListener(
                 progress,
                 _samples,
+                _events,
                 _steps,
                 _stepStarted,
                 updateNode,
@@ -161,6 +167,7 @@ public sealed class OpenTapRunContext : IStepRuntime, IDisposable
                 CancellationToken.None).ConfigureAwait(false);
 
             MergePreservedSamples(preservedSamples, sampleScopePaths);
+            MergePreservedEvents(preservedEvents, sampleScopePaths);
 
             var verdict = planRun.Verdict;
             var result = MapVerdict(verdict, cancelled: _control.IsCancellationRequested);
@@ -188,6 +195,7 @@ public sealed class OpenTapRunContext : IStepRuntime, IDisposable
         catch (Exception ex) when (ex is OperationCanceledException || ex.GetType().Name.Contains("Abort", StringComparison.Ordinal))
         {
             MergePreservedSamples(preservedSamples, sampleScopePaths);
+            MergePreservedEvents(preservedEvents, sampleScopePaths);
             var summary = BuildSummary(
                 runId,
                 planDisplayName ?? plan.Name,
@@ -244,6 +252,24 @@ public sealed class OpenTapRunContext : IStepRuntime, IDisposable
         _samples.AddRange(runSamples);
     }
 
+    private void MergePreservedEvents(
+        IReadOnlyList<StoredEvent>? preservedEvents,
+        IReadOnlyList<string>? sampleScopePaths)
+    {
+        if (preservedEvents is null || preservedEvents.Count == 0 || sampleScopePaths is null)
+        {
+            return;
+        }
+
+        var prior = preservedEvents
+            .Where(e => !OpenTapStepTree.IsPathUnderAnyScope(e.StepPath, sampleScopePaths))
+            .ToList();
+        var runEvents = _events.ToList();
+        _events.Clear();
+        _events.AddRange(prior);
+        _events.AddRange(runEvents);
+    }
+
     private OpenTapRunSummary BuildSummary(
         string runId,
         string planName,
@@ -265,6 +291,7 @@ public sealed class OpenTapRunContext : IStepRuntime, IDisposable
             StartedAt = started,
             CompletedAt = _clock.UtcNow,
             Samples = _samples.ToList(),
+            Events = _events.ToList(),
             Steps = _steps.ToList(),
             Verdict = verdict,
         };
