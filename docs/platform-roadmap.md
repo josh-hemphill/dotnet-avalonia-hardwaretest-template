@@ -68,7 +68,7 @@ Distinct namespaces on purpose — "Phase C" and "Phase 3" are never the same th
 | 23 | [Safety Stop + OpenTAP worker](platform-phases/phase-23-safety-opentap-worker.md) | 19, 22 | Done |
 | 24 | [OpenTAP session decomposition](platform-phases/phase-24-session-decomposition.md) | 14 | Done |
 | 25 | [Clock discipline](platform-phases/phase-25-clock-discipline.md) | 11 | Done |
-| 26 | [Station health & optional Run gating](platform-phases/phase-26-station-health-gating.md) | 10, 17, 25 | Planned |
+| 26 | [Station health & optional Run gating](platform-phases/phase-26-station-health-gating.md) | 10, 17, 25 | Planned ([stack](../opentap-phases/phase-m-n26-stack.md)) |
 
 **Suggested order (1–10):** 1 first and alone — nothing else is verifiable until CI actually runs. Then 2 / 7 / 8 can proceed in parallel (independent seams). 3 → 4 → 5 is a chain and should stay one series. 6 lands after 4. 9 after 8. 10 after 3/6/9 (storage + chrome).
 
