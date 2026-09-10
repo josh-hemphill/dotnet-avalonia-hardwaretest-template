@@ -1,9 +1,8 @@
-import * as path from "@std/path";
 import { parseArgs } from "@std/cli/parse-args";
 import { formatAuditFailure, hasVulnerablePackages } from "./lib/audit.ts";
 import { evaluateCobertura, findCobertura } from "./lib/coverage.ts";
-import { coverageDir, publishDir, repoRoot } from "./lib/paths.ts";
-import { defaultRid } from "./lib/rid.ts";
+import { coverageDir, publishedExe, publishDir, repoRoot } from "./lib/paths.ts";
+import { defaultRid, isNativeRid } from "./lib/rid.ts";
 import { run, runCapture } from "./lib/run.ts";
 
 /** Canonical CI task names — workflow and `list` must stay in sync. */
@@ -12,6 +11,7 @@ export const TASKS = [
   "audit",
   "build",
   "coverage",
+  "format",
   "list",
   "publish",
   "test:arch",
@@ -22,7 +22,12 @@ export const TASKS = [
 ] as const;
 
 /** OpenTAP host tests must not load Coverlet (process-global TapThread flakes). */
-const CORE_COVERAGE_FILTER = "FullyQualifiedName!~HardwareTest.Tests.OpenTap";
+export const CORE_COVERAGE_FILTER = "FullyQualifiedName!~HardwareTest.Tests.OpenTap";
+
+/** Linux E2E and an explicit --advisory-e2e flag stay non-fatal. */
+export function e2eIsAdvisory(opts: { advisoryE2e: boolean; rid: string }): boolean {
+  return opts.advisoryE2e || opts.rid.startsWith("linux-");
+}
 
 export type TaskName = (typeof TASKS)[number];
 
@@ -43,6 +48,7 @@ Tasks:
   ${TASKS.join(", ")}
 
 RID defaults to the host platform (${defaultRidSafe()}).
+  --advisory-e2e   treat test:e2e (and e2e inside all) as non-fatal
 `;
 }
 
@@ -80,6 +86,16 @@ function parseOptions(args: string[]): Options {
     root: repoRoot(),
     advisoryE2e: Boolean(parsed["advisory-e2e"]),
   };
+}
+
+async function formatCheck(opts: Options): Promise<void> {
+  await run([
+    "dotnet",
+    "format",
+    "HardwareTest.slnx",
+    "--verify-no-changes",
+    "--no-restore",
+  ], { cwd: opts.root });
 }
 
 async function build(opts: Options): Promise<void> {
@@ -121,16 +137,21 @@ async function testVm(opts: Options): Promise<void> {
 }
 
 async function testE2e(opts: Options): Promise<void> {
-  await run([
-    "dotnet",
-    "test",
-    "tests/HardwareTest.E2E.Tests/HardwareTest.E2E.Tests.csproj",
-    "-c",
-    opts.configuration,
-    "-r",
-    opts.rid,
-    "--no-build",
-  ], { cwd: opts.root });
+  try {
+    await run([
+      "dotnet",
+      "test",
+      "tests/HardwareTest.E2E.Tests/HardwareTest.E2E.Tests.csproj",
+      "-c",
+      opts.configuration,
+      "-r",
+      opts.rid,
+      "--no-build",
+    ], { cwd: opts.root });
+  } catch (err) {
+    if (!opts.advisoryE2e) throw err;
+    console.warn(`advisory: test:e2e failed on ${opts.rid}: ${err}`);
+  }
 }
 
 async function testArch(opts: Options): Promise<void> {
@@ -187,7 +208,7 @@ async function coverage(opts: Options): Promise<void> {
     console.error(failure);
   }
   if (!report.ok) {
-    Deno.exit(1);
+    throw new Error(report.failures.join("\n"));
   }
 }
 
@@ -236,23 +257,16 @@ async function publish(opts: Options): Promise<void> {
   ], { cwd: opts.root });
 }
 
-function publishedExe(opts: Options): string {
-  const base = publishDir(opts.rid, opts.root);
-  return Deno.build.os === "windows"
-    ? path.join(base, "HardwareTest.exe")
-    : path.join(base, "HardwareTest");
-}
-
 async function verify(opts: Options): Promise<void> {
   const expectedRid = opts.rid;
-  const hostRid = defaultRid();
-  if (expectedRid !== hostRid) {
+  if (!isNativeRid(expectedRid)) {
+    const hostRid = defaultRidSafe();
     throw new Error(
       `verify requires a native RID (expected host ${hostRid}, got --rid ${expectedRid})`,
     );
   }
 
-  const exe = publishedExe(opts);
+  const exe = publishedExe(expectedRid, opts.root);
   try {
     await Deno.stat(exe);
   } catch {
@@ -315,21 +329,17 @@ async function verify(opts: Options): Promise<void> {
 
 async function all(opts: Options): Promise<void> {
   await build(opts);
+  await formatCheck(opts);
   await audit(opts);
   await testArch(opts);
   await testHost(opts);
   await testVm(opts);
 
   // Linux Avalonia headless E2E starts advisory; Windows keeps it required.
-  if (opts.rid.startsWith("linux-") || opts.advisoryE2e) {
-    try {
-      await testE2e(opts);
-    } catch (err) {
-      console.warn(`advisory: test:e2e failed on ${opts.rid}: ${err}`);
-    }
-  } else {
-    await testE2e(opts);
-  }
+  await testE2e({
+    ...opts,
+    advisoryE2e: e2eIsAdvisory(opts),
+  });
 
   await coverage(opts);
   await publish(opts);
@@ -365,6 +375,9 @@ export async function main(argv = Deno.args): Promise<void> {
     case "build":
       await build(opts);
       break;
+    case "format":
+      await formatCheck(opts);
+      break;
     case "audit":
       await audit(opts);
       break;
@@ -391,9 +404,6 @@ export async function main(argv = Deno.args): Promise<void> {
       break;
     case "all":
       await all(opts);
-      break;
-    case "list":
-      listTasks();
       break;
   }
 }

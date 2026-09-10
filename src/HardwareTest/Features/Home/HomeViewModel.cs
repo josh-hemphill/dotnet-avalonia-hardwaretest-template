@@ -1,6 +1,5 @@
 using System;
 using System.Diagnostics;
-using System.Runtime.Versioning;
 using System.Threading.Tasks;
 using HardwareTest.Core.Crash;
 using HardwareTest.Core.Settings;
@@ -276,9 +275,6 @@ public partial class HomeViewModel : ReactiveObject
         CrashBannerDetail = string.Empty;
     }
 
-    [SupportedOSPlatform("windows")]
-    [SupportedOSPlatform("linux")]
-    [SupportedOSPlatform("macos")]
     private static void OpenFolder(string path)
     {
         Process.Start(new ProcessStartInfo

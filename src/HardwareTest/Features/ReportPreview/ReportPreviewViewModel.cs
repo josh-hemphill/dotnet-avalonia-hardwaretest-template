@@ -84,7 +84,10 @@ public partial class ReportPreviewViewModel : ReactiveObject
 
             try
             {
+                // PDFtoImage is desktop-only; the Avalonia shell does not ship other RIDs.
+#pragma warning disable CA1416
                 var bitmaps = await Task.Run(() => RenderPages(path)).ConfigureAwait(false);
+#pragma warning restore CA1416
                 await RunOnUiAsync(() =>
                 {
                     foreach (var bitmap in bitmaps)
