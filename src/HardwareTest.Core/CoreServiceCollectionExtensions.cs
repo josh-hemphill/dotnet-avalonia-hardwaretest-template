@@ -51,6 +51,10 @@ public static class CoreServiceCollectionExtensions
                 string.IsNullOrWhiteSpace(settingsStore.AppSettings.DataDirectory)
                     ? settingsStore.RootDirectory
                     : settingsStore.AppSettings.DataDirectory));
+        services.AddSingleton<IStationHealthGate>(sp =>
+            new StationHealthGate(
+                sp.GetRequiredService<IStationHealthStore>(),
+                settingsStore.AppSettings));
         services.AddSingleton<VisaModeController>(sp =>
             new VisaModeController(
                 settingsStore.AppSettings.UseMockVisa,

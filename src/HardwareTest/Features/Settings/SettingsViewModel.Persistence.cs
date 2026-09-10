@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Threading.Tasks;
 using HardwareTest.Core.Hardware;
 using HardwareTest.Core.Settings;
+using HardwareTest.Core.StationHealth;
 using HardwareTest.Core.Time;
 
 namespace HardwareTest.Features.Settings;
@@ -149,6 +150,12 @@ public partial class SettingsViewModel
             s.NtpHost = NtpHost?.Trim() ?? string.Empty;
         }
 
+        if (!StationHealthGateOverrideReadOnly)
+        {
+            var pin = StationHealthGateOverride?.Trim() ?? string.Empty;
+            s.StationHealthGateOverride = StationHealthGateOverrides.IsKnown(pin) ? pin : string.Empty;
+        }
+
         if (!ExportDirectoryReadOnly)
         {
             s.ExportDirectory = ExportDirectory?.Trim() ?? string.Empty;
@@ -222,6 +229,7 @@ public partial class SettingsViewModel
             nameof(RunRetentionMaxRuns) => RunRetentionMaxRunsReadOnly,
             nameof(ClockSkewWarnThresholdMinutes) => ClockSkewWarnThresholdMinutesReadOnly,
             nameof(NtpHost) => NtpHostReadOnly,
+            nameof(StationHealthGateOverride) => StationHealthGateOverrideReadOnly,
             nameof(ExportDirectory) => ExportDirectoryReadOnly,
             nameof(DataFreeSpaceWarnGb) => DataFreeSpaceWarnGbReadOnly,
             nameof(DataFreeSpaceCriticalGb) => DataFreeSpaceCriticalGbReadOnly,

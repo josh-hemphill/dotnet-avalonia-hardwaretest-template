@@ -1,5 +1,6 @@
 using HardwareTest.Core.Hardware;
 using HardwareTest.Core.Settings;
+using HardwareTest.Core.StationHealth;
 using HardwareTest.Features;
 using HardwareTest.Features.Home;
 using HardwareTest.Features.Inspect;
@@ -12,6 +13,7 @@ using HardwareTest.Features.Shell;
 using HardwareTest.OpenTap.Host;
 using HardwareTest.OpenTap.Plugins.Basic;
 using HardwareTest.ViewModels.Tests.Fakes;
+using HardwareTest.ViewModels.Tests.Time;
 using Xunit;
 
 namespace HardwareTest.ViewModels.Tests;
@@ -24,7 +26,8 @@ public sealed class MainWindowViewModelTests
         FakeRunControl runControl,
         RunTestViewModel? runTest = null,
         ResultsViewModel? results = null,
-        FakeRunStore? runStore = null)
+        FakeRunStore? runStore = null,
+        SettingsViewModel? settings = null)
     {
         runStore ??= new FakeRunStore();
         runTest ??= new RunTestViewModel(
@@ -46,7 +49,7 @@ public sealed class MainWindowViewModelTests
             results,
             new ReportPreviewViewModel(runStore, new FakeReportService()),
             new InstrumentsViewModel(store, new FakeVisaDiscovery(), openTap, new MockVisaSessionFactory(new VisaSessionGate())),
-            new SettingsViewModel(store, openTap),
+            settings ?? new SettingsViewModel(store, openTap),
             runControl,
             openTap);
     }
@@ -230,6 +233,34 @@ public sealed class MainWindowViewModelTests
         await Task.Delay(100);
         Assert.NotEmpty(results.Runs);
         Assert.Contains("Loaded", results.Status, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task NavigateTo_Settings_refreshes_station_health_one_liner()
+    {
+        var store = new FakeSettingsStore();
+        store.UiState.SelectedPageId = "Home";
+        var health = new FakeStationHealthStore();
+        var clock = new FakeClock(new DateTimeOffset(2026, 9, 10, 16, 0, 0, TimeSpan.Zero));
+        var settings = new SettingsViewModel(
+            store,
+            new FakeOpenTapSession(),
+            stationHealthStore: health,
+            clock: clock);
+        var vm = CreateMain(store, new FakeOpenTapSession(), new FakeRunControl(), settings: settings);
+
+        Assert.Contains("none", settings.StationHealthSummary, StringComparison.Ordinal);
+        await health.WriteAsync(new StationHealthRecord
+        {
+            ProfileId = FileStationHealthStore.DefaultProfileId,
+            MeasuredAt = clock.UtcNow.AddHours(-2),
+            Verdict = StationHealthVerdicts.Pass,
+        });
+        Assert.Contains("none", settings.StationHealthSummary, StringComparison.Ordinal);
+
+        vm.NavigateToPageId(ShellNavigationPolicy.Settings);
+        Assert.Contains("Pass", settings.StationHealthSummary, StringComparison.Ordinal);
+        Assert.Contains("2 h ago", settings.StationHealthSummary, StringComparison.Ordinal);
     }
 
     [Fact]

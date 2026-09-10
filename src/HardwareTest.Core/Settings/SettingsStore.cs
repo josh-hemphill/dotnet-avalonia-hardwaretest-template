@@ -545,6 +545,8 @@ public sealed class SettingsStore : ISettingsStore
         target.OpenTapWorkerKillTimeoutMilliseconds = source.OpenTapWorkerKillTimeoutMilliseconds;
         target.ClockSkewWarnThresholdMinutes = source.ClockSkewWarnThresholdMinutes;
         target.NtpHost = source.NtpHost;
+        target.StationHealthProfileId = source.StationHealthProfileId;
+        target.StationHealthGateOverride = source.StationHealthGateOverride;
         target.UseMockOperatorCredential = source.UseMockOperatorCredential;
         target.RequireCredentialForOperator = source.RequireCredentialForOperator;
         target.RequireAttestationBeforeExport = source.RequireAttestationBeforeExport;
