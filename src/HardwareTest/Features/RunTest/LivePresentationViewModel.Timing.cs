@@ -14,10 +14,10 @@ public partial class LivePresentationViewModel
     [Reactive] private string _chartEventLabel = string.Empty;
     [Reactive] private bool _hasTimingStrip;
     [Reactive] private double _plotDurationSec;
-
-    public IReadOnlyList<(double T0, double T1)> PlotOutOfBandSpans { get; private set; } = [];
+    [Reactive] private IReadOnlyList<(double T0, double T1)> _plotOutOfBandSpans = [];
 
     /// Stores a plan-owned Event mark and refreshes strip / toolbar labels.
+    /// Does not raise PlotDataChanged — the same-frame sample flush owns the chart render.
     public void ApplyEvent(MeasurementEventMark mark)
     {
         Events.Add(mark);
@@ -33,8 +33,6 @@ public partial class LivePresentationViewModel
             ChartElapsedText = SeriesTimingChrome.FormatElapsed(mark.ElapsedMs);
             ChartEventLabel = SeriesTimingChrome.FormatEventLabel(mark);
         }
-
-        PlotDataChanged?.Invoke(this, EventArgs.Empty);
     }
 
     private void ClearTimingChrome()
@@ -62,9 +60,5 @@ public partial class LivePresentationViewModel
             snapshot.LimitHigh);
         PlotDurationSec = snapshot.Length > 0 ? snapshot.Xs[snapshot.Length - 1] : 0;
         HasTimingStrip = Events.Count > 0 || PlotOutOfBandSpans.Count > 0;
-        if (PlotOutOfBandSpans.Count > 0)
-        {
-            HasChartAttention = true;
-        }
     }
 }

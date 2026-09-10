@@ -52,7 +52,8 @@ public static class SeriesTimingChrome
         MeasurementEventMark? best = null;
         foreach (var mark in events)
         {
-            if (mark.ElapsedMs <= elapsedMs)
+            if (mark.ElapsedMs <= elapsedMs
+                && (best is null || mark.ElapsedMs > best.ElapsedMs))
             {
                 best = mark;
             }

@@ -1,3 +1,5 @@
+using System.ComponentModel;
+using HardwareTest.Core.Runs;
 using HardwareTest.Features.Presentation;
 using HardwareTest.Features.RunTest;
 using HardwareTest.OpenTap.Host;
@@ -91,5 +93,163 @@ public sealed class SeriesTimingChromeTests
         Assert.False(live.ShowFocusTrend);
         Assert.True(live.HasChartData);
         Assert.True(live.OfferOpenChart);
+    }
+
+    [Fact]
+    public void ApplySample_without_elapsed_uses_timestamp_delta()
+    {
+        var live = new LivePresentationViewModel();
+        var step = new HierarchyStepViewModel(new OpenTapStepNode
+        {
+            Id = "acq",
+            Name = "Acquire",
+            Path = "Suite/Acquire",
+        });
+        var t0 = new DateTimeOffset(2026, 9, 10, 12, 0, 0, TimeSpan.Zero);
+        live.ApplySample(
+            new MeasurementSampleEvent("rail.x", 0, 3.3, t0, DisplayRole: "timeseries"),
+            step.Path,
+            null,
+            step);
+        live.ApplySample(
+            new MeasurementSampleEvent("rail.x", 1, 3.31, t0.AddMilliseconds(250), DisplayRole: "timeseries"),
+            step.Path,
+            null,
+            step);
+
+        Assert.Equal(2, live.PlotYsLength);
+        Assert.Equal(0, live.PlotXs[0], 6);
+        Assert.Equal(0.25, live.PlotXs[1], 6);
+    }
+
+    [Fact]
+    public void PlotOutOfBandSpans_raises_property_changed()
+    {
+        var live = new LivePresentationViewModel();
+        var step = new HierarchyStepViewModel(new OpenTapStepNode
+        {
+            Id = "acq",
+            Name = "Acquire",
+            Path = "Suite/Acquire",
+        });
+        var notified = false;
+        live.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(LivePresentationViewModel.PlotOutOfBandSpans))
+            {
+                notified = true;
+            }
+        };
+
+        live.ApplySample(
+            new MeasurementSampleEvent(
+                "rail.x",
+                0,
+                3.6,
+                DateTimeOffset.UtcNow,
+                DisplayRole: "timeseries",
+                LimitLow: 3.2,
+                LimitHigh: 3.5,
+                ElapsedMs: 5),
+            step.Path,
+            null,
+            step);
+
+        Assert.True(notified);
+        Assert.NotEmpty(live.PlotOutOfBandSpans);
+    }
+
+    [Fact]
+    public void LatestEventAt_picks_greatest_elapsed_at_or_before_now()
+    {
+        var marks = new MeasurementEventMark[]
+        {
+            new("cfg", 20, "bit2", 4, "p"),
+            new("cfg", 5, "bit0", 1, "p"),
+            new("cfg", 10, "bit1", 2, "p"),
+        };
+        var latest = SeriesTimingChrome.LatestEventAt(marks, 15);
+        Assert.Equal("bit1", latest?.Label);
+    }
+
+    [Fact]
+    public void BuildFromStoredSamples_uses_time_axis_only_when_every_sample_has_elapsed()
+    {
+        var timed = PresentationRoleMap.BuildFromStoredSamples(
+        [
+            new StoredSample
+            {
+                MetricKey = "rail.x",
+                DisplayRole = PresentationRoleMap.Timeseries,
+                Value = 3.3,
+                ElapsedMs = 0,
+                Timestamp = DateTimeOffset.UtcNow,
+            },
+            new StoredSample
+            {
+                MetricKey = "rail.x",
+                DisplayRole = PresentationRoleMap.Timeseries,
+                Value = 3.6,
+                ElapsedMs = 10,
+                LimitLow = 3.2,
+                LimitHigh = 3.5,
+                Timestamp = DateTimeOffset.UtcNow,
+            },
+        ]);
+        var timedTile = Assert.Single(timed);
+        Assert.True(timedTile.UsesTimeAxis);
+        Assert.Equal(0.010, timedTile.Xs[1], 6);
+        timedTile.SetTimingChrome(
+            [new MeasurementEventMark("cfg", 10, "bit1", 2, "p")],
+            SeriesTimingChrome.OutOfBandSpans(
+                timedTile.Xs,
+                timedTile.Ys,
+                timedTile.YsLength,
+                timedTile.LimitLow,
+                timedTile.LimitHigh));
+        Assert.Single(timedTile.TimingMarks);
+        Assert.NotEmpty(timedTile.OutOfBandSpans);
+
+        var mixed = PresentationRoleMap.BuildFromStoredSamples(
+        [
+            new StoredSample
+            {
+                MetricKey = "legacy",
+                DisplayRole = PresentationRoleMap.Timeseries,
+                Value = 1,
+                Timestamp = DateTimeOffset.UtcNow,
+            },
+            new StoredSample
+            {
+                MetricKey = "legacy",
+                DisplayRole = PresentationRoleMap.Timeseries,
+                Value = 2,
+                ElapsedMs = 50,
+                Timestamp = DateTimeOffset.UtcNow,
+            },
+        ]);
+        var indexTile = Assert.Single(mixed);
+        Assert.False(indexTile.UsesTimeAxis);
+        Assert.Equal(0, indexTile.Xs[0]);
+        Assert.Equal(1, indexTile.Xs[1]);
+    }
+
+    [Fact]
+    public void SetTimingChrome_notifies_and_strip_only_tiles_are_not_metric_tiles()
+    {
+        var strip = new PresentationTileViewModel("win", PresentationTileKind.Timing, "timing", "ms", "p");
+        var chart = new PresentationTileViewModel("rail.x", PresentationTileKind.Timeseries, "timeseries", "V", "p");
+        var notified = false;
+        ((INotifyPropertyChanged)chart).PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(PresentationTileViewModel.TimingMarks))
+            {
+                notified = true;
+            }
+        };
+        chart.SetTimingChrome([new MeasurementEventMark("cfg", 0, "bit0", 1, "p")], []);
+        Assert.True(notified);
+        Assert.True(strip.IsStrip);
+        Assert.False(chart.IsStrip);
     }
 }

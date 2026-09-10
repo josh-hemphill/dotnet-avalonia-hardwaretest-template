@@ -191,7 +191,7 @@ public partial class LivePresentationViewModel : ReactiveObject
             PresentationTiles.Add(tile);
         }
 
-        HasPresentationTiles = PresentationTiles.Count > 0;
+        HasPresentationTiles = PresentationTiles.Any(t => !t.IsStrip);
     }
 
     /// Recomputes chart availability and attention from selection and out-of-band gauges.

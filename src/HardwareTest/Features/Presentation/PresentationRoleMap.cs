@@ -146,15 +146,16 @@ public static class PresentationRoleMap
             tile.Apply(last.Value, last.LimitLow, last.LimitHigh);
             if (kind == PresentationTileKind.Timeseries)
             {
+                var usesTimeAxis = ordered.All(s => s.ElapsedMs is not null);
                 var xs = new double[ordered.Length];
                 var ys = new double[ordered.Length];
                 for (var i = 0; i < ordered.Length; i++)
                 {
                     ys[i] = ordered[i].Value;
-                    xs[i] = ordered[i].ElapsedMs is { } ms ? ms / 1000.0 : i;
+                    xs[i] = usesTimeAxis ? ordered[i].ElapsedMs!.Value / 1000.0 : i;
                 }
 
-                tile.SetSeries(xs, ys);
+                tile.SetSeries(xs, ys, usesTimeAxis);
             }
 
             tiles.Add(tile);

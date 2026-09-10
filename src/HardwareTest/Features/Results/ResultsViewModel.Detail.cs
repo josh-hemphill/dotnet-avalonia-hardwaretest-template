@@ -45,7 +45,6 @@ public partial class ResultsViewModel
     public ObservableCollection<string> SampleDetails { get; }
     public ObservableCollection<PresentationTileViewModel> PresentationTiles { get; }
     public ObservableCollection<MeasurementEventMark> TimingEvents { get; } = [];
-    public IReadOnlyList<(double T0, double T1)> TimingSpans { get; private set; } = [];
     public ObservableCollection<DutHistoryMetricRow> HistoryMetrics { get; }
     public ObservableCollection<RunReportItemViewModel> ReportItems { get; }
     public ObservableCollection<ExportTarget> ExportTargets { get; }
@@ -75,6 +74,7 @@ public partial class ResultsViewModel
     [Reactive] private bool _hasPresentationTiles;
     [Reactive] private bool _hasTimingStrip;
     [Reactive] private double _timingDurationSec;
+    [Reactive] private IReadOnlyList<(double T0, double T1)> _timingSpans = [];
     [Reactive] private bool _hasReports;
     [Reactive] private string _searchText = string.Empty;
     [Reactive] private string _resultFilter = AllFilter;
@@ -280,36 +280,37 @@ public partial class ResultsViewModel
             SampleDetails.Add($"…and {OpenedRun.Samples.Count - SidebarDetailCap} more samples (see run.json / report).");
         }
 
-        foreach (var tile in PresentationRoleMap.BuildFromStoredSamples(OpenedRun.Samples))
-        {
-            PresentationTiles.Add(tile);
-        }
-
-        HasPresentationTiles = PresentationTiles.Count > 0;
         var marks = SeriesTimingChrome.ToMarks(OpenedRun.Events);
         foreach (var mark in marks)
         {
             TimingEvents.Add(mark);
         }
 
+        foreach (var tile in PresentationRoleMap.BuildFromStoredSamples(OpenedRun.Samples))
+        {
+            if (tile.IsChart)
+            {
+                tile.SetTimingChrome(
+                    marks,
+                    SeriesTimingChrome.OutOfBandSpans(
+                        tile.Xs,
+                        tile.Ys,
+                        tile.YsLength,
+                        tile.LimitLow,
+                        tile.LimitHigh));
+            }
+
+            PresentationTiles.Add(tile);
+        }
+
+        HasPresentationTiles = PresentationTiles.Any(t => !t.IsStrip);
         var chart = PresentationTiles.FirstOrDefault(t => t.IsChart);
         TimingSpans = chart is null
             ? []
-            : SeriesTimingChrome.OutOfBandSpans(chart.Xs, chart.Ys, chart.YsLength, chart.LimitLow, chart.LimitHigh);
+            : chart.OutOfBandSpans;
         TimingDurationSec = Math.Max(
             TimingEvents.Count == 0 ? 0 : TimingEvents.Max(e => e.ElapsedMs / 1000.0),
             chart is { YsLength: > 0 } ? chart.Xs[chart.YsLength - 1] : 0);
-        foreach (var tile in PresentationTiles.Where(t => t.IsChart))
-        {
-            tile.TimingMarks = marks;
-            tile.OutOfBandSpans = SeriesTimingChrome.OutOfBandSpans(
-                tile.Xs,
-                tile.Ys,
-                tile.YsLength,
-                tile.LimitLow,
-                tile.LimitHigh);
-        }
-
         HasTimingStrip = TimingEvents.Count > 0 || TimingSpans.Count > 0 || PresentationTiles.Any(t => t.IsStrip);
         LoadReportItems(OpenedRun);
 
