@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Text.Json;
 using System.Xml.Linq;
 using Avalonia.Controls;
 using HardwareTest.Core.Hardware;
@@ -172,6 +173,55 @@ public sealed class ArchitectureRulesTests
         Assert.True(
             offenders.Count == 0,
             $"{Phase25ClockRule} Wall-clock UtcNow in idle/retention/run-complete:{Environment.NewLine}{string.Join(Environment.NewLine, offenders)}");
+    }
+
+    [Fact]
+    public void Slnx_project_set_matches_dirs_proj_src_and_tests_globs()
+    {
+        var repo = FindRepoRoot();
+        var slnx = XDocument.Load(Path.Combine(repo, "HardwareTest.slnx"));
+        var slnxProjects = slnx.Descendants("Project")
+            .Select(e => (e.Attribute("Path")?.Value ?? string.Empty).Replace('\\', '/'))
+            .Where(p => p.Length > 0)
+            .OrderBy(p => p, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Equal(ProjectsFromDirsProj(repo), slnxProjects);
+    }
+
+    [Fact]
+    public void Package_lockfiles_include_declared_runtime_identifiers()
+    {
+        var repo = FindRepoRoot();
+        var required = RequiredLockfileGraphs(repo);
+        var missing = new List<string>();
+        foreach (var projectRel in ProjectsFromDirsProj(repo))
+        {
+            var lockPath = Path.Combine(
+                repo,
+                Path.GetDirectoryName(projectRel) ?? string.Empty,
+                "packages.lock.json");
+            var rel = Path.GetRelativePath(repo, lockPath).Replace('\\', '/');
+            if (!File.Exists(lockPath))
+            {
+                missing.Add($"{rel} missing (for {projectRel})");
+                continue;
+            }
+
+            using var doc = JsonDocument.Parse(File.ReadAllText(lockPath));
+            var deps = doc.RootElement.GetProperty("dependencies");
+            foreach (var graph in required)
+            {
+                if (!deps.TryGetProperty(graph, out _))
+                {
+                    missing.Add($"{rel} missing {graph}");
+                }
+            }
+        }
+
+        Assert.True(
+            missing.Count == 0,
+            $"Directory.Build.props RuntimeIdentifiers must appear in every dirs.proj lockfile:{Environment.NewLine}{string.Join(Environment.NewLine, missing)}");
     }
 
     [Fact]
@@ -480,6 +530,79 @@ public sealed class ArchitectureRulesTests
         => Path.GetRelativePath(root, path)
             .Split(PathSeparators)
             .Any(segment => segment is "bin" or "obj");
+
+    private static string[] ProjectsFromDirsProj(string repo)
+    {
+        var dirs = XDocument.Load(Path.Combine(repo, "dirs.proj"));
+        return dirs.Descendants("ProjectReference")
+            .Select(e => e.Attribute("Include")?.Value ?? string.Empty)
+            .Where(p => p.Length > 0)
+            .SelectMany(pattern => ExpandMsbuildGlob(repo, pattern))
+            .Select(p => Path.GetRelativePath(repo, p).Replace('\\', '/'))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(p => p, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+
+    private static IEnumerable<string> ExpandMsbuildGlob(string repo, string pattern)
+    {
+        var normalized = pattern.Replace('\\', '/');
+        var star = normalized.IndexOf("/**/", StringComparison.Ordinal);
+        if (star < 0)
+        {
+            var full = Path.Combine(repo, normalized.Replace('/', Path.DirectorySeparatorChar));
+            if (File.Exists(full))
+            {
+                yield return full;
+            }
+
+            yield break;
+        }
+
+        var prefix = normalized[..star];
+        var suffix = normalized[(star + 4)..];
+        var searchRoot = Path.Combine(repo, prefix.Replace('/', Path.DirectorySeparatorChar));
+        if (!Directory.Exists(searchRoot))
+        {
+            yield break;
+        }
+
+        foreach (var file in Directory.GetFiles(searchRoot, suffix, SearchOption.AllDirectories))
+        {
+            yield return file;
+        }
+    }
+
+    private static string[] RequiredLockfileGraphs(string repo)
+    {
+        var props = File.ReadAllText(Path.Combine(repo, "Directory.Build.props"));
+        var tfm = MatchBuildProperty(props, "TargetFramework");
+        var rids = MatchBuildProperty(props, "RuntimeIdentifiers");
+        Assert.False(string.IsNullOrWhiteSpace(tfm), "Directory.Build.props must set TargetFramework.");
+        Assert.False(string.IsNullOrWhiteSpace(rids), "Directory.Build.props must set RuntimeIdentifiers.");
+        return rids.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(rid => $"{tfm}/{rid}")
+            .ToArray();
+    }
+
+    private static string MatchBuildProperty(string propsXml, string name)
+    {
+        var open = $"<{name}";
+        var start = propsXml.IndexOf(open, StringComparison.Ordinal);
+        if (start < 0)
+        {
+            return string.Empty;
+        }
+
+        var valueStart = propsXml.IndexOf('>', start);
+        var valueEnd = propsXml.IndexOf($"</{name}>", valueStart + 1, StringComparison.Ordinal);
+        if (valueStart < 0 || valueEnd < 0)
+        {
+            return string.Empty;
+        }
+
+        return propsXml[(valueStart + 1)..valueEnd].Trim();
+    }
 
     /// Walks up from the test output directory to the folder holding the solution file.
     private static string FindRepoRoot()

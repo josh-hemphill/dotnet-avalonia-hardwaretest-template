@@ -4,7 +4,6 @@
     <RootNamespace>HardwareTest</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <PublishAot>false</PublishAot>
-    <RuntimeIdentifiers>win-x64;linux-x64;osx-arm64</RuntimeIdentifiers>
     <OptimizationPreference>Speed</OptimizationPreference>
     <BuiltInComInteropSupport>false</BuiltInComInteropSupport>
   </PropertyGroup>
