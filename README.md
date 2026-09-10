@@ -15,10 +15,11 @@ src/
   HardwareTest.OpenTap.Plugins.Visa/ # VISA DMM adapter over IVisaBroker (bench)
   HardwareTest.OpenTap.Plugins.Mixins/# Presentation + Annotation mixins (Editor pack)
 plans/opentap/                       # Locked .TapPlan programs + template program TapPackage
+docs/getting-started.md              # New-user TUI + packages + test types
 docs/adapting.md                     # Productize plans, plugins, station bindings, reports
 docs/testing.md                      # UI vs OpenTAP suite separation
-docs/appliance-linux.md              # Appliance layout + publish notes
 docs/containers.md                   # Local CI tasks, Podman, appliance image rails
+docs/appliance-linux.md              # Appliance layout + publish notes
 tools/ci/                            # Deno CI tasks shared by Actions + local runs
 tests/
   HardwareTest.Architecture.Tests/   # Layering smoke (Avalonia/OpenTAP boundaries)
@@ -44,6 +45,7 @@ templates/reports/                   # Typst templates (embedded)
 
 | Guide | Use when |
 | --- | --- |
+| [docs/getting-started.md](docs/getting-started.md) | First OpenTAP TUI plan with our packages and test types |
 | [docs/adapting.md](docs/adapting.md) | Replacing sample plans, plugins, station bindings, reports, or settings |
 | [docs/testing.md](docs/testing.md) | Adding or choosing a test suite |
 | [docs/containers.md](docs/containers.md) | Running the Deno CI matrix locally or in Podman |
@@ -86,7 +88,7 @@ dotnet test tests/HardwareTest.E2E.Tests -r win-x64
 
 ## OpenTAP programs
 
-Author structure in **OpenTAP Editor** or the free **OpenTAP TUI**; ship locked `.TapPlan` files under `plans/opentap/` (copied to `Programs/` on build). Product plans use **InstrumentComponents.OpenTap** typed instruments/steps plus HardwareTest Mixins Presentation; validate with `HardwareTest.PlanValidate --strict` before bake. Cookbook: [docs/adapting.md](docs/adapting.md#author-a-locked-program).
+Author structure in **OpenTAP Editor** or the free **OpenTAP TUI**; ship locked `.TapPlan` files under `plans/opentap/` (copied to `Programs/` on build). Product plans use **InstrumentComponents.OpenTap** typed instruments/steps plus HardwareTest Mixins Presentation; validate with `HardwareTest.PlanValidate --strict` before bake. Walkthrough: [docs/getting-started.md](docs/getting-started.md). Contract: [docs/adapting.md](docs/adapting.md#author-a-locked-program).
 
 ## Appliance publish
 

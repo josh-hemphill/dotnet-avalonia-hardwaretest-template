@@ -2,11 +2,11 @@
 
 Keep the layering (`HardwareTest` UI → focused `IOpenTap*` session surfaces → plugins/plans → `HardwareTest.Core`) and replace the sample product pieces below.
 
-Related: [testing.md](testing.md) (suites), [appliance-linux.md](appliance-linux.md) (sealed publish), [README.md](../README.md) (layering rules).
+Related: [getting-started.md](getting-started.md) (TUI walkthrough), [testing.md](testing.md) (suites), [appliance-linux.md](appliance-linux.md) (sealed publish), [README.md](../README.md) (layering rules).
 
 ## Author a locked program
 
-This shell does not edit plans. Author in **OpenTAP Editor / TUI**. A locked program is `.TapPlan` + `{planId}.program.json` + Presentation on function leaves + TapPackage Dependencies + Typst `reportKinds`. `HardwareTest.PlanValidate --strict` must fail a bad pack **before bake**. Authoring warnings do not block operator Run.
+This shell does not edit plans. Author in **OpenTAP Editor / TUI**. First-time TUI steps and each test type: [getting-started.md](getting-started.md). A locked program is `.TapPlan` + `{planId}.program.json` + Presentation on function leaves + TapPackage Dependencies + Typst `reportKinds`. `HardwareTest.PlanValidate --strict` must fail a bad pack **before bake**. Authoring warnings do not block operator Run.
 
 Typed SCPI lives in **InstrumentComponents.OpenTap** ([user guide](https://josh-hemphill.github.io/instrument-components/csharp/opentap/)). HardwareTest Basic is operator/safety chrome and in-repo demos; Mixins is Presentation/Annotation.
 

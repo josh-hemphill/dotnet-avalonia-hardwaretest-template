@@ -21,7 +21,7 @@ Where coverage lives:
 - Export, retention, free-space — Core `Storage/`
 - Clock skew — Core `Time/` (`IClock` / `FakeClock`; production idle/retention must not use `DateTimeOffset.UtcNow`)
 
-Productizing plans, plugins, and reports: [adapting.md](adapting.md).
+First plan in TUI: [getting-started.md](getting-started.md). Productizing plans, plugins, and reports: [adapting.md](adapting.md).
 
 ## When to add which test
 
