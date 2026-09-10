@@ -70,6 +70,7 @@ public static class PlanContractValidator
         public const string MissingPresentation = "MISSING_PRESENTATION";
         public const string MissingLimits = "MISSING_LIMITS";
         public const string PresentationTimeseriesOnly = "PRESENTATION_TIMESERIES_ONLY";
+        public const string ComplianceWithoutLimits = "COMPLIANCE_WITHOUT_LIMITS";
     }
 
     public static PlanContractBatchReport Validate(

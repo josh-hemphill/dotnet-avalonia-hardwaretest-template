@@ -158,6 +158,20 @@ public sealed class FakeOpenTapSession : IOpenTapSession
         EnsureDefaultSlot();
     }
 
+    public async Task LoadEnvelopeSweepDemoProgramAsync(CancellationToken cancellationToken = default)
+    {
+        await YieldIfRequestedAsync().ConfigureAwait(false);
+        LoadedPlanPath = EnvelopeSweepDemoProgramFactory.EmbeddedName;
+        LoadedPlanName = EnvelopeSweepDemoProgramFactory.DisplayName;
+        Tree.Clear();
+        foreach (var node in BuildEnvelopeSweepDemoTrees())
+        {
+            Tree.Add(node);
+        }
+
+        EnsureDefaultSlot();
+    }
+
     private async Task YieldIfRequestedAsync()
     {
         if (YieldOnLoad)
@@ -538,6 +552,43 @@ public sealed class FakeOpenTapSession : IOpenTapSession
                 Leaf("ret", "Return low time (≤50 ms)", $"{root}/Derived timing checks/Return low time (≤50 ms)"),
                 Leaf("env", "Envelope error (0–0.1 V)", $"{root}/Derived timing checks/Envelope error (0–0.1 V)"),
                 Leaf("over", "Peak overshoot (Band only)", $"{root}/Derived timing checks/Peak overshoot (Band only)")),
+            Group(
+                "safe",
+                "Safety",
+                $"{root}/Safety",
+                Leaf("ss", "Safe Shutdown", $"{root}/Safety/Safe Shutdown")));
+    }
+
+    private static IEnumerable<OpenTapStepNode> BuildEnvelopeSweepDemoTrees()
+    {
+        static OpenTapStepNode Leaf(string id, string name, string path) => new()
+        {
+            Id = id,
+            Name = name,
+            Path = path,
+        };
+
+        static OpenTapStepNode Group(string id, string name, string path, params OpenTapStepNode[] children) => new()
+        {
+            Id = id,
+            Name = name,
+            Path = path,
+            IsStage = true,
+            Children = children.ToList(),
+        };
+
+        var root = EnvelopeSweepDemoProgramFactory.DisplayName;
+        yield return Group(
+            "env-root",
+            EnvelopeSweepDemoProgramFactory.DisplayName,
+            root,
+            Group(
+                "walk",
+                "Bit walk",
+                $"{root}/Bit walk",
+                Leaf("bits", "Bit walk Vout", $"{root}/Bit walk/Bit walk Vout"),
+                Leaf("sum", "Series summaries", $"{root}/Bit walk/Series summaries"),
+                Leaf("pct", "In-band percent", $"{root}/Bit walk/In-band percent")),
             Group(
                 "safe",
                 "Safety",

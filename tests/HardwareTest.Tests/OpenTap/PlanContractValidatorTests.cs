@@ -427,6 +427,20 @@ public sealed class PlanContractValidatorTests
     }
 
     [Fact]
+    public void Validate_series_compliance_without_limits_warns()
+    {
+        using var dir = new TempPlanDir();
+        PlanShapeFixtures.SaveAllBeside(dir.Path);
+        var path = Path.Combine(dir.Path, "compliance.TapPlan");
+        PlanShapeFixtures.CreateComplianceWithoutLimits().Save(path);
+        WriteSidecar(dir.Path, "compliance", true);
+        var report = PlanContractValidator.ValidateFile(path);
+        Assert.Contains(report.Findings, f => f.Code == PlanContractValidator.Codes.ComplianceWithoutLimits
+            && f.Severity == PlanContractSeverity.Warning);
+        Assert.False(report.HasErrors);
+    }
+
+    [Fact]
     public void Cli_json_and_sarif_include_finding_codes()
     {
         using var dir = new TempPlanDir();

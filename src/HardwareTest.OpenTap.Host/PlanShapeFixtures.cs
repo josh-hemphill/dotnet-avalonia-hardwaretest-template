@@ -150,6 +150,27 @@ public static class PlanShapeFixtures
         return plan;
     }
 
+    public static TestPlan CreateComplianceWithoutLimits()
+    {
+        var instrument = SharedInstrument();
+        var sweep = new BitSweepAcquireStep
+        {
+            Name = "Bit walk no limits",
+            Instrument = instrument,
+            BitCount = 2,
+            IntervalMs = 1,
+            SeriesCompliance = SeriesComplianceModes.AllSamples,
+            FailWhenOutOfBand = false,
+            ScriptedValues = "1,2",
+            PublishSummaries = false,
+        };
+        OpenTapMixinAttach.AttachPresentation(sweep, "rail.x", PresentationDisplayRoles.Timeseries, "V");
+        var plan = new TestPlan();
+        plan.ChildTestSteps.Add(sweep);
+        plan.ChildTestSteps.Add(new SafeShutdownStep { Name = "Safe Shutdown", Instrument = instrument });
+        return plan;
+    }
+
     public static TestPlan CreatePassbandWithoutLimits()
     {
         var instrument = SharedInstrument();
