@@ -44,6 +44,24 @@ public static class SeriesTimingChrome
         return spans;
     }
 
+    /// Strip length in seconds: event elapsed, plus the last time-axis X when present.
+    public static double StripDurationSec(
+        IEnumerable<MeasurementEventMark> events,
+        double? timeAxisEndSec)
+    {
+        var eventMax = 0.0;
+        foreach (var mark in events)
+        {
+            var sec = mark.ElapsedMs / 1000.0;
+            if (sec > eventMax)
+            {
+                eventMax = sec;
+            }
+        }
+
+        return Math.Max(eventMax, timeAxisEndSec ?? 0);
+    }
+
     /// Latest event at or before elapsedMs; otherwise the last event.
     public static MeasurementEventMark? LatestEventAt(
         IReadOnlyList<MeasurementEventMark> events,

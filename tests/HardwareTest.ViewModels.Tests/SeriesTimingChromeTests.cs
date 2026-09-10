@@ -1,8 +1,10 @@
 using System.ComponentModel;
 using HardwareTest.Core.Runs;
 using HardwareTest.Features.Presentation;
+using HardwareTest.Features.Results;
 using HardwareTest.Features.RunTest;
 using HardwareTest.OpenTap.Host;
+using HardwareTest.ViewModels.Tests.Fakes;
 using Xunit;
 
 namespace HardwareTest.ViewModels.Tests;
@@ -232,6 +234,63 @@ public sealed class SeriesTimingChromeTests
         Assert.False(indexTile.UsesTimeAxis);
         Assert.Equal(0, indexTile.Xs[0]);
         Assert.Equal(1, indexTile.Xs[1]);
+        Assert.Equal(0.05, SeriesTimingChrome.StripDurationSec(
+            [new MeasurementEventMark("cfg", 50, "bit1", 2, "p")],
+            timeAxisEndSec: null),
+            6);
+        Assert.Equal(
+            0.010,
+            SeriesTimingChrome.StripDurationSec([], timedTile.Xs[timedTile.YsLength - 1]),
+            6);
+    }
+
+    [Fact]
+    public async Task Results_index_axis_uses_event_duration_not_sample_index()
+    {
+        var store = new FakeRunStore();
+        store.Seed(new TestRunRecord
+        {
+            RunId = "index-timing",
+            PlanName = "Legacy",
+            StartedAt = DateTimeOffset.UtcNow,
+            Result = RunResult.Passed,
+            Samples =
+            [
+                new StoredSample
+                {
+                    MetricKey = "legacy",
+                    DisplayRole = PresentationRoleMap.Timeseries,
+                    Value = 3.3,
+                    LimitLow = 3.2,
+                    LimitHigh = 3.5,
+                    Timestamp = DateTimeOffset.UtcNow,
+                },
+                new StoredSample
+                {
+                    MetricKey = "legacy",
+                    DisplayRole = PresentationRoleMap.Timeseries,
+                    Value = 3.6,
+                    ElapsedMs = 50,
+                    LimitLow = 3.2,
+                    LimitHigh = 3.5,
+                    Timestamp = DateTimeOffset.UtcNow,
+                },
+            ],
+            Events = [new StoredEvent { Name = "cfg", Label = "bit1", ElapsedMs = 50 }],
+        });
+
+        var vm = new ResultsViewModel(store, new FakeReportService());
+        await vm.RefreshCommand.ExecuteAsync();
+        vm.SelectedRun = vm.Runs[0];
+        await vm.OpenCommand.ExecuteAsync();
+
+        var chart = Assert.Single(vm.PresentationTiles, t => t.IsChart);
+        Assert.False(chart.UsesTimeAxis);
+        Assert.Empty(chart.OutOfBandSpans);
+        Assert.Empty(vm.TimingSpans);
+        Assert.Equal(0.05, vm.TimingDurationSec, 6);
+        Assert.True(vm.HasTimingStrip);
+        Assert.Single(vm.TimingEvents);
     }
 
     [Fact]

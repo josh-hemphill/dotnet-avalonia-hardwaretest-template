@@ -288,7 +288,7 @@ public partial class ResultsViewModel
 
         foreach (var tile in PresentationRoleMap.BuildFromStoredSamples(OpenedRun.Samples))
         {
-            if (tile.IsChart)
+            if (tile.IsChart && tile.UsesTimeAxis)
             {
                 tile.SetTimingChrome(
                     marks,
@@ -304,13 +304,11 @@ public partial class ResultsViewModel
         }
 
         HasPresentationTiles = PresentationTiles.Any(t => !t.IsStrip);
-        var chart = PresentationTiles.FirstOrDefault(t => t.IsChart);
-        TimingSpans = chart is null
-            ? []
-            : chart.OutOfBandSpans;
-        TimingDurationSec = Math.Max(
-            TimingEvents.Count == 0 ? 0 : TimingEvents.Max(e => e.ElapsedMs / 1000.0),
-            chart is { YsLength: > 0 } ? chart.Xs[chart.YsLength - 1] : 0);
+        var chart = PresentationTiles.FirstOrDefault(t => t.IsChart && t.UsesTimeAxis);
+        TimingSpans = chart?.OutOfBandSpans ?? [];
+        TimingDurationSec = SeriesTimingChrome.StripDurationSec(
+            TimingEvents,
+            chart is { YsLength: > 0 } ? chart.Xs[chart.YsLength - 1] : null);
         HasTimingStrip = TimingEvents.Count > 0 || TimingSpans.Count > 0 || PresentationTiles.Any(t => t.IsStrip);
         LoadReportItems(OpenedRun);
 
