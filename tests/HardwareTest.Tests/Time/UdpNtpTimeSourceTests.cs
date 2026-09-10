@@ -33,7 +33,9 @@ public sealed class UdpNtpTimeSourceTests
         var ntp = new UdpNtpTimeSource((host, timeout, out address, out error) =>
         {
             Assert.True(timeout <= budget, "DNS Wait must receive remaining budget, not a fresh timeout.");
-            Thread.Sleep(160);
+            // Consume the whole budget in DNS so receive never starts. A stacked
+            // DNS+receive timeout would then add another ~200ms of UDP wait.
+            Thread.Sleep(220);
             address = IPAddress.Parse("192.0.2.1");
             error = null;
             return true;
@@ -45,8 +47,8 @@ public sealed class UdpNtpTimeSourceTests
 
         Assert.False(ok);
         Assert.True(
-            clock.Elapsed < TimeSpan.FromMilliseconds(280),
-            $"NTP lookup took {clock.Elapsed.TotalMilliseconds:0}ms; stacked DNS+receive timeouts would be ~360ms.");
+            clock.Elapsed < TimeSpan.FromMilliseconds(380),
+            $"NTP lookup took {clock.Elapsed.TotalMilliseconds:0}ms; stacked DNS+receive timeouts would be ~420ms.");
     }
 
     [Fact]

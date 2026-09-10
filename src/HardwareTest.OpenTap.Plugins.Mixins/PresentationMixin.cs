@@ -8,6 +8,7 @@ public static class PresentationDisplayRoles
     public const string Timeseries = "timeseries";
     public const string Scalar = "scalar";
     public const string Passband = "passband";
+    public const string Timing = "timing";
 }
 
 /// Declares metric identity and display role for shell charts/gauges (Phase J) without Avalonia types.
@@ -33,6 +34,7 @@ public sealed class PresentationMixin : IMixin
         PresentationDisplayRoles.Scalar,
         PresentationDisplayRoles.Passband,
         PresentationDisplayRoles.Timeseries,
+        PresentationDisplayRoles.Timing,
     ];
 
     [Display("Y unit", Groups: ["Presentation"], Description: "Unit label for plots/gauges (e.g. V or ms).", Order: 3)]

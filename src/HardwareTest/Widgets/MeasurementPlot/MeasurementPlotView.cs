@@ -23,6 +23,8 @@ public sealed class MeasurementPlotView : UserControl
     private bool _themeHooked;
     private bool _useTimeAxis;
     private bool _followLive = true;
+    private (double ElapsedSec, string Label)[] _events = [];
+    private (double T0, double T1)[] _oobSpans = [];
 
     public MeasurementPlotView()
     {
@@ -74,6 +76,17 @@ public sealed class MeasurementPlotView : UserControl
 
     /// When true, each data update auto-scales axes to the visible window.
     public void SetFollowLive(bool followLive) => _followLive = followLive;
+
+    /// Vertical event ticks on the elapsed axis (applied on the next render).
+    public void SetEvents(IReadOnlyList<(double ElapsedSec, string Label)> events)
+        => _events = events.ToArray();
+
+    /// Contiguous out-of-band spans on the elapsed axis (applied on the next render).
+    public void SetOutOfBandSpans(IReadOnlyList<(double T0, double T1)> spans)
+        => _oobSpans = spans.ToArray();
+
+    /// Redraws the current series so stored event ticks and OOB spans appear without a new sample.
+    public void RefreshOverlays() => Render(force: true);
 
     /// Points drawn by the last completed render. Unchanged when a refresh is throttled.
     internal int LastRenderedPointCount { get; private set; }
@@ -147,6 +160,8 @@ public sealed class MeasurementPlotView : UserControl
             signal.LineWidth = 2;
         }
 
+        AddOutOfBandSpans();
+        AddEventTicks();
         AddLimitOverlay();
         if (_followLive)
         {
@@ -168,6 +183,78 @@ public sealed class MeasurementPlotView : UserControl
         scatter.Color = PlotTheme.SeriesColor;
         scatter.LineWidth = 2;
         scatter.MarkerSize = 0;
+    }
+
+    private void AddEventTicks()
+    {
+        foreach (var (elapsed, label) in _events)
+        {
+            var line = _plot.Plot.Add.VerticalLine(elapsed);
+            line.LineWidth = 1.25f;
+            line.Color = PlotTheme.EventColor;
+            if (!string.IsNullOrWhiteSpace(label))
+            {
+                line.LegendText = label;
+            }
+        }
+    }
+
+    private void AddOutOfBandSpans()
+    {
+        if (!TryVisibleYRange(out var y1, out var y2))
+        {
+            return;
+        }
+
+        foreach (var (t0, t1) in _oobSpans)
+        {
+            var left = Math.Min(t0, t1);
+            var right = Math.Max(t0, t1);
+            if (right <= left)
+            {
+                right = left + 0.001;
+            }
+
+            var fill = _plot.Plot.Add.Rectangle(left, right, y1, y2);
+            fill.FillColor = PlotTheme.OutOfBandFillColor;
+            fill.LineWidth = 0;
+        }
+    }
+
+    private bool TryVisibleYRange(out double y1, out double y2)
+    {
+        if (_ys.Length == 0 && _signalBuffer.Length == 0)
+        {
+            y1 = 0;
+            y2 = 1;
+            return _oobSpans.Length > 0;
+        }
+
+        var source = _ys.Length > 0 ? _ys : _signalBuffer;
+        y1 = source[0];
+        y2 = source[0];
+        foreach (var v in source)
+        {
+            y1 = Math.Min(y1, v);
+            y2 = Math.Max(y2, v);
+        }
+
+        if (_limitLow is { } lo)
+        {
+            y1 = Math.Min(y1, lo);
+        }
+
+        if (_limitHigh is { } hi)
+        {
+            y2 = Math.Max(y2, hi);
+        }
+
+        if (y2 <= y1)
+        {
+            y2 = y1 + 1;
+        }
+
+        return true;
     }
 
     private void AddLimitOverlay()
