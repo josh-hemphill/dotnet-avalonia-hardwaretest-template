@@ -173,6 +173,20 @@ Deno.test("test:host does not attach a Coverlet collector", async () => {
   assertEquals(hostFn[0].includes("Coverlet"), false);
 });
 
+Deno.test("formatCheck verifies the solution and all() runs it after build", async () => {
+  const src = await Deno.readTextFile(new URL("./main.ts", import.meta.url));
+  const formatFn = src.match(/async function formatCheck[\s\S]*?\n\}/);
+  assert(formatFn, "formatCheck function must exist");
+  assert(formatFn[0].includes("HardwareTest.slnx"));
+  assert(formatFn[0].includes("--verify-no-changes"));
+  assert(formatFn[0].includes("--no-restore"));
+  const allFn = src.match(/async function all[\s\S]*?\n\}/);
+  assert(allFn, "all function must exist");
+  const buildAt = allFn[0].indexOf("await build(");
+  const formatAt = allFn[0].indexOf("await formatCheck(");
+  assert(buildAt >= 0 && formatAt > buildAt, "all() must format after build");
+});
+
 Deno.test("coverage fails when Hardware floor is missed", () => {
   const xml = `<?xml version="1.0"?>
 <coverage>
@@ -324,6 +338,15 @@ Deno.test("ci.yml invokes required tasks with the matching platform RID", async 
   assert(linux.includes("main.ts publish --rid linux-x64"));
 });
 
+function stepBlock(job: string, name: string): string {
+  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const start = job.search(new RegExp(`- name: "?${escaped}"?`));
+  assert(start >= 0, `job must contain step ${name}`);
+  const rest = job.slice(start);
+  const next = rest.slice(1).search(/^\s+- (name:|uses:)/m);
+  return next === -1 ? rest : rest.slice(0, next + 1);
+}
+
 Deno.test("linux E2E is advisory; windows E2E stays blocking", async () => {
   const root = path.resolve(
     path.dirname(path.fromFileUrl(import.meta.url)),
@@ -332,9 +355,11 @@ Deno.test("linux E2E is advisory; windows E2E stays blocking", async () => {
   const yaml = await Deno.readTextFile(path.join(root, ".github/workflows/ci.yml"));
   const windows = jobBlock(yaml, "test");
   const linux = jobBlock(yaml, "test-linux");
-  assert(linux.includes("E2E smoke (advisory on Linux)"));
-  assert(linux.includes("continue-on-error: true"));
-  assertEquals(windows.includes("continue-on-error: true"), false);
+  const linuxE2e = stepBlock(linux, "E2E smoke (advisory on Linux)");
+  assert(linuxE2e.includes("continue-on-error: true"));
+  assert(linuxE2e.includes("main.ts test:e2e --rid linux-x64"));
+  const windowsE2e = stepBlock(windows, "E2E smoke (sample + Inspect shell wiring)");
+  assertEquals(windowsE2e.includes("continue-on-error"), false);
   assertEquals(windows.includes("advisory"), false);
 });
 
@@ -344,7 +369,10 @@ Deno.test("artifact uploads fail when publish output is missing", async () => {
     "../..",
   );
   const yaml = await Deno.readTextFile(path.join(root, ".github/workflows/ci.yml"));
-  assertEquals((yaml.match(/if-no-files-found: error/g) ?? []).length, 2);
+  const winUpload = stepBlock(jobBlock(yaml, "publish-win"), "Upload win-x64 publish");
+  const linuxUpload = stepBlock(jobBlock(yaml, "test-linux"), "Upload linux-x64 publish");
+  assert(winUpload.includes("if-no-files-found: error"));
+  assert(linuxUpload.includes("if-no-files-found: error"));
 });
 
 Deno.test("setup-dotnet pins the global.json SDK", async () => {
