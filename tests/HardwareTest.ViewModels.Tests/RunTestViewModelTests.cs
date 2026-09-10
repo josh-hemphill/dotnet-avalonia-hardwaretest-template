@@ -1501,11 +1501,16 @@ public sealed class RunTestViewModelTests
         Assert.Equal(1, vm.ProgramSelection.Programs.Count(p => p.Id == "sweep-demo"));
         Assert.Equal(1, vm.ProgramSelection.Programs.Count(p => p.Id == "timing-demo"));
         Assert.Equal(1, vm.ProgramSelection.Programs.Count(p => p.Id == "envelope-sweep-demo"));
+        Assert.Equal(1, vm.ProgramSelection.Programs.Count(p => p.Id == "station-health"));
         Assert.Equal(ProgramLoadKind.FactorySample, vm.ProgramSelection.Programs.First(p => p.Id == "sample").LoadKind);
         Assert.Equal(ProgramLoadKind.FactoryBoardDemo, vm.ProgramSelection.Programs.First(p => p.Id == "board-demo").LoadKind);
         Assert.Equal(ProgramLoadKind.FactorySweepDemo, vm.ProgramSelection.Programs.First(p => p.Id == "sweep-demo").LoadKind);
         Assert.Equal(ProgramLoadKind.FactoryTimingDemo, vm.ProgramSelection.Programs.First(p => p.Id == "timing-demo").LoadKind);
         Assert.Equal(ProgramLoadKind.FactoryEnvelopeSweepDemo, vm.ProgramSelection.Programs.First(p => p.Id == "envelope-sweep-demo").LoadKind);
+        var health = vm.ProgramSelection.Programs.First(p => p.Id == "station-health");
+        Assert.Equal(ProgramLoadKind.FactoryStationHealthDemo, health.LoadKind);
+        Assert.False(health.Requirements.RequireSerial);
+        Assert.Equal(HardwareTest.Core.StationHealth.ProgramKinds.StationHealth, health.ProgramKind);
     }
 
     [Fact]

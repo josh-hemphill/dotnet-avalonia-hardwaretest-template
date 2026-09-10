@@ -5,6 +5,7 @@ using HardwareTest.Core.Hardware;
 using HardwareTest.Core.Reporting;
 using HardwareTest.Core.Runs;
 using HardwareTest.Core.Settings;
+using HardwareTest.Core.StationHealth;
 using HardwareTest.Core.Storage;
 using HardwareTest.Core.Time;
 using HardwareTest.OpenTap.Host;
@@ -30,7 +31,8 @@ public partial class RunTestViewModel
         IVisaModeController? visaModeController,
         ISafetyController? safety,
         IClock clock,
-        IOperatorCredentialBroker? credentialBroker)
+        IOperatorCredentialBroker? credentialBroker,
+        IStationHealthStore? stationHealthStore)
     {
         StepDetail = new StepDetailViewModel(
             () => OpenSelectedDetail(revealDetail: true),
@@ -90,7 +92,8 @@ public partial class RunTestViewModel
             visaModeController,
             safety,
             clock,
-            OnStationNotReady);
+            OnStationNotReady,
+            stationHealthStore);
         Workspace = new RunWorkspaceViewModel(
             () => SessionPanel.SessionBlocked,
             () => Interaction.IsAwaitingOperator,

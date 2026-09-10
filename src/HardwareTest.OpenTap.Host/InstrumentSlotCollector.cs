@@ -32,6 +32,7 @@ public static class InstrumentSlotCollector
             ProgramLoadKind.FactorySweepDemo => SweepDemoProgramFactory.Create(),
             ProgramLoadKind.FactoryTimingDemo => TimingDemoProgramFactory.Create(),
             ProgramLoadKind.FactoryEnvelopeSweepDemo => EnvelopeSweepDemoProgramFactory.Create(),
+            ProgramLoadKind.FactoryStationHealthDemo => StationHealthDemoProgramFactory.Create(),
             ProgramLoadKind.TapPlanFile => LoadTapPlanFile(entry.Path),
             _ => throw new ArgumentOutOfRangeException(nameof(entry), entry.LoadKind, "Unknown program load kind."),
         };

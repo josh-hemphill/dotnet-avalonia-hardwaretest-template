@@ -172,6 +172,20 @@ public sealed class FakeOpenTapSession : IOpenTapSession
         EnsureDefaultSlot();
     }
 
+    public async Task LoadStationHealthDemoProgramAsync(CancellationToken cancellationToken = default)
+    {
+        await YieldIfRequestedAsync().ConfigureAwait(false);
+        LoadedPlanPath = StationHealthDemoProgramFactory.EmbeddedName;
+        LoadedPlanName = StationHealthDemoProgramFactory.DisplayName;
+        Tree.Clear();
+        foreach (var node in BuildStationHealthDemoTrees())
+        {
+            Tree.Add(node);
+        }
+
+        EnsureDefaultSlot();
+    }
+
     private async Task YieldIfRequestedAsync()
     {
         if (YieldOnLoad)
@@ -589,6 +603,41 @@ public sealed class FakeOpenTapSession : IOpenTapSession
                 Leaf("bits", "Bit walk Vout", $"{root}/Bit walk/Bit walk Vout"),
                 Leaf("sum", "Series summaries", $"{root}/Bit walk/Series summaries"),
                 Leaf("pct", "In-band percent", $"{root}/Bit walk/In-band percent")),
+            Group(
+                "safe",
+                "Safety",
+                $"{root}/Safety",
+                Leaf("ss", "Safe Shutdown", $"{root}/Safety/Safe Shutdown")));
+    }
+
+    private static IEnumerable<OpenTapStepNode> BuildStationHealthDemoTrees()
+    {
+        static OpenTapStepNode Leaf(string id, string name, string path) => new()
+        {
+            Id = id,
+            Name = name,
+            Path = path,
+        };
+
+        static OpenTapStepNode Group(string id, string name, string path, params OpenTapStepNode[] children) => new()
+        {
+            Id = id,
+            Name = name,
+            Path = path,
+            IsStage = true,
+            Children = children.ToList(),
+        };
+
+        var root = StationHealthDemoProgramFactory.DisplayName;
+        yield return Group(
+            "health-root",
+            StationHealthDemoProgramFactory.DisplayName,
+            root,
+            Group(
+                "cal",
+                "Station cal",
+                $"{root}/Station cal",
+                Leaf("report", "Report station cal", $"{root}/Station cal/Report station cal")),
             Group(
                 "safe",
                 "Safety",

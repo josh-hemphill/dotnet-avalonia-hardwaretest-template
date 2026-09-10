@@ -392,6 +392,7 @@ internal sealed class ProgressResultListener : ResultListener
                 Timestamp = _clock.UtcNow,
                 Value = value,
                 StepPath = stepPath,
+                ResultSource = TryReadResultSource(result, i),
             };
             OpenTapPresentation.ApplyScalar(stored, name, unit, hints, limitLow, limitHigh);
             _samples.Add(stored);
@@ -473,6 +474,34 @@ internal sealed class ProgressResultListener : ResultListener
                 OverallPercent = (double)_stepIndex / Math.Max(_stepCount, 1) * 100,
             });
         }
+    }
+
+    private static string? TryReadResultSource(ResultTable result, int index)
+    {
+        var column = result.Columns.FirstOrDefault(c =>
+            string.Equals(c.Name, "ResultSource", StringComparison.OrdinalIgnoreCase));
+        if (column is null || index >= column.Data.Length)
+        {
+            return null;
+        }
+
+        var raw = Convert.ToString(column.Data.GetValue(index));
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return null;
+        }
+
+        if (string.Equals(raw, SampleResultSources.Cached, StringComparison.OrdinalIgnoreCase))
+        {
+            return SampleResultSources.Cached;
+        }
+
+        if (string.Equals(raw, SampleResultSources.Measured, StringComparison.OrdinalIgnoreCase))
+        {
+            return SampleResultSources.Measured;
+        }
+
+        return null;
     }
 
     private static double? TryReadOptionalDouble(ResultColumn? column, int index)

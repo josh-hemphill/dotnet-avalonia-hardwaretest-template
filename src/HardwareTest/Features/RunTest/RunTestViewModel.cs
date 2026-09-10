@@ -9,6 +9,7 @@ using HardwareTest.Core.Hardware;
 using HardwareTest.Core.Reporting;
 using HardwareTest.Core.Runs;
 using HardwareTest.Core.Settings;
+using HardwareTest.Core.StationHealth;
 using HardwareTest.Core.Storage;
 using HardwareTest.Core.Time;
 using HardwareTest.Features.Shell;
@@ -48,7 +49,8 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
         ShellNotificationViewModel? shellNotification = null,
         ISafetyController? safety = null,
         IClock? clock = null,
-        IOperatorCredentialBroker? credentialBroker = null)
+        IOperatorCredentialBroker? credentialBroker = null,
+        IStationHealthStore? stationHealthStore = null)
     {
         _plan = plan;
         _runSession = runSession;
@@ -79,7 +81,8 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
             visaModeController,
             safety,
             clock ?? SystemClock.Instance,
-            credentialBroker);
+            credentialBroker,
+            stationHealthStore);
 
         ContinueOperatorCommand = ReactiveCommand.Create(ContinueOperator);
         OpenLastRunResultsCommand = ReactiveCommand.Create(
@@ -392,6 +395,7 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
             ProgramLoadKind.FactorySweepDemo => _plan.LoadSweepDemoProgramAsync(),
             ProgramLoadKind.FactoryTimingDemo => _plan.LoadTimingDemoProgramAsync(),
             ProgramLoadKind.FactoryEnvelopeSweepDemo => _plan.LoadEnvelopeSweepDemoProgramAsync(),
+            ProgramLoadKind.FactoryStationHealthDemo => _plan.LoadStationHealthDemoProgramAsync(),
             _ => _plan.LoadPlanAsync(program.Path),
         };
 
