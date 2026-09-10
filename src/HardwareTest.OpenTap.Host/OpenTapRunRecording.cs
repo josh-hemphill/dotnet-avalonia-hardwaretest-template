@@ -24,6 +24,7 @@ public sealed class OpenTapProgressFrameDto
     public string? OperatorPromptMessage { get; set; }
     public RunResult? Result { get; set; }
     public StoredSample? Sample { get; set; }
+    public MeasurementEventMark? Event { get; set; }
     public int? IterationIndex { get; set; }
     public int? IterationTotal { get; set; }
     public string? IterationText { get; set; }
@@ -56,6 +57,7 @@ public sealed class OpenTapProgressFrameDto
                 LimitHigh = p.Sample.LimitHigh,
                 ElapsedMs = p.Sample.ElapsedMs,
             },
+        Event = p.Event,
         IterationIndex = p.IterationIndex,
         IterationTotal = p.IterationTotal,
         IterationText = p.IterationText,
@@ -78,6 +80,7 @@ public sealed class OpenTapProgressFrameDto
         Sample = Sample is null
             ? null
             : MeasurementSampleEvent.FromStored(Sample),
+        Event = Event,
         IterationIndex = IterationIndex,
         IterationTotal = IterationTotal,
         IterationText = IterationText,
@@ -153,6 +156,7 @@ public sealed class OpenTapRunSummaryDto
 [JsonSerializable(typeof(List<StoredSample>))]
 [JsonSerializable(typeof(StoredEvent))]
 [JsonSerializable(typeof(List<StoredEvent>))]
+[JsonSerializable(typeof(MeasurementEventMark))]
 [JsonSerializable(typeof(StepResultRecord))]
 [JsonSerializable(typeof(List<StepResultRecord>))]
 public partial class OpenTapRecordingJsonContext : JsonSerializerContext;

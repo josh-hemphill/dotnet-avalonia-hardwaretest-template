@@ -88,6 +88,8 @@ public sealed class SchemaVersioningTests
         Assert.Equal(1, run.StoredSchemaVersion);
         Assert.Equal(SchemaVersions.TestRunRecord, run.SchemaVersion);
         Assert.True(run.Samples[0].HistoryEnabled);
+        Assert.Empty(run.Events);
+        Assert.All(run.Samples, s => Assert.Null(s.ElapsedMs));
     }
 
     [Fact]

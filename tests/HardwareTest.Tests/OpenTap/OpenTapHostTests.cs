@@ -1042,7 +1042,8 @@ public sealed class OpenTapSessionTests
                 new StationProfile(new Dictionary<string, string> { ["dmm"] = "MOCK::INSTR0" }),
                 new DutIdentity("DUT-TIMED", Family: "demo"));
 
-            var summary = await session.RunAsync();
+            var recorder = new OpenTapRunRecorder();
+            var summary = await session.RunAsync(recorder);
             Assert.Equal(RunResult.Passed, summary.Result);
             var sample = Assert.Single(summary.Samples, s =>
                 string.Equals(s.MetricKey, "rail.x", StringComparison.OrdinalIgnoreCase));
@@ -1056,6 +1057,18 @@ public sealed class OpenTapSessionTests
             Assert.Equal("bit0", mark.Label);
             Assert.Equal(12.5, mark.ElapsedMs);
             Assert.Equal(1, mark.Value);
+
+            var live = Assert.Single(recorder.Frames, f => f.Event is not null).Event!;
+            Assert.Equal("cfg", live.Name);
+            Assert.Equal("bit0", live.Label);
+            Assert.Equal(12.5, live.ElapsedMs);
+            Assert.Equal(1, live.Value);
+            recorder.WriteBeside(dir, "timed", summary);
+            var cassette = OpenTapRunRecorder.LoadBeside(dir, "timed");
+            var replayed = Assert.Single(cassette.Progress, f => f.Event is not null).ToProgress().Event!;
+            Assert.Equal("cfg", replayed.Name);
+            Assert.Equal("bit0", replayed.Label);
+            Assert.Equal(12.5, replayed.ElapsedMs);
         }
         finally
         {
