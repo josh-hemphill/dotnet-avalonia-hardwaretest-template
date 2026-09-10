@@ -94,4 +94,70 @@ public sealed class StationHealthGateTests
             new FakeClock(new DateTimeOffset(2026, 9, 10, 0, 0, 0, TimeSpan.Zero)));
         Assert.Equal(StationHealthGateLevels.Off, result.Level);
     }
+
+    [Fact]
+    public async Task Failed_verdict_is_stale_inside_the_age_window()
+    {
+        using var temp = new TempDataDirectory();
+        var store = new FileStationHealthStore(temp.Path);
+        var settings = new AppSettings();
+        var gate = new StationHealthGate(store, settings);
+        var measured = new DateTimeOffset(2026, 9, 10, 11, 0, 0, TimeSpan.Zero);
+        await store.WriteAsync(new StationHealthRecord
+        {
+            ProfileId = "default",
+            MeasuredAt = measured,
+            Verdict = StationHealthVerdicts.Fail,
+            MaxAgeHours = 24,
+        });
+
+        var result = gate.Evaluate(
+            new StationHealthGateRequest
+            {
+                RequireStationHealth = true,
+                Gate = StationHealthGates.Block,
+                MaxAgeHours = 24,
+            },
+            new FakeClock(measured.AddHours(1)));
+        Assert.Equal(StationHealthGateLevels.Block, result.Level);
+        Assert.Contains("Fail", result.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Dut_sidecar_max_age_wins_over_record_max_age()
+    {
+        using var temp = new TempDataDirectory();
+        var store = new FileStationHealthStore(temp.Path);
+        var settings = new AppSettings();
+        var gate = new StationHealthGate(store, settings);
+        var measured = new DateTimeOffset(2026, 9, 10, 0, 0, 0, TimeSpan.Zero);
+        await store.WriteAsync(new StationHealthRecord
+        {
+            ProfileId = "default",
+            MeasuredAt = measured,
+            Verdict = StationHealthVerdicts.Pass,
+            MaxAgeHours = 24,
+        });
+
+        var clock = new FakeClock(measured.AddHours(10));
+        var dutTight = gate.Evaluate(
+            new StationHealthGateRequest
+            {
+                RequireStationHealth = true,
+                Gate = StationHealthGates.Warn,
+                MaxAgeHours = 8,
+            },
+            clock);
+        Assert.Equal(StationHealthGateLevels.Warn, dutTight.Level);
+
+        var dutLoose = gate.Evaluate(
+            new StationHealthGateRequest
+            {
+                RequireStationHealth = true,
+                Gate = StationHealthGates.Warn,
+                MaxAgeHours = 24,
+            },
+            clock);
+        Assert.Equal(StationHealthGateLevels.Ok, dutLoose.Level);
+    }
 }

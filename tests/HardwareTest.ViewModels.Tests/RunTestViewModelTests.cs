@@ -1,11 +1,14 @@
 using HardwareTest.Core.Runs;
 using HardwareTest.Core.Settings;
+using HardwareTest.Core.StationHealth;
+using HardwareTest.Core.Time;
 using HardwareTest.Features.Presentation;
 using HardwareTest.Features.RunTest;
 using HardwareTest.Features.Shell;
 using HardwareTest.OpenTap.Host;
 using HardwareTest.OpenTap.Plugins.Basic;
 using HardwareTest.ViewModels.Tests.Fakes;
+using HardwareTest.ViewModels.Tests.Time;
 using Xunit;
 
 namespace HardwareTest.ViewModels.Tests;
@@ -20,7 +23,10 @@ public sealed class RunTestViewModelTests
         FakeRunStore? store = null,
         FakeSettingsStore? settingsStore = null,
         IDutHistoryService? dutHistory = null,
-        ShellNotificationViewModel? shellNotification = null)
+        ShellNotificationViewModel? shellNotification = null,
+        IClock? clock = null,
+        IStationHealthStore? stationHealthStore = null,
+        IStationHealthGate? stationHealthGate = null)
     {
         settings ??= settingsStore?.AppSettings ?? new AppSettings();
         var openTapSession = openTap ?? new FakeOpenTapSession();
@@ -35,7 +41,10 @@ public sealed class RunTestViewModelTests
             settings,
             settingsStore,
             dutHistory,
-            shellNotification: shellNotification);
+            shellNotification: shellNotification,
+            clock: clock,
+            stationHealthStore: stationHealthStore,
+            stationHealthGate: stationHealthGate);
     }
 
     private static async Task ConfirmReadyAsync(RunTestViewModel vm, string serial = "SN-1", string tech = "Tech")
@@ -1614,6 +1623,43 @@ public sealed class RunTestViewModelTests
         var empty = FlattenNodes(openTap.StepTree)
             .First(n => n.Name.Equals("Empty Section", StringComparison.OrdinalIgnoreCase));
         Assert.Empty(empty.Children);
+    }
+
+    [Fact]
+    public async Task Block_gate_disables_start_and_override_off_restores_it()
+    {
+        var settingsStore = new FakeSettingsStore();
+        var healthStore = new FakeStationHealthStore();
+        var settings = settingsStore.AppSettings;
+        var gate = new StationHealthGate(healthStore, settings);
+        var vm = CreateVm(
+            settings: settings,
+            settingsStore: settingsStore,
+            clock: new FakeClock(new DateTimeOffset(2026, 9, 10, 12, 0, 0, TimeSpan.Zero)),
+            stationHealthStore: healthStore,
+            stationHealthGate: gate);
+        await ConfirmReadyAsync(vm);
+        vm.ProgramSelection.Programs.Add(new ProgramItemViewModel
+        {
+            Id = "dut-gated",
+            DisplayName = "DUT gated",
+            Path = SampleProgramFactory.EmbeddedName,
+            DutFamily = "generic",
+            LoadKind = ProgramLoadKind.FactorySample,
+            Requirements = ProgramRequirements.Sample,
+            RequireStationHealth = true,
+            StationHealthGate = StationHealthGates.Block,
+            StationHealthMaxAgeHours = 24,
+        });
+        vm.ProgramSelection.SelectedProgram = vm.ProgramSelection.Programs[^1];
+        vm.RefreshStationHealthGate();
+
+        Assert.False(vm.CanStartRun);
+        Assert.Contains("missing", vm.CanStartRunTip, StringComparison.OrdinalIgnoreCase);
+
+        settings.StationHealthGateOverride = StationHealthGateOverrides.Off;
+        await settingsStore.SaveAppSettingsAsync();
+        Assert.True(vm.CanStartRun);
     }
 
     private static IEnumerable<OpenTapStepNode> FlattenNodes(IEnumerable<OpenTapStepNode> roots)
