@@ -34,6 +34,8 @@ public sealed class PresentationRoleMapTests
             new MeasurementSampleEvent("Mean", 0, 1, DateTimeOffset.UtcNow, DisplayRole: "scalar")));
         Assert.False(PresentationRoleMap.IsTimeseriesPlotSample(
             new MeasurementSampleEvent("Mean", 0, 1, DateTimeOffset.UtcNow, DisplayRole: "weird")));
+        Assert.False(PresentationRoleMap.IsTimeseriesPlotSample(
+            new MeasurementSampleEvent("win", 0, 1, DateTimeOffset.UtcNow, DisplayRole: "timing")));
     }
 
     [Fact]
@@ -44,6 +46,10 @@ public sealed class PresentationRoleMapTests
             tiles,
             new MeasurementSampleEvent("VDC", 0, 1.2, DateTimeOffset.UtcNow, MetricKey: "VDC", DisplayRole: "timeseries"),
             "path/a"));
+        Assert.Null(PresentationRoleMap.UpsertRunGauge(
+            tiles,
+            new MeasurementSampleEvent("win", 0, 12, DateTimeOffset.UtcNow, MetricKey: "win", DisplayRole: "timing"),
+            "path/win"));
         Assert.Empty(tiles);
 
         var gauge = PresentationRoleMap.UpsertRunGauge(

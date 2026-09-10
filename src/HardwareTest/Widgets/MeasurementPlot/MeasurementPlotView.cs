@@ -85,6 +85,9 @@ public sealed class MeasurementPlotView : UserControl
     public void SetOutOfBandSpans(IReadOnlyList<(double T0, double T1)> spans)
         => _oobSpans = spans.ToArray();
 
+    /// Redraws the current series so stored event ticks and OOB spans appear without a new sample.
+    public void RefreshOverlays() => Render(force: true);
+
     /// Points drawn by the last completed render. Unchanged when a refresh is throttled.
     internal int LastRenderedPointCount { get; private set; }
 

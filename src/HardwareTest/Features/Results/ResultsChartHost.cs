@@ -82,23 +82,17 @@ public sealed class ResultsChartHost : UserControl
             var unit = string.IsNullOrWhiteSpace(tile.Unit) ? "Value" : tile.Unit!;
             _plot.SetLabels(tile.MetricKey, unit, tile.MetricKey);
             _plot.SetLimits(tile.LimitLow, tile.LimitHigh);
-            if (tile.UsesTimeAxis)
+            var drawTimeAxis = tile.UsesTimeAxis && tile.Xs.Length == tile.YsLength && tile.YsLength > 0;
+            if (drawTimeAxis)
             {
-                _plot.SetEvents(tile.TimingMarks.Select(e => (e.ElapsedMs / 1000.0, SeriesTimingChrome.FormatEventLabel(e))).ToList());
+                _plot.SetEvents(SeriesTimingChrome.ToPlotTicks(tile.TimingMarks));
                 _plot.SetOutOfBandSpans(tile.OutOfBandSpans);
+                _plot.UpdateTimeSeries(tile.Xs, tile.Ys, tile.YsLength, followLive: true, force: true);
             }
             else
             {
                 _plot.SetEvents([]);
                 _plot.SetOutOfBandSpans([]);
-            }
-
-            if (tile.UsesTimeAxis && tile.Xs.Length == tile.YsLength && tile.YsLength > 0)
-            {
-                _plot.UpdateTimeSeries(tile.Xs, tile.Ys, tile.YsLength, followLive: true, force: true);
-            }
-            else
-            {
                 _plot.UpdateData(tile.Ys, tile.YsLength, force: true);
             }
         }

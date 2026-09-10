@@ -222,16 +222,21 @@ public partial class ResultsViewModel
         await RunOnUiAsync(() => ApplyDutHistory(report)).ConfigureAwait(false);
     }
 
+    private void ClearTimingPresentation()
+    {
+        TimingEvents.Clear();
+        HasTimingStrip = false;
+        TimingDurationSec = 0;
+        TimingSpans = [];
+    }
+
     private void ApplyOpenedRun(TestRunRecord? opened)
     {
         OpenedRun = opened;
         SampleDetails.Clear();
         PresentationTiles.Clear();
         HasPresentationTiles = false;
-        TimingEvents.Clear();
-        HasTimingStrip = false;
-        TimingDurationSec = 0;
-        TimingSpans = [];
+        ClearTimingPresentation();
         ClearComparison();
         HistorySummary = string.Empty;
         HistorySeverity = string.Empty;

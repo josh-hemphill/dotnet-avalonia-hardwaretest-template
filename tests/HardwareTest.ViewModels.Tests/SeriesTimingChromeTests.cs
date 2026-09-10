@@ -313,4 +313,89 @@ public sealed class SeriesTimingChromeTests
         Assert.True(strip.IsStrip);
         Assert.False(chart.IsStrip);
     }
+
+    [Fact]
+    public void ApplyEvent_notifies_collection_without_plot_data_changed()
+    {
+        var live = new LivePresentationViewModel();
+        var plotFrames = 0;
+        var collectionChanged = 0;
+        live.PlotDataChanged += (_, _) => plotFrames++;
+        live.Events.CollectionChanged += (_, _) => collectionChanged++;
+
+        live.ApplyEvent(new MeasurementEventMark("cfg", 10, "bit2", 4, "Suite/Acquire"));
+
+        Assert.Equal(0, plotFrames);
+        Assert.Equal(1, collectionChanged);
+        var tick = Assert.Single(SeriesTimingChrome.ToPlotTicks(live.Events));
+        Assert.Equal(0.010, tick.ElapsedSec, 6);
+        Assert.Equal("cfg:bit2", tick.Label);
+    }
+
+    [Fact]
+    public void BuildFromStoredSamples_timing_role_is_strip_not_gauge()
+    {
+        var tiles = PresentationRoleMap.BuildFromStoredSamples(
+        [
+            new StoredSample
+            {
+                MetricKey = "win",
+                DisplayRole = PresentationRoleMap.Timing,
+                Value = 12,
+                Unit = "ms",
+                ElapsedMs = 12,
+                Timestamp = DateTimeOffset.UtcNow,
+            },
+        ]);
+        var strip = Assert.Single(tiles);
+        Assert.Equal(PresentationTileKind.Timing, strip.Kind);
+        Assert.True(strip.IsStrip);
+        Assert.False(strip.IsGauge);
+        Assert.False(strip.IsChart);
+    }
+
+    [Fact]
+    public async Task Results_timing_role_is_strip_only_and_not_a_metric_tile()
+    {
+        var store = new FakeRunStore();
+        store.Seed(new TestRunRecord
+        {
+            RunId = "timing-strip",
+            PlanName = "Timing",
+            StartedAt = DateTimeOffset.UtcNow,
+            Result = RunResult.Passed,
+            Samples =
+            [
+                new StoredSample
+                {
+                    MetricKey = "win",
+                    DisplayRole = PresentationRoleMap.Timing,
+                    Value = 12,
+                    Unit = "ms",
+                    ElapsedMs = 12,
+                    Timestamp = DateTimeOffset.UtcNow,
+                },
+            ],
+            Events = [new StoredEvent { Name = "cfg", Label = "bit2", ElapsedMs = 12 }],
+        });
+
+        var vm = new ResultsViewModel(store, new FakeReportService());
+        await vm.RefreshCommand.ExecuteAsync();
+        vm.SelectedRun = vm.Runs[0];
+        await vm.OpenCommand.ExecuteAsync();
+
+        var strip = Assert.Single(vm.PresentationTiles);
+        Assert.Equal(PresentationTileKind.Timing, strip.Kind);
+        Assert.True(strip.IsStrip);
+        Assert.False(strip.IsGauge);
+        Assert.False(strip.IsChart);
+        Assert.False(vm.HasPresentationTiles);
+        Assert.True(vm.HasTimingStrip);
+        Assert.Single(vm.TimingEvents);
+
+        await vm.CloseDetailCommand.ExecuteAsync();
+        Assert.False(vm.HasTimingStrip);
+        Assert.Empty(vm.TimingEvents);
+        Assert.Empty(vm.TimingSpans);
+    }
 }

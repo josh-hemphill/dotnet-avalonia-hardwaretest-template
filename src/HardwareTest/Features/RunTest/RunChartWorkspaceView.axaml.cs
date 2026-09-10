@@ -1,6 +1,6 @@
 using System;
+using System.Collections.Specialized;
 using System.ComponentModel;
-using System.Linq;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using Avalonia.Controls;
@@ -32,6 +32,7 @@ public partial class RunChartWorkspaceView : UserControl
         _subscribed = vm;
         vm.Live.PlotDataChanged += OnPlotDataChanged;
         vm.Live.PropertyChanged += OnLivePropertyChanged;
+        vm.Live.Events.CollectionChanged += OnEventsChanged;
         _subscriptions.Add(vm.Live.ResetViewCommand.Subscribe(_ => ApplyPlot(vm, force: true)));
         ApplyPlot(vm, force: true);
     }
@@ -46,6 +47,7 @@ public partial class RunChartWorkspaceView : UserControl
 
         _subscribed.Live.PlotDataChanged -= OnPlotDataChanged;
         _subscribed.Live.PropertyChanged -= OnLivePropertyChanged;
+        _subscribed.Live.Events.CollectionChanged -= OnEventsChanged;
         _subscribed = null;
     }
 
@@ -59,14 +61,33 @@ public partial class RunChartWorkspaceView : UserControl
         ApplyPlot(_subscribed, force: false);
     }
 
-    private void OnLivePropertyChanged(object? sender, PropertyChangedEventArgs e)
+    private void OnEventsChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
-        if (_subscribed is null || e.PropertyName != nameof(LivePresentationViewModel.FollowLive))
+        if (_subscribed is null)
         {
             return;
         }
 
-        ApplyFollowLive(_subscribed);
+        ApplyMarks(_subscribed);
+    }
+
+    private void OnLivePropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (_subscribed is null)
+        {
+            return;
+        }
+
+        if (e.PropertyName == nameof(LivePresentationViewModel.FollowLive))
+        {
+            ApplyFollowLive(_subscribed);
+            return;
+        }
+
+        if (e.PropertyName == nameof(LivePresentationViewModel.PlotOutOfBandSpans))
+        {
+            ApplyMarks(_subscribed);
+        }
     }
 
     private void ApplyFollowLive(RunTestViewModel vm)
@@ -89,6 +110,24 @@ public partial class RunChartWorkspaceView : UserControl
         Push();
     }
 
+    private void ApplyMarks(RunTestViewModel vm)
+    {
+        void Push()
+        {
+            Plot.SetEvents(SeriesTimingChrome.ToPlotTicks(vm.Live.Events));
+            Plot.SetOutOfBandSpans(vm.Live.PlotOutOfBandSpans);
+            Plot.RefreshOverlays();
+        }
+
+        if (!Dispatcher.UIThread.CheckAccess())
+        {
+            Dispatcher.UIThread.Post(() => ApplyMarks(vm));
+            return;
+        }
+
+        Push();
+    }
+
     private void ApplyPlot(RunTestViewModel vm, bool force)
     {
         var live = vm.Live;
@@ -96,7 +135,7 @@ public partial class RunChartWorkspaceView : UserControl
         {
             Plot.SetLabels(live.PlotTitle, live.PlotYLabel, live.PlotLegendText);
             Plot.SetLimits(live.PlotLimitLow, live.PlotLimitHigh);
-            Plot.SetEvents(live.Events.Select(e => (e.ElapsedMs / 1000.0, SeriesTimingChrome.FormatEventLabel(e))).ToList());
+            Plot.SetEvents(SeriesTimingChrome.ToPlotTicks(live.Events));
             Plot.SetOutOfBandSpans(live.PlotOutOfBandSpans);
             Plot.SetFollowLive(live.FollowLive);
             Plot.UpdateTimeSeries(live.PlotXs, live.PlotYs, live.PlotYsLength, live.FollowLive, force);

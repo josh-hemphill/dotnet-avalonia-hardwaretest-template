@@ -109,6 +109,7 @@ public partial class ResultsViewModel : ReactiveObject
             HistoryMetrics.Clear();
             PresentationTiles.Clear();
             HasPresentationTiles = false;
+            ClearTimingPresentation();
             ReportItems.Clear();
             HasReports = false;
             SchemaBadge = string.Empty;

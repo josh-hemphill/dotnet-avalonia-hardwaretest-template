@@ -109,4 +109,9 @@ public static class SeriesTimingChrome
         => events
             .Select(e => new MeasurementEventMark(e.Name, e.ElapsedMs, e.Label, e.Value, e.StepPath))
             .ToList();
+
+    /// Chart tick positions (elapsed seconds) and toolbar-style labels.
+    public static IReadOnlyList<(double ElapsedSec, string Label)> ToPlotTicks(
+        IEnumerable<MeasurementEventMark> events)
+        => events.Select(e => (e.ElapsedMs / 1000.0, FormatEventLabel(e))).ToList();
 }
