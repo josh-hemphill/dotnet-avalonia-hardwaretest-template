@@ -9,20 +9,27 @@ export function mapRid(os: string, arch: string): string | undefined {
   return undefined;
 }
 
-/** Resolve the default RID for the host OS/arch. */
-export function defaultRid(): string {
-  const mapped = mapRid(Deno.build.os, Deno.build.arch);
+/** Resolve a RID for OS/arch, or throw when unmapped. */
+export function requireRid(os: string, arch: string): string {
+  const mapped = mapRid(os, arch);
   if (!mapped) {
-    throw new Error(
-      `No default RID for ${Deno.build.os}/${Deno.build.arch}; pass --rid explicitly.`,
-    );
+    throw new Error(`No default RID for ${os}/${arch}; pass --rid explicitly.`);
   }
   return mapped;
 }
 
-/** Whether this RID can run natively on the current host. */
-export function isNativeRid(rid: string): boolean {
-  const mapped = mapRid(Deno.build.os, Deno.build.arch);
+/** Resolve the default RID for the host OS/arch. */
+export function defaultRid(): string {
+  return requireRid(Deno.build.os, Deno.build.arch);
+}
+
+/** Whether this RID can run natively on the given host (defaults to this process). */
+export function isNativeRid(
+  rid: string,
+  os: string = Deno.build.os,
+  arch: string = Deno.build.arch,
+): boolean {
+  const mapped = mapRid(os, arch);
   return mapped !== undefined && rid === mapped;
 }
 

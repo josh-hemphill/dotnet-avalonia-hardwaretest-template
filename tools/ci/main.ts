@@ -23,6 +23,11 @@ export const TASKS = [
 /** OpenTAP host tests must not load Coverlet (process-global TapThread flakes). */
 export const CORE_COVERAGE_FILTER = "FullyQualifiedName!~HardwareTest.Tests.OpenTap";
 
+/** Linux E2E and an explicit --advisory-e2e flag stay non-fatal. */
+export function e2eIsAdvisory(opts: { advisoryE2e: boolean; rid: string }): boolean {
+  return opts.advisoryE2e || opts.rid.startsWith("linux-");
+}
+
 export type TaskName = (typeof TASKS)[number];
 
 type Options = {
@@ -321,7 +326,7 @@ async function all(opts: Options): Promise<void> {
   // Linux Avalonia headless E2E starts advisory; Windows keeps it required.
   await testE2e({
     ...opts,
-    advisoryE2e: opts.advisoryE2e || opts.rid.startsWith("linux-"),
+    advisoryE2e: e2eIsAdvisory(opts),
   });
 
   await coverage(opts);

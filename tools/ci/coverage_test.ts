@@ -1,7 +1,7 @@
 import { assertEquals, assert } from "@std/assert";
 import * as path from "@std/path";
 import { evaluateCobertura, findCobertura } from "./lib/coverage.ts";
-import { CORE_COVERAGE_FILTER, TASKS } from "./main.ts";
+import { CORE_COVERAGE_FILTER, e2eIsAdvisory, TASKS } from "./main.ts";
 
 Deno.test("coverage floors match Python port on pass fixture", async () => {
   const fixture = path.join(
@@ -140,6 +140,13 @@ Deno.test("findCobertura returns null when the directory is missing", async () =
 Deno.test("CORE_COVERAGE_FILTER excludes OpenTAP host tests", () => {
   assertEquals(CORE_COVERAGE_FILTER.includes("HardwareTest.Tests.OpenTap"), true);
   assertEquals(CORE_COVERAGE_FILTER.startsWith("FullyQualifiedName!~"), true);
+});
+
+Deno.test("e2eIsAdvisory is true for linux RIDs or the flag", () => {
+  assertEquals(e2eIsAdvisory({ advisoryE2e: false, rid: "win-x64" }), false);
+  assertEquals(e2eIsAdvisory({ advisoryE2e: true, rid: "win-x64" }), true);
+  assertEquals(e2eIsAdvisory({ advisoryE2e: false, rid: "linux-x64" }), true);
+  assertEquals(e2eIsAdvisory({ advisoryE2e: false, rid: "linux-arm64" }), true);
 });
 
 Deno.test("test:host does not attach a Coverlet collector", async () => {

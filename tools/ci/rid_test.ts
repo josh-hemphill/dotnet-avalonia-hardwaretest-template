@@ -4,6 +4,7 @@ import {
   isNativeRid,
   mapRid,
   publishedExeName,
+  requireRid,
 } from "./lib/rid.ts";
 import { publishedExe } from "./lib/paths.ts";
 
@@ -23,8 +24,9 @@ Deno.test("defaultRid and isNativeRid agree on this host", () => {
   assertEquals(isNativeRid("not-a-rid"), false);
 });
 
-Deno.test("isNativeRid does not throw on an unmapped host mapping", () => {
+Deno.test("isNativeRid is false on an unmapped host without throwing", () => {
   assertEquals(mapRid("plan9", "x86_64"), undefined);
+  assertEquals(isNativeRid("linux-x64", "plan9", "x86_64"), false);
 });
 
 Deno.test("publishedExeName follows the RID, not the host OS", () => {
@@ -41,8 +43,6 @@ Deno.test("publishedExe joins publish dir with the RID file name", () => {
   assertEquals(linux.replaceAll("\\", "/").endsWith("artifacts/publish/linux-x64/HardwareTest"), true);
 });
 
-Deno.test("defaultRid throws a useful error for unknown OS/arch", () => {
-  const mapped = mapRid(Deno.build.os, Deno.build.arch);
-  if (mapped) return;
-  assertThrows(() => defaultRid(), Error, "No default RID");
+Deno.test("requireRid throws a useful error for unknown OS/arch", () => {
+  assertThrows(() => requireRid("plan9", "x86_64"), Error, "No default RID");
 });

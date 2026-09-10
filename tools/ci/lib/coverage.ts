@@ -1,6 +1,6 @@
 /**
  * Cobertura floor checks ported from tests/check-coverage.py.
- * Fail if Core < 70%, Hardware < 80%, or Engine < 80% when Engine lines exist.
+ * Fail if Core < 70%, or Hardware/Engine < 80% when those line counts exist.
  */
 
 import * as path from "@std/path";
