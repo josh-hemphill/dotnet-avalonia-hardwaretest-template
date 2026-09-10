@@ -41,13 +41,13 @@ public sealed class StationHealthGate : IStationHealthGate
             program.ProfileId,
             _settings.StationHealthProfileId,
             FileStationHealthStore.DefaultProfileId);
-        var maxHours = program.MaxAgeHours is > 0 ? program.MaxAgeHours.Value : DefaultMaxAgeHours;
         var record = _store.TryRead(profileId);
         if (record is null)
         {
             return Decision(enforcement, age: null, verdict: null, missing: true);
         }
 
+        var maxHours = ResolveMaxAgeHours(program.MaxAgeHours, record.MaxAgeHours);
         var age = clock.UtcNow - record.MeasuredAt;
         var stale = !string.Equals(record.Verdict, StationHealthVerdicts.Pass, StringComparison.OrdinalIgnoreCase)
                     || age > TimeSpan.FromHours(maxHours);
@@ -120,6 +120,22 @@ public sealed class StationHealthGate : IStationHealthGate
         }
 
         return $"{Math.Max(1, (int)span.TotalMinutes)} m";
+    }
+
+    /// DUT sidecar max age wins when set; otherwise the stored record; otherwise 24 h.
+    private static double ResolveMaxAgeHours(double? sidecarHours, double? recordHours)
+    {
+        if (sidecarHours is > 0)
+        {
+            return sidecarHours.Value;
+        }
+
+        if (recordHours is > 0)
+        {
+            return recordHours.Value;
+        }
+
+        return DefaultMaxAgeHours;
     }
 
     private static string ResolveEnforcement(string? pin, string? sidecarGate)

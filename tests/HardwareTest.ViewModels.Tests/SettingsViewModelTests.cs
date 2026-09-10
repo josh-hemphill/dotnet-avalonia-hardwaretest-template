@@ -263,4 +263,34 @@ public sealed class SettingsViewModelTests
         Assert.Contains("Pass", vm.StationHealthSummary, StringComparison.Ordinal);
         Assert.Contains("4 h ago", vm.StationHealthSummary, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public async Task RefreshStationHealthSummary_does_not_debounce_save()
+    {
+        var store = new FakeSettingsStore();
+        var health = new FakeStationHealthStore();
+        var clock = new FakeClock(new DateTimeOffset(2026, 9, 10, 16, 0, 0, TimeSpan.Zero));
+        var vm = new SettingsViewModel(
+            store,
+            new FakeOpenTapSession(),
+            stationHealthStore: health,
+            clock: clock)
+        {
+            UiScheduler = action => action(),
+        };
+
+        await Task.Delay(700);
+        var count = store.SaveAppCount;
+        await health.WriteAsync(new StationHealthRecord
+        {
+            ProfileId = FileStationHealthStore.DefaultProfileId,
+            MeasuredAt = clock.UtcNow.AddHours(-2),
+            Verdict = StationHealthVerdicts.Pass,
+        });
+        vm.RefreshStationHealthSummary();
+        await Task.Delay(700);
+
+        Assert.Equal(count, store.SaveAppCount);
+        Assert.Contains("Pass", vm.StationHealthSummary, StringComparison.Ordinal);
+    }
 }

@@ -194,6 +194,8 @@ public partial class SettingsViewModel : ReactiveObject
                 or nameof(RunRetentionDaysReadOnly) or nameof(RunRetentionMaxRunsReadOnly)
                 or nameof(ClockSkewWarnThresholdMinutesReadOnly) or nameof(NtpHostReadOnly)
                 or nameof(StationHealthGateOverrideReadOnly)
+                or nameof(StationHealthSummary) or nameof(ShowStationHealthSummary)
+                or nameof(StationHealthStorePath)
                 or nameof(ExportDirectoryReadOnly)
                 or nameof(DataFreeSpaceWarnGbReadOnly) or nameof(DataFreeSpaceCriticalGbReadOnly)
                 or nameof(UseMockOperatorCredentialReadOnly)

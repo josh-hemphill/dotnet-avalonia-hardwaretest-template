@@ -136,20 +136,10 @@ public sealed class StationHealthGateTests
             ProfileId = "default",
             MeasuredAt = measured,
             Verdict = StationHealthVerdicts.Pass,
-            MaxAgeHours = 24,
+            MaxAgeHours = 8,
         });
 
         var clock = new FakeClock(measured.AddHours(10));
-        var dutTight = gate.Evaluate(
-            new StationHealthGateRequest
-            {
-                RequireStationHealth = true,
-                Gate = StationHealthGates.Warn,
-                MaxAgeHours = 8,
-            },
-            clock);
-        Assert.Equal(StationHealthGateLevels.Warn, dutTight.Level);
-
         var dutLoose = gate.Evaluate(
             new StationHealthGateRequest
             {
@@ -159,5 +149,24 @@ public sealed class StationHealthGateTests
             },
             clock);
         Assert.Equal(StationHealthGateLevels.Ok, dutLoose.Level);
+
+        var recordWindow = gate.Evaluate(
+            new StationHealthGateRequest
+            {
+                RequireStationHealth = true,
+                Gate = StationHealthGates.Warn,
+            },
+            clock);
+        Assert.Equal(StationHealthGateLevels.Warn, recordWindow.Level);
+
+        var dutTight = gate.Evaluate(
+            new StationHealthGateRequest
+            {
+                RequireStationHealth = true,
+                Gate = StationHealthGates.Warn,
+                MaxAgeHours = 4,
+            },
+            clock);
+        Assert.Equal(StationHealthGateLevels.Warn, dutTight.Level);
     }
 }
