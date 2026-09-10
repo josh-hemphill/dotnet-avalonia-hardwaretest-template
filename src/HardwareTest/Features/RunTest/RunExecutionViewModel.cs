@@ -47,6 +47,7 @@ public sealed class RunExecutionViewModel
     private readonly IClock _clock;
     private readonly Action<string, IReadOnlyList<string>>? _onStationNotReady;
     private readonly IStationHealthStore? _stationHealthStore;
+    private readonly IStationHealthGate? _stationHealthGate;
 
     private readonly Dictionary<string, StepAttemptSummary> _attemptLedger =
         new(StringComparer.OrdinalIgnoreCase);
@@ -75,7 +76,8 @@ public sealed class RunExecutionViewModel
         ISafetyController? safety = null,
         IClock? clock = null,
         Action<string, IReadOnlyList<string>>? onStationNotReady = null,
-        IStationHealthStore? stationHealthStore = null)
+        IStationHealthStore? stationHealthStore = null,
+        IStationHealthGate? stationHealthGate = null)
     {
         _host = host;
         _runSession = runSession;
@@ -101,6 +103,7 @@ public sealed class RunExecutionViewModel
         _clock = clock ?? SystemClock.Instance;
         _onStationNotReady = onStationNotReady;
         _stationHealthStore = stationHealthStore;
+        _stationHealthGate = stationHealthGate;
 
         RunCommand = ReactiveCommand.CreateFromTask(() => ExecuteRunAsync(selectionOnly: false));
         RunSelectedCommand = ReactiveCommand.CreateFromTask(() => ExecuteRunAsync(selectionOnly: true));
@@ -175,6 +178,22 @@ public sealed class RunExecutionViewModel
         {
             BlockStart(RunBannerSeverity.Warning, "Select a program.");
             return;
+        }
+
+        if (_stationHealthGate is not null)
+        {
+            var gate = _stationHealthGate.Evaluate(program.ToGateRequest(), _clock);
+            if (string.Equals(gate.Level, StationHealthGateLevels.Block, StringComparison.OrdinalIgnoreCase))
+            {
+                BlockStart(RunBannerSeverity.Error, gate.Message);
+                return;
+            }
+
+            if (string.Equals(gate.Level, StationHealthGateLevels.Warn, StringComparison.OrdinalIgnoreCase)
+                && !string.IsNullOrWhiteSpace(gate.Message))
+            {
+                _host.SetBanner(RunBannerSeverity.Warning, gate.Message);
+            }
         }
 
         var selectionPath = selectionOnly ? _stepTree.SelectedStep?.Path : null;

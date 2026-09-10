@@ -10,6 +10,7 @@ using HardwareTest.Core.Diagnostics;
 using HardwareTest.Core.Engine;
 using HardwareTest.Core.Hardware;
 using HardwareTest.Core.Settings;
+using HardwareTest.Core.StationHealth;
 using HardwareTest.Core.Time;
 using HardwareTest.OpenTap.Host;
 using HardwareTest.UiThreading;
@@ -46,7 +47,9 @@ public partial class SettingsViewModel : ReactiveObject
         BuildInfo? buildInfo = null,
         OperatorSession? operatorSession = null,
         IVisaModeController? visaModeController = null,
-        ISafetyController? safety = null)
+        ISafetyController? safety = null,
+        IStationHealthStore? stationHealthStore = null,
+        IClock? clock = null)
     {
         _settingsStore = settingsStore;
         _hostCatalog = hostCatalog;
@@ -81,6 +84,7 @@ public partial class SettingsViewModel : ReactiveObject
                 ? s.ClockSkewWarnThresholdMinutes
                 : AppSettings.DefaultClockSkewWarnThresholdMinutes);
         NtpHost = s.NtpHost ?? string.Empty;
+        StationHealthGateOverride = s.StationHealthGateOverride ?? string.Empty;
         ExportDirectory = s.ExportDirectory ?? string.Empty;
         DataFreeSpaceWarnGb = BytesToGb(s.DataFreeSpaceWarnBytes);
         DataFreeSpaceCriticalGb = BytesToGb(s.DataFreeSpaceCriticalBytes);
@@ -125,6 +129,8 @@ public partial class SettingsViewModel : ReactiveObject
         ClockSkewWarnThresholdMinutesReadOnly =
             settingsStore.IsOverridden(nameof(AppSettings.ClockSkewWarnThresholdMinutes));
         NtpHostReadOnly = settingsStore.IsOverridden(nameof(AppSettings.NtpHost));
+        StationHealthGateOverrideReadOnly =
+            settingsStore.IsOverridden(nameof(AppSettings.StationHealthGateOverride));
         ExportDirectoryReadOnly = settingsStore.IsOverridden(nameof(AppSettings.ExportDirectory));
         DataFreeSpaceWarnGbReadOnly = settingsStore.IsOverridden(nameof(AppSettings.DataFreeSpaceWarnBytes));
         DataFreeSpaceCriticalGbReadOnly = settingsStore.IsOverridden(nameof(AppSettings.DataFreeSpaceCriticalBytes));
@@ -136,6 +142,8 @@ public partial class SettingsViewModel : ReactiveObject
         OpenFolderCommand = ReactiveCommand.Create(OpenSelectedFolder);
         OpenCrashesFolderCommand = ReactiveCommand.Create(OpenCrashesFolder);
         CopyDiagnosticsCommand = ReactiveCommand.CreateFromTask(CopyDiagnosticsAsync);
+        CopyStationHealthPathCommand = ReactiveCommand.CreateFromTask(CopyStationHealthPathAsync);
+        InitStationHealthChrome(stationHealthStore, clock ?? SystemClock.Instance);
 
         _debounce = new System.Timers.Timer(400) { AutoReset = false };
         _debounce.Elapsed += (_, _) =>
@@ -185,6 +193,7 @@ public partial class SettingsViewModel : ReactiveObject
                 or nameof(RequireDutConfirmEveryRunReadOnly)
                 or nameof(RunRetentionDaysReadOnly) or nameof(RunRetentionMaxRunsReadOnly)
                 or nameof(ClockSkewWarnThresholdMinutesReadOnly) or nameof(NtpHostReadOnly)
+                or nameof(StationHealthGateOverrideReadOnly)
                 or nameof(ExportDirectoryReadOnly)
                 or nameof(DataFreeSpaceWarnGbReadOnly) or nameof(DataFreeSpaceCriticalGbReadOnly)
                 or nameof(UseMockOperatorCredentialReadOnly)

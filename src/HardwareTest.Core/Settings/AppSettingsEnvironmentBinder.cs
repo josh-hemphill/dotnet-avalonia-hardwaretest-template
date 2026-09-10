@@ -686,6 +686,26 @@ public static class AppSettingsEnvironmentBinder
                 (s, v) => s.NtpHost = v.Trim(),
                 env: ["HARDWARETEST_NTP_HOST"],
                 cli: ["--ntp-host"]),
+            SettingBinding.String(
+                "StationHealthProfileId",
+                s => s.StationHealthProfileId,
+                (s, v) => s.StationHealthProfileId = string.IsNullOrWhiteSpace(v)
+                    ? "default"
+                    : v.Trim(),
+                env: ["HARDWARETEST_STATION_HEALTH_PROFILE_ID"],
+                cli: ["--station-health-profile-id"]),
+            SettingBinding.String(
+                "StationHealthGateOverride",
+                s => s.StationHealthGateOverride,
+                (s, v) =>
+                {
+                    var trimmed = v.Trim();
+                    s.StationHealthGateOverride = HardwareTest.Core.StationHealth.StationHealthGateOverrides.IsKnown(trimmed)
+                        ? trimmed
+                        : s.StationHealthGateOverride;
+                },
+                env: ["HARDWARETEST_STATION_HEALTH_GATE"],
+                cli: ["--station-health-gate"]),
         ];
 }
 

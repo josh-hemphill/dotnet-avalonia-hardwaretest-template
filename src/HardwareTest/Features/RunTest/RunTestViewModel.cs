@@ -31,6 +31,9 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
     private readonly ThrottledOpenTapProgress _progress;
     private readonly IStorageHealthService? _storageHealth;
     private readonly ShellNotificationViewModel? _shellNotification;
+    private readonly IClock _clock;
+    private readonly IStationHealthGate? _stationHealthGate;
+    private StationHealthGateResult? _stationHealthDecision;
 
     public RunTestViewModel(
         IOpenTapPlanSession plan,
@@ -50,7 +53,8 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
         ISafetyController? safety = null,
         IClock? clock = null,
         IOperatorCredentialBroker? credentialBroker = null,
-        IStationHealthStore? stationHealthStore = null)
+        IStationHealthStore? stationHealthStore = null,
+        IStationHealthGate? stationHealthGate = null)
     {
         _plan = plan;
         _runSession = runSession;
@@ -59,6 +63,8 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
         _settings = settings;
         _storageHealth = storageHealth;
         _shellNotification = shellNotification;
+        _clock = clock ?? SystemClock.Instance;
+        _stationHealthGate = stationHealthGate;
         _progress = new ThrottledOpenTapProgress(IngestProgress);
         BindLiveSettings(settingsStore, settings);
 
@@ -80,9 +86,10 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
             storageHealth,
             visaModeController,
             safety,
-            clock ?? SystemClock.Instance,
+            _clock,
             credentialBroker,
-            stationHealthStore);
+            stationHealthStore,
+            stationHealthGate);
 
         ContinueOperatorCommand = ReactiveCommand.Create(ContinueOperator);
         OpenLastRunResultsCommand = ReactiveCommand.Create(
@@ -127,41 +134,8 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
 
     public OperatorSession Session => _session;
 
-    /// True when neither a run is in progress nor the session is blocking the start.
-    public bool CanStartRun => !IsRunning && !SessionPanel.SessionBlocked;
-
     /// True when Stop Run can abort a run or cancel an in-panel operator prompt.
     public bool CanSafetyStop => IsRunning || Interaction.IsAwaitingOperator;
-
-    /// Tooltip for Run / Run Selected reflecting why start is blocked when disabled.
-    public string CanStartRunTip
-    {
-        get
-        {
-            if (IsRunning)
-            {
-                return StopRunCopy.InProgressTip;
-            }
-
-            if (SessionPanel.SessionBlocked)
-            {
-                if (SessionPanel.IsStalePrompt || SessionPanel.IsIdleWarningPrompt)
-                {
-                    return "Confirm Same DUT or Change Session before Run.";
-                }
-
-                return "Confirm DUT first.";
-            }
-
-            return "Run the full suite.";
-        }
-    }
-
-    /// Tooltip for Run Selected (same gates, different idle copy).
-    public string CanStartRunSelectedTip
-        => CanStartRun
-            ? "Run the selected leaf or section (subtree + Safe Shutdown). Use Run for the full suite."
-            : CanStartRunTip;
 
     public bool ShowStartBlockedTip => !CanStartRun;
     public bool ShowOverallProgress => IsRunning;

@@ -152,6 +152,7 @@ public sealed class ArchitectureRulesTests
             Path.Combine("src", "HardwareTest.Core", "Crash", "DanglingRunReconciler.cs"),
             Path.Combine("src", "HardwareTest.Core", "StationHealth", "FileStationHealthStore.cs"),
             Path.Combine("src", "HardwareTest.Core", "StationHealth", "StationHealthRecorder.cs"),
+            Path.Combine("src", "HardwareTest.Core", "StationHealth", "StationHealthGate.cs"),
         ];
 
         var offenders = new List<string>();

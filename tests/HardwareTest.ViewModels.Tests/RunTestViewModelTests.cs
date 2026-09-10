@@ -1510,6 +1510,7 @@ public sealed class RunTestViewModelTests
         var health = vm.ProgramSelection.Programs.First(p => p.Id == "station-health");
         Assert.Equal(ProgramLoadKind.FactoryStationHealthDemo, health.LoadKind);
         Assert.False(health.Requirements.RequireSerial);
+        Assert.False(health.RequireStationHealth);
         Assert.Equal(HardwareTest.Core.StationHealth.ProgramKinds.StationHealth, health.ProgramKind);
     }
 

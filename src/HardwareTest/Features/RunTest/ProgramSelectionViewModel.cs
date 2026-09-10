@@ -69,6 +69,9 @@ public partial class ProgramSelectionViewModel : ReactiveObject
                     SelectionIncludesCleanup = entry.SelectionIncludesCleanup,
                     ProgramKind = entry.ProgramKind,
                     StationHealthProfileId = entry.StationHealthProfileId,
+                    RequireStationHealth = entry.RequireStationHealth,
+                    StationHealthMaxAgeHours = entry.StationHealthMaxAgeHours,
+                    StationHealthGate = entry.StationHealthGate,
                 });
             }
 

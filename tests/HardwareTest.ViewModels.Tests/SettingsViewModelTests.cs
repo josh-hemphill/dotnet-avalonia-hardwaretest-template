@@ -1,7 +1,9 @@
 using HardwareTest.Core.Diagnostics;
 using HardwareTest.Core.Settings;
+using HardwareTest.Core.StationHealth;
 using HardwareTest.Features.Settings;
 using HardwareTest.ViewModels.Tests.Fakes;
+using HardwareTest.ViewModels.Tests.Time;
 using Xunit;
 
 namespace HardwareTest.ViewModels.Tests;
@@ -236,5 +238,29 @@ public sealed class SettingsViewModelTests
         var vm = new SettingsViewModel(new FakeSettingsStore(), new FakeOpenTapSession());
         Assert.Equal("Not wired", vm.SafetyInterlockStatus);
         Assert.DoesNotContain("armed", vm.SafetyInterlockStatus, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Station_health_one_liner_uses_clock_and_store()
+    {
+        var settings = new FakeSettingsStore();
+        var health = new FakeStationHealthStore();
+        var clock = new FakeClock(new DateTimeOffset(2026, 9, 10, 16, 0, 0, TimeSpan.Zero));
+        await health.WriteAsync(new StationHealthRecord
+        {
+            ProfileId = FileStationHealthStore.DefaultProfileId,
+            MeasuredAt = clock.UtcNow.AddHours(-4),
+            Verdict = StationHealthVerdicts.Pass,
+        });
+
+        var vm = new SettingsViewModel(
+            settings,
+            new FakeOpenTapSession(),
+            stationHealthStore: health,
+            clock: clock);
+
+        Assert.True(vm.ShowStationHealthSummary);
+        Assert.Contains("Pass", vm.StationHealthSummary, StringComparison.Ordinal);
+        Assert.Contains("4 h ago", vm.StationHealthSummary, StringComparison.Ordinal);
     }
 }

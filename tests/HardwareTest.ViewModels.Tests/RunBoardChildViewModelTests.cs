@@ -3,6 +3,7 @@ using HardwareTest.Core.Diagnostics;
 using HardwareTest.Core.Runs;
 using HardwareTest.Core.Settings;
 using HardwareTest.Core.StationHealth;
+using HardwareTest.Core.Time;
 using HardwareTest.Features.RunTest;
 using HardwareTest.OpenTap.Host;
 using HardwareTest.OpenTap.Plugins.Basic;
@@ -579,6 +580,136 @@ public sealed class RunBoardChildViewModelTests
         Assert.Empty(healthStore.Written);
     }
 
+    [Fact]
+    public async Task RunExecution_blocks_stale_station_health_when_sidecar_blocks()
+    {
+        var openTap = new FakeOpenTapSession();
+        var healthStore = new FakeStationHealthStore();
+        var settings = new AppSettings();
+        var clock = new FakeClock(new DateTimeOffset(2026, 9, 10, 12, 0, 0, TimeSpan.Zero));
+        var session = ConfirmedSession();
+        var host = new StubRunBoardHost();
+        var run = BuildRunExecution(
+            openTap,
+            host,
+            session,
+            program: GatedDutProgram(StationHealthGates.Block),
+            stationHealthStore: healthStore,
+            stationHealthGate: new StationHealthGate(healthStore, settings),
+            clock: clock,
+            settings: settings);
+
+        await run.RunCommand.ExecuteAsync();
+
+        Assert.Equal(0, openTap.RunCount);
+        Assert.Equal(RunBannerSeverity.Error, host.BannerSeverity);
+        Assert.Contains("missing", host.BannerMessage, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task RunExecution_warns_and_runs_when_sidecar_warns()
+    {
+        var openTap = new FakeOpenTapSession();
+        var healthStore = new FakeStationHealthStore();
+        var settings = new AppSettings();
+        var clock = new FakeClock(new DateTimeOffset(2026, 9, 10, 12, 0, 0, TimeSpan.Zero));
+        var host = new StubRunBoardHost();
+        var run = BuildRunExecution(
+            openTap,
+            host,
+            ConfirmedSession(),
+            program: GatedDutProgram(StationHealthGates.Warn),
+            stationHealthStore: healthStore,
+            stationHealthGate: new StationHealthGate(healthStore, settings),
+            clock: clock,
+            settings: settings);
+
+        await run.RunCommand.ExecuteAsync();
+
+        Assert.Equal(1, openTap.RunCount);
+        Assert.Equal(RunBannerSeverity.Warning, host.BannerSeverity);
+        Assert.Contains("missing", host.BannerMessage, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task RunExecution_override_off_ignores_sidecar_block()
+    {
+        var openTap = new FakeOpenTapSession();
+        var healthStore = new FakeStationHealthStore();
+        var settings = new AppSettings { StationHealthGateOverride = StationHealthGateOverrides.Off };
+        var host = new StubRunBoardHost();
+        var run = BuildRunExecution(
+            openTap,
+            host,
+            ConfirmedSession(),
+            program: GatedDutProgram(StationHealthGates.Block),
+            stationHealthStore: healthStore,
+            stationHealthGate: new StationHealthGate(healthStore, settings),
+            clock: new FakeClock(new DateTimeOffset(2026, 9, 10, 12, 0, 0, TimeSpan.Zero)),
+            settings: settings);
+
+        await run.RunCommand.ExecuteAsync();
+
+        Assert.Equal(1, openTap.RunCount);
+        Assert.False(host.HasBanner);
+    }
+
+    [Fact]
+    public async Task RunExecution_health_program_is_not_gated()
+    {
+        var openTap = new FakeOpenTapSession { SummarySamples = HealthCalSamples() };
+        var healthStore = new FakeStationHealthStore();
+        var settings = new AppSettings();
+        var host = new StubRunBoardHost();
+        var run = BuildRunExecution(
+            openTap,
+            host,
+            ConfirmedSession(),
+            program: new ProgramItemViewModel
+            {
+                Id = "station-health",
+                DisplayName = StationHealthDemoProgramFactory.DisplayName,
+                Path = StationHealthDemoProgramFactory.EmbeddedName,
+                DutFamily = "demo",
+                LoadKind = ProgramLoadKind.FactoryStationHealthDemo,
+                Requirements = HealthRequirements,
+                ProgramKind = ProgramKinds.StationHealth,
+                RequireStationHealth = true,
+                StationHealthGate = StationHealthGates.Block,
+            },
+            stationHealthStore: healthStore,
+            stationHealthGate: new StationHealthGate(healthStore, settings),
+            clock: new FakeClock(new DateTimeOffset(2026, 9, 10, 12, 0, 0, TimeSpan.Zero)),
+            settings: settings);
+
+        await run.RunCommand.ExecuteAsync();
+
+        Assert.Equal(1, openTap.RunCount);
+        Assert.False(string.Equals(host.BannerSeverity.ToString(), "Error", StringComparison.Ordinal)
+                     && host.BannerMessage.Contains("health", StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static OperatorSession ConfirmedSession()
+    {
+        var session = new OperatorSession();
+        session.ConfirmDut("SN-GATE");
+        session.OperatorName = "Tech";
+        return session;
+    }
+
+    private static ProgramItemViewModel GatedDutProgram(string gate) => new()
+    {
+        Id = "dut-gated",
+        DisplayName = "DUT gated",
+        Path = SampleProgramFactory.EmbeddedName,
+        DutFamily = "generic",
+        LoadKind = ProgramLoadKind.FactorySample,
+        Requirements = ProgramRequirements.Sample,
+        RequireStationHealth = true,
+        StationHealthGate = gate,
+        StationHealthMaxAgeHours = 24,
+    };
+
     private static ProgramRequirements HealthRequirements { get; } = new()
     {
         RequireSerial = false,
@@ -625,9 +756,12 @@ public sealed class RunBoardChildViewModelTests
         OperatorSession session,
         FakeRunStore? store = null,
         ProgramItemViewModel? program = null,
-        IStationHealthStore? stationHealthStore = null)
+        IStationHealthStore? stationHealthStore = null,
+        IStationHealthGate? stationHealthGate = null,
+        IClock? clock = null,
+        AppSettings? settings = null)
     {
-        var settings = new AppSettings();
+        settings ??= new AppSettings();
         var programs = new ProgramSelectionViewModel(_ => { });
         programs.Programs.Add(program ?? new ProgramItemViewModel
         {
@@ -659,7 +793,9 @@ public sealed class RunBoardChildViewModelTests
             new StepDetailViewModel(),
             new InteractionHostViewModel(),
             new LivePresentationViewModel(),
-            stationHealthStore: stationHealthStore);
+            clock: clock,
+            stationHealthStore: stationHealthStore,
+            stationHealthGate: stationHealthGate);
     }
 
     private sealed class NoopProgress : IProgress<OpenTapProgress>

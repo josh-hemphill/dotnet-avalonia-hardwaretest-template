@@ -244,6 +244,30 @@
 
         <Separator Margin="0,8" />
 
+        <StackPanel Spacing="6" IsVisible="{Binding ShowStationHealthSummary}">
+          <TextBlock Text="Station health" Classes="settings-h2"
+                     AutomationProperties.HeadingLevel="2" />
+          <TextBlock Text="{Binding StationHealthSummary}"
+                     TextWrapping="Wrap"
+                     AutomationProperties.Name="Station health summary" />
+          <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
+            <TextBlock x:Name="HealthGateLabel" Text="Gate override" VerticalAlignment="Center"
+                       ToolTip.Tip="Empty follows the DUT sidecar. off disables the gate; warn or block pins enforcement. Env HARDWARETEST_STATION_HEALTH_GATE." />
+            <TextBox Grid.Column="1" Text="{Binding StationHealthGateOverride}"
+                     IsReadOnly="{Binding StationHealthGateOverrideReadOnly}"
+                     PlaceholderText="Empty = follow sidecar"
+                     AutomationProperties.LabeledBy="{Binding #HealthGateLabel}"
+                     AutomationProperties.Name="Station health gate override" />
+          </Grid>
+          <Button Content="Copy store path"
+                  Command="{Binding CopyStationHealthPathCommand}"
+                  IsVisible="{Binding IsEngineerDebugMode}"
+                  HorizontalAlignment="Left"
+                  AutomationProperties.Name="Copy station health store path" />
+        </StackPanel>
+
+        <Separator Margin="0,8" />
+
         <TextBlock Text="About" Classes="settings-h2"
                    AutomationProperties.HeadingLevel="2" />
         <TextBlock Text="What is running on this bench (build-stamped version, runtime, OpenTAP engine)."
