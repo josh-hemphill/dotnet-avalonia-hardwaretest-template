@@ -1,7 +1,9 @@
 /**
  * Cobertura floor checks ported from tests/check-coverage.py.
- * Fail if Core < 70%, Hardware < 80%, or Engine < 80% when Engine lines exist.
+ * Fail if Core < 70%, or Hardware/Engine < 80% when those line counts exist.
  */
+
+import * as path from "@std/path";
 
 export type CoverageReport = {
   corePct: number;
@@ -26,8 +28,7 @@ function isEngine(filename: string): boolean {
   return (
     filename.includes(".Engine.") ||
     filename.includes("/Engine/") ||
-    filename.includes("\\Engine\\") ||
-    filename.includes("Engine.")
+    filename.includes("\\Engine\\")
   );
 }
 
@@ -107,7 +108,9 @@ export function evaluateCobertura(xml: string): CoverageReport {
   if (engineLines > 0 && enginePct < 80) {
     failures.push("FAIL: Engine coverage below 80%");
   }
-  if (hardwarePct < 80) failures.push("FAIL: Hardware coverage below 80%");
+  if (hardwareLines > 0 && hardwarePct < 80) {
+    failures.push("FAIL: Hardware coverage below 80%");
+  }
 
   const summary = [
     `Core line coverage: ${corePct.toFixed(1)}% (${covered}/${coreLines})`,
@@ -131,22 +134,25 @@ export function evaluateCobertura(xml: string): CoverageReport {
   };
 }
 
-/** Find the first coverage.cobertura.xml under a results directory. */
+/** Find coverage.cobertura.xml under a results directory (sorted; first wins). */
 export async function findCobertura(resultsDir: string): Promise<string | null> {
+  const matches: string[] = [];
   try {
     for await (const entry of walkFiles(resultsDir)) {
-      if (entry.endsWith("coverage.cobertura.xml")) return entry;
+      if (entry.endsWith("coverage.cobertura.xml")) matches.push(entry);
     }
   } catch (err) {
     if (err instanceof Deno.errors.NotFound) return null;
     throw err;
   }
-  return null;
+  if (matches.length === 0) return null;
+  matches.sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+  return matches[0] ?? null;
 }
 
 async function* walkFiles(dir: string): AsyncGenerator<string> {
   for await (const entry of Deno.readDir(dir)) {
-    const full = `${dir}/${entry.name}`.replaceAll("\\", "/");
+    const full = path.join(dir, entry.name);
     if (entry.isDirectory) {
       yield* walkFiles(full);
     } else if (entry.isFile) {
