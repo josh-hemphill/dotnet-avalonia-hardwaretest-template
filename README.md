@@ -61,6 +61,7 @@ dotnet test tests/HardwareTest.E2E.Tests -r win-x64
 See [docs/testing.md](docs/testing.md) for UI vs OpenTAP suite separation, plan-shape fixtures, and progress/summary recording.
 See [docs/containers.md](docs/containers.md) for Deno tasks, Podman CI image, and appliance stub rails.
 See [docs/adapting.md](docs/adapting.md) to replace sample plans, plugins, station bindings, and reports for your product.
+
 ## Operator Session / DUT
 
 - Confirm DUT serial once per session (sticky strip on Run shows last activity + idle countdown).
