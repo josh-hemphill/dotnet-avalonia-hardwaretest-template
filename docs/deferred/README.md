@@ -18,3 +18,5 @@ Parent indexes: [platform-roadmap.md](../platform-roadmap.md) · [opentap-platfo
 | [deferred-clock-discipline.md](deferred-clock-discipline.md) | NTP / clock skew detection |
 
 When a deferred item is promoted, move it to `platform-phases/` or `opentap-phases/`, set Status to Planned, and link it from the parent checklist.
+
+Planned (not deferred): OpenTAP [Phase M](../opentap-phases/phase-m-series-envelope-timing.md) (series envelope + timing) and platform [Phase 26](../platform-phases/phase-26-station-health-gating.md) (station health gate).

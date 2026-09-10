@@ -151,7 +151,10 @@ internal static class OpenTapPresentation
     public static void ApplySample(
         StoredSample sample,
         string publishedChannel,
-        MixinHints? hints)
+        MixinHints? hints,
+        double? limitLow = null,
+        double? limitHigh = null,
+        double? elapsedMs = null)
     {
         sample.Channel = publishedChannel;
         if (hints is not null && !string.IsNullOrWhiteSpace(hints.ChannelKey))
@@ -169,6 +172,9 @@ internal static class OpenTapPresentation
             sample.Unit = hints.YUnit;
         }
 
+        sample.LimitLow = limitLow;
+        sample.LimitHigh = limitHigh;
+        sample.ElapsedMs = elapsedMs;
         ApplyHistoryHints(sample, hints);
     }
 

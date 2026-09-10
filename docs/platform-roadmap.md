@@ -10,8 +10,8 @@ Related: [adapting.md](adapting.md) (productize), [testing.md](testing.md) (suit
 
 | Track | Folder | Naming | Scope |
 | --- | --- | --- | --- |
-| OpenTAP integration | [opentap-phases/](opentap-phases/) | Letters (A–L) | Interactions, parameters, mixins, packages, presentation, multi-DUT, authoring |
-| Platform hardening | [platform-phases/](platform-phases/) | Numbers (1–25) | Gates, config, diagnostics, crash, CI, structure, storage, operator UX, live presentation, shell strip, touch density, correctness, supply chain, VISA, safety worker, session split, clock |
+| OpenTAP integration | [opentap-phases/](opentap-phases/) | Letters (A–M) | Interactions, parameters, mixins, packages, presentation, multi-DUT, authoring, series envelope |
+| Platform hardening | [platform-phases/](platform-phases/) | Numbers (1–26) | Gates, config, diagnostics, crash, CI, structure, storage, operator UX, live presentation, shell strip, touch density, correctness, supply chain, VISA, safety worker, session split, clock, station health |
 
 Distinct namespaces on purpose — "Phase C" and "Phase 3" are never the same thing.
 
@@ -68,6 +68,7 @@ Distinct namespaces on purpose — "Phase C" and "Phase 3" are never the same th
 | 23 | [Safety Stop + OpenTAP worker](platform-phases/phase-23-safety-opentap-worker.md) | 19, 22 | Done |
 | 24 | [OpenTAP session decomposition](platform-phases/phase-24-session-decomposition.md) | 14 | Done |
 | 25 | [Clock discipline](platform-phases/phase-25-clock-discipline.md) | 11 | Done |
+| 26 | [Station health & optional Run gating](platform-phases/phase-26-station-health-gating.md) | 10, 17, 25 | Planned ([stack](../opentap-phases/phase-m-n26-stack.md)) |
 
 **Suggested order (1–10):** 1 first and alone — nothing else is verifiable until CI actually runs. Then 2 / 7 / 8 can proceed in parallel (independent seams). 3 → 4 → 5 is a chain and should stay one series. 6 lands after 4. 9 after 8. 10 after 3/6/9 (storage + chrome).
 
@@ -76,6 +77,8 @@ Distinct namespaces on purpose — "Phase C" and "Phase 3" are never the same th
 **Suggested order (17–18):** **17 then 18** (or a short shared PR train once 17’s strip host exists). Shell strip stops notification Auto-rows from shoving the board; touch density then lands on a calmer layout. Full kiosk image bake stays [deferred](deferred/deferred-appliance-kiosk.md) and assumes Phase 18’s floor.
 
 **Suggested order (19–25):** **19 first** (contained correctness + format gate). Then **20 ∥ 21**. **22 before 23** (plan VISA must be preemptable before a killable worker is useful). **24** can overlap 22/23 on the Host types but is the structural prerequisite for OpenTAP K. **25** before the first unattended deployment; it does not block 19–24.
+
+**Suggested order (26):** **26 after 17 + 25** (strip + `IClock`). Independent of OpenTAP [Phase M](opentap-phases/phase-m-series-envelope-timing.md) (series envelope). May share a TestRunRecord schema-3 bump with M if they land together.
 
 **Fresh-eyes reviews:**
 
