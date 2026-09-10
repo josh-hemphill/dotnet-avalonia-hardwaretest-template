@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Text.Json;
 using System.Xml.Linq;
 using Avalonia.Controls;
 using HardwareTest.Core.Hardware;
@@ -172,6 +173,62 @@ public sealed class ArchitectureRulesTests
         Assert.True(
             offenders.Count == 0,
             $"{Phase25ClockRule} Wall-clock UtcNow in idle/retention/run-complete:{Environment.NewLine}{string.Join(Environment.NewLine, offenders)}");
+    }
+
+    [Fact]
+    public void Slnx_project_set_matches_dirs_proj_src_and_tests_globs()
+    {
+        var repo = FindRepoRoot();
+        var slnx = XDocument.Load(Path.Combine(repo, "HardwareTest.slnx"));
+        var slnxProjects = slnx.Descendants("Project")
+            .Select(e => (e.Attribute("Path")?.Value ?? string.Empty).Replace('\\', '/'))
+            .Where(p => p.Length > 0)
+            .OrderBy(p => p, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        var globbed = Directory.GetFiles(Path.Combine(repo, "src"), "*.csproj", SearchOption.AllDirectories)
+            .Concat(Directory.GetFiles(Path.Combine(repo, "tests"), "*.csproj", SearchOption.AllDirectories))
+            .Select(p => Path.GetRelativePath(repo, p).Replace('\\', '/'))
+            .OrderBy(p => p, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Equal(globbed, slnxProjects);
+    }
+
+    [Fact]
+    public void Package_lockfiles_include_declared_runtime_identifiers()
+    {
+        var repo = FindRepoRoot();
+        string[] required = ["net10.0/win-x64", "net10.0/linux-x64", "net10.0/osx-arm64"];
+        var missing = new List<string>();
+        foreach (var root in new[] { "src", "tests" })
+        {
+            foreach (var lockPath in Directory.GetFiles(
+                Path.Combine(repo, root),
+                "packages.lock.json",
+                SearchOption.AllDirectories))
+            {
+                if (IsBuildArtifact(lockPath, repo))
+                {
+                    continue;
+                }
+
+                using var doc = JsonDocument.Parse(File.ReadAllText(lockPath));
+                var deps = doc.RootElement.GetProperty("dependencies");
+                var rel = Path.GetRelativePath(repo, lockPath).Replace('\\', '/');
+                foreach (var rid in required)
+                {
+                    if (!deps.TryGetProperty(rid, out _))
+                    {
+                        missing.Add($"{rel} missing {rid}");
+                    }
+                }
+            }
+        }
+
+        Assert.True(
+            missing.Count == 0,
+            $"Directory.Build.props RuntimeIdentifiers must appear in every src/tests lockfile:{Environment.NewLine}{string.Join(Environment.NewLine, missing)}");
     }
 
     [Fact]

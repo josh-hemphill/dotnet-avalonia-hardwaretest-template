@@ -3,7 +3,6 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
-using System.Runtime.Versioning;
 using System.Text;
 using System.Threading.Tasks;
 using HardwareTest.Core.Diagnostics;
@@ -481,9 +480,6 @@ public partial class SettingsViewModel : ReactiveObject
     private string? ResolveSelectedPath()
         => SelectedPackage?.Path ?? SelectedPluginDirectory?.Path;
 
-    [SupportedOSPlatform("windows")]
-    [SupportedOSPlatform("linux")]
-    [SupportedOSPlatform("macos")]
     private static void OpenFolder(string path)
     {
         Process.Start(new ProcessStartInfo
