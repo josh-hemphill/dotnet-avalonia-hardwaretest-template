@@ -15,11 +15,16 @@ public sealed class ProgramCatalogTests
         Assert.Contains(entries, e => e.Id == "sweep-demo" && e.LoadKind == ProgramLoadKind.FactorySweepDemo);
         Assert.Contains(entries, e => e.Id == "timing-demo" && e.LoadKind == ProgramLoadKind.FactoryTimingDemo);
         Assert.Contains(entries, e => e.Id == "envelope-sweep-demo" && e.LoadKind == ProgramLoadKind.FactoryEnvelopeSweepDemo);
+        Assert.Contains(entries, e => e.Id == "station-health" && e.LoadKind == ProgramLoadKind.FactoryStationHealthDemo);
         Assert.Equal(1, entries.Count(e => e.Id == "sample"));
         Assert.Equal(1, entries.Count(e => e.Id == "board-demo"));
         Assert.Equal(1, entries.Count(e => e.Id == "sweep-demo"));
         Assert.Equal(1, entries.Count(e => e.Id == "timing-demo"));
         Assert.Equal(1, entries.Count(e => e.Id == "envelope-sweep-demo"));
+        Assert.Equal(1, entries.Count(e => e.Id == "station-health"));
+        var health = entries.First(e => e.Id == "station-health");
+        Assert.Equal(HardwareTest.Core.StationHealth.ProgramKinds.StationHealth, health.ProgramKind);
+        Assert.False(health.Requirements.RequireSerial);
     }
 
     [Fact]
@@ -49,6 +54,35 @@ public sealed class ProgramCatalogTests
             Assert.True(entry.Requirements.RequirePartNumber);
             Assert.False(entry.Requirements.RequireOperator);
             Assert.Equal(ProgramLoadKind.TapPlanFile, entry.LoadKind);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void Enumerate_station_health_sidecar_defaults_require_serial_false()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "program-catalog-health-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        try
+        {
+            File.WriteAllText(Path.Combine(dir, "bench-cal.TapPlan"), "<TestPlan />");
+            File.WriteAllText(
+                Path.Combine(dir, "bench-cal.program.json"),
+                """
+                {
+                  "displayName": "Bench cal",
+                  "programKind": "stationHealth",
+                  "stationHealthProfileId": "line-2"
+                }
+                """);
+
+            var entry = ProgramCatalog.Enumerate([dir]).First(e => e.Id == "bench-cal");
+            Assert.Equal(HardwareTest.Core.StationHealth.ProgramKinds.StationHealth, entry.ProgramKind);
+            Assert.False(entry.Requirements.RequireSerial);
+            Assert.Equal("line-2", entry.StationHealthProfileId);
         }
         finally
         {

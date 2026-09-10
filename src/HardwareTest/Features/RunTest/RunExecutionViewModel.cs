@@ -9,6 +9,7 @@ using HardwareTest.Core.Hardware;
 using HardwareTest.Core.Reporting;
 using HardwareTest.Core.Runs;
 using HardwareTest.Core.Settings;
+using HardwareTest.Core.StationHealth;
 using HardwareTest.Core.Storage;
 using HardwareTest.Core.Text;
 using HardwareTest.Core.Time;
@@ -45,6 +46,7 @@ public sealed class RunExecutionViewModel
     private readonly ISafetyController? _safety;
     private readonly IClock _clock;
     private readonly Action<string, IReadOnlyList<string>>? _onStationNotReady;
+    private readonly IStationHealthStore? _stationHealthStore;
 
     private readonly Dictionary<string, StepAttemptSummary> _attemptLedger =
         new(StringComparer.OrdinalIgnoreCase);
@@ -72,7 +74,8 @@ public sealed class RunExecutionViewModel
         IVisaModeController? visaModeController = null,
         ISafetyController? safety = null,
         IClock? clock = null,
-        Action<string, IReadOnlyList<string>>? onStationNotReady = null)
+        Action<string, IReadOnlyList<string>>? onStationNotReady = null,
+        IStationHealthStore? stationHealthStore = null)
     {
         _host = host;
         _runSession = runSession;
@@ -97,6 +100,7 @@ public sealed class RunExecutionViewModel
         _safety = safety;
         _clock = clock ?? SystemClock.Instance;
         _onStationNotReady = onStationNotReady;
+        _stationHealthStore = stationHealthStore;
 
         RunCommand = ReactiveCommand.CreateFromTask(() => ExecuteRunAsync(selectionOnly: false));
         RunSelectedCommand = ReactiveCommand.CreateFromTask(() => ExecuteRunAsync(selectionOnly: true));
@@ -371,6 +375,19 @@ public sealed class RunExecutionViewModel
             AppCommitSha = _buildInfo.CommitSha,
         };
         await _runStore.SaveAsync(record).ConfigureAwait(false);
+        if (_stationHealthStore is not null)
+        {
+            await StationHealthRecorder.TryWriteAsync(
+                    _stationHealthStore,
+                    _clock,
+                    program.ProgramKind,
+                    program.StationHealthProfileId,
+                    program.Id,
+                    record.RunId,
+                    record.Result,
+                    record.Samples)
+                .ConfigureAwait(false);
+        }
 
         var historyReport = await AnalyzeHistoryAsync(record, summary.Result).ConfigureAwait(false);
         await GenerateReportsAsync(record, program, summary.Result, historyReport).ConfigureAwait(false);

@@ -157,6 +157,66 @@ public sealed class PlanContractValidatorTests
     }
 
     [Fact]
+    public void Validate_unknown_program_kind_is_error()
+    {
+        using var dir = new TempPlanDir();
+        SampleProgramFactory.SaveBeside(dir.Path);
+        File.WriteAllText(
+            Path.Combine(dir.Path, "sample.program.json"),
+            """
+            {
+              "displayName": "sample",
+              "programKind": "calCache"
+            }
+            """);
+        var report = PlanContractValidator.ValidateFile(Path.Combine(dir.Path, SampleProgramFactory.EmbeddedName));
+        Assert.Contains(report.Findings, f => f.Code == PlanContractValidator.Codes.SidecarProgramKind
+            && f.Severity == PlanContractSeverity.Error);
+        Assert.True(report.HasErrors);
+    }
+
+    [Fact]
+    public void Validate_unknown_station_health_gate_is_error()
+    {
+        using var dir = new TempPlanDir();
+        SampleProgramFactory.SaveBeside(dir.Path);
+        File.WriteAllText(
+            Path.Combine(dir.Path, "sample.program.json"),
+            """
+            {
+              "displayName": "sample",
+              "stationHealthGate": "skip"
+            }
+            """);
+        var report = PlanContractValidator.ValidateFile(Path.Combine(dir.Path, SampleProgramFactory.EmbeddedName));
+        Assert.Contains(report.Findings, f => f.Code == PlanContractValidator.Codes.SidecarStationHealthGate
+            && f.Severity == PlanContractSeverity.Error);
+        Assert.True(report.HasErrors);
+    }
+
+    [Fact]
+    public void Validate_require_station_health_on_health_program_warns()
+    {
+        using var dir = new TempPlanDir();
+        StationHealthDemoProgramFactory.SaveBeside(dir.Path);
+        File.WriteAllText(
+            Path.Combine(dir.Path, "station-health.program.json"),
+            """
+            {
+              "displayName": "Station Health",
+              "programKind": "stationHealth",
+              "requireSerial": false,
+              "requireStationHealth": true
+            }
+            """);
+        var report = PlanContractValidator.ValidateFile(
+            Path.Combine(dir.Path, StationHealthDemoProgramFactory.FixtureFileName));
+        Assert.Contains(report.Findings, f => f.Code == PlanContractValidator.Codes.SidecarStationHealthRequire
+            && f.Severity == PlanContractSeverity.Warning);
+        Assert.False(report.HasErrors);
+    }
+
+    [Fact]
     public void Validate_empty_or_unknown_report_kinds_are_errors()
     {
         using var dir = new TempPlanDir();

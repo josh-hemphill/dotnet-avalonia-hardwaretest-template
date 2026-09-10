@@ -5,6 +5,7 @@ using HardwareTest.Core.Hardware;
 using HardwareTest.Core.Reporting;
 using HardwareTest.Core.Runs;
 using HardwareTest.Core.Settings;
+using HardwareTest.Core.StationHealth;
 using HardwareTest.Core.Storage;
 using HardwareTest.Core.Time;
 using HardwareTest.OpenTap.Host;
@@ -30,7 +31,8 @@ public partial class RunTestViewModel
         IVisaModeController? visaModeController,
         ISafetyController? safety,
         IClock clock,
-        IOperatorCredentialBroker? credentialBroker)
+        IOperatorCredentialBroker? credentialBroker,
+        IStationHealthStore? stationHealthStore)
     {
         StepDetail = new StepDetailViewModel(
             () => OpenSelectedDetail(revealDetail: true),
@@ -90,7 +92,8 @@ public partial class RunTestViewModel
             visaModeController,
             safety,
             clock,
-            OnStationNotReady);
+            OnStationNotReady,
+            stationHealthStore);
         Workspace = new RunWorkspaceViewModel(
             () => SessionPanel.SessionBlocked,
             () => Interaction.IsAwaitingOperator,
@@ -106,4 +109,11 @@ public partial class RunTestViewModel
 
     /// True when Run occupies the header action slot (idle, including gated-disabled).
     public bool ShowHeaderRun => !CanSafetyStop;
+
+    /// Binds catalog identity and session requirements for the selected program.
+    private void ApplySelectedProgram(ProgramItemViewModel program)
+    {
+        _session.SelectProgram(program.Id, program.Path, program.DisplayName, program.DutFamily);
+        _session.ApplyProgramRequirements(program.Requirements);
+    }
 }

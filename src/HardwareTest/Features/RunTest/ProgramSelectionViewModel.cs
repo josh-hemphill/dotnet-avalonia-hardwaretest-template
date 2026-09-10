@@ -67,6 +67,8 @@ public partial class ProgramSelectionViewModel : ReactiveObject
                     Requirements = entry.Requirements,
                     ReportKinds = entry.ReportKinds,
                     SelectionIncludesCleanup = entry.SelectionIncludesCleanup,
+                    ProgramKind = entry.ProgramKind,
+                    StationHealthProfileId = entry.StationHealthProfileId,
                 });
             }
 

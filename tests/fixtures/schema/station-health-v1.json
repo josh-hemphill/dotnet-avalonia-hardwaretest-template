@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "profileId": "default",
+  "measuredAt": "2026-09-10T12:00:00+00:00",
+  "source": "queried",
+  "verdict": "Pass",
+  "programId": "station-health",
+  "runId": "health-run-1",
+  "metrics": [
+    {
+      "name": "cal.dc.offset",
+      "value": 0.002,
+      "unit": "V",
+      "limitLow": -0.01,
+      "limitHigh": 0.01
+    },
+    {
+      "name": "cal.age.hours",
+      "value": 0,
+      "unit": "h",
+      "limitHigh": 24
+    }
+  ],
+  "maxAgeHours": 24
+}

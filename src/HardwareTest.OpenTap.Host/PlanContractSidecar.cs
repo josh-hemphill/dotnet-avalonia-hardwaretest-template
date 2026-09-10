@@ -1,5 +1,6 @@
 using System.Text.Json;
 using HardwareTest.Core.Runs;
+using HardwareTest.Core.StationHealth;
 
 namespace HardwareTest.OpenTap.Host;
 
@@ -24,6 +25,11 @@ internal static class PlanContractSidecar
         "reportKinds",
         "defaultReportKind",
         "selectionIncludesCleanup",
+        "programKind",
+        "requireStationHealth",
+        "stationHealthMaxAgeHours",
+        "stationHealthGate",
+        "stationHealthProfileId",
     };
 
     public static ProgramSidecar? Analyze(
@@ -108,6 +114,7 @@ internal static class PlanContractSidecar
         }
 
         AnalyzeReportKinds(parsed, planId, findings);
+        AnalyzeStationHealth(parsed, planId, findings);
         return parsed;
     }
 
@@ -170,6 +177,30 @@ internal static class PlanContractSidecar
             findings.Add(Error(
                 PlanContractValidator.Codes.SidecarDefaultReportKind,
                 $"Sidecar {planId}.program.json defaultReportKind '{parsed.DefaultReportKind}' must be listed in reportKinds."));
+        }
+    }
+
+    private static void AnalyzeStationHealth(ProgramSidecar parsed, string planId, List<PlanContractFinding> findings)
+    {
+        if (!ProgramKinds.IsKnown(parsed.ProgramKind))
+        {
+            findings.Add(Error(
+                PlanContractValidator.Codes.SidecarProgramKind,
+                $"Sidecar {planId}.program.json programKind '{parsed.ProgramKind}' is unknown. Use dut or stationHealth."));
+        }
+
+        if (!StationHealthGates.IsKnown(parsed.StationHealthGate))
+        {
+            findings.Add(Error(
+                PlanContractValidator.Codes.SidecarStationHealthGate,
+                $"Sidecar {planId}.program.json stationHealthGate '{parsed.StationHealthGate}' is unknown. Use warn or block."));
+        }
+
+        if (parsed.RequireStationHealth is true && ProgramKinds.IsStationHealth(parsed.ProgramKind))
+        {
+            findings.Add(Warning(
+                PlanContractValidator.Codes.SidecarStationHealthRequire,
+                $"Sidecar {planId}.program.json requireStationHealth on a stationHealth program is ignored."));
         }
     }
 

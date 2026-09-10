@@ -95,6 +95,9 @@ public sealed class OpenTapWorkerClient : IOpenTapSession, INotifyPropertyChange
     public Task LoadEnvelopeSweepDemoProgramAsync(CancellationToken cancellationToken = default)
         => MutateAsync(WorkerProtocol.LoadEnvelopeSweepDemo, cancellationToken);
 
+    public Task LoadStationHealthDemoProgramAsync(CancellationToken cancellationToken = default)
+        => MutateAsync(WorkerProtocol.LoadStationHealthDemo, cancellationToken);
+
     /// Test-only fixture load (not on <see cref="IOpenTapSession"/>).
     public Task LoadPlanShapeAsync(string fixtureFileName, CancellationToken cancellationToken = default)
         => MutateAsync(
