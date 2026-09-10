@@ -35,7 +35,7 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
-          dotnet-version: "10.0.x"
+          dotnet-version: "10.0.302"
           cache: true
           cache-dependency-path: |
             **/*.csproj
@@ -52,7 +52,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          expected=$'all\naudit\nbuild\ncoverage\nlist\npublish\ntest:arch\ntest:e2e\ntest:host\ntest:vm\nverify'
+          expected=$'all\naudit\nbuild\ncoverage\nformat\nlist\npublish\ntest:arch\ntest:e2e\ntest:host\ntest:vm\nverify'
           actual=$(deno run -A tools/ci/main.ts list)
           if [[ "$actual" != "$expected" ]]; then
             echo "Deno task catalog drift:" >&2
@@ -67,7 +67,7 @@ jobs:
         run: deno run -A tools/ci/main.ts build --rid win-x64
 
       - name: Format check
-        run: dotnet format HardwareTest.slnx --verify-no-changes --no-restore
+        run: deno run -A tools/ci/main.ts format
 
       - name: Vulnerability scan
         run: deno run -A tools/ci/main.ts audit
@@ -103,7 +103,7 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
-          dotnet-version: "10.0.x"
+          dotnet-version: "10.0.302"
           cache: true
           cache-dependency-path: |
             **/*.csproj
@@ -127,6 +127,7 @@ jobs:
         with:
           name: hardwaretest-win-x64
           path: artifacts/publish/win-x64
+          if-no-files-found: error
           retention-days: 14
 
   test-linux:
@@ -141,7 +142,7 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
-          dotnet-version: "10.0.x"
+          dotnet-version: "10.0.302"
           cache: true
           cache-dependency-path: |
             **/*.csproj
@@ -164,15 +165,22 @@ jobs:
       - name: Assert CI task catalog
         run: |
           set -euo pipefail
-          expected=$'all\naudit\nbuild\ncoverage\nlist\npublish\ntest:arch\ntest:e2e\ntest:host\ntest:vm\nverify'
+          expected=$'all\naudit\nbuild\ncoverage\nformat\nlist\npublish\ntest:arch\ntest:e2e\ntest:host\ntest:vm\nverify'
           actual=$(deno run -A tools/ci/main.ts list)
-          test "$actual" = "$expected"
+          if [[ "$actual" != "$expected" ]]; then
+            echo "Deno task catalog drift:" >&2
+            echo "expected:" >&2
+            printf '%s\n' "$expected" >&2
+            echo "actual:" >&2
+            printf '%s\n' "$actual" >&2
+            exit 1
+          fi
 
       - name: Build
         run: deno run -A tools/ci/main.ts build --rid linux-x64
 
       - name: Format check
-        run: dotnet format HardwareTest.slnx --verify-no-changes --no-restore
+        run: deno run -A tools/ci/main.ts format
 
       - name: Vulnerability scan
         run: deno run -A tools/ci/main.ts audit
@@ -193,6 +201,9 @@ jobs:
       - name: Coverage floors (Core-safe tests only)
         run: deno run -A tools/ci/main.ts coverage --rid linux-x64
 
+      - name: Deno coverage / catalog unit tests
+        run: deno task --cwd tools/ci test
+
       - name: Publish linux-x64
         run: deno run -A tools/ci/main.ts publish --rid linux-x64
 
@@ -204,4 +215,5 @@ jobs:
         with:
           name: hardwaretest-linux-x64
           path: artifacts/publish/linux-x64
+          if-no-files-found: error
           retention-days: 14

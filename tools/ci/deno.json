@@ -2,6 +2,7 @@
   "name": "hardwaretest-ci",
   "tasks": {
     "build": "deno run -A main.ts build",
+    "format": "deno run -A main.ts format",
     "audit": "deno run -A main.ts audit",
     "test:host": "deno run -A main.ts test:host",
     "test:vm": "deno run -A main.ts test:vm",

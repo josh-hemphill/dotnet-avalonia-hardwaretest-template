@@ -11,6 +11,7 @@ export const TASKS = [
   "audit",
   "build",
   "coverage",
+  "format",
   "list",
   "publish",
   "test:arch",
@@ -85,6 +86,16 @@ function parseOptions(args: string[]): Options {
     root: repoRoot(),
     advisoryE2e: Boolean(parsed["advisory-e2e"]),
   };
+}
+
+async function formatCheck(opts: Options): Promise<void> {
+  await run([
+    "dotnet",
+    "format",
+    "HardwareTest.slnx",
+    "--verify-no-changes",
+    "--no-restore",
+  ], { cwd: opts.root });
 }
 
 async function build(opts: Options): Promise<void> {
@@ -318,6 +329,7 @@ async function verify(opts: Options): Promise<void> {
 
 async function all(opts: Options): Promise<void> {
   await build(opts);
+  await formatCheck(opts);
   await audit(opts);
   await testArch(opts);
   await testHost(opts);
@@ -362,6 +374,9 @@ export async function main(argv = Deno.args): Promise<void> {
   switch (task as TaskName) {
     case "build":
       await build(opts);
+      break;
+    case "format":
+      await formatCheck(opts);
       break;
     case "audit":
       await audit(opts);
