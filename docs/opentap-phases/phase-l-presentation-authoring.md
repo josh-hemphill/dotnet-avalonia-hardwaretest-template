@@ -100,3 +100,4 @@ Rules of thumb for authors:
 - [Phase I](phase-i-presentation-contract.md) — publish tables + mixin
 - [Phase J](phase-j-presentation-ui.md) — role → widget map
 - [Phase 16](../platform-phases/phase-16-band-focus-presentation.md) — Band board + earned Focus trend
+- [Phase M](phase-m-series-envelope-timing.md) — series-wide envelope, plan-owned `ElapsedMs`, Event marks; `timing` role + strip ship together
