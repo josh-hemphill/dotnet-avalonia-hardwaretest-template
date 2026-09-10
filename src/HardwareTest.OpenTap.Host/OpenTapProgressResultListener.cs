@@ -18,6 +18,7 @@ internal sealed class ProgressResultListener : ResultListener
 
     private readonly IProgress<OpenTapProgress>? _progress;
     private readonly List<StoredSample> _samples;
+    private readonly List<StoredEvent> _events;
     private readonly List<StepResultRecord> _steps;
     private readonly Dictionary<string, DateTimeOffset> _stepStarted;
     private readonly Action<string, string?, string, string, string?> _updateNode;
@@ -36,6 +37,7 @@ internal sealed class ProgressResultListener : ResultListener
     public ProgressResultListener(
         IProgress<OpenTapProgress>? progress,
         List<StoredSample> samples,
+        List<StoredEvent> events,
         List<StepResultRecord> steps,
         Dictionary<string, DateTimeOffset> stepStarted,
         Action<string, string?, string, string, string?> updateNode,
@@ -45,6 +47,7 @@ internal sealed class ProgressResultListener : ResultListener
     {
         _progress = progress;
         _samples = samples;
+        _events = events;
         _steps = steps;
         _stepStarted = stepStarted;
         _updateNode = updateNode;
@@ -206,6 +209,12 @@ internal sealed class ProgressResultListener : ResultListener
                 return;
             }
 
+            if (string.Equals(result.Name, "Event", StringComparison.OrdinalIgnoreCase))
+            {
+                PublishEvents(result);
+                return;
+            }
+
             if (string.Equals(result.Name, "Identity", StringComparison.OrdinalIgnoreCase))
             {
                 var idn = result.Columns.FirstOrDefault(c => c.Name == "Idn");
@@ -279,6 +288,9 @@ internal sealed class ProgressResultListener : ResultListener
         var channelCol = result.Columns.FirstOrDefault(c => c.Name == "Channel");
         var valueCol = result.Columns.FirstOrDefault(c => c.Name == "Value");
         var indexCol = result.Columns.FirstOrDefault(c => c.Name == "Index");
+        var limitLowCol = result.Columns.FirstOrDefault(c => c.Name == "LimitLow");
+        var limitHighCol = result.Columns.FirstOrDefault(c => c.Name == "LimitHigh");
+        var elapsedCol = result.Columns.FirstOrDefault(c => c.Name == "ElapsedMs");
         if (valueCol is null)
         {
             return;
@@ -313,7 +325,13 @@ internal sealed class ProgressResultListener : ResultListener
                 IterationIndex = iterationIndex,
                 LoopPath = loopPath,
             };
-            OpenTapPresentation.ApplySample(stored, channel, hints);
+            OpenTapPresentation.ApplySample(
+                stored,
+                channel,
+                hints,
+                TryReadOptionalDouble(limitLowCol, i),
+                TryReadOptionalDouble(limitHighCol, i),
+                TryReadOptionalDouble(elapsedCol, i));
             _samples.Add(stored);
 
             var sampleEvent = MeasurementSampleEvent.FromStored(stored, index);
@@ -392,6 +410,66 @@ internal sealed class ProgressResultListener : ResultListener
                 KeyValue = FormatSampleKey(stored),
                 StatusText = stored.DisplayRole ?? "Scalar",
                 Sample = MeasurementSampleEvent.FromStored(stored),
+                OverallPercent = (double)_stepIndex / Math.Max(_stepCount, 1) * 100,
+            });
+        }
+    }
+
+    private void PublishEvents(ResultTable result)
+    {
+        var nameCol = result.Columns.FirstOrDefault(c => c.Name == "Name");
+        var elapsedCol = result.Columns.FirstOrDefault(c => c.Name == "ElapsedMs");
+        var labelCol = result.Columns.FirstOrDefault(c => c.Name == "Label");
+        var valueCol = result.Columns.FirstOrDefault(c => c.Name == "Value");
+        var rowCount = elapsedCol?.Data.Length
+            ?? nameCol?.Data.Length
+            ?? labelCol?.Data.Length
+            ?? valueCol?.Data.Length
+            ?? 0;
+        if (rowCount == 0)
+        {
+            return;
+        }
+
+        var stepPath = _resolvePath(_currentStepId ?? string.Empty, _currentStepName) ?? string.Empty;
+        for (var i = 0; i < rowCount; i++)
+        {
+            var elapsed = TryReadOptionalDouble(elapsedCol, i);
+            if (elapsed is null)
+            {
+                continue;
+            }
+
+            var name = nameCol is null || i >= nameCol.Data.Length
+                ? "event"
+                : Convert.ToString(nameCol.Data.GetValue(i)) ?? "event";
+            var label = labelCol is null || i >= labelCol.Data.Length
+                ? null
+                : Convert.ToString(labelCol.Data.GetValue(i));
+            var stored = new StoredEvent
+            {
+                Name = name,
+                ElapsedMs = elapsed.Value,
+                Label = string.IsNullOrWhiteSpace(label) ? null : label,
+                Value = TryReadOptionalDouble(valueCol, i),
+                StepPath = stepPath,
+                Timestamp = _clock.UtcNow,
+            };
+            _events.Add(stored);
+            _progress?.Report(new OpenTapProgress
+            {
+                Message = string.IsNullOrWhiteSpace(stored.Label) ? stored.Name : $"{stored.Name}:{stored.Label}",
+                StepId = _currentStepId,
+                StepName = _currentStepName,
+                StepPath = stepPath,
+                StatusText = "Event",
+                KeyValue = stored.Label ?? stored.Name,
+                Event = new MeasurementEventMark(
+                    stored.Name,
+                    stored.ElapsedMs,
+                    stored.Label,
+                    stored.Value,
+                    stored.StepPath),
                 OverallPercent = (double)_stepIndex / Math.Max(_stepCount, 1) * 100,
             });
         }

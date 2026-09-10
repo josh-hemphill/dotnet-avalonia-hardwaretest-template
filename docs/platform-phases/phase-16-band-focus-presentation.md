@@ -78,5 +78,6 @@ Make live measurement feedback **glanceable and maintainable**: default Run chro
 - Design discussion: band-first + earned trend; bounds without full waveform (bump/return → derived indicators)
 - [Phase L](../opentap-phases/phase-l-presentation-authoring.md) — authoring contract & cookbook
 - [Phase J](../opentap-phases/phase-j-presentation-ui.md) — existing role → widget map
+- [Phase M](../opentap-phases/phase-m-series-envelope-timing.md) — series envelope + timing strip (the v1.1 timing bar)
 - [Phase 9](phase-9-runboard-decomposition.md) — `LivePresentationViewModel` ownership
 - Research anchors: Cleveland/McGill graphical perception; banking to 45°; Schöttler et al. constraint-based breakpoints (IEEE TVCG 2024); ISA-101 / High Performance HMI trend embedding

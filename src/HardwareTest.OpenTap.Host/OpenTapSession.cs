@@ -28,6 +28,7 @@ public sealed partial class OpenTapSession : IOpenTapSession, INotifyPropertyCha
     private List<OpenTapStepNode> _stepTree = [];
     private List<OpenTapInstrumentSlot> _slots = [];
     private List<StoredSample> _lastSamples = [];
+    private List<StoredEvent> _lastEvents = [];
     private readonly IBenchOperationCoordinator? _bench;
     private readonly bool _cancelExecuteWithToken;
     private readonly IClock _clock;
@@ -330,6 +331,7 @@ public sealed partial class OpenTapSession : IOpenTapSession, INotifyPropertyCha
     {
         TestPlan plan;
         List<StoredSample>? preservedSamples = null;
+        List<StoredEvent>? preservedEvents = null;
         OpenTapRunContext context;
         lock (_sync)
         {
@@ -337,6 +339,7 @@ public sealed partial class OpenTapSession : IOpenTapSession, INotifyPropertyCha
             if (sampleScopePaths is not null)
             {
                 preservedSamples = _lastSamples.ToList();
+                preservedEvents = _lastEvents.ToList();
             }
 
             OpenTapStepTree.ResetLiveState(_stepTree, resetStepIds);
@@ -368,9 +371,11 @@ public sealed partial class OpenTapSession : IOpenTapSession, INotifyPropertyCha
                     UpdateNodeLive,
                     ResolveStepPath,
                     preservedSamples,
+                    preservedEvents,
                     sampleScopePaths)
                 .ConfigureAwait(false);
             _lastSamples = summary.Samples.ToList();
+            _lastEvents = summary.Events.ToList();
             return summary;
         }
         finally
