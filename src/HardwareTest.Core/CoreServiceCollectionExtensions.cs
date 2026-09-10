@@ -5,6 +5,7 @@ using HardwareTest.Core.Logging;
 using HardwareTest.Core.Reporting;
 using HardwareTest.Core.Runs;
 using HardwareTest.Core.Settings;
+using HardwareTest.Core.StationHealth;
 using HardwareTest.Core.Storage;
 using HardwareTest.Core.Time;
 using Microsoft.Extensions.DependencyInjection;
@@ -45,6 +46,11 @@ public static class CoreServiceCollectionExtensions
             new DutHistoryService(sp.GetRequiredService<IRunStore>()));
         services.AddSingleton<IStationIdnStore>(_ =>
             new FileStationIdnStore(settingsStore.RootDirectory, Log.Logger));
+        services.AddSingleton<IStationHealthStore>(_ =>
+            new FileStationHealthStore(
+                string.IsNullOrWhiteSpace(settingsStore.AppSettings.DataDirectory)
+                    ? settingsStore.RootDirectory
+                    : settingsStore.AppSettings.DataDirectory));
         services.AddSingleton<VisaModeController>(sp =>
             new VisaModeController(
                 settingsStore.AppSettings.UseMockVisa,

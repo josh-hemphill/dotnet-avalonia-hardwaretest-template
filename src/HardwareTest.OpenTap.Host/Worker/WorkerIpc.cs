@@ -24,6 +24,7 @@ public static class WorkerProtocol
     public const string LoadSweepDemo = "loadSweepDemo";
     public const string LoadTimingDemo = "loadTimingDemo";
     public const string LoadEnvelopeSweepDemo = "loadEnvelopeSweepDemo";
+    public const string LoadStationHealthDemo = "loadStationHealthDemo";
     public const string LoadPlanShape = "loadPlanShape";
     public const string TrySetStepEnabled = "trySetStepEnabled";
     public const string TryGetStepConditionSummary = "tryGetStepConditionSummary";

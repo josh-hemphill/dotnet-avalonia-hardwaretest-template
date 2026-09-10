@@ -29,6 +29,26 @@
     "selectionIncludesCleanup": {
       "type": "boolean",
       "description": "When false, Run Selected excludes SafeShutdownStep."
+    },
+    "programKind": {
+      "enum": ["dut", "stationHealth"],
+      "description": "dut (default) is a unit program. stationHealth is a bench cal / health program."
+    },
+    "requireStationHealth": {
+      "type": "boolean",
+      "description": "When true on a DUT sidecar, evaluate the station-health gate before Run (Area 5)."
+    },
+    "stationHealthMaxAgeHours": {
+      "type": "number",
+      "description": "DUT freshness window in hours when requireStationHealth is true."
+    },
+    "stationHealthGate": {
+      "enum": ["warn", "block"],
+      "description": "DUT gate level when requireStationHealth is true. Default warn."
+    },
+    "stationHealthProfileId": {
+      "type": "string",
+      "description": "Store key under {DataDirectory}/station-health/{id}.json. Default default."
     }
   }
 }

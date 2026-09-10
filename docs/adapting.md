@@ -63,7 +63,7 @@ CLI notes: exit `1` on errors, `0` if only warnings; bare `--validate-plan` prin
 }
 ```
 
-Unknown sidecar keys are a contract **error** today. Planned [Phase 26](platform-phases/phase-26-station-health-gating.md) keys (`programKind`, `requireStationHealth`, `stationHealthMaxAgeHours`, `stationHealthGate`, `stationHealthProfileId`) must not be added to shipped `{planId}.program.json` until that phase lands the schema + catalog parser.
+Unknown sidecar keys remain a contract warning (`SIDECAR_UNKNOWN_PROPERTY`). Known [Phase 26](platform-phases/phase-26-station-health-gating.md) keys (`programKind`, `requireStationHealth`, `stationHealthMaxAgeHours`, `stationHealthGate`, `stationHealthProfileId`) are parsed: unknown `programKind` / `stationHealthGate` is an error. Do not put `requireStationHealth` on a `stationHealth` program. DUT sidecars omit the gate keys until a site opts in (Area 5).
 
 Built-in **sample** / **board-demo** / **sweep-demo** stay factories (Basic DMM) so CI does not need the library pack. Disk plans with the same id are not double-listed. Run and Instruments enumerate via `ProgramCatalog`.
 
@@ -72,6 +72,7 @@ Built-in **sample** / **board-demo** / **sweep-demo** stay factories (Basic DMM)
 | **sample** | Confirm → typed fixture install | Acquire `VDC` timeseries, Mean `VDC.mean` scalar |
 | **board-demo** | Seat fixture → board sticker | Multi-rail timeseries + mean scalar/passband |
 | **sweep-demo** | (none) | Repeat ×3; `sweep.vdc` timeseries |
+| **station-health** | (none) | `cal.dc.offset` + `cal.age.hours`; no DUT serial |
 
 ### OpenTAP Expressions (optional)
 
@@ -209,7 +210,7 @@ Publish tables `Sample` (Channel, Index, Value) and `Scalar` (Name, Value, Unit,
 | Hi → Low return | Derived: `return.high.at.ms`, `return.low.at.ms`, or excursion | `scalar` / `passband` | Timing + amplitude limits | Raw series only for Focus |
 | Envelope / return bounds | Derived: `envelope.error` / `overshoot` / `undershoot` | `passband` | Spec envelope | Raw series for Focus |
 | Series stays in band (planned, [Phase M](opentap-phases/phase-m-series-envelope-timing.md)) | `Sample` + `LimitLow`/`LimitHigh` + `ElapsedMs`; Scalar `series.inband.pct` | acquire = `timeseries`; summary = `passband` | Every sample in band (`SeriesCompliance=allSamples`) | Event marks when bits/GPIB config change |
-| Station health / daily cal (planned, [Phase 26](platform-phases/phase-26-station-health-gating.md)) | `cal.*.` Scalars + `cal.age.hours` | `passband` / `scalar` | Age `LimitHigh` = max hours | DUT sidecar `requireStationHealth` warn\|block; do not skip via Enabled |
+| Station health / daily cal ([Phase 26](platform-phases/phase-26-station-health-gating.md)) | `cal.dc.offset` + `cal.age.hours` | `scalar` (unique ChannelKeys; no single mixin) | Age `LimitHigh` = max hours | Catalog `station-health`; DUT gate lands in Area 5. Do not skip via Enabled |
 
 Rules of thumb: (1) write pass criteria in words first; (2) publish **one Scalar per criterion** with limits; (3) keep `ChannelKey` stable; (4) add `timeseries` only when Focus trend is useful. Demo: **Timing / Envelope Demo (Band-first)** (`timing-demo`) plus Sample/Board.
 
@@ -316,6 +317,7 @@ Every persisted JSON document carries an integer `schemaVersion`. Bumps are deli
 | `TestRunRecord` (`runs/{id}/run.json`) | 3 | `Events`, `Sample.ElapsedMs`, `Sample.ResultSource`. Identity upgrades 1→2→3. |
 | `SuiteRunRecord` (`runs/suites/{id}/suite-run.json`) | 1 | Initial stamped shape (Phase 5). |
 | `CrashReport` (`crashes/{id}/crash.json`) | 1 | Initial crash dossier (Phase 6). |
+| `StationHealthRecord` (`station-health/{profileId}.json`) | 1 | Station-scoped cal / health snapshot (Phase 26). |
 
 ## 11. Custom mixins
 

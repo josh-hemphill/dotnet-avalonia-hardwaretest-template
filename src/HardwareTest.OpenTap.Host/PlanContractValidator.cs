@@ -71,6 +71,9 @@ public static class PlanContractValidator
         public const string MissingLimits = "MISSING_LIMITS";
         public const string PresentationTimeseriesOnly = "PRESENTATION_TIMESERIES_ONLY";
         public const string ComplianceWithoutLimits = "COMPLIANCE_WITHOUT_LIMITS";
+        public const string SidecarProgramKind = "SIDECAR_PROGRAM_KIND";
+        public const string SidecarStationHealthGate = "SIDECAR_STATION_HEALTH_GATE";
+        public const string SidecarStationHealthRequire = "SIDECAR_STATION_HEALTH_REQUIRE";
     }
 
     public static PlanContractBatchReport Validate(

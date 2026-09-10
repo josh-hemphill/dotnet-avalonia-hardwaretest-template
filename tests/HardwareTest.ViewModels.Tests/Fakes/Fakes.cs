@@ -4,6 +4,7 @@ using HardwareTest.Core.Hardware;
 using HardwareTest.Core.Reporting;
 using HardwareTest.Core.Runs;
 using HardwareTest.Core.Settings;
+using HardwareTest.Core.StationHealth;
 using HardwareTest.OpenTap.Host;
 using HardwareTest.OpenTap.Plugins.Basic;
 
@@ -91,6 +92,8 @@ public sealed class FakeOpenTapSession : IOpenTapSession
     public int RunCount { get; private set; }
     public int SelectionRunCount { get; private set; }
     public bool ReportSamples { get; set; } = true;
+    /// When set, replaces the default VDC summary samples on RunAsync.
+    public List<StoredSample>? SummarySamples { get; set; }
     /// When true with ReportSamples, also emits a scalar presentation Sample for gauge tiles.
     public bool ReportPresentationMetrics { get; set; } = true;
     public DutIdentity? LastDut { get; private set; }
@@ -165,6 +168,20 @@ public sealed class FakeOpenTapSession : IOpenTapSession
         LoadedPlanName = EnvelopeSweepDemoProgramFactory.DisplayName;
         Tree.Clear();
         foreach (var node in BuildEnvelopeSweepDemoTrees())
+        {
+            Tree.Add(node);
+        }
+
+        EnsureDefaultSlot();
+    }
+
+    public async Task LoadStationHealthDemoProgramAsync(CancellationToken cancellationToken = default)
+    {
+        await YieldIfRequestedAsync().ConfigureAwait(false);
+        LoadedPlanPath = StationHealthDemoProgramFactory.EmbeddedName;
+        LoadedPlanName = StationHealthDemoProgramFactory.DisplayName;
+        Tree.Clear();
+        foreach (var node in BuildStationHealthDemoTrees())
         {
             Tree.Add(node);
         }
@@ -596,6 +613,41 @@ public sealed class FakeOpenTapSession : IOpenTapSession
                 Leaf("ss", "Safe Shutdown", $"{root}/Safety/Safe Shutdown")));
     }
 
+    private static IEnumerable<OpenTapStepNode> BuildStationHealthDemoTrees()
+    {
+        static OpenTapStepNode Leaf(string id, string name, string path) => new()
+        {
+            Id = id,
+            Name = name,
+            Path = path,
+        };
+
+        static OpenTapStepNode Group(string id, string name, string path, params OpenTapStepNode[] children) => new()
+        {
+            Id = id,
+            Name = name,
+            Path = path,
+            IsStage = true,
+            Children = children.ToList(),
+        };
+
+        var root = StationHealthDemoProgramFactory.DisplayName;
+        yield return Group(
+            "health-root",
+            StationHealthDemoProgramFactory.DisplayName,
+            root,
+            Group(
+                "cal",
+                "Station cal",
+                $"{root}/Station cal",
+                Leaf("report", "Report station cal", $"{root}/Station cal/Report station cal")),
+            Group(
+                "safe",
+                "Safety",
+                $"{root}/Safety",
+                Leaf("ss", "Safe Shutdown", $"{root}/Safety/Safe Shutdown")));
+    }
+
     public Task ApplyStationAndDutAsync(StationProfile station, DutIdentity dut, CancellationToken cancellationToken = default)
     {
         if (IsExecuting)
@@ -748,7 +800,7 @@ public sealed class FakeOpenTapSession : IOpenTapSession
             DutRevision = LastDut?.Revision,
             StartedAt = DateTimeOffset.UtcNow.AddSeconds(-1),
             CompletedAt = DateTimeOffset.UtcNow,
-            Samples =
+            Samples = SummarySamples ??
             [
                 new StoredSample
                 {
@@ -1656,6 +1708,21 @@ public sealed class FakeRunStore : IRunStore
 
     public string GetRunDirectory(string runId)
         => Path.Combine(Path.GetTempPath(), "fake-runs", runId);
+}
+
+public sealed class FakeStationHealthStore : IStationHealthStore
+{
+    public List<StationHealthRecord> Written { get; } = [];
+
+    public StationHealthRecord? TryRead(string profileId)
+        => Written.LastOrDefault(r =>
+            string.Equals(r.ProfileId, profileId, StringComparison.OrdinalIgnoreCase));
+
+    public Task WriteAsync(StationHealthRecord record, CancellationToken cancellationToken = default)
+    {
+        Written.Add(record);
+        return Task.CompletedTask;
+    }
 }
 
 public sealed class FakeSettingsStore : ISettingsStore

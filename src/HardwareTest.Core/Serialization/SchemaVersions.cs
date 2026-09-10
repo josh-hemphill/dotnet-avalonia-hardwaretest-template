@@ -8,6 +8,7 @@ public static class SchemaVersions
     public const int TestRunRecord = 3;
     public const int SuiteRunRecord = 1;
     public const int CrashReport = 1;
+    public const int StationHealthRecord = 1;
 }
 
 /// Stable document-type keys for upgrade registration and log messages.
@@ -18,4 +19,5 @@ public static class SchemaDocumentTypes
     public const string TestRunRecord = "TestRunRecord";
     public const string SuiteRunRecord = "SuiteRunRecord";
     public const string CrashReport = "CrashReport";
+    public const string StationHealthRecord = "StationHealthRecord";
 }
