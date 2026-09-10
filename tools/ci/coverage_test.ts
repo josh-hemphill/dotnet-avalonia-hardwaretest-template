@@ -1,7 +1,7 @@
 import { assertEquals, assert } from "@std/assert";
 import * as path from "@std/path";
-import { evaluateCobertura } from "./lib/coverage.ts";
-import { TASKS } from "./main.ts";
+import { evaluateCobertura, findCobertura } from "./lib/coverage.ts";
+import { CORE_COVERAGE_FILTER, TASKS } from "./main.ts";
 
 Deno.test("coverage floors match Python port on pass fixture", async () => {
   const fixture = path.join(
@@ -25,6 +25,129 @@ Deno.test("coverage floors match Python port on pass fixture", async () => {
   assertEquals(report.hardwareCovered, 5);
   assertEquals(report.hardwarePct.toFixed(1), "100.0");
   assert(report.ok);
+});
+
+Deno.test("coverage fails when Core floor is missed", () => {
+  const xml = `<?xml version="1.0"?>
+<coverage>
+  <packages>
+    <package name="HardwareTest.Core">
+      <classes>
+        <class name="HardwareTest.Core.Settings.Weak" filename="Settings/Weak.cs">
+          <lines>
+            <line number="1" hits="1" />
+            <line number="2" hits="0" />
+            <line number="3" hits="0" />
+            <line number="4" hits="0" />
+          </lines>
+        </class>
+      </classes>
+    </package>
+  </packages>
+</coverage>`;
+  const report = evaluateCobertura(xml);
+  assertEquals(report.ok, false);
+  assert(report.failures.some((f) => f.includes("Core")));
+});
+
+Deno.test("coverage fails when Engine floor is missed", () => {
+  const xml = `<?xml version="1.0"?>
+<coverage>
+  <packages>
+    <package name="HardwareTest.Core">
+      <classes>
+        <class name="HardwareTest.Core.Engine.Weak" filename="Engine/Weak.cs">
+          <lines>
+            <line number="1" hits="1" />
+            <line number="2" hits="0" />
+            <line number="3" hits="0" />
+            <line number="4" hits="0" />
+            <line number="5" hits="0" />
+          </lines>
+        </class>
+      </classes>
+    </package>
+  </packages>
+</coverage>`;
+  const report = evaluateCobertura(xml);
+  assertEquals(report.ok, false);
+  assert(report.failures.some((f) => f.includes("Engine")));
+});
+
+Deno.test("coverage skips Hardware floor when no Hardware lines exist", () => {
+  const xml = `<?xml version="1.0"?>
+<coverage>
+  <packages>
+    <package name="HardwareTest.Core">
+      <classes>
+        <class name="HardwareTest.Core.Settings.Ok" filename="Settings/Ok.cs">
+          <lines>
+            <line number="1" hits="1" />
+            <line number="2" hits="1" />
+            <line number="3" hits="1" />
+          </lines>
+        </class>
+      </classes>
+    </package>
+  </packages>
+</coverage>`;
+  const report = evaluateCobertura(xml);
+  assertEquals(report.hardwareLines, 0);
+  assertEquals(report.ok, true);
+  assertEquals(report.failures.some((f) => f.includes("Hardware")), false);
+});
+
+Deno.test("coverage does not treat FooEngine as Engine", () => {
+  const xml = `<?xml version="1.0"?>
+<coverage>
+  <packages>
+    <package name="HardwareTest.Core">
+      <classes>
+        <class name="HardwareTest.Core.FooEngine.Bar" filename="FooEngine/Bar.cs">
+          <lines>
+            <line number="1" hits="0" />
+          </lines>
+        </class>
+      </classes>
+    </package>
+  </packages>
+</coverage>`;
+  const report = evaluateCobertura(xml);
+  assertEquals(report.engineLines, 0);
+});
+
+Deno.test("findCobertura returns the sorted first match", async () => {
+  const root = await Deno.makeTempDir({ prefix: "ht-cobertura-" });
+  try {
+    const late = path.join(root, "z-guid");
+    const early = path.join(root, "a-guid");
+    await Deno.mkdir(late, { recursive: true });
+    await Deno.mkdir(early, { recursive: true });
+    await Deno.writeTextFile(path.join(late, "coverage.cobertura.xml"), "<late/>");
+    await Deno.writeTextFile(path.join(early, "coverage.cobertura.xml"), "<early/>");
+    const found = await findCobertura(root);
+    assertEquals(found, path.join(early, "coverage.cobertura.xml"));
+  } finally {
+    await Deno.remove(root, { recursive: true });
+  }
+});
+
+Deno.test("findCobertura returns null when the directory is missing", async () => {
+  const found = await findCobertura(path.join(Deno.cwd(), "no-such-coverage-dir"));
+  assertEquals(found, null);
+});
+
+Deno.test("CORE_COVERAGE_FILTER excludes OpenTAP host tests", () => {
+  assertEquals(CORE_COVERAGE_FILTER.includes("HardwareTest.Tests.OpenTap"), true);
+  assertEquals(CORE_COVERAGE_FILTER.startsWith("FullyQualifiedName!~"), true);
+});
+
+Deno.test("test:host does not attach a Coverlet collector", async () => {
+  const src = await Deno.readTextFile(new URL("./main.ts", import.meta.url));
+  const hostFn = src.match(/async function testHost[\s\S]*?\n\}/);
+  assert(hostFn, "testHost function must exist");
+  assertEquals(hostFn[0].includes("collect"), false);
+  assertEquals(hostFn[0].includes("Coverlet"), false);
 });
 
 Deno.test("coverage fails when Hardware floor is missed", () => {
