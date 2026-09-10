@@ -2,7 +2,7 @@
 
 This repo is a working Avalonia + OpenTAP hardware-test shell. Keep the layering (`HardwareTest` UI → focused `IOpenTap*` session surfaces → plugins/plans → `HardwareTest.Core`) and replace the sample product pieces below.
 
-For UI vs OpenTAP test suites, see [testing.md](testing.md). For sealed Linux publish layout, see [appliance-linux.md](appliance-linux.md). For the deeper OpenTAP platform roadmap (Avalonia-owned interactions, parameters, mixins, packages list, multi-DUT), see [opentap-platform.md](opentap-platform.md) and [opentap-phases/](opentap-phases/). Platform hardening (config, crash, storage, operator UX) is [platform-roadmap.md](platform-roadmap.md). Longer-horizon items live under [deferred/](deferred/).
+For UI vs OpenTAP test suites, see [testing.md](testing.md). For sealed Linux publish layout, see [appliance-linux.md](appliance-linux.md).
 
 ## 1. Author a locked program (cookbook)
 
@@ -63,7 +63,7 @@ CLI notes: exit `1` on errors, `0` if only warnings; bare `--validate-plan` prin
 }
 ```
 
-Unknown sidecar keys remain a contract warning (`SIDECAR_UNKNOWN_PROPERTY`). Known [Phase 26](platform-phases/phase-26-station-health-gating.md) keys (`programKind`, `requireStationHealth`, `stationHealthMaxAgeHours`, `stationHealthGate`, `stationHealthProfileId`) are parsed: unknown `programKind` / `stationHealthGate` is an error. Do not put `requireStationHealth` on a `stationHealth` program. DUT sidecar `requireStationHealth` + `warn`|`block` evaluates `{DataDirectory}/station-health/{profileId}.json` before Run (missing/failed/old is stale). `HARDWARETEST_STATION_HEALTH_GATE=off|warn|block` pins or disables the gate. Health programs themselves are never gated. Do not skip the health step via `Enabled`.
+Unknown sidecar keys remain a contract warning (`SIDECAR_UNKNOWN_PROPERTY`). Known station-health keys (`programKind`, `requireStationHealth`, `stationHealthMaxAgeHours`, `stationHealthGate`, `stationHealthProfileId`) are parsed: unknown `programKind` / `stationHealthGate` is an error. Do not put `requireStationHealth` on a `stationHealth` program. DUT sidecar `requireStationHealth` + `warn`|`block` evaluates `{DataDirectory}/station-health/{profileId}.json` before Run (missing/failed/old is stale). `HARDWARETEST_STATION_HEALTH_GATE=off|warn|block` pins or disables the gate. Health programs themselves are never gated. Do not skip the health step via `Enabled`.
 
 Built-in **sample** / **board-demo** / **sweep-demo** stay factories (Basic DMM) so CI does not need the library pack. Disk plans with the same id are not double-listed. Run and Instruments enumerate via `ProgramCatalog`.
 
@@ -86,7 +86,7 @@ Do not reimplement evaluation in Avalonia. If the plan uses expression steps, in
    - `AppSettings.OpenTapPluginDirectories`
    - Env `HARDWARETEST_OPENTAP_PLUGIN_DIRS` (`;` or `Path.PathSeparator` separated)
 4. On an appliance, drop third-party plugin DLLs under a writable/plugin folder and list that path in settings (see [appliance-linux.md](appliance-linux.md)).
-5. Verify installed packages and plugin dirs in **Settings → OpenTAP packages & plugins** (offline list only; install via `tap package install` / bake — see [phase-e-packages-list.md](opentap-phases/phase-e-packages-list.md)).
+5. Verify installed packages and plugin dirs in **Settings → OpenTAP packages & plugins** (offline list only; install via `tap package install` / bake).
 
 ### Authoring packs (Editor / TUI)
 
@@ -102,7 +102,7 @@ tap package install path/to/HardwareTest\ Mixins*.TapPackage
 tap package install path/to/InstrumentComponents.OpenTap*.TapPackage
 ```
 
-HardwareTest `package.xml` files list only the plugin DLL (no `HardwareTest.Core`). The VISA adapter is bench-only. Default HardwareTest builds keep `CreateOpenTapPackage=false` so CI does not run `tap package create`. The bench injects `IVisaBroker` as the library pack's SCPI session (`OpenTapScpiIo.Provider`); the pack does not open a vendor VISA resource manager. See [deferred-instrument-pack-binding.md](deferred/deferred-instrument-pack-binding.md) and the [OpenTAP pack guide](https://josh-hemphill.github.io/instrument-components/csharp/opentap/).
+HardwareTest `package.xml` files list only the plugin DLL (no `HardwareTest.Core`). The VISA adapter is bench-only. Default HardwareTest builds keep `CreateOpenTapPackage=false` so CI does not run `tap package create`. The bench injects `IVisaBroker` as the library pack's SCPI session (`OpenTapScpiIo.Provider`); the pack does not open a vendor VISA resource manager. See the [OpenTAP pack guide](https://josh-hemphill.github.io/instrument-components/csharp/opentap/).
 
 ## 3. Station bindings (Instruments)
 
@@ -119,7 +119,7 @@ HardwareTest `package.xml` files list only the plugin DLL (no `HardwareTest.Core
 1. Author a TapPlan in OpenTAP Editor or OpenTAP TUI that references your SCPI plugin instrument (property named `VisaAddress` preferred). Run `HardwareTest --validate-plan` (or `HardwareTest.PlanValidate`) before installing it on the bench.
 2. Ship the plugin DLL via offline package install or `OpenTapPluginDirectories` (see [appliance-linux.md](appliance-linux.md)). Prefer plugins that implement `IDeviceDiscovery` so **Discover OpenTAP** lists their addresses.
 3. On the bench, open **Instruments**, load the program, pick a discovered VISA or OpenTAP resource (or type one), save the slot override.
-4. On **Run**, `ApplyStationAndDutAsync` writes the override onto the instrument before execute. Full ComponentSettings / bench-profile UI is deferred — see [deferred-bench-profile-ui.md](deferred/deferred-bench-profile-ui.md). Product SCPI maps and typed steps come from **InstrumentComponents.OpenTap**; HardwareTest injects broker-backed SCPI I/O so that pack never calls IVI. Third-party instruments still work if they expose writable `VisaAddress`.
+4. On **Run**, `ApplyStationAndDutAsync` writes the override onto the instrument before execute. The shell does not edit OpenTAP ComponentSettings / bench profiles. Product SCPI maps and typed steps come from **InstrumentComponents.OpenTap**; HardwareTest injects broker-backed SCPI I/O so that pack never calls IVI. Third-party instruments still work if they expose writable `VisaAddress`.
 
 DUT serial is the operator session. Library *Identity Query* does not need `HardwareDut`. Basic `IdentityCheckStep` (in-repo demos) still stamps `HardwareDut` when present.
 
@@ -148,7 +148,7 @@ Repeat/Sweep loops show innermost `iter i/N` on the Run hero; edit bounds in Edi
 - Canonical idle setting: **`OperatorSessionIdleMinutes`** (default 240). Hours env/CLI (`OperatorSessionIdleHours` / `HARDWARETEST_OPERATOR_SESSION_IDLE_HOURS` / `--session-idle-hours`) remain aliases; minutes wins when both are set.
 - Optional station policy **`RequireDutConfirmEveryRun`**: after each terminal run, session goes Stale until Same DUT / Change Session.
 - Technician required indicator and Same DUT validation follow program `requireOperator` (Stale prompt shows a technician field when required and none is stored).
-- **Multi-DUT:** near-term [Phase K](opentap-phases/phase-k-multi-dut-parallel.md) adds multiple DUT sessions with one plan at a time (K.1). Today the shell is single-session.
+- The shell is a single operator session (one DUT confirm at a time).
 
 ## 5. Operator interactions (no floating dialogs)
 
@@ -198,7 +198,7 @@ Opening a run also shows **Compare with previous**: the latest earlier run with 
 
 ### Presentation contract (Phase I) + UI (Phase J) + band-first authoring (Phase L)
 
-Publish tables `Sample` (Channel, Index, Value) and `Scalar` (Name, Value, Unit, optional LimitLow/LimitHigh). Attach **Presentation** mixin (`ChannelKey`, `DisplayRole`, `YUnit`, optional history thresholds) in Editor or via demos. Results lines show `MetricKey [role] value unit`. Run maps `timeseries` → Focus trend when earned, `scalar`/`passband` → Band gauges; Results prefers gauges then charts. Full matrix: [phase-i-presentation-contract.md](opentap-phases/phase-i-presentation-contract.md), [phase-j-presentation-ui.md](opentap-phases/phase-j-presentation-ui.md), [phase-l-presentation-authoring.md](opentap-phases/phase-l-presentation-authoring.md). Shell Band/Focus: [phase-16-band-focus-presentation.md](platform-phases/phase-16-band-focus-presentation.md).
+Publish tables `Sample` (Channel, Index, Value) and `Scalar` (Name, Value, Unit, optional LimitLow/LimitHigh). Attach **Presentation** mixin (`ChannelKey`, `DisplayRole`, `YUnit`, optional history thresholds) in Editor or via demos. Results lines show `MetricKey [role] value unit`. Run maps `timeseries` → Focus trend when earned, `scalar`/`passband` → Band gauges; Results prefers gauges then charts.
 
 #### Band-first authoring cookbook
 
@@ -209,8 +209,8 @@ Publish tables `Sample` (Channel, Index, Value) and `Scalar` (Name, Value, Unit,
 | Bump / pulse timing | Derived: `bump.rise.ms`, `bump.width.ms`, `bump.peak` | `scalar` / `passband` | Window bounds as limits | Raw series only for Focus |
 | Hi → Low return | Derived: `return.high.at.ms`, `return.low.at.ms`, or excursion | `scalar` / `passband` | Timing + amplitude limits | Raw series only for Focus |
 | Envelope / return bounds | Derived: `envelope.error` / `overshoot` / `undershoot` | `passband` | Spec envelope | Raw series for Focus |
-| Series stays in band (planned, [Phase M](opentap-phases/phase-m-series-envelope-timing.md)) | `Sample` + `LimitLow`/`LimitHigh` + `ElapsedMs`; Scalar `series.inband.pct` | acquire = `timeseries`; summary = `passband` | Every sample in band (`SeriesCompliance=allSamples`) | Event marks when bits/GPIB config change |
-| Station health / daily cal ([Phase 26](platform-phases/phase-26-station-health-gating.md)) | `cal.dc.offset` + `cal.age.hours` | `scalar` (unique ChannelKeys; no single mixin) | Age `LimitHigh` = max hours | Catalog `station-health`; DUT `requireStationHealth` warn\|block. Do not skip via Enabled |
+| Series stays in band | `Sample` + `LimitLow`/`LimitHigh` + `ElapsedMs`; Scalar `series.inband.pct` | acquire = `timeseries`; summary = `passband` | Every sample in band (`SeriesCompliance=allSamples`) | Event marks when bits/GPIB config change |
+| Station health / daily cal | `cal.dc.offset` + `cal.age.hours` | `scalar` (unique ChannelKeys; no single mixin) | Age `LimitHigh` = max hours | Catalog `station-health`; DUT `requireStationHealth` warn\|block. Do not skip via Enabled |
 
 Rules of thumb: (1) write pass criteria in words first; (2) publish **one Scalar per criterion** with limits; (3) keep `ChannelKey` stable; (4) add `timeseries` only when Focus trend is useful. Demo: **Timing / Envelope Demo (Band-first)** (`timing-demo`) plus Sample/Board.
 
@@ -286,9 +286,9 @@ Env alone is enough for a sealed install. Missing or read-only `settings.json` i
 
 Also: `--settings <path>` (settings file path), `--print-config` (dump effective config + provenance to stdout and exit 0), `--validate-plan <path>` (validate a `.TapPlan` or a directory of plans and exit; `1` on errors, `0` if only warnings; bare/empty path exits `2` with usage and does not start the UI), `--version` / `-v` (print informational version and exit 0). Avalonia-free equivalent: `HardwareTest.PlanValidate <path> [...] [--strict] [--format text|json|sarif] [--opentap-plugin-dirs <dir>]` (explicit plugin dirs are trusted for that process; `--strict` fails a missing sidecar). Debug builds: `--simulate-crash {fatal|recoverable|command}`. Nested lists use `HARDWARETEST_<LIST>__{n}__<PROP>` (e.g. `HARDWARETEST_INSTRUMENTS__0__RESOURCE`).
 
-Crash dossiers land under `{DataDirectory}/crashes/` (or `CrashDirectory`): `crash.json`, `log-tail.txt`, `config.json`, `session.json`. Unreviewed dossiers and recoverable faults publish to the **shell notification strip** (Phase 17) with Export / Open folder / Dismiss — not a competing Home hero card. Settings → **Open crashes folder** (hidden when `AllowOsFolderBrowse` is false and Engineer debug is off). See [phase-6-crash-reporting.md](platform-phases/phase-6-crash-reporting.md) and [phase-17-shell-notification-strip.md](platform-phases/phase-17-shell-notification-strip.md).
+Crash dossiers land under `{DataDirectory}/crashes/` (or `CrashDirectory`): `crash.json`, `log-tail.txt`, `config.json`, `session.json`. Unreviewed dossiers and recoverable faults publish to the **shell notification strip** with Export / Open folder / Dismiss — not a competing Home hero card. Settings → **Open crashes folder** (hidden when `AllowOsFolderBrowse` is false and Engineer debug is off).
 
-**Export / storage (Phase 10):** Results **Export to…** copies run PDFs + `run.json` + optional `*.attestation.json` (+ optional CSV) to removable media or `ExportDirectory`. Home crash **Export support bundle** uses the same targets (falls back to `{DataDirectory}/exports`). Retention prunes completed `runs/` folders by age/count using the injected clock; free-space warn/critical gates Run and surfaces on the **shell strip** (Critical is non-dismissible). See [phase-10-export-storage-chrome.md](platform-phases/phase-10-export-storage-chrome.md) and [phase-17-shell-notification-strip.md](platform-phases/phase-17-shell-notification-strip.md).
+**Export / storage:** Results **Export to…** copies run PDFs + `run.json` + optional `*.attestation.json` (+ optional CSV) to removable media or `ExportDirectory`. Home crash **Export support bundle** uses the same targets (falls back to `{DataDirectory}/exports`). Retention prunes completed `runs/` folders by age/count using the injected clock; free-space warn/critical gates Run and surfaces on the **shell strip** (Critical is non-dismissible).
 
 **Clock discipline (Phase 25):** Idle/stale, retention, and run-complete stamps use `IClock` (`SystemClock` → `TimeProvider`). Startup compares the clock to optional `NtpHost` (500ms timeout) or `{DataDirectory}/clock-last-good.json`. Skew above `ClockSkewWarnThresholdMinutes` (default 5) publishes a dismissible Warning on the shell strip with the measured delta and **does not block Run**. Safety Stop / worker kill must not wait on NTP. Appliance time sync: [appliance-linux.md](appliance-linux.md).
 
@@ -302,9 +302,9 @@ Crash dossiers land under `{DataDirectory}/crashes/` (or `CrashDirectory`): `cra
 | Results report | Select + **Open report** | Double-click row |
 | Live trend | **Chart** workspace | Shell **View chart** when out of band |
 
-Constants: [`OperatorTouchDensity`](../src/HardwareTest/Features/Shell/OperatorTouchDensity.cs). Full kiosk bake remains [deferred](deferred/deferred-appliance-kiosk.md).
+Constants: [`OperatorTouchDensity`](../src/HardwareTest/Features/Shell/OperatorTouchDensity.cs). Full kiosk image bake is not in this repo; container rails are in [containers.md](containers.md).
 
-Bootstrap is two-stage: stage 1 resolves `DataDirectory` + `LogMinimumLevel` from env/CLI before logging; stage 2 loads `settings.json` then re-applies overlays. See [phase-3-configuration-model.md](platform-phases/phase-3-configuration-model.md).
+Bootstrap is two-stage: stage 1 resolves `DataDirectory` + `LogMinimumLevel` from env/CLI before logging; stage 2 loads `settings.json` then re-applies overlays.
 
 ### Schema versions
 
@@ -329,4 +329,4 @@ Use mixins for product-specific step settings without forking every step type.
 2. Ship the DLL beside Basic or add its folder to `OpenTapPluginDirectories`.
 3. Attach in **OpenTAP Editor** or **OpenTAP TUI** (right-click / mixin menu → Add Mixin). Do not expect an Avalonia “Add Mixin” control.
 4. On the Run board (Engineer/Debug), select the step → **Station overrides** shows grouped mixin fields → **Apply & save** persists `PlanParameterOverrides` (TapPlan unchanged).
-5. Demo reference: `AnnotationMixin` / `AnnotationMixinBuilder`; sample Identity Check is pre-attached for CI/UI demos. Details: [phase-d-mixins.md](opentap-phases/phase-d-mixins.md).
+5. Demo reference: `AnnotationMixin` / `AnnotationMixinBuilder`; sample Identity Check is pre-attached for CI/UI demos.

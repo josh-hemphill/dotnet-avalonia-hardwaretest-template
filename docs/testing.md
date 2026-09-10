@@ -1,6 +1,6 @@
 # Testing
 
-UI/board tests stay separate from OpenTAP plan-behavior tests. Both share the OpenTAP session contract (aggregating `IOpenTapSession` and focused surfaces); Avalonia Feature ViewModels inject the narrow surfaces from [Phase 14](platform-phases/phase-14-session-facade-split.md).
+UI/board tests stay separate from OpenTAP plan-behavior tests. Both share the OpenTAP session contract (aggregating `IOpenTapSession` and focused surfaces); Avalonia Feature ViewModels inject the narrow `IOpenTap*` surfaces.
 
 | Suite | Purpose | OpenTAP | Emulation |
 | --- | --- | --- | --- |
@@ -12,16 +12,13 @@ UI/board tests stay separate from OpenTAP plan-behavior tests. Both share the Op
 
 CI runs Deno tasks from [`tools/ci/`](../tools/ci/) on **windows-latest** (required E2E) and **ubuntu-latest** (`linux-x64`; E2E advisory — the step is named **E2E smoke (advisory on Linux)**). Host tests run **without Coverlet**; `coverage` collects Core-safe tests only. See [containers.md](containers.md).
 
-Platform roadmap (interactions, parameters, mixins): [opentap-platform.md](opentap-platform.md).
-Hardening roadmap (gates, config, crash, CI): [platform-roadmap.md](platform-roadmap.md).
-
-Build/version coverage (`BuildInfo`, `AppVersion` on `TestRunRecord`, Settings **Copy diagnostics**, `--version` parsing) lives in Core + ViewModels tests — see [phase-4-build-info.md](platform-phases/phase-4-build-info.md).
-Schema gates and golden files under `tests/fixtures/schema/` are covered in Core tests — see [phase-5-schema-versioning.md](platform-phases/phase-5-schema-versioning.md).
-Crash dossiers (writer, ring sink, redaction, dangling-run reconciliation) live in Core tests under `Crash/` — see [phase-6-crash-reporting.md](platform-phases/phase-6-crash-reporting.md).
-Local CI tasks, coverage floors (TypeScript), and container rails — see [containers.md](containers.md) and [phase-7-containers-local-ci.md](platform-phases/phase-7-containers-local-ci.md).
-Session contract tests (`HardwareTest.Session.Contracts`) run against both real and fake `IOpenTapSession` via the host and ViewModel suites — see [phase-8-session-contract-tests.md](platform-phases/phase-8-session-contract-tests.md).
-Export targets, run retention, and free-space gates live in Core tests under `Storage/` — see [phase-10-export-storage-chrome.md](platform-phases/phase-10-export-storage-chrome.md).
-Idle/stale and retention must use an injected `IClock` (`FakeClock` in tests), not `DateTimeOffset.UtcNow`. Clock-skew detector tests live under `Time/` — see [phase-25-clock-discipline.md](platform-phases/phase-25-clock-discipline.md).
+Build/version coverage (`BuildInfo`, `AppVersion` on `TestRunRecord`, Settings **Copy diagnostics**, `--version` parsing) lives in Core + ViewModels tests.
+Schema gates and golden files under `tests/fixtures/schema/` are covered in Core tests.
+Crash dossiers (writer, ring sink, redaction, dangling-run reconciliation) live in Core tests under `Crash/`.
+Local CI tasks, coverage floors (TypeScript), and container rails — see [containers.md](containers.md).
+Session contract tests (`HardwareTest.Session.Contracts`) run against both real and fake `IOpenTapSession` via the host and ViewModel suites.
+Export targets, run retention, and free-space gates live in Core tests under `Storage/`.
+Idle/stale and retention must use an injected `IClock` (`FakeClock` in tests), not `DateTimeOffset.UtcNow`. Clock-skew detector tests live under `Time/`.
 
 ## When to add which test
 
@@ -31,7 +28,7 @@ Put an assertion in `OpenTapSessionContractTests` only when it must hold for **b
 
 ### Architecture (layering smoke)
 
-Put a rule here only when it is a short, stable layering claim already written in README / platform docs (e.g. "Core must not reference Avalonia"). Failure messages must name the rule and the doc. Behavioral coverage (plan runs, ViewModel flow, E2E) stays in the suites below — see [phase-2-architecture-tests.md](platform-phases/phase-2-architecture-tests.md). Plugin VISA must go through Core `IVisaBroker`; `ArchitectureRulesTests.Plugin_source_must_not_use_Ivi_Visa` scans `Plugins.Basic` / `Plugins.Visa` / `Plugins.Mixins` source and csproj — see [phase-22-visa-broker.md](platform-phases/phase-22-visa-broker.md). Pause/interaction must not be process-global statics; `ArchitectureRulesTests.StepRuntime_must_not_expose_static_pause_or_interaction` scans `src/` — see [phase-24-session-decomposition.md](platform-phases/phase-24-session-decomposition.md). Idle/retention/run-complete production paths must not call `DateTime.UtcNow` / `DateTimeOffset.UtcNow`; Safety Stop / worker kill must not wait on NTP — `ArchitectureRulesTests.Idle_retention_and_run_complete_must_not_use_wall_clock_UtcNow` and `Safety_stop_and_worker_kill_must_not_wait_on_NTP` — see [phase-25-clock-discipline.md](platform-phases/phase-25-clock-discipline.md).
+Put a rule here only when it is a short, stable layering claim already written in README / adapting.md (e.g. "Core must not reference Avalonia"). Failure messages must name the rule and the doc. Behavioral coverage (plan runs, ViewModel flow, E2E) stays in the suites below. Plugin VISA must go through Core `IVisaBroker`; `ArchitectureRulesTests.Plugin_source_must_not_use_Ivi_Visa` scans `Plugins.Basic` / `Plugins.Visa` / `Plugins.Mixins` source and csproj. Pause/interaction must not be process-global statics; `ArchitectureRulesTests.StepRuntime_must_not_expose_static_pause_or_interaction` scans `src/`. Idle/retention/run-complete production paths must not call `DateTime.UtcNow` / `DateTimeOffset.UtcNow`; Safety Stop / worker kill must not wait on NTP — `ArchitectureRulesTests.Idle_retention_and_run_complete_must_not_use_wall_clock_UtcNow` and `Safety_stop_and_worker_kill_must_not_wait_on_NTP`.
 
 ### UI / board (ViewModels)
 
