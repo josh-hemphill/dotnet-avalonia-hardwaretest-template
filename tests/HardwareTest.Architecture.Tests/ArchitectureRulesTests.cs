@@ -14,35 +14,35 @@ using Xunit;
 
 namespace HardwareTest.Architecture.Tests;
 
-/// Smoke-level layering gates from docs/platform-phases/phase-2-architecture-tests.md.
+/// Smoke-level layering gates from README.md hard-separation rules.
 public sealed class ArchitectureRulesTests
 {
     private const string ReadmeHardSeparation =
         "README.md hard separation — HardwareTest.Core / OpenTap.Host stay Avalonia-free.";
     private const string CoreOpenTapFree =
-        "platform-roadmap.md — HardwareTest.Core stays Avalonia-free and OpenTAP-free.";
+        "README.md hard separation — HardwareTest.Core stays Avalonia-free and OpenTAP-free.";
     private const string PhaseIPresentation =
-        "docs/opentap-phases/phase-i-presentation-contract.md#locked-rules — plugins must not reference Avalonia/ScottPlot UI types.";
+        "README.md hard separation — plugins must not reference Avalonia/ScottPlot UI types.";
     private const string ApplianceNoDialog =
-        "docs/opentap-platform.md#interaction-contract-avalonia-owned — no WinForms/WPF dialogs on appliance.";
+        "README.md hard separation — no WinForms/WPF dialogs on appliance.";
     private const string SingleWindowRule =
-        "docs/opentap-platform.md#interaction-contract-avalonia-owned — only MainWindow; operator flow stays in-panel.";
+        "README.md hard separation — only MainWindow; operator flow stays in-panel.";
     private const string JsonContextRule =
         "Directory.Build.props JsonSerializerIsReflectionEnabledByDefault=false — every disk-persisted type must be in AppJsonContext.";
     private const string FeatureFileSizeRule =
-        "docs/platform-phases/phase-9-runboard-decomposition.md — feature files stay decomposed; split into a child ViewModel or a partial.";
+        "README.md hard separation — feature files stay decomposed; split into a child ViewModel or a partial.";
     private const string SessionFacadeSplitRule =
-        "docs/platform-phases/phase-14-session-facade-split.md — Feature ViewModels take focused IOpenTap* surfaces, not the aggregating IOpenTapSession.";
+        "README.md hard separation — Feature ViewModels take focused IOpenTap* surfaces, not the aggregating IOpenTapSession.";
     private const string Phase22PluginIviRule =
-        "docs/platform-phases/phase-22-visa-broker.md — plugins must not call Ivi.Visa / GlobalResourceManager; Core owns the broker.";
+        "README.md hard separation — plugins must not call Ivi.Visa / GlobalResourceManager; Core owns the broker.";
     private const string Phase23WorkerRule =
-        "docs/platform-phases/phase-23-safety-opentap-worker.md — OpenTAP worker is Avalonia-free; no TapThread.Abort in the UI process.";
+        "README.md hard separation — OpenTAP worker is Avalonia-free; no TapThread.Abort in the UI process.";
     private const string PlanValidateAvaloniaFree =
         "docs/adapting.md — HardwareTest.PlanValidate stays Avalonia-free and reuses Host plan-contract checks.";
     private const string Phase24SessionSplitRule =
-        "docs/platform-phases/phase-24-session-decomposition.md — no static pause/interaction on StepRuntime; run state is per OpenTapRunContext.";
+        "README.md hard separation — no static pause/interaction on StepRuntime; run state is per OpenTapRunContext.";
     private const string Phase25ClockRule =
-        "docs/platform-phases/phase-25-clock-discipline.md — idle/retention/run-complete use IClock; Safety Stop must not wait on NTP.";
+        "README.md hard separation — idle/retention/run-complete use IClock; Safety Stop must not wait on NTP.";
 
     private const int MaxFeatureFileLines = 600;
 
