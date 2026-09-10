@@ -1500,10 +1500,12 @@ public sealed class RunTestViewModelTests
         Assert.Equal(1, vm.ProgramSelection.Programs.Count(p => p.Id == "board-demo"));
         Assert.Equal(1, vm.ProgramSelection.Programs.Count(p => p.Id == "sweep-demo"));
         Assert.Equal(1, vm.ProgramSelection.Programs.Count(p => p.Id == "timing-demo"));
+        Assert.Equal(1, vm.ProgramSelection.Programs.Count(p => p.Id == "envelope-sweep-demo"));
         Assert.Equal(ProgramLoadKind.FactorySample, vm.ProgramSelection.Programs.First(p => p.Id == "sample").LoadKind);
         Assert.Equal(ProgramLoadKind.FactoryBoardDemo, vm.ProgramSelection.Programs.First(p => p.Id == "board-demo").LoadKind);
         Assert.Equal(ProgramLoadKind.FactorySweepDemo, vm.ProgramSelection.Programs.First(p => p.Id == "sweep-demo").LoadKind);
         Assert.Equal(ProgramLoadKind.FactoryTimingDemo, vm.ProgramSelection.Programs.First(p => p.Id == "timing-demo").LoadKind);
+        Assert.Equal(ProgramLoadKind.FactoryEnvelopeSweepDemo, vm.ProgramSelection.Programs.First(p => p.Id == "envelope-sweep-demo").LoadKind);
     }
 
     [Fact]
@@ -1529,6 +1531,31 @@ public sealed class RunTestViewModelTests
         Assert.Contains(names, n => n.Contains("Simulate bump waveform", StringComparison.Ordinal));
         Assert.Contains(names, n => n.Contains("Bump rise time", StringComparison.Ordinal));
         Assert.Contains(names, n => n.Contains("Peak overshoot", StringComparison.Ordinal));
+        Assert.Contains(names, n => n.Contains("Safe Shutdown", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task Envelope_sweep_demo_shows_bit_walk_stages()
+    {
+        var openTap = new FakeOpenTapSession();
+        var vm = CreateVm(openTap);
+        await vm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
+        vm.ProgramSelection.SelectedProgram =
+            vm.ProgramSelection.Programs.First(p => p.Id == "envelope-sweep-demo");
+        for (var i = 0; i < 40 && vm.StepTree.Stages.All(s => s.DisplayName != "Bit walk"); i++)
+        {
+            await Task.Delay(25);
+        }
+
+        Assert.Contains(vm.StepTree.Stages, s => s.DisplayName == "Bit walk");
+        Assert.Contains(vm.StepTree.Stages, s => s.DisplayName == "Safety");
+
+        var entire = vm.StepTree.Stages.First(s => s.Step is null);
+        vm.StepTree.SelectedStage = entire;
+        var names = vm.StepTree.StepListItems.Select(i => i.DisplayName).ToList();
+        Assert.Contains(names, n => n.Contains("Bit walk Vout", StringComparison.Ordinal));
+        Assert.Contains(names, n => n.Contains("Series summaries", StringComparison.Ordinal));
+        Assert.Contains(names, n => n.Contains("In-band percent", StringComparison.Ordinal));
         Assert.Contains(names, n => n.Contains("Safe Shutdown", StringComparison.Ordinal));
     }
 

@@ -7,6 +7,7 @@ method System.Collections.Generic.IReadOnlyList<HardwareTest.OpenTap.Host.OpenTa
 method System.Collections.Generic.IReadOnlyList<HardwareTest.OpenTap.Host.OpenTapPackageInfo> ListInstalledPackages()
 method System.Collections.Generic.IReadOnlyList<HardwareTest.OpenTap.Host.OpenTapPluginDirectoryInfo> ListPluginDirectories()
 method System.Threading.Tasks.Task LoadBoardDemoProgramAsync(System.Threading.CancellationToken cancellationToken)
+method System.Threading.Tasks.Task LoadEnvelopeSweepDemoProgramAsync(System.Threading.CancellationToken cancellationToken)
 method System.Threading.Tasks.Task LoadPlanAsync(string tapPlanPath, System.Threading.CancellationToken cancellationToken)
 method System.Threading.Tasks.Task LoadSampleProgramAsync(System.Threading.CancellationToken cancellationToken)
 method System.Threading.Tasks.Task LoadSweepDemoProgramAsync(System.Threading.CancellationToken cancellationToken)
