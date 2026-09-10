@@ -109,4 +109,11 @@ public partial class RunTestViewModel
 
     /// True when Run occupies the header action slot (idle, including gated-disabled).
     public bool ShowHeaderRun => !CanSafetyStop;
+
+    /// Binds catalog identity and session requirements for the selected program.
+    private void ApplySelectedProgram(ProgramItemViewModel program)
+    {
+        _session.SelectProgram(program.Id, program.Path, program.DisplayName, program.DutFamily);
+        _session.ApplyProgramRequirements(program.Requirements);
+    }
 }
