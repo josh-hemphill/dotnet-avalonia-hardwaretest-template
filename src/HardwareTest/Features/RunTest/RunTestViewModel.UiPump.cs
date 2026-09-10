@@ -21,6 +21,7 @@ public partial class RunTestViewModel
     private long _lastUiFlushTicks;
     private MeasurementSampleEvent? _pendingSample;
     private string? _pendingSampleStepPath;
+    private readonly Queue<MeasurementEventMark> _pendingEvents = new();
     private string? _pendingStatus;
     private double _pendingPercent;
     private bool _pendingForceFlush;
@@ -54,6 +55,12 @@ public partial class RunTestViewModel
             if (progress.Sample is { } sample)
             {
                 _pendingSample = sample;
+            }
+
+            if (progress.Event is { } mark)
+            {
+                _pendingEvents.Enqueue(mark);
+                _pendingForceFlush = true;
             }
 
             if (!string.IsNullOrWhiteSpace(progress.StepName))
@@ -114,6 +121,7 @@ public partial class RunTestViewModel
         lock (_progressSync)
         {
             _pendingDetails.Clear();
+            _pendingEvents.Clear();
             _pendingSample = null;
             _pendingStatus = null;
             _pendingForceFlush = false;
@@ -220,7 +228,7 @@ public partial class RunTestViewModel
                 lock (_progressSync)
                 {
                     // Leftover detail lines are flushed on a later UI frame (see finally).
-                    if (_pendingForceFlush || _pendingSample is not null || _pendingAwaitingOperator)
+                    if (_pendingForceFlush || _pendingSample is not null || _pendingEvents.Count > 0 || _pendingAwaitingOperator)
                     {
                         continue;
                     }
@@ -238,6 +246,7 @@ public partial class RunTestViewModel
                 {
                     if (_pendingForceFlush
                         || _pendingSample is not null
+                        || _pendingEvents.Count > 0
                         || _pendingDetails.Count > 0
                         || _pendingAwaitingOperator)
                     {
@@ -299,6 +308,14 @@ public partial class RunTestViewModel
 
         RefreshHero();
 
+        if (frame.Events is { Count: > 0 })
+        {
+            foreach (var mark in frame.Events)
+            {
+                Live.ApplyEvent(mark);
+            }
+        }
+
         if (frame.Sample is not null)
         {
             if (Live.ApplySample(frame.Sample, frame.SampleStepPath, frame.StepPath, StepTree.SelectedStep))
@@ -353,6 +370,7 @@ public partial class RunTestViewModel
                 Percent = _pendingPercent,
                 Sample = _pendingSample,
                 SampleStepPath = _pendingSampleStepPath,
+                Events = DequeueEvents_NoLock(),
                 Force = _pendingForceFlush,
                 Awaiting = _pendingAwaitingOperator,
                 Prompt = _pendingOperatorPrompt,
@@ -393,6 +411,14 @@ public partial class RunTestViewModel
     {
         lock (_progressSync)
         {
+            if (frame.Events is { Count: > 0 })
+            {
+                foreach (var mark in frame.Events)
+                {
+                    _pendingEvents.Enqueue(mark);
+                }
+            }
+
             if (frame.Sample is not null)
             {
                 _pendingSample ??= frame.Sample;
@@ -435,6 +461,22 @@ public partial class RunTestViewModel
         }
     }
 
+    private List<MeasurementEventMark>? DequeueEvents_NoLock()
+    {
+        if (_pendingEvents.Count == 0)
+        {
+            return null;
+        }
+
+        var batch = new List<MeasurementEventMark>(_pendingEvents.Count);
+        while (_pendingEvents.Count > 0)
+        {
+            batch.Add(_pendingEvents.Dequeue());
+        }
+
+        return batch;
+    }
+
     private List<string>? DequeueDetailBatch_NoLock(int maxCount)
     {
         if (_pendingDetails.Count == 0 || maxCount <= 0)
@@ -468,6 +510,7 @@ public partial class RunTestViewModel
         public double Percent { get; init; }
         public MeasurementSampleEvent? Sample { get; init; }
         public string? SampleStepPath { get; init; }
+        public List<MeasurementEventMark>? Events { get; init; }
         public bool Force { get; init; }
         public bool Awaiting { get; init; }
         public string? Prompt { get; init; }

@@ -10,6 +10,7 @@ public sealed class PresentationRoleMapTests
     [InlineData("timeseries", PresentationTileKind.Timeseries)]
     [InlineData("scalar", PresentationTileKind.Scalar)]
     [InlineData("passband", PresentationTileKind.Passband)]
+    [InlineData("timing", PresentationTileKind.Timing)]
     [InlineData("TIMESERIES", PresentationTileKind.Timeseries)]
     public void TryMapRole_maps_known_roles(string role, PresentationTileKind expected)
         => Assert.Equal(expected, PresentationRoleMap.TryMapRole(role));

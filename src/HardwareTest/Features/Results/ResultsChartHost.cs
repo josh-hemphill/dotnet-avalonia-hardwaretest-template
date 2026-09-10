@@ -36,7 +36,16 @@ public sealed class ResultsChartHost : UserControl
             var unit = string.IsNullOrWhiteSpace(tile.Unit) ? "Value" : tile.Unit!;
             _plot.SetLabels(tile.MetricKey, unit, tile.MetricKey);
             _plot.SetLimits(tile.LimitLow, tile.LimitHigh);
-            _plot.UpdateData(tile.Ys, tile.YsLength, force: true);
+            _plot.SetEvents(tile.TimingMarks.Select(e => (e.ElapsedMs / 1000.0, SeriesTimingChrome.FormatEventLabel(e))).ToList());
+            _plot.SetOutOfBandSpans(tile.OutOfBandSpans);
+            if (tile.Xs.Length == tile.YsLength && tile.YsLength > 0)
+            {
+                _plot.UpdateTimeSeries(tile.Xs, tile.Ys, tile.YsLength, followLive: true, force: true);
+            }
+            else
+            {
+                _plot.UpdateData(tile.Ys, tile.YsLength, force: true);
+            }
         }
 
         if (!Dispatcher.UIThread.CheckAccess())

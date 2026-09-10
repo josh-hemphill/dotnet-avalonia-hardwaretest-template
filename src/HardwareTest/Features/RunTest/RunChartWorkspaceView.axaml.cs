@@ -1,9 +1,11 @@
 using System;
 using System.ComponentModel;
+using System.Linq;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using Avalonia.Controls;
 using Avalonia.Threading;
+using HardwareTest.Features.Presentation;
 
 namespace HardwareTest.Features.RunTest;
 
@@ -94,6 +96,8 @@ public partial class RunChartWorkspaceView : UserControl
         {
             Plot.SetLabels(live.PlotTitle, live.PlotYLabel, live.PlotLegendText);
             Plot.SetLimits(live.PlotLimitLow, live.PlotLimitHigh);
+            Plot.SetEvents(live.Events.Select(e => (e.ElapsedMs / 1000.0, SeriesTimingChrome.FormatEventLabel(e))).ToList());
+            Plot.SetOutOfBandSpans(live.PlotOutOfBandSpans);
             Plot.SetFollowLive(live.FollowLive);
             Plot.UpdateTimeSeries(live.PlotXs, live.PlotYs, live.PlotYsLength, live.FollowLive, force);
         }

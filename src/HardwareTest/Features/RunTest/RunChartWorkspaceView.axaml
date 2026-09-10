@@ -2,6 +2,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:HardwareTest.Features.RunTest"
              xmlns:widgets="using:HardwareTest.Widgets.MeasurementPlot"
+             xmlns:widgetsPres="using:HardwareTest.Widgets.Presentation"
              xmlns:shell="using:HardwareTest.Features.Shell"
              x:Class="HardwareTest.Features.RunTest.RunChartWorkspaceView"
              x:DataType="vm:RunTestViewModel">
@@ -42,6 +43,14 @@
     </StackPanel>
     <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Spacing="16" Margin="0,8,0,0">
       <TextBlock Text="{Binding Live.ChartValueText}" FontWeight="SemiBold" FontSize="16" />
+      <TextBlock Text="{Binding Live.ChartElapsedText}"
+                 VerticalAlignment="Center"
+                 FontWeight="SemiBold"
+                 IsVisible="{Binding Live.ChartElapsedText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+      <TextBlock Text="{Binding Live.ChartEventLabel}"
+                 VerticalAlignment="Center"
+                 Opacity="0.85"
+                 IsVisible="{Binding Live.ChartEventLabel, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
       <TextBlock Text="{Binding Live.ChartBandText}"
                  VerticalAlignment="Center"
                  FontWeight="SemiBold" />
@@ -51,14 +60,24 @@
                  FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}" />
     </StackPanel>
     <Panel>
-      <widgets:MeasurementPlotView x:Name="Plot"
-                                   MinHeight="{x:Static shell:OperatorTouchDensity.ChartPlotMinHeight}"
-                                   VerticalAlignment="Stretch" />
-      <TextBlock Text="{Binding Live.ChartEmptyText}"
-                 HorizontalAlignment="Center"
-                 VerticalAlignment="Center"
-                 Opacity="0.7"
-                 IsVisible="{Binding Live.ChartEmptyText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+      <DockPanel>
+        <widgetsPres:TimingStripView DockPanel.Dock="Bottom"
+                                     Margin="0,6,0,0"
+                                     Events="{Binding Live.Events}"
+                                     Spans="{Binding Live.PlotOutOfBandSpans}"
+                                     DurationSec="{Binding Live.PlotDurationSec}"
+                                     IsVisible="{Binding Live.HasTimingStrip}" />
+        <Panel>
+          <widgets:MeasurementPlotView x:Name="Plot"
+                                       MinHeight="{x:Static shell:OperatorTouchDensity.ChartPlotMinHeight}"
+                                       VerticalAlignment="Stretch" />
+          <TextBlock Text="{Binding Live.ChartEmptyText}"
+                     HorizontalAlignment="Center"
+                     VerticalAlignment="Center"
+                     Opacity="0.7"
+                     IsVisible="{Binding Live.ChartEmptyText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+        </Panel>
+      </DockPanel>
     </Panel>
   </DockPanel>
 </UserControl>

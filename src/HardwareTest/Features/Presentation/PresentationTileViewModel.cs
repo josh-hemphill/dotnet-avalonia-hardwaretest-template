@@ -1,4 +1,5 @@
 using System.Globalization;
+using HardwareTest.OpenTap.Host;
 using ReactiveUI;
 using ReactiveUI.SourceGenerators;
 
@@ -9,6 +10,7 @@ public enum PresentationTileKind
     Timeseries,
     Scalar,
     Passband,
+    Timing,
     Text,
 }
 
@@ -38,14 +40,19 @@ public partial class PresentationTileViewModel : ReactiveObject
     [Reactive] private double _value;
     [Reactive] private double? _limitLow;
     [Reactive] private double? _limitHigh;
+    [Reactive] private double[] _xs = [];
     [Reactive] private double[] _ys = [];
     [Reactive] private int _ysLength;
     [Reactive] private string _valueText = string.Empty;
     [Reactive] private string _limitsText = string.Empty;
     [Reactive] private bool _showBand;
 
+    public IReadOnlyList<MeasurementEventMark> TimingMarks { get; set; } = [];
+    public IReadOnlyList<(double T0, double T1)> OutOfBandSpans { get; set; } = [];
+
     public bool IsGauge => Kind is PresentationTileKind.Scalar or PresentationTileKind.Passband;
     public bool IsChart => Kind == PresentationTileKind.Timeseries;
+    public bool IsStrip => Kind == PresentationTileKind.Timing;
 
     /// True when Value sits outside LimitLow / LimitHigh (used to auto-promote Focus trend).
     public bool IsOutOfBand
@@ -63,9 +70,22 @@ public partial class PresentationTileViewModel : ReactiveObject
         this.RaisePropertyChanged(nameof(IsOutOfBand));
     }
 
-    /// Replaces the timeseries Y buffer for Results charts.
+    /// Replaces the timeseries Y buffer for Results charts (index X).
     public void SetSeries(double[] ys)
     {
+        var xs = new double[ys.Length];
+        for (var i = 0; i < xs.Length; i++)
+        {
+            xs[i] = i;
+        }
+
+        SetSeries(xs, ys);
+    }
+
+    /// Replaces the timeseries X/Y buffers for Results charts (elapsed-second X when known).
+    public void SetSeries(double[] xs, double[] ys)
+    {
+        Xs = xs;
         Ys = ys;
         YsLength = ys.Length;
         if (ys.Length > 0)

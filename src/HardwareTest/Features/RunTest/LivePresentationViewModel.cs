@@ -95,6 +95,8 @@ public partial class LivePresentationViewModel : ReactiveObject
         ChartValueText = "—";
         ChartBandText = "No limits";
         ChartAgeText = string.Empty;
+        ChartElapsedText = string.Empty;
+        ChartEventLabel = string.Empty;
         ChartEmptyText = "No live measurements yet.";
         _lastSelectedStep = null;
         _manualSeries = null;
@@ -103,6 +105,7 @@ public partial class LivePresentationViewModel : ReactiveObject
         _series.Clear();
         _seriesOrder.Clear();
         _announcedOutOfBand.Clear();
+        ClearTimingChrome();
         BeginSeriesSync();
         try
         {
@@ -138,7 +141,7 @@ public partial class LivePresentationViewModel : ReactiveObject
             var path = sampleStepPath ?? fallbackStepPath ?? string.Empty;
             var key = new LiveSeriesKey(path, sample.EffectiveMetricKey);
             var buffer = GetOrCreateSeries(key);
-            buffer.Append(sample.Value, sample.Timestamp, sample.LimitLow, sample.LimitHigh, sample.Unit);
+            buffer.Append(sample.Value, sample.Timestamp, sample.LimitLow, sample.LimitHigh, sample.Unit, sample.ElapsedMs);
             if (!string.IsNullOrWhiteSpace(path))
             {
                 _stepsWithSamples.Add(path);
@@ -371,6 +374,10 @@ public partial class LivePresentationViewModel : ReactiveObject
             ChartValueText = "—";
             ChartBandText = "No limits";
             ChartAgeText = string.Empty;
+            ChartElapsedText = string.Empty;
+            ChartEventLabel = string.Empty;
+            PlotOutOfBandSpans = [];
+            PlotDurationSec = 0;
             PlotLimitLow = null;
             PlotLimitHigh = null;
             PlotDataChanged?.Invoke(this, EventArgs.Empty);
@@ -389,6 +396,7 @@ public partial class LivePresentationViewModel : ReactiveObject
         ChartValueText = snapshot.ValueText;
         ChartBandText = snapshot.BandText;
         ChartAgeText = FormatAge(snapshot.LatestTimestamp);
+        RefreshTimingChrome(snapshot);
         ChartEmptyText = snapshot.Length == 0 ? "No samples in this window." : string.Empty;
         if (SelectedSeries is null || !SelectedSeries.Key.Equals(key.Value))
         {
