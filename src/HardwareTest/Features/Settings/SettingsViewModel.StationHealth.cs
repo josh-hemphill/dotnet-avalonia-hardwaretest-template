@@ -20,7 +20,6 @@ public partial class SettingsViewModel
     [Reactive] private string _stationHealthStorePath = string.Empty;
 
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> CopyStationHealthPathCommand { get; private set; }
-        = null!;
 
     private void InitStationHealthChrome(IStationHealthStore? store, IClock clock)
     {

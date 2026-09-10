@@ -1,4 +1,6 @@
 using HardwareTest.Core.StationHealth;
+using HardwareTest.Features.Shell;
+using ReactiveUI;
 
 namespace HardwareTest.Features.RunTest;
 
@@ -33,22 +35,18 @@ public partial class RunTestViewModel
                 return "Confirm DUT first.";
             }
 
-            if (string.Equals(
-                    _stationHealthDecision?.Level,
-                    StationHealthGateLevels.Block,
-                    StringComparison.OrdinalIgnoreCase)
-                && !string.IsNullOrWhiteSpace(_stationHealthDecision.Message))
+            if (_stationHealthDecision is { } blocked
+                && string.Equals(blocked.Level, StationHealthGateLevels.Block, StringComparison.OrdinalIgnoreCase)
+                && !string.IsNullOrWhiteSpace(blocked.Message))
             {
-                return _stationHealthDecision.Message;
+                return blocked.Message;
             }
 
-            if (string.Equals(
-                    _stationHealthDecision?.Level,
-                    StationHealthGateLevels.Warn,
-                    StringComparison.OrdinalIgnoreCase)
-                && !string.IsNullOrWhiteSpace(_stationHealthDecision.Message))
+            if (_stationHealthDecision is { } warned
+                && string.Equals(warned.Level, StationHealthGateLevels.Warn, StringComparison.OrdinalIgnoreCase)
+                && !string.IsNullOrWhiteSpace(warned.Message))
             {
-                return _stationHealthDecision.Message;
+                return warned.Message;
             }
 
             return "Run the full suite.";
