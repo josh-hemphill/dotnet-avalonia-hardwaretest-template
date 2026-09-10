@@ -46,10 +46,18 @@ public sealed class LiveSeriesBuffer
         => (LimitLow is { } lo && LatestValue < lo) || (LimitHigh is { } hi && LatestValue > hi);
 
     /// Appends one sample, dropping the oldest when the ring is full.
-    public void Append(double value, DateTimeOffset timestamp, double? limitLow, double? limitHigh, string? unit)
+    public void Append(
+        double value,
+        DateTimeOffset timestamp,
+        double? limitLow,
+        double? limitHigh,
+        string? unit,
+        double? elapsedMs = null)
     {
         _t0 ??= timestamp;
-        var elapsed = Math.Max(0, (timestamp - _t0.Value).TotalSeconds);
+        var elapsed = elapsedMs is { } ms
+            ? Math.Max(0, ms / 1000.0)
+            : Math.Max(0, (timestamp - _t0.Value).TotalSeconds);
         _values[_write] = value;
         _elapsed[_write] = elapsed;
         _write = (_write + 1) % Capacity;

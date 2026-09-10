@@ -44,6 +44,7 @@ public partial class ResultsViewModel
     public ObservableCollection<string> StepDetails { get; }
     public ObservableCollection<string> SampleDetails { get; }
     public ObservableCollection<PresentationTileViewModel> PresentationTiles { get; }
+    public ObservableCollection<MeasurementEventMark> TimingEvents { get; } = [];
     public ObservableCollection<DutHistoryMetricRow> HistoryMetrics { get; }
     public ObservableCollection<RunReportItemViewModel> ReportItems { get; }
     public ObservableCollection<ExportTarget> ExportTargets { get; }
@@ -71,6 +72,9 @@ public partial class ResultsViewModel
     [Reactive] private string _historySeverity = string.Empty;
     [Reactive] private bool _hasHistory;
     [Reactive] private bool _hasPresentationTiles;
+    [Reactive] private bool _hasTimingStrip;
+    [Reactive] private double _timingDurationSec;
+    [Reactive] private IReadOnlyList<(double T0, double T1)> _timingSpans = [];
     [Reactive] private bool _hasReports;
     [Reactive] private string _searchText = string.Empty;
     [Reactive] private string _resultFilter = AllFilter;
@@ -218,12 +222,21 @@ public partial class ResultsViewModel
         await RunOnUiAsync(() => ApplyDutHistory(report)).ConfigureAwait(false);
     }
 
+    private void ClearTimingPresentation()
+    {
+        TimingEvents.Clear();
+        HasTimingStrip = false;
+        TimingDurationSec = 0;
+        TimingSpans = [];
+    }
+
     private void ApplyOpenedRun(TestRunRecord? opened)
     {
         OpenedRun = opened;
         SampleDetails.Clear();
         PresentationTiles.Clear();
         HasPresentationTiles = false;
+        ClearTimingPresentation();
         ClearComparison();
         HistorySummary = string.Empty;
         HistorySeverity = string.Empty;
@@ -272,12 +285,36 @@ public partial class ResultsViewModel
             SampleDetails.Add($"…and {OpenedRun.Samples.Count - SidebarDetailCap} more samples (see run.json / report).");
         }
 
+        var marks = SeriesTimingChrome.ToMarks(OpenedRun.Events);
+        foreach (var mark in marks)
+        {
+            TimingEvents.Add(mark);
+        }
+
         foreach (var tile in PresentationRoleMap.BuildFromStoredSamples(OpenedRun.Samples))
         {
+            if (tile.IsChart && tile.UsesTimeAxis)
+            {
+                tile.SetTimingChrome(
+                    marks,
+                    SeriesTimingChrome.OutOfBandSpans(
+                        tile.Xs,
+                        tile.Ys,
+                        tile.YsLength,
+                        tile.LimitLow,
+                        tile.LimitHigh));
+            }
+
             PresentationTiles.Add(tile);
         }
 
-        HasPresentationTiles = PresentationTiles.Count > 0;
+        HasPresentationTiles = PresentationTiles.Any(t => !t.IsStrip);
+        var chart = PresentationTiles.FirstOrDefault(t => t.IsChart && t.UsesTimeAxis);
+        TimingSpans = chart?.OutOfBandSpans ?? [];
+        TimingDurationSec = SeriesTimingChrome.StripDurationSec(
+            TimingEvents,
+            chart is { YsLength: > 0 } ? chart.Xs[chart.YsLength - 1] : null);
+        HasTimingStrip = TimingEvents.Count > 0 || TimingSpans.Count > 0 || PresentationTiles.Any(t => t.IsStrip);
         LoadReportItems(OpenedRun);
 
         Status = $"Opened {ShortId.Display(OpenedRun.RunId)} ({OpenedRun.Result}) — {OpenedRun.Steps.Count} steps, {OpenedRun.Samples.Count} samples."
