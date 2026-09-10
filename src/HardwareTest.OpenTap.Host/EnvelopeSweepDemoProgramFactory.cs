@@ -28,9 +28,19 @@ public static class EnvelopeSweepDemoProgramFactory
             SeriesCompliance = SeriesComplianceModes.AllSamples,
             FailWhenOutOfBand = false,
             ScriptedValues = "3.30,3.32,3.60,3.31",
-            PublishSummaries = true,
+            PublishSummaries = false,
         };
         OpenTapMixinAttach.AttachPresentation(sweep, "rail.x", PresentationDisplayRoles.Timeseries, "V");
+
+        var summaries = new PublishSeriesComplianceStep
+        {
+            Name = "Series summaries",
+            Values = "3.30,3.32,3.60,3.31",
+            LimitLow = 3.2,
+            LimitHigh = 3.5,
+            IntervalMs = 5,
+            FailWhenOutOfBand = false,
+        };
 
         var inBand = new PublishBandScalarStep
         {
@@ -45,6 +55,7 @@ public static class EnvelopeSweepDemoProgramFactory
 
         var measure = new TestGroupStep { Name = "Bit walk" };
         measure.ChildTestSteps.Add(sweep);
+        measure.ChildTestSteps.Add(summaries);
         measure.ChildTestSteps.Add(inBand);
 
         var safety = new TestGroupStep { Name = "Safety" };

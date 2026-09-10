@@ -1,7 +1,6 @@
 using HardwareTest.Core.Runs;
 using HardwareTest.OpenTap.Host;
 using HardwareTest.OpenTap.Plugins.Basic;
-using HardwareTest.OpenTap.Plugins.Mixins;
 using OpenTap;
 using Xunit;
 
@@ -184,7 +183,6 @@ public sealed class SeriesComplianceHostTests
                 ScriptedValues = scripted,
                 PublishSummaries = true,
             };
-            OpenTapMixinAttach.AttachPresentation(step, "rail.x", PresentationDisplayRoles.Timeseries, "V");
             var plan = new TestPlan();
             plan.ChildTestSteps.Add(step);
             plan.ChildTestSteps.Add(new SafeShutdownStep { Name = "Safe Shutdown", Instrument = instrument });

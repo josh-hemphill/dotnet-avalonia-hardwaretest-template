@@ -587,6 +587,7 @@ public sealed class FakeOpenTapSession : IOpenTapSession
                 "Bit walk",
                 $"{root}/Bit walk",
                 Leaf("bits", "Bit walk Vout", $"{root}/Bit walk/Bit walk Vout"),
+                Leaf("sum", "Series summaries", $"{root}/Bit walk/Series summaries"),
                 Leaf("pct", "In-band percent", $"{root}/Bit walk/In-band percent")),
             Group(
                 "safe",

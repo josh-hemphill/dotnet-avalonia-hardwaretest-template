@@ -45,8 +45,8 @@ public sealed class BitSweepAcquireStep : RuntimeAwareTestStep
         Description: "Optional comma-separated voltages (demo/CI). Empty = read the instrument.")]
     public string ScriptedValues { get; set; } = string.Empty;
 
-    [Display("Publish summaries", Order: 11)]
-    public bool PublishSummaries { get; set; } = true;
+    [Display("Publish summaries", Order: 11, Description: "Off by default so a timeseries mixin on this step does not relabel Scalar summaries.")]
+    public bool PublishSummaries { get; set; }
 
     public override void Run()
     {

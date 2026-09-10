@@ -1554,6 +1554,7 @@ public sealed class RunTestViewModelTests
         vm.StepTree.SelectedStage = entire;
         var names = vm.StepTree.StepListItems.Select(i => i.DisplayName).ToList();
         Assert.Contains(names, n => n.Contains("Bit walk Vout", StringComparison.Ordinal));
+        Assert.Contains(names, n => n.Contains("Series summaries", StringComparison.Ordinal));
         Assert.Contains(names, n => n.Contains("In-band percent", StringComparison.Ordinal));
         Assert.Contains(names, n => n.Contains("Safe Shutdown", StringComparison.Ordinal));
     }
