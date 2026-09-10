@@ -9,6 +9,7 @@ public static class PresentationRoleMap
     public const string Timeseries = "timeseries";
     public const string Scalar = "scalar";
     public const string Passband = "passband";
+    public const string Timing = "timing";
 
     public const int MaxResultsTimeseriesCharts = 6;
     public const int MaxRunGaugeTiles = 4;
@@ -34,6 +35,11 @@ public static class PresentationRoleMap
         if (string.Equals(displayRole, Passband, StringComparison.OrdinalIgnoreCase))
         {
             return PresentationTileKind.Passband;
+        }
+
+        if (string.Equals(displayRole, Timing, StringComparison.OrdinalIgnoreCase))
+        {
+            return PresentationTileKind.Timing;
         }
 
         return null;
@@ -140,7 +146,16 @@ public static class PresentationRoleMap
             tile.Apply(last.Value, last.LimitLow, last.LimitHigh);
             if (kind == PresentationTileKind.Timeseries)
             {
-                tile.SetSeries(ordered.Select(s => s.Value).ToArray());
+                var usesTimeAxis = ordered.All(s => s.ElapsedMs is not null);
+                var xs = new double[ordered.Length];
+                var ys = new double[ordered.Length];
+                for (var i = 0; i < ordered.Length; i++)
+                {
+                    ys[i] = ordered[i].Value;
+                    xs[i] = usesTimeAxis ? ordered[i].ElapsedMs!.Value / 1000.0 : i;
+                }
+
+                tile.SetSeries(xs, ys, usesTimeAxis);
             }
 
             tiles.Add(tile);

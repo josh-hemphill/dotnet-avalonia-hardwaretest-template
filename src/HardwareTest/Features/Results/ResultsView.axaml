@@ -271,6 +271,11 @@
               </ItemsControl>
             </StackPanel>
 
+            <widgetsPres:TimingStripView Margin="0,8,0,0"
+                                         IsVisible="{Binding HasTimingStrip}"
+                                         Events="{Binding TimingEvents}"
+                                         Spans="{Binding TimingSpans}"
+                                         DurationSec="{Binding TimingDurationSec}" />
             <StackPanel Spacing="4" Margin="0,8,0,0" IsVisible="{Binding HasPresentationTiles}">
               <TextBlock Text="Metrics" FontWeight="SemiBold" />
               <TextBlock Text="Band gauges first; expand a timeseries chart only when you need the waveform."
@@ -280,7 +285,7 @@
               <ItemsControl ItemsSource="{Binding PresentationTiles}">
                 <ItemsControl.ItemTemplate>
                   <DataTemplate x:DataType="pres:PresentationTileViewModel">
-                    <StackPanel Margin="0,0,0,8">
+                    <StackPanel Margin="0,0,0,8" IsVisible="{Binding !IsStrip}">
                       <widgetsPres:MetricGaugeView IsVisible="{Binding IsGauge}" DataContext="{Binding}" />
                       <vm:ResultsChartHost IsVisible="{Binding IsChart}" DataContext="{Binding}" />
                     </StackPanel>

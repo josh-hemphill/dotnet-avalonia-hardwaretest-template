@@ -22,11 +22,21 @@ internal static class PlotTheme
     /// Translucent passband fill (same hue as limit lines).
     private static readonly SpColor LimitFill = new(239, 108, 0, 40);
 
+    /// Event tick (config / bit mark).
+    private static readonly SpColor EventTick = SpColor.FromHex("#7B1FA2");
+
+    /// Translucent out-of-band span.
+    private static readonly SpColor OobFill = new(198, 40, 40, 36);
+
     public static SpColor SeriesColor => IsDarkTheme() ? SeriesDark : SeriesLight;
 
     public static SpColor LimitColor => LimitLine;
 
     public static SpColor LimitFillColor => LimitFill;
+
+    public static SpColor EventColor => EventTick;
+
+    public static SpColor OutOfBandFillColor => OobFill;
 
     public static void Apply(Plot plot)
     {
