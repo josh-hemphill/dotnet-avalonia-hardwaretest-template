@@ -70,6 +70,10 @@ public sealed class AppSettings
     public int ClockSkewWarnThresholdMinutes { get; set; } = DefaultClockSkewWarnThresholdMinutes;
     /// Optional local NTP / domain time host. Empty skips the NTP query (last-known-good only).
     public string NtpHost { get; set; } = string.Empty;
+    /// Default store key when a sidecar omits stationHealthProfileId.
+    public string StationHealthProfileId { get; set; } = "default";
+    /// Empty follows the DUT sidecar. `off` disables the gate; `warn` / `block` pin enforcement.
+    public string StationHealthGateOverride { get; set; } = string.Empty;
     /// When true, chip/tap uses the in-process mock (CI / no reader).
     public bool UseMockOperatorCredential { get; set; } = true;
     /// When true, confirming a session that requires an operator also requires a chip or tap.

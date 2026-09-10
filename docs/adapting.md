@@ -63,7 +63,7 @@ CLI notes: exit `1` on errors, `0` if only warnings; bare `--validate-plan` prin
 }
 ```
 
-Unknown sidecar keys remain a contract warning (`SIDECAR_UNKNOWN_PROPERTY`). Known [Phase 26](platform-phases/phase-26-station-health-gating.md) keys (`programKind`, `requireStationHealth`, `stationHealthMaxAgeHours`, `stationHealthGate`, `stationHealthProfileId`) are parsed: unknown `programKind` / `stationHealthGate` is an error. Do not put `requireStationHealth` on a `stationHealth` program. DUT sidecars omit the gate keys until a site opts in (Area 5).
+Unknown sidecar keys remain a contract warning (`SIDECAR_UNKNOWN_PROPERTY`). Known [Phase 26](platform-phases/phase-26-station-health-gating.md) keys (`programKind`, `requireStationHealth`, `stationHealthMaxAgeHours`, `stationHealthGate`, `stationHealthProfileId`) are parsed: unknown `programKind` / `stationHealthGate` is an error. Do not put `requireStationHealth` on a `stationHealth` program. DUT sidecar `requireStationHealth` + `warn`|`block` evaluates `{DataDirectory}/station-health/{profileId}.json` before Run (missing/failed/old is stale). `HARDWARETEST_STATION_HEALTH_GATE=off|warn|block` pins or disables the gate. Health programs themselves are never gated. Do not skip the health step via `Enabled`.
 
 Built-in **sample** / **board-demo** / **sweep-demo** stay factories (Basic DMM) so CI does not need the library pack. Disk plans with the same id are not double-listed. Run and Instruments enumerate via `ProgramCatalog`.
 
@@ -210,7 +210,7 @@ Publish tables `Sample` (Channel, Index, Value) and `Scalar` (Name, Value, Unit,
 | Hi → Low return | Derived: `return.high.at.ms`, `return.low.at.ms`, or excursion | `scalar` / `passband` | Timing + amplitude limits | Raw series only for Focus |
 | Envelope / return bounds | Derived: `envelope.error` / `overshoot` / `undershoot` | `passband` | Spec envelope | Raw series for Focus |
 | Series stays in band (planned, [Phase M](opentap-phases/phase-m-series-envelope-timing.md)) | `Sample` + `LimitLow`/`LimitHigh` + `ElapsedMs`; Scalar `series.inband.pct` | acquire = `timeseries`; summary = `passband` | Every sample in band (`SeriesCompliance=allSamples`) | Event marks when bits/GPIB config change |
-| Station health / daily cal ([Phase 26](platform-phases/phase-26-station-health-gating.md)) | `cal.dc.offset` + `cal.age.hours` | `scalar` (unique ChannelKeys; no single mixin) | Age `LimitHigh` = max hours | Catalog `station-health`; DUT gate lands in Area 5. Do not skip via Enabled |
+| Station health / daily cal ([Phase 26](platform-phases/phase-26-station-health-gating.md)) | `cal.dc.offset` + `cal.age.hours` | `scalar` (unique ChannelKeys; no single mixin) | Age `LimitHigh` = max hours | Catalog `station-health`; DUT `requireStationHealth` warn\|block. Do not skip via Enabled |
 
 Rules of thumb: (1) write pass criteria in words first; (2) publish **one Scalar per criterion** with limits; (3) keep `ChannelKey` stable; (4) add `timeseries` only when Focus trend is useful. Demo: **Timing / Envelope Demo (Band-first)** (`timing-demo`) plus Sample/Board.
 
