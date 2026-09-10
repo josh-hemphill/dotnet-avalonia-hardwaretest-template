@@ -56,6 +56,20 @@ Deno.test("coverage fails when Engine floor is missed", () => {
   <packages>
     <package name="HardwareTest.Core">
       <classes>
+        <class name="HardwareTest.Core.Settings.Ok" filename="Settings/Ok.cs">
+          <lines>
+            <line number="1" hits="1" />
+            <line number="2" hits="1" />
+            <line number="3" hits="1" />
+            <line number="4" hits="1" />
+            <line number="5" hits="1" />
+            <line number="6" hits="1" />
+            <line number="7" hits="1" />
+            <line number="8" hits="1" />
+            <line number="9" hits="1" />
+            <line number="10" hits="1" />
+          </lines>
+        </class>
         <class name="HardwareTest.Core.Engine.Weak" filename="Engine/Weak.cs">
           <lines>
             <line number="1" hits="1" />
@@ -70,7 +84,9 @@ Deno.test("coverage fails when Engine floor is missed", () => {
   </packages>
 </coverage>`;
   const report = evaluateCobertura(xml);
+  assert(report.corePct >= 70);
   assertEquals(report.ok, false);
+  assertEquals(report.failures.some((f) => f.includes("Core")), false);
   assert(report.failures.some((f) => f.includes("Engine")));
 });
 
@@ -163,6 +179,20 @@ Deno.test("coverage fails when Hardware floor is missed", () => {
   <packages>
     <package name="HardwareTest.Core">
       <classes>
+        <class name="HardwareTest.Core.Settings.Ok" filename="Settings/Ok.cs">
+          <lines>
+            <line number="1" hits="1" />
+            <line number="2" hits="1" />
+            <line number="3" hits="1" />
+            <line number="4" hits="1" />
+            <line number="5" hits="1" />
+            <line number="6" hits="1" />
+            <line number="7" hits="1" />
+            <line number="8" hits="1" />
+            <line number="9" hits="1" />
+            <line number="10" hits="1" />
+          </lines>
+        </class>
         <class name="HardwareTest.Core.Hardware.Weak" filename="Hardware/Weak.cs">
           <lines>
             <line number="1" hits="1" />
@@ -177,7 +207,9 @@ Deno.test("coverage fails when Hardware floor is missed", () => {
   </packages>
 </coverage>`;
   const report = evaluateCobertura(xml);
+  assert(report.corePct >= 70);
   assertEquals(report.ok, false);
+  assertEquals(report.failures.some((f) => f.includes("Core")), false);
   assert(report.failures.some((f) => f.includes("Hardware")));
 });
 
