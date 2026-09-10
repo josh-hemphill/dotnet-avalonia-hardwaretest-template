@@ -127,7 +127,7 @@ public sealed class StationHealthGate : IStationHealthGate
         if (string.Equals(pin, StationHealthGateOverrides.Warn, StringComparison.OrdinalIgnoreCase)
             || string.Equals(pin, StationHealthGateOverrides.Block, StringComparison.OrdinalIgnoreCase))
         {
-            return pin;
+            return pin!;
         }
 
         return string.IsNullOrWhiteSpace(sidecarGate) ? StationHealthGates.Warn : sidecarGate.Trim();
