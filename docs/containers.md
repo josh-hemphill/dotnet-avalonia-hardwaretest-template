@@ -17,6 +17,7 @@ From the repo root:
 ```bash
 deno task --cwd tools/ci list
 deno task --cwd tools/ci build -- --rid win-x64          # or linux-x64
+deno task --cwd tools/ci format
 deno task --cwd tools/ci test:arch -- --rid win-x64
 deno task --cwd tools/ci test:host -- --rid win-x64
 deno task --cwd tools/ci test:vm -- --rid win-x64
@@ -115,5 +116,7 @@ Product layout and publish flags: [appliance-linux.md](appliance-linux.md). No `
 - **ubuntu-latest** — `linux-x64` build / host / VM / arch / coverage / publish / verify; E2E is **advisory** (step name says so; `continue-on-error`).
 - Actions are pinned by commit SHA. Workflow default token is `contents: read`; artifact-upload jobs add `actions: write`. Jobs have `timeout-minutes` and PR concurrency cancel-in-progress.
 - Publish artifacts retain self-contained outputs for demo pulls.
+- Format is a Deno catalog task (`main.ts format`); both jobs assert the same catalog and dump expected/actual on drift.
+- `setup-dotnet` pins `global.json` (`10.0.302`). Artifact uploads fail if publish output is missing.
 - A catalog assert step fails if a Deno task is renamed without updating the workflow.
 - `audit` fails the job when `dotnet list package --vulnerable --include-transitive` reports known vulns.

@@ -2,6 +2,7 @@
   <!-- OpenTAP host + E2E both touch a real OpenTapSession; run test projects serially. -->
   <PropertyGroup>
     <BuildInParallel>false</BuildInParallel>
+    <!-- Traversal has no packages.lock.json; children still lock via Directory.Build.props. -->
     <RestorePackagesWithLockFile>false</RestorePackagesWithLockFile>
     <RestoreLockedMode>false</RestoreLockedMode>
   </PropertyGroup>

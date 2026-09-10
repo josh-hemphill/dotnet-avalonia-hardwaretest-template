@@ -1,7 +1,7 @@
 import { assertEquals, assert } from "@std/assert";
 import * as path from "@std/path";
-import { evaluateCobertura } from "./lib/coverage.ts";
-import { TASKS } from "./main.ts";
+import { evaluateCobertura, findCobertura } from "./lib/coverage.ts";
+import { CORE_COVERAGE_FILTER, e2eIsAdvisory, TASKS } from "./main.ts";
 
 Deno.test("coverage floors match Python port on pass fixture", async () => {
   const fixture = path.join(
@@ -27,12 +27,186 @@ Deno.test("coverage floors match Python port on pass fixture", async () => {
   assert(report.ok);
 });
 
+Deno.test("coverage fails when Core floor is missed", () => {
+  const xml = `<?xml version="1.0"?>
+<coverage>
+  <packages>
+    <package name="HardwareTest.Core">
+      <classes>
+        <class name="HardwareTest.Core.Settings.Weak" filename="Settings/Weak.cs">
+          <lines>
+            <line number="1" hits="1" />
+            <line number="2" hits="0" />
+            <line number="3" hits="0" />
+            <line number="4" hits="0" />
+          </lines>
+        </class>
+      </classes>
+    </package>
+  </packages>
+</coverage>`;
+  const report = evaluateCobertura(xml);
+  assertEquals(report.ok, false);
+  assert(report.failures.some((f) => f.includes("Core")));
+});
+
+Deno.test("coverage fails when Engine floor is missed", () => {
+  const xml = `<?xml version="1.0"?>
+<coverage>
+  <packages>
+    <package name="HardwareTest.Core">
+      <classes>
+        <class name="HardwareTest.Core.Settings.Ok" filename="Settings/Ok.cs">
+          <lines>
+            <line number="1" hits="1" />
+            <line number="2" hits="1" />
+            <line number="3" hits="1" />
+            <line number="4" hits="1" />
+            <line number="5" hits="1" />
+            <line number="6" hits="1" />
+            <line number="7" hits="1" />
+            <line number="8" hits="1" />
+            <line number="9" hits="1" />
+            <line number="10" hits="1" />
+          </lines>
+        </class>
+        <class name="HardwareTest.Core.Engine.Weak" filename="Engine/Weak.cs">
+          <lines>
+            <line number="1" hits="1" />
+            <line number="2" hits="0" />
+            <line number="3" hits="0" />
+            <line number="4" hits="0" />
+            <line number="5" hits="0" />
+          </lines>
+        </class>
+      </classes>
+    </package>
+  </packages>
+</coverage>`;
+  const report = evaluateCobertura(xml);
+  assert(report.corePct >= 70);
+  assertEquals(report.ok, false);
+  assertEquals(report.failures.some((f) => f.includes("Core")), false);
+  assert(report.failures.some((f) => f.includes("Engine")));
+});
+
+Deno.test("coverage skips Hardware floor when no Hardware lines exist", () => {
+  const xml = `<?xml version="1.0"?>
+<coverage>
+  <packages>
+    <package name="HardwareTest.Core">
+      <classes>
+        <class name="HardwareTest.Core.Settings.Ok" filename="Settings/Ok.cs">
+          <lines>
+            <line number="1" hits="1" />
+            <line number="2" hits="1" />
+            <line number="3" hits="1" />
+          </lines>
+        </class>
+      </classes>
+    </package>
+  </packages>
+</coverage>`;
+  const report = evaluateCobertura(xml);
+  assertEquals(report.hardwareLines, 0);
+  assertEquals(report.ok, true);
+  assertEquals(report.failures.some((f) => f.includes("Hardware")), false);
+});
+
+Deno.test("coverage does not treat FooEngine as Engine", () => {
+  const xml = `<?xml version="1.0"?>
+<coverage>
+  <packages>
+    <package name="HardwareTest.Core">
+      <classes>
+        <class name="HardwareTest.Core.FooEngine.Bar" filename="FooEngine/Bar.cs">
+          <lines>
+            <line number="1" hits="0" />
+          </lines>
+        </class>
+      </classes>
+    </package>
+  </packages>
+</coverage>`;
+  const report = evaluateCobertura(xml);
+  assertEquals(report.engineLines, 0);
+});
+
+Deno.test("findCobertura returns the sorted first match", async () => {
+  const root = await Deno.makeTempDir({ prefix: "ht-cobertura-" });
+  try {
+    const late = path.join(root, "z-guid");
+    const early = path.join(root, "a-guid");
+    await Deno.mkdir(late, { recursive: true });
+    await Deno.mkdir(early, { recursive: true });
+    await Deno.writeTextFile(path.join(late, "coverage.cobertura.xml"), "<late/>");
+    await Deno.writeTextFile(path.join(early, "coverage.cobertura.xml"), "<early/>");
+    const found = await findCobertura(root);
+    assertEquals(found, path.join(early, "coverage.cobertura.xml"));
+  } finally {
+    await Deno.remove(root, { recursive: true });
+  }
+});
+
+Deno.test("findCobertura returns null when the directory is missing", async () => {
+  const found = await findCobertura(path.join(Deno.cwd(), "no-such-coverage-dir"));
+  assertEquals(found, null);
+});
+
+Deno.test("CORE_COVERAGE_FILTER excludes OpenTAP host tests", () => {
+  assertEquals(CORE_COVERAGE_FILTER.includes("HardwareTest.Tests.OpenTap"), true);
+  assertEquals(CORE_COVERAGE_FILTER.startsWith("FullyQualifiedName!~"), true);
+});
+
+Deno.test("e2eIsAdvisory is true for linux RIDs or the flag", () => {
+  assertEquals(e2eIsAdvisory({ advisoryE2e: false, rid: "win-x64" }), false);
+  assertEquals(e2eIsAdvisory({ advisoryE2e: true, rid: "win-x64" }), true);
+  assertEquals(e2eIsAdvisory({ advisoryE2e: false, rid: "linux-x64" }), true);
+  assertEquals(e2eIsAdvisory({ advisoryE2e: false, rid: "linux-arm64" }), true);
+});
+
+Deno.test("test:host does not attach a Coverlet collector", async () => {
+  const src = await Deno.readTextFile(new URL("./main.ts", import.meta.url));
+  const hostFn = src.match(/async function testHost[\s\S]*?\n\}/);
+  assert(hostFn, "testHost function must exist");
+  assertEquals(hostFn[0].includes("collect"), false);
+  assertEquals(hostFn[0].includes("Coverlet"), false);
+});
+
+Deno.test("formatCheck verifies the solution and all() runs it after build", async () => {
+  const src = await Deno.readTextFile(new URL("./main.ts", import.meta.url));
+  const formatFn = src.match(/async function formatCheck[\s\S]*?\n\}/);
+  assert(formatFn, "formatCheck function must exist");
+  assert(formatFn[0].includes("HardwareTest.slnx"));
+  assert(formatFn[0].includes("--verify-no-changes"));
+  assert(formatFn[0].includes("--no-restore"));
+  const allFn = src.match(/async function all[\s\S]*?\n\}/);
+  assert(allFn, "all function must exist");
+  const buildAt = allFn[0].indexOf("await build(");
+  const formatAt = allFn[0].indexOf("await formatCheck(");
+  assert(buildAt >= 0 && formatAt > buildAt, "all() must format after build");
+});
+
 Deno.test("coverage fails when Hardware floor is missed", () => {
   const xml = `<?xml version="1.0"?>
 <coverage>
   <packages>
     <package name="HardwareTest.Core">
       <classes>
+        <class name="HardwareTest.Core.Settings.Ok" filename="Settings/Ok.cs">
+          <lines>
+            <line number="1" hits="1" />
+            <line number="2" hits="1" />
+            <line number="3" hits="1" />
+            <line number="4" hits="1" />
+            <line number="5" hits="1" />
+            <line number="6" hits="1" />
+            <line number="7" hits="1" />
+            <line number="8" hits="1" />
+            <line number="9" hits="1" />
+            <line number="10" hits="1" />
+          </lines>
+        </class>
         <class name="HardwareTest.Core.Hardware.Weak" filename="Hardware/Weak.cs">
           <lines>
             <line number="1" hits="1" />
@@ -47,7 +221,9 @@ Deno.test("coverage fails when Hardware floor is missed", () => {
   </packages>
 </coverage>`;
   const report = evaluateCobertura(xml);
+  assert(report.corePct >= 70);
   assertEquals(report.ok, false);
+  assertEquals(report.failures.some((f) => f.includes("Core")), false);
   assert(report.failures.some((f) => f.includes("Hardware")));
 });
 
@@ -57,6 +233,7 @@ Deno.test("TASKS catalog is sorted and complete", () => {
     "audit",
     "build",
     "coverage",
+    "format",
     "list",
     "publish",
     "test:arch",
@@ -77,6 +254,7 @@ Deno.test("ci.yml references every required Deno task", async () => {
   const required = [
     "audit",
     "build",
+    "format",
     "test:host",
     "test:vm",
     "test:e2e",
@@ -112,4 +290,113 @@ Deno.test("ci.yml pins GitHub Actions by commit SHA", async () => {
   assert(yaml.includes("permissions:"));
   assert(yaml.includes("timeout-minutes:"));
   assert(yaml.includes("concurrency:"));
+});
+
+function jobBlock(yaml: string, job: string): string {
+  const start = yaml.search(new RegExp(`^  ${job}:`, "m"));
+  assert(start >= 0, `ci.yml must define job ${job}`);
+  const rest = yaml.slice(start);
+  const next = rest.slice(1).search(/^  [a-zA-Z]/m);
+  return next === -1 ? rest : rest.slice(0, next + 1);
+}
+
+Deno.test("ci.yml catalog heredocs match TASKS on both platforms", async () => {
+  const root = path.resolve(
+    path.dirname(path.fromFileUrl(import.meta.url)),
+    "../..",
+  );
+  const yaml = await Deno.readTextFile(path.join(root, ".github/workflows/ci.yml"));
+  const expected = TASKS.join("\\n");
+  const heredocs = [...yaml.matchAll(/expected=\$'([^']+)'/g)].map((m) => m[1]!);
+  assertEquals(heredocs.length, 2, "windows and linux catalog asserts");
+  for (const heredoc of heredocs) {
+    assertEquals(heredoc, expected);
+  }
+});
+
+Deno.test("ci.yml invokes required tasks with the matching platform RID", async () => {
+  const root = path.resolve(
+    path.dirname(path.fromFileUrl(import.meta.url)),
+    "../..",
+  );
+  const yaml = await Deno.readTextFile(path.join(root, ".github/workflows/ci.yml"));
+  const windows = jobBlock(yaml, "test");
+  const linux = jobBlock(yaml, "test-linux");
+  for (const task of ["build", "test:arch", "test:host", "test:vm", "test:e2e", "coverage"]) {
+    assert(
+      windows.includes(`main.ts ${task} --rid win-x64`),
+      `windows test must call ${task} with win-x64`,
+    );
+    assert(
+      linux.includes(`main.ts ${task} --rid linux-x64`),
+      `linux test must call ${task} with linux-x64`,
+    );
+  }
+  assert(windows.includes("main.ts format"));
+  assert(linux.includes("main.ts format"));
+  assert(jobBlock(yaml, "publish-win").includes("main.ts publish --rid win-x64"));
+  assert(linux.includes("main.ts publish --rid linux-x64"));
+});
+
+function stepBlock(job: string, name: string): string {
+  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const start = job.search(new RegExp(`- name: "?${escaped}"?`));
+  assert(start >= 0, `job must contain step ${name}`);
+  const rest = job.slice(start);
+  const next = rest.slice(1).search(/^\s+- (name:|uses:)/m);
+  return next === -1 ? rest : rest.slice(0, next + 1);
+}
+
+Deno.test("linux E2E is advisory; windows E2E stays blocking", async () => {
+  const root = path.resolve(
+    path.dirname(path.fromFileUrl(import.meta.url)),
+    "../..",
+  );
+  const yaml = await Deno.readTextFile(path.join(root, ".github/workflows/ci.yml"));
+  const windows = jobBlock(yaml, "test");
+  const linux = jobBlock(yaml, "test-linux");
+  const linuxE2e = stepBlock(linux, "E2E smoke (advisory on Linux)");
+  assert(linuxE2e.includes("continue-on-error: true"));
+  assert(linuxE2e.includes("main.ts test:e2e --rid linux-x64"));
+  const windowsE2e = stepBlock(windows, "E2E smoke (sample + Inspect shell wiring)");
+  assertEquals(windowsE2e.includes("continue-on-error"), false);
+  assertEquals(windows.includes("advisory"), false);
+});
+
+Deno.test("artifact uploads fail when publish output is missing", async () => {
+  const root = path.resolve(
+    path.dirname(path.fromFileUrl(import.meta.url)),
+    "../..",
+  );
+  const yaml = await Deno.readTextFile(path.join(root, ".github/workflows/ci.yml"));
+  const winUpload = stepBlock(jobBlock(yaml, "publish-win"), "Upload win-x64 publish");
+  const linuxUpload = stepBlock(jobBlock(yaml, "test-linux"), "Upload linux-x64 publish");
+  assert(winUpload.includes("if-no-files-found: error"));
+  assert(linuxUpload.includes("if-no-files-found: error"));
+});
+
+Deno.test("setup-dotnet pins the global.json SDK", async () => {
+  const root = path.resolve(
+    path.dirname(path.fromFileUrl(import.meta.url)),
+    "../..",
+  );
+  const yaml = await Deno.readTextFile(path.join(root, ".github/workflows/ci.yml"));
+  const globalJson = JSON.parse(
+    await Deno.readTextFile(path.join(root, "global.json")),
+  ) as { sdk: { version: string } };
+  const pins = [...yaml.matchAll(/dotnet-version:\s*"([^"]+)"/g)].map((m) => m[1]!);
+  assert(pins.length >= 3);
+  for (const pin of pins) {
+    assertEquals(pin, globalJson.sdk.version);
+  }
+});
+
+Deno.test("both platform jobs run Deno catalog unit tests", async () => {
+  const root = path.resolve(
+    path.dirname(path.fromFileUrl(import.meta.url)),
+    "../..",
+  );
+  const yaml = await Deno.readTextFile(path.join(root, ".github/workflows/ci.yml"));
+  assert(jobBlock(yaml, "test").includes("deno task --cwd tools/ci test"));
+  assert(jobBlock(yaml, "test-linux").includes("deno task --cwd tools/ci test"));
 });

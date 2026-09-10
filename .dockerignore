@@ -1,6 +1,7 @@
 # Keep image and publish contexts free of tests, build output, and crash dossiers.
 .git
 .github
+tests/
 **/.vs/
 **/.idea/
 **/bin/

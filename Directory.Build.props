@@ -5,8 +5,11 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-    <WarningsNotAsErrors>IL2026;IL2070;IL3050;CA1416</WarningsNotAsErrors>
-    <NoWarn>$(NoWarn);S1118;S2139;AVLN3001;CA1416</NoWarn>
+    <!-- IL* are AOT/trim analyzers; IsAotCompatible is false so they do not run today. -->
+    <WarningsNotAsErrors>IL2026;IL2070;IL3050</WarningsNotAsErrors>
+    <!-- S1118: utility types may have instance members; S2139: catch-and-log is intentional;
+         AVLN3001: Avalonia compiled-binding noise on generated code. CA1416 stays on. -->
+    <NoWarn>$(NoWarn);S1118;S2139;AVLN3001</NoWarn>
     <IsAotCompatible>false</IsAotCompatible>
     <JsonSerializerIsReflectionEnabledByDefault>false</JsonSerializerIsReflectionEnabledByDefault>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
