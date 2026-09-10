@@ -14,10 +14,12 @@ public sealed class ProgramCatalogTests
         Assert.Contains(entries, e => e.Id == "board-demo" && e.LoadKind == ProgramLoadKind.FactoryBoardDemo);
         Assert.Contains(entries, e => e.Id == "sweep-demo" && e.LoadKind == ProgramLoadKind.FactorySweepDemo);
         Assert.Contains(entries, e => e.Id == "timing-demo" && e.LoadKind == ProgramLoadKind.FactoryTimingDemo);
+        Assert.Contains(entries, e => e.Id == "envelope-sweep-demo" && e.LoadKind == ProgramLoadKind.FactoryEnvelopeSweepDemo);
         Assert.Equal(1, entries.Count(e => e.Id == "sample"));
         Assert.Equal(1, entries.Count(e => e.Id == "board-demo"));
         Assert.Equal(1, entries.Count(e => e.Id == "sweep-demo"));
         Assert.Equal(1, entries.Count(e => e.Id == "timing-demo"));
+        Assert.Equal(1, entries.Count(e => e.Id == "envelope-sweep-demo"));
     }
 
     [Fact]

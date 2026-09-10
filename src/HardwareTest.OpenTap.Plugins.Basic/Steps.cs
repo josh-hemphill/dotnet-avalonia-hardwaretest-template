@@ -43,6 +43,24 @@ public sealed class AcquireVoltageStep : RuntimeAwareTestStep
     [Display("Channel")]
     public string Channel { get; set; } = "VDC";
 
+    [Display("Limit low", Order: 10)]
+    public double? LimitLow { get; set; }
+
+    [Display("Limit high", Order: 11)]
+    public double? LimitHigh { get; set; }
+
+    [Display("Series compliance", Order: 12)]
+    [AvailableValues(nameof(SeriesComplianceChoices))]
+    public string SeriesCompliance { get; set; } = SeriesComplianceModes.None;
+
+    public IEnumerable<string> SeriesComplianceChoices { get; } = SeriesComplianceModes.Choices;
+
+    [Display("Dwell limit ms", Order: 13)]
+    public double? DwellLimitMs { get; set; }
+
+    [Display("Fail when out of band", Order: 14, Description: "Default false so Sample/Board demos stay green.")]
+    public bool FailWhenOutOfBand { get; set; }
+
     public override void Run()
     {
         if (Instrument is null)
@@ -53,13 +71,46 @@ public sealed class AcquireVoltageStep : RuntimeAwareTestStep
 
         Instrument.ConfigureDcVolts();
         var values = new List<double>(SampleCount);
+        var failed = false;
+        var dwellMs = 0.0;
         for (var i = 0; i < SampleCount; i++)
         {
             TapThread.ThrowIfAborted();
             WaitIfPaused();
             var v = Instrument.ReadVoltage();
             values.Add(v);
-            Results.Publish("Sample", new List<string> { "Channel", "Index", "Value" }, Channel, i, v);
+            var elapsed = (double)(i * Math.Max(0, IntervalMs));
+            if (LimitLow is not null || LimitHigh is not null || SeriesComplianceModes.IsEnabled(SeriesCompliance))
+            {
+                Results.Publish(
+                    "Sample",
+                    new List<string> { "Channel", "Index", "Value", "LimitLow", "LimitHigh", "ElapsedMs" },
+                    Channel,
+                    i,
+                    v,
+                    LimitLow ?? double.NaN,
+                    LimitHigh ?? double.NaN,
+                    elapsed);
+            }
+            else
+            {
+                Results.Publish("Sample", new List<string> { "Channel", "Index", "Value" }, Channel, i, v);
+            }
+
+            if (SeriesComplianceModes.ShouldFailSample(
+                    SeriesCompliance,
+                    FailWhenOutOfBand,
+                    v,
+                    LimitLow,
+                    LimitHigh,
+                    DwellLimitMs,
+                    IntervalMs,
+                    ref dwellMs))
+            {
+                Log.Error("{0}[{1}]={2} failed {3} at {4} ms (dwell {5} ms)", Channel, i, v, SeriesCompliance, elapsed, dwellMs);
+                failed = true;
+            }
+
             if (IntervalMs > 0 && i < SampleCount - 1)
             {
                 TapThread.Sleep(IntervalMs);
@@ -67,7 +118,7 @@ public sealed class AcquireVoltageStep : RuntimeAwareTestStep
         }
 
         StepRun.Parameters["SampleCount"] = values.Count.ToString();
-        UpgradeVerdict(Verdict.Pass);
+        UpgradeVerdict(failed ? Verdict.Fail : Verdict.Pass);
     }
 }
 

@@ -260,6 +260,14 @@ public static class OpenTapWorkerServer
                     WorkerProtocol.SerializePayload(requireSnapshot(), WorkerJsonContext.Default.WorkerSnapshot));
                 return;
 
+            case WorkerProtocol.LoadEnvelopeSweepDemo:
+                await requireSession().LoadEnvelopeSweepDemoProgramAsync().ConfigureAwait(false);
+                writeOk(
+                    envelope.Id,
+                    method,
+                    WorkerProtocol.SerializePayload(requireSnapshot(), WorkerJsonContext.Default.WorkerSnapshot));
+                return;
+
             case WorkerProtocol.LoadPlanShape:
                 {
                     var req = WorkerProtocol.ReadPayload(envelope, WorkerJsonContext.Default.WorkerFixtureRequest)
