@@ -12,13 +12,16 @@ UI/board tests stay separate from OpenTAP plan-behavior tests. Both share the Op
 
 CI runs Deno tasks from [`tools/ci/`](../tools/ci/) on **windows-latest** (required E2E) and **ubuntu-latest** (`linux-x64`; E2E advisory — the step is named **E2E smoke (advisory on Linux)**). Host tests run **without Coverlet**; `coverage` collects Core-safe tests only. See [containers.md](containers.md).
 
-Build/version coverage (`BuildInfo`, `AppVersion` on `TestRunRecord`, Settings **Copy diagnostics**, `--version` parsing) lives in Core + ViewModels tests.
-Schema gates and golden files under `tests/fixtures/schema/` are covered in Core tests.
-Crash dossiers (writer, ring sink, redaction, dangling-run reconciliation) live in Core tests under `Crash/`.
-Local CI tasks, coverage floors (TypeScript), and container rails — see [containers.md](containers.md).
-Session contract tests (`HardwareTest.Session.Contracts`) run against both real and fake `IOpenTapSession` via the host and ViewModel suites.
-Export targets, run retention, and free-space gates live in Core tests under `Storage/`.
-Idle/stale and retention must use an injected `IClock` (`FakeClock` in tests), not `DateTimeOffset.UtcNow`. Clock-skew detector tests live under `Time/`.
+Where coverage lives:
+
+- Build/version (`BuildInfo`, `AppVersion`, Settings **Copy diagnostics**, `--version`) — Core + ViewModels
+- Schema gates and goldens under `tests/fixtures/schema/` — Core
+- Crash dossiers (writer, ring sink, redaction, dangling-run reconciliation) — Core `Crash/`
+- Session contracts (`HardwareTest.Session.Contracts`) — host + ViewModel suites against real and fake `IOpenTapSession`
+- Export, retention, free-space — Core `Storage/`
+- Clock skew — Core `Time/` (`IClock` / `FakeClock`; production idle/retention must not use `DateTimeOffset.UtcNow`)
+
+Productizing plans, plugins, and reports: [adapting.md](adapting.md).
 
 ## When to add which test
 
@@ -28,7 +31,11 @@ Put an assertion in `OpenTapSessionContractTests` only when it must hold for **b
 
 ### Architecture (layering smoke)
 
-Put a rule here only when it is a short, stable layering claim already written in README / adapting.md (e.g. "Core must not reference Avalonia"). Failure messages must name the rule and the doc. Behavioral coverage (plan runs, ViewModel flow, E2E) stays in the suites below. Plugin VISA must go through Core `IVisaBroker`; `ArchitectureRulesTests.Plugin_source_must_not_use_Ivi_Visa` scans `Plugins.Basic` / `Plugins.Visa` / `Plugins.Mixins` source and csproj. Pause/interaction must not be process-global statics; `ArchitectureRulesTests.StepRuntime_must_not_expose_static_pause_or_interaction` scans `src/`. Idle/retention/run-complete production paths must not call `DateTime.UtcNow` / `DateTimeOffset.UtcNow`; Safety Stop / worker kill must not wait on NTP — `ArchitectureRulesTests.Idle_retention_and_run_complete_must_not_use_wall_clock_UtcNow` and `Safety_stop_and_worker_kill_must_not_wait_on_NTP`.
+Put a rule here only when it is a short, stable layering claim already written in README / adapting.md (e.g. "Core must not reference Avalonia"). Failure messages must name the rule and the doc. Behavioral coverage stays in the suites below.
+
+- Plugin VISA must go through Core `IVisaBroker` — `ArchitectureRulesTests.Plugin_source_must_not_use_Ivi_Visa` scans `Plugins.Basic` / `Plugins.Visa` / `Plugins.Mixins`.
+- Pause/interaction must not be process-global statics — `ArchitectureRulesTests.StepRuntime_must_not_expose_static_pause_or_interaction`.
+- Idle/retention/run-complete must not call `DateTime.UtcNow` / `DateTimeOffset.UtcNow`; Safety Stop / worker kill must not wait on NTP.
 
 ### UI / board (ViewModels)
 
@@ -36,36 +43,33 @@ Put a rule here only when it is a short, stable layering claim already written i
 2. Drive `RunTestViewModel` / `InspectViewModel` and assert StepRows, rollup chips, filters, or Inspect parity.
 3. For a captured edge case offline: `ReplayRecording(dir, "cassette-name")` then refresh hierarchy/Inspect.
 
-#### Run board child ViewModels (coordinator + owned children)
+`RunTestViewModel` is a coordinator that owns one child ViewModel per panel (`StepDetail`, `Interaction`, `SessionPanel`, `ProgramSelection`, `StationOverrides`, `Live`, `StepTree`, `Run`). Children are constructed by the parent — not registered in DI — and receive services plus small `Func`/`Action` callbacks instead of a back-reference to the parent. The run pipeline takes the coordinator through `IRunBoardHost` so a stub can replace it. The UI flush pump (`IngestProgress`, `UiScheduler`, `RunOnUiAsync`) stays on the coordinator. Feature files are capped at 600 lines; split into another child or a partial rather than raising the cap.
 
-`RunTestViewModel` is a coordinator that owns one child ViewModel per panel (`StepDetail`, `Interaction`, `SessionPanel`, `ProgramSelection`, `StationOverrides`, `Live`, `StepTree`, `Run`). Children are constructed by the parent — not registered in DI — and receive services plus small `Func`/`Action` callbacks instead of a back-reference to the parent. The run pipeline takes the coordinator through `IRunBoardHost` so a stub can replace it. The UI flush pump (`IngestProgress`, `UiScheduler`, `RunOnUiAsync`) stays on the coordinator, which keeps every child dispatcher-agnostic. Feature files are capped at 600 lines by `ArchitectureRulesTests.Feature_source_files_stay_under_line_budget`; split into another child or a partial rather than raising the cap.
+Pick the narrowest suite:
 
-Pick the narrowest suite for what you are asserting:
-
-- **One panel's own behavior** → construct the child directly with fakes/no-op callbacks, as in `RunBoardChildViewModelTests`. No dispatcher and no parent needed.
-- **Cross-panel coordination** (a selection change refreshing detail, hero, plot and overrides together) → build the whole `RunTestViewModel`, set `UiScheduler = action => action()`, and assert through child paths such as `vm.StepTree.SelectedStep` or `vm.StepDetail.DetailChipText`.
-- **AXAML bindings** use the same child paths (`{Binding StepDetail.DetailLines}`), so a test written against the child path matches what the view binds to.
-- **Operator chrome / a11y (Phase 21)** — type floor, compact Pause/Stop captions, live regions, and Settings headings live in `Phase21OperatorChromeTests`. Do not announce plot-sample floods; Engineer/debug tables may stay tighter than the Run operational floor.
-- **Operator prompt / session (900×600)** — Continue stays docked outside `PromptBodyScroller` (`InteractionHostView`); session Enter confirms DUT; typed fields bind `TwoWay` + `PropertyChanged`. Contracts live in `OperatorPromptChromeTests`; control-level bind/focus is in E2E (`RunFlowE2ETests`). Checklist: Continue visible without scrolling the prompt body; Enter confirms session; setting `DutSerialBox.Text` updates `SessionPanel.DutSerialInput`.
-- **Operator vs engineer nav** — default (engineer mode off) left nav is Home / Run / Results / Settings. Inspect and Instruments appear after saving Engineer / debug mode (presentation, not auth). Report Preview is contextual from Results (`ShellNavigationPolicyTests`, `MainWindowViewModelTests`). Compact Run board (overview sidebar hidden, stage ComboBox, wrapped toolbars) is `IsCompactLayout` below `ShellLayoutBreakpoints.CompactBoardWidth`.
-- **Guided commissioning** — Run blocks unbound / demo-only slots via `StationReadinessEvaluator` and deep-links to Instruments (`FocusProgram` + shell **Open Instruments**). Operators can remain on Instruments without a left-nav item. Program filter, Discover → Bind → *IDN? → Save stepper, and `station-idn.json` sidecar (not AppSettings) are covered by `StationReadinessEvaluatorTests`, `InstrumentsViewModelTests`, and `MainWindowViewModelTests`. Checklist: unbound Run does not start; Instruments opens on the blocking slot; *IDN? writes `station-idn.json`.
-- **QA failure triage** — `RunTriageSummary.FromRecord` uses `StepAttempts` chronology (legacy `Steps` fallback). Opening a failed run sets list `ResultFilter` to Failed and defaults the detail pane to failed steps, with first-fail + attempt rollup. Date/operator filters and yield counts are on the Results list (`ResultsViewModelTests`, `RunTriageSummaryTests`).
-- **Compare with previous** — Opening a run on Results compares channel means to the latest earlier run with the same DUT serial + plan (`RunComparisonService`, `EffectiveMetricKey`). Missing metrics are listed as unavailable. Schema-drift strip flags read-only future-schema runs on the list. Export packages include `diagnostics.txt` (support block + catalog self-check); Settings **Copy diagnostics** includes the same catalog check (`RunComparisonServiceTests`, `ResultsComparisonTests`, `ProgramCatalogTests`). Do not block Run on comparison failures.
-- **Station health gate (Phase 26)** — DUT sidecar `requireStationHealth` + `warn`|`block` evaluates `{DataDirectory}/station-health/{profileId}.json` with `IClock` (`StationHealthGateTests`, `RunBoardChildViewModelTests`). Missing/failed/old is stale. `HARDWARETEST_STATION_HEALTH_GATE=off` disables a sidecar block. Health programs are never gated. Do not skip the health step via `Enabled`.
+- **One panel's own behavior** → construct the child directly with fakes/no-op callbacks (`RunBoardChildViewModelTests`). No dispatcher and no parent needed.
+- **Cross-panel coordination** → build the whole `RunTestViewModel`, set `UiScheduler = action => action()`, and assert through child paths such as `vm.StepTree.SelectedStep`.
+- **AXAML bindings** use the same child paths (`{Binding StepDetail.DetailLines}`).
+- **Operator chrome / a11y** — type floor, compact Pause/Stop captions, live regions, and Settings headings live in `Phase21OperatorChromeTests`. Do not announce plot-sample floods; Engineer/debug tables may stay tighter than the Run operational floor.
+- **Operator prompt / session (900×600)** — Continue stays docked outside `PromptBodyScroller`; session Enter confirms DUT; typed fields bind `TwoWay` + `PropertyChanged`. Contracts: `OperatorPromptChromeTests`; bind/focus: E2E `RunFlowE2ETests`.
+- **Operator vs engineer nav** — default left nav is Home / Run / Results / Settings. Inspect and Instruments appear after saving Engineer / debug mode (presentation, not auth). Report Preview is contextual from Results. Compact Run board is `IsCompactLayout` below `ShellLayoutBreakpoints.CompactBoardWidth`.
+- **Guided commissioning** — Run blocks unbound / demo-only slots via `StationReadinessEvaluator` and deep-links to Instruments. *IDN? writes `station-idn.json` (not AppSettings).
+- **QA failure triage** — `RunTriageSummary.FromRecord` uses `StepAttempts` chronology (legacy `Steps` fallback). Opening a failed run sets `ResultFilter` to Failed and defaults the detail pane to failed steps.
+- **Compare with previous** — Opening a run compares channel means to the latest earlier same DUT + plan. Missing metrics are listed as unavailable. Do not block Run on comparison failures.
+- **Station health gate** — DUT sidecar `requireStationHealth` + `warn`|`block` evaluates `{DataDirectory}/station-health/{profileId}.json` with `IClock` (`StationHealthGateTests`). Missing/failed/old is stale. `HARDWARETEST_STATION_HEALTH_GATE=off` disables a sidecar block. Health programs are never gated. Do not skip the health step via `Enabled`.
 
 ### Plan behavior (OpenTAP host)
 
 1. Prefer a C# factory in `PlanShapeFixtures` / `SampleProgramFactory` / `BoardDemoProgramFactory` / `SweepDemoProgramFactory` (optionally `SaveBeside` under `plans/opentap/fixtures/`).
 2. Load with concrete `OpenTapSession.LoadPlanShapeAsync(...)` (not on `IOpenTapSession`) or the sample / board-demo / sweep-demo loaders. The in-process `OpenTapSession` is the **documented test-only host** for the serial `OpenTapSerial` suite — it does not pass a cancel token into `Execute` so Abort cannot poison `TapThread`.
 3. Assert `StepTree` shape, unique paths, Run Selected enable-mask behavior, or SafeShutdown presence.
-4. Keep in-process host tests that call `TestPlan.Execute` in the `OpenTapSerial` collection (`DisableParallelization`). Serial is required because TapThread / PluginManager are still process-global — not because of `StepRuntime` statics (those are gone).
+4. Keep in-process host tests that call `TestPlan.Execute` in the `OpenTapSerial` collection (`DisableParallelization`). Serial is required because TapThread / PluginManager are still process-global.
 5. **Abort isolation:** Host `Abort` cancels cooperatively via CTS + `WaitIfPaused` / interaction gates — it does **not** call `TapThread.Abort`. Prefer draining run tasks in `finally` after Abort in tests.
-6. **Worker kill:** `OpenTapWorkerKillTests` loads `HangForeverStep` through `OpenTapWorkerClient` (not `IOpenTapSession`). Abort then kill-timeout must run `ISafetyController.SafeIdle` and leave the client able to start a second run. ViewModels stay on `FakeOpenTapSession`. The UI process uses the worker via Composition.
-7. **Run context isolation:** `OpenTapRunContextTests` may run in parallel. Two `OpenTapRunContext` / `IStepRuntime` instances must not share pause or interaction. Do not require `TestPlan.Execute` for that proof. Pause/Resume mutate the live control gate; `BeginRun` must not re-apply a snapshot (worker Run is background while Pause/Resume stay on the IPC loop).
+6. **Worker kill:** `OpenTapWorkerKillTests` loads `HangForeverStep` through `OpenTapWorkerClient` (not `IOpenTapSession`). Abort then kill-timeout must run `ISafetyController.SafeIdle` and leave the client able to start a second run. ViewModels stay on `FakeOpenTapSession`.
+7. **Run context isolation:** `OpenTapRunContextTests` may run in parallel. Two `OpenTapRunContext` / `IStepRuntime` instances must not share pause or interaction. Pause/Resume mutate the live control gate; `BeginRun` must not re-apply a snapshot.
 
 Named templates live in `PlanDiagnosticsTests` (`PlanDiagnostics_*`).
 
-See also [adapting.md](adapting.md) for productizing plans, plugins, and reports.
 ### Record and adapt (progress/summary cassette)
 
 Not a full SCPI VCR. Capture what the board already consumes:
@@ -76,18 +80,11 @@ Not a full SCPI VCR. Capture what the board already consumes:
 
 To regenerate the checked-in `sample-pass` cassette, build host tests with `/p:DefineConstants=RECORD_OPENTAP_RUN` and run `Record_sample_pass_cassette` (see `#if RECORD_OPENTAP_RUN` in `OpenTapRunRecorderTests`).
 
-## Plan contract (Run board)
+## Plan contract
 
-Host `PlanContractValidator` encodes these checks for TUI/Editor authors (`HardwareTest --validate-plan`, `HardwareTest.PlanValidate`). Warnings do not block operator Run.
+Host `PlanContractValidator` encodes the authoring checks for TUI/Editor authors (`HardwareTest --validate-plan`, `HardwareTest.PlanValidate`). The check table lives in [adapting.md](adapting.md#plan-contract). Warnings do not block operator Run.
 
-- Prefer unique step paths (duplicate sibling names need path-qualified selection).
-- Max useful nest depth for chrome is three levels (Stages → Sections → Nested); deeper nodes still appear as leaves under path (validator warns, does not fail).
-- Include `SafeShutdownStep` when using Run Selected (selection keeps SafeShutdown enabled by default). Opt out with `selectionIncludesCleanup: false` in `{planId}.program.json` only when shutdown is suite-scoped and selection is software-only. Disabled siblings showing NotExecuted/Invalidated is expected — not “cleanup skipped.”
-- Instruments must be extractable for the Instruments page (or document limits for foreign plugins).
-- No OpenTAP `DialogStep` / OS dialogs; Presentation mixins should not be timeseries-only when the verdict is a band/threshold.
-- Sidecar `{planId}.program.json` present (warning if missing) and valid JSON (error if not). Copy `plans/opentap/template.program.json`. Unknown properties warn; `reportKinds` / `defaultReportKind` must be `status` or `certification`.
-
-Coverage lives in `PlanContractValidatorTests` (OpenTapSerial) including a strict gate over committed top-level `Programs/*.TapPlan` (fixtures excluded). `ConfigurationArgs` parse covers `--validate-plan` (including the bare flag). Named shape templates remain in `PlanDiagnosticsTests` (`PlanDiagnostics_*`).
+Coverage lives in `PlanContractValidatorTests` (OpenTapSerial), including a strict gate over committed top-level `Programs/*.TapPlan` (fixtures excluded). `ConfigurationArgs` parse covers `--validate-plan` (including the bare flag). Named shape templates remain in `PlanDiagnosticsTests`.
 
 ## Local commands
 

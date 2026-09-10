@@ -2,7 +2,7 @@
 
 Podman is the documented path (OCI-compatible; Docker works for build/run). Quadlets over compose. Deno tasks in [`tools/ci/`](../tools/ci/) are the single source of truth for CI steps — GitHub Actions and a laptop both call them.
 
-Related: [appliance-linux.md](appliance-linux.md), [testing.md](testing.md).
+Related: [appliance-linux.md](appliance-linux.md) (publish layout), [testing.md](testing.md) (which suite to run).
 
 ## Prerequisites
 
