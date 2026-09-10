@@ -276,7 +276,7 @@ public partial class MainWindowViewModel : ReactiveObject
         StartupStatus = string.Empty;
         if (SelectedItem?.Id == "Settings" && CurrentPage is SettingsViewModel settings)
         {
-            settings.EnsurePackagesLoaded();
+            OnSettingsShown(settings);
         }
     }
 
@@ -315,7 +315,7 @@ public partial class MainWindowViewModel : ReactiveObject
         }
         else if (item.Id == ShellNavigationPolicy.Settings && CurrentPage is SettingsViewModel settings)
         {
-            settings.EnsurePackagesLoaded();
+            OnSettingsShown(settings);
         }
     }
 
@@ -323,6 +323,12 @@ public partial class MainWindowViewModel : ReactiveObject
     {
         var item = _allPages.FirstOrDefault(i => i.Id == pageId);
         NavigateTo(item);
+    }
+
+    private static void OnSettingsShown(SettingsViewModel settings)
+    {
+        settings.EnsurePackagesLoaded();
+        settings.RefreshStationHealthSummary();
     }
 
     /// Rebuilds left nav for the saved engineer-mode presentation (not authentication).

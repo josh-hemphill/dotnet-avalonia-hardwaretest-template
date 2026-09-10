@@ -32,7 +32,8 @@ public partial class RunTestViewModel
         ISafetyController? safety,
         IClock clock,
         IOperatorCredentialBroker? credentialBroker,
-        IStationHealthStore? stationHealthStore)
+        IStationHealthStore? stationHealthStore,
+        IStationHealthGate? stationHealthGate)
     {
         StepDetail = new StepDetailViewModel(
             () => OpenSelectedDetail(revealDetail: true),
@@ -93,7 +94,8 @@ public partial class RunTestViewModel
             safety,
             clock,
             OnStationNotReady,
-            stationHealthStore);
+            stationHealthStore,
+            stationHealthGate);
         Workspace = new RunWorkspaceViewModel(
             () => SessionPanel.SessionBlocked,
             () => Interaction.IsAwaitingOperator,
@@ -115,5 +117,6 @@ public partial class RunTestViewModel
     {
         _session.SelectProgram(program.Id, program.Path, program.DisplayName, program.DutFamily);
         _session.ApplyProgramRequirements(program.Requirements);
+        RefreshStationHealthGate();
     }
 }

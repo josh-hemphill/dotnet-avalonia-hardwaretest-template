@@ -20,4 +20,18 @@ public partial class ProgramItemViewModel : ReactiveObject
     public bool SelectionIncludesCleanup { get; init; } = true;
     public string ProgramKind { get; init; } = ProgramKinds.Dut;
     public string StationHealthProfileId { get; init; } = FileStationHealthStore.DefaultProfileId;
+    public bool RequireStationHealth { get; init; }
+    public double? StationHealthMaxAgeHours { get; init; }
+    public string? StationHealthGate { get; init; }
+
+    /// Catalog sidecar fields the station-health gate evaluates.
+    public StationHealthGateRequest ToGateRequest()
+        => new()
+        {
+            ProgramKind = ProgramKind,
+            RequireStationHealth = RequireStationHealth,
+            MaxAgeHours = StationHealthMaxAgeHours,
+            Gate = StationHealthGate,
+            ProfileId = StationHealthProfileId,
+        };
 }

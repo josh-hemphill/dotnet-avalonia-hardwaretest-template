@@ -14,6 +14,7 @@ public partial class RunTestViewModel
             settingsStore.AppSettingsSaved += (_, _) =>
             {
                 IsEngineerDebugMode = settingsStore.AppSettings.IsEngineerDebugMode;
+                RefreshStationHealthGate();
             };
         }
     }
