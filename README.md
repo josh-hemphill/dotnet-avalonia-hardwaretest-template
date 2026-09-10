@@ -29,7 +29,25 @@ tests/
 templates/reports/                   # Typst templates (embedded)
 ```
 
-**Hard separation:** `HardwareTest.Core` is Avalonia-free and OpenTAP-free. OpenTAP Host and OpenTAP Worker are Avalonia-free. Features call services via explicit DI in `App/Composition.cs` and take focused `IOpenTap*` surfaces — not the aggregating `IOpenTapSession`. Plugins must not reference Avalonia/ScottPlot or call `Ivi.Visa`; Core owns `IVisaBroker`. Operator flow stays in-panel on `MainWindow` (no WinForms/WPF dialogs). Feature files stay under 600 lines. Pause/interaction is per `OpenTapRunContext`, not static on `StepRuntime`. Idle/retention/run-complete use `IClock`; Safety Stop must not wait on NTP. Do not call `TapThread.Abort` in the UI process.
+**Hard separation** (architecture tests cite these rules):
+
+- `HardwareTest.Core` is Avalonia-free and OpenTAP-free.
+- OpenTAP Host and OpenTAP Worker are Avalonia-free. Do not call `TapThread.Abort` in the UI process.
+- Features call services via explicit DI in `App/Composition.cs` and take focused `IOpenTap*` surfaces — not the aggregating `IOpenTapSession`.
+- Plugins must not reference Avalonia/ScottPlot or call `Ivi.Visa`; Core owns `IVisaBroker`.
+- Operator flow stays in-panel on `MainWindow` (no WinForms/WPF dialogs).
+- Feature files stay under 600 lines; split into a child ViewModel or a partial rather than raising the cap.
+- Pause/interaction is per `OpenTapRunContext`, not static on `StepRuntime`.
+- Idle/retention/run-complete use `IClock`; Safety Stop must not wait on NTP.
+
+## Docs
+
+| Guide | Use when |
+| --- | --- |
+| [docs/adapting.md](docs/adapting.md) | Replacing sample plans, plugins, station bindings, reports, or settings |
+| [docs/testing.md](docs/testing.md) | Adding or choosing a test suite |
+| [docs/containers.md](docs/containers.md) | Running the Deno CI matrix locally or in Podman |
+| [docs/appliance-linux.md](docs/appliance-linux.md) | Publishing a sealed Linux bench image |
 
 ## Prerequisites
 
@@ -58,11 +76,7 @@ dotnet test tests/HardwareTest.ViewModels.Tests -r win-x64
 dotnet test tests/HardwareTest.E2E.Tests -r win-x64
 ```
 
-See [docs/testing.md](docs/testing.md) for UI vs OpenTAP suite separation, plan-shape fixtures, and progress/summary recording.
-See [docs/containers.md](docs/containers.md) for Deno tasks, Podman CI image, and appliance stub rails.
-See [docs/adapting.md](docs/adapting.md) to replace sample plans, plugins, station bindings, and reports for your product.
-
-## Operator Session / DUT
+## Operator session / DUT
 
 - Confirm DUT serial once per session (sticky strip on Run shows last activity + idle countdown).
 - **Change DUT** clears and blocks Run until re-confirmed.
@@ -72,7 +86,7 @@ See [docs/adapting.md](docs/adapting.md) to replace sample plans, plugins, stati
 
 ## OpenTAP programs
 
-Author structure in **OpenTAP Editor** or the free **OpenTAP TUI**; ship locked `.TapPlan` files under `plans/opentap/` (copied to `Programs/` on build). Product plans use **InstrumentComponents.OpenTap** typed instruments/steps plus HardwareTest Mixins Presentation; validate with `HardwareTest.PlanValidate --strict` before bake. Cookbook: [docs/adapting.md](docs/adapting.md#1-author-a-locked-program-cookbook).
+Author structure in **OpenTAP Editor** or the free **OpenTAP TUI**; ship locked `.TapPlan` files under `plans/opentap/` (copied to `Programs/` on build). Product plans use **InstrumentComponents.OpenTap** typed instruments/steps plus HardwareTest Mixins Presentation; validate with `HardwareTest.PlanValidate --strict` before bake. Cookbook: [docs/adapting.md](docs/adapting.md#author-a-locked-program).
 
 ## Appliance publish
 
