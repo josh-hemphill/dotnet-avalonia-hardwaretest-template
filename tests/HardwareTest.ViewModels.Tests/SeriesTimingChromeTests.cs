@@ -234,9 +234,11 @@ public sealed class SeriesTimingChromeTests
         Assert.False(indexTile.UsesTimeAxis);
         Assert.Equal(0, indexTile.Xs[0]);
         Assert.Equal(1, indexTile.Xs[1]);
-        Assert.Equal(0.05, SeriesTimingChrome.StripDurationSec(
-            [new MeasurementEventMark("cfg", 50, "bit1", 2, "p")],
-            timeAxisEndSec: null),
+        Assert.Equal(
+            0.05,
+            SeriesTimingChrome.StripDurationSec(
+                [new MeasurementEventMark("cfg", 50, "bit1", 2, "p")],
+                timeAxisEndSec: null),
             6);
         Assert.Equal(
             0.010,
