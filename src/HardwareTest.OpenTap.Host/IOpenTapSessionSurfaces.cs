@@ -16,6 +16,7 @@ public interface IOpenTapPlanSession
     Task LoadSweepDemoProgramAsync(CancellationToken cancellationToken = default);
     Task LoadTimingDemoProgramAsync(CancellationToken cancellationToken = default);
     Task LoadEnvelopeSweepDemoProgramAsync(CancellationToken cancellationToken = default);
+    Task LoadStationHealthDemoProgramAsync(CancellationToken cancellationToken = default);
 
     bool TrySetStepEnabled(string stepPath, bool enabled);
     bool TryGetStepConditionSummary(string stepPath, out string? summary);

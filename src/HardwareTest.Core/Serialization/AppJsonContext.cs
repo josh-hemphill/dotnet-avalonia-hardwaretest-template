@@ -4,6 +4,7 @@ using HardwareTest.Core.Credentials;
 using HardwareTest.Core.Hardware;
 using HardwareTest.Core.Runs;
 using HardwareTest.Core.Settings;
+using HardwareTest.Core.StationHealth;
 using HardwareTest.Core.Time;
 
 namespace HardwareTest.Core.Serialization;
@@ -52,4 +53,7 @@ namespace HardwareTest.Core.Serialization;
 [JsonSerializable(typeof(StationIdnDocument))]
 [JsonSerializable(typeof(StationIdnRecord))]
 [JsonSerializable(typeof(List<StationIdnRecord>))]
+[JsonSerializable(typeof(StationHealthRecord))]
+[JsonSerializable(typeof(StationHealthMetric))]
+[JsonSerializable(typeof(List<StationHealthMetric>))]
 public partial class AppJsonContext : JsonSerializerContext;

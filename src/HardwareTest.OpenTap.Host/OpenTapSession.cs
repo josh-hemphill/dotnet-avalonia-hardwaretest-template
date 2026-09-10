@@ -114,6 +114,15 @@ public sealed partial class OpenTapSession : IOpenTapSession, INotifyPropertyCha
         return Task.CompletedTask;
     }
 
+    public Task LoadStationHealthDemoProgramAsync(CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        _catalog.EnsurePlugins();
+        var plan = StationHealthDemoProgramFactory.Create();
+        BindPlan(plan, StationHealthDemoProgramFactory.EmbeddedName, StationHealthDemoProgramFactory.DisplayName);
+        return Task.CompletedTask;
+    }
+
     public Task LoadPlanShapeAsync(string fixtureFileName, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();

@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using HardwareTest.Core.Runs;
+using HardwareTest.Core.StationHealth;
 
 namespace HardwareTest.OpenTap.Host;
 
@@ -11,6 +12,7 @@ public enum ProgramLoadKind
     FactorySweepDemo,
     FactoryTimingDemo,
     FactoryEnvelopeSweepDemo,
+    FactoryStationHealthDemo,
     TapPlanFile,
 }
 
@@ -30,6 +32,11 @@ public sealed class ProgramCatalogEntry
     public string DefaultReportKind { get; init; } = HardwareTest.Core.Runs.ReportKinds.Status;
     /// When true (default), Run Selected keeps SafeShutdown enabled. Set false only for software-only selection scopes.
     public bool SelectionIncludesCleanup { get; init; } = true;
+    public string ProgramKind { get; init; } = ProgramKinds.Dut;
+    public string StationHealthProfileId { get; init; } = FileStationHealthStore.DefaultProfileId;
+    public bool RequireStationHealth { get; init; }
+    public double? StationHealthMaxAgeHours { get; init; }
+    public string? StationHealthGate { get; init; }
 }
 
 /// Optional sidecar beside a .TapPlan: `{planId}.program.json`.
@@ -45,6 +52,11 @@ public sealed class ProgramSidecar
     public string? DefaultReportKind { get; set; }
     /// When false, Run Selected excludes SafeShutdownStep (suite-scoped cleanup only). Default true.
     public bool? SelectionIncludesCleanup { get; set; }
+    public string? ProgramKind { get; set; }
+    public bool? RequireStationHealth { get; set; }
+    public double? StationHealthMaxAgeHours { get; set; }
+    public string? StationHealthGate { get; set; }
+    public string? StationHealthProfileId { get; set; }
 }
 
 [JsonSourceGenerationOptions(
@@ -187,7 +199,8 @@ public static class ProgramCatalog
             "sweep-demo" => 2,
             "timing-demo" => 3,
             "envelope-sweep-demo" => 4,
-            _ => entry.IsBuiltIn ? 5 : 6,
+            "station-health" => 5,
+            _ => entry.IsBuiltIn ? 6 : 7,
         };
 
     public static IEnumerable<string> EnumerateDirectories(IEnumerable<string>? extraDirectories = null)
@@ -271,6 +284,19 @@ public static class ProgramCatalog
             IsBuiltIn = true,
             ReportKinds = [HardwareTest.Core.Runs.ReportKinds.Status],
         };
+        yield return new ProgramCatalogEntry
+        {
+            Id = StationHealthDemoProgramFactory.CatalogId,
+            DisplayName = StationHealthDemoProgramFactory.DisplayName,
+            Path = StationHealthDemoProgramFactory.EmbeddedName,
+            DutFamily = "demo",
+            Requirements = new ProgramRequirements { RequireSerial = false, RequireOperator = false },
+            LoadKind = ProgramLoadKind.FactoryStationHealthDemo,
+            IsBuiltIn = true,
+            ReportKinds = [HardwareTest.Core.Runs.ReportKinds.Status],
+            ProgramKind = ProgramKinds.StationHealth,
+            StationHealthProfileId = FileStationHealthStore.DefaultProfileId,
+        };
     }
 
     private static ProgramCatalogEntry FromTapPlanFile(string file, string id)
@@ -296,6 +322,13 @@ public static class ProgramCatalog
             ReportKinds = kinds,
             DefaultReportKind = defaultKind,
             SelectionIncludesCleanup = sidecar?.SelectionIncludesCleanup ?? true,
+            ProgramKind = ResolveProgramKind(sidecar),
+            StationHealthProfileId = string.IsNullOrWhiteSpace(sidecar?.StationHealthProfileId)
+                ? FileStationHealthStore.DefaultProfileId
+                : sidecar!.StationHealthProfileId!.Trim(),
+            RequireStationHealth = sidecar?.RequireStationHealth ?? false,
+            StationHealthMaxAgeHours = sidecar?.StationHealthMaxAgeHours,
+            StationHealthGate = sidecar?.StationHealthGate,
         };
     }
 
@@ -307,14 +340,25 @@ public static class ProgramCatalog
             return baseline;
         }
 
+        var requireSerial = sidecar.RequireSerial ?? baseline.RequireSerial;
+        if (sidecar.RequireSerial is null && ProgramKinds.IsStationHealth(sidecar.ProgramKind))
+        {
+            requireSerial = false;
+        }
+
         return new ProgramRequirements
         {
-            RequireSerial = sidecar.RequireSerial ?? baseline.RequireSerial,
+            RequireSerial = requireSerial,
             RequirePartNumber = sidecar.RequirePartNumber ?? baseline.RequirePartNumber,
             RequireRevision = sidecar.RequireRevision ?? baseline.RequireRevision,
             RequireOperator = sidecar.RequireOperator ?? baseline.RequireOperator,
         };
     }
+
+    private static string ResolveProgramKind(ProgramSidecar? sidecar)
+        => string.IsNullOrWhiteSpace(sidecar?.ProgramKind)
+            ? ProgramKinds.Dut
+            : sidecar!.ProgramKind!.Trim();
 
     private static ProgramSidecar? TryLoadSidecar(string tapPlanPath, string id)
     {

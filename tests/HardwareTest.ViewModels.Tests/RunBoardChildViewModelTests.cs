@@ -2,6 +2,7 @@ using HardwareTest.Core.Credentials;
 using HardwareTest.Core.Diagnostics;
 using HardwareTest.Core.Runs;
 using HardwareTest.Core.Settings;
+using HardwareTest.Core.StationHealth;
 using HardwareTest.Features.RunTest;
 using HardwareTest.OpenTap.Host;
 using HardwareTest.OpenTap.Plugins.Basic;
@@ -494,15 +495,141 @@ public sealed class RunBoardChildViewModelTests
         Assert.Equal("SN-CHILD-RUN", saved!.DutSerial);
     }
 
+    [Fact]
+    public void SessionPanel_health_program_allows_confirm_without_serial()
+    {
+        var session = new OperatorSession();
+        var panel = new OperatorSessionPanelViewModel(
+            session,
+            new AppSettings(),
+            _ => { },
+            () => HealthProgram());
+
+        panel.RefreshRequirementFlags();
+        Assert.False(panel.RequireSerial);
+        Assert.Equal("DUT serial", panel.DutSerialPlaceholder);
+        panel.DutSerialInput = string.Empty;
+        panel.ConfirmSessionCommand.Execute().Subscribe();
+
+        Assert.True(session.CanRun);
+        Assert.False(panel.SessionBlocked);
+        Assert.Equal(string.Empty, session.DutSerial);
+    }
+
+    [Fact]
+    public async Task RunExecution_persists_station_health_after_empty_serial_confirm()
+    {
+        var openTap = new FakeOpenTapSession { SummarySamples = HealthCalSamples() };
+        var healthStore = new FakeStationHealthStore();
+        var session = new OperatorSession();
+        session.ApplyProgramRequirements(HealthRequirements);
+        session.ConfirmDut(string.Empty);
+        Assert.True(session.CanRun);
+
+        var host = new StubRunBoardHost();
+        var run = BuildRunExecution(
+            openTap,
+            host,
+            session,
+            program: HealthProgram(),
+            stationHealthStore: healthStore);
+
+        await run.RunCommand.ExecuteAsync();
+
+        Assert.Equal(1, openTap.RunCount);
+        var record = Assert.Single(healthStore.Written);
+        Assert.Equal("station-health", record.ProgramId);
+        Assert.Equal(StationHealthVerdicts.Pass, record.Verdict);
+        Assert.Contains(record.Metrics, m => m.Name == StationHealthRecorder.OffsetMetric);
+        Assert.Contains(record.Metrics, m => m.Name == StationHealthRecorder.AgeMetric);
+    }
+
+    [Fact]
+    public async Task RunExecution_skips_station_health_persist_without_cal_scalars()
+    {
+        var openTap = new FakeOpenTapSession
+        {
+            SummarySamples =
+            [
+                new StoredSample
+                {
+                    Channel = "VDC",
+                    MetricKey = "VDC",
+                    Value = 1.25,
+                    Timestamp = DateTimeOffset.UnixEpoch,
+                },
+            ],
+        };
+        var healthStore = new FakeStationHealthStore();
+        var session = new OperatorSession();
+        session.ApplyProgramRequirements(HealthRequirements);
+        session.ConfirmDut(string.Empty);
+
+        var host = new StubRunBoardHost();
+        var run = BuildRunExecution(
+            openTap,
+            host,
+            session,
+            program: HealthProgram(),
+            stationHealthStore: healthStore);
+
+        await run.RunCommand.ExecuteAsync();
+
+        Assert.Equal(1, openTap.RunCount);
+        Assert.Empty(healthStore.Written);
+    }
+
+    private static ProgramRequirements HealthRequirements { get; } = new()
+    {
+        RequireSerial = false,
+        RequireOperator = false,
+    };
+
+    private static ProgramItemViewModel HealthProgram() => new()
+    {
+        Id = "station-health",
+        DisplayName = StationHealthDemoProgramFactory.DisplayName,
+        Path = StationHealthDemoProgramFactory.EmbeddedName,
+        DutFamily = "demo",
+        LoadKind = ProgramLoadKind.FactoryStationHealthDemo,
+        Requirements = HealthRequirements,
+        ProgramKind = ProgramKinds.StationHealth,
+    };
+
+    private static List<StoredSample> HealthCalSamples() =>
+    [
+        new()
+        {
+            MetricKey = StationHealthRecorder.OffsetMetric,
+            Value = 0.002,
+            Unit = "V",
+            LimitLow = -0.01,
+            LimitHigh = 0.01,
+            ResultSource = SampleResultSources.Measured,
+            Timestamp = DateTimeOffset.UnixEpoch,
+        },
+        new()
+        {
+            MetricKey = StationHealthRecorder.AgeMetric,
+            Value = 1.5,
+            Unit = "h",
+            LimitHigh = 24,
+            ResultSource = SampleResultSources.Measured,
+            Timestamp = DateTimeOffset.UnixEpoch,
+        },
+    ];
+
     private static RunExecutionViewModel BuildRunExecution(
         FakeOpenTapSession openTap,
         IRunBoardHost host,
         OperatorSession session,
-        FakeRunStore? store = null)
+        FakeRunStore? store = null,
+        ProgramItemViewModel? program = null,
+        IStationHealthStore? stationHealthStore = null)
     {
         var settings = new AppSettings();
         var programs = new ProgramSelectionViewModel(_ => { });
-        programs.Programs.Add(new ProgramItemViewModel
+        programs.Programs.Add(program ?? new ProgramItemViewModel
         {
             Id = "sample",
             DisplayName = "Sample Hardware Suite",
@@ -531,7 +658,8 @@ public sealed class RunBoardChildViewModelTests
             new StepTreeViewModel(() => openTap.StepTree),
             new StepDetailViewModel(),
             new InteractionHostViewModel(),
-            new LivePresentationViewModel());
+            new LivePresentationViewModel(),
+            stationHealthStore: stationHealthStore);
     }
 
     private sealed class NoopProgress : IProgress<OpenTapProgress>

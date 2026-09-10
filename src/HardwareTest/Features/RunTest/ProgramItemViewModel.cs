@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using HardwareTest.Core.StationHealth;
 using HardwareTest.OpenTap.Host;
 using ReactiveUI;
 
@@ -17,4 +18,6 @@ public partial class ProgramItemViewModel : ReactiveObject
     public IReadOnlyList<string> ReportKinds { get; init; } = [HardwareTest.Core.Runs.ReportKinds.Status];
     /// When true (default), Run Selected keeps SafeShutdown enabled.
     public bool SelectionIncludesCleanup { get; init; } = true;
+    public string ProgramKind { get; init; } = ProgramKinds.Dut;
+    public string StationHealthProfileId { get; init; } = FileStationHealthStore.DefaultProfileId;
 }

@@ -28,6 +28,37 @@ public sealed class OperatorSessionTests
     }
 
     [Fact]
+    public void TryConfirm_allows_empty_serial_when_not_required()
+    {
+        var session = new OperatorSession();
+        var health = new ProgramRequirements { RequireSerial = false, RequireOperator = false };
+        Assert.True(session.TryConfirm(health, "  ", null, null, null, "demo", out var error));
+        Assert.Equal(string.Empty, error);
+        Assert.Equal(string.Empty, session.DutSerial);
+        Assert.True(session.CanRun);
+
+        session.ApplyProgramRequirements(ProgramRequirements.Sample);
+        Assert.False(session.CanRun);
+    }
+
+    [Fact]
+    public void ConfirmDut_allows_empty_serial_when_not_required()
+    {
+        var session = new OperatorSession();
+        session.ConfirmDut("");
+        Assert.Equal(string.Empty, session.DutSerial);
+        Assert.False(session.CanRun);
+
+        session.ApplyProgramRequirements(new ProgramRequirements { RequireSerial = false });
+        Assert.True(session.CanRun);
+
+        session.MarkStale();
+        session.ConfirmSameDut();
+        Assert.True(session.CanRun);
+        Assert.Equal(OperatorSessionState.Active, session.State);
+    }
+
+    [Fact]
     public void ApplyOperatorCredential_fills_name_and_clears_on_change_session()
     {
         var session = new OperatorSession();

@@ -100,6 +100,8 @@ public partial class OperatorSessionPanelViewModel : ReactiveObject
     [Reactive] private string _dutPartInput = string.Empty;
     [Reactive] private string _dutRevisionInput = string.Empty;
     [Reactive] private string _operatorInput = string.Empty;
+    [Reactive] private bool _requireSerial = true;
+    [Reactive] private string _dutSerialPlaceholder = "DUT serial *";
     [Reactive] private bool _requirePartNumber;
     [Reactive] private bool _requireRevision;
     [Reactive] private bool _requireOperator = true;
@@ -156,6 +158,9 @@ public partial class OperatorSessionPanelViewModel : ReactiveObject
     public void RefreshRequirementFlags()
     {
         var req = _getSelectedProgram()?.Requirements ?? ProgramRequirements.Sample;
+        _session.ApplyProgramRequirements(req);
+        RequireSerial = req.RequireSerial;
+        DutSerialPlaceholder = RequireSerial ? "DUT serial *" : "DUT serial";
         RequirePartNumber = req.RequirePartNumber;
         RequireRevision = req.RequireRevision;
         RequireOperator = req.RequireOperator;

@@ -4,6 +4,7 @@ using HardwareTest.Core.Hardware;
 using HardwareTest.Core.Reporting;
 using HardwareTest.Core.Runs;
 using HardwareTest.Core.Settings;
+using HardwareTest.Core.StationHealth;
 using HardwareTest.Tests.Fixtures;
 using Microsoft.Extensions.DependencyInjection;
 using Serilog;
@@ -39,6 +40,7 @@ public sealed class CoreCompositionTests
         Assert.NotNull(sp.GetRequiredService<IDutHistoryService>());
         Assert.NotNull(sp.GetRequiredService<IStationIdnStore>());
         Assert.IsType<FileStationIdnStore>(sp.GetRequiredService<IStationIdnStore>());
+        Assert.IsType<FileStationHealthStore>(sp.GetRequiredService<IStationHealthStore>());
         Assert.NotNull(sp.GetRequiredService<ISafetyController>());
         Assert.IsType<NoOpSafetyController>(sp.GetRequiredService<ISafetyController>());
         Assert.False(sp.GetRequiredService<ISafetyController>().IsArmed);
