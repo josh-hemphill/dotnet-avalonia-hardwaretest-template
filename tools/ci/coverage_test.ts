@@ -173,6 +173,20 @@ Deno.test("test:host does not attach a Coverlet collector", async () => {
   assertEquals(hostFn[0].includes("Coverlet"), false);
 });
 
+Deno.test("formatCheck verifies the solution and all() runs it after build", async () => {
+  const src = await Deno.readTextFile(new URL("./main.ts", import.meta.url));
+  const formatFn = src.match(/async function formatCheck[\s\S]*?\n\}/);
+  assert(formatFn, "formatCheck function must exist");
+  assert(formatFn[0].includes("HardwareTest.slnx"));
+  assert(formatFn[0].includes("--verify-no-changes"));
+  assert(formatFn[0].includes("--no-restore"));
+  const allFn = src.match(/async function all[\s\S]*?\n\}/);
+  assert(allFn, "all function must exist");
+  const buildAt = allFn[0].indexOf("await build(");
+  const formatAt = allFn[0].indexOf("await formatCheck(");
+  assert(buildAt >= 0 && formatAt > buildAt, "all() must format after build");
+});
+
 Deno.test("coverage fails when Hardware floor is missed", () => {
   const xml = `<?xml version="1.0"?>
 <coverage>
@@ -219,6 +233,7 @@ Deno.test("TASKS catalog is sorted and complete", () => {
     "audit",
     "build",
     "coverage",
+    "format",
     "list",
     "publish",
     "test:arch",
@@ -239,6 +254,7 @@ Deno.test("ci.yml references every required Deno task", async () => {
   const required = [
     "audit",
     "build",
+    "format",
     "test:host",
     "test:vm",
     "test:e2e",
@@ -274,4 +290,113 @@ Deno.test("ci.yml pins GitHub Actions by commit SHA", async () => {
   assert(yaml.includes("permissions:"));
   assert(yaml.includes("timeout-minutes:"));
   assert(yaml.includes("concurrency:"));
+});
+
+function jobBlock(yaml: string, job: string): string {
+  const start = yaml.search(new RegExp(`^  ${job}:`, "m"));
+  assert(start >= 0, `ci.yml must define job ${job}`);
+  const rest = yaml.slice(start);
+  const next = rest.slice(1).search(/^  [a-zA-Z]/m);
+  return next === -1 ? rest : rest.slice(0, next + 1);
+}
+
+Deno.test("ci.yml catalog heredocs match TASKS on both platforms", async () => {
+  const root = path.resolve(
+    path.dirname(path.fromFileUrl(import.meta.url)),
+    "../..",
+  );
+  const yaml = await Deno.readTextFile(path.join(root, ".github/workflows/ci.yml"));
+  const expected = TASKS.join("\\n");
+  const heredocs = [...yaml.matchAll(/expected=\$'([^']+)'/g)].map((m) => m[1]!);
+  assertEquals(heredocs.length, 2, "windows and linux catalog asserts");
+  for (const heredoc of heredocs) {
+    assertEquals(heredoc, expected);
+  }
+});
+
+Deno.test("ci.yml invokes required tasks with the matching platform RID", async () => {
+  const root = path.resolve(
+    path.dirname(path.fromFileUrl(import.meta.url)),
+    "../..",
+  );
+  const yaml = await Deno.readTextFile(path.join(root, ".github/workflows/ci.yml"));
+  const windows = jobBlock(yaml, "test");
+  const linux = jobBlock(yaml, "test-linux");
+  for (const task of ["build", "test:arch", "test:host", "test:vm", "test:e2e", "coverage"]) {
+    assert(
+      windows.includes(`main.ts ${task} --rid win-x64`),
+      `windows test must call ${task} with win-x64`,
+    );
+    assert(
+      linux.includes(`main.ts ${task} --rid linux-x64`),
+      `linux test must call ${task} with linux-x64`,
+    );
+  }
+  assert(windows.includes("main.ts format"));
+  assert(linux.includes("main.ts format"));
+  assert(jobBlock(yaml, "publish-win").includes("main.ts publish --rid win-x64"));
+  assert(linux.includes("main.ts publish --rid linux-x64"));
+});
+
+function stepBlock(job: string, name: string): string {
+  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const start = job.search(new RegExp(`- name: "?${escaped}"?`));
+  assert(start >= 0, `job must contain step ${name}`);
+  const rest = job.slice(start);
+  const next = rest.slice(1).search(/^\s+- (name:|uses:)/m);
+  return next === -1 ? rest : rest.slice(0, next + 1);
+}
+
+Deno.test("linux E2E is advisory; windows E2E stays blocking", async () => {
+  const root = path.resolve(
+    path.dirname(path.fromFileUrl(import.meta.url)),
+    "../..",
+  );
+  const yaml = await Deno.readTextFile(path.join(root, ".github/workflows/ci.yml"));
+  const windows = jobBlock(yaml, "test");
+  const linux = jobBlock(yaml, "test-linux");
+  const linuxE2e = stepBlock(linux, "E2E smoke (advisory on Linux)");
+  assert(linuxE2e.includes("continue-on-error: true"));
+  assert(linuxE2e.includes("main.ts test:e2e --rid linux-x64"));
+  const windowsE2e = stepBlock(windows, "E2E smoke (sample + Inspect shell wiring)");
+  assertEquals(windowsE2e.includes("continue-on-error"), false);
+  assertEquals(windows.includes("advisory"), false);
+});
+
+Deno.test("artifact uploads fail when publish output is missing", async () => {
+  const root = path.resolve(
+    path.dirname(path.fromFileUrl(import.meta.url)),
+    "../..",
+  );
+  const yaml = await Deno.readTextFile(path.join(root, ".github/workflows/ci.yml"));
+  const winUpload = stepBlock(jobBlock(yaml, "publish-win"), "Upload win-x64 publish");
+  const linuxUpload = stepBlock(jobBlock(yaml, "test-linux"), "Upload linux-x64 publish");
+  assert(winUpload.includes("if-no-files-found: error"));
+  assert(linuxUpload.includes("if-no-files-found: error"));
+});
+
+Deno.test("setup-dotnet pins the global.json SDK", async () => {
+  const root = path.resolve(
+    path.dirname(path.fromFileUrl(import.meta.url)),
+    "../..",
+  );
+  const yaml = await Deno.readTextFile(path.join(root, ".github/workflows/ci.yml"));
+  const globalJson = JSON.parse(
+    await Deno.readTextFile(path.join(root, "global.json")),
+  ) as { sdk: { version: string } };
+  const pins = [...yaml.matchAll(/dotnet-version:\s*"([^"]+)"/g)].map((m) => m[1]!);
+  assert(pins.length >= 3);
+  for (const pin of pins) {
+    assertEquals(pin, globalJson.sdk.version);
+  }
+});
+
+Deno.test("both platform jobs run Deno catalog unit tests", async () => {
+  const root = path.resolve(
+    path.dirname(path.fromFileUrl(import.meta.url)),
+    "../..",
+  );
+  const yaml = await Deno.readTextFile(path.join(root, ".github/workflows/ci.yml"));
+  assert(jobBlock(yaml, "test").includes("deno task --cwd tools/ci test"));
+  assert(jobBlock(yaml, "test-linux").includes("deno task --cwd tools/ci test"));
 });
