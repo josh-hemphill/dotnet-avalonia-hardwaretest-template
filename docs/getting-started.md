@@ -73,7 +73,7 @@ Never add OpenTAP **Dialog** steps. The validator rejects them.
 
 ### Measure waveform — Acquire Voltage (or library measure)
 
-**Add step → HardwareTest / Measure → Acquire Voltage** (demos) or a library measure step (`DmmMeasureVoltageAcStep`, `ScopeCaptureTraceStep`, …).
+**Add step → HardwareTest / Measure → Acquire Voltage** (demos) or a library measure step (TUI lists Display names such as *DMM Measure Voltage AC* or *Scope Capture Trace*).
 
 1. Assign the instrument. Set channel / sample count / interval as needed.
 2. Attach Presentation with `DisplayRole` = `timeseries` and a unique `ChannelKey` (for example `VDC`) only when operators need the shape.
@@ -134,24 +134,7 @@ Optional: **Annotation** mixin for a bench note (Engineer station override). The
 
 ## 6. Add the program sidecar
 
-Copy [`plans/opentap/template.program.json`](../plans/opentap/template.program.json) to `{planId}.program.json` next to the TapPlan:
-
-```json
-{
-  "$schema": "./program.schema.json",
-  "displayName": "Power Board Suite",
-  "dutFamily": "power",
-  "requireSerial": true,
-  "requireOperator": true,
-  "requirePartNumber": false,
-  "requireRevision": false,
-  "reportKinds": ["status", "certification"],
-  "defaultReportKind": "status",
-  "selectionIncludesCleanup": true
-}
-```
-
-Sidecar is session/DUT/Typst only. Instrument requirements belong in TapPackage Dependencies.
+Copy [`plans/opentap/template.program.json`](../plans/opentap/template.program.json) to `{planId}.program.json` next to the TapPlan. Edit `displayName`, DUT flags, and `reportKinds` there. Sidecar is session/DUT/Typst only — instrument requirements belong in TapPackage Dependencies. Field reference: [adapting.md](adapting.md#author-a-locked-program).
 
 ## 7. Validate, then run in the shell
 
