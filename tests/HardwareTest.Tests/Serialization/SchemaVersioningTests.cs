@@ -135,6 +135,14 @@ public sealed class SchemaVersioningTests
 
         var reached = SchemaUpgradeRegistry.Apply(SchemaDocumentTypes.TestRunRecord, fromVersion: 1, targetVersion: 2);
         Assert.Equal(2, reached);
+        Assert.Contains(
+            SchemaUpgradeRegistry.RegisteredSteps,
+            s => s.DocumentType == SchemaDocumentTypes.TestRunRecord
+                 && s.FromVersion == 2
+                 && s.ToVersion == 3
+                 && s.Transform is null);
+        Assert.Equal(3, SchemaUpgradeRegistry.Apply(SchemaDocumentTypes.TestRunRecord, fromVersion: 2, targetVersion: 3));
+        Assert.Equal(3, SchemaUpgradeRegistry.Apply(SchemaDocumentTypes.TestRunRecord, fromVersion: 1, targetVersion: 3));
     }
 
     [Fact]

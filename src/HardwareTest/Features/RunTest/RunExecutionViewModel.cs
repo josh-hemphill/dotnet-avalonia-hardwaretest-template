@@ -364,6 +364,7 @@ public sealed class RunExecutionViewModel
             Result = summary.Result,
             ErrorMessage = summary.ErrorMessage,
             Samples = summary.Samples,
+            Events = summary.Events,
             Steps = BuildRolledUpSteps(),
             StepAttempts = _attemptLedger.Values.OrderBy(a => a.StepPath).ToList(),
             AppVersion = _buildInfo.InformationalVersion,

@@ -31,6 +31,7 @@ public sealed class OpenTapProgress
     public OperatorInteractionRequest? InteractionRequest { get; init; }
     public RunResult? Result { get; init; }
     public MeasurementSampleEvent? Sample { get; init; }
+    public MeasurementEventMark? Event { get; init; }
     /// 1-based iteration index for innermost active Repeat/Sweep loop.
     public int? IterationIndex { get; init; }
     public int? IterationTotal { get; init; }
@@ -47,7 +48,8 @@ public sealed record MeasurementSampleEvent(
     string? DisplayRole = null,
     string? Unit = null,
     double? LimitLow = null,
-    double? LimitHigh = null)
+    double? LimitHigh = null,
+    double? ElapsedMs = null)
 {
     /// Builds a live event from a normalized stored sample.
     public static MeasurementSampleEvent FromStored(StoredSample sample, int index = 0) => new(
@@ -59,12 +61,21 @@ public sealed record MeasurementSampleEvent(
         sample.DisplayRole,
         sample.Unit,
         sample.LimitLow,
-        sample.LimitHigh);
+        sample.LimitHigh,
+        sample.ElapsedMs);
 
     /// Metric grouping key for tiles/charts.
     public string EffectiveMetricKey
         => string.IsNullOrWhiteSpace(MetricKey) ? Channel : MetricKey!;
 }
+
+/// Live mark for a published Event row (bit / config change).
+public sealed record MeasurementEventMark(
+    string Name,
+    double ElapsedMs,
+    string? Label,
+    double? Value,
+    string? StepPath);
 
 public sealed class OpenTapRunSummary
 {
@@ -80,6 +91,7 @@ public sealed class OpenTapRunSummary
     public DateTimeOffset StartedAt { get; init; }
     public DateTimeOffset CompletedAt { get; init; }
     public List<StoredSample> Samples { get; init; } = [];
+    public List<StoredEvent> Events { get; init; } = [];
     public List<StepResultRecord> Steps { get; init; } = [];
     public string Verdict { get; init; } = "NotSet";
 }

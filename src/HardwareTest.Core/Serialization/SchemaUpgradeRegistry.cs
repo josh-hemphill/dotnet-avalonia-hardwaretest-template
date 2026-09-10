@@ -26,6 +26,14 @@ public static class SchemaUpgradeRegistry
             ToVersion = 2,
             Transform = null,
         },
+        // Identity 2→3: optional Events, Sample.ElapsedMs, Sample.ResultSource.
+        new()
+        {
+            DocumentType = SchemaDocumentTypes.TestRunRecord,
+            FromVersion = 2,
+            ToVersion = 3,
+            Transform = null,
+        },
     ];
 
     public static IReadOnlyList<SchemaUpgradeStep> RegisteredSteps

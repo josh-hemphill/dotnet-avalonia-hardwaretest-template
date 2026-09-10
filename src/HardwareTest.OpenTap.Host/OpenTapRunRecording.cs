@@ -54,6 +54,7 @@ public sealed class OpenTapProgressFrameDto
                 Unit = p.Sample.Unit,
                 LimitLow = p.Sample.LimitLow,
                 LimitHigh = p.Sample.LimitHigh,
+                ElapsedMs = p.Sample.ElapsedMs,
             },
         IterationIndex = p.IterationIndex,
         IterationTotal = p.IterationTotal,
@@ -97,6 +98,7 @@ public sealed class OpenTapRunSummaryDto
     public DateTimeOffset StartedAt { get; set; }
     public DateTimeOffset CompletedAt { get; set; }
     public List<StoredSample> Samples { get; set; } = [];
+    public List<StoredEvent> Events { get; set; } = [];
     public List<StepResultRecord> Steps { get; set; } = [];
     public string Verdict { get; set; } = "NotSet";
 
@@ -114,6 +116,7 @@ public sealed class OpenTapRunSummaryDto
         StartedAt = s.StartedAt,
         CompletedAt = s.CompletedAt,
         Samples = s.Samples.ToList(),
+        Events = s.Events.ToList(),
         Steps = s.Steps.ToList(),
         Verdict = s.Verdict,
     };
@@ -132,6 +135,7 @@ public sealed class OpenTapRunSummaryDto
         StartedAt = StartedAt,
         CompletedAt = CompletedAt,
         Samples = Samples.ToList(),
+        Events = Events.ToList(),
         Steps = Steps.ToList(),
         Verdict = Verdict,
     };
@@ -147,6 +151,8 @@ public sealed class OpenTapRunSummaryDto
 [JsonSerializable(typeof(OpenTapRunSummaryDto))]
 [JsonSerializable(typeof(StoredSample))]
 [JsonSerializable(typeof(List<StoredSample>))]
+[JsonSerializable(typeof(StoredEvent))]
+[JsonSerializable(typeof(List<StoredEvent>))]
 [JsonSerializable(typeof(StepResultRecord))]
 [JsonSerializable(typeof(List<StepResultRecord>))]
 public partial class OpenTapRecordingJsonContext : JsonSerializerContext;

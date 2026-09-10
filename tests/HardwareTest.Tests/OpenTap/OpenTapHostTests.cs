@@ -1008,6 +1008,114 @@ public sealed class OpenTapSessionTests
         return summary;
     }
 
+    [Fact]
+    public async Task Timed_sample_publishes_limits_elapsed_and_event()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "ht-timed-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        try
+        {
+            OpenTapPluginSearch.SearchSerialized();
+            var instrument = new MockDmmInstrument { Name = "DMM", ResourceName = "MOCK::INSTR0" };
+            var step = new PublishTimedSampleStep
+            {
+                Name = "Timed rail",
+                Channel = "rail.x",
+                Value = 3.3,
+                LimitLow = 3.2,
+                LimitHigh = 3.4,
+                ElapsedMs = 12.5,
+                EventName = "cfg",
+                EventLabel = "bit0",
+                EventValue = 1,
+            };
+            OpenTapMixinAttach.AttachPresentation(step, "rail.x", PresentationDisplayRoles.Timeseries, "V");
+            var plan = new TestPlan();
+            plan.ChildTestSteps.Add(step);
+            plan.ChildTestSteps.Add(new SafeShutdownStep { Name = "Safe Shutdown", Instrument = instrument });
+            var path = Path.Combine(dir, "timed.TapPlan");
+            plan.Save(path);
+
+            var session = new OpenTapSession();
+            await session.LoadPlanAsync(path);
+            await session.ApplyStationAndDutAsync(
+                new StationProfile(new Dictionary<string, string> { ["dmm"] = "MOCK::INSTR0" }),
+                new DutIdentity("DUT-TIMED", Family: "demo"));
+
+            var summary = await session.RunAsync();
+            Assert.Equal(RunResult.Passed, summary.Result);
+            var sample = Assert.Single(summary.Samples, s =>
+                string.Equals(s.MetricKey, "rail.x", StringComparison.OrdinalIgnoreCase));
+            Assert.Equal(3.3, sample.Value, 6);
+            Assert.Equal(3.2, sample.LimitLow);
+            Assert.Equal(3.4, sample.LimitHigh);
+            Assert.Equal(12.5, sample.ElapsedMs);
+            Assert.Equal(PresentationDisplayRoles.Timeseries, sample.DisplayRole);
+            var mark = Assert.Single(summary.Events);
+            Assert.Equal("cfg", mark.Name);
+            Assert.Equal("bit0", mark.Label);
+            Assert.Equal(12.5, mark.ElapsedMs);
+            Assert.Equal(1, mark.Value);
+        }
+        finally
+        {
+            try
+            {
+                Directory.Delete(dir, recursive: true);
+            }
+            catch
+            {
+                // temp cleanup
+            }
+        }
+    }
+
+    [Fact]
+    public async Task Three_column_sample_still_publishes_without_elapsed()
+    {
+        var session = new OpenTapSession();
+        await session.LoadSampleProgramAsync();
+        await session.ApplyStationAndDutAsync(
+            new StationProfile(new Dictionary<string, string> { ["dmm"] = "MOCK::INSTR0" }),
+            new DutIdentity("DUT-LEGACY-SAMPLE", Family: "demo"));
+
+        OpenTapRunSummary? summary = null;
+        using var resume = new CancellationTokenSource();
+        var runTask = session.RunAsync();
+        _ = Task.Run(async () =>
+        {
+            while (!resume.IsCancellationRequested && !runTask.IsCompleted)
+            {
+                if (session.IsAwaitingOperator)
+                {
+                    var pending = session.PendingInteraction;
+                    if (pending is { Fields.Count: > 0 })
+                    {
+                        var values = pending.Fields.ToDictionary(
+                            f => f.Id,
+                            f => f.Kind == OperatorInteractionFieldKind.Number ? "1" : "SN-LEGACY-SAMPLE",
+                            StringComparer.OrdinalIgnoreCase);
+                        session.Resume(OperatorInteractionResponse.Continue(pending.Id, values));
+                    }
+                    else
+                    {
+                        session.Resume();
+                    }
+                }
+
+                await Task.Delay(20);
+            }
+        });
+        summary = await runTask;
+        resume.Cancel();
+        Assert.Equal(RunResult.Passed, summary.Result);
+        Assert.Contains(summary.Samples, s =>
+            string.Equals(s.Channel, "VDC", StringComparison.OrdinalIgnoreCase)
+            && s.ElapsedMs is null
+            && s.LimitLow is null);
+        Assert.Empty(summary.Events);
+    }
+
     private static IEnumerable<OpenTapStepNode> Flatten(OpenTapStepNode node)
     {
         yield return node;
