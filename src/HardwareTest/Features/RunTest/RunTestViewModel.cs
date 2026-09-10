@@ -352,6 +352,7 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
 
         SessionPanel.ApplyIdleStaleCheck();
         _session.SelectProgram(program.Id, program.Path, program.DisplayName, program.DutFamily);
+        _session.ApplyProgramRequirements(program.Requirements);
 
         var alreadyLoaded = string.Equals(_plan.LoadedPlanPath, program.Path, StringComparison.OrdinalIgnoreCase);
         if (!alreadyLoaded)

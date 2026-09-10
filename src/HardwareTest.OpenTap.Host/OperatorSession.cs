@@ -147,7 +147,11 @@ public sealed class OperatorSession : INotifyPropertyChanged
         private set => Set(ref _state, value);
     }
 
-    public bool CanRun => State == OperatorSessionState.Active && !string.IsNullOrWhiteSpace(DutSerial);
+    /// Current program requirements. Default Sample still requires a DUT serial.
+    public ProgramRequirements Requirements { get; private set; } = ProgramRequirements.Sample;
+
+    public bool CanRun => State == OperatorSessionState.Active
+        && (!Requirements.RequireSerial || !string.IsNullOrWhiteSpace(DutSerial));
 
     public DutIdentity ToDutIdentity() => new(DutSerial, DutPartNumber, DutRevision, DutFamily);
 
@@ -178,10 +182,19 @@ public sealed class OperatorSession : INotifyPropertyChanged
             return false;
         }
 
+        ApplyProgramRequirements(requirements);
         ConfirmDut(serial, partNumber, revision, family);
         OperatorName = string.IsNullOrWhiteSpace(operatorName) ? null : operatorName.Trim();
         error = string.Empty;
         return true;
+    }
+
+    /// Updates CanRun when the selected program's session requirements change.
+    public void ApplyProgramRequirements(ProgramRequirements requirements)
+    {
+        ArgumentNullException.ThrowIfNull(requirements);
+        Requirements = requirements;
+        Raise(nameof(CanRun));
     }
 
     /// Records the presented badge without replacing DUT identity.
@@ -202,13 +215,8 @@ public sealed class OperatorSession : INotifyPropertyChanged
 
     public void ConfirmDut(string serial, string? partNumber = null, string? revision = null, string family = "generic")
     {
-        if (string.IsNullOrWhiteSpace(serial))
-        {
-            throw new ArgumentException("DUT serial is required.", nameof(serial));
-        }
-
         var now = _clock.UtcNow;
-        DutSerial = serial.Trim();
+        DutSerial = string.IsNullOrWhiteSpace(serial) ? string.Empty : serial.Trim();
         DutPartNumber = string.IsNullOrWhiteSpace(partNumber) ? null : partNumber.Trim();
         DutRevision = string.IsNullOrWhiteSpace(revision) ? null : revision.Trim();
         DutFamily = string.IsNullOrWhiteSpace(family) ? "generic" : family.Trim();
@@ -272,7 +280,7 @@ public sealed class OperatorSession : INotifyPropertyChanged
 
     public void ConfirmSameDut()
     {
-        if (string.IsNullOrWhiteSpace(DutSerial))
+        if (Requirements.RequireSerial && string.IsNullOrWhiteSpace(DutSerial))
         {
             State = OperatorSessionState.NeedsDut;
             ClearIdleCountdown();

@@ -9,10 +9,17 @@ public static class StationHealthRecorder
     public const string OffsetMetric = "cal.dc.offset";
     public const string AgeMetric = "cal.age.hours";
 
-    /// Persist only Pass/Fail stationHealth runs. DUT runs never overwrite the store.
-    public static bool ShouldPersist(string? programKind, RunResult result)
+    /// Persist Pass/Fail stationHealth runs that published cal Scalars. DUT / empty runs never overwrite.
+    public static bool ShouldPersist(string? programKind, RunResult result, IReadOnlyList<StoredSample>? samples = null)
         => ProgramKinds.IsStationHealth(programKind)
-           && result is RunResult.Passed or RunResult.Failed;
+           && result is RunResult.Passed or RunResult.Failed
+           && HasHealthMetrics(samples);
+
+    public static bool HasHealthMetrics(IReadOnlyList<StoredSample>? samples)
+        => samples is { Count: > 0 }
+           && samples.Any(s =>
+               string.Equals(s.EffectiveMetricKey, OffsetMetric, StringComparison.OrdinalIgnoreCase)
+               || string.Equals(s.EffectiveMetricKey, AgeMetric, StringComparison.OrdinalIgnoreCase));
 
     public static StationHealthRecord Create(
         string profileId,
@@ -72,7 +79,7 @@ public static class StationHealthRecorder
         IReadOnlyList<StoredSample> samples,
         CancellationToken cancellationToken = default)
     {
-        if (!ShouldPersist(programKind, result))
+        if (!ShouldPersist(programKind, result, samples))
         {
             return;
         }

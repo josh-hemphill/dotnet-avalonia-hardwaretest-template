@@ -114,8 +114,13 @@ public sealed class StationHealthStoreTests
         Assert.Equal(StationHealthSources.Recalled, record.Source);
         Assert.Equal(StationHealthVerdicts.Pass, record.Verdict);
         Assert.Equal(24, record.MaxAgeHours);
-        Assert.False(StationHealthRecorder.ShouldPersist(ProgramKinds.Dut, RunResult.Passed));
-        Assert.False(StationHealthRecorder.ShouldPersist(ProgramKinds.StationHealth, RunResult.Cancelled));
-        Assert.True(StationHealthRecorder.ShouldPersist(ProgramKinds.StationHealth, RunResult.Failed));
+        Assert.False(StationHealthRecorder.ShouldPersist(ProgramKinds.Dut, RunResult.Passed, samples));
+        Assert.False(StationHealthRecorder.ShouldPersist(ProgramKinds.StationHealth, RunResult.Cancelled, samples));
+        Assert.True(StationHealthRecorder.ShouldPersist(ProgramKinds.StationHealth, RunResult.Failed, samples));
+        Assert.False(StationHealthRecorder.ShouldPersist(ProgramKinds.StationHealth, RunResult.Passed, []));
+        Assert.False(StationHealthRecorder.ShouldPersist(
+            ProgramKinds.StationHealth,
+            RunResult.Passed,
+            [new StoredSample { MetricKey = "VDC", Value = 1.25 }]));
     }
 }
