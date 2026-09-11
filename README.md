@@ -20,6 +20,7 @@ docs/adapting.md                     # Productize plans, plugins, station bindin
 docs/testing.md                      # UI vs OpenTAP suite separation
 docs/containers.md                   # Local CI tasks, Podman, appliance image rails
 docs/appliance-linux.md              # Appliance layout + publish notes
+docs/mission-planning-architecture.md # Options: provision + unmanned planning on this host
 tools/ci/                            # Deno CI tasks shared by Actions + local runs
 tests/
   HardwareTest.Architecture.Tests/   # Layering smoke (Avalonia/OpenTAP boundaries)
@@ -50,6 +51,7 @@ templates/reports/                   # Typst templates (embedded)
 | [docs/testing.md](docs/testing.md) | Adding or choosing a test suite |
 | [docs/containers.md](docs/containers.md) | Running the Deno CI matrix locally or in Podman |
 | [docs/appliance-linux.md](docs/appliance-linux.md) | Publishing a sealed Linux bench image |
+| [docs/mission-planning-architecture.md](docs/mission-planning-architecture.md) | Options for provisioning and standards-based unmanned mission planning on the same appliance |
 
 ## Prerequisites
 
