@@ -677,6 +677,7 @@
           "HardwareTest.Core": "[0.1.0, )",
           "HardwareTest.OpenTap.Host": "[0.1.0, )",
           "HardwareTest.OpenTap.Worker": "[0.1.0, )",
+          "HardwareTest.Shell.Abstractions": "[0.1.0, )",
           "Microsoft.Extensions.DependencyInjection": "[10.0.10, )",
           "PDFtoImage": "[5.2.1, )",
           "ReactiveUI": "[23.2.28, )",
@@ -746,6 +747,9 @@
           "xunit.v3.assert": "[3.2.2, )",
           "xunit.v3.extensibility.core": "[3.2.2, )"
         }
+      },
+      "hardwaretest.shell.abstractions": {
+        "type": "Project"
       }
     },
     "net10.0/linux-x64": {

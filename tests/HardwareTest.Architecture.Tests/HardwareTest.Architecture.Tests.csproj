@@ -9,6 +9,7 @@
   <!-- Architecture suite may reference every layer so GetReferencedAssemblies / type walks work. -->
   <ItemGroup>
     <ProjectReference Include="..\..\src\HardwareTest.Core\HardwareTest.Core.csproj" />
+    <ProjectReference Include="..\..\src\HardwareTest.Shell.Abstractions\HardwareTest.Shell.Abstractions.csproj" />
     <ProjectReference Include="..\..\src\HardwareTest.OpenTap.Host\HardwareTest.OpenTap.Host.csproj" />
     <ProjectReference Include="..\..\src\HardwareTest.OpenTap.Plugins.Basic\HardwareTest.OpenTap.Plugins.Basic.csproj" />
     <ProjectReference Include="..\..\src\HardwareTest.OpenTap.Plugins.Visa\HardwareTest.OpenTap.Plugins.Visa.csproj" />
