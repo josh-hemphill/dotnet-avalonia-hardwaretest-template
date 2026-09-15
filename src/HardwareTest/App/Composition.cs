@@ -37,7 +37,7 @@ public static class Composition
             AppContext.BaseDirectory,
             settingsStore.RootDirectory,
             onError: (path, ex) => Log.Warning(ex, "Failed to load shell app package {Path}", path));
-        services.AddShellApplications([new NotesApplication(), ..launched]);
+        services.AddShellApplications([new NotesApplication(), .. launched]);
         services.AddSingleton(sp =>
             CrashDossierWriter.FromSettings(settingsStore.AppSettings, settingsStore.RootDirectory));
         services.AddSingleton<OpenTapWorkerClient>(sp =>
