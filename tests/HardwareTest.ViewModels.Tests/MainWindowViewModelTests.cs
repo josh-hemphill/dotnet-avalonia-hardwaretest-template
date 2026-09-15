@@ -27,7 +27,8 @@ public sealed class MainWindowViewModelTests
         RunTestViewModel? runTest = null,
         ResultsViewModel? results = null,
         FakeRunStore? runStore = null,
-        SettingsViewModel? settings = null)
+        SettingsViewModel? settings = null,
+        IReadOnlyList<HardwareTest.Shell.ShellPage>? extraPages = null)
     {
         runStore ??= new FakeRunStore();
         runTest ??= new RunTestViewModel(
@@ -51,7 +52,8 @@ public sealed class MainWindowViewModelTests
             new InstrumentsViewModel(store, new FakeVisaDiscovery(), openTap, new MockVisaSessionFactory(new VisaSessionGate())),
             settings ?? new SettingsViewModel(store, openTap),
             runControl,
-            openTap);
+            openTap,
+            extraPages: extraPages);
     }
 
     [Fact]
@@ -96,6 +98,38 @@ public sealed class MainWindowViewModelTests
         Assert.Contains(vm.NavigationItems, i => i.Id == ShellNavigationPolicy.Inspect);
         Assert.Contains(vm.NavigationItems, i => i.Id == ShellNavigationPolicy.Instruments);
         Assert.DoesNotContain(vm.NavigationItems, i => i.Id == ShellNavigationPolicy.ReportPreview);
+    }
+
+    [Fact]
+    public async Task Guest_engineer_page_stays_off_operator_nav_until_engineer_mode()
+    {
+        var extraVm = new object();
+        var extra = new HardwareTest.Shell.ShellPage
+        {
+            Descriptor = new HardwareTest.Shell.ShellPageDescriptor
+            {
+                Id = "vendor.planning",
+                Title = "Plan",
+                SymbolName = "Document",
+                ViewModelType = extraVm.GetType(),
+                Placement = HardwareTest.Shell.ShellPagePlacement.Engineer,
+                Order = 60,
+            },
+            ViewModel = extraVm,
+        };
+        var store = new FakeSettingsStore();
+        var vm = CreateMain(store, new FakeOpenTapSession(), new FakeRunControl(), extraPages: [extra]);
+        Assert.Equal(4, vm.NavigationItems.Count);
+        Assert.DoesNotContain(vm.NavigationItems, i => i.Id == "vendor.planning");
+
+        store.AppSettings.IsEngineerDebugMode = true;
+        await store.SaveAppSettingsAsync();
+        Assert.Contains(vm.NavigationItems, i => i.Id == "vendor.planning");
+        var guestIndex = vm.NavigationItems.ToList().FindIndex(i => i.Id == "vendor.planning");
+        var settingsIndex = vm.NavigationItems.ToList().FindIndex(i => i.Id == ShellNavigationPolicy.Settings);
+        Assert.InRange(guestIndex, 0, settingsIndex - 1);
+        vm.NavigateToPageId("vendor.planning");
+        Assert.Same(extraVm, vm.CurrentPage);
     }
 
     [Fact]

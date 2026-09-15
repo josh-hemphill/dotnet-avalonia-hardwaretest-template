@@ -215,6 +215,18 @@ Opening a run also shows **Compare with previous**: the latest earlier run with 
 
 Plan-shape fixtures (`LoadPlanShapeAsync`) live on the concrete `OpenTapSession` / `FakeOpenTapSession` for tests, not on `IOpenTapSession`.
 
+## Operator shell applications
+
+The Avalonia exe is a shell. Built-in Home / Run / Results / Settings (plus engineer Inspect / Instruments) stay the test pack. Extra planning or analysis UIs are `IShellApplication` class libraries that share that shell.
+
+1. Implement `IShellApplication` in a separate project that references `HardwareTest.Shell.Abstractions` (and Avalonia for views). Do not add a second `Window`.
+2. Use a page id that is not in `ShellBuiltInPageIds` (Home, RunTest, Inspect, Results, ReportPreview, Instruments, Settings).
+3. Set `ShellPagePlacement.Operator` for standing operator nav, `Engineer` for debug-only, `Contextual` for pages opened from a parent.
+4. Bake by calling `services.AddShellApplications(new YourApplication())` from host composition (see in-repo [`HardwareTest.ShellApps.Notes`](../src/HardwareTest.ShellApps.Notes/)).
+5. Guest pages take exclusive bench I/O through Core (`IBenchOperationCoordinator`); they must not open a second VISA resource manager.
+
+The in-repo Notes app is engineer-only so operator nav stays Home / Run / Results / Settings.
+
 ## Rename checklist
 
 1. Rename solution/projects/namespaces from `HardwareTest` to your product id.
