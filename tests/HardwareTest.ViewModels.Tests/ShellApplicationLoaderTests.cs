@@ -13,7 +13,7 @@ public sealed class ShellApplicationLoaderTests
         using var root = new LoaderTemp();
         var exePkg = LoaderTemp.CreatePackageDir(root.ExeShellApps, "vendor.exeapp");
         var dataPkg = LoaderTemp.CreatePackageDir(root.DataPackages, "vendor.dataapp");
-        Directory.CreateDirectory(Path.Combine(root.DataDirectory, "plugins", "opentap-extra"));
+        Directory.CreateDirectory(Path.Combine(root.DataDirectory, HardwareTest.Core.IO.PluginDirectoryTrust.FolderName, "opentap-extra"));
         Directory.CreateDirectory(Path.Combine(root.DataDirectory, ShellAppStorage.DirectoryName, "vendor.dataapp"));
 
         var dirs = ShellApplicationLoader.EnumeratePackageDirectories(root.AppDirectory, root.DataDirectory);
@@ -109,6 +109,22 @@ public sealed class ShellApplicationLoaderTests
                 }));
         Assert.Contains("Duplicate", ex.Message, StringComparison.Ordinal);
         Assert.Equal(1, creates);
+    }
+
+    [Fact]
+    public void Load_throws_when_created_app_id_does_not_match_manifest()
+    {
+        using var root = new LoaderTemp();
+        WritePackage(root.ExeShellApps, "vendor.ok");
+
+        var ex = Assert.Throws<InvalidOperationException>(
+            () => ShellApplicationLoader.Load(
+                root.AppDirectory,
+                root.DataDirectory,
+                onError: (_, inner) => throw new InvalidOperationException(
+                    $"onError swallowed id mismatch: {inner.Message}"),
+                create: (_, _) => new StubApp("vendor.other", ShellHostAbi.Current)));
+        Assert.Contains("does not match manifest", ex.Message, StringComparison.Ordinal);
     }
 
     [Fact]

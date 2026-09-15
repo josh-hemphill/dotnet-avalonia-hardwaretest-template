@@ -53,22 +53,10 @@ public static class ShellApplicationLoader
                 throw new InvalidOperationException($"Duplicate shell app id '{parsed.Manifest.Id}'.");
             }
 
+            IShellApplication app;
             try
             {
-                var app = factory(parsed.AssemblyPath, parsed.Manifest.Type);
-                if (!string.Equals(app.Id, parsed.Manifest.Id, StringComparison.Ordinal))
-                {
-                    throw new InvalidOperationException(
-                        $"Shell app type '{parsed.Manifest.Type}' id '{app.Id}' does not match manifest '{parsed.Manifest.Id}'.");
-                }
-
-                if (app.MinHostAbi > ShellHostAbi.Current)
-                {
-                    throw new InvalidOperationException(
-                        $"Shell app '{app.Id}' requires ABI {app.MinHostAbi}; host ABI is {ShellHostAbi.Current}.");
-                }
-
-                apps.Add(app);
+                app = factory(parsed.AssemblyPath, parsed.Manifest.Type);
             }
             catch (Exception ex)
             {
@@ -78,7 +66,29 @@ public static class ShellApplicationLoader
                 }
 
                 onError(packageDir, ex);
+                continue;
             }
+
+            if (!string.Equals(app.Id, parsed.Manifest.Id, StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException(
+                    $"Shell app type '{parsed.Manifest.Type}' id '{app.Id}' does not match manifest '{parsed.Manifest.Id}'.");
+            }
+
+            if (app.MinHostAbi > ShellHostAbi.Current)
+            {
+                var abi = new InvalidOperationException(
+                    $"Shell app '{app.Id}' requires ABI {app.MinHostAbi}; host ABI is {ShellHostAbi.Current}.");
+                if (onError is null)
+                {
+                    throw abi;
+                }
+
+                onError(packageDir, abi);
+                continue;
+            }
+
+            apps.Add(app);
         }
 
         return apps;
@@ -196,8 +206,7 @@ public static class ShellApplicationLoader
     private static IShellApplication CreateFromAssembly(string assemblyPath, string typeName)
     {
         var assembly = AssemblyLoadContext.Default.LoadFromAssemblyPath(assemblyPath);
-        var type = assembly.GetType(typeName, throwOnError: true, ignoreCase: false)
-            ?? throw new InvalidOperationException($"Type '{typeName}' was not found in '{assemblyPath}'.");
+        var type = assembly.GetType(typeName, throwOnError: true, ignoreCase: false);
         if (!typeof(IShellApplication).IsAssignableFrom(type))
         {
             throw new InvalidOperationException($"Type '{typeName}' is not an IShellApplication.");
