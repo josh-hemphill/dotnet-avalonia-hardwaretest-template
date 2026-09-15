@@ -26,16 +26,18 @@ public sealed class ShellApplicationLoaderTests
     public void Load_uses_manifest_type_factory_and_skips_newer_abi()
     {
         using var root = new LoaderTemp();
-        WritePackage(root.ExeShellApps, "vendor.ok", abi: ShellHostAbi.Current);
-        WritePackage(root.DataPackages, "vendor.future", abi: ShellHostAbi.Current + 1);
+        WritePackage(root.ExeShellApps, "vendor.ok");
+        WritePackage(root.DataPackages, "vendor.future");
         var errors = new List<string>();
+        var types = new List<string>();
 
         var apps = ShellApplicationLoader.Load(
             root.AppDirectory,
             root.DataDirectory,
             onError: (_, ex) => errors.Add(ex.Message),
-            create: (assembly, _) =>
+            create: (assembly, type) =>
             {
+                types.Add(type);
                 var id = Path.GetFileName(Path.GetDirectoryName(assembly)!);
                 var abi = string.Equals(id, "vendor.future", StringComparison.Ordinal)
                     ? ShellHostAbi.Current + 1
@@ -45,6 +47,8 @@ public sealed class ShellApplicationLoaderTests
 
         Assert.Single(apps);
         Assert.Equal("vendor.ok", apps[0].Id);
+        Assert.Contains("Vendor.App.vendor.ok", types);
+        Assert.Contains("Vendor.App.vendor.future", types);
         Assert.Contains(errors, e => e.Contains("ABI", StringComparison.Ordinal));
     }
 
@@ -67,8 +71,8 @@ public sealed class ShellApplicationLoaderTests
     public void Load_throws_on_duplicate_package_ids()
     {
         using var root = new LoaderTemp();
-        WritePackage(root.ExeShellApps, "vendor.dup", abi: ShellHostAbi.Current);
-        WritePackage(root.DataPackages, "vendor.dup", abi: ShellHostAbi.Current);
+        WritePackage(root.ExeShellApps, "vendor.dup");
+        WritePackage(root.DataPackages, "vendor.dup");
 
         var ex = Assert.Throws<InvalidOperationException>(
             () => ShellApplicationLoader.Load(
@@ -77,6 +81,34 @@ public sealed class ShellApplicationLoaderTests
                 onError: (_, _) => { },
                 create: StubCreate));
         Assert.Contains("Duplicate", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Load_duplicate_ids_throw_before_second_create_even_when_onError_set()
+    {
+        using var root = new LoaderTemp();
+        WritePackage(root.ExeShellApps, "vendor.dup");
+        WritePackage(root.DataPackages, "vendor.dup");
+        var creates = 0;
+
+        var ex = Assert.Throws<InvalidOperationException>(
+            () => ShellApplicationLoader.Load(
+                root.AppDirectory,
+                root.DataDirectory,
+                onError: (_, inner) => throw new InvalidOperationException(
+                    $"onError swallowed create: {inner.Message}"),
+                create: (assembly, type) =>
+                {
+                    creates++;
+                    if (creates > 1)
+                    {
+                        throw new FileLoadException("same assembly identity");
+                    }
+
+                    return StubCreate(assembly, type);
+                }));
+        Assert.Contains("Duplicate", ex.Message, StringComparison.Ordinal);
+        Assert.Equal(1, creates);
     }
 
     [Fact]
@@ -106,7 +138,7 @@ public sealed class ShellApplicationLoaderTests
         return new StubApp(id, ShellHostAbi.Current);
     }
 
-    private static void WritePackage(string root, string id, int abi)
+    private static void WritePackage(string root, string id)
     {
         var dir = Path.Combine(root, id);
         Directory.CreateDirectory(dir);
@@ -114,7 +146,6 @@ public sealed class ShellApplicationLoaderTests
             Path.Combine(dir, ShellApplicationLoader.ManifestFileName),
             $$"""{"id":"{{id}}","assembly":"{{id}}.dll","type":"Vendor.App.{{id}}"}""");
         File.WriteAllBytes(Path.Combine(dir, id + ".dll"), [0]);
-        _ = abi;
     }
 
     private sealed class LoaderTemp : IDisposable

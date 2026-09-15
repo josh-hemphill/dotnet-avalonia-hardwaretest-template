@@ -1,4 +1,4 @@
-using System.Reflection;
+using System.Runtime.Loader;
 using System.Text.Json;
 using HardwareTest.Core.IO;
 using HardwareTest.Core.Storage;
@@ -27,22 +27,10 @@ public static class ShellApplicationLoader
         var seenIds = new HashSet<string>(StringComparer.Ordinal);
         foreach (var packageDir in EnumeratePackageDirectories(applicationDirectory, dataDirectory))
         {
-            IShellApplication app;
+            ParsedPackage? parsed;
             try
             {
-                var loaded = LoadPackage(packageDir, factory);
-                if (loaded is null)
-                {
-                    continue;
-                }
-
-                if (loaded.MinHostAbi > ShellHostAbi.Current)
-                {
-                    throw new InvalidOperationException(
-                        $"Shell app '{loaded.Id}' requires ABI {loaded.MinHostAbi}; host ABI is {ShellHostAbi.Current}.");
-                }
-
-                app = loaded;
+                parsed = ParsePackage(packageDir);
             }
             catch (Exception ex)
             {
@@ -55,12 +43,42 @@ public static class ShellApplicationLoader
                 continue;
             }
 
-            if (!seenIds.Add(app.Id))
+            if (parsed is null)
             {
-                throw new InvalidOperationException($"Duplicate shell app id '{app.Id}'.");
+                continue;
             }
 
-            apps.Add(app);
+            if (!seenIds.Add(parsed.Manifest.Id))
+            {
+                throw new InvalidOperationException($"Duplicate shell app id '{parsed.Manifest.Id}'.");
+            }
+
+            try
+            {
+                var app = factory(parsed.AssemblyPath, parsed.Manifest.Type);
+                if (!string.Equals(app.Id, parsed.Manifest.Id, StringComparison.Ordinal))
+                {
+                    throw new InvalidOperationException(
+                        $"Shell app type '{parsed.Manifest.Type}' id '{app.Id}' does not match manifest '{parsed.Manifest.Id}'.");
+                }
+
+                if (app.MinHostAbi > ShellHostAbi.Current)
+                {
+                    throw new InvalidOperationException(
+                        $"Shell app '{app.Id}' requires ABI {app.MinHostAbi}; host ABI is {ShellHostAbi.Current}.");
+                }
+
+                apps.Add(app);
+            }
+            catch (Exception ex)
+            {
+                if (onError is null)
+                {
+                    throw;
+                }
+
+                onError(packageDir, ex);
+            }
         }
 
         return apps;
@@ -108,9 +126,9 @@ public static class ShellApplicationLoader
         return dirs;
     }
 
-    private static IShellApplication? LoadPackage(
-        string packageDir,
-        Func<string, string, IShellApplication> create)
+    private sealed record ParsedPackage(ShellApplicationPackageManifest Manifest, string AssemblyPath);
+
+    private static ParsedPackage? ParsePackage(string packageDir)
     {
         var manifestPath = PathContainment.CombineUnderRoot(packageDir, ManifestFileName);
         if (!File.Exists(manifestPath))
@@ -152,14 +170,7 @@ public static class ShellApplicationLoader
                 $"Shell app '{manifest.Id}' assembly was not found: '{assemblyPath}'.");
         }
 
-        var app = create(assemblyPath, manifest.Type);
-        if (!string.Equals(app.Id, manifest.Id, StringComparison.Ordinal))
-        {
-            throw new InvalidOperationException(
-                $"Shell app type '{manifest.Type}' id '{app.Id}' does not match manifest '{manifest.Id}'.");
-        }
-
-        return app;
+        return new ParsedPackage(manifest, assemblyPath);
     }
 
     internal static bool IsSafeAssemblyFileName(string fileName)
@@ -184,7 +195,7 @@ public static class ShellApplicationLoader
 
     private static IShellApplication CreateFromAssembly(string assemblyPath, string typeName)
     {
-        var assembly = System.Runtime.Loader.AssemblyLoadContext.Default.LoadFromAssemblyPath(assemblyPath);
+        var assembly = AssemblyLoadContext.Default.LoadFromAssemblyPath(assemblyPath);
         var type = assembly.GetType(typeName, throwOnError: true, ignoreCase: false)
             ?? throw new InvalidOperationException($"Type '{typeName}' was not found in '{assemblyPath}'.");
         if (!typeof(IShellApplication).IsAssignableFrom(type))
