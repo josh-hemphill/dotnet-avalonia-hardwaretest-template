@@ -25,7 +25,29 @@ public sealed class ShellApplicationWarmupTests
     }
 
     [Fact]
-    public async Task RunAsync_stops_when_cancelled()
+    public async Task RunAsync_rethrows_cancellation_from_WarmAsync()
+    {
+        using var cts = new CancellationTokenSource();
+        var later = new WarmupStub("vendor.later", () => Task.CompletedTask);
+        var cancelling = new WarmupStub(
+            "vendor.cancel",
+            async () =>
+            {
+                await cts.CancelAsync();
+                cts.Token.ThrowIfCancellationRequested();
+            });
+
+        await Assert.ThrowsAsync<OperationCanceledException>(
+            () => ShellApplicationWarmup.RunAsync(
+                [cancelling, later],
+                new ServiceCollection().BuildServiceProvider(),
+                cts.Token));
+        Assert.Equal(1, cancelling.Calls);
+        Assert.Equal(0, later.Calls);
+    }
+
+    [Fact]
+    public async Task RunAsync_stops_when_token_is_already_cancelled()
     {
         var later = new WarmupStub("vendor.later", () => Task.CompletedTask);
 

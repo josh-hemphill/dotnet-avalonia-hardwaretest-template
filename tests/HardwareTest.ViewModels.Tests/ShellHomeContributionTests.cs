@@ -59,10 +59,35 @@ public sealed class ShellHomeContributionTests
     }
 
     [Fact]
-    public void Contextual_tile_stays_hidden()
+    public void ApplyEngineerPresentation_shows_engineer_tile_without_save()
     {
+        var store = new FakeSettingsStore();
         var home = new HomeViewModel(
-            settingsStore: null,
+            store,
+            guestTiles:
+            [
+                new ShellHomeTile
+                {
+                    Title = "Notes",
+                    Body = "Engineer notes",
+                    ActionLabel = "Open Notes →",
+                    NavigatePageId = "hardwaretest.notes",
+                    Placement = ShellPagePlacement.Engineer,
+                },
+            ]);
+
+        Assert.False(Assert.Single(home.GuestTiles).IsVisible);
+        home.ApplyEngineerPresentation(engineerMode: true);
+        Assert.True(Assert.Single(home.GuestTiles).IsVisible);
+    }
+
+    [Fact]
+    public void Contextual_tile_stays_hidden_in_engineer_mode()
+    {
+        var store = new FakeSettingsStore();
+        store.AppSettings.IsEngineerDebugMode = true;
+        var home = new HomeViewModel(
+            store,
             guestTiles:
             [
                 new ShellHomeTile
@@ -75,6 +100,8 @@ public sealed class ShellHomeContributionTests
                 },
             ]);
 
+        Assert.False(Assert.Single(home.GuestTiles).IsVisible);
+        home.ApplyEngineerPresentation(engineerMode: true);
         Assert.False(Assert.Single(home.GuestTiles).IsVisible);
     }
 }

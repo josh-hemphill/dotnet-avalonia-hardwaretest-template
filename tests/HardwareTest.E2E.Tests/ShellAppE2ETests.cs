@@ -60,6 +60,8 @@ public sealed class ShellAppE2ETests
             await Dispatcher.UIThread.InvokeAsync(() => main.NavigateToPageId(ShellNavigationPolicy.Home));
             Assert.Equal(4, main.NavigationItems.Count);
             Assert.DoesNotContain(main.NavigationItems, i => i.Id == NotesApplication.PageId);
+            var restored = Assert.Single(main.Home.GuestTiles, t => t.Title == "Station notes");
+            Assert.False(restored.IsVisible);
         }
     }
 }

@@ -226,7 +226,7 @@ The Avalonia exe is a shell. Built-in Home / Run / Results / Settings (plus engi
 5. Bake by calling `services.AddShellApplications(new YourApplication())` from host composition (see in-repo [`HardwareTest.ShellApps.Notes`](../src/HardwareTest.ShellApps.Notes/)).
 6. Guest pages take exclusive bench I/O through Core (`IBenchOperationCoordinator`); they must not open a second VISA resource manager.
 
-The in-repo Notes app is engineer-only so operator nav stays Home / Run / Results / Settings. Settings → About lists baked app titles; Copy diagnostics includes that list.
+The in-repo Notes app is engineer-only so operator nav stays Home / Run / Results / Settings. Settings → About lists baked app title and version; Copy diagnostics includes that list.
 
 ## Rename checklist
 

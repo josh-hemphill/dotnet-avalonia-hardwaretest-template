@@ -49,16 +49,8 @@ public partial class HomeViewModel : ReactiveObject
             .ToArray();
         if (settingsStore is not null)
         {
-            settingsStore.AppSettingsSaved += (_, _) =>
-            {
-                AllowOsFolderBrowse = settingsStore.AppSettings.AllowOsFolderBrowse
-                                      || settingsStore.AppSettings.IsEngineerDebugMode;
-                IsEngineerMode = settingsStore.AppSettings.IsEngineerDebugMode;
-                foreach (var tile in GuestTiles)
-                {
-                    tile.RefreshVisibility(IsEngineerMode);
-                }
-            };
+            settingsStore.AppSettingsSaved += (_, _) => ApplyEngineerPresentation(
+                settingsStore.AppSettings.IsEngineerDebugMode);
         }
         OpenCrashFolderCommand = ReactiveCommand.Create(OpenCrashFolder);
         ExportSupportBundleCommand = ReactiveCommand.Create(ExportSupportBundle);
@@ -89,6 +81,21 @@ public partial class HomeViewModel : ReactiveObject
 
     /// Raised with the target page ID when a CTA button is pressed.
     public event EventHandler<string>? NavigateToPageRequested;
+
+    /// Updates Home engineer chrome and guest-tile visibility to match presentation.
+    public void ApplyEngineerPresentation(bool engineerMode)
+    {
+        IsEngineerMode = engineerMode;
+        if (_settingsStore is not null)
+        {
+            AllowOsFolderBrowse = _settingsStore.AppSettings.AllowOsFolderBrowse || engineerMode;
+        }
+
+        foreach (var tile in GuestTiles)
+        {
+            tile.RefreshVisibility(engineerMode);
+        }
+    }
 
     [Reactive] private bool _hasCrashBanner;
     [Reactive] private string _crashBannerTitle = string.Empty;

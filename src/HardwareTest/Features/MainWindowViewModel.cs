@@ -59,6 +59,7 @@ public partial class MainWindowViewModel : ReactiveObject
         Results = results;
         ReportPreview = reportPreview;
         Instruments = instruments;
+        Home = home;
         var builtin = BuiltinShellPages.Bind(
             home,
             runTest,
@@ -122,6 +123,7 @@ public partial class MainWindowViewModel : ReactiveObject
         };
     }
 
+    public HomeViewModel Home { get; }
     public RunTestViewModel RunTest { get; }
     public InspectViewModel Inspect { get; }
     public ResultsViewModel Results { get; }
@@ -340,6 +342,7 @@ public partial class MainWindowViewModel : ReactiveObject
     public void ApplyNavigationPolicy()
     {
         var engineer = _settingsStore.AppSettings.IsEngineerDebugMode;
+        Home.ApplyEngineerPresentation(engineer);
         var visible = _catalog.Pages
             .Where(p => ShellNavigationRules.IsPersistentNav(p.Descriptor, engineer))
             .OrderBy(p => p.Descriptor.Order)
