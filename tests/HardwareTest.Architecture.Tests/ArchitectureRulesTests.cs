@@ -320,6 +320,7 @@ public sealed class ArchitectureRulesTests
     [Theory]
     [InlineData(typeof(AppSettings))]
     [InlineData(typeof(global::HardwareTest.Shell.ShellPageDescriptor))]
+    [InlineData(typeof(global::HardwareTest.ShellApps.Notes.NotesApplication))]
     [InlineData(typeof(OpenTapSession))]
     [InlineData(typeof(AcquireVoltageStep))]
     [InlineData(typeof(VisaDmmInstrument))]
@@ -350,6 +351,21 @@ public sealed class ArchitectureRulesTests
         Assert.True(
             windows.SequenceEqual(allowed),
             $"{SingleWindowRule} Found Window types: [{string.Join(", ", windows)}]. Allowed: [{string.Join(", ", allowed)}].");
+    }
+
+    [Fact]
+    public void ShellApps_must_not_define_Window_subclasses()
+    {
+        var windows = typeof(global::HardwareTest.ShellApps.Notes.NotesApplication).Assembly
+            .GetTypes()
+            .Where(t => typeof(Window).IsAssignableFrom(t) && !t.IsAbstract)
+            .Select(t => t.Name)
+            .OrderBy(n => n, StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.True(
+            windows.Length == 0,
+            $"{SingleWindowRule} Shell app Window types: [{string.Join(", ", windows)}].");
     }
 
     [Fact]
