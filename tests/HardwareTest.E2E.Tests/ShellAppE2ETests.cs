@@ -35,6 +35,8 @@ public sealed class ShellAppE2ETests
             store.AppSettings.IsEngineerDebugMode = previousEngineer;
             await Dispatcher.UIThread.InvokeAsync(main.ApplyNavigationPolicy);
             await Dispatcher.UIThread.InvokeAsync(() => main.NavigateToPageId(ShellNavigationPolicy.Home));
+            Assert.Equal(4, main.NavigationItems.Count);
+            Assert.DoesNotContain(main.NavigationItems, i => i.Id == NotesApplication.PageId);
         }
     }
 }

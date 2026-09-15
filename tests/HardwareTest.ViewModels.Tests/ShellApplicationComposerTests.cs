@@ -95,6 +95,25 @@ public sealed class ShellApplicationComposerTests
     }
 
     [Fact]
+    public void BindPages_allows_reregistering_the_same_guest_type_on_reload()
+    {
+        var views = new ViewRegistry();
+        var app = new StubShellApplication(
+            id: "vendor.reload",
+            minHostAbi: ShellHostAbi.Current,
+            pageId: "vendor.reload",
+            viewModelType: typeof(ShellApplicationComposerTests),
+            viewModel: this,
+            placement: ShellPagePlacement.Engineer);
+
+        var first = ShellApplicationComposer.BindPages([app], new NullServices(), views);
+        var second = ShellApplicationComposer.BindPages([app], new NullServices(), views);
+        Assert.Equal("vendor.reload", Assert.Single(first).Descriptor.Id);
+        Assert.Equal("vendor.reload", Assert.Single(second).Descriptor.Id);
+        Assert.True(views.IsRegistered(typeof(ShellApplicationComposerTests)));
+    }
+
+    [Fact]
     public void BindPages_rejects_registered_viewmodel_type()
     {
         var views = new ViewRegistry();
