@@ -300,6 +300,10 @@
           <TextBlock Text="OpenTAP engine" VerticalAlignment="Center" />
           <TextBlock Grid.Column="1" Text="{Binding AboutOpenTapEngine}" VerticalAlignment="Center" TextWrapping="Wrap" />
         </Grid>
+        <StackPanel Spacing="6" IsVisible="{Binding HasShellApps}">
+          <TextBlock Text="Baked shell applications" Opacity="0.8" TextWrapping="Wrap" />
+          <ItemsControl ItemsSource="{Binding ShellAppSummaries}" />
+        </StackPanel>
         <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
           <TextBlock Text="Hardware interlock" VerticalAlignment="Center" />
           <TextBlock Grid.Column="1" Text="{Binding SafetyInterlockStatus}" VerticalAlignment="Center" TextWrapping="Wrap" />

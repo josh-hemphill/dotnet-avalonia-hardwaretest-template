@@ -2,6 +2,7 @@ using HardwareTest.Core.Diagnostics;
 using HardwareTest.Core.Settings;
 using HardwareTest.Core.StationHealth;
 using HardwareTest.Features.Settings;
+using HardwareTest.Shell;
 using HardwareTest.ViewModels.Tests.Fakes;
 using HardwareTest.ViewModels.Tests.Time;
 using Xunit;
@@ -173,6 +174,7 @@ public sealed class SettingsViewModelTests
         Assert.Contains("OpenTAP: 1.2.3", copied, StringComparison.Ordinal);
         Assert.Contains("Hardware interlock: Not wired", copied, StringComparison.Ordinal);
         Assert.Contains("OpenTAP worker: killable child process", copied, StringComparison.Ordinal);
+        Assert.DoesNotContain("Shell applications:", copied, StringComparison.Ordinal);
         Assert.Contains("Catalog self-check: ok", copied, StringComparison.Ordinal);
         Assert.Contains("ThemePreference", copied, StringComparison.Ordinal);
         Assert.Contains("Copied diagnostics", vm.Status, StringComparison.OrdinalIgnoreCase);
@@ -292,5 +294,59 @@ public sealed class SettingsViewModelTests
 
         Assert.Equal(count, store.SaveAppCount);
         Assert.Contains("Pass", vm.StationHealthSummary, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Shell_app_summaries_list_title_and_version()
+    {
+        var app = new SummaryShellApplication();
+        var vm = new SettingsViewModel(
+            new FakeSettingsStore(),
+            new FakeOpenTapSession(),
+            shellApplications: [app]);
+
+        Assert.True(vm.HasShellApps);
+        Assert.Equal(["Station notes 1.0.0"], vm.ShellAppSummaries);
+    }
+
+    [Fact]
+    public async Task Copy_diagnostics_includes_shell_app_summaries()
+    {
+        var vm = new SettingsViewModel(
+            new FakeSettingsStore(),
+            new FakeOpenTapSession(),
+            shellApplications: [new SummaryShellApplication()]);
+        string? copied = null;
+        vm.CopyTextAsync = text =>
+        {
+            copied = text;
+            return Task.CompletedTask;
+        };
+
+        await vm.CopyDiagnosticsCommand.ExecuteAsync();
+
+        Assert.NotNull(copied);
+        Assert.Contains("Shell applications:", copied, StringComparison.Ordinal);
+        Assert.Contains("Station notes 1.0.0", copied, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Empty_shell_apps_hides_summaries()
+    {
+        var vm = new SettingsViewModel(new FakeSettingsStore(), new FakeOpenTapSession());
+        Assert.False(vm.HasShellApps);
+        Assert.Empty(vm.ShellAppSummaries);
+    }
+
+    private sealed class SummaryShellApplication : IShellApplication
+    {
+        public string Id => "hardwaretest.notes";
+        public string Title => "Station notes";
+        public string Version => "1.0.0";
+        public int MinHostAbi => ShellHostAbi.Current;
+        public void Configure(Microsoft.Extensions.DependencyInjection.IServiceCollection services)
+            => _ = services;
+
+        public IReadOnlyList<ShellPageRegistration> Pages => [];
     }
 }

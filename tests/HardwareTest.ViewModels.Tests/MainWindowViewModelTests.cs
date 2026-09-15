@@ -28,7 +28,8 @@ public sealed class MainWindowViewModelTests
         ResultsViewModel? results = null,
         FakeRunStore? runStore = null,
         SettingsViewModel? settings = null,
-        IReadOnlyList<HardwareTest.Shell.ShellPage>? extraPages = null)
+        IReadOnlyList<HardwareTest.Shell.ShellPage>? extraPages = null,
+        HomeViewModel? home = null)
     {
         runStore ??= new FakeRunStore();
         runTest ??= new RunTestViewModel(
@@ -44,7 +45,7 @@ public sealed class MainWindowViewModelTests
         var inspect = new InspectViewModel(openTap);
         return new MainWindowViewModel(
             store,
-            new HomeViewModel(),
+            home ?? new HomeViewModel(),
             runTest,
             inspect,
             results,
@@ -98,6 +99,32 @@ public sealed class MainWindowViewModelTests
         Assert.Contains(vm.NavigationItems, i => i.Id == ShellNavigationPolicy.Inspect);
         Assert.Contains(vm.NavigationItems, i => i.Id == ShellNavigationPolicy.Instruments);
         Assert.DoesNotContain(vm.NavigationItems, i => i.Id == ShellNavigationPolicy.ReportPreview);
+    }
+
+    [Fact]
+    public void ApplyNavigationPolicy_refreshes_engineer_home_tiles_without_save()
+    {
+        var store = new FakeSettingsStore();
+        var home = new HomeViewModel(
+            store,
+            guestTiles:
+            [
+                new HardwareTest.Shell.ShellHomeTile
+                {
+                    Title = "Notes",
+                    Body = "Engineer notes",
+                    ActionLabel = "Open Notes →",
+                    NavigatePageId = "hardwaretest.notes",
+                    Placement = HardwareTest.Shell.ShellPagePlacement.Engineer,
+                },
+            ]);
+        var vm = CreateMain(store, new FakeOpenTapSession(), new FakeRunControl(), home: home);
+        Assert.False(Assert.Single(home.GuestTiles).IsVisible);
+
+        store.AppSettings.IsEngineerDebugMode = true;
+        vm.ApplyNavigationPolicy();
+        Assert.True(Assert.Single(home.GuestTiles).IsVisible);
+        Assert.Same(home, vm.Home);
     }
 
     [Fact]

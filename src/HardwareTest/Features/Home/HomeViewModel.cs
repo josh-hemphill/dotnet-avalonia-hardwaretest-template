@@ -6,6 +6,7 @@ using HardwareTest.Core.Settings;
 using HardwareTest.Core.Storage;
 using HardwareTest.Crash;
 using HardwareTest.Features.Shell;
+using HardwareTest.Shell;
 using ReactiveUI;
 using ReactiveUI.SourceGenerators;
 
@@ -26,7 +27,8 @@ public partial class HomeViewModel : ReactiveObject
     public HomeViewModel(
         ISettingsStore? settingsStore,
         IExportTargetService? exportTargets = null,
-        ShellNotificationViewModel? shellNotification = null)
+        ShellNotificationViewModel? shellNotification = null,
+        IEnumerable<ShellHomeTile>? guestTiles = null)
     {
         _settingsStore = settingsStore;
         _exportTargets = exportTargets;
@@ -39,14 +41,16 @@ public partial class HomeViewModel : ReactiveObject
         AllowOsFolderBrowse = settingsStore?.AppSettings.AllowOsFolderBrowse == true
                               || settingsStore?.AppSettings.IsEngineerDebugMode == true;
         IsEngineerMode = settingsStore?.AppSettings.IsEngineerDebugMode == true;
+        GuestTiles = (guestTiles ?? [])
+            .Select(tile => new HomeShellTileViewModel(
+                tile,
+                IsEngineerMode,
+                pageId => NavigateToPageRequested?.Invoke(this, pageId)))
+            .ToArray();
         if (settingsStore is not null)
         {
-            settingsStore.AppSettingsSaved += (_, _) =>
-            {
-                AllowOsFolderBrowse = settingsStore.AppSettings.AllowOsFolderBrowse
-                                      || settingsStore.AppSettings.IsEngineerDebugMode;
-                IsEngineerMode = settingsStore.AppSettings.IsEngineerDebugMode;
-            };
+            settingsStore.AppSettingsSaved += (_, _) => ApplyEngineerPresentation(
+                settingsStore.AppSettings.IsEngineerDebugMode);
         }
         OpenCrashFolderCommand = ReactiveCommand.Create(OpenCrashFolder);
         ExportSupportBundleCommand = ReactiveCommand.Create(ExportSupportBundle);
@@ -73,8 +77,25 @@ public partial class HomeViewModel : ReactiveObject
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> NavigateToInstrumentsCommand { get; }
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> NavigateToResultsCommand { get; }
 
+    public IReadOnlyList<HomeShellTileViewModel> GuestTiles { get; }
+
     /// Raised with the target page ID when a CTA button is pressed.
     public event EventHandler<string>? NavigateToPageRequested;
+
+    /// Updates Home engineer chrome and guest-tile visibility to match presentation.
+    public void ApplyEngineerPresentation(bool engineerMode)
+    {
+        IsEngineerMode = engineerMode;
+        if (_settingsStore is not null)
+        {
+            AllowOsFolderBrowse = _settingsStore.AppSettings.AllowOsFolderBrowse || engineerMode;
+        }
+
+        foreach (var tile in GuestTiles)
+        {
+            tile.RefreshVisibility(engineerMode);
+        }
+    }
 
     [Reactive] private bool _hasCrashBanner;
     [Reactive] private string _crashBannerTitle = string.Empty;
