@@ -32,6 +32,7 @@ public static class Composition
         var buildInfo = OpenTapBuildInfo.Attach(BuildInfo.FromEntryAssembly());
         services.AddSingleton(buildInfo);
         services.AddHardwareTestCore(settingsStore);
+        services.AddSingleton<IShellHost>(_ => new ShellHost(settingsStore));
         services.AddSingleton(sp =>
             CrashDossierWriter.FromSettings(settingsStore.AppSettings, settingsStore.RootDirectory));
         services.AddSingleton<OpenTapWorkerClient>(sp =>
