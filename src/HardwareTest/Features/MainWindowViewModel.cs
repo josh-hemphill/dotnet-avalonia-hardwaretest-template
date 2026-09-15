@@ -13,6 +13,7 @@ using HardwareTest.Features.RunTest;
 using HardwareTest.Features.Settings;
 using HardwareTest.Features.Shell;
 using HardwareTest.OpenTap.Host;
+using HardwareTest.Shell;
 using ReactiveUI;
 using ReactiveUI.SourceGenerators;
 
@@ -57,16 +58,15 @@ public partial class MainWindowViewModel : ReactiveObject
         Results = results;
         ReportPreview = reportPreview;
         Instruments = instruments;
-        _allPages =
-        [
-            new NavItem { Id = ShellNavigationPolicy.Home, Title = "Home", ViewModel = home, Symbol = FASymbol.Home },
-            new NavItem { Id = ShellNavigationPolicy.RunTest, Title = "Run", ViewModel = runTest, Symbol = FASymbol.Play },
-            new NavItem { Id = ShellNavigationPolicy.Inspect, Title = "Inspect", ViewModel = inspect, Symbol = FASymbol.Document },
-            new NavItem { Id = ShellNavigationPolicy.Results, Title = "Results", ViewModel = results, Symbol = FASymbol.List },
-            new NavItem { Id = ShellNavigationPolicy.ReportPreview, Title = "Report Preview", ViewModel = reportPreview, Symbol = FASymbol.Document },
-            new NavItem { Id = ShellNavigationPolicy.Instruments, Title = "Instruments", ViewModel = instruments, Symbol = FASymbol.Repair },
-            new NavItem { Id = ShellNavigationPolicy.Settings, Title = "Settings", ViewModel = settings, Symbol = FASymbol.Settings },
-        ];
+        _catalog = BuiltinShellPages.Bind(
+            home,
+            runTest,
+            inspect,
+            results,
+            reportPreview,
+            instruments,
+            settings);
+        _allPages = _catalog.Pages.Select(ToNavItem).ToArray();
         NavigationItems = [];
         ApplyNavigationPolicy();
         NavigateTo(ResolveStartupPage());
@@ -128,6 +128,7 @@ public partial class MainWindowViewModel : ReactiveObject
 
     public ObservableCollection<NavItem> NavigationItems { get; }
 
+    private readonly ShellPageCatalog _catalog;
     private readonly NavItem[] _allPages;
 
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> PauseResumeCommand { get; }
@@ -296,7 +297,7 @@ public partial class MainWindowViewModel : ReactiveObject
             SelectedItem = NavigationItems.Contains(item)
                 ? item
                 : NavigationItems.FirstOrDefault(i =>
-                      i.Id == ShellNavigationPolicy.ContextualParentId(item.Id))
+                      i.Id == NavSelectionId(item.Id))
                   ?? SelectedItem;
         }
         finally
@@ -335,7 +336,11 @@ public partial class MainWindowViewModel : ReactiveObject
     public void ApplyNavigationPolicy()
     {
         var engineer = _settingsStore.AppSettings.IsEngineerDebugMode;
-        var visible = _allPages.Where(p => ShellNavigationPolicy.IsPersistentNav(p.Id, engineer)).ToArray();
+        var visible = _catalog.Pages
+            .Where(p => ShellNavigationRules.IsPersistentNav(p.Descriptor, engineer))
+            .OrderBy(p => p.Descriptor.Order)
+            .Select(p => _allPages.First(item => item.Id == p.Descriptor.Id))
+            .ToArray();
         ShellNavigationPolicy.SyncCollection(NavigationItems, visible);
 
         var currentId = CurrentPage is null
@@ -346,7 +351,7 @@ public partial class MainWindowViewModel : ReactiveObject
             return;
         }
 
-        if (ShellNavigationPolicy.CanRemainOnPage(currentId, engineer))
+        if (CanRemain(currentId, engineer))
         {
             NavigateToPageId(currentId);
             return;
@@ -360,12 +365,44 @@ public partial class MainWindowViewModel : ReactiveObject
         var id = _settingsStore.UiState.SelectedPageId;
         var page = _allPages.FirstOrDefault(i => i.Id == id);
         var engineer = _settingsStore.AppSettings.IsEngineerDebugMode;
-        if (page is not null && ShellNavigationPolicy.CanRemainOnPage(page.Id, engineer))
+        if (page is not null && CanRemain(page.Id, engineer))
         {
             return page;
         }
 
         return NavigationItems[0];
+    }
+
+    private bool CanRemain(string pageId, bool engineerMode)
+    {
+        var shellPage = _catalog.Find(pageId);
+        return shellPage is not null
+               && ShellNavigationRules.CanRemainOnPage(shellPage.Descriptor, engineerMode);
+    }
+
+    private string NavSelectionId(string pageId)
+    {
+        var shellPage = _catalog.Find(pageId);
+        return shellPage is null
+            ? pageId
+            : ShellNavigationRules.NavSelectionId(shellPage.Descriptor);
+    }
+
+    private static NavItem ToNavItem(ShellPage page)
+    {
+        if (!Enum.TryParse<FASymbol>(page.Descriptor.SymbolName, ignoreCase: false, out var symbol))
+        {
+            throw new InvalidOperationException(
+                $"Unknown shell symbol '{page.Descriptor.SymbolName}' for page '{page.Descriptor.Id}'.");
+        }
+
+        return new NavItem
+        {
+            Id = page.Descriptor.Id,
+            Title = page.Descriptor.Title,
+            ViewModel = page.ViewModel,
+            Symbol = symbol,
+        };
     }
 
     private void OnStationBindRequested(object? sender, StationBindRequestedEventArgs request)

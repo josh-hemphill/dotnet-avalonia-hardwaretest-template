@@ -1,5 +1,6 @@
 using HardwareTest.Features;
 using HardwareTest.Features.Shell;
+using HardwareTest.Shell;
 using Xunit;
 
 namespace HardwareTest.ViewModels.Tests;
@@ -29,6 +30,55 @@ public sealed class ShellNavigationPolicyTests
         Assert.True(ShellNavigationPolicy.IsPersistentNav(ShellNavigationPolicy.Inspect, engineerMode: true));
         Assert.True(ShellNavigationPolicy.IsPersistentNav(ShellNavigationPolicy.Instruments, engineerMode: true));
         Assert.False(ShellNavigationPolicy.IsPersistentNav(ShellNavigationPolicy.ReportPreview, engineerMode: true));
+    }
+
+    [Fact]
+    public void Navigation_rules_follow_descriptor_placement_not_builtin_ids()
+    {
+        var guest = new ShellPageDescriptor
+        {
+            Id = "vendor.planning",
+            Title = "Plan",
+            SymbolName = "Calendar",
+            ViewModelType = typeof(object),
+            Placement = ShellPagePlacement.Operator,
+            Order = 60,
+        };
+        Assert.True(ShellNavigationRules.IsPersistentNav(guest, engineerMode: false));
+        Assert.True(ShellNavigationRules.CanRemainOnPage(guest, engineerMode: false));
+        Assert.Equal("vendor.planning", ShellNavigationRules.NavSelectionId(guest));
+        Assert.False(ShellBuiltInPageIds.IsReserved(guest.Id));
+        Assert.False(ShellNavigationPolicy.IsPersistentNav(guest.Id, engineerMode: false));
+    }
+
+    [Fact]
+    public void Guest_engineer_page_is_hidden_from_operator_nav()
+    {
+        var guest = new ShellPageDescriptor
+        {
+            Id = "vendor.diagnostics",
+            Title = "Diagnostics",
+            SymbolName = "Repair",
+            ViewModelType = typeof(object),
+            Placement = ShellPagePlacement.Engineer,
+            Order = 70,
+        };
+        Assert.False(ShellNavigationRules.IsPersistentNav(guest, engineerMode: false));
+        Assert.True(ShellNavigationRules.IsPersistentNav(guest, engineerMode: true));
+        Assert.False(ShellNavigationRules.CanRemainOnPage(guest, engineerMode: false));
+    }
+
+    [Fact]
+    public void Builtin_descriptors_match_reserved_ids_and_operator_set()
+    {
+        Assert.Equal(ShellBuiltInPageIds.All.Count, BuiltinShellPages.Descriptors.Count);
+        Assert.All(BuiltinShellPages.Descriptors, d => Assert.True(ShellBuiltInPageIds.IsReserved(d.Id)));
+        var operatorIds = BuiltinShellPages.Descriptors
+            .Where(d => ShellNavigationRules.IsPersistentNav(d, engineerMode: false))
+            .Select(d => d.Id)
+            .ToArray();
+        Assert.Equal(ShellNavigationPolicy.OperatorPersistentIds, operatorIds);
+        Assert.Equal(90, BuiltinShellPages.Find(ShellBuiltInPageIds.Settings)?.Order);
     }
 
     [Fact]

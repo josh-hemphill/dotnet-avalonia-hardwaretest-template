@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>HardwareTest.Shell</RootNamespace>
+    <Description>Avalonia-free operator-shell page catalog and navigation rules</Description>
+  </PropertyGroup>
+</Project>

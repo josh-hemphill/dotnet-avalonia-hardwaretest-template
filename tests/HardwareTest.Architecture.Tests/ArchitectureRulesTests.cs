@@ -21,6 +21,8 @@ public sealed class ArchitectureRulesTests
         "README.md hard separation — HardwareTest.Core / OpenTap.Host stay Avalonia-free.";
     private const string CoreOpenTapFree =
         "README.md hard separation — HardwareTest.Core stays Avalonia-free and OpenTAP-free.";
+    private const string ShellAbstractionsFree =
+        "README.md hard separation — HardwareTest.Shell.Abstractions stays Avalonia-free and OpenTAP-free.";
     private const string PhaseIPresentation =
         "README.md hard separation — plugins must not reference Avalonia/ScottPlot UI types.";
     private const string ApplianceNoDialog =
@@ -62,6 +64,20 @@ public sealed class ArchitectureRulesTests
             typeof(AppSettings).Assembly,
             name => name.StartsWith("OpenTap", StringComparison.OrdinalIgnoreCase),
             CoreOpenTapFree);
+    }
+
+    [Fact]
+    public void ShellAbstractions_must_not_reference_Avalonia_or_OpenTap()
+    {
+        var assembly = typeof(global::HardwareTest.Shell.ShellPageDescriptor).Assembly;
+        AssertNoForbiddenReference(
+            assembly,
+            name => name.StartsWith("Avalonia", StringComparison.OrdinalIgnoreCase),
+            ShellAbstractionsFree);
+        AssertNoForbiddenReference(
+            assembly,
+            name => name.StartsWith("OpenTap", StringComparison.OrdinalIgnoreCase),
+            ShellAbstractionsFree);
     }
 
     [Fact]
@@ -303,6 +319,7 @@ public sealed class ArchitectureRulesTests
 
     [Theory]
     [InlineData(typeof(AppSettings))]
+    [InlineData(typeof(global::HardwareTest.Shell.ShellPageDescriptor))]
     [InlineData(typeof(OpenTapSession))]
     [InlineData(typeof(AcquireVoltageStep))]
     [InlineData(typeof(VisaDmmInstrument))]
