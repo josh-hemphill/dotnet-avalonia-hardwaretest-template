@@ -226,6 +226,7 @@ The Avalonia exe is a shell. Built-in Home / Run / Results / Settings (plus engi
 5. Bake by calling `services.AddShellApplications(new YourApplication())` from host composition (see in-repo [`HardwareTest.ShellApps.Notes`](../src/HardwareTest.ShellApps.Notes/)).
 6. Guest pages take exclusive bench I/O through Core (`IBenchOperationCoordinator`); they must not open a second VISA resource manager. `BenchOperation.DeviceTransfer` fails closed against Run, Instruments `*IDN?`, and VISA mode swap.
 7. Persist under `IShellHost.GetAppDataDirectory(app.Id)` (`{DataDirectory}/shell-apps/{appId}/`). App ids must be a single segment (`letter`, digit, `.`, `-`, `_`). Do not write outside that folder.
+8. Launch-time packages are **not** OpenTAP plugins. Put a folder with `shell-app.json` (`id`, `assembly`, `type`) next to the exe under `shell-apps/{id}/` or under `{DataDirectory}/shell-app-packages/{id}/`. The host loads that type; it does not scan assemblies. Packages that need a newer host ABI are skipped. App data (`shell-apps`) and OpenTAP `plugins/` are different trees.
 
 The in-repo Notes app is engineer-only so operator nav stays Home / Run / Results / Settings. Settings → About lists baked app title and version; Copy diagnostics includes that list.
 
