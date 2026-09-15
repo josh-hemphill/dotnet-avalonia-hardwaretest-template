@@ -46,7 +46,8 @@ public partial class MainWindowViewModel : ReactiveObject
         IRunControl runControl,
         IOpenTapRunSession openTap,
         ShellNotificationViewModel? shellNotification = null,
-        ISafetyController? safety = null)
+        ISafetyController? safety = null,
+        IReadOnlyList<ShellPage>? extraPages = null)
     {
         _settingsStore = settingsStore;
         _runControl = runControl;
@@ -58,7 +59,7 @@ public partial class MainWindowViewModel : ReactiveObject
         Results = results;
         ReportPreview = reportPreview;
         Instruments = instruments;
-        _catalog = BuiltinShellPages.Bind(
+        var builtin = BuiltinShellPages.Bind(
             home,
             runTest,
             inspect,
@@ -66,6 +67,9 @@ public partial class MainWindowViewModel : ReactiveObject
             reportPreview,
             instruments,
             settings);
+        _catalog = extraPages is { Count: > 0 }
+            ? new ShellPageCatalog(builtin.Pages.Concat(extraPages))
+            : builtin;
         _allPages = _catalog.Pages.Select(ToNavItem).ToArray();
         NavigationItems = [];
         ApplyNavigationPolicy();
