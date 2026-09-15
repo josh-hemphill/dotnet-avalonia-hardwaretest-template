@@ -17,14 +17,24 @@ public sealed class ShellAppE2ETests
         Assert.DoesNotContain(main.NavigationItems, i => i.Id == NotesApplication.PageId);
 
         var store = E2EHarness.RequireApp().SettingsStore;
-        store.AppSettings.IsEngineerDebugMode = true;
-        await Dispatcher.UIThread.InvokeAsync(main.ApplyNavigationPolicy);
+        var previousEngineer = store.AppSettings.IsEngineerDebugMode;
+        try
+        {
+            store.AppSettings.IsEngineerDebugMode = true;
+            await Dispatcher.UIThread.InvokeAsync(main.ApplyNavigationPolicy);
 
-        Assert.Contains(main.NavigationItems, i => i.Id == NotesApplication.PageId);
-        var guest = main.NavigationItems.ToList().FindIndex(i => i.Id == NotesApplication.PageId);
-        var settings = main.NavigationItems.ToList().FindIndex(i => i.Id == ShellNavigationPolicy.Settings);
-        Assert.InRange(guest, 0, settings - 1);
-        main.NavigateToPageId(NotesApplication.PageId);
-        Assert.IsType<NotesViewModel>(main.CurrentPage);
+            Assert.Contains(main.NavigationItems, i => i.Id == NotesApplication.PageId);
+            var guest = main.NavigationItems.ToList().FindIndex(i => i.Id == NotesApplication.PageId);
+            var settings = main.NavigationItems.ToList().FindIndex(i => i.Id == ShellNavigationPolicy.Settings);
+            Assert.InRange(guest, 0, settings - 1);
+            main.NavigateToPageId(NotesApplication.PageId);
+            Assert.IsType<NotesViewModel>(main.CurrentPage);
+        }
+        finally
+        {
+            store.AppSettings.IsEngineerDebugMode = previousEngineer;
+            await Dispatcher.UIThread.InvokeAsync(main.ApplyNavigationPolicy);
+            await Dispatcher.UIThread.InvokeAsync(() => main.NavigateToPageId(ShellNavigationPolicy.Home));
+        }
     }
 }

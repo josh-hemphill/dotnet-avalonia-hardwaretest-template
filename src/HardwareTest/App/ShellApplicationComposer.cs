@@ -1,4 +1,5 @@
 using Avalonia.Controls;
+using HardwareTest.Features.Shell;
 using HardwareTest.Shell;
 
 namespace HardwareTest;
@@ -17,6 +18,8 @@ public static class ShellApplicationComposer
         ArgumentNullException.ThrowIfNull(views);
 
         var pages = new List<ShellPage>();
+        var seenIds = new HashSet<string>(StringComparer.Ordinal);
+        var seenViewModelTypes = new HashSet<Type>();
         foreach (var application in applications)
         {
             ArgumentNullException.ThrowIfNull(application);
@@ -35,20 +38,22 @@ public static class ShellApplicationComposer
                         $"Shell app '{application.Id}' cannot reuse reserved page id '{id}'.");
                 }
 
-                if (pages.Any(p => string.Equals(p.Descriptor.Id, id, StringComparison.Ordinal)))
+                if (!seenIds.Add(id))
                 {
                     throw new InvalidOperationException(
                         $"Shell app '{application.Id}' duplicates page id '{id}'.");
                 }
 
-                if (views.IsRegistered(registration.Descriptor.ViewModelType))
+                var viewModelType = registration.Descriptor.ViewModelType;
+                if (BuiltinShellPages.Descriptors.Any(d => d.ViewModelType == viewModelType)
+                    || !seenViewModelTypes.Add(viewModelType))
                 {
                     throw new InvalidOperationException(
-                        $"Shell app '{application.Id}' page '{id}' reuses a registered ViewModel type '{registration.Descriptor.ViewModelType}'.");
+                        $"Shell app '{application.Id}' page '{id}' reuses a registered ViewModel type '{viewModelType}'.");
                 }
 
                 views.Register(
-                    registration.Descriptor.ViewModelType,
+                    viewModelType,
                     () => registration.CreateView() as Control
                           ?? throw new InvalidOperationException(
                               $"Shell page '{id}' CreateView must return an Avalonia Control."));

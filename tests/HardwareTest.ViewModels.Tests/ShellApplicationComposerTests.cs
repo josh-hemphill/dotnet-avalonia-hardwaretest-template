@@ -70,6 +70,31 @@ public sealed class ShellApplicationComposerTests
     }
 
     [Fact]
+    public void BindPages_rejects_viewmodel_type_already_used_by_another_guest()
+    {
+        var views = new ViewRegistry();
+        var sharedType = typeof(ShellApplicationComposerTests);
+        var first = new StubShellApplication(
+            id: "vendor.a",
+            minHostAbi: ShellHostAbi.Current,
+            pageId: "vendor.a",
+            viewModelType: sharedType,
+            viewModel: this,
+            placement: ShellPagePlacement.Engineer);
+        var second = new StubShellApplication(
+            id: "vendor.b",
+            minHostAbi: ShellHostAbi.Current,
+            pageId: "vendor.b",
+            viewModelType: sharedType,
+            viewModel: this,
+            placement: ShellPagePlacement.Engineer);
+
+        var ex = Assert.Throws<InvalidOperationException>(
+            () => ShellApplicationComposer.BindPages([first, second], new NullServices(), views));
+        Assert.Contains("ViewModel", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void BindPages_rejects_registered_viewmodel_type()
     {
         var views = new ViewRegistry();
