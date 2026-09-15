@@ -9,7 +9,7 @@ Avalonia 12 desktop shell for **OpenTAP-sequenced hardware tests**, **IVI VISA d
 ```
 src/
   HardwareTest/                      # Avalonia exe — App / Features / Widgets
-  HardwareTest.Shell.Abstractions/   # Avalonia-free page catalog + navigation rules
+  HardwareTest.Shell.Abstractions/   # Avalonia-free page catalog, shell-app contracts
   HardwareTest.ShellApps.Notes/      # Bake-time sample shell app (engineer Notes page)
   HardwareTest.Core/                 # Avalonia-free: logging, settings, VISA, runs, reporting
   HardwareTest.OpenTap.Host/         # OpenTAP session façade (load / run / pause / abort)
@@ -35,7 +35,7 @@ templates/reports/                   # Typst templates (embedded)
 **Hard separation** (architecture tests cite these rules):
 
 - `HardwareTest.Core` is Avalonia-free and OpenTAP-free.
-- `HardwareTest.Shell.Abstractions` is Avalonia-free and OpenTAP-free (page catalog / navigation rules).
+- `HardwareTest.Shell.Abstractions` is Avalonia-free and OpenTAP-free (page catalog, navigation rules, shell-app contracts).
 - Operator shell apps (`HardwareTest.ShellApps.*`) may reference Avalonia; they must not add a second `Window`.
 - OpenTAP Host and OpenTAP Worker are Avalonia-free. Do not call `TapThread.Abort` in the UI process.
 - Features call services via explicit DI in `App/Composition.cs` and take focused `IOpenTap*` surfaces — not the aggregating `IOpenTapSession`.

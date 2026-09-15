@@ -13,6 +13,7 @@ using HardwareTest.Features;
 using HardwareTest.Features.RunTest;
 using HardwareTest.Features.Shell;
 using HardwareTest.OpenTap.Host;
+using HardwareTest.Shell;
 using Microsoft.Extensions.DependencyInjection;
 using Serilog;
 
@@ -135,6 +136,14 @@ public partial class App : Application
             {
                 await shell.RunTest.WarmProgramsAsync().ConfigureAwait(true);
             });
+
+            await SetStartupStatusAsync(shell, "Starting shell apps…");
+            var services = Services;
+            await ShellApplicationWarmup.RunAsync(
+                services.GetServices<IShellApplication>(),
+                services,
+                CancellationToken.None,
+                (app, ex) => Log.Warning(ex, "Shell app {AppId} WarmAsync failed", app.Id));
         }
         catch (Exception ex)
         {
