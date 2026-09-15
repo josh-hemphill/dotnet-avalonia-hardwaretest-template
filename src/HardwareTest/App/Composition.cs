@@ -33,6 +33,11 @@ public static class Composition
         services.AddSingleton(buildInfo);
         services.AddHardwareTestCore(settingsStore);
         services.AddSingleton<IShellHost>(_ => new ShellHost(settingsStore));
+        var launched = ShellApplicationLoader.Load(
+            AppContext.BaseDirectory,
+            settingsStore.RootDirectory,
+            onError: (path, ex) => Log.Warning(ex, "Failed to load shell app package {Path}", path));
+        services.AddShellApplications([new NotesApplication(), .. launched]);
         services.AddSingleton(sp =>
             CrashDossierWriter.FromSettings(settingsStore.AppSettings, settingsStore.RootDirectory));
         services.AddSingleton<OpenTapWorkerClient>(sp =>
@@ -54,7 +59,6 @@ public static class Composition
         services.AddSingleton(sp => new OperatorSession(sp.GetRequiredService<IClock>()));
 
         services.AddSingleton<IViewRegistrar>(_ => ViewRegistry.Shared);
-        services.AddShellApplications(new NotesApplication());
         services.AddSingleton<ShellNotificationViewModel>();
         services.AddSingleton<HomeViewModel>(sp =>
             new HomeViewModel(
