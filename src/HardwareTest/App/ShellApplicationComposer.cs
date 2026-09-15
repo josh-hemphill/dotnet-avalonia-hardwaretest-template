@@ -35,6 +35,18 @@ public static class ShellApplicationComposer
                         $"Shell app '{application.Id}' cannot reuse reserved page id '{id}'.");
                 }
 
+                if (pages.Any(p => string.Equals(p.Descriptor.Id, id, StringComparison.Ordinal)))
+                {
+                    throw new InvalidOperationException(
+                        $"Shell app '{application.Id}' duplicates page id '{id}'.");
+                }
+
+                if (views.IsRegistered(registration.Descriptor.ViewModelType))
+                {
+                    throw new InvalidOperationException(
+                        $"Shell app '{application.Id}' page '{id}' reuses a registered ViewModel type '{registration.Descriptor.ViewModelType}'.");
+                }
+
                 views.Register(
                     registration.Descriptor.ViewModelType,
                     () => registration.CreateView() as Control

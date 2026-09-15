@@ -46,6 +46,47 @@ public sealed class ShellApplicationComposerTests
     }
 
     [Fact]
+    public void BindPages_rejects_duplicate_guest_page_id()
+    {
+        var views = new ViewRegistry();
+        var first = new StubShellApplication(
+            id: "vendor.a",
+            minHostAbi: ShellHostAbi.Current,
+            pageId: "vendor.shared",
+            viewModelType: typeof(StubShellApplication),
+            viewModel: new object(),
+            placement: ShellPagePlacement.Engineer);
+        var second = new StubShellApplication(
+            id: "vendor.b",
+            minHostAbi: ShellHostAbi.Current,
+            pageId: "vendor.shared",
+            viewModelType: typeof(ShellApplicationComposerTests),
+            viewModel: new object(),
+            placement: ShellPagePlacement.Engineer);
+
+        var ex = Assert.Throws<InvalidOperationException>(
+            () => ShellApplicationComposer.BindPages([first, second], new NullServices(), views));
+        Assert.Contains("vendor.shared", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void BindPages_rejects_registered_viewmodel_type()
+    {
+        var views = new ViewRegistry();
+        var app = new StubShellApplication(
+            id: "vendor.homevm",
+            minHostAbi: ShellHostAbi.Current,
+            pageId: "vendor.homevm",
+            viewModelType: typeof(HardwareTest.Features.Home.HomeViewModel),
+            viewModel: new object(),
+            placement: ShellPagePlacement.Engineer);
+
+        var ex = Assert.Throws<InvalidOperationException>(
+            () => ShellApplicationComposer.BindPages([app], new NullServices(), views));
+        Assert.Contains("ViewModel", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void BindPages_rejects_newer_host_abi()
     {
         var views = new ViewRegistry();
