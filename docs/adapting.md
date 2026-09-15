@@ -222,10 +222,11 @@ The Avalonia exe is a shell. Built-in Home / Run / Results / Settings (plus engi
 1. Implement `IShellApplication` in a separate project that references `HardwareTest.Shell.Abstractions` (and Avalonia for views). Do not add a second `Window`.
 2. Use a page id that is not in `ShellBuiltInPageIds` (Home, RunTest, Inspect, Results, ReportPreview, Instruments, Settings).
 3. Set `ShellPagePlacement.Operator` for standing operator nav, `Engineer` for debug-only, `Contextual` for pages opened from a parent.
-4. Bake by calling `services.AddShellApplications(new YourApplication())` from host composition (see in-repo [`HardwareTest.ShellApps.Notes`](../src/HardwareTest.ShellApps.Notes/)).
-5. Guest pages take exclusive bench I/O through Core (`IBenchOperationCoordinator`); they must not open a second VISA resource manager.
+4. Optionally contribute `HomeTiles` (same placement rules) and `WarmAsync` for deferred start work while the startup overlay is visible. A faulted `WarmAsync` does not skip other apps.
+5. Bake by calling `services.AddShellApplications(new YourApplication())` from host composition (see in-repo [`HardwareTest.ShellApps.Notes`](../src/HardwareTest.ShellApps.Notes/)).
+6. Guest pages take exclusive bench I/O through Core (`IBenchOperationCoordinator`); they must not open a second VISA resource manager.
 
-The in-repo Notes app is engineer-only so operator nav stays Home / Run / Results / Settings.
+The in-repo Notes app is engineer-only so operator nav stays Home / Run / Results / Settings. Settings → About lists baked app title and version; Copy diagnostics includes that list.
 
 ## Rename checklist
 

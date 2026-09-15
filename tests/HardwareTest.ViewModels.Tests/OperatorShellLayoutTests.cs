@@ -39,6 +39,8 @@ public sealed class OperatorShellLayoutTests
         Assert.Contains("WrapPanel", axaml, StringComparison.Ordinal);
         Assert.Contains("ShellLayoutBreakpoints.HomeTileMinWidth", axaml, StringComparison.Ordinal);
         Assert.Contains("IsEngineerMode", axaml, StringComparison.Ordinal);
+        Assert.Contains("GuestTiles", axaml, StringComparison.Ordinal);
+        Assert.Contains("HomeShellTileViewModel", axaml, StringComparison.Ordinal);
         Assert.DoesNotContain("UniformGrid", axaml, StringComparison.Ordinal);
 
         var home = new HardwareTest.Features.Home.HomeViewModel(new FakeSettingsStore());
@@ -63,6 +65,8 @@ public sealed class OperatorShellLayoutTests
         Assert.Contains("Back to Results", preview, StringComparison.Ordinal);
         var settings = File.ReadAllText(FindRepoFile("src/HardwareTest/Features/Settings/SettingsView.axaml"));
         Assert.Contains("Presentation only", settings, StringComparison.Ordinal);
+        Assert.Contains("HasShellApps", settings, StringComparison.Ordinal);
+        Assert.Contains("Baked shell applications", settings, StringComparison.Ordinal);
     }
 
     private static string FindRepoFile(string relativePath)

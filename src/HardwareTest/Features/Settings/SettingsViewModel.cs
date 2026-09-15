@@ -12,6 +12,7 @@ using HardwareTest.Core.Settings;
 using HardwareTest.Core.StationHealth;
 using HardwareTest.Core.Time;
 using HardwareTest.OpenTap.Host;
+using HardwareTest.Shell;
 using HardwareTest.UiThreading;
 using ReactiveUI;
 using ReactiveUI.SourceGenerators;
@@ -48,7 +49,8 @@ public partial class SettingsViewModel : ReactiveObject
         IVisaModeController? visaModeController = null,
         ISafetyController? safety = null,
         IStationHealthStore? stationHealthStore = null,
-        IClock? clock = null)
+        IClock? clock = null,
+        IEnumerable<IShellApplication>? shellApplications = null)
     {
         _settingsStore = settingsStore;
         _hostCatalog = hostCatalog;
@@ -103,6 +105,9 @@ public partial class SettingsViewModel : ReactiveObject
         Packages = [];
         PluginDirectories = [];
         ProvenanceRows = [];
+        ShellAppSummaries = (shellApplications ?? [])
+            .Select(app => $"{app.Title} {app.Version}")
+            .ToArray();
 
         UseMockVisaReadOnly = settingsStore.IsOverridden(nameof(AppSettings.UseMockVisa));
         LogMinimumLevelReadOnly = settingsStore.IsOverridden(nameof(AppSettings.LogMinimumLevel));
@@ -265,6 +270,8 @@ public partial class SettingsViewModel : ReactiveObject
     public string AboutRuntime => _buildInfo.RuntimeVersion;
     public string AboutRuntimeIdentifier => _buildInfo.RuntimeIdentifier;
     public string AboutOpenTapEngine => _buildInfo.OpenTapEngineVersion ?? "n/a";
+    public IReadOnlyList<string> ShellAppSummaries { get; }
+    public bool HasShellApps => ShellAppSummaries.Count > 0;
     public string SafetyInterlockStatus => _safety?.StatusText ?? NoOpSafetyController.NotWiredStatus;
 
     /// Optional clipboard hook (wired from the view); null means Copy shows a status message.
@@ -392,6 +399,14 @@ public partial class SettingsViewModel : ReactiveObject
         sb.AppendLine(_buildInfo.FormatSupportBlock(DataDirectory));
         sb.AppendLine($"Hardware interlock: {SafetyInterlockStatus}");
         sb.AppendLine("OpenTAP worker: killable child process");
+        if (ShellAppSummaries.Count > 0)
+        {
+            sb.AppendLine("Shell applications:");
+            foreach (var summary in ShellAppSummaries)
+            {
+                sb.AppendLine(summary);
+            }
+        }
         sb.AppendLine();
         var catalog = ProgramCatalog.SelfCheck();
         if (catalog.Count == 0)
