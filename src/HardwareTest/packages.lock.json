@@ -593,6 +593,9 @@
         "dependencies": {
           "HardwareTest.OpenTap.Host": "[0.1.0, )"
         }
+      },
+      "hardwaretest.shell.abstractions": {
+        "type": "Project"
       }
     },
     "net10.0/linux-x64": {

@@ -50,6 +50,7 @@ public static class Composition
         services.AddSingleton<IOpenTapHostCatalog>(sp => sp.GetRequiredService<OpenTapWorkerClient>());
         services.AddSingleton(sp => new OperatorSession(sp.GetRequiredService<IClock>()));
 
+        services.AddSingleton<IViewRegistrar>(_ => ViewRegistry.Shared);
         services.AddSingleton<ShellNotificationViewModel>();
         services.AddSingleton<HomeViewModel>(sp =>
             new HomeViewModel(
