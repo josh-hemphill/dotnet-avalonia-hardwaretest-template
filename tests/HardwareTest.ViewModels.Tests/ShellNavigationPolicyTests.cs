@@ -78,6 +78,11 @@ public sealed class ShellNavigationPolicyTests
             .Select(d => d.Id)
             .ToArray();
         Assert.Equal(ShellNavigationPolicy.OperatorPersistentIds, operatorIds);
+        var engineerExtra = BuiltinShellPages.Descriptors
+            .Where(d => d.Placement == ShellPagePlacement.Engineer)
+            .Select(d => d.Id)
+            .ToArray();
+        Assert.Equal(ShellNavigationPolicy.EngineerExtraPersistentIds, engineerExtra);
         Assert.Equal(90, BuiltinShellPages.Find(ShellBuiltInPageIds.Settings)?.Order);
     }
 
