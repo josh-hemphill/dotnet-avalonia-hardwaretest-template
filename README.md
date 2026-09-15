@@ -37,6 +37,7 @@ templates/reports/                   # Typst templates (embedded)
 - `HardwareTest.Core` is Avalonia-free and OpenTAP-free.
 - `HardwareTest.Shell.Abstractions` is Avalonia-free and OpenTAP-free (page catalog, navigation rules, shell-app contracts).
 - Operator shell apps (`HardwareTest.ShellApps.*`) may reference Avalonia; they must not add a second `Window`.
+- Launch-time shell apps load from `{app}/shell-apps/` and `{DataDirectory}/shell-app-packages/`, not from OpenTAP `plugins/` or app-data `{DataDirectory}/shell-apps/`.
 - OpenTAP Host and OpenTAP Worker are Avalonia-free. Do not call `TapThread.Abort` in the UI process.
 - Features call services via explicit DI in `App/Composition.cs` and take focused `IOpenTap*` surfaces — not the aggregating `IOpenTapSession`.
 - Plugins must not reference Avalonia/ScottPlot or call `Ivi.Visa`; Core owns `IVisaBroker`.
