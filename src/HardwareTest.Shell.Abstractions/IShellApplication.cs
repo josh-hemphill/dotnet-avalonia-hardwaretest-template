@@ -14,4 +14,11 @@ public interface IShellApplication
     void Configure(IServiceCollection services);
 
     IReadOnlyList<ShellPageRegistration> Pages { get; }
+
+    IReadOnlyList<ShellHomeTile> HomeTiles => [];
+
+    /// Optional deferred start work while the shell overlay is visible.
+    /// Faults are isolated per app and must not skip remaining apps.
+    Task WarmAsync(IServiceProvider services, CancellationToken cancellationToken)
+        => Task.CompletedTask;
 }

@@ -31,6 +31,18 @@ public sealed class NotesApplication : IShellApplication
         },
     ];
 
+    public IReadOnlyList<ShellHomeTile> HomeTiles { get; } =
+    [
+        new()
+        {
+            Title = "Station notes",
+            Body = "Engineer-only sample shell app. Open Notes for a placeholder planning/analysis page.",
+            ActionLabel = "Open Notes →",
+            NavigatePageId = PageId,
+            Placement = ShellPagePlacement.Engineer,
+        },
+    ];
+
     public void Configure(IServiceCollection services)
         => services.AddSingleton<NotesViewModel>();
 }

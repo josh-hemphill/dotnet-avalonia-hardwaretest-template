@@ -59,7 +59,8 @@ public static class Composition
             new HomeViewModel(
                 settingsStore,
                 sp.GetRequiredService<HardwareTest.Core.Storage.IExportTargetService>(),
-                sp.GetRequiredService<ShellNotificationViewModel>()));
+                sp.GetRequiredService<ShellNotificationViewModel>(),
+                guestTiles: sp.GetServices<IShellApplication>().SelectMany(app => app.HomeTiles)));
         services.AddSingleton<RunTestViewModel>();
         services.AddSingleton<InspectViewModel>();
         services.AddSingleton<ResultsViewModel>();
