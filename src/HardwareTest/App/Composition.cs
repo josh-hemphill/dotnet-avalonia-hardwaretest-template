@@ -16,6 +16,8 @@ using HardwareTest.Features.Settings;
 using HardwareTest.Features.Shell;
 using HardwareTest.OpenTap.Host;
 using HardwareTest.OpenTap.Host.Worker;
+using HardwareTest.Shell;
+using HardwareTest.ShellApps.Notes;
 using Microsoft.Extensions.DependencyInjection;
 using Serilog;
 
@@ -51,6 +53,7 @@ public static class Composition
         services.AddSingleton(sp => new OperatorSession(sp.GetRequiredService<IClock>()));
 
         services.AddSingleton<IViewRegistrar>(_ => ViewRegistry.Shared);
+        services.AddShellApplications(new NotesApplication());
         services.AddSingleton<ShellNotificationViewModel>();
         services.AddSingleton<HomeViewModel>(sp =>
             new HomeViewModel(
@@ -63,7 +66,24 @@ public static class Composition
         services.AddSingleton<ReportPreviewViewModel>();
         services.AddSingleton<InstrumentsViewModel>();
         services.AddSingleton<SettingsViewModel>();
-        services.AddSingleton<MainWindowViewModel>();
+        services.AddSingleton(sp =>
+            new MainWindowViewModel(
+                settingsStore,
+                sp.GetRequiredService<HomeViewModel>(),
+                sp.GetRequiredService<RunTestViewModel>(),
+                sp.GetRequiredService<InspectViewModel>(),
+                sp.GetRequiredService<ResultsViewModel>(),
+                sp.GetRequiredService<ReportPreviewViewModel>(),
+                sp.GetRequiredService<InstrumentsViewModel>(),
+                sp.GetRequiredService<SettingsViewModel>(),
+                sp.GetRequiredService<IRunControl>(),
+                sp.GetRequiredService<IOpenTapRunSession>(),
+                sp.GetRequiredService<ShellNotificationViewModel>(),
+                sp.GetRequiredService<ISafetyController>(),
+                extraPages: ShellApplicationComposer.BindPages(
+                    sp.GetServices<IShellApplication>(),
+                    sp,
+                    sp.GetRequiredService<IViewRegistrar>())));
         services.AddSingleton<MainWindow>(sp =>
             new MainWindow(
                 sp.GetRequiredService<MainWindowViewModel>(),

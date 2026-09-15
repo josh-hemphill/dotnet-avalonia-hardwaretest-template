@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>HardwareTest.ShellApps.Notes</RootNamespace>
+    <Description>In-repo sample shell app (engineer Notes page) for bake-time composition</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\HardwareTest.Shell.Abstractions\HardwareTest.Shell.Abstractions.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="12.1.0" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.10" />
+  </ItemGroup>
+</Project>
