@@ -1,11 +1,12 @@
 namespace HardwareTest.Core.Hardware;
 
-/// Exclusive bench operations that must not overlap: mode swap, run, Instruments *IDN?*.
+/// Exclusive bench operations that must not overlap: mode swap, run, Instruments *IDN?*, device transfer.
 public enum BenchOperation
 {
     ModeSwap,
     Run,
     IdQuery,
+    DeviceTransfer,
 }
 
 /// Fail-closed lock. TryEnter returns immediately when another operation holds the bench.
@@ -65,6 +66,7 @@ public sealed class BenchOperationCoordinator : IBenchOperationCoordinator
             BenchOperation.ModeSwap => "a VISA mode switch",
             BenchOperation.Run => "a run",
             BenchOperation.IdQuery => "an Instruments query",
+            BenchOperation.DeviceTransfer => "a device transfer",
             _ => "another bench operation",
         };
 
@@ -76,6 +78,8 @@ public sealed class BenchOperationCoordinator : IBenchOperationCoordinator
                 $"Cannot start a run while {heldText} is in progress.",
             BenchOperation.IdQuery =>
                 $"Cannot query *IDN? while {heldText} is in progress.",
+            BenchOperation.DeviceTransfer =>
+                $"Cannot start a device transfer while {heldText} is in progress.",
             _ => $"Bench is busy ({heldText}).",
         };
     }

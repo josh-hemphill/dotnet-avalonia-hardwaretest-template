@@ -21,6 +21,9 @@ public sealed class BenchOperationCoordinatorTests
     [InlineData(BenchOperation.IdQuery, BenchOperation.ModeSwap, "Cannot switch VISA mode while an Instruments query is in progress.")]
     [InlineData(BenchOperation.Run, BenchOperation.IdQuery, "Cannot query *IDN? while a run is in progress.")]
     [InlineData(BenchOperation.ModeSwap, BenchOperation.Run, "Cannot start a run while a VISA mode switch is in progress.")]
+    [InlineData(BenchOperation.DeviceTransfer, BenchOperation.Run, "Cannot start a run while a device transfer is in progress.")]
+    [InlineData(BenchOperation.Run, BenchOperation.DeviceTransfer, "Cannot start a device transfer while a run is in progress.")]
+    [InlineData(BenchOperation.IdQuery, BenchOperation.DeviceTransfer, "Cannot start a device transfer while an Instruments query is in progress.")]
     public void TryEnter_fails_closed_while_another_operation_is_held(
         BenchOperation held,
         BenchOperation requested,

@@ -85,6 +85,20 @@ public sealed class OpenTapRunGateTests
     }
 
     [Fact]
+    public async Task RunAsync_refused_when_coordinator_holds_device_transfer()
+    {
+        var bench = new BenchOperationCoordinator();
+        var session = new OpenTapSession(bench: bench);
+        Assert.True(bench.TryEnter(BenchOperation.DeviceTransfer, out var lease, out _));
+        using (lease)
+        {
+            var ex = await Record.ExceptionAsync(() => session.RunAsync());
+            Assert.IsType<InvalidOperationException>(ex);
+            Assert.Contains("device transfer", ex!.Message, StringComparison.OrdinalIgnoreCase);
+        }
+    }
+
+    [Fact]
     public async Task RunAsync_refused_when_coordinator_holds_id_query()
     {
         var bench = new BenchOperationCoordinator();
