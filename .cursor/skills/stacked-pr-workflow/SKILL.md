@@ -1,11 +1,11 @@
 ---
 name: stacked-pr-workflow
-description: Expands a rough plan into a detailed plan with pseudo-code, then implements each major area as a stackable pull request, spawns a reduced-context review subagent, fixes findings, and repeats. Use when the user gives a rough plan, asks to expand a plan with pseudo-code, stack PRs, implement a large change one major area at a time, or work through an execution plan as stacked pull requests.
+description: Expands a rough plan into a detailed plan with pseudo-code, then implements each major area as a stackable pull request, spawns a reduced-context review subagent, fixes findings, and repeats. After the PR chain is completely ready, present leftover nits that could still be valuable. Use when the user gives a rough plan, asks to expand a plan with pseudo-code, stack PRs, implement a large change one major area at a time, or work through an execution plan as stacked pull requests.
 ---
 
 # Stacked PR workflow
 
-Turn a rough plan into a detailed, pseudo-code plan. Ship each major area as its own stackable PR. After each area, spawn a reduced-context review subagent, fix findings, and repeat that review loop until the area is clean.
+Turn a rough plan into a detailed, pseudo-code plan. Ship each major area as its own stackable PR. After each area, spawn a reduced-context review subagent, fix findings, and repeat that review loop until the area is clean. When the PR chain is completely ready, present a summary of leftover nits that could still be valuable.
 
 Work can proceed to the next major area while waiting for review results on the previous as long as working on both won't conflict too much.
 
@@ -27,9 +27,11 @@ Skip for a single small change that belongs in one PR with no sequencing.
    e. Fix findings; re-spawn review until clean
    f. Start the next area only when it is next in the stack — or sooner
       if the previous review is in-flight and the areas will not conflict
+3. When the PR chain is completely ready: present a summary of leftover nits
+   that could still be valuable
 ```
 
-Keep the expanded plan in the parent. Subagents get only the current area.
+Keep the expanded plan in the parent. Subagents get only the current area. Keep leftover nits on a running list in the parent while the stack is in progress.
 
 ## 1. Expand the rough plan
 
@@ -108,7 +110,7 @@ The reviewer must not inherit the planning conversation, discarded approaches, o
 
 Do not paste the whole repo plan, other areas' specs, or a defense of the implementation.
 
-Ask for findings grouped as **Must fix** / **Should fix** / **Nit**. Nits do not block the stack unless they are correctness or the user asked for a tight bar.
+Ask for findings grouped as **Must fix** / **Should fix** / **Nit**. Nits do not block the stack unless they are correctness or the user asked for a tight bar. Copy leftover nits and follow-ups onto the parent running list even when the verdict is `clean`.
 
 If the subagent can run in the background, do that when you will start a non-conflicting next area while it runs.
 
@@ -122,7 +124,7 @@ Parent applies fixes on the area's branch.
 
 - Must fix: do now; re-review
 - Should fix: do now unless it belongs in a later area — then record it on that area's spec
-- Nit: optional
+- Nit: optional for that area; keep unapplied nits on the leftover list for the end-of-chain summary
 - Findings that demand the next area's work: refuse in this PR; fold into that area's spec
 - Disputed findings: keep the spec, comment why, do not silently ignore Must fix
 
@@ -155,6 +157,36 @@ When overlapping:
 
 Cap overlap at two in-flight areas unless the user asks for more.
 
+## 6. End-of-chain nit summary
+
+Required once the PR chain is completely ready. Do this even if every area's last review verdict was `clean`.
+
+**Completely ready** means all of these:
+
+- Every major area is implemented and pushed
+- Each area's review-fix loop has no outstanding Must/Should (verdict `clean`, or leftovers explicitly deferred onto a later area)
+- The stacked PRs are marked ready for human review (not draft), unless the user asked to leave them draft
+
+Then, in the user-facing message that reports the chain is ready, present a **summary of leftover nits that could still be valuable**. Do not post them to GitHub unless the user asked.
+
+Keep a running list in the parent (notes or each PR body) while the stack is in progress. Reduced-context reviews and compacted parent context will otherwise drop them.
+
+### What to include
+
+- Reviewer nits that were not applied
+- Follow-ups that never landed in a later area
+- Test gaps, UX, fail-closed strictness, and latent bugs that did not rise to Must/Should
+
+### What to skip
+
+- Style nits that match existing code
+- Nits already fixed in a later pass or later area
+- Must/Should items that were already fixed
+
+### How to present
+
+Group by area / PR. One bullet each: location, what it is, why it might still be worth a follow-up. Say so if there are none.
+
 ## Stacking mechanics
 
 ```
@@ -178,4 +210,5 @@ If the parent context is already large, spawn an implementation subagent with **
 - Give the reviewer the full plan or the implementation narrative
 - Start a conflicting area to stay busy while review runs
 - Treat nits as merge blockers, or Must-fix findings as optional
+- Skip the end-of-chain leftover-nit summary once the chain is ready
 - Let Area N+1 encode guesses about Area N's unfinished API

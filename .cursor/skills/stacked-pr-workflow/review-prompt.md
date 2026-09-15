@@ -43,7 +43,7 @@ Read the changed files and the tests named in the contract. Do not explore unrel
 4. Breakage at the boundary this area was supposed to stabilize
 5. Safety, data loss, and obvious regressions in the touched surface
 
-Ignore style nits that match existing code. Ignore features of later areas.
+Ignore style nits that match existing code. Ignore features of later areas. Still list leftover nits and follow-ups even when the verdict is `clean`; the parent summarizes potentially valuable nits after the whole chain is ready.
 
 ## Output
 
@@ -66,4 +66,4 @@ clean | needs-fix
 - <item>
 ```
 
-If there are no Must/Should items, verdict is `clean`. Do not propose a new architecture unless the contract is impossible as written; if so, say that under Must fix.
+If there are no Must/Should items, verdict is `clean`. Do not omit the Nit or Follow-ups sections when those items exist. Do not propose a new architecture unless the contract is impossible as written; if so, say that under Must fix.
