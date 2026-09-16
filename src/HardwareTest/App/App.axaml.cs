@@ -139,11 +139,14 @@ public partial class App : Application
 
             await SetStartupStatusAsync(shell, "Starting shell apps…");
             var services = Services;
-            await ShellApplicationWarmup.RunAsync(
-                services.GetServices<IShellApplication>(),
-                services,
-                CancellationToken.None,
-                (app, ex) => Log.Warning(ex, "Shell app {AppId} WarmAsync failed", app.Id));
+            await Task.Run(async () =>
+            {
+                await ShellApplicationWarmup.RunAsync(
+                    services.GetServices<IShellApplication>(),
+                    services,
+                    CancellationToken.None,
+                    (app, ex) => Log.Warning(ex, "Shell app {AppId} WarmAsync failed", app.Id)).ConfigureAwait(false);
+            }).ConfigureAwait(false);
         }
         catch (Exception ex)
         {

@@ -25,6 +25,22 @@ public sealed class ShellApplicationWarmupTests
     }
 
     [Fact]
+    public async Task RunAsync_continues_when_onFault_throws()
+    {
+        var faulted = new WarmupStub("vendor.fault", () => throw new InvalidOperationException("boom"));
+        var later = new WarmupStub("vendor.ok", () => Task.CompletedTask);
+
+        await ShellApplicationWarmup.RunAsync(
+            [faulted, later],
+            new ServiceCollection().BuildServiceProvider(),
+            CancellationToken.None,
+            (_, _) => throw new InvalidOperationException("callback"));
+
+        Assert.Equal(1, faulted.Calls);
+        Assert.Equal(1, later.Calls);
+    }
+
+    [Fact]
     public async Task RunAsync_rethrows_cancellation_from_WarmAsync()
     {
         using var cts = new CancellationTokenSource();
