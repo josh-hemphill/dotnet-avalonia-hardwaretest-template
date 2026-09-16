@@ -5,15 +5,6 @@ using ReactiveUI.SourceGenerators;
 
 namespace HardwareTest.Features.Presentation;
 
-public enum PresentationTileKind
-{
-    Timeseries,
-    Scalar,
-    Passband,
-    Timing,
-    Text,
-}
-
 /// Role-mapped tile for Run gauges and Results charts.
 public partial class PresentationTileViewModel : ReactiveObject
 {
