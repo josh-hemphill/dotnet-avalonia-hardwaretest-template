@@ -123,6 +123,23 @@ public sealed class ArchitectureRulesTests
     }
 
     [Fact]
+    public void AuthoringCore_must_not_reference_Visa_adapter()
+    {
+        var csproj = Path.Combine(
+            FindRepoRoot(),
+            "src",
+            "HardwareTest.Authoring.Core",
+            "HardwareTest.Authoring.Core.csproj");
+        Assert.True(File.Exists(csproj), csproj);
+        var xml = File.ReadAllText(csproj);
+        Assert.DoesNotContain("HardwareTest.OpenTap.Plugins.Visa", xml, StringComparison.Ordinal);
+        AssertNoForbiddenDirectReference(
+            typeof(global::HardwareTest.Authoring.AuthoringWorkspace).Assembly,
+            name => name is "HardwareTest.OpenTap.Plugins.Visa",
+            AuthoringCoreAvaloniaFree);
+    }
+
+    [Fact]
     public void Source_must_not_call_TapThread_Abort()
     {
         var srcRoot = Path.Combine(FindRepoRoot(), "src");
