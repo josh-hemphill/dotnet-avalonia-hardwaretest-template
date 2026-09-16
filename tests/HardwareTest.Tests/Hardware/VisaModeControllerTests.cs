@@ -251,6 +251,21 @@ public sealed class VisaModeControllerTests
         }
     }
 
+    [Fact]
+    public void TryApply_refused_while_coordinator_holds_device_transfer()
+    {
+        var bench = new BenchOperationCoordinator();
+        var controller = MakeController(initialMock: true, bench: bench);
+        Assert.True(bench.TryEnter(BenchOperation.DeviceTransfer, out var lease, out _));
+        using (lease)
+        {
+            var result = controller.TryApply(wantMock: false, out var msg);
+            Assert.False(result);
+            Assert.True(controller.EffectiveUseMockVisa);
+            Assert.Contains("device transfer", msg, StringComparison.OrdinalIgnoreCase);
+        }
+    }
+
     // ── DI composition resolves IVisaModeController ────────────────────────
 
     [Fact]

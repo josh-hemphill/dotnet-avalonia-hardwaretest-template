@@ -129,6 +129,22 @@ public sealed class InstrumentsViewModelTests
     }
 
     [Fact]
+    public async Task Query_IDN_refused_when_bench_holds_a_device_transfer()
+    {
+        var bench = new BenchOperationCoordinator();
+        Assert.True(bench.TryEnter(BenchOperation.DeviceTransfer, out var lease, out _));
+        using (lease)
+        {
+            var vm = CreateVm(bench: bench);
+            await vm.RefreshVisaDiscoverCommand.ExecuteAsync();
+            vm.SelectedVisa = vm.DiscoveredVisa[0];
+            await vm.QuerySelectedIdnCommand.ExecuteAsync();
+            Assert.Contains("device transfer", vm.Status, StringComparison.OrdinalIgnoreCase);
+            Assert.False(vm.SelectedVisa.HasIdn);
+        }
+    }
+
+    [Fact]
     public async Task Query_IDN_succeeds_when_coordinator_is_idle()
     {
         var bench = new BenchOperationCoordinator();

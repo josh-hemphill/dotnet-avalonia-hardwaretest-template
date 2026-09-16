@@ -1727,11 +1727,11 @@ public sealed class FakeStationHealthStore : IStationHealthStore
 
 public sealed class FakeSettingsStore : ISettingsStore
 {
-    public FakeSettingsStore()
+    public FakeSettingsStore(string? rootDirectory = null)
     {
         AppSettings = new AppSettings { UseMockVisa = true, DefaultVisaResource = "MOCK::0" };
         UiState = new UiState { SelectedPageId = "Home" };
-        RootDirectory = Path.Combine(Path.GetTempPath(), "fake-settings");
+        RootDirectory = rootDirectory ?? Path.Combine(Path.GetTempPath(), "fake-settings");
         RunsDirectory = Path.Combine(RootDirectory, "runs");
         SettingsPath = Path.Combine(RootDirectory, "settings.json");
         Provenance = [];
