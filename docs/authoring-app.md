@@ -95,7 +95,9 @@ Default: `{workspace}/.authoring/opentap/` (gitignored in product repos) or `--o
 
 ## Workspace contract
 
-`authoring.json` (schemaVersion 1, additionalProperties false). Persist with `AuthoringJsonContext` in Authoring.Core — do not register these types on Core’s `AppJsonContext` (architecture tests only walk Core roots).
+`authoring.json` is schemaVersion 1, `additionalProperties: false`. Persist with `AuthoringJsonContext` in Authoring.Core — do not register these types on Core’s `AppJsonContext` (architecture tests only walk Core roots).
+
+Product-workspace example (this template’s golden `authoring.json` **omits** InstrumentComponents.OpenTap so sample/board-demo stay Basic):
 
 ```json
 {
@@ -188,7 +190,7 @@ public sealed record MetricDraft(
 public abstract record MetricSource;
 public sealed record MeasureSource(
     string InstrumentSlot,
-    string FunctionId,      // catalog id, e.g. "Dmm.MeasureVoltageDc" / "Basic.AcquireVoltage"
+    string FunctionId,      // catalog id, e.g. "IC.Dmm.MeasureVoltageDc" / "Basic.AcquireVoltage"
     IReadOnlyDictionary<string, string> Settings) : MetricSource;
 
 public sealed record AlgorithmSource(
@@ -249,7 +251,7 @@ Checks:
 1. **Catalog** — `PluginManager` step, instrument, and mixin builder types in the authoring home vs a home that also has the TUI package. Authoring must not offer types TUI cannot load (`CatalogSide.TuiHome` is a pack failure). Types present only in the TUI home are ignored when they live under `OpenTap.TUI*` (the TUI app assembly). Other `TuiHome`-only HardwareTest / InstrumentComponents / BasicSteps types are a catalog warning, not a pack failure.
 2. **Round-trip** — Authoring `Save` → `TestPlan.Load` in the TUI home → `Save` → load again in Authoring → structural diff (step types, mixin member names, ChannelKeys, sidecar). Ignore volatile XML noise (formatting) via a normalized tree, not raw string compare. Mixin member names must stay XML-safe (no encoded colons — see existing Mixins fix).
 3. **Contract** — `PlanContractValidator.Validate` in both homes with `--strict` semantics for pack.
-4. **Optional Open in TUI** — spawn `tap tui` with `OPENTAP_PATH` / working directory set to the isolated home (manual; not CI).
+4. **Optional Open in TUI** — spawn `tap tui` with the isolated `OpenTapHome` as cwd and `tap` on `PATH` pointing at that home (manual; not CI). This repo has no `OPENTAP_PATH` setting.
 
 CI: `deno` task `test:authoring-compat`. Offline when TUI `.TapPackage` is cached; otherwise advisory like Linux E2E. Template plans (Basic only) run in required CI; InstrumentComponents round-trip is required only when that pack path is provided.
 
@@ -296,7 +298,7 @@ latest
   ← Area 1  workspace + Authoring.Core skeleton
        ← Area 2  isolated OpenTAP bootstrap
             ← Area 3  metric IR compile / decompile
-                 ← Area 4  pack / ship CLI
+                 ← Area 4  pack / ship (Core API)
                       ← Area 5  extract shared presentation map
                            ← Area 6  Authoring Avalonia shell
                                 ← Area 7  metric-first UI + operator preview
@@ -445,7 +447,7 @@ public static class WorkspacePacker
 - Pseudo-code:
   - Strict `PlanContractValidator` on `workspace.TapPlanPaths` (top-level only).
   - If `Compat` is set, fail when `report.BlocksPack()` (see TUI section).
-  - Render `package.xml`. **Template workspace Files stay the current set**: `sample.TapPlan`, `sample.program.json`, `template.program.json`, `program.schema.json` — not every top-level TapPlan (`board-demo` stays a CI factory, not this pack). Product manifests may set `package.files`; default for a product workspace is all `TapPlanPaths` + matching sidecars.
+  - Render `package.xml`. **Template pack** (manifest `package.name` == `HardwareTest Template Program`) Files stay the current set: `sample.TapPlan`, `sample.program.json`, `template.program.json`, `program.schema.json` — not every top-level TapPlan (`board-demo` stays a CI factory, not this pack). Product workspaces default to all `TapPlanPaths` + matching sidecars. Do not add a `package.files` schema key in Area 1.
   - Dependencies from manifest (still **no** live IC dep on the template pack).
   - Invoke `tap package create` with cwd = plans directory using Area 2 `OpenTapHome`.
   - Copy extra plugin TapPackages listed in manifest.
