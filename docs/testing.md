@@ -21,7 +21,7 @@ Where coverage lives:
 - Export, retention, free-space — Core `Storage/`
 - Clock skew — Core `Time/` (`IClock` / `FakeClock`; production idle/retention must not use `DateTimeOffset.UtcNow`)
 
-First plan in TUI: [getting-started.md](getting-started.md). Productizing plans, plugins, and reports: [adapting.md](adapting.md).
+First plan in TUI: [getting-started.md](getting-started.md). Productizing plans, plugins, and reports: [adapting.md](adapting.md). Planned authoring app test split (Core vs Avalonia vs TUI compat): [authoring-app.md](authoring-app.md).
 
 ## When to add which test
 
