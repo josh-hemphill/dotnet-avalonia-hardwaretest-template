@@ -7,9 +7,9 @@
       <ChildTestSteps>
         <TestStep type="emb:HardwareTest.OpenTap.Plugins.Basic.AcquireVoltageStep" Id="6c734bed-a818-41ca-9e46-004a805835d3">
           <OpenTap.Mixins>
-            <HardwareTest.Presentation_x003A_Presentation type="HardwareTest.OpenTap.Plugins.Mixins.PresentationMixinBuilder">
+            <HardwareTest.Presentation type="HardwareTest.OpenTap.Plugins.Mixins.PresentationMixinBuilder">
               <MemberName>Presentation</MemberName>
-            </HardwareTest.Presentation_x003A_Presentation>
+            </HardwareTest.Presentation>
           </OpenTap.Mixins>
           <Instrument type="HardwareTest.OpenTap.Plugins.Basic.MockDmmInstrument">
             <VisaAddress>MOCK::INSTR0</VisaAddress>
@@ -21,12 +21,12 @@
           <Channel>VDC</Channel>
           <Name Metadata="Step Name">Acquire VDC</Name>
           <ChildTestSteps />
-          <HardwareTest.Presentation_x003A_Presentation.ChannelKey>sweep.vdc</HardwareTest.Presentation_x003A_Presentation.ChannelKey>
-          <HardwareTest.Presentation_x003A_Presentation.DisplayRole>timeseries</HardwareTest.Presentation_x003A_Presentation.DisplayRole>
-          <HardwareTest.Presentation_x003A_Presentation.YUnit>V</HardwareTest.Presentation_x003A_Presentation.YUnit>
-          <HardwareTest.Presentation_x003A_Presentation.HistoryEnabled>true</HardwareTest.Presentation_x003A_Presentation.HistoryEnabled>
-          <HardwareTest.Presentation_x003A_Presentation.HistoryWatchPercent />
-          <HardwareTest.Presentation_x003A_Presentation.HistoryAlertPercent />
+          <HardwareTest.Presentation.ChannelKey>sweep.vdc</HardwareTest.Presentation.ChannelKey>
+          <HardwareTest.Presentation.DisplayRole>timeseries</HardwareTest.Presentation.DisplayRole>
+          <HardwareTest.Presentation.YUnit>V</HardwareTest.Presentation.YUnit>
+          <HardwareTest.Presentation.HistoryEnabled>true</HardwareTest.Presentation.HistoryEnabled>
+          <HardwareTest.Presentation.HistoryWatchPercent />
+          <HardwareTest.Presentation.HistoryAlertPercent />
         </TestStep>
       </ChildTestSteps>
     </TestStep>

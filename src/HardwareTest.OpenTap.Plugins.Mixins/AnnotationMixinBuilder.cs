@@ -20,7 +20,8 @@ public sealed class AnnotationMixinBuilder : IMixinBuilder
     public MixinMemberData ToDynamicMember(ITypeData targetType)
         => new(this, () => new AnnotationMixin())
         {
-            Name = "HardwareTest.Annotation:" + MemberName,
+            // Dot, not colon — OpenTAP XML-encodes ':' as _x003A_ in element names.
+            Name = "HardwareTest." + MemberName,
             TypeDescriptor = TypeData.FromType(typeof(AnnotationMixin)),
             Attributes =
             [
