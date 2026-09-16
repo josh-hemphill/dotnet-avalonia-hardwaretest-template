@@ -37,6 +37,9 @@ public partial class MainWindow : Window
         TryRun(() => _viewModel.Open(path));
     }
 
+    private void OnBootstrap(object? sender, RoutedEventArgs e)
+        => TryRun(() => _viewModel.Bootstrap(new BootstrapOptions { Offline = true }));
+
     private void OnValidate(object? sender, RoutedEventArgs e)
         => TryRun(() => _viewModel.Validate(strict: true));
 
