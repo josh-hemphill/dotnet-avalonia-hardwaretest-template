@@ -42,6 +42,8 @@ public static class PresentationAttach
         SetProperty(step, "LimitLow", limits.Low);
         SetProperty(step, "LimitHigh", limits.High);
         SetProperty(step, "Threshold", limits.Threshold);
+        SetProperty(step, "OffsetLimitLow", limits.Low);
+        SetProperty(step, "OffsetLimitHigh", limits.High);
     }
 
     private static void SetProperty(ITestStep step, string name, double? value)

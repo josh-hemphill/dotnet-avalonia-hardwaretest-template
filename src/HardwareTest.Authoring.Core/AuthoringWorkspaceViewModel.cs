@@ -209,8 +209,17 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
         AuthoringRecipeCatalog.EnsureScalarLimits(SelectedProgram);
         var planId = SelectedProgram.PlanId;
         var tapPlanPath = ResolveTapPlanPath(planId);
+        var unsaved = Programs
+            .Where(p => !string.Equals(p.PlanId, planId, StringComparison.OrdinalIgnoreCase)
+                        && !HasTapPlan(p.PlanId))
+            .ToArray();
         _compiler.Save(SelectedProgram, tapPlanPath);
         Open(Workspace.Root);
+        if (unsaved.Length > 0)
+        {
+            Programs = [.. Programs, .. unsaved];
+        }
+
         SelectProgram(planId);
         Status = $"Saved {Path.GetFileName(tapPlanPath)}";
         Error = null;
@@ -329,6 +338,11 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
         SelectedProgram = draft;
         RaiseSidecarProperties();
     }
+
+    private bool HasTapPlan(string planId)
+        => Workspace is not null
+           && Workspace.TapPlanPaths.Any(path =>
+               string.Equals(Path.GetFileNameWithoutExtension(path), planId, StringComparison.OrdinalIgnoreCase));
 
     private string ResolveTapPlanPath(string planId)
     {

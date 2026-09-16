@@ -246,7 +246,7 @@ public static class AuthoringRecipeCatalog
             "series.inband.pct",
             PresentationDisplayRoles.Passband,
             "%",
-            new LimitSpec(100, null, null),
+            new LimitSpec(1.1, 1.4, null),
             null,
             new AlgorithmSource(
                 AuthoringFunctionIds.BasicPublishSeriesCompliance,
@@ -269,7 +269,11 @@ public static class AuthoringRecipeCatalog
             new MeasureSource(
                 "DMM",
                 AuthoringFunctionIds.BasicReportStationHealth,
-                new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)));
+                new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["OffsetLimitLow"] = "-0.01",
+                    ["OffsetLimitHigh"] = "0.01",
+                }));
 
     private static bool IsBandRole(string displayRole)
         => string.Equals(displayRole, PresentationDisplayRoles.Scalar, StringComparison.OrdinalIgnoreCase)
