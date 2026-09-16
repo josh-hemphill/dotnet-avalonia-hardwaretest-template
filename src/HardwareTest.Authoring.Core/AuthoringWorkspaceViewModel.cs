@@ -209,17 +209,12 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
         AuthoringRecipeCatalog.EnsureScalarLimits(SelectedProgram);
         var planId = SelectedProgram.PlanId;
         var tapPlanPath = ResolveTapPlanPath(planId);
-        var unsaved = Programs
-            .Where(p => !string.Equals(p.PlanId, planId, StringComparison.OrdinalIgnoreCase)
-                        && !HasTapPlan(p.PlanId))
+        var others = Programs
+            .Where(p => !string.Equals(p.PlanId, planId, StringComparison.OrdinalIgnoreCase))
             .ToArray();
         _compiler.Save(SelectedProgram, tapPlanPath);
         Open(Workspace.Root);
-        if (unsaved.Length > 0)
-        {
-            Programs = [.. Programs, .. unsaved];
-        }
-
+        Programs = MergeSessionPrograms(Programs, others);
         SelectProgram(planId);
         Status = $"Saved {Path.GetFileName(tapPlanPath)}";
         Error = null;
@@ -339,10 +334,24 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
         RaiseSidecarProperties();
     }
 
-    private bool HasTapPlan(string planId)
-        => Workspace is not null
-           && Workspace.TapPlanPaths.Any(path =>
-               string.Equals(Path.GetFileNameWithoutExtension(path), planId, StringComparison.OrdinalIgnoreCase));
+    private static IReadOnlyList<ProgramDraft> MergeSessionPrograms(
+        IReadOnlyList<ProgramDraft> fromDisk,
+        IReadOnlyList<ProgramDraft> sessionOthers)
+    {
+        var merged = fromDisk
+            .Select(disk => sessionOthers.FirstOrDefault(other =>
+                string.Equals(other.PlanId, disk.PlanId, StringComparison.OrdinalIgnoreCase)) ?? disk)
+            .ToList();
+        foreach (var other in sessionOthers)
+        {
+            if (!merged.Any(p => string.Equals(p.PlanId, other.PlanId, StringComparison.OrdinalIgnoreCase)))
+            {
+                merged.Add(other);
+            }
+        }
+
+        return merged;
+    }
 
     private string ResolveTapPlanPath(string planId)
     {
