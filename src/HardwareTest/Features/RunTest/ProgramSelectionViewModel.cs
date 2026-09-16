@@ -28,8 +28,7 @@ public partial class ProgramSelectionViewModel : ReactiveObject
         _loadSelectedProgramAsync = loadSelectedProgramAsync ?? (_ => Task.CompletedTask);
         _onCatalogRefreshed = onCatalogRefreshed ?? (() => { });
 
-        RefreshProgramsCommand = ReactiveCommand.CreateFromTask(
-            (CancellationToken cancellationToken) => RefreshProgramsAsync(cancellationToken));
+        RefreshProgramsCommand = ReactiveCommand.CreateFromTask(() => RefreshProgramsAsync());
         OpenPlanFileCommand = ReactiveCommand.CreateFromTask(OpenPlanFileAsync);
     }
 

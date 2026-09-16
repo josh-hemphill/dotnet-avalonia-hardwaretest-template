@@ -220,8 +220,14 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
                 return;
             }
 
-            Observe(LoadSelectedProgramAsync());
             SessionPanel.RefreshRequirementFlags();
+            if (ProgramSelection.IsBusy)
+            {
+                // Catalog refresh already awaits loadSelected with its token.
+                return;
+            }
+
+            Observe(LoadSelectedProgramAsync());
         };
 
         SessionPanel.PropertyChanged += (_, args) =>
