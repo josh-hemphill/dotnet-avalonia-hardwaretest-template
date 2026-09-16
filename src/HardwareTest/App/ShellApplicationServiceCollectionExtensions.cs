@@ -3,7 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace HardwareTest;
 
-/// Registers bake-time and launch-time <see cref="IShellApplication"/> instances and runs <see cref="IShellApplication.Configure"/>.
+/// Registers bake-time <see cref="IShellApplication"/> instances and runs <see cref="IShellApplication.Configure"/>.
 public static class ShellApplicationServiceCollectionExtensions
 {
     public static IServiceCollection AddShellApplications(

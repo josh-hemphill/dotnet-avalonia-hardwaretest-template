@@ -223,10 +223,9 @@ The Avalonia exe is a shell. Built-in Home / Run / Results / Settings (plus engi
 2. Use a page id that is not in `ShellBuiltInPageIds` (Home, RunTest, Inspect, Results, ReportPreview, Instruments, Settings).
 3. Set `ShellPagePlacement.Operator` for standing operator nav, `Engineer` for debug-only, `Contextual` for pages opened from a parent.
 4. Optionally contribute `HomeTiles` (same placement rules) and `WarmAsync` for deferred start work while the startup overlay is visible. A faulted `WarmAsync` does not skip other apps.
-5. Bake by calling `services.AddShellApplications(new YourApplication())` from host composition (see in-repo [`HardwareTest.ShellApps.Notes`](../src/HardwareTest.ShellApps.Notes/)).
+5. Bake by calling `services.AddShellApplications(new YourApplication())` from host composition (see in-repo [`HardwareTest.ShellApps.Notes`](../src/HardwareTest.ShellApps.Notes/)). The host does not scan directories or load extra DLLs at launch.
 6. Guest pages take exclusive bench I/O through Core (`IBenchOperationCoordinator`); they must not open a second VISA resource manager. `BenchOperation.DeviceTransfer` fails closed against Run, Instruments `*IDN?`, and VISA mode swap.
-7. Persist under `IShellHost.GetAppDataDirectory(app.Id)` (`{DataDirectory}/shell-apps/{appId}/`). App ids must be a single segment (`letter`, digit, `.`, `-`, `_`). Do not write outside that folder.
-8. Launch-time packages are **not** OpenTAP plugins. Put a folder with `shell-app.json` (`id`, `assembly`, `type`) next to the exe under `shell-apps/{id}/` or under `{DataDirectory}/shell-app-packages/{id}/`. The host loads that type; it does not scan assemblies. Packages that need a newer host ABI are skipped. App data (`shell-apps`) and OpenTAP `plugins/` are different trees.
+7. Persist under `IShellHost.GetAppDataDirectory(app.Id)` (`{DataDirectory}/shell-apps/{appId}/`). App ids must be a single segment (`letter`, digit, `.`, `-`, `_`). Do not write outside that folder. App data (`shell-apps`) is distinct from OpenTAP `plugins/`.
 
 The in-repo Notes app is engineer-only so operator nav stays Home / Run / Results / Settings. Settings → About lists baked app title and version; Copy diagnostics includes that list.
 
