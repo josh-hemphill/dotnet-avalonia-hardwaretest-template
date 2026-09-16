@@ -144,7 +144,7 @@ public static class AuthoringCli
             AuthoringCliCommand.Bootstrap => RunBootstrap(workspace, openTapHome, offline, output),
             AuthoringCliCommand.Validate => RunValidate(workspace, strict, format, output),
             AuthoringCliCommand.Pack => RunPack(workspace, outputDirectory, openTapHome, offline, output, error),
-            AuthoringCliCommand.Compat => RunCompat(output, error),
+            AuthoringCliCommand.Compat => RunCompat(workspace, openTapHome, offline, output, error),
             _ => UsageExitCode,
         };
     }
@@ -202,7 +202,13 @@ public static class AuthoringCli
         var manifest = WorkspacePacker.Pack(
             workspace,
             outputDirectory,
-            new PackOptions { Home = home, Offline = offline });
+            new PackOptions
+            {
+                Home = home,
+                TuiHome = home,
+                Offline = offline,
+                Compat = new TuiCompatChecker(),
+            });
         output.WriteLine($"{manifest.PackageName} {manifest.Version}");
         foreach (var file in manifest.Files)
         {
@@ -212,11 +218,40 @@ public static class AuthoringCli
         return 0;
     }
 
-    private static int RunCompat(TextWriter output, TextWriter error)
+    private static int RunCompat(
+        string workspaceRoot,
+        string? homeDirectory,
+        bool offline,
+        TextWriter output,
+        TextWriter error)
     {
-        error.WriteLine("TUI compatibility checker is not available.");
-        output.WriteLine("Use --compat after the TUI compat checker is installed.");
-        return 1;
+        var workspace = AuthoringWorkspaceLoader.Load(workspaceRoot);
+        var home = new OpenTapHomeBootstrapper().Bootstrap(
+            workspace,
+            new BootstrapOptions
+            {
+                HomeDirectory = homeDirectory,
+                Offline = offline,
+            });
+        var report = new TuiCompatChecker().Compare(workspace, home, home);
+        foreach (var delta in report.Catalog)
+        {
+            output.WriteLine($"catalog {delta.MissingOn} {delta.TypeName}");
+        }
+
+        foreach (var finding in report.RoundTrips)
+        {
+            output.WriteLine($"{finding.Code} {Path.GetFileName(finding.PlanPath)} {finding.Message}");
+        }
+
+        if (report.BlocksPack())
+        {
+            error.WriteLine("TUI compatibility report blocks pack.");
+            return 1;
+        }
+
+        output.WriteLine("TUI compatibility ok.");
+        return 0;
     }
 
     private static void WriteUsage(TextWriter output)
