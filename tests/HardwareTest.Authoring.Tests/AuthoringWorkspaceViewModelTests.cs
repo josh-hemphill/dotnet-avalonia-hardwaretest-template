@@ -48,6 +48,17 @@ public sealed class AuthoringWorkspaceViewModelTests
                                          || f.Message.Contains("sidecar", StringComparison.OrdinalIgnoreCase));
     }
 
+    [Fact]
+    public void Open_failure_is_reportable_without_closing_the_session()
+    {
+        var vm = new AuthoringWorkspaceViewModel();
+        var missing = Path.Combine(Path.GetTempPath(), "ht-missing-" + Guid.NewGuid().ToString("N"));
+        var ex = Assert.Throws<AuthoringWorkspaceException>(() => vm.Open(missing));
+        vm.ReportError(ex.Message);
+        Assert.Equal(ex.Message, vm.Error);
+        Assert.Null(vm.Workspace);
+    }
+
     private static string CopyTemplateWorkspace()
     {
         var src = Path.Combine(FindRepoRoot(), "plans", "opentap");

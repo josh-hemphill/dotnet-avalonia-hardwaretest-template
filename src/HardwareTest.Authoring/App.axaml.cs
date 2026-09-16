@@ -13,13 +13,19 @@ public partial class App : Application
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             var vm = new AuthoringWorkspaceViewModel();
+            desktop.MainWindow = new MainWindow(vm);
             var workspace = desktop.Args?.FirstOrDefault(arg => !arg.StartsWith('-'));
             if (!string.IsNullOrWhiteSpace(workspace))
             {
-                vm.Open(workspace);
+                try
+                {
+                    vm.Open(workspace);
+                }
+                catch (Exception ex)
+                {
+                    vm.ReportError(ex.Message);
+                }
             }
-
-            desktop.MainWindow = new MainWindow(vm);
         }
 
         base.OnFrameworkInitializationCompleted();
