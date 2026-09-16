@@ -168,7 +168,8 @@ public static class PlanContractValidator
                 options.Settings ?? new AppSettings { UseMockVisa = true },
                 Serilog.Log.Logger.ForContext(typeof(PlanContractValidator)),
                 visaBroker: null,
-                trustConfiguredPluginDirectories: options.TrustConfiguredPluginDirectories);
+                trustConfiguredPluginDirectories: options.TrustConfiguredPluginDirectories,
+                includeVisaAdapter: !options.ExcludeVisaAdapter);
             catalog.EnsurePlugins();
             var plan = TestPlan.Load(tapPlanPath);
             AnalyzePlan(plan, includeCleanup, sidecar, findings);
