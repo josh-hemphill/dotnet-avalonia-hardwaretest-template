@@ -9,6 +9,8 @@ Avalonia 12 desktop shell for **OpenTAP-sequenced hardware tests**, **IVI VISA d
 ```
 src/
   HardwareTest/                      # Avalonia exe — App / Features / Widgets
+  HardwareTest.Authoring.Core/       # Avalonia-free workspace, compile, pack, TUI compat
+  HardwareTest.Authoring/            # Engineer workstation WinExe + headless CLI
   HardwareTest.Shell.Abstractions/   # Avalonia-free page catalog, shell-app contracts
   HardwareTest.ShellApps.Notes/      # Bake-time sample shell app (engineer Notes page)
   HardwareTest.Core/                 # Avalonia-free: logging, settings, VISA, runs, reporting
@@ -17,8 +19,8 @@ src/
   HardwareTest.OpenTap.Plugins.Visa/ # VISA DMM adapter over IVisaBroker (bench)
   HardwareTest.OpenTap.Plugins.Mixins/# Presentation + Annotation mixins (Editor pack)
 plans/opentap/                       # Locked .TapPlan programs + template program TapPackage
-docs/authoring-app.md                # Plan: separate engineer authoring app (not the operator shell)
-docs/getting-started.md              # New-user TUI + packages + test types
+docs/authoring-app.md                # Engineer authoring app architecture (not the operator shell)
+docs/getting-started.md              # New-user Authoring walkthrough + TUI escape hatch
 docs/adapting.md                     # Productize plans, plugins, station bindings, reports
 docs/testing.md                      # UI vs OpenTAP suite separation
 docs/containers.md                   # Local CI tasks, Podman, appliance image rails
@@ -26,6 +28,7 @@ docs/appliance-linux.md              # Appliance layout + publish notes
 tools/ci/                            # Deno CI tasks shared by Actions + local runs
 tests/
   HardwareTest.Architecture.Tests/   # Layering smoke (Avalonia/OpenTAP boundaries)
+  HardwareTest.Authoring.Tests/      # Workspace, compiler, pack, TUI compat
   HardwareTest.Session.Contracts/    # Shared IOpenTapSession contract (real + fake)
   HardwareTest.Tests/                # Core + OpenTAP host unit tests
   HardwareTest.ViewModels.Tests/     # ViewModel unit tests (fakes)
@@ -46,13 +49,14 @@ templates/reports/                   # Typst templates (embedded)
 - Feature files stay under 600 lines; split into a child ViewModel or a partial rather than raising the cap.
 - Pause/interaction is per `OpenTapRunContext`, not static on `StepRuntime`.
 - Idle/retention/run-complete use `IClock`; Safety Stop must not wait on NTP.
+- `HardwareTest.Authoring.Core` is Avalonia-free. Operator `HardwareTest` must not reference Authoring.
 
 ## Docs
 
 | Guide | Use when |
 | --- | --- |
-| [docs/authoring-app.md](docs/authoring-app.md) | Planned engineer authoring app: metric-first plans, pack/ship, TUI compat |
-| [docs/getting-started.md](docs/getting-started.md) | First OpenTAP TUI plan with our packages and test types |
+| [docs/authoring-app.md](docs/authoring-app.md) | Engineer authoring app architecture: metric-first plans, pack/ship, TUI compat |
+| [docs/getting-started.md](docs/getting-started.md) | First HardwareTest.Authoring plan; TUI is an optional escape hatch |
 | [docs/adapting.md](docs/adapting.md) | Replacing sample plans, plugins, station bindings, reports, or settings |
 | [docs/testing.md](docs/testing.md) | Adding or choosing a test suite |
 | [docs/containers.md](docs/containers.md) | Running the Deno CI matrix locally or in Podman |
@@ -95,7 +99,7 @@ dotnet test tests/HardwareTest.E2E.Tests -r win-x64
 
 ## OpenTAP programs
 
-Author structure in **OpenTAP Editor** or the free **OpenTAP TUI**; ship locked `.TapPlan` files under `plans/opentap/` (copied to `Programs/` on build). Product plans use **InstrumentComponents.OpenTap** typed instruments/steps plus HardwareTest Mixins Presentation; validate with `HardwareTest.PlanValidate --strict` before bake. Walkthrough: [docs/getting-started.md](docs/getting-started.md). Contract: [docs/adapting.md](docs/adapting.md#author-a-locked-program). Planned workstation app (not baked into the operator shell): [docs/authoring-app.md](docs/authoring-app.md).
+Author structure in **HardwareTest.Authoring** (`dotnet run --project src/HardwareTest.Authoring -r win-x64 -- plans/opentap`); OpenTAP TUI / Editor is an optional escape hatch. Ship locked `.TapPlan` files under `plans/opentap/` (copied to `Programs/` on build). Product plans use **InstrumentComponents.OpenTap** typed instruments/steps plus HardwareTest Mixins Presentation; pack with `HardwareTest.Authoring --pack <workspace> --out dist/` (appliance CI can still call `HardwareTest.PlanValidate --strict`). Walkthrough: [docs/getting-started.md](docs/getting-started.md). Contract: [docs/adapting.md](docs/adapting.md#author-a-locked-program). Architecture (not baked into the operator shell): [docs/authoring-app.md](docs/authoring-app.md).
 
 ## Appliance publish
 

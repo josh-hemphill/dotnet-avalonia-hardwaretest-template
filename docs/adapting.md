@@ -2,11 +2,11 @@
 
 Keep the layering (`HardwareTest` UI → focused `IOpenTap*` session surfaces → plugins/plans → `HardwareTest.Core`) and replace the sample product pieces below.
 
-Related: [getting-started.md](getting-started.md) (TUI walkthrough), [authoring-app.md](authoring-app.md) (planned engineer app), [testing.md](testing.md) (suites), [appliance-linux.md](appliance-linux.md) (sealed publish), [README.md](../README.md) (layering rules).
+Related: [getting-started.md](getting-started.md) (Authoring walkthrough; TUI is an escape hatch), [authoring-app.md](authoring-app.md) (engineer app architecture), [testing.md](testing.md) (suites), [appliance-linux.md](appliance-linux.md) (sealed publish), [README.md](../README.md) (layering rules).
 
 ## Author a locked program
 
-This shell does not edit plans. Author in **OpenTAP Editor / TUI**. First-time TUI steps and each test type: [getting-started.md](getting-started.md). Planned workstation authoring app (still not the operator shell): [authoring-app.md](authoring-app.md). A locked program is `.TapPlan` + `{planId}.program.json` + Presentation on function leaves + TapPackage Dependencies + Typst `reportKinds`. `HardwareTest.PlanValidate --strict` must fail a bad pack **before bake**. Authoring warnings do not block operator Run.
+This shell does not edit plans. Author in **HardwareTest.Authoring** (TUI / Editor is an optional escape hatch). First-time Authoring steps and each test type: [getting-started.md](getting-started.md). Architecture (still not the operator shell): [authoring-app.md](authoring-app.md). A locked program is `.TapPlan` + `{planId}.program.json` + Presentation on function leaves + TapPackage Dependencies + Typst `reportKinds`. `HardwareTest.Authoring --pack` (or `HardwareTest.PlanValidate --strict` in appliance CI) must fail a bad pack **before bake**. Authoring warnings do not block operator Run.
 
 Typed SCPI lives in **InstrumentComponents.OpenTap** ([user guide](https://josh-hemphill.github.io/instrument-components/csharp/opentap/)). HardwareTest Basic is operator/safety chrome and in-repo demos; Mixins is Presentation/Annotation.
 
@@ -21,8 +21,8 @@ Typed SCPI lives in **InstrumentComponents.OpenTap** ([user guide](https://josh-
 
 ### Authoring checklist
 
-1. **Install** the same pack versions the bench bakes (Basic, Mixins, InstrumentComponents.OpenTap). Commands: [Authoring packs](#authoring-packs).
-2. **Save** `{planId}.TapPlan` and copy `template.program.json` → `{planId}.program.json`.
+1. **Bootstrap** Editor packs into the isolated Authoring home (Basic, Mixins, InstrumentComponents.OpenTap when the workspace lists it). Commands: [Authoring packs](#authoring-packs).
+2. **Save plan** in Authoring (`{planId}.TapPlan` + `{planId}.program.json`). Hand-copy `template.program.json` only for TUI-authored sidecars.
 3. **One instrument resource per box** from *Instrument Components* (DMM, PSU, FGen, scope, switch, counter, power meter, spectrum analyzer). Extra capabilities are nested views on that resource, not a second slot. Keep **`VisaAddress`** writable so Instruments can rebind.
 4. **Shape:** three-level groups (`Setup` / measure / `Cleanup`); unique leaf paths.
 5. **Setup:** library *Identity Query* when `requireSerial` — DUT serial is the shell confirm, not a `HardwareDut` resource. Operator pauses: Basic `OperatorPromptStep` / `OperatorInputStep`, never `DialogStep`.
@@ -31,11 +31,14 @@ Typed SCPI lives in **InstrumentComponents.OpenTap** ([user guide](https://josh-
 8. **Validate / pack / bake.** Template pack (this repo, Basic sample only):
 
    ```bash
-   HardwareTest.PlanValidate plans/opentap --strict
-   cd plans/opentap && tap package create package.xml   # File Path is relative to this directory
+   HardwareTest.Authoring --validate plans/opentap --strict
+   HardwareTest.Authoring --compat plans/opentap
+   HardwareTest.Authoring --pack plans/opentap --out dist/
    ```
 
-   Product plans that use library steps need that pack on the search path, and declare it on the **product** `package.xml` (do not add a live `PackageDependency` on `InstrumentComponents.OpenTap` to this template):
+   `--pack` writes `package.xml`, runs `tap package create`, copies declared plugin packs, and writes `dist/ship-manifest.json`. It fails closed on plan-contract errors and TUI `BlocksPack`. Product plans that use library steps need that pack on the search path, and declare it on the **product** `package.xml` (do not add a live `PackageDependency` on `InstrumentComponents.OpenTap` to this template).
+
+   Appliance CI can still call `HardwareTest.PlanValidate` (Avalonia-free, Host plan-contract checks):
 
    ```bash
    HardwareTest.PlanValidate path/to/product-plans --strict --opentap-plugin-dirs path/to/InstrumentComponents.OpenTap
@@ -43,7 +46,7 @@ Typed SCPI lives in **InstrumentComponents.OpenTap** ([user guide](https://josh-
 
    Ad-hoc (missing sidecar = warning): `HardwareTest --validate-plan path/to/plan.TapPlan`. Then bake packs onto the appliance and mock-run (`UseMockVisa`).
 
-CLI notes: exit `1` on errors, `0` if only warnings; bare `--validate-plan` prints usage and exits `2` (no UI). `HardwareTest.PlanValidate --opentap-plugin-dirs` trusts those CLI dirs; `HARDWARETEST_OPENTAP_PLUGIN_DIRS` still needs appliance `PluginDirectoryTrust`. `--format json|sarif` is for CI. `tap package create` needs the declared authoring packs already installed.
+CLI notes: exit `1` on errors, `0` if only warnings; bare `--validate-plan` prints usage and exits `2` (no UI). `HardwareTest.PlanValidate --opentap-plugin-dirs` trusts those CLI dirs; `HARDWARETEST_OPENTAP_PLUGIN_DIRS` still needs appliance `PluginDirectoryTrust`. `--format json|sarif` is for CI. Authoring `--pack` bootstraps the isolated home; a machine-global `tap package create` still needs the declared authoring packs already installed.
 
 `plans/opentap/fixtures/` are shape examples, not product plans. Top-level `*.TapPlan` are the pack set. Full **Run** always executes the authored plan. Disabled siblings outside a Run Selected mask may show NotExecuted/Invalidated — that is not “cleanup skipped.”
 
@@ -87,9 +90,10 @@ Do not reimplement evaluation in Avalonia. If the plan uses expression steps, in
 
 ### Authoring packs
 
-Install the same **HardwareTest Basic**, **HardwareTest Mixins**, and **InstrumentComponents.OpenTap** versions the bench uses:
+**HardwareTest.Authoring --bootstrap** (or the GUI **Bootstrap** button) installs the same **HardwareTest Basic**, **HardwareTest Mixins**, and **InstrumentComponents.OpenTap** versions the bench uses into `{workspace}/.authoring/opentap/`. Prefer that isolated home. For a machine-global TUI/Editor tree:
 
 ```bash
+HardwareTest.Authoring --bootstrap plans/opentap --offline
 dotnet build src/HardwareTest.OpenTap.Plugins.Basic -c Release -r linux-x64 -p:CreateOpenTapPackage=true -p:InstallCreatedOpenTapPackage=false
 dotnet build src/HardwareTest.OpenTap.Plugins.Mixins -c Release -r linux-x64 -p:CreateOpenTapPackage=true -p:InstallCreatedOpenTapPackage=false
 # Library pack (from the instrument-components repo; NuGet publish is not in this template):
@@ -113,7 +117,7 @@ HardwareTest `package.xml` files list only the plugin DLL (no `HardwareTest.Core
 
 ### Third-party SCPI instrument
 
-1. Author a TapPlan that references your SCPI plugin instrument (`VisaAddress` preferred). Validate with `HardwareTest --validate-plan` or `HardwareTest.PlanValidate` before installing it on the bench.
+1. Author a TapPlan that references your SCPI plugin instrument (`VisaAddress` preferred). Validate with `HardwareTest.Authoring --validate`, `HardwareTest --validate-plan`, or `HardwareTest.PlanValidate` before installing it on the bench.
 2. Ship the plugin DLL via offline package install or `OpenTapPluginDirectories` (see [appliance-linux.md](appliance-linux.md)). Prefer plugins that implement `IDeviceDiscovery` so **Discover OpenTAP** lists their addresses.
 3. On the bench, open **Instruments**, load the program, pick a discovered VISA or OpenTAP resource (or type one), save the slot override.
 4. On **Run**, `ApplyStationAndDutAsync` writes the override onto the instrument before execute. The shell does not edit OpenTAP ComponentSettings / bench profiles. Product SCPI maps and typed steps come from **InstrumentComponents.OpenTap**; HardwareTest injects broker-backed SCPI I/O so that pack never calls IVI. Third-party instruments still work if they expose writable `VisaAddress`.
@@ -135,7 +139,7 @@ DUT serial is the operator session. Library *Identity Query* does not need `Hard
 | Sidecar | Missing: warning, or **error** under `--strict`. Invalid JSON / unknown `reportKinds`: error |
 | `requireSerial` | Needs *Identity Query* or `IdentityCheckStep`. `HardwareDut` required only on Basic Identity Check |
 
-Repeat/Sweep loops show innermost `iter i/N` on the Run hero; edit bounds in Editor/TUI or station overrides — not in Avalonia.
+Repeat/Sweep loops show innermost `iter i/N` on the Run hero; edit bounds in Authoring (or TUI) or station overrides — not in the operator Avalonia shell.
 
 ### Operator session
 
@@ -167,7 +171,7 @@ Field editors (`InteractionFieldViewModel`) are shared widgets; override and pro
 
 ## Presentation and reports
 
-Publish tables `Sample` (Channel, Index, Value, optional LimitLow/LimitHigh/ElapsedMs) and `Scalar` (Name, Value, Unit, optional LimitLow/LimitHigh). Attach **Presentation** (`ChannelKey`, `DisplayRole`, `YUnit`, optional history thresholds) in Editor/TUI. Results lines show `MetricKey [role] value unit`. Run maps `timeseries` → Focus trend when earned, `scalar`/`passband` → Band gauges; Results prefers gauges then charts.
+Publish tables `Sample` (Channel, Index, Value, optional LimitLow/LimitHigh/ElapsedMs) and `Scalar` (Name, Value, Unit, optional LimitLow/LimitHigh). **HardwareTest.Authoring** writes **Presentation** (`ChannelKey`, `DisplayRole`, `YUnit`, optional history thresholds) on Save plan; TUI/Editor authors attach the mixin by hand. Results lines show `MetricKey [role] value unit`. Run maps `timeseries` → Focus trend when earned, `scalar`/`passband` → Band gauges; Results prefers gauges then charts.
 
 | Recipe | What to publish | Role | Limits | When to also publish timeseries |
 | --- | --- | --- | --- | --- |
@@ -318,6 +322,6 @@ Use mixins for product-specific step settings without forking every step type.
    - An embed type implementing `IMixin` and `[Display]` properties.
    - An `IMixinBuilder` marked `[MixinBuilder(typeof(ITestStep))]` that returns `MixinMemberData` with `EmbedPropertiesAttribute`.
 2. Ship the DLL beside Basic or add its folder to `OpenTapPluginDirectories`.
-3. Attach in **OpenTAP Editor** or **OpenTAP TUI** (right-click / mixin menu → Add Mixin). The Avalonia shell does not add mixins.
+3. Attach in **HardwareTest.Authoring** (Presentation on Save plan) or in **OpenTAP Editor / TUI** (right-click / mixin menu → Add Mixin). The operator Avalonia shell does not add mixins.
 4. On the Run board (Engineer/Debug), select the step → **Station overrides** shows grouped mixin fields → **Apply & save** persists `PlanParameterOverrides` (TapPlan unchanged).
 5. Demo reference: `AnnotationMixin` / `AnnotationMixinBuilder`; sample Identity Check is pre-attached for CI/UI demos.

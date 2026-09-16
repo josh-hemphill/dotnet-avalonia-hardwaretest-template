@@ -1,8 +1,8 @@
 # Engineer authoring application
 
-Status: **proposal**. The operator shell still does not edit plans. Until this stack lands, author in OpenTAP TUI / Editor: [getting-started.md](getting-started.md).
+Status: **shipped**. The operator shell still does not edit plans. Primary path: [getting-started.md](getting-started.md). OpenTAP TUI / Editor is an optional escape hatch. This document is the architecture and stack record for `HardwareTest.Authoring` (not an `IShellApplication` on the appliance).
 
-This document is the execution plan for a **separate workstation app** in this repo. It is not an `IShellApplication` baked into the operator appliance.
+This document records the architecture and stacked implementation for that **separate workstation app**. Walkthrough and commands live in [getting-started.md](getting-started.md).
 
 ## Goal
 

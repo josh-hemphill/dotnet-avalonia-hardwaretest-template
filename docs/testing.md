@@ -21,7 +21,7 @@ Where coverage lives:
 - Export, retention, free-space — Core `Storage/`
 - Clock skew — Core `Time/` (`IClock` / `FakeClock`; production idle/retention must not use `DateTimeOffset.UtcNow`)
 
-First plan in TUI: [getting-started.md](getting-started.md). Productizing plans, plugins, and reports: [adapting.md](adapting.md). Planned authoring app test split (Core vs Avalonia vs TUI compat): [authoring-app.md](authoring-app.md).
+First plan in Authoring: [getting-started.md](getting-started.md). Productizing plans, plugins, and reports: [adapting.md](adapting.md). Authoring test split (Core vs Avalonia vs TUI compat): [authoring-app.md](authoring-app.md).
 
 ## When to add which test
 
@@ -82,9 +82,9 @@ To regenerate the checked-in `sample-pass` cassette, build host tests with `/p:D
 
 ## Plan contract
 
-Host `PlanContractValidator` encodes the authoring checks for TUI/Editor authors (`HardwareTest --validate-plan`, `HardwareTest.PlanValidate`). The check table lives in [adapting.md](adapting.md#plan-contract). Warnings do not block operator Run.
+Host `PlanContractValidator` encodes the authoring checks for Authoring / TUI / Editor authors (`HardwareTest.Authoring --validate`, `HardwareTest --validate-plan`, `HardwareTest.PlanValidate`). The check table lives in [adapting.md](adapting.md#plan-contract). Warnings do not block operator Run.
 
-Coverage lives in `PlanContractValidatorTests` (OpenTapSerial), including a strict gate over committed top-level `Programs/*.TapPlan` (fixtures excluded). `ConfigurationArgs` parse covers `--validate-plan` (including the bare flag). Named shape templates remain in `PlanDiagnosticsTests`.
+Coverage lives in `PlanContractValidatorTests` (OpenTapSerial), including a strict gate over committed top-level `Programs/*.TapPlan` (fixtures excluded). `ConfigurationArgs` parse covers `--validate-plan` (including the bare flag). Named shape templates remain in `PlanDiagnosticsTests`. `HardwareTest.Authoring.Tests` covers workspace load, compile, pack, and `--validate`; `test:authoring-compat` filters `TuiCompat`.
 
 ## Local commands
 
@@ -95,6 +95,7 @@ deno task --cwd tools/ci all -- --rid win-x64
 # Or individual suites (OpenTAP host + E2E share process-global TapThread state):
 deno run -A tools/ci/main.ts test:arch --rid win-x64
 deno run -A tools/ci/main.ts test:host --rid win-x64
+deno run -A tools/ci/main.ts test:authoring-compat --rid win-x64
 deno run -A tools/ci/main.ts test:vm --rid win-x64
 deno run -A tools/ci/main.ts test:e2e --rid win-x64
 deno run -A tools/ci/main.ts coverage --rid win-x64
