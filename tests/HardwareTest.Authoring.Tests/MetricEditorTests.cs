@@ -1,5 +1,7 @@
 using HardwareTest.Authoring;
 using HardwareTest.OpenTap.Host;
+using HardwareTest.OpenTap.Plugins.Basic;
+using OpenTap;
 using Xunit;
 
 namespace HardwareTest.Authoring.Tests;
@@ -105,6 +107,131 @@ public sealed class MetricEditorTests
         Assert.Equal(2, repeat.Count);
         Assert.Equal("VDC", Assert.IsType<MetricNode>(Assert.Single(repeat.Children)).Metric.ChannelKey);
         Assert.Contains(vm.MeasureTree, line => line.Contains("Repeat", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Series_compliance_keeps_voltage_band_limits_on_save()
+    {
+        var root = EmptyWorkspace();
+        var vm = new AuthoringWorkspaceViewModel();
+        vm.Open(root);
+        vm.CreateProgram("series");
+        vm.ApplyRecipe(AuthoringRecipeIds.SeriesCompliance);
+        Assert.Equal("1.1", vm.LimitLow);
+        Assert.Equal("1.4", vm.LimitHigh);
+        vm.Apply();
+
+        var xml = File.ReadAllText(Path.Combine(root, "series.TapPlan"));
+        Assert.Contains("1.1", xml, StringComparison.Ordinal);
+        Assert.DoesNotContain("<LimitLow>100</LimitLow>", xml, StringComparison.OrdinalIgnoreCase);
+
+        var reloaded = new AuthoringWorkspaceViewModel();
+        reloaded.Open(root);
+        reloaded.SelectProgram("series");
+        var metric = Assert.Single(AuthoringRecipeCatalog.EnumerateMetrics(reloaded.SelectedProgram!.Measure));
+        Assert.Equal("series.inband.pct", metric.ChannelKey);
+        Assert.Equal(1.1, metric.Limits?.Low);
+        Assert.Equal(1.4, metric.Limits?.High);
+        Assert.Equal("1.20,1.22,1.21", GetSetting(metric, "Values"));
+    }
+
+    [Fact]
+    public void Station_health_scalar_round_trips_limits_and_can_be_saved_again()
+    {
+        var root = EmptyWorkspace();
+        var vm = new AuthoringWorkspaceViewModel();
+        vm.Open(root);
+        vm.CreateProgram("health");
+        vm.ApplyRecipe(AuthoringRecipeIds.StationHealth);
+        Assert.Equal(PresentationRoles.Scalar, vm.DisplayRole);
+        vm.Apply();
+
+        var reloaded = new AuthoringWorkspaceViewModel();
+        reloaded.Open(root);
+        reloaded.SelectProgram("health");
+        var metric = Assert.Single(AuthoringRecipeCatalog.EnumerateMetrics(reloaded.SelectedProgram!.Measure));
+        Assert.Equal("cal.dc.offset", metric.ChannelKey);
+        Assert.Equal(-0.01, metric.Limits?.Low);
+        Assert.Equal(0.01, metric.Limits?.High);
+        reloaded.Apply();
+        Assert.Null(reloaded.Error);
+        Assert.True(File.Exists(Path.Combine(root, "health.TapPlan")));
+    }
+
+    [Fact]
+    public void Raw_step_survives_repeat_save_and_reload()
+    {
+        var root = EmptyWorkspace();
+        var xml = HangForeverXml();
+        var draft = AuthoringRecipeCatalog.CreateProgram("raw");
+        draft = draft with { Measure = [new RawStepNode(typeof(HangForeverStep).FullName!, xml)] };
+        draft = AuthoringRecipeCatalog.Apply(draft, AuthoringRecipeIds.Repeat);
+        new PlanCompiler().Save(draft, Path.Combine(root, "raw.TapPlan"));
+
+        var vm = new AuthoringWorkspaceViewModel();
+        vm.Open(root);
+        vm.SelectProgram("raw");
+        var repeat = Assert.IsType<RepeatNode>(Assert.Single(vm.SelectedProgram!.Measure));
+        var raw = Assert.IsType<RawStepNode>(Assert.Single(repeat.Children));
+        Assert.Contains("HangForeverStep", raw.TypeName, StringComparison.Ordinal);
+        Assert.Contains(vm.MeasureTree, line => line.Contains("HangForeverStep", StringComparison.Ordinal));
+        vm.Apply();
+
+        var reloaded = new AuthoringWorkspaceViewModel();
+        reloaded.Open(root);
+        reloaded.SelectProgram("raw");
+        var loadedRepeat = Assert.IsType<RepeatNode>(Assert.Single(reloaded.SelectedProgram!.Measure));
+        Assert.Contains(
+            "HangForeverStep",
+            Assert.IsType<RawStepNode>(Assert.Single(loadedRepeat.Children)).TypeName,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Apply_keeps_unsaved_created_programs()
+    {
+        var root = EmptyWorkspace();
+        var vm = new AuthoringWorkspaceViewModel();
+        vm.Open(root);
+        vm.CreateProgram("saved");
+        vm.ApplyRecipe(AuthoringRecipeIds.MeanGte);
+        vm.CreateProgram("pending");
+        vm.SelectProgram("saved");
+        vm.Apply();
+
+        Assert.Contains(vm.Programs, p => p.PlanId == "saved");
+        Assert.Contains(vm.Programs, p => p.PlanId == "pending");
+        Assert.Equal("saved", vm.SelectedProgram?.PlanId);
+        Assert.False(File.Exists(Path.Combine(root, "pending.TapPlan")));
+    }
+
+    private static string GetSetting(MetricDraft metric, string key)
+        => metric.Source switch
+        {
+            AlgorithmSource algorithm when algorithm.Settings.TryGetValue(key, out var value) => value,
+            MeasureSource measure when measure.Settings.TryGetValue(key, out var value) => value,
+            _ => string.Empty,
+        };
+
+    private static string HangForeverXml()
+    {
+        AuthoringPluginSearch.Search();
+        var hang = new HangForeverStep { Name = "Hang Forever" };
+        var tmp = Path.Combine(Path.GetTempPath(), "ht-hang-" + Guid.NewGuid().ToString("N") + ".TapPlan");
+        var source = new TestPlan();
+        source.ChildTestSteps.Add(hang);
+        source.Save(tmp);
+        try
+        {
+            return System.Xml.Linq.XDocument.Load(tmp)
+                .Descendants()
+                .First(e => e.Name.LocalName == "TestStep")
+                .ToString(System.Xml.Linq.SaveOptions.DisableFormatting);
+        }
+        finally
+        {
+            File.Delete(tmp);
+        }
     }
 
     private static string EmptyWorkspace()

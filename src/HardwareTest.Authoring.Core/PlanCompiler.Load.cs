@@ -27,6 +27,8 @@ public sealed partial class PlanCompiler
         "EventLabel",
         "EventValue",
         "Index",
+        "OffsetLimitLow",
+        "OffsetLimitHigh",
     ];
 
     private static ProgramDraft Decompile(
@@ -213,8 +215,8 @@ public sealed partial class PlanCompiler
 
     private static LimitSpec? ReadLimits(ITestStep step)
     {
-        var low = ReadNullableDouble(step, "LimitLow");
-        var high = ReadNullableDouble(step, "LimitHigh");
+        var low = ReadNullableDouble(step, "LimitLow") ?? ReadNullableDouble(step, "OffsetLimitLow");
+        var high = ReadNullableDouble(step, "LimitHigh") ?? ReadNullableDouble(step, "OffsetLimitHigh");
         var threshold = ReadNullableDouble(step, "Threshold");
         if (low is null && high is null && threshold is null)
         {
