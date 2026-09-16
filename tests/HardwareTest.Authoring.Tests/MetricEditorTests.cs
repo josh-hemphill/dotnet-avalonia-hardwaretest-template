@@ -205,6 +205,34 @@ public sealed class MetricEditorTests
         Assert.False(File.Exists(Path.Combine(root, "pending.TapPlan")));
     }
 
+    [Fact]
+    public void Apply_keeps_dirty_edits_on_other_saved_programs()
+    {
+        var root = EmptyWorkspace();
+        var vm = new AuthoringWorkspaceViewModel();
+        vm.Open(root);
+        vm.CreateProgram("alpha");
+        vm.ApplyRecipe(AuthoringRecipeIds.MeanGte);
+        vm.Apply();
+        vm.CreateProgram("beta");
+        vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
+        vm.Apply();
+
+        vm.SelectProgram("alpha");
+        vm.DisplayName = "dirty-alpha";
+        vm.ApplyRecipe(AuthoringRecipeIds.BandScalar);
+        vm.SelectProgram("beta");
+        vm.Apply();
+
+        vm.SelectProgram("alpha");
+        Assert.Equal("dirty-alpha", vm.DisplayName);
+        Assert.Contains(
+            AuthoringRecipeCatalog.EnumerateMetrics(vm.SelectedProgram!.Measure),
+            metric => metric.ChannelKey == "rail.mean");
+        Assert.False(
+            File.ReadAllText(Path.Combine(root, "alpha.program.json")).Contains("dirty-alpha", StringComparison.Ordinal));
+    }
+
     private static string GetSetting(MetricDraft metric, string key)
         => metric.Source switch
         {
