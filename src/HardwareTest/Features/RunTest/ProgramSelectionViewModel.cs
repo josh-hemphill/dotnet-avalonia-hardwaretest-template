@@ -14,21 +14,22 @@ public partial class ProgramSelectionViewModel : ReactiveObject
 {
     private readonly Action<string> _setStatus;
     private readonly Func<bool> _isEngineerDebugMode;
-    private readonly Func<Task> _loadSelectedProgramAsync;
+    private readonly Func<CancellationToken, Task> _loadSelectedProgramAsync;
     private readonly Action _onCatalogRefreshed;
 
     public ProgramSelectionViewModel(
         Action<string> setStatus,
         Func<bool>? isEngineerDebugMode = null,
-        Func<Task>? loadSelectedProgramAsync = null,
+        Func<CancellationToken, Task>? loadSelectedProgramAsync = null,
         Action? onCatalogRefreshed = null)
     {
         _setStatus = setStatus;
         _isEngineerDebugMode = isEngineerDebugMode ?? (() => false);
-        _loadSelectedProgramAsync = loadSelectedProgramAsync ?? (() => Task.CompletedTask);
+        _loadSelectedProgramAsync = loadSelectedProgramAsync ?? (_ => Task.CompletedTask);
         _onCatalogRefreshed = onCatalogRefreshed ?? (() => { });
 
-        RefreshProgramsCommand = ReactiveCommand.CreateFromTask(RefreshProgramsAsync);
+        RefreshProgramsCommand = ReactiveCommand.CreateFromTask(
+            (CancellationToken cancellationToken) => RefreshProgramsAsync(cancellationToken));
         OpenPlanFileCommand = ReactiveCommand.CreateFromTask(OpenPlanFileAsync);
     }
 
@@ -43,19 +44,21 @@ public partial class ProgramSelectionViewModel : ReactiveObject
     [Reactive] private ProgramItemViewModel? _selectedProgram;
     [Reactive] private bool _isBusy;
 
-    public async Task RefreshProgramsAsync()
+    public async Task RefreshProgramsAsync(CancellationToken cancellationToken = default)
     {
         if (IsBusy)
         {
             return;
         }
 
+        cancellationToken.ThrowIfCancellationRequested();
         IsBusy = true;
         try
         {
             Programs.Clear();
             foreach (var entry in ProgramCatalog.Enumerate())
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 Programs.Add(new ProgramItemViewModel
                 {
                     Id = entry.Id,
@@ -76,11 +79,13 @@ public partial class ProgramSelectionViewModel : ReactiveObject
             }
 
             SelectedProgram ??= Programs.FirstOrDefault();
+            cancellationToken.ThrowIfCancellationRequested();
             if (SelectedProgram is not null)
             {
-                await _loadSelectedProgramAsync();
+                await _loadSelectedProgramAsync(cancellationToken);
             }
 
+            cancellationToken.ThrowIfCancellationRequested();
             _setStatus($"Loaded {Programs.Count} program(s).");
             _onCatalogRefreshed();
         }

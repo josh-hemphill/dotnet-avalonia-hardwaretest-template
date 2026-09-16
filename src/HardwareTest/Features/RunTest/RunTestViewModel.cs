@@ -120,7 +120,8 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
     }
 
     /// Loads the program catalog and default plan (OpenTAP plugin search). Call after first paint.
-    public Task WarmProgramsAsync() => ProgramSelection.RefreshProgramsAsync();
+    public Task WarmProgramsAsync(CancellationToken cancellationToken = default)
+        => ProgramSelection.RefreshProgramsAsync(cancellationToken);
 
     public StepDetailViewModel StepDetail { get; private set; } = null!;
     public InteractionHostViewModel Interaction { get; private set; } = null!;
@@ -317,22 +318,27 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
         StepDetail.AttemptHistoryLines.Clear();
     }
 
-    private async Task LoadSelectedProgramAsync(string? preserveStagePath = null, string? preserveStepPath = null)
+    private async Task LoadSelectedProgramAsync(
+        string? preserveStagePath = null,
+        string? preserveStepPath = null,
+        CancellationToken cancellationToken = default)
     {
         if (ProgramSelection.SelectedProgram is not { } program)
         {
             return;
         }
 
+        cancellationToken.ThrowIfCancellationRequested();
         SessionPanel.ApplyIdleStaleCheck();
         ApplySelectedProgram(program);
 
         var alreadyLoaded = string.Equals(_plan.LoadedPlanPath, program.Path, StringComparison.OrdinalIgnoreCase);
         if (!alreadyLoaded)
         {
-            await LoadProgramEntryAsync(program).ConfigureAwait(false);
+            await LoadProgramEntryAsync(program, cancellationToken).ConfigureAwait(false);
         }
 
+        cancellationToken.ThrowIfCancellationRequested();
         await RunOnUiAsync(() =>
         {
             if (!alreadyLoaded
@@ -361,16 +367,18 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
         }).ConfigureAwait(false);
     }
 
-    private Task LoadProgramEntryAsync(ProgramItemViewModel program)
+    private Task LoadProgramEntryAsync(
+        ProgramItemViewModel program,
+        CancellationToken cancellationToken = default)
         => program.LoadKind switch
         {
-            ProgramLoadKind.FactorySample => _plan.LoadSampleProgramAsync(),
-            ProgramLoadKind.FactoryBoardDemo => _plan.LoadBoardDemoProgramAsync(),
-            ProgramLoadKind.FactorySweepDemo => _plan.LoadSweepDemoProgramAsync(),
-            ProgramLoadKind.FactoryTimingDemo => _plan.LoadTimingDemoProgramAsync(),
-            ProgramLoadKind.FactoryEnvelopeSweepDemo => _plan.LoadEnvelopeSweepDemoProgramAsync(),
-            ProgramLoadKind.FactoryStationHealthDemo => _plan.LoadStationHealthDemoProgramAsync(),
-            _ => _plan.LoadPlanAsync(program.Path),
+            ProgramLoadKind.FactorySample => _plan.LoadSampleProgramAsync(cancellationToken),
+            ProgramLoadKind.FactoryBoardDemo => _plan.LoadBoardDemoProgramAsync(cancellationToken),
+            ProgramLoadKind.FactorySweepDemo => _plan.LoadSweepDemoProgramAsync(cancellationToken),
+            ProgramLoadKind.FactoryTimingDemo => _plan.LoadTimingDemoProgramAsync(cancellationToken),
+            ProgramLoadKind.FactoryEnvelopeSweepDemo => _plan.LoadEnvelopeSweepDemoProgramAsync(cancellationToken),
+            ProgramLoadKind.FactoryStationHealthDemo => _plan.LoadStationHealthDemoProgramAsync(cancellationToken),
+            _ => _plan.LoadPlanAsync(program.Path, cancellationToken),
         };
 
     private void OpenSelectedDetail(bool revealDetail = false)
