@@ -9,9 +9,9 @@
           <ChildTestSteps>
             <TestStep type="emb:HardwareTest.OpenTap.Plugins.Basic.IdentityCheckStep" Id="6b9c63d2-0347-4e00-b006-0da69daafb36">
               <OpenTap.Mixins>
-                <HardwareTest.Annotation_x003A_Annotation type="HardwareTest.OpenTap.Plugins.Mixins.AnnotationMixinBuilder">
+                <HardwareTest.Annotation type="HardwareTest.OpenTap.Plugins.Mixins.AnnotationMixinBuilder">
                   <MemberName>Annotation</MemberName>
-                </HardwareTest.Annotation_x003A_Annotation>
+                </HardwareTest.Annotation>
               </OpenTap.Mixins>
               <Instrument type="HardwareTest.OpenTap.Plugins.Basic.MockDmmInstrument">
                 <VisaAddress>MOCK::INSTR0</VisaAddress>
@@ -29,8 +29,8 @@
               </Dut>
               <Name Metadata="Step Name">Identity Check</Name>
               <ChildTestSteps />
-              <HardwareTest.Annotation_x003A_Annotation.Note></HardwareTest.Annotation_x003A_Annotation.Note>
-              <HardwareTest.Annotation_x003A_Annotation.IncludeInReport>false</HardwareTest.Annotation_x003A_Annotation.IncludeInReport>
+              <HardwareTest.Annotation.Note></HardwareTest.Annotation.Note>
+              <HardwareTest.Annotation.IncludeInReport>false</HardwareTest.Annotation.IncludeInReport>
             </TestStep>
           </ChildTestSteps>
         </TestStep>
@@ -57,9 +57,9 @@
           <ChildTestSteps>
             <TestStep type="emb:HardwareTest.OpenTap.Plugins.Basic.AcquireVoltageStep" Id="a1111111-1111-4111-8111-111111111101">
               <OpenTap.Mixins>
-                <HardwareTest.Presentation_x003A_Presentation type="HardwareTest.OpenTap.Plugins.Mixins.PresentationMixinBuilder">
+                <HardwareTest.Presentation type="HardwareTest.OpenTap.Plugins.Mixins.PresentationMixinBuilder">
                   <MemberName>Presentation</MemberName>
-                </HardwareTest.Presentation_x003A_Presentation>
+                </HardwareTest.Presentation>
               </OpenTap.Mixins>
               <Instrument type="HardwareTest.OpenTap.Plugins.Basic.MockDmmInstrument">
                 <VisaAddress>MOCK::INSTR0</VisaAddress>
@@ -71,18 +71,18 @@
               <Channel>VDC</Channel>
               <Name Metadata="Step Name">Acquire VDC</Name>
               <ChildTestSteps />
-              <HardwareTest.Presentation_x003A_Presentation.ChannelKey>VDC</HardwareTest.Presentation_x003A_Presentation.ChannelKey>
-              <HardwareTest.Presentation_x003A_Presentation.DisplayRole>timeseries</HardwareTest.Presentation_x003A_Presentation.DisplayRole>
-              <HardwareTest.Presentation_x003A_Presentation.YUnit>V</HardwareTest.Presentation_x003A_Presentation.YUnit>
-              <HardwareTest.Presentation_x003A_Presentation.HistoryEnabled>true</HardwareTest.Presentation_x003A_Presentation.HistoryEnabled>
-              <HardwareTest.Presentation_x003A_Presentation.HistoryWatchPercent />
-              <HardwareTest.Presentation_x003A_Presentation.HistoryAlertPercent />
+              <HardwareTest.Presentation.ChannelKey>VDC</HardwareTest.Presentation.ChannelKey>
+              <HardwareTest.Presentation.DisplayRole>timeseries</HardwareTest.Presentation.DisplayRole>
+              <HardwareTest.Presentation.YUnit>V</HardwareTest.Presentation.YUnit>
+              <HardwareTest.Presentation.HistoryEnabled>true</HardwareTest.Presentation.HistoryEnabled>
+              <HardwareTest.Presentation.HistoryWatchPercent />
+              <HardwareTest.Presentation.HistoryAlertPercent />
             </TestStep>
             <TestStep type="emb:HardwareTest.OpenTap.Plugins.Basic.MeanGteStep" Id="a1111111-1111-4111-8111-111111111102">
               <OpenTap.Mixins>
-                <HardwareTest.Presentation_x003A_Presentation type="HardwareTest.OpenTap.Plugins.Mixins.PresentationMixinBuilder">
+                <HardwareTest.Presentation type="HardwareTest.OpenTap.Plugins.Mixins.PresentationMixinBuilder">
                   <MemberName>Presentation</MemberName>
-                </HardwareTest.Presentation_x003A_Presentation>
+                </HardwareTest.Presentation>
               </OpenTap.Mixins>
               <Instrument type="HardwareTest.OpenTap.Plugins.Basic.MockDmmInstrument">
                 <VisaAddress>MOCK::INSTR0</VisaAddress>
@@ -93,12 +93,12 @@
               <Threshold>0</Threshold>
               <Name Metadata="Step Name">Mean GTE</Name>
               <ChildTestSteps />
-              <HardwareTest.Presentation_x003A_Presentation.ChannelKey>VDC.mean</HardwareTest.Presentation_x003A_Presentation.ChannelKey>
-              <HardwareTest.Presentation_x003A_Presentation.DisplayRole>scalar</HardwareTest.Presentation_x003A_Presentation.DisplayRole>
-              <HardwareTest.Presentation_x003A_Presentation.YUnit>V</HardwareTest.Presentation_x003A_Presentation.YUnit>
-              <HardwareTest.Presentation_x003A_Presentation.HistoryEnabled>true</HardwareTest.Presentation_x003A_Presentation.HistoryEnabled>
-              <HardwareTest.Presentation_x003A_Presentation.HistoryWatchPercent />
-              <HardwareTest.Presentation_x003A_Presentation.HistoryAlertPercent />
+              <HardwareTest.Presentation.ChannelKey>VDC.mean</HardwareTest.Presentation.ChannelKey>
+              <HardwareTest.Presentation.DisplayRole>scalar</HardwareTest.Presentation.DisplayRole>
+              <HardwareTest.Presentation.YUnit>V</HardwareTest.Presentation.YUnit>
+              <HardwareTest.Presentation.HistoryEnabled>true</HardwareTest.Presentation.HistoryEnabled>
+              <HardwareTest.Presentation.HistoryWatchPercent />
+              <HardwareTest.Presentation.HistoryAlertPercent />
             </TestStep>
           </ChildTestSteps>
         </TestStep>
