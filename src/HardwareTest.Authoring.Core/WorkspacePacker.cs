@@ -29,6 +29,11 @@ public static class WorkspacePacker
 {
     public const string ShipManifestFileName = "ship-manifest.json";
     public const string PackageXmlFileName = "package.xml";
+    public const string BakeTimeSuffix = " (bake-time)";
+
+    internal static string ShellAppDirectoryEntry(string id) => $"shell-apps/{id}";
+
+    internal static string ShellAppBakeTimeEntry(string id) => ShellAppDirectoryEntry(id) + BakeTimeSuffix;
 
     public static ShipManifest Pack(AuthoringWorkspace workspace, string outputDirectory, PackOptions options)
     {
@@ -56,10 +61,10 @@ public static class WorkspacePacker
         var packageXml = Path.Combine(plansDir, PackageXmlFileName);
         File.WriteAllText(packageXml, PackageXmlRenderer.Render(workspace));
 
-        var tapPackage = CreateTapPackage(home, plansDir, workspace.Manifest.Package, outputDirectory);
+        var tapPackage = CreateTapPackage(home, plansDir, outputDirectory);
         var shipped = new List<string> { Path.GetFileName(tapPackage) };
         shipped.AddRange(CopyPluginPackages(workspace, outputDirectory));
-        PublishShellApps(workspace, outputDirectory);
+        shipped.AddRange(PublishShellApps(workspace, outputDirectory));
 
         var manifest = new ShipManifest(
             workspace.Manifest.Package.Name,
@@ -106,7 +111,6 @@ public static class WorkspacePacker
     private static string CreateTapPackage(
         OpenTapHome home,
         string plansDir,
-        AuthoringPackageSpec spec,
         string outputDirectory)
     {
         var tapDll = Path.Combine(home.Root, "tap.dll");
@@ -167,6 +171,15 @@ public static class WorkspacePacker
 
         var dest = Path.Combine(outputDirectory, Path.GetFileName(created));
         File.Copy(created, dest, overwrite: true);
+        try
+        {
+            File.Delete(created);
+        }
+        catch
+        {
+            // Dist copy is the ship artifact; leftover plans-dir package is non-fatal.
+        }
+
         return dest;
     }
 
@@ -183,6 +196,12 @@ public static class WorkspacePacker
             var path = Path.IsPathRooted(entry)
                 ? entry
                 : Path.GetFullPath(Path.Combine(workspace.Root, entry));
+            if (!IsTapPackagePath(path))
+            {
+                throw new AuthoringWorkspaceException(
+                    $"{AuthoringPackCodes.PluginMissing}: pluginProjects must point at a .TapPackage (not '{entry}').");
+            }
+
             if (!File.Exists(path))
             {
                 throw new AuthoringWorkspaceException(
@@ -197,8 +216,13 @@ public static class WorkspacePacker
         return copied;
     }
 
-    private static void PublishShellApps(AuthoringWorkspace workspace, string outputDirectory)
+    private static bool IsTapPackagePath(string path)
+        => path.EndsWith(".TapPackage", StringComparison.OrdinalIgnoreCase)
+           || path.EndsWith(".zip", StringComparison.OrdinalIgnoreCase);
+
+    private static IReadOnlyList<string> PublishShellApps(AuthoringWorkspace workspace, string outputDirectory)
     {
+        var entries = new List<string>();
         foreach (var project in workspace.Manifest.ShellAppProjects)
         {
             if (string.IsNullOrWhiteSpace(project))
@@ -232,13 +256,33 @@ public static class WorkspacePacker
                     $"{AuthoringPackCodes.ShellAppFailed}: failed to start dotnet publish for '{id}'.");
             var stdoutTask = process.StandardOutput.ReadToEndAsync();
             var stderrTask = process.StandardError.ReadToEndAsync();
-            if (!process.WaitForExit(180_000) || process.ExitCode != 0)
+            if (!process.WaitForExit(180_000))
             {
-                var stdout = stdoutTask.GetAwaiter().GetResult();
-                var stderr = stderrTask.GetAwaiter().GetResult();
+                try
+                {
+                    process.Kill(entireProcessTree: true);
+                }
+                catch
+                {
+                    // Best-effort stop of a stuck publish.
+                }
+
+                throw new AuthoringWorkspaceException(
+                    $"{AuthoringPackCodes.ShellAppFailed}: dotnet publish '{id}' timed out.");
+            }
+
+            var stdout = stdoutTask.GetAwaiter().GetResult();
+            var stderr = stderrTask.GetAwaiter().GetResult();
+            if (process.ExitCode != 0)
+            {
                 throw new AuthoringWorkspaceException(
                     $"{AuthoringPackCodes.ShellAppFailed}: dotnet publish '{id}' failed. {stderr} {stdout}");
             }
+
+            entries.Add(ShellAppDirectoryEntry(id));
+            entries.Add(ShellAppBakeTimeEntry(id));
         }
+
+        return entries;
     }
 }
