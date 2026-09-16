@@ -3,8 +3,8 @@ using OpenTap;
 
 namespace HardwareTest.OpenTap.Host;
 
-/// Attaches demo mixins without relying on internal MixinFactory.
-internal static class OpenTapMixinAttach
+/// Attaches Annotation / Presentation mixins without relying on internal MixinFactory.
+public static class OpenTapMixinAttach
 {
     /// Attach Annotation mixin to a step (same outcome as Editor Add Mixin).
     public static MixinMemberData AttachAnnotation(ITestStep step)
@@ -23,7 +23,7 @@ internal static class OpenTapMixinAttach
         return member;
     }
 
-    /// Attach Presentation mixin and set demo ChannelKey / DisplayRole / YUnit.
+    /// Attach Presentation mixin and set ChannelKey / DisplayRole / YUnit (limits/history are applied separately).
     public static MixinMemberData AttachPresentation(
         ITestStep step,
         string channelKey,

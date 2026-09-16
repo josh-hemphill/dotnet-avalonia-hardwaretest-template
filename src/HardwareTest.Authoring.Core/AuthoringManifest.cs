@@ -56,7 +56,7 @@ public sealed class AuthoringOptionalDependency : AuthoringPackageDependency
     public string? When { get; set; }
 }
 
-/// Files on disk for one planning directory. Drafts live beside this in a later area.
+/// Files on disk for one planning directory. Drafts live beside this in DraftWorkspace.
 public sealed record AuthoringWorkspace(
     string Root,
     AuthoringManifest Manifest,
