@@ -384,6 +384,29 @@ public sealed class RunBoardChildViewModelTests
     }
 
     [Fact]
+    public async Task ProgramSelection_open_plan_file_loads_selection()
+    {
+        var loads = 0;
+        var programs = new ProgramSelectionViewModel(
+            _ => { },
+            isEngineerDebugMode: () => true,
+            loadSelectedProgramAsync: _ =>
+            {
+                loads++;
+                return Task.CompletedTask;
+            })
+        {
+            RequestPlanFilePath = _ => Task.FromResult<string?>("plans/demo.TapPlan"),
+        };
+
+        await programs.OpenPlanFileCommand.ExecuteAsync();
+
+        Assert.Equal(1, loads);
+        Assert.Equal("demo", programs.SelectedProgram?.Id);
+        Assert.False(programs.IsBusy);
+    }
+
+    [Fact]
     public void StationOverrides_apply_debug_patch_clamps_knobs()
     {
         var step = Leaf();

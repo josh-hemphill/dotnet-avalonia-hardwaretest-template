@@ -133,6 +133,7 @@ public partial class ProgramSelectionViewModel : ReactiveObject
             };
             Programs.Add(item);
             SelectedProgram = item;
+            await _loadSelectedProgramAsync(CancellationToken.None);
             _setStatus($"Opened {item.DisplayName}");
         }
         finally

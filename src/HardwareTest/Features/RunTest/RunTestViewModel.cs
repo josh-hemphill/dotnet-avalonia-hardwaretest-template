@@ -223,7 +223,7 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
             SessionPanel.RefreshRequirementFlags();
             if (ProgramSelection.IsBusy)
             {
-                // Catalog refresh already awaits loadSelected with its token.
+                // RefreshProgramsAsync / OpenPlanFileAsync already await loadSelected while IsBusy.
                 return;
             }
 
