@@ -106,6 +106,42 @@ public sealed class DeferredStartupTests
         Assert.Equal(0, unexpected);
     }
 
+    [Fact]
+    public async Task Cancel_between_work_success_and_onComplete_still_completes()
+    {
+        using var cts = new CancellationTokenSource();
+        var workDone = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseComplete = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var complete = 0;
+        var unexpected = 0;
+
+        var run = DeferredStartup.RunProtectedAsync(
+            _ =>
+            {
+                workDone.SetResult();
+                return Task.CompletedTask;
+            },
+            cts.Token,
+            async () =>
+            {
+                await releaseComplete.Task;
+                Interlocked.Increment(ref complete);
+            },
+            _ =>
+            {
+                Interlocked.Increment(ref unexpected);
+                return Task.CompletedTask;
+            });
+
+        await workDone.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await cts.CancelAsync();
+        releaseComplete.SetResult();
+        await run.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Equal(1, complete);
+        Assert.Equal(0, unexpected);
+    }
+
     private sealed class TokenWarmupStub : IShellApplication
     {
         private readonly Func<CancellationToken, Task> _warm;
