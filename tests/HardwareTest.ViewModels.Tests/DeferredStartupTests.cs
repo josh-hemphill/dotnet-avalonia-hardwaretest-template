@@ -40,7 +40,7 @@ public sealed class DeferredStartupTests
             });
 
         await started.Task.WaitAsync(TimeSpan.FromSeconds(5));
-        cts.Cancel();
+        await cts.CancelAsync();
         await run.WaitAsync(TimeSpan.FromSeconds(5));
 
         Assert.Equal(1, blocking.Calls);
@@ -99,7 +99,7 @@ public sealed class DeferredStartupTests
                 return Task.CompletedTask;
             }).WaitAsync(TimeSpan.FromSeconds(5));
 
-        cts.Cancel();
+        await cts.CancelAsync();
 
         Assert.Equal(1, app.Calls);
         Assert.Equal(1, complete);

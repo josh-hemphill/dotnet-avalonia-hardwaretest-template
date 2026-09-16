@@ -22,7 +22,9 @@ namespace HardwareTest;
 public partial class App : Application
 {
     private readonly ISettingsStore _settingsStore;
+#pragma warning disable S2930 // Process-lifetime CTS; Application is not disposed.
     private readonly CancellationTokenSource _startupCts = new();
+#pragma warning restore S2930
     private ServiceProvider? _services;
 
     /// Optional factory used by the parameterless ctor (headless / designer hooks).
@@ -100,7 +102,7 @@ public partial class App : Application
             desktop.MainWindow = mainWindow;
             desktop.ShutdownRequested += async (_, _) =>
             {
-                _startupCts.Cancel();
+                await _startupCts.CancelAsync();
                 try
                 {
                     await _settingsStore.SaveUiStateAsync();
@@ -149,6 +151,7 @@ public partial class App : Application
 
         cancellationToken.ThrowIfCancellationRequested();
         await SetStartupStatusAsync(shell, "Loading programs…");
+        cancellationToken.ThrowIfCancellationRequested();
         // Bind collections on the UI thread while the startup overlay is visible.
         await Dispatcher.UIThread.InvokeAsync(async () =>
         {
@@ -159,14 +162,16 @@ public partial class App : Application
         cancellationToken.ThrowIfCancellationRequested();
         await SetStartupStatusAsync(shell, "Starting shell apps…");
         var services = Services;
-        await Task.Run(async () =>
-        {
-            await ShellApplicationWarmup.RunAsync(
-                services.GetServices<IShellApplication>(),
-                services,
-                cancellationToken,
-                (app, ex) => Log.Warning(ex, "Shell app {AppId} WarmAsync failed", app.Id)).ConfigureAwait(false);
-        }, cancellationToken).ConfigureAwait(false);
+        await Task.Run(
+            async () =>
+            {
+                await ShellApplicationWarmup.RunAsync(
+                    services.GetServices<IShellApplication>(),
+                    services,
+                    cancellationToken,
+                    (app, ex) => Log.Warning(ex, "Shell app {AppId} WarmAsync failed", app.Id)).ConfigureAwait(false);
+            },
+            cancellationToken).ConfigureAwait(false);
     }
 
     private static Task SetStartupStatusAsync(MainWindowViewModel shell, string status)
