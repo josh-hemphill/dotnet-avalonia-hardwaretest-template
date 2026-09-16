@@ -12,6 +12,11 @@
                  TextWrapping="Wrap"
                  Opacity="0.85"
                  FontSize="16" />
+      <TextBox Text="{Binding Body}"
+               AcceptsReturn="True"
+               Height="240"
+               TextWrapping="Wrap"
+               PlaceholderText="Station notes persist under the host app-data folder." />
     </StackPanel>
   </ScrollViewer>
 </UserControl>
