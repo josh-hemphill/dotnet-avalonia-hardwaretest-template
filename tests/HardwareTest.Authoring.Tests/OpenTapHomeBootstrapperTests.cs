@@ -1,4 +1,5 @@
 using System.IO.Compression;
+using System.Reflection;
 using System.Text;
 using HardwareTest.Authoring;
 using Xunit;
@@ -26,39 +27,89 @@ public sealed class OpenTapHomeBootstrapperTests
         Assert.DoesNotContain(
             names,
             n => n.Contains("Visa", StringComparison.OrdinalIgnoreCase));
+        Assert.True(File.Exists(Path.Combine(home.Root, "Packages", "HardwareTest Basic", "HardwareTest.OpenTap.Plugins.Basic.dll")));
+        Assert.True(File.Exists(Path.Combine(home.Root, "Packages", "HardwareTest Mixins", "HardwareTest.OpenTap.Plugins.Mixins.dll")));
         Assert.Empty(Directory.EnumerateFiles(home.Root, OpenTapHomeBootstrapper.VisaAssemblyFileName, SearchOption.AllDirectories));
+        AssertNoVisaAdapterAssemblies(home.Root);
         Assert.True(File.Exists(Path.Combine(home.Root, "OpenTap.dll")));
     }
 
     [Fact]
     public void Bootstrap_fails_when_instrument_components_is_declared_without_a_path()
     {
-        var dir = NewTempDir();
-        Directory.CreateDirectory(Path.Combine(dir, "plans"));
+        var previous = Environment.GetEnvironmentVariable("HARDWARETEST_INSTRUMENT_COMPONENTS_PACKAGE");
+        Environment.SetEnvironmentVariable("HARDWARETEST_INSTRUMENT_COMPONENTS_PACKAGE", null);
+        try
+        {
+            var dir = NewTempDir();
+            Directory.CreateDirectory(Path.Combine(dir, "plans"));
+            File.WriteAllText(
+                Path.Combine(dir, "authoring.json"),
+                """
+                {
+                  "schemaVersion": 1,
+                  "displayName": "Needs IC",
+                  "plansDirectory": "plans",
+                  "package": { "name": "Needs IC", "version": "0.1.0" },
+                  "dependencies": [
+                    { "package": "OpenTAP", "version": "^9.32.2" },
+                    { "package": "HardwareTest Basic", "version": "^0.1.0" },
+                    { "package": "HardwareTest Mixins", "version": "^0.1.0" },
+                    { "package": "InstrumentComponents.OpenTap", "version": "^0.1.0" }
+                  ],
+                  "includeTui": false
+                }
+                """);
+
+            var workspace = AuthoringWorkspaceLoader.Load(dir);
+            var ex = Assert.Throws<AuthoringWorkspaceException>(() =>
+                new OpenTapHomeBootstrapper().Bootstrap(
+                    workspace,
+                    new BootstrapOptions { HomeDirectory = NewTempDir(), Offline = true }));
+            Assert.Contains(AuthoringBootstrapCodes.InstrumentComponentsPackageMissing, ex.Message, StringComparison.Ordinal);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("HARDWARETEST_INSTRUMENT_COMPONENTS_PACKAGE", previous);
+        }
+    }
+
+    [Fact]
+    public void Bootstrap_resolves_instrument_components_path_relative_to_workspace()
+    {
+        var workspaceRoot = NewTempDir();
+        Directory.CreateDirectory(Path.Combine(workspaceRoot, "plans"));
+        Directory.CreateDirectory(Path.Combine(workspaceRoot, "packs", "ic"));
         File.WriteAllText(
-            Path.Combine(dir, "authoring.json"),
+            Path.Combine(workspaceRoot, "packs", "ic", "package.xml"),
+            """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <Package Name="InstrumentComponents.OpenTap" xmlns="http://opentap.io/schemas/package" Version="0.1.0" />
+            """);
+        File.WriteAllText(
+            Path.Combine(workspaceRoot, "authoring.json"),
             """
             {
               "schemaVersion": 1,
-              "displayName": "Needs IC",
+              "displayName": "With IC",
               "plansDirectory": "plans",
-              "package": { "name": "Needs IC", "version": "0.1.0" },
+              "package": { "name": "With IC", "version": "0.1.0" },
+              "instrumentComponentsPackage": "packs/ic",
               "dependencies": [
                 { "package": "OpenTAP", "version": "^9.32.2" },
-                { "package": "HardwareTest Basic", "version": "^0.1.0" },
-                { "package": "HardwareTest Mixins", "version": "^0.1.0" },
                 { "package": "InstrumentComponents.OpenTap", "version": "^0.1.0" }
-              ],
-              "includeTui": false
+              ]
             }
             """);
 
-        var workspace = AuthoringWorkspaceLoader.Load(dir);
-        var ex = Assert.Throws<AuthoringWorkspaceException>(() =>
-            new OpenTapHomeBootstrapper().Bootstrap(
-                workspace,
-                new BootstrapOptions { HomeDirectory = NewTempDir(), Offline = true }));
-        Assert.Contains(AuthoringBootstrapCodes.InstrumentComponentsPackageMissing, ex.Message, StringComparison.Ordinal);
+        var workspace = AuthoringWorkspaceLoader.Load(workspaceRoot);
+        var home = new OpenTapHomeBootstrapper().Bootstrap(
+            workspace,
+            new BootstrapOptions { HomeDirectory = NewTempDir(), Offline = true });
+
+        Assert.Contains(
+            "InstrumentComponents.OpenTap",
+            OpenTapHomeBootstrapper.ListInstalledPackages(home).Select(p => p.Name));
     }
 
     [Fact]
@@ -154,5 +205,25 @@ public sealed class OpenTapHomeBootstrapperTests
 
         throw new InvalidOperationException(
             $"Could not locate HardwareTest.slnx above '{AppContext.BaseDirectory}'.");
+    }
+
+    private static void AssertNoVisaAdapterAssemblies(string homeRoot)
+    {
+        foreach (var dll in Directory.EnumerateFiles(homeRoot, "*.dll", SearchOption.AllDirectories))
+        {
+            AssemblyName name;
+            try
+            {
+                name = AssemblyName.GetAssemblyName(dll);
+            }
+            catch (BadImageFormatException)
+            {
+                continue;
+            }
+
+            Assert.False(
+                string.Equals(name.Name, "HardwareTest.OpenTap.Plugins.Visa", StringComparison.OrdinalIgnoreCase),
+                $"Authoring home contains VISA adapter assembly at '{dll}'.");
+        }
     }
 }

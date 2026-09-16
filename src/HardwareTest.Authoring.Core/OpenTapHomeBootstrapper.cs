@@ -176,6 +176,7 @@ public sealed class OpenTapHomeBootstrapper : IOpenTapHomeBootstrapper
                 $"{AuthoringBootstrapCodes.InstrumentComponentsPackageMissing}: InstrumentComponents.OpenTap is declared but no package path was provided (set BootstrapOptions.InstrumentComponentsPackagePath, authoring.json instrumentComponentsPackage, or HARDWARETEST_INSTRUMENT_COMPONENTS_PACKAGE).");
         }
 
+        path = ResolveAgainstWorkspace(workspace.Root, path);
         if (!File.Exists(path) && !Directory.Exists(path))
         {
             throw new AuthoringWorkspaceException(
@@ -329,7 +330,8 @@ public sealed class OpenTapHomeBootstrapper : IOpenTapHomeBootstrapper
         {
             if (string.Equals(Path.GetFileName(file), VisaAssemblyFileName, StringComparison.OrdinalIgnoreCase))
             {
-                continue;
+                throw new AuthoringWorkspaceException(
+                    $"Authoring OpenTAP home must not copy the VISA adapter ({file}).");
             }
 
             File.Copy(file, Path.Combine(dest, Path.GetFileName(file)), overwrite: true);
@@ -350,6 +352,16 @@ public sealed class OpenTapHomeBootstrapper : IOpenTapHomeBootstrapper
 
         Directory.CreateDirectory(Path.GetDirectoryName(dest)!);
         File.Copy(source, dest, overwrite: true);
+    }
+
+    private static string ResolveAgainstWorkspace(string workspaceRoot, string path)
+    {
+        if (Path.IsPathRooted(path))
+        {
+            return Path.GetFullPath(path);
+        }
+
+        return Path.GetFullPath(Path.Combine(workspaceRoot, path));
     }
 
     private static string? FirstNonEmpty(params string?[] values)
