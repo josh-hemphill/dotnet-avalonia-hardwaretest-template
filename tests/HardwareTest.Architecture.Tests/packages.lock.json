@@ -687,6 +687,9 @@
           "System.Reactive": "[6.1.0, )"
         }
       },
+      "hardwaretest.authoring.core": {
+        "type": "Project"
+      },
       "hardwaretest.core": {
         "type": "Project",
         "dependencies": {

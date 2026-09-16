@@ -41,6 +41,8 @@ public sealed class ArchitectureRulesTests
         "README.md hard separation — OpenTAP worker is Avalonia-free; no TapThread.Abort in the UI process.";
     private const string PlanValidateAvaloniaFree =
         "docs/adapting.md — HardwareTest.PlanValidate stays Avalonia-free and reuses Host plan-contract checks.";
+    private const string AuthoringCoreAvaloniaFree =
+        "docs/authoring-app.md — HardwareTest.Authoring.Core stays Avalonia-free; the operator exe must not reference Authoring.";
     private const string Phase24SessionSplitRule =
         "README.md hard separation — no static pause/interaction on StepRuntime; run state is per OpenTapRunContext.";
     private const string Phase25ClockRule =
@@ -96,6 +98,28 @@ public sealed class ArchitectureRulesTests
             typeof(global::HardwareTest.PlanValidate.Program).Assembly,
             name => name.StartsWith("Avalonia", StringComparison.OrdinalIgnoreCase),
             PlanValidateAvaloniaFree);
+    }
+
+    [Fact]
+    public void AuthoringCore_must_not_reference_Avalonia()
+    {
+        AssertNoForbiddenReference(
+            typeof(global::HardwareTest.Authoring.AuthoringWorkspace).Assembly,
+            name => name.StartsWith("Avalonia", StringComparison.OrdinalIgnoreCase),
+            AuthoringCoreAvaloniaFree);
+    }
+
+    [Fact]
+    public void Operator_exe_must_not_reference_Authoring()
+    {
+        var csproj = Path.Combine(FindRepoRoot(), "src", "HardwareTest", "HardwareTest.csproj");
+        Assert.True(File.Exists(csproj), csproj);
+        var xml = File.ReadAllText(csproj);
+        Assert.DoesNotContain("HardwareTest.Authoring", xml, StringComparison.Ordinal);
+        AssertNoForbiddenDirectReference(
+            typeof(global::HardwareTest.MainWindow).Assembly,
+            name => name is not null && name.StartsWith("HardwareTest.Authoring", StringComparison.Ordinal),
+            AuthoringCoreAvaloniaFree);
     }
 
     [Fact]
@@ -328,6 +352,7 @@ public sealed class ArchitectureRulesTests
     [InlineData(typeof(global::HardwareTest.MainWindow))]
     [InlineData(typeof(global::HardwareTest.OpenTap.Worker.Program))]
     [InlineData(typeof(global::HardwareTest.PlanValidate.Program))]
+    [InlineData(typeof(global::HardwareTest.Authoring.AuthoringWorkspace))]
     public void Assemblies_must_not_reference_WinForms_or_Wpf(Type marker)
     {
         AssertNoForbiddenReference(
@@ -554,6 +579,23 @@ public sealed class ArchitectureRulesTests
         Assert.DoesNotContain("Ivi.Visa", xml, StringComparison.Ordinal);
         // Manifest metadata only — Description may mention visa/SCPI; bundled TapPlans are not scanned.
         Assert.DoesNotContain("VisaAddress", xml, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Template_authoring_json_depends_on_authoring_packs_without_instrument_components()
+    {
+        var path = Path.Combine(FindRepoRoot(), "plans", "opentap", "authoring.json");
+        Assert.True(File.Exists(path), path);
+        using var doc = JsonDocument.Parse(File.ReadAllText(path));
+        var root = doc.RootElement;
+        Assert.Equal(1, root.GetProperty("schemaVersion").GetInt32());
+        Assert.Equal("HardwareTest Template Program", root.GetProperty("package").GetProperty("name").GetString());
+        Assert.Equal(".", root.GetProperty("plansDirectory").GetString());
+        var deps = root.GetProperty("dependencies")
+            .EnumerateArray()
+            .Select(e => e.GetProperty("package").GetString() ?? string.Empty)
+            .ToArray();
+        Assert.Equal(new[] { "OpenTAP", "HardwareTest Basic", "HardwareTest Mixins" }, deps);
     }
 
     private static readonly char[] PathSeparators =
