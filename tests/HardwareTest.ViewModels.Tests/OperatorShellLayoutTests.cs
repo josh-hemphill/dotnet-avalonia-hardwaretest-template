@@ -38,10 +38,11 @@ public sealed class OperatorShellLayoutTests
         var axaml = File.ReadAllText(FindRepoFile("src/HardwareTest/Features/Home/HomeView.axaml"));
         Assert.Contains("WrapPanel", axaml, StringComparison.Ordinal);
         Assert.Contains("ShellLayoutBreakpoints.HomeTileMinWidth", axaml, StringComparison.Ordinal);
-        Assert.Contains("IsEngineerMode", axaml, StringComparison.Ordinal);
-        Assert.Contains("GuestTiles", axaml, StringComparison.Ordinal);
+        Assert.Contains("ItemsSource=\"{Binding Tiles}\"", axaml, StringComparison.Ordinal);
         Assert.Contains("HomeShellTileViewModel", axaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("GuestTiles", axaml, StringComparison.Ordinal);
         Assert.DoesNotContain("UniformGrid", axaml, StringComparison.Ordinal);
+        Assert.Equal(1, CountOccurrences(axaml, "<WrapPanel"));
 
         var home = new HardwareTest.Features.Home.HomeViewModel(new FakeSettingsStore());
         Assert.False(home.IsEngineerMode);
@@ -84,5 +85,18 @@ public sealed class OperatorShellLayoutTests
         }
 
         throw new FileNotFoundException($"Could not locate {relativePath} from {AppContext.BaseDirectory}");
+    }
+
+    private static int CountOccurrences(string text, string token)
+    {
+        var count = 0;
+        var index = 0;
+        while ((index = text.IndexOf(token, index, StringComparison.Ordinal)) >= 0)
+        {
+            count++;
+            index += token.Length;
+        }
+
+        return count;
     }
 }

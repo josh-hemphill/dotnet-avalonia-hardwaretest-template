@@ -29,7 +29,14 @@ public static class ShellApplicationWarmup
             }
             catch (Exception ex)
             {
-                onFault?.Invoke(application, ex);
+                try
+                {
+                    onFault?.Invoke(application, ex);
+                }
+                catch (Exception callbackEx)
+                {
+                    _ = callbackEx;
+                }
             }
         }
     }

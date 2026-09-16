@@ -19,6 +19,34 @@ public partial class HomeViewModel : ReactiveObject
     private readonly IExportTargetService? _exportTargets;
     private readonly ShellNotificationViewModel? _shellNotification;
 
+    private static readonly ShellHomeTile[] BuiltInTiles =
+    [
+        new()
+        {
+            Title = "Getting started",
+            Body = "Open Run, confirm the DUT serial, pick the sample OpenTAP program, and start. Identity check and voltage sweep run under OpenTAP with mock instruments by default.",
+            ActionLabel = "Open Run →",
+            NavigatePageId = ShellBuiltInPageIds.RunTest,
+            Placement = ShellPagePlacement.Operator,
+        },
+        new()
+        {
+            Title = "Programs & instruments",
+            Body = "Locked OpenTAP .TapPlan programs ship under Programs/. Use Instruments to discover VISA resources and bind station roles for the bench.",
+            ActionLabel = "Open Instruments →",
+            NavigatePageId = ShellBuiltInPageIds.Instruments,
+            Placement = ShellPagePlacement.Engineer,
+        },
+        new()
+        {
+            Title = "Reports",
+            Body = "Passed and failed runs write Typst PDFs. Open a run from Results, then preview or export the report from there.",
+            ActionLabel = "Open Results →",
+            NavigatePageId = ShellBuiltInPageIds.Results,
+            Placement = ShellPagePlacement.Operator,
+        },
+    ];
+
     public HomeViewModel()
         : this(null)
     {
@@ -41,12 +69,11 @@ public partial class HomeViewModel : ReactiveObject
         AllowOsFolderBrowse = settingsStore?.AppSettings.AllowOsFolderBrowse == true
                               || settingsStore?.AppSettings.IsEngineerDebugMode == true;
         IsEngineerMode = settingsStore?.AppSettings.IsEngineerDebugMode == true;
-        GuestTiles = (guestTiles ?? [])
-            .Select(tile => new HomeShellTileViewModel(
-                tile,
-                IsEngineerMode,
-                pageId => NavigateToPageRequested?.Invoke(this, pageId)))
-            .ToArray();
+        HomeShellTileViewModel CreateTile(ShellHomeTile tile)
+            => new(tile, IsEngineerMode, pageId => NavigateToPageRequested?.Invoke(this, pageId));
+        var builtIn = BuiltInTiles.Select(CreateTile).ToArray();
+        GuestTiles = (guestTiles ?? []).Select(CreateTile).ToArray();
+        Tiles = [.. builtIn, .. GuestTiles];
         if (settingsStore is not null)
         {
             settingsStore.AppSettingsSaved += (_, _) => ApplyEngineerPresentation(
@@ -77,12 +104,14 @@ public partial class HomeViewModel : ReactiveObject
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> NavigateToInstrumentsCommand { get; }
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> NavigateToResultsCommand { get; }
 
+    public IReadOnlyList<HomeShellTileViewModel> Tiles { get; }
+
     public IReadOnlyList<HomeShellTileViewModel> GuestTiles { get; }
 
     /// Raised with the target page ID when a CTA button is pressed.
     public event EventHandler<string>? NavigateToPageRequested;
 
-    /// Updates Home engineer chrome and guest-tile visibility to match presentation.
+    /// Updates Home engineer chrome and tile visibility to match presentation.
     public void ApplyEngineerPresentation(bool engineerMode)
     {
         IsEngineerMode = engineerMode;
@@ -91,7 +120,7 @@ public partial class HomeViewModel : ReactiveObject
             AllowOsFolderBrowse = _settingsStore.AppSettings.AllowOsFolderBrowse || engineerMode;
         }
 
-        foreach (var tile in GuestTiles)
+        foreach (var tile in Tiles)
         {
             tile.RefreshVisibility(engineerMode);
         }

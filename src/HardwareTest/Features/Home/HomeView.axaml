@@ -32,64 +32,7 @@
                    TextAlignment="Center" />
       </StackPanel>
 
-      <WrapPanel HorizontalAlignment="Stretch" Margin="0,8,0,0">
-        <Border Margin="8"
-                Padding="16"
-                CornerRadius="8"
-                MinWidth="{x:Static shell:ShellLayoutBreakpoints.HomeTileMinWidth}"
-                MaxWidth="420"
-                BorderBrush="{DynamicResource SystemControlForegroundBaseMediumBrush}"
-                BorderThickness="1"
-                Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}">
-          <StackPanel Spacing="12">
-            <TextBlock Text="Getting started" FontSize="18" FontWeight="SemiBold" />
-            <TextBlock TextWrapping="Wrap"
-                       Text="Open Run, confirm the DUT serial, pick the sample OpenTAP program, and start. Identity check and voltage sweep run under OpenTAP with mock instruments by default." />
-            <Button Content="Open Run →"
-                    Command="{Binding NavigateToRunCommand}"
-                    HorizontalAlignment="Left" />
-          </StackPanel>
-        </Border>
-
-        <Border Margin="8"
-                Padding="16"
-                CornerRadius="8"
-                MinWidth="{x:Static shell:ShellLayoutBreakpoints.HomeTileMinWidth}"
-                MaxWidth="420"
-                BorderBrush="{DynamicResource SystemControlForegroundBaseMediumBrush}"
-                BorderThickness="1"
-                Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
-                IsVisible="{Binding IsEngineerMode}">
-          <StackPanel Spacing="12">
-            <TextBlock Text="Programs &amp; instruments" FontSize="18" FontWeight="SemiBold" />
-            <TextBlock TextWrapping="Wrap"
-                       Text="Locked OpenTAP .TapPlan programs ship under Programs/. Use Instruments to discover VISA resources and bind station roles for the bench." />
-            <Button Content="Open Instruments →"
-                    Command="{Binding NavigateToInstrumentsCommand}"
-                    HorizontalAlignment="Left" />
-          </StackPanel>
-        </Border>
-
-        <Border Margin="8"
-                Padding="16"
-                CornerRadius="8"
-                MinWidth="{x:Static shell:ShellLayoutBreakpoints.HomeTileMinWidth}"
-                MaxWidth="420"
-                BorderBrush="{DynamicResource SystemControlForegroundBaseMediumBrush}"
-                BorderThickness="1"
-                Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}">
-          <StackPanel Spacing="12">
-            <TextBlock Text="Reports" FontSize="18" FontWeight="SemiBold" />
-            <TextBlock TextWrapping="Wrap"
-                       Text="Passed and failed runs write Typst PDFs. Open a run from Results, then preview or export the report from there." />
-            <Button Content="Open Results →"
-                    Command="{Binding NavigateToResultsCommand}"
-                    HorizontalAlignment="Left" />
-          </StackPanel>
-        </Border>
-      </WrapPanel>
-
-      <ItemsControl ItemsSource="{Binding GuestTiles}" Margin="0,8,0,0">
+      <ItemsControl ItemsSource="{Binding Tiles}" Margin="0,8,0,0">
         <ItemsControl.ItemsPanel>
           <ItemsPanelTemplate>
             <WrapPanel HorizontalAlignment="Stretch" />
