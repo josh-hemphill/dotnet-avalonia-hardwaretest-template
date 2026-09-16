@@ -156,7 +156,7 @@ public partial class App : Application
         await Dispatcher.UIThread.InvokeAsync(async () =>
         {
             cancellationToken.ThrowIfCancellationRequested();
-            await shell.RunTest.WarmProgramsAsync().ConfigureAwait(true);
+            await shell.RunTest.WarmProgramsAsync(cancellationToken).ConfigureAwait(true);
         });
 
         cancellationToken.ThrowIfCancellationRequested();
