@@ -10,6 +10,7 @@
     <Project Path="src/HardwareTest.OpenTap.Worker/HardwareTest.OpenTap.Worker.csproj" />
     <Project Path="src/HardwareTest.PlanValidate/HardwareTest.PlanValidate.csproj" />
     <Project Path="src/HardwareTest.Authoring.Core/HardwareTest.Authoring.Core.csproj" />
+    <Project Path="src/HardwareTest.Authoring/HardwareTest.Authoring.csproj" />
     <Project Path="src/HardwareTest/HardwareTest.csproj" />
   </Folder>
   <Folder Name="/tests/">
