@@ -15,16 +15,7 @@ public static class AuthoringPluginSearch
     {
         lock (SearchGate)
         {
-            AddAssemblyDirectory(typeof(MockDmmInstrument).Assembly.Location);
-            AddAssemblyDirectory(typeof(AnnotationMixinBuilder).Assembly.Location);
-
-            var openTapDir = Path.GetDirectoryName(typeof(TestPlan).Assembly.Location);
-            if (!string.IsNullOrWhiteSpace(openTapDir))
-            {
-                AddAssemblyDirectory(Path.Combine(openTapDir, "Packages", "OpenTAP", "OpenTap.Plugins.BasicSteps.dll"));
-                AddDirectory(Path.Combine(openTapDir, "Packages", "OpenTAP"));
-            }
-
+            AddInTreePacks();
             if (extraDirectories is not null)
             {
                 foreach (var dir in extraDirectories)
@@ -34,6 +25,55 @@ public static class AuthoringPluginSearch
             }
 
             PluginManager.Search();
+        }
+    }
+
+    /// Search only <paramref name="directories"/> for the duration of <paramref name="action"/>, then restore.
+    public static T RunIsolated<T>(IEnumerable<string> directories, Func<T> action)
+    {
+        ArgumentNullException.ThrowIfNull(directories);
+        ArgumentNullException.ThrowIfNull(action);
+        lock (SearchGate)
+        {
+            var search = PluginManager.DirectoriesToSearch;
+            var previous = search.ToArray();
+            search.Clear();
+            foreach (var dir in directories)
+            {
+                AddDirectory(dir);
+            }
+
+            PluginManager.Search();
+            try
+            {
+                return action();
+            }
+            finally
+            {
+                search.Clear();
+                foreach (var dir in previous)
+                {
+                    AddDirectory(dir);
+                }
+
+                if (search.Count > 0)
+                {
+                    PluginManager.Search();
+                }
+            }
+        }
+    }
+
+    private static void AddInTreePacks()
+    {
+        AddAssemblyDirectory(typeof(MockDmmInstrument).Assembly.Location);
+        AddAssemblyDirectory(typeof(AnnotationMixinBuilder).Assembly.Location);
+
+        var openTapDir = Path.GetDirectoryName(typeof(TestPlan).Assembly.Location);
+        if (!string.IsNullOrWhiteSpace(openTapDir))
+        {
+            AddAssemblyDirectory(Path.Combine(openTapDir, "Packages", "OpenTAP", "OpenTap.Plugins.BasicSteps.dll"));
+            AddDirectory(Path.Combine(openTapDir, "Packages", "OpenTAP"));
         }
     }
 

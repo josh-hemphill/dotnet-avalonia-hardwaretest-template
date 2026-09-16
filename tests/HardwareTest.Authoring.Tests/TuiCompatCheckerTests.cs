@@ -12,6 +12,19 @@ public sealed class TuiCompatCheckerTests
         var workspaceRoot = CopyTemplateWorkspace();
         var workspace = AuthoringWorkspaceLoader.Load(workspaceRoot);
         var home = Bootstrap(workspace);
+        var sample = workspace.TapPlanPaths.Single(p =>
+            string.Equals(Path.GetFileName(p), "sample.TapPlan", StringComparison.OrdinalIgnoreCase));
+        var before = TuiCompatChecker.ReadChannelKeys(sample);
+        Assert.Contains("VDC", before);
+        Assert.Contains("VDC.mean", before);
+
+        var after = TuiCompatChecker.RoundTripChannelKeys(sample, home);
+        Assert.Contains("VDC", after);
+        Assert.Contains("VDC.mean", after);
+        Assert.Equal(
+            before.OrderBy(k => k, StringComparer.Ordinal).ToArray(),
+            after.OrderBy(k => k, StringComparer.Ordinal).ToArray());
+
         var report = new TuiCompatChecker().Compare(workspace, home, home);
         Assert.False(report.BlocksPack());
         Assert.DoesNotContain(report.RoundTrips, f => f.Code == TuiCompatCodes.TypeUnknown);

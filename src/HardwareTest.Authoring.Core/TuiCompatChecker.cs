@@ -137,12 +137,7 @@ public sealed class TuiCompatChecker : ITuiCompatChecker
 
         try
         {
-            AuthoringPluginSearch.Search(EnumeratePluginDirectories(tuiHome));
-            var loaded = TestPlan.Load(planPath);
-            var savedPath = Path.Combine(Path.GetTempPath(), "ht-tui-" + Guid.NewGuid().ToString("N") + ".TapPlan");
-            loaded.Save(savedPath);
-            var saved = XDocument.Load(savedPath);
-            var savedKeys = EnumerateChannelKeys(saved).ToArray();
+            var savedKeys = RoundTripChannelKeys(planPath, tuiHome);
             if (channelKeys.Length > 0 && savedKeys.Length == 0)
             {
                 findings.Add(new RoundTripFinding(
@@ -269,6 +264,42 @@ public sealed class TuiCompatChecker : ITuiCompatChecker
     {
         var display = type.GetCustomAttribute<DisplayAttribute>();
         return string.IsNullOrWhiteSpace(display?.Name) ? type.Name : display.Name;
+    }
+
+    internal static string[] ReadChannelKeys(string planPath)
+        => EnumerateChannelKeys(XDocument.Load(planPath)).ToArray();
+
+    internal static string[] RoundTripChannelKeys(string planPath, OpenTapHome tuiHome)
+    {
+        string? savedPath = null;
+        try
+        {
+            return AuthoringPluginSearch.RunIsolated(
+                EnumeratePluginDirectories(tuiHome),
+                () =>
+                {
+                    var loaded = TestPlan.Load(planPath);
+                    savedPath = Path.Combine(
+                        Path.GetTempPath(),
+                        "ht-tui-" + Guid.NewGuid().ToString("N") + ".TapPlan");
+                    loaded.Save(savedPath);
+                    return EnumerateChannelKeys(XDocument.Load(savedPath)).ToArray();
+                });
+        }
+        finally
+        {
+            if (!string.IsNullOrWhiteSpace(savedPath))
+            {
+                try
+                {
+                    File.Delete(savedPath);
+                }
+                catch (IOException)
+                {
+                    // Best-effort cleanup of the round-trip temp plan.
+                }
+            }
+        }
     }
 
     private static IEnumerable<string> EnumerateXmlTypeNames(XDocument document)
