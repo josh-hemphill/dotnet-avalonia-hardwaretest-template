@@ -132,6 +132,11 @@ public sealed class WorkspacePackerTests
 
         Assert.Contains("extra.TapPackage", manifest.Files);
         Assert.True(File.Exists(Path.Combine(dist, "extra.TapPackage")));
+        Assert.True(File.Exists(plugin));
+        Assert.Contains(
+            manifest.Files,
+            f => f.EndsWith(".TapPackage", StringComparison.OrdinalIgnoreCase)
+                 && !string.Equals(f, "extra.TapPackage", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
@@ -154,11 +159,38 @@ public sealed class WorkspacePackerTests
     }
 
     [Fact]
-    public void Shell_app_manifest_entries_include_bake_time_marker()
+    public void Pack_records_bake_time_shell_apps_on_ship_manifest()
     {
-        Assert.Equal("shell-apps/Notes", WorkspacePacker.ShellAppDirectoryEntry("Notes"));
-        Assert.Equal("shell-apps/Notes (bake-time)", WorkspacePacker.ShellAppBakeTimeEntry("Notes"));
-        Assert.Contains("bake-time", WorkspacePacker.ShellAppBakeTimeEntry("Notes"), StringComparison.Ordinal);
+        var workspaceRoot = CopyTemplateWorkspace();
+        File.WriteAllText(
+            Path.Combine(workspaceRoot, "Tiny.csproj"),
+            """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <OutputType>Exe</OutputType>
+                <TargetFramework>net10.0</TargetFramework>
+                <ImplicitUsings>enable</ImplicitUsings>
+                <RestorePackagesWithLockFile>false</RestorePackagesWithLockFile>
+                <RestoreLockedMode>false</RestoreLockedMode>
+              </PropertyGroup>
+            </Project>
+            """);
+        File.WriteAllText(Path.Combine(workspaceRoot, "Program.cs"), """Console.WriteLine("tiny");""");
+        var manifestPath = Path.Combine(workspaceRoot, "authoring.json");
+        var json = File.ReadAllText(manifestPath)
+            .Replace("\"shellAppProjects\": []", "\"shellAppProjects\": [\"Tiny.csproj\"]", StringComparison.Ordinal);
+        File.WriteAllText(manifestPath, json);
+
+        var workspace = AuthoringWorkspaceLoader.Load(workspaceRoot);
+        var home = new OpenTapHomeBootstrapper().Bootstrap(
+            workspace,
+            new BootstrapOptions { HomeDirectory = NewTempDir(), Offline = true });
+        var dist = NewTempDir();
+        var manifest = WorkspacePacker.Pack(workspace, dist, new PackOptions { Home = home, Offline = true });
+
+        Assert.Contains(WorkspacePacker.ShellAppDirectoryEntry("Tiny"), manifest.Files);
+        Assert.Contains(WorkspacePacker.ShellAppBakeTimeEntry("Tiny"), manifest.Files);
+        Assert.True(Directory.Exists(Path.Combine(dist, "shell-apps", "Tiny")));
     }
 
     private static string CopyTemplateWorkspace()

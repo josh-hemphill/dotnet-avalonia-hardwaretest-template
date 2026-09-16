@@ -61,7 +61,7 @@ public static class WorkspacePacker
         var packageXml = Path.Combine(plansDir, PackageXmlFileName);
         File.WriteAllText(packageXml, PackageXmlRenderer.Render(workspace));
 
-        var tapPackage = CreateTapPackage(home, plansDir, outputDirectory);
+        var tapPackage = CreateTapPackage(home, plansDir, workspace.Manifest.Package, outputDirectory);
         var shipped = new List<string> { Path.GetFileName(tapPackage) };
         shipped.AddRange(CopyPluginPackages(workspace, outputDirectory));
         shipped.AddRange(PublishShellApps(workspace, outputDirectory));
@@ -111,6 +111,7 @@ public static class WorkspacePacker
     private static string CreateTapPackage(
         OpenTapHome home,
         string plansDir,
+        AuthoringPackageSpec spec,
         string outputDirectory)
     {
         var tapDll = Path.Combine(home.Root, "tap.dll");
@@ -119,6 +120,10 @@ public static class WorkspacePacker
             throw new AuthoringWorkspaceException(
                 $"{AuthoringPackCodes.TapCreateFailed}: tap.dll was not found in '{home.Root}'.");
         }
+
+        var before = Directory.EnumerateFiles(plansDir, "*.TapPackage")
+            .Select(Path.GetFullPath)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
         var psi = new ProcessStartInfo
         {
@@ -139,15 +144,7 @@ public static class WorkspacePacker
         var stderrTask = process.StandardError.ReadToEndAsync();
         if (!process.WaitForExit(120_000))
         {
-            try
-            {
-                process.Kill(entireProcessTree: true);
-            }
-            catch
-            {
-                // Best-effort stop of a stuck tap CLI.
-            }
-
+            TryKill(process);
             throw new AuthoringWorkspaceException(
                 $"{AuthoringPackCodes.TapCreateFailed}: tap package create timed out.");
         }
@@ -160,9 +157,7 @@ public static class WorkspacePacker
                 $"{AuthoringPackCodes.TapCreateFailed}: tap package create exited {process.ExitCode}. {stderr} {stdout}");
         }
 
-        var created = Directory.EnumerateFiles(plansDir, "*.TapPackage")
-            .OrderByDescending(File.GetLastWriteTimeUtc)
-            .FirstOrDefault();
+        var created = FindCreatedTapPackage(plansDir, before, spec.Name);
         if (created is null)
         {
             throw new AuthoringWorkspaceException(
@@ -181,6 +176,45 @@ public static class WorkspacePacker
         }
 
         return dest;
+    }
+
+    private static string? FindCreatedTapPackage(
+        string plansDir,
+        HashSet<string> before,
+        string packageName)
+    {
+        var after = Directory.EnumerateFiles(plansDir, "*.TapPackage")
+            .Select(Path.GetFullPath)
+            .ToArray();
+        var created = after
+            .Where(path => !before.Contains(path))
+            .OrderByDescending(File.GetLastWriteTimeUtc)
+            .FirstOrDefault();
+        if (created is not null)
+        {
+            return created;
+        }
+
+        if (string.IsNullOrWhiteSpace(packageName))
+        {
+            return null;
+        }
+
+        return after.FirstOrDefault(path =>
+            Path.GetFileName(path).StartsWith(packageName, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static void TryKill(Process process)
+    {
+        try
+        {
+            process.Kill(entireProcessTree: true);
+            process.WaitForExit(5_000);
+        }
+        catch
+        {
+            // Best-effort stop of a stuck child process.
+        }
     }
 
     private static IReadOnlyList<string> CopyPluginPackages(AuthoringWorkspace workspace, string outputDirectory)
@@ -251,6 +285,7 @@ public static class WorkspacePacker
                 UseShellExecute = false,
                 CreateNoWindow = true,
             };
+            psi.Environment["DOTNET_CLI_TELEMETRY_OPTOUT"] = "1";
             using var process = Process.Start(psi)
                 ?? throw new AuthoringWorkspaceException(
                     $"{AuthoringPackCodes.ShellAppFailed}: failed to start dotnet publish for '{id}'.");
@@ -258,15 +293,7 @@ public static class WorkspacePacker
             var stderrTask = process.StandardError.ReadToEndAsync();
             if (!process.WaitForExit(180_000))
             {
-                try
-                {
-                    process.Kill(entireProcessTree: true);
-                }
-                catch
-                {
-                    // Best-effort stop of a stuck publish.
-                }
-
+                TryKill(process);
                 throw new AuthoringWorkspaceException(
                     $"{AuthoringPackCodes.ShellAppFailed}: dotnet publish '{id}' timed out.");
             }
