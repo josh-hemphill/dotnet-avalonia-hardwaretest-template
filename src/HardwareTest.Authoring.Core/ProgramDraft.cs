@@ -75,4 +75,5 @@ public static class AuthoringCompileCodes
     public const string UnknownFunction = "UNKNOWN_FUNCTION";
     public const string DialogStep = "DIALOG_STEP";
     public const string PlanIdMismatch = "PLAN_ID_MISMATCH";
+    public const string MissingLimits = "MISSING_LIMITS";
 }
