@@ -1,4 +1,5 @@
 using System.IO.Compression;
+using System.Text.Json;
 using System.Xml.Linq;
 using HardwareTest.Authoring;
 using Xunit;
@@ -38,6 +39,16 @@ public sealed class WorkspacePackerTests
             [new RoundTripFinding("sample.TapPlan", TuiCompatCodes.XmlDrift, "noise")]);
         Assert.False(driftOnly.BlocksPack());
 
+        var mixinDropped = new TuiCompatReport(
+            [],
+            [new RoundTripFinding("sample.TapPlan", TuiCompatCodes.MixinDropped, "mixin")]);
+        Assert.True(mixinDropped.BlocksPack());
+
+        var contractFail = new TuiCompatReport(
+            [],
+            [new RoundTripFinding("sample.TapPlan", TuiCompatCodes.ContractFail, "strict")]);
+        Assert.True(contractFail.BlocksPack());
+
         var tuiMissing = new TuiCompatReport(
             [new CatalogDelta("HardwareTest.OpenTap.Plugins.Basic.AcquireVoltageStep", "Acquire", CatalogSides.TuiHome)],
             []);
@@ -65,7 +76,15 @@ public sealed class WorkspacePackerTests
         Assert.Equal("0.1.0", manifest.Version);
         var package = Directory.EnumerateFiles(dist, "*.TapPackage").Single();
         Assert.Contains(Path.GetFileName(package), manifest.Files);
-        Assert.True(File.Exists(Path.Combine(dist, WorkspacePacker.ShipManifestFileName)));
+        Assert.Empty(Directory.EnumerateFiles(workspaceRoot, "*.TapPackage"));
+        var shipped = JsonSerializer.Deserialize(
+            File.ReadAllText(Path.Combine(dist, WorkspacePacker.ShipManifestFileName)),
+            AuthoringJsonContext.Default.ShipManifest);
+        Assert.NotNull(shipped);
+        Assert.Equal(manifest.PackageName, shipped.PackageName);
+        Assert.Equal(manifest.Version, shipped.Version);
+        Assert.Equal(manifest.Files, shipped.Files);
+        Assert.DoesNotContain(shipped.Files, f => f.Contains("shell-apps", StringComparison.Ordinal));
 
         using var zip = ZipFile.OpenRead(package);
         var names = zip.Entries.Select(e => e.FullName.Replace('\\', '/')).ToArray();
@@ -113,6 +132,33 @@ public sealed class WorkspacePackerTests
 
         Assert.Contains("extra.TapPackage", manifest.Files);
         Assert.True(File.Exists(Path.Combine(dist, "extra.TapPackage")));
+    }
+
+    [Fact]
+    public void Pack_rejects_plugin_csproj_instead_of_tappackage()
+    {
+        var workspaceRoot = CopyTemplateWorkspace();
+        File.WriteAllText(Path.Combine(workspaceRoot, "Extra.csproj"), "<Project />");
+        var manifestPath = Path.Combine(workspaceRoot, "authoring.json");
+        var json = File.ReadAllText(manifestPath)
+            .Replace("\"pluginProjects\": []", "\"pluginProjects\": [\"Extra.csproj\"]", StringComparison.Ordinal);
+        File.WriteAllText(manifestPath, json);
+
+        var workspace = AuthoringWorkspaceLoader.Load(workspaceRoot);
+        var home = new OpenTapHomeBootstrapper().Bootstrap(
+            workspace,
+            new BootstrapOptions { HomeDirectory = NewTempDir(), Offline = true });
+        var ex = Assert.Throws<AuthoringWorkspaceException>(() =>
+            WorkspacePacker.Pack(workspace, NewTempDir(), new PackOptions { Home = home, Offline = true }));
+        Assert.Contains(AuthoringPackCodes.PluginMissing, ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Shell_app_manifest_entries_include_bake_time_marker()
+    {
+        Assert.Equal("shell-apps/Notes", WorkspacePacker.ShellAppDirectoryEntry("Notes"));
+        Assert.Equal("shell-apps/Notes (bake-time)", WorkspacePacker.ShellAppBakeTimeEntry("Notes"));
+        Assert.Contains("bake-time", WorkspacePacker.ShellAppBakeTimeEntry("Notes"), StringComparison.Ordinal);
     }
 
     private static string CopyTemplateWorkspace()
