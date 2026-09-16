@@ -1,0 +1,544 @@
+# Engineer authoring application
+
+Status: **proposal**. The operator shell still does not edit plans. Until this stack lands, author in OpenTAP TUI / Editor: [getting-started.md](getting-started.md).
+
+This document is the execution plan for a **separate workstation app** in this repo. It is not an `IShellApplication` baked into the operator appliance.
+
+## Goal
+
+An engineer can open a test-set planning directory, author **only the metrics they want to measure and the algorithms that run over those measurements**, and see how those metrics will appear on the operator Run / Results board (Presentation mixins, gauges, charts, prompts). The app bootstraps an isolated OpenTAP tree with HardwareTest Basic, Mixins, **InstrumentComponents.OpenTap**, and any other declared packs so TUI/Editor and our UI share the same step catalog. `HardwareTest.PlanValidate --strict` plus a TUI compatibility check gate a **pack/ship** step that compiles that directory into TapPackages (and optional plugin / shell-app artifacts) a product test-set repo can install on the bench. The operator `HardwareTest` exe stays a locked runner.
+
+## Why a separate app
+
+Today the path is: install OpenTAP + TUI, manually build/install our TapPackages, author a three-level TapPlan, attach Presentation by hand, copy a sidecar, validate, `tap package create`. That leaks OpenTAP plumbing (groups, mixins, package.xml, Dialog vs Operator Prompt) onto every new engineer.
+
+Constraints this repo already encodes:
+
+- The operator shell does not edit plans or add mixins ([adapting.md](adapting.md#author-a-locked-program)).
+- Operator shell apps are bake-time `IShellApplication` class libraries, not launch-time plugin scans ([adapting.md](adapting.md#operator-shell-applications)).
+- Product plans use **InstrumentComponents.OpenTap** typed instruments/steps; in-repo sample/board-demo stay Basic so CI does not need that pack.
+- The VISA adapter is bench-only; Editor/TUI authoring packs are Basic + Mixins (+ library pack).
+
+A guest page on the operator shell would put a plan editor on the appliance and fight those rules. A second Avalonia exe on the engineer workstation can still **reuse** the same presentation mapping and widgets so the preview matches the bench.
+
+Vue is the usual preference for greenfield UI; this app is Avalonia so operator `MetricGaugeView` / plot / timing-strip chrome can be shared instead of reimplemented.
+
+## Two-repo shape
+
+```
+dotnet-avalonia-hardwaretest-template/     # this repo
+  src/HardwareTest/                        # operator appliance (locked plans)
+  src/HardwareTest.Authoring.Core/         # Avalonia-free workspace, compile, pack, TUI compat
+  src/HardwareTest.Authoring/              # engineer Avalonia exe + headless CLI flags
+  src/HardwareTest.OpenTap.Plugins.*/      # Editor/bench packs
+  plans/opentap/                           # in-repo demos only
+
+{product}-testset-{station}/               # separate repo per test set (not in this template)
+  authoring.json                           # workspace manifest
+  plans/*.TapPlan + *.program.json
+  package.xml                              # generated or checked in
+  plugins/                                 # optional test-set OpenTAP plugins
+  shell-apps/                              # optional IShellApplication projects for that station
+```
+
+The authoring app **loads any workspace directory**. This template’s `plans/opentap/` is the built-in example workspace. Product TapPlans and station-specific UI plugins live beside each other in the test-set repo; this app does not clone or host those repos.
+
+Ship output is artifacts for a bake pipeline, not a live load into the operator process:
+
+| Artifact | Goes to |
+| --- | --- |
+| Program `.TapPackage` (TapPlans + sidecars + `package.xml`) | Bench `tap package install` / `Programs/` |
+| Plugin `.TapPackage`s (Basic, Mixins, InstrumentComponents, extra plugins) | Bench OpenTAP tree |
+| Optional shell-app binaries | Product `AddShellApplications` bake — still compile-time, never `plugins/` |
+
+## User loop
+
+1. **Open workspace** — `authoring.json` + `plans/`.
+2. **Bootstrap** — isolated OpenTAP home; install OpenTAP, TUI, HardwareTest Basic, Mixins, InstrumentComponents.OpenTap (when configured), Expressions when the manifest says so.
+3. **Author metrics / algorithms** — not raw OpenTAP step trees. Chrome (Setup / measure / Cleanup groups, Safe Shutdown, unique leaf names, Presentation mixin, sidecar) is generated.
+4. **Preview operator UI** — same DisplayRole → gauge / chart / timing mapping as Run / Results.
+5. **Validate** — existing `PlanContractValidator` (`--strict` before pack).
+6. **TUI compat** — round-trip TapPlan XML through a TUI-equipped PluginManager; catalog-diff step types.
+7. **Pack** — write/update `package.xml`, `tap package create`, copy declared plugin packs, write `dist/ship-manifest.json`.
+
+Escape hatch: **Open in TUI** launches `tap tui` against the same isolated home so an engineer can drop to the stock editor without a second package set.
+
+## Non-goals (this stack)
+
+- Editing plans inside the operator `HardwareTest` process or on the sealed appliance.
+- Loading shell apps from OpenTAP `plugins/` at operator launch.
+- Reimplementing OpenTAP Editor (sweep UI, ComponentSettings bench profiles, feed browser).
+- Driving the TUI process as a terminal UI (we compare engines + catalogs).
+- Putting InstrumentComponents.OpenTap into this template’s live `plans/opentap/package.xml` (CI demos stay Basic).
+- Shipping the VISA broker adapter in the authoring OpenTAP home (Editor pack set only).
+
+## Architecture
+
+```
+HardwareTest.Authoring (Avalonia WinExe)
+  → HardwareTest.Authoring.Core     (Avalonia-free)
+       → HardwareTest.OpenTap.Host  (PlanContractValidator, ProgramSidecar, mixin attach)
+       → HardwareTest.OpenTap.Plugins.Basic / Mixins
+       → OpenTAP TestPlan.Load / Save / PluginManager
+  → shared presentation widgets (extracted from operator Features/Widgets)
+
+HardwareTest (operator)  ──x──  does not reference Authoring*
+```
+
+Headless flags on the same exe (`--pack`, `--bootstrap`, `--compat`) exit before Avalonia, matching `HardwareTest --validate-plan`. Keep `HardwareTest.PlanValidate` as the pack-gate CLI for appliance CI; Authoring CLI is for workspace bootstrap/pack/compat.
+
+### Isolated OpenTAP home
+
+Not the operator publish tree and not a machine-global `tap` install the engineer already uses for other products.
+
+Default: `{workspace}/.authoring/opentap/` (gitignored in product repos) or `--opentap-home`. Bootstrap uses `tap package install` of **file** TapPackages we just built, plus TUI from the OpenTAP feed when network is allowed. CI can pass `--tui-package` / `--instrument-components-package` paths so bootstrap stays offline.
+
+## Workspace contract
+
+`authoring.json` (schemaVersion 1, additionalProperties false, `AppJsonContext` / source-gen like other persisted JSON):
+
+```json
+{
+  "$schema": "./authoring.schema.json",
+  "schemaVersion": 1,
+  "displayName": "Power Board Test Set",
+  "plansDirectory": "plans",
+  "package": {
+    "name": "PowerBoard Programs",
+    "version": "0.1.0",
+    "os": "Windows,Linux,MacOS"
+  },
+  "dependencies": [
+    { "package": "OpenTAP", "version": "^9.32.2" },
+    { "package": "HardwareTest Basic", "version": "^0.1.0" },
+    { "package": "HardwareTest Mixins", "version": "^0.1.0" },
+    { "package": "InstrumentComponents.OpenTap", "version": "^0.1.0" }
+  ],
+  "optionalDependencies": [
+    { "package": "Expressions", "version": "^1.5.0", "when": "planUsesExpressions" }
+  ],
+  "instrumentComponentsPackage": null,
+  "pluginProjects": [],
+  "shellAppProjects": [],
+  "includeTui": true
+}
+```
+
+`instrumentComponentsPackage` is a path or leave null and resolve `HARDWARETEST_INSTRUMENT_COMPONENTS_PACKAGE`. This template workspace omits that dependency so sample/board-demo still validate without the library pack.
+
+Directory rules (same as today, plus the manifest):
+
+- `{plansDirectory}/{planId}.TapPlan` + `{planId}.program.json`
+- Sidecar remains session/DUT/Typst only ([program.schema.json](../plans/opentap/program.schema.json)); instrument requirements stay TapPackage Dependencies.
+- `package.xml` may be generated on pack; if checked in, pack must not drift from the manifest.
+
+## Metric-first IR
+
+Engineers do not start from Test Group / mixin menus. They edit a draft that **compiles** to a TapPlan (and **decompiles** TUI-authored plans so round-trips stay honest).
+
+```csharp
+public sealed record AuthoringWorkspace(
+    string Root,
+    AuthoringManifest Manifest,
+    IReadOnlyList<ProgramDraft> Programs);
+
+public sealed record ProgramDraft(
+    string PlanId,
+    ProgramSidecar Sidecar,
+    IReadOnlyList<InstrumentRef> Instruments,
+    IReadOnlyList<SetupAction> Setup,
+    IReadOnlyList<MetricDraft> Metrics,
+    CleanupPolicy Cleanup);
+
+public sealed record InstrumentRef(
+    string SlotName,
+    string TypeId,          // "InstrumentComponents.OpenTap.DmmInstrument" or Basic MockDmm
+    string VisaAddress);    // writable; Instruments page rebinds on the bench
+
+public abstract record SetupAction;
+public sealed record IdentitySetup(string InstrumentSlot) : SetupAction;
+public sealed record OperatorPromptSetup(string Name, string Message) : SetupAction;
+public sealed record OperatorInputSetup(
+    string Name, string Title, string Message,
+    string? StringFieldId, string? NumberFieldId) : SetupAction;
+
+public sealed record MetricDraft(
+    string Name,
+    string ChannelKey,
+    string DisplayRole,     // scalar | passband | timeseries | timing
+    string YUnit,
+    LimitSpec? Limits,
+    HistorySpec? History,
+    MetricSource Source);
+
+public abstract record MetricSource;
+public sealed record MeasureSource(
+    string InstrumentSlot,
+    string FunctionId,      // catalog id, e.g. "Dmm.MeasureVoltageDc" / "Basic.AcquireVoltage"
+    IReadOnlyDictionary<string, string> Settings) : MetricSource;
+
+public sealed record AlgorithmSource(
+    string AlgorithmId,     // MeanGte, PublishBandScalar, SeriesInBand, Expressions, …
+    IReadOnlyList<string> InputChannelKeys,
+    IReadOnlyDictionary<string, string> Settings) : MetricSource;
+
+public sealed record LimitSpec(double? Low, double? High, double? Threshold);
+public sealed record HistorySpec(bool Enabled, double? WatchPercent, double? AlertPercent);
+public sealed record CleanupPolicy(bool IncludeSafeShutdown, string InstrumentSlot);
+```
+
+Compile rules (must match [getting-started.md](getting-started.md) / plan contract):
+
+- Emit three-level groups: `Setup` / named measure suite / `Cleanup`.
+- One instrument resource per box; extra capabilities are nested views, not a second slot.
+- Function leaves get Presentation (`OpenTapMixinAttach.AttachPresentation`) with unique `ChannelKey`.
+- Identity / Prompt / Input / Safe Shutdown / Repeat / Test Group stay Presentation-exempt.
+- Never emit `DialogStep`. Product identity is library Identity Query when InstrumentComponents is present; Basic Identity Check + `HardwareDut` only for in-repo demos.
+- `timeseries` is opt-in for shape; pass criteria live on `scalar` / `passband` with limits.
+- Algorithms that need a prior series reference `InputChannelKeys` (sibling measure steps), not hidden global state.
+
+Decompile: walk `OpenTapStepTree`, read Presentation via `OpenTapPresentation.TryReadMixin`, map known Basic / InstrumentComponents type names through `OpenTapStepKinds`. Unknown steps stay an opaque `RawStep` so TUI-only plugins are not stripped.
+
+## TUI compatibility
+
+TUI is an OpenTAP package over the same `TestPlan` XML. We do **not** scrape the terminal UI.
+
+```csharp
+public sealed record TuiCompatReport(
+    IReadOnlyList<CatalogDelta> Catalog,
+    IReadOnlyList<RoundTripFinding> RoundTrips);
+
+public sealed record CatalogDelta(
+    string TypeName,
+    string DisplayName,
+    CatalogSide MissingOn);   // AuthoringHome | TuiHome
+
+public sealed record RoundTripFinding(
+    string PlanPath,
+    string Code,              // TYPE_UNKNOWN, MIXIN_DROPPED, XML_DRIFT, CONTRACT_FAIL
+    string Message);
+
+public interface ITuiCompatChecker
+{
+    TuiCompatReport Compare(AuthoringWorkspace workspace, IsolatedOpenTapHome authoringHome, IsolatedOpenTapHome tuiHome);
+}
+```
+
+Checks:
+
+1. **Catalog** — `PluginManager` step, instrument, and mixin builder types in the authoring home vs a home that also has the TUI package. Authoring must not offer types TUI cannot load. Extra TUI-only chrome (the TUI app assembly itself) is ignored.
+2. **Round-trip** — Authoring `Save` → `TestPlan.Load` in the TUI home → `Save` → load again in Authoring → structural diff (step types, mixin member names, ChannelKeys, sidecar). Ignore volatile XML noise (formatting) via a normalized tree, not raw string compare. Mixin member names must stay XML-safe (no encoded colons — see existing Mixins fix).
+3. **Contract** — `PlanContractValidator.Validate` in both homes with `--strict` semantics for pack.
+4. **Optional Open in TUI** — spawn `tap tui` with `OPENTAP_PATH` / working directory set to the isolated home (manual; not CI).
+
+CI: `deno` task `test:authoring-compat`. Offline when TUI `.TapPackage` is cached; otherwise advisory like Linux E2E. Template plans (Basic only) run in required CI; InstrumentComponents round-trip is required only when that pack path is provided.
+
+## Pack / ship
+
+```text
+HardwareTest.Authoring --pack <workspace> --out dist/
+  1. Load authoring.json
+  2. Bootstrap isolated home if packs missing
+  3. PlanContractValidator.Validate(plans, strict: true, trust plugin dirs)
+  4. TuiCompatChecker.Compare (fail on TYPE_UNKNOWN / MIXIN_DROPPED / CONTRACT_FAIL)
+  5. Render package.xml from manifest + discovered TapPlan/sidecar files
+  6. tap package create (cwd = plans dir; File Path relative)
+  7. Build/copy pluginProjects TapPackages
+  8. dotnet publish shellAppProjects into dist/shell-apps/{id}/ (document bake hook; do not scan at operator launch)
+  9. Write dist/ship-manifest.json (package files, versions, OpenTAP ^ pin)
+```
+
+`ship-manifest.json` is the handoff a test-set repo CI and the appliance bake both read. It does not install onto a live bench by itself.
+
+## Operator preview
+
+Reuse, do not fork, the DisplayRole map in `PresentationRoleMap` (`timeseries` → Focus chart, `scalar`/`passband` → gauges, `timing` → timing strip). Extract the Avalonia-free map (+ tile VM) to a shared project both exes reference. Preview can use canned samples (from host recordings under `tests/fixtures/opentap/recordings/`) so authoring does not run `TestPlan.Execute` or `TapThread` in the UI process. Optional later: mock-run via `OpenTapWorkerClient` — out of scope for the first UI slice.
+
+## Layering rules (architecture tests)
+
+- `HardwareTest.Authoring.Core` is Avalonia-free (and may reference Host + OpenTAP).
+- Operator `HardwareTest` must not reference `HardwareTest.Authoring*`.
+- Authoring must not reference `HardwareTest.OpenTap.Worker` in v1 (no execute in the UI process).
+- Authoring is not an `IShellApplication`; it has its own window.
+- Authoring OpenTAP home does not install the VISA adapter pack.
+- Feature files stay under 600 lines; InternalsVisibleTo for Authoring tests as with Host.
+
+Promote `OpenTapMixinAttach` (and any compile helpers) from `internal` to a documented public authoring surface on Host, or move them into Authoring.Core to avoid leaking demo factories. Prefer a small public `IPlanCompiler` in Authoring.Core that calls today’s attach helpers.
+
+---
+
+## Stack graph
+
+```
+latest
+  ← Area 1  workspace + Authoring.Core skeleton
+       ← Area 2  isolated OpenTAP bootstrap
+            ← Area 3  metric IR compile / decompile
+                 ← Area 4  pack / ship CLI
+                      ← Area 5  extract shared presentation map
+                           ← Area 6  Authoring Avalonia shell
+                                ← Area 7  metric-first UI + operator preview
+                 ← Area 8  TUI compat checker + CI   (can start after Area 3; pack failure uses it in Area 4)
+  docs in this file land first; getting-started rewrite is Area 9 on top of 7+8
+```
+
+Area 8 may proceed in parallel with Areas 5–7 once Area 3’s IR and Area 2’s isolated home exist (little shared UI). Area 4’s pack step should call the compat API; if Area 8 is not merged yet, pack validates contract only and leaves a `TODO` hook.
+
+### Conflict map
+
+| Surface | Areas | Overlap |
+| --- | --- | --- |
+| `authoring.json` / schema | 1, 4, 9 | Area 1 owns the schema; later areas only add optional keys |
+| Isolated OpenTAP home | 2, 4, 8 | Area 2 owns bootstrap; 4/8 consume the home path |
+| `IPlanCompiler` / IR types | 3, 6, 7, 8 | Area 3 freezes the public records |
+| `package.xml` generation | 4 | only |
+| `PresentationRoleMap` move | 5, 7 | Area 5 moves files; 7 binds UI |
+| Operator `HardwareTest.csproj` | 5 | widget extract only — no Authoring reference |
+| `dirs.proj` / `HardwareTest.slnx` / `tools/ci` TASKS | 1, 6, 8, 9 | each area appends its project/task; do not rewrite the catalog in two PRs at once |
+| `docs/getting-started.md` | 9 | only; earlier areas may add a one-line pointer |
+
+---
+
+### Area 1: Workspace contract + Authoring.Core skeleton
+
+- Goal: Load/save a planning directory against a versioned `authoring.json`; fail closed on unknown schemaVersion; architecture gates exist so later UI cannot leak into Core.
+- Depends on: nothing (base `latest`)
+- Out of scope: OpenTAP install, compile, UI, pack, TUI
+- Likely files / crates: `src/HardwareTest.Authoring.Core/`, `plans/opentap/authoring.json` + `authoring.schema.json`, `tests/HardwareTest.Authoring.Tests/`, `dirs.proj`, `HardwareTest.slnx`, `ArchitectureRulesTests.cs`
+- Public surface:
+
+```csharp
+public sealed class AuthoringManifest { /* schemaVersion, displayName, plansDirectory, package, dependencies, … */ }
+
+public static class AuthoringWorkspaceLoader
+{
+    public static AuthoringWorkspace Load(string root);
+    public static void SaveManifest(string root, AuthoringManifest manifest);
+}
+
+public sealed record AuthoringWorkspace(string Root, AuthoringManifest Manifest, IReadOnlyList<string> TapPlanPaths);
+```
+
+- Pseudo-code:
+  - Discover `authoring.json` at `root` (or `--manifest`).
+  - Source-gen JSON (`AuthoringJsonContext`), camelCase, `schemaVersion` required; `> current` → read-only + error on Save; missing file → error (do not invent a product pack).
+  - Resolve `plansDirectory` relative to root; enumerate `*.TapPlan` (skip `fixtures/` unless `includeFixtures`).
+  - Golden: this repo’s `plans/opentap/` with a template `authoring.json` that lists OpenTAP + Basic + Mixins only.
+- Tests: load template workspace; reject unknown properties / future schemaVersion write; architecture: Core has no Avalonia; operator exe has no Authoring reference (may be vacuous until Area 6 — still add the rule).
+- Risks: `dirs.proj` glob already includes `src/**/*.csproj`, so a new project is built in CI immediately — keep Core compiling without tap CLI.
+- Conflicts with: Area 4 (manifest fields for pack). Do not add pack fields beyond the schema above.
+
+### Area 2: Isolated OpenTAP bootstrap
+
+- Goal: Given a workspace, produce an OpenTAP home with the declared TapPackages installed (Basic, Mixins, optional InstrumentComponents, optional TUI) without touching the operator publish tree.
+- Depends on: Area 1
+- Out of scope: compiling metrics, UI, `tap package create` of the **program** pack
+- Likely files: `Authoring.Core/OpenTapHomeBootstrapper.cs`, plugin csproj pack targets already used in [adapting.md](adapting.md#authoring-packs)
+- Public surface:
+
+```csharp
+public sealed record OpenTapHome(string Root);
+
+public interface IOpenTapHomeBootstrapper
+{
+    OpenTapHome Bootstrap(AuthoringWorkspace workspace, BootstrapOptions options);
+}
+
+public sealed class BootstrapOptions
+{
+    public string? HomeDirectory { get; init; }
+    public string? InstrumentComponentsPackagePath { get; init; }
+    public string? TuiPackagePath { get; init; }
+    public bool Offline { get; init; }
+}
+```
+
+- Pseudo-code:
+  - Build Basic + Mixins with `CreateOpenTapPackage=true` (same commands as docs) into a cache dir, or consume already-built artifacts.
+  - `tap package install <file>` into `HomeDirectory` (create if needed). Offline: require file paths; fail with a named error if InstrumentComponents is in `dependencies` but no path/env.
+  - Record installed names/versions via existing `OpenTapPackageCatalog` scanning `package.xml`.
+  - Do not register `IVisaBroker` / Visa plugin in this home.
+- Tests: temp home; after bootstrap, catalog contains HardwareTest Basic + Mixins; Visa adapter absent; missing IC dependency errors when declared; template workspace succeeds without IC.
+- Risks: `tap` not on PATH in CI — wrap via OpenTAP’s bundled CLI next to `OpenTap.dll`, or skip network TUI install when `Offline`.
+- Conflicts with: Area 8 (same home). Area 2 owns create/install.
+
+### Area 3: Metric IR compile / decompile
+
+- Goal: Round-trip `ProgramDraft` ↔ `.TapPlan` + sidecar using Host factories/mixin attach; compiled plans pass `PlanContractValidator` for the sample metric recipes.
+- Depends on: Area 1 (sidecar/workspace paths). Can run without Area 2 if PluginManager search dirs include in-tree plugin outputs (today’s host tests).
+- Out of scope: UI, pack, TUI catalog, InstrumentComponents-only functions in required CI
+- Likely files: `Authoring.Core/PlanCompiler.cs`, `MetricDraft.cs`, promote `OpenTapMixinAttach`; tests using Basic `AcquireVoltage` / `MeanGte` / `PublishBandScalar`
+- Public surface:
+
+```csharp
+public interface IPlanCompiler
+{
+    void Save(ProgramDraft draft, string tapPlanPath);   // writes TapPlan + sidecar
+    ProgramDraft Load(string tapPlanPath);               // decompile + sidecar
+}
+```
+
+- Pseudo-code:
+  - `Save`: `OpenTapPluginSearch.SearchSerialized`; build groups; create instruments; emit setup actions; for each metric, resolve `FunctionId`/`AlgorithmId` to a step type; `AttachPresentation`; `plan.Save`; write `{id}.program.json` via existing sidecar serialization.
+  - `Load`: `TestPlan.Load`; classify steps with `OpenTapStepKinds`; unknown types → `RawStep` (preserve XML identity / children).
+  - Recipe coverage: timeseries acquire + scalar mean; passband with limits; operator prompt/input; safe shutdown; `requireSerial` identity.
+- Tests: compile sample-equivalent draft → validator OK; decompile `plans/opentap/sample.TapPlan` → ChannelKeys `VDC` / `VDC.mean`; compile → decompile preserves ChannelKey/DisplayRole; Dialog never emitted; duplicate ChannelKey fails before save.
+- Risks: OpenTAP mixin XML vs flattened EmbedProperties — use the same attach path as `SampleProgramFactory`.
+- Conflicts with: Area 7 (UI binds these records). Freeze names here.
+
+### Area 4: Pack / ship CLI
+
+- Goal: `HardwareTest.Authoring --pack` (or Core API used by a thin Program) validates, writes `package.xml`, creates the program TapPackage, copies declared plugin packs, writes `dist/ship-manifest.json`.
+- Depends on: Areas 1–3 (validate compiled plans). Compat hook optional until Area 8.
+- Out of scope: Avalonia, appliance bake, publishing to a feed
+- Likely files: `Authoring.Core/WorkspacePacker.cs`, `Authoring/Program.cs` headless parse, architecture: PlanValidate stays Avalonia-free and remains the operator pack-gate
+- Public surface:
+
+```csharp
+public sealed record ShipManifest(string PackageName, string Version, IReadOnlyList<string> Files);
+
+public static class WorkspacePacker
+{
+    public static ShipManifest Pack(AuthoringWorkspace workspace, string outputDirectory, PackOptions options);
+}
+```
+
+- Pseudo-code:
+  - Strict `PlanContractValidator` on `plans/` (not fixtures).
+  - Render `package.xml` Files from TapPlan+sidecar; Dependencies from manifest (still **no** live IC dep on the template pack).
+  - Invoke `tap package create` with cwd = plans directory.
+  - Copy extra plugin TapPackages listed in manifest.
+  - `shellAppProjects`: `dotnet publish -o dist/shell-apps/{id}` only; ship-manifest notes they are bake-time.
+- Tests: pack template workspace → TapPackage exists; unzip/list contains `sample.TapPlan` + sidecar; `package.xml` deps match architecture test (OpenTAP, Basic, Mixins only); `--pack` without UI (no Avalonia loaded in a dedicated test exe if needed).
+- Risks: `tap package create` requires packs already installed in *some* OpenTAP tree — use Area 2 home.
+- Conflicts with: `tools/ci` TASKS array (add `pack:template` in this area **or** Area 8, not both). Prefer adding `pack:template` here.
+
+### Area 5: Extract shared presentation map
+
+- Goal: Operator and Authoring share one Avalonia-free DisplayRole → tile-kind map (and tile VM if it stays UI-free). Operator Run/Results behavior unchanged (snapshot / ViewModel tests still pass).
+- Depends on: nothing strictly; stack after Area 4 to avoid `dirs.proj`/slnx collisions with Area 1, or after Area 1 if files do not overlap. **Recommended base: Area 4** so CI task catalog is stable.
+- Out of scope: Authoring UI, new roles
+- Likely files: move `PresentationRoleMap` / `PresentationTileViewModel` (if Avalonia-free) to `HardwareTest.Core` or `HardwareTest.OpenTap.Host`; operator Features become wrappers; `Phase16PresentationChromeTests`
+- Public surface: same methods (`TryMapRole`, `IsRunGaugeSample`, `BuildFromStoredSamples`); namespace may change — update bindings in one PR.
+- Pseudo-code: move types; re-export or update usings; no behavior change.
+- Tests: existing ViewModel presentation tests; architecture: plugins still have no Avalonia/ScottPlot.
+- Risks: `PresentationTileViewModel` may be ReactiveUI — if so, move only the map, leave VM in operator, duplicate a thin preview VM in Area 7.
+- Conflicts with: Area 7. Finish the move before preview UI.
+
+### Area 6: Authoring Avalonia shell
+
+- Goal: A second WinExe that opens a workspace, lists programs, shows plan tree + sidecar + contract findings, Save, Validate, Bootstrap, Pack. No metric editor yet (tree is read-only decompile).
+- Depends on: Areas 1–4
+- Out of scope: metric-first editor, operator preview widgets, execute
+- Likely files: `src/HardwareTest.Authoring/` (App, MainWindow, WorkspaceViewModel), `HardwareTest.Authoring.csproj` Avalonia 12 same as operator, E2E optional later
+- Public surface: `dotnet run --project src/HardwareTest.Authoring -r win-x64 -- <workspace>`; flags `--pack` / `--bootstrap` / `--validate` exit 0/1/2 like PlanValidate (usage 2).
+- Pseudo-code:
+  - Composition separate from operator `App/Composition.cs`.
+  - Pages: Workspace | Program (tree + sidecar form bound to `ProgramSidecar`) | Findings | Ship.
+  - Single window; no WinForms dialogs; folder pick may use Avalonia storage provider (engineer workstation, `AllowOsFolderBrowse` analog default on).
+- Tests: ViewModel: load template workspace → sample program listed; validate surfaces `PlanContractFinding`s; architecture: operator does not reference Authoring; Authoring does not reference Worker; file size cap.
+- Risks: OpenTAP PluginManager process-global — do not run Authoring E2E in parallel with host tests (`BuildInParallel=false` already). Prefer ViewModels + Core tests in v1; Authoring E2E advisory.
+- Conflicts with: Area 7 (same ViewModels — 6 stays read-only tree).
+
+### Area 7: Metric-first UI + operator preview
+
+- Goal: Engineer adds a metric (channel key, role, unit, limits, measure vs algorithm) without touching mixin menus; compiler writes Presentation; preview pane shows gauge/chart/timing using the shared map and canned samples.
+- Depends on: Areas 3, 5, 6
+- Out of scope: full OpenTAP property grid, live instrument execute, Expressions visual designer (string field only)
+- Likely files: `MetricEditorViewModel`, preview using `MetricGaugeView` / plot (shared widget project or project-reference operator widgets **only if** extracted; do not reference `HardwareTest` exe)
+- Public surface: `ProgramDraft` editing; `IPlanCompiler.Save` on apply; recipe picker matching getting-started test types (group, identity, prompt, input, acquire, mean/band, series compliance, repeat, station health, shutdown)
+- Pseudo-code:
+  - Empty workspace: wizard “what do you want to measure?” → MetricDraft list.
+  - Adding a scalar metric auto-attaches Presentation `DisplayRole=scalar` and requires limits.
+  - Preview: synthesize `StoredSample`s from draft limits/role (not Execute).
+  - Advanced: “Edit raw step” reveals OpenTAP properties for escape-hatch types (`RawStep`).
+- Tests: adding `VDC.mean` scalar + MeanGte algorithm → saved plan validator OK + decompile ChannelKey; preview tile kind is Scalar; Dialog not in palette; Instruments slot VisaAddress remains writable.
+- Risks: widget extract from operator exe may need a `HardwareTest.Widgets` project — do that here only if Area 5 left views behind.
+- Conflicts with: operator widget namespaces. Prefer `HardwareTest.Widgets` referenced by both exes.
+
+### Area 8: TUI compatibility checker + CI
+
+- Goal: Automated catalog + round-trip report; Deno task; template workspace required-green without IC; fail pack on unknown types / dropped mixins.
+- Depends on: Areas 2–3 (home + IR). Pack (Area 4) should call this when present.
+- Out of scope: launching TUI curses UI in CI
+- Likely files: `Authoring.Core/TuiCompatChecker.cs`, `tools/ci/main.ts` task `test:authoring-compat`, workflow step
+- Public surface: `ITuiCompatChecker.Compare`; CLI `--compat <workspace>`
+- Pseudo-code:
+  - Two homes or one home with TUI installed vs PluginManager types filtered to HardwareTest + InstrumentComponents + BasicSteps.
+  - Normalized tree diff after Load/Save.
+  - Ignore TUI’s own `OpenTap.TUI*` types in catalog.
+- Tests: sample plan round-trip findings empty; a plan with a fake unknown type name fails `TYPE_UNKNOWN`; mixin ChannelKey survives save in TUI home.
+- Risks: TUI package feed in CI — cache a TapPackage under `tests/fixtures/opentap/packages/` if license allows, else advisory.
+- Conflicts with: `TASKS` catalog assertion in `.github/workflows/ci.yml` (must update expected list in the same PR).
+
+### Area 9: Docs rewrite
+
+- Goal: Getting-started primary path is the authoring app; TUI is escape hatch + compatibility; adapting.md pack section points at `--pack`.
+- Depends on: Areas 6–8 (commands must exist)
+- Out of scope: appliance kiosk bake
+- Likely files: `docs/getting-started.md`, `docs/adapting.md`, `README.md`, `docs/testing.md`
+- Public surface: documented commands only
+- Pseudo-code: replace “Install OpenTAP and TUI” as step 1 with “Run HardwareTest.Authoring on the template workspace”; keep TUI install as optional § escape hatch.
+- Tests: none beyond link targets; architecture messages that cite adapting.md still match.
+- Conflicts with: none if last.
+
+---
+
+## Implementation notes
+
+### Function catalog (Area 3/7)
+
+Start with a **closed table** in Authoring.Core (not reflection over every OpenTAP plugin Display):
+
+| FunctionId / AlgorithmId | Pack | Step type |
+| --- | --- | --- |
+| `Basic.AcquireVoltage` | Basic | `AcquireVoltageStep` |
+| `Basic.MeanGte` | Basic | `MeanGteStep` |
+| `Basic.PublishBandScalar` | Basic | (analyze step) |
+| `Basic.BitSweepAcquire` | Basic | `BitSweepAcquire` |
+| `Basic.PublishSeriesCompliance` | Basic | sibling analyze |
+| `Basic.RepeatLoop` | Basic | `RepeatLoopStep` |
+| `Basic.ReportStationHealth` | Basic | `ReportStationHealthStep` |
+| `Basic.SafeShutdown` | Basic | `SafeShutdownStep` |
+| `IC.IdentityQuery` | InstrumentComponents | `IdentityQueryStep` (name match) |
+| `IC.SafeShutdown` | InstrumentComponents | `SafeShutdownStep` |
+| `IC.Dmm.MeasureVoltage*` | InstrumentComponents | Display-name catalog at bootstrap |
+
+When InstrumentComponents is absent, hide `IC.*` in the UI and keep demos on Basic. Unknown plugin steps remain `RawStep` after decompile.
+
+### Headless CLI shape
+
+```text
+HardwareTest.Authoring <workspace>
+HardwareTest.Authoring --bootstrap <workspace> [--opentap-home DIR] [--offline]
+HardwareTest.Authoring --validate <workspace> [--strict] [--format text|json|sarif]
+HardwareTest.Authoring --compat <workspace>
+HardwareTest.Authoring --pack <workspace> --out dist/
+HardwareTest.Authoring --help
+```
+
+`--validate` delegates to `PlanContractCli` (same exit codes as PlanValidate). Do not start Avalonia if any of these flags are present.
+
+### Test-set repo template (documented, not a submodule)
+
+Product repos are expected to look like:
+
+```text
+authoring.json
+plans/{id}.TapPlan
+plans/{id}.program.json
+plugins/                 # optional extra OpenTAP plugin csproj(s)
+shell-apps/              # optional IShellApplication csproj(s)
+.authoring/              # gitignored OpenTAP home
+dist/                    # pack output (CI artifact)
+```
+
+This template does not create those product repos. Pack’s `ship-manifest.json` is the contract they consume.
+
+## Leftover follow-ups (not in this stack)
+
+- Mock-run from Authoring via Worker for live preview.
+- Expressions designer.
+- Feed browser / `tap package install` from Keysight repo inside the UI.
+- Generating operator `Composition.cs` bake fragments for shell apps.
+- macOS authoring RID beyond existing lockfile RIDs.

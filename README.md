@@ -17,6 +17,7 @@ src/
   HardwareTest.OpenTap.Plugins.Visa/ # VISA DMM adapter over IVisaBroker (bench)
   HardwareTest.OpenTap.Plugins.Mixins/# Presentation + Annotation mixins (Editor pack)
 plans/opentap/                       # Locked .TapPlan programs + template program TapPackage
+docs/authoring-app.md                # Plan: separate engineer authoring app (not the operator shell)
 docs/getting-started.md              # New-user TUI + packages + test types
 docs/adapting.md                     # Productize plans, plugins, station bindings, reports
 docs/testing.md                      # UI vs OpenTAP suite separation
@@ -50,6 +51,7 @@ templates/reports/                   # Typst templates (embedded)
 
 | Guide | Use when |
 | --- | --- |
+| [docs/authoring-app.md](docs/authoring-app.md) | Planned engineer authoring app: metric-first plans, pack/ship, TUI compat |
 | [docs/getting-started.md](docs/getting-started.md) | First OpenTAP TUI plan with our packages and test types |
 | [docs/adapting.md](docs/adapting.md) | Replacing sample plans, plugins, station bindings, reports, or settings |
 | [docs/testing.md](docs/testing.md) | Adding or choosing a test suite |
@@ -93,7 +95,7 @@ dotnet test tests/HardwareTest.E2E.Tests -r win-x64
 
 ## OpenTAP programs
 
-Author structure in **OpenTAP Editor** or the free **OpenTAP TUI**; ship locked `.TapPlan` files under `plans/opentap/` (copied to `Programs/` on build). Product plans use **InstrumentComponents.OpenTap** typed instruments/steps plus HardwareTest Mixins Presentation; validate with `HardwareTest.PlanValidate --strict` before bake. Walkthrough: [docs/getting-started.md](docs/getting-started.md). Contract: [docs/adapting.md](docs/adapting.md#author-a-locked-program).
+Author structure in **OpenTAP Editor** or the free **OpenTAP TUI**; ship locked `.TapPlan` files under `plans/opentap/` (copied to `Programs/` on build). Product plans use **InstrumentComponents.OpenTap** typed instruments/steps plus HardwareTest Mixins Presentation; validate with `HardwareTest.PlanValidate --strict` before bake. Walkthrough: [docs/getting-started.md](docs/getting-started.md). Contract: [docs/adapting.md](docs/adapting.md#author-a-locked-program). Planned workstation app (not baked into the operator shell): [docs/authoring-app.md](docs/authoring-app.md).
 
 ## Appliance publish
 
