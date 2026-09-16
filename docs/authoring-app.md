@@ -10,7 +10,7 @@ An engineer can open a test-set planning directory, author **only the metrics th
 
 ## Why a separate app
 
-Today the path is: install OpenTAP + TUI, manually build/install our TapPackages, author a three-level TapPlan, attach Presentation by hand, copy a sidecar, validate, `tap package create`. That leaks OpenTAP plumbing (groups, mixins, package.xml, Dialog vs Operator Prompt) onto every new engineer.
+Today the path without Authoring is: install OpenTAP + TUI, manually build/install our TapPackages, author a three-level TapPlan, attach Presentation by hand, copy a sidecar, validate, `tap package create`. That leaks OpenTAP plumbing (groups, mixins, package.xml, Dialog vs Operator Prompt) onto every new engineer. The shipped walkthrough is [getting-started.md](getting-started.md).
 
 Constraints this repo already encodes:
 

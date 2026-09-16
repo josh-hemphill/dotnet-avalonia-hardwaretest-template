@@ -26,7 +26,7 @@ dotnet run --project src/HardwareTest.Authoring -c Debug -r win-x64 -- --pack pl
 dotnet run --project src/HardwareTest.Authoring -c Debug -r win-x64 -- --help
 ```
 
-`--opentap-home DIR` overrides the isolated home. `--format text|json|sarif` applies to `--validate`. `--compat` and `--pack` fail closed when TUI compatibility `BlocksPack` (unknown types, dropped mixins, contract errors, or authoring types the TUI home cannot load).
+`--opentap-home DIR` overrides the isolated home for `--bootstrap`, `--compat`, and `--pack`. `--format text|json|sarif` applies to `--validate`. `--compat` and `--pack` fail closed when TUI compatibility `BlocksPack` (unknown types, dropped mixins, contract errors, or authoring types the TUI home cannot load).
 
 ## 2. Create a program and add recipes
 
@@ -158,11 +158,12 @@ Mock instruments: keep `UseMockVisa` on until a vendor VISA runtime is installed
 
 Use TUI when you need the stock editor (sweeps, ComponentSettings, or a library step Authoring decompiles as Raw). Prefer the isolated home from **Bootstrap** so TUI and Authoring share one package set.
 
-You need the same OpenTAP major version this repo pins (`^9.32.2` in [`plans/opentap/package.xml`](../plans/opentap/package.xml)).
+You need the same OpenTAP major version this repo pins (`^9.32.2` in [`plans/opentap/package.xml`](../plans/opentap/package.xml)). After Bootstrap, install TUI into that home (needs network unless TUI is already present) and launch it from there:
 
 ```bash
-tap package install TUI
-tap tui
+home=plans/opentap/.authoring/opentap
+"$home/tap" package install TUI
+PATH="$home:$PATH" tap tui
 ```
 
 Official notes: [OpenTAP editors](https://doc.opentap.io/User%20Guide/Editors/Readme.html) and the [TUI package](https://github.com/StefanHolst/opentap-tui). Developer System (`tap editor`) works the same for the steps below.

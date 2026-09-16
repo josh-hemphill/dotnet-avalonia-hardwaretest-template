@@ -90,10 +90,15 @@ Do not reimplement evaluation in Avalonia. If the plan uses expression steps, in
 
 ### Authoring packs
 
-**HardwareTest.Authoring --bootstrap** (or the GUI **Bootstrap** button) installs the same **HardwareTest Basic**, **HardwareTest Mixins**, and **InstrumentComponents.OpenTap** versions the bench uses into `{workspace}/.authoring/opentap/`. Prefer that isolated home. For a machine-global TUI/Editor tree:
+**HardwareTest.Authoring --bootstrap** (or the GUI **Bootstrap** button) installs the same **HardwareTest Basic**, **HardwareTest Mixins**, and **InstrumentComponents.OpenTap** versions the bench uses into `{workspace}/.authoring/opentap/`. Prefer that isolated home:
 
 ```bash
 HardwareTest.Authoring --bootstrap plans/opentap --offline
+```
+
+For a machine-global TUI/Editor tree, build and `tap package install` the same packs:
+
+```bash
 dotnet build src/HardwareTest.OpenTap.Plugins.Basic -c Release -r linux-x64 -p:CreateOpenTapPackage=true -p:InstallCreatedOpenTapPackage=false
 dotnet build src/HardwareTest.OpenTap.Plugins.Mixins -c Release -r linux-x64 -p:CreateOpenTapPackage=true -p:InstallCreatedOpenTapPackage=false
 # Library pack (from the instrument-components repo; NuGet publish is not in this template):
