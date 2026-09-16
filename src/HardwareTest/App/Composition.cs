@@ -33,11 +33,7 @@ public static class Composition
         services.AddSingleton(buildInfo);
         services.AddHardwareTestCore(settingsStore);
         services.AddSingleton<IShellHost>(_ => new ShellHost(settingsStore));
-        var launched = ShellApplicationLoader.Load(
-            AppContext.BaseDirectory,
-            settingsStore.RootDirectory,
-            onError: (path, ex) => Log.Warning(ex, "Failed to load shell app package {Path}", path));
-        services.AddShellApplications([new NotesApplication(), .. launched]);
+        services.AddShellApplications(new NotesApplication());
         services.AddSingleton(sp =>
             CrashDossierWriter.FromSettings(settingsStore.AppSettings, settingsStore.RootDirectory));
         services.AddSingleton<OpenTapWorkerClient>(sp =>

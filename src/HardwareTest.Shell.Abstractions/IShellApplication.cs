@@ -2,7 +2,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace HardwareTest.Shell;
 
-/// Bake-time or launch-time guest that contributes pages to the operator shell.
+/// Bake-time guest that contributes pages to the operator shell.
 public interface IShellApplication
 {
     string Id { get; }

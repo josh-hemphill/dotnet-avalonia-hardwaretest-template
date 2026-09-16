@@ -1,3 +1,4 @@
+using HardwareTest;
 using HardwareTest.Shell;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
@@ -145,6 +146,37 @@ public sealed class ShellApplicationComposerTests
         var ex = Assert.Throws<InvalidOperationException>(
             () => ShellApplicationComposer.BindPages([app], new NullServices(), views));
         Assert.Contains("ABI", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AddShellApplications_rejects_duplicate_ids()
+    {
+        var services = new ServiceCollection();
+        var first = new StubShellApplication(
+            id: "vendor.shared",
+            minHostAbi: ShellHostAbi.Current,
+            pageId: "vendor.shared.a",
+            viewModelType: typeof(object),
+            viewModel: new object(),
+            placement: ShellPagePlacement.Engineer);
+        var second = new StubShellApplication(
+            id: "vendor.shared",
+            minHostAbi: ShellHostAbi.Current,
+            pageId: "vendor.shared.b",
+            viewModelType: typeof(object),
+            viewModel: new object(),
+            placement: ShellPagePlacement.Engineer);
+        var ex = Assert.Throws<InvalidOperationException>(
+            () => services.AddShellApplications(first, second));
+        Assert.Contains("vendor.shared", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Host_does_not_include_a_launch_time_shell_app_loader()
+    {
+        Assert.Null(typeof(Composition).Assembly.GetType("HardwareTest.ShellApplicationLoader"));
+        Assert.Null(typeof(HardwareTest.Core.Storage.ShellAppStorage).Assembly.GetType(
+            "HardwareTest.Core.Storage.ShellAppPackageTrust"));
     }
 
     private sealed class NullServices : IServiceProvider
