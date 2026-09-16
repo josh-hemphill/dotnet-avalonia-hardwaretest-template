@@ -98,12 +98,12 @@ public sealed partial class PlanCompiler
         switch (action)
         {
             case IdentitySetup identity:
-            {
-                var step = new IdentityCheckStep { Name = "Identity Check", Dut = dut };
-                AssignInstrument(step, ResolveInstrument(instruments, identity.InstrumentSlot));
-                OpenTapMixinAttach.AttachAnnotation(step);
-                return step;
-            }
+                {
+                    var step = new IdentityCheckStep { Name = "Identity Check", Dut = dut };
+                    AssignInstrument(step, ResolveInstrument(instruments, identity.InstrumentSlot));
+                    OpenTapMixinAttach.AttachAnnotation(step);
+                    return step;
+                }
             case OperatorPromptSetup prompt:
                 return new OperatorPromptStep { Name = prompt.Name, Message = prompt.Message };
             case OperatorInputSetup input:
@@ -129,15 +129,15 @@ public sealed partial class PlanCompiler
             case MetricNode metric:
                 return CreateMetricStep(metric.Metric, instruments);
             case RepeatNode repeat:
-            {
-                var loop = new RepeatLoopStep { Name = "Repeat", Count = Math.Max(1, repeat.Count) };
-                foreach (var child in repeat.Children)
                 {
-                    loop.ChildTestSteps.Add(CreateMeasureStep(child, instruments));
-                }
+                    var loop = new RepeatLoopStep { Name = "Repeat", Count = Math.Max(1, repeat.Count) };
+                    foreach (var child in repeat.Children)
+                    {
+                        loop.ChildTestSteps.Add(CreateMeasureStep(child, instruments));
+                    }
 
-                return loop;
-            }
+                    return loop;
+                }
             case RawStepNode raw:
                 return LoadRawStep(raw);
             default:
