@@ -24,6 +24,7 @@ public sealed class TuiCompatCheckerTests
         Assert.Equal(
             before.OrderBy(k => k, StringComparer.Ordinal).ToArray(),
             after.OrderBy(k => k, StringComparer.Ordinal).ToArray());
+        Assert.Contains(home.Root, TuiCompatChecker.EnumeratePluginDirectories(home));
 
         var report = new TuiCompatChecker().Compare(workspace, home, home);
         Assert.False(report.BlocksPack());

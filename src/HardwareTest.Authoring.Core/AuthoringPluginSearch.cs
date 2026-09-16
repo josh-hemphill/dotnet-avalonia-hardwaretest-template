@@ -28,7 +28,7 @@ public static class AuthoringPluginSearch
         }
     }
 
-    /// Search only <paramref name="directories"/> for the duration of <paramref name="action"/>, then restore.
+    /// Search only <paramref name="directories"/> plus OpenTAP serializers for <paramref name="action"/>, then restore.
     public static T RunIsolated<T>(IEnumerable<string> directories, Func<T> action)
     {
         ArgumentNullException.ThrowIfNull(directories);
@@ -38,6 +38,7 @@ public static class AuthoringPluginSearch
             var search = PluginManager.DirectoriesToSearch;
             var previous = search.ToArray();
             search.Clear();
+            AddOpenTapRuntimeSearch();
             foreach (var dir in directories)
             {
                 AddDirectory(dir);
@@ -68,13 +69,19 @@ public static class AuthoringPluginSearch
     {
         AddAssemblyDirectory(typeof(MockDmmInstrument).Assembly.Location);
         AddAssemblyDirectory(typeof(AnnotationMixinBuilder).Assembly.Location);
+        AddOpenTapRuntimeSearch();
+    }
 
+    private static void AddOpenTapRuntimeSearch()
+    {
         var openTapDir = Path.GetDirectoryName(typeof(TestPlan).Assembly.Location);
-        if (!string.IsNullOrWhiteSpace(openTapDir))
+        if (string.IsNullOrWhiteSpace(openTapDir))
         {
-            AddAssemblyDirectory(Path.Combine(openTapDir, "Packages", "OpenTAP", "OpenTap.Plugins.BasicSteps.dll"));
-            AddDirectory(Path.Combine(openTapDir, "Packages", "OpenTAP"));
+            return;
         }
+
+        AddAssemblyDirectory(Path.Combine(openTapDir, "Packages", "OpenTAP", "OpenTap.Plugins.BasicSteps.dll"));
+        AddDirectory(Path.Combine(openTapDir, "Packages", "OpenTAP"));
     }
 
     public static bool DirectoryContainsVisaAdapter(string directory)

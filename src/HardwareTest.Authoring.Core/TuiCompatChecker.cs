@@ -352,8 +352,9 @@ public sealed class TuiCompatChecker : ITuiCompatChecker
     internal static bool IsTuiAppType(string typeName)
         => typeName.StartsWith("OpenTap.TUI", StringComparison.Ordinal);
 
-    private static IEnumerable<string> EnumeratePluginDirectories(OpenTapHome home)
+    internal static IEnumerable<string> EnumeratePluginDirectories(OpenTapHome home)
     {
+        yield return home.Root;
         var packages = Path.Combine(home.Root, "Packages");
         if (!Directory.Exists(packages))
         {
