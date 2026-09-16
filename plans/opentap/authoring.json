@@ -1,0 +1,20 @@
+{
+  "$schema": "./authoring.schema.json",
+  "schemaVersion": 1,
+  "displayName": "HardwareTest Template Programs",
+  "plansDirectory": ".",
+  "package": {
+    "name": "HardwareTest Template Program",
+    "version": "0.1.0",
+    "os": "Windows,Linux,MacOS"
+  },
+  "dependencies": [
+    { "package": "OpenTAP", "version": "^9.32.2" },
+    { "package": "HardwareTest Basic", "version": "^0.1.0" },
+    { "package": "HardwareTest Mixins", "version": "^0.1.0" }
+  ],
+  "optionalDependencies": [],
+  "pluginProjects": [],
+  "shellAppProjects": [],
+  "includeTui": true
+}

@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>HardwareTest.Authoring</RootNamespace>
+    <Description>Avalonia-free OpenTAP authoring workspace, compile, and pack</Description>
+    <CreateOpenTapPackage>false</CreateOpenTapPackage>
+    <IsAotCompatible>false</IsAotCompatible>
+  </PropertyGroup>
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
+      <_Parameter1>HardwareTest.Authoring.Tests</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
+</Project>

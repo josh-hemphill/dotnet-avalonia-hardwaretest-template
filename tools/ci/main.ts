@@ -121,6 +121,16 @@ async function testHost(opts: Options): Promise<void> {
     opts.rid,
     "--no-build",
   ], { cwd: opts.root });
+  await run([
+    "dotnet",
+    "test",
+    "tests/HardwareTest.Authoring.Tests/HardwareTest.Authoring.Tests.csproj",
+    "-c",
+    opts.configuration,
+    "-r",
+    opts.rid,
+    "--no-build",
+  ], { cwd: opts.root });
 }
 
 async function testVm(opts: Options): Promise<void> {
