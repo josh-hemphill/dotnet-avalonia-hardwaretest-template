@@ -15,6 +15,7 @@ export const TASKS = [
   "list",
   "publish",
   "test:arch",
+  "test:authoring-compat",
   "test:e2e",
   "test:host",
   "test:vm",
@@ -162,6 +163,21 @@ async function testE2e(opts: Options): Promise<void> {
     if (!opts.advisoryE2e) throw err;
     console.warn(`advisory: test:e2e failed on ${opts.rid}: ${err}`);
   }
+}
+
+async function testAuthoringCompat(opts: Options): Promise<void> {
+  await run([
+    "dotnet",
+    "test",
+    "tests/HardwareTest.Authoring.Tests/HardwareTest.Authoring.Tests.csproj",
+    "-c",
+    opts.configuration,
+    "-r",
+    opts.rid,
+    "--no-build",
+    "--filter",
+    "FullyQualifiedName~TuiCompat",
+  ], { cwd: opts.root });
 }
 
 async function testArch(opts: Options): Promise<void> {
@@ -343,6 +359,7 @@ async function all(opts: Options): Promise<void> {
   await audit(opts);
   await testArch(opts);
   await testHost(opts);
+  await testAuthoringCompat(opts);
   await testVm(opts);
 
   // Linux Avalonia headless E2E starts advisory; Windows keeps it required.
@@ -402,6 +419,9 @@ export async function main(argv = Deno.args): Promise<void> {
       break;
     case "test:arch":
       await testArch(opts);
+      break;
+    case "test:authoring-compat":
+      await testAuthoringCompat(opts);
       break;
     case "coverage":
       await coverage(opts);

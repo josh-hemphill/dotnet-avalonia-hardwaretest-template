@@ -237,6 +237,7 @@ Deno.test("TASKS catalog is sorted and complete", () => {
     "list",
     "publish",
     "test:arch",
+    "test:authoring-compat",
     "test:e2e",
     "test:host",
     "test:vm",
@@ -259,6 +260,7 @@ Deno.test("ci.yml references every required Deno task", async () => {
     "test:vm",
     "test:e2e",
     "test:arch",
+    "test:authoring-compat",
     "coverage",
     "publish",
     "verify",
@@ -322,7 +324,7 @@ Deno.test("ci.yml invokes required tasks with the matching platform RID", async 
   const yaml = await Deno.readTextFile(path.join(root, ".github/workflows/ci.yml"));
   const windows = jobBlock(yaml, "test");
   const linux = jobBlock(yaml, "test-linux");
-  for (const task of ["build", "test:arch", "test:host", "test:vm", "test:e2e", "coverage"]) {
+  for (const task of ["build", "test:arch", "test:authoring-compat", "test:host", "test:vm", "test:e2e", "coverage"]) {
     assert(
       windows.includes(`main.ts ${task} --rid win-x64`),
       `windows test must call ${task} with win-x64`,
