@@ -110,22 +110,22 @@ public sealed class DeferredStartupTests
     public async Task Cancel_between_work_success_and_onComplete_still_completes()
     {
         using var cts = new CancellationTokenSource();
-        var workDone = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var releaseComplete = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var workStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseWork = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var complete = 0;
         var unexpected = 0;
 
         var run = DeferredStartup.RunProtectedAsync(
-            _ =>
+            async _ =>
             {
-                workDone.SetResult();
-                return Task.CompletedTask;
+                workStarted.SetResult();
+                await releaseWork.Task;
             },
             cts.Token,
-            async () =>
+            () =>
             {
-                await releaseComplete.Task;
                 Interlocked.Increment(ref complete);
+                return Task.CompletedTask;
             },
             _ =>
             {
@@ -133,9 +133,9 @@ public sealed class DeferredStartupTests
                 return Task.CompletedTask;
             });
 
-        await workDone.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await workStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
         await cts.CancelAsync();
-        releaseComplete.SetResult();
+        releaseWork.SetResult();
         await run.WaitAsync(TimeSpan.FromSeconds(5));
 
         Assert.Equal(1, complete);
