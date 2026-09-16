@@ -140,6 +140,46 @@ public sealed class ArchitectureRulesTests
     }
 
     [Fact]
+    public void Authoring_exe_must_not_reference_Worker()
+    {
+        var csproj = Path.Combine(FindRepoRoot(), "src", "HardwareTest.Authoring", "HardwareTest.Authoring.csproj");
+        Assert.True(File.Exists(csproj), csproj);
+        var xml = File.ReadAllText(csproj);
+        Assert.DoesNotContain("HardwareTest.OpenTap.Worker", xml, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Authoring_exe_is_not_a_shell_application()
+    {
+        var src = Path.Combine(FindRepoRoot(), "src", "HardwareTest.Authoring");
+        Assert.True(Directory.Exists(src), src);
+        var offenders = Directory.EnumerateFiles(src, "*.cs", SearchOption.AllDirectories)
+            .Where(path => !IsBuildArtifact(path, src))
+            .Where(path => File.ReadAllText(path).Contains("IShellApplication", StringComparison.Ordinal))
+            .Select(path => Path.GetRelativePath(src, path))
+            .ToArray();
+        Assert.True(
+            offenders.Length == 0,
+            $"{AuthoringCoreAvaloniaFree} Authoring must not implement IShellApplication:{Environment.NewLine}{string.Join(Environment.NewLine, offenders)}");
+    }
+
+    [Fact]
+    public void Authoring_source_files_stay_under_line_budget()
+    {
+        var root = Path.Combine(FindRepoRoot(), "src", "HardwareTest.Authoring");
+        Assert.True(Directory.Exists(root), root);
+        var offenders = Directory.EnumerateFiles(root, "*.cs", SearchOption.AllDirectories)
+            .Where(path => !IsBuildArtifact(path, root))
+            .Select(path => (Path: path, Lines: File.ReadAllLines(path).Length))
+            .Where(file => file.Lines > MaxFeatureFileLines)
+            .Select(file => $"{Path.GetRelativePath(root, file.Path)} ({file.Lines} lines)")
+            .ToArray();
+        Assert.True(
+            offenders.Length == 0,
+            $"{FeatureFileSizeRule} Over {MaxFeatureFileLines} lines:{Environment.NewLine}{string.Join(Environment.NewLine, offenders)}");
+    }
+
+    [Fact]
     public void Source_must_not_call_TapThread_Abort()
     {
         var srcRoot = Path.Combine(FindRepoRoot(), "src");
