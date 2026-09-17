@@ -9,6 +9,7 @@ public interface IPlanCompiler
     void Save(ProgramDraft draft, string tapPlanPath);
     ProgramDraft Load(string tapPlanPath);
     DraftWorkspace LoadAll(AuthoringWorkspace workspace);
+    void SaveSidecar(string tapPlanPath, ProgramSidecar sidecar);
 }
 
 /// Compiles ProgramDraft to TapPlan + sidecar and decompiles the same files.
@@ -78,6 +79,13 @@ public sealed partial class PlanCompiler : IPlanCompiler
         }
 
         return new DraftWorkspace(workspace, programs);
+    }
+
+    public void SaveSidecar(string tapPlanPath, ProgramSidecar sidecar)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(tapPlanPath);
+        ArgumentNullException.ThrowIfNull(sidecar);
+        WriteSidecar(tapPlanPath, sidecar);
     }
 
     internal static string SidecarPath(string tapPlanPath)

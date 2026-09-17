@@ -1,0 +1,74 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:HardwareTest.Authoring"
+        xmlns:host="using:HardwareTest.OpenTap.Host"
+        x:Class="HardwareTest.Authoring.MainWindow"
+        x:DataType="vm:AuthoringWorkspaceViewModel"
+        Title="HardwareTest Authoring"
+        Width="1100"
+        Height="720"
+        MinWidth="800"
+        MinHeight="520">
+  <DockPanel>
+    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="8" Margin="12">
+      <Button Content="Open workspace…" Click="OnOpenWorkspace" />
+      <Button Content="Bootstrap" Click="OnBootstrap" />
+      <Button Content="Validate" Click="OnValidate" />
+      <Button Content="Save sidecar" Click="OnSaveSidecar" />
+      <TextBlock VerticalAlignment="Center" Text="{Binding Status}" />
+    </StackPanel>
+    <TextBlock DockPanel.Dock="Bottom"
+               Margin="12,0,12,12"
+               Foreground="#C62828"
+               Text="{Binding Error}" />
+    <Grid ColumnDefinitions="220,*" Margin="12,0,12,12">
+      <DockPanel Grid.Column="0" Margin="0,0,12,0">
+        <TextBlock DockPanel.Dock="Top" FontWeight="SemiBold" Text="Programs" Margin="0,0,0,8" />
+        <ListBox ItemsSource="{Binding Programs}"
+                 SelectionChanged="OnProgramSelected">
+          <ListBox.ItemTemplate>
+            <DataTemplate x:DataType="vm:ProgramDraft">
+              <TextBlock Text="{Binding PlanId}" />
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+      </DockPanel>
+      <TabControl Grid.Column="1">
+        <TabItem Header="Program">
+          <Grid ColumnDefinitions="*,280" RowDefinitions="Auto,*">
+            <StackPanel Grid.Column="1" Spacing="8" Margin="12,0,0,0">
+              <TextBlock FontWeight="SemiBold" Text="Sidecar" />
+              <TextBox PlaceholderText="Display name" Text="{Binding DisplayName}" />
+              <TextBox PlaceholderText="DUT family" Text="{Binding DutFamily}" />
+              <CheckBox Content="Require serial" IsChecked="{Binding RequireSerial}" />
+            </StackPanel>
+            <TextBlock Grid.Row="0" Grid.Column="0" FontWeight="SemiBold" Text="Measure tree (read-only)" Margin="0,0,0,8" />
+            <ListBox Grid.Row="1" Grid.Column="0" ItemsSource="{Binding MeasureTree}" />
+          </Grid>
+        </TabItem>
+        <TabItem Header="Findings">
+          <ListBox ItemsSource="{Binding Findings}">
+            <ListBox.ItemTemplate>
+              <DataTemplate x:DataType="host:PlanContractFinding">
+                <TextBlock Text="{Binding Code}" />
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+        </TabItem>
+        <TabItem Header="Workspace">
+          <StackPanel Spacing="8">
+            <TextBlock Text="{Binding Workspace.Root}" />
+            <TextBlock Text="{Binding Workspace.Manifest.DisplayName}" />
+            <TextBlock Text="Open a folder that contains authoring.json. Save writes the program sidecar only." TextWrapping="Wrap" />
+          </StackPanel>
+        </TabItem>
+        <TabItem Header="Ship">
+          <StackPanel Spacing="8">
+            <TextBlock Text="Pack writes a program TapPackage and dist/ship-manifest.json. Shell apps stay bake-time." TextWrapping="Wrap" />
+            <Button Content="Pack…" Click="OnPack" />
+          </StackPanel>
+        </TabItem>
+      </TabControl>
+    </Grid>
+  </DockPanel>
+</Window>
