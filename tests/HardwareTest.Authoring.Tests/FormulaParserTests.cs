@@ -1,5 +1,6 @@
 using HardwareTest.Authoring;
 using HardwareTest.Core.Runs;
+using HardwareTest.OpenTap.Host;
 using Xunit;
 
 namespace HardwareTest.Authoring.Tests;
@@ -40,5 +41,50 @@ public sealed class FormulaParserTests
             ],
         };
         Assert.Equal(2, FormulaEvaluator.Evaluate(ast, series));
+    }
+
+    [Theory]
+    [InlineData("mean()")]
+    [InlineData("abs()")]
+    public void Evaluator_empty_args_fail_closed(string source)
+    {
+        var ast = FormulaParser.Parse(source);
+        var ex = Assert.Throws<AuthoringWorkspaceException>(
+            () => FormulaEvaluator.Evaluate(ast, new Dictionary<string, IReadOnlyList<StoredSample>>()));
+        Assert.Contains(AuthoringCompileCodes.FormulaEval, ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Preview_mean_empty_args_does_not_throw()
+    {
+        var metric = new MetricDraft(
+            "Formula",
+            "VDC.mean",
+            PresentationDisplayRoles.Scalar,
+            "V",
+            new LimitSpec(null, null, 1.2),
+            null,
+            new ExpressionAlgorithm([], "mean()"));
+        var preview = MetricPreviewBuilder.From(metric);
+        Assert.Empty(preview.CannedSamples);
+    }
+
+    [Fact]
+    public void Lower_mean_without_threshold_fails_missing_limits()
+    {
+        var ex = Assert.Throws<AuthoringWorkspaceException>(
+            () => FormulaLowerer.Lower(
+                new ExpressionAlgorithm(["VDC"], "mean(VDC)"),
+                new LimitSpec(1.0, null, null)));
+        Assert.Contains(AuthoringCompileCodes.MissingLimits, ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Identifiers_walk_collects_channel_names()
+    {
+        var ast = FormulaParser.Parse("mean(rail.mean) + abs(VDC)");
+        Assert.Equal(
+            ["rail.mean", "VDC"],
+            FormulaExprWalk.Identifiers(ast.Root));
     }
 }

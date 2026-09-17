@@ -89,13 +89,25 @@ public sealed partial class AuthoringWorkspaceViewModel
         {
             UpdateSelectedMetric(metric =>
             {
-                var keys = metric.Source is ExpressionAlgorithm existing
-                    ? existing.InputChannelKeys
-                    : AuthoringRecipeCatalog.EnumerateMetrics(SelectedProgram?.Measure ?? [])
-                        .Select(m => m.ChannelKey)
-                        .Where(key => !string.Equals(key, metric.ChannelKey, StringComparison.OrdinalIgnoreCase))
+                if (metric.Source is not ExpressionAlgorithm existing)
+                {
+                    return metric;
+                }
+
+                var keys = existing.InputChannelKeys;
+                try
+                {
+                    var ast = FormulaParser.Parse(value);
+                    keys = FormulaExprWalk.Identifiers(ast.Root)
+                        .Where(name => !string.Equals(name, metric.ChannelKey, StringComparison.OrdinalIgnoreCase))
                         .ToArray();
-                return metric with { Source = new ExpressionAlgorithm(keys, value) };
+                }
+                catch (AuthoringWorkspaceException)
+                {
+                    // Keep previous keys while the formula is still incomplete.
+                }
+
+                return metric with { Source = existing with { InputChannelKeys = keys, Source = value } };
             });
         }
     }

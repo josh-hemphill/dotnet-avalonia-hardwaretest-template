@@ -79,8 +79,12 @@ public static class MetricPreviewBuilder
         try
         {
             var ast = FormulaParser.Parse(expr.Source);
+            var keys = FormulaExprWalk.Identifiers(ast.Root)
+                .Concat(expr.InputChannelKeys)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
             var series = new Dictionary<string, IReadOnlyList<StoredSample>>(StringComparer.OrdinalIgnoreCase);
-            foreach (var key in expr.InputChannelKeys)
+            foreach (var key in keys)
             {
                 var sibling = siblings?.FirstOrDefault(s =>
                     string.Equals(s.ChannelKey, key, StringComparison.OrdinalIgnoreCase));

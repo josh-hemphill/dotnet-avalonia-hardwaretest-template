@@ -63,7 +63,7 @@ public sealed record AlgorithmSource(
     IReadOnlyList<string> InputChannelKeys,
     IReadOnlyDictionary<string, string> Settings) : MetricSource;
 
-/// MATLAB-flavored subset; not MATLAB. Compiles to Expressions or a closed analyze step.
+/// MATLAB-flavored subset; not MATLAB. Lowers to a closed analyze step or fails FORMULA_NO_LOWER.
 public sealed record ExpressionAlgorithm(
     IReadOnlyList<string> InputChannelKeys,
     string Source) : MetricSource;
@@ -93,4 +93,5 @@ public static class AuthoringCompileCodes
     public const string TfStepUnavailable = "TF_STEP_UNAVAILABLE";
     public const string FormulaParse = "FORMULA_PARSE";
     public const string FormulaNoLower = "FORMULA_NO_LOWER";
+    public const string FormulaEval = "FORMULA_EVAL";
 }

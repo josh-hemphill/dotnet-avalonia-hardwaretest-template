@@ -13,8 +13,7 @@ public static class FormulaEvaluator
         var values = Eval(ast.Root, series);
         if (values.Count == 0)
         {
-            throw new AuthoringWorkspaceException(
-                $"{AuthoringCompileCodes.FormulaParse}: formula produced an empty series.");
+            throw FailEval("formula produced an empty series");
         }
 
         return values[^1];
@@ -30,8 +29,7 @@ public static class FormulaEvaluator
             UnaryExpr unary => MapUnary(unary.Op, Eval(unary.Operand, series)),
             BinaryExpr binary => MapBinary(binary.Op, Eval(binary.Left, series), Eval(binary.Right, series)),
             CallExpr call => EvalCall(call, series),
-            _ => throw new AuthoringWorkspaceException(
-                $"{AuthoringCompileCodes.FormulaParse}: unsupported expression '{expr.GetType().Name}'."),
+            _ => throw FailEval($"unsupported expression '{expr.GetType().Name}'"),
         };
 
     private static IReadOnlyList<double> SeriesValues(
@@ -40,8 +38,7 @@ public static class FormulaEvaluator
     {
         if (!TryGetSeries(series, name, out var samples) || samples.Count == 0)
         {
-            throw new AuthoringWorkspaceException(
-                $"{AuthoringCompileCodes.FormulaParse}: missing series '{name}'.");
+            throw FailEval($"missing series '{name}'");
         }
 
         return samples.Select(s => s.Value).ToArray();
@@ -75,12 +72,22 @@ public static class FormulaEvaluator
 
     private static IReadOnlyList<double> MapBinary(string op, IReadOnlyList<double> left, IReadOnlyList<double> right)
     {
+        if (left.Count == 0 || right.Count == 0)
+        {
+            throw FailEval($"operator '{op}' received an empty operand");
+        }
+
         var n = Math.Max(left.Count, right.Count);
+        if ((left.Count != 1 && left.Count != n) || (right.Count != 1 && right.Count != n))
+        {
+            throw FailEval($"operator '{op}' length mismatch ({left.Count} vs {right.Count})");
+        }
+
         var result = new double[n];
         for (var i = 0; i < n; i++)
         {
-            var a = left.Count == 1 ? left[0] : left[i];
-            var b = right.Count == 1 ? right[0] : right[i];
+            var a = At(left, i);
+            var b = At(right, i);
             result[i] = op switch
             {
                 "+" => a + b,
@@ -88,40 +95,64 @@ public static class FormulaEvaluator
                 "*" or ".*" => a * b,
                 "/" or "./" => a / b,
                 "^" or ".^" => Math.Pow(a, b),
-                _ => throw new AuthoringWorkspaceException(
-                    $"{AuthoringCompileCodes.FormulaParse}: unknown operator '{op}'."),
+                _ => throw FailEval($"unknown operator '{op}'"),
             };
         }
 
         return result;
     }
 
+    private static double At(IReadOnlyList<double> values, int index)
+        => values.Count == 1 ? values[0] : values[index];
+
     private static IReadOnlyList<double> EvalCall(
         CallExpr call,
         IReadOnlyDictionary<string, IReadOnlyList<StoredSample>> series)
     {
         var args = call.Args.Select(arg => Eval(arg, series)).ToArray();
+        if (args.Length == 0 || args[0].Count == 0)
+        {
+            throw FailEval($"function '{call.Name}' requires a non-empty first argument");
+        }
+
         return call.Name switch
         {
             "abs" => args[0].Select(Math.Abs).ToArray(),
             "sqrt" => args[0].Select(Math.Sqrt).ToArray(),
-            "min" => [args.SelectMany(a => a).Min()],
-            "max" => [args.SelectMany(a => a).Max()],
+            "min" => [Flatten(args).Min()],
+            "max" => [Flatten(args).Max()],
             "mean" => [args[0].Average()],
             "sum" => [args[0].Sum()],
             "std" => [Std(args[0])],
             "diff" => Diff(args[0]),
             "length" => [args[0].Count],
             "median" => [Median(args[0])],
-            "rise_time" => [RiseTime(args[0], Scalar(args, 1), Scalar(args, 2))],
-            "inband_pct" => [InBandPct(args[0], Scalar(args, 1), Scalar(args, 2))],
-            _ => throw new AuthoringWorkspaceException(
-                $"{AuthoringCompileCodes.FormulaParse}: unknown function '{call.Name}'."),
+            "rise_time" => [RiseTime(args[0], RequireScalar(args, 1, call.Name), RequireScalar(args, 2, call.Name))],
+            "inband_pct" => [InBandPct(args[0], RequireScalar(args, 1, call.Name), RequireScalar(args, 2, call.Name))],
+            _ => throw FailEval($"unknown function '{call.Name}'"),
         };
     }
 
-    private static double Scalar(IReadOnlyList<IReadOnlyList<double>> args, int index)
-        => args.Count > index && args[index].Count > 0 ? args[index][0] : 0;
+    private static IReadOnlyList<double> Flatten(IReadOnlyList<IReadOnlyList<double>> args)
+    {
+        var values = args.SelectMany(a => a).ToArray();
+        if (values.Length == 0)
+        {
+            throw FailEval("min/max received an empty series");
+        }
+
+        return values;
+    }
+
+    private static double RequireScalar(IReadOnlyList<IReadOnlyList<double>> args, int index, string name)
+    {
+        if (args.Count <= index || args[index].Count == 0)
+        {
+            throw FailEval($"function '{name}' is missing argument {index + 1}");
+        }
+
+        return args[index][0];
+    }
 
     private static double Std(IReadOnlyList<double> values)
     {
@@ -154,6 +185,11 @@ public static class FormulaEvaluator
     private static double Median(IReadOnlyList<double> values)
     {
         var ordered = values.OrderBy(v => v).ToArray();
+        if (ordered.Length == 0)
+        {
+            throw FailEval("median received an empty series");
+        }
+
         var mid = ordered.Length / 2;
         return ordered.Length % 2 == 0 ? (ordered[mid - 1] + ordered[mid]) / 2 : ordered[mid];
     }
@@ -193,4 +229,7 @@ public static class FormulaEvaluator
         var inside = values.Count(v => v >= lo && v <= hi);
         return 100.0 * inside / values.Count;
     }
+
+    private static AuthoringWorkspaceException FailEval(string message)
+        => new($"{AuthoringCompileCodes.FormulaEval}: {message}.");
 }

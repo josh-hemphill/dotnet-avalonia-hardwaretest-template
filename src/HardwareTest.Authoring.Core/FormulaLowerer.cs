@@ -13,7 +13,6 @@ public static class FormulaLowerer
         if (ast.Root is CallExpr { Name: "mean", Args: [IdentExpr ident] })
         {
             var threshold = limits?.Threshold
-                            ?? limits?.Low
                             ?? throw new AuthoringWorkspaceException(
                                 $"{AuthoringCompileCodes.MissingLimits}: mean() requires a scalar LimitSpec threshold.");
             return new AlgorithmSource(
