@@ -9,10 +9,12 @@
     <Project Path="src/HardwareTest.OpenTap.Host/HardwareTest.OpenTap.Host.csproj" />
     <Project Path="src/HardwareTest.OpenTap.Worker/HardwareTest.OpenTap.Worker.csproj" />
     <Project Path="src/HardwareTest.PlanValidate/HardwareTest.PlanValidate.csproj" />
+    <Project Path="src/HardwareTest.Authoring.Core/HardwareTest.Authoring.Core.csproj" />
     <Project Path="src/HardwareTest/HardwareTest.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/HardwareTest.Architecture.Tests/HardwareTest.Architecture.Tests.csproj" />
+    <Project Path="tests/HardwareTest.Authoring.Tests/HardwareTest.Authoring.Tests.csproj" />
     <Project Path="tests/HardwareTest.E2E.Tests/HardwareTest.E2E.Tests.csproj" />
     <Project Path="tests/HardwareTest.Session.Contracts/HardwareTest.Session.Contracts.csproj" />
     <Project Path="tests/HardwareTest.Tests/HardwareTest.Tests.csproj" />

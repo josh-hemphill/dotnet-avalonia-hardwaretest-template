@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://hardwaretest.local/authoring.schema.json",
+  "title": "HardwareTest authoring workspace",
+  "description": "Versioned planning-directory manifest. Instrument requirements belong in TapPackage Dependencies. Session/DUT/Typst stay in {planId}.program.json.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion"],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "Optional pointer to this schema for editor intellisense."
+    },
+    "schemaVersion": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Persisted document schema. Greater than the app current version loads read-only."
+    },
+    "displayName": { "type": "string" },
+    "plansDirectory": {
+      "type": "string",
+      "description": "Directory of *.TapPlan files, relative to this manifest. Top-level only."
+    },
+    "package": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string" },
+        "version": { "type": "string" },
+        "os": { "type": "string" }
+      }
+    },
+    "dependencies": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "package": { "type": "string" },
+          "version": { "type": "string" }
+        }
+      }
+    },
+    "optionalDependencies": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "package": { "type": "string" },
+          "version": { "type": "string" },
+          "when": { "type": "string" }
+        }
+      }
+    },
+    "instrumentComponentsPackage": {
+      "type": ["string", "null"],
+      "description": "Path to InstrumentComponents.OpenTap TapPackage, or omit and use HARDWARETEST_INSTRUMENT_COMPONENTS_PACKAGE."
+    },
+    "pluginProjects": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "shellAppProjects": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "includeTui": { "type": "boolean" }
+  }
+}
