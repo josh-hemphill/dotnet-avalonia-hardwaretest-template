@@ -423,7 +423,6 @@ public sealed class BootstrapOptions
 - Depends on: Area 1 (sidecar/workspace paths). Can run without Area 2 if PluginManager search dirs include in-tree plugin outputs (today’s host tests).
 - Out of scope: UI, pack, TUI catalog, InstrumentComponents-only functions in required CI, MATLAB Runtime, formula editor chrome, IIR execute (`ApplyTransferFunctionStep` is Area 11)
 - Likely files: `Authoring.Core/PlanCompiler.cs`, `MetricDraft.cs`, `FormulaAst.cs`, `FormulaParser.cs`, `FormulaLowerer.cs`, promote `OpenTapMixinAttach`; tests using Basic `AcquireVoltage` / `MeanGte` / `PublishBandScalar`
-- Likely files: `Authoring.Core/PlanCompiler.cs`, `MetricDraft.cs`, `FormulaAst.cs`, `FormulaParser.cs`, `FormulaLowerer.cs`, promote `OpenTapMixinAttach`; tests using Basic `AcquireVoltage` / `MeanGte` / `PublishBandScalar`
 - Public surface:
 
 ```csharp
@@ -450,6 +449,7 @@ public static class FormulaParser
 public static class FormulaLowerer
 {
     public static MetricSource Lower(ExpressionAlgorithm expr); // AlgorithmSource or keep Expression for Expressions step
+    // Area 11 adds: Lower(FormulaAst) may return TransferFunctionAlgorithm for FilterCall.
 }
 
 public static class FormulaEvaluator
@@ -537,7 +537,6 @@ public static class WorkspacePacker
 - Goal: Engineer adds a metric (channel key, role, unit, limits, measure vs algorithm) without touching mixin menus; **formula editor** for `ExpressionAlgorithm` using MATLAB-flavored subset syntax; compiler writes Presentation; preview pane shows gauge/chart/timing using the shared map and canned samples (recordings come in Area 10).
 - Depends on: Areas 3, 5, 6
 - Out of scope: full OpenTAP property grid, live instrument execute, MATLAB Engine/Runtime, `.m` import, loading `run.json` (Area 10), transfer-function coefficient UI / `filter(b,a,x)` (Area 11)
-- Likely files: `MetricEditorViewModel`, `FormulaEditorViewModel`, preview using `MetricGaugeView` / plot (shared widget project or project-reference operator widgets **only if** extracted; do not reference `HardwareTest` exe)
 - Likely files: `MetricEditorViewModel`, `FormulaEditorViewModel`, preview using `MetricGaugeView` / plot (shared widget project or project-reference operator widgets **only if** extracted; do not reference `HardwareTest` exe)
 - Public surface: `DraftWorkspace` editing; `IPlanCompiler.Save` on apply; recipe picker matching getting-started test types; formula box bound to `ExpressionAlgorithm.Source` with parse errors inline
 - Pseudo-code:
@@ -627,58 +626,59 @@ public static class FormulaDatasetEval
 - Public surface:
 
 ```csharp
+// Basic — no Core types, no Math.NET, no Avalonia.
 public static class TransferFunctionFilter
 {
-    // Direct Form II transposed. a[0] must be 1 after normalize. No Core, no Math.NET.
+    // Direct Form II transposed. a[0] must be 1 after normalize.
     public static double[] Filter(IReadOnlyList<double> b, IReadOnlyList<double> a, IReadOnlyList<double> x);
     public static double[] FiltFilt(IReadOnlyList<double> b, IReadOnlyList<double> a, IReadOnlyList<double> x);
 }
 
+public static class TransferFunctionGrid
+{
+    // Fail closed: empty, missing/NaN elapsed, irregular dt, |medianDt/1000 - tsSeconds| > epsilon.
+    public static void RequireUniform(IReadOnlyList<double> elapsedMs, double tsSeconds, double epsilon);
+}
+
 public sealed class ApplyTransferFunctionStep : RuntimeAwareTestStep
 {
-    public string InputChannel { get; set; } = string.Empty; // sibling series ChannelKey / result name
+    public string InputChannel { get; set; } = string.Empty;
     public double[] Numerator { get; set; } = [1];
     public double[] Denominator { get; set; } = [1];
     public double TsSeconds { get; set; }
     public string Method { get; set; } = "filter"; // filter | filtfilt
-    // Reads sibling published Sample rows for InputChannel; publishes Sample (+ optional Scalar summary).
+    // Reads sibling Sample rows (Channel, Value, ElapsedMs). Calls RequireUniform then Filter/FiltFilt.
+    // Missing ElapsedMs / irregular dt / Ts mismatch → Verdict.Fail (same rules as preview). Never index-order fallback.
 }
 
-public sealed class TfModelJson
-{
-    public int SchemaVersion { get; set; } = 1;
-    public string InputChannelKey { get; set; } = string.Empty;
-    public string OutputChannelKey { get; set; } = string.Empty;
-    public double TsSeconds { get; set; }
-    public double[] Numerator { get; set; } = [];
-    public double[] Denominator { get; set; } = [];
-    public string Method { get; set; } = "filter";
-    public string TimeBase { get; set; } = "elapsedMs";
-    public string InitialConditions { get; set; } = "zero";
-}
+// Authoring.Core — may use StoredSample. Basic must not.
+public sealed record TfImport(
+    TransferFunctionAlgorithm Algorithm,
+    string OutputChannelKey);
 
 public static class TfModelImporter
 {
-    public static TransferFunctionAlgorithm Load(string path); // fail closed: missing Ts, empty den, schema>1 read-only
-    public static void Save(string path, TransferFunctionAlgorithm model, string outputChannelKey);
+    public static TfImport Load(string path);
+    public static void Save(string path, TfImport model);
 }
 
 public static class TransferFunctionTimeBase
 {
-    // Require ElapsedMs on every sample; dt uniform within epsilon; match TsSeconds or fail.
-    public static IReadOnlyList<double> ValuesOnGrid(IReadOnlyList<StoredSample> series, double tsSeconds, double epsilon);
+    public static IReadOnlyList<double> ElapsedMs(IReadOnlyList<StoredSample> series);
+    public static IReadOnlyList<double> Values(IReadOnlyList<StoredSample> series);
 }
 ```
 
 - Pseudo-code:
-  - **Import:** file picker or drop `models/*.tf.json` (schema above). Reject continuous models (no `TsSeconds` or `TsSeconds <= 0`). Normalize `a[0]` to 1. `Method` only `filter` | `filtfilt`. `TimeBase` must be `elapsedMs`.
-  - **Formula sugar:** `filter([b0 b1 …], [1 a1 …], ChannelKey)` with **numeric vector literals only** parses to `TransferFunctionAlgorithm` (`TsSeconds` from the bound series’ median dt, or a required editor field if no recording). `filtfilt(...)` same with `Method=filtfilt`. Do not accept identifiers inside the coefficient vectors.
-  - **Save:** emit `ApplyTransferFunctionStep` after the measure leaf that publishes `InputChannelKey`; Presentation on the TF step uses `MetricDraft.ChannelKey` (usually `OutputChannelKey`). `filtfilt` is legal only as an analyze sibling (whole series), never nested inside the acquire step. Still never `DialogStep`.
+  - **Import:** file picker or drop `models/*.tf.json` (`TfModelJson`: schemaVersion 1, input/output keys, tsSeconds, numerator, denominator, method, timeBase=`elapsedMs`, initialConditions=`zero`). Fail closed: `TsSeconds <= 0`, empty numerator or denominator, `InitialConditions != zero`, `TimeBase != elapsedMs`, unknown method, schemaVersion > 1 (read-only, do not Save). Normalize `a[0]` to 1. `Load` returns `TfImport` so `OutputChannelKey` becomes `MetricDraft.ChannelKey`.
+  - **Parser boundary:** Area 11 **extends** Area 3 `FormulaParser` / `FormulaLowerer` (same types). New AST node `FilterCall(b, a, channel, method)`. Area 3 still treats `filter` as unknown; Area 11 registers the call. `Lower(FilterCall)` → `TransferFunctionAlgorithm`, never Expressions. `TsSeconds` from bound series median dt, or a required editor field if no recording. Coefficient vectors are numeric literals only.
+  - **Save:** emit `ApplyTransferFunctionStep` after the measure leaf that publishes `InputChannelKey`. If that acquire would omit Sample `ElapsedMs` (shape-only `AcquireVoltageStep` today), Save **forces** ElapsedMs publish (or fails `TF_MISSING_ELAPSED`) so the bench cannot filter in index order. Presentation on the TF step uses `MetricDraft.ChannelKey`. `filtfilt` is a sibling analyze (whole series), never nested inside acquire. Still never `DialogStep`. `OpenTapStepKinds` recognizes `ApplyTransferFunctionStep` for decompile (function leaf, not Presentation-exempt).
   - **Decompile:** `ApplyTransferFunctionStep` → `TransferFunctionAlgorithm` (not `RawStepNode`).
-  - **Preview/eval:** `TransferFunctionFilter` on `ValuesOnGrid`; publish synthetic `StoredSample`s with the output ChannelKey + same ElapsedMs. Then existing `TryMapRole` tiles. `--eval-formulas` includes TF goldens.
+  - **Preview/eval:** Authoring.Core pulls Value/ElapsedMs from `StoredSample`, then `TransferFunctionGrid.RequireUniform` + `TransferFunctionFilter` (same as the step). Publish synthetic samples with the output ChannelKey + same ElapsedMs. `--eval-formulas` includes TF goldens.
+  - **Bench Run:** `ApplyTransferFunctionStep` reads sibling Sample `ElapsedMs` and applies the **same** `RequireUniform` then Filter/FiltFilt. Fail verdict on grid errors — no index-order fallback.
   - **MATLAB snippet** (docs only, not a shipped toolbox): load `run.json` samples → `t`, `u` → `sys = tf(b, a, Ts)` or `tfest` → `c2d` if needed → write `TfModelJson`. Golden: MATLAB `filter(b,a,u)` vector checked in beside the JSON; .NET `Filter` max abs error below a named epsilon (e.g. 1e-9 relative 1e-6).
   - **Step contract:** function leaf, not Presentation-exempt; unique ChannelKey; limits on a derived scalar if the verdict is not “shape only.” Optional timeseries Presentation on the filtered series for Focus.
-- Tests: DF-II impulse response of a checked-in biquad matches golden; `FiltFilt` matches checked-in MATLAB `filtfilt` vector; missing `ElapsedMs` fails grid; irregular dt fails; `TsSeconds` mismatch fails; import JSON without Ts fails; `filter([0.5 0.5],[1],VDC)` parses and Save emits `ApplyTransferFunctionStep`; decompile restores num/den; Expressions is not a dependency of a TF-only plan; Basic `package.xml` still has no Core.dll; `fft` still fails parse; `filtfilt` step is a sibling analyze not inside acquire; architecture: `TransferFunctionFilter` has no Avalonia/Core/Ivi.Visa.
+- Tests: DF-II impulse response of a checked-in biquad matches golden; `FiltFilt` matches checked-in MATLAB `filtfilt` vector; missing `ElapsedMs` fails **both** `RequireUniform` and `ApplyTransferFunctionStep` (no index-order); irregular dt fails; `TsSeconds` mismatch fails; import JSON without Ts / empty num / `InitialConditions=zi` fails; `TfImport.OutputChannelKey` maps to MetricDraft; `filter([0.5 0.5],[1],VDC)` Lower → `TransferFunctionAlgorithm` and Save emits `ApplyTransferFunctionStep` with ElapsedMs on the acquire sibling; decompile restores num/den via `OpenTapStepKinds`; Expressions is not a dependency of a TF-only plan; Basic `package.xml` still has no Core.dll; `fft` still fails parse; `filtfilt` step is a sibling analyze not inside acquire; architecture: `TransferFunctionFilter` / `TransferFunctionGrid` have no Avalonia/Core/Ivi.Visa.
 - Risks: MATLAB `filter` vs Direct Form II numerical differences — lock form and goldens, do not chase every toolbox default. Zero-state transients: document ignore-first-N or match MATLAB `zi=0`. `filtfilt` Gustafsson vs SciPy defaults — check in MATLAB R202x vectors, do not generate goldens from SciPy in CI unless labeled. Uniform `Ts` may not match acquire `IntervalMs` if the host used ingest time — Area 10 already prefers `ElapsedMs`; TF fails closed without it.
 - Conflicts with: Area 3 parser (`filter` becomes legal). Area 10 `EvaluateProgram` (include TF). Basic plugin sources. Area 9 docs. Do not add Math.NET or a second DSP project in this area.
 
@@ -722,7 +722,7 @@ Functions: `abs`, `sqrt`, `min`, `max`, `mean`, `sum`, `std`, `diff`, `length`, 
 
 Forbidden: scripts, function files, toolboxes, `plot`, I/O, `eval`, classes, cell arrays, complex except where a function already returns it, `fft`, Control System Toolbox objects, and anything else not in the table. Unknown names fail parse (do not emit Expressions hoping the bench knows them). Continuous-time `tf(...)` is not a formula; import discrete coefficient JSON instead.
 
-Lowering: `mean(x)` + scalar `LimitSpec` → `MeanGteStep` / band scalar when that is an exact recipe; otherwise OpenTAP Expressions + optional pack dependency. Preview/CI use `FormulaEvaluator` on the same AST. Goldens lock numeric results so preview and bench recipes cannot silently drift.
+Lowering: `mean(x)` + scalar `LimitSpec` → `MeanGteStep` / band scalar when that is an exact recipe; `filter` / `filtfilt` → `TransferFunctionAlgorithm` / `ApplyTransferFunctionStep` (Area 11, never Expressions); otherwise OpenTAP Expressions + optional pack dependency. Preview/CI use `FormulaEvaluator` on the same AST (FilterCall does not go through `FormulaEvaluator` — it goes through `TransferFunctionFilter`). Goldens lock numeric results so preview and bench recipes cannot silently drift.
 
 ### Headless CLI shape
 
