@@ -12,15 +12,31 @@ public static class TransferFunctionGrid
         double tsSeconds,
         double? epsilon = null)
     {
+        if (tsSeconds <= 0 || double.IsNaN(tsSeconds) || double.IsInfinity(tsSeconds))
+        {
+            throw new InvalidOperationException("TF_GRID: TsSeconds must be > 0.");
+        }
+
+        var medianDt = MedianDtMs(elapsedMs);
+        var tsAbs = epsilon ?? Math.Max(DefaultTsEpsilonFloorSeconds, DefaultTsRelativeEpsilon * tsSeconds);
+        var medianSeconds = medianDt / 1000.0;
+        if (Math.Abs(medianSeconds - tsSeconds) > tsAbs)
+        {
+            throw new InvalidOperationException(
+                $"TF_GRID: median dt {medianSeconds} s does not match TsSeconds {tsSeconds}.");
+        }
+    }
+
+    /// Median sample period in seconds. Fail closed on length &lt; 2, NaN, or irregular dt.
+    public static double MedianTsSeconds(IReadOnlyList<double> elapsedMs)
+        => MedianDtMs(elapsedMs) / 1000.0;
+
+    private static double MedianDtMs(IReadOnlyList<double> elapsedMs)
+    {
         ArgumentNullException.ThrowIfNull(elapsedMs);
         if (elapsedMs.Count < 2)
         {
             throw new InvalidOperationException("TF_GRID: elapsed series length is < 2.");
-        }
-
-        if (tsSeconds <= 0 || double.IsNaN(tsSeconds) || double.IsInfinity(tsSeconds))
-        {
-            throw new InvalidOperationException("TF_GRID: TsSeconds must be > 0.");
         }
 
         var dt = new double[elapsedMs.Count - 1];
@@ -58,12 +74,6 @@ public static class TransferFunctionGrid
             }
         }
 
-        var tsAbs = epsilon ?? Math.Max(DefaultTsEpsilonFloorSeconds, DefaultTsRelativeEpsilon * tsSeconds);
-        var medianSeconds = medianDt / 1000.0;
-        if (Math.Abs(medianSeconds - tsSeconds) > tsAbs)
-        {
-            throw new InvalidOperationException(
-                $"TF_GRID: median dt {medianSeconds} s does not match TsSeconds {tsSeconds}.");
-        }
+        return medianDt;
     }
 }

@@ -209,6 +209,30 @@ public sealed class TransferFunctionTests
     }
 
     [Fact]
+    public void Execute_mixed_case_method_fails()
+    {
+        var tf = new ApplyTransferFunctionStep
+        {
+            InputChannel = "VDC",
+            Channel = "VDC.filt",
+            Numerator = [1],
+            Denominator = [1],
+            TsSeconds = 0.005,
+            Method = "FILTFILT",
+        };
+        var plan = PlanWith(
+            new PublishSampleSeriesStep
+            {
+                Values = [1, 0.5, 0.25],
+                ElapsedMs = [0, 5, 10],
+            },
+            tf);
+        var run = plan.Execute();
+        Assert.Equal(Verdict.Fail, run.Verdict);
+        Assert.Equal(Verdict.Fail, tf.Verdict);
+    }
+
+    [Fact]
     public void Import_valid_model_maps_output_channel_key()
     {
         var imported = TfModelImporter.Load(Path.Combine(FixtureRoot(), "model.valid.json"));
@@ -261,6 +285,43 @@ public sealed class TransferFunctionTests
         var ex = Assert.Throws<AuthoringWorkspaceException>(
             () => FormulaLowerer.Lower(new ExpressionAlgorithm(["VDC"], "filter([1],[0],VDC)"), null));
         Assert.Contains(AuthoringCompileCodes.TfDenLeadingZero, ex.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            $"{AuthoringCompileCodes.TfDenLeadingZero}: {AuthoringCompileCodes.TfDenLeadingZero}",
+            ex.Message,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Lower_filter_uses_bound_series_median_dt()
+    {
+        var series = new Dictionary<string, IReadOnlyList<StoredSample>>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["VDC"] =
+            [
+                new StoredSample { Channel = "VDC", Value = 1, ElapsedMs = 0 },
+                new StoredSample { Channel = "VDC", Value = 2, ElapsedMs = 10 },
+                new StoredSample { Channel = "VDC", Value = 3, ElapsedMs = 20 },
+            ],
+        };
+        var tf = Assert.IsType<TransferFunctionAlgorithm>(
+            FormulaLowerer.Lower(new ExpressionAlgorithm(["VDC"], "filter([1],[1],VDC)"), null, series));
+        Assert.Equal(0.01, tf.TsSeconds, 9);
+
+        var draft = TfDraft(new ExpressionAlgorithm(["VDC"], "filter([1],[1],VDC)"));
+        var run = new TestRunRecord { PlanId = "tf", Samples = series["VDC"].ToList() };
+        var results = FormulaDatasetEval.EvaluateProgram(draft, run);
+        Assert.Equal(3, results.Count);
+        Assert.Equal(0, results[0].ElapsedMs);
+        Assert.Equal(10, results[1].ElapsedMs);
+    }
+
+    [Fact]
+    public void Catalog_keeps_identity_check_and_apply_transfer_function()
+    {
+        Assert.True(AuthoringFunctionCatalog.TryGet(AuthoringFunctionIds.BasicIdentityCheck, out var identity));
+        Assert.Equal(nameof(IdentityCheckStep), identity.TypeName);
+        Assert.True(AuthoringFunctionCatalog.TryGet(AuthoringFunctionIds.BasicApplyTransferFunction, out var tf));
+        Assert.Equal(nameof(ApplyTransferFunctionStep), tf.TypeName);
     }
 
     [Fact]
@@ -340,6 +401,46 @@ public sealed class TransferFunctionTests
         Assert.Empty(empty.CannedSamples);
         Assert.Contains(AuthoringCompileCodes.FormulaEval, empty.Note, StringComparison.Ordinal);
         Assert.DoesNotContain("Recording samples", empty.Note ?? string.Empty, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Preview_bound_filter_formula_surfaces_leading_zero_denominator()
+    {
+        var metric = new MetricDraft(
+            "Filter",
+            "VDC.filt",
+            PresentationRoles.Timeseries,
+            "V",
+            null,
+            null,
+            new ExpressionAlgorithm(["VDC"], "filter([1],[0],VDC)"));
+        var recorded = new Dictionary<string, IReadOnlyList<StoredSample>>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["VDC"] =
+            [
+                new StoredSample { Channel = "VDC", MetricKey = "VDC", Value = 1, ElapsedMs = 0 },
+                new StoredSample { Channel = "VDC", MetricKey = "VDC", Value = 2, ElapsedMs = 5 },
+            ],
+        };
+        var preview = MetricPreviewBuilder.From(metric, null, recorded);
+        Assert.Empty(preview.CannedSamples);
+        Assert.Contains(AuthoringCompileCodes.TfDenLeadingZero, preview.Note, StringComparison.Ordinal);
+        Assert.DoesNotContain("Recording samples", preview.Note ?? string.Empty, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Eval_leading_zero_denominator_keeps_den_code()
+    {
+        var tf = new TransferFunctionAlgorithm("VDC", [1], [0], 0.005, "filter");
+        var input = new StoredSample[]
+        {
+            new() { Channel = "VDC", Value = 1, ElapsedMs = 0 },
+            new() { Channel = "VDC", Value = 2, ElapsedMs = 5 },
+        };
+        var ex = Assert.Throws<AuthoringWorkspaceException>(
+            () => TransferFunctionEval.Apply(tf, input, "VDC.filt"));
+        Assert.Contains(AuthoringCompileCodes.TfDenLeadingZero, ex.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain($"{AuthoringCompileCodes.TfGrid}:", ex.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -497,7 +598,7 @@ public sealed class TransferFunctionTests
         }
     }
 
-    private static ProgramDraft TfDraft(TransferFunctionAlgorithm tf)
+    private static ProgramDraft TfDraft(MetricSource source)
         => new(
             "tf",
             new ProgramSidecar { DisplayName = "tf" },
@@ -511,7 +612,7 @@ public sealed class TransferFunctionTests
                     "V",
                     null,
                     null,
-                    tf)),
+                    source)),
             ],
             new CleanupPolicy(false, "DMM"));
 

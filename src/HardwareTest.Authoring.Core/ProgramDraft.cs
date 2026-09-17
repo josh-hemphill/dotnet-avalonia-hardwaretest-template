@@ -98,4 +98,5 @@ public static class AuthoringCompileCodes
     public const string TfMissingElapsed = "TF_MISSING_ELAPSED";
     public const string TfImport = "TF_IMPORT";
     public const string TfGrid = "TF_GRID";
+    public const string TfMethod = "TF_METHOD";
 }

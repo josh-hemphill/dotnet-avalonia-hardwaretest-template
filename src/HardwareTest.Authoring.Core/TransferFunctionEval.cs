@@ -18,9 +18,7 @@ public static class TransferFunctionEval
         try
         {
             TransferFunctionGrid.RequireUniform(elapsed, tf.TsSeconds);
-            var y = string.Equals(tf.Method, "filtfilt", StringComparison.Ordinal)
-                ? TransferFunctionFilter.FiltFilt(tf.Numerator, tf.Denominator, values)
-                : TransferFunctionFilter.Filter(tf.Numerator, tf.Denominator, values);
+            var y = Dispatch(tf.Method, tf.Numerator, tf.Denominator, values);
             var samples = new StoredSample[y.Length];
             for (var i = 0; i < y.Length; i++)
             {
@@ -37,8 +35,40 @@ public static class TransferFunctionEval
         }
         catch (InvalidOperationException ex)
         {
-            throw new AuthoringWorkspaceException($"{AuthoringCompileCodes.TfGrid}: {ex.Message}", ex);
+            throw new AuthoringWorkspaceException(WrapTfException(ex), ex);
         }
+    }
+
+    private static double[] Dispatch(
+        string method,
+        IReadOnlyList<double> numerator,
+        IReadOnlyList<double> denominator,
+        IReadOnlyList<double> values)
+    {
+        if (string.Equals(method, "filtfilt", StringComparison.Ordinal))
+        {
+            return TransferFunctionFilter.FiltFilt(numerator, denominator, values);
+        }
+
+        if (string.Equals(method, "filter", StringComparison.Ordinal))
+        {
+            return TransferFunctionFilter.Filter(numerator, denominator, values);
+        }
+
+        throw new InvalidOperationException(
+            $"{AuthoringCompileCodes.TfMethod}: method must be lowercase filter or filtfilt.");
+    }
+
+    private static string WrapTfException(InvalidOperationException ex)
+    {
+        if (ex.Message.StartsWith(AuthoringCompileCodes.TfDenLeadingZero, StringComparison.Ordinal)
+            || ex.Message.StartsWith(AuthoringCompileCodes.TfMethod, StringComparison.Ordinal)
+            || ex.Message.StartsWith(AuthoringCompileCodes.TfGrid, StringComparison.Ordinal))
+        {
+            return ex.Message;
+        }
+
+        return $"{AuthoringCompileCodes.TfGrid}: {ex.Message}";
     }
 
     public static IReadOnlyList<StoredSample> ApplyWithSynthesizedClock(

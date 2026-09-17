@@ -21,7 +21,7 @@ public static class FormulaDatasetEval
                         var ast = FormulaParser.Parse(expr.Source);
                         if (ast.Root is FilterCallExpr)
                         {
-                            var lowered = FormulaLowerer.Lower(expr, metric.Limits);
+                            var lowered = FormulaLowerer.Lower(expr, metric.Limits, series);
                             if (lowered is TransferFunctionAlgorithm loweredTf)
                             {
                                 results.AddRange(EvalTransferFunction(loweredTf, metric.ChannelKey, series));

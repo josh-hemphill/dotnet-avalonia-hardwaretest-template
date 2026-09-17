@@ -87,9 +87,7 @@ public sealed class ApplyTransferFunctionStep : RuntimeAwareTestStep
         }
 
         TransferFunctionGrid.RequireUniform(elapsedMs, TsSeconds);
-        var y = IsFiltFilt(Method)
-            ? TransferFunctionFilter.FiltFilt(Numerator, Denominator, values)
-            : TransferFunctionFilter.Filter(Numerator, Denominator, values);
+        var y = Dispatch(Method, Numerator, Denominator, values);
         var result = new (double Value, double ElapsedMs)[y.Length];
         for (var i = 0; i < y.Length; i++)
         {
@@ -99,6 +97,23 @@ public sealed class ApplyTransferFunctionStep : RuntimeAwareTestStep
         return result;
     }
 
-    private static bool IsFiltFilt(string method)
-        => string.Equals(method, "filtfilt", StringComparison.Ordinal);
+    private static double[] Dispatch(
+        string method,
+        IReadOnlyList<double> numerator,
+        IReadOnlyList<double> denominator,
+        IReadOnlyList<double> values)
+    {
+        if (string.Equals(method, "filtfilt", StringComparison.Ordinal))
+        {
+            return TransferFunctionFilter.FiltFilt(numerator, denominator, values);
+        }
+
+        if (string.Equals(method, "filter", StringComparison.Ordinal))
+        {
+            return TransferFunctionFilter.Filter(numerator, denominator, values);
+        }
+
+        throw new InvalidOperationException(
+            "TF_METHOD: method must be lowercase filter or filtfilt.");
+    }
 }

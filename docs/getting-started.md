@@ -90,7 +90,7 @@ Write the criterion in words first, then publish **one Scalar per criterion**. R
 
 **Formula…** is not MATLAB Runtime. One language, parsed in Authoring. Unknown names (`fft`, `plot`, `eval`, continuous `tf`) fail parse. Nested `filter` / `filtfilt` fail closed (they never become OpenTAP Expressions).
 
-Allowed operators: `+ - * / ^`, `.* ./ .^`, parentheses. Functions: `abs`, `sqrt`, `min`, `max`, `mean`, `sum`, `std`, `diff`, `length`, `median`, plus HardwareTest `rise_time` / `inband_pct`. Coefficient vectors for IIR sugar: `[0.5 0.5]` or `[0.5, 0.5]`. Preview and `--eval-formulas` evaluate that subset on a series. **Save plan** / pack only lower two shapes: `mean(x)` plus a scalar threshold → **Mean GTE**, and top-level `filter` / `filtfilt` → **Apply Transfer Function**. Any other parsed formula fails `FORMULA_NO_LOWER` (OpenTAP Expressions are not emitted).
+Allowed operators: `+ - * / ^`, `.* ./ .^`, parentheses. Functions: `abs`, `sqrt`, `min`, `max`, `mean`, `sum`, `std`, `diff`, `length`, `median`, `filter`, `filtfilt`, plus HardwareTest `rise_time` / `inband_pct`. Coefficient vectors for IIR sugar: `[0.5 0.5]` or `[0.5, 0.5]`. Preview and `--eval-formulas` evaluate that subset on a series. **Save plan** / pack only lower two shapes: `mean(x)` plus a scalar threshold → **Mean GTE**, and top-level `filter` / `filtfilt` → **Apply Transfer Function**. Any other parsed formula fails `FORMULA_NO_LOWER` (OpenTAP Expressions are not emitted).
 
 ### Transfer function — discrete SISO IIR
 

@@ -1,4 +1,5 @@
 using System.Globalization;
+using HardwareTest.Core.Runs;
 using HardwareTest.OpenTap.Plugins.Basic;
 
 namespace HardwareTest.Authoring;
@@ -9,7 +10,10 @@ public static class FormulaLowerer
     public const double DefaultTsSeconds = 0.005;
 
     /// mean(x) + threshold → MeanGte. Top-level filter/filtfilt → TransferFunctionAlgorithm.
-    public static MetricSource Lower(ExpressionAlgorithm expr, LimitSpec? limits)
+    public static MetricSource Lower(
+        ExpressionAlgorithm expr,
+        LimitSpec? limits,
+        IReadOnlyDictionary<string, IReadOnlyList<StoredSample>>? series = null)
     {
         ArgumentNullException.ThrowIfNull(expr);
         var ast = FormulaParser.Parse(expr.Source);
@@ -28,14 +32,18 @@ public static class FormulaLowerer
                     filter.Channel,
                     num,
                     den,
-                    DefaultTsSeconds,
+                    ResolveTsSeconds(filter.Channel, series),
                     filter.Method);
             }
             catch (InvalidOperationException ex)
             {
-                throw new AuthoringWorkspaceException(
-                    $"{AuthoringCompileCodes.TfDenLeadingZero}: {ex.Message}",
-                    ex);
+                var code = ex.Message.StartsWith(AuthoringCompileCodes.TfDenLeadingZero, StringComparison.Ordinal)
+                    ? AuthoringCompileCodes.TfDenLeadingZero
+                    : AuthoringCompileCodes.TfGrid;
+                var message = ex.Message.StartsWith(code, StringComparison.Ordinal)
+                    ? ex.Message
+                    : $"{code}: {ex.Message}";
+                throw new AuthoringWorkspaceException(message, ex);
             }
         }
 
@@ -56,5 +64,40 @@ public static class FormulaLowerer
 
         throw new AuthoringWorkspaceException(
             $"{AuthoringCompileCodes.FormulaNoLower}: '{expr.Source}' does not match a closed analyze recipe.");
+    }
+
+    private static double ResolveTsSeconds(
+        string channel,
+        IReadOnlyDictionary<string, IReadOnlyList<StoredSample>>? series)
+    {
+        if (series is null || !TryGetSeries(series, channel, out var input) || input.Count == 0)
+        {
+            return DefaultTsSeconds;
+        }
+
+        return TransferFunctionGrid.MedianTsSeconds(TransferFunctionTimeBase.ElapsedMs(input));
+    }
+
+    private static bool TryGetSeries(
+        IReadOnlyDictionary<string, IReadOnlyList<StoredSample>> series,
+        string key,
+        out IReadOnlyList<StoredSample> samples)
+    {
+        if (series.TryGetValue(key, out samples!))
+        {
+            return true;
+        }
+
+        foreach (var (name, value) in series)
+        {
+            if (string.Equals(name, key, StringComparison.OrdinalIgnoreCase))
+            {
+                samples = value;
+                return true;
+            }
+        }
+
+        samples = [];
+        return false;
     }
 }

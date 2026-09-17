@@ -183,7 +183,7 @@ public static class MetricPreviewBuilder
                 return false;
             }
 
-            if (FormulaLowerer.Lower(expr, metric.Limits) is not TransferFunctionAlgorithm tf)
+            if (FormulaLowerer.Lower(expr, metric.Limits, recorded) is not TransferFunctionAlgorithm tf)
             {
                 return false;
             }
@@ -191,9 +191,25 @@ public static class MetricPreviewBuilder
             preview = PreviewTransferFunction(metric, tf, kind, siblings, recorded);
             return true;
         }
-        catch (AuthoringWorkspaceException)
+        catch (AuthoringWorkspaceException ex)
         {
-            return false;
+            if (recorded is null)
+            {
+                return false;
+            }
+
+            preview = new MetricPreview(
+                metric.ChannelKey,
+                metric.DisplayRole,
+                kind,
+                metric.YUnit,
+                0,
+                [],
+                metric.Limits?.Low,
+                metric.Limits?.High,
+                metric.Limits?.Threshold,
+                ex.Message);
+            return true;
         }
     }
 
