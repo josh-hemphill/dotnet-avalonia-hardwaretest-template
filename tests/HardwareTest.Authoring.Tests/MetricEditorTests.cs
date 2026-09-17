@@ -301,6 +301,31 @@ public sealed class MetricEditorTests
         Assert.DoesNotContain("VDC", expr.InputChannelKeys);
     }
 
+    [Fact]
+    public void Selecting_recording_drives_formula_preview_from_samples()
+    {
+        var root = EmptyWorkspace();
+        var dest = Path.Combine(root, "recordings", "sample", "mean-vdc");
+        Directory.CreateDirectory(dest);
+        File.Copy(
+            Path.Combine(FindRepoRoot(), "tests", "fixtures", "authoring", "recordings", "sample", "mean-vdc", "run.json"),
+            Path.Combine(dest, "run.json"));
+
+        var vm = new AuthoringWorkspaceViewModel();
+        vm.Open(root);
+        vm.CreateProgram("sample");
+        vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
+        vm.ApplyRecipe(AuthoringRecipeIds.Formula);
+        Assert.Contains("mean-vdc-1", vm.DatasetItems);
+        Assert.NotNull(vm.SelectedDataset);
+        Assert.Equal(2, vm.Preview.CannedValue);
+        Assert.Contains("Recording", vm.PreviewNote, StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            FormulaDatasetEval.TransferFunctionPendingNote,
+            vm.PreviewNote,
+            StringComparison.Ordinal);
+    }
+
     private static string GetSetting(MetricDraft metric, string key)
         => metric.Source switch
         {

@@ -17,6 +17,9 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
     private string? _error;
     private int _selectedMeasureIndex = -1;
     private string? _selectedRecipeId;
+    private IReadOnlyList<RunDataset> _datasets = [];
+    private IReadOnlyList<string> _datasetItems = [];
+    private int _selectedDatasetIndex = -1;
 
     public AuthoringWorkspaceViewModel(IPlanCompiler? compiler = null)
     {
@@ -62,6 +65,21 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
         get => _findings;
         private set => SetField(ref _findings, value);
     }
+
+    public IReadOnlyList<RunDataset> Datasets => _datasets;
+
+    public IReadOnlyList<string> DatasetItems => _datasetItems;
+
+    public int SelectedDatasetIndex
+    {
+        get => _selectedDatasetIndex;
+        set => SelectDataset(value);
+    }
+
+    public RunDataset? SelectedDataset
+        => _selectedDatasetIndex < 0 || _selectedDatasetIndex >= _datasets.Count
+            ? null
+            : _datasets[_selectedDatasetIndex];
 
     public string? Status
     {
@@ -141,6 +159,7 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
         SelectedProgram = draft.Programs.FirstOrDefault();
         Findings = [];
         Status = $"{files.Manifest.DisplayName}: {draft.Programs.Count} program(s)";
+        RefreshDatasets();
         RaiseSidecarProperties();
     }
 
@@ -149,6 +168,50 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
         SelectedProgram = Programs.FirstOrDefault(p =>
             string.Equals(p.PlanId, planId, StringComparison.OrdinalIgnoreCase));
         RaiseSidecarProperties();
+    }
+
+    public void SelectDataset(int index)
+    {
+        var count = _datasets.Count;
+        var clamped = count == 0 ? -1 : Math.Clamp(index, 0, count - 1);
+        if (!SetField(ref _selectedDatasetIndex, clamped, nameof(SelectedDatasetIndex)))
+        {
+            OnPropertyChanged(nameof(SelectedDataset));
+            RaiseEditorProperties();
+            return;
+        }
+
+        OnPropertyChanged(nameof(SelectedDataset));
+        RaiseEditorProperties();
+    }
+
+    private void RefreshDatasets()
+    {
+        var all = Workspace is null ? [] : RunDatasetCatalog.List(Workspace);
+        var planId = SelectedProgram?.PlanId;
+        _datasets = string.IsNullOrWhiteSpace(planId)
+            ? []
+            : all.Where(dataset =>
+                    string.Equals(dataset.Run.PlanId, planId, StringComparison.OrdinalIgnoreCase))
+                .ToArray();
+        _datasetItems = _datasets.Select(FormatDataset).ToArray();
+        _selectedDatasetIndex = _datasets.Count == 0
+            ? -1
+            : Math.Clamp(_selectedDatasetIndex < 0 ? 0 : _selectedDatasetIndex, 0, _datasets.Count - 1);
+        OnPropertyChanged(nameof(Datasets));
+        OnPropertyChanged(nameof(DatasetItems));
+        OnPropertyChanged(nameof(SelectedDatasetIndex));
+        OnPropertyChanged(nameof(SelectedDataset));
+    }
+
+    private static string FormatDataset(RunDataset dataset)
+    {
+        var id = string.IsNullOrWhiteSpace(dataset.Run.RunId)
+            ? Path.GetFileName(Path.GetDirectoryName(dataset.Path)) ?? "run"
+            : dataset.Run.RunId;
+        return string.IsNullOrWhiteSpace(dataset.Run.DutSerial)
+            ? id
+            : $"{id} ({dataset.Run.DutSerial})";
     }
 
     public void CreateProgram(string? planId = null)
@@ -171,6 +234,7 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
             ? "What do you want to measure? Pick a recipe."
             : $"Created {id}";
         Error = null;
+        RefreshDatasets();
         RaiseSidecarProperties();
     }
 

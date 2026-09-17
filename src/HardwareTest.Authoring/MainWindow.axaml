@@ -100,8 +100,12 @@
               <TextBlock Text="{Binding Preview.ChannelKey, StringFormat='Channel: {0}'}" />
               <TextBlock Text="{Binding Preview.DisplayRole, StringFormat='Role: {0}'}" />
               <TextBlock Text="{Binding Preview.YUnit, StringFormat='Unit: {0}'}" />
-              <TextBlock Text="{Binding Preview.CannedValue, StringFormat='Canned: {0}'}" />
-              <TextBlock Text="Canned samples (not Execute)." />
+              <TextBlock Text="{Binding Preview.CannedValue, StringFormat='Value: {0}'}" />
+              <TextBlock Text="{Binding PreviewNote}" TextWrapping="Wrap" />
+              <TextBlock FontWeight="SemiBold" Text="Recordings" />
+              <ListBox Height="80"
+                       ItemsSource="{Binding DatasetItems}"
+                       SelectedIndex="{Binding SelectedDatasetIndex}" />
               <ListBox ItemsSource="{Binding Preview.CannedSamples}" Height="120" />
             </StackPanel>
           </Grid>

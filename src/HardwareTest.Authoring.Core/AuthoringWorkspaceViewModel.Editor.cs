@@ -40,11 +40,29 @@ public sealed partial class AuthoringWorkspaceViewModel
             var siblings = SelectedProgram is null
                 ? []
                 : AuthoringRecipeCatalog.EnumerateMetrics(SelectedProgram.Measure).ToArray();
-            return MetricPreviewBuilder.From(SelectedMetric, siblings);
+            var recorded = SelectedDataset is { } dataset
+                ? RunDatasetBinder.SeriesByMetric(dataset.Run)
+                : null;
+            return MetricPreviewBuilder.From(SelectedMetric, siblings, recorded);
         }
     }
 
     public string PreviewKind => Preview.TileKind?.ToString() ?? "Text";
+
+    public string PreviewNote
+    {
+        get
+        {
+            if (!string.IsNullOrWhiteSpace(Preview.Note))
+            {
+                return Preview.Note;
+            }
+
+            return SelectedDataset is null
+                ? "Canned samples (not Execute)."
+                : "Recording samples (not Execute).";
+        }
+    }
 
     public string ChannelKey
     {
@@ -187,6 +205,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         _selectedMeasureIndex = count == 0 ? -1 : Math.Clamp(_selectedMeasureIndex < 0 ? 0 : _selectedMeasureIndex, 0, count - 1);
         OnPropertyChanged(nameof(SelectedMeasureIndex));
         OnPropertyChanged(nameof(MeasureHint));
+        RefreshDatasets();
         RaiseEditorProperties();
     }
 
@@ -251,6 +270,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         OnPropertyChanged(nameof(SelectedMetric));
         OnPropertyChanged(nameof(Preview));
         OnPropertyChanged(nameof(PreviewKind));
+        OnPropertyChanged(nameof(PreviewNote));
         OnPropertyChanged(nameof(ChannelKey));
         OnPropertyChanged(nameof(DisplayRole));
         OnPropertyChanged(nameof(YUnit));

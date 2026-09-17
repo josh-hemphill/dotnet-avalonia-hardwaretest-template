@@ -13,7 +13,8 @@ public sealed record MetricPreview(
     IReadOnlyList<double> CannedSamples,
     double? LimitLow,
     double? LimitHigh,
-    double? Threshold);
+    double? Threshold,
+    string? Note = null);
 
 /// Builds preview samples from draft limits/role through PresentationRoles.TryMapRole.
 public static class MetricPreviewBuilder
@@ -30,7 +31,10 @@ public static class MetricPreviewBuilder
         null);
 
     /// Synthesizes canned values; maps DisplayRole to gauge vs chart vs timing.
-    public static MetricPreview From(MetricDraft? metric, IReadOnlyList<MetricDraft>? siblings = null)
+    public static MetricPreview From(
+        MetricDraft? metric,
+        IReadOnlyList<MetricDraft>? siblings = null,
+        IReadOnlyDictionary<string, IReadOnlyList<StoredSample>>? recorded = null)
     {
         if (metric is null)
         {
@@ -38,8 +42,24 @@ public static class MetricPreviewBuilder
         }
 
         var kind = PresentationRoles.TryMapRole(metric.DisplayRole);
-        var samples = Synthesize(metric, kind, siblings);
+        if (metric.Source is TransferFunctionAlgorithm)
+        {
+            return new MetricPreview(
+                metric.ChannelKey,
+                metric.DisplayRole,
+                kind,
+                metric.YUnit,
+                0,
+                [],
+                metric.Limits?.Low,
+                metric.Limits?.High,
+                metric.Limits?.Threshold,
+                FormulaDatasetEval.TransferFunctionPendingNote);
+        }
+
+        var samples = Synthesize(metric, kind, siblings, recorded);
         var last = samples.Count == 0 ? 0 : samples[^1];
+        var note = recorded is null ? null : "Recording samples (not Execute).";
         return new MetricPreview(
             metric.ChannelKey,
             metric.DisplayRole,
@@ -49,17 +69,26 @@ public static class MetricPreviewBuilder
             samples,
             metric.Limits?.Low,
             metric.Limits?.High,
-            metric.Limits?.Threshold);
+            metric.Limits?.Threshold,
+            note);
     }
 
     private static IReadOnlyList<double> Synthesize(
         MetricDraft metric,
         PresentationTileKind? kind,
-        IReadOnlyList<MetricDraft>? siblings)
+        IReadOnlyList<MetricDraft>? siblings,
+        IReadOnlyDictionary<string, IReadOnlyList<StoredSample>>? recorded)
     {
         if (metric.Source is ExpressionAlgorithm expr)
         {
-            return EvaluateFormula(expr, metric, siblings);
+            return EvaluateFormula(expr, metric, siblings, recorded);
+        }
+
+        if (recorded is not null
+            && TryGetSeries(recorded, metric.ChannelKey, out var recordedSamples)
+            && recordedSamples.Count > 0)
+        {
+            return recordedSamples.Select(sample => sample.Value).ToArray();
         }
 
         var nominal = Nominal(metric.Limits);
@@ -74,11 +103,17 @@ public static class MetricPreviewBuilder
     private static IReadOnlyList<double> EvaluateFormula(
         ExpressionAlgorithm expr,
         MetricDraft metric,
-        IReadOnlyList<MetricDraft>? siblings)
+        IReadOnlyList<MetricDraft>? siblings,
+        IReadOnlyDictionary<string, IReadOnlyList<StoredSample>>? recorded)
     {
         try
         {
             var ast = FormulaParser.Parse(expr.Source);
+            if (recorded is not null)
+            {
+                return [FormulaEvaluator.Evaluate(ast, recorded)];
+            }
+
             var keys = FormulaExprWalk.Identifiers(ast.Root)
                 .Concat(expr.InputChannelKeys)
                 .Distinct(StringComparer.OrdinalIgnoreCase)
@@ -96,7 +131,7 @@ public static class MetricPreviewBuilder
                 }
                 else
                 {
-                    values = Synthesize(sibling, PresentationRoles.TryMapRole(sibling.DisplayRole), null);
+                    values = Synthesize(sibling, PresentationRoles.TryMapRole(sibling.DisplayRole), null, null);
                 }
 
                 series[key] = values
@@ -110,6 +145,29 @@ public static class MetricPreviewBuilder
         {
             return [];
         }
+    }
+
+    private static bool TryGetSeries(
+        IReadOnlyDictionary<string, IReadOnlyList<StoredSample>> series,
+        string key,
+        out IReadOnlyList<StoredSample> samples)
+    {
+        if (series.TryGetValue(key, out samples!))
+        {
+            return true;
+        }
+
+        foreach (var (name, value) in series)
+        {
+            if (string.Equals(name, key, StringComparison.OrdinalIgnoreCase))
+            {
+                samples = value;
+                return true;
+            }
+        }
+
+        samples = [];
+        return false;
     }
 
     private static double Nominal(LimitSpec? limits)

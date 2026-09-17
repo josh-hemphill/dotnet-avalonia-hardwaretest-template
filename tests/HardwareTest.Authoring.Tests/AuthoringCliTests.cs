@@ -48,13 +48,12 @@ public sealed class AuthoringCliTests
     }
 
     [Fact]
-    public void Eval_formulas_is_stub_usage_until_recordings()
+    public void Eval_formulas_without_workspace_is_usage()
     {
         var output = new StringWriter();
         var error = new StringWriter();
-        var code = AuthoringCli.Run(["--eval-formulas", "plans/opentap"], output, error);
+        var code = AuthoringCli.Run(["--eval-formulas"], output, error);
         Assert.Equal(AuthoringCli.UsageExitCode, code);
-        Assert.Contains("not implemented", error.ToString(), StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -121,6 +120,17 @@ public sealed class AuthoringCliOpenTapTests
         Assert.Equal(0, code);
         Assert.True(string.IsNullOrWhiteSpace(error.ToString()), error.ToString());
         Assert.Contains("TUI compatibility ok", output.ToString(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Eval_formulas_template_with_empty_recordings_succeeds()
+    {
+        var root = Path.Combine(FindRepoRoot(), "plans", "opentap");
+        var output = new StringWriter();
+        var error = new StringWriter();
+        var code = AuthoringCli.Run(["--eval-formulas", root], output, error);
+        Assert.Equal(0, code);
+        Assert.True(string.IsNullOrWhiteSpace(error.ToString()), error.ToString());
     }
 
     private static string CopyTemplateWorkspace()

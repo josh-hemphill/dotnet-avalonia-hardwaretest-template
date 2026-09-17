@@ -151,7 +151,7 @@ public static class AuthoringCli
             AuthoringCliCommand.Validate => RunValidate(workspace, strict, format, output),
             AuthoringCliCommand.Pack => RunPack(workspace, outputDirectory, openTapHome, offline, output, error),
             AuthoringCliCommand.Compat => RunCompat(workspace, openTapHome, offline, output, error),
-            AuthoringCliCommand.EvalFormulas => RunEvalFormulas(output, error),
+            AuthoringCliCommand.EvalFormulas => RunEvalFormulas(workspace, output, error),
             _ => UsageExitCode,
         };
     }
@@ -261,11 +261,45 @@ public static class AuthoringCli
         return 0;
     }
 
-    private static int RunEvalFormulas(TextWriter output, TextWriter error)
+    private static int RunEvalFormulas(string workspaceRoot, TextWriter output, TextWriter error)
     {
-        error.WriteLine("Formula dataset eval is not implemented.");
-        output.WriteLine("Use --eval-formulas after run recordings are installed.");
-        return UsageExitCode;
+        var workspace = AuthoringWorkspaceLoader.Load(workspaceRoot);
+        var draft = new PlanCompiler().LoadAll(workspace);
+        var datasets = RunDatasetCatalog.List(workspace);
+        var failed = false;
+        foreach (var dataset in datasets)
+        {
+            var program = draft.Programs.FirstOrDefault(item =>
+                string.Equals(item.PlanId, dataset.Run.PlanId, StringComparison.OrdinalIgnoreCase));
+            if (program is null)
+            {
+                output.WriteLine($"skip {dataset.Run.PlanId} {dataset.Path} no matching program");
+                continue;
+            }
+
+            try
+            {
+                var results = FormulaDatasetEval.EvaluateProgram(program, dataset.Run);
+                foreach (var sample in results)
+                {
+                    output.WriteLine(
+                        $"ok {program.PlanId} {dataset.Path} {sample.EffectiveMetricKey}={sample.Value}");
+                }
+
+                if (FormulaDatasetEval.HasPendingTransferFunction(program))
+                {
+                    output.WriteLine(
+                        $"skip {program.PlanId} {dataset.Path} {FormulaDatasetEval.TransferFunctionPendingNote}");
+                }
+            }
+            catch (AuthoringWorkspaceException ex)
+            {
+                error.WriteLine($"{dataset.Path}: {ex.Message}");
+                failed = true;
+            }
+        }
+
+        return failed ? 1 : 0;
     }
 
     private static void WriteUsage(TextWriter output)
