@@ -6,7 +6,7 @@ This document is the execution plan for a **separate workstation app** in this r
 
 ## Goal
 
-An engineer can open a test-set planning directory, author **only the metrics they want to measure and the algorithms that run over those measurements** (closed recipes **or** a MATLAB-flavored formula that compiles to OpenTAP Expressions / existing analyze steps), and see how those metrics will appear on the operator Run / Results board (Presentation mixins, gauges, charts, prompts). Formulas can be checked against **operator run exports** (`run.json`) checked into the same test-set repo. The app bootstraps an isolated OpenTAP tree with HardwareTest Basic, Mixins, **InstrumentComponents.OpenTap**, and any other declared packs so TUI/Editor and our UI share the same step catalog. `HardwareTest.PlanValidate --strict` plus a TUI compatibility check gate a **pack/ship** step that compiles that directory into TapPackages (and optional plugin / shell-app artifacts) a product test-set repo can install on the bench. The operator `HardwareTest` exe stays a locked runner. There is no MATLAB Runtime on the bench and no MATLAB Engine in the authoring process.
+An engineer can open a test-set planning directory, author **only the metrics they want to measure and the algorithms that run over those measurements** (closed recipes, a MATLAB-flavored formula that compiles to OpenTAP Expressions / existing analyze steps, **or** a discrete SISO transfer function imported as numerator/denominator coefficients). Those metrics appear on the operator Run / Results board (Presentation mixins, gauges, charts, prompts). Formulas and transfer functions can be checked against **operator run exports** (`run.json`) checked into the same test-set repo. The app bootstraps an isolated OpenTAP tree with HardwareTest Basic, Mixins, **InstrumentComponents.OpenTap**, and any other declared packs so TUI/Editor and our UI share the same step catalog. `HardwareTest.PlanValidate --strict` plus a TUI compatibility check gate a **pack/ship** step that compiles that directory into TapPackages (and optional plugin / shell-app artifacts) a product test-set repo can install on the bench. The operator `HardwareTest` exe stays a locked runner. There is no MATLAB Runtime on the bench and no MATLAB Engine in the authoring process. Transfer functions ship as **coefficients + a native .NET IIR step**, not `.m` files.
 
 ## Why a separate app
 
@@ -37,6 +37,7 @@ dotnet-avalonia-hardwaretest-template/     # this repo
   authoring.json                           # workspace manifest
   plans/*.TapPlan + *.program.json
   recordings/{planId}/**/run.json          # optional operator export goldens
+  models/*.tf.json                         # optional MATLAB-exported discrete TFs
   package.xml                              # generated or checked in
   plugins/                                 # optional test-set OpenTAP plugins
   shell-apps/                              # optional IShellApplication projects for that station
@@ -56,8 +57,8 @@ Ship output is artifacts for a bake pipeline, not a live load into the operator 
 
 1. **Open workspace** — `authoring.json` + `plans/`.
 2. **Bootstrap** — isolated OpenTAP home; install OpenTAP, TUI, HardwareTest Basic, Mixins, InstrumentComponents.OpenTap (when configured), Expressions when the manifest says so.
-3. **Author metrics / algorithms** — not raw OpenTAP step trees. Chrome (Setup / measure / Cleanup groups, Safe Shutdown, unique leaf names, Presentation mixin, sidecar) is generated. Algorithms are a closed recipe **or** a MATLAB-flavored formula (subset) that lowers to OpenTAP Expressions / Basic analyze steps.
-4. **Preview operator UI** — same DisplayRole → gauge / chart / timing mapping as Run / Results. When the workspace has run recordings, preview and formula eval use those samples instead of synthesized values.
+3. **Author metrics / algorithms** — not raw OpenTAP step trees. Chrome (Setup / measure / Cleanup groups, Safe Shutdown, unique leaf names, Presentation mixin, sidecar) is generated. Algorithms are a closed recipe, a MATLAB-flavored formula (subset) that lowers to OpenTAP Expressions / Basic analyze steps, **or** a discrete SISO transfer function (num/den/`Ts`) that lowers to `ApplyTransferFunctionStep`.
+4. **Preview operator UI** — same DisplayRole → gauge / chart / timing mapping as Run / Results. When the workspace has run recordings, preview, formula eval, and TF apply use those samples instead of synthesized values.
 5. **Validate** — existing `PlanContractValidator` (`--strict` before pack).
 6. **TUI compat** — round-trip TapPlan XML through a TUI-equipped PluginManager; catalog-diff step types.
 7. **Pack** — write/update `package.xml`, `tap package create`, copy declared plugin packs, write `dist/ship-manifest.json`.
@@ -72,8 +73,10 @@ Escape hatch: **Open in TUI** launches `tap tui` against the same isolated home 
 - Driving the TUI process as a terminal UI (we compare engines + catalogs).
 - Putting InstrumentComponents.OpenTap into this template’s live `plans/opentap/package.xml` (CI demos stay Basic).
 - Shipping the VISA broker adapter in the authoring OpenTAP home (Editor pack set only).
-- MATLAB Runtime / Compiler SDK / Engine on the appliance or in Authoring. No `.m` toolbox export, Simulink, or arbitrary MATLAB.
+- MATLAB Runtime / Compiler SDK / Engine on the appliance or in Authoring. No `.m` toolbox, Simulink, MIMO, or arbitrary MATLAB. Engineers may **export coefficient JSON** from MATLAB (documented snippet); Authoring never launches MATLAB.
 - Reimplementing OpenTAP Expressions evaluation in Avalonia ([adapting.md](adapting.md#opentap-expressions-optional)). Preview/CI walk our subset AST in Authoring.Core; the packed plan still executes in OpenTAP.
+- Lowering transfer functions through OpenTAP Expressions (IIR is a native step).
+- Continuous-time `tf(num,den)` without `Ts`. Discretize in MATLAB (`c2d`) before import.
 
 ## Architecture
 
@@ -207,6 +210,15 @@ public sealed record ExpressionAlgorithm(
     IReadOnlyList<string> InputChannelKeys,
     string Source) : MetricSource;
 
+/// Discrete SISO LTI. Coefficients from MATLAB export JSON or filter(b,a,x) sugar.
+/// Does not compile to Expressions. Execute path is ApplyTransferFunctionStep.
+public sealed record TransferFunctionAlgorithm(
+    string InputChannelKey,
+    IReadOnlyList<double> Numerator,
+    IReadOnlyList<double> Denominator,
+    double TsSeconds,
+    string Method) : MetricSource;   // "filter" | "filtfilt"
+
 public sealed record LimitSpec(double? Low, double? High, double? Threshold);
 public sealed record HistorySpec(bool Enabled, double? WatchPercent, double? AlertPercent);
 public sealed record CleanupPolicy(bool IncludeSafeShutdown, string InstrumentSlot);
@@ -222,6 +234,7 @@ Compile rules (must match [getting-started.md](getting-started.md) / plan contra
 - `timeseries` is opt-in for shape; pass criteria live on `scalar` / `passband` with limits.
 - Algorithms that need a prior series reference `InputChannelKeys` (sibling measure steps), not hidden global state.
 - `ExpressionAlgorithm.Source` is the MATLAB-flavored subset (Area 3 parser). `Save` lowers it to a closed analyze step when it matches a recipe (`mean(x)` + threshold → `MeanGteStep`); otherwise an OpenTAP Expressions step and the program pack gains the Expressions optional dependency. Fail closed if the formula cannot lower. Do not emit a MATLAB plugin or keep `.m` files in the TapPackage.
+- `TransferFunctionAlgorithm` is frozen in Area 3 as a record only. Area 11 owns parse/import, IIR, `ApplyTransferFunctionStep`, and Save. Area 3 `FormulaParser` still **rejects** `filter(...)` (unknown function) so Area 7 formula tests stay stable. Do not lower TFs through Expressions.
 
 Decompile: walk `OpenTapStepTree`, read Presentation via `OpenTapPresentation.TryReadMixin`, map known Basic / InstrumentComponents type names through `OpenTapStepKinds`. Unknown or unmodeled steps become `RawStepNode` (preserve type name + inner XML) so TUI-only plugins and Repeat children are not stripped. `RepeatLoopStep` decompiles to `RepeatNode`.
 
@@ -286,7 +299,7 @@ HardwareTest.Authoring --pack <workspace> --out dist/
 
 ## Operator preview
 
-Reuse, do not fork, DisplayRole strings (`timeseries` → Focus chart, `scalar`/`passband` → gauges, `timing` → timing strip). Area 5 moves only `TryMapRole` + role constants (align with Mixins `PresentationDisplayRoles`). Do **not** move `PresentationTileViewModel`, `BuildFromStoredSamples`, or `IsRunGaugeSample` — those take Host `MeasurementSampleEvent` / ReactiveUI VMs. Area 7 preview synthesizes canned `StoredSample`s when no recording is bound. Area 10 binds operator `run.json` datasets and evals `ExpressionAlgorithm` over those series. No `TestPlan.Execute` / `TapThread` in the UI process. Optional later: mock-run via `OpenTapWorkerClient`.
+Reuse, do not fork, DisplayRole strings (`timeseries` → Focus chart, `scalar`/`passband` → gauges, `timing` → timing strip). Area 5 moves only `TryMapRole` + role constants (align with Mixins `PresentationDisplayRoles`). Do **not** move `PresentationTileViewModel`, `BuildFromStoredSamples`, or `IsRunGaugeSample` — those take Host `MeasurementSampleEvent` / ReactiveUI VMs. Area 7 preview synthesizes canned `StoredSample`s when no recording is bound. Area 10 binds operator `run.json` datasets and evals `ExpressionAlgorithm` over those series. Area 11 applies `TransferFunctionAlgorithm` on the same series via `TransferFunctionFilter` (ElapsedMs grid). No `TestPlan.Execute` / `TapThread` in the UI process. Optional later: mock-run via `OpenTapWorkerClient`.
 
 ## Layering rules (architecture tests)
 
@@ -296,6 +309,7 @@ Reuse, do not fork, DisplayRole strings (`timeseries` → Focus chart, `scalar`/
 - Authoring is not an `IShellApplication`; it has its own window.
 - Authoring OpenTAP home does not install the VISA adapter pack.
 - Feature files stay under 600 lines; InternalsVisibleTo for Authoring tests as with Host.
+- Plugins must not reference Avalonia/ScottPlot or `HardwareTest.Core`. `TransferFunctionFilter` lives in Basic (OpenTAP-only) so Authoring preview and the bench step share one IIR without putting Core in the Editor pack.
 
 Promote `OpenTapMixinAttach` (and any compile helpers) from `internal` to a documented public authoring surface on Host, or move them into Authoring.Core to avoid leaking demo factories. Prefer a small public `IPlanCompiler` in Authoring.Core that calls today’s attach helpers.
 
@@ -307,17 +321,18 @@ Promote `OpenTapMixinAttach` (and any compile helpers) from `internal` to a docu
 latest
   ← Area 1  workspace + Authoring.Core skeleton
        ← Area 2  isolated OpenTAP bootstrap
-            ← Area 3  metric IR compile / decompile (+ formula AST)
+            ← Area 3  metric IR compile / decompile (+ formula AST; TF record only)
                  ← Area 4  pack / ship (Core API)
                       ← Area 5  extract shared presentation map
                            ← Area 6  Authoring Avalonia shell
                                 ← Area 7  metric-first UI + MATLAB-flavored formula editor
                                      ← Area 10 run recordings consume / eval / visualize
+                                          ← Area 11 discrete TF import + native IIR step
                  ← Area 8  TUI compat checker + CI   (can start after Area 3; pack failure uses it in Area 4)
-  docs rewrite is Area 9 on top of 7+8+10
+  docs rewrite is Area 9 on top of 7+8+10+11
 ```
 
-Area 8 may proceed in parallel with Areas 5–7 once Area 3’s IR and Area 2’s isolated home exist (little shared UI). Area 10 needs Area 3’s `ExpressionAlgorithm` + Area 5’s `TryMapRole` + Area 7’s preview pane; it can start after Area 7 is pushed. Area 4’s pack API accepts an optional `ITuiCompatChecker`; if Area 8 is not merged yet, pack validates contract only. Area 6 owns `src/HardwareTest.Authoring/` (exe + headless flags). Area 4 is Core-only (`WorkspacePacker`).
+Area 8 may proceed in parallel with Areas 5–7 once Area 3’s IR and Area 2’s isolated home exist (little shared UI). Area 10 needs Area 3’s `ExpressionAlgorithm` + Area 5’s `TryMapRole` + Area 7’s preview pane; it can start after Area 7 is pushed. Area 11 needs Area 3’s `TransferFunctionAlgorithm` record, Area 7’s metric editor, and Area 10’s series-by-metric binder. Area 4’s pack API accepts an optional `ITuiCompatChecker`; if Area 8 is not merged yet, pack validates contract only. Area 6 owns `src/HardwareTest.Authoring/` (exe + headless flags). Area 4 is Core-only (`WorkspacePacker`).
 
 ### Conflict map
 
@@ -325,14 +340,16 @@ Area 8 may proceed in parallel with Areas 5–7 once Area 3’s IR and Area 2’
 | --- | --- | --- |
 | `authoring.json` / schema | 1, 4, 9, 10 | Area 1 owns the schema (including unused `recordingsDirectory`); later areas only add optional keys |
 | `AuthoringWorkspace` (files) | 1, 2, 4, 8, 10 | Area 1 freezes it; others consume |
-| `DraftWorkspace` / `ProgramDraft` / `MeasureNode` / `ExpressionAlgorithm` | 3, 7, 8, 10 | Area 3 freezes IR; 7/8/10 consume |
+| `DraftWorkspace` / `ProgramDraft` / `MeasureNode` / `ExpressionAlgorithm` / `TransferFunctionAlgorithm` | 3, 7, 8, 10, 11 | Area 3 freezes IR records; 11 owns TF parse/Save/IIR |
 | Isolated OpenTAP home (`OpenTapHome`) | 2, 4, 8 | Area 2 owns bootstrap; 4/8 consume the home path |
-| `package.xml` generation | 4 | only; Expressions dep when a formula did not lower to a Basic step |
+| `package.xml` generation | 4 | only; Expressions dep when a formula did not lower to a Basic step. TF uses Basic — no extra pack dep |
 | `src/HardwareTest.Authoring/` exe | 6 | only; Area 4 tests pack via Core API |
-| `PresentationRoleMap.TryMapRole` | 5, 7, 10 | Area 5 moves the map; 7/10 bind preview |
+| `PresentationRoleMap.TryMapRole` | 5, 7, 10, 11 | Area 5 moves the map; 7/10/11 bind preview |
+| `FormulaParser` | 3, 11 | Area 3: subset without `filter`. Area 11 adds `filter(b,a,x)` → `TransferFunctionAlgorithm` |
+| `HardwareTest.OpenTap.Plugins.Basic` IIR/step | 11 | only |
 | Operator `HardwareTest.csproj` | 5 | usings only — no Authoring reference |
 | `dirs.proj` / `HardwareTest.slnx` | 1, 6 | Area 1 adds Core + tests; Area 6 adds the exe |
-| `tools/ci` TASKS | 6, 8, 10 | Area 6 may add `pack:template`; Area 8 `test:authoring-compat`; Area 10 `test:authoring-recordings`. Never two TASKS rewrites in the same PR. |
+| `tools/ci` TASKS | 6, 8, 10 | Area 6 may add `pack:template`; Area 8 `test:authoring-compat`; Area 10 `test:authoring-recordings`. Area 11 adds host tests, not a new TASK unless goldens need one. Never two TASKS rewrites in the same PR. |
 | `docs/getting-started.md` | 9 | only; earlier areas may add a one-line pointer |
 
 ---
@@ -404,7 +421,8 @@ public sealed class BootstrapOptions
 
 - Goal: Round-trip `ProgramDraft` ↔ `.TapPlan` + sidecar using Host factories/mixin attach; compiled plans pass `PlanContractValidator` for the sample metric recipes; parse/lower `ExpressionAlgorithm`.
 - Depends on: Area 1 (sidecar/workspace paths). Can run without Area 2 if PluginManager search dirs include in-tree plugin outputs (today’s host tests).
-- Out of scope: UI, pack, TUI catalog, InstrumentComponents-only functions in required CI, MATLAB Runtime, formula editor chrome
+- Out of scope: UI, pack, TUI catalog, InstrumentComponents-only functions in required CI, MATLAB Runtime, formula editor chrome, IIR execute (`ApplyTransferFunctionStep` is Area 11)
+- Likely files: `Authoring.Core/PlanCompiler.cs`, `MetricDraft.cs`, `FormulaAst.cs`, `FormulaParser.cs`, `FormulaLowerer.cs`, promote `OpenTapMixinAttach`; tests using Basic `AcquireVoltage` / `MeanGte` / `PublishBandScalar`
 - Likely files: `Authoring.Core/PlanCompiler.cs`, `MetricDraft.cs`, `FormulaAst.cs`, `FormulaParser.cs`, `FormulaLowerer.cs`, promote `OpenTapMixinAttach`; tests using Basic `AcquireVoltage` / `MeanGte` / `PublishBandScalar`
 - Public surface:
 
@@ -445,7 +463,8 @@ public static class FormulaEvaluator
   - `Save`: search plugins (Authoring home or in-tree Basic+Mixins, **not** Visa); build groups; create instruments; emit setup; walk `Measure` (`MetricNode` / `RepeatNode` / `RawStepNode`); for `ExpressionAlgorithm`, parse + lower (closed step or Expressions); `PresentationAttach.Apply` (ChannelKey, DisplayRole, YUnit, HistorySpec on mixin; LimitSpec on LimitLow/LimitHigh/Threshold); `plan.Save`; write sidecar.
   - `Load`: `TestPlan.Load`; classify with `OpenTapStepKinds`; unknown → `RawStepNode`; Repeat → `RepeatNode`; Expressions steps whose original subset source is in Settings round-trip as `ExpressionAlgorithm`.
   - Recipe coverage: timeseries acquire + scalar mean **with limits**; passband with limits; operator prompt/input; safe shutdown; `requireSerial` identity; one Repeat wrapping a metric; one formula `mean(VDC)` that lowers to `MeanGteStep`.
-- Tests: compile sample-equivalent draft → validator OK (no `MISSING_LIMITS` on scalar/passband); decompile `plans/opentap/sample.TapPlan` → ChannelKeys `VDC` / `VDC.mean` plus Repeat/Raw if present; compile → decompile preserves ChannelKey/DisplayRole/**limits/history**; Dialog never emitted; duplicate ChannelKey fails before save; Visa step types absent; `mean(VDC)` lowers to MeanGte; unknown function `fft(VDC)` fails parse; `FormulaEvaluator` on a two-point series matches `mean`.
+  - `TransferFunctionAlgorithm` on a draft: `Save` returns a named error (`TF_STEP_UNAVAILABLE`) until Area 11. Do not drop the node or emit Expressions. `filter(...)` parse fails as unknown function (same as `fft`).
+- Tests: compile sample-equivalent draft → validator OK (no `MISSING_LIMITS` on scalar/passband); decompile `plans/opentap/sample.TapPlan` → ChannelKeys `VDC` / `VDC.mean` plus Repeat/Raw if present; compile → decompile preserves ChannelKey/DisplayRole/**limits/history**; Dialog never emitted; duplicate ChannelKey fails before save; Visa step types absent; `mean(VDC)` lowers to MeanGte; unknown function `fft(VDC)` and `filter(VDC)` fail parse; `FormulaEvaluator` on a two-point series matches `mean`; Save of `TransferFunctionAlgorithm` fails `TF_STEP_UNAVAILABLE`.
 - Risks: OpenTAP mixin XML vs flattened EmbedProperties — use the same attach path as `SampleProgramFactory`.
 - Conflicts with: Area 7 (UI binds these records). Freeze names here.
 
@@ -517,13 +536,14 @@ public static class WorkspacePacker
 
 - Goal: Engineer adds a metric (channel key, role, unit, limits, measure vs algorithm) without touching mixin menus; **formula editor** for `ExpressionAlgorithm` using MATLAB-flavored subset syntax; compiler writes Presentation; preview pane shows gauge/chart/timing using the shared map and canned samples (recordings come in Area 10).
 - Depends on: Areas 3, 5, 6
-- Out of scope: full OpenTAP property grid, live instrument execute, MATLAB Engine/Runtime, `.m` import, loading `run.json` (Area 10)
+- Out of scope: full OpenTAP property grid, live instrument execute, MATLAB Engine/Runtime, `.m` import, loading `run.json` (Area 10), transfer-function coefficient UI / `filter(b,a,x)` (Area 11)
+- Likely files: `MetricEditorViewModel`, `FormulaEditorViewModel`, preview using `MetricGaugeView` / plot (shared widget project or project-reference operator widgets **only if** extracted; do not reference `HardwareTest` exe)
 - Likely files: `MetricEditorViewModel`, `FormulaEditorViewModel`, preview using `MetricGaugeView` / plot (shared widget project or project-reference operator widgets **only if** extracted; do not reference `HardwareTest` exe)
 - Public surface: `DraftWorkspace` editing; `IPlanCompiler.Save` on apply; recipe picker matching getting-started test types; formula box bound to `ExpressionAlgorithm.Source` with parse errors inline
 - Pseudo-code:
   - Empty workspace: wizard “what do you want to measure?” → `Measure` list of `MetricNode`s.
   - Adding a scalar metric auto-attaches Presentation `DisplayRole=scalar` and requires `LimitSpec`.
-  - Algorithm picker: closed recipes **or** “Formula…” which creates `ExpressionAlgorithm` with `InputChannelKeys` chosen from existing measure ChannelKeys.
+  - Algorithm picker: closed recipes **or** “Formula…” which creates `ExpressionAlgorithm` with `InputChannelKeys` chosen from existing measure ChannelKeys. No “Transfer function…” row yet (Area 11).
   - On each keystroke (debounced): `FormulaParser.Parse`; show diagnostics; do not Save invalid AST.
   - Repeat uses `RepeatNode`; unknown TUI steps stay `RawStepNode` (advanced inspector, not stripped).
   - Preview without recordings: synthesize `StoredSample`s from draft limits/role; if the metric is a formula, `FormulaEvaluator` over the canned series for the output scalar; `TryMapRole` → gauge vs chart vs timing (not Execute).
@@ -548,12 +568,12 @@ public static class WorkspacePacker
 
 ### Area 9: Docs rewrite
 
-- Goal: Getting-started primary path is the authoring app; TUI is escape hatch + compatibility; adapting.md pack section points at `--pack`; formula subset + recordings checkout documented.
-- Depends on: Areas 6–8 and 10 (commands must exist)
+- Goal: Getting-started primary path is the authoring app; TUI is escape hatch + compatibility; adapting.md pack section points at `--pack`; formula subset, recordings checkout, and TF coefficient import documented.
+- Depends on: Areas 6–8, 10, and 11 (commands must exist)
 - Out of scope: appliance kiosk bake
 - Likely files: `docs/getting-started.md`, `docs/adapting.md`, `README.md`, `docs/testing.md`
 - Public surface: documented commands only
-- Pseudo-code: replace “Install OpenTAP and TUI” as step 1 with “Run HardwareTest.Authoring on the template workspace”; keep TUI install as optional § escape hatch; document formula subset and `recordings/` goldens.
+- Pseudo-code: replace “Install OpenTAP and TUI” as step 1 with “Run HardwareTest.Authoring on the template workspace”; keep TUI install as optional § escape hatch; document formula subset, `recordings/` goldens, and MATLAB `tf` → coefficient JSON → import.
 - Tests: none beyond link targets; architecture messages that cite adapting.md still match.
 - Conflicts with: none if last.
 
@@ -591,12 +611,76 @@ public static class FormulaDatasetEval
 - Pseudo-code:
   - Discover `{recordingsDirectory}/**/run.json` (and a single `run.json` dropped in that folder). Also accept a Results **Export to…** folder that contains `run.json` at the root.
   - Load through Core JSON context + schema gate (legacy v0/v1 upgrade, future version read-only).
-  - UI: dataset list filtered to current `planId`; show DUT serial only if present (do not require it for eval). Selecting a dataset drives the Area 7 preview tiles from real samples; formulas re-eval via `FormulaEvaluator`.
-  - Headless: `HardwareTest.Authoring --eval-formulas <workspace>` (Area 6 flag, implemented here) walks goldens, fails on parse/eval/`MISSING_LIMITS` against recorded limits.
+  - UI: dataset list filtered to current `planId`; show DUT serial only if present (do not require it for eval). Selecting a dataset drives the Area 7 preview tiles from real samples; formulas re-eval via `FormulaEvaluator`. `TransferFunctionAlgorithm` nodes are skipped with a visible “needs Area 11 filter” until that area ships (do not silently treat them as identity).
+  - Headless: `HardwareTest.Authoring --eval-formulas <workspace>` (Area 6 flag, implemented here) walks goldens, fails on parse/eval/`MISSING_LIMITS` against recorded limits. TF eval is Area 11 (`--eval-formulas` then includes IIR).
   - Canonical ingest is **`run.json`** (`StoredSample` already has MetricKey, DisplayRole, ElapsedMs, limits). Optional OpenTAP CSVs under `opentap-results/` are **not** required for eval; if present, a later importer may join `Sample`/`Scalar` tables. Do not treat Typst PDFs or host `*.progress.json` cassettes as the product dataset format (cassettes stay a test-only UI VCR).
 - Tests: load `tests/fixtures/schema/run-v1.json` (or a dedicated authoring golden copied from sample-pass) → series key `VDC`; `mean(VDC)` eval matches; missing channel fails; future schemaVersion does not overwrite; DUT serial is not required to list the dataset; template workspace with empty `recordings/` is OK.
 - Risks: `run.json` today has `planId` / `planName` / `AppCommitSha` but **no test-set git SHA or TapPackage version** — binding is planId-only until a later run-record field. DUT serials in git are PII — goldens should use fixtures (`DUT-RECORD`) not production exports. CSV-only exports without `run.json` are out of scope for v1.
 - Conflicts with: Area 7 preview source (canned vs dataset). Area 9 docs. TASKS catalog — add `test:authoring-recordings` only in this PR.
+
+### Area 11: Discrete transfer functions — import, native IIR, preview
+
+- Goal: Engineers design/identify a SISO LTI model in MATLAB against `run.json` series, export **coefficients**, import them into Authoring, preview/eval on the same recording, and compile to a native OpenTAP analyze step. No MATLAB Runtime, no Expressions lowering, no `.m` in the TapPackage.
+- Depends on: Areas 3 (frozen `TransferFunctionAlgorithm`), 7 (metric editor pane), 10 (`SeriesByMetric` + recordings)
+- Out of scope: MATLAB Engine, c2d in C#, MIMO, Simulink, MATLAB Coder plugins, parsing `.m` files, non-uniform resample, live mid-acquire `filtfilt`
+- Likely files: `src/HardwareTest.OpenTap.Plugins.Basic/TransferFunctionFilter.cs`, `ApplyTransferFunctionStep.cs`; `Authoring.Core/TfModelJson.cs`, `TfModelImporter.cs`; formula parser extension; Area 7 `TransferFunctionEditorViewModel`; goldens under `tests/fixtures/authoring/tf/`
+- Public surface:
+
+```csharp
+public static class TransferFunctionFilter
+{
+    // Direct Form II transposed. a[0] must be 1 after normalize. No Core, no Math.NET.
+    public static double[] Filter(IReadOnlyList<double> b, IReadOnlyList<double> a, IReadOnlyList<double> x);
+    public static double[] FiltFilt(IReadOnlyList<double> b, IReadOnlyList<double> a, IReadOnlyList<double> x);
+}
+
+public sealed class ApplyTransferFunctionStep : RuntimeAwareTestStep
+{
+    public string InputChannel { get; set; } = string.Empty; // sibling series ChannelKey / result name
+    public double[] Numerator { get; set; } = [1];
+    public double[] Denominator { get; set; } = [1];
+    public double TsSeconds { get; set; }
+    public string Method { get; set; } = "filter"; // filter | filtfilt
+    // Reads sibling published Sample rows for InputChannel; publishes Sample (+ optional Scalar summary).
+}
+
+public sealed class TfModelJson
+{
+    public int SchemaVersion { get; set; } = 1;
+    public string InputChannelKey { get; set; } = string.Empty;
+    public string OutputChannelKey { get; set; } = string.Empty;
+    public double TsSeconds { get; set; }
+    public double[] Numerator { get; set; } = [];
+    public double[] Denominator { get; set; } = [];
+    public string Method { get; set; } = "filter";
+    public string TimeBase { get; set; } = "elapsedMs";
+    public string InitialConditions { get; set; } = "zero";
+}
+
+public static class TfModelImporter
+{
+    public static TransferFunctionAlgorithm Load(string path); // fail closed: missing Ts, empty den, schema>1 read-only
+    public static void Save(string path, TransferFunctionAlgorithm model, string outputChannelKey);
+}
+
+public static class TransferFunctionTimeBase
+{
+    // Require ElapsedMs on every sample; dt uniform within epsilon; match TsSeconds or fail.
+    public static IReadOnlyList<double> ValuesOnGrid(IReadOnlyList<StoredSample> series, double tsSeconds, double epsilon);
+}
+```
+
+- Pseudo-code:
+  - **Import:** file picker or drop `models/*.tf.json` (schema above). Reject continuous models (no `TsSeconds` or `TsSeconds <= 0`). Normalize `a[0]` to 1. `Method` only `filter` | `filtfilt`. `TimeBase` must be `elapsedMs`.
+  - **Formula sugar:** `filter([b0 b1 …], [1 a1 …], ChannelKey)` with **numeric vector literals only** parses to `TransferFunctionAlgorithm` (`TsSeconds` from the bound series’ median dt, or a required editor field if no recording). `filtfilt(...)` same with `Method=filtfilt`. Do not accept identifiers inside the coefficient vectors.
+  - **Save:** emit `ApplyTransferFunctionStep` after the measure leaf that publishes `InputChannelKey`; Presentation on the TF step uses `MetricDraft.ChannelKey` (usually `OutputChannelKey`). `filtfilt` is legal only as an analyze sibling (whole series), never nested inside the acquire step. Still never `DialogStep`.
+  - **Decompile:** `ApplyTransferFunctionStep` → `TransferFunctionAlgorithm` (not `RawStepNode`).
+  - **Preview/eval:** `TransferFunctionFilter` on `ValuesOnGrid`; publish synthetic `StoredSample`s with the output ChannelKey + same ElapsedMs. Then existing `TryMapRole` tiles. `--eval-formulas` includes TF goldens.
+  - **MATLAB snippet** (docs only, not a shipped toolbox): load `run.json` samples → `t`, `u` → `sys = tf(b, a, Ts)` or `tfest` → `c2d` if needed → write `TfModelJson`. Golden: MATLAB `filter(b,a,u)` vector checked in beside the JSON; .NET `Filter` max abs error below a named epsilon (e.g. 1e-9 relative 1e-6).
+  - **Step contract:** function leaf, not Presentation-exempt; unique ChannelKey; limits on a derived scalar if the verdict is not “shape only.” Optional timeseries Presentation on the filtered series for Focus.
+- Tests: DF-II impulse response of a checked-in biquad matches golden; `FiltFilt` matches checked-in MATLAB `filtfilt` vector; missing `ElapsedMs` fails grid; irregular dt fails; `TsSeconds` mismatch fails; import JSON without Ts fails; `filter([0.5 0.5],[1],VDC)` parses and Save emits `ApplyTransferFunctionStep`; decompile restores num/den; Expressions is not a dependency of a TF-only plan; Basic `package.xml` still has no Core.dll; `fft` still fails parse; `filtfilt` step is a sibling analyze not inside acquire; architecture: `TransferFunctionFilter` has no Avalonia/Core/Ivi.Visa.
+- Risks: MATLAB `filter` vs Direct Form II numerical differences — lock form and goldens, do not chase every toolbox default. Zero-state transients: document ignore-first-N or match MATLAB `zi=0`. `filtfilt` Gustafsson vs SciPy defaults — check in MATLAB R202x vectors, do not generate goldens from SciPy in CI unless labeled. Uniform `Ts` may not match acquire `IntervalMs` if the host used ingest time — Area 10 already prefers `ElapsedMs`; TF fails closed without it.
+- Conflicts with: Area 3 parser (`filter` becomes legal). Area 10 `EvaluateProgram` (include TF). Basic plugin sources. Area 9 docs. Do not add Math.NET or a second DSP project in this area.
 
 ---
 
@@ -623,6 +707,7 @@ Start with a **closed table** in Authoring.Core (not reflection over every OpenT
 | `IC.IdentityQuery` | InstrumentComponents | `IdentityQueryStep` (name match via `OpenTapStepKinds`) |
 | `IC.SafeShutdown` | InstrumentComponents | `SafeShutdownStep` |
 | `Expr.MatlabSubset` | Expressions or Basic | `ExpressionAlgorithm` → lowered step |
+| `Basic.ApplyTransferFunction` | Basic | `ApplyTransferFunctionStep` (Area 11) |
 
 When InstrumentComponents is absent, hide `IC.*` in the UI and keep demos on Basic. Unknown plugin steps remain `RawStepNode` after decompile.
 
@@ -632,9 +717,9 @@ Not MATLAB. One language, parsed in Authoring.Core.
 
 Allowed: `+ - * / ^` and `.* ./ .^`, parentheses, comparisons `> >= < <= ==`, `&& ||`, indexing `x(1)`, `x(end)`, `x(a:b)`. Identifiers are `InputChannelKeys` (vectors if the bound series has more than one sample).
 
-Functions: `abs`, `sqrt`, `min`, `max`, `mean`, `sum`, `std`, `diff`, `length`, `median`. HardwareTest extras that lower to **our** steps when they match a recipe: `rise_time(x, lo, hi)`, `inband_pct(x, lo, hi)`.
+Functions: `abs`, `sqrt`, `min`, `max`, `mean`, `sum`, `std`, `diff`, `length`, `median`. HardwareTest extras that lower to **our** steps when they match a recipe: `rise_time(x, lo, hi)`, `inband_pct(x, lo, hi)`. Area 11 adds `filter(b, a, x)` / `filtfilt(b, a, x)` with numeric coefficient vectors → `TransferFunctionAlgorithm` (not Expressions).
 
-Forbidden: scripts, function files, toolboxes, `plot`, I/O, `eval`, classes, cell arrays, complex except where a function already returns it, `fft` and anything else not in the table. Unknown names fail parse (do not emit Expressions hoping the bench knows them).
+Forbidden: scripts, function files, toolboxes, `plot`, I/O, `eval`, classes, cell arrays, complex except where a function already returns it, `fft`, Control System Toolbox objects, and anything else not in the table. Unknown names fail parse (do not emit Expressions hoping the bench knows them). Continuous-time `tf(...)` is not a formula; import discrete coefficient JSON instead.
 
 Lowering: `mean(x)` + scalar `LimitSpec` → `MeanGteStep` / band scalar when that is an exact recipe; otherwise OpenTAP Expressions + optional pack dependency. Preview/CI use `FormulaEvaluator` on the same AST. Goldens lock numeric results so preview and bench recipes cannot silently drift.
 
@@ -663,6 +748,7 @@ authoring.json
 plans/{id}.TapPlan
 plans/{id}.program.json
 recordings/{planId}/{runId}/run.json   # optional operator export goldens (Area 10)
+models/{outputChannelKey}.tf.json      # optional MATLAB-exported discrete TFs (Area 11)
 plugins/                 # optional extra OpenTAP plugin csproj(s)
 shell-apps/              # optional IShellApplication csproj(s)
 .authoring/              # gitignored OpenTAP home
@@ -685,7 +771,7 @@ The operator already writes everything a formula editor needs to replay **metric
 
 **Tying collections to a test-set repo.** Today a run stamps `planId` (TapPlan file stem), `planName`, operator `AppVersion` / `AppCommitSha`, DUT serial — not the test-set git SHA or program TapPackage version. Area 10 binds `recordings/{planId}/**/run.json` (or a dropped export folder) to `ProgramDraft.PlanId`. That is enough to eval formulas whose `InputChannelKeys` exist as `EffectiveMetricKey`s. It is **not** enough to prove the recording was taken against this exact plan revision. A later `TestRunRecord` field (`programPackageVersion` / `testsetCommit`) would close that; do not block Area 10 on a schema bump in the operator.
 
-**What “test and visualize against it” means here.** Select a golden `run.json` → group samples by metric → `FormulaEvaluator` for each `ExpressionAlgorithm` → operator tiles via `TryMapRole`. Pass/fail against `LimitSpec` / recorded limits. This is **offline eval**, not a second OpenTAP execute, so Authoring still does not reference Worker. Engineers can copy a Results export into `recordings/` and iterate formulas without the bench.
+**What “test and visualize against it” means here.** Select a golden `run.json` → group samples by metric → `FormulaEvaluator` for each `ExpressionAlgorithm` → (Area 11) `TransferFunctionFilter` for each `TransferFunctionAlgorithm` on the `ElapsedMs` grid → operator tiles via `TryMapRole`. Pass/fail against `LimitSpec` / recorded limits. This is **offline eval**, not a second OpenTAP execute, so Authoring still does not reference Worker. Engineers can copy a Results export into `recordings/` and iterate formulas/TFs without the bench.
 
 **Gaps to be honest about.**
 
@@ -693,13 +779,32 @@ The operator already writes everything a formula editor needs to replay **metric
 - Production DUT serials in git are PII; goldens should be fixtures or redacted copies. Do not make Authoring the system of record for operator data.
 - `run.json` samples are the **published** Sample/Scalar stream after Presentation, not raw ADC buffers. Algorithms that need a richer table than we publish must change the plan’s publish contract first (same as today).
 - Formula preview uses our AST; the packed plan uses OpenTAP. Area 3 goldens + Area 10 `--eval-formulas` catch drift for the subset; they do not prove Expressions semantics for formulas we could not lower to a Basic step.
+- Transfer functions need a **uniform `ElapsedMs` grid** matching `TsSeconds`. Legacy samples with only wall-clock `Timestamp` cannot drive a TF (fail closed).
+
+### Discrete transfer functions (Area 11)
+
+Interchange is coefficient JSON, not MATLAB source. MATLAB remains the design tool; Authoring/bench share `TransferFunctionFilter` in Basic.
+
+Documented MATLAB export (engineers paste; we do not ship a toolbox):
+
+```matlab
+% t, u from run.json EffectiveMetricKey series (ElapsedMs/1000, Value)
+sys = tf(b, a, Ts);           % already discrete; c2d(...) if sys is continuous
+[num, den] = tfdata(sys, 'v');
+% write TfModelJson: numerator, denominator, tsSeconds, inputChannelKey, outputChannelKey, method='filter'
+y = filter(num, den, u);      % check in y as golden beside the JSON
+```
+
+`filtfilt` is post-acquire analyze only (whole buffer, non-causal). Causal `filter` may run after the sibling acquire in the same measure group.
 
 ## Leftover follow-ups (not in this stack)
 
 - Mock-run from Authoring via Worker for live preview.
-- MATLAB Engine / Runtime / `.m` toolbox export (explicit non-goal).
+- MATLAB Engine / Runtime / `.m` toolbox / Simulink / MIMO (explicit non-goal). MATLAB Coder → extra plugin for nonlinear models.
+- c2d / bilinear in C# (discretize in MATLAB before export).
 - Stamp `programPackageVersion` / test-set commit on `TestRunRecord` so recordings bind to a plan revision, not only `planId`.
 - Import `opentap-results/*.csv` when `run.json` is missing.
+- Resample irregular `ElapsedMs` instead of fail-closed.
 - Feed browser / `tap package install` from Keysight repo inside the UI.
 - Generating operator `Composition.cs` bake fragments for shell apps.
 - macOS authoring RID beyond existing lockfile RIDs.

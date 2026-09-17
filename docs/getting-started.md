@@ -2,7 +2,7 @@
 
 Author a locked test plan in **OpenTAP TUI** (or Editor), then run it in this shell. The shell does not edit plans.
 
-A separate engineer **authoring application** (metric-first editing, MATLAB-flavored formulas, operator run-export goldens, automatic Editor packs including InstrumentComponents.OpenTap, operator-UI preview, TUI compatibility, pack/ship for per-test-set repos) is planned in [authoring-app.md](authoring-app.md). Until that app ships, this TUI walkthrough is the supported path.
+A separate engineer **authoring application** (metric-first editing, MATLAB-flavored formulas, discrete transfer-function import, operator run-export goldens, automatic Editor packs including InstrumentComponents.OpenTap, operator-UI preview, TUI compatibility, pack/ship for per-test-set repos) is planned in [authoring-app.md](authoring-app.md). Until that app ships, this TUI walkthrough is the supported path.
 
 This walkthrough gets a first program onto the Run board and shows how to add each test type we ship today. Productization, plan-contract tables, and settings: [adapting.md](adapting.md). Layering rules: [README.md](../README.md).
 
