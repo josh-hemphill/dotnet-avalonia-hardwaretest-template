@@ -8,15 +8,15 @@ public static class FormulaParser
     private static readonly HashSet<string> AllowedFunctions = new(StringComparer.Ordinal)
     {
         "abs", "sqrt", "min", "max", "mean", "sum", "std", "diff", "length", "median",
-        "rise_time", "inband_pct",
+        "rise_time", "inband_pct", "filter", "filtfilt",
     };
 
     private static readonly HashSet<string> ReservedUnknown = new(StringComparer.Ordinal)
     {
-        "filter", "filtfilt", "fft", "tf", "plot", "eval",
+        "fft", "tf", "plot", "eval",
     };
 
-    /// Fail closed on unknown syntax or functions (including filter / filtfilt / fft).
+    /// Fail closed on unknown syntax or functions (including fft). filter/filtfilt are registered.
     public static FormulaAst Parse(string source)
     {
         if (string.IsNullOrWhiteSpace(source))
@@ -112,10 +112,57 @@ public static class FormulaParser
             return inner;
         }
 
+        if (reader.Match("["))
+        {
+            return ParseVector(reader);
+        }
+
         throw Fail($"unexpected '{reader.Current.Text}'");
     }
 
-    private static CallExpr ParseCall(string name, TokenReader reader)
+    private static VectorExpr ParseVector(TokenReader reader)
+    {
+        var values = new List<double>();
+        while (!reader.Check("]") && !reader.AtEnd)
+        {
+            if (reader.Match(","))
+            {
+                continue;
+            }
+
+            var sign = 1.0;
+            if (reader.Match("-"))
+            {
+                sign = -1.0;
+            }
+            else if (reader.Match("+"))
+            {
+                sign = 1.0;
+            }
+
+            if (reader.MatchNumber(out var number))
+            {
+                values.Add(sign * number);
+                continue;
+            }
+
+            throw Fail($"expected number in vector, got '{reader.Current.Text}'");
+        }
+
+        if (!reader.Match("]"))
+        {
+            throw Fail("expected ']' after vector");
+        }
+
+        if (values.Count == 0)
+        {
+            throw Fail("vector is empty");
+        }
+
+        return new VectorExpr(values);
+    }
+
+    private static FormulaExpr ParseCall(string name, TokenReader reader)
     {
         if (ReservedUnknown.Contains(name) || !AllowedFunctions.Contains(name))
         {
@@ -137,8 +184,38 @@ public static class FormulaParser
             throw Fail("expected ')' after arguments");
         }
 
+        if (name is "filter" or "filtfilt")
+        {
+            return ParseFilterCall(name, args);
+        }
+
         return new CallExpr(name, args);
     }
+
+    private static FilterCallExpr ParseFilterCall(string method, IReadOnlyList<FormulaExpr> args)
+    {
+        if (args.Count != 3)
+        {
+            throw Fail($"{method}(b, a, channel) requires 3 arguments");
+        }
+
+        var b = VectorValues(args[0], "numerator");
+        var a = VectorValues(args[1], "denominator");
+        if (args[2] is not IdentExpr ident)
+        {
+            throw Fail($"{method} channel must be an identifier");
+        }
+
+        return new FilterCallExpr(b, a, ident.Name, method);
+    }
+
+    private static IReadOnlyList<double> VectorValues(FormulaExpr expr, string name)
+        => expr switch
+        {
+            VectorExpr vector => vector.Values,
+            NumberExpr number => [number.Value],
+            _ => throw Fail($"{name} must be a numeric vector"),
+        };
 
     private static AuthoringWorkspaceException Fail(string message)
         => new($"{AuthoringCompileCodes.FormulaParse}: {message}.");
@@ -163,7 +240,7 @@ public static class FormulaParser
                 continue;
             }
 
-            if (c is '+' or '-' or '*' or '/' or '^' or '(' or ')' or ',')
+            if (c is '+' or '-' or '*' or '/' or '^' or '(' or ')' or ',' or '[' or ']')
             {
                 tokens.Add(new Token(TokenKind.Op, c.ToString()));
                 i++;

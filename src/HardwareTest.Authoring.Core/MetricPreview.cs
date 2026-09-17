@@ -42,19 +42,15 @@ public static class MetricPreviewBuilder
         }
 
         var kind = PresentationRoles.TryMapRole(metric.DisplayRole);
-        if (metric.Source is TransferFunctionAlgorithm)
+        if (metric.Source is TransferFunctionAlgorithm tf)
         {
-            return new MetricPreview(
-                metric.ChannelKey,
-                metric.DisplayRole,
-                kind,
-                metric.YUnit,
-                0,
-                [],
-                metric.Limits?.Low,
-                metric.Limits?.High,
-                metric.Limits?.Threshold,
-                FormulaDatasetEval.TransferFunctionPendingNote);
+            return PreviewTransferFunction(metric, tf, kind, siblings, recorded);
+        }
+
+        if (metric.Source is ExpressionAlgorithm expr
+            && TryPreviewFilterFormula(expr, metric, kind, siblings, recorded, out var filterPreview))
+        {
+            return filterPreview;
         }
 
         var samples = Synthesize(metric, kind, siblings, recorded);
@@ -168,6 +164,127 @@ public static class MetricPreviewBuilder
 
         samples = [];
         return false;
+    }
+
+    private static bool TryPreviewFilterFormula(
+        ExpressionAlgorithm expr,
+        MetricDraft metric,
+        PresentationTileKind? kind,
+        IReadOnlyList<MetricDraft>? siblings,
+        IReadOnlyDictionary<string, IReadOnlyList<StoredSample>>? recorded,
+        out MetricPreview preview)
+    {
+        preview = Empty;
+        try
+        {
+            var ast = FormulaParser.Parse(expr.Source);
+            if (ast.Root is not FilterCallExpr)
+            {
+                return false;
+            }
+
+            if (FormulaLowerer.Lower(expr, metric.Limits, recorded) is not TransferFunctionAlgorithm tf)
+            {
+                return false;
+            }
+
+            preview = PreviewTransferFunction(metric, tf, kind, siblings, recorded);
+            return true;
+        }
+        catch (AuthoringWorkspaceException ex)
+        {
+            if (recorded is null)
+            {
+                return false;
+            }
+
+            preview = new MetricPreview(
+                metric.ChannelKey,
+                metric.DisplayRole,
+                kind,
+                metric.YUnit,
+                0,
+                [],
+                metric.Limits?.Low,
+                metric.Limits?.High,
+                metric.Limits?.Threshold,
+                ex.Message);
+            return true;
+        }
+    }
+
+    private static MetricPreview PreviewTransferFunction(
+        MetricDraft metric,
+        TransferFunctionAlgorithm tf,
+        PresentationTileKind? kind,
+        IReadOnlyList<MetricDraft>? siblings,
+        IReadOnlyDictionary<string, IReadOnlyList<StoredSample>>? recorded)
+    {
+        try
+        {
+            IReadOnlyList<StoredSample> applied;
+            string? note;
+            if (recorded is not null)
+            {
+                if (!TryGetSeries(recorded, tf.InputChannelKey, out var input) || input.Count == 0)
+                {
+                    throw new AuthoringWorkspaceException(
+                        $"{AuthoringCompileCodes.FormulaEval}: missing series '{tf.InputChannelKey}'.");
+                }
+
+                applied = TransferFunctionEval.Apply(tf, input, metric.ChannelKey);
+                note = "Recording samples (not Execute).";
+            }
+            else
+            {
+                var sibling = siblings?.FirstOrDefault(s =>
+                    string.Equals(s.ChannelKey, tf.InputChannelKey, StringComparison.OrdinalIgnoreCase));
+                var canned = sibling is null
+                    ? SynthesizeCanned(metric.Limits, kind)
+                    : Synthesize(sibling, PresentationRoles.TryMapRole(sibling.DisplayRole), null, null);
+                applied = TransferFunctionEval.ApplyWithSynthesizedClock(tf, canned, metric.ChannelKey);
+                note = null;
+            }
+
+            var values = applied.Select(s => s.Value).ToArray();
+            var last = values.Length == 0 ? 0 : values[^1];
+            return new MetricPreview(
+                metric.ChannelKey,
+                metric.DisplayRole,
+                kind,
+                metric.YUnit,
+                last,
+                values,
+                metric.Limits?.Low,
+                metric.Limits?.High,
+                metric.Limits?.Threshold,
+                note);
+        }
+        catch (AuthoringWorkspaceException ex)
+        {
+            return new MetricPreview(
+                metric.ChannelKey,
+                metric.DisplayRole,
+                kind,
+                metric.YUnit,
+                0,
+                [],
+                metric.Limits?.Low,
+                metric.Limits?.High,
+                metric.Limits?.Threshold,
+                ex.Message);
+        }
+    }
+
+    private static IReadOnlyList<double> SynthesizeCanned(LimitSpec? limits, PresentationTileKind? kind)
+    {
+        var nominal = Nominal(limits);
+        if (kind is PresentationTileKind.Timeseries or PresentationTileKind.Timing)
+        {
+            return [nominal * 0.95, nominal, nominal * 1.02, nominal];
+        }
+
+        return [nominal * 0.95, nominal, nominal * 1.02, nominal];
     }
 
     private static double Nominal(LimitSpec? limits)

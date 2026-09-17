@@ -41,7 +41,7 @@ Put a rule here only when it is a short, stable layering claim already written i
 
 1. Build or load a tree via `FakeOpenTapSession` (`LoadSampleProgramAsync`, `LoadBoardDemoProgramAsync`, Fake-only `LoadPlanShapeAsync` / `LoadTreeFromNodes`).
 2. Drive `RunTestViewModel` / `InspectViewModel` and assert StepRows, rollup chips, filters, or Inspect parity.
-3. For a captured edge case offline: `ReplayRecording(dir, "cassette-name")` then refresh hierarchy/Inspect.
+3. For a captured edge case offline: `ReplayRecording(dir, "cassette-name")` then refresh hierarchy/Inspect. Authoring formula/TF preview is a separate offline path: copy operator `run.json` into `recordings/{planId}/` (see [getting-started.md](getting-started.md#5-check-formulas-and-transfer-functions-against-recordings)).
 
 `RunTestViewModel` is a coordinator that owns one child ViewModel per panel (`StepDetail`, `Interaction`, `SessionPanel`, `ProgramSelection`, `StationOverrides`, `Live`, `StepTree`, `Run`). Children are constructed by the parent — not registered in DI — and receive services plus small `Func`/`Action` callbacks instead of a back-reference to the parent. The run pipeline takes the coordinator through `IRunBoardHost` so a stub can replace it. The UI flush pump (`IngestProgress`, `UiScheduler`, `RunOnUiAsync`) stays on the coordinator. Feature files are capped at 600 lines; split into another child or a partial rather than raising the cap.
 
@@ -84,7 +84,7 @@ To regenerate the checked-in `sample-pass` cassette, build host tests with `/p:D
 
 Host `PlanContractValidator` encodes the authoring checks for Authoring / TUI / Editor authors (`HardwareTest.Authoring --validate`, `HardwareTest --validate-plan`, `HardwareTest.PlanValidate`). The check table lives in [adapting.md](adapting.md#plan-contract). Warnings do not block operator Run.
 
-Coverage lives in `PlanContractValidatorTests` (OpenTapSerial), including a strict gate over committed top-level `Programs/*.TapPlan` (fixtures excluded). `ConfigurationArgs` parse covers `--validate-plan` (including the bare flag). Named shape templates remain in `PlanDiagnosticsTests`. `HardwareTest.Authoring.Tests` covers workspace load, compile, pack, and `--validate`; `test:authoring-compat` filters `TuiCompat`.
+Coverage lives in `PlanContractValidatorTests` (OpenTapSerial), including a strict gate over committed top-level `Programs/*.TapPlan` (fixtures excluded). `ConfigurationArgs` parse covers `--validate-plan` (including the bare flag). Named shape templates remain in `PlanDiagnosticsTests`. `HardwareTest.Authoring.Tests` covers workspace load, compile, pack, `--validate`, formula parse/eval, recordings, and transfer-function IIR goldens under `tests/fixtures/authoring/`; `test:authoring-compat` filters `TuiCompat`. `--eval-formulas` walks `{workspace}/recordings/**/run.json`.
 
 ## Local commands
 

@@ -19,13 +19,35 @@ public sealed class FormulaParserTests
 
     [Theory]
     [InlineData("fft(VDC)")]
-    [InlineData("filter(VDC)")]
-    [InlineData("filtfilt(VDC)")]
-    public void Unknown_and_tf_functions_fail_parse(string source)
+    [InlineData("tf(VDC)")]
+    [InlineData("plot(VDC)")]
+    [InlineData("eval(VDC)")]
+    public void Unknown_functions_fail_parse(string source)
     {
         var ex = Assert.Throws<AuthoringWorkspaceException>(() => FormulaParser.Parse(source));
         Assert.Contains(AuthoringCompileCodes.FormulaParse, ex.Message, StringComparison.Ordinal);
         Assert.Contains("unknown function", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Theory]
+    [InlineData("filter(VDC)")]
+    [InlineData("filtfilt(VDC)")]
+    public void Filter_arity_mismatch_fails_parse(string source)
+    {
+        var ex = Assert.Throws<AuthoringWorkspaceException>(() => FormulaParser.Parse(source));
+        Assert.Contains(AuthoringCompileCodes.FormulaParse, ex.Message, StringComparison.Ordinal);
+        Assert.Contains("requires 3 arguments", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Filter_call_parses_numeric_vectors_and_channel()
+    {
+        var ast = FormulaParser.Parse("filter([0.5 0.5],[1 -0.5],VDC)");
+        var call = Assert.IsType<FilterCallExpr>(ast.Root);
+        Assert.Equal("filter", call.Method);
+        Assert.Equal([0.5, 0.5], call.Numerator);
+        Assert.Equal([1d, -0.5], call.Denominator);
+        Assert.Equal("VDC", call.Channel);
     }
 
     [Fact]

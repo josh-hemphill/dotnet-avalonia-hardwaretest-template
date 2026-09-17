@@ -77,16 +77,10 @@ public sealed class RunDatasetTests
     }
 
     [Fact]
-    public void Transfer_function_is_skipped_not_identity()
+    public void Transfer_function_evals_on_elapsed_recording()
     {
-        var run = new TestRunRecord
-        {
-            PlanId = "tf",
-            Samples =
-            [
-                new StoredSample { Channel = "VDC", MetricKey = "VDC", Value = 1.5 },
-            ],
-        };
+        var dataset = RunDatasetCatalog.Load(
+            Path.Combine(FindRepoRoot(), "tests", "fixtures", "authoring", "tf", "vdc-elapsed", "run.json"));
         var draft = new ProgramDraft(
             "tf",
             new ProgramSidecar { DisplayName = "tf" },
@@ -100,18 +94,19 @@ public sealed class RunDatasetTests
                     "V",
                     null,
                     null,
-                    new TransferFunctionAlgorithm("VDC", [0.5, 0.5], [1, 0], 0.005, "filter"))),
+                    new TransferFunctionAlgorithm("VDC", [0.5, 0.5], [1], 0.005, "filter"))),
             ],
             new CleanupPolicy(false, "DMM"));
-        Assert.True(FormulaDatasetEval.HasPendingTransferFunction(draft));
-        Assert.Empty(FormulaDatasetEval.EvaluateProgram(draft, run));
+        var results = FormulaDatasetEval.EvaluateProgram(draft, dataset.Run);
+        Assert.Equal(8, results.Count);
+        Assert.Equal(0.5, results[0].Value);
+        Assert.Equal(0.5, results[1].Value);
         var preview = MetricPreviewBuilder.From(
             ((MetricNode)draft.Measure[0]).Metric,
             null,
-            RunDatasetBinder.SeriesByMetric(run));
-        Assert.Equal(FormulaDatasetEval.TransferFunctionPendingNote, preview.Note);
-        Assert.Empty(preview.CannedSamples);
-        Assert.Equal(0, preview.CannedValue);
+            RunDatasetBinder.SeriesByMetric(dataset.Run));
+        Assert.Equal(0.5, preview.CannedSamples[0]);
+        Assert.DoesNotContain("needs Area", preview.Note ?? string.Empty, StringComparison.Ordinal);
     }
 
     [Fact]

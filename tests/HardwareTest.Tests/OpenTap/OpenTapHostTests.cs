@@ -1115,7 +1115,7 @@ public sealed class OpenTapSessionTests
     }
 
     [Fact]
-    public async Task Three_column_sample_still_publishes_without_elapsed()
+    public async Task Shape_only_sample_still_publishes_elapsed()
     {
         var session = new OpenTapSession();
         await session.LoadSampleProgramAsync();
@@ -1155,7 +1155,7 @@ public sealed class OpenTapSessionTests
         Assert.Equal(RunResult.Passed, summary.Result);
         Assert.Contains(summary.Samples, s =>
             string.Equals(s.Channel, "VDC", StringComparison.OrdinalIgnoreCase)
-            && s.ElapsedMs is null
+            && s.ElapsedMs is 0
             && s.LimitLow is null);
         Assert.Empty(summary.Events);
     }

@@ -18,6 +18,7 @@ public static class AuthoringFunctionIds
     public const string BasicOperatorPrompt = "Basic.OperatorPrompt";
     public const string BasicOperatorInput = "Basic.OperatorInput";
     public const string BasicIdentityCheck = "Basic.IdentityCheck";
+    public const string BasicApplyTransferFunction = "Basic.ApplyTransferFunction";
     public const string IcIdentityQuery = "IC.IdentityQuery";
     public const string IcSafeShutdown = "IC.SafeShutdown";
 }
@@ -39,6 +40,8 @@ public static class AuthoringFunctionCatalog
         new(AuthoringFunctionIds.BasicBitSweepAcquire, "HardwareTest Basic", nameof(BitSweepAcquireStep), true, false),
         new(AuthoringFunctionIds.BasicPublishTimedSample, "HardwareTest Basic", nameof(PublishTimedSampleStep), false, false),
         new(AuthoringFunctionIds.BasicPublishSeriesCompliance, "HardwareTest Basic", nameof(PublishSeriesComplianceStep), false, true),
+        new(AuthoringFunctionIds.BasicApplyTransferFunction, "HardwareTest Basic", nameof(ApplyTransferFunctionStep), false, true),
+        new(AuthoringFunctionIds.BasicIdentityCheck, "HardwareTest Basic", nameof(IdentityCheckStep), false, false),
         new(AuthoringFunctionIds.BasicReportStationHealth, "HardwareTest Basic", nameof(ReportStationHealthStep), false, false),
         new(AuthoringFunctionIds.IcIdentityQuery, "InstrumentComponents.OpenTap", "IdentityQueryStep", true, false),
         new(AuthoringFunctionIds.IcSafeShutdown, "InstrumentComponents.OpenTap", "SafeShutdownStep", true, false),
@@ -100,6 +103,8 @@ public static class AuthoringFunctionCatalog
             AuthoringFunctionIds.BasicBitSweepAcquire => new BitSweepAcquireStep(),
             AuthoringFunctionIds.BasicPublishTimedSample => new PublishTimedSampleStep(),
             AuthoringFunctionIds.BasicPublishSeriesCompliance => new PublishSeriesComplianceStep(),
+            AuthoringFunctionIds.BasicApplyTransferFunction => new ApplyTransferFunctionStep(),
+            AuthoringFunctionIds.BasicIdentityCheck => new IdentityCheckStep(),
             AuthoringFunctionIds.BasicReportStationHealth => new ReportStationHealthStep(),
             _ => TryCreateFromPluginManager(spec.TypeName),
         };

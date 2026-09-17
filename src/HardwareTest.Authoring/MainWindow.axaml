@@ -81,6 +81,12 @@
                 <TextBlock FontWeight="SemiBold" Text="Formula" />
                 <TextBox PlaceholderText="mean(VDC)" Text="{Binding FormulaSource}" />
                 <TextBlock Text="{Binding FormulaError}" TextWrapping="Wrap" Foreground="#C62828" />
+                <TextBlock FontWeight="SemiBold" Text="Transfer function" />
+                <TextBox PlaceholderText="Numerator b" Text="{Binding TfNumerator}" />
+                <TextBox PlaceholderText="Denominator a" Text="{Binding TfDenominator}" />
+                <TextBox PlaceholderText="Ts seconds" Text="{Binding TfTsSeconds}" />
+                <TextBox PlaceholderText="filter or filtfilt" Text="{Binding TfMethod}" />
+                <TextBox PlaceholderText="Input channel" Text="{Binding TfInputChannel}" />
                 <TextBlock FontWeight="SemiBold" Text="Instrument" />
                 <TextBox PlaceholderText="VisaAddress" Text="{Binding VisaAddress}" />
                 <TextBlock FontWeight="SemiBold" Text="Sidecar" />

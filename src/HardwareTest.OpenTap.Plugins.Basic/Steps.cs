@@ -80,22 +80,15 @@ public sealed class AcquireVoltageStep : RuntimeAwareTestStep
             var v = Instrument.ReadVoltage();
             values.Add(v);
             var elapsed = (double)(i * Math.Max(0, IntervalMs));
-            if (LimitLow is not null || LimitHigh is not null || SeriesComplianceModes.IsEnabled(SeriesCompliance))
-            {
-                Results.Publish(
-                    "Sample",
-                    new List<string> { "Channel", "Index", "Value", "LimitLow", "LimitHigh", "ElapsedMs" },
-                    Channel,
-                    i,
-                    v,
-                    LimitLow ?? double.NaN,
-                    LimitHigh ?? double.NaN,
-                    elapsed);
-            }
-            else
-            {
-                Results.Publish("Sample", new List<string> { "Channel", "Index", "Value" }, Channel, i, v);
-            }
+            Results.Publish(
+                "Sample",
+                new List<string> { "Channel", "Index", "Value", "LimitLow", "LimitHigh", "ElapsedMs" },
+                Channel,
+                i,
+                v,
+                LimitLow ?? double.NaN,
+                LimitHigh ?? double.NaN,
+                elapsed);
 
             if (SeriesComplianceModes.ShouldFailSample(
                     SeriesCompliance,

@@ -15,6 +15,8 @@ public sealed class OpenTapStepKindsTests
         Assert.True(OpenTapStepKinds.IsSafeShutdown(new SafeShutdownStep()));
         Assert.True(OpenTapStepKinds.RequiresHardwareDut(new IdentityCheckStep()));
         Assert.False(OpenTapStepKinds.IsIdentity(new AcquireVoltageStep()));
+        Assert.True(OpenTapStepKinds.IsApplyTransferFunction(new ApplyTransferFunctionStep()));
+        Assert.False(OpenTapStepKinds.IsPresentationExempt(new ApplyTransferFunctionStep()));
 
         Assert.True(OpenTapStepKinds.MatchesAuthoringStepType(
             typeof(InstrumentComponents.OpenTap.IdentityQueryStep),
