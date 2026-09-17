@@ -5,16 +5,9 @@ namespace HardwareTest.Authoring;
 /// Parses the MATLAB-flavored formula subset. Unknown names fail closed.
 public static class FormulaParser
 {
-    private static readonly HashSet<string> AllowedFunctions = new(StringComparer.Ordinal)
-    {
-        "abs", "sqrt", "min", "max", "mean", "sum", "std", "diff", "length", "median",
-        "rise_time", "inband_pct", "filter", "filtfilt",
-    };
+    private static readonly HashSet<string> AllowedFunctions = new(FormulaCatalog.AllowedFunctions, StringComparer.Ordinal);
 
-    private static readonly HashSet<string> ReservedUnknown = new(StringComparer.Ordinal)
-    {
-        "fft", "tf", "plot", "eval",
-    };
+    private static readonly HashSet<string> ReservedUnknown = new(FormulaCatalog.ReservedUnknown, StringComparer.Ordinal);
 
     /// Fail closed on unknown syntax or functions (including fft). filter/filtfilt are registered.
     public static FormulaAst Parse(string source)
