@@ -285,12 +285,6 @@ public static class AuthoringCli
                     output.WriteLine(
                         $"ok {program.PlanId} {dataset.Path} {sample.EffectiveMetricKey}={sample.Value}");
                 }
-
-                if (FormulaDatasetEval.HasPendingTransferFunction(program))
-                {
-                    output.WriteLine(
-                        $"skip {program.PlanId} {dataset.Path} {FormulaDatasetEval.TransferFunctionPendingNote}");
-                }
             }
             catch (AuthoringWorkspaceException ex)
             {

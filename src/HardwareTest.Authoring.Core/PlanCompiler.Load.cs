@@ -29,6 +29,11 @@ public sealed partial class PlanCompiler
         "Index",
         "OffsetLimitLow",
         "OffsetLimitHigh",
+        "InputChannel",
+        "Numerator",
+        "Denominator",
+        "TsSeconds",
+        "Method",
     ];
 
     private static ProgramDraft Decompile(
@@ -127,6 +132,11 @@ public sealed partial class PlanCompiler
     {
         CollectInstrument(step, instruments);
 
+        if (OpenTapStepKinds.IsApplyTransferFunction(step) && step is ApplyTransferFunctionStep tfStep)
+        {
+            return new MetricNode(ToTransferFunctionMetric(tfStep));
+        }
+
         if (step is RepeatLoopStep repeat)
         {
             var children = new List<MeasureNode>();
@@ -207,10 +217,36 @@ public sealed partial class PlanCompiler
                 continue;
             }
 
+            if (raw is double[] vector)
+            {
+                map[name] = string.Join(",", vector.Select(v => v.ToString(CultureInfo.InvariantCulture)));
+                continue;
+            }
+
             map[name] = Convert.ToString(raw, CultureInfo.InvariantCulture) ?? string.Empty;
         }
 
         return map;
+    }
+
+    private static MetricDraft ToTransferFunctionMetric(ApplyTransferFunctionStep step)
+    {
+        var hints = OpenTapPresentation.TryReadMixin(step);
+        return new MetricDraft(
+            step.Name,
+            hints?.ChannelKey ?? step.Channel,
+            hints?.DisplayRole ?? string.Empty,
+            hints?.YUnit ?? string.Empty,
+            null,
+            hints is null
+                ? null
+                : new HistorySpec(hints.HistoryEnabled, hints.HistoryWatchPercent, hints.HistoryAlertPercent),
+            new TransferFunctionAlgorithm(
+                step.InputChannel,
+                step.Numerator ?? [1],
+                step.Denominator ?? [1],
+                step.TsSeconds,
+                string.IsNullOrWhiteSpace(step.Method) ? "filter" : step.Method));
     }
 
     private static LimitSpec? ReadLimits(ITestStep step)

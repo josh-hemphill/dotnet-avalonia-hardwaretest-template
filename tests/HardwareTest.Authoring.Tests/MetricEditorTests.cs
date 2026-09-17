@@ -23,6 +23,8 @@ public sealed class MetricEditorTests
         Assert.Contains(AuthoringRecipeIds.SeriesCompliance, ids);
         Assert.Contains(AuthoringRecipeIds.Repeat, ids);
         Assert.Contains(AuthoringRecipeIds.Formula, ids);
+        Assert.Contains(AuthoringRecipeIds.TransferFunction, ids);
+        Assert.Contains(AuthoringRecipeCatalog.Palette, recipe => recipe.Title.Contains("Transfer function", StringComparison.Ordinal));
         Assert.Contains(AuthoringRecipeIds.StationHealth, ids);
         Assert.Contains(AuthoringRecipeIds.Shutdown, ids);
         Assert.False(AuthoringRecipeCatalog.PaletteContainsDialog());
@@ -320,10 +322,38 @@ public sealed class MetricEditorTests
         Assert.NotNull(vm.SelectedDataset);
         Assert.Equal(2, vm.Preview.CannedValue);
         Assert.Contains("Recording", vm.PreviewNote, StringComparison.Ordinal);
-        Assert.DoesNotContain(
-            FormulaDatasetEval.TransferFunctionPendingNote,
-            vm.PreviewNote,
-            StringComparison.Ordinal);
+        Assert.DoesNotContain("needs Area 11 filter", vm.PreviewNote, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Transfer_function_recipe_preview_uses_synthesized_clock()
+    {
+        var root = EmptyWorkspace();
+        var vm = new AuthoringWorkspaceViewModel();
+        vm.Open(root);
+        vm.CreateProgram("tf-ui");
+        vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
+        vm.ApplyRecipe(AuthoringRecipeIds.TransferFunction);
+        Assert.Equal("VDC.filt", vm.ChannelKey);
+        Assert.Equal("0.5 0.5", vm.TfNumerator);
+        Assert.Equal("filter", vm.TfMethod);
+        Assert.NotEmpty(vm.Preview.CannedSamples);
+        Assert.DoesNotContain("TF_GRID", vm.PreviewNote, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Import_tf_json_sets_output_channel_key()
+    {
+        var root = EmptyWorkspace();
+        var vm = new AuthoringWorkspaceViewModel();
+        vm.Open(root);
+        vm.CreateProgram("tf-import");
+        vm.ImportTransferFunction(
+            Path.Combine(FindRepoRoot(), "tests", "fixtures", "authoring", "tf", "model.valid.json"));
+        Assert.Equal("VDC.filt", vm.ChannelKey);
+        var tf = Assert.IsType<TransferFunctionAlgorithm>(vm.SelectedMetric!.Source);
+        Assert.Equal("VDC", tf.InputChannelKey);
+        Assert.Equal([0.5, 0.5], tf.Numerator);
     }
 
     private static string GetSetting(MetricDraft metric, string key)

@@ -69,7 +69,7 @@ public sealed record ExpressionAlgorithm(
     string Source) : MetricSource;
 
 /// Discrete SISO LTI. Coefficients from MATLAB export JSON or filter(b,a,x) sugar.
-/// Does not compile to Expressions. Execute path is ApplyTransferFunctionStep (later area).
+/// Does not compile to Expressions. Execute path is ApplyTransferFunctionStep.
 public sealed record TransferFunctionAlgorithm(
     string InputChannelKey,
     IReadOnlyList<double> Numerator,
@@ -94,4 +94,8 @@ public static class AuthoringCompileCodes
     public const string FormulaParse = "FORMULA_PARSE";
     public const string FormulaNoLower = "FORMULA_NO_LOWER";
     public const string FormulaEval = "FORMULA_EVAL";
+    public const string TfDenLeadingZero = "TF_DEN_LEADING_ZERO";
+    public const string TfMissingElapsed = "TF_MISSING_ELAPSED";
+    public const string TfImport = "TF_IMPORT";
+    public const string TfGrid = "TF_GRID";
 }
