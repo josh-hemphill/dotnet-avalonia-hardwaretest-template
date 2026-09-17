@@ -4,8 +4,8 @@ using HardwareTest.OpenTap.Host;
 
 namespace HardwareTest.Authoring;
 
-/// Avalonia-free workspace session: program list, read-only tree, sidecar-only save.
-public sealed class AuthoringWorkspaceViewModel : INotifyPropertyChanged
+/// Avalonia-free workspace session: program list, metric editor, compiler Save, preview.
+public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
 {
     private readonly IPlanCompiler _compiler;
     private AuthoringWorkspace? _workspace;
@@ -15,6 +15,8 @@ public sealed class AuthoringWorkspaceViewModel : INotifyPropertyChanged
     private IReadOnlyList<string> _measureTree = [];
     private string? _status;
     private string? _error;
+    private int _selectedMeasureIndex = -1;
+    private string? _selectedRecipeId;
 
     public AuthoringWorkspaceViewModel(IPlanCompiler? compiler = null)
     {
@@ -22,6 +24,8 @@ public sealed class AuthoringWorkspaceViewModel : INotifyPropertyChanged
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
+
+    public IReadOnlyList<AuthoringRecipe> Recipes => AuthoringRecipeCatalog.Palette;
 
     public AuthoringWorkspace? Workspace
     {
@@ -42,7 +46,7 @@ public sealed class AuthoringWorkspaceViewModel : INotifyPropertyChanged
         {
             if (SetField(ref _selectedProgram, value))
             {
-                MeasureTree = value is null ? [] : DescribeMeasure(value.Measure);
+                RefreshMeasurePresentation();
             }
         }
     }
@@ -70,6 +74,11 @@ public sealed class AuthoringWorkspaceViewModel : INotifyPropertyChanged
         get => _error;
         private set => SetField(ref _error, value);
     }
+
+    public string? MeasureHint
+        => SelectedProgram is not null && SelectedProgram.Measure.Count == 0
+            ? "What do you want to measure? Pick a recipe."
+            : null;
 
     public void ReportError(string message)
     {
@@ -140,6 +149,75 @@ public sealed class AuthoringWorkspaceViewModel : INotifyPropertyChanged
         SelectedProgram = Programs.FirstOrDefault(p =>
             string.Equals(p.PlanId, planId, StringComparison.OrdinalIgnoreCase));
         RaiseSidecarProperties();
+    }
+
+    public void CreateProgram(string? planId = null)
+    {
+        if (Workspace is null)
+        {
+            throw new AuthoringWorkspaceException("Open a workspace before creating a program.");
+        }
+
+        var id = string.IsNullOrWhiteSpace(planId) ? NextProgramId() : planId.Trim();
+        if (Programs.Any(p => string.Equals(p.PlanId, id, StringComparison.OrdinalIgnoreCase)))
+        {
+            throw new AuthoringWorkspaceException($"Program '{id}' already exists in this session.");
+        }
+
+        var created = AuthoringRecipeCatalog.CreateProgram(id);
+        Programs = [.. Programs, created];
+        SelectedProgram = created;
+        Status = SelectedProgram.Measure.Count == 0
+            ? "What do you want to measure? Pick a recipe."
+            : $"Created {id}";
+        Error = null;
+        RaiseSidecarProperties();
+    }
+
+    public void ApplyRecipe(string recipeId)
+    {
+        if (SelectedProgram is null)
+        {
+            throw new AuthoringWorkspaceException("Select a program before adding a recipe.");
+        }
+
+        var updated = AuthoringRecipeCatalog.Apply(SelectedProgram, recipeId);
+        ReplaceSelected(updated);
+        if (updated.Measure.Count > 0)
+        {
+            SelectMeasure(updated.Measure.Count - 1);
+        }
+
+        Status = string.Equals(recipeId, AuthoringRecipeIds.TestGroup, StringComparison.OrdinalIgnoreCase)
+            ? "Setup, measure, and Cleanup groups are written when you save the plan."
+            : $"Added {recipeId}";
+        Error = null;
+    }
+
+    public void Apply()
+    {
+        if (Workspace is null || SelectedProgram is null)
+        {
+            throw new AuthoringWorkspaceException("Open a workspace and select a program before applying.");
+        }
+
+        if (Workspace.IsReadOnly)
+        {
+            throw new AuthoringWorkspaceException("Workspace is read-only; cannot save the plan.");
+        }
+
+        AuthoringRecipeCatalog.EnsureScalarLimits(SelectedProgram);
+        var planId = SelectedProgram.PlanId;
+        var tapPlanPath = ResolveTapPlanPath(planId);
+        var others = Programs
+            .Where(p => !string.Equals(p.PlanId, planId, StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+        _compiler.Save(SelectedProgram, tapPlanPath);
+        Open(Workspace.Root);
+        Programs = MergeSessionPrograms(Programs, others);
+        SelectProgram(planId);
+        Status = $"Saved {Path.GetFileName(tapPlanPath)}";
+        Error = null;
     }
 
     public void SaveSidecar()
@@ -247,11 +325,72 @@ public sealed class AuthoringWorkspaceViewModel : INotifyPropertyChanged
         }
     }
 
+    private void ReplaceSelected(ProgramDraft draft)
+    {
+        Programs = Programs.Select(p =>
+                string.Equals(p.PlanId, draft.PlanId, StringComparison.OrdinalIgnoreCase) ? draft : p)
+            .ToArray();
+        SelectedProgram = draft;
+        RaiseSidecarProperties();
+    }
+
+    private static IReadOnlyList<ProgramDraft> MergeSessionPrograms(
+        IReadOnlyList<ProgramDraft> fromDisk,
+        IReadOnlyList<ProgramDraft> sessionOthers)
+    {
+        var merged = fromDisk
+            .Select(disk => sessionOthers.FirstOrDefault(other =>
+                string.Equals(other.PlanId, disk.PlanId, StringComparison.OrdinalIgnoreCase)) ?? disk)
+            .ToList();
+        foreach (var other in sessionOthers)
+        {
+            if (!merged.Any(p => string.Equals(p.PlanId, other.PlanId, StringComparison.OrdinalIgnoreCase)))
+            {
+                merged.Add(other);
+            }
+        }
+
+        return merged;
+    }
+
+    private string ResolveTapPlanPath(string planId)
+    {
+        var existing = Workspace!.TapPlanPaths.FirstOrDefault(path =>
+            string.Equals(Path.GetFileNameWithoutExtension(path), planId, StringComparison.OrdinalIgnoreCase));
+        if (!string.IsNullOrWhiteSpace(existing))
+        {
+            return existing;
+        }
+
+        var relative = string.IsNullOrWhiteSpace(Workspace.Manifest.PlansDirectory)
+            ? "."
+            : Workspace.Manifest.PlansDirectory.Trim();
+        var directory = Path.IsPathRooted(relative)
+            ? relative
+            : Path.GetFullPath(Path.Combine(Workspace.Root, relative));
+        return Path.Combine(directory, $"{planId}.TapPlan");
+    }
+
+    private string NextProgramId()
+    {
+        for (var i = 1; i < 1000; i++)
+        {
+            var id = $"program-{i}";
+            if (!Programs.Any(p => string.Equals(p.PlanId, id, StringComparison.OrdinalIgnoreCase)))
+            {
+                return id;
+            }
+        }
+
+        return "program-" + Guid.NewGuid().ToString("N")[..8];
+    }
+
     private void RaiseSidecarProperties()
     {
         OnPropertyChanged(nameof(DisplayName));
         OnPropertyChanged(nameof(DutFamily));
         OnPropertyChanged(nameof(RequireSerial));
+        RaiseEditorProperties();
     }
 
     private bool SetField<T>(ref T field, T value, [CallerMemberName] string? name = null)

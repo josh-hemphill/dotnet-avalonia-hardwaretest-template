@@ -46,6 +46,15 @@ public partial class MainWindow : Window
     private void OnSaveSidecar(object? sender, RoutedEventArgs e)
         => TryRun(() => _viewModel.SaveSidecar());
 
+    private void OnApply(object? sender, RoutedEventArgs e)
+        => TryRun(() => _viewModel.Apply());
+
+    private void OnCreateProgram(object? sender, RoutedEventArgs e)
+        => TryRun(() => _viewModel.CreateProgram());
+
+    private void OnAddRecipe(object? sender, RoutedEventArgs e)
+        => TryRun(() => _viewModel.ApplySelectedRecipe());
+
     private async void OnPack(object? sender, RoutedEventArgs e)
     {
         var folders = await StorageProvider.OpenFolderPickerAsync(
@@ -68,6 +77,14 @@ public partial class MainWindow : Window
         if (sender is ListBox list && list.SelectedItem is ProgramDraft draft)
         {
             _viewModel.SelectProgram(draft.PlanId);
+        }
+    }
+
+    private void OnRecipeSelected(object? sender, SelectionChangedEventArgs e)
+    {
+        if (sender is ListBox list && list.SelectedItem is AuthoringRecipe recipe)
+        {
+            _viewModel.SelectedRecipeId = recipe.Id;
         }
     }
 

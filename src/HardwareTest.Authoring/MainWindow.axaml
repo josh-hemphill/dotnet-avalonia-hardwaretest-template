@@ -5,16 +5,18 @@
         x:Class="HardwareTest.Authoring.MainWindow"
         x:DataType="vm:AuthoringWorkspaceViewModel"
         Title="HardwareTest Authoring"
-        Width="1100"
-        Height="720"
-        MinWidth="800"
-        MinHeight="520">
+        Width="1200"
+        Height="760"
+        MinWidth="900"
+        MinHeight="560">
   <DockPanel>
     <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="8" Margin="12">
       <Button Content="Open workspace…" Click="OnOpenWorkspace" />
+      <Button Content="New program" Click="OnCreateProgram" />
       <Button Content="Bootstrap" Click="OnBootstrap" />
       <Button Content="Validate" Click="OnValidate" />
       <Button Content="Save sidecar" Click="OnSaveSidecar" />
+      <Button Content="Save plan" Click="OnApply" />
       <TextBlock VerticalAlignment="Center" Text="{Binding Status}" />
     </StackPanel>
     <TextBlock DockPanel.Dock="Bottom"
@@ -35,15 +37,70 @@
       </DockPanel>
       <TabControl Grid.Column="1">
         <TabItem Header="Program">
-          <Grid ColumnDefinitions="*,280" RowDefinitions="Auto,*">
-            <StackPanel Grid.Column="1" Spacing="8" Margin="12,0,0,0">
-              <TextBlock FontWeight="SemiBold" Text="Sidecar" />
-              <TextBox PlaceholderText="Display name" Text="{Binding DisplayName}" />
-              <TextBox PlaceholderText="DUT family" Text="{Binding DutFamily}" />
-              <CheckBox Content="Require serial" IsChecked="{Binding RequireSerial}" />
+          <Grid ColumnDefinitions="220,260,*" RowDefinitions="Auto,*">
+            <TextBlock Grid.Row="0" Grid.Column="0"
+                       FontWeight="SemiBold"
+                       Text="Measure"
+                       Margin="0,0,0,8" />
+            <TextBlock Grid.Row="0" Grid.Column="1"
+                       FontWeight="SemiBold"
+                       Text="Metric"
+                       Margin="12,0,0,8" />
+            <TextBlock Grid.Row="0" Grid.Column="2"
+                       FontWeight="SemiBold"
+                       Text="Preview"
+                       Margin="12,0,0,8" />
+            <DockPanel Grid.Row="1" Grid.Column="0">
+              <TextBlock DockPanel.Dock="Top"
+                         Margin="0,0,0,8"
+                         TextWrapping="Wrap"
+                         Text="{Binding MeasureHint}" />
+              <ListBox ItemsSource="{Binding MeasureItems}"
+                       SelectedIndex="{Binding SelectedMeasureIndex}" />
+            </DockPanel>
+            <ScrollViewer Grid.Row="1" Grid.Column="1" Margin="12,0,0,0">
+              <StackPanel Spacing="8">
+                <TextBlock FontWeight="SemiBold" Text="Recipes" />
+                <ListBox Height="160"
+                         ItemsSource="{Binding Recipes}"
+                         SelectionChanged="OnRecipeSelected">
+                  <ListBox.ItemTemplate>
+                    <DataTemplate x:DataType="vm:AuthoringRecipe">
+                      <TextBlock Text="{Binding Title}" />
+                    </DataTemplate>
+                  </ListBox.ItemTemplate>
+                </ListBox>
+                <Button Content="Add recipe" Click="OnAddRecipe" />
+                <TextBlock FontWeight="SemiBold" Text="Selected metric" />
+                <TextBox PlaceholderText="Channel key" Text="{Binding ChannelKey}" />
+                <TextBox PlaceholderText="Display role" Text="{Binding DisplayRole}" />
+                <TextBox PlaceholderText="Y unit" Text="{Binding YUnit}" />
+                <TextBox PlaceholderText="Limit low" Text="{Binding LimitLow}" />
+                <TextBox PlaceholderText="Limit high" Text="{Binding LimitHigh}" />
+                <TextBox PlaceholderText="Threshold" Text="{Binding Threshold}" />
+                <TextBlock FontWeight="SemiBold" Text="Instrument" />
+                <TextBox PlaceholderText="VisaAddress" Text="{Binding VisaAddress}" />
+                <TextBlock FontWeight="SemiBold" Text="Sidecar" />
+                <TextBox PlaceholderText="Display name" Text="{Binding DisplayName}" />
+                <TextBox PlaceholderText="DUT family" Text="{Binding DutFamily}" />
+                <CheckBox Content="Require serial" IsChecked="{Binding RequireSerial}" />
+                <TextBlock FontWeight="SemiBold" Text="Raw step" />
+                <TextBlock Text="{Binding RawTypeName}" TextWrapping="Wrap" />
+                <TextBox IsReadOnly="True"
+                         AcceptsReturn="True"
+                         Height="80"
+                         Text="{Binding RawXml}" />
+              </StackPanel>
+            </ScrollViewer>
+            <StackPanel Grid.Row="1" Grid.Column="2" Spacing="8" Margin="12,0,0,0">
+              <TextBlock Text="{Binding PreviewKind, StringFormat='Tile: {0}'}" />
+              <TextBlock Text="{Binding Preview.ChannelKey, StringFormat='Channel: {0}'}" />
+              <TextBlock Text="{Binding Preview.DisplayRole, StringFormat='Role: {0}'}" />
+              <TextBlock Text="{Binding Preview.YUnit, StringFormat='Unit: {0}'}" />
+              <TextBlock Text="{Binding Preview.CannedValue, StringFormat='Canned: {0}'}" />
+              <TextBlock Text="Canned samples (not Execute)." />
+              <ListBox ItemsSource="{Binding Preview.CannedSamples}" Height="120" />
             </StackPanel>
-            <TextBlock Grid.Row="0" Grid.Column="0" FontWeight="SemiBold" Text="Measure tree (read-only)" Margin="0,0,0,8" />
-            <ListBox Grid.Row="1" Grid.Column="0" ItemsSource="{Binding MeasureTree}" />
           </Grid>
         </TabItem>
         <TabItem Header="Findings">
@@ -59,7 +116,8 @@
           <StackPanel Spacing="8">
             <TextBlock Text="{Binding Workspace.Root}" />
             <TextBlock Text="{Binding Workspace.Manifest.DisplayName}" />
-            <TextBlock Text="Open a folder that contains authoring.json. Save writes the program sidecar only." TextWrapping="Wrap" />
+            <TextBlock Text="Open a folder that contains authoring.json. Save plan writes TapPlan + sidecar via IPlanCompiler.Save."
+                       TextWrapping="Wrap" />
           </StackPanel>
         </TabItem>
         <TabItem Header="Ship">

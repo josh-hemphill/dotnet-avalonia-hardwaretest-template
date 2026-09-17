@@ -178,7 +178,11 @@ public sealed partial class PlanCompiler
         {
             case MeasureSource measure:
                 ApplySettings(step, measure.Settings);
-                AssignInstrument(step, ResolveInstrument(instruments, measure.InstrumentSlot));
+                if (!string.IsNullOrWhiteSpace(measure.InstrumentSlot))
+                {
+                    AssignInstrument(step, ResolveInstrument(instruments, measure.InstrumentSlot));
+                }
+
                 break;
             case AlgorithmSource algorithm:
                 ApplySettings(step, algorithm.Settings);
