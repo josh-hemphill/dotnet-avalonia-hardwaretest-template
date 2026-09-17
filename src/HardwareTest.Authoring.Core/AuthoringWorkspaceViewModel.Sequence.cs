@@ -167,13 +167,11 @@ public sealed partial class AuthoringWorkspaceViewModel
             }
 
             var distance = Math.Abs(i - from);
-            if (distance > bestDistance)
+            if (distance < bestDistance || (distance == bestDistance && i < best))
             {
-                continue;
+                best = i;
+                bestDistance = distance;
             }
-
-            best = i;
-            bestDistance = distance;
         }
 
         return best;

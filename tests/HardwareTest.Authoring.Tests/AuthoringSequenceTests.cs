@@ -141,6 +141,13 @@ public sealed class AuthoringSequenceViewModelTests
         Assert.Equal(identity, vm.SelectedSequenceIndex);
         Assert.True(vm.SelectedSequence?.IsSelectable);
         Assert.Equal("Identity Check", vm.SelectedSequence?.Label);
+
+        var cleanupHeader = vm.SequenceItems.ToList().FindIndex(row =>
+            row.Kind == SequenceRowKind.Header && row.Section == SequenceSection.Cleanup);
+        var shutdown = vm.SequenceItems.ToList().FindIndex(row => row.Kind == SequenceRowKind.Cleanup);
+        vm.SelectSequence(cleanupHeader);
+        Assert.Equal(shutdown, vm.SelectedSequenceIndex);
+        Assert.Equal(SequenceRowKind.Cleanup, vm.SelectedSequence?.Kind);
     }
 
     [Fact]

@@ -222,6 +222,22 @@ public sealed partial class AuthoringWorkspaceViewModel
             : action);
     }
 
+    public string InputStringFieldId
+    {
+        get => SelectedSetup is OperatorInputSetup input ? input.StringFieldId ?? string.Empty : string.Empty;
+        set => UpdateSelectedSetup(action => action is OperatorInputSetup input
+            ? input with { StringFieldId = string.IsNullOrWhiteSpace(value) ? null : value.Trim() }
+            : action);
+    }
+
+    public string InputNumberFieldId
+    {
+        get => SelectedSetup is OperatorInputSetup input ? input.NumberFieldId ?? string.Empty : string.Empty;
+        set => UpdateSelectedSetup(action => action is OperatorInputSetup input
+            ? input with { NumberFieldId = string.IsNullOrWhiteSpace(value) ? null : value.Trim() }
+            : action);
+    }
+
     public string SetupInstrumentSlot
     {
         get => SelectedSetup is IdentitySetup identity ? identity.InstrumentSlot : string.Empty;
@@ -241,10 +257,10 @@ public sealed partial class AuthoringWorkspaceViewModel
 
     public string CleanupInstrumentSlot
     {
-        get => SelectedProgram?.Cleanup.InstrumentSlot ?? string.Empty;
+        get => HasCleanupEditor ? SelectedProgram?.Cleanup.InstrumentSlot ?? string.Empty : string.Empty;
         set
         {
-            if (SelectedProgram is null || string.IsNullOrWhiteSpace(value))
+            if (!HasCleanupEditor || SelectedProgram is null || string.IsNullOrWhiteSpace(value))
             {
                 return;
             }
@@ -258,10 +274,10 @@ public sealed partial class AuthoringWorkspaceViewModel
 
     public bool IncludeSafeShutdown
     {
-        get => SelectedProgram?.Cleanup.IncludeSafeShutdown ?? false;
+        get => HasCleanupEditor && (SelectedProgram?.Cleanup.IncludeSafeShutdown ?? false);
         set
         {
-            if (SelectedProgram is null)
+            if (!HasCleanupEditor || SelectedProgram is null)
             {
                 return;
             }

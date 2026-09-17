@@ -45,12 +45,19 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
     public ProgramDraft? SelectedProgram
     {
         get => _selectedProgram;
-        private set
+        set
         {
-            if (SetField(ref _selectedProgram, value))
+            if (value is null)
             {
-                RefreshMeasurePresentation();
+                return;
             }
+
+            if (ReferenceEquals(_selectedProgram, value))
+            {
+                return;
+            }
+
+            SelectProgram(value.PlanId);
         }
     }
 
@@ -156,7 +163,8 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
         var draft = _compiler.LoadAll(files);
         Workspace = files;
         Programs = draft.Programs;
-        SelectedProgram = draft.Programs.FirstOrDefault();
+        _selectedInstrumentSlot = null;
+        AssignSelectedProgram(draft.Programs.FirstOrDefault());
         Findings = [];
         Status = $"{files.Manifest.DisplayName}: {draft.Programs.Count} program(s)";
         RefreshDatasets();
@@ -166,8 +174,8 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
     public void SelectProgram(string planId)
     {
         _selectedInstrumentSlot = null;
-        SelectedProgram = Programs.FirstOrDefault(p =>
-            string.Equals(p.PlanId, planId, StringComparison.OrdinalIgnoreCase));
+        AssignSelectedProgram(Programs.FirstOrDefault(p =>
+            string.Equals(p.PlanId, planId, StringComparison.OrdinalIgnoreCase)));
         RaiseSidecarProperties();
     }
 
@@ -230,8 +238,9 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
 
         var created = AuthoringRecipeCatalog.CreateProgram(id);
         Programs = [.. Programs, created];
-        SelectedProgram = created;
-        Status = SelectedProgram.Measure.Count == 0
+        _selectedInstrumentSlot = null;
+        AssignSelectedProgram(created);
+        Status = created.Measure.Count == 0
             ? AuthoringChrome.EmptyMeasureHint
             : $"Created {id}";
         Error = null;
@@ -395,7 +404,7 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
         Programs = Programs.Select(p =>
                 string.Equals(p.PlanId, draft.PlanId, StringComparison.OrdinalIgnoreCase) ? draft : p)
             .ToArray();
-        SelectedProgram = draft;
+        AssignSelectedProgram(draft);
         RaiseSidecarProperties();
     }
 
@@ -448,6 +457,14 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
         }
 
         return "program-" + Guid.NewGuid().ToString("N")[..8];
+    }
+
+    private void AssignSelectedProgram(ProgramDraft? draft)
+    {
+        if (SetField(ref _selectedProgram, draft, nameof(SelectedProgram)))
+        {
+            RefreshMeasurePresentation();
+        }
     }
 
     private void RaiseSidecarProperties()
