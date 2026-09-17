@@ -18,11 +18,24 @@ public sealed partial class AuthoringWorkspaceViewModel
     }
 
     public MeasureNode? SelectedMeasure
-        => SelectedProgram is null
-           || _selectedMeasureIndex < 0
-           || _selectedMeasureIndex >= SelectedProgram.Measure.Count
-            ? null
-            : SelectedProgram.Measure[_selectedMeasureIndex];
+    {
+        get
+        {
+            if (SelectedProgram is null)
+            {
+                return null;
+            }
+
+            if (SelectedSequence is { Section: SequenceSection.Measure } row)
+            {
+                return AuthoringSequence.ResolveMeasure(SelectedProgram, row.IndexPath);
+            }
+
+            return _selectedMeasureIndex < 0 || _selectedMeasureIndex >= SelectedProgram.Measure.Count
+                ? null
+                : SelectedProgram.Measure[_selectedMeasureIndex];
+        }
+    }
 
     public MetricDraft? SelectedMetric => SelectedMeasure switch
     {
@@ -245,9 +258,12 @@ public sealed partial class AuthoringWorkspaceViewModel
     {
         var count = SelectedProgram?.Measure.Count ?? 0;
         var clamped = count == 0 ? -1 : Math.Clamp(index, 0, count - 1);
-        if (!SetField(ref _selectedMeasureIndex, clamped, nameof(SelectedMeasureIndex)))
+        _selectedMeasureIndex = clamped;
+        OnPropertyChanged(nameof(SelectedMeasureIndex));
+        var sequenceIndex = AuthoringSequence.IndexOfTopLevelMeasure(_sequenceItems, clamped);
+        if (sequenceIndex >= 0)
         {
-            RaiseEditorProperties();
+            SelectSequence(sequenceIndex);
             return;
         }
 
@@ -274,6 +290,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         var count = SelectedProgram?.Measure.Count ?? 0;
         _selectedMeasureIndex = count == 0 ? -1 : Math.Clamp(_selectedMeasureIndex < 0 ? 0 : _selectedMeasureIndex, 0, count - 1);
         OnPropertyChanged(nameof(SelectedMeasureIndex));
+        RefreshSequencePresentation();
         OnPropertyChanged(nameof(MeasureHint));
         RefreshDatasets();
         RaiseEditorProperties();
@@ -290,20 +307,40 @@ public sealed partial class AuthoringWorkspaceViewModel
 
     private void UpdateSelectedMetric(Func<MetricDraft, MetricDraft> mutate)
     {
-        if (SelectedProgram is null || _selectedMeasureIndex < 0
-            || _selectedMeasureIndex >= SelectedProgram.Measure.Count)
+        if (SelectedProgram is null)
         {
             return;
         }
 
-        var measure = SelectedProgram.Measure.ToArray();
-        measure[_selectedMeasureIndex] = measure[_selectedMeasureIndex] switch
+        var path = MeasureMutationPath();
+        if (path.Count == 0)
         {
-            MetricNode metric => new MetricNode(mutate(metric.Metric)),
-            RepeatNode repeat => repeat with { Children = MutateFirstMetric(repeat.Children, mutate) },
-            var other => other,
-        };
+            return;
+        }
+
+        var measure = AuthoringSequence.MutateMeasure(
+            SelectedProgram.Measure,
+            path,
+            node => node switch
+            {
+                MetricNode metric => new MetricNode(mutate(metric.Metric)),
+                RepeatNode repeat => repeat with { Children = MutateFirstMetric(repeat.Children, mutate) },
+                var other => other,
+            });
         ReplaceSelected(SelectedProgram with { Measure = measure });
+    }
+
+    private IReadOnlyList<int> MeasureMutationPath()
+    {
+        if (SelectedSequence is { Section: SequenceSection.Measure, IndexPath.Count: > 0 } row)
+        {
+            return row.IndexPath;
+        }
+
+        return _selectedMeasureIndex < 0 || SelectedProgram is null
+            || _selectedMeasureIndex >= SelectedProgram.Measure.Count
+            ? []
+            : [_selectedMeasureIndex];
     }
 
     private static IReadOnlyList<MeasureNode> MutateFirstMetric(
@@ -358,6 +395,10 @@ public sealed partial class AuthoringWorkspaceViewModel
         OnPropertyChanged(nameof(RawTypeName));
         OnPropertyChanged(nameof(RawXml));
         OnPropertyChanged(nameof(MeasureHint));
+        OnPropertyChanged(nameof(SelectedSequence));
+        OnPropertyChanged(nameof(SelectedRepeat));
+        OnPropertyChanged(nameof(SelectedSetup));
+        OnPropertyChanged(nameof(RepeatCount));
     }
 
     private void UpdateSelectedTf(Func<TransferFunctionAlgorithm, TransferFunctionAlgorithm> mutate)

@@ -95,7 +95,7 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
 
     public string? MeasureHint
         => SelectedProgram is not null && SelectedProgram.Measure.Count == 0
-            ? "What do you want to measure? Pick a recipe."
+            ? AuthoringChrome.EmptyMeasureHint
             : null;
 
     public void ReportError(string message)
@@ -231,7 +231,7 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
         Programs = [.. Programs, created];
         SelectedProgram = created;
         Status = SelectedProgram.Measure.Count == 0
-            ? "What do you want to measure? Pick a recipe."
+            ? AuthoringChrome.EmptyMeasureHint
             : $"Created {id}";
         Error = null;
         RefreshDatasets();
@@ -253,7 +253,7 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
         }
 
         Status = string.Equals(recipeId, AuthoringRecipeIds.TestGroup, StringComparison.OrdinalIgnoreCase)
-            ? "Setup, measure, and Cleanup groups are written when you save the plan."
+            ? AuthoringChrome.TestGroupHint
             : $"Added {recipeId}";
         Error = null;
     }
