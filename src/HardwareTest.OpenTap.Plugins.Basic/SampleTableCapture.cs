@@ -3,17 +3,32 @@ using OpenTap;
 namespace HardwareTest.OpenTap.Plugins.Basic;
 
 /// Captures Sample result tables for ApplyTransferFunctionStep (same-plan sibling rows).
-internal sealed class SampleTableCapture : ResultListener
+internal sealed class SampleTableCapture : IResultSink
 {
     private readonly object _sync = new();
     private readonly List<(string Channel, double Value, double ElapsedMs)> _rows = [];
 
-    public SampleTableCapture()
+    public void OnTestPlanRunStart(TestPlanRun planRun)
     {
-        Name = "HardwareTestSampleCapture";
+        lock (_sync)
+        {
+            _rows.Clear();
+        }
     }
 
-    public override void OnResultPublished(Guid stepRunId, ResultTable result)
+    public void OnTestPlanRunCompleted(TestPlanRun planRun)
+    {
+    }
+
+    public void OnTestStepRunStart(TestStepRun stepRun)
+    {
+    }
+
+    public void OnTestStepRunCompleted(TestStepRun stepRun)
+    {
+    }
+
+    public void OnResultPublished(TestStepRun run, ResultTable result)
     {
         if (result is null || !string.Equals(result.Name, "Sample", StringComparison.OrdinalIgnoreCase))
         {

@@ -1,3 +1,5 @@
+using System.ComponentModel;
+using System.Xml.Serialization;
 using OpenTap;
 
 namespace HardwareTest.OpenTap.Plugins.Basic;
@@ -9,6 +11,13 @@ namespace HardwareTest.OpenTap.Plugins.Basic;
     Description: "Apply a discrete SISO LTI filter (Direct Form II transposed) on a sibling Sample channel.")]
 public sealed class ApplyTransferFunctionStep : RuntimeAwareTestStep
 {
+    private readonly SampleTableCapture _capture = new();
+
+    public ApplyTransferFunctionStep()
+    {
+        SampleCapture = _capture;
+    }
+
     [Display("Input channel", Order: 1)]
     public string InputChannel { get; set; } = string.Empty;
 
@@ -27,38 +36,19 @@ public sealed class ApplyTransferFunctionStep : RuntimeAwareTestStep
     [Display("Method", Order: 5, Description: "filter or filtfilt (lowercase).")]
     public string Method { get; set; } = "filter";
 
-    private SampleTableCapture? _capture;
-    private bool _ownsCapture;
-
-    public override void PrePlanRun()
-    {
-        if (PlanRun is null)
-        {
-            return;
-        }
-
-        _capture = new SampleTableCapture();
-        PlanRun.AddResultListener(_capture);
-        _ownsCapture = true;
-    }
-
-    public override void PostPlanRun()
-    {
-        if (_ownsCapture && _capture is not null)
-        {
-            PlanRun?.RemoveResultListener(_capture);
-        }
-
-        _capture = null;
-        _ownsCapture = false;
-    }
+    /// OpenTAP auto-wires public IResultSink members via ResultSinkListener before listeners are sealed.
+    [Browsable(false)]
+    [XmlIgnore]
+    [AnnotationIgnore]
+    public IResultSink SampleCapture { get; }
 
     public override void Run()
     {
         WaitIfPaused();
+        PlanRun?.WaitForResults();
         try
         {
-            var rows = _capture?.RowsFor(InputChannel) ?? [];
+            var rows = _capture.RowsFor(InputChannel);
             var values = rows.Select(r => r.Value).ToArray();
             var elapsed = rows.Select(r => r.ElapsedMs).ToArray();
             var filtered = ApplyToSeries(values, elapsed);
