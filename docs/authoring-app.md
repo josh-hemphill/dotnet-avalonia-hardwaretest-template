@@ -706,6 +706,7 @@ Start with a **closed table** in Authoring.Core (not reflection over every OpenT
 | `Basic.IdentityCheck` | Basic | `IdentityCheckStep` (in-repo demos only) |
 | `IC.IdentityQuery` | InstrumentComponents | `IdentityQueryStep` (name match via `OpenTapStepKinds`) |
 | `IC.SafeShutdown` | InstrumentComponents | `SafeShutdownStep` |
+| `IC.Dmm.MeasureVoltage*` | InstrumentComponents | Display-name catalog at bootstrap |
 | `Expr.MatlabSubset` | Expressions or Basic | `ExpressionAlgorithm` → lowered step |
 | `Basic.ApplyTransferFunction` | Basic | `ApplyTransferFunctionStep` (Area 11) |
 
