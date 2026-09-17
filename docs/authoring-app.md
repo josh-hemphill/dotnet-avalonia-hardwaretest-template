@@ -858,3 +858,5 @@ y = filter(num, den, u);            % check in y as golden beside the JSON
 - Fail closed when the series is shorter than MATLAB `filtfilt` allows beyond length < 2 (pad/trim / Gustafsson startup). Length < 2 is already Area 11 `RequireUniform`.
 - Near-zero `a[0]` (vs exact `== 0`) and Inf/NaN coefficients.
 - Backfill `elapsedMs` from `IntervalMs` for timestamp-only legacy `run.json` (v1 stay fail-closed).
+- InstrumentComponents series publishers beyond Save `TF_MISSING_ELAPSED` (v1 does not change IC clocks).
+- Sharing a Basic `double?`→NaN mapper between `TransferFunctionTimeBase` (`StoredSample`) and `ApplyTransferFunctionStep` (OpenTAP Sample rows). TimeBase stays Authoring.Core.
