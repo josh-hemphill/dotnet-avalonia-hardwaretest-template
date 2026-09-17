@@ -43,7 +43,7 @@ public partial class RunTestViewModel
         ProgramSelection = new ProgramSelectionViewModel(
             status => Status = status,
             () => IsEngineerDebugMode,
-            () => LoadSelectedProgramAsync(),
+            token => LoadSelectedProgramAsync(cancellationToken: token),
             () => SessionPanel!.RefreshSessionSummary());
         SessionPanel = new OperatorSessionPanelViewModel(
             session,

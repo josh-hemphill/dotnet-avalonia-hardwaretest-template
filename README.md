@@ -51,7 +51,7 @@ templates/reports/                   # Typst templates (embedded)
 
 | Guide | Use when |
 | --- | --- |
-| [docs/authoring-app.md](docs/authoring-app.md) | Planned engineer authoring app: metric-first plans, pack/ship, TUI compat |
+| [docs/authoring-app.md](docs/authoring-app.md) | Planned engineer authoring app: metric-first plans, MATLAB-flavored formulas, discrete TFs, run-export goldens, pack/ship, TUI compat |
 | [docs/getting-started.md](docs/getting-started.md) | First OpenTAP TUI plan with our packages and test types |
 | [docs/adapting.md](docs/adapting.md) | Replacing sample plans, plugins, station bindings, reports, or settings |
 | [docs/testing.md](docs/testing.md) | Adding or choosing a test suite |
