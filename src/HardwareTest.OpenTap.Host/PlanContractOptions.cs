@@ -20,5 +20,8 @@ public sealed class PlanContractOptions
     /// Missing sidecar is an error (pack/CI). Ad-hoc authoring keeps a warning.
     public bool Strict { get; init; }
 
+    /// Skip the bench VISA adapter directory (authoring PluginManager homes).
+    public bool ExcludeVisaAdapter { get; init; }
+
     public PlanContractFormat Format { get; init; } = PlanContractFormat.Text;
 }
