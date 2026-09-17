@@ -88,9 +88,9 @@ Write the criterion in words first, then publish **one Scalar per criterion**. R
 
 ### Formula — MATLAB-flavored subset
 
-**Formula…** is not MATLAB Runtime. One language, parsed in Authoring. `mean(x)` plus a scalar threshold lowers to **Mean GTE**. Unknown names (`fft`, `plot`, `eval`, continuous `tf`) fail parse. Nested `filter` / `filtfilt` fail closed (they never become OpenTAP Expressions).
+**Formula…** is not MATLAB Runtime. One language, parsed in Authoring. Unknown names (`fft`, `plot`, `eval`, continuous `tf`) fail parse. Nested `filter` / `filtfilt` fail closed (they never become OpenTAP Expressions).
 
-Allowed operators: `+ - * / ^`, `.* ./ .^`, parentheses. Functions: `abs`, `sqrt`, `min`, `max`, `mean`, `sum`, `std`, `diff`, `length`, `median`, plus HardwareTest `rise_time` / `inband_pct`. Coefficient vectors for IIR sugar: `[0.5 0.5]` or `[0.5, 0.5]`.
+Allowed operators: `+ - * / ^`, `.* ./ .^`, parentheses. Functions: `abs`, `sqrt`, `min`, `max`, `mean`, `sum`, `std`, `diff`, `length`, `median`, plus HardwareTest `rise_time` / `inband_pct`. Coefficient vectors for IIR sugar: `[0.5 0.5]` or `[0.5, 0.5]`. Preview and `--eval-formulas` evaluate that subset on a series. **Save plan** / pack only lower two shapes: `mean(x)` plus a scalar threshold → **Mean GTE**, and top-level `filter` / `filtfilt` → **Apply Transfer Function**. Any other parsed formula fails `FORMULA_NO_LOWER` (OpenTAP Expressions are not emitted).
 
 ### Transfer function — discrete SISO IIR
 
@@ -98,7 +98,7 @@ Allowed operators: `+ - * / ^`, `.* ./ .^`, parentheses. Functions: `abs`, `sqrt
 
 `filtfilt` is a sibling analyze of the acquire (whole series, zero-phase). Causal `filter` is the same placement. Both need a uniform `ElapsedMs` grid; **Acquire Voltage** always publishes `IntervalMs * index` so the first operator `run.json` already has a clock. Timestamp-only recordings fail closed.
 
-Import JSON (`schemaVersion` 1): `tsSeconds`, `numerator`, `denominator`, `method` (`filter` or `filtfilt`, lowercase), `timeBase` = `elapsedMs`, `initialConditions` = `zero`, `inputChannelKey`, `outputChannelKey`. Extra properties, `TsSeconds <= 0`, and a leading denominator of `0` fail import. Export snippet: [adapting.md](adapting.md#discrete-transfer-functions).
+Import JSON (`schemaVersion` 1): `tsSeconds`, `numerator`, `denominator`, `method` (`filter` or `filtfilt`, lowercase), `timeBase` = `elapsedMs`, `initialConditions` = `zero`, `inputChannelKey`, `outputChannelKey`. Extra properties, `tsSeconds <= 0`, and a leading denominator of `0` fail import. Export snippet: [adapting.md](adapting.md#discrete-transfer-functions).
 
 ### Series in band + events — Bit Sweep / timed sample
 
@@ -143,13 +143,13 @@ Optional: **Annotation** mixin for a bench note (Engineer station override). The
 
 ## 5. Check formulas and transfer functions against recordings
 
-Copy an operator Results export into `{workspace}/recordings/{planId}/{runId}/run.json` (or keep goldens under `tests/fixtures/authoring/`). The Program tab lists datasets for the current `planId`. Selecting one drives Preview from real samples (not Execute). `--eval-formulas` walks those goldens and fails on parse / eval / missing limits / irregular `elapsedMs`:
+Copy an operator Results export into `{workspace}/recordings/{planId}/{runId}/run.json`. The Program tab lists datasets for the current `planId`. Selecting one drives Preview from real samples (not Execute). `--eval-formulas` walks that workspace `recordings/` tree (not `tests/fixtures/authoring/`, which are unit-test goldens) and fails on parse / eval / missing limits / irregular `elapsedMs`:
 
 ```bash
 dotnet run --project src/HardwareTest.Authoring -c Debug -r win-x64 -- --eval-formulas plans/opentap
 ```
 
-Transfer-function eval uses the same Direct Form II filter as the bench step. Identification recordings must include finite `elapsedMs` on every sample (do not use timestamp-only `run-v1.json`). DUT serial is optional.
+Transfer-function eval uses the same Direct Form II transposed filter as the bench step. Identification recordings must include finite `elapsedMs` on every sample (do not use timestamp-only `run-v1.json`). DUT serial is optional.
 
 ## 6. Validate, pack, then run in the operator shell
 

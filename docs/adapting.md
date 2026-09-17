@@ -177,7 +177,7 @@ Field editors (`InteractionFieldViewModel`) are shared widgets; override and pro
 
 ## Presentation and reports
 
-Publish tables `Sample` (Channel, Index, Value, optional LimitLow/LimitHigh, **ElapsedMs**). **Acquire Voltage** always publishes `ElapsedMs` as `IntervalMs * index` (even with no limits) so MATLAB identification and `ApplyTransferFunctionStep` share a uniform clock. **Publish Timed Sample** still leaves `ElapsedMs` optional (`NaN` when unset). **HardwareTest.Authoring** writes **Presentation** (`ChannelKey`, `DisplayRole`, `YUnit`, optional history thresholds) on Save plan; TUI/Editor authors attach the mixin by hand. Results lines show `MetricKey [role] value unit`. Run maps `timeseries` → Focus trend when earned, `scalar`/`passband` → Band gauges; Results prefers gauges then charts.
+Publish tables `Sample` (Channel, Index, Value, optional LimitLow/LimitHigh, **ElapsedMs**) and `Scalar` (Name, Value, Unit, optional LimitLow/LimitHigh). **Acquire Voltage** always publishes `ElapsedMs` as `IntervalMs * index` (even with no limits) so MATLAB identification and `ApplyTransferFunctionStep` share a uniform clock. **Publish Timed Sample** still leaves `ElapsedMs` optional (`NaN` when unset). **HardwareTest.Authoring** writes **Presentation** (`ChannelKey`, `DisplayRole`, `YUnit`, optional history thresholds) on Save plan; TUI/Editor authors attach the mixin by hand. Results lines show `MetricKey [role] value unit`. Run maps `timeseries` → Focus trend when earned, `scalar`/`passband` → Band gauges; Results prefers gauges then charts.
 
 | Recipe | What to publish | Role | Limits | When to also publish timeseries |
 | --- | --- | --- | --- | --- |
