@@ -12,6 +12,12 @@
           "Microsoft.TestPlatform.TestHost": "17.14.1"
         }
       },
+      "OpenTAP": {
+        "type": "Direct",
+        "requested": "[9.32.2, )",
+        "resolved": "9.32.2",
+        "contentHash": "/2ifJOKrJzHQoqCGyL1gqdlcy20l1tCQkUr6QZyULzJdWoPZusP5yY67i8rGGIgqAkzrM7ES5s3wEz15MwwdOw=="
+      },
       "xunit.runner.visualstudio": {
         "type": "Direct",
         "requested": "[3.1.5, )",
@@ -164,7 +170,24 @@
         }
       },
       "hardwaretest.authoring.core": {
-        "type": "Project"
+        "type": "Project",
+        "dependencies": {
+          "HardwareTest.OpenTap.Plugins.Basic": "[0.1.0, )",
+          "HardwareTest.OpenTap.Plugins.Mixins": "[0.1.0, )",
+          "OpenTAP": "[9.32.2, )"
+        }
+      },
+      "hardwaretest.opentap.plugins.basic": {
+        "type": "Project",
+        "dependencies": {
+          "OpenTAP": "[9.32.2, )"
+        }
+      },
+      "hardwaretest.opentap.plugins.mixins": {
+        "type": "Project",
+        "dependencies": {
+          "OpenTAP": "[9.32.2, )"
+        }
       }
     },
     "net10.0/linux-x64": {
