@@ -27,9 +27,13 @@ public sealed partial class AuthoringWorkspaceViewModel
     public IReadOnlyList<FormulaCatalog.Item> FormulaCompletions
         => FormulaCatalog.Completions(ChannelKeys);
 
-    public bool HasFormula => SelectedMetric?.Source is ExpressionAlgorithm;
+    public bool HasFormula
+        => SelectedSequence?.Kind == SequenceRowKind.Metric
+           && SelectedMetric?.Source is ExpressionAlgorithm;
 
-    public bool HasTransferFunction => SelectedMetric?.Source is TransferFunctionAlgorithm;
+    public bool HasTransferFunction
+        => SelectedSequence?.Kind == SequenceRowKind.Metric
+           && SelectedMetric?.Source is TransferFunctionAlgorithm;
 
     public bool HasRawStep => SelectedMeasure is RawStepNode;
 
@@ -175,11 +179,7 @@ public sealed partial class AuthoringWorkspaceViewModel
 
     public string SetupInstrumentSlot
     {
-        get => SelectedSetup switch
-        {
-            IdentitySetup identity => identity.InstrumentSlot,
-            _ => CleanupInstrumentSlot,
-        };
+        get => SelectedSetup is IdentitySetup identity ? identity.InstrumentSlot : string.Empty;
         set
         {
             var slot = value.Trim();

@@ -50,8 +50,7 @@ public static class FormulaCatalog
     public static bool Packs(string name)
         => name is "mean" or "filter" or "filtfilt";
 
-    private static string InsertFor(string name)
-        => name is "filter" or "filtfilt" ? $"{name}(" : $"{name}(";
+    private static string InsertFor(string name) => $"{name}(";
 
     private static string Describe(string name)
         => name switch
