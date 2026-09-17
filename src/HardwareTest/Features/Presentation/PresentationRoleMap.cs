@@ -3,47 +3,20 @@ using HardwareTest.OpenTap.Host;
 
 namespace HardwareTest.Features.Presentation;
 
-/// Maps DisplayRole strings to tile kinds (no Avalonia types).
+/// Operator wrapper around Host DisplayRole mapping plus Run/Results sample ingest.
 public static class PresentationRoleMap
 {
-    public const string Timeseries = "timeseries";
-    public const string Scalar = "scalar";
-    public const string Passband = "passband";
-    public const string Timing = "timing";
+    public const string Timeseries = PresentationRoles.Timeseries;
+    public const string Scalar = PresentationRoles.Scalar;
+    public const string Passband = PresentationRoles.Passband;
+    public const string Timing = PresentationRoles.Timing;
 
     public const int MaxResultsTimeseriesCharts = 6;
     public const int MaxRunGaugeTiles = 4;
 
     /// Resolves a known role to a tile kind; unknown roles return null (text-only degradation).
     public static PresentationTileKind? TryMapRole(string? displayRole)
-    {
-        if (string.IsNullOrWhiteSpace(displayRole))
-        {
-            return null;
-        }
-
-        if (string.Equals(displayRole, Timeseries, StringComparison.OrdinalIgnoreCase))
-        {
-            return PresentationTileKind.Timeseries;
-        }
-
-        if (string.Equals(displayRole, Scalar, StringComparison.OrdinalIgnoreCase))
-        {
-            return PresentationTileKind.Scalar;
-        }
-
-        if (string.Equals(displayRole, Passband, StringComparison.OrdinalIgnoreCase))
-        {
-            return PresentationTileKind.Passband;
-        }
-
-        if (string.Equals(displayRole, Timing, StringComparison.OrdinalIgnoreCase))
-        {
-            return PresentationTileKind.Timing;
-        }
-
-        return null;
-    }
+        => PresentationRoles.TryMapRole(displayRole);
 
     /// True when the live sample should append to the chronological Run plot.
     public static bool IsTimeseriesPlotSample(MeasurementSampleEvent sample)
