@@ -33,7 +33,16 @@ public sealed partial class AuthoringWorkspaceViewModel
 
     public IReadOnlyList<string> MeasureItems { get; private set; } = [];
 
-    public MetricPreview Preview => MetricPreviewBuilder.From(SelectedMetric);
+    public MetricPreview Preview
+    {
+        get
+        {
+            var siblings = SelectedProgram is null
+                ? []
+                : AuthoringRecipeCatalog.EnumerateMetrics(SelectedProgram.Measure).ToArray();
+            return MetricPreviewBuilder.From(SelectedMetric, siblings);
+        }
+    }
 
     public string PreviewKind => Preview.TileKind?.ToString() ?? "Text";
 
@@ -71,6 +80,45 @@ public sealed partial class AuthoringWorkspaceViewModel
     {
         get => FormatLimit(SelectedMetric?.Limits?.Threshold);
         set => UpdateLimits(SelectedMetric?.Limits?.Low, SelectedMetric?.Limits?.High, ParseLimit(value));
+    }
+
+    public string FormulaSource
+    {
+        get => SelectedMetric?.Source is ExpressionAlgorithm expr ? expr.Source : string.Empty;
+        set
+        {
+            UpdateSelectedMetric(metric =>
+            {
+                var keys = metric.Source is ExpressionAlgorithm existing
+                    ? existing.InputChannelKeys
+                    : AuthoringRecipeCatalog.EnumerateMetrics(SelectedProgram?.Measure ?? [])
+                        .Select(m => m.ChannelKey)
+                        .Where(key => !string.Equals(key, metric.ChannelKey, StringComparison.OrdinalIgnoreCase))
+                        .ToArray();
+                return metric with { Source = new ExpressionAlgorithm(keys, value) };
+            });
+        }
+    }
+
+    public string FormulaError
+    {
+        get
+        {
+            if (SelectedMetric?.Source is not ExpressionAlgorithm expr)
+            {
+                return string.Empty;
+            }
+
+            try
+            {
+                FormulaParser.Parse(expr.Source);
+                return string.Empty;
+            }
+            catch (AuthoringWorkspaceException ex)
+            {
+                return ex.Message;
+            }
+        }
     }
 
     public string VisaAddress
@@ -197,6 +245,8 @@ public sealed partial class AuthoringWorkspaceViewModel
         OnPropertyChanged(nameof(LimitLow));
         OnPropertyChanged(nameof(LimitHigh));
         OnPropertyChanged(nameof(Threshold));
+        OnPropertyChanged(nameof(FormulaSource));
+        OnPropertyChanged(nameof(FormulaError));
         OnPropertyChanged(nameof(VisaAddress));
         OnPropertyChanged(nameof(RawTypeName));
         OnPropertyChanged(nameof(RawXml));

@@ -331,6 +331,7 @@
       "hardwaretest.authoring.core": {
         "type": "Project",
         "dependencies": {
+          "HardwareTest.Core": "[0.1.0, )",
           "HardwareTest.OpenTap.Host": "[0.1.0, )",
           "HardwareTest.OpenTap.Plugins.Basic": "[0.1.0, )",
           "HardwareTest.OpenTap.Plugins.Mixins": "[0.1.0, )",

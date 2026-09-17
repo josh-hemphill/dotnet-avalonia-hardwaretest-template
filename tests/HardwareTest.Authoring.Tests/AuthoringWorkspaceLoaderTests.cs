@@ -30,6 +30,7 @@ public sealed class AuthoringWorkspaceLoaderTests
         Assert.DoesNotContain(names, n => n.Contains("hang-forever", StringComparison.OrdinalIgnoreCase));
         var expectedDir = Path.GetFullPath(root);
         Assert.All(workspace.TapPlanPaths, path => Assert.Equal(expectedDir, Path.GetDirectoryName(path)));
+        Assert.Equal("recordings", workspace.Manifest.RecordingsDirectory);
     }
 
     [Fact]

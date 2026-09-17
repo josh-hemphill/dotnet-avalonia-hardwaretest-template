@@ -77,6 +77,12 @@ public static class AuthoringCli
                 continue;
             }
 
+            if (string.Equals(arg, "--eval-formulas", StringComparison.OrdinalIgnoreCase))
+            {
+                command = AuthoringCliCommand.EvalFormulas;
+                continue;
+            }
+
             if (string.Equals(arg, "--offline", StringComparison.OrdinalIgnoreCase))
             {
                 offline = true;
@@ -145,6 +151,7 @@ public static class AuthoringCli
             AuthoringCliCommand.Validate => RunValidate(workspace, strict, format, output),
             AuthoringCliCommand.Pack => RunPack(workspace, outputDirectory, openTapHome, offline, output, error),
             AuthoringCliCommand.Compat => RunCompat(workspace, openTapHome, offline, output, error),
+            AuthoringCliCommand.EvalFormulas => RunEvalFormulas(output, error),
             _ => UsageExitCode,
         };
     }
@@ -254,6 +261,13 @@ public static class AuthoringCli
         return 0;
     }
 
+    private static int RunEvalFormulas(TextWriter output, TextWriter error)
+    {
+        error.WriteLine("Formula dataset eval is not implemented.");
+        output.WriteLine("Use --eval-formulas after run recordings are installed.");
+        return UsageExitCode;
+    }
+
     private static void WriteUsage(TextWriter output)
     {
         output.WriteLine("HardwareTest.Authoring <workspace>");
@@ -261,6 +275,7 @@ public static class AuthoringCli
         output.WriteLine("HardwareTest.Authoring --validate <workspace> [--strict] [--format text|json|sarif]");
         output.WriteLine("HardwareTest.Authoring --compat <workspace>");
         output.WriteLine("HardwareTest.Authoring --pack <workspace> --out dist/");
+        output.WriteLine("HardwareTest.Authoring --eval-formulas <workspace>");
         output.WriteLine("HardwareTest.Authoring --help");
     }
 
@@ -330,5 +345,6 @@ public static class AuthoringCli
         Validate,
         Pack,
         Compat,
+        EvalFormulas,
     }
 }

@@ -78,6 +78,9 @@
                 <TextBox PlaceholderText="Limit low" Text="{Binding LimitLow}" />
                 <TextBox PlaceholderText="Limit high" Text="{Binding LimitHigh}" />
                 <TextBox PlaceholderText="Threshold" Text="{Binding Threshold}" />
+                <TextBlock FontWeight="SemiBold" Text="Formula" />
+                <TextBox PlaceholderText="mean(VDC)" Text="{Binding FormulaSource}" />
+                <TextBlock Text="{Binding FormulaError}" TextWrapping="Wrap" Foreground="#C62828" />
                 <TextBlock FontWeight="SemiBold" Text="Instrument" />
                 <TextBox PlaceholderText="VisaAddress" Text="{Binding VisaAddress}" />
                 <TextBlock FontWeight="SemiBold" Text="Sidecar" />
