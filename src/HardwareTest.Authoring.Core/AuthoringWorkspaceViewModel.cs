@@ -468,6 +468,8 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(StationHealthProfileId));
         OnPropertyChanged(nameof(Instruments));
         OnPropertyChanged(nameof(InstrumentSlots));
+        OnPropertyChanged(nameof(SelectedInstrumentSlot));
+        OnPropertyChanged(nameof(SelectedInstrumentVisa));
         RaiseEditorProperties();
     }
 

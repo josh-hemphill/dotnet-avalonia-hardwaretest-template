@@ -5,127 +5,465 @@
         x:Class="HardwareTest.Authoring.MainWindow"
         x:DataType="vm:AuthoringWorkspaceViewModel"
         Title="HardwareTest Authoring"
-        Width="1200"
-        Height="760"
-        MinWidth="900"
-        MinHeight="560">
+        Width="1280"
+        Height="800"
+        MinWidth="960"
+        MinHeight="600">
   <DockPanel>
-    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="8" Margin="12">
-      <Button Content="Open workspace…" Click="OnOpenWorkspace" />
-      <Button Content="New program" Click="OnCreateProgram" />
-      <Button Content="Bootstrap" Click="OnBootstrap" />
-      <Button Content="Validate" Click="OnValidate" />
-      <Button Content="Save sidecar" Click="OnSaveSidecar" />
-      <Button Content="Save plan" Click="OnApply" />
-      <TextBlock VerticalAlignment="Center" Text="{Binding Status}" />
+    <StackPanel DockPanel.Dock="Top" Spacing="8" Margin="12">
+      <StackPanel Orientation="Horizontal" Spacing="8">
+        <Button Content="Open workspace…"
+                Click="OnOpenWorkspace"
+                ToolTip.Tip="Open a folder that contains authoring.json"
+                AutomationProperties.Name="Open workspace" />
+        <Button Content="Bootstrap"
+                Click="OnBootstrap"
+                ToolTip.Tip="Install Editor packs into this workspace’s isolated OpenTAP home (offline)"
+                AutomationProperties.Name="Bootstrap OpenTAP home" />
+        <Button Content="New program"
+                Click="OnCreateProgram"
+                ToolTip.Tip="Seed Identity, Cleanup, and a Mock DMM slot"
+                AutomationProperties.Name="New program" />
+        <Button Content="Save sidecar"
+                Click="OnSaveSidecar"
+                ToolTip.Tip="Write only {planId}.program.json (session/DUT/Typst). Does not compile the TapPlan."
+                AutomationProperties.Name="Save sidecar" />
+        <Button Content="Save plan"
+                Click="OnApply"
+                ToolTip.Tip="Compile metrics to TapPlan + sidecar (Setup / measure / Cleanup groups)"
+                AutomationProperties.Name="Save plan" />
+        <Button Content="Validate"
+                Click="OnValidate"
+                ToolTip.Tip="Run PlanContractValidator --strict on TapPlans in this workspace"
+                AutomationProperties.Name="Validate workspace" />
+        <TextBlock x:Name="StatusLabel"
+                   VerticalAlignment="Center"
+                   Text="{Binding Status}"
+                   AutomationProperties.LiveSetting="Polite"
+                   AutomationProperties.Name="Authoring status" />
+      </StackPanel>
     </StackPanel>
     <TextBlock DockPanel.Dock="Bottom"
                Margin="12,0,12,12"
                Foreground="#C62828"
-               Text="{Binding Error}" />
+               IsVisible="{Binding Error, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+               Text="{Binding Error, StringFormat='Error: {0}'}"
+               AutomationProperties.LiveSetting="Assertive"
+               AutomationProperties.Name="Authoring error" />
     <Grid ColumnDefinitions="220,*" Margin="12,0,12,12">
       <DockPanel Grid.Column="0" Margin="0,0,12,0">
-        <TextBlock DockPanel.Dock="Top" FontWeight="SemiBold" Text="Programs" Margin="0,0,0,8" />
+        <TextBlock x:Name="ProgramsHeading"
+                   DockPanel.Dock="Top"
+                   FontWeight="SemiBold"
+                   Text="{Binding ProgramsTitle, FallbackValue=Programs}"
+                   AutomationProperties.HeadingLevel="1" />
+        <TextBlock DockPanel.Dock="Top"
+                   Margin="0,0,0,8"
+                   Opacity="0.8"
+                   TextWrapping="Wrap"
+                   Text="{Binding ProgramsPurpose}" />
         <ListBox ItemsSource="{Binding Programs}"
-                 SelectionChanged="OnProgramSelected">
+                 SelectionChanged="OnProgramSelected"
+                 KeyboardNavigation.TabNavigation="Once"
+                 AutomationProperties.Name="Programs"
+                 AutomationProperties.LabeledBy="{Binding #ProgramsHeading}">
           <ListBox.ItemTemplate>
             <DataTemplate x:DataType="vm:ProgramDraft">
-              <TextBlock Text="{Binding PlanId}" />
+              <StackPanel>
+                <TextBlock Text="{Binding Sidecar.DisplayName}" />
+                <TextBlock Opacity="0.7" FontSize="11" Text="{Binding PlanId}" />
+              </StackPanel>
             </DataTemplate>
           </ListBox.ItemTemplate>
         </ListBox>
       </DockPanel>
       <TabControl Grid.Column="1">
-        <TabItem Header="Program">
-          <Grid ColumnDefinitions="220,260,*" RowDefinitions="Auto,*">
-            <TextBlock Grid.Row="0" Grid.Column="0"
-                       FontWeight="SemiBold"
-                       Text="Measure"
-                       Margin="0,0,0,8" />
-            <TextBlock Grid.Row="0" Grid.Column="1"
-                       FontWeight="SemiBold"
-                       Text="Metric"
-                       Margin="12,0,0,8" />
-            <TextBlock Grid.Row="0" Grid.Column="2"
-                       FontWeight="SemiBold"
-                       Text="Preview"
-                       Margin="12,0,0,8" />
-            <DockPanel Grid.Row="1" Grid.Column="0">
+        <TabItem Header="Program" AutomationProperties.Name="Program tab">
+          <Grid ColumnDefinitions="280,320,*" RowDefinitions="Auto,*">
+            <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,12,8">
+              <TextBlock x:Name="SequenceHeading"
+                         FontWeight="SemiBold"
+                         Text="{Binding SequenceTitle}"
+                         AutomationProperties.HeadingLevel="2" />
+              <TextBlock Opacity="0.8"
+                         TextWrapping="Wrap"
+                         Text="{Binding SequencePurpose}" />
+            </StackPanel>
+            <StackPanel Grid.Row="0" Grid.Column="1" Margin="0,0,12,8">
+              <TextBlock x:Name="InspectorHeading"
+                         FontWeight="SemiBold"
+                         Text="{Binding InspectorTitle}"
+                         AutomationProperties.HeadingLevel="2" />
+              <TextBlock Opacity="0.8"
+                         TextWrapping="Wrap"
+                         Text="{Binding InspectorPurpose}" />
+            </StackPanel>
+            <StackPanel Grid.Row="0" Grid.Column="2" Margin="0,0,0,8">
+              <TextBlock x:Name="PreviewHeading"
+                         FontWeight="SemiBold"
+                         Text="{Binding PreviewTitle}"
+                         AutomationProperties.HeadingLevel="2" />
+              <TextBlock Opacity="0.8"
+                         TextWrapping="Wrap"
+                         Text="{Binding PreviewPurpose}" />
+            </StackPanel>
+
+            <DockPanel Grid.Row="1" Grid.Column="0" Margin="0,0,12,0">
               <TextBlock DockPanel.Dock="Top"
                          Margin="0,0,0,8"
                          TextWrapping="Wrap"
                          Text="{Binding MeasureHint}" />
-              <ListBox ItemsSource="{Binding MeasureItems}"
-                       SelectedIndex="{Binding SelectedMeasureIndex}" />
-            </DockPanel>
-            <ScrollViewer Grid.Row="1" Grid.Column="1" Margin="12,0,0,0">
-              <StackPanel Spacing="8">
-                <TextBlock FontWeight="SemiBold" Text="Recipes" />
-                <ListBox Height="160"
-                         ItemsSource="{Binding Recipes}"
-                         SelectionChanged="OnRecipeSelected">
-                  <ListBox.ItemTemplate>
+              <StackPanel DockPanel.Dock="Top" Spacing="6" Margin="0,0,0,8">
+                <TextBlock x:Name="RecipeLabel" Text="Add to sequence" />
+                <ComboBox ItemsSource="{Binding Recipes}"
+                          SelectedItem="{Binding SelectedRecipe}"
+                          AutomationProperties.Name="Recipe"
+                          AutomationProperties.LabeledBy="{Binding #RecipeLabel}">
+                  <ComboBox.ItemTemplate>
                     <DataTemplate x:DataType="vm:AuthoringRecipe">
-                      <TextBlock Text="{Binding Title}" />
+                      <StackPanel>
+                        <TextBlock Text="{Binding ListLabel}" />
+                        <TextBlock Opacity="0.75" FontSize="11" TextWrapping="Wrap" Text="{Binding Summary}" />
+                      </StackPanel>
                     </DataTemplate>
-                  </ListBox.ItemTemplate>
-                </ListBox>
-                <Button Content="Add recipe" Click="OnAddRecipe" />
-                <TextBlock FontWeight="SemiBold" Text="Selected metric" />
-                <TextBox PlaceholderText="Channel key" Text="{Binding ChannelKey}" />
-                <TextBox PlaceholderText="Display role" Text="{Binding DisplayRole}" />
-                <TextBox PlaceholderText="Y unit" Text="{Binding YUnit}" />
-                <TextBox PlaceholderText="Limit low" Text="{Binding LimitLow}" />
-                <TextBox PlaceholderText="Limit high" Text="{Binding LimitHigh}" />
-                <TextBox PlaceholderText="Threshold" Text="{Binding Threshold}" />
-                <TextBlock FontWeight="SemiBold" Text="Formula" />
-                <TextBox PlaceholderText="mean(VDC)" Text="{Binding FormulaSource}" />
-                <TextBlock Text="{Binding FormulaError}" TextWrapping="Wrap" Foreground="#C62828" />
-                <TextBlock FontWeight="SemiBold" Text="Transfer function" />
-                <TextBox PlaceholderText="Numerator b" Text="{Binding TfNumerator}" />
-                <TextBox PlaceholderText="Denominator a" Text="{Binding TfDenominator}" />
-                <TextBox PlaceholderText="Ts seconds" Text="{Binding TfTsSeconds}" />
-                <TextBox PlaceholderText="filter or filtfilt" Text="{Binding TfMethod}" />
-                <TextBox PlaceholderText="Input channel" Text="{Binding TfInputChannel}" />
-                <TextBlock FontWeight="SemiBold" Text="Instrument" />
-                <TextBox PlaceholderText="VisaAddress" Text="{Binding VisaAddress}" />
-                <TextBlock FontWeight="SemiBold" Text="Sidecar" />
-                <TextBox PlaceholderText="Display name" Text="{Binding DisplayName}" />
-                <TextBox PlaceholderText="DUT family" Text="{Binding DutFamily}" />
-                <CheckBox Content="Require serial" IsChecked="{Binding RequireSerial}" />
-                <TextBlock FontWeight="SemiBold" Text="Raw step" />
-                <TextBlock Text="{Binding RawTypeName}" TextWrapping="Wrap" />
-                <TextBox IsReadOnly="True"
-                         AcceptsReturn="True"
-                         Height="80"
-                         Text="{Binding RawXml}" />
+                  </ComboBox.ItemTemplate>
+                </ComboBox>
+                <Button Content="Add recipe"
+                        Click="OnAddRecipe"
+                        ToolTip.Tip="Append or wrap using the selected recipe. Identity/Prompt go to Setup; metrics to Measure; Repeat wraps the last measure; Safe Shutdown updates Cleanup."
+                        AutomationProperties.Name="Add recipe" />
+              </StackPanel>
+              <ListBox ItemsSource="{Binding SequenceItems}"
+                       SelectedIndex="{Binding SelectedSequenceIndex}"
+                       KeyboardNavigation.TabNavigation="Once"
+                       AutomationProperties.Name="Program sequence"
+                       AutomationProperties.LabeledBy="{Binding #SequenceHeading}">
+                <ListBox.Styles>
+                  <Style Selector="ListBoxItem" x:DataType="vm:SequenceRow">
+                    <Setter Property="IsEnabled" Value="{Binding IsSelectable}" />
+                    <Setter Property="Focusable" Value="{Binding IsSelectable}" />
+                  </Style>
+                  <Style Selector="ListBoxItem:disabled TextBlock">
+                    <Setter Property="FontWeight" Value="SemiBold" />
+                  </Style>
+                </ListBox.Styles>
+                <ListBox.ItemTemplate>
+                  <DataTemplate x:DataType="vm:SequenceRow">
+                    <StackPanel Margin="{Binding Indent, Converter={x:Static vm:LeftIndentConverter.Instance}}">
+                      <TextBlock Text="{Binding Label}" />
+                      <TextBlock Opacity="0.7"
+                                 FontSize="11"
+                                 TextWrapping="Wrap"
+                                 Text="{Binding Detail}" />
+                    </StackPanel>
+                  </DataTemplate>
+                </ListBox.ItemTemplate>
+              </ListBox>
+            </DockPanel>
+
+            <ScrollViewer Grid.Row="1" Grid.Column="1" Margin="0,0,12,0">
+              <StackPanel Spacing="8">
+                <TextBlock Text="{Binding InspectorBreadcrumb}" TextWrapping="Wrap" />
+
+                <StackPanel Spacing="6" IsVisible="{Binding HasRepeatEditor}">
+                  <TextBlock x:Name="RepeatCountLabel" Text="Repeat count" />
+                  <TextBox Text="{Binding RepeatCount}"
+                           AutomationProperties.Name="Repeat count"
+                           AutomationProperties.LabeledBy="{Binding #RepeatCountLabel}"
+                           ToolTip.Tip="How many times the nested measure steps run" />
+                </StackPanel>
+
+                <StackPanel Spacing="6" IsVisible="{Binding HasSetupEditor}">
+                  <StackPanel Spacing="6" IsVisible="{Binding HasPromptSetup}">
+                    <TextBlock x:Name="PromptMessageLabel" Text="Prompt message" />
+                    <TextBox Text="{Binding PromptMessage}"
+                             AcceptsReturn="True"
+                             TextWrapping="Wrap"
+                             AutomationProperties.Name="Prompt message"
+                             AutomationProperties.LabeledBy="{Binding #PromptMessageLabel}" />
+                  </StackPanel>
+                  <StackPanel Spacing="6" IsVisible="{Binding HasInputSetup}">
+                    <TextBlock x:Name="InputTitleLabel" Text="Input title" />
+                    <TextBox Text="{Binding InputTitle}"
+                             AutomationProperties.Name="Input title"
+                             AutomationProperties.LabeledBy="{Binding #InputTitleLabel}" />
+                    <TextBlock x:Name="InputMessageLabel" Text="Input message" />
+                    <TextBox Text="{Binding InputMessage}"
+                             AutomationProperties.Name="Input message"
+                             AutomationProperties.LabeledBy="{Binding #InputMessageLabel}" />
+                  </StackPanel>
+                  <StackPanel Spacing="6" IsVisible="{Binding HasIdentitySetup}">
+                    <TextBlock x:Name="SetupSlotLabel" Text="Instrument slot" />
+                    <ComboBox ItemsSource="{Binding InstrumentSlots}"
+                              SelectedItem="{Binding SetupInstrumentSlot}"
+                              AutomationProperties.Name="Setup instrument slot"
+                              AutomationProperties.LabeledBy="{Binding #SetupSlotLabel}"
+                              ToolTip.Tip="Identity Check uses this slot." />
+                  </StackPanel>
+                </StackPanel>
+
+                <StackPanel Spacing="6" IsVisible="{Binding HasCleanupEditor}">
+                  <CheckBox Content="Include Safe Shutdown"
+                            IsChecked="{Binding IncludeSafeShutdown}"
+                            ToolTip.Tip="When off, Run Selected skips Safe Shutdown (suite-scoped cleanup)" />
+                  <TextBlock x:Name="CleanupSlotLabel" Text="Cleanup instrument slot" />
+                  <ComboBox ItemsSource="{Binding InstrumentSlots}"
+                            SelectedItem="{Binding CleanupInstrumentSlot}"
+                            AutomationProperties.Name="Cleanup instrument slot"
+                            AutomationProperties.LabeledBy="{Binding #CleanupSlotLabel}" />
+                </StackPanel>
+
+                <StackPanel Spacing="6" IsVisible="{Binding HasMetricPresentation}">
+                  <TextBlock x:Name="ChannelKeyLabel" Text="Channel key" />
+                  <AutoCompleteBox ItemsSource="{Binding ChannelKeys}"
+                                   Text="{Binding ChannelKey}"
+                                   FilterMode="Contains"
+                                   AutomationProperties.Name="Channel key"
+                                   AutomationProperties.LabeledBy="{Binding #ChannelKeyLabel}"
+                                   ToolTip.Tip="Must be unique in the plan. Operators and history use this id." />
+                  <TextBlock x:Name="DisplayRoleLabel" Text="Display role" />
+                  <ComboBox ItemsSource="{Binding DisplayRoleOptions}"
+                            SelectedItem="{Binding DisplayRole}"
+                            AutomationProperties.Name="Display role"
+                            AutomationProperties.LabeledBy="{Binding #DisplayRoleLabel}"
+                            ToolTip.Tip="scalar/passband carry pass criteria; timeseries is the waveform shape; timing is the strip" />
+                  <TextBlock x:Name="YUnitLabel" Text="Y unit" />
+                  <ComboBox ItemsSource="{Binding YUnitOptions}"
+                            SelectedItem="{Binding YUnit}"
+                            IsEditable="True"
+                            AutomationProperties.Name="Y unit"
+                            AutomationProperties.LabeledBy="{Binding #YUnitLabel}" />
+                  <TextBlock x:Name="LimitLowLabel" Text="Limit low" IsVisible="{Binding ShowBandLimits}" />
+                  <TextBox Text="{Binding LimitLow}"
+                           IsVisible="{Binding ShowBandLimits}"
+                           AutomationProperties.Name="Limit low"
+                           AutomationProperties.LabeledBy="{Binding #LimitLowLabel}" />
+                  <TextBlock x:Name="LimitHighLabel" Text="Limit high" IsVisible="{Binding ShowBandLimits}" />
+                  <TextBox Text="{Binding LimitHigh}"
+                           IsVisible="{Binding ShowBandLimits}"
+                           AutomationProperties.Name="Limit high"
+                           AutomationProperties.LabeledBy="{Binding #LimitHighLabel}" />
+                  <TextBlock x:Name="ThresholdLabel" Text="Threshold" IsVisible="{Binding ShowThreshold}" />
+                  <TextBox Text="{Binding Threshold}"
+                           IsVisible="{Binding ShowThreshold}"
+                           AutomationProperties.Name="Threshold"
+                           AutomationProperties.LabeledBy="{Binding #ThresholdLabel}"
+                           ToolTip.Tip="Mean GTE passes when the mean meets this threshold" />
+                  <TextBlock x:Name="MetricSlotLabel" Text="Instrument slot" />
+                  <ComboBox ItemsSource="{Binding InstrumentSlots}"
+                            SelectedItem="{Binding MetricInstrumentSlot}"
+                            AutomationProperties.Name="Metric instrument slot"
+                            AutomationProperties.LabeledBy="{Binding #MetricSlotLabel}"
+                            ToolTip.Tip="Measure steps bind this slot. Algorithms may leave it empty." />
+                </StackPanel>
+
+                <StackPanel Spacing="6" IsVisible="{Binding HasFormula}">
+                  <TextBlock FontWeight="SemiBold" Text="Formula" />
+                  <TextBlock Opacity="0.8" TextWrapping="Wrap" Text="{Binding FormulaHelp}" />
+                  <TextBlock x:Name="FormulaLabel" Text="Expression" />
+                  <TextBox x:Name="FormulaBox"
+                           PlaceholderText="mean(VDC)"
+                           Text="{Binding FormulaSource}"
+                           AutomationProperties.Name="Formula expression"
+                           AutomationProperties.LabeledBy="{Binding #FormulaLabel}"
+                           ToolTip.Tip="MATLAB-flavored subset. Unknown names fail closed. fft/plot/eval are never offered." />
+                  <ItemsControl ItemsSource="{Binding FormulaCompletions}">
+                    <ItemsControl.ItemsPanel>
+                      <ItemsPanelTemplate>
+                        <WrapPanel />
+                      </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate>
+                        <Button Margin="0,0,6,6"
+                                Content="{Binding Name}"
+                                Tag="{Binding InsertText}"
+                                ToolTip.Tip="{Binding Description}"
+                                Click="OnFormulaChip"
+                                AutomationProperties.Name="{Binding Name}" />
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                  <TextBlock Text="{Binding FormulaError}"
+                             TextWrapping="Wrap"
+                             Foreground="#C62828"
+                             IsVisible="{Binding FormulaError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                             AutomationProperties.LiveSetting="Polite"
+                             AutomationProperties.Name="Formula error" />
+                  <TextBlock Text="{Binding FormulaSaveNote}" TextWrapping="Wrap" Opacity="0.85" />
+                </StackPanel>
+
+                <StackPanel Spacing="6" IsVisible="{Binding HasTransferFunction}">
+                  <TextBlock FontWeight="SemiBold" Text="Transfer function" />
+                  <TextBlock Opacity="0.8" TextWrapping="Wrap" Text="{Binding TransferFunctionHelp}" />
+                  <Button Content="Import JSON…"
+                          Click="OnImportTransferFunction"
+                          ToolTip.Tip="Load models/*.tf.json (tsSeconds, numerator, denominator, method)"
+                          AutomationProperties.Name="Import transfer function JSON" />
+                  <TextBlock x:Name="TfMethodLabel" Text="Method" />
+                  <ComboBox ItemsSource="{Binding TfMethodOptions}"
+                            SelectedItem="{Binding TfMethod}"
+                            AutomationProperties.Name="Transfer function method"
+                            AutomationProperties.LabeledBy="{Binding #TfMethodLabel}"
+                            ToolTip.Tip="filter is causal; filtfilt is zero-phase on the whole series" />
+                  <TextBlock x:Name="TfInputLabel" Text="Input channel" />
+                  <AutoCompleteBox ItemsSource="{Binding ChannelKeys}"
+                                   Text="{Binding TfInputChannel}"
+                                   FilterMode="Contains"
+                                   AutomationProperties.Name="Transfer function input channel"
+                                   AutomationProperties.LabeledBy="{Binding #TfInputLabel}" />
+                  <TextBlock x:Name="TfNumLabel" Text="Numerator b" />
+                  <TextBox Text="{Binding TfNumerator}"
+                           AutomationProperties.Name="Numerator b"
+                           AutomationProperties.LabeledBy="{Binding #TfNumLabel}"
+                           ToolTip.Tip="Space- or comma-separated coefficients" />
+                  <TextBlock x:Name="TfDenLabel" Text="Denominator a" />
+                  <TextBox Text="{Binding TfDenominator}"
+                           AutomationProperties.Name="Denominator a"
+                           AutomationProperties.LabeledBy="{Binding #TfDenLabel}" />
+                  <TextBlock x:Name="TfTsLabel" Text="Ts seconds" />
+                  <TextBox Text="{Binding TfTsSeconds}"
+                           AutomationProperties.Name="Sampling period Ts seconds"
+                           AutomationProperties.LabeledBy="{Binding #TfTsLabel}" />
+                </StackPanel>
+
+                <StackPanel Spacing="6" IsVisible="{Binding HasRawStep}">
+                  <TextBlock FontWeight="SemiBold" Text="Raw TUI step" />
+                  <TextBlock Text="{Binding RawTypeName}" TextWrapping="Wrap" />
+                  <TextBox IsReadOnly="True"
+                           AcceptsReturn="True"
+                           Height="80"
+                           Text="{Binding RawXml}"
+                           AutomationProperties.Name="Raw step XML" />
+                </StackPanel>
               </StackPanel>
             </ScrollViewer>
-            <StackPanel Grid.Row="1" Grid.Column="2" Spacing="8" Margin="12,0,0,0">
+
+            <StackPanel Grid.Row="1" Grid.Column="2" Spacing="8">
               <TextBlock Text="{Binding PreviewKind, StringFormat='Tile: {0}'}" />
               <TextBlock Text="{Binding Preview.ChannelKey, StringFormat='Channel: {0}'}" />
               <TextBlock Text="{Binding Preview.DisplayRole, StringFormat='Role: {0}'}" />
               <TextBlock Text="{Binding Preview.YUnit, StringFormat='Unit: {0}'}" />
               <TextBlock Text="{Binding Preview.CannedValue, StringFormat='Value: {0}'}" />
               <TextBlock Text="{Binding PreviewNote}" TextWrapping="Wrap" />
-              <TextBlock FontWeight="SemiBold" Text="Recordings" />
+              <TextBlock x:Name="RecordingsHeading"
+                         FontWeight="SemiBold"
+                         Text="Recordings"
+                         AutomationProperties.HeadingLevel="3" />
               <ListBox Height="80"
                        ItemsSource="{Binding DatasetItems}"
-                       SelectedIndex="{Binding SelectedDatasetIndex}" />
-              <ListBox ItemsSource="{Binding Preview.CannedSamples}" Height="120" />
+                       SelectedIndex="{Binding SelectedDatasetIndex}"
+                       KeyboardNavigation.TabNavigation="Once"
+                       AutomationProperties.Name="Recordings"
+                       AutomationProperties.LabeledBy="{Binding #RecordingsHeading}" />
+              <ListBox ItemsSource="{Binding Preview.CannedSamples}"
+                       Height="120"
+                       KeyboardNavigation.TabNavigation="Once"
+                       AutomationProperties.Name="Preview samples" />
             </StackPanel>
           </Grid>
         </TabItem>
-        <TabItem Header="Findings">
-          <ListBox ItemsSource="{Binding Findings}">
+        <TabItem Header="Program settings" AutomationProperties.Name="Program settings tab">
+          <ScrollViewer>
+            <StackPanel Spacing="10" Margin="0,8,16,0" MaxWidth="640">
+              <TextBlock FontWeight="SemiBold"
+                         Text="Program settings"
+                         AutomationProperties.HeadingLevel="2" />
+              <TextBlock Opacity="0.8" TextWrapping="Wrap" Text="{Binding ProgramSettingsPurpose}" />
+              <TextBlock Opacity="0.8" TextWrapping="Wrap" Text="{Binding SidecarHelp}" />
+
+              <TextBlock x:Name="DisplayNameLabel" Text="Display name" />
+              <TextBox Text="{Binding DisplayName}"
+                       AutomationProperties.Name="Display name"
+                       AutomationProperties.LabeledBy="{Binding #DisplayNameLabel}" />
+              <TextBlock x:Name="DutFamilyLabel" Text="DUT family" />
+              <TextBox Text="{Binding DutFamily}"
+                       AutomationProperties.Name="DUT family"
+                       AutomationProperties.LabeledBy="{Binding #DutFamilyLabel}" />
+              <CheckBox Content="Require serial"
+                        IsChecked="{Binding RequireSerial}"
+                        ToolTip.Tip="When true, the plan needs an identity step so the operator can confirm DUT serial" />
+              <CheckBox Content="Require part number" IsChecked="{Binding RequirePartNumber}" />
+              <CheckBox Content="Require revision" IsChecked="{Binding RequireRevision}" />
+              <CheckBox Content="Require operator" IsChecked="{Binding RequireOperator}" />
+              <CheckBox Content="Selection includes cleanup"
+                        IsChecked="{Binding SelectionIncludesCleanup}"
+                        ToolTip.Tip="When off, Run Selected skips Safe Shutdown" />
+
+              <TextBlock FontWeight="SemiBold" Text="Reports" />
+              <CheckBox Content="Status PDF" IsChecked="{Binding ReportStatus}" />
+              <CheckBox Content="Certification PDF" IsChecked="{Binding ReportCertification}" />
+              <TextBlock x:Name="DefaultReportLabel" Text="Default report" />
+              <ComboBox ItemsSource="{Binding ReportKindOptions}"
+                        SelectedItem="{Binding DefaultReportKind}"
+                        AutomationProperties.Name="Default report"
+                        AutomationProperties.LabeledBy="{Binding #DefaultReportLabel}" />
+
+              <TextBlock x:Name="ProgramKindLabel" Text="Program kind" />
+              <ComboBox ItemsSource="{Binding ProgramKindOptions}"
+                        SelectedItem="{Binding ProgramKind}"
+                        AutomationProperties.Name="Program kind"
+                        AutomationProperties.LabeledBy="{Binding #ProgramKindLabel}" />
+              <CheckBox Content="Require station health"
+                        IsChecked="{Binding RequireStationHealth}"
+                        ToolTip.Tip="Evaluate the station-health gate before Run on DUT programs" />
+              <TextBlock x:Name="HealthGateLabel" Text="Station health gate" />
+              <ComboBox ItemsSource="{Binding StationHealthGateOptions}"
+                        SelectedItem="{Binding StationHealthGate}"
+                        AutomationProperties.Name="Station health gate"
+                        AutomationProperties.LabeledBy="{Binding #HealthGateLabel}" />
+              <TextBlock x:Name="HealthAgeLabel" Text="Station health max age (hours)" />
+              <TextBox Text="{Binding StationHealthMaxAgeHours}"
+                       AutomationProperties.Name="Station health max age hours"
+                       AutomationProperties.LabeledBy="{Binding #HealthAgeLabel}" />
+              <TextBlock x:Name="HealthProfileLabel" Text="Station health profile id" />
+              <TextBox Text="{Binding StationHealthProfileId}"
+                       AutomationProperties.Name="Station health profile id"
+                       AutomationProperties.LabeledBy="{Binding #HealthProfileLabel}" />
+
+              <TextBlock FontWeight="SemiBold" Text="Instruments" />
+              <ListBox ItemsSource="{Binding Instruments}"
+                       KeyboardNavigation.TabNavigation="Once"
+                       AutomationProperties.Name="Instruments">
+                <ListBox.ItemTemplate>
+                  <DataTemplate x:DataType="vm:InstrumentRef">
+                    <TextBlock TextWrapping="Wrap">
+                      <Run Text="{Binding SlotName}" />
+                      <Run Text=" · " />
+                      <Run Text="{Binding VisaAddress}" />
+                    </TextBlock>
+                  </DataTemplate>
+                </ListBox.ItemTemplate>
+              </ListBox>
+              <TextBlock x:Name="InstrumentSlotEditLabel" Text="Slot" />
+              <ComboBox ItemsSource="{Binding InstrumentSlots}"
+                        SelectedItem="{Binding SelectedInstrumentSlot}"
+                        AutomationProperties.Name="Instrument slot"
+                        AutomationProperties.LabeledBy="{Binding #InstrumentSlotEditLabel}" />
+              <TextBlock x:Name="VisaLabel" Text="VISA address" />
+              <TextBox Text="{Binding SelectedInstrumentVisa}"
+                       AutomationProperties.Name="VISA address"
+                       AutomationProperties.LabeledBy="{Binding #VisaLabel}"
+                       ToolTip.Tip="Writable so the operator Instruments page can rebind this slot on the bench" />
+            </StackPanel>
+          </ScrollViewer>
+        </TabItem>
+        <TabItem Header="Findings" AutomationProperties.Name="Findings tab">
+          <ListBox ItemsSource="{Binding Findings}"
+                   KeyboardNavigation.TabNavigation="Once"
+                   AutomationProperties.Name="Contract findings">
             <ListBox.ItemTemplate>
               <DataTemplate x:DataType="host:PlanContractFinding">
-                <TextBlock Text="{Binding Code}" />
+                <StackPanel>
+                  <TextBlock FontWeight="SemiBold" Text="{Binding Code, StringFormat='{}{0}'}" />
+                  <TextBlock TextWrapping="Wrap" Opacity="0.85" Text="{Binding Message}" />
+                  <TextBlock Opacity="0.7" FontSize="11" Text="{Binding Severity}" />
+                </StackPanel>
               </DataTemplate>
             </ListBox.ItemTemplate>
           </ListBox>
         </TabItem>
-        <TabItem Header="Workspace">
+        <TabItem Header="Workspace" AutomationProperties.Name="Workspace tab">
           <StackPanel Spacing="8">
             <TextBlock Text="{Binding Workspace.Root}" />
             <TextBlock Text="{Binding Workspace.Manifest.DisplayName}" />
@@ -133,10 +471,13 @@
                        TextWrapping="Wrap" />
           </StackPanel>
         </TabItem>
-        <TabItem Header="Ship">
+        <TabItem Header="Ship" AutomationProperties.Name="Ship tab">
           <StackPanel Spacing="8">
             <TextBlock Text="Pack writes a program TapPackage and dist/ship-manifest.json. Shell apps stay bake-time." TextWrapping="Wrap" />
-            <Button Content="Pack…" Click="OnPack" />
+            <Button Content="Pack…"
+                    Click="OnPack"
+                    ToolTip.Tip="Validate, then write package.xml, the program TapPackage, and ship-manifest.json"
+                    AutomationProperties.Name="Pack workspace" />
           </StackPanel>
         </TabItem>
       </TabControl>

@@ -594,3 +594,41 @@ This template does not create those product repos. Pack’s `ship-manifest.json`
 - macOS authoring RID beyond existing lockfile RIDs.
 - Unify Mixins `PresentationDisplayRoles` with operator role constants if Area 5 leaves a wrapper.
 - Authoring PluginManager must not inherit Host’s Visa project-reference search path (assert in Areas 2–3).
+- Token completions on the formula `TextBox` from `FormulaCatalog` (no AvaloniaEdit / Monaco; see formula-editor research: language-aware IDE is overkill because Save only lowers `mean(x)` and top-level `filter`/`filtfilt`).
+
+### Planned: Authoring app settings (not implemented)
+
+Workstation preferences for the engineer exe. **Do not** reuse operator `settings.json` / `ISettingsStore` — that file is appliance policy (VISA, DUT idle, crash, syslog). Authoring prefs are per-user on the engineering PC.
+
+- Goal: A **Settings** tab (or window) for theme (System/Light/Dark), last workspace path, default OpenTAP home override, and “show raw XML” / “show recipe summaries”. Persist to `%AppData%/HardwareTest/authoring-preferences.json` (Linux `~/.config/HardwareTest/authoring-preferences.json`) with a versioned `schemaVersion` and `additionalProperties: false`, same fail-closed rules as `authoring.json`.
+- Depends on: Authoring Avalonia shell (exists). Optional later: apply theme before first window.
+- Out of scope: operator Settings page, bake-time appliance overlays, auth.
+- Likely files: `src/HardwareTest.Authoring.Core/AuthoringPreferences.cs` (Avalonia-free record + JSON context), `src/HardwareTest.Authoring/AuthoringPreferencesStore.cs`, Settings tab in `MainWindow.axaml`, `ThemeApplier` copy or shared Avalonia-free mapper (`RequestedThemeVariant` stays in the exe).
+- Public surface:
+
+```csharp
+public sealed class AuthoringPreferences
+{
+    public int SchemaVersion { get; set; } = 1;
+    public string ThemePreference { get; set; } = "System"; // System | Light | Dark
+    public string? LastWorkspace { get; set; }
+    public string? OpenTapHomeOverride { get; set; }
+    public bool ShowRawStepXml { get; set; } = true;
+}
+
+public interface IAuthoringPreferencesStore
+{
+    AuthoringPreferences Current { get; }
+    void Load();
+    void Save();
+}
+```
+
+- Pseudo-code:
+  - On startup, `Load()`; if file missing, defaults. Future `schemaVersion` → read-only + warning (mirror workspace loader).
+  - Settings tab: ComboBox theme (`System`/`Light`/`Dark`) with `ToolTip.Tip` and `AutomationProperties.LabeledBy`; Save writes JSON then `Application.Current.RequestedThemeVariant` (same mapping as operator `ThemeApplier`: light/dark/default).
+  - Optional: remember last workspace and offer it on the empty Programs rail.
+  - Architecture: Core remains Avalonia-free; exe applies theme. Operator `HardwareTest` still must not reference Authoring.
+  - Tests: round-trip JSON; unknown property fail-closed; theme string maps to `ThemeVariant`; Core has no Avalonia reference.
+- Risks: do not merge with appliance `AppSettings` (mock VISA, engineer debug, syslog). Light/dark only affects Authoring chrome; operator preview tiles should keep following `ActualThemeVariant` when we host shared widgets.
+- Conflicts with: none if prefs live in Authoring* only.

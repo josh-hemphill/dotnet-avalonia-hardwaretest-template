@@ -4,6 +4,8 @@ namespace HardwareTest.Authoring;
 
 public sealed partial class AuthoringWorkspaceViewModel
 {
+    private string? _selectedInstrumentSlot;
+
     public IReadOnlyList<string> DisplayRoleOptions => AuthoringEditorCatalog.DisplayRoles;
 
     public IReadOnlyList<string> YUnitOptions => AuthoringEditorCatalog.YUnits;
@@ -23,6 +25,39 @@ public sealed partial class AuthoringWorkspaceViewModel
 
     public IReadOnlyList<InstrumentRef> Instruments
         => SelectedProgram?.Instruments ?? [];
+
+    public string SelectedInstrumentSlot
+    {
+        get => _selectedInstrumentSlot
+               ?? SelectedProgram?.Instruments.FirstOrDefault()?.SlotName
+               ?? string.Empty;
+        set
+        {
+            if (SetField(ref _selectedInstrumentSlot, value))
+            {
+                OnPropertyChanged(nameof(SelectedInstrumentVisa));
+            }
+        }
+    }
+
+    public string SelectedInstrumentVisa
+    {
+        get => Instruments.FirstOrDefault(instrument =>
+                   string.Equals(instrument.SlotName, SelectedInstrumentSlot, StringComparison.OrdinalIgnoreCase))
+               ?.VisaAddress
+               ?? VisaAddress;
+        set
+        {
+            if (string.IsNullOrWhiteSpace(SelectedInstrumentSlot))
+            {
+                VisaAddress = value;
+                return;
+            }
+
+            SetInstrumentVisa(SelectedInstrumentSlot, value);
+            OnPropertyChanged();
+        }
+    }
 
     public IReadOnlyList<FormulaCatalog.Item> FormulaCompletions
         => FormulaCatalog.Completions(ChannelKeys);
@@ -45,6 +80,12 @@ public sealed partial class AuthoringWorkspaceViewModel
     public bool HasRepeatEditor => SelectedSequence?.Kind == SequenceRowKind.Repeat;
 
     public bool HasSetupEditor => SelectedSequence?.Kind == SequenceRowKind.Setup;
+
+    public bool HasPromptSetup => SelectedSetup is OperatorPromptSetup;
+
+    public bool HasInputSetup => SelectedSetup is OperatorInputSetup;
+
+    public bool HasIdentitySetup => SelectedSetup is IdentitySetup;
 
     public bool HasCleanupEditor => SelectedSequence?.Kind == SequenceRowKind.Cleanup;
 

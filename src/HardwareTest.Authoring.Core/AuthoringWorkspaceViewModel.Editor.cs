@@ -14,7 +14,20 @@ public sealed partial class AuthoringWorkspaceViewModel
     public string? SelectedRecipeId
     {
         get => _selectedRecipeId;
-        set => SetField(ref _selectedRecipeId, value);
+        set
+        {
+            if (SetField(ref _selectedRecipeId, value))
+            {
+                OnPropertyChanged(nameof(SelectedRecipe));
+            }
+        }
+    }
+
+    public AuthoringRecipe? SelectedRecipe
+    {
+        get => Recipes.FirstOrDefault(recipe =>
+            string.Equals(recipe.Id, _selectedRecipeId, StringComparison.OrdinalIgnoreCase));
+        set => SelectedRecipeId = value?.Id;
     }
 
     public MeasureNode? SelectedMeasure
@@ -399,12 +412,16 @@ public sealed partial class AuthoringWorkspaceViewModel
         OnPropertyChanged(nameof(SelectedRepeat));
         OnPropertyChanged(nameof(SelectedSetup));
         OnPropertyChanged(nameof(RepeatCount));
+        OnPropertyChanged(nameof(InspectorBreadcrumb));
         OnPropertyChanged(nameof(HasFormula));
         OnPropertyChanged(nameof(HasTransferFunction));
         OnPropertyChanged(nameof(HasRawStep));
         OnPropertyChanged(nameof(HasMetricPresentation));
         OnPropertyChanged(nameof(HasRepeatEditor));
         OnPropertyChanged(nameof(HasSetupEditor));
+        OnPropertyChanged(nameof(HasPromptSetup));
+        OnPropertyChanged(nameof(HasInputSetup));
+        OnPropertyChanged(nameof(HasIdentitySetup));
         OnPropertyChanged(nameof(HasCleanupEditor));
         OnPropertyChanged(nameof(ShowThreshold));
         OnPropertyChanged(nameof(ShowBandLimits));
@@ -420,6 +437,8 @@ public sealed partial class AuthoringWorkspaceViewModel
         OnPropertyChanged(nameof(CleanupInstrumentSlot));
         OnPropertyChanged(nameof(IncludeSafeShutdown));
         OnPropertyChanged(nameof(MetricInstrumentSlot));
+        OnPropertyChanged(nameof(SelectedRecipe));
+        OnPropertyChanged(nameof(SelectedInstrumentVisa));
     }
 
     private void UpdateSelectedTf(Func<TransferFunctionAlgorithm, TransferFunctionAlgorithm> mutate)

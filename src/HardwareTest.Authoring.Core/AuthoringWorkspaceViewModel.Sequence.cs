@@ -8,6 +8,8 @@ public sealed partial class AuthoringWorkspaceViewModel
 
     public IReadOnlyList<SequenceRow> SequenceItems => _sequenceItems;
 
+    public string ProgramsTitle => AuthoringChrome.ProgramsTitle;
+
     public string SequenceTitle => AuthoringChrome.SequenceTitle;
 
     public string SequencePurpose => AuthoringChrome.SequencePurpose;
@@ -42,6 +44,11 @@ public sealed partial class AuthoringWorkspaceViewModel
         => SelectedProgram is null || SelectedSequence is not { Section: SequenceSection.Setup } row
             ? null
             : AuthoringSequence.ResolveSetup(SelectedProgram, row.IndexPath);
+
+    public string InspectorBreadcrumb
+        => SelectedSequence is null
+            ? InspectorPurpose
+            : $"{SelectedSequence.Section} › {SelectedSequence.Label}";
 
     public string RepeatCount
     {

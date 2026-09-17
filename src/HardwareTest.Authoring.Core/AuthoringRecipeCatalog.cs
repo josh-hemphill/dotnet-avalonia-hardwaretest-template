@@ -23,7 +23,10 @@ public static class AuthoringRecipeIds
 }
 
 /// One palette entry matching a getting-started test type.
-public sealed record AuthoringRecipe(string Id, string Title, string Category, string Summary);
+public sealed record AuthoringRecipe(string Id, string Title, string Category, string Summary)
+{
+    public string ListLabel => $"{Category} — {Title}";
+}
 
 /// Closed recipe picker for metric-first authoring. Compiler writes Presentation on apply.
 public static class AuthoringRecipeCatalog
