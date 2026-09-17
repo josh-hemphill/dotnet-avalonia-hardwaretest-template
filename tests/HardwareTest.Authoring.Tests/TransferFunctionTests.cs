@@ -4,10 +4,12 @@ using HardwareTest.Authoring;
 using HardwareTest.Core.Runs;
 using HardwareTest.OpenTap.Host;
 using HardwareTest.OpenTap.Plugins.Basic;
+using OpenTap;
 using Xunit;
 
 namespace HardwareTest.Authoring.Tests;
 
+[Collection("AuthoringOpenTap")]
 public sealed class TransferFunctionTests
 {
     private const double AbsEpsilon = 1e-9;
@@ -112,6 +114,98 @@ public sealed class TransferFunctionTests
         var ex = Assert.Throws<InvalidOperationException>(
             () => step.ApplyToSeries([1, 2, 3], elapsed));
         Assert.Contains("TF_GRID", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ApplyTransferFunctionStep_exposes_public_IResultSink_for_auto_wire()
+    {
+        var step = new ApplyTransferFunctionStep();
+        var sinks = TypeData.GetTypeData(step).GetMembers()
+            .Where(member => member.TypeDescriptor.DescendsTo(TypeData.FromType(typeof(IResultSink))))
+            .Select(member => member.GetValue(step))
+            .OfType<IResultSink>()
+            .ToArray();
+        Assert.NotEmpty(sinks);
+        Assert.Same(step.SampleCapture, Assert.Single(sinks));
+    }
+
+    [Fact]
+    public void Execute_sibling_sample_passes_identity_filter()
+    {
+        var tf = new ApplyTransferFunctionStep
+        {
+            InputChannel = "VDC",
+            Channel = "VDC.filt",
+            Numerator = [1],
+            Denominator = [1],
+            TsSeconds = 0.005,
+            Method = "filter",
+        };
+        var listener = new CollectingSampleListener();
+        var plan = PlanWith(
+            new PublishSampleSeriesStep
+            {
+                Values = [1, 0.5, 0.25],
+                ElapsedMs = [0, 5, 10],
+            },
+            tf);
+        var run = plan.Execute([listener], []);
+        Assert.Equal(Verdict.Pass, run.Verdict);
+        Assert.Equal(Verdict.Pass, tf.Verdict);
+        var output = listener.RowsFor("VDC.filt");
+        Assert.Equal(3, output.Count);
+        Assert.Equal(1, output[0].Value);
+        Assert.Equal(0.5, output[1].Value);
+        Assert.Equal(0.25, output[2].Value);
+        Assert.Equal(0, output[0].ElapsedMs);
+        Assert.Equal(5, output[1].ElapsedMs);
+        Assert.Equal(10, output[2].ElapsedMs);
+    }
+
+    [Fact]
+    public void Execute_missing_elapsed_fails()
+    {
+        var tf = new ApplyTransferFunctionStep
+        {
+            InputChannel = "VDC",
+            Channel = "VDC.filt",
+            Numerator = [1],
+            Denominator = [1],
+            TsSeconds = 0.005,
+        };
+        var plan = PlanWith(
+            new PublishSampleSeriesStep
+            {
+                Values = [1, 2, 3],
+                IncludeElapsedColumn = false,
+            },
+            tf);
+        var run = plan.Execute();
+        Assert.Equal(Verdict.Fail, run.Verdict);
+        Assert.Equal(Verdict.Fail, tf.Verdict);
+    }
+
+    [Fact]
+    public void Execute_irregular_grid_fails()
+    {
+        var tf = new ApplyTransferFunctionStep
+        {
+            InputChannel = "VDC",
+            Channel = "VDC.filt",
+            Numerator = [1],
+            Denominator = [1],
+            TsSeconds = 0.005,
+        };
+        var plan = PlanWith(
+            new PublishSampleSeriesStep
+            {
+                Values = [1, 2, 3],
+                ElapsedMs = [0, 5, 20],
+            },
+            tf);
+        var run = plan.Execute();
+        Assert.Equal(Verdict.Fail, run.Verdict);
+        Assert.Equal(Verdict.Fail, tf.Verdict);
     }
 
     [Fact]
@@ -267,6 +361,106 @@ public sealed class TransferFunctionTests
         Assert.Equal(0, results[0].ElapsedMs);
         Assert.Equal(5, results[1].ElapsedMs);
         Assert.Equal("VDC.filt", results[0].EffectiveMetricKey);
+    }
+
+    private static TestPlan PlanWith(params ITestStep[] steps)
+    {
+        var plan = new TestPlan();
+        foreach (var step in steps)
+        {
+            plan.ChildTestSteps.Add(step);
+        }
+
+        return plan;
+    }
+
+    private sealed class PublishSampleSeriesStep : TestStep
+    {
+        public string Channel { get; set; } = "VDC";
+
+        public double[] Values { get; set; } = [];
+
+        public double[] ElapsedMs { get; set; } = [];
+
+        public bool IncludeElapsedColumn { get; set; } = true;
+
+        public override void Run()
+        {
+            for (var i = 0; i < Values.Length; i++)
+            {
+                if (IncludeElapsedColumn)
+                {
+                    var elapsed = i < ElapsedMs.Length ? ElapsedMs[i] : double.NaN;
+                    Results.Publish(
+                        "Sample",
+                        new List<string> { "Channel", "Index", "Value", "LimitLow", "LimitHigh", "ElapsedMs" },
+                        Channel,
+                        i,
+                        Values[i],
+                        double.NaN,
+                        double.NaN,
+                        elapsed);
+                }
+                else
+                {
+                    Results.Publish(
+                        "Sample",
+                        new List<string> { "Channel", "Index", "Value", "LimitLow", "LimitHigh" },
+                        Channel,
+                        i,
+                        Values[i],
+                        double.NaN,
+                        double.NaN);
+                }
+            }
+
+            UpgradeVerdict(Verdict.Pass);
+        }
+    }
+
+    private sealed class CollectingSampleListener : ResultListener
+    {
+        private readonly object _sync = new();
+        private readonly List<(string Channel, double Value, double ElapsedMs)> _rows = [];
+
+        public override void OnResultPublished(Guid stepRunId, ResultTable result)
+        {
+            if (result is null || !string.Equals(result.Name, "Sample", StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            var channelCol = result.Columns.FirstOrDefault(c => c.Name == "Channel");
+            var valueCol = result.Columns.FirstOrDefault(c => c.Name == "Value");
+            var elapsedCol = result.Columns.FirstOrDefault(c => c.Name == "ElapsedMs");
+            if (valueCol is null)
+            {
+                return;
+            }
+
+            lock (_sync)
+            {
+                for (var i = 0; i < valueCol.Data.Length; i++)
+                {
+                    _rows.Add((
+                        channelCol is null
+                            ? string.Empty
+                            : Convert.ToString(channelCol.Data.GetValue(i)) ?? string.Empty,
+                        Convert.ToDouble(valueCol.Data.GetValue(i)),
+                        elapsedCol is null ? double.NaN : Convert.ToDouble(elapsedCol.Data.GetValue(i))));
+                }
+            }
+        }
+
+        public IReadOnlyList<(string Channel, double Value, double ElapsedMs)> RowsFor(string channel)
+        {
+            lock (_sync)
+            {
+                return _rows
+                    .Where(row => string.Equals(row.Channel, channel, StringComparison.OrdinalIgnoreCase))
+                    .ToArray();
+            }
+        }
     }
 
     private static ProgramDraft TfDraft(TransferFunctionAlgorithm tf)
