@@ -19,6 +19,8 @@ public interface IShellApplication
 
     /// Optional deferred start work while the shell overlay is visible.
     /// Faults are isolated per app and must not skip remaining apps.
+    /// Cooperative: honor <paramref name="cancellationToken"/> (the host cancels on shutdown)
+    /// and do not swallow <see cref="OperationCanceledException"/>.
     Task WarmAsync(IServiceProvider services, CancellationToken cancellationToken)
         => Task.CompletedTask;
 }
