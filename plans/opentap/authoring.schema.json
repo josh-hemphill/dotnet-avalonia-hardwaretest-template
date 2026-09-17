@@ -65,6 +65,10 @@
       "type": "array",
       "items": { "type": "string" }
     },
-    "includeTui": { "type": "boolean" }
+    "includeTui": { "type": "boolean" },
+    "recordingsDirectory": {
+      "type": "string",
+      "description": "Directory of operator run.json goldens, relative to this manifest. Default recordings. Unused until recordings consume lands; the folder need not exist."
+    }
   }
 }

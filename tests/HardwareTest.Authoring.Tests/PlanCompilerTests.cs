@@ -217,6 +217,91 @@ public sealed class PlanCompilerTests
         Assert.Contains("VDC", EnumerateChannelKeys(sample.Measure));
     }
 
+    [Fact]
+    public void Mean_formula_lowers_to_mean_gte()
+    {
+        var dir = NewTempDir();
+        var path = Path.Combine(dir, "formula.TapPlan");
+        var draft = MinimalDraft(
+            "formula",
+            [
+                new MetricNode(new MetricDraft(
+                    "Acquire VDC",
+                    "VDC",
+                    PresentationDisplayRoles.Timeseries,
+                    "V",
+                    null,
+                    null,
+                    new MeasureSource(
+                        "DMM",
+                        AuthoringFunctionIds.BasicAcquireVoltage,
+                        new Dictionary<string, string> { ["Channel"] = "VDC" }))),
+                new MetricNode(new MetricDraft(
+                    "Formula",
+                    "VDC.mean",
+                    PresentationDisplayRoles.Scalar,
+                    "V",
+                    new LimitSpec(null, null, 1.2),
+                    null,
+                    new ExpressionAlgorithm(["VDC"], "mean(VDC)"))),
+            ]);
+        new PlanCompiler().Save(draft, path);
+        var loaded = new PlanCompiler().Load(path);
+        var mean = loaded.Measure.OfType<MetricNode>().Select(n => n.Metric)
+            .Single(m => m.ChannelKey == "VDC.mean");
+        var algorithm = Assert.IsType<AlgorithmSource>(mean.Source);
+        Assert.Equal(AuthoringFunctionIds.BasicMeanGte, algorithm.AlgorithmId);
+        var xml = File.ReadAllText(path);
+        Assert.Contains("MeanGteStep", xml, StringComparison.Ordinal);
+        Assert.DoesNotContain("DialogStep", xml, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Theory]
+    [InlineData("abs(VDC)")]
+    [InlineData("mean(VDC)+1")]
+    public void Unlowerable_formula_save_fails_closed(string source)
+    {
+        var dir = NewTempDir();
+        var path = Path.Combine(dir, "formula.TapPlan");
+        var draft = MinimalDraft(
+            "formula",
+            [
+                new MetricNode(new MetricDraft(
+                    "Formula",
+                    "VDC.mean",
+                    PresentationDisplayRoles.Scalar,
+                    "V",
+                    new LimitSpec(null, null, 1.2),
+                    null,
+                    new ExpressionAlgorithm(["VDC"], source))),
+            ]);
+        var ex = Assert.Throws<AuthoringWorkspaceException>(() => new PlanCompiler().Save(draft, path));
+        Assert.Contains(AuthoringCompileCodes.FormulaNoLower, ex.Message, StringComparison.Ordinal);
+        Assert.False(File.Exists(path));
+    }
+
+    [Fact]
+    public void Transfer_function_save_fails_until_iir_step_exists()
+    {
+        var dir = NewTempDir();
+        var path = Path.Combine(dir, "tf.TapPlan");
+        var draft = MinimalDraft(
+            "tf",
+            [
+                new MetricNode(new MetricDraft(
+                    "Filter",
+                    "VDC.filt",
+                    PresentationDisplayRoles.Timeseries,
+                    "V",
+                    null,
+                    null,
+                    new TransferFunctionAlgorithm("VDC", [0.5, 0.5], [1, 0], 0.005, "filter"))),
+            ]);
+        var ex = Assert.Throws<AuthoringWorkspaceException>(() => new PlanCompiler().Save(draft, path));
+        Assert.Contains(AuthoringCompileCodes.TfStepUnavailable, ex.Message, StringComparison.Ordinal);
+        Assert.False(File.Exists(path));
+    }
+
     private static ProgramDraft SampleEquivalentDraft(string planId)
     {
         var settingsAcquire = new Dictionary<string, string>

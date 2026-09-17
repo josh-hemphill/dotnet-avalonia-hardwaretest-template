@@ -149,11 +149,12 @@ public sealed partial class PlanCompiler
         MetricDraft metric,
         IReadOnlyDictionary<string, HardwareDmm> instruments)
     {
-        var functionId = metric.Source switch
+        var source = ResolveSource(metric);
+        var functionId = source switch
         {
             MeasureSource measure => measure.FunctionId,
             AlgorithmSource algorithm => algorithm.AlgorithmId,
-            _ => throw new AuthoringWorkspaceException($"Unsupported metric source '{metric.Source.GetType().Name}'."),
+            _ => throw new AuthoringWorkspaceException($"Unsupported metric source '{source.GetType().Name}'."),
         };
 
         if (LooksLikeDialogName(functionId))
@@ -164,10 +165,19 @@ public sealed partial class PlanCompiler
 
         var step = AuthoringFunctionCatalog.CreateStep(functionId);
         step.Name = metric.Name;
-        ApplySource(step, metric.Source, instruments);
+        ApplySource(step, source, instruments);
         PresentationAttach.Apply(step, metric);
         return step;
     }
+
+    private static MetricSource ResolveSource(MetricDraft metric)
+        => metric.Source switch
+        {
+            ExpressionAlgorithm expr => FormulaLowerer.Lower(expr, metric.Limits),
+            TransferFunctionAlgorithm => throw new AuthoringWorkspaceException(
+                $"{AuthoringCompileCodes.TfStepUnavailable}: ApplyTransferFunctionStep is not available yet."),
+            var other => other,
+        };
 
     private static void ApplySource(
         ITestStep step,

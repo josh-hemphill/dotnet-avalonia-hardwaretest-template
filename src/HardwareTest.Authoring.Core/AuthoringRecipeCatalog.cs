@@ -16,6 +16,7 @@ public static class AuthoringRecipeIds
     public const string BandScalar = "band";
     public const string SeriesCompliance = "series";
     public const string Repeat = "repeat";
+    public const string Formula = "formula";
     public const string StationHealth = "station-health";
     public const string Shutdown = "shutdown";
 }
@@ -37,6 +38,7 @@ public static class AuthoringRecipeCatalog
         new(AuthoringRecipeIds.BandScalar, "Publish Band Scalar", "Analyze", "Passband with Limit low / Limit high."),
         new(AuthoringRecipeIds.SeriesCompliance, "Publish Series Compliance", "Analyze", "In-band percent passband."),
         new(AuthoringRecipeIds.Repeat, "Repeat Loop", "Flow", "Wraps the last measure node in RepeatNode."),
+        new(AuthoringRecipeIds.Formula, "Formula…", "Analyze", "MATLAB-flavored subset. mean(x) lowers to Mean GTE."),
         new(AuthoringRecipeIds.StationHealth, "Report Station Health", "Station", "cal.dc.offset scalar with limits."),
         new(AuthoringRecipeIds.Shutdown, "Safe Shutdown", "Safety", "Cleanup Safe Shutdown on the DMM slot."),
     ];
@@ -94,6 +96,7 @@ public static class AuthoringRecipeCatalog
             AuthoringRecipeIds.BandScalar => WithMeasure(draft, BandScalarMetric()),
             AuthoringRecipeIds.SeriesCompliance => WithMeasure(draft, SeriesComplianceMetric()),
             AuthoringRecipeIds.Repeat => WrapLastInRepeat(draft),
+            AuthoringRecipeIds.Formula => WithMeasure(draft, FormulaMetric(draft)),
             AuthoringRecipeIds.StationHealth => WithMeasure(draft, StationHealthMetric()),
             AuthoringRecipeIds.Shutdown => draft with { Cleanup = new CleanupPolicy(true, DefaultSlot(draft)) },
             _ => throw new AuthoringWorkspaceException(
@@ -257,6 +260,26 @@ public static class AuthoringRecipeCatalog
                     ["LimitLow"] = "1.1",
                     ["LimitHigh"] = "1.4",
                 }));
+
+    private static MetricDraft FormulaMetric(ProgramDraft draft)
+    {
+        var keys = EnumerateMetrics(draft.Measure)
+            .Select(m => m.ChannelKey)
+            .Where(key => !string.IsNullOrWhiteSpace(key))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        var input = keys.FirstOrDefault(key => string.Equals(key, "VDC", StringComparison.OrdinalIgnoreCase))
+                    ?? keys.FirstOrDefault()
+                    ?? "VDC";
+        return new(
+            "Formula",
+            $"{input}.mean",
+            PresentationDisplayRoles.Scalar,
+            "V",
+            new LimitSpec(null, null, 1.2),
+            null,
+            new ExpressionAlgorithm([input], $"mean({input})"));
+    }
 
     private static MetricDraft StationHealthMetric()
         => new(

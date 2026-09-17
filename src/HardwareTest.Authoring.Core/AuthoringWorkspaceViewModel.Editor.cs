@@ -33,7 +33,16 @@ public sealed partial class AuthoringWorkspaceViewModel
 
     public IReadOnlyList<string> MeasureItems { get; private set; } = [];
 
-    public MetricPreview Preview => MetricPreviewBuilder.From(SelectedMetric);
+    public MetricPreview Preview
+    {
+        get
+        {
+            var siblings = SelectedProgram is null
+                ? []
+                : AuthoringRecipeCatalog.EnumerateMetrics(SelectedProgram.Measure).ToArray();
+            return MetricPreviewBuilder.From(SelectedMetric, siblings);
+        }
+    }
 
     public string PreviewKind => Preview.TileKind?.ToString() ?? "Text";
 
@@ -71,6 +80,57 @@ public sealed partial class AuthoringWorkspaceViewModel
     {
         get => FormatLimit(SelectedMetric?.Limits?.Threshold);
         set => UpdateLimits(SelectedMetric?.Limits?.Low, SelectedMetric?.Limits?.High, ParseLimit(value));
+    }
+
+    public string FormulaSource
+    {
+        get => SelectedMetric?.Source is ExpressionAlgorithm expr ? expr.Source : string.Empty;
+        set
+        {
+            UpdateSelectedMetric(metric =>
+            {
+                if (metric.Source is not ExpressionAlgorithm existing)
+                {
+                    return metric;
+                }
+
+                var keys = existing.InputChannelKeys;
+                try
+                {
+                    var ast = FormulaParser.Parse(value);
+                    keys = FormulaExprWalk.Identifiers(ast.Root)
+                        .Where(name => !string.Equals(name, metric.ChannelKey, StringComparison.OrdinalIgnoreCase))
+                        .ToArray();
+                }
+                catch (AuthoringWorkspaceException)
+                {
+                    // Keep previous keys while the formula is still incomplete.
+                }
+
+                return metric with { Source = existing with { InputChannelKeys = keys, Source = value } };
+            });
+        }
+    }
+
+    public string FormulaError
+    {
+        get
+        {
+            if (SelectedMetric?.Source is not ExpressionAlgorithm expr)
+            {
+                return string.Empty;
+            }
+
+            try
+            {
+                FormulaParser.Parse(expr.Source);
+                return string.Empty;
+            }
+            catch (AuthoringWorkspaceException ex)
+            {
+                return ex.Message;
+            }
+        }
     }
 
     public string VisaAddress
@@ -197,6 +257,8 @@ public sealed partial class AuthoringWorkspaceViewModel
         OnPropertyChanged(nameof(LimitLow));
         OnPropertyChanged(nameof(LimitHigh));
         OnPropertyChanged(nameof(Threshold));
+        OnPropertyChanged(nameof(FormulaSource));
+        OnPropertyChanged(nameof(FormulaError));
         OnPropertyChanged(nameof(VisaAddress));
         OnPropertyChanged(nameof(RawTypeName));
         OnPropertyChanged(nameof(RawXml));

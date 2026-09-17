@@ -1,3 +1,4 @@
+using HardwareTest.Core.Runs;
 using HardwareTest.OpenTap.Host;
 
 namespace HardwareTest.Authoring;
@@ -29,7 +30,7 @@ public static class MetricPreviewBuilder
         null);
 
     /// Synthesizes canned values; maps DisplayRole to gauge vs chart vs timing.
-    public static MetricPreview From(MetricDraft? metric)
+    public static MetricPreview From(MetricDraft? metric, IReadOnlyList<MetricDraft>? siblings = null)
     {
         if (metric is null)
         {
@@ -37,7 +38,7 @@ public static class MetricPreviewBuilder
         }
 
         var kind = PresentationRoles.TryMapRole(metric.DisplayRole);
-        var samples = Synthesize(metric, kind);
+        var samples = Synthesize(metric, kind, siblings);
         var last = samples.Count == 0 ? 0 : samples[^1];
         return new MetricPreview(
             metric.ChannelKey,
@@ -51,8 +52,16 @@ public static class MetricPreviewBuilder
             metric.Limits?.Threshold);
     }
 
-    private static IReadOnlyList<double> Synthesize(MetricDraft metric, PresentationTileKind? kind)
+    private static IReadOnlyList<double> Synthesize(
+        MetricDraft metric,
+        PresentationTileKind? kind,
+        IReadOnlyList<MetricDraft>? siblings)
     {
+        if (metric.Source is ExpressionAlgorithm expr)
+        {
+            return EvaluateFormula(expr, metric, siblings);
+        }
+
         var nominal = Nominal(metric.Limits);
         if (kind is PresentationTileKind.Timeseries or PresentationTileKind.Timing)
         {
@@ -60,6 +69,47 @@ public static class MetricPreviewBuilder
         }
 
         return [nominal];
+    }
+
+    private static IReadOnlyList<double> EvaluateFormula(
+        ExpressionAlgorithm expr,
+        MetricDraft metric,
+        IReadOnlyList<MetricDraft>? siblings)
+    {
+        try
+        {
+            var ast = FormulaParser.Parse(expr.Source);
+            var keys = FormulaExprWalk.Identifiers(ast.Root)
+                .Concat(expr.InputChannelKeys)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+            var series = new Dictionary<string, IReadOnlyList<StoredSample>>(StringComparer.OrdinalIgnoreCase);
+            foreach (var key in keys)
+            {
+                var sibling = siblings?.FirstOrDefault(s =>
+                    string.Equals(s.ChannelKey, key, StringComparison.OrdinalIgnoreCase));
+                IReadOnlyList<double> values;
+                if (sibling is null || sibling.Source is ExpressionAlgorithm)
+                {
+                    var nominal = Nominal(metric.Limits);
+                    values = [nominal * 0.95, nominal, nominal * 1.02, nominal];
+                }
+                else
+                {
+                    values = Synthesize(sibling, PresentationRoles.TryMapRole(sibling.DisplayRole), null);
+                }
+
+                series[key] = values
+                    .Select((value, i) => new StoredSample { Channel = key, MetricKey = key, Value = value, ElapsedMs = i })
+                    .ToArray();
+            }
+
+            return [FormulaEvaluator.Evaluate(ast, series)];
+        }
+        catch (AuthoringWorkspaceException)
+        {
+            return [];
+        }
     }
 
     private static double Nominal(LimitSpec? limits)

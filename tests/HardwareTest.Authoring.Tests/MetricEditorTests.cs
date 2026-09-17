@@ -22,6 +22,7 @@ public sealed class MetricEditorTests
         Assert.Contains(AuthoringRecipeIds.BandScalar, ids);
         Assert.Contains(AuthoringRecipeIds.SeriesCompliance, ids);
         Assert.Contains(AuthoringRecipeIds.Repeat, ids);
+        Assert.Contains(AuthoringRecipeIds.Formula, ids);
         Assert.Contains(AuthoringRecipeIds.StationHealth, ids);
         Assert.Contains(AuthoringRecipeIds.Shutdown, ids);
         Assert.False(AuthoringRecipeCatalog.PaletteContainsDialog());
@@ -231,6 +232,73 @@ public sealed class MetricEditorTests
             metric => metric.ChannelKey == "rail.mean");
         Assert.False(
             File.ReadAllText(Path.Combine(root, "alpha.program.json")).Contains("dirty-alpha", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Formula_mean_vdc_parses_and_preview_is_scalar()
+    {
+        var root = EmptyWorkspace();
+        var vm = new AuthoringWorkspaceViewModel();
+        vm.Open(root);
+        vm.CreateProgram("formula");
+        vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
+        vm.ApplyRecipe(AuthoringRecipeIds.Formula);
+        Assert.Equal("mean(VDC)", vm.FormulaSource);
+        Assert.True(string.IsNullOrWhiteSpace(vm.FormulaError), vm.FormulaError);
+        Assert.Equal(PresentationTileKind.Scalar, vm.Preview.TileKind);
+        vm.FormulaSource = "fft(VDC)";
+        Assert.Contains(AuthoringCompileCodes.FormulaParse, vm.FormulaError, StringComparison.Ordinal);
+        vm.FormulaSource = "mean(VDC)";
+        Assert.True(string.IsNullOrWhiteSpace(vm.FormulaError), vm.FormulaError);
+        vm.Apply();
+        var reloaded = new AuthoringWorkspaceViewModel();
+        reloaded.Open(root);
+        reloaded.SelectProgram("formula");
+        Assert.Contains(
+            AuthoringRecipeCatalog.EnumerateMetrics(reloaded.SelectedProgram!.Measure),
+            metric => metric.ChannelKey == "VDC.mean"
+                      && metric.Source is AlgorithmSource algorithm
+                      && algorithm.AlgorithmId == AuthoringFunctionIds.BasicMeanGte);
+    }
+
+    [Fact]
+    public void Formula_source_does_not_replace_measure_source()
+    {
+        var root = EmptyWorkspace();
+        var vm = new AuthoringWorkspaceViewModel();
+        vm.Open(root);
+        vm.CreateProgram("acquire");
+        vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
+        Assert.IsType<MeasureSource>(Assert.IsType<MetricNode>(Assert.Single(vm.SelectedProgram!.Measure)).Metric.Source);
+
+        vm.FormulaSource = "mean(VDC)";
+
+        Assert.Equal(string.Empty, vm.FormulaSource);
+        var metric = Assert.IsType<MetricNode>(Assert.Single(vm.SelectedProgram.Measure)).Metric;
+        Assert.IsType<MeasureSource>(metric.Source);
+        Assert.Equal("VDC", metric.ChannelKey);
+    }
+
+    [Fact]
+    public void Formula_ident_change_refreshes_preview_from_sibling()
+    {
+        var root = EmptyWorkspace();
+        var vm = new AuthoringWorkspaceViewModel();
+        vm.Open(root);
+        vm.CreateProgram("formula-ident");
+        vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
+        vm.ApplyRecipe(AuthoringRecipeIds.BandScalar);
+        vm.ApplyRecipe(AuthoringRecipeIds.Formula);
+        Assert.Equal("mean(VDC)", vm.FormulaSource);
+        Assert.NotEmpty(vm.Preview.CannedSamples);
+
+        vm.FormulaSource = "mean(rail.mean)";
+
+        Assert.True(string.IsNullOrWhiteSpace(vm.FormulaError), vm.FormulaError);
+        Assert.NotEmpty(vm.Preview.CannedSamples);
+        var expr = Assert.IsType<ExpressionAlgorithm>(vm.SelectedMetric!.Source);
+        Assert.Contains("rail.mean", expr.InputChannelKeys);
+        Assert.DoesNotContain("VDC", expr.InputChannelKeys);
     }
 
     private static string GetSetting(MetricDraft metric, string key)

@@ -25,6 +25,7 @@ public sealed class AuthoringCliTests
         Assert.Contains("HardwareTest.Authoring --pack", output.ToString(), StringComparison.Ordinal);
         Assert.Contains("--bootstrap", output.ToString(), StringComparison.Ordinal);
         Assert.Contains("--compat", output.ToString(), StringComparison.Ordinal);
+        Assert.Contains("--eval-formulas", output.ToString(), StringComparison.Ordinal);
     }
 
     [Fact]
@@ -44,6 +45,16 @@ public sealed class AuthoringCliTests
         var error = new StringWriter();
         var code = AuthoringCli.Run(["--compat"], output, error);
         Assert.Equal(AuthoringCli.UsageExitCode, code);
+    }
+
+    [Fact]
+    public void Eval_formulas_is_stub_usage_until_recordings()
+    {
+        var output = new StringWriter();
+        var error = new StringWriter();
+        var code = AuthoringCli.Run(["--eval-formulas", "plans/opentap"], output, error);
+        Assert.Equal(AuthoringCli.UsageExitCode, code);
+        Assert.Contains("not implemented", error.ToString(), StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

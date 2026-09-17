@@ -63,6 +63,20 @@ public sealed record AlgorithmSource(
     IReadOnlyList<string> InputChannelKeys,
     IReadOnlyDictionary<string, string> Settings) : MetricSource;
 
+/// MATLAB-flavored subset; not MATLAB. Lowers to a closed analyze step or fails FORMULA_NO_LOWER.
+public sealed record ExpressionAlgorithm(
+    IReadOnlyList<string> InputChannelKeys,
+    string Source) : MetricSource;
+
+/// Discrete SISO LTI. Coefficients from MATLAB export JSON or filter(b,a,x) sugar.
+/// Does not compile to Expressions. Execute path is ApplyTransferFunctionStep (later area).
+public sealed record TransferFunctionAlgorithm(
+    string InputChannelKey,
+    IReadOnlyList<double> Numerator,
+    IReadOnlyList<double> Denominator,
+    double TsSeconds,
+    string Method) : MetricSource;
+
 public sealed record LimitSpec(double? Low, double? High, double? Threshold);
 
 public sealed record HistorySpec(bool Enabled, double? WatchPercent, double? AlertPercent);
@@ -76,4 +90,8 @@ public static class AuthoringCompileCodes
     public const string DialogStep = "DIALOG_STEP";
     public const string PlanIdMismatch = "PLAN_ID_MISMATCH";
     public const string MissingLimits = "MISSING_LIMITS";
+    public const string TfStepUnavailable = "TF_STEP_UNAVAILABLE";
+    public const string FormulaParse = "FORMULA_PARSE";
+    public const string FormulaNoLower = "FORMULA_NO_LOWER";
+    public const string FormulaEval = "FORMULA_EVAL";
 }

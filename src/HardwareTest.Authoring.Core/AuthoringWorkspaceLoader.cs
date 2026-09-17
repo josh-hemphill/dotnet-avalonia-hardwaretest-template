@@ -20,6 +20,7 @@ public static class AuthoringWorkspaceLoader
         "pluginProjects",
         "shellAppProjects",
         "includeTui",
+        "recordingsDirectory",
     };
 
     public static AuthoringWorkspace Load(string root)
