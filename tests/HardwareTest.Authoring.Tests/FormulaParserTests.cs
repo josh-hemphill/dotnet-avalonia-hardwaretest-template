@@ -60,7 +60,7 @@ public sealed class FormulaParserTests
         var metric = new MetricDraft(
             "Formula",
             "VDC.mean",
-            PresentationDisplayRoles.Scalar,
+            PresentationRoles.Scalar,
             "V",
             new LimitSpec(null, null, 1.2),
             null,
