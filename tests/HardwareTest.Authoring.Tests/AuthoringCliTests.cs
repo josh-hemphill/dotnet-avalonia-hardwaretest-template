@@ -38,13 +38,12 @@ public sealed class AuthoringCliTests
     }
 
     [Fact]
-    public void Compat_exits_1_until_checker_exists()
+    public void Compat_without_workspace_is_usage()
     {
         var output = new StringWriter();
         var error = new StringWriter();
-        var code = AuthoringCli.Run(["--compat", "plans/opentap"], output, error);
-        Assert.Equal(1, code);
-        Assert.Contains("not available", error.ToString(), StringComparison.OrdinalIgnoreCase);
+        var code = AuthoringCli.Run(["--compat"], output, error);
+        Assert.Equal(AuthoringCli.UsageExitCode, code);
     }
 
     [Fact]
@@ -92,6 +91,25 @@ public sealed class AuthoringCliOpenTapTests
         Assert.True(string.IsNullOrWhiteSpace(error.ToString()), error.ToString());
         Assert.Contains("HardwareTest Template Program", output.ToString(), StringComparison.Ordinal);
         Assert.True(File.Exists(Path.Combine(dist, WorkspacePacker.ShipManifestFileName)));
+    }
+
+    [Fact]
+    public void Compat_template_workspace_succeeds()
+    {
+        var workspaceRoot = CopyTemplateWorkspace();
+        var workspace = AuthoringWorkspaceLoader.Load(workspaceRoot);
+        var home = new OpenTapHomeBootstrapper().Bootstrap(
+            workspace,
+            new BootstrapOptions { HomeDirectory = NewTempDir(), Offline = true });
+        var output = new StringWriter();
+        var error = new StringWriter();
+        var code = AuthoringCli.Run(
+            ["--compat", workspaceRoot, "--opentap-home", home.Root, "--offline"],
+            output,
+            error);
+        Assert.Equal(0, code);
+        Assert.True(string.IsNullOrWhiteSpace(error.ToString()), error.ToString());
+        Assert.Contains("TUI compatibility ok", output.ToString(), StringComparison.Ordinal);
     }
 
     private static string CopyTemplateWorkspace()

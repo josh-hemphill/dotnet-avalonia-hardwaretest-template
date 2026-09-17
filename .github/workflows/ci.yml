@@ -52,7 +52,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          expected=$'all\naudit\nbuild\ncoverage\nformat\nlist\npublish\ntest:arch\ntest:e2e\ntest:host\ntest:vm\nverify'
+          expected=$'all\naudit\nbuild\ncoverage\nformat\nlist\npublish\ntest:arch\ntest:authoring-compat\ntest:e2e\ntest:host\ntest:vm\nverify'
           actual=$(deno run -A tools/ci/main.ts list)
           if [[ "$actual" != "$expected" ]]; then
             echo "Deno task catalog drift:" >&2
@@ -77,6 +77,9 @@ jobs:
 
       - name: "OpenTAP host + fixtures (serial collection, no Coverlet)"
         run: deno run -A tools/ci/main.ts test:host --rid win-x64
+
+      - name: "Authoring TUI compatibility"
+        run: deno run -A tools/ci/main.ts test:authoring-compat --rid win-x64
 
       - name: "ViewModels (FakeOpenTap — UI/board)"
         run: deno run -A tools/ci/main.ts test:vm --rid win-x64
@@ -165,7 +168,7 @@ jobs:
       - name: Assert CI task catalog
         run: |
           set -euo pipefail
-          expected=$'all\naudit\nbuild\ncoverage\nformat\nlist\npublish\ntest:arch\ntest:e2e\ntest:host\ntest:vm\nverify'
+          expected=$'all\naudit\nbuild\ncoverage\nformat\nlist\npublish\ntest:arch\ntest:authoring-compat\ntest:e2e\ntest:host\ntest:vm\nverify'
           actual=$(deno run -A tools/ci/main.ts list)
           if [[ "$actual" != "$expected" ]]; then
             echo "Deno task catalog drift:" >&2
@@ -190,6 +193,9 @@ jobs:
 
       - name: OpenTAP host + fixtures (no Coverlet)
         run: deno run -A tools/ci/main.ts test:host --rid linux-x64
+
+      - name: Authoring TUI compatibility
+        run: deno run -A tools/ci/main.ts test:authoring-compat --rid linux-x64
 
       - name: ViewModels
         run: deno run -A tools/ci/main.ts test:vm --rid linux-x64

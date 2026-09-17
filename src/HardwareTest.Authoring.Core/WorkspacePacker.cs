@@ -17,6 +17,8 @@ public sealed class PackOptions
 {
     public OpenTapHome? Home { get; init; }
 
+    public OpenTapHome? TuiHome { get; init; }
+
     public ITuiCompatChecker? Compat { get; init; }
 
     public bool Offline { get; init; }
@@ -49,7 +51,8 @@ public static class WorkspacePacker
         ValidateContract(workspace);
         if (options.Compat is not null)
         {
-            var report = options.Compat.Compare(workspace, home, home);
+            var tuiHome = options.TuiHome ?? home;
+            var report = options.Compat.Compare(workspace, home, tuiHome);
             if (report.BlocksPack())
             {
                 throw new AuthoringWorkspaceException(
