@@ -22,6 +22,9 @@ namespace HardwareTest;
 public partial class App : Application
 {
     private readonly ISettingsStore _settingsStore;
+#pragma warning disable S2930 // Process-lifetime CTS; Application is not disposed.
+    private readonly CancellationTokenSource _startupCts = new();
+#pragma warning restore S2930
     private ServiceProvider? _services;
 
     /// Optional factory used by the parameterless ctor (headless / designer hooks).
@@ -99,6 +102,7 @@ public partial class App : Application
             desktop.MainWindow = mainWindow;
             desktop.ShutdownRequested += async (_, _) =>
             {
+                await _startupCts.CancelAsync();
                 try
                 {
                     await _settingsStore.SaveUiStateAsync();
@@ -112,54 +116,62 @@ public partial class App : Application
         }
 
         // First paint (or headless E2E) before OpenTAP plugin search / plan load / retention.
-        _ = RunDeferredStartupAsync(shell);
+        _ = DeferredStartup.RunProtectedAsync(
+            token => RunDeferredStartupWorkAsync(shell, token),
+            _startupCts.Token,
+            async () =>
+            {
+                await Dispatcher.UIThread.InvokeAsync(shell.CompleteStartup);
+            },
+            async ex =>
+            {
+                Log.Warning(ex, "Deferred startup work failed");
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    shell.StartupStatus = $"Startup warning: {ex.Message}";
+                });
+            });
 
         base.OnFrameworkInitializationCompleted();
     }
 
-    private async Task RunDeferredStartupAsync(MainWindowViewModel shell)
+    private async Task RunDeferredStartupWorkAsync(MainWindowViewModel shell, CancellationToken cancellationToken)
     {
-        try
+        cancellationToken.ThrowIfCancellationRequested();
+        await SetStartupStatusAsync(shell, "Checking clock…");
+        await Task.Run(() => CheckClockSkew(shell), cancellationToken).ConfigureAwait(false);
+
+        cancellationToken.ThrowIfCancellationRequested();
+        await SetStartupStatusAsync(shell, "Checking prior runs…");
+        await Task.Run(() => ReconcileDanglingRuns(), cancellationToken).ConfigureAwait(false);
+
+        cancellationToken.ThrowIfCancellationRequested();
+        await SetStartupStatusAsync(shell, "Applying retention…");
+        await Task.Run(() => PruneRetentionAndLogHealth(), cancellationToken).ConfigureAwait(false);
+
+        cancellationToken.ThrowIfCancellationRequested();
+        await SetStartupStatusAsync(shell, "Loading programs…");
+        cancellationToken.ThrowIfCancellationRequested();
+        // Bind collections on the UI thread while the startup overlay is visible.
+        await Dispatcher.UIThread.InvokeAsync(async () =>
         {
-            await SetStartupStatusAsync(shell, "Checking clock…");
-            await Task.Run(() => CheckClockSkew(shell)).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
+            await shell.RunTest.WarmProgramsAsync(cancellationToken).ConfigureAwait(true);
+        });
 
-            await SetStartupStatusAsync(shell, "Checking prior runs…");
-            await Task.Run(() => ReconcileDanglingRuns()).ConfigureAwait(false);
-
-            await SetStartupStatusAsync(shell, "Applying retention…");
-            await Task.Run(() => PruneRetentionAndLogHealth()).ConfigureAwait(false);
-
-            await SetStartupStatusAsync(shell, "Loading programs…");
-            // Bind collections on the UI thread while the startup overlay is visible.
-            await Dispatcher.UIThread.InvokeAsync(async () =>
-            {
-                await shell.RunTest.WarmProgramsAsync().ConfigureAwait(true);
-            });
-
-            await SetStartupStatusAsync(shell, "Starting shell apps…");
-            var services = Services;
-            await Task.Run(async () =>
+        cancellationToken.ThrowIfCancellationRequested();
+        await SetStartupStatusAsync(shell, "Starting shell apps…");
+        var services = Services;
+        await Task.Run(
+            async () =>
             {
                 await ShellApplicationWarmup.RunAsync(
                     services.GetServices<IShellApplication>(),
                     services,
-                    CancellationToken.None,
+                    cancellationToken,
                     (app, ex) => Log.Warning(ex, "Shell app {AppId} WarmAsync failed", app.Id)).ConfigureAwait(false);
-            }).ConfigureAwait(false);
-        }
-        catch (Exception ex)
-        {
-            Log.Warning(ex, "Deferred startup work failed");
-            await Dispatcher.UIThread.InvokeAsync(() =>
-            {
-                shell.StartupStatus = $"Startup warning: {ex.Message}";
-            });
-        }
-        finally
-        {
-            await Dispatcher.UIThread.InvokeAsync(shell.CompleteStartup);
-        }
+            },
+            cancellationToken).ConfigureAwait(false);
     }
 
     private static Task SetStartupStatusAsync(MainWindowViewModel shell, string status)
