@@ -148,22 +148,25 @@ public sealed partial class AuthoringWorkspaceViewModel
 
     private int NearestSelectableIndex(int from)
     {
-        for (var i = from + 1; i < _sequenceItems.Count; i++)
+        var best = -1;
+        var bestDistance = int.MaxValue;
+        for (var i = 0; i < _sequenceItems.Count; i++)
         {
-            if (_sequenceItems[i].IsSelectable)
+            if (!_sequenceItems[i].IsSelectable)
             {
-                return i;
+                continue;
             }
+
+            var distance = Math.Abs(i - from);
+            if (distance > bestDistance)
+            {
+                continue;
+            }
+
+            best = i;
+            bestDistance = distance;
         }
 
-        for (var i = from - 1; i >= 0; i--)
-        {
-            if (_sequenceItems[i].IsSelectable)
-            {
-                return i;
-            }
-        }
-
-        return -1;
+        return best;
     }
 }

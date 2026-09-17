@@ -16,13 +16,30 @@ public sealed class AuthoringSequenceTests
         draft = AuthoringRecipeCatalog.Apply(draft, AuthoringRecipeIds.Repeat);
 
         var rows = AuthoringSequence.Flatten(draft);
+        Assert.Equal(
+            new[]
+            {
+                SequenceSection.Setup,
+                SequenceSection.Setup,
+                SequenceSection.Setup,
+                SequenceSection.Measure,
+                SequenceSection.Measure,
+                SequenceSection.Measure,
+                SequenceSection.Measure,
+                SequenceSection.Cleanup,
+                SequenceSection.Cleanup,
+            },
+            rows.Select(row => row.Section).ToArray());
         Assert.Equal(AuthoringChrome.SetupHeader, rows[0].Label);
         Assert.False(rows[0].IsSelectable);
         Assert.Contains(rows, row => row.Kind == SequenceRowKind.Setup && row.Label == "Identity Check");
         Assert.Contains(rows, row => row.Kind == SequenceRowKind.Setup && row.Label == "Operator Prompt");
-        Assert.Contains(rows, row => row is { Kind: SequenceRowKind.Header, Label: AuthoringChrome.MeasureHeader });
-        Assert.Contains(rows, row => row.Kind == SequenceRowKind.Repeat && row.Label.StartsWith("Repeat", StringComparison.Ordinal));
+        var measureHeader = Assert.Single(rows, row => row is { Kind: SequenceRowKind.Header, Label: AuthoringChrome.MeasureHeader });
+        Assert.True(rows.ToList().IndexOf(measureHeader) > rows.ToList().FindIndex(row => row.Kind == SequenceRowKind.Setup));
+        var repeat = Assert.Single(rows, row => row.Kind == SequenceRowKind.Repeat);
+        Assert.StartsWith("Repeat x", repeat.Label, StringComparison.Ordinal);
         var child = Assert.Single(rows, row => row.Kind == SequenceRowKind.Metric && row.Label.Contains("Mean GTE", StringComparison.Ordinal));
+        Assert.True(child.IsSelectable);
         Assert.Equal(1, child.Depth);
         Assert.Equal(AuthoringSequence.IndentPerDepth, child.Indent);
         Assert.Equal(new[] { 1, 0 }, child.IndexPath);
@@ -82,16 +99,47 @@ public sealed class AuthoringSequenceViewModelTests
         vm.CreateProgram("repeat-child");
         vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
         vm.ApplyRecipe(AuthoringRecipeIds.MeanGte);
-        vm.ApplyRecipe(AuthoringRecipeIds.Repeat);
+        var acquire = Assert.IsType<MetricNode>(vm.SelectedProgram!.Measure[0]);
+        var mean = Assert.IsType<MetricNode>(vm.SelectedProgram.Measure[1]);
+        vm.ReplaceSelected(vm.SelectedProgram with
+        {
+            Measure = [new RepeatNode(2, [acquire, mean])],
+        });
 
-        var child = vm.SequenceItems.Single(row =>
+        var first = vm.SequenceItems.Single(row =>
+            row.Kind == SequenceRowKind.Metric && row.Detail.Contains("VDC", StringComparison.Ordinal)
+            && !row.Detail.Contains("VDC.mean", StringComparison.Ordinal));
+        var second = vm.SequenceItems.Single(row =>
             row.Kind == SequenceRowKind.Metric && row.Detail.Contains("VDC.mean", StringComparison.Ordinal));
-        vm.SelectSequence(vm.SequenceItems.ToList().IndexOf(child));
+        Assert.True(second.IsSelectable);
+        Assert.Equal(1, second.Depth);
+        Assert.NotEqual(first.Key, second.Key);
+        vm.SelectSequence(vm.SequenceItems.ToList().IndexOf(second));
+        Assert.Equal(SequenceRowKind.Metric, vm.SelectedSequence?.Kind);
+        Assert.Equal(second.Key, vm.SelectedSequence?.Key);
         Assert.Equal("VDC.mean", vm.ChannelKey);
+
         vm.ChannelKey = "rail.mean";
-        var repeat = Assert.IsType<RepeatNode>(vm.SelectedProgram!.Measure[child.IndexPath[0]]);
-        Assert.Equal("rail.mean", Assert.IsType<MetricNode>(repeat.Children[0]).Metric.ChannelKey);
-        Assert.Equal("VDC", Assert.IsType<MetricNode>(vm.SelectedProgram.Measure[0]).Metric.ChannelKey);
+        Assert.Equal(second.Key, vm.SelectedSequence?.Key);
+        var repeat = Assert.IsType<RepeatNode>(Assert.Single(vm.SelectedProgram!.Measure));
+        Assert.Equal("VDC", Assert.IsType<MetricNode>(repeat.Children[0]).Metric.ChannelKey);
+        Assert.Equal("rail.mean", Assert.IsType<MetricNode>(repeat.Children[1]).Metric.ChannelKey);
+        Assert.NotEqual("rail.mean", Assert.IsType<MetricNode>(repeat.Children[0]).Metric.ChannelKey);
+    }
+
+    [Fact]
+    public void SelectSequence_on_a_header_snaps_to_the_nearest_selectable_row()
+    {
+        var vm = OpenEmpty();
+        vm.CreateProgram("header-snap");
+        var setupHeader = vm.SequenceItems.ToList().FindIndex(row =>
+            row.Kind == SequenceRowKind.Header && row.Section == SequenceSection.Setup);
+        var identity = vm.SequenceItems.ToList().FindIndex(row => row.Label == "Identity Check");
+        Assert.True(setupHeader >= 0);
+        vm.SelectSequence(setupHeader);
+        Assert.Equal(identity, vm.SelectedSequenceIndex);
+        Assert.True(vm.SelectedSequence?.IsSelectable);
+        Assert.Equal("Identity Check", vm.SelectedSequence?.Label);
     }
 
     [Fact]

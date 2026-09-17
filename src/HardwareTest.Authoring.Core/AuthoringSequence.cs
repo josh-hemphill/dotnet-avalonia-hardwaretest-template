@@ -285,7 +285,7 @@ public static class AuthoringSequence
                         true,
                         depth,
                         indent,
-                        $"Repeat ×{repeat.Count}",
+                        $"Repeat x{repeat.Count}",
                         $"{repeat.Children.Count} step(s)",
                         path));
                     AppendMeasure(rows, repeat.Children, path);

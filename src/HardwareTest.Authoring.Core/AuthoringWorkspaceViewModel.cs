@@ -389,7 +389,7 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
         }
     }
 
-    private void ReplaceSelected(ProgramDraft draft)
+    internal void ReplaceSelected(ProgramDraft draft)
     {
         Programs = Programs.Select(p =>
                 string.Equals(p.PlanId, draft.PlanId, StringComparison.OrdinalIgnoreCase) ? draft : p)
