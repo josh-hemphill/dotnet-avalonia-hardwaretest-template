@@ -33,6 +33,7 @@ Typed SCPI lives in **InstrumentComponents.OpenTap** ([user guide](https://josh-
    ```bash
    HardwareTest.Authoring --validate plans/opentap --strict
    HardwareTest.Authoring --compat plans/opentap
+   HardwareTest.Authoring --eval-formulas plans/opentap
    HardwareTest.Authoring --pack plans/opentap --out dist/
    ```
 
@@ -176,7 +177,7 @@ Field editors (`InteractionFieldViewModel`) are shared widgets; override and pro
 
 ## Presentation and reports
 
-Publish tables `Sample` (Channel, Index, Value, optional LimitLow/LimitHigh/ElapsedMs) and `Scalar` (Name, Value, Unit, optional LimitLow/LimitHigh). **HardwareTest.Authoring** writes **Presentation** (`ChannelKey`, `DisplayRole`, `YUnit`, optional history thresholds) on Save plan; TUI/Editor authors attach the mixin by hand. Results lines show `MetricKey [role] value unit`. Run maps `timeseries` → Focus trend when earned, `scalar`/`passband` → Band gauges; Results prefers gauges then charts.
+Publish tables `Sample` (Channel, Index, Value, optional LimitLow/LimitHigh, **ElapsedMs**). **Acquire Voltage** always publishes `ElapsedMs` as `IntervalMs * index` (even with no limits) so MATLAB identification and `ApplyTransferFunctionStep` share a uniform clock. **Publish Timed Sample** still leaves `ElapsedMs` optional (`NaN` when unset). **HardwareTest.Authoring** writes **Presentation** (`ChannelKey`, `DisplayRole`, `YUnit`, optional history thresholds) on Save plan; TUI/Editor authors attach the mixin by hand. Results lines show `MetricKey [role] value unit`. Run maps `timeseries` → Focus trend when earned, `scalar`/`passband` → Band gauges; Results prefers gauges then charts.
 
 | Recipe | What to publish | Role | Limits | When to also publish timeseries |
 | --- | --- | --- | --- | --- |
@@ -186,9 +187,53 @@ Publish tables `Sample` (Channel, Index, Value, optional LimitLow/LimitHigh/Elap
 | Hi → Low return | Derived: `return.high.at.ms`, `return.low.at.ms`, or excursion | `scalar` / `passband` | Timing + amplitude limits | Raw series only for Focus |
 | Envelope / return bounds | Derived: `envelope.error` / `overshoot` / `undershoot` | `passband` | Spec envelope | Raw series for Focus |
 | Series stays in band | `Sample` + `LimitLow`/`LimitHigh` + `ElapsedMs`; Scalar `series.inband.pct` | acquire = `timeseries`; summary = `passband` | Every sample in band (`SeriesCompliance=allSamples`) | Event marks when bits/GPIB config change |
+| Formula (`mean(x)` + threshold) | Lowered `VDC.mean` scalar | `scalar` | Threshold | Preview/eval against `recordings/` |
+| Discrete transfer function | Filtered series `VDC.filt` | `timeseries` | Shape-only unless a derived scalar has limits | Sibling analyze; needs uniform `elapsedMs` |
 | Station health / daily cal | `cal.dc.offset` + `cal.age.hours` | `scalar` (unique ChannelKeys; no single mixin) | Age `LimitHigh` = max hours | Catalog `station-health`; DUT `requireStationHealth` warn\|block. Do not skip via Enabled |
 
 Rules of thumb: write pass criteria in words first; publish **one Scalar per criterion** with limits; keep `ChannelKey` stable; add `timeseries` only when Focus trend is useful. Demo: **Timing / Envelope Demo (Band-first)** (`timing-demo`) plus Sample/Board.
+
+### Discrete transfer functions
+
+Interchange is coefficient JSON, not MATLAB source. MATLAB remains the design tool; Authoring and the bench share `TransferFunctionFilter` (Direct Form II transposed) in HardwareTest Basic. Authoring never launches MATLAB and does not ship a toolbox.
+
+Copy a Results `run.json` into `recordings/{planId}/{runId}/run.json`. Engineers paste this export (required keys, `timeBase` = `elapsedMs`, `method` lowercase `filter` or `filtfilt`):
+
+```matlab
+raw = jsondecode(fileread('recordings/sample/<runId>/run.json'));
+mask = arrayfun(@(s) strcmp(s.metricKey, 'VDC') || strcmp(s.channel, 'VDC'), raw.samples);
+samples = raw.samples(mask);
+missingClock = arrayfun(@(s) ~isfield(s, 'elapsedMs') ...
+    || isempty(s.elapsedMs) || ~isscalar(s.elapsedMs) || ~isfinite(s.elapsedMs), samples);
+if isempty(samples) || any(missingClock) || numel(samples) < 2
+    error('TF export needs >=2 VDC samples with finite elapsedMs (timestamp-only run.json cannot identify).');
+end
+t_ms = arrayfun(@(s) double(s.elapsedMs), samples)';
+u    = arrayfun(@(s) double(s.value), samples)';
+Ts   = median(diff(t_ms)) / 1000;   % must equal TfModelJson.tsSeconds or RequireUniform fails
+
+% Design (typical): discrete b,a you will apply to the recorded series.
+[b, a] = butter(2, 0.2);            % already discrete at this Ts
+% Identify (optional): needs a known stimulus x aligned with u — u alone is not enough.
+% sysId = tfest(iddata(u, x, Ts), 2, 2); [b, a] = tfdata(sysId, 'v');
+% Continuous design: sys = c2d(tf(numC, denC), Ts); do not paste continuous b,a.
+sys = tf(b, a, Ts);
+[num, den] = tfdata(sys, 'v');
+model = struct( ...
+    'schemaVersion', 1, ...
+    'inputChannelKey', 'VDC', ...
+    'outputChannelKey', 'VDC.filt', ...
+    'tsSeconds', Ts, ...
+    'numerator', num, ...
+    'denominator', den, ...
+    'method', 'filter', ...
+    'timeBase', 'elapsedMs', ...
+    'initialConditions', 'zero');
+fid = fopen('models/VDC.filt.tf.json', 'w'); fwrite(fid, jsonencode(model)); fclose(fid);
+y = filter(num, den, u);            % check in y as golden beside the JSON
+```
+
+Import `models/*.tf.json` in Authoring (output channel key becomes the metric ChannelKey). `filtfilt` is post-acquire analyze only. Preview and `--eval-formulas` use the same IIR as the packed plan. Discretize in MATLAB (`c2d`) before export; do not paste continuous-time `tf(num,den)` into a formula.
 
 ### Typst PDFs
 

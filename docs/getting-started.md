@@ -4,7 +4,7 @@ Author a locked test plan in **HardwareTest.Authoring**, then run it in the oper
 
 This walkthrough opens the in-repo template workspace [`plans/opentap/`](../plans/opentap/), adds metrics with recipes, saves a TapPlan, and packs. Productization, plan-contract tables, and settings: [adapting.md](adapting.md). Architecture: [authoring-app.md](authoring-app.md). Layering rules: [README.md](../README.md).
 
-OpenTAP TUI / Editor is an optional [escape hatch](#6-optional-opentap-tui-escape-hatch) when you need the stock step tree.
+OpenTAP TUI / Editor is an optional [escape hatch](#7-optional-opentap-tui-escape-hatch) when you need the stock step tree.
 
 ## 1. Run HardwareTest.Authoring on the template workspace
 
@@ -22,6 +22,7 @@ The window opens that folder when it contains `authoring.json`. **Open workspace
 dotnet run --project src/HardwareTest.Authoring -c Debug -r win-x64 -- --bootstrap plans/opentap --offline
 dotnet run --project src/HardwareTest.Authoring -c Debug -r win-x64 -- --validate plans/opentap --strict
 dotnet run --project src/HardwareTest.Authoring -c Debug -r win-x64 -- --compat plans/opentap
+dotnet run --project src/HardwareTest.Authoring -c Debug -r win-x64 -- --eval-formulas plans/opentap
 dotnet run --project src/HardwareTest.Authoring -c Debug -r win-x64 -- --pack plans/opentap --out dist/
 dotnet run --project src/HardwareTest.Authoring -c Debug -r win-x64 -- --help
 ```
@@ -32,8 +33,8 @@ dotnet run --project src/HardwareTest.Authoring -c Debug -r win-x64 -- --help
 
 1. **New program** seeds Identity + Cleanup + Mock DMM (in-repo demos). Product workspaces that declare InstrumentComponents.OpenTap still keep this template’s sample/board-demo on Basic.
 2. On the **Program** tab, pick a recipe and **Add recipe**. The palette matches the test types below; **Dialog** and **Hang Forever** are not listed.
-3. Edit **Channel key**, **Display role**, **Y unit**, limits / threshold, and **VisaAddress** on the first instrument. Mean GTE needs a threshold; band and series need both limits. **Save plan** refuses missing limits.
-4. **Preview** shows canned samples for the selected DisplayRole (not Execute).
+3. Edit **Channel key**, **Display role**, **Y unit**, limits / threshold, and **VisaAddress** on the first instrument. Mean GTE needs a threshold; band and series need both limits. **Save plan** refuses missing limits. **Formula…** edits a MATLAB-flavored subset; **Transfer function…** edits numerator / denominator / Ts. Preview uses canned samples unless a recording is selected.
+4. **Preview** shows canned samples for the selected DisplayRole (not Execute). Select a `recordings/` export to eval formulas and transfer functions on real `elapsedMs` series.
 5. **Save plan** compiles the metric IR to `{planId}.TapPlan` + `{planId}.program.json` (three-level groups, Presentation on function leaves, sidecar). **Save sidecar** writes only the program JSON.
 
 Keep **VisaAddress** writable so the operator Instruments page can rebind.
@@ -85,6 +86,20 @@ Pass/fail belongs on a **scalar** or **passband**, not on a chart.
 
 Write the criterion in words first, then publish **one Scalar per criterion**. Recipe table: [adapting.md](adapting.md#presentation-and-reports).
 
+### Formula — MATLAB-flavored subset
+
+**Formula…** is not MATLAB Runtime. One language, parsed in Authoring. `mean(x)` plus a scalar threshold lowers to **Mean GTE**. Unknown names (`fft`, `plot`, `eval`, continuous `tf`) fail parse. Nested `filter` / `filtfilt` fail closed (they never become OpenTAP Expressions).
+
+Allowed operators: `+ - * / ^`, `.* ./ .^`, parentheses. Functions: `abs`, `sqrt`, `min`, `max`, `mean`, `sum`, `std`, `diff`, `length`, `median`, plus HardwareTest `rise_time` / `inband_pct`. Coefficient vectors for IIR sugar: `[0.5 0.5]` or `[0.5, 0.5]`.
+
+### Transfer function — discrete SISO IIR
+
+**Transfer function…** (or top-level `filter(b, a, x)` / `filtfilt(b, a, x)` in a formula) compiles to **Apply Transfer Function**, a native Basic analyze step. Coefficients come from the editor or from MATLAB-exported `models/*.tf.json` — not `.m` files. There is no MATLAB Engine or Runtime in Authoring or on the bench.
+
+`filtfilt` is a sibling analyze of the acquire (whole series, zero-phase). Causal `filter` is the same placement. Both need a uniform `ElapsedMs` grid; **Acquire Voltage** always publishes `IntervalMs * index` so the first operator `run.json` already has a clock. Timestamp-only recordings fail closed.
+
+Import JSON (`schemaVersion` 1): `tsSeconds`, `numerator`, `denominator`, `method` (`filter` or `filtfilt`, lowercase), `timeBase` = `elapsedMs`, `initialConditions` = `zero`, `inputChannelKey`, `outputChannelKey`. Extra properties, `TsSeconds <= 0`, and a leading denominator of `0` fail import. Export snippet: [adapting.md](adapting.md#discrete-transfer-functions).
+
 ### Series in band + events — Bit Sweep / timed sample
 
 When every sample must stay in band, or you need config-change marks:
@@ -126,7 +141,17 @@ Identity, Prompt, Input, Safe Shutdown, Hang Forever, Repeat Loop, and Test Grou
 
 Optional: **Annotation** mixin for a bench note (Engineer station override). The operator shell does not add mixins. Authoring writes Presentation on Save; TUI/Editor authors still attach mixins by hand.
 
-## 5. Validate, pack, then run in the operator shell
+## 5. Check formulas and transfer functions against recordings
+
+Copy an operator Results export into `{workspace}/recordings/{planId}/{runId}/run.json` (or keep goldens under `tests/fixtures/authoring/`). The Program tab lists datasets for the current `planId`. Selecting one drives Preview from real samples (not Execute). `--eval-formulas` walks those goldens and fails on parse / eval / missing limits / irregular `elapsedMs`:
+
+```bash
+dotnet run --project src/HardwareTest.Authoring -c Debug -r win-x64 -- --eval-formulas plans/opentap
+```
+
+Transfer-function eval uses the same Direct Form II filter as the bench step. Identification recordings must include finite `elapsedMs` on every sample (do not use timestamp-only `run-v1.json`). DUT serial is optional.
+
+## 6. Validate, pack, then run in the operator shell
 
 ```bash
 dotnet run --project src/HardwareTest.Authoring -c Debug -r win-x64 -- --validate plans/opentap --strict
@@ -154,7 +179,7 @@ Then:
 
 Mock instruments: keep `UseMockVisa` on until a vendor VISA runtime is installed. Pack output is `dist/` artifacts for bake, not a live load into the operator process. Ship tab **Pack…** writes that `dist/`. Headless `--pack` also runs the TUI compatibility checker.
 
-## 6. Optional: OpenTAP TUI escape hatch
+## 7. Optional: OpenTAP TUI escape hatch
 
 Use TUI when you need the stock editor (sweeps, ComponentSettings, or a library step Authoring decompiles as Raw). Prefer the isolated home from **Bootstrap** so TUI and Authoring share one package set.
 
@@ -187,7 +212,7 @@ Optional: **Expressions** when the plan uses expression steps (`^1.5.0` is OpenT
 
 Restart TUI after installing packs so the step list refreshes. On the bench, confirm **Settings → OpenTAP packages & plugins**. Pack build details: [adapting.md](adapting.md#authoring-packs).
 
-In TUI: **New** test plan (or open [`plans/opentap/sample.TapPlan`](../plans/opentap/sample.TapPlan) and Save As). Add three **Test Group** steps (`HardwareTest` group): `Setup`, a measure group, and `Cleanup`. Add **one instrument resource per box**. Product plans: pick a typed *Instrument Components* instrument. In-repo demos use **Mock DMM**. Keep **`VisaAddress`** writable. Save as `{planId}.TapPlan` under `plans/opentap/` (copied to `Programs/` on build). Attach Presentation by hand (**Add Mixin** → **Presentation**). Then `--compat` / `--pack` as in [§5](#5-validate-pack-then-run-in-the-operator-shell).
+In TUI: **New** test plan (or open [`plans/opentap/sample.TapPlan`](../plans/opentap/sample.TapPlan) and Save As). Add three **Test Group** steps (`HardwareTest` group): `Setup`, a measure group, and `Cleanup`. Add **one instrument resource per box**. Product plans: pick a typed *Instrument Components* instrument. In-repo demos use **Mock DMM**. Keep **`VisaAddress`** writable. Save as `{planId}.TapPlan` under `plans/opentap/` (copied to `Programs/` on build). Attach Presentation by hand (**Add Mixin** → **Presentation**). Then `--compat` / `--pack` as in [§6](#6-validate-pack-then-run-in-the-operator-shell).
 
 `--compat` compares the authoring catalog and a Load/Save round-trip against a TUI-equipped home. CI: `deno run -A tools/ci/main.ts test:authoring-compat`.
 
