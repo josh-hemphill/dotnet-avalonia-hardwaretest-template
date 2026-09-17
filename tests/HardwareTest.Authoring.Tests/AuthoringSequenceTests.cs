@@ -148,6 +148,14 @@ public sealed class AuthoringSequenceViewModelTests
         vm.SelectSequence(cleanupHeader);
         Assert.Equal(shutdown, vm.SelectedSequenceIndex);
         Assert.Equal(SequenceRowKind.Cleanup, vm.SelectedSequence?.Kind);
+
+        vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
+        cleanupHeader = vm.SequenceItems.ToList().FindIndex(row =>
+            row.Kind == SequenceRowKind.Header && row.Section == SequenceSection.Cleanup);
+        shutdown = vm.SequenceItems.ToList().FindIndex(row => row.Kind == SequenceRowKind.Cleanup);
+        vm.SelectSequence(cleanupHeader);
+        Assert.Equal(shutdown, vm.SelectedSequenceIndex);
+        Assert.True(vm.HasCleanupEditor);
     }
 
     [Fact]
