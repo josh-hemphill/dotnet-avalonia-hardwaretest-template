@@ -327,7 +327,7 @@ public sealed class RunBoardChildViewModelTests
         var loads = 0;
         var programs = new ProgramSelectionViewModel(
             _ => { },
-            loadSelectedProgramAsync: () =>
+            loadSelectedProgramAsync: _ =>
             {
                 loads++;
                 return Task.CompletedTask;
@@ -338,6 +338,72 @@ public sealed class RunBoardChildViewModelTests
         Assert.NotEmpty(programs.Programs);
         Assert.NotNull(programs.SelectedProgram);
         Assert.Equal(1, loads);
+    }
+
+    [Fact]
+    public async Task ProgramSelection_refresh_skips_load_when_token_is_already_cancelled()
+    {
+        var loads = 0;
+        var programs = new ProgramSelectionViewModel(
+            _ => { },
+            loadSelectedProgramAsync: _ =>
+            {
+                loads++;
+                return Task.CompletedTask;
+            });
+
+        await Assert.ThrowsAsync<OperationCanceledException>(
+            () => programs.RefreshProgramsAsync(new CancellationToken(canceled: true)));
+
+        Assert.Equal(0, loads);
+        Assert.Empty(programs.Programs);
+        Assert.False(programs.IsBusy);
+    }
+
+    [Fact]
+    public async Task ProgramSelection_refresh_cancels_in_flight_load_and_clears_busy()
+    {
+        using var cts = new CancellationTokenSource();
+        var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var programs = new ProgramSelectionViewModel(
+            _ => { },
+            loadSelectedProgramAsync: async token =>
+            {
+                started.SetResult();
+                await Task.Delay(Timeout.Infinite, token);
+            });
+
+        var refresh = programs.RefreshProgramsAsync(cts.Token);
+        await started.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await cts.CancelAsync();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            () => refresh.WaitAsync(TimeSpan.FromSeconds(5)));
+        Assert.NotEmpty(programs.Programs);
+        Assert.False(programs.IsBusy);
+    }
+
+    [Fact]
+    public async Task ProgramSelection_open_plan_file_loads_selection()
+    {
+        var loads = 0;
+        var programs = new ProgramSelectionViewModel(
+            _ => { },
+            isEngineerDebugMode: () => true,
+            loadSelectedProgramAsync: _ =>
+            {
+                loads++;
+                return Task.CompletedTask;
+            })
+        {
+            RequestPlanFilePath = _ => Task.FromResult<string?>("plans/demo.TapPlan"),
+        };
+
+        await programs.OpenPlanFileCommand.ExecuteAsync();
+
+        Assert.Equal(1, loads);
+        Assert.Equal("demo", programs.SelectedProgram?.Id);
+        Assert.False(programs.IsBusy);
     }
 
     [Fact]
