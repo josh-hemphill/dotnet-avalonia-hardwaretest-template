@@ -90,7 +90,10 @@ public sealed class AuthoringProgramSettingsViewModelTests
         vm.ApplyRecipe(AuthoringRecipeIds.Repeat);
         Assert.True(vm.HasRepeatEditor);
         Assert.False(vm.HasFormula);
+        Assert.False(vm.HasTransferFunction);
         Assert.False(vm.HasMetricPresentation);
+        Assert.True(string.IsNullOrEmpty(vm.FormulaSaveNote));
+        Assert.True(string.IsNullOrEmpty(vm.MetricInstrumentSlot));
     }
 
     [Fact]
@@ -118,6 +121,10 @@ public sealed class AuthoringProgramSettingsViewModelTests
         vm.TfMethod = "fft";
         Assert.Equal("filtfilt", vm.TfMethod);
         Assert.Contains("VDC", vm.ChannelKeys);
+        vm.ApplyRecipe(AuthoringRecipeIds.Repeat);
+        Assert.True(vm.HasRepeatEditor);
+        Assert.False(vm.HasTransferFunction);
+        Assert.True(string.IsNullOrEmpty(vm.MetricInstrumentSlot));
     }
 
     [Fact]

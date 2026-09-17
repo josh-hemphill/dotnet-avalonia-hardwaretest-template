@@ -35,7 +35,9 @@ public sealed partial class AuthoringWorkspaceViewModel
         => SelectedSequence?.Kind == SequenceRowKind.Metric
            && SelectedMetric?.Source is TransferFunctionAlgorithm;
 
-    public bool HasRawStep => SelectedMeasure is RawStepNode;
+    public bool HasRawStep
+        => SelectedSequence?.Kind == SequenceRowKind.Raw
+           && SelectedMeasure is RawStepNode;
 
     public bool HasMetricPresentation
         => SelectedSequence?.Kind == SequenceRowKind.Metric && SelectedMetric is not null;
@@ -58,7 +60,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         "MATLAB-flavored subset, not MATLAB. Save plan only lowers mean(x)+threshold → Mean GTE, or top-level filter/filtfilt → transfer function.";
 
     public string FormulaSaveNote
-        => SelectedMetric?.Source is ExpressionAlgorithm expr
+        => HasFormula && SelectedMetric?.Source is ExpressionAlgorithm expr
             ? FormulaLowerer.DescribeSave(expr.Source, SelectedMetric.Limits)
             : string.Empty;
 
@@ -230,9 +232,16 @@ public sealed partial class AuthoringWorkspaceViewModel
 
     public string MetricInstrumentSlot
     {
-        get => SelectedMetric?.Source is MeasureSource measure ? measure.InstrumentSlot : string.Empty;
+        get => HasMetricPresentation && SelectedMetric?.Source is MeasureSource measure
+            ? measure.InstrumentSlot
+            : string.Empty;
         set
         {
+            if (!HasMetricPresentation)
+            {
+                return;
+            }
+
             var slot = value.Trim();
             if (string.IsNullOrWhiteSpace(slot))
             {
