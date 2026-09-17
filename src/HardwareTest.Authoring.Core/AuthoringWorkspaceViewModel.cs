@@ -165,6 +165,7 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
 
     public void SelectProgram(string planId)
     {
+        _selectedInstrumentSlot = null;
         SelectedProgram = Programs.FirstOrDefault(p =>
             string.Equals(p.PlanId, planId, StringComparison.OrdinalIgnoreCase));
         RaiseSidecarProperties();

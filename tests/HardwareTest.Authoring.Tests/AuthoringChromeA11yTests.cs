@@ -1,3 +1,4 @@
+using HardwareTest.Authoring;
 using Xunit;
 
 namespace HardwareTest.Authoring.Tests;
@@ -8,16 +9,85 @@ public sealed class AuthoringChromeA11yTests
     public void Program_window_has_sequence_inspector_preview_and_list_tab_once()
     {
         var xaml = File.ReadAllText(Path.Combine(FindRepoRoot(), "src", "HardwareTest.Authoring", "MainWindow.axaml"));
+        Assert.DoesNotContain("TreeView", xaml, StringComparison.Ordinal);
         Assert.Contains("Text=\"{Binding SequenceTitle}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Text=\"{Binding InspectorTitle}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Text=\"{Binding PreviewTitle}\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("Header=\"Program settings\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("KeyboardNavigation.TabNavigation=\"Once\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("ToolTip.Tip", xaml, StringComparison.Ordinal);
-        Assert.Contains("AutomationProperties.LabeledBy", xaml, StringComparison.Ordinal);
-        Assert.Contains("AutomationProperties.LiveSetting", xaml, StringComparison.Ordinal);
+        Assert.Contains("Header=\"{Binding ProgramSettingsTitle}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("ItemsSource=\"{Binding SequenceItems}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("SelectedIndex=\"{Binding SelectedSequenceIndex}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Property=\"IsEnabled\" Value=\"{Binding IsSelectable}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("LeftIndentConverter.Instance", xaml, StringComparison.Ordinal);
+        Assert.Contains("IsVisible=\"{Binding HasFormula}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("IsVisible=\"{Binding HasTransferFunction}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("IsVisible=\"{Binding HasMetricPresentation}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("IsVisible=\"{Binding HasRepeatEditor}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Text=\"{Binding Code, StringFormat='{}{0}'}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Text=\"{Binding Message}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Text=\"{Binding Severity}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("OnImportTransferFunction", xaml, StringComparison.Ordinal);
         Assert.Contains("OnFormulaChip", xaml, StringComparison.Ordinal);
+        Assert.Contains("AutomationProperties.LiveSetting=\"Assertive\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("AutomationProperties.LiveSetting=\"Polite\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("AutomationProperties.LabeledBy", xaml, StringComparison.Ordinal);
+        Assert.Contains("ToolTip.Tip", xaml, StringComparison.Ordinal);
+        Assert.Contains(
+            "ItemsSource=\"{Binding SequenceItems}\"",
+            xaml,
+            StringComparison.Ordinal);
+        var sequenceBlock = SliceAfter(xaml, "ItemsSource=\"{Binding SequenceItems}\"");
+        Assert.Contains("KeyboardNavigation.TabNavigation=\"Once\"", sequenceBlock, StringComparison.Ordinal);
+        Assert.True(
+            CountOccurrences(xaml, "KeyboardNavigation.TabNavigation=\"Once\"") >= 4,
+            "Sequence, recordings, preview samples, findings, and instruments lists should leave on Tab.");
+    }
+
+    [Fact]
+    public void Switching_programs_drops_a_stale_instrument_slot()
+    {
+        var dest = Path.Combine(Path.GetTempPath(), "ht-slot-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dest);
+        var src = Path.Combine(FindRepoRoot(), "plans", "opentap");
+        File.Copy(Path.Combine(src, "authoring.json"), Path.Combine(dest, "authoring.json"));
+        var vm = new AuthoringWorkspaceViewModel();
+        vm.Open(dest);
+        vm.CreateProgram("one");
+        vm.CreateProgram("two");
+        vm.SelectProgram("two");
+        vm.ReplaceSelected(vm.SelectedProgram! with
+        {
+            Instruments = [new InstrumentRef("SCOPE", vm.SelectedProgram.Instruments[0].TypeId, "MOCK::SCOPE")],
+        });
+        vm.SelectProgram("one");
+        vm.SelectedInstrumentSlot = "DMM";
+        Assert.Equal("DMM", vm.SelectedInstrumentSlot);
+        vm.SelectProgram("two");
+        Assert.Equal("SCOPE", vm.SelectedInstrumentSlot);
+        Assert.Equal("MOCK::SCOPE", vm.SelectedInstrumentVisa);
+    }
+
+    private static string SliceAfter(string text, string marker)
+    {
+        var index = text.IndexOf(marker, StringComparison.Ordinal);
+        Assert.True(index >= 0, marker);
+        return text[index..Math.Min(text.Length, index + 600)];
+    }
+
+    private static int CountOccurrences(string text, string token)
+    {
+        var count = 0;
+        var start = 0;
+        while (true)
+        {
+            var index = text.IndexOf(token, start, StringComparison.Ordinal);
+            if (index < 0)
+            {
+                return count;
+            }
+
+            count++;
+            start = index + token.Length;
+        }
     }
 
     private static string FindRepoRoot()

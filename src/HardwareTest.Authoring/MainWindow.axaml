@@ -363,11 +363,11 @@
             </StackPanel>
           </Grid>
         </TabItem>
-        <TabItem Header="Program settings" AutomationProperties.Name="Program settings tab">
+        <TabItem Header="{Binding ProgramSettingsTitle}" AutomationProperties.Name="Program settings tab">
           <ScrollViewer>
             <StackPanel Spacing="10" Margin="0,8,16,0" MaxWidth="640">
               <TextBlock FontWeight="SemiBold"
-                         Text="Program settings"
+                         Text="{Binding ProgramSettingsTitle}"
                          AutomationProperties.HeadingLevel="2" />
               <TextBlock Opacity="0.8" TextWrapping="Wrap" Text="{Binding ProgramSettingsPurpose}" />
               <TextBlock Opacity="0.8" TextWrapping="Wrap" Text="{Binding SidecarHelp}" />

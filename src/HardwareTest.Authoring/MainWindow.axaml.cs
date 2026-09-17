@@ -124,14 +124,6 @@ public partial class MainWindow : Window
         }
     }
 
-    private void OnRecipeSelected(object? sender, SelectionChangedEventArgs e)
-    {
-        if (sender is ListBox list && list.SelectedItem is AuthoringRecipe recipe)
-        {
-            _viewModel.SelectedRecipeId = recipe.Id;
-        }
-    }
-
     private void TryRun(Action action)
     {
         try

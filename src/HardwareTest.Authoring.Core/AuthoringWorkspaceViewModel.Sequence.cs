@@ -26,6 +26,8 @@ public sealed partial class AuthoringWorkspaceViewModel
 
     public string ProgramSettingsPurpose => AuthoringChrome.ProgramSettingsPurpose;
 
+    public string ProgramSettingsTitle => AuthoringChrome.ProgramSettingsTitle;
+
     public int SelectedSequenceIndex
     {
         get => _selectedSequenceIndex;

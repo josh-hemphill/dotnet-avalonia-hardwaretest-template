@@ -28,9 +28,11 @@ public sealed partial class AuthoringWorkspaceViewModel
 
     public string SelectedInstrumentSlot
     {
-        get => _selectedInstrumentSlot
-               ?? SelectedProgram?.Instruments.FirstOrDefault()?.SlotName
-               ?? string.Empty;
+        get => Instruments.Any(instrument =>
+                   string.Equals(instrument.SlotName, _selectedInstrumentSlot, StringComparison.OrdinalIgnoreCase))
+               ? _selectedInstrumentSlot!
+               : SelectedProgram?.Instruments.FirstOrDefault()?.SlotName
+                 ?? string.Empty;
         set
         {
             if (SetField(ref _selectedInstrumentSlot, value))
