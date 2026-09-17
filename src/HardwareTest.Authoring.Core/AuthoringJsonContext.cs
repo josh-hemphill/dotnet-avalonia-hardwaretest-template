@@ -15,4 +15,6 @@ namespace HardwareTest.Authoring;
 [JsonSerializable(typeof(List<AuthoringOptionalDependency>))]
 [JsonSerializable(typeof(List<string>))]
 [JsonSerializable(typeof(ShipManifest))]
+[JsonSerializable(typeof(TfModelJson))]
+[JsonSerializable(typeof(double[]))]
 public partial class AuthoringJsonContext : JsonSerializerContext;

@@ -599,6 +599,34 @@ public sealed class ArchitectureRulesTests
     }
 
     [Fact]
+    public void Transfer_function_filter_lives_in_basic_timebase_in_authoring_core()
+    {
+        Assert.Equal(
+            "HardwareTest.OpenTap.Plugins.Basic",
+            typeof(TransferFunctionFilter).Assembly.GetName().Name);
+        Assert.Equal(
+            "HardwareTest.OpenTap.Plugins.Basic",
+            typeof(TransferFunctionGrid).Assembly.GetName().Name);
+        Assert.Equal(
+            "HardwareTest.Authoring.Core",
+            typeof(global::HardwareTest.Authoring.TransferFunctionTimeBase).Assembly.GetName().Name);
+        Assert.DoesNotContain(
+            typeof(AcquireVoltageStep).Assembly.GetTypes(),
+            type => type.Name is "TransferFunctionTimeBase");
+        AssertNoForbiddenDirectReference(
+            typeof(TransferFunctionFilter).Assembly,
+            IsAvaloniaOrScottPlot,
+            PhaseIPresentation);
+        AssertNoForbiddenDirectReference(
+            typeof(TransferFunctionFilter).Assembly,
+            name => string.Equals(name, "HardwareTest.Core", StringComparison.Ordinal)
+                    || string.Equals(name, "Ivi.Visa", StringComparison.Ordinal),
+            PhaseIPresentation);
+        var basicSrc = Path.Combine(FindRepoRoot(), "src", "HardwareTest.OpenTap.Plugins.Basic");
+        Assert.False(File.Exists(Path.Combine(basicSrc, "TransferFunctionTimeBase.cs")));
+    }
+
+    [Fact]
     public void Template_program_package_xml_lists_plan_sidecar_and_depends_on_authoring_packs()
     {
         var path = Path.Combine(FindRepoRoot(), "plans", "opentap", "package.xml");

@@ -151,6 +151,76 @@ public sealed partial class AuthoringWorkspaceViewModel
         }
     }
 
+    public string TfNumerator
+    {
+        get => FormatVector(SelectedTf?.Numerator);
+        set => UpdateSelectedTf(tf => tf with { Numerator = ParseVector(value, tf.Numerator) });
+    }
+
+    public string TfDenominator
+    {
+        get => FormatVector(SelectedTf?.Denominator);
+        set => UpdateSelectedTf(tf => tf with { Denominator = ParseVector(value, tf.Denominator) });
+    }
+
+    public string TfTsSeconds
+    {
+        get => SelectedTf is { } tf ? tf.TsSeconds.ToString(CultureInfo.InvariantCulture) : string.Empty;
+        set
+        {
+            if (!double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var ts) || ts <= 0)
+            {
+                return;
+            }
+
+            UpdateSelectedTf(tf => tf with { TsSeconds = ts });
+        }
+    }
+
+    public string TfMethod
+    {
+        get => SelectedTf?.Method ?? string.Empty;
+        set
+        {
+            var method = value.Trim().ToLowerInvariant();
+            if (method is not ("filter" or "filtfilt"))
+            {
+                return;
+            }
+
+            UpdateSelectedTf(tf => tf with { Method = method });
+        }
+    }
+
+    public string TfInputChannel
+    {
+        get => SelectedTf?.InputChannelKey ?? string.Empty;
+        set => UpdateSelectedTf(tf => tf with { InputChannelKey = value.Trim() });
+    }
+
+    public void ImportTransferFunction(string path)
+    {
+        if (SelectedProgram is null)
+        {
+            throw new AuthoringWorkspaceException("Open a program before importing a transfer function.");
+        }
+
+        var imported = TfModelImporter.Load(path);
+        var metric = new MetricDraft(
+            "Transfer Function",
+            imported.OutputChannelKey,
+            PresentationRoles.Timeseries,
+            "V",
+            null,
+            null,
+            imported.Algorithm);
+        ReplaceSelected(SelectedProgram with { Measure = [.. SelectedProgram.Measure, new MetricNode(metric)] });
+        SelectedMeasureIndex = SelectedProgram.Measure.Count - 1;
+    }
+
+    private TransferFunctionAlgorithm? SelectedTf
+        => SelectedMetric?.Source as TransferFunctionAlgorithm;
+
     public string VisaAddress
     {
         get => SelectedProgram?.Instruments.FirstOrDefault()?.VisaAddress ?? string.Empty;
@@ -279,10 +349,49 @@ public sealed partial class AuthoringWorkspaceViewModel
         OnPropertyChanged(nameof(Threshold));
         OnPropertyChanged(nameof(FormulaSource));
         OnPropertyChanged(nameof(FormulaError));
+        OnPropertyChanged(nameof(TfNumerator));
+        OnPropertyChanged(nameof(TfDenominator));
+        OnPropertyChanged(nameof(TfTsSeconds));
+        OnPropertyChanged(nameof(TfMethod));
+        OnPropertyChanged(nameof(TfInputChannel));
         OnPropertyChanged(nameof(VisaAddress));
         OnPropertyChanged(nameof(RawTypeName));
         OnPropertyChanged(nameof(RawXml));
         OnPropertyChanged(nameof(MeasureHint));
+    }
+
+    private void UpdateSelectedTf(Func<TransferFunctionAlgorithm, TransferFunctionAlgorithm> mutate)
+    {
+        UpdateSelectedMetric(metric =>
+        {
+            if (metric.Source is not TransferFunctionAlgorithm tf)
+            {
+                return metric;
+            }
+
+            return metric with { Source = mutate(tf) };
+        });
+    }
+
+    private static string FormatVector(IReadOnlyList<double>? values)
+        => values is null || values.Count == 0
+            ? string.Empty
+            : string.Join(" ", values.Select(v => v.ToString(CultureInfo.InvariantCulture)));
+
+    private static IReadOnlyList<double> ParseVector(string? value, IReadOnlyList<double> fallback)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return fallback;
+        }
+
+        var parts = value.Split([',', ' ', '\t'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (parts.Length == 0)
+        {
+            return fallback;
+        }
+
+        return parts.Select(part => double.Parse(part, CultureInfo.InvariantCulture)).ToArray();
     }
 
     private static string FormatLimit(double? value)

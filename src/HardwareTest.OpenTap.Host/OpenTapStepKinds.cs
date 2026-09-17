@@ -30,6 +30,10 @@ public static class OpenTapStepKinds
            || TypeNameIs(step, "RepeatLoopStep")
            || TypeNameIs(step, "TestGroupStep");
 
+    /// ApplyTransferFunctionStep is a function leaf, not Presentation-exempt.
+    public static bool IsApplyTransferFunction(ITestStep step)
+        => step is ApplyTransferFunctionStep || TypeNameIs(step, "ApplyTransferFunctionStep");
+
     /// Basic IdentityCheckStep still needs a HardwareDut; library Identity Query does not.
     public static bool RequiresHardwareDut(ITestStep step)
         => step is IdentityCheckStep || TypeNameIs(step, "IdentityCheckStep");

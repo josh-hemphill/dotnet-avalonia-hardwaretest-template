@@ -2,12 +2,10 @@ using HardwareTest.Core.Runs;
 
 namespace HardwareTest.Authoring;
 
-/// Offline ExpressionAlgorithm eval over a bound run.json. No Execute / MATLAB.
+/// Offline ExpressionAlgorithm and TransferFunctionAlgorithm eval over a bound run.json.
 public static class FormulaDatasetEval
 {
-    public const string TransferFunctionPendingNote = "needs Area 11 filter";
-
-    /// Evaluates each ExpressionAlgorithm. TransferFunctionAlgorithm nodes are skipped.
+    /// Evaluates each ExpressionAlgorithm and TransferFunctionAlgorithm over the recording.
     public static IReadOnlyList<StoredSample> EvaluateProgram(ProgramDraft draft, TestRunRecord run)
     {
         ArgumentNullException.ThrowIfNull(draft);
@@ -16,35 +14,42 @@ public static class FormulaDatasetEval
         var results = new List<StoredSample>();
         foreach (var metric in AuthoringRecipeCatalog.EnumerateMetrics(draft.Measure))
         {
-            if (metric.Source is not ExpressionAlgorithm expr)
+            switch (metric.Source)
             {
-                continue;
-            }
+                case ExpressionAlgorithm expr:
+                    {
+                        var ast = FormulaParser.Parse(expr.Source);
+                        if (ast.Root is FilterCallExpr)
+                        {
+                            var lowered = FormulaLowerer.Lower(expr, metric.Limits, series);
+                            if (lowered is TransferFunctionAlgorithm loweredTf)
+                            {
+                                results.AddRange(EvalTransferFunction(loweredTf, metric.ChannelKey, series));
+                                break;
+                            }
+                        }
 
-            var ast = FormulaParser.Parse(expr.Source);
-            EnsureSeriesPresent(expr, ast, series);
-            EnsureMeanThreshold(ast, metric);
-            var value = FormulaEvaluator.Evaluate(ast, series);
-            EnsureWithinLimits(metric, value, series, expr);
-            results.Add(new StoredSample
-            {
-                Channel = metric.ChannelKey,
-                MetricKey = metric.ChannelKey,
-                Value = value,
-                Unit = metric.YUnit,
-                DisplayRole = metric.DisplayRole,
-            });
+                        EnsureSeriesPresent(expr, ast, series);
+                        EnsureMeanThreshold(ast, metric);
+                        var value = FormulaEvaluator.Evaluate(ast, series);
+                        EnsureWithinLimits(metric, value, series, expr);
+                        results.Add(new StoredSample
+                        {
+                            Channel = metric.ChannelKey,
+                            MetricKey = metric.ChannelKey,
+                            Value = value,
+                            Unit = metric.YUnit,
+                            DisplayRole = metric.DisplayRole,
+                        });
+                        break;
+                    }
+                case TransferFunctionAlgorithm tf:
+                    results.AddRange(EvalTransferFunction(tf, metric.ChannelKey, series));
+                    break;
+            }
         }
 
         return results;
-    }
-
-    /// True when the draft has a TF metric that this area must not treat as identity.
-    public static bool HasPendingTransferFunction(ProgramDraft draft)
-    {
-        ArgumentNullException.ThrowIfNull(draft);
-        return AuthoringRecipeCatalog.EnumerateMetrics(draft.Measure)
-            .Any(metric => metric.Source is TransferFunctionAlgorithm);
     }
 
     private static void EnsureSeriesPresent(
@@ -150,5 +155,19 @@ public static class FormulaDatasetEval
 
         samples = [];
         return false;
+    }
+
+    private static IReadOnlyList<StoredSample> EvalTransferFunction(
+        TransferFunctionAlgorithm tf,
+        string outputChannelKey,
+        IReadOnlyDictionary<string, IReadOnlyList<StoredSample>> series)
+    {
+        if (!TryGetSeries(series, tf.InputChannelKey, out var input) || input.Count == 0)
+        {
+            throw new AuthoringWorkspaceException(
+                $"{AuthoringCompileCodes.FormulaEval}: missing series '{tf.InputChannelKey}'.");
+        }
+
+        return TransferFunctionEval.Apply(tf, input, outputChannelKey);
     }
 }

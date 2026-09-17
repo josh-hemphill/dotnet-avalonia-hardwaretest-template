@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "tsSeconds": 0.005,
+  "numerator": [0.5, 0.5],
+  "denominator": [1],
+  "method": "filter",
+  "timeBase": "elapsedMs",
+  "inputChannelKey": "VDC",
+  "outputChannelKey": "VDC.filt",
+  "initialConditions": "zero"
+}

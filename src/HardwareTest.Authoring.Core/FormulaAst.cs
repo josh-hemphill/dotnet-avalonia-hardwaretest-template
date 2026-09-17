@@ -15,6 +15,14 @@ public sealed record BinaryExpr(string Op, FormulaExpr Left, FormulaExpr Right) 
 
 public sealed record CallExpr(string Name, IReadOnlyList<FormulaExpr> Args) : FormulaExpr;
 
+public sealed record VectorExpr(IReadOnlyList<double> Values) : FormulaExpr;
+
+public sealed record FilterCallExpr(
+    IReadOnlyList<double> Numerator,
+    IReadOnlyList<double> Denominator,
+    string Channel,
+    string Method) : FormulaExpr;
+
 public static class FormulaExprWalk
 {
     /// Channel identifiers referenced by the AST (not function names).
@@ -48,6 +56,19 @@ public static class FormulaExprWalk
                 }
 
                 break;
+            case FilterCallExpr filter:
+                names.Add(filter.Channel);
+                break;
         }
     }
+
+    public static bool ContainsFilter(FormulaExpr expr)
+        => expr switch
+        {
+            FilterCallExpr => true,
+            UnaryExpr unary => ContainsFilter(unary.Operand),
+            BinaryExpr binary => ContainsFilter(binary.Left) || ContainsFilter(binary.Right),
+            CallExpr call => call.Args.Any(ContainsFilter),
+            _ => false,
+        };
 }

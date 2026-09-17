@@ -29,6 +29,7 @@ public static class FormulaEvaluator
             UnaryExpr unary => MapUnary(unary.Op, Eval(unary.Operand, series)),
             BinaryExpr binary => MapBinary(binary.Op, Eval(binary.Left, series), Eval(binary.Right, series)),
             CallExpr call => EvalCall(call, series),
+            FilterCallExpr => throw FailEval("filter/filtfilt is evaluated by TransferFunctionFilter"),
             _ => throw FailEval($"unsupported expression '{expr.GetType().Name}'"),
         };
 
