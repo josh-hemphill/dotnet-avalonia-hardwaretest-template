@@ -305,7 +305,41 @@ public sealed class TransferFunctionTests
         Assert.NotEmpty(preview.CannedSamples);
         Assert.False(string.Equals(preview.Note, "TF_GRID", StringComparison.Ordinal));
         Assert.DoesNotContain("TF_GRID", preview.Note ?? string.Empty, StringComparison.Ordinal);
+        Assert.DoesNotContain("Recording samples", preview.Note ?? string.Empty, StringComparison.Ordinal);
         Assert.All(preview.CannedSamples, value => Assert.False(double.IsNaN(value)));
+    }
+
+    [Fact]
+    public void Preview_with_bound_recording_missing_series_fails_closed()
+    {
+        var metric = new MetricDraft(
+            "Filter",
+            "VDC.filt",
+            PresentationRoles.Timeseries,
+            "V",
+            null,
+            null,
+            new TransferFunctionAlgorithm("VDC", [1], [1], 0.005, "filter"));
+        var recorded = new Dictionary<string, IReadOnlyList<StoredSample>>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["other"] = [new StoredSample { Channel = "other", MetricKey = "other", Value = 1, ElapsedMs = 0 }],
+        };
+        var preview = MetricPreviewBuilder.From(metric, null, recorded);
+        Assert.Empty(preview.CannedSamples);
+        Assert.Contains(AuthoringCompileCodes.FormulaEval, preview.Note, StringComparison.Ordinal);
+        Assert.Contains("VDC", preview.Note, StringComparison.Ordinal);
+        Assert.DoesNotContain("Recording samples", preview.Note ?? string.Empty, StringComparison.Ordinal);
+
+        var empty = MetricPreviewBuilder.From(
+            metric,
+            null,
+            new Dictionary<string, IReadOnlyList<StoredSample>>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["VDC"] = [],
+            });
+        Assert.Empty(empty.CannedSamples);
+        Assert.Contains(AuthoringCompileCodes.FormulaEval, empty.Note, StringComparison.Ordinal);
+        Assert.DoesNotContain("Recording samples", empty.Note ?? string.Empty, StringComparison.Ordinal);
     }
 
     [Fact]

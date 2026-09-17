@@ -207,11 +207,17 @@ public static class MetricPreviewBuilder
         try
         {
             IReadOnlyList<StoredSample> applied;
-            if (recorded is not null
-                && TryGetSeries(recorded, tf.InputChannelKey, out var input)
-                && input.Count > 0)
+            string? note;
+            if (recorded is not null)
             {
+                if (!TryGetSeries(recorded, tf.InputChannelKey, out var input) || input.Count == 0)
+                {
+                    throw new AuthoringWorkspaceException(
+                        $"{AuthoringCompileCodes.FormulaEval}: missing series '{tf.InputChannelKey}'.");
+                }
+
                 applied = TransferFunctionEval.Apply(tf, input, metric.ChannelKey);
+                note = "Recording samples (not Execute).";
             }
             else
             {
@@ -221,6 +227,7 @@ public static class MetricPreviewBuilder
                     ? SynthesizeCanned(metric.Limits, kind)
                     : Synthesize(sibling, PresentationRoles.TryMapRole(sibling.DisplayRole), null, null);
                 applied = TransferFunctionEval.ApplyWithSynthesizedClock(tf, canned, metric.ChannelKey);
+                note = null;
             }
 
             var values = applied.Select(s => s.Value).ToArray();
@@ -235,7 +242,7 @@ public static class MetricPreviewBuilder
                 metric.Limits?.Low,
                 metric.Limits?.High,
                 metric.Limits?.Threshold,
-                recorded is null ? null : "Recording samples (not Execute).");
+                note);
         }
         catch (AuthoringWorkspaceException ex)
         {

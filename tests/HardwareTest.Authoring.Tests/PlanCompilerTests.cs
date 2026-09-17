@@ -438,6 +438,94 @@ public sealed class PlanCompilerTests
     }
 
     [Fact]
+    public void Chained_filter_formula_save_treats_lowered_sibling_as_elapsed_source()
+    {
+        var dir = NewTempDir();
+        var path = Path.Combine(dir, "chain-tf.TapPlan");
+        var draft = MinimalDraft(
+            "chain-tf",
+            [
+                new MetricNode(new MetricDraft(
+                    "Acquire VDC",
+                    "VDC",
+                    PresentationDisplayRoles.Timeseries,
+                    "V",
+                    null,
+                    null,
+                    new MeasureSource(
+                        "DMM",
+                        AuthoringFunctionIds.BasicAcquireVoltage,
+                        new Dictionary<string, string> { ["Channel"] = "VDC" }))),
+                new MetricNode(new MetricDraft(
+                    "Filter",
+                    "VDC.filt",
+                    PresentationDisplayRoles.Timeseries,
+                    "V",
+                    null,
+                    null,
+                    new ExpressionAlgorithm(["VDC"], "filter([0.5 0.5],[1],VDC)"))),
+                new MetricNode(new MetricDraft(
+                    "Filter again",
+                    "VDC.filt2",
+                    PresentationDisplayRoles.Timeseries,
+                    "V",
+                    null,
+                    null,
+                    new ExpressionAlgorithm(["VDC.filt"], "filtfilt([1],[1],VDC.filt)"))),
+            ]);
+        new PlanCompiler().Save(draft, path);
+        var xml = File.ReadAllText(path);
+        Assert.Equal(2, xml.Split("ApplyTransferFunctionStep", StringSplitOptions.None).Length - 1);
+        var loaded = new PlanCompiler().Load(path);
+        var second = Assert.IsType<TransferFunctionAlgorithm>(
+            loaded.Measure.OfType<MetricNode>().Select(n => n.Metric)
+                .Single(m => m.ChannelKey == "VDC.filt2").Source);
+        Assert.Equal("VDC.filt", second.InputChannelKey);
+        Assert.Equal("filtfilt", second.Method);
+    }
+
+    [Fact]
+    public void Mean_formula_sibling_does_not_satisfy_tf_elapsed()
+    {
+        var dir = NewTempDir();
+        var path = Path.Combine(dir, "mean-tf.TapPlan");
+        var draft = MinimalDraft(
+            "mean-tf",
+            [
+                new MetricNode(new MetricDraft(
+                    "Acquire VDC",
+                    "VDC",
+                    PresentationDisplayRoles.Timeseries,
+                    "V",
+                    null,
+                    null,
+                    new MeasureSource(
+                        "DMM",
+                        AuthoringFunctionIds.BasicAcquireVoltage,
+                        new Dictionary<string, string> { ["Channel"] = "VDC" }))),
+                new MetricNode(new MetricDraft(
+                    "Mean",
+                    "VDC.mean",
+                    PresentationDisplayRoles.Scalar,
+                    "V",
+                    new LimitSpec(null, null, 1.2),
+                    null,
+                    new ExpressionAlgorithm(["VDC"], "mean(VDC)"))),
+                new MetricNode(new MetricDraft(
+                    "Filter",
+                    "VDC.filt",
+                    PresentationDisplayRoles.Timeseries,
+                    "V",
+                    null,
+                    null,
+                    new TransferFunctionAlgorithm("VDC.mean", [1], [1], 0.005, "filter"))),
+            ]);
+        var ex = Assert.Throws<AuthoringWorkspaceException>(() => new PlanCompiler().Save(draft, path));
+        Assert.Contains(AuthoringCompileCodes.TfMissingElapsed, ex.Message, StringComparison.Ordinal);
+        Assert.False(File.Exists(path));
+    }
+
+    [Fact]
     public void Transfer_function_save_does_not_add_limit_properties()
     {
         var dir = NewTempDir();
