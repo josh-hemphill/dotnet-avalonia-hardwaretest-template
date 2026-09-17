@@ -250,7 +250,7 @@ public sealed partial class PlanCompiler
     }
 
     private static bool CanPublishElapsed(MetricSource source)
-        => source switch
+        => ResolveElapsedSource(source) switch
         {
             TransferFunctionAlgorithm => true,
             MeasureSource measure when
@@ -264,6 +264,23 @@ public sealed partial class PlanCompiler
                 => measure.Settings.TryGetValue("ElapsedMs", out var elapsed) && !string.IsNullOrWhiteSpace(elapsed),
             _ => false,
         };
+
+    private static MetricSource ResolveElapsedSource(MetricSource source)
+    {
+        if (source is not ExpressionAlgorithm expr)
+        {
+            return source;
+        }
+
+        try
+        {
+            return FormulaLowerer.Lower(expr, null);
+        }
+        catch (AuthoringWorkspaceException)
+        {
+            return source;
+        }
+    }
 
     private static void AssignInstrument(ITestStep step, HardwareDmm instrument)
     {
