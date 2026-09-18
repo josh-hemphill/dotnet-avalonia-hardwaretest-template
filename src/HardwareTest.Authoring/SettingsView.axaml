@@ -4,10 +4,10 @@
              x:Class="HardwareTest.Authoring.SettingsView"
              x:DataType="vm:AuthoringWorkspaceViewModel">
   <ScrollViewer>
-    <StackPanel Spacing="10" Margin="0,8,16,0" MaxWidth="640">
+    <StackPanel Spacing="10" MaxWidth="640">
       <TextBlock FontWeight="SemiBold"
                  Text="{Binding SettingsTitle}"
-                 AutomationProperties.HeadingLevel="2" />
+                 AutomationProperties.HeadingLevel="1" />
       <TextBlock Opacity="0.8" TextWrapping="Wrap" Text="{Binding SettingsPurpose}" />
       <TextBlock Opacity="0.85"
                  TextWrapping="Wrap"
@@ -30,7 +30,7 @@
                 ToolTip.Tip="When off, Raw TUI steps still appear in the sequence but the XML pane is hidden." />
 
       <TextBlock x:Name="OpenTapHomeLabel" Text="OpenTAP home override" />
-      <TextBox Text="{Binding OpenTapHomeOverride}"
+      <TextBox Text="{Binding OpenTapHomeOverride, UpdateSourceTrigger=LostFocus}"
                IsEnabled="{Binding PreferencesEditable}"
                PlaceholderText="Leave empty to use {workspace}/.authoring/opentap"
                AutomationProperties.Name="OpenTAP home override"

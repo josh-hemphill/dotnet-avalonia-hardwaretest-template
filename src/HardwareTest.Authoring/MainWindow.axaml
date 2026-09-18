@@ -36,6 +36,10 @@
                 Click="OnValidate"
                 ToolTip.Tip="Run PlanContractValidator --strict on TapPlans in this workspace"
                 AutomationProperties.Name="Validate workspace" />
+        <Button Content="{Binding SettingsTitle}"
+                Click="OnOpenSettings"
+                ToolTip.Tip="{Binding SettingsPurpose}"
+                AutomationProperties.Name="Open settings" />
         <TextBlock x:Name="StatusLabel"
                    VerticalAlignment="Center"
                    Text="{Binding Status}"
@@ -307,7 +311,9 @@
                       </DataTemplate>
                     </ItemsControl.ItemTemplate>
                   </ItemsControl>
-                  <ItemsControl ItemsSource="{Binding FormulaCompletions}">
+                  <ItemsControl ItemsSource="{Binding FormulaCompletions}"
+                                IsVisible="{Binding ShowCatalogFormulaCompletions}"
+                                AutomationProperties.Name="Formula catalog">
                     <ItemsControl.ItemsPanel>
                       <ItemsPanelTemplate>
                         <WrapPanel />
@@ -504,9 +510,6 @@
               </DataTemplate>
             </ListBox.ItemTemplate>
           </ListBox>
-        </TabItem>
-        <TabItem Header="{Binding SettingsTitle}" AutomationProperties.Name="Settings tab">
-          <vm:SettingsView />
         </TabItem>
         <TabItem Header="Workspace" AutomationProperties.Name="Workspace tab">
           <StackPanel Spacing="8">

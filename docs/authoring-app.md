@@ -599,4 +599,4 @@ This template does not create those product repos. Pack’s `ship-manifest.json`
 
 ### Authoring app settings
 
-Workstation preferences for the engineer exe live in `%AppData%/HardwareTest/authoring-preferences.json` (Linux `~/.config/HardwareTest/authoring-preferences.json`). **Do not** reuse operator `settings.json` / `ISettingsStore`. Core `AuthoringPreferencesStore` is Avalonia-free; `AuthoringThemeApplier` maps System/Light/Dark onto `RequestedThemeVariant` in the exe. Last workspace is offered on the Programs rail and is never auto-opened.
+Workstation preferences for the engineer exe live in `%AppData%/HardwareTest/authoring-preferences.json` (Linux `~/.config/HardwareTest/authoring-preferences.json`). **Do not** reuse operator `settings.json` / `ISettingsStore`. Core `AuthoringPreferencesStore` is Avalonia-free; `AuthoringThemeApplier` maps System/Light/Dark onto `RequestedThemeVariant` in the exe. The toolbar **Settings** button opens a dedicated window (not a Program tab) so workstation prefs stay out of test-planning context. Last workspace is offered on the Programs rail and is never auto-opened.
