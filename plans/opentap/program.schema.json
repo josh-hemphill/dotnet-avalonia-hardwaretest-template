@@ -19,11 +19,12 @@
     "reportKinds": {
       "type": "array",
       "minItems": 1,
-      "items": { "enum": ["status", "certification"] },
-      "description": "Typst PDFs to generate after a run."
+      "items": { "type": "string", "minLength": 1 },
+      "description": "Typst PDFs to generate after a run. status and certification are shipped; additional ids are stored for this workspace."
     },
     "defaultReportKind": {
-      "enum": ["status", "certification"],
+      "type": "string",
+      "minLength": 1,
       "description": "Kind Results opens on double-click. Must be listed in reportKinds."
     },
     "selectionIncludesCleanup": {
@@ -31,8 +32,9 @@
       "description": "When false, Run Selected excludes SafeShutdownStep."
     },
     "programKind": {
-      "enum": ["dut", "stationHealth"],
-      "description": "dut (default) is a unit program. stationHealth is a bench cal / health program."
+      "type": "string",
+      "minLength": 1,
+      "description": "dut (default) is a unit program. stationHealth is a bench cal / health program. Additional ids are stored for this workspace."
     },
     "requireStationHealth": {
       "type": "boolean",

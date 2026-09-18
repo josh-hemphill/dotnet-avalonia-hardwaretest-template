@@ -149,6 +149,7 @@
                         Click="OnAddRecipe"
                         ToolTip.Tip="Append or wrap using the selected recipe. Identity/Prompt go to Setup; metrics to Measure; Repeat wraps the last measure; Safe Shutdown updates Cleanup."
                         AutomationProperties.Name="Add recipe" />
+                <TextBlock Opacity="0.8" TextWrapping="Wrap" Text="{Binding RecipeAddHint}" />
                 <Button Content="{Binding RemoveSelectedTitle}"
                         Click="OnRemoveSequence"
                         IsEnabled="{Binding CanRemoveSelectedSequence}"
@@ -430,6 +431,7 @@
                          AutomationProperties.HeadingLevel="2" />
               <TextBlock Opacity="0.8" TextWrapping="Wrap" Text="{Binding ProgramSettingsPurpose}" />
               <TextBlock Opacity="0.8" TextWrapping="Wrap" Text="{Binding SidecarHelp}" />
+              <TextBlock Opacity="0.8" TextWrapping="Wrap" Text="{Binding CatalogsPurpose}" />
 
               <TextBlock x:Name="DisplayNameLabel" Text="Display name" />
               <TextBox Text="{Binding DisplayName}"
@@ -450,10 +452,28 @@
                         ToolTip.Tip="When off, Run Selected skips Safe Shutdown" />
 
               <TextBlock FontWeight="SemiBold" Text="Reports" />
-              <CheckBox Content="Status PDF" IsChecked="{Binding ReportStatus}" />
-              <CheckBox Content="Certification PDF" IsChecked="{Binding ReportCertification}" />
+              <ItemsControl ItemsSource="{Binding ReportKindChoices}"
+                            AutomationProperties.Name="Report kinds">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:AuthoringCatalogToggle">
+                    <CheckBox Content="{Binding Id}"
+                              IsChecked="{Binding Included, Mode=OneWay}"
+                              Click="OnToggleReportKind"
+                              AutomationProperties.Name="{Binding Id}" />
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+              <TextBlock x:Name="NewReportKindLabel" Text="Add report kind" />
+              <TextBox Text="{Binding NewReportKind}"
+                       PlaceholderText="traceability"
+                       AutomationProperties.Name="New report kind"
+                       AutomationProperties.LabeledBy="{Binding #NewReportKindLabel}" />
+              <Button Content="Add report kind"
+                      Click="OnAddReportKind"
+                      ToolTip.Tip="Adds this id to the program sidecar and the workspace catalog"
+                      AutomationProperties.Name="Add report kind" />
               <TextBlock x:Name="DefaultReportLabel" Text="Default report" />
-              <ComboBox ItemsSource="{Binding ReportKindOptions}"
+              <ComboBox ItemsSource="{Binding IncludedReportKinds}"
                         SelectedItem="{Binding DefaultReportKind}"
                         AutomationProperties.Name="Default report"
                         AutomationProperties.LabeledBy="{Binding #DefaultReportLabel}" />
@@ -463,6 +483,15 @@
                         SelectedItem="{Binding ProgramKind}"
                         AutomationProperties.Name="Program kind"
                         AutomationProperties.LabeledBy="{Binding #ProgramKindLabel}" />
+              <TextBlock x:Name="NewProgramKindLabel" Text="Add program kind" />
+              <TextBox Text="{Binding NewProgramKind}"
+                       PlaceholderText="incomingInspect"
+                       AutomationProperties.Name="New program kind"
+                       AutomationProperties.LabeledBy="{Binding #NewProgramKindLabel}" />
+              <Button Content="Add program kind"
+                      Click="OnAddProgramKind"
+                      ToolTip.Tip="Sets this program’s kind and remembers it on the workspace catalog"
+                      AutomationProperties.Name="Add program kind" />
               <CheckBox Content="Require station health"
                         IsChecked="{Binding RequireStationHealth}"
                         ToolTip.Tip="Evaluate the station-health gate before Run on DUT programs" />
@@ -505,6 +534,21 @@
                        AutomationProperties.Name="VISA address"
                        AutomationProperties.LabeledBy="{Binding #VisaLabel}"
                        ToolTip.Tip="Writable so the operator Instruments page can rebind this slot on the bench" />
+              <TextBlock x:Name="NewSlotLabel" Text="Add instrument slot" />
+              <TextBox Text="{Binding NewInstrumentSlot}"
+                       PlaceholderText="SCOPE"
+                       AutomationProperties.Name="Add instrument slot"
+                       AutomationProperties.LabeledBy="{Binding #NewSlotLabel}" />
+              <TextBlock x:Name="NewVisaLabel" Text="New slot VISA" />
+              <TextBox Text="{Binding NewInstrumentVisa}"
+                       PlaceholderText="MOCK::INSTR1"
+                       AutomationProperties.Name="New slot VISA"
+                       AutomationProperties.LabeledBy="{Binding #NewVisaLabel}" />
+              <Button Content="Add instrument slot"
+                      Click="OnAddInstrumentSlot"
+                      IsEnabled="{Binding CanAddInstrumentSlot}"
+                      ToolTip.Tip="Appends a slot to this program. Save plan writes it into the TapPlan."
+                      AutomationProperties.Name="Add instrument slot" />
             </StackPanel>
           </ScrollViewer>
         </TabItem>

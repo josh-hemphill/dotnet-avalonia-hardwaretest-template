@@ -69,6 +69,25 @@
     "recordingsDirectory": {
       "type": "string",
       "description": "Directory of operator run.json goldens, relative to this manifest. Default recordings. Unused until recordings consume lands; the folder need not exist."
+    },
+    "catalogs": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Suggested report kinds, program kinds, and instrument slot names for this workspace. Not a closed demo-program list.",
+      "properties": {
+        "reportKinds": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "programKinds": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "instrumentSlotNames": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
     }
   }
 }

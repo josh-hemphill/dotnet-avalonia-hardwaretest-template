@@ -26,6 +26,10 @@ public sealed partial class AuthoringWorkspaceViewModel
 
     public string ProgramSettingsPurpose => AuthoringChrome.ProgramSettingsPurpose;
 
+    public string CatalogsPurpose => AuthoringChrome.CatalogsPurpose;
+
+    public string RecipeAddHint => AuthoringChrome.RecipeAddHint;
+
     public string ProgramSettingsTitle => AuthoringChrome.ProgramSettingsTitle;
 
     public string SettingsTitle => AuthoringChrome.SettingsTitle;

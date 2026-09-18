@@ -2,7 +2,7 @@ using HardwareTest.OpenTap.Host;
 
 namespace HardwareTest.Authoring;
 
-/// Closed option lists for inspector ComboBoxes (Avalonia-free).
+/// Closed inspector lists (display roles, TF methods, gates) plus well-known catalog defaults.
 public static class AuthoringEditorCatalog
 {
     public static IReadOnlyList<string> DisplayRoles { get; } =

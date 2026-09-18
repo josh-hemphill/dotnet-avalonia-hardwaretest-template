@@ -8,6 +8,7 @@ namespace HardwareTest.Authoring;
     DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
     UseStringEnumConverter = true)]
 [JsonSerializable(typeof(AuthoringManifest))]
+[JsonSerializable(typeof(AuthoringWorkspaceCatalogs))]
 [JsonSerializable(typeof(AuthoringPackageSpec))]
 [JsonSerializable(typeof(AuthoringPackageDependency))]
 [JsonSerializable(typeof(AuthoringOptionalDependency))]

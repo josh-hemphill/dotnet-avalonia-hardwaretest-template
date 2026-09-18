@@ -48,6 +48,10 @@ public static class AuthoringChrome
     public const string ProgramSettingsTitle = "Program settings";
     public const string ProgramSettingsPurpose =
         "Session, DUT, reports, and instrument slots for this program. They are not metrics.";
+    public const string CatalogsPurpose =
+        "Report kinds, program kinds, and instrument slots come from this workspace and the open programs — not the in-repo demos. Add a token to use it on this program.";
+    public const string RecipeAddHint =
+        "Add recipe appends a getting-started type. Other OpenTAP steps stay Raw after you edit the TapPlan in TUI.";
     public const string SettingsTitle = "Settings";
     public const string SettingsPurpose =
         "Theme and workstation prefs for this engineer PC. Not operator appliance policy.";

@@ -5,16 +5,30 @@ namespace HardwareTest.Authoring;
 public sealed partial class AuthoringWorkspaceViewModel
 {
     private string? _selectedInstrumentSlot;
+    private string _newReportKind = string.Empty;
+    private string _newProgramKind = string.Empty;
+    private string _newInstrumentSlot = string.Empty;
+    private string _newInstrumentVisa = string.Empty;
 
     public IReadOnlyList<string> DisplayRoleOptions => AuthoringEditorCatalog.DisplayRoles;
 
-    public IReadOnlyList<string> YUnitOptions => AuthoringEditorCatalog.YUnits;
+    public IReadOnlyList<string> YUnitOptions => AuthoringWorkspaceCatalog.YUnitOptions(SelectedProgram);
 
     public IReadOnlyList<string> TfMethodOptions => AuthoringEditorCatalog.TfMethods;
 
-    public IReadOnlyList<string> ReportKindOptions => AuthoringEditorCatalog.ReportKinds;
+    public IReadOnlyList<string> ReportKindOptions
+        => AuthoringWorkspaceCatalog.ReportKindOptions(Workspace?.Manifest, Programs, SelectedProgram);
 
-    public IReadOnlyList<string> ProgramKindOptions => AuthoringEditorCatalog.ProgramKinds;
+    public IReadOnlyList<AuthoringCatalogToggle> ReportKindChoices
+        => ReportKindOptions.Select(kind => new AuthoringCatalogToggle(kind, HasReportKind(kind))).ToArray();
+
+    public IReadOnlyList<string> IncludedReportKinds
+        => SelectedProgram?.Sidecar.ReportKinds is { Length: > 0 } kinds
+            ? kinds
+            : ["status"];
+
+    public IReadOnlyList<string> ProgramKindOptions
+        => AuthoringWorkspaceCatalog.ProgramKindOptions(Workspace?.Manifest, Programs, SelectedProgram);
 
     public IReadOnlyList<string> StationHealthGateOptions => AuthoringEditorCatalog.StationHealthGates;
 
@@ -72,6 +86,43 @@ public sealed partial class AuthoringWorkspaceViewModel
             OnPropertyChanged();
         }
     }
+
+    public string NewReportKind
+    {
+        get => _newReportKind;
+        set => SetField(ref _newReportKind, value ?? string.Empty);
+    }
+
+    public string NewProgramKind
+    {
+        get => _newProgramKind;
+        set => SetField(ref _newProgramKind, value ?? string.Empty);
+    }
+
+    public string NewInstrumentSlot
+    {
+        get => _newInstrumentSlot;
+        set
+        {
+            if (SetField(ref _newInstrumentSlot, value ?? string.Empty))
+            {
+                OnPropertyChanged(nameof(CanAddInstrumentSlot));
+            }
+        }
+    }
+
+    public string NewInstrumentVisa
+    {
+        get => _newInstrumentVisa;
+        set => SetField(ref _newInstrumentVisa, value ?? string.Empty);
+    }
+
+    public bool CanAddInstrumentSlot
+        => Workspace is not null
+           && !Workspace.IsReadOnly
+           && SelectedProgram is not null
+           && AuthoringWorkspaceCatalog.Normalize(NewInstrumentSlot) is { } slot
+           && !InstrumentSlots.Any(existing => string.Equals(existing, slot, StringComparison.OrdinalIgnoreCase));
 
     public IReadOnlyList<FormulaCatalog.Item> FormulaCompletions
         => FormulaCatalog.Completions(ChannelKeys);
@@ -164,13 +215,33 @@ public sealed partial class AuthoringWorkspaceViewModel
     public string DefaultReportKind
     {
         get => SelectedProgram?.Sidecar.DefaultReportKind ?? "status";
-        set => SetSidecarIfUnchanged(DefaultReportKind, value, s => { s.DefaultReportKind = value; });
+        set
+        {
+            var kind = AuthoringWorkspaceCatalog.Normalize(value);
+            if (kind is null
+                || !IncludedReportKinds.Any(existing =>
+                    string.Equals(existing, kind, StringComparison.OrdinalIgnoreCase)))
+            {
+                return;
+            }
+
+            SetSidecarIfUnchanged(DefaultReportKind, kind, s => { s.DefaultReportKind = kind; });
+        }
     }
 
     public string ProgramKind
     {
         get => SelectedProgram?.Sidecar.ProgramKind ?? "dut";
-        set => SetSidecarIfUnchanged(ProgramKind, value, s => { s.ProgramKind = value; });
+        set
+        {
+            var kind = AuthoringWorkspaceCatalog.Normalize(value);
+            if (kind is null)
+            {
+                return;
+            }
+
+            SetSidecarIfUnchanged(ProgramKind, kind, s => { s.ProgramKind = kind; });
+        }
     }
 
     public bool RequireStationHealth
@@ -382,6 +453,89 @@ public sealed partial class AuthoringWorkspaceViewModel
         return span.Start + insertText.Length;
     }
 
+    public void SetReportKindIncluded(string kind, bool include)
+        => SetReportKind(kind, include);
+
+    public void AddReportKind()
+    {
+        var kind = AuthoringWorkspaceCatalog.Normalize(NewReportKind);
+        if (kind is null)
+        {
+            return;
+        }
+
+        EnsureWritableWorkspace("add a report kind");
+        RememberWorkspaceCatalog(
+            catalogs => RememberUnlessDefault(catalogs.ReportKinds, kind, AuthoringWorkspaceCatalog.DefaultReportKinds));
+        SetReportKind(kind, include: true);
+        NewReportKind = string.Empty;
+        OnPropertyChanged(nameof(ReportKindOptions));
+        OnPropertyChanged(nameof(ReportKindChoices));
+        OnPropertyChanged(nameof(IncludedReportKinds));
+        OnPropertyChanged(nameof(DefaultReportKind));
+    }
+
+    public void AddProgramKind()
+    {
+        var kind = AuthoringWorkspaceCatalog.Normalize(NewProgramKind);
+        if (kind is null)
+        {
+            return;
+        }
+
+        EnsureWritableWorkspace("add a program kind");
+        RememberWorkspaceCatalog(
+            catalogs => RememberUnlessDefault(catalogs.ProgramKinds, kind, AuthoringWorkspaceCatalog.DefaultProgramKinds));
+        ProgramKind = kind;
+        NewProgramKind = string.Empty;
+        OnPropertyChanged(nameof(ProgramKindOptions));
+    }
+
+    public void AddInstrumentSlot()
+    {
+        if (Workspace is null)
+        {
+            throw new AuthoringWorkspaceException("Open a workspace before adding an instrument slot.");
+        }
+
+        if (Workspace.IsReadOnly)
+        {
+            throw new AuthoringWorkspaceException("Workspace is read-only; cannot add an instrument slot.");
+        }
+
+        if (SelectedProgram is null)
+        {
+            throw new AuthoringWorkspaceException("Select a program before adding an instrument slot.");
+        }
+
+        var slot = AuthoringWorkspaceCatalog.Normalize(NewInstrumentSlot);
+        if (slot is null)
+        {
+            throw new AuthoringWorkspaceException("Instrument slot name is required.");
+        }
+
+        if (SelectedProgram.Instruments.Any(instrument =>
+                string.Equals(instrument.SlotName, slot, StringComparison.OrdinalIgnoreCase)))
+        {
+            throw new AuthoringWorkspaceException($"Instrument slot '{slot}' already exists.");
+        }
+
+        var typeId = SelectedProgram.Instruments.FirstOrDefault()?.TypeId
+                     ?? typeof(HardwareTest.OpenTap.Plugins.Basic.MockDmmInstrument).FullName!;
+        var visa = AuthoringWorkspaceCatalog.Normalize(NewInstrumentVisa)
+                   ?? $"MOCK::INSTR{SelectedProgram.Instruments.Count}";
+        RememberWorkspaceCatalog(catalogs => AuthoringWorkspaceCatalog.Remember(catalogs.InstrumentSlotNames, slot));
+        ReplaceSelected(SelectedProgram with
+        {
+            Instruments = [.. SelectedProgram.Instruments, new InstrumentRef(slot, typeId, visa)],
+        });
+        SelectedInstrumentSlot = slot;
+        NewInstrumentSlot = string.Empty;
+        NewInstrumentVisa = string.Empty;
+        Status = $"Added slot {slot}";
+        Error = null;
+    }
+
     private bool HasReportKind(string kind)
         => SelectedProgram?.Sidecar.ReportKinds?.Contains(kind, StringComparer.OrdinalIgnoreCase) == true
            || (kind == "status" && SelectedProgram?.Sidecar.ReportKinds is null);
@@ -416,6 +570,9 @@ public sealed partial class AuthoringWorkspaceViewModel
                 s.DefaultReportKind = current[0];
             }
         });
+        OnPropertyChanged(nameof(ReportKindChoices));
+        OnPropertyChanged(nameof(IncludedReportKinds));
+        OnPropertyChanged(nameof(DefaultReportKind));
     }
 
     internal void RefreshInstrumentSlots()
@@ -428,6 +585,7 @@ public sealed partial class AuthoringWorkspaceViewModel
 
         InstrumentSlots = next;
         OnPropertyChanged(nameof(InstrumentSlots));
+        OnPropertyChanged(nameof(CanAddInstrumentSlot));
     }
 
     private void SetSidecarIfUnchanged<T>(T current, T next, Action<ProgramSidecar> mutate)
@@ -449,6 +607,48 @@ public sealed partial class AuthoringWorkspaceViewModel
 
         mutate(SelectedProgram.Sidecar);
         RaiseSidecarProperties();
+    }
+
+    private void EnsureWritableWorkspace(string action)
+    {
+        if (Workspace is null)
+        {
+            throw new AuthoringWorkspaceException($"Open a workspace before {action}.");
+        }
+
+        if (Workspace.IsReadOnly)
+        {
+            throw new AuthoringWorkspaceException($"Workspace is read-only; cannot {action}.");
+        }
+    }
+
+    private static void RememberUnlessDefault(
+        List<string> items,
+        string token,
+        IReadOnlyList<string> defaults)
+    {
+        if (AuthoringWorkspaceCatalog.Contains(defaults, token))
+        {
+            return;
+        }
+
+        AuthoringWorkspaceCatalog.Remember(items, token);
+    }
+
+    private void RememberWorkspaceCatalog(Action<AuthoringWorkspaceCatalogs> mutate)
+    {
+        if (Workspace is null || Workspace.IsReadOnly)
+        {
+            return;
+        }
+
+        var catalogs = Workspace.Manifest.Catalogs ??= new AuthoringWorkspaceCatalogs();
+        mutate(catalogs);
+        AuthoringWorkspaceLoader.SaveManifest(Workspace.Root, Workspace.Manifest);
+        OnPropertyChanged(nameof(ReportKindOptions));
+        OnPropertyChanged(nameof(ReportKindChoices));
+        OnPropertyChanged(nameof(IncludedReportKinds));
+        OnPropertyChanged(nameof(ProgramKindOptions));
     }
 
     private void UpdateSelectedSetup(Func<SetupAction, SetupAction> mutate)
