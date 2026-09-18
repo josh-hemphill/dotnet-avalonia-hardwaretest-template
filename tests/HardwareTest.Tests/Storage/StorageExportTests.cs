@@ -134,6 +134,8 @@ public sealed class ExportTargetServiceTests
             var targets = svc.ListTargets();
             Assert.Contains(targets, t => t.Id == "configured");
             var target = targets.First(t => t.Id == "configured");
+            Assert.Contains(root, target.DisplayName, StringComparison.Ordinal);
+            Assert.Contains("Export directory", target.DisplayName, StringComparison.Ordinal);
 
             var written = svc.WriteAtomic(target, "note.txt", "hello"u8.ToArray());
             Assert.True(File.Exists(written));

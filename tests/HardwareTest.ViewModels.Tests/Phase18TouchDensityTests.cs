@@ -105,6 +105,8 @@ public sealed class Phase18TouchDensityTests
         Assert.Contains("AutomationProperties.Name=\"Open report\"", axaml, StringComparison.Ordinal);
         Assert.Contains("AutomationProperties.Name=\"Regenerate reports\"", axaml, StringComparison.Ordinal);
         Assert.Contains("OpenDefaultReportCommand", axaml, StringComparison.Ordinal);
+        Assert.Contains("ResultsViewModel.RegenerateReportsTip", axaml, StringComparison.Ordinal);
+        Assert.Contains("ResultsViewModel.ExportPackageHelp", axaml, StringComparison.Ordinal);
     }
 
     [Fact]

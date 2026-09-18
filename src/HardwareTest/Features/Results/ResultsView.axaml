@@ -33,7 +33,8 @@
               Classes="operator"
               Margin="0,0,8,4"
               AutomationProperties.Name="Regenerate reports"
-              IsEnabled="{Binding !IsBusy}">
+              IsEnabled="{Binding !IsBusy}"
+              ToolTip.Tip="{x:Static vm:ResultsViewModel.RegenerateReportsTip}">
         <StackPanel Orientation="Horizontal" Spacing="8">
           <ui:FASymbolIcon Symbol="{x:Static ui:FASymbol.Document}" FontSize="16" VerticalAlignment="Center" />
           <TextBlock Text="Regenerate reports" VerticalAlignment="Center" />
@@ -219,7 +220,7 @@
 
             <StackPanel Spacing="4" Margin="0,8,0,0" IsVisible="{Binding HasExportTargets}">
               <TextBlock Text="Export package" FontWeight="SemiBold" />
-              <TextBlock Text="Copies PDFs, run.json, attestation sidecars, and optional CSV to removable media or ExportDirectory."
+              <TextBlock Text="{x:Static vm:ResultsViewModel.ExportPackageHelp}"
                          Opacity="0.75" FontSize="11" TextWrapping="Wrap" />
               <ComboBox ItemsSource="{Binding ExportTargets}"
                         SelectedItem="{Binding SelectedExportTarget}"

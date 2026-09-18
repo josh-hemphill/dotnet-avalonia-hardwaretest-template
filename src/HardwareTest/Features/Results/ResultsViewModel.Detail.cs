@@ -507,7 +507,7 @@ public partial class ResultsViewModel
             }
             catch (Exception ex)
             {
-                Status = $"Reprint failed: {ex.Message}";
+                Status = $"Regenerate failed: {ex.Message}";
             }
         }
         finally
