@@ -108,7 +108,7 @@ public static class AuthoringSequence
         AppendMeasure(rows, draft.Measure, []);
 
         rows.Add(Header(SequenceSection.Cleanup, AuthoringChrome.CleanupHeader, AuthoringChrome.CleanupPurpose));
-        rows.Add(DescribeCleanup(draft.Cleanup));
+        rows.Add(DescribeCleanup(draft));
         return rows;
     }
 
@@ -424,9 +424,9 @@ public static class AuthoringSequence
         }
     }
 
-    private static SequenceRow DescribeCleanup(CleanupPolicy cleanup)
+    private static SequenceRow DescribeCleanup(ProgramDraft draft)
     {
-        var included = cleanup.IncludeSafeShutdown;
+        var included = draft.Cleanup.IncludeSafeShutdown;
         return new SequenceRow(
             "cleanup",
             SequenceSection.Cleanup,
@@ -435,19 +435,14 @@ public static class AuthoringSequence
             0,
             0,
             included ? "Safe Shutdown" : "Cleanup skipped",
-            included ? FormatCleanupDetail(cleanup) : "Sidecar excludes Safe Shutdown from Run Selected",
+            included ? FormatCleanupDetail(draft) : "Sidecar excludes Safe Shutdown from Run Selected",
             []);
     }
 
-    private static string FormatCleanupDetail(CleanupPolicy cleanup)
+    private static string FormatCleanupDetail(ProgramDraft draft)
     {
-        var parts = cleanup.InstrumentSlots.Where(slot => !string.IsNullOrWhiteSpace(slot)).ToList();
-        if (cleanup.IncludeMeasureSlots)
-        {
-            parts.Add("slots used in this program");
-        }
-
-        return parts.Count == 0 ? "Safe Shutdown" : string.Join(" · ", parts);
+        var parts = AuthoringCleanup.ResolveSlots(draft);
+        return parts.Count == 0 ? "no instruments selected" : string.Join(" · ", parts);
     }
 
     private static string MeasureKey(IReadOnlyList<int> path)

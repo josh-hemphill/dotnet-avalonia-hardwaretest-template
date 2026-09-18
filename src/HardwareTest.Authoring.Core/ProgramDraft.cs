@@ -119,12 +119,30 @@ public static class AuthoringCleanup
             }
         }
 
-        if (slots.Count == 0 && draft.Cleanup.IncludeSafeShutdown)
-        {
-            Add(slots, seen, draft.Instruments.FirstOrDefault()?.SlotName);
-        }
-
         return slots;
+    }
+
+    /// Copies explicit cleanup membership onto the sidecar without promoting union-only slots.
+    public static void SyncSidecar(ProgramSidecar sidecar, CleanupPolicy cleanup)
+    {
+        ArgumentNullException.ThrowIfNull(sidecar);
+        sidecar.IncludeSafeShutdown = cleanup.IncludeSafeShutdown ? true : null;
+        sidecar.IncludeMeasureSlots = cleanup.IncludeMeasureSlots ? true : null;
+        sidecar.CleanupInstrumentSlots = cleanup.InstrumentSlots.ToArray();
+    }
+
+    /// Rebuilds CleanupPolicy from compiled SafeShutdown steps plus sidecar explicit membership.
+    public static CleanupPolicy FromPlan(CleanupPolicy compiled, ProgramSidecar sidecar)
+    {
+        ArgumentNullException.ThrowIfNull(sidecar);
+        var include = sidecar.IncludeSafeShutdown ?? compiled.IncludeSafeShutdown;
+        IReadOnlyList<string> slots = sidecar.CleanupInstrumentSlots is { } listed
+            ? listed
+                .Where(slot => !string.IsNullOrWhiteSpace(slot))
+                .Select(slot => slot.Trim())
+                .ToArray()
+            : compiled.InstrumentSlots;
+        return new CleanupPolicy(include, slots, sidecar.IncludeMeasureSlots == true);
     }
 
     public static IReadOnlyList<string> MeasureSlots(ProgramDraft draft)

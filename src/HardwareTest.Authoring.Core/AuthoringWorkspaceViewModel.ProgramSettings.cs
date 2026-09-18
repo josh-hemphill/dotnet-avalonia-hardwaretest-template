@@ -381,10 +381,13 @@ public sealed partial class AuthoringWorkspaceViewModel
                 return;
             }
 
-            ReplaceSelected(SelectedProgram with
-            {
-                Cleanup = SelectedProgram.Cleanup with { InstrumentSlots = [slot] },
-            }, rebuildLists: false);
+            var tail = SelectedProgram.Cleanup.InstrumentSlots
+                .Skip(1)
+                .Where(existing => !string.Equals(existing, slot, StringComparison.OrdinalIgnoreCase));
+            IReadOnlyList<string> slots = [slot, .. tail];
+            var next = SelectedProgram.Cleanup with { InstrumentSlots = slots };
+            AuthoringCleanup.SyncSidecar(SelectedProgram.Sidecar, next);
+            ReplaceSelected(SelectedProgram with { Cleanup = next }, rebuildLists: false);
         }
     }
 
@@ -401,10 +404,11 @@ public sealed partial class AuthoringWorkspaceViewModel
                 return;
             }
 
-            SelectedProgram.Sidecar.IncludeMeasureSlots = value ? true : null;
+            var next = SelectedProgram.Cleanup with { IncludeMeasureSlots = value };
+            AuthoringCleanup.SyncSidecar(SelectedProgram.Sidecar, next);
             ReplaceSelected(SelectedProgram with
             {
-                Cleanup = SelectedProgram.Cleanup with { IncludeMeasureSlots = value },
+                Cleanup = next,
             }, rebuildLists: false);
         }
     }
@@ -419,9 +423,11 @@ public sealed partial class AuthoringWorkspaceViewModel
                 return;
             }
 
+            var next = SelectedProgram.Cleanup with { IncludeSafeShutdown = value };
+            AuthoringCleanup.SyncSidecar(SelectedProgram.Sidecar, next);
             ReplaceSelected(SelectedProgram with
             {
-                Cleanup = SelectedProgram.Cleanup with { IncludeSafeShutdown = value },
+                Cleanup = next,
             }, rebuildLists: false);
         }
     }
@@ -599,9 +605,11 @@ public sealed partial class AuthoringWorkspaceViewModel
             current.RemoveAll(existing => string.Equals(existing, slot, StringComparison.OrdinalIgnoreCase));
         }
 
+        var next = SelectedProgram.Cleanup with { InstrumentSlots = current };
+        AuthoringCleanup.SyncSidecar(SelectedProgram.Sidecar, next);
         ReplaceSelected(SelectedProgram with
         {
-            Cleanup = SelectedProgram.Cleanup with { InstrumentSlots = current },
+            Cleanup = next,
         }, rebuildLists: false);
     }
 

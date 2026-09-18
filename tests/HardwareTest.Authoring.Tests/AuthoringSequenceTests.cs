@@ -44,7 +44,30 @@ public sealed class AuthoringSequenceTests
         Assert.Equal(AuthoringSequence.IndentPerDepth, child.Indent);
         Assert.Equal(new[] { 1, 0 }, child.IndexPath);
         Assert.Contains(rows, row => row.Kind == SequenceRowKind.Cleanup && row.Label == "Safe Shutdown");
+        Assert.Contains(rows, row => row.Kind == SequenceRowKind.Cleanup && row.Detail.Contains("DMM", StringComparison.Ordinal));
         Assert.DoesNotContain(rows, row => row.Kind == SequenceRowKind.Header && row.IsSelectable);
+    }
+
+    [Fact]
+    public void Flatten_cleanup_detail_lists_resolved_union_slots()
+    {
+        var created = AuthoringRecipeCatalog.CreateProgram("union-detail");
+        var typeId = created.Instruments[0].TypeId;
+        var applied = AuthoringRecipeCatalog.Apply(created, AuthoringRecipeIds.Acquire);
+        var metric = Assert.IsType<MetricNode>(Assert.Single(applied.Measure)).Metric;
+        var measure = Assert.IsType<MeasureSource>(metric.Source);
+        var draft = applied with
+        {
+            Instruments =
+            [
+                created.Instruments[0],
+                new InstrumentRef("SCOPE", typeId, "MOCK::INSTR1"),
+            ],
+            Measure = [new MetricNode(metric with { Source = measure with { InstrumentSlot = "SCOPE" } })],
+            Cleanup = new CleanupPolicy(true, ["DMM"], true),
+        };
+        var cleanup = Assert.Single(AuthoringSequence.Flatten(draft), row => row.Kind == SequenceRowKind.Cleanup);
+        Assert.Equal("DMM · SCOPE", cleanup.Detail);
     }
 
     [Fact]
