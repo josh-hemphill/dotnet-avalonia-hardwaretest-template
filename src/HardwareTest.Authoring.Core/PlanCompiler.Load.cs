@@ -52,6 +52,11 @@ public sealed partial class PlanCompiler
             Walk(step, instruments, setup, measure, ref cleanup, xmlById);
         }
 
+        cleanup = new CleanupPolicy(
+            cleanup.IncludeSafeShutdown,
+            cleanup.InstrumentSlots,
+            sidecar.IncludeMeasureSlots == true);
+
         return new ProgramDraft(
             planId,
             sidecar,
@@ -118,7 +123,15 @@ public sealed partial class PlanCompiler
 
         if (OpenTapStepKinds.IsSafeShutdown(step))
         {
-            cleanup = new CleanupPolicy(true, InstrumentSlotName(step));
+            var slots = cleanup.InstrumentSlots.ToList();
+            var slot = InstrumentSlotName(step);
+            if (!string.IsNullOrWhiteSpace(slot)
+                && !slots.Any(existing => string.Equals(existing, slot, StringComparison.OrdinalIgnoreCase)))
+            {
+                slots.Add(slot);
+            }
+
+            cleanup = new CleanupPolicy(true, slots, cleanup.IncludeMeasureSlots);
             return;
         }
 

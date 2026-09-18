@@ -52,6 +52,7 @@ public sealed partial class PlanCompiler : IPlanCompiler
         var plan = BuildPlan(draft);
         AssertNoDialog(plan);
         plan.Save(tapPlanPath);
+        draft.Sidecar.IncludeMeasureSlots = draft.Cleanup.IncludeMeasureSlots ? true : null;
         WriteSidecar(tapPlanPath, draft.Sidecar);
     }
 

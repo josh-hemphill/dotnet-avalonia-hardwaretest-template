@@ -26,6 +26,7 @@ internal static class PlanContractSidecar
         "reportKinds",
         "defaultReportKind",
         "selectionIncludesCleanup",
+        "includeMeasureSlots",
         "programKind",
         "requireStationHealth",
         "stationHealthMaxAgeHours",

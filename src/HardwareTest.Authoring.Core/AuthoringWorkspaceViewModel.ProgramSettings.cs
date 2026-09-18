@@ -383,7 +383,28 @@ public sealed partial class AuthoringWorkspaceViewModel
 
             ReplaceSelected(SelectedProgram with
             {
-                Cleanup = SelectedProgram.Cleanup with { InstrumentSlot = slot },
+                Cleanup = SelectedProgram.Cleanup with { InstrumentSlots = [slot] },
+            }, rebuildLists: false);
+        }
+    }
+
+    public IReadOnlyList<AuthoringCatalogToggle> CleanupSlotChoices
+        => InstrumentSlots.Select(slot => new AuthoringCatalogToggle(slot, HasCleanupSlot(slot))).ToArray();
+
+    public bool IncludeMeasureSlots
+    {
+        get => HasCleanupEditor && (SelectedProgram?.Cleanup.IncludeMeasureSlots ?? false);
+        set
+        {
+            if (!HasCleanupEditor || SelectedProgram is null || IncludeMeasureSlots == value)
+            {
+                return;
+            }
+
+            SelectedProgram.Sidecar.IncludeMeasureSlots = value ? true : null;
+            ReplaceSelected(SelectedProgram with
+            {
+                Cleanup = SelectedProgram.Cleanup with { IncludeMeasureSlots = value },
             }, rebuildLists: false);
         }
     }
@@ -554,6 +575,40 @@ public sealed partial class AuthoringWorkspaceViewModel
         Status = $"Added slot {slot}";
         Error = null;
     }
+
+    public void SetCleanupSlotIncluded(string slotName, bool include)
+    {
+        if (!HasCleanupEditor || SelectedProgram is null)
+        {
+            return;
+        }
+
+        var slot = AuthoringWorkspaceCatalog.Normalize(slotName);
+        if (slot is null || HasCleanupSlot(slot) == include)
+        {
+            return;
+        }
+
+        var current = SelectedProgram.Cleanup.InstrumentSlots.ToList();
+        if (include)
+        {
+            current.Add(slot);
+        }
+        else
+        {
+            current.RemoveAll(existing => string.Equals(existing, slot, StringComparison.OrdinalIgnoreCase));
+        }
+
+        ReplaceSelected(SelectedProgram with
+        {
+            Cleanup = SelectedProgram.Cleanup with { InstrumentSlots = current },
+        }, rebuildLists: false);
+    }
+
+    private bool HasCleanupSlot(string slot)
+        => SelectedProgram is not null
+           && SelectedProgram.Cleanup.InstrumentSlots.Any(existing =>
+               string.Equals(existing, slot, StringComparison.OrdinalIgnoreCase));
 
     public void SetRequiredFieldIncluded(string fieldId, bool include)
     {
