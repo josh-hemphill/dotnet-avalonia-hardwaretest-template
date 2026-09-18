@@ -95,7 +95,14 @@ public sealed class TypstReportService : IReportService, IDisposable
             compiled.Add((kind, title, pdfBytes));
         }
 
-        ReportAttestationService.InvalidateForKinds(run, dir, kinds);
+        var kindsToInvalidate = kinds
+            .Where(kind => ReportAttestationService.ResolveIssuedPdfPath(run, kind) is null)
+            .ToArray();
+        if (kindsToInvalidate.Length > 0)
+        {
+            ReportAttestationService.InvalidateForKinds(run, dir, kindsToInvalidate);
+        }
+
         var artifacts = new List<RunReportArtifact>();
         var now = DateTimeOffset.UtcNow;
         foreach (var item in compiled)
@@ -108,6 +115,7 @@ public sealed class TypstReportService : IReportService, IDisposable
                 Title = item.Title,
                 PdfPath = path,
                 GeneratedAt = now,
+                Role = ReportArtifactRoles.Working,
             });
             _logger.Information("Wrote {Kind} PDF for run {RunId} to {Path}", item.Kind, run.RunId, path);
         }
@@ -173,18 +181,24 @@ public sealed class TypstReportService : IReportService, IDisposable
             cancellationToken);
     }
 
-    /// Replaces only the regenerated kinds so a certification restamp keeps status PDFs.
+    /// Replaces working artifacts for regenerated kinds; issued copies stay frozen.
     private static void MergeGeneratedArtifacts(TestRunRecord run, List<RunReportArtifact> artifacts)
     {
+        var generatedKinds = artifacts
+            .Select(a => a.Kind)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
         var merged = run.Reports
-            .Where(existing => artifacts.TrueForAll(a =>
-                !string.Equals(a.Kind, existing.Kind, StringComparison.OrdinalIgnoreCase)))
+            .Where(existing =>
+                ReportArtifactRoles.IsIssued(existing.Role)
+                || !generatedKinds.Contains(existing.Kind))
             .ToList();
         merged.AddRange(artifacts);
         run.Reports = merged;
         run.ReportPdfPath = merged.FirstOrDefault(a =>
-                                string.Equals(a.Kind, ReportKinds.Status, StringComparison.OrdinalIgnoreCase))
+                                string.Equals(a.Kind, ReportKinds.Status, StringComparison.OrdinalIgnoreCase)
+                                && ReportArtifactRoles.IsWorking(a.Role))
                             ?.PdfPath
+                            ?? merged.FirstOrDefault(a => ReportArtifactRoles.IsWorking(a.Role))?.PdfPath
                             ?? merged.FirstOrDefault()?.PdfPath;
     }
 

@@ -34,6 +34,14 @@ public static class SchemaUpgradeRegistry
             ToVersion = 3,
             Transform = null,
         },
+        // Identity 3→4: optional RunReportArtifact.Role (missing means working).
+        new()
+        {
+            DocumentType = SchemaDocumentTypes.TestRunRecord,
+            FromVersion = 3,
+            ToVersion = 4,
+            Transform = null,
+        },
     ];
 
     public static IReadOnlyList<SchemaUpgradeStep> RegisteredSteps

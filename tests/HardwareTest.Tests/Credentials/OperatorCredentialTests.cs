@@ -141,7 +141,9 @@ public sealed class ReportAttestationServiceTests
             settings);
         var result = await service.AttestAsync(run, ReportKinds.Certification);
         Assert.True(result.Succeeded);
-        await File.WriteAllBytesAsync(run.Reports[0].PdfPath, "%PDF-changed"u8.ToArray());
+        var issuedPath = ReportAttestationService.ResolveIssuedPdfPath(run, ReportKinds.Certification);
+        Assert.False(string.IsNullOrWhiteSpace(issuedPath));
+        await File.WriteAllBytesAsync(issuedPath!, "%PDF-changed"u8.ToArray());
         Assert.False(service.HasValidAttestation(run, ReportKinds.Certification));
     }
 
@@ -247,7 +249,7 @@ public sealed class ReportAttestationServiceTests
         using var temp = new TempDataDirectory();
         var store = new FileRunStore(temp.RunsDirectory);
         var run = await SeedCertificationRunAsync(store);
-        var originalCertBytes = await File.ReadAllBytesAsync(run.Reports.Single(r => r.Kind == ReportKinds.Certification).PdfPath);
+        var originalCertBytes = await File.ReadAllBytesAsync(WorkingCertificationPath(run));
         using var card = FakePivCard.CreateRsa2048();
         var broker = new ScriptedPivBroker(card);
         var reports = new RecordingReportService();
@@ -265,7 +267,8 @@ public sealed class ReportAttestationServiceTests
         Assert.True(first.PinRequired);
         Assert.False(first.Succeeded);
         Assert.Empty(run.Attestations);
-        Assert.Equal(originalCertBytes, await File.ReadAllBytesAsync(run.Reports.Single(r => r.Kind == ReportKinds.Certification).PdfPath));
+        Assert.Equal(originalCertBytes, await File.ReadAllBytesAsync(WorkingCertificationPath(run)));
+        Assert.Null(ReportAttestationService.ResolveIssuedPdfPath(run, ReportKinds.Certification));
         Assert.Equal(0, reports.GenerateCount);
 
         var signed = await service.AttestAsync(
@@ -280,7 +283,10 @@ public sealed class ReportAttestationServiceTests
         Assert.Equal(AttestationSignatureFormat.PadesBasic, signed.Attestation.SignatureFormat);
         Assert.True(service.HasValidAttestation(run, ReportKinds.Certification));
         Assert.Equal(1, reports.GenerateCount);
-        var stamped = await File.ReadAllBytesAsync(run.Reports.Single(r => r.Kind == ReportKinds.Certification).PdfPath);
+        Assert.Equal(originalCertBytes, await File.ReadAllBytesAsync(WorkingCertificationPath(run)));
+        var issuedPath = ReportAttestationService.ResolveIssuedPdfPath(run, ReportKinds.Certification);
+        Assert.False(string.IsNullOrWhiteSpace(issuedPath));
+        var stamped = await File.ReadAllBytesAsync(issuedPath!);
         Assert.NotEqual(originalCertBytes, stamped);
         Assert.Contains(MockOperatorCredentialBroker.MockDisplayName, Encoding.UTF8.GetString(stamped), StringComparison.Ordinal);
         Assert.True(PdfPadesSignature.TryVerify(stamped, out var verifyError), verifyError);
@@ -389,6 +395,8 @@ public sealed class ReportAttestationServiceTests
         Assert.Contains("Insert the chip", result.Message, StringComparison.OrdinalIgnoreCase);
         Assert.Empty(run.Attestations);
         Assert.Equal(original, await File.ReadAllBytesAsync(run.Reports[0].PdfPath));
+        Assert.Null(ReportAttestationService.ResolveIssuedPdfPath(run, ReportKinds.Certification));
+        Assert.False(Directory.Exists(Path.Combine(store.GetRunDirectory(run.RunId), ReportArtifactRoles.DirectoryName)));
     }
 
     [Fact]
@@ -436,12 +444,40 @@ public sealed class ReportAttestationServiceTests
     }
 
     [Fact]
+    public async Task HasValidAttestation_true_when_working_pdf_changes_after_issue()
+    {
+        using var temp = new TempDataDirectory();
+        var store = new FileRunStore(temp.RunsDirectory);
+        var run = await SeedCertificationRunAsync(store);
+        var workingPath = WorkingCertificationPath(run);
+        var original = await File.ReadAllBytesAsync(workingPath);
+        var service = new ReportAttestationService(
+            new MockOperatorCredentialBroker(canSign: true),
+            store,
+            new AppSettings
+            {
+                RequireAttestationBeforeExport = true,
+                AllowPresenceInLieuOfSigning = true,
+            });
+        var result = await service.AttestAsync(run, ReportKinds.Certification);
+        Assert.True(result.Succeeded);
+        Assert.True(service.HasValidAttestation(run, ReportKinds.Certification));
+
+        await File.WriteAllBytesAsync(workingPath, "%PDF-working-changed"u8.ToArray());
+        Assert.True(service.HasValidAttestation(run, ReportKinds.Certification));
+        Assert.NotEqual(original, await File.ReadAllBytesAsync(workingPath));
+        var issuedPath = ReportAttestationService.ResolveIssuedPdfPath(run, ReportKinds.Certification);
+        Assert.False(string.IsNullOrWhiteSpace(issuedPath));
+        Assert.True(File.Exists(issuedPath));
+    }
+
+    [Fact]
     public async Task Attest_restamps_pdf_with_badge_before_hashing()
     {
         using var temp = new TempDataDirectory();
         var store = new FileRunStore(temp.RunsDirectory);
         var run = await SeedCertificationRunAsync(store, includeStatus: true);
-        var originalCertBytes = await File.ReadAllBytesAsync(run.Reports.Single(r => r.Kind == ReportKinds.Certification).PdfPath);
+        var originalCertBytes = await File.ReadAllBytesAsync(WorkingCertificationPath(run));
         var reports = new RecordingReportService();
         var service = new ReportAttestationService(
             new MockOperatorCredentialBroker(canSign: true),
@@ -456,11 +492,22 @@ public sealed class ReportAttestationServiceTests
         Assert.Equal(MockOperatorCredentialBroker.MockDisplayName, reports.LastIdentity?.DisplayName);
         Assert.Equal(ReportKinds.Certification, reports.LastIdentity?.ReportKind);
         Assert.Equal(AttestationKind.Signed, reports.LastIdentity?.Kind);
-        Assert.Contains(run.Reports, r => r.Kind == ReportKinds.Status);
+        Assert.Contains(run.Reports, r => r.Kind == ReportKinds.Status && ReportArtifactRoles.IsWorking(r.Role));
         Assert.True(service.HasValidAttestation(run, ReportKinds.Certification));
-        var stamped = await File.ReadAllBytesAsync(run.Reports.Single(r => r.Kind == ReportKinds.Certification).PdfPath);
+        Assert.Equal(originalCertBytes, await File.ReadAllBytesAsync(WorkingCertificationPath(run)));
+        var issuedPath = ReportAttestationService.ResolveIssuedPdfPath(run, ReportKinds.Certification);
+        Assert.False(string.IsNullOrWhiteSpace(issuedPath));
+        var stamped = await File.ReadAllBytesAsync(issuedPath!);
         Assert.NotEqual(originalCertBytes, stamped);
         Assert.Contains(MockOperatorCredentialBroker.MockDisplayName, Encoding.UTF8.GetString(stamped), StringComparison.Ordinal);
+        Assert.True(File.Exists(Path.Combine(store.GetRunDirectory(run.RunId), ReportArtifactRoles.DirectoryName, "certification.pdf")));
+    }
+
+    private static string WorkingCertificationPath(TestRunRecord run)
+    {
+        var path = ReportAttestationService.ResolveWorkingPdfPath(run, ReportKinds.Certification);
+        Assert.False(string.IsNullOrWhiteSpace(path));
+        return path!;
     }
 
     private static async Task<TestRunRecord> SeedCertificationRunAsync(

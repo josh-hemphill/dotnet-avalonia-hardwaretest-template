@@ -145,6 +145,33 @@ public sealed class SchemaVersioningTests
                  && s.Transform is null);
         Assert.Equal(3, SchemaUpgradeRegistry.Apply(SchemaDocumentTypes.TestRunRecord, fromVersion: 2, targetVersion: 3));
         Assert.Equal(3, SchemaUpgradeRegistry.Apply(SchemaDocumentTypes.TestRunRecord, fromVersion: 1, targetVersion: 3));
+        Assert.Contains(
+            SchemaUpgradeRegistry.RegisteredSteps,
+            s => s.DocumentType == SchemaDocumentTypes.TestRunRecord
+                 && s.FromVersion == 3
+                 && s.ToVersion == 4
+                 && s.Transform is null);
+        Assert.Equal(4, SchemaUpgradeRegistry.Apply(SchemaDocumentTypes.TestRunRecord, fromVersion: 3, targetVersion: 4));
+        Assert.Equal(4, SchemaUpgradeRegistry.Apply(SchemaDocumentTypes.TestRunRecord, fromVersion: 1, targetVersion: 4));
+    }
+
+    [Fact]
+    public void Missing_report_role_deserializes_as_working()
+    {
+        const string json = """
+            {
+              "kind": "certification",
+              "title": "Certification Report",
+              "pdfPath": "certification.pdf",
+              "generatedAt": "2026-09-18T00:00:00+00:00"
+            }
+            """;
+        var artifact = JsonSerializer.Deserialize(json, AppJsonContext.Default.RunReportArtifact);
+        Assert.NotNull(artifact);
+        Assert.Equal(ReportArtifactRoles.Working, artifact!.Role);
+        Assert.True(ReportArtifactRoles.IsWorking(artifact.Role));
+        Assert.False(ReportArtifactRoles.IsIssued(null));
+        Assert.True(ReportArtifactRoles.IsWorking(null));
     }
 
     [Fact]

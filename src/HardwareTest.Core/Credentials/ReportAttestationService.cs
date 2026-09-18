@@ -178,7 +178,7 @@ public sealed class ReportAttestationService : IReportAttestationService
         }
 
         var stampedPdf = stamped.Pdf;
-        var pdfPath = ResolvePdfPath(run, targetKind);
+        var pdfPath = ResolveWorkingPdfPath(run, targetKind) ?? ResolvePdfPath(run, targetKind);
         if (stampedPdf is null
             && (string.IsNullOrWhiteSpace(pdfPath) || !File.Exists(pdfPath)))
         {
@@ -282,15 +282,10 @@ public sealed class ReportAttestationService : IReportAttestationService
 
         var party = sign?.Credential ?? captured;
         var dir = _runStore.GetRunDirectory(run.RunId);
-        if (stampedPdf is not null)
-        {
-            ReportAttestationService.InvalidateForKinds(run, dir, [targetKind]);
-            pdfPath = string.IsNullOrWhiteSpace(pdfPath)
-                ? Path.Combine(dir, $"{targetKind}.pdf")
-                : pdfPath;
-            await AtomicFile.WriteAllBytesAsync(pdfPath, stampedPdf, cancellationToken).ConfigureAwait(false);
-            UpsertReportArtifact(run, targetKind, pdfPath);
-        }
+        ReportAttestationService.InvalidateForKinds(run, dir, [targetKind]);
+        var issuedBytes = stampedPdf ?? await File.ReadAllBytesAsync(pdfPath!, cancellationToken).ConfigureAwait(false);
+        await WriteIssuedPdfAsync(run, dir, targetKind, issuedBytes, cancellationToken).ConfigureAwait(false);
+        pdfHash = HashBytes(issuedBytes);
 
         var sidecarName = $"{targetKind}.attestation.json";
         var sidecarPath = Path.Combine(dir, sidecarName);
@@ -432,11 +427,7 @@ public sealed class ReportAttestationService : IReportAttestationService
         var party = sign.Credential ?? captured;
         var dir = _runStore.GetRunDirectory(run.RunId);
         ReportAttestationService.InvalidateForKinds(run, dir, [targetKind]);
-        pdfPath = string.IsNullOrWhiteSpace(pdfPath)
-            ? Path.Combine(dir, $"{targetKind}.pdf")
-            : pdfPath;
-        await AtomicFile.WriteAllBytesAsync(pdfPath, signedPdf, cancellationToken).ConfigureAwait(false);
-        UpsertReportArtifact(run, targetKind, pdfPath);
+        await WriteIssuedPdfAsync(run, dir, targetKind, signedPdf, cancellationToken).ConfigureAwait(false);
 
         var sidecarPath = Path.Combine(dir, $"{targetKind}.attestation.json");
         var document = new ReportAttestation
@@ -516,17 +507,10 @@ public sealed class ReportAttestationService : IReportAttestationService
         }
 
         var dir = _runStore.GetRunDirectory(run.RunId);
-        if (stampedPdf is not null)
-        {
-            ReportAttestationService.InvalidateForKinds(run, dir, [targetKind]);
-            pdfPath = string.IsNullOrWhiteSpace(pdfPath)
-                ? Path.Combine(dir, $"{targetKind}.pdf")
-                : pdfPath;
-            await AtomicFile.WriteAllBytesAsync(pdfPath, stampedPdf, cancellationToken).ConfigureAwait(false);
-            UpsertReportArtifact(run, targetKind, pdfPath);
-        }
-
-        var pdfHash = stampedPdf is not null ? HashBytes(stampedPdf) : HashFile(pdfPath!);
+        ReportAttestationService.InvalidateForKinds(run, dir, [targetKind]);
+        var issuedBytes = stampedPdf ?? await File.ReadAllBytesAsync(pdfPath!, cancellationToken).ConfigureAwait(false);
+        await WriteIssuedPdfAsync(run, dir, targetKind, issuedBytes, cancellationToken).ConfigureAwait(false);
+        var pdfHash = HashBytes(issuedBytes);
         var runJson = JsonSerializer.Serialize(run, AppJsonContext.Default.TestRunRecord);
         var runHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(runJson)));
         var sidecarPath = Path.Combine(dir, $"{targetKind}.attestation.json");
@@ -611,7 +595,7 @@ public sealed class ReportAttestationService : IReportAttestationService
         }
     }
 
-    /// Drops stamps and sidecars for kinds that are about to be regenerated (PDF bytes will change).
+    /// Drops stamps and sidecars for kinds whose attested PDF is about to change.
     public static void InvalidateForKinds(TestRunRecord run, string runDirectory, IEnumerable<string> kinds)
     {
         foreach (var kind in kinds)
@@ -639,9 +623,23 @@ public sealed class ReportAttestationService : IReportAttestationService
             string.Equals(a.ReportKind, reportKind, StringComparison.OrdinalIgnoreCase));
 
     public static string? ResolvePdfPath(TestRunRecord run, string reportKind)
+        => ResolveIssuedPdfPath(run, reportKind) ?? ResolveWorkingPdfPath(run, reportKind);
+
+    public static string? ResolveIssuedPdfPath(TestRunRecord run, string reportKind)
     {
         var match = run.Reports.FirstOrDefault(r =>
-            string.Equals(r.Kind, reportKind, StringComparison.OrdinalIgnoreCase));
+            string.Equals(r.Kind, reportKind, StringComparison.OrdinalIgnoreCase)
+            && ReportArtifactRoles.IsIssued(r.Role));
+        return match is not null && !string.IsNullOrWhiteSpace(match.PdfPath)
+            ? match.PdfPath
+            : null;
+    }
+
+    public static string? ResolveWorkingPdfPath(TestRunRecord run, string reportKind)
+    {
+        var match = run.Reports.FirstOrDefault(r =>
+            string.Equals(r.Kind, reportKind, StringComparison.OrdinalIgnoreCase)
+            && ReportArtifactRoles.IsWorking(r.Role));
         if (match is not null && !string.IsNullOrWhiteSpace(match.PdfPath))
         {
             return match.PdfPath;
@@ -675,10 +673,26 @@ public sealed class ReportAttestationService : IReportAttestationService
             || error.Contains("PIV applet not found", StringComparison.OrdinalIgnoreCase);
     }
 
-    private static void UpsertReportArtifact(TestRunRecord run, string kind, string pdfPath)
+    private static async Task<string> WriteIssuedPdfAsync(
+        TestRunRecord run,
+        string runDirectory,
+        string kind,
+        byte[] pdfBytes,
+        CancellationToken cancellationToken)
+    {
+        var issuedDir = Path.Combine(runDirectory, ReportArtifactRoles.DirectoryName);
+        Directory.CreateDirectory(issuedDir);
+        var issuedPath = Path.Combine(issuedDir, $"{kind}.pdf");
+        await AtomicFile.WriteAllBytesAsync(issuedPath, pdfBytes, cancellationToken).ConfigureAwait(false);
+        UpsertReportArtifact(run, kind, issuedPath, ReportArtifactRoles.Issued);
+        return issuedPath;
+    }
+
+    private static void UpsertReportArtifact(TestRunRecord run, string kind, string pdfPath, string role)
     {
         var existing = run.Reports.FirstOrDefault(r =>
-            string.Equals(r.Kind, kind, StringComparison.OrdinalIgnoreCase));
+            string.Equals(r.Kind, kind, StringComparison.OrdinalIgnoreCase)
+            && RolesMatch(r.Role, role));
         if (existing is null)
         {
             run.Reports.Add(new RunReportArtifact
@@ -687,13 +701,20 @@ public sealed class ReportAttestationService : IReportAttestationService
                 Title = ReportKinds.Title(kind),
                 PdfPath = pdfPath,
                 GeneratedAt = DateTimeOffset.UtcNow,
+                Role = role,
             });
             return;
         }
 
         existing.PdfPath = pdfPath;
         existing.GeneratedAt = DateTimeOffset.UtcNow;
+        existing.Role = role;
     }
+
+    private static bool RolesMatch(string? stored, string expected)
+        => ReportArtifactRoles.IsIssued(expected)
+            ? ReportArtifactRoles.IsIssued(stored)
+            : ReportArtifactRoles.IsWorking(stored);
 
     private static string HashBytes(byte[] bytes) => Convert.ToHexString(SHA256.HashData(bytes));
 
