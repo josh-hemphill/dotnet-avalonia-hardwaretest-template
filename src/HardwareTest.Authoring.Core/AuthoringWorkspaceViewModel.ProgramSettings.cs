@@ -417,7 +417,13 @@ public sealed partial class AuthoringWorkspaceViewModel
             return;
         }
 
-        setup[index] = mutate(setup[index]);
+        var next = mutate(setup[index]);
+        if (Equals(next, setup[index]))
+        {
+            return;
+        }
+
+        setup[index] = next;
         ReplaceSelected(SelectedProgram with { Setup = setup });
     }
 

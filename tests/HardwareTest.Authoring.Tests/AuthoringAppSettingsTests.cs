@@ -94,6 +94,18 @@ public sealed class AuthoringAppSettingsTests
         vm.SelectedProgram = vm.SelectedProgram;
         Assert.Same(program, vm.SelectedProgram);
         Assert.Same(programs, vm.Programs);
+
+        vm.ApplyRecipe(AuthoringRecipeIds.Formula);
+        var formula = vm.SequenceItems.Single(row => row.Kind == SequenceRowKind.Metric);
+        vm.SelectSequence(vm.SequenceItems.ToList().IndexOf(formula));
+        programs = vm.Programs;
+        program = vm.SelectedProgram;
+        vm.DisplayRole = vm.DisplayRole;
+        vm.YUnit = vm.YUnit;
+        vm.ChannelKey = vm.ChannelKey;
+        vm.FormulaSource = vm.FormulaSource;
+        Assert.Same(program, vm.SelectedProgram);
+        Assert.Same(programs, vm.Programs);
     }
 
     [Fact]

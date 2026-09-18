@@ -93,19 +93,43 @@ public sealed partial class AuthoringWorkspaceViewModel
     public string ChannelKey
     {
         get => SelectedMetric?.ChannelKey ?? string.Empty;
-        set => UpdateSelectedMetric(metric => metric with { ChannelKey = value });
+        set
+        {
+            if (string.Equals(ChannelKey, value, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            UpdateSelectedMetric(metric => metric with { ChannelKey = value });
+        }
     }
 
     public string DisplayRole
     {
         get => SelectedMetric?.DisplayRole ?? string.Empty;
-        set => UpdateSelectedMetric(metric => metric with { DisplayRole = value });
+        set
+        {
+            if (string.Equals(DisplayRole, value, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            UpdateSelectedMetric(metric => metric with { DisplayRole = value });
+        }
     }
 
     public string YUnit
     {
         get => SelectedMetric?.YUnit ?? string.Empty;
-        set => UpdateSelectedMetric(metric => metric with { YUnit = value });
+        set
+        {
+            if (string.Equals(YUnit, value, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            UpdateSelectedMetric(metric => metric with { YUnit = value });
+        }
     }
 
     public string LimitLow
@@ -131,7 +155,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         get => HasFormula && SelectedMetric?.Source is ExpressionAlgorithm expr ? expr.Source : string.Empty;
         set
         {
-            if (!HasFormula)
+            if (!HasFormula || string.Equals(FormulaSource, value, StringComparison.Ordinal))
             {
                 return;
             }
@@ -342,7 +366,13 @@ public sealed partial class AuthoringWorkspaceViewModel
         }
 
         var path = MeasureMutationPath();
-        if (path.Count == 0)
+        if (path.Count == 0 || SelectedMetric is null)
+        {
+            return;
+        }
+
+        var next = mutate(SelectedMetric);
+        if (Equals(next, SelectedMetric))
         {
             return;
         }
