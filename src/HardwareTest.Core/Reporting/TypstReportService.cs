@@ -293,12 +293,10 @@ public sealed class TypstReportService : IReportService, IDisposable
         var historySeverity = includeHistory ? history!.OverallSeverity.ToString() : string.Empty;
         var historyMetrics = includeHistory ? FormatHistoryMetrics(history!) : string.Empty;
         var operatorName = string.IsNullOrWhiteSpace(run.OperatorName) ? "n/a" : run.OperatorName;
-        // Overlay wins for this kind. Remaining attestations are only used when no overlay is supplied.
         var attestation = compileIdentity is not null
             && string.Equals(compileIdentity.ReportKind, kind, StringComparison.OrdinalIgnoreCase)
             ? compileIdentity
-            : run.Attestations.LastOrDefault(a =>
-                string.Equals(a.ReportKind, kind, StringComparison.OrdinalIgnoreCase));
+            : null;
         ReportAttestationStamp.FormatInputs(attestation, out var attestationKind, out var attestationDetail, out var attestationAt);
 
         var result = _compiler.Value.Compile(c =>
