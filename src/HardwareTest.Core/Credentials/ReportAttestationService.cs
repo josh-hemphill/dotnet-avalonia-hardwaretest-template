@@ -650,6 +650,59 @@ public sealed class ReportAttestationService : IReportAttestationService
             : run.ReportPdfPath;
     }
 
+    /// Run folder name for `runs/{id}/{kind}.pdf` or `runs/{id}/issued/{kind}.pdf`.
+    public static string? GuessRunIdFromPdfPath(string pdfPath)
+    {
+        if (string.IsNullOrWhiteSpace(pdfPath))
+        {
+            return null;
+        }
+
+        var dir = Path.GetDirectoryName(Path.GetFullPath(pdfPath));
+        if (string.IsNullOrWhiteSpace(dir))
+        {
+            return null;
+        }
+
+        var name = Path.GetFileName(dir);
+        if (string.Equals(name, ReportArtifactRoles.DirectoryName, StringComparison.OrdinalIgnoreCase))
+        {
+            return Path.GetFileName(Path.GetDirectoryName(dir));
+        }
+
+        return name;
+    }
+
+    public static bool RunOwnsPdf(TestRunRecord run, string pdfPath)
+    {
+        if (string.Equals(run.ReportPdfPath, pdfPath, StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return run.Reports.Any(r => string.Equals(r.PdfPath, pdfPath, StringComparison.OrdinalIgnoreCase));
+    }
+
+    public static string KindForPdf(TestRunRecord run, string pdfPath)
+    {
+        var match = run.Reports.FirstOrDefault(r =>
+            string.Equals(r.PdfPath, pdfPath, StringComparison.OrdinalIgnoreCase));
+        if (match is not null && !string.IsNullOrWhiteSpace(match.Kind))
+        {
+            return match.Kind;
+        }
+
+        var name = Path.GetFileNameWithoutExtension(pdfPath);
+        return string.IsNullOrWhiteSpace(name) ? ReportKinds.Certification : name;
+    }
+
+    /// Issued PDF when present for this path's kind; otherwise the given path.
+    public static string ResolvePrintOrExportPdfPath(TestRunRecord run, string pdfPath)
+    {
+        var kind = KindForPdf(run, pdfPath);
+        return ResolveIssuedPdfPath(run, kind) ?? pdfPath;
+    }
+
     private static bool CanRecordPresence(bool skipSigning, string? pin, CredentialSignResult? sign)
     {
         if (skipSigning)

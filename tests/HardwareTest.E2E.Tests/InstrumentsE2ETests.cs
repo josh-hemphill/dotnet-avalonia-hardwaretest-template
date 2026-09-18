@@ -4,13 +4,14 @@ using Xunit;
 
 namespace HardwareTest.E2E.Tests;
 
+[Collection("E2E")]
 public sealed class InstrumentsE2ETests
 {
     [AvaloniaFact]
     public async Task Instruments_page_discovers_mock_resources()
     {
-        var window = E2EHarness.ShowMainWindow();
-        var main = E2EHarness.MainVm(window);
+        using var shown = E2EHarness.ShowMainWindow();
+        var main = shown.Main;
         main.NavigateToPageId("Instruments");
         var instruments = (InstrumentsViewModel)main.CurrentPage!;
         await instruments.RefreshDiscoverCommand.ExecuteAsync();

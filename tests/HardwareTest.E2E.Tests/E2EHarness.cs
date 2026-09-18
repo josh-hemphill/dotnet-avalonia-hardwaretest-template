@@ -3,6 +3,7 @@ using System.Reactive;
 using System.Reactive.Linq;
 using System.Reactive.Threading.Tasks;
 using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Threading;
 using HardwareTest;
 using HardwareTest.Features;
@@ -11,8 +12,25 @@ using HardwareTest.Features.Results;
 using HardwareTest.Features.RunTest;
 using Microsoft.Extensions.DependencyInjection;
 using ReactiveUI;
+using Xunit;
 
 namespace HardwareTest.E2E.Tests;
+
+/// Serializes Avalonia + OpenTAP E2E so PerTest isolation does not rebuild the compositor off-thread.
+[CollectionDefinition("E2E", DisableParallelization = true)]
+public sealed class E2ECollection;
+
+/// OpenTAP worker + Avalonia dispatcher are process-global; close on the UI thread.
+internal sealed class ShownMainWindow : IDisposable
+{
+    public ShownMainWindow(MainWindow window) => Window = window;
+
+    public MainWindow Window { get; }
+
+    public MainWindowViewModel Main => E2EHarness.MainVm(Window);
+
+    public void Dispose() => E2EHarness.Close(Window);
+}
 
 internal static class E2EHarness
 {
@@ -20,13 +38,30 @@ internal static class E2EHarness
         => Application.Current as App
            ?? throw new InvalidOperationException("Avalonia Application is not initialized.");
 
-    public static MainWindow ShowMainWindow()
+    public static ShownMainWindow ShowMainWindow()
     {
         var app = RequireApp();
         var window = app.Services.GetRequiredService<MainWindow>();
         window.Show();
         WaitForStartup(MainVm(window));
-        return window;
+        return new ShownMainWindow(window);
+    }
+
+    public static void Close(Window window)
+    {
+        void CloseCore()
+        {
+            window.Close();
+            Dispatcher.UIThread.RunJobs();
+        }
+
+        if (Dispatcher.UIThread.CheckAccess())
+        {
+            CloseCore();
+            return;
+        }
+
+        Dispatcher.UIThread.Invoke(CloseCore);
     }
 
     /// Pumps the dispatcher until deferred OpenTAP warm-up finishes (or warms explicitly if needed).
@@ -61,6 +96,7 @@ internal static class E2EHarness
     public static Task ExecuteAsync(this ReactiveCommand<Unit, Unit> command)
         => command.Execute(Unit.Default).ToTask();
 
+    /// Pumps the dispatcher so OpenTAP completions can run, then yields without leaving AvaloniaFact's UI context.
     public static async Task WaitUntilAsync(Func<bool> predicate, TimeSpan? timeout = null, string? failureMessage = null)
     {
         var limit = timeout ?? TimeSpan.FromSeconds(60);
@@ -72,8 +108,22 @@ internal static class E2EHarness
                 throw new TimeoutException(failureMessage ?? "Condition was not met before timeout.");
             }
 
+            await PumpUiAsync();
             await Task.Delay(50);
         }
+
+        await PumpUiAsync();
+    }
+
+    public static async Task PumpUiAsync()
+    {
+        if (Dispatcher.UIThread.CheckAccess())
+        {
+            Dispatcher.UIThread.RunJobs();
+            return;
+        }
+
+        await Dispatcher.UIThread.InvokeAsync(() => Dispatcher.UIThread.RunJobs());
     }
 
     public static RunTestViewModel RunTestVm(MainWindowViewModel main)

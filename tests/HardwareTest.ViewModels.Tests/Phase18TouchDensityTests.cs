@@ -110,7 +110,8 @@ public sealed class Phase18TouchDensityTests
         Assert.Contains("ResultsViewModel.ExportPackageHelp", axaml, StringComparison.Ordinal);
         Assert.Contains("full PDF generation", ResultsViewModel.RegenerateReportsTip, StringComparison.Ordinal);
         Assert.Contains("run.json", ResultsViewModel.RegenerateReportsTip, StringComparison.Ordinal);
-        Assert.Contains("clears certification attestation", ResultsViewModel.RegenerateReportsTip, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("working Typst PDFs", ResultsViewModel.RegenerateReportsTip, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Issued signed copies stay in place", ResultsViewModel.RegenerateReportsTip, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("removable media", ResultsViewModel.ExportPackageHelp, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("Export directory", ResultsViewModel.ExportPackageHelp, StringComparison.Ordinal);
         Assert.Contains("Local exports", ResultsViewModel.ExportPackageHelp, StringComparison.Ordinal);

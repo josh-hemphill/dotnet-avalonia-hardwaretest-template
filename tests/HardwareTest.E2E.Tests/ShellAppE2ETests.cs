@@ -8,13 +8,14 @@ using Xunit;
 
 namespace HardwareTest.E2E.Tests;
 
+[Collection("E2E")]
 public sealed class ShellAppE2ETests
 {
     [AvaloniaFact]
     public void Operator_home_hides_engineer_notes_tile_and_settings_lists_baked_app()
     {
-        var window = E2EHarness.ShowMainWindow();
-        var main = E2EHarness.MainVm(window);
+        using var shown = E2EHarness.ShowMainWindow();
+        var main = shown.Main;
         var home = Assert.IsType<HomeViewModel>(main.CurrentPage);
         var tile = Assert.Single(home.GuestTiles, t => t.Title == "Station notes");
         Assert.False(tile.IsVisible);
@@ -29,8 +30,8 @@ public sealed class ShellAppE2ETests
     [AvaloniaFact]
     public async Task Engineer_mode_shows_baked_notes_shell_app()
     {
-        var window = E2EHarness.ShowMainWindow();
-        var main = E2EHarness.MainVm(window);
+        using var shown = E2EHarness.ShowMainWindow();
+        var main = shown.Main;
         Assert.Equal(4, main.NavigationItems.Count);
         Assert.DoesNotContain(main.NavigationItems, i => i.Id == NotesApplication.PageId);
 

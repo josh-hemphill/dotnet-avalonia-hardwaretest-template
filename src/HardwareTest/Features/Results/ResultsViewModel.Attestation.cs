@@ -119,8 +119,9 @@ public partial class ResultsViewModel
             }
 
             Status = result.Message;
+            LoadReportItems(OpenedRun);
             DismissAttestationPrompt();
-            ContinuePendingAction(pending, printPath);
+            ContinuePendingAction(pending, printPath, kind);
         }
         catch (OperationCanceledException)
         {
@@ -133,7 +134,7 @@ public partial class ResultsViewModel
         }
     }
 
-    private void ContinuePendingAction(string? pending, string? printPath)
+    private void ContinuePendingAction(string? pending, string? printPath, string reportKind)
     {
         if (string.Equals(pending, PendingExport, StringComparison.Ordinal))
         {
@@ -141,11 +142,18 @@ public partial class ResultsViewModel
             return;
         }
 
-        if (string.Equals(pending, PendingPrint, StringComparison.Ordinal)
-            && !string.IsNullOrWhiteSpace(printPath)
-            && File.Exists(printPath))
+        if (string.Equals(pending, PendingPrint, StringComparison.Ordinal))
         {
-            CertifiedPrintReady?.Invoke(this, printPath);
+            var path = printPath;
+            if (OpenedRun is not null)
+            {
+                path = ReportAttestationService.ResolveIssuedPdfPath(OpenedRun, reportKind) ?? path;
+            }
+
+            if (!string.IsNullOrWhiteSpace(path) && File.Exists(path))
+            {
+                CertifiedPrintReady?.Invoke(this, path);
+            }
         }
     }
 
@@ -159,7 +167,7 @@ public partial class ResultsViewModel
         }
 
         var run = OpenedRun;
-        if (run is null || !RunOwnsPdf(run, pdfPath))
+        if (run is null || !ReportAttestationService.RunOwnsPdf(run, pdfPath))
         {
             run = await LoadRunForPdfAsync(pdfPath).ConfigureAwait(true);
         }
@@ -172,21 +180,22 @@ public partial class ResultsViewModel
 
         OpenedRun = run;
         LoadReportItems(run);
-        _pendingPrintPath = pdfPath;
-        var kind = KindForPdf(run, pdfPath);
+        var kind = ReportAttestationService.KindForPdf(run, pdfPath);
+        var printPath = ReportAttestationService.ResolvePrintOrExportPdfPath(run, pdfPath);
+        _pendingPrintPath = printPath;
         if (TryBeginCertifiedAction(run, kind, PendingPrint))
         {
-            CertifiedPrintReady?.Invoke(this, pdfPath);
+            CertifiedPrintReady?.Invoke(this, printPath);
         }
     }
 
     private async Task<TestRunRecord?> LoadRunForPdfAsync(string pdfPath)
     {
-        var runId = Path.GetFileName(Path.GetDirectoryName(Path.GetFullPath(pdfPath)));
+        var runId = ReportAttestationService.GuessRunIdFromPdfPath(pdfPath);
         if (!string.IsNullOrWhiteSpace(runId))
         {
             var byFolder = await _runStore.LoadAsync(runId).ConfigureAwait(true);
-            if (byFolder is not null && RunOwnsPdf(byFolder, pdfPath))
+            if (byFolder is not null && ReportAttestationService.RunOwnsPdf(byFolder, pdfPath))
             {
                 return byFolder;
             }
@@ -195,35 +204,12 @@ public partial class ResultsViewModel
         foreach (var summary in await _runStore.ListAsync().ConfigureAwait(true))
         {
             var loaded = await _runStore.LoadAsync(summary.RunId).ConfigureAwait(true);
-            if (loaded is not null && RunOwnsPdf(loaded, pdfPath))
+            if (loaded is not null && ReportAttestationService.RunOwnsPdf(loaded, pdfPath))
             {
                 return loaded;
             }
         }
 
         return null;
-    }
-
-    private static bool RunOwnsPdf(TestRunRecord run, string pdfPath)
-    {
-        if (string.Equals(run.ReportPdfPath, pdfPath, StringComparison.OrdinalIgnoreCase))
-        {
-            return true;
-        }
-
-        return run.Reports.Any(r => string.Equals(r.PdfPath, pdfPath, StringComparison.OrdinalIgnoreCase));
-    }
-
-    private static string KindForPdf(TestRunRecord run, string pdfPath)
-    {
-        var match = run.Reports.FirstOrDefault(r =>
-            string.Equals(r.PdfPath, pdfPath, StringComparison.OrdinalIgnoreCase));
-        if (match is not null && !string.IsNullOrWhiteSpace(match.Kind))
-        {
-            return match.Kind;
-        }
-
-        var name = Path.GetFileNameWithoutExtension(pdfPath);
-        return string.IsNullOrWhiteSpace(name) ? ReportKinds.Certification : name;
     }
 }

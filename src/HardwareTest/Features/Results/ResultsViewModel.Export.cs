@@ -1,4 +1,5 @@
 using HardwareTest.Core.Credentials;
+using HardwareTest.Core.Runs;
 using HardwareTest.Core.Storage;
 using HardwareTest.OpenTap.Host;
 
@@ -76,10 +77,7 @@ public partial class ResultsViewModel
                     files.Add((runJson, "run.json"));
                 }
 
-                files.AddRange(
-                    OpenedRun.Reports
-                        .Where(r => !string.IsNullOrWhiteSpace(r.PdfPath) && File.Exists(r.PdfPath))
-                        .Select(r => (r.PdfPath, Path.GetFileName(r.PdfPath))));
+                files.AddRange(CollectExportReportFiles(OpenedRun));
 
                 if (!string.IsNullOrWhiteSpace(OpenedRun.ReportPdfPath)
                     && File.Exists(OpenedRun.ReportPdfPath)
@@ -168,5 +166,37 @@ public partial class ResultsViewModel
         {
             System.Diagnostics.Trace.TraceWarning($"Could not delete temp diagnostics '{path}': {ex.Message}");
         }
+    }
+
+    /// Issued PDFs export as `{kind}.pdf`; working copies nest under `working/` when issued exists.
+    public static IEnumerable<(string SourcePath, string RelativeName)> CollectExportReportFiles(TestRunRecord run)
+    {
+        var files = new List<(string SourcePath, string RelativeName)>();
+        foreach (var group in run.Reports
+                     .Where(r => !string.IsNullOrWhiteSpace(r.PdfPath) && File.Exists(r.PdfPath))
+                     .GroupBy(r => r.Kind, StringComparer.OrdinalIgnoreCase))
+        {
+            var issued = group.FirstOrDefault(r => ReportArtifactRoles.IsIssued(r.Role));
+            var working = group.FirstOrDefault(r => ReportArtifactRoles.IsWorking(r.Role));
+            var kind = (issued ?? working ?? group.First()).Kind;
+            if (issued is not null)
+            {
+                files.Add((issued.PdfPath, $"{kind}.pdf"));
+                if (working is not null)
+                {
+                    files.Add((working.PdfPath, Path.Combine("working", $"{kind}.pdf")));
+                }
+            }
+            else if (working is not null)
+            {
+                files.Add((working.PdfPath, $"{kind}.pdf"));
+            }
+            else
+            {
+                files.AddRange(group.Select(r => (r.PdfPath, Path.GetFileName(r.PdfPath))));
+            }
+        }
+
+        return files;
     }
 }

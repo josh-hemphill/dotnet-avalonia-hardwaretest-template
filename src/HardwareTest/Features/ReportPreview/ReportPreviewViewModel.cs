@@ -159,11 +159,21 @@ public partial class ReportPreviewViewModel : ReactiveObject
             return;
         }
 
-        if (await NeedsCertificationBeforePrintAsync(PdfPath).ConfigureAwait(true))
+        var run = await FindRunForPdfAsync(PdfPath).ConfigureAwait(true);
+        var printPath = run is null
+            ? PdfPath
+            : ReportAttestationService.ResolvePrintOrExportPdfPath(run, PdfPath);
+
+        if (await NeedsCertificationBeforePrintAsync(printPath).ConfigureAwait(true))
         {
             Status = "Certify this report before printing.";
-            CertificationRequiredForPrint?.Invoke(this, PdfPath);
+            CertificationRequiredForPrint?.Invoke(this, printPath);
             return;
+        }
+
+        if (!string.Equals(printPath, PdfPath, StringComparison.OrdinalIgnoreCase))
+        {
+            await LoadFromPathAsync(printPath).ConfigureAwait(true);
         }
 
         PrintToSystem();
@@ -215,10 +225,7 @@ public partial class ReportPreviewViewModel : ReactiveObject
             return false;
         }
 
-        var kind = run.Reports.FirstOrDefault(r =>
-                       string.Equals(r.PdfPath, path, StringComparison.OrdinalIgnoreCase))
-                   ?.Kind
-                   ?? Path.GetFileNameWithoutExtension(path);
+        var kind = ReportAttestationService.KindForPdf(run, path);
         if (string.IsNullOrWhiteSpace(kind))
         {
             kind = ReportKinds.Certification;
@@ -229,13 +236,11 @@ public partial class ReportPreviewViewModel : ReactiveObject
 
     private async Task<TestRunRecord?> FindRunForPdfAsync(string pdfPath)
     {
-        var runId = Path.GetFileName(Path.GetDirectoryName(Path.GetFullPath(pdfPath)));
+        var runId = ReportAttestationService.GuessRunIdFromPdfPath(pdfPath);
         if (!string.IsNullOrWhiteSpace(runId))
         {
             var byFolder = await _runStore.LoadAsync(runId).ConfigureAwait(true);
-            if (byFolder is not null
-                && (string.Equals(byFolder.ReportPdfPath, pdfPath, StringComparison.OrdinalIgnoreCase)
-                    || byFolder.Reports.Any(r => string.Equals(r.PdfPath, pdfPath, StringComparison.OrdinalIgnoreCase))))
+            if (byFolder is not null && ReportAttestationService.RunOwnsPdf(byFolder, pdfPath))
             {
                 return byFolder;
             }
@@ -244,9 +249,7 @@ public partial class ReportPreviewViewModel : ReactiveObject
         foreach (var summary in await _runStore.ListAsync().ConfigureAwait(true))
         {
             var loaded = await _runStore.LoadAsync(summary.RunId).ConfigureAwait(true);
-            if (loaded is not null
-                && (string.Equals(loaded.ReportPdfPath, pdfPath, StringComparison.OrdinalIgnoreCase)
-                    || loaded.Reports.Any(r => string.Equals(r.PdfPath, pdfPath, StringComparison.OrdinalIgnoreCase))))
+            if (loaded is not null && ReportAttestationService.RunOwnsPdf(loaded, pdfPath))
             {
                 return loaded;
             }
