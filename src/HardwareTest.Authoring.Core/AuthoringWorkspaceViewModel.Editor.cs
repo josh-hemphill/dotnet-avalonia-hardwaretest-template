@@ -454,6 +454,8 @@ public sealed partial class AuthoringWorkspaceViewModel
         OnPropertyChanged(nameof(HasStepSettings));
         OnPropertyChanged(nameof(MetricFunctionId));
         OnPropertyChanged(nameof(MetricFunctionIdOptions));
+        OnPropertyChanged(nameof(MetricFunctionChoices));
+        OnPropertyChanged(nameof(SelectedMetricFunction));
         OnPropertyChanged(nameof(MetricSettingRows));
         OnPropertyChanged(nameof(HistoryEnabled));
         OnPropertyChanged(nameof(HistoryWatchPercent));

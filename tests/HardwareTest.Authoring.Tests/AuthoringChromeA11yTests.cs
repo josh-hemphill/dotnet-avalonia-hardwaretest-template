@@ -60,8 +60,13 @@ public sealed class AuthoringChromeA11yTests
         Assert.Contains("IsVisible=\"{Binding HasTransferFunction}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("IsVisible=\"{Binding HasMetricPresentation}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("IsVisible=\"{Binding HasStepSettings}\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("SelectedItem=\"{Binding MetricFunctionId}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("ItemsSource=\"{Binding MetricFunctionChoices}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("SelectedItem=\"{Binding SelectedMetricFunction}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("AuthoringInspectorCopy.OperatorYUnitLabel", xaml, StringComparison.Ordinal);
+        Assert.Contains("AuthoringInspectorCopy.MeasureRecipeLabel", xaml, StringComparison.Ordinal);
+        Assert.Contains("AuthoringInspectorCopy.HistoryWatchPlaceholder", xaml, StringComparison.Ordinal);
         Assert.Contains("ItemsSource=\"{Binding MetricSettingRows}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Text=\"{Binding Label}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Text=\"{Binding Value, Mode=OneWay}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("IsChecked=\"{Binding HistoryEnabled}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("OnMetricSettingLostFocus", xaml, StringComparison.Ordinal);

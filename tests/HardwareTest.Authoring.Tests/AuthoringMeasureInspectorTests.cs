@@ -1,5 +1,6 @@
 using HardwareTest.Authoring;
 using HardwareTest.OpenTap.Host;
+using HardwareTest.OpenTap.Plugins.Basic;
 using Xunit;
 
 namespace HardwareTest.Authoring.Tests;
@@ -20,9 +21,14 @@ public sealed class AuthoringMeasureInspectorTests
         Assert.DoesNotContain(AuthoringFunctionIds.BasicMeanGte, vm.MetricFunctionIdOptions);
         Assert.DoesNotContain(AuthoringFunctionIds.BasicApplyTransferFunction, vm.MetricFunctionIdOptions);
         Assert.Equal("32", SettingValue(vm, "SampleCount"));
+        Assert.Equal("Sample count", SettingRow(vm, "SampleCount").Label);
+        Assert.Equal(vm.MetricFunctionIdOptions.Count, vm.MetricFunctionChoices.Count);
+        Assert.Equal(AuthoringFunctionIds.BasicAcquireVoltage, vm.SelectedMetricFunction?.Id);
+        Assert.Contains("Acquire", vm.SelectedMetricFunction?.Title, StringComparison.OrdinalIgnoreCase);
 
         vm.SetMetricSetting("SampleCount", "64");
-        vm.MetricFunctionId = AuthoringFunctionIds.BasicBitSweepAcquire;
+        vm.SelectedMetricFunction = vm.MetricFunctionChoices.First(choice =>
+            choice.Id == AuthoringFunctionIds.BasicBitSweepAcquire);
         vm.MetricFunctionId = AuthoringFunctionIds.BasicMeanGte;
 
         Assert.Equal("64", SettingValue(vm, "SampleCount"));
@@ -106,6 +112,8 @@ public sealed class AuthoringMeasureInspectorTests
         SelectMetric(vm, "VDC");
         Assert.Equal("Custom.Unknown", vm.MetricFunctionId);
         Assert.Equal("Custom.Unknown", vm.MetricFunctionIdOptions[0]);
+        Assert.Equal("Custom.Unknown", vm.SelectedMetricFunction?.Id);
+        Assert.Equal("Custom.Unknown", vm.SelectedMetricFunction?.Title);
         vm.MetricFunctionId = "Also.Unknown";
         Assert.Equal("Custom.Unknown", vm.MetricFunctionId);
     }
@@ -127,6 +135,11 @@ public sealed class AuthoringMeasureInspectorTests
         Assert.Equal(new HistorySpec(true, 5, null), vm.SelectedMetric.History);
         vm.HistoryEnabled = false;
         Assert.Equal(new HistorySpec(false, 5, null), vm.SelectedMetric.History);
+        vm.SetMetricSetting("SeriesCompliance", SeriesComplianceModes.None);
+        var series = SettingRow(vm, "SeriesCompliance");
+        Assert.Equal("Series compliance", series.Label);
+        Assert.False(string.IsNullOrWhiteSpace(series.ValueTooltip));
+        Assert.Equal(SeriesComplianceModes.None, series.ValuePlaceholder);
     }
 
     [Fact]
@@ -192,7 +205,10 @@ public sealed class AuthoringMeasureInspectorTests
     }
 
     private static string SettingValue(AuthoringWorkspaceViewModel vm, string key)
-        => vm.MetricSettingRows.Single(row => string.Equals(row.Key, key, StringComparison.OrdinalIgnoreCase)).Value;
+        => SettingRow(vm, key).Value;
+
+    private static AuthoringSettingRow SettingRow(AuthoringWorkspaceViewModel vm, string key)
+        => vm.MetricSettingRows.Single(row => string.Equals(row.Key, key, StringComparison.OrdinalIgnoreCase));
 
     private static AuthoringWorkspaceViewModel OpenEmpty()
     {

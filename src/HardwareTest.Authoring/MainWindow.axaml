@@ -277,12 +277,13 @@
                             AutomationProperties.Name="Display role"
                             AutomationProperties.LabeledBy="{Binding #DisplayRoleLabel}"
                             ToolTip.Tip="scalar/passband carry pass criteria; timeseries is the waveform shape; timing is the strip" />
-                  <TextBlock x:Name="YUnitLabel" Text="Y unit" />
+                  <TextBlock x:Name="YUnitLabel" Text="{x:Static vm:AuthoringInspectorCopy.OperatorYUnitLabel}" />
                   <ComboBox ItemsSource="{Binding YUnitOptions}"
                             SelectedItem="{Binding YUnit}"
                             IsEditable="True"
-                            AutomationProperties.Name="Y unit"
-                            AutomationProperties.LabeledBy="{Binding #YUnitLabel}" />
+                            AutomationProperties.Name="{x:Static vm:AuthoringInspectorCopy.OperatorYUnitLabel}"
+                            AutomationProperties.LabeledBy="{Binding #YUnitLabel}"
+                            ToolTip.Tip="{x:Static vm:AuthoringInspectorCopy.OperatorYUnitTooltip}" />
                   <TextBlock x:Name="LimitLowLabel" Text="Limit low" IsVisible="{Binding ShowBandLimits}" />
                   <TextBox Text="{Binding LimitLow}"
                            IsVisible="{Binding ShowBandLimits}"
@@ -306,39 +307,57 @@
                             AutomationProperties.LabeledBy="{Binding #MetricSlotLabel}"
                             ToolTip.Tip="Measure steps bind this slot. Algorithms may leave it empty." />
                   <StackPanel Spacing="6" IsVisible="{Binding HasStepSettings}">
-                    <TextBlock x:Name="FunctionIdLabel" Text="Function id" />
-                    <ComboBox ItemsSource="{Binding MetricFunctionIdOptions}"
-                              SelectedItem="{Binding MetricFunctionId}"
-                              AutomationProperties.Name="Function id"
+                    <TextBlock x:Name="FunctionIdLabel" Text="{x:Static vm:AuthoringInspectorCopy.MeasureRecipeLabel}" />
+                    <ComboBox ItemsSource="{Binding MetricFunctionChoices}"
+                              SelectedItem="{Binding SelectedMetricFunction}"
+                              AutomationProperties.Name="{x:Static vm:AuthoringInspectorCopy.MeasureRecipeLabel}"
                               AutomationProperties.LabeledBy="{Binding #FunctionIdLabel}"
-                              ToolTip.Tip="OpenTAP FunctionId or AlgorithmId from the workspace catalog." />
+                              ToolTip.Tip="{x:Static vm:AuthoringInspectorCopy.MeasureRecipeTooltip}">
+                      <ComboBox.ItemTemplate>
+                        <DataTemplate x:DataType="vm:AuthoringFunctionDisplay">
+                          <StackPanel>
+                            <TextBlock Text="{Binding Title}" />
+                            <TextBlock Opacity="0.75" FontSize="11" Text="{Binding Id}" />
+                          </StackPanel>
+                        </DataTemplate>
+                      </ComboBox.ItemTemplate>
+                    </ComboBox>
                     <TextBlock x:Name="MeasureSettingsLabel" Text="Measure settings" />
+                    <TextBlock Opacity="0.8"
+                               TextWrapping="Wrap"
+                               Text="{x:Static vm:AuthoringInspectorCopy.MeasureSettingsPurpose}" />
                     <ItemsControl ItemsSource="{Binding MetricSettingRows}"
                                   AutomationProperties.Name="Measure settings"
                                   AutomationProperties.LabeledBy="{Binding #MeasureSettingsLabel}">
                       <ItemsControl.ItemTemplate>
                         <DataTemplate x:DataType="vm:AuthoringSettingRow">
                           <Grid ColumnDefinitions="120,*" Margin="0,0,0,4">
-                            <TextBlock Grid.Column="0" Text="{Binding Key}" VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="0" Text="{Binding Label}" VerticalAlignment="Center" />
                             <TextBox Grid.Column="1"
                                      Text="{Binding Value, Mode=OneWay}"
                                      LostFocus="OnMetricSettingLostFocus"
+                                     ToolTip.Tip="{Binding ValueTooltip}"
+                                     PlaceholderText="{Binding ValuePlaceholder}"
                                      AutomationProperties.Name="{Binding Key}" />
                           </Grid>
                         </DataTemplate>
                       </ItemsControl.ItemTemplate>
                     </ItemsControl>
-                    <CheckBox Content="History"
+                    <CheckBox Content="{x:Static vm:AuthoringInspectorCopy.HistoryEnabledLabel}"
                               IsChecked="{Binding HistoryEnabled}"
-                              ToolTip.Tip="Presentation mixin history band on the operator board" />
-                    <TextBlock x:Name="HistoryWatchLabel" Text="History watch %" />
+                              ToolTip.Tip="{x:Static vm:AuthoringInspectorCopy.HistoryEnabledTooltip}" />
+                    <TextBlock x:Name="HistoryWatchLabel" Text="{x:Static vm:AuthoringInspectorCopy.HistoryWatchLabel}" />
                     <TextBox Text="{Binding HistoryWatchPercent}"
+                             PlaceholderText="{x:Static vm:AuthoringInspectorCopy.HistoryWatchPlaceholder}"
                              AutomationProperties.Name="History watch percent"
-                             AutomationProperties.LabeledBy="{Binding #HistoryWatchLabel}" />
-                    <TextBlock x:Name="HistoryAlertLabel" Text="History alert %" />
+                             AutomationProperties.LabeledBy="{Binding #HistoryWatchLabel}"
+                             ToolTip.Tip="{x:Static vm:AuthoringInspectorCopy.HistoryWatchTooltip}" />
+                    <TextBlock x:Name="HistoryAlertLabel" Text="{x:Static vm:AuthoringInspectorCopy.HistoryAlertLabel}" />
                     <TextBox Text="{Binding HistoryAlertPercent}"
+                             PlaceholderText="{x:Static vm:AuthoringInspectorCopy.HistoryAlertPlaceholder}"
                              AutomationProperties.Name="History alert percent"
-                             AutomationProperties.LabeledBy="{Binding #HistoryAlertLabel}" />
+                             AutomationProperties.LabeledBy="{Binding #HistoryAlertLabel}"
+                             ToolTip.Tip="{x:Static vm:AuthoringInspectorCopy.HistoryAlertTooltip}" />
                   </StackPanel>
                 </StackPanel>
 
