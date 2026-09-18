@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using HardwareTest.OpenTap.Host;
 
 namespace HardwareTest.Authoring;
@@ -32,6 +33,7 @@ public sealed record ShipManifest(
     IReadOnlyList<string> Files,
     IReadOnlyList<ShipDependency>? Dependencies = null)
 {
+    [JsonIgnore]
     public IReadOnlyList<ShipDependency> ResolvedDependencies => Dependencies ?? [];
 }
 

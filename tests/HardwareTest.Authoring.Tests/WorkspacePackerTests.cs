@@ -77,9 +77,10 @@ public sealed class WorkspacePackerTests
         var package = Directory.EnumerateFiles(dist, "*.TapPackage").Single();
         Assert.Contains(Path.GetFileName(package), manifest.Files);
         Assert.Empty(Directory.EnumerateFiles(workspaceRoot, "*.TapPackage"));
-        var shipped = JsonSerializer.Deserialize(
-            File.ReadAllText(Path.Combine(dist, WorkspacePacker.ShipManifestFileName)),
-            AuthoringJsonContext.Default.ShipManifest);
+        var shippedJson = File.ReadAllText(Path.Combine(dist, WorkspacePacker.ShipManifestFileName));
+        Assert.Contains("\"dependencies\"", shippedJson, StringComparison.Ordinal);
+        Assert.DoesNotContain("resolvedDependencies", shippedJson, StringComparison.OrdinalIgnoreCase);
+        var shipped = JsonSerializer.Deserialize(shippedJson, AuthoringJsonContext.Default.ShipManifest);
         Assert.NotNull(shipped);
         Assert.Equal(manifest.PackageName, shipped.PackageName);
         Assert.Equal(manifest.Version, shipped.Version);

@@ -80,11 +80,21 @@ public sealed class WorkspacePackPlanTests
         File.WriteAllText(
             Path.Combine(dist, WorkspacePacker.ShipManifestFileName),
             System.Text.Json.JsonSerializer.Serialize(written, AuthoringJsonContext.Default.ShipManifest));
+        var json = File.ReadAllText(Path.Combine(dist, WorkspacePacker.ShipManifestFileName));
+        Assert.Contains("\"dependencies\"", json, StringComparison.Ordinal);
+        Assert.DoesNotContain("resolvedDependencies", json, StringComparison.OrdinalIgnoreCase);
         var loaded = WorkspacePackPlan.TryReadShipManifest(dist);
         Assert.NotNull(loaded);
         Assert.Equal("Demo", loaded.PackageName);
         Assert.Contains(loaded.ResolvedDependencies, dep => dep.Package == "OpenTAP");
         Assert.Contains(loaded.ResolvedDependencies, dep => dep.Optional && dep.Package == "Extra");
+
+        File.WriteAllText(
+            Path.Combine(dist, WorkspacePacker.ShipManifestFileName),
+            """{"packageName":"Legacy","version":"1.0.0","files":[]}""");
+        var legacy = WorkspacePackPlan.TryReadShipManifest(dist);
+        Assert.NotNull(legacy);
+        Assert.Empty(legacy.ResolvedDependencies);
 
         File.WriteAllText(Path.Combine(dist, WorkspacePacker.ShipManifestFileName), "{not-json");
         Assert.Null(WorkspacePackPlan.TryReadShipManifest(dist));
