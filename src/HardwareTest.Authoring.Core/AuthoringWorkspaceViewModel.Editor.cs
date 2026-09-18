@@ -395,7 +395,7 @@ public sealed partial class AuthoringWorkspaceViewModel
                 RepeatNode repeat => repeat with { Children = MutateFirstMetric(repeat.Children, mutate) },
                 var other => other,
             });
-        ReplaceSelected(SelectedProgram with { Measure = measure });
+        ReplaceSelected(SelectedProgram with { Measure = measure }, rebuildLists: false);
     }
 
     private IReadOnlyList<int> MeasureMutationPath()

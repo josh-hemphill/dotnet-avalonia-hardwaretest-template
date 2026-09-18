@@ -100,6 +100,28 @@ public sealed class AuthoringSequenceTests
         Assert.Equal("VDC", Assert.IsType<MetricNode>(unwrapped[0]).Metric.ChannelKey);
         Assert.Equal("VDC.mean", Assert.IsType<MetricNode>(unwrapped[1]).Metric.ChannelKey);
     }
+
+    [Fact]
+    public void SameKeys_ignores_label_and_detail_changes()
+    {
+        var draft = AuthoringRecipeCatalog.Apply(
+            AuthoringRecipeCatalog.CreateProgram("keys"),
+            AuthoringRecipeIds.Acquire);
+        var left = AuthoringSequence.Flatten(draft);
+        var renamed = AuthoringSequence.MutateMeasure(
+            draft.Measure,
+            [0],
+            node => node is MetricNode metric
+                ? new MetricNode(metric.Metric with { ChannelKey = "rail", Name = "Rail" })
+                : node);
+        var right = AuthoringSequence.Flatten(draft with { Measure = renamed });
+        Assert.True(AuthoringSequence.SameKeys(left, right));
+        Assert.NotEqual(left.Single(row => row.Kind == SequenceRowKind.Metric).Detail,
+            right.Single(row => row.Kind == SequenceRowKind.Metric).Detail);
+
+        var wrapped = AuthoringRecipeCatalog.Apply(draft, AuthoringRecipeIds.Repeat);
+        Assert.False(AuthoringSequence.SameKeys(left, AuthoringSequence.Flatten(wrapped)));
+    }
 }
 
 public sealed class AuthoringSequenceViewModelTests

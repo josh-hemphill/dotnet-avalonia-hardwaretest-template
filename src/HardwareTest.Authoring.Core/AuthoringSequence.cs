@@ -99,6 +99,26 @@ public static class AuthoringSequence
         return rows;
     }
 
+    public static bool SameKeys(IReadOnlyList<SequenceRow> left, IReadOnlyList<SequenceRow> right)
+    {
+        if (left.Count != right.Count)
+        {
+            return false;
+        }
+
+        for (var i = 0; i < left.Count; i++)
+        {
+            if (!string.Equals(left[i].Key, right[i].Key, StringComparison.Ordinal)
+                || left[i].Kind != right[i].Kind
+                || left[i].Depth != right[i].Depth)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     public static int IndexOfKey(IReadOnlyList<SequenceRow> rows, string? key)
     {
         if (string.IsNullOrWhiteSpace(key) || rows.Count == 0)

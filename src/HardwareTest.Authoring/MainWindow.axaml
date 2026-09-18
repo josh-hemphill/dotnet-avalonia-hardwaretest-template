@@ -249,7 +249,7 @@
                 <StackPanel Spacing="6" IsVisible="{Binding HasMetricPresentation}">
                   <TextBlock x:Name="ChannelKeyLabel" Text="Channel key" />
                   <AutoCompleteBox ItemsSource="{Binding ChannelKeys}"
-                                   Text="{Binding ChannelKey}"
+                                   Text="{Binding ChannelKey, UpdateSourceTrigger=LostFocus}"
                                    FilterMode="Contains"
                                    AutomationProperties.Name="Channel key"
                                    AutomationProperties.LabeledBy="{Binding #ChannelKeyLabel}"
@@ -366,7 +366,7 @@
                             ToolTip.Tip="filter is causal; filtfilt is zero-phase on the whole series" />
                   <TextBlock x:Name="TfInputLabel" Text="Input channel" />
                   <AutoCompleteBox ItemsSource="{Binding ChannelKeys}"
-                                   Text="{Binding TfInputChannel}"
+                                   Text="{Binding TfInputChannel, UpdateSourceTrigger=LostFocus}"
                                    FilterMode="Contains"
                                    AutomationProperties.Name="Transfer function input channel"
                                    AutomationProperties.LabeledBy="{Binding #TfInputLabel}" />

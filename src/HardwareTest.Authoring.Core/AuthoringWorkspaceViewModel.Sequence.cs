@@ -90,7 +90,7 @@ public sealed partial class AuthoringWorkspaceViewModel
                 SelectedProgram.Measure,
                 row.IndexPath,
                 node => node is RepeatNode repeat ? repeat with { Count = count } : node);
-            ReplaceSelected(SelectedProgram with { Measure = measure });
+            ReplaceSelected(SelectedProgram with { Measure = measure }, rebuildLists: false);
         }
     }
 
@@ -150,6 +150,16 @@ public sealed partial class AuthoringWorkspaceViewModel
             return;
         }
 
+        if (index < 0)
+        {
+            if (_selectedSequenceIndex >= 0)
+            {
+                OnPropertyChanged(nameof(SelectedSequenceIndex));
+            }
+
+            return;
+        }
+
         var clamped = Math.Clamp(index, 0, _sequenceItems.Count - 1);
         if (!_sequenceItems[clamped].IsSelectable)
         {
@@ -185,8 +195,14 @@ public sealed partial class AuthoringWorkspaceViewModel
 
     private void RefreshSequencePresentation()
     {
-        _sequenceItems = AuthoringSequence.Flatten(SelectedProgram);
-        OnPropertyChanged(nameof(SequenceItems));
+        var next = AuthoringSequence.Flatten(SelectedProgram);
+        var structureChanged = !AuthoringSequence.SameKeys(_sequenceItems, next);
+        _sequenceItems = next;
+        if (structureChanged)
+        {
+            OnPropertyChanged(nameof(SequenceItems));
+        }
+
         var restored = AuthoringSequence.IndexOfKey(_sequenceItems, _selectedSequenceKey);
         if (restored < 0)
         {
@@ -198,6 +214,7 @@ public sealed partial class AuthoringWorkspaceViewModel
             restored = AuthoringSequence.FirstSelectableIndex(_sequenceItems);
         }
 
+        var indexChanged = _selectedSequenceIndex != restored;
         _selectedSequenceIndex = restored;
         _selectedSequenceKey = restored < 0 ? null : _sequenceItems[restored].Key;
         if (restored >= 0)
@@ -205,7 +222,11 @@ public sealed partial class AuthoringWorkspaceViewModel
             SyncMeasureIndexFromSequence(_sequenceItems[restored]);
         }
 
-        OnPropertyChanged(nameof(SelectedSequenceIndex));
+        if (indexChanged)
+        {
+            OnPropertyChanged(nameof(SelectedSequenceIndex));
+        }
+
         OnPropertyChanged(nameof(SelectedSequence));
     }
 
