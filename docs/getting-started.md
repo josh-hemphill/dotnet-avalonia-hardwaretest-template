@@ -32,18 +32,18 @@ dotnet run --project src/HardwareTest.Authoring -c Debug -r win-x64 -- --help
 ## 2. Create a program and add recipes
 
 1. **New program** seeds Identity + Cleanup + Mock DMM (in-repo demos). Product workspaces that declare InstrumentComponents.OpenTap still keep this template’s sample/board-demo on Basic.
-2. On the **Program** tab, pick a recipe and **Add recipe**. The palette matches the test types below; **Dialog** and **Hang Forever** are not listed.
-3. Edit **Channel key**, **Display role**, **Y unit**, limits / threshold, and **VisaAddress** on the first instrument. Mean GTE needs a threshold; band and series need both limits. **Save plan** refuses missing limits. **Formula…** edits a MATLAB-flavored subset; **Transfer function…** edits numerator / denominator / Ts. Preview uses canned samples unless a recording is selected.
+2. On the **Program** tab, pick a recipe from **Add to sequence** (grouped by category) and **Add recipe**. The sequence list is Setup / Measure / Cleanup — not a tree. Repeat children are indented under the Repeat row. **Dialog** and **Hang Forever** are not listed.
+3. The **Inspector** edits only the selected sequence row (channel key, display role, unit, limits, formula chips, transfer-function method). **Program settings** holds sidecar (DUT flags, reports) and instrument VISA slots. Mean GTE needs a threshold; band and series need both limits. **Save plan** refuses missing limits. Preview uses canned samples unless a recording is selected.
 4. **Preview** shows canned samples for the selected DisplayRole (not Execute). Select a `recordings/` export to eval formulas and transfer functions on real `elapsedMs` series.
 5. **Save plan** compiles the metric IR to `{planId}.TapPlan` + `{planId}.program.json` (three-level groups, Presentation on function leaves, sidecar). **Save sidecar** writes only the program JSON.
 
-Keep **VisaAddress** writable so the operator Instruments page can rebind.
+Keep **VISA address** writable on **Program settings** so the operator Instruments page can rebind.
 
-Sidecar fields (`displayName`, DUT flags, `reportKinds`) live on the Program tab. Field reference: [adapting.md](adapting.md#author-a-locked-program). Copy [`plans/opentap/template.program.json`](../plans/opentap/template.program.json) only when you author a sidecar by hand.
+Sidecar fields (`displayName`, DUT flags, `reportKinds`) live on **Program settings**. Field reference: [adapting.md](adapting.md#author-a-locked-program). Copy [`plans/opentap/template.program.json`](../plans/opentap/template.program.json) only when you author a sidecar by hand.
 
 ## 3. Add each kind of test
 
-Recipes appear under **Recipes** on the Program tab. Assign the instrument on every step that talks to hardware. Presentation is written on **Save plan** (see [§4](#4-presentation)).
+Recipes appear under **Add to sequence** on the Program tab. Assign the instrument on every step that talks to hardware. Presentation is written on **Save plan** (see [§4](#4-presentation)).
 
 ### Structure — Test Group
 

@@ -73,6 +73,7 @@ public sealed class AuthoringSequenceTests
         Assert.Contains("not the whole program", AuthoringChrome.InspectorPurpose, StringComparison.Ordinal);
         Assert.Equal("Operator preview", AuthoringChrome.PreviewTitle);
         Assert.Equal("Program settings", AuthoringChrome.ProgramSettingsTitle);
+        Assert.Equal("Measure — Acquire Voltage", new AuthoringRecipe("acquire", "Acquire Voltage", "Measure", "x").ListLabel);
     }
 }
 
