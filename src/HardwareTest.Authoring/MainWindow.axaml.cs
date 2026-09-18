@@ -65,7 +65,7 @@ public partial class MainWindow : Window
 
     private void OnSequenceKeyDown(object? sender, KeyEventArgs e)
     {
-        if (e.Key != Key.Delete)
+        if (e.Key != Key.Delete || !_viewModel.CanRemoveSelectedSequence)
         {
             return;
         }
@@ -76,7 +76,7 @@ public partial class MainWindow : Window
 
     private void OnProgramsKeyDown(object? sender, KeyEventArgs e)
     {
-        if (e.Key != Key.Delete)
+        if (e.Key != Key.Delete || !_viewModel.CanRemoveSelectedProgram)
         {
             return;
         }
