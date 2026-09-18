@@ -1,3 +1,4 @@
+using FluentAvalonia.UI.Controls;
 using HardwareTest.Features;
 using HardwareTest.Features.Shell;
 using HardwareTest.Shell;
@@ -84,6 +85,8 @@ public sealed class ShellNavigationPolicyTests
             .ToArray();
         Assert.Equal(ShellNavigationPolicy.EngineerExtraPersistentIds, engineerExtra);
         Assert.Equal(90, BuiltinShellPages.Find(ShellBuiltInPageIds.Settings)?.Order);
+        Assert.Equal("DocumentFilled", BuiltinShellPages.Find(ShellBuiltInPageIds.Results)?.SymbolName);
+        Assert.True(Enum.TryParse<FASymbol>("DocumentFilled", ignoreCase: false, out _));
     }
 
     [Fact]

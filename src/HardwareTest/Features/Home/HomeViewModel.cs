@@ -39,7 +39,7 @@ public partial class HomeViewModel : ReactiveObject
         },
         new()
         {
-            Title = "Reports",
+            Title = "Results",
             Body = "Passed and failed runs write Typst PDFs. Open a run from Results, then preview or export the report from there.",
             ActionLabel = "Open Results →",
             NavigatePageId = ShellBuiltInPageIds.Results,

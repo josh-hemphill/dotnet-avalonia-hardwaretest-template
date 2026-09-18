@@ -100,6 +100,7 @@ public partial class ResultsViewModel
             var result = await _attestation
                 .AttestAsync(OpenedRun, kind, _capturedAttestationCredential, pin, skipSigning)
                 .ConfigureAwait(true);
+            LoadAttestation(OpenedRun);
             if (result.PinRequired && !skipSigning)
             {
                 _capturedAttestationCredential = result.Credential;

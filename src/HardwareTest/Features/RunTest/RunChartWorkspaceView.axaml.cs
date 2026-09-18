@@ -6,6 +6,7 @@ using System.Reactive.Linq;
 using Avalonia.Controls;
 using Avalonia.Threading;
 using HardwareTest.Features.Presentation;
+using HardwareTest.Widgets.MeasurementPlot;
 
 namespace HardwareTest.Features.RunTest;
 
@@ -33,6 +34,7 @@ public partial class RunChartWorkspaceView : UserControl
         vm.Live.PlotDataChanged += OnPlotDataChanged;
         vm.Live.PropertyChanged += OnLivePropertyChanged;
         vm.Live.Events.CollectionChanged += OnEventsChanged;
+        Plot.CursorChanged += OnPlotCursorChanged;
         _subscriptions.Add(vm.Live.ResetViewCommand.Subscribe(_ => ApplyPlot(vm, force: true)));
         ApplyPlot(vm, force: true);
     }
@@ -48,6 +50,7 @@ public partial class RunChartWorkspaceView : UserControl
         _subscribed.Live.PlotDataChanged -= OnPlotDataChanged;
         _subscribed.Live.PropertyChanged -= OnLivePropertyChanged;
         _subscribed.Live.Events.CollectionChanged -= OnEventsChanged;
+        Plot.CursorChanged -= OnPlotCursorChanged;
         _subscribed = null;
     }
 
@@ -87,7 +90,29 @@ public partial class RunChartWorkspaceView : UserControl
         if (e.PropertyName == nameof(LivePresentationViewModel.PlotOutOfBandSpans))
         {
             ApplyMarks(_subscribed);
+            return;
         }
+
+        if (e.PropertyName == nameof(LivePresentationViewModel.HasCursor) && !_subscribed.Live.HasCursor)
+        {
+            Plot.SetCursor(null, announce: false);
+        }
+    }
+
+    private void OnPlotCursorChanged(object? sender, PlotCursorChangedEventArgs e)
+    {
+        if (_subscribed is null)
+        {
+            return;
+        }
+
+        if (e.X is not { } x)
+        {
+            _subscribed.Live.ClearCursor();
+            return;
+        }
+
+        _subscribed.Live.PlaceCursor(x);
     }
 
     private void ApplyFollowLive(RunTestViewModel vm)
@@ -139,6 +164,7 @@ public partial class RunChartWorkspaceView : UserControl
             Plot.SetOutOfBandSpans(live.PlotOutOfBandSpans);
             Plot.SetFollowLive(live.FollowLive);
             Plot.UpdateTimeSeries(live.PlotXs, live.PlotYs, live.PlotYsLength, live.FollowLive, force);
+            Plot.SetCursor(live.CursorX, announce: false);
         }
 
         if (!Dispatcher.UIThread.CheckAccess())

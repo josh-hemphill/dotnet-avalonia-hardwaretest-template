@@ -8,6 +8,7 @@
              xmlns:widgetsPres="using:HardwareTest.Widgets.Presentation"
              xmlns:conv="using:HardwareTest.Converters"
              xmlns:shell="using:HardwareTest.Features.Shell"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
              x:Class="HardwareTest.Features.Results.ResultsView"
              x:Name="Root"
              x:DataType="vm:ResultsViewModel">
@@ -18,14 +19,27 @@
               Classes="operator"
               Margin="0,0,8,4"
               IsEnabled="{Binding !IsBusy}" />
-      <Button Content="Open report" Command="{Binding OpenDefaultReportCommand}"
+      <Button Command="{Binding OpenDefaultReportCommand}"
               Classes="operator"
               Margin="0,0,8,4"
-              ToolTip.Tip="Open the default PDF for the selected run (double-click the row also works)" />
-      <Button Content="Regenerate reports" Command="{Binding ReprintCommand}"
+              AutomationProperties.Name="Open report"
+              ToolTip.Tip="Open the default PDF for the selected run (double-click the row also works)">
+        <StackPanel Orientation="Horizontal" Spacing="8">
+          <ui:FASymbolIcon Symbol="{x:Static ui:FASymbol.DocumentFilled}" FontSize="16" VerticalAlignment="Center" />
+          <TextBlock Text="Open report" VerticalAlignment="Center" />
+        </StackPanel>
+      </Button>
+      <Button Command="{Binding ReprintCommand}"
               Classes="operator"
               Margin="0,0,8,4"
-              IsEnabled="{Binding !IsBusy}" />
+              AutomationProperties.Name="Regenerate reports"
+              IsEnabled="{Binding !IsBusy}"
+              ToolTip.Tip="{x:Static vm:ResultsViewModel.RegenerateReportsTip}">
+        <StackPanel Orientation="Horizontal" Spacing="8">
+          <ui:FASymbolIcon Symbol="{x:Static ui:FASymbol.Document}" FontSize="16" VerticalAlignment="Center" />
+          <TextBlock Text="Regenerate reports" VerticalAlignment="Center" />
+        </StackPanel>
+      </Button>
       <TextBlock Text="Working…"
                  IsVisible="{Binding IsBusy}"
                  VerticalAlignment="Center"
@@ -171,6 +185,10 @@
           <TextBlock Text="{Binding OpenedRun.DutSerial, StringFormat=DUT: {0}}" Opacity="0.85" />
           <TextBlock Text="{Binding OpenedRun.DutPartNumber, StringFormat=Part: {0}}" Opacity="0.75" />
           <TextBlock Text="{Binding OpenedRun.OperatorName, StringFormat=Operator: {0}}" Opacity="0.75" />
+          <StackPanel Spacing="2" IsVisible="{Binding HasAttestation}">
+            <TextBlock Text="Certification" FontWeight="SemiBold" />
+            <TextBlock Text="{Binding AttestationSummary}" TextWrapping="Wrap" Opacity="0.9" />
+          </StackPanel>
         </StackPanel>
 
         <ScrollViewer Padding="0,0,4,0">
@@ -206,14 +224,17 @@
 
             <StackPanel Spacing="4" Margin="0,8,0,0" IsVisible="{Binding HasExportTargets}">
               <TextBlock Text="Export package" FontWeight="SemiBold" />
-              <TextBlock Text="Copies PDFs, run.json, attestation sidecars, and optional CSV to removable media or ExportDirectory."
+              <TextBlock Text="{x:Static vm:ResultsViewModel.ExportPackageHelp}"
                          Opacity="0.75" FontSize="11" TextWrapping="Wrap" />
               <ComboBox ItemsSource="{Binding ExportTargets}"
                         SelectedItem="{Binding SelectedExportTarget}"
-                        MinWidth="180">
+                        MinWidth="280"
+                        MaxWidth="340">
                 <ComboBox.ItemTemplate>
                   <DataTemplate x:DataType="storage:ExportTarget">
-                    <TextBlock Text="{Binding DisplayName}" />
+                    <TextBlock Text="{Binding DisplayName}"
+                               TextWrapping="Wrap"
+                               ToolTip.Tip="{Binding DisplayName}" />
                   </DataTemplate>
                 </ComboBox.ItemTemplate>
               </ComboBox>

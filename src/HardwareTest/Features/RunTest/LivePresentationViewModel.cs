@@ -35,6 +35,7 @@ public partial class LivePresentationViewModel : ReactiveObject
         ResetViewCommand = ReactiveCommand.Create(ResetView);
         SelectSeriesCommand = ReactiveCommand.Create<LiveSeriesItemViewModel?>(SelectSeries);
         SelectTimeWindowCommand = ReactiveCommand.Create<ChartTimeWindow>(SelectTimeWindow);
+        EnsureCursorCommand();
         PropertyChanged += OnLivePropertyChanged;
     }
 
@@ -98,6 +99,7 @@ public partial class LivePresentationViewModel : ReactiveObject
         ChartElapsedText = string.Empty;
         ChartEventLabel = string.Empty;
         ChartEmptyText = "No live measurements yet.";
+        ResetCursorState();
         _lastSelectedStep = null;
         _manualSeries = null;
         _stepsWithSamples.Clear();
@@ -260,6 +262,14 @@ public partial class LivePresentationViewModel : ReactiveObject
         if (e.PropertyName == nameof(SelectedTimeWindow))
         {
             PublishSelectedSnapshot(_lastSelectedStep);
+            return;
+        }
+
+        if (e.PropertyName == nameof(FollowLive) && FollowLive && HasCursor)
+        {
+            _cursorX = null;
+            HasCursor = false;
+            PublishSelectedSnapshot(_lastSelectedStep);
         }
     }
 
@@ -281,7 +291,7 @@ public partial class LivePresentationViewModel : ReactiveObject
     private void ResetView()
     {
         FollowLive = true;
-        PublishSelectedSnapshot(_lastSelectedStep);
+        ClearCursor();
         PlotDataChanged?.Invoke(this, EventArgs.Empty);
     }
 
@@ -380,6 +390,7 @@ public partial class LivePresentationViewModel : ReactiveObject
             PlotDurationSec = 0;
             PlotLimitLow = null;
             PlotLimitHigh = null;
+            ResetCursorState();
             PlotDataChanged?.Invoke(this, EventArgs.Empty);
             return;
         }
@@ -398,6 +409,7 @@ public partial class LivePresentationViewModel : ReactiveObject
         ChartAgeText = FormatAge(snapshot.LatestTimestamp);
         RefreshTimingChrome(snapshot);
         ChartEmptyText = snapshot.Length == 0 ? "No samples in this window." : string.Empty;
+        ResnapCursorAfterPublish();
         if (SelectedSeries is null || !SelectedSeries.Key.Equals(key.Value))
         {
             BeginSeriesSync();

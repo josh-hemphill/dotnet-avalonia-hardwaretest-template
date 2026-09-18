@@ -55,6 +55,29 @@ public sealed class SettingsViewModelTests
     }
 
     [Fact]
+    public async Task Save_maps_prefer_removable_export()
+    {
+        var store = new FakeSettingsStore();
+        var vm = new SettingsViewModel(store, new FakeOpenTapSession());
+        Assert.True(vm.PreferRemovableExport);
+
+        vm.PreferRemovableExport = false;
+        await vm.SaveCommand.ExecuteAsync();
+
+        Assert.False(store.AppSettings.PreferRemovableExport);
+        Assert.True(store.SaveAppCount >= 1);
+    }
+
+    [Fact]
+    public void Constructor_loads_persisted_prefer_removable_false()
+    {
+        var store = new FakeSettingsStore();
+        store.AppSettings.PreferRemovableExport = false;
+        var vm = new SettingsViewModel(store, new FakeOpenTapSession());
+        Assert.False(vm.PreferRemovableExport);
+    }
+
+    [Fact]
     public void Refresh_loads_packages_and_plugin_directories_from_session()
     {
         var openTap = new FakeOpenTapSession();

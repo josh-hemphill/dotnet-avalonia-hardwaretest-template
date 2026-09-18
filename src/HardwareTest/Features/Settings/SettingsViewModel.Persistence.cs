@@ -161,6 +161,11 @@ public partial class SettingsViewModel
             s.ExportDirectory = ExportDirectory?.Trim() ?? string.Empty;
         }
 
+        if (!PreferRemovableExportReadOnly)
+        {
+            s.PreferRemovableExport = PreferRemovableExport;
+        }
+
         if (!DataFreeSpaceWarnGbReadOnly)
         {
             s.DataFreeSpaceWarnBytes = GbToBytes(DataFreeSpaceWarnGb);
@@ -231,6 +236,7 @@ public partial class SettingsViewModel
             nameof(NtpHost) => NtpHostReadOnly,
             nameof(StationHealthGateOverride) => StationHealthGateOverrideReadOnly,
             nameof(ExportDirectory) => ExportDirectoryReadOnly,
+            nameof(PreferRemovableExport) => PreferRemovableExportReadOnly,
             nameof(DataFreeSpaceWarnGb) => DataFreeSpaceWarnGbReadOnly,
             nameof(DataFreeSpaceCriticalGb) => DataFreeSpaceCriticalGbReadOnly,
             nameof(UseMockOperatorCredential) => UseMockOperatorCredentialReadOnly,

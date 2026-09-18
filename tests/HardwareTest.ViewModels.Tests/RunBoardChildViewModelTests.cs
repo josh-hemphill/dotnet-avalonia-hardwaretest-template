@@ -602,6 +602,27 @@ public sealed class RunBoardChildViewModelTests
     }
 
     [Fact]
+    public void ClearScope_returns_to_entire_program()
+    {
+        var tree = new StepTreeViewModel(() => [HierarchicalStatusTree()]);
+        tree.RebuildFromHost();
+        Assert.False(tree.CanClearScope);
+        Assert.Equal("Scope: Entire program", tree.ScopeButtonText);
+        Assert.Contains("stage or section", tree.ScopeToolTip, StringComparison.OrdinalIgnoreCase);
+
+        var identity = tree.Stages.First(s => s.DisplayName == "Identity");
+        tree.SelectedStage = identity;
+        Assert.True(tree.CanClearScope);
+        Assert.Contains("Identity", tree.ScopeButtonText, StringComparison.Ordinal);
+        Assert.Contains("not Run", tree.ScopeToolTip, StringComparison.Ordinal);
+
+        tree.ClearScopeCommand.Execute().Subscribe();
+        Assert.True(tree.SelectedStage?.Step is null);
+        Assert.False(tree.CanClearScope);
+        Assert.Equal("Scope: Entire program", tree.ScopeButtonText);
+    }
+
+    [Fact]
     public void StepTree_next_fail_selects_failed_leaf_and_opens_detail()
     {
         var opened = 0;

@@ -71,17 +71,18 @@ public static class CoreServiceCollectionExtensions
                 settingsStore.AppSettings,
                 new MockOperatorCredentialBroker(sp.GetRequiredService<IClock>()),
                 new PcscOperatorCredentialBroker(sp.GetRequiredService<IClock>())));
-        services.AddSingleton<IReportAttestationService>(sp =>
-            new ReportAttestationService(
-                sp.GetRequiredService<IOperatorCredentialBroker>(),
-                sp.GetRequiredService<IRunStore>(),
-                settingsStore.AppSettings,
-                sp.GetRequiredService<IClock>()));
         services.AddSingleton<IReportService>(sp =>
             new TypstReportService(
                 sp.GetRequiredService<IRunStore>(),
                 settingsStore.AppSettings,
                 sp.GetRequiredService<ISuiteRunStore>()));
+        services.AddSingleton<IReportAttestationService>(sp =>
+            new ReportAttestationService(
+                sp.GetRequiredService<IOperatorCredentialBroker>(),
+                sp.GetRequiredService<IRunStore>(),
+                settingsStore.AppSettings,
+                sp.GetRequiredService<IClock>(),
+                new Lazy<IReportService>(sp.GetRequiredService<IReportService>)));
         services.AddSingleton<IStorageHealthService>(_ =>
             new StorageHealthService(settingsStore.AppSettings, settingsStore.RootDirectory));
         services.AddSingleton<IRunRetentionService>(sp =>

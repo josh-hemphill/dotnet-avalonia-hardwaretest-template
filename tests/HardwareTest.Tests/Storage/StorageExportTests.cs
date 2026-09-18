@@ -134,6 +134,8 @@ public sealed class ExportTargetServiceTests
             var targets = svc.ListTargets();
             Assert.Contains(targets, t => t.Id == "configured");
             var target = targets.First(t => t.Id == "configured");
+            Assert.Equal($"Export directory — {Path.GetFullPath(root)}", target.DisplayName);
+            Assert.DoesNotContain(targets, t => t.Id == "local-exports");
 
             var written = svc.WriteAtomic(target, "note.txt", "hello"u8.ToArray());
             Assert.True(File.Exists(written));
@@ -159,5 +161,72 @@ public sealed class ExportTargetServiceTests
                 Directory.Delete(root, recursive: true);
             }
         }
+    }
+
+    [Fact]
+    public void ListTargets_prefer_removable_orders_volumes_before_configured()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "hwtest-export-order-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            var stick = new ExportTarget
+            {
+                Id = "removable:stick",
+                DisplayName = "Removable (stick) — /mnt/stick",
+                RootPath = "/mnt/stick",
+                IsRemovable = true,
+            };
+            var settings = new AppSettings
+            {
+                ExportDirectory = root,
+                PreferRemovableExport = true,
+            };
+            var svc = new ExportTargetService(settings, root, removableRoots: () => [stick]);
+            Assert.Equal(["removable:stick", "configured"], svc.ListTargets().Select(t => t.Id).ToArray());
+
+            settings.PreferRemovableExport = false;
+            Assert.Equal(["configured", "removable:stick"], svc.ListTargets().Select(t => t.Id).ToArray());
+            Assert.DoesNotContain(svc.ListTargets(), t => t.Id == "local-exports");
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+            {
+                Directory.Delete(root, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public void ListTargets_local_exports_only_when_nothing_else_is_listed()
+    {
+        var data = Path.Combine(Path.GetTempPath(), "hwtest-export-local-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(data);
+        try
+        {
+            var svc = new ExportTargetService(
+                new AppSettings { ExportDirectory = string.Empty },
+                data,
+                removableRoots: () => []);
+            var targets = svc.ListTargets();
+            Assert.Single(targets);
+            Assert.Equal("local-exports", targets[0].Id);
+            Assert.Equal($"Local exports — {Path.Combine(data, "exports")}", targets[0].DisplayName);
+        }
+        finally
+        {
+            if (Directory.Exists(data))
+            {
+                Directory.Delete(data, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public void FormatDisplayName_windows_volume_does_not_repeat_the_drive_letter()
+    {
+        Assert.Equal("Removable — E:\\", ExportTargetService.FormatDisplayName("Removable", "E:\\"));
+        Assert.Equal("Removable (stick) — /mnt/stick", ExportTargetService.FormatDisplayName("Removable (stick)", "/mnt/stick"));
     }
 }

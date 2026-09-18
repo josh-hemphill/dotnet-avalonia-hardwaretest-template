@@ -45,7 +45,7 @@ public static class BuiltinShellPages
         {
             Id = ShellBuiltInPageIds.Results,
             Title = "Results",
-            SymbolName = "List",
+            SymbolName = "DocumentFilled",
             ViewModelType = typeof(ResultsViewModel),
             Placement = ShellPagePlacement.Operator,
             Order = 30,

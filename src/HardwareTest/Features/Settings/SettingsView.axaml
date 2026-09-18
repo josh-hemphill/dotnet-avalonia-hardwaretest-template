@@ -203,9 +203,14 @@
           <TextBox Grid.Column="1" Text="{Binding ExportDirectory}"
                    IsReadOnly="{Binding ExportDirectoryReadOnly}"
                    PlaceholderText="Optional fixed export path"
+                   ToolTip.Tip="Listed in Results → Export package together with inserted removable media. Local exports under the data folder are listed only when this path is empty and no removable media is present."
                    AutomationProperties.LabeledBy="{Binding #ExportDirectoryLabel}"
                    AutomationProperties.Name="Export directory" />
         </Grid>
+        <CheckBox Content="Prefer removable media for export"
+                  IsChecked="{Binding PreferRemovableExport}"
+                  IsEnabled="{Binding !PreferRemovableExportReadOnly}"
+                  ToolTip.Tip="When on (default), inserted USB/SD volumes are listed first in Results → Export package. When off, Settings → Export directory is listed first." />
         <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
           <TextBlock x:Name="WarnFreeLabel" Text="Warn free space (GB)" VerticalAlignment="Center" />
           <TextBox Grid.Column="1" Text="{Binding DataFreeSpaceWarnGb}"

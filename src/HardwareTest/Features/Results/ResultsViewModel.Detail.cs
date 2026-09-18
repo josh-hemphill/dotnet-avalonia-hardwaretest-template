@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Threading.Tasks;
+using HardwareTest.Core.Credentials;
 using HardwareTest.Core.Reporting;
 using HardwareTest.Core.Runs;
 using HardwareTest.Core.Storage;
@@ -76,6 +77,8 @@ public partial class ResultsViewModel
     [Reactive] private double _timingDurationSec;
     [Reactive] private IReadOnlyList<(double T0, double T1)> _timingSpans = [];
     [Reactive] private bool _hasReports;
+    [Reactive] private bool _hasAttestation;
+    [Reactive] private string _attestationSummary = string.Empty;
     [Reactive] private string _searchText = string.Empty;
     [Reactive] private string _resultFilter = AllFilter;
     [Reactive] private string _planFilter = AllFilter;
@@ -245,6 +248,8 @@ public partial class ResultsViewModel
         HistoryMetrics.Clear();
         ReportItems.Clear();
         HasReports = false;
+        HasAttestation = false;
+        AttestationSummary = string.Empty;
         SchemaBadge = string.Empty;
         HasSchemaBadge = false;
         SchemaWarning = string.Empty;
@@ -317,6 +322,7 @@ public partial class ResultsViewModel
             chart is { YsLength: > 0 } ? chart.Xs[chart.YsLength - 1] : null);
         HasTimingStrip = TimingEvents.Count > 0 || TimingSpans.Count > 0 || PresentationTiles.Any(t => t.IsStrip);
         LoadReportItems(OpenedRun);
+        LoadAttestation(OpenedRun);
 
         Status = $"Opened {ShortId.Display(OpenedRun.RunId)} ({OpenedRun.Result}) — {OpenedRun.Steps.Count} steps, {OpenedRun.Samples.Count} samples."
                  + (OpenedRun.SessionId is { } sid ? $" Session {ShortId.Display(sid)}." : string.Empty);
@@ -384,6 +390,13 @@ public partial class ResultsViewModel
         }
 
         HasReports = ReportItems.Count > 0;
+    }
+
+    private void LoadAttestation(TestRunRecord run)
+    {
+        var attestation = ReportAttestationService.Find(run, ReportKinds.Certification);
+        HasAttestation = attestation is not null;
+        AttestationSummary = attestation is null ? string.Empty : ReportAttestationStamp.FormatSummary(attestation);
     }
 
     private async Task OpenDefaultReportAsync()
@@ -483,6 +496,7 @@ public partial class ResultsViewModel
                 var artifacts = await _reportService.GenerateReportsAsync(run, kinds, history);
                 OpenedRun = run;
                 LoadReportItems(run);
+                LoadAttestation(run);
                 Status = $"Regenerated {artifacts.Count} report(s).";
                 var primary = run.ReportPdfPath ?? artifacts.FirstOrDefault()?.PdfPath;
                 if (primary is not null)
@@ -492,7 +506,7 @@ public partial class ResultsViewModel
             }
             catch (Exception ex)
             {
-                Status = $"Reprint failed: {ex.Message}";
+                Status = $"Regenerate failed: {ex.Message}";
             }
         }
         finally

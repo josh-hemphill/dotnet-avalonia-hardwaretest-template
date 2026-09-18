@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using System.Text;
 using HardwareTest.Core.Credentials;
 using HardwareTest.Core.Reporting;
 using HardwareTest.Core.Runs;
@@ -246,8 +247,10 @@ public sealed class ReportAttestationServiceTests
         using var temp = new TempDataDirectory();
         var store = new FileRunStore(temp.RunsDirectory);
         var run = await SeedCertificationRunAsync(store);
+        var originalCertBytes = await File.ReadAllBytesAsync(run.Reports.Single(r => r.Kind == ReportKinds.Certification).PdfPath);
         using var card = FakePivCard.CreateRsa2048();
         var broker = new ScriptedPivBroker(card);
+        var reports = new RecordingReportService();
         var service = new ReportAttestationService(
             broker,
             store,
@@ -255,12 +258,15 @@ public sealed class ReportAttestationServiceTests
             {
                 RequireAttestationBeforeExport = true,
                 AllowPresenceInLieuOfSigning = false,
-            });
+            },
+            reports: new Lazy<IReportService>(() => reports));
 
         var first = await service.AttestAsync(run, ReportKinds.Certification);
         Assert.True(first.PinRequired);
         Assert.False(first.Succeeded);
         Assert.Empty(run.Attestations);
+        Assert.Equal(originalCertBytes, await File.ReadAllBytesAsync(run.Reports.Single(r => r.Kind == ReportKinds.Certification).PdfPath));
+        Assert.Equal(0, reports.GenerateCount);
 
         var signed = await service.AttestAsync(
             run,
@@ -273,8 +279,11 @@ public sealed class ReportAttestationServiceTests
         Assert.True(signed.Attestation.EmbeddedInPdf);
         Assert.Equal(AttestationSignatureFormat.PadesBasic, signed.Attestation.SignatureFormat);
         Assert.True(service.HasValidAttestation(run, ReportKinds.Certification));
-        var pdfBytes = await File.ReadAllBytesAsync(run.Reports[0].PdfPath);
-        Assert.True(PdfPadesSignature.TryVerify(pdfBytes, out var verifyError), verifyError);
+        Assert.Equal(1, reports.GenerateCount);
+        var stamped = await File.ReadAllBytesAsync(run.Reports.Single(r => r.Kind == ReportKinds.Certification).PdfPath);
+        Assert.NotEqual(originalCertBytes, stamped);
+        Assert.Contains(MockOperatorCredentialBroker.MockDisplayName, Encoding.UTF8.GetString(stamped), StringComparison.Ordinal);
+        Assert.True(PdfPadesSignature.TryVerify(stamped, out var verifyError), verifyError);
         var sidecar = await File.ReadAllTextAsync(signed.Attestation.SidecarPath!);
         Assert.Contains("certificateBase64", sidecar, StringComparison.Ordinal);
     }
@@ -359,8 +368,10 @@ public sealed class ReportAttestationServiceTests
         using var temp = new TempDataDirectory();
         var store = new FileRunStore(temp.RunsDirectory);
         var run = await SeedCertificationRunAsync(store);
+        var original = await File.ReadAllBytesAsync(run.Reports[0].PdfPath);
         using var card = FakePivCard.CreateRsa2048();
         card.FailVerifyAsSecurityStatus = true;
+        var reports = new RecordingReportService();
         var service = new ReportAttestationService(
             new ScriptedPivBroker(card),
             store,
@@ -368,7 +379,8 @@ public sealed class ReportAttestationServiceTests
             {
                 RequireAttestationBeforeExport = true,
                 AllowPresenceInLieuOfSigning = true,
-            });
+            },
+            reports: new Lazy<IReportService>(() => reports));
         var result = await service.AttestAsync(
             run,
             ReportKinds.Certification,
@@ -376,6 +388,7 @@ public sealed class ReportAttestationServiceTests
         Assert.False(result.Succeeded);
         Assert.Contains("Insert the chip", result.Message, StringComparison.OrdinalIgnoreCase);
         Assert.Empty(run.Attestations);
+        Assert.Equal(original, await File.ReadAllBytesAsync(run.Reports[0].PdfPath));
     }
 
     [Fact]
@@ -422,7 +435,37 @@ public sealed class ReportAttestationServiceTests
         Assert.Equal(MockOperatorCredentialBroker.MockDisplayName, result.Attestation!.DisplayName);
     }
 
-    private static async Task<TestRunRecord> SeedCertificationRunAsync(FileRunStore store)
+    [Fact]
+    public async Task Attest_restamps_pdf_with_badge_before_hashing()
+    {
+        using var temp = new TempDataDirectory();
+        var store = new FileRunStore(temp.RunsDirectory);
+        var run = await SeedCertificationRunAsync(store, includeStatus: true);
+        var originalCertBytes = await File.ReadAllBytesAsync(run.Reports.Single(r => r.Kind == ReportKinds.Certification).PdfPath);
+        var reports = new RecordingReportService();
+        var service = new ReportAttestationService(
+            new MockOperatorCredentialBroker(canSign: true),
+            store,
+            new AppSettings { RequireAttestationBeforeExport = true },
+            reports: new Lazy<IReportService>(() => reports));
+
+        var result = await service.AttestAsync(run, ReportKinds.Certification);
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(1, reports.GenerateCount);
+        Assert.Equal(MockOperatorCredentialBroker.MockDisplayName, reports.LastIdentity?.DisplayName);
+        Assert.Equal(ReportKinds.Certification, reports.LastIdentity?.ReportKind);
+        Assert.Equal(AttestationKind.Signed, reports.LastIdentity?.Kind);
+        Assert.Contains(run.Reports, r => r.Kind == ReportKinds.Status);
+        Assert.True(service.HasValidAttestation(run, ReportKinds.Certification));
+        var stamped = await File.ReadAllBytesAsync(run.Reports.Single(r => r.Kind == ReportKinds.Certification).PdfPath);
+        Assert.NotEqual(originalCertBytes, stamped);
+        Assert.Contains(MockOperatorCredentialBroker.MockDisplayName, Encoding.UTF8.GetString(stamped), StringComparison.Ordinal);
+    }
+
+    private static async Task<TestRunRecord> SeedCertificationRunAsync(
+        FileRunStore store,
+        bool includeStatus = false)
     {
         var run = new TestRunRecord
         {
@@ -432,7 +475,21 @@ public sealed class ReportAttestationServiceTests
             Result = RunResult.Passed,
         };
         await store.SaveAsync(run);
-        var pdf = Path.Combine(store.GetRunDirectory(run.RunId), "certification.pdf");
+        var dir = store.GetRunDirectory(run.RunId);
+        if (includeStatus)
+        {
+            var statusPdf = Path.Combine(dir, "status.pdf");
+            await File.WriteAllBytesAsync(statusPdf, "%PDF-1.4 status"u8.ToArray());
+            run.Reports.Add(new RunReportArtifact
+            {
+                Kind = ReportKinds.Status,
+                Title = "Status Report",
+                PdfPath = statusPdf,
+                GeneratedAt = DateTimeOffset.UtcNow,
+            });
+            run.ReportPdfPath = statusPdf;
+        }
+        var pdf = Path.Combine(dir, "certification.pdf");
         await File.WriteAllBytesAsync(pdf, PdfPadesSignature.CreateMinimalPdf());
         run.Reports.Add(new RunReportArtifact
         {
@@ -443,6 +500,63 @@ public sealed class ReportAttestationServiceTests
         });
         await store.SaveAsync(run);
         return run;
+    }
+}
+
+/// Rewrites the certification PDF with the overlay identity so Attest can hash stamped bytes.
+internal sealed class RecordingReportService : IReportService
+{
+    public int GenerateCount { get; private set; }
+    public ReportAttestation? LastIdentity { get; private set; }
+
+    public Task<string> GeneratePdfAsync(TestRunRecord run, CancellationToken cancellationToken = default)
+        => throw new NotSupportedException();
+
+    public Task<IReadOnlyList<RunReportArtifact>> GenerateReportsAsync(
+        TestRunRecord run,
+        IReadOnlyList<string> kinds,
+        DutHistoryReport? history = null,
+        CancellationToken cancellationToken = default,
+        ReportAttestation? compileIdentity = null)
+    {
+        GenerateCount++;
+        LastIdentity = compileIdentity;
+        var artifacts = new List<RunReportArtifact>();
+        foreach (var kind in kinds)
+        {
+            var existing = run.Reports.FirstOrDefault(r =>
+                string.Equals(r.Kind, kind, StringComparison.OrdinalIgnoreCase));
+            if (existing is null || string.IsNullOrWhiteSpace(existing.PdfPath))
+            {
+                throw new InvalidOperationException($"Missing PDF for {kind}.");
+            }
+
+            var stamp = compileIdentity?.DisplayName ?? "unsigned";
+            File.WriteAllBytes(existing.PdfPath, PdfPadesSignature.CreateMinimalPdf(stamp));
+            artifacts.Add(existing);
+        }
+
+        return Task.FromResult((IReadOnlyList<RunReportArtifact>)artifacts);
+    }
+
+    public Task<string> GenerateSuitePdfAsync(SuiteRunRecord suiteRun, CancellationToken cancellationToken = default)
+        => throw new NotSupportedException();
+
+    public Task<byte[]> CompileTemplateAsync(TestRunRecord run, CancellationToken cancellationToken = default)
+        => throw new NotSupportedException();
+
+    public Task<byte[]> CompileReportAsync(
+        TestRunRecord run,
+        string kind,
+        CancellationToken cancellationToken = default,
+        ReportAttestation? compileIdentity = null)
+    {
+        GenerateCount++;
+        LastIdentity = compileIdentity;
+        _ = run;
+        _ = kind;
+        var stamp = compileIdentity?.DisplayName ?? "unsigned";
+        return Task.FromResult(PdfPadesSignature.CreateMinimalPdf(stamp));
     }
 }
 
