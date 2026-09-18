@@ -290,13 +290,37 @@ public sealed class RunFlowE2ETests
         plot.SetCursor(0.1, announce: false);
         Dispatcher.UIThread.RunJobs();
         Assert.Equal(0.0, plot.CursorX);
+        Assert.False(plot.FollowLive);
 
         plot.SetCursor(0.9, announce: false);
         Dispatcher.UIThread.RunJobs();
         Assert.Equal(1.0, plot.CursorX);
+        Assert.False(plot.FollowLive);
+
+        plot.UpdateTimeSeries([0, 1, 2], [1.0, 2.0, 3.0], 3, followLive: true, force: true);
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal(1.0, plot.CursorX);
+        Assert.False(plot.FollowLive);
 
         plot.ClearCursor();
         Dispatcher.UIThread.RunJobs();
         Assert.Null(plot.CursorX);
+        Assert.True(plot.FollowLive);
+    }
+
+    [AvaloniaFact]
+    public void SetCursor_resnaps_when_the_window_drops_the_point()
+    {
+        var plot = new HardwareTest.Widgets.MeasurementPlot.MeasurementPlotView();
+        plot.UpdateTimeSeries([0.0, 40.0], [1.0, 1.5], 2, followLive: true, force: true);
+        Dispatcher.UIThread.RunJobs();
+        plot.SetCursor(0.0, announce: false);
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal(0.0, plot.CursorX);
+
+        plot.UpdateTimeSeries([40.0], [1.5], 1, followLive: true, force: true);
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal(40.0, plot.CursorX);
+        Assert.False(plot.FollowLive);
     }
 }

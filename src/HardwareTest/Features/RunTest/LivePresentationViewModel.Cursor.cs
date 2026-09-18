@@ -40,7 +40,7 @@ public partial class LivePresentationViewModel
         ApplyCursorReadout(sampleX, sampleY);
     }
 
-    /// Restores latest-sample toolbar text and drops the readout.
+    /// Restores latest-sample toolbar text, drops the readout, and resumes follow-live.
     public void ClearCursor()
     {
         if (!HasCursor && _cursorX is null)
@@ -50,6 +50,7 @@ public partial class LivePresentationViewModel
 
         _cursorX = null;
         HasCursor = false;
+        FollowLive = true;
         PublishSelectedSnapshot(_lastSelectedStep);
     }
 

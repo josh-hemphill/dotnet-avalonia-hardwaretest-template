@@ -5,6 +5,13 @@ namespace HardwareTest.Widgets.MeasurementPlot;
 /// Nearest-sample readout for a vertical chart cursor. Avalonia-free so unit tests can cover it.
 public static class PlotCursorReadout
 {
+    /// Pointer movement of this many pixels (inclusive) is a pan, not a tap.
+    public const double TapSlopPx = 10;
+
+    /// True when the press-to-release delta is strictly inside the tap slop.
+    public static bool IsTap(double dx, double dy)
+        => (dx * dx) + (dy * dy) < TapSlopPx * TapSlopPx;
+
     /// Finds the sample whose X (elapsed seconds, or index when <paramref name="xs"/> is short) is closest to <paramref name="x"/>.
     public static bool TryNearestSample(
         ReadOnlySpan<double> xs,

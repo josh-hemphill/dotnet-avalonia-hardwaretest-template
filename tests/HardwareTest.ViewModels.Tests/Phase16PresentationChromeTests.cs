@@ -190,7 +190,7 @@ public sealed class Phase16PresentationChromeTests
         Assert.Equal(0.0, live.CursorX);
         Assert.Equal("Readout", live.ChartAgeText);
         Assert.Equal("1", live.ChartValueText);
-        Assert.Contains("0", live.ChartElapsedText, StringComparison.Ordinal);
+        Assert.Equal(SeriesTimingChrome.FormatElapsed(0), live.ChartElapsedText);
         Assert.Contains("Within", live.ChartBandText, StringComparison.Ordinal);
     }
 
@@ -253,6 +253,7 @@ public sealed class Phase16PresentationChromeTests
         live.ClearCursor();
 
         Assert.False(live.HasCursor);
+        Assert.True(live.FollowLive);
         Assert.Contains("2", live.ChartValueText, StringComparison.Ordinal);
         Assert.DoesNotContain("Readout", live.ChartAgeText, StringComparison.Ordinal);
     }
@@ -278,6 +279,17 @@ public sealed class Phase16PresentationChromeTests
         live.FollowLive = false;
         await live.ResetViewCommand.ExecuteAsync();
         Assert.True(live.FollowLive);
+    }
+
+    [Fact]
+    public void Sample_window_labels_describe_the_data_filter()
+    {
+        Assert.Equal("Last 30 sec", ChartTimeWindow.ThirtySeconds.Label);
+        Assert.Equal("Last 2 min", ChartTimeWindow.TwoMinutes.Label);
+        Assert.Equal("All samples", ChartTimeWindow.All.Label);
+        Assert.Equal(
+            new[] { ChartTimeWindow.ThirtySeconds, ChartTimeWindow.TwoMinutes, ChartTimeWindow.All },
+            ChartTimeWindow.AllWindows);
     }
 
     [Fact]

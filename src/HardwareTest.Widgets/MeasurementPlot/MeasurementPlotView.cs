@@ -29,7 +29,6 @@ public sealed class MeasurementPlotView : UserControl
     private (double T0, double T1)[] _oobSpans = [];
     private double? _cursorX;
     private Point? _pressPosition;
-    private const double TapSlopPx = 10;
 
     public MeasurementPlotView()
     {
@@ -44,6 +43,9 @@ public sealed class MeasurementPlotView : UserControl
 
     /// Elapsed-seconds (or sample index) of the current readout line, if any.
     internal double? CursorX => _cursorX;
+
+    /// Whether the next render auto-scales to the visible window.
+    internal bool FollowLive => _followLive;
 
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
@@ -108,12 +110,7 @@ public sealed class MeasurementPlotView : UserControl
     public void ResetView()
     {
         _followLive = true;
-        if (_cursorX is not null)
-        {
-            ClearCursor();
-            return;
-        }
-
+        SetCursor(null, announce: false);
         Render(force: true);
     }
 
@@ -124,10 +121,12 @@ public sealed class MeasurementPlotView : UserControl
         {
             if (_cursorX is null)
             {
+                _followLive = true;
                 return;
             }
 
             _cursorX = null;
+            _followLive = true;
             Render(force: true);
             if (announce)
             {
@@ -148,10 +147,10 @@ public sealed class MeasurementPlotView : UserControl
     {
         _useTimeAxis = true;
         _xLabel = "Time (s)";
-        _followLive = followLive;
         var length = count < 0 ? Math.Min(xs.Length, ys.Length) : Math.Clamp(count, 0, Math.Min(xs.Length, ys.Length));
         EnsureCopy(ref _xs, xs, length);
         EnsureCopy(ref _ys, ys, length);
+        SyncCursorAfterBufferChange(followLive);
         Render(force);
     }
 
@@ -172,6 +171,7 @@ public sealed class MeasurementPlotView : UserControl
         }
 
         _ys = _signalBuffer;
+        SyncCursorAfterBufferChange(_followLive);
         Render(force);
     }
 
@@ -281,7 +281,12 @@ public sealed class MeasurementPlotView : UserControl
         _pressPosition = null;
         var dx = end.X - start.X;
         var dy = end.Y - start.Y;
-        if ((dx * dx) + (dy * dy) > TapSlopPx * TapSlopPx)
+        if (!PlotCursorReadout.IsTap(dx, dy))
+        {
+            return;
+        }
+
+        if (LastRenderedPointCount <= 0)
         {
             return;
         }
@@ -291,7 +296,33 @@ public sealed class MeasurementPlotView : UserControl
             (float)end.Y,
             _plot.Plot.Axes.Bottom,
             _plot.Plot.Axes.Left);
+        if (double.IsNaN(coords.X) || double.IsNaN(coords.Y))
+        {
+            return;
+        }
+
         PlaceCursor(coords.X, announce: true);
+    }
+
+    private void SyncCursorAfterBufferChange(bool requestedFollowLive)
+    {
+        if (_cursorX is not { } x)
+        {
+            _followLive = requestedFollowLive;
+            return;
+        }
+
+        var xs = _useTimeAxis ? _xs : [];
+        var ys = _useTimeAxis ? _ys : _signalBuffer;
+        if (!PlotCursorReadout.TryNearestSample(xs, ys, ys.Length, x, out _, out var sampleX, out _))
+        {
+            _cursorX = null;
+            _followLive = requestedFollowLive;
+            return;
+        }
+
+        _cursorX = sampleX;
+        _followLive = false;
     }
 
     private void PlaceCursor(double x, bool announce)

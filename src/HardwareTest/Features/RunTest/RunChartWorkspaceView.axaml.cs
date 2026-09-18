@@ -95,7 +95,7 @@ public partial class RunChartWorkspaceView : UserControl
 
         if (e.PropertyName == nameof(LivePresentationViewModel.HasCursor) && !_subscribed.Live.HasCursor)
         {
-            Plot.ClearCursor();
+            Plot.SetCursor(null, announce: false);
         }
     }
 

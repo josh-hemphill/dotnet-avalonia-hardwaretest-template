@@ -23,7 +23,7 @@
             </DataTemplate>
           </ComboBox.ItemTemplate>
         </ComboBox>
-        <TextBlock Text="Samples"
+        <TextBlock Text="Sample window"
                    VerticalAlignment="Center"
                    Opacity="0.8"
                    ToolTip.Tip="{x:Static vm:ChartTimeWindow.OperatorTip}" />

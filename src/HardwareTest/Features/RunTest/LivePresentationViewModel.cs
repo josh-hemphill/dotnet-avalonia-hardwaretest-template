@@ -262,6 +262,14 @@ public partial class LivePresentationViewModel : ReactiveObject
         if (e.PropertyName == nameof(SelectedTimeWindow))
         {
             PublishSelectedSnapshot(_lastSelectedStep);
+            return;
+        }
+
+        if (e.PropertyName == nameof(FollowLive) && FollowLive && HasCursor)
+        {
+            _cursorX = null;
+            HasCursor = false;
+            PublishSelectedSnapshot(_lastSelectedStep);
         }
     }
 
@@ -284,7 +292,6 @@ public partial class LivePresentationViewModel : ReactiveObject
     {
         FollowLive = true;
         ClearCursor();
-        PublishSelectedSnapshot(_lastSelectedStep);
         PlotDataChanged?.Invoke(this, EventArgs.Empty);
     }
 

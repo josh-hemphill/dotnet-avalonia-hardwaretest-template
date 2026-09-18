@@ -48,4 +48,13 @@ public sealed class PlotCursorReadoutTests
         Assert.Contains("Within", PlotCursorReadout.FormatBand(0.5, 0, 1, "V"), StringComparison.OrdinalIgnoreCase);
         Assert.Equal("No limits", PlotCursorReadout.FormatBand(1, null, null, "V"));
     }
+
+    [Fact]
+    public void IsTap_treats_a_10px_move_as_a_pan()
+    {
+        Assert.True(PlotCursorReadout.IsTap(0, 0));
+        Assert.True(PlotCursorReadout.IsTap(9, 0));
+        Assert.False(PlotCursorReadout.IsTap(10, 0));
+        Assert.False(PlotCursorReadout.IsTap(6, 8));
+    }
 }
