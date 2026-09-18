@@ -67,6 +67,23 @@ public sealed class RunReportArtifact
     public string Title { get; set; } = string.Empty;
     public string PdfPath { get; set; } = string.Empty;
     public DateTimeOffset GeneratedAt { get; set; }
+    /// Working (regenerable) or issued (frozen attested copy). Missing JSON defaults to working.
+    public string Role { get; set; } = ReportArtifactRoles.Working;
+}
+
+/// Well-known report artifact roles (string constants, not a runtime enum).
+public static class ReportArtifactRoles
+{
+    public const string Working = "working";
+    public const string Issued = "issued";
+    public const string DirectoryName = "issued";
+
+    public static bool IsWorking(string? role)
+        => string.IsNullOrWhiteSpace(role)
+           || string.Equals(role, Working, StringComparison.OrdinalIgnoreCase);
+
+    public static bool IsIssued(string? role)
+        => string.Equals(role, Issued, StringComparison.OrdinalIgnoreCase);
 }
 
 /// Well-known report kind ids for catalog + Typst generation.

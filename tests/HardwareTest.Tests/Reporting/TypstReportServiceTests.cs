@@ -120,9 +120,11 @@ public sealed class TypstReportServiceTests
         Assert.Contains(artifacts, a => a.Kind == ReportKinds.Status);
         Assert.Contains(artifacts, a => a.Kind == ReportKinds.Certification);
         Assert.Equal(artifacts.First(a => a.Kind == ReportKinds.Status).PdfPath, run.ReportPdfPath);
+        Assert.All(artifacts, a => Assert.Equal(ReportArtifactRoles.Working, a.Role));
 
         var reloaded = await runStore.LoadAsync(run.RunId);
         Assert.Equal(2, reloaded!.Reports.Count);
+        Assert.All(reloaded.Reports, a => Assert.True(ReportArtifactRoles.IsWorking(a.Role)));
     }
 
     [Fact]
@@ -190,6 +192,62 @@ public sealed class TypstReportServiceTests
         Assert.Contains(run.Reports, r => r.Kind == ReportKinds.Status && r.PdfPath == statusPath);
         Assert.Contains(run.Reports, r => r.Kind == ReportKinds.Certification);
         Assert.Equal(statusPath, run.ReportPdfPath);
+    }
+
+    [Fact]
+    public async Task GenerateReportsAsync_keeps_issued_pdf_and_attestation()
+    {
+        using var temp = new TempDataDirectory();
+        var runStore = new FileRunStore(temp.RunsDirectory);
+        var run = CreateRun();
+        await runStore.SaveAsync(run);
+
+        using var reports = new TypstReportService(runStore, new AppSettings { EmbedPlotsInReport = false });
+        await CompileOrSkipAsync(() => reports.GenerateReportsAsync(run, [ReportKinds.Certification]));
+
+        var dir = runStore.GetRunDirectory(run.RunId);
+        var workingPath = ReportAttestationService.ResolveWorkingPdfPath(run, ReportKinds.Certification)!;
+        var workingBytes = await File.ReadAllBytesAsync(workingPath);
+        var issuedDir = Path.Combine(dir, ReportArtifactRoles.DirectoryName);
+        Directory.CreateDirectory(issuedDir);
+        var issuedPath = Path.Combine(issuedDir, "certification.pdf");
+        await File.WriteAllBytesAsync(issuedPath, workingBytes);
+        run.Reports.Add(new RunReportArtifact
+        {
+            Kind = ReportKinds.Certification,
+            Title = ReportKinds.Title(ReportKinds.Certification),
+            PdfPath = issuedPath,
+            GeneratedAt = DateTimeOffset.UtcNow,
+            Role = ReportArtifactRoles.Issued,
+        });
+        var sidecar = Path.Combine(dir, "certification.attestation.json");
+        await File.WriteAllTextAsync(sidecar, "{}");
+        run.Attestations.Add(new ReportAttestation
+        {
+            Kind = AttestationKind.Presence,
+            ReportKind = ReportKinds.Certification,
+            DisplayName = "Issued Certifier",
+            Serial = "ISSUE-1",
+            SidecarPath = sidecar,
+        });
+        await runStore.SaveAsync(run);
+
+        await CompileOrSkipAsync(() => reports.GenerateReportsAsync(run, [ReportKinds.Certification]));
+
+        Assert.Single(run.Attestations);
+        Assert.Equal("Issued Certifier", run.Attestations[0].DisplayName);
+        Assert.True(File.Exists(sidecar));
+        Assert.True(File.Exists(issuedPath));
+        Assert.Equal(workingBytes, await File.ReadAllBytesAsync(issuedPath));
+        Assert.True(File.Exists(workingPath));
+        Assert.Contains(
+            run.Reports,
+            r => r.Kind == ReportKinds.Certification && ReportArtifactRoles.IsIssued(r.Role) && r.PdfPath == issuedPath);
+        Assert.Contains(
+            run.Reports,
+            r => r.Kind == ReportKinds.Certification && ReportArtifactRoles.IsWorking(r.Role));
+        Assert.Equal(issuedPath, ReportAttestationService.ResolvePdfPath(run, ReportKinds.Certification));
+        Assert.Equal(workingPath, ReportAttestationService.ResolveWorkingPdfPath(run, ReportKinds.Certification));
     }
 
     [Fact]

@@ -120,7 +120,7 @@ public sealed class Phase18TouchDensityTests
         var settings = File.ReadAllText(FindRepoFile("src/HardwareTest/Features/Settings/SettingsView.axaml"));
         Assert.Contains("Prefer removable media for export", settings, StringComparison.Ordinal);
         Assert.Contains("are listed only when this path is empty and no removable media is present", settings, StringComparison.Ordinal);
-        Assert.Contains("regenerating, or exporting", settings, StringComparison.Ordinal);
+        Assert.Contains("exporting or printing", settings, StringComparison.Ordinal);
         Assert.DoesNotContain("reprinting", settings, StringComparison.Ordinal);
     }
 

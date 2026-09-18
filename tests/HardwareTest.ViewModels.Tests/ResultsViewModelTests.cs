@@ -639,7 +639,10 @@ public sealed class ResultsViewModelTests
         Assert.Equal(AttestationKind.Signed, run.Attestations[0].Kind);
         Assert.Equal(string.Empty, vm.AttestationPin);
         Assert.True(vm.HasAttestation);
-        Assert.NotEqual(original, await File.ReadAllBytesAsync(pdf));
+        Assert.Equal(original, await File.ReadAllBytesAsync(pdf));
+        var issued = ReportAttestationService.ResolveIssuedPdfPath(run, ReportKinds.Certification);
+        Assert.False(string.IsNullOrWhiteSpace(issued));
+        Assert.NotEqual(original, await File.ReadAllBytesAsync(issued!));
     }
 
     [Fact]

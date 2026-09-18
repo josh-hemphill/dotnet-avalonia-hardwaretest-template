@@ -73,7 +73,7 @@ Real badges use PC/SC (`pcscd` + CCID). Mock badges (`UseMockOperatorCredential`
 3. Open Results — run record includes `DutSerial`.
 4. Generate / preview Typst report — serial present in report data.
 5. Safety Stop / Pause still visible in PaneFooter and abort OpenTAP cleanly.
-6. Optional: with mock credential, tap on session confirm fills technician; export with `RequireAttestationBeforeExport` writes `certification.attestation.json`. A real PIV/card sign also injects a PAdES CMS into `certification.pdf`.
+6. Optional: with mock credential, tap on session confirm fills technician; export with `RequireAttestationBeforeExport` writes `certification.attestation.json`. A real PIV/card sign also injects a PAdES CMS into `issued/certification.pdf` and leaves the working `certification.pdf` regenerable.
 
 ## Notes
 
