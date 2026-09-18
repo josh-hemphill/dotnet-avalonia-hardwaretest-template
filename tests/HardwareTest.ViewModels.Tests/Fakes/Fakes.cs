@@ -1684,7 +1684,7 @@ public sealed class FakeReportService : IReportService
         LastKinds = [kind];
         LastCompileIdentity = compileIdentity;
         var stamp = compileIdentity?.DisplayName ?? "unsigned";
-        return Task.FromResult(Encoding.UTF8.GetBytes("%PDF-1.4 " + stamp));
+        return Task.FromResult(System.Text.Encoding.UTF8.GetBytes("%PDF-1.4 " + stamp));
     }
 }
 
