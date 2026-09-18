@@ -52,10 +52,7 @@ public sealed partial class PlanCompiler
             Walk(step, instruments, setup, measure, ref cleanup, xmlById);
         }
 
-        cleanup = new CleanupPolicy(
-            cleanup.IncludeSafeShutdown,
-            cleanup.InstrumentSlots,
-            sidecar.IncludeMeasureSlots == true);
+        cleanup = AuthoringCleanup.FromPlan(cleanup, sidecar);
 
         return new ProgramDraft(
             planId,

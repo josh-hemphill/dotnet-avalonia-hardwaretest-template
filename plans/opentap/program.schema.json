@@ -36,6 +36,15 @@
       "type": "boolean",
       "description": "When false, Run Selected excludes SafeShutdownStep."
     },
+    "includeSafeShutdown": {
+      "type": "boolean",
+      "description": "When true, Cleanup includes Safe Shutdown even if no explicit instrument slots are checked."
+    },
+    "cleanupInstrumentSlots": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "description": "Explicit Safe Shutdown slots (inspector checkboxes). Union-only identity/measure slots are not listed when includeMeasureSlots is true."
+    },
     "includeMeasureSlots": {
       "type": "boolean",
       "description": "When true, Safe Shutdown also unions identity and measure instrument slots from this program."

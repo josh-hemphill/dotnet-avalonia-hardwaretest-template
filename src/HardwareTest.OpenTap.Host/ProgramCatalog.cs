@@ -53,6 +53,10 @@ public sealed class ProgramSidecar
     public string? DefaultReportKind { get; set; }
     /// When false, Run Selected excludes SafeShutdownStep (suite-scoped cleanup only). Default true.
     public bool? SelectionIncludesCleanup { get; set; }
+    /// When true, Safe Shutdown is in the compiled plan. Distinct from which slots are explicit vs unioned.
+    public bool? IncludeSafeShutdown { get; set; }
+    /// Explicit cleanup checkboxes. Union-only slots stay off this list when includeMeasureSlots is true.
+    public string[]? CleanupInstrumentSlots { get; set; }
     /// When true, Safe Shutdown also unions identity and measure instrument slots.
     public bool? IncludeMeasureSlots { get; set; }
     public string? ProgramKind { get; set; }

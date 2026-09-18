@@ -339,6 +339,18 @@ public sealed class AuthoringProgramSettingsViewModelTests
         vm.SetCleanupSlotIncluded("SCOPE", true);
         Assert.Equal(["DMM", "SCOPE"], vm.SelectedProgram.Cleanup.InstrumentSlots);
         Assert.True(vm.CleanupSlotChoices.Single(row => row.Id == "SCOPE").Included);
+        vm.CleanupInstrumentSlot = "PSU";
+        Assert.Equal("PSU", vm.CleanupInstrumentSlot);
+        Assert.Equal(["PSU", "SCOPE"], vm.SelectedProgram.Cleanup.InstrumentSlots);
+        vm.IncludeMeasureSlots = false;
+        vm.SetCleanupSlotIncluded("PSU", false);
+        vm.SetCleanupSlotIncluded("SCOPE", false);
+        Assert.Empty(vm.SelectedProgram.Cleanup.InstrumentSlots);
+        Assert.True(vm.SelectedProgram.Cleanup.IncludeSafeShutdown);
+        Assert.Empty(AuthoringCleanup.ResolveSlots(vm.SelectedProgram));
+        vm.IncludeMeasureSlots = true;
+        vm.SetCleanupSlotIncluded("DMM", true);
+        vm.SetCleanupSlotIncluded("SCOPE", true);
         vm.ApplyRecipe(AuthoringRecipeIds.Shutdown);
         Assert.Equal(["DMM", "SCOPE"], vm.SelectedProgram.Cleanup.InstrumentSlots);
         Assert.True(vm.SelectedProgram.Cleanup.IncludeMeasureSlots);

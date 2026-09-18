@@ -26,6 +26,8 @@ internal static class PlanContractSidecar
         "reportKinds",
         "defaultReportKind",
         "selectionIncludesCleanup",
+        "includeSafeShutdown",
+        "cleanupInstrumentSlots",
         "includeMeasureSlots",
         "programKind",
         "requireStationHealth",

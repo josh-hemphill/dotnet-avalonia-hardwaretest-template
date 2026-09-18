@@ -114,13 +114,95 @@ public sealed class PlanCompilerTests
         var loaded = new PlanCompiler().Load(path);
         Assert.True(loaded.Cleanup.IncludeMeasureSlots);
         Assert.True(loaded.Sidecar.IncludeMeasureSlots);
-        Assert.Contains("DMM", loaded.Cleanup.InstrumentSlots);
-        Assert.Contains("SCOPE", loaded.Cleanup.InstrumentSlots);
+        Assert.Equal(["DMM"], loaded.Cleanup.InstrumentSlots);
+        Assert.Equal(["DMM", "SCOPE"], AuthoringCleanup.ResolveSlots(loaded));
+        Assert.Equal(["DMM"], loaded.Sidecar.CleanupInstrumentSlots ?? []);
         var xml = File.ReadAllText(path);
         Assert.Contains("Safe Shutdown · DMM", xml, StringComparison.Ordinal);
         Assert.Contains("Safe Shutdown · SCOPE", xml, StringComparison.Ordinal);
         var sidecar = File.ReadAllText(Path.Combine(dir, "measure-cleanup.program.json"));
         Assert.Contains("includeMeasureSlots", sidecar, StringComparison.Ordinal);
+        Assert.Contains("cleanupInstrumentSlots", sidecar, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Compile_keeps_identity_only_union_slot_off_explicit_checkboxes()
+    {
+        var dir = NewTempDir();
+        var path = Path.Combine(dir, "identity-cleanup.TapPlan");
+        var created = AuthoringRecipeCatalog.CreateProgram("identity-cleanup");
+        var typeId = created.Instruments[0].TypeId;
+        var draft = created with
+        {
+            Instruments =
+            [
+                created.Instruments[0],
+                new InstrumentRef("PSU", typeId, "MOCK::INSTR1"),
+            ],
+            Setup = [new IdentitySetup("PSU")],
+            Cleanup = new CleanupPolicy(true, ["DMM"], true),
+        };
+        Assert.Equal(["DMM"], draft.Cleanup.InstrumentSlots);
+        Assert.Equal(["DMM", "PSU"], AuthoringCleanup.ResolveSlots(draft));
+        new PlanCompiler().Save(draft, path);
+        var loaded = new PlanCompiler().Load(path);
+        Assert.Equal(["DMM"], loaded.Cleanup.InstrumentSlots);
+        Assert.Equal(["DMM", "PSU"], AuthoringCleanup.ResolveSlots(loaded));
+        Assert.DoesNotContain("PSU", loaded.Cleanup.InstrumentSlots);
+        var xml = File.ReadAllText(path);
+        Assert.Contains("Safe Shutdown · DMM", xml, StringComparison.Ordinal);
+        Assert.Contains("Safe Shutdown · PSU", xml, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Compile_does_not_fallback_to_first_instrument_when_no_slots_are_selected()
+    {
+        var dir = NewTempDir();
+        var path = Path.Combine(dir, "empty-cleanup.TapPlan");
+        var draft = AuthoringRecipeCatalog.CreateProgram("empty-cleanup") with
+        {
+            Cleanup = new CleanupPolicy(true, [], false),
+        };
+        Assert.Empty(AuthoringCleanup.ResolveSlots(draft));
+        new PlanCompiler().Save(draft, path);
+        var loaded = new PlanCompiler().Load(path);
+        Assert.True(loaded.Cleanup.IncludeSafeShutdown);
+        Assert.Empty(loaded.Cleanup.InstrumentSlots);
+        Assert.Empty(AuthoringCleanup.ResolveSlots(loaded));
+        Assert.DoesNotContain("Safe Shutdown ·", File.ReadAllText(path), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Load_without_sidecar_slots_still_copies_compiled_shutdown_steps()
+    {
+        var dir = NewTempDir();
+        var path = Path.Combine(dir, "legacy-cleanup.TapPlan");
+        var created = AuthoringRecipeCatalog.CreateProgram("legacy-cleanup");
+        var typeId = created.Instruments[0].TypeId;
+        var draft = created with
+        {
+            Instruments =
+            [
+                created.Instruments[0],
+                new InstrumentRef("SCOPE", typeId, "MOCK::INSTR1"),
+            ],
+            Cleanup = new CleanupPolicy(true, ["DMM", "SCOPE"]),
+        };
+        new PlanCompiler().Save(draft, path);
+        var sidecarPath = Path.Combine(dir, "legacy-cleanup.program.json");
+        var sidecar = File.ReadAllText(sidecarPath);
+        using var doc = System.Text.Json.JsonDocument.Parse(sidecar);
+        var stripped = new ProgramSidecar
+        {
+            DisplayName = draft.Sidecar.DisplayName,
+            IncludeMeasureSlots = true,
+        };
+        File.WriteAllText(
+            sidecarPath,
+            System.Text.Json.JsonSerializer.Serialize(stripped, ProgramCatalogJsonContext.Default.ProgramSidecar));
+        var loaded = new PlanCompiler().Load(path);
+        Assert.Equal(["DMM", "SCOPE"], loaded.Cleanup.InstrumentSlots);
+        Assert.True(loaded.Cleanup.IncludeSafeShutdown);
     }
 
     [Fact]
