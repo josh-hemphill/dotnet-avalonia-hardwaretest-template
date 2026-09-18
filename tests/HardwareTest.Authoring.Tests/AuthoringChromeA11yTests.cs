@@ -43,6 +43,7 @@ public sealed class AuthoringChromeA11yTests
         Assert.Contains("OnOpenSettings", code, StringComparison.Ordinal);
         Assert.Contains("OnRemoveSequence", code, StringComparison.Ordinal);
         Assert.Contains("OnRemoveProgram", code, StringComparison.Ordinal);
+        Assert.Contains("OnMetricSettingLostFocus", code, StringComparison.Ordinal);
         Assert.Contains("e.Key != Key.Delete || !_viewModel.CanRemoveSelectedSequence", code, StringComparison.Ordinal);
         Assert.Contains("e.Key != Key.Delete || !_viewModel.CanRemoveSelectedProgram", code, StringComparison.Ordinal);
         Assert.Contains(".Show(this)", code, StringComparison.Ordinal);
@@ -56,6 +57,12 @@ public sealed class AuthoringChromeA11yTests
         Assert.Contains("IsVisible=\"{Binding HasFormula}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("IsVisible=\"{Binding HasTransferFunction}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("IsVisible=\"{Binding HasMetricPresentation}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("IsVisible=\"{Binding HasStepSettings}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("SelectedItem=\"{Binding MetricFunctionId}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("ItemsSource=\"{Binding MetricSettingRows}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Text=\"{Binding Value, Mode=OneWay}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("IsChecked=\"{Binding HistoryEnabled}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("OnMetricSettingLostFocus", xaml, StringComparison.Ordinal);
         Assert.Contains("IsVisible=\"{Binding HasRepeatEditor}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Text=\"{Binding Code, StringFormat='{}{0}'}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Text=\"{Binding Message}\"", xaml, StringComparison.Ordinal);

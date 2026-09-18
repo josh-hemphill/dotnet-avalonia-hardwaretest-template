@@ -70,6 +70,32 @@ public sealed class AuthoringInspectorNitsTests
     }
 
     [Fact]
+    public void Inspector_sample_count_keeps_the_selected_sequence_row()
+    {
+        var vm = OpenEmpty();
+        vm.CreateProgram("keep-settings");
+        vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
+        var acquire = vm.SequenceItems.Single(row => row.Kind == SequenceRowKind.Metric);
+        vm.SelectSequence(vm.SequenceItems.ToList().IndexOf(acquire));
+        var index = vm.SelectedSequenceIndex;
+        var notified = new HashSet<string>(StringComparer.Ordinal);
+        vm.PropertyChanged += (_, e) =>
+        {
+            if (!string.IsNullOrEmpty(e.PropertyName))
+            {
+                notified.Add(e.PropertyName);
+            }
+        };
+
+        vm.SetMetricSetting("SampleCount", "64");
+        Assert.Equal("64", SettingValue(vm, "SampleCount"));
+        Assert.Equal(index, vm.SelectedSequenceIndex);
+        Assert.Equal(acquire.Key, vm.SelectedSequence?.Key);
+        Assert.DoesNotContain(nameof(vm.SequenceItems), notified);
+        Assert.Contains(nameof(vm.MetricSettingRows), notified);
+    }
+
+    [Fact]
     public void Inspector_channel_key_keeps_the_selected_sequence_row()
     {
         var vm = OpenEmpty();
@@ -164,6 +190,9 @@ public sealed class AuthoringInspectorNitsTests
         Assert.False(vm.HasRawStep);
         Assert.Equal(string.Empty, vm.RawXml);
     }
+
+    private static string SettingValue(AuthoringWorkspaceViewModel vm, string key)
+        => vm.MetricSettingRows.Single(row => string.Equals(row.Key, key, StringComparison.OrdinalIgnoreCase)).Value;
 
     private static AuthoringWorkspaceViewModel OpenEmpty()
     {

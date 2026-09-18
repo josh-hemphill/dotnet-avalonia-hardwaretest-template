@@ -307,6 +307,41 @@
                             AutomationProperties.Name="Metric instrument slot"
                             AutomationProperties.LabeledBy="{Binding #MetricSlotLabel}"
                             ToolTip.Tip="Measure steps bind this slot. Algorithms may leave it empty." />
+                  <StackPanel Spacing="6" IsVisible="{Binding HasStepSettings}">
+                    <TextBlock x:Name="FunctionIdLabel" Text="Function id" />
+                    <ComboBox ItemsSource="{Binding MetricFunctionIdOptions}"
+                              SelectedItem="{Binding MetricFunctionId}"
+                              AutomationProperties.Name="Function id"
+                              AutomationProperties.LabeledBy="{Binding #FunctionIdLabel}"
+                              ToolTip.Tip="OpenTAP FunctionId or AlgorithmId from the workspace catalog." />
+                    <TextBlock x:Name="MeasureSettingsLabel" Text="Measure settings" />
+                    <ItemsControl ItemsSource="{Binding MetricSettingRows}"
+                                  AutomationProperties.Name="Measure settings"
+                                  AutomationProperties.LabeledBy="{Binding #MeasureSettingsLabel}">
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:AuthoringSettingRow">
+                          <Grid ColumnDefinitions="120,*" Margin="0,0,0,4">
+                            <TextBlock Grid.Column="0" Text="{Binding Key}" VerticalAlignment="Center" />
+                            <TextBox Grid.Column="1"
+                                     Text="{Binding Value, Mode=OneWay}"
+                                     LostFocus="OnMetricSettingLostFocus"
+                                     AutomationProperties.Name="{Binding Key}" />
+                          </Grid>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <CheckBox Content="History"
+                              IsChecked="{Binding HistoryEnabled}"
+                              ToolTip.Tip="Presentation mixin history band on the operator board" />
+                    <TextBlock x:Name="HistoryWatchLabel" Text="History watch %" />
+                    <TextBox Text="{Binding HistoryWatchPercent}"
+                             AutomationProperties.Name="History watch percent"
+                             AutomationProperties.LabeledBy="{Binding #HistoryWatchLabel}" />
+                    <TextBlock x:Name="HistoryAlertLabel" Text="History alert %" />
+                    <TextBox Text="{Binding HistoryAlertPercent}"
+                             AutomationProperties.Name="History alert percent"
+                             AutomationProperties.LabeledBy="{Binding #HistoryAlertLabel}" />
+                  </StackPanel>
                 </StackPanel>
 
                 <StackPanel Spacing="6" IsVisible="{Binding HasFormula}">

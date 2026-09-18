@@ -47,6 +47,8 @@ public static class AuthoringFunctionCatalog
         new(AuthoringFunctionIds.IcSafeShutdown, "InstrumentComponents.OpenTap", "SafeShutdownStep", true, false),
     ];
 
+    public static IReadOnlyList<AuthoringFunctionSpec> All { get; } = Specs;
+
     public static bool TryGet(string id, out AuthoringFunctionSpec spec)
     {
         foreach (var candidate in Specs)
