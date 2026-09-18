@@ -147,10 +147,8 @@
                 </ComboBox>
                 <Button Content="Add recipe"
                         Click="OnAddRecipe"
-                        ToolTip.Tip="Append or wrap using the selected recipe. Identity/Prompt go to Setup; metrics to Measure; Repeat wraps the last measure; Safe Shutdown updates Cleanup."
+                        ToolTip.Tip="{Binding AddRecipeToolTip}"
                         AutomationProperties.Name="Add recipe" />
-                <TextBlock Opacity="0.8" TextWrapping="Wrap" Text="{Binding RecipeAddHint}" />
-                <TextBlock Opacity="0.8" TextWrapping="Wrap" Text="{Binding RecipeAdvancedHint}" />
                 <TextBlock Opacity="0.9"
                            TextWrapping="Wrap"
                            IsVisible="{Binding HasRawSteps}"

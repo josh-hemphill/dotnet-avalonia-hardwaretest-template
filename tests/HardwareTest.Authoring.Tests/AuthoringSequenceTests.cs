@@ -99,8 +99,11 @@ public sealed class AuthoringSequenceTests
         Assert.Contains("not the in-repo demos", AuthoringChrome.CatalogsPurpose, StringComparison.Ordinal);
         Assert.Contains("serial", AuthoringChrome.RequiredFieldsPurpose, StringComparison.Ordinal);
         Assert.Contains("Raw", AuthoringChrome.RecipeAddHint, StringComparison.Ordinal);
-        Assert.Contains("editor", AuthoringChrome.RecipeAdvancedHint, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("TapPlan", AuthoringChrome.RecipeAddHint, StringComparison.Ordinal);
+        Assert.Contains("Bit sweep", AuthoringChrome.RecipeAdvancedHint, StringComparison.Ordinal);
         Assert.DoesNotContain("TUI", AuthoringChrome.RecipeAdvancedHint, StringComparison.Ordinal);
+        Assert.Contains(AuthoringChrome.AddRecipeActionSummary, AuthoringChrome.AddRecipeToolTip, StringComparison.Ordinal);
+        Assert.Contains("Raw", AuthoringChrome.AddRecipeToolTip, StringComparison.Ordinal);
         Assert.Contains("bake-time", AuthoringChrome.ShipPurpose, StringComparison.Ordinal);
         Assert.Equal("Remove selected", AuthoringChrome.RemoveSelectedTitle);
         Assert.Contains("Repeat unwraps its children", AuthoringChrome.RemoveSelectedPurpose, StringComparison.Ordinal);

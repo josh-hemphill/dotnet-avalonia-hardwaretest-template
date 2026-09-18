@@ -26,8 +26,10 @@ public sealed class AuthoringChromeA11yTests
         Assert.Contains("Text=\"{Binding InputStringFieldId}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Text=\"{Binding InputNumberFieldId}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("ItemsSource=\"{Binding FormulaPrefixCompletions}\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("Text=\"{Binding RecipeAddHint}\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("Text=\"{Binding RecipeAdvancedHint}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("ToolTip.Tip=\"{Binding AddRecipeToolTip}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Click=\"OnAddRecipe\"", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("Text=\"{Binding RecipeAddHint}\"", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("Text=\"{Binding RecipeAdvancedHint}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Text=\"{Binding RawStepsBanner}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("IsVisible=\"{Binding HasRawStepEditor}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("IsReadOnly=\"True\"", xaml, StringComparison.Ordinal);

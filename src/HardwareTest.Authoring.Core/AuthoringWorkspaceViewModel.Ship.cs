@@ -8,8 +8,6 @@ public sealed partial class AuthoringWorkspaceViewModel
 
     public string ShipPurpose => AuthoringChrome.ShipPurpose;
 
-    public string RecipeAdvancedHint => AuthoringChrome.RecipeAdvancedHint;
-
     public bool HasRawSteps => RawStepCount > 0;
 
     public int RawStepCount
