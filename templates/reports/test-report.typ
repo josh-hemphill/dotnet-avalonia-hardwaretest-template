@@ -25,6 +25,17 @@
   #text(fill: red)[*FAIL*]
 ]
 
+#if sys.inputs.attestationDetail != "" [
+  == Certified by
+  The person who certifies this report may differ from the session operator.
+  - *Party:* #sys.inputs.attestationDetail
+  - *Presentation:* #sys.inputs.attestationKind
+  #if sys.inputs.attestationAt != "" [
+    - *At:* #sys.inputs.attestationAt
+  ]
+  Cryptographic proof, when used, is the detached attestation sidecar hashed to this PDF.
+]
+
 #if sys.inputs.includeHistory == "true" [
   == DUT history
   - *Severity:* #sys.inputs.historySeverity

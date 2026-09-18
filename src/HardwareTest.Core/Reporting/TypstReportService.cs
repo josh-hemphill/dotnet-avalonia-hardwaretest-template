@@ -18,7 +18,8 @@ public interface IReportService
         TestRunRecord run,
         IReadOnlyList<string> kinds,
         DutHistoryReport? history = null,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default,
+        ReportAttestation? compileIdentity = null);
     Task<string> GenerateSuitePdfAsync(SuiteRunRecord suiteRun, CancellationToken cancellationToken = default);
     Task<byte[]> CompileTemplateAsync(TestRunRecord run, CancellationToken cancellationToken = default);
 }
@@ -59,16 +60,19 @@ public sealed class TypstReportService : IReportService, IDisposable
         TestRunRecord run,
         IReadOnlyList<string> kinds,
         DutHistoryReport? history = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        ReportAttestation? compileIdentity = null)
     {
         var normalized = NormalizeKinds(kinds);
-        return await GenerateReportsCoreAsync(run, normalized, history, cancellationToken).ConfigureAwait(false);
+        return await GenerateReportsCoreAsync(run, normalized, history, compileIdentity, cancellationToken)
+            .ConfigureAwait(false);
     }
 
     private async Task<IReadOnlyList<RunReportArtifact>> GenerateReportsCoreAsync(
         TestRunRecord run,
         IReadOnlyList<string> kinds,
         DutHistoryReport? history,
+        ReportAttestation? compileIdentity,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -82,7 +86,7 @@ public sealed class TypstReportService : IReportService, IDisposable
             var fileName = $"{kind}.pdf";
             var title = KindTitle(kind);
             var pdfBytes = await Task.Run(
-                    () => CompileTemplateCore(run, templateName, kind, history, title, cancellationToken),
+                    () => CompileTemplateCore(run, templateName, kind, history, title, cancellationToken, compileIdentity),
                     cancellationToken)
                 .ConfigureAwait(false);
             var path = Path.Combine(dir, fileName);
@@ -97,11 +101,7 @@ public sealed class TypstReportService : IReportService, IDisposable
             _logger.Information("Wrote {Kind} PDF for run {RunId} to {Path}", kind, run.RunId, path);
         }
 
-        run.Reports = artifacts.ToList();
-        run.ReportPdfPath = artifacts.FirstOrDefault(a =>
-                                string.Equals(a.Kind, ReportKinds.Status, StringComparison.OrdinalIgnoreCase))
-                            ?.PdfPath
-                            ?? artifacts.FirstOrDefault()?.PdfPath;
+        MergeGeneratedArtifacts(run, artifacts);
         await _runStore.SaveAsync(run, cancellationToken).ConfigureAwait(false);
         return artifacts;
     }
@@ -141,6 +141,21 @@ public sealed class TypstReportService : IReportService, IDisposable
                 KindTitle(ReportKinds.Status),
                 cancellationToken),
             cancellationToken);
+
+    /// Replaces only the regenerated kinds so a certification restamp keeps status PDFs.
+    private static void MergeGeneratedArtifacts(TestRunRecord run, List<RunReportArtifact> artifacts)
+    {
+        var merged = run.Reports
+            .Where(existing => artifacts.TrueForAll(a =>
+                !string.Equals(a.Kind, existing.Kind, StringComparison.OrdinalIgnoreCase)))
+            .ToList();
+        merged.AddRange(artifacts);
+        run.Reports = merged;
+        run.ReportPdfPath = merged.FirstOrDefault(a =>
+                                string.Equals(a.Kind, ReportKinds.Status, StringComparison.OrdinalIgnoreCase))
+                            ?.PdfPath
+                            ?? merged.FirstOrDefault()?.PdfPath;
+    }
 
     private static IReadOnlyList<string> NormalizeKinds(IReadOnlyList<string> kinds)
     {
@@ -196,7 +211,8 @@ public sealed class TypstReportService : IReportService, IDisposable
         string kind,
         DutHistoryReport? history,
         string title,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        ReportAttestation? compileIdentity = null)
     {
         cancellationToken.ThrowIfCancellationRequested();
         string template;
@@ -223,7 +239,7 @@ public sealed class TypstReportService : IReportService, IDisposable
         var includeHistory = string.Equals(kind, ReportKinds.Status, StringComparison.OrdinalIgnoreCase)
                              && history is not null
                              && !string.IsNullOrWhiteSpace(history.OperatorSummary);
-        return CompileOnce(workDir, template, run, resultJson, chartLib, includePlots, includeHistory, history, title, kind);
+        return CompileOnce(workDir, template, run, resultJson, chartLib, includePlots, includeHistory, history, title, kind, compileIdentity);
     }
 
     private byte[] CompileOnce(
@@ -236,20 +252,21 @@ public sealed class TypstReportService : IReportService, IDisposable
         bool includeHistory,
         DutHistoryReport? history,
         string title,
-        string kind)
+        string kind,
+        ReportAttestation? compileIdentity = null)
     {
         var historySummary = includeHistory ? history!.OperatorSummary : string.Empty;
         var historySeverity = includeHistory ? history!.OverallSeverity.ToString() : string.Empty;
         var historyMetrics = includeHistory ? FormatHistoryMetrics(history!) : string.Empty;
         var operatorName = string.IsNullOrWhiteSpace(run.OperatorName) ? "n/a" : run.OperatorName;
-        // Attestation is a detached sidecar hashed to these PDF bytes. Do not compile a
-        // prior stamp into a newly generated file (reprint would otherwise name the old party).
-        var attestation = run.Attestations.LastOrDefault(a =>
-            string.Equals(a.ReportKind, kind, StringComparison.OrdinalIgnoreCase));
-        var attestationKind = attestation?.Kind ?? string.Empty;
-        var attestationDetail = attestation is null
-            ? string.Empty
-            : $"{attestation.DisplayName} ({attestation.Transport}, {attestation.Serial})";
+        // Prior stamps are invalidated before compile. Only a caller-supplied overlay
+        // (the badge about to sign these bytes) or a remaining attestation for this kind is shown.
+        var attestation = compileIdentity is not null
+            && string.Equals(compileIdentity.ReportKind, kind, StringComparison.OrdinalIgnoreCase)
+            ? compileIdentity
+            : run.Attestations.LastOrDefault(a =>
+                string.Equals(a.ReportKind, kind, StringComparison.OrdinalIgnoreCase));
+        ReportAttestationStamp.FormatInputs(attestation, out var attestationKind, out var attestationDetail, out var attestationAt);
 
         var result = _compiler.Value.Compile(c =>
         {
@@ -282,7 +299,8 @@ public sealed class TypstReportService : IReportService, IDisposable
                 .WithInput("historyMetrics", historyMetrics)
                 .WithInput("operatorName", operatorName)
                 .WithInput("attestationKind", attestationKind)
-                .WithInput("attestationDetail", attestationDetail);
+                .WithInput("attestationDetail", attestationDetail)
+                .WithInput("attestationAt", attestationAt);
 
             return builder;
         });

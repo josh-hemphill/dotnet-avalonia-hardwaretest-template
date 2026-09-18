@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using HardwareTest.Core.IO;
+using HardwareTest.Core.Reporting;
 using HardwareTest.Core.Runs;
 using HardwareTest.Core.Serialization;
 using HardwareTest.Core.Settings;
@@ -38,17 +39,20 @@ public sealed class ReportAttestationService : IReportAttestationService
     private readonly IRunStore _runStore;
     private readonly AppSettings _settings;
     private readonly IClock _clock;
+    private readonly Lazy<IReportService>? _reports;
 
     public ReportAttestationService(
         IOperatorCredentialBroker broker,
         IRunStore runStore,
         AppSettings settings,
-        IClock? clock = null)
+        IClock? clock = null,
+        Lazy<IReportService>? reports = null)
     {
         _broker = broker;
         _runStore = runStore;
         _settings = settings;
         _clock = clock ?? SystemClock.Instance;
+        _reports = reports;
         PresenceTimeout = DefaultPresenceTimeout;
     }
 
@@ -128,6 +132,26 @@ public sealed class ReportAttestationService : IReportAttestationService
             }
 
             captured = capture.Credential;
+        }
+
+        if (_reports is not null)
+        {
+            var overlay = new ReportAttestation
+            {
+                Kind = string.Empty,
+                ReportKind = targetKind,
+                DisplayName = captured.DisplayName,
+                Serial = captured.Serial,
+                Transport = captured.Transport,
+                CapturedAt = captured.CapturedAt == default ? _clock.UtcNow : captured.CapturedAt,
+            };
+            await _reports.Value
+                .GenerateReportsAsync(
+                    run,
+                    [targetKind],
+                    cancellationToken: cancellationToken,
+                    compileIdentity: overlay)
+                .ConfigureAwait(false);
         }
 
         var pdfPath = ResolvePdfPath(run, targetKind);

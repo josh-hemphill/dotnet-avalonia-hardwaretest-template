@@ -153,6 +153,77 @@ public sealed class TypstReportServiceTests
         Assert.DoesNotContain("Previous Certifier", json, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task GenerateReportsAsync_keeps_status_when_restamping_certification()
+    {
+        using var temp = new TempDataDirectory();
+        var runStore = new FileRunStore(temp.RunsDirectory);
+        var run = CreateRun();
+        await runStore.SaveAsync(run);
+
+        using var reports = new TypstReportService(runStore, new AppSettings { EmbedPlotsInReport = false });
+        await CompileOrSkipAsync(() => reports.GenerateReportsAsync(
+            run,
+            [ReportKinds.Status, ReportKinds.Certification]));
+        Assert.Equal(2, run.Reports.Count);
+        var statusPath = run.Reports.Single(r => r.Kind == ReportKinds.Status).PdfPath;
+
+        await CompileOrSkipAsync(() => reports.GenerateReportsAsync(run, [ReportKinds.Certification]));
+
+        Assert.Equal(2, run.Reports.Count);
+        Assert.Contains(run.Reports, r => r.Kind == ReportKinds.Status && r.PdfPath == statusPath);
+        Assert.Contains(run.Reports, r => r.Kind == ReportKinds.Certification);
+        Assert.Equal(statusPath, run.ReportPdfPath);
+    }
+
+    [Fact]
+    public async Task GenerateReportsAsync_compileIdentity_does_not_persist_attestation()
+    {
+        using var temp = new TempDataDirectory();
+        var reportsDir = Path.Combine(temp.Path, "reports");
+        Directory.CreateDirectory(reportsDir);
+        await File.WriteAllTextAsync(
+            Path.Combine(reportsDir, "certification-report.typ"),
+            """
+            #set page(width: 120mm, height: 60mm)
+            #if sys.inputs.attestationDetail == "" [
+              #panic("missing compile identity")
+            ]
+            = Certified by
+            #sys.inputs.attestationDetail
+            #sys.inputs.attestationKind
+            """);
+
+        var runStore = new FileRunStore(temp.RunsDirectory);
+        var run = CreateRun();
+        await runStore.SaveAsync(run);
+        var overlay = new ReportAttestation
+        {
+            Kind = string.Empty,
+            ReportKind = ReportKinds.Certification,
+            DisplayName = "Jane Certifier",
+            Serial = "CARD-1",
+            Transport = CredentialTransport.Contact,
+            CapturedAt = new DateTimeOffset(2026, 9, 18, 12, 0, 0, TimeSpan.Zero),
+        };
+
+        using var reports = new TypstReportService(
+            runStore,
+            new AppSettings
+            {
+                DataDirectory = temp.Path,
+                EmbedPlotsInReport = false,
+            });
+        var artifacts = await CompileOrSkipAsync(() => reports.GenerateReportsAsync(
+            run,
+            [ReportKinds.Certification],
+            compileIdentity: overlay));
+
+        Assert.Single(artifacts);
+        Assert.Empty(run.Attestations);
+        Assert.False(File.Exists(Path.Combine(runStore.GetRunDirectory(run.RunId), "certification.attestation.json")));
+    }
+
     private static TestRunRecord CreateRun(int sampleCount = 1)
     {
         var samples = Enumerable.Range(0, sampleCount)

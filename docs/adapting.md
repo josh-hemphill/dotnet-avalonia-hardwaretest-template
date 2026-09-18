@@ -245,7 +245,9 @@ Override without recompiling:
 2. Place files under `{DataDirectory}/reports/` (and `reports/lib/` for chart lib).
 3. Optionally set `AppSettings.ReportTemplateName` (default `test-report.typ`). A file with that name under `{DataDirectory}/reports/` wins over the embedded template.
 
-Compile inputs: `run.json` (camelCase `TestRunRecord`), Typst inputs (`title`, `runId`, `planName`, `dutSerial`, `operatorName`, `attestationKind`, `attestationDetail`, `result`, …), and optional sample-driven charts via `sample-chart.typ`. `EmbedPlotsInReport` toggles chart notes. Certification export can require a detached `{kind}.attestation.json` sidecar (PIV on-card signature, or presence as a site-policy fallback) when `RequireAttestationBeforeExport` is on.
+Compile inputs: `run.json` (camelCase `TestRunRecord`), Typst inputs (`title`, `runId`, `planName`, `dutSerial`, `operatorName`, `attestationKind`, `attestationDetail`, `attestationAt`, `result`, …), and optional sample-driven charts via `sample-chart.typ`. `EmbedPlotsInReport` toggles chart notes. Certification export can require a detached `{kind}.attestation.json` sidecar (PIV on-card signature, or presence as a site-policy fallback) when `RequireAttestationBeforeExport` is on.
+
+Chip/tap signing captures the badge, **recompiles** the certification PDF with that party's name/serial/transport (so example reports show who certified), then signs the hash of those PDF bytes plus `run.json`. Regenerating without a badge overlay clears attestation so a prior party is not reprinted. Results detail shows the same Certification summary from `run.Attestations`.
 
 Results **Regenerate reports** recompiles those Typst templates to PDFs from the persisted `run.json` (full PDF generation, not a lighter intermediate-only refresh). Captured samples/events in `run.json` are the durable record; regenerate invalidates certification attestation because the PDF bytes change. Storage pressure is handled by run retention / free-space gates, not by skipping PDF compile.
 

@@ -1,5 +1,7 @@
 using System.Runtime.InteropServices;
+using System.Text;
 using HardwareTest.Core.Credentials;
+using HardwareTest.Core.Reporting;
 using HardwareTest.Core.Runs;
 using HardwareTest.Core.Settings;
 using HardwareTest.Core.Time;
@@ -390,7 +392,36 @@ public sealed class ReportAttestationServiceTests
         Assert.Equal(MockOperatorCredentialBroker.MockDisplayName, result.Attestation!.DisplayName);
     }
 
-    private static async Task<TestRunRecord> SeedCertificationRunAsync(FileRunStore store)
+    [Fact]
+    public async Task Attest_restamps_pdf_with_badge_before_hashing()
+    {
+        using var temp = new TempDataDirectory();
+        var store = new FileRunStore(temp.RunsDirectory);
+        var run = await SeedCertificationRunAsync(store, includeStatus: true);
+        var originalCertBytes = await File.ReadAllBytesAsync(run.Reports.Single(r => r.Kind == ReportKinds.Certification).PdfPath);
+        var reports = new RecordingReportService();
+        var service = new ReportAttestationService(
+            new MockOperatorCredentialBroker(canSign: true),
+            store,
+            new AppSettings { RequireAttestationBeforeExport = true },
+            reports: new Lazy<IReportService>(() => reports));
+
+        var result = await service.AttestAsync(run, ReportKinds.Certification);
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(1, reports.GenerateCount);
+        Assert.Equal(MockOperatorCredentialBroker.MockDisplayName, reports.LastIdentity?.DisplayName);
+        Assert.Equal(ReportKinds.Certification, reports.LastIdentity?.ReportKind);
+        Assert.Contains(run.Reports, r => r.Kind == ReportKinds.Status);
+        Assert.True(service.HasValidAttestation(run, ReportKinds.Certification));
+        var stamped = await File.ReadAllBytesAsync(run.Reports.Single(r => r.Kind == ReportKinds.Certification).PdfPath);
+        Assert.NotEqual(originalCertBytes, stamped);
+        Assert.Contains(MockOperatorCredentialBroker.MockDisplayName, Encoding.UTF8.GetString(stamped), StringComparison.Ordinal);
+    }
+
+    private static async Task<TestRunRecord> SeedCertificationRunAsync(
+        FileRunStore store,
+        bool includeStatus = false)
     {
         var run = new TestRunRecord
         {
@@ -400,7 +431,22 @@ public sealed class ReportAttestationServiceTests
             Result = RunResult.Passed,
         };
         await store.SaveAsync(run);
-        var pdf = Path.Combine(store.GetRunDirectory(run.RunId), "certification.pdf");
+        var dir = store.GetRunDirectory(run.RunId);
+        if (includeStatus)
+        {
+            var statusPdf = Path.Combine(dir, "status.pdf");
+            await File.WriteAllBytesAsync(statusPdf, "%PDF-1.4 status"u8.ToArray());
+            run.Reports.Add(new RunReportArtifact
+            {
+                Kind = ReportKinds.Status,
+                Title = "Status Report",
+                PdfPath = statusPdf,
+                GeneratedAt = DateTimeOffset.UtcNow,
+            });
+            run.ReportPdfPath = statusPdf;
+        }
+
+        var pdf = Path.Combine(dir, "certification.pdf");
         await File.WriteAllBytesAsync(pdf, "%PDF-1.4 test"u8.ToArray());
         run.Reports.Add(new RunReportArtifact
         {
@@ -412,6 +458,49 @@ public sealed class ReportAttestationServiceTests
         await store.SaveAsync(run);
         return run;
     }
+}
+
+/// Rewrites the certification PDF with the overlay identity so Attest can hash stamped bytes.
+internal sealed class RecordingReportService : IReportService
+{
+    public int GenerateCount { get; private set; }
+    public ReportAttestation? LastIdentity { get; private set; }
+
+    public Task<string> GeneratePdfAsync(TestRunRecord run, CancellationToken cancellationToken = default)
+        => throw new NotSupportedException();
+
+    public Task<IReadOnlyList<RunReportArtifact>> GenerateReportsAsync(
+        TestRunRecord run,
+        IReadOnlyList<string> kinds,
+        DutHistoryReport? history = null,
+        CancellationToken cancellationToken = default,
+        ReportAttestation? compileIdentity = null)
+    {
+        GenerateCount++;
+        LastIdentity = compileIdentity;
+        var artifacts = new List<RunReportArtifact>();
+        foreach (var kind in kinds)
+        {
+            var existing = run.Reports.FirstOrDefault(r =>
+                string.Equals(r.Kind, kind, StringComparison.OrdinalIgnoreCase));
+            if (existing is null || string.IsNullOrWhiteSpace(existing.PdfPath))
+            {
+                throw new InvalidOperationException($"Missing PDF for {kind}.");
+            }
+
+            var stamp = compileIdentity?.DisplayName ?? "unsigned";
+            File.WriteAllBytes(existing.PdfPath, Encoding.UTF8.GetBytes("%PDF-1.4 " + stamp));
+            artifacts.Add(existing);
+        }
+
+        return Task.FromResult((IReadOnlyList<RunReportArtifact>)artifacts);
+    }
+
+    public Task<string> GenerateSuitePdfAsync(SuiteRunRecord suiteRun, CancellationToken cancellationToken = default)
+        => throw new NotSupportedException();
+
+    public Task<byte[]> CompileTemplateAsync(TestRunRecord run, CancellationToken cancellationToken = default)
+        => throw new NotSupportedException();
 }
 
 internal sealed class ScriptedPivBroker : IOperatorCredentialBroker

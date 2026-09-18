@@ -116,6 +116,8 @@ public partial class ResultsViewModel : ReactiveObject
             ClearTimingPresentation();
             ReportItems.Clear();
             HasReports = false;
+            HasAttestation = false;
+            AttestationSummary = string.Empty;
             SchemaBadge = string.Empty;
             HasSchemaBadge = false;
             SchemaWarning = string.Empty;

@@ -185,6 +185,10 @@
           <TextBlock Text="{Binding OpenedRun.DutSerial, StringFormat=DUT: {0}}" Opacity="0.85" />
           <TextBlock Text="{Binding OpenedRun.DutPartNumber, StringFormat=Part: {0}}" Opacity="0.75" />
           <TextBlock Text="{Binding OpenedRun.OperatorName, StringFormat=Operator: {0}}" Opacity="0.75" />
+          <StackPanel Spacing="2" IsVisible="{Binding HasAttestation}">
+            <TextBlock Text="Certification" FontWeight="SemiBold" />
+            <TextBlock Text="{Binding AttestationSummary}" TextWrapping="Wrap" Opacity="0.9" />
+          </StackPanel>
         </StackPanel>
 
         <ScrollViewer Padding="0,0,4,0">

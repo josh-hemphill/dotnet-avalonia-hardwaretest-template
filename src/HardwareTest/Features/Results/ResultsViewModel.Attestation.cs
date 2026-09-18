@@ -122,6 +122,7 @@ public partial class ResultsViewModel
             }
 
             Status = result.Message;
+            LoadAttestation(OpenedRun);
             DismissAttestationPrompt();
             await ContinuePendingActionAsync(pending, item).ConfigureAwait(true);
         }

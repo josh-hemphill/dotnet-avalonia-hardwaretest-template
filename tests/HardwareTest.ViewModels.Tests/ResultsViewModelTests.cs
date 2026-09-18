@@ -1,5 +1,6 @@
 using System.Reactive;
 using HardwareTest.Core.Credentials;
+using HardwareTest.Core.Reporting;
 using HardwareTest.Core.Runs;
 using HardwareTest.Core.Settings;
 using HardwareTest.Features.Results;
@@ -309,6 +310,103 @@ public sealed class ResultsViewModelTests
     }
 
     [Fact]
+    public async Task Open_run_with_attestation_shows_certifier_summary()
+    {
+        var store = new FakeRunStore();
+        var pdf = Path.Combine(store.GetRunDirectory("cert-shown"), "certification.pdf");
+        Directory.CreateDirectory(Path.GetDirectoryName(pdf)!);
+        await File.WriteAllBytesAsync(pdf, "%PDF-1.4"u8.ToArray());
+        store.Seed(new TestRunRecord
+        {
+            RunId = "cert-shown",
+            PlanName = "Sample",
+            OperatorName = "Session Technician",
+            StartedAt = DateTimeOffset.UtcNow,
+            Result = RunResult.Passed,
+            Reports =
+            [
+                new RunReportArtifact
+                {
+                    Kind = ReportKinds.Certification,
+                    Title = "Certification Report",
+                    PdfPath = pdf,
+                    GeneratedAt = DateTimeOffset.UtcNow,
+                },
+            ],
+            Attestations =
+            [
+                new ReportAttestation
+                {
+                    Kind = AttestationKind.Signed,
+                    ReportKind = ReportKinds.Certification,
+                    DisplayName = "Jane Certifier",
+                    Serial = "CARD-1",
+                    Transport = CredentialTransport.Contact,
+                    CapturedAt = new DateTimeOffset(2026, 9, 18, 12, 0, 0, TimeSpan.Zero),
+                },
+            ],
+        });
+        var vm = new ResultsViewModel(store, new FakeReportService());
+        await vm.RefreshCommand.ExecuteAsync();
+        vm.SelectedRun = vm.Runs[0];
+        await vm.OpenCommand.ExecuteAsync();
+        Assert.True(vm.HasAttestation);
+        Assert.Equal("signed: Jane Certifier (contact, CARD-1) at 2026-09-18 12:00:00Z", vm.AttestationSummary);
+    }
+
+    [Fact]
+    public async Task Capture_attestation_restamps_via_report_service()
+    {
+        var store = new FakeRunStore();
+        var pdf = Path.Combine(store.GetRunDirectory("cert-stamp"), "certification.pdf");
+        Directory.CreateDirectory(Path.GetDirectoryName(pdf)!);
+        await File.WriteAllBytesAsync(pdf, "%PDF-1.4"u8.ToArray());
+        var run = new TestRunRecord
+        {
+            RunId = "cert-stamp",
+            PlanName = "Sample",
+            StartedAt = DateTimeOffset.UtcNow,
+            Result = RunResult.Passed,
+            Reports =
+            [
+                new RunReportArtifact
+                {
+                    Kind = ReportKinds.Certification,
+                    Title = "Certification Report",
+                    PdfPath = pdf,
+                    GeneratedAt = DateTimeOffset.UtcNow,
+                },
+            ],
+        };
+        store.Seed(run);
+        var settings = new AppSettings
+        {
+            RequireAttestationBeforeExport = true,
+            AllowPresenceInLieuOfSigning = true,
+        };
+        var reports = new FakeReportService { PdfPath = pdf };
+        var vm = new ResultsViewModel(
+            store,
+            reports,
+            attestation: new ReportAttestationService(
+                new MockOperatorCredentialBroker(canSign: false),
+                store,
+                settings,
+                reports: new Lazy<IReportService>(() => reports)),
+            settings: settings);
+        await vm.RefreshCommand.ExecuteAsync();
+        vm.SelectedRun = vm.Runs[0];
+        await vm.OpenCommand.ExecuteAsync();
+        vm.OpenReportCommand.Execute(vm.ReportItems[0]).Subscribe();
+        await vm.CaptureAttestationCommand.ExecuteAsync();
+        Assert.False(vm.ShowAttestationPrompt);
+        Assert.Equal(1, reports.GenerateCount);
+        Assert.Equal(MockOperatorCredentialBroker.MockDisplayName, reports.LastCompileIdentity?.DisplayName);
+        Assert.True(vm.HasAttestation);
+        Assert.Contains(MockOperatorCredentialBroker.MockDisplayName, vm.AttestationSummary, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Export_and_open_certification_show_attestation_overlay_until_badge()
     {
         var store = new FakeRunStore();
@@ -364,6 +462,8 @@ public sealed class ResultsViewModelTests
         Assert.False(vm.ShowAttestationPrompt);
         Assert.Equal(pdf, opened);
         Assert.Equal(AttestationKind.Presence, run.Attestations[0].Kind);
+        Assert.True(vm.HasAttestation);
+        Assert.Contains(MockOperatorCredentialBroker.MockDisplayName, vm.AttestationSummary, StringComparison.Ordinal);
 
         await vm.ExportPackageCommand.ExecuteAsync();
         Assert.Contains("Exported package", vm.Status, StringComparison.OrdinalIgnoreCase);
