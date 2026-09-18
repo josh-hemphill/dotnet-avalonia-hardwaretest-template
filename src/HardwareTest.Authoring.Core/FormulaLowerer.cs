@@ -66,6 +66,27 @@ public static class FormulaLowerer
             $"{AuthoringCompileCodes.FormulaNoLower}: '{expr.Source}' does not match a closed analyze recipe.");
     }
 
+    /// One-line pack preview: Mean GTE, Apply Transfer Function, or the fail-closed code.
+    public static string DescribeSave(string source, LimitSpec? limits)
+    {
+        try
+        {
+            var lowered = Lower(new ExpressionAlgorithm([], source), limits);
+            return lowered switch
+            {
+                AlgorithmSource { AlgorithmId: AuthoringFunctionIds.BasicMeanGte }
+                    => "Will save as Mean GTE.",
+                TransferFunctionAlgorithm
+                    => "Will save as Apply Transfer Function.",
+                _ => $"{AuthoringCompileCodes.FormulaNoLower}: no closed analyze recipe.",
+            };
+        }
+        catch (AuthoringWorkspaceException ex)
+        {
+            return ex.Message;
+        }
+    }
+
     private static double ResolveTsSeconds(
         string channel,
         IReadOnlyDictionary<string, IReadOnlyList<StoredSample>>? series)

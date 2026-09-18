@@ -454,6 +454,20 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(DisplayName));
         OnPropertyChanged(nameof(DutFamily));
         OnPropertyChanged(nameof(RequireSerial));
+        OnPropertyChanged(nameof(RequirePartNumber));
+        OnPropertyChanged(nameof(RequireRevision));
+        OnPropertyChanged(nameof(RequireOperator));
+        OnPropertyChanged(nameof(SelectionIncludesCleanup));
+        OnPropertyChanged(nameof(ReportStatus));
+        OnPropertyChanged(nameof(ReportCertification));
+        OnPropertyChanged(nameof(DefaultReportKind));
+        OnPropertyChanged(nameof(ProgramKind));
+        OnPropertyChanged(nameof(RequireStationHealth));
+        OnPropertyChanged(nameof(StationHealthGate));
+        OnPropertyChanged(nameof(StationHealthMaxAgeHours));
+        OnPropertyChanged(nameof(StationHealthProfileId));
+        OnPropertyChanged(nameof(Instruments));
+        OnPropertyChanged(nameof(InstrumentSlots));
         RaiseEditorProperties();
     }
 

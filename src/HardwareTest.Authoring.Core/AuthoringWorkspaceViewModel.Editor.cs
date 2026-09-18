@@ -399,6 +399,27 @@ public sealed partial class AuthoringWorkspaceViewModel
         OnPropertyChanged(nameof(SelectedRepeat));
         OnPropertyChanged(nameof(SelectedSetup));
         OnPropertyChanged(nameof(RepeatCount));
+        OnPropertyChanged(nameof(HasFormula));
+        OnPropertyChanged(nameof(HasTransferFunction));
+        OnPropertyChanged(nameof(HasRawStep));
+        OnPropertyChanged(nameof(HasMetricPresentation));
+        OnPropertyChanged(nameof(HasRepeatEditor));
+        OnPropertyChanged(nameof(HasSetupEditor));
+        OnPropertyChanged(nameof(HasCleanupEditor));
+        OnPropertyChanged(nameof(ShowThreshold));
+        OnPropertyChanged(nameof(ShowBandLimits));
+        OnPropertyChanged(nameof(FormulaSaveNote));
+        OnPropertyChanged(nameof(ChannelKeys));
+        OnPropertyChanged(nameof(FormulaCompletions));
+        OnPropertyChanged(nameof(InstrumentSlots));
+        OnPropertyChanged(nameof(Instruments));
+        OnPropertyChanged(nameof(PromptMessage));
+        OnPropertyChanged(nameof(InputTitle));
+        OnPropertyChanged(nameof(InputMessage));
+        OnPropertyChanged(nameof(SetupInstrumentSlot));
+        OnPropertyChanged(nameof(CleanupInstrumentSlot));
+        OnPropertyChanged(nameof(IncludeSafeShutdown));
+        OnPropertyChanged(nameof(MetricInstrumentSlot));
     }
 
     private void UpdateSelectedTf(Func<TransferFunctionAlgorithm, TransferFunctionAlgorithm> mutate)
