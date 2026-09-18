@@ -42,7 +42,7 @@ public sealed class MetricEditorTests
         var vm = new AuthoringWorkspaceViewModel();
         vm.Open(root);
         vm.CreateProgram("metric-ui");
-        Assert.Equal("What do you want to measure? Pick a recipe.", vm.MeasureHint);
+        Assert.Equal(AuthoringChrome.EmptyMeasureHint, vm.MeasureHint);
 
         vm.ApplyRecipe(AuthoringRecipeIds.MeanGte);
         Assert.Equal("VDC.mean", vm.ChannelKey);
