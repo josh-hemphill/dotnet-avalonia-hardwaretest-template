@@ -551,6 +551,7 @@ public sealed class SettingsStore : ISettingsStore
         target.RequireCredentialForOperator = source.RequireCredentialForOperator;
         target.RequireAttestationBeforeExport = source.RequireAttestationBeforeExport;
         target.AllowPresenceInLieuOfSigning = source.AllowPresenceInLieuOfSigning;
+        target.ProbeBadgeWhenTechnicianFocused = source.ProbeBadgeWhenTechnicianFocused;
     }
 
     /// Copies UI state fields onto <paramref name="target"/> without replacing its identity.

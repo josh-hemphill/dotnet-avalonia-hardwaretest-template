@@ -115,7 +115,8 @@ public sealed class ConfigurationArgs
             or "IsEngineerDebugMode" or "CrashEnabled" or "RedactIdentifiersInDiagnostics"
             or "RequireDutConfirmEveryRun" or "PreferRemovableExport" or "AllowOsFolderBrowse"
             or "UseMockOperatorCredential" or "RequireCredentialForOperator"
-            or "RequireAttestationBeforeExport" or "AllowPresenceInLieuOfSigning";
+            or "RequireAttestationBeforeExport" or "AllowPresenceInLieuOfSigning"
+            or "ProbeBadgeWhenTechnicianFocused";
 
     private static bool TrySplit(string arg, out string flag, out string? inlineValue)
     {

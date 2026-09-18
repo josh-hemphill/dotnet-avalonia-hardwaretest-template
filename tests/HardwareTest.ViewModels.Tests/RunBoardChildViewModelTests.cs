@@ -216,6 +216,94 @@ public sealed class RunBoardChildViewModelTests
     }
 
     [Fact]
+    public async Task SessionPanel_technician_focus_probes_when_setting_on_and_empty()
+    {
+        var session = new OperatorSession();
+        var panel = new OperatorSessionPanelViewModel(
+            session,
+            new AppSettings { ProbeBadgeWhenTechnicianFocused = true },
+            _ => { },
+            credentialBroker: new MockOperatorCredentialBroker());
+
+        panel.OnTechnicianFocused();
+        await WaitUntilAsync(() => !panel.IsCapturingCredential && panel.OperatorInput.Length > 0);
+
+        Assert.Equal(MockOperatorCredentialBroker.MockDisplayName, panel.OperatorInput);
+        Assert.Equal(MockOperatorCredentialBroker.MockSerial, session.OperatorCredentialSerial);
+    }
+
+    [Fact]
+    public void SessionPanel_technician_focus_does_not_probe_when_setting_off()
+    {
+        var panel = new OperatorSessionPanelViewModel(
+            new OperatorSession(),
+            new AppSettings(),
+            _ => { },
+            credentialBroker: new MockOperatorCredentialBroker());
+
+        panel.OnTechnicianFocused();
+
+        Assert.Equal(string.Empty, panel.OperatorInput);
+        Assert.False(panel.IsCapturingCredential);
+    }
+
+    [Fact]
+    public void SessionPanel_technician_focus_does_not_probe_when_technician_is_filled()
+    {
+        var panel = new OperatorSessionPanelViewModel(
+            new OperatorSession(),
+            new AppSettings { ProbeBadgeWhenTechnicianFocused = true },
+            _ => { },
+            credentialBroker: new MockOperatorCredentialBroker())
+        {
+            OperatorInput = "Existing Tech",
+        };
+
+        panel.OnTechnicianFocused();
+
+        Assert.Equal("Existing Tech", panel.OperatorInput);
+        Assert.False(panel.IsCapturingCredential);
+    }
+
+    [Fact]
+    public void SessionPanel_technician_focus_does_not_probe_without_broker()
+    {
+        var panel = new OperatorSessionPanelViewModel(
+            new OperatorSession(),
+            new AppSettings { ProbeBadgeWhenTechnicianFocused = true },
+            _ => { });
+
+        panel.OnTechnicianFocused();
+
+        Assert.Equal(string.Empty, panel.OperatorInput);
+        Assert.False(panel.ShowCredentialCapture);
+    }
+
+    [Fact]
+    public async Task SessionPanel_technician_focus_does_not_start_second_probe_while_capturing()
+    {
+        var broker = new GateableCredentialBroker();
+        var panel = new OperatorSessionPanelViewModel(
+            new OperatorSession(),
+            new AppSettings { ProbeBadgeWhenTechnicianFocused = true },
+            _ => { },
+            credentialBroker: broker);
+
+        panel.OnTechnicianFocused();
+        await WaitUntilAsync(() => panel.IsCapturingCredential);
+        Assert.Equal(1, broker.WaitCount);
+
+        panel.OnTechnicianFocused();
+        Assert.Equal(1, broker.WaitCount);
+
+        broker.CompletePresence();
+        await WaitUntilAsync(() => !panel.IsCapturingCredential);
+
+        Assert.Equal(MockOperatorCredentialBroker.MockDisplayName, panel.OperatorInput);
+        Assert.Equal(1, broker.WaitCount);
+    }
+
+    [Fact]
     public void SessionPanel_same_dut_without_require_operator_allows_empty_tech()
     {
         var session = new OperatorSession();
@@ -929,6 +1017,66 @@ public sealed class RunBoardChildViewModelTests
 
         public void RefreshHero()
         {
+        }
+    }
+
+    private static async Task WaitUntilAsync(Func<bool> condition)
+    {
+        var deadline = DateTime.UtcNow.AddSeconds(2);
+        while (!condition() && DateTime.UtcNow < deadline)
+        {
+            await Task.Delay(10);
+        }
+
+        Assert.True(condition());
+    }
+
+    private sealed class GateableCredentialBroker : IOperatorCredentialBroker
+    {
+        private readonly TaskCompletionSource<CredentialCaptureResult> _presence =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public int WaitCount { get; private set; }
+        public bool IsMock => true;
+        public bool CanSign => false;
+        public string? SigningAlgorithm => null;
+        public string StatusText => "gated";
+
+        public Task<CredentialCaptureResult> WaitForPresenceAsync(
+            TimeSpan timeout,
+            CancellationToken cancellationToken = default)
+        {
+            WaitCount++;
+            _ = timeout;
+            return _presence.Task.WaitAsync(cancellationToken);
+        }
+
+        public Task<CredentialSignResult> TrySignPayloadAsync(
+            byte[] payload,
+            OperatorCredential credential,
+            string? pin = null,
+            CancellationToken cancellationToken = default)
+        {
+            _ = payload;
+            _ = credential;
+            _ = pin;
+            cancellationToken.ThrowIfCancellationRequested();
+            return Task.FromResult(CredentialSignResult.Failed("unused"));
+        }
+
+        public void CompletePresence()
+        {
+            _presence.TrySetResult(new CredentialCaptureResult
+            {
+                Credential = new OperatorCredential
+                {
+                    DisplayName = MockOperatorCredentialBroker.MockDisplayName,
+                    Serial = MockOperatorCredentialBroker.MockSerial,
+                    Transport = CredentialTransport.Contactless,
+                    ReaderName = "GATE",
+                    CapturedAt = DateTimeOffset.UtcNow,
+                },
+            });
         }
     }
 }

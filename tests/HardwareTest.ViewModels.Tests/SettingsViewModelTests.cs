@@ -42,6 +42,7 @@ public sealed class SettingsViewModelTests
             RequireCredentialForOperator = true,
             RequireAttestationBeforeExport = true,
             AllowPresenceInLieuOfSigning = false,
+            ProbeBadgeWhenTechnicianFocused = true,
         };
 
         await vm.SaveCommand.ExecuteAsync();
@@ -50,6 +51,7 @@ public sealed class SettingsViewModelTests
         Assert.True(store.AppSettings.RequireCredentialForOperator);
         Assert.True(store.AppSettings.RequireAttestationBeforeExport);
         Assert.False(store.AppSettings.AllowPresenceInLieuOfSigning);
+        Assert.True(store.AppSettings.ProbeBadgeWhenTechnicianFocused);
     }
 
     [Fact]

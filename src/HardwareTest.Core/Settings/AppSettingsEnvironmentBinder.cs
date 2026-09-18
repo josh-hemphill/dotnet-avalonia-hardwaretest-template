@@ -579,6 +579,12 @@ public static class AppSettingsEnvironmentBinder
                 env: ["HARDWARETEST_ALLOW_PRESENCE_IN_LIEU_OF_SIGNING"],
                 cli: ["--allow-presence-in-lieu-of-signing"]),
             SettingBinding.Bool(
+                "ProbeBadgeWhenTechnicianFocused",
+                s => s.ProbeBadgeWhenTechnicianFocused,
+                (s, v) => s.ProbeBadgeWhenTechnicianFocused = v,
+                env: ["HARDWARETEST_PROBE_BADGE_WHEN_TECHNICIAN_FOCUSED"],
+                cli: ["--probe-badge-when-technician-focused"]),
+            SettingBinding.Bool(
                 "IsEngineerDebugMode",
                 s => s.IsEngineerDebugMode,
                 (s, v) => s.IsEngineerDebugMode = v,

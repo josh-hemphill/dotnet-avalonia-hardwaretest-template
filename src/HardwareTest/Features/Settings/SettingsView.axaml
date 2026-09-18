@@ -170,6 +170,10 @@
                   IsChecked="{Binding AllowPresenceInLieuOfSigning}"
                   IsEnabled="{Binding !AllowPresenceInLieuOfSigningReadOnly}"
                   ToolTip.Tip="Site-policy fallback when the organization cannot use on-card signatures. The app still signs when the card can." />
+        <CheckBox Content="Start probing when technician is focused"
+                  IsChecked="{Binding ProbeBadgeWhenTechnicianFocused}"
+                  IsEnabled="{Binding !ProbeBadgeWhenTechnicianFocusedReadOnly}"
+                  ToolTip.Tip="When on, focusing an empty technician field waits for a chip insert or tap. The Tap or insert button still works." />
 
         <Separator Margin="0,8" />
 

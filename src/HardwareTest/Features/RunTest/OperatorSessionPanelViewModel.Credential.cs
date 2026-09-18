@@ -6,10 +6,25 @@ namespace HardwareTest.Features.RunTest;
 
 public partial class OperatorSessionPanelViewModel
 {
+    /// Starts badge presence wait when Settings auto-probe is on and the technician field is empty.
+    public void OnTechnicianFocused()
+    {
+        if (!_settings.ProbeBadgeWhenTechnicianFocused
+            || !ShowCredentialCapture
+            || IsCapturingCredential
+            || _credentialBroker is null
+            || !string.IsNullOrWhiteSpace(OperatorInput))
+        {
+            return;
+        }
+
+        _ = CaptureCredentialAsync();
+    }
+
     /// Waits for a chip insert or contactless tap and fills technician identity.
     private async Task CaptureCredentialAsync()
     {
-        if (_credentialBroker is null)
+        if (_credentialBroker is null || IsCapturingCredential)
         {
             return;
         }

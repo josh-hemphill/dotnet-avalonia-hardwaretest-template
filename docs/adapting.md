@@ -336,6 +336,7 @@ Env alone is enough for a sealed install. Missing or read-only `settings.json` i
 | `RequireCredentialForOperator` | `HARDWARETEST_REQUIRE_CREDENTIAL_FOR_OPERATOR` | `--require-credential-for-operator` |
 | `RequireAttestationBeforeExport` | `HARDWARETEST_REQUIRE_ATTESTATION_BEFORE_EXPORT` | `--require-attestation-before-export` |
 | `AllowPresenceInLieuOfSigning` | `HARDWARETEST_ALLOW_PRESENCE_IN_LIEU_OF_SIGNING` | `--allow-presence-in-lieu-of-signing` |
+| `ProbeBadgeWhenTechnicianFocused` | `HARDWARETEST_PROBE_BADGE_WHEN_TECHNICIAN_FOCUSED` | `--probe-badge-when-technician-focused` |
 
 Also: `--settings <path>`, `--print-config` (dump effective config + provenance and exit 0), `--validate-plan <path>` (validate and exit; `1` on errors, `0` if only warnings; bare path exits `2` with usage and does not start the UI), `--version` / `-v`. Avalonia-free equivalent: `HardwareTest.PlanValidate <path> [...] [--strict] [--format text|json|sarif] [--opentap-plugin-dirs <dir>]` (explicit plugin dirs are trusted for that process; `--strict` fails a missing sidecar). Debug builds: `--simulate-crash {fatal|recoverable|command}`. Nested lists use `HARDWARETEST_<LIST>__{n}__<PROP>` (e.g. `HARDWARETEST_INSTRUMENTS__0__RESOURCE`).
 

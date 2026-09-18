@@ -1,6 +1,7 @@
 using System.Windows.Input;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Threading;
 
 namespace HardwareTest.Features.RunTest;
@@ -71,4 +72,7 @@ public partial class RunPreparationView : UserControl
         ((ICommand)_subscribed.SessionPanel.ConfirmSameDutCommand).Execute(null);
         e.Handled = true;
     }
+
+    private void OnTechnicianGotFocus(object? sender, RoutedEventArgs e)
+        => _subscribed?.SessionPanel.OnTechnicianFocused();
 }
