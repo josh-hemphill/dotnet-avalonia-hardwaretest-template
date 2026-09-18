@@ -21,8 +21,8 @@ internal static class PivSigner
             return CredentialSignResult.Failed("Nothing to sign.");
         }
 
-        var select = channel.Transmit(PivApdu.SelectPiv);
-        if (!PivApdu.IsSuccess(select))
+        var select = PivApdu.TrySelect(channel);
+        if (!select)
         {
             return CredentialSignResult.Failed("PIV applet not found on this card.");
         }

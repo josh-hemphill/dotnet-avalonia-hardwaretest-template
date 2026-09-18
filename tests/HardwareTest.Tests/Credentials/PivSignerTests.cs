@@ -174,7 +174,7 @@ public sealed class PivSignerTests
     [Fact]
     public void ApplyLe_appends_on_case3_and_replaces_on_case2()
     {
-        var case3 = PivApdu.GetData(PivApdu.ObjectSignature);
+        var case3 = PivApdu.Command(0x00, 0xCB, 0x3F, 0xFF, [0x5C, 0x03, .. PivApdu.ObjectSignature]);
         var withLe = PcscNative.ApplyLe(case3, 0x40);
         Assert.Equal(case3.Length + 1, withLe.Length);
         Assert.Equal(0x40, withLe[^1]);
@@ -183,5 +183,17 @@ public sealed class PivSignerTests
         var replaced = PcscNative.ApplyLe(case2, 0x20);
         Assert.Equal(5, replaced.Length);
         Assert.Equal(0x20, replaced[4]);
+    }
+
+    [Fact]
+    public void GetData_is_case4_with_le()
+    {
+        var apdu = PivApdu.GetData(PivApdu.ObjectSignature);
+        Assert.Equal(0xCB, apdu[1]);
+        Assert.Equal(0x05, apdu[4]);
+        Assert.Equal(0x5C, apdu[5]);
+        Assert.Equal(0x03, apdu[6]);
+        Assert.Equal(0x00, apdu[^1]);
+        Assert.Equal(11, apdu.Length);
     }
 }

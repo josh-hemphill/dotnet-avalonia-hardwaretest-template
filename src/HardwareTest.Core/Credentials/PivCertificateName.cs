@@ -4,9 +4,28 @@ using System.Security.Cryptography.X509Certificates;
 
 namespace HardwareTest.Core.Credentials;
 
+internal enum PivIdentityQuality
+{
+    None = 0,
+    WeakIdentifier = 1,
+    DirectoryEmail = 2,
+    PersonName = 3,
+}
+
+internal readonly record struct PivIdentityCandidate(string? Value, PivIdentityQuality Quality)
+{
+    public static PivIdentityCandidate None { get; } = new(null, PivIdentityQuality.None);
+
+    public bool HasValue
+        => Quality != PivIdentityQuality.None && !string.IsNullOrWhiteSpace(Value);
+}
+
 /// Display names from PIV X.509 subject / SAN (NIST SP 800-73, FIPS 201).
 internal static class PivCertificateName
 {
+    private const string OidSurname = "2.5.4.4";
+    private const string OidGivenName = "2.5.4.42";
+
     private static readonly string[] GenericSlotLabels =
     [
         "Card Authentication",
@@ -18,35 +37,55 @@ internal static class PivCertificateName
 
     /// Prefers a useful subject CN, then rfc822 SAN / subject email, then UPN-as-email.
     public static string? TryDisplayName(byte[] certificateDer)
+        => TryCandidate(certificateDer).Value;
+
+    /// Best identity on one certificate; PersonName beats email, email beats digit UPN/hex.
+    public static PivIdentityCandidate TryCandidate(byte[] certificateDer)
     {
         try
         {
             using var cert = X509CertificateLoader.LoadCertificate(certificateDer);
-            var subject = Normalize(cert.GetNameInfo(X509NameType.SimpleName, forIssuer: false));
-            if (IsUsefulPersonName(subject))
-            {
-                return subject;
-            }
-
-            var email = Normalize(cert.GetNameInfo(X509NameType.EmailName, forIssuer: false));
-            if (IsEmail(email))
-            {
-                return email;
-            }
-
-            var upn = Normalize(cert.GetNameInfo(X509NameType.UpnName, forIssuer: false));
-            if (IsEmail(upn))
-            {
-                return upn;
-            }
-
-            return null;
+            var best = PivIdentityCandidate.None;
+            best = Prefer(best, Classify(TryGivenNameSurname(cert)));
+            best = Prefer(best, Classify(cert.GetNameInfo(X509NameType.SimpleName, forIssuer: false)));
+            best = Prefer(best, Classify(cert.GetNameInfo(X509NameType.EmailName, forIssuer: false)));
+            best = Prefer(best, Classify(cert.GetNameInfo(X509NameType.UpnName, forIssuer: false)));
+            return best;
         }
         catch (CryptographicException)
         {
-            return null;
+            return PivIdentityCandidate.None;
         }
     }
+
+    public static PivIdentityCandidate Classify(string? value)
+    {
+        var normalized = Normalize(value);
+        if (normalized is null)
+        {
+            return PivIdentityCandidate.None;
+        }
+
+        if (IsEmail(normalized))
+        {
+            var at = normalized.IndexOf('@');
+            var local = at > 0 ? normalized[..at] : normalized;
+            var weak = local.Length > 0 && local.All(char.IsAsciiDigit);
+            return new PivIdentityCandidate(
+                normalized,
+                weak ? PivIdentityQuality.WeakIdentifier : PivIdentityQuality.DirectoryEmail);
+        }
+
+        if (IsUsefulPersonName(normalized))
+        {
+            return new PivIdentityCandidate(normalized, PivIdentityQuality.PersonName);
+        }
+
+        return PivIdentityCandidate.None;
+    }
+
+    public static PivIdentityCandidate Prefer(PivIdentityCandidate current, PivIdentityCandidate next)
+        => next.Quality > current.Quality ? next : current;
 
     public static bool IsUsefulPersonName(string? value)
     {
@@ -100,6 +139,43 @@ internal static class PivCertificateName
         {
             return false;
         }
+    }
+
+    private static string? TryGivenNameSurname(X509Certificate2 cert)
+    {
+        string? given = null;
+        string? surname = null;
+        foreach (var rdn in cert.SubjectName.EnumerateRelativeDistinguishedNames())
+        {
+            if (rdn.HasMultipleElements)
+            {
+                continue;
+            }
+
+            var oid = rdn.GetSingleElementType().Value;
+            var text = Normalize(rdn.GetSingleElementValue());
+            if (text is null)
+            {
+                continue;
+            }
+
+            switch (oid)
+            {
+                case OidGivenName:
+                    given = text;
+                    break;
+                case OidSurname:
+                    surname = text;
+                    break;
+            }
+        }
+
+        if (string.IsNullOrWhiteSpace(given) || string.IsNullOrWhiteSpace(surname))
+        {
+            return null;
+        }
+
+        return $"{given} {surname}";
     }
 
     private static string? Normalize(string? value)

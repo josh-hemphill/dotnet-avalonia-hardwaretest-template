@@ -261,6 +261,14 @@ internal static class PcscNative
                 return null;
             }
         }
+        else if (first[^2] == 0x67)
+        {
+            first = TransmitOnce(card, protocol, ApplyLe(send, 0x00));
+            if (first is not { Length: >= 2 })
+            {
+                return null;
+            }
+        }
 
         var payload = new List<byte>(first.Length);
         payload.AddRange(first.AsSpan(0, first.Length - 2).ToArray());

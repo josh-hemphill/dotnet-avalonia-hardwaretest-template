@@ -11,6 +11,7 @@ internal static class PivCardIdentity
     [
         PivApdu.ObjectAuthentication,
         PivApdu.ObjectSignature,
+        PivApdu.ObjectKeyManagement,
         PivApdu.ObjectCardAuth,
     ];
 
@@ -34,19 +35,19 @@ internal static class PivCardIdentity
             serial = Convert.ToHexString(uid.AsSpan(0, uid.Length - 2));
         }
 
-        var select = channel.Transmit(PivApdu.SelectPiv);
-        if (!PivApdu.IsSuccess(select))
+        if (!PivApdu.TrySelect(channel))
         {
             return (serial, null);
         }
 
-        var name = TryReadCertificateDisplayName(channel)
-                   ?? TryReadPrintedName(channel);
-        return (serial, name);
+        var best = TryReadBestCertificateName(channel);
+        best = PivCertificateName.Prefer(best, PivCertificateName.Classify(TryReadPrintedName(channel)));
+        return (serial, best.Value);
     }
 
-    private static string? TryReadCertificateDisplayName(IApduChannel channel)
+    private static PivIdentityCandidate TryReadBestCertificateName(IApduChannel channel)
     {
+        var best = PivIdentityCandidate.None;
         foreach (var objectId in IdentityCertificateObjects)
         {
             var der = PivApdu.TryReadCertificateDer(channel, objectId);
@@ -55,14 +56,10 @@ internal static class PivCardIdentity
                 continue;
             }
 
-            var name = PivCertificateName.TryDisplayName(der);
-            if (!string.IsNullOrWhiteSpace(name))
-            {
-                return name;
-            }
+            best = PivCertificateName.Prefer(best, PivCertificateName.TryCandidate(der));
         }
 
-        return null;
+        return best;
     }
 
     private static string? TryReadPrintedName(IApduChannel channel)
@@ -91,7 +88,7 @@ internal static class PivCardIdentity
             return null;
         }
 
-        var cleaned = new string(Encoding.ASCII.GetString(nameBytes)
+        var cleaned = new string(Encoding.UTF8.GetString(nameBytes)
             .Where(c => !char.IsControl(c) && c != '\0')
             .ToArray()).Trim();
         if (!PivCertificateName.IsUsefulPersonName(cleaned))
