@@ -486,7 +486,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         OnPropertyChanged(nameof(FormulaSaveNote));
         OnPropertyChanged(nameof(ChannelKeys));
         OnPropertyChanged(nameof(FormulaCompletions));
-        OnPropertyChanged(nameof(InstrumentSlots));
+        RefreshInstrumentSlots();
         OnPropertyChanged(nameof(Instruments));
         OnPropertyChanged(nameof(PromptMessage));
         OnPropertyChanged(nameof(InputTitle));

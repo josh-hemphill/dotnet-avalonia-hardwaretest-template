@@ -21,7 +21,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         get => AuthoringThemePreference.Normalize(Prefs.ThemePreference);
         set
         {
-            if (value is null)
+            if (string.IsNullOrWhiteSpace(value))
             {
                 return;
             }
@@ -80,7 +80,8 @@ public sealed partial class AuthoringWorkspaceViewModel
     public bool CanOfferLastWorkspace
         => Workspace is null
            && !string.IsNullOrWhiteSpace(Prefs.LastWorkspace)
-           && Directory.Exists(Prefs.LastWorkspace);
+           && Directory.Exists(Prefs.LastWorkspace)
+           && File.Exists(Path.Combine(Prefs.LastWorkspace, AuthoringWorkspaceLoader.ManifestFileName));
 
     public IReadOnlyList<FormulaCatalog.Item> FormulaPrefixCompletions
     {

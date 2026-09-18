@@ -64,6 +64,45 @@ public sealed class AuthoringCliTests
         var code = AuthoringCli.Run(["--nope"], output, error);
         Assert.Equal(AuthoringCli.UsageExitCode, code);
     }
+
+    [Fact]
+    public void ResolveOpenTapHome_prefers_cli_flag_then_prefs_and_fail_closes()
+    {
+        var path = Path.Combine(
+            Path.GetTempPath(),
+            "ht-cli-prefs-" + Guid.NewGuid().ToString("N"),
+            AuthoringPreferencesStore.FileName);
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        var store = new AuthoringPreferencesStore(path);
+        store.Load();
+        store.Current.OpenTapHomeOverride = "/opt/prefs-home";
+        store.Save();
+
+        Assert.Equal("/cli-home", AuthoringCli.ResolveOpenTapHome("/cli-home", store));
+        Assert.Equal("/opt/prefs-home", AuthoringCli.ResolveOpenTapHome(null, store));
+        Assert.Equal("/opt/prefs-home", AuthoringCli.ResolveOpenTapHome("  ", store));
+
+        File.WriteAllText(path, "{");
+        var broken = new AuthoringPreferencesStore(path);
+        Assert.Null(AuthoringCli.ResolveOpenTapHome(null, new ThrowingPreferencesStore()));
+        Assert.Throws<AuthoringPreferencesException>(broken.Load);
+        Assert.Null(AuthoringCli.ResolveOpenTapHome(null, broken));
+    }
+
+    private sealed class ThrowingPreferencesStore : IAuthoringPreferencesStore
+    {
+        public AuthoringPreferences Current => throw new AuthoringPreferencesException("boom");
+
+        public bool IsReadOnly => false;
+
+        public string? Warning => null;
+
+        public string FilePath => "throwing";
+
+        public void Load() => throw new AuthoringPreferencesException("boom");
+
+        public void Save() => throw new AuthoringPreferencesException("boom");
+    }
 }
 
 [Collection("AuthoringOpenTap")]

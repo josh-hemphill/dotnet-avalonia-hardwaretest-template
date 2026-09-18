@@ -12,6 +12,9 @@ public static class FormulaCatalog
     public static IReadOnlyList<string> ReservedUnknown { get; } =
         ["fft", "tf", "plot", "eval"];
 
+    private static readonly HashSet<string> ReservedUnknownSet =
+        new(ReservedUnknown, StringComparer.OrdinalIgnoreCase);
+
     public sealed record Item(
         string InsertText,
         string Name,
@@ -38,7 +41,7 @@ public static class FormulaCatalog
                      .Where(key => !string.IsNullOrWhiteSpace(key))
                      .Distinct(StringComparer.OrdinalIgnoreCase))
         {
-            if (ReservedUnknown.Contains(key))
+            if (IsReservedUnknown(key))
             {
                 continue;
             }
@@ -66,6 +69,9 @@ public static class FormulaCatalog
             .Where(item => item.Name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
             .ToArray();
     }
+
+    public static bool IsReservedUnknown(string? name)
+        => !string.IsNullOrWhiteSpace(name) && ReservedUnknownSet.Contains(name);
 
     /// Ident under caret using the parser rule (letters, digits, `_`, `.` before a letter).
     public static IdentSpan IdentAt(string? source, int caret)

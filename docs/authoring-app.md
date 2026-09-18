@@ -594,7 +594,7 @@ This template does not create those product repos. Pack’s `ship-manifest.json`
 - macOS authoring RID beyond existing lockfile RIDs.
 - Unify Mixins `PresentationDisplayRoles` with operator role constants if Area 5 leaves a wrapper.
 - Authoring PluginManager must not inherit Host’s Visa project-reference search path (assert in Areas 2–3).
-- Headless `--bootstrap` does not read `OpenTapHomeOverride` (GUI Bootstrap does when `HomeDirectory` is unset).
+- Headless `--bootstrap` / `--pack` / `--compat` use `--opentap-home` when set; otherwise `authoring-preferences.json` `OpenTapHomeOverride`. GUI Bootstrap uses the override only when `HomeDirectory` is unset.
 - AvaloniaEdit / Monaco formula IDE (overkill; Save only lowers `mean(x)` and top-level `filter`/`filtfilt`).
 
 ### Authoring app settings

@@ -33,6 +33,8 @@ public sealed class AuthoringAppSettingsTests
         vm.ThemePreferenceChanged += theme => seen = theme;
         vm.ThemePreference = "dark";
         vm.ThemePreference = null!;
+        vm.ThemePreference = "   ";
+        vm.ThemePreference = string.Empty;
         Assert.Equal(AuthoringThemePreference.Dark, vm.ThemePreference);
         vm.ShowRawStepXml = false;
 
@@ -40,6 +42,19 @@ public sealed class AuthoringAppSettingsTests
         var reload = new AuthoringWorkspaceViewModel(preferences: Reload(store.FilePath));
         Assert.Equal(AuthoringThemePreference.Dark, reload.ThemePreference);
         Assert.False(reload.ShowRawStepXml);
+    }
+
+    [Fact]
+    public void Last_workspace_offer_requires_authoring_json()
+    {
+        var empty = NewTempDir();
+        var store = NewStore();
+        store.Current.LastWorkspace = empty;
+        store.Save();
+
+        var idle = new AuthoringWorkspaceViewModel(preferences: Reload(store.FilePath));
+        Assert.False(idle.CanOfferLastWorkspace);
+        Assert.Equal(empty, idle.LastWorkspacePath);
     }
 
     [Fact]
@@ -145,6 +160,28 @@ public sealed class AuthoringAppSettingsTests
         Assert.DoesNotContain("SelectedInstrumentSlot", changed);
         Assert.DoesNotContain("SelectedInstrument", changed);
         Assert.DoesNotContain("SelectedInstrumentVisa", changed);
+
+        var slots = vm.InstrumentSlots;
+        vm.SelectedInstrumentVisa = vm.SelectedInstrumentVisa;
+        vm.SetInstrumentVisa("DMM", vm.VisaAddress);
+        vm.DisplayName = vm.DisplayName;
+        vm.DutFamily = vm.DutFamily;
+        vm.RequireSerial = vm.RequireSerial;
+        vm.RequirePartNumber = vm.RequirePartNumber;
+        vm.ReportStatus = vm.ReportStatus;
+        Assert.Same(slots, vm.InstrumentSlots);
+        Assert.Same(program, vm.SelectedProgram);
+        Assert.Same(programs, vm.Programs);
+
+        vm.ApplyRecipe(AuthoringRecipeIds.Repeat);
+        Assert.True(vm.HasRepeatEditor);
+        slots = vm.InstrumentSlots;
+        programs = vm.Programs;
+        program = vm.SelectedProgram;
+        vm.RepeatCount = vm.RepeatCount;
+        Assert.Same(program, vm.SelectedProgram);
+        Assert.Same(programs, vm.Programs);
+        Assert.Same(slots, vm.InstrumentSlots);
     }
 
     [Fact]

@@ -65,6 +65,66 @@ public sealed class AuthoringPreferencesStore : IAuthoringPreferencesStore
             return;
         }
 
+        try
+        {
+            LoadExisting();
+        }
+        catch
+        {
+            IsReadOnly = true;
+            throw;
+        }
+    }
+
+    public void Save()
+    {
+        if (IsReadOnly)
+        {
+            throw new AuthoringPreferencesException(
+                $"Refusing to overwrite future-schema {FileName} (schema {Current.SchemaVersion} > {AuthoringSchemaVersions.Preferences}).");
+        }
+
+        if (File.Exists(FilePath))
+        {
+            var probe = new AuthoringPreferencesStore(FilePath);
+            try
+            {
+                probe.Load();
+            }
+            catch (AuthoringPreferencesException ex)
+            {
+                IsReadOnly = true;
+                throw new AuthoringPreferencesException($"Refusing to overwrite {FileName}: {ex.Message}", ex);
+            }
+
+            if (probe.IsReadOnly)
+            {
+                IsReadOnly = true;
+                throw new AuthoringPreferencesException(
+                    $"Refusing to overwrite future-schema {FileName} (schema {probe.Current.SchemaVersion} > {AuthoringSchemaVersions.Preferences}).");
+            }
+        }
+
+        if (Current.SchemaVersion > AuthoringSchemaVersions.Preferences)
+        {
+            throw new AuthoringPreferencesException(
+                $"Cannot write {FileName} schema {Current.SchemaVersion}; this app supports {AuthoringSchemaVersions.Preferences}.");
+        }
+
+        Current.SchemaVersion = AuthoringSchemaVersions.Preferences;
+        Current.ThemePreference = AuthoringThemePreference.Normalize(Current.ThemePreference);
+        var directory = Path.GetDirectoryName(FilePath);
+        if (!string.IsNullOrWhiteSpace(directory))
+        {
+            Directory.CreateDirectory(directory);
+        }
+
+        var json = JsonSerializer.Serialize(Current, AuthoringJsonContext.Default.AuthoringPreferences);
+        File.WriteAllText(FilePath, json + Environment.NewLine);
+    }
+
+    private void LoadExisting()
+    {
         string raw;
         try
         {
@@ -127,32 +187,6 @@ public sealed class AuthoringPreferencesStore : IAuthoringPreferencesStore
                 ? $"{FileName} schema {schemaVersion} is newer than {AuthoringSchemaVersions.Preferences}; settings are read-only."
                 : null;
         }
-    }
-
-    public void Save()
-    {
-        if (IsReadOnly)
-        {
-            throw new AuthoringPreferencesException(
-                $"Refusing to overwrite future-schema {FileName} (schema {Current.SchemaVersion} > {AuthoringSchemaVersions.Preferences}).");
-        }
-
-        if (Current.SchemaVersion > AuthoringSchemaVersions.Preferences)
-        {
-            throw new AuthoringPreferencesException(
-                $"Cannot write {FileName} schema {Current.SchemaVersion}; this app supports {AuthoringSchemaVersions.Preferences}.");
-        }
-
-        Current.SchemaVersion = AuthoringSchemaVersions.Preferences;
-        Current.ThemePreference = AuthoringThemePreference.Normalize(Current.ThemePreference);
-        var directory = Path.GetDirectoryName(FilePath);
-        if (!string.IsNullOrWhiteSpace(directory))
-        {
-            Directory.CreateDirectory(directory);
-        }
-
-        var json = JsonSerializer.Serialize(Current, AuthoringJsonContext.Default.AuthoringPreferences);
-        File.WriteAllText(FilePath, json + Environment.NewLine);
     }
 
     private static int ReadSchemaVersion(JsonElement root)
