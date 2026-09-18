@@ -123,7 +123,8 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
         get => SelectedProgram?.Sidecar.DisplayName ?? string.Empty;
         set
         {
-            if (SelectedProgram is null)
+            if (SelectedProgram is null
+                || string.Equals(DisplayName, value, StringComparison.Ordinal))
             {
                 return;
             }
@@ -138,7 +139,8 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
         get => SelectedProgram?.Sidecar.DutFamily ?? string.Empty;
         set
         {
-            if (SelectedProgram is null)
+            if (SelectedProgram is null
+                || string.Equals(DutFamily, value, StringComparison.Ordinal))
             {
                 return;
             }
@@ -153,7 +155,7 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
         get => SelectedProgram?.Sidecar.RequireSerial ?? false;
         set
         {
-            if (SelectedProgram is null)
+            if (SelectedProgram is null || RequireSerial == value)
             {
                 return;
             }
@@ -491,7 +493,7 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(StationHealthMaxAgeHours));
         OnPropertyChanged(nameof(StationHealthProfileId));
         OnPropertyChanged(nameof(Instruments));
-        OnPropertyChanged(nameof(InstrumentSlots));
+        RefreshInstrumentSlots();
         OnPropertyChanged(nameof(SelectedInstrumentSlot));
         OnPropertyChanged(nameof(SelectedInstrumentVisa));
         OnPropertyChanged(nameof(SelectedInstrument));

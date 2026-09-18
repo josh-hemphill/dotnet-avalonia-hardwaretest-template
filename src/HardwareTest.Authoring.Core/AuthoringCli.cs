@@ -147,10 +147,10 @@ public static class AuthoringCli
 
         return command switch
         {
-            AuthoringCliCommand.Bootstrap => RunBootstrap(workspace, openTapHome, offline, output),
+            AuthoringCliCommand.Bootstrap => RunBootstrap(workspace, ResolveOpenTapHome(openTapHome), offline, output),
             AuthoringCliCommand.Validate => RunValidate(workspace, strict, format, output),
-            AuthoringCliCommand.Pack => RunPack(workspace, outputDirectory, openTapHome, offline, output, error),
-            AuthoringCliCommand.Compat => RunCompat(workspace, openTapHome, offline, output, error),
+            AuthoringCliCommand.Pack => RunPack(workspace, outputDirectory, ResolveOpenTapHome(openTapHome), offline, output, error),
+            AuthoringCliCommand.Compat => RunCompat(workspace, ResolveOpenTapHome(openTapHome), offline, output, error),
             AuthoringCliCommand.EvalFormulas => RunEvalFormulas(workspace, output, error),
             _ => UsageExitCode,
         };
@@ -364,6 +364,32 @@ public static class AuthoringCli
         }
 
         return false;
+    }
+
+    /// CLI --opentap-home wins; otherwise authoring-preferences.json OpenTapHomeOverride.
+    internal static string? ResolveOpenTapHome(string? flag, IAuthoringPreferencesStore? store = null)
+    {
+        if (!string.IsNullOrWhiteSpace(flag))
+        {
+            return flag;
+        }
+
+        try
+        {
+            var prefs = store ?? new AuthoringPreferencesStore();
+            if (store is null)
+            {
+                prefs.Load();
+            }
+
+            return string.IsNullOrWhiteSpace(prefs.Current.OpenTapHomeOverride)
+                ? null
+                : prefs.Current.OpenTapHomeOverride;
+        }
+        catch (AuthoringPreferencesException)
+        {
+            return null;
+        }
     }
 
     private enum AuthoringCliCommand

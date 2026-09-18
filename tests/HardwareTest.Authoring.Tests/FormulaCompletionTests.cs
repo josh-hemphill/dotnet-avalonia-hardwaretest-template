@@ -23,6 +23,10 @@ public sealed class FormulaCompletionTests
         Assert.DoesNotContain(items, item => item.Name == "std");
         Assert.DoesNotContain(items, item => item.Name == "fft");
         Assert.DoesNotContain(FormulaCatalog.Completions(["fft"]), item => item.Name == "fft");
+        Assert.DoesNotContain(
+            FormulaCatalog.Completions(["FFT"]),
+            item => item.Name.Equals("fft", StringComparison.OrdinalIgnoreCase));
+        Assert.True(FormulaCatalog.IsReservedUnknown("FFT"));
     }
 
     [Fact]
@@ -36,6 +40,18 @@ public sealed class FormulaCompletionTests
         Assert.Equal("mean(", vm.FormulaSource);
         Assert.Equal(5, caret);
         Assert.Contains(vm.CompletionsAt(5), item => item.Name == "mean");
+    }
+
+    [Fact]
+    public void ApplyFormulaCompletion_replaces_a_partial_ident_inside_a_call()
+    {
+        var vm = OpenEmpty();
+        vm.CreateProgram("mid-complete");
+        vm.ApplyRecipe(AuthoringRecipeIds.Formula);
+        vm.FormulaSource = "std(me)";
+        var caret = vm.ApplyFormulaCompletion("mean(", 6);
+        Assert.Equal("std(mean()", vm.FormulaSource);
+        Assert.Equal(9, caret);
     }
 
     [Fact]

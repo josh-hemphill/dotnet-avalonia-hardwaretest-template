@@ -19,6 +19,7 @@ public sealed class FormulaParserTests
 
     [Theory]
     [InlineData("fft(VDC)")]
+    [InlineData("FFT(VDC)")]
     [InlineData("tf(VDC)")]
     [InlineData("plot(VDC)")]
     [InlineData("eval(VDC)")]

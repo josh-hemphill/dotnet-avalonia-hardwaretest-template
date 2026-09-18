@@ -66,7 +66,8 @@ public sealed partial class AuthoringWorkspaceViewModel
             if (!int.TryParse(value, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var count)
                 || count < 1
                 || SelectedSequence is not { Kind: SequenceRowKind.Repeat } row
-                || SelectedProgram is null)
+                || SelectedProgram is null
+                || SelectedRepeat is { Count: var current } && current == count)
             {
                 return;
             }

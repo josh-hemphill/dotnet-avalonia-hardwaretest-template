@@ -20,8 +20,7 @@ public sealed partial class AuthoringWorkspaceViewModel
 
     public IReadOnlyList<string> ChannelKeys => AuthoringEditorCatalog.ChannelKeys(SelectedProgram);
 
-    public IReadOnlyList<string> InstrumentSlots
-        => SelectedProgram?.Instruments.Select(instrument => instrument.SlotName).ToArray() ?? [];
+    public IReadOnlyList<string> InstrumentSlots { get; private set; } = [];
 
     public IReadOnlyList<InstrumentRef> Instruments
         => SelectedProgram?.Instruments ?? [];
@@ -58,6 +57,11 @@ public sealed partial class AuthoringWorkspaceViewModel
                ?? VisaAddress;
         set
         {
+            if (string.Equals(SelectedInstrumentVisa, value, StringComparison.Ordinal))
+            {
+                return;
+            }
+
             if (string.IsNullOrWhiteSpace(SelectedInstrumentSlot))
             {
                 VisaAddress = value;
@@ -124,25 +128,25 @@ public sealed partial class AuthoringWorkspaceViewModel
     public bool RequirePartNumber
     {
         get => SelectedProgram?.Sidecar.RequirePartNumber ?? false;
-        set => SetSidecar(s => { s.RequirePartNumber = value; });
+        set => SetSidecarIfUnchanged(RequirePartNumber, value, s => { s.RequirePartNumber = value; });
     }
 
     public bool RequireRevision
     {
         get => SelectedProgram?.Sidecar.RequireRevision ?? false;
-        set => SetSidecar(s => { s.RequireRevision = value; });
+        set => SetSidecarIfUnchanged(RequireRevision, value, s => { s.RequireRevision = value; });
     }
 
     public bool RequireOperator
     {
         get => SelectedProgram?.Sidecar.RequireOperator ?? false;
-        set => SetSidecar(s => { s.RequireOperator = value; });
+        set => SetSidecarIfUnchanged(RequireOperator, value, s => { s.RequireOperator = value; });
     }
 
     public bool SelectionIncludesCleanup
     {
         get => SelectedProgram?.Sidecar.SelectionIncludesCleanup ?? true;
-        set => SetSidecar(s => { s.SelectionIncludesCleanup = value; });
+        set => SetSidecarIfUnchanged(SelectionIncludesCleanup, value, s => { s.SelectionIncludesCleanup = value; });
     }
 
     public bool ReportStatus
@@ -160,25 +164,25 @@ public sealed partial class AuthoringWorkspaceViewModel
     public string DefaultReportKind
     {
         get => SelectedProgram?.Sidecar.DefaultReportKind ?? "status";
-        set => SetSidecar(s => { s.DefaultReportKind = value; });
+        set => SetSidecarIfUnchanged(DefaultReportKind, value, s => { s.DefaultReportKind = value; });
     }
 
     public string ProgramKind
     {
         get => SelectedProgram?.Sidecar.ProgramKind ?? "dut";
-        set => SetSidecar(s => { s.ProgramKind = value; });
+        set => SetSidecarIfUnchanged(ProgramKind, value, s => { s.ProgramKind = value; });
     }
 
     public bool RequireStationHealth
     {
         get => SelectedProgram?.Sidecar.RequireStationHealth ?? false;
-        set => SetSidecar(s => { s.RequireStationHealth = value; });
+        set => SetSidecarIfUnchanged(RequireStationHealth, value, s => { s.RequireStationHealth = value; });
     }
 
     public string StationHealthGate
     {
         get => SelectedProgram?.Sidecar.StationHealthGate ?? "warn";
-        set => SetSidecar(s => { s.StationHealthGate = value; });
+        set => SetSidecarIfUnchanged(StationHealthGate, value, s => { s.StationHealthGate = value; });
     }
 
     public string StationHealthMaxAgeHours
@@ -186,6 +190,11 @@ public sealed partial class AuthoringWorkspaceViewModel
         get => FormatOptional(SelectedProgram?.Sidecar.StationHealthMaxAgeHours);
         set
         {
+            if (string.Equals(StationHealthMaxAgeHours, value, StringComparison.Ordinal))
+            {
+                return;
+            }
+
             if (string.IsNullOrWhiteSpace(value))
             {
                 SetSidecar(s => { s.StationHealthMaxAgeHours = null; });
@@ -203,7 +212,11 @@ public sealed partial class AuthoringWorkspaceViewModel
     public string StationHealthProfileId
     {
         get => SelectedProgram?.Sidecar.StationHealthProfileId ?? "default";
-        set => SetSidecar(s => { s.StationHealthProfileId = string.IsNullOrWhiteSpace(value) ? "default" : value.Trim(); });
+        set
+        {
+            var next = string.IsNullOrWhiteSpace(value) ? "default" : value.Trim();
+            SetSidecarIfUnchanged(StationHealthProfileId, next, s => { s.StationHealthProfileId = next; });
+        }
     }
 
     public string PromptMessage
@@ -334,6 +347,13 @@ public sealed partial class AuthoringWorkspaceViewModel
             return;
         }
 
+        var current = Instruments.FirstOrDefault(instrument =>
+            string.Equals(instrument.SlotName, slotName, StringComparison.OrdinalIgnoreCase));
+        if (current is not null && string.Equals(current.VisaAddress, visaAddress, StringComparison.Ordinal))
+        {
+            return;
+        }
+
         var updated = SelectedProgram.Instruments
             .Select(instrument =>
                 string.Equals(instrument.SlotName, slotName, StringComparison.OrdinalIgnoreCase)
@@ -368,7 +388,7 @@ public sealed partial class AuthoringWorkspaceViewModel
 
     private void SetReportKind(string kind, bool include)
     {
-        if (SelectedProgram is null)
+        if (SelectedProgram is null || HasReportKind(kind) == include)
         {
             return;
         }
@@ -396,6 +416,28 @@ public sealed partial class AuthoringWorkspaceViewModel
                 s.DefaultReportKind = current[0];
             }
         });
+    }
+
+    internal void RefreshInstrumentSlots()
+    {
+        var next = SelectedProgram?.Instruments.Select(instrument => instrument.SlotName).ToArray() ?? [];
+        if (InstrumentSlots.SequenceEqual(next, StringComparer.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        InstrumentSlots = next;
+        OnPropertyChanged(nameof(InstrumentSlots));
+    }
+
+    private void SetSidecarIfUnchanged<T>(T current, T next, Action<ProgramSidecar> mutate)
+    {
+        if (EqualityComparer<T>.Default.Equals(current, next))
+        {
+            return;
+        }
+
+        SetSidecar(mutate);
     }
 
     private void SetSidecar(Action<ProgramSidecar> mutate)

@@ -7,7 +7,7 @@ public static class FormulaParser
 {
     private static readonly HashSet<string> AllowedFunctions = new(FormulaCatalog.AllowedFunctions, StringComparer.Ordinal);
 
-    private static readonly HashSet<string> ReservedUnknown = new(FormulaCatalog.ReservedUnknown, StringComparer.Ordinal);
+    private static readonly HashSet<string> ReservedUnknown = new(FormulaCatalog.ReservedUnknown, StringComparer.OrdinalIgnoreCase);
 
     /// Fail closed on unknown syntax or functions (including fft). filter/filtfilt are registered.
     public static FormulaAst Parse(string source)

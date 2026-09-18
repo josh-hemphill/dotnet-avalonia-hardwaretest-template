@@ -69,6 +69,22 @@ public sealed class AuthoringPreferencesTests
         var store = new AuthoringPreferencesStore(path);
         var ex = Assert.Throws<AuthoringPreferencesException>(store.Load);
         Assert.Contains("schemaVersion", ex.Message, StringComparison.Ordinal);
+        Assert.True(store.IsReadOnly);
+    }
+
+    [Theory]
+    [InlineData("""{ "schemaVersion": 0, "themePreference": "Light" }""")]
+    [InlineData("""{ "schemaVersion": -1, "themePreference": "Light" }""")]
+    [InlineData("""{ "schemaVersion": "1", "themePreference": "Light" }""")]
+    public void Load_rejects_invalid_schema_version(string json)
+    {
+        var path = Path.Combine(NewTempDir(), AuthoringPreferencesStore.FileName);
+        File.WriteAllText(path, json);
+        var store = new AuthoringPreferencesStore(path);
+        var ex = Assert.Throws<AuthoringPreferencesException>(store.Load);
+        Assert.Contains("schemaVersion", ex.Message, StringComparison.Ordinal);
+        Assert.True(store.IsReadOnly);
+        Assert.Equal(json, File.ReadAllText(path), StringComparer.Ordinal);
     }
 
     [Fact]
@@ -95,6 +111,29 @@ public sealed class AuthoringPreferencesTests
         var ex = Assert.Throws<AuthoringPreferencesException>(store.Save);
         Assert.Contains("future-schema", ex.Message, StringComparison.Ordinal);
         Assert.Contains("futureOnly", File.ReadAllText(path), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Save_without_load_refuses_to_clobber_future_schema_on_disk()
+    {
+        var path = Path.Combine(NewTempDir(), AuthoringPreferencesStore.FileName);
+        File.WriteAllText(
+            path,
+            """
+            {
+              "schemaVersion": 999,
+              "themePreference": "Light",
+              "futureOnly": "keep"
+            }
+            """);
+
+        var store = new AuthoringPreferencesStore(path);
+        store.Current.ThemePreference = AuthoringThemePreference.Dark;
+        var ex = Assert.Throws<AuthoringPreferencesException>(store.Save);
+        Assert.Contains("future-schema", ex.Message, StringComparison.Ordinal);
+        Assert.True(store.IsReadOnly);
+        Assert.Contains("futureOnly", File.ReadAllText(path), StringComparison.Ordinal);
+        Assert.Contains("\"schemaVersion\": 999", File.ReadAllText(path), StringComparison.Ordinal);
     }
 
     [Theory]
