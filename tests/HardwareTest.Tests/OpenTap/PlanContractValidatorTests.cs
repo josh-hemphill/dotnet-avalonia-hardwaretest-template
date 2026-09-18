@@ -217,7 +217,7 @@ public sealed class PlanContractValidatorTests
     }
 
     [Fact]
-    public void Validate_empty_or_unknown_report_kinds_are_errors()
+    public void Validate_empty_report_kinds_are_errors_and_unknown_kinds_warn()
     {
         using var dir = new TempPlanDir();
         SampleProgramFactory.SaveBeside(dir.Path);

@@ -70,6 +70,13 @@ public sealed class AuthoringWorkspaceCatalogTests
         Assert.Equal(["status", "certification", "traceability", "mes"], reports);
         var kinds = AuthoringWorkspaceCatalog.ProgramKindOptions(manifest, [other, selected], selected);
         Assert.Equal(["dut", "stationHealth", "incomingInspect"], kinds);
+
+        var orphan = AuthoringRecipeCatalog.CreateProgram("orphan-default");
+        orphan.Sidecar.ReportKinds = ["status"];
+        orphan.Sidecar.DefaultReportKind = "lab";
+        Assert.Contains(
+            "lab",
+            AuthoringWorkspaceCatalog.ReportKindOptions(null, [orphan], orphan));
     }
 
     [Fact]
@@ -169,6 +176,26 @@ public sealed class AuthoringProgramSettingsViewModelTests
         var reloaded = AuthoringWorkspaceLoader.Load(vm.Workspace.Root);
         Assert.Contains("traceability", reloaded.Manifest.Catalogs!.ReportKinds);
         Assert.Contains("incomingInspect", reloaded.Manifest.Catalogs.ProgramKinds);
+        Assert.DoesNotContain("status", reloaded.Manifest.Catalogs.ReportKinds, StringComparer.OrdinalIgnoreCase);
+        Assert.DoesNotContain("dut", reloaded.Manifest.Catalogs.ProgramKinds, StringComparer.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Program_kind_and_default_report_ignore_empty_or_unlisted_values()
+    {
+        var vm = OpenEmpty();
+        vm.CreateProgram("guard-kinds");
+        vm.ProgramKind = "stationHealth";
+        vm.ProgramKind = null!;
+        vm.ProgramKind = "   ";
+        Assert.Equal("stationHealth", vm.ProgramKind);
+        Assert.Equal(["status"], vm.IncludedReportKinds);
+        vm.DefaultReportKind = "certification";
+        Assert.Equal("status", vm.DefaultReportKind);
+        vm.ReportCertification = true;
+        vm.DefaultReportKind = "certification";
+        Assert.Equal("certification", vm.DefaultReportKind);
+        Assert.Equal(["status", "certification"], vm.IncludedReportKinds);
     }
 
     [Fact]

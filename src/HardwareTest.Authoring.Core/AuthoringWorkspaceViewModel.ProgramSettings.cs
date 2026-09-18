@@ -22,6 +22,11 @@ public sealed partial class AuthoringWorkspaceViewModel
     public IReadOnlyList<AuthoringCatalogToggle> ReportKindChoices
         => ReportKindOptions.Select(kind => new AuthoringCatalogToggle(kind, HasReportKind(kind))).ToArray();
 
+    public IReadOnlyList<string> IncludedReportKinds
+        => SelectedProgram?.Sidecar.ReportKinds is { Length: > 0 } kinds
+            ? kinds
+            : ["status"];
+
     public IReadOnlyList<string> ProgramKindOptions
         => AuthoringWorkspaceCatalog.ProgramKindOptions(Workspace?.Manifest, Programs, SelectedProgram);
 
@@ -210,13 +215,33 @@ public sealed partial class AuthoringWorkspaceViewModel
     public string DefaultReportKind
     {
         get => SelectedProgram?.Sidecar.DefaultReportKind ?? "status";
-        set => SetSidecarIfUnchanged(DefaultReportKind, value, s => { s.DefaultReportKind = value; });
+        set
+        {
+            var kind = AuthoringWorkspaceCatalog.Normalize(value);
+            if (kind is null
+                || !IncludedReportKinds.Any(existing =>
+                    string.Equals(existing, kind, StringComparison.OrdinalIgnoreCase)))
+            {
+                return;
+            }
+
+            SetSidecarIfUnchanged(DefaultReportKind, kind, s => { s.DefaultReportKind = kind; });
+        }
     }
 
     public string ProgramKind
     {
         get => SelectedProgram?.Sidecar.ProgramKind ?? "dut";
-        set => SetSidecarIfUnchanged(ProgramKind, value, s => { s.ProgramKind = value; });
+        set
+        {
+            var kind = AuthoringWorkspaceCatalog.Normalize(value);
+            if (kind is null)
+            {
+                return;
+            }
+
+            SetSidecarIfUnchanged(ProgramKind, kind, s => { s.ProgramKind = kind; });
+        }
     }
 
     public bool RequireStationHealth
@@ -439,11 +464,14 @@ public sealed partial class AuthoringWorkspaceViewModel
             return;
         }
 
-        RememberWorkspaceCatalog(catalogs => AuthoringWorkspaceCatalog.Remember(catalogs.ReportKinds, kind));
+        EnsureWritableWorkspace("add a report kind");
+        RememberWorkspaceCatalog(
+            catalogs => RememberUnlessDefault(catalogs.ReportKinds, kind, AuthoringWorkspaceCatalog.DefaultReportKinds));
         SetReportKind(kind, include: true);
         NewReportKind = string.Empty;
         OnPropertyChanged(nameof(ReportKindOptions));
         OnPropertyChanged(nameof(ReportKindChoices));
+        OnPropertyChanged(nameof(IncludedReportKinds));
         OnPropertyChanged(nameof(DefaultReportKind));
     }
 
@@ -455,7 +483,9 @@ public sealed partial class AuthoringWorkspaceViewModel
             return;
         }
 
-        RememberWorkspaceCatalog(catalogs => AuthoringWorkspaceCatalog.Remember(catalogs.ProgramKinds, kind));
+        EnsureWritableWorkspace("add a program kind");
+        RememberWorkspaceCatalog(
+            catalogs => RememberUnlessDefault(catalogs.ProgramKinds, kind, AuthoringWorkspaceCatalog.DefaultProgramKinds));
         ProgramKind = kind;
         NewProgramKind = string.Empty;
         OnPropertyChanged(nameof(ProgramKindOptions));
@@ -541,7 +571,7 @@ public sealed partial class AuthoringWorkspaceViewModel
             }
         });
         OnPropertyChanged(nameof(ReportKindChoices));
-        OnPropertyChanged(nameof(ReportKindOptions));
+        OnPropertyChanged(nameof(IncludedReportKinds));
         OnPropertyChanged(nameof(DefaultReportKind));
     }
 
@@ -579,6 +609,32 @@ public sealed partial class AuthoringWorkspaceViewModel
         RaiseSidecarProperties();
     }
 
+    private void EnsureWritableWorkspace(string action)
+    {
+        if (Workspace is null)
+        {
+            throw new AuthoringWorkspaceException($"Open a workspace before {action}.");
+        }
+
+        if (Workspace.IsReadOnly)
+        {
+            throw new AuthoringWorkspaceException($"Workspace is read-only; cannot {action}.");
+        }
+    }
+
+    private static void RememberUnlessDefault(
+        List<string> items,
+        string token,
+        IReadOnlyList<string> defaults)
+    {
+        if (AuthoringWorkspaceCatalog.Contains(defaults, token))
+        {
+            return;
+        }
+
+        AuthoringWorkspaceCatalog.Remember(items, token);
+    }
+
     private void RememberWorkspaceCatalog(Action<AuthoringWorkspaceCatalogs> mutate)
     {
         if (Workspace is null || Workspace.IsReadOnly)
@@ -591,6 +647,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         AuthoringWorkspaceLoader.SaveManifest(Workspace.Root, Workspace.Manifest);
         OnPropertyChanged(nameof(ReportKindOptions));
         OnPropertyChanged(nameof(ReportKindChoices));
+        OnPropertyChanged(nameof(IncludedReportKinds));
         OnPropertyChanged(nameof(ProgramKindOptions));
     }
 

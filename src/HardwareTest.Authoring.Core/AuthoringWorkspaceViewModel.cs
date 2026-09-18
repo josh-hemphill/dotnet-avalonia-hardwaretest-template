@@ -579,6 +579,7 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(ReportCertification));
         OnPropertyChanged(nameof(ReportKindOptions));
         OnPropertyChanged(nameof(ReportKindChoices));
+        OnPropertyChanged(nameof(IncludedReportKinds));
         OnPropertyChanged(nameof(DefaultReportKind));
         OnPropertyChanged(nameof(ProgramKind));
         OnPropertyChanged(nameof(ProgramKindOptions));
