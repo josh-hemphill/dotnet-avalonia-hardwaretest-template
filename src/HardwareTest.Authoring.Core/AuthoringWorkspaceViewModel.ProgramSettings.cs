@@ -504,6 +504,7 @@ public sealed partial class AuthoringWorkspaceViewModel
             }
 
             if (!AuthoringFunctionCatalog.TryGet(id, out var spec)
+                || spec.Id == AuthoringFunctionIds.BasicApplyTransferFunction
                 || spec.IsAlgorithm != (SelectedMetric?.Source is AlgorithmSource))
             {
                 return;
@@ -555,7 +556,7 @@ public sealed partial class AuthoringWorkspaceViewModel
 
     public bool HistoryEnabled
     {
-        get => HasMetricPresentation && (SelectedMetric?.History?.Enabled ?? false);
+        get => HasMetricPresentation && (SelectedMetric?.History?.Enabled ?? DefaultHistoryEnabled);
         set
         {
             if (!HasMetricPresentation || HistoryEnabled == value)
@@ -563,11 +564,7 @@ public sealed partial class AuthoringWorkspaceViewModel
                 return;
             }
 
-            UpdateSelectedMetric(metric =>
-            {
-                var current = metric.History ?? new HistorySpec(false, null, null);
-                return metric with { History = current with { Enabled = value } };
-            });
+            UpdateHistory(current => current with { Enabled = value });
         }
     }
 
@@ -581,11 +578,13 @@ public sealed partial class AuthoringWorkspaceViewModel
                 return;
             }
 
-            UpdateSelectedMetric(metric =>
+            var parsed = ParseLimit(value);
+            if (SelectedMetric?.History is null && parsed is null)
             {
-                var current = metric.History ?? new HistorySpec(false, null, null);
-                return metric with { History = current with { WatchPercent = ParseLimit(value) } };
-            });
+                return;
+            }
+
+            UpdateHistory(current => current with { WatchPercent = parsed });
         }
     }
 
@@ -599,13 +598,25 @@ public sealed partial class AuthoringWorkspaceViewModel
                 return;
             }
 
-            UpdateSelectedMetric(metric =>
+            var parsed = ParseLimit(value);
+            if (SelectedMetric?.History is null && parsed is null)
             {
-                var current = metric.History ?? new HistorySpec(false, null, null);
-                return metric with { History = current with { AlertPercent = ParseLimit(value) } };
-            });
+                return;
+            }
+
+            UpdateHistory(current => current with { AlertPercent = parsed });
         }
     }
+
+    /// Mixin default when History is omitted; PresentationAttach leaves HistoryEnabled=true.
+    private const bool DefaultHistoryEnabled = true;
+
+    private void UpdateHistory(Func<HistorySpec, HistorySpec> mutate)
+        => UpdateSelectedMetric(metric =>
+        {
+            var current = metric.History ?? new HistorySpec(DefaultHistoryEnabled, null, null);
+            return metric with { History = mutate(current) };
+        });
 
     private static IReadOnlyList<AuthoringSettingRow> ToSettingRows(IReadOnlyDictionary<string, string> settings)
         => settings

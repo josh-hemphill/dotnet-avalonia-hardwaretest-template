@@ -60,6 +60,7 @@ public sealed class AuthoringChromeA11yTests
         Assert.Contains("IsVisible=\"{Binding HasStepSettings}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("SelectedItem=\"{Binding MetricFunctionId}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("ItemsSource=\"{Binding MetricSettingRows}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Text=\"{Binding Value, Mode=OneWay}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("IsChecked=\"{Binding HistoryEnabled}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("OnMetricSettingLostFocus", xaml, StringComparison.Ordinal);
         Assert.Contains("IsVisible=\"{Binding HasRepeatEditor}\"", xaml, StringComparison.Ordinal);

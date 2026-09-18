@@ -48,6 +48,7 @@ public sealed class AuthoringMeasureInspectorTests
 
         vm.MetricFunctionId = AuthoringFunctionIds.BasicPublishBandScalar;
         vm.MetricFunctionId = AuthoringFunctionIds.BasicAcquireVoltage;
+        vm.MetricFunctionId = AuthoringFunctionIds.BasicApplyTransferFunction;
 
         Assert.Equal(AuthoringFunctionIds.BasicPublishBandScalar, vm.MetricFunctionId);
         var algorithm = Assert.IsType<AlgorithmSource>(vm.SelectedMetric!.Source);
@@ -72,12 +73,81 @@ public sealed class AuthoringMeasureInspectorTests
         vm.MetricFunctionId = AuthoringFunctionIds.BasicMeanGte;
         Assert.IsType<ExpressionAlgorithm>(vm.SelectedMetric!.Source);
 
+        vm.ApplyRecipe(AuthoringRecipeIds.TransferFunction);
+        var tf = vm.SequenceItems.Single(row =>
+            row.Kind == SequenceRowKind.Metric && row.Detail.Contains("VDC.filt", StringComparison.Ordinal));
+        vm.SelectSequence(vm.SequenceItems.ToList().IndexOf(tf));
+        Assert.True(vm.HasTransferFunction);
+        Assert.False(vm.HasStepSettings);
+        Assert.Empty(vm.MetricFunctionIdOptions);
+
         var identity = vm.SequenceItems.Single(row => row.Label == "Identity Check");
         vm.SelectSequence(vm.SequenceItems.ToList().IndexOf(identity));
         Assert.False(vm.HasStepSettings);
         Assert.False(vm.HasMetricPresentation);
         vm.HistoryEnabled = true;
         Assert.False(vm.HistoryEnabled);
+    }
+
+    [Fact]
+    public void Unknown_function_id_stays_in_options_and_unknown_set_is_ignored()
+    {
+        var vm = OpenEmpty();
+        vm.CreateProgram("unknown-function");
+        vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
+        SelectMetric(vm, "VDC");
+        var source = Assert.IsType<MeasureSource>(vm.SelectedMetric!.Source);
+        vm.ReplaceSelected(
+            vm.SelectedProgram! with
+            {
+                Measure = [new MetricNode(vm.SelectedMetric with { Source = source with { FunctionId = "Custom.Unknown" } })],
+            },
+            rebuildLists: false);
+        SelectMetric(vm, "VDC");
+        Assert.Equal("Custom.Unknown", vm.MetricFunctionId);
+        Assert.Equal("Custom.Unknown", vm.MetricFunctionIdOptions[0]);
+        vm.MetricFunctionId = "Also.Unknown";
+        Assert.Equal("Custom.Unknown", vm.MetricFunctionId);
+    }
+
+    [Fact]
+    public void History_defaults_to_mixin_enabled_and_empty_watch_does_not_disable()
+    {
+        var vm = OpenEmpty();
+        vm.CreateProgram("history-default");
+        vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
+        SelectMetric(vm, "VDC");
+        Assert.Null(vm.SelectedMetric!.History);
+        Assert.True(vm.HistoryEnabled);
+        vm.HistoryEnabled = true;
+        vm.HistoryWatchPercent = string.Empty;
+        vm.HistoryAlertPercent = string.Empty;
+        Assert.Null(vm.SelectedMetric.History);
+        vm.HistoryWatchPercent = "5";
+        Assert.Equal(new HistorySpec(true, 5, null), vm.SelectedMetric.History);
+        vm.HistoryEnabled = false;
+        Assert.Equal(new HistorySpec(false, 5, null), vm.SelectedMetric.History);
+    }
+
+    [Fact]
+    public void History_disabled_round_trips_through_save_plan()
+    {
+        var root = EmptyWorkspace();
+        var vm = new AuthoringWorkspaceViewModel();
+        vm.Open(root);
+        vm.CreateProgram("history-off");
+        vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
+        SelectMetric(vm, "VDC");
+        vm.HistoryEnabled = false;
+        Assert.Equal(new HistorySpec(false, null, null), vm.SelectedMetric!.History);
+        vm.Apply();
+
+        var reloaded = new AuthoringWorkspaceViewModel();
+        reloaded.Open(root);
+        reloaded.SelectProgram("history-off");
+        SelectMetric(reloaded, "VDC");
+        Assert.False(reloaded.HistoryEnabled);
+        Assert.Equal(new HistorySpec(false, null, null), reloaded.SelectedMetric!.History);
     }
 
     [Fact]
