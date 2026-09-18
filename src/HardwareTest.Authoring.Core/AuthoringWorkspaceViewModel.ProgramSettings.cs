@@ -384,7 +384,7 @@ public sealed partial class AuthoringWorkspaceViewModel
             var tail = SelectedProgram.Cleanup.InstrumentSlots
                 .Skip(1)
                 .Where(existing => !string.Equals(existing, slot, StringComparison.OrdinalIgnoreCase));
-            IReadOnlyList<string> slots = [slot, ..tail];
+            IReadOnlyList<string> slots = [slot, .. tail];
             var next = SelectedProgram.Cleanup with { InstrumentSlots = slots };
             AuthoringCleanup.SyncSidecar(SelectedProgram.Sidecar, next);
             ReplaceSelected(SelectedProgram with { Cleanup = next }, rebuildLists: false);
