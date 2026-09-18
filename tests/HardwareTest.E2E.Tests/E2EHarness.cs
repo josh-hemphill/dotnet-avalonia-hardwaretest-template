@@ -123,7 +123,7 @@ internal static class E2EHarness
             return;
         }
 
-        await Dispatcher.UIThread.InvokeAsync(Dispatcher.UIThread.RunJobs);
+        await Dispatcher.UIThread.InvokeAsync(() => Dispatcher.UIThread.RunJobs());
     }
 
     public static RunTestViewModel RunTestVm(MainWindowViewModel main)
