@@ -1626,16 +1626,11 @@ public sealed class FakeReportService : IReportService
             {
                 var existing = run.Reports.FirstOrDefault(r =>
                     string.Equals(r.Kind, k, StringComparison.OrdinalIgnoreCase));
-                var path = existing is not null && !string.IsNullOrWhiteSpace(existing.PdfPath)
-                    ? existing.PdfPath
-                    : string.Equals(k, ReportKinds.Status, StringComparison.OrdinalIgnoreCase)
-                        ? PdfPath
-                        : PdfPath + "." + k + ".pdf";
                 return new RunReportArtifact
                 {
                     Kind = k,
                     Title = string.IsNullOrWhiteSpace(existing?.Title) ? k : existing.Title,
-                    PdfPath = path,
+                    PdfPath = ResolveArtifactPath(existing, k),
                     GeneratedAt = DateTimeOffset.UtcNow,
                 };
             })
@@ -1653,6 +1648,18 @@ public sealed class FakeReportService : IReportService
                             ?? merged.FirstOrDefault()?.PdfPath
                             ?? PdfPath;
         return Task.FromResult((IReadOnlyList<RunReportArtifact>)artifacts);
+    }
+
+    private string ResolveArtifactPath(RunReportArtifact? existing, string kind)
+    {
+        if (existing is not null && !string.IsNullOrWhiteSpace(existing.PdfPath))
+        {
+            return existing.PdfPath;
+        }
+
+        return string.Equals(kind, ReportKinds.Status, StringComparison.OrdinalIgnoreCase)
+            ? PdfPath
+            : PdfPath + "." + kind + ".pdf";
     }
 
     public Task<string> GenerateSuitePdfAsync(SuiteRunRecord suiteRun, CancellationToken cancellationToken = default)
