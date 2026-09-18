@@ -42,7 +42,7 @@ public sealed class MeasurementPlotView : UserControl
     public event EventHandler<PlotCursorChangedEventArgs>? CursorChanged;
 
     /// Elapsed-seconds (or sample index) of the current readout line, if any.
-    internal double? CursorX => _cursorX;
+    public double? CursorX => _cursorX;
 
     /// Whether the next render auto-scales to the visible window.
     internal bool FollowLive => _followLive;
