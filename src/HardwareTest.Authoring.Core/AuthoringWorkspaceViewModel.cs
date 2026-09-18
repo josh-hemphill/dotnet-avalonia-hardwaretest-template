@@ -150,21 +150,6 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
         }
     }
 
-    public bool RequireSerial
-    {
-        get => SelectedProgram?.Sidecar.RequireSerial ?? false;
-        set
-        {
-            if (SelectedProgram is null || RequireSerial == value)
-            {
-                return;
-            }
-
-            SelectedProgram.Sidecar.RequireSerial = value;
-            OnPropertyChanged();
-        }
-    }
-
     public void Open(string root)
     {
         Error = null;
@@ -574,6 +559,8 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(RequirePartNumber));
         OnPropertyChanged(nameof(RequireRevision));
         OnPropertyChanged(nameof(RequireOperator));
+        OnPropertyChanged(nameof(RequiredFieldOptions));
+        OnPropertyChanged(nameof(RequiredFieldChoices));
         OnPropertyChanged(nameof(SelectionIncludesCleanup));
         OnPropertyChanged(nameof(ReportStatus));
         OnPropertyChanged(nameof(ReportCertification));

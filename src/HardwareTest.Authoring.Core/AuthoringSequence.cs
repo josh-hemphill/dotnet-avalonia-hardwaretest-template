@@ -49,7 +49,9 @@ public static class AuthoringChrome
     public const string ProgramSettingsPurpose =
         "Session, DUT, reports, and instrument slots for this program. They are not metrics.";
     public const string CatalogsPurpose =
-        "Report kinds, program kinds, and instrument slots come from this workspace and the open programs — not the in-repo demos. Add a token to use it on this program.";
+        "Report kinds, program kinds, required DUT fields, and instrument slots come from this workspace and the open programs — not the in-repo demos. Add a token to use it on this program.";
+    public const string RequiredFieldsPurpose =
+        "Require the operator session fields this program needs. serial, partNumber, revision, and operator map to the sidecar flags; add other ids for later operator surfaces.";
     public const string RecipeAddHint =
         "Add recipe appends a getting-started type. Other OpenTAP steps stay Raw after you edit the TapPlan in TUI.";
     public const string SettingsTitle = "Settings";

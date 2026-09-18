@@ -57,6 +57,16 @@ public static class AuthoringWorkspaceCatalog
                 ? []
                 : AuthoringRecipeCatalog.EnumerateMetrics(selected.Measure).Select(metric => metric.YUnit));
 
+    public static IReadOnlyList<string> RequiredFieldOptions(
+        AuthoringManifest? manifest,
+        IReadOnlyList<ProgramDraft> programs,
+        ProgramDraft? selected)
+        => Union(
+            RequiredFieldIds.Known,
+            manifest?.Catalogs?.RequiredFields,
+            programs.SelectMany(program => RequiredFieldIds.FromSidecar(program.Sidecar)),
+            selected is null ? [] : RequiredFieldIds.FromSidecar(selected.Sidecar));
+
     public static IReadOnlyList<string> Union(params IEnumerable<string?>?[] sources)
     {
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);

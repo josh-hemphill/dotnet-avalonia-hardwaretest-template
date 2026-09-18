@@ -22,6 +22,7 @@ internal static class PlanContractSidecar
         "requirePartNumber",
         "requireRevision",
         "requireOperator",
+        "requiredFields",
         "reportKinds",
         "defaultReportKind",
         "selectionIncludesCleanup",
@@ -114,8 +115,35 @@ internal static class PlanContractSidecar
         }
 
         AnalyzeReportKinds(parsed, planId, findings);
+        AnalyzeRequiredFields(parsed, planId, findings);
         AnalyzeStationHealth(parsed, planId, findings);
         return parsed;
+    }
+
+    private static void AnalyzeRequiredFields(ProgramSidecar parsed, string planId, List<PlanContractFinding> findings)
+    {
+        if (parsed.RequiredFields is null)
+        {
+            return;
+        }
+
+        foreach (var raw in parsed.RequiredFields)
+        {
+            if (string.IsNullOrWhiteSpace(raw))
+            {
+                findings.Add(Error(
+                    PlanContractValidator.Codes.SidecarRequiredFields,
+                    $"Sidecar {planId}.program.json requiredFields must not contain empty ids."));
+                continue;
+            }
+
+            if (!RequiredFieldIds.IsKnown(raw))
+            {
+                findings.Add(Warning(
+                    PlanContractValidator.Codes.SidecarRequiredFields,
+                    $"Sidecar {planId}.program.json requiredFields contains '{raw.Trim()}'. Operator session currently enforces serial, partNumber, revision, and operator."));
+            }
+        }
     }
 
     private static void AnalyzeMembers(JsonElement root, string planId, List<PlanContractFinding> findings)

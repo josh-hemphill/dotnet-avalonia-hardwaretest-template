@@ -19,7 +19,8 @@ internal static class PlanContractPlanChecks
 
     private static void AnalyzeIdentity(TestPlan plan, ProgramSidecar? sidecar, List<PlanContractFinding> findings)
     {
-        if (sidecar?.RequireSerial is not true)
+        if (sidecar is null
+            || !RequiredFieldIds.Contains(RequiredFieldIds.FromSidecar(sidecar), RequiredFieldIds.Serial))
         {
             return;
         }
@@ -30,7 +31,7 @@ internal static class PlanContractPlanChecks
             findings.Add(new PlanContractFinding(
                 PlanContractSeverity.Error,
                 PlanContractValidator.Codes.MissingIdentity,
-                "Sidecar requireSerial is true but the plan has no Identity Query / IdentityCheckStep."));
+                "Sidecar requires serial (requireSerial or requiredFields) but the plan has no Identity Query / IdentityCheckStep."));
             return;
         }
 

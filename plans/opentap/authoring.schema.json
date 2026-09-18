@@ -73,7 +73,7 @@
     "catalogs": {
       "type": "object",
       "additionalProperties": false,
-      "description": "Suggested report kinds, program kinds, and instrument slot names for this workspace. Not a closed demo-program list.",
+      "description": "Suggested report kinds, program kinds, required DUT field ids, and instrument slot names for this workspace. Not a closed demo-program list.",
       "properties": {
         "reportKinds": {
           "type": "array",
@@ -84,6 +84,10 @@
           "items": { "type": "string", "minLength": 1 }
         },
         "instrumentSlotNames": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "requiredFields": {
           "type": "array",
           "items": { "type": "string", "minLength": 1 }
         }

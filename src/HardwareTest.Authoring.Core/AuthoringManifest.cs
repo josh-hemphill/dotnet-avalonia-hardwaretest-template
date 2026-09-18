@@ -39,7 +39,7 @@ public sealed class AuthoringManifest
     /// Optional operator run.json goldens. Default recordings/. Folder need not exist.
     public string RecordingsDirectory { get; set; } = "recordings";
 
-    /// Suggested report kinds, program kinds, and slot names for this workspace.
+    /// Suggested report kinds, program kinds, required DUT fields, and slot names for this workspace.
     public AuthoringWorkspaceCatalogs? Catalogs { get; set; }
 }
 
@@ -51,6 +51,8 @@ public sealed class AuthoringWorkspaceCatalogs
     public List<string> ProgramKinds { get; set; } = [];
 
     public List<string> InstrumentSlotNames { get; set; } = [];
+
+    public List<string> RequiredFields { get; set; } = [];
 }
 
 public sealed class AuthoringPackageSpec

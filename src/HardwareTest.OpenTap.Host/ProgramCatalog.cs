@@ -48,6 +48,7 @@ public sealed class ProgramSidecar
     public bool? RequirePartNumber { get; set; }
     public bool? RequireRevision { get; set; }
     public bool? RequireOperator { get; set; }
+    public string[]? RequiredFields { get; set; }
     public string[]? ReportKinds { get; set; }
     public string? DefaultReportKind { get; set; }
     /// When false, Run Selected excludes SafeShutdownStep (suite-scoped cleanup only). Default true.
@@ -344,6 +345,18 @@ public static class ProgramCatalog
         if (sidecar.RequireSerial is null && ProgramKinds.IsStationHealth(sidecar.ProgramKind))
         {
             requireSerial = false;
+        }
+
+        if (sidecar.RequiredFields is not null)
+        {
+            var fields = RequiredFieldIds.FromSidecar(sidecar);
+            return new ProgramRequirements
+            {
+                RequireSerial = RequiredFieldIds.Contains(fields, RequiredFieldIds.Serial),
+                RequirePartNumber = RequiredFieldIds.Contains(fields, RequiredFieldIds.PartNumber),
+                RequireRevision = RequiredFieldIds.Contains(fields, RequiredFieldIds.Revision),
+                RequireOperator = RequiredFieldIds.Contains(fields, RequiredFieldIds.Operator),
+            };
         }
 
         return new ProgramRequirements

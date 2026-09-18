@@ -74,6 +74,7 @@ public static class PlanContractValidator
         public const string SidecarProgramKind = "SIDECAR_PROGRAM_KIND";
         public const string SidecarStationHealthGate = "SIDECAR_STATION_HEALTH_GATE";
         public const string SidecarStationHealthRequire = "SIDECAR_STATION_HEALTH_REQUIRE";
+        public const string SidecarRequiredFields = "SIDECAR_REQUIRED_FIELDS";
     }
 
     public static PlanContractBatchReport Validate(
