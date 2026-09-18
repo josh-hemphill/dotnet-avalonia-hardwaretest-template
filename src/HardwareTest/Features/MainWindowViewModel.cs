@@ -1,5 +1,6 @@
 using System;
 using System.Collections.ObjectModel;
+using System.Threading.Tasks;
 using Avalonia.Automation;
 using FluentAvalonia.UI.Controls;
 using HardwareTest.Core.Engine;
@@ -101,6 +102,8 @@ public partial class MainWindowViewModel : ReactiveObject
         instruments.NavigateToRunRequested += (_, _) => NavigateToPageId(ShellNavigationPolicy.RunTest);
         reportPreview.NavigateToResultsRequested += (_, _) => NavigateToPageId(ShellNavigationPolicy.Results);
         results.ReportOpened += OnReportOpened;
+        reportPreview.CertificationRequiredForPrint += OnCertificationRequiredForPrint;
+        results.CertifiedPrintReady += OnCertifiedPrintReady;
 
         runControl.PropertyChanged += (_, e) =>
         {
@@ -423,6 +426,24 @@ public partial class MainWindowViewModel : ReactiveObject
     {
         NavigateToPageId(ShellNavigationPolicy.ReportPreview);
         _ = ReportPreview.LoadFromPathAsync(path);
+    }
+
+    private void OnCertificationRequiredForPrint(object? sender, string path)
+    {
+        NavigateToPageId(ShellNavigationPolicy.Results);
+        _ = Results.RequestCertifiedPrintAsync(path);
+    }
+
+    private void OnCertifiedPrintReady(object? sender, string path)
+    {
+        NavigateToPageId(ShellNavigationPolicy.ReportPreview);
+        _ = PrintCertifiedAsync(path);
+    }
+
+    private async Task PrintCertifiedAsync(string path)
+    {
+        await ReportPreview.LoadFromPathAsync(path).ConfigureAwait(true);
+        ReportPreview.PrintToSystem();
     }
 
     private void RaiseTransportProps()

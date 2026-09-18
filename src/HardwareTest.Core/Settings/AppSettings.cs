@@ -78,7 +78,8 @@ public sealed class AppSettings
     public bool UseMockOperatorCredential { get; set; } = true;
     /// When true, confirming a session that requires an operator also requires a chip or tap.
     public bool RequireCredentialForOperator { get; set; }
-    /// When true, exporting or opening a certification PDF requires a badge attestation.
+    /// When true, exporting or printing a certification PDF requires a badge attestation.
+    /// Opening and previewing the unsigned report stay available so the operator can review first.
     public bool RequireAttestationBeforeExport { get; set; }
     /// When true, a presence stamp is accepted only as a site-policy fallback if on-card signing cannot be used.
     public bool AllowPresenceInLieuOfSigning { get; set; } = true;

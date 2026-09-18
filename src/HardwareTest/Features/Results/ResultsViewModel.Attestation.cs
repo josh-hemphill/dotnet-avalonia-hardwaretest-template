@@ -9,13 +9,11 @@ namespace HardwareTest.Features.Results;
 public partial class ResultsViewModel
 {
     private const string PendingExport = "export";
-    private const string PendingOpenDefault = "open-default";
-    private const string PendingOpenItem = "open-item";
-    private const string PendingReprintOpen = "reprint";
+    private const string PendingPrint = "print";
 
     private string? _pendingAttestationAction;
     private string? _pendingAttestationKind;
-    private RunReportItemViewModel? _pendingReportItem;
+    private string? _pendingPrintPath;
     private OperatorCredential? _capturedAttestationCredential;
 
     [Reactive] private bool _showAttestationPrompt;
@@ -29,8 +27,7 @@ public partial class ResultsViewModel
     private bool TryBeginCertifiedAction(
         TestRunRecord run,
         string reportKind,
-        string pendingAction,
-        RunReportItemViewModel? item = null)
+        string pendingAction)
     {
         if (_attestation is null || !_attestation.NeedsAttestation(run, reportKind))
         {
@@ -44,7 +41,6 @@ public partial class ResultsViewModel
 
         _pendingAttestationAction = pendingAction;
         _pendingAttestationKind = reportKind;
-        _pendingReportItem = item;
         _capturedAttestationCredential = null;
         ShowAttestationPin = false;
         AttestationPin = string.Empty;
@@ -66,7 +62,7 @@ public partial class ResultsViewModel
         _capturedAttestationCredential = null;
         _pendingAttestationAction = null;
         _pendingAttestationKind = null;
-        _pendingReportItem = null;
+        _pendingPrintPath = null;
         AttestationPromptStatus = string.Empty;
     }
 
@@ -84,7 +80,7 @@ public partial class ResultsViewModel
 
         var kind = _pendingAttestationKind ?? ReportKinds.Certification;
         var pending = _pendingAttestationAction;
-        var item = _pendingReportItem;
+        var printPath = _pendingPrintPath;
         var pin = ShowAttestationPin ? AttestationPin : null;
         IsCapturingAttestation = true;
         if (skipSigning)
@@ -123,7 +119,7 @@ public partial class ResultsViewModel
 
             Status = result.Message;
             DismissAttestationPrompt();
-            await ContinuePendingActionAsync(pending, item).ConfigureAwait(true);
+            ContinuePendingAction(pending, printPath);
         }
         catch (OperationCanceledException)
         {
@@ -136,7 +132,7 @@ public partial class ResultsViewModel
         }
     }
 
-    private async Task ContinuePendingActionAsync(string? pending, RunReportItemViewModel? item)
+    private void ContinuePendingAction(string? pending, string? printPath)
     {
         if (string.Equals(pending, PendingExport, StringComparison.Ordinal))
         {
@@ -144,25 +140,89 @@ public partial class ResultsViewModel
             return;
         }
 
-        if (string.Equals(pending, PendingOpenDefault, StringComparison.Ordinal))
+        if (string.Equals(pending, PendingPrint, StringComparison.Ordinal)
+            && !string.IsNullOrWhiteSpace(printPath)
+            && File.Exists(printPath))
         {
-            await OpenDefaultReportAsync().ConfigureAwait(true);
+            CertifiedPrintReady?.Invoke(this, printPath);
+        }
+    }
+
+    /// Shows the badge overlay for a certification PDF print. Preview itself is not gated.
+    public async Task RequestCertifiedPrintAsync(string pdfPath)
+    {
+        if (string.IsNullOrWhiteSpace(pdfPath) || !File.Exists(pdfPath))
+        {
+            Status = "Report PDF not found.";
             return;
         }
 
-        if (string.Equals(pending, PendingOpenItem, StringComparison.Ordinal) && item is not null)
+        var run = OpenedRun;
+        if (run is null || !RunOwnsPdf(run, pdfPath))
         {
-            await OpenReportAsync(item).ConfigureAwait(true);
+            run = await LoadRunForPdfAsync(pdfPath).ConfigureAwait(true);
+        }
+
+        if (run is null)
+        {
+            Status = "Open a run first.";
             return;
         }
 
-        if (string.Equals(pending, PendingReprintOpen, StringComparison.Ordinal) && OpenedRun is not null)
+        OpenedRun = run;
+        LoadReportItems(run);
+        _pendingPrintPath = pdfPath;
+        var kind = KindForPdf(run, pdfPath);
+        if (TryBeginCertifiedAction(run, kind, PendingPrint))
         {
-            var path = ResolveDefaultReportPath(OpenedRun);
-            if (path is not null && File.Exists(path))
+            CertifiedPrintReady?.Invoke(this, pdfPath);
+        }
+    }
+
+    private async Task<TestRunRecord?> LoadRunForPdfAsync(string pdfPath)
+    {
+        var runId = Path.GetFileName(Path.GetDirectoryName(Path.GetFullPath(pdfPath)));
+        if (!string.IsNullOrWhiteSpace(runId))
+        {
+            var byFolder = await _runStore.LoadAsync(runId).ConfigureAwait(true);
+            if (byFolder is not null && RunOwnsPdf(byFolder, pdfPath))
             {
-                ReportOpened?.Invoke(this, path);
+                return byFolder;
             }
         }
+
+        foreach (var summary in await _runStore.ListAsync().ConfigureAwait(true))
+        {
+            var loaded = await _runStore.LoadAsync(summary.RunId).ConfigureAwait(true);
+            if (loaded is not null && RunOwnsPdf(loaded, pdfPath))
+            {
+                return loaded;
+            }
+        }
+
+        return null;
+    }
+
+    private static bool RunOwnsPdf(TestRunRecord run, string pdfPath)
+    {
+        if (string.Equals(run.ReportPdfPath, pdfPath, StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return run.Reports.Any(r => string.Equals(r.PdfPath, pdfPath, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static string KindForPdf(TestRunRecord run, string pdfPath)
+    {
+        var match = run.Reports.FirstOrDefault(r =>
+            string.Equals(r.PdfPath, pdfPath, StringComparison.OrdinalIgnoreCase));
+        if (match is not null && !string.IsNullOrWhiteSpace(match.Kind))
+        {
+            return match.Kind;
+        }
+
+        var name = Path.GetFileNameWithoutExtension(pdfPath);
+        return string.IsNullOrWhiteSpace(name) ? ReportKinds.Certification : name;
     }
 }

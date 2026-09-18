@@ -162,10 +162,10 @@
                   IsChecked="{Binding RequireCredentialForOperator}"
                   IsEnabled="{Binding !RequireCredentialForOperatorReadOnly}"
                   ToolTip.Tip="Session confirm still needs DUT identity. This only requires a chip or tap when the program requires a technician." />
-        <CheckBox Content="Require attestation before certification export"
+        <CheckBox Content="Require attestation before certification export or print"
                   IsChecked="{Binding RequireAttestationBeforeExport}"
                   IsEnabled="{Binding !RequireAttestationBeforeExportReadOnly}"
-                  ToolTip.Tip="Gates opening, reprinting, or exporting a certification PDF until a badge is presented." />
+                  ToolTip.Tip="Gates exporting or printing a certification PDF until a badge is presented. Opening and preview stay available so the operator can review before signing." />
         <CheckBox Content="Allow presence when signing cannot be used"
                   IsChecked="{Binding AllowPresenceInLieuOfSigning}"
                   IsEnabled="{Binding !AllowPresenceInLieuOfSigningReadOnly}"

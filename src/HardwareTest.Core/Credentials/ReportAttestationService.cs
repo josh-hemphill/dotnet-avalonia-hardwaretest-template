@@ -15,7 +15,7 @@ public interface IReportAttestationService
 {
     TimeSpan PresenceTimeout { get; }
 
-    /// True when site policy requires a credential before exporting or opening this kind.
+    /// True when site policy requires a credential before exporting or printing this kind.
     bool NeedsAttestation(TestRunRecord run, string reportKind);
 
     bool HasValidAttestation(TestRunRecord run, string reportKind);
