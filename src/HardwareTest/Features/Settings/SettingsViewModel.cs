@@ -205,7 +205,8 @@ public partial class SettingsViewModel : ReactiveObject
                 or nameof(UseMockOperatorCredentialReadOnly)
                 or nameof(RequireCredentialForOperatorReadOnly)
                 or nameof(RequireAttestationBeforeExportReadOnly)
-                or nameof(AllowPresenceInLieuOfSigningReadOnly))
+                or nameof(AllowPresenceInLieuOfSigningReadOnly)
+                or nameof(ProbeBadgeWhenTechnicianFocusedReadOnly))
             {
                 return;
             }

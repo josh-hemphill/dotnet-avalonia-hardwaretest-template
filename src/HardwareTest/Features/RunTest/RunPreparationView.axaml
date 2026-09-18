@@ -32,6 +32,7 @@
                      MinHeight="{x:Static shell:OperatorTouchDensity.OperatorControlMinHeight}"
                      IsVisible="{Binding SessionPanel.ShowStaleTechnicianField}"
                      AutomationProperties.Name="Technician"
+                     GotFocus="OnTechnicianGotFocus"
                      KeyDown="OnStaleTechnicianKeyDown" />
           <Button Content="Tap or insert"
                   Command="{Binding SessionPanel.CaptureCredentialCommand}"
@@ -83,6 +84,7 @@
                      Classes.error="{Binding SessionPanel.HasOperatorError}"
                      MinHeight="{x:Static shell:OperatorTouchDensity.OperatorControlMinHeight}"
                      AutomationProperties.Name="Technician"
+                     GotFocus="OnTechnicianGotFocus"
                      KeyDown="OnSessionFieldKeyDown" />
             <TextBlock Text="{Binding SessionPanel.OperatorError}"
                        IsVisible="{Binding SessionPanel.HasOperatorError}"

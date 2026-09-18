@@ -237,6 +237,7 @@ public partial class SettingsViewModel
             nameof(RequireCredentialForOperator) => RequireCredentialForOperatorReadOnly,
             nameof(RequireAttestationBeforeExport) => RequireAttestationBeforeExportReadOnly,
             nameof(AllowPresenceInLieuOfSigning) => AllowPresenceInLieuOfSigningReadOnly,
+            nameof(ProbeBadgeWhenTechnicianFocused) => ProbeBadgeWhenTechnicianFocusedReadOnly,
             _ => false,
         };
 

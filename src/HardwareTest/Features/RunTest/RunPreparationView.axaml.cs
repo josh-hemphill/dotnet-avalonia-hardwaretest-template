@@ -71,4 +71,7 @@ public partial class RunPreparationView : UserControl
         ((ICommand)_subscribed.SessionPanel.ConfirmSameDutCommand).Execute(null);
         e.Handled = true;
     }
+
+    private void OnTechnicianGotFocus(object? sender, GotFocusEventArgs e)
+        => _subscribed?.SessionPanel.OnTechnicianFocused();
 }

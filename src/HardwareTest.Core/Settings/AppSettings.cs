@@ -82,6 +82,8 @@ public sealed class AppSettings
     public bool RequireAttestationBeforeExport { get; set; }
     /// When true, a presence stamp is accepted only as a site-policy fallback if on-card signing cannot be used.
     public bool AllowPresenceInLieuOfSigning { get; set; } = true;
+    /// When true, focusing an empty technician field starts waiting for a chip insert or tap.
+    public bool ProbeBadgeWhenTechnicianFocused { get; set; }
 
     public const int DefaultOpenTapWorkerKillTimeoutMilliseconds = 8000;
     public const int MinOpenTapWorkerKillTimeoutMilliseconds = 1000;

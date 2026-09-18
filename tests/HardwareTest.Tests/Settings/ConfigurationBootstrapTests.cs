@@ -181,6 +181,26 @@ public sealed class ConfigurationBootstrapTests
     }
 
     [Fact]
+    public async Task Probe_badge_when_technician_focused_defaults_off_and_cli_enables()
+    {
+        using var temp = new TempDataDirectory();
+        var defaults = await ConfigurationBootstrap.ResolveAsync(
+            ConfigurationArgs.Parse([]),
+            environment: null,
+            defaultRoot: temp.Path);
+        Assert.False(defaults.Store.AppSettings.ProbeBadgeWhenTechnicianFocused);
+
+        var enabled = await ConfigurationBootstrap.ResolveAsync(
+            ConfigurationArgs.Parse(["--probe-badge-when-technician-focused"]),
+            environment: null,
+            defaultRoot: temp.Path);
+        Assert.True(enabled.Store.AppSettings.ProbeBadgeWhenTechnicianFocused);
+        Assert.Equal(
+            SettingSource.CommandLine,
+            enabled.Store.Provenance.Single(p => p.Key == "ProbeBadgeWhenTechnicianFocused").Source);
+    }
+
+    [Fact]
     public async Task Env_override_is_not_persisted_on_save()
     {
         using var temp = new TempDataDirectory();
