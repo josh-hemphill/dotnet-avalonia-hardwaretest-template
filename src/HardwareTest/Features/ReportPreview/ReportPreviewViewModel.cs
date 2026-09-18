@@ -4,6 +4,7 @@ using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 using System.Threading.Tasks;
 using Avalonia.Media.Imaging;
+using HardwareTest.Core.Credentials;
 using HardwareTest.Core.Reporting;
 using HardwareTest.Core.Runs;
 using HardwareTest.OpenTap.Host;
@@ -21,6 +22,7 @@ public partial class ReportPreviewViewModel : ReactiveObject
     private readonly IRunStore _runStore;
     private readonly IReportService _reportService;
     private readonly OperatorSession? _operatorSession;
+    private readonly IReportAttestationService? _attestation;
 
     /// Test seam: routes UI work synchronously instead of through the Avalonia dispatcher.
     public Action<Action>? UiScheduler { get; set; }
@@ -28,16 +30,18 @@ public partial class ReportPreviewViewModel : ReactiveObject
     public ReportPreviewViewModel(
         IRunStore runStore,
         IReportService reportService,
-        OperatorSession? operatorSession = null)
+        OperatorSession? operatorSession = null,
+        IReportAttestationService? attestation = null)
     {
         _runStore = runStore;
         _reportService = reportService;
         _operatorSession = operatorSession;
+        _attestation = attestation;
         Pages = [];
         Status = "Select a run PDF to preview.";
 
         LoadLatestCommand = ReactiveCommand.CreateFromTask(LoadLatestAsync);
-        PrintCommand = ReactiveCommand.Create(Print);
+        PrintCommand = ReactiveCommand.CreateFromTask(PrintAsync);
         NavigateToResultsCommand = ReactiveCommand.Create(
             () => NavigateToResultsRequested?.Invoke(this, EventArgs.Empty));
     }
@@ -49,6 +53,9 @@ public partial class ReportPreviewViewModel : ReactiveObject
 
     /// Raised when the operator wants to open Results to pick a PDF.
     public event EventHandler? NavigateToResultsRequested;
+
+    /// Raised when Print needs a badge signature before sending the PDF to the printer.
+    public event EventHandler<string>? CertificationRequiredForPrint;
 
     [Reactive] private string? _pdfPath;
     [Reactive] private string _status = string.Empty;
@@ -144,7 +151,26 @@ public partial class ReportPreviewViewModel : ReactiveObject
         await LoadFromPathAsync(path).ConfigureAwait(false);
     }
 
-    private void Print()
+    private async Task PrintAsync()
+    {
+        if (string.IsNullOrWhiteSpace(PdfPath) || !File.Exists(PdfPath))
+        {
+            Status = "No PDF to print.";
+            return;
+        }
+
+        if (await NeedsCertificationBeforePrintAsync(PdfPath).ConfigureAwait(true))
+        {
+            Status = "Certify this report before printing.";
+            CertificationRequiredForPrint?.Invoke(this, PdfPath);
+            return;
+        }
+
+        PrintToSystem();
+    }
+
+    /// Sends the current PDF to the OS print handler (call after a successful certification).
+    public void PrintToSystem()
     {
         if (string.IsNullOrWhiteSpace(PdfPath) || !File.Exists(PdfPath))
         {
@@ -174,6 +200,59 @@ public partial class ReportPreviewViewModel : ReactiveObject
         {
             Status = $"Print failed: {ex.Message}";
         }
+    }
+
+    private async Task<bool> NeedsCertificationBeforePrintAsync(string path)
+    {
+        if (_attestation is null)
+        {
+            return false;
+        }
+
+        var run = await FindRunForPdfAsync(path).ConfigureAwait(true);
+        if (run is null)
+        {
+            return false;
+        }
+
+        var kind = run.Reports.FirstOrDefault(r =>
+                       string.Equals(r.PdfPath, path, StringComparison.OrdinalIgnoreCase))
+                   ?.Kind
+                   ?? Path.GetFileNameWithoutExtension(path);
+        if (string.IsNullOrWhiteSpace(kind))
+        {
+            kind = ReportKinds.Certification;
+        }
+
+        return _attestation.NeedsAttestation(run, kind) && !_attestation.HasValidAttestation(run, kind);
+    }
+
+    private async Task<TestRunRecord?> FindRunForPdfAsync(string pdfPath)
+    {
+        var runId = Path.GetFileName(Path.GetDirectoryName(Path.GetFullPath(pdfPath)));
+        if (!string.IsNullOrWhiteSpace(runId))
+        {
+            var byFolder = await _runStore.LoadAsync(runId).ConfigureAwait(true);
+            if (byFolder is not null
+                && (string.Equals(byFolder.ReportPdfPath, pdfPath, StringComparison.OrdinalIgnoreCase)
+                    || byFolder.Reports.Any(r => string.Equals(r.PdfPath, pdfPath, StringComparison.OrdinalIgnoreCase))))
+            {
+                return byFolder;
+            }
+        }
+
+        foreach (var summary in await _runStore.ListAsync().ConfigureAwait(true))
+        {
+            var loaded = await _runStore.LoadAsync(summary.RunId).ConfigureAwait(true);
+            if (loaded is not null
+                && (string.Equals(loaded.ReportPdfPath, pdfPath, StringComparison.OrdinalIgnoreCase)
+                    || loaded.Reports.Any(r => string.Equals(r.PdfPath, pdfPath, StringComparison.OrdinalIgnoreCase))))
+            {
+                return loaded;
+            }
+        }
+
+        return null;
     }
 
     [SupportedOSPlatform("windows")]

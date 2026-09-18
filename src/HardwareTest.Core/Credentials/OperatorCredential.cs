@@ -24,6 +24,16 @@ public static class AttestationAlgorithm
     public const string PivEcdsaSha384 = "ECDSA-SHA384";
 }
 
+/// How the signature is bound to the report PDF.
+public static class AttestationSignatureFormat
+{
+    /// ISO 32000 incremental PAdES-B-B (`adbe.pkcs7.detached` CMS in the PDF).
+    public const string PadesBasic = "PAdES-B-B";
+
+    /// Detached sidecar over SHA-256(PDF) (mock HMAC / legacy).
+    public const string DetachedSidecar = "detached-sidecar";
+}
+
 /// Identity read from a smart card chip or contactless tap.
 public sealed class OperatorCredential
 {
@@ -48,6 +58,8 @@ public sealed class ReportAttestation
     public string RunJsonSha256 { get; set; } = string.Empty;
     public string? SidecarPath { get; set; }
     public string? Algorithm { get; set; }
+    public string? SignatureFormat { get; set; }
+    public bool EmbeddedInPdf { get; set; }
     public DateTimeOffset CapturedAt { get; set; }
 }
 

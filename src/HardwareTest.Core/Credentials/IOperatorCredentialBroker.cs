@@ -12,6 +12,9 @@ public interface IOperatorCredentialBroker
     /// Algorithm id written on signed sidecars when the broker uses a fixed algorithm.
     string? SigningAlgorithm { get; }
 
+    /// True when TrySignDocumentAsync returns a CMS/PKCS#7 (PAdES) rather than a raw payload MAC.
+    bool ProducesCms => false;
+
     /// Operator-facing reader status (no reader, waiting, mock, …).
     string StatusText { get; }
 
@@ -26,4 +29,13 @@ public interface IOperatorCredentialBroker
         OperatorCredential credential,
         string? pin = null,
         CancellationToken cancellationToken = default);
+
+    /// CMS/PKCS#7 detached signature over document bytes (PAdES ByteRange). PIN is not stored.
+    Task<CredentialSignResult> TrySignDocumentAsync(
+        byte[] document,
+        OperatorCredential credential,
+        string? pin = null,
+        DateTimeOffset? signingTime = null,
+        CancellationToken cancellationToken = default)
+        => TrySignPayloadAsync(document, credential, pin, cancellationToken);
 }

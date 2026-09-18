@@ -310,6 +310,63 @@ public sealed class ResultsViewModelTests
     }
 
     [Fact]
+    public async Task Open_certification_does_not_require_attestation()
+    {
+        var store = new FakeRunStore();
+        var pdf = Path.Combine(store.GetRunDirectory("cert-view"), "certification.pdf");
+        Directory.CreateDirectory(Path.GetDirectoryName(pdf)!);
+        await File.WriteAllBytesAsync(pdf, "%PDF-1.4"u8.ToArray());
+        var run = new TestRunRecord
+        {
+            RunId = "cert-view",
+            PlanId = "sample",
+            PlanName = "Sample",
+            StartedAt = DateTimeOffset.UtcNow,
+            Result = RunResult.Passed,
+            Reports =
+            [
+                new RunReportArtifact
+                {
+                    Kind = ReportKinds.Certification,
+                    Title = "Certification Report",
+                    PdfPath = pdf,
+                    GeneratedAt = DateTimeOffset.UtcNow,
+                },
+            ],
+        };
+        store.Seed(run);
+        var settings = new AppSettings
+        {
+            RequireAttestationBeforeExport = true,
+            AllowPresenceInLieuOfSigning = true,
+        };
+        var vm = new ResultsViewModel(
+            store,
+            new FakeReportService(),
+            attestation: new ReportAttestationService(
+                new MockOperatorCredentialBroker(canSign: false),
+                store,
+                settings),
+            settings: settings);
+        await vm.RefreshCommand.ExecuteAsync();
+        vm.SelectedRun = vm.Runs[0];
+        await vm.OpenCommand.ExecuteAsync();
+
+        string? opened = null;
+        vm.ReportOpened += (_, path) => opened = path;
+        vm.OpenReportCommand.Execute(vm.ReportItems[0]).Subscribe();
+        Assert.False(vm.ShowAttestationPrompt);
+        Assert.Equal(pdf, opened);
+        Assert.Empty(run.Attestations);
+
+        opened = null;
+        await vm.OpenDefaultReportCommand.ExecuteAsync();
+        Assert.False(vm.ShowAttestationPrompt);
+        Assert.Equal(pdf, opened);
+        Assert.Empty(run.Attestations);
+    }
+
+    [Fact]
     public async Task Open_run_with_attestation_shows_certifier_summary()
     {
         var store = new FakeRunStore();
@@ -455,8 +512,12 @@ public sealed class ResultsViewModelTests
         string? opened = null;
         vm.ReportOpened += (_, path) => opened = path;
         vm.OpenReportCommand.Execute(vm.ReportItems[0]).Subscribe();
+        Assert.False(vm.ShowAttestationPrompt);
+        Assert.Equal(pdf, opened);
+
+        await vm.ExportPackageCommand.ExecuteAsync();
         Assert.True(vm.ShowAttestationPrompt);
-        Assert.Null(opened);
+        Assert.Null(export.LastPackageDir);
 
         await vm.CaptureAttestationCommand.ExecuteAsync();
         Assert.False(vm.ShowAttestationPrompt);
@@ -512,7 +573,7 @@ public sealed class ResultsViewModelTests
         await vm.RefreshCommand.ExecuteAsync();
         vm.SelectedRun = vm.Runs[0];
         await vm.OpenCommand.ExecuteAsync();
-        vm.OpenReportCommand.Execute(vm.ReportItems[0]).Subscribe();
+        await vm.ExportPackageCommand.ExecuteAsync();
         await vm.CaptureAttestationCommand.ExecuteAsync();
         Assert.False(vm.ShowAttestationPrompt);
         Assert.False(vm.ShowAttestationPin);
@@ -563,7 +624,7 @@ public sealed class ResultsViewModelTests
         await vm.RefreshCommand.ExecuteAsync();
         vm.SelectedRun = vm.Runs[0];
         await vm.OpenCommand.ExecuteAsync();
-        vm.OpenReportCommand.Execute(vm.ReportItems[0]).Subscribe();
+        await vm.ExportPackageCommand.ExecuteAsync();
         await vm.CaptureAttestationCommand.ExecuteAsync();
         Assert.True(vm.ShowAttestationPrompt);
         Assert.True(vm.ShowAttestationPin);
@@ -579,6 +640,65 @@ public sealed class ResultsViewModelTests
         Assert.Equal(string.Empty, vm.AttestationPin);
         Assert.True(vm.HasAttestation);
         Assert.NotEqual(original, await File.ReadAllBytesAsync(pdf));
+    }
+
+    [Fact]
+    public async Task Print_certification_shows_attestation_overlay_until_badge()
+    {
+        var store = new FakeRunStore();
+        var pdf = Path.Combine(store.GetRunDirectory("cert-print"), "certification.pdf");
+        Directory.CreateDirectory(Path.GetDirectoryName(pdf)!);
+        await File.WriteAllBytesAsync(pdf, "%PDF-1.4"u8.ToArray());
+        var run = new TestRunRecord
+        {
+            RunId = "cert-print",
+            PlanName = "Sample",
+            StartedAt = DateTimeOffset.UtcNow,
+            Result = RunResult.Passed,
+            Reports =
+            [
+                new RunReportArtifact
+                {
+                    Kind = ReportKinds.Certification,
+                    Title = "Certification Report",
+                    PdfPath = pdf,
+                    GeneratedAt = DateTimeOffset.UtcNow,
+                },
+            ],
+        };
+        store.Seed(run);
+        var settings = new AppSettings
+        {
+            RequireAttestationBeforeExport = true,
+            AllowPresenceInLieuOfSigning = true,
+        };
+        var vm = new ResultsViewModel(
+            store,
+            new FakeReportService(),
+            attestation: new ReportAttestationService(
+                new MockOperatorCredentialBroker(canSign: false),
+                store,
+                settings),
+            settings: settings);
+        await vm.RefreshCommand.ExecuteAsync();
+        vm.SelectedRun = vm.Runs[0];
+        await vm.OpenCommand.ExecuteAsync();
+
+        string? printReady = null;
+        vm.CertifiedPrintReady += (_, path) => printReady = path;
+        await vm.RequestCertifiedPrintAsync(pdf);
+        Assert.True(vm.ShowAttestationPrompt);
+        Assert.Null(printReady);
+
+        await vm.CaptureAttestationCommand.ExecuteAsync();
+        Assert.False(vm.ShowAttestationPrompt);
+        Assert.Equal(pdf, printReady);
+        Assert.Equal(AttestationKind.Presence, run.Attestations[0].Kind);
+
+        printReady = null;
+        await vm.RequestCertifiedPrintAsync(pdf);
+        Assert.False(vm.ShowAttestationPrompt);
+        Assert.Equal(pdf, printReady);
     }
 
     [Fact]

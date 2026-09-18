@@ -74,6 +74,8 @@ public sealed class ReportAttestationServiceTests
         Assert.True(result.Succeeded);
         Assert.Equal(AttestationKind.Signed, result.Attestation!.Kind);
         Assert.Equal(AttestationAlgorithm.MockHmac, result.Attestation.Algorithm);
+        Assert.False(result.Attestation.EmbeddedInPdf);
+        Assert.Equal(AttestationSignatureFormat.DetachedSidecar, result.Attestation.SignatureFormat);
         Assert.True(service.HasValidAttestation(run, ReportKinds.Certification));
         Assert.True(File.Exists(result.Attestation.SidecarPath));
         Assert.Equal(MockOperatorCredentialBroker.MockDisplayName, run.OperatorName);
@@ -274,17 +276,45 @@ public sealed class ReportAttestationServiceTests
         Assert.True(signed.Succeeded);
         Assert.Equal(AttestationKind.Signed, signed.Attestation!.Kind);
         Assert.Equal(AttestationAlgorithm.PivRsaPkcs1Sha256, signed.Attestation.Algorithm);
+        Assert.True(signed.Attestation.EmbeddedInPdf);
+        Assert.Equal(AttestationSignatureFormat.PadesBasic, signed.Attestation.SignatureFormat);
         Assert.True(service.HasValidAttestation(run, ReportKinds.Certification));
         Assert.Equal(1, reports.GenerateCount);
         var stamped = await File.ReadAllBytesAsync(run.Reports.Single(r => r.Kind == ReportKinds.Certification).PdfPath);
         Assert.NotEqual(originalCertBytes, stamped);
         Assert.Contains(MockOperatorCredentialBroker.MockDisplayName, Encoding.UTF8.GetString(stamped), StringComparison.Ordinal);
+        Assert.True(PdfPadesSignature.TryVerify(stamped, out var verifyError), verifyError);
         var sidecar = await File.ReadAllTextAsync(signed.Attestation.SidecarPath!);
         Assert.Contains("certificateBase64", sidecar, StringComparison.Ordinal);
     }
 
     [Fact]
-    public async Task HasValidAttestation_false_when_signed_sidecar_tampered()
+    public async Task HasValidAttestation_true_when_pades_sidecar_missing()
+    {
+        using var temp = new TempDataDirectory();
+        var store = new FileRunStore(temp.RunsDirectory);
+        var run = await SeedCertificationRunAsync(store);
+        using var card = FakePivCard.CreateRsa2048();
+        var service = new ReportAttestationService(
+            new ScriptedPivBroker(card),
+            store,
+            new AppSettings
+            {
+                RequireAttestationBeforeExport = true,
+                AllowPresenceInLieuOfSigning = false,
+            });
+        var signed = await service.AttestAsync(
+            run,
+            ReportKinds.Certification,
+            pin: FakePivCard.DefaultPin);
+        Assert.True(signed.Succeeded);
+        var path = signed.Attestation!.SidecarPath!;
+        File.Delete(path);
+        Assert.True(service.HasValidAttestation(run, ReportKinds.Certification));
+    }
+
+    [Fact]
+    public async Task HasValidAttestation_true_when_pades_sidecar_tampered()
     {
         using var temp = new TempDataDirectory();
         var store = new FileRunStore(temp.RunsDirectory);
@@ -310,7 +340,7 @@ public sealed class ReportAttestationServiceTests
             "\"signatureBase64\":\"AAAA\", \"_was\":",
             StringComparison.Ordinal);
         await File.WriteAllTextAsync(path, bad);
-        Assert.False(service.HasValidAttestation(run, ReportKinds.Certification));
+        Assert.True(service.HasValidAttestation(run, ReportKinds.Certification));
     }
 
     [Fact]
@@ -459,9 +489,8 @@ public sealed class ReportAttestationServiceTests
             });
             run.ReportPdfPath = statusPdf;
         }
-
         var pdf = Path.Combine(dir, "certification.pdf");
-        await File.WriteAllBytesAsync(pdf, "%PDF-1.4 test"u8.ToArray());
+        await File.WriteAllBytesAsync(pdf, PdfPadesSignature.CreateMinimalPdf());
         run.Reports.Add(new RunReportArtifact
         {
             Kind = ReportKinds.Certification,
@@ -503,7 +532,7 @@ internal sealed class RecordingReportService : IReportService
             }
 
             var stamp = compileIdentity?.DisplayName ?? "unsigned";
-            File.WriteAllBytes(existing.PdfPath, Encoding.UTF8.GetBytes("%PDF-1.4 " + stamp));
+            File.WriteAllBytes(existing.PdfPath, PdfPadesSignature.CreateMinimalPdf(stamp));
             artifacts.Add(existing);
         }
 
@@ -527,7 +556,7 @@ internal sealed class RecordingReportService : IReportService
         _ = run;
         _ = kind;
         var stamp = compileIdentity?.DisplayName ?? "unsigned";
-        return Task.FromResult(Encoding.UTF8.GetBytes("%PDF-1.4 " + stamp));
+        return Task.FromResult(PdfPadesSignature.CreateMinimalPdf(stamp));
     }
 }
 
@@ -540,6 +569,7 @@ internal sealed class ScriptedPivBroker : IOperatorCredentialBroker
 
     public bool IsMock => true;
     public bool CanSign => true;
+    public bool ProducesCms => true;
     public string? SigningAlgorithm => AttestationAlgorithm.PivRsaPkcs1Sha256;
     public string StatusText => "Fake PIV";
 
@@ -557,5 +587,17 @@ internal sealed class ScriptedPivBroker : IOperatorCredentialBroker
         cancellationToken.ThrowIfCancellationRequested();
         _ = credential;
         return Task.FromResult(PivSigner.Sign(_card, payload, pin));
+    }
+
+    public Task<CredentialSignResult> TrySignDocumentAsync(
+        byte[] document,
+        OperatorCredential credential,
+        string? pin = null,
+        DateTimeOffset? signingTime = null,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        _ = credential;
+        return Task.FromResult(PivSigner.SignCms(_card, document, pin, signingTime ?? DateTimeOffset.UtcNow));
     }
 }

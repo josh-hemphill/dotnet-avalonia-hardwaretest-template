@@ -106,6 +106,70 @@ internal static class PivSigner
         return lastAuthFailure ?? CredentialSignResult.Failed("No PIV signing certificate on this card.");
     }
 
+    /// CMS/PKCS#7 detached signature over <paramref name="document"/> (PAdES ByteRange bytes).
+    public static CredentialSignResult SignCms(
+        IApduChannel channel,
+        byte[] document,
+        string? pin,
+        DateTimeOffset signingTime)
+    {
+        if (document.Length == 0)
+        {
+            return CredentialSignResult.Failed("Nothing to sign.");
+        }
+
+        if (!PivApdu.TrySelect(channel))
+        {
+            return CredentialSignResult.Failed("PIV applet not found on this card.");
+        }
+
+        CredentialSignResult? lastAuthFailure = null;
+        foreach (var (slot, objectId, requiresPin) in SlotOrder)
+        {
+            var certDer = PivApdu.TryReadCertificateDer(channel, objectId);
+            if (certDer is null || !TryDescribeKey(certDer, out var algorithm, out var algId, out _))
+            {
+                continue;
+            }
+
+            if (requiresPin && string.IsNullOrEmpty(pin))
+            {
+                return CredentialSignResult.NeedPin("Enter badge PIN to sign.");
+            }
+
+            if (requiresPin)
+            {
+                var verify = channel.Transmit(PivApdu.VerifyPin(pin.AsSpan()));
+                var retries = PivApdu.PinRetriesRemaining(verify);
+                if (!PivApdu.IsSuccess(verify))
+                {
+                    if (retries is int left)
+                    {
+                        return CredentialSignResult.Failed($"Incorrect PIN ({left} retries left).", left);
+                    }
+
+                    if (PivApdu.IsPinRequired(verify))
+                    {
+                        return CredentialSignResult.Failed(
+                            "PIN not accepted over this transport. Insert the chip (contact) to sign.");
+                    }
+
+                    return CredentialSignResult.Failed("Badge PIN verify failed.");
+                }
+            }
+
+            var signed = PivCmsSigner.Sign(channel, slot, algId, algorithm, certDer, document, signingTime);
+            if (signed.Succeeded)
+            {
+                return signed;
+            }
+
+            lastAuthFailure = signed;
+        }
+
+        return lastAuthFailure ?? CredentialSignResult.Failed("No PIV signing certificate on this card.");
+    }
+
     public static bool Verify(
         byte[] payload,
         byte[] signature,

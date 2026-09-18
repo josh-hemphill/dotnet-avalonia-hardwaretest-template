@@ -93,6 +93,7 @@ public partial class ResultsViewModel
     [Reactive] private bool _isBusy;
 
     public event EventHandler<string>? ReportOpened;
+    public event EventHandler<string>? CertifiedPrintReady;
 
     public bool HasRuns => Runs.Count > 0;
 
@@ -419,12 +420,6 @@ public partial class ResultsViewModel
             return;
         }
 
-        var defaultKind = ProgramCatalog.ResolveDefaultReportKind(run.PlanId);
-        if (!TryBeginCertifiedAction(run, defaultKind, PendingOpenDefault))
-        {
-            return;
-        }
-
         ReportOpened?.Invoke(this, path);
         Status = $"Opened default report ({ProgramCatalog.ResolveDefaultReportKind(run.PlanId)}).";
     }
@@ -460,11 +455,6 @@ public partial class ResultsViewModel
         if (item is null || string.IsNullOrWhiteSpace(item.PdfPath) || !File.Exists(item.PdfPath))
         {
             Status = "Report PDF not found.";
-            return Task.CompletedTask;
-        }
-
-        if (OpenedRun is not null && !TryBeginCertifiedAction(OpenedRun, item.Kind, PendingOpenItem, item))
-        {
             return Task.CompletedTask;
         }
 
@@ -508,11 +498,6 @@ public partial class ResultsViewModel
                 LoadReportItems(run);
                 LoadAttestation(run);
                 Status = $"Regenerated {artifacts.Count} report(s).";
-                if (!TryBeginCertifiedAction(run, ReportKinds.Certification, PendingReprintOpen))
-                {
-                    return;
-                }
-
                 var primary = run.ReportPdfPath ?? artifacts.FirstOrDefault()?.PdfPath;
                 if (primary is not null)
                 {

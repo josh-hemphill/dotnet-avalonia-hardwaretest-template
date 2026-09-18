@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.Json.Serialization;
 using HardwareTest.Core.Credentials;
 using HardwareTest.Core.Hardware;
@@ -76,9 +77,39 @@ public static class ReportKinds
 
     /// Operator-facing PDF title for a well-known kind.
     public static string Title(string kind)
-        => string.Equals(kind, Certification, StringComparison.OrdinalIgnoreCase)
-            ? "Certification Report"
-            : "Status Report";
+    {
+        if (string.Equals(kind, Certification, StringComparison.OrdinalIgnoreCase))
+        {
+            return "Certification Report";
+        }
+
+        if (string.IsNullOrWhiteSpace(kind)
+            || string.Equals(kind, Status, StringComparison.OrdinalIgnoreCase))
+        {
+            return "Status Report";
+        }
+
+        var builder = new StringBuilder(kind.Length + " Report".Length);
+        var capitalize = true;
+        foreach (var ch in kind)
+        {
+            if (ch is '-' or '_' or ' ')
+            {
+                if (builder.Length > 0 && builder[^1] != ' ')
+                {
+                    builder.Append(' ');
+                }
+
+                capitalize = true;
+                continue;
+            }
+
+            builder.Append(capitalize ? char.ToUpperInvariant(ch) : ch);
+            capitalize = false;
+        }
+
+        return builder.ToString().TrimEnd() + " Report";
+    }
 }
 
 public sealed class SuiteRunRecord

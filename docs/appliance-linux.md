@@ -63,7 +63,7 @@ Real badges use PC/SC (`pcscd` + CCID). Mock badges (`UseMockOperatorCredential`
 - **Windows:** Winscard is built in; install the reader’s CCID driver if the OS does not.
 - **macOS:** PCSC.framework.
 - **Identity:** Technician name is the best person name across PIV Authentication (9A), Digital Signature (9C), Key Management (9D), and Card Auth (9E) certificates (subject CN / givenName+surname, then rfc822 SAN, then UPN including DoD `edipi@mil`). Digit UPNs and hex CNs lose to a real name on any other slot or Printed Information. Presence keeps polling for ~2s after a UID-only `Card {hex}` read so the applet can return certificates on the same tap. UID/ATR remains the badge serial for same-card signing. `ProbeBadgeWhenTechnicianFocused` (default off) starts that wait when the technician field is focused and empty.
-- **Signing:** PIV DIGITAL SIGNATURE (9C), then PIV Auth (9A), then Card Auth (9E). 9C/9A require PIN in the Results overlay (never persisted). Contactless PIN verify is often refused; insert the chip to sign. `AllowPresenceInLieuOfSigning` (default on) is a **site-policy fallback** when the organization cannot use signatures — the app still signs when the card can.
+- **Signing:** PIV DIGITAL SIGNATURE (9C), then PIV Auth (9A), then Card Auth (9E). 9C/9A require PIN in the Results overlay (never persisted). Contactless PIN verify is often refused; insert the chip to sign. A successful card sign **embeds a PAdES-B-B CMS** in `certification.pdf` (ISO 32000 `ByteRange` + `adbe.pkcs7.detached`); PDF readers show it in the Signatures panel. `AllowPresenceInLieuOfSigning` (default on) is a **site-policy fallback** when the organization cannot use signatures — the app still signs when the card can.
 - Do not persist PIN or private keys. There is no on-disk card session.
 
 ## Smoke checklist
@@ -73,7 +73,7 @@ Real badges use PC/SC (`pcscd` + CCID). Mock badges (`UseMockOperatorCredential`
 3. Open Results — run record includes `DutSerial`.
 4. Generate / preview Typst report — serial present in report data.
 5. Safety Stop / Pause still visible in PaneFooter and abort OpenTAP cleanly.
-6. Optional: with mock credential, tap on session confirm fills technician; export with `RequireAttestationBeforeExport` writes `certification.attestation.json`.
+6. Optional: with mock credential, tap on session confirm fills technician; export with `RequireAttestationBeforeExport` writes `certification.attestation.json`. A real PIV/card sign also injects a PAdES CMS into `certification.pdf`.
 
 ## Notes
 
