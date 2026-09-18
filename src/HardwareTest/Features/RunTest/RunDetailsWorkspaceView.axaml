@@ -4,6 +4,7 @@
              xmlns:pres="using:HardwareTest.Features.Presentation"
              xmlns:widgetsPres="using:HardwareTest.Widgets.Presentation"
              xmlns:shell="using:HardwareTest.Features.Shell"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
              x:Class="HardwareTest.Features.RunTest.RunDetailsWorkspaceView"
              x:DataType="vm:RunTestViewModel">
   <DockPanel>
@@ -33,7 +34,14 @@
                 Command="{Binding StepTree.NextFailCommand}"
                 Classes="operator"
                 IsVisible="{Binding StepTree.HasFailedLeaves}" />
-        <Button Content="Results" Command="{Binding OpenLastRunResultsCommand}" Classes="operator" />
+        <Button Command="{Binding OpenLastRunResultsCommand}"
+                Classes="operator"
+                ToolTip.Tip="Open the last run on the Results page">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <ui:FASymbolIcon Symbol="{x:Static ui:FASymbol.DocumentFilled}" FontSize="16" VerticalAlignment="Center" />
+            <TextBlock Text="Results" VerticalAlignment="Center" />
+          </StackPanel>
+        </Button>
       </StackPanel>
       <StackPanel Orientation="Horizontal" Spacing="8">
         <ToggleButton Content="Summary"

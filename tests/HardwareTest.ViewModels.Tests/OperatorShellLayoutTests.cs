@@ -27,6 +27,9 @@ public sealed class OperatorShellLayoutTests
         var steps = File.ReadAllText(FindRepoFile("src/HardwareTest/Features/RunTest/RunStepsWorkspaceView.axaml"));
         Assert.Contains("IsCompactLayout", steps, StringComparison.Ordinal);
         Assert.Contains("PlaceholderText=\"Stage\"", steps, StringComparison.Ordinal);
+        Assert.Contains("ClearScopeCommand", steps, StringComparison.Ordinal);
+        Assert.Contains("ScopeButtonText", steps, StringComparison.Ordinal);
+        Assert.Contains("Program scope", steps, StringComparison.Ordinal);
         Assert.Contains("<WrapPanel Grid.Row=\"2\"", steps, StringComparison.Ordinal);
         Assert.Contains("IsVisible=\"{Binding IsEngineerDebugMode}\"", header, StringComparison.Ordinal);
         Assert.Contains("Header=\"Inspect\"", header, StringComparison.Ordinal);

@@ -169,6 +169,18 @@
       <Setter Property="BorderBrush" Value="#C62828" />
       <Setter Property="BorderThickness" Value="1.5" />
     </Style>
+    <!-- Operator ComboBox / TextBox floor: center content in the 40px hit target. -->
+    <Style Selector="ComboBox">
+      <Setter Property="MinHeight" Value="{x:Static shell:OperatorTouchDensity.OperatorControlMinHeight}" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="Padding" Value="10,0" />
+    </Style>
+    <Style Selector="TextBox">
+      <Setter Property="MinHeight" Value="{x:Static shell:OperatorTouchDensity.OperatorControlMinHeight}" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+      <Setter Property="Padding" Value="10,8" />
+    </Style>
     <Style Selector="Border.feedback-banner">
       <Style.Animations>
         <Animation Duration="0:0:0.18" FillMode="Forward">

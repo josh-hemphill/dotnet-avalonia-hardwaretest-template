@@ -41,6 +41,7 @@ public partial class StepTreeViewModel : ReactiveObject
         PrevFailCommand = ReactiveCommand.Create(() => CycleFail(forward: false));
         JumpToCurrentCommand = ReactiveCommand.Create(() => JumpToCurrent(changeScope: true));
         ClearSubsectionCommand = ReactiveCommand.Create(() => { SelectedSubsection = null; });
+        ClearScopeCommand = ReactiveCommand.Create(ClearScope);
         FilterFailCommand = ReactiveCommand.Create(FilterFail);
         ClearFailFilterCommand = ReactiveCommand.Create(() =>
         {
@@ -138,6 +139,7 @@ public partial class StepTreeViewModel : ReactiveObject
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> PrevFailCommand { get; }
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> JumpToCurrentCommand { get; }
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> ClearSubsectionCommand { get; }
+    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> ClearScopeCommand { get; }
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> FilterFailCommand { get; }
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> ClearFailFilterCommand { get; }
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> ToggleCompactCommand { get; }
@@ -157,6 +159,9 @@ public partial class StepTreeViewModel : ReactiveObject
     [Reactive] private bool _compactStepRows;
     [Reactive] private string _breadcrumbText = "Entire program";
     [Reactive] private string _breadcrumbDetailText = string.Empty;
+    [Reactive] private string _scopeButtonText = "Scope: Entire program";
+    [Reactive] private string _scopeToolTip = "Showing the entire program. Select a stage to filter the step list.";
+    [Reactive] private bool _canClearScope;
     [Reactive] private int _suitePassedCount;
     [Reactive] private int _suiteFailedCount;
     [Reactive] private int _suitePendingCount;
@@ -235,6 +240,41 @@ public partial class StepTreeViewModel : ReactiveObject
     }
 
     public void ClearNestedSubsection() => SelectedNestedSubsection = null;
+
+    /// Resets stage and section filters so the step list shows the entire program.
+    public void ClearScope()
+    {
+        if (Stages.Count == 0)
+        {
+            SelectedNestedSubsection = null;
+            SelectedSubsection = null;
+            return;
+        }
+
+        _suppressNestedFilter = true;
+        _suppressSubsectionFilter = true;
+        try
+        {
+            SelectedNestedSubsection = null;
+            SelectedSubsection = null;
+        }
+        finally
+        {
+            _suppressNestedFilter = false;
+            _suppressSubsectionFilter = false;
+        }
+
+        var entire = Stages[0];
+        if (!ReferenceEquals(SelectedStage, entire))
+        {
+            SelectedStage = entire;
+            return;
+        }
+
+        RebuildVisibleStepList();
+        ResolveSelectedStep();
+        RefreshBreadcrumb();
+    }
 
     public bool IsWholePlanSelection(string path)
         => _fullHierarchy.Any(r => string.Equals(r.Path, path, StringComparison.OrdinalIgnoreCase));

@@ -100,7 +100,7 @@ public sealed class ShellHomeContributionTests
 
         Assert.Equal(4, home.Tiles.Count);
         Assert.Equal(
-            ["Getting started", "Programs & instruments", "Reports", "Planning"],
+            ["Getting started", "Programs & instruments", "Results", "Planning"],
             home.Tiles.Select(t => t.Title).ToArray());
         Assert.True(home.Tiles[0].IsVisible);
         Assert.False(home.Tiles[1].IsVisible);

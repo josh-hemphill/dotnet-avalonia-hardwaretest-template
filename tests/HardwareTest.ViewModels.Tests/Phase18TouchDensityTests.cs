@@ -23,6 +23,9 @@ public sealed class Phase18TouchDensityTests
         Assert.Contains("OperatorTouchDensity.OperatorControlMinHeight", axaml, StringComparison.Ordinal);
         Assert.Contains("ToggleButton.filter-chip", axaml, StringComparison.Ordinal);
         Assert.Contains("ListBox.operator-list ListBoxItem", axaml, StringComparison.Ordinal);
+        Assert.Contains("Selector=\"ComboBox\"", axaml, StringComparison.Ordinal);
+        Assert.Contains("Selector=\"TextBox\"", axaml, StringComparison.Ordinal);
+        Assert.Contains("VerticalContentAlignment", axaml, StringComparison.Ordinal);
         Assert.DoesNotContain("MinHeight\" Value=\"28\"", axaml, StringComparison.Ordinal);
     }
 
