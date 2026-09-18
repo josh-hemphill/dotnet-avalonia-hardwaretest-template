@@ -96,6 +96,7 @@ public sealed class AuthoringSequenceTests
         Assert.Contains("not the whole program", AuthoringChrome.InspectorPurpose, StringComparison.Ordinal);
         Assert.Equal("Operator preview", AuthoringChrome.PreviewTitle);
         Assert.Equal("Program settings", AuthoringChrome.ProgramSettingsTitle);
+        Assert.Contains("operator session", AuthoringChrome.ProgramSettingsPurpose, StringComparison.Ordinal);
         Assert.Contains("not the in-repo demos", AuthoringChrome.CatalogsPurpose, StringComparison.Ordinal);
         Assert.Contains("serial", AuthoringChrome.RequiredFieldsPurpose, StringComparison.Ordinal);
         Assert.Contains("Raw", AuthoringChrome.RecipeAddHint, StringComparison.Ordinal);
