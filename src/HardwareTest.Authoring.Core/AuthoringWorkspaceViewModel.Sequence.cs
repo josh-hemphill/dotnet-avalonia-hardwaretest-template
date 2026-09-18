@@ -34,6 +34,16 @@ public sealed partial class AuthoringWorkspaceViewModel
 
     public string LastWorkspaceOffer => AuthoringChrome.LastWorkspaceOffer;
 
+    public string RemoveSelectedTitle => AuthoringChrome.RemoveSelectedTitle;
+
+    public string RemoveProgramTitle => AuthoringChrome.RemoveProgramTitle;
+
+    public bool CanRemoveSelectedSequence
+        => AuthoringSequence.CanRemove(SelectedSequence, SelectedProgram);
+
+    public bool CanRemoveSelectedProgram
+        => Workspace is not null && SelectedProgram is not null && !Workspace.IsReadOnly;
+
     public int SelectedSequenceIndex
     {
         get => _selectedSequenceIndex;
@@ -78,6 +88,53 @@ public sealed partial class AuthoringWorkspaceViewModel
                 node => node is RepeatNode repeat ? repeat with { Count = count } : node);
             ReplaceSelected(SelectedProgram with { Measure = measure });
         }
+    }
+
+    public void RemoveSelectedSequence()
+    {
+        if (SelectedProgram is null || !CanRemoveSelectedSequence || SelectedSequence is not { } row)
+        {
+            return;
+        }
+
+        var label = row.Label;
+        switch (row.Kind)
+        {
+            case SequenceRowKind.Setup when row.IndexPath.Count == 1:
+            {
+                var index = row.IndexPath[0];
+                if (index < 0 || index >= SelectedProgram.Setup.Count)
+                {
+                    return;
+                }
+
+                ReplaceSelected(SelectedProgram with
+                {
+                    Setup = [.. SelectedProgram.Setup.Where((_, i) => i != index)],
+                });
+                break;
+            }
+
+            case SequenceRowKind.Metric or SequenceRowKind.Repeat or SequenceRowKind.Raw:
+                ReplaceSelected(SelectedProgram with
+                {
+                    Measure = AuthoringSequence.RemoveMeasure(SelectedProgram.Measure, row.IndexPath),
+                });
+                break;
+
+            case SequenceRowKind.Cleanup:
+                ReplaceSelected(SelectedProgram with
+                {
+                    Cleanup = SelectedProgram.Cleanup with { IncludeSafeShutdown = false },
+                });
+                break;
+
+            default:
+                return;
+        }
+
+        Status = $"Removed {label}";
+        Error = null;
     }
 
     public void SelectSequence(int index)

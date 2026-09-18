@@ -258,6 +258,45 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
         RaiseSidecarProperties();
     }
 
+    public void RemoveSelectedProgram()
+    {
+        if (Workspace is null || SelectedProgram is null)
+        {
+            throw new AuthoringWorkspaceException("Open a workspace and select a program before removing it.");
+        }
+
+        if (Workspace.IsReadOnly)
+        {
+            throw new AuthoringWorkspaceException("Workspace is read-only; cannot remove a program.");
+        }
+
+        var planId = SelectedProgram.PlanId;
+        var tapPlanPath = Workspace.TapPlanPaths.FirstOrDefault(path =>
+            string.Equals(Path.GetFileNameWithoutExtension(path), planId, StringComparison.OrdinalIgnoreCase));
+        if (!string.IsNullOrWhiteSpace(tapPlanPath))
+        {
+            TryDeleteFile(tapPlanPath);
+            TryDeleteFile(PlanCompiler.SidecarPath(tapPlanPath));
+            Workspace = Workspace with
+            {
+                TapPlanPaths = [.. Workspace.TapPlanPaths.Where(path =>
+                    !string.Equals(path, tapPlanPath, StringComparison.OrdinalIgnoreCase))],
+            };
+        }
+
+        var remaining = Programs
+            .Where(program => !string.Equals(program.PlanId, planId, StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+        Programs = remaining;
+        _selectedInstrumentSlot = null;
+        AssignSelectedProgram(remaining.FirstOrDefault());
+        Findings = [];
+        Status = $"Removed {planId}";
+        Error = null;
+        RefreshDatasets();
+        RaiseSidecarProperties();
+    }
+
     public void ApplyRecipe(string recipeId)
     {
         if (SelectedProgram is null)
@@ -510,6 +549,23 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
         field = value;
         OnPropertyChanged(name);
         return true;
+    }
+
+    private static void TryDeleteFile(string path)
+    {
+        if (!File.Exists(path))
+        {
+            return;
+        }
+
+        try
+        {
+            File.Delete(path);
+        }
+        catch (Exception ex)
+        {
+            throw new AuthoringWorkspaceException($"Failed to delete '{path}'.", ex);
+        }
     }
 
     private void OnPropertyChanged([CallerMemberName] string? name = null)
