@@ -317,6 +317,33 @@ public sealed class AuthoringProgramSettingsViewModelTests
         Assert.Contains("Cleanup skipped", vm.SequenceItems.Single(row => row.Kind == SequenceRowKind.Cleanup).Label, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void Cleanup_can_include_multiple_slots_and_measure_slots()
+    {
+        var vm = OpenEmpty();
+        vm.CreateProgram("multi-cleanup");
+        vm.NewInstrumentSlot = "SCOPE";
+        vm.AddInstrumentSlot();
+        vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
+        vm.MetricInstrumentSlot = "SCOPE";
+        Assert.Equal("SCOPE", Assert.IsType<MeasureSource>(vm.SelectedMetric!.Source).InstrumentSlot);
+        var cleanup = vm.SequenceItems.Single(row => row.Kind == SequenceRowKind.Cleanup);
+        vm.SelectSequence(vm.SequenceItems.ToList().IndexOf(cleanup));
+        Assert.Equal(["DMM"], vm.SelectedProgram!.Cleanup.InstrumentSlots);
+        vm.IncludeMeasureSlots = true;
+        Assert.True(vm.SelectedProgram.Cleanup.IncludeMeasureSlots);
+        Assert.True(vm.SelectedProgram.Sidecar.IncludeMeasureSlots);
+        Assert.Equal(["DMM"], vm.SelectedProgram.Cleanup.InstrumentSlots);
+        Assert.Equal(["DMM", "SCOPE"], AuthoringCleanup.ResolveSlots(vm.SelectedProgram));
+        Assert.False(vm.CleanupSlotChoices.Single(row => row.Id == "SCOPE").Included);
+        vm.SetCleanupSlotIncluded("SCOPE", true);
+        Assert.Equal(["DMM", "SCOPE"], vm.SelectedProgram.Cleanup.InstrumentSlots);
+        Assert.True(vm.CleanupSlotChoices.Single(row => row.Id == "SCOPE").Included);
+        vm.ApplyRecipe(AuthoringRecipeIds.Shutdown);
+        Assert.Equal(["DMM", "SCOPE"], vm.SelectedProgram.Cleanup.InstrumentSlots);
+        Assert.True(vm.SelectedProgram.Cleanup.IncludeMeasureSlots);
+    }
+
     private static AuthoringWorkspaceViewModel OpenEmpty()
     {
         var dest = Path.Combine(Path.GetTempPath(), "ht-editcat-" + Guid.NewGuid().ToString("N"));

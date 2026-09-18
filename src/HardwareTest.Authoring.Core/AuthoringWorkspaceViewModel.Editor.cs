@@ -500,6 +500,8 @@ public sealed partial class AuthoringWorkspaceViewModel
         OnPropertyChanged(nameof(SetupInstrumentSlot));
         OnPropertyChanged(nameof(CleanupInstrumentSlot));
         OnPropertyChanged(nameof(IncludeSafeShutdown));
+        OnPropertyChanged(nameof(IncludeMeasureSlots));
+        OnPropertyChanged(nameof(CleanupSlotChoices));
         OnPropertyChanged(nameof(MetricInstrumentSlot));
         OnPropertyChanged(nameof(SelectedRecipe));
         OnPropertyChanged(nameof(SelectedInstrumentVisa));

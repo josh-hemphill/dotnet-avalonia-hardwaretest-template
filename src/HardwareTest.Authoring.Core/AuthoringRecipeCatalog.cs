@@ -45,7 +45,7 @@ public static class AuthoringRecipeCatalog
         new(AuthoringRecipeIds.Formula, "Formula…", "Analyze", "MATLAB-flavored subset. mean(x) lowers to Mean GTE. filter(b,a,x) lowers to IIR."),
         new(AuthoringRecipeIds.TransferFunction, "Transfer function…", "Analyze", "Discrete SISO IIR from numerator/denominator/Ts."),
         new(AuthoringRecipeIds.StationHealth, "Report Station Health", "Station", "cal.dc.offset scalar with limits."),
-        new(AuthoringRecipeIds.Shutdown, "Safe Shutdown", "Safety", "Cleanup Safe Shutdown on the DMM slot."),
+        new(AuthoringRecipeIds.Shutdown, "Safe Shutdown", "Safety", "Cleanup Safe Shutdown on selected instrument slots."),
     ];
 
     public static bool PaletteContainsDialog()
@@ -104,7 +104,7 @@ public static class AuthoringRecipeCatalog
             AuthoringRecipeIds.Formula => WithMeasure(draft, FormulaMetric(draft)),
             AuthoringRecipeIds.TransferFunction => WithMeasure(draft, TransferFunctionMetric(draft)),
             AuthoringRecipeIds.StationHealth => WithMeasure(draft, StationHealthMetric()),
-            AuthoringRecipeIds.Shutdown => draft with { Cleanup = new CleanupPolicy(true, DefaultSlot(draft)) },
+            AuthoringRecipeIds.Shutdown => EnableShutdown(draft),
             _ => throw new AuthoringWorkspaceException(
                 $"{AuthoringCompileCodes.UnknownFunction}: recipe '{recipeId}' is not in the authoring palette."),
         };
@@ -190,6 +190,23 @@ public static class AuthoringRecipeCatalog
         return draft with
         {
             Measure = [.. draft.Measure.SkipLast(1), new RepeatNode(2, [last])],
+        };
+    }
+
+    private static ProgramDraft EnableShutdown(ProgramDraft draft)
+    {
+        var slots = draft.Cleanup.InstrumentSlots
+            .Where(slot => !string.IsNullOrWhiteSpace(slot))
+            .Select(slot => slot.Trim())
+            .ToList();
+        if (slots.Count == 0)
+        {
+            slots.Add(DefaultSlot(draft));
+        }
+
+        return draft with
+        {
+            Cleanup = new CleanupPolicy(true, slots, draft.Cleanup.IncludeMeasureSlots),
         };
     }
 

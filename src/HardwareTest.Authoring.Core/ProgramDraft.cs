@@ -81,7 +81,87 @@ public sealed record LimitSpec(double? Low, double? High, double? Threshold);
 
 public sealed record HistorySpec(bool Enabled, double? WatchPercent, double? AlertPercent);
 
-public sealed record CleanupPolicy(bool IncludeSafeShutdown, string InstrumentSlot);
+public sealed record CleanupPolicy(
+    bool IncludeSafeShutdown,
+    IReadOnlyList<string> InstrumentSlots,
+    bool IncludeMeasureSlots = false)
+{
+    public CleanupPolicy(bool includeSafeShutdown, string instrumentSlot)
+        : this(
+            includeSafeShutdown,
+            string.IsNullOrWhiteSpace(instrumentSlot) ? [] : [instrumentSlot.Trim()],
+            false)
+    {
+    }
+
+    public string InstrumentSlot
+        => InstrumentSlots.Count == 0 ? string.Empty : InstrumentSlots[0];
+}
+
+/// Resolves which instrument slots Safe Shutdown should run.
+public static class AuthoringCleanup
+{
+    public static IReadOnlyList<string> ResolveSlots(ProgramDraft draft)
+    {
+        ArgumentNullException.ThrowIfNull(draft);
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var slots = new List<string>();
+        foreach (var slot in draft.Cleanup.InstrumentSlots)
+        {
+            Add(slots, seen, slot);
+        }
+
+        if (draft.Cleanup.IncludeMeasureSlots)
+        {
+            foreach (var slot in MeasureSlots(draft))
+            {
+                Add(slots, seen, slot);
+            }
+        }
+
+        if (slots.Count == 0 && draft.Cleanup.IncludeSafeShutdown)
+        {
+            Add(slots, seen, draft.Instruments.FirstOrDefault()?.SlotName);
+        }
+
+        return slots;
+    }
+
+    public static IReadOnlyList<string> MeasureSlots(ProgramDraft draft)
+    {
+        ArgumentNullException.ThrowIfNull(draft);
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var slots = new List<string>();
+        foreach (var action in draft.Setup)
+        {
+            if (action is IdentitySetup identity)
+            {
+                Add(slots, seen, identity.InstrumentSlot);
+            }
+        }
+
+        foreach (var metric in AuthoringRecipeCatalog.EnumerateMetrics(draft.Measure))
+        {
+            if (metric.Source is MeasureSource measure)
+            {
+                Add(slots, seen, measure.InstrumentSlot);
+            }
+        }
+
+        return slots;
+    }
+
+    private static void Add(List<string> slots, HashSet<string> seen, string? slot)
+    {
+        var token = slot?.Trim();
+        if (string.IsNullOrWhiteSpace(token) || !seen.Add(token))
+        {
+            return;
+        }
+
+        slots.Add(token);
+    }
+}
 
 public static class AuthoringCompileCodes
 {

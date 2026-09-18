@@ -69,7 +69,8 @@ public static class AuthoringChrome
     public const string MeasureHeader = "Measure";
     public const string MeasurePurpose = "Metrics and repeats the operator will see.";
     public const string CleanupHeader = "Cleanup";
-    public const string CleanupPurpose = "Safe Shutdown after the suite (unless sidecar excludes it).";
+    public const string CleanupPurpose =
+        "Safe Shutdown after the suite for each selected instrument (unless sidecar excludes it).";
     public const string EmptyMeasureHint =
         "Measure is empty. Add a recipe to the sequence (Acquire, Mean GTE, Formula).";
     public const string TestGroupHint =
@@ -428,8 +429,19 @@ public static class AuthoringSequence
             0,
             0,
             included ? "Safe Shutdown" : "Cleanup skipped",
-            included ? cleanup.InstrumentSlot : "Sidecar excludes Safe Shutdown from Run Selected",
+            included ? FormatCleanupDetail(cleanup) : "Sidecar excludes Safe Shutdown from Run Selected",
             []);
+    }
+
+    private static string FormatCleanupDetail(CleanupPolicy cleanup)
+    {
+        var parts = cleanup.InstrumentSlots.Where(slot => !string.IsNullOrWhiteSpace(slot)).ToList();
+        if (cleanup.IncludeMeasureSlots)
+        {
+            parts.Add("slots used in this program");
+        }
+
+        return parts.Count == 0 ? "Safe Shutdown" : string.Join(" · ", parts);
     }
 
     private static string MeasureKey(IReadOnlyList<int> path)

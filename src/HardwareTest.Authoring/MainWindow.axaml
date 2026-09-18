@@ -240,11 +240,24 @@
                   <CheckBox Content="Include Safe Shutdown"
                             IsChecked="{Binding IncludeSafeShutdown}"
                             ToolTip.Tip="When off, Run Selected skips Safe Shutdown (suite-scoped cleanup)" />
-                  <TextBlock x:Name="CleanupSlotLabel" Text="Cleanup instrument slot" />
-                  <ComboBox ItemsSource="{Binding InstrumentSlots}"
-                            SelectedItem="{Binding CleanupInstrumentSlot}"
-                            AutomationProperties.Name="Cleanup instrument slot"
-                            AutomationProperties.LabeledBy="{Binding #CleanupSlotLabel}" />
+                  <CheckBox Content="Also safe instruments used in this program"
+                            IsChecked="{Binding IncludeMeasureSlots}"
+                            ToolTip.Tip="Union identity and measure slots into cleanup so more than one instrument can be safed"
+                            IsVisible="{Binding IncludeSafeShutdown}" />
+                  <TextBlock x:Name="CleanupSlotsLabel" Text="Cleanup instrument slots" IsVisible="{Binding IncludeSafeShutdown}" />
+                  <ItemsControl ItemsSource="{Binding CleanupSlotChoices}"
+                                IsVisible="{Binding IncludeSafeShutdown}"
+                                AutomationProperties.Name="Cleanup instrument slots"
+                                AutomationProperties.LabeledBy="{Binding #CleanupSlotsLabel}">
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate x:DataType="vm:AuthoringCatalogToggle">
+                        <CheckBox Content="{Binding Id}"
+                                  IsChecked="{Binding Included, Mode=OneWay}"
+                                  Click="OnToggleCleanupSlot"
+                                  AutomationProperties.Name="{Binding Id}" />
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
                 </StackPanel>
 
                 <StackPanel Spacing="6" IsVisible="{Binding HasMetricPresentation}">

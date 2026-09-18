@@ -35,9 +35,14 @@ public sealed partial class PlanCompiler
         var cleanupGroup = new TestGroupStep { Name = CleanupGroupName };
         if (draft.Cleanup.IncludeSafeShutdown)
         {
-            var shutdown = new SafeShutdownStep { Name = "Safe Shutdown" };
-            AssignInstrument(shutdown, ResolveInstrument(instruments, draft.Cleanup.InstrumentSlot));
-            cleanupGroup.ChildTestSteps.Add(shutdown);
+            var slots = AuthoringCleanup.ResolveSlots(draft);
+            foreach (var slot in slots)
+            {
+                var name = slots.Count == 1 ? "Safe Shutdown" : $"Safe Shutdown · {slot}";
+                var shutdown = new SafeShutdownStep { Name = name };
+                AssignInstrument(shutdown, ResolveInstrument(instruments, slot));
+                cleanupGroup.ChildTestSteps.Add(shutdown);
+            }
         }
 
         var plan = new TestPlan();

@@ -72,6 +72,16 @@ public partial class MainWindow : Window
     private void OnAddRequiredField(object? sender, RoutedEventArgs e)
         => TryRun(_viewModel.AddRequiredField);
 
+    private void OnToggleCleanupSlot(object? sender, RoutedEventArgs e)
+    {
+        if (sender is not CheckBox { DataContext: AuthoringCatalogToggle row } box)
+        {
+            return;
+        }
+
+        TryRun(() => _viewModel.SetCleanupSlotIncluded(row.Id, box.IsChecked == true));
+    }
+
     private void OnToggleRequiredField(object? sender, RoutedEventArgs e)
     {
         if (sender is not CheckBox { DataContext: AuthoringCatalogToggle row } box)

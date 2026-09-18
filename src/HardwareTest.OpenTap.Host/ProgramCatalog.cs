@@ -53,6 +53,8 @@ public sealed class ProgramSidecar
     public string? DefaultReportKind { get; set; }
     /// When false, Run Selected excludes SafeShutdownStep (suite-scoped cleanup only). Default true.
     public bool? SelectionIncludesCleanup { get; set; }
+    /// When true, Safe Shutdown also unions identity and measure instrument slots.
+    public bool? IncludeMeasureSlots { get; set; }
     public string? ProgramKind { get; set; }
     public bool? RequireStationHealth { get; set; }
     public double? StationHealthMaxAgeHours { get; set; }

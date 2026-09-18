@@ -36,6 +36,10 @@
       "type": "boolean",
       "description": "When false, Run Selected excludes SafeShutdownStep."
     },
+    "includeMeasureSlots": {
+      "type": "boolean",
+      "description": "When true, Safe Shutdown also unions identity and measure instrument slots from this program."
+    },
     "programKind": {
       "type": "string",
       "minLength": 1,
