@@ -94,15 +94,31 @@ public sealed class PlanCompilerTests
         var dir = NewTempDir();
         var path = Path.Combine(dir, "measure-cleanup.TapPlan");
         var created = AuthoringRecipeCatalog.CreateProgram("measure-cleanup");
-        var draft = AuthoringRecipeCatalog.Apply(created, AuthoringRecipeIds.Acquire) with
+        var typeId = created.Instruments[0].TypeId;
+        var applied = AuthoringRecipeCatalog.Apply(created, AuthoringRecipeIds.Acquire);
+        var metric = Assert.IsType<MetricNode>(Assert.Single(applied.Measure)).Metric;
+        var measure = Assert.IsType<MeasureSource>(metric.Source);
+        var draft = applied with
         {
+            Instruments =
+            [
+                created.Instruments[0],
+                new InstrumentRef("SCOPE", typeId, "MOCK::INSTR1"),
+            ],
+            Measure = [new MetricNode(metric with { Source = measure with { InstrumentSlot = "SCOPE" } })],
             Cleanup = new CleanupPolicy(true, ["DMM"], true),
         };
+        Assert.Equal(["DMM"], draft.Cleanup.InstrumentSlots);
+        Assert.Equal(["DMM", "SCOPE"], AuthoringCleanup.ResolveSlots(draft));
         new PlanCompiler().Save(draft, path);
         var loaded = new PlanCompiler().Load(path);
         Assert.True(loaded.Cleanup.IncludeMeasureSlots);
         Assert.True(loaded.Sidecar.IncludeMeasureSlots);
         Assert.Contains("DMM", loaded.Cleanup.InstrumentSlots);
+        Assert.Contains("SCOPE", loaded.Cleanup.InstrumentSlots);
+        var xml = File.ReadAllText(path);
+        Assert.Contains("Safe Shutdown · DMM", xml, StringComparison.Ordinal);
+        Assert.Contains("Safe Shutdown · SCOPE", xml, StringComparison.Ordinal);
         var sidecar = File.ReadAllText(Path.Combine(dir, "measure-cleanup.program.json"));
         Assert.Contains("includeMeasureSlots", sidecar, StringComparison.Ordinal);
     }
