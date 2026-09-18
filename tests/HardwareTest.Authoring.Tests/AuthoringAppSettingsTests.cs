@@ -81,6 +81,22 @@ public sealed class AuthoringAppSettingsTests
     }
 
     [Fact]
+    public void Same_instrument_slot_write_does_not_replace_the_program()
+    {
+        var vm = new AuthoringWorkspaceViewModel();
+        vm.Open(NewWorkspace());
+        vm.CreateProgram("slot-loop");
+        var identity = vm.SequenceItems.Single(row => row.Label == "Identity Check");
+        vm.SelectSequence(vm.SequenceItems.ToList().IndexOf(identity));
+        var program = vm.SelectedProgram;
+        var programs = vm.Programs;
+        vm.SetupInstrumentSlot = vm.SetupInstrumentSlot;
+        vm.SelectedProgram = vm.SelectedProgram;
+        Assert.Same(program, vm.SelectedProgram);
+        Assert.Same(programs, vm.Programs);
+    }
+
+    [Fact]
     public void Prefix_completions_appear_for_a_partial_ident()
     {
         var vm = new AuthoringWorkspaceViewModel();

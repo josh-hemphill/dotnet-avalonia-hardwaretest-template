@@ -245,7 +245,8 @@ public sealed partial class AuthoringWorkspaceViewModel
         set
         {
             var slot = value.Trim();
-            if (string.IsNullOrWhiteSpace(slot))
+            if (string.IsNullOrWhiteSpace(slot)
+                || string.Equals(SetupInstrumentSlot, slot, StringComparison.OrdinalIgnoreCase))
             {
                 return;
             }
@@ -261,14 +262,18 @@ public sealed partial class AuthoringWorkspaceViewModel
         get => HasCleanupEditor ? SelectedProgram?.Cleanup.InstrumentSlot ?? string.Empty : string.Empty;
         set
         {
-            if (!HasCleanupEditor || SelectedProgram is null || string.IsNullOrWhiteSpace(value))
+            var slot = value.Trim();
+            if (!HasCleanupEditor
+                || SelectedProgram is null
+                || string.IsNullOrWhiteSpace(slot)
+                || string.Equals(CleanupInstrumentSlot, slot, StringComparison.OrdinalIgnoreCase))
             {
                 return;
             }
 
             ReplaceSelected(SelectedProgram with
             {
-                Cleanup = SelectedProgram.Cleanup with { InstrumentSlot = value.Trim() },
+                Cleanup = SelectedProgram.Cleanup with { InstrumentSlot = slot },
             });
         }
     }
@@ -303,7 +308,8 @@ public sealed partial class AuthoringWorkspaceViewModel
             }
 
             var slot = value.Trim();
-            if (string.IsNullOrWhiteSpace(slot))
+            if (string.IsNullOrWhiteSpace(slot)
+                || string.Equals(MetricInstrumentSlot, slot, StringComparison.OrdinalIgnoreCase))
             {
                 return;
             }

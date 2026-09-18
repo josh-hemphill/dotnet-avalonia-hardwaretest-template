@@ -59,6 +59,12 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
                 return;
             }
 
+            if (string.Equals(_selectedProgram?.PlanId, value.PlanId, StringComparison.OrdinalIgnoreCase))
+            {
+                AssignSelectedProgram(value);
+                return;
+            }
+
             SelectProgram(value.PlanId);
         }
     }
