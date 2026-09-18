@@ -27,7 +27,7 @@
       <CheckBox Content="Show raw step XML"
                 IsChecked="{Binding ShowRawStepXml}"
                 IsEnabled="{Binding PreferencesEditable}"
-                ToolTip.Tip="When off, Raw TUI steps still appear in the sequence but the XML pane is hidden." />
+                ToolTip.Tip="When off, Raw steps still appear in the sequence but the XML pane is hidden." />
 
       <TextBlock x:Name="OpenTapHomeLabel" Text="OpenTAP home override" />
       <TextBox Text="{Binding OpenTapHomeOverride, UpdateSourceTrigger=LostFocus}"

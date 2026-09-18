@@ -34,7 +34,7 @@ public sealed class AuthoringManifest
 
     public List<string> ShellAppProjects { get; set; } = [];
 
-    public bool IncludeTui { get; set; } = true;
+    public bool IncludeTui { get; set; }
 
     /// Optional operator run.json goldens. Default recordings/. Folder need not exist.
     public string RecordingsDirectory { get; set; } = "recordings";

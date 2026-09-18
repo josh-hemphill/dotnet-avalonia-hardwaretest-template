@@ -24,7 +24,16 @@ public sealed class PackOptions
     public bool Offline { get; init; }
 }
 
-public sealed record ShipManifest(string PackageName, string Version, IReadOnlyList<string> Files);
+public sealed record ShipDependency(string Package, string Version, bool Optional = false, string? When = null);
+
+public sealed record ShipManifest(
+    string PackageName,
+    string Version,
+    IReadOnlyList<string> Files,
+    IReadOnlyList<ShipDependency>? Dependencies = null)
+{
+    public IReadOnlyList<ShipDependency> ResolvedDependencies => Dependencies ?? [];
+}
 
 /// Validates a workspace, writes package.xml, creates the program TapPackage, and writes ship-manifest.json.
 public static class WorkspacePacker
@@ -69,10 +78,12 @@ public static class WorkspacePacker
         shipped.AddRange(CopyPluginPackages(workspace, outputDirectory));
         shipped.AddRange(PublishShellApps(workspace, outputDirectory));
 
+        var deps = WorkspacePackPlan.ShipDependencies(workspace.Manifest);
         var manifest = new ShipManifest(
             workspace.Manifest.Package.Name,
             workspace.Manifest.Package.Version,
-            shipped);
+            shipped,
+            deps);
         File.WriteAllText(
             Path.Combine(outputDirectory, ShipManifestFileName),
             JsonSerializer.Serialize(manifest, AuthoringJsonContext.Default.ShipManifest));

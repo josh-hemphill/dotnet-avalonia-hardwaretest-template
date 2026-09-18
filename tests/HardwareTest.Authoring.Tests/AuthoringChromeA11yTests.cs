@@ -29,6 +29,10 @@ public sealed class AuthoringChromeA11yTests
         Assert.Contains("Text=\"{Binding RecipeAddHint}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Text=\"{Binding RecipeAdvancedHint}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Text=\"{Binding RawStepsBanner}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("IsVisible=\"{Binding HasRawStepEditor}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("IsReadOnly=\"True\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("AutomationProperties.Name=\"Raw step XML\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Last shipped bake-time files", xaml, StringComparison.Ordinal);
         Assert.Contains("Text=\"{Binding ShipPurpose}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("AutomationProperties.Name=\"Declared shell-app projects\"", xaml, StringComparison.Ordinal);
         Assert.Contains("AutomationProperties.Name=\"Ship shell-app projects\"", xaml, StringComparison.Ordinal);

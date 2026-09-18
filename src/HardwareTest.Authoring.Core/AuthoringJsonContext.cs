@@ -16,6 +16,8 @@ namespace HardwareTest.Authoring;
 [JsonSerializable(typeof(List<AuthoringOptionalDependency>))]
 [JsonSerializable(typeof(List<string>))]
 [JsonSerializable(typeof(ShipManifest))]
+[JsonSerializable(typeof(ShipDependency))]
+[JsonSerializable(typeof(List<ShipDependency>))]
 [JsonSerializable(typeof(TfModelJson))]
 [JsonSerializable(typeof(AuthoringPreferences))]
 [JsonSerializable(typeof(double[]))]

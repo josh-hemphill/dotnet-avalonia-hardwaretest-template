@@ -84,6 +84,7 @@ public sealed class WorkspacePackerTests
         Assert.Equal(manifest.PackageName, shipped.PackageName);
         Assert.Equal(manifest.Version, shipped.Version);
         Assert.Equal(manifest.Files, shipped.Files);
+        Assert.Contains(shipped.ResolvedDependencies, dep => dep.Package == "OpenTAP");
         Assert.DoesNotContain(shipped.Files, f => f.Contains("shell-apps", StringComparison.Ordinal));
 
         using var zip = ZipFile.OpenRead(package);

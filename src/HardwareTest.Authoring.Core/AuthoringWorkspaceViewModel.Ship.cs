@@ -33,6 +33,18 @@ public sealed partial class AuthoringWorkspaceViewModel
             .Where(file => file.Contains(WorkspacePacker.BakeTimeSuffix, StringComparison.Ordinal))
             .ToArray();
 
+    public bool HasPackageDependencies => _packPreview.PackageDependencies.Count > 0;
+
+    public bool HasLastShippedBakeTimeFiles => LastShippedBakeTimeFiles.Count > 0;
+
+    public bool HasInstrumentComponentsPackage
+        => !string.IsNullOrWhiteSpace(_packPreview.InstrumentComponentsPackagePath);
+
+    public string InstrumentComponentsText
+        => HasInstrumentComponentsPackage
+            ? $"InstrumentComponents package: {_packPreview.InstrumentComponentsPackagePath}"
+            : string.Empty;
+
     public string OpenTapPinText
         => string.IsNullOrWhiteSpace(_packPreview.OpenTapVersionPin)
             ? "OpenTAP pin not declared in authoring.json"
@@ -66,6 +78,10 @@ public sealed partial class AuthoringWorkspaceViewModel
         OnPropertyChanged(nameof(HasDeclaredPlugins));
         OnPropertyChanged(nameof(HasDeclaredShellApps));
         OnPropertyChanged(nameof(HasAuthoringHomePackages));
+        OnPropertyChanged(nameof(HasPackageDependencies));
+        OnPropertyChanged(nameof(HasLastShippedBakeTimeFiles));
+        OnPropertyChanged(nameof(HasInstrumentComponentsPackage));
+        OnPropertyChanged(nameof(InstrumentComponentsText));
         OnPropertyChanged(nameof(LastShippedFiles));
         OnPropertyChanged(nameof(LastShippedBakeTimeFiles));
         OnPropertyChanged(nameof(OpenTapPinText));

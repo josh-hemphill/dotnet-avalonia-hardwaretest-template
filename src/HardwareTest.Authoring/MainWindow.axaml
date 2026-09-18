@@ -405,7 +405,7 @@
                 </StackPanel>
 
                 <StackPanel Spacing="6" IsVisible="{Binding HasRawStep}">
-                  <TextBlock FontWeight="SemiBold" Text="Raw TUI step" />
+                  <TextBlock FontWeight="SemiBold" Text="Raw step" />
                   <TextBlock Text="{Binding RawTypeName}" TextWrapping="Wrap" />
                   <TextBox IsReadOnly="True"
                            AcceptsReturn="True"
@@ -638,7 +638,11 @@
               <TextBlock Text="{Binding AuthoringHomeText}" TextWrapping="Wrap" />
               <TextBlock Opacity="0.8"
                          TextWrapping="Wrap"
-                         Text="{Binding PackPreview.IncludeTui, StringFormat='includeTui={0}. Shell apps stay bake-time and are not launched from this app.'}" />
+                         Text="TUI is not part of a production pack. Shell apps stay bake-time and are not launched from this app." />
+              <TextBlock Opacity="0.8"
+                         TextWrapping="Wrap"
+                         IsVisible="{Binding HasInstrumentComponentsPackage}"
+                         Text="{Binding InstrumentComponentsText}" />
               <TextBlock FontWeight="SemiBold" Text="TapPackage files" />
               <ItemsControl ItemsSource="{Binding PackPreview.ProgramPackContents}"
                             AutomationProperties.Name="Program pack files">
@@ -649,6 +653,10 @@
                 </ItemsControl.ItemTemplate>
               </ItemsControl>
               <TextBlock FontWeight="SemiBold" Text="Package dependencies" />
+              <TextBlock Opacity="0.8"
+                         TextWrapping="Wrap"
+                         IsVisible="{Binding !HasPackageDependencies}"
+                         Text="No package dependencies declared in authoring.json." />
               <ItemsControl ItemsSource="{Binding PackPreview.PackageDependencies}"
                             AutomationProperties.Name="Package dependencies">
                 <ItemsControl.ItemTemplate>
@@ -671,6 +679,10 @@
                 </ItemsControl.ItemTemplate>
               </ItemsControl>
               <TextBlock FontWeight="SemiBold" Text="Extra plugins" />
+              <TextBlock Opacity="0.8"
+                         TextWrapping="Wrap"
+                         IsVisible="{Binding !HasDeclaredPlugins}"
+                         Text="No extra plugin TapPackages declared." />
               <ItemsControl ItemsSource="{Binding PackPreview.PluginProjects}"
                             AutomationProperties.Name="Ship plugin projects">
                 <ItemsControl.ItemTemplate>
@@ -680,6 +692,10 @@
                 </ItemsControl.ItemTemplate>
               </ItemsControl>
               <TextBlock FontWeight="SemiBold" Text="Shell apps (bake-time)" />
+              <TextBlock Opacity="0.8"
+                         TextWrapping="Wrap"
+                         IsVisible="{Binding !HasDeclaredShellApps}"
+                         Text="No bake-time shell apps declared." />
               <ItemsControl ItemsSource="{Binding PackPreview.ShellAppProjects}"
                             AutomationProperties.Name="Ship shell-app projects">
                 <ItemsControl.ItemTemplate>
@@ -695,6 +711,18 @@
               <ItemsControl ItemsSource="{Binding LastShippedFiles}"
                             IsVisible="{Binding HasLastPack}"
                             AutomationProperties.Name="Last shipped files">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <TextBlock Text="{Binding}" />
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+              <TextBlock FontWeight="SemiBold"
+                         IsVisible="{Binding HasLastShippedBakeTimeFiles}"
+                         Text="Bake-time files in last pack" />
+              <ItemsControl ItemsSource="{Binding LastShippedBakeTimeFiles}"
+                            IsVisible="{Binding HasLastShippedBakeTimeFiles}"
+                            AutomationProperties.Name="Last shipped bake-time files">
                 <ItemsControl.ItemTemplate>
                   <DataTemplate>
                     <TextBlock Text="{Binding}" />
