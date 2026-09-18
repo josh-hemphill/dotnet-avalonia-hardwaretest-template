@@ -203,7 +203,7 @@
           <TextBox Grid.Column="1" Text="{Binding ExportDirectory}"
                    IsReadOnly="{Binding ExportDirectoryReadOnly}"
                    PlaceholderText="Optional fixed export path"
-                   ToolTip.Tip="Listed in Results → Export package together with inserted removable media. Empty falls back to Local exports under the data folder."
+                   ToolTip.Tip="Listed in Results → Export package together with inserted removable media. Local exports under the data folder is listed only when this path is empty and no removable media is present."
                    AutomationProperties.LabeledBy="{Binding #ExportDirectoryLabel}"
                    AutomationProperties.Name="Export directory" />
         </Grid>

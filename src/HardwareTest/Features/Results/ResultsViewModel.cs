@@ -38,7 +38,7 @@ public partial class ResultsViewModel : ReactiveObject
     public const string RegenerateReportsTip =
         "Recompiles Typst PDFs from this run's saved run.json. This is full PDF generation (not a lighter intermediate-only refresh) and clears certification attestation because the PDF bytes change.";
     public const string ExportPackageHelp =
-        "Copies PDFs, run.json, attestation sidecars, and optional CSV. Destinations come from inserted removable media, Settings → Export directory, or Local exports under the data folder.";
+        "Copies PDFs, run.json, attestation sidecars, and optional CSV. Destinations come from inserted removable media and Settings → Export directory. Local exports under the data folder is listed only when neither of those is available.";
     private readonly IRunStore _runStore;
     private readonly IReportService _reportService;
     private readonly IDutHistoryService? _dutHistory;
