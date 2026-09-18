@@ -7,6 +7,9 @@ namespace HardwareTest.Authoring;
 /// One report-kind row in Program settings (id + whether this program includes it).
 public sealed record AuthoringCatalogToggle(string Id, bool Included);
 
+/// One measure/algorithm setting key shown in the inspector.
+public sealed record AuthoringSettingRow(string Key, string Value);
+
 /// Workspace + session union for report kinds, program kinds, slots, and Y units.
 /// Well-known ids are suggestions, not a closed demo-program catalog.
 public static class AuthoringWorkspaceCatalog

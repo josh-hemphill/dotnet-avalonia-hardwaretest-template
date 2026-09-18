@@ -457,6 +457,174 @@ public sealed partial class AuthoringWorkspaceViewModel
         }
     }
 
+    public bool HasStepSettings
+        => HasMetricPresentation
+           && SelectedMetric?.Source is MeasureSource or AlgorithmSource;
+
+    public IReadOnlyList<string> MetricFunctionIdOptions
+    {
+        get
+        {
+            if (!HasStepSettings)
+            {
+                return [];
+            }
+
+            var wantAlgorithm = SelectedMetric?.Source is AlgorithmSource;
+            var ids = AuthoringFunctionCatalog.All
+                .Where(spec => spec.IsAlgorithm == wantAlgorithm
+                               && spec.Id != AuthoringFunctionIds.BasicApplyTransferFunction)
+                .Select(spec => spec.Id)
+                .ToList();
+            var current = MetricFunctionId;
+            if (!string.IsNullOrWhiteSpace(current)
+                && !ids.Contains(current, StringComparer.Ordinal))
+            {
+                ids.Insert(0, current);
+            }
+
+            return ids;
+        }
+    }
+
+    public string MetricFunctionId
+    {
+        get => SelectedMetric?.Source switch
+        {
+            MeasureSource measure => measure.FunctionId,
+            AlgorithmSource algorithm => algorithm.AlgorithmId,
+            _ => string.Empty,
+        };
+        set
+        {
+            var id = value?.Trim() ?? string.Empty;
+            if (!HasStepSettings || string.IsNullOrWhiteSpace(id) || string.Equals(MetricFunctionId, id, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            if (!AuthoringFunctionCatalog.TryGet(id, out var spec)
+                || spec.IsAlgorithm != (SelectedMetric?.Source is AlgorithmSource))
+            {
+                return;
+            }
+
+            UpdateSelectedMetric(metric => metric.Source switch
+            {
+                MeasureSource measure => metric with { Source = measure with { FunctionId = id } },
+                AlgorithmSource algorithm => metric with { Source = algorithm with { AlgorithmId = id } },
+                _ => metric,
+            });
+        }
+    }
+
+    public IReadOnlyList<AuthoringSettingRow> MetricSettingRows
+        => SelectedMetric?.Source switch
+        {
+            MeasureSource measure => ToSettingRows(measure.Settings),
+            AlgorithmSource algorithm => ToSettingRows(algorithm.Settings),
+            _ => [],
+        };
+
+    public void SetMetricSetting(string key, string value)
+    {
+        if (!HasStepSettings || string.IsNullOrWhiteSpace(key))
+        {
+            return;
+        }
+
+        var nextValue = value ?? string.Empty;
+        var current = SelectedMetric?.Source switch
+        {
+            MeasureSource measure when measure.Settings.TryGetValue(key, out var existing) => existing,
+            AlgorithmSource algorithm when algorithm.Settings.TryGetValue(key, out var existing) => existing,
+            _ => null,
+        };
+        if (string.Equals(current, nextValue, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        UpdateSelectedMetric(metric => metric.Source switch
+        {
+            MeasureSource measure => metric with { Source = measure with { Settings = WithSetting(measure.Settings, key, nextValue) } },
+            AlgorithmSource algorithm => metric with { Source = algorithm with { Settings = WithSetting(algorithm.Settings, key, nextValue) } },
+            _ => metric,
+        });
+    }
+
+    public bool HistoryEnabled
+    {
+        get => HasMetricPresentation && (SelectedMetric?.History?.Enabled ?? false);
+        set
+        {
+            if (!HasMetricPresentation || HistoryEnabled == value)
+            {
+                return;
+            }
+
+            UpdateSelectedMetric(metric =>
+            {
+                var current = metric.History ?? new HistorySpec(false, null, null);
+                return metric with { History = current with { Enabled = value } };
+            });
+        }
+    }
+
+    public string HistoryWatchPercent
+    {
+        get => HasMetricPresentation ? FormatLimit(SelectedMetric?.History?.WatchPercent) : string.Empty;
+        set
+        {
+            if (!HasMetricPresentation)
+            {
+                return;
+            }
+
+            UpdateSelectedMetric(metric =>
+            {
+                var current = metric.History ?? new HistorySpec(false, null, null);
+                return metric with { History = current with { WatchPercent = ParseLimit(value) } };
+            });
+        }
+    }
+
+    public string HistoryAlertPercent
+    {
+        get => HasMetricPresentation ? FormatLimit(SelectedMetric?.History?.AlertPercent) : string.Empty;
+        set
+        {
+            if (!HasMetricPresentation)
+            {
+                return;
+            }
+
+            UpdateSelectedMetric(metric =>
+            {
+                var current = metric.History ?? new HistorySpec(false, null, null);
+                return metric with { History = current with { AlertPercent = ParseLimit(value) } };
+            });
+        }
+    }
+
+    private static IReadOnlyList<AuthoringSettingRow> ToSettingRows(IReadOnlyDictionary<string, string> settings)
+        => settings
+            .OrderBy(pair => pair.Key, StringComparer.OrdinalIgnoreCase)
+            .Select(pair => new AuthoringSettingRow(pair.Key, pair.Value))
+            .ToArray();
+
+    private static IReadOnlyDictionary<string, string> WithSetting(
+        IReadOnlyDictionary<string, string> settings,
+        string key,
+        string value)
+    {
+        var next = new Dictionary<string, string>(settings, StringComparer.OrdinalIgnoreCase)
+        {
+            [key] = value ?? string.Empty,
+        };
+        return next;
+    }
+
     public void SetInstrumentVisa(string slotName, string visaAddress)
     {
         if (SelectedProgram is null || string.IsNullOrWhiteSpace(slotName))

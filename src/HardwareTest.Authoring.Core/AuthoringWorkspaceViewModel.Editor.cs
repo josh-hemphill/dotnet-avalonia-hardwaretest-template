@@ -457,6 +457,13 @@ public sealed partial class AuthoringWorkspaceViewModel
         OnPropertyChanged(nameof(LimitLow));
         OnPropertyChanged(nameof(LimitHigh));
         OnPropertyChanged(nameof(Threshold));
+        OnPropertyChanged(nameof(HasStepSettings));
+        OnPropertyChanged(nameof(MetricFunctionId));
+        OnPropertyChanged(nameof(MetricFunctionIdOptions));
+        OnPropertyChanged(nameof(MetricSettingRows));
+        OnPropertyChanged(nameof(HistoryEnabled));
+        OnPropertyChanged(nameof(HistoryWatchPercent));
+        OnPropertyChanged(nameof(HistoryAlertPercent));
         OnPropertyChanged(nameof(FormulaSource));
         OnPropertyChanged(nameof(FormulaError));
         OnPropertyChanged(nameof(TfNumerator));

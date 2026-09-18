@@ -82,6 +82,16 @@ public partial class MainWindow : Window
         TryRun(() => _viewModel.SetCleanupSlotIncluded(row.Id, box.IsChecked == true));
     }
 
+    private void OnMetricSettingLostFocus(object? sender, RoutedEventArgs e)
+    {
+        if (sender is not TextBox { DataContext: AuthoringSettingRow row } box)
+        {
+            return;
+        }
+
+        TryRun(() => _viewModel.SetMetricSetting(row.Key, box.Text ?? string.Empty));
+    }
+
     private void OnToggleRequiredField(object? sender, RoutedEventArgs e)
     {
         if (sender is not CheckBox { DataContext: AuthoringCatalogToggle row } box)
