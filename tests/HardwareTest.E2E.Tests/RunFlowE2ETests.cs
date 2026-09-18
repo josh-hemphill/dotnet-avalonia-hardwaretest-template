@@ -9,6 +9,7 @@ using Xunit;
 
 namespace HardwareTest.E2E.Tests;
 
+[Collection("E2E")]
 public sealed class RunFlowE2ETests
 {
     private static async Task RunToCompletionAsync(RunTestViewModel runVm)
@@ -51,8 +52,9 @@ public sealed class RunFlowE2ETests
     [AvaloniaFact]
     public void Session_dut_serial_textbox_binds_two_way_without_assigning_viewmodel()
     {
-        var window = E2EHarness.ShowMainWindow();
-        var main = E2EHarness.MainVm(window);
+        using var shown = E2EHarness.ShowMainWindow();
+        var window = shown.Window;
+        var main = shown.Main;
         main.NavigateToPageId("RunTest");
         Dispatcher.UIThread.RunJobs();
 
@@ -82,8 +84,8 @@ public sealed class RunFlowE2ETests
     [AvaloniaFact]
     public async Task Run_test_confirm_dut_start_finish_sets_last_run_id()
     {
-        var window = E2EHarness.ShowMainWindow();
-        var main = E2EHarness.MainVm(window);
+        using var shown = E2EHarness.ShowMainWindow();
+        var main = shown.Main;
         main.NavigateToPageId("RunTest");
         var runVm = E2EHarness.RunTestVm(main);
 
@@ -105,8 +107,8 @@ public sealed class RunFlowE2ETests
     [AvaloniaFact]
     public async Task Run_selected_leaf_completes_with_attempt_status()
     {
-        var window = E2EHarness.ShowMainWindow();
-        var main = E2EHarness.MainVm(window);
+        using var shown = E2EHarness.ShowMainWindow();
+        var main = shown.Main;
         main.NavigateToPageId("RunTest");
         var runVm = E2EHarness.RunTestVm(main);
 
@@ -145,8 +147,8 @@ public sealed class RunFlowE2ETests
     [AvaloniaFact]
     public async Task Inspect_page_loads_hierarchy_tree()
     {
-        var window = E2EHarness.ShowMainWindow();
-        var main = E2EHarness.MainVm(window);
+        using var shown = E2EHarness.ShowMainWindow();
+        var main = shown.Main;
         main.NavigateToPageId("RunTest");
         var runVm = E2EHarness.RunTestVm(main);
         await runVm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
@@ -159,8 +161,8 @@ public sealed class RunFlowE2ETests
     [AvaloniaFact]
     public async Task Inspect_OpenOnRun_selects_step_on_run_board()
     {
-        var window = E2EHarness.ShowMainWindow();
-        var main = E2EHarness.MainVm(window);
+        using var shown = E2EHarness.ShowMainWindow();
+        var main = shown.Main;
         main.NavigateToPageId("RunTest");
         var runVm = E2EHarness.RunTestVm(main);
         await runVm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
@@ -178,8 +180,8 @@ public sealed class RunFlowE2ETests
     [AvaloniaFact]
     public async Task Board_demo_program_loads_and_Inspect_shows_nested_sections()
     {
-        var window = E2EHarness.ShowMainWindow();
-        var main = E2EHarness.MainVm(window);
+        using var shown = E2EHarness.ShowMainWindow();
+        var main = shown.Main;
         main.NavigateToPageId("RunTest");
         var runVm = E2EHarness.RunTestVm(main);
 
@@ -214,8 +216,8 @@ public sealed class RunFlowE2ETests
     [AvaloniaFact]
     public async Task Results_refresh_and_open_after_run()
     {
-        var window = E2EHarness.ShowMainWindow();
-        var main = E2EHarness.MainVm(window);
+        using var shown = E2EHarness.ShowMainWindow();
+        var main = shown.Main;
         var runVm = E2EHarness.RunTestVm(main);
 
         await runVm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
@@ -241,8 +243,8 @@ public sealed class RunFlowE2ETests
     [AvaloniaFact]
     public async Task Report_preview_load_latest_renders_pages()
     {
-        var window = E2EHarness.ShowMainWindow();
-        var main = E2EHarness.MainVm(window);
+        using var shown = E2EHarness.ShowMainWindow();
+        var main = shown.Main;
         var runVm = E2EHarness.RunTestVm(main);
 
         await runVm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();

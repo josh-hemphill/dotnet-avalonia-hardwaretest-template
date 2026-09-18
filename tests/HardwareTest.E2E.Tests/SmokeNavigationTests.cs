@@ -4,13 +4,14 @@ using Xunit;
 
 namespace HardwareTest.E2E.Tests;
 
+[Collection("E2E")]
 public sealed class SmokeNavigationTests
 {
     [AvaloniaFact]
     public void MainWindow_opens_with_nav_and_home()
     {
-        var window = E2EHarness.ShowMainWindow();
-        var main = E2EHarness.MainVm(window);
+        using var shown = E2EHarness.ShowMainWindow();
+        var main = shown.Main;
 
         Assert.Equal(4, main.NavigationItems.Count);
         Assert.All(main.NavigationItems, i => Assert.True((int)i.Symbol >= 0));

@@ -3,8 +3,10 @@ using Avalonia.Headless;
 using HardwareTest;
 using HardwareTest.Core.Settings;
 using ReactiveUI.Avalonia;
+using Xunit;
 
 [assembly: AvaloniaTestApplication(typeof(HardwareTest.E2E.Tests.TestAppBuilder))]
+[assembly: CollectionBehavior(DisableTestParallelization = true)]
 
 namespace HardwareTest.E2E.Tests;
 
