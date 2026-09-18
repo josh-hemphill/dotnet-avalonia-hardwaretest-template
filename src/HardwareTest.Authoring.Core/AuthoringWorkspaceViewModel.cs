@@ -284,12 +284,25 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
             };
         }
 
+        var removedIndex = 0;
+        for (var i = 0; i < Programs.Count; i++)
+        {
+            if (string.Equals(Programs[i].PlanId, planId, StringComparison.OrdinalIgnoreCase))
+            {
+                removedIndex = i;
+                break;
+            }
+        }
+
         var remaining = Programs
             .Where(program => !string.Equals(program.PlanId, planId, StringComparison.OrdinalIgnoreCase))
             .ToArray();
         Programs = remaining;
         _selectedInstrumentSlot = null;
-        AssignSelectedProgram(remaining.FirstOrDefault());
+        AssignSelectedProgram(
+            remaining.Length == 0
+                ? null
+                : remaining[Math.Min(removedIndex, remaining.Length - 1)]);
         Findings = [];
         Status = $"Removed {planId}";
         Error = null;
