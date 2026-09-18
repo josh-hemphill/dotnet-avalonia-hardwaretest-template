@@ -43,10 +43,12 @@
     </StackPanel>
 
     <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="8">
-      <Button Content="{Binding StepTree.BreadcrumbText}"
-              Command="{Binding StepTree.ClearSubsectionCommand}"
+      <Button Content="{Binding StepTree.ScopeButtonText}"
+              Command="{Binding StepTree.ClearScopeCommand}"
+              IsEnabled="{Binding StepTree.CanClearScope}"
+              ToolTip.Tip="{Binding StepTree.ScopeToolTip}"
+              AutomationProperties.Name="Program scope"
               FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}"
-              Padding="8,4"
               Classes="operator" />
       <TextBlock Text="{Binding StepTree.BreadcrumbDetailText}"
                  Opacity="0.75"
@@ -95,7 +97,6 @@
                PlaceholderText="Search steps…"
                Text="{Binding StepTree.StepSearchText}"
                Width="180"
-               MinHeight="{x:Static shell:OperatorTouchDensity.OperatorControlMinHeight}"
                Margin="8,0,8,4"
                IsVisible="{Binding !IsCompactHeight}" />
       <Button Content="More"

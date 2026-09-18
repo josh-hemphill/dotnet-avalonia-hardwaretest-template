@@ -422,6 +422,15 @@ public partial class StepTreeViewModel
 
         BreadcrumbText = string.Join(" › ", parts);
 
+        var scoped = SelectedStage?.Step is not null
+            || SelectedSubsection is not null
+            || SelectedNestedSubsection is not null;
+        CanClearScope = scoped;
+        ScopeButtonText = $"Scope: {BreadcrumbText}";
+        ScopeToolTip = scoped
+            ? "Show the entire program. This control is the current stage/section filter, not Run."
+            : "Showing the entire program. Select a stage or section to filter the step list.";
+
         var activeItem = SelectedNestedSubsection ?? SelectedSubsection ?? SelectedStage;
         BreadcrumbDetailText = activeItem is null
             ? string.Empty
