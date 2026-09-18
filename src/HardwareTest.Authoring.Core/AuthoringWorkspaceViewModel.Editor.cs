@@ -482,6 +482,8 @@ public sealed partial class AuthoringWorkspaceViewModel
         OnPropertyChanged(nameof(HasInputSetup));
         OnPropertyChanged(nameof(HasIdentitySetup));
         OnPropertyChanged(nameof(HasCleanupEditor));
+        OnPropertyChanged(nameof(CanRemoveSelectedSequence));
+        OnPropertyChanged(nameof(CanRemoveSelectedProgram));
         OnPropertyChanged(nameof(ShowThreshold));
         OnPropertyChanged(nameof(ShowBandLimits));
         OnPropertyChanged(nameof(FormulaSaveNote));

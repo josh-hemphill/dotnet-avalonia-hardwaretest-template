@@ -73,7 +73,32 @@ public sealed class AuthoringSequenceTests
         Assert.Contains("not the whole program", AuthoringChrome.InspectorPurpose, StringComparison.Ordinal);
         Assert.Equal("Operator preview", AuthoringChrome.PreviewTitle);
         Assert.Equal("Program settings", AuthoringChrome.ProgramSettingsTitle);
+        Assert.Equal("Remove selected", AuthoringChrome.RemoveSelectedTitle);
+        Assert.Contains("Repeat unwraps its children", AuthoringChrome.RemoveSelectedPurpose, StringComparison.Ordinal);
+        Assert.Equal("Remove program", AuthoringChrome.RemoveProgramTitle);
+        Assert.Contains("Deletes its TapPlan and sidecar", AuthoringChrome.RemoveProgramPurpose, StringComparison.Ordinal);
         Assert.Equal("Measure — Acquire Voltage", new AuthoringRecipe("acquire", "Acquire Voltage", "Measure", "x").ListLabel);
+    }
+
+    [Fact]
+    public void RemoveMeasure_drops_a_leaf_and_unwraps_repeat()
+    {
+        var acquire = AuthoringRecipeCatalog.Apply(
+            AuthoringRecipeCatalog.CreateProgram("seq"),
+            AuthoringRecipeIds.Acquire);
+        var mean = AuthoringRecipeCatalog.Apply(acquire, AuthoringRecipeIds.MeanGte);
+        var wrapped = AuthoringRecipeCatalog.Apply(mean, AuthoringRecipeIds.Repeat);
+        var withoutChild = AuthoringSequence.RemoveMeasure(wrapped.Measure, [1, 0]);
+        Assert.Equal(2, withoutChild.Count);
+        Assert.IsType<MetricNode>(withoutChild[0]);
+        Assert.Empty(Assert.IsType<RepeatNode>(withoutChild[1]).Children);
+
+        var unwrapped = AuthoringSequence.RemoveMeasure(wrapped.Measure, [1]);
+        Assert.Equal(2, unwrapped.Count);
+        Assert.IsType<MetricNode>(unwrapped[0]);
+        Assert.IsType<MetricNode>(unwrapped[1]);
+        Assert.Equal("VDC", Assert.IsType<MetricNode>(unwrapped[0]).Metric.ChannelKey);
+        Assert.Equal("VDC.mean", Assert.IsType<MetricNode>(unwrapped[1]).Metric.ChannelKey);
     }
 }
 
@@ -156,6 +181,121 @@ public sealed class AuthoringSequenceViewModelTests
         vm.SelectSequence(cleanupHeader);
         Assert.Equal(shutdown, vm.SelectedSequenceIndex);
         Assert.True(vm.HasCleanupEditor);
+    }
+
+    [Fact]
+    public void Remove_selected_sequence_inverts_add_recipe()
+    {
+        var vm = OpenEmpty();
+        vm.CreateProgram("remove-seq");
+        vm.ApplyRecipe(AuthoringRecipeIds.Prompt);
+        vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
+        vm.ApplyRecipe(AuthoringRecipeIds.MeanGte);
+        vm.ApplyRecipe(AuthoringRecipeIds.Repeat);
+
+        var prompt = vm.SequenceItems.Single(row => row.Label == "Operator Prompt");
+        vm.SelectSequence(vm.SequenceItems.ToList().IndexOf(prompt));
+        Assert.True(vm.CanRemoveSelectedSequence);
+        vm.RemoveSelectedSequence();
+        Assert.DoesNotContain(vm.SequenceItems, row => row.Label == "Operator Prompt");
+        Assert.Contains(vm.SequenceItems, row => row.Label == "Identity Check");
+
+        var measureHeader = vm.SequenceItems.Single(row =>
+            row.Kind == SequenceRowKind.Header && row.Section == SequenceSection.Measure);
+        Assert.False(AuthoringSequence.CanRemove(measureHeader, vm.SelectedProgram));
+
+        var nestedMean = vm.SequenceItems.Single(row =>
+            row.Kind == SequenceRowKind.Metric && row.Detail.Contains("VDC.mean", StringComparison.Ordinal));
+        vm.SelectSequence(vm.SequenceItems.ToList().IndexOf(nestedMean));
+        vm.RemoveSelectedSequence();
+        var leftoverRepeat = Assert.IsType<RepeatNode>(vm.SelectedProgram!.Measure.Single(node => node is RepeatNode));
+        Assert.Empty(leftoverRepeat.Children);
+
+        var repeatRow = vm.SequenceItems.Single(row => row.Kind == SequenceRowKind.Repeat);
+        vm.SelectSequence(vm.SequenceItems.ToList().IndexOf(repeatRow));
+        vm.RemoveSelectedSequence();
+        Assert.DoesNotContain(vm.SelectedProgram!.Measure, node => node is RepeatNode);
+        var leftoverAcquire = Assert.IsType<MetricNode>(Assert.Single(vm.SelectedProgram.Measure));
+        Assert.Equal("VDC", leftoverAcquire.Metric.ChannelKey);
+
+        var shutdown = vm.SequenceItems.Single(row => row.Kind == SequenceRowKind.Cleanup);
+        vm.SelectSequence(vm.SequenceItems.ToList().IndexOf(shutdown));
+        Assert.True(vm.CanRemoveSelectedSequence);
+        vm.RemoveSelectedSequence();
+        Assert.False(vm.SelectedProgram!.Cleanup.IncludeSafeShutdown);
+        Assert.False(vm.CanRemoveSelectedSequence);
+        vm.RemoveSelectedSequence();
+        Assert.False(vm.SelectedProgram.Cleanup.IncludeSafeShutdown);
+    }
+
+    [Fact]
+    public void Remove_selected_program_drops_session_and_saved_files()
+    {
+        var vm = OpenEmpty();
+        vm.CreateProgram("keep-me");
+        vm.CreateProgram("drop-unsaved");
+        Assert.True(vm.CanRemoveSelectedProgram);
+        vm.RemoveSelectedProgram();
+        Assert.DoesNotContain(vm.Programs, program => program.PlanId == "drop-unsaved");
+        Assert.Equal("keep-me", vm.SelectedProgram?.PlanId);
+
+        vm.Apply();
+        var tap = Directory.EnumerateFiles(vm.Workspace!.Root, "keep-me.TapPlan", SearchOption.AllDirectories).Single();
+        var sidecar = PlanCompiler.SidecarPath(tap);
+        Assert.True(File.Exists(sidecar));
+        vm.RemoveSelectedProgram();
+        Assert.Empty(vm.Programs);
+        Assert.Null(vm.SelectedProgram);
+        Assert.False(File.Exists(tap));
+        Assert.False(File.Exists(sidecar));
+        Assert.False(vm.CanRemoveSelectedProgram);
+    }
+
+    [Fact]
+    public void Remove_selected_program_keeps_the_neighbor()
+    {
+        var vm = OpenEmpty();
+        vm.CreateProgram("alpha");
+        vm.CreateProgram("beta");
+        vm.CreateProgram("gamma");
+
+        vm.SelectProgram("beta");
+        vm.RemoveSelectedProgram();
+        Assert.Equal(["alpha", "gamma"], vm.Programs.Select(program => program.PlanId).ToArray());
+        Assert.Equal("gamma", vm.SelectedProgram?.PlanId);
+
+        vm.RemoveSelectedProgram();
+        Assert.Equal(["alpha"], vm.Programs.Select(program => program.PlanId).ToArray());
+        Assert.Equal("alpha", vm.SelectedProgram?.PlanId);
+
+        vm.RemoveSelectedProgram();
+        Assert.Null(vm.SelectedProgram);
+        Assert.Empty(vm.Programs);
+    }
+
+    [Fact]
+    public void Remove_selected_program_throws_when_workspace_is_read_only()
+    {
+        var dest = Path.Combine(Path.GetTempPath(), "ht-ro-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dest);
+        File.WriteAllText(
+            Path.Combine(dest, "authoring.json"),
+            """
+            {
+              "schemaVersion": 999,
+              "displayName": "future",
+              "plansDirectory": "."
+            }
+            """);
+
+        var vm = new AuthoringWorkspaceViewModel();
+        vm.Open(dest);
+        Assert.True(vm.Workspace!.IsReadOnly);
+        vm.CreateProgram("locked");
+        Assert.False(vm.CanRemoveSelectedProgram);
+        var ex = Assert.Throws<AuthoringWorkspaceException>(vm.RemoveSelectedProgram);
+        Assert.Contains("read-only", ex.Message, StringComparison.Ordinal);
+        Assert.Equal("locked", vm.SelectedProgram?.PlanId);
     }
 
     [Fact]

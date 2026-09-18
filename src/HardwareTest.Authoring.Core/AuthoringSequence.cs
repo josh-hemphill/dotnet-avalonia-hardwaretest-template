@@ -52,6 +52,12 @@ public static class AuthoringChrome
     public const string SettingsPurpose =
         "Theme and workstation prefs for this engineer PC. Not operator appliance policy.";
     public const string LastWorkspaceOffer = "Open last workspace";
+    public const string RemoveSelectedTitle = "Remove selected";
+    public const string RemoveSelectedPurpose =
+        "Remove the selected Setup, measure, Repeat, or Raw row. Repeat unwraps its children. Safe Shutdown turns Cleanup off.";
+    public const string RemoveProgramTitle = "Remove program";
+    public const string RemoveProgramPurpose =
+        "Drop this program from the session. Deletes its TapPlan and sidecar when those files exist.";
     public const string SetupHeader = "Setup";
     public const string SetupPurpose = "Identity and operator prompts before measurements.";
     public const string MeasureHeader = "Measure";
@@ -189,6 +195,44 @@ public static class AuthoringSequence
         Func<MeasureNode, MeasureNode> mutate)
         => MutateMeasure(nodes, path, mutate, depth: 0);
 
+    /// Drop the node at path. A Repeat at that path unwraps its children into the parent list.
+    public static IReadOnlyList<MeasureNode> RemoveMeasure(
+        IReadOnlyList<MeasureNode> nodes,
+        IReadOnlyList<int> path)
+    {
+        ArgumentNullException.ThrowIfNull(nodes);
+        if (path.Count == 0)
+        {
+            return nodes;
+        }
+
+        if (path.Count == 1)
+        {
+            return RemoveAt(nodes, path[0]);
+        }
+
+        var parent = path.Take(path.Count - 1).ToArray();
+        var child = path[^1];
+        return MutateMeasure(nodes, parent, node => node is RepeatNode repeat
+            ? repeat with { Children = RemoveAt(repeat.Children, child) }
+            : node);
+    }
+
+    public static bool CanRemove(SequenceRow? row, ProgramDraft? draft)
+    {
+        if (row is null || !row.IsSelectable || draft is null)
+        {
+            return false;
+        }
+
+        return row.Kind switch
+        {
+            SequenceRowKind.Setup or SequenceRowKind.Metric or SequenceRowKind.Repeat or SequenceRowKind.Raw => true,
+            SequenceRowKind.Cleanup => draft.Cleanup.IncludeSafeShutdown,
+            _ => false,
+        };
+    }
+
     private static IReadOnlyList<MeasureNode> MutateMeasure(
         IReadOnlyList<MeasureNode> nodes,
         IReadOnlyList<int> path,
@@ -222,6 +266,31 @@ public static class AuthoringSequence
         }
 
         return copy;
+    }
+
+    private static IReadOnlyList<MeasureNode> RemoveAt(IReadOnlyList<MeasureNode> nodes, int index)
+    {
+        if (index < 0 || index >= nodes.Count)
+        {
+            return nodes;
+        }
+
+        var result = new List<MeasureNode>(nodes.Count);
+        for (var i = 0; i < nodes.Count; i++)
+        {
+            if (i != index)
+            {
+                result.Add(nodes[i]);
+                continue;
+            }
+
+            if (nodes[i] is RepeatNode repeat)
+            {
+                result.AddRange(repeat.Children);
+            }
+        }
+
+        return result;
     }
 
     private static SequenceRow Header(SequenceSection section, string label, string detail)
