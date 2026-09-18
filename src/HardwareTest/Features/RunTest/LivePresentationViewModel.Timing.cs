@@ -22,6 +22,11 @@ public partial class LivePresentationViewModel
     {
         Events.Add(mark);
         HasTimingStrip = true;
+        if (HasCursor)
+        {
+            return;
+        }
+
         if (PlotYsLength > 0 && PlotXs.Length > 0)
         {
             var elapsedMs = PlotXs[Math.Max(0, PlotYsLength - 1)] * 1000.0;

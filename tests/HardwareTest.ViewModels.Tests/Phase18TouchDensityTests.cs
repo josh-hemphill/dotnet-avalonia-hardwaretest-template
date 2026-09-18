@@ -55,6 +55,12 @@ public sealed class Phase18TouchDensityTests
         Assert.Contains("Content=\"Overview\"", run, StringComparison.Ordinal);
         Assert.DoesNotContain("Content=\"Steps\"", header, StringComparison.Ordinal);
         Assert.Contains("OperatorTouchDensity.ChartPlotMinHeight", chart, StringComparison.Ordinal);
+        Assert.Contains("Sample window", chart, StringComparison.Ordinal);
+        Assert.Contains("Text=\"Sample window\"", chart, StringComparison.Ordinal);
+        Assert.Contains("AutomationProperties.Name=\"Sample window\"", chart, StringComparison.Ordinal);
+        Assert.Contains("Text=\"{x:Static vm:ChartTimeWindow.OperatorTip}\"", chart, StringComparison.Ordinal);
+        Assert.Contains("ClearCursorCommand", chart, StringComparison.Ordinal);
+        Assert.Contains("LivePresentationViewModel.CursorHint", chart, StringComparison.Ordinal);
         Assert.Contains("ColumnDefinitions=\"*,Auto\"", run, StringComparison.Ordinal);
         Assert.Contains("OperatorTouchDensity.OverviewSidebarWidth", run, StringComparison.Ordinal);
         Assert.True(

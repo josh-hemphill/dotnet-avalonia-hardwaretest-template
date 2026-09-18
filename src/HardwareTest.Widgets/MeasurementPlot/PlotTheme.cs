@@ -25,6 +25,9 @@ internal static class PlotTheme
     /// Event tick (config / bit mark).
     private static readonly SpColor EventTick = SpColor.FromHex("#7B1FA2");
 
+    /// Operator-placed readout cursor (distinct from event purple and limit orange).
+    private static readonly SpColor CursorLine = SpColor.FromHex("#00897B");
+
     /// Translucent out-of-band span.
     private static readonly SpColor OobFill = new(198, 40, 40, 36);
 
@@ -35,6 +38,8 @@ internal static class PlotTheme
     public static SpColor LimitFillColor => LimitFill;
 
     public static SpColor EventColor => EventTick;
+
+    public static SpColor CursorColor => CursorLine;
 
     public static SpColor OutOfBandFillColor => OobFill;
 

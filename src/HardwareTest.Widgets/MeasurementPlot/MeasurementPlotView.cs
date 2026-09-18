@@ -1,7 +1,9 @@
 using System;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Threading;
+using ScottPlot;
 using ScottPlot.Avalonia;
 
 namespace HardwareTest.Widgets.MeasurementPlot;
@@ -25,12 +27,25 @@ public sealed class MeasurementPlotView : UserControl
     private bool _followLive = true;
     private (double ElapsedSec, string Label)[] _events = [];
     private (double T0, double T1)[] _oobSpans = [];
+    private double? _cursorX;
+    private Point? _pressPosition;
 
     public MeasurementPlotView()
     {
         Content = _plot;
         ApplyThemeAndLabels();
+        _plot.PointerPressed += OnPointerPressed;
+        _plot.PointerReleased += OnPointerReleased;
     }
+
+    /// Fired when the operator places, moves, or clears the readout cursor.
+    public event EventHandler<PlotCursorChangedEventArgs>? CursorChanged;
+
+    /// Elapsed-seconds (or sample index) of the current readout line, if any.
+    public double? CursorX => _cursorX;
+
+    /// Whether the next render auto-scales to the visible window.
+    internal bool FollowLive => _followLive;
 
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
@@ -91,22 +106,50 @@ public sealed class MeasurementPlotView : UserControl
     /// Points drawn by the last completed render. Unchanged when a refresh is throttled.
     internal int LastRenderedPointCount { get; private set; }
 
-    /// Restores follow-live autoscale on the current buffer.
+    /// Restores follow-live autoscale on the current buffer and drops the readout cursor.
     public void ResetView()
     {
         _followLive = true;
+        SetCursor(null, announce: false);
         Render(force: true);
     }
+
+    /// Places or moves the vertical readout line. Null clears a placed line; it does not resume follow-live when none is placed.
+    public void SetCursor(double? xElapsedOrIndex, bool announce = true)
+    {
+        if (xElapsedOrIndex is null)
+        {
+            if (_cursorX is null)
+            {
+                return;
+            }
+
+            _cursorX = null;
+            _followLive = true;
+            Render(force: true);
+            if (announce)
+            {
+                CursorChanged?.Invoke(this, new PlotCursorChangedEventArgs());
+            }
+
+            return;
+        }
+
+        PlaceCursor(xElapsedOrIndex.Value, announce);
+    }
+
+    /// Removes the readout line and notifies listeners.
+    public void ClearCursor() => SetCursor(null);
 
     /// Updates a time-based scatter from elapsed-second Xs and values.
     public void UpdateTimeSeries(double[] xs, double[] ys, int count = -1, bool followLive = true, bool force = false)
     {
         _useTimeAxis = true;
         _xLabel = "Time (s)";
-        _followLive = followLive;
         var length = count < 0 ? Math.Min(xs.Length, ys.Length) : Math.Clamp(count, 0, Math.Min(xs.Length, ys.Length));
         EnsureCopy(ref _xs, xs, length);
         EnsureCopy(ref _ys, ys, length);
+        SyncCursorAfterBufferChange(followLive);
         Render(force);
     }
 
@@ -127,6 +170,7 @@ public sealed class MeasurementPlotView : UserControl
         }
 
         _ys = _signalBuffer;
+        SyncCursorAfterBufferChange(_followLive);
         Render(force);
     }
 
@@ -162,6 +206,7 @@ public sealed class MeasurementPlotView : UserControl
 
         AddOutOfBandSpans();
         AddEventTicks();
+        AddCursorLine();
         AddLimitOverlay();
         if (_followLive)
         {
@@ -196,6 +241,111 @@ public sealed class MeasurementPlotView : UserControl
             {
                 line.LegendText = label;
             }
+        }
+    }
+
+    private void AddCursorLine()
+    {
+        if (_cursorX is not { } x)
+        {
+            return;
+        }
+
+        var line = _plot.Plot.Add.VerticalLine(x);
+        line.LineWidth = 1.75f;
+        line.Color = PlotTheme.CursorColor;
+        line.LegendText = "Readout";
+    }
+
+    private void OnPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (!e.GetCurrentPoint(_plot).Properties.IsLeftButtonPressed)
+        {
+            _pressPosition = null;
+            return;
+        }
+
+        _pressPosition = e.GetPosition(_plot);
+    }
+
+    private void OnPointerReleased(object? sender, PointerReleasedEventArgs e)
+    {
+        if (_pressPosition is not { } start || e.InitialPressMouseButton != MouseButton.Left)
+        {
+            _pressPosition = null;
+            return;
+        }
+
+        var end = e.GetPosition(_plot);
+        _pressPosition = null;
+        var dx = end.X - start.X;
+        var dy = end.Y - start.Y;
+        if (!PlotCursorReadout.IsTap(dx, dy))
+        {
+            return;
+        }
+
+        if (LastRenderedPointCount <= 0)
+        {
+            return;
+        }
+
+        var coords = _plot.Plot.GetCoordinates(
+            (float)end.X,
+            (float)end.Y,
+            _plot.Plot.Axes.Bottom,
+            _plot.Plot.Axes.Left);
+        if (double.IsNaN(coords.X) || double.IsNaN(coords.Y))
+        {
+            return;
+        }
+
+        PlaceCursor(coords.X, announce: true);
+    }
+
+    private void SyncCursorAfterBufferChange(bool requestedFollowLive)
+    {
+        if (_cursorX is not { } x)
+        {
+            _followLive = requestedFollowLive;
+            return;
+        }
+
+        var xs = _useTimeAxis ? _xs : [];
+        var ys = _useTimeAxis ? _ys : _signalBuffer;
+        if (!PlotCursorReadout.TryNearestSample(xs, ys, ys.Length, x, out _, out var sampleX, out _))
+        {
+            _cursorX = null;
+            _followLive = true;
+            return;
+        }
+
+        _cursorX = sampleX;
+        _followLive = false;
+    }
+
+    private void PlaceCursor(double x, bool announce)
+    {
+        var xs = _useTimeAxis ? _xs : [];
+        var ys = _useTimeAxis ? _ys : _signalBuffer;
+        if (!PlotCursorReadout.TryNearestSample(xs, ys, ys.Length, x, out var index, out var sampleX, out var sampleY))
+        {
+            return;
+        }
+
+        _cursorX = sampleX;
+        _followLive = false;
+        Render(force: true);
+        if (announce)
+        {
+            CursorChanged?.Invoke(
+                this,
+                new PlotCursorChangedEventArgs
+                {
+                    X = sampleX,
+                    Y = sampleY,
+                    SampleIndex = index,
+                });
         }
     }
 

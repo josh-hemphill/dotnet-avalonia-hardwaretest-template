@@ -174,12 +174,155 @@ public sealed class Phase16PresentationChromeTests
     }
 
     [Fact]
+    public void PlaceCursor_snaps_to_nearest_sample_and_pauses_follow_live()
+    {
+        var live = new LivePresentationViewModel();
+        var step = Leaf();
+        var t0 = DateTimeOffset.UtcNow;
+        live.ApplySample(Timeseries("VDC", 1.0, t0, low: 0, high: 2), step.Path, null, step);
+        live.ApplySample(Timeseries("VDC", 1.5, t0.AddSeconds(1), low: 0, high: 2), step.Path, null, step);
+        live.SelectedTimeWindow = ChartTimeWindow.All;
+
+        live.PlaceCursor(0.2);
+
+        Assert.True(live.HasCursor);
+        Assert.False(live.FollowLive);
+        Assert.Equal(0.0, live.CursorX);
+        Assert.Equal("Readout", live.ChartAgeText);
+        Assert.Equal("1", live.ChartValueText);
+        Assert.Equal(SeriesTimingChrome.FormatElapsed(0), live.ChartElapsedText);
+        Assert.Contains("Within", live.ChartBandText, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void PlaceCursor_resnaps_when_sample_window_drops_the_point()
+    {
+        var live = new LivePresentationViewModel();
+        var step = Leaf();
+        var t0 = DateTimeOffset.UtcNow;
+        live.ApplySample(Timeseries("VDC", 1.0, t0), step.Path, null, step);
+        live.ApplySample(Timeseries("VDC", 1.5, t0.AddSeconds(40)), step.Path, null, step);
+        live.SelectedTimeWindow = ChartTimeWindow.All;
+        live.PlaceCursor(0.0);
+        Assert.Equal(0.0, live.CursorX);
+        Assert.DoesNotContain("1.5", live.ChartValueText, StringComparison.Ordinal);
+
+        live.SelectedTimeWindow = ChartTimeWindow.ThirtySeconds;
+
+        Assert.True(live.HasCursor);
+        Assert.Equal(40.0, live.CursorX);
+        Assert.Contains("1.5", live.ChartValueText, StringComparison.Ordinal);
+        Assert.False(live.FollowLive);
+    }
+
+    [Fact]
+    public void ResetForRun_drops_cursor_and_resumes_follow_live()
+    {
+        var live = new LivePresentationViewModel();
+        var step = Leaf();
+        live.ApplySample(Timeseries("VDC", 1.0), step.Path, null, step);
+        live.PlaceCursor(0.0);
+        Assert.True(live.HasCursor);
+        Assert.False(live.FollowLive);
+
+        live.ResetForRun();
+
+        Assert.False(live.HasCursor);
+        Assert.True(live.FollowLive);
+        Assert.Equal(0, live.PlotYsLength);
+    }
+
+    [Fact]
+    public void FollowLive_off_without_a_cursor_survives_a_publish()
+    {
+        var live = new LivePresentationViewModel();
+        var step = Leaf();
+        live.ApplySample(Timeseries("VDC", 1.0), step.Path, null, step);
+        live.FollowLive = false;
+        Assert.False(live.HasCursor);
+
+        live.ApplySample(Timeseries("VDC", 1.5, DateTimeOffset.UtcNow.AddSeconds(1)), step.Path, null, step);
+
+        Assert.False(live.HasCursor);
+        Assert.False(live.FollowLive);
+    }
+
+    [Fact]
+    public void ApplyEvent_does_not_replace_cursor_toolbar()
+    {
+        var live = new LivePresentationViewModel();
+        var step = Leaf();
+        var t0 = DateTimeOffset.UtcNow;
+        live.ApplySample(Timeseries("VDC", 1.0, t0), step.Path, null, step);
+        live.ApplySample(Timeseries("VDC", 1.5, t0.AddSeconds(1)), step.Path, null, step);
+        live.SelectedTimeWindow = ChartTimeWindow.All;
+        live.PlaceCursor(0.0);
+        var value = live.ChartValueText;
+        var elapsed = live.ChartElapsedText;
+        var eventLabel = live.ChartEventLabel;
+
+        live.ApplyEvent(new MeasurementEventMark("cfg", 1000, "bit2", 4, step.Path));
+
+        Assert.Equal(value, live.ChartValueText);
+        Assert.Equal(elapsed, live.ChartElapsedText);
+        Assert.Equal(eventLabel, live.ChartEventLabel);
+        Assert.Equal("Readout", live.ChartAgeText);
+        Assert.NotEqual("cfg:bit2", live.ChartEventLabel);
+        Assert.Single(live.Events);
+    }
+
+    [Fact]
+    public void ClearCursor_restores_latest_sample_toolbar()
+    {
+        var live = new LivePresentationViewModel();
+        var step = Leaf();
+        var t0 = DateTimeOffset.UtcNow;
+        live.ApplySample(Timeseries("VDC", 1.0, t0), step.Path, null, step);
+        live.ApplySample(Timeseries("VDC", 2.0, t0.AddSeconds(1)), step.Path, null, step);
+        live.SelectedTimeWindow = ChartTimeWindow.All;
+        live.PlaceCursor(0.0);
+        Assert.True(live.HasCursor);
+
+        live.ClearCursor();
+
+        Assert.False(live.HasCursor);
+        Assert.True(live.FollowLive);
+        Assert.Contains("2", live.ChartValueText, StringComparison.Ordinal);
+        Assert.DoesNotContain("Readout", live.ChartAgeText, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ResetView_clears_cursor()
+    {
+        var live = new LivePresentationViewModel();
+        var step = Leaf();
+        live.ApplySample(Timeseries("VDC", 1.0), step.Path, null, step);
+        live.PlaceCursor(0.0);
+        Assert.True(live.HasCursor);
+
+        await live.ResetViewCommand.ExecuteAsync();
+        Assert.False(live.HasCursor);
+        Assert.True(live.FollowLive);
+    }
+
+    [Fact]
     public async Task ResetView_restores_follow_live()
     {
         var live = new LivePresentationViewModel();
         live.FollowLive = false;
         await live.ResetViewCommand.ExecuteAsync();
         Assert.True(live.FollowLive);
+    }
+
+    [Fact]
+    public void Sample_window_labels_describe_the_data_filter()
+    {
+        Assert.Equal("Last 30 sec", ChartTimeWindow.ThirtySeconds.Label);
+        Assert.Equal("Last 2 min", ChartTimeWindow.TwoMinutes.Label);
+        Assert.Equal("All samples", ChartTimeWindow.All.Label);
+        Assert.Equal(
+            new[] { ChartTimeWindow.ThirtySeconds, ChartTimeWindow.TwoMinutes, ChartTimeWindow.All },
+            ChartTimeWindow.AllWindows);
     }
 
     [Fact]
