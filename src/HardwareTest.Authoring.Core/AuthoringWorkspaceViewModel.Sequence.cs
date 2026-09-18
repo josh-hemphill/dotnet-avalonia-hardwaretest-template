@@ -100,6 +100,20 @@ public sealed partial class AuthoringWorkspaceViewModel
         }
     }
 
+    public decimal? RepeatCountValue
+    {
+        get => SelectedRepeat is { } repeat ? repeat.Count : null;
+        set
+        {
+            if (value is not { } number || number < 1)
+            {
+                return;
+            }
+
+            RepeatCount = AuthoringInvariantNumbers.FormatInt(decimal.ToInt32(decimal.Truncate(number)));
+        }
+    }
+
     public void RemoveSelectedSequence()
     {
         if (SelectedProgram is null || !CanRemoveSelectedSequence || SelectedSequence is not { } row)

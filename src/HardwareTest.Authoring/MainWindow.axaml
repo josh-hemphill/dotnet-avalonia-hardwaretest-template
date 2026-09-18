@@ -194,10 +194,13 @@
 
                 <StackPanel Spacing="6" IsVisible="{Binding HasRepeatEditor}">
                   <TextBlock x:Name="RepeatCountLabel" Text="Repeat count" />
-                  <TextBox Text="{Binding RepeatCount}"
-                           AutomationProperties.Name="Repeat count"
-                           AutomationProperties.LabeledBy="{Binding #RepeatCountLabel}"
-                           ToolTip.Tip="How many times the nested measure steps run" />
+                  <NumericUpDown Value="{Binding RepeatCountValue}"
+                                 Minimum="1"
+                                 Increment="1"
+                                 FormatString="0"
+                                 AutomationProperties.Name="Repeat count"
+                                 AutomationProperties.LabeledBy="{Binding #RepeatCountLabel}"
+                                 ToolTip.Tip="How many times the nested measure steps run" />
                 </StackPanel>
 
                 <StackPanel Spacing="6" IsVisible="{Binding HasSetupEditor}">
@@ -331,14 +334,37 @@
                                   AutomationProperties.LabeledBy="{Binding #MeasureSettingsLabel}">
                       <ItemsControl.ItemTemplate>
                         <DataTemplate x:DataType="vm:AuthoringSettingRow">
-                          <Grid ColumnDefinitions="120,*" Margin="0,0,0,4">
+                          <Grid ColumnDefinitions="140,*" Margin="0,0,0,4">
                             <TextBlock Grid.Column="0" Text="{Binding Label}" VerticalAlignment="Center" />
-                            <TextBox Grid.Column="1"
-                                     Text="{Binding Value, Mode=OneWay}"
-                                     LostFocus="OnMetricSettingLostFocus"
-                                     ToolTip.Tip="{Binding ValueTooltip}"
-                                     PlaceholderText="{Binding ValuePlaceholder}"
-                                     AutomationProperties.Name="{Binding Key}" />
+                            <Panel Grid.Column="1">
+                              <TextBox IsVisible="{Binding IsText}"
+                                       Text="{Binding Value, Mode=OneWay}"
+                                       LostFocus="OnMetricSettingLostFocus"
+                                       ToolTip.Tip="{Binding ValueTooltip}"
+                                       PlaceholderText="{Binding ValuePlaceholder}"
+                                       AutomationProperties.Name="{Binding Key}" />
+                              <CheckBox IsVisible="{Binding IsBoolean}"
+                                        IsChecked="{Binding BoolValue, Mode=OneWay}"
+                                        Click="OnMetricSettingBoolChanged"
+                                        ToolTip.Tip="{Binding ValueTooltip}"
+                                        AutomationProperties.Name="{Binding Key}" />
+                              <ComboBox IsVisible="{Binding IsChoice}"
+                                        ItemsSource="{Binding Choices}"
+                                        SelectedItem="{Binding Value, Mode=OneWay}"
+                                        IsEditable="{Binding ChoiceIsEditable}"
+                                        SelectionChanged="OnMetricSettingChoiceChanged"
+                                        LostFocus="OnMetricSettingLostFocus"
+                                        ToolTip.Tip="{Binding ValueTooltip}"
+                                        AutomationProperties.Name="{Binding Key}" />
+                              <NumericUpDown IsVisible="{Binding IsNumber}"
+                                             Value="{Binding NumberValue, Mode=OneWay}"
+                                             Minimum="{Binding MinimumValue}"
+                                             Increment="{Binding IncrementValue}"
+                                             FormatString="{Binding NumberFormat}"
+                                             ValueChanged="OnMetricSettingNumberChanged"
+                                             ToolTip.Tip="{Binding ValueTooltip}"
+                                             AutomationProperties.Name="{Binding Key}" />
+                            </Panel>
                           </Grid>
                         </DataTemplate>
                       </ItemsControl.ItemTemplate>

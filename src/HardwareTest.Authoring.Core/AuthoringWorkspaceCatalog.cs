@@ -12,18 +12,42 @@ public sealed record AuthoringSettingRow(
     string Key,
     string Value,
     string Label,
+    AuthoringSettingKind Kind = AuthoringSettingKind.Text,
+    IReadOnlyList<string>? Choices = null,
     string? ValueTooltip = null,
-    string? ValuePlaceholder = null)
+    string? ValuePlaceholder = null,
+    double? Minimum = null,
+    bool ChoiceIsEditable = false)
 {
     public AuthoringSettingRow(string key, string value)
-        : this(
-            key,
-            value,
-            AuthoringInspectorCopy.PresentSetting(key).Label,
-            AuthoringInspectorCopy.PresentSetting(key).ValueTooltip,
-            AuthoringInspectorCopy.PresentSetting(key).ValuePlaceholder)
+        : this(AuthoringMetricSettingCatalog.CreateRow("*", key, value, []))
     {
     }
+
+    public bool IsText => Kind == AuthoringSettingKind.Text;
+
+    public bool IsBoolean => Kind == AuthoringSettingKind.Boolean;
+
+    public bool IsChoice => Kind == AuthoringSettingKind.Choice;
+
+    public bool IsInteger => Kind == AuthoringSettingKind.Integer;
+
+    public bool IsDouble => Kind == AuthoringSettingKind.Double;
+
+    public bool IsNumber => IsInteger || IsDouble;
+
+    public bool BoolValue
+        => bool.TryParse(Value, out var parsed) && parsed;
+
+    public decimal? NumberValue
+        => AuthoringInvariantNumbers.TryParseDecimal(Value, out var number) ? number : null;
+
+    public decimal MinimumValue
+        => Minimum is { } minimum ? (decimal)minimum : IsInteger ? 0 : decimal.MinValue;
+
+    public decimal IncrementValue => IsInteger ? 1 : 0.1m;
+
+    public string NumberFormat => IsInteger ? "0" : "0.##";
 }
 
 /// Workspace + session union for report kinds, program kinds, slots, and Y units.

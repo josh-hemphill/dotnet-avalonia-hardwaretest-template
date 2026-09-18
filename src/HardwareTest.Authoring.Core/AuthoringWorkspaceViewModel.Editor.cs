@@ -475,6 +475,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         OnPropertyChanged(nameof(SelectedRepeat));
         OnPropertyChanged(nameof(SelectedSetup));
         OnPropertyChanged(nameof(RepeatCount));
+        OnPropertyChanged(nameof(RepeatCountValue));
         OnPropertyChanged(nameof(InspectorBreadcrumb));
         OnPropertyChanged(nameof(HasFormula));
         OnPropertyChanged(nameof(HasTransferFunction));
