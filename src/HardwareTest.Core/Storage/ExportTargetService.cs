@@ -51,7 +51,7 @@ public sealed class ExportTargetService : IExportTargetService
             : new ExportTarget
             {
                 Id = "configured",
-                DisplayName = "Export directory",
+                DisplayName = FormatDisplayName("Export directory", Path.GetFullPath(_settings.ExportDirectory.Trim())),
                 RootPath = Path.GetFullPath(_settings.ExportDirectory.Trim()),
                 IsRemovable = false,
                 AvailableBytes = TryAvailable(_settings.ExportDirectory),
@@ -82,7 +82,7 @@ public sealed class ExportTargetService : IExportTargetService
             list.Add(new ExportTarget
             {
                 Id = "local-exports",
-                DisplayName = "Local exports",
+                DisplayName = FormatDisplayName("Local exports", local),
                 RootPath = local,
                 IsRemovable = false,
                 AvailableBytes = TryAvailable(_dataDirectory),
@@ -239,7 +239,7 @@ public sealed class ExportTargetService : IExportTargetService
                 yield return new ExportTarget
                 {
                     Id = "removable:" + drive.Name.TrimEnd('\\', '/'),
-                    DisplayName = $"Removable ({drive.Name.TrimEnd('\\', '/')})",
+                    DisplayName = FormatDisplayName("Removable", drive.RootDirectory.FullName),
                     RootPath = drive.RootDirectory.FullName,
                     IsRemovable = true,
                     AvailableBytes = drive.AvailableFreeSpace,
@@ -273,7 +273,7 @@ public sealed class ExportTargetService : IExportTargetService
                     yield return new ExportTarget
                     {
                         Id = "removable:" + mount,
-                        DisplayName = $"Removable ({Path.GetFileName(mount)})",
+                        DisplayName = FormatDisplayName($"Removable ({Path.GetFileName(mount)})", mount),
                         RootPath = mount,
                         IsRemovable = true,
                         AvailableBytes = TryAvailable(mount),
@@ -282,6 +282,9 @@ public sealed class ExportTargetService : IExportTargetService
             }
         }
     }
+
+    internal static string FormatDisplayName(string kind, string path)
+        => string.IsNullOrWhiteSpace(path) ? kind : $"{kind} — {path}";
 
     private static long? TryAvailable(string path)
     {

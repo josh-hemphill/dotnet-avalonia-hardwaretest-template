@@ -87,6 +87,7 @@ public partial class SettingsViewModel : ReactiveObject
         NtpHost = s.NtpHost ?? string.Empty;
         StationHealthGateOverride = s.StationHealthGateOverride ?? string.Empty;
         ExportDirectory = s.ExportDirectory ?? string.Empty;
+        PreferRemovableExport = s.PreferRemovableExport;
         DataFreeSpaceWarnGb = BytesToGb(s.DataFreeSpaceWarnBytes);
         DataFreeSpaceCriticalGb = BytesToGb(s.DataFreeSpaceCriticalBytes);
         DataDirectory = settingsStore.RootDirectory;
@@ -136,6 +137,7 @@ public partial class SettingsViewModel : ReactiveObject
         StationHealthGateOverrideReadOnly =
             settingsStore.IsOverridden(nameof(AppSettings.StationHealthGateOverride));
         ExportDirectoryReadOnly = settingsStore.IsOverridden(nameof(AppSettings.ExportDirectory));
+        PreferRemovableExportReadOnly = settingsStore.IsOverridden(nameof(AppSettings.PreferRemovableExport));
         DataFreeSpaceWarnGbReadOnly = settingsStore.IsOverridden(nameof(AppSettings.DataFreeSpaceWarnBytes));
         DataFreeSpaceCriticalGbReadOnly = settingsStore.IsOverridden(nameof(AppSettings.DataFreeSpaceCriticalBytes));
         InitCredentialSettings(settingsStore);
@@ -201,6 +203,7 @@ public partial class SettingsViewModel : ReactiveObject
                 or nameof(StationHealthSummary) or nameof(ShowStationHealthSummary)
                 or nameof(StationHealthStorePath)
                 or nameof(ExportDirectoryReadOnly)
+                or nameof(PreferRemovableExportReadOnly)
                 or nameof(DataFreeSpaceWarnGbReadOnly) or nameof(DataFreeSpaceCriticalGbReadOnly)
                 or nameof(UseMockOperatorCredentialReadOnly)
                 or nameof(RequireCredentialForOperatorReadOnly)
@@ -299,6 +302,7 @@ public partial class SettingsViewModel : ReactiveObject
     [Reactive] private int _clockSkewWarnThresholdMinutes = AppSettings.DefaultClockSkewWarnThresholdMinutes;
     [Reactive] private string _ntpHost = string.Empty;
     [Reactive] private string _exportDirectory = string.Empty;
+    [Reactive] private bool _preferRemovableExport = true;
     [Reactive] private double _dataFreeSpaceWarnGb = 2;
     [Reactive] private double _dataFreeSpaceCriticalGb = 0.5;
     [Reactive] private string _dataDirectory = string.Empty;
@@ -326,6 +330,7 @@ public partial class SettingsViewModel : ReactiveObject
     [Reactive] private bool _clockSkewWarnThresholdMinutesReadOnly;
     [Reactive] private bool _ntpHostReadOnly;
     [Reactive] private bool _exportDirectoryReadOnly;
+    [Reactive] private bool _preferRemovableExportReadOnly;
     [Reactive] private bool _dataFreeSpaceWarnGbReadOnly;
     [Reactive] private bool _dataFreeSpaceCriticalGbReadOnly;
 

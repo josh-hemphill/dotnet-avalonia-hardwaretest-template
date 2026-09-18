@@ -35,6 +35,10 @@ public partial class ResultsViewModel : ReactiveObject
 {
     public const string AllFilter = "All";
     public const string NoneDutFilter = "(none)";
+    public const string RegenerateReportsTip =
+        "Recompiles Typst PDFs from this run's saved run.json. This is full PDF generation (not a lighter intermediate-only refresh) and clears certification attestation because the PDF bytes change.";
+    public const string ExportPackageHelp =
+        "Copies PDFs, run.json, attestation sidecars, and optional CSV. Destinations come from inserted removable media and Settings → Export directory. Local exports under the data folder are listed only when neither of those is available.";
     private readonly IRunStore _runStore;
     private readonly IReportService _reportService;
     private readonly IDutHistoryService? _dutHistory;
