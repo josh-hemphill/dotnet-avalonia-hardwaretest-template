@@ -470,6 +470,21 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
         RaiseSidecarProperties();
     }
 
+    internal void MapAllPrograms(Func<ProgramDraft, ProgramDraft> mutate)
+    {
+        ArgumentNullException.ThrowIfNull(mutate);
+        var selectedId = _selectedProgram?.PlanId;
+        Programs = Programs.Select(mutate).ToArray();
+        if (selectedId is not null)
+        {
+            _selectedProgram = Programs.FirstOrDefault(program =>
+                string.Equals(program.PlanId, selectedId, StringComparison.OrdinalIgnoreCase));
+            OnPropertyChanged(nameof(SelectedProgram));
+        }
+
+        RaiseSidecarProperties();
+    }
+
     private static IReadOnlyList<ProgramDraft> MergeSessionPrograms(
         IReadOnlyList<ProgramDraft> fromDisk,
         IReadOnlyList<ProgramDraft> sessionOthers)
@@ -584,6 +599,8 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(SelectedInstrumentSlot));
         OnPropertyChanged(nameof(SelectedInstrumentVisa));
         OnPropertyChanged(nameof(SelectedInstrument));
+        OnPropertyChanged(nameof(CanRemoveSelectedInstrumentSlot));
+        OnPropertyChanged(nameof(CanRemoveSelectedProgramKind));
         RaiseEditorProperties();
     }
 

@@ -21,7 +21,9 @@ public sealed partial class AuthoringWorkspaceViewModel
         => AuthoringWorkspaceCatalog.ReportKindOptions(Workspace?.Manifest, Programs, SelectedProgram);
 
     public IReadOnlyList<AuthoringCatalogToggle> ReportKindChoices
-        => ReportKindOptions.Select(kind => new AuthoringCatalogToggle(kind, HasReportKind(kind))).ToArray();
+        => ReportKindOptions
+            .Select(kind => new AuthoringCatalogToggle(kind, HasReportKind(kind), CanRemoveCatalogItem(kind, AuthoringWorkspaceCatalog.IsProtectedReportKind)))
+            .ToArray();
 
     public IReadOnlyList<string> IncludedReportKinds
         => SelectedProgram?.Sidecar.ReportKinds is { Length: > 0 } kinds
@@ -35,7 +37,9 @@ public sealed partial class AuthoringWorkspaceViewModel
         => AuthoringWorkspaceCatalog.RequiredFieldOptions(Workspace?.Manifest, Programs, SelectedProgram);
 
     public IReadOnlyList<AuthoringCatalogToggle> RequiredFieldChoices
-        => RequiredFieldOptions.Select(id => new AuthoringCatalogToggle(id, HasRequiredField(id))).ToArray();
+        => RequiredFieldOptions
+            .Select(id => new AuthoringCatalogToggle(id, HasRequiredField(id), CanRemoveCatalogItem(id, AuthoringWorkspaceCatalog.IsProtectedRequiredField)))
+            .ToArray();
 
     public IReadOnlyList<string> StationHealthGateOptions => AuthoringEditorCatalog.StationHealthGates;
 
@@ -66,6 +70,7 @@ public sealed partial class AuthoringWorkspaceViewModel
             {
                 OnPropertyChanged(nameof(SelectedInstrumentVisa));
                 OnPropertyChanged(nameof(SelectedInstrument));
+                OnPropertyChanged(nameof(CanRemoveSelectedInstrumentSlot));
             }
         }
     }
@@ -946,6 +951,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         InstrumentSlots = next;
         OnPropertyChanged(nameof(InstrumentSlots));
         OnPropertyChanged(nameof(CanAddInstrumentSlot));
+        OnPropertyChanged(nameof(CanRemoveSelectedInstrumentSlot));
     }
 
     private void SetSidecarIfUnchanged<T>(T current, T next, Action<ProgramSidecar> mutate)
