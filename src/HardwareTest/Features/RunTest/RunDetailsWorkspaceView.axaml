@@ -36,6 +36,7 @@
                 IsVisible="{Binding StepTree.HasFailedLeaves}" />
         <Button Command="{Binding OpenLastRunResultsCommand}"
                 Classes="operator"
+                AutomationProperties.Name="Results"
                 ToolTip.Tip="Open the last run on the Results page">
           <StackPanel Orientation="Horizontal" Spacing="8">
             <ui:FASymbolIcon Symbol="{x:Static ui:FASymbol.DocumentFilled}" FontSize="16" VerticalAlignment="Center" />

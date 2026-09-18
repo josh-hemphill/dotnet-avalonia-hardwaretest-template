@@ -608,14 +608,15 @@ public sealed class RunBoardChildViewModelTests
         tree.RebuildFromHost();
         Assert.False(tree.CanClearScope);
         Assert.Equal("Scope: Entire program", tree.ScopeButtonText);
+        Assert.Contains("stage or section", tree.ScopeToolTip, StringComparison.OrdinalIgnoreCase);
 
         var identity = tree.Stages.First(s => s.DisplayName == "Identity");
         tree.SelectedStage = identity;
         Assert.True(tree.CanClearScope);
         Assert.Contains("Identity", tree.ScopeButtonText, StringComparison.Ordinal);
-        Assert.Contains("entire program", tree.ScopeToolTip, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("not Run", tree.ScopeToolTip, StringComparison.Ordinal);
 
-        tree.ClearScope();
+        tree.ClearScopeCommand.Execute().Subscribe();
         Assert.True(tree.SelectedStage?.Step is null);
         Assert.False(tree.CanClearScope);
         Assert.Equal("Scope: Entire program", tree.ScopeButtonText);

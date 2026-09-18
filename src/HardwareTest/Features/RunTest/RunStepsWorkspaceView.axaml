@@ -49,7 +49,6 @@
               ToolTip.Tip="{Binding StepTree.ScopeToolTip}"
               AutomationProperties.Name="Program scope"
               FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}"
-              Padding="8,4"
               Classes="operator" />
       <TextBlock Text="{Binding StepTree.BreadcrumbDetailText}"
                  Opacity="0.75"

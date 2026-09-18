@@ -40,7 +40,6 @@ public partial class StepTreeViewModel : ReactiveObject
         NextFailCommand = ReactiveCommand.Create(() => CycleFail(forward: true));
         PrevFailCommand = ReactiveCommand.Create(() => CycleFail(forward: false));
         JumpToCurrentCommand = ReactiveCommand.Create(() => JumpToCurrent(changeScope: true));
-        ClearSubsectionCommand = ReactiveCommand.Create(() => { SelectedSubsection = null; });
         ClearScopeCommand = ReactiveCommand.Create(ClearScope);
         FilterFailCommand = ReactiveCommand.Create(FilterFail);
         ClearFailFilterCommand = ReactiveCommand.Create(() =>
@@ -138,7 +137,6 @@ public partial class StepTreeViewModel : ReactiveObject
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> NextFailCommand { get; }
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> PrevFailCommand { get; }
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> JumpToCurrentCommand { get; }
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> ClearSubsectionCommand { get; }
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> ClearScopeCommand { get; }
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> FilterFailCommand { get; }
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> ClearFailFilterCommand { get; }
@@ -160,7 +158,7 @@ public partial class StepTreeViewModel : ReactiveObject
     [Reactive] private string _breadcrumbText = "Entire program";
     [Reactive] private string _breadcrumbDetailText = string.Empty;
     [Reactive] private string _scopeButtonText = "Scope: Entire program";
-    [Reactive] private string _scopeToolTip = "Showing the entire program. Select a stage to filter the step list.";
+    [Reactive] private string _scopeToolTip = "Showing the entire program. Select a stage or section to filter the step list.";
     [Reactive] private bool _canClearScope;
     [Reactive] private int _suitePassedCount;
     [Reactive] private int _suiteFailedCount;
@@ -264,7 +262,15 @@ public partial class StepTreeViewModel : ReactiveObject
             _suppressSubsectionFilter = false;
         }
 
-        var entire = Stages[0];
+        var entire = Stages.FirstOrDefault(s => s.Step is null);
+        if (entire is null)
+        {
+            RebuildVisibleStepList();
+            ResolveSelectedStep();
+            RefreshBreadcrumb();
+            return;
+        }
+
         if (!ReferenceEquals(SelectedStage, entire))
         {
             SelectedStage = entire;
