@@ -26,7 +26,13 @@ public sealed class AuthoringChromeA11yTests
         Assert.Contains("Text=\"{Binding InputStringFieldId}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Text=\"{Binding InputNumberFieldId}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("ItemsSource=\"{Binding FormulaPrefixCompletions}\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("IsVisible=\"{Binding HasRawStepEditor}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Text=\"{Binding RecipeAddHint}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Text=\"{Binding RecipeAdvancedHint}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Text=\"{Binding RawStepsBanner}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Text=\"{Binding ShipPurpose}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("AutomationProperties.Name=\"Declared shell-app projects\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("AutomationProperties.Name=\"Ship shell-app projects\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("AutomationProperties.Name=\"Authoring OpenTAP home packages\"", xaml, StringComparison.Ordinal);
         Assert.Contains("OnOpenLastWorkspace", xaml, StringComparison.Ordinal);
         var code = File.ReadAllText(Path.Combine(FindRepoRoot(), "src", "HardwareTest.Authoring", "MainWindow.axaml.cs"));
         Assert.Contains("ApplyFormulaCompletion", code, StringComparison.Ordinal);

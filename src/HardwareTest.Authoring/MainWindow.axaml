@@ -150,6 +150,11 @@
                         ToolTip.Tip="Append or wrap using the selected recipe. Identity/Prompt go to Setup; metrics to Measure; Repeat wraps the last measure; Safe Shutdown updates Cleanup."
                         AutomationProperties.Name="Add recipe" />
                 <TextBlock Opacity="0.8" TextWrapping="Wrap" Text="{Binding RecipeAddHint}" />
+                <TextBlock Opacity="0.8" TextWrapping="Wrap" Text="{Binding RecipeAdvancedHint}" />
+                <TextBlock Opacity="0.9"
+                           TextWrapping="Wrap"
+                           IsVisible="{Binding HasRawSteps}"
+                           Text="{Binding RawStepsBanner}" />
                 <Button Content="{Binding RemoveSelectedTitle}"
                         Click="OnRemoveSequence"
                         IsEnabled="{Binding CanRemoveSelectedSequence}"
@@ -588,21 +593,120 @@
           </ListBox>
         </TabItem>
         <TabItem Header="Workspace" AutomationProperties.Name="Workspace tab">
-          <StackPanel Spacing="8">
-            <TextBlock Text="{Binding Workspace.Root}" />
-            <TextBlock Text="{Binding Workspace.Manifest.DisplayName}" />
-            <TextBlock Text="Open a folder that contains authoring.json. Save plan writes TapPlan + sidecar via IPlanCompiler.Save."
-                       TextWrapping="Wrap" />
-          </StackPanel>
+          <ScrollViewer>
+            <StackPanel Spacing="8" Margin="0,8,16,0">
+              <TextBlock Text="{Binding Workspace.Root}" TextWrapping="Wrap" />
+              <TextBlock Text="{Binding Workspace.Manifest.DisplayName}" />
+              <TextBlock Text="Open a folder that contains authoring.json. Save plan writes TapPlan + sidecar via IPlanCompiler.Save."
+                         TextWrapping="Wrap" />
+              <TextBlock FontWeight="SemiBold" Text="Declared plugins" />
+              <TextBlock Opacity="0.8"
+                         TextWrapping="Wrap"
+                         IsVisible="{Binding !HasDeclaredPlugins}"
+                         Text="No pluginProjects in authoring.json. Extra TapPackages would copy into dist on Pack." />
+              <ItemsControl ItemsSource="{Binding PackPreview.PluginProjects}"
+                            AutomationProperties.Name="Declared plugin projects">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:PackDeclaredProjectLine">
+                    <TextBlock TextWrapping="Wrap" Text="{Binding DisplayText}" />
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+              <TextBlock FontWeight="SemiBold" Text="Declared shell apps (bake-time)" />
+              <TextBlock Opacity="0.8"
+                         TextWrapping="Wrap"
+                         IsVisible="{Binding !HasDeclaredShellApps}"
+                         Text="No shellAppProjects in authoring.json. Pack would publish each csproj into dist/shell-apps/{id} and label it bake-time." />
+              <ItemsControl ItemsSource="{Binding PackPreview.ShellAppProjects}"
+                            AutomationProperties.Name="Declared shell-app projects">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:PackDeclaredProjectLine">
+                    <TextBlock TextWrapping="Wrap" Text="{Binding DisplayText}" />
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
+          </ScrollViewer>
         </TabItem>
         <TabItem Header="Ship" AutomationProperties.Name="Ship tab">
-          <StackPanel Spacing="8">
-            <TextBlock Text="Pack writes a program TapPackage and dist/ship-manifest.json. Shell apps stay bake-time." TextWrapping="Wrap" />
-            <Button Content="Pack…"
-                    Click="OnPack"
-                    ToolTip.Tip="Validate, then write package.xml, the program TapPackage, and ship-manifest.json"
-                    AutomationProperties.Name="Pack workspace" />
-          </StackPanel>
+          <ScrollViewer>
+            <StackPanel Spacing="8" Margin="0,8,16,0">
+              <TextBlock TextWrapping="Wrap" Text="{Binding ShipPurpose}" />
+              <TextBlock FontWeight="SemiBold" Text="{Binding PackPreview.ProgramPackageName, StringFormat='Program package {0}'}" />
+              <TextBlock Text="{Binding PackPreview.ProgramPackageVersion, StringFormat='Version {0}'}" />
+              <TextBlock Text="{Binding OpenTapPinText}" />
+              <TextBlock Text="{Binding AuthoringHomeText}" TextWrapping="Wrap" />
+              <TextBlock Opacity="0.8"
+                         TextWrapping="Wrap"
+                         Text="{Binding PackPreview.IncludeTui, StringFormat='includeTui={0}. Shell apps stay bake-time and are not launched from this app.'}" />
+              <TextBlock FontWeight="SemiBold" Text="TapPackage files" />
+              <ItemsControl ItemsSource="{Binding PackPreview.ProgramPackContents}"
+                            AutomationProperties.Name="Program pack files">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:PackFileLine">
+                    <TextBlock Text="{Binding RelativePath, StringFormat='{}{0}'}" />
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+              <TextBlock FontWeight="SemiBold" Text="Package dependencies" />
+              <ItemsControl ItemsSource="{Binding PackPreview.PackageDependencies}"
+                            AutomationProperties.Name="Package dependencies">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:PackDependencyLine">
+                    <TextBlock Text="{Binding DisplayText}" />
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+              <TextBlock FontWeight="SemiBold" Text="Authoring OpenTAP home packages" />
+              <TextBlock Opacity="0.8"
+                         TextWrapping="Wrap"
+                         IsVisible="{Binding !HasAuthoringHomePackages}"
+                         Text="Bootstrap to install Editor packs into the isolated OpenTAP home." />
+              <ItemsControl ItemsSource="{Binding PackPreview.AuthoringHomePackages}"
+                            AutomationProperties.Name="Authoring OpenTAP home packages">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:OpenTapEnvironmentLine">
+                    <TextBlock Text="{Binding DisplayText}" />
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+              <TextBlock FontWeight="SemiBold" Text="Extra plugins" />
+              <ItemsControl ItemsSource="{Binding PackPreview.PluginProjects}"
+                            AutomationProperties.Name="Ship plugin projects">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:PackDeclaredProjectLine">
+                    <TextBlock TextWrapping="Wrap" Text="{Binding DisplayText}" />
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+              <TextBlock FontWeight="SemiBold" Text="Shell apps (bake-time)" />
+              <ItemsControl ItemsSource="{Binding PackPreview.ShellAppProjects}"
+                            AutomationProperties.Name="Ship shell-app projects">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:PackDeclaredProjectLine">
+                    <TextBlock TextWrapping="Wrap" Text="{Binding DisplayText}" />
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+              <TextBlock FontWeight="SemiBold" IsVisible="{Binding HasLastPack}" Text="Last pack" />
+              <TextBlock IsVisible="{Binding HasLastPack}"
+                         TextWrapping="Wrap"
+                         Text="{Binding PackPreview.LastOutputDirectory}" />
+              <ItemsControl ItemsSource="{Binding LastShippedFiles}"
+                            IsVisible="{Binding HasLastPack}"
+                            AutomationProperties.Name="Last shipped files">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <TextBlock Text="{Binding}" />
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+              <Button Content="Pack…"
+                      Click="OnPack"
+                      ToolTip.Tip="Validate, then write package.xml, the program TapPackage, declared plugin copies, bake-time shell apps, and ship-manifest.json"
+                      AutomationProperties.Name="Pack workspace" />
+            </StackPanel>
+          </ScrollViewer>
         </TabItem>
       </TabControl>
     </Grid>

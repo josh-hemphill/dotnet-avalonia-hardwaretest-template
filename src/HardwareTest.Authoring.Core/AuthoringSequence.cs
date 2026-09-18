@@ -54,6 +54,12 @@ public static class AuthoringChrome
         "Require the operator session fields this program needs. serial, partNumber, revision, and operator map to the sidecar flags; add other ids for later operator surfaces.";
     public const string RecipeAddHint =
         "Add recipe appends a getting-started type. Other OpenTAP steps stay Raw after you edit the TapPlan in TUI.";
+    public const string RecipeAdvancedHint =
+        "Save the plan, edit extra OpenTAP steps in TUI, then re-open this workspace. Those steps appear as Raw and stay read-only here. Bit sweep, timed sample, and InstrumentComponents steps are not recipes yet.";
+    public const string RawStepsBanner =
+        "{0} Raw step(s) from TUI — select a Raw row to see its type. Edit in TUI, then re-open this workspace.";
+    public const string ShipPurpose =
+        "What this workspace will pack: program TapPackage contents, extra plugin TapPackages, bake-time shell apps, and the isolated OpenTAP home.";
     public const string SettingsTitle = "Settings";
     public const string SettingsPurpose =
         "Theme and workstation prefs for this engineer PC. Not operator appliance policy.";
