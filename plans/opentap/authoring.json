@@ -16,5 +16,5 @@
   "optionalDependencies": [],
   "pluginProjects": [],
   "shellAppProjects": [],
-  "includeTui": true
+  "includeTui": false
 }

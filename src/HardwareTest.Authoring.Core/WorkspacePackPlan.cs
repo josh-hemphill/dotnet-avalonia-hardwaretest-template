@@ -60,7 +60,7 @@ public static class WorkspacePackPlan
         [],
         [],
         null,
-        true,
+        false,
         null,
         null,
         null);
@@ -135,6 +135,14 @@ public static class WorkspacePackPlan
         {
             return null;
         }
+        catch (IOException)
+        {
+            return null;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return null;
+        }
     }
 
     private static string ResolveHomePath(AuthoringWorkspace workspace, string? homeOverride)
@@ -145,6 +153,15 @@ public static class WorkspacePackPlan
         }
 
         return Path.GetFullPath(Path.Combine(workspace.Root, OpenTapHomeBootstrapper.DefaultHomeRelativePath));
+    }
+
+    /// Package dependencies written into ship-manifest.json (required + optional).
+    public static IReadOnlyList<ShipDependency> ShipDependencies(AuthoringManifest manifest)
+    {
+        ArgumentNullException.ThrowIfNull(manifest);
+        return EnumerateDependencies(manifest)
+            .Select(dep => new ShipDependency(dep.Package, dep.Version, dep.Optional, dep.When))
+            .ToArray();
     }
 
     private static IReadOnlyList<PackDependencyLine> EnumerateDependencies(AuthoringManifest manifest)
@@ -164,7 +181,7 @@ public static class WorkspacePackPlan
     }
 
     private static string? OpenTapPin(AuthoringManifest manifest)
-        => manifest.Dependencies.FirstOrDefault(dep =>
+        => EnumerateDependencies(manifest).FirstOrDefault(dep =>
                 string.Equals(dep.Package, "OpenTAP", StringComparison.OrdinalIgnoreCase))
             ?.Version;
 
