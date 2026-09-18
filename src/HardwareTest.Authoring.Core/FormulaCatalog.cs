@@ -19,6 +19,8 @@ public static class FormulaCatalog
         string Description,
         bool Packs);
 
+    public readonly record struct IdentSpan(int Start, int Length, string Text);
+
     public static IReadOnlyList<Item> Completions(IReadOnlyList<string> channelKeys)
     {
         var items = new List<Item>(AllowedFunctions.Count + channelKeys.Count);
@@ -36,6 +38,11 @@ public static class FormulaCatalog
                      .Where(key => !string.IsNullOrWhiteSpace(key))
                      .Distinct(StringComparer.OrdinalIgnoreCase))
         {
+            if (ReservedUnknown.Contains(key))
+            {
+                continue;
+            }
+
             items.Add(new Item(
                 InsertText: key,
                 Name: key,
@@ -45,6 +52,62 @@ public static class FormulaCatalog
         }
 
         return items;
+    }
+
+    public static IReadOnlyList<Item> CompletionsFor(string prefix, IReadOnlyList<string> channelKeys)
+    {
+        var all = Completions(channelKeys);
+        if (string.IsNullOrEmpty(prefix))
+        {
+            return all;
+        }
+
+        return all
+            .Where(item => item.Name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+    }
+
+    /// Ident under caret using the parser rule (letters, digits, `_`, `.` before a letter).
+    public static IdentSpan IdentAt(string? source, int caret)
+    {
+        var text = source ?? string.Empty;
+        caret = Math.Clamp(caret, 0, text.Length);
+        var i = 0;
+        while (i < text.Length)
+        {
+            if (!(char.IsLetter(text[i]) || text[i] == '_'))
+            {
+                i++;
+                continue;
+            }
+
+            var start = i;
+            i++;
+            while (i < text.Length)
+            {
+                var ch = text[i];
+                if (char.IsLetterOrDigit(ch) || ch == '_')
+                {
+                    i++;
+                    continue;
+                }
+
+                if (ch == '.' && i + 1 < text.Length && (char.IsLetter(text[i + 1]) || text[i + 1] == '_'))
+                {
+                    i++;
+                    continue;
+                }
+
+                break;
+            }
+
+            if (caret >= start && caret <= i)
+            {
+                return new IdentSpan(start, i - start, text[start..i]);
+            }
+        }
+
+        return new IdentSpan(caret, 0, string.Empty);
     }
 
     public static bool Packs(string name)

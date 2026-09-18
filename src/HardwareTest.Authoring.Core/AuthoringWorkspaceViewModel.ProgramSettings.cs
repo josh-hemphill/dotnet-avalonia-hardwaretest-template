@@ -330,14 +330,22 @@ public sealed partial class AuthoringWorkspaceViewModel
     }
 
     public void InsertFormulaToken(string token)
+        => ApplyFormulaCompletion(token, FormulaSource.Length);
+
+    public IReadOnlyList<FormulaCatalog.Item> CompletionsAt(int caret)
+        => HasFormula ? FormulaCatalog.CompletionsFor(FormulaCatalog.IdentAt(FormulaSource, caret).Text, ChannelKeys) : [];
+
+    public int ApplyFormulaCompletion(string insertText, int caret)
     {
-        if (string.IsNullOrWhiteSpace(token) || !HasFormula)
+        if (!HasFormula || string.IsNullOrWhiteSpace(insertText))
         {
-            return;
+            return caret;
         }
 
-        var current = FormulaSource;
-        FormulaSource = string.IsNullOrWhiteSpace(current) ? token : current + token;
+        var source = FormulaSource;
+        var span = FormulaCatalog.IdentAt(source, caret);
+        FormulaSource = source.Remove(span.Start, span.Length).Insert(span.Start, insertText);
+        return span.Start + insertText.Length;
     }
 
     private bool HasReportKind(string kind)
