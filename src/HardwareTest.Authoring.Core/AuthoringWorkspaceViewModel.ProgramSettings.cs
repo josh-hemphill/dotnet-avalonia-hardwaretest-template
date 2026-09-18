@@ -38,6 +38,7 @@ public sealed partial class AuthoringWorkspaceViewModel
             if (SetField(ref _selectedInstrumentSlot, value))
             {
                 OnPropertyChanged(nameof(SelectedInstrumentVisa));
+                OnPropertyChanged(nameof(SelectedInstrument));
             }
         }
     }

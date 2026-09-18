@@ -8,6 +8,7 @@ namespace HardwareTest.Authoring;
 public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
 {
     private readonly IPlanCompiler _compiler;
+    private readonly IAuthoringPreferencesStore? _preferences;
     private AuthoringWorkspace? _workspace;
     private IReadOnlyList<ProgramDraft> _programs = [];
     private ProgramDraft? _selectedProgram;
@@ -21,9 +22,10 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
     private IReadOnlyList<string> _datasetItems = [];
     private int _selectedDatasetIndex = -1;
 
-    public AuthoringWorkspaceViewModel(IPlanCompiler? compiler = null)
+    public AuthoringWorkspaceViewModel(IPlanCompiler? compiler = null, IAuthoringPreferencesStore? preferences = null)
     {
         _compiler = compiler ?? new PlanCompiler();
+        _preferences = preferences;
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -168,6 +170,7 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
         Findings = [];
         Status = $"{files.Manifest.DisplayName}: {draft.Programs.Count} program(s)";
         RefreshDatasets();
+        RememberLastWorkspace(files.Root);
         RaiseSidecarProperties();
     }
 
@@ -361,9 +364,7 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
             throw new AuthoringWorkspaceException("Open a workspace before bootstrap.");
         }
 
-        var home = new OpenTapHomeBootstrapper().Bootstrap(
-            Workspace,
-            options ?? new BootstrapOptions { Offline = true });
+        var home = new OpenTapHomeBootstrapper().Bootstrap(Workspace, ResolveBootstrapOptions(options));
         Status = $"OpenTAP home {home.Root}";
         Error = null;
         return home;
@@ -488,6 +489,7 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(InstrumentSlots));
         OnPropertyChanged(nameof(SelectedInstrumentSlot));
         OnPropertyChanged(nameof(SelectedInstrumentVisa));
+        OnPropertyChanged(nameof(SelectedInstrument));
         RaiseEditorProperties();
     }
 

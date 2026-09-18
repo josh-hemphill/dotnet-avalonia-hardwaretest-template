@@ -432,6 +432,9 @@ public sealed partial class AuthoringWorkspaceViewModel
         OnPropertyChanged(nameof(HasFormula));
         OnPropertyChanged(nameof(HasTransferFunction));
         OnPropertyChanged(nameof(HasRawStep));
+        OnPropertyChanged(nameof(HasRawStepEditor));
+        OnPropertyChanged(nameof(FormulaPrefixCompletions));
+        OnPropertyChanged(nameof(HasFormulaPrefixCompletions));
         OnPropertyChanged(nameof(HasMetricPresentation));
         OnPropertyChanged(nameof(HasRepeatEditor));
         OnPropertyChanged(nameof(HasSetupEditor));
@@ -457,10 +460,18 @@ public sealed partial class AuthoringWorkspaceViewModel
         OnPropertyChanged(nameof(MetricInstrumentSlot));
         OnPropertyChanged(nameof(SelectedRecipe));
         OnPropertyChanged(nameof(SelectedInstrumentVisa));
+        OnPropertyChanged(nameof(SelectedInstrument));
+        OnPropertyChanged(nameof(CanOfferLastWorkspace));
+        OnPropertyChanged(nameof(LastWorkspacePath));
     }
 
     private void UpdateSelectedTf(Func<TransferFunctionAlgorithm, TransferFunctionAlgorithm> mutate)
     {
+        if (!HasTransferFunction)
+        {
+            return;
+        }
+
         UpdateSelectedMetric(metric =>
         {
             if (metric.Source is not TransferFunctionAlgorithm tf)
