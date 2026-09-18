@@ -153,9 +153,14 @@ public sealed class ArchitectureRulesTests
     {
         var csproj = Path.Combine(FindRepoRoot(), "src", "HardwareTest.Authoring", "HardwareTest.Authoring.csproj");
         Assert.True(File.Exists(csproj), csproj);
-        var xml = File.ReadAllText(csproj);
-        Assert.DoesNotContain("src\\HardwareTest\\HardwareTest.csproj", xml, StringComparison.Ordinal);
-        Assert.DoesNotContain("src/HardwareTest/HardwareTest.csproj", xml, StringComparison.Ordinal);
+        var refs = XDocument.Load(csproj)
+            .Descendants("ProjectReference")
+            .Select(e => (e.Attribute("Include")?.Value ?? string.Empty).Replace('\\', '/'))
+            .ToArray();
+        Assert.DoesNotContain(
+            refs,
+            path => path.EndsWith("/HardwareTest/HardwareTest.csproj", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(Path.GetFileName(path), "HardwareTest.csproj", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]

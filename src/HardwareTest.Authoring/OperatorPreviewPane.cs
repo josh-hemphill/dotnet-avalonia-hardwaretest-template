@@ -99,7 +99,7 @@ public sealed class OperatorPreviewPane : UserControl
         _note.Text = _session.PreviewNote;
         _gauge.IsVisible = chrome.IsGauge;
         _plot.IsVisible = chrome.IsChart;
-        _strip.IsVisible = chrome.IsStrip || (chrome.IsChart && chrome.Events.Count > 0);
+        _strip.IsVisible = chrome.IsStrip;
         if (chrome.IsGauge)
         {
             _gauge.DataContext = new MetricGaugeModel
@@ -120,15 +120,25 @@ public sealed class OperatorPreviewPane : UserControl
             _plot.SetLabels(chrome.MetricKey, unit, chrome.MetricKey);
             _plot.SetLimits(chrome.LimitLow, chrome.LimitHigh);
             var ys = chrome.Ys.ToArray();
-            _plot.SetEvents(chrome.Events.Select(mark => (mark.ElapsedMs / 1000.0, FormatEvent(mark))).ToArray());
-            _plot.SetOutOfBandSpans(chrome.Spans.ToArray());
-            _plot.UpdateData(ys, ys.Length, force: true);
+            var drawTimeAxis = chrome.UsesTimeAxis && chrome.Xs.Count == ys.Length && ys.Length > 0;
+            if (drawTimeAxis)
+            {
+                _plot.SetEvents(chrome.Events.Select(mark => (mark.ElapsedMs / 1000.0, FormatEvent(mark))).ToArray());
+                _plot.SetOutOfBandSpans(chrome.Spans.ToArray());
+                _plot.UpdateTimeSeries(chrome.Xs.ToArray(), ys, ys.Length, followLive: true, force: true);
+            }
+            else
+            {
+                _plot.SetEvents([]);
+                _plot.SetOutOfBandSpans([]);
+                _plot.UpdateData(ys, ys.Length, force: true);
+            }
         }
 
-        if (_strip.IsVisible)
+        if (chrome.IsStrip)
         {
             _strip.Events = chrome.Events;
-            _strip.Spans = chrome.Spans;
+            _strip.Spans = chrome.UsesTimeAxis ? chrome.Spans : [];
             _strip.DurationSec = chrome.DurationSec;
         }
     }

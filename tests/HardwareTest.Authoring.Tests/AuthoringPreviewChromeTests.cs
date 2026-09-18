@@ -60,11 +60,18 @@ public sealed class AuthoringPreviewChromeTests
                 null,
                 null,
                 new MeasureSource("DMM", AuthoringFunctionIds.BasicAcquireVoltage, new Dictionary<string, string>())));
-        var chrome = AuthoringPreviewChromeBuilder.From(preview);
+        var chrome = AuthoringPreviewChromeBuilder.From(
+            preview,
+            [new HardwareTest.Core.Runs.StoredEvent { Name = "edge", ElapsedMs = 1500, Label = "rise" }]);
         Assert.True(chrome.IsChart);
         Assert.False(chrome.IsGauge);
+        Assert.False(chrome.IsStrip);
         Assert.True(chrome.Ys.Count > 1);
         Assert.Equal(chrome.Ys.Count, chrome.Xs.Count);
+        Assert.False(chrome.UsesTimeAxis);
+        Assert.Equal(0, chrome.Xs[0]);
+        Assert.Equal(chrome.Ys.Count - 1, chrome.Xs[^1]);
+        Assert.Equal("edge", Assert.Single(chrome.Events).Name);
     }
 
     [Fact]
