@@ -294,7 +294,7 @@ public sealed partial class AuthoringWorkspaceViewModel
             ReplaceSelected(SelectedProgram with
             {
                 Cleanup = SelectedProgram.Cleanup with { InstrumentSlot = slot },
-            });
+            }, rebuildLists: false);
         }
     }
 
@@ -311,7 +311,7 @@ public sealed partial class AuthoringWorkspaceViewModel
             ReplaceSelected(SelectedProgram with
             {
                 Cleanup = SelectedProgram.Cleanup with { IncludeSafeShutdown = value },
-            });
+            }, rebuildLists: false);
         }
     }
 
@@ -473,7 +473,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         }
 
         setup[index] = next;
-        ReplaceSelected(SelectedProgram with { Setup = setup });
+        ReplaceSelected(SelectedProgram with { Setup = setup }, rebuildLists: false);
     }
 
     private static string FormatOptional(double? value)

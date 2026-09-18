@@ -459,12 +459,24 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
         }
     }
 
-    internal void ReplaceSelected(ProgramDraft draft)
+    internal void ReplaceSelected(ProgramDraft draft, bool rebuildLists = true)
     {
+        var samePlan = string.Equals(_selectedProgram?.PlanId, draft.PlanId, StringComparison.OrdinalIgnoreCase);
         Programs = Programs.Select(p =>
                 string.Equals(p.PlanId, draft.PlanId, StringComparison.OrdinalIgnoreCase) ? draft : p)
             .ToArray();
-        AssignSelectedProgram(draft);
+        _selectedProgram = draft;
+        OnPropertyChanged(nameof(SelectedProgram));
+        if (rebuildLists || !samePlan)
+        {
+            RefreshMeasurePresentation();
+        }
+        else
+        {
+            RefreshSequencePresentation();
+            RaiseEditorProperties();
+        }
+
         RaiseSidecarProperties();
     }
 

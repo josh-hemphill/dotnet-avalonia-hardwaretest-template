@@ -70,6 +70,83 @@ public sealed class AuthoringInspectorNitsTests
     }
 
     [Fact]
+    public void Inspector_channel_key_keeps_the_selected_sequence_row()
+    {
+        var vm = OpenEmpty();
+        vm.CreateProgram("keep-key");
+        vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
+        vm.ApplyRecipe(AuthoringRecipeIds.MeanGte);
+        var mean = vm.SequenceItems.Single(row =>
+            row.Kind == SequenceRowKind.Metric && row.Detail.Contains("VDC.mean", StringComparison.Ordinal));
+        vm.SelectSequence(vm.SequenceItems.ToList().IndexOf(mean));
+        var index = vm.SelectedSequenceIndex;
+        var notified = new HashSet<string>(StringComparer.Ordinal);
+        vm.PropertyChanged += (_, e) =>
+        {
+            if (!string.IsNullOrEmpty(e.PropertyName))
+            {
+                notified.Add(e.PropertyName);
+            }
+        };
+
+        vm.ChannelKey = "rail.mean";
+        Assert.Equal("rail.mean", vm.ChannelKey);
+        Assert.Equal(index, vm.SelectedSequenceIndex);
+        Assert.Equal(mean.Key, vm.SelectedSequence?.Key);
+        Assert.DoesNotContain(nameof(vm.SequenceItems), notified);
+        Assert.Contains(nameof(vm.ChannelKey), notified);
+    }
+
+    [Fact]
+    public void Inspector_cleanup_slot_keeps_the_selected_cleanup_row()
+    {
+        var vm = OpenEmpty();
+        vm.CreateProgram("keep-cleanup");
+        var shutdown = vm.SequenceItems.Single(row => row.Kind == SequenceRowKind.Cleanup);
+        vm.SelectSequence(vm.SequenceItems.ToList().IndexOf(shutdown));
+        var notified = new HashSet<string>(StringComparer.Ordinal);
+        vm.PropertyChanged += (_, e) =>
+        {
+            if (!string.IsNullOrEmpty(e.PropertyName))
+            {
+                notified.Add(e.PropertyName);
+            }
+        };
+
+        vm.CleanupInstrumentSlot = "SCOPE";
+        Assert.Equal("SCOPE", vm.CleanupInstrumentSlot);
+        Assert.Equal(shutdown.Key, vm.SelectedSequence?.Key);
+        Assert.True(vm.HasCleanupEditor);
+        Assert.DoesNotContain(nameof(vm.SequenceItems), notified);
+    }
+
+    [Fact]
+    public void SelectSequence_ignores_cleared_index_and_keeps_the_current_row()
+    {
+        var vm = OpenEmpty();
+        vm.CreateProgram("keep-index");
+        vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
+        var acquire = vm.SequenceItems.Single(row => row.Kind == SequenceRowKind.Metric);
+        vm.SelectSequence(vm.SequenceItems.ToList().IndexOf(acquire));
+        var index = vm.SelectedSequenceIndex;
+        var key = vm.SelectedSequence?.Key;
+        var raisedIndex = false;
+        vm.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(vm.SelectedSequenceIndex))
+            {
+                raisedIndex = true;
+            }
+        };
+
+        vm.SelectSequence(-1);
+        Assert.Equal(index, vm.SelectedSequenceIndex);
+        Assert.Equal(key, vm.SelectedSequence?.Key);
+        Assert.Equal("VDC", vm.ChannelKey);
+        Assert.True(raisedIndex);
+    }
+
+    [Fact]
     public void Raw_xml_is_empty_until_a_raw_row_is_selected()
     {
         var vm = OpenEmpty();
