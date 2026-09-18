@@ -176,12 +176,32 @@ public sealed partial class AuthoringWorkspaceViewModel
            && string.Equals(DisplayRole, PresentationRoles.Passband, StringComparison.OrdinalIgnoreCase);
 
     public string FormulaHelp =>
-        "MATLAB-flavored subset, not MATLAB. Save plan only lowers mean(x)+threshold → Mean GTE, or top-level filter/filtfilt → transfer function.";
+        "MATLAB-flavored subset for preview. The save plan line shows what packs into the test plan.";
 
     public string FormulaSaveNote
-        => HasFormula && SelectedMetric?.Source is ExpressionAlgorithm expr
-            ? FormulaLowerer.DescribeSave(expr.Source, SelectedMetric.Limits)
-            : string.Empty;
+    {
+        get
+        {
+            if (!HasFormula || SelectedMetric?.Source is not ExpressionAlgorithm expr)
+            {
+                return string.Empty;
+            }
+
+            if (!string.IsNullOrEmpty(FormulaError))
+            {
+                return string.Empty;
+            }
+
+            return FormulaLowerer.DescribeSave(expr.Source, SelectedMetric.Limits);
+        }
+    }
+
+    public FormulaSaveOutcomeKind FormulaSaveOutcomeKind
+        => HasFormula
+           && SelectedMetric?.Source is ExpressionAlgorithm expr
+           && string.IsNullOrEmpty(FormulaError)
+            ? FormulaLowerer.DescribeSaveOutcome(expr.Source, SelectedMetric.Limits).Kind
+            : FormulaSaveOutcomeKind.None;
 
     public string TransferFunctionHelp =>
         "Discrete SISO IIR. filtfilt is zero-phase on the whole series; filter is causal. Needs uniform elapsedMs.";

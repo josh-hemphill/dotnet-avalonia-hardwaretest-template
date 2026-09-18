@@ -24,11 +24,29 @@ public sealed class AuthoringEditorCatalogTests
     [Fact]
     public void DescribeSave_distinguishes_pack_from_preview_only()
     {
-        Assert.Contains("Mean GTE", FormulaLowerer.DescribeSave("mean(VDC)", new LimitSpec(null, null, 1.2)), StringComparison.Ordinal);
-        Assert.Contains("Apply Transfer Function", FormulaLowerer.DescribeSave("filter([0.5 0.5],[1],VDC)", null), StringComparison.Ordinal);
-        Assert.Contains("Apply Transfer Function", FormulaLowerer.DescribeSave("filtfilt([0.5 0.5],[1],VDC)", null), StringComparison.Ordinal);
-        Assert.Contains(AuthoringCompileCodes.FormulaNoLower, FormulaLowerer.DescribeSave("std(VDC)", null), StringComparison.Ordinal);
-        Assert.Contains(AuthoringCompileCodes.FormulaParse, FormulaLowerer.DescribeSave("fft(VDC)", null), StringComparison.Ordinal);
+        var mean = FormulaLowerer.DescribeSaveOutcome("mean(VDC)", new LimitSpec(null, null, 1.2));
+        Assert.Equal(FormulaSaveOutcomeKind.PacksMeanGte, mean.Kind);
+        Assert.Contains("Mean GTE", mean.Message, StringComparison.Ordinal);
+
+        var filter = FormulaLowerer.DescribeSaveOutcome("filter([0.5 0.5],[1],VDC)", null);
+        Assert.Equal(FormulaSaveOutcomeKind.PacksTransferFunction, filter.Kind);
+        Assert.Contains("Apply Transfer Function", filter.Message, StringComparison.Ordinal);
+
+        var filtfilt = FormulaLowerer.DescribeSaveOutcome("filtfilt([0.5 0.5],[1],VDC)", null);
+        Assert.Equal(FormulaSaveOutcomeKind.PacksTransferFunction, filtfilt.Kind);
+
+        var preview = FormulaLowerer.DescribeSaveOutcome("std(VDC)", null);
+        Assert.Equal(FormulaSaveOutcomeKind.PreviewOnly, preview.Kind);
+        Assert.Contains("Preview only", preview.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain(AuthoringCompileCodes.FormulaNoLower, preview.Message, StringComparison.Ordinal);
+
+        var parse = FormulaLowerer.DescribeSaveOutcome("fft(VDC)", null);
+        Assert.Equal(FormulaSaveOutcomeKind.None, parse.Kind);
+        Assert.True(string.IsNullOrEmpty(parse.Message));
+
+        var blocked = FormulaLowerer.DescribeSaveOutcome("mean(VDC)", null);
+        Assert.Equal(FormulaSaveOutcomeKind.SaveBlocked, blocked.Kind);
+        Assert.Contains(AuthoringCompileCodes.MissingLimits, blocked.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -155,11 +173,17 @@ public sealed class AuthoringProgramSettingsViewModelTests
         Assert.True(vm.HasFormula);
         Assert.False(vm.HasTransferFunction);
         Assert.Contains("Mean GTE", vm.FormulaSaveNote, StringComparison.Ordinal);
+        Assert.Equal(FormulaSaveOutcomeKind.PacksMeanGte, vm.FormulaSaveOutcomeKind);
         vm.InsertFormulaToken("+std(");
         Assert.Contains("+std(", vm.FormulaSource, StringComparison.Ordinal);
         Assert.Contains(AuthoringCompileCodes.FormulaParse, vm.FormulaError, StringComparison.Ordinal);
+        Assert.True(string.IsNullOrEmpty(vm.FormulaSaveNote), vm.FormulaSaveNote);
+        Assert.Equal(FormulaSaveOutcomeKind.None, vm.FormulaSaveOutcomeKind);
         vm.FormulaSource = "std(VDC)";
-        Assert.Contains(AuthoringCompileCodes.FormulaNoLower, vm.FormulaSaveNote, StringComparison.Ordinal);
+        Assert.True(string.IsNullOrEmpty(vm.FormulaError), vm.FormulaError);
+        Assert.Contains("Preview only", vm.FormulaSaveNote, StringComparison.Ordinal);
+        Assert.DoesNotContain(AuthoringCompileCodes.FormulaNoLower, vm.FormulaSaveNote, StringComparison.Ordinal);
+        Assert.Equal(FormulaSaveOutcomeKind.PreviewOnly, vm.FormulaSaveOutcomeKind);
         Assert.Contains("VDC", vm.ChannelKeys);
         Assert.Contains(vm.FormulaCompletions, item => item.Name == "mean" && item.Packs);
         vm.ApplyRecipe(AuthoringRecipeIds.Repeat);

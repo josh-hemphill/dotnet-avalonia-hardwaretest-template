@@ -110,4 +110,28 @@ public sealed class FormulaParserTests
             ["rail.mean", "VDC"],
             FormulaExprWalk.Identifiers(ast.Root));
     }
+
+    [Fact]
+    public void TryParse_reports_parse_errors_without_throwing()
+    {
+        Assert.True(FormulaParser.TryParse("mean(VDC.mean)", out var ast, out var okError));
+        Assert.NotNull(ast);
+        Assert.Null(okError);
+
+        Assert.False(FormulaParser.TryParse("mean(", out var failed, out var error));
+        Assert.Null(failed);
+        Assert.Contains(AuthoringCompileCodes.FormulaParse, error, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void DescribeSave_keeps_parse_empty_and_nested_filter_blocked()
+    {
+        var dotted = FormulaLowerer.DescribeSaveOutcome("mean(VDC.mean)", new LimitSpec(null, null, 1.2));
+        Assert.Equal(FormulaSaveOutcomeKind.PacksMeanGte, dotted.Kind);
+
+        var nested = FormulaLowerer.DescribeSaveOutcome("mean(filter([0.5],[1],VDC))", null);
+        Assert.Equal(FormulaSaveOutcomeKind.SaveBlocked, nested.Kind);
+        Assert.Contains(AuthoringCompileCodes.FormulaNoLower, nested.Message, StringComparison.Ordinal);
+        Assert.Contains("nested", nested.Message, StringComparison.OrdinalIgnoreCase);
+    }
 }
