@@ -94,6 +94,66 @@ public sealed class AuthoringPreviewChromeTests
         var mark = Assert.Single(chrome.Events);
         Assert.Equal("bit", mark.Name);
         Assert.Equal(2500, mark.ElapsedMs);
-        Assert.True(chrome.DurationSec >= 2.5);
+        Assert.False(chrome.UsesTimeAxis);
+        Assert.Empty(chrome.Spans);
+        Assert.Equal(2.5, chrome.DurationSec);
+    }
+
+    [Fact]
+    public void Timeseries_with_elapsed_samples_uses_time_axis_and_chart_plan_overlays()
+    {
+        var metric = new MetricDraft(
+            "Acquire",
+            "VDC",
+            PresentationRoles.Timeseries,
+            "V",
+            new LimitSpec(0.95, 1.05, null),
+            null,
+            new MeasureSource("DMM", AuthoringFunctionIds.BasicAcquireVoltage, new Dictionary<string, string>()));
+        var preview = MetricPreviewBuilder.From(
+            metric,
+            recorded: new Dictionary<string, IReadOnlyList<HardwareTest.Core.Runs.StoredSample>>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["VDC"] =
+                [
+                    new() { Channel = "VDC", MetricKey = "VDC", Value = 1.0, ElapsedMs = 0 },
+                    new() { Channel = "VDC", MetricKey = "VDC", Value = 1.2, ElapsedMs = 1000 },
+                    new() { Channel = "VDC", MetricKey = "VDC", Value = 1.0, ElapsedMs = 2000 },
+                ],
+            });
+        var chrome = AuthoringPreviewChromeBuilder.From(
+            preview,
+            [new HardwareTest.Core.Runs.StoredEvent { Name = "edge", ElapsedMs = 1000, Label = "rise" }]);
+        Assert.True(chrome.IsChart);
+        Assert.True(chrome.UsesTimeAxis);
+        Assert.Equal([0, 1, 2], chrome.Xs);
+        Assert.NotEmpty(chrome.Spans);
+        var plan = AuthoringPreviewChromeBuilder.ChartPlan(chrome);
+        Assert.True(plan.DrawTimeAxis);
+        Assert.Equal(1, Assert.Single(plan.EventTicks).ElapsedSec);
+        Assert.Equal(chrome.Spans, plan.Spans);
+    }
+
+    [Fact]
+    public void Chart_plan_clears_overlays_on_sample_index_axis()
+    {
+        var preview = MetricPreviewBuilder.From(
+            new MetricDraft(
+                "Acquire",
+                "VDC",
+                PresentationRoles.Timeseries,
+                "V",
+                new LimitSpec(0.5, 2, null),
+                null,
+                new MeasureSource("DMM", AuthoringFunctionIds.BasicAcquireVoltage, new Dictionary<string, string>())));
+        var chrome = AuthoringPreviewChromeBuilder.From(
+            preview,
+            [new HardwareTest.Core.Runs.StoredEvent { Name = "edge", ElapsedMs = 1500, Label = "rise" }]);
+        Assert.False(chrome.UsesTimeAxis);
+        Assert.Empty(chrome.Spans);
+        var plan = AuthoringPreviewChromeBuilder.ChartPlan(chrome);
+        Assert.False(plan.DrawTimeAxis);
+        Assert.Empty(plan.EventTicks);
+        Assert.Empty(plan.Spans);
     }
 }

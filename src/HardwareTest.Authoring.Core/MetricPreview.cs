@@ -11,6 +11,7 @@ public sealed record MetricPreview(
     string YUnit,
     double CannedValue,
     IReadOnlyList<double> CannedSamples,
+    IReadOnlyList<double?> SampleElapsedMs,
     double? LimitLow,
     double? LimitHigh,
     double? Threshold,
@@ -25,6 +26,7 @@ public static class MetricPreviewBuilder
         null,
         string.Empty,
         0,
+        [],
         [],
         null,
         null,
@@ -53,8 +55,8 @@ public static class MetricPreviewBuilder
             return filterPreview;
         }
 
-        var samples = Synthesize(metric, kind, siblings, recorded);
-        var last = samples.Count == 0 ? 0 : samples[^1];
+        var series = Synthesize(metric, kind, siblings, recorded);
+        var last = series.Values.Count == 0 ? 0 : series.Values[^1];
         var note = recorded is null ? null : "Recording samples (not Execute).";
         return new MetricPreview(
             metric.ChannelKey,
@@ -62,14 +64,17 @@ public static class MetricPreviewBuilder
             kind,
             metric.YUnit,
             last,
-            samples,
+            series.Values,
+            series.Elapsed,
             metric.Limits?.Low,
             metric.Limits?.High,
             metric.Limits?.Threshold,
             note);
     }
 
-    private static IReadOnlyList<double> Synthesize(
+    private readonly record struct PreviewSeries(IReadOnlyList<double> Values, IReadOnlyList<double?> Elapsed);
+
+    private static PreviewSeries Synthesize(
         MetricDraft metric,
         PresentationTileKind? kind,
         IReadOnlyList<MetricDraft>? siblings,
@@ -77,24 +82,28 @@ public static class MetricPreviewBuilder
     {
         if (metric.Source is ExpressionAlgorithm expr)
         {
-            return EvaluateFormula(expr, metric, siblings, recorded);
+            var values = EvaluateFormula(expr, metric, siblings, recorded);
+            return new PreviewSeries(values, []);
         }
 
         if (recorded is not null
             && TryGetSeries(recorded, metric.ChannelKey, out var recordedSamples)
             && recordedSamples.Count > 0)
         {
-            return recordedSamples.Select(sample => sample.Value).ToArray();
+            return FromStored(recordedSamples);
         }
 
         var nominal = Nominal(metric.Limits);
         if (kind is PresentationTileKind.Timeseries or PresentationTileKind.Timing)
         {
-            return [nominal * 0.95, nominal, nominal * 1.02, nominal];
+            return new PreviewSeries([nominal * 0.95, nominal, nominal * 1.02, nominal], []);
         }
 
-        return [nominal];
+        return new PreviewSeries([nominal], []);
     }
+
+    private static PreviewSeries FromStored(IReadOnlyList<StoredSample> samples)
+        => new(samples.Select(sample => sample.Value).ToArray(), samples.Select(sample => sample.ElapsedMs).ToArray());
 
     private static IReadOnlyList<double> EvaluateFormula(
         ExpressionAlgorithm expr,
@@ -127,7 +136,7 @@ public static class MetricPreviewBuilder
                 }
                 else
                 {
-                    values = Synthesize(sibling, PresentationRoles.TryMapRole(sibling.DisplayRole), null, null);
+                    values = Synthesize(sibling, PresentationRoles.TryMapRole(sibling.DisplayRole), null, null).Values;
                 }
 
                 series[key] = values
@@ -205,6 +214,7 @@ public static class MetricPreviewBuilder
                 metric.YUnit,
                 0,
                 [],
+                [],
                 metric.Limits?.Low,
                 metric.Limits?.High,
                 metric.Limits?.Threshold,
@@ -241,7 +251,7 @@ public static class MetricPreviewBuilder
                     string.Equals(s.ChannelKey, tf.InputChannelKey, StringComparison.OrdinalIgnoreCase));
                 var canned = sibling is null
                     ? SynthesizeCanned(metric.Limits, kind)
-                    : Synthesize(sibling, PresentationRoles.TryMapRole(sibling.DisplayRole), null, null);
+                    : Synthesize(sibling, PresentationRoles.TryMapRole(sibling.DisplayRole), null, null).Values;
                 applied = TransferFunctionEval.ApplyWithSynthesizedClock(tf, canned, metric.ChannelKey);
                 note = null;
             }
@@ -255,6 +265,7 @@ public static class MetricPreviewBuilder
                 metric.YUnit,
                 last,
                 values,
+                applied.Select(s => s.ElapsedMs).ToArray(),
                 metric.Limits?.Low,
                 metric.Limits?.High,
                 metric.Limits?.Threshold,
@@ -268,6 +279,7 @@ public static class MetricPreviewBuilder
                 kind,
                 metric.YUnit,
                 0,
+                [],
                 [],
                 metric.Limits?.Low,
                 metric.Limits?.High,
