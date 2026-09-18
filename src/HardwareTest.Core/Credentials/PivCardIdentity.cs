@@ -23,7 +23,7 @@ internal static class PivCardIdentity
     }
 
     public static (string? Serial, string? DisplayName) TryRead(nint card, int protocol)
-        => TryRead(new NativeApduChannel(card, protocol));
+        => TryRead(new PcscApduChannel(card, protocol));
 
     public static (string? Serial, string? DisplayName) TryRead(IApduChannel channel)
     {
@@ -100,19 +100,5 @@ internal static class PivCardIdentity
         }
 
         return cleaned.Length <= 64 ? cleaned : cleaned[..64];
-    }
-
-    private sealed class NativeApduChannel : IApduChannel
-    {
-        private readonly nint _card;
-        private readonly int _protocol;
-
-        public NativeApduChannel(nint card, int protocol)
-        {
-            _card = card;
-            _protocol = protocol;
-        }
-
-        public byte[]? Transmit(byte[] command) => PcscNative.Transmit(_card, _protocol, command);
     }
 }
