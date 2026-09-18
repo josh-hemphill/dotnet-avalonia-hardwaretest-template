@@ -73,6 +73,7 @@ internal static class PivCertificateName
         return !IsCardIdToken(trimmed);
     }
 
+    /// True for rfc822 addresses and UPN-style values including DoD `edipi@mil`.
     public static bool IsEmail(string? value)
     {
         if (string.IsNullOrWhiteSpace(value) || value.Length > 64)
@@ -83,8 +84,17 @@ internal static class PivCertificateName
         try
         {
             var parsed = new MailAddress(value.Trim());
-            return parsed.Address.Contains('.', StringComparison.Ordinal)
-                   && parsed.Host.Contains('.', StringComparison.Ordinal);
+            if (string.IsNullOrWhiteSpace(parsed.User) || string.IsNullOrWhiteSpace(parsed.Host))
+            {
+                return false;
+            }
+
+            if (parsed.Host.Contains('.', StringComparison.Ordinal))
+            {
+                return !parsed.Host.StartsWith('.') && !parsed.Host.EndsWith('.');
+            }
+
+            return IsSingleDnsLabel(parsed.Host);
         }
         catch (FormatException)
         {
@@ -127,6 +137,29 @@ internal static class PivCertificateName
         }
 
         return hex >= 8;
+    }
+
+    private static bool IsSingleDnsLabel(string host)
+    {
+        if (host.Length is < 2 or > 63)
+        {
+            return false;
+        }
+
+        if (!char.IsAsciiLetter(host[0]) || host[^1] == '-')
+        {
+            return false;
+        }
+
+        foreach (var c in host)
+        {
+            if (!char.IsAsciiLetterOrDigit(c) && c != '-')
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private static bool IsHexDigit(char c)

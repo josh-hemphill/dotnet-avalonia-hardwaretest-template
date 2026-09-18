@@ -101,6 +101,19 @@ public sealed class PivCardIdentityTests
     }
 
     [Fact]
+    public void TryRead_uses_dod_upn_without_dotted_host()
+    {
+        using var card = FakePivCard.CreateRsa2048(
+            slot: PivApdu.SlotAuthentication,
+            subject: "CN=Card Authentication",
+            upnSan: "1234567890@mil");
+
+        var (_, name) = PivCardIdentity.TryRead(card);
+
+        Assert.Equal("1234567890@mil", name);
+    }
+
+    [Fact]
     public void TryRead_uses_upn_when_subject_is_generic_and_rfc822_is_absent()
     {
         using var card = FakePivCard.CreateRsa2048(
@@ -146,8 +159,10 @@ public sealed class PivCardIdentityTests
 
     [Theory]
     [InlineData("jane.doe@agency.gov", true)]
+    [InlineData("edipi@mil", true)]
+    [InlineData("1234567890@mil", true)]
     [InlineData("not-an-email", false)]
-    [InlineData("user@localhost", false)]
-    public void Email_requires_a_dotted_domain(string value, bool expected)
+    [InlineData("user@", false)]
+    public void Email_accepts_rfc822_and_dod_upn(string value, bool expected)
         => Assert.Equal(expected, PivCertificateName.IsEmail(value));
 }
