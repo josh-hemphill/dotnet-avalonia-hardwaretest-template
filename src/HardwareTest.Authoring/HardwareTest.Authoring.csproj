@@ -19,6 +19,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\HardwareTest.Authoring.Core\HardwareTest.Authoring.Core.csproj" />
+    <ProjectReference Include="..\HardwareTest.Widgets\HardwareTest.Widgets.csproj" />
   </ItemGroup>
 
   <ItemGroup>

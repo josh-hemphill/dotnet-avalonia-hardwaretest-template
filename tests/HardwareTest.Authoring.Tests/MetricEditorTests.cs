@@ -48,6 +48,9 @@ public sealed class MetricEditorTests
         Assert.Equal("VDC.mean", vm.ChannelKey);
         Assert.Equal(PresentationRoles.Scalar, vm.DisplayRole);
         Assert.Equal(PresentationTileKind.Scalar, vm.Preview.TileKind);
+        Assert.True(vm.PreviewChrome.IsGauge);
+        Assert.False(vm.PreviewChrome.IsChart);
+        Assert.Equal("VDC.mean", vm.PreviewChrome.MetricKey);
         Assert.False(string.IsNullOrWhiteSpace(vm.Threshold));
 
         vm.VisaAddress = "MOCK::CUSTOM";
@@ -272,6 +275,9 @@ public sealed class MetricEditorTests
         vm.CreateProgram("acquire");
         vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
         Assert.IsType<MeasureSource>(Assert.IsType<MetricNode>(Assert.Single(vm.SelectedProgram!.Measure)).Metric.Source);
+        Assert.True(vm.PreviewChrome.IsChart);
+        Assert.False(vm.PreviewChrome.IsGauge);
+        Assert.NotEmpty(vm.PreviewChrome.Ys);
 
         vm.FormulaSource = "mean(VDC)";
 

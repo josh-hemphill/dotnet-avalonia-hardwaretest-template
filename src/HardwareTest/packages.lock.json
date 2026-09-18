@@ -147,17 +147,6 @@
           "ReactiveUI.SourceGenerators.Analyzers.CodeFixes": "3.1.0"
         }
       },
-      "ScottPlot.Avalonia": {
-        "type": "Direct",
-        "requested": "[5.1.59, )",
-        "resolved": "5.1.59",
-        "contentHash": "VbWAjgrkyniSQaelgE5tO1KvDLccoOquO5ZXojQRAQJ2LiLPW4fmNc2PiSrOxajgpMZTRLgH0OBJ1q3gq7TgPw==",
-        "dependencies": {
-          "Avalonia": "12.0.0",
-          "Avalonia.Skia": "12.0.0",
-          "ScottPlot": "5.1.59"
-        }
-      },
       "System.Reactive": {
         "type": "Direct",
         "requested": "[6.1.0, )",
@@ -375,6 +364,16 @@
           "SkiaSharp": "3.119.0",
           "SkiaSharp.HarfBuzz": "3.119.0",
           "SkiaSharp.NativeAssets.Linux.NoDependencies": "3.119.0"
+        }
+      },
+      "ScottPlot.Avalonia": {
+        "type": "Transitive",
+        "resolved": "5.1.59",
+        "contentHash": "VbWAjgrkyniSQaelgE5tO1KvDLccoOquO5ZXojQRAQJ2LiLPW4fmNc2PiSrOxajgpMZTRLgH0OBJ1q3gq7TgPw==",
+        "dependencies": {
+          "Avalonia": "12.0.0",
+          "Avalonia.Skia": "12.0.0",
+          "ScottPlot": "5.1.59"
         }
       },
       "Serilog": {
@@ -606,6 +605,14 @@
           "Avalonia": "[12.1.0, )",
           "HardwareTest.Shell.Abstractions": "[0.1.0, )",
           "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.10, )"
+        }
+      },
+      "hardwaretest.widgets": {
+        "type": "Project",
+        "dependencies": {
+          "Avalonia": "[12.1.0, )",
+          "HardwareTest.OpenTap.Host": "[0.1.0, )",
+          "ScottPlot.Avalonia": "[5.1.59, )"
         }
       }
     },

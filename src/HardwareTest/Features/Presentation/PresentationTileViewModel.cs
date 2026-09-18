@@ -1,12 +1,13 @@
 using System.Globalization;
 using HardwareTest.OpenTap.Host;
+using HardwareTest.Widgets.Presentation;
 using ReactiveUI;
 using ReactiveUI.SourceGenerators;
 
 namespace HardwareTest.Features.Presentation;
 
 /// Role-mapped tile for Run gauges and Results charts.
-public partial class PresentationTileViewModel : ReactiveObject
+public partial class PresentationTileViewModel : ReactiveObject, IMetricGaugeSource
 {
     public PresentationTileViewModel(
         string metricKey,
