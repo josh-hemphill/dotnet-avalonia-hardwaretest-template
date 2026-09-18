@@ -25,6 +25,12 @@ public sealed record AuthoringPreviewChrome(
     IReadOnlyList<(double T0, double T1)> Spans,
     double DurationSec);
 
+/// Chart overlay plan matching operator ResultsChartHost (time axis vs sample index).
+public sealed record AuthoringPreviewChartPlan(
+    bool DrawTimeAxis,
+    IReadOnlyList<(double ElapsedSec, string Label)> EventTicks,
+    IReadOnlyList<(double T0, double T1)> Spans);
+
 /// Builds AuthoringPreviewChrome from canned or recorded preview samples.
 public static class AuthoringPreviewChromeBuilder
 {
@@ -55,14 +61,17 @@ public static class AuthoringPreviewChromeBuilder
         var marks = ToMarks(events);
         var kind = preview.TileKind;
         var ys = preview.CannedSamples;
-        var xs = IndexXs(ys.Count);
+        var usesTimeAxis = UsesElapsedAxis(preview.SampleElapsedMs, ys.Count);
+        var xs = usesTimeAxis
+            ? preview.SampleElapsedMs.Select(ms => ms!.Value / 1000.0).ToArray()
+            : IndexXs(ys.Count);
         var isGauge = kind is PresentationTileKind.Scalar or PresentationTileKind.Passband;
         var isChart = kind == PresentationTileKind.Timeseries;
         var isStrip = kind == PresentationTileKind.Timing;
-        var spans = isChart || isStrip
+        var spans = usesTimeAxis && (isChart || isStrip)
             ? OutOfBandSpans(xs, ys, preview.LimitLow, preview.LimitHigh)
             : [];
-        var duration = StripDurationSec(marks, xs.Count == 0 ? null : xs[^1]);
+        var duration = StripDurationSec(marks, usesTimeAxis && xs.Count > 0 ? xs[^1] : null);
         return new AuthoringPreviewChrome(
             isGauge,
             isChart,
@@ -78,11 +87,35 @@ public static class AuthoringPreviewChromeBuilder
             preview.YUnit,
             xs,
             ys,
-            false,
+            usesTimeAxis,
             marks,
             spans,
             duration);
     }
+
+    /// Operator ResultsChartHost split: time-axis overlays vs sample-index UpdateData.
+    public static AuthoringPreviewChartPlan ChartPlan(AuthoringPreviewChrome chrome)
+    {
+        ArgumentNullException.ThrowIfNull(chrome);
+        var drawTimeAxis = chrome.UsesTimeAxis && chrome.Xs.Count == chrome.Ys.Count && chrome.Ys.Count > 0;
+        if (!drawTimeAxis)
+        {
+            return new AuthoringPreviewChartPlan(false, [], []);
+        }
+
+        var ticks = chrome.Events
+            .Select(mark => (mark.ElapsedMs / 1000.0, FormatEvent(mark)))
+            .ToArray();
+        return new AuthoringPreviewChartPlan(true, ticks, chrome.Spans);
+    }
+
+    private static bool UsesElapsedAxis(IReadOnlyList<double?> elapsed, int sampleCount)
+        => sampleCount > 0
+           && elapsed.Count == sampleCount
+           && elapsed.All(ms => ms is not null);
+
+    private static string FormatEvent(MeasurementEventMark mark)
+        => string.IsNullOrWhiteSpace(mark.Label) ? mark.Name : $"{mark.Name}:{mark.Label}";
 
     private static IReadOnlyList<double> IndexXs(int count)
     {

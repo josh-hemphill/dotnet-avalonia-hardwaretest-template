@@ -120,11 +120,11 @@ public sealed class OperatorPreviewPane : UserControl
             _plot.SetLabels(chrome.MetricKey, unit, chrome.MetricKey);
             _plot.SetLimits(chrome.LimitLow, chrome.LimitHigh);
             var ys = chrome.Ys.ToArray();
-            var drawTimeAxis = chrome.UsesTimeAxis && chrome.Xs.Count == ys.Length && ys.Length > 0;
-            if (drawTimeAxis)
+            var plan = AuthoringPreviewChromeBuilder.ChartPlan(chrome);
+            if (plan.DrawTimeAxis)
             {
-                _plot.SetEvents(chrome.Events.Select(mark => (mark.ElapsedMs / 1000.0, FormatEvent(mark))).ToArray());
-                _plot.SetOutOfBandSpans(chrome.Spans.ToArray());
+                _plot.SetEvents(plan.EventTicks.ToArray());
+                _plot.SetOutOfBandSpans(plan.Spans.ToArray());
                 _plot.UpdateTimeSeries(chrome.Xs.ToArray(), ys, ys.Length, followLive: true, force: true);
             }
             else
@@ -151,7 +151,4 @@ public sealed class OperatorPreviewPane : UserControl
         _plot.IsVisible = false;
         _strip.IsVisible = false;
     }
-
-    private static string FormatEvent(HardwareTest.OpenTap.Host.MeasurementEventMark mark)
-        => string.IsNullOrWhiteSpace(mark.Label) ? mark.Name : $"{mark.Name}:{mark.Label}";
 }
