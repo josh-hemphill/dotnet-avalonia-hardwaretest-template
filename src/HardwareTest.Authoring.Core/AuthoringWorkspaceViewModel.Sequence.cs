@@ -98,39 +98,36 @@ public sealed partial class AuthoringWorkspaceViewModel
         }
 
         var label = row.Label;
-        switch (row.Kind)
+        if (row.Kind == SequenceRowKind.Setup && row.IndexPath.Count == 1)
         {
-            case SequenceRowKind.Setup when row.IndexPath.Count == 1:
+            var index = row.IndexPath[0];
+            if (index < 0 || index >= SelectedProgram.Setup.Count)
             {
-                var index = row.IndexPath[0];
-                if (index < 0 || index >= SelectedProgram.Setup.Count)
-                {
-                    return;
-                }
-
-                ReplaceSelected(SelectedProgram with
-                {
-                    Setup = [.. SelectedProgram.Setup.Where((_, i) => i != index)],
-                });
-                break;
+                return;
             }
 
-            case SequenceRowKind.Metric or SequenceRowKind.Repeat or SequenceRowKind.Raw:
-                ReplaceSelected(SelectedProgram with
-                {
-                    Measure = AuthoringSequence.RemoveMeasure(SelectedProgram.Measure, row.IndexPath),
-                });
-                break;
-
-            case SequenceRowKind.Cleanup:
-                ReplaceSelected(SelectedProgram with
-                {
-                    Cleanup = SelectedProgram.Cleanup with { IncludeSafeShutdown = false },
-                });
-                break;
-
-            default:
-                return;
+            ReplaceSelected(SelectedProgram with
+            {
+                Setup = [.. SelectedProgram.Setup.Where((_, i) => i != index)],
+            });
+        }
+        else if (row.Kind is SequenceRowKind.Metric or SequenceRowKind.Repeat or SequenceRowKind.Raw)
+        {
+            ReplaceSelected(SelectedProgram with
+            {
+                Measure = AuthoringSequence.RemoveMeasure(SelectedProgram.Measure, row.IndexPath),
+            });
+        }
+        else if (row.Kind == SequenceRowKind.Cleanup)
+        {
+            ReplaceSelected(SelectedProgram with
+            {
+                Cleanup = SelectedProgram.Cleanup with { IncludeSafeShutdown = false },
+            });
+        }
+        else
+        {
+            return;
         }
 
         Status = $"Removed {label}";
