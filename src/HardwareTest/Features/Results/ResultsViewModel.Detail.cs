@@ -393,8 +393,7 @@ public partial class ResultsViewModel
 
     private void LoadAttestation(TestRunRecord run)
     {
-        var attestation = ReportAttestationService.Find(run, ReportKinds.Certification)
-            ?? run.Attestations.LastOrDefault();
+        var attestation = ReportAttestationService.Find(run, ReportKinds.Certification);
         HasAttestation = attestation is not null;
         AttestationSummary = attestation is null ? string.Empty : ReportAttestationStamp.FormatSummary(attestation);
     }

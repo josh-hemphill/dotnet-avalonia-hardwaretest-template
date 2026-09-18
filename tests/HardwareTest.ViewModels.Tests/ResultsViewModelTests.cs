@@ -570,7 +570,7 @@ public sealed class ResultsViewModelTests
         Assert.Empty(run.Attestations);
         Assert.False(vm.HasAttestation);
         Assert.Equal(original, await File.ReadAllBytesAsync(pdf));
-        Assert.Equal(1, reports.GenerateCount);
+        Assert.Equal(0, reports.GenerateCount);
 
         vm.AttestationPin = PinRequiredMockBroker.Pin;
         await vm.CaptureAttestationCommand.ExecuteAsync();

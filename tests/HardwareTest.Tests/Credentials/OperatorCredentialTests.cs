@@ -264,7 +264,7 @@ public sealed class ReportAttestationServiceTests
         Assert.False(first.Succeeded);
         Assert.Empty(run.Attestations);
         Assert.Equal(originalCertBytes, await File.ReadAllBytesAsync(run.Reports.Single(r => r.Kind == ReportKinds.Certification).PdfPath));
-        Assert.Equal(1, reports.GenerateCount);
+        Assert.Equal(0, reports.GenerateCount);
 
         var signed = await service.AttestAsync(
             run,
@@ -275,7 +275,7 @@ public sealed class ReportAttestationServiceTests
         Assert.Equal(AttestationKind.Signed, signed.Attestation!.Kind);
         Assert.Equal(AttestationAlgorithm.PivRsaPkcs1Sha256, signed.Attestation.Algorithm);
         Assert.True(service.HasValidAttestation(run, ReportKinds.Certification));
-        Assert.Equal(2, reports.GenerateCount);
+        Assert.Equal(1, reports.GenerateCount);
         var stamped = await File.ReadAllBytesAsync(run.Reports.Single(r => r.Kind == ReportKinds.Certification).PdfPath);
         Assert.NotEqual(originalCertBytes, stamped);
         Assert.Contains(MockOperatorCredentialBroker.MockDisplayName, Encoding.UTF8.GetString(stamped), StringComparison.Ordinal);
@@ -425,6 +425,7 @@ public sealed class ReportAttestationServiceTests
         Assert.Equal(1, reports.GenerateCount);
         Assert.Equal(MockOperatorCredentialBroker.MockDisplayName, reports.LastIdentity?.DisplayName);
         Assert.Equal(ReportKinds.Certification, reports.LastIdentity?.ReportKind);
+        Assert.Equal(AttestationKind.Signed, reports.LastIdentity?.Kind);
         Assert.Contains(run.Reports, r => r.Kind == ReportKinds.Status);
         Assert.True(service.HasValidAttestation(run, ReportKinds.Certification));
         var stamped = await File.ReadAllBytesAsync(run.Reports.Single(r => r.Kind == ReportKinds.Certification).PdfPath);

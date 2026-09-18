@@ -186,8 +186,14 @@ public sealed class TypstReportServiceTests
             Path.Combine(reportsDir, "certification-report.typ"),
             """
             #set page(width: 120mm, height: 60mm)
-            #if sys.inputs.attestationDetail == "" [
-              #panic("missing compile identity")
+            #if not sys.inputs.attestationDetail.contains("Jane Certifier") [
+              #panic("missing party")
+            ]
+            #if not sys.inputs.attestationDetail.contains("CARD-1") [
+              #panic("missing serial")
+            ]
+            #if not sys.inputs.attestationKind.contains("contact") [
+              #panic("missing transport")
             ]
             = Certified by
             #sys.inputs.attestationDetail
@@ -222,6 +228,53 @@ public sealed class TypstReportServiceTests
         Assert.Single(artifacts);
         Assert.Empty(run.Attestations);
         Assert.False(File.Exists(Path.Combine(runStore.GetRunDirectory(run.RunId), "certification.attestation.json")));
+        AssertPdfMagic(await File.ReadAllBytesAsync(artifacts[0].PdfPath));
+    }
+
+    [Fact]
+    public async Task CompileReportAsync_does_not_invalidate_or_write()
+    {
+        using var temp = new TempDataDirectory();
+        var runStore = new FileRunStore(temp.RunsDirectory);
+        var run = CreateRun();
+        var dir = runStore.GetRunDirectory(run.RunId);
+        Directory.CreateDirectory(dir);
+        var pdfPath = Path.Combine(dir, "certification.pdf");
+        var prior = "%PDF-1.4 prior"u8.ToArray();
+        await File.WriteAllBytesAsync(pdfPath, prior);
+        var sidecar = Path.Combine(dir, "certification.attestation.json");
+        await File.WriteAllTextAsync(sidecar, "{}");
+        run.Attestations.Add(new ReportAttestation
+        {
+            Kind = AttestationKind.Signed,
+            ReportKind = ReportKinds.Certification,
+            DisplayName = "Prior",
+            SidecarPath = sidecar,
+        });
+        await runStore.SaveAsync(run);
+
+        using var reports = new TypstReportService(
+            runStore,
+            new AppSettings
+            {
+                DataDirectory = temp.Path,
+                EmbedPlotsInReport = false,
+            });
+        var overlay = new ReportAttestation
+        {
+            Kind = AttestationKind.Signed,
+            ReportKind = ReportKinds.Certification,
+            DisplayName = "Jane Certifier",
+            Serial = "CARD-1",
+            Transport = CredentialTransport.Contact,
+        };
+        var bytes = await CompileOrSkipAsync(() => reports.CompileReportAsync(run, ReportKinds.Certification, compileIdentity: overlay));
+
+        AssertPdfMagic(bytes);
+        Assert.Equal(prior, await File.ReadAllBytesAsync(pdfPath));
+        Assert.True(File.Exists(sidecar));
+        Assert.Single(run.Attestations);
+        Assert.Equal("Prior", run.Attestations[0].DisplayName);
     }
 
     private static TestRunRecord CreateRun(int sampleCount = 1)

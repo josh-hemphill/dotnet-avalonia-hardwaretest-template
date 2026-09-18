@@ -34,6 +34,7 @@ public static class ReportAttestationStamp
         var at = attestation.CapturedAt == default
             ? string.Empty
             : $" at {attestation.CapturedAt.ToString("u", CultureInfo.InvariantCulture)}";
-        return $"{attestation.Kind}: {attestation.DisplayName} ({attestation.Transport}, {attestation.Serial}){at}";
+        var kind = string.IsNullOrWhiteSpace(attestation.Kind) ? attestation.Transport : attestation.Kind;
+        return $"{kind}: {attestation.DisplayName} ({attestation.Transport}, {attestation.Serial}){at}";
     }
 }

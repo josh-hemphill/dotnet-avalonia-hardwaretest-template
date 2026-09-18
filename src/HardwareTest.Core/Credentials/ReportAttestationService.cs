@@ -134,23 +134,44 @@ public sealed class ReportAttestationService : IReportAttestationService
             captured = capture.Credential;
         }
 
-        byte[]? stampedPdf = null;
-        if (_reports is not null)
+        var runJson = JsonSerializer.Serialize(run, AppJsonContext.Default.TestRunRecord);
+        var runHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(runJson)));
+        if (!skipSigning && string.IsNullOrEmpty(pin))
         {
-            var overlay = new ReportAttestation
-            {
-                Kind = string.Empty,
-                ReportKind = targetKind,
-                DisplayName = captured.DisplayName,
-                Serial = captured.Serial,
-                Transport = captured.Transport,
-                CapturedAt = captured.CapturedAt == default ? _clock.UtcNow : captured.CapturedAt,
-            };
-            stampedPdf = await _reports.Value
-                .CompileReportAsync(run, targetKind, cancellationToken, overlay)
+            var probe = await _broker.TrySignPayloadAsync(
+                    Encoding.UTF8.GetBytes($"pin-probe:{runHash}"),
+                    captured,
+                    pin,
+                    cancellationToken)
                 .ConfigureAwait(false);
+            if (probe.PinRequired)
+            {
+                return new ReportAttestationResult
+                {
+                    Succeeded = false,
+                    PinRequired = true,
+                    Credential = captured,
+                    Message = probe.Error ?? "Enter badge PIN to sign.",
+                };
+            }
         }
 
+        var overlayKind = skipSigning || !_broker.CanSign
+            ? AttestationKind.Presence
+            : AttestationKind.Signed;
+        var stamped = await TryCompileOverlayAsync(run, targetKind, captured, overlayKind, cancellationToken)
+            .ConfigureAwait(false);
+        if (stamped.Error is not null)
+        {
+            return new ReportAttestationResult
+            {
+                Succeeded = false,
+                Message = stamped.Error,
+                Credential = captured,
+            };
+        }
+
+        var stampedPdf = stamped.Pdf;
         var pdfPath = ResolvePdfPath(run, targetKind);
         if (stampedPdf is null
             && (string.IsNullOrWhiteSpace(pdfPath) || !File.Exists(pdfPath)))
@@ -163,19 +184,7 @@ public sealed class ReportAttestationService : IReportAttestationService
             };
         }
 
-        if (stampedPdf is { Length: 0 })
-        {
-            return new ReportAttestationResult
-            {
-                Succeeded = false,
-                Message = "Certification PDF compile produced no bytes.",
-                Credential = captured,
-            };
-        }
-
         var pdfHash = stampedPdf is not null ? HashBytes(stampedPdf) : HashFile(pdfPath!);
-        var runJson = JsonSerializer.Serialize(run, AppJsonContext.Default.TestRunRecord);
-        var runHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(runJson)));
         var payload = Encoding.UTF8.GetBytes($"{pdfHash}:{runHash}");
         CredentialSignResult? sign = null;
         if (!skipSigning)
@@ -230,6 +239,32 @@ public sealed class ReportAttestationService : IReportAttestationService
                     Credential = captured,
                     Message = "This badge cannot sign, and presence-only attestation is disabled." + detail,
                 };
+            }
+
+            if (_reports is not null && overlayKind != AttestationKind.Presence)
+            {
+                var presence = await TryCompileOverlayAsync(
+                        run,
+                        targetKind,
+                        captured,
+                        AttestationKind.Presence,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                if (presence.Error is not null)
+                {
+                    return new ReportAttestationResult
+                    {
+                        Succeeded = false,
+                        Message = presence.Error,
+                        Credential = captured,
+                    };
+                }
+
+                if (presence.Pdf is { Length: > 0 })
+                {
+                    stampedPdf = presence.Pdf;
+                    pdfHash = HashBytes(stampedPdf);
+                }
             }
         }
 
@@ -292,6 +327,50 @@ public sealed class ReportAttestationService : IReportAttestationService
             Message = $"{verb} for {party.DisplayName} ({party.Transport}).",
             Attestation = document,
         };
+    }
+
+    private async Task<(byte[]? Pdf, string? Error)> TryCompileOverlayAsync(
+        TestRunRecord run,
+        string targetKind,
+        OperatorCredential captured,
+        string overlayKind,
+        CancellationToken cancellationToken)
+    {
+        if (_reports is null)
+        {
+            return (null, null);
+        }
+
+        var overlay = new ReportAttestation
+        {
+            Kind = overlayKind,
+            ReportKind = targetKind,
+            DisplayName = captured.DisplayName,
+            Serial = captured.Serial,
+            Transport = captured.Transport,
+            CapturedAt = captured.CapturedAt == default ? _clock.UtcNow : captured.CapturedAt,
+        };
+
+        try
+        {
+            var bytes = await _reports.Value
+                .CompileReportAsync(run, targetKind, cancellationToken, overlay)
+                .ConfigureAwait(false);
+            if (bytes.Length == 0)
+            {
+                return (bytes, "Certification PDF compile produced no bytes.");
+            }
+
+            return (bytes, null);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            return (null, "Could not stamp the certification PDF. " + ex.Message);
+        }
     }
 
     /// Drops stamps and sidecars for kinds that are about to be regenerated (PDF bytes will change).
@@ -367,9 +446,7 @@ public sealed class ReportAttestationService : IReportAttestationService
             run.Reports.Add(new RunReportArtifact
             {
                 Kind = kind,
-                Title = string.Equals(kind, ReportKinds.Certification, StringComparison.OrdinalIgnoreCase)
-                    ? "Certification Report"
-                    : "Status Report",
+                Title = ReportKinds.Title(kind),
                 PdfPath = pdfPath,
                 GeneratedAt = DateTimeOffset.UtcNow,
             });

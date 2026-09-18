@@ -83,28 +83,33 @@ public sealed class TypstReportService : IReportService, IDisposable
     {
         cancellationToken.ThrowIfCancellationRequested();
         var dir = _runStore.GetRunDirectory(run.RunId);
-        ReportAttestationService.InvalidateForKinds(run, dir, kinds);
-        var artifacts = new List<RunReportArtifact>();
-        var now = DateTimeOffset.UtcNow;
+        var compiled = new List<(string Kind, string Title, byte[] Pdf)>();
         foreach (var kind in kinds)
         {
             var templateName = ResolveTemplateName(kind);
-            var fileName = $"{kind}.pdf";
             var title = KindTitle(kind);
             var pdfBytes = await Task.Run(
                     () => CompileTemplateCore(run, templateName, kind, history, title, cancellationToken, compileIdentity),
                     cancellationToken)
                 .ConfigureAwait(false);
-            var path = Path.Combine(dir, fileName);
-            await AtomicFile.WriteAllBytesAsync(path, pdfBytes, cancellationToken).ConfigureAwait(false);
+            compiled.Add((kind, title, pdfBytes));
+        }
+
+        ReportAttestationService.InvalidateForKinds(run, dir, kinds);
+        var artifacts = new List<RunReportArtifact>();
+        var now = DateTimeOffset.UtcNow;
+        foreach (var item in compiled)
+        {
+            var path = Path.Combine(dir, $"{item.Kind}.pdf");
+            await AtomicFile.WriteAllBytesAsync(path, item.Pdf, cancellationToken).ConfigureAwait(false);
             artifacts.Add(new RunReportArtifact
             {
-                Kind = kind,
-                Title = title,
+                Kind = item.Kind,
+                Title = item.Title,
                 PdfPath = path,
                 GeneratedAt = now,
             });
-            _logger.Information("Wrote {Kind} PDF for run {RunId} to {Path}", kind, run.RunId, path);
+            _logger.Information("Wrote {Kind} PDF for run {RunId} to {Path}", item.Kind, run.RunId, path);
         }
 
         MergeGeneratedArtifacts(run, artifacts);
@@ -226,10 +231,7 @@ public sealed class TypstReportService : IReportService, IDisposable
         return "test-report.typ";
     }
 
-    private static string KindTitle(string kind)
-        => string.Equals(kind, ReportKinds.Certification, StringComparison.OrdinalIgnoreCase)
-            ? "Certification Report"
-            : "Status Report";
+    private static string KindTitle(string kind) => ReportKinds.Title(kind);
 
     private byte[] CompileTemplateCore(
         TestRunRecord run,
@@ -252,7 +254,13 @@ public sealed class TypstReportService : IReportService, IDisposable
         }
 
         var chartLib = LoadReportFile("sample-chart.typ", preferLibSubfolder: true);
-        var resultJson = JsonSerializer.Serialize(run, AppJsonContext.Default.TestRunRecord);
+        var snapshot = JsonSerializer.Deserialize(
+            JsonSerializer.Serialize(run, AppJsonContext.Default.TestRunRecord),
+            AppJsonContext.Default.TestRunRecord)
+            ?? throw new InvalidOperationException("Could not snapshot the run for Typst.");
+        snapshot.Attestations.RemoveAll(a =>
+            string.Equals(a.ReportKind, kind, StringComparison.OrdinalIgnoreCase));
+        var resultJson = JsonSerializer.Serialize(snapshot, AppJsonContext.Default.TestRunRecord);
         var workDir = Path.Combine(Path.GetTempPath(), "HardwareTestTypst", run.RunId, kind);
         var libDir = Path.Combine(workDir, "lib");
         Directory.CreateDirectory(libDir);
@@ -285,8 +293,7 @@ public sealed class TypstReportService : IReportService, IDisposable
         var historySeverity = includeHistory ? history!.OverallSeverity.ToString() : string.Empty;
         var historyMetrics = includeHistory ? FormatHistoryMetrics(history!) : string.Empty;
         var operatorName = string.IsNullOrWhiteSpace(run.OperatorName) ? "n/a" : run.OperatorName;
-        // Prior stamps are invalidated before compile. Only a caller-supplied overlay
-        // (the badge about to sign these bytes) or a remaining attestation for this kind is shown.
+        // Overlay wins for this kind. Remaining attestations are only used when no overlay is supplied.
         var attestation = compileIdentity is not null
             && string.Equals(compileIdentity.ReportKind, kind, StringComparison.OrdinalIgnoreCase)
             ? compileIdentity

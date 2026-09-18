@@ -57,4 +57,17 @@ public sealed class ReportAttestationStampTests
         });
         Assert.Equal("signed: Jane Certifier (contact, CARD-1) at 2026-09-18 12:00:00Z", summary);
     }
+
+    [Fact]
+    public void FormatSummary_uses_transport_when_kind_blank()
+    {
+        var summary = ReportAttestationStamp.FormatSummary(new ReportAttestation
+        {
+            Kind = string.Empty,
+            DisplayName = "Jane Certifier",
+            Serial = "CARD-1",
+            Transport = CredentialTransport.Contact,
+        });
+        Assert.Equal("contact: Jane Certifier (contact, CARD-1)", summary);
+    }
 }
