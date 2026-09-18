@@ -70,6 +70,12 @@ public sealed class AuthoringWorkspaceCatalogTests
         Assert.Equal(["status", "certification", "traceability", "mes"], reports);
         var kinds = AuthoringWorkspaceCatalog.ProgramKindOptions(manifest, [other, selected], selected);
         Assert.Equal(["dut", "stationHealth", "incomingInspect"], kinds);
+        Assert.Equal(
+            ["serial", "partNumber", "revision", "operator", "fixtureId"],
+            AuthoringWorkspaceCatalog.RequiredFieldOptions(
+                new AuthoringManifest { Catalogs = new AuthoringWorkspaceCatalogs { RequiredFields = ["fixtureId"] } },
+                [],
+                null));
 
         var orphan = AuthoringRecipeCatalog.CreateProgram("orphan-default");
         orphan.Sidecar.ReportKinds = ["status"];
@@ -112,6 +118,29 @@ public sealed class AuthoringProgramSettingsViewModelTests
         Assert.Equal("stationHealth", vm.ProgramKind);
         Assert.Equal("block", vm.StationHealthGate);
         Assert.Contains("session/DUT/Typst", vm.SidecarHelp, StringComparison.Ordinal);
+        Assert.Contains("serial", vm.RequiredFieldChoices.Select(row => row.Id));
+        Assert.True(vm.RequiredFieldChoices.Single(row => row.Id == "partNumber").Included);
+    }
+
+    [Fact]
+    public void Required_fields_sync_known_flags_and_persist_extra_ids()
+    {
+        var vm = OpenEmpty();
+        vm.CreateProgram("required-fields");
+        Assert.True(vm.RequireSerial);
+        Assert.False(vm.RequirePartNumber);
+        vm.RequirePartNumber = true;
+        Assert.Contains(RequiredFieldIds.PartNumber, vm.SelectedProgram!.Sidecar.RequiredFields!);
+        Assert.True(vm.SelectedProgram.Sidecar.RequirePartNumber);
+        vm.NewRequiredField = "fixtureId";
+        vm.AddRequiredField();
+        Assert.Contains("fixtureId", vm.SelectedProgram.Sidecar.RequiredFields!);
+        Assert.Contains("fixtureId", vm.RequiredFieldOptions);
+        Assert.True(vm.RequiredFieldChoices.Single(row => row.Id == "fixtureId").Included);
+        Assert.True(vm.RequireSerial);
+        Assert.Contains("fixtureId", vm.Workspace!.Manifest.Catalogs!.RequiredFields);
+        var reloaded = AuthoringWorkspaceLoader.Load(vm.Workspace.Root);
+        Assert.Contains("fixtureId", reloaded.Manifest.Catalogs!.RequiredFields);
     }
 
     [Fact]

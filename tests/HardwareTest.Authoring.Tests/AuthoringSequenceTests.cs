@@ -74,6 +74,7 @@ public sealed class AuthoringSequenceTests
         Assert.Equal("Operator preview", AuthoringChrome.PreviewTitle);
         Assert.Equal("Program settings", AuthoringChrome.ProgramSettingsTitle);
         Assert.Contains("not the in-repo demos", AuthoringChrome.CatalogsPurpose, StringComparison.Ordinal);
+        Assert.Contains("serial", AuthoringChrome.RequiredFieldsPurpose, StringComparison.Ordinal);
         Assert.Contains("Raw", AuthoringChrome.RecipeAddHint, StringComparison.Ordinal);
         Assert.Equal("Remove selected", AuthoringChrome.RemoveSelectedTitle);
         Assert.Contains("Repeat unwraps its children", AuthoringChrome.RemoveSelectedPurpose, StringComparison.Ordinal);

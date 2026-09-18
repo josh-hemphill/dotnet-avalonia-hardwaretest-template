@@ -441,12 +441,28 @@
               <TextBox Text="{Binding DutFamily}"
                        AutomationProperties.Name="DUT family"
                        AutomationProperties.LabeledBy="{Binding #DutFamilyLabel}" />
-              <CheckBox Content="Require serial"
-                        IsChecked="{Binding RequireSerial}"
-                        ToolTip.Tip="When true, the plan needs an identity step so the operator can confirm DUT serial" />
-              <CheckBox Content="Require part number" IsChecked="{Binding RequirePartNumber}" />
-              <CheckBox Content="Require revision" IsChecked="{Binding RequireRevision}" />
-              <CheckBox Content="Require operator" IsChecked="{Binding RequireOperator}" />
+              <TextBlock FontWeight="SemiBold" Text="Required fields" />
+              <TextBlock Opacity="0.8" TextWrapping="Wrap" Text="{Binding RequiredFieldsPurpose}" />
+              <ItemsControl ItemsSource="{Binding RequiredFieldChoices}"
+                            AutomationProperties.Name="Required DUT fields">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:AuthoringCatalogToggle">
+                    <CheckBox Content="{Binding Id}"
+                              IsChecked="{Binding Included, Mode=OneWay}"
+                              Click="OnToggleRequiredField"
+                              AutomationProperties.Name="{Binding Id}" />
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+              <TextBlock x:Name="NewRequiredFieldLabel" Text="Add required field" />
+              <TextBox Text="{Binding NewRequiredField}"
+                       PlaceholderText="fixtureId"
+                       AutomationProperties.Name="New required field"
+                       AutomationProperties.LabeledBy="{Binding #NewRequiredFieldLabel}" />
+              <Button Content="Add required field"
+                      Click="OnAddRequiredField"
+                      ToolTip.Tip="Adds this id to the program sidecar. serial/partNumber/revision/operator map to operator session flags."
+                      AutomationProperties.Name="Add required field" />
               <CheckBox Content="Selection includes cleanup"
                         IsChecked="{Binding SelectionIncludesCleanup}"
                         ToolTip.Tip="When off, Run Selected skips Safe Shutdown" />

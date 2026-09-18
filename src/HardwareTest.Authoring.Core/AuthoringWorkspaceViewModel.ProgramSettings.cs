@@ -9,6 +9,7 @@ public sealed partial class AuthoringWorkspaceViewModel
     private string _newProgramKind = string.Empty;
     private string _newInstrumentSlot = string.Empty;
     private string _newInstrumentVisa = string.Empty;
+    private string _newRequiredField = string.Empty;
 
     public IReadOnlyList<string> DisplayRoleOptions => AuthoringEditorCatalog.DisplayRoles;
 
@@ -29,6 +30,12 @@ public sealed partial class AuthoringWorkspaceViewModel
 
     public IReadOnlyList<string> ProgramKindOptions
         => AuthoringWorkspaceCatalog.ProgramKindOptions(Workspace?.Manifest, Programs, SelectedProgram);
+
+    public IReadOnlyList<string> RequiredFieldOptions
+        => AuthoringWorkspaceCatalog.RequiredFieldOptions(Workspace?.Manifest, Programs, SelectedProgram);
+
+    public IReadOnlyList<AuthoringCatalogToggle> RequiredFieldChoices
+        => RequiredFieldOptions.Select(id => new AuthoringCatalogToggle(id, HasRequiredField(id))).ToArray();
 
     public IReadOnlyList<string> StationHealthGateOptions => AuthoringEditorCatalog.StationHealthGates;
 
@@ -117,6 +124,12 @@ public sealed partial class AuthoringWorkspaceViewModel
         set => SetField(ref _newInstrumentVisa, value ?? string.Empty);
     }
 
+    public string NewRequiredField
+    {
+        get => _newRequiredField;
+        set => SetField(ref _newRequiredField, value ?? string.Empty);
+    }
+
     public bool CanAddInstrumentSlot
         => Workspace is not null
            && !Workspace.IsReadOnly
@@ -176,22 +189,28 @@ public sealed partial class AuthoringWorkspaceViewModel
     public string SidecarHelp =>
         "Sidecar is session/DUT/Typst only. Instrument requirements stay on the TapPackage, not here.";
 
+    public bool RequireSerial
+    {
+        get => HasRequiredField(RequiredFieldIds.Serial);
+        set => SetRequiredFieldIncluded(RequiredFieldIds.Serial, value);
+    }
+
     public bool RequirePartNumber
     {
-        get => SelectedProgram?.Sidecar.RequirePartNumber ?? false;
-        set => SetSidecarIfUnchanged(RequirePartNumber, value, s => { s.RequirePartNumber = value; });
+        get => HasRequiredField(RequiredFieldIds.PartNumber);
+        set => SetRequiredFieldIncluded(RequiredFieldIds.PartNumber, value);
     }
 
     public bool RequireRevision
     {
-        get => SelectedProgram?.Sidecar.RequireRevision ?? false;
-        set => SetSidecarIfUnchanged(RequireRevision, value, s => { s.RequireRevision = value; });
+        get => HasRequiredField(RequiredFieldIds.Revision);
+        set => SetRequiredFieldIncluded(RequiredFieldIds.Revision, value);
     }
 
     public bool RequireOperator
     {
-        get => SelectedProgram?.Sidecar.RequireOperator ?? false;
-        set => SetSidecarIfUnchanged(RequireOperator, value, s => { s.RequireOperator = value; });
+        get => HasRequiredField(RequiredFieldIds.Operator);
+        set => SetRequiredFieldIncluded(RequiredFieldIds.Operator, value);
     }
 
     public bool SelectionIncludesCleanup
@@ -536,6 +555,54 @@ public sealed partial class AuthoringWorkspaceViewModel
         Error = null;
     }
 
+    public void SetRequiredFieldIncluded(string fieldId, bool include)
+    {
+        if (SelectedProgram is null)
+        {
+            return;
+        }
+
+        var id = AuthoringWorkspaceCatalog.Normalize(fieldId);
+        if (id is null || HasRequiredField(id) == include)
+        {
+            return;
+        }
+
+        var current = RequiredFieldIds.FromSidecar(SelectedProgram.Sidecar).ToList();
+        if (include)
+        {
+            current.Add(id);
+        }
+        else
+        {
+            current.RemoveAll(existing => string.Equals(existing, id, StringComparison.OrdinalIgnoreCase));
+        }
+
+        RequiredFieldIds.Apply(SelectedProgram.Sidecar, current);
+        RaiseSidecarProperties();
+    }
+
+    public void AddRequiredField()
+    {
+        var id = AuthoringWorkspaceCatalog.Normalize(NewRequiredField);
+        if (id is null)
+        {
+            return;
+        }
+
+        EnsureWritableWorkspace("add a required field");
+        RememberWorkspaceCatalog(
+            catalogs => RememberUnlessDefault(catalogs.RequiredFields, id, RequiredFieldIds.Known));
+        SetRequiredFieldIncluded(id, include: true);
+        NewRequiredField = string.Empty;
+        OnPropertyChanged(nameof(RequiredFieldOptions));
+        OnPropertyChanged(nameof(RequiredFieldChoices));
+    }
+
+    private bool HasRequiredField(string fieldId)
+        => SelectedProgram is not null
+           && RequiredFieldIds.Contains(RequiredFieldIds.FromSidecar(SelectedProgram.Sidecar), fieldId);
+
     private bool HasReportKind(string kind)
         => SelectedProgram?.Sidecar.ReportKinds?.Contains(kind, StringComparer.OrdinalIgnoreCase) == true
            || (kind == "status" && SelectedProgram?.Sidecar.ReportKinds is null);
@@ -648,6 +715,8 @@ public sealed partial class AuthoringWorkspaceViewModel
         OnPropertyChanged(nameof(ReportKindOptions));
         OnPropertyChanged(nameof(ReportKindChoices));
         OnPropertyChanged(nameof(IncludedReportKinds));
+        OnPropertyChanged(nameof(RequiredFieldOptions));
+        OnPropertyChanged(nameof(RequiredFieldChoices));
         OnPropertyChanged(nameof(ProgramKindOptions));
     }
 

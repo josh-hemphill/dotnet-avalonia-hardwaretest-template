@@ -62,6 +62,34 @@ public sealed class ProgramCatalogTests
     }
 
     [Fact]
+    public void Enumerate_required_fields_map_known_ids_and_ignore_extras()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "program-catalog-fields-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        try
+        {
+            File.WriteAllText(Path.Combine(dir, "fields.TapPlan"), "<TestPlan />");
+            File.WriteAllText(
+                Path.Combine(dir, "fields.program.json"),
+                """
+                {
+                  "displayName": "Fields",
+                  "requireSerial": true,
+                  "requiredFields": ["revision", "fixtureId"]
+                }
+                """);
+            var entry = ProgramCatalog.Enumerate([dir]).First(e => e.Id == "fields");
+            Assert.False(entry.Requirements.RequireSerial);
+            Assert.True(entry.Requirements.RequireRevision);
+            Assert.False(entry.Requirements.RequirePartNumber);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
     public void Enumerate_station_health_sidecar_defaults_require_serial_false()
     {
         var dir = Path.Combine(Path.GetTempPath(), "program-catalog-health-" + Guid.NewGuid().ToString("N"));

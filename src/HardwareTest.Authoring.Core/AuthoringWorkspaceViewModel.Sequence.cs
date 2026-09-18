@@ -28,6 +28,8 @@ public sealed partial class AuthoringWorkspaceViewModel
 
     public string CatalogsPurpose => AuthoringChrome.CatalogsPurpose;
 
+    public string RequiredFieldsPurpose => AuthoringChrome.RequiredFieldsPurpose;
+
     public string RecipeAddHint => AuthoringChrome.RecipeAddHint;
 
     public string ProgramSettingsTitle => AuthoringChrome.ProgramSettingsTitle;

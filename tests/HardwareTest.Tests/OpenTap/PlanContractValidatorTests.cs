@@ -270,6 +270,34 @@ public sealed class PlanContractValidatorTests
     }
 
     [Fact]
+    public void Validate_extra_required_fields_warn_and_empty_ids_error()
+    {
+        using var dir = new TempPlanDir();
+        SampleProgramFactory.SaveBeside(dir.Path);
+        File.WriteAllText(
+            Path.Combine(dir.Path, "sample.program.json"),
+            """
+            {
+              "displayName": "sample",
+              "requiredFields": ["serial", "fixtureId"]
+            }
+            """);
+        var extra = PlanContractValidator.ValidateFile(Path.Combine(dir.Path, SampleProgramFactory.EmbeddedName));
+        Assert.Contains(extra.Findings, f => f.Code == PlanContractValidator.Codes.SidecarRequiredFields
+            && f.Severity == PlanContractSeverity.Warning
+            && f.Message.Contains("fixtureId", StringComparison.Ordinal));
+        Assert.False(extra.HasErrors);
+
+        File.WriteAllText(
+            Path.Combine(dir.Path, "sample.program.json"),
+            """{ "displayName": "sample", "requiredFields": ["serial", ""] }""");
+        var empty = PlanContractValidator.ValidateFile(Path.Combine(dir.Path, SampleProgramFactory.EmbeddedName));
+        Assert.Contains(empty.Findings, f => f.Code == PlanContractValidator.Codes.SidecarRequiredFields
+            && f.Severity == PlanContractSeverity.Error);
+        Assert.True(empty.HasErrors);
+    }
+
+    [Fact]
     public void Validate_directory_globs_tap_plans()
     {
         using var dir = new TempPlanDir();

@@ -146,12 +146,14 @@ public sealed class AuthoringWorkspaceLoaderTests
                     ReportKinds = ["traceability"],
                     ProgramKinds = ["incomingInspect"],
                     InstrumentSlotNames = ["SCOPE"],
+                    RequiredFields = ["fixtureId"],
                 },
             });
         var loaded = AuthoringWorkspaceLoader.Load(dir);
         Assert.Equal(["traceability"], loaded.Manifest.Catalogs!.ReportKinds);
         Assert.Equal(["incomingInspect"], loaded.Manifest.Catalogs.ProgramKinds);
         Assert.Equal(["SCOPE"], loaded.Manifest.Catalogs.InstrumentSlotNames);
+        Assert.Equal(["fixtureId"], loaded.Manifest.Catalogs.RequiredFields);
     }
 
     [Fact]

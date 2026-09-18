@@ -51,6 +51,8 @@ public sealed class AuthoringWorkspaceCatalogs
     public List<string> ProgramKinds { get; set; } = [];
 
     public List<string> InstrumentSlotNames { get; set; } = [];
+
+    public List<string> RequiredFields { get; set; } = [];
 }
 
 public sealed class AuthoringPackageSpec

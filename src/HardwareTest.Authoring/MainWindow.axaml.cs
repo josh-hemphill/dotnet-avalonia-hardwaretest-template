@@ -69,6 +69,19 @@ public partial class MainWindow : Window
     private void OnAddInstrumentSlot(object? sender, RoutedEventArgs e)
         => TryRun(_viewModel.AddInstrumentSlot);
 
+    private void OnAddRequiredField(object? sender, RoutedEventArgs e)
+        => TryRun(_viewModel.AddRequiredField);
+
+    private void OnToggleRequiredField(object? sender, RoutedEventArgs e)
+    {
+        if (sender is not CheckBox { DataContext: AuthoringCatalogToggle row } box)
+        {
+            return;
+        }
+
+        TryRun(() => _viewModel.SetRequiredFieldIncluded(row.Id, box.IsChecked == true));
+    }
+
     private void OnToggleReportKind(object? sender, RoutedEventArgs e)
     {
         if (sender is not CheckBox { DataContext: AuthoringCatalogToggle row } box)
