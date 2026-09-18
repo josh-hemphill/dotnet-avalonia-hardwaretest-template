@@ -474,6 +474,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         OnPropertyChanged(nameof(HasRawStepEditor));
         OnPropertyChanged(nameof(FormulaPrefixCompletions));
         OnPropertyChanged(nameof(HasFormulaPrefixCompletions));
+        OnPropertyChanged(nameof(ShowCatalogFormulaCompletions));
         OnPropertyChanged(nameof(HasMetricPresentation));
         OnPropertyChanged(nameof(HasRepeatEditor));
         OnPropertyChanged(nameof(HasSetupEditor));

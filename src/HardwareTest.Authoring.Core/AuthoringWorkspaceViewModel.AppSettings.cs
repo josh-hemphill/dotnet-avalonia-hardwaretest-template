@@ -101,11 +101,14 @@ public sealed partial class AuthoringWorkspaceViewModel
 
     public bool HasFormulaPrefixCompletions => FormulaPrefixCompletions.Count > 0;
 
+    public bool ShowCatalogFormulaCompletions => HasFormula && !HasFormulaPrefixCompletions;
+
     public void RefreshFormulaCompletions(int caret)
     {
         _formulaCaret = Math.Max(0, caret);
         OnPropertyChanged(nameof(FormulaPrefixCompletions));
         OnPropertyChanged(nameof(HasFormulaPrefixCompletions));
+        OnPropertyChanged(nameof(ShowCatalogFormulaCompletions));
     }
 
     public void OpenLastWorkspace()

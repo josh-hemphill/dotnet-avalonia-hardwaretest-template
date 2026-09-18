@@ -221,11 +221,13 @@ public sealed class AuthoringAppSettingsTests
         vm.FormulaSource = "me";
         vm.RefreshFormulaCompletions(2);
         Assert.True(vm.HasFormulaPrefixCompletions);
+        Assert.False(vm.ShowCatalogFormulaCompletions);
         Assert.Contains(vm.FormulaPrefixCompletions, item => item.Name == "mean");
         Assert.DoesNotContain(vm.FormulaPrefixCompletions, item => item.Name == "std");
         vm.FormulaSource = "mean(";
         vm.RefreshFormulaCompletions(5);
         Assert.False(vm.HasFormulaPrefixCompletions);
+        Assert.True(vm.ShowCatalogFormulaCompletions);
     }
 
     [Fact]

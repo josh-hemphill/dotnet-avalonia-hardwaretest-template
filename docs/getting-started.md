@@ -14,7 +14,7 @@ RID is required (same as the operator exe):
 dotnet run --project src/HardwareTest.Authoring -c Debug -r win-x64 -- plans/opentap
 ```
 
-The window opens that folder when it contains `authoring.json`. **Open workspace…** picks any other test-set directory. **Settings** stores theme (System/Light/Dark), last workspace, an optional OpenTAP home override, and whether raw TUI XML is shown — in `%AppData%/HardwareTest/authoring-preferences.json` (Linux `~/.config/HardwareTest/`), not operator `settings.json`. Last workspace is offered on the Programs rail; it is never auto-opened.
+The window opens that folder when it contains `authoring.json`. **Open workspace…** picks any other test-set directory. The toolbar **Settings** button opens a separate window for theme (System/Light/Dark), last workspace, an optional OpenTAP home override, and whether raw TUI XML is shown — stored in `%AppData%/HardwareTest/authoring-preferences.json` (Linux `~/.config/HardwareTest/authoring-preferences.json`), not operator `settings.json`. Last workspace is offered on the Programs rail; it is never auto-opened.
 
 **Bootstrap** installs Editor packs (HardwareTest Basic + Mixins; InstrumentComponents.OpenTap when the workspace manifest lists it) into `{workspace}/.authoring/opentap/`. The GUI Bootstrap button is offline. Headless flags exit before Avalonia:
 

@@ -7,6 +7,7 @@ namespace HardwareTest.Authoring;
 public partial class MainWindow : Window
 {
     private readonly AuthoringWorkspaceViewModel _viewModel;
+    private SettingsWindow? _settings;
 
     public MainWindow()
         : this(new AuthoringWorkspaceViewModel())
@@ -81,6 +82,22 @@ public partial class MainWindow : Window
 
     private void OnOpenLastWorkspace(object? sender, RoutedEventArgs e)
         => TryRun(_viewModel.OpenLastWorkspace);
+
+    private void OnOpenSettings(object? sender, RoutedEventArgs e)
+    {
+        if (_settings is not null)
+        {
+            _settings.Activate();
+            return;
+        }
+
+        _settings = new SettingsWindow
+        {
+            DataContext = _viewModel,
+        };
+        _settings.Closed += (_, _) => _settings = null;
+        _settings.Show(this);
+    }
 
     private void OnFormulaCaretChanged(object? sender, RoutedEventArgs e) => SyncFormulaCaret();
 

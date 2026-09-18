@@ -14,8 +14,11 @@ public sealed class AuthoringChromeA11yTests
         Assert.Contains("Text=\"{Binding InspectorTitle}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Text=\"{Binding PreviewTitle}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Header=\"{Binding ProgramSettingsTitle}\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("Header=\"{Binding SettingsTitle}\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("<vm:SettingsView", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("AutomationProperties.Name=\"Settings tab\"", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("<vm:SettingsView", xaml, StringComparison.Ordinal);
+        Assert.Contains("Click=\"OnOpenSettings\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Content=\"{Binding SettingsTitle}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("IsVisible=\"{Binding ShowCatalogFormulaCompletions}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("SelectedItem=\"{Binding SelectedProgram}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("SelectedItem=\"{Binding SelectedInstrument}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Text=\"{Binding InputStringFieldId}\"", xaml, StringComparison.Ordinal);
@@ -24,6 +27,11 @@ public sealed class AuthoringChromeA11yTests
         Assert.Contains("IsVisible=\"{Binding HasRawStepEditor}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("OnOpenLastWorkspace", xaml, StringComparison.Ordinal);
         Assert.Contains("ApplyFormulaCompletion", File.ReadAllText(Path.Combine(FindRepoRoot(), "src", "HardwareTest.Authoring", "MainWindow.axaml.cs")), StringComparison.Ordinal);
+        Assert.Contains("OnOpenSettings", File.ReadAllText(Path.Combine(FindRepoRoot(), "src", "HardwareTest.Authoring", "MainWindow.axaml.cs")), StringComparison.Ordinal);
+        Assert.Contains(".Show(this)", File.ReadAllText(Path.Combine(FindRepoRoot(), "src", "HardwareTest.Authoring", "MainWindow.axaml.cs")), StringComparison.Ordinal);
+        var settingsWindow = File.ReadAllText(Path.Combine(FindRepoRoot(), "src", "HardwareTest.Authoring", "SettingsWindow.axaml"));
+        Assert.Contains("Title=\"{Binding SettingsTitle}\"", settingsWindow, StringComparison.Ordinal);
+        Assert.Contains("<vm:SettingsView", settingsWindow, StringComparison.Ordinal);
         Assert.Contains("ItemsSource=\"{Binding SequenceItems}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("SelectedIndex=\"{Binding SelectedSequenceIndex}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Property=\"IsEnabled\" Value=\"{Binding IsSelectable}\"", xaml, StringComparison.Ordinal);
@@ -83,6 +91,8 @@ public sealed class AuthoringChromeA11yTests
         var csproj = File.ReadAllText(Path.Combine(FindRepoRoot(), "src", "HardwareTest.Authoring", "HardwareTest.Authoring.csproj"));
         Assert.Contains("SelectedItem=\"{Binding ThemePreference}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("LastWorkspacePath, Mode=OneWay", xaml, StringComparison.Ordinal);
+        Assert.Contains("OpenTapHomeOverride, UpdateSourceTrigger=LostFocus", xaml, StringComparison.Ordinal);
+        Assert.Contains("AutomationProperties.HeadingLevel=\"1\"", xaml, StringComparison.Ordinal);
         Assert.Contains("AutomationProperties.LabeledBy", xaml, StringComparison.Ordinal);
         Assert.Contains("ToolTip.Tip", xaml, StringComparison.Ordinal);
         Assert.Contains("Show raw step XML", xaml, StringComparison.Ordinal);
