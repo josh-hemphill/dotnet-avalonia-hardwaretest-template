@@ -62,6 +62,7 @@ Real badges use PC/SC (`pcscd` + CCID). Mock badges (`UseMockOperatorCredential`
 - **Linux:** install `pcscd` and `libccid` (or the vendor CCID package), enable `pcscd.service`, and confirm `pcsc_scan` sees the reader. Contactless readers usually appear with `contactless`, `NFC`, or `PICC` in the PC/SC name.
 - **Windows:** Winscard is built in; install the reader’s CCID driver if the OS does not.
 - **macOS:** PCSC.framework.
+- **Identity:** Technician name is the PIV Authentication (9A), Digital Signature (9C), or Card Auth (9E) certificate subject. If the subject is missing or a generic slot label, an rfc822 SAN / email or UPN is used (including DoD `edipi@mil`). Printed Information name is last. UID/ATR remains the badge serial for same-card signing.
 - **Signing:** PIV DIGITAL SIGNATURE (9C), then PIV Auth (9A), then Card Auth (9E). 9C/9A require PIN in the Results overlay (never persisted). Contactless PIN verify is often refused; insert the chip to sign. `AllowPresenceInLieuOfSigning` (default on) is a **site-policy fallback** when the organization cannot use signatures — the app still signs when the card can.
 - Do not persist PIN or private keys. There is no on-disk card session.
 

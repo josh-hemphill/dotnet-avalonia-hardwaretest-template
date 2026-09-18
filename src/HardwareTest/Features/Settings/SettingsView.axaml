@@ -151,7 +151,7 @@
 
         <TextBlock Text="Operator credential" Classes="settings-h2"
                    AutomationProperties.HeadingLevel="2" />
-        <TextBlock Text="Chip (insert) and tap (contactless) fill the technician field and sign a certification report before export or print. Presence-only is a site-policy fallback when the organization cannot use on-card signatures — it is not a substitute for signing."
+        <TextBlock Text="Chip (insert) and tap (contactless) fill the technician field from the badge certificate subject (or SAN email) and sign a certification report before export or print. Presence-only is a site-policy fallback when the organization cannot use on-card signatures — it is not a substitute for signing."
                    TextWrapping="Wrap"
                    Opacity="0.8" />
         <CheckBox Content="Use mock badge"

@@ -30,7 +30,7 @@ internal static class PivSigner
         CredentialSignResult? lastAuthFailure = null;
         foreach (var (slot, objectId, requiresPin) in SlotOrder)
         {
-            var certDer = TryReadCertificate(channel, objectId);
+            var certDer = PivApdu.TryReadCertificateDer(channel, objectId);
             if (certDer is null)
             {
                 continue;
@@ -153,17 +153,6 @@ internal static class PivSigner
 
         var wrapped = PivApdu.FindTag(body, 0x7C);
         return wrapped is null ? null : PivApdu.FindTag(wrapped, 0x82);
-    }
-
-    private static byte[]? TryReadCertificate(IApduChannel channel, byte[] objectId)
-    {
-        var response = channel.Transmit(PivApdu.GetData(objectId));
-        if (!PivApdu.IsSuccess(response))
-        {
-            return null;
-        }
-
-        return PivApdu.TryExtractCertificateDer(PivApdu.Body(response!));
     }
 
     private static bool TryDescribeKey(

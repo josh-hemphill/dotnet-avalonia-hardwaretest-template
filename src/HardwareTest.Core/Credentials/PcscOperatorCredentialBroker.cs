@@ -178,20 +178,6 @@ public sealed class PcscOperatorCredentialBroker : IOperatorCredentialBroker
         return last ?? CredentialSignResult.Failed(CredentialSignBinding.SameBadgeRequired);
     }
 
-    private sealed class PcscApduChannel : IApduChannel
-    {
-        private readonly nint _card;
-        private readonly int _protocol;
-
-        public PcscApduChannel(nint card, int protocol)
-        {
-            _card = card;
-            _protocol = protocol;
-        }
-
-        public byte[]? Transmit(byte[] command) => PcscNative.Transmit(_card, _protocol, command);
-    }
-
     private CredentialCaptureResult TryCaptureOnce(nint context)
     {
         var readers = PcscNative.ListReaders(context);
