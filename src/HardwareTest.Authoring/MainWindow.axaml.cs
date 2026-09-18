@@ -79,6 +79,19 @@ public partial class MainWindow : Window
         TryRun(() => _viewModel.ImportTransferFunction(path));
     }
 
+    private void OnOpenLastWorkspace(object? sender, RoutedEventArgs e)
+        => TryRun(_viewModel.OpenLastWorkspace);
+
+    private void OnFormulaCaretChanged(object? sender, RoutedEventArgs e) => SyncFormulaCaret();
+
+    private void SyncFormulaCaret()
+    {
+        if (this.FindControl<TextBox>("FormulaBox") is { } box)
+        {
+            _viewModel.RefreshFormulaCompletions(box.CaretIndex);
+        }
+    }
+
     private void OnFormulaChip(object? sender, RoutedEventArgs e)
     {
         if (sender is not Button { Tag: string token } || string.IsNullOrWhiteSpace(token))
@@ -86,17 +99,16 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (this.FindControl<TextBox>("FormulaBox") is { } box)
+        var box = this.FindControl<TextBox>("FormulaBox");
+        var caret = box?.CaretIndex ?? _viewModel.FormulaSource.Length;
+        var next = _viewModel.ApplyFormulaCompletion(token, caret);
+        if (box is not null)
         {
-            var text = box.Text ?? string.Empty;
-            var caret = Math.Clamp(box.CaretIndex, 0, text.Length);
-            box.Text = text.Insert(caret, token);
-            box.CaretIndex = caret + token.Length;
-            _viewModel.FormulaSource = box.Text;
-            return;
+            box.CaretIndex = next;
+            box.Focus();
         }
 
-        TryRun(() => _viewModel.InsertFormulaToken(token));
+        _viewModel.RefreshFormulaCompletions(next);
     }
 
     private async void OnPack(object? sender, RoutedEventArgs e)
@@ -114,14 +126,6 @@ public partial class MainWindow : Window
         }
 
         TryRun(() => _viewModel.Pack(path, new PackOptions { Offline = true }));
-    }
-
-    private void OnProgramSelected(object? sender, SelectionChangedEventArgs e)
-    {
-        if (sender is ListBox list && list.SelectedItem is ProgramDraft draft)
-        {
-            _viewModel.SelectProgram(draft.PlanId);
-        }
     }
 
     private void TryRun(Action action)

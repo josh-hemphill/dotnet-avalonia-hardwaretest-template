@@ -14,6 +14,16 @@ public sealed class AuthoringChromeA11yTests
         Assert.Contains("Text=\"{Binding InspectorTitle}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Text=\"{Binding PreviewTitle}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Header=\"{Binding ProgramSettingsTitle}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Header=\"{Binding SettingsTitle}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("<vm:SettingsView", xaml, StringComparison.Ordinal);
+        Assert.Contains("SelectedItem=\"{Binding SelectedProgram}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("SelectedItem=\"{Binding SelectedInstrument}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Text=\"{Binding InputStringFieldId}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Text=\"{Binding InputNumberFieldId}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("ItemsSource=\"{Binding FormulaPrefixCompletions}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("IsVisible=\"{Binding HasRawStepEditor}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("OnOpenLastWorkspace", xaml, StringComparison.Ordinal);
+        Assert.Contains("ApplyFormulaCompletion", File.ReadAllText(Path.Combine(FindRepoRoot(), "src", "HardwareTest.Authoring", "MainWindow.axaml.cs")), StringComparison.Ordinal);
         Assert.Contains("ItemsSource=\"{Binding SequenceItems}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("SelectedIndex=\"{Binding SelectedSequenceIndex}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Property=\"IsEnabled\" Value=\"{Binding IsSelectable}\"", xaml, StringComparison.Ordinal);
@@ -64,6 +74,22 @@ public sealed class AuthoringChromeA11yTests
         vm.SelectProgram("two");
         Assert.Equal("SCOPE", vm.SelectedInstrumentSlot);
         Assert.Equal("MOCK::SCOPE", vm.SelectedInstrumentVisa);
+    }
+
+    [Fact]
+    public void Settings_view_labels_theme_and_does_not_reuse_operator_settings()
+    {
+        var xaml = File.ReadAllText(Path.Combine(FindRepoRoot(), "src", "HardwareTest.Authoring", "SettingsView.axaml"));
+        var csproj = File.ReadAllText(Path.Combine(FindRepoRoot(), "src", "HardwareTest.Authoring", "HardwareTest.Authoring.csproj"));
+        Assert.Contains("SelectedItem=\"{Binding ThemePreference}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("LastWorkspacePath, Mode=OneWay", xaml, StringComparison.Ordinal);
+        Assert.Contains("AutomationProperties.LabeledBy", xaml, StringComparison.Ordinal);
+        Assert.Contains("ToolTip.Tip", xaml, StringComparison.Ordinal);
+        Assert.Contains("Show raw step XML", xaml, StringComparison.Ordinal);
+        Assert.Contains("OpenTAP home override", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("ISettingsStore", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("HardwareTest.Core.Settings", csproj, StringComparison.Ordinal);
+        Assert.DoesNotContain("HardwareTest\\\\HardwareTest.csproj", csproj, StringComparison.Ordinal);
     }
 
     private static string SliceAfter(string text, string marker)

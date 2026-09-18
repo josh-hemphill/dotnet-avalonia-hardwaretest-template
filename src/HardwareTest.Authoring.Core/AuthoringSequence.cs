@@ -48,6 +48,10 @@ public static class AuthoringChrome
     public const string ProgramSettingsTitle = "Program settings";
     public const string ProgramSettingsPurpose =
         "Session, DUT, reports, and instrument slots for this program. They are not metrics.";
+    public const string SettingsTitle = "Settings";
+    public const string SettingsPurpose =
+        "Theme and workstation prefs for this engineer PC. Not operator appliance policy.";
+    public const string LastWorkspaceOffer = "Open last workspace";
     public const string SetupHeader = "Setup";
     public const string SetupPurpose = "Identity and operator prompts before measurements.";
     public const string MeasureHeader = "Measure";

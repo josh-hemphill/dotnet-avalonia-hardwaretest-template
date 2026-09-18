@@ -35,9 +35,17 @@ public sealed partial class AuthoringWorkspaceViewModel
                  ?? string.Empty;
         set
         {
-            if (SetField(ref _selectedInstrumentSlot, value))
+            var slot = value?.Trim() ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(slot)
+                || string.Equals(SelectedInstrumentSlot, slot, StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            if (SetField(ref _selectedInstrumentSlot, slot))
             {
                 OnPropertyChanged(nameof(SelectedInstrumentVisa));
+                OnPropertyChanged(nameof(SelectedInstrument));
             }
         }
     }
@@ -243,8 +251,9 @@ public sealed partial class AuthoringWorkspaceViewModel
         get => SelectedSetup is IdentitySetup identity ? identity.InstrumentSlot : string.Empty;
         set
         {
-            var slot = value.Trim();
-            if (string.IsNullOrWhiteSpace(slot))
+            var slot = value?.Trim() ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(slot)
+                || string.Equals(SetupInstrumentSlot, slot, StringComparison.OrdinalIgnoreCase))
             {
                 return;
             }
@@ -260,14 +269,18 @@ public sealed partial class AuthoringWorkspaceViewModel
         get => HasCleanupEditor ? SelectedProgram?.Cleanup.InstrumentSlot ?? string.Empty : string.Empty;
         set
         {
-            if (!HasCleanupEditor || SelectedProgram is null || string.IsNullOrWhiteSpace(value))
+            var slot = value?.Trim() ?? string.Empty;
+            if (!HasCleanupEditor
+                || SelectedProgram is null
+                || string.IsNullOrWhiteSpace(slot)
+                || string.Equals(CleanupInstrumentSlot, slot, StringComparison.OrdinalIgnoreCase))
             {
                 return;
             }
 
             ReplaceSelected(SelectedProgram with
             {
-                Cleanup = SelectedProgram.Cleanup with { InstrumentSlot = value.Trim() },
+                Cleanup = SelectedProgram.Cleanup with { InstrumentSlot = slot },
             });
         }
     }
@@ -277,7 +290,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         get => HasCleanupEditor && (SelectedProgram?.Cleanup.IncludeSafeShutdown ?? false);
         set
         {
-            if (!HasCleanupEditor || SelectedProgram is null)
+            if (!HasCleanupEditor || SelectedProgram is null || IncludeSafeShutdown == value)
             {
                 return;
             }
@@ -301,8 +314,9 @@ public sealed partial class AuthoringWorkspaceViewModel
                 return;
             }
 
-            var slot = value.Trim();
-            if (string.IsNullOrWhiteSpace(slot))
+            var slot = value?.Trim() ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(slot)
+                || string.Equals(MetricInstrumentSlot, slot, StringComparison.OrdinalIgnoreCase))
             {
                 return;
             }
@@ -410,7 +424,13 @@ public sealed partial class AuthoringWorkspaceViewModel
             return;
         }
 
-        setup[index] = mutate(setup[index]);
+        var next = mutate(setup[index]);
+        if (Equals(next, setup[index]))
+        {
+            return;
+        }
+
+        setup[index] = next;
         ReplaceSelected(SelectedProgram with { Setup = setup });
     }
 

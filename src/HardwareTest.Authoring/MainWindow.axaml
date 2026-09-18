@@ -62,8 +62,15 @@
                    Opacity="0.8"
                    TextWrapping="Wrap"
                    Text="{Binding ProgramsPurpose}" />
+        <Button DockPanel.Dock="Top"
+                Margin="0,0,0,8"
+                Content="{Binding LastWorkspaceOffer}"
+                Click="OnOpenLastWorkspace"
+                IsVisible="{Binding CanOfferLastWorkspace}"
+                ToolTip.Tip="{Binding LastWorkspacePath}"
+                AutomationProperties.Name="Open last workspace" />
         <ListBox ItemsSource="{Binding Programs}"
-                 SelectionChanged="OnProgramSelected"
+                 SelectedItem="{Binding SelectedProgram}"
                  KeyboardNavigation.TabNavigation="Once"
                  AutomationProperties.Name="Programs"
                  AutomationProperties.LabeledBy="{Binding #ProgramsHeading}">
@@ -191,6 +198,16 @@
                     <TextBox Text="{Binding InputMessage}"
                              AutomationProperties.Name="Input message"
                              AutomationProperties.LabeledBy="{Binding #InputMessageLabel}" />
+                    <TextBlock x:Name="InputStringFieldLabel" Text="String field id" />
+                    <TextBox Text="{Binding InputStringFieldId}"
+                             AutomationProperties.Name="String field id"
+                             AutomationProperties.LabeledBy="{Binding #InputStringFieldLabel}"
+                             ToolTip.Tip="Optional sidecar key for the typed string. Values return on the step, not as station overrides." />
+                    <TextBlock x:Name="InputNumberFieldLabel" Text="Number field id" />
+                    <TextBox Text="{Binding InputNumberFieldId}"
+                             AutomationProperties.Name="Number field id"
+                             AutomationProperties.LabeledBy="{Binding #InputNumberFieldLabel}"
+                             ToolTip.Tip="Optional sidecar key for the typed number." />
                   </StackPanel>
                   <StackPanel Spacing="6" IsVisible="{Binding HasIdentitySetup}">
                     <TextBlock x:Name="SetupSlotLabel" Text="Instrument slot" />
@@ -264,9 +281,32 @@
                   <TextBox x:Name="FormulaBox"
                            PlaceholderText="mean(VDC)"
                            Text="{Binding FormulaSource}"
+                           TextChanged="OnFormulaCaretChanged"
+                           KeyUp="OnFormulaCaretChanged"
+                           PointerReleased="OnFormulaCaretChanged"
+                           GotFocus="OnFormulaCaretChanged"
                            AutomationProperties.Name="Formula expression"
                            AutomationProperties.LabeledBy="{Binding #FormulaLabel}"
                            ToolTip.Tip="MATLAB-flavored subset. Unknown names fail closed. fft/plot/eval are never offered." />
+                  <ItemsControl ItemsSource="{Binding FormulaPrefixCompletions}"
+                                IsVisible="{Binding HasFormulaPrefixCompletions}"
+                                AutomationProperties.Name="Formula completions">
+                    <ItemsControl.ItemsPanel>
+                      <ItemsPanelTemplate>
+                        <WrapPanel />
+                      </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate>
+                        <Button Margin="0,0,6,6"
+                                Content="{Binding Name}"
+                                Tag="{Binding InsertText}"
+                                ToolTip.Tip="{Binding Description}"
+                                Click="OnFormulaChip"
+                                AutomationProperties.Name="{Binding Name}" />
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
                   <ItemsControl ItemsSource="{Binding FormulaCompletions}">
                     <ItemsControl.ItemsPanel>
                       <ItemsPanelTemplate>
@@ -333,6 +373,7 @@
                   <TextBox IsReadOnly="True"
                            AcceptsReturn="True"
                            Height="80"
+                           IsVisible="{Binding HasRawStepEditor}"
                            Text="{Binding RawXml}"
                            AutomationProperties.Name="Raw step XML" />
                 </StackPanel>
@@ -423,6 +464,7 @@
 
               <TextBlock FontWeight="SemiBold" Text="Instruments" />
               <ListBox ItemsSource="{Binding Instruments}"
+                       SelectedItem="{Binding SelectedInstrument}"
                        KeyboardNavigation.TabNavigation="Once"
                        AutomationProperties.Name="Instruments">
                 <ListBox.ItemTemplate>
@@ -462,6 +504,9 @@
               </DataTemplate>
             </ListBox.ItemTemplate>
           </ListBox>
+        </TabItem>
+        <TabItem Header="{Binding SettingsTitle}" AutomationProperties.Name="Settings tab">
+          <vm:SettingsView />
         </TabItem>
         <TabItem Header="Workspace" AutomationProperties.Name="Workspace tab">
           <StackPanel Spacing="8">

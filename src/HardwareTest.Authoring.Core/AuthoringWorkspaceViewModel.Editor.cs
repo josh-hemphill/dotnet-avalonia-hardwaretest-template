@@ -93,19 +93,43 @@ public sealed partial class AuthoringWorkspaceViewModel
     public string ChannelKey
     {
         get => SelectedMetric?.ChannelKey ?? string.Empty;
-        set => UpdateSelectedMetric(metric => metric with { ChannelKey = value });
+        set
+        {
+            if (string.Equals(ChannelKey, value, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            UpdateSelectedMetric(metric => metric with { ChannelKey = value });
+        }
     }
 
     public string DisplayRole
     {
         get => SelectedMetric?.DisplayRole ?? string.Empty;
-        set => UpdateSelectedMetric(metric => metric with { DisplayRole = value });
+        set
+        {
+            if (string.Equals(DisplayRole, value, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            UpdateSelectedMetric(metric => metric with { DisplayRole = value });
+        }
     }
 
     public string YUnit
     {
         get => SelectedMetric?.YUnit ?? string.Empty;
-        set => UpdateSelectedMetric(metric => metric with { YUnit = value });
+        set
+        {
+            if (string.Equals(YUnit, value, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            UpdateSelectedMetric(metric => metric with { YUnit = value });
+        }
     }
 
     public string LimitLow
@@ -131,7 +155,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         get => HasFormula && SelectedMetric?.Source is ExpressionAlgorithm expr ? expr.Source : string.Empty;
         set
         {
-            if (!HasFormula)
+            if (!HasFormula || string.Equals(FormulaSource, value, StringComparison.Ordinal))
             {
                 return;
             }
@@ -213,7 +237,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         get => SelectedTf?.Method ?? string.Empty;
         set
         {
-            var method = value.Trim().ToLowerInvariant();
+            var method = value?.Trim().ToLowerInvariant() ?? string.Empty;
             if (method is not ("filter" or "filtfilt"))
             {
                 return;
@@ -226,7 +250,16 @@ public sealed partial class AuthoringWorkspaceViewModel
     public string TfInputChannel
     {
         get => SelectedTf?.InputChannelKey ?? string.Empty;
-        set => UpdateSelectedTf(tf => tf with { InputChannelKey = value.Trim() });
+        set
+        {
+            var channel = value?.Trim() ?? string.Empty;
+            if (string.Equals(TfInputChannel, channel, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            UpdateSelectedTf(tf => tf with { InputChannelKey = channel });
+        }
     }
 
     public void ImportTransferFunction(string path)
@@ -342,7 +375,13 @@ public sealed partial class AuthoringWorkspaceViewModel
         }
 
         var path = MeasureMutationPath();
-        if (path.Count == 0)
+        if (path.Count == 0 || SelectedMetric is null)
+        {
+            return;
+        }
+
+        var next = mutate(SelectedMetric);
+        if (Equals(next, SelectedMetric))
         {
             return;
         }
@@ -432,6 +471,9 @@ public sealed partial class AuthoringWorkspaceViewModel
         OnPropertyChanged(nameof(HasFormula));
         OnPropertyChanged(nameof(HasTransferFunction));
         OnPropertyChanged(nameof(HasRawStep));
+        OnPropertyChanged(nameof(HasRawStepEditor));
+        OnPropertyChanged(nameof(FormulaPrefixCompletions));
+        OnPropertyChanged(nameof(HasFormulaPrefixCompletions));
         OnPropertyChanged(nameof(HasMetricPresentation));
         OnPropertyChanged(nameof(HasRepeatEditor));
         OnPropertyChanged(nameof(HasSetupEditor));
@@ -457,10 +499,24 @@ public sealed partial class AuthoringWorkspaceViewModel
         OnPropertyChanged(nameof(MetricInstrumentSlot));
         OnPropertyChanged(nameof(SelectedRecipe));
         OnPropertyChanged(nameof(SelectedInstrumentVisa));
+        OnPropertyChanged(nameof(SelectedInstrument));
+        OnPropertyChanged(nameof(CanOfferLastWorkspace));
+        OnPropertyChanged(nameof(LastWorkspacePath));
     }
 
     private void UpdateSelectedTf(Func<TransferFunctionAlgorithm, TransferFunctionAlgorithm> mutate)
     {
+        if (!HasTransferFunction || SelectedTf is not { } current)
+        {
+            return;
+        }
+
+        var next = mutate(current);
+        if (TfUnchanged(current, next))
+        {
+            return;
+        }
+
         UpdateSelectedMetric(metric =>
         {
             if (metric.Source is not TransferFunctionAlgorithm tf)
@@ -471,6 +527,13 @@ public sealed partial class AuthoringWorkspaceViewModel
             return metric with { Source = mutate(tf) };
         });
     }
+
+    private static bool TfUnchanged(TransferFunctionAlgorithm current, TransferFunctionAlgorithm next)
+        => current.TsSeconds.Equals(next.TsSeconds)
+           && string.Equals(current.Method, next.Method, StringComparison.Ordinal)
+           && string.Equals(current.InputChannelKey, next.InputChannelKey, StringComparison.Ordinal)
+           && current.Numerator.SequenceEqual(next.Numerator)
+           && current.Denominator.SequenceEqual(next.Denominator);
 
     private static string FormatVector(IReadOnlyList<double>? values)
         => values is null || values.Count == 0

@@ -28,6 +28,12 @@ public sealed partial class AuthoringWorkspaceViewModel
 
     public string ProgramSettingsTitle => AuthoringChrome.ProgramSettingsTitle;
 
+    public string SettingsTitle => AuthoringChrome.SettingsTitle;
+
+    public string SettingsPurpose => AuthoringChrome.SettingsPurpose;
+
+    public string LastWorkspaceOffer => AuthoringChrome.LastWorkspaceOffer;
+
     public int SelectedSequenceIndex
     {
         get => _selectedSequenceIndex;
