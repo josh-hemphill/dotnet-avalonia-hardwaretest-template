@@ -247,6 +247,69 @@ public sealed class PivCardIdentityTests
         Assert.Equal("Card AABBCCDD", PivPresenceIdentity.Better(hex, hex).DisplayName);
     }
 
+    [Fact]
+    public void Presence_equal_quality_prefers_the_live_serial()
+    {
+        var atr = new OperatorCredential { DisplayName = "Card AABBCCDD", Serial = "ATR" };
+        var uid = new OperatorCredential { DisplayName = "Card AABBCCDD", Serial = "UID" };
+        Assert.Equal("UID", PivPresenceIdentity.Better(atr, uid).Serial);
+
+        var upn = new OperatorCredential { DisplayName = "1234567890@mil", Serial = "UID1" };
+        var hex = new OperatorCredential { DisplayName = "Card AABBCCDD", Serial = "UID2" };
+        Assert.Equal("UID1", PivPresenceIdentity.Better(upn, hex).Serial);
+    }
+
+    [Fact]
+    public void Presence_poll_returns_uid_fallback_after_settle_when_later_captures_fail()
+    {
+        var poll = new PivPresenceIdentity.Poll();
+        var t0 = new DateTimeOffset(2026, 9, 18, 0, 0, 0, TimeSpan.Zero);
+        var uid = Capture("Card AABBCCDD", "AABBCCDD");
+        var gone = new CredentialCaptureResult { Error = "Present a badge: insert chip or tap the reader." };
+
+        Assert.Null(poll.Observe(uid, t0, out var reading));
+        Assert.Contains("Reading badge identity", reading, StringComparison.Ordinal);
+
+        Assert.Null(poll.Observe(gone, t0.AddSeconds(1), out var stillReading));
+        Assert.Contains("Reading badge identity", stillReading, StringComparison.Ordinal);
+
+        var done = poll.Observe(gone, t0 + PivPresenceIdentity.Settle, out var present);
+        Assert.Equal("Card AABBCCDD", done?.Credential?.DisplayName);
+        Assert.Equal("AABBCCDD", done?.Credential?.Serial);
+        Assert.Contains("Credential present", present, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Presence_poll_returns_settled_name_before_settle_window()
+    {
+        var poll = new PivPresenceIdentity.Poll();
+        var t0 = new DateTimeOffset(2026, 9, 18, 0, 0, 0, TimeSpan.Zero);
+        Assert.Null(poll.Observe(Capture("Card AABBCCDD", "AABBCCDD"), t0, out _));
+
+        var done = poll.Observe(Capture("Jane Doe", "AABBCCDD"), t0.AddMilliseconds(250), out _);
+        Assert.Equal("Jane Doe", done?.Credential?.DisplayName);
+    }
+
+    [Fact]
+    public void Presence_poll_does_not_return_before_settle_when_only_uid_is_seen()
+    {
+        var poll = new PivPresenceIdentity.Poll();
+        var t0 = new DateTimeOffset(2026, 9, 18, 0, 0, 0, TimeSpan.Zero);
+        Assert.Null(poll.Observe(Capture("Card AABBCCDD", "AABBCCDD"), t0, out _));
+        Assert.Null(poll.Observe(Capture("Card AABBCCDD", "AABBCCDD"), t0.AddSeconds(1.9), out _));
+    }
+
+    private static CredentialCaptureResult Capture(string displayName, string serial)
+        => new()
+        {
+            Credential = new OperatorCredential
+            {
+                DisplayName = displayName,
+                Serial = serial,
+                Transport = CredentialTransport.Contactless,
+            },
+        };
+
     [Theory]
     [InlineData("Jane Doe", true)]
     [InlineData("SMITH.JANE.Q.1234567890", true)]
