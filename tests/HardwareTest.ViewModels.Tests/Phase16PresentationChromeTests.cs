@@ -212,6 +212,39 @@ public sealed class Phase16PresentationChromeTests
         Assert.True(live.HasCursor);
         Assert.Equal(40.0, live.CursorX);
         Assert.Contains("1.5", live.ChartValueText, StringComparison.Ordinal);
+        Assert.False(live.FollowLive);
+    }
+
+    [Fact]
+    public void ResetForRun_drops_cursor_and_resumes_follow_live()
+    {
+        var live = new LivePresentationViewModel();
+        var step = Leaf();
+        live.ApplySample(Timeseries("VDC", 1.0), step.Path, null, step);
+        live.PlaceCursor(0.0);
+        Assert.True(live.HasCursor);
+        Assert.False(live.FollowLive);
+
+        live.ResetForRun();
+
+        Assert.False(live.HasCursor);
+        Assert.True(live.FollowLive);
+        Assert.Equal(0, live.PlotYsLength);
+    }
+
+    [Fact]
+    public void FollowLive_off_without_a_cursor_survives_a_publish()
+    {
+        var live = new LivePresentationViewModel();
+        var step = Leaf();
+        live.ApplySample(Timeseries("VDC", 1.0), step.Path, null, step);
+        live.FollowLive = false;
+        Assert.False(live.HasCursor);
+
+        live.ApplySample(Timeseries("VDC", 1.5, DateTimeOffset.UtcNow.AddSeconds(1)), step.Path, null, step);
+
+        Assert.False(live.HasCursor);
+        Assert.False(live.FollowLive);
     }
 
     [Fact]

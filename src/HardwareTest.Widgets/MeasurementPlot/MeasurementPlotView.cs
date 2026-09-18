@@ -114,14 +114,13 @@ public sealed class MeasurementPlotView : UserControl
         Render(force: true);
     }
 
-    /// Places or moves the vertical readout line. Pass null to clear.
+    /// Places or moves the vertical readout line. Null clears a placed line; it does not resume follow-live when none is placed.
     public void SetCursor(double? xElapsedOrIndex, bool announce = true)
     {
         if (xElapsedOrIndex is null)
         {
             if (_cursorX is null)
             {
-                _followLive = true;
                 return;
             }
 
@@ -317,7 +316,7 @@ public sealed class MeasurementPlotView : UserControl
         if (!PlotCursorReadout.TryNearestSample(xs, ys, ys.Length, x, out _, out var sampleX, out _))
         {
             _cursorX = null;
-            _followLive = requestedFollowLive;
+            _followLive = true;
             return;
         }
 

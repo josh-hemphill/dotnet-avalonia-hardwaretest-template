@@ -309,6 +309,43 @@ public sealed class RunFlowE2ETests
     }
 
     [AvaloniaFact]
+    public void SetCursor_null_does_not_resume_follow_live_when_no_line_is_placed()
+    {
+        var plot = new HardwareTest.Widgets.MeasurementPlot.MeasurementPlotView();
+        plot.UpdateTimeSeries([0, 1], [1.0, 2.0], 2, followLive: true, force: true);
+        Dispatcher.UIThread.RunJobs();
+        plot.SetFollowLive(false);
+        Assert.False(plot.FollowLive);
+
+        plot.SetCursor(null, announce: false);
+        Dispatcher.UIThread.RunJobs();
+        Assert.Null(plot.CursorX);
+        Assert.False(plot.FollowLive);
+
+        plot.UpdateTimeSeries([0, 1, 2], [1.0, 2.0, 3.0], 3, followLive: false, force: true);
+        plot.SetCursor(null, announce: false);
+        Dispatcher.UIThread.RunJobs();
+        Assert.False(plot.FollowLive);
+    }
+
+    [AvaloniaFact]
+    public void SetCursor_resumes_follow_live_when_the_series_empties()
+    {
+        var plot = new HardwareTest.Widgets.MeasurementPlot.MeasurementPlotView();
+        plot.UpdateTimeSeries([0, 1], [1.0, 2.0], 2, followLive: true, force: true);
+        Dispatcher.UIThread.RunJobs();
+        plot.SetCursor(0.1, announce: false);
+        Dispatcher.UIThread.RunJobs();
+        Assert.False(plot.FollowLive);
+        Assert.Equal(0.0, plot.CursorX);
+
+        plot.UpdateTimeSeries([], [], 0, followLive: false, force: true);
+        Dispatcher.UIThread.RunJobs();
+        Assert.Null(plot.CursorX);
+        Assert.True(plot.FollowLive);
+    }
+
+    [AvaloniaFact]
     public void SetCursor_resnaps_when_the_window_drops_the_point()
     {
         var plot = new HardwareTest.Widgets.MeasurementPlot.MeasurementPlotView();

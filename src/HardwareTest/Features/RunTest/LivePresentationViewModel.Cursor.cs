@@ -61,8 +61,13 @@ public partial class LivePresentationViewModel
 
     private void ResetCursorState()
     {
+        var hadCursor = HasCursor || _cursorX is not null;
         _cursorX = null;
         HasCursor = false;
+        if (hadCursor)
+        {
+            FollowLive = true;
+        }
     }
 
     private void ResnapCursorAfterPublish()
@@ -83,6 +88,7 @@ public partial class LivePresentationViewModel
         {
             _cursorX = null;
             HasCursor = false;
+            FollowLive = true;
             return;
         }
 
