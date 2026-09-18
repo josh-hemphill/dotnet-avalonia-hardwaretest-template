@@ -157,7 +157,7 @@ public sealed class PlanContractValidatorTests
     }
 
     [Fact]
-    public void Validate_unknown_program_kind_is_error()
+    public void Validate_unknown_program_kind_is_warning()
     {
         using var dir = new TempPlanDir();
         SampleProgramFactory.SaveBeside(dir.Path);
@@ -171,8 +171,8 @@ public sealed class PlanContractValidatorTests
             """);
         var report = PlanContractValidator.ValidateFile(Path.Combine(dir.Path, SampleProgramFactory.EmbeddedName));
         Assert.Contains(report.Findings, f => f.Code == PlanContractValidator.Codes.SidecarProgramKind
-            && f.Severity == PlanContractSeverity.Error);
-        Assert.True(report.HasErrors);
+            && f.Severity == PlanContractSeverity.Warning);
+        Assert.False(report.HasErrors);
     }
 
     [Fact]
@@ -233,7 +233,9 @@ public sealed class PlanContractValidatorTests
             """{ "displayName": "sample", "reportKinds": ["status", "mes"] }""");
         var unknown = PlanContractValidator.ValidateFile(Path.Combine(dir.Path, SampleProgramFactory.EmbeddedName));
         Assert.Contains(unknown.Findings, f => f.Code == PlanContractValidator.Codes.SidecarReportKinds
+            && f.Severity == PlanContractSeverity.Warning
             && f.Message.Contains("mes", StringComparison.Ordinal));
+        Assert.False(unknown.HasErrors);
     }
 
     [Fact]

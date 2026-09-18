@@ -60,6 +60,25 @@ public partial class MainWindow : Window
     private void OnAddRecipe(object? sender, RoutedEventArgs e)
         => TryRun(() => _viewModel.ApplySelectedRecipe());
 
+    private void OnAddReportKind(object? sender, RoutedEventArgs e)
+        => TryRun(_viewModel.AddReportKind);
+
+    private void OnAddProgramKind(object? sender, RoutedEventArgs e)
+        => TryRun(_viewModel.AddProgramKind);
+
+    private void OnAddInstrumentSlot(object? sender, RoutedEventArgs e)
+        => TryRun(_viewModel.AddInstrumentSlot);
+
+    private void OnToggleReportKind(object? sender, RoutedEventArgs e)
+    {
+        if (sender is not CheckBox { DataContext: AuthoringCatalogToggle row } box)
+        {
+            return;
+        }
+
+        TryRun(() => _viewModel.SetReportKindIncluded(row.Id, box.IsChecked == true));
+    }
+
     private void OnRemoveSequence(object? sender, RoutedEventArgs e)
         => TryRun(_viewModel.RemoveSelectedSequence);
 

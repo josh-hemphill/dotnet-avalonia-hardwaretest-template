@@ -132,6 +132,29 @@ public sealed class AuthoringWorkspaceLoaderTests
     }
 
     [Fact]
+    public void Save_round_trips_workspace_catalogs()
+    {
+        var dir = NewTempDir();
+        AuthoringWorkspaceLoader.SaveManifest(
+            dir,
+            new AuthoringManifest
+            {
+                DisplayName = "Catalogs",
+                PlansDirectory = ".",
+                Catalogs = new AuthoringWorkspaceCatalogs
+                {
+                    ReportKinds = ["traceability"],
+                    ProgramKinds = ["incomingInspect"],
+                    InstrumentSlotNames = ["SCOPE"],
+                },
+            });
+        var loaded = AuthoringWorkspaceLoader.Load(dir);
+        Assert.Equal(["traceability"], loaded.Manifest.Catalogs!.ReportKinds);
+        Assert.Equal(["incomingInspect"], loaded.Manifest.Catalogs.ProgramKinds);
+        Assert.Equal(["SCOPE"], loaded.Manifest.Catalogs.InstrumentSlotNames);
+    }
+
+    [Fact]
     public void Save_does_not_write_future_schema_version()
     {
         var dir = NewTempDir();

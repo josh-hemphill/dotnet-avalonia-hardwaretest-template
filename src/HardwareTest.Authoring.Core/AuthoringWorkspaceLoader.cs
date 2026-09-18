@@ -21,6 +21,7 @@ public static class AuthoringWorkspaceLoader
         "shellAppProjects",
         "includeTui",
         "recordingsDirectory",
+        "catalogs",
     };
 
     public static AuthoringWorkspace Load(string root)

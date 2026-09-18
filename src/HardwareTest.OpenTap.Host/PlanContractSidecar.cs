@@ -148,9 +148,9 @@ internal static class PlanContractSidecar
             {
                 if (!IsKnownReportKind(kind))
                 {
-                    findings.Add(Error(
+                    findings.Add(Warning(
                         PlanContractValidator.Codes.SidecarReportKinds,
-                        $"Sidecar {planId}.program.json reportKinds contains unknown '{kind}'. Use status or certification."));
+                        $"Sidecar {planId}.program.json reportKinds contains '{kind}' outside status/certification. Typst still only ships those two templates."));
                 }
             }
         }
@@ -164,29 +164,29 @@ internal static class PlanContractSidecar
             return;
         }
 
-        if (!IsKnownReportKind(parsed.DefaultReportKind))
-        {
-            findings.Add(Error(
-                PlanContractValidator.Codes.SidecarDefaultReportKind,
-                $"Sidecar {planId}.program.json defaultReportKind '{parsed.DefaultReportKind}' is unknown. Use status or certification."));
-            return;
-        }
-
         if (!effective.Any(k => string.Equals(k, parsed.DefaultReportKind, StringComparison.OrdinalIgnoreCase)))
         {
             findings.Add(Error(
                 PlanContractValidator.Codes.SidecarDefaultReportKind,
                 $"Sidecar {planId}.program.json defaultReportKind '{parsed.DefaultReportKind}' must be listed in reportKinds."));
+            return;
+        }
+
+        if (!IsKnownReportKind(parsed.DefaultReportKind))
+        {
+            findings.Add(Warning(
+                PlanContractValidator.Codes.SidecarDefaultReportKind,
+                $"Sidecar {planId}.program.json defaultReportKind '{parsed.DefaultReportKind}' is outside status/certification. Typst still only ships those two templates."));
         }
     }
 
     private static void AnalyzeStationHealth(ProgramSidecar parsed, string planId, List<PlanContractFinding> findings)
     {
-        if (!ProgramKinds.IsKnown(parsed.ProgramKind))
+        if (!string.IsNullOrWhiteSpace(parsed.ProgramKind) && !ProgramKinds.IsKnown(parsed.ProgramKind))
         {
-            findings.Add(Error(
+            findings.Add(Warning(
                 PlanContractValidator.Codes.SidecarProgramKind,
-                $"Sidecar {planId}.program.json programKind '{parsed.ProgramKind}' is unknown. Use dut or stationHealth."));
+                $"Sidecar {planId}.program.json programKind '{parsed.ProgramKind}' is outside dut/stationHealth. Station-health gating still keys off stationHealth."));
         }
 
         if (!StationHealthGates.IsKnown(parsed.StationHealthGate))

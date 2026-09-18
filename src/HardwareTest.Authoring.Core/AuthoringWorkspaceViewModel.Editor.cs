@@ -449,6 +449,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         OnPropertyChanged(nameof(ChannelKey));
         OnPropertyChanged(nameof(DisplayRole));
         OnPropertyChanged(nameof(YUnit));
+        OnPropertyChanged(nameof(YUnitOptions));
         OnPropertyChanged(nameof(LimitLow));
         OnPropertyChanged(nameof(LimitHigh));
         OnPropertyChanged(nameof(Threshold));

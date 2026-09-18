@@ -45,6 +45,45 @@ public sealed class AuthoringEditorCatalogTests
     }
 }
 
+public sealed class AuthoringWorkspaceCatalogTests
+{
+    [Fact]
+    public void Report_and_program_kind_options_union_defaults_manifest_and_sidecars()
+    {
+        var manifest = new AuthoringManifest
+        {
+            Catalogs = new AuthoringWorkspaceCatalogs
+            {
+                ReportKinds = ["traceability"],
+                ProgramKinds = ["incomingInspect"],
+            },
+        };
+        var selected = AuthoringRecipeCatalog.CreateProgram("union");
+        selected.Sidecar.ReportKinds = ["status", "mes"];
+        selected.Sidecar.DefaultReportKind = "mes";
+        selected.Sidecar.ProgramKind = "incomingInspect";
+        var other = AuthoringRecipeCatalog.CreateProgram("other");
+        other.Sidecar.ReportKinds = ["certification"];
+        other.Sidecar.ProgramKind = "stationHealth";
+
+        var reports = AuthoringWorkspaceCatalog.ReportKindOptions(manifest, [other, selected], selected);
+        Assert.Equal(["status", "certification", "traceability", "mes"], reports);
+        var kinds = AuthoringWorkspaceCatalog.ProgramKindOptions(manifest, [other, selected], selected);
+        Assert.Equal(["dut", "stationHealth", "incomingInspect"], kinds);
+    }
+
+    [Fact]
+    public void Y_unit_options_include_metric_units()
+    {
+        var acquire = AuthoringRecipeCatalog.Apply(
+            AuthoringRecipeCatalog.CreateProgram("units"),
+            AuthoringRecipeIds.Acquire);
+        var metric = Assert.IsType<MetricNode>(Assert.Single(acquire.Measure));
+        var draft = acquire with { Measure = [new MetricNode(metric.Metric with { YUnit = "A" })] };
+        Assert.Equal(["V", "ms", "%", "A"], AuthoringWorkspaceCatalog.YUnitOptions(draft));
+    }
+}
+
 public sealed class AuthoringProgramSettingsViewModelTests
 {
     [Fact]
@@ -105,6 +144,66 @@ public sealed class AuthoringProgramSettingsViewModelTests
         vm.SetInstrumentVisa("DMM", "TCPIP0::10.0.0.5::INSTR");
         Assert.Equal("TCPIP0::10.0.0.5::INSTR", vm.VisaAddress);
         Assert.Equal("TCPIP0::10.0.0.5::INSTR", vm.Instruments[0].VisaAddress);
+    }
+
+    [Fact]
+    public void Add_report_kind_and_program_kind_are_session_and_workspace_catalogs()
+    {
+        var vm = OpenEmpty();
+        vm.CreateProgram("catalogs");
+        Assert.Equal(["status", "certification"], vm.ReportKindOptions);
+        vm.NewReportKind = "traceability";
+        vm.AddReportKind();
+        Assert.Contains("traceability", vm.ReportKindOptions);
+        Assert.Contains("traceability", vm.SelectedProgram!.Sidecar.ReportKinds!);
+        Assert.True(vm.ReportKindChoices.Single(row => row.Id == "traceability").Included);
+        Assert.Equal(string.Empty, vm.NewReportKind);
+        Assert.Contains("traceability", vm.Workspace!.Manifest.Catalogs!.ReportKinds);
+
+        vm.NewProgramKind = "incomingInspect";
+        vm.AddProgramKind();
+        Assert.Equal("incomingInspect", vm.ProgramKind);
+        Assert.Contains("incomingInspect", vm.ProgramKindOptions);
+        Assert.Contains("incomingInspect", vm.Workspace.Manifest.Catalogs.ProgramKinds);
+
+        var reloaded = AuthoringWorkspaceLoader.Load(vm.Workspace.Root);
+        Assert.Contains("traceability", reloaded.Manifest.Catalogs!.ReportKinds);
+        Assert.Contains("incomingInspect", reloaded.Manifest.Catalogs.ProgramKinds);
+    }
+
+    [Fact]
+    public void Add_instrument_slot_is_selectable_and_rejects_duplicates()
+    {
+        var vm = OpenEmpty();
+        vm.CreateProgram("slots-add");
+        Assert.Equal(["DMM"], vm.InstrumentSlots);
+        vm.NewInstrumentSlot = "SCOPE";
+        vm.NewInstrumentVisa = "MOCK::SCOPE0";
+        Assert.True(vm.CanAddInstrumentSlot);
+        vm.AddInstrumentSlot();
+        Assert.Equal(["DMM", "SCOPE"], vm.InstrumentSlots);
+        Assert.Equal("SCOPE", vm.SelectedInstrumentSlot);
+        Assert.Equal("MOCK::SCOPE0", vm.SelectedInstrumentVisa);
+        Assert.Contains("SCOPE", vm.Workspace!.Manifest.Catalogs!.InstrumentSlotNames);
+        Assert.Equal(string.Empty, vm.NewInstrumentSlot);
+        Assert.False(vm.CanAddInstrumentSlot);
+
+        vm.NewInstrumentSlot = "scope";
+        var duplicate = Assert.Throws<AuthoringWorkspaceException>(vm.AddInstrumentSlot);
+        Assert.Contains("already exists", duplicate.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void CreateProgram_seeds_workspace_catalog_slots()
+    {
+        var vm = OpenEmpty();
+        vm.Workspace!.Manifest.Catalogs = new AuthoringWorkspaceCatalogs
+        {
+            InstrumentSlotNames = ["DMM", "PSU"],
+        };
+        vm.CreateProgram("seeded-slots");
+        Assert.Contains("DMM", vm.InstrumentSlots);
+        Assert.Contains("PSU", vm.InstrumentSlots);
     }
 
     [Fact]
