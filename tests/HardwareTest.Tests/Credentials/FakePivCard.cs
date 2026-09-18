@@ -33,6 +33,7 @@ internal sealed class FakePivCard : IApduChannel, IDisposable
     public byte[]? PrintedInformation { get; set; }
     public bool OmitCertificate { get; set; }
     public bool GzipCertificate { get; set; }
+    public int RemainingCertificateFailures { get; set; }
     public bool FailSign { get; set; }
     public string Pin { get; }
     public int PinRetries { get; set; } = 3;
@@ -98,6 +99,12 @@ internal sealed class FakePivCard : IApduChannel, IDisposable
                 && command.AsSpan().IndexOf(PivApdu.ObjectPrintedInformation) >= 0)
             {
                 return PivApdu.Concat(PivApdu.EncodeTlv(0x53, PrintedInformation), [0x90, 0x00]);
+            }
+
+            if (RemainingCertificateFailures > 0)
+            {
+                RemainingCertificateFailures--;
+                return [0x6A, 0x82];
             }
 
             return !OmitCertificate && command.AsSpan().IndexOf(_objectId) >= 0

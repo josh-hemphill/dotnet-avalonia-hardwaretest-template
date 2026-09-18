@@ -214,6 +214,39 @@ public sealed class PivCardIdentityTests
         Assert.Equal("Jane Doe", name);
     }
 
+    [Fact]
+    public void TryRead_retries_certificate_reads_after_transient_failures()
+    {
+        using var card = FakePivCard.CreateRsa2048(
+            slot: PivApdu.SlotAuthentication,
+            subject: "CN=Jane Doe");
+        card.Uid = [0xAA, 0xBB, 0xCC, 0xDD];
+        card.RemainingCertificateFailures = 2;
+
+        var (serial, name) = PivCardIdentity.TryRead(card);
+
+        Assert.Equal("AABBCCDD", serial);
+        Assert.Equal("Jane Doe", name);
+    }
+
+    [Theory]
+    [InlineData("Jane Doe", true)]
+    [InlineData("jane.doe@agency.gov", true)]
+    [InlineData("1234567890@mil", false)]
+    [InlineData("Card AABBCCDD", false)]
+    [InlineData("AABBCCDD", false)]
+    public void Presence_is_settled_only_for_person_name_or_email(string display, bool settled)
+        => Assert.Equal(settled, PivPresenceIdentity.IsSettled(display));
+
+    [Fact]
+    public void Presence_prefers_a_person_name_over_card_hex_fallback()
+    {
+        var hex = new OperatorCredential { DisplayName = "Card AABBCCDD", Serial = "AABBCCDD" };
+        var named = new OperatorCredential { DisplayName = "Jane Doe", Serial = "AABBCCDD" };
+        Assert.Equal("Jane Doe", PivPresenceIdentity.Better(hex, named).DisplayName);
+        Assert.Equal("Card AABBCCDD", PivPresenceIdentity.Better(hex, hex).DisplayName);
+    }
+
     [Theory]
     [InlineData("Jane Doe", true)]
     [InlineData("SMITH.JANE.Q.1234567890", true)]

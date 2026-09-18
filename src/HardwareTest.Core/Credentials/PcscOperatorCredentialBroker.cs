@@ -40,17 +40,35 @@ public sealed class PcscOperatorCredentialBroker : IOperatorCredentialBroker
 
         try
         {
+            CredentialCaptureResult? fallback = null;
+            DateTimeOffset? cardSeenAt = null;
             while (_clock.UtcNow <= deadline)
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 var captured = TryCaptureOnce(context);
-                if (captured.Succeeded)
+                if (captured.Succeeded && captured.Credential is not null)
                 {
-                    StatusText = $"Credential present ({captured.Credential!.Transport}).";
-                    return captured;
+                    if (PivPresenceIdentity.IsSettled(captured.Credential.DisplayName))
+                    {
+                        StatusText = $"Credential present ({captured.Credential.Transport}).";
+                        return captured;
+                    }
+
+                    var best = PivPresenceIdentity.Better(fallback?.Credential, captured.Credential);
+                    fallback = new CredentialCaptureResult { Credential = best };
+                    cardSeenAt ??= _clock.UtcNow;
+                    StatusText = "Reading badge identity…";
+                    if (_clock.UtcNow - cardSeenAt >= PivPresenceIdentity.Settle)
+                    {
+                        StatusText = $"Credential present ({best.Transport}).";
+                        return fallback;
+                    }
+                }
+                else
+                {
+                    StatusText = captured.Error ?? "Present a badge: insert chip or tap the reader.";
                 }
 
-                StatusText = captured.Error ?? "Present a badge: insert chip or tap the reader.";
                 var remaining = deadline - _clock.UtcNow;
                 if (remaining <= TimeSpan.Zero)
                 {
@@ -59,6 +77,12 @@ public sealed class PcscOperatorCredentialBroker : IOperatorCredentialBroker
 
                 var wait = remaining < _pollInterval ? remaining : _pollInterval;
                 await Task.Delay(wait, cancellationToken).ConfigureAwait(false);
+            }
+
+            if (fallback?.Credential is not null)
+            {
+                StatusText = $"Credential present ({fallback.Credential.Transport}).";
+                return fallback;
             }
 
             StatusText = "No chip or tap detected before timeout.";
