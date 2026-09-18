@@ -1,3 +1,4 @@
+using System.IO.Compression;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using HardwareTest.Core.Credentials;
@@ -31,6 +32,7 @@ internal sealed class FakePivCard : IApduChannel, IDisposable
     public byte[]? Uid { get; set; }
     public byte[]? PrintedInformation { get; set; }
     public bool OmitCertificate { get; set; }
+    public bool GzipCertificate { get; set; }
     public bool FailSign { get; set; }
     public string Pin { get; }
     public int PinRetries { get; set; } = 3;
@@ -132,6 +134,7 @@ internal sealed class FakePivCard : IApduChannel, IDisposable
         => slot switch
         {
             PivApdu.SlotAuthentication => PivApdu.ObjectAuthentication,
+            PivApdu.SlotKeyManagement => PivApdu.ObjectKeyManagement,
             PivApdu.SlotCardAuth => PivApdu.ObjectCardAuth,
             _ => PivApdu.ObjectSignature,
         };
@@ -159,10 +162,29 @@ internal sealed class FakePivCard : IApduChannel, IDisposable
 
     private byte[] WrapCertificate()
     {
+        var payload = _certDer;
+        byte info = 0x00;
+        if (GzipCertificate)
+        {
+            payload = Gzip(payload);
+            info = 0x01;
+        }
+
         var inner = PivApdu.Concat(
-            PivApdu.EncodeTlv(0x70, _certDer),
-            PivApdu.EncodeTlv(0x71, [0x00]));
+            PivApdu.EncodeTlv(0x70, payload),
+            PivApdu.EncodeTlv(0x71, [info]));
         return PivApdu.Concat(PivApdu.EncodeTlv(0x53, inner), [0x90, 0x00]);
+    }
+
+    private static byte[] Gzip(byte[] data)
+    {
+        using var output = new MemoryStream();
+        using (var gzip = new GZipStream(output, CompressionLevel.SmallestSize, leaveOpen: true))
+        {
+            gzip.Write(data);
+        }
+
+        return output.ToArray();
     }
 
     private byte[] VerifyPin(byte[] command)

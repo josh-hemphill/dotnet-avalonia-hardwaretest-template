@@ -142,6 +142,78 @@ public sealed class PivCardIdentityTests
         Assert.Equal("Jane Doe", name);
     }
 
+    [Fact]
+    public void TryRead_prefers_person_name_on_later_slot_over_digit_upn()
+    {
+        using var auth = FakePivCard.CreateRsa2048(
+            slot: PivApdu.SlotAuthentication,
+            subject: "CN=Card Authentication",
+            upnSan: "1234567890@mil");
+        using var signature = FakePivCard.CreateRsa2048(
+            slot: PivApdu.SlotSignature,
+            subject: "CN=Jane Doe");
+        using var card = new CompositePivCard(auth, signature);
+
+        var (_, name) = PivCardIdentity.TryRead(card);
+
+        Assert.Equal("Jane Doe", name);
+    }
+
+    [Fact]
+    public void TryRead_uses_key_management_subject_when_auth_is_generic()
+    {
+        using var auth = FakePivCard.CreateRsa2048(
+            slot: PivApdu.SlotAuthentication,
+            subject: "CN=PIV Authentication");
+        using var key = FakePivCard.CreateRsa2048(
+            slot: PivApdu.SlotKeyManagement,
+            subject: "CN=Jane Doe");
+        using var card = new CompositePivCard(auth, key);
+
+        var (_, name) = PivCardIdentity.TryRead(card);
+
+        Assert.Equal("Jane Doe", name);
+    }
+
+    [Fact]
+    public void TryRead_prefers_printed_name_over_digit_upn()
+    {
+        using var card = FakePivCard.CreateRsa2048(
+            slot: PivApdu.SlotAuthentication,
+            subject: "CN=Card Authentication",
+            upnSan: "1234567890@mil");
+        card.PrintedInformation = PivApdu.EncodeTlv(PivApdu.PrintedNameTag, "DOE, JANE"u8.ToArray());
+
+        var (_, name) = PivCardIdentity.TryRead(card);
+
+        Assert.Equal("DOE, JANE", name);
+    }
+
+    [Fact]
+    public void TryRead_uses_given_name_and_surname_when_cn_is_generic()
+    {
+        using var card = FakePivCard.CreateRsa2048(
+            slot: PivApdu.SlotAuthentication,
+            subject: "G=Jane, SN=Doe, CN=Card Authentication");
+
+        var (_, name) = PivCardIdentity.TryRead(card);
+
+        Assert.Equal("Jane Doe", name);
+    }
+
+    [Fact]
+    public void TryRead_unwraps_gzip_certificate_object()
+    {
+        using var card = FakePivCard.CreateRsa2048(
+            slot: PivApdu.SlotAuthentication,
+            subject: "CN=Jane Doe");
+        card.GzipCertificate = true;
+
+        var (_, name) = PivCardIdentity.TryRead(card);
+
+        Assert.Equal("Jane Doe", name);
+    }
+
     [Theory]
     [InlineData("Jane Doe", true)]
     [InlineData("SMITH.JANE.Q.1234567890", true)]

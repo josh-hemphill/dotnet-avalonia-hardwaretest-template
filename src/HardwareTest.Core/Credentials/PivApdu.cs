@@ -1,3 +1,5 @@
+using System.IO.Compression;
+
 namespace HardwareTest.Core.Credentials;
 
 /// PIV APDU builders and BER-TLV helpers (NIST SP 800-73).
@@ -5,6 +7,7 @@ internal static class PivApdu
 {
     public const byte SlotAuthentication = 0x9A;
     public const byte SlotSignature = 0x9C;
+    public const byte SlotKeyManagement = 0x9D;
     public const byte SlotCardAuth = 0x9E;
 
     public const byte AlgRsa1024 = 0x06;
@@ -17,8 +20,12 @@ internal static class PivApdu
     public static readonly byte[] SelectPiv =
         [0x00, 0xA4, 0x04, 0x00, 0x0B, 0xA0, 0x00, 0x00, 0x03, 0x08, 0x00, 0x00, 0x10, 0x00, 0x01, 0x00];
 
+    public static readonly byte[] SelectPivRid =
+        [0x00, 0xA4, 0x04, 0x00, 0x09, 0xA0, 0x00, 0x00, 0x03, 0x08, 0x00, 0x00, 0x10, 0x00];
+
     public static readonly byte[] ObjectAuthentication = [0x5F, 0xC1, 0x05];
     public static readonly byte[] ObjectSignature = [0x5F, 0xC1, 0x0A];
+    public static readonly byte[] ObjectKeyManagement = [0x5F, 0xC1, 0x0B];
     public static readonly byte[] ObjectCardAuth = [0x5F, 0xC1, 0x01];
     public static readonly byte[] ObjectPrintedInformation = [0x5F, 0xC1, 0x09];
 
@@ -30,11 +37,11 @@ internal static class PivApdu
 
     public static byte[] GetData(ReadOnlySpan<byte> objectId)
     {
-        var data = new byte[2 + 1 + objectId.Length];
+        var data = new byte[2 + objectId.Length];
         data[0] = 0x5C;
         data[1] = (byte)objectId.Length;
         objectId.CopyTo(data.AsSpan(2));
-        return Command(0x00, 0xCB, 0x3F, 0xFF, data);
+        return Command(0x00, 0xCB, 0x3F, 0xFF, data, le: 0x00);
     }
 
     public static byte[] VerifyPin(ReadOnlySpan<char> pin)
@@ -61,15 +68,24 @@ internal static class PivApdu
     }
 
     /// Builds a Case-3/4 APDU; uses extended length when data is longer than 255 bytes.
-    public static byte[] Command(byte cla, byte ins, byte p1, byte p2, ReadOnlySpan<byte> data)
+    public static byte[] Command(byte cla, byte ins, byte p1, byte p2, ReadOnlySpan<byte> data, byte? le = null)
     {
         if (data.Length <= 255)
         {
+            if (le is byte leByte)
+            {
+                return [cla, ins, p1, p2, (byte)data.Length, .. data, leByte];
+            }
+
             return [cla, ins, p1, p2, (byte)data.Length, .. data];
         }
 
         return [cla, ins, p1, p2, 0x00, (byte)(data.Length >> 8), (byte)data.Length, .. data];
     }
+
+    /// SELECT the PIV applet; some cards only accept the 9-byte RID AID.
+    public static bool TrySelect(IApduChannel channel)
+        => IsSuccess(channel.Transmit(SelectPiv)) || IsSuccess(channel.Transmit(SelectPivRid));
 
     public static byte[] Sha256DigestInfo(ReadOnlySpan<byte> sha256)
     {
@@ -167,8 +183,14 @@ internal static class PivApdu
         }
 
         var cert = FindTag(container, 0x70);
+        var info = FindTag(container, 0x71);
         if (cert is { Length: > 0 })
         {
+            if (info is { Length: > 0 } && info[0] == 0x01)
+            {
+                return TryGunzip(cert) ?? cert;
+            }
+
             return cert;
         }
 
@@ -249,5 +271,22 @@ internal static class PivApdu
 
         size = 1 + count;
         return true;
+    }
+
+    private static byte[]? TryGunzip(byte[] data)
+    {
+        try
+        {
+            using var input = new MemoryStream(data);
+            using var gzip = new GZipStream(input, CompressionMode.Decompress);
+            using var output = new MemoryStream();
+            gzip.CopyTo(output);
+            var unzipped = output.ToArray();
+            return unzipped.Length > 0 ? unzipped : null;
+        }
+        catch (InvalidDataException)
+        {
+            return null;
+        }
     }
 }
