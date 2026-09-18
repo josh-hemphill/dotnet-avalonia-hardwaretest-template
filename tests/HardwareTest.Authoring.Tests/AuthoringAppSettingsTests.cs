@@ -104,6 +104,54 @@ public sealed class AuthoringAppSettingsTests
         vm.YUnit = vm.YUnit;
         vm.ChannelKey = vm.ChannelKey;
         vm.FormulaSource = vm.FormulaSource;
+        vm.MetricInstrumentSlot = null!;
+        Assert.Same(program, vm.SelectedProgram);
+        Assert.Same(programs, vm.Programs);
+
+        var stale = vm.SelectedProgram;
+        vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
+        Assert.NotSame(stale, vm.SelectedProgram);
+        var kept = vm.SelectedProgram;
+        vm.SelectedProgram = stale;
+        Assert.Same(kept, vm.SelectedProgram);
+        Assert.Contains(vm.SelectedProgram!.Measure, node => node is MetricNode);
+
+        var cleanup = vm.SequenceItems.Single(row => row.Kind == SequenceRowKind.Cleanup);
+        vm.SelectSequence(vm.SequenceItems.ToList().IndexOf(cleanup));
+        programs = vm.Programs;
+        program = vm.SelectedProgram;
+        vm.IncludeSafeShutdown = vm.IncludeSafeShutdown;
+        Assert.Same(program, vm.SelectedProgram);
+        Assert.Same(programs, vm.Programs);
+
+        vm.SelectedInstrument = vm.SelectedInstrument;
+        Assert.Same(program, vm.SelectedProgram);
+        Assert.Same(programs, vm.Programs);
+    }
+
+    [Fact]
+    public void Transfer_function_writes_no_op_when_unchanged_or_not_selected()
+    {
+        var vm = new AuthoringWorkspaceViewModel();
+        vm.Open(NewWorkspace());
+        vm.CreateProgram("tf-loop");
+        var identity = vm.SequenceItems.Single(row => row.Label == "Identity Check");
+        vm.SelectSequence(vm.SequenceItems.ToList().IndexOf(identity));
+        var programs = vm.Programs;
+        vm.TfNumerator = "1 0";
+        Assert.False(vm.HasTransferFunction);
+        Assert.Same(programs, vm.Programs);
+
+        vm.ApplyRecipe(AuthoringRecipeIds.TransferFunction);
+        var tf = vm.SequenceItems.Single(row => row.Kind == SequenceRowKind.Metric);
+        vm.SelectSequence(vm.SequenceItems.ToList().IndexOf(tf));
+        Assert.True(vm.HasTransferFunction);
+        programs = vm.Programs;
+        var program = vm.SelectedProgram;
+        vm.TfNumerator = vm.TfNumerator;
+        vm.TfDenominator = vm.TfDenominator;
+        vm.TfMethod = vm.TfMethod;
+        vm.TfInputChannel = vm.TfInputChannel;
         Assert.Same(program, vm.SelectedProgram);
         Assert.Same(programs, vm.Programs);
     }

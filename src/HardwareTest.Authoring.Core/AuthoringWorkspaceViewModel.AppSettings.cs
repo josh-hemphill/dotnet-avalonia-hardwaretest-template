@@ -118,13 +118,13 @@ public sealed partial class AuthoringWorkspaceViewModel
             string.Equals(instrument.SlotName, SelectedInstrumentSlot, StringComparison.OrdinalIgnoreCase));
         set
         {
-            if (value is null)
+            if (value is null
+                || string.Equals(SelectedInstrumentSlot, value.SlotName, StringComparison.OrdinalIgnoreCase))
             {
                 return;
             }
 
             SelectedInstrumentSlot = value.SlotName;
-            OnPropertyChanged();
         }
     }
 

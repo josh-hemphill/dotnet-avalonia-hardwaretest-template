@@ -61,7 +61,6 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
 
             if (string.Equals(_selectedProgram?.PlanId, value.PlanId, StringComparison.OrdinalIgnoreCase))
             {
-                AssignSelectedProgram(value);
                 return;
             }
 

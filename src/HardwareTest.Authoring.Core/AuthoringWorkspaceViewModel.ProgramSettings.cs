@@ -244,7 +244,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         get => SelectedSetup is IdentitySetup identity ? identity.InstrumentSlot : string.Empty;
         set
         {
-            var slot = value.Trim();
+            var slot = value?.Trim() ?? string.Empty;
             if (string.IsNullOrWhiteSpace(slot)
                 || string.Equals(SetupInstrumentSlot, slot, StringComparison.OrdinalIgnoreCase))
             {
@@ -262,7 +262,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         get => HasCleanupEditor ? SelectedProgram?.Cleanup.InstrumentSlot ?? string.Empty : string.Empty;
         set
         {
-            var slot = value.Trim();
+            var slot = value?.Trim() ?? string.Empty;
             if (!HasCleanupEditor
                 || SelectedProgram is null
                 || string.IsNullOrWhiteSpace(slot)
@@ -283,7 +283,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         get => HasCleanupEditor && (SelectedProgram?.Cleanup.IncludeSafeShutdown ?? false);
         set
         {
-            if (!HasCleanupEditor || SelectedProgram is null)
+            if (!HasCleanupEditor || SelectedProgram is null || IncludeSafeShutdown == value)
             {
                 return;
             }
@@ -307,7 +307,7 @@ public sealed partial class AuthoringWorkspaceViewModel
                 return;
             }
 
-            var slot = value.Trim();
+            var slot = value?.Trim() ?? string.Empty;
             if (string.IsNullOrWhiteSpace(slot)
                 || string.Equals(MetricInstrumentSlot, slot, StringComparison.OrdinalIgnoreCase))
             {

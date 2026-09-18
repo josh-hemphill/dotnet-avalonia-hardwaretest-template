@@ -237,7 +237,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         get => SelectedTf?.Method ?? string.Empty;
         set
         {
-            var method = value.Trim().ToLowerInvariant();
+            var method = value?.Trim().ToLowerInvariant() ?? string.Empty;
             if (method is not ("filter" or "filtfilt"))
             {
                 return;
@@ -250,7 +250,16 @@ public sealed partial class AuthoringWorkspaceViewModel
     public string TfInputChannel
     {
         get => SelectedTf?.InputChannelKey ?? string.Empty;
-        set => UpdateSelectedTf(tf => tf with { InputChannelKey = value.Trim() });
+        set
+        {
+            var channel = value?.Trim() ?? string.Empty;
+            if (string.Equals(TfInputChannel, channel, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            UpdateSelectedTf(tf => tf with { InputChannelKey = channel });
+        }
     }
 
     public void ImportTransferFunction(string path)
@@ -497,7 +506,13 @@ public sealed partial class AuthoringWorkspaceViewModel
 
     private void UpdateSelectedTf(Func<TransferFunctionAlgorithm, TransferFunctionAlgorithm> mutate)
     {
-        if (!HasTransferFunction)
+        if (!HasTransferFunction || SelectedTf is not { } current)
+        {
+            return;
+        }
+
+        var next = mutate(current);
+        if (TfUnchanged(current, next))
         {
             return;
         }
@@ -512,6 +527,13 @@ public sealed partial class AuthoringWorkspaceViewModel
             return metric with { Source = mutate(tf) };
         });
     }
+
+    private static bool TfUnchanged(TransferFunctionAlgorithm current, TransferFunctionAlgorithm next)
+        => current.TsSeconds.Equals(next.TsSeconds)
+           && string.Equals(current.Method, next.Method, StringComparison.Ordinal)
+           && string.Equals(current.InputChannelKey, next.InputChannelKey, StringComparison.Ordinal)
+           && current.Numerator.SequenceEqual(next.Numerator)
+           && current.Denominator.SequenceEqual(next.Denominator);
 
     private static string FormatVector(IReadOnlyList<double>? values)
         => values is null || values.Count == 0
