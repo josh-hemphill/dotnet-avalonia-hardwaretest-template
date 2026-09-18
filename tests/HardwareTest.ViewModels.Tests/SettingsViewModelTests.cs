@@ -69,6 +69,15 @@ public sealed class SettingsViewModelTests
     }
 
     [Fact]
+    public void Constructor_loads_persisted_prefer_removable_false()
+    {
+        var store = new FakeSettingsStore();
+        store.AppSettings.PreferRemovableExport = false;
+        var vm = new SettingsViewModel(store, new FakeOpenTapSession());
+        Assert.False(vm.PreferRemovableExport);
+    }
+
+    [Fact]
     public void Refresh_loads_packages_and_plugin_directories_from_session()
     {
         var openTap = new FakeOpenTapSession();

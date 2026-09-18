@@ -165,7 +165,7 @@
         <CheckBox Content="Require attestation before certification export"
                   IsChecked="{Binding RequireAttestationBeforeExport}"
                   IsEnabled="{Binding !RequireAttestationBeforeExportReadOnly}"
-                  ToolTip.Tip="Gates opening, reprinting, or exporting a certification PDF until a badge is presented." />
+                  ToolTip.Tip="Gates opening, regenerating, or exporting a certification PDF until a badge is presented." />
         <CheckBox Content="Allow presence when signing cannot be used"
                   IsChecked="{Binding AllowPresenceInLieuOfSigning}"
                   IsEnabled="{Binding !AllowPresenceInLieuOfSigningReadOnly}"
@@ -203,7 +203,7 @@
           <TextBox Grid.Column="1" Text="{Binding ExportDirectory}"
                    IsReadOnly="{Binding ExportDirectoryReadOnly}"
                    PlaceholderText="Optional fixed export path"
-                   ToolTip.Tip="Listed in Results → Export package together with inserted removable media. Local exports under the data folder is listed only when this path is empty and no removable media is present."
+                   ToolTip.Tip="Listed in Results → Export package together with inserted removable media. Local exports under the data folder are listed only when this path is empty and no removable media is present."
                    AutomationProperties.LabeledBy="{Binding #ExportDirectoryLabel}"
                    AutomationProperties.Name="Export directory" />
         </Grid>

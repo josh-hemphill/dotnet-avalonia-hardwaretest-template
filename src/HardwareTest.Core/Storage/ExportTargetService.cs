@@ -239,7 +239,7 @@ public sealed class ExportTargetService : IExportTargetService
                 yield return new ExportTarget
                 {
                     Id = "removable:" + drive.Name.TrimEnd('\\', '/'),
-                    DisplayName = FormatDisplayName($"Removable ({drive.Name.TrimEnd('\\', '/')})", drive.RootDirectory.FullName),
+                    DisplayName = FormatDisplayName("Removable", drive.RootDirectory.FullName),
                     RootPath = drive.RootDirectory.FullName,
                     IsRemovable = true,
                     AvailableBytes = drive.AvailableFreeSpace,
@@ -283,7 +283,7 @@ public sealed class ExportTargetService : IExportTargetService
         }
     }
 
-    private static string FormatDisplayName(string kind, string path)
+    internal static string FormatDisplayName(string kind, string path)
         => string.IsNullOrWhiteSpace(path) ? kind : $"{kind} — {path}";
 
     private static long? TryAvailable(string path)

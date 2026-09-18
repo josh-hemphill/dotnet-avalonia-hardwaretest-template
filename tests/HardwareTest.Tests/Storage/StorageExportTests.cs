@@ -222,4 +222,11 @@ public sealed class ExportTargetServiceTests
             }
         }
     }
+
+    [Fact]
+    public void FormatDisplayName_windows_volume_does_not_repeat_the_drive_letter()
+    {
+        Assert.Equal("Removable — E:\\", ExportTargetService.FormatDisplayName("Removable", "E:\\"));
+        Assert.Equal("Removable (stick) — /mnt/stick", ExportTargetService.FormatDisplayName("Removable (stick)", "/mnt/stick"));
+    }
 }

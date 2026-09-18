@@ -224,10 +224,13 @@
                          Opacity="0.75" FontSize="11" TextWrapping="Wrap" />
               <ComboBox ItemsSource="{Binding ExportTargets}"
                         SelectedItem="{Binding SelectedExportTarget}"
-                        MinWidth="180">
+                        MinWidth="280"
+                        MaxWidth="340">
                 <ComboBox.ItemTemplate>
                   <DataTemplate x:DataType="storage:ExportTarget">
-                    <TextBlock Text="{Binding DisplayName}" />
+                    <TextBlock Text="{Binding DisplayName}"
+                               TextWrapping="Wrap"
+                               ToolTip.Tip="{Binding DisplayName}" />
                   </DataTemplate>
                 </ComboBox.ItemTemplate>
               </ComboBox>

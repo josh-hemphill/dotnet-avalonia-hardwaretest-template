@@ -110,14 +110,18 @@ public sealed class Phase18TouchDensityTests
         Assert.Contains("ResultsViewModel.ExportPackageHelp", axaml, StringComparison.Ordinal);
         Assert.Contains("full PDF generation", ResultsViewModel.RegenerateReportsTip, StringComparison.Ordinal);
         Assert.Contains("run.json", ResultsViewModel.RegenerateReportsTip, StringComparison.Ordinal);
-        Assert.Contains("attestation", ResultsViewModel.RegenerateReportsTip, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("clears certification attestation", ResultsViewModel.RegenerateReportsTip, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("removable media", ResultsViewModel.ExportPackageHelp, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("Export directory", ResultsViewModel.ExportPackageHelp, StringComparison.Ordinal);
         Assert.Contains("Local exports", ResultsViewModel.ExportPackageHelp, StringComparison.Ordinal);
-        Assert.Contains("only when neither", ResultsViewModel.ExportPackageHelp, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("are listed only when neither", ResultsViewModel.ExportPackageHelp, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("MinWidth=\"280\"", axaml, StringComparison.Ordinal);
+        Assert.Contains("ToolTip.Tip=\"{Binding DisplayName}\"", axaml, StringComparison.Ordinal);
         var settings = File.ReadAllText(FindRepoFile("src/HardwareTest/Features/Settings/SettingsView.axaml"));
         Assert.Contains("Prefer removable media for export", settings, StringComparison.Ordinal);
-        Assert.Contains("only when this path is empty and no removable media is present", settings, StringComparison.Ordinal);
+        Assert.Contains("are listed only when this path is empty and no removable media is present", settings, StringComparison.Ordinal);
+        Assert.Contains("regenerating, or exporting", settings, StringComparison.Ordinal);
+        Assert.DoesNotContain("reprinting", settings, StringComparison.Ordinal);
     }
 
     [Fact]
