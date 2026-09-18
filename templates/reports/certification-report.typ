@@ -26,11 +26,15 @@
   #text(fill: red)[*NOT CERTIFIED*]
 ]
 
-#if sys.inputs.attestationKind != "" [
+#if sys.inputs.attestationDetail != "" [
   == Certified by
-  The session operator (technician on the run) and the person who certifies this report may be different.
-  - *Kind:* #sys.inputs.attestationKind
-  - *Name / serial:* #sys.inputs.attestationDetail
+  The person who certifies this report may differ from the session operator.
+  - *Party:* #sys.inputs.attestationDetail
+  - *Presentation:* #sys.inputs.attestationKind
+  #if sys.inputs.attestationAt != "" [
+    - *At:* #sys.inputs.attestationAt
+  ]
+  Cryptographic proof, when used, is the detached attestation sidecar hashed to this PDF.
 ]
 
 #if sys.inputs.includePlots == "true" [

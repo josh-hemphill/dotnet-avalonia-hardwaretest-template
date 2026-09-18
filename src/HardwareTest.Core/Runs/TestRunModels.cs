@@ -73,6 +73,12 @@ public static class ReportKinds
 {
     public const string Status = "status";
     public const string Certification = "certification";
+
+    /// Operator-facing PDF title for a well-known kind.
+    public static string Title(string kind)
+        => string.Equals(kind, Certification, StringComparison.OrdinalIgnoreCase)
+            ? "Certification Report"
+            : "Status Report";
 }
 
 public sealed class SuiteRunRecord

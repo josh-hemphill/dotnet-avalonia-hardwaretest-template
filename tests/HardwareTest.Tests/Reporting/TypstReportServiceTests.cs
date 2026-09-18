@@ -129,6 +129,15 @@ public sealed class TypstReportServiceTests
     public async Task GenerateReportsAsync_clears_prior_certification_attestation()
     {
         using var temp = new TempDataDirectory();
+        await WriteCertificationTypstAsync(
+            temp.Path,
+            """
+            #set page(width: 120mm, height: 60mm)
+            #if sys.inputs.attestationDetail != "" [
+              #panic("prior certifier reprinted")
+            ]
+            = Unstamped regenerate
+            """);
         var runStore = new FileRunStore(temp.RunsDirectory);
         var run = CreateRun();
         await runStore.SaveAsync(run);
@@ -143,14 +152,206 @@ public sealed class TypstReportServiceTests
             SidecarPath = sidecar,
         });
 
-        using var reports = new TypstReportService(runStore, new AppSettings { EmbedPlotsInReport = false });
-        await CompileOrSkipAsync(() => reports.GenerateReportsAsync(run, [ReportKinds.Certification]));
+        using var reports = new TypstReportService(
+            runStore,
+            new AppSettings
+            {
+                DataDirectory = temp.Path,
+                EmbedPlotsInReport = false,
+            });
+        var artifacts = await CompileOrSkipAsync(() => reports.GenerateReportsAsync(run, [ReportKinds.Certification]));
 
         Assert.Empty(run.Attestations);
         Assert.False(File.Exists(sidecar));
+        AssertPdfMagic(await File.ReadAllBytesAsync(artifacts[0].PdfPath));
         var workDir = Path.Combine(Path.GetTempPath(), "HardwareTestTypst", run.RunId, ReportKinds.Certification);
         var json = await File.ReadAllTextAsync(Path.Combine(workDir, "run.json"));
         Assert.DoesNotContain("Previous Certifier", json, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task GenerateReportsAsync_keeps_status_when_restamping_certification()
+    {
+        using var temp = new TempDataDirectory();
+        var runStore = new FileRunStore(temp.RunsDirectory);
+        var run = CreateRun();
+        await runStore.SaveAsync(run);
+
+        using var reports = new TypstReportService(runStore, new AppSettings { EmbedPlotsInReport = false });
+        await CompileOrSkipAsync(() => reports.GenerateReportsAsync(
+            run,
+            [ReportKinds.Status, ReportKinds.Certification]));
+        Assert.Equal(2, run.Reports.Count);
+        var statusPath = run.Reports.Single(r => r.Kind == ReportKinds.Status).PdfPath;
+
+        await CompileOrSkipAsync(() => reports.GenerateReportsAsync(run, [ReportKinds.Certification]));
+
+        Assert.Equal(2, run.Reports.Count);
+        Assert.Contains(run.Reports, r => r.Kind == ReportKinds.Status && r.PdfPath == statusPath);
+        Assert.Contains(run.Reports, r => r.Kind == ReportKinds.Certification);
+        Assert.Equal(statusPath, run.ReportPdfPath);
+    }
+
+    [Fact]
+    public async Task GenerateReportsAsync_compileIdentity_does_not_persist_attestation()
+    {
+        using var temp = new TempDataDirectory();
+        await WriteCertificationTypstAsync(
+            temp.Path,
+            """
+            #set page(width: 120mm, height: 60mm)
+            #if not sys.inputs.attestationDetail.contains("Jane Certifier") [
+              #panic("missing party")
+            ]
+            #if not sys.inputs.attestationDetail.contains("CARD-1") [
+              #panic("missing serial")
+            ]
+            #if sys.inputs.attestationKind != "contact" [
+              #panic("missing transport")
+            ]
+            = Certified by
+            #sys.inputs.attestationDetail
+            #sys.inputs.attestationKind
+            """);
+
+        var runStore = new FileRunStore(temp.RunsDirectory);
+        var run = CreateRun();
+        await runStore.SaveAsync(run);
+        var overlay = new ReportAttestation
+        {
+            Kind = string.Empty,
+            ReportKind = ReportKinds.Certification,
+            DisplayName = "Jane Certifier",
+            Serial = "CARD-1",
+            Transport = CredentialTransport.Contact,
+            CapturedAt = new DateTimeOffset(2026, 9, 18, 12, 0, 0, TimeSpan.Zero),
+        };
+
+        using var reports = new TypstReportService(
+            runStore,
+            new AppSettings
+            {
+                DataDirectory = temp.Path,
+                EmbedPlotsInReport = false,
+            });
+        var artifacts = await CompileOrSkipAsync(() => reports.GenerateReportsAsync(
+            run,
+            [ReportKinds.Certification],
+            compileIdentity: overlay));
+
+        Assert.Single(artifacts);
+        Assert.Empty(run.Attestations);
+        Assert.False(File.Exists(Path.Combine(runStore.GetRunDirectory(run.RunId), "certification.attestation.json")));
+        AssertPdfMagic(await File.ReadAllBytesAsync(artifacts[0].PdfPath));
+    }
+
+    [Fact]
+    public async Task CompileReportAsync_does_not_invalidate_or_write()
+    {
+        using var temp = new TempDataDirectory();
+        await WriteCertificationTypstAsync(
+            temp.Path,
+            """
+            #set page(width: 120mm, height: 60mm)
+            #if not sys.inputs.attestationDetail.contains("Jane Certifier") [
+              #panic("missing overlay party")
+            ]
+            #if sys.inputs.attestationDetail.contains("Prior") [
+              #panic("prior certifier reprinted")
+            ]
+            = Overlay only
+            """);
+        var runStore = new FileRunStore(temp.RunsDirectory);
+        var run = CreateRun();
+        var dir = runStore.GetRunDirectory(run.RunId);
+        Directory.CreateDirectory(dir);
+        var pdfPath = Path.Combine(dir, "certification.pdf");
+        var prior = "%PDF-1.4 prior"u8.ToArray();
+        await File.WriteAllBytesAsync(pdfPath, prior);
+        var sidecar = Path.Combine(dir, "certification.attestation.json");
+        await File.WriteAllTextAsync(sidecar, "{}");
+        run.Attestations.Add(new ReportAttestation
+        {
+            Kind = AttestationKind.Signed,
+            ReportKind = ReportKinds.Certification,
+            DisplayName = "Prior",
+            SidecarPath = sidecar,
+        });
+        await runStore.SaveAsync(run);
+
+        using var reports = new TypstReportService(
+            runStore,
+            new AppSettings
+            {
+                DataDirectory = temp.Path,
+                EmbedPlotsInReport = false,
+            });
+        var overlay = new ReportAttestation
+        {
+            Kind = AttestationKind.Signed,
+            ReportKind = ReportKinds.Certification,
+            DisplayName = "Jane Certifier",
+            Serial = "CARD-1",
+            Transport = CredentialTransport.Contact,
+        };
+        var bytes = await CompileOrSkipAsync(() => reports.CompileReportAsync(run, ReportKinds.Certification, compileIdentity: overlay));
+
+        AssertPdfMagic(bytes);
+        Assert.Equal(prior, await File.ReadAllBytesAsync(pdfPath));
+        Assert.True(File.Exists(sidecar));
+        Assert.Single(run.Attestations);
+        Assert.Equal("Prior", run.Attestations[0].DisplayName);
+        var json = await File.ReadAllTextAsync(
+            Path.Combine(Path.GetTempPath(), "HardwareTestTypst", run.RunId, ReportKinds.Certification, "run.json"));
+        Assert.DoesNotContain("Prior", json, StringComparison.Ordinal);
+        Assert.DoesNotContain("Jane Certifier", json, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task CompileReportAsync_without_overlay_omits_prior_attestation()
+    {
+        using var temp = new TempDataDirectory();
+        await WriteCertificationTypstAsync(
+            temp.Path,
+            """
+            #set page(width: 120mm, height: 60mm)
+            #if sys.inputs.attestationDetail != "" [
+              #panic("prior certifier reprinted")
+            ]
+            = No overlay
+            """);
+        var runStore = new FileRunStore(temp.RunsDirectory);
+        var run = CreateRun();
+        await runStore.SaveAsync(run);
+        run.Attestations.Add(new ReportAttestation
+        {
+            Kind = AttestationKind.Presence,
+            ReportKind = ReportKinds.Certification,
+            DisplayName = "Previous Certifier",
+            Serial = "OLD-CARD",
+        });
+
+        using var reports = new TypstReportService(
+            runStore,
+            new AppSettings
+            {
+                DataDirectory = temp.Path,
+                EmbedPlotsInReport = false,
+            });
+        var bytes = await CompileOrSkipAsync(() => reports.CompileReportAsync(run, ReportKinds.Certification));
+
+        AssertPdfMagic(bytes);
+        Assert.Single(run.Attestations);
+        var json = await File.ReadAllTextAsync(
+            Path.Combine(Path.GetTempPath(), "HardwareTestTypst", run.RunId, ReportKinds.Certification, "run.json"));
+        Assert.DoesNotContain("Previous Certifier", json, StringComparison.Ordinal);
+    }
+
+    private static Task WriteCertificationTypstAsync(string dataDirectory, string body)
+    {
+        var reportsDir = Path.Combine(dataDirectory, "reports");
+        Directory.CreateDirectory(reportsDir);
+        return File.WriteAllTextAsync(Path.Combine(reportsDir, "certification-report.typ"), body);
     }
 
     private static TestRunRecord CreateRun(int sampleCount = 1)

@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using HardwareTest.Core.Credentials;
 using HardwareTest.Core.Engine;
 using HardwareTest.Core.Hardware;
 using HardwareTest.Core.Reporting;
@@ -1601,6 +1602,7 @@ public sealed class FakeReportService : IReportService
     public int GenerateCount { get; private set; }
     public string PdfPath { get; set; } = Path.GetTempFileName();
     public IReadOnlyList<string>? LastKinds { get; private set; }
+    public ReportAttestation? LastCompileIdentity { get; private set; }
 
     public async Task<string> GeneratePdfAsync(TestRunRecord run, CancellationToken cancellationToken = default)
     {
@@ -1612,38 +1614,52 @@ public sealed class FakeReportService : IReportService
         TestRunRecord run,
         IReadOnlyList<string> kinds,
         DutHistoryReport? history = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        ReportAttestation? compileIdentity = null)
     {
         GenerateCount++;
         LastKinds = kinds.ToArray();
-        var artifacts = kinds
-            .Select(k => new RunReportArtifact
+        LastCompileIdentity = compileIdentity;
+        var requested = kinds.Count == 0 ? [ReportKinds.Status] : kinds;
+        var artifacts = requested
+            .Select(k =>
             {
-                Kind = k,
-                Title = k,
-                PdfPath = string.Equals(k, ReportKinds.Status, StringComparison.OrdinalIgnoreCase)
-                    ? PdfPath
-                    : PdfPath + "." + k + ".pdf",
-                GeneratedAt = DateTimeOffset.UtcNow,
+                var existing = run.Reports.FirstOrDefault(r =>
+                    string.Equals(r.Kind, k, StringComparison.OrdinalIgnoreCase));
+                return new RunReportArtifact
+                {
+                    Kind = k,
+                    Title = string.IsNullOrWhiteSpace(existing?.Title) ? k : existing.Title,
+                    PdfPath = ResolveArtifactPath(existing, k),
+                    GeneratedAt = DateTimeOffset.UtcNow,
+                };
             })
             .ToList();
-        if (artifacts.Count == 0)
-        {
-            artifacts.Add(new RunReportArtifact
-            {
-                Kind = ReportKinds.Status,
-                Title = "Status",
-                PdfPath = PdfPath,
-                GeneratedAt = DateTimeOffset.UtcNow,
-            });
-        }
 
-        run.Reports = artifacts;
-        run.ReportPdfPath = artifacts.FirstOrDefault(a =>
+        var merged = run.Reports
+            .Where(existing => artifacts.TrueForAll(a =>
+                !string.Equals(a.Kind, existing.Kind, StringComparison.OrdinalIgnoreCase)))
+            .ToList();
+        merged.AddRange(artifacts);
+        run.Reports = merged;
+        run.ReportPdfPath = merged.FirstOrDefault(a =>
                                 string.Equals(a.Kind, ReportKinds.Status, StringComparison.OrdinalIgnoreCase))
                             ?.PdfPath
-                            ?? artifacts[0].PdfPath;
+                            ?? merged.FirstOrDefault()?.PdfPath
+                            ?? PdfPath;
         return Task.FromResult((IReadOnlyList<RunReportArtifact>)artifacts);
+    }
+
+    private string ResolveArtifactPath(RunReportArtifact? existing, string kind)
+    {
+        if (existing is not null && !string.IsNullOrWhiteSpace(existing.PdfPath))
+        {
+            return existing.PdfPath;
+        }
+
+        return string.Equals(kind, ReportKinds.Status, StringComparison.OrdinalIgnoreCase)
+            ? PdfPath
+            : PdfPath + "." + kind + ".pdf";
     }
 
     public Task<string> GenerateSuitePdfAsync(SuiteRunRecord suiteRun, CancellationToken cancellationToken = default)
@@ -1655,6 +1671,21 @@ public sealed class FakeReportService : IReportService
 
     public Task<byte[]> CompileTemplateAsync(TestRunRecord run, CancellationToken cancellationToken = default)
         => Task.FromResult("%PDF-fake"u8.ToArray());
+
+    public Task<byte[]> CompileReportAsync(
+        TestRunRecord run,
+        string kind,
+        CancellationToken cancellationToken = default,
+        ReportAttestation? compileIdentity = null)
+    {
+        _ = run;
+        _ = cancellationToken;
+        GenerateCount++;
+        LastKinds = [kind];
+        LastCompileIdentity = compileIdentity;
+        var stamp = compileIdentity?.DisplayName ?? "unsigned";
+        return Task.FromResult(System.Text.Encoding.UTF8.GetBytes("%PDF-1.4 " + stamp));
+    }
 }
 
 public sealed class FakeRunStore : IRunStore

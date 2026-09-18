@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using HardwareTest.Core.IO;
+using HardwareTest.Core.Reporting;
 using HardwareTest.Core.Runs;
 using HardwareTest.Core.Serialization;
 using HardwareTest.Core.Settings;
@@ -38,17 +39,20 @@ public sealed class ReportAttestationService : IReportAttestationService
     private readonly IRunStore _runStore;
     private readonly AppSettings _settings;
     private readonly IClock _clock;
+    private readonly Lazy<IReportService>? _reports;
 
     public ReportAttestationService(
         IOperatorCredentialBroker broker,
         IRunStore runStore,
         AppSettings settings,
-        IClock? clock = null)
+        IClock? clock = null,
+        Lazy<IReportService>? reports = null)
     {
         _broker = broker;
         _runStore = runStore;
         _settings = settings;
         _clock = clock ?? SystemClock.Instance;
+        _reports = reports;
         PresenceTimeout = DefaultPresenceTimeout;
     }
 
@@ -130,8 +134,47 @@ public sealed class ReportAttestationService : IReportAttestationService
             captured = capture.Credential;
         }
 
+        var runJson = JsonSerializer.Serialize(run, AppJsonContext.Default.TestRunRecord);
+        var runHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(runJson)));
+        if (!skipSigning && string.IsNullOrEmpty(pin))
+        {
+            var probe = await _broker.TrySignPayloadAsync(
+                    Encoding.UTF8.GetBytes($"pin-probe:{runHash}"),
+                    captured,
+                    pin,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (probe.PinRequired)
+            {
+                return new ReportAttestationResult
+                {
+                    Succeeded = false,
+                    PinRequired = true,
+                    Credential = captured,
+                    Message = probe.Error ?? "Enter badge PIN to sign.",
+                };
+            }
+        }
+
+        var overlayKind = skipSigning || !_broker.CanSign
+            ? AttestationKind.Presence
+            : AttestationKind.Signed;
+        var stamped = await TryCompileOverlayAsync(run, targetKind, captured, overlayKind, cancellationToken)
+            .ConfigureAwait(false);
+        if (stamped.Error is not null)
+        {
+            return new ReportAttestationResult
+            {
+                Succeeded = false,
+                Message = stamped.Error,
+                Credential = captured,
+            };
+        }
+
+        var stampedPdf = stamped.Pdf;
         var pdfPath = ResolvePdfPath(run, targetKind);
-        if (string.IsNullOrWhiteSpace(pdfPath) || !File.Exists(pdfPath))
+        if (stampedPdf is null
+            && (string.IsNullOrWhiteSpace(pdfPath) || !File.Exists(pdfPath)))
         {
             return new ReportAttestationResult
             {
@@ -141,9 +184,7 @@ public sealed class ReportAttestationService : IReportAttestationService
             };
         }
 
-        var pdfHash = HashFile(pdfPath);
-        var runJson = JsonSerializer.Serialize(run, AppJsonContext.Default.TestRunRecord);
-        var runHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(runJson)));
+        var pdfHash = stampedPdf is not null ? HashBytes(stampedPdf) : HashFile(pdfPath!);
         var payload = Encoding.UTF8.GetBytes($"{pdfHash}:{runHash}");
         CredentialSignResult? sign = null;
         if (!skipSigning)
@@ -199,12 +240,48 @@ public sealed class ReportAttestationService : IReportAttestationService
                     Message = "This badge cannot sign, and presence-only attestation is disabled." + detail,
                 };
             }
+
+            if (_reports is not null && overlayKind != AttestationKind.Presence)
+            {
+                var presence = await TryCompileOverlayAsync(
+                        run,
+                        targetKind,
+                        captured,
+                        AttestationKind.Presence,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                if (presence.Error is not null)
+                {
+                    return new ReportAttestationResult
+                    {
+                        Succeeded = false,
+                        Message = presence.Error,
+                        Credential = captured,
+                    };
+                }
+
+                if (presence.Pdf is { Length: > 0 })
+                {
+                    stampedPdf = presence.Pdf;
+                    pdfHash = HashBytes(stampedPdf);
+                }
+            }
         }
 
         var party = sign?.Credential ?? captured;
+        var dir = _runStore.GetRunDirectory(run.RunId);
+        if (stampedPdf is not null)
+        {
+            ReportAttestationService.InvalidateForKinds(run, dir, [targetKind]);
+            pdfPath = string.IsNullOrWhiteSpace(pdfPath)
+                ? Path.Combine(dir, $"{targetKind}.pdf")
+                : pdfPath;
+            await AtomicFile.WriteAllBytesAsync(pdfPath, stampedPdf, cancellationToken).ConfigureAwait(false);
+            UpsertReportArtifact(run, targetKind, pdfPath);
+        }
 
         var sidecarName = $"{targetKind}.attestation.json";
-        var sidecarPath = Path.Combine(_runStore.GetRunDirectory(run.RunId), sidecarName);
+        var sidecarPath = Path.Combine(dir, sidecarName);
         var document = new ReportAttestation
         {
             Kind = kind,
@@ -250,6 +327,50 @@ public sealed class ReportAttestationService : IReportAttestationService
             Message = $"{verb} for {party.DisplayName} ({party.Transport}).",
             Attestation = document,
         };
+    }
+
+    private async Task<(byte[]? Pdf, string? Error)> TryCompileOverlayAsync(
+        TestRunRecord run,
+        string targetKind,
+        OperatorCredential captured,
+        string overlayKind,
+        CancellationToken cancellationToken)
+    {
+        if (_reports is null)
+        {
+            return (null, null);
+        }
+
+        var overlay = new ReportAttestation
+        {
+            Kind = overlayKind,
+            ReportKind = targetKind,
+            DisplayName = captured.DisplayName,
+            Serial = captured.Serial,
+            Transport = captured.Transport,
+            CapturedAt = captured.CapturedAt == default ? _clock.UtcNow : captured.CapturedAt,
+        };
+
+        try
+        {
+            var bytes = await _reports.Value
+                .CompileReportAsync(run, targetKind, cancellationToken, overlay)
+                .ConfigureAwait(false);
+            if (bytes.Length == 0)
+            {
+                return (bytes, "Certification PDF compile produced no bytes.");
+            }
+
+            return (bytes, null);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            return (null, "Could not stamp the certification PDF. " + ex.Message);
+        }
     }
 
     /// Drops stamps and sidecars for kinds that are about to be regenerated (PDF bytes will change).
@@ -315,6 +436,28 @@ public sealed class ReportAttestationService : IReportAttestationService
             || error.Contains("No PIV signing certificate", StringComparison.OrdinalIgnoreCase)
             || error.Contains("PIV applet not found", StringComparison.OrdinalIgnoreCase);
     }
+
+    private static void UpsertReportArtifact(TestRunRecord run, string kind, string pdfPath)
+    {
+        var existing = run.Reports.FirstOrDefault(r =>
+            string.Equals(r.Kind, kind, StringComparison.OrdinalIgnoreCase));
+        if (existing is null)
+        {
+            run.Reports.Add(new RunReportArtifact
+            {
+                Kind = kind,
+                Title = ReportKinds.Title(kind),
+                PdfPath = pdfPath,
+                GeneratedAt = DateTimeOffset.UtcNow,
+            });
+            return;
+        }
+
+        existing.PdfPath = pdfPath;
+        existing.GeneratedAt = DateTimeOffset.UtcNow;
+    }
+
+    private static string HashBytes(byte[] bytes) => Convert.ToHexString(SHA256.HashData(bytes));
 
     private static string HashFile(string path)
     {
