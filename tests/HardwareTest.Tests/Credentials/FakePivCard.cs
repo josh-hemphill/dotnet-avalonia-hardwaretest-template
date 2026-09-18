@@ -40,7 +40,8 @@ internal sealed class FakePivCard : IApduChannel, IDisposable
         string pin = DefaultPin,
         byte slot = PivApdu.SlotSignature,
         string subject = "CN=Fake PIV Signature",
-        string? emailSan = null)
+        string? emailSan = null,
+        string? upnSan = null)
     {
         var rsa = RSA.Create(2048);
         var req = new CertificateRequest(
@@ -48,7 +49,7 @@ internal sealed class FakePivCard : IApduChannel, IDisposable
             rsa,
             HashAlgorithmName.SHA256,
             RSASignaturePadding.Pkcs1);
-        AddEmailSan(req, emailSan);
+        AddSan(req, emailSan, upnSan);
         using var cert = req.CreateSelfSigned(DateTimeOffset.UtcNow.AddDays(-1), DateTimeOffset.UtcNow.AddYears(2));
         return new FakePivCard(rsa, null, cert.RawData, slot, ObjectIdFor(slot), PivApdu.AlgRsa2048, pin);
     }
@@ -57,11 +58,12 @@ internal sealed class FakePivCard : IApduChannel, IDisposable
         string pin = DefaultPin,
         byte slot = PivApdu.SlotSignature,
         string subject = "CN=Fake PIV ECC",
-        string? emailSan = null)
+        string? emailSan = null,
+        string? upnSan = null)
     {
         var ecdsa = ECDsa.Create(ECCurve.NamedCurves.nistP256);
         var req = new CertificateRequest(subject, ecdsa, HashAlgorithmName.SHA256);
-        AddEmailSan(req, emailSan);
+        AddSan(req, emailSan, upnSan);
         using var cert = req.CreateSelfSigned(DateTimeOffset.UtcNow.AddDays(-1), DateTimeOffset.UtcNow.AddYears(2));
         return new FakePivCard(null, ecdsa, cert.RawData, slot, ObjectIdFor(slot), PivApdu.AlgEccP256, pin);
     }
@@ -134,15 +136,24 @@ internal sealed class FakePivCard : IApduChannel, IDisposable
             _ => PivApdu.ObjectSignature,
         };
 
-    private static void AddEmailSan(CertificateRequest request, string? emailSan)
+    private static void AddSan(CertificateRequest request, string? emailSan, string? upnSan)
     {
-        if (string.IsNullOrWhiteSpace(emailSan))
+        if (string.IsNullOrWhiteSpace(emailSan) && string.IsNullOrWhiteSpace(upnSan))
         {
             return;
         }
 
         var san = new SubjectAlternativeNameBuilder();
-        san.AddEmailAddress(emailSan.Trim());
+        if (!string.IsNullOrWhiteSpace(emailSan))
+        {
+            san.AddEmailAddress(emailSan.Trim());
+        }
+
+        if (!string.IsNullOrWhiteSpace(upnSan))
+        {
+            san.AddUserPrincipalName(upnSan.Trim());
+        }
+
         request.CertificateExtensions.Add(san.Build());
     }
 

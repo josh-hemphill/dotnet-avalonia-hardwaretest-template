@@ -65,7 +65,7 @@ internal static class PivCertificateName
         }
 
         if (trimmed.StartsWith("Card ", StringComparison.OrdinalIgnoreCase)
-            && trimmed.AsSpan(5).ToString().All(IsHexDigit))
+            && IsCardIdToken(trimmed[5..].Trim()))
         {
             return false;
         }

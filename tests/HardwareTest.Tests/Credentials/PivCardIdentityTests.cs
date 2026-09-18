@@ -101,6 +101,19 @@ public sealed class PivCardIdentityTests
     }
 
     [Fact]
+    public void TryRead_uses_upn_when_subject_is_generic_and_rfc822_is_absent()
+    {
+        using var card = FakePivCard.CreateRsa2048(
+            slot: PivApdu.SlotAuthentication,
+            subject: "CN=PIV Authentication",
+            upnSan: "jane.doe@agency.gov");
+
+        var (_, name) = PivCardIdentity.TryRead(card);
+
+        Assert.Equal("jane.doe@agency.gov", name);
+    }
+
+    [Fact]
     public void TryRead_prefers_piv_auth_subject_over_card_auth()
     {
         using var auth = FakePivCard.CreateRsa2048(
@@ -108,8 +121,8 @@ public sealed class PivCardIdentityTests
             subject: "CN=Jane Doe");
         using var cardAuth = FakePivCard.CreateRsa2048(
             slot: PivApdu.SlotCardAuth,
-            subject: "CN=Card Authentication");
-        using var card = new CompositePivCard(auth, cardAuth);
+            subject: "CN=Other Person");
+        using var card = new CompositePivCard(cardAuth, auth);
 
         var (_, name) = PivCardIdentity.TryRead(card);
 
@@ -120,8 +133,13 @@ public sealed class PivCardIdentityTests
     [InlineData("Jane Doe", true)]
     [InlineData("SMITH.JANE.Q.1234567890", true)]
     [InlineData("Card Authentication", false)]
+    [InlineData("PIV Card Authentication", false)]
+    [InlineData("PIV Authentication", false)]
+    [InlineData("Digital Signature", false)]
+    [InlineData("Key Management", false)]
     [InlineData("AABBCCDD", false)]
     [InlineData("Card AABBCCDD", false)]
+    [InlineData("Card AA:BB:CC:DD", false)]
     [InlineData("AA:BB:CC:DD", false)]
     public void Useful_person_name_rejects_slot_labels_and_card_ids(string value, bool expected)
         => Assert.Equal(expected, PivCertificateName.IsUsefulPersonName(value));
