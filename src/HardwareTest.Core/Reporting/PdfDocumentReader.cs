@@ -11,6 +11,7 @@ internal sealed class PdfDocumentReader
     private readonly Dictionary<int, XRefEntry> _xref = [];
     private readonly Dictionary<int, PdfObject> _cache = [];
     private readonly Dictionary<int, byte[]> _objectStreams = [];
+    private readonly HashSet<int> _visitedXrefs = [];
 
     private PdfDocumentReader(byte[] data)
     {
@@ -101,14 +102,37 @@ internal sealed class PdfDocumentReader
             return null;
         }
 
-        return FindFirstPage(pages);
+        return FindFirstPage(pagesRef, pages);
     }
 
-    private PdfObject.Ref? FindFirstPage(PdfObject.Dict pages)
+    internal PdfObject.Array? ResolveArray(PdfObject? value)
     {
-        if (pages.Get("Kids")?.AsArray() is not { } kids || kids.Items.Count == 0)
+        if (value?.AsArray() is { } array)
         {
-            return pages.Get("Type")?.NameValue() == "Page" ? Root : null;
+            return array;
+        }
+
+        if (value?.AsRef() is { } reference
+            && TryGet(reference.Number, out var obj, out _)
+            && obj.AsArray() is { } referenced)
+        {
+            return referenced;
+        }
+
+        return null;
+    }
+
+    private PdfObject.Ref? FindFirstPage(PdfObject.Ref nodeRef, PdfObject.Dict node)
+    {
+        if (node.Get("Type")?.NameValue() == "Page")
+        {
+            return nodeRef;
+        }
+
+        var kids = ResolveArray(node.Get("Kids"));
+        if (kids is null || kids.Items.Count == 0)
+        {
+            return null;
         }
 
         if (kids.Items[0].AsRef() is not { } first)
@@ -116,12 +140,12 @@ internal sealed class PdfDocumentReader
             return null;
         }
 
-        if (!TryGetDict(first, out var node, out _))
+        if (!TryGetDict(first, out var child, out _))
         {
             return first;
         }
 
-        return node.Get("Type")?.NameValue() == "Pages" ? FindFirstPage(node) : first;
+        return FindFirstPage(first, child);
     }
 
     private bool TryReadTrailer(out string? error)
@@ -132,14 +156,48 @@ internal sealed class PdfDocumentReader
         }
 
         StartXref = startXref;
-        var cursor = startXref;
+        return TryReadXrefAt(startXref, newest: true, out error);
+    }
+
+    private bool TryReadXrefAt(int offset, bool newest, out string? error)
+    {
+        if (offset < 0 || offset >= _data.Length)
+        {
+            error = "PDF xref offset is out of bounds.";
+            return false;
+        }
+
+        if (!_visitedXrefs.Add(offset))
+        {
+            error = null;
+            return true;
+        }
+
+        var cursor = offset;
         SkipWhitespaceAndComments(ref cursor);
         if (StartsWith(cursor, "xref"u8))
         {
-            return TryReadClassicXref(ref cursor, out error);
+            return TryReadClassicXref(ref cursor, newest, out error);
         }
 
-        return TryReadXrefStreamAt(startXref, out error);
+        return TryReadXrefStreamAt(offset, newest, out error);
+    }
+
+    private bool TryWalkPrev(PdfObject.Dict trailer, out string? error)
+    {
+        if (trailer.Get("Prev") is null)
+        {
+            error = null;
+            return true;
+        }
+
+        if (trailer.Get("Prev")?.TryGetInt(out var prev) != true)
+        {
+            error = "PDF trailer /Prev is invalid.";
+            return false;
+        }
+
+        return TryReadXrefAt(prev, newest: false, out error);
     }
 
     private bool TryFindStartXref(out int startXref, out string? error)
@@ -172,7 +230,7 @@ internal sealed class PdfDocumentReader
         return false;
     }
 
-    private bool TryReadClassicXref(ref int cursor, out string? error)
+    private bool TryReadClassicXref(ref int cursor, bool newest, out string? error)
     {
         cursor += 4;
         SkipWhitespaceAndComments(ref cursor);
@@ -229,10 +287,10 @@ internal sealed class PdfDocumentReader
             return false;
         }
 
-        return ApplyTrailer(trailer, out error);
+        return ApplyTrailer(trailer, newest, out error) && TryWalkPrev(trailer, out error);
     }
 
-    private bool TryReadXrefStreamAt(int offset, out string? error)
+    private bool TryReadXrefStreamAt(int offset, bool newest, out string? error)
     {
         if (!TryReadIndirectObject(offset, out var number, out var dict, out var stream, out error))
         {
@@ -251,7 +309,7 @@ internal sealed class PdfDocumentReader
             return false;
         }
 
-        if (!ApplyTrailer(dict, out error))
+        if (!ApplyTrailer(dict, newest, out error))
         {
             return false;
         }
@@ -316,28 +374,40 @@ internal sealed class PdfDocumentReader
             }
         }
 
-        error = null;
-        return true;
+        return TryWalkPrev(dict, out error);
     }
 
-    private bool ApplyTrailer(PdfObject.Dict trailer, out string? error)
+    private bool ApplyTrailer(PdfObject.Dict trailer, bool newest, out string? error)
     {
-        if (trailer.Get("Size")?.TryGetInt(out var size) != true || size <= 0)
+        if (trailer.Get("Size")?.TryGetInt(out var size) == true && size > 0)
+        {
+            Size = Math.Max(Size, size);
+        }
+        else if (newest)
         {
             error = "PDF trailer /Size is missing.";
             return false;
         }
 
-        Size = Math.Max(Size, size);
-        if (trailer.Get("Root")?.AsRef() is not { } root)
+        if (trailer.Get("Root")?.AsRef() is { } root)
+        {
+            if (newest)
+            {
+                Root = root;
+            }
+        }
+        else if (newest)
         {
             error = "PDF trailer /Root is missing.";
             return false;
         }
 
-        Root = root;
-        Info = trailer.Get("Info")?.AsRef();
-        Id = trailer.Get("ID");
+        if (newest)
+        {
+            Info = trailer.Get("Info")?.AsRef();
+            Id = trailer.Get("ID");
+        }
+
         error = null;
         return true;
     }
@@ -451,9 +521,20 @@ internal sealed class PdfDocumentReader
     }
 
     private bool TryReadIndirect(int offset, out PdfObject value, out string? error)
-        => TryReadIndirectObject(offset, out _, out var dict, out var stream, out error)
-            ? AssignIndirect(dict, stream, out value)
-            : Fail(out value, error);
+    {
+        if (!TryReadIndirectObject(offset, out var number, out var dict, out var stream, out error))
+        {
+            return Fail(out value, error);
+        }
+
+        if (_cache.TryGetValue(number, out var cached) && cached is not PdfObject.Dict)
+        {
+            value = cached;
+            return true;
+        }
+
+        return AssignIndirect(dict, stream, out value);
+    }
 
     private static bool AssignIndirect(PdfObject.Dict dict, byte[]? stream, out PdfObject value)
     {

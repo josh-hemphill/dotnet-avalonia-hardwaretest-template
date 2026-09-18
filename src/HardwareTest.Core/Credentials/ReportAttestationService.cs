@@ -552,40 +552,12 @@ public sealed class ReportAttestationService : IReportAttestationService
             return false;
         }
 
-        if (string.IsNullOrWhiteSpace(attestation.SidecarPath) || !File.Exists(attestation.SidecarPath))
-        {
-            return false;
-        }
-
-        byte[] pdf;
         try
         {
-            pdf = File.ReadAllBytes(pdfPath);
+            var pdf = File.ReadAllBytes(pdfPath);
+            return PdfPadesSignature.TryVerify(pdf, out _);
         }
         catch (IOException)
-        {
-            return false;
-        }
-
-        if (!PdfPadesSignature.TryVerify(pdf, out _))
-        {
-            return false;
-        }
-
-        using var stream = File.OpenRead(attestation.SidecarPath);
-        var sidecar = JsonSerializer.Deserialize(stream, AppJsonContext.Default.ReportAttestationSidecar);
-        if (sidecar?.SignatureBase64 is null
-            || !PdfPadesSignature.TryReadByteRange(pdf, out _, out var cms, out _))
-        {
-            return false;
-        }
-
-        try
-        {
-            var sidecarCms = Convert.FromBase64String(sidecar.SignatureBase64);
-            return CryptographicOperations.FixedTimeEquals(sidecarCms, cms);
-        }
-        catch (FormatException)
         {
             return false;
         }

@@ -62,7 +62,9 @@ public sealed class PdfPadesSignatureTests
         byte[] pdf;
         try
         {
-            pdf = await reports.CompileTemplateAsync(run);
+            var artifacts = await reports.GenerateReportsAsync(run, [ReportKinds.Certification]);
+            Assert.Equal(ReportKinds.Certification, artifacts.Single().Kind);
+            pdf = await File.ReadAllBytesAsync(artifacts.Single().PdfPath);
         }
         catch (DllNotFoundException ex)
         {
@@ -79,6 +81,65 @@ public sealed class PdfPadesSignatureTests
         Assert.True(cms.Succeeded, cms.Error);
         Assert.True(prepared.TryEmbed(cms.Signature!, out var signed, out var embedError), embedError);
         Assert.True(PdfPadesSignature.TryVerify(signed, out var verifyError), verifyError);
+        Assert.True(
+            PdfPadesSignature.TryPrepare(signed, "Second", DateTimeOffset.UnixEpoch, out var second, out var secondError),
+            secondError);
+        Assert.NotEmpty(second.SignedBytes);
+    }
+
+    [Fact]
+    public void Indirect_kids_array_attaches_signature_field()
+    {
+        using var rsa = RSA.Create(2048);
+        using var cert = CreateCert(rsa);
+        var pdf = PdfPadesSignature.CreateMinimalPdf(indirectKids: true);
+        Assert.True(
+            PdfPadesSignature.TryPrepare(pdf, "Indirect Kids", DateTimeOffset.UnixEpoch, out var prepared, out var prepError),
+            prepError);
+        Assert.True(prepared.TryEmbed(SignCms(prepared.SignedBytes, cert, rsa), out var signed, out var embedError), embedError);
+        Assert.True(PdfPadesSignature.TryVerify(signed, out var verifyError), verifyError);
+    }
+
+    [Fact]
+    public void Second_incremental_signature_walks_prev_xref()
+    {
+        using var rsa = RSA.Create(2048);
+        using var cert = CreateCert(rsa);
+        var pdf = PdfPadesSignature.CreateMinimalPdf();
+        Assert.True(PdfPadesSignature.TryPrepare(pdf, "First", DateTimeOffset.UnixEpoch, out var first, out var firstError), firstError);
+        Assert.True(first.TryEmbed(SignCms(first.SignedBytes, cert, rsa), out var once, out var firstEmbed), firstEmbed);
+        Assert.True(PdfPadesSignature.TryPrepare(once, "Second", DateTimeOffset.UnixEpoch, out var second, out var secondError), secondError);
+        Assert.True(second.TryEmbed(SignCms(second.SignedBytes, cert, rsa), out var twice, out var secondEmbed), secondEmbed);
+        Assert.True(PdfPadesSignature.TryVerify(twice, out var verifyError), verifyError);
+        Assert.Contains("(HardwareTestCertification-2)"u8, twice);
+    }
+
+    [Fact]
+    public void Trailing_bytes_outside_byterange_fail_verify()
+    {
+        using var rsa = RSA.Create(2048);
+        using var cert = CreateCert(rsa);
+        var pdf = PdfPadesSignature.CreateMinimalPdf();
+        Assert.True(PdfPadesSignature.TryPrepare(pdf, "X", DateTimeOffset.UnixEpoch, out var prepared, out _));
+        Assert.True(prepared.TryEmbed(SignCms(prepared.SignedBytes, cert, rsa), out var signed, out _));
+        var padded = new byte[signed.Length + 8];
+        signed.CopyTo(padded, 0);
+        "tamper!!"u8.CopyTo(padded.AsSpan(signed.Length));
+        Assert.False(PdfPadesSignature.TryVerify(padded, out var error));
+        Assert.Contains("whole file", error, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Reserved_cms_slot_fits_large_piv_payload()
+    {
+        Assert.True(PdfPadesSignature.ReservedCmsBytes >= 16 * 1024);
+        var pdf = PdfPadesSignature.CreateMinimalPdf();
+        Assert.True(PdfPadesSignature.TryPrepare(pdf, "Large", DateTimeOffset.UnixEpoch, out var prepared, out var prepError), prepError);
+        var large = new byte[9 * 1024];
+        large[0] = 0x30;
+        large[1] = 0x80;
+        Assert.True(prepared.TryEmbed(large, out var signed, out var embedError), embedError);
+        Assert.NotEmpty(signed);
     }
 
     [Fact]

@@ -14,7 +14,7 @@ public static class PdfPadesSignature
     public const string Reason = "Certification of hardware test report";
     public const string FieldName = "HardwareTestCertification";
 
-    internal const int ReservedCmsBytes = 8192;
+    internal const int ReservedCmsBytes = 32 * 1024;
     private const int ByteRangeWidth = 10;
 
     /// Builds an incremental signature placeholder; Contents is zero-filled until Embed.
@@ -53,15 +53,9 @@ public static class PdfPadesSignature
 
         var pageEntries = new Dictionary<string, PdfObject>(page.Entries, StringComparer.Ordinal);
         var annots = new List<PdfObject>();
-        if (page.Get("Annots")?.AsArray() is { } existing)
+        if (reader.ResolveArray(page.Get("Annots")) is { } existing)
         {
             annots.AddRange(existing.Items);
-        }
-        else if (page.Get("Annots")?.AsRef() is { } annotsRef
-                 && reader.TryGet(annotsRef.Number, out var annotsObj, out _)
-                 && annotsObj.AsArray() is { } referenced)
-        {
-            annots.AddRange(referenced.Items);
         }
 
         annots.Add(new PdfObject.Ref(fieldNum, 0));
@@ -74,7 +68,7 @@ public static class PdfPadesSignature
         {
             var acroEntries = new Dictionary<string, PdfObject>(existingAcro.Entries, StringComparer.Ordinal);
             var fields = new List<PdfObject>();
-            if (existingAcro.Get("Fields")?.AsArray() is { } existingFields)
+            if (reader.ResolveArray(existingAcro.Get("Fields")) is { } existingFields)
             {
                 fields.AddRange(existingFields.Items);
             }
@@ -105,7 +99,7 @@ public static class PdfPadesSignature
             ["Type"] = new PdfObject.Name("Annot"),
             ["Subtype"] = new PdfObject.Name("Widget"),
             ["FT"] = new PdfObject.Name("Sig"),
-            ["T"] = new PdfObject.String(FieldName, Hex: false),
+            ["T"] = new PdfObject.String(NextSignatureFieldName(reader, acroForm), Hex: false),
             ["F"] = PdfObject.Int(4),
             ["P"] = new PdfObject.Ref(pageRef.Number, pageRef.Generation),
             ["Rect"] = new PdfObject.Array(
@@ -292,7 +286,11 @@ public static class PdfPadesSignature
             hexEnd++;
         }
 
-        var hex = Encoding.ASCII.GetString(data, hexAt, hexEnd - hexAt).Replace(" ", "", StringComparison.Ordinal);
+        var hex = Encoding.ASCII.GetString(data, hexAt, hexEnd - hexAt)
+            .Replace(" ", "", StringComparison.Ordinal)
+            .Replace("\r", "", StringComparison.Ordinal)
+            .Replace("\n", "", StringComparison.Ordinal)
+            .Replace("\t", "", StringComparison.Ordinal);
         if (hex.Length % 2 == 1)
         {
             hex += "0";
@@ -326,14 +324,26 @@ public static class PdfPadesSignature
             return false;
         }
 
+        var origin = values[0];
         var length1 = values[1];
         var start2 = values[2];
         var length2 = values[3];
-        if (length1 < 0 || start2 < 0 || length2 < 0
-            || length1 > data.Length
-            || start2 + length2 > data.Length)
+        if (origin != 0)
         {
-            error = "PDF ByteRange is out of bounds.";
+            error = "PDF ByteRange must start at offset 0.";
+            return false;
+        }
+
+        if (length1 < 0 || start2 - length1 < 2 || length2 < 0
+            || (long)start2 + length2 != data.Length)
+        {
+            error = "PDF ByteRange does not cover the whole file.";
+            return false;
+        }
+
+        if (data[length1] != (byte)'<' || data[start2 - 1] != (byte)'>')
+        {
+            error = "PDF ByteRange hole is not the Contents hex string.";
             return false;
         }
 
@@ -345,22 +355,27 @@ public static class PdfPadesSignature
     }
 
     /// Minimal one-page PDF used by tests and attestation seeds.
-    internal static byte[] CreateMinimalPdf(string title = "Certification")
+    internal static byte[] CreateMinimalPdf(string title = "Certification", bool indirectKids = false)
     {
         var content = $"BT /F1 12 Tf 72 720 Td ({SanitizeAscii(title)}) Tj ET";
         var contentBytes = Encoding.ASCII.GetBytes(content);
-        var objects = new[]
+        var pagesKids = indirectKids ? "5 0 R" : "[3 0 R]";
+        var objects = new List<string>
         {
             "<< /Type /Catalog /Pages 2 0 R >>",
-            "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+            $"<< /Type /Pages /Kids {pagesKids} /Count 1 >>",
             "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> >> >> /Contents 4 0 R >>",
             $"<< /Length {contentBytes.Length.ToString(CultureInfo.InvariantCulture)} >>\nstream\n{content}\nendstream",
         };
+        if (indirectKids)
+        {
+            objects.Add("[3 0 R]");
+        }
 
         var builder = new StringBuilder();
         builder.Append("%PDF-1.4\n");
-        var offsets = new int[objects.Length + 1];
-        for (var i = 0; i < objects.Length; i++)
+        var offsets = new int[objects.Count + 1];
+        for (var i = 0; i < objects.Count; i++)
         {
             offsets[i + 1] = builder.Length;
             builder.Append((i + 1).ToString(CultureInfo.InvariantCulture));
@@ -371,21 +386,58 @@ public static class PdfPadesSignature
 
         var xref = builder.Length;
         builder.Append("xref\n0 ");
-        builder.Append((objects.Length + 1).ToString(CultureInfo.InvariantCulture));
+        builder.Append((objects.Count + 1).ToString(CultureInfo.InvariantCulture));
         builder.Append('\n');
         builder.Append("0000000000 65535 f \n");
-        for (var i = 1; i <= objects.Length; i++)
+        for (var i = 1; i <= objects.Count; i++)
         {
             builder.Append(offsets[i].ToString("D10", CultureInfo.InvariantCulture));
             builder.Append(" 00000 n \n");
         }
 
         builder.Append("trailer << /Size ");
-        builder.Append((objects.Length + 1).ToString(CultureInfo.InvariantCulture));
+        builder.Append((objects.Count + 1).ToString(CultureInfo.InvariantCulture));
         builder.Append(" /Root 1 0 R >>\nstartxref\n");
         builder.Append(xref.ToString(CultureInfo.InvariantCulture));
         builder.Append("\n%%EOF\n");
         return Encoding.ASCII.GetBytes(builder.ToString());
+    }
+
+    private static string NextSignatureFieldName(PdfDocumentReader reader, PdfObject.Dict acroForm)
+    {
+        var used = new HashSet<string>(StringComparer.Ordinal);
+        if (reader.ResolveArray(acroForm.Get("Fields")) is { } fields)
+        {
+            foreach (var item in fields.Items)
+            {
+                if (item.AsRef() is not { } fieldRef
+                    || !reader.TryGetDict(fieldRef, out var field, out _))
+                {
+                    continue;
+                }
+
+                if (field.Get("T") is PdfObject.String name && !string.IsNullOrWhiteSpace(name.Value))
+                {
+                    used.Add(name.Value);
+                }
+            }
+        }
+
+        if (!used.Contains(FieldName))
+        {
+            return FieldName;
+        }
+
+        for (var n = 2; n < 1000; n++)
+        {
+            var candidate = $"{FieldName}-{n.ToString(CultureInfo.InvariantCulture)}";
+            if (!used.Contains(candidate))
+            {
+                return candidate;
+            }
+        }
+
+        return $"{FieldName}-{Guid.NewGuid():N}";
     }
 
     private static void WriteObj(MemoryStream buffer, Dictionary<int, int> offsets, int number, PdfObject.Dict? dict)
