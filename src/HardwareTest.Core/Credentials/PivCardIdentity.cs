@@ -15,6 +15,8 @@ internal static class PivCardIdentity
         PivApdu.ObjectCardAuth,
     ];
 
+    private const int NameReadAttempts = 4;
+
     public static bool IsContactlessReader(string readerName)
     {
         return readerName.Contains("contactless", StringComparison.OrdinalIgnoreCase)
@@ -28,21 +30,39 @@ internal static class PivCardIdentity
 
     public static (string? Serial, string? DisplayName) TryRead(IApduChannel channel)
     {
-        string? serial = null;
+        if (!PivApdu.TrySelect(channel))
+        {
+            return (TryReadUid(channel), null);
+        }
+
+        var best = PivIdentityCandidate.None;
+        for (var attempt = 0; attempt < NameReadAttempts; attempt++)
+        {
+            if (attempt > 0 && !PivApdu.TrySelect(channel))
+            {
+                continue;
+            }
+
+            best = PivCertificateName.Prefer(best, TryReadBestCertificateName(channel));
+            best = PivCertificateName.Prefer(best, PivCertificateName.Classify(TryReadPrintedName(channel)));
+            if (best.Quality >= PivIdentityQuality.DirectoryEmail)
+            {
+                break;
+            }
+        }
+
+        return (TryReadUid(channel), best.Value);
+    }
+
+    private static string? TryReadUid(IApduChannel channel)
+    {
         var uid = channel.Transmit(GetUid);
         if (PivApdu.IsSuccess(uid) && uid!.Length > 2)
         {
-            serial = Convert.ToHexString(uid.AsSpan(0, uid.Length - 2));
+            return Convert.ToHexString(uid.AsSpan(0, uid.Length - 2));
         }
 
-        if (!PivApdu.TrySelect(channel))
-        {
-            return (serial, null);
-        }
-
-        var best = TryReadBestCertificateName(channel);
-        best = PivCertificateName.Prefer(best, PivCertificateName.Classify(TryReadPrintedName(channel)));
-        return (serial, best.Value);
+        return null;
     }
 
     private static PivIdentityCandidate TryReadBestCertificateName(IApduChannel channel)

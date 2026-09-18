@@ -40,17 +40,17 @@ public sealed class PcscOperatorCredentialBroker : IOperatorCredentialBroker
 
         try
         {
+            var poll = new PivPresenceIdentity.Poll();
             while (_clock.UtcNow <= deadline)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                var captured = TryCaptureOnce(context);
-                if (captured.Succeeded)
+                var completed = poll.Observe(TryCaptureOnce(context), _clock.UtcNow, out var status);
+                StatusText = status;
+                if (completed is not null)
                 {
-                    StatusText = $"Credential present ({captured.Credential!.Transport}).";
-                    return captured;
+                    return completed;
                 }
 
-                StatusText = captured.Error ?? "Present a badge: insert chip or tap the reader.";
                 var remaining = deadline - _clock.UtcNow;
                 if (remaining <= TimeSpan.Zero)
                 {
@@ -59,6 +59,12 @@ public sealed class PcscOperatorCredentialBroker : IOperatorCredentialBroker
 
                 var wait = remaining < _pollInterval ? remaining : _pollInterval;
                 await Task.Delay(wait, cancellationToken).ConfigureAwait(false);
+            }
+
+            if (poll.Fallback?.Credential is not null)
+            {
+                StatusText = $"Credential present ({poll.Fallback.Credential.Transport}).";
+                return poll.Fallback;
             }
 
             StatusText = "No chip or tap detected before timeout.";
