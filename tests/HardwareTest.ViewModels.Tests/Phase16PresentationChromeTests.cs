@@ -174,6 +174,58 @@ public sealed class Phase16PresentationChromeTests
     }
 
     [Fact]
+    public void PlaceCursor_snaps_to_nearest_sample_and_pauses_follow_live()
+    {
+        var live = new LivePresentationViewModel();
+        var step = Leaf();
+        var t0 = DateTimeOffset.UtcNow;
+        live.ApplySample(Timeseries("VDC", 1.0, t0, low: 0, high: 2), step.Path, null, step);
+        live.ApplySample(Timeseries("VDC", 1.5, t0.AddSeconds(1), low: 0, high: 2), step.Path, null, step);
+        live.SelectedTimeWindow = ChartTimeWindow.All;
+
+        live.PlaceCursor(0.8);
+
+        Assert.True(live.HasCursor);
+        Assert.False(live.FollowLive);
+        Assert.Equal("Readout", live.ChartAgeText);
+        Assert.Contains("1.5", live.ChartValueText, StringComparison.Ordinal);
+        Assert.Contains("Within", live.ChartBandText, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ClearCursor_restores_latest_sample_toolbar()
+    {
+        var live = new LivePresentationViewModel();
+        var step = Leaf();
+        var t0 = DateTimeOffset.UtcNow;
+        live.ApplySample(Timeseries("VDC", 1.0, t0), step.Path, null, step);
+        live.ApplySample(Timeseries("VDC", 2.0, t0.AddSeconds(1)), step.Path, null, step);
+        live.SelectedTimeWindow = ChartTimeWindow.All;
+        live.PlaceCursor(0.0);
+        Assert.True(live.HasCursor);
+
+        live.ClearCursor();
+
+        Assert.False(live.HasCursor);
+        Assert.Contains("2", live.ChartValueText, StringComparison.Ordinal);
+        Assert.DoesNotContain("Readout", live.ChartAgeText, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ResetView_clears_cursor()
+    {
+        var live = new LivePresentationViewModel();
+        var step = Leaf();
+        live.ApplySample(Timeseries("VDC", 1.0), step.Path, null, step);
+        live.PlaceCursor(0.0);
+        Assert.True(live.HasCursor);
+
+        await live.ResetViewCommand.ExecuteAsync();
+        Assert.False(live.HasCursor);
+        Assert.True(live.FollowLive);
+    }
+
+    [Fact]
     public async Task ResetView_restores_follow_live()
     {
         var live = new LivePresentationViewModel();

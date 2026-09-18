@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using Avalonia.Controls;
+using Avalonia.Media;
 using Avalonia.Threading;
 using HardwareTest.Features.Presentation;
 using HardwareTest.Widgets.MeasurementPlot;
@@ -10,12 +11,25 @@ namespace HardwareTest.Features.Results;
 public sealed class ResultsChartHost : UserControl
 {
     private readonly MeasurementPlotView _plot = new() { MinHeight = 240 };
+    private readonly TextBlock _cursorReadout = new()
+    {
+        Opacity = 0.85,
+        Margin = new Avalonia.Thickness(0, 6, 0, 0),
+        TextWrapping = TextWrapping.Wrap,
+        Text = "Tap the plot to place a readout line.",
+        IsVisible = true,
+    };
     private INotifyPropertyChanged? _tileNotify;
 
     public ResultsChartHost()
     {
-        Content = _plot;
+        var panel = new DockPanel();
+        DockPanel.SetDock(_cursorReadout, Dock.Bottom);
+        panel.Children.Add(_cursorReadout);
+        panel.Children.Add(_plot);
+        Content = panel;
         DataContextChanged += (_, _) => HookDataContext();
+        _plot.CursorChanged += OnCursorChanged;
     }
 
     protected override void OnAttachedToVisualTree(Avalonia.VisualTreeAttachmentEventArgs e)
@@ -73,6 +87,9 @@ public sealed class ResultsChartHost : UserControl
         if (DataContext is not PresentationTileViewModel tile || !tile.IsChart)
         {
             IsVisible = false;
+            _plot.ClearCursor();
+            _cursorReadout.IsVisible = false;
+            _cursorReadout.Text = string.Empty;
             return;
         }
 
@@ -82,12 +99,13 @@ public sealed class ResultsChartHost : UserControl
             var unit = string.IsNullOrWhiteSpace(tile.Unit) ? "Value" : tile.Unit!;
             _plot.SetLabels(tile.MetricKey, unit, tile.MetricKey);
             _plot.SetLimits(tile.LimitLow, tile.LimitHigh);
+            _plot.SetFollowLive(false);
             var drawTimeAxis = tile.UsesTimeAxis && tile.Xs.Length == tile.YsLength && tile.YsLength > 0;
             if (drawTimeAxis)
             {
                 _plot.SetEvents(SeriesTimingChrome.ToPlotTicks(tile.TimingMarks));
                 _plot.SetOutOfBandSpans(tile.OutOfBandSpans);
-                _plot.UpdateTimeSeries(tile.Xs, tile.Ys, tile.YsLength, followLive: true, force: true);
+                _plot.UpdateTimeSeries(tile.Xs, tile.Ys, tile.YsLength, followLive: false, force: true);
             }
             else
             {
@@ -104,5 +122,21 @@ public sealed class ResultsChartHost : UserControl
         }
 
         Apply();
+    }
+
+    private void OnCursorChanged(object? sender, PlotCursorChangedEventArgs e)
+    {
+        if (e.X is not { } x || e.Y is not { } y)
+        {
+            _cursorReadout.Text = "Tap the plot to place a readout line.";
+            _cursorReadout.IsVisible = true;
+            return;
+        }
+
+        var unit = DataContext is PresentationTileViewModel tile && !string.IsNullOrWhiteSpace(tile.Unit)
+            ? tile.Unit
+            : null;
+        _cursorReadout.Text = $"Readout: {PlotCursorReadout.FormatValue(y, unit)} at {x.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture)} s — tap to move.";
+        _cursorReadout.IsVisible = true;
     }
 }
