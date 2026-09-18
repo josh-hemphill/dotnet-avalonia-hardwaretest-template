@@ -24,6 +24,11 @@
                 Click="OnCreateProgram"
                 ToolTip.Tip="Seed Identity, Cleanup, and a Mock DMM slot"
                 AutomationProperties.Name="New program" />
+        <Button Content="{Binding RemoveProgramTitle}"
+                Click="OnRemoveProgram"
+                IsEnabled="{Binding CanRemoveSelectedProgram}"
+                ToolTip.Tip="{Binding RemoveProgramPurpose}"
+                AutomationProperties.Name="Remove program" />
         <Button Content="Save sidecar"
                 Click="OnSaveSidecar"
                 ToolTip.Tip="Write only {planId}.program.json (session/DUT/Typst). Does not compile the TapPlan."
@@ -76,6 +81,7 @@
         <ListBox ItemsSource="{Binding Programs}"
                  SelectedItem="{Binding SelectedProgram}"
                  KeyboardNavigation.TabNavigation="Once"
+                 KeyDown="OnProgramsKeyDown"
                  AutomationProperties.Name="Programs"
                  AutomationProperties.LabeledBy="{Binding #ProgramsHeading}">
           <ListBox.ItemTemplate>
@@ -143,10 +149,16 @@
                         Click="OnAddRecipe"
                         ToolTip.Tip="Append or wrap using the selected recipe. Identity/Prompt go to Setup; metrics to Measure; Repeat wraps the last measure; Safe Shutdown updates Cleanup."
                         AutomationProperties.Name="Add recipe" />
+                <Button Content="{Binding RemoveSelectedTitle}"
+                        Click="OnRemoveSequence"
+                        IsEnabled="{Binding CanRemoveSelectedSequence}"
+                        ToolTip.Tip="{Binding RemoveSelectedPurpose}"
+                        AutomationProperties.Name="Remove selected sequence row" />
               </StackPanel>
               <ListBox ItemsSource="{Binding SequenceItems}"
                        SelectedIndex="{Binding SelectedSequenceIndex}"
                        KeyboardNavigation.TabNavigation="Once"
+                       KeyDown="OnSequenceKeyDown"
                        AutomationProperties.Name="Program sequence"
                        AutomationProperties.LabeledBy="{Binding #SequenceHeading}">
                 <ListBox.Styles>

@@ -31,8 +31,8 @@ dotnet run --project src/HardwareTest.Authoring -c Debug -r win-x64 -- --help
 
 ## 2. Create a program and add recipes
 
-1. **New program** seeds Identity + Cleanup + Mock DMM (in-repo demos). Product workspaces that declare InstrumentComponents.OpenTap still keep this template’s sample/board-demo on Basic.
-2. On the **Program** tab, pick a recipe from **Add to sequence** (grouped by category) and **Add recipe**. The sequence list is Setup / Measure / Cleanup — not a tree. Repeat children are indented under the Repeat row. **Dialog** and **Hang Forever** are not listed.
+1. **New program** seeds Identity + Cleanup + Mock DMM (in-repo demos). Product workspaces that declare InstrumentComponents.OpenTap still keep this template’s sample/board-demo on Basic. **Remove program** (or Delete on the programs list) drops the selected plan from the session and deletes its `.TapPlan` + `.program.json` when those files exist.
+2. On the **Program** tab, pick a recipe from **Add to sequence** (grouped by category) and **Add recipe**. **Remove selected** (or Delete on the sequence list) drops the highlighted Setup, measure, Repeat, or Raw row. Repeat unwraps its children. Safe Shutdown turns Cleanup off. The sequence list is Setup / Measure / Cleanup — not a tree. Repeat children are indented under the Repeat row. **Dialog** and **Hang Forever** are not listed.
 3. The **Inspector** edits only the selected sequence row (channel key, display role, unit, limits, formula chips, transfer-function method). **Program settings** holds sidecar (DUT flags, reports) and instrument VISA slots. Mean GTE needs a threshold; band and series need both limits. **Save plan** refuses missing limits. Preview uses canned samples unless a recording is selected.
 4. **Preview** shows canned samples for the selected DisplayRole (not Execute). Select a `recordings/` export to eval formulas and transfer functions on real `elapsedMs` series.
 5. **Save plan** compiles the metric IR to `{planId}.TapPlan` + `{planId}.program.json` (three-level groups, Presentation on function leaves, sidecar). **Save sidecar** writes only the program JSON.

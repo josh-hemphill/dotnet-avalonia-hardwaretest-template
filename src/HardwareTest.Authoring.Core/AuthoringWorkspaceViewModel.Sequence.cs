@@ -36,7 +36,11 @@ public sealed partial class AuthoringWorkspaceViewModel
 
     public string RemoveSelectedTitle => AuthoringChrome.RemoveSelectedTitle;
 
+    public string RemoveSelectedPurpose => AuthoringChrome.RemoveSelectedPurpose;
+
     public string RemoveProgramTitle => AuthoringChrome.RemoveProgramTitle;
+
+    public string RemoveProgramPurpose => AuthoringChrome.RemoveProgramPurpose;
 
     public bool CanRemoveSelectedSequence
         => AuthoringSequence.CanRemove(SelectedSequence, SelectedProgram);

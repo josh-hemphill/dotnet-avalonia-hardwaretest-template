@@ -28,6 +28,8 @@ public sealed class AuthoringChromeA11yTests
         Assert.Contains("OnOpenLastWorkspace", xaml, StringComparison.Ordinal);
         Assert.Contains("ApplyFormulaCompletion", File.ReadAllText(Path.Combine(FindRepoRoot(), "src", "HardwareTest.Authoring", "MainWindow.axaml.cs")), StringComparison.Ordinal);
         Assert.Contains("OnOpenSettings", File.ReadAllText(Path.Combine(FindRepoRoot(), "src", "HardwareTest.Authoring", "MainWindow.axaml.cs")), StringComparison.Ordinal);
+        Assert.Contains("OnRemoveSequence", File.ReadAllText(Path.Combine(FindRepoRoot(), "src", "HardwareTest.Authoring", "MainWindow.axaml.cs")), StringComparison.Ordinal);
+        Assert.Contains("Key.Delete", File.ReadAllText(Path.Combine(FindRepoRoot(), "src", "HardwareTest.Authoring", "MainWindow.axaml.cs")), StringComparison.Ordinal);
         Assert.Contains(".Show(this)", File.ReadAllText(Path.Combine(FindRepoRoot(), "src", "HardwareTest.Authoring", "MainWindow.axaml.cs")), StringComparison.Ordinal);
         var settingsWindow = File.ReadAllText(Path.Combine(FindRepoRoot(), "src", "HardwareTest.Authoring", "SettingsWindow.axaml"));
         Assert.Contains("Title=\"{Binding SettingsTitle}\"", settingsWindow, StringComparison.Ordinal);
@@ -45,6 +47,12 @@ public sealed class AuthoringChromeA11yTests
         Assert.Contains("Text=\"{Binding Severity}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("OnImportTransferFunction", xaml, StringComparison.Ordinal);
         Assert.Contains("OnFormulaChip", xaml, StringComparison.Ordinal);
+        Assert.Contains("OnRemoveSequence", xaml, StringComparison.Ordinal);
+        Assert.Contains("OnRemoveProgram", xaml, StringComparison.Ordinal);
+        Assert.Contains("OnSequenceKeyDown", xaml, StringComparison.Ordinal);
+        Assert.Contains("OnProgramsKeyDown", xaml, StringComparison.Ordinal);
+        Assert.Contains("IsEnabled=\"{Binding CanRemoveSelectedSequence}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("IsEnabled=\"{Binding CanRemoveSelectedProgram}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("AutomationProperties.LiveSetting=\"Assertive\"", xaml, StringComparison.Ordinal);
         Assert.Contains("AutomationProperties.LiveSetting=\"Polite\"", xaml, StringComparison.Ordinal);
         Assert.Contains("AutomationProperties.LabeledBy", xaml, StringComparison.Ordinal);
