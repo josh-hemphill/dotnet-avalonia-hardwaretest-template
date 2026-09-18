@@ -365,15 +365,22 @@ public partial class ResultsViewModel
         var defaultKind = ProgramCatalog.ResolveDefaultReportKind(run.PlanId);
         if (run.Reports.Count > 0)
         {
-            foreach (var artifact in run.Reports)
+            foreach (var artifact in run.Reports
+                         .OrderBy(a => a.Kind, StringComparer.OrdinalIgnoreCase)
+                         .ThenBy(a => ReportArtifactRoles.IsIssued(a.Role) ? 1 : 0))
             {
+                var issued = ReportArtifactRoles.IsIssued(artifact.Role);
                 ReportItems.Add(new RunReportItemViewModel
                 {
                     Kind = artifact.Kind,
                     Title = string.IsNullOrWhiteSpace(artifact.Title) ? artifact.Kind : artifact.Title,
                     PdfPath = artifact.PdfPath,
                     GeneratedAtText = artifact.GeneratedAt.ToString("u", CultureInfo.InvariantCulture),
-                    IsDefault = string.Equals(artifact.Kind, defaultKind, StringComparison.OrdinalIgnoreCase),
+                    Role = issued ? ReportArtifactRoles.Issued : ReportArtifactRoles.Working,
+                    RoleLabel = issued ? "Issued" : "Working",
+                    IsIssued = issued,
+                    IsDefault = !issued
+                                && string.Equals(artifact.Kind, defaultKind, StringComparison.OrdinalIgnoreCase),
                 });
             }
         }
@@ -385,6 +392,8 @@ public partial class ResultsViewModel
                 Title = "Status Report",
                 PdfPath = run.ReportPdfPath!,
                 GeneratedAtText = string.Empty,
+                Role = ReportArtifactRoles.Working,
+                RoleLabel = "Working",
                 IsDefault = true,
             });
         }
@@ -424,22 +433,20 @@ public partial class ResultsViewModel
         Status = $"Opened default report ({ProgramCatalog.ResolveDefaultReportKind(run.PlanId)}).";
     }
 
-    /// Picks the catalog default kind's PDF, else status, else ReportPdfPath, else first artifact.
+    /// Picks the catalog default kind's working PDF, else status, else ReportPdfPath, else first working artifact.
     public static string? ResolveDefaultReportPath(TestRunRecord run)
     {
         var defaultKind = ProgramCatalog.ResolveDefaultReportKind(run.PlanId);
-        var byKind = run.Reports.FirstOrDefault(r =>
-            string.Equals(r.Kind, defaultKind, StringComparison.OrdinalIgnoreCase));
-        if (byKind is not null && !string.IsNullOrWhiteSpace(byKind.PdfPath))
+        var byKind = ReportAttestationService.ResolveWorkingPdfPath(run, defaultKind);
+        if (!string.IsNullOrWhiteSpace(byKind))
         {
-            return byKind.PdfPath;
+            return byKind;
         }
 
-        var status = run.Reports.FirstOrDefault(r =>
-            string.Equals(r.Kind, ReportKinds.Status, StringComparison.OrdinalIgnoreCase));
-        if (status is not null && !string.IsNullOrWhiteSpace(status.PdfPath))
+        var status = ReportAttestationService.ResolveWorkingPdfPath(run, ReportKinds.Status);
+        if (!string.IsNullOrWhiteSpace(status))
         {
-            return status.PdfPath;
+            return status;
         }
 
         if (!string.IsNullOrWhiteSpace(run.ReportPdfPath))
@@ -447,7 +454,8 @@ public partial class ResultsViewModel
             return run.ReportPdfPath;
         }
 
-        return run.Reports.FirstOrDefault()?.PdfPath;
+        return run.Reports.FirstOrDefault(r => ReportArtifactRoles.IsWorking(r.Role))?.PdfPath
+               ?? run.Reports.FirstOrDefault()?.PdfPath;
     }
 
     private Task OpenReportAsync(RunReportItemViewModel? item)
@@ -490,9 +498,17 @@ public partial class ResultsViewModel
                     history = await _dutHistory.AnalyzeAsync(run);
                 }
 
-                var kinds = run.Reports.Count > 0
-                    ? run.Reports.Select(r => r.Kind).Distinct(StringComparer.OrdinalIgnoreCase).ToArray()
-                    : ProgramCatalog.ResolveReportKinds(run.PlanId);
+                IReadOnlyList<string> kinds = run.Reports
+                    .Where(r => ReportArtifactRoles.IsWorking(r.Role))
+                    .Select(r => r.Kind)
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToArray();
+                if (kinds.Count == 0)
+                {
+                    kinds = run.Reports.Count > 0
+                        ? run.Reports.Select(r => r.Kind).Distinct(StringComparer.OrdinalIgnoreCase).ToArray()
+                        : ProgramCatalog.ResolveReportKinds(run.PlanId);
+                }
                 var artifacts = await _reportService.GenerateReportsAsync(run, kinds, history);
                 OpenedRun = run;
                 LoadReportItems(run);

@@ -695,13 +695,15 @@ public sealed class ResultsViewModelTests
 
         await vm.CaptureAttestationCommand.ExecuteAsync();
         Assert.False(vm.ShowAttestationPrompt);
-        Assert.Equal(pdf, printReady);
+        var issued = ReportAttestationService.ResolveIssuedPdfPath(run, ReportKinds.Certification);
+        Assert.False(string.IsNullOrWhiteSpace(issued));
+        Assert.Equal(issued, printReady);
         Assert.Equal(AttestationKind.Presence, run.Attestations[0].Kind);
 
         printReady = null;
         await vm.RequestCertifiedPrintAsync(pdf);
         Assert.False(vm.ShowAttestationPrompt);
-        Assert.Equal(pdf, printReady);
+        Assert.Equal(issued, printReady);
     }
 
     [Fact]
@@ -811,6 +813,135 @@ public sealed class ResultsViewModelTests
             ],
         };
         Assert.Equal("s.pdf", ResultsViewModel.ResolveDefaultReportPath(run));
+    }
+
+    [Fact]
+    public void ResolveDefaultReportPath_prefers_working_when_issued_exists()
+    {
+        var run = new TestRunRecord
+        {
+            PlanId = "sample",
+            Reports =
+            [
+                new RunReportArtifact
+                {
+                    Kind = ReportKinds.Status,
+                    PdfPath = "issued/status.pdf",
+                    Role = ReportArtifactRoles.Issued,
+                },
+                new RunReportArtifact
+                {
+                    Kind = ReportKinds.Status,
+                    PdfPath = "status.pdf",
+                    Role = ReportArtifactRoles.Working,
+                },
+            ],
+        };
+        Assert.Equal("status.pdf", ResultsViewModel.ResolveDefaultReportPath(run));
+    }
+
+    [Fact]
+    public void CollectExportReportFiles_uses_issued_as_canonical_pdf()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "ht-export-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(Path.Combine(root, "issued"));
+        var working = Path.Combine(root, "certification.pdf");
+        var issued = Path.Combine(root, "issued", "certification.pdf");
+        File.WriteAllText(working, "working");
+        File.WriteAllText(issued, "issued");
+        try
+        {
+            var run = new TestRunRecord
+            {
+                Reports =
+                [
+                    new RunReportArtifact
+                    {
+                        Kind = ReportKinds.Certification,
+                        PdfPath = working,
+                        Role = ReportArtifactRoles.Working,
+                    },
+                    new RunReportArtifact
+                    {
+                        Kind = ReportKinds.Certification,
+                        PdfPath = issued,
+                        Role = ReportArtifactRoles.Issued,
+                    },
+                ],
+            };
+
+            var files = ResultsViewModel.CollectExportReportFiles(run).ToList();
+            Assert.Contains(files, f => f.SourcePath == issued && f.RelativeName == "certification.pdf");
+            Assert.Contains(files, f => f.SourcePath == working && f.RelativeName == Path.Combine("working", "certification.pdf"));
+        }
+        finally
+        {
+            try
+            {
+                Directory.Delete(root, recursive: true);
+            }
+            catch (IOException ex)
+            {
+                System.Diagnostics.Trace.TraceWarning($"Could not delete temp export files '{root}': {ex.Message}");
+            }
+        }
+    }
+
+    [Fact]
+    public async Task Report_list_shows_working_and_issued()
+    {
+        var store = new FakeRunStore();
+        var dir = store.GetRunDirectory("both-1");
+        Directory.CreateDirectory(Path.Combine(dir, ReportArtifactRoles.DirectoryName));
+        var working = Path.Combine(dir, "certification.pdf");
+        var issued = Path.Combine(dir, ReportArtifactRoles.DirectoryName, "certification.pdf");
+        await File.WriteAllTextAsync(working, "working");
+        await File.WriteAllTextAsync(issued, "issued");
+        store.Seed(new TestRunRecord
+        {
+            RunId = "both-1",
+            PlanId = "sample",
+            PlanName = "Sample",
+            StartedAt = DateTimeOffset.UtcNow,
+            Result = RunResult.Passed,
+            Reports =
+            [
+                new RunReportArtifact
+                {
+                    Kind = ReportKinds.Certification,
+                    Title = "Certification Report",
+                    PdfPath = working,
+                    Role = ReportArtifactRoles.Working,
+                    GeneratedAt = DateTimeOffset.UtcNow,
+                },
+                new RunReportArtifact
+                {
+                    Kind = ReportKinds.Certification,
+                    Title = "Certification Report",
+                    PdfPath = issued,
+                    Role = ReportArtifactRoles.Issued,
+                    GeneratedAt = DateTimeOffset.UtcNow,
+                },
+            ],
+        });
+
+        var vm = new ResultsViewModel(store, new FakeReportService());
+        await vm.RefreshCommand.ExecuteAsync();
+        vm.SelectedRun = vm.Runs[0];
+        await vm.OpenCommand.ExecuteAsync();
+
+        Assert.Equal(2, vm.ReportItems.Count);
+        Assert.Contains(vm.ReportItems, r => r.RoleLabel == "Working" && r.PdfPath == working && !r.IsIssued);
+        Assert.Contains(vm.ReportItems, r => r.RoleLabel == "Issued" && r.PdfPath == issued && r.IsIssued);
+        Assert.DoesNotContain(vm.ReportItems, r => r.IsDefault);
+    }
+
+    [Fact]
+    public void GuessRunIdFromPdfPath_walks_up_from_issued_folder()
+    {
+        var issued = Path.Combine("runs", "run-abc", ReportArtifactRoles.DirectoryName, "certification.pdf");
+        Assert.Equal("run-abc", ReportAttestationService.GuessRunIdFromPdfPath(issued));
+        Assert.Equal("run-abc", ReportAttestationService.GuessRunIdFromPdfPath(Path.Combine("runs", "run-abc", "certification.pdf")));
     }
 
     [Fact]
