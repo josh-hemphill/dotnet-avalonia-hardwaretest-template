@@ -157,23 +157,32 @@ public sealed partial class AuthoringWorkspaceViewModel
 
     private int NearestSelectableIndex(int from)
     {
+        var section = from >= 0 && from < _sequenceItems.Count
+            ? _sequenceItems[from].Section
+            : (SequenceSection?)null;
+        var sameSection = FindNearestSelectable(from, row => row.Section == section);
+        return sameSection >= 0
+            ? sameSection
+            : FindNearestSelectable(from, _ => true);
+    }
+
+    private int FindNearestSelectable(int from, Func<SequenceRow, bool> match)
+    {
         var best = -1;
         var bestDistance = int.MaxValue;
         for (var i = 0; i < _sequenceItems.Count; i++)
         {
-            if (!_sequenceItems[i].IsSelectable)
+            if (!_sequenceItems[i].IsSelectable || !match(_sequenceItems[i]))
             {
                 continue;
             }
 
             var distance = Math.Abs(i - from);
-            if (distance > bestDistance)
+            if (distance < bestDistance)
             {
-                continue;
+                best = i;
+                bestDistance = distance;
             }
-
-            best = i;
-            bestDistance = distance;
         }
 
         return best;

@@ -128,9 +128,14 @@ public sealed partial class AuthoringWorkspaceViewModel
 
     public string FormulaSource
     {
-        get => SelectedMetric?.Source is ExpressionAlgorithm expr ? expr.Source : string.Empty;
+        get => HasFormula && SelectedMetric?.Source is ExpressionAlgorithm expr ? expr.Source : string.Empty;
         set
         {
+            if (!HasFormula)
+            {
+                return;
+            }
+
             UpdateSelectedMetric(metric =>
             {
                 if (metric.Source is not ExpressionAlgorithm existing)
@@ -160,7 +165,7 @@ public sealed partial class AuthoringWorkspaceViewModel
     {
         get
         {
-            if (SelectedMetric?.Source is not ExpressionAlgorithm expr)
+            if (!HasFormula || SelectedMetric?.Source is not ExpressionAlgorithm expr)
             {
                 return string.Empty;
             }
@@ -232,7 +237,18 @@ public sealed partial class AuthoringWorkspaceViewModel
         }
 
         var imported = TfModelImporter.Load(path);
-        var metric = new MetricDraft(
+        if (HasTransferFunction)
+        {
+            UpdateSelectedMetric(metric => metric with
+            {
+                ChannelKey = imported.OutputChannelKey,
+                DisplayRole = PresentationRoles.Timeseries,
+                Source = imported.Algorithm,
+            });
+            return;
+        }
+
+        var created = new MetricDraft(
             "Transfer Function",
             imported.OutputChannelKey,
             PresentationRoles.Timeseries,
@@ -240,12 +256,12 @@ public sealed partial class AuthoringWorkspaceViewModel
             null,
             null,
             imported.Algorithm);
-        ReplaceSelected(SelectedProgram with { Measure = [.. SelectedProgram.Measure, new MetricNode(metric)] });
+        ReplaceSelected(SelectedProgram with { Measure = [.. SelectedProgram.Measure, new MetricNode(created)] });
         SelectedMeasureIndex = SelectedProgram.Measure.Count - 1;
     }
 
     private TransferFunctionAlgorithm? SelectedTf
-        => SelectedMetric?.Source as TransferFunctionAlgorithm;
+        => HasTransferFunction ? SelectedMetric?.Source as TransferFunctionAlgorithm : null;
 
     public string VisaAddress
     {
@@ -263,9 +279,9 @@ public sealed partial class AuthoringWorkspaceViewModel
         }
     }
 
-    public string RawTypeName => SelectedMeasure is RawStepNode raw ? raw.TypeName : string.Empty;
+    public string RawTypeName => HasRawStep && SelectedMeasure is RawStepNode raw ? raw.TypeName : string.Empty;
 
-    public string RawXml => SelectedMeasure is RawStepNode raw ? raw.XmlFragment : string.Empty;
+    public string RawXml => HasRawStep && SelectedMeasure is RawStepNode raw ? raw.XmlFragment : string.Empty;
 
     public void SelectMeasure(int index)
     {
@@ -433,6 +449,8 @@ public sealed partial class AuthoringWorkspaceViewModel
         OnPropertyChanged(nameof(PromptMessage));
         OnPropertyChanged(nameof(InputTitle));
         OnPropertyChanged(nameof(InputMessage));
+        OnPropertyChanged(nameof(InputStringFieldId));
+        OnPropertyChanged(nameof(InputNumberFieldId));
         OnPropertyChanged(nameof(SetupInstrumentSlot));
         OnPropertyChanged(nameof(CleanupInstrumentSlot));
         OnPropertyChanged(nameof(IncludeSafeShutdown));
