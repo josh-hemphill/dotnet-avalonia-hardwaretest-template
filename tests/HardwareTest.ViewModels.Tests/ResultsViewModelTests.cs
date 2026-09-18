@@ -549,10 +549,16 @@ public sealed class ResultsViewModelTests
             RequireAttestationBeforeExport = true,
             AllowPresenceInLieuOfSigning = false,
         };
+        var original = await File.ReadAllBytesAsync(pdf);
+        var reports = new FakeReportService { PdfPath = pdf };
         var vm = new ResultsViewModel(
             store,
-            new FakeReportService(),
-            attestation: new ReportAttestationService(new PinRequiredMockBroker(), store, settings),
+            reports,
+            attestation: new ReportAttestationService(
+                new PinRequiredMockBroker(),
+                store,
+                settings,
+                reports: new Lazy<IReportService>(() => reports)),
             settings: settings);
         await vm.RefreshCommand.ExecuteAsync();
         vm.SelectedRun = vm.Runs[0];
@@ -562,12 +568,17 @@ public sealed class ResultsViewModelTests
         Assert.True(vm.ShowAttestationPrompt);
         Assert.True(vm.ShowAttestationPin);
         Assert.Empty(run.Attestations);
+        Assert.False(vm.HasAttestation);
+        Assert.Equal(original, await File.ReadAllBytesAsync(pdf));
+        Assert.Equal(1, reports.GenerateCount);
 
         vm.AttestationPin = PinRequiredMockBroker.Pin;
         await vm.CaptureAttestationCommand.ExecuteAsync();
         Assert.False(vm.ShowAttestationPrompt);
         Assert.Equal(AttestationKind.Signed, run.Attestations[0].Kind);
         Assert.Equal(string.Empty, vm.AttestationPin);
+        Assert.True(vm.HasAttestation);
+        Assert.NotEqual(original, await File.ReadAllBytesAsync(pdf));
     }
 
     [Fact]

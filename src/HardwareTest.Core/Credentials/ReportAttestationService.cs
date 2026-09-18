@@ -134,6 +134,7 @@ public sealed class ReportAttestationService : IReportAttestationService
             captured = capture.Credential;
         }
 
+        byte[]? stampedPdf = null;
         if (_reports is not null)
         {
             var overlay = new ReportAttestation
@@ -145,17 +146,14 @@ public sealed class ReportAttestationService : IReportAttestationService
                 Transport = captured.Transport,
                 CapturedAt = captured.CapturedAt == default ? _clock.UtcNow : captured.CapturedAt,
             };
-            await _reports.Value
-                .GenerateReportsAsync(
-                    run,
-                    [targetKind],
-                    cancellationToken: cancellationToken,
-                    compileIdentity: overlay)
+            stampedPdf = await _reports.Value
+                .CompileReportAsync(run, targetKind, cancellationToken, overlay)
                 .ConfigureAwait(false);
         }
 
         var pdfPath = ResolvePdfPath(run, targetKind);
-        if (string.IsNullOrWhiteSpace(pdfPath) || !File.Exists(pdfPath))
+        if (stampedPdf is null
+            && (string.IsNullOrWhiteSpace(pdfPath) || !File.Exists(pdfPath)))
         {
             return new ReportAttestationResult
             {
@@ -165,7 +163,17 @@ public sealed class ReportAttestationService : IReportAttestationService
             };
         }
 
-        var pdfHash = HashFile(pdfPath);
+        if (stampedPdf is { Length: 0 })
+        {
+            return new ReportAttestationResult
+            {
+                Succeeded = false,
+                Message = "Certification PDF compile produced no bytes.",
+                Credential = captured,
+            };
+        }
+
+        var pdfHash = stampedPdf is not null ? HashBytes(stampedPdf) : HashFile(pdfPath!);
         var runJson = JsonSerializer.Serialize(run, AppJsonContext.Default.TestRunRecord);
         var runHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(runJson)));
         var payload = Encoding.UTF8.GetBytes($"{pdfHash}:{runHash}");
@@ -226,9 +234,19 @@ public sealed class ReportAttestationService : IReportAttestationService
         }
 
         var party = sign?.Credential ?? captured;
+        var dir = _runStore.GetRunDirectory(run.RunId);
+        if (stampedPdf is not null)
+        {
+            ReportAttestationService.InvalidateForKinds(run, dir, [targetKind]);
+            pdfPath = string.IsNullOrWhiteSpace(pdfPath)
+                ? Path.Combine(dir, $"{targetKind}.pdf")
+                : pdfPath;
+            await AtomicFile.WriteAllBytesAsync(pdfPath, stampedPdf, cancellationToken).ConfigureAwait(false);
+            UpsertReportArtifact(run, targetKind, pdfPath);
+        }
 
         var sidecarName = $"{targetKind}.attestation.json";
-        var sidecarPath = Path.Combine(_runStore.GetRunDirectory(run.RunId), sidecarName);
+        var sidecarPath = Path.Combine(dir, sidecarName);
         var document = new ReportAttestation
         {
             Kind = kind,
@@ -339,6 +357,30 @@ public sealed class ReportAttestationService : IReportAttestationService
             || error.Contains("No PIV signing certificate", StringComparison.OrdinalIgnoreCase)
             || error.Contains("PIV applet not found", StringComparison.OrdinalIgnoreCase);
     }
+
+    private static void UpsertReportArtifact(TestRunRecord run, string kind, string pdfPath)
+    {
+        var existing = run.Reports.FirstOrDefault(r =>
+            string.Equals(r.Kind, kind, StringComparison.OrdinalIgnoreCase));
+        if (existing is null)
+        {
+            run.Reports.Add(new RunReportArtifact
+            {
+                Kind = kind,
+                Title = string.Equals(kind, ReportKinds.Certification, StringComparison.OrdinalIgnoreCase)
+                    ? "Certification Report"
+                    : "Status Report",
+                PdfPath = pdfPath,
+                GeneratedAt = DateTimeOffset.UtcNow,
+            });
+            return;
+        }
+
+        existing.PdfPath = pdfPath;
+        existing.GeneratedAt = DateTimeOffset.UtcNow;
+    }
+
+    private static string HashBytes(byte[] bytes) => Convert.ToHexString(SHA256.HashData(bytes));
 
     private static string HashFile(string path)
     {

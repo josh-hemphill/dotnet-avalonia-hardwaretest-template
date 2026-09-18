@@ -22,6 +22,12 @@ public interface IReportService
         ReportAttestation? compileIdentity = null);
     Task<string> GenerateSuitePdfAsync(SuiteRunRecord suiteRun, CancellationToken cancellationToken = default);
     Task<byte[]> CompileTemplateAsync(TestRunRecord run, CancellationToken cancellationToken = default);
+    /// Compiles one kind with an optional overlay and does not write run files or invalidate stamps.
+    Task<byte[]> CompileReportAsync(
+        TestRunRecord run,
+        string kind,
+        CancellationToken cancellationToken = default,
+        ReportAttestation? compileIdentity = null);
 }
 
 /// Compiles Typst templates to PDF and writes them beside run folders.
@@ -141,6 +147,26 @@ public sealed class TypstReportService : IReportService, IDisposable
                 KindTitle(ReportKinds.Status),
                 cancellationToken),
             cancellationToken);
+
+    public Task<byte[]> CompileReportAsync(
+        TestRunRecord run,
+        string kind,
+        CancellationToken cancellationToken = default,
+        ReportAttestation? compileIdentity = null)
+    {
+        var normalized = NormalizeKinds([kind]);
+        var resolved = normalized[0];
+        return Task.Run(
+            () => CompileTemplateCore(
+                run,
+                ResolveTemplateName(resolved),
+                resolved,
+                history: null,
+                KindTitle(resolved),
+                cancellationToken,
+                compileIdentity),
+            cancellationToken);
+    }
 
     /// Replaces only the regenerated kinds so a certification restamp keeps status PDFs.
     private static void MergeGeneratedArtifacts(TestRunRecord run, List<RunReportArtifact> artifacts)

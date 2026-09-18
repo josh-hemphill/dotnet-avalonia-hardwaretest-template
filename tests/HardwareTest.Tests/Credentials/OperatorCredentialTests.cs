@@ -245,8 +245,10 @@ public sealed class ReportAttestationServiceTests
         using var temp = new TempDataDirectory();
         var store = new FileRunStore(temp.RunsDirectory);
         var run = await SeedCertificationRunAsync(store);
+        var originalCertBytes = await File.ReadAllBytesAsync(run.Reports.Single(r => r.Kind == ReportKinds.Certification).PdfPath);
         using var card = FakePivCard.CreateRsa2048();
         var broker = new ScriptedPivBroker(card);
+        var reports = new RecordingReportService();
         var service = new ReportAttestationService(
             broker,
             store,
@@ -254,12 +256,15 @@ public sealed class ReportAttestationServiceTests
             {
                 RequireAttestationBeforeExport = true,
                 AllowPresenceInLieuOfSigning = false,
-            });
+            },
+            reports: new Lazy<IReportService>(() => reports));
 
         var first = await service.AttestAsync(run, ReportKinds.Certification);
         Assert.True(first.PinRequired);
         Assert.False(first.Succeeded);
         Assert.Empty(run.Attestations);
+        Assert.Equal(originalCertBytes, await File.ReadAllBytesAsync(run.Reports.Single(r => r.Kind == ReportKinds.Certification).PdfPath));
+        Assert.Equal(1, reports.GenerateCount);
 
         var signed = await service.AttestAsync(
             run,
@@ -270,6 +275,10 @@ public sealed class ReportAttestationServiceTests
         Assert.Equal(AttestationKind.Signed, signed.Attestation!.Kind);
         Assert.Equal(AttestationAlgorithm.PivRsaPkcs1Sha256, signed.Attestation.Algorithm);
         Assert.True(service.HasValidAttestation(run, ReportKinds.Certification));
+        Assert.Equal(2, reports.GenerateCount);
+        var stamped = await File.ReadAllBytesAsync(run.Reports.Single(r => r.Kind == ReportKinds.Certification).PdfPath);
+        Assert.NotEqual(originalCertBytes, stamped);
+        Assert.Contains(MockOperatorCredentialBroker.MockDisplayName, Encoding.UTF8.GetString(stamped), StringComparison.Ordinal);
         var sidecar = await File.ReadAllTextAsync(signed.Attestation.SidecarPath!);
         Assert.Contains("certificateBase64", sidecar, StringComparison.Ordinal);
     }
@@ -329,8 +338,10 @@ public sealed class ReportAttestationServiceTests
         using var temp = new TempDataDirectory();
         var store = new FileRunStore(temp.RunsDirectory);
         var run = await SeedCertificationRunAsync(store);
+        var original = await File.ReadAllBytesAsync(run.Reports[0].PdfPath);
         using var card = FakePivCard.CreateRsa2048();
         card.FailVerifyAsSecurityStatus = true;
+        var reports = new RecordingReportService();
         var service = new ReportAttestationService(
             new ScriptedPivBroker(card),
             store,
@@ -338,7 +349,8 @@ public sealed class ReportAttestationServiceTests
             {
                 RequireAttestationBeforeExport = true,
                 AllowPresenceInLieuOfSigning = true,
-            });
+            },
+            reports: new Lazy<IReportService>(() => reports));
         var result = await service.AttestAsync(
             run,
             ReportKinds.Certification,
@@ -346,6 +358,7 @@ public sealed class ReportAttestationServiceTests
         Assert.False(result.Succeeded);
         Assert.Contains("Insert the chip", result.Message, StringComparison.OrdinalIgnoreCase);
         Assert.Empty(run.Attestations);
+        Assert.Equal(original, await File.ReadAllBytesAsync(run.Reports[0].PdfPath));
     }
 
     [Fact]
@@ -501,6 +514,20 @@ internal sealed class RecordingReportService : IReportService
 
     public Task<byte[]> CompileTemplateAsync(TestRunRecord run, CancellationToken cancellationToken = default)
         => throw new NotSupportedException();
+
+    public Task<byte[]> CompileReportAsync(
+        TestRunRecord run,
+        string kind,
+        CancellationToken cancellationToken = default,
+        ReportAttestation? compileIdentity = null)
+    {
+        GenerateCount++;
+        LastIdentity = compileIdentity;
+        _ = run;
+        _ = kind;
+        var stamp = compileIdentity?.DisplayName ?? "unsigned";
+        return Task.FromResult(Encoding.UTF8.GetBytes("%PDF-1.4 " + stamp));
+    }
 }
 
 internal sealed class ScriptedPivBroker : IOperatorCredentialBroker

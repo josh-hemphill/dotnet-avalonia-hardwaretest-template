@@ -1671,6 +1671,21 @@ public sealed class FakeReportService : IReportService
 
     public Task<byte[]> CompileTemplateAsync(TestRunRecord run, CancellationToken cancellationToken = default)
         => Task.FromResult("%PDF-fake"u8.ToArray());
+
+    public Task<byte[]> CompileReportAsync(
+        TestRunRecord run,
+        string kind,
+        CancellationToken cancellationToken = default,
+        ReportAttestation? compileIdentity = null)
+    {
+        _ = run;
+        _ = cancellationToken;
+        GenerateCount++;
+        LastKinds = [kind];
+        LastCompileIdentity = compileIdentity;
+        var stamp = compileIdentity?.DisplayName ?? "unsigned";
+        return Task.FromResult(Encoding.UTF8.GetBytes("%PDF-1.4 " + stamp));
+    }
 }
 
 public sealed class FakeRunStore : IRunStore
