@@ -209,6 +209,8 @@ public sealed partial class AuthoringWorkspaceViewModel
             OnPropertyChanged(nameof(SequenceItems));
         }
 
+        RaiseRawStepProperties();
+
         var restored = AuthoringSequence.IndexOfKey(_sequenceItems, _selectedSequenceKey);
         if (restored < 0)
         {

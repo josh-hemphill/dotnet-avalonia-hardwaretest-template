@@ -164,6 +164,7 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
         RefreshDatasets();
         RememberLastWorkspace(files.Root);
         RaiseSidecarProperties();
+        RefreshPackPreview();
     }
 
     public void SelectProgram(string planId)
@@ -396,6 +397,9 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
             Workspace,
             outputDirectory,
             options ?? new PackOptions { Offline = true });
+        RefreshPackPreview();
+        _packPreview = WorkspacePackPlan.WithLastPack(_packPreview, manifest, outputDirectory);
+        RaisePackPreviewProperties();
         Status = $"Packed {manifest.PackageName} {manifest.Version}";
         Error = null;
         return manifest;
@@ -411,6 +415,7 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
         var home = new OpenTapHomeBootstrapper().Bootstrap(Workspace, ResolveBootstrapOptions(options));
         Status = $"OpenTAP home {home.Root}";
         Error = null;
+        RefreshPackPreview();
         return home;
     }
 
