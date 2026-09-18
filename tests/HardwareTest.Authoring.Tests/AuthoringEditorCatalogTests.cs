@@ -135,8 +135,8 @@ public sealed class AuthoringProgramSettingsViewModelTests
         vm.NewRequiredField = "fixtureId";
         vm.AddRequiredField();
         Assert.Contains("fixtureId", vm.SelectedProgram.Sidecar.RequiredFields!);
-        Assert.Contains("fixtureId", vm.RequiredFieldOptions);
-        Assert.True(vm.RequiredFieldChoices.Single(row => row.Id == "fixtureId").Included);
+        Assert.Contains(RequiredFieldIds.Serial, vm.SelectedProgram.Sidecar.RequiredFields!);
+        Assert.True(vm.SelectedProgram.Sidecar.RequireSerial);
         Assert.True(vm.RequireSerial);
         Assert.Contains("fixtureId", vm.Workspace!.Manifest.Catalogs!.RequiredFields);
         var reloaded = AuthoringWorkspaceLoader.Load(vm.Workspace.Root);

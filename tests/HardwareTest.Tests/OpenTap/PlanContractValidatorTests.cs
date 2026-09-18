@@ -450,6 +450,26 @@ public sealed class PlanContractValidatorTests
     }
 
     [Fact]
+    public void Validate_required_fields_serial_without_bool_still_needs_identity()
+    {
+        using var dir = new TempPlanDir();
+        PlanShapeFixtures.SaveAllBeside(dir.Path);
+        var planId = Path.GetFileNameWithoutExtension(PlanShapeFixtures.DeepNestName);
+        File.WriteAllText(
+            Path.Combine(dir.Path, $"{planId}.program.json"),
+            """{ "requiredFields": ["serial"], "selectionIncludesCleanup": true }""");
+        var withSerial = PlanContractValidator.ValidateFile(Path.Combine(dir.Path, PlanShapeFixtures.DeepNestName));
+        Assert.Contains(withSerial.Findings, f => f.Code == PlanContractValidator.Codes.MissingIdentity
+            && f.Severity == PlanContractSeverity.Error);
+
+        File.WriteAllText(
+            Path.Combine(dir.Path, $"{planId}.program.json"),
+            """{ "requireSerial": true, "requiredFields": ["revision"], "selectionIncludesCleanup": true }""");
+        var listWins = PlanContractValidator.ValidateFile(Path.Combine(dir.Path, PlanShapeFixtures.DeepNestName));
+        Assert.DoesNotContain(listWins.Findings, f => f.Code == PlanContractValidator.Codes.MissingIdentity);
+    }
+
+    [Fact]
     public void Validate_require_serial_identity_without_dut_is_error()
     {
         using var dir = new TempPlanDir();

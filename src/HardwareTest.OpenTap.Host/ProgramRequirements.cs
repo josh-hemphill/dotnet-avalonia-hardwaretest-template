@@ -43,8 +43,11 @@ public static class RequiredFieldIds
         [Serial, PartNumber, Revision, Operator];
 
     public static bool IsKnown(string? id)
-        => !string.IsNullOrWhiteSpace(id)
-           && Known.Any(known => string.Equals(known, id, StringComparison.OrdinalIgnoreCase));
+    {
+        var token = id?.Trim();
+        return !string.IsNullOrWhiteSpace(token)
+               && Known.Any(known => string.Equals(known, token, StringComparison.OrdinalIgnoreCase));
+    }
 
     public static IReadOnlyList<string> FromSidecar(ProgramSidecar sidecar)
     {
