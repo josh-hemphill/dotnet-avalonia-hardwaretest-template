@@ -82,6 +82,7 @@ public sealed class AuthoringChromeA11yTests
         var xaml = File.ReadAllText(Path.Combine(FindRepoRoot(), "src", "HardwareTest.Authoring", "SettingsView.axaml"));
         var csproj = File.ReadAllText(Path.Combine(FindRepoRoot(), "src", "HardwareTest.Authoring", "HardwareTest.Authoring.csproj"));
         Assert.Contains("SelectedItem=\"{Binding ThemePreference}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("LastWorkspacePath, Mode=OneWay", xaml, StringComparison.Ordinal);
         Assert.Contains("AutomationProperties.LabeledBy", xaml, StringComparison.Ordinal);
         Assert.Contains("ToolTip.Tip", xaml, StringComparison.Ordinal);
         Assert.Contains("Show raw step XML", xaml, StringComparison.Ordinal);

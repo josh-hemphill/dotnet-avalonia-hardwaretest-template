@@ -35,7 +35,14 @@ public sealed partial class AuthoringWorkspaceViewModel
                  ?? string.Empty;
         set
         {
-            if (SetField(ref _selectedInstrumentSlot, value))
+            var slot = value?.Trim() ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(slot)
+                || string.Equals(SelectedInstrumentSlot, slot, StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            if (SetField(ref _selectedInstrumentSlot, slot))
             {
                 OnPropertyChanged(nameof(SelectedInstrumentVisa));
                 OnPropertyChanged(nameof(SelectedInstrument));

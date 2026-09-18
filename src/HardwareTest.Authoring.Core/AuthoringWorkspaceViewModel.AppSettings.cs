@@ -21,6 +21,11 @@ public sealed partial class AuthoringWorkspaceViewModel
         get => AuthoringThemePreference.Normalize(Prefs.ThemePreference);
         set
         {
+            if (value is null)
+            {
+                return;
+            }
+
             var theme = AuthoringThemePreference.Normalize(value);
             if (PreferencesReadOnly || string.Equals(Prefs.ThemePreference, theme, StringComparison.Ordinal))
             {

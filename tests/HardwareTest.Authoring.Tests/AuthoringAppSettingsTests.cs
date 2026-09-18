@@ -32,6 +32,8 @@ public sealed class AuthoringAppSettingsTests
         string? seen = null;
         vm.ThemePreferenceChanged += theme => seen = theme;
         vm.ThemePreference = "dark";
+        vm.ThemePreference = null!;
+        Assert.Equal(AuthoringThemePreference.Dark, vm.ThemePreference);
         vm.ShowRawStepXml = false;
 
         Assert.Equal(AuthoringThemePreference.Dark, seen);
@@ -127,6 +129,22 @@ public sealed class AuthoringAppSettingsTests
         vm.SelectedInstrument = vm.SelectedInstrument;
         Assert.Same(program, vm.SelectedProgram);
         Assert.Same(programs, vm.Programs);
+
+        var changed = new List<string>();
+        vm.PropertyChanged += (_, e) =>
+        {
+            if (!string.IsNullOrEmpty(e.PropertyName))
+            {
+                changed.Add(e.PropertyName);
+            }
+        };
+        var displayed = vm.SelectedInstrumentSlot;
+        vm.SelectedInstrumentSlot = displayed;
+        vm.SelectedInstrumentSlot = null!;
+        vm.SelectedInstrument = new InstrumentRef(displayed, "other-type", "MOCK::OTHER");
+        Assert.DoesNotContain("SelectedInstrumentSlot", changed);
+        Assert.DoesNotContain("SelectedInstrument", changed);
+        Assert.DoesNotContain("SelectedInstrumentVisa", changed);
     }
 
     [Fact]

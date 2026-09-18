@@ -38,7 +38,7 @@
                ToolTip.Tip="Used when Bootstrap has no --opentap-home / HomeDirectory. Headless --opentap-home still wins." />
 
       <TextBlock x:Name="LastWorkspaceLabel" Text="Last workspace" />
-      <TextBox Text="{Binding LastWorkspacePath}"
+      <TextBox Text="{Binding LastWorkspacePath, Mode=OneWay}"
                IsReadOnly="True"
                AutomationProperties.Name="Last workspace"
                AutomationProperties.LabeledBy="{Binding #LastWorkspaceLabel}"
