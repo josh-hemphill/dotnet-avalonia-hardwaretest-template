@@ -27,6 +27,7 @@
     <ProjectReference Include="..\HardwareTest.ShellApps.Notes\HardwareTest.ShellApps.Notes.csproj" />
     <ProjectReference Include="..\HardwareTest.OpenTap.Host\HardwareTest.OpenTap.Host.csproj" />
     <ProjectReference Include="..\HardwareTest.OpenTap.Worker\HardwareTest.OpenTap.Worker.csproj" />
+    <ProjectReference Include="..\HardwareTest.Widgets\HardwareTest.Widgets.csproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -50,7 +51,6 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
     <PackageReference Include="FluentAvaloniaUI" Version="3.0.2" />
-    <PackageReference Include="ScottPlot.Avalonia" Version="5.1.59" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.10" />
     <PackageReference Include="PDFtoImage" Version="5.2.1" />
     <PackageReference Include="System.Reactive" Version="6.1.0" />

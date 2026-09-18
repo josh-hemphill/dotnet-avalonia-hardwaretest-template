@@ -75,6 +75,9 @@ public sealed partial class AuthoringWorkspaceViewModel
 
     public string PreviewKind => Preview.TileKind?.ToString() ?? "Text";
 
+    public AuthoringPreviewChrome PreviewChrome
+        => AuthoringPreviewChromeBuilder.From(Preview, SelectedDataset?.Run.Events);
+
     public string PreviewNote
     {
         get
@@ -445,6 +448,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         OnPropertyChanged(nameof(SelectedMetric));
         OnPropertyChanged(nameof(Preview));
         OnPropertyChanged(nameof(PreviewKind));
+        OnPropertyChanged(nameof(PreviewChrome));
         OnPropertyChanged(nameof(PreviewNote));
         OnPropertyChanged(nameof(ChannelKey));
         OnPropertyChanged(nameof(DisplayRole));

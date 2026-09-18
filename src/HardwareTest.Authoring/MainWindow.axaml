@@ -413,12 +413,7 @@
             </ScrollViewer>
 
             <StackPanel Grid.Row="1" Grid.Column="2" Spacing="8">
-              <TextBlock Text="{Binding PreviewKind, StringFormat='Tile: {0}'}" />
-              <TextBlock Text="{Binding Preview.ChannelKey, StringFormat='Channel: {0}'}" />
-              <TextBlock Text="{Binding Preview.DisplayRole, StringFormat='Role: {0}'}" />
-              <TextBlock Text="{Binding Preview.YUnit, StringFormat='Unit: {0}'}" />
-              <TextBlock Text="{Binding Preview.CannedValue, StringFormat='Value: {0}'}" />
-              <TextBlock Text="{Binding PreviewNote}" TextWrapping="Wrap" />
+              <vm:OperatorPreviewPane />
               <TextBlock x:Name="RecordingsHeading"
                          FontWeight="SemiBold"
                          Text="Recordings"
@@ -429,10 +424,6 @@
                        KeyboardNavigation.TabNavigation="Once"
                        AutomationProperties.Name="Recordings"
                        AutomationProperties.LabeledBy="{Binding #RecordingsHeading}" />
-              <ListBox ItemsSource="{Binding Preview.CannedSamples}"
-                       Height="120"
-                       KeyboardNavigation.TabNavigation="Once"
-                       AutomationProperties.Name="Preview samples" />
             </StackPanel>
           </Grid>
         </TabItem>

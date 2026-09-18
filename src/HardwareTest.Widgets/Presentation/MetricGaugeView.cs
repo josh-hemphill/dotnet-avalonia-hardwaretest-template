@@ -3,7 +3,6 @@ using Avalonia.Controls;
 using Avalonia.Controls.Shapes;
 using Avalonia.Layout;
 using Avalonia.Media;
-using HardwareTest.Features.Presentation;
 
 namespace HardwareTest.Widgets.Presentation;
 
@@ -62,7 +61,7 @@ public sealed class MetricGaugeView : UserControl
 
     private void BindFromContext()
     {
-        if (DataContext is not PresentationTileViewModel tile)
+        if (DataContext is not IMetricGaugeSource tile)
         {
             return;
         }
@@ -80,7 +79,7 @@ public sealed class MetricGaugeView : UserControl
 
     private void OnTilePropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
-        if (DataContext is not PresentationTileViewModel tile)
+        if (DataContext is not IMetricGaugeSource tile)
         {
             return;
         }
@@ -92,7 +91,7 @@ public sealed class MetricGaugeView : UserControl
         UpdateBand(tile);
     }
 
-    private void UpdateBand(PresentationTileViewModel tile)
+    private void UpdateBand(IMetricGaugeSource tile)
     {
         if (!tile.ShowBand)
         {

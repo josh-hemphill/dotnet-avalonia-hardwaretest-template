@@ -149,6 +149,34 @@ public sealed class ArchitectureRulesTests
     }
 
     [Fact]
+    public void Authoring_exe_must_not_reference_operator_exe()
+    {
+        var csproj = Path.Combine(FindRepoRoot(), "src", "HardwareTest.Authoring", "HardwareTest.Authoring.csproj");
+        Assert.True(File.Exists(csproj), csproj);
+        var refs = XDocument.Load(csproj)
+            .Descendants("ProjectReference")
+            .Select(e => (e.Attribute("Include")?.Value ?? string.Empty).Replace('\\', '/'))
+            .ToArray();
+        Assert.DoesNotContain(
+            refs,
+            path => path.EndsWith("/HardwareTest/HardwareTest.csproj", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(Path.GetFileName(path), "HardwareTest.csproj", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void Authoring_and_operator_share_widgets_project()
+    {
+        var repo = FindRepoRoot();
+        var authoring = File.ReadAllText(Path.Combine(repo, "src", "HardwareTest.Authoring", "HardwareTest.Authoring.csproj"));
+        var op = File.ReadAllText(Path.Combine(repo, "src", "HardwareTest", "HardwareTest.csproj"));
+        var widgets = File.ReadAllText(Path.Combine(repo, "src", "HardwareTest.Widgets", "HardwareTest.Widgets.csproj"));
+        Assert.Contains("HardwareTest.Widgets", authoring, StringComparison.Ordinal);
+        Assert.Contains("HardwareTest.Widgets", op, StringComparison.Ordinal);
+        Assert.DoesNotContain("HardwareTest.OpenTap.Worker", widgets, StringComparison.Ordinal);
+        Assert.DoesNotContain("HardwareTest.Authoring", widgets, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Authoring_exe_is_not_a_shell_application()
     {
         var src = Path.Combine(FindRepoRoot(), "src", "HardwareTest.Authoring");

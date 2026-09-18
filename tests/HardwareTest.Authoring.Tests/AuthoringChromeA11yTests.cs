@@ -13,6 +13,8 @@ public sealed class AuthoringChromeA11yTests
         Assert.Contains("Text=\"{Binding SequenceTitle}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Text=\"{Binding InspectorTitle}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Text=\"{Binding PreviewTitle}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("<vm:OperatorPreviewPane", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("AutomationProperties.Name=\"Preview samples\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Header=\"{Binding ProgramSettingsTitle}\"", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("AutomationProperties.Name=\"Settings tab\"", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("<vm:SettingsView", xaml, StringComparison.Ordinal);
@@ -75,7 +77,7 @@ public sealed class AuthoringChromeA11yTests
         Assert.Contains("KeyboardNavigation.TabNavigation=\"Once\"", sequenceBlock, StringComparison.Ordinal);
         Assert.True(
             CountOccurrences(xaml, "KeyboardNavigation.TabNavigation=\"Once\"") >= 4,
-            "Sequence, recordings, preview samples, findings, and instruments lists should leave on Tab.");
+            "Sequence, recordings, findings, and instruments lists should leave on Tab.");
     }
 
     [Fact]
