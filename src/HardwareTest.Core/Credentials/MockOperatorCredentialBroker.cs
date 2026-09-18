@@ -27,6 +27,7 @@ public sealed class MockOperatorCredentialBroker : IOperatorCredentialBroker
 
     public bool IsMock => true;
     public bool CanSign { get; set; }
+    public bool ProducesCms => false;
     public string? SigningAlgorithm => CanSign ? MockAlgorithm : null;
     public string StatusText => CanSign
         ? "Mock badge ready (tap presence and signing)."

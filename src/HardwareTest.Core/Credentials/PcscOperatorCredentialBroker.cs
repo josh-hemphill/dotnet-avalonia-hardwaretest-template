@@ -16,6 +16,7 @@ public sealed class PcscOperatorCredentialBroker : IOperatorCredentialBroker
 
     public bool IsMock => false;
     public bool CanSign => true;
+    public bool ProducesCms => true;
     public string? SigningAlgorithm => AttestationAlgorithm.PivRsaPkcs1Sha256;
     public string StatusText { get; private set; } = "PC/SC not queried yet.";
 
@@ -160,6 +161,117 @@ public sealed class PcscOperatorCredentialBroker : IOperatorCredentialBroker
                     credential,
                     serial,
                     printedName);
+                if (result.Succeeded || result.PinRequired || result.PinRetriesRemaining is not null)
+                {
+                    StatusText = result.Succeeded
+                        ? $"Signed with {result.Credential?.DisplayName ?? credential.DisplayName}."
+                        : (result.Error ?? StatusText);
+                    return result;
+                }
+
+                last = result;
+            }
+            finally
+            {
+                _ = PcscNative.Disconnect(card);
+            }
+        }
+
+        if (!sawMatchingSerial)
+        {
+            return CredentialSignResult.Failed(CredentialSignBinding.SameBadgeRequired);
+        }
+
+        return last ?? CredentialSignResult.Failed(CredentialSignBinding.SameBadgeRequired);
+    }
+
+    public Task<CredentialSignResult> TrySignDocumentAsync(
+        byte[] document,
+        OperatorCredential credential,
+        string? pin = null,
+        DateTimeOffset? signingTime = null,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (document.Length == 0)
+        {
+            return Task.FromResult(CredentialSignResult.Failed("Nothing to sign."));
+        }
+
+        if (!PcscNative.TryLoad(out var loadError))
+        {
+            return Task.FromResult(CredentialSignResult.Failed(
+                loadError ?? "PC/SC library not found (install pcscd / winscard)."));
+        }
+
+        nint context = 0;
+        if (PcscNative.EstablishContext(out context) != PcscNative.Success)
+        {
+            return Task.FromResult(CredentialSignResult.Failed("PC/SC context failed. Is pcscd running?"));
+        }
+
+        try
+        {
+            return Task.FromResult(SignDocumentOnPresentedCard(context, credential, document, pin, signingTime));
+        }
+        finally
+        {
+            _ = PcscNative.ReleaseContext(context);
+        }
+    }
+
+    private CredentialSignResult SignDocumentOnPresentedCard(
+        nint context,
+        OperatorCredential credential,
+        byte[] document,
+        string? pin,
+        DateTimeOffset? signingTime)
+    {
+        var readers = PcscNative.ListReaders(context);
+        IEnumerable<string> ordered = readers;
+        if (!string.IsNullOrWhiteSpace(credential.ReaderName)
+            && readers.Any(r => string.Equals(r, credential.ReaderName, StringComparison.Ordinal)))
+        {
+            ordered = readers.OrderBy(r =>
+                string.Equals(r, credential.ReaderName, StringComparison.Ordinal) ? 0 : 1);
+        }
+
+        CredentialSignResult? last = null;
+        var sawMatchingSerial = false;
+        foreach (var reader in ordered)
+        {
+            if (PcscNative.Connect(context, reader, out var card, out var protocol) != PcscNative.Success)
+            {
+                continue;
+            }
+
+            try
+            {
+                var channel = new PcscApduChannel(card, protocol);
+                var (serial, printedName) = PivCardIdentity.TryRead(channel);
+                if (string.IsNullOrWhiteSpace(serial))
+                {
+                    var atr = PcscNative.ReadAtr(card);
+                    if (atr is { Length: > 0 })
+                    {
+                        serial = Convert.ToHexString(atr);
+                    }
+                }
+
+                if (!CredentialSignBinding.SerialsMatch(credential.Serial, serial))
+                {
+                    continue;
+                }
+
+                sawMatchingSerial = true;
+                var result = CredentialSignBinding.SignDocumentMatching(
+                    channel,
+                    document,
+                    pin,
+                    credential,
+                    serial,
+                    printedName,
+                    signingTime ?? _clock.UtcNow);
                 if (result.Succeeded || result.PinRequired || result.PinRetriesRemaining is not null)
                 {
                     StatusText = result.Succeeded

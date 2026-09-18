@@ -21,6 +21,7 @@ public sealed class SettingsBackedCredentialBroker : IOperatorCredentialBroker
 
     public bool IsMock => Active.IsMock;
     public bool CanSign => Active.CanSign;
+    public bool ProducesCms => Active.ProducesCms;
     public string? SigningAlgorithm => Active.SigningAlgorithm;
     public string StatusText => Active.StatusText;
 
@@ -35,6 +36,14 @@ public sealed class SettingsBackedCredentialBroker : IOperatorCredentialBroker
         string? pin = null,
         CancellationToken cancellationToken = default)
         => Active.TrySignPayloadAsync(payload, credential, pin, cancellationToken);
+
+    public Task<CredentialSignResult> TrySignDocumentAsync(
+        byte[] document,
+        OperatorCredential credential,
+        string? pin = null,
+        DateTimeOffset? signingTime = null,
+        CancellationToken cancellationToken = default)
+        => Active.TrySignDocumentAsync(document, credential, pin, signingTime, cancellationToken);
 
     private IOperatorCredentialBroker Active
         => _settings.UseMockOperatorCredential ? _mock : _pcsc;

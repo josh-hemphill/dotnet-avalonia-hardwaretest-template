@@ -1,5 +1,6 @@
 using System.Runtime.InteropServices;
 using HardwareTest.Core.Credentials;
+using HardwareTest.Core.Reporting;
 using HardwareTest.Core.Runs;
 using HardwareTest.Core.Settings;
 using HardwareTest.Core.Time;
@@ -72,6 +73,8 @@ public sealed class ReportAttestationServiceTests
         Assert.True(result.Succeeded);
         Assert.Equal(AttestationKind.Signed, result.Attestation!.Kind);
         Assert.Equal(AttestationAlgorithm.MockHmac, result.Attestation.Algorithm);
+        Assert.False(result.Attestation.EmbeddedInPdf);
+        Assert.Equal(AttestationSignatureFormat.DetachedSidecar, result.Attestation.SignatureFormat);
         Assert.True(service.HasValidAttestation(run, ReportKinds.Certification));
         Assert.True(File.Exists(result.Attestation.SidecarPath));
         Assert.Equal(MockOperatorCredentialBroker.MockDisplayName, run.OperatorName);
@@ -267,7 +270,11 @@ public sealed class ReportAttestationServiceTests
         Assert.True(signed.Succeeded);
         Assert.Equal(AttestationKind.Signed, signed.Attestation!.Kind);
         Assert.Equal(AttestationAlgorithm.PivRsaPkcs1Sha256, signed.Attestation.Algorithm);
+        Assert.True(signed.Attestation.EmbeddedInPdf);
+        Assert.Equal(AttestationSignatureFormat.PadesBasic, signed.Attestation.SignatureFormat);
         Assert.True(service.HasValidAttestation(run, ReportKinds.Certification));
+        var pdfBytes = await File.ReadAllBytesAsync(run.Reports[0].PdfPath);
+        Assert.True(PdfPadesSignature.TryVerify(pdfBytes, out var verifyError), verifyError);
         var sidecar = await File.ReadAllTextAsync(signed.Attestation.SidecarPath!);
         Assert.Contains("certificateBase64", sidecar, StringComparison.Ordinal);
     }
@@ -401,7 +408,7 @@ public sealed class ReportAttestationServiceTests
         };
         await store.SaveAsync(run);
         var pdf = Path.Combine(store.GetRunDirectory(run.RunId), "certification.pdf");
-        await File.WriteAllBytesAsync(pdf, "%PDF-1.4 test"u8.ToArray());
+        await File.WriteAllBytesAsync(pdf, PdfPadesSignature.CreateMinimalPdf());
         run.Reports.Add(new RunReportArtifact
         {
             Kind = ReportKinds.Certification,
@@ -423,6 +430,7 @@ internal sealed class ScriptedPivBroker : IOperatorCredentialBroker
 
     public bool IsMock => true;
     public bool CanSign => true;
+    public bool ProducesCms => true;
     public string? SigningAlgorithm => AttestationAlgorithm.PivRsaPkcs1Sha256;
     public string StatusText => "Fake PIV";
 
@@ -440,5 +448,17 @@ internal sealed class ScriptedPivBroker : IOperatorCredentialBroker
         cancellationToken.ThrowIfCancellationRequested();
         _ = credential;
         return Task.FromResult(PivSigner.Sign(_card, payload, pin));
+    }
+
+    public Task<CredentialSignResult> TrySignDocumentAsync(
+        byte[] document,
+        OperatorCredential credential,
+        string? pin = null,
+        DateTimeOffset? signingTime = null,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        _ = credential;
+        return Task.FromResult(PivSigner.SignCms(_card, document, pin, signingTime ?? DateTimeOffset.UtcNow));
     }
 }
