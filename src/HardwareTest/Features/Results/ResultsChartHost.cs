@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Globalization;
 using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Threading;
@@ -99,18 +100,18 @@ public sealed class ResultsChartHost : UserControl
             var unit = string.IsNullOrWhiteSpace(tile.Unit) ? "Value" : tile.Unit!;
             _plot.SetLabels(tile.MetricKey, unit, tile.MetricKey);
             _plot.SetLimits(tile.LimitLow, tile.LimitHigh);
-            _plot.SetFollowLive(false);
             var drawTimeAxis = tile.UsesTimeAxis && tile.Xs.Length == tile.YsLength && tile.YsLength > 0;
             if (drawTimeAxis)
             {
                 _plot.SetEvents(SeriesTimingChrome.ToPlotTicks(tile.TimingMarks));
                 _plot.SetOutOfBandSpans(tile.OutOfBandSpans);
-                _plot.UpdateTimeSeries(tile.Xs, tile.Ys, tile.YsLength, followLive: false, force: true);
+                _plot.UpdateTimeSeries(tile.Xs, tile.Ys, tile.YsLength, followLive: true, force: true);
             }
             else
             {
                 _plot.SetEvents([]);
                 _plot.SetOutOfBandSpans([]);
+                _plot.SetFollowLive(true);
                 _plot.UpdateData(tile.Ys, tile.YsLength, force: true);
             }
         }
@@ -133,10 +134,18 @@ public sealed class ResultsChartHost : UserControl
             return;
         }
 
-        var unit = DataContext is PresentationTileViewModel tile && !string.IsNullOrWhiteSpace(tile.Unit)
-            ? tile.Unit
-            : null;
-        _cursorReadout.Text = $"Readout: {PlotCursorReadout.FormatValue(y, unit)} at {x.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture)} s — tap to move.";
+        var tile = DataContext as PresentationTileViewModel;
+        var unit = tile is not null && !string.IsNullOrWhiteSpace(tile.Unit) ? tile.Unit : null;
+        var value = PlotCursorReadout.FormatValue(y, unit);
+        var band = tile is null
+            ? string.Empty
+            : PlotCursorReadout.FormatBand(y, tile.LimitLow, tile.LimitHigh, unit);
+        var at = tile is { UsesTimeAxis: true }
+            ? SeriesTimingChrome.FormatElapsed(x * 1000.0)
+            : $"sample {(e.SampleIndex ?? (int)Math.Round(x, MidpointRounding.AwayFromZero)).ToString(CultureInfo.InvariantCulture)}";
+        _cursorReadout.Text = string.IsNullOrWhiteSpace(band)
+            ? $"Readout: {value} at {at} — tap to move."
+            : $"Readout: {value} at {at}. {band} — tap to move.";
         _cursorReadout.IsVisible = true;
     }
 }

@@ -118,29 +118,30 @@ public sealed class MeasurementPlotView : UserControl
     }
 
     /// Places or moves the vertical readout line. Pass null to clear.
-    public void SetCursor(double? xElapsedOrIndex)
+    public void SetCursor(double? xElapsedOrIndex, bool announce = true)
     {
         if (xElapsedOrIndex is null)
         {
-            ClearCursor();
+            if (_cursorX is null)
+            {
+                return;
+            }
+
+            _cursorX = null;
+            Render(force: true);
+            if (announce)
+            {
+                CursorChanged?.Invoke(this, new PlotCursorChangedEventArgs());
+            }
+
             return;
         }
 
-        PlaceCursor(xElapsedOrIndex.Value, announce: true);
+        PlaceCursor(xElapsedOrIndex.Value, announce);
     }
 
     /// Removes the readout line and notifies listeners.
-    public void ClearCursor()
-    {
-        if (_cursorX is null)
-        {
-            return;
-        }
-
-        _cursorX = null;
-        Render(force: true);
-        CursorChanged?.Invoke(this, new PlotCursorChangedEventArgs());
-    }
+    public void ClearCursor() => SetCursor(null);
 
     /// Updates a time-based scatter from elapsed-second Xs and values.
     public void UpdateTimeSeries(double[] xs, double[] ys, int count = -1, bool followLive = true, bool force = false)

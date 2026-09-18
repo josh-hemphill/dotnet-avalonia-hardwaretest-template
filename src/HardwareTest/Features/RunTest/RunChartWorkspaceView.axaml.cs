@@ -164,6 +164,7 @@ public partial class RunChartWorkspaceView : UserControl
             Plot.SetOutOfBandSpans(live.PlotOutOfBandSpans);
             Plot.SetFollowLive(live.FollowLive);
             Plot.UpdateTimeSeries(live.PlotXs, live.PlotYs, live.PlotYsLength, live.FollowLive, force);
+            Plot.SetCursor(live.CursorX, announce: false);
         }
 
         if (!Dispatcher.UIThread.CheckAccess())

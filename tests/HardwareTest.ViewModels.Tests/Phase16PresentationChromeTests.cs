@@ -183,13 +183,59 @@ public sealed class Phase16PresentationChromeTests
         live.ApplySample(Timeseries("VDC", 1.5, t0.AddSeconds(1), low: 0, high: 2), step.Path, null, step);
         live.SelectedTimeWindow = ChartTimeWindow.All;
 
-        live.PlaceCursor(0.8);
+        live.PlaceCursor(0.2);
 
         Assert.True(live.HasCursor);
         Assert.False(live.FollowLive);
+        Assert.Equal(0.0, live.CursorX);
         Assert.Equal("Readout", live.ChartAgeText);
-        Assert.Contains("1.5", live.ChartValueText, StringComparison.Ordinal);
+        Assert.Equal("1", live.ChartValueText);
+        Assert.Contains("0", live.ChartElapsedText, StringComparison.Ordinal);
         Assert.Contains("Within", live.ChartBandText, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void PlaceCursor_resnaps_when_sample_window_drops_the_point()
+    {
+        var live = new LivePresentationViewModel();
+        var step = Leaf();
+        var t0 = DateTimeOffset.UtcNow;
+        live.ApplySample(Timeseries("VDC", 1.0, t0), step.Path, null, step);
+        live.ApplySample(Timeseries("VDC", 1.5, t0.AddSeconds(40)), step.Path, null, step);
+        live.SelectedTimeWindow = ChartTimeWindow.All;
+        live.PlaceCursor(0.0);
+        Assert.Equal(0.0, live.CursorX);
+        Assert.DoesNotContain("1.5", live.ChartValueText, StringComparison.Ordinal);
+
+        live.SelectedTimeWindow = ChartTimeWindow.ThirtySeconds;
+
+        Assert.True(live.HasCursor);
+        Assert.Equal(40.0, live.CursorX);
+        Assert.Contains("1.5", live.ChartValueText, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ApplyEvent_does_not_replace_cursor_toolbar()
+    {
+        var live = new LivePresentationViewModel();
+        var step = Leaf();
+        var t0 = DateTimeOffset.UtcNow;
+        live.ApplySample(Timeseries("VDC", 1.0, t0), step.Path, null, step);
+        live.ApplySample(Timeseries("VDC", 1.5, t0.AddSeconds(1)), step.Path, null, step);
+        live.SelectedTimeWindow = ChartTimeWindow.All;
+        live.PlaceCursor(0.0);
+        var value = live.ChartValueText;
+        var elapsed = live.ChartElapsedText;
+        var eventLabel = live.ChartEventLabel;
+
+        live.ApplyEvent(new MeasurementEventMark("cfg", 1000, "bit2", 4, step.Path));
+
+        Assert.Equal(value, live.ChartValueText);
+        Assert.Equal(elapsed, live.ChartElapsedText);
+        Assert.Equal(eventLabel, live.ChartEventLabel);
+        Assert.Equal("Readout", live.ChartAgeText);
+        Assert.NotEqual("cfg:bit2", live.ChartEventLabel);
+        Assert.Single(live.Events);
     }
 
     [Fact]

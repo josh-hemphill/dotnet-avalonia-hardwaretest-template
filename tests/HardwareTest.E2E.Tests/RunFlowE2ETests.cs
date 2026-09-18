@@ -279,4 +279,24 @@ public sealed class RunFlowE2ETests
 
         Assert.Equal(2, plot.LastRenderedPointCount);
     }
+
+    [AvaloniaFact]
+    public void SetCursor_snaps_and_clear_drops_the_line()
+    {
+        var plot = new HardwareTest.Widgets.MeasurementPlot.MeasurementPlotView();
+        plot.UpdateTimeSeries([0, 1], [1.0, 2.0], 2, followLive: true, force: true);
+        Dispatcher.UIThread.RunJobs();
+
+        plot.SetCursor(0.1, announce: false);
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal(0.0, plot.CursorX);
+
+        plot.SetCursor(0.9, announce: false);
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal(1.0, plot.CursorX);
+
+        plot.ClearCursor();
+        Dispatcher.UIThread.RunJobs();
+        Assert.Null(plot.CursorX);
+    }
 }
