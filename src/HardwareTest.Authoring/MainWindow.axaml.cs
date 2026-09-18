@@ -1,4 +1,5 @@
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 
@@ -53,8 +54,36 @@ public partial class MainWindow : Window
     private void OnCreateProgram(object? sender, RoutedEventArgs e)
         => TryRun(() => _viewModel.CreateProgram());
 
+    private void OnRemoveProgram(object? sender, RoutedEventArgs e)
+        => TryRun(_viewModel.RemoveSelectedProgram);
+
     private void OnAddRecipe(object? sender, RoutedEventArgs e)
         => TryRun(() => _viewModel.ApplySelectedRecipe());
+
+    private void OnRemoveSequence(object? sender, RoutedEventArgs e)
+        => TryRun(_viewModel.RemoveSelectedSequence);
+
+    private void OnSequenceKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Delete || !_viewModel.CanRemoveSelectedSequence)
+        {
+            return;
+        }
+
+        TryRun(_viewModel.RemoveSelectedSequence);
+        e.Handled = true;
+    }
+
+    private void OnProgramsKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Delete || !_viewModel.CanRemoveSelectedProgram)
+        {
+            return;
+        }
+
+        TryRun(_viewModel.RemoveSelectedProgram);
+        e.Handled = true;
+    }
 
     private async void OnImportTransferFunction(object? sender, RoutedEventArgs e)
     {
