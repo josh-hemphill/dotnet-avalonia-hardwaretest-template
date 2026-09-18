@@ -20,6 +20,9 @@ internal static class PivApdu
     public static readonly byte[] ObjectAuthentication = [0x5F, 0xC1, 0x05];
     public static readonly byte[] ObjectSignature = [0x5F, 0xC1, 0x0A];
     public static readonly byte[] ObjectCardAuth = [0x5F, 0xC1, 0x01];
+    public static readonly byte[] ObjectPrintedInformation = [0x5F, 0xC1, 0x09];
+
+    public const byte PrintedNameTag = 0x01;
 
     /// SHA-256 DigestInfo prefix (RFC 8017).
     public static ReadOnlySpan<byte> Sha256DigestInfoPrefix
@@ -172,6 +175,18 @@ internal static class PivApdu
         return responseBody.Length >= 2 && responseBody[0] == 0x70
             ? FindTag(responseBody, 0x70)
             : null;
+    }
+
+    /// GET DATA a PIV certificate object and unwrap the DER.
+    public static byte[]? TryReadCertificateDer(IApduChannel channel, byte[] objectId)
+    {
+        var response = channel.Transmit(GetData(objectId));
+        if (!IsSuccess(response))
+        {
+            return null;
+        }
+
+        return TryExtractCertificateDer(Body(response!));
     }
 
     public static byte[] Concat(params byte[][] parts)

@@ -29,27 +29,39 @@ internal sealed class FakePivCard : IApduChannel, IDisposable
     }
 
     public byte[]? Uid { get; set; }
+    public byte[]? PrintedInformation { get; set; }
+    public bool OmitCertificate { get; set; }
     public bool FailSign { get; set; }
     public string Pin { get; }
     public int PinRetries { get; set; } = 3;
     public bool FailVerifyAsSecurityStatus { get; set; }
 
-    public static FakePivCard CreateRsa2048(string pin = DefaultPin, byte slot = PivApdu.SlotSignature)
+    public static FakePivCard CreateRsa2048(
+        string pin = DefaultPin,
+        byte slot = PivApdu.SlotSignature,
+        string subject = "CN=Fake PIV Signature",
+        string? emailSan = null)
     {
         var rsa = RSA.Create(2048);
         var req = new CertificateRequest(
-            "CN=Fake PIV Signature",
+            subject,
             rsa,
             HashAlgorithmName.SHA256,
             RSASignaturePadding.Pkcs1);
+        AddEmailSan(req, emailSan);
         using var cert = req.CreateSelfSigned(DateTimeOffset.UtcNow.AddDays(-1), DateTimeOffset.UtcNow.AddYears(2));
         return new FakePivCard(rsa, null, cert.RawData, slot, ObjectIdFor(slot), PivApdu.AlgRsa2048, pin);
     }
 
-    public static FakePivCard CreateEccP256(string pin = DefaultPin, byte slot = PivApdu.SlotSignature)
+    public static FakePivCard CreateEccP256(
+        string pin = DefaultPin,
+        byte slot = PivApdu.SlotSignature,
+        string subject = "CN=Fake PIV ECC",
+        string? emailSan = null)
     {
         var ecdsa = ECDsa.Create(ECCurve.NamedCurves.nistP256);
-        var req = new CertificateRequest("CN=Fake PIV ECC", ecdsa, HashAlgorithmName.SHA256);
+        var req = new CertificateRequest(subject, ecdsa, HashAlgorithmName.SHA256);
+        AddEmailSan(req, emailSan);
         using var cert = req.CreateSelfSigned(DateTimeOffset.UtcNow.AddDays(-1), DateTimeOffset.UtcNow.AddYears(2));
         return new FakePivCard(null, ecdsa, cert.RawData, slot, ObjectIdFor(slot), PivApdu.AlgEccP256, pin);
     }
@@ -78,7 +90,15 @@ internal sealed class FakePivCard : IApduChannel, IDisposable
 
         if (command[1] == 0xCB)
         {
-            return command.AsSpan().IndexOf(_objectId) >= 0 ? WrapCertificate() : [0x6A, 0x82];
+            if (PrintedInformation is { Length: > 0 }
+                && command.AsSpan().IndexOf(PivApdu.ObjectPrintedInformation) >= 0)
+            {
+                return PivApdu.Concat(PivApdu.EncodeTlv(0x53, PrintedInformation), [0x90, 0x00]);
+            }
+
+            return !OmitCertificate && command.AsSpan().IndexOf(_objectId) >= 0
+                ? WrapCertificate()
+                : [0x6A, 0x82];
         }
 
         if (command[1] == 0x20)
@@ -113,6 +133,18 @@ internal sealed class FakePivCard : IApduChannel, IDisposable
             PivApdu.SlotCardAuth => PivApdu.ObjectCardAuth,
             _ => PivApdu.ObjectSignature,
         };
+
+    private static void AddEmailSan(CertificateRequest request, string? emailSan)
+    {
+        if (string.IsNullOrWhiteSpace(emailSan))
+        {
+            return;
+        }
+
+        var san = new SubjectAlternativeNameBuilder();
+        san.AddEmailAddress(emailSan.Trim());
+        request.CertificateExtensions.Add(san.Build());
+    }
 
     private byte[] WrapCertificate()
     {
