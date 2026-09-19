@@ -37,6 +37,11 @@ public sealed class RunFlowE2ETests
         {
             if (field.IsBoolean)
             {
+                if (field.Required)
+                {
+                    field.BoolValue = true;
+                }
+
                 continue;
             }
 
@@ -79,6 +84,11 @@ public sealed class RunFlowE2ETests
         Assert.False(
             scroller.GetVisualDescendants().Contains(continueButton),
             "Continue must stay outside the prompt body scroller so it remains visible at 900×600.");
+        var showStep = host.FindControl<Button>("ShowThisStepButton");
+        Assert.NotNull(showStep);
+        Assert.False(
+            scroller.GetVisualDescendants().Contains(showStep),
+            "Show this step must stay outside the prompt body scroller so it remains tappable at 900×600.");
     }
 
     [AvaloniaFact]

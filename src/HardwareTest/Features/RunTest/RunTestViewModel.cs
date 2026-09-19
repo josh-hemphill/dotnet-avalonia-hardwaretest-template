@@ -91,7 +91,7 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
             stationHealthStore,
             stationHealthGate);
 
-        ContinueOperatorCommand = ReactiveCommand.Create(ContinueOperator);
+        ContinueOperatorCommand = ReactiveCommand.Create(ContinueOperator, Interaction.WhenAnyValue(x => x.IsAwaitingOperator));
         ShowCurrentStepCommand = ReactiveCommand.Create(ShowCurrentStep);
         OpenLastRunResultsCommand = ReactiveCommand.Create(
             () => NavigateToResultsRequested?.Invoke(this, EventArgs.Empty));
@@ -496,6 +496,7 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
 
     private void ContinueOperator()
     {
+        if (!Interaction.IsAwaitingOperator) return;
         var request = _runSession.PendingInteraction;
         if (!Interaction.TryCollectResponse(request, out var values))
         {
@@ -515,7 +516,6 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
         Interaction.IsAwaitingOperator = false;
         Interaction.OperatorPromptMessage = null;
         Status = "Continuing…";
-        // Interaction card collapse changes hero height; re-anchor without changing stage scope.
         ScheduleScrollToCurrentStep(changeScope: false);
     }
 

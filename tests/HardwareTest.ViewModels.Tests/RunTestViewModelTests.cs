@@ -171,6 +171,7 @@ public sealed class RunTestViewModelTests
         vm.CurrentStepPath = leaf.Path;
         vm.CurrentStepName = leaf.Name;
         vm.StepTree.SelectedStep = leaf;
+        vm.Interaction.IsAwaitingOperator = true;
 
         var scrollRequests = 0;
         vm.StepTree.RequestScrollToSelectedStep += (_, _) => scrollRequests++;
@@ -397,6 +398,15 @@ public sealed class RunTestViewModelTests
         await vm.ContinueOperatorCommand.ExecuteAsync();
         Assert.False(openTap.IsAwaitingOperator);
         Assert.False(vm.Interaction.IsAwaitingOperator);
+    }
+
+    [Fact]
+    public void Continue_command_requires_awaiting_operator()
+    {
+        var vm = CreateVm();
+        Assert.False(((System.Windows.Input.ICommand)vm.ContinueOperatorCommand).CanExecute(null));
+        vm.Interaction.IsAwaitingOperator = true;
+        Assert.True(((System.Windows.Input.ICommand)vm.ContinueOperatorCommand).CanExecute(null));
     }
 
     [Fact]

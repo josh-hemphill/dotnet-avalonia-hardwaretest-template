@@ -690,6 +690,23 @@ public sealed class RunBoardChildViewModelTests
     }
 
     [Fact]
+    public void JumpToCurrent_clears_search_when_the_waiting_row_is_hidden()
+    {
+        var tree = new StepTreeViewModel(
+            () => [SampleTree()],
+            getCurrentStepPath: () => "Suite/Acquire VDC");
+        tree.RebuildFromHost();
+        tree.StepSearchText = "Identity";
+        Assert.DoesNotContain(tree.StepRows, r => r.Name == "Acquire VDC");
+
+        tree.JumpToCurrent(changeScope: true);
+
+        Assert.Equal(string.Empty, tree.StepSearchText);
+        Assert.Equal("Acquire VDC", tree.SelectedStep?.Name);
+        Assert.Contains(tree.StepRows, r => r.Name == "Acquire VDC");
+    }
+
+    [Fact]
     public void Overview_suite_chips_filter_the_whole_plan()
     {
         var tree = new StepTreeViewModel(() => [HierarchicalStatusTree()]);
