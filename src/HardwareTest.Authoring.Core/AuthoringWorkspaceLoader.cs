@@ -181,7 +181,7 @@ public static class AuthoringWorkspaceLoader
 
     private static string ResolvePlansDirectory(string root, string? plansDirectory)
     {
-        var relative = string.IsNullOrWhiteSpace(plansDirectory) ? "plans" : plansDirectory.Trim();
+        var relative = AuthoringManifest.RelativePlansDirectory(plansDirectory);
         var combined = Path.IsPathRooted(relative)
             ? relative
             : Path.GetFullPath(Path.Combine(root, relative));

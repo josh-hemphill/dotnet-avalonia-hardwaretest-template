@@ -166,17 +166,9 @@ public sealed partial class AuthoringWorkspaceViewModel
         {
             Instruments = instruments,
             Cleanup = cleanup,
+            Sidecar = PlanCompiler.CloneSidecar(SelectedProgram.Sidecar),
         };
-        var existingTapPlan = TryExistingTapPlanPath(next.PlanId);
-        if (!string.IsNullOrWhiteSpace(existingTapPlan))
-        {
-            _compiler.Save(next, existingTapPlan);
-        }
-        else
-        {
-            AuthoringCleanup.SyncSidecar(next.Sidecar, cleanup);
-        }
-
+        AuthoringCleanup.SyncSidecar(next.Sidecar, cleanup);
         ReplaceSelected(next);
         if (!Programs.Any(program =>
                 program.Instruments.Any(instrument =>
@@ -186,7 +178,21 @@ public sealed partial class AuthoringWorkspaceViewModel
         }
 
         SelectedInstrumentSlot = replacement;
-        PersistProgramSidecars();
+        var existingTapPlan = TryExistingTapPlanPath(next.PlanId);
+        if (!string.IsNullOrWhiteSpace(existingTapPlan))
+        {
+            try
+            {
+                _compiler.Save(next, existingTapPlan);
+            }
+            catch (AuthoringWorkspaceException ex)
+            {
+                Status = $"Removed slot {slot}";
+                Error = ex.Message;
+                return;
+            }
+        }
+
         Status = $"Removed slot {slot}";
         Error = null;
     }

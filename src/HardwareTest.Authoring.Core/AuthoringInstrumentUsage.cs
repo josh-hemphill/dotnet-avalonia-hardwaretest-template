@@ -57,7 +57,10 @@ public static class AuthoringInstrumentUsage
         {
             switch (node)
             {
-                case MetricNode:
+                case MetricNode { Metric.Source: MeasureSource }:
+                case MetricNode { Metric.Source: AlgorithmSource }:
+                case MetricNode { Metric.Source: ExpressionAlgorithm }:
+                case MetricNode { Metric.Source: TransferFunctionAlgorithm }:
                     break;
                 case RepeatNode repeat:
                     if (WalkOpaque(repeat.Children))

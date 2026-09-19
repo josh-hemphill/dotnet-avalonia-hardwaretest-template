@@ -277,6 +277,23 @@ public sealed class AuthoringProgramSettingsDeleteTests
         Assert.True(AuthoringInstrumentUsage.HasOpaqueInstrumentRefs(unknownSetup));
         Assert.False(AuthoringInstrumentUsage.HasOpaqueInstrumentRefs(
             draft with { Measure = [], Setup = [new OperatorPromptSetup("Prompt", "ok")] }));
+
+        var unknownSource = draft with
+        {
+            Measure =
+            [
+                new MetricNode(new MetricDraft(
+                    "mystery",
+                    "mystery",
+                    "scalar",
+                    "V",
+                    null,
+                    null,
+                    new MysterySource())),
+            ],
+            Setup = [new OperatorPromptSetup("Prompt", "ok")],
+        };
+        Assert.True(AuthoringInstrumentUsage.HasOpaqueInstrumentRefs(unknownSource));
     }
 
     [Fact]
@@ -347,6 +364,82 @@ public sealed class AuthoringProgramSettingsDeleteTests
         vm.RemoveReportKind("traceability");
         Assert.Empty(Directory.EnumerateFiles(vm.Workspace!.Root, "*.TapPlan", SearchOption.AllDirectories));
         Assert.Empty(Directory.EnumerateFiles(vm.Workspace.Root, "*.program.json", SearchOption.AllDirectories));
+    }
+
+    [Fact]
+    public void Catalog_delete_persists_saved_sidecars_and_skips_unsaved_programs()
+    {
+        var vm = OpenEmpty();
+        vm.CreateProgram("saved-a");
+        vm.NewRequiredField = "fixtureId";
+        vm.AddRequiredField();
+        vm.Apply();
+        var savedSidecar = PlanCompiler.SidecarPath(Path.Combine(vm.Workspace!.Root, "saved-a.TapPlan"));
+        Assert.Contains("fixtureId", File.ReadAllText(savedSidecar), StringComparison.OrdinalIgnoreCase);
+        vm.CreateProgram("unsaved-b");
+        vm.SetRequiredFieldIncluded("fixtureId", true);
+        vm.RemoveRequiredField("fixtureId");
+        Assert.DoesNotContain("fixtureId", File.ReadAllText(savedSidecar), StringComparison.OrdinalIgnoreCase);
+        Assert.False(File.Exists(PlanCompiler.SidecarPath(Path.Combine(vm.Workspace.Root, "unsaved-b.TapPlan"))));
+        Assert.All(vm.Programs, program =>
+            Assert.DoesNotContain("fixtureId", RequiredFieldIds.FromSidecar(program.Sidecar)));
+    }
+
+    [Fact]
+    public void Remove_selected_program_deletes_orphan_sidecar_in_the_default_plans_directory()
+    {
+        var dest = Path.Combine(Path.GetTempPath(), "ht-setdel-plans-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dest);
+        Directory.CreateDirectory(Path.Combine(dest, AuthoringManifest.DefaultPlansDirectory));
+        File.WriteAllText(
+            Path.Combine(dest, "authoring.json"),
+            """
+            {
+              "schemaVersion": 1,
+              "displayName": "blank-plans",
+              "plansDirectory": "  "
+            }
+            """);
+        var vm = new AuthoringWorkspaceViewModel();
+        vm.Open(dest);
+        vm.CreateProgram("orphan");
+        var plansSidecar = PlanCompiler.SidecarPath(
+            Path.Combine(dest, AuthoringManifest.DefaultPlansDirectory, "orphan.TapPlan"));
+        var decoy = PlanCompiler.SidecarPath(Path.Combine(dest, "orphan.TapPlan"));
+        File.WriteAllText(plansSidecar, """{"displayName":"orphan"}""");
+        File.WriteAllText(decoy, """{"displayName":"decoy"}""");
+        vm.RemoveSelectedProgram();
+        Assert.False(File.Exists(plansSidecar));
+        Assert.True(File.Exists(decoy));
+        Assert.Empty(vm.Programs);
+    }
+
+    [Fact]
+    public void Remove_instrument_slot_keeps_memory_when_plan_save_fails()
+    {
+        var vm = OpenEmpty();
+        vm.CreateProgram("slots-compile-fail");
+        vm.NewInstrumentSlot = "SCOPE";
+        vm.AddInstrumentSlot();
+        vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
+        var acquire = vm.SequenceItems.Single(row => row.Kind == SequenceRowKind.Metric);
+        vm.SelectSequence(vm.SequenceItems.ToList().IndexOf(acquire));
+        vm.MetricInstrumentSlot = "SCOPE";
+        vm.Apply();
+        var original = Assert.IsType<MetricNode>(Assert.Single(vm.SelectedProgram!.Measure));
+        vm.ReplaceSelected(vm.SelectedProgram with
+        {
+            Measure = [original, new MetricNode(original.Metric with { Name = "dup" })],
+        });
+        vm.SelectedInstrumentSlot = "DMM";
+        vm.RemoveSelectedInstrumentSlot();
+        Assert.Equal(["SCOPE"], vm.InstrumentSlots);
+        Assert.Contains(AuthoringCompileCodes.DuplicateChannelKey, vm.Error, StringComparison.Ordinal);
+        var reloaded = new AuthoringWorkspaceViewModel();
+        reloaded.Open(vm.Workspace!.Root);
+        reloaded.SelectProgram("slots-compile-fail");
+        Assert.Contains("DMM", reloaded.InstrumentSlots);
+        Assert.Contains("SCOPE", reloaded.InstrumentSlots);
     }
 
     [Fact]
@@ -424,9 +517,40 @@ public sealed class AuthoringProgramSettingsDeleteTests
         Assert.Same(draft, AuthoringInstrumentUsage.RetargetSlot(draft, "DMM", "DMM"));
         Assert.Same(draft, AuthoringInstrumentUsage.RetargetSlot(draft, "  ", "SCOPE"));
         Assert.Same(draft, AuthoringInstrumentUsage.RetargetSlot(draft, "DMM", " "));
+
+        var nested = AuthoringInstrumentUsage.RetargetSlot(
+            draft with
+            {
+                Measure =
+                [
+                    new RepeatNode(
+                        2,
+                        [
+                            new MetricNode(new MetricDraft(
+                                "VDC",
+                                "VDC",
+                                "timeseries",
+                                "V",
+                                null,
+                                null,
+                                new MeasureSource(
+                                    "DMM",
+                                    AuthoringFunctionIds.BasicAcquireVoltage,
+                                    new Dictionary<string, string>()))),
+                        ]),
+                ],
+            },
+            "DMM",
+            "SCOPE");
+        var nestedMeasure = Assert.IsType<MeasureSource>(
+            Assert.IsType<MetricNode>(Assert.IsType<RepeatNode>(Assert.Single(nested.Measure)).Children.Single())
+                .Metric.Source);
+        Assert.Equal("SCOPE", nestedMeasure.InstrumentSlot);
     }
 
     private sealed record MysterySetup : SetupAction;
+
+    private sealed record MysterySource : MetricSource;
 
     private static AuthoringWorkspaceViewModel OpenEmpty()
     {

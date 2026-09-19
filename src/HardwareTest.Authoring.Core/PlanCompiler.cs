@@ -97,6 +97,14 @@ public sealed partial class PlanCompiler : IPlanCompiler
         return Path.Combine(dir, $"{id}.program.json");
     }
 
+    internal static ProgramSidecar CloneSidecar(ProgramSidecar sidecar)
+    {
+        ArgumentNullException.ThrowIfNull(sidecar);
+        var json = JsonSerializer.Serialize(sidecar, ProgramCatalogJsonContext.Default.ProgramSidecar);
+        return JsonSerializer.Deserialize(json, ProgramCatalogJsonContext.Default.ProgramSidecar)
+               ?? new ProgramSidecar();
+    }
+
     private static void WriteSidecar(string tapPlanPath, ProgramSidecar sidecar)
     {
         var json = JsonSerializer.Serialize(sidecar, ProgramCatalogJsonContext.Default.ProgramSidecar);

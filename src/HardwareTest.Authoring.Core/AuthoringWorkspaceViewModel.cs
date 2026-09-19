@@ -516,9 +516,7 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
             return existing;
         }
 
-        var relative = string.IsNullOrWhiteSpace(workspace.Manifest.PlansDirectory)
-            ? "."
-            : workspace.Manifest.PlansDirectory.Trim();
+        var relative = AuthoringManifest.RelativePlansDirectory(workspace.Manifest.PlansDirectory);
         var directory = Path.IsPathRooted(relative)
             ? relative
             : Path.GetFullPath(Path.Combine(workspace.Root, relative));
