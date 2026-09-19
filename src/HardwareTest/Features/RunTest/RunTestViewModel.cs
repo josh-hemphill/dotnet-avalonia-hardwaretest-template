@@ -137,7 +137,7 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
     public OperatorSession Session => _session;
 
     /// True when Stop Run can abort a run or cancel an in-panel operator prompt.
-    public bool CanSafetyStop => IsRunning || Interaction.IsAwaitingOperator;
+    public bool CanSafetyStop => IsRunning || Interaction.IsAwaitingOperator || _runSession.IsAwaitingOperator;
 
     public bool ShowStartBlockedTip => ShowHeaderRun && !CanStartRun;
     public bool ShowOverallProgress => IsRunning;

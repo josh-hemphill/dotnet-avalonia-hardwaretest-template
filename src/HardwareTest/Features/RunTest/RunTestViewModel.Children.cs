@@ -117,6 +117,13 @@ public partial class RunTestViewModel
                 RaiseHeaderStopCopy();
             }
         };
+        runSession.PropertyChanged += (_, args) =>
+        {
+            if (args.PropertyName is nameof(IOpenTapRunSession.IsAwaitingOperator))
+            {
+                RaiseHeaderStopCopy();
+            }
+        };
     }
 
     /// Change DUT is idle-only — clearing identity mid-run would hide the live board.
@@ -137,7 +144,7 @@ public partial class RunTestViewModel
                 return "Cancel shutdown";
             }
 
-            if (Interaction.IsAwaitingOperator)
+            if (Interaction.IsAwaitingOperator || _runSession.IsAwaitingOperator)
             {
                 return "Cancel prompt";
             }
@@ -155,7 +162,7 @@ public partial class RunTestViewModel
                 return StopRunCopy.CancelShutdownTip;
             }
 
-            if (Interaction.IsAwaitingOperator)
+            if (Interaction.IsAwaitingOperator || _runSession.IsAwaitingOperator)
             {
                 return StopRunCopy.CancelPromptTip;
             }
