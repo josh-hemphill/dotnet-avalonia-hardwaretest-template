@@ -29,6 +29,23 @@ public static class FormulaParser
         return new FormulaAst(expr);
     }
 
+    /// Parse without throwing. On failure, `errorMessage` is the FORMULA_PARSE text.
+    public static bool TryParse(string source, out FormulaAst? ast, out string? errorMessage)
+    {
+        errorMessage = null;
+        ast = null;
+        try
+        {
+            ast = Parse(source);
+            return true;
+        }
+        catch (AuthoringWorkspaceException ex)
+        {
+            errorMessage = ex.Message;
+            return false;
+        }
+    }
+
     private static FormulaExpr ParseExpression(TokenReader reader)
         => ParseAdd(reader);
 

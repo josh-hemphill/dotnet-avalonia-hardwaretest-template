@@ -250,11 +250,14 @@ public sealed class MetricEditorTests
         vm.ApplyRecipe(AuthoringRecipeIds.Formula);
         Assert.Equal("mean(VDC)", vm.FormulaSource);
         Assert.True(string.IsNullOrWhiteSpace(vm.FormulaError), vm.FormulaError);
+        Assert.Contains("Mean GTE", vm.FormulaSaveNote, StringComparison.Ordinal);
         Assert.Equal(PresentationTileKind.Scalar, vm.Preview.TileKind);
         vm.FormulaSource = "fft(VDC)";
         Assert.Contains(AuthoringCompileCodes.FormulaParse, vm.FormulaError, StringComparison.Ordinal);
+        Assert.True(string.IsNullOrWhiteSpace(vm.FormulaSaveNote), vm.FormulaSaveNote);
         vm.FormulaSource = "mean(VDC)";
         Assert.True(string.IsNullOrWhiteSpace(vm.FormulaError), vm.FormulaError);
+        Assert.Contains("Mean GTE", vm.FormulaSaveNote, StringComparison.Ordinal);
         vm.Apply();
         var reloaded = new AuthoringWorkspaceViewModel();
         reloaded.Open(root);

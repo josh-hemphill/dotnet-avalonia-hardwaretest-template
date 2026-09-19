@@ -4,6 +4,17 @@ using HardwareTest.OpenTap.Plugins.Basic;
 
 namespace HardwareTest.Authoring;
 
+public enum FormulaSaveOutcomeKind
+{
+    None,
+    PacksMeanGte,
+    PacksTransferFunction,
+    PreviewOnly,
+    SaveBlocked,
+}
+
+public readonly record struct FormulaSaveOutcome(FormulaSaveOutcomeKind Kind, string Message);
+
 /// Lowers a subset formula to a closed analyze step, or fails closed.
 public static class FormulaLowerer
 {
@@ -66,26 +77,49 @@ public static class FormulaLowerer
             $"{AuthoringCompileCodes.FormulaNoLower}: '{expr.Source}' does not match a closed analyze recipe.");
     }
 
-    /// One-line pack preview: Mean GTE, Apply Transfer Function, or the fail-closed code.
+    /// One-line pack preview. Parse failures are empty so the inspector FormulaError owns them.
     public static string DescribeSave(string source, LimitSpec? limits)
+        => DescribeSaveOutcome(source, limits).Message;
+
+    public static FormulaSaveOutcome DescribeSaveOutcome(string source, LimitSpec? limits)
     {
+        if (!FormulaParser.TryParse(source, out _, out _))
+        {
+            return new FormulaSaveOutcome(FormulaSaveOutcomeKind.None, string.Empty);
+        }
+
         try
         {
             var lowered = Lower(new ExpressionAlgorithm([], source), limits);
             return lowered switch
             {
                 AlgorithmSource { AlgorithmId: AuthoringFunctionIds.BasicMeanGte }
-                    => "Will save as Mean GTE.",
+                    => new FormulaSaveOutcome(FormulaSaveOutcomeKind.PacksMeanGte, "Will save as Mean GTE."),
                 TransferFunctionAlgorithm
-                    => "Will save as Apply Transfer Function.",
-                _ => $"{AuthoringCompileCodes.FormulaNoLower}: no closed analyze recipe.",
+                    => new FormulaSaveOutcome(
+                        FormulaSaveOutcomeKind.PacksTransferFunction,
+                        "Will save as Apply Transfer Function."),
+                _ => PreviewOnlyOutcome(),
             };
+        }
+        catch (AuthoringWorkspaceException ex) when (IsPreviewOnlyNoLower(ex))
+        {
+            return PreviewOnlyOutcome();
         }
         catch (AuthoringWorkspaceException ex)
         {
-            return ex.Message;
+            return new FormulaSaveOutcome(FormulaSaveOutcomeKind.SaveBlocked, ex.Message);
         }
     }
+
+    private static FormulaSaveOutcome PreviewOnlyOutcome()
+        => new(
+            FormulaSaveOutcomeKind.PreviewOnly,
+            "Preview only — at save, only mean(channel) with a threshold (Mean GTE) or a top-level filter/filtfilt packs into the plan.");
+
+    private static bool IsPreviewOnlyNoLower(AuthoringWorkspaceException ex)
+        => ex.Message.StartsWith(AuthoringCompileCodes.FormulaNoLower, StringComparison.Ordinal)
+           && ex.Message.Contains("does not match a closed analyze recipe", StringComparison.Ordinal);
 
     private static double ResolveTsSeconds(
         string channel,

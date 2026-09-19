@@ -197,15 +197,9 @@ public sealed partial class AuthoringWorkspaceViewModel
                 return string.Empty;
             }
 
-            try
-            {
-                FormulaParser.Parse(expr.Source);
-                return string.Empty;
-            }
-            catch (AuthoringWorkspaceException ex)
-            {
-                return ex.Message;
-            }
+            return FormulaParser.TryParse(expr.Source, out _, out var error)
+                ? string.Empty
+                : error ?? string.Empty;
         }
     }
 
@@ -499,6 +493,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         OnPropertyChanged(nameof(ShowThreshold));
         OnPropertyChanged(nameof(ShowBandLimits));
         OnPropertyChanged(nameof(FormulaSaveNote));
+        OnPropertyChanged(nameof(FormulaSaveOutcomeKind));
         OnPropertyChanged(nameof(ChannelKeys));
         OnPropertyChanged(nameof(FormulaCompletions));
         RefreshInstrumentSlots();
