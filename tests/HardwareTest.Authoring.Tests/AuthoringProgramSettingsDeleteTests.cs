@@ -397,11 +397,25 @@ public sealed class AuthoringProgramSettingsDeleteTests
                 draft.Instruments[0],
                 new InstrumentRef("SCOPE", typeId, "MOCK::SCOPE"),
             ],
+            Measure =
+            [
+                new MetricNode(new MetricDraft(
+                    "VDC",
+                    "VDC",
+                    "timeseries",
+                    "V",
+                    null,
+                    null,
+                    new MeasureSource("DMM", AuthoringFunctionIds.BasicAcquireVoltage, new Dictionary<string, string>()))),
+            ],
         };
         var moved = AuthoringInstrumentUsage.RetargetSlot(draft, "DMM", "SCOPE");
         Assert.Equal("SCOPE", Assert.Single(moved.Setup.OfType<IdentitySetup>()).InstrumentSlot);
+        var measure = Assert.IsType<MeasureSource>(Assert.IsType<MetricNode>(Assert.Single(moved.Measure)).Metric.Source);
+        Assert.Equal("SCOPE", measure.InstrumentSlot);
         Assert.Same(draft, AuthoringInstrumentUsage.RetargetSlot(draft, "DMM", "DMM"));
         Assert.Same(draft, AuthoringInstrumentUsage.RetargetSlot(draft, "  ", "SCOPE"));
+        Assert.Same(draft, AuthoringInstrumentUsage.RetargetSlot(draft, "DMM", " "));
     }
 
     private sealed record MysterySetup : SetupAction;

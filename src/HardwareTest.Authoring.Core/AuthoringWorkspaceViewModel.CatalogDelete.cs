@@ -167,11 +167,14 @@ public sealed partial class AuthoringWorkspaceViewModel
             Instruments = instruments,
             Cleanup = cleanup,
         };
-        AuthoringCleanup.SyncSidecar(next.Sidecar, cleanup);
         var existingTapPlan = TryExistingTapPlanPath(next.PlanId);
         if (!string.IsNullOrWhiteSpace(existingTapPlan))
         {
             _compiler.Save(next, existingTapPlan);
+        }
+        else
+        {
+            AuthoringCleanup.SyncSidecar(next.Sidecar, cleanup);
         }
 
         ReplaceSelected(next);

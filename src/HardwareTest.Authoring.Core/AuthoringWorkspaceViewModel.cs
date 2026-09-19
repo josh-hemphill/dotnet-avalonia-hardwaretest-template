@@ -508,18 +508,20 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
 
     private string ResolveTapPlanPath(string planId)
     {
+        var workspace = Workspace
+            ?? throw new AuthoringWorkspaceException("Open a workspace before resolving a TapPlan path.");
         var existing = TryExistingTapPlanPath(planId);
         if (!string.IsNullOrWhiteSpace(existing))
         {
             return existing;
         }
 
-        var relative = string.IsNullOrWhiteSpace(Workspace.Manifest.PlansDirectory)
+        var relative = string.IsNullOrWhiteSpace(workspace.Manifest.PlansDirectory)
             ? "."
-            : Workspace.Manifest.PlansDirectory.Trim();
+            : workspace.Manifest.PlansDirectory.Trim();
         var directory = Path.IsPathRooted(relative)
             ? relative
-            : Path.GetFullPath(Path.Combine(Workspace.Root, relative));
+            : Path.GetFullPath(Path.Combine(workspace.Root, relative));
         return Path.Combine(directory, $"{planId}.TapPlan");
     }
 
