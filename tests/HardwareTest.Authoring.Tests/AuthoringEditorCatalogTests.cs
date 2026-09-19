@@ -216,6 +216,23 @@ public sealed class AuthoringProgramSettingsViewModelTests
     }
 
     [Fact]
+    public void Formula_save_note_tracks_threshold_through_the_cache()
+    {
+        var vm = OpenEmpty();
+        vm.CreateProgram("formula-cache");
+        vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
+        vm.ApplyRecipe(AuthoringRecipeIds.Formula);
+        Assert.Equal(FormulaSaveOutcomeKind.PacksMeanGte, vm.FormulaSaveOutcomeKind);
+        Assert.Equal("Will save as Mean GTE.", vm.FormulaSaveNote);
+        vm.Threshold = string.Empty;
+        Assert.Equal(FormulaSaveOutcomeKind.SaveBlocked, vm.FormulaSaveOutcomeKind);
+        Assert.Contains(AuthoringCompileCodes.MissingLimits, vm.FormulaSaveNote, StringComparison.Ordinal);
+        vm.Threshold = "1.2";
+        Assert.Equal(FormulaSaveOutcomeKind.PacksMeanGte, vm.FormulaSaveOutcomeKind);
+        Assert.Equal("Will save as Mean GTE.", vm.FormulaSaveNote);
+    }
+
+    [Fact]
     public void Instrument_visa_updates_the_named_slot()
     {
         var vm = OpenEmpty();

@@ -70,4 +70,17 @@ public sealed class AuthoringMetricSettingCatalogTests
         Assert.Equal("-2147483649", AuthoringInvariantNumbers.FormatDecimal(-2147483649m));
         Assert.Equal("1.234567", AuthoringInvariantNumbers.FormatDecimal(1.234567m));
     }
+
+    [Fact]
+    public void Closed_choice_lost_focus_ignores_empty_text()
+    {
+        var closed = AuthoringMetricSettingCatalog.CreateRow("*", "SeriesCompliance", "none", []);
+        Assert.False(closed.ShouldCommitLostFocusText(string.Empty));
+        Assert.False(closed.ShouldCommitLostFocusText("  "));
+        Assert.True(closed.ShouldCommitLostFocusText("dwell"));
+
+        var editable = AuthoringMetricSettingCatalog.CreateRow("*", "Channel", "VDC", ["VDC"]);
+        Assert.True(editable.ShouldCommitLostFocusText(string.Empty));
+        Assert.True(editable.ShouldCommitLostFocusText("VDC.extra"));
+    }
 }

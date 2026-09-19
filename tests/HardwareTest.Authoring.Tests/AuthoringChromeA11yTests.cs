@@ -50,6 +50,7 @@ public sealed class AuthoringChromeA11yTests
         Assert.Contains("StringFormat='Remove report kind {0}'", programSettings, StringComparison.Ordinal);
         Assert.Contains("StringFormat='Remove program kind {0}'", programSettings, StringComparison.Ordinal);
         Assert.Contains("IsEnabled=\"{Binding CanRemoveSelectedInstrumentSlot}\"", programSettings, StringComparison.Ordinal);
+        Assert.Contains("move to a remaining slot", programSettings, StringComparison.Ordinal);
         Assert.Contains("Click=\"OnRemoveInstrumentSlot\"", programSettings, StringComparison.Ordinal);
         Assert.Contains("Text=\"{Binding InputStringFieldId}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Text=\"{Binding InputNumberFieldId}\"", xaml, StringComparison.Ordinal);
@@ -74,7 +75,7 @@ public sealed class AuthoringChromeA11yTests
         Assert.Contains("OnRemoveSequence", code, StringComparison.Ordinal);
         Assert.Contains("OnRemoveProgram", code, StringComparison.Ordinal);
         Assert.Contains("OnMetricSettingLostFocus", code, StringComparison.Ordinal);
-        Assert.Contains("!comboRow.ChoiceIsEditable && string.IsNullOrWhiteSpace(text)", code, StringComparison.Ordinal);
+        Assert.Contains("ShouldCommitLostFocusText", code, StringComparison.Ordinal);
         Assert.Contains("OnMetricSettingBoolChanged", code, StringComparison.Ordinal);
         Assert.Contains("OnMetricSettingChoiceChanged", code, StringComparison.Ordinal);
         Assert.Contains("OnMetricSettingNumberChanged", code, StringComparison.Ordinal);

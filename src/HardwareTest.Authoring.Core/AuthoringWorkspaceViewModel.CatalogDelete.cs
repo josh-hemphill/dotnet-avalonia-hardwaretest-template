@@ -5,16 +5,13 @@ namespace HardwareTest.Authoring;
 
 public sealed partial class AuthoringWorkspaceViewModel
 {
-    public bool CanRemoveSelectedProgramKind
-        => CanRemoveCatalogItem(ProgramKind, AuthoringWorkspaceCatalog.IsProtectedProgramKind);
-
     public bool CanRemoveSelectedInstrumentSlot
         => Workspace is not null
            && !Workspace.IsReadOnly
            && SelectedProgram is not null
            && AuthoringWorkspaceCatalog.Normalize(SelectedInstrumentSlot) is { } slot
            && RemainingInstrumentCount(SelectedProgram, slot) >= 1
-           && !AuthoringInstrumentUsage.IsReferencedByIdentityOrMeasure(SelectedProgram, slot);
+           && !AuthoringInstrumentUsage.HasOpaqueInstrumentRefs(SelectedProgram);
 
     public void RemoveRequiredField(string fieldId)
     {
@@ -101,9 +98,9 @@ public sealed partial class AuthoringWorkspaceViewModel
         Error = null;
     }
 
-    public void RemoveProgramKindFromCatalog(string? kind = null)
+    public void RemoveProgramKindFromCatalog(string kind)
     {
-        var token = AuthoringWorkspaceCatalog.Normalize(kind) ?? AuthoringWorkspaceCatalog.Normalize(ProgramKind);
+        var token = AuthoringWorkspaceCatalog.Normalize(kind);
         if (token is null)
         {
             return;
@@ -151,25 +148,33 @@ public sealed partial class AuthoringWorkspaceViewModel
             throw new AuthoringWorkspaceException("A program must keep at least one instrument slot.");
         }
 
-        if (AuthoringInstrumentUsage.IsReferencedByIdentityOrMeasure(SelectedProgram, slot))
+        if (AuthoringInstrumentUsage.HasOpaqueInstrumentRefs(SelectedProgram))
         {
             throw new AuthoringWorkspaceException(
-                $"Cannot remove instrument slot '{slot}'; Identity Check or a measure step still uses it.");
+                $"Cannot remove instrument slot '{slot}'; a raw or unknown Identity/measure step may still use it.");
         }
 
         var instruments = SelectedProgram.Instruments
             .Where(instrument => !string.Equals(instrument.SlotName, slot, StringComparison.OrdinalIgnoreCase))
             .ToArray();
+        var replacement = instruments[0].SlotName;
         var cleanupSlots = SelectedProgram.Cleanup.InstrumentSlots
             .Where(existing => !string.Equals(existing, slot, StringComparison.OrdinalIgnoreCase))
             .ToArray();
         var cleanup = SelectedProgram.Cleanup with { InstrumentSlots = cleanupSlots };
-        AuthoringCleanup.SyncSidecar(SelectedProgram.Sidecar, cleanup);
-        ReplaceSelected(SelectedProgram with
+        var next = AuthoringInstrumentUsage.RetargetSlot(SelectedProgram, slot, replacement) with
         {
             Instruments = instruments,
             Cleanup = cleanup,
-        });
+        };
+        AuthoringCleanup.SyncSidecar(next.Sidecar, cleanup);
+        var existingTapPlan = TryExistingTapPlanPath(next.PlanId);
+        if (!string.IsNullOrWhiteSpace(existingTapPlan))
+        {
+            _compiler.Save(next, existingTapPlan);
+        }
+
+        ReplaceSelected(next);
         if (!Programs.Any(program =>
                 program.Instruments.Any(instrument =>
                     string.Equals(instrument.SlotName, slot, StringComparison.OrdinalIgnoreCase))))
@@ -177,7 +182,7 @@ public sealed partial class AuthoringWorkspaceViewModel
             RememberWorkspaceCatalog(catalogs => AuthoringWorkspaceCatalog.Forget(catalogs.InstrumentSlotNames, slot));
         }
 
-        SelectedInstrumentSlot = instruments[0].SlotName;
+        SelectedInstrumentSlot = replacement;
         PersistProgramSidecars();
         Status = $"Removed slot {slot}";
         Error = null;
@@ -196,11 +201,10 @@ public sealed partial class AuthoringWorkspaceViewModel
 
         foreach (var program in Programs)
         {
-            var tapPlanPath = ResolveTapPlanPath(program.PlanId);
-            var directory = Path.GetDirectoryName(Path.GetFullPath(tapPlanPath));
-            if (!string.IsNullOrWhiteSpace(directory))
+            var tapPlanPath = TryExistingTapPlanPath(program.PlanId);
+            if (string.IsNullOrWhiteSpace(tapPlanPath))
             {
-                Directory.CreateDirectory(directory);
+                continue;
             }
 
             _compiler.SaveSidecar(tapPlanPath, program.Sidecar);
