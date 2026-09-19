@@ -1522,6 +1522,7 @@ public sealed class FakeRunControl : IRunControl
     public bool IsPaused { get; private set; }
     public bool IsSafetyStopping { get; private set; }
     public bool WasSafetyStopRequested { get; private set; }
+    public bool WasCancelSafetyShutdownRequested { get; private set; }
     public CancellationToken SafetyShutdownToken => CancellationToken.None;
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -1533,6 +1534,7 @@ public sealed class FakeRunControl : IRunControl
         IsPaused = false;
         IsSafetyStopping = false;
         WasSafetyStopRequested = false;
+        WasCancelSafetyShutdownRequested = false;
         _pauseEvent.Set();
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsRunning)));
     }
@@ -1583,6 +1585,8 @@ public sealed class FakeRunControl : IRunControl
 
     public void CancelSafetyShutdown()
     {
+        WasCancelSafetyShutdownRequested = true;
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsSafetyStopping)));
     }
 
     public Task WaitIfPausedAsync(CancellationToken cancellationToken = default)

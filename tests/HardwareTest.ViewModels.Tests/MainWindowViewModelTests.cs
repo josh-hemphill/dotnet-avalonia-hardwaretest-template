@@ -443,6 +443,63 @@ public sealed class MainWindowViewModelTests
     }
 
     [Fact]
+    public async Task Header_Cancel_when_awaiting_without_a_run_cancels_the_prompt()
+    {
+        var store = new FakeSettingsStore();
+        var openTap = new FakeOpenTapSession();
+        var runControl = new FakeRunControl();
+        var runTest = new RunTestViewModel(
+            openTap,
+            openTap,
+            openTap,
+            new OperatorSession(),
+            runControl,
+            new FakeReportService(),
+            new FakeRunStore(),
+            new AppSettings());
+        var vm = CreateMain(store, openTap, runControl, runTest: runTest);
+
+        openTap.BeginInteraction(OperatorInteractionRequest.ConfirmOnly("Install fixture"));
+        Assert.False(vm.IsRunning);
+
+        await runTest.Run.CancelCommand.ExecuteAsync();
+
+        Assert.False(openTap.IsAwaitingOperator);
+        Assert.False(runControl.IsSafetyStopping);
+        Assert.False(runControl.WasSafetyStopRequested);
+        Assert.Equal("Idle", vm.ControlStatus);
+    }
+
+    [Fact]
+    public async Task Header_Cancel_while_stopping_cancels_shutdown_instead_of_aborting_again()
+    {
+        var store = new FakeSettingsStore();
+        var openTap = new FakeOpenTapSession();
+        var runControl = new FakeRunControl();
+        var runTest = new RunTestViewModel(
+            openTap,
+            openTap,
+            openTap,
+            new OperatorSession(),
+            runControl,
+            new FakeReportService(),
+            new FakeRunStore(),
+            new AppSettings());
+        var vm = CreateMain(store, openTap, runControl, runTest: runTest);
+
+        using var cts = new CancellationTokenSource();
+        runControl.AttachRun(cts);
+        runControl.RequestSafetyStop();
+        Assert.True(vm.IsSafetyStopping);
+
+        await runTest.Run.CancelCommand.ExecuteAsync();
+
+        Assert.True(runControl.WasCancelSafetyShutdownRequested);
+        Assert.True(runControl.IsSafetyStopping);
+        Assert.False(openTap.IsAwaitingOperator);
+    }
+
+    [Fact]
     public async Task PauseResume_is_a_no_op_while_stopping()
     {
         var store = new FakeSettingsStore();

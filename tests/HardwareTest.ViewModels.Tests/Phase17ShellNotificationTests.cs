@@ -58,6 +58,16 @@ public sealed class Phase17ShellNotificationTests
     }
 
     [Fact]
+    public void Warning_and_error_notifications_are_polite_live_regions()
+    {
+        var shell = new ShellNotificationViewModel();
+        shell.Publish(ShellNotificationSeverity.Warning, "Warn", sourceKey: ShellNotificationViewModel.SourceRun);
+        Assert.Equal(Avalonia.Automation.AutomationLiveSetting.Polite, shell.LiveSetting);
+        shell.Publish(ShellNotificationSeverity.Error, "Err", sourceKey: ShellNotificationViewModel.SourceRun);
+        Assert.Equal(Avalonia.Automation.AutomationLiveSetting.Polite, shell.LiveSetting);
+    }
+
+    [Fact]
     public void Clear_only_matches_source_key()
     {
         var shell = new ShellNotificationViewModel();

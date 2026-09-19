@@ -207,8 +207,8 @@ public partial class MainWindowViewModel : ReactiveObject
     {
         get
         {
-            if (IsAwaitingOperator) return "Cancel prompt";
             if (IsSafetyStopping) return "Cancel shutdown";
+            if (IsAwaitingOperator) return "Cancel prompt";
             return StopRunCopy.Label;
         }
     }
@@ -217,10 +217,10 @@ public partial class MainWindowViewModel : ReactiveObject
     {
         get
         {
-            if (IsAwaitingOperator)
-                return StopRunCopy.CancelPromptTip;
             if (IsSafetyStopping)
                 return StopRunCopy.CancelShutdownTip;
+            if (IsAwaitingOperator)
+                return StopRunCopy.CancelPromptTip;
             return StopRunCopy.CooperativeTip;
         }
     }

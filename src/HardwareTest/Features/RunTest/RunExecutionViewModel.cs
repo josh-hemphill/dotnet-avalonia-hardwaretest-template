@@ -118,9 +118,14 @@ public sealed class RunExecutionViewModel
         => _attemptLedger.TryGetValue(stepPath, out var ledger) ? ledger : null;
 
     public void ClearAttempts() => _attemptLedger.Clear();
-
     public void Cancel()
     {
+        if (_runControl.IsSafetyStopping)
+        {
+            _runControl.CancelSafetyShutdown();
+            return;
+        }
+
         if (!_runControl.IsRunning && !_runSession.IsAwaitingOperator)
         {
             return;

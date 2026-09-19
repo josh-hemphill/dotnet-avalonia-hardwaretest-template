@@ -207,6 +207,8 @@ public sealed class Phase21OperatorChromeTests
         Assert.True(vm.IsSafetyStopping);
         Assert.False(vm.CanPauseResume);
         Assert.Equal(AutomationLiveSetting.Assertive, vm.ControlStatusLiveSetting);
+        Assert.Equal("Cancel shutdown", vm.SafetyStopLabel);
+        Assert.Equal(StopRunCopy.CancelShutdownTip, vm.SafetyStopTip);
     }
 
     [Fact]
