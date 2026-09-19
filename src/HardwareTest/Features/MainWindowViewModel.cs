@@ -258,11 +258,22 @@ public partial class MainWindowViewModel : ReactiveObject
     /// Assertive while Stop is in progress. Off while awaiting so the prompt card
     /// is the only live region (footer still shows the prompt text visually).
     public AutomationLiveSetting ControlStatusLiveSetting
-        => IsSafetyStopping
-            ? AutomationLiveSetting.Assertive
-            : IsAwaitingOperator
-                ? AutomationLiveSetting.Off
-                : AutomationLiveSetting.Polite;
+    {
+        get
+        {
+            if (IsSafetyStopping)
+            {
+                return AutomationLiveSetting.Assertive;
+            }
+
+            if (IsAwaitingOperator)
+            {
+                return AutomationLiveSetting.Off;
+            }
+
+            return AutomationLiveSetting.Polite;
+        }
+    }
 
     [Reactive]
     private NavItem? _selectedItem;
