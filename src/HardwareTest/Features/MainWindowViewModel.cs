@@ -150,8 +150,8 @@ public partial class MainWindowViewModel : ReactiveObject
     public bool IsSafetyStopping => _runControl.IsSafetyStopping;
     public bool IsAwaitingOperator => _openTap.IsAwaitingOperator;
 
-    /// Footer Pause/Continue stays available during a prompt; Pause is disabled while Stop is in progress.
-    public bool CanPauseResume => IsAwaitingOperator || (IsRunning && !IsSafetyStopping);
+    /// Footer Pause/Continue stays available during a prompt; both stay off while Stop is in progress.
+    public bool CanPauseResume => !IsSafetyStopping && (IsAwaitingOperator || IsRunning);
 
     /// Footer Stop matches the Run header: abort a run or cancel an in-panel prompt.
     public bool CanSafetyStop => IsRunning || IsAwaitingOperator;
@@ -255,12 +255,14 @@ public partial class MainWindowViewModel : ReactiveObject
         return _runControl.IsRunning ? "Running" : "Idle";
     }
 
-    /// Polite for idle/running/paused/awaiting (the prompt card is already assertive).
-    /// Assertive only while Stop is in progress.
+    /// Assertive while Stop is in progress. Off while awaiting so the prompt card
+    /// is the only live region (footer still shows the prompt text visually).
     public AutomationLiveSetting ControlStatusLiveSetting
         => IsSafetyStopping
             ? AutomationLiveSetting.Assertive
-            : AutomationLiveSetting.Polite;
+            : IsAwaitingOperator
+                ? AutomationLiveSetting.Off
+                : AutomationLiveSetting.Polite;
 
     [Reactive]
     private NavItem? _selectedItem;
@@ -476,6 +478,11 @@ public partial class MainWindowViewModel : ReactiveObject
 
     private void PauseResume()
     {
+        if (!CanPauseResume)
+        {
+            return;
+        }
+
         if (IsAwaitingOperator)
         {
             ContinueOperator();
@@ -488,10 +495,7 @@ public partial class MainWindowViewModel : ReactiveObject
             return;
         }
 
-        if (_runControl.IsRunning)
-        {
-            Pause();
-        }
+        Pause();
     }
 
     private void ContinueOperator()

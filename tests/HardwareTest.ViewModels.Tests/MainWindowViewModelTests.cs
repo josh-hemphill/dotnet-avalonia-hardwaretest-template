@@ -385,6 +385,52 @@ public sealed class MainWindowViewModelTests
     }
 
     [Fact]
+    public async Task PauseResume_when_awaiting_without_a_run_still_continues()
+    {
+        var store = new FakeSettingsStore();
+        var openTap = new FakeOpenTapSession();
+        var runControl = new FakeRunControl();
+        var runTest = new RunTestViewModel(
+            openTap,
+            openTap,
+            openTap,
+            new OperatorSession(),
+            runControl,
+            new FakeReportService(),
+            new FakeRunStore(),
+            new AppSettings());
+        var vm = CreateMain(store, openTap, runControl, runTest: runTest);
+
+        openTap.BeginInteraction(OperatorInteractionRequest.ConfirmOnly("Install fixture"));
+        Assert.False(vm.IsRunning);
+        Assert.True(vm.CanPauseResume);
+        Assert.True(vm.CanSafetyStop);
+
+        await vm.PauseResumeCommand.ExecuteAsync();
+        Assert.False(openTap.IsAwaitingOperator);
+    }
+
+    [Fact]
+    public async Task PauseResume_is_a_no_op_while_stopping()
+    {
+        var store = new FakeSettingsStore();
+        var openTap = new FakeOpenTapSession();
+        var runControl = new FakeRunControl();
+        var vm = CreateMain(store, openTap, runControl);
+
+        using var cts = new CancellationTokenSource();
+        runControl.AttachRun(cts);
+        runControl.RequestSafetyStop();
+        Assert.False(vm.CanPauseResume);
+        Assert.False(runControl.IsPaused);
+
+        await vm.PauseResumeCommand.ExecuteAsync();
+        Assert.False(runControl.IsPaused);
+        Assert.True(runControl.IsSafetyStopping);
+        Assert.True(runControl.IsRunning);
+    }
+
+    [Fact]
     public void SafetyStopTip_matches_shared_stop_run_copy()
     {
         var vm = CreateMain(new FakeSettingsStore(), new FakeOpenTapSession(), new FakeRunControl());
