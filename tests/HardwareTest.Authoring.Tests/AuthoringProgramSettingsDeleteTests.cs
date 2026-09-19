@@ -431,14 +431,16 @@ public sealed class AuthoringProgramSettingsDeleteTests
         {
             Measure = [original, new MetricNode(original.Metric with { Name = "dup" })],
         });
-        vm.SelectedInstrumentSlot = "DMM";
-        var sidecarPath = PlanCompiler.SidecarPath(Path.Combine(vm.Workspace!.Root, "slots-compile-fail.TapPlan"));
+        Assert.Contains("SCOPE", vm.Workspace!.Manifest.Catalogs!.InstrumentSlotNames);
+        vm.SelectedInstrumentSlot = "SCOPE";
+        var sidecarPath = PlanCompiler.SidecarPath(Path.Combine(vm.Workspace.Root, "slots-compile-fail.TapPlan"));
         var sidecarBefore = File.ReadAllText(sidecarPath);
         var manifestPath = Path.Combine(vm.Workspace.Root, AuthoringWorkspaceLoader.ManifestFileName);
         var manifestBefore = File.ReadAllText(manifestPath);
         vm.RemoveSelectedInstrumentSlot();
-        Assert.Equal(["SCOPE"], vm.InstrumentSlots);
+        Assert.Equal(["DMM"], vm.InstrumentSlots);
         Assert.Contains(AuthoringCompileCodes.DuplicateChannelKey, vm.Error, StringComparison.Ordinal);
+        Assert.Contains("SCOPE", vm.Workspace.Manifest.Catalogs!.InstrumentSlotNames);
         Assert.Equal(sidecarBefore, File.ReadAllText(sidecarPath));
         Assert.Equal(manifestBefore, File.ReadAllText(manifestPath));
         var reloaded = new AuthoringWorkspaceViewModel();
