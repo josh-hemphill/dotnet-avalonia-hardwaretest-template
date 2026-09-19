@@ -170,13 +170,15 @@
                 <TextBlock Text="{Binding Step.KeyValue}"
                            Opacity="0.8"
                            FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}"
-                           TextTrimming="CharacterEllipsis" />
+                           TextTrimming="CharacterEllipsis"
+                           IsVisible="{Binding Step.KeyValue, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
               </StackPanel>
               <TextBlock Grid.Column="2"
                          Text="{Binding Step.AttemptsText}"
                          FontWeight="SemiBold"
                          FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}"
-                         VerticalAlignment="Center" />
+                         VerticalAlignment="Center"
+                         IsVisible="{Binding Step.AttemptsText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
             </Grid>
           </Panel>
         </DataTemplate>

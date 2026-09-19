@@ -38,6 +38,22 @@ public sealed class OperatorShellLayoutTests
     }
 
     [Fact]
+    public void Step_rows_hide_empty_subtitle_so_the_title_stays_vertically_centered()
+    {
+        var steps = File.ReadAllText(FindRepoFile("src/HardwareTest/Features/RunTest/RunStepsWorkspaceView.axaml"));
+        Assert.Contains("Text=\"{Binding DisplayName}\"", steps, StringComparison.Ordinal);
+        Assert.Contains("Text=\"{Binding Step.KeyValue}\"", steps, StringComparison.Ordinal);
+        Assert.Contains(
+            "IsVisible=\"{Binding Step.KeyValue, Converter={x:Static StringConverters.IsNotNullOrEmpty}}\"",
+            steps,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "IsVisible=\"{Binding Step.AttemptsText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}\"",
+            steps,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Home_wraps_tiles_and_hides_instruments_until_engineer_mode()
     {
         var axaml = File.ReadAllText(FindRepoFile("src/HardwareTest/Features/Home/HomeView.axaml"));
