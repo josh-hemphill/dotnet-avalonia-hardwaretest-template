@@ -374,7 +374,12 @@ public sealed class AuthoringProgramSettingsDeleteTests
         vm.CreateProgram("slots-save");
         vm.NewInstrumentSlot = "SCOPE";
         vm.AddInstrumentSlot();
+        vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
+        var acquire = vm.SequenceItems.Single(row => row.Kind == SequenceRowKind.Metric);
+        vm.SelectSequence(vm.SequenceItems.ToList().IndexOf(acquire));
+        vm.MetricInstrumentSlot = "SCOPE";
         vm.Apply();
+        Assert.Equal(["DMM", "SCOPE"], vm.InstrumentSlots);
         vm.SelectedInstrumentSlot = "DMM";
         vm.RemoveSelectedInstrumentSlot();
         var reloaded = new AuthoringWorkspaceViewModel();
@@ -383,6 +388,9 @@ public sealed class AuthoringProgramSettingsDeleteTests
         Assert.Equal(["SCOPE"], reloaded.InstrumentSlots);
         Assert.DoesNotContain("DMM", reloaded.SelectedProgram!.Instruments.Select(instrument => instrument.SlotName));
         Assert.Equal("SCOPE", Assert.Single(reloaded.SelectedProgram.Setup.OfType<IdentitySetup>()).InstrumentSlot);
+        var measure = Assert.IsType<MeasureSource>(
+            Assert.IsType<MetricNode>(Assert.Single(reloaded.SelectedProgram.Measure)).Metric.Source);
+        Assert.Equal("SCOPE", measure.InstrumentSlot);
     }
 
     [Fact]
