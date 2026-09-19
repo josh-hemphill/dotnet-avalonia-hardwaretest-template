@@ -28,8 +28,12 @@ public sealed class OperatorPromptChromeTests
             showStepIndex >= 0 && showStepIndex < scrollerIndex,
             "Show this step must stay outside the scrollable prompt body.");
         Assert.Contains("IsDefault=\"True\"", axaml, StringComparison.Ordinal);
-        Assert.Contains("Interaction.InteractionTitle", axaml, StringComparison.Ordinal);
-        Assert.Contains("TextWrapping=\"Wrap\"", axaml, StringComparison.Ordinal);
+        var titleIndex = axaml.IndexOf("Text=\"{Binding Interaction.InteractionTitle}\"", StringComparison.Ordinal);
+        Assert.True(titleIndex >= 0, "Prompt title must be bound.");
+        var titleClose = axaml.IndexOf("/>", titleIndex, StringComparison.Ordinal);
+        Assert.True(titleClose > titleIndex);
+        var titleBlock = axaml[titleIndex..titleClose];
+        Assert.Contains("TextWrapping=\"Wrap\"", titleBlock, StringComparison.Ordinal);
     }
 
     [Fact]
