@@ -76,8 +76,8 @@
                     CommandParameter="{x:Static vm:StepStatusFilter.Fail}" />
       <Border CornerRadius="4"
               Padding="8,2"
-              Background="#FFCDD2"
-              BorderBrush="#C62828"
+              Background="{Binding StepTree.StepStatusFilter, Converter={x:Static vm:ChipBrushConverter.BannerFill}}"
+              BorderBrush="{Binding StepTree.StepStatusFilter, Converter={x:Static vm:ChipBrushConverter.Instance}}"
               BorderThickness="1"
               VerticalAlignment="Center"
               Margin="0,0,4,4"

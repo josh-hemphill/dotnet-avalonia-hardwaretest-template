@@ -709,6 +709,8 @@ public sealed class RunBoardChildViewModelTests
         tree.SetSuiteFilterCommand.Execute(StepStatusFilter.Pending).Subscribe();
         Assert.True(tree.SelectedStage?.Step is null);
         Assert.True(tree.IsFilterPending);
+        Assert.True(tree.IsStatusFilterActive);
+        Assert.Equal("Showing pending", tree.StatusFilterBannerText);
         Assert.Equal(tree.SuitePendingCount, tree.StepRows.Count);
         Assert.Equal("Acquire 5V", tree.StepRows[0].Name);
 
@@ -730,11 +732,27 @@ public sealed class RunBoardChildViewModelTests
         tree.SetSuiteFilterCommand.Execute(StepStatusFilter.Fail).Subscribe();
         Assert.True(tree.IsFilterAll);
         Assert.False(tree.IsStatusFilterActive);
+        Assert.Equal(string.Empty, tree.StatusFilterBannerText);
 
         tree.SetSuiteFilterCommand.Execute(StepStatusFilter.Pass).Subscribe();
         Assert.Equal("Showing passed", tree.StatusFilterBannerText);
         tree.SetSuiteFilterCommand.Execute(StepStatusFilter.All).Subscribe();
         Assert.True(tree.IsFilterAll);
+        Assert.Equal(string.Empty, tree.StatusFilterBannerText);
+    }
+
+    [Fact]
+    public void FilterFail_after_entire_fail_filter_does_not_toggle_off()
+    {
+        var tree = new StepTreeViewModel(() => [HierarchicalStatusTree()]);
+        tree.RebuildFromHost();
+        tree.SetSuiteFilterCommand.Execute(StepStatusFilter.Fail).Subscribe();
+        Assert.True(tree.IsFilterFail);
+
+        tree.FilterFailCommand.Execute().Subscribe();
+
+        Assert.True(tree.IsFilterFail);
+        Assert.Equal("Showing fails", tree.StatusFilterBannerText);
     }
 
     [Fact]
