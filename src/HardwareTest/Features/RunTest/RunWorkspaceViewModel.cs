@@ -11,6 +11,7 @@ public sealed class RunWorkspaceViewModel : ReactiveObject
     private readonly Func<bool> _hasStepSelection;
     private readonly Func<bool> _hasHierarchy;
     private readonly Func<bool> _isCompactLayout;
+    private readonly Func<bool> _isRunning;
     private readonly Action<bool> _setDetailVisible;
 
     public RunWorkspaceViewModel(
@@ -20,7 +21,8 @@ public sealed class RunWorkspaceViewModel : ReactiveObject
         Func<bool> hasStepSelection,
         Action<bool>? setDetailVisible = null,
         Func<bool>? hasHierarchy = null,
-        Func<bool>? isCompactLayout = null)
+        Func<bool>? isCompactLayout = null,
+        Func<bool>? isRunning = null)
     {
         _sessionBlocked = sessionBlocked;
         _awaitingOperator = awaitingOperator;
@@ -28,6 +30,7 @@ public sealed class RunWorkspaceViewModel : ReactiveObject
         _hasStepSelection = hasStepSelection;
         _hasHierarchy = hasHierarchy ?? (() => false);
         _isCompactLayout = isCompactLayout ?? (() => false);
+        _isRunning = isRunning ?? (() => false);
         _setDetailVisible = setDetailVisible ?? (_ => { });
 
         OpenStepsCommand = ReactiveCommand.Create(OpenSteps);
@@ -44,7 +47,8 @@ public sealed class RunWorkspaceViewModel : ReactiveObject
     public RunWorkspace Selected { get; private set; } = RunWorkspace.Steps;
 
     public bool ShowInteraction => _awaitingOperator();
-    public bool ShowPreparation => _sessionBlocked() && !ShowInteraction;
+    /// Session overlay never covers a live run — Stop Run must stay on the board.
+    public bool ShowPreparation => _sessionBlocked() && !ShowInteraction && !_isRunning();
     public bool ShowModeSwitcher => !ShowPreparation && !ShowInteraction;
     public bool ShowSteps => ShowWorkspace(RunWorkspace.Steps);
     public bool ShowDetails => ShowWorkspace(RunWorkspace.Details);

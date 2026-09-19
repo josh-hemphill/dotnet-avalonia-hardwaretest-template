@@ -13,18 +13,21 @@
           Classes="session-block">
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
       <StackPanel Spacing="8">
-        <TextBlock Text="Session confirmation required before Run" FontWeight="SemiBold" />
+        <TextBlock Text="{Binding SessionPanel.PromptTitle}" FontWeight="SemiBold" />
         <TextBlock Text="{Binding SessionPanel.SessionSummary}" TextWrapping="Wrap" Opacity="0.9" />
         <TextBlock Text="{Binding SessionPanel.IdleCountdownText}"
                    IsVisible="{Binding SessionPanel.ShowIdleCountdown}"
                    FontSize="12"
                    Opacity="0.8"
                    TextWrapping="Wrap" />
-        <StackPanel Spacing="6" IsVisible="{Binding SessionPanel.IsStalePrompt}">
+        <StackPanel Spacing="6" IsVisible="{Binding SessionPanel.ShowSameDutPrompt}">
           <StackPanel Orientation="Horizontal" Spacing="8">
             <TextBlock Text="Still testing this DUT?" VerticalAlignment="Center" />
             <Button Content="Same DUT" Command="{Binding SessionPanel.ConfirmSameDutCommand}" Classes="operator" />
-            <Button Content="Change Session" Command="{Binding SessionPanel.ChangeSessionCommand}" Classes="operator" />
+            <Button Content="Change Session"
+                    Command="{Binding SessionPanel.ChangeSessionCommand}"
+                    Classes="operator"
+                    IsEnabled="{Binding !IsRunning}" />
           </StackPanel>
           <TextBox PlaceholderText="{Binding SessionPanel.TechnicianPlaceholder}"
                      Text="{Binding SessionPanel.OperatorInput, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
@@ -34,19 +37,23 @@
                      AutomationProperties.Name="Technician"
                      GotFocus="OnTechnicianGotFocus"
                      KeyDown="OnStaleTechnicianKeyDown" />
-          <Button Content="Tap or insert"
-                  Command="{Binding SessionPanel.CaptureCredentialCommand}"
-                  Classes="operator"
-                  MinHeight="{x:Static shell:OperatorTouchDensity.OperatorControlMinHeight}"
-                  IsVisible="{Binding SessionPanel.ShowCredentialCapture}"
-                  IsEnabled="{Binding !SessionPanel.IsCapturingCredential}"
-                  AutomationProperties.Name="Tap or insert badge" />
-        </StackPanel>
-        <StackPanel Spacing="6" IsVisible="{Binding SessionPanel.IsIdleWarningPrompt}">
-          <StackPanel Orientation="Horizontal" Spacing="8">
-            <TextBlock Text="Session idle soon — still testing this DUT?" VerticalAlignment="Center" />
-            <Button Content="Same DUT" Command="{Binding SessionPanel.ConfirmSameDutCommand}" Classes="operator" />
-            <Button Content="Change Session" Command="{Binding SessionPanel.ChangeSessionCommand}" Classes="operator" />
+          <StackPanel Spacing="2" IsVisible="{Binding SessionPanel.ShowCredentialCapture}">
+            <Button Content="Tap or insert"
+                    Command="{Binding SessionPanel.CaptureCredentialCommand}"
+                    Classes="operator"
+                    MinHeight="{x:Static shell:OperatorTouchDensity.OperatorControlMinHeight}"
+                    IsEnabled="{Binding !SessionPanel.IsCapturingCredential}"
+                    AutomationProperties.Name="Tap or insert badge" />
+            <TextBlock Text="{Binding SessionPanel.CredentialStatus}"
+                       FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}"
+                       Opacity="0.8"
+                       TextWrapping="Wrap"
+                       MaxWidth="360" />
+            <TextBlock Text="{Binding SessionPanel.OperatorError}"
+                       IsVisible="{Binding SessionPanel.HasOperatorError}"
+                       Foreground="#C62828"
+                       FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}"
+                       TextWrapping="Wrap" />
           </StackPanel>
         </StackPanel>
         <WrapPanel IsVisible="{Binding SessionPanel.NeedsDutConfirm}">
@@ -64,14 +71,16 @@
                        FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}"
                        TextWrapping="Wrap" />
           </StackPanel>
-          <TextBox PlaceholderText="Part number"
+          <TextBox x:Name="DutPartBox"
+                   PlaceholderText="Part number"
                    Text="{Binding SessionPanel.DutPartInput, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                    Width="130" Margin="0,0,8,8"
                    MinHeight="{x:Static shell:OperatorTouchDensity.OperatorControlMinHeight}"
                    IsVisible="{Binding SessionPanel.RequirePartNumber}"
                    AutomationProperties.Name="DUT part number"
                    KeyDown="OnSessionFieldKeyDown" />
-          <TextBox PlaceholderText="Revision"
+          <TextBox x:Name="DutRevisionBox"
+                   PlaceholderText="Revision"
                    Text="{Binding SessionPanel.DutRevisionInput, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                    Width="90" Margin="0,0,8,8"
                    MinHeight="{x:Static shell:OperatorTouchDensity.OperatorControlMinHeight}"
@@ -79,7 +88,8 @@
                    AutomationProperties.Name="DUT revision"
                    KeyDown="OnSessionFieldKeyDown" />
           <StackPanel Width="160" Margin="0,0,8,8" Spacing="2">
-            <TextBox PlaceholderText="{Binding SessionPanel.TechnicianPlaceholder}"
+            <TextBox x:Name="TechnicianBox"
+                     PlaceholderText="{Binding SessionPanel.TechnicianPlaceholder}"
                      Text="{Binding SessionPanel.OperatorInput, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                      Classes.error="{Binding SessionPanel.HasOperatorError}"
                      MinHeight="{x:Static shell:OperatorTouchDensity.OperatorControlMinHeight}"

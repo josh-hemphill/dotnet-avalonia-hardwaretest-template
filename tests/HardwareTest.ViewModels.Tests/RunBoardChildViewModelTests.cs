@@ -363,6 +363,97 @@ public sealed class RunBoardChildViewModelTests
     }
 
     [Fact]
+    public async Task SessionPanel_same_dut_requires_badge_when_policy_is_on()
+    {
+        var session = new OperatorSession();
+        session.ConfirmDut("SN-1");
+        session.OperatorName = "Tech";
+        session.MarkStale();
+        var settings = new AppSettings { RequireCredentialForOperator = true };
+        var panel = new OperatorSessionPanelViewModel(
+            session,
+            settings,
+            _ => { },
+            () => new ProgramItemViewModel
+            {
+                Id = "sample",
+                DisplayName = "Sample",
+                Path = "sample",
+                DutFamily = "demo",
+                Requirements = new ProgramRequirements { RequireSerial = true, RequireOperator = true },
+            },
+            credentialBroker: new MockOperatorCredentialBroker());
+
+        panel.RefreshRequirementFlags();
+        panel.ConfirmSameDutCommand.Execute().Subscribe();
+        Assert.True(panel.SessionBlocked);
+        Assert.Contains("badge", panel.OperatorError, StringComparison.OrdinalIgnoreCase);
+
+        await panel.CaptureCredentialCommand.ExecuteAsync();
+        panel.ConfirmSameDutCommand.Execute().Subscribe();
+        Assert.False(panel.SessionBlocked);
+        Assert.True(session.CanRun);
+    }
+
+    [Fact]
+    public void SessionPanel_ignores_idle_and_change_session_while_running()
+    {
+        var running = false;
+        var clock = new FakeClock(new DateTimeOffset(2026, 5, 1, 9, 0, 0, TimeSpan.Zero));
+        var session = new OperatorSession(clock);
+        session.ConfirmDut("SN-RUN");
+        session.OperatorName = "Tech";
+        var settings = new AppSettings
+        {
+            OperatorSessionIdleMinutes = 10,
+            OperatorSessionIdleWarnPercent = 80,
+        };
+        var panel = new OperatorSessionPanelViewModel(
+            session,
+            settings,
+            _ => { },
+            clock: clock,
+            isRunning: () => running);
+
+        running = true;
+        clock.Advance(TimeSpan.FromMinutes(9));
+        panel.ApplyIdleStaleCheck();
+        panel.RefreshSessionSummary();
+        Assert.False(session.IsIdleWarning);
+        Assert.False(panel.IsIdleWarningPrompt);
+        Assert.False(panel.SessionBlocked);
+
+        panel.ChangeSessionCommand.Execute().Subscribe();
+        Assert.Equal("SN-RUN", session.DutSerial);
+        Assert.Equal(OperatorSessionState.Active, session.State);
+    }
+
+    [Fact]
+    public void SessionPanel_next_incomplete_field_skips_filled_serial()
+    {
+        var panel = new OperatorSessionPanelViewModel(
+            new OperatorSession(),
+            new AppSettings(),
+            _ => { },
+            () => new ProgramItemViewModel
+            {
+                Id = "sample",
+                DisplayName = "Sample",
+                Path = "sample",
+                DutFamily = "demo",
+                Requirements = new ProgramRequirements { RequireSerial = true, RequireOperator = true },
+            });
+        panel.RefreshRequirementFlags();
+        Assert.Equal(OperatorSessionPanelViewModel.SessionFieldDutSerial, panel.NextIncompleteSessionField());
+
+        panel.DutSerialInput = "SN-1";
+        Assert.Equal(OperatorSessionPanelViewModel.SessionFieldTechnician, panel.NextIncompleteSessionField());
+
+        panel.OperatorInput = "Tech";
+        Assert.Null(panel.NextIncompleteSessionField());
+    }
+
+    [Fact]
     public void SessionPanel_idle_soft_warn_blocks_until_same_dut()
     {
         var session = new OperatorSession();
@@ -426,6 +517,13 @@ public sealed class RunBoardChildViewModelTests
         Assert.NotEmpty(programs.Programs);
         Assert.NotNull(programs.SelectedProgram);
         Assert.Equal(1, loads);
+
+        var first = programs.SelectedProgram!;
+        await programs.RefreshProgramsAsync();
+        Assert.Equal(first.Id, programs.SelectedProgram!.Id);
+        Assert.Contains(programs.SelectedProgram, programs.Programs);
+        Assert.False(ReferenceEquals(first, programs.SelectedProgram));
+        Assert.Equal(2, loads);
     }
 
     [Fact]

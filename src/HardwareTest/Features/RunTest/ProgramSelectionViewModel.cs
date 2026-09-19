@@ -54,6 +54,7 @@ public partial class ProgramSelectionViewModel : ReactiveObject
         IsBusy = true;
         try
         {
+            var previousId = SelectedProgram?.Id;
             Programs.Clear();
             foreach (var entry in ProgramCatalog.Enumerate())
             {
@@ -77,7 +78,10 @@ public partial class ProgramSelectionViewModel : ReactiveObject
                 });
             }
 
-            SelectedProgram ??= Programs.FirstOrDefault();
+            SelectedProgram = Programs.FirstOrDefault(p =>
+                                  previousId is not null
+                                  && string.Equals(p.Id, previousId, StringComparison.OrdinalIgnoreCase))
+                              ?? Programs.FirstOrDefault();
             cancellationToken.ThrowIfCancellationRequested();
             if (SelectedProgram is not null)
             {

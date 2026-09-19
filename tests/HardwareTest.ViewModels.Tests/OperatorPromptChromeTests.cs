@@ -37,6 +37,10 @@ public sealed class OperatorPromptChromeTests
         Assert.Contains("x:Name=\"DutSerialBox\"", prep, StringComparison.Ordinal);
         Assert.Contains("OnSessionFieldKeyDown", prep, StringComparison.Ordinal);
         Assert.Contains("Tap or insert", prep, StringComparison.Ordinal);
+        Assert.Contains("ShowHeaderChangeSession", header, StringComparison.Ordinal);
+        Assert.Contains("SessionPanel.PromptTitle", prep, StringComparison.Ordinal);
+        Assert.Contains("SessionPanel.ShowSameDutPrompt", prep, StringComparison.Ordinal);
+        Assert.Contains("NextIncompleteSessionField", File.ReadAllText(FindRepoFile("src/HardwareTest/Features/RunTest/RunPreparationView.axaml.cs")), StringComparison.Ordinal);
     }
 
     [Fact]
