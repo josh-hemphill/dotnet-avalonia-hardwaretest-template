@@ -81,9 +81,9 @@
               BorderThickness="1"
               VerticalAlignment="Center"
               Margin="0,0,4,4"
-              IsVisible="{Binding StepTree.IsFilteredToFail}">
+              IsVisible="{Binding StepTree.IsStatusFilterActive}">
         <StackPanel Orientation="Horizontal" Spacing="6">
-          <TextBlock Text="Showing fails"
+          <TextBlock Text="{Binding StepTree.StatusFilterBannerText}"
                      FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}"
                      FontWeight="SemiBold"
                      VerticalAlignment="Center" />

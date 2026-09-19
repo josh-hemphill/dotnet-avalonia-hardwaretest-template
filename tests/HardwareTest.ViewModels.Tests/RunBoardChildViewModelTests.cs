@@ -724,6 +724,17 @@ public sealed class RunBoardChildViewModelTests
         Assert.True(tree.IsFilterFail);
         Assert.Equal(tree.SuiteFailedCount, tree.StepRows.Count);
         Assert.Equal("Acquire 12V", tree.StepRows[0].Name);
+        Assert.True(tree.IsStatusFilterActive);
+        Assert.Equal("Showing fails", tree.StatusFilterBannerText);
+
+        tree.SetSuiteFilterCommand.Execute(StepStatusFilter.Fail).Subscribe();
+        Assert.True(tree.IsFilterAll);
+        Assert.False(tree.IsStatusFilterActive);
+
+        tree.SetSuiteFilterCommand.Execute(StepStatusFilter.Pass).Subscribe();
+        Assert.Equal("Showing passed", tree.StatusFilterBannerText);
+        tree.SetSuiteFilterCommand.Execute(StepStatusFilter.All).Subscribe();
+        Assert.True(tree.IsFilterAll);
     }
 
     [Fact]
