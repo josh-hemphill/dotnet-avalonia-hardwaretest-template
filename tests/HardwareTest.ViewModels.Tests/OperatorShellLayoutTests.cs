@@ -54,9 +54,9 @@ public sealed class OperatorShellLayoutTests
             steps,
             StringComparison.Ordinal);
         var culture = System.Globalization.CultureInfo.InvariantCulture;
-        Assert.Equal(false, StringPresenceConverter.IsNotNullOrWhiteSpace.Convert("   ", typeof(bool), null, culture));
-        Assert.Equal(true, StringPresenceConverter.IsNotNullOrWhiteSpace.Convert("5V=5.010", typeof(bool), null, culture));
-        Assert.Equal(false, StringPresenceConverter.IsNotNullOrWhiteSpace.Convert(null, typeof(bool), null, culture));
+        Assert.False(IsPresent("   ", culture));
+        Assert.True(IsPresent("5V=5.010", culture));
+        Assert.False(IsPresent(null, culture));
     }
 
     [Fact]
@@ -113,6 +113,9 @@ public sealed class OperatorShellLayoutTests
 
         throw new FileNotFoundException($"Could not locate {relativePath} from {AppContext.BaseDirectory}");
     }
+
+    private static bool IsPresent(string? value, System.Globalization.CultureInfo culture)
+        => Assert.IsType<bool>(StringPresenceConverter.IsNotNullOrWhiteSpace.Convert(value, typeof(bool), null, culture));
 
     private static int CountOccurrences(string text, string token)
     {
