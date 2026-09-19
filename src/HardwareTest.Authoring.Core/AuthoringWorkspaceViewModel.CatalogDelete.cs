@@ -180,7 +180,7 @@ public sealed partial class AuthoringWorkspaceViewModel
             }
             catch (Exception ex)
             {
-                Status = $"Removed slot {slot}";
+                Status = $"Removed slot {slot}; plan and catalog files unchanged";
                 Error = ex is AuthoringWorkspaceException
                     ? ex.Message
                     : $"Failed to save plan after removing slot '{slot}': {ex.Message}";

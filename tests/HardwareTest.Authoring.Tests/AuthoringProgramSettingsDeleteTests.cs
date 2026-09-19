@@ -440,6 +440,7 @@ public sealed class AuthoringProgramSettingsDeleteTests
         vm.RemoveSelectedInstrumentSlot();
         Assert.Equal(["DMM"], vm.InstrumentSlots);
         Assert.Contains(AuthoringCompileCodes.DuplicateChannelKey, vm.Error, StringComparison.Ordinal);
+        Assert.Contains("files unchanged", vm.Status, StringComparison.Ordinal);
         Assert.Contains("SCOPE", vm.Workspace.Manifest.Catalogs!.InstrumentSlotNames);
         Assert.Equal(sidecarBefore, File.ReadAllText(sidecarPath));
         Assert.Equal(manifestBefore, File.ReadAllText(manifestPath));
