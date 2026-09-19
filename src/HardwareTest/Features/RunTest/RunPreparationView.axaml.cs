@@ -58,8 +58,49 @@ public partial class RunPreparationView : UserControl
             return;
         }
 
+        var next = _subscribed.SessionPanel.NextIncompleteSessionField();
+        var current = SessionFieldId(sender);
+        if (!string.IsNullOrEmpty(next)
+            && !string.Equals(next, current, StringComparison.Ordinal)
+            && FocusSessionField(next))
+        {
+            e.Handled = true;
+            return;
+        }
+
         ((ICommand)_subscribed.SessionPanel.ConfirmSessionCommand).Execute(null);
         e.Handled = true;
+    }
+
+    private static string? SessionFieldId(object? sender)
+        => sender is Control control
+            ? control.Name switch
+            {
+                nameof(DutSerialBox) => OperatorSessionPanelViewModel.SessionFieldDutSerial,
+                nameof(DutPartBox) => OperatorSessionPanelViewModel.SessionFieldDutPart,
+                nameof(DutRevisionBox) => OperatorSessionPanelViewModel.SessionFieldDutRevision,
+                nameof(TechnicianBox) => OperatorSessionPanelViewModel.SessionFieldTechnician,
+                _ => control.Name,
+            }
+            : null;
+
+    private bool FocusSessionField(string field)
+    {
+        Control? target = field switch
+        {
+            OperatorSessionPanelViewModel.SessionFieldDutSerial => DutSerialBox,
+            OperatorSessionPanelViewModel.SessionFieldDutPart => DutPartBox,
+            OperatorSessionPanelViewModel.SessionFieldDutRevision => DutRevisionBox,
+            OperatorSessionPanelViewModel.SessionFieldTechnician => TechnicianBox,
+            _ => null,
+        };
+        if (target is null || !target.IsVisible || !target.IsEnabled)
+        {
+            return false;
+        }
+
+        target.Focus();
+        return true;
     }
 
     private void OnStaleTechnicianKeyDown(object? sender, KeyEventArgs e)

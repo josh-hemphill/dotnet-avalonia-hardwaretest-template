@@ -52,7 +52,8 @@ public partial class RunTestViewModel
             () => ProgramSelection.SelectedProgram,
             ClearSessionAttempts,
             clock,
-            credentialBroker);
+            credentialBroker,
+            () => IsRunning);
         StationOverrides = new StationOverridesViewModel(
             plan,
             station,
@@ -103,8 +104,12 @@ public partial class RunTestViewModel
             () => StepTree.SelectedStep is not null,
             visible => StepDetail.ShowDetailRegion = visible,
             () => StepTree.HasHierarchyOverview,
-            () => IsCompactLayout);
+            () => IsCompactLayout,
+            () => IsRunning);
     }
+
+    /// Change DUT is idle-only — clearing identity mid-run would hide the live board.
+    public bool ShowHeaderChangeSession => !SessionPanel.SessionBlocked && !IsRunning;
 
     /// True when Stop occupies the header action slot (run in progress or operator prompt).
     public bool ShowHeaderStop => CanSafetyStop;

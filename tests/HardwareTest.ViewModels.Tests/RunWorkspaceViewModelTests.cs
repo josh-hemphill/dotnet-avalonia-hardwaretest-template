@@ -230,6 +230,28 @@ public sealed class RunWorkspaceViewModelTests
         Assert.False(workspace.ShowInlineStageChips);
     }
 
+    [Fact]
+    public void Preparation_does_not_cover_the_board_while_a_run_is_in_progress()
+    {
+        var sessionBlocked = true;
+        var running = true;
+        var workspace = new RunWorkspaceViewModel(
+            () => sessionBlocked,
+            () => false,
+            () => false,
+            () => false,
+            isRunning: () => running);
+
+        Assert.False(workspace.ShowPreparation);
+        Assert.True(workspace.ShowSteps);
+        Assert.True(workspace.ShowModeSwitcher);
+
+        running = false;
+        workspace.Refresh();
+        Assert.True(workspace.ShowPreparation);
+        Assert.False(workspace.ShowSteps);
+    }
+
     private static RunWorkspaceViewModel Create(
         Func<bool> sessionBlocked,
         Func<bool> awaiting,

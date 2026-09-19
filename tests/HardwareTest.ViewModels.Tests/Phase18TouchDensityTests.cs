@@ -146,6 +146,21 @@ public sealed class Phase18TouchDensityTests
         Assert.False(vm.ShowStartBlockedTip);
     }
 
+    [Fact]
+    public async Task ShowStartBlockedTip_false_and_change_hidden_while_running()
+    {
+        var vm = RunTestViewModelTestFactory.Create();
+        vm.SessionPanel.DutSerialInput = "SN-TOUCH-RUN";
+        vm.SessionPanel.OperatorInput = "Tech";
+        await vm.SessionPanel.ConfirmSessionCommand.ExecuteAsync();
+        Assert.True(vm.ShowHeaderChangeSession);
+
+        vm.IsRunning = true;
+        Assert.False(vm.ShowStartBlockedTip);
+        Assert.False(vm.ShowHeaderChangeSession);
+        Assert.Contains("Stop", vm.CanStartRunTip, StringComparison.OrdinalIgnoreCase);
+    }
+
     private static int CountOccurrences(string haystack, string needle)
     {
         var count = 0;

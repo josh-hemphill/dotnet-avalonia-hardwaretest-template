@@ -58,6 +58,11 @@ public partial class OperatorSessionPanelViewModel
         {
             CredentialStatus = "Badge capture cancelled.";
         }
+        catch (Exception)
+        {
+            // Focus-triggered capture is fire-and-forget; do not crash the UI thread.
+            CredentialStatus = "Badge capture failed.";
+        }
         finally
         {
             IsCapturingCredential = false;

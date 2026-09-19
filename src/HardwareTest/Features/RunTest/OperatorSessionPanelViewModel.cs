@@ -20,6 +20,7 @@ public partial class OperatorSessionPanelViewModel : ReactiveObject
     private readonly Action _onSessionCleared;
     private readonly IClock _clock;
     private readonly IOperatorCredentialBroker? _credentialBroker;
+    private readonly Func<bool> _isRunning;
     private readonly System.Timers.Timer _idleTimer;
 
     /// Test seam: routes idle-timer UI work synchronously instead of through the Avalonia dispatcher.
@@ -32,7 +33,8 @@ public partial class OperatorSessionPanelViewModel : ReactiveObject
         Func<ProgramItemViewModel?>? getSelectedProgram = null,
         Action? onSessionCleared = null,
         IClock? clock = null,
-        IOperatorCredentialBroker? credentialBroker = null)
+        IOperatorCredentialBroker? credentialBroker = null,
+        Func<bool>? isRunning = null)
     {
         _session = session;
         _settings = settings;
@@ -41,6 +43,7 @@ public partial class OperatorSessionPanelViewModel : ReactiveObject
         _onSessionCleared = onSessionCleared ?? (() => { });
         _clock = clock ?? SystemClock.Instance;
         _credentialBroker = credentialBroker;
+        _isRunning = isRunning ?? (() => false);
 
         ConfirmSessionCommand = ReactiveCommand.Create(ConfirmSession);
         ConfirmSameDutCommand = ReactiveCommand.Create(ConfirmSameDut);
@@ -124,10 +127,70 @@ public partial class OperatorSessionPanelViewModel : ReactiveObject
 
     public bool HasDutSerialError => !string.IsNullOrWhiteSpace(DutSerialError);
     public bool HasOperatorError => !string.IsNullOrWhiteSpace(OperatorError);
+    public bool ShowSameDutPrompt => IsStalePrompt || IsIdleWarningPrompt;
+
+    public string PromptTitle
+    {
+        get
+        {
+            if (IsIdleWarningPrompt)
+            {
+                return "Session idle soon — still testing this DUT?";
+            }
+
+            if (IsStalePrompt)
+            {
+                return PendingConfirmEveryRun
+                    ? "Confirm Same DUT before the next Run"
+                    : "Re-confirm this DUT before Run";
+            }
+
+            return "Session confirmation required before Run";
+        }
+    }
+
+    public const string SessionFieldDutSerial = "DutSerial";
+    public const string SessionFieldDutPart = "DutPart";
+    public const string SessionFieldDutRevision = "DutRevision";
+    public const string SessionFieldTechnician = "Technician";
+
+    /// First required confirm field that is still empty, or null when Confirm Session can run.
+    public string? NextIncompleteSessionField()
+    {
+        if (RequireSerial && string.IsNullOrWhiteSpace(NormalizeScan(DutSerialInput)))
+        {
+            return SessionFieldDutSerial;
+        }
+
+        if (RequirePartNumber && string.IsNullOrWhiteSpace(NormalizeScan(DutPartInput)))
+        {
+            return SessionFieldDutPart;
+        }
+
+        if (RequireRevision && string.IsNullOrWhiteSpace(NormalizeScan(DutRevisionInput)))
+        {
+            return SessionFieldDutRevision;
+        }
+
+        if (RequireOperator
+            && string.IsNullOrWhiteSpace(NormalizeScan(OperatorInput))
+            && string.IsNullOrWhiteSpace(_session.OperatorName))
+        {
+            return SessionFieldTechnician;
+        }
+
+        return null;
+    }
 
     /// Marks the session stale once it has been idle past the configured window.
     public void ApplyIdleStaleCheck()
     {
+        if (_isRunning())
+        {
+            // A live run is operator activity — otherwise a long suite trips idle the instant it ends.
+            _session.TouchActivity();
+            return;
+        }
         var minutes = OperatorSessionIdle.ClampMinutes(_settings.OperatorSessionIdleMinutes);
         if (minutes <= 0 && _settings.OperatorSessionIdleHours > 0)
         {
@@ -171,13 +234,17 @@ public partial class OperatorSessionPanelViewModel : ReactiveObject
     {
         NeedsDutConfirm = _session.State == OperatorSessionState.NeedsDut;
         IsStalePrompt = _session.State == OperatorSessionState.Stale;
-        IsIdleWarningPrompt = _session.State == OperatorSessionState.Active && _session.IsIdleWarning;
-        SessionBlocked = !_session.CanRun || IsIdleWarningPrompt;
+        IsIdleWarningPrompt = !_isRunning()
+            && _session.State == OperatorSessionState.Active
+            && _session.IsIdleWarning;
+        SessionBlocked = !_isRunning() && (!_session.CanRun || IsIdleWarningPrompt);
         ShowSessionForm = NeedsDutConfirm || IsStalePrompt || IsIdleWarningPrompt || SessionBlocked;
         ShowStaleTechnicianField = (IsStalePrompt || IsIdleWarningPrompt)
             && RequireOperator
             && string.IsNullOrWhiteSpace(_session.OperatorName);
         RefreshIdleCountdown();
+        this.RaisePropertyChanged(nameof(ShowSameDutPrompt));
+        this.RaisePropertyChanged(nameof(PromptTitle));
 
         var program = _session.ProgramDisplayName ?? "(none)";
         if (_session.CanRun && !IsIdleWarningPrompt)
@@ -297,6 +364,7 @@ public partial class OperatorSessionPanelViewModel : ReactiveObject
 
     private void ConfirmSameDut()
     {
+        var req = _getSelectedProgram()?.Requirements ?? ProgramRequirements.Sample;
         RefreshRequirementFlags();
         ClearFieldErrors();
         if (RequireOperator
@@ -318,6 +386,15 @@ public partial class OperatorSessionPanelViewModel : ReactiveObject
             _session.OperatorName = OperatorInput;
         }
 
+        if (!TryRequireCredential(req, out var credentialError))
+        {
+            ApplyFieldError(credentialError);
+            _setStatus(credentialError);
+            SessionBlocked = true;
+            ShowSessionForm = true;
+            return;
+        }
+
         _session.ConfirmSameDut();
         PendingConfirmEveryRun = false;
         DutSerialInput = _session.DutSerial;
@@ -332,6 +409,11 @@ public partial class OperatorSessionPanelViewModel : ReactiveObject
 
     private void ChangeSession()
     {
+        if (_isRunning())
+        {
+            return;
+        }
+
         _session.ChangeSession();
         PendingConfirmEveryRun = false;
         ClearFieldErrors();
