@@ -150,6 +150,12 @@ public partial class MainWindowViewModel : ReactiveObject
     public bool IsSafetyStopping => _runControl.IsSafetyStopping;
     public bool IsAwaitingOperator => _openTap.IsAwaitingOperator;
 
+    /// Footer Pause/Continue stays available during a prompt; Pause is disabled while Stop is in progress.
+    public bool CanPauseResume => IsAwaitingOperator || (IsRunning && !IsSafetyStopping);
+
+    /// Footer Stop matches the Run header: abort a run or cancel an in-panel prompt.
+    public bool CanSafetyStop => IsRunning || IsAwaitingOperator;
+
     /// Pause glyph when not soft-paused and not awaiting (including idle affordance).
     public bool ShowPauseIcon => !IsPaused && !IsAwaitingOperator;
     /// Resume (play) when soft-paused and not awaiting operator input.
@@ -249,9 +255,10 @@ public partial class MainWindowViewModel : ReactiveObject
         return _runControl.IsRunning ? "Running" : "Idle";
     }
 
-    /// Polite for idle/running/paused; assertive for Stop in progress and operator prompts.
+    /// Polite for idle/running/paused/awaiting (the prompt card is already assertive).
+    /// Assertive only while Stop is in progress.
     public AutomationLiveSetting ControlStatusLiveSetting
-        => IsSafetyStopping || IsAwaitingOperator
+        => IsSafetyStopping
             ? AutomationLiveSetting.Assertive
             : AutomationLiveSetting.Polite;
 
@@ -463,6 +470,8 @@ public partial class MainWindowViewModel : ReactiveObject
         this.RaisePropertyChanged(nameof(ShowResumeIcon));
         this.RaisePropertyChanged(nameof(ShowContinueIcon));
         this.RaisePropertyChanged(nameof(PauseResumeSymbol));
+        this.RaisePropertyChanged(nameof(CanPauseResume));
+        this.RaisePropertyChanged(nameof(CanSafetyStop));
     }
 
     private void PauseResume()
@@ -515,7 +524,7 @@ public partial class MainWindowViewModel : ReactiveObject
             return;
         }
 
-        if (!_runControl.IsRunning)
+        if (!_runControl.IsRunning && !IsAwaitingOperator)
         {
             return;
         }

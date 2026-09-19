@@ -42,6 +42,7 @@ public sealed class Phase17ShellNotificationTests
         Assert.True(shell.HasContent);
         Assert.Equal(ShellNotificationSeverity.Critical, shell.Severity);
         Assert.Equal("Disk full", shell.Message);
+        Assert.Equal(Avalonia.Automation.AutomationLiveSetting.Assertive, shell.LiveSetting);
     }
 
     [Fact]
@@ -53,6 +54,7 @@ public sealed class Phase17ShellNotificationTests
 
         Assert.Equal(ShellNotificationSeverity.Info, shell.Severity);
         Assert.Equal("Second", shell.Message);
+        Assert.Equal(Avalonia.Automation.AutomationLiveSetting.Polite, shell.LiveSetting);
     }
 
     [Fact]

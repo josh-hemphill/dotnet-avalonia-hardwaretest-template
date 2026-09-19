@@ -60,6 +60,16 @@ public sealed class OperatorShellLayoutTests
     }
 
     [Fact]
+    public void Details_attempt_chip_hides_when_the_summary_is_empty()
+    {
+        var details = File.ReadAllText(FindRepoFile("src/HardwareTest/Features/RunTest/RunDetailsWorkspaceView.axaml"));
+        Assert.Contains(
+            "IsVisible=\"{Binding StepDetail.AttemptSummaryChip, Converter={x:Static StringConverters.IsNotNullOrEmpty}}\"",
+            details,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Home_wraps_tiles_and_hides_instruments_until_engineer_mode()
     {
         var axaml = File.ReadAllText(FindRepoFile("src/HardwareTest/Features/Home/HomeView.axaml"));

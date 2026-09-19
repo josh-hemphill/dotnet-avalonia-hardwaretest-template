@@ -53,7 +53,11 @@ public sealed class Phase21OperatorChromeTests
         Assert.Contains("SafetyStopLabel", axaml, StringComparison.Ordinal);
         Assert.Contains("IsHitTestVisible=\"False\"", axaml, StringComparison.Ordinal);
         Assert.Contains("CompactControlStatus", axaml, StringComparison.Ordinal);
-        Assert.Contains("LiveSetting=\"Polite\"", axaml, StringComparison.Ordinal);
+        Assert.Contains("ShellNotification.LiveSetting", axaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("AutomationProperties.Name=\"Run status\"", axaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("AutomationProperties.Name=\"Shell notification\"", axaml, StringComparison.Ordinal);
+        Assert.Contains("CanPauseResume", axaml, StringComparison.Ordinal);
+        Assert.Contains("CanSafetyStop", axaml, StringComparison.Ordinal);
         Assert.Contains("MaxLines=\"1\"", axaml, StringComparison.Ordinal);
         Assert.DoesNotContain("TextWrapping=\"Wrap\"", CompactStatusBlock(axaml), StringComparison.Ordinal);
         var host = File.ReadAllText(FindRepoFile("src/HardwareTest/Features/RunTest/InteractionHostView.axaml"));
@@ -147,12 +151,16 @@ public sealed class Phase21OperatorChromeTests
         Assert.Equal("Stopping…", vm.ControlStatus);
         Assert.Equal("Stopping…", vm.CompactControlStatus);
         Assert.Equal(AutomationLiveSetting.Assertive, vm.ControlStatusLiveSetting);
+        Assert.False(vm.CanPauseResume);
+        Assert.True(vm.CanSafetyStop);
 
         runControl = new FakeRunControl();
         vm = CreateMain(openTap, runControl);
         runControl.AttachRun(new CancellationTokenSource());
         openTap.BeginInteraction(OperatorInteractionRequest.ConfirmOnly("Install fixture"));
-        Assert.Equal(AutomationLiveSetting.Assertive, vm.ControlStatusLiveSetting);
+        Assert.Equal(AutomationLiveSetting.Polite, vm.ControlStatusLiveSetting);
+        Assert.True(vm.CanPauseResume);
+        Assert.True(vm.CanSafetyStop);
     }
 
     [Fact]
