@@ -496,7 +496,7 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
 
     private void ContinueOperator()
     {
-        if (!Interaction.IsAwaitingOperator) return;
+        if (!Interaction.IsAwaitingOperator && !_runSession.IsAwaitingOperator) return;
         var request = _runSession.PendingInteraction;
         if (!Interaction.TryCollectResponse(request, out var values))
         {
