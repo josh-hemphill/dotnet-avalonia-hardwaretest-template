@@ -304,6 +304,26 @@ public sealed class RunBoardChildViewModelTests
     }
 
     [Fact]
+    public async Task SessionPanel_technician_focus_records_failure_instead_of_faulting()
+    {
+        var broker = new GateableCredentialBroker();
+        var panel = new OperatorSessionPanelViewModel(
+            new OperatorSession(),
+            new AppSettings { ProbeBadgeWhenTechnicianFocused = true },
+            _ => { },
+            credentialBroker: broker);
+
+        panel.OnTechnicianFocused();
+        await WaitUntilAsync(() => panel.IsCapturingCredential);
+        broker.FailPresence(new InvalidOperationException("reader unplugged"));
+        await WaitUntilAsync(() => !panel.IsCapturingCredential);
+
+        Assert.Equal("Badge capture failed.", panel.CredentialStatus);
+        Assert.Equal(string.Empty, panel.OperatorInput);
+        Assert.False(panel.IsCapturingCredential);
+    }
+
+    [Fact]
     public void SessionPanel_same_dut_without_require_operator_allows_empty_tech()
     {
         var session = new OperatorSession();
@@ -426,6 +446,13 @@ public sealed class RunBoardChildViewModelTests
         panel.ChangeSessionCommand.Execute().Subscribe();
         Assert.Equal("SN-RUN", session.DutSerial);
         Assert.Equal(OperatorSessionState.Active, session.State);
+
+        running = false;
+        panel.ApplyIdleStaleCheck();
+        panel.RefreshSessionSummary();
+        Assert.False(session.IsIdleWarning);
+        Assert.False(panel.IsIdleWarningPrompt);
+        Assert.True(session.CanRun);
     }
 
     [Fact]
@@ -1197,5 +1224,7 @@ public sealed class RunBoardChildViewModelTests
                 },
             });
         }
+
+        public void FailPresence(Exception error) => _presence.TrySetException(error);
     }
 }

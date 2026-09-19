@@ -187,6 +187,8 @@ public partial class OperatorSessionPanelViewModel : ReactiveObject
     {
         if (_isRunning())
         {
+            // A live run is operator activity — otherwise a long suite trips idle the instant it ends.
+            _session.TouchActivity();
             return;
         }
         var minutes = OperatorSessionIdle.ClampMinutes(_settings.OperatorSessionIdleMinutes);
