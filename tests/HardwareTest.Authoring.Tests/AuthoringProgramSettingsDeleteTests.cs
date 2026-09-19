@@ -432,14 +432,51 @@ public sealed class AuthoringProgramSettingsDeleteTests
             Measure = [original, new MetricNode(original.Metric with { Name = "dup" })],
         });
         vm.SelectedInstrumentSlot = "DMM";
+        var sidecarPath = PlanCompiler.SidecarPath(Path.Combine(vm.Workspace!.Root, "slots-compile-fail.TapPlan"));
+        var sidecarBefore = File.ReadAllText(sidecarPath);
+        var manifestPath = Path.Combine(vm.Workspace.Root, AuthoringWorkspaceLoader.ManifestFileName);
+        var manifestBefore = File.ReadAllText(manifestPath);
         vm.RemoveSelectedInstrumentSlot();
         Assert.Equal(["SCOPE"], vm.InstrumentSlots);
         Assert.Contains(AuthoringCompileCodes.DuplicateChannelKey, vm.Error, StringComparison.Ordinal);
+        Assert.Equal(sidecarBefore, File.ReadAllText(sidecarPath));
+        Assert.Equal(manifestBefore, File.ReadAllText(manifestPath));
         var reloaded = new AuthoringWorkspaceViewModel();
-        reloaded.Open(vm.Workspace!.Root);
+        reloaded.Open(vm.Workspace.Root);
         reloaded.SelectProgram("slots-compile-fail");
         Assert.Contains("DMM", reloaded.InstrumentSlots);
         Assert.Contains("SCOPE", reloaded.InstrumentSlots);
+    }
+
+    [Fact]
+    public void Unsaved_slot_delete_does_not_invent_tapplan_or_sidecar()
+    {
+        var vm = OpenEmpty();
+        vm.CreateProgram("unsaved-slot");
+        vm.NewInstrumentSlot = "SCOPE";
+        vm.AddInstrumentSlot();
+        vm.SelectedInstrumentSlot = "SCOPE";
+        vm.RemoveSelectedInstrumentSlot();
+        Assert.Equal(["DMM"], vm.InstrumentSlots);
+        Assert.Empty(Directory.EnumerateFiles(vm.Workspace!.Root, "*.TapPlan", SearchOption.AllDirectories));
+        Assert.Empty(Directory.EnumerateFiles(vm.Workspace.Root, "*.program.json", SearchOption.AllDirectories));
+    }
+
+    [Fact]
+    public void Clone_sidecar_copies_fields_onto_a_new_instance()
+    {
+        var sidecar = new ProgramSidecar
+        {
+            DisplayName = "keep-me",
+            RequiredFields = ["fixtureId"],
+        };
+        var clone = PlanCompiler.CloneSidecar(sidecar);
+        Assert.NotSame(sidecar, clone);
+        Assert.Equal("keep-me", clone.DisplayName);
+        sidecar.DisplayName = "mutated";
+        sidecar.RequiredFields![0] = "changed";
+        Assert.Equal("keep-me", clone.DisplayName);
+        Assert.Equal("fixtureId", Assert.Single(clone.RequiredFields!));
     }
 
     [Fact]

@@ -102,7 +102,7 @@ public sealed partial class PlanCompiler : IPlanCompiler
         ArgumentNullException.ThrowIfNull(sidecar);
         var json = JsonSerializer.Serialize(sidecar, ProgramCatalogJsonContext.Default.ProgramSidecar);
         return JsonSerializer.Deserialize(json, ProgramCatalogJsonContext.Default.ProgramSidecar)
-               ?? new ProgramSidecar();
+               ?? throw new AuthoringWorkspaceException("Failed to clone program sidecar.");
     }
 
     private static void WriteSidecar(string tapPlanPath, ProgramSidecar sidecar)

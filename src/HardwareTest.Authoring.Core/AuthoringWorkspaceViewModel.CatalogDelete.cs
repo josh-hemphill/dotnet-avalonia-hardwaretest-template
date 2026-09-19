@@ -170,13 +170,6 @@ public sealed partial class AuthoringWorkspaceViewModel
         };
         AuthoringCleanup.SyncSidecar(next.Sidecar, cleanup);
         ReplaceSelected(next);
-        if (!Programs.Any(program =>
-                program.Instruments.Any(instrument =>
-                    string.Equals(instrument.SlotName, slot, StringComparison.OrdinalIgnoreCase))))
-        {
-            RememberWorkspaceCatalog(catalogs => AuthoringWorkspaceCatalog.Forget(catalogs.InstrumentSlotNames, slot));
-        }
-
         SelectedInstrumentSlot = replacement;
         var existingTapPlan = TryExistingTapPlanPath(next.PlanId);
         if (!string.IsNullOrWhiteSpace(existingTapPlan))
@@ -185,12 +178,21 @@ public sealed partial class AuthoringWorkspaceViewModel
             {
                 _compiler.Save(next, existingTapPlan);
             }
-            catch (AuthoringWorkspaceException ex)
+            catch (Exception ex)
             {
                 Status = $"Removed slot {slot}";
-                Error = ex.Message;
+                Error = ex is AuthoringWorkspaceException
+                    ? ex.Message
+                    : $"Failed to save plan after removing slot '{slot}': {ex.Message}";
                 return;
             }
+        }
+
+        if (!Programs.Any(program =>
+                program.Instruments.Any(instrument =>
+                    string.Equals(instrument.SlotName, slot, StringComparison.OrdinalIgnoreCase))))
+        {
+            RememberWorkspaceCatalog(catalogs => AuthoringWorkspaceCatalog.Forget(catalogs.InstrumentSlotNames, slot));
         }
 
         Status = $"Removed slot {slot}";
