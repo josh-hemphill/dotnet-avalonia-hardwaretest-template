@@ -159,6 +159,26 @@ public sealed class OperatorPromptChromeTests
         Assert.True(OperatorTouchDensity.InteractionHostBodyMaxHeight < OperatorTouchDensity.InteractionHostMaxHeight);
     }
 
+    [Fact]
+    public void InteractionHostView_is_a_capped_card_and_show_this_step_reveals_the_row()
+    {
+        var host = File.ReadAllText(FindRepoFile("src/HardwareTest/Features/RunTest/InteractionHostView.axaml"));
+        var run = File.ReadAllText(FindRepoFile("src/HardwareTest/Features/RunTest/RunTestView.axaml"));
+        Assert.Contains("OperatorTouchDensity.InteractionHostMaxHeight", host, StringComparison.Ordinal);
+        Assert.Contains("OperatorTouchDensity.InteractionHostBodyMaxHeight", host, StringComparison.Ordinal);
+        Assert.Contains("VerticalAlignment=\"Top\"", host, StringComparison.Ordinal);
+        Assert.DoesNotContain("VerticalAlignment=\"Stretch\"", host, StringComparison.Ordinal);
+        Assert.Contains("ShowCurrentStepCommand", host, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"ShowThisStepButton\"", host, StringComparison.Ordinal);
+        Assert.Contains("AutomationProperties.Name=\"Show this step\"", host, StringComparison.Ordinal);
+        Assert.Contains("<vm:InteractionHostView DockPanel.Dock=\"Top\"", run, StringComparison.Ordinal);
+        Assert.DoesNotContain("<vm:InteractionHostView IsVisible", run, StringComparison.Ordinal);
+
+        var steps = File.ReadAllText(FindRepoFile("src/HardwareTest/Features/RunTest/RunStepsWorkspaceView.axaml"));
+        Assert.Contains("JumpToCurrentCommand", steps, StringComparison.Ordinal);
+        Assert.Contains("Header=\"Jump to current\"", steps, StringComparison.Ordinal);
+    }
+
     private static string FindRepoFile(string relativePath)
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);

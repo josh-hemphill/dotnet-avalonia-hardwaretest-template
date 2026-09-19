@@ -92,6 +92,7 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
             stationHealthGate);
 
         ContinueOperatorCommand = ReactiveCommand.Create(ContinueOperator);
+        ShowCurrentStepCommand = ReactiveCommand.Create(ShowCurrentStep);
         OpenLastRunResultsCommand = ReactiveCommand.Create(
             () => NavigateToResultsRequested?.Invoke(this, EventArgs.Empty));
         InspectPlanCommand = ReactiveCommand.Create(
@@ -145,6 +146,7 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
     public event EventHandler? NavigateToInspectRequested;
 
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> ContinueOperatorCommand { get; }
+    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> ShowCurrentStepCommand { get; }
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> OpenLastRunResultsCommand { get; }
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> InspectPlanCommand { get; }
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> DismissStorageBannerCommand { get; }
@@ -480,6 +482,13 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
         {
             StepDetail.SyncLive(selected);
         }
+    }
+
+    /// Reveals the waiting step under the docked operator prompt.
+    private void ShowCurrentStep()
+    {
+        Workspace.OpenSteps();
+        StepTree.JumpToCurrent(changeScope: true);
     }
 
     private void ContinueOperator()

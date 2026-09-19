@@ -104,6 +104,7 @@
               Margin="0,0,8,4">
         <Button.Flyout>
           <MenuFlyout>
+            <MenuItem Header="Jump to current" Command="{Binding StepTree.JumpToCurrentCommand}" />
             <MenuItem Header="Previous fail" Command="{Binding StepTree.PrevFailCommand}" />
             <MenuItem Header="Next fail" Command="{Binding StepTree.NextFailCommand}" />
             <MenuItem Header="Compact rows" Command="{Binding StepTree.ToggleCompactCommand}" />

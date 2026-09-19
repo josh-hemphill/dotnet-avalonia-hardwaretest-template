@@ -42,7 +42,7 @@ public sealed class RunWorkspaceViewModelTests
     }
 
     [Fact]
-    public void Interaction_overlays_chart_then_restores_selection()
+    public void Interaction_docks_above_chart_then_restores_selection()
     {
         var sessionBlocked = false;
         var awaiting = false;
@@ -61,7 +61,8 @@ public sealed class RunWorkspaceViewModelTests
         awaiting = true;
         workspace.Refresh();
         Assert.True(workspace.ShowInteraction);
-        Assert.False(workspace.ShowChart);
+        Assert.True(workspace.ShowChart);
+        Assert.False(workspace.ShowModeSwitcher);
         Assert.Equal(RunWorkspace.Chart, workspace.Selected);
 
         awaiting = false;
@@ -69,6 +70,21 @@ public sealed class RunWorkspaceViewModelTests
         Assert.True(workspace.ShowChart);
         Assert.False(workspace.ShowInteraction);
         Assert.Equal(RunWorkspace.Chart, workspace.Selected);
+    }
+
+    [Fact]
+    public void Interaction_keeps_steps_visible()
+    {
+        var awaiting = false;
+        var workspace = Create(() => false, () => awaiting, () => false, () => false);
+        Assert.True(workspace.ShowSteps);
+
+        awaiting = true;
+        workspace.Refresh();
+        Assert.True(workspace.ShowInteraction);
+        Assert.True(workspace.ShowSteps);
+        Assert.False(workspace.ShowModeSwitcher);
+        Assert.False(workspace.ShowPreparation);
     }
 
     [Fact]
@@ -82,7 +98,7 @@ public sealed class RunWorkspaceViewModelTests
 
         Assert.True(workspace.ShowInteraction);
         Assert.False(workspace.ShowPreparation);
-        Assert.False(workspace.ShowChart);
+        Assert.True(workspace.ShowChart);
         Assert.False(workspace.ShowModeSwitcher);
         Assert.Equal(RunWorkspace.Chart, workspace.Selected);
 
