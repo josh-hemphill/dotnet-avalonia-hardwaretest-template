@@ -51,9 +51,8 @@ public sealed partial class PlanCompiler : IPlanCompiler
 
         var plan = BuildPlan(draft);
         AssertNoDialog(plan);
-        plan.Save(tapPlanPath);
         AuthoringCleanup.SyncSidecar(draft.Sidecar, draft.Cleanup);
-        WriteSidecar(tapPlanPath, draft.Sidecar);
+        WritePlanAndSidecar(plan, tapPlanPath, draft.Sidecar);
     }
 
     public ProgramDraft Load(string tapPlanPath)
@@ -95,6 +94,78 @@ public sealed partial class PlanCompiler : IPlanCompiler
         var id = Path.GetFileNameWithoutExtension(tapPlanPath);
         var dir = Path.GetDirectoryName(tapPlanPath) ?? string.Empty;
         return Path.Combine(dir, $"{id}.program.json");
+    }
+
+    internal static ProgramSidecar CloneSidecar(ProgramSidecar sidecar)
+    {
+        ArgumentNullException.ThrowIfNull(sidecar);
+        var json = JsonSerializer.Serialize(sidecar, ProgramCatalogJsonContext.Default.ProgramSidecar);
+        return JsonSerializer.Deserialize(json, ProgramCatalogJsonContext.Default.ProgramSidecar)
+               ?? throw new AuthoringWorkspaceException("Failed to clone program sidecar.");
+    }
+
+    private static void WritePlanAndSidecar(TestPlan plan, string tapPlanPath, ProgramSidecar sidecar)
+    {
+        var tapFull = Path.GetFullPath(tapPlanPath);
+        var sidecarFull = SidecarPath(tapFull);
+        var tapTemp = tapFull + ".saving";
+        var sidecarTemp = sidecarFull + ".saving";
+        try
+        {
+            plan.Save(tapTemp);
+            File.WriteAllText(
+                sidecarTemp,
+                JsonSerializer.Serialize(sidecar, ProgramCatalogJsonContext.Default.ProgramSidecar));
+            var tapBackup = TryReadAllBytes(tapFull);
+            File.Move(tapTemp, tapFull, overwrite: true);
+            try
+            {
+                File.Move(sidecarTemp, sidecarFull, overwrite: true);
+            }
+            catch
+            {
+                RestoreFile(tapFull, tapBackup);
+                throw;
+            }
+        }
+        finally
+        {
+            TryDeleteFile(tapTemp);
+            TryDeleteFile(sidecarTemp);
+        }
+    }
+
+    private static byte[]? TryReadAllBytes(string path)
+        => File.Exists(path) ? File.ReadAllBytes(path) : null;
+
+    private static void RestoreFile(string path, byte[]? backup)
+    {
+        if (backup is null)
+        {
+            TryDeleteFile(path);
+            return;
+        }
+
+        File.WriteAllBytes(path, backup);
+    }
+
+    private static void TryDeleteFile(string path)
+    {
+        if (!File.Exists(path))
+        {
+            return;
+        }
+
+        try
+        {
+            File.Delete(path);
+        }
+        catch (IOException)
+        {
+        }
+        catch (UnauthorizedAccessException)
+        {
+        }
     }
 
     private static void WriteSidecar(string tapPlanPath, ProgramSidecar sidecar)

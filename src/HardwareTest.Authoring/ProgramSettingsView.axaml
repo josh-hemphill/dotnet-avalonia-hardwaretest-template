@@ -193,7 +193,7 @@
         <Button Content="Remove instrument slot"
                 Click="OnRemoveInstrumentSlot"
                 IsEnabled="{Binding CanRemoveSelectedInstrumentSlot}"
-                ToolTip.Tip="Removes the selected slot when Identity Check and measure steps do not use it. A program must keep at least one instrument."
+                ToolTip.Tip="Removes the selected slot. Identity Check and measure steps that used it move to a remaining slot. Raw or unknown steps still block delete. A program must keep at least one instrument."
                 AutomationProperties.Name="Remove instrument slot" />
       </StackPanel>
     </StackPanel>

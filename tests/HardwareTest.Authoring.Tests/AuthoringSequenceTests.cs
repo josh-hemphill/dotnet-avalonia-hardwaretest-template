@@ -374,6 +374,12 @@ public sealed class AuthoringSequenceViewModelTests
         vm.RepeatCountValue = 4;
         Assert.Equal("4", vm.RepeatCount);
         Assert.Equal(4, Assert.IsType<RepeatNode>(Assert.Single(vm.SelectedProgram!.Measure)).Count);
+        vm.RepeatCountValue = 0;
+        Assert.Equal(4, Assert.IsType<RepeatNode>(Assert.Single(vm.SelectedProgram!.Measure)).Count);
+        vm.RepeatCountValue = 3.9m;
+        Assert.Equal(3, Assert.IsType<RepeatNode>(Assert.Single(vm.SelectedProgram!.Measure)).Count);
+        vm.RepeatCountValue = 2147483648m;
+        Assert.Equal(int.MaxValue, Assert.IsType<RepeatNode>(Assert.Single(vm.SelectedProgram!.Measure)).Count);
     }
 
     private static AuthoringWorkspaceViewModel OpenEmpty()

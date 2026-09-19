@@ -116,9 +116,7 @@ public static class WorkspacePacker
 
     private static string ResolvePlansDirectory(AuthoringWorkspace workspace)
     {
-        var relative = string.IsNullOrWhiteSpace(workspace.Manifest.PlansDirectory)
-            ? "plans"
-            : workspace.Manifest.PlansDirectory;
+        var relative = AuthoringManifest.RelativePlansDirectory(workspace.Manifest.PlansDirectory);
         return Path.IsPathRooted(relative)
             ? Path.GetFullPath(relative)
             : Path.GetFullPath(Path.Combine(workspace.Root, relative));

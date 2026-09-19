@@ -46,6 +46,27 @@ public sealed class PlanCompilerTests
     }
 
     [Fact]
+    public void Save_leaves_existing_files_when_sidecar_temp_cannot_be_written()
+    {
+        var dir = NewTempDir();
+        var path = Path.Combine(dir, "atomic.TapPlan");
+        var compiler = new PlanCompiler();
+        var original = SampleEquivalentDraft("atomic");
+        compiler.Save(original, path);
+        var tapBytes = File.ReadAllBytes(path);
+        var sidecarPath = PlanCompiler.SidecarPath(path);
+        var sidecarBytes = File.ReadAllBytes(sidecarPath);
+        Directory.CreateDirectory(sidecarPath + ".saving");
+        var mutated = original with { Sidecar = PlanCompiler.CloneSidecar(original.Sidecar) };
+        mutated.Sidecar.DisplayName = "should-not-land";
+        Assert.ThrowsAny<Exception>(() => compiler.Save(mutated, path));
+        Assert.Equal(tapBytes, File.ReadAllBytes(path));
+        Assert.Equal(sidecarBytes, File.ReadAllBytes(sidecarPath));
+        Assert.DoesNotContain("should-not-land", File.ReadAllText(sidecarPath), StringComparison.Ordinal);
+        Assert.False(File.Exists(path + ".saving"));
+    }
+
+    [Fact]
     public void Decompile_sample_tap_plan_exposes_vdc_channel_keys()
     {
         var path = Path.Combine(FindRepoRoot(), "plans", "opentap", "sample.TapPlan");

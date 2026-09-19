@@ -44,12 +44,12 @@ public sealed class AuthoringInspectorCopyTests
         var fail = AuthoringInspectorCopy.PresentSetting("FailWhenOutOfBand");
         Assert.Equal("Fail when out of band", fail.Label);
         Assert.Equal("false", fail.ValuePlaceholder);
-        Assert.Contains("true/false", fail.ValueTooltip, StringComparison.Ordinal);
+        Assert.Equal("true/false — when true, Series compliance can fail the acquire step.", fail.ValueTooltip);
 
         var dwell = AuthoringInspectorCopy.PresentSetting("DwellLimitMs");
         Assert.Equal("Dwell limit (ms)", dwell.Label);
         Assert.Equal("5", dwell.ValuePlaceholder);
-        Assert.Contains("dwell", dwell.ValueTooltip, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal("Used only when Series compliance is dwell.", dwell.ValueTooltip);
     }
 
     [Fact]

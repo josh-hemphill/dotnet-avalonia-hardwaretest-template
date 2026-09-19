@@ -81,7 +81,7 @@ public partial class MainWindow : Window
         if (sender is ComboBox { DataContext: AuthoringSettingRow comboRow } combo)
         {
             var text = combo.SelectedItem as string ?? combo.Text ?? string.Empty;
-            if (!comboRow.ChoiceIsEditable && string.IsNullOrWhiteSpace(text))
+            if (!comboRow.ShouldCommitLostFocusText(text))
             {
                 return;
             }

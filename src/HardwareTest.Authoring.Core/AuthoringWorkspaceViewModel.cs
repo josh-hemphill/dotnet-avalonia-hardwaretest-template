@@ -257,16 +257,18 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
         }
 
         var planId = SelectedProgram.PlanId;
-        var tapPlanPath = Workspace.TapPlanPaths.FirstOrDefault(path =>
-            string.Equals(Path.GetFileNameWithoutExtension(path), planId, StringComparison.OrdinalIgnoreCase));
-        if (!string.IsNullOrWhiteSpace(tapPlanPath))
+        var existingTapPlan = TryExistingTapPlanPath(planId);
+        var tapPlanPath = string.IsNullOrWhiteSpace(existingTapPlan)
+            ? ResolveTapPlanPath(planId)
+            : existingTapPlan;
+        TryDeleteFile(tapPlanPath);
+        TryDeleteFile(PlanCompiler.SidecarPath(tapPlanPath));
+        if (!string.IsNullOrWhiteSpace(existingTapPlan))
         {
-            TryDeleteFile(tapPlanPath);
-            TryDeleteFile(PlanCompiler.SidecarPath(tapPlanPath));
             Workspace = Workspace with
             {
                 TapPlanPaths = [.. Workspace.TapPlanPaths.Where(path =>
-                    !string.Equals(path, tapPlanPath, StringComparison.OrdinalIgnoreCase))],
+                    !string.Equals(path, existingTapPlan, StringComparison.OrdinalIgnoreCase))],
             };
         }
 
@@ -349,11 +351,7 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
             throw new AuthoringWorkspaceException("Open a workspace and select a program before saving.");
         }
 
-        var tapPlanPath = Workspace.TapPlanPaths.FirstOrDefault(path =>
-            string.Equals(
-                Path.GetFileNameWithoutExtension(path),
-                SelectedProgram.PlanId,
-                StringComparison.OrdinalIgnoreCase));
+        var tapPlanPath = TryExistingTapPlanPath(SelectedProgram.PlanId);
         if (string.IsNullOrWhiteSpace(tapPlanPath))
         {
             throw new AuthoringWorkspaceException($"No TapPlan path for '{SelectedProgram.PlanId}'.");
@@ -504,21 +502,24 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
         return merged;
     }
 
+    private string? TryExistingTapPlanPath(string planId)
+        => Workspace?.TapPlanPaths.FirstOrDefault(path =>
+            string.Equals(Path.GetFileNameWithoutExtension(path), planId, StringComparison.OrdinalIgnoreCase));
+
     private string ResolveTapPlanPath(string planId)
     {
-        var existing = Workspace!.TapPlanPaths.FirstOrDefault(path =>
-            string.Equals(Path.GetFileNameWithoutExtension(path), planId, StringComparison.OrdinalIgnoreCase));
+        var workspace = Workspace
+            ?? throw new AuthoringWorkspaceException("Open a workspace before resolving a TapPlan path.");
+        var existing = TryExistingTapPlanPath(planId);
         if (!string.IsNullOrWhiteSpace(existing))
         {
             return existing;
         }
 
-        var relative = string.IsNullOrWhiteSpace(Workspace.Manifest.PlansDirectory)
-            ? "."
-            : Workspace.Manifest.PlansDirectory.Trim();
+        var relative = AuthoringManifest.RelativePlansDirectory(workspace.Manifest.PlansDirectory);
         var directory = Path.IsPathRooted(relative)
             ? relative
-            : Path.GetFullPath(Path.Combine(Workspace.Root, relative));
+            : Path.GetFullPath(Path.Combine(workspace.Root, relative));
         return Path.Combine(directory, $"{planId}.TapPlan");
     }
 
@@ -601,7 +602,6 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(SelectedInstrumentVisa));
         OnPropertyChanged(nameof(SelectedInstrument));
         OnPropertyChanged(nameof(CanRemoveSelectedInstrumentSlot));
-        OnPropertyChanged(nameof(CanRemoveSelectedProgramKind));
         RaiseEditorProperties();
     }
 

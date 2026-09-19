@@ -34,6 +34,14 @@ public sealed class AuthoringWorkspaceLoaderTests
     }
 
     [Fact]
+    public void Blank_plans_directory_defaults_to_plans()
+    {
+        Assert.Equal(AuthoringManifest.DefaultPlansDirectory, AuthoringManifest.RelativePlansDirectory(null));
+        Assert.Equal(AuthoringManifest.DefaultPlansDirectory, AuthoringManifest.RelativePlansDirectory("  "));
+        Assert.Equal("custom", AuthoringManifest.RelativePlansDirectory(" custom "));
+    }
+
+    [Fact]
     public void Load_rejects_missing_manifest()
     {
         var dir = NewTempDir();

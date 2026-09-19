@@ -20,7 +20,7 @@ public sealed class AuthoringManifest
 
     public string DisplayName { get; set; } = string.Empty;
 
-    public string PlansDirectory { get; set; } = "plans";
+    public string PlansDirectory { get; set; } = DefaultPlansDirectory;
 
     public AuthoringPackageSpec Package { get; set; } = new();
 
@@ -41,6 +41,11 @@ public sealed class AuthoringManifest
 
     /// Suggested report kinds, program kinds, required DUT fields, and slot names for this workspace.
     public AuthoringWorkspaceCatalogs? Catalogs { get; set; }
+
+    public const string DefaultPlansDirectory = "plans";
+
+    public static string RelativePlansDirectory(string? plansDirectory)
+        => string.IsNullOrWhiteSpace(plansDirectory) ? DefaultPlansDirectory : plansDirectory.Trim();
 }
 
 /// Workspace-level suggestions. Not the closed demo-program set.
