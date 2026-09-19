@@ -934,6 +934,43 @@ public sealed class RunBoardChildViewModelTests
     }
 
     [Fact]
+    public void ApplyStepResults_does_not_steal_stage_or_selection()
+    {
+        var scrolled = 0;
+        var tree = new StepTreeViewModel(() => [HierarchicalStatusTree()]);
+        tree.RebuildFromHost();
+        tree.RequestScrollToSelectedStep += (_, _) => scrolled++;
+        var identity = tree.Stages.First(s => s.DisplayName == "Identity");
+        tree.SelectedStage = identity;
+        var identityLeaf = tree.StepRows[0];
+        tree.SelectedStep = identityLeaf;
+
+        tree.ApplyStepResults([]);
+
+        Assert.Equal("Identity", tree.SelectedStage?.DisplayName);
+        Assert.Same(identityLeaf, tree.SelectedStep);
+        Assert.Equal(0, scrolled);
+    }
+
+    [Fact]
+    public void Reveal_clears_search_before_dropping_a_fail_filter()
+    {
+        var tree = new StepTreeViewModel(() => [HierarchicalStatusTree()]);
+        tree.RebuildFromHost();
+        tree.StepStatusFilter = StepStatusFilter.Fail;
+        tree.StepSearchText = "zzz-no-match";
+        Assert.DoesNotContain(tree.StepRows, r => r.Name == "Acquire 12V");
+
+        tree.MaybeAutoFocusFail();
+
+        Assert.True(tree.IsFilterFail);
+        Assert.Equal(string.Empty, tree.StepSearchText);
+        Assert.Equal("Acquire 12V", tree.SelectedStep?.Name);
+        Assert.Contains(tree.StepRows, r => r.Name == "Acquire 12V");
+        Assert.Same(tree.SelectedStep, tree.SelectedStepListItem?.Step);
+    }
+
+    [Fact]
     public async Task RunExecution_refuses_to_start_without_a_confirmed_session()
     {
         var openTap = new FakeOpenTapSession();

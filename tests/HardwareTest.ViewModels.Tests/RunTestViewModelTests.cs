@@ -135,6 +135,44 @@ public sealed class RunTestViewModelTests
     }
 
     [Fact]
+    public async Task Run_selected_refuses_a_step_hidden_by_another_stage()
+    {
+        var openTap = new FakeOpenTapSession();
+        var vm = CreateVm(openTap);
+        await vm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
+        await ConfirmReadyAsync(vm, "SN-STAGE-HIDE");
+        var identity = vm.StepTree.Stages.First(s => s.DisplayName == "Identity");
+        vm.StepTree.SelectedStage = identity;
+        var identityLeaf = vm.StepTree.StepRows[0];
+        var other = vm.StepTree.Stages.First(s => s.Step is not null && s.DisplayName != "Identity");
+        vm.StepTree.SelectedStage = other;
+        vm.StepTree.SelectedStep = identityLeaf;
+        Assert.False(vm.StepTree.IsSelectedStepVisible());
+
+        await vm.Run.RunSelectedCommand.ExecuteAsync();
+
+        Assert.Equal(0, openTap.SelectionRunCount);
+        Assert.Contains("visible", vm.Status, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Failed_run_selected_keeps_the_step_that_ran()
+    {
+        var openTap = new FakeOpenTapSession { CompletionResult = RunResult.Failed };
+        var vm = CreateVm(openTap);
+        vm.UiScheduler = action => action();
+        await vm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
+        await ConfirmReadyAsync(vm, "SN-SEL-FAIL");
+        var leaf = Flatten(vm.StepTree.Hierarchy).Last(s => s.Children.Count == 0);
+        vm.StepTree.SelectedStep = leaf;
+
+        await vm.Run.RunSelectedCommand.ExecuteAsync();
+
+        Assert.Equal(1, openTap.SelectionRunCount);
+        Assert.Equal(leaf.Path, vm.StepTree.SelectedStep?.Path);
+    }
+
+    [Fact]
     public async Task Full_run_updates_hierarchy_status_from_summary()
     {
         var openTap = new FakeOpenTapSession();
@@ -1078,12 +1116,15 @@ public sealed class RunTestViewModelTests
         var vm = CreateVm(openTap);
         await vm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
         const string path = "Sample Hardware Suite/Voltage Sweep/Acquire VDC";
+        var scrolled = 0;
+        vm.StepTree.RequestScrollToSelectedStep += (_, _) => scrolled++;
         vm.StepTree.StepSearchText = "zzz-no-match";
         vm.ApplySelectionFromInspect(path);
         Assert.Equal(path, vm.StepTree.SelectedStep?.Path);
         Assert.Equal(string.Empty, vm.StepTree.StepSearchText);
         Assert.True(vm.StepTree.IsSelectedStepVisible());
         Assert.Same(vm.StepTree.SelectedStep, vm.StepTree.SelectedStepListItem?.Step);
+        Assert.True(scrolled >= 1);
     }
 
     [Fact]

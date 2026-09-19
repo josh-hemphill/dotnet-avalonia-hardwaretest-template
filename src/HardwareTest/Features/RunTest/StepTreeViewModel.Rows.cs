@@ -253,7 +253,6 @@ public partial class StepTreeViewModel
         RollupParentStatuses();
         _refreshHero();
         RefreshSuiteSummary();
-        MaybeAutoFocusFail();
     }
 
     /// Applies one streaming status update; returns the touched node so the coordinator can update the hero.

@@ -347,6 +347,7 @@ public partial class StepTreeViewModel : ReactiveObject
         SelectedStep = leaf;
         SyncSelectedStepListItem();
         RebuildVisibleStepList();
+        RaiseRequestScroll();
     }
 
     /// Reveals the current step. When <paramref name="changeScope"/> is false, only selects/scrolls
@@ -476,7 +477,7 @@ public partial class StepTreeViewModel : ReactiveObject
         }
     }
 
-    /// Clears status filter then search so <paramref name="step"/> appears in the visible rows.
+    /// Clears search then status filter so <paramref name="step"/> appears in the visible rows.
     private void RevealInVisibleList(HierarchyStepViewModel step)
     {
         if (StepRows.Any(r => ReferenceEquals(r, step)))
@@ -484,14 +485,15 @@ public partial class StepTreeViewModel : ReactiveObject
             return;
         }
 
-        if (!string.Equals(StepStatusFilter, StepFilter.All, StringComparison.Ordinal))
-        {
-            StepStatusFilter = StepFilter.All;
-        }
-
-        if (!StepRows.Any(r => ReferenceEquals(r, step)) && !string.IsNullOrEmpty(StepSearchText))
+        if (!string.IsNullOrEmpty(StepSearchText))
         {
             StepSearchText = string.Empty;
+        }
+
+        if (!StepRows.Any(r => ReferenceEquals(r, step))
+            && !string.Equals(StepStatusFilter, StepFilter.All, StringComparison.Ordinal))
+        {
+            StepStatusFilter = StepFilter.All;
         }
     }
 
