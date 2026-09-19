@@ -472,9 +472,9 @@ public partial class MainWindowViewModel : ReactiveObject
         this.RaisePropertyChanged(nameof(IsRunning));
         this.RaisePropertyChanged(nameof(IsSafetyStopping));
         this.RaisePropertyChanged(nameof(IsAwaitingOperator));
+        this.RaisePropertyChanged(nameof(ControlStatusLiveSetting));
         this.RaisePropertyChanged(nameof(ControlStatus));
         this.RaisePropertyChanged(nameof(CompactControlStatus));
-        this.RaisePropertyChanged(nameof(ControlStatusLiveSetting));
         this.RaisePropertyChanged(nameof(PauseResumeLabel));
         this.RaisePropertyChanged(nameof(PauseResumeTip));
         this.RaisePropertyChanged(nameof(SafetyStopLabel));

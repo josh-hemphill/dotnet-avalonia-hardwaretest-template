@@ -500,6 +500,25 @@ public sealed class MainWindowViewModelTests
     }
 
     [Fact]
+    public async Task Footer_SafetyStop_while_stopping_cancels_shutdown_instead_of_aborting_again()
+    {
+        var store = new FakeSettingsStore();
+        var openTap = new FakeOpenTapSession();
+        var runControl = new FakeRunControl();
+        var vm = CreateMain(store, openTap, runControl);
+
+        using var cts = new CancellationTokenSource();
+        runControl.AttachRun(cts);
+        runControl.RequestSafetyStop();
+        Assert.True(vm.IsSafetyStopping);
+
+        await vm.SafetyStopCommand.ExecuteAsync();
+
+        Assert.True(runControl.WasCancelSafetyShutdownRequested);
+        Assert.True(runControl.IsSafetyStopping);
+    }
+
+    [Fact]
     public async Task PauseResume_is_a_no_op_while_stopping()
     {
         var store = new FakeSettingsStore();

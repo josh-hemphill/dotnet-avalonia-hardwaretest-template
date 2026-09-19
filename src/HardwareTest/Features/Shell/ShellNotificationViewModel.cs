@@ -88,13 +88,13 @@ public partial class ShellNotificationViewModel : ReactiveObject
         _sourceKey = sourceKey;
         _onDismissed = onDismissed;
         Severity = severity;
+        this.RaisePropertyChanged(nameof(LiveSetting));
         Message = message.Trim();
         IsDismissible = dismissible;
         ApplyActions(primary, secondary);
         HasContent = true;
         this.RaisePropertyChanged(nameof(PrimaryCommand));
         this.RaisePropertyChanged(nameof(SecondaryCommand));
-        this.RaisePropertyChanged(nameof(LiveSetting));
     }
 
     /// Clears the current notification when it matches <paramref name="sourceKey"/> (or any when null).
@@ -130,14 +130,14 @@ public partial class ShellNotificationViewModel : ReactiveObject
     {
         _sourceKey = null;
         _onDismissed = null;
+        Severity = ShellNotificationSeverity.Info;
+        this.RaisePropertyChanged(nameof(LiveSetting));
         HasContent = false;
         Message = string.Empty;
-        Severity = ShellNotificationSeverity.Info;
         IsDismissible = true;
         ApplyActions(null, null);
         this.RaisePropertyChanged(nameof(PrimaryCommand));
         this.RaisePropertyChanged(nameof(SecondaryCommand));
-        this.RaisePropertyChanged(nameof(LiveSetting));
     }
 
     private void ApplyActions(ShellNotificationAction? primary, ShellNotificationAction? secondary)

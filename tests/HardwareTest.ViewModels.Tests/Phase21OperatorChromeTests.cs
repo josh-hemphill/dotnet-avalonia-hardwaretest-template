@@ -212,6 +212,36 @@ public sealed class Phase21OperatorChromeTests
     }
 
     [Fact]
+    public void ControlStatusLiveSetting_raises_before_status_text_when_stop_starts_from_a_prompt()
+    {
+        var openTap = new FakeOpenTapSession();
+        var runControl = new FakeRunControl();
+        var vm = CreateMain(openTap, runControl);
+
+        using var cts = new CancellationTokenSource();
+        runControl.AttachRun(cts);
+        openTap.BeginInteraction(OperatorInteractionRequest.ConfirmOnly("Install fixture"));
+
+        var order = new List<string>();
+        vm.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName is nameof(MainWindowViewModel.ControlStatusLiveSetting)
+                or nameof(MainWindowViewModel.ControlStatus))
+            {
+                order.Add(e.PropertyName!);
+            }
+        };
+
+        runControl.RequestSafetyStop();
+
+        var live = order.IndexOf(nameof(MainWindowViewModel.ControlStatusLiveSetting));
+        var status = order.IndexOf(nameof(MainWindowViewModel.ControlStatus));
+        Assert.True(live >= 0 && status >= 0 && live < status);
+        Assert.Equal(AutomationLiveSetting.Assertive, vm.ControlStatusLiveSetting);
+        Assert.Equal("Stopping…", vm.ControlStatus);
+    }
+
+    [Fact]
     public void Compact_nav_still_exposes_pause_and_stop_labels()
     {
         var vm = CreateMain();
