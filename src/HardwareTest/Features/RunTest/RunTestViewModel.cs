@@ -91,7 +91,7 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
             stationHealthStore,
             stationHealthGate);
 
-        ContinueOperatorCommand = ReactiveCommand.Create(ContinueOperator, Interaction.WhenAnyValue(x => x.IsAwaitingOperator));
+        ContinueOperatorCommand = ReactiveCommand.Create(ContinueOperator, ObserveAwaitingOperator(Interaction));
         ShowCurrentStepCommand = ReactiveCommand.Create(ShowCurrentStep);
         OpenLastRunResultsCommand = ReactiveCommand.Create(
             () => NavigateToResultsRequested?.Invoke(this, EventArgs.Empty));

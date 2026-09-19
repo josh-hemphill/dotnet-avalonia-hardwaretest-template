@@ -1,3 +1,5 @@
+using System.ComponentModel;
+using System.Reactive.Linq;
 using HardwareTest.Core.Credentials;
 using HardwareTest.Core.Diagnostics;
 using HardwareTest.Core.Engine;
@@ -123,5 +125,24 @@ public partial class RunTestViewModel
         _session.SelectProgram(program.Id, program.Path, program.DisplayName, program.DutFamily);
         _session.ApplyProgramRequirements(program.Requirements);
         RefreshStationHealthGate();
+    }
+
+    /// CanExecute for Continue without ReactiveUI WhenAnyValue (ViewModel tests do not boot RxAppBuilder).
+    private static IObservable<bool> ObserveAwaitingOperator(InteractionHostViewModel interaction)
+    {
+        return Observable.Create<bool>(observer =>
+        {
+            observer.OnNext(interaction.IsAwaitingOperator);
+            void Handler(object? sender, PropertyChangedEventArgs args)
+            {
+                if (args.PropertyName == nameof(InteractionHostViewModel.IsAwaitingOperator))
+                {
+                    observer.OnNext(interaction.IsAwaitingOperator);
+                }
+            }
+
+            interaction.PropertyChanged += Handler;
+            return () => interaction.PropertyChanged -= Handler;
+        });
     }
 }
