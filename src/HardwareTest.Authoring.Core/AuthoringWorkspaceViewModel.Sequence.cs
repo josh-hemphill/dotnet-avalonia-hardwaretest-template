@@ -30,7 +30,7 @@ public sealed partial class AuthoringWorkspaceViewModel
 
     public string RequiredFieldsPurpose => AuthoringChrome.RequiredFieldsPurpose;
 
-    public string RecipeAddHint => AuthoringChrome.RecipeAddHint;
+    public string AddRecipeToolTip => AuthoringChrome.AddRecipeToolTip;
 
     public string ProgramSettingsTitle => AuthoringChrome.ProgramSettingsTitle;
 

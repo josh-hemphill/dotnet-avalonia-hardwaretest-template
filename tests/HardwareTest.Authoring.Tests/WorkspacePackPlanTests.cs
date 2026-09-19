@@ -53,8 +53,8 @@ public sealed class WorkspacePackPlanTests
         Assert.Equal("^9.32.2", vm.PackPreview.OpenTapVersionPin);
         Assert.Contains("OpenTAP", vm.OpenTapPinText, StringComparison.Ordinal);
         Assert.Contains("bake-time", AuthoringChrome.ShipPurpose, StringComparison.Ordinal);
-        Assert.Contains("Raw", vm.RecipeAdvancedHint, StringComparison.Ordinal);
-        Assert.DoesNotContain("TUI", vm.RecipeAdvancedHint, StringComparison.Ordinal);
+        Assert.Contains("Raw", vm.AddRecipeToolTip, StringComparison.Ordinal);
+        Assert.DoesNotContain("TUI", vm.AddRecipeToolTip, StringComparison.Ordinal);
         Assert.False(vm.HasRawSteps);
         vm.CreateProgram("raw-banner");
         vm.ReplaceSelected(vm.SelectedProgram! with

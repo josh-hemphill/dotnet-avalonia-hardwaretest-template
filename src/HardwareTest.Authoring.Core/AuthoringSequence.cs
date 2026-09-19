@@ -52,12 +52,16 @@ public static class AuthoringChrome
         "Report kinds, program kinds, required DUT fields, and instrument slots come from this workspace and the open programs — not the in-repo demos. Add a token to use it on this program.";
     public const string RequiredFieldsPurpose =
         "Require the operator session fields this program needs. serial, partNumber, revision, and operator map to the sidecar flags; add other ids for later operator surfaces.";
+    public const string AddRecipeActionSummary =
+        "Append or wrap using the selected recipe. Identity/Prompt go to Setup; metrics to Measure; Repeat wraps the last measure; Safe Shutdown updates Cleanup.";
     public const string RecipeAddHint =
-        "Add recipe appends a getting-started type. Other OpenTAP steps stay Raw after you edit the TapPlan outside this app.";
+        "Steps edited outside this app re-open as read-only Raw rows after you save the TapPlan and re-open the workspace.";
     public const string RecipeAdvancedHint =
-        "Save the plan, add extra OpenTAP steps in an editor, then re-open this workspace. Those steps appear as Raw and stay read-only here. Bit sweep, timed sample, and InstrumentComponents steps are not recipes yet.";
+        "Bit sweep, timed sample, and InstrumentComponents steps are not recipes yet.";
+    public const string AddRecipeToolTip =
+        AddRecipeActionSummary + "\n\n" + RecipeAddHint + " " + RecipeAdvancedHint;
     public const string RawStepsBanner =
-        "{0} Raw step(s) — select a Raw row to see its type. Edit the TapPlan, then re-open this workspace.";
+        "{0} Raw step(s) — read-only here. Select a Raw row to see its type.";
     public const string ShipPurpose =
         "What this workspace will pack: program TapPackage contents, extra plugin TapPackages, bake-time shell apps, and the isolated OpenTAP home.";
     public const string SettingsTitle = "Settings";
