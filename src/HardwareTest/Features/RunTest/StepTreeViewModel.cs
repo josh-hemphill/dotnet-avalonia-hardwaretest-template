@@ -42,7 +42,7 @@ public partial class StepTreeViewModel : ReactiveObject
         JumpToCurrentCommand = ReactiveCommand.Create(() => JumpToCurrent(changeScope: true));
         ClearScopeCommand = ReactiveCommand.Create(ClearScope);
         FilterFailCommand = ReactiveCommand.Create(FilterFail);
-        ClearFailFilterCommand = ReactiveCommand.Create(() =>
+        ClearStatusFilterCommand = ReactiveCommand.Create(() =>
         {
             StepStatusFilter = StepFilter.All;
         });
@@ -141,7 +141,7 @@ public partial class StepTreeViewModel : ReactiveObject
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> JumpToCurrentCommand { get; }
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> ClearScopeCommand { get; }
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> FilterFailCommand { get; }
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> ClearFailFilterCommand { get; }
+    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> ClearStatusFilterCommand { get; }
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> ToggleCompactCommand { get; }
     public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> FocusStepSearchCommand { get; }
     public ReactiveCommand<string, System.Reactive.Unit> SetStepFilterCommand { get; }

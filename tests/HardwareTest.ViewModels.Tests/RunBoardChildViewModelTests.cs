@@ -736,7 +736,7 @@ public sealed class RunBoardChildViewModelTests
 
         tree.SetSuiteFilterCommand.Execute(StepStatusFilter.Pass).Subscribe();
         Assert.Equal("Showing passed", tree.StatusFilterBannerText);
-        tree.SetSuiteFilterCommand.Execute(StepStatusFilter.All).Subscribe();
+        tree.ClearStatusFilterCommand.Execute().Subscribe();
         Assert.True(tree.IsFilterAll);
         Assert.Equal(string.Empty, tree.StatusFilterBannerText);
     }

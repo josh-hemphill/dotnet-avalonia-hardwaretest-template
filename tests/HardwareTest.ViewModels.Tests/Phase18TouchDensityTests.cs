@@ -85,6 +85,7 @@ public sealed class Phase18TouchDensityTests
         Assert.Contains("All steps", overview, StringComparison.Ordinal);
         Assert.Contains("StatusFilterBannerText", steps, StringComparison.Ordinal);
         Assert.Contains("IsStatusFilterActive", steps, StringComparison.Ordinal);
+        Assert.Contains("ClearStatusFilterCommand", steps, StringComparison.Ordinal);
         Assert.Contains("ChipBrushConverter.BannerFill", steps, StringComparison.Ordinal);
         Assert.Contains("StepTree.StepStatusFilter, Converter={x:Static vm:ChipBrushConverter.Instance}", steps, StringComparison.Ordinal);
         Assert.DoesNotContain("Background=\"#FFCDD2\"", steps, StringComparison.Ordinal);
