@@ -22,6 +22,8 @@ public sealed class AuthoringMeasureInspectorTests
         Assert.DoesNotContain(AuthoringFunctionIds.BasicApplyTransferFunction, vm.MetricFunctionIdOptions);
         Assert.Equal("32", SettingValue(vm, "SampleCount"));
         Assert.Equal("Sample count", SettingRow(vm, "SampleCount").Label);
+        Assert.Equal(AuthoringSettingKind.Integer, SettingRow(vm, "SampleCount").Kind);
+        Assert.Equal(AuthoringSettingKind.Choice, SettingRow(vm, "Channel").Kind);
         Assert.Equal(vm.MetricFunctionIdOptions.Count, vm.MetricFunctionChoices.Count);
         Assert.Equal(AuthoringFunctionIds.BasicAcquireVoltage, vm.SelectedMetricFunction?.Id);
         Assert.Contains("Acquire", vm.SelectedMetricFunction?.Title, StringComparison.OrdinalIgnoreCase);
@@ -138,8 +140,15 @@ public sealed class AuthoringMeasureInspectorTests
         vm.SetMetricSetting("SeriesCompliance", SeriesComplianceModes.None);
         var series = SettingRow(vm, "SeriesCompliance");
         Assert.Equal("Series compliance", series.Label);
+        Assert.Equal(AuthoringSettingKind.Choice, series.Kind);
         Assert.False(string.IsNullOrWhiteSpace(series.ValueTooltip));
         Assert.Equal(SeriesComplianceModes.None, series.ValuePlaceholder);
+        vm.SetMetricSetting("FailWhenOutOfBand", "false");
+        vm.SetMetricSettingBool("FailWhenOutOfBand", true);
+        Assert.Equal("true", SettingValue(vm, "FailWhenOutOfBand"));
+        Assert.Equal(AuthoringSettingKind.Boolean, SettingRow(vm, "FailWhenOutOfBand").Kind);
+        vm.SetMetricSettingNumber("SampleCount", 48);
+        Assert.Equal("48", SettingValue(vm, "SampleCount"));
     }
 
     [Fact]

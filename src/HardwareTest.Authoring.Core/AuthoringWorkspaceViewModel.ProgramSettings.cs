@@ -558,10 +558,23 @@ public sealed partial class AuthoringWorkspaceViewModel
     public IReadOnlyList<AuthoringSettingRow> MetricSettingRows
         => SelectedMetric?.Source switch
         {
-            MeasureSource measure => ToSettingRows(measure.Settings),
-            AlgorithmSource algorithm => ToSettingRows(algorithm.Settings),
+            MeasureSource measure => ToSettingRows(measure.Settings, measure.FunctionId),
+            AlgorithmSource algorithm => ToSettingRows(algorithm.Settings, algorithm.AlgorithmId),
             _ => [],
         };
+
+    public void SetMetricSettingBool(string key, bool value)
+        => SetMetricSetting(key, AuthoringInvariantNumbers.FormatBool(value));
+
+    public void SetMetricSettingNumber(string key, decimal? value)
+    {
+        if (value is not { } number)
+        {
+            return;
+        }
+
+        SetMetricSetting(key, AuthoringInvariantNumbers.FormatDecimal(number));
+    }
 
     public void SetMetricSetting(string key, string value)
     {
@@ -654,10 +667,12 @@ public sealed partial class AuthoringWorkspaceViewModel
             return metric with { History = mutate(current) };
         });
 
-    private static IReadOnlyList<AuthoringSettingRow> ToSettingRows(IReadOnlyDictionary<string, string> settings)
+    private IReadOnlyList<AuthoringSettingRow> ToSettingRows(
+        IReadOnlyDictionary<string, string> settings,
+        string functionId)
         => settings
             .OrderBy(pair => pair.Key, StringComparer.OrdinalIgnoreCase)
-            .Select(pair => new AuthoringSettingRow(pair.Key, pair.Value))
+            .Select(pair => AuthoringMetricSettingCatalog.CreateRow(functionId, pair.Key, pair.Value, ChannelKeys))
             .ToArray();
 
     private static IReadOnlyDictionary<string, string> WithSetting(

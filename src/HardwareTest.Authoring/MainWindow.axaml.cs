@@ -84,12 +84,44 @@ public partial class MainWindow : Window
 
     private void OnMetricSettingLostFocus(object? sender, RoutedEventArgs e)
     {
-        if (sender is not TextBox { DataContext: AuthoringSettingRow row } box)
+        if (sender is TextBox { DataContext: AuthoringSettingRow row } box)
+        {
+            TryRun(() => _viewModel.SetMetricSetting(row.Key, box.Text ?? string.Empty));
+            return;
+        }
+
+        if (sender is ComboBox { DataContext: AuthoringSettingRow comboRow } combo)
+        {
+            var text = combo.SelectedItem as string ?? combo.Text ?? string.Empty;
+            TryRun(() => _viewModel.SetMetricSetting(comboRow.Key, text));
+        }
+    }
+
+    private void OnMetricSettingBoolChanged(object? sender, RoutedEventArgs e)
+    {
+        if (sender is not CheckBox { DataContext: AuthoringSettingRow row } box)
         {
             return;
         }
 
-        TryRun(() => _viewModel.SetMetricSetting(row.Key, box.Text ?? string.Empty));
+        TryRun(() => _viewModel.SetMetricSettingBool(row.Key, box.IsChecked == true));
+    }
+
+    private void OnMetricSettingChoiceChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (sender is ComboBox { DataContext: AuthoringSettingRow row } box
+            && box.SelectedItem is string selected)
+        {
+            TryRun(() => _viewModel.SetMetricSetting(row.Key, selected));
+        }
+    }
+
+    private void OnMetricSettingNumberChanged(object? sender, NumericUpDownValueChangedEventArgs e)
+    {
+        if (sender is NumericUpDown { DataContext: AuthoringSettingRow row })
+        {
+            TryRun(() => _viewModel.SetMetricSettingNumber(row.Key, e.NewValue));
+        }
     }
 
     private void OnToggleRequiredField(object? sender, RoutedEventArgs e)

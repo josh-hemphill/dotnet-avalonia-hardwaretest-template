@@ -362,7 +362,9 @@ public sealed class AuthoringSequenceViewModelTests
         var repeatRow = vm.SequenceItems.Single(row => row.Kind == SequenceRowKind.Repeat);
         vm.SelectSequence(vm.SequenceItems.ToList().IndexOf(repeatRow));
         Assert.Equal("2", vm.RepeatCount);
-        vm.RepeatCount = "4";
+        Assert.Equal(2, vm.RepeatCountValue);
+        vm.RepeatCountValue = 4;
+        Assert.Equal("4", vm.RepeatCount);
         Assert.Equal(4, Assert.IsType<RepeatNode>(Assert.Single(vm.SelectedProgram!.Measure)).Count);
     }
 
