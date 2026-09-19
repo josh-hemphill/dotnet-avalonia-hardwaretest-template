@@ -16,13 +16,23 @@ public sealed class AuthoringChromeA11yTests
         Assert.Contains("<vm:OperatorPreviewPane", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("AutomationProperties.Name=\"Preview samples\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Header=\"{Binding ProgramSettingsTitle}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("<vm:ProgramSettingsView", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("AutomationProperties.Name=\"Settings tab\"", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("<vm:SettingsView", xaml, StringComparison.Ordinal);
         Assert.Contains("Click=\"OnOpenSettings\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Content=\"{Binding SettingsTitle}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("IsVisible=\"{Binding ShowCatalogFormulaCompletions}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("SelectedItem=\"{Binding SelectedProgram}\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("SelectedItem=\"{Binding SelectedInstrument}\"", xaml, StringComparison.Ordinal);
+        var programSettings = File.ReadAllText(Path.Combine(FindRepoRoot(), "src", "HardwareTest.Authoring", "ProgramSettingsView.axaml"));
+        Assert.Contains("SelectedItem=\"{Binding SelectedInstrument}\"", programSettings, StringComparison.Ordinal);
+        Assert.Contains("Identity &amp; DUT", programSettings, StringComparison.Ordinal);
+        Assert.Contains("Operator session", programSettings, StringComparison.Ordinal);
+        Assert.Contains("Program type &amp; station health", programSettings, StringComparison.Ordinal);
+        Assert.Contains("IsEnabled=\"{Binding RequireStationHealth}\"", programSettings, StringComparison.Ordinal);
+        Assert.DoesNotContain("Text=\"{Binding CatalogsPurpose}\"", programSettings, StringComparison.Ordinal);
+        Assert.DoesNotContain("Text=\"{Binding SidecarHelp}\"", programSettings, StringComparison.Ordinal);
+        Assert.Contains("ToolTip.Tip=\"{Binding SidecarHelp}\"", programSettings, StringComparison.Ordinal);
+        Assert.Contains("Selection includes cleanup", programSettings, StringComparison.Ordinal);
         Assert.Contains("Text=\"{Binding InputStringFieldId}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Text=\"{Binding InputNumberFieldId}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("ItemsSource=\"{Binding FormulaPrefixCompletions}\"", xaml, StringComparison.Ordinal);
@@ -108,7 +118,8 @@ public sealed class AuthoringChromeA11yTests
         var sequenceBlock = SliceAfter(xaml, "ItemsSource=\"{Binding SequenceItems}\"");
         Assert.Contains("KeyboardNavigation.TabNavigation=\"Once\"", sequenceBlock, StringComparison.Ordinal);
         Assert.True(
-            CountOccurrences(xaml, "KeyboardNavigation.TabNavigation=\"Once\"") >= 4,
+            CountOccurrences(xaml, "KeyboardNavigation.TabNavigation=\"Once\"")
+            + CountOccurrences(programSettings, "KeyboardNavigation.TabNavigation=\"Once\"") >= 4,
             "Sequence, recordings, findings, and instruments lists should leave on Tab.");
     }
 

@@ -47,7 +47,7 @@ public static class AuthoringChrome
         "How this metric will look on the operator board, from canned samples or a recording — not Execute.";
     public const string ProgramSettingsTitle = "Program settings";
     public const string ProgramSettingsPurpose =
-        "Session, DUT, reports, and instrument slots for this program. They are not metrics.";
+        "Sidecar for this program: identity, operator session, reports, classification, and instrument slots.";
     public const string CatalogsPurpose =
         "Report kinds, program kinds, required DUT fields, and instrument slots come from this workspace and the open programs — not the in-repo demos. Add a token to use it on this program.";
     public const string RequiredFieldsPurpose =
