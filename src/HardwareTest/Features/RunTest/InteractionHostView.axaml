@@ -11,7 +11,8 @@
           CornerRadius="4"
           Padding="8"
           HorizontalAlignment="Stretch"
-          VerticalAlignment="Stretch"
+          VerticalAlignment="Top"
+          MaxHeight="{x:Static shell:OperatorTouchDensity.InteractionHostMaxHeight}"
           AutomationProperties.LiveSetting="Assertive"
           AutomationProperties.Name="Operator prompt">
     <DockPanel LastChildFill="True">
@@ -34,20 +35,24 @@
 
       <ScrollViewer x:Name="PromptBodyScroller"
                     VerticalScrollBarVisibility="Auto"
-                    HorizontalScrollBarVisibility="Disabled">
+                    HorizontalScrollBarVisibility="Disabled"
+                    MaxHeight="{x:Static shell:OperatorTouchDensity.InteractionHostBodyMaxHeight}">
         <StackPanel Spacing="6">
           <TextBlock Text="{Binding Interaction.InteractionTitle}"
                      FontWeight="Bold"
                      FontSize="13" />
           <DockPanel LastChildFill="True">
-            <Button DockPanel.Dock="Right"
+            <Button x:Name="ShowThisStepButton"
+                    DockPanel.Dock="Right"
                     Content="Show this step"
-                    Command="{Binding StepTree.JumpToCurrentCommand}"
+                    Command="{Binding ShowCurrentStepCommand}"
                     FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}"
                     Padding="8,2"
                     Margin="8,0,0,0"
+                    MinHeight="{x:Static shell:OperatorTouchDensity.OperatorControlMinHeight}"
                     VerticalAlignment="Center"
-                    ToolTip.Tip="Jump to the stage and step waiting for input" />
+                    ToolTip.Tip="Jump to the stage and step waiting for input"
+                    AutomationProperties.Name="Show this step" />
             <TextBlock Text="{Binding CurrentStepName, StringFormat=Waiting at: {0}}"
                        FontSize="12"
                        Opacity="0.85"

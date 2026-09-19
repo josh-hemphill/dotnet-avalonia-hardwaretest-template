@@ -183,6 +183,37 @@ public sealed class RunTestViewModelTests
     }
 
     [Fact]
+    public async Task Show_this_step_opens_steps_and_jumps_to_the_waiting_row()
+    {
+        var vm = CreateVm();
+        vm.UiScheduler = action => action();
+        await ConfirmReadyAsync(vm, "SN-SHOWSTEP");
+        await vm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
+        var leaves = Flatten(vm.StepTree.Hierarchy).Where(n => n.Children.Count == 0).ToList();
+        Assert.True(leaves.Count >= 2, "Need a waiting leaf distinct from the selected row.");
+        var waiting = leaves[0];
+        var other = leaves[^1];
+        vm.CurrentStepPath = waiting.Path;
+        vm.CurrentStepName = waiting.Name;
+        vm.StepTree.SelectedStep = other;
+        vm.Workspace.OpenDetails();
+        vm.Interaction.IsAwaitingOperator = true;
+        vm.Workspace.Refresh();
+
+        Assert.True(vm.Workspace.ShowInteraction);
+        Assert.True(vm.Workspace.ShowDetails);
+
+        var scrollRequests = 0;
+        vm.StepTree.RequestScrollToSelectedStep += (_, _) => scrollRequests++;
+        await vm.ShowCurrentStepCommand.ExecuteAsync();
+
+        Assert.True(vm.Workspace.ShowSteps);
+        Assert.Equal(waiting.Path, vm.StepTree.SelectedStep?.Path);
+        Assert.True(scrollRequests >= 1, "Show this step should scroll the waiting row into view.");
+        Assert.True(vm.Workspace.ShowInteraction);
+    }
+
+    [Fact]
     public async Task Awaiting_operator_does_not_change_stage_scope()
     {
         var openTap = new FakeOpenTapSession();
@@ -1405,7 +1436,7 @@ public sealed class RunTestViewModelTests
         });
         await Task.Delay(50);
         Assert.True(vm.Workspace.ShowInteraction);
-        Assert.False(vm.Workspace.ShowChart);
+        Assert.True(vm.Workspace.ShowChart);
         Assert.Equal(RunWorkspace.Chart, vm.Workspace.Selected);
 
         await vm.ContinueOperatorCommand.ExecuteAsync();

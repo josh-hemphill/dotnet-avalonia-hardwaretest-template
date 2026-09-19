@@ -70,6 +70,8 @@ public sealed class RunWorkspaceViewModel : ReactiveObject
 
     /// Recomputes overlay, tab, and overview visibility.
     /// Operator prompts take precedence over session confirmation so Continue stays reachable.
+    /// The prompt docks above the current workspace instead of replacing it, so
+    /// "Show this step" can land on the waiting row.
     public void Refresh()
     {
         this.RaisePropertyChanged(nameof(ShowPreparation));
@@ -126,7 +128,7 @@ public sealed class RunWorkspaceViewModel : ReactiveObject
     }
 
     private bool ShowWorkspace(RunWorkspace workspace)
-        => !ShowPreparation && !ShowInteraction && Selected.Equals(workspace);
+        => !ShowPreparation && Selected.Equals(workspace);
 
     private void SetSelected(RunWorkspace workspace)
     {
