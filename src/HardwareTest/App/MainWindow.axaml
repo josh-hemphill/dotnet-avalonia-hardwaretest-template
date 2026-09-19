@@ -38,7 +38,6 @@
                    TextTrimming="CharacterEllipsis"
                    Opacity="0.85"
                    AutomationProperties.LiveSetting="{Binding ControlStatusLiveSetting}"
-                   AutomationProperties.Name="Run status"
                    IsVisible="{Binding IsNavPaneOpen}" />
         <TextBlock Text="{Binding CompactControlStatus}"
                    FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}"
@@ -50,7 +49,6 @@
                    TextAlignment="Center"
                    Opacity="0.85"
                    AutomationProperties.LiveSetting="{Binding ControlStatusLiveSetting}"
-                   AutomationProperties.Name="Run status"
                    IsVisible="{Binding !IsNavPaneOpen}" />
 
         <!-- Pause / Resume / Continue -->
@@ -62,7 +60,7 @@
                   HorizontalAlignment="Center"
                   HorizontalContentAlignment="Center"
                   VerticalContentAlignment="Center"
-                  IsEnabled="{Binding IsRunning}"
+                  IsEnabled="{Binding CanPauseResume}"
                   Classes.success="{Binding ShowContinueIcon}"
                   ToolTip.Tip="{Binding PauseResumeTip}"
                   AutomationProperties.Name="{Binding PauseResumeLabel}">
@@ -86,7 +84,7 @@
                 HorizontalContentAlignment="Center"
                 Padding="12,8"
                 MinHeight="{x:Static shell:OperatorTouchDensity.OperatorControlMinHeight}"
-                IsEnabled="{Binding IsRunning}"
+                IsEnabled="{Binding CanPauseResume}"
                 Classes.success="{Binding ShowContinueIcon}"
                 ToolTip.Tip="{Binding PauseResumeTip}"
                 AutomationProperties.Name="{Binding PauseResumeLabel}"
@@ -115,7 +113,7 @@
                   HorizontalContentAlignment="Center"
                   VerticalContentAlignment="Center"
                   Classes="danger"
-                  IsEnabled="{Binding IsRunning}"
+                  IsEnabled="{Binding CanSafetyStop}"
                   ToolTip.Tip="{Binding SafetyStopTip}"
                   AutomationProperties.Name="{Binding SafetyStopLabel}">
             <ui:FASymbolIcon Symbol="StopFilled"
@@ -139,7 +137,7 @@
                 Padding="12,8"
                 MinHeight="{x:Static shell:OperatorTouchDensity.OperatorControlMinHeight}"
                 Classes="danger"
-                IsEnabled="{Binding IsRunning}"
+                IsEnabled="{Binding CanSafetyStop}"
                 ToolTip.Tip="{Binding SafetyStopTip}"
                 AutomationProperties.Name="{Binding SafetyStopLabel}"
                 IsVisible="{Binding IsNavPaneOpen}">
@@ -192,8 +190,7 @@
                          TextWrapping="Wrap"
                          VerticalAlignment="Center"
                          FontWeight="SemiBold"
-                         AutomationProperties.LiveSetting="Polite"
-                         AutomationProperties.Name="Shell notification" />
+                         AutomationProperties.LiveSetting="{Binding ShellNotification.LiveSetting}" />
               <Button Grid.Column="2"
                       Content="{Binding ShellNotification.PrimaryLabel}"
                       Command="{Binding ShellNotification.PrimaryCommand}"

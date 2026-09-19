@@ -10,7 +10,9 @@ using HardwareTest.Core.Settings;
 using HardwareTest.Core.StationHealth;
 using HardwareTest.Core.Storage;
 using HardwareTest.Core.Time;
+using HardwareTest.Features.Shell;
 using HardwareTest.OpenTap.Host;
+using ReactiveUI;
 
 namespace HardwareTest.Features.RunTest;
 
@@ -108,6 +110,20 @@ public partial class RunTestViewModel
             () => StepTree.HasHierarchyOverview,
             () => IsCompactLayout,
             () => IsRunning);
+        runControl.PropertyChanged += (_, args) =>
+        {
+            if (args.PropertyName is nameof(IRunControl.IsSafetyStopping))
+            {
+                RaiseHeaderStopCopy();
+            }
+        };
+        runSession.PropertyChanged += (_, args) =>
+        {
+            if (args.PropertyName is nameof(IOpenTapRunSession.IsAwaitingOperator))
+            {
+                RaiseHeaderStopCopy();
+            }
+        };
     }
 
     /// Change DUT is idle-only — clearing identity mid-run would hide the live board.
@@ -118,6 +134,51 @@ public partial class RunTestViewModel
 
     /// True when Run occupies the header action slot (idle, including gated-disabled).
     public bool ShowHeaderRun => !CanSafetyStop;
+
+    public string HeaderStopLabel
+    {
+        get
+        {
+            if (_runControl.IsSafetyStopping)
+            {
+                return "Cancel shutdown";
+            }
+
+            if (Interaction.IsAwaitingOperator || _runSession.IsAwaitingOperator)
+            {
+                return "Cancel prompt";
+            }
+
+            return StopRunCopy.Label;
+        }
+    }
+
+    public string HeaderStopTip
+    {
+        get
+        {
+            if (_runControl.IsSafetyStopping)
+            {
+                return StopRunCopy.CancelShutdownTip;
+            }
+
+            if (Interaction.IsAwaitingOperator || _runSession.IsAwaitingOperator)
+            {
+                return StopRunCopy.CancelPromptTip;
+            }
+
+            return StopRunCopy.CooperativeTip;
+        }
+    }
+
+    private void RaiseHeaderStopCopy()
+    {
+        this.RaisePropertyChanged(nameof(HeaderStopLabel));
+        this.RaisePropertyChanged(nameof(HeaderStopTip));
+        this.RaisePropertyChanged(nameof(CanSafetyStop));
+        this.RaisePropertyChanged(nameof(ShowHeaderRun));
+        this.RaisePropertyChanged(nameof(ShowHeaderStop));
+    }
 
     /// Binds catalog identity and session requirements for the selected program.
     private void ApplySelectedProgram(ProgramItemViewModel program)

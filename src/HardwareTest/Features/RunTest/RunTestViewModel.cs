@@ -137,7 +137,7 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
     public OperatorSession Session => _session;
 
     /// True when Stop Run can abort a run or cancel an in-panel operator prompt.
-    public bool CanSafetyStop => IsRunning || Interaction.IsAwaitingOperator;
+    public bool CanSafetyStop => IsRunning || Interaction.IsAwaitingOperator || _runSession.IsAwaitingOperator;
 
     public bool ShowStartBlockedTip => ShowHeaderRun && !CanStartRun;
     public bool ShowOverallProgress => IsRunning;
@@ -274,9 +274,7 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
             if (args.PropertyName == nameof(InteractionHostViewModel.IsAwaitingOperator))
             {
                 RefreshHero();
-                this.RaisePropertyChanged(nameof(CanSafetyStop));
-                this.RaisePropertyChanged(nameof(ShowHeaderRun));
-                this.RaisePropertyChanged(nameof(ShowHeaderStop));
+                RaiseHeaderStopCopy();
                 Workspace.Refresh();
             }
         };
@@ -309,9 +307,7 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
                     RaiseStartGates();
                     this.RaisePropertyChanged(nameof(ShowHeaderChangeSession));
                     this.RaisePropertyChanged(nameof(ShowOverallProgress));
-                    this.RaisePropertyChanged(nameof(CanSafetyStop));
-                    this.RaisePropertyChanged(nameof(ShowHeaderRun));
-                    this.RaisePropertyChanged(nameof(ShowHeaderStop));
+                    RaiseHeaderStopCopy();
                     SessionPanel.RefreshSessionSummary();
                     Workspace.Refresh();
                 }

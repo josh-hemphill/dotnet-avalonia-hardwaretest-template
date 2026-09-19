@@ -1,4 +1,5 @@
 using System.Windows.Input;
+using Avalonia.Automation;
 using ReactiveUI;
 using ReactiveUI.SourceGenerators;
 
@@ -56,6 +57,12 @@ public partial class ShellNotificationViewModel : ReactiveObject
     /// Idle caption when no notification is active (keeps strip height stable).
     public string IdleHint { get; } = "Ready";
 
+    /// Critical storage/crash banners interrupt; other severities stay polite.
+    public AutomationLiveSetting LiveSetting
+        => Severity == ShellNotificationSeverity.Critical
+            ? AutomationLiveSetting.Assertive
+            : AutomationLiveSetting.Polite;
+
     /// Publishes a notification. Lower severity does not replace a higher one from another source.
     public void Publish(
         ShellNotificationSeverity severity,
@@ -81,6 +88,7 @@ public partial class ShellNotificationViewModel : ReactiveObject
         _sourceKey = sourceKey;
         _onDismissed = onDismissed;
         Severity = severity;
+        this.RaisePropertyChanged(nameof(LiveSetting));
         Message = message.Trim();
         IsDismissible = dismissible;
         ApplyActions(primary, secondary);
@@ -122,9 +130,10 @@ public partial class ShellNotificationViewModel : ReactiveObject
     {
         _sourceKey = null;
         _onDismissed = null;
+        Severity = ShellNotificationSeverity.Info;
+        this.RaisePropertyChanged(nameof(LiveSetting));
         HasContent = false;
         Message = string.Empty;
-        Severity = ShellNotificationSeverity.Info;
         IsDismissible = true;
         ApplyActions(null, null);
         this.RaisePropertyChanged(nameof(PrimaryCommand));

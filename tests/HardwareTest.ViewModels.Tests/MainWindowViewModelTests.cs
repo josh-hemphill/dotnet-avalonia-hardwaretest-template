@@ -385,6 +385,165 @@ public sealed class MainWindowViewModelTests
     }
 
     [Fact]
+    public async Task PauseResume_when_awaiting_without_a_run_still_continues()
+    {
+        var store = new FakeSettingsStore();
+        var openTap = new FakeOpenTapSession();
+        var runControl = new FakeRunControl();
+        var runTest = new RunTestViewModel(
+            openTap,
+            openTap,
+            openTap,
+            new OperatorSession(),
+            runControl,
+            new FakeReportService(),
+            new FakeRunStore(),
+            new AppSettings());
+        var vm = CreateMain(store, openTap, runControl, runTest: runTest);
+
+        openTap.BeginInteraction(OperatorInteractionRequest.ConfirmOnly("Install fixture"));
+        Assert.False(vm.IsRunning);
+        Assert.True(vm.CanPauseResume);
+        Assert.True(vm.CanSafetyStop);
+
+        await vm.PauseResumeCommand.ExecuteAsync();
+        Assert.False(openTap.IsAwaitingOperator);
+    }
+
+    [Fact]
+    public async Task SafetyStop_when_awaiting_without_a_run_cancels_the_prompt()
+    {
+        var store = new FakeSettingsStore();
+        var openTap = new FakeOpenTapSession();
+        var runControl = new FakeRunControl();
+        var runTest = new RunTestViewModel(
+            openTap,
+            openTap,
+            openTap,
+            new OperatorSession(),
+            runControl,
+            new FakeReportService(),
+            new FakeRunStore(),
+            new AppSettings());
+        var vm = CreateMain(store, openTap, runControl, runTest: runTest);
+
+        openTap.BeginInteraction(OperatorInteractionRequest.ConfirmOnly("Install fixture"));
+        Assert.False(vm.IsRunning);
+        Assert.True(vm.CanSafetyStop);
+
+        await vm.SafetyStopCommand.ExecuteAsync();
+
+        Assert.False(openTap.IsAwaitingOperator);
+        Assert.False(runControl.IsSafetyStopping);
+        Assert.False(runControl.WasSafetyStopRequested);
+        Assert.Equal("Idle", vm.ControlStatus);
+        Assert.Equal(Avalonia.Automation.AutomationLiveSetting.Polite, vm.ControlStatusLiveSetting);
+        Assert.False(vm.CanPauseResume);
+        Assert.False(vm.CanSafetyStop);
+    }
+
+    [Fact]
+    public async Task Header_Cancel_when_awaiting_without_a_run_cancels_the_prompt()
+    {
+        var store = new FakeSettingsStore();
+        var openTap = new FakeOpenTapSession();
+        var runControl = new FakeRunControl();
+        var runTest = new RunTestViewModel(
+            openTap,
+            openTap,
+            openTap,
+            new OperatorSession(),
+            runControl,
+            new FakeReportService(),
+            new FakeRunStore(),
+            new AppSettings());
+        var vm = CreateMain(store, openTap, runControl, runTest: runTest);
+
+        openTap.BeginInteraction(OperatorInteractionRequest.ConfirmOnly("Install fixture"));
+        Assert.False(vm.IsRunning);
+        Assert.Equal("Cancel prompt", runTest.HeaderStopLabel);
+
+        await runTest.Run.CancelCommand.ExecuteAsync();
+
+        Assert.False(openTap.IsAwaitingOperator);
+        Assert.False(runControl.IsSafetyStopping);
+        Assert.False(runControl.WasSafetyStopRequested);
+        Assert.Equal("Idle", vm.ControlStatus);
+    }
+
+    [Fact]
+    public async Task Header_Cancel_while_stopping_cancels_shutdown_instead_of_aborting_again()
+    {
+        var store = new FakeSettingsStore();
+        var openTap = new FakeOpenTapSession();
+        var runControl = new FakeRunControl();
+        var runTest = new RunTestViewModel(
+            openTap,
+            openTap,
+            openTap,
+            new OperatorSession(),
+            runControl,
+            new FakeReportService(),
+            new FakeRunStore(),
+            new AppSettings());
+        var vm = CreateMain(store, openTap, runControl, runTest: runTest);
+
+        using var cts = new CancellationTokenSource();
+        runControl.AttachRun(cts);
+        runControl.RequestSafetyStop();
+        Assert.True(vm.IsSafetyStopping);
+        Assert.Equal("Cancel shutdown", runTest.HeaderStopLabel);
+        Assert.Equal(StopRunCopy.CancelShutdownTip, runTest.HeaderStopTip);
+
+        await runTest.Run.CancelCommand.ExecuteAsync();
+
+        Assert.True(runControl.WasCancelSafetyShutdownRequested);
+        Assert.True(runControl.IsSafetyStopping);
+        Assert.False(openTap.IsAwaitingOperator);
+        Assert.Equal(0, openTap.AbortCount);
+    }
+
+    [Fact]
+    public async Task Footer_SafetyStop_while_stopping_cancels_shutdown_instead_of_aborting_again()
+    {
+        var store = new FakeSettingsStore();
+        var openTap = new FakeOpenTapSession();
+        var runControl = new FakeRunControl();
+        var vm = CreateMain(store, openTap, runControl);
+
+        using var cts = new CancellationTokenSource();
+        runControl.AttachRun(cts);
+        runControl.RequestSafetyStop();
+        Assert.True(vm.IsSafetyStopping);
+
+        await vm.SafetyStopCommand.ExecuteAsync();
+
+        Assert.True(runControl.WasCancelSafetyShutdownRequested);
+        Assert.True(runControl.IsSafetyStopping);
+        Assert.Equal(0, openTap.AbortCount);
+    }
+
+    [Fact]
+    public async Task PauseResume_is_a_no_op_while_stopping()
+    {
+        var store = new FakeSettingsStore();
+        var openTap = new FakeOpenTapSession();
+        var runControl = new FakeRunControl();
+        var vm = CreateMain(store, openTap, runControl);
+
+        using var cts = new CancellationTokenSource();
+        runControl.AttachRun(cts);
+        runControl.RequestSafetyStop();
+        Assert.False(vm.CanPauseResume);
+        Assert.False(runControl.IsPaused);
+
+        await vm.PauseResumeCommand.ExecuteAsync();
+        Assert.False(runControl.IsPaused);
+        Assert.True(runControl.IsSafetyStopping);
+        Assert.True(runControl.IsRunning);
+    }
+
+    [Fact]
     public void SafetyStopTip_matches_shared_stop_run_copy()
     {
         var vm = CreateMain(new FakeSettingsStore(), new FakeOpenTapSession(), new FakeRunControl());

@@ -150,6 +150,12 @@ public partial class MainWindowViewModel : ReactiveObject
     public bool IsSafetyStopping => _runControl.IsSafetyStopping;
     public bool IsAwaitingOperator => _openTap.IsAwaitingOperator;
 
+    /// Footer Pause/Continue stays available during a prompt; both stay off while Stop is in progress.
+    public bool CanPauseResume => !IsSafetyStopping && (IsAwaitingOperator || IsRunning);
+
+    /// Footer Stop matches the Run header: abort a run or cancel an in-panel prompt.
+    public bool CanSafetyStop => IsRunning || IsAwaitingOperator;
+
     /// Pause glyph when not soft-paused and not awaiting (including idle affordance).
     public bool ShowPauseIcon => !IsPaused && !IsAwaitingOperator;
     /// Resume (play) when soft-paused and not awaiting operator input.
@@ -201,8 +207,8 @@ public partial class MainWindowViewModel : ReactiveObject
     {
         get
         {
-            if (IsAwaitingOperator) return "Cancel prompt";
             if (IsSafetyStopping) return "Cancel shutdown";
+            if (IsAwaitingOperator) return "Cancel prompt";
             return StopRunCopy.Label;
         }
     }
@@ -211,10 +217,10 @@ public partial class MainWindowViewModel : ReactiveObject
     {
         get
         {
-            if (IsAwaitingOperator)
-                return StopRunCopy.CancelPromptTip;
             if (IsSafetyStopping)
                 return StopRunCopy.CancelShutdownTip;
+            if (IsAwaitingOperator)
+                return StopRunCopy.CancelPromptTip;
             return StopRunCopy.CooperativeTip;
         }
     }
@@ -249,11 +255,25 @@ public partial class MainWindowViewModel : ReactiveObject
         return _runControl.IsRunning ? "Running" : "Idle";
     }
 
-    /// Polite for idle/running/paused; assertive for Stop in progress and operator prompts.
+    /// Assertive while Stop is in progress. Off while awaiting so the prompt card
+    /// is the only live region (footer still shows the prompt text visually).
     public AutomationLiveSetting ControlStatusLiveSetting
-        => IsSafetyStopping || IsAwaitingOperator
-            ? AutomationLiveSetting.Assertive
-            : AutomationLiveSetting.Polite;
+    {
+        get
+        {
+            if (IsSafetyStopping)
+            {
+                return AutomationLiveSetting.Assertive;
+            }
+
+            if (IsAwaitingOperator)
+            {
+                return AutomationLiveSetting.Off;
+            }
+
+            return AutomationLiveSetting.Polite;
+        }
+    }
 
     [Reactive]
     private NavItem? _selectedItem;
@@ -452,9 +472,9 @@ public partial class MainWindowViewModel : ReactiveObject
         this.RaisePropertyChanged(nameof(IsRunning));
         this.RaisePropertyChanged(nameof(IsSafetyStopping));
         this.RaisePropertyChanged(nameof(IsAwaitingOperator));
+        this.RaisePropertyChanged(nameof(ControlStatusLiveSetting));
         this.RaisePropertyChanged(nameof(ControlStatus));
         this.RaisePropertyChanged(nameof(CompactControlStatus));
-        this.RaisePropertyChanged(nameof(ControlStatusLiveSetting));
         this.RaisePropertyChanged(nameof(PauseResumeLabel));
         this.RaisePropertyChanged(nameof(PauseResumeTip));
         this.RaisePropertyChanged(nameof(SafetyStopLabel));
@@ -463,10 +483,17 @@ public partial class MainWindowViewModel : ReactiveObject
         this.RaisePropertyChanged(nameof(ShowResumeIcon));
         this.RaisePropertyChanged(nameof(ShowContinueIcon));
         this.RaisePropertyChanged(nameof(PauseResumeSymbol));
+        this.RaisePropertyChanged(nameof(CanPauseResume));
+        this.RaisePropertyChanged(nameof(CanSafetyStop));
     }
 
     private void PauseResume()
     {
+        if (!CanPauseResume)
+        {
+            return;
+        }
+
         if (IsAwaitingOperator)
         {
             ContinueOperator();
@@ -479,10 +506,7 @@ public partial class MainWindowViewModel : ReactiveObject
             return;
         }
 
-        if (_runControl.IsRunning)
-        {
-            Pause();
-        }
+        Pause();
     }
 
     private void ContinueOperator()
@@ -515,19 +539,22 @@ public partial class MainWindowViewModel : ReactiveObject
             return;
         }
 
-        if (!_runControl.IsRunning)
+        if (!_runControl.IsRunning && !IsAwaitingOperator)
         {
             return;
         }
 
-        _runControl.RequestSafetyStop();
-        try
+        if (_runControl.IsRunning)
         {
-            _safety?.SafeIdle();
-        }
-        catch
-        {
-            // safety outranks diagnostics; continue abort even if the adapter throws
+            _runControl.RequestSafetyStop();
+            try
+            {
+                _safety?.SafeIdle();
+            }
+            catch
+            {
+                // safety outranks diagnostics; continue abort even if the adapter throws
+            }
         }
 
         _openTap.Abort(safetyStop: true);

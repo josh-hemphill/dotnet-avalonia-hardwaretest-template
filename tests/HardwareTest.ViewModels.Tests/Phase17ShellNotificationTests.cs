@@ -42,6 +42,64 @@ public sealed class Phase17ShellNotificationTests
         Assert.True(shell.HasContent);
         Assert.Equal(ShellNotificationSeverity.Critical, shell.Severity);
         Assert.Equal("Disk full", shell.Message);
+        Assert.Equal(Avalonia.Automation.AutomationLiveSetting.Assertive, shell.LiveSetting);
+    }
+
+    [Fact]
+    public void Critical_live_setting_raises_before_message()
+    {
+        var shell = new ShellNotificationViewModel();
+        var order = new List<string>();
+        shell.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName is nameof(ShellNotificationViewModel.LiveSetting)
+                or nameof(ShellNotificationViewModel.Message))
+            {
+                order.Add(e.PropertyName!);
+            }
+        };
+
+        shell.Publish(
+            ShellNotificationSeverity.Critical,
+            "Disk full",
+            dismissible: false,
+            sourceKey: ShellNotificationViewModel.SourceStorage);
+
+        var live = order.IndexOf(nameof(ShellNotificationViewModel.LiveSetting));
+        var message = order.IndexOf(nameof(ShellNotificationViewModel.Message));
+        Assert.True(live >= 0 && message >= 0 && live < message);
+        Assert.Equal(Avalonia.Automation.AutomationLiveSetting.Assertive, shell.LiveSetting);
+    }
+
+    [Fact]
+    public void Clear_raises_live_setting_before_has_content_drops()
+    {
+        var shell = new ShellNotificationViewModel();
+        shell.Publish(
+            ShellNotificationSeverity.Critical,
+            "Disk full",
+            dismissible: false,
+            sourceKey: ShellNotificationViewModel.SourceStorage);
+
+        var order = new List<string>();
+        shell.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName is nameof(ShellNotificationViewModel.LiveSetting)
+                or nameof(ShellNotificationViewModel.HasContent)
+                or nameof(ShellNotificationViewModel.Message))
+            {
+                order.Add(e.PropertyName!);
+            }
+        };
+
+        shell.Clear(ShellNotificationViewModel.SourceStorage);
+
+        var live = order.IndexOf(nameof(ShellNotificationViewModel.LiveSetting));
+        var hasContent = order.IndexOf(nameof(ShellNotificationViewModel.HasContent));
+        var message = order.IndexOf(nameof(ShellNotificationViewModel.Message));
+        Assert.True(live >= 0 && hasContent >= 0 && live < hasContent);
+        Assert.True(message >= 0 && live < message);
+        Assert.False(shell.HasContent);
     }
 
     [Fact]
@@ -53,6 +111,17 @@ public sealed class Phase17ShellNotificationTests
 
         Assert.Equal(ShellNotificationSeverity.Info, shell.Severity);
         Assert.Equal("Second", shell.Message);
+        Assert.Equal(Avalonia.Automation.AutomationLiveSetting.Polite, shell.LiveSetting);
+    }
+
+    [Fact]
+    public void Warning_and_error_notifications_are_polite_live_regions()
+    {
+        var shell = new ShellNotificationViewModel();
+        shell.Publish(ShellNotificationSeverity.Warning, "Warn", sourceKey: ShellNotificationViewModel.SourceRun);
+        Assert.Equal(Avalonia.Automation.AutomationLiveSetting.Polite, shell.LiveSetting);
+        shell.Publish(ShellNotificationSeverity.Error, "Err", sourceKey: ShellNotificationViewModel.SourceRun);
+        Assert.Equal(Avalonia.Automation.AutomationLiveSetting.Polite, shell.LiveSetting);
     }
 
     [Fact]

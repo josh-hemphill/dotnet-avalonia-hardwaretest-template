@@ -75,7 +75,7 @@
         <StackPanel Spacing="6" IsVisible="{Binding StepDetail.IsSummaryPane}">
           <TextBlock Text="{Binding StepDetail.DetailPrimaryLine}" TextWrapping="Wrap" Opacity="0.9" />
           <TextBlock Text="{Binding StepDetail.AttemptSummaryChip, StringFormat=Attempts: {0}}"
-                     IsVisible="{Binding StepDetail.AttemptSummaryChip, Converter={x:Static ObjectConverters.IsNotNull}}"
+                     IsVisible="{Binding StepDetail.AttemptSummaryChip, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
                      FontWeight="SemiBold" />
           <ItemsControl ItemsSource="{Binding StepDetail.AttemptHistoryLines}" />
           <TextBlock Text="{Binding StepDetail.DetailStep.Path, StringFormat=Path: {0}}"

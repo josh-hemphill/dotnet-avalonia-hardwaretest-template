@@ -53,7 +53,12 @@ public sealed class Phase21OperatorChromeTests
         Assert.Contains("SafetyStopLabel", axaml, StringComparison.Ordinal);
         Assert.Contains("IsHitTestVisible=\"False\"", axaml, StringComparison.Ordinal);
         Assert.Contains("CompactControlStatus", axaml, StringComparison.Ordinal);
-        Assert.Contains("LiveSetting=\"Polite\"", axaml, StringComparison.Ordinal);
+        Assert.Contains("ShellNotification.LiveSetting", axaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("AutomationProperties.Name=\"Run status\"", axaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("AutomationProperties.Name=\"Shell notification\"", axaml, StringComparison.Ordinal);
+        Assert.Equal(2, CountOccurrences(axaml, "IsEnabled=\"{Binding CanPauseResume}\""));
+        Assert.Equal(2, CountOccurrences(axaml, "IsEnabled=\"{Binding CanSafetyStop}\""));
+        Assert.Equal(2, CountOccurrences(axaml, "AutomationProperties.LiveSetting=\"{Binding ControlStatusLiveSetting}\""));
         Assert.Contains("MaxLines=\"1\"", axaml, StringComparison.Ordinal);
         Assert.DoesNotContain("TextWrapping=\"Wrap\"", CompactStatusBlock(axaml), StringComparison.Ordinal);
         var host = File.ReadAllText(FindRepoFile("src/HardwareTest/Features/RunTest/InteractionHostView.axaml"));
@@ -69,7 +74,8 @@ public sealed class Phase21OperatorChromeTests
         Assert.Equal(0, CountOccurrences(run, "AutomationProperties.LiveSetting"));
         Assert.Equal(0, CountOccurrences(header, "AutomationProperties.LiveSetting"));
         Assert.Equal(1, CountOccurrences(host, "AutomationProperties.LiveSetting"));
-        Assert.Contains("AutomationProperties.Name=\"Operator prompt\"", host, StringComparison.Ordinal);
+        Assert.Contains("AutomationProperties.Name=\"{Binding Interaction.InteractionTitle}\"", host, StringComparison.Ordinal);
+        Assert.DoesNotContain("AutomationProperties.Name=\"Operator prompt\"", host, StringComparison.Ordinal);
         Assert.Contains("HeroStatusLine", header, StringComparison.Ordinal);
         Assert.DoesNotContain("AutomationProperties.LiveSetting", run, StringComparison.Ordinal);
     }
@@ -133,7 +139,7 @@ public sealed class Phase21OperatorChromeTests
     }
 
     [Fact]
-    public void ControlStatusLiveSetting_is_assertive_while_stopping_or_awaiting()
+    public void ControlStatusLiveSetting_is_assertive_while_stopping()
     {
         var openTap = new FakeOpenTapSession();
         var runControl = new FakeRunControl();
@@ -147,12 +153,97 @@ public sealed class Phase21OperatorChromeTests
         Assert.Equal("Stopping…", vm.ControlStatus);
         Assert.Equal("Stopping…", vm.CompactControlStatus);
         Assert.Equal(AutomationLiveSetting.Assertive, vm.ControlStatusLiveSetting);
+        Assert.False(vm.CanPauseResume);
+        Assert.True(vm.CanSafetyStop);
+    }
 
-        runControl = new FakeRunControl();
-        vm = CreateMain(openTap, runControl);
-        runControl.AttachRun(new CancellationTokenSource());
+    [Fact]
+    public void ControlStatusLiveSetting_is_off_while_awaiting_without_a_run()
+    {
+        var openTap = new FakeOpenTapSession();
+        var runControl = new FakeRunControl();
+        var vm = CreateMain(openTap, runControl);
+
         openTap.BeginInteraction(OperatorInteractionRequest.ConfirmOnly("Install fixture"));
+
+        Assert.False(vm.IsRunning);
+        Assert.Equal(AutomationLiveSetting.Off, vm.ControlStatusLiveSetting);
+        Assert.True(vm.CanPauseResume);
+        Assert.True(vm.CanSafetyStop);
+        Assert.Contains("Install fixture", vm.ControlStatus, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal("Awaiting operator", vm.CompactControlStatus);
+    }
+
+    [Fact]
+    public void ControlStatusLiveSetting_is_off_while_awaiting_during_a_run()
+    {
+        var openTap = new FakeOpenTapSession();
+        var runControl = new FakeRunControl();
+        var vm = CreateMain(openTap, runControl);
+
+        using var cts = new CancellationTokenSource();
+        runControl.AttachRun(cts);
+        openTap.BeginInteraction(OperatorInteractionRequest.ConfirmOnly("Install fixture"));
+
+        Assert.True(vm.IsRunning);
+        Assert.Equal(AutomationLiveSetting.Off, vm.ControlStatusLiveSetting);
+        Assert.True(vm.CanPauseResume);
+        Assert.True(vm.CanSafetyStop);
+    }
+
+    [Fact]
+    public void CanPauseResume_is_false_when_awaiting_during_stop()
+    {
+        var openTap = new FakeOpenTapSession();
+        var runControl = new FakeRunControl();
+        var vm = CreateMain(openTap, runControl);
+
+        using var cts = new CancellationTokenSource();
+        runControl.AttachRun(cts);
+        openTap.BeginInteraction(OperatorInteractionRequest.ConfirmOnly("Install fixture"));
+        Assert.True(vm.CanPauseResume);
+
+        runControl.RequestSafetyStop();
+        Assert.True(vm.IsAwaitingOperator);
+        Assert.True(vm.IsSafetyStopping);
+        Assert.False(vm.CanPauseResume);
         Assert.Equal(AutomationLiveSetting.Assertive, vm.ControlStatusLiveSetting);
+        Assert.Equal("Cancel shutdown", vm.SafetyStopLabel);
+        Assert.Equal(StopRunCopy.CancelShutdownTip, vm.SafetyStopTip);
+    }
+
+    [Fact]
+    public void ControlStatusLiveSetting_raises_before_status_text_when_stop_starts_from_a_prompt()
+    {
+        var openTap = new FakeOpenTapSession();
+        var runControl = new FakeRunControl();
+        var vm = CreateMain(openTap, runControl);
+
+        using var cts = new CancellationTokenSource();
+        runControl.AttachRun(cts);
+        openTap.BeginInteraction(OperatorInteractionRequest.ConfirmOnly("Install fixture"));
+
+        var order = new List<string>();
+        vm.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName is nameof(MainWindowViewModel.ControlStatusLiveSetting)
+                or nameof(MainWindowViewModel.ControlStatus)
+                or nameof(MainWindowViewModel.CompactControlStatus))
+            {
+                order.Add(e.PropertyName!);
+            }
+        };
+
+        runControl.RequestSafetyStop();
+
+        var live = order.IndexOf(nameof(MainWindowViewModel.ControlStatusLiveSetting));
+        var status = order.IndexOf(nameof(MainWindowViewModel.ControlStatus));
+        var compact = order.IndexOf(nameof(MainWindowViewModel.CompactControlStatus));
+        Assert.True(live >= 0 && status >= 0 && live < status);
+        Assert.True(compact >= 0 && live < compact);
+        Assert.Equal(AutomationLiveSetting.Assertive, vm.ControlStatusLiveSetting);
+        Assert.Equal("Stopping…", vm.ControlStatus);
+        Assert.Equal("Stopping…", vm.CompactControlStatus);
     }
 
     [Fact]
