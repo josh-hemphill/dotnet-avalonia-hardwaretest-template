@@ -173,6 +173,10 @@ public sealed class OperatorPromptChromeTests
         Assert.Contains("AutomationProperties.Name=\"Show this step\"", host, StringComparison.Ordinal);
         Assert.Contains("<vm:InteractionHostView DockPanel.Dock=\"Top\"", run, StringComparison.Ordinal);
         Assert.DoesNotContain("<vm:InteractionHostView IsVisible", run, StringComparison.Ordinal);
+
+        var steps = File.ReadAllText(FindRepoFile("src/HardwareTest/Features/RunTest/RunStepsWorkspaceView.axaml"));
+        Assert.Contains("JumpToCurrentCommand", steps, StringComparison.Ordinal);
+        Assert.Contains("Header=\"Jump to current\"", steps, StringComparison.Ordinal);
     }
 
     private static string FindRepoFile(string relativePath)
