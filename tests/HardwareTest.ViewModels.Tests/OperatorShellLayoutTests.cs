@@ -1,3 +1,4 @@
+using HardwareTest.Features.RunTest;
 using HardwareTest.Features.Shell;
 using HardwareTest.ViewModels.Tests.Fakes;
 using Xunit;
@@ -35,6 +36,27 @@ public sealed class OperatorShellLayoutTests
         Assert.Contains("<WrapPanel Grid.Row=\"2\"", steps, StringComparison.Ordinal);
         Assert.Contains("IsVisible=\"{Binding IsEngineerDebugMode}\"", header, StringComparison.Ordinal);
         Assert.Contains("Header=\"Inspect\"", header, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Step_rows_hide_empty_subtitle_so_the_title_stays_vertically_centered()
+    {
+        var steps = File.ReadAllText(FindRepoFile("src/HardwareTest/Features/RunTest/RunStepsWorkspaceView.axaml"));
+        Assert.Contains("<StackPanel Grid.Column=\"1\" VerticalAlignment=\"Center\">", steps, StringComparison.Ordinal);
+        Assert.Contains("Text=\"{Binding DisplayName}\"", steps, StringComparison.Ordinal);
+        Assert.Contains("Text=\"{Binding Step.KeyValue}\"", steps, StringComparison.Ordinal);
+        Assert.Contains(
+            "IsVisible=\"{Binding Step.KeyValue, Converter={x:Static vm:StringPresenceConverter.IsNotNullOrWhiteSpace}}\"",
+            steps,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "IsVisible=\"{Binding Step.AttemptsText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}\"",
+            steps,
+            StringComparison.Ordinal);
+        var culture = System.Globalization.CultureInfo.InvariantCulture;
+        Assert.False(IsPresent("   ", culture));
+        Assert.True(IsPresent("5V=5.010", culture));
+        Assert.False(IsPresent(null, culture));
     }
 
     [Fact]
@@ -91,6 +113,9 @@ public sealed class OperatorShellLayoutTests
 
         throw new FileNotFoundException($"Could not locate {relativePath} from {AppContext.BaseDirectory}");
     }
+
+    private static bool IsPresent(string? value, System.Globalization.CultureInfo culture)
+        => Assert.IsType<bool>(StringPresenceConverter.IsNotNullOrWhiteSpace.Convert(value, typeof(bool), null, culture));
 
     private static int CountOccurrences(string text, string token)
     {
