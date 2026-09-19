@@ -274,9 +274,7 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
             if (args.PropertyName == nameof(InteractionHostViewModel.IsAwaitingOperator))
             {
                 RefreshHero();
-                this.RaisePropertyChanged(nameof(CanSafetyStop));
-                this.RaisePropertyChanged(nameof(ShowHeaderRun));
-                this.RaisePropertyChanged(nameof(ShowHeaderStop));
+                RaiseHeaderStopCopy();
                 Workspace.Refresh();
             }
         };
@@ -309,9 +307,7 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
                     RaiseStartGates();
                     this.RaisePropertyChanged(nameof(ShowHeaderChangeSession));
                     this.RaisePropertyChanged(nameof(ShowOverallProgress));
-                    this.RaisePropertyChanged(nameof(CanSafetyStop));
-                    this.RaisePropertyChanged(nameof(ShowHeaderRun));
-                    this.RaisePropertyChanged(nameof(ShowHeaderStop));
+                    RaiseHeaderStopCopy();
                     SessionPanel.RefreshSessionSummary();
                     Workspace.Refresh();
                 }

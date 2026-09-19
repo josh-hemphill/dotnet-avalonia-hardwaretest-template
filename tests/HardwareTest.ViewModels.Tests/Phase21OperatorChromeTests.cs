@@ -74,7 +74,8 @@ public sealed class Phase21OperatorChromeTests
         Assert.Equal(0, CountOccurrences(run, "AutomationProperties.LiveSetting"));
         Assert.Equal(0, CountOccurrences(header, "AutomationProperties.LiveSetting"));
         Assert.Equal(1, CountOccurrences(host, "AutomationProperties.LiveSetting"));
-        Assert.Contains("AutomationProperties.Name=\"Operator prompt\"", host, StringComparison.Ordinal);
+        Assert.Contains("AutomationProperties.Name=\"{Binding Interaction.InteractionTitle}\"", host, StringComparison.Ordinal);
+        Assert.DoesNotContain("AutomationProperties.Name=\"Operator prompt\"", host, StringComparison.Ordinal);
         Assert.Contains("HeroStatusLine", header, StringComparison.Ordinal);
         Assert.DoesNotContain("AutomationProperties.LiveSetting", run, StringComparison.Ordinal);
     }
@@ -226,7 +227,8 @@ public sealed class Phase21OperatorChromeTests
         vm.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName is nameof(MainWindowViewModel.ControlStatusLiveSetting)
-                or nameof(MainWindowViewModel.ControlStatus))
+                or nameof(MainWindowViewModel.ControlStatus)
+                or nameof(MainWindowViewModel.CompactControlStatus))
             {
                 order.Add(e.PropertyName!);
             }
@@ -236,9 +238,12 @@ public sealed class Phase21OperatorChromeTests
 
         var live = order.IndexOf(nameof(MainWindowViewModel.ControlStatusLiveSetting));
         var status = order.IndexOf(nameof(MainWindowViewModel.ControlStatus));
+        var compact = order.IndexOf(nameof(MainWindowViewModel.CompactControlStatus));
         Assert.True(live >= 0 && status >= 0 && live < status);
+        Assert.True(compact >= 0 && live < compact);
         Assert.Equal(AutomationLiveSetting.Assertive, vm.ControlStatusLiveSetting);
         Assert.Equal("Stopping…", vm.ControlStatus);
+        Assert.Equal("Stopping…", vm.CompactControlStatus);
     }
 
     [Fact]

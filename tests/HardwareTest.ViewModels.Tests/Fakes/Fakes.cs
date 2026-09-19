@@ -1078,7 +1078,13 @@ public sealed class FakeOpenTapSession : IOpenTapSession
         }
     }
 
-    public void Abort(bool safetyStop = false) => _runControl.Abort();
+    public int AbortCount { get; private set; }
+
+    public void Abort(bool safetyStop = false)
+    {
+        AbortCount++;
+        _runControl.Abort();
+    }
 
     private void EnterRunGate()
     {

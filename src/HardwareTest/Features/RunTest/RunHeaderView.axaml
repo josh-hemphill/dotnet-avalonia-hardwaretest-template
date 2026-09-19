@@ -89,13 +89,13 @@
                 IsVisible="{Binding ShowHeaderRun}"
                 ToolTip.Tip="{Binding CanStartRunTip}"
                 AutomationProperties.Name="Run" />
-        <Button Content="Stop Run"
+        <Button Content="{Binding HeaderStopLabel}"
                 Command="{Binding Run.CancelCommand}"
                 IsEnabled="{Binding CanSafetyStop}"
                 IsVisible="{Binding ShowHeaderStop}"
                 Classes="danger"
-                ToolTip.Tip="{x:Static shell:StopRunCopy.CooperativeTip}"
-                AutomationProperties.Name="{x:Static shell:StopRunCopy.Label}" />
+                ToolTip.Tip="{Binding HeaderStopTip}"
+                AutomationProperties.Name="{Binding HeaderStopLabel}" />
       </StackPanel>
     </Grid>
     <TextBlock FontSize="12"

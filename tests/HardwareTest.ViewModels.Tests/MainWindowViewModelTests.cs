@@ -461,6 +461,7 @@ public sealed class MainWindowViewModelTests
 
         openTap.BeginInteraction(OperatorInteractionRequest.ConfirmOnly("Install fixture"));
         Assert.False(vm.IsRunning);
+        Assert.Equal("Cancel prompt", runTest.HeaderStopLabel);
 
         await runTest.Run.CancelCommand.ExecuteAsync();
 
@@ -491,12 +492,15 @@ public sealed class MainWindowViewModelTests
         runControl.AttachRun(cts);
         runControl.RequestSafetyStop();
         Assert.True(vm.IsSafetyStopping);
+        Assert.Equal("Cancel shutdown", runTest.HeaderStopLabel);
+        Assert.Equal(StopRunCopy.CancelShutdownTip, runTest.HeaderStopTip);
 
         await runTest.Run.CancelCommand.ExecuteAsync();
 
         Assert.True(runControl.WasCancelSafetyShutdownRequested);
         Assert.True(runControl.IsSafetyStopping);
         Assert.False(openTap.IsAwaitingOperator);
+        Assert.Equal(0, openTap.AbortCount);
     }
 
     [Fact]
@@ -516,6 +520,7 @@ public sealed class MainWindowViewModelTests
 
         Assert.True(runControl.WasCancelSafetyShutdownRequested);
         Assert.True(runControl.IsSafetyStopping);
+        Assert.Equal(0, openTap.AbortCount);
     }
 
     [Fact]

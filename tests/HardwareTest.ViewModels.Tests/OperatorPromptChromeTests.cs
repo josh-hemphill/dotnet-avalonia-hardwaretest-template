@@ -42,7 +42,8 @@ public sealed class OperatorPromptChromeTests
         var header = File.ReadAllText(FindRepoFile("src/HardwareTest/Features/RunTest/RunHeaderView.axaml"));
         var prep = File.ReadAllText(FindRepoFile("src/HardwareTest/Features/RunTest/RunPreparationView.axaml"));
         var runAxaml = File.ReadAllText(FindRepoFile("src/HardwareTest/Features/RunTest/RunTestView.axaml"));
-        Assert.Contains("StopRunCopy.CooperativeTip", header, StringComparison.Ordinal);
+        Assert.Contains("HeaderStopTip", header, StringComparison.Ordinal);
+        Assert.Contains("HeaderStopLabel", header, StringComparison.Ordinal);
         Assert.DoesNotContain("Blocking instrument I/O may continue", header, StringComparison.Ordinal);
         Assert.Contains("<vm:InteractionHostView", runAxaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"DutSerialBox\"", prep, StringComparison.Ordinal);

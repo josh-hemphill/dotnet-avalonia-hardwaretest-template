@@ -14,7 +14,7 @@
           VerticalAlignment="Top"
           MaxHeight="{x:Static shell:OperatorTouchDensity.InteractionHostMaxHeight}"
           AutomationProperties.LiveSetting="Assertive"
-          AutomationProperties.Name="Operator prompt">
+          AutomationProperties.Name="{Binding Interaction.InteractionTitle}">
     <DockPanel LastChildFill="True">
       <StackPanel DockPanel.Dock="Bottom" Spacing="6" Margin="0,8,0,0">
         <TextBlock Text="{Binding Interaction.InteractionValidationError}"

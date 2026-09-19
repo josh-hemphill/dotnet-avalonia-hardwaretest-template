@@ -72,6 +72,37 @@ public sealed class Phase17ShellNotificationTests
     }
 
     [Fact]
+    public void Clear_raises_live_setting_before_has_content_drops()
+    {
+        var shell = new ShellNotificationViewModel();
+        shell.Publish(
+            ShellNotificationSeverity.Critical,
+            "Disk full",
+            dismissible: false,
+            sourceKey: ShellNotificationViewModel.SourceStorage);
+
+        var order = new List<string>();
+        shell.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName is nameof(ShellNotificationViewModel.LiveSetting)
+                or nameof(ShellNotificationViewModel.HasContent)
+                or nameof(ShellNotificationViewModel.Message))
+            {
+                order.Add(e.PropertyName!);
+            }
+        };
+
+        shell.Clear(ShellNotificationViewModel.SourceStorage);
+
+        var live = order.IndexOf(nameof(ShellNotificationViewModel.LiveSetting));
+        var hasContent = order.IndexOf(nameof(ShellNotificationViewModel.HasContent));
+        var message = order.IndexOf(nameof(ShellNotificationViewModel.Message));
+        Assert.True(live >= 0 && hasContent >= 0 && live < hasContent);
+        Assert.True(message >= 0 && live < message);
+        Assert.False(shell.HasContent);
+    }
+
+    [Fact]
     public void Publish_same_source_replaces_regardless_of_severity()
     {
         var shell = new ShellNotificationViewModel();
