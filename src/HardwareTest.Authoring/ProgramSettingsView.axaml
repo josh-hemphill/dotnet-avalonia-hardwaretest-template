@@ -38,7 +38,9 @@
                           Click="OnToggleRequiredField"
                           AutomationProperties.Name="{Binding Id}" />
                 <Button Content="Remove"
-                        IsVisible="False"
+                        IsVisible="{Binding CanRemove}"
+                        Click="OnRemoveRequiredField"
+                        ToolTip.Tip="Removes this id from every program sidecar and the workspace catalog. serial/partNumber/revision/operator stay."
                         AutomationProperties.Name="Remove required field" />
               </StackPanel>
             </DataTemplate>
@@ -71,7 +73,9 @@
                           Click="OnToggleReportKind"
                           AutomationProperties.Name="{Binding Id}" />
                 <Button Content="Remove"
-                        IsVisible="False"
+                        IsVisible="{Binding CanRemove}"
+                        Click="OnRemoveReportKind"
+                        ToolTip.Tip="Removes this kind from every program sidecar and the workspace catalog. status and certification stay."
                         AutomationProperties.Name="Remove report kind" />
               </StackPanel>
             </DataTemplate>
@@ -109,6 +113,11 @@
                 Click="OnAddProgramKind"
                 ToolTip.Tip="Sets this program’s kind and remembers it on the workspace catalog"
                 AutomationProperties.Name="Add program kind" />
+        <Button Content="Remove program kind"
+                Click="OnRemoveProgramKind"
+                IsEnabled="{Binding CanRemoveSelectedProgramKind}"
+                ToolTip.Tip="Resets programs using this kind to dut and forgets it from the workspace catalog. dut and stationHealth stay."
+                AutomationProperties.Name="Remove program kind" />
         <CheckBox Content="Require station health"
                   IsChecked="{Binding RequireStationHealth}"
                   ToolTip.Tip="Evaluate the station-health gate before Run on DUT programs" />
@@ -171,7 +180,9 @@
                 ToolTip.Tip="Appends a slot to this program. Save plan writes it into the TapPlan."
                 AutomationProperties.Name="Add instrument slot" />
         <Button Content="Remove instrument slot"
-                IsVisible="False"
+                Click="OnRemoveInstrumentSlot"
+                IsEnabled="{Binding CanRemoveSelectedInstrumentSlot}"
+                ToolTip.Tip="Removes the selected slot when Identity Check and measure steps do not use it. A program must keep at least one instrument."
                 AutomationProperties.Name="Remove instrument slot" />
       </StackPanel>
     </StackPanel>

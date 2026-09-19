@@ -33,6 +33,13 @@ public sealed class AuthoringChromeA11yTests
         Assert.DoesNotContain("Text=\"{Binding SidecarHelp}\"", programSettings, StringComparison.Ordinal);
         Assert.Contains("ToolTip.Tip=\"{Binding SidecarHelp}\"", programSettings, StringComparison.Ordinal);
         Assert.Contains("Selection includes cleanup", programSettings, StringComparison.Ordinal);
+        Assert.Contains("IsVisible=\"{Binding CanRemove}\"", programSettings, StringComparison.Ordinal);
+        Assert.Contains("Click=\"OnRemoveRequiredField\"", programSettings, StringComparison.Ordinal);
+        Assert.Contains("Click=\"OnRemoveReportKind\"", programSettings, StringComparison.Ordinal);
+        Assert.Contains("Click=\"OnRemoveProgramKind\"", programSettings, StringComparison.Ordinal);
+        Assert.Contains("IsEnabled=\"{Binding CanRemoveSelectedProgramKind}\"", programSettings, StringComparison.Ordinal);
+        Assert.Contains("IsEnabled=\"{Binding CanRemoveSelectedInstrumentSlot}\"", programSettings, StringComparison.Ordinal);
+        Assert.Contains("Click=\"OnRemoveInstrumentSlot\"", programSettings, StringComparison.Ordinal);
         Assert.Contains("Text=\"{Binding InputStringFieldId}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Text=\"{Binding InputNumberFieldId}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("ItemsSource=\"{Binding FormulaPrefixCompletions}\"", xaml, StringComparison.Ordinal);

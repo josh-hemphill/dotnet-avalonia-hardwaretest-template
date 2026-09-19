@@ -101,6 +101,14 @@ public sealed class AuthoringWorkspaceCatalogTests
         Assert.Contains(
             "lab",
             AuthoringWorkspaceCatalog.ReportKindOptions(null, [orphan], orphan));
+        Assert.True(AuthoringWorkspaceCatalog.IsProtectedReportKind("status"));
+        Assert.True(AuthoringWorkspaceCatalog.IsProtectedProgramKind("dut"));
+        Assert.True(AuthoringWorkspaceCatalog.IsProtectedRequiredField("serial"));
+        Assert.False(AuthoringWorkspaceCatalog.IsProtectedReportKind("traceability"));
+        var remembered = AuthoringWorkspaceCatalog.Remember([], "fixtureId");
+        Assert.True(AuthoringWorkspaceCatalog.Forget(remembered, "fixtureId"));
+        Assert.Empty(remembered);
+        Assert.False(AuthoringWorkspaceCatalog.Forget(remembered, "fixtureId"));
     }
 
     [Fact]

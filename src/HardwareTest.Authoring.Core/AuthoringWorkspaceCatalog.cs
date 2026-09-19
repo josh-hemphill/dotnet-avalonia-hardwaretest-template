@@ -5,7 +5,7 @@ using HardwareTest.OpenTap.Host;
 namespace HardwareTest.Authoring;
 
 /// One report-kind row in Program settings (id + whether this program includes it).
-public sealed record AuthoringCatalogToggle(string Id, bool Included);
+public sealed record AuthoringCatalogToggle(string Id, bool Included, bool CanRemove = false);
 
 /// One measure/algorithm setting key shown in the inspector.
 public sealed record AuthoringSettingRow(
@@ -152,4 +152,20 @@ public static class AuthoringWorkspaceCatalog
 
         return items;
     }
+
+    public static bool Forget(List<string> items, string? token)
+    {
+        var normalized = Normalize(token);
+        return normalized is not null
+               && items.RemoveAll(item => string.Equals(item, normalized, StringComparison.OrdinalIgnoreCase)) > 0;
+    }
+
+    public static bool IsProtectedReportKind(string? kind)
+        => Contains(DefaultReportKinds, kind);
+
+    public static bool IsProtectedProgramKind(string? kind)
+        => Contains(DefaultProgramKinds, kind);
+
+    public static bool IsProtectedRequiredField(string? id)
+        => RequiredFieldIds.IsKnown(id);
 }
