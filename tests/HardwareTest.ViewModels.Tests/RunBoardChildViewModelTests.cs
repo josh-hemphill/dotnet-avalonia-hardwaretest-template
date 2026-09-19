@@ -829,6 +829,8 @@ public sealed class RunBoardChildViewModelTests
         tree.NextFailCommand.Execute().Subscribe();
 
         Assert.Equal("Acquire 12V", tree.SelectedStep?.Name);
+        Assert.Equal("Voltage Sweep", tree.SelectedStage?.DisplayName);
+        Assert.Same(tree.SelectedStep, tree.SelectedStepListItem?.Step);
         Assert.Equal(string.Empty, tree.StepSearchText);
         Assert.Contains(tree.StepRows, r => r.Name == "Acquire 12V");
         Assert.Equal(1, opened);
@@ -850,6 +852,8 @@ public sealed class RunBoardChildViewModelTests
         tree.MaybeAutoFocusFail();
 
         Assert.Equal("Acquire 12V", tree.SelectedStep?.Name);
+        Assert.Equal("Voltage Sweep", tree.SelectedStage?.DisplayName);
+        Assert.Same(tree.SelectedStep, tree.SelectedStepListItem?.Step);
         Assert.Equal(string.Empty, tree.StepSearchText);
         Assert.Contains(tree.StepRows, r => r.Name == "Acquire 12V");
         Assert.True(scrolled >= 1);
@@ -871,6 +875,7 @@ public sealed class RunBoardChildViewModelTests
         tree.NextFailCommand.Execute().Subscribe();
 
         Assert.Equal("Acquire 12V", tree.SelectedStep?.Name);
+        Assert.Same(tree.SelectedStep, tree.SelectedStepListItem?.Step);
         Assert.True(tree.IsFilterAll);
         Assert.Contains(tree.StepRows, r => r.Name == "Acquire 12V");
         Assert.Equal(1, opened);
@@ -882,6 +887,7 @@ public sealed class RunBoardChildViewModelTests
         tree.PrevFailCommand.Execute().Subscribe();
 
         Assert.Equal("Acquire 12V", tree.SelectedStep?.Name);
+        Assert.Same(tree.SelectedStep, tree.SelectedStepListItem?.Step);
         Assert.True(tree.IsFilterAll);
         Assert.Contains(tree.StepRows, r => r.Name == "Acquire 12V");
         Assert.Equal(2, opened);
@@ -902,6 +908,29 @@ public sealed class RunBoardChildViewModelTests
         Assert.Same(leaf, tree.SelectedStep);
         Assert.Null(tree.SelectedStepListItem);
         Assert.False(tree.IsSelectedStepVisible());
+    }
+
+    [Fact]
+    public void Fail_filter_after_auto_focus_still_scrolls_the_selected_fail()
+    {
+        var scrolled = 0;
+        var tree = new StepTreeViewModel(() => [HierarchicalStatusTree()]);
+        tree.RebuildFromHost();
+        tree.RequestScrollToSelectedStep += (_, _) => scrolled++;
+        tree.StepStatusFilter = StepStatusFilter.Pass;
+        tree.MaybeAutoFocusFail();
+        Assert.True(tree.IsFilterAll);
+        Assert.Equal("Acquire 12V", tree.SelectedStep?.Name);
+
+        scrolled = 0;
+        tree.StepStatusFilter = StepStatusFilter.Fail;
+        tree.MaybeAutoFocusFail();
+
+        Assert.True(tree.IsFilterFail);
+        Assert.Equal("Acquire 12V", tree.SelectedStep?.Name);
+        Assert.Same(tree.SelectedStep, tree.SelectedStepListItem?.Step);
+        Assert.Contains(tree.StepRows, r => r.Name == "Acquire 12V");
+        Assert.True(scrolled >= 1);
     }
 
     [Fact]

@@ -430,6 +430,7 @@ public sealed class RunExecutionViewModel
         if (!selectionOnly && summary.Result == RunResult.Failed)
         {
             _stepTree.StepStatusFilter = StepFilter.Fail;
+            _stepTree.MaybeAutoFocusFail();
         }
 
         if (!string.IsNullOrWhiteSpace(selectionPath))
