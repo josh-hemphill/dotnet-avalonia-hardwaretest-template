@@ -36,6 +36,7 @@ public sealed class AuthoringChromeA11yTests
         Assert.Contains("PlaceholderText=\"incomingInspect\"", programSettings, StringComparison.Ordinal);
         Assert.Contains("PlaceholderText=\"SCOPE\"", programSettings, StringComparison.Ordinal);
         Assert.DoesNotContain("Text=\"{Binding CatalogsPurpose}\"", programSettings, StringComparison.Ordinal);
+        Assert.DoesNotContain("TextBlock Text=\"{Binding SidecarHelp}\"", programSettings, StringComparison.Ordinal);
         Assert.DoesNotContain("Wrap\" Text=\"{Binding SidecarHelp}\"", programSettings, StringComparison.Ordinal);
         Assert.Contains("ToolTip.Tip=\"{Binding SidecarHelp}\"", programSettings, StringComparison.Ordinal);
         Assert.Contains("AutomationProperties.HelpText=\"{Binding SidecarHelp}\"", programSettings, StringComparison.Ordinal);

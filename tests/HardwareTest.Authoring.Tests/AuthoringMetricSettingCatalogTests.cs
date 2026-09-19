@@ -39,7 +39,7 @@ public sealed class AuthoringMetricSettingCatalogTests
 
         var threshold = AuthoringMetricSettingCatalog.CreateRow("*", "Threshold", "1.25", []);
         Assert.Equal(AuthoringSettingKind.Double, threshold.Kind);
-        Assert.Equal("0.########", threshold.NumberFormat);
+        Assert.Equal("0.################", threshold.NumberFormat);
         Assert.Equal(1.25m, threshold.NumberValue);
 
         var elapsed = AuthoringMetricSettingCatalog.CreateRow("*", "ElapsedMs", "12.5", []);
@@ -55,7 +55,7 @@ public sealed class AuthoringMetricSettingCatalogTests
         Assert.Equal(0, interval.Minimum);
 
         var dwell = AuthoringMetricSettingCatalog.CreateRow("*", "DwellLimitMs", "5", []);
-        Assert.Equal(AuthoringSettingKind.Integer, dwell.Kind);
+        Assert.Equal(AuthoringSettingKind.Double, dwell.Kind);
         Assert.Equal(0, dwell.Minimum);
 
         var summaries = AuthoringMetricSettingCatalog.CreateRow("*", "PublishSummaries", "true", []);

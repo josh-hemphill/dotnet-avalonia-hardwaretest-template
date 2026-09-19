@@ -47,7 +47,7 @@ public static class AuthoringMetricSettingCatalog
         ("*", "TsSeconds", new(AuthoringSettingKind.Double, Minimum: 0)),
         ("*", "FailWhenOutOfBand", new(AuthoringSettingKind.Boolean)),
         ("*", "PublishSummaries", new(AuthoringSettingKind.Boolean)),
-        ("*", "DwellLimitMs", new(AuthoringSettingKind.Integer, Minimum: 0)),
+        ("*", "DwellLimitMs", new(AuthoringSettingKind.Double, Minimum: 0)),
         ("*", "SeriesCompliance", new(AuthoringSettingKind.Choice, AuthoringSettingChoiceSource.SeriesCompliance)),
         ("*", "Channel", new(AuthoringSettingKind.Choice, AuthoringSettingChoiceSource.ChannelKeys, ChoiceIsEditable: true)),
         ("*", "InputChannel", new(AuthoringSettingKind.Choice, AuthoringSettingChoiceSource.ChannelKeys, ChoiceIsEditable: true)),

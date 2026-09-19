@@ -110,7 +110,8 @@ public sealed partial class AuthoringWorkspaceViewModel
                 return;
             }
 
-            RepeatCount = AuthoringInvariantNumbers.FormatInt(decimal.ToInt32(decimal.Truncate(number)));
+            RepeatCount = AuthoringInvariantNumbers.FormatInt(
+                (int)decimal.Clamp(decimal.Truncate(number), 1, int.MaxValue));
         }
     }
 

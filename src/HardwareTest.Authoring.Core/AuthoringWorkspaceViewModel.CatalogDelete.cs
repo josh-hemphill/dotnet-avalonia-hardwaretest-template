@@ -65,8 +65,17 @@ public sealed partial class AuthoringWorkspaceViewModel
 
         MapAllPrograms(draft =>
         {
-            if (draft.Sidecar.ReportKinds is not { Length: > 0 } listed
-                || !listed.Contains(token, StringComparer.OrdinalIgnoreCase))
+            if (draft.Sidecar.ReportKinds is not { Length: > 0 } listed)
+            {
+                if (string.Equals(draft.Sidecar.DefaultReportKind, token, StringComparison.OrdinalIgnoreCase))
+                {
+                    draft.Sidecar.DefaultReportKind = "status";
+                }
+
+                return draft;
+            }
+
+            if (!listed.Contains(token, StringComparer.OrdinalIgnoreCase))
             {
                 return draft;
             }
@@ -151,10 +160,6 @@ public sealed partial class AuthoringWorkspaceViewModel
         var instruments = SelectedProgram.Instruments
             .Where(instrument => !string.Equals(instrument.SlotName, slot, StringComparison.OrdinalIgnoreCase))
             .ToArray();
-        if (instruments.Length == 0)
-        {
-            throw new AuthoringWorkspaceException("A program must keep at least one instrument slot.");
-        }
         var cleanupSlots = SelectedProgram.Cleanup.InstrumentSlots
             .Where(existing => !string.Equals(existing, slot, StringComparison.OrdinalIgnoreCase))
             .ToArray();

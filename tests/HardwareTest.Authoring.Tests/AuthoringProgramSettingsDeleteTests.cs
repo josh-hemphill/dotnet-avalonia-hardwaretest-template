@@ -18,6 +18,7 @@ public sealed class AuthoringProgramSettingsDeleteTests
         Assert.False(vm.ReportKindChoices.Single(row => row.Id == "status").CanRemove);
         Assert.False(vm.ReportKindChoices.Single(row => row.Id == "certification").CanRemove);
         Assert.False(vm.ProgramKindChoices.Single(row => row.Id == "dut").CanRemove);
+        Assert.False(vm.ProgramKindChoices.Single(row => row.Id == "stationHealth").CanRemove);
         Assert.False(vm.CanRemoveSelectedProgramKind);
         Assert.False(vm.CanRemoveSelectedInstrumentSlot);
         foreach (var field in RequiredFieldIds.Known)
@@ -239,6 +240,11 @@ public sealed class AuthoringProgramSettingsDeleteTests
         Assert.Null(vm.SelectedProgram.Sidecar.ReportKinds);
         vm.RemoveRequiredField("fixtureId");
         Assert.Null(vm.SelectedProgram.Sidecar.RequiredFields);
+        vm.SelectedProgram.Sidecar.DefaultReportKind = "traceability";
+        vm.SelectedProgram.Sidecar.ReportKinds = null;
+        vm.RemoveReportKind("traceability");
+        Assert.Null(vm.SelectedProgram.Sidecar.ReportKinds);
+        Assert.Equal("status", vm.SelectedProgram.Sidecar.DefaultReportKind);
     }
 
     [Fact]

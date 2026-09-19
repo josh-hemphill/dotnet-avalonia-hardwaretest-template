@@ -190,7 +190,7 @@ public sealed class AuthoringProgramSettingsViewModelTests
         vm.ApplyRecipe(AuthoringRecipeIds.Formula);
         Assert.True(vm.HasFormula);
         Assert.False(vm.HasTransferFunction);
-        Assert.Contains("Mean GTE", vm.FormulaSaveNote, StringComparison.Ordinal);
+        Assert.Equal("Will save as Mean GTE.", vm.FormulaSaveNote);
         Assert.Equal(FormulaSaveOutcomeKind.PacksMeanGte, vm.FormulaSaveOutcomeKind);
         vm.InsertFormulaToken("+std(");
         Assert.Contains("+std(", vm.FormulaSource, StringComparison.Ordinal);
@@ -199,7 +199,9 @@ public sealed class AuthoringProgramSettingsViewModelTests
         Assert.Equal(FormulaSaveOutcomeKind.None, vm.FormulaSaveOutcomeKind);
         vm.FormulaSource = "std(VDC)";
         Assert.True(string.IsNullOrEmpty(vm.FormulaError), vm.FormulaError);
-        Assert.Contains("Preview only", vm.FormulaSaveNote, StringComparison.Ordinal);
+        Assert.Equal(
+            "Preview only — at save, only mean(channel) with a threshold (Mean GTE) or a top-level filter/filtfilt packs into the plan.",
+            vm.FormulaSaveNote);
         Assert.DoesNotContain(AuthoringCompileCodes.FormulaNoLower, vm.FormulaSaveNote, StringComparison.Ordinal);
         Assert.Equal(FormulaSaveOutcomeKind.PreviewOnly, vm.FormulaSaveOutcomeKind);
         Assert.Contains("VDC", vm.ChannelKeys);
