@@ -124,14 +124,13 @@ public sealed class FormulaParserTests
     }
 
     [Fact]
-    public void DescribeSave_keeps_parse_empty_and_nested_filter_blocked()
+    public void DescribeSave_nested_filter_is_save_blocked()
     {
         var dotted = FormulaLowerer.DescribeSaveOutcome("mean(VDC.mean)", new LimitSpec(null, null, 1.2));
         Assert.Equal(FormulaSaveOutcomeKind.PacksMeanGte, dotted.Kind);
 
         var nested = FormulaLowerer.DescribeSaveOutcome("mean(filter([0.5],[1],VDC))", null);
         Assert.Equal(FormulaSaveOutcomeKind.SaveBlocked, nested.Kind);
-        Assert.Contains(AuthoringCompileCodes.FormulaNoLower, nested.Message, StringComparison.Ordinal);
-        Assert.Contains("nested", nested.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(FormulaLowerer.NestedFilterMessage, nested.Message);
     }
 }

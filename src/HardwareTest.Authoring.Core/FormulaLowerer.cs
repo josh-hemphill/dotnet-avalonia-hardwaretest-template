@@ -30,8 +30,7 @@ public static class FormulaLowerer
         var ast = FormulaParser.Parse(expr.Source);
         if (ast.Root is not FilterCallExpr && FormulaExprWalk.ContainsFilter(ast.Root))
         {
-            throw new AuthoringWorkspaceException(
-                $"{AuthoringCompileCodes.FormulaNoLower}: nested filter/filtfilt is not allowed.");
+            throw new AuthoringWorkspaceException(NestedFilterMessage);
         }
 
         if (ast.Root is FilterCallExpr filter)
@@ -73,8 +72,7 @@ public static class FormulaLowerer
                 });
         }
 
-        throw new AuthoringWorkspaceException(
-            $"{AuthoringCompileCodes.FormulaNoLower}: '{expr.Source}' does not match a closed analyze recipe.");
+        throw new AuthoringWorkspaceException(NoClosedRecipeMessage(expr.Source));
     }
 
     /// One-line pack preview. Parse failures are empty so the inspector FormulaError owns them.
@@ -117,9 +115,14 @@ public static class FormulaLowerer
             FormulaSaveOutcomeKind.PreviewOnly,
             "Preview only — at save, only mean(channel) with a threshold (Mean GTE) or a top-level filter/filtfilt packs into the plan.");
 
+    public const string NestedFilterMessage =
+        $"{AuthoringCompileCodes.FormulaNoLower}: nested filter/filtfilt is not allowed.";
+
+    public static string NoClosedRecipeMessage(string source)
+        => $"{AuthoringCompileCodes.FormulaNoLower}: '{source}' does not match a closed analyze recipe.";
+
     private static bool IsPreviewOnlyNoLower(AuthoringWorkspaceException ex)
-        => ex.Message.StartsWith(AuthoringCompileCodes.FormulaNoLower, StringComparison.Ordinal)
-           && ex.Message.Contains("does not match a closed analyze recipe", StringComparison.Ordinal);
+        => ex.Message.StartsWith($"{AuthoringCompileCodes.FormulaNoLower}: '", StringComparison.Ordinal);
 
     private static double ResolveTsSeconds(
         string channel,

@@ -12,15 +12,28 @@ public sealed class AuthoringProgramSettingsDeleteTests
         var vm = OpenEmpty();
         vm.CreateProgram("protected");
         Assert.False(vm.RequiredFieldChoices.Single(row => row.Id == RequiredFieldIds.Serial).CanRemove);
+        Assert.False(vm.RequiredFieldChoices.Single(row => row.Id == RequiredFieldIds.PartNumber).CanRemove);
+        Assert.False(vm.RequiredFieldChoices.Single(row => row.Id == RequiredFieldIds.Revision).CanRemove);
+        Assert.False(vm.RequiredFieldChoices.Single(row => row.Id == RequiredFieldIds.Operator).CanRemove);
         Assert.False(vm.ReportKindChoices.Single(row => row.Id == "status").CanRemove);
+        Assert.False(vm.ReportKindChoices.Single(row => row.Id == "certification").CanRemove);
+        Assert.False(vm.ProgramKindChoices.Single(row => row.Id == "dut").CanRemove);
         Assert.False(vm.CanRemoveSelectedProgramKind);
         Assert.False(vm.CanRemoveSelectedInstrumentSlot);
-        var serial = Assert.Throws<AuthoringWorkspaceException>(() => vm.RemoveRequiredField("serial"));
-        Assert.Contains("serial/partNumber/revision/operator", serial.Message, StringComparison.Ordinal);
+        foreach (var field in RequiredFieldIds.Known)
+        {
+            var blocked = Assert.Throws<AuthoringWorkspaceException>(() => vm.RemoveRequiredField(field));
+            Assert.Contains("serial/partNumber/revision/operator", blocked.Message, StringComparison.Ordinal);
+        }
+
         var status = Assert.Throws<AuthoringWorkspaceException>(() => vm.RemoveReportKind("status"));
         Assert.Contains("status and certification", status.Message, StringComparison.Ordinal);
+        var certification = Assert.Throws<AuthoringWorkspaceException>(() => vm.RemoveReportKind("certification"));
+        Assert.Contains("status and certification", certification.Message, StringComparison.Ordinal);
         var dut = Assert.Throws<AuthoringWorkspaceException>(() => vm.RemoveProgramKindFromCatalog());
         Assert.Contains("dut and stationHealth", dut.Message, StringComparison.Ordinal);
+        var station = Assert.Throws<AuthoringWorkspaceException>(() => vm.RemoveProgramKindFromCatalog("stationHealth"));
+        Assert.Contains("dut and stationHealth", station.Message, StringComparison.Ordinal);
         var last = Assert.Throws<AuthoringWorkspaceException>(vm.RemoveSelectedInstrumentSlot);
         Assert.Contains("at least one instrument", last.Message, StringComparison.Ordinal);
     }
@@ -68,6 +81,10 @@ public sealed class AuthoringProgramSettingsDeleteTests
         Assert.DoesNotContain("traceability", vm.Workspace!.Manifest.Catalogs!.ReportKinds);
         var reloaded = AuthoringWorkspaceLoader.Load(vm.Workspace.Root);
         Assert.DoesNotContain("traceability", reloaded.Manifest.Catalogs!.ReportKinds);
+        Assert.All(vm.Programs, program => Assert.Equal("status", program.Sidecar.DefaultReportKind));
+        var sidecarPath = PlanCompiler.SidecarPath(Path.Combine(vm.Workspace.Root, "reports-a.TapPlan"));
+        Assert.True(File.Exists(sidecarPath), sidecarPath);
+        Assert.DoesNotContain("traceability", File.ReadAllText(sidecarPath), StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -87,6 +104,10 @@ public sealed class AuthoringProgramSettingsDeleteTests
             Assert.False(string.Equals(program.Sidecar.ProgramKind, "incomingInspect", StringComparison.OrdinalIgnoreCase)));
         Assert.DoesNotContain("incomingInspect", vm.ProgramKindOptions);
         Assert.DoesNotContain("incomingInspect", vm.Workspace!.Manifest.Catalogs!.ProgramKinds);
+        var reloaded = AuthoringWorkspaceLoader.Load(vm.Workspace.Root);
+        Assert.DoesNotContain("incomingInspect", reloaded.Manifest.Catalogs!.ProgramKinds);
+        var sidecar = File.ReadAllText(PlanCompiler.SidecarPath(Path.Combine(vm.Workspace.Root, "kinds-b.TapPlan")));
+        Assert.DoesNotContain("incomingInspect", sidecar, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -107,6 +128,8 @@ public sealed class AuthoringProgramSettingsDeleteTests
         Assert.DoesNotContain("SCOPE", vm.Workspace!.Manifest.Catalogs!.InstrumentSlotNames);
         Assert.Equal("DMM", vm.SelectedInstrumentSlot);
         Assert.False(vm.CanRemoveSelectedInstrumentSlot);
+        var sidecar = File.ReadAllText(PlanCompiler.SidecarPath(Path.Combine(vm.Workspace.Root, "slots-delete.TapPlan")));
+        Assert.DoesNotContain("SCOPE", sidecar, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -178,6 +201,83 @@ public sealed class AuthoringProgramSettingsDeleteTests
         Assert.True(AuthoringInstrumentUsage.IsReferencedByIdentityOrMeasure(null, "DMM"));
         Assert.True(AuthoringInstrumentUsage.IsReferencedByIdentityOrMeasure(draft, "  "));
     }
+
+    [Fact]
+    public void Nested_raw_and_unknown_setup_fail_closed()
+    {
+        var draft = AuthoringRecipeCatalog.CreateProgram("nested-raw");
+        draft = draft with
+        {
+            Instruments =
+            [
+                draft.Instruments[0],
+                new InstrumentRef("SCOPE", draft.Instruments[0].TypeId, "MOCK::SCOPE"),
+            ],
+            Measure = [new RepeatNode(2, [new RawStepNode("OpenTap.Unknown", "<step/>")])],
+        };
+        Assert.True(AuthoringInstrumentUsage.IsReferencedByIdentityOrMeasure(draft, "SCOPE"));
+
+        var unknownSetup = draft with { Setup = [new MysterySetup()] };
+        Assert.True(AuthoringInstrumentUsage.IsReferencedByIdentityOrMeasure(unknownSetup, "SCOPE"));
+        Assert.False(AuthoringInstrumentUsage.IsReferencedByIdentityOrMeasure(
+            draft with { Measure = [], Setup = [new OperatorPromptSetup("Prompt", "ok")] },
+            "SCOPE"));
+    }
+
+    [Fact]
+    public void Remove_does_not_materialize_implicit_sidecar_arrays()
+    {
+        var vm = OpenEmpty();
+        vm.CreateProgram("implicit");
+        vm.SelectedProgram!.Sidecar.ReportKinds = null;
+        vm.SelectedProgram.Sidecar.RequiredFields = null;
+        vm.NewReportKind = "traceability";
+        vm.AddReportKind();
+        vm.SetReportKindIncluded("traceability", false);
+        vm.SelectedProgram.Sidecar.ReportKinds = null;
+        vm.RemoveReportKind("traceability");
+        Assert.Null(vm.SelectedProgram.Sidecar.ReportKinds);
+        vm.RemoveRequiredField("fixtureId");
+        Assert.Null(vm.SelectedProgram.Sidecar.RequiredFields);
+    }
+
+    [Fact]
+    public void Duplicate_slot_names_cannot_delete_the_last_remaining_name()
+    {
+        var vm = OpenEmpty();
+        vm.CreateProgram("dup-slots");
+        var typeId = vm.SelectedProgram!.Instruments[0].TypeId;
+        vm.ReplaceSelected(vm.SelectedProgram with
+        {
+            Setup = [new OperatorPromptSetup("Prompt", "ok")],
+            Instruments =
+            [
+                new InstrumentRef("SCOPE", typeId, "MOCK::SCOPE0"),
+                new InstrumentRef("SCOPE", typeId, "MOCK::SCOPE1"),
+            ],
+        });
+        vm.SelectedInstrumentSlot = "SCOPE";
+        Assert.False(vm.CanRemoveSelectedInstrumentSlot);
+        var blocked = Assert.Throws<AuthoringWorkspaceException>(vm.RemoveSelectedInstrumentSlot);
+        Assert.Contains("at least one instrument", blocked.Message, StringComparison.Ordinal);
+        Assert.Equal(2, vm.SelectedProgram.Instruments.Count);
+    }
+
+    [Fact]
+    public void Remove_program_kind_can_forget_an_unselected_catalog_entry()
+    {
+        var vm = OpenEmpty();
+        vm.CreateProgram("kinds-unselected");
+        vm.NewProgramKind = "incomingInspect";
+        vm.AddProgramKind();
+        vm.ProgramKind = "dut";
+        Assert.True(vm.ProgramKindChoices.Single(row => row.Id == "incomingInspect").CanRemove);
+        vm.RemoveProgramKindFromCatalog("incomingInspect");
+        Assert.DoesNotContain("incomingInspect", vm.ProgramKindOptions);
+        Assert.Equal("dut", vm.ProgramKind);
+    }
+
+    private sealed record MysterySetup : SetupAction;
 
     private static AuthoringWorkspaceViewModel OpenEmpty()
     {

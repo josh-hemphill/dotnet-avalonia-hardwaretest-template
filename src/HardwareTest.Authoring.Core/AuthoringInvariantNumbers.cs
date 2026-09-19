@@ -34,6 +34,6 @@ public static class AuthoringInvariantNumbers
 
     public static string FormatDecimal(decimal value)
         => decimal.Truncate(value) == value
-            ? decimal.ToInt32(value).ToString(CultureInfo.InvariantCulture)
+            ? value.ToString("0", CultureInfo.InvariantCulture)
             : value.ToString(CultureInfo.InvariantCulture);
 }

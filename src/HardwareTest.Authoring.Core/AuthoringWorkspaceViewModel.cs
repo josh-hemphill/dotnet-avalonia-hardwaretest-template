@@ -590,6 +590,7 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(DefaultReportKind));
         OnPropertyChanged(nameof(ProgramKind));
         OnPropertyChanged(nameof(ProgramKindOptions));
+        OnPropertyChanged(nameof(ProgramKindChoices));
         OnPropertyChanged(nameof(RequireStationHealth));
         OnPropertyChanged(nameof(StationHealthGate));
         OnPropertyChanged(nameof(StationHealthMaxAgeHours));

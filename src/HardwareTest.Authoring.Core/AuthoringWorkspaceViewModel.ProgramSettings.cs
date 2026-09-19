@@ -10,6 +10,9 @@ public sealed partial class AuthoringWorkspaceViewModel
     private string _newInstrumentSlot = string.Empty;
     private string _newInstrumentVisa = string.Empty;
     private string _newRequiredField = string.Empty;
+    private int _formulaSaveGeneration;
+    private int _formulaSaveStamp = -1;
+    private FormulaSaveOutcome _formulaSave;
 
     public IReadOnlyList<string> DisplayRoleOptions => AuthoringEditorCatalog.DisplayRoles;
 
@@ -32,6 +35,14 @@ public sealed partial class AuthoringWorkspaceViewModel
 
     public IReadOnlyList<string> ProgramKindOptions
         => AuthoringWorkspaceCatalog.ProgramKindOptions(Workspace?.Manifest, Programs, SelectedProgram);
+
+    public IReadOnlyList<AuthoringCatalogToggle> ProgramKindChoices
+        => ProgramKindOptions
+            .Select(kind => new AuthoringCatalogToggle(
+                kind,
+                string.Equals(ProgramKind, kind, StringComparison.OrdinalIgnoreCase),
+                CanRemoveCatalogItem(kind, AuthoringWorkspaceCatalog.IsProtectedProgramKind)))
+            .ToArray();
 
     public IReadOnlyList<string> RequiredFieldOptions
         => AuthoringWorkspaceCatalog.RequiredFieldOptions(Workspace?.Manifest, Programs, SelectedProgram);
@@ -183,31 +194,35 @@ public sealed partial class AuthoringWorkspaceViewModel
     public string FormulaHelp =>
         "MATLAB-flavored subset for preview. The save plan line shows what packs into the test plan.";
 
-    public string FormulaSaveNote
+    public string FormulaSaveNote => CurrentFormulaSaveOutcome.Message;
+
+    public FormulaSaveOutcomeKind FormulaSaveOutcomeKind => CurrentFormulaSaveOutcome.Kind;
+
+    internal void InvalidateFormulaSave()
+        => _formulaSaveGeneration++;
+
+    private FormulaSaveOutcome CurrentFormulaSaveOutcome
     {
         get
         {
-            if (!HasFormula || SelectedMetric?.Source is not ExpressionAlgorithm expr)
+            if (_formulaSaveStamp == _formulaSaveGeneration)
             {
-                return string.Empty;
+                return _formulaSave;
             }
 
-            if (!string.IsNullOrEmpty(FormulaError))
+            _formulaSaveStamp = _formulaSaveGeneration;
+            if (!HasFormula
+                || SelectedMetric?.Source is not ExpressionAlgorithm expr
+                || !string.IsNullOrEmpty(FormulaError))
             {
-                return string.Empty;
+                _formulaSave = new FormulaSaveOutcome(FormulaSaveOutcomeKind.None, string.Empty);
+                return _formulaSave;
             }
 
-            return FormulaLowerer.DescribeSave(expr.Source, SelectedMetric.Limits);
+            _formulaSave = FormulaLowerer.DescribeSaveOutcome(expr.Source, SelectedMetric.Limits);
+            return _formulaSave;
         }
     }
-
-    public FormulaSaveOutcomeKind FormulaSaveOutcomeKind
-        => HasFormula
-           && SelectedMetric?.Source is ExpressionAlgorithm expr
-           && string.IsNullOrEmpty(FormulaError)
-            ? FormulaLowerer.DescribeSaveOutcome(expr.Source, SelectedMetric.Limits).Kind
-            : FormulaSaveOutcomeKind.None;
-
     public string TransferFunctionHelp =>
         "Discrete SISO IIR. filtfilt is zero-phase on the whole series; filter is causal. Needs uniform elapsedMs.";
 
@@ -573,9 +588,26 @@ public sealed partial class AuthoringWorkspaceViewModel
 
     public void SetMetricSettingNumber(string key, decimal? value)
     {
-        if (value is not { } number)
+        if (value is not { } number || string.IsNullOrWhiteSpace(key))
         {
             return;
+        }
+
+        var functionId = SelectedMetric?.Source switch
+        {
+            MeasureSource measure => measure.FunctionId,
+            AlgorithmSource algorithm => algorithm.AlgorithmId,
+            _ => "*",
+        };
+        var spec = AuthoringMetricSettingCatalog.Resolve(functionId, key);
+        if (spec.Kind == AuthoringSettingKind.Integer)
+        {
+            number = decimal.Truncate(number);
+        }
+
+        if (spec.Minimum is { } minimum && number < (decimal)minimum)
+        {
+            number = (decimal)minimum;
         }
 
         SetMetricSetting(key, AuthoringInvariantNumbers.FormatDecimal(number));
@@ -770,6 +802,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         ProgramKind = kind;
         NewProgramKind = string.Empty;
         OnPropertyChanged(nameof(ProgramKindOptions));
+        OnPropertyChanged(nameof(ProgramKindChoices));
     }
 
     public void AddInstrumentSlot()
@@ -1017,6 +1050,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         OnPropertyChanged(nameof(RequiredFieldOptions));
         OnPropertyChanged(nameof(RequiredFieldChoices));
         OnPropertyChanged(nameof(ProgramKindOptions));
+        OnPropertyChanged(nameof(ProgramKindChoices));
     }
 
     private void UpdateSelectedSetup(Func<SetupAction, SetupAction> mutate)

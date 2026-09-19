@@ -36,5 +36,38 @@ public sealed class AuthoringMetricSettingCatalogTests
         var unknown = AuthoringMetricSettingCatalog.CreateRow("*", "MetricName", "rail.mean", []);
         Assert.Equal(AuthoringSettingKind.Text, unknown.Kind);
         Assert.True(unknown.IsText);
+
+        var threshold = AuthoringMetricSettingCatalog.CreateRow("*", "Threshold", "1.25", []);
+        Assert.Equal(AuthoringSettingKind.Double, threshold.Kind);
+        Assert.Equal("0.########", threshold.NumberFormat);
+        Assert.Equal(1.25m, threshold.NumberValue);
+
+        var elapsed = AuthoringMetricSettingCatalog.CreateRow("*", "ElapsedMs", "12.5", []);
+        Assert.Equal(AuthoringSettingKind.Double, elapsed.Kind);
+        Assert.Equal(0, elapsed.Minimum);
+
+        var ts = AuthoringMetricSettingCatalog.CreateRow("*", "TsSeconds", "0.005", []);
+        Assert.Equal(AuthoringSettingKind.Double, ts.Kind);
+        Assert.Equal(0.005m, ts.NumberValue);
+
+        var interval = AuthoringMetricSettingCatalog.CreateRow("*", "IntervalMs", "10", []);
+        Assert.Equal(AuthoringSettingKind.Integer, interval.Kind);
+        Assert.Equal(0, interval.Minimum);
+
+        var dwell = AuthoringMetricSettingCatalog.CreateRow("*", "DwellLimitMs", "5", []);
+        Assert.Equal(AuthoringSettingKind.Integer, dwell.Kind);
+        Assert.Equal(0, dwell.Minimum);
+
+        var summaries = AuthoringMetricSettingCatalog.CreateRow("*", "PublishSummaries", "true", []);
+        Assert.True(summaries.IsBoolean);
+        Assert.True(summaries.BoolValue);
+    }
+
+    [Fact]
+    public void FormatDecimal_keeps_values_outside_int32()
+    {
+        Assert.Equal("2147483648", AuthoringInvariantNumbers.FormatDecimal(2147483648m));
+        Assert.Equal("-2147483649", AuthoringInvariantNumbers.FormatDecimal(-2147483649m));
+        Assert.Equal("1.234567", AuthoringInvariantNumbers.FormatDecimal(1.234567m));
     }
 }

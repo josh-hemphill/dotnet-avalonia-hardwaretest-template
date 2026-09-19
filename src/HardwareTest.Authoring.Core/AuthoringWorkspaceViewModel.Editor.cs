@@ -438,6 +438,7 @@ public sealed partial class AuthoringWorkspaceViewModel
 
     private void RaiseEditorProperties()
     {
+        InvalidateFormulaSave();
         OnPropertyChanged(nameof(SelectedMeasure));
         OnPropertyChanged(nameof(SelectedMetric));
         OnPropertyChanged(nameof(Preview));

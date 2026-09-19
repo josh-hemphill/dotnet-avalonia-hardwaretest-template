@@ -13,10 +13,17 @@ public static class AuthoringInstrumentUsage
 
         foreach (var action in draft.Setup)
         {
-            if (action is IdentitySetup identity
-                && string.Equals(identity.InstrumentSlot, token, StringComparison.OrdinalIgnoreCase))
+            switch (action)
             {
-                return true;
+                case IdentitySetup identity
+                    when string.Equals(identity.InstrumentSlot, token, StringComparison.OrdinalIgnoreCase):
+                    return true;
+                case IdentitySetup:
+                case OperatorPromptSetup:
+                case OperatorInputSetup:
+                    break;
+                default:
+                    return true;
             }
         }
 

@@ -47,7 +47,7 @@ public sealed record AuthoringSettingRow(
 
     public decimal IncrementValue => IsInteger ? 1 : 0.1m;
 
-    public string NumberFormat => IsInteger ? "0" : "0.##";
+    public string NumberFormat => IsInteger ? "0" : "0.########";
 }
 
 /// Workspace + session union for report kinds, program kinds, slots, and Y units.

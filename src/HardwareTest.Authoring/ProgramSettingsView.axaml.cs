@@ -51,7 +51,15 @@ public partial class ProgramSettingsView : UserControl
         => TryRun(() => Vm?.AddProgramKind());
 
     private void OnRemoveProgramKind(object? sender, RoutedEventArgs e)
-        => TryRun(() => Vm?.RemoveProgramKindFromCatalog());
+    {
+        if (sender is Button { DataContext: AuthoringCatalogToggle row })
+        {
+            TryRun(() => Vm?.RemoveProgramKindFromCatalog(row.Id));
+            return;
+        }
+
+        TryRun(() => Vm?.RemoveProgramKindFromCatalog());
+    }
 
     private void OnAddInstrumentSlot(object? sender, RoutedEventArgs e)
         => TryRun(() => Vm?.AddInstrumentSlot());
