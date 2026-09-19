@@ -135,7 +135,8 @@ public partial class RunTestViewModel
             observer.OnNext(interaction.IsAwaitingOperator);
             void Handler(object? sender, PropertyChangedEventArgs args)
             {
-                if (args.PropertyName == nameof(InteractionHostViewModel.IsAwaitingOperator))
+                if (string.IsNullOrEmpty(args.PropertyName)
+                    || args.PropertyName == nameof(InteractionHostViewModel.IsAwaitingOperator))
                 {
                     observer.OnNext(interaction.IsAwaitingOperator);
                 }
