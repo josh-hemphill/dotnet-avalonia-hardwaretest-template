@@ -238,10 +238,7 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
                 or nameof(OperatorSessionPanelViewModel.IsStalePrompt)
                 or nameof(OperatorSessionPanelViewModel.IsIdleWarningPrompt))
             {
-                this.RaisePropertyChanged(nameof(CanStartRun));
-                this.RaisePropertyChanged(nameof(CanStartRunTip));
-                this.RaisePropertyChanged(nameof(CanStartRunSelectedTip));
-                this.RaisePropertyChanged(nameof(ShowStartBlockedTip));
+                RaiseStartGates();
                 this.RaisePropertyChanged(nameof(ShowHeaderChangeSession));
                 Workspace.Refresh();
             }
@@ -250,9 +247,12 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
         StepTree.PropertyChanged += (_, args) =>
         {
             if (args.PropertyName is nameof(StepTreeViewModel.SelectedStep)
-                or nameof(StepTreeViewModel.HasHierarchyOverview))
+                or nameof(StepTreeViewModel.HasHierarchyOverview)
+                or nameof(StepTreeViewModel.StepStatusFilter)
+                or nameof(StepTreeViewModel.StepSearchText))
             {
                 Workspace.Refresh();
+                RaiseStartGates();
             }
 
             if (args.PropertyName != nameof(StepTreeViewModel.SelectedStep)
@@ -306,10 +306,7 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
                 RefreshHero();
                 if (args.PropertyName == nameof(IsRunning))
                 {
-                    this.RaisePropertyChanged(nameof(CanStartRun));
-                    this.RaisePropertyChanged(nameof(CanStartRunTip));
-                    this.RaisePropertyChanged(nameof(CanStartRunSelectedTip));
-                    this.RaisePropertyChanged(nameof(ShowStartBlockedTip));
+                    RaiseStartGates();
                     this.RaisePropertyChanged(nameof(ShowHeaderChangeSession));
                     this.RaisePropertyChanged(nameof(ShowOverallProgress));
                     this.RaisePropertyChanged(nameof(CanSafetyStop));

@@ -188,12 +188,42 @@ public partial class StepTreeViewModel
     private void SyncSelectedStepListItem()
     {
         var match = StepListItems.FirstOrDefault(i => ReferenceEquals(i.Step, SelectedStep));
-        if (match is null || ReferenceEquals(SelectedStepListItem, match))
+        if (ReferenceEquals(SelectedStepListItem, match))
         {
             return;
         }
 
-        SelectedStepListItem = match;
+        var wasSyncing = _syncingListSelection;
+        _syncingListSelection = true;
+        try
+        {
+            SelectedStepListItem = match;
+        }
+        finally
+        {
+            _syncingListSelection = wasSyncing;
+        }
+    }
+
+    /// Two-way ListBox may land on a stage header when a selected leaf is filtered out.
+    /// Keep the hidden leaf so Run Selected refuses instead of running the stage.
+    private void AdoptSelectedStepListItem()
+    {
+        if (SelectedStepListItem?.Step is null)
+        {
+            return;
+        }
+
+        if (SelectedStepListItem.IsHeader
+            && SelectedStep is not null
+            && !ReferenceEquals(SelectedStepListItem.Step, SelectedStep)
+            && !IsSelectedStepVisible())
+        {
+            SyncSelectedStepListItem();
+            return;
+        }
+
+        SelectedStep = SelectedStepListItem.Step;
     }
 
     public void RollupParentStatuses()
@@ -253,7 +283,6 @@ public partial class StepTreeViewModel
         RollupParentStatuses();
         _refreshHero();
         RefreshSuiteSummary();
-        MaybeAutoFocusFail();
     }
 
     /// Applies one streaming status update; returns the touched node so the coordinator can update the hero.

@@ -78,9 +78,108 @@ public sealed class RunTestViewModelTests
         await vm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
         await ConfirmReadyAsync(vm, "SN-ROOT");
         vm.StepTree.SelectedStep = vm.StepTree.Hierarchy[0];
+        Assert.False(vm.CanStartRunSelected);
+        Assert.Contains("entire program", vm.CanStartRunSelectedTip, StringComparison.OrdinalIgnoreCase);
         await vm.Run.RunSelectedCommand.ExecuteAsync();
         Assert.Equal(0, openTap.SelectionRunCount);
         Assert.Contains("entire program", vm.Status, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Run_selected_refuses_a_step_hidden_by_search()
+    {
+        var openTap = new FakeOpenTapSession();
+        var vm = CreateVm(openTap);
+        await vm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
+        await ConfirmReadyAsync(vm, "SN-HIDDEN");
+        var leaf = Flatten(vm.StepTree.Hierarchy).First(s => s.Children.Count == 0);
+        vm.StepTree.SelectedStep = leaf;
+        vm.StepTree.StepSearchText = "zzz-no-match";
+        Assert.False(vm.StepTree.IsSelectedStepVisible());
+        Assert.False(vm.CanStartRunSelected);
+        Assert.Contains("visible", vm.CanStartRunSelectedTip, StringComparison.OrdinalIgnoreCase);
+
+        await vm.Run.RunSelectedCommand.ExecuteAsync();
+
+        Assert.Equal(0, openTap.SelectionRunCount);
+        Assert.Contains("visible", vm.Status, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Run_selected_refuses_a_step_hidden_by_status_filter()
+    {
+        var openTap = new FakeOpenTapSession();
+        var vm = CreateVm(openTap);
+        await vm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
+        await ConfirmReadyAsync(vm, "SN-FILTER-HIDE");
+        var leaf = Flatten(vm.StepTree.Hierarchy).First(s => s.Children.Count == 0);
+        vm.StepTree.SelectedStep = leaf;
+        vm.StepTree.StepStatusFilter = StepStatusFilter.Fail;
+        Assert.False(vm.StepTree.IsSelectedStepVisible());
+
+        await vm.Run.RunSelectedCommand.ExecuteAsync();
+
+        Assert.Equal(0, openTap.SelectionRunCount);
+        Assert.Contains("visible", vm.Status, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Run_selected_refuses_an_empty_selection()
+    {
+        var openTap = new FakeOpenTapSession();
+        var vm = CreateVm(openTap);
+        await vm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
+        await ConfirmReadyAsync(vm, "SN-EMPTY");
+        vm.StepTree.SelectedStep = null;
+
+        await vm.Run.RunSelectedCommand.ExecuteAsync();
+
+        Assert.Equal(0, openTap.SelectionRunCount);
+        Assert.Contains("visible", vm.Status, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Run_selected_refuses_a_step_hidden_by_another_stage()
+    {
+        var openTap = new FakeOpenTapSession();
+        var vm = CreateVm(openTap);
+        await vm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
+        await ConfirmReadyAsync(vm, "SN-STAGE-HIDE");
+        var identity = vm.StepTree.Stages.First(s => s.DisplayName == "Identity");
+        vm.StepTree.SelectedStage = identity;
+        var identityLeaf = vm.StepTree.StepRows[0];
+        var other = vm.StepTree.Stages.First(s => s.Step is not null && s.DisplayName != "Identity");
+        vm.StepTree.SelectedStage = other;
+        vm.StepTree.SelectedStep = identityLeaf;
+        Assert.False(vm.StepTree.IsSelectedStepVisible());
+
+        var header = vm.StepTree.StepListItems.First(i => i.IsHeader && i.Step is not null);
+        vm.StepTree.SelectedStepListItem = header;
+        Assert.Equal(identityLeaf.Path, vm.StepTree.SelectedStep?.Path);
+        Assert.False(vm.CanStartRunSelected);
+
+        await vm.Run.RunSelectedCommand.ExecuteAsync();
+
+        Assert.Equal(0, openTap.SelectionRunCount);
+        Assert.Contains("visible", vm.Status, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Failed_run_selected_keeps_the_step_that_ran()
+    {
+        var openTap = new FakeOpenTapSession { CompletionResult = RunResult.Failed };
+        var vm = CreateVm(openTap);
+        vm.UiScheduler = action => action();
+        await vm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
+        await ConfirmReadyAsync(vm, "SN-SEL-FAIL");
+        var leaf = Flatten(vm.StepTree.Hierarchy).Last(s => s.Children.Count == 0);
+        vm.StepTree.SelectedStep = leaf;
+
+        await vm.Run.RunSelectedCommand.ExecuteAsync();
+
+        Assert.Equal(1, openTap.SelectionRunCount);
+        Assert.Equal(leaf.Path, vm.StepTree.SelectedStep?.Path);
+        Assert.False(vm.StepTree.IsFilteredToFail);
     }
 
     [Fact]
@@ -747,6 +846,30 @@ public sealed class RunTestViewModelTests
     }
 
     [Fact]
+    public async Task Failed_full_run_keeps_the_fail_visible_under_the_fail_filter()
+    {
+        var openTap = new FakeOpenTapSession { CompletionResult = RunResult.Failed };
+        var vm = CreateVm(openTap);
+        vm.UiScheduler = action => action();
+        var scrolled = 0;
+        await vm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
+        vm.StepTree.RequestScrollToSelectedStep += (_, _) => scrolled++;
+        await ConfirmReadyAsync(vm, "SN-FAILVIS");
+        vm.StepTree.StepStatusFilter = StepStatusFilter.Pass;
+
+        await vm.Run.RunCommand.ExecuteAsync();
+
+        Assert.True(vm.StepTree.IsFilterFail);
+        Assert.NotNull(vm.StepTree.SelectedStep);
+        Assert.Equal(
+            "Fail",
+            StatusChip.FromStatus(vm.StepTree.SelectedStep!.StatusText, vm.StepTree.SelectedStep.Verdict));
+        Assert.True(vm.StepTree.IsSelectedStepVisible());
+        Assert.Same(vm.StepTree.SelectedStep, vm.StepTree.SelectedStepListItem?.Step);
+        Assert.True(scrolled >= 1);
+    }
+
+    [Fact]
     public async Task Stale_session_blocks_until_same_dut_confirmed()
     {
         var session = new OperatorSession();
@@ -1003,8 +1126,15 @@ public sealed class RunTestViewModelTests
         var vm = CreateVm(openTap);
         await vm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
         const string path = "Sample Hardware Suite/Voltage Sweep/Acquire VDC";
+        var scrolled = 0;
+        vm.StepTree.RequestScrollToSelectedStep += (_, _) => scrolled++;
+        vm.StepTree.StepSearchText = "zzz-no-match";
         vm.ApplySelectionFromInspect(path);
         Assert.Equal(path, vm.StepTree.SelectedStep?.Path);
+        Assert.Equal(string.Empty, vm.StepTree.StepSearchText);
+        Assert.True(vm.StepTree.IsSelectedStepVisible());
+        Assert.Same(vm.StepTree.SelectedStep, vm.StepTree.SelectedStepListItem?.Step);
+        Assert.True(scrolled >= 1);
     }
 
     [Fact]

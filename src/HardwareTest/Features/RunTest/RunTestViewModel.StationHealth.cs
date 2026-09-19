@@ -53,11 +53,36 @@ public partial class RunTestViewModel
         }
     }
 
-    /// Tooltip for Run Selected (same gates, different idle copy).
+    /// Tooltip for Run Selected (same gates, plus hidden / whole-plan copy).
     public string CanStartRunSelectedTip
+    {
+        get
+        {
+            if (!CanStartRun)
+            {
+                return CanStartRunTip;
+            }
+
+            if (StepTree.SelectedStep is { } step && StepTree.IsWholePlanSelection(step.Path))
+            {
+                return "Run Selected needs a specific stage or step — not the entire program. Use Run for the full suite.";
+            }
+
+            if (!StepTree.IsSelectedStepVisible())
+            {
+                return "Select a visible stage or step to run.";
+            }
+
+            return "Run the selected leaf or section (subtree + Safe Shutdown). Use Run for the full suite.";
+        }
+    }
+
+    /// True when Run Selected can start the current on-screen selection.
+    public bool CanStartRunSelected
         => CanStartRun
-            ? "Run the selected leaf or section (subtree + Safe Shutdown). Use Run for the full suite."
-            : CanStartRunTip;
+           && StepTree.IsSelectedStepVisible()
+           && StepTree.SelectedStep is { } selected
+           && !StepTree.IsWholePlanSelection(selected.Path);
 
     /// Re-evaluates sidecar freshness for the selected program.
     public void RefreshStationHealthGate()
@@ -66,8 +91,14 @@ public partial class RunTestViewModel
         _stationHealthDecision = program is null || _stationHealthGate is null
             ? null
             : _stationHealthGate.Evaluate(program.ToGateRequest(), _clock);
+        RaiseStartGates();
+    }
+
+    private void RaiseStartGates()
+    {
         this.RaisePropertyChanged(nameof(CanStartRun));
         this.RaisePropertyChanged(nameof(CanStartRunTip));
+        this.RaisePropertyChanged(nameof(CanStartRunSelected));
         this.RaisePropertyChanged(nameof(CanStartRunSelectedTip));
         this.RaisePropertyChanged(nameof(ShowStartBlockedTip));
     }
