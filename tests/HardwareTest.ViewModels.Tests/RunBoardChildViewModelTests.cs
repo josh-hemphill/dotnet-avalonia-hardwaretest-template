@@ -811,6 +811,50 @@ public sealed class RunBoardChildViewModelTests
     }
 
     [Fact]
+    public void NextFail_reveals_a_fail_hidden_by_stage_scope_and_search()
+    {
+        var opened = 0;
+        var scrolled = 0;
+        var tree = new StepTreeViewModel(
+            () => [HierarchicalStatusTree()],
+            openSelectedDetail: () => opened++);
+        tree.RebuildFromHost();
+        tree.RequestScrollToSelectedStep += (_, _) => scrolled++;
+
+        var identity = tree.Stages.First(s => s.DisplayName == "Identity");
+        tree.SelectedStage = identity;
+        tree.StepSearchText = "Read";
+        Assert.DoesNotContain(tree.StepRows, r => r.Name == "Acquire 12V");
+
+        tree.NextFailCommand.Execute().Subscribe();
+
+        Assert.Equal("Acquire 12V", tree.SelectedStep?.Name);
+        Assert.Equal(string.Empty, tree.StepSearchText);
+        Assert.Contains(tree.StepRows, r => r.Name == "Acquire 12V");
+        Assert.Equal(1, opened);
+        Assert.True(scrolled >= 1);
+    }
+
+    [Fact]
+    public void MaybeAutoFocusFail_reveals_and_scrolls_the_first_fail()
+    {
+        var scrolled = 0;
+        var tree = new StepTreeViewModel(() => [HierarchicalStatusTree()]);
+        tree.RebuildFromHost();
+        tree.RequestScrollToSelectedStep += (_, _) => scrolled++;
+        var identity = tree.Stages.First(s => s.DisplayName == "Identity");
+        tree.SelectedStage = identity;
+        tree.StepSearchText = "Read";
+
+        tree.MaybeAutoFocusFail();
+
+        Assert.Equal("Acquire 12V", tree.SelectedStep?.Name);
+        Assert.Equal(string.Empty, tree.StepSearchText);
+        Assert.Contains(tree.StepRows, r => r.Name == "Acquire 12V");
+        Assert.True(scrolled >= 1);
+    }
+
+    [Fact]
     public async Task RunExecution_refuses_to_start_without_a_confirmed_session()
     {
         var openTap = new FakeOpenTapSession();

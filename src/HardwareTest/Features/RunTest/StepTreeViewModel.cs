@@ -296,6 +296,29 @@ public partial class StepTreeViewModel : ReactiveObject
     public bool IsWholePlanSelection(string path)
         => _fullHierarchy.Any(r => string.Equals(r.Path, path, StringComparison.OrdinalIgnoreCase));
 
+    /// True when the current selection is on screen as a list row or the active stage/section chip.
+    public bool IsSelectedStepVisible()
+    {
+        if (SelectedStep is null)
+        {
+            return false;
+        }
+
+        if (StepRows.Any(r => ReferenceEquals(r, SelectedStep)))
+        {
+            return true;
+        }
+
+        if (StepListItems.Any(i => ReferenceEquals(i.Step, SelectedStep)))
+        {
+            return true;
+        }
+
+        return ReferenceEquals(SelectedStage?.Step, SelectedStep)
+            || ReferenceEquals(SelectedSubsection?.Step, SelectedStep)
+            || ReferenceEquals(SelectedNestedSubsection?.Step, SelectedStep);
+    }
+
     public HierarchyStepViewModel? FindByPath(string? path)
         => string.IsNullOrWhiteSpace(path)
             ? null
@@ -319,10 +342,7 @@ public partial class StepTreeViewModel : ReactiveObject
         }
 
         SelectScopeForStep(leaf);
-        if (!StepRows.Any(r => ReferenceEquals(r, leaf)))
-        {
-            StepStatusFilter = StepFilter.All;
-        }
+        RevealInVisibleList(leaf);
 
         SelectedStep = leaf;
         SyncSelectedStepListItem();
@@ -349,16 +369,7 @@ public partial class StepTreeViewModel : ReactiveObject
         if (changeScope)
         {
             SelectScopeForStep(match);
-            if (!StepRows.Any(r => ReferenceEquals(r, match)))
-            {
-                StepStatusFilter = StepFilter.All;
-            }
-
-            if (!string.IsNullOrEmpty(StepSearchText)
-                && !StepRows.Any(r => ReferenceEquals(r, match)))
-            {
-                StepSearchText = string.Empty;
-            }
+            RevealInVisibleList(match);
         }
         else if (!StepListItems.Any(i =>
                      ReferenceEquals(i.Step, match)
@@ -377,24 +388,23 @@ public partial class StepTreeViewModel : ReactiveObject
     /// Selects the first failed leaf in scope and reveals its detail — used after a failing verdict lands.
     public void MaybeAutoFocusFail()
     {
-        var scope = ActiveScopeStep;
-        IEnumerable<HierarchyStepViewModel> roots = scope is null ? _fullHierarchy : [scope];
-        var firstFail = HierarchyRollup.EnumerateLeaves(roots)
+        var firstFail = HierarchyRollup.EnumerateLeaves(_fullHierarchy)
             .FirstOrDefault(l => StatusChip.FromStatus(l.StatusText, l.Verdict) == "Fail");
         if (firstFail is null)
         {
             return;
         }
 
+        SelectScopeForStep(firstFail);
+        RevealInVisibleList(firstFail);
         SelectedStep = firstFail;
         SyncSelectedStepListItem();
+        RaiseRequestScroll();
     }
 
     private void CycleFail(bool forward)
     {
-        var scope = ActiveScopeStep;
-        IEnumerable<HierarchyStepViewModel> roots = scope is null ? _fullHierarchy : [scope];
-        var fails = HierarchyRollup.EnumerateLeaves(roots)
+        var fails = HierarchyRollup.EnumerateLeaves(_fullHierarchy)
             .Where(l => StatusChip.FromStatus(l.StatusText, l.Verdict) == "Fail")
             .ToList();
         if (fails.Count == 0)
@@ -415,8 +425,11 @@ public partial class StepTreeViewModel : ReactiveObject
                 : (currentIndex - 1 + fails.Count) % fails.Count;
         }
 
+        SelectScopeForStep(fails[nextIndex]);
+        RevealInVisibleList(fails[nextIndex]);
         SelectedStep = fails[nextIndex];
         SyncSelectedStepListItem();
+        RaiseRequestScroll();
         _openSelectedDetail();
     }
 
@@ -460,6 +473,25 @@ public partial class StepTreeViewModel : ReactiveObject
         if (!ReferenceEquals(SelectedNestedSubsection, containingNested))
         {
             SelectedNestedSubsection = containingNested;
+        }
+    }
+
+    /// Clears status filter then search so <paramref name="step"/> appears in the visible rows.
+    private void RevealInVisibleList(HierarchyStepViewModel step)
+    {
+        if (StepRows.Any(r => ReferenceEquals(r, step)))
+        {
+            return;
+        }
+
+        if (!string.Equals(StepStatusFilter, StepFilter.All, StringComparison.Ordinal))
+        {
+            StepStatusFilter = StepFilter.All;
+        }
+
+        if (!StepRows.Any(r => ReferenceEquals(r, step)) && !string.IsNullOrEmpty(StepSearchText))
+        {
+            StepSearchText = string.Empty;
         }
     }
 

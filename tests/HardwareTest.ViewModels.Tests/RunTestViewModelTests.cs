@@ -84,6 +84,24 @@ public sealed class RunTestViewModelTests
     }
 
     [Fact]
+    public async Task Run_selected_refuses_a_step_hidden_by_search()
+    {
+        var openTap = new FakeOpenTapSession();
+        var vm = CreateVm(openTap);
+        await vm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
+        await ConfirmReadyAsync(vm, "SN-HIDDEN");
+        var leaf = Flatten(vm.StepTree.Hierarchy).First(s => s.Children.Count == 0);
+        vm.StepTree.SelectedStep = leaf;
+        vm.StepTree.StepSearchText = "zzz-no-match";
+        Assert.False(vm.StepTree.IsSelectedStepVisible());
+
+        await vm.Run.RunSelectedCommand.ExecuteAsync();
+
+        Assert.Equal(0, openTap.SelectionRunCount);
+        Assert.Contains("visible", vm.Status, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task Full_run_updates_hierarchy_status_from_summary()
     {
         var openTap = new FakeOpenTapSession();

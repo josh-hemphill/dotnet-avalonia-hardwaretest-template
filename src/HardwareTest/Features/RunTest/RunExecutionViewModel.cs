@@ -203,7 +203,7 @@ public sealed class RunExecutionViewModel
         {
             if (string.IsNullOrWhiteSpace(selectionPath))
             {
-                BlockStart(RunBannerSeverity.Warning, "Select a stage or step to run.");
+                BlockStart(RunBannerSeverity.Warning, "Select a visible stage or step to run.");
                 return;
             }
 
@@ -212,6 +212,12 @@ public sealed class RunExecutionViewModel
                 BlockStart(
                     RunBannerSeverity.Warning,
                     "Run Selected needs a specific stage or step — not the entire program. Use Run for the full suite.");
+                return;
+            }
+
+            if (!_stepTree.IsSelectedStepVisible())
+            {
+                BlockStart(RunBannerSeverity.Warning, "Select a visible stage or step to run.");
                 return;
             }
         }
