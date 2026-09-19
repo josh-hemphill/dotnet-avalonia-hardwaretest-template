@@ -8,7 +8,23 @@ namespace HardwareTest.Authoring;
 public sealed record AuthoringCatalogToggle(string Id, bool Included);
 
 /// One measure/algorithm setting key shown in the inspector.
-public sealed record AuthoringSettingRow(string Key, string Value);
+public sealed record AuthoringSettingRow(
+    string Key,
+    string Value,
+    string Label,
+    string? ValueTooltip = null,
+    string? ValuePlaceholder = null)
+{
+    public AuthoringSettingRow(string key, string value)
+        : this(
+            key,
+            value,
+            AuthoringInspectorCopy.PresentSetting(key).Label,
+            AuthoringInspectorCopy.PresentSetting(key).ValueTooltip,
+            AuthoringInspectorCopy.PresentSetting(key).ValuePlaceholder)
+    {
+    }
+}
 
 /// Workspace + session union for report kinds, program kinds, slots, and Y units.
 /// Well-known ids are suggestions, not a closed demo-program catalog.

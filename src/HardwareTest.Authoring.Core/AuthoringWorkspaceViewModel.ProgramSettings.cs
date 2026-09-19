@@ -507,6 +507,22 @@ public sealed partial class AuthoringWorkspaceViewModel
         }
     }
 
+    public IReadOnlyList<AuthoringFunctionDisplay> MetricFunctionChoices
+        => AuthoringInspectorCopy.DescribeFunctions(MetricFunctionIdOptions);
+
+    public AuthoringFunctionDisplay? SelectedMetricFunction
+    {
+        get => MetricFunctionChoices.FirstOrDefault(choice =>
+            string.Equals(choice.Id, MetricFunctionId, StringComparison.Ordinal));
+        set
+        {
+            if (value is not null)
+            {
+                MetricFunctionId = value.Id;
+            }
+        }
+    }
+
     public string MetricFunctionId
     {
         get => SelectedMetric?.Source switch
