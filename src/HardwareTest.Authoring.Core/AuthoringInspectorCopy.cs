@@ -64,30 +64,14 @@ public static class AuthoringInspectorCopy
 
     public static SettingPresentation PresentSetting(string key)
     {
-        if (string.Equals(key, "SeriesCompliance", StringComparison.OrdinalIgnoreCase))
+        if (string.IsNullOrWhiteSpace(key))
         {
-            return new SettingPresentation(key, "Series compliance", SeriesComplianceValueTooltip, SeriesComplianceModes.None);
+            return new SettingPresentation(key ?? string.Empty, key ?? string.Empty);
         }
 
-        if (string.Equals(key, "FailWhenOutOfBand", StringComparison.OrdinalIgnoreCase))
-        {
-            return new SettingPresentation(
-                key,
-                "Fail when out of band",
-                "true/false — when true, Series compliance can fail the acquire step.",
-                "false");
-        }
-
-        if (string.Equals(key, "DwellLimitMs", StringComparison.OrdinalIgnoreCase))
-        {
-            return new SettingPresentation(
-                key,
-                "Dwell limit (ms)",
-                "Used only when Series compliance is dwell.",
-                "5");
-        }
-
-        return new SettingPresentation(key, SpacedLabel(key));
+        return SettingCopy.TryGetValue(key, out var presented)
+            ? presented
+            : new SettingPresentation(key, SpacedLabel(key));
     }
 
     public static string? SeriesComplianceModeCaption(string stored)
@@ -115,6 +99,25 @@ public static class AuthoringInspectorCopy
         string Label,
         string? ValueTooltip = null,
         string? ValuePlaceholder = null);
+
+    private static readonly Dictionary<string, SettingPresentation> SettingCopy = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["SeriesCompliance"] = new(
+            "SeriesCompliance",
+            "Series compliance",
+            SeriesComplianceValueTooltip,
+            SeriesComplianceModes.None),
+        ["FailWhenOutOfBand"] = new(
+            "FailWhenOutOfBand",
+            "Fail when out of band",
+            "true/false — when true, Series compliance can fail the acquire step.",
+            "false"),
+        ["DwellLimitMs"] = new(
+            "DwellLimitMs",
+            "Dwell limit (ms)",
+            "Used only when Series compliance is dwell.",
+            "5"),
+    };
 
     private static readonly Dictionary<string, AuthoringFunctionDisplay> Titles = new(StringComparer.Ordinal)
     {

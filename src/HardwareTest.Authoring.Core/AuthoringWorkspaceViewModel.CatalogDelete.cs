@@ -11,8 +11,9 @@ public sealed partial class AuthoringWorkspaceViewModel
     public bool CanRemoveSelectedInstrumentSlot
         => Workspace is not null
            && !Workspace.IsReadOnly
-           && SelectedProgram is { Instruments.Count: > 1 }
+           && SelectedProgram is not null
            && AuthoringWorkspaceCatalog.Normalize(SelectedInstrumentSlot) is { } slot
+           && RemainingInstrumentCount(SelectedProgram, slot) >= 1
            && !AuthoringInstrumentUsage.IsReferencedByIdentityOrMeasure(SelectedProgram, slot);
 
     public void RemoveRequiredField(string fieldId)
@@ -33,11 +34,16 @@ public sealed partial class AuthoringWorkspaceViewModel
         MapAllPrograms(draft =>
         {
             var fields = RequiredFieldIds.FromSidecar(draft.Sidecar).ToList();
-            fields.RemoveAll(existing => string.Equals(existing, id, StringComparison.OrdinalIgnoreCase));
+            if (fields.RemoveAll(existing => string.Equals(existing, id, StringComparison.OrdinalIgnoreCase)) == 0)
+            {
+                return draft;
+            }
+
             RequiredFieldIds.Apply(draft.Sidecar, fields);
             return draft;
         });
         RememberWorkspaceCatalog(catalogs => AuthoringWorkspaceCatalog.Forget(catalogs.RequiredFields, id));
+        PersistProgramSidecars();
         Status = $"Removed required field {id}";
         Error = null;
     }
@@ -59,7 +65,22 @@ public sealed partial class AuthoringWorkspaceViewModel
 
         MapAllPrograms(draft =>
         {
-            var current = draft.Sidecar.ReportKinds?.ToList() ?? ["status"];
+            if (draft.Sidecar.ReportKinds is not { Length: > 0 } listed)
+            {
+                if (string.Equals(draft.Sidecar.DefaultReportKind, token, StringComparison.OrdinalIgnoreCase))
+                {
+                    draft.Sidecar.DefaultReportKind = "status";
+                }
+
+                return draft;
+            }
+
+            if (!listed.Contains(token, StringComparer.OrdinalIgnoreCase))
+            {
+                return draft;
+            }
+
+            var current = listed.ToList();
             current.RemoveAll(existing => string.Equals(existing, token, StringComparison.OrdinalIgnoreCase));
             if (current.Count == 0)
             {
@@ -75,6 +96,7 @@ public sealed partial class AuthoringWorkspaceViewModel
             return draft;
         });
         RememberWorkspaceCatalog(catalogs => AuthoringWorkspaceCatalog.Forget(catalogs.ReportKinds, token));
+        PersistProgramSidecars();
         Status = $"Removed report kind {token}";
         Error = null;
     }
@@ -104,6 +126,7 @@ public sealed partial class AuthoringWorkspaceViewModel
             return draft;
         });
         RememberWorkspaceCatalog(catalogs => AuthoringWorkspaceCatalog.Forget(catalogs.ProgramKinds, token));
+        PersistProgramSidecars();
         Status = $"Removed program kind {token}";
         Error = null;
     }
@@ -122,7 +145,8 @@ public sealed partial class AuthoringWorkspaceViewModel
             throw new AuthoringWorkspaceException("Select an instrument slot to remove.");
         }
 
-        if (SelectedProgram.Instruments.Count <= 1)
+        if (SelectedProgram.Instruments.Count <= 1
+            || RemainingInstrumentCount(SelectedProgram, slot) < 1)
         {
             throw new AuthoringWorkspaceException("A program must keep at least one instrument slot.");
         }
@@ -154,8 +178,33 @@ public sealed partial class AuthoringWorkspaceViewModel
         }
 
         SelectedInstrumentSlot = instruments[0].SlotName;
+        PersistProgramSidecars();
         Status = $"Removed slot {slot}";
         Error = null;
+    }
+
+    private static int RemainingInstrumentCount(ProgramDraft draft, string slot)
+        => draft.Instruments.Count(instrument =>
+            !string.Equals(instrument.SlotName, slot, StringComparison.OrdinalIgnoreCase));
+
+    internal void PersistProgramSidecars()
+    {
+        if (Workspace is null || Workspace.IsReadOnly)
+        {
+            return;
+        }
+
+        foreach (var program in Programs)
+        {
+            var tapPlanPath = ResolveTapPlanPath(program.PlanId);
+            var directory = Path.GetDirectoryName(Path.GetFullPath(tapPlanPath));
+            if (!string.IsNullOrWhiteSpace(directory))
+            {
+                Directory.CreateDirectory(directory);
+            }
+
+            _compiler.SaveSidecar(tapPlanPath, program.Sidecar);
+        }
     }
 
     private bool CanRemoveCatalogItem(string? id, Func<string?, bool> isProtected)

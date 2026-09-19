@@ -26,27 +26,30 @@ public sealed class AuthoringEditorCatalogTests
     {
         var mean = FormulaLowerer.DescribeSaveOutcome("mean(VDC)", new LimitSpec(null, null, 1.2));
         Assert.Equal(FormulaSaveOutcomeKind.PacksMeanGte, mean.Kind);
-        Assert.Contains("Mean GTE", mean.Message, StringComparison.Ordinal);
+        Assert.Equal("Will save as Mean GTE.", mean.Message);
 
         var filter = FormulaLowerer.DescribeSaveOutcome("filter([0.5 0.5],[1],VDC)", null);
         Assert.Equal(FormulaSaveOutcomeKind.PacksTransferFunction, filter.Kind);
-        Assert.Contains("Apply Transfer Function", filter.Message, StringComparison.Ordinal);
+        Assert.Equal("Will save as Apply Transfer Function.", filter.Message);
 
         var filtfilt = FormulaLowerer.DescribeSaveOutcome("filtfilt([0.5 0.5],[1],VDC)", null);
         Assert.Equal(FormulaSaveOutcomeKind.PacksTransferFunction, filtfilt.Kind);
 
         var preview = FormulaLowerer.DescribeSaveOutcome("std(VDC)", null);
         Assert.Equal(FormulaSaveOutcomeKind.PreviewOnly, preview.Kind);
-        Assert.Contains("Preview only", preview.Message, StringComparison.Ordinal);
-        Assert.DoesNotContain(AuthoringCompileCodes.FormulaNoLower, preview.Message, StringComparison.Ordinal);
+        Assert.Equal(
+            "Preview only — at save, only mean(channel) with a threshold (Mean GTE) or a top-level filter/filtfilt packs into the plan.",
+            preview.Message);
 
         var parse = FormulaLowerer.DescribeSaveOutcome("fft(VDC)", null);
         Assert.Equal(FormulaSaveOutcomeKind.None, parse.Kind);
-        Assert.True(string.IsNullOrEmpty(parse.Message));
+        Assert.Equal(string.Empty, parse.Message);
 
         var blocked = FormulaLowerer.DescribeSaveOutcome("mean(VDC)", null);
         Assert.Equal(FormulaSaveOutcomeKind.SaveBlocked, blocked.Kind);
-        Assert.Contains(AuthoringCompileCodes.MissingLimits, blocked.Message, StringComparison.Ordinal);
+        Assert.Equal(
+            $"{AuthoringCompileCodes.MissingLimits}: mean() requires a scalar LimitSpec threshold.",
+            blocked.Message);
     }
 
     [Fact]
@@ -102,9 +105,16 @@ public sealed class AuthoringWorkspaceCatalogTests
             "lab",
             AuthoringWorkspaceCatalog.ReportKindOptions(null, [orphan], orphan));
         Assert.True(AuthoringWorkspaceCatalog.IsProtectedReportKind("status"));
+        Assert.True(AuthoringWorkspaceCatalog.IsProtectedReportKind("certification"));
         Assert.True(AuthoringWorkspaceCatalog.IsProtectedProgramKind("dut"));
+        Assert.True(AuthoringWorkspaceCatalog.IsProtectedProgramKind("stationHealth"));
         Assert.True(AuthoringWorkspaceCatalog.IsProtectedRequiredField("serial"));
+        Assert.True(AuthoringWorkspaceCatalog.IsProtectedRequiredField("partNumber"));
+        Assert.True(AuthoringWorkspaceCatalog.IsProtectedRequiredField("revision"));
+        Assert.True(AuthoringWorkspaceCatalog.IsProtectedRequiredField("operator"));
         Assert.False(AuthoringWorkspaceCatalog.IsProtectedReportKind("traceability"));
+        Assert.False(AuthoringWorkspaceCatalog.IsProtectedProgramKind("incomingInspect"));
+        Assert.False(AuthoringWorkspaceCatalog.IsProtectedRequiredField("fixtureId"));
         var remembered = AuthoringWorkspaceCatalog.Remember([], "fixtureId");
         Assert.True(AuthoringWorkspaceCatalog.Forget(remembered, "fixtureId"));
         Assert.Empty(remembered);
@@ -180,7 +190,7 @@ public sealed class AuthoringProgramSettingsViewModelTests
         vm.ApplyRecipe(AuthoringRecipeIds.Formula);
         Assert.True(vm.HasFormula);
         Assert.False(vm.HasTransferFunction);
-        Assert.Contains("Mean GTE", vm.FormulaSaveNote, StringComparison.Ordinal);
+        Assert.Equal("Will save as Mean GTE.", vm.FormulaSaveNote);
         Assert.Equal(FormulaSaveOutcomeKind.PacksMeanGte, vm.FormulaSaveOutcomeKind);
         vm.InsertFormulaToken("+std(");
         Assert.Contains("+std(", vm.FormulaSource, StringComparison.Ordinal);
@@ -189,7 +199,9 @@ public sealed class AuthoringProgramSettingsViewModelTests
         Assert.Equal(FormulaSaveOutcomeKind.None, vm.FormulaSaveOutcomeKind);
         vm.FormulaSource = "std(VDC)";
         Assert.True(string.IsNullOrEmpty(vm.FormulaError), vm.FormulaError);
-        Assert.Contains("Preview only", vm.FormulaSaveNote, StringComparison.Ordinal);
+        Assert.Equal(
+            "Preview only — at save, only mean(channel) with a threshold (Mean GTE) or a top-level filter/filtfilt packs into the plan.",
+            vm.FormulaSaveNote);
         Assert.DoesNotContain(AuthoringCompileCodes.FormulaNoLower, vm.FormulaSaveNote, StringComparison.Ordinal);
         Assert.Equal(FormulaSaveOutcomeKind.PreviewOnly, vm.FormulaSaveOutcomeKind);
         Assert.Contains("VDC", vm.ChannelKeys);

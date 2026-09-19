@@ -27,17 +27,28 @@ public sealed class AuthoringChromeA11yTests
         Assert.Contains("SelectedItem=\"{Binding SelectedInstrument}\"", programSettings, StringComparison.Ordinal);
         Assert.Contains("Identity &amp; DUT", programSettings, StringComparison.Ordinal);
         Assert.Contains("Operator session", programSettings, StringComparison.Ordinal);
+        Assert.Contains("Text=\"Reports\"", programSettings, StringComparison.Ordinal);
         Assert.Contains("Program type &amp; station health", programSettings, StringComparison.Ordinal);
+        Assert.Contains("Text=\"Instruments\"", programSettings, StringComparison.Ordinal);
         Assert.Contains("IsEnabled=\"{Binding RequireStationHealth}\"", programSettings, StringComparison.Ordinal);
+        Assert.Contains("PlaceholderText=\"fixtureId\"", programSettings, StringComparison.Ordinal);
+        Assert.Contains("PlaceholderText=\"traceability\"", programSettings, StringComparison.Ordinal);
+        Assert.Contains("PlaceholderText=\"incomingInspect\"", programSettings, StringComparison.Ordinal);
+        Assert.Contains("PlaceholderText=\"SCOPE\"", programSettings, StringComparison.Ordinal);
         Assert.DoesNotContain("Text=\"{Binding CatalogsPurpose}\"", programSettings, StringComparison.Ordinal);
-        Assert.DoesNotContain("Text=\"{Binding SidecarHelp}\"", programSettings, StringComparison.Ordinal);
+        Assert.DoesNotContain("TextBlock Text=\"{Binding SidecarHelp}\"", programSettings, StringComparison.Ordinal);
+        Assert.DoesNotContain("Wrap\" Text=\"{Binding SidecarHelp}\"", programSettings, StringComparison.Ordinal);
         Assert.Contains("ToolTip.Tip=\"{Binding SidecarHelp}\"", programSettings, StringComparison.Ordinal);
+        Assert.Contains("AutomationProperties.HelpText=\"{Binding SidecarHelp}\"", programSettings, StringComparison.Ordinal);
         Assert.Contains("Selection includes cleanup", programSettings, StringComparison.Ordinal);
-        Assert.Contains("IsVisible=\"{Binding CanRemove}\"", programSettings, StringComparison.Ordinal);
+        Assert.Equal(3, CountOccurrences(programSettings, "IsVisible=\"{Binding CanRemove}\""));
         Assert.Contains("Click=\"OnRemoveRequiredField\"", programSettings, StringComparison.Ordinal);
         Assert.Contains("Click=\"OnRemoveReportKind\"", programSettings, StringComparison.Ordinal);
         Assert.Contains("Click=\"OnRemoveProgramKind\"", programSettings, StringComparison.Ordinal);
-        Assert.Contains("IsEnabled=\"{Binding CanRemoveSelectedProgramKind}\"", programSettings, StringComparison.Ordinal);
+        Assert.Contains("ItemsSource=\"{Binding ProgramKindChoices}\"", programSettings, StringComparison.Ordinal);
+        Assert.Contains("StringFormat='Remove required field {0}'", programSettings, StringComparison.Ordinal);
+        Assert.Contains("StringFormat='Remove report kind {0}'", programSettings, StringComparison.Ordinal);
+        Assert.Contains("StringFormat='Remove program kind {0}'", programSettings, StringComparison.Ordinal);
         Assert.Contains("IsEnabled=\"{Binding CanRemoveSelectedInstrumentSlot}\"", programSettings, StringComparison.Ordinal);
         Assert.Contains("Click=\"OnRemoveInstrumentSlot\"", programSettings, StringComparison.Ordinal);
         Assert.Contains("Text=\"{Binding InputStringFieldId}\"", xaml, StringComparison.Ordinal);
@@ -63,6 +74,7 @@ public sealed class AuthoringChromeA11yTests
         Assert.Contains("OnRemoveSequence", code, StringComparison.Ordinal);
         Assert.Contains("OnRemoveProgram", code, StringComparison.Ordinal);
         Assert.Contains("OnMetricSettingLostFocus", code, StringComparison.Ordinal);
+        Assert.Contains("!comboRow.ChoiceIsEditable && string.IsNullOrWhiteSpace(text)", code, StringComparison.Ordinal);
         Assert.Contains("OnMetricSettingBoolChanged", code, StringComparison.Ordinal);
         Assert.Contains("OnMetricSettingChoiceChanged", code, StringComparison.Ordinal);
         Assert.Contains("OnMetricSettingNumberChanged", code, StringComparison.Ordinal);
@@ -87,6 +99,8 @@ public sealed class AuthoringChromeA11yTests
         Assert.Contains("AuthoringInspectorCopy.HistoryWatchPlaceholder", xaml, StringComparison.Ordinal);
         Assert.Contains("ItemsSource=\"{Binding MetricSettingRows}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Text=\"{Binding Label}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Grid.Column=\"0\" Text=\"{Binding Label}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Text=\"{Binding Summary}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Text=\"{Binding Value, Mode=OneWay}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("IsVisible=\"{Binding IsBoolean}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("IsVisible=\"{Binding IsChoice}\"", xaml, StringComparison.Ordinal);
@@ -124,10 +138,12 @@ public sealed class AuthoringChromeA11yTests
             StringComparison.Ordinal);
         var sequenceBlock = SliceAfter(xaml, "ItemsSource=\"{Binding SequenceItems}\"");
         Assert.Contains("KeyboardNavigation.TabNavigation=\"Once\"", sequenceBlock, StringComparison.Ordinal);
-        Assert.True(
+        var instrumentsBlock = SliceAfter(programSettings, "ItemsSource=\"{Binding Instruments}\"");
+        Assert.Contains("KeyboardNavigation.TabNavigation=\"Once\"", instrumentsBlock, StringComparison.Ordinal);
+        Assert.Equal(
+            5,
             CountOccurrences(xaml, "KeyboardNavigation.TabNavigation=\"Once\"")
-            + CountOccurrences(programSettings, "KeyboardNavigation.TabNavigation=\"Once\"") >= 4,
-            "Sequence, recordings, findings, and instruments lists should leave on Tab.");
+            + CountOccurrences(programSettings, "KeyboardNavigation.TabNavigation=\"Once\""));
     }
 
     [Fact]

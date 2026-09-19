@@ -29,6 +29,9 @@ public sealed record AuthoringMetricSettingSpec(
 /// Closed table of measure/algorithm setting kinds. Not an OpenTAP property grid.
 public static class AuthoringMetricSettingCatalog
 {
+    private static readonly IReadOnlyList<string> SeriesComplianceChoices =
+        SeriesComplianceModes.Choices as IReadOnlyList<string> ?? [.. SeriesComplianceModes.Choices];
+
     private static readonly (string FunctionId, string Key, AuthoringMetricSettingSpec Spec)[] Table =
     [
         ("*", "SampleCount", new(AuthoringSettingKind.Integer, Minimum: 1)),
@@ -44,6 +47,7 @@ public static class AuthoringMetricSettingCatalog
         ("*", "TsSeconds", new(AuthoringSettingKind.Double, Minimum: 0)),
         ("*", "FailWhenOutOfBand", new(AuthoringSettingKind.Boolean)),
         ("*", "PublishSummaries", new(AuthoringSettingKind.Boolean)),
+        ("*", "DwellLimitMs", new(AuthoringSettingKind.Double, Minimum: 0)),
         ("*", "SeriesCompliance", new(AuthoringSettingKind.Choice, AuthoringSettingChoiceSource.SeriesCompliance)),
         ("*", "Channel", new(AuthoringSettingKind.Choice, AuthoringSettingChoiceSource.ChannelKeys, ChoiceIsEditable: true)),
         ("*", "InputChannel", new(AuthoringSettingKind.Choice, AuthoringSettingChoiceSource.ChannelKeys, ChoiceIsEditable: true)),
@@ -84,7 +88,7 @@ public static class AuthoringMetricSettingCatalog
         var presented = AuthoringInspectorCopy.PresentSetting(key);
         var choices = spec.ChoiceSource switch
         {
-            AuthoringSettingChoiceSource.SeriesCompliance => SeriesComplianceModes.Choices.ToArray(),
+            AuthoringSettingChoiceSource.SeriesCompliance => SeriesComplianceChoices,
             AuthoringSettingChoiceSource.ChannelKeys => AuthoringWorkspaceCatalog.Union(channelKeys, [value]),
             AuthoringSettingChoiceSource.Static => spec.StaticChoices ?? [],
             _ => null,

@@ -17,6 +17,8 @@ public sealed class AuthoringInspectorCopyTests
         }
 
         Assert.Contains("Acquire", AuthoringInspectorCopy.DescribeFunction(AuthoringFunctionIds.BasicAcquireVoltage).Title, StringComparison.OrdinalIgnoreCase);
+        Assert.False(string.IsNullOrWhiteSpace(
+            AuthoringInspectorCopy.DescribeFunction(AuthoringFunctionIds.BasicAcquireVoltage).Summary));
     }
 
     [Fact]
@@ -37,6 +39,17 @@ public sealed class AuthoringInspectorCopyTests
         Assert.Contains(SeriesComplianceModes.AllSamples, presented.ValueTooltip, StringComparison.Ordinal);
         Assert.Contains(SeriesComplianceModes.Dwell, presented.ValueTooltip, StringComparison.Ordinal);
         Assert.Contains("allSamples", AuthoringInspectorCopy.SeriesComplianceModeCaption("allSamples"), StringComparison.Ordinal);
+        Assert.Equal("Dwell (dwell)", AuthoringInspectorCopy.SeriesComplianceModeCaption("dwell"));
+
+        var fail = AuthoringInspectorCopy.PresentSetting("FailWhenOutOfBand");
+        Assert.Equal("Fail when out of band", fail.Label);
+        Assert.Equal("false", fail.ValuePlaceholder);
+        Assert.Contains("true/false", fail.ValueTooltip, StringComparison.Ordinal);
+
+        var dwell = AuthoringInspectorCopy.PresentSetting("DwellLimitMs");
+        Assert.Equal("Dwell limit (ms)", dwell.Label);
+        Assert.Equal("5", dwell.ValuePlaceholder);
+        Assert.Contains("dwell", dwell.ValueTooltip, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

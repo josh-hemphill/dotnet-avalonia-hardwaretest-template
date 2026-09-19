@@ -321,6 +321,7 @@
                           <StackPanel>
                             <TextBlock Text="{Binding Title}" />
                             <TextBlock Opacity="0.75" FontSize="11" Text="{Binding Id}" />
+                            <TextBlock Opacity="0.75" FontSize="11" TextWrapping="Wrap" Text="{Binding Summary}" />
                           </StackPanel>
                         </DataTemplate>
                       </ComboBox.ItemTemplate>

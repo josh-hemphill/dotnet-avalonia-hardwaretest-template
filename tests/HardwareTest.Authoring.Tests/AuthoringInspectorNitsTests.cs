@@ -96,6 +96,21 @@ public sealed class AuthoringInspectorNitsTests
     }
 
     [Fact]
+    public void Integer_settings_truncate_and_clamp_to_the_catalog_minimum()
+    {
+        var vm = OpenEmpty();
+        vm.CreateProgram("clamp-int");
+        vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
+        var acquire = vm.SequenceItems.Single(row => row.Kind == SequenceRowKind.Metric);
+        vm.SelectSequence(vm.SequenceItems.ToList().IndexOf(acquire));
+        vm.SetMetricSettingNumber("SampleCount", 3.9m);
+        Assert.Equal("3", SettingValue(vm, "SampleCount"));
+        vm.SetMetricSettingNumber("SampleCount", 0m);
+        Assert.Equal("1", SettingValue(vm, "SampleCount"));
+        Assert.Equal("0", vm.MetricSettingRows.Single(row => row.Key == "SampleCount").NumberFormat);
+    }
+
+    [Fact]
     public void Inspector_channel_key_keeps_the_selected_sequence_row()
     {
         var vm = OpenEmpty();

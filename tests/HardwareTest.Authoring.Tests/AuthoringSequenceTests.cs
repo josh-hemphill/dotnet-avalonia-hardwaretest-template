@@ -99,12 +99,19 @@ public sealed class AuthoringSequenceTests
         Assert.Contains("operator session", AuthoringChrome.ProgramSettingsPurpose, StringComparison.Ordinal);
         Assert.Contains("not the in-repo demos", AuthoringChrome.CatalogsPurpose, StringComparison.Ordinal);
         Assert.Contains("serial", AuthoringChrome.RequiredFieldsPurpose, StringComparison.Ordinal);
-        Assert.Contains("Raw", AuthoringChrome.RecipeAddHint, StringComparison.Ordinal);
-        Assert.Contains("TapPlan", AuthoringChrome.RecipeAddHint, StringComparison.Ordinal);
-        Assert.Contains("Bit sweep", AuthoringChrome.RecipeAdvancedHint, StringComparison.Ordinal);
-        Assert.DoesNotContain("TUI", AuthoringChrome.RecipeAdvancedHint, StringComparison.Ordinal);
-        Assert.Contains(AuthoringChrome.AddRecipeActionSummary, AuthoringChrome.AddRecipeToolTip, StringComparison.Ordinal);
-        Assert.Contains("Raw", AuthoringChrome.AddRecipeToolTip, StringComparison.Ordinal);
+        Assert.Equal(
+            "Steps edited outside this app re-open as read-only Raw rows after you save the TapPlan and re-open the workspace.",
+            AuthoringChrome.RecipeAddHint);
+        Assert.Equal(
+            "Bit sweep, timed sample, and InstrumentComponents steps are not recipes yet.",
+            AuthoringChrome.RecipeAdvancedHint);
+        Assert.Equal(
+            "Append or wrap using the selected recipe. Identity/Prompt go to Setup; metrics to Measure; Repeat wraps the last measure; Safe Shutdown updates Cleanup.",
+            AuthoringChrome.AddRecipeActionSummary);
+        Assert.Equal(
+            AuthoringChrome.AddRecipeActionSummary + "\n\n" + AuthoringChrome.RecipeAddHint + " " + AuthoringChrome.RecipeAdvancedHint,
+            AuthoringChrome.AddRecipeToolTip);
+        Assert.Equal("{0} Raw step(s) — read-only here. Select a Raw row to see its type.", AuthoringChrome.RawStepsBanner);
         Assert.Contains("bake-time", AuthoringChrome.ShipPurpose, StringComparison.Ordinal);
         Assert.Equal("Remove selected", AuthoringChrome.RemoveSelectedTitle);
         Assert.Contains("Repeat unwraps its children", AuthoringChrome.RemoveSelectedPurpose, StringComparison.Ordinal);
