@@ -411,6 +411,38 @@ public sealed class MainWindowViewModelTests
     }
 
     [Fact]
+    public async Task SafetyStop_when_awaiting_without_a_run_cancels_the_prompt()
+    {
+        var store = new FakeSettingsStore();
+        var openTap = new FakeOpenTapSession();
+        var runControl = new FakeRunControl();
+        var runTest = new RunTestViewModel(
+            openTap,
+            openTap,
+            openTap,
+            new OperatorSession(),
+            runControl,
+            new FakeReportService(),
+            new FakeRunStore(),
+            new AppSettings());
+        var vm = CreateMain(store, openTap, runControl, runTest: runTest);
+
+        openTap.BeginInteraction(OperatorInteractionRequest.ConfirmOnly("Install fixture"));
+        Assert.False(vm.IsRunning);
+        Assert.True(vm.CanSafetyStop);
+
+        await vm.SafetyStopCommand.ExecuteAsync();
+
+        Assert.False(openTap.IsAwaitingOperator);
+        Assert.False(runControl.IsSafetyStopping);
+        Assert.False(runControl.WasSafetyStopRequested);
+        Assert.Equal("Idle", vm.ControlStatus);
+        Assert.Equal(Avalonia.Automation.AutomationLiveSetting.Polite, vm.ControlStatusLiveSetting);
+        Assert.False(vm.CanPauseResume);
+        Assert.False(vm.CanSafetyStop);
+    }
+
+    [Fact]
     public async Task PauseResume_is_a_no_op_while_stopping()
     {
         var store = new FakeSettingsStore();

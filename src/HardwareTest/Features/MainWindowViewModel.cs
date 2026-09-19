@@ -544,14 +544,17 @@ public partial class MainWindowViewModel : ReactiveObject
             return;
         }
 
-        _runControl.RequestSafetyStop();
-        try
+        if (_runControl.IsRunning)
         {
-            _safety?.SafeIdle();
-        }
-        catch
-        {
-            // safety outranks diagnostics; continue abort even if the adapter throws
+            _runControl.RequestSafetyStop();
+            try
+            {
+                _safety?.SafeIdle();
+            }
+            catch
+            {
+                // safety outranks diagnostics; continue abort even if the adapter throws
+            }
         }
 
         _openTap.Abort(safetyStop: true);

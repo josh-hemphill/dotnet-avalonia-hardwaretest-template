@@ -126,14 +126,17 @@ public sealed class RunExecutionViewModel
             return;
         }
 
-        _runControl.RequestSafetyStop();
-        try
+        if (_runControl.IsRunning)
         {
-            _safety?.SafeIdle();
-        }
-        catch
-        {
-            // continue abort even if the adapter throws
+            _runControl.RequestSafetyStop();
+            try
+            {
+                _safety?.SafeIdle();
+            }
+            catch
+            {
+                // continue abort even if the adapter throws
+            }
         }
 
         _runSession.Abort(safetyStop: true);
