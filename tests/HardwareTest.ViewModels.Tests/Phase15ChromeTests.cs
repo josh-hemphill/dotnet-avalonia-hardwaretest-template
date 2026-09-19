@@ -209,6 +209,21 @@ public sealed class Phase15ChromeTests
             culture);
         Assert.IsAssignableFrom<IBrush>(pass);
         Assert.IsAssignableFrom<IBrush>(fail);
+        var failFill = ChipBrushConverter.BannerFill.Convert(
+            "Fail",
+            typeof(IBrush),
+            null,
+            culture);
+        var passFill = ChipBrushConverter.BannerFill.Convert(
+            "Pass",
+            typeof(IBrush),
+            null,
+            culture);
+        Assert.IsAssignableFrom<IBrush>(failFill);
+        Assert.IsAssignableFrom<IBrush>(passFill);
+        Assert.NotEqual(((ISolidColorBrush)failFill!).Color, ((ISolidColorBrush)passFill!).Color);
+        Assert.Equal(Color.Parse("#FFCDD2"), ((ISolidColorBrush)failFill).Color);
+        Assert.Equal(Color.Parse("#C8E6C9"), ((ISolidColorBrush)passFill).Color);
     }
 
     [Theory]

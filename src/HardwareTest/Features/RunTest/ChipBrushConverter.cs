@@ -38,4 +38,23 @@ public static class ChipBrushConverter
         };
         return new SolidColorBrush(Color.Parse(hex));
     });
+
+    /// Light banner wash so Pass/Pending/Running filters are not fail-red.
+    public static readonly IValueConverter BannerFill = new FuncValueConverter<object?, IBrush>(chip =>
+    {
+        var key = chip switch
+        {
+            RunResult result => result.ToString(),
+            string text => text,
+            _ => chip?.ToString(),
+        };
+        var hex = key switch
+        {
+            "Pass" or "Passed" => "#C8E6C9",
+            "Fail" or "Failed" => "#FFCDD2",
+            "Running" => "#BBDEFB",
+            _ => "#ECEFF1",
+        };
+        return new SolidColorBrush(Color.Parse(hex));
+    });
 }

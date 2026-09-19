@@ -76,19 +76,19 @@
                     CommandParameter="{x:Static vm:StepStatusFilter.Fail}" />
       <Border CornerRadius="4"
               Padding="8,2"
-              Background="#FFCDD2"
-              BorderBrush="#C62828"
+              Background="{Binding StepTree.StepStatusFilter, Converter={x:Static vm:ChipBrushConverter.BannerFill}}"
+              BorderBrush="{Binding StepTree.StepStatusFilter, Converter={x:Static vm:ChipBrushConverter.Instance}}"
               BorderThickness="1"
               VerticalAlignment="Center"
               Margin="0,0,4,4"
-              IsVisible="{Binding StepTree.IsFilteredToFail}">
+              IsVisible="{Binding StepTree.IsStatusFilterActive}">
         <StackPanel Orientation="Horizontal" Spacing="6">
-          <TextBlock Text="Showing fails"
+          <TextBlock Text="{Binding StepTree.StatusFilterBannerText}"
                      FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}"
                      FontWeight="SemiBold"
                      VerticalAlignment="Center" />
           <Button Content="Clear"
-                  Command="{Binding StepTree.ClearFailFilterCommand}"
+                  Command="{Binding StepTree.ClearStatusFilterCommand}"
                   FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}"
                   Padding="6,1" />
         </StackPanel>

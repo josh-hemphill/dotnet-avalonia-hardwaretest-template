@@ -35,22 +35,32 @@
                  FontWeight="SemiBold" />
       <WrapPanel Orientation="Horizontal">
         <ToggleButton Classes="filter-chip"
+                      Content="All"
+                      IsChecked="{Binding StepTree.IsFilterAll, Mode=OneWay}"
+                      Command="{Binding StepTree.SetSuiteFilterCommand}"
+                      CommandParameter="{x:Static vm:StepStatusFilter.All}"
+                      AutomationProperties.Name="All steps"
+                      Margin="0,0,4,4" />
+        <ToggleButton Classes="filter-chip"
                       Content="{Binding StepTree.SuitePassedCount, StringFormat=Passed {0}}"
                       IsChecked="{Binding StepTree.IsFilterPass, Mode=OneWay}"
                       Command="{Binding StepTree.SetSuiteFilterCommand}"
                       CommandParameter="{x:Static vm:StepStatusFilter.Pass}"
+                      AutomationProperties.Name="Passed steps"
                       Margin="0,0,4,4" />
         <ToggleButton Classes="filter-chip"
                       Content="{Binding StepTree.SuiteFailedCount, StringFormat=Failed {0}}"
                       IsChecked="{Binding StepTree.IsFilterFail, Mode=OneWay}"
                       Command="{Binding StepTree.SetSuiteFilterCommand}"
                       CommandParameter="{x:Static vm:StepStatusFilter.Fail}"
+                      AutomationProperties.Name="Failed steps"
                       Margin="0,0,4,4" />
         <ToggleButton Classes="filter-chip"
                       Content="{Binding StepTree.SuitePendingCount, StringFormat=Pending {0}}"
                       IsChecked="{Binding StepTree.IsFilterPending, Mode=OneWay}"
                       Command="{Binding StepTree.SetSuiteFilterCommand}"
                       CommandParameter="{x:Static vm:StepStatusFilter.Pending}"
+                      AutomationProperties.Name="Pending steps"
                       Margin="0,0,4,4" />
       </WrapPanel>
       <TextBlock Text="Stages" FontWeight="SemiBold" Margin="0,4,0,0" />
