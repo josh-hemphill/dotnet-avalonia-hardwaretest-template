@@ -171,7 +171,7 @@
                            Opacity="0.8"
                            FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}"
                            TextTrimming="CharacterEllipsis"
-                           IsVisible="{Binding Step.KeyValue, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                           IsVisible="{Binding Step.KeyValue, Converter={x:Static vm:StringPresenceConverter.IsNotNullOrWhiteSpace}}" />
               </StackPanel>
               <TextBlock Grid.Column="2"
                          Text="{Binding Step.AttemptsText}"

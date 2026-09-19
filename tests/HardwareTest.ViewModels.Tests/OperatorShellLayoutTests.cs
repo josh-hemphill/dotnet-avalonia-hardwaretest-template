@@ -1,3 +1,4 @@
+using HardwareTest.Features.RunTest;
 using HardwareTest.Features.Shell;
 using HardwareTest.ViewModels.Tests.Fakes;
 using Xunit;
@@ -41,16 +42,21 @@ public sealed class OperatorShellLayoutTests
     public void Step_rows_hide_empty_subtitle_so_the_title_stays_vertically_centered()
     {
         var steps = File.ReadAllText(FindRepoFile("src/HardwareTest/Features/RunTest/RunStepsWorkspaceView.axaml"));
+        Assert.Contains("<StackPanel Grid.Column=\"1\" VerticalAlignment=\"Center\">", steps, StringComparison.Ordinal);
         Assert.Contains("Text=\"{Binding DisplayName}\"", steps, StringComparison.Ordinal);
         Assert.Contains("Text=\"{Binding Step.KeyValue}\"", steps, StringComparison.Ordinal);
         Assert.Contains(
-            "IsVisible=\"{Binding Step.KeyValue, Converter={x:Static StringConverters.IsNotNullOrEmpty}}\"",
+            "IsVisible=\"{Binding Step.KeyValue, Converter={x:Static vm:StringPresenceConverter.IsNotNullOrWhiteSpace}}\"",
             steps,
             StringComparison.Ordinal);
         Assert.Contains(
             "IsVisible=\"{Binding Step.AttemptsText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}\"",
             steps,
             StringComparison.Ordinal);
+        var culture = System.Globalization.CultureInfo.InvariantCulture;
+        Assert.Equal(false, StringPresenceConverter.IsNotNullOrWhiteSpace.Convert("   ", typeof(bool), null, culture));
+        Assert.Equal(true, StringPresenceConverter.IsNotNullOrWhiteSpace.Convert("5V=5.010", typeof(bool), null, culture));
+        Assert.Equal(false, StringPresenceConverter.IsNotNullOrWhiteSpace.Convert(null, typeof(bool), null, culture));
     }
 
     [Fact]
