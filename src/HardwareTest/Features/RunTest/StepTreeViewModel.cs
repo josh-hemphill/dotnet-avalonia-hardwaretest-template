@@ -23,6 +23,7 @@ public partial class StepTreeViewModel : ReactiveObject
     private bool _suppressStageFilter;
     private bool _suppressSubsectionFilter;
     private bool _suppressNestedFilter;
+    private bool _syncingListSelection;
 
     public StepTreeViewModel(
         Func<IEnumerable<OpenTapStepNode>>? stepTreeSource = null,
@@ -116,10 +117,9 @@ public partial class StepTreeViewModel : ReactiveObject
                     this.RaisePropertyChanged(nameof(IsFilterPending));
                 }
             }
-            else if (args.PropertyName == nameof(SelectedStepListItem)
-                     && SelectedStepListItem?.Step is not null)
+            else if (args.PropertyName == nameof(SelectedStepListItem) && !_syncingListSelection)
             {
-                SelectedStep = SelectedStepListItem.Step;
+                AdoptSelectedStepListItem();
             }
         };
     }

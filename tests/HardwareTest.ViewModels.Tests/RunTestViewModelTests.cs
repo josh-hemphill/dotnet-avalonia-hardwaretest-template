@@ -78,6 +78,8 @@ public sealed class RunTestViewModelTests
         await vm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
         await ConfirmReadyAsync(vm, "SN-ROOT");
         vm.StepTree.SelectedStep = vm.StepTree.Hierarchy[0];
+        Assert.False(vm.CanStartRunSelected);
+        Assert.Contains("entire program", vm.CanStartRunSelectedTip, StringComparison.OrdinalIgnoreCase);
         await vm.Run.RunSelectedCommand.ExecuteAsync();
         Assert.Equal(0, openTap.SelectionRunCount);
         Assert.Contains("entire program", vm.Status, StringComparison.OrdinalIgnoreCase);
@@ -94,6 +96,8 @@ public sealed class RunTestViewModelTests
         vm.StepTree.SelectedStep = leaf;
         vm.StepTree.StepSearchText = "zzz-no-match";
         Assert.False(vm.StepTree.IsSelectedStepVisible());
+        Assert.False(vm.CanStartRunSelected);
+        Assert.Contains("visible", vm.CanStartRunSelectedTip, StringComparison.OrdinalIgnoreCase);
 
         await vm.Run.RunSelectedCommand.ExecuteAsync();
 
@@ -149,6 +153,11 @@ public sealed class RunTestViewModelTests
         vm.StepTree.SelectedStep = identityLeaf;
         Assert.False(vm.StepTree.IsSelectedStepVisible());
 
+        var header = vm.StepTree.StepListItems.First(i => i.IsHeader && i.Step is not null);
+        vm.StepTree.SelectedStepListItem = header;
+        Assert.Equal(identityLeaf.Path, vm.StepTree.SelectedStep?.Path);
+        Assert.False(vm.CanStartRunSelected);
+
         await vm.Run.RunSelectedCommand.ExecuteAsync();
 
         Assert.Equal(0, openTap.SelectionRunCount);
@@ -170,6 +179,7 @@ public sealed class RunTestViewModelTests
 
         Assert.Equal(1, openTap.SelectionRunCount);
         Assert.Equal(leaf.Path, vm.StepTree.SelectedStep?.Path);
+        Assert.False(vm.StepTree.IsFilteredToFail);
     }
 
     [Fact]

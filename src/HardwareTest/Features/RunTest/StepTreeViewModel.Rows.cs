@@ -193,7 +193,37 @@ public partial class StepTreeViewModel
             return;
         }
 
-        SelectedStepListItem = match;
+        var wasSyncing = _syncingListSelection;
+        _syncingListSelection = true;
+        try
+        {
+            SelectedStepListItem = match;
+        }
+        finally
+        {
+            _syncingListSelection = wasSyncing;
+        }
+    }
+
+    /// Two-way ListBox may land on a stage header when a selected leaf is filtered out.
+    /// Keep the hidden leaf so Run Selected refuses instead of running the stage.
+    private void AdoptSelectedStepListItem()
+    {
+        if (SelectedStepListItem?.Step is null)
+        {
+            return;
+        }
+
+        if (SelectedStepListItem.IsHeader
+            && SelectedStep is not null
+            && !ReferenceEquals(SelectedStepListItem.Step, SelectedStep)
+            && !IsSelectedStepVisible())
+        {
+            SyncSelectedStepListItem();
+            return;
+        }
+
+        SelectedStep = SelectedStepListItem.Step;
     }
 
     public void RollupParentStatuses()

@@ -61,7 +61,7 @@
               Command="{Binding Run.RunSelectedCommand}"
               Classes="operator"
               Margin="0,0,8,4"
-              IsEnabled="{Binding CanStartRun}"
+              IsEnabled="{Binding CanStartRunSelected}"
               IsVisible="{Binding !IsRunning}"
               ToolTip.Tip="{Binding CanStartRunSelectedTip}" />
       <ToggleButton Classes="filter-chip" Content="All"
