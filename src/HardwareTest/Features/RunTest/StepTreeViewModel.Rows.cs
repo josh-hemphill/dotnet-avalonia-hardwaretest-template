@@ -188,7 +188,7 @@ public partial class StepTreeViewModel
     private void SyncSelectedStepListItem()
     {
         var match = StepListItems.FirstOrDefault(i => ReferenceEquals(i.Step, SelectedStep));
-        if (match is null || ReferenceEquals(SelectedStepListItem, match))
+        if (ReferenceEquals(SelectedStepListItem, match))
         {
             return;
         }

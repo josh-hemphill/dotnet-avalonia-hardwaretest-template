@@ -385,7 +385,7 @@ public partial class StepTreeViewModel : ReactiveObject
 
     public void RaiseRequestScroll() => RequestScrollToSelectedStep?.Invoke(this, EventArgs.Empty);
 
-    /// Selects the first failed leaf in scope and reveals its detail — used after a failing verdict lands.
+    /// Selects the first failed leaf in the plan and scrolls it into view after a failing verdict.
     public void MaybeAutoFocusFail()
     {
         var firstFail = HierarchyRollup.EnumerateLeaves(_fullHierarchy)

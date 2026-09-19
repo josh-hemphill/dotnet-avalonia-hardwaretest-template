@@ -845,6 +845,7 @@ public sealed class RunBoardChildViewModelTests
         var identity = tree.Stages.First(s => s.DisplayName == "Identity");
         tree.SelectedStage = identity;
         tree.StepSearchText = "Read";
+        Assert.DoesNotContain(tree.StepRows, r => r.Name == "Acquire 12V");
 
         tree.MaybeAutoFocusFail();
 
@@ -852,6 +853,55 @@ public sealed class RunBoardChildViewModelTests
         Assert.Equal(string.Empty, tree.StepSearchText);
         Assert.Contains(tree.StepRows, r => r.Name == "Acquire 12V");
         Assert.True(scrolled >= 1);
+    }
+
+    [Fact]
+    public void NextFail_and_PrevFail_clear_a_hiding_status_filter()
+    {
+        var opened = 0;
+        var scrolled = 0;
+        var tree = new StepTreeViewModel(
+            () => [HierarchicalStatusTree()],
+            openSelectedDetail: () => opened++);
+        tree.RebuildFromHost();
+        tree.RequestScrollToSelectedStep += (_, _) => scrolled++;
+        tree.StepStatusFilter = StepStatusFilter.Pass;
+        Assert.DoesNotContain(tree.StepRows, r => r.Name == "Acquire 12V");
+
+        tree.NextFailCommand.Execute().Subscribe();
+
+        Assert.Equal("Acquire 12V", tree.SelectedStep?.Name);
+        Assert.True(tree.IsFilterAll);
+        Assert.Contains(tree.StepRows, r => r.Name == "Acquire 12V");
+        Assert.Equal(1, opened);
+        Assert.True(scrolled >= 1);
+
+        tree.StepStatusFilter = StepStatusFilter.Pass;
+        Assert.DoesNotContain(tree.StepRows, r => r.Name == "Acquire 12V");
+        scrolled = 0;
+        tree.PrevFailCommand.Execute().Subscribe();
+
+        Assert.Equal("Acquire 12V", tree.SelectedStep?.Name);
+        Assert.True(tree.IsFilterAll);
+        Assert.Contains(tree.StepRows, r => r.Name == "Acquire 12V");
+        Assert.Equal(2, opened);
+        Assert.True(scrolled >= 1);
+    }
+
+    [Fact]
+    public void Hidden_selection_clears_the_stale_list_highlight()
+    {
+        var tree = new StepTreeViewModel(() => [SampleTree()]);
+        tree.RebuildFromHost();
+        var leaf = tree.StepRows[0];
+        tree.SelectedStep = leaf;
+        Assert.NotNull(tree.SelectedStepListItem);
+
+        tree.StepSearchText = "zzz-no-match";
+
+        Assert.Same(leaf, tree.SelectedStep);
+        Assert.Null(tree.SelectedStepListItem);
+        Assert.False(tree.IsSelectedStepVisible());
     }
 
     [Fact]
