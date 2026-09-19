@@ -5,7 +5,7 @@
              x:Class="HardwareTest.Features.RunTest.InteractionHostView"
              x:Name="Root"
              x:DataType="vm:RunTestViewModel">
-  <!-- Continue stays docked outside the body scroller so required actions stay visible at 900×600. -->
+  <!-- Continue and Show this step stay docked outside the body scroller so required actions stay visible at 900×600. -->
   <Border BorderBrush="#FB8C00"
           BorderThickness="2"
           CornerRadius="4"
@@ -26,6 +26,7 @@
                 Content="Continue"
                 Command="{Binding ContinueOperatorCommand}"
                 Classes="success"
+                IsDefault="True"
                 HorizontalAlignment="Left"
                 MinWidth="120"
                 MinHeight="{x:Static shell:OperatorTouchDensity.OperatorControlMinHeight}"
@@ -33,33 +34,38 @@
                 AutomationProperties.Name="Continue operator prompt" />
       </StackPanel>
 
+      <DockPanel DockPanel.Dock="Top" LastChildFill="True" Margin="0,0,0,6">
+        <Button x:Name="ShowThisStepButton"
+                DockPanel.Dock="Right"
+                Content="Show this step"
+                Command="{Binding ShowCurrentStepCommand}"
+                FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}"
+                Padding="8,2"
+                Margin="8,0,0,0"
+                MinHeight="{x:Static shell:OperatorTouchDensity.OperatorControlMinHeight}"
+                VerticalAlignment="Top"
+                ToolTip.Tip="Jump to the stage and step waiting for input"
+                AutomationProperties.Name="Show this step" />
+        <TextBlock Text="{Binding Interaction.InteractionTitle}"
+                   FontWeight="Bold"
+                   FontSize="13"
+                   TextWrapping="Wrap"
+                   VerticalAlignment="Center" />
+      </DockPanel>
+
+      <TextBlock DockPanel.Dock="Top"
+                 Text="{Binding CurrentStepName, StringFormat=Waiting at: {0}}"
+                 FontSize="12"
+                 Opacity="0.85"
+                 Margin="0,0,0,6"
+                 TextTrimming="CharacterEllipsis"
+                 IsVisible="{Binding CurrentStepName, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+
       <ScrollViewer x:Name="PromptBodyScroller"
                     VerticalScrollBarVisibility="Auto"
                     HorizontalScrollBarVisibility="Disabled"
                     MaxHeight="{x:Static shell:OperatorTouchDensity.InteractionHostBodyMaxHeight}">
         <StackPanel Spacing="6">
-          <TextBlock Text="{Binding Interaction.InteractionTitle}"
-                     FontWeight="Bold"
-                     FontSize="13" />
-          <DockPanel LastChildFill="True">
-            <Button x:Name="ShowThisStepButton"
-                    DockPanel.Dock="Right"
-                    Content="Show this step"
-                    Command="{Binding ShowCurrentStepCommand}"
-                    FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}"
-                    Padding="8,2"
-                    Margin="8,0,0,0"
-                    MinHeight="{x:Static shell:OperatorTouchDensity.OperatorControlMinHeight}"
-                    VerticalAlignment="Center"
-                    ToolTip.Tip="Jump to the stage and step waiting for input"
-                    AutomationProperties.Name="Show this step" />
-            <TextBlock Text="{Binding CurrentStepName, StringFormat=Waiting at: {0}}"
-                       FontSize="12"
-                       Opacity="0.85"
-                       VerticalAlignment="Center"
-                       TextTrimming="CharacterEllipsis"
-                       IsVisible="{Binding CurrentStepName, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
-          </DockPanel>
           <TextBlock Text="{Binding Interaction.OperatorPromptMessage}"
                      FontWeight="SemiBold"
                      TextWrapping="Wrap" />
@@ -82,6 +88,7 @@
                   <CheckBox Content="{Binding DisplayLabel}"
                             IsChecked="{Binding BoolValue}"
                             IsVisible="{Binding IsBoolean}"
+                            MinHeight="{x:Static shell:OperatorTouchDensity.OperatorControlMinHeight}"
                             AutomationProperties.Name="{Binding AutomationName}" />
                 </StackPanel>
               </DataTemplate>

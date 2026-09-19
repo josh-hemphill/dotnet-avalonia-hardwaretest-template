@@ -50,8 +50,10 @@ public partial class InteractionHostViewModel : ReactiveObject
         InteractionValidationError = null;
     }
 
-    /// Validates required fields and returns the values to send back to the host.
-    /// Sets <see cref="InteractionValidationError"/> and returns false when a field is unusable.
+    /// Validates fields and returns the values to send back to the host.
+    /// Required text must be present, required booleans must be checked, and any filled
+    /// number (required or optional) must parse. Sets <see cref="InteractionValidationError"/>
+    /// and returns false when a field is unusable.
     public bool TryCollectResponse(
         OperatorInteractionRequest? request,
         out Dictionary<string, string> values)
@@ -59,22 +61,30 @@ public partial class InteractionHostViewModel : ReactiveObject
         values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         if (request is not null && InteractionFields.Count > 0)
         {
-            foreach (var field in InteractionFields.Where(f => f.Required))
+            foreach (var field in InteractionFields)
             {
                 if (field.IsBoolean)
                 {
+                    if (field.Required && !field.BoolValue)
+                    {
+                        InteractionValidationError = $"{field.Label} is required.";
+                        return false;
+                    }
+
                     continue;
                 }
 
-                if (string.IsNullOrWhiteSpace(field.Value))
+                var trimmed = field.Value.Trim();
+                if (field.Required && string.IsNullOrWhiteSpace(trimmed))
                 {
                     InteractionValidationError = $"{field.Label} is required.";
                     return false;
                 }
 
                 if (field.Kind == OperatorInteractionFieldKind.Number
+                    && !string.IsNullOrWhiteSpace(trimmed)
                     && !double.TryParse(
-                        field.Value.Trim(),
+                        trimmed,
                         NumberStyles.Float,
                         CultureInfo.InvariantCulture,
                         out _))

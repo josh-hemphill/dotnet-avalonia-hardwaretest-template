@@ -62,7 +62,7 @@ public sealed class RunWorkspaceViewModelTests
         workspace.Refresh();
         Assert.True(workspace.ShowInteraction);
         Assert.True(workspace.ShowChart);
-        Assert.False(workspace.ShowModeSwitcher);
+        Assert.True(workspace.ShowModeSwitcher);
         Assert.Equal(RunWorkspace.Chart, workspace.Selected);
 
         awaiting = false;
@@ -83,7 +83,7 @@ public sealed class RunWorkspaceViewModelTests
         workspace.Refresh();
         Assert.True(workspace.ShowInteraction);
         Assert.True(workspace.ShowSteps);
-        Assert.False(workspace.ShowModeSwitcher);
+        Assert.True(workspace.ShowModeSwitcher);
         Assert.False(workspace.ShowPreparation);
     }
 
@@ -99,7 +99,7 @@ public sealed class RunWorkspaceViewModelTests
         Assert.True(workspace.ShowInteraction);
         Assert.False(workspace.ShowPreparation);
         Assert.True(workspace.ShowChart);
-        Assert.False(workspace.ShowModeSwitcher);
+        Assert.True(workspace.ShowModeSwitcher);
         Assert.Equal(RunWorkspace.Chart, workspace.Selected);
 
         awaiting = false;
@@ -211,7 +211,17 @@ public sealed class RunWorkspaceViewModelTests
         workspace.Refresh();
         Assert.True(workspace.CanOfferOverview);
         Assert.False(workspace.ShowOverviewSidebar);
-        Assert.False(workspace.ShowModeSwitcher);
+        Assert.True(workspace.ShowModeSwitcher);
+        Assert.False(workspace.ShowInlineStageChips);
+
+        awaiting = false;
+        workspace.ToggleOverview();
+        awaiting = true;
+        workspace.Refresh();
+        Assert.False(workspace.UserWantsOverview);
+        Assert.True(workspace.ShowModeSwitcher);
+        Assert.False(workspace.ShowOverviewSidebar);
+        Assert.False(workspace.ShowInlineStageChips);
     }
 
     [Fact]

@@ -53,7 +53,13 @@ public partial class InteractionHostView : UserControl
             var box = this.GetVisualDescendants()
                 .OfType<TextBox>()
                 .FirstOrDefault(t => t.IsVisible && t.IsEnabled);
-            box?.Focus();
+            if (box is not null)
+            {
+                box.Focus();
+                return;
+            }
+
+            ContinueButton.Focus();
         }
 
         Dispatcher.UIThread.Post(FocusFirst, DispatcherPriority.Loaded);
@@ -66,7 +72,13 @@ public partial class InteractionHostView : UserControl
             return;
         }
 
-        ((ICommand)_subscribed.ContinueOperatorCommand).Execute(null);
+        var continueCommand = (ICommand)_subscribed.ContinueOperatorCommand;
+        if (!continueCommand.CanExecute(null))
+        {
+            return;
+        }
+
+        continueCommand.Execute(null);
         e.Handled = true;
     }
 }

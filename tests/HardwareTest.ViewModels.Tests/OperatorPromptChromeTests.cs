@@ -18,11 +18,22 @@ public sealed class OperatorPromptChromeTests
         Assert.Contains("Value, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged", axaml, StringComparison.Ordinal);
 
         var continueIndex = axaml.IndexOf("x:Name=\"ContinueButton\"", StringComparison.Ordinal);
+        var showStepIndex = axaml.IndexOf("x:Name=\"ShowThisStepButton\"", StringComparison.Ordinal);
         var scrollerIndex = axaml.IndexOf("x:Name=\"PromptBodyScroller\"", StringComparison.Ordinal);
         Assert.True(continueIndex >= 0 && scrollerIndex >= 0, "Continue and body scroller must be named.");
         Assert.True(
             continueIndex < scrollerIndex,
             "Continue must be declared in the docked footer before the scrollable prompt body.");
+        Assert.True(
+            showStepIndex >= 0 && showStepIndex < scrollerIndex,
+            "Show this step must stay outside the scrollable prompt body.");
+        Assert.Contains("IsDefault=\"True\"", axaml, StringComparison.Ordinal);
+        var titleIndex = axaml.IndexOf("Text=\"{Binding Interaction.InteractionTitle}\"", StringComparison.Ordinal);
+        Assert.True(titleIndex >= 0, "Prompt title must be bound.");
+        var titleClose = axaml.IndexOf("/>", titleIndex, StringComparison.Ordinal);
+        Assert.True(titleClose > titleIndex);
+        var titleBlock = axaml[titleIndex..titleClose];
+        Assert.Contains("TextWrapping=\"Wrap\"", titleBlock, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -72,6 +83,51 @@ public sealed class OperatorPromptChromeTests
         host.InteractionFields[0].Value = "3.5";
         Assert.True(host.TryCollectResponse(request, out var values));
         Assert.Equal("3.5", values["fixtureTorqueNm"]);
+    }
+
+    [Fact]
+    public void InteractionHostViewModel_rejects_invalid_optional_number_and_required_boolean()
+    {
+        var host = new InteractionHostViewModel();
+        var request = new OperatorInteractionRequest
+        {
+            Id = "req-optional",
+            Title = "Confirm fixture",
+            Message = "Optional torque and required confirm",
+            Fields =
+            [
+                new OperatorInteractionField
+                {
+                    Id = "fixtureTorqueNm",
+                    Label = "Fixture torque (N·m)",
+                    Kind = OperatorInteractionFieldKind.Number,
+                    Required = false,
+                },
+                new OperatorInteractionField
+                {
+                    Id = "fixtureSeated",
+                    Label = "Fixture seated",
+                    Kind = OperatorInteractionFieldKind.Boolean,
+                    Required = true,
+                },
+            ],
+        };
+
+        host.Apply(request, fallbackMessage: null);
+        host.InteractionFields[0].Value = "not-a-number";
+        host.InteractionFields[1].BoolValue = true;
+        Assert.False(host.TryCollectResponse(request, out _));
+        Assert.Contains("must be a number", host.InteractionValidationError, StringComparison.OrdinalIgnoreCase);
+
+        host.InteractionFields[0].Value = "  ";
+        host.InteractionFields[1].BoolValue = false;
+        Assert.False(host.TryCollectResponse(request, out _));
+        Assert.Contains("required", host.InteractionValidationError, StringComparison.OrdinalIgnoreCase);
+
+        host.InteractionFields[1].BoolValue = true;
+        Assert.True(host.TryCollectResponse(request, out var values));
+        Assert.Equal(string.Empty, values["fixtureTorqueNm"]);
+        Assert.Equal("true", values["fixtureSeated"]);
     }
 
     [Fact]
@@ -175,12 +231,23 @@ public sealed class OperatorPromptChromeTests
         Assert.Contains("ShowCurrentStepCommand", host, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"ShowThisStepButton\"", host, StringComparison.Ordinal);
         Assert.Contains("AutomationProperties.Name=\"Show this step\"", host, StringComparison.Ordinal);
+        Assert.Contains("IsDefault=\"True\"", host, StringComparison.Ordinal);
+        Assert.Contains("CheckBox", host, StringComparison.Ordinal);
+        Assert.Contains("OperatorTouchDensity.OperatorControlMinHeight", host, StringComparison.Ordinal);
         Assert.Contains("<vm:InteractionHostView DockPanel.Dock=\"Top\"", run, StringComparison.Ordinal);
         Assert.DoesNotContain("<vm:InteractionHostView IsVisible", run, StringComparison.Ordinal);
 
         var steps = File.ReadAllText(FindRepoFile("src/HardwareTest/Features/RunTest/RunStepsWorkspaceView.axaml"));
         Assert.Contains("JumpToCurrentCommand", steps, StringComparison.Ordinal);
         Assert.Contains("Header=\"Jump to current\"", steps, StringComparison.Ordinal);
+
+        var codeBehind = File.ReadAllText(FindRepoFile("src/HardwareTest/Features/RunTest/InteractionHostView.axaml.cs"));
+        Assert.Contains("ContinueButton.Focus()", codeBehind, StringComparison.Ordinal);
+        Assert.Contains("CanExecute", codeBehind, StringComparison.Ordinal);
+
+        var keys = File.ReadAllText(FindRepoFile("src/HardwareTest/Features/RunTest/RunTestView.axaml.cs"));
+        Assert.Contains("Key.Escape", keys, StringComparison.Ordinal);
+        Assert.Contains("ShowCurrentStepCommand", keys, StringComparison.Ordinal);
     }
 
     private static string FindRepoFile(string relativePath)

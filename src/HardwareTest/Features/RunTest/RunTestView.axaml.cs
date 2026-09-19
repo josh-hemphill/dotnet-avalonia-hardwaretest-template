@@ -73,11 +73,21 @@ public partial class RunTestView : UserControl
         }
 
         var textInput = RunBoardKeyboard.IsTextInputTarget(e.Source);
-        if (e.Key == Key.Escape && !textInput && _subscribed.Workspace.CanReturnToSteps)
+        if (e.Key == Key.Escape && !textInput)
         {
-            _subscribed.Workspace.OpenSteps();
-            e.Handled = true;
-            return;
+            if (_subscribed.Interaction.IsAwaitingOperator)
+            {
+                ((ICommand)_subscribed.ShowCurrentStepCommand).Execute(null);
+                e.Handled = true;
+                return;
+            }
+
+            if (_subscribed.Workspace.CanReturnToSteps)
+            {
+                _subscribed.Workspace.OpenSteps();
+                e.Handled = true;
+                return;
+            }
         }
 
         if (!RunBoardKeyboard.TryMap(e.Key, e.KeyModifiers, textInput, out var shortcut))

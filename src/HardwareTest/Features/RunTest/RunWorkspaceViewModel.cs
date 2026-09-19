@@ -49,7 +49,8 @@ public sealed class RunWorkspaceViewModel : ReactiveObject
     public bool ShowInteraction => _awaitingOperator();
     /// Session overlay never covers a live run — Stop Run must stay on the board.
     public bool ShowPreparation => _sessionBlocked() && !ShowInteraction && !_isRunning();
-    public bool ShowModeSwitcher => !ShowPreparation && !ShowInteraction;
+    /// Steps / Details / Chart stay reachable while a prompt is docked; overlays hide them.
+    public bool ShowModeSwitcher => !ShowPreparation;
     public bool ShowSteps => ShowWorkspace(RunWorkspace.Steps);
     public bool ShowDetails => ShowWorkspace(RunWorkspace.Details);
     public bool ShowChart => ShowWorkspace(RunWorkspace.Chart);
@@ -66,11 +67,12 @@ public sealed class RunWorkspaceViewModel : ReactiveObject
     /// Hierarchy exists and the board is wide enough for a 200px rail.
     public bool CanOfferOverview => _hasHierarchy() && !_isCompactLayout();
 
-    /// Overview rail beside the tab content.
-    public bool ShowOverviewSidebar => CanOfferOverview && UserWantsOverview && ShowModeSwitcher;
+    /// Overview rail beside the tab content. Hidden during prompts so the waiting row stays on screen.
+    public bool ShowOverviewSidebar => CanOfferOverview && UserWantsOverview && ShowModeSwitcher && !ShowInteraction;
 
-    /// Stage chips in the Steps tab when the overview rail is off.
-    public bool ShowInlineStageChips => _hasHierarchy() && !_isCompactLayout() && !ShowOverviewSidebar;
+    /// Stage chips in the Steps tab when the overview rail is off. Hidden during prompts for the same reason.
+    public bool ShowInlineStageChips =>
+        _hasHierarchy() && !_isCompactLayout() && !ShowOverviewSidebar && !ShowInteraction;
 
     /// Recomputes overlay, tab, and overview visibility.
     /// Operator prompts take precedence over session confirmation so Continue stays reachable.

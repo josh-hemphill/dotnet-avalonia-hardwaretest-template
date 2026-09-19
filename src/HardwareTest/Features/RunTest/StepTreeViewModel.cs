@@ -353,6 +353,12 @@ public partial class StepTreeViewModel : ReactiveObject
             {
                 StepStatusFilter = StepFilter.All;
             }
+
+            if (!string.IsNullOrEmpty(StepSearchText)
+                && !StepRows.Any(r => ReferenceEquals(r, match)))
+            {
+                StepSearchText = string.Empty;
+            }
         }
         else if (!StepListItems.Any(i =>
                      ReferenceEquals(i.Step, match)
