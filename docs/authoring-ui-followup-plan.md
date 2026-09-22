@@ -48,3 +48,7 @@ Areas 2 and 3 both edit `MainWindow.axaml`, so complete Area 2 review before Are
 ## Area 1 desktop smoke evidence
 
 On Windows with .NET 10, `dotnet run --project src/HardwareTest.Authoring -c Debug -r win-x64 -- plans/opentap` opened the populated editor. The Programs rail showed Board Demo and Sample Hardware Suite; Board Demo's Acquire 3V3 metric was selected, its Y unit and measure recipe ComboBoxes rendered, and the timeseries preview chart rendered. The process remained open without stderr output until manually closed. This exercises the ComboBox binding path that previously produced a stack overflow at startup.
+
+## Area 2 desktop smoke evidence
+
+Launched without a workspace on Windows at 1280×800 and resized to 960×600. The welcome panel and both workspace-opening actions remained visible at both sizes; Bootstrap, Save, and Validate were disabled and the editor was hidden. The validation-scope message is hidden until a workspace is open.

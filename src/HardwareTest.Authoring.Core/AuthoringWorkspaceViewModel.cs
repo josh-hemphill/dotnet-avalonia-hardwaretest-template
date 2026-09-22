@@ -56,10 +56,18 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
 
     public IReadOnlyList<AuthoringRecipe> Recipes => AuthoringRecipeCatalog.Palette;
 
+    public bool HasWorkspace => Workspace is not null;
+
     public AuthoringWorkspace? Workspace
     {
         get => _workspace;
-        private set => SetField(ref _workspace, value);
+        private set
+        {
+            if (SetField(ref _workspace, value))
+            {
+                OnPropertyChanged(nameof(HasWorkspace));
+            }
+        }
     }
 
     public IReadOnlyList<ProgramDraft> Programs
