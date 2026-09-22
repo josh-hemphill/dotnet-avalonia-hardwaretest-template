@@ -75,7 +75,7 @@
                Text="{Binding Error, StringFormat='Error: {0}'}"
                AutomationProperties.LiveSetting="Assertive"
                AutomationProperties.Name="Authoring error" />
-    <Grid ColumnDefinitions="220,*" Margin="12,0,12,12">
+    <Grid ColumnDefinitions="180,*" Margin="12,0,12,12">
       <DockPanel Grid.Column="0" Margin="0,0,12,0">
         <TextBlock x:Name="ProgramsHeading"
                    DockPanel.Dock="Top"
@@ -116,8 +116,8 @@
           <ListBox.ItemTemplate>
             <DataTemplate x:DataType="vm:ProgramDraft">
               <StackPanel>
-                <TextBlock Text="{Binding Sidecar.DisplayName}" />
-                <TextBlock Opacity="0.7" FontSize="11" Text="{Binding PlanId}" />
+                <TextBlock Text="{Binding Sidecar.DisplayName}" TextWrapping="Wrap" />
+                <TextBlock Opacity="0.7" FontSize="11" Text="{Binding PlanId}" TextWrapping="Wrap" />
               </StackPanel>
             </DataTemplate>
           </ListBox.ItemTemplate>
@@ -125,7 +125,7 @@
       </DockPanel>
       <TabControl x:Name="WorkspaceTabs" Grid.Column="1">
         <TabItem Header="Program" AutomationProperties.Name="Program tab">
-          <Grid ColumnDefinitions="280,320,*" RowDefinitions="Auto,*">
+          <Grid ColumnDefinitions="200,5,250,5,*" RowDefinitions="Auto,*">
             <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,12,8">
               <TextBlock x:Name="SequenceHeading"
                          FontWeight="SemiBold"
@@ -135,7 +135,7 @@
                          TextWrapping="Wrap"
                          Text="{Binding SequencePurpose}" />
             </StackPanel>
-            <StackPanel Grid.Row="0" Grid.Column="1" Margin="0,0,12,8">
+            <StackPanel Grid.Row="0" Grid.Column="2" Margin="0,0,12,8">
               <TextBlock x:Name="InspectorHeading"
                          FontWeight="SemiBold"
                          Text="{Binding InspectorTitle}"
@@ -144,7 +144,7 @@
                          TextWrapping="Wrap"
                          Text="{Binding InspectorPurpose}" />
             </StackPanel>
-            <StackPanel Grid.Row="0" Grid.Column="2" Margin="0,0,0,8">
+            <StackPanel Grid.Row="0" Grid.Column="4" Margin="0,0,0,8">
               <TextBlock x:Name="PreviewHeading"
                          FontWeight="SemiBold"
                          Text="{Binding PreviewTitle}"
@@ -217,7 +217,9 @@
               </ListBox>
             </DockPanel>
 
-            <ScrollViewer Grid.Row="1" Grid.Column="1" Margin="0,0,12,0">
+            <GridSplitter Grid.RowSpan="2" Grid.Column="1" Width="5" ResizeDirection="Columns" />
+            <GridSplitter Grid.RowSpan="2" Grid.Column="3" Width="5" ResizeDirection="Columns" />
+            <ScrollViewer Grid.Row="1" Grid.Column="2" Margin="0,0,12,0">
               <StackPanel Spacing="8">
                 <TextBlock Text="{Binding InspectorBreadcrumb}" TextWrapping="Wrap" />
 
@@ -525,7 +527,7 @@
               </StackPanel>
             </ScrollViewer>
 
-            <StackPanel Grid.Row="1" Grid.Column="2" Spacing="8">
+            <StackPanel Grid.Row="1" Grid.Column="4" Spacing="8" MinWidth="220">
               <vm:OperatorPreviewPane />
               <TextBlock x:Name="RecordingsHeading"
                          FontWeight="SemiBold"
