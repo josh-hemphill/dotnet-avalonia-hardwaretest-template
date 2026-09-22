@@ -3,11 +3,11 @@ using System.Diagnostics;
 using System.Text;
 using HardwareTest.Core.Settings;
 using Serilog;
+using StreamJsonRpc;
 using ILogger = Serilog.ILogger;
 
 namespace HardwareTest.OpenTap.Host.Worker;
 
-/// Raised when the worker process died or the IPC channel closed — not a protocol Ok:false error.
 public sealed class OpenTapWorkerProcessException : InvalidOperationException
 {
     public OpenTapWorkerProcessException(string message)
@@ -16,19 +16,17 @@ public sealed class OpenTapWorkerProcessException : InvalidOperationException
     }
 }
 
-/// Owns the OpenTAP worker child process and NDJSON stdin/stdout.
+/// Owns the OpenTAP worker child process and its StreamJsonRpc channel.
 public sealed class OpenTapWorkerProcess : IDisposable
 {
     public const string ExecutableName = "HardwareTest.OpenTap.Worker";
 
     private readonly ILogger _logger;
-    private readonly object _writeLock = new();
-    private readonly ConcurrentDictionary<long, PendingRequest> _pending = new();
+    private readonly ConcurrentDictionary<long, Action<WorkerEnvelope>> _eventHandlers = new();
     private readonly StringBuilder _stderr = new();
     private readonly object _stderrLock = new();
     private Process? _process;
-    private StreamWriter? _stdin;
-    private CancellationTokenSource? _readerCts;
+    private JsonRpc? _rpc;
     private long _nextId = 1;
     private int _disposed;
 
@@ -95,19 +93,15 @@ public sealed class OpenTapWorkerProcess : IDisposable
             return path;
         }
 
-        throw new FileNotFoundException(
-            $"OpenTAP worker executable not found at '{path}'.",
-            path);
+        throw new FileNotFoundException($"OpenTAP worker executable not found at '{path}'.", path);
     }
 
     public void EnsureStarted(AppSettings settings)
     {
-        if (IsAlive)
+        if (!IsAlive)
         {
-            return;
+            Start(settings);
         }
-
-        Start(settings);
     }
 
     public void Start(AppSettings settings)
@@ -123,8 +117,6 @@ public sealed class OpenTapWorkerProcess : IDisposable
             RedirectStandardError = true,
             UseShellExecute = false,
             CreateNoWindow = true,
-            StandardInputEncoding = Encoding.UTF8,
-            StandardOutputEncoding = Encoding.UTF8,
             StandardErrorEncoding = Encoding.UTF8,
         };
         psi.Environment["DOTNET_SYSTEM_CONSOLE_ALLOW_ANSI_COLOR_REDIRECTION"] = "false";
@@ -140,7 +132,6 @@ public sealed class OpenTapWorkerProcess : IDisposable
             AppendStderr(e.Data);
             _logger.Debug("OpenTAP worker stderr: {Line}", e.Data);
         };
-        process.Exited += (_, _) => FailAllPending("OpenTAP worker process exited.");
 
         if (!process.Start())
         {
@@ -150,9 +141,14 @@ public sealed class OpenTapWorkerProcess : IDisposable
 
         process.BeginErrorReadLine();
         _process = process;
-        _stdin = process.StandardInput;
-        _readerCts = new CancellationTokenSource();
-        _ = Task.Run(() => ReadStdout(process, _readerCts.Token), _readerCts.Token);
+        var handler = new HeaderDelimitedMessageHandler(
+            process.StandardInput.BaseStream,
+            process.StandardOutput.BaseStream,
+            WorkerProtocol.CreateFormatter());
+        var rpc = new JsonRpc(handler);
+        rpc.AddLocalRpcTarget(new CallbackTarget(this));
+        rpc.StartListening();
+        _rpc = rpc;
 
         var init = Request(
                 WorkerProtocol.Init,
@@ -186,25 +182,19 @@ public sealed class OpenTapWorkerProcess : IDisposable
         CancellationToken cancellationToken,
         Action<WorkerEnvelope>? onEvent)
     {
-        if (!IsAlive)
+        var rpc = _rpc;
+        if (!IsAlive || rpc is null)
         {
             throw new OpenTapWorkerProcessException("OpenTAP worker is not running.");
         }
 
         var id = Interlocked.Increment(ref _nextId);
-        var pending = new PendingRequest(onEvent);
-        _pending[id] = pending;
-        // Cancelling this token only abandons the IPC wait; it does not abort the worker.
-        // Run/runSelection must pass CancellationToken.None and stop via Abort.
-        using var reg = cancellationToken.Register(() => pending.TryCancel());
-
-        var envelope = new WorkerEnvelope
+        if (onEvent is not null)
         {
-            Id = id,
-            Kind = WorkerProtocol.KindRequest,
-            Method = method,
-            Ok = true,
-        };
+            _eventHandlers[id] = onEvent;
+        }
+
+        var envelope = new WorkerEnvelope { Id = id, Method = method, Ok = true };
         if (payload is not null && payloadType is not null)
         {
             envelope.Payload = WorkerProtocol.SerializePayload(payload, payloadType);
@@ -212,15 +202,28 @@ public sealed class OpenTapWorkerProcess : IDisposable
 
         try
         {
-            Write(envelope);
-        }
-        catch
-        {
-            _pending.TryRemove(id, out _);
-            throw;
-        }
+            var response = await rpc.InvokeWithCancellationAsync<WorkerEnvelope>(
+                    "invoke",
+                    [envelope],
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (method == WorkerProtocol.Shutdown && response.Ok)
+            {
+                Stop(writeDossier: false);
+            }
 
-        return await pending.Completion.Task.ConfigureAwait(false);
+            return response;
+        }
+        catch (ConnectionLostException ex)
+        {
+            var stderr = StderrTail.Trim();
+            throw new OpenTapWorkerProcessException(
+                string.IsNullOrWhiteSpace(stderr) ? ex.Message : $"{ex.Message} {stderr}");
+        }
+        finally
+        {
+            _eventHandlers.TryRemove(id, out _);
+        }
     }
 
     public void KillTree()
@@ -249,18 +252,18 @@ public sealed class OpenTapWorkerProcess : IDisposable
     public void Stop(bool writeDossier)
     {
         _ = writeDossier;
-        FailAllPending("OpenTAP worker stopped.");
-        _readerCts?.Cancel();
-        KillTree();
         try
         {
-            _stdin?.Dispose();
+            _rpc?.Dispose();
         }
         catch
         {
             // ignore
         }
 
+        _rpc = null;
+        _eventHandlers.Clear();
+        KillTree();
         try
         {
             _process?.Dispose();
@@ -270,10 +273,7 @@ public sealed class OpenTapWorkerProcess : IDisposable
             // ignore
         }
 
-        _stdin = null;
         _process = null;
-        _readerCts?.Dispose();
-        _readerCts = null;
         lock (_stderrLock)
         {
             _stderr.Clear();
@@ -282,96 +282,26 @@ public sealed class OpenTapWorkerProcess : IDisposable
 
     public void Dispose()
     {
-        if (Interlocked.Exchange(ref _disposed, 1) != 0)
+        if (Interlocked.Exchange(ref _disposed, 1) == 0)
+        {
+            Stop(writeDossier: false);
+        }
+    }
+
+    private void DispatchProgress(WorkerEnvelope envelope)
+    {
+        if (!_eventHandlers.TryGetValue(envelope.Id, out var handler))
         {
             return;
         }
 
-        Stop(writeDossier: false);
-    }
-
-    private void Write(WorkerEnvelope envelope)
-    {
-        var line = WorkerProtocol.FormatLine(envelope);
-        lock (_writeLock)
-        {
-            var stdin = _stdin ?? throw new InvalidOperationException("OpenTAP worker stdin is closed.");
-            stdin.WriteLine(line);
-            stdin.Flush();
-        }
-    }
-
-    private void ReadStdout(Process process, CancellationToken cancellationToken)
-    {
         try
         {
-            while (!cancellationToken.IsCancellationRequested)
-            {
-                var line = process.StandardOutput.ReadLine();
-                if (line is null)
-                {
-                    FailAllPending("OpenTAP worker stdout closed.");
-                    return;
-                }
-
-                if (!WorkerProtocol.TryParseLine(line, out var envelope))
-                {
-                    continue;
-                }
-
-                Dispatch(envelope);
-            }
-        }
-        catch (Exception ex) when (ex is IOException or ObjectDisposedException)
-        {
-            FailAllPending("OpenTAP worker stdout ended.");
+            handler(envelope);
         }
         catch (Exception ex)
         {
-            _logger.Warning(ex, "OpenTAP worker stdout reader failed.");
-            FailAllPending(ex.Message);
-        }
-    }
-
-    private void Dispatch(WorkerEnvelope envelope)
-    {
-        if (!_pending.TryGetValue(envelope.Id, out var pending))
-        {
-            return;
-        }
-
-        if (string.Equals(envelope.Kind, WorkerProtocol.KindEvent, StringComparison.OrdinalIgnoreCase))
-        {
-            try
-            {
-                pending.OnEvent?.Invoke(envelope);
-            }
-            catch (Exception ex)
-            {
-                _logger.Warning(ex, "OpenTAP worker event handler failed.");
-            }
-
-            return;
-        }
-
-        if (!_pending.TryRemove(envelope.Id, out _))
-        {
-            return;
-        }
-
-        pending.Completion.TrySetResult(envelope);
-    }
-
-    private void FailAllPending(string message)
-    {
-        foreach (var id in _pending.Keys.ToArray())
-        {
-            if (!_pending.TryRemove(id, out var pending))
-            {
-                continue;
-            }
-
-            pending.Completion.TrySetException(new OpenTapWorkerProcessException(message));
+            _logger.Warning(ex, "OpenTAP worker event handler failed.");
         }
     }
 
@@ -388,14 +318,10 @@ public sealed class OpenTapWorkerProcess : IDisposable
         }
     }
 
-    private sealed class PendingRequest(Action<WorkerEnvelope>? onEvent)
+    private sealed class CallbackTarget(OpenTapWorkerProcess owner)
     {
-        public TaskCompletionSource<WorkerEnvelope> Completion { get; } =
-            new(TaskCreationOptions.RunContinuationsAsynchronously);
-
-        public Action<WorkerEnvelope>? OnEvent { get; } = onEvent;
-
-        public void TryCancel()
-            => Completion.TrySetCanceled();
+        [JsonRpcMethod("progress")]
+        public void Progress(WorkerEnvelope envelope)
+            => owner.DispatchProgress(envelope);
     }
 }

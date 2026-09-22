@@ -12,6 +12,45 @@ namespace HardwareTest.Tests.OpenTap;
 public sealed class OpenTapWorkerKillTests
 {
     [Fact]
+    public async Task Worker_rpc_shutdown_replies_before_process_exit()
+    {
+        using var temp = new TempDataDirectory();
+        using var process = new OpenTapWorkerProcess();
+        process.Start(new AppSettings
+        {
+            UseMockVisa = true,
+            CrashEnabled = false,
+            DataDirectory = temp.Path,
+        });
+
+        var response = await process.Request(WorkerProtocol.Shutdown, CancellationToken.None);
+
+        Assert.True(response.Ok, response.Error);
+        await WaitUntilAsync(() => !process.IsAlive, TimeSpan.FromSeconds(5));
+    }
+
+    [Fact]
+    public async Task Worker_rpc_forwards_progress_before_the_terminal_response()
+    {
+        using var temp = new TempDataDirectory();
+        using var client = new OpenTapWorkerClient(
+            new AppSettings
+            {
+                UseMockVisa = true,
+                CrashEnabled = false,
+                DataDirectory = temp.Path,
+            });
+        var progress = new RecordingProgress();
+
+        await client.LoadPlanShapeAsync(PlanShapeFixtures.FlatLeavesName);
+        var summary = await client.RunAsync(progress).WaitAsync(TimeSpan.FromSeconds(60));
+
+        Assert.True(summary.Result is RunResult.Passed or RunResult.Failed);
+        Assert.NotEmpty(progress.Items);
+        Assert.True(progress.Items[^1].IsCompleted);
+    }
+
+    [Fact]
     public async Task Hung_step_kill_timeout_runs_SafeIdle_and_allows_a_second_run()
     {
         using var temp = new TempDataDirectory();
@@ -126,6 +165,31 @@ public sealed class OpenTapWorkerKillTests
             }
 
             await Task.Delay(20);
+        }
+    }
+
+    private sealed class RecordingProgress : IProgress<OpenTapProgress>
+    {
+        private readonly object _sync = new();
+        private readonly List<OpenTapProgress> _items = [];
+
+        public IReadOnlyList<OpenTapProgress> Items
+        {
+            get
+            {
+                lock (_sync)
+                {
+                    return [.. _items];
+                }
+            }
+        }
+
+        public void Report(OpenTapProgress value)
+        {
+            lock (_sync)
+            {
+                _items.Add(value);
+            }
         }
     }
 
