@@ -9,6 +9,30 @@ namespace HardwareTest.Authoring.Tests;
 public sealed class AuthoringMeasureInspectorTests
 {
     [Fact]
+    public void Combo_box_choices_keep_identity_until_their_values_change()
+    {
+        var vm = OpenEmpty();
+        vm.CreateProgram("stable-choices");
+        vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
+        SelectMetric(vm, "VDC");
+
+        var units = vm.YUnitOptions;
+        var functions = vm.MetricFunctionChoices;
+        var selectedFunction = vm.SelectedMetricFunction;
+        Assert.Same(units, vm.YUnitOptions);
+        Assert.Same(functions, vm.MetricFunctionChoices);
+        Assert.Same(selectedFunction, vm.SelectedMetricFunction);
+
+        vm.YUnit = "custom-unit";
+        Assert.NotSame(units, vm.YUnitOptions);
+        Assert.Contains("custom-unit", vm.YUnitOptions);
+
+        vm.ApplyRecipe(AuthoringRecipeIds.MeanGte);
+        SelectMetric(vm, "VDC.mean");
+        Assert.NotSame(functions, vm.MetricFunctionChoices);
+    }
+
+    [Fact]
     public void Acquire_inspector_edits_sample_count_and_function_id()
     {
         var vm = OpenEmpty();

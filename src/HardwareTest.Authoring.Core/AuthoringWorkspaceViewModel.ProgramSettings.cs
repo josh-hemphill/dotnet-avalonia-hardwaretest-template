@@ -13,10 +13,25 @@ public sealed partial class AuthoringWorkspaceViewModel
     private int _formulaSaveGeneration;
     private int _formulaSaveStamp = -1;
     private FormulaSaveOutcome _formulaSave;
+    private IReadOnlyList<string> _yUnitOptions = [];
+    private IReadOnlyList<string> _metricFunctionIds = [];
+    private IReadOnlyList<AuthoringFunctionDisplay> _metricFunctionChoices = [];
 
     public IReadOnlyList<string> DisplayRoleOptions => AuthoringEditorCatalog.DisplayRoles;
 
-    public IReadOnlyList<string> YUnitOptions => AuthoringWorkspaceCatalog.YUnitOptions(SelectedProgram);
+    public IReadOnlyList<string> YUnitOptions
+    {
+        get
+        {
+            var current = AuthoringWorkspaceCatalog.YUnitOptions(SelectedProgram);
+            if (!_yUnitOptions.SequenceEqual(current, StringComparer.Ordinal))
+            {
+                _yUnitOptions = current;
+            }
+
+            return _yUnitOptions;
+        }
+    }
 
     public IReadOnlyList<string> TfMethodOptions => AuthoringEditorCatalog.TfMethods;
 
@@ -528,7 +543,19 @@ public sealed partial class AuthoringWorkspaceViewModel
     }
 
     public IReadOnlyList<AuthoringFunctionDisplay> MetricFunctionChoices
-        => AuthoringInspectorCopy.DescribeFunctions(MetricFunctionIdOptions);
+    {
+        get
+        {
+            var ids = MetricFunctionIdOptions;
+            if (!_metricFunctionIds.SequenceEqual(ids, StringComparer.Ordinal))
+            {
+                _metricFunctionIds = ids;
+                _metricFunctionChoices = AuthoringInspectorCopy.DescribeFunctions(ids);
+            }
+
+            return _metricFunctionChoices;
+        }
+    }
 
     public AuthoringFunctionDisplay? SelectedMetricFunction
     {
