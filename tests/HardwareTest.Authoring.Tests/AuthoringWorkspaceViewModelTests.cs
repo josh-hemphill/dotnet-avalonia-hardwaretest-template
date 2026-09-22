@@ -88,6 +88,24 @@ public sealed class AuthoringWorkspaceViewModelTests
         Assert.Contains(vm.Findings, f => f.Severity == PlanContractSeverity.Error);
         Assert.Contains(vm.Findings, f => f.Code.Contains("SIDECAR", StringComparison.OrdinalIgnoreCase)
                                          || f.Message.Contains("sidecar", StringComparison.OrdinalIgnoreCase));
+        var row = Assert.Single(vm.FindingRows, f => f.Code == PlanContractValidator.Codes.SidecarMissing);
+        Assert.Equal("sample", row.ProgramId);
+        Assert.True(row.CanOpenProgram);
+        Assert.Equal("Plan-wide", row.Location);
+    }
+
+    [Fact]
+    public void Findings_identify_each_affected_program()
+    {
+        var root = CopyTemplateWorkspace();
+        File.Delete(Path.Combine(root, "sample.program.json"));
+        File.Delete(Path.Combine(root, "board-demo.program.json"));
+        var vm = new AuthoringWorkspaceViewModel();
+        vm.Open(root);
+        vm.Validate();
+
+        Assert.Contains(vm.FindingRows, row => row.ProgramId == "sample" && row.CanOpenProgram);
+        Assert.Contains(vm.FindingRows, row => row.ProgramId == "board-demo" && row.CanOpenProgram);
     }
 
     [Fact]

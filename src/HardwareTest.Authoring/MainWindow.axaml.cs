@@ -212,6 +212,20 @@ public partial class MainWindow : Window
     private void OnOpenLastWorkspace(object? sender, RoutedEventArgs e)
         => TryRun(_viewModel.OpenLastWorkspace);
 
+    private void OnOpenFindingProgram(object? sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { DataContext: AuthoringFindingRow { CanOpenProgram: true } row })
+        {
+            return;
+        }
+
+        _viewModel.SelectProgram(row.ProgramId);
+        if (this.FindControl<TabControl>("WorkspaceTabs") is { } tabs)
+        {
+            tabs.SelectedIndex = 0;
+        }
+    }
+
     private void OnOpenSettings(object? sender, RoutedEventArgs e)
     {
         if (_settings is not null)
