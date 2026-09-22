@@ -63,6 +63,20 @@ public sealed class AuthoringWorkspaceViewModelTests
     }
 
     [Fact]
+    public void Saving_one_program_keeps_other_program_dirty()
+    {
+        var vm = new AuthoringWorkspaceViewModel();
+        vm.Open(CopyTemplateWorkspace());
+        vm.CreateProgram("new-program");
+        vm.SelectProgram("sample");
+        vm.DisplayName = "Edited sample";
+        vm.SaveSidecar();
+
+        Assert.True(vm.HasUnsavedChanges);
+        Assert.Throws<AuthoringWorkspaceException>(() => vm.Validate());
+    }
+
+    [Fact]
     public void Validate_surfaces_contract_findings_when_sidecar_missing()
     {
         var root = CopyTemplateWorkspace();
