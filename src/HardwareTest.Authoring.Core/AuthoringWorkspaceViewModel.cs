@@ -13,6 +13,7 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
     private IReadOnlyList<ProgramDraft> _programs = [];
     private ProgramDraft? _selectedProgram;
     private IReadOnlyList<PlanContractFinding> _findings = [];
+    private IReadOnlyList<AuthoringFindingRow> _findingRows = [];
     private IReadOnlyList<string> _measureTree = [];
     private string? _status;
     private string? _error;
@@ -34,6 +35,7 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
         if (plan) _dirtyPlans.Add(planId);
         if (sidecar) _dirtySidecars.Add(planId);
         Findings = [];
+        FindingRows = [];
         OnPropertyChanged(nameof(HasUnsavedChanges));
         OnPropertyChanged(nameof(ValidationScope));
     }
@@ -100,6 +102,12 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
     {
         get => _findings;
         private set => SetField(ref _findings, value);
+    }
+
+    public IReadOnlyList<AuthoringFindingRow> FindingRows
+    {
+        get => _findingRows;
+        private set => SetField(ref _findingRows, value);
     }
 
     public IReadOnlyList<RunDataset> Datasets => _datasets;
@@ -187,6 +195,7 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
         _selectedInstrumentSlot = null;
         AssignSelectedProgram(draft.Programs.FirstOrDefault());
         Findings = [];
+        FindingRows = [];
         Status = $"{files.Manifest.DisplayName}: {draft.Programs.Count} program(s)";
         RefreshDatasets();
         RememberLastWorkspace(files.Root);
@@ -323,6 +332,7 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
                 ? null
                 : remaining[Math.Min(removedIndex, remaining.Length - 1)]);
         Findings = [];
+        FindingRows = [];
         Status = $"Removed {planId}";
         Error = null;
         RefreshDatasets();
@@ -451,6 +461,12 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
                 ExcludeVisaAdapter = true,
             });
         Findings = report.Plans.SelectMany(p => p.Findings).ToArray();
+        FindingRows = report.Plans.SelectMany(plan => plan.Findings.Select(finding =>
+        {
+            var planId = Path.GetFileNameWithoutExtension(plan.TargetPath);
+            return new AuthoringFindingRow(planId, plan.TargetPath, finding,
+                Programs.Any(program => string.Equals(program.PlanId, planId, StringComparison.OrdinalIgnoreCase)));
+        })).ToArray();
         Status = report.HasErrors
             ? $"{report.ErrorCount} contract error(s)"
             : $"{report.WarningCount} contract warning(s)";
