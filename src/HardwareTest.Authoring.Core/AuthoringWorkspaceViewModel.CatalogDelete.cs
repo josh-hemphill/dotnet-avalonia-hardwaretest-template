@@ -177,6 +177,9 @@ public sealed partial class AuthoringWorkspaceViewModel
             try
             {
                 _compiler.Save(next, existingTapPlan);
+                _dirtyPlans.Remove(next.PlanId);
+                _dirtySidecars.Remove(next.PlanId);
+                RefreshDirtyState();
             }
             catch (Exception ex)
             {
@@ -219,7 +222,10 @@ public sealed partial class AuthoringWorkspaceViewModel
             }
 
             _compiler.SaveSidecar(tapPlanPath, program.Sidecar);
+            _dirtySidecars.Remove(program.PlanId);
         }
+
+        RefreshDirtyState();
     }
 
     private bool CanRemoveCatalogItem(string? id, Func<string?, bool> isProtected)

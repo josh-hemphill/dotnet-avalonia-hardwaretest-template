@@ -113,6 +113,7 @@ public sealed class AuthoringProgramSettingsDeleteTests
         vm.Apply();
         Assert.True(vm.ProgramKindChoices.Single(row => row.Id == "incomingInspect").CanRemove);
         vm.RemoveProgramKindFromCatalog("incomingInspect");
+        Assert.False(vm.HasUnsavedChanges);
         Assert.DoesNotContain("incomingInspect", vm.ProgramKindOptions);
         Assert.Equal("dut", vm.ProgramKind);
         Assert.All(vm.Programs, program =>
@@ -523,6 +524,7 @@ public sealed class AuthoringProgramSettingsDeleteTests
         Assert.Equal(["DMM", "SCOPE"], vm.InstrumentSlots);
         vm.SelectedInstrumentSlot = "DMM";
         vm.RemoveSelectedInstrumentSlot();
+        Assert.False(vm.HasUnsavedChanges);
         var reloaded = new AuthoringWorkspaceViewModel();
         reloaded.Open(vm.Workspace!.Root);
         reloaded.SelectProgram("slots-save");

@@ -548,6 +548,10 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
         ArgumentNullException.ThrowIfNull(mutate);
         var selectedId = _selectedProgram?.PlanId;
         Programs = Programs.Select(mutate).ToArray();
+        foreach (var program in Programs)
+        {
+            MarkDirty(program.PlanId, false, true);
+        }
         if (selectedId is not null)
         {
             _selectedProgram = Programs.FirstOrDefault(program =>
