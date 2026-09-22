@@ -42,6 +42,8 @@ public static class AuthoringChrome
     public const string InspectorTitle = "Inspector";
     public const string InspectorPurpose =
         "Edit this step’s metric, algorithm, or prompt — not the whole program.";
+    public const string InspectorEmptySelectionHint =
+        "Select a step in the sequence to see its properties.";
     public const string PreviewTitle = "Operator preview";
     public const string PreviewPurpose =
         "How this metric will look on the operator board, from canned samples or a recording — not Execute.";

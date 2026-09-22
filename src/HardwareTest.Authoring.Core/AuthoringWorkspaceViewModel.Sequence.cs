@@ -75,7 +75,7 @@ public sealed partial class AuthoringWorkspaceViewModel
 
     public string InspectorBreadcrumb
         => SelectedSequence is null
-            ? InspectorPurpose
+            ? AuthoringChrome.InspectorEmptySelectionHint
             : $"{SelectedSequence.Section} › {SelectedSequence.Label}";
 
     public string RepeatCount
