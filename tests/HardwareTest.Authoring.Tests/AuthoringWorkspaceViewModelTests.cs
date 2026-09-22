@@ -35,6 +35,34 @@ public sealed class AuthoringWorkspaceViewModelTests
     }
 
     [Fact]
+    public void Validation_requires_saving_edited_sidecar()
+    {
+        var vm = new AuthoringWorkspaceViewModel();
+        vm.Open(CopyTemplateWorkspace());
+        vm.SelectProgram("sample");
+        vm.DisplayName = "Edited sample";
+
+        Assert.True(vm.HasUnsavedChanges);
+        Assert.Throws<AuthoringWorkspaceException>(() => vm.Validate());
+        vm.SaveSidecar();
+        Assert.False(vm.HasUnsavedChanges);
+    }
+
+    [Fact]
+    public void Sidecar_save_does_not_clear_unsaved_plan_edits()
+    {
+        var vm = new AuthoringWorkspaceViewModel();
+        vm.Open(CopyTemplateWorkspace());
+        vm.SelectProgram("sample");
+        vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
+
+        Assert.True(vm.HasUnsavedChanges);
+        vm.SaveSidecar();
+        Assert.True(vm.HasUnsavedChanges);
+        Assert.Throws<AuthoringWorkspaceException>(() => vm.Validate());
+    }
+
+    [Fact]
     public void Validate_surfaces_contract_findings_when_sidecar_missing()
     {
         var root = CopyTemplateWorkspace();

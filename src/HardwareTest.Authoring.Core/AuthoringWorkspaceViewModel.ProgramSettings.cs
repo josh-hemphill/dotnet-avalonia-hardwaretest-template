@@ -910,6 +910,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         }
 
         RequiredFieldIds.Apply(SelectedProgram.Sidecar, current);
+        MarkDirty(SelectedProgram.PlanId, false, true);
         RaiseSidecarProperties();
     }
 
@@ -1005,6 +1006,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         }
 
         mutate(SelectedProgram.Sidecar);
+        MarkDirty(SelectedProgram.PlanId, false, true);
         RaiseSidecarProperties();
     }
 

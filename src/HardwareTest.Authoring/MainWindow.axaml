@@ -49,9 +49,15 @@
                    VerticalAlignment="Center"
                    Text="{Binding Status}"
                    AutomationProperties.LiveSetting="Polite"
-                   AutomationProperties.Name="Authoring status" />
+                    AutomationProperties.Name="Authoring status" />
+        <TextBlock Text="Unsaved changes"
+                   IsVisible="{Binding HasUnsavedChanges}"
+                   VerticalAlignment="Center"
+                   FontWeight="SemiBold"
+                   AutomationProperties.Name="Unsaved changes" />
       </StackPanel>
     </StackPanel>
+    <TextBlock DockPanel.Dock="Top" Margin="12,0,12,8" Text="{Binding ValidationScope}" TextWrapping="Wrap" />
     <TextBlock DockPanel.Dock="Bottom"
                Margin="12,0,12,12"
                Foreground="#C62828"
