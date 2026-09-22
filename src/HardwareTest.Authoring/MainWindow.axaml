@@ -11,7 +11,7 @@
         MinHeight="600">
   <DockPanel>
     <StackPanel DockPanel.Dock="Top" Spacing="8" Margin="12">
-      <WrapPanel Orientation="Horizontal" ItemWidth="300" ItemHeight="76">
+      <WrapPanel Orientation="Horizontal" ItemWidth="300" ItemHeight="90">
         <StackPanel Spacing="4">
           <TextBlock FontWeight="SemiBold" Text="Workspace" />
           <StackPanel Orientation="Horizontal" Spacing="6">
@@ -37,7 +37,8 @@
                 ToolTip.Tip="Compile metrics to TapPlan + sidecar (Setup / measure / Cleanup groups)"
                 AutomationProperties.Name="Save plan" />
           </StackPanel>
-          <TextBlock FontSize="11" Text="Sidecar saves settings only; plan saves sequence and settings." />
+          <TextBlock FontSize="11" MaxWidth="290" TextWrapping="Wrap"
+                     Text="Sidecar: settings only. Plan: sequence and settings." />
         </StackPanel>
         <StackPanel Spacing="4">
           <TextBlock FontWeight="SemiBold" Text="Check and configure" />
