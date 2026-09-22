@@ -1,8 +1,10 @@
 using HardwareTest.Core.Time;
+using PCSC;
+using PCSC.Exceptions;
 
 namespace HardwareTest.Core.Credentials;
 
-/// PC/SC contact (chip) and contactless (tap) capture for Windows, Linux, and macOS.
+/// <summary>PC/SC contact and contactless credential capture backed by pcsc-sharp.</summary>
 public sealed class PcscOperatorCredentialBroker : IOperatorCredentialBroker
 {
     private readonly IClock _clock;
@@ -24,23 +26,15 @@ public sealed class PcscOperatorCredentialBroker : IOperatorCredentialBroker
         TimeSpan timeout,
         CancellationToken cancellationToken = default)
     {
-        if (!PcscNative.TryLoad(out var loadError))
+        if (!TryEstablishContext(out var context, out var contextError))
         {
-            StatusText = "PC/SC library not found (install pcscd / winscard).";
-            return new CredentialCaptureResult { Error = StatusText + (loadError is null ? string.Empty : " " + loadError) };
-        }
-
-        var deadline = _clock.UtcNow + timeout;
-        nint context = 0;
-        var rc = PcscNative.EstablishContext(out context);
-        if (rc != PcscNative.Success)
-        {
-            StatusText = "PC/SC context failed. Is pcscd running?";
+            StatusText = contextError;
             return new CredentialCaptureResult { Error = StatusText };
         }
 
         try
         {
+            var deadline = _clock.UtcNow + timeout;
             var poll = new PivPresenceIdentity.Poll();
             while (_clock.UtcNow <= deadline)
             {
@@ -58,8 +52,8 @@ public sealed class PcscOperatorCredentialBroker : IOperatorCredentialBroker
                     break;
                 }
 
-                var wait = remaining < _pollInterval ? remaining : _pollInterval;
-                await Task.Delay(wait, cancellationToken).ConfigureAwait(false);
+                await Task.Delay(remaining < _pollInterval ? remaining : _pollInterval, cancellationToken)
+                    .ConfigureAwait(false);
             }
 
             if (poll.Fallback?.Credential is not null)
@@ -73,7 +67,7 @@ public sealed class PcscOperatorCredentialBroker : IOperatorCredentialBroker
         }
         finally
         {
-            _ = PcscNative.ReleaseContext(context);
+            DisposeBestEffort(context);
         }
     }
 
@@ -89,100 +83,15 @@ public sealed class PcscOperatorCredentialBroker : IOperatorCredentialBroker
             return Task.FromResult(CredentialSignResult.Failed("Nothing to sign."));
         }
 
-        if (!PcscNative.TryLoad(out var loadError))
-        {
-            return Task.FromResult(CredentialSignResult.Failed(
-                loadError ?? "PC/SC library not found (install pcscd / winscard)."));
-        }
-
-        nint context = 0;
-        if (PcscNative.EstablishContext(out context) != PcscNative.Success)
-        {
-            return Task.FromResult(CredentialSignResult.Failed("PC/SC context failed. Is pcscd running?"));
-        }
-
-        try
-        {
-            return Task.FromResult(SignOnPresentedCard(context, credential, payload, pin));
-        }
-        finally
-        {
-            _ = PcscNative.ReleaseContext(context);
-        }
-    }
-
-    private CredentialSignResult SignOnPresentedCard(
-        nint context,
-        OperatorCredential credential,
-        byte[] payload,
-        string? pin)
-    {
-        var readers = PcscNative.ListReaders(context);
-        IEnumerable<string> ordered = readers;
-        if (!string.IsNullOrWhiteSpace(credential.ReaderName)
-            && readers.Any(r => string.Equals(r, credential.ReaderName, StringComparison.Ordinal)))
-        {
-            ordered = readers.OrderBy(r =>
-                string.Equals(r, credential.ReaderName, StringComparison.Ordinal) ? 0 : 1);
-        }
-
-        CredentialSignResult? last = null;
-        var sawMatchingSerial = false;
-        foreach (var reader in ordered)
-        {
-            if (PcscNative.Connect(context, reader, out var card, out var protocol) != PcscNative.Success)
-            {
-                continue;
-            }
-
-            try
-            {
-                var channel = new PcscApduChannel(card, protocol);
-                var (serial, printedName) = PivCardIdentity.TryRead(channel);
-                if (string.IsNullOrWhiteSpace(serial))
-                {
-                    var atr = PcscNative.ReadAtr(card);
-                    if (atr is { Length: > 0 })
-                    {
-                        serial = Convert.ToHexString(atr);
-                    }
-                }
-
-                if (!CredentialSignBinding.SerialsMatch(credential.Serial, serial))
-                {
-                    continue;
-                }
-
-                sawMatchingSerial = true;
-                var result = CredentialSignBinding.SignMatching(
-                    channel,
-                    payload,
-                    pin,
-                    credential,
-                    serial,
-                    printedName);
-                if (result.Succeeded || result.PinRequired || result.PinRetriesRemaining is not null)
-                {
-                    StatusText = result.Succeeded
-                        ? $"Signed with {result.Credential?.DisplayName ?? credential.DisplayName}."
-                        : (result.Error ?? StatusText);
-                    return result;
-                }
-
-                last = result;
-            }
-            finally
-            {
-                _ = PcscNative.Disconnect(card);
-            }
-        }
-
-        if (!sawMatchingSerial)
-        {
-            return CredentialSignResult.Failed(CredentialSignBinding.SameBadgeRequired);
-        }
-
-        return last ?? CredentialSignResult.Failed(CredentialSignBinding.SameBadgeRequired);
+        return Task.FromResult(WithPresentedCard(
+            credential,
+            (channel, serial, printedName) => CredentialSignBinding.SignMatching(
+                channel,
+                payload,
+                pin,
+                credential,
+                serial,
+                printedName)));
     }
 
     public Task<CredentialSignResult> TrySignDocumentAsync(
@@ -198,148 +107,120 @@ public sealed class PcscOperatorCredentialBroker : IOperatorCredentialBroker
             return Task.FromResult(CredentialSignResult.Failed("Nothing to sign."));
         }
 
-        if (!PcscNative.TryLoad(out var loadError))
-        {
-            return Task.FromResult(CredentialSignResult.Failed(
-                loadError ?? "PC/SC library not found (install pcscd / winscard)."));
-        }
+        return Task.FromResult(WithPresentedCard(
+            credential,
+            (channel, serial, printedName) => CredentialSignBinding.SignDocumentMatching(
+                channel,
+                document,
+                pin,
+                credential,
+                serial,
+                printedName,
+                signingTime ?? _clock.UtcNow)));
+    }
 
-        nint context = 0;
-        if (PcscNative.EstablishContext(out context) != PcscNative.Success)
+    private CredentialSignResult WithPresentedCard(
+        OperatorCredential credential,
+        Func<IApduChannel, string?, string?, CredentialSignResult> sign)
+    {
+        if (!TryEstablishContext(out var context, out var contextError))
         {
-            return Task.FromResult(CredentialSignResult.Failed("PC/SC context failed. Is pcscd running?"));
+            return CredentialSignResult.Failed(contextError);
         }
 
         try
         {
-            return Task.FromResult(SignDocumentOnPresentedCard(context, credential, document, pin, signingTime));
-        }
-        finally
-        {
-            _ = PcscNative.ReleaseContext(context);
-        }
-    }
-
-    private CredentialSignResult SignDocumentOnPresentedCard(
-        nint context,
-        OperatorCredential credential,
-        byte[] document,
-        string? pin,
-        DateTimeOffset? signingTime)
-    {
-        var readers = PcscNative.ListReaders(context);
-        IEnumerable<string> ordered = readers;
-        if (!string.IsNullOrWhiteSpace(credential.ReaderName)
-            && readers.Any(r => string.Equals(r, credential.ReaderName, StringComparison.Ordinal)))
-        {
-            ordered = readers.OrderBy(r =>
-                string.Equals(r, credential.ReaderName, StringComparison.Ordinal) ? 0 : 1);
-        }
-
-        CredentialSignResult? last = null;
-        var sawMatchingSerial = false;
-        foreach (var reader in ordered)
-        {
-            if (PcscNative.Connect(context, reader, out var card, out var protocol) != PcscNative.Success)
+            var readers = GetReaders(context);
+            var ordered = string.IsNullOrWhiteSpace(credential.ReaderName)
+                ? readers
+                : readers.OrderBy(reader =>
+                    string.Equals(reader, credential.ReaderName, StringComparison.Ordinal) ? 0 : 1).ToArray();
+            CredentialSignResult? last = null;
+            var sawMatchingSerial = false;
+            foreach (var readerName in ordered)
             {
-                continue;
-            }
-
-            try
-            {
-                var channel = new PcscApduChannel(card, protocol);
-                var (serial, printedName) = PivCardIdentity.TryRead(channel);
-                if (string.IsNullOrWhiteSpace(serial))
-                {
-                    var atr = PcscNative.ReadAtr(card);
-                    if (atr is { Length: > 0 })
-                    {
-                        serial = Convert.ToHexString(atr);
-                    }
-                }
-
-                if (!CredentialSignBinding.SerialsMatch(credential.Serial, serial))
+                var reader = TryConnect(context, readerName);
+                if (reader is null)
                 {
                     continue;
                 }
 
-                sawMatchingSerial = true;
-                var result = CredentialSignBinding.SignDocumentMatching(
-                    channel,
-                    document,
-                    pin,
-                    credential,
-                    serial,
-                    printedName,
-                    signingTime ?? _clock.UtcNow);
-                if (result.Succeeded || result.PinRequired || result.PinRetriesRemaining is not null)
+                try
                 {
-                    StatusText = result.Succeeded
-                        ? $"Signed with {result.Credential?.DisplayName ?? credential.DisplayName}."
-                        : (result.Error ?? StatusText);
-                    return result;
+                    var channel = new PcscApduChannel(reader);
+                    var (serial, printedName) = ReadIdentity(channel, reader);
+                    if (!CredentialSignBinding.SerialsMatch(credential.Serial, serial))
+                    {
+                        continue;
+                    }
+
+                    sawMatchingSerial = true;
+                    var result = sign(channel, serial, printedName);
+                    if (result.Succeeded || result.PinRequired || result.PinRetriesRemaining is not null)
+                    {
+                        StatusText = result.Succeeded
+                            ? $"Signed with {result.Credential?.DisplayName ?? credential.DisplayName}."
+                            : (result.Error ?? StatusText);
+                        return result;
+                    }
+
+                    last = result;
                 }
+                finally
+                {
+                    DisposeBestEffort(reader);
+                }
+            }
 
-                last = result;
-            }
-            finally
-            {
-                _ = PcscNative.Disconnect(card);
-            }
+            return sawMatchingSerial
+                ? last ?? CredentialSignResult.Failed(CredentialSignBinding.SameBadgeRequired)
+                : CredentialSignResult.Failed(CredentialSignBinding.SameBadgeRequired);
         }
-
-        if (!sawMatchingSerial)
+        finally
         {
-            return CredentialSignResult.Failed(CredentialSignBinding.SameBadgeRequired);
+            DisposeBestEffort(context);
         }
-
-        return last ?? CredentialSignResult.Failed(CredentialSignBinding.SameBadgeRequired);
     }
 
-    private CredentialCaptureResult TryCaptureOnce(nint context)
+    private CredentialCaptureResult TryCaptureOnce(ISCardContext context)
     {
-        var readers = PcscNative.ListReaders(context);
+        var readers = GetReaders(context);
         if (readers.Count == 0)
         {
             return new CredentialCaptureResult { Error = "No smart-card readers. Connect a chip/tap reader." };
         }
 
-        foreach (var reader in readers)
+        foreach (var readerName in readers)
         {
-            if (PcscNative.Connect(context, reader, out var card, out var protocol) != PcscNative.Success)
+            var reader = TryConnect(context, readerName);
+            if (reader is null)
             {
                 continue;
             }
 
             try
             {
-                var atr = PcscNative.ReadAtr(card);
-                var (serial, printedName) = PivCardIdentity.TryRead(card, protocol);
-                var signatureThumbprint = PivCardIdentity.TryReadSignatureCertificateThumbprint(card, protocol);
-                if (string.IsNullOrWhiteSpace(serial) && atr is { Length: > 0 })
-                {
-                    serial = Convert.ToHexString(atr);
-                }
-
+                var channel = new PcscApduChannel(reader);
+                var (serial, printedName) = ReadIdentity(channel, reader);
+                var signatureThumbprint = PivCardIdentity.TryReadSignatureCertificateThumbprint(channel);
                 if (string.IsNullOrWhiteSpace(serial))
                 {
                     continue;
                 }
 
-                var transport = PivCardIdentity.IsContactlessReader(reader)
+                var transport = PivCardIdentity.IsContactlessReader(readerName)
                     ? CredentialTransport.Contactless
                     : CredentialTransport.Contact;
-                var display = string.IsNullOrWhiteSpace(printedName)
-                    ? $"Card {serial[..Math.Min(8, serial.Length)]}"
-                    : printedName;
                 return new CredentialCaptureResult
                 {
                     Credential = new OperatorCredential
                     {
-                        DisplayName = display,
+                        DisplayName = string.IsNullOrWhiteSpace(printedName)
+                            ? $"Card {serial[..Math.Min(8, serial.Length)]}"
+                            : printedName,
                         Serial = serial,
                         Transport = transport,
-                        ReaderName = reader,
+                        ReaderName = readerName,
                         Thumbprint = signatureThumbprint,
                         CapturedAt = _clock.UtcNow,
                     },
@@ -347,10 +228,87 @@ public sealed class PcscOperatorCredentialBroker : IOperatorCredentialBroker
             }
             finally
             {
-                _ = PcscNative.Disconnect(card);
+                DisposeBestEffort(reader);
             }
         }
 
         return new CredentialCaptureResult { Error = "Present a badge: insert chip or tap the reader." };
+    }
+
+    private static (string? Serial, string? DisplayName) ReadIdentity(
+        IApduChannel channel,
+        ICardReader reader)
+    {
+        var identity = PivCardIdentity.TryRead(channel);
+        if (!string.IsNullOrWhiteSpace(identity.Serial))
+        {
+            return identity;
+        }
+
+        try
+        {
+            var atr = reader.GetStatus().GetAtr();
+            return atr is { Length: > 0 } ? (Convert.ToHexString(atr), identity.DisplayName) : identity;
+        }
+        catch (PCSCException)
+        {
+            return identity;
+        }
+    }
+
+    private static bool TryEstablishContext(out ISCardContext context, out string error)
+    {
+        try
+        {
+            context = ContextFactory.Instance.Establish(SCardScope.User);
+            error = string.Empty;
+            return true;
+        }
+        catch (Exception ex) when (ex is PCSCException or DllNotFoundException or TypeInitializationException)
+        {
+            context = null!;
+            error = $"PC/SC context failed. Is pcscd/winscard available? {ex.Message}";
+            return false;
+        }
+    }
+
+    private static IReadOnlyList<string> GetReaders(ISCardContext context)
+    {
+        try
+        {
+            return context.GetReaders() ?? [];
+        }
+        catch (NoReadersAvailableException)
+        {
+            return [];
+        }
+        catch (PCSCException)
+        {
+            return [];
+        }
+    }
+
+    private static ICardReader? TryConnect(ISCardContext context, string readerName)
+    {
+        try
+        {
+            return context.ConnectReader(readerName, SCardShareMode.Shared, SCardProtocol.Any);
+        }
+        catch (PCSCException)
+        {
+            return null;
+        }
+    }
+
+    internal static void DisposeBestEffort(IDisposable? resource)
+    {
+        try
+        {
+            resource?.Dispose();
+        }
+        catch (PCSCException)
+        {
+            // A card or reader may disappear between the last operation and disconnect.
+        }
     }
 }

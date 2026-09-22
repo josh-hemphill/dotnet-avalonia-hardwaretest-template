@@ -27,9 +27,6 @@ internal static class PivCardIdentity
             || readerName.Contains("cl ", StringComparison.OrdinalIgnoreCase);
     }
 
-    public static (string? Serial, string? DisplayName) TryRead(nint card, int protocol)
-        => TryRead(new PcscApduChannel(card, protocol));
-
     public static (string? Serial, string? DisplayName) TryRead(IApduChannel channel)
     {
         if (!PivApdu.TrySelect(channel))
@@ -55,9 +52,6 @@ internal static class PivCardIdentity
 
         return (TryReadUid(channel), best.Value);
     }
-
-    public static string? TryReadSignatureCertificateThumbprint(nint card, int protocol)
-        => TryReadSignatureCertificateThumbprint(new PcscApduChannel(card, protocol));
 
     public static string? TryReadSignatureCertificateThumbprint(IApduChannel channel)
     {
