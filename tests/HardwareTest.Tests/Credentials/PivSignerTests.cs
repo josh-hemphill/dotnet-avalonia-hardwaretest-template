@@ -175,12 +175,12 @@ public sealed class PivSignerTests
     public void ApplyLe_appends_on_case3_and_replaces_on_case2()
     {
         var case3 = PivApdu.Command(0x00, 0xCB, 0x3F, 0xFF, [0x5C, 0x03, .. PivApdu.ObjectSignature]);
-        var withLe = PcscNative.ApplyLe(case3, 0x40);
+        var withLe = PcscApduChannel.ApplyLe(case3, 0x40);
         Assert.Equal(case3.Length + 1, withLe.Length);
         Assert.Equal(0x40, withLe[^1]);
 
         var case2 = new byte[] { 0x00, 0xC0, 0x00, 0x00, 0x00 };
-        var replaced = PcscNative.ApplyLe(case2, 0x20);
+        var replaced = PcscApduChannel.ApplyLe(case2, 0x20);
         Assert.Equal(5, replaced.Length);
         Assert.Equal(0x20, replaced[4]);
     }

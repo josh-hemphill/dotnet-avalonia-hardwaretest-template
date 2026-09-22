@@ -143,6 +143,11 @@
         "resolved": "9.32.2",
         "contentHash": "/2ifJOKrJzHQoqCGyL1gqdlcy20l1tCQkUr6QZyULzJdWoPZusP5yY67i8rGGIgqAkzrM7ES5s3wEz15MwwdOw=="
       },
+      "PCSC": {
+        "type": "Transitive",
+        "resolved": "7.0.1",
+        "contentHash": "J7LdZ4ICGeFBpIQA2y2TrsUM0juWU3lvNUY6Em164F33hlLmsnnDmqVSa4fwp9sGCfKawRK3FkSFh7GYnXt7bA=="
+      },
       "Pkcs11Interop": {
         "type": "Transitive",
         "resolved": "5.3.0",
@@ -307,6 +312,7 @@
         "dependencies": {
           "IviFoundation.Visa": "[8.0.2, )",
           "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.10, )",
+          "PCSC": "[7.0.1, )",
           "Pkcs11Interop.X509Store": "[1.1.0, )",
           "ScottPlot": "[5.1.59, )",
           "Serilog": "[4.4.0, )",

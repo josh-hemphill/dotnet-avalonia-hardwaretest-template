@@ -1,4 +1,3 @@
-using System.Runtime.InteropServices;
 using System.Text;
 using HardwareTest.Core.Credentials;
 using HardwareTest.Core.Reporting;
@@ -7,6 +6,8 @@ using HardwareTest.Core.Settings;
 using HardwareTest.Core.Time;
 using HardwareTest.Tests.Fixtures;
 using HardwareTest.Tests.Time;
+using PCSC;
+using PCSC.Exceptions;
 using Xunit;
 
 namespace HardwareTest.Tests.Credentials;
@@ -186,10 +187,13 @@ public sealed class ReportAttestationServiceTests
     }
 
     [Fact]
-    public void ScardIoRequest_layouts_match_platform_headers()
+    public void Pcsc_cleanup_ignores_hot_removal_errors()
     {
-        Assert.Equal(8, Marshal.SizeOf<PcscNative.ScardIoRequestDword>());
-        Assert.Equal(IntPtr.Size * 2, Marshal.SizeOf<PcscNative.ScardIoRequestULong>());
+        var resource = new ThrowingPcscDisposable();
+
+        PcscOperatorCredentialBroker.DisposeBestEffort(resource);
+
+        Assert.True(resource.DisposeAttempted);
     }
 
     [Fact]
@@ -594,6 +598,17 @@ public sealed class ReportAttestationServiceTests
         });
         await store.SaveAsync(run);
         return run;
+    }
+}
+
+file sealed class ThrowingPcscDisposable : IDisposable
+{
+    public bool DisposeAttempted { get; private set; }
+
+    public void Dispose()
+    {
+        DisposeAttempted = true;
+        throw new PCSCException(SCardError.RemovedCard);
     }
 }
 
