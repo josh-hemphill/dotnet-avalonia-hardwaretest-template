@@ -52,6 +52,61 @@ public sealed class FormulaParserTests
     }
 
     [Fact]
+    public void Operators_preserve_precedence_and_associativity()
+    {
+        var subtract = Assert.IsType<BinaryExpr>(FormulaParser.Parse("1 - 2 - 3").Root);
+        Assert.Equal("-", subtract.Op);
+        Assert.Equal("-", Assert.IsType<BinaryExpr>(subtract.Left).Op);
+
+        var multiply = Assert.IsType<BinaryExpr>(FormulaParser.Parse("1 + 2 .* 3").Root);
+        Assert.Equal("+", multiply.Op);
+        Assert.Equal(".*", Assert.IsType<BinaryExpr>(multiply.Right).Op);
+
+        var power = Assert.IsType<BinaryExpr>(FormulaParser.Parse("2 ^ 3 ^ 4").Root);
+        Assert.Equal("^", power.Op);
+        Assert.Equal("^", Assert.IsType<BinaryExpr>(power.Right).Op);
+    }
+
+    [Fact]
+    public void Unary_signs_keep_their_power_precedence()
+    {
+        var leading = Assert.IsType<UnaryExpr>(FormulaParser.Parse("-2^2").Root);
+        Assert.Equal("^", Assert.IsType<BinaryExpr>(leading.Operand).Op);
+
+        var exponent = Assert.IsType<BinaryExpr>(FormulaParser.Parse("2^-2").Root);
+        Assert.Equal("-", Assert.IsType<UnaryExpr>(exponent.Right).Op);
+    }
+
+    [Theory]
+    [InlineData(".5", 0.5)]
+    [InlineData("1e-3", 0.001)]
+    [InlineData(" 2.5 ", 2.5)]
+    public void Floating_point_forms_parse(string source, double expected)
+    {
+        var number = Assert.IsType<NumberExpr>(FormulaParser.Parse(source).Root);
+        Assert.Equal(expected, number.Value);
+    }
+
+    [Theory]
+    [InlineData("1..2")]
+    [InlineData("rail .mean")]
+    [InlineData("rail..mean")]
+    [InlineData("rail.1")]
+    [InlineData("mean(VDC) junk")]
+    [InlineData("[]")]
+    public void Malformed_or_trailing_input_fails_parse(string source)
+    {
+        Assert.Throws<AuthoringWorkspaceException>(() => FormulaParser.Parse(source));
+    }
+
+    [Fact]
+    public void Vectors_accept_whitespace_commas_and_exponents()
+    {
+        var vector = Assert.IsType<VectorExpr>(FormulaParser.Parse("[.5, -1e-2 +3]").Root);
+        Assert.Equal([0.5, -0.01, 3], vector.Values);
+    }
+
+    [Fact]
     public void Evaluator_mean_of_two_point_series_matches()
     {
         var ast = FormulaParser.Parse("mean(VDC)");
