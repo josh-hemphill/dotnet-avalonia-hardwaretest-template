@@ -8,6 +8,20 @@ namespace HardwareTest.Authoring.Tests;
 public sealed class AuthoringWorkspaceViewModelTests
 {
     [Fact]
+    public void Workspace_presence_changes_after_open()
+    {
+        var vm = new AuthoringWorkspaceViewModel();
+        var notifications = new List<string?>();
+        vm.PropertyChanged += (_, change) => notifications.Add(change.PropertyName);
+
+        Assert.False(vm.HasWorkspace);
+        vm.Open(Path.Combine(FindRepoRoot(), "plans", "opentap"));
+
+        Assert.True(vm.HasWorkspace);
+        Assert.Contains(nameof(vm.HasWorkspace), notifications);
+    }
+
+    [Fact]
     public void Open_template_lists_sample_program()
     {
         var vm = new AuthoringWorkspaceViewModel();

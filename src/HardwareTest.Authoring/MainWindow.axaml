@@ -21,6 +21,7 @@
                 AutomationProperties.Name="Open workspace" />
         <Button Content="Bootstrap"
                 Click="OnBootstrap"
+                IsEnabled="{Binding HasWorkspace}"
                 ToolTip.Tip="Install Editor packs into this workspace’s isolated OpenTAP home (offline)"
                 AutomationProperties.Name="Bootstrap OpenTAP home" />
           </StackPanel>
@@ -30,10 +31,12 @@
           <StackPanel Orientation="Horizontal" Spacing="6">
         <Button Content="Save sidecar"
                 Click="OnSaveSidecar"
+                IsEnabled="{Binding HasWorkspace}"
                 ToolTip.Tip="Write only {planId}.program.json (session/DUT/Typst). Does not compile the TapPlan."
                 AutomationProperties.Name="Save sidecar" />
         <Button Content="Save plan + sidecar" Classes="accent"
                 Click="OnApply"
+                IsEnabled="{Binding HasWorkspace}"
                 ToolTip.Tip="Compile metrics to TapPlan + sidecar (Setup / measure / Cleanup groups)"
                 AutomationProperties.Name="Save plan" />
           </StackPanel>
@@ -45,6 +48,7 @@
           <StackPanel Orientation="Horizontal" Spacing="6">
         <Button Content="Validate"
                 Click="OnValidate"
+                IsEnabled="{Binding HasWorkspace}"
                 ToolTip.Tip="Run PlanContractValidator --strict on TapPlans in this workspace"
                 AutomationProperties.Name="Validate workspace" />
         <Button Content="{Binding SettingsTitle}"
@@ -67,7 +71,8 @@
                    AutomationProperties.Name="Unsaved changes" />
       </StackPanel>
     </StackPanel>
-    <TextBlock DockPanel.Dock="Top" Margin="12,0,12,8" Text="{Binding ValidationScope}" TextWrapping="Wrap" />
+    <TextBlock DockPanel.Dock="Top" Margin="12,0,12,8" Text="{Binding ValidationScope}"
+               IsVisible="{Binding HasWorkspace}" TextWrapping="Wrap" />
     <TextBlock DockPanel.Dock="Bottom"
                Margin="12,0,12,12"
                Foreground="#C62828"
@@ -75,7 +80,25 @@
                Text="{Binding Error, StringFormat='Error: {0}'}"
                AutomationProperties.LiveSetting="Assertive"
                AutomationProperties.Name="Authoring error" />
-    <Grid ColumnDefinitions="180,*" Margin="12,0,12,12">
+    <Panel>
+      <Border IsVisible="{Binding !HasWorkspace}" Margin="12,0,12,12" Padding="24"
+              HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="520">
+        <StackPanel Spacing="12">
+          <TextBlock Text="Open a workspace to begin" FontSize="22" FontWeight="SemiBold"
+                     AutomationProperties.HeadingLevel="1" />
+          <TextBlock Text="Choose a folder containing authoring.json to edit programs, preview measurements, and validate saved plans."
+                     TextWrapping="Wrap" />
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <Button Content="Open workspace…" Click="OnOpenWorkspace"
+                    AutomationProperties.Name="Open workspace from welcome" />
+            <Button Content="{Binding LastWorkspaceOffer}" Click="OnOpenLastWorkspace"
+                    IsVisible="{Binding CanOfferLastWorkspace}"
+                    ToolTip.Tip="{Binding LastWorkspacePath}"
+                    AutomationProperties.Name="Open last workspace from welcome" />
+          </StackPanel>
+        </StackPanel>
+      </Border>
+    <Grid ColumnDefinitions="180,*" Margin="12,0,12,12" IsVisible="{Binding HasWorkspace}">
       <DockPanel Grid.Column="0" Margin="0,0,12,0">
         <TextBlock x:Name="ProgramsHeading"
                    DockPanel.Dock="Top"
@@ -717,5 +740,6 @@
         </TabItem>
       </TabControl>
     </Grid>
+    </Panel>
   </DockPanel>
 </Window>
