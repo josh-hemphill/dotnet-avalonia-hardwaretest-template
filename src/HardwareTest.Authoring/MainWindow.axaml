@@ -125,7 +125,14 @@
       </DockPanel>
       <TabControl x:Name="WorkspaceTabs" Grid.Column="1">
         <TabItem Header="Program" AutomationProperties.Name="Program tab">
-          <Grid ColumnDefinitions="200,5,250,5,*" RowDefinitions="Auto,*">
+          <Grid RowDefinitions="Auto,*">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="200" MinWidth="180" />
+              <ColumnDefinition Width="5" />
+              <ColumnDefinition Width="250" MinWidth="220" />
+              <ColumnDefinition Width="5" />
+              <ColumnDefinition Width="*" MinWidth="220" />
+            </Grid.ColumnDefinitions>
             <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,12,8">
               <TextBlock x:Name="SequenceHeading"
                          FontWeight="SemiBold"
