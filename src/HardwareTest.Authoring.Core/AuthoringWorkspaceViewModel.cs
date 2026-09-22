@@ -21,6 +21,28 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
     private IReadOnlyList<RunDataset> _datasets = [];
     private IReadOnlyList<string> _datasetItems = [];
     private int _selectedDatasetIndex = -1;
+    private readonly HashSet<string> _dirtyPlans = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> _dirtySidecars = new(StringComparer.OrdinalIgnoreCase);
+
+    public bool HasUnsavedChanges => _dirtyPlans.Count > 0 || _dirtySidecars.Count > 0;
+    public string ValidationScope => HasUnsavedChanges
+        ? "Save all edited programs before validating saved TapPlans."
+        : "Validation checks saved TapPlans in this workspace.";
+
+    private void MarkDirty(string planId, bool plan, bool sidecar)
+    {
+        if (plan) _dirtyPlans.Add(planId);
+        if (sidecar) _dirtySidecars.Add(planId);
+        Findings = [];
+        OnPropertyChanged(nameof(HasUnsavedChanges));
+        OnPropertyChanged(nameof(ValidationScope));
+    }
+
+    private void RefreshDirtyState()
+    {
+        OnPropertyChanged(nameof(HasUnsavedChanges));
+        OnPropertyChanged(nameof(ValidationScope));
+    }
 
     public AuthoringWorkspaceViewModel(IPlanCompiler? compiler = null, IAuthoringPreferencesStore? preferences = null)
     {
@@ -130,6 +152,7 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
             }
 
             SelectedProgram.Sidecar.DisplayName = value;
+            MarkDirty(SelectedProgram.PlanId, false, true);
             OnPropertyChanged();
         }
     }
@@ -146,6 +169,7 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
             }
 
             SelectedProgram.Sidecar.DutFamily = value;
+            MarkDirty(SelectedProgram.PlanId, false, true);
             OnPropertyChanged();
         }
     }
@@ -155,6 +179,9 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
         Error = null;
         var files = AuthoringWorkspaceLoader.Load(root);
         var draft = _compiler.LoadAll(files);
+        _dirtyPlans.Clear();
+        _dirtySidecars.Clear();
+        RefreshDirtyState();
         Workspace = files;
         Programs = draft.Programs;
         _selectedInstrumentSlot = null;
@@ -236,6 +263,7 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
         Programs = [.. Programs, created];
         _selectedInstrumentSlot = null;
         AssignSelectedProgram(created);
+        MarkDirty(id, true, true);
         Status = created.Measure.Count == 0
             ? AuthoringChrome.EmptyMeasureHint
             : $"Created {id}";
@@ -286,6 +314,9 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
             .Where(program => !string.Equals(program.PlanId, planId, StringComparison.OrdinalIgnoreCase))
             .ToArray();
         Programs = remaining;
+        _dirtyPlans.Remove(planId);
+        _dirtySidecars.Remove(planId);
+        RefreshDirtyState();
         _selectedInstrumentSlot = null;
         AssignSelectedProgram(
             remaining.Length == 0
@@ -367,9 +398,14 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
         var others = Programs
             .Where(p => !string.Equals(p.PlanId, planId, StringComparison.OrdinalIgnoreCase))
             .ToArray();
+        var otherDirtyPlans = _dirtyPlans.Where(id => !string.Equals(id, planId, StringComparison.OrdinalIgnoreCase)).ToArray();
+        var otherDirtySidecars = _dirtySidecars.Where(id => !string.Equals(id, planId, StringComparison.OrdinalIgnoreCase)).ToArray();
         _compiler.Save(SelectedProgram, tapPlanPath);
         Open(Workspace.Root);
         Programs = MergeSessionPrograms(Programs, others);
+        _dirtyPlans.UnionWith(otherDirtyPlans);
+        _dirtySidecars.UnionWith(otherDirtySidecars);
+        RefreshDirtyState();
         SelectProgram(planId);
         Status = $"Saved {Path.GetFileName(tapPlanPath)}";
         Error = null;
@@ -389,6 +425,8 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
         }
 
         _compiler.SaveSidecar(tapPlanPath, SelectedProgram.Sidecar);
+        _dirtySidecars.Remove(SelectedProgram.PlanId);
+        RefreshDirtyState();
         Status = $"Saved {Path.GetFileName(PlanCompiler.SidecarPath(tapPlanPath))}";
         Error = null;
     }
@@ -398,6 +436,11 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
         if (Workspace is null)
         {
             throw new AuthoringWorkspaceException("Open a workspace before validating.");
+        }
+
+        if (HasUnsavedChanges)
+        {
+            throw new AuthoringWorkspaceException(ValidationScope);
         }
 
         var report = PlanContractValidator.Validate(
@@ -480,6 +523,7 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
 
     internal void ReplaceSelected(ProgramDraft draft, bool rebuildLists = true)
     {
+        MarkDirty(draft.PlanId, true, true);
         var samePlan = string.Equals(_selectedProgram?.PlanId, draft.PlanId, StringComparison.OrdinalIgnoreCase);
         Programs = Programs.Select(p =>
                 string.Equals(p.PlanId, draft.PlanId, StringComparison.OrdinalIgnoreCase) ? draft : p)
@@ -504,6 +548,10 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
         ArgumentNullException.ThrowIfNull(mutate);
         var selectedId = _selectedProgram?.PlanId;
         Programs = Programs.Select(mutate).ToArray();
+        foreach (var program in Programs)
+        {
+            MarkDirty(program.PlanId, false, true);
+        }
         if (selectedId is not null)
         {
             _selectedProgram = Programs.FirstOrDefault(program =>
