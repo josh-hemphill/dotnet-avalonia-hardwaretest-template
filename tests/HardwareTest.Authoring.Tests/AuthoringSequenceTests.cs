@@ -94,6 +94,8 @@ public sealed class AuthoringSequenceTests
         Assert.Contains("Setup", AuthoringChrome.SequencePurpose, StringComparison.Ordinal);
         Assert.Equal("Inspector", AuthoringChrome.InspectorTitle);
         Assert.Contains("not the whole program", AuthoringChrome.InspectorPurpose, StringComparison.Ordinal);
+        Assert.NotEqual(AuthoringChrome.InspectorPurpose, new AuthoringWorkspaceViewModel().InspectorBreadcrumb);
+        Assert.Contains("Select a step", new AuthoringWorkspaceViewModel().InspectorBreadcrumb, StringComparison.Ordinal);
         Assert.Equal("Operator preview", AuthoringChrome.PreviewTitle);
         Assert.Equal("Program settings", AuthoringChrome.ProgramSettingsTitle);
         Assert.Contains("operator session", AuthoringChrome.ProgramSettingsPurpose, StringComparison.Ordinal);

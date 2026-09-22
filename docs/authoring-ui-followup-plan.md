@@ -52,3 +52,7 @@ On Windows with .NET 10, `dotnet run --project src/HardwareTest.Authoring -c Deb
 ## Area 2 desktop smoke evidence
 
 Launched without a workspace on Windows at 1280×800 and resized to 960×600. The welcome panel and both workspace-opening actions remained visible at both sizes; Bootstrap, Save, and Validate were disabled and the editor was hidden. The validation-scope message is hidden until a workspace is open.
+
+## Area 3 visual check
+
+Launched the populated sample workspace at 1280×800 and 960×600. At minimum size, the selected Acquire 3V3 step, channel key, display role, Y unit, instrument slot, and preview chart remained visible. The inspector's empty-selection body now gives the next action instead of repeating its purpose line. The three-pane view is compact at 960×600; further density changes are outside this copy fix.
