@@ -94,6 +94,9 @@ public sealed class FormulaParserTests
     [InlineData("rail.1")]
     [InlineData("mean(VDC) junk")]
     [InlineData("[]")]
+    [InlineData("[--1]")]
+    [InlineData("[- -1]")]
+    [InlineData("[1..2]")]
     public void Malformed_or_trailing_input_fails_parse(string source)
     {
         Assert.Throws<AuthoringWorkspaceException>(() => FormulaParser.Parse(source));

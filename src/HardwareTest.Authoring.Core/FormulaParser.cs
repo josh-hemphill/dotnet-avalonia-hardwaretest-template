@@ -69,13 +69,17 @@ public static class FormulaParser
             .And(ZeroOrMany(Literals.Char('.').SkipAnd(segment)))
             .Then(static value => string.Join('.', new[] { value.Item1.ToString() }.Concat(value.Item2.Select(x => x.ToString())))));
 
-        var number = Terms.Number<double>(NumberOptions.Float)
+        const NumberOptions UnsignedFloat = NumberOptions.AllowDecimalSeparator | NumberOptions.AllowExponent;
+        var unsignedNumber = SkipWhiteSpace(
+            Literals.Number<double>(UnsignedFloat)
+                .WhenNotFollowedBy(Literals.Char('.')));
+        var number = unsignedNumber
             .Then<FormulaExpr>(static value => new NumberExpr(value));
 
         var sign = Terms.Char('-').Then(-1d)
             .Or(Terms.Char('+').Then(1d))
             .ZeroOrOne(1d);
-        var signedNumber = sign.And(Terms.Number<double>(NumberOptions.Float))
+        var signedNumber = sign.And(unsignedNumber)
             .Then(static value => value.Item1 * value.Item2);
         var commas = ZeroOrMany(Terms.Char(','));
         var vectorValues = OneOrMany(commas.SkipAnd(signedNumber)).AndSkip(commas);
