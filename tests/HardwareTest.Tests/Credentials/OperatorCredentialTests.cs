@@ -400,6 +400,53 @@ public sealed class ReportAttestationServiceTests
     }
 
     [Fact]
+    public async Task Attest_unavailable_embedded_signing_after_pin_records_presence_when_policy_allows()
+    {
+        using var temp = new TempDataDirectory();
+        var store = new FileRunStore(temp.RunsDirectory);
+        var run = await SeedCertificationRunAsync(store);
+        var reports = new RecordingReportService();
+        var service = new ReportAttestationService(
+            new UnavailableEmbeddedBroker(),
+            store,
+            new AppSettings
+            {
+                RequireAttestationBeforeExport = true,
+                AllowPresenceInLieuOfSigning = true,
+            },
+            reports: new Lazy<IReportService>(() => reports));
+
+        var result = await service.AttestAsync(
+            run,
+            ReportKinds.Certification,
+            pin: "123456");
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(AttestationKind.Presence, result.Attestation!.Kind);
+        Assert.Equal(AttestationKind.Presence, reports.LastIdentity!.Kind);
+    }
+
+    [Fact]
+    public async Task Attest_legacy_embed_failure_returns_specific_error()
+    {
+        using var temp = new TempDataDirectory();
+        var store = new FileRunStore(temp.RunsDirectory);
+        var run = await SeedCertificationRunAsync(store);
+        var service = new ReportAttestationService(
+            new OversizedCmsBroker(),
+            store,
+            new AppSettings { AllowPresenceInLieuOfSigning = true });
+
+        var result = await service.AttestAsync(
+            run,
+            ReportKinds.Certification,
+            pin: "123456");
+
+        Assert.False(result.Succeeded);
+        Assert.Contains("CMS signature is larger", result.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task Attest_same_badge_mismatch_does_not_record_presence()
     {
         using var temp = new TempDataDirectory();
@@ -646,5 +693,111 @@ internal sealed class ScriptedPivBroker : IOperatorCredentialBroker
         cancellationToken.ThrowIfCancellationRequested();
         _ = credential;
         return Task.FromResult(PivSigner.SignCms(_card, document, pin, signingTime ?? DateTimeOffset.UtcNow));
+    }
+}
+
+internal sealed class UnavailableEmbeddedBroker : IOperatorCredentialBroker, IEmbeddedPdfSigningBroker
+{
+    private static readonly OperatorCredential Credential = new()
+    {
+        DisplayName = "Presence Only",
+        Serial = "PRESENCE-1",
+        Transport = CredentialTransport.Contact,
+        Thumbprint = "001122",
+        CapturedAt = DateTimeOffset.UtcNow,
+    };
+
+    public bool IsMock => true;
+    public bool CanSign => true;
+    public bool ProducesCms => true;
+    public string? SigningAlgorithm => null;
+    public string StatusText => "Signing unavailable";
+
+    public Task<CredentialCaptureResult> WaitForPresenceAsync(
+        TimeSpan timeout,
+        CancellationToken cancellationToken = default)
+    {
+        _ = timeout;
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.FromResult(new CredentialCaptureResult { Credential = Credential });
+    }
+
+    public Task<CredentialSignResult> TrySignPayloadAsync(
+        byte[] payload,
+        OperatorCredential credential,
+        string? pin = null,
+        CancellationToken cancellationToken = default)
+    {
+        _ = payload;
+        _ = credential;
+        _ = pin;
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.FromResult(CredentialSignResult.Unavailable("No PIV signing certificate is available."));
+    }
+
+    public Task<CredentialSignResult> TrySignPdfAsync(
+        byte[] pdf,
+        OperatorCredential credential,
+        string? pin = null,
+        DateTimeOffset? signingTime = null,
+        CancellationToken cancellationToken = default)
+    {
+        _ = pdf;
+        _ = credential;
+        _ = pin;
+        _ = signingTime;
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.FromResult(CredentialSignResult.Unavailable("No PIV signing certificate is available."));
+    }
+}
+
+internal sealed class OversizedCmsBroker : IOperatorCredentialBroker
+{
+    private static readonly OperatorCredential Credential = new()
+    {
+        DisplayName = "Legacy Signer",
+        Serial = "LEGACY-1",
+        Transport = CredentialTransport.Contact,
+        CapturedAt = DateTimeOffset.UtcNow,
+    };
+
+    public bool IsMock => true;
+    public bool CanSign => true;
+    public bool ProducesCms => true;
+    public string? SigningAlgorithm => AttestationAlgorithm.PivRsaPkcs1Sha256;
+    public string StatusText => "Legacy CMS";
+
+    public Task<CredentialCaptureResult> WaitForPresenceAsync(
+        TimeSpan timeout,
+        CancellationToken cancellationToken = default)
+    {
+        _ = timeout;
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.FromResult(new CredentialCaptureResult { Credential = Credential });
+    }
+
+    public Task<CredentialSignResult> TrySignPayloadAsync(
+        byte[] payload,
+        OperatorCredential credential,
+        string? pin = null,
+        CancellationToken cancellationToken = default)
+        => TrySignDocumentAsync(payload, credential, pin, cancellationToken: cancellationToken);
+
+    public Task<CredentialSignResult> TrySignDocumentAsync(
+        byte[] document,
+        OperatorCredential credential,
+        string? pin = null,
+        DateTimeOffset? signingTime = null,
+        CancellationToken cancellationToken = default)
+    {
+        _ = document;
+        _ = pin;
+        _ = signingTime;
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.FromResult(CredentialSignResult.Signed(
+            new byte[100_000],
+            AttestationAlgorithm.PivRsaPkcs1Sha256,
+            certificateDer: [0x01],
+            credential: credential));
     }
 }

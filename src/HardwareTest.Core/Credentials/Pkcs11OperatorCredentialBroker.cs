@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Security.Cryptography.Pkcs;
 using System.Security.Cryptography.X509Certificates;
@@ -55,6 +56,12 @@ public sealed class Pkcs11OperatorCredentialBroker : IOperatorCredentialBroker, 
             return Task.FromResult(CredentialSignResult.Failed("Nothing to sign."));
         }
 
+        var unavailable = CheckSigningPrerequisites(credential);
+        if (unavailable is not null)
+        {
+            return Task.FromResult(unavailable);
+        }
+
         if (string.IsNullOrEmpty(pin))
         {
             return Task.FromResult(CredentialSignResult.NeedPin("Enter badge PIN to sign."));
@@ -83,6 +90,12 @@ public sealed class Pkcs11OperatorCredentialBroker : IOperatorCredentialBroker, 
         if (document.Length == 0)
         {
             return Task.FromResult(CredentialSignResult.Failed("Nothing to sign."));
+        }
+
+        var unavailable = CheckSigningPrerequisites(credential);
+        if (unavailable is not null)
+        {
+            return Task.FromResult(unavailable);
         }
 
         if (string.IsNullOrEmpty(pin))
@@ -119,6 +132,12 @@ public sealed class Pkcs11OperatorCredentialBroker : IOperatorCredentialBroker, 
         if (pdf.Length == 0)
         {
             return Task.FromResult(CredentialSignResult.Failed("Nothing to sign."));
+        }
+
+        var unavailable = CheckSigningPrerequisites(credential);
+        if (unavailable is not null)
+        {
+            return Task.FromResult(unavailable);
         }
 
         if (string.IsNullOrEmpty(pin))
@@ -160,7 +179,7 @@ public sealed class Pkcs11OperatorCredentialBroker : IOperatorCredentialBroker, 
         var module = Pkcs11ModuleResolver.Resolve(_settings.Pkcs11LibraryPath);
         if (module is null)
         {
-            return CredentialSignResult.Failed(
+            return CredentialSignResult.Unavailable(
                 "OpenSC PKCS#11 module was not found. Install OpenSC or configure Pkcs11LibraryPath.");
         }
 
@@ -183,16 +202,20 @@ public sealed class Pkcs11OperatorCredentialBroker : IOperatorCredentialBroker, 
             var selected = SelectUnambiguous(candidates, expected);
             if (selected is null)
             {
+                if (candidates.Count == 0)
+                {
+                    return CredentialSignResult.Unavailable(
+                        "No PIV signing certificate (9C) with a private key was found.");
+                }
+
                 var capturedCertificateMissing = !string.IsNullOrWhiteSpace(expected.Thumbprint)
                     && candidates.All(item => !string.Equals(
                         item.certificate.Info.ParsedCertificate.Thumbprint,
                         expected.Thumbprint,
                         StringComparison.OrdinalIgnoreCase));
                 return CredentialSignResult.Failed(
-                    candidates.Count == 0
-                        ? "No PIV Digital Signature (9C) certificate with a private key was found."
-                        : capturedCertificateMissing
-                            ? "The available signing badge does not match the badge that was captured."
+                    capturedCertificateMissing
+                        ? "The available signing badge does not match the badge that was captured."
                         : "More than one signing badge is present. Leave only the certifier badge inserted.");
             }
 
@@ -223,6 +246,20 @@ public sealed class Pkcs11OperatorCredentialBroker : IOperatorCredentialBroker, 
             StatusText = "PKCS#11 signing failed. " + ex.Message;
             return CredentialSignResult.Failed(StatusText);
         }
+    }
+
+    private CredentialSignResult? CheckSigningPrerequisites(OperatorCredential expected)
+    {
+        if (string.IsNullOrWhiteSpace(expected.Thumbprint))
+        {
+            return CredentialSignResult.Unavailable(
+                "No PIV signing certificate (9C) was captured from this badge; signing cannot be bound safely.");
+        }
+
+        return Pkcs11ModuleResolver.Resolve(_settings.Pkcs11LibraryPath) is null
+            ? CredentialSignResult.Unavailable(
+                "OpenSC PKCS#11 module was not found. Install OpenSC or configure Pkcs11LibraryPath.")
+            : null;
     }
 
     private static (Pkcs11Slot slot, Pkcs11X509Certificate certificate)? SelectUnambiguous(
@@ -398,7 +435,24 @@ internal static class Pkcs11ModuleResolver
         var candidates = OperatingSystem.IsWindows()
             ? WindowsCandidates
             : OperatingSystem.IsMacOS() ? MacCandidates : LinuxCandidates;
-        return candidates.FirstOrDefault(candidate => Path.IsPathRooted(candidate) && File.Exists(candidate))
-               ?? candidates.FirstOrDefault(candidate => !Path.IsPathRooted(candidate));
+        return ResolveCandidates(candidates, File.Exists, CanLoad);
+    }
+
+    internal static string? ResolveCandidates(
+        IEnumerable<string> candidates,
+        Func<string, bool> fileExists,
+        Func<string, bool> canLoad)
+        => candidates.FirstOrDefault(candidate => Path.IsPathRooted(candidate) && fileExists(candidate))
+           ?? candidates.FirstOrDefault(candidate => !Path.IsPathRooted(candidate) && canLoad(candidate));
+
+    private static bool CanLoad(string library)
+    {
+        if (!NativeLibrary.TryLoad(library, out var handle))
+        {
+            return false;
+        }
+
+        NativeLibrary.Free(handle);
+        return true;
     }
 }

@@ -82,6 +82,8 @@ public sealed class CredentialSignResult
     public string? Thumbprint { get; init; }
     public bool PinRequired { get; init; }
     public int? PinRetriesRemaining { get; init; }
+    /// True only for capability failures that site policy may downgrade to presence attestation.
+    public bool PresenceFallbackAllowed { get; init; }
     public string? Error { get; init; }
     public OperatorCredential? Credential { get; init; }
     public bool Succeeded => Signature is { Length: > 0 } || SignedPdf is { Length: > 0 };
@@ -103,6 +105,9 @@ public sealed class CredentialSignResult
 
     public static CredentialSignResult NeedPin(string message)
         => new() { PinRequired = true, Error = message };
+
+    public static CredentialSignResult Unavailable(string error)
+        => new() { PresenceFallbackAllowed = true, Error = error };
 
     public static CredentialSignResult SignedPdfDocument(
         byte[] signedPdf,

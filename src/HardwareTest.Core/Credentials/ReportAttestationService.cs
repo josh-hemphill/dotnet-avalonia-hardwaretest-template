@@ -142,27 +142,28 @@ public sealed class ReportAttestationService : IReportAttestationService
 
         var runJson = JsonSerializer.Serialize(run, AppJsonContext.Default.TestRunRecord);
         var runHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(runJson)));
+        CredentialSignResult? signingProbe = null;
         if (!skipSigning && string.IsNullOrEmpty(pin))
         {
-            var probe = await _broker.TrySignPayloadAsync(
+            signingProbe = await _broker.TrySignPayloadAsync(
                     Encoding.UTF8.GetBytes($"pin-probe:{runHash}"),
                     captured,
                     pin,
                     cancellationToken)
                 .ConfigureAwait(false);
-            if (probe.PinRequired)
+            if (signingProbe.PinRequired)
             {
                 return new ReportAttestationResult
                 {
                     Succeeded = false,
                     PinRequired = true,
                     Credential = captured,
-                    Message = probe.Error ?? "Enter badge PIN to sign.",
+                    Message = signingProbe.Error ?? "Enter badge PIN to sign.",
                 };
             }
         }
 
-        var overlayKind = skipSigning || !_broker.CanSign
+        var overlayKind = skipSigning || !_broker.CanSign || signingProbe?.PresenceFallbackAllowed == true
             ? AttestationKind.Presence
             : AttestationKind.Signed;
         var stamped = await TryCompileOverlayAsync(run, targetKind, captured, overlayKind, cancellationToken)
@@ -418,12 +419,13 @@ public sealed class ReportAttestationService : IReportAttestationService
         }
 
         byte[] signedPdf;
+        string? embedError = null;
         if (sign.SignedPdf is { Length: > 0 } embeddedPdf)
         {
             signedPdf = embeddedPdf;
         }
         else if (prepared is not null
-                 && prepared.TryEmbed(sign.Signature, out signedPdf, out var embedError))
+                 && prepared.TryEmbed(sign.Signature, out signedPdf, out embedError))
         {
             // Compatibility path for non-iText CMS brokers used by existing deployments/tests.
         }
@@ -433,7 +435,7 @@ public sealed class ReportAttestationService : IReportAttestationService
             {
                 Succeeded = false,
                 Credential = sign.Credential ?? captured,
-                Message = "Could not inject the CMS signature into the PDF.",
+                Message = embedError ?? "Could not inject the CMS signature into the PDF.",
             };
         }
 
@@ -533,6 +535,31 @@ public sealed class ReportAttestationService : IReportAttestationService
                 Credential = captured,
                 Message = "This badge cannot sign, and presence-only attestation is disabled." + detail,
             };
+        }
+
+        if (_reports is not null && !skipSigning && !string.IsNullOrEmpty(pin))
+        {
+            var presence = await TryCompileOverlayAsync(
+                    run,
+                    targetKind,
+                    captured,
+                    AttestationKind.Presence,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (presence.Error is not null)
+            {
+                return new ReportAttestationResult
+                {
+                    Succeeded = false,
+                    Message = presence.Error,
+                    Credential = captured,
+                };
+            }
+
+            if (presence.Pdf is { Length: > 0 })
+            {
+                stampedPdf = presence.Pdf;
+            }
         }
 
         var dir = _runStore.GetRunDirectory(run.RunId);
@@ -735,6 +762,11 @@ public sealed class ReportAttestationService : IReportAttestationService
     private static bool CanRecordPresence(bool skipSigning, string? pin, CredentialSignResult? sign)
     {
         if (skipSigning)
+        {
+            return true;
+        }
+
+        if (sign?.PresenceFallbackAllowed == true)
         {
             return true;
         }
