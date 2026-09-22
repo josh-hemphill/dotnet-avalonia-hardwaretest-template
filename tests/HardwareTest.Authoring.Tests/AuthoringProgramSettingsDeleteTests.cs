@@ -497,10 +497,12 @@ public sealed class AuthoringProgramSettingsDeleteTests
         Assert.Equal(invented, description.TapPlanPath);
         Assert.Equal(sidecar, description.SidecarPath);
         Assert.True(File.Exists(sidecar));
+        Assert.False(vm.RemoveSelectedProgramIfMatches(("orphan", invented + ".other", sidecar)));
+        Assert.True(File.Exists(sidecar));
         Assert.DoesNotContain(
             vm.Workspace.TapPlanPaths,
             path => string.Equals(Path.GetFileNameWithoutExtension(path), "orphan", StringComparison.OrdinalIgnoreCase));
-        vm.RemoveSelectedProgram();
+        Assert.True(vm.RemoveSelectedProgramIfMatches(description));
         Assert.False(File.Exists(sidecar));
         Assert.False(File.Exists(invented));
         Assert.Empty(vm.Programs);

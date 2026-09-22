@@ -174,15 +174,14 @@ public partial class MainWindow : Window
             Children =
             {
                 new TextBlock { Text = $"Remove {target.PlanId} from this workspace?", TextWrapping = Avalonia.Media.TextWrapping.Wrap },
-                new TextBlock { Text = $"This deletes:\n{target.TapPlanPath}\n{target.SidecarPath}", TextWrapping = Avalonia.Media.TextWrapping.Wrap },
+                new TextBlock { Text = $"These files will be deleted if they exist:\n{target.TapPlanPath}\n{target.SidecarPath}", TextWrapping = Avalonia.Media.TextWrapping.Wrap },
                 new StackPanel { Orientation = Avalonia.Layout.Orientation.Horizontal, Spacing = 8, HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right, Children = { cancel, remove } },
             },
         };
 
-        if (await dialog.ShowDialog<bool>(this)
-            && string.Equals(_viewModel.SelectedProgram?.PlanId, target.PlanId, StringComparison.OrdinalIgnoreCase))
+        if (await dialog.ShowDialog<bool>(this))
         {
-            TryRun(_viewModel.RemoveSelectedProgram);
+            TryRun(() => _viewModel.RemoveSelectedProgramIfMatches(target));
         }
     }
 
