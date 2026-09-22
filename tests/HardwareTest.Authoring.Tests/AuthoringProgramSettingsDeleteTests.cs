@@ -492,6 +492,11 @@ public sealed class AuthoringProgramSettingsDeleteTests
         var sidecar = PlanCompiler.SidecarPath(invented);
         File.WriteAllText(sidecar, """{"schemaVersion":1,"displayName":"orphan"}""");
         Assert.True(File.Exists(sidecar));
+        var description = vm.DescribeSelectedProgramRemoval();
+        Assert.Equal("orphan", description.PlanId);
+        Assert.Equal(invented, description.TapPlanPath);
+        Assert.Equal(sidecar, description.SidecarPath);
+        Assert.True(File.Exists(sidecar));
         Assert.DoesNotContain(
             vm.Workspace.TapPlanPaths,
             path => string.Equals(Path.GetFileNameWithoutExtension(path), "orphan", StringComparison.OrdinalIgnoreCase));
