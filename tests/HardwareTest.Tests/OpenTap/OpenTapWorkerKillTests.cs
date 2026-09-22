@@ -102,6 +102,34 @@ public sealed class OpenTapWorkerKillTests
     }
 
     [Fact]
+    public async Task Kill_callback_can_dispose_client_without_waiting_on_itself()
+    {
+        using var temp = new TempDataDirectory();
+        OpenTapWorkerClient? client = null;
+        var safety = new RecordingSafetyController(() => client!.Dispose());
+        client = new OpenTapWorkerClient(
+            new AppSettings
+            {
+                UseMockVisa = true,
+                CrashEnabled = false,
+                DataDirectory = temp.Path,
+            },
+            safety: safety,
+            killTimeout: TimeSpan.FromMilliseconds(400));
+
+        await client.LoadPlanShapeAsync(PlanShapeFixtures.HangForeverName);
+        var run = client.RunAsync();
+        await WaitUntilAsync(() => client.IsExecuting, TimeSpan.FromSeconds(15));
+        client.Abort();
+
+        var summary = await run.WaitAsync(TimeSpan.FromSeconds(20));
+
+        Assert.Equal(RunResult.Cancelled, summary.Result);
+        Assert.True(safety.SafeIdleCount >= 1);
+        client.Dispose();
+    }
+
+    [Fact]
     public async Task Cancelling_run_token_does_not_abandon_ipc_or_kill_the_next_run()
     {
         using var temp = new TempDataDirectory();
@@ -213,7 +241,7 @@ public sealed class OpenTapWorkerKillTests
         }
     }
 
-    private sealed class RecordingSafetyController : ISafetyController
+    private sealed class RecordingSafetyController(Action? onSafeIdle = null) : ISafetyController
     {
         public int SafeIdleCount;
 
@@ -223,6 +251,10 @@ public sealed class OpenTapWorkerKillTests
 
         public IReadOnlyList<string> Channels => [];
 
-        public void SafeIdle() => Interlocked.Increment(ref SafeIdleCount);
+        public void SafeIdle()
+        {
+            Interlocked.Increment(ref SafeIdleCount);
+            onSafeIdle?.Invoke();
+        }
     }
 }

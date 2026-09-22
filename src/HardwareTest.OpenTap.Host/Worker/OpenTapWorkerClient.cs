@@ -35,6 +35,7 @@ public sealed class OpenTapWorkerClient : IOpenTapSession, INotifyPropertyChange
     private CancellationTokenSource? _killCts;
     private Task _killTask = Task.CompletedTask;
     private bool _killEligible;
+    private int _killCallbackThreadId;
     private bool _workerUseMockVisa;
     private int _disposed;
 
@@ -335,7 +336,14 @@ public sealed class OpenTapWorkerClient : IOpenTapSession, INotifyPropertyChange
             return;
         }
 
-        CompleteRunKillTimerAsync().GetAwaiter().GetResult();
+        var killCompletion = CompleteRunKillTimerAsync();
+        if (Volatile.Read(ref _killCallbackThreadId) == Environment.CurrentManagedThreadId)
+        {
+            _ = DisposeProcessAfterKillAsync(killCompletion);
+            return;
+        }
+
+        killCompletion.GetAwaiter().GetResult();
         _process.Dispose();
     }
 
@@ -590,8 +598,28 @@ public sealed class OpenTapWorkerClient : IOpenTapSession, INotifyPropertyChange
                     }
                 }
 
-                KillWorkerAfterTimeout();
+                Volatile.Write(ref _killCallbackThreadId, Environment.CurrentManagedThreadId);
+                try
+                {
+                    KillWorkerAfterTimeout();
+                }
+                finally
+                {
+                    Volatile.Write(ref _killCallbackThreadId, 0);
+                }
             });
+        }
+    }
+
+    private async Task DisposeProcessAfterKillAsync(Task killCompletion)
+    {
+        try
+        {
+            await killCompletion.ConfigureAwait(false);
+        }
+        finally
+        {
+            _process.Dispose();
         }
     }
 
