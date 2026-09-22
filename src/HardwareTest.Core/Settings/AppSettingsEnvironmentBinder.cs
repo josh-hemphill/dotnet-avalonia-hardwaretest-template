@@ -1,6 +1,8 @@
 using System.Collections;
 using System.Globalization;
+using System.Reflection;
 using System.Text;
+using Microsoft.Extensions.Configuration;
 
 namespace HardwareTest.Core.Settings;
 
@@ -8,6 +10,7 @@ namespace HardwareTest.Core.Settings;
 /// Precedence is applied by the caller: defaults → file → Environment → CommandLine.
 public static class AppSettingsEnvironmentBinder
 {
+    private const int MaxIndexedListEntries = 1024;
     public const string EnvPrefix = "HARDWARETEST_";
     /// Preserved legacy name (not HARDWARETEST_OPEN_TAP_PLUGIN_DIRECTORIES).
     public const string OpenTapPluginDirsEnv = "HARDWARETEST_OPENTAP_PLUGIN_DIRS";
@@ -175,7 +178,7 @@ public static class AppSettingsEnvironmentBinder
         // HARDWARETEST_INSTRUMENTS__0__ID → Instruments[0].Id
         var body = envName[EnvPrefix.Length..];
         var parts = body.Split("__", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-        if (parts.Length < 3 || !int.TryParse(parts[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out _))
+        if (parts.Length < 2 || !int.TryParse(parts[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out _))
         {
             return false;
         }
@@ -230,223 +233,72 @@ public static class AppSettingsEnvironmentBinder
         IReadOnlyDictionary<string, string> values,
         Action<string>? warn)
     {
-        ApplyStringList(settings.OpenTapPluginDirectories, "OpenTapPluginDirectories", provenance, source, values);
-        ApplyObjectList(
-            settings.Instruments,
-            "Instruments",
-            () => new VisaInstrument(),
-            provenance,
-            source,
-            values,
-            warn,
-            (item, prop, raw) =>
-            {
-                switch (prop)
-                {
-                    case "Id": item.Id = raw; return true;
-                    case "DisplayName": item.DisplayName = raw; return true;
-                    case "Resource": item.Resource = raw; return true;
-                    case "Enabled":
-                        if (!TryParseBool(raw, out var enabled))
-                        {
-                            return false;
-                        }
-
-                        item.Enabled = enabled;
-                        return true;
-                    case "Notes": item.Notes = raw; return true;
-                    default: return false;
-                }
-            });
-        ApplyObjectList(
-            settings.StationBindings,
-            "StationBindings",
-            () => new StationBinding(),
-            provenance,
-            source,
-            values,
-            warn,
-            (item, prop, raw) =>
-            {
-                switch (prop)
-                {
-                    case "Role": item.Role = raw; return true;
-                    case "InstrumentId": item.InstrumentId = raw; return true;
-                    default: return false;
-                }
-            });
-        ApplyObjectList(
-            settings.PlanSlotOverrides,
-            "PlanSlotOverrides",
-            () => new PlanSlotOverride(),
-            provenance,
-            source,
-            values,
-            warn,
-            (item, prop, raw) =>
-            {
-                switch (prop)
-                {
-                    case "PlanId": item.PlanId = raw; return true;
-                    case "SlotName": item.SlotName = raw; return true;
-                    case "RoleHint": item.RoleHint = raw; return true;
-                    case "Resource": item.Resource = raw; return true;
-                    default: return false;
-                }
-            });
-        ApplyObjectList(
-            settings.PlanParameterOverrides,
-            "PlanParameterOverrides",
-            () => new PlanParameterOverride(),
-            provenance,
-            source,
-            values,
-            warn,
-            (item, prop, raw) =>
-            {
-                switch (prop)
-                {
-                    case "PlanId": item.PlanId = raw; return true;
-                    case "MemberKey": item.MemberKey = raw; return true;
-                    case "Value": item.Value = raw; return true;
-                    default: return false;
-                }
-            });
-    }
-
-    private static void ApplyStringList(
-        List<string> target,
-        string listKey,
-        IList<SettingProvenance> provenance,
-        SettingSource source,
-        IReadOnlyDictionary<string, string> values)
-    {
-        var indexed = values
-            .Where(kv => kv.Key.StartsWith(listKey + "[", StringComparison.OrdinalIgnoreCase))
-            .Select(kv =>
-            {
-                var start = kv.Key.IndexOf('[') + 1;
-                var end = kv.Key.IndexOf(']');
-                if (start <= 0 || end <= start
-                    || !int.TryParse(kv.Key[start..end], NumberStyles.Integer, CultureInfo.InvariantCulture, out var i))
-                {
-                    return (-1, kv.Value);
-                }
-
-                return (i, kv.Value);
-            })
-            .Where(x => x.Item1 >= 0)
-            .OrderBy(x => x.Item1)
-            .ToArray();
-        if (indexed.Length == 0)
+        foreach (var (mapKey, raw) in values)
         {
-            return;
-        }
-
-        var max = indexed.Max(x => x.Item1);
-        while (target.Count <= max)
-        {
-            target.Add(string.Empty);
-        }
-
-        foreach (var (index, value) in indexed)
-        {
-            target[index] = value;
-            UpsertProvenance(
-                provenance,
-                $"{listKey}[{index}]",
-                value,
-                source,
-                value,
-                source == SettingSource.Environment ? $"{EnvPrefix}{ToSnake(listKey)}__{index}" : listKey);
-        }
-    }
-
-    private static void ApplyObjectList<T>(
-        List<T> target,
-        string listKey,
-        Func<T> factory,
-        IList<SettingProvenance> provenance,
-        SettingSource source,
-        IReadOnlyDictionary<string, string> values,
-        Action<string>? warn,
-        Func<T, string, string, bool> applyProp)
-    {
-        var keyed = values
-            .Where(kv => kv.Key.StartsWith(listKey + "[", StringComparison.OrdinalIgnoreCase))
-            .ToArray();
-        if (keyed.Length == 0)
-        {
-            return;
-        }
-
-        foreach (var (mapKey, raw) in keyed)
-        {
-            // Instruments[0].Id
             var open = mapKey.IndexOf('[');
             var close = mapKey.IndexOf(']');
             var dot = mapKey.IndexOf('.', close + 1);
-            if (open < 0 || close <= open || dot <= close
+            if (open <= 0 || close <= open
                 || !int.TryParse(mapKey[(open + 1)..close], NumberStyles.Integer, CultureInfo.InvariantCulture, out var index))
             {
                 continue;
             }
 
-            var prop = mapKey[(dot + 1)..];
-            while (target.Count <= index)
+            if (index < 0 || index >= MaxIndexedListEntries)
             {
-                target.Add(factory());
-            }
-
-            if (!applyProp(target[index], prop, raw))
-            {
-                warn?.Invoke($"Ignoring {source} value for '{mapKey}': could not parse '{raw}'.");
+                warn?.Invoke($"Ignoring {source} value for '{mapKey}': list index is out of range.");
                 continue;
             }
 
-            UpsertProvenance(provenance, mapKey, raw, source, raw, mapKey);
-        }
-    }
-
-    private static string ToSnake(string pascal)
-    {
-        var sb = new StringBuilder();
-        for (var i = 0; i < pascal.Length; i++)
-        {
-            var c = pascal[i];
-            if (i > 0 && char.IsUpper(c))
+            var listName = mapKey[..open];
+            var listProperty = typeof(AppSettings).GetProperty(
+                listName,
+                BindingFlags.Instance | BindingFlags.Public | BindingFlags.IgnoreCase);
+            if (listProperty?.GetValue(settings) is not IList target
+                || !listProperty.PropertyType.IsGenericType)
             {
-                sb.Append('_');
+                continue;
             }
 
-            sb.Append(char.ToUpperInvariant(c));
+            var itemType = listProperty.PropertyType.GetGenericArguments()[0];
+            while (target.Count <= index)
+            {
+                target.Add(itemType == typeof(string) ? string.Empty : Activator.CreateInstance(itemType));
+            }
+
+            try
+            {
+                if (itemType == typeof(string) && dot < 0)
+                {
+                    target[index] = raw;
+                }
+                else
+                {
+                    if (dot <= close || target[index] is not { } item)
+                    {
+                        continue;
+                    }
+
+                    var propertyName = mapKey[(dot + 1)..];
+                    var property = itemType.GetProperty(
+                        propertyName,
+                        BindingFlags.Instance | BindingFlags.Public | BindingFlags.IgnoreCase);
+                    if (property is null || !property.CanWrite)
+                    {
+                        warn?.Invoke($"Ignoring {source} value for '{mapKey}': unknown setting path.");
+                        continue;
+                    }
+
+                    property.SetValue(item, SettingBinding.ConvertValue(property.PropertyType, raw));
+                }
+
+                UpsertProvenance(provenance, mapKey, raw, source, raw, mapKey);
+            }
+            catch (InvalidOperationException)
+            {
+                warn?.Invoke($"Ignoring {source} value for '{mapKey}': could not parse '{raw}'.");
+            }
         }
-
-        return sb.ToString();
-    }
-
-    internal static bool TryParseBool(string raw, out bool value)
-    {
-        value = false;
-        var t = raw.Trim();
-        if (bool.TryParse(t, out value))
-        {
-            return true;
-        }
-
-        if (t is "1" or "yes" or "on")
-        {
-            value = true;
-            return true;
-        }
-
-        if (t is "0" or "no" or "off")
-        {
-            value = false;
-            return true;
-        }
-
-        return false;
     }
 
     private static IReadOnlyList<SettingBinding> BuildBindings()
@@ -761,16 +613,7 @@ public sealed class SettingBinding
         Action<AppSettings, string> set,
         string[] env,
         string[] cli)
-        => new(
-            key,
-            env,
-            cli,
-            get,
-            (s, raw) =>
-            {
-                set(s, raw);
-                return (true, raw, null);
-            });
+        => Scalar(key, get, set, env, cli);
 
     public static SettingBinding Bool(
         string key,
@@ -778,21 +621,7 @@ public sealed class SettingBinding
         Action<AppSettings, bool> set,
         string[] env,
         string[] cli)
-        => new(
-            key,
-            env,
-            cli,
-            s => get(s) ? "true" : "false",
-            (s, raw) =>
-            {
-                if (!AppSettingsEnvironmentBinder.TryParseBool(raw, out var value))
-                {
-                    return (false, get(s) ? "true" : "false", $"expected bool, got '{raw}'");
-                }
-
-                set(s, value);
-                return (true, value ? "true" : "false", null);
-            });
+        => Scalar(key, get, set, env, cli, NormalizeLegacyBool);
 
     public static SettingBinding Int(
         string key,
@@ -800,21 +629,7 @@ public sealed class SettingBinding
         Action<AppSettings, int> set,
         string[] env,
         string[] cli)
-        => new(
-            key,
-            env,
-            cli,
-            s => get(s).ToString(CultureInfo.InvariantCulture),
-            (s, raw) =>
-            {
-                if (!int.TryParse(raw.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var value))
-                {
-                    return (false, get(s).ToString(CultureInfo.InvariantCulture), $"expected int, got '{raw}'");
-                }
-
-                set(s, value);
-                return (true, value.ToString(CultureInfo.InvariantCulture), null);
-            });
+        => Scalar(key, get, set, env, cli);
 
     public static SettingBinding Long(
         string key,
@@ -822,21 +637,7 @@ public sealed class SettingBinding
         Action<AppSettings, long> set,
         string[] env,
         string[] cli)
-        => new(
-            key,
-            env,
-            cli,
-            s => get(s).ToString(CultureInfo.InvariantCulture),
-            (s, raw) =>
-            {
-                if (!long.TryParse(raw.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var value))
-                {
-                    return (false, get(s).ToString(CultureInfo.InvariantCulture), $"expected long, got '{raw}'");
-                }
-
-                set(s, value);
-                return (true, value.ToString(CultureInfo.InvariantCulture), null);
-            });
+        => Scalar(key, get, set, env, cli);
 
     public static SettingBinding StringList(
         string key,
@@ -857,4 +658,64 @@ public sealed class SettingBinding
                 set(s, parts);
                 return (true, string.Join(Path.PathSeparator.ToString(), parts), null);
             });
+
+    internal static object? ConvertValue(Type type, string raw)
+    {
+        if (type == typeof(bool))
+        {
+            raw = NormalizeLegacyBool(raw);
+        }
+
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["Value"] = raw })
+            .Build();
+        return configuration.GetValue(type, "Value");
+    }
+
+    private static SettingBinding Scalar<T>(
+        string key,
+        Func<AppSettings, T> get,
+        Action<AppSettings, T> set,
+        string[] env,
+        string[] cli,
+        Func<string, string>? normalize = null)
+        => new(
+            key,
+            env,
+            cli,
+            settings => FormatValue(get(settings)),
+            (settings, raw) =>
+            {
+                try
+                {
+                    var converted = ConvertValue(typeof(T), normalize?.Invoke(raw) ?? raw);
+                    if (converted is not T value)
+                    {
+                        return (false, FormatValue(get(settings)), $"could not convert '{raw}'");
+                    }
+
+                    set(settings, value);
+                    return (true, FormatValue(get(settings)), null);
+                }
+                catch (InvalidOperationException ex)
+                {
+                    return (false, FormatValue(get(settings)), ex.Message);
+                }
+            });
+
+    private static string NormalizeLegacyBool(string raw)
+        => raw.Trim().ToLowerInvariant() switch
+        {
+            "1" or "yes" or "on" => bool.TrueString,
+            "0" or "no" or "off" => bool.FalseString,
+            _ => raw,
+        };
+
+    private static string FormatValue<T>(T value)
+        => value switch
+        {
+            bool flag => flag ? "true" : "false",
+            null => string.Empty,
+            _ => Convert.ToString(value, CultureInfo.InvariantCulture) ?? string.Empty,
+        };
 }

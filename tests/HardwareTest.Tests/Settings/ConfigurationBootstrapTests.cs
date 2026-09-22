@@ -65,6 +65,97 @@ public sealed class ConfigurationBootstrapTests
         Assert.Contains(warnings, w => w.Contains("PlotRefreshHz", StringComparison.OrdinalIgnoreCase));
     }
 
+    [Theory]
+    [InlineData("yes", true)]
+    [InlineData("on", true)]
+    [InlineData("1", true)]
+    [InlineData("no", false)]
+    [InlineData("off", false)]
+    [InlineData("0", false)]
+    public async Task Legacy_boolean_spellings_remain_supported(string raw, bool expected)
+    {
+        using var temp = new TempDataDirectory();
+        var store = new SettingsStore(temp.Path);
+
+        await store.LoadAsync(
+            new Dictionary<string, string> { ["UseMockVisa"] = raw },
+            commandLineOverlays: null);
+
+        Assert.Equal(expected, store.AppSettings.UseMockVisa);
+    }
+
+    [Fact]
+    public async Task Indexed_environment_overlays_merge_into_existing_lists()
+    {
+        using var temp = new TempDataDirectory();
+        var env = new Hashtable
+        {
+            ["HARDWARETEST_INSTRUMENTS__0__DISPLAY_NAME"] = "Bench DMM",
+            ["HARDWARETEST_INSTRUMENTS__0__ENABLED"] = "off",
+            ["HARDWARETEST_OPEN_TAP_PLUGIN_DIRECTORIES__0"] = "plugins/site",
+        };
+
+        var overlays = AppSettingsEnvironmentBinder.ReadEnvironment(env);
+        var store = new SettingsStore(temp.Path);
+        await store.LoadAsync(overlays, commandLineOverlays: null);
+
+        Assert.Equal("instr0", store.AppSettings.Instruments[0].Id);
+        Assert.Equal("Bench DMM", store.AppSettings.Instruments[0].DisplayName);
+        Assert.False(store.AppSettings.Instruments[0].Enabled);
+        Assert.Equal(["plugins/site"], store.AppSettings.OpenTapPluginDirectories);
+        Assert.True(store.IsOverridden("Instruments"));
+        Assert.True(store.IsOverridden("OpenTapPluginDirectories"));
+    }
+
+    [Fact]
+    public async Task Invalid_indexed_overlays_are_ignored_without_expanding_lists()
+    {
+        using var temp = new TempDataDirectory();
+        var warnings = new List<string>();
+        var store = new SettingsStore(temp.Path);
+
+        await store.LoadAsync(
+            new Dictionary<string, string>
+            {
+                ["OpenTapPluginDirectories[-1]"] = "negative",
+                ["Instruments[100000].Id"] = "too-large",
+            },
+            commandLineOverlays: null,
+            warn: warnings.Add);
+
+        Assert.Empty(store.AppSettings.OpenTapPluginDirectories);
+        Assert.Single(store.AppSettings.Instruments);
+        Assert.Equal(2, warnings.Count);
+        Assert.All(warnings, warning => Assert.Contains("out of range", warning, StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task Scalar_compatibility_normalizers_run_after_binding()
+    {
+        using var temp = new TempDataDirectory();
+        var store = new SettingsStore(temp.Path);
+
+        await store.LoadAsync(
+            new Dictionary<string, string>
+            {
+                ["OpenTapWorkerKillTimeoutMilliseconds"] = "1",
+                ["ClockSkewWarnThresholdMinutes"] = "99999",
+                ["NtpHost"] = "  ntp.example.test  ",
+                ["StationHealthProfileId"] = "   ",
+                ["StationHealthGateOverride"] = "not-a-gate",
+            },
+            commandLineOverlays: null);
+
+        Assert.Equal(AppSettings.MinOpenTapWorkerKillTimeoutMilliseconds, store.AppSettings.OpenTapWorkerKillTimeoutMilliseconds);
+        Assert.Equal(AppSettings.MaxClockSkewWarnThresholdMinutes, store.AppSettings.ClockSkewWarnThresholdMinutes);
+        Assert.Equal("ntp.example.test", store.AppSettings.NtpHost);
+        Assert.Equal("default", store.AppSettings.StationHealthProfileId);
+        Assert.Equal(string.Empty, store.AppSettings.StationHealthGateOverride);
+        Assert.Equal(
+            string.Empty,
+            store.Provenance.Single(row => row.Key == "StationHealthGateOverride").EffectiveValue);
+    }
+
     [Fact]
     public async Task Missing_settings_json_yields_defaults_without_throw()
     {
