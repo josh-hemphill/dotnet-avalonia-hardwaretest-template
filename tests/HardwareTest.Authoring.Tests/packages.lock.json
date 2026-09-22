@@ -351,6 +351,11 @@
         "resolved": "3.119.0",
         "contentHash": "IwC9yx36lOdXVT2DjgmWHl1qkVspfj8ctd4+li8CNnvqdfaTolXCOh6TLznURcPAvzatx9K/tLOB7zT6T8EA9w=="
       },
+      "System.CommandLine": {
+        "type": "Transitive",
+        "resolved": "2.0.12",
+        "contentHash": "FpW672e6qqrTd1EfKqsvUtFZaJWlTlszUR1o8tdakXhkzKbnEZVndtpfd4K3fUPCFcIs9UmcswMyYGJP1zp/rg=="
+      },
       "System.Diagnostics.EventLog": {
         "type": "Transitive",
         "resolved": "8.0.0",
@@ -448,7 +453,8 @@
           "HardwareTest.OpenTap.Host": "[0.1.0, )",
           "HardwareTest.OpenTap.Plugins.Basic": "[0.1.0, )",
           "HardwareTest.OpenTap.Plugins.Mixins": "[0.1.0, )",
-          "OpenTAP": "[9.32.2, )"
+          "OpenTAP": "[9.32.2, )",
+          "System.CommandLine": "[2.0.12, )"
         }
       },
       "hardwaretest.core": {
@@ -467,6 +473,7 @@
           "Serilog.Sinks.File": "[7.0.0, )",
           "Serilog.Sinks.SyslogMessages": "[4.1.0, )",
           "SerilogTracing": "[2.4.0, )",
+          "System.CommandLine": "[2.0.12, )",
           "System.Security.Cryptography.Pkcs": "[10.0.10, )",
           "TypstInterop": "[2.0.2, )",
           "itext": "[9.7.0, )",

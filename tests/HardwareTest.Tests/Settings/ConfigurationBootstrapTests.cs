@@ -148,6 +148,34 @@ public sealed class ConfigurationBootstrapTests
     }
 
     [Fact]
+    public async Task Malformed_cli_bool_keeps_prior_value_and_warns()
+    {
+        using var temp = new TempDataDirectory();
+        var warnings = new List<string>();
+        var args = ConfigurationArgs.Parse(["--ALLOW-PRESENCE-IN-LIEU-OF-SIGNING=typo"]);
+        Assert.Equal("typo", args.Overlays["AllowPresenceInLieuOfSigning"]);
+
+        var store = new SettingsStore(temp.Path);
+        await store.LoadAsync(
+            environmentOverlays: null,
+            commandLineOverlays: args.Overlays,
+            warn: warnings.Add);
+
+        Assert.True(store.AppSettings.AllowPresenceInLieuOfSigning);
+        Assert.Contains(warnings, warning => warning.Contains(
+            "AllowPresenceInLieuOfSigning",
+            StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void Avalonia_help_options_remain_passthrough()
+    {
+        var args = ConfigurationArgs.Parse(["--HELP", "-?"]);
+
+        Assert.Equal(["--HELP", "-?"], args.PassthroughArgs);
+    }
+
+    [Fact]
     public void Parse_validate_plan_flag_sets_path_and_is_not_passthrough()
     {
         var spaced = ConfigurationArgs.Parse(["--validate-plan", "plans/opentap/sample.TapPlan", "--log-level", "Debug"]);
