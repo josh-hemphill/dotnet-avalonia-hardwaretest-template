@@ -16,13 +16,14 @@ public sealed class Pkcs11OperatorCredentialBroker : IOperatorCredentialBroker, 
 {
     private const string PivDigitalSignatureId = "02";
     private readonly AppSettings _settings;
-    private readonly PcscOperatorCredentialBroker _presence;
+    private readonly IOperatorCredentialBroker _presence;
     private readonly IClock _clock;
+    private readonly SemaphoreSlim _cardOperationGate = new(1, 1);
 
     public Pkcs11OperatorCredentialBroker(
         AppSettings settings,
         IClock? clock = null,
-        PcscOperatorCredentialBroker? presence = null)
+        IOperatorCredentialBroker? presence = null)
     {
         _settings = settings;
         _clock = clock ?? SystemClock.Instance;
@@ -39,12 +40,20 @@ public sealed class Pkcs11OperatorCredentialBroker : IOperatorCredentialBroker, 
         TimeSpan timeout,
         CancellationToken cancellationToken = default)
     {
-        var captured = await _presence.WaitForPresenceAsync(timeout, cancellationToken).ConfigureAwait(false);
-        StatusText = _presence.StatusText;
-        return captured;
+        await _cardOperationGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            var captured = await _presence.WaitForPresenceAsync(timeout, cancellationToken).ConfigureAwait(false);
+            StatusText = _presence.StatusText;
+            return captured;
+        }
+        finally
+        {
+            _cardOperationGate.Release();
+        }
     }
 
-    public Task<CredentialSignResult> TrySignPayloadAsync(
+    public async Task<CredentialSignResult> TrySignPayloadAsync(
         byte[] payload,
         OperatorCredential credential,
         string? pin = null,
@@ -53,33 +62,41 @@ public sealed class Pkcs11OperatorCredentialBroker : IOperatorCredentialBroker, 
         cancellationToken.ThrowIfCancellationRequested();
         if (payload.Length == 0)
         {
-            return Task.FromResult(CredentialSignResult.Failed("Nothing to sign."));
+            return CredentialSignResult.Failed("Nothing to sign.");
         }
 
         var unavailable = CheckSigningPrerequisites(credential);
         if (unavailable is not null)
         {
-            return Task.FromResult(unavailable);
+            return unavailable;
         }
 
         if (string.IsNullOrEmpty(pin))
         {
-            return Task.FromResult(CredentialSignResult.NeedPin("Enter badge PIN to sign."));
+            return CredentialSignResult.NeedPin("Enter badge PIN to sign.");
         }
 
-        return Task.FromResult(WithSigningCertificate(pin, credential, (certificate, key, party) =>
+        await _cardOperationGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
         {
-            var (signature, algorithm) = SignData(key, payload);
-            return CredentialSignResult.Signed(
-                signature,
-                algorithm,
-                certificate.RawData,
-                certificate.Thumbprint,
-                party);
-        }));
+            return WithSigningCertificate(pin, credential, (certificate, key, party) =>
+            {
+                var (signature, algorithm) = SignData(key, payload);
+                return CredentialSignResult.Signed(
+                    signature,
+                    algorithm,
+                    certificate.RawData,
+                    certificate.Thumbprint,
+                    party);
+            });
+        }
+        finally
+        {
+            _cardOperationGate.Release();
+        }
     }
 
-    public Task<CredentialSignResult> TrySignDocumentAsync(
+    public async Task<CredentialSignResult> TrySignDocumentAsync(
         byte[] document,
         OperatorCredential credential,
         string? pin = null,
@@ -89,39 +106,47 @@ public sealed class Pkcs11OperatorCredentialBroker : IOperatorCredentialBroker, 
         cancellationToken.ThrowIfCancellationRequested();
         if (document.Length == 0)
         {
-            return Task.FromResult(CredentialSignResult.Failed("Nothing to sign."));
+            return CredentialSignResult.Failed("Nothing to sign.");
         }
 
         var unavailable = CheckSigningPrerequisites(credential);
         if (unavailable is not null)
         {
-            return Task.FromResult(unavailable);
+            return unavailable;
         }
 
         if (string.IsNullOrEmpty(pin))
         {
-            return Task.FromResult(CredentialSignResult.NeedPin("Enter badge PIN to sign."));
+            return CredentialSignResult.NeedPin("Enter badge PIN to sign.");
         }
 
-        return Task.FromResult(WithSigningCertificate(pin, credential, (certificate, key, party) =>
+        await _cardOperationGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
         {
-            var cms = new SignedCms(new ContentInfo(document), detached: true);
-            var signer = new CmsSigner(SubjectIdentifierType.IssuerAndSerialNumber, certificate, key)
+            return WithSigningCertificate(pin, credential, (certificate, key, party) =>
             {
-                DigestAlgorithm = DigestOid(key),
-                IncludeOption = X509IncludeOption.EndCertOnly,
-            };
-            cms.ComputeSignature(signer, silent: true);
-            return CredentialSignResult.Signed(
-                cms.Encode(),
-                AlgorithmName(key),
-                certificate.RawData,
-                certificate.Thumbprint,
-                party);
-        }));
+                var cms = new SignedCms(new ContentInfo(document), detached: true);
+                var signer = new CmsSigner(SubjectIdentifierType.IssuerAndSerialNumber, certificate, key)
+                {
+                    DigestAlgorithm = DigestOid(key),
+                    IncludeOption = X509IncludeOption.EndCertOnly,
+                };
+                cms.ComputeSignature(signer, silent: true);
+                return CredentialSignResult.Signed(
+                    cms.Encode(),
+                    AlgorithmName(key),
+                    certificate.RawData,
+                    certificate.Thumbprint,
+                    party);
+            });
+        }
+        finally
+        {
+            _cardOperationGate.Release();
+        }
     }
 
-    public Task<CredentialSignResult> TrySignPdfAsync(
+    public async Task<CredentialSignResult> TrySignPdfAsync(
         byte[] pdf,
         OperatorCredential credential,
         string? pin = null,
@@ -131,44 +156,52 @@ public sealed class Pkcs11OperatorCredentialBroker : IOperatorCredentialBroker, 
         cancellationToken.ThrowIfCancellationRequested();
         if (pdf.Length == 0)
         {
-            return Task.FromResult(CredentialSignResult.Failed("Nothing to sign."));
+            return CredentialSignResult.Failed("Nothing to sign.");
         }
 
         var unavailable = CheckSigningPrerequisites(credential);
         if (unavailable is not null)
         {
-            return Task.FromResult(unavailable);
+            return unavailable;
         }
 
         if (string.IsNullOrEmpty(pin))
         {
-            return Task.FromResult(CredentialSignResult.NeedPin("Enter badge PIN to sign."));
+            return CredentialSignResult.NeedPin("Enter badge PIN to sign.");
         }
 
-        return Task.FromResult(WithSigningCertificate(pin, credential, (certificate, key, party) =>
+        await _cardOperationGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
         {
-            var at = signingTime ?? _clock.UtcNow;
-            if (!ITextPadesSignature.TrySign(
-                    pdf,
-                    certificate,
-                    key,
-                    party.DisplayName,
-                    at,
-                    out var signedPdf,
-                    out var cms,
-                    out var error))
+            return WithSigningCertificate(pin, credential, (certificate, key, party) =>
             {
-                return CredentialSignResult.Failed(error ?? "PAdES signing failed.");
-            }
+                var at = signingTime ?? _clock.UtcNow;
+                if (!ITextPadesSignature.TrySign(
+                        pdf,
+                        certificate,
+                        key,
+                        party.DisplayName,
+                        at,
+                        out var signedPdf,
+                        out var cms,
+                        out var error))
+                {
+                    return CredentialSignResult.Failed(error ?? "PAdES signing failed.");
+                }
 
-            return CredentialSignResult.SignedPdfDocument(
-                signedPdf,
-                cms,
-                AlgorithmName(key),
-                certificate.RawData,
-                certificate.Thumbprint,
-                party);
-        }));
+                return CredentialSignResult.SignedPdfDocument(
+                    signedPdf,
+                    cms,
+                    AlgorithmName(key),
+                    certificate.RawData,
+                    certificate.Thumbprint,
+                    party);
+            });
+        }
+        finally
+        {
+            _cardOperationGate.Release();
+        }
     }
 
     private CredentialSignResult WithSigningCertificate(
