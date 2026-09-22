@@ -44,3 +44,7 @@ Each PR targets its predecessor. The five already merged authoring UI PRs cover 
 ## Conflict map
 
 Areas 2 and 3 both edit `MainWindow.axaml`, so complete Area 2 review before Area 3. Area 1 changes only function-choice binding state and a test. Each child branch builds on the reviewed parent branch.
+
+## Area 1 desktop smoke evidence
+
+On Windows with .NET 10, `dotnet run --project src/HardwareTest.Authoring -c Debug -r win-x64 -- plans/opentap` opened the populated editor. The Programs rail showed Board Demo and Sample Hardware Suite; Board Demo's Acquire 3V3 metric was selected, its Y unit and measure recipe ComboBoxes rendered, and the timeseries preview chart rendered. The process remained open without stderr output until manually closed. This exercises the ComboBox binding path that previously produced a stack overflow at startup.
