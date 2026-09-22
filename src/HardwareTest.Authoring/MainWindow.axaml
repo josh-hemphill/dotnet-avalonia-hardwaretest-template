@@ -11,7 +11,10 @@
         MinHeight="600">
   <DockPanel>
     <StackPanel DockPanel.Dock="Top" Spacing="8" Margin="12">
-      <StackPanel Orientation="Horizontal" Spacing="8">
+      <WrapPanel Orientation="Horizontal" ItemWidth="300" ItemHeight="76">
+        <StackPanel Spacing="4">
+          <TextBlock FontWeight="SemiBold" Text="Workspace" />
+          <StackPanel Orientation="Horizontal" Spacing="6">
         <Button Content="Open workspace…"
                 Click="OnOpenWorkspace"
                 ToolTip.Tip="Open a folder that contains authoring.json"
@@ -20,23 +23,25 @@
                 Click="OnBootstrap"
                 ToolTip.Tip="Install Editor packs into this workspace’s isolated OpenTAP home (offline)"
                 AutomationProperties.Name="Bootstrap OpenTAP home" />
-        <Button Content="New program"
-                Click="OnCreateProgram"
-                ToolTip.Tip="Seed Identity, Cleanup, and a Mock DMM slot"
-                AutomationProperties.Name="New program" />
-        <Button Content="{Binding RemoveProgramTitle}"
-                Click="OnRemoveProgram"
-                IsEnabled="{Binding CanRemoveSelectedProgram}"
-                ToolTip.Tip="{Binding RemoveProgramPurpose}"
-                AutomationProperties.Name="Remove program" />
+          </StackPanel>
+        </StackPanel>
+        <StackPanel Spacing="4">
+          <TextBlock FontWeight="SemiBold" Text="Save selected program" />
+          <StackPanel Orientation="Horizontal" Spacing="6">
         <Button Content="Save sidecar"
                 Click="OnSaveSidecar"
                 ToolTip.Tip="Write only {planId}.program.json (session/DUT/Typst). Does not compile the TapPlan."
                 AutomationProperties.Name="Save sidecar" />
-        <Button Content="Save plan"
+        <Button Content="Save plan + sidecar" Classes="accent"
                 Click="OnApply"
                 ToolTip.Tip="Compile metrics to TapPlan + sidecar (Setup / measure / Cleanup groups)"
                 AutomationProperties.Name="Save plan" />
+          </StackPanel>
+          <TextBlock FontSize="11" Text="Sidecar saves settings only; plan saves sequence and settings." />
+        </StackPanel>
+        <StackPanel Spacing="4">
+          <TextBlock FontWeight="SemiBold" Text="Check and configure" />
+          <StackPanel Orientation="Horizontal" Spacing="6">
         <Button Content="Validate"
                 Click="OnValidate"
                 ToolTip.Tip="Run PlanContractValidator --strict on TapPlans in this workspace"
@@ -45,6 +50,10 @@
                 Click="OnOpenSettings"
                 ToolTip.Tip="{Binding SettingsPurpose}"
                 AutomationProperties.Name="Open settings" />
+          </StackPanel>
+        </StackPanel>
+      </WrapPanel>
+      <StackPanel Orientation="Horizontal" Spacing="12">
         <TextBlock x:Name="StatusLabel"
                    VerticalAlignment="Center"
                    Text="{Binding Status}"
@@ -77,6 +86,19 @@
                    Opacity="0.8"
                    TextWrapping="Wrap"
                    Text="{Binding ProgramsPurpose}" />
+        <Button DockPanel.Dock="Top"
+                Margin="0,0,0,8"
+                Content="New program"
+                Click="OnCreateProgram"
+                ToolTip.Tip="Seed Identity, Cleanup, and a Mock DMM slot"
+                AutomationProperties.Name="New program" />
+        <Button DockPanel.Dock="Top"
+                Margin="0,0,0,8"
+                Content="{Binding RemoveProgramTitle}"
+                Click="OnRemoveProgram"
+                IsEnabled="{Binding CanRemoveSelectedProgram}"
+                ToolTip.Tip="{Binding RemoveProgramPurpose}"
+                AutomationProperties.Name="Remove program" />
         <Button DockPanel.Dock="Top"
                 Margin="0,0,0,8"
                 Content="{Binding LastWorkspaceOffer}"
