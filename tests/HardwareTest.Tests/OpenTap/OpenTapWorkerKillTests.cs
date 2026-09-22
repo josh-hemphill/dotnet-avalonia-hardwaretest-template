@@ -118,8 +118,11 @@ public sealed class OpenTapWorkerKillTests
             killTimeout: TimeSpan.FromMilliseconds(400));
 
         await client.LoadPlanShapeAsync(PlanShapeFixtures.HangForeverName);
-        var run = client.RunAsync();
-        await WaitUntilAsync(() => client.IsExecuting, TimeSpan.FromSeconds(15));
+        var progress = new RecordingProgress();
+        var run = client.RunAsync(progress);
+        await WaitUntilAsync(
+            () => progress.Items.Any(item => item.Event?.Name == "hang-entered"),
+            TimeSpan.FromSeconds(15));
         client.Abort();
 
         var summary = await run.WaitAsync(TimeSpan.FromSeconds(20));

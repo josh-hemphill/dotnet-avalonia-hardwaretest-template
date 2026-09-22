@@ -428,6 +428,14 @@ public sealed class HangForeverStep : TestStep
 {
     public override void Run()
     {
+        Results.Publish(
+            "Event",
+            new List<string> { "Name", "ElapsedMs", "Label", "Value" },
+            "hang-entered",
+            0d,
+            "entered",
+            double.NaN);
+
         while (true)
         {
             Thread.Sleep(200);
