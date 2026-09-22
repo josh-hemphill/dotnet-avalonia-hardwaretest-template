@@ -29,6 +29,18 @@ public sealed class AuthoringCliTests
     }
 
     [Fact]
+    public void Options_remain_case_insensitive()
+    {
+        var output = new StringWriter();
+        var error = new StringWriter();
+
+        var code = AuthoringCli.Run(["--HELP"], output, error);
+
+        Assert.Equal(AuthoringCli.UsageExitCode, code);
+        Assert.Contains("--bootstrap", output.ToString(), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Pack_without_out_is_usage()
     {
         var output = new StringWriter();

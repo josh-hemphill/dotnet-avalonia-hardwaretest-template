@@ -30,6 +30,7 @@
     <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
     <PackageReference Include="Serilog.Sinks.SyslogMessages" Version="4.1.0" />
     <PackageReference Include="SerilogTracing" Version="2.4.0" />
+    <PackageReference Include="System.CommandLine" Version="2.0.12" />
     <PackageReference Include="System.Security.Cryptography.Pkcs" Version="10.0.10" />
     <PackageReference Include="TypstInterop" Version="2.0.2" />
   </ItemGroup>

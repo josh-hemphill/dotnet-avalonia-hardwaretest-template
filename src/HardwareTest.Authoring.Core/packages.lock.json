@@ -8,6 +8,12 @@
         "resolved": "9.32.2",
         "contentHash": "/2ifJOKrJzHQoqCGyL1gqdlcy20l1tCQkUr6QZyULzJdWoPZusP5yY67i8rGGIgqAkzrM7ES5s3wEz15MwwdOw=="
       },
+      "System.CommandLine": {
+        "type": "Direct",
+        "requested": "[2.0.12, )",
+        "resolved": "2.0.12",
+        "contentHash": "FpW672e6qqrTd1EfKqsvUtFZaJWlTlszUR1o8tdakXhkzKbnEZVndtpfd4K3fUPCFcIs9UmcswMyYGJP1zp/rg=="
+      },
       "BouncyCastle.Cryptography": {
         "type": "Transitive",
         "resolved": "2.6.2",
@@ -296,6 +302,7 @@
           "Serilog.Sinks.File": "[7.0.0, )",
           "Serilog.Sinks.SyslogMessages": "[4.1.0, )",
           "SerilogTracing": "[2.4.0, )",
+          "System.CommandLine": "[2.0.12, )",
           "System.Security.Cryptography.Pkcs": "[10.0.10, )",
           "TypstInterop": "[2.0.2, )",
           "itext": "[9.7.0, )",

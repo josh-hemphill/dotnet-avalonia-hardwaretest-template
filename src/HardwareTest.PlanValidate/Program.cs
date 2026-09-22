@@ -1,3 +1,4 @@
+using System.CommandLine;
 using HardwareTest.Core.Settings;
 using HardwareTest.OpenTap.Host;
 
@@ -7,59 +8,47 @@ public static class Program
 {
     public static int Main(string[] args)
     {
-        var pluginDirs = new List<string>();
-        var targets = new List<string>();
-        var strict = false;
-        var format = PlanContractFormat.Text;
-        for (var i = 0; i < args.Length; i++)
+        var root = new Command("HardwareTest.PlanValidate", "Validate HardwareTest OpenTAP plans");
+        var pluginDirsOption = new Option<string?>("--opentap-plugin-dirs");
+        var strictOption = new Option<bool>("--strict");
+        var formatOption = new Option<string?>("--format");
+        var helpOption = new Option<bool>("--help", "-h");
+        var targetsArgument = new Argument<string[]>("targets") { Arity = ArgumentArity.ZeroOrMore };
+        root.Add(pluginDirsOption);
+        root.Add(strictOption);
+        root.Add(formatOption);
+        root.Add(helpOption);
+        root.Add(targetsArgument);
+
+        var parsed = root.Parse(CliArgumentNormalizer.NormalizeOptionAliases(
+            args,
+            root.Options.SelectMany(option => option.Aliases.Prepend(option.Name))));
+        if (parsed.Errors.Count > 0)
         {
-            var arg = args[i];
-            if (TrySplit(arg, out var flag, out var inline)
-                && string.Equals(flag, "--opentap-plugin-dirs", StringComparison.OrdinalIgnoreCase))
-            {
-                var value = inline ?? TakeNext(args, ref i);
-                if (!string.IsNullOrWhiteSpace(value))
-                {
-                    pluginDirs.AddRange(value.Split(
-                        [Path.PathSeparator, ';'],
-                        StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
-                }
-
-                continue;
-            }
-
-            if (string.Equals(arg, "--strict", StringComparison.OrdinalIgnoreCase))
-            {
-                strict = true;
-                continue;
-            }
-
-            if (TrySplit(arg, out flag, out inline)
-                && string.Equals(flag, "--format", StringComparison.OrdinalIgnoreCase))
-            {
-                var value = inline ?? TakeNext(args, ref i);
-                if (!TryParseFormat(value, out format))
-                {
-                    Console.Error.WriteLine("Unknown --format. Use text, json, or sarif.");
-                    return PlanContractCli.UsageExitCode;
-                }
-
-                continue;
-            }
-
-            if (string.Equals(arg, "--help", StringComparison.OrdinalIgnoreCase)
-                || string.Equals(arg, "-h", StringComparison.OrdinalIgnoreCase))
-            {
-                return PlanContractCli.Run([], settings: null, Console.Out);
-            }
-
-            targets.Add(arg);
+            Console.Error.WriteLine(parsed.Errors[0].Message);
+            return PlanContractCli.UsageExitCode;
         }
+
+        if (parsed.GetValue(helpOption))
+        {
+            return PlanContractCli.Run([], settings: null, Console.Out);
+        }
+
+        if (!TryParseFormat(parsed.GetValue(formatOption) ?? "text", out var format))
+        {
+            Console.Error.WriteLine("Unknown --format. Use text, json, or sarif.");
+            return PlanContractCli.UsageExitCode;
+        }
+
+        var pluginDirs = (parsed.GetValue(pluginDirsOption) ?? string.Empty).Split(
+            [Path.PathSeparator, ';'],
+            StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        var targets = parsed.GetValue(targetsArgument) ?? [];
 
         var settings = new AppSettings
         {
             UseMockVisa = true,
-            OpenTapPluginDirectories = pluginDirs,
+            OpenTapPluginDirectories = [.. pluginDirs],
         };
         // Explicit --opentap-plugin-dirs on this authoring CLI are trusted for the process.
         // HardwareTest --validate-plan still uses appliance PluginDirectoryTrust.
@@ -69,40 +58,10 @@ public static class Program
             new PlanContractOptions
             {
                 Settings = settings,
-                TrustConfiguredPluginDirectories = pluginDirs.Count > 0,
-                Strict = strict,
+                TrustConfiguredPluginDirectories = pluginDirs.Length > 0,
+                Strict = parsed.GetValue(strictOption),
                 Format = format,
             });
-    }
-
-    private static bool TrySplit(string arg, out string flag, out string? inlineValue)
-    {
-        flag = arg;
-        inlineValue = null;
-        if (!arg.StartsWith('-'))
-        {
-            return false;
-        }
-
-        var eq = arg.IndexOf('=');
-        if (eq > 0)
-        {
-            flag = arg[..eq];
-            inlineValue = arg[(eq + 1)..];
-        }
-
-        return true;
-    }
-
-    private static string? TakeNext(IReadOnlyList<string> args, ref int i)
-    {
-        if (i + 1 >= args.Count)
-        {
-            return null;
-        }
-
-        i++;
-        return args[i];
     }
 
     private static bool TryParseFormat(string? value, out PlanContractFormat format)

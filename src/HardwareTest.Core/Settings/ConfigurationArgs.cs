@@ -1,3 +1,5 @@
+using System.CommandLine;
+
 namespace HardwareTest.Core.Settings;
 
 /// Parsed CLI configuration flags (Avalonia args are filtered out separately).
@@ -20,92 +22,65 @@ public sealed class ConfigurationArgs
 
     public static ConfigurationArgs Parse(IReadOnlyList<string> args)
     {
-        var overlays = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        var passthrough = new List<string>();
-        var printConfig = false;
-        var printVersion = false;
-        string? simulateCrash = null;
-        var validatePlan = false;
-        string? validatePlanPath = null;
-        string? settingsPath = null;
+        var root = new Command("HardwareTest", "HardwareTest") { TreatUnmatchedTokensAsErrors = false };
+        var printConfigOption = new Option<bool>("--print-config");
+        var printVersionOption = new Option<bool>("--version", "-v");
+        var simulateCrashOption = new Option<string?>("--simulate-crash") { Arity = ArgumentArity.ZeroOrOne };
+        var validatePlanOption = new Option<string?>("--validate-plan") { Arity = ArgumentArity.ZeroOrOne };
+        var settingsOption = new Option<string?>("--settings");
+        root.Add(printConfigOption);
+        root.Add(printVersionOption);
+        root.Add(simulateCrashOption);
+        root.Add(validatePlanOption);
+        root.Add(settingsOption);
 
-        for (var i = 0; i < args.Count; i++)
+        var overlayOptions = new Dictionary<SettingBinding, Option<string?>>();
+        foreach (var binding in AppSettingsEnvironmentBinder.Bindings.Where(binding => binding.CliNames.Count > 0))
         {
-            var arg = args[i];
-            if (string.Equals(arg, "--print-config", StringComparison.OrdinalIgnoreCase))
+            var option = new Option<string?>(binding.CliNames[0], binding.CliNames.Skip(1).ToArray());
+            if (LooksBoolBinding(binding))
             {
-                printConfig = true;
-                continue;
+                option.Arity = ArgumentArity.ZeroOrOne;
             }
 
-            if (string.Equals(arg, "--version", StringComparison.OrdinalIgnoreCase)
-                || string.Equals(arg, "-v", StringComparison.OrdinalIgnoreCase))
-            {
-                printVersion = true;
-                continue;
-            }
-
-            if (TrySplit(arg, out var flag, out var inlineValue))
-            {
-                if (string.Equals(flag, "--settings", StringComparison.OrdinalIgnoreCase))
-                {
-                    settingsPath = inlineValue ?? TakeNext(args, ref i);
-                    continue;
-                }
-
-                if (string.Equals(flag, "--simulate-crash", StringComparison.OrdinalIgnoreCase))
-                {
-                    simulateCrash = inlineValue ?? TakeNext(args, ref i) ?? "fatal";
-                    continue;
-                }
-
-                if (string.Equals(flag, "--validate-plan", StringComparison.OrdinalIgnoreCase))
-                {
-                    validatePlan = true;
-                    validatePlanPath = inlineValue ?? TakeNext(args, ref i);
-                    continue;
-                }
-
-                var binding = AppSettingsEnvironmentBinder.Bindings
-                    .FirstOrDefault(b => b.CliNames.Any(n => string.Equals(n, flag, StringComparison.OrdinalIgnoreCase)));
-                if (binding is not null)
-                {
-                    var value = inlineValue;
-                    if (value is null)
-                    {
-                        // Bool flags may be bare (--mock-visa) meaning true.
-                        if (LooksBoolBinding(binding) && (i + 1 >= args.Count || args[i + 1].StartsWith('-')))
-                        {
-                            value = "true";
-                        }
-                        else
-                        {
-                            value = TakeNext(args, ref i);
-                        }
-                    }
-
-                    if (value is not null)
-                    {
-                        overlays[binding.Key] = value;
-                    }
-
-                    continue;
-                }
-            }
-
-            passthrough.Add(arg);
+            root.Add(option);
+            overlayOptions[binding] = option;
         }
+
+        var parsed = root.Parse(CliArgumentNormalizer.NormalizeOptionAliases(
+            args,
+            root.Options.SelectMany(option => option.Aliases.Prepend(option.Name))));
+        var overlays = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (binding, option) in overlayOptions)
+        {
+            if (parsed.GetResult(option) is not null)
+            {
+                var value = parsed.GetValue(option);
+                if (value is not null || LooksBoolBinding(binding))
+                {
+                    overlays[binding.Key] = value ?? "true";
+                }
+            }
+        }
+
+        var validatePlan = parsed.GetResult(validatePlanOption) is not null;
+        var simulateCrash = parsed.GetResult(simulateCrashOption) is null
+            ? null
+            : parsed.GetValue(simulateCrashOption) ?? "fatal";
 
         return new ConfigurationArgs
         {
-            PrintConfig = printConfig,
-            PrintVersion = printVersion,
+            PrintConfig = parsed.GetValue(printConfigOption),
+            PrintVersion = parsed.GetValue(printVersionOption),
             SimulateCrash = simulateCrash,
             ValidatePlan = validatePlan,
-            ValidatePlanPath = validatePlanPath,
-            SettingsPath = settingsPath,
+            ValidatePlanPath = parsed.GetValue(validatePlanOption)
+                ?? (args.Any(arg => string.Equals(arg, "--validate-plan=", StringComparison.OrdinalIgnoreCase))
+                    ? string.Empty
+                    : null),
+            SettingsPath = parsed.GetValue(settingsOption),
             Overlays = overlays,
-            PassthroughArgs = passthrough,
+            PassthroughArgs = parsed.UnmatchedTokens,
         };
     }
 
@@ -118,33 +93,4 @@ public sealed class ConfigurationArgs
             or "RequireAttestationBeforeExport" or "AllowPresenceInLieuOfSigning"
             or "ProbeBadgeWhenTechnicianFocused";
 
-    private static bool TrySplit(string arg, out string flag, out string? inlineValue)
-    {
-        flag = arg;
-        inlineValue = null;
-        if (!arg.StartsWith('-'))
-        {
-            return false;
-        }
-
-        var eq = arg.IndexOf('=');
-        if (eq > 0)
-        {
-            flag = arg[..eq];
-            inlineValue = arg[(eq + 1)..];
-        }
-
-        return true;
-    }
-
-    private static string? TakeNext(IReadOnlyList<string> args, ref int i)
-    {
-        if (i + 1 >= args.Count)
-        {
-            return null;
-        }
-
-        i++;
-        return args[i];
-    }
 }
