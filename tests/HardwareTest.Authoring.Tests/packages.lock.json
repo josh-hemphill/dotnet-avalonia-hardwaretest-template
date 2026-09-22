@@ -295,6 +295,11 @@
         "resolved": "13.0.3",
         "contentHash": "HrC5BXdl00IP9zeV+0Z848QWPAoCr9P3bDEZguI+gkLcBKAOxix/tLEAAHC+UvDNPv4a2d18lOReHMOagPa+zQ=="
       },
+      "Parlot": {
+        "type": "Transitive",
+        "resolved": "1.5.9",
+        "contentHash": "Vro4ZKVZLBoPdCftyMUlzhlRpegI3N6TlT0zpyn79a42mH214VDqzkAdV70vu578W6NKS84hBA9H6j81cz0dLg=="
+      },
       "PCSC": {
         "type": "Transitive",
         "resolved": "7.0.1",
@@ -549,6 +554,7 @@
           "HardwareTest.OpenTap.Plugins.Basic": "[0.1.0, )",
           "HardwareTest.OpenTap.Plugins.Mixins": "[0.1.0, )",
           "OpenTAP": "[9.32.2, )",
+          "Parlot": "[1.5.9, )",
           "System.CommandLine": "[2.0.12, )"
         }
       },

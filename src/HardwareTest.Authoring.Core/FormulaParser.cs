@@ -1,4 +1,6 @@
-using System.Globalization;
+using Parlot.Fluent;
+
+using static Parlot.Fluent.Parsers;
 
 namespace HardwareTest.Authoring;
 
@@ -6,27 +8,36 @@ namespace HardwareTest.Authoring;
 public static class FormulaParser
 {
     private static readonly HashSet<string> AllowedFunctions = new(FormulaCatalog.AllowedFunctions, StringComparer.Ordinal);
-
     private static readonly HashSet<string> ReservedUnknown = new(FormulaCatalog.ReservedUnknown, StringComparer.OrdinalIgnoreCase);
+    private static readonly Parser<FormulaExpr> ExpressionParser = BuildParser().Compile();
 
     /// Fail closed on unknown syntax or functions (including fft). filter/filtfilt are registered.
     public static FormulaAst Parse(string source)
     {
         if (string.IsNullOrWhiteSpace(source))
         {
-            throw new AuthoringWorkspaceException(
-                $"{AuthoringCompileCodes.FormulaParse}: formula is empty.");
+            throw new AuthoringWorkspaceException($"{AuthoringCompileCodes.FormulaParse}: formula is empty.");
         }
 
-        var tokens = Tokenize(source);
-        var reader = new TokenReader(tokens);
-        var expr = ParseExpression(reader);
-        if (!reader.AtEnd)
+        source = source.Trim();
+
+        try
         {
-            throw Fail($"unexpected '{reader.Current.Text}'");
-        }
+            if (!ExpressionParser.TryParse(source, out var expression, out var error))
+            {
+                throw Fail($"invalid syntax at position {error?.Position.Offset ?? source.Length}");
+            }
 
-        return new FormulaAst(expr);
+            return new FormulaAst(expression);
+        }
+        catch (AuthoringWorkspaceException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            throw Fail(ex.Message);
+        }
     }
 
     /// Parse without throwing. On failure, `errorMessage` is the FORMULA_PARSE text.
@@ -46,163 +57,89 @@ public static class FormulaParser
         }
     }
 
-    private static FormulaExpr ParseExpression(TokenReader reader)
-        => ParseAdd(reader);
-
-    private static FormulaExpr ParseAdd(TokenReader reader)
+    private static Parser<FormulaExpr> BuildParser()
     {
-        var left = ParseMul(reader);
-        while (reader.Match("+") || reader.Match("-"))
-        {
-            var op = reader.Previous.Text;
-            left = new BinaryExpr(op, left, ParseMul(reader));
-        }
+        var expression = Deferred<FormulaExpr>();
+        var unary = Deferred<FormulaExpr>();
 
-        return left;
+        var segment = Literals.Identifier(
+            static c => char.IsLetter(c) || c == '_',
+            static c => char.IsLetterOrDigit(c) || c == '_');
+        var identifier = SkipWhiteSpace(segment
+            .And(ZeroOrMany(Literals.Char('.').SkipAnd(segment)))
+            .Then(static value => string.Join('.', new[] { value.Item1.ToString() }.Concat(value.Item2.Select(x => x.ToString())))));
+
+        const NumberOptions UnsignedFloat = NumberOptions.AllowDecimalSeparator | NumberOptions.AllowExponent;
+        var unsignedNumber = SkipWhiteSpace(
+            Literals.Number<double>(UnsignedFloat)
+                .WhenNotFollowedBy(Literals.Char('.')));
+        var number = unsignedNumber
+            .Then<FormulaExpr>(static value => new NumberExpr(value));
+
+        var sign = Terms.Char('-').Then(-1d)
+            .Or(Terms.Char('+').Then(1d))
+            .ZeroOrOne(1d);
+        var signedNumber = sign.And(unsignedNumber)
+            .Then(static value => value.Item1 * value.Item2);
+        var commas = ZeroOrMany(Terms.Char(','));
+        var vectorValues = OneOrMany(commas.SkipAnd(signedNumber)).AndSkip(commas);
+        var vector = Between(Terms.Char('['), vectorValues, Terms.Char(']'))
+            .Then<FormulaExpr>(static values => new VectorExpr(values));
+
+        var arguments = Separated(Terms.Char(','), expression)
+            .ZeroOrOne(Array.Empty<FormulaExpr>());
+        var call = identifier
+            .AndSkip(Terms.Char('('))
+            .And(arguments)
+            .AndSkip(Terms.Char(')'))
+            .Then(static value => BuildCall(value.Item1, value.Item2));
+
+        var parenthesized = Between(Terms.Char('('), expression, Terms.Char(')'));
+        var identExpression = identifier.Then<FormulaExpr>(static name => new IdentExpr(name));
+        var primary = OneOf(call, number, identExpression, parenthesized, vector);
+
+        var powerOperator = Terms.Text(".^").Or(Terms.Text("^"));
+        var power = primary
+            .And(powerOperator)
+            .And(unary)
+            .Then<FormulaExpr>(static value => new BinaryExpr(value.Item2, value.Item1, value.Item3))
+            .Or(primary);
+
+        var unaryOperator = Terms.Char('+').Then("+").Or(Terms.Char('-').Then("-"));
+        unary.Parser = unaryOperator
+            .And(unary)
+            .Then<FormulaExpr>(static value => new UnaryExpr(value.Item1, value.Item2))
+            .Or(power);
+
+        var multiply = unary.LeftAssociative(
+            (Terms.Text(".*"), static (FormulaExpr left, FormulaExpr right) => new BinaryExpr(".*", left, right)),
+            (Terms.Text("./"), static (FormulaExpr left, FormulaExpr right) => new BinaryExpr("./", left, right)),
+            (Terms.Text("*"), static (FormulaExpr left, FormulaExpr right) => new BinaryExpr("*", left, right)),
+            (Terms.Text("/"), static (FormulaExpr left, FormulaExpr right) => new BinaryExpr("/", left, right)));
+        var add = multiply.LeftAssociative(
+            (Terms.Text("+"), static (FormulaExpr left, FormulaExpr right) => new BinaryExpr("+", left, right)),
+            (Terms.Text("-"), static (FormulaExpr left, FormulaExpr right) => new BinaryExpr("-", left, right)));
+
+        expression.Parser = add;
+        return add.Eof();
     }
 
-    private static FormulaExpr ParseMul(TokenReader reader)
-    {
-        var left = ParseUnary(reader);
-        while (reader.Match("*") || reader.Match("/") || reader.Match(".*") || reader.Match("./"))
-        {
-            var op = reader.Previous.Text;
-            left = new BinaryExpr(op, left, ParseUnary(reader));
-        }
-
-        return left;
-    }
-
-    private static FormulaExpr ParseUnary(TokenReader reader)
-    {
-        if (reader.Match("+") || reader.Match("-"))
-        {
-            return new UnaryExpr(reader.Previous.Text, ParseUnary(reader));
-        }
-
-        return ParsePower(reader);
-    }
-
-    private static FormulaExpr ParsePower(TokenReader reader)
-    {
-        var left = ParsePrimary(reader);
-        if (reader.Match(".^") || reader.Match("^"))
-        {
-            return new BinaryExpr(reader.Previous.Text, left, ParseUnary(reader));
-        }
-
-        return left;
-    }
-
-    private static FormulaExpr ParsePrimary(TokenReader reader)
-    {
-        if (reader.MatchNumber(out var number))
-        {
-            return new NumberExpr(number);
-        }
-
-        if (reader.MatchIdent(out var ident))
-        {
-            if (reader.Match("("))
-            {
-                return ParseCall(ident, reader);
-            }
-
-            return new IdentExpr(ident);
-        }
-
-        if (reader.Match("("))
-        {
-            var inner = ParseExpression(reader);
-            if (!reader.Match(")"))
-            {
-                throw Fail("expected ')'");
-            }
-
-            return inner;
-        }
-
-        if (reader.Match("["))
-        {
-            return ParseVector(reader);
-        }
-
-        throw Fail($"unexpected '{reader.Current.Text}'");
-    }
-
-    private static VectorExpr ParseVector(TokenReader reader)
-    {
-        var values = new List<double>();
-        while (!reader.Check("]") && !reader.AtEnd)
-        {
-            if (reader.Match(","))
-            {
-                continue;
-            }
-
-            var sign = 1.0;
-            if (reader.Match("-"))
-            {
-                sign = -1.0;
-            }
-            else if (reader.Match("+"))
-            {
-                sign = 1.0;
-            }
-
-            if (reader.MatchNumber(out var number))
-            {
-                values.Add(sign * number);
-                continue;
-            }
-
-            throw Fail($"expected number in vector, got '{reader.Current.Text}'");
-        }
-
-        if (!reader.Match("]"))
-        {
-            throw Fail("expected ']' after vector");
-        }
-
-        if (values.Count == 0)
-        {
-            throw Fail("vector is empty");
-        }
-
-        return new VectorExpr(values);
-    }
-
-    private static FormulaExpr ParseCall(string name, TokenReader reader)
+    private static FormulaExpr BuildCall(string name, IReadOnlyList<FormulaExpr> args)
     {
         if (ReservedUnknown.Contains(name) || !AllowedFunctions.Contains(name))
         {
             throw Fail($"unknown function '{name}'");
         }
 
-        var args = new List<FormulaExpr>();
-        if (!reader.Check(")"))
-        {
-            args.Add(ParseExpression(reader));
-            while (reader.Match(","))
-            {
-                args.Add(ParseExpression(reader));
-            }
-        }
-
-        if (!reader.Match(")"))
-        {
-            throw Fail("expected ')' after arguments");
-        }
-
         if (name is "filter" or "filtfilt")
         {
-            return ParseFilterCall(name, args);
+            return BuildFilterCall(name, args);
         }
 
         return new CallExpr(name, args);
     }
 
-    private static FilterCallExpr ParseFilterCall(string method, IReadOnlyList<FormulaExpr> args)
+    private static FilterCallExpr BuildFilterCall(string method, IReadOnlyList<FormulaExpr> args)
     {
         if (args.Count != 3)
         {
@@ -229,159 +166,4 @@ public static class FormulaParser
 
     private static AuthoringWorkspaceException Fail(string message)
         => new($"{AuthoringCompileCodes.FormulaParse}: {message}.");
-
-    private static IReadOnlyList<Token> Tokenize(string source)
-    {
-        var tokens = new List<Token>();
-        var i = 0;
-        while (i < source.Length)
-        {
-            var c = source[i];
-            if (char.IsWhiteSpace(c))
-            {
-                i++;
-                continue;
-            }
-
-            if (c == '.' && i + 1 < source.Length && source[i + 1] is '*' or '/' or '^')
-            {
-                tokens.Add(new Token(TokenKind.Op, source.Substring(i, 2)));
-                i += 2;
-                continue;
-            }
-
-            if (c is '+' or '-' or '*' or '/' or '^' or '(' or ')' or ',' or '[' or ']')
-            {
-                tokens.Add(new Token(TokenKind.Op, c.ToString()));
-                i++;
-                continue;
-            }
-
-            if (char.IsDigit(c) || (c == '.' && i + 1 < source.Length && char.IsDigit(source[i + 1])))
-            {
-                var start = i;
-                i++;
-                while (i < source.Length && (char.IsDigit(source[i]) || source[i] == '.'))
-                {
-                    i++;
-                }
-
-                if (i < source.Length && (source[i] is 'e' or 'E'))
-                {
-                    i++;
-                    if (i < source.Length && source[i] is '+' or '-')
-                    {
-                        i++;
-                    }
-
-                    while (i < source.Length && char.IsDigit(source[i]))
-                    {
-                        i++;
-                    }
-                }
-
-                var text = source[start..i];
-                if (!double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out _))
-                {
-                    throw Fail($"invalid number '{text}'");
-                }
-
-                tokens.Add(new Token(TokenKind.Number, text));
-                continue;
-            }
-
-            if (char.IsLetter(c) || c == '_')
-            {
-                var start = i;
-                i++;
-                while (i < source.Length)
-                {
-                    var ch = source[i];
-                    if (char.IsLetterOrDigit(ch) || ch == '_')
-                    {
-                        i++;
-                        continue;
-                    }
-
-                    if (ch == '.' && i + 1 < source.Length && (char.IsLetter(source[i + 1]) || source[i + 1] == '_'))
-                    {
-                        i++;
-                        continue;
-                    }
-
-                    break;
-                }
-
-                tokens.Add(new Token(TokenKind.Ident, source[start..i]));
-                continue;
-            }
-
-            throw Fail($"unexpected character '{c}'");
-        }
-
-        tokens.Add(new Token(TokenKind.End, string.Empty));
-        return tokens;
-    }
-
-    private enum TokenKind
-    {
-        Number,
-        Ident,
-        Op,
-        End,
-    }
-
-    private readonly record struct Token(TokenKind Kind, string Text);
-
-    private sealed class TokenReader
-    {
-        private readonly IReadOnlyList<Token> _tokens;
-        private int _index;
-
-        public TokenReader(IReadOnlyList<Token> tokens) => _tokens = tokens;
-
-        public Token Current => _tokens[_index];
-        public Token Previous => _tokens[_index - 1];
-        public bool AtEnd => Current.Kind == TokenKind.End;
-
-        public bool Check(string text)
-            => Current.Kind != TokenKind.End && string.Equals(Current.Text, text, StringComparison.Ordinal);
-
-        public bool Match(string text)
-        {
-            if (!Check(text))
-            {
-                return false;
-            }
-
-            _index++;
-            return true;
-        }
-
-        public bool MatchIdent(out string ident)
-        {
-            ident = string.Empty;
-            if (Current.Kind != TokenKind.Ident)
-            {
-                return false;
-            }
-
-            ident = Current.Text;
-            _index++;
-            return true;
-        }
-
-        public bool MatchNumber(out double value)
-        {
-            value = 0;
-            if (Current.Kind != TokenKind.Number)
-            {
-                return false;
-            }
-
-            value = double.Parse(Current.Text, CultureInfo.InvariantCulture);
-            _index++;
-            return true;
-        }
-    }
 }
