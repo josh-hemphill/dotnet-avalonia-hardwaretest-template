@@ -2,17 +2,14 @@ using System.Text.Json;
 using System.Text.Json.Serialization.Metadata;
 using HardwareTest.Core.Settings;
 using HardwareTest.OpenTap.Plugins.Basic;
+using StreamJsonRpc;
 
 namespace HardwareTest.OpenTap.Host.Worker;
 
-/// Newline-delimited JSON on stdout; logs on stderr. Every protocol line is prefixed.
+/// Worker method names and source-generated payload serialization.
 public static class WorkerProtocol
 {
-    public const string LinePrefix = "__htw__";
     public const int SchemaVersion = 1;
-    public const string KindRequest = "request";
-    public const string KindResponse = "response";
-    public const string KindEvent = "event";
 
     public const string Init = "init";
     public const string ApplySettings = "applySettings";
@@ -46,26 +43,11 @@ public static class WorkerProtocol
     public const string ListDiscoveredDeviceAddresses = "listDiscoveredDeviceAddresses";
     public const string Progress = "progress";
 
-    public static string FormatLine(WorkerEnvelope envelope)
-        => LinePrefix + JsonSerializer.Serialize(envelope, WorkerJsonContext.Default.WorkerEnvelope);
-
-    public static bool TryParseLine(string line, out WorkerEnvelope envelope)
+    public static SystemTextJsonFormatter CreateFormatter()
     {
-        envelope = null!;
-        if (string.IsNullOrWhiteSpace(line) || !line.StartsWith(LinePrefix, StringComparison.Ordinal))
-        {
-            return false;
-        }
-
-        var json = line[LinePrefix.Length..];
-        var parsed = JsonSerializer.Deserialize(json, WorkerJsonContext.Default.WorkerEnvelope);
-        if (parsed is null)
-        {
-            return false;
-        }
-
-        envelope = parsed;
-        return true;
+        var formatter = new SystemTextJsonFormatter();
+        formatter.JsonSerializerOptions.TypeInfoResolverChain.Insert(0, WorkerJsonContext.Default);
+        return formatter;
     }
 
     public static JsonElement SerializePayload<T>(T value, JsonTypeInfo<T> typeInfo)
@@ -86,7 +68,6 @@ public static class WorkerProtocol
 public sealed class WorkerEnvelope
 {
     public long Id { get; set; }
-    public string Kind { get; set; } = WorkerProtocol.KindRequest;
     public string Method { get; set; } = string.Empty;
     public bool Ok { get; set; } = true;
     public string? Error { get; set; }

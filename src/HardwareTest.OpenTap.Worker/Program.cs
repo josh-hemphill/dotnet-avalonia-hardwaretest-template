@@ -25,11 +25,8 @@ public static class Program
 
         try
         {
-            using var input = new StreamReader(Console.OpenStandardInput(), Encoding.UTF8, detectEncodingFromByteOrderMarks: false);
-            using var output = new StreamWriter(Console.OpenStandardOutput(), new UTF8Encoding(encoderShouldEmitUTF8Identifier: false))
-            {
-                AutoFlush = true,
-            };
+            using var input = Console.OpenStandardInput();
+            using var output = Console.OpenStandardOutput();
             await OpenTapWorkerServer.RunAsync(input, output, CancellationToken.None).ConfigureAwait(false);
             return 0;
         }

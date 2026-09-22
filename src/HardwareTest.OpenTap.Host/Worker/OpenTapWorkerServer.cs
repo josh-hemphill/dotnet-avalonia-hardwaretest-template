@@ -3,146 +3,23 @@ using HardwareTest.Core.Hardware;
 using HardwareTest.Core.Settings;
 using HardwareTest.OpenTap.Plugins.Basic;
 using Serilog;
+using StreamJsonRpc;
 using ILogger = Serilog.ILogger;
 
 namespace HardwareTest.OpenTap.Host.Worker;
 
-/// Worker-process dispatcher: one in-process <see cref="OpenTapSession"/> plus NDJSON on stdin/stdout.
+/// Worker-process dispatcher: one in-process <see cref="OpenTapSession"/> exposed over JSON-RPC.
 public static class OpenTapWorkerServer
 {
-    public static async Task RunAsync(TextReader input, TextWriter output, CancellationToken cancellationToken)
+    public static async Task RunAsync(Stream input, Stream output, CancellationToken cancellationToken)
     {
-        OpenTapSession? session = null;
-        VisaModeController? visa = null;
-        AppSettings settings = new();
-        var writeLock = new object();
-        ILogger log = Log.ForContext(typeof(OpenTapWorkerServer));
-
-        void Write(WorkerEnvelope envelope)
-        {
-            var line = WorkerProtocol.FormatLine(envelope);
-            lock (writeLock)
-            {
-                output.WriteLine(line);
-                output.Flush();
-            }
-        }
-
-        void WriteEvent(long id, string method, OpenTapProgress progress)
-        {
-            Write(new WorkerEnvelope
-            {
-                Id = id,
-                Kind = WorkerProtocol.KindEvent,
-                Method = method,
-                Ok = true,
-                Payload = WorkerProtocol.SerializePayload(progress, WorkerJsonContext.Default.OpenTapProgress),
-            });
-        }
-
-        void WriteOk(long id, string method, System.Text.Json.JsonElement? payload)
-            => Write(new WorkerEnvelope
-            {
-                Id = id,
-                Kind = WorkerProtocol.KindResponse,
-                Method = method,
-                Ok = true,
-                Payload = payload,
-            });
-
-        void WriteError(long id, string method, string error)
-            => Write(new WorkerEnvelope
-            {
-                Id = id,
-                Kind = WorkerProtocol.KindResponse,
-                Method = method,
-                Ok = false,
-                Error = error,
-            });
-
-        WorkerSnapshot RequireSnapshot()
-            => WorkerSnapshot.Capture(session ?? throw new InvalidOperationException("Worker is not initialized."));
-
-        OpenTapSession RequireSession()
-            => session ?? throw new InvalidOperationException("Worker is not initialized.");
-
-        while (!cancellationToken.IsCancellationRequested)
-        {
-            var line = await input.ReadLineAsync(cancellationToken).ConfigureAwait(false);
-            if (line is null)
-            {
-                return;
-            }
-
-            if (!WorkerProtocol.TryParseLine(line, out var envelope))
-            {
-                continue;
-            }
-
-            try
-            {
-                if (IsControlMethod(envelope.Method)
-                    || envelope.Method is not (WorkerProtocol.Run or WorkerProtocol.RunSelection))
-                {
-                    await DispatchAsync(
-                            envelope,
-                            s => session = s,
-                            () => visa,
-                            v => visa = v,
-                            () => settings,
-                            s => settings = s,
-                            log,
-                            WriteOk,
-                            WriteError,
-                            WriteEvent,
-                            RequireSession,
-                            RequireSnapshot)
-                        .ConfigureAwait(false);
-                }
-                else
-                {
-                    var captured = envelope;
-                    _ = Task.Run(async () =>
-                    {
-                        try
-                        {
-                            await DispatchAsync(
-                                    captured,
-                                    s => session = s,
-                                    () => visa,
-                                    v => visa = v,
-                                    () => settings,
-                                    s => settings = s,
-                                    log,
-                                    WriteOk,
-                                    WriteError,
-                                    WriteEvent,
-                                    RequireSession,
-                                    RequireSnapshot)
-                                .ConfigureAwait(false);
-                        }
-                        catch (Exception ex)
-                        {
-                            log.Warning(ex, "OpenTAP worker request {Method} failed", captured.Method);
-                            WriteError(captured.Id, captured.Method, ex.Message);
-                        }
-                    }, cancellationToken);
-                }
-            }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-            {
-                return;
-            }
-            catch (Exception ex)
-            {
-                log.Warning(ex, "OpenTAP worker request {Method} failed", envelope.Method);
-                WriteError(envelope.Id, envelope.Method, ex.Message);
-            }
-        }
+        var handler = new HeaderDelimitedMessageHandler(output, input, WorkerProtocol.CreateFormatter());
+        using var rpc = new JsonRpc(handler);
+        rpc.AddLocalRpcTarget(new RpcTarget(rpc));
+        rpc.StartListening();
+        using var registration = cancellationToken.Register(rpc.Dispose);
+        await rpc.Completion.ConfigureAwait(false);
     }
-
-    private static bool IsControlMethod(string method)
-        => method is WorkerProtocol.Abort or WorkerProtocol.Pause or WorkerProtocol.Resume or WorkerProtocol.Ping;
 
     private static async Task DispatchAsync(
         WorkerEnvelope envelope,
@@ -197,7 +74,6 @@ public static class OpenTapWorkerServer
 
             case WorkerProtocol.Shutdown:
                 writeOk(envelope.Id, method, null);
-                Environment.Exit(0);
                 return;
 
             case WorkerProtocol.ApplySettings:
@@ -320,7 +196,8 @@ public static class OpenTapWorkerServer
                 {
                     var req = WorkerProtocol.ReadPayload(envelope, WorkerJsonContext.Default.WorkerRunRequest)
                               ?? new WorkerRunRequest();
-                    var progress = new Progress<OpenTapProgress>(p => writeEvent(envelope.Id, WorkerProtocol.Progress, p));
+                    var progress = new SynchronousProgress<OpenTapProgress>(
+                        p => writeEvent(envelope.Id, WorkerProtocol.Progress, p));
                     // Cooperative cancel is Abort (cancels OpenTapSession._runCts). Do not bind this
                     // wait to a client token — abandoning IPC does not stop the plan thread.
                     var summary = await requireSession()
@@ -339,7 +216,8 @@ public static class OpenTapWorkerServer
                 {
                     var req = WorkerProtocol.ReadPayload(envelope, WorkerJsonContext.Default.WorkerRunSelectionRequest)
                               ?? throw new InvalidOperationException("runSelection requires a payload.");
-                    var progress = new Progress<OpenTapProgress>(p => writeEvent(envelope.Id, WorkerProtocol.Progress, p));
+                    var progress = new SynchronousProgress<OpenTapProgress>(
+                        p => writeEvent(envelope.Id, WorkerProtocol.Progress, p));
                     // Cooperative cancel is Abort; see Run above.
                     var summary = await requireSession()
                         .RunSelectionAsync(req.StepPath, progress, CancellationToken.None, req.RunId, req.IncludeCleanup)
@@ -534,6 +412,103 @@ public static class OpenTapWorkerServer
                 writeError(envelope.Id, method, $"Unknown worker method '{method}'.");
                 return;
         }
+    }
+
+    private sealed class RpcTarget(JsonRpc rpc)
+    {
+        private readonly ILogger _log = Log.ForContext(typeof(OpenTapWorkerServer));
+        private OpenTapSession? _session;
+        private VisaModeController? _visa;
+        private AppSettings _settings = new();
+
+        [JsonRpcMethod("invoke")]
+        public async Task<WorkerEnvelope> InvokeAsync(WorkerEnvelope envelope)
+        {
+            WorkerEnvelope? response = null;
+
+            void WriteOk(long id, string method, System.Text.Json.JsonElement? payload)
+                => response = new WorkerEnvelope
+                {
+                    Id = id,
+                    Method = method,
+                    Ok = true,
+                    Payload = payload,
+                };
+
+            void WriteError(long id, string method, string error)
+                => response = new WorkerEnvelope
+                {
+                    Id = id,
+                    Method = method,
+                    Ok = false,
+                    Error = error,
+                };
+
+            void WriteEvent(long id, string method, OpenTapProgress progress)
+            {
+                var notification = new WorkerEnvelope
+                {
+                    Id = id,
+                    Method = method,
+                    Ok = true,
+                    Payload = WorkerProtocol.SerializePayload(progress, WorkerJsonContext.Default.OpenTapProgress),
+                };
+                rpc.NotifyAsync("progress", notification).GetAwaiter().GetResult();
+            }
+
+            try
+            {
+                Task Dispatch()
+                    => DispatchAsync(
+                        envelope,
+                        session => _session = session,
+                        () => _visa,
+                        visa => _visa = visa,
+                        () => _settings,
+                        settings => _settings = settings,
+                        _log,
+                        WriteOk,
+                        WriteError,
+                        WriteEvent,
+                        RequireSession,
+                        RequireSnapshot);
+
+                if (envelope.Method is WorkerProtocol.Run or WorkerProtocol.RunSelection)
+                {
+                    await Task.Run(Dispatch).ConfigureAwait(false);
+                }
+                else
+                {
+                    await Dispatch().ConfigureAwait(false);
+                }
+            }
+            catch (Exception ex)
+            {
+                _log.Warning(ex, "OpenTAP worker request {Method} failed", envelope.Method);
+                WriteError(envelope.Id, envelope.Method, ex.Message);
+            }
+
+            var result = response ?? new WorkerEnvelope
+            {
+                Id = envelope.Id,
+                Method = envelope.Method,
+                Ok = false,
+                Error = "Worker request completed without a response.",
+            };
+            return result;
+        }
+
+        private OpenTapSession RequireSession()
+            => _session ?? throw new InvalidOperationException("Worker is not initialized.");
+
+        private WorkerSnapshot RequireSnapshot()
+            => WorkerSnapshot.Capture(RequireSession());
+
+    }
+
+    private sealed class SynchronousProgress<T>(Action<T> report) : IProgress<T>
+    {
+        public void Report(T value) => report(value);
     }
 
     private static void CopySettings(AppSettings dest, AppSettings src)
