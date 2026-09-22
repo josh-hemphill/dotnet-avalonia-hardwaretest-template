@@ -253,12 +253,12 @@ public partial class SettingsViewModel : ReactiveObject
         RefreshPackages();
     }
 
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> SaveCommand { get; }
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> RefreshPackagesCommand { get; }
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> CopyPathCommand { get; }
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> OpenFolderCommand { get; }
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> OpenCrashesFolderCommand { get; }
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> CopyDiagnosticsCommand { get; }
+    public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> SaveCommand { get; }
+    public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> RefreshPackagesCommand { get; }
+    public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> CopyPathCommand { get; }
+    public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> OpenFolderCommand { get; }
+    public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> OpenCrashesFolderCommand { get; }
+    public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> CopyDiagnosticsCommand { get; }
     public ObservableCollection<string> ThemeOptions { get; }
     public ObservableCollection<string> LogLevelOptions { get; }
     public ObservableCollection<OpenTapPackageInfo> Packages { get; }

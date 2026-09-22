@@ -24,7 +24,7 @@ public partial class HomeShellTileViewModel : ReactiveObject
     public string Title { get; }
     public string Body { get; }
     public string ActionLabel { get; }
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> NavigateCommand { get; }
+    public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> NavigateCommand { get; }
 
     [Reactive] private bool _isVisible;
 

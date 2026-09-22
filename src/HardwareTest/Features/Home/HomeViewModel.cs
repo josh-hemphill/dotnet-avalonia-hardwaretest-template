@@ -97,12 +97,12 @@ public partial class HomeViewModel : ReactiveObject
     public string Summary { get; } =
         "Confirm a DUT once, run locked OpenTAP programs from Avalonia, manage station instruments, and publish Typst reports with live plots when needed.";
 
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> OpenCrashFolderCommand { get; }
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> ExportSupportBundleCommand { get; }
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> DismissCrashBannerCommand { get; }
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> NavigateToRunCommand { get; }
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> NavigateToInstrumentsCommand { get; }
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> NavigateToResultsCommand { get; }
+    public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> OpenCrashFolderCommand { get; }
+    public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> ExportSupportBundleCommand { get; }
+    public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> DismissCrashBannerCommand { get; }
+    public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> NavigateToRunCommand { get; }
+    public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> NavigateToInstrumentsCommand { get; }
+    public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> NavigateToResultsCommand { get; }
 
     public IReadOnlyList<HomeShellTileViewModel> Tiles { get; }
 

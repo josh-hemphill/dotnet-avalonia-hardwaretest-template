@@ -91,10 +91,10 @@ public partial class OperatorSessionPanelViewModel : ReactiveObject
 
     public OperatorSession Session => _session;
 
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> ConfirmSessionCommand { get; }
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> ConfirmSameDutCommand { get; }
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> ChangeSessionCommand { get; }
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> CaptureCredentialCommand { get; }
+    public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> ConfirmSessionCommand { get; }
+    public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> ConfirmSameDutCommand { get; }
+    public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> ChangeSessionCommand { get; }
+    public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> CaptureCredentialCommand { get; }
 
     /// Raised when the DUT serial field should take keyboard/scanner focus.
     public event EventHandler? RequestFocusDutSerial;

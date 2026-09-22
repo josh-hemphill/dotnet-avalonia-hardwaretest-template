@@ -25,9 +25,9 @@ public partial class InspectViewModel : ReactiveObject
     }
 
     public ObservableCollection<HierarchyStepViewModel> Hierarchy { get; }
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> RefreshCommand { get; }
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> OpenOnRunCommand { get; }
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> NavigateToRunCommand { get; }
+    public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> RefreshCommand { get; }
+    public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> OpenOnRunCommand { get; }
+    public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> NavigateToRunCommand { get; }
 
     /// Raised with the selected step's path so the Run page can focus it.
     public event EventHandler<string?>? OpenOnRunRequested;

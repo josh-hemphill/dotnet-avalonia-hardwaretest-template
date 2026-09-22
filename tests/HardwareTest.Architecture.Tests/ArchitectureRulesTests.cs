@@ -350,6 +350,52 @@ public sealed class ArchitectureRulesTests
     }
 
     [Fact]
+    public void Direct_package_versions_are_managed_centrally()
+    {
+        var repo = FindRepoRoot();
+        var centralPath = Path.Combine(repo, "Directory.Packages.props");
+        var central = XDocument.Load(centralPath);
+        Assert.Equal(
+            "true",
+            central.Descendants("ManagePackageVersionsCentrally").Single().Value,
+            ignoreCase: true);
+
+        var versions = central.Descendants("PackageVersion")
+            .Select(element => element.Attribute("Include")?.Value)
+            .Where(package => !string.IsNullOrWhiteSpace(package))
+            .Select(package => package!)
+            .ToArray();
+        Assert.Equal(versions.Length, versions.Distinct(StringComparer.OrdinalIgnoreCase).Count());
+
+        var centrallyManaged = versions.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var violations = new List<string>();
+        foreach (var projectRel in ProjectsFromDirsProj(repo))
+        {
+            var project = XDocument.Load(Path.Combine(repo, projectRel));
+            foreach (var reference in project.Descendants("PackageReference"))
+            {
+                var package = reference.Attribute("Include")?.Value;
+                if (string.IsNullOrWhiteSpace(package))
+                {
+                    continue;
+                }
+
+                if (reference.Attribute("Version") is not null || reference.Element("Version") is not null)
+                {
+                    violations.Add($"{projectRel}: {package} has an inline version");
+                }
+
+                if (!centrallyManaged.Contains(package))
+                {
+                    violations.Add($"{projectRel}: {package} is missing from Directory.Packages.props");
+                }
+            }
+        }
+
+        Assert.Empty(violations);
+    }
+
+    [Fact]
     public void Default_runtime_identifier_tracks_the_dotnet_sdk_host()
     {
         var repo = FindRepoRoot();

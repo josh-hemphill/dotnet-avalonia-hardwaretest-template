@@ -47,9 +47,9 @@ public partial class ReportPreviewViewModel : ReactiveObject
     }
 
     public ObservableCollection<Bitmap> Pages { get; }
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> LoadLatestCommand { get; }
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> PrintCommand { get; }
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> NavigateToResultsCommand { get; }
+    public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> LoadLatestCommand { get; }
+    public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> PrintCommand { get; }
+    public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> NavigateToResultsCommand { get; }
 
     /// Raised when the operator wants to open Results to pick a PDF.
     public event EventHandler? NavigateToResultsRequested;

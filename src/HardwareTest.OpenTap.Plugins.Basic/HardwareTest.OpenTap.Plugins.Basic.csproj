@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <RootNamespace>HardwareTest.OpenTap.Plugins.Basic</RootNamespace>
     <Description>OpenTAP instruments, DUT, and test steps for HardwareTest (authoring pack; no VISA broker)</Description>
@@ -7,6 +7,6 @@
     <IsAotCompatible>false</IsAotCompatible>
   </PropertyGroup>
     <ItemGroup>
-    <PackageReference Include="OpenTAP" Version="9.32.2" />
+    <PackageReference Include="OpenTAP" />
   </ItemGroup>
 </Project>

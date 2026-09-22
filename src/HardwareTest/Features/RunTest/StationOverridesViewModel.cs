@@ -57,8 +57,8 @@ public partial class StationOverridesViewModel : ReactiveObject
 
     public ObservableCollection<InteractionFieldViewModel> ParameterFields { get; } = [];
 
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> ApplyDebugPatchCommand { get; }
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> ApplyParametersCommand { get; }
+    public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> ApplyDebugPatchCommand { get; }
+    public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> ApplyParametersCommand { get; }
 
     [Reactive] private bool _hasParameterFields;
     [Reactive] private string _debugResource = "MOCK::INSTR0";

@@ -11,7 +11,7 @@ public partial class RunTestViewModel
 
     public event EventHandler<StationBindRequestedEventArgs>? NavigateToInstrumentsRequested;
 
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> OpenInstrumentsFromBannerCommand { get; private set; } = null!;
+    public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> OpenInstrumentsFromBannerCommand { get; private set; } = null!;
 
     private void InitCommissioningCommands()
     {

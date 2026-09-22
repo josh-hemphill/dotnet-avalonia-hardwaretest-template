@@ -1,7 +1,7 @@
-using System.Reactive;
 using System.Reactive.Linq;
 using System.Reactive.Threading.Tasks;
 using ReactiveUI;
+using Unit = ReactiveUI.Primitives.RxVoid;
 
 namespace HardwareTest.ViewModels.Tests;
 

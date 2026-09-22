@@ -52,18 +52,18 @@ public partial class ResultsViewModel
     public ObservableCollection<string> ResultFilterOptions { get; }
     public ObservableCollection<string> PlanFilterOptions { get; }
     public ObservableCollection<string> DutFilterOptions { get; }
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> RefreshCommand { get; }
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> OpenCommand { get; }
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> OpenDefaultReportCommand { get; }
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> ReprintCommand { get; }
-    public ReactiveCommand<RunReportItemViewModel?, System.Reactive.Unit> OpenReportCommand { get; }
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> ExportPackageCommand { get; }
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> CaptureAttestationCommand { get; }
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> UsePresenceAttestationCommand { get; }
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> CancelAttestationCommand { get; }
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> CloseDetailCommand { get; }
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> NavigateToRunCommand { get; }
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> ClearFailedStepsFilterCommand { get; }
+    public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> RefreshCommand { get; }
+    public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> OpenCommand { get; }
+    public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> OpenDefaultReportCommand { get; }
+    public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> ReprintCommand { get; }
+    public ReactiveCommand<RunReportItemViewModel?, ReactiveUI.Primitives.RxVoid> OpenReportCommand { get; }
+    public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> ExportPackageCommand { get; }
+    public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> CaptureAttestationCommand { get; }
+    public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> UsePresenceAttestationCommand { get; }
+    public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> CancelAttestationCommand { get; }
+    public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> CloseDetailCommand { get; }
+    public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> NavigateToRunCommand { get; }
+    public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> ClearFailedStepsFilterCommand { get; }
 
     [Reactive] private TestRunSummary? _selectedRun;
     [Reactive] private TestRunRecord? _openedRun;

@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <RootNamespace>HardwareTest.OpenTap.Host</RootNamespace>
     <Description>Avalonia-free OpenTAP session host for HardwareTest</Description>
@@ -14,8 +14,8 @@
     </AssemblyAttribute>
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="OpenTAP" Version="9.32.2" />
-    <PackageReference Include="StreamJsonRpc" Version="2.25.29" />
+    <PackageReference Include="OpenTAP" />
+    <PackageReference Include="StreamJsonRpc" />
     <ProjectReference Include="..\HardwareTest.OpenTap.Plugins.Basic\HardwareTest.OpenTap.Plugins.Basic.csproj" />
     <ProjectReference Include="..\HardwareTest.OpenTap.Plugins.Visa\HardwareTest.OpenTap.Plugins.Visa.csproj" />
     <ProjectReference Include="..\HardwareTest.OpenTap.Plugins.Mixins\HardwareTest.OpenTap.Plugins.Mixins.csproj" />

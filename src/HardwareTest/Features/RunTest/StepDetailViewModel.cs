@@ -59,10 +59,10 @@ public partial class StepDetailViewModel : ReactiveObject
     public ObservableCollection<string> DetailKeyValues { get; } = [];
     public ObservableCollection<string> AttemptHistoryLines { get; } = [];
 
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> OpenStepDetailCommand { get; }
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> CloseDetailCommand { get; }
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> ToggleDetailsCommand { get; }
-    public ReactiveCommand<string, System.Reactive.Unit> SelectPaneCommand { get; }
+    public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> OpenStepDetailCommand { get; }
+    public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> CloseDetailCommand { get; }
+    public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> ToggleDetailsCommand { get; }
+    public ReactiveCommand<string, ReactiveUI.Primitives.RxVoid> SelectPaneCommand { get; }
 
     [Reactive] private HierarchyStepViewModel? _detailStep;
     [Reactive] private bool _showDetailRegion;

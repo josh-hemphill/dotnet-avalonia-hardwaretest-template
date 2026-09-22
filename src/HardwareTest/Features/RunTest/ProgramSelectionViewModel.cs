@@ -37,8 +37,8 @@ public partial class ProgramSelectionViewModel : ReactiveObject
     /// Supplied by the view; returns a picked TapPlan path or null when cancelled.
     public Func<CancellationToken, Task<string?>>? RequestPlanFilePath { get; set; }
 
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> RefreshProgramsCommand { get; }
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> OpenPlanFileCommand { get; }
+    public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> RefreshProgramsCommand { get; }
+    public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> OpenPlanFileCommand { get; }
 
     [Reactive] private ProgramItemViewModel? _selectedProgram;
     [Reactive] private bool _isBusy;
