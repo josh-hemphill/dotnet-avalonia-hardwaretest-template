@@ -351,19 +351,35 @@ public sealed class ReportAttestationService : IReportAttestationService
     {
         var pdfBytes = stampedPdf ?? await File.ReadAllBytesAsync(pdfPath!, cancellationToken).ConfigureAwait(false);
         var signingTime = captured.CapturedAt == default ? _clock.UtcNow : captured.CapturedAt;
-        if (!PdfPadesSignature.TryPrepare(pdfBytes, captured.DisplayName, signingTime, out var prepared, out var prepareError))
+        PreparedPdfSignature? prepared = null;
+        CredentialSignResult sign;
+        if (_broker is IEmbeddedPdfSigningBroker embedded)
         {
-            return new ReportAttestationResult
-            {
-                Succeeded = false,
-                Credential = captured,
-                Message = prepareError ?? "Could not prepare a PDF signature placeholder.",
-            };
+            sign = await embedded
+                .TrySignPdfAsync(pdfBytes, captured, pin, signingTime, cancellationToken)
+                .ConfigureAwait(false);
         }
+        else
+        {
+            if (!PdfPadesSignature.TryPrepare(
+                    pdfBytes,
+                    captured.DisplayName,
+                    signingTime,
+                    out prepared,
+                    out var prepareError))
+            {
+                return new ReportAttestationResult
+                {
+                    Succeeded = false,
+                    Credential = captured,
+                    Message = prepareError ?? "Could not prepare a PDF signature placeholder.",
+                };
+            }
 
-        var sign = await _broker
-            .TrySignDocumentAsync(prepared.SignedBytes, captured, pin, signingTime, cancellationToken)
-            .ConfigureAwait(false);
+            sign = await _broker
+                .TrySignDocumentAsync(prepared.SignedBytes, captured, pin, signingTime, cancellationToken)
+                .ConfigureAwait(false);
+        }
         if (sign.PinRequired)
         {
             return new ReportAttestationResult
@@ -401,17 +417,30 @@ public sealed class ReportAttestationService : IReportAttestationService
                 .ConfigureAwait(false);
         }
 
-        if (!prepared.TryEmbed(sign.Signature, out var signedPdf, out var embedError))
+        byte[] signedPdf;
+        if (sign.SignedPdf is { Length: > 0 } embeddedPdf)
+        {
+            signedPdf = embeddedPdf;
+        }
+        else if (prepared is not null
+                 && prepared.TryEmbed(sign.Signature, out signedPdf, out var embedError))
+        {
+            // Compatibility path for non-iText CMS brokers used by existing deployments/tests.
+        }
+        else
         {
             return new ReportAttestationResult
             {
                 Succeeded = false,
                 Credential = sign.Credential ?? captured,
-                Message = embedError ?? "Could not inject the CMS signature into the PDF.",
+                Message = "Could not inject the CMS signature into the PDF.",
             };
         }
 
-        if (!PdfPadesSignature.TryVerify(signedPdf, out var verifyError))
+        var verifies = sign.SignedPdf is { Length: > 0 }
+            ? ITextPadesSignature.TryVerify(signedPdf, out var verifyError)
+            : PdfPadesSignature.TryVerify(signedPdf, out verifyError);
+        if (!verifies)
         {
             return new ReportAttestationResult
             {
@@ -787,7 +816,8 @@ public sealed class ReportAttestationService : IReportAttestationService
         try
         {
             var pdf = File.ReadAllBytes(pdfPath);
-            return PdfPadesSignature.TryVerify(pdf, out _);
+            return ITextPadesSignature.TryVerify(pdf, out _)
+                   || PdfPadesSignature.TryVerify(pdf, out _);
         }
         catch (IOException)
         {

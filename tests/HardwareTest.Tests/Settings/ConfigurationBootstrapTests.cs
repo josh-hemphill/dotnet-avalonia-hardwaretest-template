@@ -201,6 +201,22 @@ public sealed class ConfigurationBootstrapTests
     }
 
     [Fact]
+    public async Task Pkcs11_library_path_supports_environment_and_command_line_precedence()
+    {
+        using var temp = new TempDataDirectory();
+        var env = new Hashtable { ["HARDWARETEST_PKCS11_LIBRARY"] = "/from/environment.so" };
+        var result = await ConfigurationBootstrap.ResolveAsync(
+            ConfigurationArgs.Parse(["--pkcs11-library", "/from/command-line.so"]),
+            env,
+            defaultRoot: temp.Path);
+
+        Assert.Equal("/from/command-line.so", result.Store.AppSettings.Pkcs11LibraryPath);
+        Assert.Equal(
+            SettingSource.CommandLine,
+            result.Store.Provenance.Single(p => p.Key == "Pkcs11LibraryPath").Source);
+    }
+
+    [Fact]
     public async Task Env_override_is_not_persisted_on_save()
     {
         using var temp = new TempDataDirectory();

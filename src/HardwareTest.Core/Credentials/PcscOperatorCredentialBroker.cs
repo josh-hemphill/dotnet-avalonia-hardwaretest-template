@@ -315,6 +315,7 @@ public sealed class PcscOperatorCredentialBroker : IOperatorCredentialBroker
             {
                 var atr = PcscNative.ReadAtr(card);
                 var (serial, printedName) = PivCardIdentity.TryRead(card, protocol);
+                var signatureThumbprint = PivCardIdentity.TryReadSignatureCertificateThumbprint(card, protocol);
                 if (string.IsNullOrWhiteSpace(serial) && atr is { Length: > 0 })
                 {
                     serial = Convert.ToHexString(atr);
@@ -339,6 +340,7 @@ public sealed class PcscOperatorCredentialBroker : IOperatorCredentialBroker
                         Serial = serial,
                         Transport = transport,
                         ReaderName = reader,
+                        Thumbprint = signatureThumbprint,
                         CapturedAt = _clock.UtcNow,
                     },
                 };

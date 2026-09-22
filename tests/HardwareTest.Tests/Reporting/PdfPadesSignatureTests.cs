@@ -13,6 +13,29 @@ namespace HardwareTest.Tests.Reporting;
 public sealed class PdfPadesSignatureTests
 {
     [Fact]
+    public void Itext_creates_and_verifies_pades_baseline_b()
+    {
+        using var rsa = RSA.Create(2048);
+        using var cert = CreateCert(rsa);
+        var pdf = PdfPadesSignature.CreateMinimalPdf();
+
+        Assert.True(
+            ITextPadesSignature.TrySign(
+                pdf,
+                cert,
+                rsa,
+                "Software PAdES",
+                DateTimeOffset.UnixEpoch,
+                out var signed,
+                out var cms,
+                out var signError),
+            signError);
+        Assert.NotEmpty(cms);
+        Assert.True(ITextPadesSignature.TryVerify(signed, out var verifyError), verifyError);
+        Assert.Contains("/ETSI.CAdES.detached"u8, signed);
+    }
+
+    [Fact]
     public void Software_rsa_embeds_verifiable_cms()
     {
         using var rsa = RSA.Create(2048);

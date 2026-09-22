@@ -3,7 +3,7 @@ using HardwareTest.Core.Settings;
 namespace HardwareTest.Core.Credentials;
 
 /// Routes chip/tap capture to the mock or PC/SC broker from live settings.
-public sealed class SettingsBackedCredentialBroker : IOperatorCredentialBroker
+public sealed class SettingsBackedCredentialBroker : IOperatorCredentialBroker, IEmbeddedPdfSigningBroker
 {
     private readonly AppSettings _settings;
     private readonly IOperatorCredentialBroker _mock;
@@ -44,6 +44,16 @@ public sealed class SettingsBackedCredentialBroker : IOperatorCredentialBroker
         DateTimeOffset? signingTime = null,
         CancellationToken cancellationToken = default)
         => Active.TrySignDocumentAsync(document, credential, pin, signingTime, cancellationToken);
+
+    public Task<CredentialSignResult> TrySignPdfAsync(
+        byte[] pdf,
+        OperatorCredential credential,
+        string? pin = null,
+        DateTimeOffset? signingTime = null,
+        CancellationToken cancellationToken = default)
+        => Active is IEmbeddedPdfSigningBroker embedded
+            ? embedded.TrySignPdfAsync(pdf, credential, pin, signingTime, cancellationToken)
+            : Task.FromResult(CredentialSignResult.Failed("The active credential does not support embedded PDF signing."));
 
     private IOperatorCredentialBroker Active
         => _settings.UseMockOperatorCredential ? _mock : _pcsc;
