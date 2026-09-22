@@ -39,10 +39,10 @@ public sealed class RunWorkspaceViewModel : ReactiveObject
         ToggleOverviewCommand = ReactiveCommand.Create(ToggleOverview);
     }
 
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> OpenStepsCommand { get; }
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> OpenDetailsCommand { get; }
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> OpenChartCommand { get; }
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> ToggleOverviewCommand { get; }
+    public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> OpenStepsCommand { get; }
+    public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> OpenDetailsCommand { get; }
+    public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> OpenChartCommand { get; }
+    public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> ToggleOverviewCommand { get; }
 
     public RunWorkspace Selected { get; private set; } = RunWorkspace.Steps;
 

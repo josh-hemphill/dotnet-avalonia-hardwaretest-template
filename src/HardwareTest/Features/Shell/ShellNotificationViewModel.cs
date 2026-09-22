@@ -40,7 +40,7 @@ public partial class ShellNotificationViewModel : ReactiveObject
         DismissCommand = ReactiveCommand.Create(Dismiss);
     }
 
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> DismissCommand { get; }
+    public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> DismissCommand { get; }
 
     [Reactive] private bool _hasContent;
     [Reactive] private ShellNotificationSeverity _severity = ShellNotificationSeverity.Info;

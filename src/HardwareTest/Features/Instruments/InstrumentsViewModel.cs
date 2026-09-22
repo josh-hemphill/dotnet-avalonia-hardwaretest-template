@@ -118,16 +118,16 @@ public partial class InstrumentsViewModel : ReactiveObject
     /// Backward-compatible alias used by older tests/callers.
     public ObservableCollection<DiscoveredResourceItem> Discovered => DiscoveredVisa;
 
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> RefreshVisaDiscoverCommand { get; }
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> RefreshOpenTapDiscoverCommand { get; }
+    public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> RefreshVisaDiscoverCommand { get; }
+    public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> RefreshOpenTapDiscoverCommand { get; }
     /// Alias for VISA discover (toolbar / existing tests).
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> RefreshDiscoverCommand => RefreshVisaDiscoverCommand;
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> RefreshSlotsCommand { get; }
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> ApplySelectedResourceCommand { get; }
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> ClearOverrideCommand { get; }
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> QuerySelectedIdnCommand { get; }
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> SaveCommand { get; }
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> NavigateToRunCommand { get; }
+    public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> RefreshDiscoverCommand => RefreshVisaDiscoverCommand;
+    public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> RefreshSlotsCommand { get; }
+    public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> ApplySelectedResourceCommand { get; }
+    public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> ClearOverrideCommand { get; }
+    public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> QuerySelectedIdnCommand { get; }
+    public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> SaveCommand { get; }
+    public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> NavigateToRunCommand { get; }
 
     [Reactive] private DiscoveredResourceItem? _selectedVisa;
     [Reactive] private OpenTapDiscoveredResourceItem? _selectedOpenTap;

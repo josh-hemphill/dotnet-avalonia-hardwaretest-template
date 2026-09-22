@@ -48,10 +48,10 @@ public partial class LivePresentationViewModel : ReactiveObject
 
     public int PlotYsLength { get; private set; }
 
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> ToggleFocusTrendCommand { get; }
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> ResetViewCommand { get; }
-    public ReactiveCommand<LiveSeriesItemViewModel?, System.Reactive.Unit> SelectSeriesCommand { get; }
-    public ReactiveCommand<ChartTimeWindow, System.Reactive.Unit> SelectTimeWindowCommand { get; }
+    public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> ToggleFocusTrendCommand { get; }
+    public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> ResetViewCommand { get; }
+    public ReactiveCommand<LiveSeriesItemViewModel?, ReactiveUI.Primitives.RxVoid> SelectSeriesCommand { get; }
+    public ReactiveCommand<ChartTimeWindow, ReactiveUI.Primitives.RxVoid> SelectTimeWindowCommand { get; }
 
     [Reactive] private double[] _plotXs = new double[LiveSeriesBuffer.Capacity];
     [Reactive] private double[] _plotYs = new double[LiveSeriesBuffer.Capacity];

@@ -10,6 +10,6 @@
     <ProjectReference Include="..\HardwareTest.OpenTap.Host\HardwareTest.OpenTap.Host.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="StreamJsonRpc" Version="2.25.29" />
+    <PackageReference Include="StreamJsonRpc" />
   </ItemGroup>
 </Project>

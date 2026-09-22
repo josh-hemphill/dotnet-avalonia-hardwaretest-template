@@ -110,9 +110,9 @@ public sealed class RunExecutionViewModel
         CancelCommand = ReactiveCommand.Create(Cancel);
     }
 
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> RunCommand { get; }
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> RunSelectedCommand { get; }
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> CancelCommand { get; }
+    public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> RunCommand { get; }
+    public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> RunSelectedCommand { get; }
+    public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> CancelCommand { get; }
 
     public StepAttemptSummary? FindAttempt(string stepPath)
         => _attemptLedger.TryGetValue(stepPath, out var ledger) ? ledger : null;

@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.Reactive;
 using System.Reactive.Linq;
 using System.Reactive.Threading.Tasks;
 using Avalonia;
@@ -13,6 +12,7 @@ using HardwareTest.Features.RunTest;
 using Microsoft.Extensions.DependencyInjection;
 using ReactiveUI;
 using Xunit;
+using Unit = ReactiveUI.Primitives.RxVoid;
 
 namespace HardwareTest.E2E.Tests;
 

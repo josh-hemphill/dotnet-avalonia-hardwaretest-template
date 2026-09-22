@@ -145,12 +145,12 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
     public event EventHandler? NavigateToResultsRequested;
     public event EventHandler? NavigateToInspectRequested;
 
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> ContinueOperatorCommand { get; }
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> ShowCurrentStepCommand { get; }
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> OpenLastRunResultsCommand { get; }
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> InspectPlanCommand { get; }
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> DismissStorageBannerCommand { get; }
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> DismissBannerCommand { get; }
+    public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> ContinueOperatorCommand { get; }
+    public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> ShowCurrentStepCommand { get; }
+    public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> OpenLastRunResultsCommand { get; }
+    public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> InspectPlanCommand { get; }
+    public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> DismissStorageBannerCommand { get; }
+    public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> DismissBannerCommand { get; }
 
     [Reactive] private string _status = string.Empty;
     [Reactive] private bool _isRunning;

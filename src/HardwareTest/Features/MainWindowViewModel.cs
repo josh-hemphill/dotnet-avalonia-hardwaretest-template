@@ -140,10 +140,10 @@ public partial class MainWindowViewModel : ReactiveObject
     private readonly ShellPageCatalog _catalog;
     private readonly NavItem[] _allPages;
 
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> PauseResumeCommand { get; }
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> PauseCommand { get; }
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> ResumeCommand { get; }
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> SafetyStopCommand { get; }
+    public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> PauseResumeCommand { get; }
+    public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> PauseCommand { get; }
+    public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> ResumeCommand { get; }
+    public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> SafetyStopCommand { get; }
 
     public bool IsPaused => _runControl.IsPaused;
     public bool IsRunning => _runControl.IsRunning;

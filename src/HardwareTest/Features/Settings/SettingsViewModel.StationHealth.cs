@@ -19,7 +19,7 @@ public partial class SettingsViewModel
     [Reactive] private bool _showStationHealthSummary;
     [Reactive] private string _stationHealthStorePath = string.Empty;
 
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> CopyStationHealthPathCommand { get; private set; }
+    public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> CopyStationHealthPathCommand { get; private set; }
 
     private void InitStationHealthChrome(IStationHealthStore? store, IClock clock)
     {

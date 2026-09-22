@@ -17,7 +17,7 @@
     <ProjectReference Include="..\HardwareTest.OpenTap.Host\HardwareTest.OpenTap.Host.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Avalonia" Version="12.1.0" />
-    <PackageReference Include="ScottPlot.Avalonia" Version="5.1.59" />
+    <PackageReference Include="Avalonia" />
+    <PackageReference Include="ScottPlot.Avalonia" />
   </ItemGroup>
 </Project>

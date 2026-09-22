@@ -17,7 +17,7 @@ public partial class LivePresentationViewModel
     /// Elapsed-seconds (or sample index) of the snapped readout, if any.
     public double? CursorX => _cursorX;
 
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> ClearCursorCommand { get; private set; } = null!;
+    public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> ClearCursorCommand { get; private set; } = null!;
 
     /// Snaps the toolbar to the nearest published sample at <paramref name="x"/> and pauses follow-live.
     public void PlaceCursor(double x)

@@ -136,16 +136,16 @@ public partial class StepTreeViewModel : ReactiveObject
     public event EventHandler? RequestScrollToSelectedStep;
     public event EventHandler? RequestFocusStepSearch;
 
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> NextFailCommand { get; }
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> PrevFailCommand { get; }
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> JumpToCurrentCommand { get; }
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> ClearScopeCommand { get; }
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> FilterFailCommand { get; }
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> ClearStatusFilterCommand { get; }
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> ToggleCompactCommand { get; }
-    public ReactiveCommand<System.Reactive.Unit, System.Reactive.Unit> FocusStepSearchCommand { get; }
-    public ReactiveCommand<string, System.Reactive.Unit> SetStepFilterCommand { get; }
-    public ReactiveCommand<string, System.Reactive.Unit> SetSuiteFilterCommand { get; }
+    public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> NextFailCommand { get; }
+    public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> PrevFailCommand { get; }
+    public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> JumpToCurrentCommand { get; }
+    public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> ClearScopeCommand { get; }
+    public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> FilterFailCommand { get; }
+    public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> ClearStatusFilterCommand { get; }
+    public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> ToggleCompactCommand { get; }
+    public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> FocusStepSearchCommand { get; }
+    public ReactiveCommand<string, ReactiveUI.Primitives.RxVoid> SetStepFilterCommand { get; }
+    public ReactiveCommand<string, ReactiveUI.Primitives.RxVoid> SetSuiteFilterCommand { get; }
 
     [Reactive] private StageItemViewModel? _selectedStage;
     [Reactive] private StageItemViewModel? _selectedSubsection;

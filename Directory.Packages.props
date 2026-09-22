@@ -1,0 +1,61 @@
+<Project>
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <AvaloniaVersion>12.1.2</AvaloniaVersion>
+    <ITextVersion>9.7.0</ITextVersion>
+    <MicrosoftExtensionsVersion>10.0.12</MicrosoftExtensionsVersion>
+    <OpenTapVersion>9.35.0</OpenTapVersion>
+    <ReactiveUIBindingVersion>7.3.0</ReactiveUIBindingVersion>
+    <ScottPlotVersion>5.1.59</ScottPlotVersion>
+    <XunitVersion>3.2.2</XunitVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageVersion Include="Avalonia" Version="$(AvaloniaVersion)" />
+    <PackageVersion Include="Avalonia.Desktop" Version="$(AvaloniaVersion)" />
+    <PackageVersion Include="Avalonia.Fonts.Inter" Version="$(AvaloniaVersion)" />
+    <PackageVersion Include="Avalonia.Headless.XUnit" Version="$(AvaloniaVersion)" />
+    <PackageVersion Include="Avalonia.Themes.Fluent" Version="$(AvaloniaVersion)" />
+    <PackageVersion Include="AvaloniaUI.DiagnosticsSupport" Version="2.2.3" />
+    <PackageVersion Include="coverlet.collector" Version="10.0.1" />
+    <PackageVersion Include="FluentAvaloniaUI" Version="3.1.0" />
+    <PackageVersion Include="IviFoundation.Visa" Version="8.0.2" />
+    <PackageVersion Include="itext" Version="$(ITextVersion)" />
+    <PackageVersion Include="itext.bouncy-castle-adapter" Version="$(ITextVersion)" />
+    <PackageVersion Include="Microsoft.Extensions.Configuration" Version="$(MicrosoftExtensionsVersion)" />
+    <PackageVersion Include="Microsoft.Extensions.Configuration.Binder" Version="$(MicrosoftExtensionsVersion)" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="$(MicrosoftExtensionsVersion)" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="$(MicrosoftExtensionsVersion)" />
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageVersion Include="OpenTAP" Version="$(OpenTapVersion)" />
+    <PackageVersion Include="Parlot" Version="1.5.9" />
+    <PackageVersion Include="PCSC" Version="7.0.1" />
+    <PackageVersion Include="PDFtoImage" Version="5.4.0" />
+    <PackageVersion Include="Pkcs11Interop.X509Store" Version="1.1.0" />
+    <PackageVersion Include="ReactiveUI" Version="24.2.0" />
+    <PackageVersion Include="ReactiveUI.Avalonia" Version="$(AvaloniaVersion)" />
+    <PackageVersion Include="ReactiveUI.Binding" Version="$(ReactiveUIBindingVersion)" />
+    <PackageVersion Include="ReactiveUI.Binding.SourceGenerators" Version="$(ReactiveUIBindingVersion)" />
+    <PackageVersion Include="ReactiveUI.SourceGenerators" Version="3.2.0" />
+    <PackageVersion Include="ScottPlot" Version="$(ScottPlotVersion)" />
+    <PackageVersion Include="ScottPlot.Avalonia" Version="$(ScottPlotVersion)" />
+    <PackageVersion Include="Serilog" Version="4.4.0" />
+    <PackageVersion Include="Serilog.Enrichers.Environment" Version="3.0.1" />
+    <PackageVersion Include="Serilog.Enrichers.Thread" Version="4.0.0" />
+    <PackageVersion Include="Serilog.Sinks.Console" Version="6.1.1" />
+    <PackageVersion Include="Serilog.Sinks.EventLog" Version="4.0.0" />
+    <PackageVersion Include="Serilog.Sinks.File" Version="7.0.0" />
+    <PackageVersion Include="Serilog.Sinks.InMemory" Version="2.0.0" />
+    <PackageVersion Include="Serilog.Sinks.SyslogMessages" Version="4.1.0" />
+    <PackageVersion Include="SerilogTracing" Version="2.4.0" />
+    <PackageVersion Include="StreamJsonRpc" Version="2.25.29" />
+    <PackageVersion Include="System.CommandLine" Version="2.0.12" />
+    <PackageVersion Include="System.Reactive" Version="7.0.0" />
+    <PackageVersion Include="System.Security.Cryptography.Pkcs" Version="$(MicrosoftExtensionsVersion)" />
+    <PackageVersion Include="TypstInterop" Version="2.1.0" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" />
+    <PackageVersion Include="xunit.v3" Version="$(XunitVersion)" />
+    <PackageVersion Include="xunit.v3.assert" Version="$(XunitVersion)" />
+    <PackageVersion Include="xunit.v3.extensibility.core" Version="$(XunitVersion)" />
+  </ItemGroup>
+</Project>
