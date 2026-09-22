@@ -39,3 +39,14 @@ public interface IOperatorCredentialBroker
         CancellationToken cancellationToken = default)
         => TrySignPayloadAsync(document, credential, pin, cancellationToken);
 }
+
+/// Hardware-backed broker that lets the PDF library construct and embed a complete PAdES signature.
+public interface IEmbeddedPdfSigningBroker
+{
+    Task<CredentialSignResult> TrySignPdfAsync(
+        byte[] pdf,
+        OperatorCredential credential,
+        string? pin = null,
+        DateTimeOffset? signingTime = null,
+        CancellationToken cancellationToken = default);
+}

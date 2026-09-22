@@ -70,7 +70,9 @@ public static class CoreServiceCollectionExtensions
             new SettingsBackedCredentialBroker(
                 settingsStore.AppSettings,
                 new MockOperatorCredentialBroker(sp.GetRequiredService<IClock>()),
-                new PcscOperatorCredentialBroker(sp.GetRequiredService<IClock>())));
+                new Pkcs11OperatorCredentialBroker(
+                    settingsStore.AppSettings,
+                    sp.GetRequiredService<IClock>())));
         services.AddSingleton<IReportService>(sp =>
             new TypstReportService(
                 sp.GetRequiredService<IRunStore>(),

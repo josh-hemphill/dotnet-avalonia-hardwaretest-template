@@ -2,7 +2,7 @@
 
 Avalonia 12 desktop shell for **OpenTAP-sequenced hardware tests**, **IVI VISA discovery**, **ScottPlot live plots**, and **Typst PDF reports**. Self-contained (non-NativeAOT) publishes target sealed Linux appliance images.
 
-**License:** [MIT](LICENSE)
+**License:** [MIT](LICENSE). Distributed applications that include the AGPL iText dependency must also comply with iText's AGPL terms; see [third-party notices](THIRD-PARTY-NOTICES.md).
 
 ## Layout
 
@@ -67,6 +67,7 @@ templates/reports/                   # Typst templates (embedded)
 - [.NET 10 SDK](https://dotnet.microsoft.com/download) (pinned via `global.json`)
 - [Deno](https://deno.land/) 2.x for the shared CI task runner (`tools/ci/`)
 - Optional: vendor VISA runtime for real instruments — mock instruments are the default
+- Optional for real PIV signing: [OpenSC](https://github.com/OpenSC/OpenSC) (PKCS#11 module) and a PC/SC/CCID reader; mock credentials remain the default
 - Optional: [Podman](https://podman.io/) for Linux container CI / appliance rails — [docs/containers.md](docs/containers.md)
 
 ## Build & run

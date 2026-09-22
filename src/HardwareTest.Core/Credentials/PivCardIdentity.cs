@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
 
 namespace HardwareTest.Core.Credentials;
@@ -52,6 +54,33 @@ internal static class PivCardIdentity
         }
 
         return (TryReadUid(channel), best.Value);
+    }
+
+    public static string? TryReadSignatureCertificateThumbprint(nint card, int protocol)
+        => TryReadSignatureCertificateThumbprint(new PcscApduChannel(card, protocol));
+
+    public static string? TryReadSignatureCertificateThumbprint(IApduChannel channel)
+    {
+        if (!PivApdu.TrySelect(channel))
+        {
+            return null;
+        }
+
+        var der = PivApdu.TryReadCertificateDer(channel, PivApdu.ObjectSignature);
+        if (der is null)
+        {
+            return null;
+        }
+
+        try
+        {
+            using var certificate = X509CertificateLoader.LoadCertificate(der);
+            return certificate.Thumbprint;
+        }
+        catch (CryptographicException)
+        {
+            return null;
+        }
     }
 
     private static string? TryReadUid(IApduChannel channel)

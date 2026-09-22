@@ -1,3 +1,4 @@
+using System.Security.Cryptography.X509Certificates;
 using HardwareTest.Core.Credentials;
 using Xunit;
 
@@ -5,6 +6,25 @@ namespace HardwareTest.Tests.Credentials;
 
 public sealed class PivCardIdentityTests
 {
+    [Fact]
+    public void TryReadSignatureCertificateThumbprint_reads_only_9c()
+    {
+        using var card = FakePivCard.CreateRsa2048(slot: PivApdu.SlotSignature);
+        using var certificate = X509CertificateLoader.LoadCertificate(card.CertDer);
+
+        var thumbprint = PivCardIdentity.TryReadSignatureCertificateThumbprint(card);
+
+        Assert.Equal(certificate.Thumbprint, thumbprint);
+    }
+
+    [Fact]
+    public void TryReadSignatureCertificateThumbprint_rejects_non_9c_slot()
+    {
+        using var card = FakePivCard.CreateRsa2048(slot: PivApdu.SlotAuthentication);
+
+        Assert.Null(PivCardIdentity.TryReadSignatureCertificateThumbprint(card));
+    }
+
     [Fact]
     public void TryRead_uses_certificate_subject_not_uid()
     {

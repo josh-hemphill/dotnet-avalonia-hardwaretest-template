@@ -75,14 +75,18 @@ public sealed class CredentialCaptureResult
 public sealed class CredentialSignResult
 {
     public byte[]? Signature { get; init; }
+    /// Complete PDF after iText has embedded the PAdES signature.
+    public byte[]? SignedPdf { get; init; }
     public string? Algorithm { get; init; }
     public byte[]? CertificateDer { get; init; }
     public string? Thumbprint { get; init; }
     public bool PinRequired { get; init; }
     public int? PinRetriesRemaining { get; init; }
+    /// True only for capability failures that site policy may downgrade to presence attestation.
+    public bool PresenceFallbackAllowed { get; init; }
     public string? Error { get; init; }
     public OperatorCredential? Credential { get; init; }
-    public bool Succeeded => Signature is { Length: > 0 };
+    public bool Succeeded => Signature is { Length: > 0 } || SignedPdf is { Length: > 0 };
 
     public static CredentialSignResult Signed(
         byte[] signature,
@@ -101,6 +105,26 @@ public sealed class CredentialSignResult
 
     public static CredentialSignResult NeedPin(string message)
         => new() { PinRequired = true, Error = message };
+
+    public static CredentialSignResult Unavailable(string error)
+        => new() { PresenceFallbackAllowed = true, Error = error };
+
+    public static CredentialSignResult SignedPdfDocument(
+        byte[] signedPdf,
+        byte[] cms,
+        string algorithm,
+        byte[] certificateDer,
+        string thumbprint,
+        OperatorCredential credential)
+        => new()
+        {
+            SignedPdf = signedPdf,
+            Signature = cms,
+            Algorithm = algorithm,
+            CertificateDer = certificateDer,
+            Thumbprint = thumbprint,
+            Credential = credential,
+        };
 
     public static CredentialSignResult Failed(string error, int? pinRetriesRemaining = null)
         => new() { Error = error, PinRetriesRemaining = pinRetriesRemaining };

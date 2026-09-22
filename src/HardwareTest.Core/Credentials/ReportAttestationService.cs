@@ -142,27 +142,28 @@ public sealed class ReportAttestationService : IReportAttestationService
 
         var runJson = JsonSerializer.Serialize(run, AppJsonContext.Default.TestRunRecord);
         var runHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(runJson)));
+        CredentialSignResult? signingProbe = null;
         if (!skipSigning && string.IsNullOrEmpty(pin))
         {
-            var probe = await _broker.TrySignPayloadAsync(
+            signingProbe = await _broker.TrySignPayloadAsync(
                     Encoding.UTF8.GetBytes($"pin-probe:{runHash}"),
                     captured,
                     pin,
                     cancellationToken)
                 .ConfigureAwait(false);
-            if (probe.PinRequired)
+            if (signingProbe.PinRequired)
             {
                 return new ReportAttestationResult
                 {
                     Succeeded = false,
                     PinRequired = true,
                     Credential = captured,
-                    Message = probe.Error ?? "Enter badge PIN to sign.",
+                    Message = signingProbe.Error ?? "Enter badge PIN to sign.",
                 };
             }
         }
 
-        var overlayKind = skipSigning || !_broker.CanSign
+        var overlayKind = skipSigning || !_broker.CanSign || signingProbe?.PresenceFallbackAllowed == true
             ? AttestationKind.Presence
             : AttestationKind.Signed;
         var stamped = await TryCompileOverlayAsync(run, targetKind, captured, overlayKind, cancellationToken)
@@ -351,19 +352,35 @@ public sealed class ReportAttestationService : IReportAttestationService
     {
         var pdfBytes = stampedPdf ?? await File.ReadAllBytesAsync(pdfPath!, cancellationToken).ConfigureAwait(false);
         var signingTime = captured.CapturedAt == default ? _clock.UtcNow : captured.CapturedAt;
-        if (!PdfPadesSignature.TryPrepare(pdfBytes, captured.DisplayName, signingTime, out var prepared, out var prepareError))
+        PreparedPdfSignature? prepared = null;
+        CredentialSignResult sign;
+        if (_broker is IEmbeddedPdfSigningBroker embedded)
         {
-            return new ReportAttestationResult
-            {
-                Succeeded = false,
-                Credential = captured,
-                Message = prepareError ?? "Could not prepare a PDF signature placeholder.",
-            };
+            sign = await embedded
+                .TrySignPdfAsync(pdfBytes, captured, pin, signingTime, cancellationToken)
+                .ConfigureAwait(false);
         }
+        else
+        {
+            if (!PdfPadesSignature.TryPrepare(
+                    pdfBytes,
+                    captured.DisplayName,
+                    signingTime,
+                    out prepared,
+                    out var prepareError))
+            {
+                return new ReportAttestationResult
+                {
+                    Succeeded = false,
+                    Credential = captured,
+                    Message = prepareError ?? "Could not prepare a PDF signature placeholder.",
+                };
+            }
 
-        var sign = await _broker
-            .TrySignDocumentAsync(prepared.SignedBytes, captured, pin, signingTime, cancellationToken)
-            .ConfigureAwait(false);
+            sign = await _broker
+                .TrySignDocumentAsync(prepared.SignedBytes, captured, pin, signingTime, cancellationToken)
+                .ConfigureAwait(false);
+        }
         if (sign.PinRequired)
         {
             return new ReportAttestationResult
@@ -401,7 +418,18 @@ public sealed class ReportAttestationService : IReportAttestationService
                 .ConfigureAwait(false);
         }
 
-        if (!prepared.TryEmbed(sign.Signature, out var signedPdf, out var embedError))
+        byte[] signedPdf;
+        string? embedError = null;
+        if (sign.SignedPdf is { Length: > 0 } embeddedPdf)
+        {
+            signedPdf = embeddedPdf;
+        }
+        else if (prepared is not null
+                 && prepared.TryEmbed(sign.Signature, out signedPdf, out embedError))
+        {
+            // Compatibility path for non-iText CMS brokers used by existing deployments/tests.
+        }
+        else
         {
             return new ReportAttestationResult
             {
@@ -411,7 +439,10 @@ public sealed class ReportAttestationService : IReportAttestationService
             };
         }
 
-        if (!PdfPadesSignature.TryVerify(signedPdf, out var verifyError))
+        var verifies = sign.SignedPdf is { Length: > 0 }
+            ? ITextPadesSignature.TryVerify(signedPdf, out var verifyError)
+            : PdfPadesSignature.TryVerify(signedPdf, out verifyError);
+        if (!verifies)
         {
             return new ReportAttestationResult
             {
@@ -504,6 +535,31 @@ public sealed class ReportAttestationService : IReportAttestationService
                 Credential = captured,
                 Message = "This badge cannot sign, and presence-only attestation is disabled." + detail,
             };
+        }
+
+        if (_reports is not null && !skipSigning && !string.IsNullOrEmpty(pin))
+        {
+            var presence = await TryCompileOverlayAsync(
+                    run,
+                    targetKind,
+                    captured,
+                    AttestationKind.Presence,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (presence.Error is not null)
+            {
+                return new ReportAttestationResult
+                {
+                    Succeeded = false,
+                    Message = presence.Error,
+                    Credential = captured,
+                };
+            }
+
+            if (presence.Pdf is { Length: > 0 })
+            {
+                stampedPdf = presence.Pdf;
+            }
         }
 
         var dir = _runStore.GetRunDirectory(run.RunId);
@@ -710,6 +766,11 @@ public sealed class ReportAttestationService : IReportAttestationService
             return true;
         }
 
+        if (sign?.PresenceFallbackAllowed == true)
+        {
+            return true;
+        }
+
         if (!string.IsNullOrEmpty(pin))
         {
             return false;
@@ -787,7 +848,8 @@ public sealed class ReportAttestationService : IReportAttestationService
         try
         {
             var pdf = File.ReadAllBytes(pdfPath);
-            return PdfPadesSignature.TryVerify(pdf, out _);
+            return ITextPadesSignature.TryVerify(pdf, out _)
+                   || PdfPadesSignature.TryVerify(pdf, out _);
         }
         catch (IOException)
         {

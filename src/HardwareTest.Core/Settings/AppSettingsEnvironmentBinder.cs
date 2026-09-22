@@ -560,6 +560,12 @@ public static class AppSettingsEnvironmentBinder
                 (s, v) => s.UseMockOperatorCredential = v,
                 env: ["HARDWARETEST_USE_MOCK_OPERATOR_CREDENTIAL"],
                 cli: ["--mock-operator-credential"]),
+            SettingBinding.String(
+                "Pkcs11LibraryPath",
+                s => s.Pkcs11LibraryPath,
+                (s, v) => s.Pkcs11LibraryPath = v,
+                env: ["HARDWARETEST_PKCS11_LIBRARY"],
+                cli: ["--pkcs11-library"]),
             SettingBinding.Bool(
                 "RequireCredentialForOperator",
                 s => s.RequireCredentialForOperator,
