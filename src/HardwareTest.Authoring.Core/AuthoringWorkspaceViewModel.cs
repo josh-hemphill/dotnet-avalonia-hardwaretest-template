@@ -298,6 +298,37 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
         RaiseSidecarProperties();
     }
 
+    public (string PlanId, string TapPlanPath, string SidecarPath) DescribeSelectedProgramRemoval()
+    {
+        if (!CanRemoveSelectedProgram || SelectedProgram is null)
+        {
+            throw new AuthoringWorkspaceException("Open a writable workspace and select a program before removing it.");
+        }
+
+        var planId = SelectedProgram.PlanId;
+        var tapPlanPath = TryExistingTapPlanPath(planId) ?? ResolveTapPlanPath(planId);
+        return (planId, tapPlanPath, PlanCompiler.SidecarPath(tapPlanPath));
+    }
+
+    public bool RemoveSelectedProgramIfMatches((string PlanId, string TapPlanPath, string SidecarPath) confirmedTarget)
+    {
+        if (!CanRemoveSelectedProgram)
+        {
+            return false;
+        }
+
+        var current = DescribeSelectedProgramRemoval();
+        if (!string.Equals(current.PlanId, confirmedTarget.PlanId, StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(current.TapPlanPath, confirmedTarget.TapPlanPath, StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(current.SidecarPath, confirmedTarget.SidecarPath, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        RemoveSelectedProgram();
+        return true;
+    }
+
     public void ApplyRecipe(string recipeId)
     {
         if (SelectedProgram is null)
