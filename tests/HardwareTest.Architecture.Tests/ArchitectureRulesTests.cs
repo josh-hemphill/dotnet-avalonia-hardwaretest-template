@@ -350,6 +350,17 @@ public sealed class ArchitectureRulesTests
     }
 
     [Fact]
+    public void Default_runtime_identifier_tracks_the_dotnet_sdk_host()
+    {
+        var repo = FindRepoRoot();
+        var props = File.ReadAllText(Path.Combine(repo, "Directory.Build.props"));
+
+        Assert.Equal(
+            "$([System.Runtime.InteropServices.RuntimeInformation]::RuntimeIdentifier)",
+            MatchBuildProperty(props, "RuntimeIdentifier"));
+    }
+
+    [Fact]
     public void Safety_stop_and_worker_kill_must_not_wait_on_NTP()
     {
         var repo = FindRepoRoot();

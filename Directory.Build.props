@@ -25,6 +25,9 @@
          RuntimeIdentifiers so each lock file includes the RIDs CI builds (TypstInterop natives). -->
     <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
     <RestoreLockedMode Condition="'$(CI)' != '' And '$(RestoreLockedMode)' == ''">true</RestoreLockedMode>
+    <!-- TypstInterop requires a concrete RID to restore its native engine. Default ordinary
+         build/run/test commands to the SDK host RID; an explicit -r still takes precedence. -->
+    <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == ''">$([System.Runtime.InteropServices.RuntimeInformation]::RuntimeIdentifier)</RuntimeIdentifier>
     <RuntimeIdentifiers Condition="'$(RuntimeIdentifiers)' == ''">win-x64;linux-x64;osx-arm64</RuntimeIdentifiers>
   </PropertyGroup>
 

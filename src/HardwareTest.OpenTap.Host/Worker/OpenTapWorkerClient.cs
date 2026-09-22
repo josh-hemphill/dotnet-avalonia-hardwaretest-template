@@ -25,6 +25,7 @@ public sealed class OpenTapWorkerClient : IOpenTapSession, INotifyPropertyChange
     private readonly IClock _clock;
     private readonly TimeSpan _killTimeout;
     private readonly OpenTapWorkerProcess _process;
+    private readonly object _killLock = new();
     private List<OpenTapStepNode> _stepTree = [];
     private List<OpenTapInstrumentSlot> _slots = [];
     private bool _isExecuting;
@@ -32,6 +33,9 @@ public sealed class OpenTapWorkerClient : IOpenTapSession, INotifyPropertyChange
     private string? _operatorPrompt;
     private OperatorInteractionRequest? _pendingInteraction;
     private CancellationTokenSource? _killCts;
+    private Task _killTask = Task.CompletedTask;
+    private bool _killEligible;
+    private int _killCallbackThreadId;
     private bool _workerUseMockVisa;
     private int _disposed;
 
@@ -189,6 +193,11 @@ public sealed class OpenTapWorkerClient : IOpenTapSession, INotifyPropertyChange
 
     public void Abort(bool safetyStop = false)
     {
+        if (safetyStop)
+        {
+            TrySafeIdle("ISafetyController.SafeIdle failed during safety abort.");
+        }
+
         try
         {
             if (_process.IsAlive)
@@ -327,7 +336,14 @@ public sealed class OpenTapWorkerClient : IOpenTapSession, INotifyPropertyChange
             return;
         }
 
-        DisarmKillTimer();
+        var killCompletion = CompleteRunKillTimerAsync();
+        if (Volatile.Read(ref _killCallbackThreadId) == Environment.CurrentManagedThreadId)
+        {
+            _ = DisposeProcessAfterKillAsync(killCompletion);
+            return;
+        }
+
+        killCompletion.GetAwaiter().GetResult();
         _process.Dispose();
     }
 
@@ -365,6 +381,11 @@ public sealed class OpenTapWorkerClient : IOpenTapSession, INotifyPropertyChange
         }
 
         EnsureStarted();
+        lock (_killLock)
+        {
+            _killEligible = true;
+        }
+
         _isExecuting = true;
         Raise(nameof(IsExecuting));
         try
@@ -405,7 +426,7 @@ public sealed class OpenTapWorkerClient : IOpenTapSession, INotifyPropertyChange
         }
         finally
         {
-            DisarmKillTimer();
+            await CompleteRunKillTimerAsync().ConfigureAwait(false);
             if (_isExecuting)
             {
                 _isExecuting = false;
@@ -549,32 +570,72 @@ public sealed class OpenTapWorkerClient : IOpenTapSession, INotifyPropertyChange
 
     private void ArmKillTimer()
     {
-        DisarmKillTimer();
-        var cts = new CancellationTokenSource();
-        _killCts = cts;
-        _ = Task.Run(async () =>
+        lock (_killLock)
         {
-            try
-            {
-                await Task.Delay(_killTimeout, cts.Token).ConfigureAwait(false);
-            }
-            catch (OperationCanceledException)
+            if (!_killEligible || _killCts is not null)
             {
                 return;
             }
 
-            if (!ReferenceEquals(_killCts, cts))
+            var cts = new CancellationTokenSource();
+            _killCts = cts;
+            _killTask = Task.Run(async () =>
             {
-                return;
-            }
+                try
+                {
+                    await Task.Delay(_killTimeout, cts.Token).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException)
+                {
+                    return;
+                }
 
-            KillWorkerAfterTimeout();
-        });
+                lock (_killLock)
+                {
+                    if (!ReferenceEquals(_killCts, cts))
+                    {
+                        return;
+                    }
+                }
+
+                Volatile.Write(ref _killCallbackThreadId, Environment.CurrentManagedThreadId);
+                try
+                {
+                    KillWorkerAfterTimeout();
+                }
+                finally
+                {
+                    Volatile.Write(ref _killCallbackThreadId, 0);
+                }
+            });
+        }
     }
 
-    private void DisarmKillTimer()
+    private async Task DisposeProcessAfterKillAsync(Task killCompletion)
     {
-        var cts = Interlocked.Exchange(ref _killCts, null);
+        try
+        {
+            await killCompletion.ConfigureAwait(false);
+        }
+        finally
+        {
+            _process.Dispose();
+        }
+    }
+
+    private async Task CompleteRunKillTimerAsync()
+    {
+        CancellationTokenSource? cts;
+        Task task;
+        lock (_killLock)
+        {
+            _killEligible = false;
+            cts = _killCts;
+            _killCts = null;
+            task = _killTask;
+            _killTask = Task.CompletedTask;
+        }
+
         try
         {
             cts?.Cancel();
@@ -583,9 +644,33 @@ public sealed class OpenTapWorkerClient : IOpenTapSession, INotifyPropertyChange
         {
             // ignore
         }
+
+        await task.ConfigureAwait(false);
+        cts?.Dispose();
     }
 
     private void KillWorkerAfterTimeout()
+    {
+        TrySafeIdle("ISafetyController.SafeIdle failed before worker kill.");
+
+        var stderr = _process.StderrTail;
+        _process.KillTree();
+        var exit = _process.ExitCode;
+        _process.Stop(writeDossier: false);
+        ApplyDeadSnapshot();
+        WriteWorkerDossier(exit, stderr, new TimeoutException("OpenTAP worker kill timeout."));
+    }
+
+    private void HandleWorkerDeath(Exception ex)
+    {
+        TrySafeIdle("ISafetyController.SafeIdle failed after worker death.");
+
+        WriteWorkerDossier(_process.ExitCode, _process.StderrTail, ex);
+        _process.Stop(writeDossier: false);
+        ApplyDeadSnapshot();
+    }
+
+    private void TrySafeIdle(string failureMessage)
     {
         try
         {
@@ -593,31 +678,8 @@ public sealed class OpenTapWorkerClient : IOpenTapSession, INotifyPropertyChange
         }
         catch (Exception ex)
         {
-            _logger.Warning(ex, "ISafetyController.SafeIdle failed before worker kill.");
+            _logger.Warning(ex, "{FailureMessage}", failureMessage);
         }
-
-        var stderr = _process.StderrTail;
-        _process.KillTree();
-        var exit = _process.ExitCode;
-        WriteWorkerDossier(exit, stderr, new TimeoutException("OpenTAP worker kill timeout."));
-        _process.Stop(writeDossier: false);
-        ApplyDeadSnapshot();
-    }
-
-    private void HandleWorkerDeath(Exception ex)
-    {
-        try
-        {
-            _safety.SafeIdle();
-        }
-        catch (Exception idleEx)
-        {
-            _logger.Warning(idleEx, "ISafetyController.SafeIdle failed after worker death.");
-        }
-
-        WriteWorkerDossier(_process.ExitCode, _process.StderrTail, ex);
-        _process.Stop(writeDossier: false);
-        ApplyDeadSnapshot();
     }
 
     private void ApplyDeadSnapshot()

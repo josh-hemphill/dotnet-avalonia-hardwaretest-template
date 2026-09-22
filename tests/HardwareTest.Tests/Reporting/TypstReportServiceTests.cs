@@ -446,7 +446,7 @@ public sealed class TypstReportServiceTests
         catch (DllNotFoundException ex)
         {
             throw new InvalidOperationException(
-                "Typst native library was not restored. Run tests with `-r win-x64` (or another supported RID).",
+                "Typst native library was not restored for the selected runtime identifier.",
                 ex);
         }
     }
