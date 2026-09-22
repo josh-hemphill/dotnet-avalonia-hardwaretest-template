@@ -82,6 +82,26 @@ public sealed class OpenTapWorkerKillTests
     }
 
     [Fact]
+    public void Safety_abort_runs_SafeIdle_immediately()
+    {
+        using var temp = new TempDataDirectory();
+        var safety = new RecordingSafetyController();
+        using var client = new OpenTapWorkerClient(
+            new AppSettings
+            {
+                UseMockVisa = true,
+                CrashEnabled = false,
+                DataDirectory = temp.Path,
+            },
+            safety: safety,
+            killTimeout: TimeSpan.FromSeconds(30));
+
+        client.Abort(safetyStop: true);
+
+        Assert.Equal(1, safety.SafeIdleCount);
+    }
+
+    [Fact]
     public async Task Cancelling_run_token_does_not_abandon_ipc_or_kill_the_next_run()
     {
         using var temp = new TempDataDirectory();

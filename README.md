@@ -73,11 +73,13 @@ templates/reports/                   # Typst templates (embedded)
 ## Build & run
 
 ```bash
-dotnet build dirs.proj -r win-x64
-dotnet run --project src/HardwareTest -c Debug -r win-x64
+dotnet build dirs.proj
+dotnet run --project src/HardwareTest -c Debug
 ```
 
-> **RID required:** TypstInterop only restores its native library when a runtime identifier is set.
+The repository defaults the runtime identifier to the current .NET SDK host so TypstInterop's
+native engine is available for ordinary build, run, and test commands. Use `-r <rid>` when
+cross-building or when you need a specific deployment target.
 
 ```bash
 # Full CI-shaped matrix (preferred):
