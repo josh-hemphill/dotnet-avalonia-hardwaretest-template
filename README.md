@@ -73,9 +73,15 @@ templates/reports/                   # Typst templates (embedded)
 ## Build & run
 
 ```bash
-dotnet build dirs.proj
+dotnet build
 dotnet run --project src/HardwareTest -c Debug
 ```
+
+Only the .NET CLI build workflow is supported. `dirs.proj` is the repository-wide
+MSBuild entry point, so `dotnet build` works from the repository root without a file
+argument. `HardwareTest.slnx` has been retired; keep any IDE-generated solutions and
+Visual Studio-specific configuration local. Do not commit Visual Studio-specific
+controls or build requirements to this repository.
 
 The repository defaults the runtime identifier to the current .NET SDK host so TypstInterop's
 native engine is available for ordinary build, run, and test commands. Use `-r <rid>` when

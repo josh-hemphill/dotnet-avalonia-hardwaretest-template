@@ -320,7 +320,7 @@ Area 8 may proceed in parallel with Areas 5–7 once Area 3’s IR and Area 2’
 | `src/HardwareTest.Authoring/` exe | 6 | only; Area 4 tests pack via Core API |
 | `PresentationRoleMap.TryMapRole` | 5, 7 | Area 5 moves the map; 7 binds preview |
 | Operator `HardwareTest.csproj` | 5 | usings only — no Authoring reference |
-| `dirs.proj` / `HardwareTest.slnx` | 1, 6 | Area 1 adds Core + tests; Area 6 adds the exe |
+| `dirs.proj` | 1, 6 | Area 1 adds Core + tests; Area 6 adds the exe |
 | `tools/ci` TASKS | 6, 8 | Area 6 may add `pack:template` (exe exists); Area 8 adds `test:authoring-compat`. Never both rewrite the catalog in the same PR. |
 | `docs/getting-started.md` | 9 | only; earlier areas may add a one-line pointer |
 
@@ -331,7 +331,7 @@ Area 8 may proceed in parallel with Areas 5–7 once Area 3’s IR and Area 2’
 - Goal: Load/save a planning directory against a versioned `authoring.json`; fail closed on unknown schemaVersion; architecture gates exist so later UI cannot leak into Core.
 - Depends on: nothing (base `latest`)
 - Out of scope: OpenTAP install, compile, UI, pack, TUI
-- Likely files / crates: `src/HardwareTest.Authoring.Core/`, `plans/opentap/authoring.json` + `authoring.schema.json`, `tests/HardwareTest.Authoring.Tests/`, `dirs.proj`, `HardwareTest.slnx`, `ArchitectureRulesTests.cs`
+- Likely files / crates: `src/HardwareTest.Authoring.Core/`, `plans/opentap/authoring.json` + `authoring.schema.json`, `tests/HardwareTest.Authoring.Tests/`, `dirs.proj`, `ArchitectureRulesTests.cs`
 - Public surface:
 
 ```csharp
@@ -459,7 +459,7 @@ public static class WorkspacePacker
 ### Area 5: Extract shared presentation map
 
 - Goal: Operator and Authoring share one Avalonia-free DisplayRole → tile-kind function. Operator Run/Results behavior unchanged.
-- Depends on: **Recommended base: Area 4** so Core/slnx churn from Areas 1–4 is done. No Authoring UI.
+- Depends on: **Recommended base: Area 4** so Core/build churn from Areas 1–4 is done. No Authoring UI.
 - Out of scope: Authoring UI, new roles, moving ViewModels
 - Likely files: move `TryMapRole` + role constants next to Mixins `PresentationDisplayRoles` (or Host); operator `PresentationRoleMap` becomes a thin wrapper for `IsRunGaugeSample` / `BuildFromStoredSamples` which stay in the operator assembly.
 - Public surface: `TryMapRole(string? displayRole)` + `timeseries` / `scalar` / `passband` / `timing` constants. Namespace may change — update operator wrappers in this PR.
