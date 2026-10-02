@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using HardwareTest.Core;
 using HardwareTest.Core.Crash;
+using HardwareTest.Core.Credentials;
 using HardwareTest.Core.Diagnostics;
 using HardwareTest.Core.Engine;
 using HardwareTest.Core.Hardware;
@@ -71,6 +72,7 @@ public static class Composition
         services.AddSingleton<ResultsViewModel>();
         services.AddSingleton(_ => new NativeDialogOwner(
             () => (Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.MainWindow));
+        services.AddSingleton<INativeSigningDialogOwner>(sp => sp.GetRequiredService<NativeDialogOwner>());
         services.AddSingleton<IReportPrintService>(sp => OperatingSystem.IsWindows()
             ? new WindowsReportPrintService(sp.GetRequiredService<NativeDialogOwner>().GetHandleAsync,
                 new WindowsPrintBackend(), new PdfPrintRenderer(), new StaPrintWorker())

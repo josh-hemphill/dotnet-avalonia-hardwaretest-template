@@ -39,7 +39,7 @@ public sealed class SettingsViewModelTests
         var vm = new SettingsViewModel(new FakeSettingsStore(), new FakeOpenTapSession())
         { SmartCardSigningProviderMode = SmartCardSigningProviderMode.Windows };
         await vm.CheckSigningSetupCommand.ExecuteAsync();
-        Assert.Contains("configuration", vm.SigningSetupStatus);
+        Assert.Contains("windows-store", vm.SigningSetupStatus);
         Assert.Contains("Windows", vm.SigningSetupStatus);
         Assert.DoesNotContain("serial", vm.SigningSetupStatus, StringComparison.OrdinalIgnoreCase);
     }
