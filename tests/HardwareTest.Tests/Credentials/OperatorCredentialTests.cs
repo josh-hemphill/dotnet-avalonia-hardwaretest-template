@@ -299,7 +299,7 @@ public sealed class ReportAttestationServiceTests
     }
 
     [Fact]
-    public async Task HasValidAttestation_true_when_pades_sidecar_missing()
+    public async Task HasValidAttestation_false_when_new_pades_revision_sidecar_missing()
     {
         using var temp = new TempDataDirectory();
         var store = new FileRunStore(temp.RunsDirectory);
@@ -320,11 +320,11 @@ public sealed class ReportAttestationServiceTests
         Assert.True(signed.Succeeded);
         var path = signed.Attestation!.SidecarPath!;
         File.Delete(path);
-        Assert.True(service.HasValidAttestation(run, ReportKinds.Certification));
+        Assert.False(service.HasValidAttestation(run, ReportKinds.Certification));
     }
 
     [Fact]
-    public async Task HasValidAttestation_true_when_pades_sidecar_tampered()
+    public async Task HasValidAttestation_false_when_new_pades_revision_sidecar_tampered()
     {
         using var temp = new TempDataDirectory();
         var store = new FileRunStore(temp.RunsDirectory);
@@ -350,7 +350,7 @@ public sealed class ReportAttestationServiceTests
             "\"signatureBase64\":\"AAAA\", \"_was\":",
             StringComparison.Ordinal);
         await File.WriteAllTextAsync(path, bad);
-        Assert.True(service.HasValidAttestation(run, ReportKinds.Certification));
+        Assert.False(service.HasValidAttestation(run, ReportKinds.Certification));
     }
 
     [Fact]

@@ -142,6 +142,8 @@ public sealed class FileReportRevisionStore(IRunStore runs) : IReportRevisionSto
             await AtomicFile.WriteAllTextAsync(Path.Combine(stage, "run.snapshot.json"), snapshot, cancellationToken).ConfigureAwait(false);
             await AtomicFile.WriteJsonAsync(Path.Combine(stage, kind + ".attestation.json"), sidecar,
                 AppJsonContext.Default.ReportAttestationSidecar, cancellationToken).ConfigureAwait(false);
+            artifact.SidecarSha256 = Convert.ToHexString(SHA256.HashData(
+                await File.ReadAllBytesAsync(Path.Combine(stage, kind + ".attestation.json"), cancellationToken).ConfigureAwait(false)));
             cancellationToken.ThrowIfCancellationRequested();
             Directory.Move(stage, destination);
             await runs.SaveAsync(candidate, cancellationToken).ConfigureAwait(false);

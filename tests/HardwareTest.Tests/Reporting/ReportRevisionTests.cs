@@ -2,9 +2,11 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using HardwareTest.Core.Credentials;
+using HardwareTest.Core.Reporting;
 using HardwareTest.Core.Runs;
 using HardwareTest.Core.Serialization;
 using HardwareTest.Core.Settings;
+using HardwareTest.Tests.Credentials;
 using Xunit;
 
 namespace HardwareTest.Tests.Reporting;
@@ -351,6 +353,61 @@ public sealed class ReportRevisionTests : IDisposable
         Assert.Single(stale.Attestations);
         Assert.True(service.HasValidAttestation((await runs.LoadAsync(run.RunId))!, ReportKinds.Certification));
         Assert.True(service.HasValidAttestation((await suites.LoadAsync(persisted.SuiteRunId))!.PlanRuns[0], ReportKinds.Certification));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Suite_preflight_rejects_later_future_member_without_writing_earlier_member(bool futureOnDisk)
+    {
+        var runs = new FileRunStore(_root);
+        var suites = new FileSuiteRunStore(runs, _root);
+        var first = new TestRunRecord { RunId = "first" };
+        await runs.SaveAsync(first);
+        var path = Path.Combine(runs.GetRunDirectory(first.RunId), "run.json");
+        var before = await File.ReadAllTextAsync(path);
+        first.ErrorMessage = "must not be persisted";
+        var later = new TestRunRecord { RunId = "later" };
+        var future = ReportRevisions.Clone(later);
+        future.SchemaVersion = SchemaVersions.TestRunRecord + 1;
+        if (futureOnDisk)
+            await File.WriteAllTextAsync(Path.Combine(runs.GetRunDirectory(later.RunId), "run.json"),
+                JsonSerializer.Serialize(future, AppJsonContext.Default.TestRunRecord));
+        else later = future;
+        await Assert.ThrowsAsync<SchemaReadOnlyException>(() => suites.SaveAsync(new SuiteRunRecord
+        {
+            SuiteRunId = "preflight",
+            PlanRuns = [first, later],
+        }));
+        Assert.Equal(before, await File.ReadAllTextAsync(path));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task New_presence_and_pades_revisions_require_matching_sidecar(bool pades)
+    {
+        var runs = new FileRunStore(_root);
+        var run = await SeedAsync(runs);
+        using var card = FakePivCard.CreateRsa2048();
+        IOperatorCredentialBroker broker = pades ? new ScriptedPivBroker(card) : new MockOperatorCredentialBroker(canSign: false);
+        var reports = new RecordingReportService();
+        var service = new ReportAttestationService(broker, runs,
+            new AppSettings { AllowPresenceInLieuOfSigning = true }, reports: new Lazy<IReportService>(() => reports));
+        Assert.True((await service.AttestAsync(run, ReportKinds.Certification, pin: pades ? "123456" : null)).Succeeded);
+        var issued = ReportRevisions.Latest(run, ReportKinds.Certification)!;
+        Assert.Equal(pades, run.Attestations[0].EmbeddedInPdf);
+        Assert.True(service.HasValidAttestation(run, ReportKinds.Certification, issued.RevisionId));
+        var sidecar = run.Attestations[0].SidecarPath!;
+        var bytes = await File.ReadAllBytesAsync(sidecar);
+        File.Delete(sidecar);
+        Assert.False(service.HasValidAttestation(run, ReportKinds.Certification));
+        Assert.False(service.HasValidAttestation(run, ReportKinds.Certification, issued.RevisionId));
+        await File.WriteAllTextAsync(sidecar, "{}");
+        Assert.False(service.HasValidAttestation(run, ReportKinds.Certification));
+        Assert.False(service.HasValidAttestation(run, ReportKinds.Certification, issued.RevisionId));
+        await File.WriteAllBytesAsync(sidecar, bytes);
+        Assert.True(service.HasValidAttestation(run, ReportKinds.Certification));
     }
 
     private static async Task<TestRunRecord> SeedAsync(FileRunStore store)

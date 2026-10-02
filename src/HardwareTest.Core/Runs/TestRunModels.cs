@@ -72,6 +72,7 @@ public sealed class RunReportArtifact
     public string? RevisionId { get; set; }
     public int RevisionNumber { get; set; }
     public string? RunSnapshotPath { get; set; }
+    public string? SidecarSha256 { get; set; }
 }
 
 /// Well-known report artifact roles (string constants, not a runtime enum).

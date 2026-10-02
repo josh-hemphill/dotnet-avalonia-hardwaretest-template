@@ -65,6 +65,16 @@ public sealed class FileSuiteRunStore : ISuiteRunStore
         }
         foreach (var planRun in candidate.PlanRuns)
         {
+            if (planRun.IsSchemaReadOnly || planRun.SchemaVersion > SchemaVersions.TestRunRecord)
+                throw new SchemaReadOnlyException(DocumentSchemaGate.Evaluate(
+                    SchemaDocumentTypes.TestRunRecord,
+                    planRun.StoredSchemaVersion > 0 ? planRun.StoredSchemaVersion : planRun.SchemaVersion,
+                    SchemaVersions.TestRunRecord));
+            await ReportRevisions.RefreshHistoryAsync(planRun, _runStore, cancellationToken).ConfigureAwait(false);
+        }
+
+        foreach (var planRun in candidate.PlanRuns)
+        {
             await _runStore.SaveAsync(planRun, cancellationToken).ConfigureAwait(false);
         }
 

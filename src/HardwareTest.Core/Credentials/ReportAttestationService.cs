@@ -106,7 +106,7 @@ public sealed class ReportAttestationService : IReportAttestationService
         }
 
         if (artifact is not null && !(artifact.RevisionId?.StartsWith("legacy-", StringComparison.Ordinal) ?? false)
-            && string.IsNullOrWhiteSpace(artifact.RunSnapshotPath)) return false;
+            && (string.IsNullOrWhiteSpace(artifact.RunSnapshotPath) || !SidecarMatches(attestation, artifact.SidecarSha256))) return false;
 
         if (artifact?.RunSnapshotPath is { Length: > 0 } snapshotPath
             && (!File.Exists(snapshotPath) || !string.Equals(HashFile(snapshotPath), attestation.RunJsonSha256, StringComparison.OrdinalIgnoreCase)))
@@ -763,6 +763,23 @@ public sealed class ReportAttestationService : IReportAttestationService
     {
         using var stream = File.OpenRead(path);
         return Convert.ToHexString(SHA256.HashData(stream));
+    }
+
+    private static bool SidecarMatches(ReportAttestation attestation, string? expectedHash)
+    {
+        if (string.IsNullOrWhiteSpace(attestation.SidecarPath) || string.IsNullOrWhiteSpace(expectedHash)) return false;
+        try
+        {
+            if (!string.Equals(HashFile(attestation.SidecarPath), expectedHash, StringComparison.OrdinalIgnoreCase)) return false;
+            using var stream = File.OpenRead(attestation.SidecarPath);
+            var sidecar = JsonSerializer.Deserialize(stream, AppJsonContext.Default.ReportAttestationSidecar);
+            return sidecar is not null && JsonSerializer.Serialize(sidecar.Attestation, AppJsonContext.Default.ReportAttestation)
+                == JsonSerializer.Serialize(attestation, AppJsonContext.Default.ReportAttestation);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
+        {
+            return false;
+        }
     }
 
     private static bool EmbeddedSignatureMatches(ReportAttestation attestation, string pdfPath, string pdfHash)
