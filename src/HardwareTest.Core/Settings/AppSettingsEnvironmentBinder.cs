@@ -412,6 +412,10 @@ public static class AppSettingsEnvironmentBinder
                 (s, v) => s.UseMockOperatorCredential = v,
                 env: ["HARDWARETEST_USE_MOCK_OPERATOR_CREDENTIAL"],
                 cli: ["--mock-operator-credential"]),
+            SettingBinding.ProviderMode(
+                "SmartCardSigningProviderMode",
+                env: ["HARDWARETEST_SMART_CARD_SIGNING_PROVIDER"],
+                cli: ["--smart-card-signing-provider"]),
             SettingBinding.String(
                 "Pkcs11LibraryPath",
                 s => s.Pkcs11LibraryPath,
@@ -614,6 +618,17 @@ public sealed class SettingBinding
         string[] env,
         string[] cli)
         => Scalar(key, get, set, env, cli);
+
+    public static SettingBinding ProviderMode(string key, string[] env, string[] cli)
+        => new(key, env, cli, s => s.SmartCardSigningProviderMode.ToString(), (s, raw) =>
+        {
+            var text = raw.Trim();
+            if (!Enum.GetNames<SmartCardSigningProviderMode>().Any(name => string.Equals(name, text, StringComparison.OrdinalIgnoreCase))
+                || !Enum.TryParse<SmartCardSigningProviderMode>(text, true, out var mode))
+                return (false, s.SmartCardSigningProviderMode.ToString(), "expected Auto, Windows, or Pkcs11");
+            s.SmartCardSigningProviderMode = mode;
+            return (true, mode.ToString(), null);
+        });
 
     public static SettingBinding Bool(
         string key,

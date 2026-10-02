@@ -24,6 +24,14 @@ internal static class ITextPadesSignature
         out byte[] cms,
         out string? error)
     {
+        return TrySign(pdf, certificate, new DotNetExternalSignature(privateKey), displayName, signingTime,
+            out signedPdf, out cms, out error);
+    }
+
+    internal static bool TrySign(
+        byte[] pdf, X509Certificate2 certificate, IExternalSignature externalSignature,
+        string displayName, DateTimeOffset signingTime, out byte[] signedPdf, out byte[] cms, out string? error)
+    {
         signedPdf = [];
         cms = [];
         try
@@ -43,7 +51,7 @@ internal static class ITextPadesSignature
             signer.SignWithBaselineBProfile(
                 signerProperties,
                 chain,
-                new DotNetExternalSignature(privateKey));
+                externalSignature);
 
             signedPdf = output.ToArray();
             if (!TryExtractLastCms(signedPdf, out cms, out error))

@@ -78,6 +78,7 @@ public sealed class AppSettings
     public bool UseMockOperatorCredential { get; set; } = true;
     /// Optional OpenSC/vendor PKCS#11 module. Empty uses platform OpenSC discovery.
     public string Pkcs11LibraryPath { get; set; } = string.Empty;
+    public SmartCardSigningProviderMode SmartCardSigningProviderMode { get; set; } = SmartCardSigningProviderMode.Auto;
     /// When true, confirming a session that requires an operator also requires a chip or tap.
     public bool RequireCredentialForOperator { get; set; }
     /// When true, exporting or printing a certification PDF requires a badge attestation.

@@ -60,10 +60,10 @@ Sealed benches must run a local time-sync unit so idle/stale, run ordering, and 
 Real badges use PC/SC (`pcscd` + CCID). Mock badges (`UseMockOperatorCredential`, default on) do not need a reader.
 
 - **Linux:** install `opensc`, `pcscd`, and `libccid` (or the vendor CCID package), enable `pcscd.service`, and confirm `pcsc_scan` and `pkcs11-tool --list-slots` see the reader/card. Contactless readers usually appear with `contactless`, `NFC`, or `PICC` in the PC/SC name.
-- **Windows:** Winscard is built in; install the reader’s CCID driver and OpenSC. The default module discovery covers standard x64 OpenSC installs.
+- **Windows:** Winscard is built in; install the reader’s CCID driver and HID ActivClient or OpenSC matching the application process architecture. Discovery checks known ActivClient/OpenSC install locations. See [provider setup](adapting.md#smart-card-signing-provider-setup).
 - **macOS:** PCSC.framework plus OpenSC (Homebrew or the OpenSC installer).
 - **Identity:** Technician name is the best person name across PIV Authentication (9A), Digital Signature (9C), Key Management (9D), and Card Auth (9E) certificates (subject CN / givenName+surname, then rfc822 SAN, then UPN including DoD `edipi@mil`). Digit UPNs and hex CNs lose to a real name on any other slot or Printed Information. Presence keeps polling for ~2s after a UID-only `Card {hex}` read so the applet can return certificates on the same tap. The captured 9C certificate thumbprint binds a later sign to the same badge. `ProbeBadgeWhenTechnicianFocused` (default off) starts that wait when the technician field is focused and empty.
-- **Signing:** only PIV DIGITAL SIGNATURE (9C) is accepted. OpenSC exposes the card key through PKCS#11, and iText creates and embeds a PAdES Baseline-B (`ETSI.CAdES.detached`) signature over the PDF `ByteRange`; the private key never leaves the card. The Results overlay supplies the PIN to the token only (never persisted, and its in-memory byte buffer is cleared after the operation). Contactless PIN verification is often refused; insert the chip to sign. Set `Pkcs11LibraryPath`, `HARDWARETEST_PKCS11_LIBRARY`, or `--pkcs11-library` only when platform discovery does not locate OpenSC/vendor middleware. `AllowPresenceInLieuOfSigning` (default on) is a **site-policy fallback** when the organization cannot use signatures.
+- **Signing:** only PIV DIGITAL SIGNATURE (9C) is accepted. OpenSC or vendor middleware exposes the card key through PKCS#11, and iText creates and embeds a PAdES Baseline-B (`ETSI.CAdES.detached`) signature over the PDF `ByteRange`; the private key never leaves the card. For ordinary tokens the Results overlay supplies the PIN to the selected token only; protected authentication paths use middleware UI and a NULL PIN (never persisted, and its in-memory byte buffer is cleared after the operation). Contactless PIN verification is often refused; insert the chip to sign. Set `Pkcs11LibraryPath`, `HARDWARETEST_PKCS11_LIBRARY`, or `--pkcs11-library` only when platform discovery does not locate OpenSC/vendor middleware. `AllowPresenceInLieuOfSigning` (default on) is a **site-policy fallback** when the organization cannot use signatures.
 - Do not persist PIN or private keys. There is no on-disk card session.
 
 ## Smoke checklist
@@ -73,7 +73,7 @@ Real badges use PC/SC (`pcscd` + CCID). Mock badges (`UseMockOperatorCredential`
 3. Open Results — run record includes `DutSerial`.
 4. Generate / preview Typst report — serial present in report data.
 5. Safety Stop / Pause still visible in PaneFooter and abort OpenTAP cleanly.
-6. Optional: with mock credential, tap on session confirm fills technician; export with `RequireAttestationBeforeExport` writes `certification.attestation.json`. A real PIV/card sign also injects a PAdES CMS into `issued/certification.pdf` and leaves the working `certification.pdf` regenerable.
+6. Optional: with mock credential, tap on session confirm fills technician; export with `RequireAttestationBeforeExport` appends a revision with `certification.attestation.json` in `issued/certification/{revisionId}/`. A real PIV/card sign also injects a PAdES CMS into `issued/certification/{revisionId}/certification.pdf` and leaves the working `certification.pdf` regenerable.
 
 ## Notes
 

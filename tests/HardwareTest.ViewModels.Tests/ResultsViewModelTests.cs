@@ -1284,6 +1284,7 @@ internal sealed class PinRequiredMockBroker : IOperatorCredentialBroker
     private readonly MockOperatorCredentialBroker _inner = new(canSign: true);
 
     public bool IsMock => true;
+    public bool RequiresPin => true;
     public bool CanSign => true;
     public string? SigningAlgorithm => MockOperatorCredentialBroker.MockAlgorithm;
     public string StatusText => _inner.StatusText;

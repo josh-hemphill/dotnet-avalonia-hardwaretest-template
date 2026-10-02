@@ -83,6 +83,9 @@ public sealed class CredentialSignResult
     public string? Thumbprint { get; init; }
     public bool PinRequired { get; init; }
     public int? PinRetriesRemaining { get; init; }
+    public CredentialFailureKind? FailureKind { get; init; }
+    public ulong? NativeCode { get; init; }
+    public string? Stage { get; init; }
     /// True only for capability failures that site policy may downgrade to presence attestation.
     public bool PresenceFallbackAllowed { get; init; }
     public string? Error { get; init; }
@@ -105,10 +108,21 @@ public sealed class CredentialSignResult
         };
 
     public static CredentialSignResult NeedPin(string message)
-        => new() { PinRequired = true, Error = message };
+        => Failure(CredentialFailureKind.PinRequired, message);
 
     public static CredentialSignResult Unavailable(string error)
-        => new() { PresenceFallbackAllowed = true, Error = error };
+        => Failure(CredentialFailureKind.Unavailable, error);
+
+    public static CredentialSignResult Failure(CredentialFailureKind kind, string error, string? stage = null, ulong? nativeCode = null)
+        => new()
+        {
+            FailureKind = kind,
+            Error = error,
+            Stage = stage,
+            NativeCode = nativeCode,
+            PinRequired = kind == CredentialFailureKind.PinRequired,
+            PresenceFallbackAllowed = kind == CredentialFailureKind.Unavailable
+        };
 
     public static CredentialSignResult SignedPdfDocument(
         byte[] signedPdf,
@@ -128,7 +142,12 @@ public sealed class CredentialSignResult
         };
 
     public static CredentialSignResult Failed(string error, int? pinRetriesRemaining = null)
-        => new() { Error = error, PinRetriesRemaining = pinRetriesRemaining };
+        => new()
+        {
+            Error = error,
+            PinRetriesRemaining = pinRetriesRemaining,
+            FailureKind = pinRetriesRemaining is null ? CredentialFailureKind.SigningFailed : CredentialFailureKind.WrongPin
+        };
 }
 
 /// Outcome of attesting a report before export or print.
