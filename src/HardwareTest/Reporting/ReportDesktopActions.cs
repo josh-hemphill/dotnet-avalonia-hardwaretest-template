@@ -1,9 +1,9 @@
 using System.Diagnostics;
-using System.Runtime.InteropServices;
 using Avalonia.Controls;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using HardwareTest.Core.IO;
+using HardwareTest.Reporting.NativePrinting;
 
 namespace HardwareTest.Reporting;
 
@@ -18,25 +18,7 @@ public interface IReportDesktopActions
     Task OpenInViewerAsync(string pdfPath, CancellationToken cancellationToken = default);
 }
 
-/// Baseline OS printing route; Windows native printing replaces this implementation separately.
-public sealed class SystemReportPrintService : IReportPrintService
-{
-    public Task<string> PrintAsync(string pdfPath, CancellationToken cancellationToken = default) => Task.Run(() =>
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-        {
-            using var process = Process.Start(new ProcessStartInfo { FileName = pdfPath, UseShellExecute = true, Verb = "print" });
-            return "Sent PDF to the system print handler.";
-        }
-        var start = new ProcessStartInfo("lp") { UseShellExecute = false };
-        start.ArgumentList.Add(pdfPath);
-        using var queued = Process.Start(start);
-        return "Submitted PDF to lp.";
-    }, cancellationToken);
-}
-
-public sealed class ReportDesktopActions(Func<Window?> window, string managedRunsDirectory) : IReportDesktopActions
+public sealed class ReportDesktopActions(Func<Window?> window, string managedRunsDirectory, PdfViewerLauncher? viewer = null) : IReportDesktopActions
 {
     public async Task<string?> SaveCopyAsync(string pdfPath, CancellationToken cancellationToken = default)
     {
@@ -96,7 +78,7 @@ public sealed class ReportDesktopActions(Func<Window?> window, string managedRun
         return current;
     }
 
-    public Task OpenInViewerAsync(string pdfPath, CancellationToken cancellationToken = default) => Task.Run(() =>
+    public Task OpenInViewerAsync(string pdfPath, CancellationToken cancellationToken = default) => viewer?.OpenAsync(pdfPath, cancellationToken) ?? Task.Run(() =>
     {
         cancellationToken.ThrowIfCancellationRequested();
         using var process = Process.Start(new ProcessStartInfo { FileName = pdfPath, UseShellExecute = true });
