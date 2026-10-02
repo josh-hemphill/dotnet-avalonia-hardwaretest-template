@@ -35,19 +35,15 @@ public sealed class PdfPrintRenderer : IPdfPrintRenderer
             lock (SharedPdfRenderingGate.SyncRoot)
             {
                 _stream.Position = 0;
-                using var rendered = Conversion.ToImage(_stream, new Index(zeroBasedPage), leaveOpen: true,
-                    options: new RenderOptions(Dpi: PrintGeometry.RenderDpi, WithAspectRatio: true));
-                if (rendered.Width < 1 || rendered.Height < 1 || (long)rendered.Width * rendered.Height > PrintGeometry.MaxPixels)
-                    throw new InvalidDataException("Rendered PDF page exceeds the printing limit.");
-                var bitmap = new SKBitmap(new SKImageInfo(rendered.Width, rendered.Height, SKColorType.Bgra8888, SKAlphaType.Opaque));
+                var bitmap = Conversion.ToImage(_stream, new Index(zeroBasedPage), leaveOpen: true,
+                    options: new RenderOptions(Dpi: PrintGeometry.RenderDpi, WithAspectRatio: true, BackgroundColor: SKColors.White));
                 try
                 {
-                    if (bitmap.GetPixels() == 0 || bitmap.RowBytes != checked(bitmap.Width * 4))
-                        throw new InvalidDataException("Could not allocate a tightly packed BGRA print bitmap.");
-                    using var canvas = new SKCanvas(bitmap);
-                    canvas.Clear(SKColors.White);
-                    canvas.DrawBitmap(rendered, 0, 0, new SKSamplingOptions(SKFilterMode.Nearest));
-                    canvas.Flush();
+                    if (bitmap.Width < 1 || bitmap.Height < 1 || (long)bitmap.Width * bitmap.Height > PrintGeometry.MaxPixels)
+                        throw new InvalidDataException("Rendered PDF page exceeds the printing limit.");
+                    if (bitmap.ColorType != SKColorType.Bgra8888 || bitmap.GetPixels() == 0 || bitmap.RowBytes != checked(bitmap.Width * 4))
+                        throw new InvalidDataException("The PDF renderer did not return a tightly packed BGRA print bitmap.");
+                    // Transfer the renderer's buffer directly rather than allocating a second page-sized copy.
                     return new Page(bitmap);
                 }
                 catch { bitmap.Dispose(); throw; }

@@ -23,6 +23,9 @@ public sealed class PdfPrintRendererTests
             Assert.Equal(300, page.Height);
             Assert.Equal(2400, page.Stride);
             Assert.NotEqual(0, page.Pixels);
+            var pixel = new byte[4];
+            System.Runtime.InteropServices.Marshal.Copy(page.Pixels, pixel, 0, 4);
+            Assert.Equal(new byte[] { 255, 255, 255, 255 }, pixel);
         }
         finally { File.Delete(path); }
     }
