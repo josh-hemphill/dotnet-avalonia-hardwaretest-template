@@ -920,6 +920,37 @@ public sealed class ResultsViewModelTests
         finally { Directory.Delete(root, recursive: true); }
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Package_export_never_replaces_unavailable_issued_pdf_with_legacy_working_path(bool nullPath)
+    {
+        var store = new FakeRunStore();
+        var working = Path.Combine(store.GetRunDirectory("legacy-export"), "status.pdf");
+        Directory.CreateDirectory(Path.GetDirectoryName(working)!);
+        await File.WriteAllTextAsync(working, "working bytes");
+        store.Seed(new TestRunRecord
+        {
+            RunId = "legacy-export",
+            PlanId = "sample",
+            ReportPdfPath = working,
+            Reports = [new()
+            {
+                Kind = ReportKinds.Status, Role = ReportArtifactRoles.Issued,
+                RevisionId = "latest", RevisionNumber = 1,
+                PdfPath = nullPath ? null! : Path.Combine(Path.GetDirectoryName(working)!, "missing.pdf"),
+            }],
+        });
+        var export = new CapturingExportTargetService();
+        var vm = new ResultsViewModel(store, new FakeReportService(), exportTargets: export);
+        await vm.RefreshCommand.ExecuteAsync();
+        vm.SelectedRun = vm.Runs[0];
+        await vm.OpenCommand.ExecuteAsync();
+        await vm.ExportPackageCommand.ExecuteAsync();
+        Assert.NotNull(export.LastPackageDir);
+        Assert.False(File.Exists(Path.Combine(export.LastPackageDir!, "status.pdf")));
+    }
+
     [Fact]
     public async Task Report_list_shows_working_and_issued()
     {

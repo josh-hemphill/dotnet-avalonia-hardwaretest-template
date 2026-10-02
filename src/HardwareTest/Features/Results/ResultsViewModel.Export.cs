@@ -81,6 +81,8 @@ public partial class ResultsViewModel
 
                 if (!string.IsNullOrWhiteSpace(OpenedRun.ReportPdfPath)
                     && File.Exists(OpenedRun.ReportPdfPath)
+                    && !OpenedRun.Reports.Any(r => ReportArtifactRoles.IsIssued(r.Role)
+                        && string.Equals(r.Kind, ReportAttestationService.KindForPdf(OpenedRun, OpenedRun.ReportPdfPath), StringComparison.OrdinalIgnoreCase))
                     && files.All(f => !string.Equals(f.SourcePath, OpenedRun.ReportPdfPath, StringComparison.OrdinalIgnoreCase)))
                 {
                     files.Add((OpenedRun.ReportPdfPath!, Path.GetFileName(OpenedRun.ReportPdfPath)));
