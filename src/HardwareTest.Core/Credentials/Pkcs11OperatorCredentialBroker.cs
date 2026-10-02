@@ -83,7 +83,7 @@ public sealed class Pkcs11OperatorCredentialBroker : IOperatorCredentialBroker, 
             var selected = matches[0];
             if (selected.Certificate.Id.Length == 0)
                 return Fail(CredentialFailureKind.ConfigurationError, "Selected signing certificate has no key binding identifier.", "private-key-binding");
-            foreach (var other in tokens.Where(t => t != selected.Token)) other.Dispose();
+            foreach (var other in tokens.Where(t => t != selected.Token)) DisposeResource(other);
             tokens.RemoveAll(t => t != selected.Token);
             using (var certificate = X509CertificateLoader.LoadCertificate(selected.Certificate.Der))
             {
@@ -112,14 +112,28 @@ public sealed class Pkcs11OperatorCredentialBroker : IOperatorCredentialBroker, 
         {
             if (!transferred)
             {
-                try { foreach (var token in tokens) token.Dispose(); }
-                finally { try { backend?.Dispose(); } finally { _gate.Release(); } }
+                try
+                {
+                    foreach (var token in tokens) DisposeResource(token);
+                    DisposeResource(backend);
+                }
+                finally { _gate.Release(); }
             }
         }
     }
 
     private static CredentialPreparationResult Fail(CredentialFailureKind kind, string message, string stage)
         => CredentialPreparationResult.Failed(CredentialSignResult.Failure(kind, message, stage));
+
+    internal static void DisposeResource(IDisposable? resource)
+    {
+        try { resource?.Dispose(); }
+        catch (Exception)
+        {
+            // Middleware teardown must not replace the signing result or prevent other cleanup.
+            System.Diagnostics.Trace.TraceWarning("Smart-card middleware resource cleanup failed.");
+        }
+    }
 
     internal static CredentialSignResult MapFailure(Exception exception, string stage)
     {
@@ -200,14 +214,19 @@ public sealed class Pkcs11OperatorCredentialBroker : IOperatorCredentialBroker, 
                 byte[] data = Rsa ? Convert.FromHexString("3031300D060960864801650304020105000420").Concat(hash).ToArray() : hash;
                 var raw = _token.Sign(Rsa ? CKM.CKM_RSA_PKCS : CKM.CKM_ECDSA, data, keyPin);
                 ct.ThrowIfCancellationRequested();
+                ValidateSignatureLength(raw);
                 if (Rsa) return raw;
-                using var ec = _certificate.GetECDsaPublicKey()!;
-                if (raw.Length != 2 * ((ec.KeySize + 7) / 8)) throw new CryptographicException("Invalid ECDSA signature length.");
                 var writer = new AsnWriter(AsnEncodingRules.DER); writer.PushSequence();
                 writer.WriteIntegerUnsigned(raw.AsSpan(0, raw.Length / 2)); writer.WriteIntegerUnsigned(raw.AsSpan(raw.Length / 2)); writer.PopSequence();
                 return writer.Encode();
             }
             finally { if (keyPin is not null) CryptographicOperations.ZeroMemory(keyPin); }
+        }
+        private void ValidateSignatureLength(byte[] signature)
+        {
+            using AsymmetricAlgorithm key = Rsa ? _certificate.GetRSAPublicKey()! : _certificate.GetECDsaPublicKey()!;
+            var expected = ((key.KeySize + 7) / 8) * (Rsa ? 1 : 2);
+            if (signature.Length != expected) throw new CryptographicException("Invalid native signature length.");
         }
         private CredentialSignResult Execute(OperatorCredential expected, CancellationToken ct, Func<CredentialSignResult> operation)
         {
@@ -240,7 +259,7 @@ public sealed class Pkcs11OperatorCredentialBroker : IOperatorCredentialBroker, 
             try
             {
                 var raw = _token.Sign(Rsa ? CKM.CKM_RSA_PKCS : CKM.CKM_ECDSA, Rsa ? Convert.FromHexString("3031300D060960864801650304020105000420").Concat(hash).ToArray() : hash, keyPin);
-                ct.ThrowIfCancellationRequested(); return raw;
+                ct.ThrowIfCancellationRequested(); ValidateSignatureLength(raw); return raw;
             }
             finally { if (keyPin is not null) CryptographicOperations.ZeroMemory(keyPin); }
         }
@@ -265,7 +284,13 @@ public sealed class Pkcs11OperatorCredentialBroker : IOperatorCredentialBroker, 
             lock (_operation)
             {
                 if (_disposed) return; _disposed = true;
-                try { _token.Dispose(); } finally { try { _backend.Dispose(); } finally { _certificate.Dispose(); _gate.Release(); } }
+                try
+                {
+                    DisposeResource(_token);
+                    DisposeResource(_backend);
+                    DisposeResource(_certificate);
+                }
+                finally { _gate.Release(); }
             }
         }
     }
@@ -325,7 +350,7 @@ internal sealed class Pkcs11Backend : IPkcs11Backend
             }
             return tokens;
         }
-        catch { foreach (var token in tokens) token.Dispose(); throw; }
+        catch { foreach (var token in tokens) Pkcs11OperatorCredentialBroker.DisposeResource(token); throw; }
     }
     public void Dispose() => _library.Dispose();
 }
