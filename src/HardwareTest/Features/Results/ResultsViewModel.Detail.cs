@@ -67,6 +67,7 @@ public partial class ResultsViewModel
 
     [Reactive] private TestRunSummary? _selectedRun;
     [Reactive] private TestRunRecord? _openedRun;
+    [Reactive] private RunReportItemViewModel? _selectedReportItem;
     [Reactive] private bool _showDetail;
     [Reactive] private string _status = "Loading runs…";
     [Reactive] private string _historySummary = string.Empty;
@@ -361,6 +362,7 @@ public partial class ResultsViewModel
 
     private void LoadReportItems(TestRunRecord run)
     {
+        var selectedPath = SelectedReportItem?.PdfPath;
         ReportItems.Clear();
         var defaultKind = ProgramCatalog.ResolveDefaultReportKind(run.PlanId);
         if (run.Reports.Count > 0)
@@ -370,6 +372,8 @@ public partial class ResultsViewModel
                          .ThenBy(a => ReportArtifactRoles.IsIssued(a.Role) ? 1 : 0))
             {
                 var issued = ReportArtifactRoles.IsIssued(artifact.Role);
+                var stamp = run.Attestations.LastOrDefault(a => a.RevisionId == artifact.RevisionId
+                    && string.Equals(a.ReportKind, artifact.Kind, StringComparison.OrdinalIgnoreCase));
                 ReportItems.Add(new RunReportItemViewModel
                 {
                     Kind = artifact.Kind,
@@ -379,6 +383,11 @@ public partial class ResultsViewModel
                     Role = issued ? ReportArtifactRoles.Issued : ReportArtifactRoles.Working,
                     RoleLabel = issued ? "Issued" : "Working",
                     IsIssued = issued,
+                    RevisionId = artifact.RevisionId,
+                    RevisionNumber = artifact.RevisionNumber,
+                    VerificationText = issued
+                        ? $"Verifying · {stamp?.DisplayName ?? "Unknown signer"} · {stamp?.CapturedAt:u} · revision {artifact.RevisionNumber}"
+                        : "Unsigned · working copy",
                     IsDefault = !issued
                                 && string.Equals(artifact.Kind, defaultKind, StringComparison.OrdinalIgnoreCase),
                 });
@@ -398,7 +407,31 @@ public partial class ResultsViewModel
             });
         }
 
+        SelectedReportItem = ReportItems.FirstOrDefault(r => r.PdfPath == selectedPath) ?? ReportItems.FirstOrDefault(r => r.IsDefault) ?? ReportItems.FirstOrDefault();
         HasReports = ReportItems.Count > 0;
+        _ = VerifyReportItemsAsync(run, ReportItems.Where(r => r.IsIssued).ToArray());
+    }
+
+    private async Task VerifyReportItemsAsync(TestRunRecord run, RunReportItemViewModel[] items)
+    {
+        var labels = await Task.Run(() => items.Select(item =>
+        {
+            var stamp = run.Attestations.LastOrDefault(a => a.RevisionId == item.RevisionId
+                && string.Equals(a.ReportKind, item.Kind, StringComparison.OrdinalIgnoreCase));
+            var label = "Verification failed";
+            try
+            {
+                if (_attestation?.HasValidAttestation(run, item.Kind, item.RevisionId) == true)
+                    label = stamp?.Kind == AttestationKind.Signed ? stamp.Algorithm == AttestationAlgorithm.MockHmac ? "Digitally signed (mock)" : "Digitally signed" : "Presence attested";
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Text.Json.JsonException) { }
+            return $"{label} · {stamp?.DisplayName ?? "Unknown signer"} · {stamp?.CapturedAt:u} · revision {item.RevisionNumber}";
+        }).ToArray()).ConfigureAwait(false);
+        await RunOnUiAsync(() =>
+        {
+            if (!ReferenceEquals(OpenedRun, run)) return;
+            for (var i = 0; i < items.Length; i++) if (ReportItems.Contains(items[i])) items[i].VerificationText = labels[i];
+        }).ConfigureAwait(false);
     }
 
     private void LoadAttestation(TestRunRecord run)

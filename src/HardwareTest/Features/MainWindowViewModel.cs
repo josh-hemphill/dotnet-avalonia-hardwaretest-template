@@ -102,7 +102,6 @@ public partial class MainWindowViewModel : ReactiveObject
         instruments.NavigateToRunRequested += (_, _) => NavigateToPageId(ShellNavigationPolicy.RunTest);
         reportPreview.NavigateToResultsRequested += (_, _) => NavigateToPageId(ShellNavigationPolicy.Results);
         results.ReportOpened += OnReportOpened;
-        reportPreview.CertificationRequiredForPrint += OnCertificationRequiredForPrint;
         results.CertifiedPrintReady += OnCertifiedPrintReady;
 
         runControl.PropertyChanged += (_, e) =>
@@ -319,6 +318,11 @@ public partial class MainWindowViewModel : ReactiveObject
             return;
         }
 
+        if (!ReferenceEquals(CurrentPage, item.ViewModel))
+        {
+            ReportPreview.CancelPendingAction();
+            Results.CancelPendingReportAction();
+        }
         CurrentPage = item.ViewModel;
         _syncingNavSelection = true;
         try
@@ -448,12 +452,6 @@ public partial class MainWindowViewModel : ReactiveObject
         _ = ReportPreview.LoadFromPathAsync(path);
     }
 
-    private void OnCertificationRequiredForPrint(object? sender, string path)
-    {
-        NavigateToPageId(ShellNavigationPolicy.Results);
-        _ = Results.RequestCertifiedPrintAsync(path);
-    }
-
     private void OnCertifiedPrintReady(object? sender, string path)
     {
         NavigateToPageId(ShellNavigationPolicy.ReportPreview);
@@ -462,8 +460,7 @@ public partial class MainWindowViewModel : ReactiveObject
 
     private async Task PrintCertifiedAsync(string path)
     {
-        await ReportPreview.LoadFromPathAsync(path).ConfigureAwait(true);
-        ReportPreview.PrintToSystem();
+        await ReportPreview.PrintFromPathAsync(path).ConfigureAwait(true);
     }
 
     private void RaiseTransportProps()
