@@ -2,11 +2,11 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using HardwareTest.Core.Credentials;
+using HardwareTest.Core.IO;
 using HardwareTest.Core.Reporting;
 using HardwareTest.Core.Runs;
 using HardwareTest.Core.Serialization;
 using HardwareTest.Core.Settings;
-using HardwareTest.Core.IO;
 using HardwareTest.Tests.Credentials;
 using Xunit;
 
