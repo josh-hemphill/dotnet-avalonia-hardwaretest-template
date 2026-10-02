@@ -173,11 +173,11 @@ Deno.test("test:host does not attach a Coverlet collector", async () => {
   assertEquals(hostFn[0].includes("Coverlet"), false);
 });
 
-Deno.test("formatCheck verifies the solution and all() runs it after build", async () => {
+Deno.test("formatCheck verifies traversal projects and all() runs it after build", async () => {
   const src = await Deno.readTextFile(new URL("./main.ts", import.meta.url));
   const formatFn = src.match(/async function formatCheck[\s\S]*?\n\}/);
   assert(formatFn, "formatCheck function must exist");
-  assert(formatFn[0].includes("HardwareTest.slnx"));
+  assert(formatFn[0].includes("await projectPaths(opts)"));
   assert(formatFn[0].includes("--verify-no-changes"));
   assert(formatFn[0].includes("--no-restore"));
   const allFn = src.match(/async function all[\s\S]*?\n\}/);

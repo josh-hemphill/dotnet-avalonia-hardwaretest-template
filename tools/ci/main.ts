@@ -89,21 +89,41 @@ function parseOptions(args: string[]): Options {
   };
 }
 
-async function formatCheck(opts: Options): Promise<void> {
-  await run([
+/** Use evaluated traversal references so CI and the root build stay in sync. */
+async function projectPaths(opts: Options): Promise<string[]> {
+  const result = await runCapture([
     "dotnet",
-    "format",
-    "HardwareTest.slnx",
-    "--verify-no-changes",
-    "--no-restore",
+    "msbuild",
+    "dirs.proj",
+    "-getItem:ProjectReference",
   ], { cwd: opts.root });
+  if (result.code !== 0) {
+    throw new Error(`Cannot evaluate dirs.proj: ${result.stderr || result.stdout}`);
+  }
+  const evaluated = JSON.parse(result.stdout) as {
+    Items: { ProjectReference: { FullPath: string }[] };
+  };
+  const projects = evaluated.Items.ProjectReference.map((item) => item.FullPath);
+  if (projects.length === 0) throw new Error("dirs.proj contains no projects");
+  return projects;
+}
+
+async function formatCheck(opts: Options): Promise<void> {
+  for (const project of await projectPaths(opts)) {
+    await run([
+      "dotnet",
+      "format",
+      project,
+      "--verify-no-changes",
+      "--no-restore",
+    ], { cwd: opts.root });
+  }
 }
 
 async function build(opts: Options): Promise<void> {
   await run([
     "dotnet",
     "build",
-    "dirs.proj",
     "-c",
     opts.configuration,
     "-r",
@@ -239,28 +259,30 @@ async function coverage(opts: Options): Promise<void> {
 }
 
 async function audit(opts: Options): Promise<void> {
-  const result = await runCapture([
-    "dotnet",
-    "list",
-    "HardwareTest.slnx",
-    "package",
-    "--vulnerable",
-    "--include-transitive",
-  ], { cwd: opts.root });
-  const combined = `${result.stdout}\n${result.stderr}`;
-  if (result.stdout.trim().length > 0) {
-    console.log(result.stdout.trimEnd());
-  }
-  if (result.stderr.trim().length > 0) {
-    console.error(result.stderr.trimEnd());
-  }
-  if (hasVulnerablePackages(combined)) {
-    throw new Error(formatAuditFailure(combined));
-  }
-  if (result.code !== 0) {
-    throw new Error(
-      `dotnet list package --vulnerable failed (exit ${result.code})`,
-    );
+  for (const project of await projectPaths(opts)) {
+    const result = await runCapture([
+      "dotnet",
+      "list",
+      project,
+      "package",
+      "--vulnerable",
+      "--include-transitive",
+    ], { cwd: opts.root });
+    const combined = `${result.stdout}\n${result.stderr}`;
+    if (result.stdout.trim().length > 0) {
+      console.log(result.stdout.trimEnd());
+    }
+    if (result.stderr.trim().length > 0) {
+      console.error(result.stderr.trimEnd());
+    }
+    if (hasVulnerablePackages(combined)) {
+      throw new Error(formatAuditFailure(combined));
+    }
+    if (result.code !== 0) {
+      throw new Error(
+        `dotnet list package --vulnerable failed (exit ${result.code})`,
+      );
+    }
   }
   console.log("audit ok: no known vulnerable packages");
 }
