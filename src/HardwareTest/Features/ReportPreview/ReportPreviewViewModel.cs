@@ -27,6 +27,8 @@ public partial class ReportPreviewViewModel : ReactiveObject
     private readonly IReportDesktopActions? _desktop;
     private readonly AppSettings? _settings;
     private readonly object _selectionLock = new();
+    private bool _selectionLoading;
+    internal Func<string, List<Bitmap>>? PreviewRenderer { get; set; }
     private readonly SemaphoreSlim _actionGate = new(1, 1);
     private CancellationTokenSource _selectionCancellation = new();
     private CancellationTokenSource? _signingCancellation;
@@ -106,19 +108,17 @@ public partial class ReportPreviewViewModel : ReactiveObject
 
     private async Task LoadFromPathCoreAsync(string path, long? expectedVersion)
     {
-        var resetVersion = ResetSelection(expectedVersion);
+        var resetVersion = ResetSelection(expectedVersion, loading: true);
         if (resetVersion is null) return;
         var version = resetVersion.Value;
         _operatorSession?.TouchActivity();
-        var selectedRun = await Task.Run(() => FindRunForPdfAsync(path)).ConfigureAwait(false);
-        var summary = await Task.Run(() => DescribeReport(selectedRun, path)).ConfigureAwait(false);
-        if (version != _selectionVersion) return;
         await RunOnUiAsync(() =>
         {
             if (version != _selectionVersion) return;
             IsBusy = true;
             PdfPath = path;
-            ReportSummary = summary;
+            ReportSummary = "Loading report…";
+            Status = "Loading report…";
             // Dispose any previously rendered bitmaps before clearing the collection to avoid leaks.
             foreach (var bitmap in Pages)
             {
@@ -130,9 +130,27 @@ public partial class ReportPreviewViewModel : ReactiveObject
         }).ConfigureAwait(false);
         try
         {
+            string summary;
+            try
+            {
+                var selectedRun = await Task.Run(() => FindRunForPdfAsync(path)).ConfigureAwait(false);
+                summary = await Task.Run(() => DescribeReport(selectedRun, path)).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                summary = "Verification failed: " + ex.Message;
+            }
+            if (version != _selectionVersion) return;
+            await RunOnUiAsync(() =>
+            {
+                if (version == _selectionVersion) ReportSummary = summary;
+            }).ConfigureAwait(false);
             if (!File.Exists(path))
             {
-                await RunOnUiAsync(() => Status = $"File not found: {path}").ConfigureAwait(false);
+                await RunOnUiAsync(() =>
+                {
+                    if (version == _selectionVersion) Status = $"File not found: {path}";
+                }).ConfigureAwait(false);
                 return;
             }
 
@@ -140,7 +158,7 @@ public partial class ReportPreviewViewModel : ReactiveObject
             {
                 // PDFtoImage is desktop-only; the Avalonia shell does not ship other RIDs.
 #pragma warning disable CA1416
-                var bitmaps = await Task.Run(() => RenderPages(path)).ConfigureAwait(false);
+                var bitmaps = await Task.Run(() => PreviewRenderer?.Invoke(path) ?? RenderPages(path)).ConfigureAwait(false);
 #pragma warning restore CA1416
                 await RunOnUiAsync(() =>
                 {
@@ -159,6 +177,7 @@ public partial class ReportPreviewViewModel : ReactiveObject
             {
                 await RunOnUiAsync(() =>
                 {
+                    if (version != _selectionVersion) return;
                     Status = $"Preview failed: {ex.Message}";
                     this.RaisePropertyChanged(nameof(ShowEmptyState));
                 }).ConfigureAwait(false);
@@ -166,6 +185,10 @@ public partial class ReportPreviewViewModel : ReactiveObject
         }
         finally
         {
+            lock (_selectionLock)
+            {
+                if (version == _selectionVersion) _selectionLoading = false;
+            }
             await RunOnUiAsync(() =>
             {
                 if (version == _selectionVersion) IsBusy = false;
@@ -176,39 +199,55 @@ public partial class ReportPreviewViewModel : ReactiveObject
 
     private async Task LoadLatestAsync()
     {
-        var runs = await _runStore.ListAsync().ConfigureAwait(false);
-        var latest = runs.FirstOrDefault();
-        if (latest is null)
+        var version = ResetSelection(null, loading: true)!.Value;
+        try
         {
-            await RunOnUiAsync(() => Status = "No saved runs.").ConfigureAwait(false);
-            return;
-        }
+            var runs = await _runStore.ListAsync().ConfigureAwait(false);
+            var latest = runs.FirstOrDefault();
+            if (latest is null)
+            {
+                await RunOnUiAsync(() => { if (version == _selectionVersion) Status = "No saved runs."; }).ConfigureAwait(false);
+                return;
+            }
 
-        var run = await _runStore.LoadAsync(latest.RunId).ConfigureAwait(false);
-        if (run is null)
+            var run = await _runStore.LoadAsync(latest.RunId).ConfigureAwait(false);
+            if (run is null)
+            {
+                await RunOnUiAsync(() => { if (version == _selectionVersion) Status = "Failed to load run."; }).ConfigureAwait(false);
+                return;
+            }
+            if (version != _selectionVersion) return;
+
+            var path = run.ReportPdfPath;
+            if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+                path = await _reportService.GeneratePdfAsync(run).ConfigureAwait(false);
+
+            await LoadFromPathCoreAsync(path, version).ConfigureAwait(false);
+        }
+        catch (Exception ex)
         {
-            await RunOnUiAsync(() => Status = "Failed to load run.").ConfigureAwait(false);
-            return;
+            await RunOnUiAsync(() => { if (version == _selectionVersion) Status = "Report load failed: " + ex.Message; }).ConfigureAwait(false);
         }
-
-        var path = run.ReportPdfPath;
-        if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+        finally
         {
-            path = await _reportService.GeneratePdfAsync(run).ConfigureAwait(false);
+            lock (_selectionLock)
+            {
+                if (version == _selectionVersion) _selectionLoading = false;
+            }
+            await RunOnUiAsync(() => { if (version == _selectionVersion) IsBusy = false; }).ConfigureAwait(false);
         }
-
-        await LoadFromPathAsync(path).ConfigureAwait(false);
     }
 
     public void CancelPendingAction() => ResetSelection(null);
 
-    private long? ResetSelection(long? expectedVersion)
+    private long? ResetSelection(long? expectedVersion, bool loading = false)
     {
         long version;
         lock (_selectionLock)
         {
             if (expectedVersion is not null && expectedVersion != _selectionVersion) return null;
             version = ++_selectionVersion;
+            _selectionLoading = loading;
             _selectionCancellation.Cancel();
             _selectionCancellation.Dispose();
             _selectionCancellation = new CancellationTokenSource();
@@ -219,6 +258,7 @@ public partial class ReportPreviewViewModel : ReactiveObject
         UiDispatch.Post(() =>
         {
             if (version != _selectionVersion) return;
+            IsBusy = loading;
             ShowSigningPrompt = false;
             ShowSigningPin = false;
             SigningPin = string.Empty;
@@ -234,7 +274,7 @@ public partial class ReportPreviewViewModel : ReactiveObject
         string? path;
         lock (_selectionLock)
         {
-            if (expectedVersion is not null && expectedVersion != _selectionVersion) { _actionGate.Release(); return; }
+            if (_selectionLoading || (expectedVersion is not null && expectedVersion != _selectionVersion)) { _actionGate.Release(); return; }
             version = _selectionVersion;
             token = _selectionCancellation.Token;
             path = PdfPath;
@@ -243,7 +283,7 @@ public partial class ReportPreviewViewModel : ReactiveObject
         {
             if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
             {
-                await RunOnUiAsync(() => Status = "No PDF selected.").ConfigureAwait(false);
+                await RunOnUiAsync(() => { if (version == _selectionVersion) Status = "No PDF selected."; }).ConfigureAwait(false);
                 return;
             }
             var run = await Task.Run(() => FindRunForPdfAsync(path)).ConfigureAwait(false);
@@ -260,10 +300,14 @@ public partial class ReportPreviewViewModel : ReactiveObject
             {
                 if (run is null || _attestation is null || run.IsSchemaReadOnly || issued)
                 {
-                    await RunOnUiAsync(() => Status = run?.IsSchemaReadOnly == true
+                    await RunOnUiAsync(() =>
+                    {
+                        if (version != _selectionVersion || token.IsCancellationRequested) return;
+                        Status = run?.IsSchemaReadOnly == true
                         ? "This run uses a newer schema and cannot be signed."
                         : issued ? "Select a working copy to create a new signed revision. This issued revision remains unchanged."
-                        : "Signing is unavailable for this PDF.").ConfigureAwait(false);
+                        : "Signing is unavailable for this PDF.";
+                    }).ConfigureAwait(false);
                     return;
                 }
                 lock (_selectionLock)
@@ -291,7 +335,10 @@ public partial class ReportPreviewViewModel : ReactiveObject
         catch (OperationCanceledException) { }
         catch (Exception ex)
         {
-            if (version == _selectionVersion) await RunOnUiAsync(() => Status = "Report action failed: " + ex.Message).ConfigureAwait(false);
+            await RunOnUiAsync(() =>
+            {
+                if (version == _selectionVersion && !token.IsCancellationRequested) Status = "Report action failed: " + ex.Message;
+            }).ConfigureAwait(false);
         }
         finally { _actionGate.Release(); }
     }
@@ -314,6 +361,7 @@ public partial class ReportPreviewViewModel : ReactiveObject
             {
                 await RunOnUiAsync(() =>
                 {
+                    if (!ReferenceEquals(_pending, pending) || pending.Version != _selectionVersion || cancellation.IsCancellationRequested) return;
                     SigningPromptStatus = result.Message;
                     Status = result.Message;
                     if (result.PinRequired) { _capturedCredential = result.Credential; ShowSigningPin = true; }
@@ -340,12 +388,19 @@ public partial class ReportPreviewViewModel : ReactiveObject
         catch (OperationCanceledException) { }
         catch (Exception ex)
         {
-            if (effectVersion == _selectionVersion) await RunOnUiAsync(() => Status = "Signing failed: " + ex.Message).ConfigureAwait(false);
+            await RunOnUiAsync(() =>
+            {
+                if (effectVersion == _selectionVersion && (effectVersion != pending.Version || !cancellation.IsCancellationRequested))
+                    Status = "Signing failed: " + ex.Message;
+            }).ConfigureAwait(false);
         }
         finally
         {
             _capturing = false;
-            if (effectVersion == _selectionVersion) await RunOnUiAsync(() => SigningPin = string.Empty).ConfigureAwait(false);
+            if (effectVersion == _selectionVersion) await RunOnUiAsync(() =>
+            {
+                if (effectVersion == _selectionVersion) SigningPin = string.Empty;
+            }).ConfigureAwait(false);
         }
     }
 
@@ -370,7 +425,10 @@ public partial class ReportPreviewViewModel : ReactiveObject
                 break;
             default: return;
         }
-        if (!token.IsCancellationRequested) await RunOnUiAsync(() => Status = message).ConfigureAwait(false);
+        if (!token.IsCancellationRequested) await RunOnUiAsync(() =>
+        {
+            if (!token.IsCancellationRequested) Status = message;
+        }).ConfigureAwait(false);
     }
 
     public async Task PrintFromPathAsync(string path)

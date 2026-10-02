@@ -193,6 +193,123 @@ public sealed class ReportActionTests : IDisposable
         Assert.False(File.Exists(actions.Destination));
     }
 
+    [Fact]
+    public async Task Actions_are_not_ready_during_new_selection_lookup()
+    {
+        var store = new FileRunStore(_root);
+        var first = await SeedAsync(store, "first");
+        var second = await SeedAsync(store, "second");
+        var delayed = new DelayedStore(store, second.RunId);
+        var actions = new Actions(Path.Combine(_root, "saved.pdf"));
+        var vm = new ReportPreviewViewModel(delayed, new FakeReportService(), printer: actions, desktop: actions)
+        { UiScheduler = action => action(), PreviewRenderer = _ => [] };
+        await vm.LoadFromPathAsync(first.Reports[0].PdfPath);
+        var loading = vm.LoadFromPathAsync(second.Reports[0].PdfPath);
+        await delayed.Started.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await vm.PrintCommand.ExecuteAsync();
+        await vm.SaveCopyCommand.ExecuteAsync();
+        await vm.SignCommand.ExecuteAsync();
+        Assert.Empty(actions.Prints);
+        Assert.Empty(actions.Saves);
+        Assert.False(vm.ShowSigningPrompt);
+        delayed.Release.TrySetResult();
+        await loading;
+        await vm.PrintCommand.ExecuteAsync();
+        Assert.Equal(second.Reports[0].PdfPath, Assert.Single(actions.Prints));
+    }
+
+    [Fact]
+    public async Task Cancelling_selection_during_render_clears_busy_and_ignores_late_errors()
+    {
+        var store = new FileRunStore(_root);
+        var run = await SeedAsync(store, "render");
+        var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var vm = new ReportPreviewViewModel(store, new FakeReportService())
+        {
+            UiScheduler = action => action(),
+            PreviewRenderer = _ =>
+            {
+                started.TrySetResult();
+                release.Task.GetAwaiter().GetResult();
+                throw new IOException("stale rendering error");
+            },
+        };
+        var loading = vm.LoadFromPathAsync(run.Reports[0].PdfPath);
+        await started.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.True(vm.IsBusy);
+        vm.CancelPendingAction();
+        Assert.False(vm.IsBusy);
+        var status = vm.Status;
+        release.TrySetResult();
+        await loading;
+        Assert.False(vm.IsBusy);
+        Assert.Equal(status, vm.Status);
+    }
+
+    [Fact]
+    public async Task Cancelled_signing_ignores_already_queued_pin_callback()
+    {
+        var store = new FileRunStore(_root);
+        var run = await SeedAsync(store, "queued-pin");
+        var delayed = new DelayedAttestation
+        {
+            Result = new ReportAttestationResult { PinRequired = true, Message = "old PIN request", Credential = new OperatorCredential() },
+        };
+        var vm = new ReportPreviewViewModel(store, new FakeReportService(), attestation: delayed)
+        { UiScheduler = action => action(), PreviewRenderer = _ => [] };
+        await vm.LoadFromPathAsync(run.Reports[0].PdfPath);
+        await vm.SignCommand.ExecuteAsync();
+        var signing = vm.SignAndContinueCommand.ExecuteAsync();
+        await delayed.Started.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        var queue = new System.Collections.Concurrent.ConcurrentQueue<Action>();
+        var queued = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        vm.UiScheduler = action => { queue.Enqueue(action); queued.TrySetResult(); };
+        delayed.Release.TrySetResult();
+        await queued.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        vm.CancelPendingAction();
+        vm.UiScheduler = action => action();
+        while (queue.TryDequeue(out var callback)) callback();
+        await signing;
+        Assert.False(vm.ShowSigningPin);
+        Assert.False(vm.ShowSigningPrompt);
+        Assert.DoesNotContain("old PIN request", vm.Status);
+    }
+
+    [Fact]
+    public async Task Lookup_failure_keeps_preview_usable_with_verification_failure()
+    {
+        var store = new FileRunStore(_root);
+        var run = await SeedAsync(store, "lookup-error");
+        var broken = new DelayedStore(store, run.RunId) { FailLookup = true };
+        var vm = new ReportPreviewViewModel(broken, new FakeReportService())
+        { UiScheduler = action => action(), PreviewRenderer = _ => [] };
+        await vm.LoadFromPathAsync(run.Reports[0].PdfPath);
+        Assert.Equal(run.Reports[0].PdfPath, vm.PdfPath);
+        Assert.Contains("Verification failed", vm.ReportSummary);
+        Assert.False(vm.IsBusy);
+    }
+
+    private sealed class DelayedStore(IRunStore inner, string delayedId) : IRunStore
+    {
+        public TaskCompletionSource Started { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public bool FailLookup { get; init; }
+        public async Task<TestRunRecord?> LoadAsync(string runId, CancellationToken cancellationToken = default)
+        {
+            if (runId == delayedId)
+            {
+                if (FailLookup) throw new IOException("Store unavailable");
+                Started.TrySetResult();
+                await Release.Task;
+            }
+            return await inner.LoadAsync(runId, cancellationToken);
+        }
+        public Task SaveAsync(TestRunRecord run, CancellationToken cancellationToken = default) => inner.SaveAsync(run, cancellationToken);
+        public Task<IReadOnlyList<TestRunSummary>> ListAsync(CancellationToken cancellationToken = default) => inner.ListAsync(cancellationToken);
+        public string GetRunDirectory(string runId) => inner.GetRunDirectory(runId);
+    }
+
     private async Task<(TestRunRecord, ReportPreviewViewModel, Actions, ReportAttestationService)> SetupAsync()
     {
         var store = new FileRunStore(_root);
@@ -245,6 +362,7 @@ public sealed class ReportActionTests : IDisposable
 
     private sealed class DelayedAttestation : IReportAttestationService
     {
+        public ReportAttestationResult Result { get; init; } = new() { Succeeded = true };
         public TimeSpan PresenceTimeout => TimeSpan.FromSeconds(20);
         public TaskCompletionSource Started { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public TaskCompletionSource Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -258,7 +376,7 @@ public sealed class ReportActionTests : IDisposable
             Started.TrySetResult();
             await Release.Task;
             // Simulate a provider completing late despite cancellation; it must never resume the old action.
-            return new ReportAttestationResult { Succeeded = true };
+            return Result;
         }
     }
 
