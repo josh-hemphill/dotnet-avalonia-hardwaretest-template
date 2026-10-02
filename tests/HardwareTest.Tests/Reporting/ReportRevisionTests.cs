@@ -305,6 +305,54 @@ public sealed class ReportRevisionTests : IDisposable
         Assert.False(File.Exists(Path.Combine(runs.GetRunDirectory(member.RunId), "run.json")));
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Stale_suite_save_rejects_future_embedded_member_before_any_write(bool standaloneExists)
+    {
+        var runs = new FileRunStore(_root);
+        var suites = new FileSuiteRunStore(runs, _root);
+        var stale = new TestRunRecord { RunId = "embedded-future" };
+        if (standaloneExists) await runs.SaveAsync(stale);
+        var future = ReportRevisions.Clone(stale);
+        future.SchemaVersion = SchemaVersions.TestRunRecord + 1;
+        var persisted = new SuiteRunRecord { SuiteRunId = "stale-future-suite", PlanRuns = [future] };
+        var path = Path.Combine(suites.GetSuiteRunDirectory(persisted.SuiteRunId), "suite-run.json");
+        var original = JsonSerializer.Serialize(persisted, AppJsonContext.Default.SuiteRunRecord);
+        await File.WriteAllTextAsync(path, original);
+        var standalonePath = Path.Combine(runs.GetRunDirectory(stale.RunId), "run.json");
+        var before = standaloneExists ? await File.ReadAllTextAsync(standalonePath) : null;
+        var incoming = new SuiteRunRecord { SuiteRunId = persisted.SuiteRunId, PlanRuns = [stale] };
+        await Assert.ThrowsAsync<SchemaReadOnlyException>(() => suites.SaveAsync(incoming));
+        Assert.Equal(original, await File.ReadAllTextAsync(path));
+        Assert.Equal(before, File.Exists(standalonePath) ? await File.ReadAllTextAsync(standalonePath) : null);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Stale_suite_save_preserves_embedded_only_issued_history(bool standaloneExists)
+    {
+        var runs = new FileRunStore(_root);
+        var suites = new FileSuiteRunStore(runs, _root);
+        var run = await SeedAsync(runs);
+        var stale = ReportRevisions.Clone(run);
+        var service = new ReportAttestationService(new MockOperatorCredentialBroker(canSign: true), runs, new AppSettings());
+        Assert.True((await service.AttestAsync(run, ReportKinds.Certification)).Succeeded);
+        var persisted = new SuiteRunRecord { SuiteRunId = "embedded-history", PlanRuns = [run] };
+        await File.WriteAllTextAsync(Path.Combine(suites.GetSuiteRunDirectory(persisted.SuiteRunId), "suite-run.json"),
+            JsonSerializer.Serialize(persisted, AppJsonContext.Default.SuiteRunRecord));
+        var standalonePath = Path.Combine(runs.GetRunDirectory(run.RunId), "run.json");
+        if (standaloneExists) await File.WriteAllTextAsync(standalonePath,
+            JsonSerializer.Serialize(stale, AppJsonContext.Default.TestRunRecord));
+        else File.Delete(standalonePath);
+        var incoming = new SuiteRunRecord { SuiteRunId = persisted.SuiteRunId, PlanRuns = [stale] };
+        await suites.SaveAsync(incoming);
+        Assert.Single(stale.Attestations);
+        Assert.True(service.HasValidAttestation((await runs.LoadAsync(run.RunId))!, ReportKinds.Certification));
+        Assert.True(service.HasValidAttestation((await suites.LoadAsync(persisted.SuiteRunId))!.PlanRuns[0], ReportKinds.Certification));
+    }
+
     private static async Task<TestRunRecord> SeedAsync(FileRunStore store)
     {
         var run = new TestRunRecord { RunId = "run-revisions" };

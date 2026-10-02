@@ -46,10 +46,23 @@ public sealed class FileSuiteRunStore : ISuiteRunStore
         var committed = await LoadAsync(suiteRun.SuiteRunId, cancellationToken).ConfigureAwait(false);
         if (committed?.IsSchemaReadOnly == true) throw new SchemaReadOnlyException(DocumentSchemaGate.Evaluate(
             SchemaDocumentTypes.SuiteRunRecord, committed.StoredSchemaVersion, SchemaVersions.SuiteRunRecord));
+        // Check every persisted member before saving any standalone run, even when the caller is stale.
+        var futureMember = committed?.PlanRuns.FirstOrDefault(r => r.IsSchemaReadOnly);
+        if (futureMember is not null) throw new SchemaReadOnlyException(DocumentSchemaGate.Evaluate(
+            SchemaDocumentTypes.TestRunRecord, futureMember.StoredSchemaVersion, SchemaVersions.TestRunRecord));
         var candidate = JsonSerializer.Deserialize(JsonSerializer.Serialize(suiteRun, AppJsonContext.Default.SuiteRunRecord),
             AppJsonContext.Default.SuiteRunRecord)!;
         candidate.SchemaVersion = SchemaVersions.SuiteRunRecord;
         candidate.PlanRuns = suiteRun.PlanRuns.Select(ReportRevisions.Clone).ToList();
+        if (committed is not null)
+        {
+            foreach (var member in committed.PlanRuns)
+            {
+                var incoming = candidate.PlanRuns.FirstOrDefault(r => r.RunId == member.RunId);
+                if (incoming is null) candidate.PlanRuns.Add(ReportRevisions.Clone(member));
+                else ReportRevisions.MergeHistory(incoming, member);
+            }
+        }
         foreach (var planRun in candidate.PlanRuns)
         {
             await _runStore.SaveAsync(planRun, cancellationToken).ConfigureAwait(false);

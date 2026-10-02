@@ -60,6 +60,12 @@ public static class ReportRevisions
         var committed = await store.LoadAsync(run.RunId, cancellationToken).ConfigureAwait(false);
         MigrateLegacy(run);
         if (committed is null) return;
+        MergeHistory(run, committed);
+    }
+
+    internal static void MergeHistory(TestRunRecord run, TestRunRecord committed)
+    {
+        MigrateLegacy(run);
         if (committed.IsSchemaReadOnly) throw new SchemaReadOnlyException(DocumentSchemaGate.Evaluate(
             SchemaDocumentTypes.TestRunRecord, committed.StoredSchemaVersion, SchemaVersions.TestRunRecord, committed.AppVersion));
         var issued = committed.Reports.Where(r => ReportArtifactRoles.IsIssued(r.Role)).ToList();
