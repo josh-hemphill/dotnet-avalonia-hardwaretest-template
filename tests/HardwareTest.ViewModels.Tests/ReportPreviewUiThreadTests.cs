@@ -113,11 +113,9 @@ public sealed class ReportPreviewUiThreadTests
                 new MockOperatorCredentialBroker(canSign: true),
                 store,
                 settings));
-        string? blocked = null;
-        vm.CertificationRequiredForPrint += (_, path) => blocked = path;
         await vm.LoadFromPathAsync(pdf);
         await vm.PrintCommand.ExecuteAsync();
-        Assert.Equal(pdf, blocked);
-        Assert.Contains("Certify", vm.Status, StringComparison.OrdinalIgnoreCase);
+        Assert.True(vm.ShowSigningPrompt);
+        Assert.Equal("Sign and continue", vm.SignButtonLabel);
     }
 }

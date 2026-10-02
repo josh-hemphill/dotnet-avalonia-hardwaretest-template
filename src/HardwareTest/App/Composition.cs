@@ -1,3 +1,5 @@
+using Avalonia;
+using Avalonia.Controls.ApplicationLifetimes;
 using HardwareTest.Core;
 using HardwareTest.Core.Crash;
 using HardwareTest.Core.Diagnostics;
@@ -16,6 +18,7 @@ using HardwareTest.Features.Settings;
 using HardwareTest.Features.Shell;
 using HardwareTest.OpenTap.Host;
 using HardwareTest.OpenTap.Host.Worker;
+using HardwareTest.Reporting;
 using HardwareTest.Shell;
 using HardwareTest.ShellApps.Notes;
 using Microsoft.Extensions.DependencyInjection;
@@ -65,6 +68,9 @@ public static class Composition
         services.AddSingleton<RunTestViewModel>();
         services.AddSingleton<InspectViewModel>();
         services.AddSingleton<ResultsViewModel>();
+        services.AddSingleton<IReportPrintService, SystemReportPrintService>();
+        services.AddSingleton<IReportDesktopActions>(_ => new ReportDesktopActions(
+            () => (Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.MainWindow));
         services.AddSingleton<ReportPreviewViewModel>();
         services.AddSingleton<InstrumentsViewModel>();
         services.AddSingleton<SettingsViewModel>();

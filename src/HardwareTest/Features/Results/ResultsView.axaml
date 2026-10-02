@@ -195,8 +195,8 @@
           <StackPanel Spacing="6">
             <StackPanel Spacing="2" IsVisible="{Binding HasReports}">
               <TextBlock Text="Reports" FontWeight="SemiBold" />
-              <ItemsControl ItemsSource="{Binding ReportItems}">
-                <ItemsControl.ItemTemplate>
+              <ListBox ItemsSource="{Binding ReportItems}" SelectedItem="{Binding SelectedReportItem}">
+                <ListBox.ItemTemplate>
                   <DataTemplate x:DataType="vm:RunReportItemViewModel">
                     <Grid ColumnDefinitions="*,Auto" Margin="0,2" ColumnSpacing="8">
                       <StackPanel>
@@ -212,7 +212,7 @@
                                      VerticalAlignment="Center"
                                      IsVisible="{Binding IsDefault}" />
                         </StackPanel>
-                        <TextBlock Text="{Binding Kind}" Opacity="0.7" FontSize="11" />
+                        <TextBlock Text="{Binding VerificationText}" Opacity="0.7" FontSize="11" TextWrapping="Wrap" />
                       </StackPanel>
                       <Button Grid.Column="1"
                               Content="Open"
@@ -222,8 +222,8 @@
                               Margin="0,0,8,0" />
                     </Grid>
                   </DataTemplate>
-                </ItemsControl.ItemTemplate>
-              </ItemsControl>
+                </ListBox.ItemTemplate>
+              </ListBox>
             </StackPanel>
 
             <StackPanel Spacing="4" Margin="0,8,0,0" IsVisible="{Binding HasExportTargets}">
@@ -373,7 +373,7 @@
               BorderThickness="2"
               Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}">
         <StackPanel Spacing="10">
-          <TextBlock Text="Certify before export or print"
+          <TextBlock Text="Sign and continue"
                      FontWeight="SemiBold" />
           <TextBlock Text="{Binding AttestationPromptStatus}"
                      TextWrapping="Wrap"
@@ -385,7 +385,7 @@
                    MinHeight="{x:Static shell:OperatorTouchDensity.OperatorControlMinHeight}"
                    AutomationProperties.Name="Badge PIN" />
           <StackPanel Orientation="Horizontal" Spacing="8">
-            <Button Content="Tap or insert"
+            <Button Content="Sign and continue"
                     Command="{Binding CaptureAttestationCommand}"
                     Classes="primary"
                     MinHeight="{x:Static shell:OperatorTouchDensity.OperatorControlMinHeight}"

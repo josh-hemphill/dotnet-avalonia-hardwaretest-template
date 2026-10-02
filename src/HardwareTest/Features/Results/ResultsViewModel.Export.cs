@@ -34,6 +34,7 @@ public partial class ResultsViewModel
             return Task.CompletedTask;
         }
 
+        _pendingPrintPath = null;
         if (!TryBeginCertifiedAction(OpenedRun, ReportAttestationService.PackageKind, PendingExport))
         {
             return Task.CompletedTask;
@@ -43,9 +44,10 @@ public partial class ResultsViewModel
         return Task.CompletedTask;
     }
 
-    private void ExportPackageCore()
+    private void ExportPackageCore(TestRunRecord? requestedRun = null)
     {
-        if (OpenedRun is null)
+        var run = requestedRun ?? OpenedRun;
+        if (run is null)
         {
             Status = "Open a run first.";
             return;
@@ -69,7 +71,7 @@ public partial class ResultsViewModel
 
             try
             {
-                var runDir = _runStore.GetRunDirectory(OpenedRun.RunId);
+                var runDir = _runStore.GetRunDirectory(run.RunId);
                 var files = new List<(string SourcePath, string RelativeName)>();
                 var runJson = Path.Combine(runDir, "run.json");
                 if (File.Exists(runJson))
@@ -77,15 +79,15 @@ public partial class ResultsViewModel
                     files.Add((runJson, "run.json"));
                 }
 
-                files.AddRange(CollectExportReportFiles(OpenedRun));
+                files.AddRange(CollectExportReportFiles(run));
 
-                if (!string.IsNullOrWhiteSpace(OpenedRun.ReportPdfPath)
-                    && File.Exists(OpenedRun.ReportPdfPath)
-                    && !OpenedRun.Reports.Any(r => ReportArtifactRoles.IsIssued(r.Role)
-                        && string.Equals(r.Kind, ReportAttestationService.KindForPdf(OpenedRun, OpenedRun.ReportPdfPath), StringComparison.OrdinalIgnoreCase))
-                    && files.All(f => !string.Equals(f.SourcePath, OpenedRun.ReportPdfPath, StringComparison.OrdinalIgnoreCase)))
+                if (!string.IsNullOrWhiteSpace(run.ReportPdfPath)
+                    && File.Exists(run.ReportPdfPath)
+                    && !run.Reports.Any(r => ReportArtifactRoles.IsIssued(r.Role)
+                        && string.Equals(r.Kind, ReportAttestationService.KindForPdf(run, run.ReportPdfPath), StringComparison.OrdinalIgnoreCase))
+                    && files.All(f => !string.Equals(f.SourcePath, run.ReportPdfPath, StringComparison.OrdinalIgnoreCase)))
                 {
-                    files.Add((OpenedRun.ReportPdfPath!, Path.GetFileName(OpenedRun.ReportPdfPath)));
+                    files.Add((run.ReportPdfPath!, Path.GetFileName(run.ReportPdfPath)));
                 }
 
                 var csvDir = Path.Combine(runDir, "opentap-results");
@@ -96,7 +98,7 @@ public partial class ResultsViewModel
                             .Select(csv => (csv, Path.Combine("opentap-results", Path.GetFileName(csv)))));
                 }
 
-                var diagnosticsPath = Path.Combine(Path.GetTempPath(), $"hwtest-diag-{OpenedRun.RunId}.txt");
+                var diagnosticsPath = Path.Combine(Path.GetTempPath(), $"hwtest-diag-{run.RunId}.txt");
                 try
                 {
                     File.WriteAllText(diagnosticsPath, BuildExportDiagnostics());
@@ -108,7 +110,7 @@ public partial class ResultsViewModel
                         return;
                     }
 
-                    var packageName = $"run-{OpenedRun.RunId}";
+                    var packageName = $"run-{run.RunId}";
                     var dest = _exportTargets.ExportPackage(target, packageName, files);
                     Status = $"Exported package to {dest}";
                 }
