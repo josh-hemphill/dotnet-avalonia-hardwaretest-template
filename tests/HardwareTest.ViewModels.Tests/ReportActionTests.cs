@@ -329,6 +329,33 @@ public sealed class ReportActionTests : IDisposable
         Assert.Equal(await File.ReadAllBytesAsync(first), await File.ReadAllBytesAsync(copy));
     }
 
+    [Fact]
+    public async Task Cancelled_provider_remains_single_flight_and_new_capture_can_retry_after_completion()
+    {
+        var store = new FileRunStore(_root);
+        var first = await SeedAsync(store, "old-provider");
+        var second = await SeedAsync(store, "new-provider");
+        var delayed = new DelayedAttestation { Result = new ReportAttestationResult { Message = "Signing unavailable" } };
+        var vm = new ReportPreviewViewModel(store, new FakeReportService(), attestation: delayed)
+        { UiScheduler = action => action(), PreviewRenderer = _ => [] };
+        await vm.LoadFromPathAsync(first.Reports[0].PdfPath);
+        await vm.SignCommand.ExecuteAsync();
+        var oldAttempt = vm.SignAndContinueCommand.ExecuteAsync();
+        await delayed.Started.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        vm.CancelPendingAction();
+        await vm.LoadFromPathAsync(second.Reports[0].PdfPath);
+        await vm.SignCommand.ExecuteAsync();
+        await vm.UsePresenceCommand.ExecuteAsync();
+        Assert.Equal(1, delayed.Calls);
+        Assert.Contains("still finishing", vm.SigningPromptStatus);
+        delayed.Release.TrySetResult();
+        await oldAttempt;
+        await vm.SignAndContinueCommand.ExecuteAsync();
+        Assert.Equal(2, delayed.Calls);
+        Assert.Equal(second.RunId, delayed.CapturedRunId);
+        Assert.Equal("Signing unavailable", vm.SigningPromptStatus);
+    }
+
     private async Task<(TestRunRecord, ReportPreviewViewModel, Actions, ReportAttestationService)> SetupAsync()
     {
         var store = new FileRunStore(_root);
@@ -386,12 +413,14 @@ public sealed class ReportActionTests : IDisposable
         public TaskCompletionSource Started { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public TaskCompletionSource Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public string? CapturedRunId { get; private set; }
+        public int Calls { get; private set; }
         public bool NeedsAttestation(TestRunRecord run, string reportKind) => true;
         public bool HasValidAttestation(TestRunRecord run, string reportKind) => false;
         public async Task<ReportAttestationResult> AttestAsync(TestRunRecord run, string reportKind, OperatorCredential? credential = null,
             string? pin = null, bool skipSigning = false, CancellationToken cancellationToken = default)
         {
             CapturedRunId = run.RunId;
+            Calls++;
             Started.TrySetResult();
             await Release.Task;
             // Simulate a provider completing late despite cancellation; it must never resume the old action.

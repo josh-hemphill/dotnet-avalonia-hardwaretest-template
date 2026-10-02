@@ -347,7 +347,17 @@ public partial class ReportPreviewViewModel : ReactiveObject
     {
         var pending = _pending;
         var cancellation = _signingCancellation;
-        if (pending is null || cancellation is null || _attestation is null || _capturing || pending.Version != _selectionVersion) return;
+        if (pending is null || cancellation is null || _attestation is null || pending.Version != _selectionVersion) return;
+        if (_capturing)
+        {
+            await RunOnUiAsync(() =>
+            {
+                if (!ReferenceEquals(_pending, pending) || pending.Version != _selectionVersion || cancellation.IsCancellationRequested) return;
+                SigningPromptStatus = "A previous badge operation is still finishing. Close its prompt, then try again.";
+                Status = SigningPromptStatus;
+            }).ConfigureAwait(false);
+            return;
+        }
         _capturing = true;
         var pin = ShowSigningPin ? SigningPin : null;
         var credential = _capturedCredential;
