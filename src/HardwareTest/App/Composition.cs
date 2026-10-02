@@ -70,7 +70,8 @@ public static class Composition
         services.AddSingleton<ResultsViewModel>();
         services.AddSingleton<IReportPrintService, SystemReportPrintService>();
         services.AddSingleton<IReportDesktopActions>(_ => new ReportDesktopActions(
-            () => (Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.MainWindow));
+            () => (Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.MainWindow,
+            settingsStore.RunsDirectory));
         services.AddSingleton<ReportPreviewViewModel>();
         services.AddSingleton<InstrumentsViewModel>();
         services.AddSingleton<SettingsViewModel>();

@@ -310,6 +310,25 @@ public sealed class ReportActionTests : IDisposable
         public string GetRunDirectory(string runId) => inner.GetRunDirectory(runId);
     }
 
+    [Fact]
+    public async Task Save_copy_cannot_overwrite_another_managed_issued_revision()
+    {
+        var managed = Path.Combine(_root, "runs");
+        var first = Path.Combine(managed, "first", "issued", "certification", "rev1", "certification.pdf");
+        var second = Path.Combine(managed, "second", "issued", "certification", "rev2", "certification.pdf");
+        Directory.CreateDirectory(Path.GetDirectoryName(first)!);
+        Directory.CreateDirectory(Path.GetDirectoryName(second)!);
+        await File.WriteAllBytesAsync(first, [1, 2, 3]);
+        await File.WriteAllBytesAsync(second, [9, 8, 7]);
+        await Assert.ThrowsAsync<IOException>(() => ReportDesktopActions.CopyToLocalPathAsync(first, second,
+            managedRunsDirectory: managed));
+        Assert.Equal(new byte[] { 9, 8, 7 }, await File.ReadAllBytesAsync(second));
+        Assert.Equal(new byte[] { 1, 2, 3 }, await File.ReadAllBytesAsync(first));
+        var copy = Path.Combine(_root, "runs-copies", "saved.pdf");
+        await ReportDesktopActions.CopyToLocalPathAsync(first, copy, managedRunsDirectory: managed);
+        Assert.Equal(await File.ReadAllBytesAsync(first), await File.ReadAllBytesAsync(copy));
+    }
+
     private async Task<(TestRunRecord, ReportPreviewViewModel, Actions, ReportAttestationService)> SetupAsync()
     {
         var store = new FileRunStore(_root);

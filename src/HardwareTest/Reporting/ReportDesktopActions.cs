@@ -36,7 +36,7 @@ public sealed class SystemReportPrintService : IReportPrintService
     }, cancellationToken);
 }
 
-public sealed class ReportDesktopActions(Func<Window?> window) : IReportDesktopActions
+public sealed class ReportDesktopActions(Func<Window?> window, string managedRunsDirectory) : IReportDesktopActions
 {
     public async Task<string?> SaveCopyAsync(string pdfPath, CancellationToken cancellationToken = default)
     {
@@ -65,7 +65,7 @@ public sealed class ReportDesktopActions(Func<Window?> window) : IReportDesktopA
                 var localPath = destination.TryGetLocalPath();
                 if (localPath is not null)
                 {
-                    await CopyToLocalPathAsync(pdfPath, localPath, cancellationToken);
+                    await CopyToLocalPathAsync(pdfPath, localPath, cancellationToken, managedRunsDirectory);
                     return;
                 }
                 var bytes = await File.ReadAllBytesAsync(pdfPath, cancellationToken);
@@ -78,12 +78,33 @@ public sealed class ReportDesktopActions(Func<Window?> window) : IReportDesktopA
         }
     }
 
-    public static async Task CopyToLocalPathAsync(string sourcePath, string destinationPath, CancellationToken cancellationToken = default)
+    public static async Task CopyToLocalPathAsync(string sourcePath, string destinationPath, CancellationToken cancellationToken = default,
+        string? managedRunsDirectory = null)
     {
         if (string.Equals(Path.GetFullPath(sourcePath), Path.GetFullPath(destinationPath), StringComparison.OrdinalIgnoreCase))
             throw new IOException("Choose a different file to preserve this report.");
+        if (managedRunsDirectory is not null && PathContainment.IsUnderRoot(ResolveDirectory(managedRunsDirectory),
+                Path.Combine(ResolveDirectory(Path.GetDirectoryName(Path.GetFullPath(destinationPath))!), Path.GetFileName(destinationPath))))
+            throw new IOException("Save copies outside the managed run folder to preserve report history.");
         var bytes = await File.ReadAllBytesAsync(sourcePath, cancellationToken).ConfigureAwait(false);
         await AtomicFile.WriteAllBytesAsync(destinationPath, bytes, cancellationToken).ConfigureAwait(false);
+    }
+
+    private static string ResolveDirectory(string path)
+    {
+        var full = Path.GetFullPath(path);
+        var root = Path.GetPathRoot(full)!;
+        var current = root;
+        foreach (var segment in full[root.Length..].Split([Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar], StringSplitOptions.RemoveEmptyEntries))
+        {
+            current = Path.Combine(current, segment);
+            if (Directory.Exists(current))
+            {
+                var directory = new DirectoryInfo(current);
+                if (directory.LinkTarget is not null) current = directory.ResolveLinkTarget(returnFinalTarget: true)!.FullName;
+            }
+        }
+        return current;
     }
 
     public Task OpenInViewerAsync(string pdfPath, CancellationToken cancellationToken = default) => Task.Run(() =>

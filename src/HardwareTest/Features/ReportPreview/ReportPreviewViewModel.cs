@@ -37,7 +37,7 @@ public partial class ReportPreviewViewModel : ReactiveObject
     private OperatorCredential? _capturedCredential;
     private bool _capturing;
     private enum ActionKind { Sign, Save, Print, Open }
-    private sealed record PendingAction(TestRunRecord Run, string Kind, string PdfPath, string? RevisionId, ActionKind Action, long Version);
+    private sealed record PendingAction(TestRunRecord Run, string Kind, ActionKind Action, long Version);
 
 
     /// Test seam: routes UI work synchronously instead of through the Avalonia dispatcher.
@@ -316,7 +316,7 @@ public partial class ReportPreviewViewModel : ReactiveObject
                     _signingCancellation?.Cancel();
                     _signingCancellation?.Dispose();
                     _signingCancellation = CancellationTokenSource.CreateLinkedTokenSource(token);
-                    _pending = new PendingAction(run, kind, path, artifact?.RevisionId, action, version);
+                    _pending = new PendingAction(run, kind, action, version);
                     _capturedCredential = null;
                 }
                 await RunOnUiAsync(() =>
