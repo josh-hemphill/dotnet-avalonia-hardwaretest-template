@@ -60,20 +60,9 @@ public sealed class ReportDesktopActions(Func<Window?> window, string managedRun
             cancellationToken.ThrowIfCancellationRequested();
             if (string.Equals(destination.TryGetLocalPath(), Path.GetFullPath(pdfPath), StringComparison.OrdinalIgnoreCase))
                 throw new IOException("Choose a different file to preserve this report.");
-            await Task.Run(async () =>
-            {
-                var localPath = destination.TryGetLocalPath();
-                if (localPath is not null)
-                {
-                    await CopyToLocalPathAsync(pdfPath, localPath, cancellationToken, managedRunsDirectory);
-                    return;
-                }
-                var bytes = await File.ReadAllBytesAsync(pdfPath, cancellationToken);
-                await using var output = await destination.OpenWriteAsync();
-                if (output.CanSeek) output.SetLength(0);
-                await output.WriteAsync(bytes, cancellationToken);
-                await output.FlushAsync(cancellationToken);
-            }, cancellationToken);
+            var localPath = destination.TryGetLocalPath()
+                ?? throw new IOException("Choose a local folder to save a report copy safely.");
+            await Task.Run(() => CopyToLocalPathAsync(pdfPath, localPath, cancellationToken, managedRunsDirectory), cancellationToken);
             return destination.Name;
         }
     }
