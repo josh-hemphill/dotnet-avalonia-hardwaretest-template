@@ -99,7 +99,7 @@ public sealed class ReportAttestationService : IReportAttestationService
             return false;
         }
 
-        var pdfPath = artifact?.PdfPath ?? (revisionId is null ? ResolvePdfPath(run, lookupKind) : null);
+        var pdfPath = artifact is not null ? artifact.PdfPath : (revisionId is null ? ResolvePdfPath(run, lookupKind) : null);
         if (string.IsNullOrWhiteSpace(pdfPath) || !File.Exists(pdfPath))
         {
             return false;
@@ -654,7 +654,10 @@ public sealed class ReportAttestationService : IReportAttestationService
     }
 
     public static string? ResolvePdfPath(TestRunRecord run, string reportKind)
-        => ResolveIssuedPdfPath(run, reportKind) ?? ResolveWorkingPdfPath(run, reportKind);
+    {
+        var issued = ReportRevisions.Latest(run, reportKind);
+        return issued is not null ? issued.PdfPath : ResolveWorkingPdfPath(run, reportKind);
+    }
 
     public static string? ResolveIssuedPdfPath(TestRunRecord run, string reportKind)
         => ReportRevisions.Latest(run, reportKind)?.PdfPath;
@@ -726,7 +729,8 @@ public sealed class ReportAttestationService : IReportAttestationService
         if (run.Reports.Any(r => ReportArtifactRoles.IsIssued(r.Role)
             && string.Equals(r.PdfPath, pdfPath, StringComparison.OrdinalIgnoreCase))) return pdfPath;
         var kind = KindForPdf(run, pdfPath);
-        return ResolveIssuedPdfPath(run, kind) ?? pdfPath;
+        var issued = ReportRevisions.Latest(run, kind);
+        return issued is null ? pdfPath : issued.PdfPath ?? throw new IOException("The issued revision has no PDF path.");
     }
 
     private static bool CanRecordPresence(bool skipSigning, string? pin, CredentialSignResult? sign)

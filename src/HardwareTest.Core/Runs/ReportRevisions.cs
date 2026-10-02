@@ -32,6 +32,31 @@ public static class ReportRevisions
         public void Dispose() => gate.Release();
     }
 
+    internal static async Task<IDisposable> LockAllAsync(IEnumerable<string> directories, CancellationToken cancellationToken)
+    {
+        var leases = new List<IDisposable>();
+        try
+        {
+            foreach (var directory in directories.Select(Path.GetFullPath).Distinct(StringComparer.OrdinalIgnoreCase)
+                         .Order(StringComparer.OrdinalIgnoreCase))
+                leases.Add(await LockAsync(directory, cancellationToken).ConfigureAwait(false));
+            return new CompositeLease(leases);
+        }
+        catch
+        {
+            new CompositeLease(leases).Dispose();
+            throw;
+        }
+    }
+
+    private sealed class CompositeLease(List<IDisposable> leases) : IDisposable
+    {
+        public void Dispose()
+        {
+            for (var index = leases.Count - 1; index >= 0; index--) leases[index].Dispose();
+        }
+    }
+
     public static TestRunRecord Clone(TestRunRecord run)
     {
         var copy = JsonSerializer.Deserialize(JsonSerializer.Serialize(run, AppJsonContext.Default.TestRunRecord),

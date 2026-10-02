@@ -63,6 +63,9 @@ public sealed class FileSuiteRunStore : ISuiteRunStore
                 else ReportRevisions.MergeHistory(incoming, member);
             }
         }
+        // Issuance shares these gates. Keep them through suite publication, in stable order.
+        using var members = await ReportRevisions.LockAllAsync(candidate.PlanRuns.Select(r => _runStore.GetRunDirectory(r.RunId)),
+            cancellationToken).ConfigureAwait(false);
         foreach (var planRun in candidate.PlanRuns)
         {
             if (planRun.IsSchemaReadOnly || planRun.SchemaVersion > SchemaVersions.TestRunRecord)

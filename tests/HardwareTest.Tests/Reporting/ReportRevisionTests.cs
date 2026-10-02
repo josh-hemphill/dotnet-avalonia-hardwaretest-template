@@ -410,6 +410,54 @@ public sealed class ReportRevisionTests : IDisposable
         Assert.True(service.HasValidAttestation(run, ReportKinds.Certification));
     }
 
+    [Fact]
+    public async Task Latest_issued_null_path_never_falls_back_to_identical_working_pdf()
+    {
+        var store = new FileRunStore(_root);
+        var run = await SeedAsync(store);
+        var service = new ReportAttestationService(new MockOperatorCredentialBroker(canSign: true), store, new AppSettings());
+        Assert.True((await service.AttestAsync(run, ReportKinds.Certification)).Succeeded);
+        var older = ReportRevisions.Latest(run, ReportKinds.Certification)!;
+        Assert.True((await service.AttestAsync(run, ReportKinds.Certification)).Succeeded);
+        var latest = ReportRevisions.Latest(run, ReportKinds.Certification)!;
+        latest.PdfPath = null!;
+        Assert.False(service.HasValidAttestation(run, ReportKinds.Certification));
+        Assert.True(service.HasValidAttestation(run, ReportKinds.Certification, older.RevisionId));
+        Assert.Null(ReportAttestationService.ResolvePdfPath(run, ReportKinds.Certification));
+        Assert.Throws<IOException>(() => ReportAttestationService.ResolvePrintOrExportPdfPath(run,
+            ReportAttestationService.ResolveWorkingPdfPath(run, ReportKinds.Certification)!));
+    }
+
+    [Fact]
+    public async Task Suite_publication_holds_member_issuance_gate_after_standalone_save()
+    {
+        var store = new FileRunStore(_root);
+        var run = await SeedAsync(store);
+        Task<IDisposable>? competingIssuance = null;
+        var hooked = new HookedStore(store, async () =>
+        {
+            competingIssuance = ReportRevisions.LockAsync(store.GetRunDirectory(run.RunId), CancellationToken.None);
+            await Task.WhenAny(competingIssuance, Task.Delay(100));
+            Assert.False(competingIssuance.IsCompleted);
+        });
+        var suites = new FileSuiteRunStore(hooked, _root);
+        await suites.SaveAsync(new SuiteRunRecord { SuiteRunId = "locked-suite", PlanRuns = [run] });
+        using var acquired = await competingIssuance!;
+        Assert.NotNull(await suites.LoadAsync("locked-suite"));
+    }
+
+    private sealed class HookedStore(IRunStore inner, Func<Task> afterSave) : IRunStore
+    {
+        public async Task SaveAsync(TestRunRecord run, CancellationToken cancellationToken = default)
+        {
+            await inner.SaveAsync(run, cancellationToken);
+            await afterSave();
+        }
+        public Task<TestRunRecord?> LoadAsync(string runId, CancellationToken cancellationToken = default) => inner.LoadAsync(runId, cancellationToken);
+        public Task<IReadOnlyList<TestRunSummary>> ListAsync(CancellationToken cancellationToken = default) => inner.ListAsync(cancellationToken);
+        public string GetRunDirectory(string runId) => inner.GetRunDirectory(runId);
+    }
+
     private static async Task<TestRunRecord> SeedAsync(FileRunStore store)
     {
         var run = new TestRunRecord { RunId = "run-revisions" };
