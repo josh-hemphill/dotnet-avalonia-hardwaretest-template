@@ -174,7 +174,7 @@ public sealed class WorkspacePackPlanTests
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
         while (dir is not null)
         {
-            if (File.Exists(Path.Combine(dir.FullName, "HardwareTest.slnx")))
+            if (File.Exists(Path.Combine(dir.FullName, "dirs.proj")))
             {
                 return dir.FullName;
             }
