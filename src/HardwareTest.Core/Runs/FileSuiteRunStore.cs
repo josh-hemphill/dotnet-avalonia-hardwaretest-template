@@ -96,12 +96,12 @@ public sealed class FileSuiteRunStore : ISuiteRunStore
     public async Task<SuiteRunRecord?> LoadAsync(string suiteRunId, CancellationToken cancellationToken = default)
     {
         var path = Path.Combine(GetSuiteRunDirectory(suiteRunId), "suite-run.json");
-        if (!File.Exists(path))
+        await using var stream = AtomicFile.TryOpenReadSnapshot(path);
+        if (stream is null)
         {
             return null;
         }
 
-        await using var stream = AtomicFile.OpenReadSnapshot(path);
         var suite = await JsonSerializer.DeserializeAsync(stream, AppJsonContext.Default.SuiteRunRecord, cancellationToken)
             .ConfigureAwait(false);
         if (suite is null)

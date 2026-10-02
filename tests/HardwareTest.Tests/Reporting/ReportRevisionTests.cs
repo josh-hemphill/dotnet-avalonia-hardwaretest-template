@@ -474,6 +474,34 @@ public sealed class ReportRevisionTests : IDisposable
         Assert.Equal("new metadata", (await store.LoadAsync(run.RunId))!.ErrorMessage);
     }
 
+    [Fact]
+    public async Task Run_and_suite_readers_never_lose_metadata_during_replacement()
+    {
+        var store = new FileRunStore(_root);
+        var run = await SeedAsync(store);
+        var suites = new FileSuiteRunStore(store, _root);
+        var suite = new SuiteRunRecord { SuiteRunId = "snapshot-suite", PlanRuns = [run] };
+        await suites.SaveAsync(suite);
+        var start = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var writer = Task.Run(async () =>
+        {
+            await start.Task;
+            for (var index = 0; index < 50; index++) await suites.SaveAsync(suite);
+        });
+        var readers = Enumerable.Range(0, 3).Select(_ => Task.Run(async () =>
+        {
+            await start.Task;
+            for (var index = 0; index < 200; index++)
+            {
+                Assert.NotNull(await store.LoadAsync(run.RunId));
+                Assert.Contains(await store.ListAsync(), item => item.RunId == run.RunId);
+                Assert.NotNull(await suites.LoadAsync(suite.SuiteRunId));
+            }
+        })).ToArray();
+        start.TrySetResult();
+        await Task.WhenAll(readers.Append(writer));
+    }
+
     private static async Task<TestRunRecord> SeedAsync(FileRunStore store)
     {
         var run = new TestRunRecord { RunId = "run-revisions" };

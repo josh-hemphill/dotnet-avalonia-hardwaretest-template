@@ -72,12 +72,12 @@ public sealed class FileRunStore : IRunStore
     public async Task<TestRunRecord?> LoadAsync(string runId, CancellationToken cancellationToken = default)
     {
         var path = Path.Combine(GetRunDirectory(runId), "run.json");
-        if (!File.Exists(path))
+        await using var stream = AtomicFile.TryOpenReadSnapshot(path);
+        if (stream is null)
         {
             return null;
         }
 
-        await using var stream = AtomicFile.OpenReadSnapshot(path);
         var run = await JsonSerializer.DeserializeAsync(stream, AppJsonContext.Default.TestRunRecord, cancellationToken)
             .ConfigureAwait(false);
         if (run is null)
@@ -97,15 +97,11 @@ public sealed class FileRunStore : IRunStore
         {
             cancellationToken.ThrowIfCancellationRequested();
             var path = Path.Combine(dir, "run.json");
-            if (!File.Exists(path))
-            {
-                continue;
-            }
-
             TestRunRecord? run;
             try
             {
-                await using var stream = AtomicFile.OpenReadSnapshot(path);
+                await using var stream = AtomicFile.TryOpenReadSnapshot(path);
+                if (stream is null) continue;
                 run = await JsonSerializer.DeserializeAsync(
                         stream,
                         AppJsonContext.Default.TestRunRecord,
