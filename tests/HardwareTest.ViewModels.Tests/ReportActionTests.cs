@@ -330,6 +330,36 @@ public sealed class ReportActionTests : IDisposable
     }
 
     [Fact]
+    public async Task Save_copy_rejects_parent_directory_alias_into_managed_history()
+    {
+        var managed = Path.Combine(_root, "managed-runs");
+        var issued = Path.Combine(managed, "run", "issued", "rev1", "report.pdf");
+        var source = Path.Combine(_root, "source.pdf");
+        var alias = Path.Combine(_root, "outside-alias");
+        Directory.CreateDirectory(Path.GetDirectoryName(issued)!);
+        await File.WriteAllBytesAsync(issued, [9, 8, 7]);
+        await File.WriteAllBytesAsync(source, [1, 2, 3]);
+        if (OperatingSystem.IsWindows())
+        {
+            using var process = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("cmd.exe",
+                $"/c mklink /J \"{alias}\" \"{managed}\"")
+            { UseShellExecute = false, CreateNoWindow = true });
+            Assert.NotNull(process);
+            await process.WaitForExitAsync();
+            Assert.Equal(0, process.ExitCode);
+        }
+        else Directory.CreateSymbolicLink(alias, managed);
+        try
+        {
+            var destination = Path.Combine(alias, "run", "issued", "rev1", "report.pdf");
+            await Assert.ThrowsAsync<IOException>(() => ReportDesktopActions.CopyToLocalPathAsync(source, destination,
+                managedRunsDirectory: managed));
+            Assert.Equal(new byte[] { 9, 8, 7 }, await File.ReadAllBytesAsync(issued));
+        }
+        finally { Directory.Delete(alias); }
+    }
+
+    [Fact]
     public async Task Cancelled_provider_remains_single_flight_and_new_capture_can_retry_after_completion()
     {
         var store = new FileRunStore(_root);
