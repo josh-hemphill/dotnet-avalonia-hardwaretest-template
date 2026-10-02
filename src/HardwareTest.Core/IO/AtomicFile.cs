@@ -27,6 +27,7 @@ public static class AtomicFile
         {
             await File.WriteAllBytesAsync(temp, content, cancellationToken).ConfigureAwait(false);
             await FlushToDiskAsync(temp, cancellationToken).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
             ReplaceDestination(temp, destinationPath);
         }
         finally

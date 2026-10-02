@@ -48,7 +48,7 @@ public sealed class FileRunStore : IRunStore
 
     public async Task SaveAsync(TestRunRecord run, CancellationToken cancellationToken = default)
     {
-        if (run.IsSchemaReadOnly)
+        if (run.IsSchemaReadOnly || run.SchemaVersion > SchemaVersions.TestRunRecord)
         {
             throw new SchemaReadOnlyException(
                 DocumentSchemaGate.Evaluate(
@@ -58,11 +58,15 @@ public sealed class FileRunStore : IRunStore
                     run.AppVersion));
         }
 
-        run.SchemaVersion = SchemaVersions.TestRunRecord;
         var dir = GetRunDirectory(run.RunId);
+        using var write = await ReportRevisions.LockWriteAsync(dir, cancellationToken).ConfigureAwait(false);
+        var candidate = ReportRevisions.Clone(run);
+        await ReportRevisions.RefreshHistoryAsync(candidate, this, cancellationToken).ConfigureAwait(false);
+        candidate.SchemaVersion = SchemaVersions.TestRunRecord;
         var path = Path.Combine(dir, "run.json");
-        await AtomicFile.WriteJsonAsync(path, run, AppJsonContext.Default.TestRunRecord, cancellationToken)
+        await AtomicFile.WriteJsonAsync(path, candidate, AppJsonContext.Default.TestRunRecord, cancellationToken)
             .ConfigureAwait(false);
+        ReportRevisions.PublishHistory(run, candidate);
     }
 
     public async Task<TestRunRecord?> LoadAsync(string runId, CancellationToken cancellationToken = default)
@@ -158,6 +162,7 @@ public sealed class FileRunStore : IRunStore
         {
             run.SchemaVersion = SchemaVersions.TestRunRecord;
         }
+        if (!run.IsSchemaReadOnly) ReportRevisions.MigrateLegacy(run);
     }
 
     private static string Sanitize(string runId) => HardwareTest.Core.IO.PortableFileNames.Sanitize(runId);

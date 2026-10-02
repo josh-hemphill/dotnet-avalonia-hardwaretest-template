@@ -888,6 +888,39 @@ public sealed class ResultsViewModelTests
     }
 
     [Fact]
+    public void CollectExportReportFiles_keeps_revision_history_without_collisions_or_latest_fallback()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "export-revisions-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            string Seed(string file) { var path = Path.Combine(root, file); File.WriteAllText(path, file); return path; }
+            var older = Seed("old.pdf");
+            var working = Seed("working.pdf");
+            var sidecar = Seed("old.json");
+            var snapshot = Seed("snapshot.json");
+            var run = new TestRunRecord
+            {
+                Reports =
+                [
+                    new() { Kind = "certification", Role = ReportArtifactRoles.Issued, RevisionId = "rev1", RevisionNumber = 1, PdfPath = older, RunSnapshotPath = snapshot },
+                    new() { Kind = "certification", Role = ReportArtifactRoles.Issued, RevisionId = "rev2", RevisionNumber = 2, PdfPath = Path.Combine(root, "missing.pdf") },
+                    new() { Kind = "certification", PdfPath = working },
+                ],
+                Attestations = [new() { ReportKind = "certification", RevisionId = "rev1", SidecarPath = sidecar }],
+            };
+            var files = ResultsViewModel.CollectExportReportFiles(run).ToList();
+            Assert.Equal(files.Count, files.Select(f => f.RelativeName).Distinct(StringComparer.OrdinalIgnoreCase).Count());
+            Assert.DoesNotContain(files, f => f.RelativeName == "certification.pdf");
+            Assert.Contains(files, f => f.RelativeName == Path.Combine("working", "certification.pdf"));
+            Assert.Contains(files, f => f.RelativeName == Path.Combine("history", "certification", "rev1", "certification.pdf"));
+            Assert.Contains(files, f => f.RelativeName == Path.Combine("history", "certification", "rev1", "certification.attestation.json"));
+            Assert.Contains(files, f => f.RelativeName == Path.Combine("history", "certification", "rev1", "run.snapshot.json"));
+        }
+        finally { Directory.Delete(root, recursive: true); }
+    }
+
+    [Fact]
     public async Task Report_list_shows_working_and_issued()
     {
         var store = new FakeRunStore();

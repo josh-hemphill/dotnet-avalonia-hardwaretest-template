@@ -32,7 +32,7 @@ public sealed class FileSuiteRunStore : ISuiteRunStore
 
     public async Task SaveAsync(SuiteRunRecord suiteRun, CancellationToken cancellationToken = default)
     {
-        if (suiteRun.IsSchemaReadOnly)
+        if (suiteRun.IsSchemaReadOnly || suiteRun.SchemaVersion > SchemaVersions.SuiteRunRecord)
         {
             throw new SchemaReadOnlyException(
                 DocumentSchemaGate.Evaluate(
@@ -41,9 +41,16 @@ public sealed class FileSuiteRunStore : ISuiteRunStore
                     SchemaVersions.SuiteRunRecord));
         }
 
-        suiteRun.SchemaVersion = SchemaVersions.SuiteRunRecord;
         var dir = GetSuiteRunDirectory(suiteRun.SuiteRunId);
-        foreach (var planRun in suiteRun.PlanRuns)
+        using var write = await ReportRevisions.LockWriteAsync(dir, cancellationToken).ConfigureAwait(false);
+        var committed = await LoadAsync(suiteRun.SuiteRunId, cancellationToken).ConfigureAwait(false);
+        if (committed?.IsSchemaReadOnly == true) throw new SchemaReadOnlyException(DocumentSchemaGate.Evaluate(
+            SchemaDocumentTypes.SuiteRunRecord, committed.StoredSchemaVersion, SchemaVersions.SuiteRunRecord));
+        var candidate = JsonSerializer.Deserialize(JsonSerializer.Serialize(suiteRun, AppJsonContext.Default.SuiteRunRecord),
+            AppJsonContext.Default.SuiteRunRecord)!;
+        candidate.SchemaVersion = SchemaVersions.SuiteRunRecord;
+        candidate.PlanRuns = suiteRun.PlanRuns.Select(ReportRevisions.Clone).ToList();
+        foreach (var planRun in candidate.PlanRuns)
         {
             await _runStore.SaveAsync(planRun, cancellationToken).ConfigureAwait(false);
         }
@@ -51,10 +58,13 @@ public sealed class FileSuiteRunStore : ISuiteRunStore
         var path = Path.Combine(dir, "suite-run.json");
         await AtomicFile.WriteJsonAsync(
                 path,
-                suiteRun,
+                candidate,
                 AppJsonContext.Default.SuiteRunRecord,
                 cancellationToken)
             .ConfigureAwait(false);
+        suiteRun.SchemaVersion = candidate.SchemaVersion;
+        for (var index = 0; index < suiteRun.PlanRuns.Count; index++)
+            ReportRevisions.PublishHistory(suiteRun.PlanRuns[index], candidate.PlanRuns[index]);
     }
 
     public async Task<SuiteRunRecord?> LoadAsync(string suiteRunId, CancellationToken cancellationToken = default)

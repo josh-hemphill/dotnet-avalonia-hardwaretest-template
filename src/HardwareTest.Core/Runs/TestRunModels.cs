@@ -69,6 +69,9 @@ public sealed class RunReportArtifact
     public DateTimeOffset GeneratedAt { get; set; }
     /// Working (regenerable) or issued (frozen attested copy). Missing JSON defaults to working.
     public string Role { get; set; } = ReportArtifactRoles.Working;
+    public string? RevisionId { get; set; }
+    public int RevisionNumber { get; set; }
+    public string? RunSnapshotPath { get; set; }
 }
 
 /// Well-known report artifact roles (string constants, not a runtime enum).
