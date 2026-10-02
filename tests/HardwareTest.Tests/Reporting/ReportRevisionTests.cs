@@ -239,6 +239,72 @@ public sealed class ReportRevisionTests : IDisposable
         Assert.Equal(0, run.SchemaVersion);
     }
 
+    [Theory]
+    [InlineData(0)]
+    [InlineData(4)]
+    public async Task Suite_embedded_legacy_reports_migrate_in_memory_and_keep_valid_signatures(int schema)
+    {
+        var runs = new FileRunStore(_root);
+        var suites = new FileSuiteRunStore(runs, _root);
+        var run = await SeedAsync(runs);
+        var service = new ReportAttestationService(new MockOperatorCredentialBroker(canSign: true), runs, new AppSettings());
+        Assert.True((await service.AttestAsync(run, ReportKinds.Certification)).Succeeded);
+        var artifact = ReportRevisions.Latest(run, ReportKinds.Certification)!;
+        var stamp = run.Attestations[0];
+        var pdfBytes = await File.ReadAllBytesAsync(artifact.PdfPath);
+        var sidecarBytes = await File.ReadAllBytesAsync(stamp.SidecarPath!);
+        artifact.RevisionId = null;
+        artifact.RevisionNumber = 0;
+        artifact.RunSnapshotPath = null;
+        stamp.RevisionId = null;
+        run.SchemaVersion = schema;
+        var suite = new SuiteRunRecord { SuiteRunId = "legacy-suite", PlanRuns = [run] };
+        var path = Path.Combine(suites.GetSuiteRunDirectory(suite.SuiteRunId), "suite-run.json");
+        var original = JsonSerializer.Serialize(suite, AppJsonContext.Default.SuiteRunRecord);
+        await File.WriteAllTextAsync(path, original);
+        var loaded = (await suites.LoadAsync(suite.SuiteRunId))!;
+        var member = Assert.Single(loaded.PlanRuns);
+        Assert.Equal(schema, member.StoredSchemaVersion);
+        Assert.Equal(schema == 0, member.IsLegacy);
+        Assert.False(member.IsSchemaReadOnly);
+        var issued = ReportRevisions.Latest(member, ReportKinds.Certification)!;
+        Assert.StartsWith("legacy-", issued.RevisionId);
+        Assert.Equal(1, issued.RevisionNumber);
+        Assert.Equal(issued.RevisionId, member.Attestations[0].RevisionId);
+        Assert.True(service.HasValidAttestation(member, ReportKinds.Certification));
+        Assert.Equal(original, await File.ReadAllTextAsync(path));
+        Assert.Equal(pdfBytes, await File.ReadAllBytesAsync(issued.PdfPath));
+        Assert.Equal(sidecarBytes, await File.ReadAllBytesAsync(member.Attestations[0].SidecarPath!));
+    }
+
+    [Fact]
+    public async Task Suite_future_member_is_readonly_and_refuses_save_without_downgrading()
+    {
+        var runs = new FileRunStore(_root);
+        var suites = new FileSuiteRunStore(runs, _root);
+        var future = new TestRunRecord
+        {
+            RunId = "future-member",
+            SchemaVersion = SchemaVersions.TestRunRecord + 1,
+            Reports = [new() { Kind = ReportKinds.Certification, Role = ReportArtifactRoles.Issued, PdfPath = "unchanged.pdf" }],
+        };
+        var suite = new SuiteRunRecord { SuiteRunId = "future-suite", PlanRuns = [future] };
+        var path = Path.Combine(suites.GetSuiteRunDirectory(suite.SuiteRunId), "suite-run.json");
+        var original = JsonSerializer.Serialize(suite, AppJsonContext.Default.SuiteRunRecord);
+        await File.WriteAllTextAsync(path, original);
+        var loaded = (await suites.LoadAsync(suite.SuiteRunId))!;
+        var member = Assert.Single(loaded.PlanRuns);
+        Assert.True(member.IsSchemaReadOnly);
+        Assert.Equal(future.SchemaVersion, member.SchemaVersion);
+        Assert.Equal(future.SchemaVersion, member.StoredSchemaVersion);
+        Assert.Null(member.Reports[0].RevisionId);
+        await Assert.ThrowsAsync<SchemaReadOnlyException>(() => suites.SaveAsync(loaded));
+        Assert.Equal(future.SchemaVersion, member.SchemaVersion);
+        Assert.Null(member.Reports[0].RevisionId);
+        Assert.Equal(original, await File.ReadAllTextAsync(path));
+        Assert.False(File.Exists(Path.Combine(runs.GetRunDirectory(member.RunId), "run.json")));
+    }
+
     private static async Task<TestRunRecord> SeedAsync(FileRunStore store)
     {
         var run = new TestRunRecord { RunId = "run-revisions" };

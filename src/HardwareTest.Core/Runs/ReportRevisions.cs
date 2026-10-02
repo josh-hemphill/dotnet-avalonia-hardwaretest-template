@@ -117,9 +117,13 @@ public sealed class FileReportRevisionStore(IRunStore runs) : IReportRevisionSto
         document.SidecarPath = Path.Combine(destination, kind + ".attestation.json");
         var artifact = new RunReportArtifact
         {
-            Kind = kind, Title = ReportKinds.Title(kind), Role = ReportArtifactRoles.Issued,
-            RevisionId = id, RevisionNumber = (ReportRevisions.Latest(candidate, kind)?.RevisionNumber ?? 0) + 1,
-            PdfPath = Path.Combine(destination, kind + ".pdf"), GeneratedAt = document.CapturedAt,
+            Kind = kind,
+            Title = ReportKinds.Title(kind),
+            Role = ReportArtifactRoles.Issued,
+            RevisionId = id,
+            RevisionNumber = (ReportRevisions.Latest(candidate, kind)?.RevisionNumber ?? 0) + 1,
+            PdfPath = Path.Combine(destination, kind + ".pdf"),
+            GeneratedAt = document.CapturedAt,
             RunSnapshotPath = Path.Combine(destination, "run.snapshot.json"),
         };
         candidate.Reports.Add(artifact);

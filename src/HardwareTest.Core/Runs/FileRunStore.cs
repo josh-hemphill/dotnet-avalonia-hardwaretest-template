@@ -146,7 +146,7 @@ public sealed class FileRunStore : IRunStore
             .ToArray();
     }
 
-    private static void ApplySchemaGate(TestRunRecord run, string path)
+    internal static void ApplySchemaGate(TestRunRecord run, string path)
     {
         var status = DocumentSchemaGate.Apply(
             SchemaDocumentTypes.TestRunRecord,

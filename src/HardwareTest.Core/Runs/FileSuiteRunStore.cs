@@ -97,6 +97,9 @@ public sealed class FileSuiteRunStore : ISuiteRunStore
             suite.SchemaVersion = SchemaVersions.SuiteRunRecord;
         }
 
+        foreach (var planRun in suite.PlanRuns)
+            FileRunStore.ApplySchemaGate(planRun, path + "#PlanRuns/" + planRun.RunId);
+
         return suite;
     }
 
