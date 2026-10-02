@@ -53,6 +53,50 @@ public sealed class AuthoringWindowTests
     }
 
     [AvaloniaFact]
+    public void Populated_unit_and_function_choices_keep_selection_identity_through_editor_refresh()
+    {
+        using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
+        fixture.Show();
+        fixture.OpenRememberedWorkspace();
+        var viewModel = fixture.ViewModel;
+        var acquire = Assert.Single(viewModel.SequenceItems, row => row.Label == "Acquire VDC");
+        fixture.Control<ListBox>("Program sequence").SelectedItem = acquire;
+        AuthoringUiFixture.Drain();
+
+        var units = fixture.Control<ComboBox>(AuthoringInspectorCopy.OperatorYUnitLabel);
+        var functions = fixture.Control<ComboBox>(AuthoringInspectorCopy.MeasureRecipeLabel);
+        Assert.True(units.IsEffectivelyVisible);
+        Assert.True(functions.IsEffectivelyVisible);
+        Assert.NotEmpty(units.Items);
+        Assert.NotEmpty(functions.Items);
+        Assert.Equal("V", units.SelectedItem);
+        Assert.Same(Assert.Single(units.Items.OfType<string>(), unit => unit == viewModel.YUnit), units.SelectedItem);
+        Assert.Same(viewModel.YUnitOptions, units.ItemsSource);
+        Assert.Same(viewModel.MetricFunctionChoices, functions.ItemsSource);
+        Assert.Same(viewModel.SelectedMetricFunction, functions.SelectedItem);
+        Assert.Same(Assert.Single(functions.Items.OfType<AuthoringFunctionDisplay>(),
+            choice => choice.Id == viewModel.MetricFunctionId), functions.SelectedItem);
+
+        var program = viewModel.SelectedProgram;
+        var unitChoices = units.ItemsSource;
+        var functionChoices = functions.ItemsSource;
+        var unitSelection = units.SelectedItem;
+        var functionSelection = functions.SelectedItem;
+        // Re-selecting the current row refreshes all editor bindings without making an edit.
+        viewModel.SelectSequence(viewModel.SelectedSequenceIndex);
+        AuthoringUiFixture.Drain();
+
+        Assert.Same(unitChoices, units.ItemsSource);
+        Assert.Same(functionChoices, functions.ItemsSource);
+        Assert.Same(unitSelection, units.SelectedItem);
+        Assert.Same(functionSelection, functions.SelectedItem);
+        Assert.Same(viewModel.SelectedMetricFunction, functions.SelectedItem);
+        Assert.Same(program, viewModel.SelectedProgram);
+        Assert.False(viewModel.HasUnsavedChanges);
+        Assert.Null(viewModel.Error);
+    }
+
+    [AvaloniaFact]
     public void Typing_program_fields_updates_draft_and_unsaved_indicator_and_sidecar_save_clears_it()
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
