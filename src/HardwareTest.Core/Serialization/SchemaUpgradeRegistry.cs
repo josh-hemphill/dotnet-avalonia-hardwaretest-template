@@ -42,6 +42,13 @@ public static class SchemaUpgradeRegistry
             ToVersion = 4,
             Transform = null,
         },
+        new()
+        {
+            DocumentType = SchemaDocumentTypes.TestRunRecord,
+            FromVersion = 4,
+            ToVersion = 5,
+            Transform = document => { if (document is HardwareTest.Core.Runs.TestRunRecord run) HardwareTest.Core.Runs.ReportRevisions.MigrateLegacy(run); },
+        },
     ];
 
     public static IReadOnlyList<SchemaUpgradeStep> RegisteredSteps

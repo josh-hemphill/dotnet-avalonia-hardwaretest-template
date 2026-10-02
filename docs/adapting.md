@@ -365,10 +365,12 @@ Every persisted JSON document carries an integer `schemaVersion`. Bumps are deli
 | --- | --- | --- |
 | `AppSettings` (`settings.json`) | 1 | Initial stamped shape. |
 | `UiState` (`ui-state.json`) | 1 | Initial stamped shape. |
-| `TestRunRecord` (`runs/{id}/run.json`) | 4 | Optional `RunReportArtifact.Role` (`working` / `issued`). Identity upgrades 1→2→3→4. |
+| `TestRunRecord` (`runs/{id}/run.json`) | 5 | Immutable issued revisions carry revision ID/number, snapshot path, and sidecar hash. Upgrades 1→2→3→4 retain their shape; 4→5 binds legacy issued artifacts to deterministic revision IDs without moving or rewriting evidence. |
 | `SuiteRunRecord` (`runs/suites/{id}/suite-run.json`) | 1 | Initial stamped shape. |
 | `CrashReport` (`crashes/{id}/crash.json`) | 1 | Initial crash dossier. |
 | `StationHealthRecord` (`station-health/{profileId}.json`) | 1 | Station-scoped cal / health snapshot. |
+
+Each new issued report lives under `runs/{id}/issued/{kind}/{revisionId}/` with its PDF, attestation sidecar, and exact pre-issuance `run.snapshot.json`. Regenerating the working report preserves issued history. Suite members use the same run schema gate; future-schema members prevent suite saves. Per-run locks coordinate writers within one process; shared directories used by multiple processes require separate coordination.
 
 ## Custom mixins
 

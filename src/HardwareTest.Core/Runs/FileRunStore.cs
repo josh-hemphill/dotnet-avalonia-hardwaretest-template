@@ -48,7 +48,7 @@ public sealed class FileRunStore : IRunStore
 
     public async Task SaveAsync(TestRunRecord run, CancellationToken cancellationToken = default)
     {
-        if (run.IsSchemaReadOnly)
+        if (run.IsSchemaReadOnly || run.SchemaVersion > SchemaVersions.TestRunRecord)
         {
             throw new SchemaReadOnlyException(
                 DocumentSchemaGate.Evaluate(
@@ -58,22 +58,26 @@ public sealed class FileRunStore : IRunStore
                     run.AppVersion));
         }
 
-        run.SchemaVersion = SchemaVersions.TestRunRecord;
         var dir = GetRunDirectory(run.RunId);
+        using var write = await ReportRevisions.LockWriteAsync(dir, cancellationToken).ConfigureAwait(false);
+        var candidate = ReportRevisions.Clone(run);
+        await ReportRevisions.RefreshHistoryAsync(candidate, this, cancellationToken).ConfigureAwait(false);
+        candidate.SchemaVersion = SchemaVersions.TestRunRecord;
         var path = Path.Combine(dir, "run.json");
-        await AtomicFile.WriteJsonAsync(path, run, AppJsonContext.Default.TestRunRecord, cancellationToken)
+        await AtomicFile.WriteJsonAsync(path, candidate, AppJsonContext.Default.TestRunRecord, cancellationToken)
             .ConfigureAwait(false);
+        ReportRevisions.PublishHistory(run, candidate);
     }
 
     public async Task<TestRunRecord?> LoadAsync(string runId, CancellationToken cancellationToken = default)
     {
         var path = Path.Combine(GetRunDirectory(runId), "run.json");
-        if (!File.Exists(path))
+        await using var stream = AtomicFile.TryOpenReadSnapshot(path);
+        if (stream is null)
         {
             return null;
         }
 
-        await using var stream = File.OpenRead(path);
         var run = await JsonSerializer.DeserializeAsync(stream, AppJsonContext.Default.TestRunRecord, cancellationToken)
             .ConfigureAwait(false);
         if (run is null)
@@ -93,15 +97,11 @@ public sealed class FileRunStore : IRunStore
         {
             cancellationToken.ThrowIfCancellationRequested();
             var path = Path.Combine(dir, "run.json");
-            if (!File.Exists(path))
-            {
-                continue;
-            }
-
             TestRunRecord? run;
             try
             {
-                await using var stream = File.OpenRead(path);
+                await using var stream = AtomicFile.TryOpenReadSnapshot(path);
+                if (stream is null) continue;
                 run = await JsonSerializer.DeserializeAsync(
                         stream,
                         AppJsonContext.Default.TestRunRecord,
@@ -142,7 +142,7 @@ public sealed class FileRunStore : IRunStore
             .ToArray();
     }
 
-    private static void ApplySchemaGate(TestRunRecord run, string path)
+    internal static void ApplySchemaGate(TestRunRecord run, string path)
     {
         var status = DocumentSchemaGate.Apply(
             SchemaDocumentTypes.TestRunRecord,
@@ -158,6 +158,7 @@ public sealed class FileRunStore : IRunStore
         {
             run.SchemaVersion = SchemaVersions.TestRunRecord;
         }
+        if (!run.IsSchemaReadOnly) ReportRevisions.MigrateLegacy(run);
     }
 
     private static string Sanitize(string runId) => HardwareTest.Core.IO.PortableFileNames.Sanitize(runId);

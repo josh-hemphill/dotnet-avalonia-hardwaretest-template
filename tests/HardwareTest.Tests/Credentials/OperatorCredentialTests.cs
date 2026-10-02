@@ -197,7 +197,7 @@ public sealed class ReportAttestationServiceTests
     }
 
     [Fact]
-    public async Task InvalidateForKinds_drops_stamp_and_sidecar_for_regenerated_kind()
+    public async Task InvalidateForKinds_preserves_issued_history_for_regenerated_kind()
     {
         using var temp = new TempDataDirectory();
         var store = new FileRunStore(temp.RunsDirectory);
@@ -220,9 +220,9 @@ public sealed class ReportAttestationServiceTests
             store.GetRunDirectory(run.RunId),
             [ReportKinds.Certification]);
 
-        Assert.Empty(run.Attestations);
-        Assert.False(File.Exists(attested.Attestation.SidecarPath));
-        Assert.False(service.HasValidAttestation(run, ReportKinds.Certification));
+        Assert.Single(run.Attestations);
+        Assert.True(File.Exists(attested.Attestation.SidecarPath));
+        Assert.True(service.HasValidAttestation(run, ReportKinds.Certification));
     }
 
     [Fact]
@@ -299,7 +299,7 @@ public sealed class ReportAttestationServiceTests
     }
 
     [Fact]
-    public async Task HasValidAttestation_true_when_pades_sidecar_missing()
+    public async Task HasValidAttestation_false_when_new_pades_revision_sidecar_missing()
     {
         using var temp = new TempDataDirectory();
         var store = new FileRunStore(temp.RunsDirectory);
@@ -320,11 +320,11 @@ public sealed class ReportAttestationServiceTests
         Assert.True(signed.Succeeded);
         var path = signed.Attestation!.SidecarPath!;
         File.Delete(path);
-        Assert.True(service.HasValidAttestation(run, ReportKinds.Certification));
+        Assert.False(service.HasValidAttestation(run, ReportKinds.Certification));
     }
 
     [Fact]
-    public async Task HasValidAttestation_true_when_pades_sidecar_tampered()
+    public async Task HasValidAttestation_false_when_new_pades_revision_sidecar_tampered()
     {
         using var temp = new TempDataDirectory();
         var store = new FileRunStore(temp.RunsDirectory);
@@ -350,7 +350,7 @@ public sealed class ReportAttestationServiceTests
             "\"signatureBase64\":\"AAAA\", \"_was\":",
             StringComparison.Ordinal);
         await File.WriteAllTextAsync(path, bad);
-        Assert.True(service.HasValidAttestation(run, ReportKinds.Certification));
+        Assert.False(service.HasValidAttestation(run, ReportKinds.Certification));
     }
 
     [Fact]
@@ -551,7 +551,7 @@ public sealed class ReportAttestationServiceTests
         var stamped = await File.ReadAllBytesAsync(issuedPath!);
         Assert.NotEqual(originalCertBytes, stamped);
         Assert.Contains(MockOperatorCredentialBroker.MockDisplayName, Encoding.UTF8.GetString(stamped), StringComparison.Ordinal);
-        Assert.True(File.Exists(Path.Combine(store.GetRunDirectory(run.RunId), ReportArtifactRoles.DirectoryName, "certification.pdf")));
+        Assert.True(File.Exists(issuedPath));
     }
 
     private static string WorkingCertificationPath(TestRunRecord run)

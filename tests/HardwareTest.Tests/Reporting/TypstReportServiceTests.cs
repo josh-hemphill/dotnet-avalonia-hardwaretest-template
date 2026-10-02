@@ -128,7 +128,7 @@ public sealed class TypstReportServiceTests
     }
 
     [Fact]
-    public async Task GenerateReportsAsync_clears_prior_certification_attestation()
+    public async Task GenerateReportsAsync_preserves_prior_certification_attestation()
     {
         using var temp = new TempDataDirectory();
         await WriteCertificationTypstAsync(
@@ -163,8 +163,8 @@ public sealed class TypstReportServiceTests
             });
         var artifacts = await CompileOrSkipAsync(() => reports.GenerateReportsAsync(run, [ReportKinds.Certification]));
 
-        Assert.Empty(run.Attestations);
-        Assert.False(File.Exists(sidecar));
+        Assert.Single(run.Attestations);
+        Assert.True(File.Exists(sidecar));
         AssertPdfMagic(await File.ReadAllBytesAsync(artifacts[0].PdfPath));
         var workDir = Path.Combine(Path.GetTempPath(), "HardwareTestTypst", run.RunId, ReportKinds.Certification);
         var json = await File.ReadAllTextAsync(Path.Combine(workDir, "run.json"));

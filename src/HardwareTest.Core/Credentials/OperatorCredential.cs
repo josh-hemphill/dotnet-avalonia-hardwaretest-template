@@ -50,6 +50,7 @@ public sealed class ReportAttestation
 {
     public string Kind { get; set; } = AttestationKind.Presence;
     public string ReportKind { get; set; } = string.Empty;
+    public string? RevisionId { get; set; }
     public string DisplayName { get; set; } = string.Empty;
     public string Serial { get; set; } = string.Empty;
     public string Transport { get; set; } = CredentialTransport.Contactless;
