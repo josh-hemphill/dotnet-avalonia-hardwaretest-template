@@ -77,6 +77,25 @@ public sealed class WindowsSigningNativeTests
         Assert.Equal("Synthetic reader", native.ReaderName(key)); calls.ReaderMissing = true; Assert.Null(native.ReaderName(key));
     }
     [Theory]
+    [InlineData(true, 0x80090010u)]
+    [InlineData(false, 0x80090010u)]
+    [InlineData(true, 5u)]
+    [InlineData(false, 5u)]
+    [InlineData(true, 0x8010006bu)]
+    [InlineData(false, 0x8010006bu)]
+    [InlineData(true, 0x8010006cu)]
+    [InlineData(false, 0x8010006cu)]
+    [InlineData(true, 0x8010006eu)]
+    [InlineData(false, 0x8010006eu)]
+    [InlineData(true, 0x80100069u)]
+    [InlineData(false, 0x80100069u)]
+    public void Optional_reader_query_preserves_authorization_and_card_failures(bool cng, uint code)
+    {
+        var calls = new Calls { ReaderFailure = code }; var native = new WindowsSigningNative(calls);
+        var failure = Assert.Throws<WindowsSigningNativeException>(() => native.ReaderName(new(10, cng ? uint.MaxValue : 2, true)));
+        Assert.Equal(code, failure.Code); Assert.Equal("provider-properties", failure.Stage);
+    }
+    [Theory]
     [InlineData(true)]
     [InlineData(false)]
     public void Native_signature_written_size_must_match_certificate_width(bool cng)
@@ -86,12 +105,13 @@ public sealed class WindowsSigningNativeTests
     }
     private sealed class Calls : IWindowsSigningInterop
     {
-        public uint LastError => ReaderMissing ? 0x8009000a : 0x8010006b;
+        public uint LastError => ReaderFailure ?? (ReaderMissing ? 0x8009000a : 0x8010006b);
         public List<nint> CngFreed { get; } = [];
         public List<nint> CspReleased { get; } = [];
         public uint Implementation { get; set; } = 1;
         public bool ImplementationFailure { get; set; }
         public bool ReaderMissing { get; set; }
+        public uint? ReaderFailure { get; init; }
         public bool SignFailure { get; set; }
         public bool ShortWrite { get; set; }
         public bool CleanupThrows { get; set; }
@@ -108,12 +128,13 @@ public sealed class WindowsSigningNativeTests
             written = 0;
             if (property == "Impl Type" && ImplementationFailure) return unchecked((int)0x80090029);
             if (property == "SmartCardReader" && ReaderMissing) return unchecked((int)0x80090011);
+            if (property == "SmartCardReader" && ReaderFailure is { } code) return unchecked((int)code);
             var data = property switch { "Provider Handle" => nint.Size == 8 ? BitConverter.GetBytes(20L) : BitConverter.GetBytes(20), "Impl Type" => BitConverter.GetBytes(Implementation), _ => Encoding.Unicode.GetBytes("Synthetic reader\0") };
             data.CopyTo(output, 0); written = data.Length; return 0;
         }
         public bool GetCspProperty(nint handle, uint property, byte[] output, ref uint written)
         {
-            if (property == 43 && ReaderMissing) return false;
+            if (property == 43 && (ReaderMissing || ReaderFailure.HasValue)) return false;
             var data = property == 3 ? BitConverter.GetBytes(Implementation) : Encoding.ASCII.GetBytes("Synthetic reader\0"); data.CopyTo(output, 0); written = (uint)data.Length; return true;
         }
         public int SignCng(nint key, nint padding, byte[] hash, byte[] signature, out int written, uint flags)

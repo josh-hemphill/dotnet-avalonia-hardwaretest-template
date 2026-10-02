@@ -106,7 +106,7 @@ internal sealed class WindowsSigningNative : IWindowsSigningNative
     {
         var bytes = new byte[capacity];
         var status = _interop.GetCngProperty(handle, property, bytes, out var written);
-        if (optional && (uint)status is 0x80090029 or 0x80090027 or 0x80090010 or 0x80090011) return null;
+        if (optional && (uint)status is 0x80090029 or 0x80090027 or 0x80090011) return null;
         Check(status, "provider-properties");
         if (written < 0 || written > bytes.Length) throw new WindowsSigningNativeException(0, "provider-properties");
         return bytes[..written];
