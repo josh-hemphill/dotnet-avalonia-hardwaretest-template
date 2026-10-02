@@ -15,6 +15,13 @@ public interface IOperatorCredentialBroker
     /// True when TrySignDocumentAsync returns a CMS/PKCS#7 (PAdES) rather than a raw payload MAC.
     bool ProducesCms => false;
 
+    /// Legacy brokers can declare PIN requirements without producing a probe signature.
+    bool RequiresPin => false;
+
+    Task<CredentialPreparationResult> PrepareSigningAsync(
+        OperatorCredential credential, string? pin = null, CancellationToken cancellationToken = default)
+        => CredentialPreparationResult.PrepareLegacyAsync(this, credential, pin, cancellationToken);
+
     /// Operator-facing reader status (no reader, waiting, mock, …).
     string StatusText { get; }
 

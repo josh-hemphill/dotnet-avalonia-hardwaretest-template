@@ -8,7 +8,7 @@ namespace HardwareTest.Tests.Credentials;
 public sealed class Pkcs11OperatorCredentialBrokerTests
 {
     [Fact]
-    public async Task Pdf_signing_without_pin_requests_pin_before_loading_native_module()
+    public async Task Missing_native_module_fails_before_app_pin_prompt()
     {
         var broker = new Pkcs11OperatorCredentialBroker(new AppSettings
         {
@@ -24,9 +24,10 @@ public sealed class Pkcs11OperatorCredentialBrokerTests
                 Thumbprint = "001122",
             });
 
-        Assert.True(result.PinRequired);
+        Assert.False(result.PinRequired);
         Assert.False(result.Succeeded);
-        Assert.Contains("PIN", result.Error, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(CredentialFailureKind.ConfigurationError, result.FailureKind);
+        Assert.False(result.PresenceFallbackAllowed);
     }
 
     [Fact]
@@ -91,6 +92,34 @@ public sealed class Pkcs11OperatorCredentialBrokerTests
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => signing);
         presence.Release.TrySetResult();
         Assert.True((await capture).Succeeded);
+    }
+
+    [Fact]
+    public void Setup_diagnostics_handles_invalid_explicit_path_without_identity_or_pin()
+    {
+        var result = SigningSetupDiagnostics.Check(new AppSettings { Pkcs11LibraryPath = "invalid\0module" });
+        Assert.False(result.Available); Assert.Equal("module-discovery", result.Stage);
+        Assert.DoesNotContain("invalid", result.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Theory]
+    [InlineData(System.Runtime.InteropServices.Architecture.X86, (ushort)0x14c)]
+    [InlineData(System.Runtime.InteropServices.Architecture.X64, (ushort)0x8664)]
+    [InlineData(System.Runtime.InteropServices.Architecture.Arm64, (ushort)0xaa64)]
+    public void Module_pe_machine_must_match_process_architecture(System.Runtime.InteropServices.Architecture architecture, ushort machine)
+    {
+        var path = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + ".dll");
+        try
+        {
+            var image = File.ReadAllBytes(typeof(Pkcs11OperatorCredentialBroker).Assembly.Location);
+            var peOffset = BitConverter.ToInt32(image, 0x3c);
+            BitConverter.GetBytes(machine).CopyTo(image, peOffset + 4);
+            File.WriteAllBytes(path, image);
+            Assert.True(Pkcs11ModuleResolver.IsCompatibleArchitecture(path, architecture));
+            var wrong = architecture == System.Runtime.InteropServices.Architecture.X86 ? System.Runtime.InteropServices.Architecture.X64 : System.Runtime.InteropServices.Architecture.X86;
+            Assert.False(Pkcs11ModuleResolver.IsCompatibleArchitecture(path, wrong));
+        }
+        finally { File.Delete(path); }
     }
 
     private sealed class BlockingPresenceBroker : IOperatorCredentialBroker

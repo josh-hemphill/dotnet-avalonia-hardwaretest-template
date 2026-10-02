@@ -1,4 +1,4 @@
-using System.Runtime.InteropServices;
+using System.Formats.Asn1;
 using System.Security.Cryptography;
 using System.Security.Cryptography.Pkcs;
 using System.Security.Cryptography.X509Certificates;
@@ -6,486 +6,389 @@ using System.Text;
 using HardwareTest.Core.Reporting;
 using HardwareTest.Core.Settings;
 using HardwareTest.Core.Time;
-using Net.Pkcs11Interop.X509Store;
+using Net.Pkcs11Interop.Common;
+using Net.Pkcs11Interop.HighLevelAPI;
 
 namespace HardwareTest.Core.Credentials;
 
-/// Cross-platform PIV signer backed by an OpenSC/vendor PKCS#11 module.
-/// PC/SC remains responsible only for presence and public identity reads.
+/// PC/SC captures identity; PKCS#11 prepares only the matching signing token.
 public sealed class Pkcs11OperatorCredentialBroker : IOperatorCredentialBroker, IEmbeddedPdfSigningBroker
 {
-    private const string PivDigitalSignatureId = "02";
     private readonly AppSettings _settings;
     private readonly IOperatorCredentialBroker _presence;
     private readonly IClock _clock;
-    private readonly SemaphoreSlim _cardOperationGate = new(1, 1);
+    private readonly SemaphoreSlim _gate = new(1, 1);
+    private readonly Func<string, IPkcs11Backend> _open;
 
-    public Pkcs11OperatorCredentialBroker(
-        AppSettings settings,
-        IClock? clock = null,
-        IOperatorCredentialBroker? presence = null)
+    public Pkcs11OperatorCredentialBroker(AppSettings settings, IClock? clock = null, IOperatorCredentialBroker? presence = null)
+        : this(settings, module => new Pkcs11Backend(module), clock, presence) { }
+
+    internal Pkcs11OperatorCredentialBroker(AppSettings settings, Func<string, IPkcs11Backend> open,
+        IClock? clock = null, IOperatorCredentialBroker? presence = null)
     {
-        _settings = settings;
-        _clock = clock ?? SystemClock.Instance;
+        _settings = settings; _open = open; _clock = clock ?? SystemClock.Instance;
         _presence = presence ?? new PcscOperatorCredentialBroker(_clock);
     }
-
     public bool IsMock => false;
     public bool CanSign => true;
     public bool ProducesCms => true;
     public string? SigningAlgorithm => null;
-    public string StatusText { get; private set; } = "PKCS#11 not queried yet.";
+    public string StatusText { get; private set; } = "Signing provider not queried yet.";
 
-    public async Task<CredentialCaptureResult> WaitForPresenceAsync(
-        TimeSpan timeout,
-        CancellationToken cancellationToken = default)
+    public async Task<CredentialCaptureResult> WaitForPresenceAsync(TimeSpan timeout, CancellationToken cancellationToken = default)
     {
-        await _cardOperationGate.WaitAsync(cancellationToken).ConfigureAwait(false);
-        try
-        {
-            var captured = await _presence.WaitForPresenceAsync(timeout, cancellationToken).ConfigureAwait(false);
-            StatusText = _presence.StatusText;
-            return captured;
-        }
-        finally
-        {
-            _cardOperationGate.Release();
-        }
+        await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try { return await _presence.WaitForPresenceAsync(timeout, cancellationToken).ConfigureAwait(false); }
+        finally { StatusText = _presence.StatusText; _gate.Release(); }
     }
 
-    public async Task<CredentialSignResult> TrySignPayloadAsync(
-        byte[] payload,
-        OperatorCredential credential,
-        string? pin = null,
-        CancellationToken cancellationToken = default)
+    public async Task<CredentialPreparationResult> PrepareSigningAsync(OperatorCredential credential,
+        string? pin = null, CancellationToken cancellationToken = default)
     {
-        cancellationToken.ThrowIfCancellationRequested();
-        if (payload.Length == 0)
-        {
-            return CredentialSignResult.Failed("Nothing to sign.");
-        }
-
-        var unavailable = CheckSigningPrerequisites(credential);
-        if (unavailable is not null)
-        {
-            return unavailable;
-        }
-
-        if (string.IsNullOrEmpty(pin))
-        {
-            return CredentialSignResult.NeedPin("Enter badge PIN to sign.");
-        }
-
-        await _cardOperationGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        IPkcs11Backend? backend = null;
+        var tokens = new List<IPkcs11Token>();
+        var transferred = false;
+        var stage = "configuration";
         try
         {
-            return WithSigningCertificate(pin, credential, (certificate, key, party) =>
+            if (string.IsNullOrWhiteSpace(credential.Thumbprint))
+                return Fail(CredentialFailureKind.Unavailable, "No PIV signing certificate (9C) was captured from this badge; signing cannot be bound safely.", stage);
+            if (_settings.SmartCardSigningProviderMode == SmartCardSigningProviderMode.Windows)
+                return Fail(CredentialFailureKind.Unavailable, "Windows smart-card signing is not supported by this provider yet.", stage);
+            if (!Enum.IsDefined(_settings.SmartCardSigningProviderMode))
+                return Fail(CredentialFailureKind.ConfigurationError, "Unknown smart-card signing provider mode.", stage);
+            var module = Pkcs11ModuleResolver.Resolve(_settings.Pkcs11LibraryPath);
+            if (module is null) return Fail(CredentialFailureKind.Unavailable, "No compatible PKCS#11 middleware was found. Configure its library path.", stage);
+            if (!Pkcs11ModuleResolver.IsCompatibleArchitecture(module))
+                return Fail(CredentialFailureKind.ConfigurationError, "PKCS#11 module architecture does not match the application process. Select matching middleware.", stage);
+            stage = "module-load";
+            backend = _open(module);
+            stage = "public-certificate-discovery";
+            tokens.AddRange(backend.OpenTokens());
+            var matches = new List<(IPkcs11Token Token, Pkcs11Certificate Certificate)>();
+            foreach (var token in tokens)
             {
-                var (signature, algorithm) = SignData(key, payload);
-                return CredentialSignResult.Signed(
-                    signature,
-                    algorithm,
-                    certificate.RawData,
-                    certificate.Thumbprint,
-                    party);
-            });
-        }
-        finally
-        {
-            _cardOperationGate.Release();
-        }
-    }
-
-    public async Task<CredentialSignResult> TrySignDocumentAsync(
-        byte[] document,
-        OperatorCredential credential,
-        string? pin = null,
-        DateTimeOffset? signingTime = null,
-        CancellationToken cancellationToken = default)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        if (document.Length == 0)
-        {
-            return CredentialSignResult.Failed("Nothing to sign.");
-        }
-
-        var unavailable = CheckSigningPrerequisites(credential);
-        if (unavailable is not null)
-        {
-            return unavailable;
-        }
-
-        if (string.IsNullOrEmpty(pin))
-        {
-            return CredentialSignResult.NeedPin("Enter badge PIN to sign.");
-        }
-
-        await _cardOperationGate.WaitAsync(cancellationToken).ConfigureAwait(false);
-        try
-        {
-            return WithSigningCertificate(pin, credential, (certificate, key, party) =>
-            {
-                var cms = new SignedCms(new ContentInfo(document), detached: true);
-                var signer = new CmsSigner(SubjectIdentifierType.IssuerAndSerialNumber, certificate, key)
+                foreach (var candidate in token.ReadPublicCertificates())
                 {
-                    DigestAlgorithm = DigestOid(key),
-                    IncludeOption = X509IncludeOption.EndCertOnly,
-                };
-                cms.ComputeSignature(signer, silent: true);
-                return CredentialSignResult.Signed(
-                    cms.Encode(),
-                    AlgorithmName(key),
-                    certificate.RawData,
-                    certificate.Thumbprint,
-                    party);
-            });
-        }
-        finally
-        {
-            _cardOperationGate.Release();
-        }
-    }
-
-    public async Task<CredentialSignResult> TrySignPdfAsync(
-        byte[] pdf,
-        OperatorCredential credential,
-        string? pin = null,
-        DateTimeOffset? signingTime = null,
-        CancellationToken cancellationToken = default)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        if (pdf.Length == 0)
-        {
-            return CredentialSignResult.Failed("Nothing to sign.");
-        }
-
-        var unavailable = CheckSigningPrerequisites(credential);
-        if (unavailable is not null)
-        {
-            return unavailable;
-        }
-
-        if (string.IsNullOrEmpty(pin))
-        {
-            return CredentialSignResult.NeedPin("Enter badge PIN to sign.");
-        }
-
-        await _cardOperationGate.WaitAsync(cancellationToken).ConfigureAwait(false);
-        try
-        {
-            return WithSigningCertificate(pin, credential, (certificate, key, party) =>
-            {
-                var at = signingTime ?? _clock.UtcNow;
-                if (!ITextPadesSignature.TrySign(
-                        pdf,
-                        certificate,
-                        key,
-                        party.DisplayName,
-                        at,
-                        out var signedPdf,
-                        out var cms,
-                        out var error))
-                {
-                    return CredentialSignResult.Failed(error ?? "PAdES signing failed.");
+                    using var certificate = X509CertificateLoader.LoadCertificate(candidate.Der);
+                    if (string.Equals(certificate.Thumbprint, credential.Thumbprint, StringComparison.OrdinalIgnoreCase))
+                        matches.Add((token, candidate));
                 }
-
-                return CredentialSignResult.SignedPdfDocument(
-                    signedPdf,
-                    cms,
-                    AlgorithmName(key),
-                    certificate.RawData,
-                    certificate.Thumbprint,
-                    party);
-            });
-        }
-        finally
-        {
-            _cardOperationGate.Release();
-        }
-    }
-
-    private CredentialSignResult WithSigningCertificate(
-        string pin,
-        OperatorCredential expected,
-        Func<X509Certificate2, AsymmetricAlgorithm, OperatorCredential, CredentialSignResult> operation)
-    {
-        var module = Pkcs11ModuleResolver.Resolve(_settings.Pkcs11LibraryPath);
-        if (module is null)
-        {
-            return CredentialSignResult.Unavailable(
-                "OpenSC PKCS#11 module was not found. Install OpenSC or configure Pkcs11LibraryPath.");
-        }
-
-        try
-        {
-            using var pinProvider = new FixedPinProvider(pin);
-            using var store = new Pkcs11X509Store(module, pinProvider);
-            var candidates = store.Slots
-                .Where(slot => slot.Token is { Info.Initialized: true })
-                .Where(slot => !string.IsNullOrWhiteSpace(expected.Thumbprint)
-                               || ReaderMatches(expected.ReaderName, slot.Info.Description)
-                               || string.IsNullOrWhiteSpace(expected.ReaderName))
-                .SelectMany(slot => slot.Token!.Certificates.Select(certificate => (slot, certificate)))
-                .Where(item => item.certificate.HasPrivateKeyObject)
-                .Where(item => IsDigitalSignatureCertificate(item.certificate))
-                .OrderByDescending(item => IsPivDigitalSignatureId(item.certificate.Info.Id))
-                .ThenByDescending(item => IsSignatureLabel(item.certificate.Info.Label))
-                .ToList();
-
-            var selected = SelectUnambiguous(candidates, expected);
-            if (selected is null)
-            {
-                if (candidates.Count == 0)
-                {
-                    return CredentialSignResult.Unavailable(
-                        "No PIV signing certificate (9C) with a private key was found.");
-                }
-
-                var capturedCertificateMissing = !string.IsNullOrWhiteSpace(expected.Thumbprint)
-                    && candidates.All(item => !string.Equals(
-                        item.certificate.Info.ParsedCertificate.Thumbprint,
-                        expected.Thumbprint,
-                        StringComparison.OrdinalIgnoreCase));
-                return CredentialSignResult.Failed(
-                    capturedCertificateMissing
-                        ? "The available signing badge does not match the badge that was captured."
-                        : "More than one signing badge is present. Leave only the certifier badge inserted.");
+                cancellationToken.ThrowIfCancellationRequested();
             }
-
-            var parsed = selected.Value.certificate.Info.ParsedCertificate;
-            using var key = selected.Value.certificate.GetPrivateKey();
-            var party = new OperatorCredential
+            if (matches.Count != 1)
+                return Fail(CredentialFailureKind.CertificateMismatch,
+                    matches.Count == 0 ? "The available signing badge does not match the captured badge." : "More than one matching signing certificate is present. Leave only the certifier badge inserted.", stage);
+            var selected = matches[0];
+            if (selected.Certificate.Id.Length == 0)
+                return Fail(CredentialFailureKind.ConfigurationError, "Selected signing certificate has no key binding identifier.", "private-key-binding");
+            foreach (var other in tokens.Where(t => t != selected.Token)) DisposeResource(other);
+            tokens.RemoveAll(t => t != selected.Token);
+            using (var certificate = X509CertificateLoader.LoadCertificate(selected.Certificate.Der))
             {
-                DisplayName = PivCertificateName.TryDisplayName(parsed.RawData) ?? expected.DisplayName,
-                Serial = expected.Serial,
-                Transport = expected.Transport,
-                ReaderName = expected.ReaderName,
-                Thumbprint = parsed.Thumbprint,
-                CapturedAt = expected.CapturedAt,
-            };
-            var result = operation(parsed, key, party);
-            StatusText = result.Succeeded
-                ? $"Signed with {party.DisplayName}."
-                : result.Error ?? "PKCS#11 signing failed.";
-            return result;
+                using var rsa = certificate.GetRSAPublicKey();
+                using var ec = certificate.GetECDsaPublicKey();
+                if ((rsa is null && ec is null) || certificate.GetKeyAlgorithm() is not ("1.2.840.113549.1.1.1" or "1.2.840.10045.2.1"))
+                    return Fail(CredentialFailureKind.ConfigurationError, "Signing certificate must use RSA or ECDSA.", "certificate-algorithm");
+            }
+            stage = "authentication";
+            if (!selected.Token.ProtectedAuthenticationPath && string.IsNullOrEmpty(pin))
+                return Fail(CredentialFailureKind.PinRequired, "Enter badge PIN to sign.", stage);
+            byte[]? pinBytes = selected.Token.ProtectedAuthenticationPath ? null : Encoding.UTF8.GetBytes(pin!);
+            try { selected.Token.Login(pinBytes); }
+            finally { if (pinBytes is not null) CryptographicOperations.ZeroMemory(pinBytes); }
+            cancellationToken.ThrowIfCancellationRequested();
+            stage = "private-key-binding";
+            selected.Token.BindPrivateKey(selected.Certificate.Id);
+            cancellationToken.ThrowIfCancellationRequested();
+            var session = new PreparedSession(backend, selected.Token, selected.Certificate.Der, credential, _gate, _clock);
+            transferred = true;
+            return CredentialPreparationResult.Ready(session);
         }
-        catch (Exception ex) when (IsPinFailure(ex))
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex) { return CredentialPreparationResult.Failed(MapFailure(ex, stage)); }
+        finally
         {
-            StatusText = "Badge PIN was not accepted.";
-            return CredentialSignResult.NeedPin(StatusText);
-        }
-        catch (Exception ex)
-        {
-            StatusText = "PKCS#11 signing failed. " + ex.Message;
-            return CredentialSignResult.Failed(StatusText);
+            if (!transferred)
+            {
+                try
+                {
+                    foreach (var token in tokens) DisposeResource(token);
+                    DisposeResource(backend);
+                }
+                finally { _gate.Release(); }
+            }
         }
     }
 
-    private CredentialSignResult? CheckSigningPrerequisites(OperatorCredential expected)
-    {
-        if (string.IsNullOrWhiteSpace(expected.Thumbprint))
-        {
-            return CredentialSignResult.Unavailable(
-                "No PIV signing certificate (9C) was captured from this badge; signing cannot be bound safely.");
-        }
+    private static CredentialPreparationResult Fail(CredentialFailureKind kind, string message, string stage)
+        => CredentialPreparationResult.Failed(CredentialSignResult.Failure(kind, message, stage));
 
-        return Pkcs11ModuleResolver.Resolve(_settings.Pkcs11LibraryPath) is null
-            ? CredentialSignResult.Unavailable(
-                "OpenSC PKCS#11 module was not found. Install OpenSC or configure Pkcs11LibraryPath.")
-            : null;
+    internal static void DisposeResource(IDisposable? resource)
+    {
+        try { resource?.Dispose(); }
+        catch (Exception)
+        {
+            // Middleware teardown must not replace the signing result or prevent other cleanup.
+            System.Diagnostics.Trace.TraceWarning("Smart-card middleware resource cleanup failed.");
+        }
     }
 
-    private static (Pkcs11Slot slot, Pkcs11X509Certificate certificate)? SelectUnambiguous(
-        List<(Pkcs11Slot slot, Pkcs11X509Certificate certificate)> candidates,
-        OperatorCredential expected)
+    internal static CredentialSignResult MapFailure(Exception exception, string stage)
     {
-        if (!string.IsNullOrWhiteSpace(expected.Thumbprint))
-        {
-            var matching = candidates.Where(item => string.Equals(
-                    item.certificate.Info.ParsedCertificate.Thumbprint,
-                    expected.Thumbprint,
-                    StringComparison.OrdinalIgnoreCase))
-                .ToList();
-            return matching.Count == 1 ? matching[0] : null;
-        }
-
-        var piv9c = candidates.Where(item => IsPivDigitalSignatureId(item.certificate.Info.Id)).ToList();
-        if (piv9c.Count == 1)
-        {
-            return piv9c[0];
-        }
-
-        return candidates.Count == 1 ? candidates[0] : null;
-    }
-
-    private static bool ReaderMatches(string? expected, string actual)
-    {
-        if (string.IsNullOrWhiteSpace(expected))
-        {
-            return true;
-        }
-
-        var left = NormalizeReader(expected);
-        var right = NormalizeReader(actual);
-        return left.Contains(right, StringComparison.OrdinalIgnoreCase)
-               || right.Contains(left, StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static string NormalizeReader(string value)
-        => string.Concat(value.Where(char.IsLetterOrDigit));
-
-    private static bool IsDigitalSignatureCertificate(Pkcs11X509Certificate certificate)
-    {
-        if (IsPivDigitalSignatureId(certificate.Info.Id)
-            || IsSignatureLabel(certificate.Info.Label))
-        {
-            return true;
-        }
-
-        return false;
-    }
-
-    private static bool IsSignatureLabel(string label)
-        => label.Contains("SIGNATURE", StringComparison.OrdinalIgnoreCase)
-           || label.Contains("9C", StringComparison.OrdinalIgnoreCase);
-
-    private static bool IsPivDigitalSignatureId(string id)
-        => string.Equals(
-            id.Replace(" ", string.Empty, StringComparison.Ordinal)
-                .Replace(":", string.Empty, StringComparison.Ordinal),
-            PivDigitalSignatureId,
-            StringComparison.OrdinalIgnoreCase);
-
-    private static (byte[] Signature, string Algorithm) SignData(AsymmetricAlgorithm key, byte[] payload)
-        => key switch
-        {
-            RSA rsa => (rsa.SignData(payload, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1),
-                AttestationAlgorithm.PivRsaPkcs1Sha256),
-            ECDsa ecdsa when ecdsa.KeySize >= 384 =>
-                (ecdsa.SignData(payload, HashAlgorithmName.SHA384, DSASignatureFormat.Rfc3279DerSequence),
-                    AttestationAlgorithm.PivEcdsaSha384),
-            ECDsa ecdsa =>
-                (ecdsa.SignData(payload, HashAlgorithmName.SHA256, DSASignatureFormat.Rfc3279DerSequence),
-                    AttestationAlgorithm.PivEcdsaSha256),
-            _ => throw new CryptographicException("The PIV signing key is not RSA or ECDSA."),
-        };
-
-    private static Oid DigestOid(AsymmetricAlgorithm key)
-        => new(key is ECDsa { KeySize: >= 384 } ? "2.16.840.1.101.3.4.2.2" : "2.16.840.1.101.3.4.2.1");
-
-    private static string AlgorithmName(AsymmetricAlgorithm key)
-        => key switch
-        {
-            RSA => AttestationAlgorithm.PivRsaPkcs1Sha256,
-            ECDsa { KeySize: >= 384 } => AttestationAlgorithm.PivEcdsaSha384,
-            ECDsa => AttestationAlgorithm.PivEcdsaSha256,
-            _ => throw new CryptographicException("The PIV signing key is not RSA or ECDSA."),
-        };
-
-    private static bool IsPinFailure(Exception exception)
-    {
+        Pkcs11Exception? native = null;
         for (Exception? current = exception; current is not null; current = current.InnerException)
         {
-            var text = current.Message;
-            if (text.Contains("PIN_INCORRECT", StringComparison.OrdinalIgnoreCase)
-                || text.Contains("PIN_LOCKED", StringComparison.OrdinalIgnoreCase)
-                || text.Contains("USER_NOT_LOGGED_IN", StringComparison.OrdinalIgnoreCase))
-            {
-                return true;
-            }
+            if (current is Pkcs11Exception found) { native = found; break; }
         }
-
-        return false;
+        var kind = native?.RV switch
+        {
+            CKR.CKR_PIN_INCORRECT or CKR.CKR_PIN_INVALID or CKR.CKR_PIN_LEN_RANGE => CredentialFailureKind.WrongPin,
+            CKR.CKR_PIN_LOCKED => CredentialFailureKind.PinLocked,
+            CKR.CKR_FUNCTION_CANCELED or CKR.CKR_CANCEL => CredentialFailureKind.Cancelled,
+            CKR.CKR_DEVICE_REMOVED or CKR.CKR_TOKEN_NOT_PRESENT => CredentialFailureKind.CardRemoved,
+            CKR.CKR_USER_NOT_LOGGED_IN => CredentialFailureKind.SigningFailed,
+            _ => stage == "module-load" || exception is DllNotFoundException or BadImageFormatException or FileNotFoundException or ArgumentException
+                ? CredentialFailureKind.ConfigurationError : CredentialFailureKind.SigningFailed,
+        };
+        var message = kind switch
+        {
+            CredentialFailureKind.WrongPin => "Badge PIN was not accepted. No automatic retry was attempted.",
+            CredentialFailureKind.PinLocked => "Badge PIN is locked. Contact your smart-card administrator.",
+            CredentialFailureKind.Cancelled => "Smart-card authentication was cancelled.",
+            CredentialFailureKind.CardRemoved => "The selected signing card was removed.",
+            CredentialFailureKind.ConfigurationError => "PKCS#11 middleware could not be loaded. Check the configured path and process architecture.",
+            _ => "Smart-card operation failed.",
+        };
+        return CredentialSignResult.Failure(kind, message, stage, native is null ? null : (ulong)native.RV);
     }
 
-    private sealed class FixedPinProvider(string pin) : IPinProvider, IDisposable
+    public Task<CredentialSignResult> TrySignPayloadAsync(byte[] payload, OperatorCredential credential, string? pin = null, CancellationToken cancellationToken = default)
+        => SignAsync(payload, credential, pin, null, 0, cancellationToken);
+    public Task<CredentialSignResult> TrySignDocumentAsync(byte[] document, OperatorCredential credential, string? pin = null, DateTimeOffset? signingTime = null, CancellationToken cancellationToken = default)
+        => SignAsync(document, credential, pin, signingTime, 1, cancellationToken);
+    public Task<CredentialSignResult> TrySignPdfAsync(byte[] pdf, OperatorCredential credential, string? pin = null, DateTimeOffset? signingTime = null, CancellationToken cancellationToken = default)
+        => SignAsync(pdf, credential, pin, signingTime, 2, cancellationToken);
+    private async Task<CredentialSignResult> SignAsync(byte[] data, OperatorCredential credential, string? pin, DateTimeOffset? at, int kind, CancellationToken ct)
     {
-        private readonly byte[] _pin = Encoding.UTF8.GetBytes(pin);
-
-        public GetPinResult GetTokenPin(
-            Pkcs11X509StoreInfo storeInfo,
-            Pkcs11SlotInfo slotInfo,
-            Pkcs11TokenInfo tokenInfo)
+        if (data.Length == 0) return CredentialSignResult.Failed("Nothing to sign.");
+        var prepared = await PrepareSigningAsync(credential, pin, ct).ConfigureAwait(false);
+        using var session = prepared.Session;
+        if (session is null) return prepared.Failure!;
+        return kind switch
         {
-            _ = storeInfo;
-            _ = slotInfo;
-            return tokenInfo.HasProtectedAuthenticationPath
-                ? new GetPinResult(cancel: false, pin: null)
-                : new GetPinResult(cancel: false, pin: _pin);
-        }
+            0 => await session.TrySignPayloadAsync(data, credential, pin, ct).ConfigureAwait(false),
+            1 => await session.TrySignDocumentAsync(data, credential, pin, at, ct).ConfigureAwait(false),
+            _ => await ((IEmbeddedPdfSigningBroker)session).TrySignPdfAsync(data, credential, pin, at, ct).ConfigureAwait(false),
+        };
+    }
 
-        public GetPinResult GetKeyPin(
-            Pkcs11X509StoreInfo storeInfo,
-            Pkcs11SlotInfo slotInfo,
-            Pkcs11TokenInfo tokenInfo,
-            Pkcs11X509CertificateInfo certificateInfo)
+    private sealed class PreparedSession : IPreparedCredentialSession, IEmbeddedPdfSigningBroker
+    {
+        private readonly IPkcs11Backend _backend;
+        private readonly IPkcs11Token _token;
+        private readonly X509Certificate2 _certificate;
+        private readonly OperatorCredential _credential;
+        private readonly SemaphoreSlim _gate;
+        private readonly IClock _clock;
+        private readonly object _operation = new();
+        private bool _disposed;
+        public PreparedSession(IPkcs11Backend backend, IPkcs11Token token, byte[] der, OperatorCredential credential, SemaphoreSlim gate, IClock clock)
+        { _backend = backend; _token = token; _certificate = X509CertificateLoader.LoadCertificate(der); _credential = credential; _gate = gate; _clock = clock; }
+        public bool IsMock => false;
+        public bool CanSign => true;
+        public bool ProducesCms => true;
+        private bool Rsa => _certificate.GetKeyAlgorithm() == "1.2.840.113549.1.1.1";
+        private bool Sha384 { get { using var ec = _certificate.GetECDsaPublicKey(); return ec?.KeySize >= 384; } }
+        public string? SigningAlgorithm => Rsa ? AttestationAlgorithm.PivRsaPkcs1Sha256 : Sha384 ? AttestationAlgorithm.PivEcdsaSha384 : AttestationAlgorithm.PivEcdsaSha256;
+        public string StatusText => "Selected signing session prepared.";
+        public Task<CredentialCaptureResult> WaitForPresenceAsync(TimeSpan timeout, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        private byte[] Sign(byte[] message, string? pin, CancellationToken ct)
         {
-            _ = storeInfo;
-            _ = slotInfo;
-            _ = certificateInfo;
-            return tokenInfo.HasProtectedAuthenticationPath
-                ? new GetPinResult(cancel: false, pin: null)
-                : new GetPinResult(cancel: false, pin: _pin);
+            ct.ThrowIfCancellationRequested();
+            byte[]? keyPin = _token.ProtectedAuthenticationPath || !_token.AlwaysAuthenticate || pin is null ? null : Encoding.UTF8.GetBytes(pin);
+            try
+            {
+                var hash = Sha384 && !Rsa ? SHA384.HashData(message) : SHA256.HashData(message);
+                byte[] data = Rsa ? Convert.FromHexString("3031300D060960864801650304020105000420").Concat(hash).ToArray() : hash;
+                var raw = _token.Sign(Rsa ? CKM.CKM_RSA_PKCS : CKM.CKM_ECDSA, data, keyPin);
+                ct.ThrowIfCancellationRequested();
+                ValidateSignatureLength(raw);
+                if (Rsa) return raw;
+                var writer = new AsnWriter(AsnEncodingRules.DER); writer.PushSequence();
+                writer.WriteIntegerUnsigned(raw.AsSpan(0, raw.Length / 2)); writer.WriteIntegerUnsigned(raw.AsSpan(raw.Length / 2)); writer.PopSequence();
+                return writer.Encode();
+            }
+            finally { if (keyPin is not null) CryptographicOperations.ZeroMemory(keyPin); }
         }
-
-        public void Dispose() => CryptographicOperations.ZeroMemory(_pin);
+        private void ValidateSignatureLength(byte[] signature)
+        {
+            using AsymmetricAlgorithm key = Rsa ? _certificate.GetRSAPublicKey()! : _certificate.GetECDsaPublicKey()!;
+            var expected = ((key.KeySize + 7) / 8) * (Rsa ? 1 : 2);
+            if (signature.Length != expected) throw new CryptographicException("Invalid native signature length.");
+        }
+        private CredentialSignResult Execute(OperatorCredential expected, CancellationToken ct, Func<CredentialSignResult> operation)
+        {
+            lock (_operation)
+            {
+                ObjectDisposedException.ThrowIf(_disposed, this); ct.ThrowIfCancellationRequested();
+                if (!string.Equals(expected.Thumbprint, _certificate.Thumbprint, StringComparison.OrdinalIgnoreCase))
+                    return CredentialSignResult.Failure(CredentialFailureKind.CertificateMismatch, "Prepared signer does not match the captured certificate.", "signing");
+                try { var result = operation(); ct.ThrowIfCancellationRequested(); return result; }
+                catch (OperationCanceledException) { throw; }
+                catch (Exception ex) { return MapFailure(ex, "signing"); }
+            }
+        }
+        public Task<CredentialSignResult> TrySignPayloadAsync(byte[] payload, OperatorCredential credential, string? pin = null, CancellationToken cancellationToken = default)
+            => Task.FromResult(Execute(credential, cancellationToken, () => CredentialSignResult.Signed(Sign(payload, pin, cancellationToken), SigningAlgorithm!, _certificate.RawData, _certificate.Thumbprint, _credential)));
+        public Task<CredentialSignResult> TrySignDocumentAsync(byte[] document, OperatorCredential credential, string? pin = null, DateTimeOffset? signingTime = null, CancellationToken cancellationToken = default)
+            => Task.FromResult(Execute(credential, cancellationToken, () =>
+            {
+                using AsymmetricAlgorithm key = Rsa ? new CallbackRsa(_certificate, hash => SignHash(hash, pin, cancellationToken)) : new CallbackEcdsa(_certificate, hash => SignHash(hash, pin, cancellationToken));
+                var cms = new SignedCms(new ContentInfo(document), true);
+                var signer = new CmsSigner(SubjectIdentifierType.IssuerAndSerialNumber, _certificate, key)
+                { DigestAlgorithm = new Oid(!Rsa && Sha384 ? "2.16.840.1.101.3.4.2.2" : "2.16.840.1.101.3.4.2.1"), IncludeOption = X509IncludeOption.EndCertOnly };
+                cms.ComputeSignature(signer, true);
+                return CredentialSignResult.Signed(cms.Encode(), SigningAlgorithm!, _certificate.RawData, _certificate.Thumbprint, _credential);
+            }));
+        private byte[] SignHash(byte[] hash, string? pin, CancellationToken ct)
+        {
+            ct.ThrowIfCancellationRequested();
+            byte[]? keyPin = _token.AlwaysAuthenticate && !_token.ProtectedAuthenticationPath && pin is not null ? Encoding.UTF8.GetBytes(pin) : null;
+            try
+            {
+                var raw = _token.Sign(Rsa ? CKM.CKM_RSA_PKCS : CKM.CKM_ECDSA, Rsa ? Convert.FromHexString("3031300D060960864801650304020105000420").Concat(hash).ToArray() : hash, keyPin);
+                ct.ThrowIfCancellationRequested(); ValidateSignatureLength(raw); return raw;
+            }
+            finally { if (keyPin is not null) CryptographicOperations.ZeroMemory(keyPin); }
+        }
+        public Task<CredentialSignResult> TrySignPdfAsync(byte[] pdf, OperatorCredential credential, string? pin = null, DateTimeOffset? signingTime = null, CancellationToken cancellationToken = default)
+            => Task.FromResult(Execute(credential, cancellationToken, () =>
+            {
+                Exception? callbackFailure = null;
+                var external = new ExternalSignature(Rsa ? "RSA" : "ECDSA", !Rsa && Sha384 ? "SHA-384" : "SHA-256", bytes =>
+                {
+                    try { return Sign(bytes, pin, cancellationToken); }
+                    catch (Exception ex) { callbackFailure = ex; throw; }
+                });
+                if (!ITextPadesSignature.TrySign(pdf, _certificate, external, credential.DisplayName, signingTime ?? _clock.UtcNow, out var signed, out var cms, out var error))
+                {
+                    if (callbackFailure is OperationCanceledException) cancellationToken.ThrowIfCancellationRequested();
+                    return callbackFailure is null ? CredentialSignResult.Failed(error ?? "PDF signing failed.") : MapFailure(callbackFailure, "signing");
+                }
+                return CredentialSignResult.SignedPdfDocument(signed, cms, SigningAlgorithm!, _certificate.RawData, _certificate.Thumbprint, _credential);
+            }));
+        public void Dispose()
+        {
+            lock (_operation)
+            {
+                if (_disposed) return; _disposed = true;
+                try
+                {
+                    DisposeResource(_token);
+                    DisposeResource(_backend);
+                    DisposeResource(_certificate);
+                }
+                finally { _gate.Release(); }
+            }
+        }
+    }
+    private sealed class ExternalSignature(string algorithm, string digest, Func<byte[], byte[]> sign) : iText.Signatures.IExternalSignature
+    {
+        public string GetDigestAlgorithmName() => digest;
+        public string GetSignatureAlgorithmName() => algorithm;
+        public iText.Signatures.ISignatureMechanismParams? GetSignatureMechanismParameters() => null;
+        public byte[] Sign(byte[] message) => sign(message);
+    }
+    private sealed class CallbackRsa(X509Certificate2 certificate, Func<byte[], byte[]> sign) : RSA
+    {
+        public override int KeySize { get { using var key = certificate.GetRSAPublicKey()!; return key.KeySize; } set => throw new NotSupportedException(); }
+        public override RSAParameters ExportParameters(bool includePrivateParameters) { if (includePrivateParameters) throw new NotSupportedException(); using var key = certificate.GetRSAPublicKey()!; return key.ExportParameters(false); }
+        public override void ImportParameters(RSAParameters parameters) => throw new NotSupportedException();
+        public override byte[] SignHash(byte[] hash, HashAlgorithmName hashAlgorithm, RSASignaturePadding padding)
+        { if (hashAlgorithm != HashAlgorithmName.SHA256 || padding != RSASignaturePadding.Pkcs1) throw new NotSupportedException(); return sign(hash); }
+        public override bool VerifyHash(byte[] hash, byte[] signature, HashAlgorithmName hashAlgorithm, RSASignaturePadding padding) { using var key = certificate.GetRSAPublicKey()!; return key.VerifyHash(hash, signature, hashAlgorithm, padding); }
+        public override byte[] Encrypt(byte[] data, RSAEncryptionPadding padding) => throw new NotSupportedException();
+        public override byte[] Decrypt(byte[] data, RSAEncryptionPadding padding) => throw new NotSupportedException();
+    }
+    private sealed class CallbackEcdsa(X509Certificate2 certificate, Func<byte[], byte[]> sign) : ECDsa
+    {
+        public override int KeySize { get { using var key = certificate.GetECDsaPublicKey()!; return key.KeySize; } set => throw new NotSupportedException(); }
+        public override byte[] SignHash(byte[] hash) => sign(hash);
+        public override bool VerifyHash(byte[] hash, byte[] signature) { using var key = certificate.GetECDsaPublicKey()!; return key.VerifyHash(hash, signature); }
+        public override ECParameters ExportParameters(bool includePrivateParameters) { if (includePrivateParameters) throw new NotSupportedException(); using var key = certificate.GetECDsaPublicKey()!; return key.ExportParameters(false); }
+        public override void ImportParameters(ECParameters parameters) => throw new NotSupportedException();
     }
 }
 
-internal static class Pkcs11ModuleResolver
+internal sealed record Pkcs11Certificate(byte[] Der, byte[] Id);
+internal interface IPkcs11Backend : IDisposable { IReadOnlyList<IPkcs11Token> OpenTokens(); }
+internal interface IPkcs11Token : IDisposable
 {
-    private static readonly string[] WindowsCandidates =
-    [
-        "opensc-pkcs11.dll",
-        @"C:\Program Files\OpenSC Project\OpenSC\pkcs11\opensc-pkcs11.dll",
-        @"C:\Program Files\OpenSC Project\OpenSC\pkcs11\opensc-pkcs11-x64.dll",
-    ];
-
-    private static readonly string[] LinuxCandidates =
-    [
-        "/usr/lib/x86_64-linux-gnu/opensc-pkcs11.so",
-        "/usr/lib/aarch64-linux-gnu/opensc-pkcs11.so",
-        "/usr/lib64/opensc-pkcs11.so",
-        "/usr/lib/opensc-pkcs11.so",
-        "opensc-pkcs11.so",
-    ];
-
-    private static readonly string[] MacCandidates =
-    [
-        "/Library/OpenSC/lib/opensc-pkcs11.so",
-        "/opt/homebrew/lib/opensc-pkcs11.so",
-        "/usr/local/lib/opensc-pkcs11.so",
-        "opensc-pkcs11.so",
-    ];
-
-    public static string? Resolve(string? configured)
+    bool ProtectedAuthenticationPath { get; }
+    bool AlwaysAuthenticate { get; }
+    IReadOnlyList<Pkcs11Certificate> ReadPublicCertificates();
+    void Login(byte[]? pin);
+    void BindPrivateKey(byte[] certificateId);
+    byte[] Sign(CKM mechanism, byte[] data, byte[]? contextPin);
+}
+internal sealed class Pkcs11Backend : IPkcs11Backend
+{
+    private readonly Pkcs11InteropFactories _factories = new();
+    private readonly IPkcs11Library _library;
+    public Pkcs11Backend(string module) => _library = _factories.Pkcs11LibraryFactory.LoadPkcs11Library(_factories, module, AppType.MultiThreaded);
+    public IReadOnlyList<IPkcs11Token> OpenTokens()
     {
-        if (!string.IsNullOrWhiteSpace(configured))
+        var tokens = new List<IPkcs11Token>();
+        try
         {
-            return configured.Trim();
+            foreach (var slot in _library.GetSlotList(SlotsType.WithTokenPresent))
+            {
+                var protectedPath = slot.GetTokenInfo().TokenFlags.ProtectedAuthenticationPath;
+                tokens.Add(new Pkcs11Token(slot.OpenSession(SessionType.ReadOnly), protectedPath, _factories));
+            }
+            return tokens;
         }
-
-        var candidates = OperatingSystem.IsWindows()
-            ? WindowsCandidates
-            : OperatingSystem.IsMacOS() ? MacCandidates : LinuxCandidates;
-        return ResolveCandidates(candidates, File.Exists, CanLoad);
+        catch { foreach (var token in tokens) Pkcs11OperatorCredentialBroker.DisposeResource(token); throw; }
     }
-
-    internal static string? ResolveCandidates(
-        IEnumerable<string> candidates,
-        Func<string, bool> fileExists,
-        Func<string, bool> canLoad)
-        => candidates.FirstOrDefault(candidate => Path.IsPathRooted(candidate) && fileExists(candidate))
-           ?? candidates.FirstOrDefault(candidate => !Path.IsPathRooted(candidate) && canLoad(candidate));
-
-    private static bool CanLoad(string library)
+    public void Dispose() => _library.Dispose();
+}
+internal sealed class Pkcs11Token(ISession session, bool protectedPath, Pkcs11InteropFactories factories) : IPkcs11Token
+{
+    private bool _ownsLogin;
+    private IObjectHandle? _key;
+    public bool ProtectedAuthenticationPath => protectedPath;
+    public bool AlwaysAuthenticate { get; private set; }
+    public IReadOnlyList<Pkcs11Certificate> ReadPublicCertificates()
     {
-        if (!NativeLibrary.TryLoad(library, out var handle))
+        var objects = session.FindAllObjects([factories.ObjectAttributeFactory.Create(CKA.CKA_CLASS, CKO.CKO_CERTIFICATE)]);
+        return objects.Select(handle =>
         {
-            return false;
-        }
-
-        NativeLibrary.Free(handle);
-        return true;
+            var attributes = session.GetAttributeValue(handle, new List<CKA> { CKA.CKA_VALUE, CKA.CKA_ID });
+            return new Pkcs11Certificate(attributes[0].GetValueAsByteArray(), attributes[1].GetValueAsByteArray());
+        }).ToList();
+    }
+    public void Login(byte[]? pin)
+    {
+        try { session.Login(CKU.CKU_USER, pin!); _ownsLogin = true; }
+        catch (Pkcs11Exception ex) when (ex.RV == CKR.CKR_USER_ALREADY_LOGGED_IN) { }
+    }
+    public void BindPrivateKey(byte[] certificateId)
+    {
+        var keys = session.FindAllObjects([factories.ObjectAttributeFactory.Create(CKA.CKA_CLASS, CKO.CKO_PRIVATE_KEY), factories.ObjectAttributeFactory.Create(CKA.CKA_ID, certificateId)]);
+        if (keys.Count != 1) throw new CryptographicException("Selected certificate must bind exactly one private key.");
+        _key = keys[0];
+        AlwaysAuthenticate = session.GetAttributeValue(_key, new List<CKA> { CKA.CKA_ALWAYS_AUTHENTICATE })[0].GetValueAsBool();
+    }
+    public byte[] Sign(CKM mechanism, byte[] data, byte[]? contextPin)
+    {
+        using var mech = factories.MechanismFactory.Create(mechanism);
+        return AlwaysAuthenticate ? session.Sign(mech, _key!, contextPin!, data) : session.Sign(mech, _key!, data);
+    }
+    public void Dispose()
+    {
+        try { if (_ownsLogin) { _ownsLogin = false; try { session.Logout(); } catch (Pkcs11Exception) { } } }
+        finally { session.Dispose(); }
     }
 }

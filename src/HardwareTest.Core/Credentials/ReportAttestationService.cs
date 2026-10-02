@@ -174,28 +174,22 @@ public sealed class ReportAttestationService : IReportAttestationService
 
         var runJson = JsonSerializer.Serialize(run, AppJsonContext.Default.TestRunRecord);
         var runHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(runJson)));
-        CredentialSignResult? signingProbe = null;
-        if (!skipSigning && string.IsNullOrEmpty(pin))
+        var preparation = skipSigning ? null : await _broker.PrepareSigningAsync(captured, pin, cancellationToken).ConfigureAwait(false);
+        using var preparedSession = preparation?.Session;
+        var broker = (IOperatorCredentialBroker?)preparedSession ?? _broker;
+        var preparationFailure = preparation?.Failure;
+        if (preparationFailure is not null && preparationFailure.FailureKind != CredentialFailureKind.Unavailable)
         {
-            signingProbe = await _broker.TrySignPayloadAsync(
-                    Encoding.UTF8.GetBytes($"pin-probe:{runHash}"),
-                    captured,
-                    pin,
-                    cancellationToken)
-                .ConfigureAwait(false);
-            if (signingProbe.PinRequired)
+            return new ReportAttestationResult
             {
-                return new ReportAttestationResult
-                {
-                    Succeeded = false,
-                    PinRequired = true,
-                    Credential = captured,
-                    Message = signingProbe.Error ?? "Enter badge PIN to sign.",
-                };
-            }
+                Succeeded = false,
+                PinRequired = preparationFailure.PinRequired,
+                Credential = captured,
+                Message = preparationFailure.Error ?? "Signing preparation failed.",
+            };
         }
 
-        var overlayKind = skipSigning || !_broker.CanSign || signingProbe?.PresenceFallbackAllowed == true
+        var overlayKind = skipSigning || !broker.CanSign || preparationFailure?.FailureKind == CredentialFailureKind.Unavailable
             ? AttestationKind.Presence
             : AttestationKind.Signed;
         var stamped = await TryCompileOverlayAsync(run, targetKind, captured, overlayKind, cancellationToken)
@@ -223,9 +217,9 @@ public sealed class ReportAttestationService : IReportAttestationService
             };
         }
 
-        if (_broker.ProducesCms && !skipSigning)
+        if (broker.ProducesCms && !skipSigning && preparationFailure is null)
         {
-            return await AttestPadesAsync(run, targetKind, captured, pdfPath, stampedPdf, pin, cancellationToken)
+            return await AttestPadesAsync(run, targetKind, captured, pdfPath, stampedPdf, pin, broker, cancellationToken)
                 .ConfigureAwait(false);
         }
 
@@ -234,7 +228,7 @@ public sealed class ReportAttestationService : IReportAttestationService
         CredentialSignResult? sign = null;
         if (!skipSigning)
         {
-            sign = await _broker.TrySignPayloadAsync(payload, captured, pin, cancellationToken)
+            sign = preparationFailure ?? await broker.TrySignPayloadAsync(payload, captured, pin, cancellationToken)
                 .ConfigureAwait(false);
             if (sign.PinRequired)
             {
@@ -252,7 +246,7 @@ public sealed class ReportAttestationService : IReportAttestationService
                 return new ReportAttestationResult
                 {
                     Succeeded = false,
-                    PinRequired = true,
+                    PinRequired = false,
                     Credential = captured,
                     Message = sign.Error ?? "Incorrect PIN.",
                 };
@@ -328,7 +322,7 @@ public sealed class ReportAttestationService : IReportAttestationService
             RunJsonSha256 = runHash,
 
             Algorithm = signature is { Length: > 0 }
-                ? (sign?.Algorithm ?? _broker.SigningAlgorithm ?? AttestationAlgorithm.MockHmac)
+                ? (sign?.Algorithm ?? broker.SigningAlgorithm ?? AttestationAlgorithm.MockHmac)
                 : AttestationAlgorithm.Presence,
             SignatureFormat = signature is { Length: > 0 }
                 ? AttestationSignatureFormat.DetachedSidecar
@@ -364,13 +358,14 @@ public sealed class ReportAttestationService : IReportAttestationService
         string? pdfPath,
         byte[]? stampedPdf,
         string? pin,
+        IOperatorCredentialBroker broker,
         CancellationToken cancellationToken)
     {
         var pdfBytes = stampedPdf ?? await File.ReadAllBytesAsync(pdfPath!, cancellationToken).ConfigureAwait(false);
         var signingTime = captured.CapturedAt == default ? _clock.UtcNow : captured.CapturedAt;
         PreparedPdfSignature? prepared = null;
         CredentialSignResult sign;
-        if (_broker is IEmbeddedPdfSigningBroker embedded)
+        if (broker is IEmbeddedPdfSigningBroker embedded)
         {
             sign = await embedded
                 .TrySignPdfAsync(pdfBytes, captured, pin, signingTime, cancellationToken)
@@ -393,7 +388,7 @@ public sealed class ReportAttestationService : IReportAttestationService
                 };
             }
 
-            sign = await _broker
+            sign = await broker
                 .TrySignDocumentAsync(prepared.SignedBytes, captured, pin, signingTime, cancellationToken)
                 .ConfigureAwait(false);
         }
@@ -413,7 +408,7 @@ public sealed class ReportAttestationService : IReportAttestationService
             return new ReportAttestationResult
             {
                 Succeeded = false,
-                PinRequired = true,
+                PinRequired = false,
                 Credential = captured,
                 Message = sign.Error ?? "Incorrect PIN.",
             };
@@ -483,7 +478,7 @@ public sealed class ReportAttestationService : IReportAttestationService
             PdfSha256 = pdfHash,
             RunJsonSha256 = runHash,
 
-            Algorithm = sign.Algorithm ?? _broker.SigningAlgorithm ?? AttestationAlgorithm.PivRsaPkcs1Sha256,
+            Algorithm = sign.Algorithm ?? broker.SigningAlgorithm ?? AttestationAlgorithm.PivRsaPkcs1Sha256,
             SignatureFormat = AttestationSignatureFormat.PadesBasic,
             EmbeddedInPdf = true,
             CapturedAt = party.CapturedAt == default ? signingTime : party.CapturedAt,
@@ -734,32 +729,7 @@ public sealed class ReportAttestationService : IReportAttestationService
     }
 
     private static bool CanRecordPresence(bool skipSigning, string? pin, CredentialSignResult? sign)
-    {
-        if (skipSigning)
-        {
-            return true;
-        }
-
-        if (sign?.PresenceFallbackAllowed == true)
-        {
-            return true;
-        }
-
-        if (!string.IsNullOrEmpty(pin))
-        {
-            return false;
-        }
-
-        var error = sign?.Error;
-        if (string.IsNullOrWhiteSpace(error))
-        {
-            return true;
-        }
-
-        return error.Contains("cannot sign", StringComparison.OrdinalIgnoreCase)
-            || error.Contains("No PIV signing certificate", StringComparison.OrdinalIgnoreCase)
-            || error.Contains("PIV applet not found", StringComparison.OrdinalIgnoreCase);
-    }
+        => skipSigning || sign?.FailureKind == CredentialFailureKind.Unavailable;
 
     private static string HashBytes(byte[] bytes) => Convert.ToHexString(SHA256.HashData(bytes));
 
