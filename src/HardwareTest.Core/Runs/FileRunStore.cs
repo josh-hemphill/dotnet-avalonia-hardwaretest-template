@@ -77,7 +77,7 @@ public sealed class FileRunStore : IRunStore
             return null;
         }
 
-        await using var stream = File.OpenRead(path);
+        await using var stream = AtomicFile.OpenReadSnapshot(path);
         var run = await JsonSerializer.DeserializeAsync(stream, AppJsonContext.Default.TestRunRecord, cancellationToken)
             .ConfigureAwait(false);
         if (run is null)
@@ -105,7 +105,7 @@ public sealed class FileRunStore : IRunStore
             TestRunRecord? run;
             try
             {
-                await using var stream = File.OpenRead(path);
+                await using var stream = AtomicFile.OpenReadSnapshot(path);
                 run = await JsonSerializer.DeserializeAsync(
                         stream,
                         AppJsonContext.Default.TestRunRecord,

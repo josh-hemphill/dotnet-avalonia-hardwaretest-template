@@ -6,6 +6,7 @@ using HardwareTest.Core.Reporting;
 using HardwareTest.Core.Runs;
 using HardwareTest.Core.Serialization;
 using HardwareTest.Core.Settings;
+using HardwareTest.Core.IO;
 using HardwareTest.Tests.Credentials;
 using Xunit;
 
@@ -150,7 +151,7 @@ public sealed class ReportRevisionTests : IDisposable
         await File.WriteAllTextAsync(Path.Combine(store.GetRunDirectory(run.RunId), "issued"), "blocks directory");
         var before = JsonSerializer.Serialize(run, AppJsonContext.Default.TestRunRecord);
         var service = new ReportAttestationService(new MockOperatorCredentialBroker(canSign: true), store, new AppSettings());
-        await Assert.ThrowsAsync<IOException>(() => service.AttestAsync(run, ReportKinds.Certification));
+        await Assert.ThrowsAnyAsync<IOException>(() => service.AttestAsync(run, ReportKinds.Certification));
         Assert.Equal(before, JsonSerializer.Serialize(run, AppJsonContext.Default.TestRunRecord));
         Assert.Empty((await store.LoadAsync(run.RunId))!.Attestations);
     }
@@ -456,6 +457,21 @@ public sealed class ReportRevisionTests : IDisposable
         public Task<TestRunRecord?> LoadAsync(string runId, CancellationToken cancellationToken = default) => inner.LoadAsync(runId, cancellationToken);
         public Task<IReadOnlyList<TestRunSummary>> ListAsync(CancellationToken cancellationToken = default) => inner.ListAsync(cancellationToken);
         public string GetRunDirectory(string runId) => inner.GetRunDirectory(runId);
+    }
+
+    [Fact]
+    public async Task Metadata_reader_retains_old_snapshot_during_atomic_save()
+    {
+        var store = new FileRunStore(_root);
+        var run = await SeedAsync(store);
+        var path = Path.Combine(store.GetRunDirectory(run.RunId), "run.json");
+        var before = await File.ReadAllTextAsync(path);
+        await using var snapshot = AtomicFile.OpenReadSnapshot(path);
+        run.ErrorMessage = "new metadata";
+        await store.SaveAsync(run);
+        using var reader = new StreamReader(snapshot);
+        Assert.Equal(before, await reader.ReadToEndAsync());
+        Assert.Equal("new metadata", (await store.LoadAsync(run.RunId))!.ErrorMessage);
     }
 
     private static async Task<TestRunRecord> SeedAsync(FileRunStore store)

@@ -7,6 +7,10 @@ namespace HardwareTest.Core.IO;
 /// Temp → flush-to-disk → rename writes so power loss cannot leave truncated destination files.
 public static class AtomicFile
 {
+    // A reader keeps a stable open-file snapshot while an atomic writer replaces the directory entry.
+    internal static FileStream OpenReadSnapshot(string path) => new(path, FileMode.Open, FileAccess.Read,
+        FileShare.Read | FileShare.Delete, 4096, FileOptions.Asynchronous | FileOptions.SequentialScan);
+
     /// Writes bytes atomically to <paramref name="destinationPath"/>.
     public static async Task WriteAllBytesAsync(
         string destinationPath,
@@ -81,10 +85,16 @@ public static class AtomicFile
             {
                 throw new UnauthorizedAccessException($"Destination is read-only: {destinationPath}");
             }
+            if (OperatingSystem.IsWindows())
+            {
+                // ReplaceFile supports readers that share deletion; MoveFileEx(overwrite) may reject them.
+                File.Replace(tempPath, destinationPath, destinationBackupFileName: null);
+                return;
+            }
         }
 
         // Same-directory temp + overwrite rename is atomic on Unix (rename) and uses
-        // MoveFileEx(REPLACE_EXISTING) on Windows — avoids delete-then-move data loss.
+        // MoveFileEx for a new Windows destination — avoids delete-then-move data loss.
         File.Move(tempPath, destinationPath, overwrite: true);
     }
 

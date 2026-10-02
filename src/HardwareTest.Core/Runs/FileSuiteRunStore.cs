@@ -101,7 +101,7 @@ public sealed class FileSuiteRunStore : ISuiteRunStore
             return null;
         }
 
-        await using var stream = File.OpenRead(path);
+        await using var stream = AtomicFile.OpenReadSnapshot(path);
         var suite = await JsonSerializer.DeserializeAsync(stream, AppJsonContext.Default.SuiteRunRecord, cancellationToken)
             .ConfigureAwait(false);
         if (suite is null)
