@@ -35,7 +35,6 @@ public partial class ReportPreviewViewModel : ReactiveObject
     private long _selectionVersion;
     private PendingAction? _pending;
     private OperatorCredential? _capturedCredential;
-    private bool _capturing;
     private enum ActionKind { Sign, Save, Print, Open }
     private sealed record PendingAction(TestRunRecord Run, string Kind, ActionKind Action, long Version);
 
@@ -348,17 +347,17 @@ public partial class ReportPreviewViewModel : ReactiveObject
         var pending = _pending;
         var cancellation = _signingCancellation;
         if (pending is null || cancellation is null || _attestation is null || pending.Version != _selectionVersion) return;
-        if (_capturing)
+        using var capture = ReportCaptureGate.TryEnter(_attestation);
+        if (capture is null)
         {
             await RunOnUiAsync(() =>
             {
                 if (!ReferenceEquals(_pending, pending) || pending.Version != _selectionVersion || cancellation.IsCancellationRequested) return;
-                SigningPromptStatus = "A previous badge operation is still finishing. Close its prompt, then try again.";
+                SigningPromptStatus = ReportCaptureGate.WaitingMessage;
                 Status = SigningPromptStatus;
             }).ConfigureAwait(false);
             return;
         }
-        _capturing = true;
         var pin = ShowSigningPin ? SigningPin : null;
         var credential = _capturedCredential;
         var effectVersion = pending.Version;
@@ -406,7 +405,6 @@ public partial class ReportPreviewViewModel : ReactiveObject
         }
         finally
         {
-            _capturing = false;
             if (effectVersion == _selectionVersion) await RunOnUiAsync(() =>
             {
                 if (effectVersion == _selectionVersion) SigningPin = string.Empty;

@@ -356,6 +356,48 @@ public sealed class ReportActionTests : IDisposable
         Assert.Equal("Signing unavailable", vm.SigningPromptStatus);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Cancelled_results_capture_blocks_new_results_or_preview_capture_until_provider_returns(bool navigateToPreview)
+    {
+        var store = new FileRunStore(_root);
+        var first = await SeedAsync(store, "results-old");
+        var second = await SeedAsync(store, "results-new");
+        var delayed = new DelayedAttestation { Result = new ReportAttestationResult { Message = "Signing unavailable" } };
+        var settings = new AppSettings { RequireAttestationBeforeExport = true, AllowPresenceInLieuOfSigning = true };
+        var results = new ResultsViewModel(store, new FakeReportService(), attestation: delayed, settings: settings);
+        await results.RequestCertifiedPrintAsync(first.Reports[0].PdfPath);
+        var oldAttempt = results.CaptureAttestationCommand.ExecuteAsync();
+        await delayed.Started.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        results.CancelPendingReportAction();
+        if (navigateToPreview)
+        {
+            var preview = new ReportPreviewViewModel(store, new FakeReportService(), attestation: delayed)
+            { UiScheduler = action => action(), PreviewRenderer = _ => [] };
+            await preview.LoadFromPathAsync(second.Reports[0].PdfPath);
+            await preview.SignCommand.ExecuteAsync();
+            await preview.UsePresenceCommand.ExecuteAsync();
+            Assert.Equal(1, delayed.Calls);
+            Assert.Contains("still finishing", preview.SigningPromptStatus);
+            delayed.Release.TrySetResult();
+            await oldAttempt;
+            await preview.SignAndContinueCommand.ExecuteAsync();
+        }
+        else
+        {
+            await results.RequestCertifiedPrintAsync(second.Reports[0].PdfPath);
+            await results.UsePresenceAttestationCommand.ExecuteAsync();
+            Assert.Equal(1, delayed.Calls);
+            Assert.Contains("still finishing", results.AttestationPromptStatus);
+            delayed.Release.TrySetResult();
+            await oldAttempt;
+            await results.UsePresenceAttestationCommand.ExecuteAsync();
+        }
+        Assert.Equal(2, delayed.Calls);
+        Assert.Equal(second.RunId, delayed.CapturedRunId);
+    }
+
     private async Task<(TestRunRecord, ReportPreviewViewModel, Actions, ReportAttestationService)> SetupAsync()
     {
         var store = new FileRunStore(_root);

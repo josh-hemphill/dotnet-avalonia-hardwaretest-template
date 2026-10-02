@@ -2,6 +2,7 @@ using HardwareTest.Core.Credentials;
 using HardwareTest.Core.Reporting;
 using HardwareTest.Core.Runs;
 using HardwareTest.OpenTap.Host;
+using HardwareTest.Reporting;
 using ReactiveUI.SourceGenerators;
 
 namespace HardwareTest.Features.Results;
@@ -97,10 +98,17 @@ public partial class ResultsViewModel
 
     private async Task CompleteAttestationAsync(bool skipSigning)
     {
-        if (IsCapturingAttestation) return;
         if (_attestation is null || _pendingAttestationRun is null)
         {
             DismissAttestationPrompt();
+            return;
+        }
+
+        using var capture = ReportCaptureGate.TryEnter(_attestation);
+        if (capture is null)
+        {
+            AttestationPromptStatus = ReportCaptureGate.WaitingMessage;
+            Status = AttestationPromptStatus;
             return;
         }
 
