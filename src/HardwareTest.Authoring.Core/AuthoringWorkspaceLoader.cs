@@ -111,6 +111,9 @@ public static class AuthoringWorkspaceLoader
     }
 
     public static void SaveManifest(string root, AuthoringManifest manifest)
+        => SaveManifest(root, manifest, null);
+
+    internal static void SaveManifest(string root, AuthoringManifest manifest, Action<string, string>? replaceFile)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(root);
         ArgumentNullException.ThrowIfNull(manifest);
@@ -140,7 +143,19 @@ public static class AuthoringWorkspaceLoader
         }
 
         var json = JsonSerializer.Serialize(manifest, AuthoringJsonContext.Default.AuthoringManifest);
-        File.WriteAllText(manifestPath, json + Environment.NewLine);
+        var temporaryPath = manifestPath + "." + Guid.NewGuid().ToString("N") + ".saving";
+        try
+        {
+            File.WriteAllText(temporaryPath, json + Environment.NewLine);
+            if (replaceFile is null) File.Move(temporaryPath, manifestPath, overwrite: true);
+            else replaceFile(temporaryPath, manifestPath);
+        }
+        finally
+        {
+            try { File.Delete(temporaryPath); }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
+        }
     }
 
     private static int ReadSchemaVersion(JsonElement root, string manifestPath)

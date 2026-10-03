@@ -175,6 +175,8 @@ public sealed class AuthoringProgramSettingsViewModelTests
         Assert.True(vm.SelectedProgram.Sidecar.RequireSerial);
         Assert.True(vm.RequireSerial);
         Assert.Contains("fixtureId", vm.Workspace!.Manifest.Catalogs!.RequiredFields);
+        Assert.True(vm.WorkspaceCatalogDirty);
+        Assert.True(vm.SaveAll().Succeeded);
         var reloaded = AuthoringWorkspaceLoader.Load(vm.Workspace.Root);
         Assert.Contains("fixtureId", reloaded.Manifest.Catalogs!.RequiredFields);
     }
@@ -263,6 +265,8 @@ public sealed class AuthoringProgramSettingsViewModelTests
         Assert.Contains("incomingInspect", vm.ProgramKindOptions);
         Assert.Contains("incomingInspect", vm.Workspace.Manifest.Catalogs.ProgramKinds);
 
+        Assert.True(vm.WorkspaceCatalogDirty);
+        Assert.True(vm.SaveAll().Succeeded);
         var reloaded = AuthoringWorkspaceLoader.Load(vm.Workspace.Root);
         Assert.Contains("traceability", reloaded.Manifest.Catalogs!.ReportKinds);
         Assert.Contains("incomingInspect", reloaded.Manifest.Catalogs.ProgramKinds);

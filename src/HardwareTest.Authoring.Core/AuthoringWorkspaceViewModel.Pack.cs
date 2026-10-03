@@ -10,7 +10,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         .Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.OrdinalIgnoreCase).ToArray();
     public bool CanPack => Workspace is not null && WorkspacePacker.IsWritableWorkspace(Workspace) && !HasUnsavedChanges;
     public string PackGuardText => HasUnsavedChanges
-        ? $"Save edited programs before packing: {string.Join(", ", DirtyProgramIds)}"
+        ? WorkspaceCatalogDirty ? "Use Save All to save workspace catalog changes and edited programs before packing." : $"Save edited programs before packing: {string.Join(", ", DirtyProgramIds)}"
         : "Pack checks saved plans, required packages, plugin catalogs and in-process load/save round trips.";
 
     private void RaisePackGuardProperties()
@@ -33,7 +33,8 @@ public sealed partial class AuthoringWorkspaceViewModel
         if (!CanPack)
         {
             var report = new PackPreflightReport(HasUnsavedChanges
-                ? DirtyProgramIds.Select(id => new PackPreflightFinding("PACK_DIRTY", $"Save program '{id}' before packing.", true)).ToArray()
+                ? DirtyProgramIds.Select(id => new PackPreflightFinding("PACK_DIRTY", $"Save program '{id}' before packing.", true))
+                    .Concat(WorkspaceCatalogDirty ? [new PackPreflightFinding("PACK_CATALOG_DIRTY", "Use Save All to save workspace catalog changes before packing.", true)] : []).ToArray()
                 : [new PackPreflightFinding("PACK_WORKSPACE", "Open a writable workspace before packing.", true)]);
             RetainPackPreflight(report);
             throw new PackPreflightException(report);

@@ -26,9 +26,9 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
     private readonly HashSet<string> _dirtyPlans = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> _dirtySidecars = new(StringComparer.OrdinalIgnoreCase);
 
-    public bool HasUnsavedChanges => _dirtyPlans.Count > 0 || _dirtySidecars.Count > 0;
+    public bool HasUnsavedChanges => _dirtyPlans.Count > 0 || _dirtySidecars.Count > 0 || WorkspaceCatalogDirty;
     public string ValidationScope => HasUnsavedChanges
-        ? "Save all edited programs before validating saved TapPlans."
+        ? WorkspaceCatalogDirty ? "Use Save All to save workspace catalog changes and edited programs before validating saved TapPlans." : "Save all edited programs before validating saved TapPlans."
         : "Validation checks saved TapPlans in this workspace.";
 
     private void MarkDirty(string planId, bool plan, bool sidecar)
@@ -39,6 +39,7 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
         FindingRows = [];
         RefreshProgramRows();
         OnPropertyChanged(nameof(DirtyPrograms));
+        OnPropertyChanged(nameof(UnsavedChangesSummary));
         OnPropertyChanged(nameof(HasUnsavedChanges));
         RaisePackGuardProperties();
         OnPropertyChanged(nameof(ValidationScope));
@@ -48,6 +49,7 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
     {
         RefreshProgramRows();
         OnPropertyChanged(nameof(DirtyPrograms));
+        OnPropertyChanged(nameof(UnsavedChangesSummary));
         OnPropertyChanged(nameof(HasUnsavedChanges));
         RaisePackGuardProperties();
         OnPropertyChanged(nameof(ValidationScope));
@@ -228,6 +230,9 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
         {
             _dirtyPlans.Clear();
             _dirtySidecars.Clear();
+            _workspaceSession = Guid.NewGuid();
+            WorkspaceCatalogDirty = false;
+            WorkspaceCatalogSaveFailure = null;
             Workspace = files;
             Programs = prepared.Draft.Programs;
             _selectedInstrumentSlot = null;
