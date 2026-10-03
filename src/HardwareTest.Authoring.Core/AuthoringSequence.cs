@@ -32,6 +32,8 @@ public sealed record SequenceRow(
     string Detail,
     IReadOnlyList<int> IndexPath) : INotifyPropertyChanged
 {
+    public Guid? NodeId { get; init; }
+
     public string Label { get; private set; } = Label;
     public string Detail { get; private set; } = Detail;
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -312,7 +314,8 @@ public static class AuthoringSequence
         var copy = nodes.ToArray();
         if (depth == path.Count - 1)
         {
-            copy[index] = mutate(copy[index]);
+            var original = copy[index];
+            copy[index] = mutate(original) with { NodeId = original.NodeId };
             return copy;
         }
 
@@ -374,7 +377,7 @@ public static class AuthoringSequence
             _ => (action.GetType().Name, string.Empty),
         };
         return new SequenceRow(
-            $"setup:{index}",
+            $"setup:{action.NodeId:N}",
             SequenceSection.Setup,
             SequenceRowKind.Setup,
             true,
@@ -382,7 +385,8 @@ public static class AuthoringSequence
             0,
             label,
             detail,
-            [index]);
+            [index])
+        { NodeId = action.NodeId };
     }
 
     private static void AppendMeasure(
@@ -399,7 +403,7 @@ public static class AuthoringSequence
             {
                 case MetricNode metric:
                     rows.Add(new SequenceRow(
-                        MeasureKey(path),
+                        MeasureKey(nodes[i].NodeId),
                         SequenceSection.Measure,
                         SequenceRowKind.Metric,
                         true,
@@ -407,11 +411,12 @@ public static class AuthoringSequence
                         indent,
                         metric.Metric.Name,
                         $"{metric.Metric.DisplayRole} · {metric.Metric.ChannelKey}",
-                        path));
+                        path)
+                    { NodeId = nodes[i].NodeId });
                     break;
                 case RepeatNode repeat:
                     rows.Add(new SequenceRow(
-                        MeasureKey(path),
+                        MeasureKey(nodes[i].NodeId),
                         SequenceSection.Measure,
                         SequenceRowKind.Repeat,
                         true,
@@ -419,12 +424,13 @@ public static class AuthoringSequence
                         indent,
                         $"Repeat x{repeat.Count}",
                         $"{repeat.Children.Count} step(s)",
-                        path));
+                        path)
+                    { NodeId = nodes[i].NodeId });
                     AppendMeasure(rows, repeat.Children, path);
                     break;
                 case RawStepNode raw:
                     rows.Add(new SequenceRow(
-                        MeasureKey(path),
+                        MeasureKey(nodes[i].NodeId),
                         SequenceSection.Measure,
                         SequenceRowKind.Raw,
                         true,
@@ -432,11 +438,12 @@ public static class AuthoringSequence
                         indent,
                         raw.TypeName,
                         "Raw step",
-                        path));
+                        path)
+                    { NodeId = nodes[i].NodeId });
                     break;
                 default:
                     rows.Add(new SequenceRow(
-                        MeasureKey(path),
+                        MeasureKey(nodes[i].NodeId),
                         SequenceSection.Measure,
                         SequenceRowKind.Raw,
                         true,
@@ -444,7 +451,8 @@ public static class AuthoringSequence
                         indent,
                         nodes[i].GetType().Name,
                         string.Empty,
-                        path));
+                        path)
+                    { NodeId = nodes[i].NodeId });
                     break;
             }
         }
@@ -454,7 +462,7 @@ public static class AuthoringSequence
     {
         var included = draft.Cleanup.IncludeSafeShutdown;
         return new SequenceRow(
-            "cleanup",
+            $"cleanup:{draft.Cleanup.NodeId:N}",
             SequenceSection.Cleanup,
             SequenceRowKind.Cleanup,
             true,
@@ -462,7 +470,8 @@ public static class AuthoringSequence
             0,
             included ? "Safe Shutdown" : "Cleanup skipped",
             included ? FormatCleanupDetail(draft) : "Sidecar excludes Safe Shutdown from Run Selected",
-            []);
+            [])
+        { NodeId = draft.Cleanup.NodeId };
     }
 
     private static string FormatCleanupDetail(ProgramDraft draft)
@@ -471,6 +480,6 @@ public static class AuthoringSequence
         return parts.Count == 0 ? "no instruments selected" : string.Join(" · ", parts);
     }
 
-    private static string MeasureKey(IReadOnlyList<int> path)
-        => "measure:" + string.Join('.', path);
+    private static string MeasureKey(Guid nodeId)
+        => $"measure:{nodeId:N}";
 }

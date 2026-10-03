@@ -206,7 +206,7 @@ public static class AuthoringRecipeCatalog
 
         return draft with
         {
-            Cleanup = new CleanupPolicy(true, slots, draft.Cleanup.IncludeMeasureSlots),
+            Cleanup = draft.Cleanup with { IncludeSafeShutdown = true, InstrumentSlots = slots },
         };
     }
 

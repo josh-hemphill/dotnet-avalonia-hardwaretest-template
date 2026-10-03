@@ -87,6 +87,16 @@ HardwareTest (operator)  ──x──  does not reference Authoring*
 
 Headless flags on the same exe (`--pack`, `--bootstrap`, `--compat`) exit before Avalonia, matching `HardwareTest --validate-plan`. Keep `HardwareTest.PlanValidate` as the pack-gate CLI for appliance CI; Authoring CLI is for workspace bootstrap/pack/compat.
 
+### Document sessions and editing
+
+`AuthoringDocumentSession` owns a program's isolated snapshots, revision, saved plan/sidecar baselines, stable selected node and `AuthoringHistory`. `AuthoringEditService` commits explicit edits; no-op and failed edits preserve Redo. Snapshots deep-copy mutable sidecars and nested collections. Setup and measure nodes carry stable IDs, imported from OpenTAP step IDs and retained by record updates and supported-step compilation.
+
+The workspace view model coordinates these services with the existing editors and save commands. Dirty state compares current content with the last successful save, independently for plan and sidecar. Full Save advances both baselines, sidecar-only Save advances one, and failures advance neither. New programs remain unsaved until their first full Save.
+
+Workspace catalog transactions capture the manifest and affected program content together. Undo/Redo checks the current content before restoring a transaction, protecting newer edits. Program file deletion clears related history. Selection changes and presentation refreshes do not count as edits; opening another workspace creates fresh sessions.
+
+`AuthoringDependencyIndex` projects nested channel/instrument references with stable node targets and preserves uncertainty for raw content and unresolved legacy bindings. `AuthoringIssueService` supplies editing findings separately from saved-plan contract findings. This package does not change legacy algorithm execution, the compiled-save format, or the build pipeline; durable authoring JSON and recovery remain package 06.
+
 ### Isolated OpenTAP home
 
 Not the operator publish tree and not a machine-global `tap` install the engineer already uses for other products.

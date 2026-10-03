@@ -26,6 +26,28 @@ public partial class MainWindow : Window
     private async void OnOpenWorkspace(object? sender, RoutedEventArgs e)
         => await OpenWorkspaceAsync();
 
+    private void OnUndo(object? sender, RoutedEventArgs e)
+    {
+        CommitFocusedEditor();
+        TryRun(() => _viewModel.Undo());
+    }
+
+    private void OnRedo(object? sender, RoutedEventArgs e)
+    {
+        CommitFocusedEditor();
+        TryRun(() => _viewModel.Redo());
+    }
+    private void OnUndoWorkspace(object? sender, RoutedEventArgs e)
+    {
+        CommitFocusedEditor();
+        TryRun(() => _viewModel.UndoWorkspace());
+    }
+    private void OnRedoWorkspace(object? sender, RoutedEventArgs e)
+    {
+        CommitFocusedEditor();
+        TryRun(() => _viewModel.RedoWorkspace());
+    }
+
     private void OnSaveAll(object? sender, RoutedEventArgs e)
     {
         CommitFocusedEditor();

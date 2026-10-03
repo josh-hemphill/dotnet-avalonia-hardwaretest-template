@@ -76,6 +76,7 @@ public sealed partial class AuthoringWorkspaceViewModel
             {
                 EnsureWritableWorkspace("save the workspace catalog");
                 AuthoringWorkspaceLoader.SaveManifest(Workspace!.Root, Workspace.Manifest, WorkspaceManifestReplacement);
+                _savedManifestIdentity = ManifestIdentity();
                 WorkspaceCatalogDirty = false;
                 catalogSaved = true;
             }
@@ -134,22 +135,27 @@ public sealed partial class AuthoringWorkspaceViewModel
             ?? throw new AuthoringWorkspaceException($"Unknown program '{planId}'.");
         var existing = TryExistingTapPlanPath(planId);
         var path = existing ?? ResolveTapPlanPath(planId);
-        var savePlan = !sidecarOnly && (forcePlan || _dirtyPlans.Contains(planId) || existing is null);
+        var actualDirty = _documents[planId].GetDirtyState(draft);
+        var savePlan = !sidecarOnly && (forcePlan || actualDirty.PlanDirty || existing is null);
         if (sidecarOnly && existing is null) throw new AuthoringWorkspaceException($"No TapPlan path for '{planId}'.");
         if (savePlan)
         {
             AuthoringRecipeCatalog.EnsureScalarLimits(draft);
-            _compiler.Save(draft, path);
+            var beforeSave = CaptureWorkspace();
+            var savedSidecar = PlanCompiler.CloneSidecar(draft.Sidecar);
+            AuthoringCleanup.SyncSidecar(savedSidecar, draft.Cleanup);
+            _compiler.Save(draft with { Sidecar = savedSidecar }, path);
+            AuthoringCleanup.SyncSidecar(draft.Sidecar, draft.Cleanup);
             if (existing is null) Workspace = workspace with { TapPlanPaths = [.. workspace.TapPlanPaths, path] };
-            _dirtyPlans.Remove(planId);
-            _dirtySidecars.Remove(planId);
+            _documents[planId].AcceptSavedContent(draft);
+            _workspaceHistory.RebaseCurrent(beforeSave, CaptureWorkspace());
         }
-        else if (sidecarOnly || _dirtySidecars.Contains(planId))
+        else if (sidecarOnly || actualDirty.SidecarDirty)
         {
-            _compiler.SaveSidecar(path, draft.Sidecar);
-            _dirtySidecars.Remove(planId);
+            _compiler.SaveSidecar(path, PlanCompiler.CloneSidecar(draft.Sidecar));
+            _documents[planId].AcceptSavedContent(draft, plan: false, sidecar: true);
         }
-        RefreshDirtyState();
+        RecomputeDocumentDirty();
         Status = $"Saved {Path.GetFileName(savePlan ? path : PlanCompiler.SidecarPath(path))}";
         Error = null;
     }

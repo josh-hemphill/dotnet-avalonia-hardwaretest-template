@@ -25,6 +25,10 @@
                 ToolTip.Tip="Install Editor packs into this workspace’s isolated OpenTAP home (offline)"
                 AutomationProperties.Name="Bootstrap OpenTAP home" />
           </StackPanel>
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <Button Content="Undo catalog" Click="OnUndoWorkspace" IsEnabled="{Binding CanUndoWorkspace}" AutomationProperties.Name="Undo workspace catalog" ToolTip.Tip="{Binding WorkspaceHistoryHint}" />
+            <Button Content="Redo catalog" Click="OnRedoWorkspace" IsEnabled="{Binding CanRedoWorkspace}" AutomationProperties.Name="Redo workspace catalog" ToolTip.Tip="{Binding WorkspaceHistoryHint}" />
+          </StackPanel>
         </StackPanel>
         <StackPanel Spacing="4">
           <TextBlock FontWeight="SemiBold" Text="Save selected program" />
@@ -44,8 +48,12 @@
                      Text="Sidecar: settings only. Plan: sequence and settings." />
         </StackPanel>
         <StackPanel Spacing="4">
-          <TextBlock FontWeight="SemiBold" Text="Check and configure" />
-          <Button Content="Save all" Click="OnSaveAll" IsEnabled="{Binding HasWorkspace}" AutomationProperties.Name="Save all" />
+          <TextBlock FontWeight="SemiBold" Text="Edit, check and configure" />
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <Button Content="Undo" Click="OnUndo" IsEnabled="{Binding CanUndo}" AutomationProperties.Name="Undo selected program" ToolTip.Tip="Undo the selected program's last edit" />
+            <Button Content="Redo" Click="OnRedo" IsEnabled="{Binding CanRedo}" AutomationProperties.Name="Redo selected program" ToolTip.Tip="Redo the selected program's last edit" />
+            <Button Content="Save all" Click="OnSaveAll" IsEnabled="{Binding HasWorkspace}" AutomationProperties.Name="Save all" />
+          </StackPanel>
           <StackPanel Orientation="Horizontal" Spacing="6">
         <Button Content="Validate"
                 Click="OnValidate"
@@ -592,23 +600,36 @@
           <vm:ProgramSettingsView IsEnabled="{Binding CanEditProgramSettings}" />
         </TabItem>
         <TabItem Header="Findings" AutomationProperties.Name="Findings tab">
-          <ListBox ItemsSource="{Binding FindingRows}"
-                   KeyboardNavigation.TabNavigation="Once"
-                   AutomationProperties.Name="Contract findings">
-            <ListBox.ItemTemplate>
-              <DataTemplate x:DataType="vm:AuthoringFindingRow">
-                <StackPanel>
-                  <TextBlock FontWeight="SemiBold" Text="{Binding ProgramId, StringFormat='Program: {0}'}" />
-                  <TextBlock TextWrapping="Wrap" Text="{Binding TapPlanPath}" />
-                  <TextBlock FontWeight="SemiBold" Text="{Binding Code, StringFormat='{}{0}'}" />
-                  <TextBlock TextWrapping="Wrap" Opacity="0.85" Text="{Binding Message}" />
-                  <TextBlock TextWrapping="Wrap" Text="{Binding Location, StringFormat='Location: {0}'}" />
-                  <TextBlock Opacity="0.7" FontSize="11" Text="{Binding Severity}" />
-                  <Button Content="Open program" IsEnabled="{Binding CanOpenProgram}" Click="OnOpenFindingProgram" />
-                </StackPanel>
-              </DataTemplate>
-            </ListBox.ItemTemplate>
-          </ListBox>
+          <DockPanel>
+            <Expander DockPanel.Dock="Top" Margin="0,0,0,8" Header="Editing findings" IsVisible="{Binding HasWorkspace}">
+              <ScrollViewer MaxHeight="100">
+                <ItemsControl ItemsSource="{Binding EditingIssues}" AutomationProperties.Name="Editing findings">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:AuthoringEditingIssue">
+                      <TextBlock Text="{Binding Message}" TextWrapping="Wrap" />
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </ScrollViewer>
+            </Expander>
+            <ListBox ItemsSource="{Binding FindingRows}"
+                     KeyboardNavigation.TabNavigation="Once"
+                     AutomationProperties.Name="Contract findings">
+              <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="vm:AuthoringFindingRow">
+                  <StackPanel>
+                    <TextBlock FontWeight="SemiBold" Text="{Binding ProgramId, StringFormat='Program: {0}'}" />
+                    <TextBlock TextWrapping="Wrap" Text="{Binding TapPlanPath}" />
+                    <TextBlock FontWeight="SemiBold" Text="{Binding Code, StringFormat='{}{0}'}" />
+                    <TextBlock TextWrapping="Wrap" Opacity="0.85" Text="{Binding Message}" />
+                    <TextBlock TextWrapping="Wrap" Text="{Binding Location, StringFormat='Location: {0}'}" />
+                    <TextBlock Opacity="0.7" FontSize="11" Text="{Binding Severity}" />
+                    <Button Content="Open program" IsEnabled="{Binding CanOpenProgram}" Click="OnOpenFindingProgram" />
+                  </StackPanel>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+          </DockPanel>
         </TabItem>
         <TabItem Header="Workspace" AutomationProperties.Name="Workspace tab">
           <ScrollViewer>

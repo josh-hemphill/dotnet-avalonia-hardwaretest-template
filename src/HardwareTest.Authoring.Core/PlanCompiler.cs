@@ -59,8 +59,9 @@ public sealed partial class PlanCompiler : IPlanCompiler
 
         var plan = BuildPlan(draft);
         AssertNoDialog(plan);
-        AuthoringCleanup.SyncSidecar(draft.Sidecar, draft.Cleanup);
-        WritePlanAndSidecar(plan, tapPlanPath, draft.Sidecar);
+        var sidecar = CloneSidecar(draft.Sidecar);
+        AuthoringCleanup.SyncSidecar(sidecar, draft.Cleanup);
+        WritePlanAndSidecar(plan, tapPlanPath, sidecar);
     }
 
     public ProgramDraft Load(string tapPlanPath)

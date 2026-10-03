@@ -791,7 +791,9 @@ public sealed partial class AuthoringWorkspaceViewModel
         SetReportKind(kind, include);
     }
 
-    public void AddReportKind()
+    public void AddReportKind() => RunCatalogEdit("AddReportKind", AddReportKindCore);
+
+    private void AddReportKindCore()
     {
         var kind = AuthoringWorkspaceCatalog.Normalize(NewReportKind);
         if (kind is null)
@@ -810,7 +812,9 @@ public sealed partial class AuthoringWorkspaceViewModel
         OnPropertyChanged(nameof(DefaultReportKind));
     }
 
-    public void AddProgramKind()
+    public void AddProgramKind() => RunCatalogEdit("AddProgramKind", AddProgramKindCore);
+
+    private void AddProgramKindCore()
     {
         var kind = AuthoringWorkspaceCatalog.Normalize(NewProgramKind);
         if (kind is null)
@@ -827,7 +831,9 @@ public sealed partial class AuthoringWorkspaceViewModel
         OnPropertyChanged(nameof(ProgramKindChoices));
     }
 
-    public void AddInstrumentSlot()
+    public void AddInstrumentSlot() => RunCatalogEdit("AddInstrumentSlot", AddInstrumentSlotCore);
+
+    private void AddInstrumentSlotCore()
     {
         if (Workspace is null)
         {
@@ -940,7 +946,9 @@ public sealed partial class AuthoringWorkspaceViewModel
         SetSidecar(sidecar => RequiredFieldIds.Apply(sidecar, current));
     }
 
-    public void AddRequiredField()
+    public void AddRequiredField() => RunCatalogEdit("AddRequiredField", AddRequiredFieldCore);
+
+    private void AddRequiredFieldCore()
     {
         var id = AuthoringWorkspaceCatalog.Normalize(NewRequiredField);
         if (id is null)

@@ -101,7 +101,7 @@ internal static class AuthoringContentFingerprint
             Add(nodes.Count);
             foreach (var node in nodes)
             {
-                Add(node.GetType().FullName);
+                Add(node.GetType().FullName); Add(node.NodeId);
                 switch (node)
                 {
                     case RepeatNode r: Add(r.Count); Nodes(r.Children); break;
@@ -125,7 +125,7 @@ internal static class AuthoringContentFingerprint
             Add(program.Setup.Count);
             foreach (var setup in program.Setup)
             {
-                Add(setup.GetType().FullName);
+                Add(setup.GetType().FullName); Add(setup.NodeId);
                 switch (setup)
                 {
                     case IdentitySetup i: Add(i.InstrumentSlot); break;
@@ -134,7 +134,7 @@ internal static class AuthoringContentFingerprint
                     default: throw new AuthoringWorkspaceException("Cannot review destructive changes with an unknown setup action.");
                 }
             }
-            Nodes(program.Measure); Add(program.Cleanup.IncludeSafeShutdown); Strings(program.Cleanup.InstrumentSlots); Add(program.Cleanup.IncludeMeasureSlots);
+            Nodes(program.Measure); Add(program.Cleanup.NodeId); Add(program.Cleanup.IncludeSafeShutdown); Strings(program.Cleanup.InstrumentSlots); Add(program.Cleanup.IncludeMeasureSlots);
         }
         Add(catalogDirty); Add(dirty.Count); foreach (var d in dirty) { Add(d.PlanId); Add(d.PlanDirty); Add(d.SidecarDirty); }
         return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(text.ToString())));

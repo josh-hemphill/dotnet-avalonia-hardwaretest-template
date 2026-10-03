@@ -211,7 +211,7 @@ public sealed class AuthoringSavingTests : IDisposable
         Assert.Equal(beforePlan, File.ReadAllBytes(path));
         Assert.Equal(beforeSidecar, File.ReadAllBytes(sidecar));
         Assert.Same(selected, vm.SelectedProgram);
-        Assert.Equal(new DirtyProgramSummary("sample", true, true), Assert.Single(vm.DirtyPrograms));
+        Assert.Equal(new DirtyProgramSummary("sample", true, false), Assert.Single(vm.DirtyPrograms));
     }
 
     [Fact]
@@ -304,17 +304,17 @@ public sealed class AuthoringSavingTests : IDisposable
     }
 
     [Fact]
-    public void Read_only_saves_fail_without_clearing_dirty_state()
+    public void Read_only_workspace_rejects_edits_and_saves_without_dirtying_content()
     {
         var manifest = Path.Combine(_root, "authoring.json");
         File.WriteAllText(manifest, File.ReadAllText(manifest).Replace("\"schemaVersion\": 1", "\"schemaVersion\": 999", StringComparison.Ordinal));
         var vm = Open();
         Assert.True(vm.Workspace!.IsReadOnly);
-        vm.DisplayName = "read only edit";
+        Assert.Throws<AuthoringWorkspaceException>(() => vm.DisplayName = "read only edit");
         Assert.Throws<AuthoringWorkspaceException>(vm.Apply);
         Assert.Throws<AuthoringWorkspaceException>(vm.SaveSidecar);
-        Assert.False(vm.SaveAll().Succeeded);
-        Assert.True(vm.HasUnsavedChanges);
+        Assert.True(vm.SaveAll().Succeeded);
+        Assert.False(vm.HasUnsavedChanges);
         Assert.Throws<AuthoringWorkspaceException>(() => vm.SaveProgram("unknown"));
     }
 
