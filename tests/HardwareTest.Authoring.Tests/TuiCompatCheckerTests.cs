@@ -73,7 +73,7 @@ public sealed class TuiCompatCheckerTests
                  && d.TypeName.Contains("PresentationMixinBuilder", StringComparison.Ordinal));
         Assert.True(report.BlocksPack());
 
-        var ex = Assert.Throws<AuthoringWorkspaceException>(() =>
+        var ex = Assert.Throws<PackPreflightException>(() =>
             WorkspacePacker.Pack(
                 workspace,
                 NewTempDir(),

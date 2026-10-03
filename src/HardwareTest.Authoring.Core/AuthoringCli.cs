@@ -176,7 +176,14 @@ public static class AuthoringCli
                 Home = home,
                 TuiHome = home,
                 Offline = offline,
-                Compat = new TuiCompatChecker(),
+                PreflightCompleted = report =>
+                {
+                    output.WriteLine($"Authoring home: {report.Home?.Root ?? "not prepared"}");
+                    output.WriteLine($"Compatibility home: {report.TuiHome?.Root ?? "not prepared"}");
+                    foreach (var finding in report.Findings.Where(f => !f.IsError)) output.WriteLine(finding.DisplayText);
+                    foreach (var file in report.IncludedFiles) output.WriteLine($"include {file}");
+                    foreach (var file in report.ExcludedPlans) output.WriteLine($"exclude {file}");
+                },
             });
         output.WriteLine($"{manifest.PackageName} {manifest.Version}");
         foreach (var file in manifest.Files)
@@ -219,7 +226,7 @@ public static class AuthoringCli
             return 1;
         }
 
-        output.WriteLine("TUI compatibility ok.");
+        output.WriteLine("Plugin catalog and in-process load/save compatibility ok (no external TUI process).");
         return 0;
     }
 

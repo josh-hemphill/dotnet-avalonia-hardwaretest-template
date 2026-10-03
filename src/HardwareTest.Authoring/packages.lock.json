@@ -55,6 +55,12 @@
           "Microsoft.IO.RecyclableMemoryStream": "3.0.1"
         }
       },
+      "OpenTAP": {
+        "type": "Direct",
+        "requested": "[9.35.0, )",
+        "resolved": "9.35.0",
+        "contentHash": "StPb1oAhEzSLKKTUXUtKwS+R8IYOYecRZvZjUpMVZEpllOgAPDlWvq62yd52w6k5chyW6UTQm3+FTP2COtPjfg=="
+      },
       "Avalonia.Angle.Windows.Natives": {
         "type": "Transitive",
         "resolved": "2.1.27548.20260419",
@@ -517,12 +523,6 @@
         "requested": "[10.0.12, )",
         "resolved": "10.0.12",
         "contentHash": "9/qymSh7hVDMGTGwrLz8MRp5zRyXy9adGDOs4HwRdnLil3oZGYuWeZjbmHgCQ9BL1qBroVfgUK3U/nb61617Cw=="
-      },
-      "OpenTAP": {
-        "type": "CentralTransitive",
-        "requested": "[9.35.0, )",
-        "resolved": "9.35.0",
-        "contentHash": "StPb1oAhEzSLKKTUXUtKwS+R8IYOYecRZvZjUpMVZEpllOgAPDlWvq62yd52w6k5chyW6UTQm3+FTP2COtPjfg=="
       },
       "Parlot": {
         "type": "CentralTransitive",
