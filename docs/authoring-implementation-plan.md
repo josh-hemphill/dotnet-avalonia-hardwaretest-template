@@ -4,11 +4,11 @@ This plan combines the engineering authoring UI and UX review, the implementatio
 
 Deliver the work in five milestones and 22 work packages. Protect existing users first, establish durable draft and build contracts, then implement the new editor, release workflow, initialization, and expert controls. Each work package has implementation scope, dependencies, and an acceptance gate.
 
-**Status:** Execution started on 2026-10-02. The first stack delivers protection packages 01–04 using implementation and independent review agents. Major areas become stacked PRs and remain unmerged. Packages 05–22 remain planned.
+**Status:** Execution started on 2026-10-02. Traversal discovery, UI coverage, packaging protection, compiler persistence, and Save All/lifecycle have cleared independent review. Destructive-operation domain work is implemented and its UI integration is underway. These six stacked slices deliver protection packages 01–04. GitHub integration write permissions currently block publication; nothing is merged. Packages 05–22, including new test-plan and workspace initialization, remain planned.
 
 **Repository:** [josh-hemphill/dotnet-avalonia-hardwaretest-template](https://github.com/josh-hemphill/dotnet-avalonia-hardwaretest-template). The review baseline is commit `5f0d638`. During that review, the authoring app built with zero warnings and errors, all 295 authoring tests passed, and the running Linux interface was inspected at 1280×800 and 960×600. Those results are baseline evidence; new behavior will need its own verification.
 
-**Execution base:** `1e8cf62` (PR #182), using `dirs.proj` traversal builds. A prerequisite repair restores test and bootstrap discovery after solution retirement. Detailed first-stack contracts and the conflict map are in [authoring-protection-stack.md](authoring-protection-stack.md).
+**Execution base:** `1e8cf62` (PR #182), which replaces the solution with `dirs.proj` traversal builds. A prerequisite repair restores test and bootstrap repository discovery: upstream Windows/Linux CI still requires the deleted solution. Preserve traversal project/lockfile coverage. Packaging protection also verifies the authoring executable outside a checkout. Review criteria preserve historical numeric precision, empty-choice, implicit-sidecar, and rollback contracts; do not treat missing external TUI prerequisites as passing integration coverage.
 
 ## Delivery scope
 
@@ -93,7 +93,7 @@ Each work package should become a small PR or a short stack when it introduces c
 
 **Scope:** Create a dedicated authoring UI test project using Avalonia Headless. The existing E2E project initializes the operator application; keep the authoring lifecycle isolated. Provide fixtures for workspaces, preferences, file pickers, confirmation dialogs, and build services.
 
-**Files:** New `tests/HardwareTest.Authoring.UI.Tests/`; traversal configuration; `Directory.Packages.props`; `tools/ci/main.ts`; `.github/workflows/ci.yml`.
+**Files:** New `tests/HardwareTest.Authoring.UI.Tests/`; solution/traversal configuration; `Directory.Packages.props`; `tools/ci/main.ts`; `.github/workflows/ci.yml`.
 
 **Dependencies:** Existing application.
 
@@ -113,6 +113,8 @@ Each work package should become a small PR or a short stack when it introduces c
 
 **Scope:** Expose per-program dirty markers. Add Save all with individual results. Guard workspace replacement, reopening, and window closing with Save all / Discard / Cancel. If saving fails, retain the current session and identify unsaved programs. Preserve selected program, selected step, and editing position after save.
 
+Deliver 03 as two stacked slices: exception-safe compiler persistence first, then Save all and lifecycle UI. Prove rollback after TapPlan replacement and atomic sidecar-only saves with fault injection. Persistence can overlap packaging review because its files do not conflict; lifecycle waits for both reviews to clear. Crash recovery remains in 06.
+
 **Files:** `AuthoringWorkspaceViewModel*.cs`, `MainWindow.axaml`, `MainWindow.axaml.cs`, and `App.axaml.cs`.
 
 **Dependencies:** 01.
@@ -121,7 +123,7 @@ Each work package should become a small PR or a short stack when it introduces c
 
 ### 04 Explicit destructive-operation scope
 
-**Scope:** Separate program membership from workspace definition deletion. Show all affected programs before catalog deletion. Require an explicit compatible replacement when removing a referenced instrument; list impacted identity, measurement, and cleanup steps. Remove implicit sidecar writes from routine editing. Preserve protections for opaque/raw references.
+**Scope:** Separate program membership from workspace definition deletion. Show all affected programs before catalog deletion. Confirm the named target against a complete recursive content fingerprint and reject stale choices. Require an explicit compatible instrument replacement; list impacted identity, measurements, and cleanup, and block unresolved legacy bindings and raw/opaque references. Stage catalog additions/deletions and affected sidecars in memory; Save All commits global metadata after program saves succeed. Global-only metadata changes count as unsaved work. A failed final manifest replacement retains previous bytes and staged dirty state. Preserve untouched implicit arrays and remove implicit writes from editing.
 
 **Files:** `AuthoringWorkspaceViewModel.CatalogDelete.cs`, `AuthoringInstrumentUsage.cs`, `ProgramSettingsView.axaml`, and related handlers/tests.
 
@@ -145,7 +147,7 @@ Add stable node IDs, deep-copy guarantees, per-program history, and defined edit
 
 ### 06 Versioned drafts and recovery
 
-**Scope:** Add source-generated JSON DTOs with explicit discriminators. Persist stable IDs/order, sidecar settings, bindings, cleanup, incomplete numeric text, formula intent, raw XML, and baseline compiled revision. Do not serialize OpenTAP runtime objects.
+**Scope:** Add source-generated JSON DTOs with explicit discriminators. Persist stable IDs/order, sidecar settings, bindings, cleanup, incomplete numeric text, formula intent, raw XML, and baseline compiled revision. Do not serialize OpenTAP runtime objects. Extend protection-stack persistence tests with failure during rollback restoration: preserve a durable backup and the original error, and provide recoverable state when restoration itself fails. Current saves are exception-safe under successful restoration; they are not crash-safe multi-file transactions.
 
 Proposed source storage: `authoring-drafts/<programId>.authoring.json` and `authoring-drafts/workspace.authoring.json`. Keep local recovery under `.authoring/recovery/`, staged builds under `.authoring/builds/`, and installed packages under `.authoring/opentap/`.
 
@@ -173,7 +175,7 @@ Add a channel-based average check to Basic plugins. Lower newly authored `mean(c
 
 **Scope:** Replace compiler assumptions based on `HardwareDmm` with registered resource adapters. An adapter supplies type ID, display name, required package/availability, construction/serialization, address fields, compatible functions, and identity/shutdown capabilities.
 
-Support declared, tested types. Installed types without an authoring adapter remain unavailable for creation and preserved when imported. Missing packages do not trigger mock substitution.
+Support declared, tested types. Installed types without an authoring adapter remain unavailable for creation and preserved when imported. Missing packages do not trigger mock substitution. Represent explicit algorithm instrument bindings and preserve actual imported legacy bindings, including a non-first instrument. The current compiler infers an instrument from ordering for legacy instrument-based algorithms; protection work blocks their removal while that binding remains unresolved.
 
 **Files:** Compiler Save/Load, function catalog, new instrument catalog/adapters, instrument-usage service, and package inspection/bootstrap services.
 
@@ -185,7 +187,7 @@ Support declared, tested types. Installed types without an authoring adapter rem
 
 **Scope:** Introduce build requests, immutable snapshots, compilation results/source maps, and build receipts. Include the relevant saved documents, manifest and package/build inputs in the fingerprint. Compile, validate, check compatibility, and package staged content.
 
-Construct the exact artifact list from the snapshot. Publish final outputs after success. Preserve ship-manifest consumers through optional compatible metadata or a separate versioned receipt. Revalidate content/environment identity at publication boundaries.
+Construct the exact artifact list from the snapshot. Publish final outputs after success. Preserve ship-manifest consumers through optional compatible metadata or a separate versioned receipt. Revalidate content/environment identity at publication boundaries, including resolved symlink dependency identity and containment within the selected home. Add a real installed external TUI process integration fixture; synthetic managed-payload and catalog/roundtrip tests establish prerequisites, not external integration.
 
 **Files:** New shared build service/contracts; `WorkspacePacker.cs`; `WorkspacePackPlan.cs`; `AuthoringCli.cs`; compiler result/source mapping.
 
@@ -211,7 +213,7 @@ Prefer child-process isolation for package-dependent OpenTAP work through the au
 
 **Scope:** Use a compact command bar, Programs rail with dirty markers, sequence plus flexible editor, and explicit Hardware, Preview, Issues, Environment and Build views. Preview is separate at narrow widths and may dock on wider screens when adequate editor width remains.
 
-Extract focused views; preserve selection/focus/scroll restoration. Use stacked fields when space or scaling requires it.
+Extract focused views; preserve selection/focus/scroll restoration. Use stacked fields when space or scaling requires it. Extend the headless UI foundation with visible, nonzero, in-window bounds for the sequence, inspector, and preview at supported sizes and scaling. Replace the protection modal's fixed header/footer allowance with measured rows before supporting larger fonts or localized text, keeping decision controls visible. Existing coverage proves command feedback, many-program scrolling, and safe modal choices.
 
 **Files:** `MainWindow.axaml` and handlers; new focused views/child view models; layout preferences.
 
@@ -297,7 +299,7 @@ Add recording import/open-folder actions and useful empty states. Validate schem
 
 **Scope:** Environment shows required/installed packages, missing versions, selected home, and offline import/preparation paths. Rename Bootstrap to Prepare authoring environment and show actual prerequisites.
 
-Build shows included/excluded programs, saved revision, compile/strict-validation/compatibility/dependency states, package/version/output, staged progress/logs, and completed receipt. Editing invalidates current readiness while retaining previous artifact history.
+Build shows included/excluded programs, saved revision, compile/strict-validation/compatibility/dependency states, package/version/output, staged progress/logs, and completed receipt. Editing invalidates current readiness while retaining previous artifact history. Add a successful GUI packaging test proving the rendered selected home, excluded plans, and retained results; current protection coverage proves GUI dirty rejection and core/native packaging.
 
 **Files:** Environment/Build views and child view models; shared build/operation services; pack preview; package inspector/import; preferences/environment resolution.
 
@@ -365,7 +367,7 @@ Show generated identity and cleanup transparently. Keep experts able to skip opt
 
 ### 22 Expert commands and saved layouts
 
-**Scope:** Add a searchable command palette and platform-appropriate Save/Save all, Undo/Redo, Rename, Duplicate, Add step, movement and next-issue shortcuts. Preserve normal text editing shortcuts.
+**Scope:** Add a searchable command palette and platform-appropriate Save/Save all, Undo/Redo, Rename, Duplicate, Add step, movement and next-issue shortcuts. Preserve normal text editing shortcuts. Verify native folder-picker focus and operating-system close decisions on Windows and Linux alongside headless interaction tests.
 
 Support a collapsible Programs rail, wide-screen preview docking, Issues drawer, selected-node dependency summary, remembered layout/reset, and future-schema-safe preference migration. Document the TUI escape hatch; launch support must verify prerequisites and handle externally changed plans through the reconciliation model.
 
@@ -537,3 +539,5 @@ The plan is grounded in the reviewed repository and its existing architecture/te
 - [Workspace packing](https://github.com/josh-hemphill/dotnet-avalonia-hardwaretest-template/blob/5f0d638f406929e013090eb71a54dded6d1f2a05/src/HardwareTest.Authoring.Core/WorkspacePacker.cs)
 
 New service names, storage paths, work packages and acceptance gates are proposed implementation choices. The review baseline does not establish coverage for the future changes.
+
+Branch-level contracts and the conflict map are in [authoring-protection-stack.md](authoring-protection-stack.md).
