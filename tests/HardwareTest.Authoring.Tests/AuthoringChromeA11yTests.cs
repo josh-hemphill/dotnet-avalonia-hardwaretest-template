@@ -22,7 +22,7 @@ public sealed class AuthoringChromeA11yTests
         Assert.Contains("Click=\"OnOpenSettings\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Content=\"{Binding SettingsTitle}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("IsVisible=\"{Binding ShowCatalogFormulaCompletions}\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("SelectedItem=\"{Binding SelectedProgram}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("SelectedItem=\"{Binding SelectedProgramRow}\"", xaml, StringComparison.Ordinal);
         var programSettings = File.ReadAllText(Path.Combine(FindRepoRoot(), "src", "HardwareTest.Authoring", "ProgramSettingsView.axaml"));
         Assert.Contains("SelectedItem=\"{Binding SelectedInstrument}\"", programSettings, StringComparison.Ordinal);
         Assert.Contains("Identity &amp; DUT", programSettings, StringComparison.Ordinal);

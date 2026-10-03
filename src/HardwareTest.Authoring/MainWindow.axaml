@@ -15,7 +15,7 @@
         <StackPanel Spacing="4">
           <TextBlock FontWeight="SemiBold" Text="Workspace" />
           <StackPanel Orientation="Horizontal" Spacing="6">
-        <Button Content="Open workspace…"
+        <Button x:Name="LifecycleFocusTarget" Content="Open workspace…"
                 Click="OnOpenWorkspace"
                 ToolTip.Tip="Open a folder that contains authoring.json"
                 AutomationProperties.Name="Open workspace" />
@@ -45,6 +45,7 @@
         </StackPanel>
         <StackPanel Spacing="4">
           <TextBlock FontWeight="SemiBold" Text="Check and configure" />
+          <Button Content="Save all" Click="OnSaveAll" IsEnabled="{Binding HasWorkspace}" AutomationProperties.Name="Save all" />
           <StackPanel Orientation="Horizontal" Spacing="6">
         <Button Content="Validate"
                 Click="OnValidate"
@@ -71,6 +72,7 @@
                    AutomationProperties.Name="Unsaved changes" />
       </StackPanel>
     </StackPanel>
+    <ItemsControl DockPanel.Dock="Top" Margin="12,0,12,8" ItemsSource="{Binding SaveAllResults}" AutomationProperties.Name="Save all results" />
     <TextBlock DockPanel.Dock="Top" Margin="12,0,12,8" Text="{Binding ValidationScope}"
                IsVisible="{Binding HasWorkspace}" TextWrapping="Wrap" />
     <TextBlock DockPanel.Dock="Bottom"
@@ -130,17 +132,18 @@
                 IsVisible="{Binding CanOfferLastWorkspace}"
                 ToolTip.Tip="{Binding LastWorkspacePath}"
                 AutomationProperties.Name="Open last workspace" />
-        <ListBox ItemsSource="{Binding Programs}"
-                 SelectedItem="{Binding SelectedProgram}"
+        <ListBox ItemsSource="{Binding ProgramRows}"
+                 SelectedItem="{Binding SelectedProgramRow}"
                  KeyboardNavigation.TabNavigation="Once"
                  KeyDown="OnProgramsKeyDown"
                  AutomationProperties.Name="Programs"
                  AutomationProperties.LabeledBy="{Binding #ProgramsHeading}">
           <ListBox.ItemTemplate>
-            <DataTemplate x:DataType="vm:ProgramDraft">
+            <DataTemplate x:DataType="vm:AuthoringProgramRow">
               <StackPanel>
-                <TextBlock Text="{Binding Sidecar.DisplayName}" TextWrapping="Wrap" />
+                <TextBlock Text="{Binding DisplayName}" TextWrapping="Wrap" />
                 <TextBlock Opacity="0.7" FontSize="11" Text="{Binding PlanId}" TextWrapping="Wrap" />
+                <TextBlock Text="{Binding DirtyMarker}" FontSize="11" FontWeight="SemiBold" />
               </StackPanel>
             </DataTemplate>
           </ListBox.ItemTemplate>

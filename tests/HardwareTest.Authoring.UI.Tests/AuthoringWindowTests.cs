@@ -32,7 +32,7 @@ public sealed class AuthoringWindowTests
 
         var programs = fixture.Control<ListBox>("Programs");
         Assert.Equal("sample", fixture.ViewModel.SelectedProgram!.PlanId);
-        Assert.Same(fixture.ViewModel.SelectedProgram, programs.SelectedItem);
+        Assert.Same(fixture.ViewModel.SelectedProgramRow, programs.SelectedItem);
         Assert.Contains(programs.GetVisualDescendants().OfType<TextBlock>(),
             text => text.Text == "Sample Hardware Suite (Demo)");
         Assert.True(window.FindControl<TabControl>("WorkspaceTabs")!.IsEffectivelyVisible);
@@ -165,6 +165,7 @@ public sealed class AuthoringWindowTests
         fixture.OpenRememberedWorkspace();
         Assert.Equal(new Size(width, height), window.ClientSize);
         AssertInsideWindow(fixture.Control<Button>("Save plan"), window);
+        AssertInsideWindow(fixture.Control<Button>("Save all"), window);
         AssertInsideWindow(fixture.Control<ListBox>("Programs"), window);
 
         window.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 1;
@@ -176,6 +177,11 @@ public sealed class AuthoringWindowTests
         Assert.True(displayName.Focus());
         AuthoringUiFixture.Drain();
         Assert.True(displayName.IsFocused);
+        fixture.Type(displayName, "Size check saved edit");
+        AuthoringUiFixture.Click(fixture.Control<Button>("Save all"));
+        var results = fixture.Control<ItemsControl>("Save all results");
+        AssertInsideWindow(results, window);
+        AssertInsideWindow(Assert.Single(results.GetVisualDescendants().OfType<TextBlock>(), text => text.Text == "Saved sample"), window);
         Assert.Null(fixture.ViewModel.Error);
     }
 
