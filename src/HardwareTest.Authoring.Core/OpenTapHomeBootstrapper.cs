@@ -263,7 +263,7 @@ public sealed class OpenTapHomeBootstrapper : IOpenTapHomeBootstrapper
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
         while (dir is not null)
         {
-            if (dir.EnumerateFiles("HardwareTest.slnx").Any())
+            if (dir.EnumerateFiles("dirs.proj").Any())
             {
                 string[] candidates =
                 [

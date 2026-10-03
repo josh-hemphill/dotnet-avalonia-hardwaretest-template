@@ -301,17 +301,36 @@ public sealed class ArchitectureRulesTests
     }
 
     [Fact]
-    public void Slnx_project_set_matches_dirs_proj_src_and_tests_globs()
+    public void Traversal_project_covers_all_source_and_test_projects()
     {
         var repo = FindRepoRoot();
-        var slnx = XDocument.Load(Path.Combine(repo, "HardwareTest.slnx"));
-        var slnxProjects = slnx.Descendants("Project")
-            .Select(e => (e.Attribute("Path")?.Value ?? string.Empty).Replace('\\', '/'))
-            .Where(p => p.Length > 0)
+        var traversal = XDocument.Load(Path.Combine(repo, "dirs.proj"));
+        Assert.Equal("Microsoft.Build.Traversal", traversal.Root?.Attribute("Sdk")?.Value);
+        var references = traversal.Descendants("ProjectReference")
+            .Select(e => (e.Attribute("Include")?.Value ?? string.Empty).Replace('\\', '/'))
             .OrderBy(p => p, StringComparer.OrdinalIgnoreCase)
             .ToArray();
+        Assert.Equal(["src/**/*.csproj", "tests/**/*.csproj"], references);
 
-        Assert.Equal(ProjectsFromDirsProj(repo), slnxProjects);
+        var projects = new[] { "src", "tests" }
+            .SelectMany(directory => Directory.EnumerateFiles(
+                Path.Combine(repo, directory), "*.csproj", SearchOption.AllDirectories))
+            .Where(path => !IsBuildArtifact(path, repo))
+            .Select(path => Path.GetRelativePath(repo, path).Replace('\\', '/'))
+            .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        Assert.NotEmpty(projects);
+        Assert.Equal(projects, ProjectsFromDirsProj(repo));
+    }
+
+    [Fact]
+    public void Traversal_serializes_projects_and_leaves_package_locking_to_children()
+    {
+        var traversal = XDocument.Load(Path.Combine(FindRepoRoot(), "dirs.proj"));
+        foreach (var property in new[] { "BuildInParallel", "RestorePackagesWithLockFile", "RestoreLockedMode" })
+        {
+            Assert.Equal("false", Assert.Single(traversal.Descendants(property)).Value);
+        }
     }
 
     [Fact]
@@ -849,13 +868,13 @@ public sealed class ArchitectureRulesTests
         return propsXml[(valueStart + 1)..valueEnd].Trim();
     }
 
-    /// Walks up from the test output directory to the folder holding the solution file.
+    /// Walks up from the test output directory to the folder holding the traversal project.
     private static string FindRepoRoot()
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
         while (dir is not null)
         {
-            if (dir.EnumerateFiles("HardwareTest.slnx").Any())
+            if (dir.EnumerateFiles("dirs.proj").Any())
             {
                 return dir.FullName;
             }
@@ -864,7 +883,7 @@ public sealed class ArchitectureRulesTests
         }
 
         throw new InvalidOperationException(
-            $"Could not locate HardwareTest.slnx above '{AppContext.BaseDirectory}'.");
+            $"Could not locate dirs.proj above '{AppContext.BaseDirectory}'.");
     }
 
     private static bool IsAvaloniaOrScottPlot(string name)

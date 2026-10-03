@@ -195,7 +195,7 @@ public sealed class OpenTapHomeBootstrapperTests
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
         while (dir is not null)
         {
-            if (dir.EnumerateFiles("HardwareTest.slnx").Any())
+            if (dir.EnumerateFiles("dirs.proj").Any())
             {
                 return dir.FullName;
             }
@@ -204,7 +204,7 @@ public sealed class OpenTapHomeBootstrapperTests
         }
 
         throw new InvalidOperationException(
-            $"Could not locate HardwareTest.slnx above '{AppContext.BaseDirectory}'.");
+            $"Could not locate dirs.proj above '{AppContext.BaseDirectory}'.");
     }
 
     private static void AssertNoVisaAdapterAssemblies(string homeRoot)
