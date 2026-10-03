@@ -664,6 +664,8 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(SelectedInstrumentVisa));
         OnPropertyChanged(nameof(SelectedInstrument));
         OnPropertyChanged(nameof(CanRemoveSelectedInstrumentSlot));
+        OnPropertyChanged(nameof(InstrumentRemovalGuardText));
+        OnPropertyChanged(nameof(CanEditProgramSettings));
         RaiseEditorProperties();
     }
 

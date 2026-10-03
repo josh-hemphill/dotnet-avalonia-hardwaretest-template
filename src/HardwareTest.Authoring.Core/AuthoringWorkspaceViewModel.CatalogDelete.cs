@@ -17,6 +17,16 @@ public sealed partial class AuthoringWorkspaceViewModel
         }
     }
 
+    public bool CanEditProgramSettings => Workspace is { IsReadOnly: false } && SelectedProgram is not null;
+    public string InstrumentRemovalGuardText
+    {
+        get
+        {
+            try { PrepareSelectedInstrumentRemoval(); return "Removal requires review and an explicit compatible replacement. Save this program to persist the edit."; }
+            catch (AuthoringWorkspaceException ex) { return ex.Message; }
+        }
+    }
+
     public CatalogDeletionImpact PrepareRequiredFieldDeletion(string fieldId) => PrepareCatalogDeletion(CatalogDeletionKind.RequiredField, fieldId);
     public CatalogDeletionImpact PrepareReportKindDeletion(string kind) => PrepareCatalogDeletion(CatalogDeletionKind.ReportKind, kind);
     public CatalogDeletionImpact PrepareProgramKindDeletion(string kind) => PrepareCatalogDeletion(CatalogDeletionKind.ProgramKind, kind);

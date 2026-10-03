@@ -46,11 +46,11 @@ public sealed class AuthoringChromeA11yTests
         Assert.Contains("Click=\"OnRemoveReportKind\"", programSettings, StringComparison.Ordinal);
         Assert.Contains("Click=\"OnRemoveProgramKind\"", programSettings, StringComparison.Ordinal);
         Assert.Contains("ItemsSource=\"{Binding ProgramKindChoices}\"", programSettings, StringComparison.Ordinal);
-        Assert.Contains("StringFormat='Remove required field {0}'", programSettings, StringComparison.Ordinal);
-        Assert.Contains("StringFormat='Remove report kind {0}'", programSettings, StringComparison.Ordinal);
-        Assert.Contains("StringFormat='Remove program kind {0}'", programSettings, StringComparison.Ordinal);
+        Assert.Contains("StringFormat='Remove required field {0} from workspace'", programSettings, StringComparison.Ordinal);
+        Assert.Contains("StringFormat='Remove report kind {0} from workspace'", programSettings, StringComparison.Ordinal);
+        Assert.Contains("StringFormat='Remove program kind {0} from workspace'", programSettings, StringComparison.Ordinal);
         Assert.Contains("IsEnabled=\"{Binding CanRemoveSelectedInstrumentSlot}\"", programSettings, StringComparison.Ordinal);
-        Assert.Contains("move to a remaining slot", programSettings, StringComparison.Ordinal);
+        Assert.Contains("InstrumentRemovalGuardText", programSettings, StringComparison.Ordinal);
         Assert.Contains("Click=\"OnRemoveInstrumentSlot\"", programSettings, StringComparison.Ordinal);
         Assert.Contains("Text=\"{Binding InputStringFieldId}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Text=\"{Binding InputNumberFieldId}\"", xaml, StringComparison.Ordinal);

@@ -97,6 +97,7 @@ public sealed partial class AuthoringWorkspaceViewModel
                 OnPropertyChanged(nameof(SelectedInstrumentVisa));
                 OnPropertyChanged(nameof(SelectedInstrument));
                 OnPropertyChanged(nameof(CanRemoveSelectedInstrumentSlot));
+                OnPropertyChanged(nameof(InstrumentRemovalGuardText));
             }
         }
     }
@@ -1015,6 +1016,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         OnPropertyChanged(nameof(InstrumentSlots));
         OnPropertyChanged(nameof(CanAddInstrumentSlot));
         OnPropertyChanged(nameof(CanRemoveSelectedInstrumentSlot));
+        OnPropertyChanged(nameof(InstrumentRemovalGuardText));
     }
 
     private void SetSidecarIfUnchanged<T>(T current, T next, Action<ProgramSidecar> mutate)

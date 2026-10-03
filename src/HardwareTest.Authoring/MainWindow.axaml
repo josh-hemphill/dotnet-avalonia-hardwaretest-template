@@ -589,7 +589,7 @@
           </Grid>
         </TabItem>
         <TabItem Header="{Binding ProgramSettingsTitle}" AutomationProperties.Name="Program settings tab">
-          <vm:ProgramSettingsView />
+          <vm:ProgramSettingsView IsEnabled="{Binding CanEditProgramSettings}" />
         </TabItem>
         <TabItem Header="Findings" AutomationProperties.Name="Findings tab">
           <ListBox ItemsSource="{Binding FindingRows}"
@@ -747,7 +747,7 @@
                   </DataTemplate>
                 </ItemsControl.ItemTemplate>
               </ItemsControl>
-              <TextBlock Text="{Binding PackGuardText}" TextWrapping="Wrap" />
+              <TextBlock Text="{Binding PackGuardText}" TextWrapping="Wrap" AutomationProperties.Name="Pack save guard" />
               <TextBlock Text="{Binding PackPreflightHomeText}" TextWrapping="Wrap" />
               <ItemsControl ItemsSource="{Binding PackPreflightFindings}" AutomationProperties.Name="Pack preflight findings">
                 <ItemsControl.ItemTemplate>
