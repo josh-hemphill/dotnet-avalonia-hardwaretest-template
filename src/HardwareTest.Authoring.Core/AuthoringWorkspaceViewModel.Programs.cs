@@ -23,6 +23,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         Programs = [.. Programs, created];
         _selectedInstrumentSlot = null;
         AssignSelectedProgram(created);
+        InvalidateContractFindings();
         RecomputeDocumentDirty();
         Status = created.Measure.Count == 0
             ? AuthoringChrome.EmptyMeasureHint

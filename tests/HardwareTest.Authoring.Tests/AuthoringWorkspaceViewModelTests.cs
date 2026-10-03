@@ -128,6 +128,12 @@ public sealed class AuthoringWorkspaceViewModelTests
         vm.DisplayName = "edited sidecar";
         Assert.Empty(vm.Findings);
         Assert.Empty(vm.FindingRows);
+        vm.Undo();
+        vm.Validate();
+        Assert.NotEmpty(vm.FindingRows);
+        vm.CreateProgram("new-program");
+        Assert.Empty(vm.Findings);
+        Assert.Empty(vm.FindingRows);
     }
 
     [Theory]
