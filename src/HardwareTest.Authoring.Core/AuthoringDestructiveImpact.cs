@@ -49,6 +49,23 @@ public sealed class InstrumentRemovalImpact
     public IReadOnlyList<string> AffectedNodes { get; }
 }
 
+public sealed class ProgramRemovalImpact
+{
+    internal ProgramRemovalImpact(Guid session, string workspaceRoot, string planId, string tapPlanPath, string sidecarPath, string fingerprint)
+    {
+        Session = session; WorkspaceRoot = workspaceRoot; PlanId = planId;
+        TapPlanPath = tapPlanPath; SidecarPath = sidecarPath; ContentFingerprint = fingerprint;
+    }
+    internal Guid Session { get; }
+    public string WorkspaceRoot { get; }
+    public string PlanId { get; }
+    public string TapPlanPath { get; }
+    public string SidecarPath { get; }
+    public string ContentFingerprint { get; }
+    public string Scope => $"Program '{PlanId}' only";
+    public string OperationName => $"Remove program '{PlanId}'?";
+}
+
 /// Explicit recursive canonical visitor: derived records must never disappear through base-type serialization.
 internal static class AuthoringContentFingerprint
 {

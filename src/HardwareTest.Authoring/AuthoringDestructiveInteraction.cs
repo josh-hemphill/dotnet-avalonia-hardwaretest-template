@@ -47,10 +47,10 @@ public sealed class AuthoringDestructiveInteraction(Window owner)
         return dialog.ShowDialog<string?>(owner);
     }
 
-    public Task<bool> ConfirmProgramRemovalAsync((string PlanId, string TapPlanPath, string SidecarPath) target)
+    public Task<bool> ConfirmProgramRemovalAsync(ProgramRemovalImpact target)
     {
-        var (dialog, _, cancel, confirm) = Build($"Remove program '{target.PlanId}'?",
-            $"Program '{target.PlanId}' only\nThese files will be deleted if they exist:\n{target.TapPlanPath}\n{target.SidecarPath}\nOther programs stay unchanged.", "Remove program");
+        var (dialog, _, cancel, confirm) = Build(target.OperationName,
+            $"{target.Scope}\nThese files will be deleted if they exist:\n{target.TapPlanPath}\n{target.SidecarPath}\nOther programs stay unchanged.", "Remove program");
         cancel.Click += (_, _) => dialog.Close(false);
         confirm.Click += (_, _) => dialog.Close(true);
         dialog.KeyDown += (_, e) => { if (e.Key == Key.Escape) { dialog.Close(false); e.Handled = true; } };

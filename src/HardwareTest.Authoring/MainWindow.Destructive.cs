@@ -48,11 +48,10 @@ public partial class MainWindow
         {
             CommitFocusedEditor();
             var workspace = _viewModel.Workspace;
-            var selected = _viewModel.SelectedProgram;
-            var target = _viewModel.DescribeSelectedProgramRemoval();
-            if (!await new AuthoringDestructiveInteraction(this).ConfirmProgramRemovalAsync(target)) return false;
-            if (!CurrentDestructiveOwner(workspace, selected?.PlanId) || !ReferenceEquals(selected, _viewModel.SelectedProgram)) return false;
-            return _viewModel.RemoveSelectedProgramIfMatches(target);
+            var impact = _viewModel.PrepareSelectedProgramRemoval();
+            if (!await new AuthoringDestructiveInteraction(this).ConfirmProgramRemovalAsync(impact)) return false;
+            if (!CurrentDestructiveOwner(workspace, impact.PlanId)) return false;
+            return _viewModel.ApplyProgramRemoval(impact);
         }
         catch (Exception ex) { _viewModel.ReportError(ex.Message); return false; }
         finally { _destructiveInFlight = false; }
