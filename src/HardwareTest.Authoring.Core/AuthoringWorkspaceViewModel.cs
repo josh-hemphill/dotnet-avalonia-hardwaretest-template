@@ -37,12 +37,14 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
         Findings = [];
         FindingRows = [];
         OnPropertyChanged(nameof(HasUnsavedChanges));
+        RaisePackGuardProperties();
         OnPropertyChanged(nameof(ValidationScope));
     }
 
     private void RefreshDirtyState()
     {
         OnPropertyChanged(nameof(HasUnsavedChanges));
+        RaisePackGuardProperties();
         OnPropertyChanged(nameof(ValidationScope));
     }
 
@@ -66,6 +68,7 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
             if (SetField(ref _workspace, value))
             {
                 OnPropertyChanged(nameof(HasWorkspace));
+                RaisePackGuardProperties();
             }
         }
     }
@@ -480,25 +483,6 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
             : $"{report.WarningCount} contract warning(s)";
         Error = report.HasErrors ? Status : null;
         return report;
-    }
-
-    public ShipManifest Pack(string outputDirectory, PackOptions? options = null)
-    {
-        if (Workspace is null)
-        {
-            throw new AuthoringWorkspaceException("Open a workspace before packing.");
-        }
-
-        var manifest = WorkspacePacker.Pack(
-            Workspace,
-            outputDirectory,
-            options ?? new PackOptions { Offline = true });
-        RefreshPackPreview();
-        _packPreview = WorkspacePackPlan.WithLastPack(_packPreview, manifest, outputDirectory);
-        RaisePackPreviewProperties();
-        Status = $"Packed {manifest.PackageName} {manifest.Version}";
-        Error = null;
-        return manifest;
     }
 
     public OpenTapHome Bootstrap(BootstrapOptions? options = null)

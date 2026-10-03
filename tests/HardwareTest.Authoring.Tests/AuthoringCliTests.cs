@@ -170,7 +170,7 @@ public sealed class AuthoringCliOpenTapTests
             error);
         Assert.Equal(0, code);
         Assert.True(string.IsNullOrWhiteSpace(error.ToString()), error.ToString());
-        Assert.Contains("TUI compatibility ok", output.ToString(), StringComparison.Ordinal);
+        Assert.Contains("Plugin catalog and in-process load/save compatibility ok", output.ToString(), StringComparison.Ordinal);
     }
 
     [Fact]

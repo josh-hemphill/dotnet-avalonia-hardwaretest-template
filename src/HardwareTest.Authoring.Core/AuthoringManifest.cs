@@ -90,7 +90,7 @@ public sealed record AuthoringWorkspace(
     public bool IsReadOnly { get; init; }
 }
 
-public sealed class AuthoringWorkspaceException : InvalidOperationException
+public class AuthoringWorkspaceException : InvalidOperationException
 {
     public AuthoringWorkspaceException(string message)
         : base(message)

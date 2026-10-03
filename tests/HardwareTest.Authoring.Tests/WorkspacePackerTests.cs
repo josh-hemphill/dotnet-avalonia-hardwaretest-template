@@ -106,7 +106,7 @@ public sealed class WorkspacePackerTests
             workspace,
             new BootstrapOptions { HomeDirectory = NewTempDir(), Offline = true });
 
-        var ex = Assert.Throws<AuthoringWorkspaceException>(() =>
+        var ex = Assert.Throws<PackPreflightException>(() =>
             WorkspacePacker.Pack(
                 workspace,
                 NewTempDir(),
@@ -155,7 +155,7 @@ public sealed class WorkspacePackerTests
         var home = new OpenTapHomeBootstrapper().Bootstrap(
             workspace,
             new BootstrapOptions { HomeDirectory = NewTempDir(), Offline = true });
-        var ex = Assert.Throws<AuthoringWorkspaceException>(() =>
+        var ex = Assert.Throws<PackPreflightException>(() =>
             WorkspacePacker.Pack(workspace, NewTempDir(), new PackOptions { Home = home, Offline = true }));
         Assert.Contains(AuthoringPackCodes.PluginMissing, ex.Message, StringComparison.Ordinal);
     }

@@ -506,7 +506,8 @@
           "Avalonia.Fonts.Inter": "[12.1.2, )",
           "Avalonia.Themes.Fluent": "[12.1.2, )",
           "HardwareTest.Authoring.Core": "[0.1.0, )",
-          "HardwareTest.Widgets": "[0.1.0, )"
+          "HardwareTest.Widgets": "[0.1.0, )",
+          "OpenTAP": "[9.35.0, )"
         }
       },
       "hardwaretest.authoring.core": {

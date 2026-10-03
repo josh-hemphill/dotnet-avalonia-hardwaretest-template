@@ -6,6 +6,12 @@ public sealed partial class AuthoringWorkspaceViewModel
 
     public WorkspacePackPreview PackPreview => _packPreview;
 
+    public IReadOnlyList<string> ExcludedPackPlans => Workspace is null ? [] : Workspace.TapPlanPaths
+        .Select(Path.GetFileName).OfType<string>()
+        .Except(_packPreview.ProgramPackContents.Select(f => f.RelativePath), StringComparer.OrdinalIgnoreCase).ToArray();
+
+    public bool HasExcludedPackPlans => ExcludedPackPlans.Count > 0;
+
     public string ShipPurpose => AuthoringChrome.ShipPurpose;
 
     public bool HasRawSteps => RawStepCount > 0;
@@ -72,6 +78,8 @@ public sealed partial class AuthoringWorkspaceViewModel
     private void RaisePackPreviewProperties()
     {
         OnPropertyChanged(nameof(PackPreview));
+        OnPropertyChanged(nameof(ExcludedPackPlans));
+        OnPropertyChanged(nameof(HasExcludedPackPlans));
         OnPropertyChanged(nameof(HasLastPack));
         OnPropertyChanged(nameof(HasDeclaredPlugins));
         OnPropertyChanged(nameof(HasDeclaredShellApps));

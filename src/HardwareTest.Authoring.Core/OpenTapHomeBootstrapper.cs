@@ -133,7 +133,7 @@ public sealed class OpenTapHomeBootstrapper : IOpenTapHomeBootstrapper
             throw new AuthoringWorkspaceException($"Authoring pack assembly not found for '{packageName}'.");
         }
 
-        var packageXml = FindRepoPackageXml(packageName);
+        var packageXml = FindPackageXml(packageName);
         var dest = Path.Combine(homeRoot, "Packages", packageName);
         Directory.CreateDirectory(dest);
         File.Copy(packageXml, Path.Combine(dest, "package.xml"), overwrite: true);
@@ -256,6 +256,12 @@ public sealed class OpenTapHomeBootstrapper : IOpenTapHomeBootstrapper
             throw new AuthoringWorkspaceException(
                 $"Authoring OpenTAP home must not contain the VISA adapter ({visa}).");
         }
+    }
+
+    private static string FindPackageXml(string packageName)
+    {
+        var bundled = Path.Combine(AppContext.BaseDirectory, "AuthoringPackages", packageName, "package.xml");
+        return File.Exists(bundled) ? bundled : FindRepoPackageXml(packageName);
     }
 
     private static string FindRepoPackageXml(string packageName)

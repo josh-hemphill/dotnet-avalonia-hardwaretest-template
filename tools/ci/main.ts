@@ -1,7 +1,12 @@
 import { parseArgs } from "@std/cli/parse-args";
 import { formatAuditFailure, hasVulnerablePackages } from "./lib/audit.ts";
 import { evaluateCobertura, findCobertura } from "./lib/coverage.ts";
-import { coverageDir, publishedExe, publishDir, repoRoot } from "./lib/paths.ts";
+import {
+  coverageDir,
+  publishDir,
+  publishedExe,
+  repoRoot,
+} from "./lib/paths.ts";
 import { defaultRid, isNativeRid } from "./lib/rid.ts";
 import { run, runCapture } from "./lib/run.ts";
 
@@ -24,10 +29,13 @@ export const TASKS = [
 ] as const;
 
 /** OpenTAP host tests must not load Coverlet (process-global TapThread flakes). */
-export const CORE_COVERAGE_FILTER = "FullyQualifiedName!~HardwareTest.Tests.OpenTap";
+export const CORE_COVERAGE_FILTER =
+  "FullyQualifiedName!~HardwareTest.Tests.OpenTap";
 
 /** Linux E2E and an explicit --advisory-e2e flag stay non-fatal. */
-export function e2eIsAdvisory(opts: { advisoryE2e: boolean; rid: string }): boolean {
+export function e2eIsAdvisory(
+  opts: { advisoryE2e: boolean; rid: string },
+): boolean {
   return opts.advisoryE2e || opts.rid.startsWith("linux-");
 }
 
@@ -99,12 +107,16 @@ async function projectPaths(opts: Options): Promise<string[]> {
     "-getItem:ProjectReference",
   ], { cwd: opts.root });
   if (result.code !== 0) {
-    throw new Error(`Cannot evaluate dirs.proj: ${result.stderr || result.stdout}`);
+    throw new Error(
+      `Cannot evaluate dirs.proj: ${result.stderr || result.stdout}`,
+    );
   }
   const evaluated = JSON.parse(result.stdout) as {
     Items: { ProjectReference: { FullPath: string }[] };
   };
-  const projects = evaluated.Items.ProjectReference.map((item) => item.FullPath);
+  const projects = evaluated.Items.ProjectReference.map((item) =>
+    item.FullPath
+  );
   if (projects.length === 0) throw new Error("dirs.proj contains no projects");
   return projects;
 }
@@ -258,7 +270,9 @@ async function coverage(opts: Options): Promise<void> {
   await collectCoreCoverage(opts);
   const cobertura = await findCobertura(coverageDir(opts.root));
   if (!cobertura) {
-    throw new Error("coverage.cobertura.xml not found under artifacts/coverage");
+    throw new Error(
+      "coverage.cobertura.xml not found under artifacts/coverage",
+    );
   }
 
   const xml = await Deno.readTextFile(cobertura);
@@ -317,6 +331,101 @@ async function publish(opts: Options): Promise<void> {
     "-o",
     out,
   ], { cwd: opts.root });
+  const authoringOut = `${out}/authoring`;
+  await run([
+    "dotnet",
+    "publish",
+    "src/HardwareTest.Authoring",
+    "-c",
+    opts.configuration,
+    "-r",
+    opts.rid,
+    "--self-contained",
+    "-p:PublishAot=false",
+    "-o",
+    authoringOut,
+  ], { cwd: opts.root });
+}
+
+/** Exercise the shipped app from a directory with no checkout ancestry. */
+async function verifyAuthoring(opts: Options): Promise<void> {
+  const smoke = await Deno.makeTempDir({ prefix: "ht-authoring-published-" });
+  try {
+    const bundle = `${smoke}/app`;
+    const workspace = `${smoke}/workspace`;
+    await copyTree(`${publishDir(opts.rid, opts.root)}/authoring`, bundle);
+    await copyTree(`${opts.root}/plans/opentap`, workspace);
+    const exe = `${bundle}/HardwareTest.Authoring${
+      opts.rid.startsWith("win-") ? ".exe" : ""
+    }`;
+    const help = await runCapture([exe, "--help"], { cwd: smoke });
+    if (help.code !== 2 || !help.stdout.includes("--bootstrap")) {
+      throw new Error(
+        `published authoring --help failed: ${help.stderr || help.stdout}`,
+      );
+    }
+    for (
+      const args of [
+        ["--validate", workspace, "--strict"],
+        [
+          "--bootstrap",
+          workspace,
+          "--offline",
+          "--opentap-home",
+          `${smoke}/home`,
+        ],
+      ]
+    ) {
+      const result = await runCapture([exe, ...args], { cwd: smoke });
+      if (result.code !== 0) {
+        throw new Error(
+          `published authoring ${args[0]} failed: ${
+            result.stderr || result.stdout
+          }`,
+        );
+      }
+    }
+    for (
+      const name of ["OpenTAP", "HardwareTest Basic", "HardwareTest Mixins"]
+    ) {
+      await Deno.stat(`${smoke}/home/Packages/${name}/package.xml`);
+    }
+    for (
+      const file of [
+        "tap.dll",
+        "tap.runtimeconfig.json",
+        "OpenTap.dll",
+        "OpenTap.Package.dll",
+      ]
+    ) {
+      await Deno.stat(`${smoke}/home/${file}`);
+    }
+    console.log(
+      "verify authoring ok: isolated published startup, strict validate, offline bootstrap",
+    );
+  } finally {
+    await Deno.remove(smoke, { recursive: true });
+  }
+}
+
+async function copyTree(source: string, destination: string): Promise<void> {
+  await Deno.mkdir(destination, { recursive: true });
+  for await (const entry of Deno.readDir(source)) {
+    if (entry.isDirectory) {
+      await copyTree(`${source}/${entry.name}`, `${destination}/${entry.name}`);
+    } else if (entry.isFile) {
+      await Deno.copyFile(
+        `${source}/${entry.name}`,
+        `${destination}/${entry.name}`,
+      );
+      if (Deno.build.os !== "windows") {
+        const info = await Deno.stat(`${source}/${entry.name}`);
+        if (info.mode !== null) {
+          await Deno.chmod(`${destination}/${entry.name}`, info.mode);
+        }
+      }
+    }
+  }
 }
 
 async function verify(opts: Options): Promise<void> {
@@ -331,6 +440,11 @@ async function verify(opts: Options): Promise<void> {
   const exe = publishedExe(expectedRid, opts.root);
   try {
     await Deno.stat(exe);
+    await Deno.stat(
+      `${publishDir(expectedRid, opts.root)}/authoring/HardwareTest.Authoring${
+        expectedRid.startsWith("win-") ? ".exe" : ""
+      }`,
+    );
   } catch {
     console.log("publish output missing; running publish first");
     await publish(opts);
@@ -355,7 +469,9 @@ async function verify(opts: Options): Promise<void> {
       },
     );
     if (config.code !== 0) {
-      throw new Error(`--print-config failed: ${config.stderr || config.stdout}`);
+      throw new Error(
+        `--print-config failed: ${config.stderr || config.stdout}`,
+      );
     }
 
     const lines = config.stdout.split(/\r?\n/);
@@ -387,6 +503,7 @@ async function verify(opts: Options): Promise<void> {
       // best-effort cleanup
     }
   }
+  await verifyAuthoring(opts);
 }
 
 async function all(opts: Options): Promise<void> {
@@ -433,7 +550,9 @@ export async function main(argv = Deno.args): Promise<void> {
   }
 
   const opts = parseOptions(rest);
-  console.log(`task=${task} rid=${opts.rid} configuration=${opts.configuration}`);
+  console.log(
+    `task=${task} rid=${opts.rid} configuration=${opts.configuration}`,
+  );
 
   switch (task as TaskName) {
     case "build":

@@ -23,6 +23,10 @@ public sealed class PackOptions
     public ITuiCompatChecker? Compat { get; init; }
 
     public bool Offline { get; init; }
+
+    public string? BootstrapHomeDirectory { get; init; }
+
+    public Action<PackPreflightReport>? PreflightCompleted { get; init; }
 }
 
 public sealed record ShipDependency(string Package, string Version, bool Optional = false, string? When = null);
@@ -38,7 +42,7 @@ public sealed record ShipManifest(
 }
 
 /// Validates a workspace, writes package.xml, creates the program TapPackage, and writes ship-manifest.json.
-public static class WorkspacePacker
+public static partial class WorkspacePacker
 {
     public const string ShipManifestFileName = "ship-manifest.json";
     public const string PackageXmlFileName = "package.xml";
@@ -54,22 +58,14 @@ public static class WorkspacePacker
         ArgumentException.ThrowIfNullOrWhiteSpace(outputDirectory);
         ArgumentNullException.ThrowIfNull(options);
 
-        Directory.CreateDirectory(outputDirectory);
-        var home = options.Home ?? new OpenTapHomeBootstrapper().Bootstrap(
-            workspace,
-            new BootstrapOptions { Offline = options.Offline });
-
-        ValidateContract(workspace);
-        if (options.Compat is not null)
+        var preflight = Preflight(workspace, options);
+        if (preflight.HasErrors)
         {
-            var tuiHome = options.TuiHome ?? home;
-            var report = options.Compat.Compare(workspace, home, tuiHome);
-            if (report.BlocksPack())
-            {
-                throw new AuthoringWorkspaceException(
-                    $"{AuthoringPackCodes.CompatBlocked}: TUI compatibility report blocks pack.");
-            }
+            throw new PackPreflightException(preflight);
         }
+
+        var home = preflight.Home!;
+        Directory.CreateDirectory(outputDirectory);
 
         var plansDir = ResolvePlansDirectory(workspace);
         var packageXml = Path.Combine(plansDir, PackageXmlFileName);
@@ -90,28 +86,6 @@ public static class WorkspacePacker
             Path.Combine(outputDirectory, ShipManifestFileName),
             JsonSerializer.Serialize(manifest, AuthoringJsonContext.Default.ShipManifest));
         return manifest;
-    }
-
-    private static void ValidateContract(AuthoringWorkspace workspace)
-    {
-        var report = PlanContractValidator.Validate(
-            workspace.TapPlanPaths,
-            new PlanContractOptions
-            {
-                Strict = true,
-                ExcludeVisaAdapter = true,
-            });
-        if (!report.HasErrors)
-        {
-            return;
-        }
-
-        var details = string.Join(
-            "; ",
-            report.Plans.SelectMany(p => p.Findings)
-                .Where(f => f.Severity == PlanContractSeverity.Error)
-                .Select(f => $"{f.Code}: {f.Message}"));
-        throw new AuthoringWorkspaceException($"{AuthoringPackCodes.ContractFailed}: {details}");
     }
 
     private static string ResolvePlansDirectory(AuthoringWorkspace workspace)
