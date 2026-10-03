@@ -130,10 +130,12 @@ public sealed class PlanCompilerPersistenceTests : IDisposable
         var originalBytes = Encoding.UTF8.GetBytes("original sidecar bytes\r\n");
         File.WriteAllBytes(sidecarPath, originalBytes);
         Directory.CreateDirectory(sidecarPath + ".saving");
-        var compiler = new PlanCompiler(null, (_, _) => Assert.Fail("Replacement must not run."));
+        var replacementRan = false;
+        var compiler = new PlanCompiler(null, (_, _) => replacementRan = true);
 
         Assert.ThrowsAny<Exception>(() => compiler.SaveSidecar(path, Draft().Sidecar));
 
+        Assert.False(replacementRan);
         Assert.Equal(originalBytes, File.ReadAllBytes(sidecarPath));
         Assert.False(File.Exists(path));
         Assert.False(File.Exists(sidecarPath + ".saving"));
