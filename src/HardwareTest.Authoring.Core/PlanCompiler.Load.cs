@@ -91,19 +91,19 @@ public sealed partial class PlanCompiler
                 children.Add(DecompileMeasure(child, instruments, xmlById));
             }
 
-            measure.Add(new RepeatNode(repeat.Count, children));
+            measure.Add(new RepeatNode(repeat.Count, children) { NodeId = step.Id });
             return;
         }
 
         if (OpenTapStepKinds.IsIdentity(step))
         {
-            setup.Add(new IdentitySetup(InstrumentSlotName(step)));
+            setup.Add(new IdentitySetup(InstrumentSlotName(step)) { NodeId = step.Id });
             return;
         }
 
         if (step is OperatorPromptStep prompt)
         {
-            setup.Add(new OperatorPromptSetup(prompt.Name, prompt.Message));
+            setup.Add(new OperatorPromptSetup(prompt.Name, prompt.Message) { NodeId = step.Id });
             return;
         }
 
@@ -114,7 +114,7 @@ public sealed partial class PlanCompiler
                 input.Title,
                 input.Message,
                 string.IsNullOrWhiteSpace(input.StringFieldId) ? null : input.StringFieldId,
-                string.IsNullOrWhiteSpace(input.NumberFieldId) ? null : input.NumberFieldId));
+                string.IsNullOrWhiteSpace(input.NumberFieldId) ? null : input.NumberFieldId) { NodeId = step.Id });
             return;
         }
 
@@ -128,7 +128,7 @@ public sealed partial class PlanCompiler
                 slots.Add(slot);
             }
 
-            cleanup = new CleanupPolicy(true, slots, cleanup.IncludeMeasureSlots);
+            cleanup = cleanup with { IncludeSafeShutdown = true, InstrumentSlots = slots };
             return;
         }
 
@@ -144,7 +144,7 @@ public sealed partial class PlanCompiler
 
         if (OpenTapStepKinds.IsApplyTransferFunction(step) && step is ApplyTransferFunctionStep tfStep)
         {
-            return new MetricNode(ToTransferFunctionMetric(tfStep));
+            return new MetricNode(ToTransferFunctionMetric(tfStep)) { NodeId = step.Id };
         }
 
         if (step is RepeatLoopStep repeat)
@@ -155,7 +155,7 @@ public sealed partial class PlanCompiler
                 children.Add(DecompileMeasure(child, instruments, xmlById));
             }
 
-            return new RepeatNode(repeat.Count, children);
+            return new RepeatNode(repeat.Count, children) { NodeId = step.Id };
         }
 
         if (step is TestGroupStep)
@@ -166,7 +166,7 @@ public sealed partial class PlanCompiler
 
         if (AuthoringFunctionCatalog.TryGetByStep(step, out var spec))
         {
-            return new MetricNode(ToMetricDraft(step, spec));
+            return new MetricNode(ToMetricDraft(step, spec)) { NodeId = step.Id };
         }
 
         return ToRaw(step, xmlById);
@@ -203,10 +203,10 @@ public sealed partial class PlanCompiler
         var typeName = step.GetType().FullName ?? step.GetType().Name;
         if (!xmlById.TryGetValue(step.Id.ToString(), out var element))
         {
-            return new RawStepNode(typeName, string.Empty);
+            return new RawStepNode(typeName, string.Empty) { NodeId = step.Id };
         }
 
-        return new RawStepNode(typeName, element.ToString(SaveOptions.DisableFormatting));
+        return new RawStepNode(typeName, element.ToString(SaveOptions.DisableFormatting)) { NodeId = step.Id };
     }
 
     private static IReadOnlyDictionary<string, string> ReadSettings(ITestStep step)

@@ -388,7 +388,7 @@ public sealed partial class AuthoringWorkspaceViewModel
             path,
             node => node switch
             {
-                MetricNode metric => new MetricNode(mutate(metric.Metric)),
+                MetricNode metric => metric with { Metric = mutate(metric.Metric) },
                 RepeatNode repeat => repeat with { Children = MutateFirstMetric(repeat.Children, mutate) },
                 var other => other,
             });
@@ -417,7 +417,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         {
             if (copy[i] is MetricNode metric)
             {
-                copy[i] = new MetricNode(mutate(metric.Metric));
+                copy[i] = metric with { Metric = mutate(metric.Metric) };
                 break;
             }
         }

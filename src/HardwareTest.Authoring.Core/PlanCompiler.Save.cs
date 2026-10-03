@@ -104,16 +104,17 @@ public sealed partial class PlanCompiler
         {
             case IdentitySetup identity:
                 {
-                    var step = new IdentityCheckStep { Name = "Identity Check", Dut = dut };
+                    var step = new IdentityCheckStep { Id = action.NodeId, Name = "Identity Check", Dut = dut };
                     AssignInstrument(step, ResolveInstrument(instruments, identity.InstrumentSlot));
                     OpenTapMixinAttach.AttachAnnotation(step);
                     return step;
                 }
             case OperatorPromptSetup prompt:
-                return new OperatorPromptStep { Name = prompt.Name, Message = prompt.Message };
+                return new OperatorPromptStep { Id = action.NodeId, Name = prompt.Name, Message = prompt.Message };
             case OperatorInputSetup input:
                 return new OperatorInputStep
                 {
+                    Id = action.NodeId,
                     Name = input.Name,
                     Title = input.Title,
                     Message = input.Message,
@@ -132,10 +133,12 @@ public sealed partial class PlanCompiler
         switch (node)
         {
             case MetricNode metric:
-                return CreateMetricStep(metric.Metric, instruments);
+                var step = CreateMetricStep(metric.Metric, instruments);
+                step.Id = metric.NodeId;
+                return step;
             case RepeatNode repeat:
                 {
-                    var loop = new RepeatLoopStep { Name = "Repeat", Count = Math.Max(1, repeat.Count) };
+                    var loop = new RepeatLoopStep { Id = repeat.NodeId, Name = "Repeat", Count = Math.Max(1, repeat.Count) };
                     foreach (var child in repeat.Children)
                     {
                         loop.ChildTestSteps.Add(CreateMeasureStep(child, instruments));
