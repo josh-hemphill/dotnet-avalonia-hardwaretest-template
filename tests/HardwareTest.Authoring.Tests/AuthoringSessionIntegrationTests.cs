@@ -27,6 +27,28 @@ public sealed class AuthoringSessionIntegrationTests : IDisposable
     }
 
     [Fact]
+    public void Recipe_history_restores_final_added_and_wrapped_node_selection()
+    {
+        var vm = Open();
+        vm.CreateProgram("selection");
+        vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
+        var first = vm.SelectedSequence!.NodeId;
+        vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
+        var added = vm.SelectedSequence!.NodeId;
+        Assert.NotEqual(first, added);
+        vm.Undo();
+        Assert.Equal(first, vm.SelectedSequence!.NodeId);
+        vm.Redo();
+        Assert.Equal(added, vm.SelectedSequence!.NodeId);
+        vm.ApplyRecipe(AuthoringRecipeIds.Repeat);
+        var wrapped = vm.SelectedSequence!.NodeId;
+        vm.Undo();
+        Assert.Equal(added, vm.SelectedSequence!.NodeId);
+        vm.Redo();
+        Assert.Equal(wrapped, vm.SelectedSequence!.NodeId);
+    }
+
+    [Fact]
     public void Saved_content_comparison_and_independent_history_restore_stable_selection()
     {
         var vm = Open();

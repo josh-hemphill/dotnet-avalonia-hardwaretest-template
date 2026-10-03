@@ -288,6 +288,7 @@ public sealed partial class AuthoringWorkspaceViewModel
             imported.Algorithm);
         ReplaceSelected(SelectedProgram with { Measure = [.. SelectedProgram.Measure, new MetricNode(created)] });
         SelectedMeasureIndex = SelectedProgram.Measure.Count - 1;
+        SelectedDocument?.CompleteEditSelection();
     }
 
     private TransferFunctionAlgorithm? SelectedTf

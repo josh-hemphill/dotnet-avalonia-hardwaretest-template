@@ -318,6 +318,7 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
         {
             SelectMeasure(updated.Measure.Count - 1);
         }
+        SelectedDocument?.CompleteEditSelection();
 
         Status = string.Equals(recipeId, AuthoringRecipeIds.TestGroup, StringComparison.OrdinalIgnoreCase)
             ? AuthoringChrome.TestGroupHint
@@ -422,6 +423,7 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
         }
 
         RememberNodeSelection();
+        SelectedDocument?.CompleteEditSelection();
         RecomputeDocumentDirty();
         RaiseSidecarProperties();
     }

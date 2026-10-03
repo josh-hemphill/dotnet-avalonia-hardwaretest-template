@@ -129,6 +129,7 @@ public sealed class AuthoringDocumentSession
     }
 
     public void ClearHistory() => History.Clear();
+    internal void CompleteEditSelection() => History.CompleteSelection(_current, _selectedNodeId);
     private void EnsureWritable()
     {
         if (IsReadOnly) throw new InvalidOperationException("This program is read-only.");
