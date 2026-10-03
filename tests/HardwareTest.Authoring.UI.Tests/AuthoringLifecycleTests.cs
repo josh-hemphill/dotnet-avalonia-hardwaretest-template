@@ -156,6 +156,61 @@ public sealed class AuthoringLifecycleTests
     }
 
     [AvaloniaTheory]
+    [InlineData("close")]
+    [InlineData("reopen")]
+    [InlineData("picker")]
+    public async Task Fixture_disposal_resolves_in_flight_requests_and_closes_window(string transition)
+    {
+        var fixture = Loaded();
+        try
+        {
+            fixture.ViewModel.DisplayName = "draft awaiting fixture disposal";
+            Task<bool>? request = null;
+            if (transition == "picker")
+            {
+                fixture.Picker.Pending = new TaskCompletionSource<string?>(TaskCreationOptions.RunContinuationsAsynchronously);
+                request = fixture.Window!.OpenWorkspaceAsync();
+            }
+            else
+            {
+                fixture.Interaction.Pending = new TaskCompletionSource<UnsavedChangesChoice>(TaskCreationOptions.RunContinuationsAsynchronously);
+                if (transition == "close") fixture.Window!.Close();
+                else request = fixture.Window!.ReopenWorkspaceAsync();
+            }
+            Assert.True(fixture.Window!.IsVisible);
+            fixture.Dispose();
+            Assert.False(fixture.Window.IsVisible);
+            Assert.Empty(fixture.Window.OwnedWindows);
+            Assert.False(Directory.Exists(fixture.WorkspaceRoot));
+            if (request is not null) Assert.False(await request);
+        }
+        finally
+        {
+            if (Directory.Exists(fixture.WorkspaceRoot)) fixture.Dispose();
+        }
+    }
+
+    [AvaloniaFact]
+    public void Save_all_feedback_reports_saved_program_and_optional_preview_problem_separately()
+    {
+        using var fixture = Loaded();
+        fixture.ViewModel.DisplayName = "saved from UI despite preview failure";
+        fixture.ViewModel.OpenTapHomeOverride = "invalid\0home";
+        var selected = fixture.ViewModel.SelectedProgram;
+        var programRow = fixture.Control<ListBox>("Programs").SelectedItem;
+        AuthoringUiFixture.Click(fixture.Control<Button>("Save all"));
+        Assert.True(fixture.ViewModel.LastSaveAllResult!.Succeeded);
+        Assert.Empty(fixture.ViewModel.LastSaveAllResult.Failures);
+        Assert.Equal(["sample"], fixture.ViewModel.LastSaveAllResult.SavedProgramIds);
+        Assert.False(fixture.ViewModel.HasUnsavedChanges);
+        Assert.Same(selected, fixture.ViewModel.SelectedProgram);
+        Assert.Same(programRow, fixture.Control<ListBox>("Programs").SelectedItem);
+        Assert.Equal("saved from UI despite preview failure", new PlanCompiler().Load(Path.Combine(fixture.WorkspaceRoot, "sample.TapPlan")).Sidecar.DisplayName);
+        Assert.Contains("OpenTAP home setting", fixture.Control<TextBlock>("Authoring error").Text);
+        Assert.Contains(fixture.Control<ItemsControl>("Save all results").GetVisualDescendants().OfType<TextBlock>(), text => text.Text == "Saved sample");
+    }
+
+    [AvaloniaTheory]
     [InlineData(Key.Enter)]
     [InlineData(Key.Escape)]
     [InlineData(Key.None)]

@@ -93,23 +93,46 @@ internal sealed class AuthoringUiFixture : IDisposable
                 child.Close();
             }
 
+            var pendingChoice = Interaction.Pending;
+            var pendingPicker = Picker.Pending;
+            Interaction.Pending = null;
+            Picker.Pending = null;
+            pendingChoice?.TrySetResult(UnsavedChangesChoice.Cancel);
+            pendingPicker?.TrySetResult(null);
             Interaction.Choice = UnsavedChangesChoice.Discard;
-            Window.Close();
-            Drain();
-            if (Window.IsVisible)
+            var frame = new DispatcherFrame();
+            async Task CloseAndStopFrameAsync()
             {
-                foreach (var child in Window.OwnedWindows.ToArray())
-                {
-                    var discard = child.GetVisualDescendants().OfType<Button>().FirstOrDefault(button => Equals(button.Content, "Discard"));
-                    if (discard is not null) Click(discard);
-                }
-                Drain();
+                try { await CloseWindowAsync(); }
+                finally { frame.Continue = false; }
             }
+            var closing = CloseAndStopFrameAsync();
+            if (!closing.IsCompleted) Dispatcher.UIThread.PushFrame(frame);
+            closing.GetAwaiter().GetResult();
             Assert.False(Window.IsVisible);
         }
 
         Directory.Delete(_root, recursive: true);
     }
+    private async Task CloseWindowAsync()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        while (Window!.IsVisible)
+        {
+            Window.Close();
+            Drain();
+            foreach (var child in Window.OwnedWindows.ToArray())
+            {
+                var discard = child.GetVisualDescendants().OfType<Button>().FirstOrDefault(button => Equals(button.Content, "Discard"));
+                if (discard is not null) Click(discard);
+                else child.Close();
+            }
+            Drain();
+            // Keep pumping UI work until delayed cancellation continuations release the guard.
+            if (Window.IsVisible) await Task.Delay(1, timeout.Token);
+        }
+    }
+
 }
 
 internal sealed class TestLifecycleInteraction : IAuthoringLifecycleInteraction
@@ -128,5 +151,6 @@ internal sealed class TestLifecycleInteraction : IAuthoringLifecycleInteraction
 internal sealed class TestWorkspacePicker : IAuthoringWorkspacePicker
 {
     public string? Path { get; set; }
-    public Task<string?> PickAsync() => Task.FromResult(Path);
+    public TaskCompletionSource<string?>? Pending { get; set; }
+    public Task<string?> PickAsync() => Pending?.Task ?? Task.FromResult(Path);
 }
