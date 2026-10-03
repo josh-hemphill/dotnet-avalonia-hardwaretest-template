@@ -442,8 +442,7 @@ public sealed partial class AuthoringWorkspaceViewModel
                 .Where(existing => !string.Equals(existing, slot, StringComparison.OrdinalIgnoreCase));
             IReadOnlyList<string> slots = [slot, .. tail];
             var next = SelectedProgram.Cleanup with { InstrumentSlots = slots };
-            AuthoringCleanup.SyncSidecar(SelectedProgram.Sidecar, next);
-            ReplaceSelected(SelectedProgram with { Cleanup = next }, rebuildLists: false);
+            UpdateCleanupPolicy(next);
         }
     }
 
@@ -461,11 +460,7 @@ public sealed partial class AuthoringWorkspaceViewModel
             }
 
             var next = SelectedProgram.Cleanup with { IncludeMeasureSlots = value };
-            AuthoringCleanup.SyncSidecar(SelectedProgram.Sidecar, next);
-            ReplaceSelected(SelectedProgram with
-            {
-                Cleanup = next,
-            }, rebuildLists: false);
+            UpdateCleanupPolicy(next);
         }
     }
 
@@ -480,11 +475,7 @@ public sealed partial class AuthoringWorkspaceViewModel
             }
 
             var next = SelectedProgram.Cleanup with { IncludeSafeShutdown = value };
-            AuthoringCleanup.SyncSidecar(SelectedProgram.Sidecar, next);
-            ReplaceSelected(SelectedProgram with
-            {
-                Cleanup = next,
-            }, rebuildLists: false);
+            UpdateCleanupPolicy(next);
         }
     }
 
@@ -905,11 +896,16 @@ public sealed partial class AuthoringWorkspaceViewModel
         }
 
         var next = SelectedProgram.Cleanup with { InstrumentSlots = current };
-        AuthoringCleanup.SyncSidecar(SelectedProgram.Sidecar, next);
-        ReplaceSelected(SelectedProgram with
-        {
-            Cleanup = next,
-        }, rebuildLists: false);
+        UpdateCleanupPolicy(next);
+    }
+
+    private void UpdateCleanupPolicy(CleanupPolicy next)
+    {
+        EnsureWritableWorkspace("edit cleanup settings");
+        if (SelectedProgram is null) return;
+        var sidecar = PlanCompiler.CloneSidecar(SelectedProgram.Sidecar);
+        AuthoringCleanup.SyncSidecar(sidecar, next);
+        ReplaceSelected(SelectedProgram with { Cleanup = next, Sidecar = sidecar }, rebuildLists: false);
     }
 
     private bool HasCleanupSlot(string slot)

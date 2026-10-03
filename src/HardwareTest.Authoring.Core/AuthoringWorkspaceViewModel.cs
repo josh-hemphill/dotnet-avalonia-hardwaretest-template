@@ -206,7 +206,7 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
     public void Open(string root)
     {
         if (HasUnsavedChanges)
-            throw new AuthoringWorkspaceException("Save or explicitly discard edited programs before opening a workspace.");
+            throw new AuthoringWorkspaceException("Use Save All to save edited programs and workspace catalog changes, or explicitly discard them, before opening a workspace.");
         CommitOpen(PrepareOpen(root));
     }
 
@@ -223,7 +223,7 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
     {
         ArgumentNullException.ThrowIfNull(prepared);
         if (HasUnsavedChanges && !discardUnsavedChanges)
-            throw new AuthoringWorkspaceException("Save or explicitly discard edited programs before opening a workspace.");
+            throw new AuthoringWorkspaceException("Use Save All to save edited programs and workspace catalog changes, or explicitly discard them, before opening a workspace.");
         var files = prepared.Draft.Files;
         _openingDatasets = prepared.Datasets;
         try

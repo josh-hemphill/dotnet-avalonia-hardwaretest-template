@@ -166,7 +166,12 @@ public sealed class AuthoringDestructiveScopeTests : IDisposable
     public void Global_only_dirtiness_resets_only_after_successful_session_replacement()
     {
         var vm = Open(); vm.CreateProgram("a"); Assert.True(vm.SaveAll().Succeeded); var prepared = vm.PrepareOpen(_root); AddField(vm); vm.SaveProgram("a");
-        Assert.Throws<AuthoringWorkspaceException>(() => vm.Open(_root)); Assert.Throws<AuthoringWorkspaceException>(() => vm.CommitOpen(prepared));
+        var session = vm.Workspace; var selected = vm.SelectedProgram;
+        var openGuard = Assert.Throws<AuthoringWorkspaceException>(() => vm.Open(_root));
+        Assert.Contains("workspace catalog changes", openGuard.Message); Assert.Contains("Save All", openGuard.Message);
+        Assert.Same(session, vm.Workspace); Assert.Same(selected, vm.SelectedProgram);
+        var commitGuard = Assert.Throws<AuthoringWorkspaceException>(() => vm.CommitOpen(prepared));
+        Assert.Contains("workspace catalog changes", commitGuard.Message); Assert.Contains("Save All", commitGuard.Message);
         Assert.Throws<AuthoringWorkspaceException>(() => vm.PrepareOpen(Path.Combine(_root, "missing"))); Assert.True(vm.WorkspaceCatalogDirty);
         vm.CommitOpen(prepared, discardUnsavedChanges: true); Assert.False(vm.WorkspaceCatalogDirty); Assert.False(vm.HasUnsavedChanges); Assert.Empty(vm.UnsavedChangesSummary);
     }
@@ -212,7 +217,15 @@ public sealed class AuthoringDestructiveScopeTests : IDisposable
         {
             case "nested-setting": settings["samples"] = "3"; break;
             case "null-sentinel": vm.ReplaceSelected(vm.SelectedProgram with { Setup = [new OperatorInputSetup("input", "title", "msg", "<null>", null)] }); break;
-            case "raw": vm.ReplaceSelected(vm.SelectedProgram with { Measure = [nested, new RawStepNode("Raw", "<b/>")] }); break;
+            case "raw":
+                var currentNested = vm.SelectedProgram.Measure[0];
+                vm.ReplaceSelected(vm.SelectedProgram with
+                {
+                    Measure = vm.SelectedProgram.Measure.Select(node => node is RawStepNode raw ? raw with { XmlFragment = "<b/>" } : node).ToArray(),
+                });
+                Assert.Same(currentNested, vm.SelectedProgram.Measure[0]);
+                Assert.Same(settings, Assert.IsType<MeasureSource>(Assert.IsType<MetricNode>(Assert.Single(Assert.IsType<RepeatNode>(vm.SelectedProgram.Measure[0]).Children)).Metric.Source).Settings);
+                break;
             case "sidecar": vm.SelectedProgram.Sidecar.DutFamily = "changed"; break;
             case "catalog": vm.Workspace!.Manifest.Catalogs!.RequiredFields.Add("changed"); break;
             case "workspace": vm.CommitOpen(vm.PrepareOpen(_root), discardUnsavedChanges: true); break;

@@ -319,11 +319,11 @@
                   </StackPanel>
                 </StackPanel>
 
-                <StackPanel Spacing="6" IsVisible="{Binding HasCleanupEditor}">
-                  <CheckBox Content="Include Safe Shutdown"
+                <StackPanel Spacing="6" IsVisible="{Binding HasCleanupEditor}" IsEnabled="{Binding CanEditProgramSettings}">
+                  <CheckBox Content="Include Safe Shutdown" AutomationProperties.Name="Include Safe Shutdown"
                             IsChecked="{Binding IncludeSafeShutdown}"
                             ToolTip.Tip="When off, Run Selected skips Safe Shutdown (suite-scoped cleanup)" />
-                  <CheckBox Content="Also safe instruments used in this program"
+                  <CheckBox Content="Also safe instruments used in this program" AutomationProperties.Name="Include measure slots in cleanup"
                             IsChecked="{Binding IncludeMeasureSlots}"
                             ToolTip.Tip="Union identity and measure slots into cleanup so more than one instrument can be safed"
                             IsVisible="{Binding IncludeSafeShutdown}" />
