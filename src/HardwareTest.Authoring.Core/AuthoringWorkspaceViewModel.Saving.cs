@@ -26,12 +26,18 @@ public sealed partial class AuthoringWorkspaceViewModel
 {
     public IReadOnlyList<DirtyProgramSummary> DirtyPrograms => DirtyProgramIds
         .Select(id => new DirtyProgramSummary(id, _dirtyPlans.Contains(id), _dirtySidecars.Contains(id))).ToArray();
+    private string? _savePreviewWarning;
+    public string? SavePreviewWarning
+    {
+        get => _savePreviewWarning;
+        private set => SetField(ref _savePreviewWarning, value);
+    }
     public SaveAllResult? LastSaveAllResult { get; private set; }
     public IReadOnlyList<string> SaveAllResults => LastSaveAllResult is { } result
         ? result.SavedProgramIds.Select(id => $"Saved {id}")
             .Concat(result.Failures.Select(failure => $"{failure.PlanId}: {failure.Message}")).ToArray() : [];
 
-    public void SaveProgram(string planId) => SaveProgramCore(planId, forcePlan: false, sidecarOnly: false);
+    public void SaveProgram(string planId) => SaveProgramWithPreview(planId, forcePlan: false, sidecarOnly: false);
 
     public SaveAllResult SaveAll()
     {
@@ -39,23 +45,46 @@ public sealed partial class AuthoringWorkspaceViewModel
         var failures = new List<ProgramSaveFailure>();
         foreach (var id in DirtyProgramIds)
         {
-            try { SaveProgram(id); saved.Add(id); }
+            try { SaveProgramCore(id, forcePlan: false, sidecarOnly: false); saved.Add(id); }
             catch (Exception ex) { failures.Add(new(id, ex.Message)); }
         }
+        RefreshSavePreview();
         var result = new SaveAllResult(saved.ToArray(), failures.ToArray()) { HasUnsavedChanges = HasUnsavedChanges };
         LastSaveAllResult = result;
         OnPropertyChanged(nameof(LastSaveAllResult));
         OnPropertyChanged(nameof(SaveAllResults));
         Status = $"Saved {saved.Count} program(s); {failures.Count} failure(s)";
-        Error = failures.Count == 0 ? null : string.Join(Environment.NewLine, failures.Select(f => $"{f.PlanId}: {f.Message}"));
+        var messages = failures.Select(f => $"{f.PlanId}: {f.Message}")
+            .Concat(SavePreviewWarning is { } warning ? [warning] : []).ToArray();
+        Error = messages.Length == 0 ? null : string.Join(Environment.NewLine, messages);
         return result;
     }
 
-    public void Apply() => SaveProgramCore(SelectedProgram?.PlanId
+    public void Apply() => SaveProgramWithPreview(SelectedProgram?.PlanId
         ?? throw new AuthoringWorkspaceException("Select a program before applying."), forcePlan: true, sidecarOnly: false);
 
-    public void SaveSidecar() => SaveProgramCore(SelectedProgram?.PlanId
+    public void SaveSidecar() => SaveProgramWithPreview(SelectedProgram?.PlanId
         ?? throw new AuthoringWorkspaceException("Select a program before saving."), forcePlan: false, sidecarOnly: true);
+
+    private void SaveProgramWithPreview(string planId, bool forcePlan, bool sidecarOnly)
+    {
+        SaveProgramCore(planId, forcePlan, sidecarOnly);
+        RefreshSavePreview();
+        Error = SavePreviewWarning;
+    }
+
+    private void RefreshSavePreview()
+    {
+        try
+        {
+            RefreshPackPreview();
+            SavePreviewWarning = null;
+        }
+        catch (Exception ex)
+        {
+            SavePreviewWarning = $"Packaging preview could not refresh. Check the OpenTAP home setting and workspace paths, then retry: {ex.Message}";
+        }
+    }
 
     private void SaveProgramCore(string planId, bool forcePlan, bool sidecarOnly)
     {
@@ -81,7 +110,6 @@ public sealed partial class AuthoringWorkspaceViewModel
             _dirtySidecars.Remove(planId);
         }
         RefreshDirtyState();
-        RefreshPackPreview();
         Status = $"Saved {Path.GetFileName(savePlan ? path : PlanCompiler.SidecarPath(path))}";
         Error = null;
     }

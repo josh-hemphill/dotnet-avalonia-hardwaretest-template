@@ -56,6 +56,98 @@ public sealed class AuthoringSavingTests : IDisposable
         Assert.Equal(["new-program"], compiler.PlanSaves);
     }
 
+    [Theory]
+    [InlineData("program")]
+    [InlineData("sidecar")]
+    [InlineData("plan")]
+    [InlineData("all")]
+    public void Saved_program_remains_successful_when_optional_preview_refresh_fails(string action)
+    {
+        var vm = Open();
+        vm.DisplayName = "persisted despite preview failure";
+        vm.SelectMeasure(0);
+        var draft = vm.SelectedProgram;
+        var sequence = vm.SelectedSequence;
+        var row = vm.SelectedProgramRow;
+        var planPath = Path.Combine(_root, "sample.TapPlan");
+        var oldPlan = File.ReadAllBytes(planPath);
+        vm.OpenTapHomeOverride = "invalid\0home";
+
+        switch (action)
+        {
+            case "program": vm.SaveProgram("sample"); break;
+            case "sidecar": vm.SaveSidecar(); break;
+            case "plan": vm.Apply(); break;
+            case "all":
+                var result = vm.SaveAll();
+                Assert.True(result.Succeeded);
+                Assert.Equal(["sample"], result.SavedProgramIds);
+                Assert.Empty(result.Failures);
+                Assert.Equal(["Saved sample"], vm.SaveAllResults);
+                break;
+        }
+
+        Assert.False(vm.HasUnsavedChanges);
+        Assert.Empty(vm.DirtyPrograms);
+        Assert.Equal("persisted despite preview failure", new PlanCompiler().Load(planPath).Sidecar.DisplayName);
+        if (action != "plan") Assert.Equal(oldPlan, File.ReadAllBytes(planPath));
+        Assert.Same(draft, vm.SelectedProgram);
+        Assert.Same(sequence, vm.SelectedSequence);
+        Assert.Same(row, vm.SelectedProgramRow);
+        Assert.Contains("Packaging preview could not refresh", vm.SavePreviewWarning);
+        Assert.Contains("OpenTAP home setting", vm.SavePreviewWarning);
+        Assert.Equal(vm.SavePreviewWarning, vm.Error);
+        Assert.StartsWith("Saved ", vm.Status);
+    }
+
+    [Fact]
+    public void Save_all_retains_preview_warning_across_programs_and_can_refresh_after_correction()
+    {
+        var vm = Open();
+        vm.DisplayName = "saved sample with preview warning";
+        vm.CreateProgram("new-preview-program");
+        var draft = vm.SelectedProgram;
+        vm.OpenTapHomeOverride = "invalid\0home";
+        var result = vm.SaveAll();
+        Assert.True(result.Succeeded);
+        Assert.Equal(["new-preview-program", "sample"], result.SavedProgramIds);
+        Assert.Empty(result.Failures);
+        Assert.False(vm.HasUnsavedChanges);
+        Assert.Same(draft, vm.SelectedProgram);
+        Assert.Equal("saved sample with preview warning", new PlanCompiler().Load(Path.Combine(_root, "sample.TapPlan")).Sidecar.DisplayName);
+        Assert.True(File.Exists(Path.Combine(_root, "new-preview-program.program.json")));
+        Assert.Contains("OpenTAP home setting", vm.SavePreviewWarning);
+        Assert.Equal(vm.SavePreviewWarning, vm.Error);
+
+        vm.OpenTapHomeOverride = string.Empty;
+        var refreshed = vm.SaveAll();
+        Assert.True(refreshed.Succeeded);
+        Assert.Empty(refreshed.SavedProgramIds);
+        Assert.Null(vm.SavePreviewWarning);
+        Assert.Null(vm.Error);
+        Assert.Same(draft, vm.SelectedProgram);
+    }
+
+    [Fact]
+    public void Save_all_reports_persistence_failure_and_preview_warning_without_losing_successes()
+    {
+        var vm = Open(new RecordingCompiler { FailId = "failed-program" });
+        vm.DisplayName = "success alongside failures";
+        vm.CreateProgram("failed-program");
+        var selected = vm.SelectedProgram;
+        vm.OpenTapHomeOverride = "invalid\0home";
+        var result = vm.SaveAll();
+        Assert.False(result.Succeeded);
+        Assert.Equal(["sample"], result.SavedProgramIds);
+        Assert.Equal("failed-program", Assert.Single(result.Failures).PlanId);
+        Assert.Equal("failed-program", Assert.Single(vm.DirtyPrograms).PlanId);
+        Assert.Same(selected, vm.SelectedProgram);
+        Assert.Equal("success alongside failures", new PlanCompiler().Load(Path.Combine(_root, "sample.TapPlan")).Sidecar.DisplayName);
+        Assert.Contains("failed-program: save failed", vm.Error);
+        Assert.Contains(vm.SavePreviewWarning!, vm.Error);
+        Assert.Contains("OpenTAP home setting", vm.SavePreviewWarning);
+    }
+
     [Fact]
     public void Sidecar_only_and_plan_flags_clear_independently()
     {
