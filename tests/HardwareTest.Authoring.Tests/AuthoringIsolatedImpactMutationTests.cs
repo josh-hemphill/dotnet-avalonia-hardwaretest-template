@@ -42,6 +42,9 @@ public sealed class AuthoringIsolatedImpactMutationTests : IDisposable
     [InlineData("input-message")]
     [InlineData("input-string-field")]
     [InlineData("input-number-field")]
+    [InlineData("measure-identity")]
+    [InlineData("setup-identity")]
+    [InlineData("cleanup-identity")]
     public void A_single_nested_value_change_invalidates_the_reviewed_removal(string change)
     {
         var vm = new AuthoringWorkspaceViewModel();
@@ -81,6 +84,9 @@ public sealed class AuthoringIsolatedImpactMutationTests : IDisposable
         var transfer = Assert.IsType<TransferFunctionAlgorithm>(transferNode.Metric.Source);
         switch (change)
         {
+            case "measure-identity": node = node with { NodeId = Guid.NewGuid() }; break;
+            case "setup-identity": setup[0] = Assert.IsType<IdentitySetup>(setup[0]) with { NodeId = Guid.NewGuid() }; break;
+            case "cleanup-identity": return program with { Cleanup = program.Cleanup with { NodeId = Guid.NewGuid() } };
             case "expression-input": metric = metric with { Source = expression with { InputChannelKeys = ["other"] } }; break;
             case "expression-source": metric = metric with { Source = expression with { Source = "mean(source)+1" } }; break;
             case "transfer-input": transfer = transfer with { InputChannelKey = "other" }; break;
