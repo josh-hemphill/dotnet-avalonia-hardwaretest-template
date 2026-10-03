@@ -238,6 +238,7 @@ Deno.test("TASKS catalog is sorted and complete", () => {
     "publish",
     "test:arch",
     "test:authoring-compat",
+    "test:authoring-ui",
     "test:e2e",
     "test:host",
     "test:vm",
@@ -261,6 +262,7 @@ Deno.test("ci.yml references every required Deno task", async () => {
     "test:e2e",
     "test:arch",
     "test:authoring-compat",
+    "test:authoring-ui",
     "coverage",
     "publish",
     "verify",
@@ -375,6 +377,30 @@ Deno.test("artifact uploads fail when publish output is missing", async () => {
   const linuxUpload = stepBlock(jobBlock(yaml, "test-linux"), "Upload linux-x64 publish");
   assert(winUpload.includes("if-no-files-found: error"));
   assert(linuxUpload.includes("if-no-files-found: error"));
+});
+
+Deno.test("authoring UI is a required task on both platforms", async () => {
+  const root = path.resolve(
+    path.dirname(path.fromFileUrl(import.meta.url)),
+    "../..",
+  );
+  const yaml = await Deno.readTextFile(path.join(root, ".github/workflows/ci.yml"));
+  for (const [job, rid] of [["test", "win-x64"], ["test-linux", "linux-x64"]]) {
+    const step = stepBlock(
+      jobBlock(yaml, job!),
+      "Authoring UI (required headless inputs and bindings)",
+    );
+    assert(step.includes(`main.ts test:authoring-ui --rid ${rid}`));
+    assertEquals(step.includes("continue-on-error"), false);
+    assertEquals(step.includes("--advisory-e2e"), false);
+  }
+  const config = JSON.parse(
+    await Deno.readTextFile(path.join(root, "tools/ci/deno.json")),
+  );
+  assertEquals(
+    config.tasks["test:authoring-ui"],
+    "deno run -A main.ts test:authoring-ui",
+  );
 });
 
 Deno.test("setup-dotnet pins the global.json SDK", async () => {

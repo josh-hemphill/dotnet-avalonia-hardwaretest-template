@@ -9,8 +9,11 @@ UI/board tests stay separate from OpenTAP plan-behavior tests. Both share the Op
 | ViewModels | Run board / session / filters / rollup UX | `FakeOpenTapSession` (in-memory trees + optional recording replay) | No real instruments |
 | Core/OpenTAP host | Plan load, hierarchy, Run Selected mask, SafeShutdown, progress/samples | Real in-process `OpenTapSession` (documented test-only host) | `MockDmmInstrument` |
 | Avalonia E2E | Shell wiring only (DUT → Run → Results/Inspect) | Worker-backed session (`OpenTapWorkerClient`) | MockDmm + `UseMockVisa` |
+| Authoring UI | Real authoring window inputs, bindings, welcome state, preferences isolation, and layout/focus at 960×600 and 1280×800 | Offline sample workspace load/save | Temporary workspace + explicit preferences path |
 
 CI runs Deno tasks from [`tools/ci/`](../tools/ci/) on **windows-latest** (required E2E) and **ubuntu-latest** (`linux-x64`; E2E advisory — the step is named **E2E smoke (advisory on Linux)**). Host tests run **without Coverlet**; `coverage` collects Core-safe tests only. See [containers.md](containers.md).
+
+`test:authoring-ui` is required on both platforms, including inside `all`; the operator E2E advisory policy does not apply to it. Its dedicated `HardwareTest.Authoring.UI.Tests` assembly owns a serial Avalonia Headless lifecycle with a Fluent/Inter test application, constructs `MainWindow(viewModel)` directly, and never starts the production authoring `App`. Each fixture copies the sample workspace and supplies its own preferences file, then closes windows, drains the dispatcher, and deletes temporary files. Keep CLI-before-Avalonia coverage in the existing CLI tests.
 
 Where coverage lives:
 
@@ -96,6 +99,7 @@ deno task --cwd tools/ci all -- --rid win-x64
 deno run -A tools/ci/main.ts test:arch --rid win-x64
 deno run -A tools/ci/main.ts test:host --rid win-x64
 deno run -A tools/ci/main.ts test:authoring-compat --rid win-x64
+deno run -A tools/ci/main.ts test:authoring-ui --rid win-x64
 deno run -A tools/ci/main.ts test:vm --rid win-x64
 deno run -A tools/ci/main.ts test:e2e --rid win-x64
 deno run -A tools/ci/main.ts coverage --rid win-x64
