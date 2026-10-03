@@ -137,7 +137,7 @@ Deliver 03 as two stacked slices: exception-safe compiler persistence first, the
 
 **Scope:** Extract editing coordination from the large workspace view model. Introduce `AuthoringDocumentSession` for documents/revisions/selection; `AuthoringEditService` for explicit operations; `AuthoringHistory` for Undo/Redo and transactions; `AuthoringDependencyIndex` for references; and `AuthoringIssueService` for editing/compile issues.
 
-Add stable node IDs, deep-copy guarantees, per-program history, and defined edit transaction boundaries. Include workspace definitions in the document/session save model.
+Add stable node IDs, deep-copy guarantees, per-program history, and defined edit transaction boundaries. Include workspace definitions in the document/session save model. Expand isolated stale-impact mutation coverage for expression sources, transfer-function coefficients, limits, and history; test each change independently of other nested content.
 
 **Files:** New focused Core services; `ProgramDraft.cs`; workspace view-model partials; relevant edit tests.
 
@@ -175,7 +175,7 @@ Add a channel-based average check to Basic plugins. Lower newly authored `mean(c
 
 **Scope:** Replace compiler assumptions based on `HardwareDmm` with registered resource adapters. An adapter supplies type ID, display name, required package/availability, construction/serialization, address fields, compatible functions, and identity/shutdown capabilities.
 
-Support declared, tested types. Installed types without an authoring adapter remain unavailable for creation and preserved when imported. Missing packages do not trigger mock substitution. Represent explicit algorithm instrument bindings and preserve actual imported legacy bindings, including a non-first instrument. The current compiler infers an instrument from ordering for legacy instrument-based algorithms; protection work blocks their removal while that binding remains unresolved.
+Support declared, tested types. Installed types without an authoring adapter remain unavailable for creation and preserved when imported. Missing packages do not trigger mock substitution. Represent explicit algorithm instrument bindings and preserve actual imported legacy bindings, including a non-first instrument. The current compiler infers an instrument from ordering for legacy instrument-based algorithms; protection work blocks their removal while that binding remains unresolved. Add isolated stale-impact regressions for instrument metadata and cleanup policies as these bindings become explicit.
 
 **Files:** Compiler Save/Load, function catalog, new instrument catalog/adapters, instrument-usage service, and package inspection/bootstrap services.
 
@@ -367,7 +367,7 @@ Show generated identity and cleanup transparently. Keep experts able to skip opt
 
 ### 22 Expert commands and saved layouts
 
-**Scope:** Add a searchable command palette and platform-appropriate Save/Save all, Undo/Redo, Rename, Duplicate, Add step, movement and next-issue shortcuts. Preserve normal text editing shortcuts. Verify native folder-picker focus and operating-system close decisions on Windows and Linux alongside headless interaction tests.
+**Scope:** Add a searchable command palette and platform-appropriate Save/Save all, Undo/Redo, Rename, Duplicate, Add step, movement and next-issue shortcuts. Preserve normal text editing shortcuts. Verify native folder-picker focus and operating-system close decisions on Windows and Linux alongside headless interaction tests. Recheck owner and workspace session after asynchronous custom lifecycle chooser results; cover pending Save All/Discard choices when the owner is hidden or the session changes. Actual modal hiding currently cancels safely.
 
 Support a collapsible Programs rail, wide-screen preview docking, Issues drawer, selected-node dependency summary, remembered layout/reset, and future-schema-safe preference migration. Document the TUI escape hatch; launch support must verify prerequisites and handle externally changed plans through the reconciliation model.
 
