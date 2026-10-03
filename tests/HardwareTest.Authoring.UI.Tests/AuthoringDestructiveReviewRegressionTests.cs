@@ -23,8 +23,14 @@ public sealed class AuthoringDestructiveReviewRegressionTests
         switch (change)
         {
             case "sidecar": selected!.Sidecar.DisplayName = "changed while reviewing"; break;
-            case "settings": compiler.Settings["Samples"] = "3"; break;
-            default: compiler.Nodes[1] = Assert.IsType<RawStepNode>(compiler.Nodes[1]) with { XmlFragment = "<changed/>" }; break;
+            case "settings":
+                var metric = Assert.IsType<MetricNode>(Assert.Single(Assert.IsType<RepeatNode>(selected!.Measure[0]).Children));
+                Assert.IsAssignableFrom<IDictionary<string, string>>(Assert.IsType<MeasureSource>(metric.Metric.Source).Settings)["Samples"] = "3";
+                break;
+            default:
+                var nodes = Assert.IsType<MeasureNode[]>(selected!.Measure);
+                nodes[1] = Assert.IsType<RawStepNode>(nodes[1]) with { XmlFragment = "<changed/>" };
+                break;
         }
         Assert.Same(selected, fixture.ViewModel.SelectedProgram);
         AuthoringUiFixture.Click(fixture.Control<Button>("Remove program", dialog)); Assert.Empty(fixture.Window!.OwnedWindows);

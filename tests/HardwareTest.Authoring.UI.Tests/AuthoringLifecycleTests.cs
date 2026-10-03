@@ -19,7 +19,7 @@ public sealed class AuthoringLifecycleTests
         Assert.False(fixture.ViewModel.HasUnsavedChanges);
         Assert.False(await fixture.Window!.OpenWorkspaceAsync(fixture.WorkspaceRoot));
         Assert.Equal(1, fixture.Interaction.Calls);
-        Assert.Equal(new DirtyProgramSummary("sample", true, true), Assert.Single(fixture.Interaction.LastSummary));
+        Assert.Equal(new DirtyProgramSummary("sample", true, false), Assert.Single(fixture.Interaction.LastSummary));
         Assert.Same(original!.Sidecar, fixture.ViewModel.SelectedProgram!.Sidecar);
         Assert.Equal("pending-open-edit", fixture.ViewModel.ChannelKey);
         Assert.True(fixture.Window.IsVisible);
