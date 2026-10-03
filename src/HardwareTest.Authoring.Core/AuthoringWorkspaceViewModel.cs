@@ -20,6 +20,7 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
     private int _selectedMeasureIndex = -1;
     private string? _selectedRecipeId;
     private IReadOnlyList<RunDataset> _datasets = [];
+    private IReadOnlyList<RunDataset>? _openingDatasets;
     private IReadOnlyList<string> _datasetItems = [];
     private int _selectedDatasetIndex = -1;
     private readonly HashSet<string> _dirtyPlans = new(StringComparer.OrdinalIgnoreCase);
@@ -36,6 +37,8 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
         if (sidecar) _dirtySidecars.Add(planId);
         Findings = [];
         FindingRows = [];
+        RefreshProgramRows();
+        OnPropertyChanged(nameof(DirtyPrograms));
         OnPropertyChanged(nameof(HasUnsavedChanges));
         RaisePackGuardProperties();
         OnPropertyChanged(nameof(ValidationScope));
@@ -43,6 +46,8 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
 
     private void RefreshDirtyState()
     {
+        RefreshProgramRows();
+        OnPropertyChanged(nameof(DirtyPrograms));
         OnPropertyChanged(nameof(HasUnsavedChanges));
         RaisePackGuardProperties();
         OnPropertyChanged(nameof(ValidationScope));
@@ -76,7 +81,10 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
     public IReadOnlyList<ProgramDraft> Programs
     {
         get => _programs;
-        private set => SetField(ref _programs, value);
+        private set
+        {
+            if (SetField(ref _programs, value)) RefreshProgramRows();
+        }
     }
 
     public ProgramDraft? SelectedProgram
@@ -195,23 +203,55 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
 
     public void Open(string root)
     {
-        Error = null;
-        var files = AuthoringWorkspaceLoader.Load(root);
-        var draft = _compiler.LoadAll(files);
-        _dirtyPlans.Clear();
-        _dirtySidecars.Clear();
-        RefreshDirtyState();
-        Workspace = files;
-        Programs = draft.Programs;
-        _selectedInstrumentSlot = null;
-        AssignSelectedProgram(draft.Programs.FirstOrDefault());
-        Findings = [];
-        FindingRows = [];
-        Status = $"{files.Manifest.DisplayName}: {draft.Programs.Count} program(s)";
-        RefreshDatasets();
-        RememberLastWorkspace(files.Root);
-        RaiseSidecarProperties();
-        RefreshPackPreview();
+        if (HasUnsavedChanges)
+            throw new AuthoringWorkspaceException("Save or explicitly discard edited programs before opening a workspace.");
+        CommitOpen(PrepareOpen(root));
+    }
+
+    public PreparedAuthoringWorkspace PrepareOpen(string root)
+    {
+        var draft = _compiler.LoadAll(AuthoringWorkspaceLoader.Load(root));
+        var home = Prefs.OpenTapHomeOverride;
+        var preview = WorkspacePackPlan.Describe(draft.Files, string.IsNullOrWhiteSpace(home) ? null : home);
+        var datasets = RunDatasetCatalog.List(draft.Files);
+        return new PreparedAuthoringWorkspace(draft, preview, datasets);
+    }
+
+    public void CommitOpen(PreparedAuthoringWorkspace prepared, bool discardUnsavedChanges = false)
+    {
+        ArgumentNullException.ThrowIfNull(prepared);
+        if (HasUnsavedChanges && !discardUnsavedChanges)
+            throw new AuthoringWorkspaceException("Save or explicitly discard edited programs before opening a workspace.");
+        var files = prepared.Draft.Files;
+        _openingDatasets = prepared.Datasets;
+        try
+        {
+            _dirtyPlans.Clear();
+            _dirtySidecars.Clear();
+            Workspace = files;
+            Programs = prepared.Draft.Programs;
+            _selectedInstrumentSlot = null;
+            AssignSelectedProgram(Programs.FirstOrDefault());
+            RefreshDirtyState();
+            Findings = [];
+            FindingRows = [];
+            LastPackPreflight = null;
+            OnPropertyChanged(nameof(LastPackPreflight));
+            OnPropertyChanged(nameof(PackPreflightHomeText));
+            OnPropertyChanged(nameof(PackPreflightFindings));
+            LastSaveAllResult = null;
+            SavePreviewWarning = null;
+            OnPropertyChanged(nameof(LastSaveAllResult));
+            OnPropertyChanged(nameof(SaveAllResults));
+            Error = null;
+            Status = $"{files.Manifest.DisplayName}: {Programs.Count} program(s)";
+            RefreshDatasets();
+            RememberLastWorkspace(files.Root);
+            RaiseSidecarProperties();
+            _packPreview = prepared.PackPreview;
+            RaisePackPreviewProperties();
+        }
+        finally { _openingDatasets = null; }
     }
 
     public void SelectProgram(string planId)
@@ -239,7 +279,7 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
 
     private void RefreshDatasets()
     {
-        var all = Workspace is null ? [] : RunDatasetCatalog.List(Workspace);
+        var all = _openingDatasets ?? (Workspace is null ? [] : RunDatasetCatalog.List(Workspace));
         var planId = SelectedProgram?.PlanId;
         _datasets = string.IsNullOrWhiteSpace(planId)
             ? []
@@ -401,57 +441,6 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
         Error = null;
     }
 
-    public void Apply()
-    {
-        if (Workspace is null || SelectedProgram is null)
-        {
-            throw new AuthoringWorkspaceException("Open a workspace and select a program before applying.");
-        }
-
-        if (Workspace.IsReadOnly)
-        {
-            throw new AuthoringWorkspaceException("Workspace is read-only; cannot save the plan.");
-        }
-
-        AuthoringRecipeCatalog.EnsureScalarLimits(SelectedProgram);
-        var planId = SelectedProgram.PlanId;
-        var tapPlanPath = ResolveTapPlanPath(planId);
-        var others = Programs
-            .Where(p => !string.Equals(p.PlanId, planId, StringComparison.OrdinalIgnoreCase))
-            .ToArray();
-        var otherDirtyPlans = _dirtyPlans.Where(id => !string.Equals(id, planId, StringComparison.OrdinalIgnoreCase)).ToArray();
-        var otherDirtySidecars = _dirtySidecars.Where(id => !string.Equals(id, planId, StringComparison.OrdinalIgnoreCase)).ToArray();
-        _compiler.Save(SelectedProgram, tapPlanPath);
-        Open(Workspace.Root);
-        Programs = MergeSessionPrograms(Programs, others);
-        _dirtyPlans.UnionWith(otherDirtyPlans);
-        _dirtySidecars.UnionWith(otherDirtySidecars);
-        RefreshDirtyState();
-        SelectProgram(planId);
-        Status = $"Saved {Path.GetFileName(tapPlanPath)}";
-        Error = null;
-    }
-
-    public void SaveSidecar()
-    {
-        if (Workspace is null || SelectedProgram is null)
-        {
-            throw new AuthoringWorkspaceException("Open a workspace and select a program before saving.");
-        }
-
-        var tapPlanPath = TryExistingTapPlanPath(SelectedProgram.PlanId);
-        if (string.IsNullOrWhiteSpace(tapPlanPath))
-        {
-            throw new AuthoringWorkspaceException($"No TapPlan path for '{SelectedProgram.PlanId}'.");
-        }
-
-        _compiler.SaveSidecar(tapPlanPath, SelectedProgram.Sidecar);
-        _dirtySidecars.Remove(SelectedProgram.PlanId);
-        RefreshDirtyState();
-        Status = $"Saved {Path.GetFileName(PlanCompiler.SidecarPath(tapPlanPath))}";
-        Error = null;
-    }
-
     public PlanContractBatchReport Validate(bool strict = true)
     {
         if (Workspace is null)
@@ -568,25 +557,6 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
         }
 
         RaiseSidecarProperties();
-    }
-
-    private static IReadOnlyList<ProgramDraft> MergeSessionPrograms(
-        IReadOnlyList<ProgramDraft> fromDisk,
-        IReadOnlyList<ProgramDraft> sessionOthers)
-    {
-        var merged = fromDisk
-            .Select(disk => sessionOthers.FirstOrDefault(other =>
-                string.Equals(other.PlanId, disk.PlanId, StringComparison.OrdinalIgnoreCase)) ?? disk)
-            .ToList();
-        foreach (var other in sessionOthers)
-        {
-            if (!merged.Any(p => string.Equals(p.PlanId, other.PlanId, StringComparison.OrdinalIgnoreCase)))
-            {
-                merged.Add(other);
-            }
-        }
-
-        return merged;
     }
 
     private string? TryExistingTapPlanPath(string planId)
@@ -722,5 +692,8 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
     }
 
     private void OnPropertyChanged([CallerMemberName] string? name = null)
-        => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+    {
+        if (name == nameof(SelectedProgram)) OnPropertyChanged(nameof(SelectedProgramRow));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+    }
 }

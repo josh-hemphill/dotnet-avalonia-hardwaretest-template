@@ -11,7 +11,7 @@ internal sealed class AuthoringUiFixture : IDisposable
 {
     private readonly string _root = Path.Combine(Path.GetTempPath(), "ht-authoring-ui-" + Guid.NewGuid().ToString("N"));
 
-    public AuthoringUiFixture(bool rememberWorkspace = false)
+    public AuthoringUiFixture(bool rememberWorkspace = false, IPlanCompiler? compiler = null)
     {
         WorkspaceRoot = Path.Combine(_root, "workspace");
         Directory.CreateDirectory(WorkspaceRoot);
@@ -29,7 +29,7 @@ internal sealed class AuthoringUiFixture : IDisposable
 
         Preferences.Save();
         Preferences.Load();
-        ViewModel = new AuthoringWorkspaceViewModel(preferences: Preferences);
+        ViewModel = new AuthoringWorkspaceViewModel(compiler, Preferences);
     }
 
     public string WorkspaceRoot { get; }
@@ -37,9 +37,12 @@ internal sealed class AuthoringUiFixture : IDisposable
     public AuthoringWorkspaceViewModel ViewModel { get; }
     public MainWindow? Window { get; private set; }
 
-    public MainWindow Show(double width = 1280, double height = 800)
+    public TestLifecycleInteraction Interaction { get; } = new();
+    public TestWorkspacePicker Picker { get; } = new();
+
+    public MainWindow Show(double width = 1280, double height = 800, bool realInteraction = false)
     {
-        Window = new MainWindow(ViewModel) { Width = width, Height = height };
+        Window = new MainWindow(ViewModel, realInteraction ? null : Interaction, Picker) { Width = width, Height = height };
         Window.Show();
         Drain();
         return Window;
@@ -90,10 +93,64 @@ internal sealed class AuthoringUiFixture : IDisposable
                 child.Close();
             }
 
-            Window.Close();
-            Drain();
+            var pendingChoice = Interaction.Pending;
+            var pendingPicker = Picker.Pending;
+            Interaction.Pending = null;
+            Picker.Pending = null;
+            pendingChoice?.TrySetResult(UnsavedChangesChoice.Cancel);
+            pendingPicker?.TrySetResult(null);
+            Interaction.Choice = UnsavedChangesChoice.Discard;
+            var frame = new DispatcherFrame();
+            async Task CloseAndStopFrameAsync()
+            {
+                try { await CloseWindowAsync(); }
+                finally { frame.Continue = false; }
+            }
+            var closing = CloseAndStopFrameAsync();
+            if (!closing.IsCompleted) Dispatcher.UIThread.PushFrame(frame);
+            closing.GetAwaiter().GetResult();
+            Assert.False(Window.IsVisible);
         }
 
         Directory.Delete(_root, recursive: true);
     }
+    private async Task CloseWindowAsync()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        while (Window!.IsVisible)
+        {
+            Window.Close();
+            Drain();
+            foreach (var child in Window.OwnedWindows.ToArray())
+            {
+                var discard = child.GetVisualDescendants().OfType<Button>().FirstOrDefault(button => Equals(button.Content, "Discard"));
+                if (discard is not null) Click(discard);
+                else child.Close();
+            }
+            Drain();
+            // Keep pumping UI work until delayed cancellation continuations release the guard.
+            if (Window.IsVisible) await Task.Delay(1, timeout.Token);
+        }
+    }
+
+}
+
+internal sealed class TestLifecycleInteraction : IAuthoringLifecycleInteraction
+{
+    public UnsavedChangesChoice Choice { get; set; } = UnsavedChangesChoice.Cancel;
+    public int Calls { get; private set; }
+    public TaskCompletionSource<UnsavedChangesChoice>? Pending { get; set; }
+    public IReadOnlyList<DirtyProgramSummary> LastSummary { get; private set; } = [];
+    public Task<UnsavedChangesChoice> ChooseAsync(IReadOnlyList<DirtyProgramSummary> dirtyPrograms)
+    {
+        Calls++;
+        LastSummary = dirtyPrograms;
+        return Pending?.Task ?? Task.FromResult(Choice);
+    }
+}
+internal sealed class TestWorkspacePicker : IAuthoringWorkspacePicker
+{
+    public string? Path { get; set; }
+    public TaskCompletionSource<string?>? Pending { get; set; }
+    public Task<string?> PickAsync() => Pending?.Task ?? Task.FromResult(Path);
 }

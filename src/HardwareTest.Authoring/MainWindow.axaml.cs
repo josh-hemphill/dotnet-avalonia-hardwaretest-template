@@ -15,28 +15,21 @@ public partial class MainWindow : Window
     {
     }
 
-    public MainWindow(AuthoringWorkspaceViewModel viewModel)
+    public MainWindow(AuthoringWorkspaceViewModel viewModel, IAuthoringLifecycleInteraction? lifecycleInteraction = null, IAuthoringWorkspacePicker? workspacePicker = null)
     {
         _viewModel = viewModel;
         InitializeComponent();
         DataContext = viewModel;
+        InitializeLifecycle(lifecycleInteraction, workspacePicker);
     }
 
     private async void OnOpenWorkspace(object? sender, RoutedEventArgs e)
-    {
-        var folders = await StorageProvider.OpenFolderPickerAsync(
-            new FolderPickerOpenOptions
-            {
-                Title = "Open authoring workspace",
-                AllowMultiple = false,
-            });
-        var path = folders.FirstOrDefault()?.TryGetLocalPath();
-        if (string.IsNullOrWhiteSpace(path))
-        {
-            return;
-        }
+        => await OpenWorkspaceAsync();
 
-        TryRun(() => _viewModel.Open(path));
+    private void OnSaveAll(object? sender, RoutedEventArgs e)
+    {
+        CommitFocusedEditor();
+        TryRun(() => _viewModel.SaveAll());
     }
 
     private void OnBootstrap(object? sender, RoutedEventArgs e)
@@ -46,10 +39,16 @@ public partial class MainWindow : Window
         => TryRun(() => _viewModel.Validate(strict: true));
 
     private void OnSaveSidecar(object? sender, RoutedEventArgs e)
-        => TryRun(() => _viewModel.SaveSidecar());
+    {
+        CommitFocusedEditor();
+        TryRun(() => _viewModel.SaveSidecar());
+    }
 
     private void OnApply(object? sender, RoutedEventArgs e)
-        => TryRun(() => _viewModel.Apply());
+    {
+        CommitFocusedEditor();
+        TryRun(() => _viewModel.Apply());
+    }
 
     private void OnCreateProgram(object? sender, RoutedEventArgs e)
         => TryRun(() => _viewModel.CreateProgram());
@@ -209,8 +208,8 @@ public partial class MainWindow : Window
         TryRun(() => _viewModel.ImportTransferFunction(path));
     }
 
-    private void OnOpenLastWorkspace(object? sender, RoutedEventArgs e)
-        => TryRun(_viewModel.OpenLastWorkspace);
+    private async void OnOpenLastWorkspace(object? sender, RoutedEventArgs e)
+        => await OpenWorkspaceAsync(_viewModel.LastWorkspacePath);
 
     private void OnOpenFindingProgram(object? sender, RoutedEventArgs e)
     {
