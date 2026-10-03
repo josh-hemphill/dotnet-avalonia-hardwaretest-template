@@ -168,6 +168,22 @@ public sealed class AuthoringDocumentSessionTests
     }
 
     [Fact]
+    public void RetainedTargetFromOlderRevisionCannotCommitOrClearRedo()
+    {
+        var draft = Draft();
+        var session = new AuthoringDocumentSession(draft);
+        var preparedRevision = session.Revision;
+        session.ApplyEdit("rename", d => Rename(d, "changed"));
+        session.Undo();
+        var current = session.Snapshot;
+        Assert.Throws<InvalidOperationException>(() => session.ApplyEdit("stale rename", d => Rename(d, "stale"),
+            draft.Measure[0].NodeId, preparedRevision));
+        Assert.True(current.ContentEquals(session.Snapshot));
+        Assert.True(session.CanRedo);
+        Assert.Equal(2, session.Revision);
+    }
+
+    [Fact]
     public void NewEditAfterUndoClearsOnlyThisProgramsRedoAndInvalidIdsFailAtomically()
     {
         var session = new AuthoringDocumentSession(Draft());

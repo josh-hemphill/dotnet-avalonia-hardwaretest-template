@@ -4,9 +4,9 @@ namespace HardwareTest.Authoring;
 public static class AuthoringEditService
 {
     public static bool Apply(AuthoringDocumentSession session, string description,
-        Func<ProgramDraft, ProgramDraft> edit, Guid? targetNodeId = null)
+        Func<ProgramDraft, ProgramDraft> edit, Guid? targetNodeId = null, long? expectedRevision = null)
     {
         ArgumentNullException.ThrowIfNull(session);
-        return session.CommitEdit(description, edit, targetNodeId);
+        return session.CommitEdit(description, edit, targetNodeId, expectedRevision);
     }
 }

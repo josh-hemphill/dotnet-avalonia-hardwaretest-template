@@ -32,13 +32,15 @@ public sealed class AuthoringDocumentSession
         set => _selectedNodeId = value is { } id && ContainsNode(Draft, id) ? id : null;
     }
 
-    public bool ApplyEdit(string description, Func<ProgramDraft, ProgramDraft> edit, Guid? targetNodeId = null)
-        => AuthoringEditService.Apply(this, description, edit, targetNodeId);
+    public bool ApplyEdit(string description, Func<ProgramDraft, ProgramDraft> edit, Guid? targetNodeId = null, long? expectedRevision = null)
+        => AuthoringEditService.Apply(this, description, edit, targetNodeId, expectedRevision);
 
-    internal bool CommitEdit(string description, Func<ProgramDraft, ProgramDraft> edit, Guid? targetNodeId)
+    internal bool CommitEdit(string description, Func<ProgramDraft, ProgramDraft> edit, Guid? targetNodeId, long? expectedRevision)
     {
         EnsureWritable();
         ArgumentNullException.ThrowIfNull(edit);
+        if (expectedRevision is { } revision && revision != Revision)
+            throw new InvalidOperationException("The program changed after this edit was prepared. Refresh the edit target and try again.");
         var draft = Draft;
         if (targetNodeId is { } target && !ContainsNode(draft, target))
             throw new InvalidOperationException("The edit target was deleted or belongs to another program.");
