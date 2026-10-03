@@ -14,7 +14,8 @@ These items remain in the combined implementation plan. Previously reported bloc
 | Saving and lifecycle | Recover pending invalid editor text along with committed edits after a crash. | Package 06 |
 | Saving and lifecycle | Measure modal header/footer space for larger fonts and localization; extend native folder-picker focus and operating-system close coverage on Windows and Linux. | Packages 11 and 22 |
 | Destructive scope | Preserve actual imported legacy algorithm instrument bindings, including non-first instruments, before offering more permissive removal. Current removal blocks unresolved bindings. | Packages 07 and 08 |
-| Destructive scope | Expand isolated stale-impact mutations for expression sources, transfer coefficients, limits/history, cleanup policies, and instrument metadata. | Packages 05 and 08 |
-| Destructive scope | Recheck owner/session after asynchronous custom lifecycle chooser results. Actual modal hiding cancels safely; an injected pending chooser can currently return Save All after owner hiding. | Package 22 |
+| Destructive scope | Expand isolated stale-impact mutations for expression inputs/sources, transfer coefficients/methods, limits/history, metric metadata, setup fields, cleanup policies, and instrument metadata. | Packages 05 and 08 |
+| Destructive scope | Name default-report fallback and program-kind reset in each affected program's catalog-deletion preview. | Package 14 |
+| Destructive scope | Recheck owner/session after asynchronous custom lifecycle chooser and workspace picker results. Actual modal hiding cancels safely; an injected pending chooser can currently return Save All after owner hiding. | Package 22 |
 
 New test plan initialization remains in packages 19 and 20 and follows the shared authoring/document infrastructure. It is not part of this initial protection milestone.

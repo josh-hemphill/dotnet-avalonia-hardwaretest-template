@@ -4,7 +4,7 @@ This plan combines the engineering authoring UI and UX review, the implementatio
 
 Deliver the work in five milestones and 22 work packages. Protect existing users first, establish durable draft and build contracts, then implement the new editor, release workflow, initialization, and expert controls. Each work package has implementation scope, dependencies, and an acceptance gate.
 
-**Status:** Execution started on 2026-10-02. Traversal discovery, UI coverage, packaging protection, compiler persistence, and Save All/lifecycle have cleared independent review. Destructive-operation implementation passes Core, headless UI, architecture, and native Linux smoke checks; independent review is identifying final fixes for cleanup copy/read-only guards and stale whole-program confirmations. These six stacked slices deliver protection packages 01–04. GitHub integration write permissions currently block publication; nothing is merged. Packages 05–22, including new test-plan and workspace initialization, remain planned.
+**Status:** Execution started on 2026-10-02. Protection packages 01–04 and the traversal prerequisite are implemented on six local stacked branches with clean independent reviews. Linux verification passed: 396 authoring Core tests, 97 headless UI tests, 47 architecture tests, 31 CI-task tests, published startup/validation/bootstrap, and native cancellation smoke. GitHub integration writes still return HTTP 403; no stack branches or PRs are published and nothing is merged. Windows CI awaits publication. Packages 05–22, including new test plan initialization (19) and workspace initialization (20), remain planned.
 
 **Repository:** [josh-hemphill/dotnet-avalonia-hardwaretest-template](https://github.com/josh-hemphill/dotnet-avalonia-hardwaretest-template). The review baseline is commit `5f0d638`. During that review, the authoring app built with zero warnings and errors, all 295 authoring tests passed, and the running Linux interface was inspected at 1280×800 and 960×600. Those results are baseline evidence; new behavior will need its own verification.
 
@@ -137,7 +137,7 @@ Deliver 03 as two stacked slices: exception-safe compiler persistence first, the
 
 **Scope:** Extract editing coordination from the large workspace view model. Introduce `AuthoringDocumentSession` for documents/revisions/selection; `AuthoringEditService` for explicit operations; `AuthoringHistory` for Undo/Redo and transactions; `AuthoringDependencyIndex` for references; and `AuthoringIssueService` for editing/compile issues.
 
-Add stable node IDs, deep-copy guarantees, per-program history, and defined edit transaction boundaries. Include workspace definitions in the document/session save model. Expand isolated stale-impact mutation coverage for expression sources, transfer-function coefficients, limits, and history; test each change independently of other nested content.
+Add stable node IDs, deep-copy guarantees, per-program history, and defined edit transaction boundaries. Include workspace definitions in the document/session save model. Expand isolated stale-impact mutation coverage for expression inputs/sources, transfer-function coefficients/methods, limits, history, metric metadata, and setup fields; test each change independently of other nested content.
 
 **Files:** New focused Core services; `ProgramDraft.cs`; workspace view-model partials; relevant edit tests.
 
@@ -249,7 +249,7 @@ Exploration persists in drafts with explicit deployment exclusion. Unsupported e
 
 **Scope:** Build a hardware table with logical name, actual type, address, package status, usage and cleanup coverage. Add/edit uses registered adapters; removal/replacement uses dependency impact.
 
-Move definition administration to workspace management. Keep per-program membership distinct. Apply changes through document transactions and the common save/undo model.
+Move definition administration to workspace management. Keep per-program membership distinct. Apply changes through document transactions and the common save/undo model. Catalog deletion reviews should name the actual per-program consequences, including default-report fallback and program-kind reset, rather than only the deletion category.
 
 **Files:** New Hardware and Workspace definitions views, catalog/instrument child view models, adapter and usage services.
 
@@ -367,7 +367,7 @@ Show generated identity and cleanup transparently. Keep experts able to skip opt
 
 ### 22 Expert commands and saved layouts
 
-**Scope:** Add a searchable command palette and platform-appropriate Save/Save all, Undo/Redo, Rename, Duplicate, Add step, movement and next-issue shortcuts. Preserve normal text editing shortcuts. Verify native folder-picker focus and operating-system close decisions on Windows and Linux alongside headless interaction tests. Recheck owner and workspace session after asynchronous custom lifecycle chooser results; cover pending Save All/Discard choices when the owner is hidden or the session changes. Actual modal hiding currently cancels safely.
+**Scope:** Add a searchable command palette and platform-appropriate Save/Save all, Undo/Redo, Rename, Duplicate, Add step, movement and next-issue shortcuts. Preserve normal text editing shortcuts. Verify native folder-picker focus and operating-system close decisions on Windows and Linux alongside headless interaction tests. Recheck owner and workspace session after asynchronous custom lifecycle chooser and workspace picker results; cover pending Save All/Discard choices when the owner is hidden or the session changes. Actual modal hiding currently cancels safely.
 
 Support a collapsible Programs rail, wide-screen preview docking, Issues drawer, selected-node dependency summary, remembered layout/reset, and future-schema-safe preference migration. Document the TUI escape hatch; launch support must verify prerequisites and handle externally changed plans through the reconciliation model.
 

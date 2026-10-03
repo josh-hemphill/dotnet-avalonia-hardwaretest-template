@@ -74,3 +74,11 @@ Stack: latest <- fix/traversal-test-discovery <- feat/authoring-ui-tests <- feat
 
 ## Review and nit handling
 Implementation agents receive only their area spec. Independent reviewers get the area contract, base/head, changed files and reduced-context review prompt. Findings are tracked as Must fix / Should fix / Nit / Follow-up. Fix Must and in-scope Should then re-review; assign later-area issues to plan packages. Record useful unapplied nits and rationale. Existing style-only nits are omitted. Accepted Area 1 review follow-ups add populated ComboBox collection/selection identity assertions and a behavioral required-task failure probe. Shared CI maintenance will address standalone no-build tasks with missing assets; workflow root Build guards the current sequence. Traversal maintenance follow-ups compare evaluated MSBuild references and exclude generated project artifacts as that contract evolves. CI and human PR reviews share the same queue. Keep no more than two non-conflicting areas in flight and rebase children after parent fixes.
+
+## Local delivery status (2026-10-03)
+
+All six protection slices have clean independent reviews. The final destructive-scope source review covers `2b0ede1...c62dc3f`; subsequent delivery changes are documentation only. No Must/Should findings remain. Valuable deferred findings are assigned in [authoring-protection-review-followups.md](authoring-protection-review-followups.md) and the combined plan.
+
+Release/linux-x64 checks pass: authoring Core 396/396, headless UI 97/97, architecture 47/47, and CI-task catalog/process 31/31. The full traversal build has zero warnings/errors; scoped formatting and whitespace checks pass. Published startup, strict validation, offline bootstrap, and native Linux rendering/cancellation checks pass. Copied workspace files remain hash-identical after native cancellation.
+
+GitHub integration writes still return HTTP 403. No stack branches or PRs are published and nothing is merged. Windows CI awaits publication. The local delivery includes a complete Git bundle, exact branch heads, six PR descriptions, and a publisher that checks the delivered heads, pushes atomically, and creates the dependent PRs without merging. Combined-plan packages 05–22, including initialization 19/20, remain planned.
