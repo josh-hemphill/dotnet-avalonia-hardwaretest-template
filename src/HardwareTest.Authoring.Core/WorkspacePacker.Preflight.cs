@@ -54,7 +54,7 @@ public static partial class WorkspacePacker
             return report;
         }
 
-        if (!IsWritableWorkspace(workspace) || !ProbeWindowsWorkspaceWriteAccess(workspace))
+        if (!IsWritableWorkspace(workspace) || !ProbeWorkspaceWriteAccess(workspace))
         {
             findings.Add(new("PACK_WORKSPACE", "Open an existing writable workspace before packing.", true, workspace.Root));
             return Complete();
@@ -147,6 +147,13 @@ public static partial class WorkspacePacker
             foreach (var file in files)
             {
                 var path = Path.GetFullPath(Path.Combine(package.Path, file));
+                var relativeToHome = Path.GetRelativePath(Path.GetFullPath(home.Root), path);
+                if (Path.IsPathRooted(relativeToHome) || relativeToHome == ".."
+                    || relativeToHome.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal))
+                {
+                    rejected.Add($"Declared DLL '{path}' is outside the selected OpenTAP home.");
+                    continue;
+                }
                 if (IsTuiAssembly(path))
                 {
                     details = string.Empty;
@@ -187,10 +194,9 @@ public static partial class WorkspacePacker
         return true;
     }
 
-    private static bool ProbeWindowsWorkspaceWriteAccess(AuthoringWorkspace workspace)
+    private static bool ProbeWorkspaceWriteAccess(AuthoringWorkspace workspace)
     {
-        if (!OperatingSystem.IsWindows()) return true;
-        // A directory's ReadOnly attribute does not describe Windows write access.
+        // Attributes and mode bits do not establish the current user's write access.
         // Probe only during preflight, never while evaluating UI bindings.
         foreach (var directory in new[] { workspace.Root, ResolvePlansDirectory(workspace) }.Distinct(StringComparer.OrdinalIgnoreCase))
         {
@@ -227,10 +233,7 @@ public static partial class WorkspacePacker
                 else
                 {
                     using var config = JsonDocument.Parse(File.ReadAllText(path));
-                    if (config.RootElement.ValueKind != JsonValueKind.Object
-                        || !config.RootElement.TryGetProperty("runtimeOptions", out var runtimeOptions)
-                        || runtimeOptions.ValueKind != JsonValueKind.Object)
-                        throw new InvalidDataException("The runtime configuration must contain runtimeOptions.");
+                    ValidateRuntimeConfiguration(config.RootElement);
                 }
             }
             catch (Exception ex) when (ex is IOException or InvalidDataException or BadImageFormatException or UnauthorizedAccessException or JsonException)
@@ -242,5 +245,51 @@ public static partial class WorkspacePacker
         foreach (var dependency in dependencies)
             if (!packages.Any(p => string.Equals(p.Name, dependency, StringComparison.OrdinalIgnoreCase)))
                 findings.Add(new("PACK_PACKAGE_MISSING", $"Required package '{dependency}' is not installed; bootstrap or install it in this home.", true, home.Root));
+    }
+
+    private static void ValidateRuntimeConfiguration(JsonElement config)
+    {
+        if (config.ValueKind != JsonValueKind.Object
+            || !config.TryGetProperty("runtimeOptions", out var runtimeOptions)
+            || runtimeOptions.ValueKind != JsonValueKind.Object)
+            throw new InvalidDataException("The runtime configuration must contain a runtimeOptions object.");
+
+        var frameworks = new List<JsonElement>();
+        var declarations = 0;
+        foreach (var property in new[] { "framework", "frameworks", "includedFrameworks" })
+        {
+            if (!runtimeOptions.TryGetProperty(property, out var value)) continue;
+            declarations++;
+            if (property == "framework") frameworks.Add(value);
+            else
+            {
+                if (value.ValueKind != JsonValueKind.Array || value.GetArrayLength() == 0)
+                    throw new InvalidDataException($"'{property}' must be a nonempty array of framework declarations.");
+                frameworks.AddRange(value.EnumerateArray());
+            }
+        }
+        if (declarations != 1)
+            throw new InvalidDataException("Declare exactly one of framework, frameworks, or includedFrameworks.");
+
+        var names = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var framework in frameworks)
+        {
+            if (framework.ValueKind != JsonValueKind.Object
+                || !framework.TryGetProperty("name", out var name) || name.ValueKind != JsonValueKind.String
+                || !framework.TryGetProperty("version", out var version) || version.ValueKind != JsonValueKind.String)
+                throw new InvalidDataException("Each framework declaration must contain string name and version values.");
+            var frameworkName = name.GetString()!;
+            if (frameworkName is not ("Microsoft.NETCore.App" or "Microsoft.AspNetCore.App" or "Microsoft.WindowsDesktop.App")
+                || !names.Add(frameworkName))
+                throw new InvalidDataException($"Unsupported or duplicate .NET framework '{frameworkName}'.");
+            var frameworkVersion = version.GetString()!;
+            var parts = frameworkVersion.Split('-', 2);
+            if (!Version.TryParse(parts[0], out var parsed) || parsed.Build < 0 || parsed.Revision >= 0
+                || (parts.Length == 2 && (parts[1].Length == 0
+                    || parts[1].Split('.').Any(p => p.Length == 0 || p.Any(c => !char.IsAsciiLetterOrDigit(c) && c != '-')))))
+                throw new InvalidDataException($"Invalid .NET framework version '{frameworkVersion}'; expected major.minor.patch with an optional prerelease suffix.");
+        }
+        if (!names.Contains("Microsoft.NETCore.App"))
+            throw new InvalidDataException("The OpenTAP runtime configuration must declare Microsoft.NETCore.App.");
     }
 }

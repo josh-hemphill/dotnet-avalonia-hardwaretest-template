@@ -1,3 +1,6 @@
+using System.Reflection;
+using System.Reflection.Emit;
+using System.Xml.Linq;
 using HardwareTest.Authoring;
 using Xunit;
 
@@ -146,6 +149,13 @@ public sealed class PackProtectionTests : IDisposable
     [InlineData("tap.dll", "corrupt")]
     [InlineData("tap.runtimeconfig.json", "invalid json")]
     [InlineData("tap.runtimeconfig.json", "{}")]
+    [InlineData("tap.runtimeconfig.json", "{\"runtimeOptions\":{}}")]
+    [InlineData("tap.runtimeconfig.json", "{\"runtimeOptions\":{\"framework\":{\"name\":\"Microsoft.NETCore.App\",\"version\":false}}}")]
+    [InlineData("tap.runtimeconfig.json", "{\"runtimeOptions\":{\"framework\":{\"name\":false,\"version\":\"9.0.0\"}}}")]
+    [InlineData("tap.runtimeconfig.json", "{\"runtimeOptions\":{\"framework\":{\"name\":\"wrong\",\"version\":\"9.0.0\"}}}")]
+    [InlineData("tap.runtimeconfig.json", "{\"runtimeOptions\":{\"framework\":{\"name\":\"Microsoft.NETCore.App\",\"version\":\"invalid\"}}}")]
+    [InlineData("tap.runtimeconfig.json", "{\"runtimeOptions\":{\"frameworks\":[]}}")]
+    [InlineData("tap.runtimeconfig.json", "{\"runtimeOptions\":{\"includedFrameworks\":{}}}")]
     public void Corrupt_runtime_blocks_before_existing_artifacts_are_changed(string file, string contents)
     {
         var workspace = AuthoringWorkspaceLoader.Load(_workspace);
@@ -159,6 +169,55 @@ public sealed class PackProtectionTests : IDisposable
         Assert.Contains(ex.Report.Findings, f => f.Code == "PACK_RUNTIME_CORRUPT" && f.IsError);
         Assert.Equal("sentinel", File.ReadAllText(existing));
         Assert.Equal(_originalPackageXml, File.ReadAllText(Path.Combine(_workspace, "package.xml")));
+    }
+
+    [Theory]
+    [InlineData("framework", "{\"name\":\"Microsoft.NETCore.App\",\"version\":\"9.0.0\"}")]
+    [InlineData("frameworks", "[{\"name\":\"Microsoft.NETCore.App\",\"version\":\"9.0.0\"}]")]
+    [InlineData("includedFrameworks", "[{\"name\":\"Microsoft.NETCore.App\",\"version\":\"9.0.0\"}]")]
+    public void Supported_runtime_framework_declaration_forms_pass_prerequisite_validation(string property, string value)
+    {
+        var workspace = AuthoringWorkspaceLoader.Load(_workspace);
+        var home = Bootstrap(workspace);
+        File.WriteAllText(Path.Combine(home.Root, "tap.runtimeconfig.json"), $"{{\"runtimeOptions\":{{\"{property}\":{value}}}}}");
+        var report = WorkspacePacker.Preflight(workspace, new PackOptions { Home = home });
+        Assert.False(report.HasErrors, string.Join("\n", report.Findings));
+    }
+
+    [Fact]
+    public void Unix_owner_without_write_access_blocks_before_home_output_or_package_changes_and_cleans_probes()
+    {
+        if (OperatingSystem.IsWindows()) return;
+        var workspace = AuthoringWorkspaceLoader.Load(_workspace);
+        var plans = Path.Combine(_workspace, "plans");
+        Directory.CreateDirectory(plans);
+        foreach (var file in Directory.EnumerateFiles(_workspace).Where(f => Path.GetFileName(f) != "authoring.json"))
+            File.Move(file, Path.Combine(plans, Path.GetFileName(file)));
+        workspace.Manifest.PlansDirectory = "plans";
+        workspace = workspace with { TapPlanPaths = workspace.TapPlanPaths.Select(p => Path.Combine(plans, Path.GetFileName(p))).ToArray() };
+        var packageXml = Path.Combine(plans, "package.xml");
+        File.WriteAllText(packageXml, "sentinel xml");
+        var output = Path.Combine(_root, "dist");
+        var home = Path.Combine(_root, "home");
+        var mode = File.GetUnixFileMode(plans);
+        try
+        {
+            // 0577: the owning user has no write permission even though group/other do.
+            File.SetUnixFileMode(plans, UnixFileMode.UserRead | UnixFileMode.UserExecute
+                | UnixFileMode.GroupRead | UnixFileMode.GroupWrite | UnixFileMode.GroupExecute
+                | UnixFileMode.OtherRead | UnixFileMode.OtherWrite | UnixFileMode.OtherExecute);
+            var ex = Assert.Throws<PackPreflightException>(() => WorkspacePacker.Pack(workspace, output,
+                new PackOptions { BootstrapHomeDirectory = home, Offline = true }));
+            Assert.Contains(ex.Report.Findings, f => f.Code == "PACK_WORKSPACE");
+            Assert.False(Directory.Exists(home));
+            Assert.False(Directory.Exists(output));
+            Assert.Equal("sentinel xml", File.ReadAllText(packageXml));
+            Assert.Empty(Directory.EnumerateFiles(_workspace, ".authoring-pack-probe-*", SearchOption.AllDirectories));
+        }
+        finally
+        {
+            File.SetUnixFileMode(plans, mode);
+        }
     }
 
     [Fact]
@@ -203,10 +262,81 @@ public sealed class PackProtectionTests : IDisposable
         Assert.Equal(_originalPackageXml, File.ReadAllText(Path.Combine(_workspace, "package.xml")));
     }
 
+    [Theory]
+    [InlineData("OpenTap.TUI.dll")]
+    [InlineData("../../Plugins/OpenTap.TUI/OpenTap.TUI.dll")]
+    public void Include_tui_accepts_managed_synthetic_payload_declared_inside_selected_home(string declaredPath)
+    {
+        var workspace = AuthoringWorkspaceLoader.Load(_workspace);
+        workspace.Manifest.IncludeTui = true;
+        var home = Bootstrap(workspace);
+        var package = InstallSyntheticTuiManifest(home, declaredPath);
+        WriteSyntheticTuiAssembly(Path.GetFullPath(Path.Combine(package, declaredPath)));
+        // These fixtures test installation evidence only. Keep their assemblies out
+        // of the process-global loader so Windows can delete the fixture payload.
+        var checker = new PrerequisiteChecker();
+        var report = WorkspacePacker.Preflight(workspace, new PackOptions { Home = home, Compat = checker });
+        Assert.False(report.HasErrors, string.Join("\n", report.Findings));
+        Assert.True(checker.Called);
+        Assert.NotNull(report.Compatibility);
+        Assert.Contains(report.Findings, f => f.Code == "PACK_COMPAT_SCOPE" && f.Message.Contains("no external TUI process", StringComparison.Ordinal));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Include_tui_rejects_managed_payload_outside_selected_home(bool absolute)
+    {
+        var workspace = AuthoringWorkspaceLoader.Load(_workspace);
+        workspace.Manifest.IncludeTui = true;
+        var home = Bootstrap(workspace);
+        var outside = Path.Combine(_root, "home-other", "OpenTap.TUI.dll");
+        WriteSyntheticTuiAssembly(outside);
+        var package = Path.Combine(home.Root, "Packages", "OpenTAP TUI");
+        var declaredPath = absolute ? outside : Path.GetRelativePath(package, outside);
+        InstallSyntheticTuiManifest(home, declaredPath);
+        var output = Path.Combine(_root, "dist");
+        var ex = Assert.Throws<PackPreflightException>(() => WorkspacePacker.Pack(workspace, output,
+            new PackOptions { Home = home, Compat = new PrerequisiteChecker() }));
+        Assert.Contains(ex.Report.Findings, f => f.Code == "PACK_TUI_MISSING" && f.Message.Contains("outside the selected OpenTAP home", StringComparison.Ordinal));
+        Assert.False(Directory.Exists(output));
+        Assert.Equal(_originalPackageXml, File.ReadAllText(Path.Combine(_workspace, "package.xml")));
+    }
+
+    private static string InstallSyntheticTuiManifest(OpenTapHome home, string declaredPath)
+    {
+        var package = Path.Combine(home.Root, "Packages", "OpenTAP TUI");
+        Directory.CreateDirectory(package);
+        var ns = PackageXmlRenderer.PackageNs;
+        new XDocument(new XElement(ns + "Package", new XAttribute("Name", "OpenTAP TUI"), new XAttribute("Version", "1.0.0"),
+            new XElement(ns + "Files", new XElement(ns + "File", new XAttribute("Path", declaredPath)))))
+            .Save(Path.Combine(package, "package.xml"));
+        return package;
+    }
+
+    private static void WriteSyntheticTuiAssembly(string path)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        var assembly = new PersistedAssemblyBuilder(new AssemblyName("OpenTap.TUI"), typeof(object).Assembly);
+        var module = assembly.DefineDynamicModule("OpenTap.TUI");
+        module.DefineType("OpenTap.TUI.PrerequisiteFixture", TypeAttributes.Public).CreateType();
+        assembly.Save(path);
+    }
+
     private OpenTapHome Bootstrap(AuthoringWorkspace workspace) => new OpenTapHomeBootstrapper().Bootstrap(workspace,
         new BootstrapOptions { HomeDirectory = Path.Combine(_root, "home"), Offline = true });
 
     public void Dispose() => Directory.Delete(_root, true);
+
+    private sealed class PrerequisiteChecker : ITuiCompatChecker
+    {
+        public bool Called { get; private set; }
+        public TuiCompatReport Compare(AuthoringWorkspace workspace, OpenTapHome authoringHome, OpenTapHome tuiHome)
+        {
+            Called = true;
+            return new([], []);
+        }
+    }
 
     private sealed class RecordingBlocker : ITuiCompatChecker
     {
