@@ -102,9 +102,18 @@ public sealed partial class AuthoringWorkspaceViewModel
         if (_catalogTransaction)
         {
             session.RestoreExternal(draft, session.SelectedNodeId);
+            InvalidateContractFindings();
             return true;
         }
-        return session.ApplyEdit(description, _ => draft);
+        var changed = session.ApplyEdit(description, _ => draft);
+        if (changed) InvalidateContractFindings();
+        return changed;
+    }
+
+    private void InvalidateContractFindings()
+    {
+        Findings = [];
+        FindingRows = [];
     }
 
     private void RecomputeDocumentDirty()
@@ -147,6 +156,7 @@ public sealed partial class AuthoringWorkspaceViewModel
 
     private void RestoreWorkspace(AuthoringWorkspaceState state)
     {
+        InvalidateContractFindings();
         var selected = SelectedProgram?.PlanId;
         RememberNodeSelection();
         Workspace = Workspace! with { Manifest = state.Manifest };
@@ -169,7 +179,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         try
         {
             edit();
-            _workspaceHistory.Commit(description, before, CaptureWorkspace());
+            if (_workspaceHistory.Commit(description, before, CaptureWorkspace())) InvalidateContractFindings();
         }
         catch
         {

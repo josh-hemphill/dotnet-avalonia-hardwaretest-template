@@ -109,6 +109,48 @@ public sealed class AuthoringWorkspaceViewModelTests
     }
 
     [Fact]
+    public void Program_edits_clear_previous_contract_findings()
+    {
+        var root = CopyTemplateWorkspace();
+        File.Delete(Path.Combine(root, "sample.program.json"));
+        var vm = new AuthoringWorkspaceViewModel();
+        vm.Open(root);
+        vm.SelectProgram("sample");
+        vm.Validate();
+        Assert.NotEmpty(vm.FindingRows);
+        vm.SelectMeasure(0);
+        vm.ChannelKey = "edited-channel";
+        Assert.Empty(vm.Findings);
+        Assert.Empty(vm.FindingRows);
+        vm.Undo();
+        vm.Validate();
+        Assert.NotEmpty(vm.FindingRows);
+        vm.DisplayName = "edited sidecar";
+        Assert.Empty(vm.Findings);
+        Assert.Empty(vm.FindingRows);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Workspace_history_clears_previous_contract_findings(bool redo)
+    {
+        var root = CopyTemplateWorkspace();
+        var vm = new AuthoringWorkspaceViewModel();
+        vm.Open(root);
+        vm.NewRequiredField = "HistoryField";
+        vm.AddRequiredField();
+        if (redo) vm.UndoWorkspace();
+        Assert.True(vm.SaveAll().Succeeded);
+        File.Delete(Path.Combine(root, "sample.program.json"));
+        vm.Validate();
+        Assert.NotEmpty(vm.FindingRows);
+        if (redo) vm.RedoWorkspace(); else vm.UndoWorkspace();
+        Assert.Empty(vm.Findings);
+        Assert.Empty(vm.FindingRows);
+    }
+
+    [Fact]
     public void Findings_identify_each_affected_program()
     {
         var root = CopyTemplateWorkspace();
