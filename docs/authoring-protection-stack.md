@@ -4,7 +4,7 @@ Execution base: 1e8cf62 (latest). The solution file was retired; use dirs.proj a
 
 Goal: authoring users can exercise UI regressions without hardware, package only saved and checked workspace content, retain edited programs through saves/navigation, and understand the scope of destructive edits.
 
-Stack: latest <- fix/traversal-test-discovery <- feat/authoring-ui-tests <- feat/authoring-pack-protection <- feat/authoring-save-lifecycle <- feat/authoring-destructive-scope. Do not merge these PRs.
+Stack: latest <- fix/traversal-test-discovery <- feat/authoring-ui-tests <- feat/authoring-pack-protection <- feat/authoring-save-persistence <- feat/authoring-save-lifecycle <- feat/authoring-destructive-scope. Do not merge these PRs.
 
 ## Prerequisite Traversal discovery repair
 - Evidence: upstream PR #182 removes HardwareTest.slnx, but architecture/authoring test root helpers and bootstrap package discovery still require it. Both upstream CI test jobs fail at architecture smoke.
@@ -36,20 +36,30 @@ Stack: latest <- fix/traversal-test-discovery <- feat/authoring-ui-tests <- feat
 - Risks: current checker is catalog/roundtrip not a TUI process; don't claim installed real TUI coverage without package evidence; default sample package inclusion isn't all programs; semantic changes must not be mixed here.
 - Conflicts: VM/MainWindow shared with Area 3, so wait for reviewed Area 2 before implementing Area 3.
 
-## Area 3 Saving and lifecycle
+## Area 3a Exception-safe file persistence
+- Goal: prove rollback after the first file replacement and prevent sidecar-only truncation on failure.
+- Depends on: Area 2 code; can proceed during Area 2 review because compiler files do not overlap.
+- Files: PlanCompiler persistence partial; PlanCompiler constructors; new compiler persistence tests. No VM/window, CI or pack preflight changes.
+- Surface: existing public IPlanCompiler/PlanCompiler signatures preserved; narrow internal file-replacement seam for deterministic fault injection in friend test assembly.
+- Pseudo-code: serialize/write temporary siblings before replacing; capture original TapPlan; replace TapPlan then sidecar; if second replacement throws, restore original TapPlan or remove newly created plan, keep original sidecar, clean temporary siblings. Sidecar-only Save writes a sibling temp then replaces destination, never truncates it first. Prefer a focused persistence partial rather than growing compiler file.
+- Tests: inject failure on final sidecar replacement after TapPlan has actually changed, assert original bytes for both files; new-plan failure leaves neither permanent file; sidecar-only replacement/temp-write failure leaves original bytes; successful saves preserve established serialization; failed cleanup cannot hide the primary exception.
+- Risks: guarantees are exception-safe, not crash-safe multi-file transactions. Recovery/backups/concurrent external-process reconciliation remain package 06.
+- Conflicts: no shared production files with Area 2. Area 3b consumes stable existing compiler interface after independent review.
+
+## Area 3b Saving and lifecycle
 - Goal: per-program dirty state, Save all results, preservation of edited session/selection, cancel-safe reopen/close.
-- Depends on: reviewed Area 2.
+- Depends on: reviewed Areas 2 and 3a.
 - Out of scope: durable invalid drafts, undo/node IDs, asynchronous build.
 - Files: new focused AuthoringWorkspaceViewModel Saving partial; necessary core refactors; new lifecycle interaction coordinator/window partial; Programs rows and toolbar; core/headless tests.
 - Surface: `DirtyProgramSummary(PlanId, PlanDirty, SidecarDirty)`; `SaveAllResult(SavedProgramIds, Failures)` with `Succeeded` only when no unsaved state remains; a focused saving partial implements `SaveProgram(planId)` and `SaveAll()`, with existing Apply/SaveSidecar delegating compatible semantics. `UnsavedChangesChoice` = SaveAll/Discard/Cancel and `IAuthoringLifecycleInteraction.ChooseAsync(dirtySummary)` is implemented by a real modal and injected test interactions. `MainWindow` open/close entrypoints call one coordinator with an in-flight guard. A prospective-load API must validate into temporary session data, commit only after successful load, and require an explicit discard intent when dirty.
 - Pseudo-code: collect dirty IDs; save each applicable program with existing compiler without reopening entire workspace; update paths and clear only successfully saved flags; leave failed drafts dirty, preserve selection/sequence context; report every failure. Use a narrow internal file-replacement test seam to exercise existing rollback after the first file replacement; write sidecar-only saves through temporary replacement rather than truncating the destination. These are exception-safe save guarantees, not crash-safe two-file transactions. For navigation/closing, commit focused editor before evaluating dirty state; prompt once when dirty, Cancel => no action, SaveAll => continue only if fully saved, Discard => load replacement only after load succeeds. Load prospective workspace into temporary state before replacing current session. Window Closing cancels initial event, asynchronously chooses, then reissues close once allowed; prevent concurrent/reentrant prompts. Keep direct Open refusing dirty replacement; private load path used for known internal refresh only.
 - Tests: inject replacement failure after TapPlan replacement to prove original TapPlan and sidecar preservation (including new-plan cleanup); sidecar-only atomic replacement failure retains old bytes; two program save-one/save-all/partial failure; sidecar-only edits distinct from plan edits; unknown/new program paths; focus/sequence preservation; cancel picker/dialog, close/reopen, invalid workspace retains drafts; read-only cannot silently discard; concurrent lifecycle requests don't trigger duplicate prompts.
 - Risks: mutable sidecars/cached listbox selection; apply currently reloads Open; save-all errors must not clear unrelated flags; LostFocus changes must precede guard.
-- Conflicts: shares VM/window with Areas 2/4; implement serially, test fixtures from Area 1.
+- Conflicts: shares VM/window with Areas 2/4; persistence files are Area 3a; implement serially, test fixtures from Area 1.
 
 ## Area 4 Destructive scope
 - Goal: per-program membership operations cannot masquerade as workspace deletion; explicit replacement impact and consistently deferred saving.
-- Depends on: reviewed Area 3.
+- Depends on: reviewed Area 3b.
 - Out of scope: full edit-history model, instrument adapter/type discovery; unknown compatibility remains conservative.
 - Files: CatalogDelete partial, AuthoringInstrumentUsage, ProgramSettingsView/events; focused confirmation dialog/coordinator; core/headless tests.
 - Surface: stable impact description enumerating affected programs/nodes and scope; explicit instrument replacement request; confirm target/version before applying.
