@@ -116,6 +116,7 @@ public sealed class AuthoringWindowTests
         AuthoringUiFixture.Click(fixture.Control<Button>("Save sidecar"));
         Assert.False(fixture.ViewModel.HasUnsavedChanges);
         Assert.False(fixture.Control<TextBlock>("Unsaved changes").IsEffectivelyVisible);
+        Assert.Equal("Saved sample.program.json", fixture.Control<TextBlock>("Authoring status").Text);
         Assert.Null(fixture.ViewModel.Error);
         var reloaded = new AuthoringWorkspaceViewModel(preferences: fixture.Preferences);
         reloaded.Open(fixture.WorkspaceRoot);
