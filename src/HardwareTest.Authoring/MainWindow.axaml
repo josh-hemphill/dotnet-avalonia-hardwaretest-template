@@ -72,16 +72,29 @@
                    AutomationProperties.Name="Unsaved changes" />
       </StackPanel>
     </StackPanel>
-    <ItemsControl DockPanel.Dock="Top" Margin="12,0,12,8" ItemsSource="{Binding SaveAllResults}" AutomationProperties.Name="Save all results" />
+    <ScrollViewer DockPanel.Dock="Top" Margin="12,0,12,8" MaxHeight="40"
+                  HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto"
+                  AutomationProperties.Name="Save all result feedback">
+      <ItemsControl ItemsSource="{Binding SaveAllResults}" AutomationProperties.Name="Save all results">
+        <ItemsControl.Styles>
+          <Style Selector="TextBlock">
+            <Setter Property="TextWrapping" Value="Wrap" />
+          </Style>
+        </ItemsControl.Styles>
+      </ItemsControl>
+    </ScrollViewer>
     <TextBlock DockPanel.Dock="Top" Margin="12,0,12,8" Text="{Binding ValidationScope}"
                IsVisible="{Binding HasWorkspace}" TextWrapping="Wrap" />
-    <TextBlock DockPanel.Dock="Bottom"
-               Margin="12,0,12,12"
-               Foreground="#C62828"
+    <ScrollViewer DockPanel.Dock="Bottom" Margin="12,0,12,12" MaxHeight="32"
+                  HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto"
+                  IsVisible="{Binding Error, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                  AutomationProperties.Name="Authoring error feedback">
+    <TextBlock Foreground="#C62828" TextWrapping="Wrap"
                IsVisible="{Binding Error, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
                Text="{Binding Error, StringFormat='Error: {0}'}"
                AutomationProperties.LiveSetting="Assertive"
                AutomationProperties.Name="Authoring error" />
+    </ScrollViewer>
     <Panel>
       <Border IsVisible="{Binding !HasWorkspace}" Margin="12,0,12,12" Padding="24"
               HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="520">

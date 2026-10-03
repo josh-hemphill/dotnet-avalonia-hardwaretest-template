@@ -1,4 +1,5 @@
 using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Layout;
@@ -112,6 +113,7 @@ public sealed class AuthoringLifecycleInteraction(Window owner) : IAuthoringLife
         {
             Title = "Unsaved programs",
             Width = 480,
+            MaxHeight = Math.Min(480, Math.Max(240, owner.ClientSize.Height - 80)),
             SizeToContent = SizeToContent.Height,
             CanResize = false,
             WindowStartupLocation = WindowStartupLocation.CenterOwner,
@@ -126,6 +128,14 @@ public sealed class AuthoringLifecycleInteraction(Window owner) : IAuthoringLife
         {
             if (e.Key == Key.Escape) { dialog.Close(UnsavedChangesChoice.Cancel); e.Handled = true; }
         };
+        var programList = new ScrollViewer
+        {
+            MaxHeight = Math.Max(80, dialog.MaxHeight - 140),
+            HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
+            VerticalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto,
+            Content = new TextBlock { Text = string.Join(Environment.NewLine, dirtyPrograms.Select(p => p.PlanId)), TextWrapping = TextWrapping.Wrap },
+        };
+        AutomationProperties.SetName(programList, "Unsaved program list");
         dialog.Content = new StackPanel
         {
             Margin = new Thickness(20),
@@ -133,7 +143,7 @@ public sealed class AuthoringLifecycleInteraction(Window owner) : IAuthoringLife
             Children =
             {
                 new TextBlock { Text = "Save edited programs before continuing?", TextWrapping = TextWrapping.Wrap },
-                new TextBlock { Text = string.Join(Environment.NewLine, dirtyPrograms.Select(p => p.PlanId)), TextWrapping = TextWrapping.Wrap },
+                programList,
                 new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, HorizontalAlignment = HorizontalAlignment.Right,
                     Children = { cancel, discard, save } },
             },
