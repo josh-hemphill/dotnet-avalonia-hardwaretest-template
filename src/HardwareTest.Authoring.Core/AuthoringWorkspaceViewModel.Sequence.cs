@@ -218,10 +218,15 @@ public sealed partial class AuthoringWorkspaceViewModel
     {
         var next = AuthoringSequence.Flatten(SelectedProgram);
         var structureChanged = !AuthoringSequence.SameKeys(_sequenceItems, next);
-        _sequenceItems = next;
         if (structureChanged)
         {
+            _sequenceItems = next;
             OnPropertyChanged(nameof(SequenceItems));
+        }
+        else
+        {
+            // Keep the list and selected row objects bound by the UI when only text changes.
+            for (var i = 0; i < next.Count; i++) _sequenceItems[i].RefreshPresentation(next[i]);
         }
 
         RaiseRawStepProperties();

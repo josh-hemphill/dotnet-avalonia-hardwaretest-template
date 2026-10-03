@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using HardwareTest.OpenTap.Host;
 
 namespace HardwareTest.Authoring;
@@ -29,7 +30,26 @@ public sealed record SequenceRow(
     int Indent,
     string Label,
     string Detail,
-    IReadOnlyList<int> IndexPath);
+    IReadOnlyList<int> IndexPath) : INotifyPropertyChanged
+{
+    public string Label { get; private set; } = Label;
+    public string Detail { get; private set; } = Detail;
+    public event PropertyChangedEventHandler? PropertyChanged;
+
+    internal void RefreshPresentation(SequenceRow next)
+    {
+        if (Label != next.Label)
+        {
+            Label = next.Label;
+            PropertyChanged?.Invoke(this, new(nameof(Label)));
+        }
+        if (Detail != next.Detail)
+        {
+            Detail = next.Detail;
+            PropertyChanged?.Invoke(this, new(nameof(Detail)));
+        }
+    }
+}
 
 /// Column titles and purpose copy for the Program tab (Avalonia-free).
 public static class AuthoringChrome
