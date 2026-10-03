@@ -45,6 +45,10 @@
         </StackPanel>
         <StackPanel Spacing="4">
           <TextBlock FontWeight="SemiBold" Text="Check and configure" />
+          <Button Content="Undo" Click="OnUndo" IsEnabled="{Binding CanUndo}" AutomationProperties.Name="Undo selected program" ToolTip.Tip="Undo the selected program's last edit" />
+          <Button Content="Redo" Click="OnRedo" IsEnabled="{Binding CanRedo}" AutomationProperties.Name="Redo selected program" ToolTip.Tip="Redo the selected program's last edit" />
+          <Button Content="Undo catalog" Click="OnUndoWorkspace" IsEnabled="{Binding CanUndoWorkspace}" AutomationProperties.Name="Undo workspace catalog" ToolTip.Tip="{Binding WorkspaceHistoryHint}" />
+          <Button Content="Redo catalog" Click="OnRedoWorkspace" IsEnabled="{Binding CanRedoWorkspace}" AutomationProperties.Name="Redo workspace catalog" ToolTip.Tip="{Binding WorkspaceHistoryHint}" />
           <Button Content="Save all" Click="OnSaveAll" IsEnabled="{Binding HasWorkspace}" AutomationProperties.Name="Save all" />
           <StackPanel Orientation="Horizontal" Spacing="6">
         <Button Content="Validate"
@@ -83,6 +87,17 @@
         </ItemsControl.Styles>
       </ItemsControl>
     </ScrollViewer>
+    <Expander DockPanel.Dock="Top" Margin="12,0,12,8" Header="Editing findings" IsVisible="{Binding HasWorkspace}">
+      <ScrollViewer MaxHeight="100">
+        <ItemsControl ItemsSource="{Binding EditingIssues}" AutomationProperties.Name="Editing findings">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:AuthoringEditingIssue">
+              <TextBlock Text="{Binding Message}" TextWrapping="Wrap" />
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </ScrollViewer>
+    </Expander>
     <TextBlock DockPanel.Dock="Top" Margin="12,0,12,8" Text="{Binding ValidationScope}"
                IsVisible="{Binding HasWorkspace}" TextWrapping="Wrap" />
     <ScrollViewer DockPanel.Dock="Bottom" Margin="12,0,12,12" MaxHeight="32"
