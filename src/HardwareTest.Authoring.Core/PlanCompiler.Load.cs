@@ -114,7 +114,8 @@ public sealed partial class PlanCompiler
                 input.Title,
                 input.Message,
                 string.IsNullOrWhiteSpace(input.StringFieldId) ? null : input.StringFieldId,
-                string.IsNullOrWhiteSpace(input.NumberFieldId) ? null : input.NumberFieldId) { NodeId = step.Id });
+                string.IsNullOrWhiteSpace(input.NumberFieldId) ? null : input.NumberFieldId)
+            { NodeId = step.Id });
             return;
         }
 

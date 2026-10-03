@@ -79,12 +79,14 @@ public sealed class AuthoringDocumentSnapshot
         MeasureSource value => value with { Settings = CopySettings(value.Settings) },
         AlgorithmSource value => value with
         {
-            InputChannelKeys = value.InputChannelKeys.ToArray(), Settings = CopySettings(value.Settings)
+            InputChannelKeys = value.InputChannelKeys.ToArray(),
+            Settings = CopySettings(value.Settings)
         },
         ExpressionAlgorithm value => value with { InputChannelKeys = value.InputChannelKeys.ToArray() },
         TransferFunctionAlgorithm value => value with
         {
-            Numerator = value.Numerator.ToArray(), Denominator = value.Denominator.ToArray()
+            Numerator = value.Numerator.ToArray(),
+            Denominator = value.Denominator.ToArray()
         },
         _ => throw Unsupported(source)
     };
@@ -103,11 +105,16 @@ public sealed class AuthoringDocumentSnapshot
     {
         MetricNode value => new
         {
-            Type = nameof(MetricNode), value.NodeId,
+            Type = nameof(MetricNode),
+            value.NodeId,
             Metric = new
             {
-                value.Metric.Name, value.Metric.ChannelKey, value.Metric.DisplayRole, value.Metric.YUnit,
-                value.Metric.Limits, value.Metric.History,
+                value.Metric.Name,
+                value.Metric.ChannelKey,
+                value.Metric.DisplayRole,
+                value.Metric.YUnit,
+                value.Metric.Limits,
+                value.Metric.History,
                 Source = new { Type = value.Metric.Source.GetType().Name, Value = (object)value.Metric.Source }
             }
         },

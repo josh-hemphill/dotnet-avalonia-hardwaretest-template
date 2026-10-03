@@ -385,7 +385,8 @@ public static class AuthoringSequence
             0,
             label,
             detail,
-            [index]) { NodeId = action.NodeId };
+            [index])
+        { NodeId = action.NodeId };
     }
 
     private static void AppendMeasure(
@@ -410,7 +411,8 @@ public static class AuthoringSequence
                         indent,
                         metric.Metric.Name,
                         $"{metric.Metric.DisplayRole} · {metric.Metric.ChannelKey}",
-                        path) { NodeId = nodes[i].NodeId });
+                        path)
+                    { NodeId = nodes[i].NodeId });
                     break;
                 case RepeatNode repeat:
                     rows.Add(new SequenceRow(
@@ -422,7 +424,8 @@ public static class AuthoringSequence
                         indent,
                         $"Repeat x{repeat.Count}",
                         $"{repeat.Children.Count} step(s)",
-                        path) { NodeId = nodes[i].NodeId });
+                        path)
+                    { NodeId = nodes[i].NodeId });
                     AppendMeasure(rows, repeat.Children, path);
                     break;
                 case RawStepNode raw:
@@ -435,7 +438,8 @@ public static class AuthoringSequence
                         indent,
                         raw.TypeName,
                         "Raw step",
-                        path) { NodeId = nodes[i].NodeId });
+                        path)
+                    { NodeId = nodes[i].NodeId });
                     break;
                 default:
                     rows.Add(new SequenceRow(
@@ -447,7 +451,8 @@ public static class AuthoringSequence
                         indent,
                         nodes[i].GetType().Name,
                         string.Empty,
-                        path) { NodeId = nodes[i].NodeId });
+                        path)
+                    { NodeId = nodes[i].NodeId });
                     break;
             }
         }
@@ -465,7 +470,8 @@ public static class AuthoringSequence
             0,
             included ? "Safe Shutdown" : "Cleanup skipped",
             included ? FormatCleanupDetail(draft) : "Sidecar excludes Safe Shutdown from Run Selected",
-            []) { NodeId = draft.Cleanup.NodeId };
+            [])
+        { NodeId = draft.Cleanup.NodeId };
     }
 
     private static string FormatCleanupDetail(ProgramDraft draft)
