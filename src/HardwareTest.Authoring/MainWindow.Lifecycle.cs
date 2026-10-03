@@ -14,6 +14,8 @@ public enum UnsavedChangesChoice { Cancel = 0, SaveAll, Discard }
 public interface IAuthoringLifecycleInteraction
 {
     Task<UnsavedChangesChoice> ChooseAsync(IReadOnlyList<DirtyProgramSummary> dirtyPrograms);
+    Task<UnsavedChangesChoice> ChooseAsync(IReadOnlyList<DirtyProgramSummary> dirtyPrograms, bool workspaceCatalogDirty)
+        => ChooseAsync(dirtyPrograms);
 }
 public interface IAuthoringWorkspacePicker
 {
@@ -32,13 +34,14 @@ public partial class MainWindow
         _lifecycleInteraction = interaction ?? new AuthoringLifecycleInteraction(this);
         _workspacePicker = picker ?? new AuthoringWorkspacePicker(this);
         Closing += OnLifecycleClosing;
+        Closed += (_, _) => _ownerClosed = true;
     }
 
     private void CommitFocusedEditor() => this.FindControl<Button>("LifecycleFocusTarget")?.Focus();
 
     public async Task<bool> OpenWorkspaceAsync(string? path = null)
     {
-        if (_transitionInFlight) return false;
+        if (_transitionInFlight || _destructiveInFlight || _ownerClosed || !IsVisible) return false;
         _transitionInFlight = true;
         try
         {
@@ -60,7 +63,7 @@ public partial class MainWindow
     private async Task<UnsavedChangesChoice> ChooseTransitionAsync()
     {
         if (!_viewModel.HasUnsavedChanges) return UnsavedChangesChoice.Discard;
-        var choice = await _lifecycleInteraction.ChooseAsync(_viewModel.DirtyPrograms);
+        var choice = await _lifecycleInteraction.ChooseAsync(_viewModel.DirtyPrograms, _viewModel.WorkspaceCatalogDirty);
         if (choice == UnsavedChangesChoice.SaveAll && !_viewModel.SaveAll().Succeeded)
             return UnsavedChangesChoice.Cancel;
         return choice is UnsavedChangesChoice.SaveAll or UnsavedChangesChoice.Discard ? choice : UnsavedChangesChoice.Cancel;
@@ -70,7 +73,7 @@ public partial class MainWindow
     {
         if (_closeApproved) return;
         CommitFocusedEditor();
-        if (_transitionInFlight) { e.Cancel = true; return; }
+        if (_transitionInFlight || _destructiveInFlight) { e.Cancel = true; return; }
         if (!_viewModel.HasUnsavedChanges) return;
         e.Cancel = true;
         _transitionInFlight = true;
@@ -108,13 +111,16 @@ public sealed class AuthoringWorkspacePicker(Window owner) : IAuthoringWorkspace
 public sealed class AuthoringLifecycleInteraction(Window owner) : IAuthoringLifecycleInteraction
 {
     public Task<UnsavedChangesChoice> ChooseAsync(IReadOnlyList<DirtyProgramSummary> dirtyPrograms)
+        => ChooseAsync(dirtyPrograms, false);
+
+    public Task<UnsavedChangesChoice> ChooseAsync(IReadOnlyList<DirtyProgramSummary> dirtyPrograms, bool workspaceCatalogDirty)
     {
         var dialog = new Window
         {
-            Title = "Unsaved programs",
+            Title = workspaceCatalogDirty ? "Unsaved programs and workspace catalog" : "Unsaved programs",
             Width = 480,
             MaxHeight = Math.Min(480, Math.Max(240, owner.ClientSize.Height - 80)),
-            SizeToContent = SizeToContent.Height,
+            Height = Math.Min(480, Math.Max(240, owner.ClientSize.Height - 80)),
             CanResize = false,
             WindowStartupLocation = WindowStartupLocation.CenterOwner,
         };
@@ -133,21 +139,16 @@ public sealed class AuthoringLifecycleInteraction(Window owner) : IAuthoringLife
             MaxHeight = Math.Max(80, dialog.MaxHeight - 140),
             HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
             VerticalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto,
-            Content = new TextBlock { Text = string.Join(Environment.NewLine, dirtyPrograms.Select(p => p.PlanId)), TextWrapping = TextWrapping.Wrap },
+            Content = new TextBlock { Text = string.Join(Environment.NewLine, (workspaceCatalogDirty ? new[] { "Workspace catalog changes (Save All required)" } : []).Concat(dirtyPrograms.Select(p => p.PlanId))), TextWrapping = TextWrapping.Wrap },
         };
         AutomationProperties.SetName(programList, "Unsaved program list");
-        dialog.Content = new StackPanel
-        {
-            Margin = new Thickness(20),
-            Spacing = 12,
-            Children =
-            {
-                new TextBlock { Text = "Save edited programs before continuing?", TextWrapping = TextWrapping.Wrap },
-                programList,
-                new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, HorizontalAlignment = HorizontalAlignment.Right,
-                    Children = { cancel, discard, save } },
-            },
-        };
+        var heading = new TextBlock { Text = workspaceCatalogDirty ? "Save workspace catalog changes and edited programs before continuing? Use Save all to save both." : "Save edited programs before continuing?", TextWrapping = TextWrapping.Wrap };
+        var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, HorizontalAlignment = HorizontalAlignment.Right, Children = { cancel, discard, save } };
+        var layout = new Grid { RowDefinitions = new RowDefinitions("Auto,*,Auto"), Margin = new Thickness(20) };
+        programList.Margin = new Thickness(0, 12);
+        Grid.SetRow(programList, 1); Grid.SetRow(buttons, 2);
+        layout.Children.Add(heading); layout.Children.Add(programList); layout.Children.Add(buttons);
+        dialog.Content = layout;
         dialog.Opened += (_, _) => cancel.Focus();
         return dialog.ShowDialog<UnsavedChangesChoice>(owner);
     }

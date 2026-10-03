@@ -141,49 +141,6 @@ public partial class MainWindow : Window
         await ConfirmRemoveProgramAsync();
     }
 
-    private async Task ConfirmRemoveProgramAsync()
-    {
-        (string PlanId, string TapPlanPath, string SidecarPath) target;
-        try
-        {
-            target = _viewModel.DescribeSelectedProgramRemoval();
-        }
-        catch (Exception ex)
-        {
-            _viewModel.ReportError(ex.Message);
-            return;
-        }
-
-        var dialog = new Window
-        {
-            Title = "Remove program?",
-            Width = 480,
-            SizeToContent = SizeToContent.Height,
-            CanResize = false,
-            WindowStartupLocation = WindowStartupLocation.CenterOwner,
-        };
-        var cancel = new Button { Content = "Cancel", IsDefault = true };
-        var remove = new Button { Content = "Remove program" };
-        cancel.Click += (_, _) => dialog.Close(false);
-        remove.Click += (_, _) => dialog.Close(true);
-        dialog.Content = new StackPanel
-        {
-            Margin = new Avalonia.Thickness(20),
-            Spacing = 12,
-            Children =
-            {
-                new TextBlock { Text = $"Remove {target.PlanId} from this workspace?", TextWrapping = Avalonia.Media.TextWrapping.Wrap },
-                new TextBlock { Text = $"These files will be deleted if they exist:\n{target.TapPlanPath}\n{target.SidecarPath}", TextWrapping = Avalonia.Media.TextWrapping.Wrap },
-                new StackPanel { Orientation = Avalonia.Layout.Orientation.Horizontal, Spacing = 8, HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right, Children = { cancel, remove } },
-            },
-        };
-
-        if (await dialog.ShowDialog<bool>(this))
-        {
-            TryRun(() => _viewModel.RemoveSelectedProgramIfMatches(target));
-        }
-    }
-
     private async void OnImportTransferFunction(object? sender, RoutedEventArgs e)
     {
         var files = await StorageProvider.OpenFilePickerAsync(

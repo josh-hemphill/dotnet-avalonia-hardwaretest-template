@@ -48,7 +48,40 @@ public static class AuthoringInstrumentUsage
         {
             Setup = setup,
             Measure = RetargetMeasure(draft.Measure, from, to),
+            Cleanup = draft.Cleanup with { InstrumentSlots = RetargetList(draft.Cleanup.InstrumentSlots, from, to) },
+            Sidecar = RetargetSidecar(draft.Sidecar, from, to),
         };
+    }
+
+    public static IReadOnlyList<string> DescribeSlotUsage(ProgramDraft draft, string slot)
+    {
+        var nodes = new List<string> { "Instrument definition" };
+        for (var i = 0; i < draft.Setup.Count; i++)
+            if (draft.Setup[i] is IdentitySetup identity && string.Equals(identity.InstrumentSlot, slot, StringComparison.OrdinalIgnoreCase)) nodes.Add($"Setup[{i}] Identity");
+        void Walk(IReadOnlyList<MeasureNode> children, string path)
+        {
+            for (var i = 0; i < children.Count; i++)
+            {
+                if (children[i] is MetricNode { Metric.Source: MeasureSource source } metric && string.Equals(source.InstrumentSlot, slot, StringComparison.OrdinalIgnoreCase)) nodes.Add($"{path}[{i}] {metric.Metric.Name}");
+                if (children[i] is RepeatNode repeat) Walk(repeat.Children, $"{path}[{i}].Children");
+            }
+        }
+        Walk(draft.Measure, "Measure");
+        if (draft.Cleanup.InstrumentSlots.Contains(slot, StringComparer.OrdinalIgnoreCase)) nodes.Add("Cleanup explicit instrument membership");
+        if (draft.Sidecar.CleanupInstrumentSlots?.Contains(slot, StringComparer.OrdinalIgnoreCase) == true) nodes.Add("Sidecar explicit cleanup membership");
+        if (draft.Cleanup.IncludeMeasureSlots) nodes.Add("Cleanup measure-slot inclusion policy");
+        return nodes;
+    }
+
+    private static IReadOnlyList<string> RetargetList(IEnumerable<string> slots, string from, string to)
+        => slots.Select(s => string.Equals(s, from, StringComparison.OrdinalIgnoreCase) ? to : s)
+            .Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+
+    private static HardwareTest.OpenTap.Host.ProgramSidecar RetargetSidecar(HardwareTest.OpenTap.Host.ProgramSidecar original, string from, string to)
+    {
+        var sidecar = PlanCompiler.CloneSidecar(original);
+        if (sidecar.CleanupInstrumentSlots is { } slots) sidecar.CleanupInstrumentSlots = RetargetList(slots, from, to).ToArray();
+        return sidecar;
     }
 
     private static bool WalkOpaque(IReadOnlyList<MeasureNode> nodes)
@@ -57,8 +90,12 @@ public static class AuthoringInstrumentUsage
         {
             switch (node)
             {
-                case MetricNode { Metric.Source: MeasureSource }:
-                case MetricNode { Metric.Source: AlgorithmSource }:
+                case MetricNode { Metric.Source: MeasureSource measure }:
+                    if (!AuthoringFunctionCatalog.TryGet(measure.FunctionId, out var function) || function.IsAlgorithm) return true;
+                    break;
+                case MetricNode { Metric.Source: AlgorithmSource algorithm }:
+                    if (!AuthoringFunctionCatalog.TryGet(algorithm.AlgorithmId, out var spec) || !spec.IsAlgorithm || spec.NeedsInstrument) return true;
+                    break;
                 case MetricNode { Metric.Source: ExpressionAlgorithm }:
                 case MetricNode { Metric.Source: TransferFunctionAlgorithm }:
                     break;

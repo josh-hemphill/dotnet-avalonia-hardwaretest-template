@@ -29,6 +29,7 @@
       <StackPanel Spacing="8" Margin="0,16,0,0">
         <TextBlock FontWeight="SemiBold" Text="Operator session" AutomationProperties.HeadingLevel="3" />
         <TextBlock Opacity="0.8" TextWrapping="Wrap" Text="{Binding RequiredFieldsPurpose}" />
+        <TextBlock Text="Membership: selected program only. Remove from workspace: catalog and affected programs." TextWrapping="Wrap" />
         <ItemsControl ItemsSource="{Binding RequiredFieldChoices}"
                       AutomationProperties.Name="Required DUT fields">
           <ItemsControl.ItemTemplate>
@@ -37,12 +38,13 @@
                 <CheckBox Content="{Binding Id}"
                           IsChecked="{Binding Included, Mode=OneWay}"
                           Click="OnToggleRequiredField"
-                          AutomationProperties.Name="{Binding Id}" />
-                <Button Content="Remove"
+                          ToolTip.Tip="Changes membership only for the selected program. Save this program to persist the edit."
+                          AutomationProperties.Name="{Binding Id, StringFormat='Include {0} in selected program'}" />
+                <Button Content="Remove from workspace"
                         IsVisible="{Binding CanRemove}"
                         Click="OnRemoveRequiredField"
-                        ToolTip.Tip="Removes this id from every program sidecar and the workspace catalog. serial/partNumber/revision/operator stay."
-                        AutomationProperties.Name="{Binding Id, StringFormat='Remove required field {0}'}" />
+                        ToolTip.Tip="Review workspace removal and affected programs. Use Save All to persist catalog changes. serial/partNumber/revision/operator stay."
+                        AutomationProperties.Name="{Binding Id, StringFormat='Remove required field {0} from workspace'}" />
               </StackPanel>
             </DataTemplate>
           </ItemsControl.ItemTemplate>
@@ -54,7 +56,7 @@
                  AutomationProperties.LabeledBy="{Binding #NewRequiredFieldLabel}" />
         <Button Content="Add required field"
                 Click="OnAddRequiredField"
-                ToolTip.Tip="Adds this id to the program sidecar. serial/partNumber/revision/operator map to operator session flags."
+                ToolTip.Tip="Includes the field in this program and stages a workspace catalog suggestion. Use Save All for catalog changes."
                 AutomationProperties.Name="Add required field" />
         <CheckBox Content="Selection includes cleanup"
                   IsChecked="{Binding SelectionIncludesCleanup}"
@@ -64,6 +66,7 @@
 
       <StackPanel Spacing="8" Margin="0,16,0,0">
         <TextBlock FontWeight="SemiBold" Text="Reports" AutomationProperties.HeadingLevel="3" />
+        <TextBlock Text="Check membership for the selected program; review workspace removal separately." TextWrapping="Wrap" />
         <ItemsControl ItemsSource="{Binding ReportKindChoices}"
                       AutomationProperties.Name="Report kinds">
           <ItemsControl.ItemTemplate>
@@ -72,12 +75,13 @@
                 <CheckBox Content="{Binding Id}"
                           IsChecked="{Binding Included, Mode=OneWay}"
                           Click="OnToggleReportKind"
-                          AutomationProperties.Name="{Binding Id}" />
-                <Button Content="Remove"
+                          ToolTip.Tip="Changes membership only for the selected program. Save this program to persist the edit."
+                          AutomationProperties.Name="{Binding Id, StringFormat='Include {0} in selected program'}" />
+                <Button Content="Remove from workspace"
                         IsVisible="{Binding CanRemove}"
                         Click="OnRemoveReportKind"
-                        ToolTip.Tip="Removes this kind from every program sidecar and the workspace catalog. status and certification stay."
-                        AutomationProperties.Name="{Binding Id, StringFormat='Remove report kind {0}'}" />
+                        ToolTip.Tip="Review workspace removal and affected programs. Use Save All to persist catalog changes. status and certification stay."
+                        AutomationProperties.Name="{Binding Id, StringFormat='Remove report kind {0} from workspace'}" />
               </StackPanel>
             </DataTemplate>
           </ItemsControl.ItemTemplate>
@@ -89,7 +93,7 @@
                  AutomationProperties.LabeledBy="{Binding #NewReportKindLabel}" />
         <Button Content="Add report kind"
                 Click="OnAddReportKind"
-                ToolTip.Tip="Adds this id to the program sidecar and the workspace catalog"
+                ToolTip.Tip="Includes the report kind in this program and stages a workspace catalog suggestion. Use Save All for catalog changes."
                 AutomationProperties.Name="Add report kind" />
         <TextBlock x:Name="DefaultReportLabel" Text="Default report" />
         <ComboBox ItemsSource="{Binding IncludedReportKinds}"
@@ -100,7 +104,7 @@
 
       <StackPanel Spacing="8" Margin="0,16,0,0">
         <TextBlock FontWeight="SemiBold" Text="Program type &amp; station health" AutomationProperties.HeadingLevel="3" />
-        <TextBlock x:Name="ProgramKindLabel" Text="Program kind" />
+        <TextBlock x:Name="ProgramKindLabel" Text="Program kind for selected program" />
         <ComboBox ItemsSource="{Binding ProgramKindOptions}"
                   SelectedItem="{Binding ProgramKind}"
                   AutomationProperties.Name="Program kind"
@@ -111,11 +115,11 @@
             <DataTemplate x:DataType="vm:AuthoringCatalogToggle">
               <StackPanel Orientation="Horizontal" Spacing="8">
                 <TextBlock Text="{Binding Id}" VerticalAlignment="Center" />
-                <Button Content="Remove"
+                <Button Content="Remove from workspace"
                         IsVisible="{Binding CanRemove}"
                         Click="OnRemoveProgramKind"
-                        ToolTip.Tip="Resets programs using this kind to dut and forgets it from the workspace catalog. dut and stationHealth stay."
-                        AutomationProperties.Name="{Binding Id, StringFormat='Remove program kind {0}'}" />
+                        ToolTip.Tip="Review workspace removal; affected programs reset to dut. Use Save All to persist catalog changes. dut and stationHealth stay."
+                        AutomationProperties.Name="{Binding Id, StringFormat='Remove program kind {0} from workspace'}" />
               </StackPanel>
             </DataTemplate>
           </ItemsControl.ItemTemplate>
@@ -127,7 +131,7 @@
                  AutomationProperties.LabeledBy="{Binding #NewProgramKindLabel}" />
         <Button Content="Add program kind"
                 Click="OnAddProgramKind"
-                ToolTip.Tip="Sets this program’s kind and remembers it on the workspace catalog"
+                ToolTip.Tip="Sets this program’s kind and stages a workspace catalog suggestion. Use Save All for catalog changes."
                 AutomationProperties.Name="Add program kind" />
         <CheckBox Content="Require station health"
                   IsChecked="{Binding RequireStationHealth}"
@@ -188,13 +192,15 @@
         <Button Content="Add instrument slot"
                 Click="OnAddInstrumentSlot"
                 IsEnabled="{Binding CanAddInstrumentSlot}"
-                ToolTip.Tip="Appends a slot to this program. Save plan writes it into the TapPlan."
+                ToolTip.Tip="Appends a slot to this program and stages a workspace slot suggestion. Use Save All for catalog changes."
                 AutomationProperties.Name="Add instrument slot" />
-        <Button Content="Remove instrument slot"
+        <Button Content="Remove slot from selected program"
                 Click="OnRemoveInstrumentSlot"
                 IsEnabled="{Binding CanRemoveSelectedInstrumentSlot}"
-                ToolTip.Tip="Removes the selected slot. Identity Check and measure steps that used it move to a remaining slot. Raw or unknown steps still block delete. A program must keep at least one instrument."
-                AutomationProperties.Name="Remove instrument slot" />
+                ToolTip.Tip="{Binding InstrumentRemovalGuardText}"
+                AutomationProperties.HelpText="{Binding InstrumentRemovalGuardText}"
+                AutomationProperties.Name="Remove instrument slot from selected program" />
+        <TextBlock Text="{Binding InstrumentRemovalGuardText}" TextWrapping="Wrap" AutomationProperties.Name="Instrument removal guidance" />
       </StackPanel>
     </StackPanel>
   </ScrollViewer>

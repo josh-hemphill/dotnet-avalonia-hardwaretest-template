@@ -97,6 +97,7 @@ public sealed partial class AuthoringWorkspaceViewModel
                 OnPropertyChanged(nameof(SelectedInstrumentVisa));
                 OnPropertyChanged(nameof(SelectedInstrument));
                 OnPropertyChanged(nameof(CanRemoveSelectedInstrumentSlot));
+                OnPropertyChanged(nameof(InstrumentRemovalGuardText));
             }
         }
     }
@@ -441,8 +442,7 @@ public sealed partial class AuthoringWorkspaceViewModel
                 .Where(existing => !string.Equals(existing, slot, StringComparison.OrdinalIgnoreCase));
             IReadOnlyList<string> slots = [slot, .. tail];
             var next = SelectedProgram.Cleanup with { InstrumentSlots = slots };
-            AuthoringCleanup.SyncSidecar(SelectedProgram.Sidecar, next);
-            ReplaceSelected(SelectedProgram with { Cleanup = next }, rebuildLists: false);
+            UpdateCleanupPolicy(next);
         }
     }
 
@@ -460,11 +460,7 @@ public sealed partial class AuthoringWorkspaceViewModel
             }
 
             var next = SelectedProgram.Cleanup with { IncludeMeasureSlots = value };
-            AuthoringCleanup.SyncSidecar(SelectedProgram.Sidecar, next);
-            ReplaceSelected(SelectedProgram with
-            {
-                Cleanup = next,
-            }, rebuildLists: false);
+            UpdateCleanupPolicy(next);
         }
     }
 
@@ -479,11 +475,7 @@ public sealed partial class AuthoringWorkspaceViewModel
             }
 
             var next = SelectedProgram.Cleanup with { IncludeSafeShutdown = value };
-            AuthoringCleanup.SyncSidecar(SelectedProgram.Sidecar, next);
-            ReplaceSelected(SelectedProgram with
-            {
-                Cleanup = next,
-            }, rebuildLists: false);
+            UpdateCleanupPolicy(next);
         }
     }
 
@@ -794,7 +786,10 @@ public sealed partial class AuthoringWorkspaceViewModel
     }
 
     public void SetReportKindIncluded(string kind, bool include)
-        => SetReportKind(kind, include);
+    {
+        EnsureWritableWorkspace("change report kind membership");
+        SetReportKind(kind, include);
+    }
 
     public void AddReportKind()
     {
@@ -901,11 +896,16 @@ public sealed partial class AuthoringWorkspaceViewModel
         }
 
         var next = SelectedProgram.Cleanup with { InstrumentSlots = current };
-        AuthoringCleanup.SyncSidecar(SelectedProgram.Sidecar, next);
-        ReplaceSelected(SelectedProgram with
-        {
-            Cleanup = next,
-        }, rebuildLists: false);
+        UpdateCleanupPolicy(next);
+    }
+
+    private void UpdateCleanupPolicy(CleanupPolicy next)
+    {
+        EnsureWritableWorkspace("edit cleanup settings");
+        if (SelectedProgram is null) return;
+        var sidecar = PlanCompiler.CloneSidecar(SelectedProgram.Sidecar);
+        AuthoringCleanup.SyncSidecar(sidecar, next);
+        ReplaceSelected(SelectedProgram with { Cleanup = next, Sidecar = sidecar }, rebuildLists: false);
     }
 
     private bool HasCleanupSlot(string slot)
@@ -915,6 +915,7 @@ public sealed partial class AuthoringWorkspaceViewModel
 
     public void SetRequiredFieldIncluded(string fieldId, bool include)
     {
+        EnsureWritableWorkspace("change required field membership");
         if (SelectedProgram is null)
         {
             return;
@@ -936,9 +937,7 @@ public sealed partial class AuthoringWorkspaceViewModel
             current.RemoveAll(existing => string.Equals(existing, id, StringComparison.OrdinalIgnoreCase));
         }
 
-        RequiredFieldIds.Apply(SelectedProgram.Sidecar, current);
-        MarkDirty(SelectedProgram.PlanId, false, true);
-        RaiseSidecarProperties();
+        SetSidecar(sidecar => RequiredFieldIds.Apply(sidecar, current));
     }
 
     public void AddRequiredField()
@@ -1013,6 +1012,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         OnPropertyChanged(nameof(InstrumentSlots));
         OnPropertyChanged(nameof(CanAddInstrumentSlot));
         OnPropertyChanged(nameof(CanRemoveSelectedInstrumentSlot));
+        OnPropertyChanged(nameof(InstrumentRemovalGuardText));
     }
 
     private void SetSidecarIfUnchanged<T>(T current, T next, Action<ProgramSidecar> mutate)
@@ -1032,8 +1032,10 @@ public sealed partial class AuthoringWorkspaceViewModel
             return;
         }
 
-        mutate(SelectedProgram.Sidecar);
-        MarkDirty(SelectedProgram.PlanId, false, true);
+        EnsureWritableWorkspace("edit program settings");
+        var sidecar = PlanCompiler.CloneSidecar(SelectedProgram.Sidecar);
+        mutate(sidecar);
+        ReplaceProgramSidecar(SelectedProgram, sidecar);
         RaiseSidecarProperties();
     }
 
@@ -1070,9 +1072,29 @@ public sealed partial class AuthoringWorkspaceViewModel
             return;
         }
 
-        var catalogs = Workspace.Manifest.Catalogs ??= new AuthoringWorkspaceCatalogs();
+        var original = Workspace.Manifest.Catalogs;
+        var catalogs = original is null ? new AuthoringWorkspaceCatalogs() : new AuthoringWorkspaceCatalogs
+        {
+            ReportKinds = [.. original.ReportKinds],
+            ProgramKinds = [.. original.ProgramKinds],
+            RequiredFields = [.. original.RequiredFields],
+            InstrumentSlotNames = [.. original.InstrumentSlotNames],
+        };
         mutate(catalogs);
-        AuthoringWorkspaceLoader.SaveManifest(Workspace.Root, Workspace.Manifest);
+        if ((original?.ReportKinds ?? []).SequenceEqual(catalogs.ReportKinds)
+            && (original?.ProgramKinds ?? []).SequenceEqual(catalogs.ProgramKinds)
+            && (original?.RequiredFields ?? []).SequenceEqual(catalogs.RequiredFields)
+            && (original?.InstrumentSlotNames ?? []).SequenceEqual(catalogs.InstrumentSlotNames)) return;
+        var manifest = System.Text.Json.JsonSerializer.Deserialize(
+            System.Text.Json.JsonSerializer.Serialize(Workspace.Manifest, AuthoringJsonContext.Default.AuthoringManifest),
+            AuthoringJsonContext.Default.AuthoringManifest)!;
+        manifest.Catalogs = catalogs;
+        Workspace = Workspace with { Manifest = manifest };
+        WorkspaceCatalogDirty = true;
+        WorkspaceCatalogSaveFailure = null;
+        Findings = [];
+        FindingRows = [];
+        RefreshDirtyState();
         OnPropertyChanged(nameof(ReportKindOptions));
         OnPropertyChanged(nameof(ReportKindChoices));
         OnPropertyChanged(nameof(IncludedReportKinds));
