@@ -49,7 +49,7 @@ public sealed partial class AuthoringWorkspaceViewModel
     public string RemoveProgramPurpose => AuthoringChrome.RemoveProgramPurpose;
 
     public bool CanRemoveSelectedSequence
-        => AuthoringSequence.CanRemove(SelectedSequence, SelectedProgram);
+        => Workspace is { IsReadOnly: false } && AuthoringSequence.CanRemove(SelectedSequence, SelectedProgram);
 
     public bool CanRemoveSelectedProgram
         => Workspace is not null && SelectedProgram is not null && !Workspace.IsReadOnly;
@@ -208,6 +208,7 @@ public sealed partial class AuthoringWorkspaceViewModel
 
         _selectedSequenceIndex = clamped;
         _selectedSequenceKey = _sequenceItems[clamped].Key;
+        RememberNodeSelection();
         SyncMeasureIndexFromSequence(_sequenceItems[clamped]);
         OnPropertyChanged(nameof(SelectedSequenceIndex));
         OnPropertyChanged(nameof(SelectedSequence));
@@ -231,7 +232,10 @@ public sealed partial class AuthoringWorkspaceViewModel
 
         RaiseRawStepProperties();
 
-        var restored = AuthoringSequence.IndexOfKey(_sequenceItems, _selectedSequenceKey);
+        var selectedNodeId = SelectedDocument?.SelectedNodeId;
+        var restored = selectedNodeId is { } stableId
+            ? _sequenceItems.ToList().FindIndex(row => row.NodeId == stableId)
+            : AuthoringSequence.IndexOfKey(_sequenceItems, _selectedSequenceKey);
         if (restored < 0)
         {
             restored = AuthoringSequence.IndexOfTopLevelMeasure(_sequenceItems, _selectedMeasureIndex);

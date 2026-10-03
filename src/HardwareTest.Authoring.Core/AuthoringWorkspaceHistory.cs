@@ -141,6 +141,15 @@ public sealed class AuthoringWorkspaceHistory
         return entry.After;
     }
 
+    // Successful persistence may normalize content without creating an edit.
+    public void RebaseCurrent(AuthoringWorkspaceState before, AuthoringWorkspaceState after)
+    {
+        if (_position > 0 && _entries[_position - 1].After.ContentEquals(before))
+            _entries[_position - 1] = _entries[_position - 1] with { After = after };
+        if (_position < _entries.Count && _entries[_position].Before.ContentEquals(before))
+            _entries[_position] = _entries[_position] with { Before = after };
+    }
+
     public void Clear()
     {
         _entries.Clear();
@@ -153,7 +162,7 @@ public sealed class AuthoringWorkspaceHistory
         {
             throw new InvalidOperationException(
                 "Workspace history is stale because the manifest or a program changed outside this transaction. "
-                + "Reload the workspace or clear its history before continuing.");
+                + "Undo intervening program edits before restoring this workspace operation.");
         }
     }
 }

@@ -26,6 +26,14 @@ public sealed class AuthoringDocumentSession
     public bool CanUndo => !IsReadOnly && History.PeekUndo() is { } entry && _current.ContentEquals(entry.After);
     public bool CanRedo => !IsReadOnly && History.PeekRedo() is { } entry && _current.ContentEquals(entry.Before);
 
+    /// Compares a compatibility draft against saved baselines without changing history or read-only content.
+    public (bool PlanDirty, bool SidecarDirty) GetDirtyState(ProgramDraft draft)
+    {
+        var actual = AuthoringDocumentSnapshot.Capture(draft);
+        if (draft.PlanId != Draft.PlanId) throw new InvalidOperationException("Cannot compare a foreign program.");
+        return (_savedPlan != actual.PlanIdentity, _savedSidecar != actual.SidecarIdentity);
+    }
+
     public Guid? SelectedNodeId
     {
         get => _selectedNodeId;
@@ -111,9 +119,13 @@ public sealed class AuthoringDocumentSession
     {
         EnsureWritable();
         if (draft.PlanId != Draft.PlanId) throw new InvalidOperationException("Cannot restore a foreign program.");
-        _current = AuthoringDocumentSnapshot.Capture(draft);
+        var next = AuthoringDocumentSnapshot.Capture(draft);
+        if (!_current.ContentEquals(next))
+        {
+            _current = next;
+            Revision++;
+        }
         SelectedNodeId = selection;
-        Revision++;
     }
 
     public void ClearHistory() => History.Clear();

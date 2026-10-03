@@ -100,5 +100,5 @@ public sealed class AuthoringWorkspaceHistoryTests
         => AuthoringWorkspaceState.Capture(new() { DisplayName = title }, [Draft("a", first), Draft("b", second)]);
 
     private static ProgramDraft Draft(string id, string title)
-        => new(id, new ProgramSidecar { DisplayName = title }, [], [], [], new CleanupPolicy(false, Array.Empty<string>()));
+        => new(id, new ProgramSidecar { DisplayName = title }, [], [], [], new CleanupPolicy(false, Array.Empty<string>()) { NodeId = id == "a" ? Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa") : Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb") });
 }

@@ -51,6 +51,9 @@ public sealed partial class AuthoringWorkspaceViewModel
     }
 
     public void ApplyCatalogDeletion(CatalogDeletionImpact reviewedImpact)
+        => RunCatalogEdit("Remove workspace catalog entry", () => ApplyCatalogDeletionCore(reviewedImpact));
+
+    private void ApplyCatalogDeletionCore(CatalogDeletionImpact reviewedImpact)
     {
         ArgumentNullException.ThrowIfNull(reviewedImpact);
         EnsureWritableWorkspace("remove a workspace catalog entry");
@@ -173,13 +176,14 @@ public sealed partial class AuthoringWorkspaceViewModel
     private void ReplaceProgramSidecar(ProgramDraft program, ProgramSidecar sidecar)
     {
         var next = program with { Sidecar = sidecar };
-        Programs = Programs.Select(p => ReferenceEquals(p, program) ? next : p).ToArray();
-        if (ReferenceEquals(_selectedProgram, program))
+        if (!CommitDocument(next, "Edit program settings")) return;
+        Programs = Programs.Select(p => string.Equals(p.PlanId, program.PlanId, StringComparison.OrdinalIgnoreCase) ? next : p).ToArray();
+        if (string.Equals(_selectedProgram?.PlanId, program.PlanId, StringComparison.OrdinalIgnoreCase))
         {
             _selectedProgram = next;
             OnPropertyChanged(nameof(SelectedProgram));
         }
-        MarkDirty(program.PlanId, false, true);
+        RecomputeDocumentDirty();
         RaiseSidecarProperties();
     }
     private bool CanRemoveCatalogItem(string? id, Func<string?, bool> isProtected)
