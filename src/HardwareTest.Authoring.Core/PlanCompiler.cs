@@ -19,9 +19,17 @@ public sealed partial class PlanCompiler : IPlanCompiler
     public const string CleanupGroupName = "Cleanup";
 
     private readonly string[] _extraPluginDirectories;
+    private readonly Action<string, string> _replaceFile;
 
     public PlanCompiler(IEnumerable<string>? extraPluginDirectories = null)
+        : this(extraPluginDirectories, (source, destination) => File.Move(source, destination, overwrite: true))
     {
+    }
+
+    internal PlanCompiler(IEnumerable<string>? extraPluginDirectories, Action<string, string> replaceFile)
+    {
+        ArgumentNullException.ThrowIfNull(replaceFile);
+        _replaceFile = replaceFile;
         _extraPluginDirectories = extraPluginDirectories is null
             ? []
             : extraPluginDirectories.Where(dir => !string.IsNullOrWhiteSpace(dir)).ToArray();
@@ -102,76 +110,6 @@ public sealed partial class PlanCompiler : IPlanCompiler
         var json = JsonSerializer.Serialize(sidecar, ProgramCatalogJsonContext.Default.ProgramSidecar);
         return JsonSerializer.Deserialize(json, ProgramCatalogJsonContext.Default.ProgramSidecar)
                ?? throw new AuthoringWorkspaceException("Failed to clone program sidecar.");
-    }
-
-    private static void WritePlanAndSidecar(TestPlan plan, string tapPlanPath, ProgramSidecar sidecar)
-    {
-        var tapFull = Path.GetFullPath(tapPlanPath);
-        var sidecarFull = SidecarPath(tapFull);
-        var tapTemp = tapFull + ".saving";
-        var sidecarTemp = sidecarFull + ".saving";
-        try
-        {
-            plan.Save(tapTemp);
-            File.WriteAllText(
-                sidecarTemp,
-                JsonSerializer.Serialize(sidecar, ProgramCatalogJsonContext.Default.ProgramSidecar));
-            var tapBackup = TryReadAllBytes(tapFull);
-            File.Move(tapTemp, tapFull, overwrite: true);
-            try
-            {
-                File.Move(sidecarTemp, sidecarFull, overwrite: true);
-            }
-            catch
-            {
-                RestoreFile(tapFull, tapBackup);
-                throw;
-            }
-        }
-        finally
-        {
-            TryDeleteFile(tapTemp);
-            TryDeleteFile(sidecarTemp);
-        }
-    }
-
-    private static byte[]? TryReadAllBytes(string path)
-        => File.Exists(path) ? File.ReadAllBytes(path) : null;
-
-    private static void RestoreFile(string path, byte[]? backup)
-    {
-        if (backup is null)
-        {
-            TryDeleteFile(path);
-            return;
-        }
-
-        File.WriteAllBytes(path, backup);
-    }
-
-    private static void TryDeleteFile(string path)
-    {
-        if (!File.Exists(path))
-        {
-            return;
-        }
-
-        try
-        {
-            File.Delete(path);
-        }
-        catch (IOException)
-        {
-        }
-        catch (UnauthorizedAccessException)
-        {
-        }
-    }
-
-    private static void WriteSidecar(string tapPlanPath, ProgramSidecar sidecar)
-    {
-        var json = JsonSerializer.Serialize(sidecar, ProgramCatalogJsonContext.Default.ProgramSidecar);
-        File.WriteAllText(SidecarPath(tapPlanPath), json);
     }
 
     private static ProgramSidecar ReadSidecar(string tapPlanPath)
