@@ -46,7 +46,6 @@ public sealed class AuthoringWorkspaceHistoryTests
         var stale = State("new", "a", "external");
         Assert.False(history.CanUndo(stale));
         Assert.Contains("stale", Assert.Throws<InvalidOperationException>(() => history.Undo(stale)).Message);
-        Assert.Contains("clear", Assert.Throws<InvalidOperationException>(() => history.Commit("External", stale, before)).Message);
         Assert.True(history.CanUndo(after));
         history.Undo(after);
         Assert.Throws<InvalidOperationException>(() => history.Redo(stale));
@@ -54,6 +53,22 @@ public sealed class AuthoringWorkspaceHistoryTests
         history.Clear();
         Assert.False(history.CanRedo(before));
         Assert.True(history.Commit("Fresh", stale, before));
+    }
+
+    [Fact]
+    public void New_transaction_after_program_edit_keeps_older_history_guarded()
+    {
+        var history = new AuthoringWorkspaceHistory();
+        var initial = State("old", "a", "b");
+        var catalogChanged = State("new", "a", "b");
+        history.Commit("First catalog edit", initial, catalogChanged);
+        var programChanged = State("new", "edited-a", "b");
+        var secondCatalogChanged = State("newer", "edited-a", "b");
+        Assert.True(history.Commit("Second catalog edit", programChanged, secondCatalogChanged));
+        Assert.True(programChanged.ContentEquals(history.Undo(secondCatalogChanged)));
+        Assert.False(history.CanUndo(programChanged));
+        Assert.Throws<InvalidOperationException>(() => history.Undo(programChanged));
+        Assert.True(initial.ContentEquals(history.Undo(catalogChanged)));
     }
 
     [Fact]

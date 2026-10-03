@@ -93,10 +93,6 @@ public sealed class AuthoringWorkspaceHistory
         ArgumentNullException.ThrowIfNull(description);
         ArgumentNullException.ThrowIfNull(before);
         ArgumentNullException.ThrowIfNull(after);
-        if (_entries.Count > 0)
-        {
-            RequireCurrent(before, _position == 0 ? _entries[0].Before : _entries[_position - 1].After);
-        }
         if (before.ContentEquals(after))
         {
             return false;
