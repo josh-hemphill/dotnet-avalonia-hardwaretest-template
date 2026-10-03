@@ -130,7 +130,9 @@ public sealed class AuthoringFeedbackTests
         var origin = text.TranslatePoint(default, viewer);
         Assert.NotNull(origin);
         var bottom = origin.Value.Y + text.Bounds.Height;
-        Assert.True(bottom > 0 && bottom <= viewer.Bounds.Height + 1, $"Final text line bottom: {bottom}; viewport: {viewer.Bounds.Height}");
+        var top = bottom - text.TextLayout.TextLines.Last().Height;
+        Assert.True(top >= -1 && bottom <= viewer.Bounds.Height + 1,
+            $"Final text line: {top}–{bottom}; viewport: {viewer.Bounds.Height}");
     }
 
     private static void AssertInsideWindow(Control control, Window window)
