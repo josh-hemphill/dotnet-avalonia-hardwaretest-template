@@ -155,7 +155,6 @@ public sealed class PackProtectionTests : IDisposable
     [InlineData("tap.runtimeconfig.json", "{\"runtimeOptions\":{\"framework\":{\"name\":\"wrong\",\"version\":\"9.0.0\"}}}")]
     [InlineData("tap.runtimeconfig.json", "{\"runtimeOptions\":{\"framework\":{\"name\":\"Microsoft.NETCore.App\",\"version\":\"invalid\"}}}")]
     [InlineData("tap.runtimeconfig.json", "{\"runtimeOptions\":{\"frameworks\":[]}}")]
-    [InlineData("tap.runtimeconfig.json", "{\"runtimeOptions\":{\"includedFrameworks\":{}}}")]
     public void Corrupt_runtime_blocks_before_existing_artifacts_are_changed(string file, string contents)
     {
         var workspace = AuthoringWorkspaceLoader.Load(_workspace);
@@ -174,7 +173,6 @@ public sealed class PackProtectionTests : IDisposable
     [Theory]
     [InlineData("framework", "{\"name\":\"Microsoft.NETCore.App\",\"version\":\"9.0.0\"}")]
     [InlineData("frameworks", "[{\"name\":\"Microsoft.NETCore.App\",\"version\":\"9.0.0\"}]")]
-    [InlineData("includedFrameworks", "[{\"name\":\"Microsoft.NETCore.App\",\"version\":\"9.0.0\"}]")]
     public void Supported_runtime_framework_declaration_forms_pass_prerequisite_validation(string property, string value)
     {
         var workspace = AuthoringWorkspaceLoader.Load(_workspace);
@@ -182,6 +180,25 @@ public sealed class PackProtectionTests : IDisposable
         File.WriteAllText(Path.Combine(home.Root, "tap.runtimeconfig.json"), $"{{\"runtimeOptions\":{{\"{property}\":{value}}}}}");
         var report = WorkspacePacker.Preflight(workspace, new PackOptions { Home = home });
         Assert.False(report.HasErrors, string.Join("\n", report.Findings));
+    }
+
+    [Theory]
+    [InlineData("[{\"name\":\"Microsoft.NETCore.App\",\"version\":\"9.0.0\"}]")]
+    [InlineData("{}")]
+    public void Self_contained_runtime_configuration_blocks_before_existing_artifacts_are_changed(string includedFrameworks)
+    {
+        var workspace = AuthoringWorkspaceLoader.Load(_workspace);
+        var home = Bootstrap(workspace);
+        File.WriteAllText(Path.Combine(home.Root, "tap.runtimeconfig.json"), $"{{\"runtimeOptions\":{{\"includedFrameworks\":{includedFrameworks}}}}}");
+        var output = Path.Combine(_root, "dist");
+        Directory.CreateDirectory(output);
+        var existing = Path.Combine(output, "ship-manifest.json");
+        File.WriteAllText(existing, "sentinel");
+        var ex = Assert.Throws<PackPreflightException>(() => WorkspacePacker.Pack(workspace, output, new PackOptions { Home = home }));
+        Assert.Contains(ex.Report.Findings, f => f.Code == "PACK_RUNTIME_CONFIG" && f.IsError
+            && f.Message.Contains("framework-dependent", StringComparison.Ordinal));
+        Assert.Equal("sentinel", File.ReadAllText(existing));
+        Assert.Equal(_originalPackageXml, File.ReadAllText(Path.Combine(_workspace, "package.xml")));
     }
 
     [Fact]
@@ -206,6 +223,19 @@ public sealed class PackProtectionTests : IDisposable
             File.SetUnixFileMode(plans, UnixFileMode.UserRead | UnixFileMode.UserExecute
                 | UnixFileMode.GroupRead | UnixFileMode.GroupWrite | UnixFileMode.GroupExecute
                 | UnixFileMode.OtherRead | UnixFileMode.OtherWrite | UnixFileMode.OtherExecute);
+            var canStillWrite = false;
+            try
+            {
+                using var probe = new FileStream(Path.Combine(plans, ".permission-test-probe-" + Guid.NewGuid().ToString("N")),
+                    FileMode.CreateNew, FileAccess.Write, FileShare.None, 1, FileOptions.DeleteOnClose);
+                canStillWrite = true;
+            }
+            catch (UnauthorizedAccessException)
+            {
+                // The effective identity observes the intended owner permission denial.
+            }
+            Assert.Empty(Directory.EnumerateFiles(plans, ".permission-test-probe-*"));
+            Assert.SkipWhen(canStillWrite, "The effective process can write despite owner mode 0577 (for example, root); Unix permission denial cannot be exercised.");
             var ex = Assert.Throws<PackPreflightException>(() => WorkspacePacker.Pack(workspace, output,
                 new PackOptions { BootstrapHomeDirectory = home, Offline = true }));
             Assert.Contains(ex.Report.Findings, f => f.Code == "PACK_WORKSPACE");

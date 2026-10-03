@@ -236,6 +236,10 @@ public static partial class WorkspacePacker
                     ValidateRuntimeConfiguration(config.RootElement);
                 }
             }
+            catch (NotSupportedException ex)
+            {
+                findings.Add(new("PACK_RUNTIME_CONFIG", ex.Message, true, path));
+            }
             catch (Exception ex) when (ex is IOException or InvalidDataException or BadImageFormatException or UnauthorizedAccessException or JsonException)
             {
                 findings.Add(new("PACK_RUNTIME_CORRUPT", $"Required OpenTAP runtime file '{file}' is unreadable or invalid; bootstrap this home. {ex.Message}", true, path));
@@ -254,9 +258,13 @@ public static partial class WorkspacePacker
             || runtimeOptions.ValueKind != JsonValueKind.Object)
             throw new InvalidDataException("The runtime configuration must contain a runtimeOptions object.");
 
+        if (!runtimeOptions.TryGetProperty("framework", out _) && !runtimeOptions.TryGetProperty("frameworks", out _)
+            && runtimeOptions.TryGetProperty("includedFrameworks", out _))
+            throw new NotSupportedException("Self-contained OpenTAP runtime configurations using only includedFrameworks are unsupported: authoring bootstrap does not copy their native runtime payload. Bootstrap this home from a framework-dependent OpenTAP runtime declaring framework or frameworks.");
+
         var frameworks = new List<JsonElement>();
         var declarations = 0;
-        foreach (var property in new[] { "framework", "frameworks", "includedFrameworks" })
+        foreach (var property in new[] { "framework", "frameworks" })
         {
             if (!runtimeOptions.TryGetProperty(property, out var value)) continue;
             declarations++;
@@ -269,7 +277,7 @@ public static partial class WorkspacePacker
             }
         }
         if (declarations != 1)
-            throw new InvalidDataException("Declare exactly one of framework, frameworks, or includedFrameworks.");
+            throw new InvalidDataException("Declare exactly one of framework or frameworks.");
 
         var names = new HashSet<string>(StringComparer.Ordinal);
         foreach (var framework in frameworks)
