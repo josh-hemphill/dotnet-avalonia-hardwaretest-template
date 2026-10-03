@@ -584,7 +584,11 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
 
     private void OnPropertyChanged([CallerMemberName] string? name = null)
     {
-        if (name == nameof(SelectedProgram)) OnPropertyChanged(nameof(SelectedProgramRow));
+        if (name == nameof(SelectedProgram))
+        {
+            OnPropertyChanged(nameof(SelectedProgramRow));
+            RaiseHistoryProperties();
+        }
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
     }
 }
