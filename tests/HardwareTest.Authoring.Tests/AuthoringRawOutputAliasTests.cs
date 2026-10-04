@@ -163,6 +163,7 @@ public sealed class AuthoringRawOutputAliasTests
         if (function == AuthoringFunctionIds.BasicReportStationHealth) alias = ReportStationHealthStep.OffsetMetric;
         var template = Assert.IsType<MetricNode>(AuthoringRecipeCatalog.Apply(Program(), AuthoringRecipeIds.BandScalar).Measure[0]);
         var settings = new Dictionary<string, string> { ["SampleCount"] = "unfinished" };
+        if (function == AuthoringFunctionIds.BasicBitSweepAcquire) settings["PublishSummaries"] = "true";
         var publisher = template with
         {
             Metric = template.Metric with

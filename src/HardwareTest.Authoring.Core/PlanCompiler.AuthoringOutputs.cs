@@ -49,7 +49,7 @@ public sealed partial class PlanCompiler
                     break;
                 default: Add(step.Id, SampleChannel(step)); break;
             }
-            if (step is PublishSeriesComplianceStep or BitSweepAcquireStep)
+            if (step is PublishSeriesComplianceStep or BitSweepAcquireStep { PublishSummaries: true })
             {
                 Add(step.Id, "series.inband.pct");
                 Add(step.Id, "series.excursion.max");
@@ -115,6 +115,9 @@ public sealed partial class PlanCompiler
         var step = AuthoringFunctionCatalog.CreateStep(function);
         step.Name = metric.Name;
         ApplyAuthoringStringSettings(step, settings);
+        if (step is BitSweepAcquireStep)
+            ApplySettings(step, settings.Where(pair => pair.Key.Equals(nameof(BitSweepAcquireStep.PublishSummaries),
+                StringComparison.OrdinalIgnoreCase)).ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal));
         step.GetType().GetProperty("Channel")?.SetValue(step, metric.ChannelKey);
         return step;
     }
