@@ -23,6 +23,7 @@ dotnet run --project src/HardwareTest.Authoring -c Debug -r win-x64 -- --bootstr
 dotnet run --project src/HardwareTest.Authoring -c Debug -r win-x64 -- --validate plans/opentap --strict
 dotnet run --project src/HardwareTest.Authoring -c Debug -r win-x64 -- --compat plans/opentap
 dotnet run --project src/HardwareTest.Authoring -c Debug -r win-x64 -- --eval-formulas plans/opentap
+dotnet run --project src/HardwareTest.Authoring -c Debug -r win-x64 -- --migrate plans/opentap
 dotnet run --project src/HardwareTest.Authoring -c Debug -r win-x64 -- --pack plans/opentap --out dist/
 dotnet run --project src/HardwareTest.Authoring -c Debug -r win-x64 -- --help
 ```
@@ -33,15 +34,19 @@ dotnet run --project src/HardwareTest.Authoring -c Debug -r win-x64 -- --help
 
 1. **New program** seeds Identity + Cleanup + Mock DMM (in-repo demos). Product workspaces that declare InstrumentComponents.OpenTap still keep this template’s sample/board-demo on Basic. **Remove program** (or Delete on the programs list) drops the selected plan from the session and deletes its `.TapPlan` + `.program.json` when those files exist.
 2. On the **Program** tab, pick a recipe from **Add to sequence** (grouped by category) and **Add recipe**. **Remove selected** (or Delete on the sequence list) drops the highlighted Setup, measure, Repeat, or Raw row. Repeat unwraps its children. Safe Shutdown turns Cleanup off. The sequence list is Setup / Measure / Cleanup — not a tree. Repeat children are indented under the Repeat row. **Dialog** and **Hang Forever** are not listed.
-3. The **Inspector** edits only the selected sequence row (channel key, display role, unit, limits, formula chips, transfer-function method). **Program settings** holds sidecar (DUT flags, reports) and instrument VISA slots. Mean GTE needs a threshold; band and series need both limits. **Save plan** refuses missing limits. Preview uses canned samples unless a recording is selected.
+3. The **Inspector** edits only the selected sequence row (channel key, display role, unit, limits, formula chips, transfer-function method). **Program settings** holds sidecar (DUT flags, reports) and instrument VISA slots. Mean GTE needs a threshold; band and series need both limits before compilation. Missing criteria and incomplete numeric text can still be saved as authoring drafts. Preview uses canned samples unless a recording is selected.
 4. **Preview** shows canned samples for the selected DisplayRole (not Execute). Select a `recordings/` export to eval formulas and transfer functions on real `elapsedMs` series.
-5. **Save plan** compiles the metric IR to `{planId}.TapPlan` + `{planId}.program.json` (three-level groups, Presentation on function leaves, sidecar). **Save sidecar** writes only the program JSON.
+5. **Save plan** writes the durable source in `authoring-drafts/{planId}.authoring.json`, then compiles deployable content to `{planId}.TapPlan` + `{planId}.program.json`. Incomplete content remains saved with an explanation of what prevents compilation. **Save sidecar** persists the authoring source and exports only the program settings; changed sequence content still requires compilation before checked packaging.
 
 Keep **VISA address** writable on **Program settings** so the operator Instruments page can rebind.
 
 **Undo** and **Redo** apply to the selected program's committed edits, including sequence, instrument and sidecar changes. Each program keeps its own history and selected step when you switch programs. Saving keeps the history: Undo can make a saved program dirty again, while returning to its saved content clears the dirty marker. **Save sidecar** advances only the settings baseline; sequence edits still require **Save plan** or **Save all**.
 
-**Undo catalog** and **Redo catalog** restore a workspace catalog operation together with its affected programs. These controls become unavailable if intervening program edits would be overwritten; undo those edits first. **Remove program** deletes files and cannot be undone. Histories last for the open workspace session; durable draft recovery is a later work package.
+**Undo catalog** and **Redo catalog** restore a workspace catalog operation together with its affected programs. These controls become unavailable if intervening program edits would be overwritten; undo those edits first. **Remove program** deletes files and cannot be undone. Histories last for the open workspace session; saved authoring documents and recovery checkpoints survive reopening.
+
+Editing creates debounced local checkpoints under `.authoring/recovery/`. A checkpoint does not clear the unsaved marker. On reopening, review the recovery notice and explicitly restore or discard newer content. Recovery failures remain visible while your draft stays open. Saved source documents retain stable row identities, formula intent, and incomplete input; future-schema sources are preserved read-only. Local recovery, builds, and package homes stay out of source control; commit `authoring-drafts/` with the workspace.
+
+If compiled plans change outside the app, review the conflict and choose whether to import those changes or retain your source before exporting again. Saving a draft alone does not make stale compiled artifacts ready for packaging. `--migrate <workspace>` explicitly upgrades older supported manifests, keeps `authoring.json.schema-<version>.bak`, and makes no changes on repeat execution. Future manifests remain untouched.
 
 Sidecar fields (`displayName`, DUT flags, `reportKinds`) live on **Program settings**. Field reference: [adapting.md](adapting.md#author-a-locked-program). Copy [`plans/opentap/template.program.json`](../plans/opentap/template.program.json) only when you author a sidecar by hand.
 
