@@ -87,6 +87,7 @@ public sealed class MetricEditorTests
         Assert.False(vm.HasUnsavedChanges);
         Assert.True(vm.HasUncompiledSources);
         Assert.False(vm.CanPack);
+        Assert.Throws<PackPreflightException>(() => vm.Pack(Path.Combine(root, "dist")));
         Assert.Throws<AuthoringWorkspaceException>(() => vm.Validate());
         Assert.False(File.Exists(Path.Combine(root, "no-limits.TapPlan")));
         var document = new AuthoringDocumentStore(root).Load("no-limits").Document!;

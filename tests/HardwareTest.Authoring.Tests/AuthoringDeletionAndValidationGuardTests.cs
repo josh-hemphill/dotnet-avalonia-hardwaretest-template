@@ -74,7 +74,7 @@ public sealed class AuthoringDeletionAndValidationGuardTests
         var source = AuthoringDocumentDto.FromDraft(AuthoringRecipeCatalog.CreateProgram("external-draft")); source.RequiresCompilation = true; store.Save(source);
         Assert.False(vm.HasUncompiledSources);
         Assert.Throws<AuthoringWorkspaceException>(() => vm.Validate());
-        Assert.True(vm.HasUncompiledSources); Assert.False(vm.CanPack);
+        Assert.True(vm.HasUncompiledSources); Assert.True(vm.CanPack); // Build compiles the complete saved source-only program.
         Assert.Throws<AuthoringWorkspaceException>(() => AuthoringSourceExportGuard.EnsureCurrent(vm.Workspace!)); vm.StopRecovery();
     }
 
@@ -124,7 +124,7 @@ public sealed class AuthoringDeletionAndValidationGuardTests
         vm.ReconcileCompiled(id, useCompiledContent: false);
         if (deleteSource) new AuthoringDocumentStore(root).DeleteSource(id);
         Assert.Throws<AuthoringWorkspaceException>(() => vm.Validate());
-        Assert.True(vm.HasUncompiledSources); Assert.Empty(vm.CompiledConflictProgramIds); Assert.False(vm.CanPack);
+        Assert.True(vm.HasUncompiledSources); Assert.Empty(vm.CompiledConflictProgramIds); Assert.Equal(!deleteSource, vm.CanPack);
         vm.SaveProgram(id); vm.Validate(); Assert.False(vm.HasUncompiledSources); vm.StopRecovery();
     }
 

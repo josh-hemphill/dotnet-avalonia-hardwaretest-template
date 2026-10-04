@@ -28,7 +28,7 @@ public sealed class AuthoringDraftReviewRegressionTests
         var reopened = new AuthoringWorkspaceViewModel(); reopened.Open(root); reopened.SelectProgram(id);
         Assert.Equal("Changed source sidecar", reopened.DisplayName);
         Assert.True(reopened.HasUncompiledSources);
-        Assert.False(reopened.CanPack);
+        Assert.True(reopened.CanPack); // Saved complete source can be compiled by the isolated Build pipeline.
         Assert.Throws<AuthoringWorkspaceException>(() => reopened.Validate());
         Assert.Throws<AuthoringWorkspaceException>(() => AuthoringSourceExportGuard.EnsureCurrent(reopened.Workspace!));
         reopened.StopRecovery();

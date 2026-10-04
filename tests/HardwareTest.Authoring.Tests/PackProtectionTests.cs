@@ -54,11 +54,12 @@ public sealed class PackProtectionTests : IDisposable
         vm.OpenTapHomeOverride = configured;
         var checker = new RecordingBlocker();
         Assert.Throws<PackPreflightException>(() => vm.Pack(Path.Combine(_root, "dist"), new PackOptions { Compat = checker }));
-        Assert.Equal(configured, checker.Home!.Root);
+        Assert.NotEqual(configured, checker.Home!.Root); // Compatibility checks use the captured home in staging.
         Assert.Equal(configured, vm.LastPackPreflight!.Home!.Root);
         var explicitHome = new OpenTapHomeBootstrapper().Bootstrap(vm.Workspace!, new BootstrapOptions { HomeDirectory = Path.Combine(_root, "explicit"), Offline = true });
         Assert.Throws<PackPreflightException>(() => vm.Pack(Path.Combine(_root, "dist"), new PackOptions { Home = explicitHome, Compat = checker }));
-        Assert.Equal(explicitHome.Root, checker.Home.Root);
+        Assert.NotEqual(explicitHome.Root, checker.Home.Root);
+        Assert.Equal(explicitHome.Root, vm.LastPackPreflight!.Home!.Root);
     }
 
     [Fact]
@@ -119,10 +120,12 @@ public sealed class PackProtectionTests : IDisposable
         var report = WorkspacePacker.Preflight(workspace, new PackOptions { Home = home });
         Assert.Contains(report.Findings, f => f.Code == "PACK_RUNTIME_MISSING" && f.IsError);
         workspace.Manifest.IncludeTui = true;
+        AuthoringWorkspaceLoader.SaveManifest(workspace.Root, workspace.Manifest);
         report = WorkspacePacker.Preflight(workspace, new PackOptions { Home = home });
         Assert.Contains(report.Findings, f => f.Code == "PACK_TUI_MISSING" && f.IsError);
         workspace.Manifest.PluginProjects = ["absent.TapPackage"];
         workspace.Manifest.ShellAppProjects = ["wrong.txt"];
+        AuthoringWorkspaceLoader.SaveManifest(workspace.Root, workspace.Manifest);
         var output = Path.Combine(_root, "dist");
         var ex = Assert.Throws<PackPreflightException>(() => WorkspacePacker.Pack(workspace, output, new PackOptions()));
         Assert.Contains(ex.Report.Findings, f => f.Code == AuthoringPackCodes.PluginMissing);
@@ -222,6 +225,7 @@ public sealed class PackProtectionTests : IDisposable
         foreach (var file in Directory.EnumerateFiles(_workspace).Where(f => Path.GetFileName(f) != "authoring.json"))
             File.Move(file, Path.Combine(plans, Path.GetFileName(file)));
         workspace.Manifest.PlansDirectory = "plans";
+        AuthoringWorkspaceLoader.SaveManifest(workspace.Root, workspace.Manifest);
         workspace = workspace with { TapPlanPaths = workspace.TapPlanPaths.Select(p => Path.Combine(plans, Path.GetFileName(p))).ToArray() };
         var packageXml = Path.Combine(plans, "package.xml");
         File.WriteAllText(packageXml, "sentinel xml");
@@ -290,6 +294,7 @@ public sealed class PackProtectionTests : IDisposable
     {
         var workspace = AuthoringWorkspaceLoader.Load(_workspace);
         workspace.Manifest.IncludeTui = true;
+        AuthoringWorkspaceLoader.SaveManifest(workspace.Root, workspace.Manifest);
         var home = Bootstrap(workspace);
         var package = Path.Combine(home.Root, "Packages", "OpenTAP TUI");
         Directory.CreateDirectory(package);
@@ -310,6 +315,7 @@ public sealed class PackProtectionTests : IDisposable
     {
         var workspace = AuthoringWorkspaceLoader.Load(_workspace);
         workspace.Manifest.IncludeTui = true;
+        AuthoringWorkspaceLoader.SaveManifest(workspace.Root, workspace.Manifest);
         var home = Bootstrap(workspace);
         var package = InstallSyntheticTuiManifest(home, declaredPath);
         WriteSyntheticTuiAssembly(Path.GetFullPath(Path.Combine(package, declaredPath)));
@@ -330,6 +336,7 @@ public sealed class PackProtectionTests : IDisposable
     {
         var workspace = AuthoringWorkspaceLoader.Load(_workspace);
         workspace.Manifest.IncludeTui = true;
+        AuthoringWorkspaceLoader.SaveManifest(workspace.Root, workspace.Manifest);
         var home = Bootstrap(workspace);
         var outside = Path.Combine(_root, "home-other", "OpenTap.TUI.dll");
         WriteSyntheticTuiAssembly(outside);

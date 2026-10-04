@@ -198,7 +198,7 @@ public static partial class WorkspacePacker
         return true;
     }
 
-    private static bool ProbeWorkspaceWriteAccess(AuthoringWorkspace workspace)
+    internal static bool ProbeWorkspaceWriteAccess(AuthoringWorkspace workspace)
     {
         // Attributes and mode bits do not establish the current user's write access.
         // Probe only during preflight, never while evaluating UI bindings.
