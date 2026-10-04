@@ -228,8 +228,11 @@ public sealed class CriteriaParityTests
             Assert.Equal("input", Assert.Single(source.InputChannelKeys));
             Assert.Equal(producer.NodeId.ToString(), source.Settings["ProducerStepId"]);
             Assert.False(source.Settings.ContainsKey("Threshold"));
-            imported = imported with { Measure = [imported.Measure[0], new MetricNode(average with
-            { Source = source with { Settings = new Dictionary<string, string>(source.Settings) { ["Threshold"] = "999" } } })] };
+            imported = imported with
+            {
+                Measure = [imported.Measure[0], new MetricNode(average with
+            { Source = source with { Settings = new Dictionary<string, string>(source.Settings) { ["Threshold"] = "999" } } })]
+            };
             compiler.Save(imported, path);
             Assert.Equal(2, Assert.IsType<MetricNode>(compiler.Load(path).Measure[1]).Metric.Limits!.Threshold);
         }
