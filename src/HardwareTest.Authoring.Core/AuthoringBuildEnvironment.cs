@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.ObjectModel;
 using System.Text;
 
@@ -24,7 +25,12 @@ public static partial class AuthoringBuildService
             if (string.IsNullOrWhiteSpace(sdkRoot)) throw new AuthoringWorkspaceException($"BUILD_ENVIRONMENT: '{name}' requires a declared DOTNET_ROOT.");
             EnsureContained(sdkRoot, ResolvedPath(value, Directory.Exists(value)));
         }
-        return new ReadOnlyDictionary<string, string?>(BuildEnvironmentNames.ToDictionary(name => name, Environment.GetEnvironmentVariable, StringComparer.Ordinal));
+        var values = BuildEnvironmentNames.ToDictionary(name => name, Environment.GetEnvironmentVariable, StringComparer.Ordinal);
+        // MSBuild imports arbitrary environment variables as initial properties. Freeze all
+        // inherited values rather than guessing which custom project expressions use them.
+        foreach (DictionaryEntry entry in Environment.GetEnvironmentVariables()) values[(string)entry.Key] = (string?)entry.Value;
+        return new ReadOnlyDictionary<string, string?>(values.OrderBy(p => p.Key, StringComparer.Ordinal)
+            .ToDictionary(p => p.Key, p => p.Value, StringComparer.Ordinal));
     }
     internal static IReadOnlyList<AuthoringBuildEnvironmentIdentity> EnvironmentIdentity(IReadOnlyDictionary<string, string?> values)
         => Array.AsReadOnly(values.Select(value => new AuthoringBuildEnvironmentIdentity(value.Key,

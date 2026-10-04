@@ -18,6 +18,7 @@ public sealed class PackOptions
 {
     public CancellationToken CancellationToken { get; init; }
     internal string? DotNetExecutable { get; init; }
+    internal IReadOnlyDictionary<string, string?>? BuildEnvironment { get; init; }
     public OpenTapHome? Home { get; init; }
 
     public OpenTapHome? TuiHome { get; init; }
@@ -128,6 +129,7 @@ public static partial class WorkspacePacker
             UseShellExecute = false,
             CreateNoWindow = true,
         };
+        FreezeProcessEnvironment(psi, options);
         psi.Environment["DOTNET_CLI_TELEMETRY_OPTOUT"] = "1";
 
         using var process = Process.Start(psi)
@@ -195,6 +197,14 @@ public static partial class WorkspacePacker
 
         return after.FirstOrDefault(path =>
             Path.GetFileName(path).StartsWith(packageName, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static void FreezeProcessEnvironment(ProcessStartInfo process, PackOptions options)
+    {
+        if (options.BuildEnvironment is null) return;
+        process.Environment.Clear();
+        foreach (var entry in options.BuildEnvironment)
+            if (entry.Value is not null) process.Environment[entry.Key] = entry.Value;
     }
 
     private static bool WaitForProcess(Process process, int timeout, CancellationToken cancellationToken)
@@ -295,6 +305,7 @@ public static partial class WorkspacePacker
                 UseShellExecute = false,
                 CreateNoWindow = true,
             };
+            FreezeProcessEnvironment(psi, options);
             psi.Environment["DOTNET_CLI_TELEMETRY_OPTOUT"] = "1";
             psi.Environment["NUGET_PACKAGES"] = Path.GetFullPath(Path.Combine(workspace.Root, "..", "shell-packages"));
             psi.Environment.Remove("NUGET_FALLBACK_PACKAGES");

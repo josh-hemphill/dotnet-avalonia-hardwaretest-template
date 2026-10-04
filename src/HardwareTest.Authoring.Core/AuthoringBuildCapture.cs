@@ -119,6 +119,9 @@ public static partial class AuthoringBuildService
 
     internal static void Recheck(AuthoringBuildRequest request)
     {
+        var currentEnvironment = CaptureEnvironment();
+        if (!request.EnvironmentValues.SequenceEqual(currentEnvironment))
+            throw new AuthoringWorkspaceException("BUILD_ENVIRONMENT_CHANGED: Inherited build environment changed. Capture a new build.");
         foreach (var entry in request.EnvironmentValues)
             if (Environment.GetEnvironmentVariable(entry.Key) != entry.Value)
                 throw new AuthoringWorkspaceException($"BUILD_ENVIRONMENT_CHANGED: Environment input '{entry.Key}' changed. Capture a new build.");
@@ -149,7 +152,7 @@ public static partial class AuthoringBuildService
             if (directory.Length > 0 && File.Exists(Path.Combine(directory, name))) return ResolvedPath(Path.Combine(directory, name), directory: false);
         throw new AuthoringWorkspaceException("BUILD_PREREQUISITE: dotnet executable was not found.");
     }
-    private static bool EnvironmentInput(string path) => !path.Split(Path.DirectorySeparatorChar).Any(p => p is "SessionLogs" or ".PackageCache" || p.StartsWith(".PackageCache.", StringComparison.Ordinal));
+    private static bool EnvironmentInput(string path) => !path.Split(Path.DirectorySeparatorChar).Any(p => p is "SessionLogs" or ".opentap_recent_logs" or ".PackageCache" || p.StartsWith(".PackageCache.", StringComparison.Ordinal));
     internal static string Hash(byte[] bytes) => Convert.ToHexString(SHA256.HashData(bytes));
     internal static string Resolve(string root, string path) => Path.GetFullPath(Path.IsPathRooted(path) ? path : Path.Combine(root, path));
     internal static string PlansRoot(AuthoringWorkspace workspace) => Resolve(workspace.Root, AuthoringManifest.RelativePlansDirectory(workspace.Manifest.PlansDirectory));

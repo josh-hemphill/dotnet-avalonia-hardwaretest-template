@@ -119,8 +119,10 @@ public static partial class AuthoringBuildService
             var stageInputs = PackageXmlRenderer.EnumeratePackFiles(workspace)
                 .Select(file => Path.Combine(root, "plans", file)).Concat(workspace.Manifest.PluginProjects)
                 .Where(File.Exists).ToDictionary(path => path, path => Hash(File.ReadAllBytes(path)), StringComparer.Ordinal);
-            void CheckStageInputs()
+            var stagedIdentity = CaptureStagedInputs(staging);
+            void CheckStageInputs(bool afterPacking = false)
             {
+                VerifyStagedInputs(staging, stagedIdentity, afterPacking);
                 if (JsonSerializer.Serialize(workspace.Manifest, AuthoringJsonContext.Default.AuthoringManifest) != expectedManifest)
                     throw new AuthoringWorkspaceException("BUILD_STAGED_CHANGED: Manifest changed during required checks.");
                 foreach (var input in stageInputs)
@@ -136,6 +138,7 @@ public static partial class AuthoringBuildService
                 TuiHome = tuiHome,
                 Compat = request.Options.Compat,
                 DotNetExecutable = request.Options.DotNetExecutable,
+                BuildEnvironment = request.EnvironmentValues,
                 CancellationToken = cancellationToken,
                 Offline = request.Options.Offline,
                 PreflightCompleted = report =>
@@ -147,7 +150,7 @@ public static partial class AuthoringBuildService
                 }
             };
             var manifest = WorkspacePacker.PackStaged(workspace, stageOutput, options);
-            CheckStageInputs();
+            CheckStageInputs(afterPacking: true);
             if (manifest.Files.Distinct(StringComparer.OrdinalIgnoreCase).Count() != manifest.Files.Count)
                 throw new AuthoringWorkspaceException("BUILD_OUTPUT_COLLISION: Multiple artifacts have the same destination.");
             var outputs = Directory.EnumerateFiles(stageOutput, "*", SearchOption.AllDirectories)
@@ -161,7 +164,7 @@ public static partial class AuthoringBuildService
                     : $"Injected compatibility checker: {request.Options.Compat.GetType().FullName}; no external process evidence is implied.", false)]);
             var receipt = new AuthoringBuildReceipt(1, Guid.NewGuid().ToString("N"), DateTimeOffset.UtcNow,
                 included.Select(p => p!).Order(StringComparer.Ordinal).ToArray(), excluded, sources.AsReadOnly(), request.Inputs,
-                manifest.ResolvedDependencies, requiredChecks, results.AsReadOnly(), Array.AsReadOnly(outputs), workspaceSource.Document?.Revision, request.Environment);
+                manifest.ResolvedDependencies, requiredChecks.ToArray(), results.AsReadOnly(), Array.AsReadOnly(outputs), workspaceSource.Document?.Revision, request.Environment);
             File.WriteAllText(Path.Combine(stageOutput, ReceiptFileName), JsonSerializer.Serialize(receipt, AuthoringBuildJsonContext.Default.AuthoringBuildReceipt));
             cancellationToken.ThrowIfCancellationRequested();
             return new AuthoringPreparedBuild(request, staging, new(manifest, receipt));

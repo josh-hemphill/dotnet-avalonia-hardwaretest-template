@@ -37,7 +37,7 @@ public sealed record AuthoringBuildSource(string PlanId, long? SavedRevision, st
 public sealed record AuthoringCompileMapEntry(Guid StepId, Guid? NodeId, string Kind);
 public sealed record AuthoringCompileResult
 {
-    public AuthoringCompileResult(string planId, string planSha256, IEnumerable<AuthoringCompileMapEntry> sourceMap)
+    public AuthoringCompileResult(string planId, string planSha256, IReadOnlyList<AuthoringCompileMapEntry> sourceMap)
     { PlanId = planId; PlanSha256 = planSha256; SourceMap = Array.AsReadOnly(sourceMap.ToArray()); }
     public string PlanId { get; }
     public string PlanSha256 { get; }
@@ -46,10 +46,10 @@ public sealed record AuthoringCompileResult
 public sealed record AuthoringBuildReceipt
 {
     public AuthoringBuildReceipt(int schemaVersion, string buildId, DateTimeOffset completedAt,
-        IEnumerable<string> includedPlans, IEnumerable<string> excludedPlans,
-        IEnumerable<AuthoringBuildSource> sources, IEnumerable<AuthoringBuildInput> inputs,
-        IEnumerable<ShipDependency> dependencies, IEnumerable<PackPreflightFinding> requiredChecks,
-        IEnumerable<AuthoringCompileResult> compilation, IEnumerable<AuthoringBuildOutput> outputs, long? workspaceSavedRevision = null, IEnumerable<AuthoringBuildEnvironmentIdentity>? environment = null)
+        IReadOnlyList<string> includedPlans, IReadOnlyList<string> excludedPlans,
+        IReadOnlyList<AuthoringBuildSource> sources, IReadOnlyList<AuthoringBuildInput> inputs,
+        IReadOnlyList<ShipDependency> dependencies, IReadOnlyList<PackPreflightFinding> requiredChecks,
+        IReadOnlyList<AuthoringCompileResult> compilation, IReadOnlyList<AuthoringBuildOutput> outputs, long? workspaceSavedRevision = null, IReadOnlyList<AuthoringBuildEnvironmentIdentity>? environment = null)
     {
         SchemaVersion = schemaVersion; BuildId = buildId; CompletedAt = completedAt; WorkspaceSavedRevision = workspaceSavedRevision;
         IncludedPlans = Array.AsReadOnly(includedPlans.ToArray()); ExcludedPlans = Array.AsReadOnly(excludedPlans.ToArray());
