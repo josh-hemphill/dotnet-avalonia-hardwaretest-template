@@ -89,6 +89,7 @@ public static class AuthoringSequenceOperations
             return [.. siblings.Take(at), node, .. siblings.Skip(at)];
         })
         };
+        PlanCompiler.RequireUniqueNewOutputs(draft, updated);
         ValidateOrder(draft, updated);
         return updated;
     }
@@ -118,11 +119,17 @@ public static class AuthoringSequenceOperations
         name = name.Trim();
         if (name.Length == 0) throw Fail("Enter a step name.");
         if (target.Kind == SequenceRowKind.Metric)
-            return draft with
+        {
+            var updated = draft with
             {
                 Measure = AuthoringSequence.MutateMeasure(draft.Measure, target.IndexPath,
                 node => node is MetricNode metric ? metric with { Metric = metric.Metric with { Name = name } } : node)
             };
+            if (AuthoringSequence.ResolveMeasure(draft, target.IndexPath) is MetricNode selected &&
+                string.IsNullOrWhiteSpace(selected.Metric.ChannelKey))
+                PlanCompiler.RequireUniqueNewOutputs(draft, updated);
+            return updated;
+        }
         if (target.Kind == SequenceRowKind.Setup)
         {
             var action = AuthoringSequence.ResolveSetup(draft, target.IndexPath);
@@ -223,6 +230,7 @@ public static class AuthoringSequenceOperations
             Measure = EditSiblings(draft.Measure, target.IndexPath,
             siblings => [.. siblings.Take(target.IndexPath[^1] + 1), duplicate, .. siblings.Skip(target.IndexPath[^1] + 1)])
         };
+        PlanCompiler.RequireUniqueNewOutputs(draft, updated);
         ValidateOrder(draft, updated, originals);
         return updated;
     }
@@ -238,9 +246,15 @@ public static class AuthoringSequenceOperations
     private static MetricSource RemapSource(MetricSource source, IReadOnlyDictionary<string, string> channels)
     {
         string Map(string key) => channels.GetValueOrDefault(key, key);
+        IReadOnlyDictionary<string, string> Settings(string function, IReadOnlyDictionary<string, string> settings)
+            => function is AuthoringFunctionIds.BasicChannelAverage or AuthoringFunctionIds.BasicApplyTransferFunction
+                ? settings.ToDictionary(pair => pair.Key, pair => pair.Key.Equals("InputChannel", StringComparison.OrdinalIgnoreCase)
+                    ? Map(pair.Value) : pair.Value, settings is Dictionary<string, string> dictionary ? dictionary.Comparer : StringComparer.Ordinal)
+                : settings;
         return source switch
         {
-            AlgorithmSource algorithm => algorithm with { InputChannelKeys = algorithm.InputChannelKeys.Select(Map).ToArray() },
+            AlgorithmSource algorithm => algorithm with
+            { InputChannelKeys = algorithm.InputChannelKeys.Select(Map).ToArray(), Settings = Settings(algorithm.AlgorithmId, algorithm.Settings) },
             TransferFunctionAlgorithm transfer => transfer with { InputChannelKey = Map(transfer.InputChannelKey) },
             ExpressionAlgorithm expression when FormulaParser.TryParse(expression.Source, out _, out _) => expression with
             {
@@ -249,7 +263,7 @@ public static class AuthoringSequenceOperations
                     match => Regex.IsMatch(expression.Source[(match.Index + match.Length)..], @"^\s*\(") ? match.Value : Map(match.Value))
             },
             ExpressionAlgorithm => throw Fail("The formula cannot be parsed; its references cannot be duplicated safely."),
-            MeasureSource => source,
+            MeasureSource measure => measure with { Settings = Settings(measure.FunctionId, measure.Settings) },
             _ => throw Fail("Unknown source references cannot be duplicated safely.")
         };
     }
@@ -330,8 +344,8 @@ public static class AuthoringSequenceOperations
         var projected = AuthoringFormulaDeployment.Project(draft);
         foreach (var metric in AuthoringRecipeCatalog.EnumerateMetrics(projected.Measure))
         {
-            if (metric.Source is not (ExpressionAlgorithm or TransferFunctionAlgorithm or AlgorithmSource { InputChannelKeys.Count: > 0 })) continue;
-            try { PlanCompiler.ValidateFormulaInput(projected.Measure, metric.ChannelKey, projected.AuthoringState); }
+            if (PlanCompiler.AuthoringInputChannels(metric.Source).Count == 0) continue;
+            try { PlanCompiler.ValidateAuthoringSequenceInput(projected.Measure, metric.ChannelKey, projected.AuthoringState); }
             catch (AuthoringWorkspaceException error) { issues.Add(error.Message); }
         }
         return issues;

@@ -163,7 +163,9 @@ public static class AuthoringRecipeCatalog
         var used = PlanCompiler.AuthoringOutputChannels(draft.Measure).ToHashSet(StringComparer.OrdinalIgnoreCase);
         var channel = AuthoringSequenceOperations.UniqueChannel(metric.ChannelKey, used);
         metric = AuthoringSequenceOperations.WithOutputChannel(metric, channel);
-        return draft with { Measure = [.. draft.Measure, new MetricNode(metric)] };
+        var updated = draft with { Measure = [.. draft.Measure, new MetricNode(metric)] };
+        PlanCompiler.RequireUniqueNewOutputs(draft, updated);
+        return updated;
     }
 
     private static ProgramDraft WrapLastInRepeat(ProgramDraft draft)

@@ -13,7 +13,7 @@ public sealed class AuthoringSequenceOperationsTests
     [Fact]
     public void Insertion_and_repeat_use_selected_nested_target()
     {
-        var draft = ProgramWith(AuthoringRecipeIds.Acquire, AuthoringRecipeIds.MeanGte);
+        var draft = ProgramWith(AuthoringRecipeIds.Acquire, AuthoringRecipeIds.BandScalar);
         var first = draft.Measure[0];
         var last = draft.Measure[1];
         var wrapped = AuthoringSequenceOperations.Repeat(draft, Row(draft, first.NodeId));
@@ -21,10 +21,10 @@ public sealed class AuthoringSequenceOperationsTests
         var loop = Assert.IsType<RepeatNode>(wrapped.Measure[0]);
         Assert.NotEqual(first.NodeId, loop.NodeId);
         Assert.Equal(first.NodeId, Assert.Single(loop.Children).NodeId);
-        var inserted = AuthoringSequenceOperations.Insert(wrapped, AuthoringRecipeIds.MeanGte,
+        var inserted = AuthoringSequenceOperations.Insert(wrapped, AuthoringRecipeIds.BandScalar,
             Row(wrapped, first.NodeId), before: true, "DMM");
         var children = Assert.IsType<RepeatNode>(inserted.Measure[0]).Children;
-        Assert.Equal("VDC.mean_2", Assert.IsType<MetricNode>(children[0]).Metric.ChannelKey);
+        Assert.Equal("rail.mean_2", Assert.IsType<MetricNode>(children[0]).Metric.ChannelKey);
         Assert.Equal(first.NodeId, children[1].NodeId);
         Assert.Equal(last.NodeId, inserted.Measure[1].NodeId);
     }
@@ -146,8 +146,9 @@ public sealed class AuthoringSequenceOperationsTests
     {
         var draft = ProgramWith(AuthoringRecipeIds.Acquire, AuthoringRecipeIds.MeanGte, AuthoringRecipeIds.BandScalar,
             AuthoringRecipeIds.SeriesCompliance, AuthoringRecipeIds.StationHealth, AuthoringRecipeIds.Formula);
-        foreach (var recipe in new[] { AuthoringRecipeIds.Acquire, AuthoringRecipeIds.MeanGte, AuthoringRecipeIds.BandScalar,
-            AuthoringRecipeIds.SeriesCompliance, AuthoringRecipeIds.StationHealth, AuthoringRecipeIds.Formula })
+        foreach (var recipe in new[] { AuthoringRecipeIds.MeanGte, AuthoringRecipeIds.SeriesCompliance, AuthoringRecipeIds.StationHealth })
+            Assert.Throws<AuthoringWorkspaceException>(() => AuthoringRecipeCatalog.Apply(draft, recipe));
+        foreach (var recipe in new[] { AuthoringRecipeIds.Acquire, AuthoringRecipeIds.BandScalar, AuthoringRecipeIds.Formula })
             draft = AuthoringRecipeCatalog.Apply(draft, recipe);
         var band = draft.Measure.OfType<MetricNode>().First(node => node.Metric.Name == "Band Scalar");
         draft = AuthoringSequenceOperations.Duplicate(draft, Row(draft, band.NodeId));
@@ -299,7 +300,7 @@ public sealed class AuthoringSequenceOperationsTests
     }
 
     [Fact]
-    public void Raw_station_scalar_output_is_reserved_when_adding_station_recipe()
+    public void Raw_station_scalar_output_rejects_another_fixed_station_publisher()
     {
         AuthoringPluginSearch.Search();
         var step = new ReportStationHealthStep();
@@ -308,14 +309,10 @@ public sealed class AuthoringSequenceOperationsTests
         var xml = XDocument.Load(path).Descendants().First(element => element.Name.LocalName == "TestStep");
         var raw = new RawStepNode(step.GetType().FullName!, xml.ToString(SaveOptions.DisableFormatting)) { NodeId = step.Id };
         var draft = ProgramWith() with { Measure = [raw] };
-        var applied = AuthoringRecipeCatalog.Apply(draft, AuthoringRecipeIds.StationHealth);
-        Assert.Equal("cal.dc.offset_2", Assert.IsType<MetricNode>(applied.Measure[1]).Metric.ChannelKey);
-        var compiled = Path.Combine(TemporaryDirectory(), "operations.TapPlan");
-        new PlanCompiler().Save(applied, compiled);
-        var outputs = XDocument.Load(compiled).Descendants()
-            .Where(element => element.Name.LocalName.EndsWith("ChannelKey", StringComparison.Ordinal))
-            .Select(element => element.Value).ToArray();
-        Assert.Contains("cal.dc.offset_2", outputs);
+        var snapshot = AuthoringDocumentSnapshot.Capture(draft);
+        var error = Assert.Throws<AuthoringWorkspaceException>(() => AuthoringRecipeCatalog.Apply(draft, AuthoringRecipeIds.StationHealth));
+        Assert.Contains(ReportStationHealthStep.OffsetMetric, error.Message, StringComparison.Ordinal);
+        Assert.True(snapshot.ContentEquals(AuthoringDocumentSnapshot.Capture(draft)));
     }
 
     private static SequenceRow Row(ProgramDraft draft, Guid id) => AuthoringSequence.Flatten(draft).Single(row => row.NodeId == id);
