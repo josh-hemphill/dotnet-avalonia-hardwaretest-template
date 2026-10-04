@@ -47,7 +47,7 @@ public sealed class AuthoringMeasureInspectorTests
         Assert.Equal("32", SettingValue(vm, "SampleCount"));
         Assert.Equal("Sample count", SettingRow(vm, "SampleCount").Label);
         Assert.Equal(AuthoringSettingKind.Integer, SettingRow(vm, "SampleCount").Kind);
-        Assert.Equal(AuthoringSettingKind.Choice, SettingRow(vm, "Channel").Kind);
+        Assert.DoesNotContain(vm.MetricSettingRows, row => row.Key == "Channel");
         Assert.Equal(vm.MetricFunctionIdOptions.Count, vm.MetricFunctionChoices.Count);
         Assert.Equal(AuthoringFunctionIds.BasicAcquireVoltage, vm.SelectedMetricFunction?.Id);
         Assert.Contains("Acquire", vm.SelectedMetricFunction?.Title, StringComparison.OrdinalIgnoreCase);
@@ -57,11 +57,12 @@ public sealed class AuthoringMeasureInspectorTests
             choice.Id == AuthoringFunctionIds.BasicBitSweepAcquire);
         vm.MetricFunctionId = AuthoringFunctionIds.BasicMeanGte;
 
-        Assert.Equal("64", SettingValue(vm, "SampleCount"));
+        Assert.Equal("4", SettingValue(vm, "BitCount"));
         Assert.Equal(AuthoringFunctionIds.BasicBitSweepAcquire, vm.MetricFunctionId);
         Assert.Equal(acquire.Key, vm.SelectedSequence?.Key);
         var measure = Assert.IsType<MeasureSource>(vm.SelectedMetric!.Source);
-        Assert.Equal("64", measure.Settings["SampleCount"]);
+        Assert.False(measure.Settings.ContainsKey("SampleCount"));
+        Assert.Equal("4", measure.Settings["BitCount"]);
     }
 
     [Fact]
@@ -85,7 +86,8 @@ public sealed class AuthoringMeasureInspectorTests
         Assert.Equal(AuthoringFunctionIds.BasicPublishBandScalar, vm.MetricFunctionId);
         var algorithm = Assert.IsType<AlgorithmSource>(vm.SelectedMetric!.Source);
         Assert.Equal(AuthoringFunctionIds.BasicPublishBandScalar, algorithm.AlgorithmId);
-        Assert.Equal("8", algorithm.Settings["SampleCount"]);
+        Assert.False(algorithm.Settings.ContainsKey("SampleCount"));
+        Assert.True(algorithm.Settings.ContainsKey("Value"));
     }
 
     [Fact]
@@ -247,6 +249,186 @@ public sealed class AuthoringMeasureInspectorTests
         Assert.Equal("5", reloaded.HistoryWatchPercent);
         Assert.Equal("10", reloaded.HistoryAlertPercent);
         Assert.Equal(new HistorySpec(true, 5, 10), reloaded.SelectedMetric!.History);
+    }
+
+    [Theory]
+    [InlineData("1e-")]
+    [InlineData("")]
+    [InlineData("0")]
+    public void Incomplete_setting_text_saves_reopens_and_corrects_in_one_edit(string text)
+    {
+        var root = EmptyWorkspace();
+        var vm = new AuthoringWorkspaceViewModel();
+        var reopened = new AuthoringWorkspaceViewModel();
+        try
+        {
+            vm.Open(root); vm.CreateProgram("durable-setting"); vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
+            SelectMetric(vm, "VDC");
+            var nodeId = vm.SelectedSequence!.NodeId;
+            var rows = vm.MetricSettingRows;
+            vm.SetMetricSetting("SampleCount", text);
+            Assert.Same(rows, vm.MetricSettingRows);
+            Assert.Equal(text, SettingValue(vm, "SampleCount"));
+            Assert.Equal("32", Assert.IsType<MeasureSource>(vm.SelectedMetric!.Source).Settings["SampleCount"]);
+            vm.SaveProgram("durable-setting"); vm.StopRecovery();
+            reopened.Open(root); reopened.SelectProgram("durable-setting");
+            reopened.SelectSequence(reopened.SequenceItems.ToList().FindIndex(row => row.NodeId == nodeId));
+            Assert.Equal(text, SettingValue(reopened, "SampleCount"));
+            Assert.False(reopened.CanPack);
+            var revision = reopened.SelectedDocument!.Revision;
+            reopened.SetMetricSetting("SampleCount", "64");
+            Assert.Equal(revision + 1, reopened.SelectedDocument.Revision);
+            Assert.Empty(reopened.SelectedProgram!.AuthoringState.IncompleteNumericText);
+            reopened.Undo(); Assert.Equal(text, SettingValue(reopened, "SampleCount"));
+            Assert.Equal("32", Assert.IsType<MeasureSource>(reopened.SelectedMetric!.Source).Settings["SampleCount"]);
+        }
+        finally { vm.StopRecovery(); reopened.StopRecovery(); }
+    }
+
+    [Fact]
+    public void Raw_step_keeps_implementation_details_without_metric_fields()
+    {
+        var vm = OpenEmpty(); vm.CreateProgram("raw-form");
+        vm.ReplaceSelected(vm.SelectedProgram! with { Measure = [new RawStepNode("CustomStep", "<TestStep />")] });
+        vm.SelectMeasure(0);
+        Assert.True(vm.HasRawStep);
+        Assert.False(vm.HasMetricPresentation);
+        Assert.False(vm.HasStepSettings);
+        Assert.Equal("CustomStep", vm.RawTypeName);
+        Assert.Equal("<TestStep />", vm.RawXml);
+        Assert.Contains(vm.SelectedSequence!.NodeId!.Value.ToString("D"), vm.SelectedNodeIdentity);
+        vm.StopRecovery();
+    }
+
+    [Fact]
+    public void Binding_guards_reject_missing_and_unsupported_instruments_without_retargeting()
+    {
+        var vm = OpenEmpty(); vm.CreateProgram("binding-guard"); vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
+        vm.ReplaceSelected(vm.SelectedProgram! with { Instruments = [.. vm.SelectedProgram!.Instruments, new InstrumentRef("OPAQUE", "Unknown.Type", "unknown")] });
+        SelectMetric(vm, "VDC");
+        vm.MetricInstrumentSlot = "missing";
+        Assert.Equal("DMM", vm.MetricInstrumentSlot);
+        Assert.Contains("existing instrument slot", vm.Error);
+        vm.MetricInstrumentSlot = "OPAQUE";
+        Assert.Equal("DMM", vm.MetricInstrumentSlot);
+        Assert.Contains("INSTRUMENT_UNAVAILABLE", vm.Error);
+        var source = Assert.IsType<MeasureSource>(vm.SelectedMetric!.Source);
+        vm.ReplaceSelected(vm.SelectedProgram with { Measure = [new MetricNode(vm.SelectedMetric with { Source = source with { InstrumentSlot = "OPAQUE" } })] });
+        vm.SelectMeasure(0);
+        Assert.Contains("INSTRUMENT_UNAVAILABLE", vm.SelectedStepErrors);
+        vm.StopRecovery();
+    }
+
+    [Fact]
+    public void Recipe_migration_retains_compatible_incomplete_text_and_undo_restores_removed_fields()
+    {
+        var vm = OpenEmpty(); vm.CreateProgram("migration-text"); vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
+        SelectMetric(vm, "VDC");
+        vm.SetMetricSetting("SampleCount", "1e-"); vm.SetMetricSetting("IntervalMs", "-");
+        var nodeId = vm.SelectedSequence!.NodeId;
+        vm.MetricFunctionId = AuthoringFunctionIds.BasicBitSweepAcquire;
+        Assert.Equal(nodeId, vm.SelectedSequence!.NodeId);
+        Assert.Equal("-", SettingValue(vm, "IntervalMs"));
+        Assert.DoesNotContain(vm.SelectedProgram!.AuthoringState.IncompleteNumericText.Keys, key => key.EndsWith("MetricSetting:SampleCount", StringComparison.Ordinal));
+        vm.Undo(); Assert.Equal("1e-", SettingValue(vm, "SampleCount"));
+        vm.Redo(); Assert.Equal("-", SettingValue(vm, "IntervalMs"));
+        vm.StopRecovery();
+    }
+
+    [Fact]
+    public void Algorithm_inputs_edit_the_source_without_changing_display_or_criteria()
+    {
+        var vm = OpenEmpty(); vm.CreateProgram("inputs"); vm.ApplyRecipe(AuthoringRecipeIds.MeanGte);
+        SelectMetric(vm, "VDC.mean");
+        var limits = vm.SelectedMetric!.Limits; var unit = vm.YUnit;
+        Assert.False(vm.HasMetricInputs);
+        vm.MetricInputChannels = "rail.x, rail.y";
+        Assert.Empty(Assert.IsType<AlgorithmSource>(vm.SelectedMetric.Source).InputChannelKeys);
+        Assert.Equal(limits, vm.SelectedMetric.Limits); Assert.Equal(unit, vm.YUnit);
+        vm.StopRecovery();
+    }
+
+    [Fact]
+    public void Instrument_free_recipe_migrates_binding_compiles_and_undo_restores_explicit_resource()
+    {
+        var root = EmptyWorkspace(); var vm = new AuthoringWorkspaceViewModel(); vm.Open(root);
+        try
+        {
+            vm.CreateProgram("binding-migration"); vm.ApplyRecipe(AuthoringRecipeIds.Acquire); SelectMetric(vm, "VDC");
+            var nodeId = vm.SelectedSequence!.NodeId;
+            vm.MetricFunctionId = AuthoringFunctionIds.BasicPublishTimedSample;
+            Assert.False(vm.NeedsMetricInstrument);
+            Assert.Empty(Assert.IsType<MeasureSource>(vm.SelectedMetric!.Source).InstrumentSlot);
+            Assert.Empty(vm.SelectedStepErrors);
+            var path = Path.Combine(root, "binding-migration.tapplan"); var compiler = new PlanCompiler();
+            compiler.Save(vm.SelectedProgram!, path);
+            var loaded = compiler.Load(path);
+            var loadedNode = Assert.IsType<MetricNode>(Assert.Single(loaded.Measure));
+            Assert.Equal(nodeId, loadedNode.NodeId);
+            Assert.Empty(Assert.IsType<MeasureSource>(loadedNode.Metric.Source).InstrumentSlot);
+            vm.Undo(); Assert.Equal("DMM", vm.MetricInstrumentSlot);
+            vm.Redo(); Assert.Empty(vm.MetricInstrumentSlot);
+            vm.MetricFunctionId = AuthoringFunctionIds.BasicAcquireVoltage;
+            Assert.True(vm.NeedsMetricInstrument); Assert.Empty(vm.MetricInstrumentSlot);
+            Assert.Contains("Choose an existing instrument slot", vm.SelectedStepErrors);
+            Assert.Throws<AuthoringWorkspaceException>(() => compiler.Save(vm.SelectedProgram!, path));
+            vm.MetricInstrumentSlot = "DMM";
+            compiler.Save(vm.SelectedProgram!, path);
+            Assert.Equal("DMM", Assert.IsType<MeasureSource>(Assert.IsType<MetricNode>(Assert.Single(compiler.Load(path).Measure)).Metric.Source).InstrumentSlot);
+        }
+        finally { vm.StopRecovery(); }
+    }
+
+    [Fact]
+    public void Channel_average_authoritative_input_and_display_survive_compilation_and_recipe_history()
+    {
+        var root = EmptyWorkspace(); var vm = new AuthoringWorkspaceViewModel(); vm.Open(root);
+        try
+        {
+            vm.CreateProgram("consumed-input"); vm.ApplyRecipe(AuthoringRecipeIds.Acquire); vm.ApplyRecipe(AuthoringRecipeIds.MeanGte);
+            SelectMetric(vm, "VDC.mean");
+            vm.MetricFunctionId = AuthoringFunctionIds.BasicChannelAverage;
+            Assert.True(vm.HasMetricInputs); Assert.Empty(vm.MetricInputChannels);
+            Assert.Null(Assert.IsType<AlgorithmSource>(vm.SelectedMetric!.Source).InstrumentSlot);
+            Assert.Contains("exactly one", vm.SelectedStepErrors);
+            vm.MetricInputChannels = "VDC"; vm.YUnit = "mV";
+            Assert.Empty(vm.SelectedStepErrors);
+            foreach (var alias in new[] { "InputChannel", "ProducerStepId", "Channel", "Unit" })
+                Assert.DoesNotContain(vm.MetricSettingRows, row => row.Key == alias);
+            var compiler = new PlanCompiler(); var path = Path.Combine(root, "consumed-input.tapplan");
+            compiler.Save(vm.SelectedProgram!, path);
+            var loadedMetric = Assert.IsType<MetricNode>(compiler.Load(path).Measure[1]).Metric;
+            Assert.Equal(new[] { "VDC" }, Assert.IsType<AlgorithmSource>(loadedMetric.Source).InputChannelKeys);
+            Assert.Equal("mV", loadedMetric.YUnit);
+            Assert.Equal("mV", Assert.IsType<AlgorithmSource>(loadedMetric.Source).Settings["Unit"]);
+            vm.MetricFunctionId = AuthoringFunctionIds.BasicMeanGte;
+            Assert.False(vm.HasMetricInputs);
+            Assert.Empty(Assert.IsType<AlgorithmSource>(vm.SelectedMetric!.Source).InputChannelKeys);
+            Assert.Null(Assert.IsType<AlgorithmSource>(vm.SelectedMetric.Source).InstrumentSlot);
+            Assert.Contains("Choose an existing instrument slot", vm.SelectedStepErrors);
+            vm.Undo(); Assert.True(vm.HasMetricInputs); Assert.Equal("VDC", vm.MetricInputChannels);
+            vm.Redo(); Assert.False(vm.HasMetricInputs); Assert.Empty(Assert.IsType<AlgorithmSource>(vm.SelectedMetric!.Source).InputChannelKeys);
+        }
+        finally { vm.StopRecovery(); }
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("VDC, VDC")]
+    public void Unsupported_channel_average_cardinality_is_visible_and_cannot_compile(string channels)
+    {
+        var root = EmptyWorkspace(); var vm = new AuthoringWorkspaceViewModel(); vm.Open(root);
+        try
+        {
+            vm.CreateProgram("input-count"); vm.ApplyRecipe(AuthoringRecipeIds.Acquire); vm.ApplyRecipe(AuthoringRecipeIds.MeanGte);
+            SelectMetric(vm, "VDC.mean"); vm.MetricFunctionId = AuthoringFunctionIds.BasicChannelAverage;
+            vm.MetricInputChannels = channels;
+            Assert.Contains("exactly one", vm.SelectedStepErrors);
+            Assert.Contains(AuthoringIssueService.GetIssues(vm.SelectedProgram!), issue => issue.Code == "INPUT_CHANNEL_CARDINALITY");
+            var error = Assert.Throws<AuthoringWorkspaceException>(() => new PlanCompiler().Save(vm.SelectedProgram!, Path.Combine(root, "input-count.tapplan")));
+            Assert.Contains("exactly one", error.Message);
+        }
+        finally { vm.StopRecovery(); }
     }
 
     private static SequenceRow SelectMetric(AuthoringWorkspaceViewModel vm, string channelKey)

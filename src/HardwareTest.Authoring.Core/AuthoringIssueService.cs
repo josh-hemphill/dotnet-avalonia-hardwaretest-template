@@ -38,6 +38,9 @@ public static class AuthoringIssueService
         }
         foreach (var metricNode in EnumerateMetricNodes(draft.Measure))
         {
+            if (metricNode.Metric.Source is AlgorithmSource algorithm
+                && AuthoringFunctionCatalog.InputChannelIssue(algorithm.AlgorithmId, algorithm.InputChannelKeys) is { } inputIssue)
+                issues.Add(new("INPUT_CHANNEL_CARDINALITY", inputIssue, draft.PlanId, metricNode.NodeId));
             var required = metricNode.Metric.Source switch
             {
                 MeasureSource m when AuthoringFunctionCatalog.TryGet(m.FunctionId, out var spec) && spec.NeedsInstrument => m.InstrumentSlot,

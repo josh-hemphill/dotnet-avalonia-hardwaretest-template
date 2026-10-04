@@ -232,7 +232,7 @@ public static class AuthoringRecipeCatalog
             null,
             new AlgorithmSource(
                 AuthoringFunctionIds.BasicMeanGte,
-                ["VDC"],
+                [],
                 new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
                 {
                     ["SampleCount"] = "8",

@@ -51,6 +51,12 @@ public static class AuthoringFunctionCatalog
 
     public static IReadOnlyList<AuthoringFunctionSpec> All { get; } = Specs;
 
+    public static bool ConsumesInputChannels(string functionId) => functionId == AuthoringFunctionIds.BasicChannelAverage;
+
+    public static string? InputChannelIssue(string functionId, IReadOnlyList<string> channels)
+        => ConsumesInputChannels(functionId) && (channels.Count != 1 || string.IsNullOrWhiteSpace(channels[0]))
+            ? "Channel Average requires exactly one non-empty input channel." : null;
+
     public static bool HasInstrumentDependency(string functionId) => !TryGet(functionId, out var spec) || spec.NeedsInstrument;
 
     public static bool TryGet(string id, out AuthoringFunctionSpec spec)

@@ -128,14 +128,21 @@ public sealed class AuthoringChromeA11yTests
         var settingLabel = Assert.Single(XDocument.Parse(views["SelectedStepInspectorView"]).Descendants(),
             element => element.Name.LocalName == "TextBlock" && (string?)element.Attribute("Text") == "{Binding Label}");
         Assert.Equal("0", (string?)settingLabel.Attribute("Grid.Row"));
-        Assert.Equal("Auto,Auto", (string?)settingLabel.Parent!.Attribute("RowDefinitions"));
+        Assert.Equal("Auto,Auto,Auto", (string?)settingLabel.Parent!.Attribute("RowDefinitions"));
+        var settingError = Assert.Single(settingLabel.Parent.Elements(), element => (string?)element.Attribute("Grid.Row") == "2");
+        Assert.Equal("{Binding Error}", (string?)settingError.Attribute("Text"));
+        Assert.Equal("Polite", (string?)settingError.Attributes().Single(attribute => attribute.Name.LocalName == "AutomationProperties.LiveSetting").Value);
         Assert.Single(settingLabel.Parent.Elements(), element => (string?)element.Attribute("Grid.Row") == "1");
         Assert.Contains("Text=\"{Binding Summary}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Text=\"{Binding Value, Mode=OneWay}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("IsVisible=\"{Binding IsBoolean}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("IsVisible=\"{Binding IsChoice}\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("IsVisible=\"{Binding IsNumber}\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("Value=\"{Binding RepeatCountValue}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("IsVisible=\"{Binding UsesTextInput}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Text=\"{Binding RepeatCount}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("AutomationProperties.Name=\"Selected step errors\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("AutomationProperties.Name=\"Configure selected step\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("AutomationProperties.Name=\"Operator display selected step\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("AutomationProperties.Name=\"Advanced selected step\"", xaml, StringComparison.Ordinal);
         Assert.Contains("IsChecked=\"{Binding HistoryEnabled}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("OnMetricSettingLostFocus", xaml, StringComparison.Ordinal);
         Assert.Contains("OnMetricSettingBoolChanged", xaml, StringComparison.Ordinal);
@@ -196,6 +203,13 @@ public sealed class AuthoringChromeA11yTests
                 .Select(attribute => attribute.Value).Distinct())
             {
                 Assert.Contains("private void " + handler, viewCode, StringComparison.Ordinal);
+                if (view == "SelectedStepInspectorView" && handler == "OnMetricSettingTextChanged")
+                {
+                    Assert.Contains("row.IsNumber && SettingWindow(sender) is not null", viewCode, StringComparison.Ordinal);
+                    Assert.Contains("row.NodeId == vm.SelectedSequence?.NodeId", viewCode, StringComparison.Ordinal);
+                    Assert.Contains("vm.SetMetricSetting(row.Key, box.Text ?? string.Empty)", viewCode, StringComparison.Ordinal);
+                    continue;
+                }
                 Assert.Contains("?." + handler + "(sender, e)", viewCode, StringComparison.Ordinal);
                 Assert.Contains(handler, code, StringComparison.Ordinal);
             }

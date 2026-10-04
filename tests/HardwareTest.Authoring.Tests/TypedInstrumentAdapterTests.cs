@@ -426,9 +426,11 @@ public sealed class TypedInstrumentAdapterTests : IDisposable
         vm.SelectSequence(vm.SequenceItems.ToList().FindIndex(row => row.NodeId == mean.NodeId));
         Assert.Equal(AuthoringFunctionIds.BasicMeanGte, vm.MetricFunctionId);
         vm.MetricFunctionId = AuthoringFunctionIds.BasicChannelAverage;
+        Assert.Empty(vm.MetricInputChannels);
+        vm.MetricInputChannels = "VDC";
         var switched = vm.SelectedProgram!;
         var source = Assert.IsType<AlgorithmSource>(AuthoringRecipeCatalog.EnumerateMetrics(switched.Measure).Last().Source);
-        Assert.Equal("FIRST", source.InstrumentSlot);
+        Assert.Null(source.InstrumentSlot);
         Assert.Empty(AuthoringDependencyIndex.Build(switched).Nodes.Single(node => node.NodeId == mean.NodeId).InstrumentSlots);
         Assert.Equal(["SECOND"], AuthoringCleanup.ResolveSlots(switched));
         Assert.DoesNotContain(AuthoringInstrumentUsage.DescribeSlotUsage(switched, "FIRST"), usage => usage.Contains("Mean", StringComparison.Ordinal));
