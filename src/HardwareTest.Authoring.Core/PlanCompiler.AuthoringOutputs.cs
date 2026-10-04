@@ -39,7 +39,7 @@ public sealed partial class PlanCompiler
             if (includePresentation) Add(step.Id, OpenTapPresentation.TryReadMixin(step)?.ChannelKey);
             switch (step)
             {
-                case ChannelAverageStep average: Add(step.Id, RuntimeChannel(average.Channel, step.Name)); break;
+                case ChannelAverageStep average: Add(step.Id, RuntimeChannel(OpenTapPresentation.TryReadMixin(step)?.ChannelKey ?? average.Channel, step.Name)); break;
                 case ApplyTransferFunctionStep filter: Add(step.Id, RuntimeChannel(filter.Channel, step.Name)); break;
                 case PublishBandScalarStep scalar: Add(step.Id, scalar.MetricName); break;
                 case MeanGteStep: Add(step.Id, "Mean"); break;

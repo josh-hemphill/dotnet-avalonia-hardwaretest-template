@@ -25,18 +25,18 @@ public sealed class AuthoringSequenceOperationWindowTests
         vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
         var selectedId = vm.SelectedSequence!.NodeId;
         var search = fixture.Control<TextBox>("Search sequence palette");
-        fixture.Type(search, "mean");
-        Assert.Equal("mean", vm.RecipeSearch);
-        Assert.All(vm.Recipes, recipe => Assert.Contains("mean", $"{recipe.ListLabel} {recipe.Summary}".ToLowerInvariant(), StringComparison.Ordinal));
+        fixture.Type(search, "band");
+        Assert.Equal("band", vm.RecipeSearch);
+        Assert.All(vm.Recipes, recipe => Assert.Contains("band", $"{recipe.ListLabel} {recipe.Summary}".ToLowerInvariant(), StringComparison.Ordinal));
         var recipes = fixture.Control<ComboBox>("Recipe");
         recipes.BringIntoView();
         AuthoringUiFixture.Drain();
         Assert.True(recipes.Focus());
-        recipes.SelectedItem = vm.Recipes.Single(recipe => recipe.Id == AuthoringRecipeIds.MeanGte);
+        recipes.SelectedItem = vm.Recipes.Single(recipe => recipe.Id == AuthoringRecipeIds.BandScalar);
         fixture.Control<ComboBox>("Insertion point").SelectedItem = "Before selected";
         AuthoringUiFixture.Drain();
         ClickVisible(fixture, "Add recipe");
-        Assert.Equal("Mean GTE", Assert.IsType<MetricNode>(vm.SelectedProgram!.Measure[0]).Metric.Name);
+        Assert.Equal("Band Scalar", Assert.IsType<MetricNode>(vm.SelectedProgram!.Measure[0]).Metric.Name);
         Assert.Equal(selectedId, vm.SelectedProgram.Measure[1].NodeId);
         Assert.Equal(vm.SelectedProgram.Measure[0].NodeId, vm.SelectedSequence!.NodeId);
         fixture.Type(fixture.Control<TextBox>("Selected step name"), "Selected voltage");
@@ -45,13 +45,29 @@ public sealed class AuthoringSequenceOperationWindowTests
         var beforeDuplicate = AuthoringDocumentSnapshot.Capture(vm.SelectedProgram);
         ClickVisible(fixture, "Duplicate selected step");
         Assert.Equal(3, vm.SelectedProgram.Measure.Count);
-        Assert.Equal("VDC.mean_2", vm.SelectedMetric!.ChannelKey);
+        Assert.Equal("rail.mean_2", vm.SelectedMetric!.ChannelKey);
         ClickVisible(fixture, "Move selected step down");
         Assert.Equal(vm.SelectedSequence!.NodeId, vm.SelectedProgram.Measure[2].NodeId);
         ClickVisible(fixture, "Undo selected program");
         ClickVisible(fixture, "Undo selected program");
         Assert.True(beforeDuplicate.ContentEquals(AuthoringDocumentSnapshot.Capture(vm.SelectedProgram)));
+        Assert.Null(vm.Error);
+        var survivingId = vm.SelectedSequence!.NodeId;
+        Assert.NotNull(survivingId);
+        fixture.Type(search, "mean");
+        recipes.SelectedItem = vm.Recipes.Single(recipe => recipe.Id == AuthoringRecipeIds.MeanGte);
+        AuthoringUiFixture.Drain();
+        ClickVisible(fixture, "Add recipe");
+        var beforeRejectedDuplicate = AuthoringDocumentSnapshot.Capture(vm.SelectedProgram);
+        ClickVisible(fixture, "Duplicate selected step");
+        Assert.Contains("runtime output", vm.Error!, StringComparison.Ordinal);
+        Assert.True(beforeRejectedDuplicate.ContentEquals(AuthoringDocumentSnapshot.Capture(vm.SelectedProgram)));
+        ClickVisible(fixture, "Undo selected program");
+        Assert.True(beforeDuplicate.ContentEquals(AuthoringDocumentSnapshot.Capture(vm.SelectedProgram)));
+        Assert.Equal(survivingId, vm.SelectedSequence?.NodeId);
         var sequence = fixture.Control<ListBox>("Program sequence");
+        Assert.Equal(vm.SelectedSequenceIndex, sequence.SelectedIndex);
+        Assert.NotNull(sequence.SelectedItem);
         Assert.True(sequence.Bounds.Height >= 80);
         sequence.ScrollIntoView(sequence.SelectedItem!);
         AuthoringUiFixture.Drain();
@@ -59,7 +75,7 @@ public sealed class AuthoringSequenceOperationWindowTests
         var row = Assert.IsAssignableFrom<Control>(sequence.ContainerFromIndex(sequence.SelectedIndex));
         ResponsiveShellTests.Inside(row, window);
         Assert.True(row.Focus());
-        Assert.Null(vm.Error);
+        Assert.Contains("runtime output", vm.Error!, StringComparison.Ordinal);
     }
 
     private static void ClickVisible(AuthoringUiFixture fixture, string name)

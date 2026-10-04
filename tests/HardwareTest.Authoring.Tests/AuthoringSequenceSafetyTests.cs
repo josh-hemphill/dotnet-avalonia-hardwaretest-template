@@ -440,6 +440,41 @@ public sealed class AuthoringSequenceSafetyTests
         Assert.True(session.CanRedo);
     }
 
+    [Theory]
+    [InlineData("advertised.mean", false)]
+    [InlineData("Mean", true)]
+    public void Raw_average_bound_presentation_alias_is_the_effective_runtime_output(string alias, bool fixedConflict)
+    {
+        var draft = Program(AuthoringRecipeIds.Acquire, AuthoringRecipeIds.Formula);
+        var acquire = Assert.IsType<MetricNode>(draft.Measure[0]);
+        var template = Assert.IsType<MetricNode>(draft.Measure[1]).Metric;
+        AuthoringPluginSearch.Search();
+        var step = new ChannelAverageStep { Name = "VDC", Channel = " ", InputChannel = "input", Threshold = 1.2 };
+        PresentationAttach.Apply(step, template with { ChannelKey = alias });
+        var raw = Raw(step);
+        draft = draft with { Measure = [acquire with { Metric = acquire.Metric with { ChannelKey = "input" } }, raw] };
+        if (fixedConflict)
+        {
+            var session = WithRedo(draft, acquire.NodeId);
+            var before = session.Snapshot;
+            var error = Assert.Throws<AuthoringWorkspaceException>(() => session.ApplyEdit("mean", current =>
+                AuthoringSequenceOperations.Insert(current, AuthoringRecipeIds.MeanGte, Row(current, raw.NodeId), false)));
+            Assert.Contains("Output 'Mean'", error.Message, StringComparison.Ordinal);
+            Assert.True(before.ContentEquals(session.Snapshot));
+            Assert.True(session.CanRedo);
+        }
+        else
+        {
+            draft = AuthoringSequenceOperations.Insert(draft, AuthoringRecipeIds.Acquire, Row(draft, raw.NodeId), false);
+            Assert.Equal("VDC", Assert.IsType<MetricNode>(draft.Measure[2]).Metric.ChannelKey);
+        }
+        var results = Execute(draft, plan => Assert.Equal(alias,
+            Assert.Single(PlanCompiler.FlattenSteps(plan).OfType<ChannelAverageStep>()).Channel));
+        Assert.Equal(new[] { alias }, results.Scalars);
+        Assert.DoesNotContain("VDC", results.Scalars);
+        if (!fixedConflict) Assert.Contains("VDC", results.Samples);
+    }
+
     private static AuthoringDocumentSession WithRedo(ProgramDraft draft, Guid selected)
     {
         var session = new AuthoringDocumentSession(draft) { SelectedNodeId = selected };
