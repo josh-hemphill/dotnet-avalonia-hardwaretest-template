@@ -94,8 +94,7 @@ public sealed partial class AuthoringWorkspaceViewModel
             remaining.Length == 0
                 ? null
                 : remaining[Math.Min(removedIndex, remaining.Length - 1)]);
-        Findings = [];
-        FindingRows = [];
+        InvalidateContractFindings();
         Status = $"Removed {planId}";
         Error = null;
         RefreshDatasets();

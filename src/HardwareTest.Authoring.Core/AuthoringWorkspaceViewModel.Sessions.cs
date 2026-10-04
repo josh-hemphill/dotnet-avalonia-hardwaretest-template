@@ -67,8 +67,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         RestoreNodeSelection(session.SelectedNodeId);
         RaiseSidecarProperties();
         RecomputeDocumentDirty();
-        Findings = [];
-        FindingRows = [];
+        InvalidateContractFindings();
     }
 
     private void RestoreNodeSelection(Guid? nodeId)
@@ -85,6 +84,9 @@ public sealed partial class AuthoringWorkspaceViewModel
 
     private void InitializeDocuments(IReadOnlyList<ProgramDraft> drafts)
     {
+        _importedPlanHashes.Clear();
+        foreach (var path in Workspace!.TapPlanPaths)
+            _importedPlanHashes[Path.GetFileNameWithoutExtension(path)] = AuthoringDocumentStore.ComputeHash(path);
         _documents.Clear();
         _workspaceHistory.Clear();
         foreach (var draft in drafts)
@@ -112,8 +114,12 @@ public sealed partial class AuthoringWorkspaceViewModel
 
     private void InvalidateContractFindings()
     {
+        _findingRevision++;
+        _lastFindingCheckStale = true;
+        OnPropertyChanged(nameof(IssuesCheckState));
         Findings = [];
-        FindingRows = [];
+        FindingRows = FindingRows.Select(row => row with { IsStale = true }).ToArray();
+        OnPropertyChanged(nameof(IssuesSummary));
     }
 
     private void RecomputeDocumentDirty()
@@ -123,6 +129,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         RefreshDirtyState();
         RaiseHistoryProperties();
         OnPropertyChanged(nameof(EditingIssues));
+        OnPropertyChanged(nameof(IssuesSummary));
         ScheduleRecovery();
     }
 

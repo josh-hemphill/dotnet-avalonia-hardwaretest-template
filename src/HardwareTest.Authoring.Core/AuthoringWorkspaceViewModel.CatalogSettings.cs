@@ -366,8 +366,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         Workspace = Workspace with { Manifest = manifest };
         WorkspaceCatalogDirty = true;
         WorkspaceCatalogSaveFailure = null;
-        Findings = [];
-        FindingRows = [];
+        InvalidateContractFindings();
         RefreshDirtyState();
         RaiseHardwareProperties();
         OnPropertyChanged(nameof(ReportKindOptions));

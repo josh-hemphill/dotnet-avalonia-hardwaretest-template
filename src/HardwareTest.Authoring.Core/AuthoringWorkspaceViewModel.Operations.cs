@@ -47,6 +47,8 @@ public sealed partial class AuthoringWorkspaceViewModel
     private void ReplaceOperationWorkspace()
     {
         _workspaceSession = Guid.NewGuid();
+        _lastFindingCheck = null;
+        OnPropertyChanged(nameof(IssuesCheckState));
         _operationGeneration++;
         _operations?.ReplaceWorkspace();
         OperationStage = null;
@@ -67,6 +69,7 @@ public sealed partial class AuthoringWorkspaceViewModel
                 throw new AuthoringWorkspaceException("Compile saved drafts and reconcile external edits before validating compiled plans.");
         }
         var generation = _operationGeneration;
+        var checkedState = kind == AuthoringOperationKind.Validate ? CaptureFindingCheck() : null;
         OperationBusy = true;
         Error = null;
         try
@@ -81,12 +84,10 @@ public sealed partial class AuthoringWorkspaceViewModel
                 if (_operationGeneration != generation) return;
                 if (result.Validation is { } report)
                 {
-                    Findings = report.Plans.SelectMany(p => p.Findings).ToArray();
-                    FindingRows = report.Plans.SelectMany(plan => plan.Findings.Select(finding => new AuthoringFindingRow(
-                        Path.GetFileNameWithoutExtension(plan.TargetPath), plan.TargetPath, finding,
-                        Programs.Any(program => string.Equals(program.PlanId, Path.GetFileNameWithoutExtension(plan.TargetPath), StringComparison.OrdinalIgnoreCase))))).ToArray();
-                    Status = report.HasErrors ? $"{report.ErrorCount} contract error(s)" : $"{report.WarningCount} contract warning(s)";
-                    Error = report.HasErrors ? Status : null;
+                    AcceptFindings(report, checkedState!);
+                    Status = _lastFindingCheckStale ? "Validation completed for an earlier revision; validate again."
+                        : report.HasErrors ? $"{report.ErrorCount} contract error(s)" : $"{report.WarningCount} contract warning(s)";
+                    Error = !_lastFindingCheckStale && report.HasErrors ? Status : null;
                 }
                 else if (result.Build is { } build)
                 {

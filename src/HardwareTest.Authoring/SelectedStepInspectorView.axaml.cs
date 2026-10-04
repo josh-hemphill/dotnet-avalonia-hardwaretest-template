@@ -8,6 +8,30 @@ public partial class SelectedStepInspectorView : UserControl
 {
     public SelectedStepInspectorView() => InitializeComponent();
 
+    public bool FocusFinding(HardwareTest.OpenTap.Host.PlanContractTarget target)
+    {
+        if (DataContext is not AuthoringWorkspaceViewModel vm || vm.SelectedProgram?.PlanId != target.ProgramId
+            || vm.SelectedSequence?.NodeId != target.NodeId) return false;
+        if (target.Section == "Advanced") AdvancedExpander.IsExpanded = true;
+        else ConfigureExpander.IsExpanded = true;
+        if (target.Field == "Threshold" && vm.ShowThreshold)
+        {
+            ThresholdBox.BringIntoView();
+            return ThresholdBox.Focus();
+        }
+        if (target.Field == "LimitLow" && vm.ShowBandLimits)
+        {
+            LimitLowBox.BringIntoView();
+            return LimitLowBox.Focus();
+        }
+        if (target.Field == "ChannelKey" && vm.HasMetricPresentation)
+        {
+            ChannelKeyBox.BringIntoView();
+            return ChannelKeyBox.Focus();
+        }
+        return false;
+    }
+
     private void OnToggleCleanupSlot(object? sender, RoutedEventArgs e)
         => (TopLevel.GetTopLevel(this) as MainWindow)?.OnToggleCleanupSlot(sender, e);
 

@@ -73,8 +73,8 @@
         </ItemsControl.Styles>
       </ItemsControl>
     </ScrollViewer>
-    <TextBlock DockPanel.Dock="Top" Margin="12,0,12,8" Text="{Binding ValidationScope}"
-        IsVisible="{Binding HasWorkspace}" TextWrapping="Wrap"/>
+    <TextBlock DockPanel.Dock="Top" Margin="12,0,12,8" Text="{Binding ValidationScope}" AutomationProperties.Name="Validation scope"
+        AutomationProperties.LiveSetting="Polite" IsVisible="{Binding HasWorkspace}" TextWrapping="Wrap"/>
     <ScrollViewer DockPanel.Dock="Bottom" Margin="12,0,12,12" MaxHeight="32" HorizontalScrollBarVisibility="Disabled"
         VerticalScrollBarVisibility="Auto"
         IsVisible="{Binding Error, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"

@@ -170,6 +170,7 @@ public sealed partial class AuthoringWorkspaceViewModel
             new AuthoringDocumentStore(Workspace!.Root).Save(_sourceDocuments[planId]);
             _uncompiledDocuments.Add(planId);
         }
+        InvalidateContractFindings();
         _compiledConflicts.Remove(planId);
         RaiseDraftState();
     }

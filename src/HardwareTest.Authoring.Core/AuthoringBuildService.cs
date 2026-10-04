@@ -210,11 +210,17 @@ public static partial class AuthoringBuildService
         }
     }
 
-    private static IReadOnlyList<AuthoringCompileMapEntry> CompileMap(ProgramDraft draft, string path)
+    internal static IReadOnlyList<AuthoringCompileMapEntry> CompileMap(ProgramDraft draft, string path)
+    {
+        using var stream = File.OpenRead(path);
+        return CompileMap(draft, stream);
+    }
+
+    internal static IReadOnlyList<AuthoringCompileMapEntry> CompileMap(ProgramDraft draft, Stream stream)
     {
         var supported = draft.Setup.Select(s => s.NodeId).Concat(Nodes(draft.Measure)).ToHashSet();
         var opaque = RawNodes(draft.Measure).ToHashSet();
-        return Array.AsReadOnly(XDocument.Load(path).Descendants().Where(e => e.Name.LocalName == "TestStep")
+        return Array.AsReadOnly(XDocument.Load(stream).Descendants().Where(e => e.Name.LocalName == "TestStep")
             .Select(e => Guid.TryParse((string?)e.Attribute("Id"), out var id) ? id : Guid.Empty)
             .Where(id => id != Guid.Empty).Select(id => new AuthoringCompileMapEntry(id,
                 supported.Contains(id) && !opaque.Contains(id) ? id : null, opaque.Contains(id) ? "opaque" : supported.Contains(id) ? "authoring" : "generated")).ToArray());
