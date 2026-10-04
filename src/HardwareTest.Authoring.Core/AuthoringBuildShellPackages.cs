@@ -61,7 +61,7 @@ public static partial class AuthoringBuildService
     }
 
     private static void ResolveShellPackages(BuildInputTree source, IReadOnlyList<BuildInputTree> ancestors,
-        IEnumerable<string> projects, string packagesRoot, HashSet<string> packages, Dictionary<string, string> payloads, bool offline)
+        IEnumerable<string> projects, string packagesRoot, HashSet<string> packages, Dictionary<string, string> payloads, bool offline, IReadOnlyDictionary<string, string?>? environment)
     {
         var temporary = Path.Combine(Path.GetTempPath(), "authoring-shell-restore-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(temporary);
@@ -83,11 +83,9 @@ public static partial class AuthoringBuildService
                 var staged = Path.Combine(temporary, Path.GetRelativePath(source.Root, project));
                 // Only restore targets execute here, against saved source bytes in a disposable tree.
                 // Publication subsequently uses the exact package payloads captured below offline.
-                var arguments = new List<string> { "restore", staged, "--nologo",
-                    "-p:RestorePackagesPath=" + packagesRoot, "-p:RestorePackagesWithLockFile=true", "-p:Configuration=Release",
-                    "-p:NuGetAudit=false", "-p:SourceRevisionId=local", "-p:SourceRevisionDate=1970-01-01T00:00:00Z" };
-                if (offline) arguments.Add("-p:RestoreConfigFile=" + config);
-                RunShellDotNet(Path.GetDirectoryName(staged)!, arguments);
+                var profile = ShellWriteProfile(packagesRoot, offline ? config : null, createLock: true);
+                ValidateShellWriteProfile(staged, temporary, profile, environment);
+                RunShellDotNet(Path.GetDirectoryName(staged)!, ShellOperationArguments(staged, profile, "Restore"), environment);
                 ReadShellAssets(Path.Combine(Path.GetDirectoryName(staged)!, "obj", "project.assets.json"), packages, payloads);
             }
         }

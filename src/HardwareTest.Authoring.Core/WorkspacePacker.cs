@@ -295,38 +295,40 @@ public static partial class WorkspacePacker
             var id = Path.GetFileNameWithoutExtension(csproj);
             var dest = Path.Combine(outputDirectory, "shell-apps", id);
             Directory.CreateDirectory(dest);
-            var psi = new ProcessStartInfo
+            var profile = AuthoringBuildService.ShellWriteProfile(
+                Path.GetFullPath(Path.Combine(workspace.Root, "..", "shell-packages")),
+                Path.GetFullPath(Path.Combine(workspace.Root, "..", "shell", "authoring-build-nuget.config")), publishDirectory: dest);
+            foreach (var target in new[] { "Restore", "Publish" })
             {
-                FileName = options.DotNetExecutable ?? "dotnet",
-                Arguments = $"publish -c Release \"{csproj}\" -o \"{dest}\" --nologo -p:NuGetAudit=false -p:SourceRevisionId=local -p:SourceRevisionDate=1970-01-01T00:00:00Z -p:RestorePackagesPath=\"{Path.Combine(workspace.Root, "..", "shell-packages")}\" -p:RestoreConfigFile=\"{Path.Combine(workspace.Root, "..", "shell", "authoring-build-nuget.config")}\"",
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                WorkingDirectory = Path.GetDirectoryName(csproj)!,
-                UseShellExecute = false,
-                CreateNoWindow = true,
-            };
-            FreezeProcessEnvironment(psi, options);
-            psi.Environment["DOTNET_CLI_TELEMETRY_OPTOUT"] = "1";
-            psi.Environment["NUGET_PACKAGES"] = Path.GetFullPath(Path.Combine(workspace.Root, "..", "shell-packages"));
-            psi.Environment.Remove("NUGET_FALLBACK_PACKAGES");
-            using var process = Process.Start(psi)
-                ?? throw new AuthoringWorkspaceException(
-                    $"{AuthoringPackCodes.ShellAppFailed}: failed to start dotnet publish for '{id}'.");
-            var stdoutTask = process.StandardOutput.ReadToEndAsync();
-            var stderrTask = process.StandardError.ReadToEndAsync();
-            if (!WaitForProcess(process, 180_000, options.CancellationToken))
-            {
-                TryKill(process);
-                throw new AuthoringWorkspaceException(
-                    $"{AuthoringPackCodes.ShellAppFailed}: dotnet publish '{id}' timed out.");
-            }
-
-            var stdout = stdoutTask.GetAwaiter().GetResult();
-            var stderr = stderrTask.GetAwaiter().GetResult();
-            if (process.ExitCode != 0)
-            {
-                throw new AuthoringWorkspaceException(
-                    $"{AuthoringPackCodes.ShellAppFailed}: dotnet publish '{id}' failed. {stderr} {stdout}");
+                var psi = new ProcessStartInfo
+                {
+                    FileName = options.DotNetExecutable ?? "dotnet",
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    WorkingDirectory = Path.GetDirectoryName(csproj)!,
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                };
+                foreach (var argument in AuthoringBuildService.ShellOperationArguments(csproj, profile, target)) psi.ArgumentList.Add(argument);
+                FreezeProcessEnvironment(psi, options);
+                psi.Environment["DOTNET_CLI_TELEMETRY_OPTOUT"] = "1";
+                psi.Environment["NUGET_PACKAGES"] = profile["RestorePackagesPath"];
+                psi.Environment.Remove("NUGET_FALLBACK_PACKAGES");
+                AuthoringBuildService.ValidateShellWriteProfile(csproj, Path.GetFullPath(Path.Combine(workspace.Root, "..", "shell")),
+                    profile, psi.Environment.ToDictionary(p => p.Key, p => p.Value, StringComparer.Ordinal));
+                options.CancellationToken.ThrowIfCancellationRequested();
+                using var process = Process.Start(psi)
+                    ?? throw new AuthoringWorkspaceException($"{AuthoringPackCodes.ShellAppFailed}: failed to start SDK {target} for '{id}'.");
+                var stdoutTask = process.StandardOutput.ReadToEndAsync();
+                var stderrTask = process.StandardError.ReadToEndAsync();
+                if (!WaitForProcess(process, 180_000, options.CancellationToken))
+                {
+                    TryKill(process);
+                    throw new AuthoringWorkspaceException($"{AuthoringPackCodes.ShellAppFailed}: SDK {target} '{id}' timed out.");
+                }
+                var stdout = stdoutTask.GetAwaiter().GetResult(); var stderr = stderrTask.GetAwaiter().GetResult();
+                if (process.ExitCode != 0)
+                    throw new AuthoringWorkspaceException($"{AuthoringPackCodes.ShellAppFailed}: SDK {target} '{id}' failed. {stderr} {stdout}");
             }
 
             entries.Add(ShellAppDirectoryEntry(id));

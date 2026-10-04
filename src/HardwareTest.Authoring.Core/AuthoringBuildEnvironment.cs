@@ -41,7 +41,8 @@ public static partial class AuthoringBuildService
         "TargetDeployManifestFileName", "WinMDExpOutputPdb", "StoreArtifactXml", "SourceLink", "SourceLinkFile",
         "RazorCompilationErrorLog", "RazorComponentErrorLog", "RazorTargetAssemblyInfo",
         "StaticWebAssetReferencesUpToDateCheckManifestPath", "StaticWebAssetUpToDateCheckManifestPath",
-        "StaticWebAssetUpToDateCheckRemovedManifestPath"
+        "StaticWebAssetUpToDateCheckRemovedManifestPath", "RefAssembliesFolderName", "RuntimeStorePath",
+        "UserProfileRuntimeStorePath", "IntermediateRefAssemblyPath"
     };
     private static readonly HashSet<string> ContainedSdkEnvironmentProperties = new(StringComparer.OrdinalIgnoreCase)
     {

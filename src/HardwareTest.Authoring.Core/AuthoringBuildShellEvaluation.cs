@@ -10,12 +10,12 @@ public static partial class AuthoringBuildService
     private sealed record ShellEvaluation(string[] References, string[] Imports, string[] Inputs,
         string ExtensionsPath, bool HasPackages);
 
-    private static ShellEvaluation EvaluateShell(string project, string sdkRoot, IReadOnlyCollection<string> packageFolders)
+    private static ShellEvaluation EvaluateShell(string project, string sdkRoot, IReadOnlyCollection<string> packageFolders, IReadOnlyDictionary<string, string?>? environment)
     {
         ValidateShellEvaluationFiles(project);
         var json = RunShellDotNet(Path.GetDirectoryName(project)!, ["msbuild", project, "-nologo", "-p:Configuration=Release",
             "-getProperty:MSBuildProjectExtensionsPath,DirectoryBuildPropsPath,DirectoryBuildTargetsPath,DirectoryPackagesPropsPath," + string.Join(',', ShellOutputIdentityProperties),
-            "-getItem:ProjectReference,PackageReference,Compile,None,Content,EmbeddedResource,AdditionalFiles,Analyzer,AnalyzerConfigFiles,EditorConfigFiles,Resource,AvaloniaResource,Reference"]);
+            "-getItem:ProjectReference,PackageReference,Compile,None,Content,EmbeddedResource,AdditionalFiles,Analyzer,AnalyzerConfigFiles,EditorConfigFiles,Resource,AvaloniaResource,Reference"], environment);
         using var document = JsonDocument.Parse(json);
         var items = document.RootElement.GetProperty("Items");
         string[] Paths(string item)
@@ -51,7 +51,7 @@ public static partial class AuthoringBuildService
         var temporary = Path.Combine(Path.GetTempPath(), "authoring-shell-evaluation-" + Guid.NewGuid().ToString("N") + ".xml");
         try
         {
-            RunShellDotNet(Path.GetDirectoryName(project)!, ["msbuild", project, "-nologo", "-p:Configuration=Release", "-preprocess:" + temporary]);
+            RunShellDotNet(Path.GetDirectoryName(project)!, ["msbuild", project, "-nologo", "-p:Configuration=Release", "-preprocess:" + temporary], environment);
             foreach (var line in File.ReadLines(temporary))
             {
                 var path = line.Trim();
@@ -90,9 +90,11 @@ public static partial class AuthoringBuildService
             properties.GetProperty("MSBuildProjectExtensionsPath").GetString()!, items.GetProperty("PackageReference").GetArrayLength() > 0);
     }
 
-    private static string RunShellDotNet(string directory, IEnumerable<string> arguments)
+    private static string RunShellDotNet(string directory, IEnumerable<string> arguments, IReadOnlyDictionary<string, string?>? environment = null)
     {
-        var info = new ProcessStartInfo(ResolveDotNetExecutable())
+        var executable = environment is not null && environment.TryGetValue("DOTNET_ROOT", out var root) && !string.IsNullOrWhiteSpace(root)
+            ? Path.Combine(root, OperatingSystem.IsWindows() ? "dotnet.exe" : "dotnet") : ResolveDotNetExecutable();
+        var info = new ProcessStartInfo(executable)
         {
             WorkingDirectory = directory,
             RedirectStandardOutput = true,
@@ -101,6 +103,12 @@ public static partial class AuthoringBuildService
             CreateNoWindow = true,
         };
         foreach (var argument in arguments) info.ArgumentList.Add(argument);
+        if (environment is not null)
+        {
+            info.Environment.Clear();
+            foreach (var entry in environment)
+                if (entry.Value is not null) info.Environment[entry.Key] = entry.Value;
+        }
         info.Environment["DOTNET_CLI_TELEMETRY_OPTOUT"] = "1";
         using var process = Process.Start(info) ?? throw new AuthoringWorkspaceException("BUILD_SHELL_INPUTS: Could not start SDK evaluation.");
         var stdout = process.StandardOutput.ReadToEndAsync();
@@ -173,6 +181,10 @@ public static partial class AuthoringBuildService
             if (ShellOutputIdentityProperties.Contains(element.Name.LocalName)
                 && !element.Value.Contains("$(", StringComparison.Ordinal) && !SafeAssemblyOutputName(element.Value))
                 Unsupported(path, $"{element.Name.LocalName} must be a plain SDK identity without path components");
+            if (element.Name.LocalName is "Link" or "DestinationSubDirectory" or "RelativePath"
+                && (Path.IsPathRooted(element.Value) || element.Value.Replace('\\', '/').Split('/').Contains("..", StringComparer.Ordinal)
+                    || element.Value.Contains("$(", StringComparison.Ordinal) || element.Value.Contains("@(", StringComparison.Ordinal)))
+                Unsupported(path, "copy-output metadata must use contained literal relative paths");
             if (element.Name.LocalName == "Sdk" || (element != xml.Root && element.Attribute("Sdk") is not null))
                 Unsupported(path, "additional SDK imports are unsupported");
             if (element.Name.LocalName == "TargetFrameworks") Unsupported(path, "multi-targeted shell graphs require framework-specific evaluation");
@@ -182,6 +194,11 @@ public static partial class AuthoringBuildService
                 if (reference.Contains("$(", StringComparison.Ordinal) || reference.Contains("@(", StringComparison.Ordinal)
                     || reference.Contains('*') || reference.Contains(';'))
                     Unsupported(path, "project references must use literal relative paths");
+                if (element.Descendants().Any(e => e.Name.LocalName is "AdditionalProperties" or "GlobalPropertiesToRemove"
+                    or "SetConfiguration" or "SetPlatform" or "SetTargetFramework" or "Targets" or "Properties")
+                    || element.Attributes().Any(a => a.Name.LocalName is "AdditionalProperties" or "GlobalPropertiesToRemove"
+                    or "SetConfiguration" or "SetPlatform" or "SetTargetFramework" or "Targets" or "Properties"))
+                    Unsupported(path, "project-reference write-profile overrides are unsupported");
             }
             if (element.Name.LocalName == "HintPath"
                 && (Path.IsPathRooted(element.Value) || element.Value.Contains("$(", StringComparison.Ordinal)))
@@ -197,6 +214,10 @@ public static partial class AuthoringBuildService
                 foreach (var child in element.Elements())
                     if (child.Name.LocalName is not ("PropertyGroup" or "ItemGroup" or "Exec"))
                         Unsupported(path, "custom revision target task is unsupported");
+                foreach (var property in element.Descendants().Where(e => e.Parent?.Name.LocalName == "PropertyGroup"))
+                    if (property.Name.LocalName is not ("SourceRevisionId" or "SourceRevisionDate" or "InformationalVersion"
+                        or "_GitCommitDate" or "_GitCommitDateLooksIso"))
+                        Unsupported(path, "revision targets cannot change SDK output identities or paths");
                 foreach (var task in element.Descendants().Where(e => e.Name.LocalName == "Exec"))
                 {
                     var command = (string?)task.Attribute("Command");

@@ -52,13 +52,13 @@ public static partial class AuthoringBuildService
         }
         if (saved.Manifest.ShellAppProjects.Count != 0)
         {
-            trees.AddRange(CaptureShellInputs(saved, options.Offline));
-            var sdkRoot = Environment.GetEnvironmentVariable("DOTNET_ROOT");
+            trees.AddRange(CaptureShellInputs(saved, options.Offline, environment));
+            var sdkRoot = environment.GetValueOrDefault("DOTNET_ROOT");
             if (string.IsNullOrWhiteSpace(sdkRoot) || !File.Exists(Path.Combine(sdkRoot, OperatingSystem.IsWindows() ? "dotnet.exe" : "dotnet")))
                 throw new AuthoringWorkspaceException("BUILD_SHELL_INPUTS: Set DOTNET_ROOT to the SDK home so its identity can be captured.");
             trees.Add(CaptureTree(sdkRoot, "sdk-identity", true, null, materialize: false));
         }
-        var executable = ResolveDotNetExecutable();
+        var executable = ResolveDotNetExecutable(environment);
         trees.Add(CaptureTree(Path.GetDirectoryName(executable)!, "dotnet-host", false,
             p => Path.GetFullPath(p) == executable, materialize: false));
         var shared = Path.Combine(Path.GetDirectoryName(executable)!, "shared");
@@ -143,12 +143,12 @@ public static partial class AuthoringBuildService
                 throw new AuthoringWorkspaceException($"BUILD_INPUT_CHANGED: Saved input or dependency changed: '{tree.Root}'. Capture a new build.");
         }
     }
-    private static string ResolveDotNetExecutable()
+    private static string ResolveDotNetExecutable(IReadOnlyDictionary<string, string?>? environment = null)
     {
-        var root = Environment.GetEnvironmentVariable("DOTNET_ROOT");
+        var root = environment is null ? Environment.GetEnvironmentVariable("DOTNET_ROOT") : environment.GetValueOrDefault("DOTNET_ROOT");
         var name = OperatingSystem.IsWindows() ? "dotnet.exe" : "dotnet";
         if (!string.IsNullOrWhiteSpace(root) && File.Exists(Path.Combine(root, name))) return ResolvedPath(Path.Combine(root, name), directory: false);
-        foreach (var directory in (Environment.GetEnvironmentVariable("PATH") ?? "").Split(Path.PathSeparator))
+        foreach (var directory in ((environment is null ? Environment.GetEnvironmentVariable("PATH") : environment.GetValueOrDefault("PATH")) ?? "").Split(Path.PathSeparator))
             if (directory.Length > 0 && File.Exists(Path.Combine(directory, name))) return ResolvedPath(Path.Combine(directory, name), directory: false);
         throw new AuthoringWorkspaceException("BUILD_PREREQUISITE: dotnet executable was not found.");
     }

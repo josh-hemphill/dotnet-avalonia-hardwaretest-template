@@ -12,14 +12,15 @@ public static partial class AuthoringBuildService
         ["Directory.Build.props", "Directory.Build.targets", "Directory.Packages.props", "NuGet.Config", "nuget.config", "global.json", ".editorconfig", ".globalconfig"];
 
     // Evaluation never executes a target or writes into the original project directories.
-    private static IReadOnlyList<BuildInputTree> CaptureShellInputs(AuthoringWorkspace workspace, bool offline = false)
+    private static IReadOnlyList<BuildInputTree> CaptureShellInputs(AuthoringWorkspace workspace, bool offline = false, IReadOnlyDictionary<string, string?>? environment = null)
     {
         if (workspace.Manifest.ShellAppProjects.Count == 0) return [];
-        var sdkRoot = Environment.GetEnvironmentVariable("DOTNET_ROOT");
+        var sdkRoot = environment is null ? Environment.GetEnvironmentVariable("DOTNET_ROOT") : environment.GetValueOrDefault("DOTNET_ROOT");
         if (string.IsNullOrWhiteSpace(sdkRoot)) Unsupported(workspace.Root, "DOTNET_ROOT must identify the captured SDK");
-        var packagesRoot = Environment.GetEnvironmentVariable("NUGET_PACKAGES");
+        var packagesRoot = environment is null ? Environment.GetEnvironmentVariable("NUGET_PACKAGES") : environment.GetValueOrDefault("NUGET_PACKAGES");
         if (string.IsNullOrWhiteSpace(packagesRoot))
-            packagesRoot = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".nuget", "packages");
+            packagesRoot = Path.Combine(environment?.GetValueOrDefault(OperatingSystem.IsWindows() ? "USERPROFILE" : "HOME")
+                ?? Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".nuget", "packages");
         packagesRoot = Path.GetFullPath(packagesRoot!);
         var packageFolders = new HashSet<string>(StringComparer.Ordinal) { packagesRoot };
         var packagePayloads = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -36,7 +37,7 @@ public static partial class AuthoringBuildService
                 foreach (var folder in assets.RootElement.GetProperty("packageFolders").EnumerateObject())
                     packageFolders.Add(Path.GetFullPath(folder.Name));
             }
-            var evaluation = EvaluateShell(project, sdkRoot!, packageFolders);
+            var evaluation = EvaluateShell(project, sdkRoot!, packageFolders, environment);
             projects.Add(project, evaluation);
             foreach (var reference in evaluation.References) pending.Enqueue(reference);
             foreach (var import in evaluation.Imports) imports.Add(import);
@@ -79,7 +80,7 @@ public static partial class AuthoringBuildService
         }
         // Lock files omit SDK-inferred runtime/host downloads. Resolve every saved graph with
         // the same Release properties used by publish before freezing its complete payload closure.
-        ResolveShellPackages(source, ancestors, projects.Keys, packagesRoot, packageIds, packagePayloads, offline);
+        ResolveShellPackages(source, ancestors, projects.Keys, packagesRoot, packageIds, packagePayloads, offline, environment);
         foreach (var id in packageIds.Order(StringComparer.Ordinal))
         {
             var package = packagePayloads.GetValueOrDefault(id) ?? Path.Combine(packagesRoot, id);
