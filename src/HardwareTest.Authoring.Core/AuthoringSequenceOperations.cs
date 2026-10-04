@@ -14,18 +14,24 @@ public static class AuthoringSequenceOperations
 
     internal static MetricDraft WithOutputChannel(MetricDraft metric, string channel)
     {
-        IReadOnlyDictionary<string, string> Settings(IReadOnlyDictionary<string, string> settings)
-            => settings.ToDictionary(pair => pair.Key, pair =>
+        IReadOnlyDictionary<string, string> Settings(IReadOnlyDictionary<string, string> settings, string function)
+        {
+            var output = settings.ToDictionary(pair => pair.Key, pair =>
                 (pair.Key.Equals("Channel", StringComparison.OrdinalIgnoreCase) || pair.Key.Equals("MetricName", StringComparison.OrdinalIgnoreCase))
                 ? channel : pair.Value,
                 settings is Dictionary<string, string> dictionary ? dictionary.Comparer : StringComparer.Ordinal);
+            if (function == AuthoringFunctionIds.BasicPublishBandScalar &&
+                !output.Keys.Any(key => key.Equals("MetricName", StringComparison.OrdinalIgnoreCase)))
+                output.Add("MetricName", channel);
+            return output;
+        }
         return metric with
         {
             ChannelKey = channel,
             Source = metric.Source switch
             {
-                MeasureSource measure => measure with { Settings = Settings(measure.Settings) },
-                AlgorithmSource algorithm => algorithm with { Settings = Settings(algorithm.Settings) },
+                MeasureSource measure => measure with { Settings = Settings(measure.Settings, measure.FunctionId) },
+                AlgorithmSource algorithm => algorithm with { Settings = Settings(algorithm.Settings, algorithm.AlgorithmId) },
                 _ => metric.Source
             }
         };

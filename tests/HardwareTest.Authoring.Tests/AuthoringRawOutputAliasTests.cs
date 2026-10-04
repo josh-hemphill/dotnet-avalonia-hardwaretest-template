@@ -77,6 +77,147 @@ public sealed class AuthoringRawOutputAliasTests
         finally { Directory.Delete(directory, true); }
     }
 
+    [Theory]
+    [InlineData("palette", false, "lower")]
+    [InlineData("legacy", true, "lower")]
+    [InlineData("duplicate", false, "duplicate")]
+    [InlineData("duplicate", true, "duplicate")]
+    [InlineData("duplicate", false, "default")]
+    [InlineData("duplicate", true, "default")]
+    public void Typed_scalar_effective_alias_is_reserved_and_executes(string operation, bool measureSource, string casing)
+    {
+        var directory = TemporaryDirectory();
+        try
+        {
+            var alias = casing == "default" ? "metric" : operation == "duplicate" ? "VDC_2" : "VDC";
+            var settings = new Dictionary<string, string>(StringComparer.Ordinal) { ["Value"] = "1.25" };
+            if (casing == "duplicate") settings.Add("MetricName", "earlier.alias");
+            if (casing != "default") settings.Add("metricname", alias);
+            var scalar = Assert.IsType<MetricNode>(AuthoringRecipeCatalog.Apply(Program(), AuthoringRecipeIds.BandScalar).Measure[0]);
+            scalar = scalar with
+            {
+                Metric = scalar.Metric with
+                {
+                    ChannelKey = "advertised.scalar",
+                    Source = measureSource
+                    ? new MeasureSource("", AuthoringFunctionIds.BasicPublishBandScalar, settings)
+                    : new AlgorithmSource(AuthoringFunctionIds.BasicPublishBandScalar, [], settings)
+                }
+            };
+            var draft = Program() with { Measure = [scalar] };
+            if (operation == "duplicate")
+            {
+                var acquire = Assert.IsType<MetricNode>(AuthoringRecipeCatalog.Apply(Program(), AuthoringRecipeIds.Acquire).Measure[0]);
+                if (casing == "default") acquire = acquire with { Metric = acquire.Metric with { ChannelKey = "metric" } };
+                draft = draft with { Measure = [acquire, scalar] };
+                draft = AuthoringSequenceOperations.Duplicate(draft, Row(draft, acquire.NodeId));
+            }
+            else draft = operation == "palette"
+                ? AuthoringSequenceOperations.Insert(draft, AuthoringRecipeIds.Acquire, Row(draft, scalar.NodeId), false)
+                : AuthoringRecipeCatalog.Apply(draft, AuthoringRecipeIds.Acquire);
+            var expected = casing == "default" ? "metric_2" : operation == "duplicate" ? "VDC_3" : "VDC_2";
+            var path = Path.Combine(directory, "aliases.TapPlan");
+            new PlanCompiler().Save(draft, path);
+            var plan = TestPlan.Load(path);
+            Assert.Equal(alias, Assert.Single(PlanCompiler.FlattenSteps(plan).OfType<PublishBandScalarStep>()).MetricName);
+            Assert.Contains(PlanCompiler.FlattenSteps(plan).OfType<AcquireVoltageStep>(), step => step.Channel == expected);
+            var results = new OutputListener();
+            Assert.Equal(Verdict.Pass, plan.Execute([results], []).Verdict);
+            Assert.Contains(alias, results.ScalarNames);
+            Assert.Contains(expected, results.SampleChannels);
+        }
+        finally { Directory.Delete(directory, true); }
+    }
+
+    [Fact]
+    public void Duplicated_default_scalar_normalizes_only_cloned_output_setting()
+    {
+        var directory = TemporaryDirectory();
+        try
+        {
+            var scalar = Assert.IsType<MetricNode>(AuthoringRecipeCatalog.Apply(Program(), AuthoringRecipeIds.BandScalar).Measure[0]);
+            var source = Assert.IsType<AlgorithmSource>(scalar.Metric.Source) with
+            { Settings = new Dictionary<string, string> { ["Value"] = "1.25", ["Unit"] = "V" } };
+            scalar = scalar with { Metric = scalar.Metric with { Source = source, ChannelKey = "metric" } };
+            var draft = Program() with { Measure = [scalar] };
+            draft = AuthoringSequenceOperations.Duplicate(draft, Row(draft, scalar.NodeId));
+            Assert.Same(source, Assert.IsType<MetricNode>(draft.Measure[0]).Metric.Source);
+            var path = Path.Combine(directory, "aliases.TapPlan");
+            new PlanCompiler().Save(draft, path);
+            var plan = TestPlan.Load(path);
+            Assert.Equal(new[] { "metric", "metric_2" }, PlanCompiler.FlattenSteps(plan).OfType<PublishBandScalarStep>().Select(step => step.MetricName));
+            var results = new OutputListener();
+            Assert.Equal(Verdict.Pass, plan.Execute([results], []).Verdict);
+            Assert.Equal(new[] { "metric", "metric_2" }, results.ScalarNames);
+        }
+        finally { Directory.Delete(directory, true); }
+    }
+
+    [Theory]
+    [InlineData(AuthoringFunctionIds.BasicMeanGte, "Mean", false)]
+    [InlineData(AuthoringFunctionIds.BasicReportStationHealth, "StationOffset", true)]
+    [InlineData(AuthoringFunctionIds.BasicPublishSeriesCompliance, "series.inband.pct", false)]
+    [InlineData(AuthoringFunctionIds.BasicBitSweepAcquire, "series.excursion.max", true)]
+    public void Typed_fixed_publishers_reserve_aliases_without_validating_incomplete_settings(string function, string alias, bool measureSource)
+    {
+        if (function == AuthoringFunctionIds.BasicReportStationHealth) alias = ReportStationHealthStep.OffsetMetric;
+        var template = Assert.IsType<MetricNode>(AuthoringRecipeCatalog.Apply(Program(), AuthoringRecipeIds.BandScalar).Measure[0]);
+        var settings = new Dictionary<string, string> { ["SampleCount"] = "unfinished" };
+        var publisher = template with
+        {
+            Metric = template.Metric with
+            {
+                ChannelKey = "advertised.fixed",
+                Source = measureSource
+            ? new MeasureSource("DMM", function, settings)
+            : new AlgorithmSource(function, [], settings)
+            }
+        };
+        var acquire = Assert.IsType<MetricNode>(AuthoringRecipeCatalog.Apply(Program(), AuthoringRecipeIds.Acquire).Measure[0]);
+        acquire = acquire with { Metric = acquire.Metric with { ChannelKey = alias } };
+        var draft = Program() with { Measure = [acquire, publisher] };
+        draft = AuthoringSequenceOperations.Duplicate(draft, Row(draft, acquire.NodeId));
+        Assert.Equal(alias + "_2", Assert.IsType<MetricNode>(draft.Measure[1]).Metric.ChannelKey);
+    }
+
+    [Fact]
+    public void Typed_mean_fixed_alias_avoids_collision_in_compiled_execution()
+    {
+        var directory = TemporaryDirectory();
+        try
+        {
+            var draft = AuthoringRecipeCatalog.Apply(Program(), AuthoringRecipeIds.MeanGte);
+            var acquire = Assert.IsType<MetricNode>(AuthoringRecipeCatalog.Apply(Program(), AuthoringRecipeIds.Acquire).Measure[0]);
+            acquire = acquire with { Metric = acquire.Metric with { ChannelKey = "Mean" } };
+            draft = draft with { Measure = [acquire, draft.Measure[0]] };
+            draft = AuthoringSequenceOperations.Duplicate(draft, Row(draft, acquire.NodeId));
+            var path = Path.Combine(directory, "aliases.TapPlan");
+            new PlanCompiler().Save(draft, path);
+            var plan = TestPlan.Load(path);
+            Assert.Contains(PlanCompiler.FlattenSteps(plan).OfType<AcquireVoltageStep>(), step => step.Channel == "Mean_2");
+            var results = new OutputListener();
+            Assert.Equal(Verdict.Pass, plan.Execute([results], []).Verdict);
+            Assert.Contains("Mean", results.ScalarNames);
+            Assert.Contains("Mean_2", results.SampleChannels);
+        }
+        finally { Directory.Delete(directory, true); }
+    }
+
+    [Fact]
+    public void Default_scalar_duplicate_preserves_unfinished_numeric_text()
+    {
+        var scalar = Assert.IsType<MetricNode>(AuthoringRecipeCatalog.Apply(Program(), AuthoringRecipeIds.BandScalar).Measure[0]);
+        var source = Assert.IsType<AlgorithmSource>(scalar.Metric.Source) with
+        { Settings = new Dictionary<string, string>(StringComparer.Ordinal) { ["Value"] = "unfinished" } };
+        scalar = scalar with { Metric = scalar.Metric with { Source = source, ChannelKey = "metric" } };
+        var draft = Program() with { Measure = [scalar] };
+        draft = AuthoringSequenceOperations.Duplicate(draft, Row(draft, scalar.NodeId));
+        var clone = Assert.IsType<AlgorithmSource>(Assert.IsType<MetricNode>(draft.Measure[1]).Metric.Source);
+        Assert.Equal("unfinished", clone.Settings["Value"]);
+        Assert.Equal("metric_2", clone.Settings["MetricName"]);
+        Assert.False(source.Settings.ContainsKey("MetricName"));
+    }
+
     private static RawStepNode Scalar(string directory, string alias)
     {
         AuthoringPluginSearch.Search();
