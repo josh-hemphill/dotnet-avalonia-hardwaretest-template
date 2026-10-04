@@ -22,7 +22,8 @@ public sealed class AuthoringDocumentSnapshot
             _draft.Instruments,
             Setup = _draft.Setup.Select(SetupValue).ToArray(),
             Measure = _draft.Measure.Select(NodeValue).ToArray(),
-            _draft.Cleanup
+            _draft.Cleanup,
+            _draft.AuthoringState
         }, IdentityOptions));
         SidecarIdentity = Canonical(JsonSerializer.Serialize(_draft.Sidecar, ProgramCatalogJsonContext.Default.ProgramSidecar));
     }
@@ -43,6 +44,7 @@ public sealed class AuthoringDocumentSnapshot
         return draft with
         {
             Sidecar = sidecar,
+            AuthoringState = draft.AuthoringState.Clone(),
             Instruments = draft.Instruments.Select(i => i with { }).ToArray(),
             Setup = draft.Setup.Select(CloneSetup).ToArray(),
             Measure = draft.Measure.Select(CloneNode).ToArray(),

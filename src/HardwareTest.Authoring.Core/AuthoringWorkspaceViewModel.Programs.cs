@@ -16,6 +16,8 @@ public sealed partial class AuthoringWorkspaceViewModel
             throw new AuthoringWorkspaceException($"Program '{id}' already exists in this session.");
         }
 
+        var store = new AuthoringDocumentStore(Workspace.Root);
+        if (store.Load(id).Exists) throw new AuthoringWorkspaceException($"Authoring source for '{id}' already exists; reopen or reconcile it before creating this program.");
         var created = WithCatalogSlots(AuthoringRecipeCatalog.CreateProgram(id), Workspace.Manifest);
         RememberNodeSelection();
         _workspaceHistory.Clear();
@@ -74,7 +76,14 @@ public sealed partial class AuthoringWorkspaceViewModel
         var remaining = Programs
             .Where(program => !string.Equals(program.PlanId, planId, StringComparison.OrdinalIgnoreCase))
             .ToArray();
+        _recovery?.Cancel(Workspace.Root, planId);
+        var sourceStore = new AuthoringDocumentStore(Workspace.Root);
+        sourceStore.DeleteRecovery(planId);
+        sourceStore.DeleteSource(planId);
+        _sourceDocuments.Remove(planId); _recoverableDocuments.Remove(planId);
+        _compiledConflicts.Remove(planId); _uncompiledDocuments.Remove(planId);
         _documents.Remove(planId);
+        RaiseDraftState();
         _workspaceHistory.Clear();
         Programs = remaining;
         _dirtyPlans.Remove(planId);

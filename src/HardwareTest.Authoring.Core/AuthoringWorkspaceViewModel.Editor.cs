@@ -137,20 +137,20 @@ public sealed partial class AuthoringWorkspaceViewModel
 
     public string LimitLow
     {
-        get => FormatLimit(SelectedMetric?.Limits?.Low);
-        set => UpdateLimits(ParseLimit(value), SelectedMetric?.Limits?.High, SelectedMetric?.Limits?.Threshold);
+        get => NumericText(nameof(LimitLow), SelectedMetric?.Limits?.Low);
+        set => SetNumericText(nameof(LimitLow), value, parsed => UpdateLimits(parsed, SelectedMetric?.Limits?.High, SelectedMetric?.Limits?.Threshold));
     }
 
     public string LimitHigh
     {
-        get => FormatLimit(SelectedMetric?.Limits?.High);
-        set => UpdateLimits(SelectedMetric?.Limits?.Low, ParseLimit(value), SelectedMetric?.Limits?.Threshold);
+        get => NumericText(nameof(LimitHigh), SelectedMetric?.Limits?.High);
+        set => SetNumericText(nameof(LimitHigh), value, parsed => UpdateLimits(SelectedMetric?.Limits?.Low, parsed, SelectedMetric?.Limits?.Threshold));
     }
 
     public string Threshold
     {
-        get => FormatLimit(SelectedMetric?.Limits?.Threshold);
-        set => UpdateLimits(SelectedMetric?.Limits?.Low, SelectedMetric?.Limits?.High, ParseLimit(value));
+        get => NumericText(nameof(Threshold), SelectedMetric?.Limits?.Threshold);
+        set => SetNumericText(nameof(Threshold), value, parsed => UpdateLimits(SelectedMetric?.Limits?.Low, SelectedMetric?.Limits?.High, parsed));
     }
 
     public string FormulaSource
@@ -379,7 +379,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         }
 
         var next = mutate(SelectedMetric);
-        if (Equals(next, SelectedMetric))
+        if (Equals(next, SelectedMetric) && _pendingNumericState is null)
         {
             return;
         }
@@ -393,7 +393,7 @@ public sealed partial class AuthoringWorkspaceViewModel
                 RepeatNode repeat => repeat with { Children = MutateFirstMetric(repeat.Children, mutate) },
                 var other => other,
             });
-        ReplaceSelected(SelectedProgram with { Measure = measure }, rebuildLists: false);
+        ReplaceSelected(SelectedProgram with { Measure = measure, AuthoringState = _pendingNumericState ?? SelectedProgram.AuthoringState }, rebuildLists: false);
     }
 
     private IReadOnlyList<int> MeasureMutationPath()

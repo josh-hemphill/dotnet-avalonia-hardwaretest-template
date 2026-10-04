@@ -88,7 +88,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         _documents.Clear();
         _workspaceHistory.Clear();
         foreach (var draft in drafts)
-            _documents.Add(draft.PlanId, new AuthoringDocumentSession(draft, isSaved: true, isReadOnly: Workspace!.IsReadOnly));
+            _documents.Add(draft.PlanId, new AuthoringDocumentSession(draft, isSaved: true, isReadOnly: Workspace!.IsReadOnly, revision: new AuthoringDocumentStore(Workspace.Root).Load(draft.PlanId).Document?.Revision ?? 0));
         Programs = drafts.Select(d => _documents[d.PlanId].Draft).ToArray();
         _savedManifestIdentity = ManifestIdentity();
     }
@@ -123,6 +123,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         RefreshDirtyState();
         RaiseHistoryProperties();
         OnPropertyChanged(nameof(EditingIssues));
+        ScheduleRecovery();
     }
 
     private void ObserveContentDirty()

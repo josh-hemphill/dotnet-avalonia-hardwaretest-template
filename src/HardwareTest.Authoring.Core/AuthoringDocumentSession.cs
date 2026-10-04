@@ -8,10 +8,11 @@ public sealed class AuthoringDocumentSession
     private string? _savedSidecar;
     private Guid? _selectedNodeId;
 
-    public AuthoringDocumentSession(ProgramDraft draft, bool isSaved = true, bool isReadOnly = false)
+    public AuthoringDocumentSession(ProgramDraft draft, bool isSaved = true, bool isReadOnly = false, long revision = 0)
     {
         _current = AuthoringDocumentSnapshot.Capture(draft);
         IsReadOnly = isReadOnly;
+        Revision = revision;
         if (isSaved) MarkSaved();
     }
 

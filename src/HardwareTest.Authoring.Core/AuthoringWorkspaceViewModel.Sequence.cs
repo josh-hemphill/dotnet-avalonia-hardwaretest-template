@@ -80,23 +80,25 @@ public sealed partial class AuthoringWorkspaceViewModel
 
     public string RepeatCount
     {
-        get => SelectedRepeat is { } repeat ? repeat.Count.ToString(System.Globalization.CultureInfo.InvariantCulture) : string.Empty;
+        get => NumericText(nameof(RepeatCount), SelectedRepeat?.Count);
         set
         {
-            if (!int.TryParse(value, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var count)
-                || count < 1
-                || SelectedSequence is not { Kind: SequenceRowKind.Repeat } row
-                || SelectedProgram is null
-                || SelectedRepeat is { Count: var current } && current == count)
+            if (SelectedProgram is null || SelectedSequence is not { Kind: SequenceRowKind.Repeat } row) return;
+            var state = SelectedProgram.AuthoringState.Clone();
+            var key = $"{row.NodeId:D}/{nameof(RepeatCount)}";
+            if (!int.TryParse(value, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var count) || count < 1)
             {
-                return;
+                state.IncompleteNumericText[key] = value;
+                ReplaceSelected(SelectedProgram with { AuthoringState = state }, rebuildLists: false);
             }
-
-            var measure = AuthoringSequence.MutateMeasure(
-                SelectedProgram.Measure,
-                row.IndexPath,
-                node => node is RepeatNode repeat ? repeat with { Count = count } : node);
-            ReplaceSelected(SelectedProgram with { Measure = measure }, rebuildLists: false);
+            else
+            {
+                state.IncompleteNumericText.Remove(key);
+                var measure = AuthoringSequence.MutateMeasure(SelectedProgram.Measure, row.IndexPath,
+                    node => node is RepeatNode repeat ? repeat with { Count = count } : node);
+                ReplaceSelected(SelectedProgram with { Measure = measure, AuthoringState = state }, rebuildLists: false);
+            }
+            OnPropertyChanged();
         }
     }
 

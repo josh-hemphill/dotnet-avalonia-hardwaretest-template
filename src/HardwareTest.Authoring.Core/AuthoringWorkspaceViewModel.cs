@@ -53,9 +53,7 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
         _compiler = compiler ?? new PlanCompiler();
         _preferences = preferences;
     }
-
     public event PropertyChangedEventHandler? PropertyChanged;
-
     public IReadOnlyList<AuthoringRecipe> Recipes => AuthoringRecipeCatalog.Palette;
 
     public bool HasWorkspace => Workspace is not null;
@@ -203,7 +201,7 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
 
     public PreparedAuthoringWorkspace PrepareOpen(string root)
     {
-        var draft = _compiler.LoadAll(AuthoringWorkspaceLoader.Load(root));
+        var draft = LoadWithSources(root);
         var home = Prefs.OpenTapHomeOverride;
         var preview = WorkspacePackPlan.Describe(draft.Files, string.IsNullOrWhiteSpace(home) ? null : home);
         var datasets = RunDatasetCatalog.List(draft.Files);
@@ -240,6 +238,7 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
             OnPropertyChanged(nameof(LastSaveAllResult));
             OnPropertyChanged(nameof(SaveAllResults));
             Error = null;
+            InitializeSourceState();
             Status = $"{files.Manifest.DisplayName}: {Programs.Count} program(s)";
             RefreshDatasets();
             RememberLastWorkspace(files.Root);
@@ -337,6 +336,9 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
         {
             throw new AuthoringWorkspaceException(ValidationScope);
         }
+
+        if (HasUncompiledSources || _compiledConflicts.Count > 0)
+            throw new AuthoringWorkspaceException("Compile saved drafts and reconcile external edits before validating compiled plans.");
 
         var report = PlanContractValidator.Validate(
             Workspace.TapPlanPaths,
