@@ -42,6 +42,7 @@ public static class AuthoringCli
         var packOption = new Option<bool>("--pack");
         var compatOption = new Option<bool>("--compat");
         var evalOption = new Option<bool>("--eval-formulas");
+        var migrateOption = new Option<bool>("--migrate");
         var offlineOption = new Option<bool>("--offline");
         var strictOption = new Option<bool>("--strict");
         var outputOption = new Option<string?>("--out");
@@ -54,6 +55,7 @@ public static class AuthoringCli
         root.Add(packOption);
         root.Add(compatOption);
         root.Add(evalOption);
+        root.Add(migrateOption);
         root.Add(offlineOption);
         root.Add(strictOption);
         root.Add(outputOption);
@@ -85,6 +87,7 @@ public static class AuthoringCli
             (Option: packOption, Command: AuthoringCliCommand.Pack),
             (Option: compatOption, Command: AuthoringCliCommand.Compat),
             (Option: evalOption, Command: AuthoringCliCommand.EvalFormulas),
+            (Option: migrateOption, Command: AuthoringCliCommand.Migrate),
         };
         var selected = commands.Where(item => parsed.GetValue(item.Option)).ToArray();
         if (selected.Length != 1)
@@ -114,6 +117,7 @@ public static class AuthoringCli
             AuthoringCliCommand.Pack => RunPack(workspace, parsed.GetValue(outputOption), ResolveOpenTapHome(parsed.GetValue(openTapHomeOption)), parsed.GetValue(offlineOption), output, error),
             AuthoringCliCommand.Compat => RunCompat(workspace, ResolveOpenTapHome(parsed.GetValue(openTapHomeOption)), parsed.GetValue(offlineOption), output, error),
             AuthoringCliCommand.EvalFormulas => RunEvalFormulas(workspace, output, error),
+            AuthoringCliCommand.Migrate => RunMigrate(workspace, output),
             _ => UsageExitCode,
         };
     }
@@ -129,6 +133,17 @@ public static class AuthoringCli
                 Offline = offline,
             });
         output.WriteLine(home.Root);
+        return 0;
+    }
+
+    private static int RunMigrate(string workspaceRoot, TextWriter output)
+    {
+        var workspace = AuthoringWorkspaceLoader.Load(workspaceRoot);
+        if (workspace.IsReadOnly)
+            throw new AuthoringWorkspaceException("This workspace uses a future manifest schema; migration preserves it without changes.");
+        output.WriteLine(AuthoringManifestMigration.Migrate(workspaceRoot)
+            ? $"Migrated workspace to schema {AuthoringSchemaVersions.Manifest}; original manifest backup retained."
+            : $"Workspace already uses schema {AuthoringSchemaVersions.Manifest}; no changes made.");
         return 0;
     }
 
@@ -273,6 +288,7 @@ public static class AuthoringCli
         output.WriteLine("HardwareTest.Authoring --compat <workspace>");
         output.WriteLine("HardwareTest.Authoring --pack <workspace> --out dist/");
         output.WriteLine("HardwareTest.Authoring --eval-formulas <workspace>");
+        output.WriteLine("HardwareTest.Authoring --migrate <workspace>");
         output.WriteLine("HardwareTest.Authoring --help");
     }
 
@@ -339,5 +355,6 @@ public static class AuthoringCli
         Pack,
         Compat,
         EvalFormulas,
+        Migrate,
     }
 }
