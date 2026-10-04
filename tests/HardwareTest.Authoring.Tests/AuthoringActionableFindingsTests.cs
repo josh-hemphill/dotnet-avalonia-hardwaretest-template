@@ -25,6 +25,28 @@ public sealed class AuthoringActionableFindingsTests : IDisposable
     }
 
     [Fact]
+    public void Locked_checked_source_refuses_navigation_and_invalidates_checked_state()
+    {
+        _vm.SelectProgram("sample");
+        _vm.SaveSidecar();
+        _vm.Validate();
+        var row = _vm.FindingRows.First(item => item.ProgramId == "sample");
+        var sourcePath = new AuthoringDocumentStore(_root).GetDocumentPath("sample");
+        var original = File.ReadAllBytes(sourcePath);
+        Assert.Contains("Current", _vm.IssuesCheckState);
+        using (var locked = new FileStream(sourcePath, FileMode.Open, FileAccess.Read, FileShare.None))
+        {
+            Assert.Null(_vm.NavigateFinding(row));
+            Assert.Contains("Stale", _vm.IssuesCheckState);
+            Assert.All(_vm.FindingRows, item => Assert.True(item.IsStale));
+            Assert.Empty(_vm.Findings);
+            Assert.Contains("could not be read to verify", _vm.Error);
+        }
+        Assert.Equal(original, File.ReadAllBytes(sourcePath));
+        Assert.Null(_vm.NavigateFinding(row));
+    }
+
+    [Fact]
     public void Missing_limits_uses_structured_step_and_verified_mapping()
     {
         _vm.Validate();

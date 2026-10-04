@@ -89,7 +89,18 @@ public sealed partial class AuthoringWorkspaceViewModel
 
     public PlanContractTarget? NavigateFinding(AuthoringFindingRow row)
     {
-        if (Workspace is null || row.IsStale || row.SessionId != _workspaceSession || row.CheckedIdentity != FindingIdentity()
+        string? identity = null;
+        if (Workspace is not null && !row.IsStale && row.SessionId == _workspaceSession)
+        {
+            try { identity = FindingIdentity(); }
+            catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+            {
+                InvalidateContractFindings();
+                ReportError("The checked source or artifact could not be read to verify this finding. Validate again before navigating.");
+                return null;
+            }
+        }
+        if (Workspace is null || row.IsStale || row.SessionId != _workspaceSession || row.CheckedIdentity != identity
             || !FindingRows.Contains(row) || !Programs.Any(program => program.PlanId == row.ProgramId))
         {
             if (Workspace is not null && row.SessionId == _workspaceSession) InvalidateContractFindings();
