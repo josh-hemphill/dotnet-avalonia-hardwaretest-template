@@ -100,10 +100,10 @@ public static partial class AuthoringBuildService
             foreach (var path in Directory.EnumerateFiles(directory).Order(StringComparer.Ordinal))
             {
                 if (select is not null && !select(path)) continue;
-                var target = ResolvedPath(path, false);
+                var target = CapturedFileTarget(path, resolvedDirectory);
                 EnsureContained(root, target);
-                var bytes = File.ReadAllBytes(path);
-                files.Add(new(path, Path.GetRelativePath(root, path), target, Hash(bytes), materialize ? bytes : []));
+                var content = ReadCapturedFile(path, materialize);
+                files.Add(new(path, Path.GetRelativePath(root, path), target, content.Hash, content.Bytes));
             }
             if (recursive)
                 foreach (var sub in Directory.EnumerateDirectories(directory).Order(StringComparer.Ordinal))

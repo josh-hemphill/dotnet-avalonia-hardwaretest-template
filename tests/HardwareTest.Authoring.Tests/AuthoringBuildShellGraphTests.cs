@@ -64,10 +64,7 @@ public sealed class AuthoringBuildShellGraphTests : IDisposable
         {
             foreach (var id in identities) CopyDirectory(Path.Combine(sourcePackages, id), Path.Combine(packageRoot, id));
             // RuntimeIdentifiers also infer framework/host pack downloads absent from locks.
-            foreach (var directory in Directory.GetDirectories(sourcePackages))
-                if (Path.GetFileName(directory).StartsWith("microsoft.netcore.app.", StringComparison.Ordinal)
-                    || Path.GetFileName(directory).StartsWith("microsoft.aspnetcore.app.", StringComparison.Ordinal))
-                    CopyDirectory(directory, Path.Combine(packageRoot, Path.GetFileName(directory)));
+            CopyInferredFrameworkPackages(sourcePackages, packageRoot);
         }
         try
         {
@@ -92,6 +89,31 @@ public sealed class AuthoringBuildShellGraphTests : IDisposable
             Environment.SetEnvironmentVariable("NUGET_PACKAGES", originalPackages);
             if (changed == "package") Directory.Delete(packageRoot, recursive: true);
         }
+    }
+
+    [Fact]
+    public void Owned_package_cache_includes_WindowsDesktop_and_other_inferred_framework_payloads()
+    {
+        var source = AuthoringBuildSnapshotTests.Temp(); var target = AuthoringBuildSnapshotTests.Temp();
+        var families = new[] { "microsoft.netcore.app.runtime.win-x64", "microsoft.aspnetcore.app.runtime.win-x64",
+            "microsoft.windowsdesktop.app.runtime.win-x64", "Microsoft.WindowsDesktop.App.Ref" };
+        foreach (var family in families.Append("unrelated.package"))
+        {
+            var directory = Path.Combine(source, family, "10.0.0"); Directory.CreateDirectory(directory);
+            File.WriteAllText(Path.Combine(directory, "payload.dll"), family);
+        }
+        CopyInferredFrameworkPackages(source, target);
+        foreach (var family in families)
+            Assert.Equal(family, File.ReadAllText(Path.Combine(target, family, "10.0.0", "payload.dll")));
+        Assert.False(Directory.Exists(Path.Combine(target, "unrelated.package")));
+    }
+
+    private static void CopyInferredFrameworkPackages(string source, string target)
+    {
+        foreach (var directory in Directory.GetDirectories(source))
+            if (new[] { "microsoft.netcore.app.", "microsoft.aspnetcore.app.", "microsoft.windowsdesktop.app." }
+                .Any(family => Path.GetFileName(directory).StartsWith(family, StringComparison.OrdinalIgnoreCase)))
+                CopyDirectory(directory, Path.Combine(target, Path.GetFileName(directory)));
     }
 
     [Theory]
