@@ -74,7 +74,7 @@ public partial class MainWindow
         if (_closeApproved) return;
         CommitFocusedEditor();
         if (_transitionInFlight || _destructiveInFlight) { e.Cancel = true; return; }
-        if (!_viewModel.HasUnsavedChanges && !_viewModel.OperationBusy) return;
+        if (!_viewModel.HasUnsavedChanges && !_viewModel.OperationBusy && !_viewModel.OperationCleanupPending) return;
         e.Cancel = true;
         _transitionInFlight = true;
         _ = DecideCloseAsync();

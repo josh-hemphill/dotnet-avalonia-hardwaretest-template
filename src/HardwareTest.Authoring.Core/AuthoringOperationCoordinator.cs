@@ -8,24 +8,42 @@ public sealed class AuthoringOperationCoordinator(AuthoringChildProcessRunner ru
     private static readonly SemaphoreSlim Lane = new(1, 1);
     private readonly object gate = new();
     private readonly Queue<AuthoringOperationLog> logs = new();
+    private readonly SemaphoreSlim stopGate = new(1, 1);
     private CancellationTokenSource? active;
     private Task<AuthoringOperationResult>? running;
+    private string? pendingCleanup;
     private long generation;
     private bool disposed;
     private long nextLogNotification;
     public event Action? LogsChanged;
     public bool IsBusy { get { lock (gate) return active is not null; } }
+    public bool HasPendingCleanup { get { lock (gate) return pendingCleanup is not null; } }
+    internal Func<string, Task> CancelledCleanup { get; init; } = owned => CleanupCancelledOperationAsync(owned);
     public IReadOnlyList<AuthoringOperationLog> Logs { get { lock (gate) return logs.ToArray(); } }
     public void Cancel() { lock (gate) active?.Cancel(); }
     public void ReplaceWorkspace() { lock (gate) { generation++; active?.Cancel(); logs.Clear(); } }
     public void Dispose() { lock (gate) { disposed = true; generation++; active?.Cancel(); } }
     public async Task StopAsync()
     {
-        Task<AuthoringOperationResult>? pending;
-        lock (gate) { disposed = true; generation++; active?.Cancel(); pending = active is null ? null : running; }
-        if (pending is null) return;
-        try { await pending.ConfigureAwait(false); }
-        catch (OperationCanceledException) { }
+        await stopGate.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            Task<AuthoringOperationResult>? pending;
+            lock (gate) { disposed = true; generation++; active?.Cancel(); pending = active is null ? null : running; }
+            if (pending is not null)
+            {
+                try { await pending.ConfigureAwait(false); }
+                catch (OperationCanceledException) { }
+            }
+            string? owned;
+            lock (gate) owned = pendingCleanup;
+            if (owned is null) return;
+            // A stopped operation can reach this path before any asynchronous await yields.
+            // Directory removal must stay off the UI thread on repeated owner close too.
+            await Task.Run(() => CancelledCleanup(owned)).ConfigureAwait(false);
+            lock (gate) pendingCleanup = null;
+        }
+        finally { stopGate.Release(); }
     }
 
     public Task<AuthoringOperationResult> RunAsync(AuthoringOperationKind kind, string workspaceRoot,
@@ -38,6 +56,7 @@ public sealed class AuthoringOperationCoordinator(AuthoringChildProcessRunner ru
         {
             ObjectDisposedException.ThrowIf(disposed, this);
             if (active is not null) throw new InvalidOperationException("An authoring operation is already running.");
+            if (pendingCleanup is not null) throw new InvalidOperationException("Authoring operation cleanup must finish before starting another operation.");
             if (kind == AuthoringOperationKind.Pack) ArgumentException.ThrowIfNullOrWhiteSpace(outputDirectory);
             active = operation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             capturedGeneration = generation;
@@ -144,7 +163,15 @@ public sealed class AuthoringOperationCoordinator(AuthoringChildProcessRunner ru
             if (entered) Lane.Release();
             try
             {
-                if (token.IsCancellationRequested) await CleanupCancelledOperationAsync(owned).ConfigureAwait(false);
+                if (token.IsCancellationRequested)
+                {
+                    try { await CancelledCleanup(owned).ConfigureAwait(false); }
+                    catch
+                    {
+                        lock (gate) pendingCleanup = owned;
+                        throw;
+                    }
+                }
                 else AuthoringBuildService.CleanupStaging(owned);
             }
             finally

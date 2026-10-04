@@ -9,14 +9,17 @@ public sealed partial class AuthoringWorkspaceViewModel
     private int _operationLogNotificationPending;
     private string? _operationStage;
     public bool OperationBusy { get => _operationBusy; private set { if (SetField(ref _operationBusy, value)) RaisePackGuardProperties(); } }
+    public bool OperationCleanupPending => _operations?.HasPendingCleanup == true;
     public string? OperationStage { get => _operationStage; private set => SetField(ref _operationStage, value); }
     public IReadOnlyList<AuthoringOperationLog> OperationLogs => _operations?.Logs ?? [];
     public string OperationLogText => string.Join("", OperationLogs.Select(log => $"[{log.Stream}] {log.Text}"));
 
     public void ConfigureOperations(AuthoringChildProcessRunner runner, Action<Action> dispatch)
+        => ConfigureOperations(new AuthoringOperationCoordinator(runner), dispatch);
+
+    internal void ConfigureOperations(AuthoringOperationCoordinator coordinator, Action<Action> dispatch)
     {
         _operations?.Dispose();
-        var coordinator = new AuthoringOperationCoordinator(runner);
         _operations = coordinator;
         _operationDispatch = dispatch;
         coordinator.LogsChanged += () =>

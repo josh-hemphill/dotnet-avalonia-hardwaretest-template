@@ -10,6 +10,59 @@ public sealed class AuthoringOperationWindowTests
     [AvaloniaTheory]
     [InlineData(false)]
     [InlineData(true)]
+    public async Task Owner_close_retries_failed_cleanup_after_operation_stops_and_stays_open_until_removed(bool closeWhileBusy)
+    {
+        using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
+        fixture.Show(); fixture.OpenRememberedWorkspace();
+        File.WriteAllText(Path.Combine(fixture.WorkspaceRoot, "fixture-wait"), "");
+        var blocked = 1;
+        using var coordinator = new AuthoringOperationCoordinator(AuthoringChildProcessRunner.ForExecutable(
+            Path.Combine(AppContext.BaseDirectory, "HardwareTest.Authoring.ProcessFixture.dll")))
+        {
+            CancelledCleanup = owned => AuthoringOperationCoordinator.CleanupCancelledOperationAsync(owned, path =>
+            {
+                Assert.False(Dispatcher.UIThread.CheckAccess());
+                if (Volatile.Read(ref blocked) != 0) throw new IOException("Persistent owned-tree lock");
+                Directory.Delete(path, true);
+            }, TimeSpan.FromMilliseconds(40))
+        };
+        fixture.ViewModel.ConfigureOperations(coordinator, action => Dispatcher.UIThread.Post(action));
+        try
+        {
+            var running = fixture.ViewModel.RunOperationAsync(AuthoringOperationKind.Bootstrap);
+            await Until(() => File.Exists(Path.Combine(fixture.WorkspaceRoot, "fixture-child.json")));
+            var owned = File.ReadAllLines(Path.Combine(fixture.WorkspaceRoot, "fixture-child.json"))[1];
+            if (!closeWhileBusy)
+            {
+                fixture.ViewModel.CancelOperation();
+                await Until(() => running.IsCompleted);
+                await Assert.ThrowsAsync<IOException>(() => running);
+            }
+            fixture.ViewModel.ReportError("Awaiting first close");
+            fixture.Window!.Close();
+            await Until(() => fixture.ViewModel.Error == "Persistent owned-tree lock" && !fixture.ViewModel.OperationBusy);
+            Assert.True(fixture.Window.IsVisible);
+            Assert.True(fixture.ViewModel.OperationCleanupPending);
+            Assert.Contains("Persistent owned-tree lock", fixture.ViewModel.Error);
+            Assert.True(Directory.Exists(owned));
+            fixture.ViewModel.ReportError("Awaiting repeated close");
+            fixture.Window.Close();
+            await Until(() => fixture.ViewModel.Error == "Persistent owned-tree lock");
+            Assert.True(fixture.Window.IsVisible);
+            Assert.True(fixture.ViewModel.OperationCleanupPending);
+            Volatile.Write(ref blocked, 0);
+            fixture.Window.Close();
+            await Until(() => !fixture.Window.IsVisible);
+            Assert.False(fixture.ViewModel.OperationCleanupPending);
+            Assert.False(Directory.Exists(owned));
+            await Assert.ThrowsAsync<IOException>(() => running);
+        }
+        finally { Volatile.Write(ref blocked, 0); }
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
     public async Task Accepted_close_reaps_real_child_and_descendant_before_owner_closes(bool cancelDirtyDialogFirst)
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);

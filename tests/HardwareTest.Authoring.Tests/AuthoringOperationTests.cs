@@ -11,6 +11,47 @@ public sealed class AuthoringOperationTests : IDisposable
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
+    public async Task Stop_retains_failed_owned_cleanup_after_busy_clears_and_retries_until_removed(bool stopWhileBusy)
+    {
+        var root = Workspace();
+        File.WriteAllText(Path.Combine(root, "fixture-wait"), "");
+        var blocked = 1;
+        using var coordinator = new AuthoringOperationCoordinator(AuthoringChildProcessRunner.ForExecutable(
+            Path.Combine(AppContext.BaseDirectory, "HardwareTest.Authoring.ProcessFixture.dll")))
+        {
+            CancelledCleanup = owned => AuthoringOperationCoordinator.CleanupCancelledOperationAsync(owned, path =>
+            {
+                if (Volatile.Read(ref blocked) != 0) throw new IOException("Persistent owned-tree lock");
+                Directory.Delete(path, true);
+            }, TimeSpan.FromMilliseconds(40))
+        };
+        var running = coordinator.RunAsync(AuthoringOperationKind.Bootstrap, root);
+        await WaitFor(root, "fixture-child.json", operation: running);
+        var owned = File.ReadAllLines(Path.Combine(root, "fixture-child.json"))[1];
+        roots.Add(owned);
+        if (stopWhileBusy) await Assert.ThrowsAsync<IOException>(() => coordinator.StopAsync());
+        else coordinator.Cancel();
+        await Assert.ThrowsAsync<IOException>(() => running);
+        Assert.False(coordinator.IsBusy);
+        Assert.True(coordinator.HasPendingCleanup);
+        if (!stopWhileBusy)
+            await Assert.ThrowsAsync<InvalidOperationException>(() => coordinator.RunAsync(AuthoringOperationKind.Bootstrap, root));
+        for (var attempt = 0; attempt < 2; attempt++)
+        {
+            await Assert.ThrowsAsync<IOException>(() => coordinator.StopAsync());
+            Assert.True(coordinator.HasPendingCleanup);
+            Assert.True(Directory.Exists(owned));
+        }
+        Volatile.Write(ref blocked, 0);
+        await coordinator.StopAsync();
+        Assert.False(coordinator.HasPendingCleanup);
+        Assert.False(Directory.Exists(owned));
+        await coordinator.StopAsync();
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
     public async Task Cancelled_operation_cleanup_retries_transient_file_release_failures(bool unauthorized)
     {
         var owned = Temp();
