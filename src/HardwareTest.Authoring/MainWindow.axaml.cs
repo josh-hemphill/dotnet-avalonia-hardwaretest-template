@@ -21,7 +21,18 @@ public partial class MainWindow : Window
         InitializeComponent();
         DataContext = viewModel;
         InitializeLifecycle(lifecycleInteraction, workspacePicker);
+        _viewModel.ConfigureRecoveryDispatch(action => Avalonia.Threading.Dispatcher.UIThread.Post(action));
+        Closed += (_, _) => _viewModel.StopRecovery();
     }
+
+    private void OnAcceptRecovery(object? sender, RoutedEventArgs e)
+        => TryRun(() => { if (_viewModel.SelectedRecoveryPlanId is { } id) _viewModel.AcceptRecovery(id); });
+    private void OnDiscardRecovery(object? sender, RoutedEventArgs e)
+        => TryRun(() => { if (_viewModel.SelectedRecoveryPlanId is { } id) _viewModel.DiscardRecovery(id); });
+    private void OnImportCompiled(object? sender, RoutedEventArgs e)
+        => TryRun(() => { if (_viewModel.SelectedProgram is { } p) _viewModel.ReconcileCompiled(p.PlanId, true); });
+    private void OnRetainSource(object? sender, RoutedEventArgs e)
+        => TryRun(() => { if (_viewModel.SelectedProgram is { } p) _viewModel.ReconcileCompiled(p.PlanId, false); });
 
     private async void OnOpenWorkspace(object? sender, RoutedEventArgs e)
         => await OpenWorkspaceAsync();
@@ -274,7 +285,7 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            _viewModel.ReportError(ex.Message);
+            _viewModel.ReportError(AuthoringWorkspaceViewModel.PersistenceError(ex));
         }
     }
 }

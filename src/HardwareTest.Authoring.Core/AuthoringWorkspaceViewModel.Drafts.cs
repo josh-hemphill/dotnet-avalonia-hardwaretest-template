@@ -79,7 +79,7 @@ public sealed partial class AuthoringWorkspaceViewModel
             else if (recovered.Error is { } error) Error = $"Recovery could not load: {error}";
         }
         var generation = _recoveryGeneration;
-        if (!Workspace.IsReadOnly) _recovery = new AuthoringRecoveryCheckpointService(_recoveryDispatch, result =>
+        if (!Workspace.IsReadOnly) _recovery = new AuthoringRecoveryCheckpointService(action => _recoveryDispatch(action), result =>
         {
             if (generation != _recoveryGeneration || !_documents.TryGetValue(result.PlanId, out var active) || !active.IsDirty) return;
             if (result.IsSuccess) Status = $"Recovery checkpoint saved for {result.PlanId}; source remains unsaved.";

@@ -38,14 +38,14 @@
                 IsEnabled="{Binding HasWorkspace}"
                 ToolTip.Tip="Write only {planId}.program.json (session/DUT/Typst). Does not compile the TapPlan."
                 AutomationProperties.Name="Save sidecar" />
-        <Button Content="Save plan + sidecar" Classes="accent"
+        <Button Content="Save draft / compile" Classes="accent"
                 Click="OnApply"
                 IsEnabled="{Binding HasWorkspace}"
-                ToolTip.Tip="Compile metrics to TapPlan + sidecar (Setup / measure / Cleanup groups)"
+                ToolTip.Tip="Save authoring source, including incomplete values; export compiled files when ready"
                 AutomationProperties.Name="Save plan" />
           </StackPanel>
           <TextBlock FontSize="11" MaxWidth="290" TextWrapping="Wrap"
-                     Text="Sidecar: settings only. Plan: sequence and settings." />
+                     Text="Draft saves preserve incomplete content. Ready plans also export compiled files." />
         </StackPanel>
         <StackPanel Spacing="4">
           <TextBlock FontWeight="SemiBold" Text="Edit, check and configure" />
@@ -67,6 +67,18 @@
           </StackPanel>
         </StackPanel>
       </WrapPanel>
+      <Expander Header="Draft recovery and reconciliation">
+      <StackPanel Spacing="4">
+        <TextBlock Text="{Binding DraftStateSummary}" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
+        <WrapPanel Orientation="Horizontal">
+          <ComboBox ItemsSource="{Binding RecoverableProgramIds}" SelectedItem="{Binding SelectedRecoveryPlanId}" MinWidth="100" AutomationProperties.Name="Recovery program" />
+          <Button Content="Recover selected draft" Click="OnAcceptRecovery" />
+          <Button Content="Discard selected recovery" Click="OnDiscardRecovery" />
+          <Button Content="Import external compiled edits" Click="OnImportCompiled" />
+          <Button Content="Retain source for export" Click="OnRetainSource" />
+        </WrapPanel>
+      </StackPanel>
+      </Expander>
       <StackPanel Orientation="Horizontal" Spacing="12">
         <TextBlock x:Name="StatusLabel"
                    VerticalAlignment="Center"
@@ -525,6 +537,7 @@
                       </DataTemplate>
                     </ItemsControl.ItemTemplate>
                   </ItemsControl>
+                  <CheckBox Content="Exploration only" IsChecked="{Binding FormulaExplorationOnly}" IsVisible="{Binding HasFormula}" />
                   <TextBlock Text="{Binding FormulaError}"
                              TextWrapping="Wrap"
                              Foreground="#C62828"
