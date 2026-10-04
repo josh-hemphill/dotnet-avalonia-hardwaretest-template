@@ -249,9 +249,9 @@ public static class AuthoringCli
 
     private static int RunEvalFormulas(string workspaceRoot, TextWriter output, TextWriter error)
     {
-        var workspace = AuthoringWorkspaceLoader.Load(workspaceRoot);
-        var draft = new PlanCompiler().LoadAll(workspace);
-        var datasets = RunDatasetCatalog.List(workspace);
+        var draft = AuthoringSourceWorkspaceLoader.Load(workspaceRoot);
+        if (draft.Files.IsReadOnly) throw new AuthoringWorkspaceException("Formula evaluation requires supported authoring sources and manifest schemas; future source bytes are preserved.");
+        var datasets = RunDatasetCatalog.List(draft.Files);
         var failed = false;
         foreach (var dataset in datasets)
         {

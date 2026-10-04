@@ -58,6 +58,12 @@ public sealed class AuthoringDocumentStoreTests : IDisposable
     [InlineData("{\"schemaVersion\":999,\"unknown\": [1,2]}")]
     [InlineData("{\"schemaVersion\":1,\"planId\":\"plan\"}")]
     [InlineData("broken json")]
+    [InlineData("[]")]
+    [InlineData("null")]
+    [InlineData("42")]
+    [InlineData("\"scalar\"")]
+    [InlineData("true")]
+    [InlineData("{\"schemaVersion\":\"1\"}")]
     public void FutureAndCorruptCommittedBytesRemainVisibleAndUntouched(string content)
     {
         var store = new AuthoringDocumentStore(_root);
@@ -136,6 +142,32 @@ public sealed class AuthoringDocumentStoreTests : IDisposable
         Assert.True(store.LoadWorkspace().IsReadOnly);
         Assert.Throws<InvalidOperationException>(() => store.SaveWorkspace(manifest));
         Assert.Equal(bytes, File.ReadAllBytes(path));
+    }
+
+    [Theory]
+    [InlineData("[]")]
+    [InlineData("null")]
+    [InlineData("42")]
+    [InlineData("\"scalar\"")]
+    [InlineData("true")]
+    [InlineData("{\"schemaVersion\":\"1\"}")]
+    public void InvalidWorkspaceJsonShapeReportsRecoverableCorruptionWithoutReplacingBytes(string content)
+    {
+        var store = new AuthoringDocumentStore(_root);
+        var path = store.GetWorkspacePath();
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        File.WriteAllText(path, content);
+        var bytes = File.ReadAllBytes(path);
+        var loaded = store.LoadWorkspace();
+        Assert.True(loaded.Exists);
+        Assert.True(loaded.IsReadOnly);
+        Assert.Null(loaded.Document);
+        Assert.NotNull(loaded.Error);
+        Assert.Contains("Restore its backup", loaded.Error);
+        Assert.Equal(bytes, loaded.OriginalBytes);
+        Assert.Throws<InvalidOperationException>(() => store.SaveWorkspace(new AuthoringManifest { SchemaVersion = AuthoringSchemaVersions.Manifest }));
+        Assert.Equal(bytes, File.ReadAllBytes(path));
+        Assert.False(File.Exists(path + ".bak"));
     }
 
     [Fact]

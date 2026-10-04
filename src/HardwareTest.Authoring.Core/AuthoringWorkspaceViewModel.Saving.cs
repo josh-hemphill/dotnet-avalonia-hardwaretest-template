@@ -148,12 +148,12 @@ public sealed partial class AuthoringWorkspaceViewModel
         var existing = TryExistingTapPlanPath(planId);
         var path = existing ?? ResolveTapPlanPath(planId);
         var actualDirty = _documents[planId].GetDirtyState(draft);
-        var savePlan = !sidecarOnly && (forcePlan || actualDirty.PlanDirty || existing is null);
+        _sourceDocuments.TryGetValue(planId, out var baseline);
+        var savePlan = !sidecarOnly && (forcePlan || actualDirty.PlanDirty || existing is null || baseline?.RequiresCompilation == true);
         if (sidecarOnly && existing is null) throw new AuthoringWorkspaceException($"No TapPlan path for '{planId}'.");
         var store = new AuthoringDocumentStore(workspace.Root);
         store.ValidatePath(path);
         store.ValidatePath(PlanCompiler.SidecarPath(path));
-        _sourceDocuments.TryGetValue(planId, out var baseline);
         if (baseline is not null && CompiledChanged(baseline)) _compiledConflicts.Add(planId);
         // Publish authoring content independently of deployment readiness.
         var document = AuthoringDocumentDto.FromDraft(draft, _documents[planId].Revision,
@@ -191,9 +191,7 @@ public sealed partial class AuthoringWorkspaceViewModel
             }
             catch (Exception ex) when (ex is not IOException && ex is not UnauthorizedAccessException)
             {
-                compilationFailure = ex.Message;
-                if (ex.Data["AuthoringRecoveryBackups"] is { } backups)
-                    compilationFailure += $" Recovery backups: {backups}. {ex.Data["AuthoringRecoveryAction"]}";
+                compilationFailure = PersistenceError(ex);
             }
         }
         if (compilationFailure is not null)

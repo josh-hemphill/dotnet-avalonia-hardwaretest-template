@@ -32,7 +32,9 @@ public sealed partial class AuthoringDocumentStore
         try
         {
             using var json = JsonDocument.Parse(bytes);
-            if (!json.RootElement.TryGetProperty("schemaVersion", out var schema) || !schema.TryGetInt32(out var version))
+            if (json.RootElement.ValueKind != JsonValueKind.Object)
+                throw new InvalidDataException("Authoring source must be a JSON object.");
+            if (!json.RootElement.TryGetProperty("schemaVersion", out var schema) || schema.ValueKind != JsonValueKind.Number || !schema.TryGetInt32(out var version))
                 throw new InvalidDataException("Workspace source has no valid schema version.");
             if (version > AuthoringDocumentDto.CurrentSchemaVersion)
                 return new(null, true, bytes, null, true);
@@ -107,7 +109,9 @@ public sealed partial class AuthoringDocumentStore
         try
         {
             using var json = JsonDocument.Parse(bytes);
-            if (!json.RootElement.TryGetProperty("schemaVersion", out var schema) || !schema.TryGetInt32(out var version))
+            if (json.RootElement.ValueKind != JsonValueKind.Object)
+                throw new InvalidDataException("Authoring source must be a JSON object.");
+            if (!json.RootElement.TryGetProperty("schemaVersion", out var schema) || schema.ValueKind != JsonValueKind.Number || !schema.TryGetInt32(out var version))
                 throw new InvalidDataException("The draft has no valid schema version.");
             if (version > AuthoringDocumentDto.CurrentSchemaVersion)
                 return new(null, true, bytes, null, true);
