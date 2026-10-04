@@ -207,6 +207,18 @@ public sealed class AuthoringChromeA11yTests
             {
                 Assert.True(viewCode.Contains("private void " + handler, StringComparison.Ordinal)
                     || viewCode.Contains("private async void " + handler, StringComparison.Ordinal));
+                if (view == "SequenceEditorView" && handler is "OnRenameSequence" or "OnDuplicateSequence" or "OnMoveSequenceUp" or "OnMoveSequenceDown")
+                {
+                    var actions = new Dictionary<string, string>
+                    {
+                        ["OnRenameSequence"] = "Vm?.RenameSelectedSequence()",
+                        ["OnDuplicateSequence"] = "Vm?.DuplicateSelectedSequence()",
+                        ["OnMoveSequenceUp"] = "Vm?.MoveSelectedSequence(-1)",
+                        ["OnMoveSequenceDown"] = "Vm?.MoveSelectedSequence(1)"
+                    };
+                    Assert.Contains(actions[handler], viewCode, StringComparison.Ordinal);
+                    continue;
+                }
                 if (view is "HardwareView" or "WorkspaceDefinitionsView")
                 {
                     var localActions = new Dictionary<string, string>

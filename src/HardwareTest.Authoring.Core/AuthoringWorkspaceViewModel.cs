@@ -54,7 +54,9 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
         _preferences = preferences;
     }
     public event PropertyChangedEventHandler? PropertyChanged;
-    public IReadOnlyList<AuthoringRecipe> Recipes => AuthoringRecipeCatalog.Palette;
+    public IReadOnlyList<AuthoringRecipe> Recipes => AuthoringRecipeCatalog.Palette
+        .Where(recipe => string.IsNullOrWhiteSpace(RecipeSearch) || $"{recipe.ListLabel} {recipe.Summary}".Contains(RecipeSearch, StringComparison.OrdinalIgnoreCase))
+        .OrderBy(recipe => recipe.Category switch { "Measure" => 0, "Check" => 1, "Operator action" => 2, _ => 3 }).ToArray();
     public bool HasWorkspace => Workspace is not null;
 
     public AuthoringWorkspace? Workspace
@@ -310,9 +312,19 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
             throw new AuthoringWorkspaceException("Select a program before adding a recipe.");
         }
 
-        var updated = AuthoringRecipeCatalog.Apply(SelectedProgram, recipeId, SelectedInstrumentSlot);
+        EnsureWritableWorkspace("add a recipe");
+        EnsurePresentedHistoryCurrent();
+        var updated = recipeId == AuthoringRecipeIds.Repeat
+            ? AuthoringSequenceOperations.Repeat(SelectedProgram, SelectedSequence)
+            : AuthoringRecipeCatalog.Apply(SelectedProgram, recipeId, SelectedInstrumentSlot);
+        if (AuthoringDocumentSnapshot.Capture(SelectedProgram).ContentEquals(AuthoringDocumentSnapshot.Capture(updated)))
+        {
+            Status = recipeId == AuthoringRecipeIds.TestGroup ? AuthoringChrome.TestGroupHint : "No change to the sequence.";
+            Error = null;
+            return;
+        }
         ReplaceSelected(updated);
-        if (updated.Measure.Count > 0)
+        if (updated.Measure.Count > 0 && recipeId != AuthoringRecipeIds.Repeat)
         {
             SelectMeasure(updated.Measure.Count - 1);
         }

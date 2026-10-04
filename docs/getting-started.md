@@ -33,7 +33,7 @@ dotnet run --project src/HardwareTest.Authoring -c Debug -r win-x64 -- --help
 ## 2. Create a program and add recipes
 
 1. **New program** seeds Identity + Cleanup + Mock DMM (in-repo demos). Product workspaces that declare InstrumentComponents.OpenTap still keep this template’s sample/board-demo on Basic. **Remove program** (or Delete on the programs list) drops the selected plan from the session and deletes its `.TapPlan` + `.program.json` when those files exist.
-2. On the **Program** tab, pick a recipe from **Add to sequence** (grouped by category) and **Add recipe**. **Remove selected** (or Delete on the sequence list) drops the highlighted Setup, measure, Repeat, or Raw row. Repeat unwraps its children. Safe Shutdown turns Cleanup off. The sequence list is Setup / Measure / Cleanup — not a tree. Repeat children are indented under the Repeat row. **Dialog** and **Hang Forever** are not listed.
+2. On the **Program** tab, search **Add to sequence** by Measure, Check, Operator action or Flow, choose **Before selected**, **After selected** or **End of section**, review the prerequisites, and **Add recipe**. Rename, Duplicate and Move up/down apply to the selected step; Undo/Redo restore complete program edits. Duplicate allocates fresh IDs and channels while preserving external references. Moves that break dependencies, loop scope or opaque steps are rejected with an explanation. **Remove selected** (or Delete on the sequence list) drops the highlighted Setup, measure, Repeat, or Raw row. **Remove loop, keep steps** unwraps Repeat children. **Disable safe shutdown** turns Cleanup off. The sequence list is Setup / Measure / Cleanup — not a tree. Repeat children are indented under the Repeat row. **Dialog** and **Hang Forever** are not listed.
 3. The **Inspector** edits only the selected sequence row (channel key, display role, unit, limits, formula chips, transfer-function method). **Hardware** holds program sidecar membership (DUT fields, reports) and the instrument table with actual type, address, package availability, affected steps and cleanup coverage. **Definitions** administers workspace catalogs and hardware templates. Mean GTE needs a threshold; band and series need both limits before compilation. Missing criteria and incomplete numeric text can still be saved as authoring drafts. Preview uses canned samples unless a recording is selected.
 4. **Preview** shows canned samples for the selected DisplayRole (not Execute). Select a `recordings/` export to eval formulas and transfer functions on real `elapsedMs` series.
 5. **Save plan** writes the durable source in `authoring-drafts/{planId}.authoring.json`, then compiles deployable content to `{planId}.TapPlan` + `{planId}.program.json`. Incomplete content remains saved with an explanation of what prevents compilation. **Save sidecar** persists the authoring source and exports only the program settings; changed sequence content still requires compilation before checked packaging.
@@ -60,7 +60,7 @@ Recipes appear under **Add to sequence** on the Program tab. Assign the instrume
 
 ### Structure — Test Group
 
-**Test Group.** Setup / measure / Cleanup groups are written on Save. The group itself does not publish results. Keep nest depth at three levels. Give every leaf a unique name — duplicate sibling names force path-qualified selection on the Run board.
+**Test Group.** Setup / measure / Cleanup groups are generated on Save and are absent from the insertion palette. The group itself does not publish results. Keep nest depth at three levels. Give every leaf a unique name — duplicate sibling names force path-qualified selection on the Run board.
 
 ### Identity — Identity Check
 
@@ -122,7 +122,7 @@ When every sample must stay in band, or you need config-change marks:
 
 ### Repeat / sweep
 
-**Repeat Loop** wraps the last measure node. OpenTAP Sweep/Repeat steps also work in TUI. The Run hero shows innermost `iter i/N`. Edit bounds here or in Engineer **Station overrides** — not as operator prompts.
+**Repeat Loop** wraps the selected eligible measurement or loop; its prerequisite text names the target. OpenTAP Sweep/Repeat steps also work in TUI. The Run hero shows innermost `iter i/N`. Edit bounds here or in Engineer **Station overrides** — not as operator prompts.
 
 ### Station health
 

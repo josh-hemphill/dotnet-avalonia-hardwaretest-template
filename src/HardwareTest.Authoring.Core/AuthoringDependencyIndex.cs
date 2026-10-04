@@ -57,6 +57,7 @@ public sealed class AuthoringDependencyIndex
                             || !spec.IsAlgorithm || (spec.NeedsInstrument && string.IsNullOrWhiteSpace(source.InstrumentSlot)),
                         MeasureSource source => !AuthoringFunctionCatalog.TryGet(source.FunctionId, out var spec)
                             || spec.IsAlgorithm,
+                        ExpressionAlgorithm source => !FormulaParser.TryParse(source.Source, out _, out _),
                         _ => false
                     };
                     nodes.Add(new(metric.NodeId, metric.Metric.ChannelKey, inputs, instruments, opaque));

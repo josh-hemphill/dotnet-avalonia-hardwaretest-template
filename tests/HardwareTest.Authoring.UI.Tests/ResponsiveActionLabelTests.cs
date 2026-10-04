@@ -48,7 +48,11 @@ public sealed class ResponsiveActionLabelTests
             AuthoringUiFixture.Drain();
             foreach (var button in window.GetVisualDescendants().OfType<Button>()
                 .Where(button => button.IsEffectivelyVisible && button.Classes.Contains("authoringAction")))
+            {
+                button.BringIntoView();
+                AuthoringUiFixture.Drain();
                 LabelFits(button, window);
+            }
             var sequence = fixture.Control<ListBox>("Program sequence");
             ResponsiveShellTests.Inside(sequence, window);
             Assert.True(sequence.Bounds.Height >= 80, $"Sequence viewport {sequence.Bounds.Size} must retain room for the selected row.");

@@ -19,6 +19,7 @@ public sealed partial class AuthoringWorkspaceViewModel
             if (SetField(ref _selectedRecipeId, value))
             {
                 OnPropertyChanged(nameof(SelectedRecipe));
+                RaiseSequenceOperations();
             }
         }
     }
@@ -330,7 +331,7 @@ public sealed partial class AuthoringWorkspaceViewModel
             throw new AuthoringWorkspaceException("Select a recipe before adding it.");
         }
 
-        ApplyRecipe(SelectedRecipeId);
+        InsertSelectedRecipe();
     }
 
     private void RefreshMeasurePresentation()
@@ -432,6 +433,7 @@ public sealed partial class AuthoringWorkspaceViewModel
 
     private void RaiseEditorProperties()
     {
+        RaiseSequenceOperations();
         OnPropertyChanged(nameof(MetricName));
         OnPropertyChanged(nameof(HasMetricInputs));
         OnPropertyChanged(nameof(MetricInputChannels));

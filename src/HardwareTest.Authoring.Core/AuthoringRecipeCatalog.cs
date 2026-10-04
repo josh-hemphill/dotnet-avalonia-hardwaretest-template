@@ -33,19 +33,18 @@ public static class AuthoringRecipeCatalog
 {
     public static IReadOnlyList<AuthoringRecipe> Palette { get; } =
     [
-        new(AuthoringRecipeIds.TestGroup, "Test Group", "Structure", "Setup / measure / Cleanup groups are written on Save."),
-        new(AuthoringRecipeIds.Identity, "Identity Check", "Identity", "Confirm DUT serial against the instrument."),
-        new(AuthoringRecipeIds.Prompt, "Operator Prompt", "Operator", "In-panel confirm. Never OpenTAP Dialog."),
-        new(AuthoringRecipeIds.Input, "Operator Input", "Operator", "Typed fixture / operator fields."),
+        new(AuthoringRecipeIds.Identity, "Identity Check", "Check", "Confirm DUT serial against the instrument."),
+        new(AuthoringRecipeIds.Prompt, "Operator Prompt", "Operator action", "In-panel confirm. Never OpenTAP Dialog."),
+        new(AuthoringRecipeIds.Input, "Operator Input", "Operator action", "Typed fixture / operator fields."),
         new(AuthoringRecipeIds.Acquire, "Acquire Voltage", "Measure", "Waveform timeseries (ChannelKey VDC)."),
-        new(AuthoringRecipeIds.MeanGte, "Mean GTE", "Analyze", "Scalar threshold on VDC.mean. Requires LimitSpec."),
-        new(AuthoringRecipeIds.BandScalar, "Publish Band Scalar", "Analyze", "Passband with Limit low / Limit high."),
-        new(AuthoringRecipeIds.SeriesCompliance, "Publish Series Compliance", "Analyze", "In-band percent passband."),
-        new(AuthoringRecipeIds.Repeat, "Repeat Loop", "Flow", "Wraps the last measure node in RepeatNode."),
-        new(AuthoringRecipeIds.Formula, "Formula…", "Analyze", "Deployment checks: mean(x) with threshold and top-level filter/filtfilt. Other expressions are saved for exploration and excluded from deployment."),
-        new(AuthoringRecipeIds.TransferFunction, "Transfer function…", "Analyze", "Discrete SISO IIR from numerator/denominator/Ts."),
-        new(AuthoringRecipeIds.StationHealth, "Report Station Health", "Station", "cal.dc.offset scalar with limits."),
-        new(AuthoringRecipeIds.Shutdown, "Safe Shutdown", "Safety", "Cleanup Safe Shutdown on selected instrument slots."),
+        new(AuthoringRecipeIds.MeanGte, "Mean GTE", "Check", "Scalar threshold on VDC.mean. Requires LimitSpec."),
+        new(AuthoringRecipeIds.BandScalar, "Publish Band Scalar", "Check", "Passband with Limit low / Limit high."),
+        new(AuthoringRecipeIds.SeriesCompliance, "Publish Series Compliance", "Check", "In-band percent passband."),
+        new(AuthoringRecipeIds.Repeat, "Repeat Loop", "Flow", "Wraps the selected supported measurement or loop."),
+        new(AuthoringRecipeIds.Formula, "Formula…", "Check", "Deployment checks: mean(x) with threshold and top-level filter/filtfilt. Other expressions are saved for exploration and excluded from deployment."),
+        new(AuthoringRecipeIds.TransferFunction, "Transfer function…", "Check", "Discrete SISO IIR from numerator/denominator/Ts."),
+        new(AuthoringRecipeIds.StationHealth, "Report Station Health", "Check", "cal.dc.offset scalar with limits."),
+        new(AuthoringRecipeIds.Shutdown, "Safe Shutdown", "Flow", "Cleanup Safe Shutdown on selected instrument slots."),
     ];
 
     public static bool PaletteContainsDialog()
@@ -160,7 +159,12 @@ public static class AuthoringRecipeCatalog
     }
 
     private static ProgramDraft WithMeasure(ProgramDraft draft, MetricDraft metric)
-        => draft with { Measure = [.. draft.Measure, new MetricNode(metric)] };
+    {
+        var used = PlanCompiler.AuthoringOutputChannels(draft.Measure).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var channel = AuthoringSequenceOperations.UniqueChannel(metric.ChannelKey, used);
+        metric = AuthoringSequenceOperations.WithOutputChannel(metric, channel);
+        return draft with { Measure = [.. draft.Measure, new MetricNode(metric)] };
+    }
 
     private static ProgramDraft WrapLastInRepeat(ProgramDraft draft)
     {
@@ -275,8 +279,7 @@ public static class AuthoringRecipeCatalog
 
     private static MetricDraft FormulaMetric(ProgramDraft draft)
     {
-        var keys = EnumerateMetrics(draft.Measure)
-            .Select(m => m.ChannelKey)
+        var keys = PlanCompiler.AuthoringOutputChannels(draft.Measure)
             .Where(key => !string.IsNullOrWhiteSpace(key))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
@@ -295,8 +298,7 @@ public static class AuthoringRecipeCatalog
 
     private static MetricDraft TransferFunctionMetric(ProgramDraft draft)
     {
-        var keys = EnumerateMetrics(draft.Measure)
-            .Select(m => m.ChannelKey)
+        var keys = PlanCompiler.AuthoringOutputChannels(draft.Measure)
             .Where(key => !string.IsNullOrWhiteSpace(key))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
