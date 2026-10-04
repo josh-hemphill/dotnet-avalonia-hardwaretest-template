@@ -157,7 +157,7 @@ public sealed partial class AuthoringDocumentStore
     {
         var path = GetRecoveryPath(id);
         ValidatePath(path);
-        File.Delete(path);
+        if (File.Exists(path)) File.Delete(path);
     }
 
     public static string? ComputeHash(string? path)
