@@ -22,7 +22,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         string package;
         try
         {
-            package = registered ? $"{adapter.RequiredPackage}: {adapter.Availability(InstrumentCreationHome).Reason ?? "available"}"
+            package = registered ? $"{adapter.RequiredPackage}: {adapter.Availability(HardwareInspectionHome).Reason ?? "available"}"
                 : "Unregistered adapter; preserve imported binding";
         }
         catch (ArgumentException) { package = "Invalid OpenTAP home path"; }
@@ -37,6 +37,12 @@ public sealed partial class AuthoringWorkspaceViewModel
         return new AuthoringHardwareRow(instrument.SlotName, instrument.TypeId, instrument.VisaAddress, package,
             string.Join("; ", usage) + (opaque ? "; unresolved imported usage" : usage.Length == 0 ? "Unused by steps" : ""), cleanup);
     }).ToArray();
+
+    private OpenTapHome? HardwareInspectionHome => Workspace is { } workspace
+        ? new OpenTapHome(Path.GetFullPath(string.IsNullOrWhiteSpace(OpenTapHomeOverride)
+            ? Path.Combine(workspace.Root, OpenTapHomeBootstrapper.DefaultHomeRelativePath)
+            : OpenTapHomeOverride))
+        : InstrumentCreationHome;
 
     public AuthoringInstrumentAdapter? HardwareEditType { get => _hardwareEditType; set => SetField(ref _hardwareEditType, value); }
     public string HardwareEditAddress { get => _hardwareEditAddress; set => SetField(ref _hardwareEditAddress, value ?? string.Empty); }

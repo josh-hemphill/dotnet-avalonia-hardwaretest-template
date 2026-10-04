@@ -123,6 +123,8 @@ public sealed class AuthoringHardwareDefinitionTests
     public void Bound_hardware_package_status_refreshes_with_selected_home_and_same_home_is_noop()
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
+        WritePackagePayload(Path.Combine(fixture.WorkspaceRoot, OpenTapHomeBootstrapper.DefaultHomeRelativePath),
+            AuthoringInstrumentCatalog.All.Single(a => a.RequiredPackage == "HardwareTest Basic"), includePayload: true);
         var window = fixture.Show(); fixture.OpenRememberedWorkspace();
         window.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 1; AuthoringUiFixture.Drain();
         var vm = fixture.ViewModel;
@@ -145,6 +147,77 @@ public sealed class AuthoringHardwareDefinitionTests
         Assert.Contains(table.GetVisualDescendants().OfType<TextBlock>(), text => text.Text == "HardwareTest Basic: available");
         Assert.Same(program, vm.SelectedProgram);
         Assert.False(vm.HasUnsavedChanges);
+    }
+
+    [AvaloniaTheory]
+    [InlineData("HardwareTest Basic", "missing metadata")]
+    [InlineData("HardwareTest Basic", "missing payload")]
+    [InlineData("HardwareTest Basic", "valid")]
+    [InlineData("HardwareTest VISA", "missing metadata")]
+    [InlineData("HardwareTest VISA", "missing payload")]
+    [InlineData("HardwareTest VISA", "valid")]
+    public void Bound_hardware_table_inspects_workspace_default_home_when_override_is_empty(string package, string state)
+    {
+        using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
+        var adapter = AuthoringInstrumentCatalog.All.Single(a => a.RequiredPackage == package);
+        var defaultHome = Path.Combine(fixture.WorkspaceRoot, OpenTapHomeBootstrapper.DefaultHomeRelativePath);
+        if (state != "missing metadata") WritePackagePayload(defaultHome, adapter, includePayload: state == "valid");
+        if (package == "HardwareTest VISA")
+        {
+            var manifest = AuthoringWorkspaceLoader.Load(fixture.WorkspaceRoot).Manifest;
+            manifest.Dependencies.Add(new AuthoringPackageDependency { Package = package, Version = "0.1.0" });
+            File.WriteAllText(Path.Combine(fixture.WorkspaceRoot, "authoring.json"),
+                System.Text.Json.JsonSerializer.Serialize(manifest, AuthoringJsonContext.Default.AuthoringManifest));
+        }
+        var window = fixture.Show(); fixture.OpenRememberedWorkspace();
+        var vm = fixture.ViewModel;
+        if (package == "HardwareTest VISA")
+        {
+            // Creating a binding remains available from the bundled adapter even when selected-home payloads are absent.
+            vm.NewInstrumentSlot = "VISA"; vm.SelectedNewInstrumentType = adapter; vm.NewInstrumentVisa = "TCPIP::192.0.2.1::INSTR";
+            vm.AddInstrumentSlot();
+        }
+        window.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 1; AuthoringUiFixture.Drain();
+        Assert.Equal(string.Empty, vm.OpenTapHomeOverride);
+        var table = fixture.Control<ItemsControl>("Hardware binding table");
+        var status = Assert.Single(table.GetVisualDescendants().OfType<TextBlock>(),
+            text => text.Text?.StartsWith(package + ":", StringComparison.Ordinal) == true).Text!;
+        if (state == "valid") Assert.Equal(package + ": available", status);
+        else
+        {
+            Assert.Contains(Path.GetFullPath(defaultHome), status);
+            Assert.Contains(state == "missing metadata" ? "package metadata is missing" : $"payload '{adapter.AssemblyFile}' is missing", status);
+            Assert.NotEqual(package + ": available", status);
+        }
+    }
+
+    [AvaloniaFact]
+    public void Bound_hardware_table_prefers_valid_override_to_missing_workspace_default_home()
+    {
+        using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
+        var adapter = AuthoringInstrumentCatalog.All.Single(a => a.RequiredPackage == "HardwareTest Basic");
+        var overrideHome = Path.Combine(fixture.WorkspaceRoot, "selected-home");
+        WritePackagePayload(overrideHome, adapter, includePayload: true);
+        var window = fixture.Show(); fixture.OpenRememberedWorkspace();
+        window.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 1; AuthoringUiFixture.Drain();
+        var table = fixture.Control<ItemsControl>("Hardware binding table");
+        Assert.Contains(table.GetVisualDescendants().OfType<TextBlock>(), text => text.Text?.Contains("package metadata is missing", StringComparison.Ordinal) == true);
+        fixture.ViewModel.OpenTapHomeOverride = overrideHome; AuthoringUiFixture.Drain();
+        Assert.Contains(table.GetVisualDescendants().OfType<TextBlock>(), text => text.Text == "HardwareTest Basic: available");
+        fixture.ViewModel.OpenTapHomeOverride = string.Empty; AuthoringUiFixture.Drain();
+        Assert.Contains(table.GetVisualDescendants().OfType<TextBlock>(), text => text.Text?.Contains("package metadata is missing", StringComparison.Ordinal) == true);
+    }
+
+    private static void WritePackagePayload(string home, AuthoringInstrumentAdapter adapter, bool includePayload)
+    {
+        var directory = Path.Combine(home, "Packages", adapter.RequiredPackage);
+        Directory.CreateDirectory(directory);
+        var files = new[] { adapter.AssemblyFile }.Concat(adapter.RequiredPayloadFiles).Distinct().ToArray();
+        new System.Xml.Linq.XElement("Package", new System.Xml.Linq.XAttribute("Name", adapter.RequiredPackage),
+            new System.Xml.Linq.XElement("Files", files.Select(file => new System.Xml.Linq.XElement("File", new System.Xml.Linq.XAttribute("Path", file)))))
+            .Save(Path.Combine(directory, "package.xml"));
+        if (includePayload)
+            foreach (var file in files) File.Copy(Path.Combine(AppContext.BaseDirectory, file), Path.Combine(directory, file));
     }
 
     private static void Click(AuthoringUiFixture fixture, string name)
