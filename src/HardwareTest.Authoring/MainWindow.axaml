@@ -525,7 +525,7 @@
                       </DataTemplate>
                     </ItemsControl.ItemTemplate>
                   </ItemsControl>
-                  <CheckBox Content="Exploration only" IsChecked="{Binding FormulaExplorationOnly}" IsVisible="{Binding HasFormula}" />
+                  <CheckBox Content="Exploration only" AutomationProperties.Name="Formula exploration only" IsChecked="{Binding FormulaExplorationOnly}" IsVisible="{Binding HasFormula}" />
                   <TextBlock Text="{Binding FormulaError}"
                              TextWrapping="Wrap"
                              Foreground="#C62828"

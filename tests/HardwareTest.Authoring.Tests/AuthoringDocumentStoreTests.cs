@@ -1,3 +1,4 @@
+using System.Text.Json;
 using HardwareTest.OpenTap.Host;
 using Xunit;
 
@@ -168,6 +169,97 @@ public sealed class AuthoringDocumentStoreTests : IDisposable
         Assert.Throws<InvalidOperationException>(() => store.SaveWorkspace(new AuthoringManifest { SchemaVersion = AuthoringSchemaVersions.Manifest }));
         Assert.Equal(bytes, File.ReadAllBytes(path));
         Assert.False(File.Exists(path + ".bak"));
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    [InlineData(-2147483648)]
+    public void UnsupportedNestedManifestVersionsAreRecoverableAndCannotBeSaved(int version)
+    {
+        var store = new AuthoringDocumentStore(_root);
+        var path = store.GetWorkspacePath();
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        File.WriteAllBytes(path, JsonSerializer.SerializeToUtf8Bytes(new AuthoringWorkspaceDto
+        {
+            Manifest = new AuthoringManifest { SchemaVersion = version, DisplayName = "invalid" }
+        }, AuthoringDocumentJsonContext.Default.AuthoringWorkspaceDto));
+        var bytes = File.ReadAllBytes(path);
+        var loaded = store.LoadWorkspace();
+        Assert.True(loaded.Exists);
+        Assert.True(loaded.IsReadOnly);
+        Assert.Null(loaded.Document);
+        Assert.Contains("unsupported manifest schema", loaded.Error);
+        Assert.Equal(bytes, loaded.OriginalBytes);
+        Assert.Throws<InvalidOperationException>(() => store.SaveWorkspace(new AuthoringManifest { SchemaVersion = version }));
+        Assert.Throws<InvalidOperationException>(() => store.SaveWorkspace(new AuthoringManifest { SchemaVersion = AuthoringSchemaVersions.Manifest }));
+        Assert.Equal(bytes, File.ReadAllBytes(path));
+        Assert.False(File.Exists(path + ".bak"));
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    [InlineData(3)]
+    public void UnsupportedManifestSaveDoesNotCreateWorkspaceSource(int version)
+    {
+        var store = new AuthoringDocumentStore(_root);
+        Assert.Throws<InvalidOperationException>(() => store.SaveWorkspace(new AuthoringManifest { SchemaVersion = version }));
+        Assert.False(File.Exists(store.GetWorkspacePath()));
+        Assert.Empty(Directory.EnumerateFileSystemEntries(_root));
+    }
+
+    [Theory]
+    [InlineData(1, false)]
+    [InlineData(2, false)]
+    [InlineData(3, true)]
+    public void NestedManifestVersionsKeepSupportedSourcesEditableAndFutureSourcesReadOnly(int version, bool readOnly)
+    {
+        var store = new AuthoringDocumentStore(_root);
+        var path = store.GetWorkspacePath();
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        File.WriteAllBytes(path, JsonSerializer.SerializeToUtf8Bytes(new AuthoringWorkspaceDto
+        {
+            Manifest = new AuthoringManifest { SchemaVersion = version, DisplayName = "test" }
+        }, AuthoringDocumentJsonContext.Default.AuthoringWorkspaceDto));
+        var bytes = File.ReadAllBytes(path);
+        var loaded = store.LoadWorkspace();
+        Assert.Equal(readOnly, loaded.IsReadOnly);
+        Assert.Null(loaded.Error);
+        Assert.Equal(version, loaded.Document!.Manifest.SchemaVersion);
+        Assert.Equal(bytes, loaded.OriginalBytes);
+        if (readOnly)
+        {
+            Assert.Throws<InvalidOperationException>(() => store.SaveWorkspace(new AuthoringManifest { SchemaVersion = AuthoringSchemaVersions.Manifest }));
+            Assert.Equal(bytes, File.ReadAllBytes(path));
+        }
+        else
+        {
+            store.SaveWorkspace(new AuthoringManifest { SchemaVersion = version, DisplayName = "retained" });
+            Assert.Equal(version, store.LoadWorkspace().Document!.Manifest.SchemaVersion);
+        }
+    }
+
+    [Fact]
+    public void LegacyManifestCanBeExplicitlyMigratedWithBackupAndPreservedContent()
+    {
+        var store = new AuthoringDocumentStore(_root);
+        var manifest = new AuthoringManifest
+        {
+            SchemaVersion = 1, DisplayName = "legacy", Catalogs = new() { RequiredFields = ["serial"] }
+        };
+        store.SaveWorkspace(manifest);
+        var path = store.GetWorkspacePath();
+        var legacyBytes = File.ReadAllBytes(path);
+        var migrated = store.LoadWorkspace().Document!.Manifest;
+        migrated.SchemaVersion = AuthoringSchemaVersions.Manifest;
+        store.SaveWorkspace(migrated);
+        Assert.Equal(legacyBytes, File.ReadAllBytes(path + ".bak"));
+        var current = store.LoadWorkspace();
+        Assert.False(current.IsReadOnly);
+        Assert.Equal(AuthoringSchemaVersions.Manifest, current.Document!.Manifest.SchemaVersion);
+        Assert.Equal("legacy", current.Document.Manifest.DisplayName);
+        Assert.Equal("serial", current.Document.Manifest.Catalogs!.RequiredFields.Single());
     }
 
     [Fact]

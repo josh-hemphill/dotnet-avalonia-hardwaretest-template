@@ -62,7 +62,7 @@ public sealed class AuthoringNumericFieldRecoveryTests
     [InlineData("denominator")]
     [InlineData("period")]
     [InlineData("age")]
-    public void ClearingIncompleteTextIsOneUndoableEdit(string field)
+    public void ClearingTextKeepsRequiredFieldsIncompleteAndOptionalAgeClearsInOneEdit(string field)
     {
         var root = Workspace();
         var vm = new AuthoringWorkspaceViewModel();
@@ -77,15 +77,48 @@ public sealed class AuthoringNumericFieldRecoveryTests
             var revision = vm.SelectedDocument!.Revision;
             SetText(vm, field, "");
             Assert.Equal(revision + 1, vm.SelectedDocument.Revision);
-            Assert.Empty(vm.SelectedProgram!.AuthoringState.IncompleteNumericText);
+            if (field == "age") Assert.Empty(vm.SelectedProgram!.AuthoringState.IncompleteNumericText);
+            else Assert.Equal("", Assert.Single(vm.SelectedProgram!.AuthoringState.IncompleteNumericText).Value);
             Assert.Equal(field == "age" ? "" : baseline, TypedValue(vm, field));
             vm.Undo();
             Assert.Equal("1e-", Text(vm, field));
             Assert.Equal(baseline, TypedValue(vm, field));
             vm.Redo();
-            Assert.Empty(vm.SelectedProgram!.AuthoringState.IncompleteNumericText);
+            if (field == "age") Assert.Empty(vm.SelectedProgram!.AuthoringState.IncompleteNumericText);
+            else Assert.Equal("", Assert.Single(vm.SelectedProgram!.AuthoringState.IncompleteNumericText).Value);
         }
         finally { vm.StopRecovery(); }
+    }
+
+    [Theory]
+    [InlineData("numerator", "")]
+    [InlineData("denominator", "")]
+    [InlineData("period", "")]
+    [InlineData("numerator", "  ")]
+    [InlineData("denominator", "  ")]
+    [InlineData("period", "  ")]
+    public void BlankRequiredTfFieldsPersistExactlyAndBlockCompileUntilCorrected(string field, string blank)
+    {
+        var root = Workspace(); var vm = new AuthoringWorkspaceViewModel(); vm.Open(root);
+        vm.ApplyRecipe(AuthoringRecipeIds.TransferFunction); vm.SelectMeasure(vm.SelectedProgram!.Measure.Count - 1);
+        var id = vm.SelectedProgram.PlanId; var nodeId = vm.SelectedSequence!.NodeId;
+        var baseline = TypedValue(vm, field);
+        var path = vm.Workspace!.TapPlanPaths.Single(p => Path.GetFileNameWithoutExtension(p) == id);
+        var compiledBytes = File.ReadAllBytes(path);
+        SetText(vm, field, blank);
+        Assert.Equal(blank, Text(vm, field)); Assert.Equal(baseline, TypedValue(vm, field));
+        vm.SaveProgram(id);
+        Assert.True(vm.HasUncompiledSources); Assert.False(vm.CanPack); Assert.Equal(compiledBytes, File.ReadAllBytes(path));
+        vm.StopRecovery();
+        var reopened = new AuthoringWorkspaceViewModel(); reopened.Open(root); reopened.SelectProgram(id);
+        reopened.SelectSequence(reopened.SequenceItems.ToList().FindIndex(row => row.NodeId == nodeId));
+        Assert.Equal(blank, Text(reopened, field)); Assert.Equal(baseline, TypedValue(reopened, field));
+        Assert.Throws<AuthoringWorkspaceException>(() => reopened.Validate());
+        SetText(reopened, field, baseline);
+        Assert.Empty(reopened.SelectedProgram!.AuthoringState.IncompleteNumericText);
+        reopened.Undo(); Assert.Equal(blank, Text(reopened, field)); Assert.Equal(baseline, TypedValue(reopened, field));
+        reopened.Redo(); Assert.Empty(reopened.SelectedProgram!.AuthoringState.IncompleteNumericText);
+        reopened.StopRecovery();
     }
 
     [Theory]

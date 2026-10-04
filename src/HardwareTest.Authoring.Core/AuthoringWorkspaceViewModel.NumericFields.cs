@@ -36,19 +36,17 @@ public sealed partial class AuthoringWorkspaceViewModel
         Func<TransferFunctionAlgorithm, IReadOnlyList<double>, TransferFunctionAlgorithm> mutate)
     {
         if (SelectedTf is null || SelectedSequence?.NodeId is not { } nodeId) return;
-        var empty = string.IsNullOrWhiteSpace(text);
         var valid = TryParseFiniteVector(text, out var vector);
-        SetNumericFieldText(nodeId, field, text, empty || valid,
-            state => ApplyNumericTf(state, tf => empty ? tf : mutate(tf, vector)));
+        SetNumericFieldText(nodeId, field, text, valid,
+            state => ApplyNumericTf(state, tf => mutate(tf, vector)));
     }
 
     private void SetTfSamplePeriodText(string text)
     {
         if (SelectedTf is null || SelectedSequence?.NodeId is not { } nodeId) return;
-        var empty = string.IsNullOrWhiteSpace(text);
         var valid = TryPositiveFiniteNumber(text, out var ts);
-        SetNumericFieldText(nodeId, nameof(TfTsSeconds), text, empty || valid,
-            state => ApplyNumericTf(state, tf => empty ? tf : tf with { TsSeconds = ts }));
+        SetNumericFieldText(nodeId, nameof(TfTsSeconds), text, valid,
+            state => ApplyNumericTf(state, tf => tf with { TsSeconds = ts }));
     }
 
     private void SetStationHealthAgeText(string text)
