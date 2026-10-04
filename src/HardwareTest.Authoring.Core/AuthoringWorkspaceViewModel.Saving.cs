@@ -160,6 +160,7 @@ public sealed partial class AuthoringWorkspaceViewModel
             compiledSidecarHash: baseline?.CompiledSidecarHash ?? AuthoringDocumentStore.ComputeHash(existing is null ? null : PlanCompiler.SidecarPath(existing)));
         document.RequiresCompilation = savePlan || actualDirty.PlanDirty || baseline?.RequiresCompilation == true;
         store.Save(document);
+        if (document.RequiresCompilation) _uncompiledDocuments.Add(planId);
         _sourceDocuments[planId] = document;
         _recovery?.Cancel(workspace.Root, planId);
         store.DeleteRecovery(planId);
