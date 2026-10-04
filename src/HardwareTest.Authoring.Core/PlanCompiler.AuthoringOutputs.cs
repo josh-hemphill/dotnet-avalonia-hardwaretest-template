@@ -74,7 +74,7 @@ public sealed partial class PlanCompiler
                     case RawStepNode raw: RawOutputs(LoadRawStep(raw)); break;
                     case MetricNode metric:
                         if (includePresentation) Add(node.NodeId, metric.Metric.ChannelKey);
-                        if (AuthoringPublisherStep(metric.Metric) is { } step)
+                        if (AuthoringPublisherStep(metric.Metric) is { Enabled: true } step)
                         {
                             step.Id = node.NodeId;
                             StepOutputs(step);
@@ -115,9 +115,9 @@ public sealed partial class PlanCompiler
         var step = AuthoringFunctionCatalog.CreateStep(function);
         step.Name = metric.Name;
         ApplyAuthoringStringSettings(step, settings);
-        if (step is BitSweepAcquireStep)
-            ApplySettings(step, settings.Where(pair => pair.Key.Equals(nameof(BitSweepAcquireStep.PublishSummaries),
-                StringComparison.OrdinalIgnoreCase)).ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal));
+        ApplySettings(step, settings.Where(pair => pair.Key.Equals(nameof(ITestStep.Enabled), StringComparison.OrdinalIgnoreCase)
+            || step is BitSweepAcquireStep && pair.Key.Equals(nameof(BitSweepAcquireStep.PublishSummaries), StringComparison.OrdinalIgnoreCase))
+            .ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal));
         step.GetType().GetProperty("Channel")?.SetValue(step, metric.ChannelKey);
         return step;
     }
