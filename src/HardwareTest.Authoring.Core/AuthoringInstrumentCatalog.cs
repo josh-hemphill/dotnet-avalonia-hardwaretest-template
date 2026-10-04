@@ -1,6 +1,6 @@
 using System.Xml.Linq;
-using HardwareTest.OpenTap.Plugins.Basic;
 using HardwareTest.OpenTap.Host;
+using HardwareTest.OpenTap.Plugins.Basic;
 using OpenTap;
 
 namespace HardwareTest.Authoring;

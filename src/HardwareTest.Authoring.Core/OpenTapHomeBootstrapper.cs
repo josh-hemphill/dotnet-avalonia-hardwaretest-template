@@ -1,7 +1,7 @@
 using System.IO.Compression;
 using System.Xml.Linq;
-using HardwareTest.OpenTap.Plugins.Basic;
 using HardwareTest.OpenTap.Host;
+using HardwareTest.OpenTap.Plugins.Basic;
 using HardwareTest.OpenTap.Plugins.Mixins;
 using OpenTap;
 
