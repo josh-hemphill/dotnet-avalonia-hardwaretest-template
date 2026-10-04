@@ -61,7 +61,7 @@ public sealed class AuthoringFeedbackTests
         var window = fixture.Show(960, 600, realInteraction: true);
         fixture.OpenRememberedWorkspace();
         fixture.ViewModel.DisplayName = "Unsaved sample";
-        for (var index = 1; index < 35; index++) fixture.ViewModel.CreateProgram($"unsaved-{index:00}-{new string('x', 160)}");
+        for (var index = 1; index < 35; index++) fixture.ViewModel.CreateProgram($"unsaved-{index:00}-{new string('x', 110)}");
         var draft = fixture.ViewModel.SelectedProgram;
         var finalId = fixture.ViewModel.DirtyPrograms[^1].PlanId;
         window.Close();

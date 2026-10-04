@@ -1,3 +1,5 @@
+using System.Text.Json;
+
 namespace HardwareTest.Authoring;
 
 /// Compiled checks and exports must not silently use artifacts older than saved authoring sources.
@@ -8,6 +10,12 @@ public static class AuthoringSourceExportGuard
     {
         var store = new AuthoringDocumentStore(workspace.Root);
         var issues = new List<PackPreflightFinding>();
+        var workspaceSource = store.LoadWorkspace();
+        if (workspaceSource.IsReadOnly || workspaceSource.Error is not null)
+            issues.Add(new("WORKSPACE_SOURCE_READ_ONLY", "Workspace source requires a supported schema or explicit repair before export.", true, store.GetWorkspacePath()));
+        else if (workspaceSource.Document is { } source &&
+            !WorkspaceCatalogMatches(source.Manifest, workspace.Manifest))
+            issues.Add(new("WORKSPACE_SOURCE_CONFLICT", "Reconcile authoring.json and workspace source before checking or exporting the catalog.", true, store.GetWorkspacePath()));
         foreach (var id in store.ListDocumentIds())
         {
             var path = workspace.TapPlanPaths.FirstOrDefault(p =>
@@ -27,6 +35,18 @@ public static class AuthoringSourceExportGuard
                 issues.Add(new("SOURCE_EXTERNAL_CONFLICT", $"Reconcile external compiled changes for '{id}' before checking or exporting.", true, path));
         }
         return issues;
+    }
+
+    internal static bool WorkspaceCatalogMatches(AuthoringManifest left, AuthoringManifest right)
+    {
+        static string Normalize(AuthoringManifest manifest)
+        {
+            var json = JsonSerializer.SerializeToNode(manifest, AuthoringJsonContext.Default.AuthoringManifest)!;
+            // Migrating a supported schema changes its version, not the catalog contents.
+            json["schemaVersion"] = AuthoringSchemaVersions.Manifest;
+            return json.ToJsonString();
+        }
+        return Normalize(left) == Normalize(right);
     }
 
     public static void EnsureCurrent(AuthoringWorkspace workspace)

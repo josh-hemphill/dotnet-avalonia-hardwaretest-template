@@ -45,5 +45,21 @@ public sealed class AuthoringSourceExportGuardTests : IDisposable
         Assert.Contains(result.Findings, finding => finding.Code == "SOURCE_COMPILE_REQUIRED");
     }
 
+    [Fact]
+    public void Cli_and_core_pack_refuse_divergent_workspace_catalogs()
+    {
+        var workspace = AuthoringWorkspaceLoader.Load(_root);
+        var manifest = workspace.Manifest;
+        manifest.PlansDirectory = "other-plans";
+        new AuthoringDocumentStore(_root).SaveWorkspace(manifest);
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        Assert.Equal(1, AuthoringCli.Run(["--validate", _root], output, error));
+        Assert.Contains("WORKSPACE_SOURCE_CONFLICT", error.ToString());
+        var result = WorkspacePacker.Preflight(AuthoringWorkspaceLoader.Load(_root), new PackOptions { Offline = true });
+        Assert.Contains(result.Findings, finding => finding.Code == "WORKSPACE_SOURCE_CONFLICT" && finding.IsError);
+        Assert.Null(result.Contract);
+    }
+
     public void Dispose() => Directory.Delete(_root, recursive: true);
 }

@@ -49,7 +49,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         var readOnly = loaded.Files.IsReadOnly || workspaceSource.IsReadOnly;
         if (workspaceSource.Document is { } workspaceDocument)
         {
-            if (!readOnly && !WorkspaceCatalogMatches(loaded.Files.Manifest, workspaceDocument.Manifest))
+            if (!readOnly && !AuthoringSourceExportGuard.WorkspaceCatalogMatches(loaded.Files.Manifest, workspaceDocument.Manifest))
                 throw new AuthoringWorkspaceException($"Workspace catalog conflict: authoring.json and {store.GetWorkspacePath()} differ. A partial Save All or external edit requires recovery. Review both files and their .bak/schema backup files, restore the intended catalog consistently, then reopen; neither file was overwritten.");
             loaded = loaded with { Files = loaded.Files with { Manifest = workspaceDocument.Manifest } };
         }
@@ -62,10 +62,6 @@ public sealed partial class AuthoringWorkspaceViewModel
         }
         return loaded with { Files = loaded.Files with { IsReadOnly = readOnly }, Programs = programs.Values.OrderBy(program => program.PlanId, StringComparer.OrdinalIgnoreCase).ToArray() };
     }
-
-    private static bool WorkspaceCatalogMatches(AuthoringManifest manifest, AuthoringManifest source)
-        => System.Text.Json.JsonSerializer.Serialize(manifest, AuthoringJsonContext.Default.AuthoringManifest)
-            == System.Text.Json.JsonSerializer.Serialize(source, AuthoringJsonContext.Default.AuthoringManifest);
 
     private void InitializeSourceState()
     {

@@ -178,6 +178,44 @@ public sealed class PlanCompilerPersistenceTests : IDisposable
     }
 
     [Theory]
+    [InlineData(false, false, false)]
+    [InlineData(false, true, false)]
+    [InlineData(true, true, false)]
+    [InlineData(false, false, true)]
+    [InlineData(false, true, true)]
+    [InlineData(true, true, true)]
+    public void Save_refuses_existing_temporary_symlinks_without_modifying_their_targets(
+        bool sidecarOnly, bool sidecarTemporary, bool dangling)
+    {
+        if (OperatingSystem.IsWindows()) return; // Creating links requires privileges on Windows.
+        var path = PlanPath();
+        var sidecarPath = PlanCompiler.SidecarPath(path);
+        File.WriteAllText(path, "original plan");
+        File.WriteAllText(sidecarPath, "original sidecar");
+        var target = Path.Combine(_directory, "protected-file");
+        if (!dangling) File.WriteAllText(target, "protected bytes");
+        var temporary = (sidecarTemporary ? sidecarPath : path) + ".saving";
+        File.CreateSymbolicLink(temporary, target);
+        var replacementRan = false;
+        var compiler = new PlanCompiler(null, (_, _) => replacementRan = true);
+
+        Assert.Throws<IOException>(() =>
+        {
+            if (sidecarOnly) compiler.SaveSidecar(path, Draft().Sidecar);
+            else compiler.Save(Draft(), path);
+        });
+
+        Assert.False(replacementRan);
+        Assert.Equal("original plan", File.ReadAllText(path));
+        Assert.Equal("original sidecar", File.ReadAllText(sidecarPath));
+        Assert.Equal(target, new FileInfo(temporary).LinkTarget);
+        if (dangling) Assert.False(File.Exists(target));
+        else Assert.Equal("protected bytes", File.ReadAllText(target));
+        File.Delete(temporary);
+        AssertNoTemps(path);
+    }
+
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public void Temp_cleanup_failure_does_not_hide_replacement_failure(bool sidecarOnly)

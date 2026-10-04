@@ -13,12 +13,22 @@ public sealed partial class PlanCompiler
         var sidecarFull = SidecarPath(tapFull);
         var tapTemp = tapFull + ".saving";
         var sidecarTemp = sidecarFull + ".saving";
+        var tapTempOwned = false;
+        var sidecarTempOwned = false;
         try
         {
-            plan.Save(tapTemp);
-            File.WriteAllText(
-                sidecarTemp,
-                JsonSerializer.Serialize(sidecar, ProgramCatalogJsonContext.Default.ProgramSidecar));
+            using (var stream = new FileStream(tapTemp, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+            {
+                tapTempOwned = true;
+                plan.Save(stream);
+                stream.Flush(flushToDisk: true);
+            }
+            using (var stream = new FileStream(sidecarTemp, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+            {
+                sidecarTempOwned = true;
+                JsonSerializer.Serialize(stream, sidecar, ProgramCatalogJsonContext.Default.ProgramSidecar);
+                stream.Flush(flushToDisk: true);
+            }
             var tapBackup = CreatePreimageBackup(tapFull);
             var sidecarBackup = CreatePreimageBackup(sidecarFull);
             try
@@ -51,8 +61,8 @@ public sealed partial class PlanCompiler
         }
         finally
         {
-            TryDeleteFile(tapTemp);
-            TryDeleteFile(sidecarTemp);
+            if (tapTempOwned) TryDeleteFile(tapTemp);
+            if (sidecarTempOwned) TryDeleteFile(sidecarTemp);
         }
     }
 
@@ -60,15 +70,20 @@ public sealed partial class PlanCompiler
     {
         var sidecarFull = SidecarPath(Path.GetFullPath(tapPlanPath));
         var sidecarTemp = sidecarFull + ".saving";
+        var sidecarTempOwned = false;
         try
         {
-            var json = JsonSerializer.Serialize(sidecar, ProgramCatalogJsonContext.Default.ProgramSidecar);
-            File.WriteAllText(sidecarTemp, json);
+            using (var stream = new FileStream(sidecarTemp, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+            {
+                sidecarTempOwned = true;
+                JsonSerializer.Serialize(stream, sidecar, ProgramCatalogJsonContext.Default.ProgramSidecar);
+                stream.Flush(flushToDisk: true);
+            }
             _replaceFile(sidecarTemp, sidecarFull);
         }
         finally
         {
-            TryDeleteFile(sidecarTemp);
+            if (sidecarTempOwned) TryDeleteFile(sidecarTemp);
         }
     }
 
