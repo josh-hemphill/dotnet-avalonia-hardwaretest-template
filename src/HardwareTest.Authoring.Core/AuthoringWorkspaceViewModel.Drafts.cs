@@ -31,8 +31,11 @@ public sealed partial class AuthoringWorkspaceViewModel
             var source = store.Load(id);
             return source.Document is not null || source.Error is not null;
         }).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        var imports = files with { TapPlanPaths = files.TapPlanPaths.Where(path =>
-            !sourceIds.Contains(Path.GetFileNameWithoutExtension(path))).ToArray() };
+        var imports = files with
+        {
+            TapPlanPaths = files.TapPlanPaths.Where(path =>
+            !sourceIds.Contains(Path.GetFileNameWithoutExtension(path))).ToArray()
+        };
         var loaded = _compiler.LoadAll(imports);
         return OverlaySources(loaded with { Files = files with { IsReadOnly = files.IsReadOnly || loaded.Files.IsReadOnly } });
     }
@@ -105,7 +108,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         if (_recovery is null || Workspace is null || Workspace.IsReadOnly) return;
         foreach (var draft in Programs)
         {
-            if (!_documents.TryGetValue(draft.PlanId, out var session) ) continue;
+            if (!_documents.TryGetValue(draft.PlanId, out var session)) continue;
             var dirty = session.GetDirtyState(draft);
             if (!dirty.PlanDirty && !dirty.SidecarDirty) continue;
             _sourceDocuments.TryGetValue(draft.PlanId, out var baseline);

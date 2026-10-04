@@ -43,10 +43,16 @@ public sealed record AuthoringDocumentDto
         var isolated = AuthoringDocumentSnapshot.Capture(draft).Restore();
         return new()
         {
-            PlanId = isolated.PlanId, Revision = revision, Sidecar = isolated.Sidecar,
-            Instruments = isolated.Instruments.ToArray(), Setup = isolated.Setup.Select(AuthoringSetupDto.From).ToArray(),
-            Measure = isolated.Measure.Select(AuthoringMeasureDto.From).ToArray(), Cleanup = AuthoringCleanupDto.From(isolated.Cleanup),
-            State = (state ?? draft.AuthoringState).Clone(), CompiledPlanHash = compiledPlanHash, CompiledSidecarHash = compiledSidecarHash
+            PlanId = isolated.PlanId,
+            Revision = revision,
+            Sidecar = isolated.Sidecar,
+            Instruments = isolated.Instruments.ToArray(),
+            Setup = isolated.Setup.Select(AuthoringSetupDto.From).ToArray(),
+            Measure = isolated.Measure.Select(AuthoringMeasureDto.From).ToArray(),
+            Cleanup = AuthoringCleanupDto.From(isolated.Cleanup),
+            State = (state ?? draft.AuthoringState).Clone(),
+            CompiledPlanHash = compiledPlanHash,
+            CompiledSidecarHash = compiledSidecarHash
         };
     }
 
@@ -57,7 +63,8 @@ public sealed record AuthoringDocumentDto
             State.IncompleteNumericText is null || State.FormulaIntent is null)
             throw new InvalidDataException("The authoring source document is incomplete.");
         var draft = new ProgramDraft(PlanId, Sidecar, Instruments, Setup.Select(s => s.ToAction()).ToArray(),
-            Measure.Select(m => m.ToNode()).ToArray(), Cleanup.ToPolicy()) { AuthoringState = State.Clone() };
+            Measure.Select(m => m.ToNode()).ToArray(), Cleanup.ToPolicy())
+        { AuthoringState = State.Clone() };
         var ids = AuthoringDependencyIndex.Build(draft).Nodes.Select(n => n.NodeId).ToArray();
         if (ids.Any(id => id == Guid.Empty) || ids.Distinct().Count() != ids.Length)
             throw new InvalidDataException("Draft node identities must be unique and nonempty.");
@@ -88,7 +95,8 @@ public sealed class AuthoringSetupDto
         "prompt" => new OperatorPromptSetup(Need(Name), Need(Message)),
         "input" => new OperatorInputSetup(Need(Name), Need(Title), Need(Message), StringFieldId, NumberFieldId),
         _ => throw new InvalidDataException($"Unknown setup discriminator '{Kind}'.")
-    }) with { NodeId = NodeId };
+    }) with
+    { NodeId = NodeId };
     internal static T Need<T>(T? value) where T : class => value ?? throw new InvalidDataException("A required draft value is missing.");
 }
 
@@ -120,7 +128,8 @@ public sealed class AuthoringMeasureDto
         "raw" => new RawStepNode(AuthoringSetupDto.Need(TypeName), AuthoringSetupDto.Need(XmlFragment)),
         "metric" => new MetricNode(new(AuthoringSetupDto.Need(Name), AuthoringSetupDto.Need(ChannelKey), AuthoringSetupDto.Need(DisplayRole), AuthoringSetupDto.Need(YUnit), Limits, History, AuthoringSetupDto.Need(Source).ToSource())),
         _ => throw new InvalidDataException($"Unknown measure discriminator '{Kind}'.")
-    }) with { NodeId = NodeId };
+    }) with
+    { NodeId = NodeId };
 }
 
 public sealed class AuthoringSourceDto
@@ -185,8 +194,10 @@ public sealed class AuthoringCleanupDto
     public bool IncludeMeasureSlots { get; set; }
     internal static AuthoringCleanupDto From(CleanupPolicy policy) => new()
     {
-        NodeId = policy.NodeId, IncludeSafeShutdown = policy.IncludeSafeShutdown,
-        InstrumentSlots = policy.InstrumentSlots.ToArray(), IncludeMeasureSlots = policy.IncludeMeasureSlots
+        NodeId = policy.NodeId,
+        IncludeSafeShutdown = policy.IncludeSafeShutdown,
+        InstrumentSlots = policy.InstrumentSlots.ToArray(),
+        IncludeMeasureSlots = policy.IncludeMeasureSlots
     };
     internal CleanupPolicy ToPolicy() => new(IncludeSafeShutdown, AuthoringSetupDto.Need(InstrumentSlots), IncludeMeasureSlots) { NodeId = NodeId };
 }
