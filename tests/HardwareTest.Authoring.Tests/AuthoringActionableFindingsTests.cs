@@ -25,6 +25,49 @@ public sealed class AuthoringActionableFindingsTests : IDisposable
     }
 
     [Fact]
+    public async Task Unreadable_source_at_async_completion_invalidates_the_previous_checked_report()
+    {
+        _vm.SelectProgram("sample");
+        _vm.SaveSidecar();
+        _vm.Validate();
+        Assert.Contains("Current", _vm.IssuesCheckState);
+        Assert.NotEmpty(_vm.FindingRows);
+        var sourcePath = new AuthoringDocumentStore(_root).GetDocumentPath("sample");
+        var original = File.ReadAllBytes(sourcePath);
+        File.WriteAllText(Path.Combine(_root, "fixture-result-wait"), "");
+        _vm.ConfigureOperations(AuthoringChildProcessRunner.ForExecutable(
+            Path.Combine(AppContext.BaseDirectory, "HardwareTest.Authoring.ProcessFixture.dll")), action => action());
+        var operation = _vm.RunOperationAsync(AuthoringOperationKind.Validate);
+        try
+        {
+            var deadline = DateTime.UtcNow.AddSeconds(15);
+            while (!File.Exists(Path.Combine(_root, "fixture-prepared")))
+            {
+                if (operation.IsCompleted) await operation;
+                Assert.True(DateTime.UtcNow < deadline);
+                await Task.Delay(20);
+            }
+            using (var locked = new FileStream(sourcePath, FileMode.Open, FileAccess.Read, FileShare.None))
+            {
+                File.WriteAllText(Path.Combine(_root, "fixture-release"), "");
+                var error = await Record.ExceptionAsync(async () => await operation);
+                Assert.Contains("Stale", _vm.IssuesCheckState);
+                Assert.All(_vm.FindingRows, item => Assert.True(item.IsStale));
+                Assert.Empty(_vm.Findings);
+                Assert.IsType<AuthoringWorkspaceException>(error);
+                Assert.Contains("could not be read to verify", _vm.Error);
+                Assert.Equal("Authoring operation failed", _vm.Status);
+            }
+            Assert.Equal(original, File.ReadAllBytes(sourcePath));
+        }
+        finally
+        {
+            File.WriteAllText(Path.Combine(_root, "fixture-release"), "");
+            await Record.ExceptionAsync(async () => await operation);
+        }
+    }
+
+    [Fact]
     public void Locked_checked_source_refuses_navigation_and_invalidates_checked_state()
     {
         _vm.SelectProgram("sample");

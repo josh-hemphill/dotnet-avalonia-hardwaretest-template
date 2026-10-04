@@ -55,7 +55,13 @@ public sealed partial class AuthoringWorkspaceViewModel
     private void AcceptFindings(PlanContractBatchReport report, FindingCheck check)
     {
         if (check.Session != _workspaceSession) return;
-        var stale = check.Generation != _findingRevision || check.Identity != FindingIdentity();
+        bool stale;
+        try { stale = check.Generation != _findingRevision || check.Identity != FindingIdentity(); }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+        {
+            InvalidateContractFindings();
+            throw new AuthoringWorkspaceException("The checked source or artifact could not be read to verify the completed validation. Validate again.", error);
+        }
         _lastFindingCheck = check;
         _lastFindingCheckStale = stale;
         OnPropertyChanged(nameof(IssuesCheckState));
