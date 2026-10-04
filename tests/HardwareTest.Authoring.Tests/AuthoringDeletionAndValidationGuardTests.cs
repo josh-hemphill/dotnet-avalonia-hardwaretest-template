@@ -78,6 +78,56 @@ public sealed class AuthoringDeletionAndValidationGuardTests
         Assert.Throws<AuthoringWorkspaceException>(() => AuthoringSourceExportGuard.EnsureCurrent(vm.Workspace!)); vm.StopRecovery();
     }
 
+    [Fact]
+    public void GuiValidationClearsDeletedUnknownSourceBlocker()
+    {
+        var root = Workspace(); var vm = new AuthoringWorkspaceViewModel(); vm.Open(root); vm.Apply();
+        var store = new AuthoringDocumentStore(root);
+        var document = AuthoringDocumentDto.FromDraft(AuthoringRecipeCatalog.CreateProgram("external-deleted"));
+        document.RequiresCompilation = true; store.Save(document);
+        Assert.Throws<AuthoringWorkspaceException>(() => vm.Validate()); Assert.True(vm.HasUncompiledSources);
+        store.DeleteSource(document.PlanId);
+        vm.Validate();
+        Assert.False(vm.HasUncompiledSources); Assert.Empty(vm.CompiledConflictProgramIds); Assert.True(vm.CanPack);
+        AuthoringSourceExportGuard.EnsureCurrent(vm.Workspace!); vm.StopRecovery();
+    }
+
+    [Fact]
+    public void GuiValidationClearsExternallyRepairedSourceFlagsAndCompiledConflict()
+    {
+        var root = Workspace(); var vm = new AuthoringWorkspaceViewModel(); vm.Open(root); vm.Apply();
+        var id = vm.SelectedProgram!.PlanId;
+        var path = vm.Workspace!.TapPlanPaths.Single(p => Path.GetFileNameWithoutExtension(p) == id);
+        var store = new AuthoringDocumentStore(root); var document = store.Load(id).Document!;
+        document.RequiresCompilation = true; store.Save(document);
+        File.AppendAllText(path, "\n<!-- external repair -->");
+        Assert.Throws<AuthoringWorkspaceException>(() => vm.Validate());
+        Assert.True(vm.HasUncompiledSources); Assert.Contains(id, vm.CompiledConflictProgramIds);
+        document.RequiresCompilation = false;
+        document.CompiledPlanHash = AuthoringDocumentStore.ComputeHash(path);
+        document.CompiledSidecarHash = AuthoringDocumentStore.ComputeHash(PlanCompiler.SidecarPath(path)); store.Save(document);
+        vm.Validate();
+        Assert.False(vm.HasUncompiledSources); Assert.Empty(vm.CompiledConflictProgramIds); Assert.True(vm.CanPack);
+        AuthoringSourceExportGuard.EnsureCurrent(vm.Workspace); vm.StopRecovery();
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void GuiReadinessRefreshPreservesDurableRetainedSourceCompilationRequirement(bool deleteSource)
+    {
+        var root = Workspace(); var vm = new AuthoringWorkspaceViewModel(); vm.Open(root); vm.Apply();
+        var id = vm.SelectedProgram!.PlanId;
+        var path = vm.Workspace!.TapPlanPaths.Single(p => Path.GetFileNameWithoutExtension(p) == id);
+        File.AppendAllText(path, "\n<!-- external -->");
+        Assert.Throws<AuthoringWorkspaceException>(() => vm.Validate());
+        vm.ReconcileCompiled(id, useCompiledContent: false);
+        if (deleteSource) new AuthoringDocumentStore(root).DeleteSource(id);
+        Assert.Throws<AuthoringWorkspaceException>(() => vm.Validate());
+        Assert.True(vm.HasUncompiledSources); Assert.Empty(vm.CompiledConflictProgramIds); Assert.False(vm.CanPack);
+        vm.SaveProgram(id); vm.Validate(); Assert.False(vm.HasUncompiledSources); vm.StopRecovery();
+    }
+
     private static string Workspace()
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);

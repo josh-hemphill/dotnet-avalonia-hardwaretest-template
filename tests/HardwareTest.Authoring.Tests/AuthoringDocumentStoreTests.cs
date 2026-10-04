@@ -246,7 +246,9 @@ public sealed class AuthoringDocumentStoreTests : IDisposable
         var store = new AuthoringDocumentStore(_root);
         var manifest = new AuthoringManifest
         {
-            SchemaVersion = 1, DisplayName = "legacy", Catalogs = new() { RequiredFields = ["serial"] }
+            SchemaVersion = 1,
+            DisplayName = "legacy",
+            Catalogs = new() { RequiredFields = ["serial"] }
         };
         store.SaveWorkspace(manifest);
         var path = store.GetWorkspacePath();

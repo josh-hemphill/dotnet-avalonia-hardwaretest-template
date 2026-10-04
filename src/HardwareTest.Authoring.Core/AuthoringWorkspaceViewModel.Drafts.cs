@@ -27,18 +27,33 @@ public sealed partial class AuthoringWorkspaceViewModel
     private void RefreshSourceReadiness()
     {
         var store = new AuthoringDocumentStore(Workspace!.Root);
+        var documents = new Dictionary<string, AuthoringDocumentDto>(StringComparer.OrdinalIgnoreCase);
+        var uncompiled = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var conflicts = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var id in store.ListDocumentIds())
         {
             var source = store.Load(id);
             if (source.Document is not { } document)
             {
-                _uncompiledDocuments.Add(id);
+                uncompiled.Add(id);
                 continue;
             }
-            _sourceDocuments[id] = document;
-            if (document.RequiresCompilation || document.CompiledPlanHash is null) _uncompiledDocuments.Add(id);
-            if (CompiledChanged(document)) _compiledConflicts.Add(id);
+            documents[id] = document;
+            if (document.RequiresCompilation || document.CompiledPlanHash is null) uncompiled.Add(id);
+            if (CompiledChanged(document)) conflicts.Add(id);
         }
+        foreach (var previous in _sourceDocuments)
+        {
+            if (previous.Value.RequiresCompilation && _documents.ContainsKey(previous.Key) && !documents.ContainsKey(previous.Key))
+            {
+                documents[previous.Key] = previous.Value;
+                uncompiled.Add(previous.Key);
+            }
+        }
+        _sourceDocuments.Clear();
+        foreach (var document in documents) _sourceDocuments.Add(document.Key, document.Value);
+        _uncompiledDocuments.Clear(); _uncompiledDocuments.UnionWith(uncompiled);
+        _compiledConflicts.Clear(); _compiledConflicts.UnionWith(conflicts);
         RaiseDraftState();
     }
 

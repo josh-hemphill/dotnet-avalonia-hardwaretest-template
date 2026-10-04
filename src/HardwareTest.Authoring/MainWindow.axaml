@@ -649,7 +649,7 @@
               </Expander>
               <TextBlock Text="{Binding Workspace.Root}" TextWrapping="Wrap" />
               <TextBlock Text="{Binding Workspace.Manifest.DisplayName}" />
-              <TextBlock Text="Open a folder that contains authoring.json. Save plan writes TapPlan + sidecar via IPlanCompiler.Save."
+              <TextBlock Text="Open a folder containing authoring.json. Save draft preserves incomplete edits; ready plans also export compiled files."
                          TextWrapping="Wrap" />
               <TextBlock FontWeight="SemiBold" Text="Declared plugins" />
               <TextBlock Opacity="0.8"
