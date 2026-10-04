@@ -356,7 +356,7 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
         }
 
         var checkedState = PrepareFindingCheck();
-        var report = PlanContractValidator.Validate(
+        var report = ValidateSavedPlans(
             Workspace.TapPlanPaths,
             new PlanContractOptions
             {
@@ -364,10 +364,7 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
                 ExcludeVisaAdapter = !AuthoringInstrumentCatalog.DeclaresVisa(Workspace),
             });
         AcceptFindings(report, checkedState);
-        Status = report.HasErrors
-            ? $"{report.ErrorCount} contract error(s)"
-            : $"{report.WarningCount} contract warning(s)";
-        Error = report.HasErrors ? Status : null;
+        SetFindingValidationStatus(report);
         return report;
     }
 

@@ -79,9 +79,7 @@ public sealed partial class AuthoringWorkspaceViewModel
                 if (result.Validation is { } report)
                 {
                     AcceptFindings(report, checkedState!);
-                    Status = _lastFindingCheckStale ? "Validation completed for an earlier revision; validate again."
-                        : report.HasErrors ? $"{report.ErrorCount} contract error(s)" : $"{report.WarningCount} contract warning(s)";
-                    Error = !_lastFindingCheckStale && report.HasErrors ? Status : null;
+                    SetFindingValidationStatus(report);
                 }
                 else if (result.Build is { } build)
                 {

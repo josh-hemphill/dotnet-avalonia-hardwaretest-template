@@ -72,14 +72,27 @@ public sealed partial class AuthoringWorkspaceViewModel
     {
         var saved = new List<string>();
         var failures = new List<ProgramSaveFailure>();
-        foreach (var id in DirtyProgramIds)
+        var dirtyPrograms = DirtyProgramIds.ToArray();
+        var canPublish = true;
+        WorkspaceCatalogSaveFailure = null;
+        if (dirtyPrograms.Length > 0 || WorkspaceCatalogDirty || HasCurrentFindingCheck)
+        {
+            try { VerifySavedInputsForSave(dirtyPrograms); }
+            catch (Exception ex)
+            {
+                canPublish = false;
+                foreach (var id in dirtyPrograms) failures.Add(new(id, PersistenceError(ex)));
+                if (WorkspaceCatalogDirty) WorkspaceCatalogSaveFailure = $"Workspace catalog could not be saved; retry Save All: {PersistenceError(ex)}";
+                else if (dirtyPrograms.Length == 0) failures.Add(new("Workspace", PersistenceError(ex)));
+            }
+        }
+        foreach (var id in canPublish ? dirtyPrograms : [])
         {
             try { SaveProgramCore(id, forcePlan: false, sidecarOnly: false); saved.Add(id); }
             catch (Exception ex) { failures.Add(new(id, PersistenceError(ex))); }
         }
         var catalogSaved = false;
-        WorkspaceCatalogSaveFailure = null;
-        if (WorkspaceCatalogDirty && failures.Count == 0 && DirtyProgramIds.Count == 0)
+        if (canPublish && WorkspaceCatalogDirty && failures.Count == 0 && DirtyProgramIds.Count == 0)
         {
             try
             {
@@ -141,6 +154,7 @@ public sealed partial class AuthoringWorkspaceViewModel
 
     private void SaveProgramCore(string planId, bool forcePlan, bool sidecarOnly)
     {
+        VerifySavedInputsForSave([planId]);
         try { PublishProgramCore(planId, forcePlan, sidecarOnly); }
         finally { InvalidateFindingsAfterSave(); }
     }
