@@ -181,10 +181,9 @@ public static partial class AuthoringBuildService
             if (ShellOutputIdentityProperties.Contains(element.Name.LocalName)
                 && !element.Value.Contains("$(", StringComparison.Ordinal) && !SafeAssemblyOutputName(element.Value))
                 Unsupported(path, $"{element.Name.LocalName} must be a plain SDK identity without path components");
-            if (element.Name.LocalName is "Link" or "DestinationSubDirectory" or "RelativePath"
-                && (Path.IsPathRooted(element.Value) || element.Value.Replace('\\', '/').Split('/').Contains("..", StringComparer.Ordinal)
-                    || element.Value.Contains("$(", StringComparison.Ordinal) || element.Value.Contains("@(", StringComparison.Ordinal)))
-                Unsupported(path, "copy-output metadata must use contained literal relative paths");
+            if (IsShellCopyMetadata(element.Name.LocalName)) ValidateShellCopyMetadata(path, element.Value);
+            foreach (var metadata in element.Attributes().Where(a => IsShellCopyMetadata(a.Name.LocalName)))
+                ValidateShellCopyMetadata(path, metadata.Value);
             if (element.Name.LocalName == "Sdk" || (element != xml.Root && element.Attribute("Sdk") is not null))
                 Unsupported(path, "additional SDK imports are unsupported");
             if (element.Name.LocalName == "TargetFrameworks") Unsupported(path, "multi-targeted shell graphs require framework-specific evaluation");
@@ -195,9 +194,9 @@ public static partial class AuthoringBuildService
                     || reference.Contains('*') || reference.Contains(';'))
                     Unsupported(path, "project references must use literal relative paths");
                 if (element.Descendants().Any(e => e.Name.LocalName is "AdditionalProperties" or "GlobalPropertiesToRemove"
-                    or "SetConfiguration" or "SetPlatform" or "SetTargetFramework" or "Targets" or "Properties")
+                    or "SetConfiguration" or "SetPlatform" or "SetTargetFramework" or "Targets" or "Properties" or "UndefineProperties")
                     || element.Attributes().Any(a => a.Name.LocalName is "AdditionalProperties" or "GlobalPropertiesToRemove"
-                    or "SetConfiguration" or "SetPlatform" or "SetTargetFramework" or "Targets" or "Properties"))
+                    or "SetConfiguration" or "SetPlatform" or "SetTargetFramework" or "Targets" or "Properties" or "UndefineProperties"))
                     Unsupported(path, "project-reference write-profile overrides are unsupported");
             }
             if (element.Name.LocalName == "HintPath"
@@ -225,7 +224,9 @@ public static partial class AuthoringBuildService
                         Unsupported(path, "custom revision command is unsupported");
                 }
             }
-            if (ShellRedirectProperties.Contains(element.Name.LocalName) || ContainedSdkEnvironmentProperties.Contains(element.Name.LocalName))
+            var copyItemMetadata = IsShellCopyMetadata(element.Name.LocalName)
+                && element.Parent?.Parent?.Name.LocalName is "ItemGroup" or "ItemDefinitionGroup";
+            if ((!copyItemMetadata && ShellRedirectProperties.Contains(element.Name.LocalName)) || ContainedSdkEnvironmentProperties.Contains(element.Name.LocalName))
                 Unsupported(path, $"{element.Name.LocalName} can redirect inputs outside staging");
             if (element.Name.LocalName == "Import")
             {
@@ -246,5 +247,20 @@ public static partial class AuthoringBuildService
             if (!element.HasElements && element.Parent?.Name.LocalName == "PropertyGroup"
                 && Path.IsPathRooted(element.Value.Trim())) Unsupported(path, "absolute project property paths cannot be relocated");
         }
+    }
+
+    private static bool IsShellCopyMetadata(string name)
+        => name is "Link" or "LinkBase" or "TargetPath" or "RelativePath" or "DestinationSubDirectory";
+
+    // Reject evaluation/escaping syntax rather than trusting a pre-target item projection:
+    // AssignTargetPath and publish tasks can consume this metadata later in the graph.
+    private static void ValidateShellCopyMetadata(string path, string value)
+    {
+        var normalized = value.Trim().Replace('\\', '/');
+        if (normalized.StartsWith('/') || normalized.Contains(':') || normalized.Contains('%')
+            || normalized.Contains("$(", StringComparison.Ordinal) || normalized.Contains("@(", StringComparison.Ordinal)
+            || normalized.Split('/').Any(segment => segment.Trim() == "..") || normalized.Contains(';')
+            || normalized.IndexOfAny(['*', '?']) >= 0)
+            Unsupported(path, "copy-output metadata must use contained literal relative paths without expressions or escapes");
     }
 }
