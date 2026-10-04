@@ -50,6 +50,41 @@ public sealed class PlanCompilerPersistenceTests : IDisposable
     }
 
     [Fact]
+    public void Save_retains_durable_preimages_and_original_error_when_restoration_fails()
+    {
+        var path = PlanPath();
+        var sidecarPath = PlanCompiler.SidecarPath(path);
+        var tapBytes = Encoding.UTF8.GetBytes("recoverable original plan\r\n");
+        var sidecarBytes = Encoding.UTF8.GetBytes("recoverable original sidecar\r\n");
+        File.WriteAllBytes(path, tapBytes);
+        File.WriteAllBytes(sidecarPath, sidecarBytes);
+        var failure = new IOException("Original sidecar replacement failure.");
+        var compiler = new PlanCompiler(null, (source, destination) =>
+        {
+            if (destination == sidecarPath)
+            {
+                File.Delete(path);
+                Directory.CreateDirectory(path);
+                File.WriteAllText(sidecarPath, "partial replacement");
+                throw failure;
+            }
+            File.Move(source, destination, overwrite: true);
+        });
+
+        Assert.Same(failure, Assert.Throws<IOException>(() => compiler.Save(Draft(), path)));
+
+        var backups = Assert.IsType<string[]>(failure.Data["AuthoringRecoveryBackups"]);
+        Assert.Equal(2, backups.Length);
+        Assert.Equal(tapBytes, File.ReadAllBytes(backups.Single(p => p.StartsWith(path + ".", StringComparison.Ordinal))));
+        Assert.Equal(sidecarBytes, File.ReadAllBytes(backups.Single(p => p.StartsWith(sidecarPath + ".", StringComparison.Ordinal))));
+        Assert.Equal(sidecarBytes, File.ReadAllBytes(sidecarPath));
+        Assert.NotEmpty(Assert.IsType<Exception[]>(failure.Data["AuthoringRollbackErrors"]));
+        Assert.Contains("Restore", Assert.IsType<string>(failure.Data["AuthoringRecoveryAction"]), StringComparison.Ordinal);
+        Assert.Empty(Directory.GetFiles(_directory, "*.restoring"));
+        AssertNoTemps(path);
+    }
+
+    [Fact]
     public void Save_removes_new_plan_when_final_sidecar_replacement_fails()
     {
         var path = PlanPath();
