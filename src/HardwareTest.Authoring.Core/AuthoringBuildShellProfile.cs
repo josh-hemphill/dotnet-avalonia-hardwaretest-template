@@ -50,10 +50,10 @@ public static partial class AuthoringBuildService
                     "-getProperty:" + string.Join(',', ShellOutputIdentityProperties), "-getItem:ProjectReference"]);
                 using var result = JsonDocument.Parse(RunShellDotNet(Path.GetDirectoryName(current)!, arguments, environment));
                 foreach (var name in ShellOutputIdentityProperties)
-                    if (!SafeAssemblyOutputName(result.RootElement.GetProperty("Properties").GetProperty(name).GetString()!))
+                    if (!SafeAssemblyOutputName(ShellJsonProperty(result.RootElement.GetProperty("Properties"), name).GetString()!))
                         Unsupported(current, $"{name} contains output path components under the actual staged SDK write profile");
-                foreach (var reference in result.RootElement.GetProperty("Items").GetProperty("ProjectReference").EnumerateArray())
-                    pending.Enqueue(reference.GetProperty("FullPath").GetString()!);
+                foreach (var reference in ShellJsonProperty(result.RootElement.GetProperty("Items"), "ProjectReference").EnumerateArray())
+                    pending.Enqueue(ShellJsonProperty(reference, "FullPath").GetString()!);
             }
         }
     }
