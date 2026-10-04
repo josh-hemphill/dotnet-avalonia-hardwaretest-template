@@ -141,6 +141,12 @@ public sealed partial class AuthoringWorkspaceViewModel
 
     private void SaveProgramCore(string planId, bool forcePlan, bool sidecarOnly)
     {
+        try { PublishProgramCore(planId, forcePlan, sidecarOnly); }
+        finally { InvalidateFindingsAfterSave(); }
+    }
+
+    private void PublishProgramCore(string planId, bool forcePlan, bool sidecarOnly)
+    {
         var workspace = Workspace ?? throw new AuthoringWorkspaceException("Open a workspace before saving.");
         if (workspace.IsReadOnly) throw new AuthoringWorkspaceException("Workspace is read-only; cannot save.");
         var draft = Programs.FirstOrDefault(p => string.Equals(p.PlanId, planId, StringComparison.OrdinalIgnoreCase))

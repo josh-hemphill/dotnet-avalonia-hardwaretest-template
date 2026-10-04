@@ -32,10 +32,10 @@ public sealed class AuthoringActionableFindingsTests : IDisposable
         Assert.NotNull(row.Finding.Target?.CompiledStepId);
         Assert.NotNull(row.NodeId);
         Assert.False(row.IsStale);
-        Assert.Equal("Go to field", row.NavigationLabel);
+        Assert.Equal("Open program settings", row.NavigationLabel);
+        Assert.Contains("no supported editor control", row.NavigationReason);
         var target = _vm.NavigateFinding(row);
         Assert.Equal("sample", _vm.SelectedProgram!.PlanId);
-        Assert.Equal(row.NodeId, _vm.SelectedSequence!.NodeId);
         Assert.Equal("LimitLow", row.Finding.Target!.Field);
         Assert.Equal("ProgramSettings", target!.Section);
         Assert.Contains("no supported editor control", _vm.Status);
@@ -59,6 +59,7 @@ public sealed class AuthoringActionableFindingsTests : IDisposable
         _vm.Validate();
         var row = _vm.FindingRows.First(row => row.NodeId is not null);
         Assert.NotNull(_vm.NavigateFinding(row));
+        _vm.SelectSequence(_vm.SequenceItems.ToList().FindIndex(item => item.NodeId == row.NodeId));
         _vm.ChannelKey = "edited";
         Assert.NotEmpty(_vm.FindingRows);
         Assert.All(_vm.FindingRows, item => Assert.True(item.IsStale));
@@ -180,6 +181,88 @@ public sealed class AuthoringActionableFindingsTests : IDisposable
         Assert.Null(Assert.Single(map, item => item.StepId == opaque.NodeId).NodeId);
         Assert.Null(Assert.Single(map, item => item.StepId == generated).NodeId);
         Assert.DoesNotContain(map, item => item.NodeId == excluded.NodeId);
+    }
+
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public void Saving_without_edits_invalidates_an_empty_checked_report(bool apply, bool existingSource)
+    {
+        RestoreCleanSample();
+        _vm.Open(_root);
+        _vm.StopRecovery();
+        _vm.SelectProgram("sample");
+        if (existingSource) _vm.SaveSidecar();
+        Assert.Empty(_vm.Validate().Plans.SelectMany(plan => plan.Findings));
+        Assert.Contains("Current", _vm.IssuesCheckState);
+        Assert.False(_vm.HasUnsavedChanges);
+        var sourcePath = new AuthoringDocumentStore(_root).GetDocumentPath("sample");
+        var before = AuthoringDocumentStore.ComputeHash(sourcePath);
+        if (apply) _vm.Apply(); else _vm.SaveSidecar();
+        Assert.NotEqual(before, AuthoringDocumentStore.ComputeHash(sourcePath));
+        Assert.Empty(_vm.FindingRows);
+        Assert.Contains("Stale", _vm.IssuesCheckState);
+    }
+
+    [Fact]
+    public void Partially_published_save_keeps_original_failure_and_invalidates_empty_report()
+    {
+        RestoreCleanSample();
+        var vm = new AuthoringWorkspaceViewModel(new FailingSidecarCompiler());
+        vm.Open(_root);
+        vm.StopRecovery();
+        try
+        {
+            vm.SelectProgram("sample");
+            Assert.Empty(vm.Validate().Plans.SelectMany(plan => plan.Findings));
+            Assert.Contains("Current", vm.IssuesCheckState);
+            Assert.Equal("sidecar publication failed", Assert.Throws<IOException>(vm.SaveSidecar).Message);
+            Assert.True(File.Exists(new AuthoringDocumentStore(_root).GetDocumentPath("sample")));
+            Assert.Empty(vm.FindingRows);
+            Assert.Contains("Stale", vm.IssuesCheckState);
+        }
+        finally { vm.StopRecovery(); }
+    }
+
+    [Fact]
+    public void Destination_policy_requires_a_unique_supported_field_without_changing_selection()
+    {
+        var originalProgram = _vm.SelectedProgram;
+        var originalNode = _vm.SelectedSequence;
+        var metric = new MetricNode(_vm.Programs.First().Measure.OfType<MetricNode>().First().Metric with
+        { Source = new ExpressionAlgorithm(["VDC"], "mean(VDC)") });
+        var draft = _vm.Programs.First() with { Measure = [metric] };
+        var target = new PlanContractTarget(NodeId: metric.NodeId, Field: "Threshold", Section: "Configure");
+        var supported = AuthoringFindingNavigation.Resolve(draft, metric.NodeId, target);
+        Assert.Equal("Go to field", supported.Label);
+        Assert.Equal(metric.NodeId, supported.Target.NodeId);
+        var unsupported = AuthoringFindingNavigation.Resolve(draft, metric.NodeId, target with { Field = "LimitLow" });
+        Assert.Equal("Open program settings", unsupported.Label);
+        Assert.Null(unsupported.Target.NodeId);
+        var ambiguous = AuthoringFindingNavigation.Resolve(draft with { Measure = [metric, metric] }, metric.NodeId, target);
+        Assert.Equal("Open program settings", ambiguous.Label);
+        Assert.Null(ambiguous.Target.NodeId);
+        Assert.Same(originalProgram, _vm.SelectedProgram);
+        Assert.Same(originalNode, _vm.SelectedSequence);
+    }
+
+    private void RestoreCleanSample()
+    {
+        var path = Path.Combine(_root, "sample.TapPlan");
+        File.WriteAllText(path, File.ReadAllText(path).Replace("<HardwareTest.Presentation.DisplayRole>passband</HardwareTest.Presentation.DisplayRole>",
+            "<HardwareTest.Presentation.DisplayRole>timeseries</HardwareTest.Presentation.DisplayRole>", StringComparison.Ordinal));
+        foreach (var other in Directory.EnumerateFiles(_root, "*.TapPlan").Where(file => file != path)) File.Delete(other);
+    }
+
+    private sealed class FailingSidecarCompiler : IPlanCompiler
+    {
+        private readonly PlanCompiler _inner = new();
+        public void Save(ProgramDraft draft, string path) => _inner.Save(draft, path);
+        public ProgramDraft Load(string path) => _inner.Load(path);
+        public DraftWorkspace LoadAll(AuthoringWorkspace workspace) => _inner.LoadAll(workspace);
+        public void SaveSidecar(string path, ProgramSidecar sidecar) => throw new IOException("sidecar publication failed");
     }
 
     public void Dispose()

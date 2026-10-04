@@ -71,6 +71,8 @@ public sealed partial class AuthoringWorkspaceViewModel
                     ? map.StepId == step : target?.NodeId is { } id && map.NodeId == id).ToArray();
                 if (maps.Length == 1 && maps[0].NodeId is { } mapped && (target?.NodeId is null || target.NodeId == mapped)) node = mapped;
             }
+            var draft = Programs.SingleOrDefault(draft => draft.PlanId == program?.PlanId);
+            var destination = draft is null ? null : AuthoringFindingNavigation.Resolve(draft, node, target);
             return new AuthoringFindingRow(program?.PlanId ?? Path.GetFileNameWithoutExtension(plan.TargetPath), plan.TargetPath, finding, program is not null)
             {
                 CheckedRevision = program?.Revision,
@@ -78,8 +80,8 @@ public sealed partial class AuthoringWorkspaceViewModel
                 NodeId = node,
                 SessionId = check.Session,
                 CheckedIdentity = check.Identity,
-                NavigationReason = node is not null ? "Explicit target resolved through the checked compiler source map."
-                    : "No verified source field is available; opens program settings."
+                NavigationLabel = destination?.Label ?? "Open program settings",
+                NavigationReason = destination?.Reason ?? "No verified source field is available; opens program settings."
             };
         })).ToArray();
         OnPropertyChanged(nameof(IssuesSummary));
@@ -94,23 +96,30 @@ public sealed partial class AuthoringWorkspaceViewModel
             ReportError("This finding is stale or its program was removed. Validate again before navigating.");
             return null;
         }
+        var draft = Programs.Single(program => program.PlanId == row.ProgramId);
+        var destination = AuthoringFindingNavigation.Resolve(draft, row.NodeId, row.Finding.Target);
         SelectProgram(row.ProgramId);
-        if (row.NodeId is { } id)
+        if (destination.Target.NodeId is { } id)
         {
-            var matches = _sequenceItems.Select((item, index) => (item, index)).Where(pair => pair.item.NodeId == id).ToArray();
-            if (matches.Length == 1)
-            {
-                SelectSequence(matches[0].index);
-                var target = row.Finding.Target!;
-                if (target.Field is null || target.Field == "Threshold" && ShowThreshold
-                    || target.Field == "LimitLow" && ShowBandLimits || target.Field == "ChannelKey" && HasMetricPresentation)
-                    return target with { ProgramId = row.ProgramId, NodeId = id };
-                Status = "The structured field has no supported editor control; opens program settings.";
-                return new(ProgramId: row.ProgramId, Section: "ProgramSettings");
-            }
+            var index = _sequenceItems.ToList().FindIndex(item => item.NodeId == id);
+            SelectSequence(index);
         }
-        Status = row.NavigationReason;
-        return new(ProgramId: row.ProgramId, Section: "ProgramSettings");
+        Status = destination.Reason;
+        return destination.Target;
+    }
+
+    private void InvalidateFindingsAfterSave()
+    {
+        if (_lastFindingCheck is not { } check || check.Session != _workspaceSession || _lastFindingCheckStale) return;
+        try
+        {
+            if (check.Identity == FindingIdentity()) return;
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+        {
+            // A partially published or unreadable artifact cannot retain a current checked state.
+        }
+        InvalidateContractFindings();
     }
 
     public PlanContractTarget? NavigateEditingIssue(AuthoringEditingIssue issue)
