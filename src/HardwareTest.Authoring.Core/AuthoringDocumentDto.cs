@@ -34,7 +34,7 @@ public sealed record AuthoringDocumentDto
     public required InstrumentRef[] Instruments { get; set; }
     public required AuthoringSetupDto[] Setup { get; set; }
     public required AuthoringMeasureDto[] Measure { get; set; }
-    public required CleanupPolicy Cleanup { get; set; }
+    public required AuthoringCleanupDto Cleanup { get; set; }
     public AuthoringDocumentState State { get; set; } = new();
 
     public static AuthoringDocumentDto FromDraft(ProgramDraft draft, long revision = 0,
@@ -45,7 +45,7 @@ public sealed record AuthoringDocumentDto
         {
             PlanId = isolated.PlanId, Revision = revision, Sidecar = isolated.Sidecar,
             Instruments = isolated.Instruments.ToArray(), Setup = isolated.Setup.Select(AuthoringSetupDto.From).ToArray(),
-            Measure = isolated.Measure.Select(AuthoringMeasureDto.From).ToArray(), Cleanup = isolated.Cleanup,
+            Measure = isolated.Measure.Select(AuthoringMeasureDto.From).ToArray(), Cleanup = AuthoringCleanupDto.From(isolated.Cleanup),
             State = (state ?? draft.AuthoringState).Clone(), CompiledPlanHash = compiledPlanHash, CompiledSidecarHash = compiledSidecarHash
         };
     }
@@ -57,7 +57,7 @@ public sealed record AuthoringDocumentDto
             State.IncompleteNumericText is null || State.FormulaIntent is null)
             throw new InvalidDataException("The authoring source document is incomplete.");
         var draft = new ProgramDraft(PlanId, Sidecar, Instruments, Setup.Select(s => s.ToAction()).ToArray(),
-            Measure.Select(m => m.ToNode()).ToArray(), Cleanup) { AuthoringState = State.Clone() };
+            Measure.Select(m => m.ToNode()).ToArray(), Cleanup.ToPolicy()) { AuthoringState = State.Clone() };
         var ids = AuthoringDependencyIndex.Build(draft).Nodes.Select(n => n.NodeId).ToArray();
         if (ids.Any(id => id == Guid.Empty) || ids.Distinct().Count() != ids.Length)
             throw new InvalidDataException("Draft node identities must be unique and nonempty.");
@@ -175,4 +175,18 @@ public sealed record AuthoringWorkspaceDto
     public long Revision { get; set; }
     public DateTimeOffset SavedAtUtc { get; set; } = DateTimeOffset.UtcNow;
     public required AuthoringManifest Manifest { get; set; }
+}
+
+public sealed class AuthoringCleanupDto
+{
+    public required Guid NodeId { get; set; }
+    public bool IncludeSafeShutdown { get; set; }
+    public required string[] InstrumentSlots { get; set; }
+    public bool IncludeMeasureSlots { get; set; }
+    internal static AuthoringCleanupDto From(CleanupPolicy policy) => new()
+    {
+        NodeId = policy.NodeId, IncludeSafeShutdown = policy.IncludeSafeShutdown,
+        InstrumentSlots = policy.InstrumentSlots.ToArray(), IncludeMeasureSlots = policy.IncludeMeasureSlots
+    };
+    internal CleanupPolicy ToPolicy() => new(IncludeSafeShutdown, AuthoringSetupDto.Need(InstrumentSlots), IncludeMeasureSlots) { NodeId = NodeId };
 }
