@@ -15,7 +15,7 @@ public sealed partial class AuthoringWorkspaceViewModel
     public bool HasUncompiledSources => _uncompiledDocuments.Count > 0;
     public string DraftStateSummary => string.Join("; ",
         (Workspace?.IsReadOnly == true ? new[] { "Workspace is read-only; future source bytes are preserved." } : [])
-        .Concat(_recoverableDocuments.Count > 0 ? new[] { $"Recovery available: {string.Join(", ", RecoverableProgramIds)}" } : []))
+        .Concat(_recoverableDocuments.Count > 0 ? new[] { $"Recovery available: {string.Join(", ", RecoverableProgramIds)}" } : [])
         .Concat(_compiledConflicts.Count > 0 ? [$"External compiled changes: {string.Join(", ", CompiledConflictProgramIds)}"] : [])
         .Concat(HasUncompiledSources ? ["Saved drafts require compilation before validation or packing."] : []));
 
