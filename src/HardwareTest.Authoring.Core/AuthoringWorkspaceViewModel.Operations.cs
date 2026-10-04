@@ -61,19 +61,13 @@ public sealed partial class AuthoringWorkspaceViewModel
         var workspace = Workspace ?? throw new AuthoringWorkspaceException("Open a workspace first.");
         if (OperationBusy) throw new InvalidOperationException("An authoring operation is already running.");
         if (kind == AuthoringOperationKind.Pack && !CanPack) throw new AuthoringWorkspaceException(PackGuardText);
-        if (kind == AuthoringOperationKind.Validate)
-        {
-            if (HasUnsavedChanges) throw new AuthoringWorkspaceException(ValidationScope);
-            RefreshSourceReadiness();
-            if (HasUncompiledSources || _compiledConflicts.Count > 0)
-                throw new AuthoringWorkspaceException("Compile saved drafts and reconcile external edits before validating compiled plans.");
-        }
+        if (kind == AuthoringOperationKind.Validate && HasUnsavedChanges) throw new AuthoringWorkspaceException(ValidationScope);
         var generation = _operationGeneration;
-        var checkedState = kind == AuthoringOperationKind.Validate ? CaptureFindingCheck() : null;
         OperationBusy = true;
         Error = null;
         try
         {
+            var checkedState = kind == AuthoringOperationKind.Validate ? PrepareFindingCheck() : null;
             var result = await coordinator.RunAsync(kind, workspace.Root, outputDirectory, Prefs.OpenTapHomeOverride,
                 progress: update => _operationDispatch!(() =>
                 {

@@ -6,7 +6,7 @@ using Xunit;
 namespace HardwareTest.Authoring.Tests;
 
 [Collection("AuthoringOpenTap")]
-public sealed class AuthoringActionableFindingsTests : IDisposable
+public sealed partial class AuthoringActionableFindingsTests : IDisposable
 {
     private readonly string _root = Path.Combine(Path.GetTempPath(), "ht-findings-" + Guid.NewGuid().ToString("N"));
     private readonly AuthoringWorkspaceViewModel _vm = new();
@@ -24,14 +24,12 @@ public sealed class AuthoringActionableFindingsTests : IDisposable
         _vm.StopRecovery();
     }
 
-    [Fact]
-    public async Task Unreadable_source_at_async_completion_invalidates_the_previous_checked_report()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Unreadable_source_at_async_completion_invalidates_the_previous_checked_report(bool empty)
     {
-        _vm.SelectProgram("sample");
-        _vm.SaveSidecar();
-        _vm.Validate();
-        Assert.Contains("Current", _vm.IssuesCheckState);
-        Assert.NotEmpty(_vm.FindingRows);
+        PrepareCheckedInputs(empty);
         var sourcePath = new AuthoringDocumentStore(_root).GetDocumentPath("sample");
         var original = File.ReadAllBytes(sourcePath);
         File.WriteAllText(Path.Combine(_root, "fixture-result-wait"), "");

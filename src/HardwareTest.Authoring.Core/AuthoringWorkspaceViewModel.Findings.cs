@@ -24,10 +24,13 @@ public sealed partial class AuthoringWorkspaceViewModel
         var revisions = string.Join(";", _documents.OrderBy(pair => pair.Key).Select(pair => $"{pair.Key}:{pair.Value.Revision}"));
         var files = Workspace!.TapPlanPaths.OrderBy(path => path).SelectMany(path => new[] { path, PlanCompiler.SidecarPath(path) })
             .Select(path => $"{path}:{(File.Exists(path) ? AuthoringBuildService.Hash(File.ReadAllBytes(path)) : "missing")}");
-        var sources = new AuthoringDocumentStore(Workspace.Root).ListDocumentIds()
-            .Select(id => new AuthoringDocumentStore(Workspace.Root).GetDocumentPath(id)).OrderBy(path => path)
+        var store = new AuthoringDocumentStore(Workspace.Root);
+        var sources = store.ListDocumentIds()
+            .Select(store.GetDocumentPath).OrderBy(path => path)
             .Select(path => $"{path}:{AuthoringBuildService.Hash(File.ReadAllBytes(path))}");
-        return AuthoringBuildService.Hash(System.Text.Encoding.UTF8.GetBytes(content + revisions + string.Join(";", files.Concat(sources))));
+        var catalogs = new[] { Path.Combine(Workspace.Root, AuthoringWorkspaceLoader.ManifestFileName), store.GetWorkspacePath() }
+            .Select(path => $"{path}:{(File.Exists(path) ? AuthoringBuildService.Hash(File.ReadAllBytes(path)) : "missing")}");
+        return AuthoringBuildService.Hash(System.Text.Encoding.UTF8.GetBytes(content + revisions + string.Join(";", files.Concat(sources).Concat(catalogs))));
     }
 
     private FindingCheck CaptureFindingCheck()
@@ -55,13 +58,7 @@ public sealed partial class AuthoringWorkspaceViewModel
     private void AcceptFindings(PlanContractBatchReport report, FindingCheck check)
     {
         if (check.Session != _workspaceSession) return;
-        bool stale;
-        try { stale = check.Generation != _findingRevision || check.Identity != FindingIdentity(); }
-        catch (Exception error) when (error is IOException or UnauthorizedAccessException)
-        {
-            InvalidateContractFindings();
-            throw new AuthoringWorkspaceException("The checked source or artifact could not be read to verify the completed validation. Validate again.", error);
-        }
+        var stale = VerifyFindingInputs(() => check.Generation != _findingRevision || check.Identity != FindingIdentity());
         _lastFindingCheck = check;
         _lastFindingCheckStale = stale;
         OnPropertyChanged(nameof(IssuesCheckState));
@@ -98,11 +95,9 @@ public sealed partial class AuthoringWorkspaceViewModel
         string? identity = null;
         if (Workspace is not null && !row.IsStale && row.SessionId == _workspaceSession)
         {
-            try { identity = FindingIdentity(); }
-            catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+            try { identity = VerifyFindingInputs(FindingIdentity); }
+            catch (AuthoringWorkspaceException)
             {
-                InvalidateContractFindings();
-                ReportError("The checked source or artifact could not be read to verify this finding. Validate again before navigating.");
                 return null;
             }
         }
@@ -130,11 +125,12 @@ public sealed partial class AuthoringWorkspaceViewModel
         if (_lastFindingCheck is not { } check || check.Session != _workspaceSession || _lastFindingCheckStale) return;
         try
         {
-            if (check.Identity == FindingIdentity()) return;
+            if (check.Identity == VerifyFindingInputs(FindingIdentity)) return;
         }
-        catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+        catch (AuthoringWorkspaceException)
         {
             // A partially published or unreadable artifact cannot retain a current checked state.
+            return;
         }
         InvalidateContractFindings();
     }
