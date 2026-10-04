@@ -287,6 +287,16 @@ async function coverage(opts: Options): Promise<void> {
 }
 
 async function audit(opts: Options): Promise<void> {
+  // Match the build's dependency graph. SDK 10 package listing otherwise restores
+  // Debug, whose propagated diagnostics dependency differs from the Release lock.
+  await run([
+    "dotnet",
+    "restore",
+    "dirs.proj",
+    "-p:Configuration=" + opts.configuration,
+    "-r",
+    opts.rid,
+  ], { cwd: opts.root });
   for (const project of await projectPaths(opts)) {
     const result = await runCapture([
       "dotnet",
@@ -295,6 +305,7 @@ async function audit(opts: Options): Promise<void> {
       "package",
       "--vulnerable",
       "--include-transitive",
+      "--no-restore",
     ], { cwd: opts.root });
     const combined = `${result.stdout}\n${result.stderr}`;
     if (result.stdout.trim().length > 0) {
