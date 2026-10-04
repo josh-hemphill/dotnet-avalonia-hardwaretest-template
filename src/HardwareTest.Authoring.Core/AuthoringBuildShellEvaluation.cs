@@ -193,12 +193,7 @@ public static partial class AuthoringBuildService
                         Unsupported(path, "custom revision command is unsupported");
                 }
             }
-            if (element.Name.LocalName is "CustomBeforeMicrosoftCommonTargets" or "CustomAfterMicrosoftCommonTargets"
-                or "MSBuildProjectExtensionsPath" or "BaseIntermediateOutputPath" or "RestorePackagesPath"
-                or "NuGetPackageRoot" or "RestoreAdditionalProjectSources" or "MSBuildSDKsPath" or "MSBuildToolsPath"
-                or "MSBuildExtensionsPath" or "MSBuildExtensionsPath32" or "MSBuildExtensionsPath64"
-                or "RoslynTargetsPath" or "NETCoreSdkDir" or "FrameworkPathOverride"
-                or "OutputPath" or "BaseOutputPath" or "IntermediateOutputPath" or "PublishDir" or "PublishUrl")
+            if (ShellRedirectProperties.Contains(element.Name.LocalName) || ContainedSdkEnvironmentProperties.Contains(element.Name.LocalName))
                 Unsupported(path, $"{element.Name.LocalName} can redirect inputs outside staging");
             if (element.Name.LocalName == "Import")
             {
