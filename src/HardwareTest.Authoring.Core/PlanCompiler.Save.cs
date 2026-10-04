@@ -61,6 +61,7 @@ public sealed partial class PlanCompiler
             plan.ChildTestSteps.Add(cleanupGroup);
         }
 
+        BindChannelProducers(plan);
         return plan;
     }
 
@@ -190,6 +191,9 @@ public sealed partial class PlanCompiler
         var step = AuthoringFunctionCatalog.CreateStep(functionId);
         step.Name = metric.Name;
         ApplySource(step, source, instruments);
+        var channelProperty = step.GetType().GetProperty("Channel");
+        if (channelProperty?.CanWrite == true && channelProperty.PropertyType == typeof(string))
+            channelProperty.SetValue(step, metric.ChannelKey);
         PresentationAttach.Apply(step, metric);
         return step;
     }
@@ -219,6 +223,8 @@ public sealed partial class PlanCompiler
                 break;
             case AlgorithmSource algorithm:
                 ApplySettings(step, algorithm.Settings);
+                if (step is ChannelAverageStep average && algorithm.InputChannelKeys.Count == 1)
+                    average.InputChannel = algorithm.InputChannelKeys[0];
                 if (AuthoringFunctionCatalog.TryGet(algorithm.AlgorithmId, out var spec) && spec.NeedsInstrument)
                 {
                     var slot = instruments.Keys.FirstOrDefault()
@@ -314,6 +320,7 @@ public sealed partial class PlanCompiler
                 continue;
             }
 
+            if (AuthoringCriteria.IsRuntimeLimit(key)) continue;
             prop.SetValue(step, ConvertSetting(prop.PropertyType, value));
         }
     }
@@ -330,6 +337,8 @@ public sealed partial class PlanCompiler
         {
             return null;
         }
+
+        if (target == typeof(Guid)) return Guid.Parse(value);
 
         if (target == typeof(bool))
         {

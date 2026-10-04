@@ -1,5 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
+    <VersionPrefix>0.2.0</VersionPrefix>
     <RootNamespace>HardwareTest.OpenTap.Plugins.Basic</RootNamespace>
     <Description>OpenTAP instruments, DUT, and test steps for HardwareTest (authoring pack; no VISA broker)</Description>
     <CreateOpenTapPackage>false</CreateOpenTapPackage>

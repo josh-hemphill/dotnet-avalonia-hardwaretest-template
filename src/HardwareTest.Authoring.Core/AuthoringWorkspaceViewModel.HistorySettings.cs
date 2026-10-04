@@ -37,6 +37,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         IReadOnlyDictionary<string, string> settings,
         string functionId)
         => settings
+            .Where(pair => !AuthoringCriteria.IsRuntimeLimit(pair.Key))
             .OrderBy(pair => pair.Key, StringComparer.OrdinalIgnoreCase)
             .Select(pair => AuthoringMetricSettingCatalog.CreateRow(functionId, pair.Key, pair.Value, ChannelKeys))
             .ToArray();

@@ -262,14 +262,14 @@ public sealed class MetricEditorTests
         vm.ApplyRecipe(AuthoringRecipeIds.Formula);
         Assert.Equal("mean(VDC)", vm.FormulaSource);
         Assert.True(string.IsNullOrWhiteSpace(vm.FormulaError), vm.FormulaError);
-        Assert.Equal("Will save as Mean GTE.", vm.FormulaSaveNote);
+        Assert.Equal("Will save as Channel Average.", vm.FormulaSaveNote);
         Assert.Equal(PresentationTileKind.Scalar, vm.Preview.TileKind);
         vm.FormulaSource = "fft(VDC)";
         Assert.Contains(AuthoringCompileCodes.FormulaParse, vm.FormulaError, StringComparison.Ordinal);
         Assert.True(string.IsNullOrWhiteSpace(vm.FormulaSaveNote), vm.FormulaSaveNote);
         vm.FormulaSource = "mean(VDC)";
         Assert.True(string.IsNullOrWhiteSpace(vm.FormulaError), vm.FormulaError);
-        Assert.Equal("Will save as Mean GTE.", vm.FormulaSaveNote);
+        Assert.Equal("Will save as Channel Average.", vm.FormulaSaveNote);
         vm.Apply();
         var reloaded = new AuthoringWorkspaceViewModel();
         reloaded.Open(root);
@@ -282,7 +282,7 @@ public sealed class MetricEditorTests
         Assert.False(reloaded.HasUncompiledSources);
         var compiled = new PlanCompiler().Load(Path.Combine(root, "formula.TapPlan"));
         Assert.Contains(AuthoringRecipeCatalog.EnumerateMetrics(compiled.Measure),
-            metric => metric.Source is AlgorithmSource algorithm && algorithm.AlgorithmId == AuthoringFunctionIds.BasicMeanGte);
+            metric => metric.Source is AlgorithmSource algorithm && algorithm.AlgorithmId == AuthoringFunctionIds.BasicChannelAverage);
         reloaded.StopRecovery(); vm.StopRecovery();
     }
 

@@ -122,7 +122,7 @@ Product-workspace example (this template’s golden `authoring.json` **omits** I
   },
   "dependencies": [
     { "package": "OpenTAP", "version": "^9.32.2" },
-    { "package": "HardwareTest Basic", "version": "^0.1.0" },
+    { "package": "HardwareTest Basic", "version": "^0.2.0" },
     { "package": "HardwareTest Mixins", "version": "^0.1.0" },
     { "package": "InstrumentComponents.OpenTap", "version": "^0.1.0" }
   ],
@@ -622,3 +622,5 @@ When compiled plan or sidecar hashes differ from the source baseline, export pau
 If Save All publishes the compiled workspace manifest but cannot publish its matching workspace source, the editor reports the original catalog save failure and retains both files. Reopening detects their differing catalogs before overlaying the source and reports a workspace catalog conflict. Review `authoring.json`, `authoring-drafts/workspace.authoring.json` and their retained backups, restore the intended catalog consistently, then reopen and retry Save All. This prevents a failed second replacement from silently restoring an older catalog.
 
 `--eval-formulas` evaluates the current saved authoring source against recordings, including exploration-only formulas and programs that have no compiled artifact. It does not substitute an older compiled formula. Unsupported future schemas and corrupt source documents report an error and preserve their bytes. Validation, compatibility and packing continue to require compiled artifacts matching the saved authoring content.
+
+Channel-average checks and transfer-function sample capture support plan-root siblings and Basic Test Group/Repeat Loop execution boundaries. Other composite steps fail with `SAMPLE_SCOPE` because their hidden iteration boundaries cannot establish sample freshness. Keep each producer and its derived check in the same supported sequence. Legacy Mean GTE continues to read the instrument directly.

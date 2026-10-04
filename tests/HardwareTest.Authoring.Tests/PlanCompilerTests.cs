@@ -381,7 +381,7 @@ public sealed class PlanCompilerTests
     }
 
     [Fact]
-    public void Mean_formula_lowers_to_mean_gte()
+    public void Mean_formula_lowers_to_channel_average()
     {
         var dir = NewTempDir();
         var path = Path.Combine(dir, "formula.TapPlan");
@@ -413,9 +413,9 @@ public sealed class PlanCompilerTests
         var mean = loaded.Measure.OfType<MetricNode>().Select(n => n.Metric)
             .Single(m => m.ChannelKey == "VDC.mean");
         var algorithm = Assert.IsType<AlgorithmSource>(mean.Source);
-        Assert.Equal(AuthoringFunctionIds.BasicMeanGte, algorithm.AlgorithmId);
+        Assert.Equal(AuthoringFunctionIds.BasicChannelAverage, algorithm.AlgorithmId);
         var xml = File.ReadAllText(path);
-        Assert.Contains("MeanGteStep", xml, StringComparison.Ordinal);
+        Assert.Contains("ChannelAverageStep", xml, StringComparison.Ordinal);
         Assert.DoesNotContain("DialogStep", xml, StringComparison.OrdinalIgnoreCase);
     }
 

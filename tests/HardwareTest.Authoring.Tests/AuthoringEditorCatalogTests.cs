@@ -26,7 +26,7 @@ public sealed class AuthoringEditorCatalogTests
     {
         var mean = FormulaLowerer.DescribeSaveOutcome("mean(VDC)", new LimitSpec(null, null, 1.2));
         Assert.Equal(FormulaSaveOutcomeKind.PacksMeanGte, mean.Kind);
-        Assert.Equal("Will save as Mean GTE.", mean.Message);
+        Assert.Equal("Will save as Channel Average.", mean.Message);
 
         var filter = FormulaLowerer.DescribeSaveOutcome("filter([0.5 0.5],[1],VDC)", null);
         Assert.Equal(FormulaSaveOutcomeKind.PacksTransferFunction, filter.Kind);
@@ -38,7 +38,7 @@ public sealed class AuthoringEditorCatalogTests
         var preview = FormulaLowerer.DescribeSaveOutcome("std(VDC)", null);
         Assert.Equal(FormulaSaveOutcomeKind.PreviewOnly, preview.Kind);
         Assert.Equal(
-            "Preview only — at save, only mean(channel) with a threshold (Mean GTE) or a top-level filter/filtfilt packs into the plan.",
+            "Preview only — at save, only mean(channel) with a threshold (Channel Average) or a top-level filter/filtfilt packs into the plan.",
             preview.Message);
 
         var parse = FormulaLowerer.DescribeSaveOutcome("fft(VDC)", null);
@@ -192,7 +192,7 @@ public sealed class AuthoringProgramSettingsViewModelTests
         vm.ApplyRecipe(AuthoringRecipeIds.Formula);
         Assert.True(vm.HasFormula);
         Assert.False(vm.HasTransferFunction);
-        Assert.Equal("Will save as Mean GTE.", vm.FormulaSaveNote);
+        Assert.Equal("Will save as Channel Average.", vm.FormulaSaveNote);
         Assert.Equal(FormulaSaveOutcomeKind.PacksMeanGte, vm.FormulaSaveOutcomeKind);
         vm.InsertFormulaToken("+std(");
         Assert.Contains("+std(", vm.FormulaSource, StringComparison.Ordinal);
@@ -202,7 +202,7 @@ public sealed class AuthoringProgramSettingsViewModelTests
         vm.FormulaSource = "std(VDC)";
         Assert.True(string.IsNullOrEmpty(vm.FormulaError), vm.FormulaError);
         Assert.Equal(
-            "Preview only — at save, only mean(channel) with a threshold (Mean GTE) or a top-level filter/filtfilt packs into the plan.",
+            "Preview only — at save, only mean(channel) with a threshold (Channel Average) or a top-level filter/filtfilt packs into the plan.",
             vm.FormulaSaveNote);
         Assert.DoesNotContain(AuthoringCompileCodes.FormulaNoLower, vm.FormulaSaveNote, StringComparison.Ordinal);
         Assert.Equal(FormulaSaveOutcomeKind.PreviewOnly, vm.FormulaSaveOutcomeKind);
@@ -225,13 +225,13 @@ public sealed class AuthoringProgramSettingsViewModelTests
         vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
         vm.ApplyRecipe(AuthoringRecipeIds.Formula);
         Assert.Equal(FormulaSaveOutcomeKind.PacksMeanGte, vm.FormulaSaveOutcomeKind);
-        Assert.Equal("Will save as Mean GTE.", vm.FormulaSaveNote);
+        Assert.Equal("Will save as Channel Average.", vm.FormulaSaveNote);
         vm.Threshold = string.Empty;
         Assert.Equal(FormulaSaveOutcomeKind.SaveBlocked, vm.FormulaSaveOutcomeKind);
         Assert.Contains(AuthoringCompileCodes.MissingLimits, vm.FormulaSaveNote, StringComparison.Ordinal);
         vm.Threshold = "1.2";
         Assert.Equal(FormulaSaveOutcomeKind.PacksMeanGte, vm.FormulaSaveOutcomeKind);
-        Assert.Equal("Will save as Mean GTE.", vm.FormulaSaveNote);
+        Assert.Equal("Will save as Channel Average.", vm.FormulaSaveNote);
     }
 
     [Fact]

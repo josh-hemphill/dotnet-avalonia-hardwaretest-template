@@ -254,7 +254,7 @@
         "type": "Project",
         "dependencies": {
           "HardwareTest.Core": "[0.1.0, )",
-          "HardwareTest.OpenTap.Plugins.Basic": "[0.1.0, )",
+          "HardwareTest.OpenTap.Plugins.Basic": "[0.2.0, )",
           "HardwareTest.OpenTap.Plugins.Mixins": "[0.1.0, )",
           "HardwareTest.OpenTap.Plugins.Visa": "[0.1.0, )",
           "OpenTAP": "[9.35.0, )",
@@ -277,7 +277,7 @@
         "type": "Project",
         "dependencies": {
           "HardwareTest.Core": "[0.1.0, )",
-          "HardwareTest.OpenTap.Plugins.Basic": "[0.1.0, )",
+          "HardwareTest.OpenTap.Plugins.Basic": "[0.2.0, )",
           "OpenTAP": "[9.35.0, )"
         }
       },

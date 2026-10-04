@@ -48,6 +48,7 @@ public sealed partial class PlanCompiler : IPlanCompiler
         }
 
         EnsureUniqueChannelKeys(draft.Measure);
+        AuthoringRecipeCatalog.EnsureScalarLimits(draft);
         EnsureTransferFunctionClocks(draft);
         AuthoringPluginSearch.Search(_extraPluginDirectories);
 
