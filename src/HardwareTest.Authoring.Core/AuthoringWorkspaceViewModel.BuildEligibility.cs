@@ -12,11 +12,14 @@ public sealed partial class AuthoringWorkspaceViewModel
             {
                 if (!_sourceDocuments.TryGetValue(id, out var source) || Workspace is null
                     || !File.Exists(new AuthoringDocumentStore(Workspace.Root).GetDocumentPath(id))) return true;
-                if (source.State.IncompleteNumericText.Count != 0 || source.State.FormulaIntent.Values.Contains(FormulaDeploymentIntent.Explore)) return true;
                 try
                 {
-                    var draft = source.ToDraft();
+                    var draft = AuthoringFormulaDeployment.Project(source.ToDraft());
+                    if (draft.AuthoringState.IncompleteNumericText.Count != 0) return true;
                     AuthoringRecipeCatalog.EnsureScalarLimits(draft);
+                    PlanCompiler.ValidateFormulaInputs(draft);
+                    foreach (var metric in AuthoringRecipeCatalog.EnumerateMetrics(draft.Measure))
+                        if (metric.Source is ExpressionAlgorithm expression) _ = FormulaLowerer.Lower(expression, metric.Limits);
                     var channels = AuthoringRecipeCatalog.EnumerateMetrics(draft.Measure).Select(m => m.ChannelKey).ToArray();
                     if (channels.Distinct(StringComparer.OrdinalIgnoreCase).Count() != channels.Length) return true;
                     var path = TryExistingTapPlanPath(id);

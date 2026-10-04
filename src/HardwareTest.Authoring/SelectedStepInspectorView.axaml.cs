@@ -37,6 +37,13 @@ public partial class SelectedStepInspectorView : UserControl
            && row.NodeId == vm.SelectedSequence?.NodeId
             ? TopLevel.GetTopLevel(this) as MainWindow : null;
 
+    private void OnFormulaThreshold(object? sender, RoutedEventArgs e)
+    {
+        ConfigureExpander.IsExpanded = true;
+        ThresholdBox.Focus();
+        ThresholdBox.BringIntoView();
+    }
+
     private void OnFormulaCaretChanged(object? sender, RoutedEventArgs e)
         => (TopLevel.GetTopLevel(this) as MainWindow)?.OnFormulaCaretChanged(sender, e);
 

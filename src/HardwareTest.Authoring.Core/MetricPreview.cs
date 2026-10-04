@@ -38,7 +38,8 @@ public static class MetricPreviewBuilder
     public static MetricPreview From(
         MetricDraft? metric,
         IReadOnlyList<MetricDraft>? siblings = null,
-        IReadOnlyDictionary<string, IReadOnlyList<StoredSample>>? recorded = null)
+        IReadOnlyDictionary<string, IReadOnlyList<StoredSample>>? recorded = null,
+        ProgramDraft? sourceContext = null)
     {
         if (metric is null)
         {
@@ -46,14 +47,14 @@ public static class MetricPreviewBuilder
         }
 
         var kind = PresentationRoles.TryMapRole(metric.DisplayRole);
-        if (TryPreviewAverage(metric, kind, siblings, recorded, out var averagePreview)) return averagePreview;
+        if (TryPreviewAverage(metric, kind, siblings, recorded, sourceContext, out var averagePreview)) return averagePreview;
         if (metric.Source is TransferFunctionAlgorithm tf)
         {
-            return PreviewTransferFunction(metric, tf, kind, siblings, recorded);
+            return PreviewTransferFunction(metric, tf, kind, siblings, recorded, sourceContext);
         }
 
         if (metric.Source is ExpressionAlgorithm expr
-            && TryPreviewFilterFormula(expr, metric, kind, siblings, recorded, out var filterPreview))
+            && TryPreviewFilterFormula(expr, metric, kind, siblings, recorded, sourceContext, out var filterPreview))
         {
             return filterPreview;
         }
@@ -77,6 +78,7 @@ public static class MetricPreviewBuilder
 
     private static bool TryPreviewAverage(MetricDraft metric, PresentationTileKind? kind,
         IReadOnlyList<MetricDraft>? siblings, IReadOnlyDictionary<string, IReadOnlyList<StoredSample>>? recorded,
+        ProgramDraft? sourceContext,
         out MetricPreview preview)
     {
         preview = Empty;
@@ -93,6 +95,7 @@ public static class MetricPreviewBuilder
         {
             AuthoringCriteria.Validate(metric);
             IReadOnlyList<double> values;
+            string? note = recorded is null ? null : "Recording samples (not Execute).";
             if (recorded is not null)
             {
                 if (!TryGetSeries(recorded, channel, out var samples))
@@ -101,14 +104,29 @@ public static class MetricPreviewBuilder
             }
             else
             {
-                var sibling = siblings?.FirstOrDefault(m => string.Equals(m.ChannelKey, channel, StringComparison.OrdinalIgnoreCase));
-                values = sibling is null ? SynthesizeCanned(metric.Limits, kind)
-                    : Synthesize(sibling, PresentationRoles.TryMapRole(sibling.DisplayRole), null, null).Values;
+                double? scalar = null;
+                if (sourceContext is not null)
+                {
+                    if (metric.Source is ExpressionAlgorithm)
+                        scalar = PlanCompiler.ScalarMeanPreviewExample(FormulaDeploymentClassifier.DeploymentContext(metric, sourceContext), metric.ChannelKey);
+                    else ValidateSource(metric, siblings, sourceContext);
+                }
+                if (scalar is { } value)
+                {
+                    values = [value];
+                    note = "Preview only: mathematical example from a known Scalar publisher. Deployment requires a preceding Sample publisher.";
+                }
+                else
+                {
+                    var sibling = siblings?.FirstOrDefault(m => string.Equals(m.ChannelKey, channel, StringComparison.OrdinalIgnoreCase));
+                    values = sibling is null ? SynthesizeCanned(metric.Limits, kind)
+                        : Synthesize(sibling, PresentationRoles.TryMapRole(sibling.DisplayRole), null, null).Values;
+                }
             }
             var result = ChannelAverageEvaluator.Evaluate(values, metric.Limits!.Threshold!.Value);
             preview = new(metric.ChannelKey, metric.DisplayRole, kind, metric.YUnit, result.Average,
                 [result.Average], [], metric.Limits.Low, metric.Limits.High, metric.Limits.Threshold,
-                recorded is null ? null : "Recording samples (not Execute).", result.Passed);
+                note, result.Passed);
         }
         catch (Exception ex) when (ex is AuthoringWorkspaceException or InvalidOperationException)
         {
@@ -227,6 +245,7 @@ public static class MetricPreviewBuilder
         PresentationTileKind? kind,
         IReadOnlyList<MetricDraft>? siblings,
         IReadOnlyDictionary<string, IReadOnlyList<StoredSample>>? recorded,
+        ProgramDraft? sourceContext,
         out MetricPreview preview)
     {
         preview = Empty;
@@ -243,7 +262,7 @@ public static class MetricPreviewBuilder
                 return false;
             }
 
-            preview = PreviewTransferFunction(metric, tf, kind, siblings, recorded);
+            preview = PreviewTransferFunction(metric, tf, kind, siblings, recorded, sourceContext);
             return true;
         }
         catch (AuthoringWorkspaceException ex)
@@ -274,7 +293,8 @@ public static class MetricPreviewBuilder
         TransferFunctionAlgorithm tf,
         PresentationTileKind? kind,
         IReadOnlyList<MetricDraft>? siblings,
-        IReadOnlyDictionary<string, IReadOnlyList<StoredSample>>? recorded)
+        IReadOnlyDictionary<string, IReadOnlyList<StoredSample>>? recorded,
+        ProgramDraft? sourceContext)
     {
         try
         {
@@ -293,6 +313,7 @@ public static class MetricPreviewBuilder
             }
             else
             {
+                ValidateSource(metric, siblings, sourceContext);
                 var sibling = siblings?.FirstOrDefault(s =>
                     string.Equals(s.ChannelKey, tf.InputChannelKey, StringComparison.OrdinalIgnoreCase));
                 var canned = sibling is null
@@ -332,6 +353,17 @@ public static class MetricPreviewBuilder
                 metric.Limits?.Threshold,
                 ex.Message);
         }
+    }
+
+    private static void ValidateSource(MetricDraft metric, IReadOnlyList<MetricDraft>? siblings, ProgramDraft? sourceContext)
+    {
+        if (sourceContext is not null)
+        {
+            var deployment = FormulaDeploymentClassifier.DeploymentContext(metric, sourceContext);
+            PlanCompiler.ValidateFormulaInput(deployment.Measure, metric.ChannelKey, deployment.AuthoringState);
+        }
+        else if (siblings is not null)
+            PlanCompiler.ValidateFormulaInput(siblings.Select(value => (MeasureNode)new MetricNode(value)).ToArray(), metric.ChannelKey);
     }
 
     private static IReadOnlyList<double> SynthesizeCanned(LimitSpec? limits, PresentationTileKind? kind)

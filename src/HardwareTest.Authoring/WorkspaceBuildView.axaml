@@ -97,6 +97,8 @@
       <TextBlock IsVisible="{Binding HasExcludedPackPlans}" Text="Opened plans excluded from this TapPackage"
           FontWeight="SemiBold" TextWrapping="Wrap"/>
       <ItemsControl ItemsSource="{Binding ExcludedPackPlans}" AutomationProperties.Name="Excluded pack plans"/>
+      <TextBlock Text="Exploration formulas excluded from deployment artifacts" TextWrapping="Wrap"/>
+      <ItemsControl ItemsSource="{Binding ExcludedExplorationFormulas}" AutomationProperties.Name="Excluded exploration formulas"/>
       <Button Content="Pack…" IsEnabled="{Binding CanPack}" Click="OnPack"
           ToolTip.Tip="Validate, then write package.xml, the program TapPackage, declared plugin copies, bake-time shell apps, and ship-manifest.json"
           AutomationProperties.Name="Pack workspace" Classes="authoringAction"/>

@@ -97,6 +97,12 @@ public sealed partial class PlanCompiler
     {
         CollectInstrument(step, instruments);
 
+        if (!step.Enabled)
+        {
+            measure.Add(DecompileMeasure(step, instruments, xmlById));
+            return;
+        }
+
         if (step is TestGroupStep)
         {
             foreach (var child in step.ChildTestSteps)
@@ -166,6 +172,13 @@ public sealed partial class PlanCompiler
         IReadOnlyDictionary<string, XElement> xmlById)
     {
         CollectInstrument(step, instruments);
+
+        // Typed authoring nodes cannot represent Enabled=false; keep the entire inactive payload.
+        if (!step.Enabled)
+        {
+            foreach (var child in FlattenSteps(step)) CollectInstrument(child, instruments);
+            return ToRaw(step, xmlById);
+        }
 
         if (OpenTapStepKinds.IsApplyTransferFunction(step) && step is ApplyTransferFunctionStep tfStep)
         {

@@ -11,6 +11,8 @@ public static class AuthoringIssueService
     {
         var index = AuthoringDependencyIndex.Build(draft);
         var issues = new List<AuthoringEditingIssue>();
+        var sharedInputNodes = EnumerateMetricNodes(draft.Measure).Where(node => UsesCompilerInputValidation(node.Metric.Source))
+            .Select(node => node.NodeId).ToHashSet();
         var channels = index.Nodes.Where(node => node.ProducedChannel is not null)
             .GroupBy(node => node.ProducedChannel!, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(group => group.Key, group => group.ToArray(), StringComparer.OrdinalIgnoreCase);
@@ -27,7 +29,7 @@ public static class AuthoringIssueService
                 Add("DUPLICATE_INPUT_CHANNEL", $"Input channel '{repeated.Key}' is referenced more than once.", node);
             foreach (var input in node.InputChannels)
             {
-                if (!channels.ContainsKey(input)) Add("MISSING_CHANNEL", $"Input channel '{input}' has no supported producer.", node);
+                if (!sharedInputNodes.Contains(node.NodeId) && !channels.ContainsKey(input)) Add("MISSING_CHANNEL", $"Input channel '{input}' has no supported producer.", node);
             }
             foreach (var slot in node.InstrumentSlots)
             {
@@ -41,6 +43,25 @@ public static class AuthoringIssueService
             if (metricNode.Metric.Source is AlgorithmSource algorithm
                 && AuthoringFunctionCatalog.InputChannelIssue(algorithm.AlgorithmId, algorithm.InputChannelKeys) is { } inputIssue)
                 issues.Add(new("INPUT_CHANNEL_CARDINALITY", inputIssue, draft.PlanId, metricNode.NodeId));
+            if (metricNode.Metric.Source is ExpressionAlgorithm)
+            {
+                var excluded = AuthoringFormulaDeployment.ExcludedNodes(draft).Contains(metricNode.NodeId);
+                var status = FormulaDeploymentClassifier.Classify(metricNode.Metric, draft);
+                if (excluded) issues.Add(new("FORMULA_EXCLUDED", "Exploration formula is saved unchanged and excluded from deployment.", draft.PlanId, metricNode.NodeId));
+                else if (status.Kind != FormulaDeploymentStatusKind.DeployableRecipe)
+                    issues.Add(new(status.Kind == FormulaDeploymentStatusKind.MissingRequirements
+                        ? RequirementCode(status.Message) : "FORMULA_DEPLOYMENT", status.Message, draft.PlanId, metricNode.NodeId));
+            }
+            else if (metricNode.Metric.Source is TransferFunctionAlgorithm or AlgorithmSource { AlgorithmId: AuthoringFunctionIds.BasicChannelAverage })
+            {
+                try
+                {
+                    var projected = AuthoringFormulaDeployment.Project(draft);
+                    PlanCompiler.ValidateFormulaInput(projected.Measure, metricNode.Metric.ChannelKey, projected.AuthoringState);
+                }
+                catch (AuthoringWorkspaceException error)
+                { issues.Add(new(RequirementCode(error.Message), error.Message, draft.PlanId, metricNode.NodeId)); }
+            }
             var required = metricNode.Metric.Source switch
             {
                 MeasureSource m when AuthoringFunctionCatalog.TryGet(m.FunctionId, out var spec) && spec.NeedsInstrument => m.InstrumentSlot,
@@ -65,6 +86,21 @@ public static class AuthoringIssueService
         void Add(string code, string message, AuthoringNodeDependency node)
             => issues.Add(new(code, message, draft.PlanId, node.NodeId));
     }
+    private static bool UsesCompilerInputValidation(MetricSource source) => source switch
+    {
+        TransferFunctionAlgorithm or AlgorithmSource { AlgorithmId: AuthoringFunctionIds.BasicChannelAverage } => true,
+        ExpressionAlgorithm expression when FormulaParser.TryParse(expression.Source, out var ast, out _)
+            => ast!.Root is FilterCallExpr or CallExpr { Name: "mean", Args: [IdentExpr] },
+        _ => false,
+    };
+
+    private static string RequirementCode(string message)
+    {
+        var code = message.Split(':')[0];
+        return code is "MISSING_CHANNEL" or AuthoringCompileCodes.MissingLimits or AuthoringCompileCodes.TfMissingElapsed
+            or AuthoringCompileCodes.TfGrid or "SAMPLE_SCOPE" ? code : "FORMULA_DEPLOYMENT";
+    }
+
     private static IEnumerable<MetricNode> EnumerateMetricNodes(IEnumerable<MeasureNode> nodes)
     {
         foreach (var node in nodes)

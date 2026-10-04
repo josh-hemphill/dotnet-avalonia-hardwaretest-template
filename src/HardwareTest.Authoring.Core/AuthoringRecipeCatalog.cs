@@ -42,7 +42,7 @@ public static class AuthoringRecipeCatalog
         new(AuthoringRecipeIds.BandScalar, "Publish Band Scalar", "Analyze", "Passband with Limit low / Limit high."),
         new(AuthoringRecipeIds.SeriesCompliance, "Publish Series Compliance", "Analyze", "In-band percent passband."),
         new(AuthoringRecipeIds.Repeat, "Repeat Loop", "Flow", "Wraps the last measure node in RepeatNode."),
-        new(AuthoringRecipeIds.Formula, "Formula…", "Analyze", "MATLAB-flavored subset. mean(x) lowers to Channel Average. filter(b,a,x) lowers to IIR."),
+        new(AuthoringRecipeIds.Formula, "Formula…", "Analyze", "Deployment checks: mean(x) with threshold and top-level filter/filtfilt. Other expressions are saved for exploration and excluded from deployment."),
         new(AuthoringRecipeIds.TransferFunction, "Transfer function…", "Analyze", "Discrete SISO IIR from numerator/denominator/Ts."),
         new(AuthoringRecipeIds.StationHealth, "Report Station Health", "Station", "cal.dc.offset scalar with limits."),
         new(AuthoringRecipeIds.Shutdown, "Safe Shutdown", "Safety", "Cleanup Safe Shutdown on selected instrument slots."),

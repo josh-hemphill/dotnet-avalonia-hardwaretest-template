@@ -235,53 +235,6 @@ public sealed partial class PlanCompiler
         throw new AuthoringWorkspaceException($"Unknown instrument slot '{slotName}'.");
     }
 
-    private static void EnsureTransferFunctionElapsed(ProgramDraft draft, TransferFunctionAlgorithm tf)
-    {
-        var sibling = AuthoringRecipeCatalog.EnumerateMetrics(draft.Measure)
-            .FirstOrDefault(metric =>
-                string.Equals(metric.ChannelKey, tf.InputChannelKey, StringComparison.OrdinalIgnoreCase));
-        if (sibling is null || CanPublishElapsed(sibling.Source))
-        {
-            return;
-        }
-
-        throw new AuthoringWorkspaceException(
-            $"{AuthoringCompileCodes.TfMissingElapsed}: '{tf.InputChannelKey}' does not publish ElapsedMs.");
-    }
-
-    private static bool CanPublishElapsed(MetricSource source)
-        => ResolveElapsedSource(source) switch
-        {
-            TransferFunctionAlgorithm => true,
-            MeasureSource measure when
-                string.Equals(measure.FunctionId, AuthoringFunctionIds.BasicAcquireVoltage, StringComparison.Ordinal)
-                || string.Equals(measure.FunctionId, AuthoringFunctionIds.BasicBitSweepAcquire, StringComparison.Ordinal)
-                => true,
-            MeasureSource measure when
-                string.Equals(measure.FunctionId, AuthoringFunctionIds.BasicPublishTimedSample, StringComparison.Ordinal)
-                => measure.Settings.TryGetValue("ElapsedMs", out var elapsed) && !string.IsNullOrWhiteSpace(elapsed),
-            MeasureSource measure
-                => measure.Settings.TryGetValue("ElapsedMs", out var elapsed) && !string.IsNullOrWhiteSpace(elapsed),
-            _ => false,
-        };
-
-    private static MetricSource ResolveElapsedSource(MetricSource source)
-    {
-        if (source is not ExpressionAlgorithm expr)
-        {
-            return source;
-        }
-
-        try
-        {
-            return FormulaLowerer.Lower(expr, null);
-        }
-        catch (AuthoringWorkspaceException)
-        {
-            return source;
-        }
-    }
-
     private static void AssignInstrument(ITestStep step, Instrument instrument, string functionId)
     {
         AuthoringInstrumentCatalog.EnsureCompatible(instrument.GetType().FullName!, functionId);

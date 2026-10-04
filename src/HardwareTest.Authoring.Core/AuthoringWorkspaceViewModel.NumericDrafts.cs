@@ -46,6 +46,7 @@ public sealed partial class AuthoringWorkspaceViewModel
             ReplaceSelected(SelectedProgram with { AuthoringState = state }, rebuildLists: false);
             OnPropertyChanged();
             OnPropertyChanged(nameof(FormulaExplorationOnly));
+            RaiseFormulaDeployment();
         }
     }
 }

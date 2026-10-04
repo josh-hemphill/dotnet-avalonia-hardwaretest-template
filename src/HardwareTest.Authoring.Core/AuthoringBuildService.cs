@@ -94,8 +94,8 @@ public static partial class AuthoringBuildService
                 {
                     sources.Add(new(id!, document.Revision, Hash(File.ReadAllBytes(store.GetDocumentPath(document.PlanId)))));
                     draft = document.ToDraft();
-                    if (draft.AuthoringState.IncompleteNumericText.Count > 0 || draft.AuthoringState.FormulaIntent.Values.Contains(FormulaDeploymentIntent.Explore))
-                        throw new AuthoringWorkspaceException($"BUILD_INCOMPLETE: Included source '{id}' contains incomplete or exploration-only deployment input.");
+                    if (AuthoringFormulaDeployment.Project(draft).AuthoringState.IncompleteNumericText.Count > 0)
+                        throw new AuthoringWorkspaceException($"BUILD_INCOMPLETE: Included source '{id}' contains incomplete numeric deployment input.");
                     if ((File.Exists(path) && document.CompiledPlanHash != AuthoringDocumentStore.ComputeHash(path))
                         || (File.Exists(PlanCompiler.SidecarPath(path)) && document.CompiledSidecarHash != AuthoringDocumentStore.ComputeHash(PlanCompiler.SidecarPath(path))))
                         throw new AuthoringWorkspaceException($"BUILD_SOURCE_CONFLICT: Compiled artifacts for '{id}' disagree with saved baseline. Explicitly reconcile before building.");
@@ -110,7 +110,7 @@ public static partial class AuthoringBuildService
                     sources.Add(new(id!, null, null));
                     draft = compiler.Load(path);
                 }
-                results.Add(new(id!, Hash(File.ReadAllBytes(path)), CompileMap(draft, path)));
+                results.Add(new(id!, Hash(File.ReadAllBytes(path)), CompileMap(AuthoringFormulaDeployment.Project(draft), path), AuthoringFormulaDeployment.ExcludedNodes(draft)));
             }
             // Excluded source documents are not deployment inputs, and cannot trip the staged source guard.
             foreach (var document in sourceDocuments.Where(d => !included.Contains(d.PlanId)))

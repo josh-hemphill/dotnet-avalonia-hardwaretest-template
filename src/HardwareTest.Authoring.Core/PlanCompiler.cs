@@ -49,9 +49,11 @@ public sealed partial class PlanCompiler : IPlanCompiler
                 $"{AuthoringCompileCodes.PlanIdMismatch}: draft '{draft.PlanId}' does not match '{planId}'.");
         }
 
+        draft = AuthoringFormulaDeployment.Project(draft);
+        if (draft.AuthoringState.IncompleteNumericText.Count != 0)
+            throw new AuthoringWorkspaceException("BUILD_INCOMPLETE: Deployment source contains incomplete numeric input.");
         EnsureUniqueChannelKeys(draft.Measure);
         AuthoringRecipeCatalog.EnsureScalarLimits(draft);
-        EnsureTransferFunctionClocks(draft);
         AuthoringPluginSearch.Search(_extraPluginDirectories);
 
         var directory = Path.GetDirectoryName(Path.GetFullPath(tapPlanPath));
@@ -178,29 +180,6 @@ public sealed partial class PlanCompiler : IPlanCompiler
 
             throw new AuthoringWorkspaceException(
                 $"{AuthoringCompileCodes.DialogStep}: step '{step.Name}' looks like an OpenTAP/OS dialog.");
-        }
-    }
-
-    private static void EnsureTransferFunctionClocks(ProgramDraft draft)
-    {
-        foreach (var metric in AuthoringRecipeCatalog.EnumerateMetrics(draft.Measure))
-        {
-            MetricSource source;
-            try
-            {
-                source = metric.Source is ExpressionAlgorithm expr
-                    ? FormulaLowerer.Lower(expr, metric.Limits)
-                    : metric.Source;
-            }
-            catch (AuthoringWorkspaceException)
-            {
-                source = metric.Source;
-            }
-
-            if (source is TransferFunctionAlgorithm tf)
-            {
-                EnsureTransferFunctionElapsed(draft, tf);
-            }
         }
     }
 

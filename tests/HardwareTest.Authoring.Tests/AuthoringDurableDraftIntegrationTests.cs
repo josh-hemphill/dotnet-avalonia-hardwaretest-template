@@ -71,7 +71,7 @@ public sealed class AuthoringDurableDraftIntegrationTests
     }
 
     [Fact]
-    public void ExplorationFormulaIntentReopensWithoutCompiledRevision()
+    public void ExplorationFormulaIntentReopensWithExcludedCompiledRevision()
     {
         var root = Workspace();
         var vm = new AuthoringWorkspaceViewModel(); vm.Open(root);
@@ -86,7 +86,7 @@ public sealed class AuthoringDurableDraftIntegrationTests
         reopened.SelectSequence(reopened.SequenceItems.ToList().FindIndex(row => row.NodeId == nodeId));
         Assert.Equal("input + 1", reopened.FormulaSource);
         Assert.True(reopened.FormulaExplorationOnly);
-        Assert.False(reopened.CanPack); reopened.StopRecovery();
+        Assert.True(reopened.CanPack); reopened.StopRecovery();
     }
 
     [Fact]
