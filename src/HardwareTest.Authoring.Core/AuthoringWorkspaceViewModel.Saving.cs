@@ -205,7 +205,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         _documents[planId].AcceptSavedContent(draft, plan: !sidecarOnly, sidecar: true);
         RaiseDraftState();
         RecomputeDocumentDirty();
-        Status = compilationFailure is null ? $"Saved {Path.GetFileName(path)} and authoring source" : $"Saved authoring draft {planId}; compilation requires attention";
+        Status = compilationFailure is null ? $"Saved {Path.GetFileName(savePlan ? path : PlanCompiler.SidecarPath(path))} and authoring source" : $"Saved authoring draft {planId}; compilation requires attention";
         SavePreviewWarning = compilationFailure;
         Error = compilationFailure;
     }
