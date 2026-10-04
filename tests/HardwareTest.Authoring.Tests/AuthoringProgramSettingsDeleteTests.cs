@@ -166,6 +166,7 @@ public sealed class AuthoringProgramSettingsDeleteTests
         vm.CreateProgram("slots-retarget");
         vm.NewInstrumentSlot = "SCOPE";
         vm.AddInstrumentSlot();
+        vm.SelectedInstrumentSlot = "DMM";
         vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
         var acquire = vm.SequenceItems.Single(row => row.Kind == SequenceRowKind.Metric);
         vm.SelectSequence(vm.SequenceItems.ToList().IndexOf(acquire));

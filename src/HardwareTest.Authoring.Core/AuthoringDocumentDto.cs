@@ -62,6 +62,8 @@ public sealed record AuthoringDocumentDto
         if (Revision < 0 || Sidecar is null || Instruments is null || Setup is null || Measure is null || Cleanup is null || State is null ||
             State.IncompleteNumericText is null || State.FormulaIntent is null)
             throw new InvalidDataException("The authoring source document is incomplete.");
+        if (Instruments.Any(instrument => instrument is null || instrument.Settings is null))
+            throw new InvalidDataException("Instrument source configuration is incomplete.");
         var draft = new ProgramDraft(PlanId, Sidecar, Instruments, Setup.Select(s => s.ToAction()).ToArray(),
             Measure.Select(m => m.ToNode()).ToArray(), Cleanup.ToPolicy())
         { AuthoringState = State.Clone() };
@@ -150,7 +152,7 @@ public sealed class AuthoringSourceDto
     internal static AuthoringSourceDto From(MetricSource source) => source switch
     {
         MeasureSource s => new() { Kind = "measure", InstrumentSlot = s.InstrumentSlot, FunctionId = s.FunctionId, Settings = new(s.Settings, StringComparer.Ordinal), SettingsIgnoreCase = IgnoreCase(s.Settings) },
-        AlgorithmSource s => new() { Kind = "algorithm", AlgorithmId = s.AlgorithmId, InputChannelKeys = s.InputChannelKeys.ToArray(), Settings = new(s.Settings, StringComparer.Ordinal), SettingsIgnoreCase = IgnoreCase(s.Settings) },
+        AlgorithmSource s => new() { Kind = "algorithm", InstrumentSlot = s.InstrumentSlot, AlgorithmId = s.AlgorithmId, InputChannelKeys = s.InputChannelKeys.ToArray(), Settings = new(s.Settings, StringComparer.Ordinal), SettingsIgnoreCase = IgnoreCase(s.Settings) },
         ExpressionAlgorithm s => new() { Kind = "expression", InputChannelKeys = s.InputChannelKeys.ToArray(), Expression = s.Source },
         TransferFunctionAlgorithm s => new() { Kind = "transferFunction", InputChannelKey = s.InputChannelKey, Numerator = s.Numerator.ToArray(), Denominator = s.Denominator.ToArray(), TsSeconds = s.TsSeconds, Method = s.Method },
         _ => throw new InvalidDataException("Unknown source variant.")
@@ -165,7 +167,7 @@ public sealed class AuthoringSourceDto
     internal MetricSource ToSource() => Kind switch
     {
         "measure" => new MeasureSource(AuthoringSetupDto.Need(InstrumentSlot), AuthoringSetupDto.Need(FunctionId), new Dictionary<string, string>(AuthoringSetupDto.Need(Settings), SettingsIgnoreCase ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal)),
-        "algorithm" => new AlgorithmSource(AuthoringSetupDto.Need(AlgorithmId), AuthoringSetupDto.Need(InputChannelKeys), new Dictionary<string, string>(AuthoringSetupDto.Need(Settings), SettingsIgnoreCase ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal)),
+        "algorithm" => new AlgorithmSource(AuthoringSetupDto.Need(AlgorithmId), AuthoringSetupDto.Need(InputChannelKeys), new Dictionary<string, string>(AuthoringSetupDto.Need(Settings), SettingsIgnoreCase ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal)) { InstrumentSlot = InstrumentSlot },
         "expression" => new ExpressionAlgorithm(AuthoringSetupDto.Need(InputChannelKeys), AuthoringSetupDto.Need(Expression)),
         "transferFunction" => new TransferFunctionAlgorithm(AuthoringSetupDto.Need(InputChannelKey), AuthoringSetupDto.Need(Numerator), AuthoringSetupDto.Need(Denominator), TsSeconds ?? throw new InvalidDataException("Missing sample time."), AuthoringSetupDto.Need(Method)),
         _ => throw new InvalidDataException($"Unknown source discriminator '{Kind}'.")

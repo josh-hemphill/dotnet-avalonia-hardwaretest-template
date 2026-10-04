@@ -791,7 +791,7 @@ public sealed class PlanCompilerTests
                     "V",
                     new LimitSpec(null, null, 1.2),
                     new HistorySpec(true, 5, 10),
-                    new AlgorithmSource(AuthoringFunctionIds.BasicMeanGte, ["VDC"], settingsMean))),
+                    new AlgorithmSource(AuthoringFunctionIds.BasicMeanGte, ["VDC"], settingsMean) { InstrumentSlot = "DMM" })),
             ],
             new CleanupPolicy(true, "DMM"));
     }

@@ -1,5 +1,6 @@
 using System.IO.Compression;
 using System.Reflection;
+using System.Runtime.Loader;
 using System.Text;
 using HardwareTest.Authoring;
 using Xunit;
@@ -8,6 +9,75 @@ namespace HardwareTest.Authoring.Tests;
 
 public sealed class OpenTapHomeBootstrapperTests
 {
+    [Fact]
+    public void Bootstrap_declared_visa_installs_adapter_and_loads_from_selected_home()
+    {
+        var workspaceRoot = NewTempDir();
+        Directory.CreateDirectory(Path.Combine(workspaceRoot, "plans"));
+        File.WriteAllText(Path.Combine(workspaceRoot, "authoring.json"),
+            """
+            {
+              "schemaVersion": 1,
+              "displayName": "VISA authoring",
+              "plansDirectory": "plans",
+              "package": { "name": "VISA authoring", "version": "0.1.0" },
+              "dependencies": [
+                { "package": "OpenTAP", "version": "^9.32.2" },
+                { "package": "HardwareTest Basic", "version": "^0.2.0" },
+                { "package": "HardwareTest VISA", "version": "^0.1.0" }
+              ]
+            }
+            """);
+        var home = new OpenTapHomeBootstrapper().Bootstrap(
+            AuthoringWorkspaceLoader.Load(workspaceRoot),
+            new BootstrapOptions { HomeDirectory = NewTempDir(), Offline = true });
+
+        Assert.Contains(OpenTapHomeBootstrapper.ListInstalledPackages(home),
+            p => p.Name == OpenTapHomeBootstrapper.VisaPackageName);
+        var visaDirectory = Path.Combine(home.Root, "Packages", OpenTapHomeBootstrapper.VisaPackageName);
+        Assert.True(File.Exists(Path.Combine(visaDirectory, "HardwareTest.Core.dll")));
+        Assert.True(File.Exists(Path.Combine(visaDirectory, "Ivi.Visa.dll")));
+        var adapterPath = Path.Combine(visaDirectory, OpenTapHomeBootstrapper.VisaAssemblyFileName);
+        Assert.True(File.Exists(adapterPath));
+
+        // Resolve plugin dependencies exclusively from this home, without the application's assemblies.
+        var context = new HomeAssemblyLoadContext(home.Root);
+        try
+        {
+            var assembly = context.LoadFromAssemblyPath(adapterPath);
+            var type = assembly.GetType("HardwareTest.OpenTap.Plugins.Basic.VisaDmmInstrument", throwOnError: true)!;
+            var instrument = Activator.CreateInstance(type);
+            Assert.NotNull(instrument);
+            Assert.Equal("", type.GetProperty("VisaAddress")!.GetValue(instrument));
+            Assert.Equal(adapterPath, type.Assembly.Location);
+        }
+        finally
+        {
+            context.Unload();
+        }
+    }
+
+    private sealed class HomeAssemblyLoadContext(string homeRoot)
+        : AssemblyLoadContext("visa-home-" + Guid.NewGuid().ToString("N"), isCollectible: true)
+    {
+        protected override Assembly? Load(AssemblyName name)
+        {
+            var path = Directory.EnumerateFiles(homeRoot, name.Name + ".dll", SearchOption.AllDirectories)
+                .SingleOrDefault();
+            if (path is not null)
+            {
+                return LoadFromAssemblyPath(path);
+            }
+
+            if (name.Name?.StartsWith("HardwareTest.", StringComparison.Ordinal) == true)
+            {
+                throw new FileNotFoundException($"Selected home lacks '{name.Name}'.");
+            }
+
+            return null;
+        }
+    }
+
     [Fact]
     public void Bootstrap_template_installs_basic_and_mixins_without_visa()
     {

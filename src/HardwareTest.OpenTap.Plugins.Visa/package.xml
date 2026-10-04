@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Package Name="HardwareTest VISA" xmlns="http://opentap.io/schemas/package" Version="0.1.0" OS="Windows,Linux,MacOS">
+  <Description>HardwareTest typed VISA DMM resource and process-local broker binding. Requires a host-provided VISA broker for execution.</Description>
+  <Owner>HardwareTest</Owner>
+  <Dependencies>
+    <PackageDependency Package="OpenTAP" Version="^9.32.2" />
+    <PackageDependency Package="HardwareTest Basic" Version="^0.2.0" />
+  </Dependencies>
+  <Files>
+    <File Path="HardwareTest.OpenTap.Plugins.Visa.dll">
+      <SetAssemblyInfo Attributes="Version" />
+    </File>
+    <File Path="HardwareTest.Core.dll" />
+    <File Path="Ivi.Visa.dll" />
+  </Files>
+</Package>

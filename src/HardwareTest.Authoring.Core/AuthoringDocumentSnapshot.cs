@@ -45,7 +45,7 @@ public sealed class AuthoringDocumentSnapshot
         {
             Sidecar = sidecar,
             AuthoringState = draft.AuthoringState.Clone(),
-            Instruments = draft.Instruments.Select(i => i with { }).ToArray(),
+            Instruments = draft.Instruments.Select(i => i with { Settings = new Dictionary<string, string>(i.Settings, StringComparer.Ordinal) }).ToArray(),
             Setup = draft.Setup.Select(CloneSetup).ToArray(),
             Measure = draft.Measure.Select(CloneNode).ToArray(),
             Cleanup = draft.Cleanup with { InstrumentSlots = draft.Cleanup.InstrumentSlots.ToArray() }

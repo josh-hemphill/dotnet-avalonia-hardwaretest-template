@@ -153,7 +153,12 @@ public sealed partial class AuthoringWorkspaceViewModel
     public string NewInstrumentVisa
     {
         get => _newInstrumentVisa;
-        set => SetField(ref _newInstrumentVisa, value ?? string.Empty);
+        set
+        {
+            if (!SetField(ref _newInstrumentVisa, value ?? string.Empty)) return;
+            OnPropertyChanged(nameof(NewInstrumentAvailabilityText));
+            OnPropertyChanged(nameof(CanAddInstrumentSlot));
+        }
     }
 
     public string NewRequiredField
@@ -167,7 +172,8 @@ public sealed partial class AuthoringWorkspaceViewModel
            && !Workspace.IsReadOnly
            && SelectedProgram is not null
            && AuthoringWorkspaceCatalog.Normalize(NewInstrumentSlot) is { } slot
-           && !InstrumentSlots.Any(existing => string.Equals(existing, slot, StringComparison.OrdinalIgnoreCase));
+           && !InstrumentSlots.Any(existing => string.Equals(existing, slot, StringComparison.OrdinalIgnoreCase))
+           && NewInstrumentCreationIssue() is null;
 
     public IReadOnlyList<FormulaCatalog.Item> FormulaCompletions
         => FormulaCatalog.Completions(ChannelKeys);

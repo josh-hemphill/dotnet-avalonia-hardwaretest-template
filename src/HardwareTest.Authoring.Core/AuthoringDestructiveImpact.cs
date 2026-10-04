@@ -87,7 +87,7 @@ internal static class AuthoringContentFingerprint
             switch (source)
             {
                 case MeasureSource m: Add(m.InstrumentSlot); Add(m.FunctionId); Settings(m.Settings); break;
-                case AlgorithmSource a: Add(a.AlgorithmId); Strings(a.InputChannelKeys); Settings(a.Settings); break;
+                case AlgorithmSource a: Add(a.InstrumentSlot); Add(a.AlgorithmId); Strings(a.InputChannelKeys); Settings(a.Settings); break;
                 case ExpressionAlgorithm e: Strings(e.InputChannelKeys); Add(e.Source); break;
                 case TransferFunctionAlgorithm t:
                     Add(t.InputChannelKey); Add(t.Numerator.Count); foreach (var n in t.Numerator) Add(n);
@@ -121,7 +121,7 @@ internal static class AuthoringContentFingerprint
         foreach (var program in programs)
         {
             Add(program.PlanId); Add(JsonSerializer.Serialize(program.Sidecar, ProgramCatalogJsonContext.Default.ProgramSidecar));
-            Add(program.Instruments.Count); foreach (var i in program.Instruments) { Add(i.SlotName); Add(i.TypeId); Add(i.VisaAddress); }
+            Add(program.Instruments.Count); foreach (var i in program.Instruments) { Add(i.SlotName); Add(i.TypeId); Add(i.VisaAddress); Add(i.OpaqueResourceXml); Settings(i.Settings); }
             Add(program.Setup.Count);
             foreach (var setup in program.Setup)
             {

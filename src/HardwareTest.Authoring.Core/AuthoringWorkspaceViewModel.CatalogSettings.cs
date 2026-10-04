@@ -123,14 +123,17 @@ public sealed partial class AuthoringWorkspaceViewModel
             throw new AuthoringWorkspaceException($"Instrument slot '{slot}' already exists.");
         }
 
-        var typeId = SelectedProgram.Instruments.FirstOrDefault()?.TypeId
-                     ?? typeof(HardwareTest.OpenTap.Plugins.Basic.MockDmmInstrument).FullName!;
+        if (NewInstrumentCreationIssue() is { } issue) throw new AuthoringWorkspaceException(issue);
+        var typeId = NewInstrumentTypeId;
         var visa = AuthoringWorkspaceCatalog.Normalize(NewInstrumentVisa)
                    ?? $"MOCK::INSTR{SelectedProgram.Instruments.Count}";
+        var instrument = new InstrumentRef(slot, typeId, visa);
+        // Validate the selected adapter without opening any instrument connection.
+        AuthoringInstrumentCatalog.Create(instrument, InstrumentCreationHome);
         RememberWorkspaceCatalog(catalogs => AuthoringWorkspaceCatalog.Remember(catalogs.InstrumentSlotNames, slot));
         ReplaceSelected(SelectedProgram with
         {
-            Instruments = [.. SelectedProgram.Instruments, new InstrumentRef(slot, typeId, visa)],
+            Instruments = [.. SelectedProgram.Instruments, instrument],
         });
         SelectedInstrumentSlot = slot;
         NewInstrumentSlot = string.Empty;

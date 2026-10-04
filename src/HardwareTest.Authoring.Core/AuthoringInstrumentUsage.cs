@@ -10,6 +10,8 @@ public static class AuthoringInstrumentUsage
             return true;
         }
 
+        if (draft.Instruments.Any(instrument => instrument.OpaqueResourceXml is not null)) return true;
+
         foreach (var action in draft.Setup)
         {
             switch (action)
@@ -63,6 +65,7 @@ public static class AuthoringInstrumentUsage
             for (var i = 0; i < children.Count; i++)
             {
                 if (children[i] is MetricNode { Metric.Source: MeasureSource source } metric && string.Equals(source.InstrumentSlot, slot, StringComparison.OrdinalIgnoreCase)) nodes.Add($"{path}[{i}] {metric.Metric.Name}");
+                if (children[i] is MetricNode { Metric.Source: AlgorithmSource algorithm } algorithmMetric && AuthoringFunctionCatalog.HasInstrumentDependency(algorithm.AlgorithmId) && string.Equals(algorithm.InstrumentSlot, slot, StringComparison.OrdinalIgnoreCase)) nodes.Add($"{path}[{i}] {algorithmMetric.Metric.Name}");
                 if (children[i] is RepeatNode repeat) Walk(repeat.Children, $"{path}[{i}].Children");
             }
         }
@@ -94,7 +97,9 @@ public static class AuthoringInstrumentUsage
                     if (!AuthoringFunctionCatalog.TryGet(measure.FunctionId, out var function) || function.IsAlgorithm) return true;
                     break;
                 case MetricNode { Metric.Source: AlgorithmSource algorithm }:
-                    if (!AuthoringFunctionCatalog.TryGet(algorithm.AlgorithmId, out var spec) || !spec.IsAlgorithm || spec.NeedsInstrument) return true;
+                    if (!AuthoringFunctionCatalog.TryGet(algorithm.AlgorithmId, out var spec)
+                        || !spec.IsAlgorithm
+                        || (spec.NeedsInstrument && string.IsNullOrWhiteSpace(algorithm.InstrumentSlot))) return true;
                     break;
                 case MetricNode { Metric.Source: ExpressionAlgorithm }:
                 case MetricNode { Metric.Source: TransferFunctionAlgorithm }:
@@ -125,6 +130,12 @@ public static class AuthoringInstrumentUsage
                 => metric with
                 {
                     Metric = metric.Metric with { Source = measure with { InstrumentSlot = to } },
+                },
+            MetricNode { Metric.Source: AlgorithmSource algorithm } metric
+                when AuthoringFunctionCatalog.HasInstrumentDependency(algorithm.AlgorithmId) && string.Equals(algorithm.InstrumentSlot, from, StringComparison.OrdinalIgnoreCase)
+                => metric with
+                {
+                    Metric = metric.Metric with { Source = algorithm with { InstrumentSlot = to } },
                 },
             RepeatNode repeat => repeat with { Children = RetargetMeasure(repeat.Children, from, to) },
             _ => node,

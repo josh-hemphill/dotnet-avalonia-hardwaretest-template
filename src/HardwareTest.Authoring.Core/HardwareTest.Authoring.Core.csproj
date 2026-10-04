@@ -22,5 +22,6 @@
   <ItemGroup>
     <Content Include="../HardwareTest.OpenTap.Plugins.Basic/package.xml" Link="AuthoringPackages/HardwareTest Basic/package.xml" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <Content Include="../HardwareTest.OpenTap.Plugins.Mixins/package.xml" Link="AuthoringPackages/HardwareTest Mixins/package.xml" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="../HardwareTest.OpenTap.Plugins.Visa/package.xml" Link="AuthoringPackages/HardwareTest VISA/package.xml" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>
