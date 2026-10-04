@@ -76,6 +76,16 @@ public sealed partial class AuthoringDocumentStore
         return ValidatePath(Path.Combine(_root, ".authoring", "recovery", id + ".authoring.json"));
     }
 
+    public IReadOnlyList<string> ListRecoveryIds()
+    {
+        var directory = ValidatePath(Path.Combine(_root, ".authoring", "recovery"));
+        if (!Directory.Exists(directory)) return [];
+        var ids = Directory.EnumerateFiles(directory, "*.authoring.json")
+            .Select(path => Path.GetFileName(path)[..^".authoring.json".Length]).OrderBy(id => id, StringComparer.Ordinal).ToArray();
+        foreach (var id in ids) { ValidateId(id); GetRecoveryPath(id); }
+        return ids;
+    }
+
     public IReadOnlyList<string> ListDocumentIds()
     {
         var directory = ValidatePath(Path.Combine(_root, "authoring-drafts"));

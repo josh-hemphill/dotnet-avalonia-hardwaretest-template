@@ -1,4 +1,3 @@
-using System.Text.Json;
 using HardwareTest.OpenTap.Host;
 using Xunit;
 
@@ -118,6 +117,52 @@ public sealed class AuthoringDocumentStoreTests : IDisposable
         File.CreateSymbolicLink(path + ".bak", Path.Combine(_root, "unrelated"));
         Assert.Throws<IOException>(() => store.Save(AuthoringDocumentDto.FromDraft(Draft("plan"), 2)));
         Assert.Equal(bytes, File.ReadAllBytes(path));
+    }
+
+    [Fact]
+    public void WorkspaceSourceRoundTripsAndFutureBytesBlockReplacement()
+    {
+        var store = new AuthoringDocumentStore(_root);
+        var manifest = new AuthoringManifest { SchemaVersion = AuthoringSchemaVersions.Manifest, DisplayName = "test", Catalogs = new() { RequiredFields = ["serial"] } };
+        store.SaveWorkspace(manifest, 4);
+        var loaded = store.LoadWorkspace();
+        Assert.False(loaded.IsReadOnly);
+        Assert.Equal("serial", loaded.Document!.Manifest.Catalogs!.RequiredFields.Single());
+        Assert.Equal(4, loaded.Document.Revision);
+        var path = store.GetWorkspacePath();
+        File.WriteAllText(path, "{\"schemaVersion\":999,\"extra\":true}");
+        var bytes = File.ReadAllBytes(path);
+        Assert.True(store.LoadWorkspace().IsReadOnly);
+        Assert.Throws<InvalidOperationException>(() => store.SaveWorkspace(manifest));
+        Assert.Equal(bytes, File.ReadAllBytes(path));
+    }
+
+    [Fact]
+    public void RecoveryPathsEnumerateAndDeleteOnlyTheSelectedSafeDocument()
+    {
+        var store = new AuthoringDocumentStore(_root);
+        store.SaveAtPath(store.GetRecoveryPath("plan"), AuthoringDocumentDto.FromDraft(Draft("plan"), 8));
+        Assert.Equal("plan", store.ListRecoveryIds().Single());
+        Assert.Equal(8, store.LoadAtPath(store.GetRecoveryPath("plan")).Document!.Revision);
+        Assert.False(store.Load("plan").Exists);
+        store.DeleteRecovery("plan");
+        Assert.Empty(store.ListRecoveryIds());
+        Assert.Throws<ArgumentException>(() => store.DeleteRecovery("../outside"));
+    }
+
+    [Fact]
+    public void SettingsKeepCaseSensitiveDistinctKeysAndCaseInsensitiveLookups()
+    {
+        foreach (var comparer in new[] { StringComparer.Ordinal, StringComparer.OrdinalIgnoreCase })
+        {
+            var settings = new Dictionary<string, string>(comparer) { ["Range"] = "10" };
+            if (comparer == StringComparer.Ordinal) settings["range"] = "20";
+            var draft = Draft("plan") with { Measure = [new MetricNode(new("m", "m", "value", "V", null, null, new MeasureSource("slot", "read", settings)))] };
+            var dto = AuthoringDocumentDto.FromDraft(draft);
+            var restored = (MeasureSource)((MetricNode)dto.ToDraft().Measure.Single()).Metric.Source;
+            Assert.Equal(settings.Count, restored.Settings.Count);
+            Assert.Equal(settings["range"], restored.Settings["range"]);
+        }
     }
 
     private static ProgramDraft Draft(string id) => new(id, new(), [], [], [], new(false, Array.Empty<string>()));

@@ -129,6 +129,7 @@ public sealed class AuthoringSourceDto
     public string? InstrumentSlot { get; set; }
     public string? FunctionId { get; set; }
     public Dictionary<string, string>? Settings { get; set; }
+    public bool SettingsIgnoreCase { get; set; }
     public string? AlgorithmId { get; set; }
     public string[]? InputChannelKeys { get; set; }
     public string? Expression { get; set; }
@@ -139,16 +140,23 @@ public sealed class AuthoringSourceDto
     public string? Method { get; set; }
     internal static AuthoringSourceDto From(MetricSource source) => source switch
     {
-        MeasureSource s => new() { Kind = "measure", InstrumentSlot = s.InstrumentSlot, FunctionId = s.FunctionId, Settings = new(s.Settings, StringComparer.OrdinalIgnoreCase) },
-        AlgorithmSource s => new() { Kind = "algorithm", AlgorithmId = s.AlgorithmId, InputChannelKeys = s.InputChannelKeys.ToArray(), Settings = new(s.Settings, StringComparer.OrdinalIgnoreCase) },
+        MeasureSource s => new() { Kind = "measure", InstrumentSlot = s.InstrumentSlot, FunctionId = s.FunctionId, Settings = new(s.Settings, StringComparer.Ordinal), SettingsIgnoreCase = IgnoreCase(s.Settings) },
+        AlgorithmSource s => new() { Kind = "algorithm", AlgorithmId = s.AlgorithmId, InputChannelKeys = s.InputChannelKeys.ToArray(), Settings = new(s.Settings, StringComparer.Ordinal), SettingsIgnoreCase = IgnoreCase(s.Settings) },
         ExpressionAlgorithm s => new() { Kind = "expression", InputChannelKeys = s.InputChannelKeys.ToArray(), Expression = s.Source },
         TransferFunctionAlgorithm s => new() { Kind = "transferFunction", InputChannelKey = s.InputChannelKey, Numerator = s.Numerator.ToArray(), Denominator = s.Denominator.ToArray(), TsSeconds = s.TsSeconds, Method = s.Method },
         _ => throw new InvalidDataException("Unknown source variant.")
     };
+    private static bool IgnoreCase(IReadOnlyDictionary<string, string> settings) => settings switch
+    {
+        Dictionary<string, string> d => d.Comparer.Equals("a", "A"),
+        SortedDictionary<string, string> d => d.Comparer.Compare("a", "A") == 0,
+        SortedList<string, string> d => d.Comparer.Compare("a", "A") == 0,
+        _ => false
+    };
     internal MetricSource ToSource() => Kind switch
     {
-        "measure" => new MeasureSource(AuthoringSetupDto.Need(InstrumentSlot), AuthoringSetupDto.Need(FunctionId), new Dictionary<string, string>(AuthoringSetupDto.Need(Settings), StringComparer.OrdinalIgnoreCase)),
-        "algorithm" => new AlgorithmSource(AuthoringSetupDto.Need(AlgorithmId), AuthoringSetupDto.Need(InputChannelKeys), new Dictionary<string, string>(AuthoringSetupDto.Need(Settings), StringComparer.OrdinalIgnoreCase)),
+        "measure" => new MeasureSource(AuthoringSetupDto.Need(InstrumentSlot), AuthoringSetupDto.Need(FunctionId), new Dictionary<string, string>(AuthoringSetupDto.Need(Settings), SettingsIgnoreCase ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal)),
+        "algorithm" => new AlgorithmSource(AuthoringSetupDto.Need(AlgorithmId), AuthoringSetupDto.Need(InputChannelKeys), new Dictionary<string, string>(AuthoringSetupDto.Need(Settings), SettingsIgnoreCase ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal)),
         "expression" => new ExpressionAlgorithm(AuthoringSetupDto.Need(InputChannelKeys), AuthoringSetupDto.Need(Expression)),
         "transferFunction" => new TransferFunctionAlgorithm(AuthoringSetupDto.Need(InputChannelKey), AuthoringSetupDto.Need(Numerator), AuthoringSetupDto.Need(Denominator), TsSeconds ?? throw new InvalidDataException("Missing sample time."), AuthoringSetupDto.Need(Method)),
         _ => throw new InvalidDataException($"Unknown source discriminator '{Kind}'.")
