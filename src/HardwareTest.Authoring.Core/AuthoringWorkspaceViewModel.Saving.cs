@@ -29,6 +29,7 @@ public sealed partial class AuthoringWorkspaceViewModel
     public IReadOnlyList<DirtyProgramSummary> DirtyPrograms => DirtyProgramIds
         .Select(id => new DirtyProgramSummary(id, _dirtyPlans.Contains(id), _dirtySidecars.Contains(id))).ToArray();
     internal Action<string, string>? WorkspaceManifestReplacement { get; set; }
+    internal Action<string, string>? WorkspaceSourceReplacement { get; set; }
     private bool _workspaceCatalogDirty;
     private string? _workspaceCatalogSaveFailure;
     public bool WorkspaceCatalogDirty
@@ -85,7 +86,7 @@ public sealed partial class AuthoringWorkspaceViewModel
                 EnsureWritableWorkspace("save the workspace catalog");
                 var beforeManifestSave = CaptureWorkspace();
                 AuthoringWorkspaceLoader.SaveManifest(Workspace!.Root, Workspace.Manifest, WorkspaceManifestReplacement);
-                new AuthoringDocumentStore(Workspace.Root).SaveWorkspace(Workspace.Manifest);
+                new AuthoringDocumentStore(Workspace.Root, new AuthoringAtomicWriter(WorkspaceSourceReplacement)).SaveWorkspace(Workspace.Manifest);
                 _workspaceHistory.RebaseCurrent(beforeManifestSave, CaptureWorkspace());
                 _savedManifestIdentity = ManifestIdentity();
                 WorkspaceCatalogDirty = false;
@@ -158,7 +159,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         var document = AuthoringDocumentDto.FromDraft(draft, _documents[planId].Revision,
             compiledPlanHash: baseline?.CompiledPlanHash ?? AuthoringDocumentStore.ComputeHash(existing),
             compiledSidecarHash: baseline?.CompiledSidecarHash ?? AuthoringDocumentStore.ComputeHash(existing is null ? null : PlanCompiler.SidecarPath(existing)));
-        document.RequiresCompilation = savePlan || actualDirty.PlanDirty || baseline?.RequiresCompilation == true;
+        document.RequiresCompilation = savePlan || sidecarOnly || actualDirty.PlanDirty || actualDirty.SidecarDirty || baseline?.RequiresCompilation == true;
         store.Save(document);
         if (document.RequiresCompilation) _uncompiledDocuments.Add(planId);
         _sourceDocuments[planId] = document;
