@@ -514,7 +514,7 @@ Deno.test("SDK snapshot jobs install and verify one isolated home for CLI and ap
       inventory.includes("files=$($sdkFiles.Count) bytes=$($sdkFiles.Sum)"),
     );
   }
-  assert(jobBlock(yaml, "test").includes("timeout-minutes: 30"));
+  assert(jobBlock(yaml, "test").includes("timeout-minutes: 45"));
 });
 
 Deno.test("both platform jobs run Deno catalog unit tests", async () => {
