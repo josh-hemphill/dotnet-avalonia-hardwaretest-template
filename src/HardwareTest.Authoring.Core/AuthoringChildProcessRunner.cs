@@ -68,20 +68,26 @@ public sealed class AuthoringChildProcessRunner
             progress(new("Reaping operation processes"));
             cancellationToken.ThrowIfCancellationRequested();
             ownership.Terminate();
-            await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(5)).ConfigureAwait(false);
+            await ownership.WaitForExitAsync(process).ConfigureAwait(false);
             await Task.WhenAll(stdout, stderr).WaitAsync(TimeSpan.FromSeconds(2), cancellationToken).ConfigureAwait(false);
             cancellationToken.ThrowIfCancellationRequested();
             return exit.ExitCode;
         }
         finally
         {
-            ownership.Terminate();
-            // Reap the owned process before staging cleanup. Cancellation never waits on the UI thread.
-            await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(5)).ConfigureAwait(false);
-            reading.Cancel();
-            try { await Task.WhenAll(stdout, stderr, stages).WaitAsync(TimeSpan.FromSeconds(2)).ConfigureAwait(false); }
-            catch (OperationCanceledException) { }
-            catch (TimeoutException) { }
+            try
+            {
+                ownership.Terminate();
+                // Reap the owned process before staging cleanup. Cancellation never waits on the UI thread.
+                await ownership.WaitForExitAsync(process).ConfigureAwait(false);
+            }
+            finally
+            {
+                reading.Cancel();
+                try { await Task.WhenAll(stdout, stderr, stages).WaitAsync(TimeSpan.FromSeconds(2)).ConfigureAwait(false); }
+                catch (OperationCanceledException) { }
+                catch (TimeoutException) { }
+            }
         }
         async Task WaitForHostFile(string name)
         {

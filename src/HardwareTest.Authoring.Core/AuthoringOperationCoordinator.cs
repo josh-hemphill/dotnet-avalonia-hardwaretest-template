@@ -142,8 +142,15 @@ public sealed class AuthoringOperationCoordinator(AuthoringChildProcessRunner ru
         finally
         {
             if (entered) Lane.Release();
-            AuthoringBuildService.CleanupStaging(owned);
-            lock (gate) { if (ReferenceEquals(active, operation)) active = null; operation.Dispose(); }
+            try
+            {
+                if (token.IsCancellationRequested) await CleanupCancelledOperationAsync(owned).ConfigureAwait(false);
+                else AuthoringBuildService.CleanupStaging(owned);
+            }
+            finally
+            {
+                lock (gate) { if (ReferenceEquals(active, operation)) active = null; operation.Dispose(); }
+            }
         }
         void Report(AuthoringOperationProgress update)
         {
@@ -156,6 +163,28 @@ public sealed class AuthoringOperationCoordinator(AuthoringChildProcessRunner ru
             {
                 token.ThrowIfCancellationRequested();
                 if (disposed || capturedGeneration != generation) throw new OperationCanceledException("Workspace changed.", token);
+            }
+        }
+    }
+
+    internal static async Task CleanupCancelledOperationAsync(string owned, Action<string>? delete = null, TimeSpan? timeout = null)
+    {
+        delete ??= path =>
+        {
+            try { Directory.Delete(path, recursive: true); }
+            catch (DirectoryNotFoundException) { }
+        };
+        var elapsed = System.Diagnostics.Stopwatch.StartNew();
+        var limit = timeout ?? TimeSpan.FromSeconds(5);
+        while (true)
+        {
+            try { delete(owned); return; }
+            catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+            {
+                // Reaping can precede the last file handle release. Owner close must await removal,
+                // and a persistent failure must reach its error handler rather than report success.
+                if (elapsed.Elapsed >= limit) throw;
+                await Task.Delay(20).ConfigureAwait(false);
             }
         }
     }

@@ -8,6 +8,42 @@ namespace HardwareTest.Authoring.Tests;
 public sealed class AuthoringOperationTests : IDisposable
 {
     private readonly List<string> roots = [];
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Cancelled_operation_cleanup_retries_transient_file_release_failures(bool unauthorized)
+    {
+        var owned = Temp();
+        File.WriteAllText(Path.Combine(owned, "held"), "owned data");
+        var attempts = 0;
+        var cleanup = AuthoringOperationCoordinator.CleanupCancelledOperationAsync(owned, path =>
+        {
+            if (++attempts <= 2)
+            {
+                if (unauthorized) throw new UnauthorizedAccessException("File release pending");
+                throw new IOException("File release pending");
+            }
+            Directory.Delete(path, true);
+        });
+        Assert.False(cleanup.IsCompleted);
+        await cleanup.WaitAsync(TimeSpan.FromSeconds(2));
+        Assert.Equal(3, attempts);
+        Assert.False(Directory.Exists(owned));
+    }
+
+    [Fact]
+    public async Task Cancelled_operation_cleanup_surfaces_persistent_failure_with_a_bound()
+    {
+        var owned = Temp();
+        var failure = new IOException("Persistent owned-tree lock");
+        var attempts = 0;
+        var cleanup = AuthoringOperationCoordinator.CleanupCancelledOperationAsync(owned,
+            _ => { attempts++; throw failure; }, TimeSpan.FromMilliseconds(40));
+        Assert.Same(failure, await Assert.ThrowsAsync<IOException>(() => cleanup.WaitAsync(TimeSpan.FromSeconds(2))));
+        Assert.True(attempts > 1);
+        Assert.True(Directory.Exists(owned));
+    }
+
     [Fact]
     public async Task Disappearing_owner_terminates_native_scope_and_descendants()
     {

@@ -15,8 +15,10 @@ if (args.Length == 2 && args[0] == "--operation-owner")
     await coordinator.RunAsync(AuthoringOperationKind.Bootstrap, args[1]);
     return 0;
 }
-if (args.Length == 1 && args[0] == "--descendant")
+if (args.Length is 1 or 2 && args[0] == "--descendant")
 {
+    using var heldFile = args.Length == 2 ? File.Open(args[1], FileMode.Create, FileAccess.ReadWrite, FileShare.None) : null;
+    if (heldFile is not null) File.WriteAllText(args[1] + ".ready", "");
     await Task.Delay(Timeout.Infinite);
     return 0;
 }
@@ -31,7 +33,10 @@ if (File.Exists(Path.Combine(root, "fixture-spawn")))
     var start = new ProcessStartInfo(Environment.ProcessPath!) { UseShellExecute = false };
     if (Path.GetFileNameWithoutExtension(Environment.ProcessPath) == "dotnet") start.ArgumentList.Add(Assembly.GetExecutingAssembly().Location);
     start.ArgumentList.Add("--descendant");
+    var heldPath = Path.Combine(owned, "descendant-held");
+    start.ArgumentList.Add(heldPath);
     using var descendant = Process.Start(start)!;
+    while (!File.Exists(heldPath + ".ready")) await Task.Delay(20);
     File.WriteAllText(Path.Combine(root, "fixture-descendant"), descendant.Id.ToString());
 }
 if (File.Exists(Path.Combine(root, "fixture-root-exit"))) return 7;

@@ -44,6 +44,22 @@ internal sealed class AuthoringProcessOwnership : IDisposable
             terminationRequested = true;
         }
     }
+    public async Task WaitForExitAsync(Process anchor)
+    {
+        var elapsed = Stopwatch.StartNew();
+        await anchor.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(5)).ConfigureAwait(false);
+        if (job is null) return;
+        // TerminateJobObject initiates termination; the anchor can exit before its descendants.
+        while (true)
+        {
+            if (!QueryInformationJobObject(job, 1, out var accounting, (uint)Marshal.SizeOf<JobAccounting>(), IntPtr.Zero))
+                throw new Win32Exception(Marshal.GetLastPInvokeError());
+            if (accounting.ActiveProcesses == 0) return;
+            if (elapsed.Elapsed >= TimeSpan.FromSeconds(5))
+                throw new TimeoutException("Authoring operation processes did not exit.");
+            await Task.Delay(20).ConfigureAwait(false);
+        }
+    }
     public void Dispose() { lock (terminationGate) job?.Dispose(); }
     internal static void CreateUnixSession()
     {
@@ -73,6 +89,12 @@ internal sealed class AuthoringProcessOwnership : IDisposable
         public IoCounters Io;
         public UIntPtr ProcessMemory, JobMemory, PeakProcessMemory, PeakJobMemory;
     }
+    [StructLayout(LayoutKind.Sequential)]
+    private struct JobAccounting
+    {
+        public long TotalUserTime, TotalKernelTime, ThisPeriodUserTime, ThisPeriodKernelTime;
+        public uint TotalPageFaultCount, TotalProcesses, ActiveProcesses, TotalTerminatedProcesses;
+    }
     [DllImport("libc", SetLastError = true)]
     private static extern int setsid();
     [DllImport("libc", SetLastError = true)]
@@ -88,4 +110,7 @@ internal sealed class AuthoringProcessOwnership : IDisposable
     [DllImport("kernel32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool TerminateJobObject(SafeFileHandle job, uint code);
+    [DllImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool QueryInformationJobObject(SafeFileHandle job, int kind, out JobAccounting information, uint length, IntPtr returnLength);
 }
