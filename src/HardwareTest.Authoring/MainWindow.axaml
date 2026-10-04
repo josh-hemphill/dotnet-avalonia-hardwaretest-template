@@ -635,6 +635,18 @@
         <TabItem Header="Workspace" AutomationProperties.Name="Workspace tab">
           <ScrollViewer>
             <StackPanel Spacing="8" Margin="0,8,16,0">
+              <Expander Header="Draft recovery and reconciliation" AutomationProperties.Name="Draft recovery">
+            <StackPanel Spacing="4">
+              <TextBlock Text="{Binding DraftStateSummary}" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
+              <WrapPanel Orientation="Horizontal">
+                <ComboBox ItemsSource="{Binding RecoverableProgramIds}" SelectedItem="{Binding SelectedRecoveryPlanId}" MinWidth="100" AutomationProperties.Name="Recovery program" />
+                <Button Content="Recover selected draft" Click="OnAcceptRecovery" />
+                <Button Content="Discard selected recovery" Click="OnDiscardRecovery" />
+                <Button Content="Import external compiled edits" Click="OnImportCompiled" />
+                <Button Content="Retain source for export" Click="OnRetainSource" />
+              </WrapPanel>
+            </StackPanel>
+              </Expander>
               <TextBlock Text="{Binding Workspace.Root}" TextWrapping="Wrap" />
               <TextBlock Text="{Binding Workspace.Manifest.DisplayName}" />
               <TextBlock Text="Open a folder that contains authoring.json. Save plan writes TapPlan + sidecar via IPlanCompiler.Save."
@@ -784,20 +796,6 @@
                       Click="OnPack"
                       ToolTip.Tip="Validate, then write package.xml, the program TapPackage, declared plugin copies, bake-time shell apps, and ship-manifest.json"
                       AutomationProperties.Name="Pack workspace" />
-            </StackPanel>
-          </ScrollViewer>
-        </TabItem>
-        <TabItem Header="Draft recovery" AutomationProperties.Name="Draft recovery tab">
-          <ScrollViewer Margin="12">
-            <StackPanel Spacing="4">
-              <TextBlock Text="{Binding DraftStateSummary}" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
-              <WrapPanel Orientation="Horizontal">
-                <ComboBox ItemsSource="{Binding RecoverableProgramIds}" SelectedItem="{Binding SelectedRecoveryPlanId}" MinWidth="100" AutomationProperties.Name="Recovery program" />
-                <Button Content="Recover selected draft" Click="OnAcceptRecovery" />
-                <Button Content="Discard selected recovery" Click="OnDiscardRecovery" />
-                <Button Content="Import external compiled edits" Click="OnImportCompiled" />
-                <Button Content="Retain source for export" Click="OnRetainSource" />
-              </WrapPanel>
             </StackPanel>
           </ScrollViewer>
         </TabItem>

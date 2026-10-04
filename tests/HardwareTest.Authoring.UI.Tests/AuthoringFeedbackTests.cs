@@ -138,7 +138,8 @@ public sealed class AuthoringFeedbackTests
     private static void AssertInsideWindow(Control control, Window window)
     {
         Assert.True(control.IsEffectivelyVisible);
-        Assert.True(control.Bounds.Width > 0 && control.Bounds.Height > 0);
+        Assert.True(control.Bounds.Width > 0 && control.Bounds.Height > 0,
+            $"{control.GetType().Name} must have visible bounds: {control.Bounds}.");
         var origin = control.TranslatePoint(default, window);
         Assert.NotNull(origin);
         Assert.True(new Rect(window.ClientSize).Contains(new Rect(origin.Value, control.Bounds.Size)),
