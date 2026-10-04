@@ -36,6 +36,37 @@ public sealed class AuthoringActionableFindingsTests
         Assert.Equal(0, tabs.SelectedIndex);
         Assert.True(fixture.Control<TextBox>("Threshold").IsFocused);
     }
+    [AvaloniaFact]
+    public void Ordinary_editing_issue_opens_its_node_without_a_field_error()
+    {
+        using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
+        fixture.Show(); fixture.OpenRememberedWorkspace();
+        var vm = fixture.ViewModel;
+        vm.SelectMeasure(0);
+        var channel = vm.ChannelKey;
+        vm.SelectMeasure(1);
+        vm.ChannelKey = channel;
+        var node = vm.SelectedSequence!.NodeId;
+        var issue = Assert.Single(vm.EditingIssues, item => item.Code == "DUPLICATE_CHANNEL" && item.NodeId == node);
+        Assert.Null(issue.Section);
+        Assert.Null(issue.Field);
+        Assert.Equal("Open location", issue.NavigationLabel);
+        var program = vm.SelectedProgram!.PlanId;
+        vm.CreateProgram("other");
+        var tabs = fixture.Window!.FindControl<TabControl>("WorkspaceTabs")!;
+        tabs.SelectedIndex = 2;
+        AuthoringUiFixture.Drain();
+        fixture.Control<Expander>("Editing findings").IsExpanded = true;
+        AuthoringUiFixture.Drain();
+        var button = Assert.Single(fixture.Window!.GetVisualDescendants().OfType<Button>(),
+            button => Equals(button.DataContext, issue) && Equals(button.Content, "Open location"));
+        AuthoringUiFixture.Click(button);
+        Assert.Equal(program, vm.SelectedProgram!.PlanId);
+        Assert.Equal(node, vm.SelectedSequence!.NodeId);
+        Assert.Equal(0, tabs.SelectedIndex);
+        Assert.Null(vm.Error);
+    }
+
     [AvaloniaTheory]
     [InlineData(false)]
     [InlineData(true)]

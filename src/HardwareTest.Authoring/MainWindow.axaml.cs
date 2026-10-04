@@ -217,6 +217,7 @@ public partial class MainWindow : Window
         var document = _viewModel.SelectedDocument;
         var revision = document?.Revision;
         WorkspaceTabs.SelectedIndex = target.NodeId is null ? 1 : 0;
+        if (target.NodeId is not null && target.Section is null && target.Field is null) return;
         Avalonia.Threading.Dispatcher.UIThread.Post(() =>
         {
             if (navigation != _findingNavigationGeneration || !ReferenceEquals(workspace, _viewModel.Workspace)
