@@ -1,0 +1,15 @@
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:HardwareTest.Authoring" xmlns:host="using:HardwareTest.OpenTap.Host"
+    x:Class="HardwareTest.Authoring.WorkspacePreviewView" x:DataType="vm:AuthoringWorkspaceViewModel">
+  <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto" ClipToBounds="True"
+      Focusable="True" AutomationProperties.Name="Workspace preview viewport">
+    <StackPanel Spacing="8" AutomationProperties.Name="Preview content">
+      <vm:OperatorPreviewPane/>
+      <TextBlock x:Name="RecordingsHeading" FontWeight="SemiBold" Text="Recordings"
+          AutomationProperties.HeadingLevel="3" TextWrapping="Wrap"/>
+      <ListBox Height="80" ItemsSource="{Binding DatasetItems}" SelectedIndex="{Binding SelectedDatasetIndex}"
+          KeyboardNavigation.TabNavigation="Once" AutomationProperties.Name="Recordings"
+          AutomationProperties.LabeledBy="{Binding #RecordingsHeading}"/>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

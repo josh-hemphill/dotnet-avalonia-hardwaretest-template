@@ -123,6 +123,7 @@ public sealed class AuthoringLifecycleInteraction(Window owner) : IAuthoringLife
             Width = 480,
             MaxHeight = Math.Min(480, Math.Max(240, owner.ClientSize.Height - 80)),
             Height = Math.Min(480, Math.Max(240, owner.ClientSize.Height - 80)),
+            FontSize = owner.FontSize,
             CanResize = false,
             WindowStartupLocation = WindowStartupLocation.CenterOwner,
         };
@@ -138,14 +139,13 @@ public sealed class AuthoringLifecycleInteraction(Window owner) : IAuthoringLife
         };
         var programList = new ScrollViewer
         {
-            MaxHeight = Math.Max(80, dialog.MaxHeight - 140),
             HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
             VerticalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto,
             Content = new TextBlock { Text = string.Join(Environment.NewLine, (workspaceCatalogDirty ? new[] { "Workspace catalog changes (Save All required)" } : []).Concat(dirtyPrograms.Select(p => p.PlanId))), TextWrapping = TextWrapping.Wrap },
         };
         AutomationProperties.SetName(programList, "Unsaved program list");
         var heading = new TextBlock { Text = workspaceCatalogDirty ? "Save workspace catalog changes and edited programs before continuing? Use Save all to save both." : "Save edited programs before continuing?", TextWrapping = TextWrapping.Wrap };
-        var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, HorizontalAlignment = HorizontalAlignment.Right, Children = { cancel, discard, save } };
+        var buttons = AuthoringProtectionLayout.Decisions(cancel, discard, save);
         var layout = new Grid { RowDefinitions = new RowDefinitions("Auto,*,Auto"), Margin = new Thickness(20) };
         programList.Margin = new Thickness(0, 12);
         Grid.SetRow(programList, 1); Grid.SetRow(buttons, 2);

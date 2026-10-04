@@ -40,7 +40,7 @@
                           Click="OnToggleRequiredField"
                           ToolTip.Tip="Changes membership only for the selected program. Save this program to persist the edit."
                           AutomationProperties.Name="{Binding Id, StringFormat='Include {0} in selected program'}" />
-                <Button Content="Remove from workspace"
+                <Button Classes="authoringAction" Content="Remove from workspace"
                         IsVisible="{Binding CanRemove}"
                         Click="OnRemoveRequiredField"
                         ToolTip.Tip="Review workspace removal and affected programs. Use Save All to persist catalog changes. serial/partNumber/revision/operator stay."
@@ -54,7 +54,7 @@
                  PlaceholderText="fixtureId"
                  AutomationProperties.Name="New required field"
                  AutomationProperties.LabeledBy="{Binding #NewRequiredFieldLabel}" />
-        <Button Content="Add required field"
+        <Button Classes="authoringAction" Content="Add required field"
                 Click="OnAddRequiredField"
                 ToolTip.Tip="Includes the field in this program and stages a workspace catalog suggestion. Use Save All for catalog changes."
                 AutomationProperties.Name="Add required field" />
@@ -77,7 +77,7 @@
                           Click="OnToggleReportKind"
                           ToolTip.Tip="Changes membership only for the selected program. Save this program to persist the edit."
                           AutomationProperties.Name="{Binding Id, StringFormat='Include {0} in selected program'}" />
-                <Button Content="Remove from workspace"
+                <Button Classes="authoringAction" Content="Remove from workspace"
                         IsVisible="{Binding CanRemove}"
                         Click="OnRemoveReportKind"
                         ToolTip.Tip="Review workspace removal and affected programs. Use Save All to persist catalog changes. status and certification stay."
@@ -91,7 +91,7 @@
                  PlaceholderText="traceability"
                  AutomationProperties.Name="New report kind"
                  AutomationProperties.LabeledBy="{Binding #NewReportKindLabel}" />
-        <Button Content="Add report kind"
+        <Button Classes="authoringAction" Content="Add report kind"
                 Click="OnAddReportKind"
                 ToolTip.Tip="Includes the report kind in this program and stages a workspace catalog suggestion. Use Save All for catalog changes."
                 AutomationProperties.Name="Add report kind" />
@@ -115,7 +115,7 @@
             <DataTemplate x:DataType="vm:AuthoringCatalogToggle">
               <StackPanel Orientation="Horizontal" Spacing="8">
                 <TextBlock Text="{Binding Id}" VerticalAlignment="Center" />
-                <Button Content="Remove from workspace"
+                <Button Classes="authoringAction" Content="Remove from workspace"
                         IsVisible="{Binding CanRemove}"
                         Click="OnRemoveProgramKind"
                         ToolTip.Tip="Review workspace removal; affected programs reset to dut. Use Save All to persist catalog changes. dut and stationHealth stay."
@@ -129,7 +129,7 @@
                  PlaceholderText="incomingInspect"
                  AutomationProperties.Name="New program kind"
                  AutomationProperties.LabeledBy="{Binding #NewProgramKindLabel}" />
-        <Button Content="Add program kind"
+        <Button Classes="authoringAction" Content="Add program kind"
                 Click="OnAddProgramKind"
                 ToolTip.Tip="Sets this program’s kind and stages a workspace catalog suggestion. Use Save All for catalog changes."
                 AutomationProperties.Name="Add program kind" />
@@ -202,12 +202,12 @@
                  PlaceholderText="MOCK::INSTR1"
                  AutomationProperties.Name="New slot VISA"
                  AutomationProperties.LabeledBy="{Binding #NewVisaLabel}" />
-        <Button Content="Add instrument slot"
+        <Button Classes="authoringAction" Content="Add instrument slot"
                 Click="OnAddInstrumentSlot"
                 IsEnabled="{Binding CanAddInstrumentSlot}"
                 ToolTip.Tip="Appends a slot to this program and stages a workspace slot suggestion. Use Save All for catalog changes."
                 AutomationProperties.Name="Add instrument slot" />
-        <Button Content="Remove slot from selected program"
+        <Button Classes="authoringAction" Content="Remove slot from selected program"
                 Click="OnRemoveInstrumentSlot"
                 IsEnabled="{Binding CanRemoveSelectedInstrumentSlot}"
                 ToolTip.Tip="{Binding InstrumentRemovalGuardText}"

@@ -1,0 +1,34 @@
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:HardwareTest.Authoring" xmlns:host="using:HardwareTest.OpenTap.Host"
+    x:Class="HardwareTest.Authoring.WorkspaceIssuesView" x:DataType="vm:AuthoringWorkspaceViewModel">
+  <DockPanel>
+    <Expander DockPanel.Dock="Top" Margin="0,0,0,8" Header="Editing findings" IsVisible="{Binding HasWorkspace}">
+      <ScrollViewer MaxHeight="100">
+        <ItemsControl ItemsSource="{Binding EditingIssues}" AutomationProperties.Name="Editing findings">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:AuthoringEditingIssue">
+              <TextBlock Text="{Binding Message}" TextWrapping="Wrap"/>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </ScrollViewer>
+    </Expander>
+    <ListBox ItemsSource="{Binding FindingRows}" KeyboardNavigation.TabNavigation="Once"
+        AutomationProperties.Name="Contract findings">
+      <ListBox.ItemTemplate>
+        <DataTemplate x:DataType="vm:AuthoringFindingRow">
+          <StackPanel>
+            <TextBlock FontWeight="SemiBold" Text="{Binding ProgramId, StringFormat='Program: {0}'}" TextWrapping="Wrap"/>
+            <TextBlock TextWrapping="Wrap" Text="{Binding TapPlanPath}"/>
+            <TextBlock FontWeight="SemiBold" Text="{Binding Code, StringFormat='{}{0}'}" TextWrapping="Wrap"/>
+            <TextBlock TextWrapping="Wrap" Opacity="0.85" Text="{Binding Message}"/>
+            <TextBlock TextWrapping="Wrap" Text="{Binding Location, StringFormat='Location: {0}'}"/>
+            <TextBlock Opacity="0.7" FontSize="11" Text="{Binding Severity}" TextWrapping="Wrap"/>
+            <Button Content="Open program" IsEnabled="{Binding CanOpenProgram}" Click="OnOpenFindingProgram"
+                Classes="authoringAction"/>
+          </StackPanel>
+        </DataTemplate>
+      </ListBox.ItemTemplate>
+    </ListBox>
+  </DockPanel>
+</UserControl>
