@@ -44,12 +44,19 @@ public sealed partial class AuthoringWorkspaceViewModel
     {
         var saved = ReadSupportedSavedWorkspace();
         var store = new AuthoringDocumentStore(saved.Root);
-        var ids = HasCurrentFindingCheck ? planIds.Concat(store.ListDocumentIds()) : planIds;
+        var targets = planIds.Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+        var ids = HasCurrentFindingCheck ? targets.Concat(store.ListDocumentIds()) : targets;
         foreach (var id in ids.Distinct(StringComparer.OrdinalIgnoreCase))
         {
             var source = store.Load(id);
             if (source.IsReadOnly || source.Error is not null)
                 throw new AuthoringWorkspaceException(source.Error ?? $"Source '{id}' uses an unsupported future schema; its bytes must be preserved.");
+        }
+        foreach (var id in targets)
+        {
+            var path = store.ValidatePath(TryExistingTapPlanPath(id) ?? ResolveTapPlanPath(id));
+            _ = AuthoringDocumentStore.ComputeHash(path);
+            _ = AuthoringDocumentStore.ComputeHash(store.ValidatePath(PlanCompiler.SidecarPath(path)));
         }
         if (HasCurrentFindingCheck && _lastFindingCheck!.Identity != FindingIdentity()) InvalidateContractFindings();
         return true;
