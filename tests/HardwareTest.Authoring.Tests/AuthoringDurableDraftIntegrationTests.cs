@@ -12,13 +12,15 @@ public sealed class AuthoringDurableDraftIntegrationTests
         var root = Workspace();
         var vm = new AuthoringWorkspaceViewModel();
         vm.Open(root);
-        vm.ApplyRecipe(AuthoringRecipeIds.MeanGte);
-        vm.SelectMeasure(vm.SelectedProgram!.Measure.Count - 1);
+        vm.StopRecovery();
+        vm.SelectProgram("sample");
+        var mean = vm.SequenceItems.Single(row => row.Label == "Mean GTE");
+        vm.SelectSequence(vm.SequenceItems.ToList().IndexOf(mean));
         var nodeId = vm.SelectedSequence!.NodeId;
         vm.Threshold = "1e-";
         Assert.Equal("1e-", vm.Threshold);
         Assert.True(vm.HasUnsavedChanges);
-        vm.SaveProgram(vm.SelectedProgram.PlanId);
+        vm.SaveProgram(vm.SelectedProgram!.PlanId);
         Assert.False(vm.HasUnsavedChanges);
         Assert.True(vm.HasUncompiledSources);
         Assert.False(vm.CanPack);
@@ -26,6 +28,8 @@ public sealed class AuthoringDurableDraftIntegrationTests
         vm.StopRecovery();
         var reopened = new AuthoringWorkspaceViewModel();
         reopened.Open(root);
+        reopened.StopRecovery();
+        reopened.SelectProgram("sample");
         reopened.SelectSequence(reopened.SequenceItems.ToList().FindIndex(row => row.NodeId == nodeId));
         Assert.Equal("1e-", reopened.Threshold);
         Assert.True(reopened.HasUncompiledSources);
@@ -38,6 +42,7 @@ public sealed class AuthoringDurableDraftIntegrationTests
         var root = Workspace();
         var vm = new AuthoringWorkspaceViewModel();
         vm.Open(root);
+        vm.StopRecovery();
         vm.DisplayName = "Source name";
         vm.Apply();
         var id = vm.SelectedProgram!.PlanId;
@@ -74,7 +79,7 @@ public sealed class AuthoringDurableDraftIntegrationTests
     public void ExplorationFormulaIntentReopensWithExcludedCompiledRevision()
     {
         var root = Workspace();
-        var vm = new AuthoringWorkspaceViewModel(); vm.Open(root);
+        var vm = new AuthoringWorkspaceViewModel(); vm.Open(root); vm.StopRecovery();
         vm.ApplyRecipe(AuthoringRecipeIds.Formula);
         vm.SelectMeasure(vm.SelectedProgram!.Measure.Count - 1);
         vm.FormulaSource = "input + 1";
@@ -82,7 +87,7 @@ public sealed class AuthoringDurableDraftIntegrationTests
         var id = vm.SelectedProgram.PlanId;
         var nodeId = vm.SelectedSequence!.NodeId;
         vm.Apply(); vm.StopRecovery();
-        var reopened = new AuthoringWorkspaceViewModel(); reopened.Open(root); reopened.SelectProgram(id);
+        var reopened = new AuthoringWorkspaceViewModel(); reopened.Open(root); reopened.StopRecovery(); reopened.SelectProgram(id);
         reopened.SelectSequence(reopened.SequenceItems.ToList().FindIndex(row => row.NodeId == nodeId));
         Assert.Equal("input + 1", reopened.FormulaSource);
         Assert.True(reopened.FormulaExplorationOnly);
@@ -114,7 +119,7 @@ public sealed class AuthoringDurableDraftIntegrationTests
         var path = store.GetDocumentPath("future"); Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         var bytes = System.Text.Encoding.UTF8.GetBytes("{\"schemaVersion\":999,\"futureValue\":true}");
         File.WriteAllBytes(path, bytes);
-        var vm = new AuthoringWorkspaceViewModel(); vm.Open(root);
+        var vm = new AuthoringWorkspaceViewModel(); vm.Open(root); vm.StopRecovery();
         Assert.True(vm.Workspace!.IsReadOnly);
         Assert.Throws<AuthoringWorkspaceException>(() => vm.Apply());
         Assert.Equal(bytes, File.ReadAllBytes(path)); vm.StopRecovery();

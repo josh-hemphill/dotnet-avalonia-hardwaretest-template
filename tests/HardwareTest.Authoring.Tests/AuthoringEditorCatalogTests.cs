@@ -208,7 +208,7 @@ public sealed class AuthoringProgramSettingsViewModelTests
         Assert.Equal(FormulaSaveOutcomeKind.PreviewOnly, vm.FormulaSaveOutcomeKind);
         Assert.Contains("VDC", vm.ChannelKeys);
         Assert.Contains(vm.FormulaCompletions, item => item.Name == "mean" && item.Packs);
-        vm.ApplyRecipe(AuthoringRecipeIds.Repeat);
+        SelectMeasureLoop(vm);
         Assert.True(vm.HasRepeatEditor);
         Assert.False(vm.HasFormula);
         Assert.False(vm.HasTransferFunction);
@@ -341,7 +341,7 @@ public sealed class AuthoringProgramSettingsViewModelTests
         vm.TfMethod = "fft";
         Assert.Equal("filtfilt", vm.TfMethod);
         Assert.Contains("VDC", vm.ChannelKeys);
-        vm.ApplyRecipe(AuthoringRecipeIds.Repeat);
+        SelectMeasureLoop(vm);
         Assert.True(vm.HasRepeatEditor);
         Assert.False(vm.HasTransferFunction);
         Assert.True(string.IsNullOrEmpty(vm.MetricInstrumentSlot));
@@ -421,6 +421,16 @@ public sealed class AuthoringProgramSettingsViewModelTests
         Assert.True(vm.SelectedProgram.Cleanup.IncludeMeasureSlots);
     }
 
+    private static void SelectMeasureLoop(AuthoringWorkspaceViewModel vm)
+    {
+        var program = vm.SelectedProgram!;
+        var loop = new RepeatNode(3, program.Measure);
+        vm.ReplaceSelected(program with { Measure = [loop] });
+        vm.SelectSequence(vm.SequenceItems.ToList().FindIndex(row => row.NodeId == loop.NodeId));
+        Assert.Equal(program.Measure.Select(node => node.NodeId), loop.Children.Select(node => node.NodeId));
+        Assert.Equal(2, loop.Children.Count);
+    }
+
     private static AuthoringWorkspaceViewModel OpenEmpty()
     {
         var dest = Path.Combine(Path.GetTempPath(), "ht-editcat-" + Guid.NewGuid().ToString("N"));
@@ -435,6 +445,7 @@ public sealed class AuthoringProgramSettingsViewModelTests
 
         var vm = new AuthoringWorkspaceViewModel();
         vm.Open(dest);
+        vm.StopRecovery();
         return vm;
     }
 
