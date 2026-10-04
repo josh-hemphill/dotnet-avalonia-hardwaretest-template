@@ -294,8 +294,7 @@ async function audit(opts: Options): Promise<void> {
     "restore",
     "dirs.proj",
     "-p:Configuration=" + opts.configuration,
-    "-r",
-    opts.rid,
+    "-p:RuntimeIdentifier=" + opts.rid,
   ], { cwd: opts.root });
   for (const project of await projectPaths(opts)) {
     const result = await runCapture([
