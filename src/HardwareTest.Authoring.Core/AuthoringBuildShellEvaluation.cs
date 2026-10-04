@@ -14,7 +14,7 @@ public static partial class AuthoringBuildService
     {
         ValidateShellEvaluationFiles(project);
         var json = RunShellDotNet(Path.GetDirectoryName(project)!, ["msbuild", project, "-nologo", "-p:Configuration=Release",
-            "-getProperty:MSBuildProjectExtensionsPath,DirectoryBuildPropsPath,DirectoryBuildTargetsPath,DirectoryPackagesPropsPath",
+            "-getProperty:MSBuildProjectExtensionsPath,DirectoryBuildPropsPath,DirectoryBuildTargetsPath,DirectoryPackagesPropsPath," + string.Join(',', ShellOutputIdentityProperties),
             "-getItem:ProjectReference,PackageReference,Compile,None,Content,EmbeddedResource,AdditionalFiles,Analyzer,AnalyzerConfigFiles,EditorConfigFiles,Resource,AvaloniaResource,Reference"]);
         using var document = JsonDocument.Parse(json);
         var items = document.RootElement.GetProperty("Items");
@@ -38,6 +38,9 @@ public static partial class AuthoringBuildService
             return paths.ToArray();
         }
         var properties = document.RootElement.GetProperty("Properties");
+        foreach (var name in ShellOutputIdentityProperties)
+            if (!SafeAssemblyOutputName(properties.GetProperty(name).GetString()!))
+                Unsupported(project, $"evaluated {name} contains output path components");
         var imports = new HashSet<string>(StringComparer.Ordinal);
         foreach (var property in new[] { "DirectoryBuildPropsPath", "DirectoryBuildTargetsPath", "DirectoryPackagesPropsPath" })
         {
@@ -162,6 +165,14 @@ public static partial class AuthoringBuildService
             Unsupported(path, "only Microsoft.NET.Sdk projects are supported");
         foreach (var element in xml.Descendants())
         {
+            if (element.Parent?.Name.LocalName == "PropertyGroup" && element.Name.LocalName.StartsWith('_')
+                && element.Name.LocalName is not ("_GitCommitDate" or "_GitCommitDateLooksIso"))
+                Unsupported(path, "private SDK property overrides are unsupported");
+            // Supported pure property expressions are resolved by the read-only evaluation;
+            // validate their resulting identity before running restore or any write target.
+            if (ShellOutputIdentityProperties.Contains(element.Name.LocalName)
+                && !element.Value.Contains("$(", StringComparison.Ordinal) && !SafeAssemblyOutputName(element.Value))
+                Unsupported(path, $"{element.Name.LocalName} must be a plain SDK identity without path components");
             if (element.Name.LocalName == "Sdk" || (element != xml.Root && element.Attribute("Sdk") is not null))
                 Unsupported(path, "additional SDK imports are unsupported");
             if (element.Name.LocalName == "TargetFrameworks") Unsupported(path, "multi-targeted shell graphs require framework-specific evaluation");

@@ -34,6 +34,38 @@ public sealed class AuthoringBuildEnvironmentGuardTests : IDisposable
     [InlineData("CscToolPath")]
     [InlineData("DocumentationFile")]
     [InlineData("AssemblyOriginatorKeyFile")]
+    [InlineData("GeneratedAssemblyInfoFile")]
+    [InlineData("GeneratedGlobalUsingsFile")]
+    [InlineData("GeneratedMSBuildEditorConfigFile")]
+    [InlineData("ErrorLog")]
+    [InlineData("CompilerGeneratedFilesOutputPath")]
+    [InlineData("TargetFrameworkMonikerAssemblyAttributesPath")]
+    [InlineData("TargetRefPath")]
+    [InlineData("ProjectDepsFilePath")]
+    [InlineData("ProjectRuntimeConfigFilePath")]
+    [InlineData("ProjectRuntimeConfigDevFilePath")]
+    [InlineData("ResolveAssemblyReferencesStateFile")]
+    [InlineData("ProjectAssetsCacheFile")]
+    [InlineData("CleanFile")]
+    [InlineData("MSBuildCopyMarkerName")]
+    [InlineData("PackageOutputPath")]
+    [InlineData("NuspecOutputPath")]
+    [InlineData("ArtifactsPath")]
+    [InlineData("ArtifactsBinOutputName")]
+    [InlineData("ArtifactsProjectName")]
+    [InlineData("ArtifactsPivots")]
+    [InlineData("TargetName")]
+    [InlineData("TargetExt")]
+    [InlineData("TargetFileName")]
+    [InlineData("_GenerateRuntimeConfigurationPropertyInputsCache")]
+    [InlineData("_GeneratePublishDependencyFilePropertyInputsCache")]
+    [InlineData("_GenerateSingleFileBundlePropertyInputsCache")]
+    [InlineData("_UnknownFutureSdkOutput")]
+    [InlineData("AssemblyName")]
+    [InlineData("PackageId")]
+    [InlineData("TargetFrameworkMoniker")]
+    [InlineData("RuntimeIdentifier")]
+    [InlineData("DefaultLanguageSourceExtension")]
     public void Inherited_redirect_properties_are_rejected_before_SDK_evaluation(string name)
     {
         var previous = Environment.GetEnvironmentVariable(name);
@@ -99,5 +131,42 @@ public sealed class AuthoringBuildEnvironmentGuardTests : IDisposable
             Assert.False(Directory.Exists(Path.Combine(projectRoot, "bin")));
         }
         finally { Environment.SetEnvironmentVariable("OutputPath", previous); }
+    }
+
+    [Theory]
+    [InlineData("GeneratedAssemblyInfoFile")]
+    [InlineData("GeneratedGlobalUsingsFile")]
+    [InlineData("GeneratedMSBuildEditorConfigFile")]
+    [InlineData("TargetFrameworkMonikerAssemblyAttributesPath")]
+    [InlineData("TargetRefPath")]
+    [InlineData("ProjectDepsFilePath")]
+    [InlineData("ProjectRuntimeConfigFilePath")]
+    [InlineData("ProjectRuntimeConfigDevFilePath")]
+    public void SDK_generated_output_overrides_cannot_touch_external_sentinel(string name)
+    {
+        var projectRoot = AuthoringBuildSnapshotTests.Temp();
+        var project = Path.Combine(projectRoot, "Shell.csproj");
+        File.WriteAllText(project, "<Project Sdk=\"Microsoft.NET.Sdk\"><PropertyGroup><TargetFramework>net10.0</TargetFramework><OutputType>Exe</OutputType><ImplicitUsings>enable</ImplicitUsings><GenerateRuntimeConfigDevFile>true</GenerateRuntimeConfigDevFile></PropertyGroup></Project>");
+        File.WriteAllText(Path.Combine(projectRoot, "Program.cs"), "System.Console.WriteLine(\"saved\");");
+        var workspace = AuthoringWorkspaceLoader.Load(AuthoringBuildSnapshotTests.Workspace());
+        workspace.Manifest.ShellAppProjects.Add(project);
+        AuthoringWorkspaceLoader.SaveManifest(workspace.Root, workspace.Manifest);
+        var home = AuthoringBuildSnapshotTests.Home(workspace);
+        var external = Path.Combine(AuthoringBuildSnapshotTests.Temp(), "sentinel");
+        File.WriteAllText(external, "previous bytes");
+        var previous = Environment.GetEnvironmentVariable(name);
+        try
+        {
+            Environment.SetEnvironmentVariable(name, null);
+            var request = AuthoringBuildService.CaptureSaved(workspace, new PackOptions { Home = home, Offline = true });
+            Environment.SetEnvironmentVariable(name, external);
+            Assert.Contains(name, Assert.Throws<AuthoringWorkspaceException>(() =>
+                AuthoringBuildService.CaptureSaved(workspace, new PackOptions { Home = home, Offline = true })).Message);
+            Assert.Contains(name, Assert.Throws<AuthoringWorkspaceException>(() => AuthoringBuildService.Prepare(request)).Message);
+            Assert.Equal("previous bytes", File.ReadAllText(external));
+            Assert.False(Directory.Exists(Path.Combine(projectRoot, "obj")));
+            Assert.False(Directory.Exists(Path.Combine(projectRoot, "bin")));
+        }
+        finally { Environment.SetEnvironmentVariable(name, previous); }
     }
 }
