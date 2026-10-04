@@ -97,7 +97,8 @@ public sealed partial class AuthoringDocumentStore
     }
 
     public AuthoringDocumentLoadResult Load(string id) => LoadAtPath(GetDocumentPath(id), id);
-    public AuthoringDocumentLoadResult LoadAtPath(string path) => LoadAtPath(path, null);
+    public AuthoringDocumentLoadResult LoadAtPath(string path) => LoadAtPath(path, Path.GetFileName(path).EndsWith(".authoring.json", StringComparison.Ordinal)
+        ? Path.GetFileName(path)[..^".authoring.json".Length] : null);
     private AuthoringDocumentLoadResult LoadAtPath(string path, string? expectedId)
     {
         path = ValidatePath(path);
@@ -133,6 +134,8 @@ public sealed partial class AuthoringDocumentStore
         ValidateId(document.PlanId);
         _ = document.ToDraft();
         path = ValidatePath(path);
+        if (!string.Equals(Path.GetFileName(path), document.PlanId + ".authoring.json", StringComparison.Ordinal))
+            throw new ArgumentException("The authoring source filename must match its program identity.", nameof(path));
         var existing = LoadAtPath(path);
         if (existing.IsReadOnly) throw new InvalidOperationException(existing.Error);
         var bytes = JsonSerializer.SerializeToUtf8Bytes(document, AuthoringDocumentJsonContext.Default.AuthoringDocumentDto);
