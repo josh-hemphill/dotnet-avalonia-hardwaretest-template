@@ -133,24 +133,24 @@ public sealed partial class AuthoringWorkspaceViewModel
                 return;
             }
 
-            ReplaceSelected(SelectedProgram with
+            ReplaceSelected(PruneRemovedNodeState(SelectedProgram with
             {
                 Setup = [.. SelectedProgram.Setup.Where((_, i) => i != index)],
-            });
+            }));
         }
         else if (row.Kind is SequenceRowKind.Metric or SequenceRowKind.Repeat or SequenceRowKind.Raw)
         {
-            ReplaceSelected(SelectedProgram with
+            ReplaceSelected(PruneRemovedNodeState(SelectedProgram with
             {
                 Measure = AuthoringSequence.RemoveMeasure(SelectedProgram.Measure, row.IndexPath),
-            });
+            }));
         }
         else if (row.Kind == SequenceRowKind.Cleanup)
         {
-            ReplaceSelected(SelectedProgram with
+            ReplaceSelected(PruneRemovedNodeState(SelectedProgram with
             {
                 Cleanup = SelectedProgram.Cleanup with { IncludeSafeShutdown = false },
-            });
+            }));
         }
         else
         {
@@ -159,6 +159,22 @@ public sealed partial class AuthoringWorkspaceViewModel
 
         Status = $"Removed {label}";
         Error = null;
+    }
+
+    private ProgramDraft PruneRemovedNodeState(ProgramDraft updated)
+    {
+        var before = AuthoringDependencyIndex.Build(SelectedProgram!).Nodes.Select(node => node.NodeId).ToHashSet();
+        before.ExceptWith(AuthoringDependencyIndex.Build(updated).Nodes.Select(node => node.NodeId));
+        if (before.Count == 0) return updated;
+        var state = updated.AuthoringState.Clone();
+        foreach (var key in state.IncompleteNumericText.Keys.ToArray())
+        {
+            var separator = key.IndexOf('/');
+            if (separator > 0 && Guid.TryParse(key.AsSpan(0, separator), out var id) && before.Contains(id))
+                state.IncompleteNumericText.Remove(key);
+        }
+        foreach (var id in before) state.FormulaIntent.Remove(id);
+        return updated with { AuthoringState = state };
     }
 
     public void SelectSequence(int index)
