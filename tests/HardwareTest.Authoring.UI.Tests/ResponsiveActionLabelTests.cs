@@ -4,6 +4,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Presenters;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
+using Avalonia.Input;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Xunit;
@@ -84,6 +85,45 @@ public sealed class ResponsiveActionLabelTests
                 AuthoringUiFixture.Drain();
             }
         }
+    }
+
+    [AvaloniaTheory]
+    [InlineData(960, 600, 14, 1)]
+    [InlineData(960, 600, 20, 1.5)]
+    [InlineData(1280, 800, 14, 1)]
+    [InlineData(1280, 800, 20, 1.5)]
+    public void Seven_workspace_route_headers_fit_one_row_and_remain_readable_and_reachable(
+        int width, int height, int fontSize, double scaling)
+    {
+        using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
+        var window = fixture.Show(width, height);
+        window.FontSize = fontSize;
+        window.SetRenderScaling(scaling);
+        fixture.OpenRememberedWorkspace();
+        AuthoringUiFixture.Drain();
+        var tabs = window.FindControl<TabControl>("WorkspaceTabs")!;
+        var headers = tabs.Items.Cast<TabItem>().ToArray();
+        Assert.Equal(new[] { "Program", "Hardware", "Issues", "Environment", "Build", "Preview", "Definitions" },
+            headers.Select(header => header.Header));
+        var first = headers[0].TranslatePoint(default, window)!.Value;
+        foreach (var header in headers)
+        {
+            ResponsiveShellTests.Inside(header, window);
+            var origin = header.TranslatePoint(default, window)!.Value;
+            Assert.Equal(first.Y, origin.Y, precision: 3);
+            Assert.True(header.Bounds.Height >= 48, $"Route {header.Header} retains its vertical hit target.");
+            var label = Assert.Single(header.GetVisualDescendants().OfType<TextBlock>(), text => Equals(text.Text, header.Header));
+            ResponsiveShellTests.Inside(label, window);
+            Assert.DoesNotContain(label.TextLayout.TextLines, line => line.HasCollapsed);
+            Assert.True(label.TextLayout.Width <= label.Bounds.Width + 0.75);
+            Assert.True(label.TextLayout.Height <= label.Bounds.Height + 0.75);
+            var center = header.TranslatePoint(new Point(header.Bounds.Width / 2, header.Bounds.Height / 2), window)!.Value;
+            window.MouseDown(center, MouseButton.Left);
+            window.MouseUp(center, MouseButton.Left);
+            AuthoringUiFixture.Drain();
+            Assert.Same(header, tabs.SelectedItem);
+        }
+        Assert.True(Assert.Single(window.GetVisualDescendants().OfType<WorkspaceDefinitionsView>()).IsEffectivelyVisible);
     }
 
     private static void LabelFits(Button button, Window window)

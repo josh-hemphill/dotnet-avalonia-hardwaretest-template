@@ -1,0 +1,72 @@
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:vm="using:HardwareTest.Authoring" x:Class="HardwareTest.Authoring.HardwareView" x:DataType="vm:AuthoringWorkspaceViewModel">
+  <StackPanel Spacing="8">
+    <TextBlock Text="Hardware bindings &#8212; selected program" FontWeight="SemiBold" AutomationProperties.HeadingLevel="3"/>
+    <TextBlock Text="Logical name &#183; actual type &#183; address &#183; package status &#183; affected steps &#183; cleanup" TextWrapping="Wrap"/>
+    <ItemsControl ItemsSource="{Binding HardwareRows}" AutomationProperties.Name="Hardware binding table">
+      <ItemsControl.ItemTemplate>
+        <DataTemplate x:DataType="vm:AuthoringHardwareRow">
+          <Border BorderThickness="0,0,0,1" Padding="4">
+            <Grid ColumnDefinitions="100,*,160" RowDefinitions="Auto,Auto,Auto">
+              <TextBlock Text="{Binding SlotName}" TextWrapping="Wrap"/>
+              <TextBlock Grid.Column="1" Text="{Binding TypeId}" TextWrapping="Wrap"/>
+              <TextBlock Grid.Column="2" Text="{Binding Address}" TextWrapping="Wrap"/>
+              <TextBlock Grid.Row="1" Grid.ColumnSpan="3" Text="{Binding PackageStatus}" TextWrapping="Wrap"/>
+              <TextBlock Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" Text="{Binding Usage}" TextWrapping="Wrap"/>
+              <TextBlock Grid.Row="2" Grid.Column="2" Text="{Binding Cleanup}" TextWrapping="Wrap"/>
+            </Grid>
+          </Border>
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
+    </ItemsControl>
+    <StackPanel Spacing="8" Margin="0,16,0,0">
+      <TextBlock FontWeight="SemiBold" Text="Instruments" AutomationProperties.HeadingLevel="3"/>
+      <ListBox ItemsSource="{Binding Instruments}" SelectedItem="{Binding SelectedInstrument}" KeyboardNavigation.TabNavigation="Once" AutomationProperties.Name="Instruments">
+        <ListBox.ItemTemplate>
+          <DataTemplate x:DataType="vm:InstrumentRef">
+            <TextBlock TextWrapping="Wrap">
+              <Run Text="{Binding SlotName}"/>
+              <Run Text=" &#183; "/>
+              <Run Text="{Binding VisaAddress}"/>
+            </TextBlock>
+          </DataTemplate>
+        </ListBox.ItemTemplate>
+      </ListBox>
+      <TextBlock x:Name="InstrumentSlotEditLabel" Text="Slot"/>
+      <ComboBox ItemsSource="{Binding InstrumentSlots}" SelectedItem="{Binding SelectedInstrumentSlot}" AutomationProperties.Name="Instrument slot" AutomationProperties.LabeledBy="{Binding #InstrumentSlotEditLabel}"/>
+      <TextBlock x:Name="VisaLabel" Text="VISA address"/>
+      <TextBox Text="{Binding SelectedInstrumentVisa, Mode=OneWay}" IsReadOnly="True" AutomationProperties.Name="VISA address" AutomationProperties.LabeledBy="{Binding #VisaLabel}" ToolTip.Tip="Load this binding below, then review an adapter-based edit"/>
+      <TextBlock x:Name="NewSlotLabel" Text="Add instrument slot"/>
+      <TextBox Text="{Binding NewInstrumentSlot}" PlaceholderText="SCOPE" AutomationProperties.Name="Add instrument slot" AutomationProperties.LabeledBy="{Binding #NewSlotLabel}"/>
+      <TextBlock x:Name="NewInstrumentTypeLabel" Text="New instrument type"/>
+      <ComboBox ItemsSource="{Binding InstrumentTypeChoices}" SelectedItem="{Binding SelectedNewInstrumentType}" AutomationProperties.Name="New instrument type" AutomationProperties.LabeledBy="{Binding #NewInstrumentTypeLabel}">
+        <ComboBox.ItemTemplate>
+          <DataTemplate x:DataType="vm:AuthoringInstrumentAdapter">
+            <TextBlock Text="{Binding DisplayName}"/>
+          </DataTemplate>
+        </ComboBox.ItemTemplate>
+      </ComboBox>
+      <TextBlock Text="{Binding NewInstrumentAvailabilityText}" TextWrapping="Wrap" AutomationProperties.Name="New instrument availability"/>
+      <TextBlock x:Name="NewVisaLabel" Text="New slot VISA"/>
+      <TextBox Text="{Binding NewInstrumentVisa}" PlaceholderText="MOCK::INSTR1" AutomationProperties.Name="New slot VISA" AutomationProperties.LabeledBy="{Binding #NewVisaLabel}"/>
+      <Button Classes="authoringAction" Content="Add instrument slot" Click="OnAddInstrumentSlot" IsEnabled="{Binding CanAddInstrumentSlot}" ToolTip.Tip="Appends a slot to this program and stages a workspace slot suggestion. Use Save All for catalog changes." AutomationProperties.Name="Add instrument slot"/>
+      <Button Classes="authoringAction" Content="Remove slot from selected program" Click="OnRemoveInstrumentSlot" IsEnabled="{Binding CanRemoveSelectedInstrumentSlot}" ToolTip.Tip="{Binding InstrumentRemovalGuardText}" AutomationProperties.HelpText="{Binding InstrumentRemovalGuardText}" AutomationProperties.Name="Remove instrument slot from selected program"/>
+      <TextBlock Text="{Binding InstrumentRemovalGuardText}" TextWrapping="Wrap" AutomationProperties.Name="Instrument removal guidance"/>
+    </StackPanel>
+    <StackPanel Spacing="8">
+      <TextBlock x:Name="BindingTypeLabel" Text="Adapter type"/>
+      <ComboBox ItemsSource="{Binding InstrumentTypeChoices}" SelectedItem="{Binding HardwareEditType}" AutomationProperties.Name="Hardware adapter type" AutomationProperties.LabeledBy="{Binding #BindingTypeLabel}">
+        <ComboBox.ItemTemplate>
+          <DataTemplate x:DataType="vm:AuthoringInstrumentAdapter">
+            <TextBlock Text="{Binding DisplayName}"/>
+          </DataTemplate>
+        </ComboBox.ItemTemplate>
+      </ComboBox>
+      <TextBlock x:Name="BindingAddressLabel" Text="Address"/>
+      <TextBox Text="{Binding HardwareEditAddress}" AutomationProperties.Name="Hardware adapter address" AutomationProperties.LabeledBy="{Binding #BindingAddressLabel}"/>
+      <TextBlock x:Name="BindingTimeoutLabel" Text="I/O timeout (ms, VISA adapter only)"/>
+      <TextBox Text="{Binding HardwareEditTimeout}" AutomationProperties.Name="Hardware adapter timeout" AutomationProperties.LabeledBy="{Binding #BindingTimeoutLabel}"/>
+    </StackPanel>
+    <Button Content="Load selected binding" Click="OnLoadBinding" AutomationProperties.Name="Load selected binding" Classes="authoringAction"/>
+    <Button Content="Review binding change" Click="OnReviewBinding" AutomationProperties.Name="Review binding change" Classes="authoringAction"/>
+  </StackPanel>
+</UserControl>

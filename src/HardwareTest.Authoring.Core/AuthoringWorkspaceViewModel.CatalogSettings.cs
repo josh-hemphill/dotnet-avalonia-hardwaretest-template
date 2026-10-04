@@ -351,12 +351,14 @@ public sealed partial class AuthoringWorkspaceViewModel
             ProgramKinds = [.. original.ProgramKinds],
             RequiredFields = [.. original.RequiredFields],
             InstrumentSlotNames = [.. original.InstrumentSlotNames],
+            Hardware = [.. original.Hardware],
         };
         mutate(catalogs);
         if ((original?.ReportKinds ?? []).SequenceEqual(catalogs.ReportKinds)
             && (original?.ProgramKinds ?? []).SequenceEqual(catalogs.ProgramKinds)
             && (original?.RequiredFields ?? []).SequenceEqual(catalogs.RequiredFields)
-            && (original?.InstrumentSlotNames ?? []).SequenceEqual(catalogs.InstrumentSlotNames)) return;
+            && (original?.InstrumentSlotNames ?? []).SequenceEqual(catalogs.InstrumentSlotNames)
+            && (original?.Hardware ?? []).SequenceEqual(catalogs.Hardware)) return;
         var manifest = System.Text.Json.JsonSerializer.Deserialize(
             System.Text.Json.JsonSerializer.Serialize(Workspace.Manifest, AuthoringJsonContext.Default.AuthoringManifest),
             AuthoringJsonContext.Default.AuthoringManifest)!;
@@ -367,6 +369,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         Findings = [];
         FindingRows = [];
         RefreshDirtyState();
+        RaiseHardwareProperties();
         OnPropertyChanged(nameof(ReportKindOptions));
         OnPropertyChanged(nameof(ReportKindChoices));
         OnPropertyChanged(nameof(IncludedReportKinds));

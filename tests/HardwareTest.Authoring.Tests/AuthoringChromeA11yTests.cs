@@ -12,17 +12,17 @@ public sealed class AuthoringChromeA11yTests
         var sourceRoot = Path.Combine(FindRepoRoot(), "src", "HardwareTest.Authoring");
         var shell = File.ReadAllText(Path.Combine(sourceRoot, "MainWindow.axaml"));
         string[] viewNames = ["ProgramsRailView", "SequenceEditorView", "SelectedStepInspectorView",
-            "WorkspaceIssuesView", "WorkspaceEnvironmentView", "WorkspaceBuildView", "WorkspacePreviewView"];
+            "WorkspaceIssuesView", "WorkspaceEnvironmentView", "WorkspaceBuildView", "WorkspacePreviewView", "HardwareView", "WorkspaceDefinitionsView"];
         var views = viewNames.ToDictionary(name => name, name => File.ReadAllText(Path.Combine(sourceRoot, name + ".axaml")));
         // Inspect the actual composed surface, including the single preview constructed and moved by the shell.
         var xaml = string.Join(Environment.NewLine, new[] { shell }.Concat(views.Values));
         var shellDocument = XDocument.Parse(shell);
-        foreach (var view in viewNames.Where(name => name != "WorkspacePreviewView"))
+        foreach (var view in viewNames.Where(name => name is not "WorkspacePreviewView" and not "HardwareView"))
             Assert.Single(shellDocument.Descendants(), element => element.Name.LocalName == view);
         Assert.Single(shellDocument.Descendants(), element => element.Name.LocalName == "ProgramSettingsView");
         Assert.Single(XDocument.Parse(views["WorkspacePreviewView"]).Descendants(), element => element.Name.LocalName == "OperatorPreviewPane");
         Assert.DoesNotContain(shellDocument.Descendants(), element => element.Name.LocalName == "OperatorPreviewPane");
-        Assert.Equal(new[] { "Program", "Hardware", "Issues", "Environment", "Build", "Preview" },
+        Assert.Equal(new[] { "Program", "Hardware", "Issues", "Environment", "Build", "Preview", "Definitions" },
             shellDocument.Descendants().Where(element => element.Name.LocalName == "TabItem").Select(element => (string?)element.Attribute("Header")));
         var shellCode = File.ReadAllText(Path.Combine(sourceRoot, "MainWindow.Shell.cs"));
         Assert.Equal(1, CountOccurrences(shellCode, "WorkspacePreviewView _previewView = new()"));
@@ -45,7 +45,10 @@ public sealed class AuthoringChromeA11yTests
         Assert.Contains("Content=\"{Binding SettingsTitle}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("IsVisible=\"{Binding ShowCatalogFormulaCompletions}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("SelectedItem=\"{Binding SelectedProgramRow}\"", xaml, StringComparison.Ordinal);
-        var programSettings = File.ReadAllText(Path.Combine(FindRepoRoot(), "src", "HardwareTest.Authoring", "ProgramSettingsView.axaml"));
+        var programSettingsSource = File.ReadAllText(Path.Combine(sourceRoot, "ProgramSettingsView.axaml"));
+        Assert.Single(XDocument.Parse(programSettingsSource).Descendants(), element => element.Name.LocalName == "HardwareView");
+        var programSettings = programSettingsSource.Replace("<vm:HardwareView/>", views["HardwareView"])
+            .Replace("</ScrollViewer>", views["WorkspaceDefinitionsView"] + "</ScrollViewer>");
         var hardwareHeading = Assert.Single(XDocument.Parse(programSettings).Descendants(),
             element => element.Name.LocalName == "TextBlock" && (string?)element.Attribute("Text") == "{Binding ProgramSettingsTitle}");
         Assert.Equal("2", (string?)hardwareHeading.Attribute("AutomationProperties.HeadingLevel"));
@@ -173,10 +176,10 @@ public sealed class AuthoringChromeA11yTests
             "ItemsSource=\"{Binding SequenceItems}\"",
             xaml,
             StringComparison.Ordinal);
-        var documents = new[] { shell, programSettings }.Concat(views.Values).Select(XDocument.Parse).ToArray();
+        var documents = new[] { shell, programSettingsSource }.Concat(views.Values).Select(XDocument.Parse).ToArray();
         var lists = documents.SelectMany(document => document.Descendants()).Where(element => element.Name.LocalName == "ListBox").ToArray();
         string[] listSources = ["{Binding ProgramRows}", "{Binding SequenceItems}", "{Binding FindingRows}",
-            "{Binding DatasetItems}", "{Binding Instruments}"];
+            "{Binding DatasetItems}", "{Binding Instruments}", "{Binding HardwareDefinitions}"];
         Assert.Equal(listSources.Length, lists.Length);
         foreach (var source in listSources)
         {
@@ -202,7 +205,31 @@ public sealed class AuthoringChromeA11yTests
                 .Where(attribute => attribute.Name.LocalName is "Click" or "KeyDown" or "LostFocus" or "SelectionChanged" or "ValueChanged" or "TextChanged" or "KeyUp" or "PointerReleased" or "GotFocus")
                 .Select(attribute => attribute.Value).Distinct())
             {
-                Assert.Contains("private void " + handler, viewCode, StringComparison.Ordinal);
+                Assert.True(viewCode.Contains("private void " + handler, StringComparison.Ordinal)
+                    || viewCode.Contains("private async void " + handler, StringComparison.Ordinal));
+                if (view is "HardwareView" or "WorkspaceDefinitionsView")
+                {
+                    var localActions = new Dictionary<string, string>
+                    {
+                        ["OnLoadBinding"] = "Vm?.LoadHardwareEditor()",
+                        ["OnReviewBinding"] = "owner.ConfirmHardwareEditAsync()",
+                        ["OnAddInstrumentSlot"] = "Vm?.AddInstrumentSlot()",
+                        ["OnRemoveInstrumentSlot"] = "owner.ConfirmInstrumentRemovalAsync()",
+                        ["OnAddDefinition"] = "Vm?.AddHardwareDefinition()",
+                        ["OnLoadDefinition"] = "Vm?.LoadHardwareDefinitionEditor()",
+                        ["OnUpdateDefinition"] = "Vm?.UpdateHardwareDefinition()",
+                        ["OnIncludeDefinition"] = "Vm?.IncludeHardwareDefinition()",
+                        ["OnRemoveDefinition"] = "owner.ConfirmHardwareDefinitionRemovalAsync()",
+                        ["OnAddRequiredField"] = "Vm?.AddWorkspaceRequiredField()",
+                        ["OnAddReportKind"] = "Vm?.AddWorkspaceReportKind()",
+                        ["OnAddProgramKind"] = "Vm?.AddWorkspaceProgramKind()",
+                        ["OnRemoveRequiredField"] = "RemoveCatalogAsync(CatalogDeletionKind.RequiredField, row.Id)",
+                        ["OnRemoveReportKind"] = "RemoveCatalogAsync(CatalogDeletionKind.ReportKind, row.Id)",
+                        ["OnRemoveProgramKind"] = "RemoveCatalogAsync(CatalogDeletionKind.ProgramKind, row.Id)",
+                    };
+                    Assert.Contains(localActions[handler], viewCode, StringComparison.Ordinal);
+                    continue;
+                }
                 if (view == "SelectedStepInspectorView" && handler == "OnMetricSettingTextChanged")
                 {
                     Assert.Contains("row.IsNumber && SettingWindow(sender) is not null", viewCode, StringComparison.Ordinal);

@@ -46,7 +46,12 @@ public sealed class AuthoringDestructiveScopeWindowTests
         using var fixture = Loaded(960, 600); var target = AddCatalog(fixture, kind); Assert.True(fixture.ViewModel.SaveAll().Succeeded);
         var draft = fixture.ViewModel.SelectedProgram; var files = Snapshot(fixture);
         OpenCatalogModal(fixture, kind, target); var dialog = Dialog(fixture);
-        var text = ModalText(dialog); Assert.Contains(target, text); Assert.Contains("Workspace catalog", text); Assert.Contains("sample", text); Assert.Contains(kind.ToString(), text);
+        var text = ModalText(dialog); Assert.Contains(target, text); Assert.Contains("Workspace catalog", text); Assert.Contains("sample", text); Assert.Contains(kind switch
+        {
+            CatalogDeletionKind.RequiredField => "removed from program membership",
+            CatalogDeletionKind.ReportKind => "Default report:",
+            _ => "resets to dut",
+        }, text);
         AssertInside(fixture.Control<Button>("Cancel destructive operation", dialog), dialog); AssertCancel(dialog);
         Cancel(dialog, route); Assert.Empty(fixture.Window!.OwnedWindows); Assert.True(fixture.Window!.IsVisible);
         Assert.Same(draft, fixture.ViewModel.SelectedProgram); Assert.False(fixture.ViewModel.HasUnsavedChanges); AssertFiles(files);
@@ -275,7 +280,7 @@ public sealed class AuthoringDestructiveScopeWindowTests
         Assert.Contains(vm.Programs[^1].PlanId, ModalText(dialog));
         var finalText = Assert.Single(Assert.IsType<StackPanel>(scroll.Content).Children.OfType<TextBlock>());
         AssertFinalLineVisible(finalText, scroll); Cancel(dialog, "cancel");
-        Settings(fixture); var remove = fixture.Control<Button>("Remove required field fixtureId from workspace"); remove.BringIntoView(); AuthoringUiFixture.Drain(); AssertInside(remove, fixture.Window!);
+        Definitions(fixture); var remove = fixture.Control<Button>("Remove required field fixtureId from workspace"); remove.BringIntoView(); AuthoringUiFixture.Drain(); AssertInside(remove, fixture.Window!);
     }
 
     private static AuthoringUiFixture Loaded(double width = 1280, double height = 800, bool realLifecycle = false)
@@ -283,15 +288,21 @@ public sealed class AuthoringDestructiveScopeWindowTests
         var fixture = new AuthoringUiFixture(rememberWorkspace: true); fixture.Show(width, height, realLifecycle); fixture.OpenRememberedWorkspace(); Settings(fixture); return fixture;
     }
     private static void Settings(AuthoringUiFixture fixture) { fixture.Window!.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 1; AuthoringUiFixture.Drain(); }
+    private static void Definitions(AuthoringUiFixture fixture) { fixture.Window!.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 6; AuthoringUiFixture.Drain(); }
     private static string AddCatalog(AuthoringUiFixture fixture, CatalogDeletionKind kind)
     {
-        Settings(fixture); var target = kind == CatalogDeletionKind.RequiredField ? "fixtureId" : "custom";
+        Definitions(fixture); var target = kind == CatalogDeletionKind.RequiredField ? "fixtureId" : "custom";
         var type = kind switch { CatalogDeletionKind.RequiredField => "required field", CatalogDeletionKind.ReportKind => "report kind", _ => "program kind" };
-        fixture.Type(fixture.Control<TextBox>($"New {type}"), target); AuthoringUiFixture.Click(fixture.Control<Button>($"Add {type}")); return target;
+        fixture.Type(fixture.Control<TextBox>($"New {type}"), target); AuthoringUiFixture.Click(fixture.Control<Button>($"Add {type}"));
+        if (kind == CatalogDeletionKind.RequiredField) fixture.ViewModel.SetRequiredFieldIncluded(target, true);
+        else if (kind == CatalogDeletionKind.ReportKind) fixture.ViewModel.SetReportKindIncluded(target, true);
+        else fixture.ViewModel.ProgramKind = target;
+        Settings(fixture);
+        return target;
     }
     private static void OpenCatalogModal(AuthoringUiFixture fixture, CatalogDeletionKind kind, string target)
     {
-        Settings(fixture); var type = kind switch { CatalogDeletionKind.RequiredField => "required field", CatalogDeletionKind.ReportKind => "report kind", _ => "program kind" };
+        Definitions(fixture); var type = kind switch { CatalogDeletionKind.RequiredField => "required field", CatalogDeletionKind.ReportKind => "report kind", _ => "program kind" };
         var button = fixture.Control<Button>($"Remove {type} {target} from workspace"); button.BringIntoView(); AuthoringUiFixture.Drain(); AuthoringUiFixture.Click(button);
     }
     private static void PrepareSlots(AuthoringUiFixture fixture)

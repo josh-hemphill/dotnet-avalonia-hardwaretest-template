@@ -105,6 +105,11 @@
       <Grid ColumnDefinitions="180,*" Margin="12,0,12,12" IsVisible="{Binding HasWorkspace}">
         <vm:ProgramsRailView Grid.Column="0"/>
         <TabControl x:Name="WorkspaceTabs" Grid.Column="1">
+          <TabControl.Styles>
+            <Style Selector="TabControl#WorkspaceTabs &gt; TabItem">
+              <Setter Property="Padding" Value="4,0"/>
+            </Style>
+          </TabControl.Styles>
           <TabItem Header="Program" AutomationProperties.Name="Program tab">
             <Grid RowDefinitions="Auto,*" x:Name="ProgramLayout">
               <Grid.ColumnDefinitions>
@@ -145,6 +150,9 @@
           </TabItem>
           <TabItem Header="Preview" AutomationProperties.Name="Preview tab">
             <ContentControl x:Name="SeparatePreview"/>
+          </TabItem>
+          <TabItem Header="Definitions" AutomationProperties.Name="Workspace definitions tab">
+            <ScrollViewer><vm:WorkspaceDefinitionsView/></ScrollViewer>
           </TabItem>
         </TabControl>
       </Grid>
