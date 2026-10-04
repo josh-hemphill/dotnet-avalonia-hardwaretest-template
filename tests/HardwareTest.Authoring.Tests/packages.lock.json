@@ -368,6 +368,12 @@
           "System.CommandLine": "[2.0.12, )"
         }
       },
+      "hardwaretest.authoring.processfixture": {
+        "type": "Project",
+        "dependencies": {
+          "HardwareTest.Authoring.Core": "[0.1.0, )"
+        }
+      },
       "hardwaretest.core": {
         "type": "Project",
         "dependencies": {

@@ -122,6 +122,60 @@ public sealed class AuthoringRecoveryCheckpointTests
         Assert.False(Directory.Exists(Path.Combine(workspace.Root, ".authoring")));
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Slow_candidate_write_does_not_block_cancel_or_dispose_and_never_commits_late(bool dispose)
+    {
+        using var workspace = new TemporaryWorkspace();
+        var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var finished = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var release = new ManualResetEventSlim();
+        var callbacks = 0;
+        using var recovery = new AuthoringRecoveryCheckpointService(action => action(), _ => callbacks++, TimeSpan.Zero,
+            (path, document) =>
+            {
+                started.SetResult();
+                release.Wait();
+                new AuthoringDocumentStore(workspace.Root).SaveAtPath(path, document);
+                finished.SetResult();
+            });
+        recovery.Schedule(workspace.Root, AuthoringDocumentDto.FromDraft(Draft(), 1));
+        await started.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        if (dispose) recovery.Dispose(); else recovery.Cancel(workspace.Root, "test");
+        Assert.True(clock.Elapsed < TimeSpan.FromMilliseconds(200));
+        release.Set();
+        await finished.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await Task.Delay(50);
+        Assert.Equal(0, callbacks);
+        Assert.False(File.Exists(new AuthoringDocumentStore(workspace.Root).GetRecoveryPath("test")));
+    }
+
+    [Fact]
+    public async Task Replacement_checkpoint_commits_without_waiting_for_obsolete_slow_write()
+    {
+        using var workspace = new TemporaryWorkspace();
+        var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var latest = Completion();
+        using var release = new ManualResetEventSlim();
+        using var recovery = new AuthoringRecoveryCheckpointService(action => action(), value => latest.TrySetResult(value), TimeSpan.Zero,
+            (path, document) =>
+            {
+                if (document.Revision == 1) { started.SetResult(); release.Wait(); }
+                new AuthoringDocumentStore(workspace.Root).SaveAtPath(path, document);
+            });
+        recovery.Schedule(workspace.Root, AuthoringDocumentDto.FromDraft(Draft(), 1));
+        await started.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        recovery.Cancel(workspace.Root, "test");
+        recovery.Schedule(workspace.Root, AuthoringDocumentDto.FromDraft(Draft(), 2));
+        Assert.Equal(2, (await latest.Task.WaitAsync(TimeSpan.FromSeconds(5))).Revision);
+        release.Set();
+        await Task.Delay(50);
+        var store = new AuthoringDocumentStore(workspace.Root);
+        Assert.Equal(2, store.LoadAtPath(store.GetRecoveryPath("test")).Document!.Revision);
+    }
+
     private static TaskCompletionSource<AuthoringRecoveryCheckpointResult> Completion()
         => new(TaskCreationOptions.RunContinuationsAsynchronously);
 

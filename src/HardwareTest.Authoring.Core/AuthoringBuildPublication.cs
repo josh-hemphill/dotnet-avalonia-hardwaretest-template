@@ -27,7 +27,7 @@ public static partial class AuthoringBuildService
                 var destination = Path.Combine(output, relative);
                 var saved = Path.Combine(backup, relative);
                 Directory.CreateDirectory(Path.GetDirectoryName(saved)!);
-                File.Copy(destination, saved);
+                CopyPreservingMode(destination, saved);
                 changed.Add((destination, saved));
                 File.Delete(destination);
             }
@@ -47,7 +47,7 @@ public static partial class AuthoringBuildService
                 {
                     saved = Path.Combine(backup, relative);
                     Directory.CreateDirectory(Path.GetDirectoryName(saved)!);
-                    File.Copy(destination, saved);
+                    CopyPreservingMode(destination, saved);
                 }
                 changed.Add((destination, saved));
                 move(path, destination);
@@ -63,7 +63,7 @@ public static partial class AuthoringBuildService
                 try
                 {
                     if (item.Backup is null) File.Delete(item.Destination);
-                    else File.Copy(item.Backup, item.Destination, overwrite: true);
+                    else File.Move(item.Backup, item.Destination, overwrite: true);
                 }
                 catch (Exception error) when (error is IOException or UnauthorizedAccessException) { failures.Add(error); }
             }

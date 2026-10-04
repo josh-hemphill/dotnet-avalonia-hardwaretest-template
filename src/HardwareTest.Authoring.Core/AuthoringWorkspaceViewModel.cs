@@ -218,7 +218,7 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
         {
             _dirtyPlans.Clear();
             _dirtySidecars.Clear();
-            _workspaceSession = Guid.NewGuid();
+            ReplaceOperationWorkspace();
             WorkspaceCatalogDirty = false;
             WorkspaceCatalogSaveFailure = null;
             Workspace = files;

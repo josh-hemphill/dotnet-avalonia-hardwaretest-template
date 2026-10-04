@@ -16,11 +16,13 @@ public static partial class AuthoringBuildService
     }
 
     public static AuthoringPreparedBuild Prepare(AuthoringBuildRequest request, CancellationToken cancellationToken = default)
+        => PrepareOwned(request, Path.Combine(Path.GetTempPath(), "authoring-build-" + Guid.NewGuid().ToString("N")), cancellationToken);
+
+    internal static AuthoringPreparedBuild PrepareOwned(AuthoringBuildRequest request, string staging, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
         cancellationToken.ThrowIfCancellationRequested();
         Recheck(request);
-        var staging = Path.Combine(Path.GetTempPath(), "authoring-build-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(staging);
         try
         {
@@ -31,7 +33,7 @@ public static partial class AuthoringBuildService
                     var destination = Path.Combine(staging, tree.StageRelativePath, file.RelativePath);
                     EnsureContained(staging, destination);
                     Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
-                    File.WriteAllBytes(destination, file.Bytes);
+                    Materialize(file, destination);
                 }
             PrepareShellStage(staging, request.Trees);
             var root = Path.Combine(staging, "workspace");

@@ -39,9 +39,11 @@ public sealed class AuthoringBuildBoundaryTests : IDisposable
     [InlineData("configuration")]
     [InlineData("package")]
     [InlineData("home")]
+    [InlineData("home-mode")]
     [InlineData("intermediate")]
     public void Compatibility_provider_cannot_change_captured_staged_inputs(string input)
     {
+        if (input == "home-mode" && OperatingSystem.IsWindows()) return;
         var workspace = ShellWorkspace();
         var checker = new StagedInputMutationChecker(input);
         var request = AuthoringBuildService.CaptureSaved(workspace, new PackOptions
@@ -185,7 +187,10 @@ public sealed class AuthoringBuildBoundaryTests : IDisposable
                 _ => Path.Combine(authoringHome.Root, "tap.dll")
             };
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-            File.AppendAllText(path, "\nmutation"); Changed = true;
+            if (input == "home-mode" && !OperatingSystem.IsWindows())
+                File.SetUnixFileMode(path, File.GetUnixFileMode(path) ^ UnixFileMode.UserExecute);
+            else File.AppendAllText(path, "\nmutation");
+            Changed = true;
             return new([], []); // Injection proves boundary enforcement; no external process evidence.
         }
     }
