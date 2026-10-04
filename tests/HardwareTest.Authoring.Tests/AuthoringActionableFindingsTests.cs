@@ -248,6 +248,42 @@ public sealed class AuthoringActionableFindingsTests : IDisposable
         Assert.Same(originalNode, _vm.SelectedSequence);
     }
 
+    [Theory]
+    [InlineData("Threshold", null, "Configure")]
+    [InlineData("Threshold", "Advanced", "Configure")]
+    [InlineData("LimitLow", null, "Configure")]
+    [InlineData("LimitLow", "Advanced", "Configure")]
+    [InlineData("ChannelKey", null, "Advanced")]
+    [InlineData("ChannelKey", "Configure", "Advanced")]
+    public void Supported_fields_route_to_their_actual_editor_section(string field, string? section, string expected)
+    {
+        var source = field == "LimitLow"
+            ? (MetricSource)new MeasureSource("unused", AuthoringFunctionIds.BasicPublishBandScalar, new Dictionary<string, string>())
+            : new ExpressionAlgorithm(["VDC"], "mean(VDC)");
+        var metric = new MetricNode(_vm.Programs.First().Measure.OfType<MetricNode>().First().Metric with { Source = source });
+        var draft = _vm.Programs.First() with { Measure = [metric] };
+        var destination = AuthoringFindingNavigation.Resolve(draft, metric.NodeId,
+            new(NodeId: metric.NodeId, Field: field, Section: section));
+        Assert.Equal("Go to field", destination.Label);
+        Assert.Equal(field, destination.Target.Field);
+        Assert.Equal(expected, destination.Target.Section);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("ChannelKey")]
+    public void Unsupported_explicit_sections_advertise_honest_fallback(string? field)
+    {
+        var draft = _vm.Programs.First();
+        var node = draft.Measure.OfType<MetricNode>().First();
+        var destination = AuthoringFindingNavigation.Resolve(draft, node.NodeId,
+            new(NodeId: node.NodeId, Field: field, Section: "UnknownSection"));
+        Assert.Equal("Open program settings", destination.Label);
+        Assert.Equal("ProgramSettings", destination.Target.Section);
+        Assert.Null(destination.Target.NodeId);
+        Assert.Contains("section has no supported editor destination", destination.Reason);
+    }
+
     private void RestoreCleanSample()
     {
         var path = Path.Combine(_root, "sample.TapPlan");

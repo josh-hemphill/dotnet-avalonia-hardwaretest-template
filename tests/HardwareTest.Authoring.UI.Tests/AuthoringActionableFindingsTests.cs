@@ -1,7 +1,9 @@
 using System.Reflection;
+using System.Xml.Linq;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.VisualTree;
+using HardwareTest.OpenTap.Host;
 using Xunit;
 
 namespace HardwareTest.Authoring.UI.Tests;
@@ -59,6 +61,62 @@ public sealed class AuthoringActionableFindingsTests
         AuthoringUiFixture.Drain();
         Assert.True(fixture.Control<TextBox>("Formula expression").IsFocused);
         Assert.False(fixture.Control<TextBox>("Threshold").IsFocused);
+    }
+
+    [AvaloniaFact]
+    public void Section_only_contract_action_opens_configure_without_a_field_error()
+    {
+        using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
+        var path = Path.Combine(fixture.WorkspaceRoot, "sample.TapPlan");
+        var xml = XDocument.Load(path);
+        var acquisition = xml.Descendants("TestStep").Single(step => ((string?)step.Attribute("type"))?.EndsWith("AcquireVoltageStep", StringComparison.Ordinal) == true);
+        acquisition.Add(new XElement("SeriesCompliance", "allSamples"));
+        xml.Save(path);
+        fixture.Show(); fixture.OpenRememberedWorkspace();
+        var vm = fixture.ViewModel;
+        vm.Validate();
+        var row = Assert.Single(vm.FindingRows, item => item.Code == PlanContractValidator.Codes.ComplianceWithoutLimits);
+        Assert.Equal("Open step section", row.NavigationLabel);
+        Assert.Null(row.Finding.Target!.Field);
+        fixture.Control<Expander>("Configure selected step").IsExpanded = false;
+        var tabs = fixture.Window!.FindControl<TabControl>("WorkspaceTabs")!;
+        tabs.SelectedIndex = 2;
+        AuthoringUiFixture.Drain();
+        var button = Assert.Single(fixture.Window!.GetVisualDescendants().OfType<Button>(),
+            button => Equals(button.DataContext, row) && Equals(button.Content, "Open step section"));
+        AuthoringUiFixture.Click(button);
+        Assert.Equal(0, tabs.SelectedIndex);
+        Assert.Equal(row.NodeId, vm.SelectedSequence!.NodeId);
+        Assert.True(fixture.Control<Expander>("Configure selected step").IsExpanded);
+        Assert.Null(vm.Error);
+    }
+
+    [AvaloniaTheory]
+    [InlineData("Threshold", "Advanced", "Configure selected step", "Threshold")]
+    [InlineData("ChannelKey", "Configure", "Advanced selected step", "Channel key")]
+    [InlineData(null, "Advanced", "Advanced selected step", null)]
+    public void Supported_destinations_open_the_actual_section_and_field(string? field, string requested, string sectionName, string? fieldName)
+    {
+        using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
+        fixture.Show(); fixture.OpenRememberedWorkspace();
+        var vm = fixture.ViewModel;
+        vm.ApplyRecipe(AuthoringRecipeIds.Formula);
+        vm.SelectMeasure(vm.SelectedProgram!.Measure.Count - 1);
+        vm.FormulaSource = "mean(VDC)";
+        AuthoringUiFixture.Drain();
+        fixture.Control<Expander>(sectionName).IsExpanded = false;
+        var destination = AuthoringFindingNavigation.Resolve(vm.SelectedProgram, vm.SelectedSequence!.NodeId,
+            new(Field: field, Section: requested));
+        var inspector = Assert.Single(fixture.Window!.GetVisualDescendants().OfType<SelectedStepInspectorView>());
+        Assert.True(inspector.FocusFinding(destination.Target));
+        AuthoringUiFixture.Drain();
+        Assert.True(fixture.Control<Expander>(sectionName).IsExpanded);
+        if (fieldName is not null)
+        {
+            if (field == "Threshold") Assert.True(fixture.Control<TextBox>(fieldName).IsFocused);
+            else Assert.True(Assert.Single(fixture.Control<AutoCompleteBox>(fieldName).GetVisualDescendants().OfType<TextBox>()).IsFocused);
+        }
+        Assert.Null(vm.Error);
     }
 
 }
