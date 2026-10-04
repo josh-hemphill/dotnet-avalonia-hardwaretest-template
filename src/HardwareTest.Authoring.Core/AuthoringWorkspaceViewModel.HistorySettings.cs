@@ -6,14 +6,21 @@ public sealed partial class AuthoringWorkspaceViewModel
     {
         get => NumericText(nameof(HistoryWatchPercent), SelectedMetric?.History?.WatchPercent);
         set => SetNumericText(nameof(HistoryWatchPercent), value,
-            parsed => UpdateHistory(current => current with { WatchPercent = parsed }));
+            parsed => UpdateOptionalHistory(parsed, current => current with { WatchPercent = parsed }));
     }
 
     public string HistoryAlertPercent
     {
         get => NumericText(nameof(HistoryAlertPercent), SelectedMetric?.History?.AlertPercent);
         set => SetNumericText(nameof(HistoryAlertPercent), value,
-            parsed => UpdateHistory(current => current with { AlertPercent = parsed }));
+            parsed => UpdateOptionalHistory(parsed, current => current with { AlertPercent = parsed }));
+    }
+
+    private void UpdateOptionalHistory(double? parsed, Func<HistorySpec, HistorySpec> mutate)
+    {
+        if (parsed is null && SelectedMetric?.History is null)
+            UpdateSelectedMetric(metric => metric); // Clears incomplete authoring text without creating runtime history.
+        else UpdateHistory(mutate);
     }
 
     /// Mixin default when History is omitted; PresentationAttach leaves HistoryEnabled=true.
