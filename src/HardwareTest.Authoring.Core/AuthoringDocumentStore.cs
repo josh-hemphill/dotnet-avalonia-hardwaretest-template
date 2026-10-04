@@ -35,13 +35,13 @@ public sealed partial class AuthoringDocumentStore
             if (!json.RootElement.TryGetProperty("schemaVersion", out var schema) || !schema.TryGetInt32(out var version))
                 throw new InvalidDataException("Workspace source has no valid schema version.");
             if (version > AuthoringDocumentDto.CurrentSchemaVersion)
-                return new(null, true, bytes, $"Workspace source schema {version} is newer than supported; original bytes are preserved.", true);
+                return new(null, true, bytes, null, true);
             if (version != AuthoringDocumentDto.CurrentSchemaVersion) throw new InvalidDataException("Unsupported workspace source schema.");
             var document = JsonSerializer.Deserialize(bytes, AuthoringDocumentJsonContext.Default.AuthoringWorkspaceDto)
                 ?? throw new InvalidDataException("Workspace source is empty.");
             if (document.Manifest is null || document.Revision < 0) throw new InvalidDataException("Workspace source is incomplete.");
             if (document.Manifest.SchemaVersion > AuthoringSchemaVersions.Manifest)
-                return new(document, true, bytes, "Workspace manifest is newer than supported; original bytes are preserved.", true);
+                return new(document, true, bytes, null, true);
             return new(document, false, bytes, null, true);
         }
         catch (Exception ex) when (ex is JsonException or InvalidDataException)
@@ -56,7 +56,7 @@ public sealed partial class AuthoringDocumentStore
         if (manifest.SchemaVersion > AuthoringSchemaVersions.Manifest || revision < 0)
             throw new InvalidOperationException("Cannot write a future or invalid workspace source.");
         var existing = LoadWorkspace();
-        if (existing.IsReadOnly) throw new InvalidOperationException(existing.Error);
+        if (existing.IsReadOnly) throw new InvalidOperationException(existing.Error ?? "Future authoring schemas are read-only; original bytes are preserved.");
         var bytes = JsonSerializer.SerializeToUtf8Bytes(new AuthoringWorkspaceDto { Manifest = manifest, Revision = revision },
             AuthoringDocumentJsonContext.Default.AuthoringWorkspaceDto);
         var path = GetWorkspacePath();
@@ -110,7 +110,7 @@ public sealed partial class AuthoringDocumentStore
             if (!json.RootElement.TryGetProperty("schemaVersion", out var schema) || !schema.TryGetInt32(out var version))
                 throw new InvalidDataException("The draft has no valid schema version.");
             if (version > AuthoringDocumentDto.CurrentSchemaVersion)
-                return new(null, true, bytes, $"Draft schema {version} is newer than supported schema {AuthoringDocumentDto.CurrentSchemaVersion}; original bytes are preserved.", true);
+                return new(null, true, bytes, null, true);
             if (version != AuthoringDocumentDto.CurrentSchemaVersion)
                 throw new InvalidDataException($"Unsupported draft schema {version}.");
             var document = JsonSerializer.Deserialize(bytes, AuthoringDocumentJsonContext.Default.AuthoringDocumentDto)
@@ -137,12 +137,20 @@ public sealed partial class AuthoringDocumentStore
         if (!string.Equals(Path.GetFileName(path), document.PlanId + ".authoring.json", StringComparison.Ordinal))
             throw new ArgumentException("The authoring source filename must match its program identity.", nameof(path));
         var existing = LoadAtPath(path);
-        if (existing.IsReadOnly) throw new InvalidOperationException(existing.Error);
+        if (existing.IsReadOnly) throw new InvalidOperationException(existing.Error ?? "Future authoring schemas are read-only; original bytes are preserved.");
         var bytes = JsonSerializer.SerializeToUtf8Bytes(document, AuthoringDocumentJsonContext.Default.AuthoringDocumentDto);
         // Recheck every destination including backup immediately before creating or replacing files.
         ValidatePath(path + ".bak");
         ValidatePath(path);
         _writer.Write(path, bytes);
+    }
+
+    public void DeleteSource(string id)
+    {
+        var path = GetDocumentPath(id);
+        var existing = Load(id);
+        if (existing.IsReadOnly) throw new InvalidOperationException(existing.Error ?? "Future authoring schemas are read-only.");
+        File.Delete(ValidatePath(path));
     }
 
     public void DeleteRecovery(string id)

@@ -67,7 +67,8 @@ public sealed class AuthoringDocumentStoreTests : IDisposable
         var bytes = File.ReadAllBytes(path);
         var loaded = store.Load("plan");
         Assert.True(loaded.IsReadOnly);
-        Assert.NotNull(loaded.Error);
+        if (content.Contains("999", StringComparison.Ordinal)) Assert.Null(loaded.Error);
+        else Assert.NotNull(loaded.Error);
         Assert.Equal(bytes, loaded.OriginalBytes);
         Assert.Throws<InvalidOperationException>(() => store.Save(AuthoringDocumentDto.FromDraft(Draft("plan"))));
         Assert.Equal(bytes, File.ReadAllBytes(path));
