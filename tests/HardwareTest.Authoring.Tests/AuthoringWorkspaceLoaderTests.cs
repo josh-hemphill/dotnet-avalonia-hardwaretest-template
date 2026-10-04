@@ -12,7 +12,7 @@ public sealed class AuthoringWorkspaceLoaderTests
         var workspace = AuthoringWorkspaceLoader.Load(root);
 
         Assert.False(workspace.IsReadOnly);
-        Assert.Equal(AuthoringSchemaVersions.Manifest, workspace.Manifest.SchemaVersion);
+        Assert.Equal(1, workspace.Manifest.SchemaVersion);
         Assert.Equal("HardwareTest Template Program", workspace.Manifest.Package.Name);
         Assert.Equal(".", workspace.Manifest.PlansDirectory);
         Assert.Equal(
@@ -171,8 +171,74 @@ public sealed class AuthoringWorkspaceLoaderTests
         var ex = Assert.Throws<AuthoringWorkspaceException>(
             () => AuthoringWorkspaceLoader.SaveManifest(
                 dir,
-                new AuthoringManifest { SchemaVersion = 2, PlansDirectory = "." }));
+                new AuthoringManifest { SchemaVersion = AuthoringSchemaVersions.Manifest + 1, PlansDirectory = "." }));
         Assert.Contains("Cannot write", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Migration_retains_exact_original_and_is_idempotent()
+    {
+        var dir = NewTempDir();
+        var path = Path.Combine(dir, AuthoringWorkspaceLoader.ManifestFileName);
+        var original = System.Text.Encoding.UTF8.GetBytes("{ \"schemaVersion\": 1, \"displayName\": \"legacy\", \"plansDirectory\": \".\" }\r\n");
+        File.WriteAllBytes(path, original);
+
+        Assert.True(AuthoringManifestMigration.Migrate(dir));
+        var migrated = File.ReadAllBytes(path);
+        Assert.Equal(original, File.ReadAllBytes(path + ".schema-1.bak"));
+        Assert.Equal(AuthoringSchemaVersions.Manifest, AuthoringWorkspaceLoader.Load(dir).Manifest.SchemaVersion);
+        Assert.False(AuthoringManifestMigration.Migrate(dir));
+        Assert.Equal(migrated, File.ReadAllBytes(path));
+        Assert.Equal(original, File.ReadAllBytes(path + ".schema-1.bak"));
+    }
+
+    [Fact]
+    public void Saving_legacy_manifest_stamps_current_and_keeps_original_backup()
+    {
+        var dir = NewTempDir();
+        var path = Path.Combine(dir, AuthoringWorkspaceLoader.ManifestFileName);
+        WriteManifest(dir, "{ \"schemaVersion\": 1, \"plansDirectory\": \".\" }\r\n");
+        var original = File.ReadAllBytes(path);
+        var manifest = AuthoringWorkspaceLoader.Load(dir).Manifest;
+        manifest.DisplayName = "updated";
+
+        AuthoringWorkspaceLoader.SaveManifest(dir, manifest);
+
+        Assert.Equal(AuthoringSchemaVersions.Manifest, AuthoringWorkspaceLoader.Load(dir).Manifest.SchemaVersion);
+        Assert.Equal(original, File.ReadAllBytes(path + ".schema-1.bak"));
+        AuthoringWorkspaceLoader.SaveManifest(dir, manifest);
+        Assert.Equal(original, File.ReadAllBytes(path + ".schema-1.bak"));
+    }
+
+    [Fact]
+    public void Migration_failure_preserves_original_and_backup()
+    {
+        var dir = NewTempDir();
+        var path = Path.Combine(dir, AuthoringWorkspaceLoader.ManifestFileName);
+        WriteManifest(dir, "{ \"schemaVersion\": 1, \"plansDirectory\": \".\" }");
+        var original = File.ReadAllBytes(path);
+        var failure = new IOException("Injected migration replacement failure.");
+
+        Assert.Same(failure, Assert.Throws<IOException>(() =>
+            AuthoringManifestMigration.Migrate(dir, (_, _) => throw failure)));
+
+        Assert.Equal(original, File.ReadAllBytes(path));
+        Assert.Equal(original, File.ReadAllBytes(path + ".schema-1.bak"));
+        Assert.Empty(Directory.GetFiles(dir, "*.saving"));
+    }
+
+    [Fact]
+    public void Migration_and_load_leave_future_schema_bytes_unchanged()
+    {
+        var dir = NewTempDir();
+        var path = Path.Combine(dir, AuthoringWorkspaceLoader.ManifestFileName);
+        WriteManifest(dir, "{ \"schemaVersion\": 999, \"plansDirectory\": \".\", \"unknownFuture\": [3, 2, 1] }\r\n");
+        var original = File.ReadAllBytes(path);
+
+        Assert.False(AuthoringManifestMigration.Migrate(dir));
+        Assert.True(AuthoringWorkspaceLoader.Load(dir).IsReadOnly);
+        Assert.Equal(original, File.ReadAllBytes(path));
+        Assert.Single(Directory.GetFiles(dir));
     }
 
     private static void WriteManifest(string dir, string json)

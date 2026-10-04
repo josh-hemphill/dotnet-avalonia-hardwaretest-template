@@ -119,8 +119,9 @@ public static class AuthoringWorkspaceLoader
         ArgumentNullException.ThrowIfNull(manifest);
 
         var fullRoot = Path.GetFullPath(root);
+        var paths = new AuthoringDocumentStore(fullRoot);
+        var manifestPath = paths.ValidatePath(Path.Combine(fullRoot, ManifestFileName));
         Directory.CreateDirectory(fullRoot);
-        var manifestPath = Path.Combine(fullRoot, ManifestFileName);
         if (File.Exists(manifestPath))
         {
             var existing = Load(fullRoot);
@@ -128,6 +129,10 @@ public static class AuthoringWorkspaceLoader
             {
                 throw new AuthoringWorkspaceException(
                     $"Refusing to overwrite future-schema {ManifestFileName} (schema {existing.Manifest.SchemaVersion} > {AuthoringSchemaVersions.Manifest}).");
+            }
+            if (existing.Manifest.SchemaVersion < AuthoringSchemaVersions.Manifest)
+            {
+                AuthoringManifestMigration.EnsureBackup(manifestPath, existing.Manifest.SchemaVersion);
             }
         }
 
@@ -137,16 +142,19 @@ public static class AuthoringWorkspaceLoader
                 $"Cannot write {ManifestFileName} schema {manifest.SchemaVersion}; this app supports {AuthoringSchemaVersions.Manifest}.");
         }
 
-        if (manifest.SchemaVersion <= 0)
-        {
-            manifest.SchemaVersion = AuthoringSchemaVersions.Manifest;
-        }
+        manifest.SchemaVersion = AuthoringSchemaVersions.Manifest;
 
         var json = JsonSerializer.Serialize(manifest, AuthoringJsonContext.Default.AuthoringManifest);
-        var temporaryPath = manifestPath + "." + Guid.NewGuid().ToString("N") + ".saving";
+        var temporaryPath = paths.ValidatePath(manifestPath + "." + Guid.NewGuid().ToString("N") + ".saving");
         try
         {
-            File.WriteAllText(temporaryPath, json + Environment.NewLine);
+            using (var stream = new FileStream(temporaryPath, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+            {
+                using var writer = new StreamWriter(stream, leaveOpen: true);
+                writer.Write(json + Environment.NewLine);
+                writer.Flush();
+                stream.Flush(flushToDisk: true);
+            }
             if (replaceFile is null) File.Move(temporaryPath, manifestPath, overwrite: true);
             else replaceFile(temporaryPath, manifestPath);
         }
