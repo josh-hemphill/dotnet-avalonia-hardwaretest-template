@@ -63,6 +63,24 @@ public sealed partial class AuthoringWorkspaceViewModel
         return loaded with { Files = loaded.Files with { IsReadOnly = readOnly }, Programs = programs.Values.OrderBy(program => program.PlanId, StringComparer.OrdinalIgnoreCase).ToArray() };
     }
 
+    private void RefreshSourceReadiness()
+    {
+        var store = new AuthoringDocumentStore(Workspace!.Root);
+        foreach (var id in store.ListDocumentIds())
+        {
+            var source = store.Load(id);
+            if (source.Document is not { } document)
+            {
+                _uncompiledDocuments.Add(id);
+                continue;
+            }
+            _sourceDocuments[id] = document;
+            if (document.RequiresCompilation || document.CompiledPlanHash is null) _uncompiledDocuments.Add(id);
+            if (CompiledChanged(document)) _compiledConflicts.Add(id);
+        }
+        RaiseDraftState();
+    }
+
     private void InitializeSourceState()
     {
         StopRecovery();

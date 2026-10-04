@@ -52,6 +52,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         var tapPlanPath = string.IsNullOrWhiteSpace(existingTapPlan)
             ? ResolveTapPlanPath(planId)
             : existingTapPlan;
+        var sourceStore = ValidateProgramDeletion(planId, tapPlanPath);
         TryDeleteFile(tapPlanPath);
         TryDeleteFile(PlanCompiler.SidecarPath(tapPlanPath));
         if (!string.IsNullOrWhiteSpace(existingTapPlan))
@@ -77,7 +78,6 @@ public sealed partial class AuthoringWorkspaceViewModel
             .Where(program => !string.Equals(program.PlanId, planId, StringComparison.OrdinalIgnoreCase))
             .ToArray();
         _recovery?.Cancel(Workspace.Root, planId);
-        var sourceStore = new AuthoringDocumentStore(Workspace.Root);
         sourceStore.DeleteRecovery(planId);
         sourceStore.DeleteSource(planId);
         _sourceDocuments.Remove(planId); _recoverableDocuments.Remove(planId);
@@ -100,6 +100,24 @@ public sealed partial class AuthoringWorkspaceViewModel
         Error = null;
         RefreshDatasets();
         RaiseSidecarProperties();
+    }
+
+    private AuthoringDocumentStore ValidateProgramDeletion(string planId, string tapPlanPath)
+    {
+        var store = new AuthoringDocumentStore(Workspace!.Root);
+        foreach (var path in new[] { tapPlanPath, PlanCompiler.SidecarPath(tapPlanPath), store.GetDocumentPath(planId), store.GetRecoveryPath(planId) })
+        {
+            store.ValidatePath(path);
+            if (Directory.Exists(path)) throw new IOException($"Refusing to delete a directory as a program file: {path}");
+            if (File.Exists(path) && new FileInfo(path).IsReadOnly) throw new IOException($"Program file is read-only: {path}");
+        }
+        var source = store.Load(planId);
+        if (source.IsReadOnly || source.Error is not null)
+            throw new AuthoringWorkspaceException(source.Error ?? $"Authoring source '{planId}' uses a future schema; its bytes must be preserved.");
+        var recovery = store.LoadAtPath(store.GetRecoveryPath(planId));
+        if (recovery.IsReadOnly || recovery.Error is not null)
+            throw new AuthoringWorkspaceException(recovery.Error ?? $"Recovery source '{planId}' uses a future schema; its bytes must be preserved.");
+        return store;
     }
 
     public (string PlanId, string TapPlanPath, string SidecarPath) DescribeSelectedProgramRemoval()

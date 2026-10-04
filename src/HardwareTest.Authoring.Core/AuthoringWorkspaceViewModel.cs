@@ -55,7 +55,6 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
     }
     public event PropertyChangedEventHandler? PropertyChanged;
     public IReadOnlyList<AuthoringRecipe> Recipes => AuthoringRecipeCatalog.Palette;
-
     public bool HasWorkspace => Workspace is not null;
 
     public AuthoringWorkspace? Workspace
@@ -337,6 +336,8 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
             throw new AuthoringWorkspaceException(ValidationScope);
         }
 
+        RefreshSourceReadiness();
+        AuthoringSourceExportGuard.EnsureCurrent(Workspace);
         if (HasUncompiledSources || _compiledConflicts.Count > 0)
             throw new AuthoringWorkspaceException("Compile saved drafts and reconcile external edits before validating compiled plans.");
 
