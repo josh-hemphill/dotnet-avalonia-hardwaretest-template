@@ -1,6 +1,7 @@
 using System.IO.Compression;
 using System.Xml.Linq;
 using HardwareTest.OpenTap.Plugins.Basic;
+using HardwareTest.OpenTap.Host;
 using HardwareTest.OpenTap.Plugins.Mixins;
 using OpenTap;
 
@@ -43,7 +44,7 @@ public sealed class OpenTapHomeBootstrapper : IOpenTapHomeBootstrapper
             string.Equals(d.Package, VisaPackageName, StringComparison.OrdinalIgnoreCase));
         if (requiresVisa)
         {
-            InstallInTreePack(homeRoot, VisaPackageName, typeof(VisaDmmInstrument));
+            InstallInTreePack(homeRoot, VisaPackageName, AuthoringVisaInstrumentAdapter.InstrumentType);
         }
 
         InstallInstrumentComponentsIfRequired(workspace, options, homeRoot);

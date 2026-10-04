@@ -39,6 +39,17 @@ public sealed class TypedInstrumentAdapterTests : IDisposable
     }
 
     [Theory]
+    [InlineData("invalid")]
+    [InlineData("9999999999999999999")]
+    public void Real_visa_invalid_timeout_is_reported_at_the_authoring_boundary(string timeout)
+    {
+        var slot = new InstrumentRef("REAL", VisaType, "TCPIP::192.0.2.1::INSTR")
+        { Settings = new Dictionary<string, string> { ["IoTimeoutMilliseconds"] = timeout } };
+        var error = Assert.Throws<AuthoringWorkspaceException>(() => AuthoringInstrumentCatalog.Create(slot));
+        Assert.Contains("INSTRUMENT_CONFIGURATION", error.Message);
+    }
+
+    [Theory]
     [InlineData("Other.MockDmmInstrument")]
     [InlineData("HardwareTest.OpenTap.Plugins.Basic.MockDmmInstrumentExtra")]
     [InlineData("hardwaretest.opentap.plugins.basic.mockdmminstrument")]

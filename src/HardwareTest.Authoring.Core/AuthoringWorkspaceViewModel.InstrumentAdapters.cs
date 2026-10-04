@@ -1,4 +1,5 @@
 using HardwareTest.OpenTap.Plugins.Basic;
+using HardwareTest.OpenTap.Host;
 
 namespace HardwareTest.Authoring;
 
@@ -36,7 +37,7 @@ public sealed partial class AuthoringWorkspaceViewModel
     {
         if (!AuthoringInstrumentCatalog.TryGet(NewInstrumentTypeId, out var adapter))
             return "Choose a registered instrument type before adding the slot.";
-        if (adapter.TypeId == typeof(VisaDmmInstrument).FullName)
+        if (adapter.TypeId == AuthoringVisaInstrumentAdapter.InstrumentType.FullName)
         {
             if (Workspace is not null && !AuthoringInstrumentCatalog.DeclaresVisa(Workspace))
                 return "Declare the HardwareTest VISA workspace dependency before adding a VISA DMM.";

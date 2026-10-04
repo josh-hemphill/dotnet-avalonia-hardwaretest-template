@@ -1,6 +1,6 @@
-using System.Globalization;
 using System.Xml.Linq;
 using HardwareTest.OpenTap.Plugins.Basic;
+using HardwareTest.OpenTap.Host;
 using OpenTap;
 
 namespace HardwareTest.Authoring;
@@ -34,13 +34,11 @@ public static class AuthoringInstrumentCatalog
             ["VisaAddress", "ResourceName"], [], DmmFunctions, true, true,
             slot => new MockDmmInstrument { Name = slot.SlotName, VisaAddress = slot.VisaAddress, ResourceName = slot.VisaAddress },
             resource => new(resource.Name, typeof(MockDmmInstrument).FullName!, ((MockDmmInstrument)resource).VisaAddress)),
-        new(typeof(VisaDmmInstrument).FullName!, "VISA DMM", "HardwareTest VISA", "HardwareTest.OpenTap.Plugins.Visa.dll",
+        new(AuthoringVisaInstrumentAdapter.InstrumentType.FullName!, "VISA DMM", "HardwareTest VISA", "HardwareTest.OpenTap.Plugins.Visa.dll",
             ["VisaAddress"], ["IoTimeoutMilliseconds"], DmmFunctions, true, true,
-            slot => new VisaDmmInstrument { Name = slot.SlotName, VisaAddress = slot.VisaAddress,
-                IoTimeoutMilliseconds = slot.Settings.TryGetValue("IoTimeoutMilliseconds", out var timeout)
-                    ? int.Parse(timeout, CultureInfo.InvariantCulture) : HardwareTest.Core.Hardware.IviVisaSessionFactory.DefaultIoTimeoutMilliseconds },
-            resource => new(resource.Name, typeof(VisaDmmInstrument).FullName!, ((VisaDmmInstrument)resource).VisaAddress)
-            { Settings = new Dictionary<string, string> { ["IoTimeoutMilliseconds"] = ((VisaDmmInstrument)resource).IoTimeoutMilliseconds.ToString(CultureInfo.InvariantCulture) } })
+            slot => AuthoringVisaInstrumentAdapter.Construct(slot.SlotName, slot.VisaAddress, slot.Settings),
+            resource => new(resource.Name, AuthoringVisaInstrumentAdapter.InstrumentType.FullName!, AuthoringVisaInstrumentAdapter.Address(resource))
+            { Settings = AuthoringVisaInstrumentAdapter.Settings(resource) })
         { RequiredPayloadFiles = ["HardwareTest.Core.dll", "Ivi.Visa.dll"] }
     ];
 
