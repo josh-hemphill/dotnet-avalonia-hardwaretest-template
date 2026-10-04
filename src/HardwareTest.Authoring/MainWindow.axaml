@@ -36,7 +36,7 @@
         <Button Content="Save sidecar"
                 Click="OnSaveSidecar"
                 IsEnabled="{Binding HasWorkspace}"
-                ToolTip.Tip="Write only {planId}.program.json (session/DUT/Typst). Does not compile the TapPlan."
+                ToolTip.Tip="Save sidecar settings and authoring source without compiling the TapPlan."
                 AutomationProperties.Name="Save sidecar" />
         <Button Content="Save draft / compile" Classes="accent"
                 Click="OnApply"
