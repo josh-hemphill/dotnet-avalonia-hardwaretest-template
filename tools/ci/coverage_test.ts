@@ -1,4 +1,4 @@
-import { assertEquals, assert } from "@std/assert";
+import { assert, assertEquals } from "@std/assert";
 import * as path from "@std/path";
 import { evaluateCobertura, findCobertura } from "./lib/coverage.ts";
 import { CORE_COVERAGE_FILTER, e2eIsAdvisory, TASKS } from "./main.ts";
@@ -139,8 +139,14 @@ Deno.test("findCobertura returns the sorted first match", async () => {
     const early = path.join(root, "a-guid");
     await Deno.mkdir(late, { recursive: true });
     await Deno.mkdir(early, { recursive: true });
-    await Deno.writeTextFile(path.join(late, "coverage.cobertura.xml"), "<late/>");
-    await Deno.writeTextFile(path.join(early, "coverage.cobertura.xml"), "<early/>");
+    await Deno.writeTextFile(
+      path.join(late, "coverage.cobertura.xml"),
+      "<late/>",
+    );
+    await Deno.writeTextFile(
+      path.join(early, "coverage.cobertura.xml"),
+      "<early/>",
+    );
     const found = await findCobertura(root);
     assertEquals(found, path.join(early, "coverage.cobertura.xml"));
   } finally {
@@ -149,12 +155,17 @@ Deno.test("findCobertura returns the sorted first match", async () => {
 });
 
 Deno.test("findCobertura returns null when the directory is missing", async () => {
-  const found = await findCobertura(path.join(Deno.cwd(), "no-such-coverage-dir"));
+  const found = await findCobertura(
+    path.join(Deno.cwd(), "no-such-coverage-dir"),
+  );
   assertEquals(found, null);
 });
 
 Deno.test("CORE_COVERAGE_FILTER excludes OpenTAP host tests", () => {
-  assertEquals(CORE_COVERAGE_FILTER.includes("HardwareTest.Tests.OpenTap"), true);
+  assertEquals(
+    CORE_COVERAGE_FILTER.includes("HardwareTest.Tests.OpenTap"),
+    true,
+  );
   assertEquals(CORE_COVERAGE_FILTER.startsWith("FullyQualifiedName!~"), true);
 });
 
@@ -252,7 +263,9 @@ Deno.test("ci.yml references every required Deno task", async () => {
     path.dirname(path.fromFileUrl(import.meta.url)),
     "../..",
   );
-  const yaml = await Deno.readTextFile(path.join(root, ".github/workflows/ci.yml"));
+  const yaml = await Deno.readTextFile(
+    path.join(root, ".github/workflows/ci.yml"),
+  );
   const required = [
     "audit",
     "build",
@@ -282,7 +295,9 @@ Deno.test("ci.yml pins GitHub Actions by commit SHA", async () => {
     path.dirname(path.fromFileUrl(import.meta.url)),
     "../..",
   );
-  const yaml = await Deno.readTextFile(path.join(root, ".github/workflows/ci.yml"));
+  const yaml = await Deno.readTextFile(
+    path.join(root, ".github/workflows/ci.yml"),
+  );
   const uses = [...yaml.matchAll(/^\s+uses:\s+(\S+)/gm)].map((m) => m[1]!);
   assert(uses.length > 0, "ci.yml must use GitHub Actions");
   for (const spec of uses) {
@@ -309,9 +324,13 @@ Deno.test("ci.yml catalog heredocs match TASKS on both platforms", async () => {
     path.dirname(path.fromFileUrl(import.meta.url)),
     "../..",
   );
-  const yaml = await Deno.readTextFile(path.join(root, ".github/workflows/ci.yml"));
+  const yaml = await Deno.readTextFile(
+    path.join(root, ".github/workflows/ci.yml"),
+  );
   const expected = TASKS.join("\\n");
-  const heredocs = [...yaml.matchAll(/expected=\$'([^']+)'/g)].map((m) => m[1]!);
+  const heredocs = [...yaml.matchAll(/expected=\$'([^']+)'/g)].map((m) =>
+    m[1]!
+  );
   assertEquals(heredocs.length, 2, "windows and linux catalog asserts");
   for (const heredoc of heredocs) {
     assertEquals(heredoc, expected);
@@ -323,10 +342,22 @@ Deno.test("ci.yml invokes required tasks with the matching platform RID", async 
     path.dirname(path.fromFileUrl(import.meta.url)),
     "../..",
   );
-  const yaml = await Deno.readTextFile(path.join(root, ".github/workflows/ci.yml"));
+  const yaml = await Deno.readTextFile(
+    path.join(root, ".github/workflows/ci.yml"),
+  );
   const windows = jobBlock(yaml, "test");
   const linux = jobBlock(yaml, "test-linux");
-  for (const task of ["build", "test:arch", "test:authoring-compat", "test:host", "test:vm", "test:e2e", "coverage"]) {
+  for (
+    const task of [
+      "build",
+      "test:arch",
+      "test:authoring-compat",
+      "test:host",
+      "test:vm",
+      "test:e2e",
+      "coverage",
+    ]
+  ) {
     assert(
       windows.includes(`main.ts ${task} --rid win-x64`),
       `windows test must call ${task} with win-x64`,
@@ -338,7 +369,9 @@ Deno.test("ci.yml invokes required tasks with the matching platform RID", async 
   }
   assert(windows.includes("main.ts format"));
   assert(linux.includes("main.ts format"));
-  assert(jobBlock(yaml, "publish-win").includes("main.ts publish --rid win-x64"));
+  assert(
+    jobBlock(yaml, "publish-win").includes("main.ts publish --rid win-x64"),
+  );
   assert(linux.includes("main.ts publish --rid linux-x64"));
 });
 
@@ -356,13 +389,18 @@ Deno.test("linux E2E is advisory; windows E2E stays blocking", async () => {
     path.dirname(path.fromFileUrl(import.meta.url)),
     "../..",
   );
-  const yaml = await Deno.readTextFile(path.join(root, ".github/workflows/ci.yml"));
+  const yaml = await Deno.readTextFile(
+    path.join(root, ".github/workflows/ci.yml"),
+  );
   const windows = jobBlock(yaml, "test");
   const linux = jobBlock(yaml, "test-linux");
   const linuxE2e = stepBlock(linux, "E2E smoke (advisory on Linux)");
   assert(linuxE2e.includes("continue-on-error: true"));
   assert(linuxE2e.includes("main.ts test:e2e --rid linux-x64"));
-  const windowsE2e = stepBlock(windows, "E2E smoke (sample + Inspect shell wiring)");
+  const windowsE2e = stepBlock(
+    windows,
+    "E2E smoke (sample + Inspect shell wiring)",
+  );
   assertEquals(windowsE2e.includes("continue-on-error"), false);
   assertEquals(windows.includes("advisory"), false);
 });
@@ -372,9 +410,17 @@ Deno.test("artifact uploads fail when publish output is missing", async () => {
     path.dirname(path.fromFileUrl(import.meta.url)),
     "../..",
   );
-  const yaml = await Deno.readTextFile(path.join(root, ".github/workflows/ci.yml"));
-  const winUpload = stepBlock(jobBlock(yaml, "publish-win"), "Upload win-x64 publish");
-  const linuxUpload = stepBlock(jobBlock(yaml, "test-linux"), "Upload linux-x64 publish");
+  const yaml = await Deno.readTextFile(
+    path.join(root, ".github/workflows/ci.yml"),
+  );
+  const winUpload = stepBlock(
+    jobBlock(yaml, "publish-win"),
+    "Upload win-x64 publish",
+  );
+  const linuxUpload = stepBlock(
+    jobBlock(yaml, "test-linux"),
+    "Upload linux-x64 publish",
+  );
   assert(winUpload.includes("if-no-files-found: error"));
   assert(linuxUpload.includes("if-no-files-found: error"));
 });
@@ -384,7 +430,9 @@ Deno.test("authoring UI is a required task on both platforms", async () => {
     path.dirname(path.fromFileUrl(import.meta.url)),
     "../..",
   );
-  const yaml = await Deno.readTextFile(path.join(root, ".github/workflows/ci.yml"));
+  const yaml = await Deno.readTextFile(
+    path.join(root, ".github/workflows/ci.yml"),
+  );
   for (const [job, rid] of [["test", "win-x64"], ["test-linux", "linux-x64"]]) {
     const step = stepBlock(
       jobBlock(yaml, job!),
@@ -408,15 +456,65 @@ Deno.test("setup-dotnet pins the global.json SDK", async () => {
     path.dirname(path.fromFileUrl(import.meta.url)),
     "../..",
   );
-  const yaml = await Deno.readTextFile(path.join(root, ".github/workflows/ci.yml"));
+  const yaml = await Deno.readTextFile(
+    path.join(root, ".github/workflows/ci.yml"),
+  );
   const globalJson = JSON.parse(
     await Deno.readTextFile(path.join(root, "global.json")),
   ) as { sdk: { version: string } };
-  const pins = [...yaml.matchAll(/dotnet-version:\s*"([^"]+)"/g)].map((m) => m[1]!);
+  const pins = [...yaml.matchAll(/dotnet-version:\s*"([^"]+)"/g)].map((m) =>
+    m[1]!
+  );
   assert(pins.length >= 3);
   for (const pin of pins) {
     assertEquals(pin, globalJson.sdk.version);
   }
+});
+
+Deno.test("SDK snapshot jobs install and verify one isolated home for CLI and apphosts", async () => {
+  const root = path.resolve(
+    path.dirname(path.fromFileUrl(import.meta.url)),
+    "../..",
+  );
+  const yaml = await Deno.readTextFile(
+    path.join(root, ".github/workflows/ci.yml"),
+  );
+  for (const name of ["test", "test-linux", "publish-win"]) {
+    const job = jobBlock(yaml, name);
+    const setup = stepBlock(job, "Setup .NET");
+    const inventory = stepBlock(job, "Record isolated .NET SDK identity");
+    assert(
+      setup.includes(
+        "DOTNET_INSTALL_DIR: ${{ runner.temp }}/hardwaretest-dotnet",
+      ),
+    );
+    assert(setup.includes("cache: true"));
+    assert(job.indexOf(setup) < job.indexOf(inventory));
+    assert(job.indexOf(inventory) < job.indexOf(stepBlock(job, "Setup Deno")));
+    assert(inventory.includes("shell: pwsh"));
+    assert(
+      inventory.includes(
+        "[IO.Path]::GetFullPath($env:DOTNET_ROOT) -ne $expectedRoot",
+      ),
+    );
+    assert(inventory.includes("(Get-Command dotnet).Source"));
+    assert(inventory.includes("$env:DOTNET_ROOT_X64 = $env:DOTNET_ROOT"));
+    assert(
+      inventory.includes(
+        '"DOTNET_ROOT_X64=$env:DOTNET_ROOT" | Out-File -FilePath $env:GITHUB_ENV',
+      ),
+    );
+    assert(inventory.includes("global.json -Raw | ConvertFrom-Json"));
+    assert(inventory.includes("$actualVersion -ne $expectedVersion"));
+    for (const argument of ["--info", "--list-sdks", "--list-runtimes"]) {
+      assert(inventory.includes(argument));
+    }
+    assert(inventory.includes("Measure-Object -Property Length -Sum"));
+    assert(
+      inventory.includes("files=$($sdkFiles.Count) bytes=$($sdkFiles.Sum)"),
+    );
+  }
+  assert(jobBlock(yaml, "test").includes("timeout-minutes: 30"));
 });
 
 Deno.test("both platform jobs run Deno catalog unit tests", async () => {
@@ -424,7 +522,11 @@ Deno.test("both platform jobs run Deno catalog unit tests", async () => {
     path.dirname(path.fromFileUrl(import.meta.url)),
     "../..",
   );
-  const yaml = await Deno.readTextFile(path.join(root, ".github/workflows/ci.yml"));
+  const yaml = await Deno.readTextFile(
+    path.join(root, ".github/workflows/ci.yml"),
+  );
   assert(jobBlock(yaml, "test").includes("deno task --cwd tools/ci test"));
-  assert(jobBlock(yaml, "test-linux").includes("deno task --cwd tools/ci test"));
+  assert(
+    jobBlock(yaml, "test-linux").includes("deno task --cwd tools/ci test"),
+  );
 });
