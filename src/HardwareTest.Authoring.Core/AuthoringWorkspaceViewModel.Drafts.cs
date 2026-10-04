@@ -14,7 +14,8 @@ public sealed partial class AuthoringWorkspaceViewModel
     public IReadOnlyList<string> CompiledConflictProgramIds => _compiledConflicts.ToArray();
     public bool HasUncompiledSources => _uncompiledDocuments.Count > 0;
     public string DraftStateSummary => string.Join("; ",
-        (_recoverableDocuments.Count > 0 ? new[] { $"Recovery available: {string.Join(", ", RecoverableProgramIds)}" } : [])
+        (Workspace?.IsReadOnly == true ? new[] { "Workspace is read-only; future source bytes are preserved." } : [])
+        .Concat(_recoverableDocuments.Count > 0 ? new[] { $"Recovery available: {string.Join(", ", RecoverableProgramIds)}" } : []))
         .Concat(_compiledConflicts.Count > 0 ? [$"External compiled changes: {string.Join(", ", CompiledConflictProgramIds)}"] : [])
         .Concat(HasUncompiledSources ? ["Saved drafts require compilation before validation or packing."] : []));
 
@@ -25,7 +26,11 @@ public sealed partial class AuthoringWorkspaceViewModel
     {
         var files = AuthoringWorkspaceLoader.Load(root);
         var store = new AuthoringDocumentStore(files.Root);
-        var sourceIds = store.ListDocumentIds().ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var sourceIds = store.ListDocumentIds().Where(id =>
+        {
+            var source = store.Load(id);
+            return source.Document is not null || source.Error is not null;
+        }).ToHashSet(StringComparer.OrdinalIgnoreCase);
         var imports = files with { TapPlanPaths = files.TapPlanPaths.Where(path =>
             !sourceIds.Contains(Path.GetFileNameWithoutExtension(path))).ToArray() };
         var loaded = _compiler.LoadAll(imports);
