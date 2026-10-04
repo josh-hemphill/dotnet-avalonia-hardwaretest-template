@@ -150,6 +150,7 @@ public static class AuthoringCli
     private static int RunValidate(string workspaceRoot, bool strict, PlanContractFormat format, TextWriter output)
     {
         var workspace = AuthoringWorkspaceLoader.Load(workspaceRoot);
+        AuthoringSourceExportGuard.EnsureCurrent(workspace);
         return PlanContractCli.Run(
             workspace.TapPlanPaths,
             output,
@@ -217,6 +218,7 @@ public static class AuthoringCli
         TextWriter error)
     {
         var workspace = AuthoringWorkspaceLoader.Load(workspaceRoot);
+        AuthoringSourceExportGuard.EnsureCurrent(workspace);
         var home = new OpenTapHomeBootstrapper().Bootstrap(
             workspace,
             new BootstrapOptions

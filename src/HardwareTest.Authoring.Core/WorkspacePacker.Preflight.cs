@@ -60,6 +60,10 @@ public static partial class WorkspacePacker
             return Complete();
         }
 
+        findings.AddRange(AuthoringSourceExportGuard.GetIssues(workspace,
+            includedPaths.Select(Path.GetFileNameWithoutExtension).Select(id => id!).ToHashSet(StringComparer.OrdinalIgnoreCase)));
+        if (findings.Any(f => f.IsError)) return Complete();
+
         foreach (var entry in workspace.Manifest.PluginProjects.Where(e => !string.IsNullOrWhiteSpace(e)))
         {
             var path = ResolveEntry(workspace, entry);

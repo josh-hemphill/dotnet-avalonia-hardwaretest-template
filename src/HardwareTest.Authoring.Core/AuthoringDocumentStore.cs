@@ -150,7 +150,7 @@ public sealed partial class AuthoringDocumentStore
         var path = GetDocumentPath(id);
         var existing = Load(id);
         if (existing.IsReadOnly) throw new InvalidOperationException(existing.Error ?? "Future authoring schemas are read-only.");
-        File.Delete(ValidatePath(path));
+        if (File.Exists(path)) File.Delete(ValidatePath(path));
     }
 
     public void DeleteRecovery(string id)
