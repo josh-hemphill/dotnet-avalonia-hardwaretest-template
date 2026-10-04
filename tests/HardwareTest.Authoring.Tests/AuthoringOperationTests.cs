@@ -8,6 +8,57 @@ namespace HardwareTest.Authoring.Tests;
 public sealed class AuthoringOperationTests : IDisposable
 {
     private readonly List<string> roots = [];
+    [Fact]
+    public async Task Unix_scope_reaping_waits_for_live_root_and_leaf_after_anchor_exits()
+    {
+        if (OperatingSystem.IsWindows()) return;
+        var owned = Temp();
+        var fixture = Path.Combine(AppContext.BaseDirectory, "HardwareTest.Authoring.ProcessFixture");
+        var start = new ProcessStartInfo(fixture) { UseShellExecute = false };
+        start.ArgumentList.Add("--scope-anchor");
+        start.ArgumentList.Add(owned);
+        using var anchor = Process.Start(start)!;
+        using var ownership = new AuthoringProcessOwnership(owned);
+        ownership.Attach(anchor);
+        Task? reaping = null;
+        try
+        {
+            await WaitFor(owned, "leaf.pid");
+            await WaitFor(owned, "root.pid");
+            var root = int.Parse(File.ReadAllText(Path.Combine(owned, "root.pid")));
+            var leaf = int.Parse(File.ReadAllText(Path.Combine(owned, "leaf.pid")));
+            File.WriteAllText(Path.Combine(owned, "anchor.release"), "");
+            await anchor.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(5));
+            reaping = ownership.WaitForExitAsync(anchor);
+            await Task.Delay(100);
+            Assert.False(reaping.IsCompleted);
+            Assert.True(IsAlive(root));
+            Assert.True(IsAlive(leaf));
+            File.WriteAllText(Path.Combine(owned, "root.release"), "");
+            // This deliberately orphaned root can remain a zombie until the machine's init reaps it.
+            // Observe its live state for the intermediate gate; final completion assertions stay immediate.
+            var exiting = Stopwatch.StartNew();
+            while (IsAlive(root))
+            {
+                if (exiting.Elapsed > TimeSpan.FromSeconds(2)) throw new TimeoutException("Fixture root did not exit.");
+                await Task.Delay(20);
+            }
+            await Task.Delay(100);
+            Assert.False(reaping.IsCompleted);
+            Assert.True(IsAlive(leaf));
+            File.WriteAllText(Path.Combine(owned, "leaf.release"), "");
+            await reaping.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.False(IsAlive(root));
+            Assert.False(IsAlive(leaf));
+        }
+        finally
+        {
+            foreach (var role in new[] { "anchor", "root", "leaf" }) File.WriteAllText(Path.Combine(owned, role + ".release"), "");
+            await anchor.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(5));
+            if (reaping is not null) await reaping;
+        }
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]

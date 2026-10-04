@@ -10,6 +10,7 @@ internal sealed class AuthoringProcessOwnership : IDisposable
     private readonly string directory;
     private readonly SafeFileHandle? job;
     private readonly object terminationGate = new();
+    private int unixGroup;
     private bool terminationRequested;
     public AuthoringProcessOwnership(string directory)
     {
@@ -28,6 +29,9 @@ internal sealed class AuthoringProcessOwnership : IDisposable
 
     public void Attach(Process anchor)
     {
+        // Capture while the anchor is retained, before the host-start gate permits descendants.
+        // Only the host signals its own group; this identifier is used for observation, never kill.
+        if (job is null) unixGroup = anchor.Id;
         if (job is not null && !AssignProcessToJobObject(job, anchor.SafeHandle))
             throw new Win32Exception(Marshal.GetLastPInvokeError());
     }
@@ -48,17 +52,79 @@ internal sealed class AuthoringProcessOwnership : IDisposable
     {
         var elapsed = Stopwatch.StartNew();
         await anchor.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(5)).ConfigureAwait(false);
-        if (job is null) return;
-        // TerminateJobObject initiates termination; the anchor can exit before its descendants.
+        // Native scope termination is asynchronous; the anchor can exit before its descendants.
         while (true)
         {
-            if (!QueryInformationJobObject(job, 1, out var accounting, (uint)Marshal.SizeOf<JobAccounting>(), IntPtr.Zero))
-                throw new Win32Exception(Marshal.GetLastPInvokeError());
-            if (accounting.ActiveProcesses == 0) return;
+            if (job is null)
+            {
+                if (!await HasLiveUnixMembersAsync(TimeSpan.FromSeconds(5) - elapsed.Elapsed).ConfigureAwait(false)) return;
+            }
+            else
+            {
+                if (!QueryInformationJobObject(job, 1, out var accounting, (uint)Marshal.SizeOf<JobAccounting>(), IntPtr.Zero))
+                    throw new Win32Exception(Marshal.GetLastPInvokeError());
+                if (accounting.ActiveProcesses == 0) return;
+            }
             if (elapsed.Elapsed >= TimeSpan.FromSeconds(5))
                 throw new TimeoutException("Authoring operation processes did not exit.");
             await Task.Delay(20).ConfigureAwait(false);
         }
+    }
+    private async Task<bool> HasLiveUnixMembersAsync(TimeSpan remaining)
+    {
+        if (remaining <= TimeSpan.Zero) throw new TimeoutException("Authoring operation processes did not exit.");
+        if (OperatingSystem.IsLinux())
+        {
+            var observing = Stopwatch.StartNew();
+            foreach (var entry in Directory.EnumerateDirectories("/proc"))
+            {
+                if (observing.Elapsed >= remaining) throw new TimeoutException("Authoring operation processes did not exit.");
+                if (!int.TryParse(Path.GetFileName(entry), out _)) continue;
+                string stat;
+                try { stat = File.ReadAllText(Path.Combine(entry, "stat")); }
+                catch (FileNotFoundException) { continue; }
+                catch (DirectoryNotFoundException) { continue; }
+                catch (IOException) when (!Directory.Exists(entry)) { continue; }
+                // comm can contain spaces and ')'. Fields after the final ')' begin at state.
+                var fields = stat[(stat.LastIndexOf(')') + 1)..].Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                if (fields.Length < 4) throw new InvalidDataException("Invalid Unix process status.");
+                if (int.Parse(fields[2], System.Globalization.CultureInfo.InvariantCulture) == unixGroup
+                    && int.Parse(fields[3], System.Globalization.CultureInfo.InvariantCulture) == unixGroup
+                    && fields[0] is not ("Z" or "X" or "x")) return true;
+            }
+            return false;
+        }
+        if (!OperatingSystem.IsMacOS()) throw new PlatformNotSupportedException("Unix authoring process observation requires Linux or macOS.");
+        // macOS has no /proc. Read the native process table; never signal a captured/recycled PID.
+        using var status = new Process
+        {
+            StartInfo = new ProcessStartInfo("/bin/ps")
+            {
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                ArgumentList = { "-axo", "pgid=,stat=" }
+            }
+        };
+        status.Start();
+        var output = status.StandardOutput.ReadToEndAsync();
+        var error = status.StandardError.ReadToEndAsync();
+        try { await status.WaitForExitAsync().WaitAsync(remaining).ConfigureAwait(false); }
+        catch (TimeoutException)
+        {
+            status.Kill();
+            await status.WaitForExitAsync().ConfigureAwait(false);
+            throw;
+        }
+        if (status.ExitCode != 0) throw new IOException("Could not observe Unix operation processes: " + await error.ConfigureAwait(false));
+        foreach (var row in (await output.ConfigureAwait(false)).Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var fields = row.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+            if (fields.Length != 2) throw new InvalidDataException("Invalid Unix process status.");
+            if (int.Parse(fields[0], System.Globalization.CultureInfo.InvariantCulture) == unixGroup
+                && fields[1][0] is not ('Z' or 'X')) return true;
+        }
+        return false;
     }
     public void Dispose() { lock (terminationGate) job?.Dispose(); }
     internal static void CreateUnixSession()

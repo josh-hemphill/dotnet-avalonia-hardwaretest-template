@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Text.Json;
 using HardwareTest.Authoring;
 
@@ -7,6 +8,27 @@ using HardwareTest.Authoring;
 // Release files let tests stop at deterministic boundaries without production delay flags.
 if (args.Length == 2 && args[0] == AuthoringOperationHost.Switch)
     return AuthoringOperationHost.Run(args[1]);
+// Exit the session anchor first, then let tests independently release its root and leaf.
+if (args.Length == 2 && args[0].StartsWith("--scope-", StringComparison.Ordinal))
+{
+    var directory = args[1];
+    var role = args[0][8..];
+    if (role == "anchor" && ScopeFixture.setsid() < 0) throw new InvalidOperationException("setsid failed");
+    if (role is "anchor" or "root")
+    {
+        var start = new ProcessStartInfo(Environment.ProcessPath!) { UseShellExecute = false };
+        if (Path.GetFileNameWithoutExtension(Environment.ProcessPath) == "dotnet") start.ArgumentList.Add(Assembly.GetExecutingAssembly().Location);
+        start.ArgumentList.Add(role == "anchor" ? "--scope-root" : "--scope-leaf");
+        start.ArgumentList.Add(directory);
+        using var next = Process.Start(start)!;
+    }
+    File.WriteAllText(Path.Combine(directory, role + ".pid"), Environment.ProcessId.ToString());
+    if (role == "anchor")
+        while (!File.Exists(Path.Combine(directory, "anchor.release"))) await Task.Delay(20);
+    else
+        while (!File.Exists(Path.Combine(directory, role + ".release"))) await Task.Delay(20);
+    return 0;
+}
 if (args.Length == 2 && args[0] == "--operation-owner")
 {
     var fixture = Path.GetFileNameWithoutExtension(Environment.ProcessPath) == "dotnet"
@@ -67,3 +89,9 @@ if (File.Exists(Path.Combine(root, "fixture-result-wait")))
     while (!File.Exists(Path.Combine(root, "fixture-release")) && !File.Exists(Path.Combine(owned, "fixture-release"))) await Task.Delay(20);
 }
 return exitCode;
+
+internal static class ScopeFixture
+{
+    [DllImport("libc", SetLastError = true)]
+    internal static extern int setsid();
+}
