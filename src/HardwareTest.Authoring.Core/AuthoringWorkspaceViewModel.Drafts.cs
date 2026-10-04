@@ -44,10 +44,12 @@ public sealed partial class AuthoringWorkspaceViewModel
         }
         foreach (var previous in _sourceDocuments)
         {
-            if (previous.Value.RequiresCompilation && _documents.ContainsKey(previous.Key) && !documents.ContainsKey(previous.Key))
+            if ((previous.Value.RequiresCompilation || previous.Value.CompiledPlanHash is null)
+                && _documents.ContainsKey(previous.Key) && !documents.ContainsKey(previous.Key))
             {
                 documents[previous.Key] = previous.Value;
                 uncompiled.Add(previous.Key);
+                if (CompiledChanged(previous.Value)) conflicts.Add(previous.Key);
             }
         }
         _sourceDocuments.Clear();

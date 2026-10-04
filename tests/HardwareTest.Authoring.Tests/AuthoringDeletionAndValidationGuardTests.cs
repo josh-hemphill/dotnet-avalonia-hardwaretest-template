@@ -128,6 +128,25 @@ public sealed class AuthoringDeletionAndValidationGuardTests
         vm.SaveProgram(id); vm.Validate(); Assert.False(vm.HasUncompiledSources); vm.StopRecovery();
     }
 
+    [Fact]
+    public void GuiReadinessRefreshRetainsKnownSourceWithoutCompiledBaselineAfterDeletion()
+    {
+        var root = Workspace(); var initial = new AuthoringWorkspaceViewModel(); initial.Open(root); initial.Apply();
+        var id = initial.SelectedProgram!.PlanId; initial.StopRecovery();
+        var store = new AuthoringDocumentStore(root); var source = store.Load(id).Document!;
+        source.RequiresCompilation = false; source.CompiledPlanHash = null; source.CompiledSidecarHash = null;
+        source.Sidecar.DisplayName = "Current saved source"; store.Save(source);
+        var vm = new AuthoringWorkspaceViewModel(); vm.Open(root);
+        Assert.True(vm.HasUncompiledSources);
+        store.DeleteSource(id);
+        Assert.Throws<AuthoringWorkspaceException>(() => vm.Validate());
+        Assert.True(vm.HasUncompiledSources); Assert.False(vm.CanPack);
+        vm.ReconcileCompiled(id, useCompiledContent: false);
+        vm.SaveProgram(id); vm.Validate();
+        Assert.False(vm.HasUncompiledSources);
+        Assert.Equal("Current saved source", store.Load(id).Document!.Sidecar.DisplayName); vm.StopRecovery();
+    }
+
     private static string Workspace()
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
