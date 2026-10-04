@@ -205,28 +205,21 @@ public sealed partial class AuthoringWorkspaceViewModel
 
     public string TfNumerator
     {
-        get => FormatVector(SelectedTf?.Numerator);
-        set => UpdateSelectedTf(tf => tf with { Numerator = ParseVector(value, tf.Numerator) });
+        get => SelectedFieldText(nameof(TfNumerator), FormatVector(SelectedTf?.Numerator));
+        set => SetTfVectorText(nameof(TfNumerator), value, (tf, vector) => tf with { Numerator = vector });
     }
 
     public string TfDenominator
     {
-        get => FormatVector(SelectedTf?.Denominator);
-        set => UpdateSelectedTf(tf => tf with { Denominator = ParseVector(value, tf.Denominator) });
+        get => SelectedFieldText(nameof(TfDenominator), FormatVector(SelectedTf?.Denominator));
+        set => SetTfVectorText(nameof(TfDenominator), value, (tf, vector) => tf with { Denominator = vector });
     }
 
     public string TfTsSeconds
     {
-        get => SelectedTf is { } tf ? tf.TsSeconds.ToString(CultureInfo.InvariantCulture) : string.Empty;
-        set
-        {
-            if (!double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var ts) || ts <= 0)
-            {
-                return;
-            }
-
-            UpdateSelectedTf(tf => tf with { TsSeconds = ts });
-        }
+        get => SelectedFieldText(nameof(TfTsSeconds), SelectedTf is { } tf
+            ? tf.TsSeconds.ToString(CultureInfo.InvariantCulture) : string.Empty);
+        set => SetTfSamplePeriodText(value);
     }
 
     public string TfMethod
@@ -529,7 +522,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         }
 
         var next = mutate(current);
-        if (TfUnchanged(current, next))
+        if (TfUnchanged(current, next) && _pendingNumericState is null)
         {
             return;
         }
@@ -556,22 +549,6 @@ public sealed partial class AuthoringWorkspaceViewModel
         => values is null || values.Count == 0
             ? string.Empty
             : string.Join(" ", values.Select(v => v.ToString(CultureInfo.InvariantCulture)));
-
-    private static IReadOnlyList<double> ParseVector(string? value, IReadOnlyList<double> fallback)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return fallback;
-        }
-
-        var parts = value.Split([',', ' ', '\t'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-        if (parts.Length == 0)
-        {
-            return fallback;
-        }
-
-        return parts.Select(part => double.Parse(part, CultureInfo.InvariantCulture)).ToArray();
-    }
 
     private static string FormatLimit(double? value)
         => value is { } number ? number.ToString(CultureInfo.InvariantCulture) : string.Empty;

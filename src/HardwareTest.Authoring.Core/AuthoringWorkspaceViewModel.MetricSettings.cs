@@ -153,26 +153,10 @@ public sealed partial class AuthoringWorkspaceViewModel
 
     public string StationHealthMaxAgeHours
     {
-        get => FormatOptional(SelectedProgram?.Sidecar.StationHealthMaxAgeHours);
-        set
-        {
-            if (string.Equals(StationHealthMaxAgeHours, value, StringComparison.Ordinal))
-            {
-                return;
-            }
-
-            if (string.IsNullOrWhiteSpace(value))
-            {
-                SetSidecar(s => { s.StationHealthMaxAgeHours = null; });
-                return;
-            }
-
-            if (double.TryParse(value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var hours)
-                && hours > 0)
-            {
-                SetSidecar(s => { s.StationHealthMaxAgeHours = hours; });
-            }
-        }
+        get => SelectedProgram is { } program
+            ? NumericFieldText(program.Cleanup.NodeId, nameof(StationHealthMaxAgeHours),
+                FormatOptional(program.Sidecar.StationHealthMaxAgeHours)) : string.Empty;
+        set => SetStationHealthAgeText(value);
     }
 
     public string StationHealthProfileId
