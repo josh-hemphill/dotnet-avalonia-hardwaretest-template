@@ -430,7 +430,7 @@ public sealed class AuthoringProgramSettingsDeleteTests
     }
 
     [Fact]
-    public void Remove_instrument_slot_keeps_memory_when_plan_save_fails()
+    public void Remove_instrument_slot_saves_source_when_duplicate_channels_block_compilation()
     {
         var vm = OpenEmpty();
         vm.CreateProgram("slots-compile-fail");
@@ -456,16 +456,24 @@ public sealed class AuthoringProgramSettingsDeleteTests
         Assert.Equal(["DMM"], vm.InstrumentSlots);
         Assert.Null(vm.Error);
         Assert.True(vm.HasUnsavedChanges);
-        Assert.False(vm.SaveAll().Succeeded);
+        Assert.True(vm.SaveAll().Succeeded);
+        Assert.False(vm.HasUnsavedChanges);
+        Assert.True(vm.HasUncompiledSources);
+        Assert.False(vm.CanPack);
+        Assert.Throws<AuthoringWorkspaceException>(() => vm.Validate());
         Assert.Contains(AuthoringCompileCodes.DuplicateChannelKey, vm.Error, StringComparison.Ordinal);
         Assert.Contains("SCOPE", vm.Workspace.Manifest.Catalogs!.InstrumentSlotNames);
         Assert.Equal(sidecarBefore, File.ReadAllText(sidecarPath));
-        Assert.Equal(manifestBefore, File.ReadAllText(manifestPath));
+        Assert.NotEqual(manifestBefore, File.ReadAllText(manifestPath));
+        Assert.True(new AuthoringDocumentStore(vm.Workspace.Root).Load("slots-compile-fail").Document!.RequiresCompilation);
         var reloaded = new AuthoringWorkspaceViewModel();
         reloaded.Open(vm.Workspace.Root);
         reloaded.SelectProgram("slots-compile-fail");
         Assert.Contains("DMM", reloaded.InstrumentSlots);
-        Assert.Contains("SCOPE", reloaded.InstrumentSlots);
+        Assert.DoesNotContain("SCOPE", reloaded.InstrumentSlots);
+        Assert.Equal(2, reloaded.SelectedProgram!.Measure.Count);
+        Assert.True(reloaded.HasUncompiledSources);
+        reloaded.StopRecovery(); vm.StopRecovery();
     }
 
     [Fact]
