@@ -37,6 +37,41 @@ public sealed class AuthoringActionableFindingsTests
         Assert.True(fixture.Control<TextBox>("Threshold").IsFocused);
     }
     [AvaloniaFact]
+    public void Unsupported_filter_limits_issue_opens_program_settings_without_a_field_error()
+    {
+        using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
+        fixture.Show(); fixture.OpenRememberedWorkspace();
+        var vm = fixture.ViewModel;
+        vm.ApplyRecipe(AuthoringRecipeIds.Formula);
+        var formula = Assert.IsType<MetricNode>(vm.SelectedProgram!.Measure.Last());
+        vm.ReplaceSelected(vm.SelectedProgram with
+        {
+            Measure = [.. vm.SelectedProgram.Measure.Take(vm.SelectedProgram.Measure.Count - 1), formula with
+            {
+                Metric = formula.Metric with { Source = new ExpressionAlgorithm(["VDC"], "filter([1],[1],VDC)"), Limits = new LimitSpec(2, 1, null) }
+            }]
+        });
+        vm.SelectMeasure(vm.SelectedProgram.Measure.Count - 1);
+        Assert.False(vm.ShowThreshold);
+        var issue = Assert.Single(vm.EditingIssues, item => item.Code == AuthoringCompileCodes.MissingLimits);
+        Assert.Equal("Open program settings", issue.NavigationLabel);
+        var program = vm.SelectedProgram.PlanId;
+        vm.CreateProgram("other");
+        var tabs = fixture.Window!.FindControl<TabControl>("WorkspaceTabs")!;
+        tabs.SelectedIndex = 2;
+        AuthoringUiFixture.Drain();
+        fixture.Control<Expander>("Editing findings").IsExpanded = true;
+        AuthoringUiFixture.Drain();
+        var button = Assert.Single(fixture.Window!.GetVisualDescendants().OfType<Button>(),
+            button => Equals(button.DataContext, issue) && Equals(button.Content, "Open program settings"));
+        AuthoringUiFixture.Click(button);
+        Assert.Equal(program, vm.SelectedProgram!.PlanId);
+        Assert.Equal(1, tabs.SelectedIndex);
+        Assert.Null(vm.Error);
+        Assert.False(vm.ShowThreshold);
+    }
+
+    [AvaloniaFact]
     public void Ordinary_editing_issue_opens_its_node_without_a_field_error()
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);

@@ -121,24 +121,36 @@ public sealed partial class AuthoringWorkspaceViewModel
         return destination.Target;
     }
 
-    private void InvalidateFindingsAfterSave()
+    private string? InvalidateFindingsAfterSave()
     {
-        if (_lastFindingCheck is not { } check || check.Session != _workspaceSession || _lastFindingCheckStale) return;
+        if (_lastFindingCheck is not { } check || check.Session != _workspaceSession || _lastFindingCheckStale) return null;
         try
         {
-            if (check.Identity == VerifyFindingInputs(FindingIdentity)) return;
+            if (check.Identity == VerifyFindingInputs(FindingIdentity)) return null;
         }
-        catch (AuthoringWorkspaceException)
+        catch (AuthoringWorkspaceException error)
         {
-            // A partially published or unreadable artifact cannot retain a current checked state.
-            return;
+            // Publication can succeed while the completed save can no longer verify checked inputs.
+            return error.Message;
         }
         InvalidateContractFindings();
+        return null;
     }
 
     public PlanContractTarget? NavigateEditingIssue(AuthoringEditingIssue issue)
     {
         if (!EditingIssues.Contains(issue) || !Programs.Any(program => program.PlanId == issue.PlanId)) return null;
+        var draft = Programs.Single(program => program.PlanId == issue.PlanId);
+        if (issue.Section is not null || issue.Field is not null)
+        {
+            var destination = AuthoringFindingNavigation.Resolve(draft, issue.NodeId,
+                new(ProgramId: issue.PlanId, NodeId: issue.NodeId, Section: issue.Section, Field: issue.Field));
+            SelectProgram(issue.PlanId);
+            if (destination.Target.NodeId is { } id)
+                SelectSequence(_sequenceItems.ToList().FindIndex(item => item.NodeId == id));
+            Status = destination.Target.Field is not null ? "Opens the supported editing field." : destination.Reason;
+            return destination.Target;
+        }
         SelectProgram(issue.PlanId);
         var matches = _sequenceItems.Select((item, index) => (item, index)).Where(pair => pair.item.NodeId == issue.NodeId).ToArray();
         if (matches.Length != 1) return new(ProgramId: issue.PlanId, Section: "ProgramSettings");

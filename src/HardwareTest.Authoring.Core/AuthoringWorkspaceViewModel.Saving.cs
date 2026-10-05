@@ -72,6 +72,7 @@ public sealed partial class AuthoringWorkspaceViewModel
     {
         var saved = new List<string>();
         var failures = new List<ProgramSaveFailure>();
+        var verificationWarnings = new List<string>();
         var dirtyPrograms = DirtyProgramIds.ToArray();
         var canPublish = true;
         WorkspaceCatalogSaveFailure = null;
@@ -88,7 +89,12 @@ public sealed partial class AuthoringWorkspaceViewModel
         }
         foreach (var id in canPublish ? dirtyPrograms : [])
         {
-            try { SaveProgramCore(id, forcePlan: false, sidecarOnly: false); saved.Add(id); }
+            try
+            {
+                var verificationWarning = SaveProgramCore(id, forcePlan: false, sidecarOnly: false);
+                saved.Add(id);
+                if (verificationWarning is not null) verificationWarnings.Add($"{id}: {verificationWarning}");
+            }
             catch (Exception ex) { failures.Add(new(id, PersistenceError(ex))); }
         }
         var catalogSaved = false;
@@ -121,7 +127,8 @@ public sealed partial class AuthoringWorkspaceViewModel
         Status = $"Saved {saved.Count} program(s){(catalogSaved ? " and workspace catalog" : "")}; {failures.Count + (WorkspaceCatalogSaveFailure is null ? 0 : 1)} failure(s)";
         var messages = failures.Select(f => $"{f.PlanId}: {f.Message}")
             .Concat(WorkspaceCatalogSaveFailure is { } catalogFailure ? [catalogFailure] : [])
-            .Concat(SavePreviewWarning is { } warning ? [warning] : []).ToArray();
+            .Concat(SavePreviewWarning is { } warning ? [warning] : [])
+            .Concat(verificationWarnings).ToArray();
         Error = messages.Length == 0 ? null : string.Join(Environment.NewLine, messages);
         return result;
     }
@@ -134,9 +141,10 @@ public sealed partial class AuthoringWorkspaceViewModel
 
     private void SaveProgramWithPreview(string planId, bool forcePlan, bool sidecarOnly)
     {
-        SaveProgramCore(planId, forcePlan, sidecarOnly);
+        var verificationWarning = SaveProgramCore(planId, forcePlan, sidecarOnly);
         RefreshSavePreview();
-        Error = SavePreviewWarning;
+        var warnings = new[] { SavePreviewWarning, verificationWarning }.OfType<string>().ToArray();
+        Error = warnings.Length == 0 ? null : string.Join(Environment.NewLine, warnings);
     }
 
     private void RefreshSavePreview()
@@ -152,11 +160,13 @@ public sealed partial class AuthoringWorkspaceViewModel
         }
     }
 
-    private void SaveProgramCore(string planId, bool forcePlan, bool sidecarOnly)
+    private string? SaveProgramCore(string planId, bool forcePlan, bool sidecarOnly)
     {
         VerifySavedInputsForSave([planId]);
+        string? verificationWarning = null;
         try { PublishProgramCore(planId, forcePlan, sidecarOnly); }
-        finally { InvalidateFindingsAfterSave(); }
+        finally { verificationWarning = InvalidateFindingsAfterSave(); }
+        return verificationWarning;
     }
 
     private void PublishProgramCore(string planId, bool forcePlan, bool sidecarOnly)
