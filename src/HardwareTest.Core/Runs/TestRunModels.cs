@@ -184,6 +184,11 @@ public sealed class StepAttemptSummary
 
 public sealed class StoredSample
 {
+    /// Concrete publisher and execution identity; absent on legacy recordings.
+    public Guid? ProducerStepId { get; set; }
+    public Guid? StepRunId { get; set; }
+    /// Actual innermost loop invocation, unique across enclosing repeat executions; absent on legacy recordings.
+    public Guid? LoopRunId { get; set; }
     public string Channel { get; set; } = string.Empty;
     public string StepPath { get; set; } = string.Empty;
     public DateTimeOffset Timestamp { get; set; }
@@ -251,6 +256,11 @@ public static class SampleResultSources
 /// Config / timing mark published on the same elapsed clock as Sample.
 public sealed class StoredEvent
 {
+    public Guid? ProducerStepId { get; set; }
+    public Guid? StepRunId { get; set; }
+    public Guid? LoopRunId { get; set; }
+    public string? LoopPath { get; set; }
+    public int? IterationIndex { get; set; }
     public string Name { get; set; } = string.Empty;
     public double ElapsedMs { get; set; }
     public string? Label { get; set; }

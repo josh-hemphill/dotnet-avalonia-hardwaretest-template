@@ -8,7 +8,7 @@ public sealed partial class AuthoringWorkspaceViewModel
     private bool _operationBusy;
     private int _operationLogNotificationPending;
     private string? _operationStage;
-    public bool OperationBusy { get => _operationBusy; private set { if (SetField(ref _operationBusy, value)) RaisePackGuardProperties(); } }
+    public bool OperationBusy { get => _operationBusy; private set { if (SetField(ref _operationBusy, value)) RaisePackGuardProperties(); RaiseBoardProperties(); } }
     public bool OperationCleanupPending => _operations?.HasPendingCleanup == true;
     public string? OperationStage { get => _operationStage; private set => SetField(ref _operationStage, value); }
     public IReadOnlyList<AuthoringOperationLog> OperationLogs => _operations?.Logs ?? [];

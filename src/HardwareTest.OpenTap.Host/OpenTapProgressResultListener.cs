@@ -5,11 +5,12 @@ using OpenTap;
 
 namespace HardwareTest.OpenTap.Host;
 
-internal sealed class ProgressResultListener : ResultListener
+internal sealed partial class ProgressResultListener : ResultListener
 {
     private sealed class LoopContext
     {
         public required Guid StepId { get; init; }
+        public required Guid RunId { get; init; }
         public int? Total { get; init; }
         public int Index { get; set; }
     }
@@ -62,6 +63,7 @@ internal sealed class ProgressResultListener : ResultListener
         _stepCount = OpenTapLoopProgress.CountEnabledLeaves(_plan);
         _stepIndex = 0;
         _loops.Clear();
+        _executions.Clear();
         _lastSampleReportTimestamp = 0;
         _coalescedSample = null;
         _progress?.Report(new OpenTapProgress { Message = "Plan started", OverallPercent = 0 });
@@ -82,6 +84,7 @@ internal sealed class ProgressResultListener : ResultListener
             _loops.Push(new LoopContext
             {
                 StepId = step.Id,
+                RunId = stepRun.Id,
                 Total = OpenTapLoopProgress.TryGetLoopTotal(step),
                 Index = 0,
             });
@@ -100,6 +103,7 @@ internal sealed class ProgressResultListener : ResultListener
             }
         }
 
+        RememberExecution(stepRun);
         ReportStepProgress(
             $"Running {stepRun.TestStepName}",
             stepRun.TestStepName,
@@ -199,19 +203,19 @@ internal sealed class ProgressResultListener : ResultListener
         {
             if (string.Equals(result.Name, "Sample", StringComparison.OrdinalIgnoreCase))
             {
-                PublishSamples(result);
+                PublishSamples(result, stepRunId);
                 return;
             }
 
             if (string.Equals(result.Name, "Scalar", StringComparison.OrdinalIgnoreCase))
             {
-                PublishScalars(result);
+                PublishScalars(result, stepRunId);
                 return;
             }
 
             if (string.Equals(result.Name, "Event", StringComparison.OrdinalIgnoreCase))
             {
-                PublishEvents(result);
+                PublishEvents(result, stepRunId);
                 return;
             }
 
@@ -283,7 +287,7 @@ internal sealed class ProgressResultListener : ResultListener
         }
     }
 
-    private void PublishSamples(ResultTable result)
+    private void PublishSamples(ResultTable result, Guid stepRunId)
     {
         var channelCol = result.Columns.FirstOrDefault(c => c.Name == "Channel");
         var valueCol = result.Columns.FirstOrDefault(c => c.Name == "Value");
@@ -296,7 +300,7 @@ internal sealed class ProgressResultListener : ResultListener
             return;
         }
 
-        var hints = CurrentPresentationHints();
+        var hints = ExecutionPresentationHints(stepRunId);
         for (var i = 0; i < valueCol.Data.Length; i++)
         {
             var value = Convert.ToDouble(valueCol.Data.GetValue(i));
@@ -332,6 +336,7 @@ internal sealed class ProgressResultListener : ResultListener
                 TryReadOptionalDouble(limitLowCol, i),
                 TryReadOptionalDouble(limitHighCol, i),
                 TryReadOptionalDouble(elapsedCol, i));
+            StampExecution(stored, stepRunId);
             _samples.Add(stored);
 
             var sampleEvent = MeasurementSampleEvent.FromStored(stored, index);
@@ -362,7 +367,7 @@ internal sealed class ProgressResultListener : ResultListener
         }
     }
 
-    private void PublishScalars(ResultTable result)
+    private void PublishScalars(ResultTable result, Guid stepRunId)
     {
         var nameCol = result.Columns.FirstOrDefault(c => c.Name == "Name");
         var valueCol = result.Columns.FirstOrDefault(c => c.Name == "Value");
@@ -374,7 +379,7 @@ internal sealed class ProgressResultListener : ResultListener
             return;
         }
 
-        var hints = CurrentPresentationHints();
+        var hints = ExecutionPresentationHints(stepRunId);
         var stepPath = _resolvePath(_currentStepId ?? string.Empty, _currentStepName) ?? string.Empty;
         for (var i = 0; i < valueCol.Data.Length; i++)
         {
@@ -395,6 +400,7 @@ internal sealed class ProgressResultListener : ResultListener
                 ResultSource = TryReadResultSource(result, i),
             };
             OpenTapPresentation.ApplyScalar(stored, name, unit, hints, limitLow, limitHigh);
+            StampExecution(stored, stepRunId);
             _samples.Add(stored);
 
             if (_currentStepId is not null)
@@ -416,7 +422,7 @@ internal sealed class ProgressResultListener : ResultListener
         }
     }
 
-    private void PublishEvents(ResultTable result)
+    private void PublishEvents(ResultTable result, Guid stepRunId)
     {
         var nameCol = result.Columns.FirstOrDefault(c => c.Name == "Name");
         var elapsedCol = result.Columns.FirstOrDefault(c => c.Name == "ElapsedMs");
@@ -456,13 +462,14 @@ internal sealed class ProgressResultListener : ResultListener
                 StepPath = stepPath,
                 Timestamp = _clock.UtcNow,
             };
+            StampExecution(stored, stepRunId);
             _events.Add(stored);
             _progress?.Report(new OpenTapProgress
             {
                 Message = string.IsNullOrWhiteSpace(stored.Label) ? stored.Name : $"{stored.Name}:{stored.Label}",
-                StepId = _currentStepId,
-                StepName = _currentStepName,
-                StepPath = stepPath,
+                StepId = stored.ProducerStepId?.ToString() ?? _currentStepId,
+                StepName = stored.ProducerStepId is { } producer ? OpenTapLoopProgress.FindStepById(_plan, producer)?.Name : _currentStepName,
+                StepPath = stored.StepPath,
                 StatusText = "Event",
                 KeyValue = stored.Label ?? stored.Name,
                 Event = new MeasurementEventMark(
@@ -470,7 +477,7 @@ internal sealed class ProgressResultListener : ResultListener
                     stored.ElapsedMs,
                     stored.Label,
                     stored.Value,
-                    stored.StepPath),
+                    stored.StepPath, stored.ProducerStepId, stored.StepRunId, stored.LoopRunId, stored.LoopPath, stored.IterationIndex),
                 OverallPercent = (double)_stepIndex / Math.Max(_stepCount, 1) * 100,
             });
         }
@@ -526,16 +533,6 @@ internal sealed class ProgressResultListener : ResultListener
         {
             return null;
         }
-    }
-
-    private OpenTapPresentation.MixinHints? CurrentPresentationHints()
-    {
-        if (_currentStepId is null || !Guid.TryParse(_currentStepId, out var id))
-        {
-            return null;
-        }
-
-        return OpenTapPresentation.TryReadMixin(OpenTapLoopProgress.FindStepById(_plan, id));
     }
 
     private static string FormatSampleKey(StoredSample sample)

@@ -64,15 +64,29 @@ public sealed partial class AuthoringWorkspaceViewModel
     {
         get
         {
+            if (SelectedProgram is not null && SelectedMetric is { } selected)
+            {
+                var identity = SelectedPreviewNodeId;
+                var tile = BoardTiles.LastOrDefault(tile => tile.NodeId == identity);
+                if (tile is not null) return tile.Preview;
+            }
             var siblings = SelectedProgram is null
                 ? []
                 : AuthoringRecipeCatalog.EnumerateMetrics(SelectedProgram.Measure).ToArray();
             var recorded = SelectedDataset is { } dataset
                 ? RunDatasetBinder.SeriesByMetric(dataset.Run)
                 : null;
-            return MetricPreviewBuilder.From(SelectedMetric, siblings, recorded, SelectedProgram);
+            return MetricPreviewBuilder.From(SelectedMetric, siblings, recorded, SelectedProgram,
+                SelectedPreviewNodeId);
         }
     }
+
+    private Guid? SelectedPreviewNodeId => SelectedMeasure switch
+    {
+        MetricNode node => node.NodeId,
+        RepeatNode repeat => repeat.Children.OfType<MetricNode>().FirstOrDefault()?.NodeId,
+        _ => null,
+    };
 
     public string PreviewKind => Preview.TileKind?.ToString() ?? "Text";
 
@@ -433,6 +447,7 @@ public sealed partial class AuthoringWorkspaceViewModel
 
     private void RaiseEditorProperties()
     {
+        RaiseBoardProperties();
         RaiseSequenceOperations();
         OnPropertyChanged(nameof(MetricName));
         OnPropertyChanged(nameof(HasMetricInputs));

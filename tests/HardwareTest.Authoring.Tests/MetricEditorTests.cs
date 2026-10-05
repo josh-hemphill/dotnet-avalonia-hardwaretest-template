@@ -334,22 +334,41 @@ public sealed class MetricEditorTests
     public void Selecting_recording_drives_formula_preview_from_samples()
     {
         var root = EmptyWorkspace();
-        var dest = Path.Combine(root, "recordings", "sample", "mean-vdc");
-        Directory.CreateDirectory(dest);
-        File.Copy(
-            Path.Combine(FindRepoRoot(), "tests", "fixtures", "authoring", "recordings", "sample", "mean-vdc", "run.json"),
-            Path.Combine(dest, "run.json"));
-
         var vm = new AuthoringWorkspaceViewModel();
-        vm.Open(root);
-        vm.CreateProgram("sample");
-        vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
-        vm.ApplyRecipe(AuthoringRecipeIds.Formula);
-        Assert.Contains("mean-vdc-1", vm.DatasetItems);
-        Assert.NotNull(vm.SelectedDataset);
-        Assert.Equal(2, vm.Preview.CannedValue);
-        Assert.Contains("Recording", vm.PreviewNote, StringComparison.Ordinal);
-        Assert.DoesNotContain("needs Area 11 filter", vm.PreviewNote, StringComparison.Ordinal);
+        try
+        {
+            var dest = Path.Combine(root, "recordings", "sample", "mean-vdc");
+            Directory.CreateDirectory(dest);
+            File.Copy(
+                Path.Combine(FindRepoRoot(), "tests", "fixtures", "authoring", "recordings", "sample", "mean-vdc", "run.json"),
+                Path.Combine(dest, "run.json"));
+
+            vm.Open(root);
+            vm.StopRecovery();
+            vm.CreateProgram("sample");
+            vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
+            vm.ApplyRecipe(AuthoringRecipeIds.Formula);
+            Assert.Contains("mean-vdc-1", vm.DatasetItems);
+            Assert.Null(vm.SelectedDataset);
+            Assert.StartsWith("Example data", vm.DataSourceDetails);
+            var exampleValue = vm.Preview.CannedValue;
+
+            vm.SelectDataset(0);
+
+            Assert.NotNull(vm.SelectedDataset);
+            Assert.Equal(new[] { 1d, 3d }, vm.SelectedDataset.Run.Samples.Select(sample => sample.Value));
+            Assert.Equal(2, vm.Preview.CannedValue);
+            Assert.Equal(vm.SelectedDataset.Run.Samples.Average(sample => sample.Value), vm.Preview.CannedValue);
+            Assert.NotEqual(exampleValue, vm.Preview.CannedValue);
+            Assert.StartsWith("Recording", vm.DataSourceDetails);
+            Assert.Contains("Recording", vm.PreviewNote, StringComparison.Ordinal);
+            Assert.DoesNotContain("needs Area 11 filter", vm.PreviewNote, StringComparison.Ordinal);
+        }
+        finally
+        {
+            vm.StopRecovery();
+            Directory.Delete(root, recursive: true);
+        }
     }
 
     [Fact]

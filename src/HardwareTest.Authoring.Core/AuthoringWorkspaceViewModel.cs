@@ -271,7 +271,7 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
     public void SelectDataset(int index)
     {
         var count = _datasets.Count;
-        var clamped = count == 0 ? -1 : Math.Clamp(index, 0, count - 1);
+        var clamped = count == 0 || index < 0 ? -1 : Math.Clamp(index, 0, count - 1);
         if (!SetField(ref _selectedDatasetIndex, clamped, nameof(SelectedDatasetIndex)))
         {
             OnPropertyChanged(nameof(SelectedDataset));
@@ -295,7 +295,7 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
         _datasetItems = _datasets.Select(FormatDataset).ToArray();
         _selectedDatasetIndex = _datasets.Count == 0
             ? -1
-            : Math.Clamp(_selectedDatasetIndex < 0 ? 0 : _selectedDatasetIndex, 0, _datasets.Count - 1);
+            : (_selectedDatasetIndex < 0 ? -1 : Math.Clamp(_selectedDatasetIndex, 0, _datasets.Count - 1));
         OnPropertyChanged(nameof(Datasets));
         OnPropertyChanged(nameof(DatasetItems));
         OnPropertyChanged(nameof(SelectedDatasetIndex));

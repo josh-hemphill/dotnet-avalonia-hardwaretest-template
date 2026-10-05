@@ -133,7 +133,12 @@ public sealed class AuthoringFormulaIntentBindingTests
         File.WriteAllText(Path.Combine(recording, "run.json"), JsonSerializer.Serialize(run, AppJsonContext.Default.TestRunRecord));
         fixture.Show(); fixture.OpenRememberedWorkspace();
         var vm = fixture.ViewModel;
+        vm.StopRecovery();
+        Assert.Null(vm.SelectedDataset);
+        Assert.StartsWith("Example data", vm.DataSourceDetails);
+        vm.SelectDataset(0);
         Assert.NotNull(vm.SelectedDataset);
+        Assert.Equal(new double?[] { 0, 5, 15 }, vm.SelectedDataset.Run.Samples.Select(sample => sample.ElapsedMs));
         vm.ApplyRecipe(AuthoringRecipeIds.Formula);
         vm.SelectMeasure(vm.SelectedProgram!.Measure.Count - 1);
         vm.FormulaSource = "filter([1],[1],VDC)";

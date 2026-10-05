@@ -52,7 +52,7 @@ public static class AuthoringIssueService
             if (metricNode.Metric.Source is ExpressionAlgorithm)
             {
                 var excluded = AuthoringFormulaDeployment.ExcludedNodes(draft).Contains(metricNode.NodeId);
-                var status = FormulaDeploymentClassifier.Classify(metricNode.Metric, draft);
+                var status = FormulaDeploymentClassifier.Classify(metricNode.Metric, draft, nodeId: metricNode.NodeId);
                 if (excluded) issues.Add(new("FORMULA_EXCLUDED", "Exploration formula is saved unchanged and excluded from deployment.", draft.PlanId, metricNode.NodeId));
                 else if (status.Kind != FormulaDeploymentStatusKind.DeployableRecipe)
                     issues.Add(new(status.Kind == FormulaDeploymentStatusKind.MissingRequirements
@@ -63,7 +63,7 @@ public static class AuthoringIssueService
                 try
                 {
                     var projected = AuthoringFormulaDeployment.Project(draft);
-                    PlanCompiler.ValidateFormulaInput(projected.Measure, metricNode.Metric.ChannelKey, projected.AuthoringState);
+                    PlanCompiler.ValidateFormulaInput(projected.Measure, metricNode.Metric.ChannelKey, projected.AuthoringState, metricNode.NodeId);
                 }
                 catch (AuthoringWorkspaceException error)
                 { issues.Add(new(RequirementCode(error.Message), error.Message, draft.PlanId, metricNode.NodeId)); }
