@@ -186,6 +186,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         _recovery?.Cancel(workspace.Root, planId);
         store.DeleteRecovery(planId);
         string? compilationFailure = null;
+        string? savedCompilationDiagnostic = null;
         if (_compiledConflicts.Contains(planId)) compilationFailure = "External compiled edits require reconciliation before export.";
         else if (AuthoringFormulaDeployment.Project(draft).AuthoringState.IncompleteNumericText.Count > 0)
             compilationFailure = "Incomplete numeric input was saved as an authoring draft.";
@@ -212,6 +213,7 @@ public sealed partial class AuthoringWorkspaceViewModel
             catch (Exception ex) when (ex is not IOException && ex is not UnauthorizedAccessException)
             {
                 compilationFailure = PersistenceError(ex);
+                savedCompilationDiagnostic = compilationFailure;
             }
         }
         if (compilationFailure is not null)
@@ -220,6 +222,7 @@ public sealed partial class AuthoringWorkspaceViewModel
             store.Save(document);
             _uncompiledDocuments.Add(planId);
         }
+        RecordSavedCompilationDiagnostic(planId, savedCompilationDiagnostic, store);
         _documents[planId].AcceptSavedContent(draft, plan: !sidecarOnly, sidecar: true);
         RaiseDraftState();
         RecomputeDocumentDirty();

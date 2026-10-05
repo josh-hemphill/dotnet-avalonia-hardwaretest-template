@@ -63,6 +63,7 @@ public sealed partial class AuthoringWorkspaceViewModel
     {
         StopRecovery();
         _sourceDocuments.Clear(); _recoverableDocuments.Clear(); _compiledConflicts.Clear(); _uncompiledDocuments.Clear();
+        _savedCompilationDiagnostics.Clear();
         var store = new AuthoringDocumentStore(Workspace!.Root);
         foreach (var draft in Programs)
         {

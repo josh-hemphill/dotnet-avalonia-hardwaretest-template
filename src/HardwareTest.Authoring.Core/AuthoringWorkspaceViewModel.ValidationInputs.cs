@@ -18,7 +18,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         {
             var explanations = new[] { "Compile saved drafts and reconcile external edits before validating compiled plans." }
                 .Concat(sourceIssues.Select(issue => issue.DisplayText))
-                .Concat(HasUncompiledSources && SavePreviewWarning is { } diagnostic ? [diagnostic] : []);
+                .Concat(CurrentSavedCompilationDiagnostics());
             throw new AuthoringWorkspaceException(string.Join(Environment.NewLine, explanations));
         }
         if (sourceIssues.Count > 0)
