@@ -27,7 +27,7 @@ public sealed class AuthoringSavingTests : IDisposable
         vm.DisplayName = "sidecar edit";
         var sample = vm.SelectedProgram;
         var row = vm.SelectedProgramRow;
-        vm.CreateProgram("new-program");
+        vm.CreateDemoProgram("new-program");
         vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
         var selected = vm.SelectedProgram;
         var sequence = vm.SelectedSequence;
@@ -172,7 +172,7 @@ public sealed class AuthoringSavingTests : IDisposable
         var compiler = new RecordingCompiler { FailId = "new-program" };
         var vm = Open(compiler);
         vm.DisplayName = "saved other";
-        vm.CreateProgram("new-program");
+        vm.CreateDemoProgram("new-program");
         var selected = vm.SelectedProgram;
         var result = vm.SaveAll();
         Assert.False(result.Succeeded);

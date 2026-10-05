@@ -4,8 +4,38 @@ namespace HardwareTest.Authoring;
 public sealed class AuthoringAtomicWriter
 {
     private readonly Action<string, string> _replace;
-    public AuthoringAtomicWriter(Action<string, string>? replace = null)
-        => _replace = replace ?? ((temporary, destination) => File.Move(temporary, destination, true));
+    private readonly Action? _beforeCreate;
+    public AuthoringAtomicWriter(Action<string, string>? replace = null, Action? beforeCreate = null)
+    {
+        _replace = replace ?? ((temporary, destination) => File.Move(temporary, destination, true));
+        _beforeCreate = beforeCreate;
+    }
+
+    public void WriteNew(string path, ReadOnlySpan<byte> bytes, Action validate, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        validate();
+        var directory = Path.GetDirectoryName(path)!;
+        Directory.CreateDirectory(directory);
+        var temporary = Path.Combine(directory, ".initialize-" + Guid.NewGuid().ToString("N") + ".tmp");
+        var ownsTemporary = false;
+        try
+        {
+            using (var stream = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+            {
+                ownsTemporary = true;
+                stream.Write(bytes);
+                stream.Flush(true);
+            }
+            _beforeCreate?.Invoke();
+            cancellationToken.ThrowIfCancellationRequested();
+            validate();
+            // No replacement or backup: this operation owns only its staging file.
+            File.Move(temporary, path, false);
+            ownsTemporary = false;
+        }
+        finally { if (ownsTemporary) TryDelete(temporary); }
+    }
 
     public void Write(string path, ReadOnlySpan<byte> bytes)
     {

@@ -82,7 +82,7 @@ public sealed class AuthoringDestructiveScopeWindowTests
     [AvaloniaFact]
     public void Nested_settings_changed_during_real_confirmation_reject_stale_impact_without_writes()
     {
-        using var fixture = Loaded(); var vm = fixture.ViewModel; vm.CreateProgram("nested"); var target = AddCatalog(fixture, CatalogDeletionKind.RequiredField);
+        using var fixture = Loaded(); var vm = fixture.ViewModel; vm.CreateDemoProgram("nested"); var target = AddCatalog(fixture, CatalogDeletionKind.RequiredField);
         vm.ApplyRecipe(AuthoringRecipeIds.Acquire); vm.ApplyRecipe(AuthoringRecipeIds.Repeat); Assert.True(vm.SaveAll().Succeeded); AuthoringUiFixture.Drain();
         OpenCatalogModal(fixture, CatalogDeletionKind.RequiredField, target);
         var nested = Assert.IsType<RepeatNode>(Assert.Single(vm.SelectedProgram!.Measure)); var metric = Assert.IsType<MetricNode>(Assert.Single(nested.Children));
@@ -182,7 +182,7 @@ public sealed class AuthoringDestructiveScopeWindowTests
             : Loaded();
         var vm = fixture.ViewModel;
         if (scenario == "legacy") { fixture.Show(); fixture.OpenRememberedWorkspace(); Settings(fixture); }
-        else if (scenario == "last") vm.CreateProgram("last");
+        else if (scenario == "last") vm.CreateDemoProgram("last");
         AuthoringUiFixture.Drain();
         Assert.False(fixture.Control<Button>("Remove instrument slot from selected program").IsEnabled);
         var text = fixture.Control<TextBlock>("Instrument removal guidance").Text;
@@ -307,7 +307,7 @@ public sealed class AuthoringDestructiveScopeWindowTests
     }
     private static void PrepareSlots(AuthoringUiFixture fixture)
     {
-        var vm = fixture.ViewModel; vm.CreateProgram("slots"); vm.NewInstrumentSlot = "B"; vm.AddInstrumentSlot(); vm.SelectedInstrumentSlot = "DMM"; vm.ApplyRecipe(AuthoringRecipeIds.Acquire); vm.ApplyRecipe(AuthoringRecipeIds.Repeat);
+        var vm = fixture.ViewModel; vm.CreateDemoProgram("slots"); vm.NewInstrumentSlot = "B"; vm.AddInstrumentSlot(); vm.SelectedInstrumentSlot = "DMM"; vm.ApplyRecipe(AuthoringRecipeIds.Acquire); vm.ApplyRecipe(AuthoringRecipeIds.Repeat);
         vm.SelectedInstrumentSlot = "DMM"; Assert.True(vm.SaveAll().Succeeded); Settings(fixture); fixture.Control<Button>("Remove instrument slot from selected program").BringIntoView(); AuthoringUiFixture.Drain();
     }
     private static Window Dialog(AuthoringUiFixture fixture) => Assert.Single(fixture.Window!.OwnedWindows);

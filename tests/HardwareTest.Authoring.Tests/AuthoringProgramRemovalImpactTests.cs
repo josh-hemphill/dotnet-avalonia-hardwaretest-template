@@ -22,7 +22,7 @@ public sealed class AuthoringProgramRemovalImpactTests : IDisposable
     [InlineData("selection")]
     public void Reviewed_program_removal_rejects_stale_content_session_and_selection_before_deleting_files(string change)
     {
-        var vm = new AuthoringWorkspaceViewModel(); vm.Open(_root); vm.CreateProgram("b"); vm.CreateProgram("a"); vm.ApplyRecipe(AuthoringRecipeIds.Acquire); Assert.True(vm.SaveAll().Succeeded);
+        var vm = new AuthoringWorkspaceViewModel(); vm.Open(_root); vm.CreateProgram("b"); vm.CreateDemoProgram("a"); vm.ApplyRecipe(AuthoringRecipeIds.Acquire); Assert.True(vm.SaveAll().Succeeded);
         var metric = Assert.IsType<MetricNode>(Assert.Single(vm.SelectedProgram!.Measure)); var settings = new Dictionary<string, string> { ["Samples"] = "2" };
         MeasureNode[] nodes = [new RepeatNode(2, [metric with { Metric = metric.Metric with { Source = new MeasureSource("DMM", AuthoringFunctionIds.BasicAcquireVoltage, settings) } }]), new RawStepNode("Raw", "<a/>")];
         vm.ReplaceSelected(vm.SelectedProgram with { Measure = nodes }); var selected = vm.SelectedProgram; var impact = vm.PrepareSelectedProgramRemoval();
@@ -43,7 +43,7 @@ public sealed class AuthoringProgramRemovalImpactTests : IDisposable
     [Fact]
     public void Applying_current_named_program_impact_deletes_only_reviewed_files()
     {
-        var vm = new AuthoringWorkspaceViewModel(); vm.Open(_root); vm.CreateProgram("b"); vm.CreateProgram("a"); Assert.True(vm.SaveAll().Succeeded);
+        var vm = new AuthoringWorkspaceViewModel(); vm.Open(_root); vm.CreateProgram("b"); vm.CreateDemoProgram("a"); Assert.True(vm.SaveAll().Succeeded);
         var bBytes = File.ReadAllBytes(Path.Combine(_root, "b.TapPlan")); var impact = vm.PrepareSelectedProgramRemoval();
         Assert.True(vm.ApplyProgramRemoval(impact)); Assert.False(File.Exists(impact.TapPlanPath)); Assert.False(File.Exists(impact.SidecarPath));
         Assert.Equal("b", Assert.Single(vm.Programs).PlanId); Assert.Equal(bBytes, File.ReadAllBytes(Path.Combine(_root, "b.TapPlan")));

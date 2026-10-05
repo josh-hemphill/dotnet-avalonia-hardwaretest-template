@@ -285,8 +285,8 @@ public sealed class AuthoringChromeA11yTests
         File.Copy(Path.Combine(src, "authoring.json"), Path.Combine(dest, "authoring.json"));
         var vm = new AuthoringWorkspaceViewModel();
         vm.Open(dest);
-        vm.CreateProgram("one");
-        vm.CreateProgram("two");
+        vm.CreateDemoProgram("one");
+        vm.CreateDemoProgram("two");
         vm.SelectProgram("two");
         vm.ReplaceSelected(vm.SelectedProgram! with
         {

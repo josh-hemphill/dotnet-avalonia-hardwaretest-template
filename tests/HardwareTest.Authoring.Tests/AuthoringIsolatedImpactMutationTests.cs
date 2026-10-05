@@ -49,7 +49,7 @@ public sealed class AuthoringIsolatedImpactMutationTests : IDisposable
     {
         var vm = new AuthoringWorkspaceViewModel();
         vm.Open(_root);
-        vm.CreateProgram("a");
+        vm.CreateDemoProgram("a");
         var original = vm.SelectedProgram! with
         {
             Setup = [new IdentitySetup("DMM"), new OperatorPromptSetup("prompt", "confirm"), new OperatorInputSetup("input", "title", "enter", "serial", "reading")],

@@ -5,8 +5,8 @@
     <TextBlock x:Name="ProgramsHeading" DockPanel.Dock="Top" FontWeight="SemiBold"
         Text="{Binding ProgramsTitle, FallbackValue=Programs}" AutomationProperties.HeadingLevel="1"
         ToolTip.Tip="{Binding ProgramsPurpose}" TextWrapping="Wrap"/>
-    <Button DockPanel.Dock="Top" Margin="0,0,0,8" Content="New program" Click="OnCreateProgram"
-        ToolTip.Tip="Seed Identity, Cleanup, and a Mock DMM slot" AutomationProperties.Name="New program"
+    <Button DockPanel.Dock="Top" Margin="0,0,0,8" Content="New test plan" Click="OnCreateProgram"
+        IsEnabled="{Binding CanInitializePlan}" ToolTip.Tip="Create an empty draft or explicitly choose a task and hardware" AutomationProperties.Name="New test plan"
         Classes="authoringAction"/>
     <Button DockPanel.Dock="Top" Margin="0,0,0,8" Content="{Binding RemoveProgramTitle}" Click="OnRemoveProgram"
         IsEnabled="{Binding CanRemoveSelectedProgram}" ToolTip.Tip="{Binding RemoveProgramPurpose}"

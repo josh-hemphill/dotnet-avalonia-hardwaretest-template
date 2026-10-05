@@ -12,7 +12,7 @@ public sealed class AuthoringMeasureInspectorTests
     public void Combo_box_choices_keep_identity_until_their_values_change()
     {
         var vm = OpenEmpty();
-        vm.CreateProgram("stable-choices");
+        vm.CreateDemoProgram("stable-choices");
         vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
         SelectMetric(vm, "VDC");
 
@@ -36,7 +36,7 @@ public sealed class AuthoringMeasureInspectorTests
     public void Acquire_inspector_edits_sample_count_and_function_id()
     {
         var vm = OpenEmpty();
-        vm.CreateProgram("acquire-settings");
+        vm.CreateDemoProgram("acquire-settings");
         vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
         var acquire = SelectMetric(vm, "VDC");
         Assert.True(vm.HasStepSettings);
@@ -69,7 +69,7 @@ public sealed class AuthoringMeasureInspectorTests
     public void Mean_gte_inspector_switches_algorithm_id()
     {
         var vm = OpenEmpty();
-        vm.CreateProgram("mean-function");
+        vm.CreateDemoProgram("mean-function");
         vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
         vm.ApplyRecipe(AuthoringRecipeIds.MeanGte);
         SelectMetric(vm, "VDC.mean");
@@ -94,7 +94,7 @@ public sealed class AuthoringMeasureInspectorTests
     public void Formula_and_identity_hide_step_settings()
     {
         var vm = OpenEmpty();
-        vm.CreateProgram("settings-gate");
+        vm.CreateDemoProgram("settings-gate");
         vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
         vm.ApplyRecipe(AuthoringRecipeIds.Formula);
         var formula = vm.SequenceItems.Single(row =>
@@ -127,7 +127,7 @@ public sealed class AuthoringMeasureInspectorTests
     public void Unknown_function_id_stays_in_options_and_unknown_set_is_ignored()
     {
         var vm = OpenEmpty();
-        vm.CreateProgram("unknown-function");
+        vm.CreateDemoProgram("unknown-function");
         vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
         SelectMetric(vm, "VDC");
         var source = Assert.IsType<MeasureSource>(vm.SelectedMetric!.Source);
@@ -150,7 +150,7 @@ public sealed class AuthoringMeasureInspectorTests
     public void Clearing_incomplete_history_text_preserves_omitted_history_and_undo_restores_text()
     {
         var vm = OpenEmpty();
-        vm.CreateProgram("history-incomplete");
+        vm.CreateDemoProgram("history-incomplete");
         vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
         SelectMetric(vm, "VDC");
         vm.Apply();
@@ -171,7 +171,7 @@ public sealed class AuthoringMeasureInspectorTests
     public void History_defaults_to_mixin_enabled_and_empty_watch_does_not_disable()
     {
         var vm = OpenEmpty();
-        vm.CreateProgram("history-default");
+        vm.CreateDemoProgram("history-default");
         vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
         SelectMetric(vm, "VDC");
         Assert.Null(vm.SelectedMetric!.History);
@@ -204,7 +204,7 @@ public sealed class AuthoringMeasureInspectorTests
         var root = EmptyWorkspace();
         var vm = new AuthoringWorkspaceViewModel();
         vm.Open(root);
-        vm.CreateProgram("history-off");
+        vm.CreateDemoProgram("history-off");
         vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
         SelectMetric(vm, "VDC");
         vm.HistoryEnabled = false;
@@ -225,7 +225,7 @@ public sealed class AuthoringMeasureInspectorTests
         var root = EmptyWorkspace();
         var vm = new AuthoringWorkspaceViewModel();
         vm.Open(root);
-        vm.CreateProgram("history-inspector");
+        vm.CreateDemoProgram("history-inspector");
         vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
         SelectMetric(vm, "VDC");
         vm.SetMetricSetting("SampleCount", "48");
@@ -265,7 +265,7 @@ public sealed class AuthoringMeasureInspectorTests
         var reopened = new AuthoringWorkspaceViewModel();
         try
         {
-            vm.Open(root); vm.CreateProgram("durable-setting"); vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
+            vm.Open(root); vm.CreateDemoProgram("durable-setting"); vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
             SelectMetric(vm, "VDC");
             var nodeId = vm.SelectedSequence!.NodeId;
             var rows = vm.MetricSettingRows;
@@ -306,7 +306,7 @@ public sealed class AuthoringMeasureInspectorTests
     [Fact]
     public void Binding_guards_reject_missing_and_unsupported_instruments_without_retargeting()
     {
-        var vm = OpenEmpty(); vm.CreateProgram("binding-guard"); vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
+        var vm = OpenEmpty(); vm.CreateDemoProgram("binding-guard"); vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
         vm.ReplaceSelected(vm.SelectedProgram! with { Instruments = [.. vm.SelectedProgram!.Instruments, new InstrumentRef("OPAQUE", "Unknown.Type", "unknown")] });
         SelectMetric(vm, "VDC");
         vm.MetricInstrumentSlot = "missing";
@@ -325,7 +325,7 @@ public sealed class AuthoringMeasureInspectorTests
     [Fact]
     public void Recipe_migration_retains_compatible_incomplete_text_and_undo_restores_removed_fields()
     {
-        var vm = OpenEmpty(); vm.CreateProgram("migration-text"); vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
+        var vm = OpenEmpty(); vm.CreateDemoProgram("migration-text"); vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
         SelectMetric(vm, "VDC");
         vm.SetMetricSetting("SampleCount", "1e-"); vm.SetMetricSetting("IntervalMs", "-");
         var nodeId = vm.SelectedSequence!.NodeId;
@@ -341,7 +341,7 @@ public sealed class AuthoringMeasureInspectorTests
     [Fact]
     public void Algorithm_inputs_edit_the_source_without_changing_display_or_criteria()
     {
-        var vm = OpenEmpty(); vm.CreateProgram("inputs"); vm.ApplyRecipe(AuthoringRecipeIds.MeanGte);
+        var vm = OpenEmpty(); vm.CreateDemoProgram("inputs"); vm.ApplyRecipe(AuthoringRecipeIds.MeanGte);
         SelectMetric(vm, "VDC.mean");
         var limits = vm.SelectedMetric!.Limits; var unit = vm.YUnit;
         Assert.False(vm.HasMetricInputs);
@@ -357,7 +357,7 @@ public sealed class AuthoringMeasureInspectorTests
         var root = EmptyWorkspace(); var vm = new AuthoringWorkspaceViewModel(); vm.Open(root);
         try
         {
-            vm.CreateProgram("binding-migration"); vm.ApplyRecipe(AuthoringRecipeIds.Acquire); SelectMetric(vm, "VDC");
+            vm.CreateDemoProgram("binding-migration"); vm.ApplyRecipe(AuthoringRecipeIds.Acquire); SelectMetric(vm, "VDC");
             var nodeId = vm.SelectedSequence!.NodeId;
             vm.MetricFunctionId = AuthoringFunctionIds.BasicPublishTimedSample;
             Assert.False(vm.NeedsMetricInstrument);
@@ -388,7 +388,7 @@ public sealed class AuthoringMeasureInspectorTests
         var root = EmptyWorkspace(); var vm = new AuthoringWorkspaceViewModel(); vm.Open(root);
         try
         {
-            vm.CreateProgram("consumed-input"); vm.ApplyRecipe(AuthoringRecipeIds.Acquire); vm.ApplyRecipe(AuthoringRecipeIds.MeanGte);
+            vm.CreateDemoProgram("consumed-input"); vm.ApplyRecipe(AuthoringRecipeIds.Acquire); vm.ApplyRecipe(AuthoringRecipeIds.MeanGte);
             SelectMetric(vm, "VDC.mean");
             vm.MetricFunctionId = AuthoringFunctionIds.BasicChannelAverage;
             Assert.True(vm.HasMetricInputs); Assert.Empty(vm.MetricInputChannels);
@@ -423,7 +423,7 @@ public sealed class AuthoringMeasureInspectorTests
         var root = EmptyWorkspace(); var vm = new AuthoringWorkspaceViewModel(); vm.Open(root);
         try
         {
-            vm.CreateProgram("input-count"); vm.ApplyRecipe(AuthoringRecipeIds.Acquire); vm.ApplyRecipe(AuthoringRecipeIds.MeanGte);
+            vm.CreateDemoProgram("input-count"); vm.ApplyRecipe(AuthoringRecipeIds.Acquire); vm.ApplyRecipe(AuthoringRecipeIds.MeanGte);
             SelectMetric(vm, "VDC.mean"); vm.MetricFunctionId = AuthoringFunctionIds.BasicChannelAverage;
             vm.MetricInputChannels = channels;
             Assert.Contains("exactly one", vm.SelectedStepErrors);

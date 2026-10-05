@@ -8,6 +8,8 @@ public sealed partial class AuthoringWorkspaceViewModel
         get
         {
             if (Workspace is null) return true;
+            if (_sourceDocuments.Values.Any(source => source.Measure.Length == 0
+                && AuthoringBuildInclusion.Includes(Workspace.Manifest, source.PlanId))) return true;
             if (_compiledConflicts.Any(id => AuthoringBuildInclusion.Includes(Workspace.Manifest, id))) return true;
             foreach (var id in _uncompiledDocuments.Where(id => AuthoringBuildInclusion.Includes(Workspace.Manifest, id)))
             {

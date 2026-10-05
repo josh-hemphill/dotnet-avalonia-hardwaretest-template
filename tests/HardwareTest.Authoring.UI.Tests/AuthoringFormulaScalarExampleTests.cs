@@ -39,7 +39,7 @@ public sealed class AuthoringFormulaScalarExampleTests
         var workspace = AuthoringWorkspaceLoader.Load(fixture.WorkspaceRoot); workspace.Manifest.Package.Name = "Scalar example inclusion";
         AuthoringWorkspaceLoader.SaveManifest(fixture.WorkspaceRoot, workspace.Manifest);
         fixture.Show(); fixture.OpenRememberedWorkspace();
-        var vm = fixture.ViewModel; vm.CreateProgram("scalar-example");
+        var vm = fixture.ViewModel; vm.CreateDemoProgram("scalar-example");
         vm.ApplyRecipe(AuthoringRecipeIds.Acquire); vm.ApplyRecipe(AuthoringRecipeIds.BandScalar); vm.ApplyRecipe(AuthoringRecipeIds.Formula);
         vm.FormulaSource = "mean(rail.mean)"; AuthoringUiFixture.Drain(); return fixture;
     }

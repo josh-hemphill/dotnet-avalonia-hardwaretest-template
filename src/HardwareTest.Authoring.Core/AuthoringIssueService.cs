@@ -1,3 +1,5 @@
+using HardwareTest.OpenTap.Host;
+
 namespace HardwareTest.Authoring;
 
 public sealed record AuthoringEditingIssue(string Code, string Message, string PlanId, Guid NodeId)
@@ -17,6 +19,24 @@ public static class AuthoringIssueService
     {
         var index = AuthoringDependencyIndex.Build(draft);
         var issues = new List<AuthoringEditingIssue>();
+        if (draft.Measure.Count == 0)
+            issues.Add(new("EMPTY_MEASURE", "Add a measurement and choose its hardware before deployment.", draft.PlanId, Guid.Empty));
+        if (RequiredFieldIds.Contains(RequiredFieldIds.FromSidecar(draft.Sidecar), RequiredFieldIds.Serial)
+            && !draft.Setup.OfType<IdentitySetup>().Any())
+            issues.Add(new("MISSING_IDENTITY", "DUT serial is required; add an instrument identity check before deployment.", draft.PlanId, Guid.Empty)
+            { Section = "ProgramSettings", Field = "RequireSerial" });
+        foreach (var incomplete in draft.AuthoringState.IncompleteNumericText)
+        {
+            var parts = incomplete.Key.Split('/', 2);
+            if (parts.Length != 2 || !Guid.TryParse(parts[0], out var nodeId)) continue;
+            // Native consumers and formulas already use the shared compiler input finding.
+            if (EnumerateMetricNodes(draft.Measure).Any(node => node.NodeId == nodeId
+                && node.Metric.Source is ExpressionAlgorithm or TransferFunctionAlgorithm
+                    or AlgorithmSource { AlgorithmId: AuthoringFunctionIds.BasicChannelAverage })) continue;
+            var field = parts[1].StartsWith("MetricSetting:", StringComparison.Ordinal) ? parts[1]["MetricSetting:".Length..] : parts[1];
+            issues.Add(new("INCOMPLETE_NUMERIC_INPUT", $"Complete {field} before compiling; saved input: '{incomplete.Value}'.", draft.PlanId, nodeId)
+            { Section = "Configure", Field = field });
+        }
         var sharedInputNodes = EnumerateMetricNodes(draft.Measure).Where(node => UsesCompilerInputValidation(node.Metric.Source))
             .Select(node => node.NodeId).ToHashSet();
         var channels = index.Nodes.Where(node => node.ProducedChannel is not null)

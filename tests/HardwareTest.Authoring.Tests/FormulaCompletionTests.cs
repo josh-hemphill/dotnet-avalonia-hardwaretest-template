@@ -58,7 +58,7 @@ public sealed class FormulaCompletionTests
     public void ApplyFormulaCompletion_no_ops_when_formula_is_not_selected()
     {
         var vm = OpenEmpty();
-        vm.CreateProgram("no-formula");
+        vm.CreateDemoProgram("no-formula");
         vm.ApplyRecipe(AuthoringRecipeIds.Formula);
         var identity = vm.SequenceItems.Single(row => row.Label == "Identity Check");
         vm.SelectSequence(vm.SequenceItems.ToList().IndexOf(identity));

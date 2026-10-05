@@ -24,6 +24,7 @@ public partial class MainWindow : Window
         InitializeComponent();
         DataContext = viewModel;
         InitializeShell();
+        InitializePlanCommands();
         InitializeLifecycle(lifecycleInteraction, workspacePicker);
         _viewModel.ConfigureRecoveryDispatch(action => Avalonia.Threading.Dispatcher.UIThread.Post(action));
         _viewModel.ConfigureOperations(CreateOperationRunner(),
@@ -89,8 +90,8 @@ public partial class MainWindow : Window
         TryRun(() => _viewModel.Apply());
     }
 
-    internal void OnCreateProgram(object? sender, RoutedEventArgs e)
-        => TryRun(() => _viewModel.CreateProgram());
+    internal async void OnCreateProgram(object? sender, RoutedEventArgs e)
+        => await ShowPlanInitializationAsync();
 
     internal async void OnRemoveProgram(object? sender, RoutedEventArgs e)
         => await ConfirmRemoveProgramAsync();
@@ -119,7 +120,7 @@ public partial class MainWindow : Window
         if (sender is ComboBox { DataContext: AuthoringSettingRow comboRow } combo)
         {
             var text = combo.SelectedItem as string ?? combo.Text ?? string.Empty;
-            if (!comboRow.ShouldCommitLostFocusText(text))
+            if (string.Equals(comboRow.Value, text, StringComparison.Ordinal) || !comboRow.ShouldCommitLostFocusText(text))
             {
                 return;
             }
@@ -141,7 +142,8 @@ public partial class MainWindow : Window
     internal void OnMetricSettingChoiceChanged(object? sender, SelectionChangedEventArgs e)
     {
         if (sender is ComboBox { DataContext: AuthoringSettingRow row } box
-            && box.SelectedItem is string selected)
+            && box.SelectedItem is string selected
+            && !string.Equals(row.Value, selected, StringComparison.Ordinal))
         {
             TryRun(() => _viewModel.SetMetricSetting(row.Key, selected));
         }

@@ -152,6 +152,38 @@ public sealed partial class AuthoringDocumentStore
         _writer.Write(path, bytes);
     }
 
+    /// Initialization alone uses create-new publication. Ordinary save keeps replacement semantics.
+    public void CreateNew(AuthoringDocumentDto document, CancellationToken cancellationToken = default, Action? validateWorkspace = null)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+        _ = document.ToDraft();
+        var id = document.PlanId;
+        var path = GetDocumentPath(id);
+        var bytes = JsonSerializer.SerializeToUtf8Bytes(document, AuthoringDocumentJsonContext.Default.AuthoringDocumentDto);
+        _writer.WriteNew(path, bytes, () =>
+        {
+            ValidateNewDestination(id);
+            validateWorkspace?.Invoke();
+        }, cancellationToken);
+    }
+
+    public string ValidateNewDestination(string id)
+    {
+        var path = GetDocumentPath(id);
+        var directory = Path.GetDirectoryName(path)!;
+        // Check directory names too, including case equivalents on case-sensitive hosts.
+        var parent = Path.GetDirectoryName(directory)!;
+        if (Directory.Exists(parent) && Directory.EnumerateFileSystemEntries(parent).Any(entry =>
+            string.Equals(Path.GetFileName(entry), Path.GetFileName(directory), StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(entry, directory, StringComparison.Ordinal)))
+            throw new IOException("A case-equivalent authoring draft directory already exists.");
+        if (File.Exists(directory)) throw new IOException("The authoring draft destination is a file.");
+        if (Directory.Exists(directory) && Directory.EnumerateFileSystemEntries(directory).Any(entry =>
+            string.Equals(Path.GetFileName(entry), Path.GetFileName(path), StringComparison.OrdinalIgnoreCase)))
+            throw new IOException($"Authoring destination '{id}' already exists; choose a different ID.");
+        return ValidatePath(path);
+    }
+
     public void DeleteSource(string id)
     {
         var path = GetDocumentPath(id);

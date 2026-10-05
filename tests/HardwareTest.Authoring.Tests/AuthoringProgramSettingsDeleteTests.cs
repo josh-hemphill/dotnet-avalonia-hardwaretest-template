@@ -11,7 +11,7 @@ public sealed class AuthoringProgramSettingsDeleteTests
     public void Built_in_catalog_rows_cannot_be_removed()
     {
         var vm = OpenEmpty();
-        vm.CreateProgram("protected");
+        vm.CreateDemoProgram("protected");
         Assert.False(vm.RequiredFieldChoices.Single(row => row.Id == RequiredFieldIds.Serial).CanRemove);
         Assert.False(vm.RequiredFieldChoices.Single(row => row.Id == RequiredFieldIds.PartNumber).CanRemove);
         Assert.False(vm.RequiredFieldChoices.Single(row => row.Id == RequiredFieldIds.Revision).CanRemove);
@@ -136,7 +136,7 @@ public sealed class AuthoringProgramSettingsDeleteTests
     public void Remove_instrument_slot_retargets_cleanup_and_keeps_workspace_catalog_names()
     {
         var vm = OpenEmpty();
-        vm.CreateProgram("slots-delete");
+        vm.CreateDemoProgram("slots-delete");
         vm.NewInstrumentSlot = "SCOPE";
         vm.AddInstrumentSlot();
         var cleanup = vm.SequenceItems.Single(row => row.Kind == SequenceRowKind.Cleanup);
@@ -163,7 +163,7 @@ public sealed class AuthoringProgramSettingsDeleteTests
     public void Remove_instrument_slot_retargets_identity_and_measure_to_remaining_slot()
     {
         var vm = OpenEmpty();
-        vm.CreateProgram("slots-retarget");
+        vm.CreateDemoProgram("slots-retarget");
         vm.NewInstrumentSlot = "SCOPE";
         vm.AddInstrumentSlot();
         vm.SelectedInstrumentSlot = "DMM";
@@ -188,7 +188,7 @@ public sealed class AuthoringProgramSettingsDeleteTests
     public void Remove_instrument_slot_retargets_nested_measure_sources()
     {
         var vm = OpenEmpty();
-        vm.CreateProgram("slots-nested");
+        vm.CreateDemoProgram("slots-nested");
         vm.NewInstrumentSlot = "SCOPE";
         vm.AddInstrumentSlot();
         vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
@@ -207,7 +207,7 @@ public sealed class AuthoringProgramSettingsDeleteTests
     public void Remove_instrument_slot_fails_closed_on_raw_and_unknown_nodes()
     {
         var vm = OpenEmpty();
-        vm.CreateProgram("slots-refs");
+        vm.CreateDemoProgram("slots-refs");
         vm.NewInstrumentSlot = "SCOPE";
         vm.AddInstrumentSlot();
         vm.ReplaceSelected(vm.SelectedProgram! with
@@ -226,10 +226,10 @@ public sealed class AuthoringProgramSettingsDeleteTests
     public void Remove_instrument_slot_keeps_catalog_when_another_program_still_uses_it()
     {
         var vm = OpenEmpty();
-        vm.CreateProgram("slots-keep-a");
+        vm.CreateDemoProgram("slots-keep-a");
         vm.NewInstrumentSlot = "SCOPE";
         vm.AddInstrumentSlot();
-        vm.CreateProgram("slots-keep-b");
+        vm.CreateDemoProgram("slots-keep-b", "SCOPE");
         Assert.Contains("SCOPE", vm.InstrumentSlots);
         vm.SelectProgram("slots-keep-a");
         vm.SelectedInstrumentSlot = "SCOPE";
@@ -336,7 +336,7 @@ public sealed class AuthoringProgramSettingsDeleteTests
     public void Duplicate_slot_names_cannot_delete_the_last_remaining_name()
     {
         var vm = OpenEmpty();
-        vm.CreateProgram("dup-slots");
+        vm.CreateDemoProgram("dup-slots");
         var typeId = vm.SelectedProgram!.Instruments[0].TypeId;
         vm.ReplaceSelected(vm.SelectedProgram with
         {
@@ -436,7 +436,7 @@ public sealed class AuthoringProgramSettingsDeleteTests
         var vm = OpenEmpty();
         vm.Workspace!.Manifest.Package.Name = "Duplicate channel fixture";
         Assert.True(vm.SaveAll().Succeeded);
-        vm.CreateProgram("slots-compile-fail");
+        vm.CreateDemoProgram("slots-compile-fail");
         vm.NewInstrumentSlot = "SCOPE";
         vm.AddInstrumentSlot();
         vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
@@ -483,7 +483,7 @@ public sealed class AuthoringProgramSettingsDeleteTests
     public void Unsaved_slot_delete_does_not_invent_tapplan_or_sidecar()
     {
         var vm = OpenEmpty();
-        vm.CreateProgram("unsaved-slot");
+        vm.CreateDemoProgram("unsaved-slot");
         vm.NewInstrumentSlot = "SCOPE";
         vm.AddInstrumentSlot();
         vm.SelectedInstrumentSlot = "SCOPE";
@@ -539,7 +539,7 @@ public sealed class AuthoringProgramSettingsDeleteTests
     public void Remove_instrument_slot_stages_existing_tapplan_instruments_until_explicit_save()
     {
         var vm = OpenEmpty();
-        vm.CreateProgram("slots-save");
+        vm.CreateDemoProgram("slots-save");
         vm.NewInstrumentSlot = "SCOPE";
         vm.AddInstrumentSlot();
         vm.ApplyRecipe(AuthoringRecipeIds.Acquire);

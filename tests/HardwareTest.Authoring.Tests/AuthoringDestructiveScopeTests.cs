@@ -214,7 +214,7 @@ public sealed class AuthoringDestructiveScopeTests : IDisposable
     [InlineData("workspace")]
     public void Catalog_impact_rejects_changed_recursive_content_or_session_before_mutation(string change)
     {
-        var vm = Open(); vm.CreateProgram("a"); AddField(vm); vm.ApplyRecipe(AuthoringRecipeIds.Acquire); vm.ApplyRecipe(AuthoringRecipeIds.Repeat);
+        var vm = Open(); vm.CreateDemoProgram("a"); AddField(vm); vm.ApplyRecipe(AuthoringRecipeIds.Acquire); vm.ApplyRecipe(AuthoringRecipeIds.Repeat);
         var settings = new Dictionary<string, string> { ["samples"] = "2" };
         var nested = Assert.IsType<RepeatNode>(Assert.Single(vm.SelectedProgram!.Measure)); var metric = Assert.IsType<MetricNode>(Assert.Single(nested.Children));
         vm.ReplaceSelected(vm.SelectedProgram with
@@ -263,7 +263,7 @@ public sealed class AuthoringDestructiveScopeTests : IDisposable
     [Fact]
     public void Explicit_chosen_replacement_retargets_all_known_references_and_preserves_original_and_null_policies()
     {
-        var vm = Open(); vm.CreateProgram("a"); AddSlots(vm); vm.ApplyRecipe(AuthoringRecipeIds.Acquire); vm.ApplyRecipe(AuthoringRecipeIds.Repeat);
+        var vm = Open(); vm.CreateDemoProgram("a"); AddSlots(vm); vm.ApplyRecipe(AuthoringRecipeIds.Acquire); vm.ApplyRecipe(AuthoringRecipeIds.Repeat);
         var sidecar = PlanCompiler.CloneSidecar(vm.SelectedProgram!.Sidecar); sidecar.CleanupInstrumentSlots = ["DMM", "C"]; sidecar.IncludeMeasureSlots = true;
         vm.ReplaceSelected(vm.SelectedProgram with { Sidecar = sidecar, Cleanup = new CleanupPolicy(true, ["DMM", "C"], true) });
         var original = vm.SelectedProgram; var impact = vm.PrepareSelectedInstrumentRemoval(); Assert.Equal(["B", "C"], impact.CompatibleReplacementSlots);
@@ -290,7 +290,7 @@ public sealed class AuthoringDestructiveScopeTests : IDisposable
     [InlineData("case-duplicate-last")]
     public void Instrument_removal_fails_closed_without_mutation_for_unprovable_usage_or_compatibility(string scenario)
     {
-        var vm = Open(); vm.CreateProgram("a"); vm.NewInstrumentSlot = "B"; vm.AddInstrumentSlot(); vm.SelectedInstrumentSlot = "DMM";
+        var vm = Open(); vm.CreateDemoProgram("a"); vm.NewInstrumentSlot = "B"; vm.AddInstrumentSlot(); vm.SelectedInstrumentSlot = "DMM";
         var p = vm.SelectedProgram!; var known = p.Instruments[0].TypeId;
         p = scenario switch
         {
@@ -317,7 +317,7 @@ public sealed class AuthoringDestructiveScopeTests : IDisposable
     [InlineData("nested-setting")]
     public void Instrument_impact_rejects_changed_target_or_content(string change)
     {
-        var vm = Open(); vm.CreateProgram("b"); vm.CreateProgram("a"); AddSlots(vm); vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
+        var vm = Open(); vm.CreateDemoProgram("b"); vm.CreateDemoProgram("a"); AddSlots(vm); vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
         var settings = new Dictionary<string, string> { ["samples"] = "2" }; var metric = Assert.IsType<MetricNode>(Assert.Single(vm.SelectedProgram!.Measure));
         vm.ReplaceSelected(vm.SelectedProgram with { Measure = [new RepeatNode(2, [metric with { Metric = metric.Metric with { Source = new MeasureSource("DMM", AuthoringFunctionIds.BasicAcquireVoltage, settings) } }])] });
         var impact = vm.PrepareSelectedInstrumentRemoval();

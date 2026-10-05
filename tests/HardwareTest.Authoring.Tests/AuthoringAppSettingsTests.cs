@@ -103,7 +103,7 @@ public sealed class AuthoringAppSettingsTests
         var vm = new AuthoringWorkspaceViewModel();
         vm.Open(NewWorkspace());
         vm.StopRecovery();
-        vm.CreateProgram("slot-loop");
+        vm.CreateDemoProgram("slot-loop");
         var identity = vm.SequenceItems.Single(row => row.Label == "Identity Check");
         vm.SelectSequence(vm.SequenceItems.ToList().IndexOf(identity));
         var program = vm.SelectedProgram;
@@ -194,7 +194,7 @@ public sealed class AuthoringAppSettingsTests
     {
         var vm = new AuthoringWorkspaceViewModel();
         vm.Open(NewWorkspace());
-        vm.CreateProgram("tf-loop");
+        vm.CreateDemoProgram("tf-loop");
         var identity = vm.SequenceItems.Single(row => row.Label == "Identity Check");
         vm.SelectSequence(vm.SequenceItems.ToList().IndexOf(identity));
         var programs = vm.Programs;

@@ -27,6 +27,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         OnPropertyChanged(nameof(BuildReadinessText));
         OnPropertyChanged(nameof(BuildPrograms));
         OnPropertyChanged(nameof(CanPack));
+        OnPropertyChanged(nameof(CanInitializePlan));
         OnPropertyChanged(nameof(DirtyProgramIds));
         OnPropertyChanged(nameof(PackGuardText));
     }

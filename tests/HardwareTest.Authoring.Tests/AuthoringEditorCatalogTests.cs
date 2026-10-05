@@ -239,7 +239,7 @@ public sealed class AuthoringProgramSettingsViewModelTests
     public void Instrument_visa_updates_the_named_slot()
     {
         var vm = OpenEmpty();
-        vm.CreateProgram("visa-slot");
+        vm.CreateDemoProgram("visa-slot");
         Assert.Equal(["DMM"], vm.InstrumentSlots);
         vm.SetInstrumentVisa("DMM", "TCPIP0::10.0.0.5::INSTR");
         Assert.Equal("TCPIP0::10.0.0.5::INSTR", vm.VisaAddress);
@@ -297,7 +297,7 @@ public sealed class AuthoringProgramSettingsViewModelTests
     public void Add_instrument_slot_is_selectable_and_rejects_duplicates()
     {
         var vm = OpenEmpty();
-        vm.CreateProgram("slots-add");
+        vm.CreateDemoProgram("slots-add");
         Assert.Equal(["DMM"], vm.InstrumentSlots);
         vm.NewInstrumentSlot = "SCOPE";
         vm.NewInstrumentVisa = "MOCK::SCOPE0";
@@ -323,7 +323,7 @@ public sealed class AuthoringProgramSettingsViewModelTests
         {
             InstrumentSlotNames = ["DMM", "PSU"],
         };
-        vm.CreateProgram("seeded-slots");
+        vm.CreateDemoProgram("seeded-slots", "PSU");
         Assert.Contains("DMM", vm.InstrumentSlots);
         Assert.Contains("PSU", vm.InstrumentSlots);
     }
@@ -332,7 +332,7 @@ public sealed class AuthoringProgramSettingsViewModelTests
     public void Transfer_function_method_is_a_closed_choice()
     {
         var vm = OpenEmpty();
-        vm.CreateProgram("tf-ui");
+        vm.CreateDemoProgram("tf-ui");
         vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
         vm.ApplyRecipe(AuthoringRecipeIds.TransferFunction);
         Assert.True(vm.HasTransferFunction);
@@ -366,7 +366,7 @@ public sealed class AuthoringProgramSettingsViewModelTests
     public void Identity_and_cleanup_slots_edit_the_selected_row()
     {
         var vm = OpenEmpty();
-        vm.CreateProgram("slots");
+        vm.CreateDemoProgram("slots");
         var identity = vm.SequenceItems.Single(row => row.Label == "Identity Check");
         vm.SelectSequence(vm.SequenceItems.ToList().IndexOf(identity));
         Assert.Equal("DMM", vm.SetupInstrumentSlot);
@@ -387,7 +387,7 @@ public sealed class AuthoringProgramSettingsViewModelTests
     public void Cleanup_can_include_multiple_slots_and_measure_slots()
     {
         var vm = OpenEmpty();
-        vm.CreateProgram("multi-cleanup");
+        vm.CreateDemoProgram("multi-cleanup");
         vm.NewInstrumentSlot = "SCOPE";
         vm.AddInstrumentSlot();
         vm.ApplyRecipe(AuthoringRecipeIds.Acquire);

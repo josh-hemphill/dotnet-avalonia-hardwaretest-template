@@ -14,7 +14,7 @@ public sealed partial class AuthoringWorkspaceViewModel
     public bool CanUndoWorkspace => Workspace is { IsReadOnly: false } && _workspaceHistory.CanUndo(CaptureWorkspace());
     public bool CanRedoWorkspace => Workspace is { IsReadOnly: false } && _workspaceHistory.CanRedo(CaptureWorkspace());
     public string WorkspaceHistoryHint => "Workspace Undo/Redo restores a catalog operation and its affected programs together. Intervening edits must be undone first.";
-    public IReadOnlyList<AuthoringEditingIssue> EditingIssues => Programs.SelectMany(AuthoringIssueService.GetIssues).ToArray();
+    public IReadOnlyList<AuthoringEditingIssue> EditingIssues => Programs.SelectMany(draft => AuthoringIssueService.GetIssues(draft, InstrumentCreationHome)).ToArray();
 
     public void Undo()
     {
