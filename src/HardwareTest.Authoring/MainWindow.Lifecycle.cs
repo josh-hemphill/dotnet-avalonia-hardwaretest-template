@@ -98,6 +98,14 @@ public partial class MainWindow
     private async Task DecideCloseAsync()
     {
         var current = OwnerContext();
+        var session = _viewModel.WorkspaceSessionId;
+        var closeScheduled = false;
+        bool RetainedSession() => !_ownerClosed && ReferenceEquals(DataContext, _viewModel) && session == _viewModel.WorkspaceSessionId;
+        void ResumeIfRetained()
+        {
+            if (!_ownerClosed && session == _viewModel.WorkspaceSessionId)
+                _viewModel.ResumeRecoveryAfterAbortedClose(RetainedSession);
+        }
         try
         {
             var decision = await ChooseTransitionAsync(contextIsCurrent: current);
@@ -107,15 +115,17 @@ public partial class MainWindow
             await _viewModel.StopRecoveryAsync();
             if (!current()) { _transitionInFlight = false; return; }
             // Even completed injected choices must unwind the first Closing event.
+            closeScheduled = true;
             Dispatcher.UIThread.Post(() =>
             {
-                if (!current()) { _transitionInFlight = false; return; }
+                if (!current()) { _transitionInFlight = false; ResumeIfRetained(); return; }
                 _closeApproved = true;
                 try { Close(); }
-                finally { _closeApproved = false; _transitionInFlight = false; }
+                finally { _closeApproved = false; _transitionInFlight = false; ResumeIfRetained(); }
             });
         }
         catch (Exception ex) { if (current()) _viewModel.ReportError(ex.Message); _transitionInFlight = false; }
+        finally { if (!closeScheduled) ResumeIfRetained(); }
     }
 }
 

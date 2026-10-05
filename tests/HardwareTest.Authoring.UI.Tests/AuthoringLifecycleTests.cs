@@ -159,6 +159,70 @@ public sealed class AuthoringLifecycleTests
         Assert.Equal("saved before transition", new PlanCompiler().Load(Path.Combine(fixture.WorkspaceRoot, planId + ".TapPlan")).Sidecar.DisplayName);
     }
 
+    [AvaloniaTheory]
+    [InlineData("timeout")]
+    [InlineData("hide")]
+    [InlineData("context")]
+    public async Task Aborted_close_resumes_recovery_only_after_its_original_writer_drains(string abort)
+    {
+        using var fixture = Loaded();
+        var vm = fixture.ViewModel;
+        await vm.StopRecoveryAsync();
+        var originalSource = File.ReadAllBytes(Path.Combine(fixture.WorkspaceRoot, "sample.TapPlan"));
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var release = new ManualResetEventSlim();
+        var oldNotifications = 0;
+        using var recovery = new AuthoringRecoveryCheckpointService(action => action(), _ => oldNotifications++, TimeSpan.Zero,
+            (path, document) =>
+            {
+                using (File.Open(path, FileMode.Create, FileAccess.Write, FileShare.None))
+                {
+                    entered.TrySetResult();
+                    if (!release.Wait(TimeSpan.FromSeconds(15))) throw new TimeoutException("Fixture writer was not released.");
+                }
+                new AuthoringDocumentStore(fixture.WorkspaceRoot).SaveAtPath(path, document);
+            });
+        var field = typeof(AuthoringWorkspaceViewModel).GetField("_recovery", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
+        field.SetValue(vm, recovery);
+        var transition = typeof(MainWindow).GetField("_transitionInFlight", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
+        var session = vm.WorkspaceSessionId;
+        var store = new AuthoringDocumentStore(fixture.WorkspaceRoot);
+        try
+        {
+            vm.DisplayName = "old held checkpoint";
+            await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            fixture.Interaction.Choice = UnsavedChangesChoice.Discard;
+            fixture.Window!.Close();
+            using var stopTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            while (field.GetValue(vm) is not null) { await Task.Delay(1, stopTimeout.Token); AuthoringUiFixture.Drain(); }
+            Assert.Null(field.GetValue(vm));
+            if (abort == "hide") { fixture.Window.Hide(); release.Set(); }
+            if (abort == "context") { fixture.Window.DataContext = new object(); release.Set(); }
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(7));
+            while ((bool)transition.GetValue(fixture.Window)!) { await Task.Delay(1, timeout.Token); AuthoringUiFixture.Drain(); }
+            if (abort == "hide") fixture.Window.Show();
+            if (abort == "context") { Assert.Null(field.GetValue(vm)); fixture.Window.DataContext = vm; }
+            if (abort == "timeout") Assert.Contains("timed out", vm.Error!, StringComparison.OrdinalIgnoreCase);
+            Assert.True(fixture.Window.IsVisible);
+            Assert.Equal(session, vm.WorkspaceSessionId);
+            Assert.False(File.Exists(store.GetRecoveryPath("sample")));
+            vm.DisplayName = "edited after aborted close";
+            if (abort == "timeout")
+            {
+                Assert.Null(field.GetValue(vm));
+                Assert.False(File.Exists(store.GetRecoveryPath("sample")));
+                release.Set();
+            }
+            using var checkpointTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            while (!File.Exists(store.GetRecoveryPath("sample"))) { await Task.Delay(1, checkpointTimeout.Token); AuthoringUiFixture.Drain(); }
+            Assert.Equal("edited after aborted close", store.LoadAtPath(store.GetRecoveryPath("sample")).Document!.ToDraft().Sidecar.DisplayName);
+            Assert.Equal(0, oldNotifications);
+            Assert.True(vm.HasUnsavedChanges);
+            Assert.Equal(originalSource, File.ReadAllBytes(Path.Combine(fixture.WorkspaceRoot, "sample.TapPlan")));
+        }
+        finally { release.Set(); fixture.Window!.DataContext = vm; if (!fixture.Window.IsVisible) fixture.Window.Show(); await vm.StopRecoveryAsync(); }
+    }
+
     private static async Task WaitForCloseAsync(MainWindow window)
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));

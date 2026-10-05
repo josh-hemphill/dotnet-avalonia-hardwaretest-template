@@ -8,6 +8,7 @@ public sealed partial class AuthoringWorkspaceViewModel
     private readonly HashSet<string> _compiledConflicts = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> _uncompiledDocuments = new(StringComparer.OrdinalIgnoreCase);
     private AuthoringRecoveryCheckpointService? _recovery;
+    private Func<bool>? _resumeRecoveryOwner;
     private readonly List<AuthoringRecoveryCheckpointService> _retiredRecovery = [];
     private long _recoveryGeneration;
     private Action<Action> _recoveryDispatch = action => action();
@@ -24,6 +25,7 @@ public sealed partial class AuthoringWorkspaceViewModel
     public void ConfigureRecoveryDispatch(Action<Action> dispatch) => _recoveryDispatch = dispatch;
     public void StopRecovery()
     {
+        _resumeRecoveryOwner = null;
         _recoveryGeneration++;
         if (_recovery is not { } service) return;
         service.Dispose();
@@ -38,6 +40,43 @@ public sealed partial class AuthoringWorkspaceViewModel
         await Task.WhenAll(owned.Select(service => service.StopAsync())).ConfigureAwait(false);
         lock (_retiredRecovery)
             foreach (var service in owned) _retiredRecovery.Remove(service);
+    }
+
+    public void ResumeRecoveryAfterAbortedClose(Func<bool> ownerRetainsSession)
+    {
+        ArgumentNullException.ThrowIfNull(ownerRetainsSession);
+        if (_recovery is not null || Workspace is not { IsReadOnly: false }) return;
+        _resumeRecoveryOwner = ownerRetainsSession;
+        if (!ownerRetainsSession()) return;
+        var generation = _recoveryGeneration;
+        var session = _workspaceSession;
+        AuthoringRecoveryCheckpointService[] owned;
+        lock (_retiredRecovery) owned = _retiredRecovery.ToArray();
+        _ = ResumeAfterDrainAsync();
+        async Task ResumeAfterDrainAsync()
+        {
+            try
+            {
+                // A timed-out stop retains its writers. Resume only after those exact writers release ownership.
+                await Task.WhenAll(owned.Select(service => service.DrainStoppedWritersAsync())).ConfigureAwait(false);
+                lock (_retiredRecovery) foreach (var service in owned) _retiredRecovery.Remove(service);
+                _recoveryDispatch(() =>
+                {
+                    if (!ownerRetainsSession() || generation != _recoveryGeneration || session != _workspaceSession || _recovery is not null
+                        || Workspace is not { IsReadOnly: false }) return;
+                    StartRecovery();
+                    ScheduleRecovery();
+                });
+            }
+            catch (Exception error)
+            {
+                _recoveryDispatch(() =>
+                {
+                    if (ownerRetainsSession() && generation == _recoveryGeneration && session == _workspaceSession)
+                        ReportError($"Recovery could not resume after closing was cancelled: {error.Message}");
+                });
+            }
+        }
     }
 
     private DraftWorkspace LoadWithSources(string root) => AuthoringSourceWorkspaceLoader.Load(root, _compiler);
@@ -117,14 +156,20 @@ public sealed partial class AuthoringWorkspaceViewModel
         // Unread excluded sources retain their bytes and become blockers immediately on inclusion.
         foreach (var id in store.ListDocumentIds())
             if (!AuthoringBuildInclusion.Includes(Workspace.Manifest, id) && !_sourceDocuments.ContainsKey(id)) _uncompiledDocuments.Add(id);
+        StartRecovery();
+        RaiseDraftState();
+    }
+
+    private void StartRecovery()
+    {
+        _resumeRecoveryOwner = null;
         var generation = _recoveryGeneration;
-        if (!Workspace.IsReadOnly) _recovery = new AuthoringRecoveryCheckpointService(action => _recoveryDispatch(action), result =>
+        if (Workspace is { IsReadOnly: false }) _recovery = new AuthoringRecoveryCheckpointService(action => _recoveryDispatch(action), result =>
         {
             if (generation != _recoveryGeneration || !_documents.TryGetValue(result.PlanId, out var active) || !active.IsDirty) return;
             if (result.IsSuccess) Status = $"Recovery checkpoint saved for {result.PlanId}; source remains unsaved.";
             else ReportError($"Recovery checkpoint failed; your draft remains open: {result.Error}");
         });
-        RaiseDraftState();
     }
 
     private bool CompiledChanged(AuthoringDocumentDto document)
@@ -136,7 +181,13 @@ public sealed partial class AuthoringWorkspaceViewModel
 
     private void ScheduleRecovery()
     {
-        if (_recovery is null || Workspace is null || Workspace.IsReadOnly) return;
+        if (Workspace is null || Workspace.IsReadOnly) return;
+        if (_recovery is null)
+        {
+            // A temporarily replaced owner may later return to this same editing session.
+            if (_resumeRecoveryOwner is { } owner) ResumeRecoveryAfterAbortedClose(owner);
+            return;
+        }
         foreach (var draft in Programs)
         {
             if (!_documents.TryGetValue(draft.PlanId, out var session)) continue;

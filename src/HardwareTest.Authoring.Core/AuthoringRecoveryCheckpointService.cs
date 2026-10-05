@@ -20,11 +20,13 @@ public sealed class AuthoringRecoveryCheckpointService : IDisposable
     private bool disposed;
     private readonly HashSet<Task> writers = [];
 
-    public async Task StopAsync()
+    public Task StopAsync() => DrainStoppedWritersAsync().WaitAsync(TimeSpan.FromSeconds(5));
+
+    internal Task DrainStoppedWritersAsync()
     {
         Task[] owned;
         lock (gate) { disposed = true; CancelAllCore(); owned = writers.ToArray(); }
-        await Task.WhenAll(owned).WaitAsync(TimeSpan.FromSeconds(5)).ConfigureAwait(false);
+        return Task.WhenAll(owned);
     }
 
     public AuthoringRecoveryCheckpointService(Action<Action> dispatch,

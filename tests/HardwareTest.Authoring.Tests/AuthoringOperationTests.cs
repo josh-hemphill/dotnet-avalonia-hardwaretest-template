@@ -74,6 +74,62 @@ public sealed class AuthoringOperationTests : IDisposable
     }
 
     [Fact]
+    public async Task Unwritable_control_marker_cannot_block_owned_scope_retry_after_staging_removal()
+    {
+        if (OperatingSystem.IsWindows()) Assert.Skip("Unix owned-session EOF/control-path boundary.");
+        var root = Workspace();
+        File.WriteAllText(Path.Combine(root, "fixture-wait"), "");
+        File.WriteAllText(Path.Combine(root, "fixture-spawn"), "");
+        var blocked = true;
+        var observations = 0;
+        var executable = Path.Combine(AppContext.BaseDirectory, "HardwareTest.Authoring.ProcessFixture");
+        var unrelatedStart = new ProcessStartInfo(executable) { UseShellExecute = false };
+        unrelatedStart.ArgumentList.Add("--descendant");
+        using var unrelated = Process.Start(unrelatedStart)!;
+        var runner = new AuthoringChildProcessRunner(executable)
+        {
+            BeforeExitVerification = () => { observations++; if (blocked) throw new IOException("Injected original scope query failure"); }
+        };
+        using var coordinator = new AuthoringOperationCoordinator(runner);
+        string? originalScope = null;
+        try
+        {
+            var running = coordinator.RunAsync(AuthoringOperationKind.Bootstrap, root);
+            await WaitFor(root, "fixture-descendant", operation: running);
+            var child = File.ReadAllLines(Path.Combine(root, "fixture-child.json"));
+            var owned = child[1]; roots.Add(owned); originalScope = owned;
+            // A directory occupying the stop-file path deterministically rejects the control write.
+            Directory.CreateDirectory(Path.Combine(owned, "host-stop"));
+            var descendant = int.Parse(File.ReadAllText(Path.Combine(root, "fixture-descendant")));
+            coordinator.Cancel();
+            var initialFailure = await Record.ExceptionAsync(() => running);
+            Assert.True(initialFailure is IOException or UnauthorizedAccessException);
+            Assert.False(Directory.Exists(owned));
+            Assert.False(coordinator.IsBusy); Assert.True(coordinator.HasPendingCleanup); Assert.True(runner.HasPendingReap);
+            for (var attempt = 0; attempt < 2; attempt++)
+            {
+                var failure = await Assert.ThrowsAnyAsync<IOException>(() => coordinator.StopAsync());
+                Assert.Equal("Injected original scope query failure", failure.Message);
+                Assert.True(coordinator.HasPendingCleanup); Assert.False(unrelated.HasExited);
+            }
+            blocked = false;
+            await coordinator.StopAsync();
+            Assert.False(coordinator.HasPendingCleanup); Assert.False(runner.HasPendingReap);
+            Assert.False(IsAlive(int.Parse(child[0]))); Assert.False(IsAlive(descendant)); Assert.False(unrelated.HasExited);
+            Assert.True(observations >= 4);
+            await coordinator.StopAsync();
+        }
+        finally
+        {
+            if (!unrelated.HasExited) unrelated.Kill();
+            await unrelated.WaitForExitAsync(); blocked = false;
+            // Baseline cleanup can still need its original private control directory after the assertion.
+            if (runner.HasPendingReap && originalScope is not null) Directory.CreateDirectory(originalScope);
+            await coordinator.StopAsync();
+        }
+    }
+
+    [Fact]
     public async Task Unix_scope_reaping_waits_for_live_root_and_leaf_after_anchor_exits()
     {
         if (OperatingSystem.IsWindows()) return;
