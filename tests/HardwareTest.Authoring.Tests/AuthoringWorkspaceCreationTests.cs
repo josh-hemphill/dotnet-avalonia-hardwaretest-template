@@ -264,6 +264,67 @@ public sealed class AuthoringWorkspaceCreationTests : IDisposable
         else Assert.Contains("Mock", Assert.Single(Assert.Single(loaded.Programs).Instruments).TypeId);
     }
 
+    [Theory]
+    [InlineData("workspace.authoring.json", false)]
+    [InlineData("workspace.authoring.json", true)]
+    [InlineData("voltage.authoring.json", false)]
+    public void Existing_root_rejects_changed_staged_sources_and_preserves_external_source_bytes(string sourceName, bool validCatalog)
+    {
+        var request = Request(template: WorkspaceTemplateKind.ProductVoltage); Directory.CreateDirectory(request.Destination);
+        var notes = Path.Combine(request.Destination, "notes.txt"); File.WriteAllText(notes, "keep existing bytes");
+        string? stage = null; string? source = null; string? changedBytes = null;
+        var initializer = new AuthoringWorkspaceInitializer(_ =>
+        {
+            if (stage is not null) return;
+            stage = Assert.Single(Directory.GetDirectories(request.Destination, ".ht-workspace-stage-*"));
+            source = Path.Combine(stage, "authoring-drafts", sourceName);
+            changedBytes = validCatalog ? File.ReadAllText(source).Replace("Workspace", "Changed catalog", StringComparison.Ordinal) : "externally invalid source JSON";
+            File.WriteAllText(source, changedBytes);
+        });
+        Assert.ThrowsAny<Exception>(() => initializer.Create(request));
+        Assert.False(File.Exists(Path.Combine(request.Destination, "authoring.json")));
+        Assert.False(Directory.Exists(Path.Combine(request.Destination, "plans")));
+        Assert.False(Directory.Exists(Path.Combine(request.Destination, "authoring-drafts")));
+        Assert.Equal("keep existing bytes", File.ReadAllText(notes));
+        Assert.Equal(changedBytes, File.ReadAllText(source!));
+        Assert.Equal([source!], Directory.GetFiles(stage!, "*", SearchOption.AllDirectories));
+    }
+
+    [Theory]
+    [InlineData(false, false, false)]
+    [InlineData(false, false, true)]
+    [InlineData(false, true, false)]
+    [InlineData(false, true, true)]
+    [InlineData(true, false, false)]
+    [InlineData(true, false, true)]
+    [InlineData(true, true, false)]
+    [InlineData(true, true, true)]
+    public void Staging_failure_or_cancellation_preserves_only_foreign_or_changed_bytes(bool existingRoot, bool cancel, bool changeOwnedFile)
+    {
+        var request = Request(template: WorkspaceTemplateKind.ProductVoltage);
+        if (existingRoot) Directory.CreateDirectory(request.Destination);
+        using var cancellation = new CancellationTokenSource();
+        string? stage = null; string? external = null;
+        var initializer = new AuthoringWorkspaceInitializer(_ =>
+        {
+            stage = Assert.Single(Directory.GetDirectories(existingRoot ? request.Destination : _parent, ".ht-workspace-stage-*"));
+            external = Path.Combine(stage, changeOwnedFile ? ".gitignore" : "foreign/notes.txt");
+            Directory.CreateDirectory(Path.GetDirectoryName(external)!);
+            File.WriteAllText(external, "retain external staged bytes");
+            if (cancel) cancellation.Cancel();
+            else throw new IOException("Injected failure after external staging write");
+        });
+        if (cancel) Assert.Throws<OperationCanceledException>(() => initializer.Create(request, cancellation.Token));
+        else Assert.Throws<IOException>(() => initializer.Create(request));
+        Assert.False(File.Exists(Path.Combine(request.Destination, "authoring.json")));
+        Assert.Equal("retain external staged bytes", File.ReadAllText(external!));
+        Assert.Equal([external!], Directory.GetFiles(stage!, "*", SearchOption.AllDirectories));
+        Assert.False(Directory.Exists(Path.Combine(stage!, "plans")));
+        Assert.False(Directory.Exists(Path.Combine(stage!, "authoring-drafts")));
+        if (!existingRoot) Assert.False(Directory.Exists(request.Destination));
+        else Assert.Equal([stage!], Directory.GetFileSystemEntries(request.Destination));
+    }
+
     [Fact]
     public void Empty_workspace_can_immediately_create_edit_save_and_reopen_an_incomplete_normal_document()
     {

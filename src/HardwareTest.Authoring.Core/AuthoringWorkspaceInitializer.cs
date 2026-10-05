@@ -73,33 +73,47 @@ public sealed partial class AuthoringWorkspaceInitializer
         var staging = Path.Combine(stagingParent, ".ht-workspace-stage-" + Guid.NewGuid().ToString("N"));
         var ownedFiles = new Dictionary<string, byte[]>();
         var ownedDirectories = new List<string>();
+        var stagedFiles = new Dictionary<string, byte[]>();
+        var stagedDirectories = new List<string>();
+        void RecordStagedFile(string relative)
+        {
+            var path = Path.Combine(staging, relative);
+            stagedFiles.Add(path, File.ReadAllBytes(new AuthoringDocumentStore(staging).ValidatePath(path)));
+        }
         try
         {
             Directory.CreateDirectory(staging);
+            stagedDirectories.Add(staging);
             Directory.CreateDirectory(Path.Combine(staging, "plans"));
-            CopySchema(staging, "authoring.schema.json"); CopySchema(staging, "authoring-draft.schema.json");
+            stagedDirectories.Add(Path.Combine(staging, "plans"));
+            Directory.CreateDirectory(Path.Combine(staging, "authoring-drafts"));
+            stagedDirectories.Add(Path.Combine(staging, "authoring-drafts"));
+            CopySchema(staging, "authoring.schema.json"); RecordStagedFile("authoring.schema.json");
+            CopySchema(staging, "authoring-draft.schema.json"); RecordStagedFile("authoring-draft.schema.json");
             using (var stream = new FileStream(Path.Combine(staging, ".gitignore"), FileMode.CreateNew, FileAccess.Write, FileShare.None))
             {
                 using var writer = new StreamWriter(stream, leaveOpen: true);
                 writer.Write(".authoring/\n*.bak\n*.saving\n*.creating\n");
                 writer.Flush(); stream.Flush(true);
             }
+            RecordStagedFile(".gitignore");
             new AuthoringDocumentStore(staging).SaveWorkspace(preview.Manifest);
+            RecordStagedFile("authoring-drafts/workspace.authoring.json");
             if (preview.Plan is { } plan)
             {
                 var document = AuthoringDocumentDto.FromDraft(plan.Draft);
                 document.RequiresCompilation = true;
                 new AuthoringDocumentStore(staging).CreateNew(document, cancellationToken);
+                RecordStagedFile($"authoring-drafts/{plan.Draft.PlanId}.authoring.json");
             }
             AuthoringWorkspaceLoader.SaveManifest(staging, preview.Manifest);
+            RecordStagedFile(AuthoringWorkspaceLoader.ManifestFileName);
             // Load the same source representation the application will open before publication.
             _ = AuthoringSourceWorkspaceLoader.Load(staging);
             cancellationToken.ThrowIfCancellationRequested();
             ValidateDestinations(preview.Destination, preview.Files);
             if (!Directory.Exists(preview.Destination))
             {
-                var stagedFiles = preview.Files.ToDictionary(relative => Path.Combine(staging, relative), relative => File.ReadAllBytes(Path.Combine(staging, relative)));
-                string[] stagedDirectories = [staging, Path.Combine(staging, "plans"), Path.Combine(staging, "authoring-drafts")];
                 _beforePublish?.Invoke(preview.Destination);
                 cancellationToken.ThrowIfCancellationRequested();
                 ValidateDestinations(preview.Destination, preview.Files);
@@ -115,6 +129,7 @@ public sealed partial class AuthoringWorkspaceInitializer
                 ownedDirectories.AddRange(stagedDirectories.Skip(1).Select(path => Path.Combine(preview.Destination, Path.GetRelativePath(staging, path))));
                 foreach (var file in stagedFiles)
                     ownedFiles.Add(Path.Combine(preview.Destination, Path.GetRelativePath(staging, file.Key)), file.Value);
+                stagedFiles.Clear(); stagedDirectories.Clear();
                 _afterRootMove?.Invoke(preview.Destination);
                 cancellationToken.ThrowIfCancellationRequested();
                 var workspace = AuthoringSourceWorkspaceLoader.Load(preview.Destination).Files;
@@ -129,11 +144,19 @@ public sealed partial class AuthoringWorkspaceInitializer
                 _beforePublish?.Invoke(destination);
                 cancellationToken.ThrowIfCancellationRequested();
                 ValidateDestinations(preview.Destination, preview.Files, ownedDirectories);
+                ValidateOwnedPublications(staging, stagedFiles, stagedDirectories);
+                ValidateOwnedPublications(preview.Destination, ownedFiles, ownedDirectories);
+                if (ownedDirectories.Count == 0) _ = AuthoringSourceWorkspaceLoader.Load(staging);
                 var source = Path.Combine(staging, relative);
-                var contents = Directory.GetFiles(source).ToDictionary(path => Path.Combine(destination, Path.GetFileName(path)), File.ReadAllBytes);
+                var contents = stagedFiles.Where(file => Path.GetDirectoryName(file.Key) == source).ToArray();
                 Directory.Move(source, destination);
                 ownedDirectories.Add(destination);
-                foreach (var file in contents) ownedFiles.Add(file.Key, file.Value);
+                stagedDirectories.Remove(source);
+                foreach (var file in contents)
+                {
+                    ownedFiles.Add(Path.Combine(destination, Path.GetFileName(file.Key)), file.Value);
+                    stagedFiles.Remove(file.Key);
+                }
             }
             foreach (var relative in preview.Files.Where(file => !file.StartsWith("authoring-drafts/", StringComparison.Ordinal)))
             {
@@ -141,35 +164,46 @@ public sealed partial class AuthoringWorkspaceInitializer
                 _beforePublish?.Invoke(destination);
                 cancellationToken.ThrowIfCancellationRequested();
                 ValidateDestinations(preview.Destination, [relative], ownedDirectories);
+                ValidateOwnedPublications(staging, stagedFiles, stagedDirectories);
                 ValidateOwnedPublications(preview.Destination, ownedFiles, ownedDirectories);
                 var source = Path.Combine(staging, relative);
-                var bytes = File.ReadAllBytes(source);
+                var bytes = stagedFiles[source];
                 File.Move(source, destination);
                 ownedFiles.Add(destination, bytes);
+                stagedFiles.Remove(source);
             }
-            return AuthoringWorkspaceLoader.Load(preview.Destination);
+            var published = AuthoringSourceWorkspaceLoader.Load(preview.Destination).Files;
+            ValidateOwnedPublications(staging, stagedFiles, stagedDirectories);
+            ValidateOwnedPublications(preview.Destination, ownedFiles, ownedDirectories);
+            cancellationToken.ThrowIfCancellationRequested();
+            return published;
         }
         catch
         {
-            foreach (var file in ownedFiles.Reverse())
-            {
-                try
-                {
-                    new AuthoringDocumentStore(preview.Destination).ValidatePath(file.Key);
-                    if (File.Exists(file.Key) && File.ReadAllBytes(file.Key).SequenceEqual(file.Value)) File.Delete(file.Key);
-                }
-                catch (IOException) { }
-                catch (UnauthorizedAccessException) { }
-            }
-            foreach (var directory in ownedDirectories.AsEnumerable().Reverse())
-            {
-                try { new AuthoringDocumentStore(preview.Destination).ValidatePath(directory); Directory.Delete(directory); }
-                catch (IOException) { }
-                catch (UnauthorizedAccessException) { }
-            }
+            CleanupOwned(preview.Destination, ownedFiles, ownedDirectories);
             throw;
         }
-        finally { if (Directory.Exists(staging)) Directory.Delete(staging, recursive: true); }
+        finally { CleanupOwned(staging, stagedFiles, stagedDirectories); }
+    }
+
+    private static void CleanupOwned(string root, IReadOnlyDictionary<string, byte[]> files, IReadOnlyList<string> directories)
+    {
+        foreach (var file in files.Reverse())
+        {
+            try
+            {
+                new AuthoringDocumentStore(root).ValidatePath(file.Key);
+                if (File.Exists(file.Key) && File.ReadAllBytes(file.Key).SequenceEqual(file.Value)) File.Delete(file.Key);
+            }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
+        }
+        foreach (var directory in directories.Reverse())
+        {
+            try { new AuthoringDocumentStore(root).ValidatePath(directory); Directory.Delete(directory); }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
+        }
     }
 
     private static void ValidateDestinations(string root, IReadOnlyList<string> files, IReadOnlyList<string>? ownedDirectories = null)
