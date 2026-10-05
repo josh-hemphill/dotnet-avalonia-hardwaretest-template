@@ -30,12 +30,8 @@ public partial class MainWindow
         try
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var originalWorkspace = _viewModel.Workspace;
             var originalDocument = _viewModel.SelectedDocument;
-            var originalSession = _viewModel.WorkspaceSessionId;
-            bool ContextIsCurrent() => !_ownerClosed && IsVisible && ReferenceEquals(DataContext, _viewModel) && originalSession == _viewModel.WorkspaceSessionId
-                && ReferenceEquals(originalWorkspace, _viewModel.Workspace)
-                && ReferenceEquals(originalDocument, _viewModel.SelectedDocument);
+            bool ContextIsCurrent() => current() && ReferenceEquals(originalDocument, _viewModel.SelectedDocument);
             // Validate and review conflicts before asking to leave the current document.
             var initializer = new AuthoringWorkspaceInitializer();
             _ = initializer.Preview(request);

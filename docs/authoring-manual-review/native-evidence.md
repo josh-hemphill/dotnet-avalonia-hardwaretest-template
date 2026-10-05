@@ -36,4 +36,14 @@ A visible repeat-count edit from 2 to 3 produced both an unsaved indicator and a
 
 A second fresh fixture was visibly edited from 2 to 4 repeats. Operating-system close followed by Save all exited successfully. The persisted authoring source has repeat count 4 and `requiresCompilation: false`; the compiled TapPlan has `<Count>4</Count>`. Reopening that exact workspace visibly showed repeat count 4 without an unsaved indicator; a clean close exited successfully. All three app processes exited with code 0.
 
+A subsequent creation-only owner guard allows Save all to compile a source-only plan within the same session before creating another workspace. The observations above remain tied to checkpoint 2c00274; they do not claim that later creation change was exercised. Its targeted native check is recorded separately.
+
 The test display has no window manager, so dialog focus was set explicitly. These observations establish actual Linux picker, palette, dirty-close, compilation, and reopen behavior. Ordinary window-manager focus, numeric text Ctrl+Z, Windows/macOS native interaction, engineer manual acceptance, and physical bench operation remain unverified; they are not claimed as passed.
+
+### Native source-only Save All followed by workspace creation
+
+The subsequent creation-only fix was exercised on an actual Linux X11 display using a fresh authoring publish from product checkpoint `3b4f216810c4cd33f9134f0841b74cd6468c85bd` (tree `9b7314095b47c676bb62676a870a6b253c6dd8dc`). A private copy of the compiled pass fixture was prepared as source-only: compiled plan and sidecar removed, primary and backup source marked as requiring compilation with no compiled hashes. It opened with repeat count 2. A visible edit to 3 showed unsaved state and a recovery checkpoint.
+
+Ctrl+Shift+N opened the actual creation form. After entering a new destination, display name and package name, reviewing the files, and selecting Create workspace, the actual dirty chooser appeared. Save all performed first compilation and completed creation. The original source persisted repeat count 3 with `requiresCompilation: false`, and its newly compiled TapPlan contains `<Count>3</Count>`. The main window visibly changed to “Native creation: 0 program(s)” with no unsaved indicator; preferences named the new destination. A clean operating-system close exited with code 0.
+
+This is targeted native evidence for the final creation guard. The earlier full picker/palette/Cancel/Discard/Save All/reopen matrix retains its separately recorded product provenance. The final evidence-only commit does not change product bytes. Dialog focus was explicit on a display without a window manager; numeric text Undo, ordinary desktop focus, native Windows/macOS, engineer acceptance and physical bench operation remain unverified.
