@@ -5,6 +5,7 @@ using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Avalonia.VisualTree;
+using HardwareTest.OpenTap.Host;
 using Xunit;
 
 namespace HardwareTest.Authoring.UI.Tests;
@@ -174,6 +175,43 @@ public sealed class AuthoringPlanInitializationTests
         var reopened = Assert.Single(fixture.ViewModel.SelectedProgram!.Instruments);
         Assert.Equal(instrument.TypeId, reopened.TypeId); Assert.Equal(instrument.SlotName, reopened.SlotName);
         Assert.Equal(instrument.VisaAddress, reopened.VisaAddress); Assert.Equal(instrument.Settings, reopened.Settings);
+    }
+
+    [AvaloniaFact]
+    public void Default_home_declared_VISA_payload_is_visible_in_hardware_review_and_saved_reopened_issues()
+    {
+        using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
+        var workspace = AuthoringWorkspaceLoader.Load(fixture.WorkspaceRoot);
+        workspace.Manifest.Dependencies.Add(new AuthoringPackageDependency { Package = OpenTapHomeBootstrapper.VisaPackageName, Version = "^0.1.0" });
+        AuthoringWorkspaceLoader.SaveManifest(fixture.WorkspaceRoot, workspace.Manifest);
+        fixture.Show(); fixture.OpenRememberedWorkspace();
+        var vm = fixture.ViewModel;
+        Assert.False(vm.HasUnsavedChanges); Assert.Empty(vm.OpenTapHomeOverride);
+        var home = Path.Combine(fixture.WorkspaceRoot, OpenTapHomeBootstrapper.DefaultHomeRelativePath);
+        AuthoringUiFixture.Click(fixture.Control<Button>("New test plan"));
+        var dialog = Assert.IsType<PlanInitializationWindow>(Assert.Single(fixture.Window!.OwnedWindows));
+        Type(fixture, dialog, "Stable plan ID", "default-real"); Next(fixture, dialog, "Starting point");
+        fixture.Control<ComboBox>("Starting point", dialog).SelectedIndex = 1;
+        Next(fixture, dialog, "Hardware"); fixture.Control<ComboBox>("Hardware choice", dialog).SelectedIndex = 1;
+        Type(fixture, dialog, "Instrument address", "TCPIP::192.0.2.1::INSTR");
+        var readiness = fixture.Control<TextBlock>("Hardware readiness", dialog).Text!;
+        Assert.Contains("dependency declared", readiness); Assert.Contains("Reinstall 'HardwareTest VISA'", readiness); Assert.Contains(home, readiness);
+        Next(fixture, dialog, "Setup and cleanup"); fixture.Control<CheckBox>("Check instrument identity", dialog).IsChecked = true;
+        Next(fixture, dialog, "First measurement and criterion"); Next(fixture, dialog, "Review and create");
+        Assert.Contains(home, fixture.Control<TextBlock>("Initialization review", dialog).Text);
+        Assert.Contains("Reinstall 'HardwareTest VISA'", fixture.Control<TextBlock>("Initialization review", dialog).Text);
+        AuthoringUiFixture.Click(fixture.Control<Button>("Create test plan", dialog));
+        Assert.Contains(vm.EditingIssues, issue => issue.PlanId == "default-real" && issue.Code == "INSTRUMENT_UNAVAILABLE");
+        Assert.Contains(home, Assert.Single(vm.HardwareRows).PackageStatus);
+        Assert.False(vm.HasUnsavedChanges); Assert.Empty(fixture.Window.OwnedWindows);
+        vm.SaveProgram("default-real"); vm.Open(fixture.WorkspaceRoot); vm.SelectProgram("default-real"); AuthoringUiFixture.Drain();
+        Assert.Contains(vm.EditingIssues, issue => issue.PlanId == "default-real" && issue.Code == "INSTRUMENT_UNAVAILABLE");
+        Assert.Equal("TCPIP::192.0.2.1::INSTR", Assert.Single(vm.SelectedProgram!.Instruments).VisaAddress);
+        Assert.False(vm.HasUnsavedChanges);
+        vm.OpenTapHomeOverride = Path.Combine(fixture.WorkspaceRoot, "other-missing-home"); AuthoringUiFixture.Drain();
+        Assert.Contains(vm.EditingIssues, issue => issue.PlanId == "default-real" && issue.Code == "INSTRUMENT_UNAVAILABLE" && issue.Message.Contains("other-missing-home", StringComparison.Ordinal));
+        vm.OpenTapHomeOverride = ""; AuthoringUiFixture.Drain();
+        Assert.Contains(vm.EditingIssues, issue => issue.PlanId == "default-real" && issue.Code == "INSTRUMENT_UNAVAILABLE" && issue.Message.Contains(home, StringComparison.Ordinal));
     }
 
     [AvaloniaFact]

@@ -54,7 +54,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         {
             WorkspaceRoot = Workspace.Root,
             ExistingPlanIds = Programs.Select(program => program.PlanId).ToArray(),
-            Home = InstrumentCreationHome
+            Home = HardwareInspectionHome
         };
     }
 

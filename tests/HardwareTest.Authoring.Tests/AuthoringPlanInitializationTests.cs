@@ -128,6 +128,48 @@ public sealed class AuthoringPlanInitializationTests : IDisposable
     }
 
     [Fact]
+    public void Default_home_readiness_matches_review_saved_reopened_issues_and_changed_home()
+    {
+        Workspace();
+        var workspace = AuthoringWorkspaceLoader.Load(_root);
+        workspace.Manifest.Dependencies.Add(new AuthoringPackageDependency { Package = OpenTapHomeBootstrapper.VisaPackageName, Version = "^0.1.0" });
+        AuthoringWorkspaceLoader.SaveManifest(_root, workspace.Manifest);
+        var vm = new AuthoringWorkspaceViewModel(); vm.Open(_root); vm.StopRecovery();
+        Assert.Empty(vm.OpenTapHomeOverride);
+        var adapter = AuthoringInstrumentCatalog.All.Single(item => item.DisplayName == "VISA DMM");
+        var request = Request() with { StartingPoint = PlanStartingPoint.VoltageTask, Instruments = [new("BENCH", adapter.TypeId, "TCPIP::192.0.2.1::INSTR")], IdentityInstrumentSlot = "BENCH" };
+        var home = Path.Combine(_root, OpenTapHomeBootstrapper.DefaultHomeRelativePath);
+        var review = vm.ReviewPlanInitialization(request);
+        Assert.Contains(review.Issues, issue => issue.Code == "INSTRUMENT_UNAVAILABLE" && issue.Message.Contains(home, StringComparison.Ordinal));
+        vm.InitializePlan(request);
+        Assert.Contains(vm.EditingIssues, issue => issue.PlanId == "new-plan" && issue.Code == "INSTRUMENT_UNAVAILABLE");
+        Assert.Contains(home, Assert.Single(vm.HardwareRows).PackageStatus);
+        Assert.False(vm.HasUnsavedChanges);
+        vm.SaveProgram("new-plan");
+        vm.Open(_root); vm.StopRecovery(); vm.SelectProgram("new-plan");
+        Assert.Contains(vm.EditingIssues, issue => issue.PlanId == "new-plan" && issue.Code == "INSTRUMENT_UNAVAILABLE");
+        Assert.Equal("BENCH", Assert.Single(vm.SelectedProgram!.Instruments).SlotName);
+        var available = Path.Combine(_root, "available-home");
+        var package = Path.Combine(available, "Packages", adapter.RequiredPackage); Directory.CreateDirectory(package);
+        var required = new[] { adapter.AssemblyFile }.Concat(adapter.RequiredPayloadFiles).ToArray();
+        new XDocument(new XElement("Package", new XAttribute("Name", adapter.RequiredPackage),
+            new XElement("Files", required.Select(file => new XElement("File", new XAttribute("Path", file)))))).Save(Path.Combine(package, "package.xml"));
+        foreach (var file in required) File.Copy(Path.Combine(AppContext.BaseDirectory, file), Path.Combine(package, file));
+        var notifications = new List<string?>(); vm.PropertyChanged += (_, change) => notifications.Add(change.PropertyName);
+        vm.OpenTapHomeOverride = available;
+        Assert.DoesNotContain(vm.EditingIssues, issue => issue.PlanId == "new-plan" && issue.Code == "INSTRUMENT_UNAVAILABLE");
+        Assert.Contains("available", Assert.Single(vm.HardwareRows).PackageStatus);
+        Assert.Contains(nameof(vm.EditingIssues), notifications); Assert.Contains(nameof(vm.HardwareRows), notifications);
+        vm.OpenTapHomeOverride = "";
+        Assert.Contains(vm.EditingIssues, issue => issue.PlanId == "new-plan" && issue.Code == "INSTRUMENT_UNAVAILABLE" && issue.Message.Contains(home, StringComparison.Ordinal));
+        vm.OpenTapHomeOverride = available;
+        File.Delete(Path.Combine(package, adapter.AssemblyFile));
+        Assert.Contains(vm.EditingIssues, issue => issue.PlanId == "new-plan" && issue.Code == "INSTRUMENT_UNAVAILABLE" && issue.Message.Contains(adapter.AssemblyFile, StringComparison.Ordinal));
+        Assert.Contains(adapter.AssemblyFile, Assert.Single(vm.HardwareRows).PackageStatus);
+        vm.SaveProgram("new-plan"); Assert.False(vm.HasUnsavedChanges);
+    }
+
+    [Fact]
     public void Task_choices_allow_explicitly_omitted_template_hardware_and_measurement_and_synchronize_operator_requirements()
     {
         var result = new AuthoringPlanInitializer().Create(Request() with
