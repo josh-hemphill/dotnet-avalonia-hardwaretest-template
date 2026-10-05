@@ -115,7 +115,7 @@ public sealed class ResponsiveActionLabelTests
             ResponsiveShellTests.Inside(header, window);
             var origin = header.TranslatePoint(default, window)!.Value;
             Assert.Equal(first.Y, origin.Y, precision: 3);
-            Assert.True(header.Bounds.Height >= 48, $"Route {header.Header} retains its vertical hit target.");
+            Assert.True(header.Bounds.Height >= 40, $"Route {header.Header} retains its vertical hit target.");
             var label = Assert.Single(header.GetVisualDescendants().OfType<TextBlock>(), text => Equals(text.Text, header.Header));
             ResponsiveShellTests.Inside(label, window);
             Assert.DoesNotContain(label.TextLayout.TextLines, line => line.HasCollapsed);

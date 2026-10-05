@@ -19,5 +19,12 @@ public static class TestAppBuilder
 
 public sealed class AuthoringTestApplication : Application
 {
-    public override void Initialize() => Styles.Add(new FluentTheme());
+    public override void Initialize()
+    {
+        Styles.Add(new FluentTheme());
+        Styles.Add(new Avalonia.Markup.Xaml.Styling.StyleInclude(new Uri("avares://HardwareTest.Authoring/"))
+        {
+            Source = new Uri("avares://HardwareTest.Authoring/AuthoringStyles.axaml")
+        });
+    }
 }

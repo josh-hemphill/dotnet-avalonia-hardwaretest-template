@@ -32,7 +32,7 @@ public sealed class AuthoringExpertCommandsTests
         }).ToDictionary(path => path, File.ReadAllBytes);
         var first = vm.Programs.Single(program => program.PlanId == "first-settings").Instruments[0];
         var later = vm.Programs.Single(program => program.PlanId == "later-settings").Instruments[0];
-        fixture.Control<Button>("Save sidecar").Focus();
+        fixture.Control<Button>("Save all").Focus();
         fixture.Window!.KeyPress(Key.N, RawInputModifiers.Control, PhysicalKey.None, null); AuthoringUiFixture.Drain();
         var dialog = Assert.IsType<PlanInitializationWindow>(Assert.Single(fixture.Window!.OwnedWindows));
         var id = fixture.Control<TextBox>("Stable plan ID", dialog); Assert.True(id.Focus()); id.SelectAll();
@@ -244,7 +244,7 @@ public sealed class AuthoringExpertCommandsTests
         var search = fixture.Control<TextBox>("Search commands", palette); search.Text = "Rename"; AuthoringUiFixture.Drain();
         Assert.Single(fixture.Control<ListBox>("Authoring commands", palette).Items.Cast<object>());
         AuthoringUiFixture.Click(palette.GetVisualDescendants().OfType<Button>().Single(button => Equals(button.Content, "Cancel")));
-        fixture.Control<Button>("Save sidecar").Focus(); fixture.Window!.KeyPress(Key.N, RawInputModifiers.Control, PhysicalKey.None, null); AuthoringUiFixture.Drain();
+        fixture.Control<Button>("Save all").Focus(); fixture.Window!.KeyPress(Key.N, RawInputModifiers.Control, PhysicalKey.None, null); AuthoringUiFixture.Drain();
         var dialog = Assert.IsType<PlanInitializationWindow>(Assert.Single(fixture.Window!.OwnedWindows));
         AuthoringUiFixture.Click(fixture.Control<Button>("Cancel", dialog));
         Assert.Empty(new AuthoringDocumentStore(fixture.WorkspaceRoot).ListDocumentIds());
@@ -257,14 +257,14 @@ public sealed class AuthoringExpertCommandsTests
         using var fixture = Loaded();
         var vm = fixture.ViewModel; vm.SelectMeasure(0);
         var original = vm.SelectedProgram!.Measure.Count;
-        fixture.Control<Button>("Save sidecar").Focus();
+        fixture.Control<Button>("Save all").Focus();
         fixture.Window!.KeyPress(Key.F2, RawInputModifiers.None, PhysicalKey.None, null); AuthoringUiFixture.Drain();
         var rename = Assert.Single(fixture.Window!.OwnedWindows);
         var name = fixture.Control<TextBox>("New step name", rename);
         name.Focus(); name.SelectAll(); rename.KeyTextInput("Keyboard renamed step");
         fixture.Control<Button>("Rename", rename).Focus(); rename.KeyPress(Key.Enter, RawInputModifiers.None, PhysicalKey.None, null); AuthoringUiFixture.Drain();
         Assert.Equal("Keyboard renamed step", vm.SequenceRename);
-        fixture.Control<Button>("Save sidecar").Focus();
+        fixture.Control<Button>("Save all").Focus();
         fixture.Window.KeyPress(Key.D, RawInputModifiers.Control, PhysicalKey.None, null); AuthoringUiFixture.Drain();
         Assert.Equal(original + 1, vm.SelectedProgram!.Measure.Count);
         fixture.Window.KeyPress(Key.Z, RawInputModifiers.Control, PhysicalKey.None, null); AuthoringUiFixture.Drain();
