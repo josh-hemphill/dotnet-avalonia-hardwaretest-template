@@ -135,6 +135,7 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
 
     public RunDataset? SelectedDataset
         => _selectedDatasetIndex < 0 || _selectedDatasetIndex >= _datasets.Count
+            || !MatchesRecordingChoice(_datasets[_selectedDatasetIndex])
             ? null
             : _datasets[_selectedDatasetIndex];
 
@@ -266,50 +267,6 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
         RestoreNodeSelection(SelectedDocument?.SelectedNodeId);
         RaiseSidecarProperties();
         RaiseHistoryProperties();
-    }
-
-    public void SelectDataset(int index)
-    {
-        var count = _datasets.Count;
-        var clamped = count == 0 || index < 0 ? -1 : Math.Clamp(index, 0, count - 1);
-        if (!SetField(ref _selectedDatasetIndex, clamped, nameof(SelectedDatasetIndex)))
-        {
-            OnPropertyChanged(nameof(SelectedDataset));
-            RaiseEditorProperties();
-            return;
-        }
-
-        OnPropertyChanged(nameof(SelectedDataset));
-        RaiseEditorProperties();
-    }
-
-    private void RefreshDatasets()
-    {
-        var all = _openingDatasets ?? (Workspace is null ? [] : RunDatasetCatalog.List(Workspace));
-        var planId = SelectedProgram?.PlanId;
-        _datasets = string.IsNullOrWhiteSpace(planId)
-            ? []
-            : all.Where(dataset =>
-                    string.Equals(dataset.Run.PlanId, planId, StringComparison.OrdinalIgnoreCase))
-                .ToArray();
-        _datasetItems = _datasets.Select(FormatDataset).ToArray();
-        _selectedDatasetIndex = _datasets.Count == 0
-            ? -1
-            : (_selectedDatasetIndex < 0 ? -1 : Math.Clamp(_selectedDatasetIndex, 0, _datasets.Count - 1));
-        OnPropertyChanged(nameof(Datasets));
-        OnPropertyChanged(nameof(DatasetItems));
-        OnPropertyChanged(nameof(SelectedDatasetIndex));
-        OnPropertyChanged(nameof(SelectedDataset));
-    }
-
-    private static string FormatDataset(RunDataset dataset)
-    {
-        var id = string.IsNullOrWhiteSpace(dataset.Run.RunId)
-            ? Path.GetFileName(Path.GetDirectoryName(dataset.Path)) ?? "run"
-            : dataset.Run.RunId;
-        return string.IsNullOrWhiteSpace(dataset.Run.DutSerial)
-            ? id
-            : $"{id} ({dataset.Run.DutSerial})";
     }
 
     public void ApplyRecipe(string recipeId)
