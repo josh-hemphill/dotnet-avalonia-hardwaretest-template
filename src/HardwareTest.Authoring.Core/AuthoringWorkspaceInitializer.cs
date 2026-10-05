@@ -73,19 +73,20 @@ public sealed partial class AuthoringWorkspaceInitializer
         // Existing roots may be mount points or have read-only parents. Stage on their
         // filesystem; new roots use a sibling so the final directory move stays atomic.
         var stagingParent = Directory.Exists(preview.Destination) ? preview.Destination : Path.GetDirectoryName(preview.Destination)!;
-        var staging = Path.Combine(stagingParent, ".ht-workspace-stage-" + Guid.NewGuid().ToString("N"));
-        var ownedFiles = new Dictionary<string, byte[]>();
+        var staging = WorkspacePath(stagingParent, ".ht-workspace-stage-" + Guid.NewGuid().ToString("N"));
+        var pathComparer = AuthoringDocumentStore.PathComparison == StringComparison.OrdinalIgnoreCase ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
+        var ownedFiles = new Dictionary<string, byte[]>(pathComparer);
         var ownedDirectories = new List<string>();
-        var stagedFiles = new Dictionary<string, byte[]>();
+        var stagedFiles = new Dictionary<string, byte[]>(pathComparer);
         var stagedDirectories = new List<string>();
         void RecordStagedFile(string relative)
         {
-            var path = Path.Combine(staging, relative);
+            var path = WorkspacePath(staging, relative);
             stagedFiles.Add(path, File.ReadAllBytes(new AuthoringDocumentStore(staging).ValidatePath(path)));
         }
         void WriteStagedFile(string relative, byte[] bytes)
         {
-            var path = new AuthoringDocumentStore(staging).ValidatePath(Path.Combine(staging, relative));
+            var path = new AuthoringDocumentStore(staging).ValidatePath(WorkspacePath(staging, relative));
             // Disable buffering so Dispose cannot add bytes after a failed-write snapshot.
             using var stream = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.None, bufferSize: 1);
             stagedFiles.Add(path, []); // Only the successful exclusive open claims this file.
@@ -113,10 +114,10 @@ public sealed partial class AuthoringWorkspaceInitializer
         {
             Directory.CreateDirectory(staging);
             stagedDirectories.Add(staging);
-            Directory.CreateDirectory(Path.Combine(staging, "plans"));
-            stagedDirectories.Add(Path.Combine(staging, "plans"));
-            Directory.CreateDirectory(Path.Combine(staging, "authoring-drafts"));
-            stagedDirectories.Add(Path.Combine(staging, "authoring-drafts"));
+            Directory.CreateDirectory(WorkspacePath(staging, "plans"));
+            stagedDirectories.Add(WorkspacePath(staging, "plans"));
+            Directory.CreateDirectory(WorkspacePath(staging, "authoring-drafts"));
+            stagedDirectories.Add(WorkspacePath(staging, "authoring-drafts"));
             WriteStagedFile("authoring.schema.json", ReadSchema("authoring.schema.json"));
             WriteStagedFile("authoring-draft.schema.json", ReadSchema("authoring-draft.schema.json"));
             WriteStagedFile(".gitignore", System.Text.Encoding.UTF8.GetBytes(".authoring/\n*.bak\n*.saving\n*.creating\n"));
@@ -149,9 +150,9 @@ public sealed partial class AuthoringWorkspaceInitializer
                 Directory.Move(staging, preview.Destination);
                 // Claim only the successful move, before any final load can fail.
                 ownedDirectories.Add(preview.Destination);
-                ownedDirectories.AddRange(stagedDirectories.Skip(1).Select(path => Path.Combine(preview.Destination, Path.GetRelativePath(staging, path))));
+                ownedDirectories.AddRange(stagedDirectories.Skip(1).Select(path => WorkspacePath(preview.Destination, Path.GetRelativePath(staging, path))));
                 foreach (var file in stagedFiles)
-                    ownedFiles.Add(Path.Combine(preview.Destination, Path.GetRelativePath(staging, file.Key)), file.Value);
+                    ownedFiles.Add(WorkspacePath(preview.Destination, Path.GetRelativePath(staging, file.Key)), file.Value);
                 stagedFiles.Clear(); stagedDirectories.Clear();
                 _afterRootMove?.Invoke(preview.Destination);
                 cancellationToken.ThrowIfCancellationRequested();
@@ -163,33 +164,33 @@ public sealed partial class AuthoringWorkspaceInitializer
             // Move whole staged directories exclusively; never claim a preexisting directory.
             foreach (var relative in new[] { "plans", "authoring-drafts" })
             {
-                var destination = Path.Combine(preview.Destination, relative);
+                var destination = WorkspacePath(preview.Destination, relative);
                 _beforePublish?.Invoke(destination);
                 cancellationToken.ThrowIfCancellationRequested();
                 ValidateDestinations(preview.Destination, preview.Files, ownedDirectories);
                 ValidateOwnedPublications(staging, stagedFiles, stagedDirectories);
                 ValidateOwnedPublications(preview.Destination, ownedFiles, ownedDirectories);
                 if (ownedDirectories.Count == 0) _ = AuthoringSourceWorkspaceLoader.Load(staging);
-                var source = Path.Combine(staging, relative);
-                var contents = stagedFiles.Where(file => Path.GetDirectoryName(file.Key) == source).ToArray();
+                var source = WorkspacePath(staging, relative);
+                var contents = stagedFiles.Where(file => AuthoringDocumentStore.SamePath(Path.GetDirectoryName(file.Key)!, source, isDirectory: true)).ToArray();
                 Directory.Move(source, destination);
                 ownedDirectories.Add(destination);
-                stagedDirectories.Remove(source);
+                stagedDirectories.RemoveAll(path => AuthoringDocumentStore.SamePath(path, source, isDirectory: true));
                 foreach (var file in contents)
                 {
-                    ownedFiles.Add(Path.Combine(destination, Path.GetFileName(file.Key)), file.Value);
+                    ownedFiles.Add(WorkspacePath(destination, Path.GetFileName(file.Key)), file.Value);
                     stagedFiles.Remove(file.Key);
                 }
             }
             foreach (var relative in preview.Files.Where(file => !file.StartsWith("authoring-drafts/", StringComparison.Ordinal)))
             {
-                var destination = Path.Combine(preview.Destination, relative);
+                var destination = WorkspacePath(preview.Destination, relative);
                 _beforePublish?.Invoke(destination);
                 cancellationToken.ThrowIfCancellationRequested();
                 ValidateDestinations(preview.Destination, [relative], ownedDirectories);
                 ValidateOwnedPublications(staging, stagedFiles, stagedDirectories);
                 ValidateOwnedPublications(preview.Destination, ownedFiles, ownedDirectories);
-                var source = Path.Combine(staging, relative);
+                var source = WorkspacePath(staging, relative);
                 var bytes = stagedFiles[source];
                 File.Move(source, destination);
                 ownedFiles.Add(destination, bytes);
@@ -215,15 +216,15 @@ public sealed partial class AuthoringWorkspaceInitializer
         {
             try
             {
-                new AuthoringDocumentStore(root).ValidatePath(file.Key);
-                if (File.Exists(file.Key) && File.ReadAllBytes(file.Key).SequenceEqual(file.Value)) File.Delete(file.Key);
+                var path = new AuthoringDocumentStore(root).ValidatePath(file.Key);
+                if (File.Exists(path) && File.ReadAllBytes(path).SequenceEqual(file.Value)) File.Delete(path);
             }
             catch (IOException) { }
             catch (UnauthorizedAccessException) { }
         }
         foreach (var directory in directories.Reverse())
         {
-            try { new AuthoringDocumentStore(root).ValidatePath(directory); Directory.Delete(directory); }
+            try { Directory.Delete(new AuthoringDocumentStore(root).ValidatePath(directory)); }
             catch (IOException) { }
             catch (UnauthorizedAccessException) { }
         }
@@ -232,18 +233,18 @@ public sealed partial class AuthoringWorkspaceInitializer
     private static void ValidateDestinations(string root, IReadOnlyList<string> files, IReadOnlyList<string>? ownedDirectories = null)
     {
         var store = new AuthoringDocumentStore(root);
-        foreach (var path in new[] { root }.Concat(new[] { "plans", "authoring-drafts" }.Select(relative => Path.Combine(root, relative))).Concat(files.Select(relative => Path.Combine(root, relative))))
+        foreach (var path in new[] { root }.Concat(new[] { "plans", "authoring-drafts" }.Select(relative => WorkspacePath(root, relative))).Concat(files.Select(relative => WorkspacePath(root, relative))))
         {
             store.ValidatePath(path);
             for (string? cursor = path; cursor is not null; cursor = Path.GetDirectoryName(cursor))
             {
                 var parent = Path.GetDirectoryName(cursor);
                 if (parent is not null && Directory.Exists(parent) && Directory.EnumerateFileSystemEntries(parent).Any(entry =>
-                    string.Equals(Path.GetFileName(entry), Path.GetFileName(cursor), StringComparison.OrdinalIgnoreCase) && entry != cursor))
+                    string.Equals(Path.GetFileName(entry), Path.GetFileName(cursor), StringComparison.OrdinalIgnoreCase) && !AuthoringDocumentStore.SamePath(entry, cursor, isDirectory: true)))
                     throw new IOException($"Case-equivalent destination exists: {cursor}");
             }
-            if (path == root) { if (File.Exists(root)) throw new IOException("Workspace destination is a file."); continue; }
-            if (ownedDirectories?.Contains(path) == true)
+            if (AuthoringDocumentStore.SamePath(path, root, isDirectory: true)) { if (File.Exists(root)) throw new IOException("Workspace destination is a file."); continue; }
+            if (ownedDirectories?.Any(directory => AuthoringDocumentStore.SamePath(directory, path, isDirectory: true)) == true)
             {
                 if (!Directory.Exists(path)) throw new IOException($"Created workspace directory changed: {path}");
                 continue;
@@ -252,18 +253,24 @@ public sealed partial class AuthoringWorkspaceInitializer
         }
     }
 
-    private static void ValidateOwnedPublications(string root, IReadOnlyDictionary<string, byte[]> files, IReadOnlyList<string> directories)
+    internal static void ValidateOwnedPublications(string root, IReadOnlyDictionary<string, byte[]> files, IReadOnlyList<string> directories)
     {
         var store = new AuthoringDocumentStore(root);
         foreach (var directory in directories)
         {
-            if (!Directory.Exists(store.ValidatePath(directory)) || Directory.EnumerateFileSystemEntries(directory).Any(entry => !files.ContainsKey(entry) && !directories.Contains(entry)))
+            if (!Directory.Exists(store.ValidatePath(directory)) || Directory.EnumerateFileSystemEntries(directory).Any(entry => !files.Keys.Any(path => AuthoringDocumentStore.SamePath(path, entry))
+                && !directories.Any(path => AuthoringDocumentStore.SamePath(path, entry, isDirectory: true))))
                 throw new IOException($"Created workspace directory changed: {directory}");
         }
         foreach (var file in files)
-            if (!File.Exists(store.ValidatePath(file.Key)) || !File.ReadAllBytes(file.Key).SequenceEqual(file.Value))
+        {
+            var path = store.ValidatePath(file.Key);
+            if (!File.Exists(path) || !File.ReadAllBytes(path).SequenceEqual(file.Value))
                 throw new IOException($"Created workspace file changed before manifest publication: {file.Key}");
+        }
     }
+
+    private static string WorkspacePath(params string[] segments) => Path.GetFullPath(Path.Combine(segments));
 
     private static byte[] ReadSchema(string name)
     {

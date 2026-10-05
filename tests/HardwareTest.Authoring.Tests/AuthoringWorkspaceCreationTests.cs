@@ -308,7 +308,7 @@ public sealed class AuthoringWorkspaceCreationTests : IDisposable
         var initializer = new AuthoringWorkspaceInitializer(_ =>
         {
             stage = Assert.Single(Directory.GetDirectories(existingRoot ? request.Destination : _parent, ".ht-workspace-stage-*"));
-            external = Path.Combine(stage, changeOwnedFile ? ".gitignore" : "foreign/notes.txt");
+            external = Path.GetFullPath(Path.Combine(stage, changeOwnedFile ? ".gitignore" : "foreign/notes.txt"));
             Directory.CreateDirectory(Path.GetDirectoryName(external)!);
             File.WriteAllText(external, "retain external staged bytes");
             if (cancel) cancellation.Cancel();
@@ -389,6 +389,44 @@ public sealed class AuthoringWorkspaceCreationTests : IDisposable
         Assert.False(Directory.Exists(request.Destination));
         Assert.Equal(externalBytes, File.ReadAllBytes(external!));
         Assert.Equal([external!], Directory.GetFiles(stage!, "*", SearchOption.AllDirectories));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Owned_inventory_matches_native_paths_with_equivalent_separator_and_dot_aliases(bool includeRoot)
+    {
+        var root = Request().Destination; var drafts = Path.Combine(root, "authoring-drafts");
+        Directory.CreateDirectory(drafts);
+        var file = Path.Combine(drafts, "workspace.authoring.json"); byte[] bytes = [1, 2, 3]; File.WriteAllBytes(file, bytes);
+        // On Windows these spellings mix '/' with the root's native '\\' separators.
+        var fileAlias = root + "/authoring-drafts/./workspace.authoring.json";
+        var directoryAlias = root + "/./authoring-drafts/";
+        var directories = includeRoot ? new[] { root + "/.", directoryAlias } : [directoryAlias];
+        AuthoringWorkspaceInitializer.ValidateOwnedPublications(root, new Dictionary<string, byte[]> { [fileAlias] = bytes }, directories);
+        File.WriteAllBytes(file, [9]);
+        Assert.Throws<IOException>(() => AuthoringWorkspaceInitializer.ValidateOwnedPublications(root, new Dictionary<string, byte[]> { [fileAlias] = bytes }, directories));
+        Assert.Equal(new byte[] { 9 }, File.ReadAllBytes(file));
+    }
+
+    [Fact]
+    public void Owned_inventory_uses_actual_platform_case_identity_and_preserves_distinct_names()
+    {
+        var root = Request().Destination; var drafts = Path.Combine(root, "authoring-drafts");
+        Directory.CreateDirectory(drafts);
+        var file = Path.Combine(drafts, "SOURCE.json"); byte[] bytes = [1, 2, 3]; File.WriteAllBytes(file, bytes);
+        var alias = Path.Combine(drafts, "source.json");
+        var files = new Dictionary<string, byte[]> { [alias] = bytes };
+        if (OperatingSystem.IsWindows()) AuthoringWorkspaceInitializer.ValidateOwnedPublications(root, files, [drafts]);
+        else Assert.Throws<IOException>(() => AuthoringWorkspaceInitializer.ValidateOwnedPublications(root, files, [drafts]));
+        Assert.Equal(bytes, File.ReadAllBytes(file));
+        if (OperatingSystem.IsLinux())
+        {
+            File.WriteAllBytes(alias, [9]);
+            Assert.Equal(2, Directory.GetFiles(drafts).Length);
+            Assert.Throws<IOException>(() => AuthoringWorkspaceInitializer.ValidateOwnedPublications(root, files, [drafts]));
+            Assert.Equal(bytes, File.ReadAllBytes(file)); Assert.Equal(new byte[] { 9 }, File.ReadAllBytes(alias));
+        }
     }
 
     public void Dispose() => Directory.Delete(_parent, recursive: true);
