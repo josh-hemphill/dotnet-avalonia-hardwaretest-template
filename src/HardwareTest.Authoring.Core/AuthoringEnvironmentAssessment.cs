@@ -91,29 +91,35 @@ public static class AuthoringEnvironmentAssessment
         foreach (var file in XDocument.Load(metadata).Descendants().Where(e => e.Name.LocalName == "File"))
         {
             var relative = (string?)file.Attribute("Path");
-            if (string.IsNullOrWhiteSpace(relative) || Path.IsPathRooted(relative)
-                || relative.Replace('\\', '/').Split('/').Contains(".."))
-                throw new AuthoringWorkspaceException("Unsafe declared package payload path.");
+            if (string.IsNullOrWhiteSpace(relative)) { available = false; continue; }
             relative = relative.Replace('\\', Path.DirectorySeparatorChar).Replace('/', Path.DirectorySeparatorChar);
             var path = Path.GetFullPath(Path.Combine(package, relative));
             // Inspect every declaration even when another payload is missing. An unsafe
             // package-relative candidate must not borrow a safe home-root fallback.
-            if (ExistingContainedFile(home.Root, path) is null
-                && ExistingContainedFile(home.Root, Path.GetFullPath(Path.Combine(home.Root, relative))) is null) available = false;
+            if (ExistingContainedFile(home.Root, path) is not null) continue;
+            var fallback = Path.GetFullPath(Path.Combine(home.Root, relative));
+            // Parent segments may legitimately stay inside the home from the package
+            // directory while making a home-root fallback inapplicable.
+            try { AuthoringBuildService.EnsureContained(home.Root, fallback); }
+            catch (AuthoringWorkspaceException) { available = false; continue; }
+            if (ExistingContainedFile(home.Root, fallback) is null) available = false;
         }
         return available;
     }
 
-    internal static IReadOnlyList<PackPreflightFinding> BuildBlockers(AuthoringManifest manifest, OpenTapHome home)
+    internal static IReadOnlyList<PackPreflightFinding> BuildBlockers(AuthoringManifest manifest, OpenTapHome home, bool allowMissingHome = false)
     {
         var findings = new List<PackPreflightFinding>();
-        foreach (var file in RuntimeFileNames.Where(file => !RuntimeFileAvailable(home, file)))
-            findings.Add(new("PACK_RUNTIME_MISSING", $"Required OpenTAP runtime file '{file}' is missing or resolves outside this home; bootstrap this home.", true, home.Root));
         var unsafePaths = UnsafeInstalledPaths(home);
+        var inspectAvailability = !allowMissingHome || Directory.Exists(home.Root);
+        if (inspectAvailability)
+            foreach (var file in RuntimeFileNames.Where(file => !RuntimeFileAvailable(home, file)))
+                findings.Add(new("PACK_RUNTIME_MISSING", $"Required OpenTAP runtime file '{file}' is missing or resolves outside this home; bootstrap this home.", true, home.Root));
         foreach (var failure in unsafePaths)
             findings.Add(new("PACK_HOME_UNSAFE", "Unsafe installed package path: " + failure, true, home.Root));
-        foreach (var requirement in Packages(manifest, home, unsafePaths.Count != 0).Where(p => !p.Optional && !p.Satisfied))
-            findings.Add(new("PACK_PACKAGE_MISSING", requirement.DisplayText + "; prepare or import an offline package into this home.", true, home.Root));
+        if (inspectAvailability)
+            foreach (var requirement in Packages(manifest, home, unsafePaths.Count != 0).Where(p => !p.Optional && !p.Satisfied))
+                findings.Add(new("PACK_PACKAGE_MISSING", requirement.DisplayText + "; prepare or import an offline package into this home.", true, home.Root));
         return findings;
     }
 

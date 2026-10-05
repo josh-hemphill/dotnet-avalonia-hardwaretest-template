@@ -20,8 +20,7 @@ public sealed partial class AuthoringWorkspaceViewModel
             ? AuthoringEnvironmentAssessment.RuntimeFiles(new(path!)) : [error!];
     public string EnvironmentRecoveryText => "Prepare the selected isolated authoring home from bundled prerequisites, or import a trusted offline .TapPackage/.zip. Required version mismatches must be repaired before build. These actions do not install a bench.";
     private IReadOnlyList<PackPreflightFinding> KnownEnvironmentBlockers => Workspace is not null && EnvironmentPathError is null
-        && Directory.Exists(AuthoringHomeText)
-        ? AuthoringEnvironmentAssessment.BuildBlockers(Workspace.Manifest, new(AuthoringHomeText)) : [];
+        ? AuthoringEnvironmentAssessment.BuildBlockers(Workspace.Manifest, new(AuthoringHomeText), allowMissingHome: true) : [];
     private bool HasKnownEnvironmentBlockers => KnownEnvironmentBlockers.Count != 0;
     private string EnvironmentBlockerText
     {

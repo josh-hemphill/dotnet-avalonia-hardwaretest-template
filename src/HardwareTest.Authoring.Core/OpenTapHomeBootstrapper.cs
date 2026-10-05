@@ -87,6 +87,8 @@ public sealed class OpenTapHomeBootstrapper : IOpenTapHomeBootstrapper
             AssertNoVisa(homeRoot);
         }
         var home = new OpenTapHome(homeRoot);
+        var unsafePaths = AuthoringEnvironmentAssessment.UnsafeInstalledPaths(home);
+        if (unsafePaths.Count != 0) throw new AuthoringWorkspaceException(string.Join("; ", unsafePaths));
         if (string.IsNullOrWhiteSpace(options.OfflinePackagePath))
         {
             var missing = AuthoringEnvironmentAssessment.Packages(workspace.Manifest, home).Where(p => !p.Optional && !p.Satisfied).ToArray();

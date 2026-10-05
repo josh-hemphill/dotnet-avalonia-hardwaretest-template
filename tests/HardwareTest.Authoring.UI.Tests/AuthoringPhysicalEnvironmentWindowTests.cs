@@ -16,6 +16,16 @@ public sealed class AuthoringPhysicalEnvironmentWindowTests
     [InlineData(false, "metadata")]
     [InlineData(true, "payload")]
     [InlineData(false, "payload")]
+    [InlineData(true, "cycle")]
+    [InlineData(false, "cycle")]
+    [InlineData(true, "cycle-ancestor")]
+    [InlineData(false, "cycle-ancestor")]
+    [InlineData(true, "dangling")]
+    [InlineData(false, "dangling")]
+    [InlineData(true, "dangling-ancestor")]
+    [InlineData(false, "dangling-ancestor")]
+    [InlineData(true, "missing-linked-child")]
+    [InlineData(false, "missing-linked-child")]
     public void Rendered_pack_rejects_unsafe_existing_optional_or_undeclared_engine_home(bool optional, string kind)
     {
         if (OperatingSystem.IsWindows()) return;
@@ -30,10 +40,25 @@ public sealed class AuthoringPhysicalEnvironmentWindowTests
         fixture.ViewModel.Open(workspace.Root); fixture.ViewModel.OpenTapHomeOverride = home.Root;
         var window = fixture.Show(); window.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 4; AuthoringUiFixture.Drain();
         Assert.True(fixture.ViewModel.CanPack); Assert.True(fixture.Control<Button>("Pack workspace").IsEnabled);
+        fixture.ViewModel.OpenTapHomeOverride = Path.Combine(workspace.Root, "genuinely-missing-home"); AuthoringUiFixture.Drain();
+        Assert.True(fixture.ViewModel.CanPack); Assert.True(fixture.Control<Button>("Pack workspace").IsEnabled);
+        fixture.ViewModel.OpenTapHomeOverride = home.Root; AuthoringUiFixture.Drain();
         var source = Path.Combine(workspace.Root, "sample.TapPlan"); var sourceBytes = File.ReadAllBytes(source);
         var outside = Path.Combine(workspace.Root, "outside-home"); Directory.CreateDirectory(outside);
         var selected = home.Root;
-        if (kind == "home")
+        if (kind == "missing-linked-child")
+        {
+            var link = Path.Combine(workspace.Root, "linked-home"); Directory.CreateSymbolicLink(link, outside);
+            selected = Path.Combine(link, "absent-home"); Assert.False(Directory.Exists(selected)); Assert.False(File.Exists(selected));
+        }
+        else if (kind is "cycle" or "cycle-ancestor" or "dangling" or "dangling-ancestor")
+        {
+            var link = Path.Combine(workspace.Root, "linked-home");
+            Directory.CreateSymbolicLink(link, kind.StartsWith("cycle", StringComparison.Ordinal) ? link : Path.Combine(outside, "absent-target"));
+            selected = kind.EndsWith("ancestor", StringComparison.Ordinal) ? Path.Combine(link, "child") : link;
+            Assert.False(Directory.Exists(selected));
+        }
+        else if (kind == "home")
         {
             selected = Path.Combine(workspace.Root, "linked-home"); Directory.CreateSymbolicLink(selected, home.Root);
         }
@@ -51,7 +76,8 @@ public sealed class AuthoringPhysicalEnvironmentWindowTests
         }
         fixture.ViewModel.OpenTapHomeOverride = selected + Path.DirectorySeparatorChar; AuthoringUiFixture.Drain();
         Assert.False(fixture.ViewModel.CanPack); Assert.False(fixture.Control<Button>("Pack workspace").IsEnabled);
-        Assert.Contains("unsafe", fixture.Control<TextBlock>("Pack save guard").Text!, StringComparison.OrdinalIgnoreCase);
+        if (fixture.ViewModel.EnvironmentPathError is { } pathError) Assert.Equal(pathError, fixture.Control<TextBlock>("Pack save guard").Text);
+        else Assert.Contains("unsafe", fixture.Control<TextBlock>("Pack save guard").Text!, StringComparison.OrdinalIgnoreCase);
         Assert.False(fixture.ViewModel.HasUnsavedChanges); Assert.Equal(sourceBytes, File.ReadAllBytes(source));
         Assert.Null(fixture.ViewModel.LastBuildReceipt); Assert.Equal("Not checked", fixture.ViewModel.CompatibilityState);
     }
