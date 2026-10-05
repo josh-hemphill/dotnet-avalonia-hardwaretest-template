@@ -186,6 +186,71 @@ public sealed class AuthoringWorkspaceCreationTests : IDisposable
     }
 
     [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public void New_root_post_move_load_failure_or_cancellation_rolls_back_only_owned_bytes(bool cancel, bool externalChanges)
+    {
+        var request = Request(template: WorkspaceTemplateKind.ProductVoltage);
+        using var cancellation = new CancellationTokenSource();
+        var reachedMovedRoot = false;
+        var initializer = new AuthoringWorkspaceInitializer(_ => { }, afterRootMove: root =>
+        {
+            reachedMovedRoot = true;
+            Assert.Equal(request.Destination, root);
+            Assert.True(File.Exists(Path.Combine(root, "authoring.json")));
+            if (externalChanges)
+            {
+                File.WriteAllText(Path.Combine(root, ".gitignore"), "external changed bytes");
+                File.WriteAllText(Path.Combine(root, "notes.txt"), "foreign root bytes");
+                File.WriteAllText(Path.Combine(root, "authoring-drafts", "notes.txt"), "foreign draft bytes");
+            }
+            if (cancel) cancellation.Cancel();
+            else Directory.Delete(Path.Combine(root, "plans"));
+        });
+        if (cancel) Assert.Throws<OperationCanceledException>(() => initializer.Create(request, cancellation.Token));
+        else Assert.Throws<AuthoringWorkspaceException>(() => initializer.Create(request));
+        Assert.True(reachedMovedRoot);
+        Assert.False(File.Exists(Path.Combine(request.Destination, "authoring.json")));
+        Assert.Empty(Directory.GetDirectories(_parent, ".ht-workspace-stage-*"));
+        if (!externalChanges) Assert.False(Directory.Exists(request.Destination));
+        else
+        {
+            Assert.Equal("external changed bytes", File.ReadAllText(Path.Combine(request.Destination, ".gitignore")));
+            Assert.Equal("foreign root bytes", File.ReadAllText(Path.Combine(request.Destination, "notes.txt")));
+            Assert.Equal("foreign draft bytes", File.ReadAllText(Path.Combine(request.Destination, "authoring-drafts", "notes.txt")));
+            Assert.Equal(3, Directory.GetFiles(request.Destination, "*", SearchOption.AllDirectories).Length);
+            Assert.False(Directory.Exists(Path.Combine(request.Destination, "plans")));
+        }
+    }
+
+    [Fact]
+    public void Final_staging_corruption_aborts_without_publishing_a_new_root()
+    {
+        var request = Request();
+        var initializer = new AuthoringWorkspaceInitializer(_ => { }, stage => Directory.Delete(Path.Combine(stage, "plans")));
+        Assert.ThrowsAny<Exception>(() => initializer.Create(request));
+        Assert.False(Directory.Exists(request.Destination));
+        Assert.Empty(Directory.GetFileSystemEntries(_parent));
+    }
+
+    [Fact]
+    public void Racing_preexisting_root_is_never_claimed_or_removed_when_move_fails()
+    {
+        var request = Request();
+        var initializer = new AuthoringWorkspaceInitializer(_ => { }, _ =>
+        {
+            Directory.CreateDirectory(request.Destination);
+            File.WriteAllText(Path.Combine(request.Destination, "notes.txt"), "racing root bytes");
+        });
+        Assert.Throws<IOException>(() => initializer.Create(request));
+        Assert.Equal("racing root bytes", File.ReadAllText(Path.Combine(request.Destination, "notes.txt")));
+        Assert.Equal([request.Destination], Directory.GetFileSystemEntries(_parent));
+        Assert.Single(Directory.GetFileSystemEntries(request.Destination));
+    }
+
+    [Theory]
     [InlineData(WorkspaceTemplateKind.Empty)]
     [InlineData(WorkspaceTemplateKind.DemoVoltage)]
     public void Physical_package_is_an_explicit_setting_and_never_implies_hardware(WorkspaceTemplateKind kind)

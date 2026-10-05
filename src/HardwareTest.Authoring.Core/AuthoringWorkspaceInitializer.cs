@@ -8,11 +8,13 @@ public sealed partial class AuthoringWorkspaceInitializer
 {
     private readonly Action<string>? _beforePublish;
     private readonly Action<string>? _beforeRootMove;
+    private readonly Action<string>? _afterRootMove;
     public AuthoringWorkspaceInitializer() { }
-    internal AuthoringWorkspaceInitializer(Action<string> beforePublish, Action<string>? beforeRootMove = null)
+    internal AuthoringWorkspaceInitializer(Action<string> beforePublish, Action<string>? beforeRootMove = null, Action<string>? afterRootMove = null)
     {
         _beforePublish = beforePublish;
         _beforeRootMove = beforeRootMove;
+        _afterRootMove = afterRootMove;
     }
 
     public WorkspaceCreationPreview Preview(WorkspaceCreationRequest request)
@@ -96,13 +98,29 @@ public sealed partial class AuthoringWorkspaceInitializer
             ValidateDestinations(preview.Destination, preview.Files);
             if (!Directory.Exists(preview.Destination))
             {
+                var stagedFiles = preview.Files.ToDictionary(relative => Path.Combine(staging, relative), relative => File.ReadAllBytes(Path.Combine(staging, relative)));
+                string[] stagedDirectories = [staging, Path.Combine(staging, "plans"), Path.Combine(staging, "authoring-drafts")];
                 _beforePublish?.Invoke(preview.Destination);
                 cancellationToken.ThrowIfCancellationRequested();
                 ValidateDestinations(preview.Destination, preview.Files);
                 _beforeRootMove?.Invoke(staging);
                 cancellationToken.ThrowIfCancellationRequested();
+                ValidateOwnedPublications(staging, stagedFiles, stagedDirectories);
+                _ = AuthoringSourceWorkspaceLoader.Load(staging);
+                cancellationToken.ThrowIfCancellationRequested();
+                ValidateDestinations(preview.Destination, preview.Files);
                 Directory.Move(staging, preview.Destination);
-                return AuthoringWorkspaceLoader.Load(preview.Destination);
+                // Claim only the successful move, before any final load can fail.
+                ownedDirectories.Add(preview.Destination);
+                ownedDirectories.AddRange(stagedDirectories.Skip(1).Select(path => Path.Combine(preview.Destination, Path.GetRelativePath(staging, path))));
+                foreach (var file in stagedFiles)
+                    ownedFiles.Add(Path.Combine(preview.Destination, Path.GetRelativePath(staging, file.Key)), file.Value);
+                _afterRootMove?.Invoke(preview.Destination);
+                cancellationToken.ThrowIfCancellationRequested();
+                var workspace = AuthoringSourceWorkspaceLoader.Load(preview.Destination).Files;
+                ValidateOwnedPublications(preview.Destination, ownedFiles, ownedDirectories);
+                cancellationToken.ThrowIfCancellationRequested();
+                return workspace;
             }
             // Move whole staged directories exclusively; never claim a preexisting directory.
             foreach (var relative in new[] { "plans", "authoring-drafts" })
@@ -182,7 +200,7 @@ public sealed partial class AuthoringWorkspaceInitializer
         var store = new AuthoringDocumentStore(root);
         foreach (var directory in directories)
         {
-            if (!Directory.Exists(store.ValidatePath(directory)) || Directory.EnumerateFileSystemEntries(directory).Any(entry => !files.ContainsKey(entry)))
+            if (!Directory.Exists(store.ValidatePath(directory)) || Directory.EnumerateFileSystemEntries(directory).Any(entry => !files.ContainsKey(entry) && !directories.Contains(entry)))
                 throw new IOException($"Created workspace directory changed: {directory}");
         }
         foreach (var file in files)
