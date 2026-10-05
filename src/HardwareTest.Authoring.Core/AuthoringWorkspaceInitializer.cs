@@ -9,12 +9,15 @@ public sealed partial class AuthoringWorkspaceInitializer
     private readonly Action<string>? _beforePublish;
     private readonly Action<string>? _beforeRootMove;
     private readonly Action<string>? _afterRootMove;
+    private readonly Action<string, Stream, ReadOnlyMemory<byte>>? _stagingWriter;
     public AuthoringWorkspaceInitializer() { }
-    internal AuthoringWorkspaceInitializer(Action<string> beforePublish, Action<string>? beforeRootMove = null, Action<string>? afterRootMove = null)
+    internal AuthoringWorkspaceInitializer(Action<string> beforePublish, Action<string>? beforeRootMove = null, Action<string>? afterRootMove = null,
+        Action<string, Stream, ReadOnlyMemory<byte>>? stagingWriter = null)
     {
         _beforePublish = beforePublish;
         _beforeRootMove = beforeRootMove;
         _afterRootMove = afterRootMove;
+        _stagingWriter = stagingWriter;
     }
 
     public WorkspaceCreationPreview Preview(WorkspaceCreationRequest request)
@@ -80,6 +83,32 @@ public sealed partial class AuthoringWorkspaceInitializer
             var path = Path.Combine(staging, relative);
             stagedFiles.Add(path, File.ReadAllBytes(new AuthoringDocumentStore(staging).ValidatePath(path)));
         }
+        void WriteStagedFile(string relative, byte[] bytes)
+        {
+            var path = new AuthoringDocumentStore(staging).ValidatePath(Path.Combine(staging, relative));
+            // Disable buffering so Dispose cannot add bytes after a failed-write snapshot.
+            using var stream = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.None, bufferSize: 1);
+            stagedFiles.Add(path, []); // Only the successful exclusive open claims this file.
+            try
+            {
+                if (_stagingWriter is null) stream.Write(bytes);
+                else _stagingWriter(path, stream, bytes);
+                stagedFiles[path] = bytes;
+                stream.Flush(true);
+            }
+            catch
+            {
+                try
+                {
+                    var length = stream.Length;
+                    // Never adopt observed foreign contents: retain the intended prefix only.
+                    if (length <= bytes.Length) stagedFiles[path] = bytes[..(int)length];
+                }
+                catch (IOException) { }
+                catch (ObjectDisposedException) { }
+                throw;
+            }
+        }
         try
         {
             Directory.CreateDirectory(staging);
@@ -88,15 +117,9 @@ public sealed partial class AuthoringWorkspaceInitializer
             stagedDirectories.Add(Path.Combine(staging, "plans"));
             Directory.CreateDirectory(Path.Combine(staging, "authoring-drafts"));
             stagedDirectories.Add(Path.Combine(staging, "authoring-drafts"));
-            CopySchema(staging, "authoring.schema.json"); RecordStagedFile("authoring.schema.json");
-            CopySchema(staging, "authoring-draft.schema.json"); RecordStagedFile("authoring-draft.schema.json");
-            using (var stream = new FileStream(Path.Combine(staging, ".gitignore"), FileMode.CreateNew, FileAccess.Write, FileShare.None))
-            {
-                using var writer = new StreamWriter(stream, leaveOpen: true);
-                writer.Write(".authoring/\n*.bak\n*.saving\n*.creating\n");
-                writer.Flush(); stream.Flush(true);
-            }
-            RecordStagedFile(".gitignore");
+            WriteStagedFile("authoring.schema.json", ReadSchema("authoring.schema.json"));
+            WriteStagedFile("authoring-draft.schema.json", ReadSchema("authoring-draft.schema.json"));
+            WriteStagedFile(".gitignore", System.Text.Encoding.UTF8.GetBytes(".authoring/\n*.bak\n*.saving\n*.creating\n"));
             new AuthoringDocumentStore(staging).SaveWorkspace(preview.Manifest);
             RecordStagedFile("authoring-drafts/workspace.authoring.json");
             if (preview.Plan is { } plan)
@@ -242,12 +265,12 @@ public sealed partial class AuthoringWorkspaceInitializer
                 throw new IOException($"Created workspace file changed before manifest publication: {file.Key}");
     }
 
-    private static void CopySchema(string root, string name)
+    private static byte[] ReadSchema(string name)
     {
         using var source = typeof(AuthoringWorkspaceInitializer).Assembly.GetManifestResourceStream("HardwareTest.Authoring." + name)
             ?? throw new InvalidOperationException("Workspace schema resource is missing.");
-        using var destination = new FileStream(Path.Combine(root, name), FileMode.CreateNew, FileAccess.Write, FileShare.None);
-        source.CopyTo(destination);
+        using var buffer = new MemoryStream(); source.CopyTo(buffer);
+        return buffer.ToArray();
     }
     private static void ValidateText(string text, string label)
     {

@@ -346,5 +346,50 @@ public sealed class AuthoringWorkspaceCreationTests : IDisposable
         Assert.False(vm.HasUnsavedChanges);
     }
 
+    [Theory]
+    [InlineData("authoring.schema.json", false)]
+    [InlineData("authoring-draft.schema.json", false)]
+    [InlineData(".gitignore", false)]
+    [InlineData("authoring.schema.json", true)]
+    [InlineData("authoring-draft.schema.json", true)]
+    [InlineData(".gitignore", true)]
+    public void Construction_write_or_flush_failure_cleans_exclusively_created_partial_bytes(string failingFile, bool flushFailure)
+    {
+        var request = Request(); var publicationHookReached = false; var constructionFailureReached = false;
+        var initializer = new AuthoringWorkspaceInitializer(_ => publicationHookReached = true, stagingWriter: (path, stream, bytes) =>
+        {
+            if (Path.GetFileName(path) != failingFile) { stream.Write(bytes.Span); stream.Flush(); return; }
+            constructionFailureReached = true;
+            stream.Write(bytes.Span[..(flushFailure ? bytes.Length : 7)]);
+            stream.Flush();
+            Assert.True(stream.Length > 0);
+            throw new IOException(flushFailure ? "Injected construction flush failure" : "Injected partial construction write failure");
+        });
+        Assert.Throws<IOException>(() => initializer.Create(request));
+        Assert.True(constructionFailureReached); Assert.False(publicationHookReached);
+        Assert.False(Directory.Exists(request.Destination)); Assert.Empty(Directory.GetFileSystemEntries(_parent));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Construction_failure_preserves_changed_or_foreign_bytes(bool changeCreatedFile)
+    {
+        var request = Request(); string? stage = null; string? external = null;
+        var externalBytes = System.Text.Encoding.UTF8.GetBytes("external staged bytes");
+        var initializer = new AuthoringWorkspaceInitializer(_ => throw new InvalidOperationException("Publication must not start"), stagingWriter: (path, stream, bytes) =>
+        {
+            stage = Path.GetDirectoryName(path);
+            stream.Write(bytes.Span[..7]); stream.Flush();
+            if (changeCreatedFile) { external = path; stream.Position = 0; stream.Write(externalBytes); stream.Flush(); }
+            else { external = Path.Combine(stage!, "notes.txt"); File.WriteAllBytes(external, externalBytes); }
+            throw new IOException("Injected construction failure after external write");
+        });
+        Assert.Throws<IOException>(() => initializer.Create(request));
+        Assert.False(Directory.Exists(request.Destination));
+        Assert.Equal(externalBytes, File.ReadAllBytes(external!));
+        Assert.Equal([external!], Directory.GetFiles(stage!, "*", SearchOption.AllDirectories));
+    }
+
     public void Dispose() => Directory.Delete(_parent, recursive: true);
 }
