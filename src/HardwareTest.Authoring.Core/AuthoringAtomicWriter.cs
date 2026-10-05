@@ -29,7 +29,9 @@ public sealed class AuthoringAtomicWriter
             }
             _beforeCreate?.Invoke();
             cancellationToken.ThrowIfCancellationRequested();
+            using var ownership = AuthoringPublicationOwnership.Acquire(path, cancellationToken);
             validate();
+            cancellationToken.ThrowIfCancellationRequested();
             // No replacement or backup: this operation owns only its staging file.
             File.Move(temporary, path, false);
             ownsTemporary = false;
