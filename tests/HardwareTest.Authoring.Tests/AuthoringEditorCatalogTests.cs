@@ -133,6 +133,7 @@ public sealed class AuthoringWorkspaceCatalogTests
     }
 }
 
+[Collection("AuthoringOpenTap")]
 public sealed class AuthoringProgramSettingsViewModelTests
 {
     [Fact]

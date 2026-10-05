@@ -175,20 +175,27 @@ public sealed class AuthoringEnvironmentBuildWindowTests
         fixture.ViewModel.Bootstrap(new() { Offline = true });
         fixture.ViewModel.ConfigureOperations(AuthoringChildProcessRunner.ForExecutable(Path.Combine(AppContext.BaseDirectory, "HardwareTest.Authoring.ProcessFixture.dll")), action => Dispatcher.UIThread.Post(action));
         SelectTab(window, 4);
-        var requestedNext = false; var nextStarted = false; var pickerCallsAtTransition = 0;
+        var requestedNext = false;
+        var transition = new TaskCompletionSource<(bool Enabled, int PickerCalls, bool Started)>(TaskCreationOptions.RunContinuationsAsynchronously);
         fixture.ViewModel.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName != nameof(AuthoringWorkspaceViewModel.CanPack) || requestedNext || fixture.ViewModel.OperationBusy || !fixture.ViewModel.HasCompletedBuild || !fixture.ViewModel.CanPack) return;
             requestedNext = true;
-            AuthoringUiFixture.Drain();
-            AuthoringUiFixture.Click(fixture.Control<Button>("Pack workspace"));
-            pickerCallsAtTransition = picker.Calls;
-            nextStarted = fixture.ViewModel.OperationBusy;
+            try
+            {
+                AuthoringUiFixture.Drain();
+                var button = fixture.Control<Button>("Pack workspace");
+                var enabled = button.IsEffectivelyVisible && button.IsEffectivelyEnabled;
+                if (enabled) button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                transition.SetResult((enabled, picker.Calls, fixture.ViewModel.OperationBusy));
+            }
+            catch (Exception error) { transition.SetException(error); }
         };
         AuthoringUiFixture.Click(fixture.Control<Button>("Pack workspace"));
-        await Until(() => requestedNext || !fixture.ViewModel.OperationBusy);
-        Assert.True(requestedNext, $"Error: {fixture.ViewModel.Error}; status: {fixture.ViewModel.Status}; guard: {fixture.ViewModel.PackGuardText}");
-        Assert.Equal(2, pickerCallsAtTransition); Assert.True(nextStarted);
+        await Until(() => transition.Task.IsCompleted || (!requestedNext && !fixture.ViewModel.OperationBusy));
+        Assert.True(transition.Task.IsCompleted, $"Error: {fixture.ViewModel.Error}; status: {fixture.ViewModel.Status}; guard: {fixture.ViewModel.PackGuardText}");
+        var observed = await transition.Task;
+        Assert.True(observed.Enabled); Assert.Equal(2, observed.PickerCalls); Assert.True(observed.Started);
         await Until(() => !fixture.ViewModel.OperationBusy);
         Assert.Null(fixture.ViewModel.Error); Assert.Equal(2, fixture.ViewModel.BuildHistory.Count);
         Assert.Equal(2, fixture.ViewModel.BuildHistory.Select(build => build.Result.Receipt.BuildId).Distinct().Count());

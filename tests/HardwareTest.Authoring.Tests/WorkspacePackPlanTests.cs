@@ -3,6 +3,7 @@ using Xunit;
 
 namespace HardwareTest.Authoring.Tests;
 
+[Collection("AuthoringOpenTap")]
 public sealed class WorkspacePackPlanTests
 {
     [Fact]
