@@ -48,6 +48,17 @@ public sealed partial class AuthoringWorkspaceViewModel
     private string? _savePreviewWarning;
     private string? _saveCompilationWarning;
     private string? _saveEnvironmentPreviewWarning;
+    private bool _savePreviewHasHomePathWarning;
+    private void ClearResolvedHomePreviewWarning()
+    {
+        if (!_savePreviewHasHomePathWarning || EnvironmentPathError is not null) return;
+        var previous = _saveEnvironmentPreviewWarning;
+        _saveEnvironmentPreviewWarning = null; _savePreviewHasHomePathWarning = false;
+        UpdateSavePreviewWarning();
+        if (previous is not null && Error is { } error)
+            Error = error == previous ? null : error.Replace(Environment.NewLine + previous, string.Empty, StringComparison.Ordinal)
+                .Replace(previous + Environment.NewLine, string.Empty, StringComparison.Ordinal);
+    }
     private void UpdateSavePreviewWarning()
     {
         var warnings = new[] { _saveCompilationWarning, _saveEnvironmentPreviewWarning }.OfType<string>().Distinct().ToArray();
@@ -55,7 +66,7 @@ public sealed partial class AuthoringWorkspaceViewModel
     }
     private void ResetSavePreviewWarnings()
     {
-        _saveCompilationWarning = null; _saveEnvironmentPreviewWarning = null; SavePreviewWarning = null;
+        _saveCompilationWarning = null; _saveEnvironmentPreviewWarning = null; _savePreviewHasHomePathWarning = false; SavePreviewWarning = null;
     }
     public string? SavePreviewWarning
     {
@@ -163,11 +174,13 @@ public sealed partial class AuthoringWorkspaceViewModel
         try
         {
             RefreshPackPreview();
+            _savePreviewHasHomePathWarning = EnvironmentPathError is not null;
             _saveEnvironmentPreviewWarning = EnvironmentPathError is { } pathError ? $"Packaging preview could not refresh because the OpenTAP home setting is invalid: {pathError}" : null;
             if (!HasUncompiledSources) _saveCompilationWarning = null;
         }
         catch (Exception ex)
         {
+            _savePreviewHasHomePathWarning = false;
             _saveEnvironmentPreviewWarning = $"Packaging preview could not refresh. Check the OpenTAP home setting and workspace paths, then retry: {ex.Message}";
         }
         UpdateSavePreviewWarning();

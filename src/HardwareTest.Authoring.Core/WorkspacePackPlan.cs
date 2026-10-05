@@ -152,7 +152,18 @@ public static class WorkspacePackPlan
 
     public static bool TryResolveHomePath(AuthoringWorkspace workspace, string? homeOverride, out string? path, out string? error)
     {
-        try { path = ResolveHomePath(workspace, homeOverride); error = null; return true; }
+        try
+        {
+            var resolved = ResolveHomePath(workspace, homeOverride);
+            for (var candidate = resolved; !string.IsNullOrEmpty(candidate); candidate = Path.GetDirectoryName(candidate))
+                if (File.Exists(candidate))
+                {
+                    path = null;
+                    error = $"Unavailable OpenTAP home setting: {resolved}. '{candidate}' is a file; select a directory path.";
+                    return false;
+                }
+            path = resolved; error = null; return true;
+        }
         catch (Exception exception) when (exception is ArgumentException or NotSupportedException or PathTooLongException)
         {
             path = null;

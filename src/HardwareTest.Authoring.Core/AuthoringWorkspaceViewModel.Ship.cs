@@ -73,6 +73,7 @@ public sealed partial class AuthoringWorkspaceViewModel
             string.IsNullOrWhiteSpace(home) ? null : home);
         if (LastCompletedBuild is { } completed)
             _packPreview = WorkspacePackPlan.WithLastPack(_packPreview, completed.Result.Manifest, completed.OutputDirectory);
+        ClearResolvedHomePreviewWarning();
         RaisePackPreviewProperties();
     }
 

@@ -113,6 +113,15 @@ public sealed class AuthoringEnvironmentBuildWindowTests
         Assert.Contains("Invalid OpenTAP home setting", fixture.Control<TextBlock>("Selected authoring home").Text);
         Assert.All(fixture.ViewModel.EnvironmentPackages, package => Assert.False(package.Satisfied));
         Assert.Same(receipt, fixture.ViewModel.LastBuildReceipt); Assert.False(fixture.ViewModel.CanPack);
+        Assert.True(fixture.ViewModel.SaveAll().Succeeded); Assert.NotNull(fixture.ViewModel.SavePreviewWarning);
+        fixture.ViewModel.OpenTapHomeOverride = selectedHome;
+        Assert.Null(fixture.ViewModel.SavePreviewWarning); Assert.Null(fixture.ViewModel.Error);
+        var fileHome = Path.Combine(fixture.WorkspaceRoot, "unavailable-file-home"); File.WriteAllText(fileHome, "preserved file home");
+        fixture.ViewModel.OpenTapHomeOverride = fileHome;
+        Assert.Contains(fileHome, fixture.Control<TextBlock>("Selected authoring home").Text);
+        Assert.False(fixture.ViewModel.CanPack); Assert.All(fixture.ViewModel.EnvironmentPackages, package => Assert.False(package.Satisfied));
+        SelectTab(window, 4); Assert.False(fixture.Control<Button>("Pack workspace").IsEffectivelyEnabled); SelectTab(window, 3);
+        Assert.Same(receipt, fixture.ViewModel.LastBuildReceipt); Assert.Equal("preserved file home", File.ReadAllText(fileHome));
         fixture.ViewModel.OpenTapHomeOverride = selectedHome;
         var engineRequirement = fixture.ViewModel.Workspace!.Manifest.Dependencies.Single(dependency => dependency.Package == "OpenTAP");
         var requiredEngine = engineRequirement.Version; engineRequirement.Version = "99.0.0";
@@ -137,8 +146,10 @@ public sealed class AuthoringEnvironmentBuildWindowTests
         Assert.NotNull(fixture.ViewModel.Error); Assert.Same(receipt, fixture.ViewModel.LastBuildReceipt); Assert.Single(fixture.ViewModel.BuildHistory);
         File.WriteAllText(Path.Combine(selectedHome, "selected-home.marker"), "distinct rendered home");
         File.Delete(Path.Combine(fixture.WorkspaceRoot, "fixture-result-wait")); File.Delete(Path.Combine(fixture.WorkspaceRoot, "fixture-prepared")); File.Delete(Path.Combine(fixture.WorkspaceRoot, "fixture-release"));
+        Assert.True(fixture.ViewModel.CanPack, $"Error: {fixture.ViewModel.Error}; status: {fixture.ViewModel.Status}; busy: {fixture.ViewModel.OperationBusy}; guard: {fixture.ViewModel.PackGuardText}");
         File.WriteAllText(Path.Combine(fixture.WorkspaceRoot, "fixture-result-wait"), "");
         AuthoringUiFixture.Click(fixture.Control<Button>("Pack workspace"));
+        Assert.True(fixture.ViewModel.OperationBusy);
         await Until(() => File.Exists(Path.Combine(fixture.WorkspaceRoot, "fixture-prepared")));
         AuthoringUiFixture.Click(fixture.Control<Button>("Cancel authoring operation"));
         await Until(() => !fixture.ViewModel.OperationBusy);
@@ -148,6 +159,52 @@ public sealed class AuthoringEnvironmentBuildWindowTests
         fixture.ViewModel.Open(fixture.WorkspaceRoot);
         Assert.Null(fixture.ViewModel.LastBuildReceipt); Assert.Empty(fixture.ViewModel.BuildHistory);
         Assert.Equal(excludedBytes, File.ReadAllBytes(blockedPath));
+    }
+
+    [AvaloniaFact]
+    public async Task Enabled_next_pack_starts_before_previous_window_handler_continuation_completes()
+    {
+        using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
+        var workspace = AuthoringWorkspaceLoader.Load(fixture.WorkspaceRoot);
+        workspace.Manifest.Package.Name = "Reentrant Checked Program";
+        AuthoringWorkspaceLoader.SaveManifest(fixture.WorkspaceRoot, workspace.Manifest);
+        var output = Path.Combine(fixture.WorkspaceRoot, "reentrant-output");
+        var picker = new CountingOutputPicker(output);
+        var window = fixture.Show(packOutputPicker: picker); fixture.OpenRememberedWorkspace();
+        Assert.True(fixture.ViewModel.SaveAll().Succeeded);
+        fixture.ViewModel.Bootstrap(new() { Offline = true });
+        fixture.ViewModel.ConfigureOperations(AuthoringChildProcessRunner.ForExecutable(Path.Combine(AppContext.BaseDirectory, "HardwareTest.Authoring.ProcessFixture.dll")), action => Dispatcher.UIThread.Post(action));
+        SelectTab(window, 4);
+        var requestedNext = false; var nextStarted = false; var pickerCallsAtTransition = 0;
+        fixture.ViewModel.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName != nameof(AuthoringWorkspaceViewModel.CanPack) || requestedNext || fixture.ViewModel.OperationBusy || !fixture.ViewModel.HasCompletedBuild || !fixture.ViewModel.CanPack) return;
+            requestedNext = true;
+            AuthoringUiFixture.Drain();
+            AuthoringUiFixture.Click(fixture.Control<Button>("Pack workspace"));
+            pickerCallsAtTransition = picker.Calls;
+            nextStarted = fixture.ViewModel.OperationBusy;
+        };
+        AuthoringUiFixture.Click(fixture.Control<Button>("Pack workspace"));
+        await Until(() => requestedNext || !fixture.ViewModel.OperationBusy);
+        Assert.True(requestedNext, $"Error: {fixture.ViewModel.Error}; status: {fixture.ViewModel.Status}; guard: {fixture.ViewModel.PackGuardText}");
+        Assert.Equal(2, pickerCallsAtTransition); Assert.True(nextStarted);
+        await Until(() => !fixture.ViewModel.OperationBusy);
+        Assert.Null(fixture.ViewModel.Error); Assert.Equal(2, fixture.ViewModel.BuildHistory.Count);
+        Assert.Equal(2, fixture.ViewModel.BuildHistory.Select(build => build.Result.Receipt.BuildId).Distinct().Count());
+        foreach (var build in fixture.ViewModel.BuildHistory)
+        {
+            Assert.Contains(build.Result.Receipt.RequiredChecks, check => check.Code == "BUILD_COMPATIBILITY_PASS");
+            Assert.Contains(build.Result.Receipt.RequiredChecks, check => check.Code == "BUILD_COMPAT_PROVIDER" && check.Message.Contains("Production in-process TuiCompatChecker"));
+        }
+        var durable = JsonSerializer.Deserialize(File.ReadAllBytes(Path.Combine(output, AuthoringBuildService.ReceiptFileName)), AuthoringBuildJsonContext.Default.AuthoringBuildReceipt)!;
+        Assert.Equal(fixture.ViewModel.LastBuildReceipt!.BuildId, durable.BuildId);
+    }
+
+    private sealed class CountingOutputPicker(string path) : IAuthoringWorkspacePicker
+    {
+        public int Calls { get; private set; }
+        public Task<string?> PickAsync() { Calls++; return Task.FromResult<string?>(path); }
     }
 
     [AvaloniaTheory]

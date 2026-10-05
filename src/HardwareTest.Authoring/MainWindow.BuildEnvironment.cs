@@ -25,17 +25,18 @@ public partial class MainWindow
         bool CurrentOwner() => !_ownerClosed && IsVisible && ReferenceEquals(DataContext, vm)
             && ReferenceEquals(vm.Workspace, workspace) && vm.WorkspaceSessionId == session
             && vm.AuthoringHomeText == home && vm.PackPreview.LastOutputDirectory == outputIntent && !vm.OperationBusy;
+        string? path;
         _buildPickerInFlight = true;
         try
         {
             var picker = import ? _offlinePackagePicker : _packOutputPicker;
-            var path = picker is not null ? await picker.PickAsync() : import ? await PickOfflinePackageAsync() : await PickPackOutputAsync();
+            path = picker is not null ? await picker.PickAsync() : import ? await PickOfflinePackageAsync() : await PickPackOutputAsync();
             if (string.IsNullOrWhiteSpace(path) || !CurrentOwner()) return;
-            await RunOperationAsync(import ? AuthoringOperationKind.Bootstrap : AuthoringOperationKind.Pack,
-                import ? null : path, import ? path : null);
         }
-        catch (Exception error) { if (CurrentOwner()) vm.ReportError(error.Message); }
+        catch (Exception error) { if (CurrentOwner()) vm.ReportError(error.Message); return; }
         finally { _buildPickerInFlight = false; }
+        await RunOperationAsync(import ? AuthoringOperationKind.Bootstrap : AuthoringOperationKind.Pack,
+            import ? null : path, import ? path : null);
     }
     private async Task<string?> PickOfflinePackageAsync()
     {

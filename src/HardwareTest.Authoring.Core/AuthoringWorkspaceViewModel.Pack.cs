@@ -57,6 +57,7 @@ public sealed partial class AuthoringWorkspaceViewModel
             RetainPackPreflight(report);
             throw new PackPreflightException(report);
         }
+        var checkedContentIdentity = ContentFingerprint();
         var resolved = new PackOptions
         {
             CancellationToken = options?.CancellationToken ?? default,
@@ -71,11 +72,14 @@ public sealed partial class AuthoringWorkspaceViewModel
                 options?.PreflightCompleted?.Invoke(report);
             },
         };
-        var result = AuthoringBuildService.Execute(AuthoringBuildService.CaptureSaved(Workspace!, resolved), outputDirectory, resolved.CancellationToken);
+        var request = AuthoringBuildService.CaptureSaved(Workspace!, resolved);
+        var checkedHome = request.Options.Home!.Root;
+        var checkedBuildIdentity = checkedContentIdentity + "|" + checkedHome;
+        var result = AuthoringBuildService.Execute(request, outputDirectory, resolved.CancellationToken);
         var manifest = result.Manifest;
         _packPreview = WorkspacePackPlan.Describe(Workspace!, Prefs.OpenTapHomeOverride);
         _packPreview = WorkspacePackPlan.WithLastPack(_packPreview, manifest, outputDirectory);
-        RetainCompletedBuild(result, outputDirectory, LastPackPreflight?.Home?.Root ?? AuthoringHomeText);
+        RetainCompletedBuild(result, outputDirectory, checkedHome, checkedBuildIdentity);
         RaisePackPreviewProperties();
         Status = $"Packed {manifest.PackageName} {manifest.Version}";
         Error = null;

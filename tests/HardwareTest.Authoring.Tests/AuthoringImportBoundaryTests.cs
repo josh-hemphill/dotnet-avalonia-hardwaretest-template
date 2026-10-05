@@ -110,7 +110,9 @@ public sealed class AuthoringImportBoundaryTests : IDisposable
         var path = new AuthoringDocumentStore(root).GetDocumentPath("broken"); Directory.CreateDirectory(Path.GetDirectoryName(path)!); File.WriteAllText(path, "{");
         var vm = new AuthoringWorkspaceViewModel(); vm.Open(root); vm.OpenTapHomeOverride = "invalid\0home";
         Assert.True(vm.SaveAll().Succeeded); Assert.Contains("home", vm.SavePreviewWarning!);
-        vm.OpenTapHomeOverride = home.Root; Assert.True(vm.HasUncompiledSources); Assert.True(vm.SaveAll().Succeeded);
+        vm.OpenTapHomeOverride = home.Root; Assert.True(vm.HasUncompiledSources);
+        Assert.Null(vm.SavePreviewWarning); Assert.Null(vm.Error);
+        Assert.True(vm.SaveAll().Succeeded);
         Assert.Null(vm.EnvironmentPathError); Assert.Null(vm.SavePreviewWarning); Assert.Null(vm.Error); Assert.Equal("{", File.ReadAllText(path));
     }
 
