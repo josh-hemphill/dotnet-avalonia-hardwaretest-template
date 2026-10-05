@@ -11,6 +11,8 @@ public sealed partial class PlanCompiler
     private TestPlan BuildPlan(ProgramDraft draft, OpenTapHome? libraryHome)
     {
         var instruments = CreateInstruments(draft.Instruments, libraryHome);
+        if (AuthoringLibraryLifecycle.OpaqueLifecycleNodes(draft.Measure).Any())
+            throw new AuthoringWorkspaceException(AuthoringLibraryLifecycle.ReimportMessage);
         var dut = new HardwareDut
         {
             Name = "DUT",

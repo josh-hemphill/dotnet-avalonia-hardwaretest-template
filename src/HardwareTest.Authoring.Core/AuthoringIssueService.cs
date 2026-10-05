@@ -19,6 +19,8 @@ public static class AuthoringIssueService
     {
         var index = AuthoringDependencyIndex.Build(draft);
         var issues = new List<AuthoringEditingIssue>();
+        foreach (var raw in AuthoringLibraryLifecycle.OpaqueLifecycleNodes(draft.Measure))
+            issues.Add(new("LIBRARY_LIFECYCLE_REIMPORT", AuthoringLibraryLifecycle.ReimportMessage, draft.PlanId, raw.NodeId));
         if (homeResolutionError is not null)
             issues.Add(new("INVALID_OPENTAP_HOME", homeResolutionError, draft.PlanId, Guid.Empty));
         if (!AuthoringSequence.HasMeasurement(draft.Measure))

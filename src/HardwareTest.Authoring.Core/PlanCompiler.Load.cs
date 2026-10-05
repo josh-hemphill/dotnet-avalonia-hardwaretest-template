@@ -77,9 +77,11 @@ public sealed partial class PlanCompiler
             instruments[slot] = new InstrumentRef(slot, typeId, address)
             {
                 OpaqueResourceXml = resource.ToString(SaveOptions.DisableFormatting),
-                Settings = AuthoringInstrumentCatalog.TryGet(typeId, out var adapter)
-                    ? resource.Elements().Where(e => adapter.ConfigurationFields.Contains(e.Name.LocalName, StringComparer.Ordinal))
-                        .ToDictionary(e => e.Name.LocalName, e => e.Value, StringComparer.Ordinal) : new Dictionary<string, string>()
+                Settings = resource.Elements().Where(e => AuthoringInstrumentCatalog.TryGet(typeId, out var adapter)
+                    ? adapter.ConfigurationFields.Contains(e.Name.LocalName, StringComparer.Ordinal)
+                    : AuthoringInstrumentCatalog.IsLibrary(typeId) ? e.Name.LocalName == "IoTimeoutMilliseconds"
+                    : !e.HasElements && e.Name.LocalName is not ("Name" or "VisaAddress" or "ResourceName" or "Address"))
+                    .GroupBy(e => e.Name.LocalName, StringComparer.Ordinal).ToDictionary(group => group.Key, group => group.First().Value, StringComparer.Ordinal)
             };
         }
 
@@ -102,6 +104,11 @@ public sealed partial class PlanCompiler
         ref CleanupPolicy cleanup,
         IReadOnlyDictionary<string, XElement> xmlById)
     {
+        if (IsColdLibraryCarrier(step, xmlById))
+        {
+            measure.Add(ToRaw(step, xmlById));
+            return;
+        }
         CollectInstrument(step, instruments);
 
         if (!step.Enabled)
@@ -178,6 +185,7 @@ public sealed partial class PlanCompiler
         Dictionary<string, InstrumentRef> instruments,
         IReadOnlyDictionary<string, XElement> xmlById)
     {
+        if (IsColdLibraryCarrier(step, xmlById)) return ToRaw(step, xmlById);
         CollectInstrument(step, instruments);
 
         // Typed authoring nodes cannot represent Enabled=false; keep the entire inactive payload.
@@ -261,7 +269,7 @@ public sealed partial class PlanCompiler
             return new RawStepNode(typeName, string.Empty) { NodeId = step.Id };
         }
 
-        return new RawStepNode(typeName, element.ToString(SaveOptions.DisableFormatting)) { NodeId = step.Id };
+        return new RawStepNode(ResourceTypeId((string?)element.Attribute("type") ?? typeName), element.ToString(SaveOptions.DisableFormatting)) { NodeId = step.Id };
     }
 
     private static IReadOnlyDictionary<string, string> ReadSettings(ITestStep step, bool includeEmpty = false)
