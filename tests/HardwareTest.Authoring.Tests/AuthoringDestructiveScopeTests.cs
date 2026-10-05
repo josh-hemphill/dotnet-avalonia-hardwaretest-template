@@ -128,13 +128,23 @@ public sealed class AuthoringDestructiveScopeTests : IDisposable
     [Fact]
     public void Manifest_failure_retains_catalog_failure_and_global_dirty_even_after_all_program_saves()
     {
-        var vm = Open(); vm.CreateProgram("a"); Assert.True(vm.SaveAll().Succeeded); AddField(vm);
-        File.Move(ManifestPath, ManifestPath + ".backup"); Directory.CreateDirectory(ManifestPath);
+        var vm = Open(); vm.StopRecovery(); vm.CreateProgram("a"); Assert.True(vm.SaveAll().Succeeded);
+        var manifestBefore = File.ReadAllBytes(ManifestPath);
+        var workspaceSourcePath = new AuthoringDocumentStore(_root).GetWorkspacePath(); Assert.False(File.Exists(workspaceSourcePath));
+        var sidecarPath = PlanCompiler.SidecarPath(Path.Combine(_root, "a.TapPlan")); AddField(vm);
+        var reachedCatalogPublication = false;
+        vm.WorkspaceManifestReplacement = (_, _) =>
+        {
+            Assert.Contains("fixtureId", File.ReadAllText(sidecarPath));
+            reachedCatalogPublication = true; throw new IOException("manifest replacement failure");
+        };
         var result = vm.SaveAll(); Assert.False(result.Succeeded); Assert.Empty(result.Failures); Assert.Empty(vm.DirtyProgramIds);
+        Assert.True(reachedCatalogPublication); Assert.Equal(["a"], result.SavedProgramIds);
+        Assert.Equal(manifestBefore, File.ReadAllBytes(ManifestPath)); Assert.False(File.Exists(workspaceSourcePath));
         Assert.True(result.HasUnsavedChanges); Assert.True(vm.WorkspaceCatalogDirty); Assert.Equal(result.WorkspaceCatalogFailure, vm.WorkspaceCatalogSaveFailure);
         Assert.Contains("retry Save All", vm.WorkspaceCatalogSaveFailure); Assert.Contains(vm.WorkspaceCatalogSaveFailure!, vm.Error);
         Assert.Contains(vm.SaveAllResults, s => s.StartsWith("Workspace catalog:"));
-        Directory.Delete(ManifestPath); File.Move(ManifestPath + ".backup", ManifestPath);
+        vm.WorkspaceManifestReplacement = null;
         Assert.True(vm.SaveAll().Succeeded); Assert.Null(vm.WorkspaceCatalogSaveFailure); Assert.False(vm.HasUnsavedChanges);
     }
 
