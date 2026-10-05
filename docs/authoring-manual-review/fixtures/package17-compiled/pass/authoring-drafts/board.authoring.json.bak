@@ -19,12 +19,12 @@
   "measure": [
     {
       "kind": "repeat",
-      "nodeId": "30ad0fdd-839e-4ba5-a79b-ebf10068f975",
+      "nodeId": "efd4a7c7-a5b0-42d8-b772-ba43c15aaf0c",
       "count": 2,
       "children": [
         {
           "kind": "metric",
-          "nodeId": "8b841475-02c7-4cd4-ad7f-53830583140e",
+          "nodeId": "256f79dc-7c8c-4db2-ac82-b39f1e7aab05",
           "name": "Acquire",
           "channelKey": "VDC",
           "displayRole": "timeseries",
@@ -42,7 +42,7 @@
         },
         {
           "kind": "metric",
-          "nodeId": "6fbb01cf-4160-4ed4-9e98-6c1a616cab83",
+          "nodeId": "82334508-369b-464c-b63b-229e1b674ee4",
           "name": "first",
           "channelKey": "first",
           "displayRole": "timeseries",
@@ -64,7 +64,7 @@
         },
         {
           "kind": "metric",
-          "nodeId": "d538b18a-9764-41df-b7fa-c4b99faaebc9",
+          "nodeId": "98bd97c3-9353-45ec-994a-2d2d391ccbb1",
           "name": "second",
           "channelKey": "second",
           "displayRole": "timeseries",
@@ -86,7 +86,7 @@
         },
         {
           "kind": "metric",
-          "nodeId": "2bc47e72-8471-438d-8032-dfc54d2e66af",
+          "nodeId": "5bf3f3c3-d979-45ed-8010-48ba21b7897b",
           "name": "Average",
           "channelKey": "mean",
           "displayRole": "scalar",
@@ -107,7 +107,7 @@
     }
   ],
   "cleanup": {
-    "nodeId": "3b3807a7-59c5-49ec-9329-ad8bfa4f2d3a",
+    "nodeId": "3584b864-d364-46f2-ae9e-20d19d9ff24f",
     "includeSafeShutdown": false,
     "instrumentSlots": [
       "DMM"
