@@ -50,6 +50,15 @@ public sealed class AuthoringExternalTuiProcessTests : IDisposable
         var documents = new AuthoringDocumentStore(root);
         documents.Save(AuthoringDocumentDto.FromDraft(saved, revision: 9));
         compiler.Save(documents.Load("safe").Document!.ToDraft(), plan);
+        documents.Save(AuthoringDocumentDto.FromDraft(saved, revision: 9,
+            compiledPlanHash: AuthoringDocumentStore.ComputeHash(plan),
+            compiledSidecarHash: AuthoringDocumentStore.ComputeHash(PlanCompiler.SidecarPath(plan))));
+        AuthoringWorkspaceLoader.SaveManifest(root, new AuthoringManifest { PlansDirectory = "." });
+        var editor = new AuthoringWorkspaceViewModel();
+        using var recoveryOwner = new RecoveryOwner(editor);
+        editor.Open(root); editor.SelectProgram("safe");
+        editor.DisplayName = "Unsaved source survives actual TUI return";
+        var draftRevision = editor.SelectedDocument!.Revision;
         var log = Path.Combine(root, "external-tui.log");
         var start = new ProcessStartInfo("/usr/bin/script")
         {
@@ -64,6 +73,9 @@ public sealed class AuthoringExternalTuiProcessTests : IDisposable
         start.ArgumentList.Add("/dev/null");
         start.Environment["TERM"] = "xterm";
         using var process = Process.Start(start)!;
+        // A separate external writer changes the compiled plan while the actual installed TUI is open.
+        // This is return/reconciliation evidence, not a claim that these bytes were written by TUI Save.
+        compiler.Save(saved with { Setup = [new OperatorPromptSetup("Snapshot sentinel 09", "External saved-change sentinel 22")] }, plan);
         var stdout = process.StandardOutput.ReadToEndAsync();
         var stderr = process.StandardError.ReadToEndAsync();
         // Interactive TUI intentionally remains open. Bound the probe and kill only our cloned-home process tree.
@@ -79,7 +91,21 @@ public sealed class AuthoringExternalTuiProcessTests : IDisposable
         Assert.DoesNotContain("Unable to resolve type", evidence);
         Assert.DoesNotContain("TestPlan started", evidence);
         Assert.DoesNotContain("Unhandled", await stderr);
-        // This is actual external process plan-load evidence, not an external save roundtrip or hardware execution.
+        editor.RefreshExternalCompiledChanges();
+        Assert.Contains("safe", editor.CompiledConflictProgramIds);
+        Assert.Equal("Unsaved source survives actual TUI return", editor.DisplayName);
+        Assert.Equal(draftRevision, editor.SelectedDocument!.Revision);
+        Assert.True(editor.CanUndo); Assert.True(editor.HasUnsavedChanges);
+        editor.ReconcileCompiled("safe", false);
+        Assert.Empty(editor.CompiledConflictProgramIds);
+        Assert.Equal("Unsaved source survives actual TUI return", editor.DisplayName);
+        Assert.True(editor.HasUncompiledSources);
+        await editor.StopRecoveryAsync();
+        // Actual installed TUI launch/render and return reconciliation; no hardware execution or TUI Save claim.
+    }
+    private sealed class RecoveryOwner(AuthoringWorkspaceViewModel editor) : IDisposable
+    {
+        public void Dispose() => editor.StopRecoveryAsync().GetAwaiter().GetResult();
     }
     private static string Quote(string text) => "'" + text.Replace("'", "'\\''", StringComparison.Ordinal) + "'";
 }

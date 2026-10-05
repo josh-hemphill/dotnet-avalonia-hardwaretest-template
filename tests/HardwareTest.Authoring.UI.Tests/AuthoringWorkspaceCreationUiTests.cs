@@ -183,7 +183,8 @@ public sealed class AuthoringWorkspaceCreationUiTests
     {
         AuthoringUiFixture.Click(fixture.Control<Button>("Command palette"));
         var palette = Assert.Single(fixture.Window!.OwnedWindows);
-        AuthoringUiFixture.Click(fixture.Control<Button>("Create workspace command", palette));
+        fixture.Control<TextBox>("Search commands", palette).Text = "Create workspace"; AuthoringUiFixture.Drain();
+        AuthoringUiFixture.Click(palette.GetVisualDescendants().OfType<Button>().Single(button => Equals(button.Content, "Run command")));
     }
 
     private static void Set(AuthoringUiFixture fixture, Window dialog, string name, string value)

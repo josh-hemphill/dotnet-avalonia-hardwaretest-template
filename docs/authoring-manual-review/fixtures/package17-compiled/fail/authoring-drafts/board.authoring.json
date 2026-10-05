@@ -1,0 +1,121 @@
+{
+  "schemaVersion": 1,
+  "planId": "board",
+  "requiresCompilation": false,
+  "revision": 0,
+  "savedAtUtc": "2026-10-04T22:24:44.9214879+00:00",
+  "sidecar": {
+    "displayName": "Board"
+  },
+  "instruments": [
+    {
+      "slotName": "DMM",
+      "typeId": "HardwareTest.OpenTap.Plugins.Basic.MockDmmInstrument",
+      "visaAddress": "MOCK::INSTR0",
+      "settings": {}
+    }
+  ],
+  "setup": [],
+  "measure": [
+    {
+      "kind": "repeat",
+      "nodeId": "9ca56186-24ec-4032-930d-c528d9e661f4",
+      "count": 2,
+      "children": [
+        {
+          "kind": "metric",
+          "nodeId": "3b375962-5407-4a02-bd62-cee5c78353aa",
+          "name": "Acquire",
+          "channelKey": "VDC",
+          "displayRole": "timeseries",
+          "yUnit": "V",
+          "source": {
+            "kind": "measure",
+            "instrumentSlot": "DMM",
+            "functionId": "Basic.AcquireVoltage",
+            "settings": {
+              "SampleCount": "3",
+              "intervalms": "5"
+            },
+            "settingsIgnoreCase": false
+          }
+        },
+        {
+          "kind": "metric",
+          "nodeId": "48a30f89-14a5-4e75-a442-d0cbe4af9d96",
+          "name": "first",
+          "channelKey": "first",
+          "displayRole": "timeseries",
+          "yUnit": "V",
+          "source": {
+            "kind": "transferFunction",
+            "settingsIgnoreCase": false,
+            "inputChannelKey": "VDC",
+            "numerator": [
+              0.5,
+              0.5
+            ],
+            "denominator": [
+              1
+            ],
+            "tsSeconds": 0.005,
+            "method": "filter"
+          }
+        },
+        {
+          "kind": "metric",
+          "nodeId": "ceba241b-8e7b-48dc-a30f-3eca80d36f40",
+          "name": "second",
+          "channelKey": "second",
+          "displayRole": "timeseries",
+          "yUnit": "V",
+          "source": {
+            "kind": "transferFunction",
+            "settingsIgnoreCase": false,
+            "inputChannelKey": "first",
+            "numerator": [
+              0.5,
+              0.5
+            ],
+            "denominator": [
+              1
+            ],
+            "tsSeconds": 0.005,
+            "method": "filter"
+          }
+        },
+        {
+          "kind": "metric",
+          "nodeId": "1d8961e3-9486-41af-93fa-b365c8434113",
+          "name": "Average",
+          "channelKey": "mean",
+          "displayRole": "scalar",
+          "yUnit": "V",
+          "limits": {
+            "threshold": 100
+          },
+          "source": {
+            "kind": "expression",
+            "settingsIgnoreCase": false,
+            "inputChannelKeys": [
+              "second"
+            ],
+            "expression": "mean(second)"
+          }
+        }
+      ]
+    }
+  ],
+  "cleanup": {
+    "nodeId": "728830bd-4792-45ff-956b-3a5c7d84679d",
+    "includeSafeShutdown": false,
+    "instrumentSlots": [
+      "DMM"
+    ],
+    "includeMeasureSlots": false
+  },
+  "state": {
+    "incompleteNumericText": {},
+    "formulaIntent": {}
+  }
+}

@@ -22,7 +22,7 @@ public sealed class AuthoringPlanInitializationTests
         ResponsiveActionLabelTests.LabelFits(command, window); Assert.True(command.Bounds.Height >= 32);
         var center = command.TranslatePoint(new Point(command.Bounds.Width / 2, command.Bounds.Height / 2), window)!.Value;
         window.MouseDown(center, MouseButton.Left); window.MouseUp(center, MouseButton.Left); AuthoringUiFixture.Drain();
-        var palette = Assert.Single(window.OwnedWindows); Assert.True(fixture.Control<Button>("New test plan command", palette).IsEffectivelyEnabled);
+        var palette = Assert.Single(window.OwnedWindows); Assert.True(fixture.Control<ListBox>("Authoring commands", palette).ItemCount > 0);
         AuthoringUiFixture.Click(Assert.Single(palette.GetVisualDescendants().OfType<Button>(), button => Equals(button.Content, "Cancel")));
         Assert.Empty(window.OwnedWindows);
         Assert.False(fixture.ViewModel.HasUnsavedChanges);
@@ -93,7 +93,8 @@ public sealed class AuthoringPlanInitializationTests
         using var fixture = Loaded(); var before = fixture.ViewModel.Programs.ToArray();
         AuthoringUiFixture.Click(fixture.Control<Button>("Command palette"));
         var palette = Assert.Single(fixture.Window!.OwnedWindows);
-        AuthoringUiFixture.Click(fixture.Control<Button>("New test plan command", palette));
+        fixture.Control<TextBox>("Search commands", palette).Text = "New test plan"; AuthoringUiFixture.Drain();
+        AuthoringUiFixture.Click(palette.GetVisualDescendants().OfType<Button>().Single(button => Equals(button.Content, "Run command")));
         var dialog = Assert.IsType<PlanInitializationWindow>(Assert.Single(fixture.Window.OwnedWindows));
         if (reviewFirst) for (var stage = 0; stage < 5; stage++) AuthoringUiFixture.Click(fixture.Control<Button>("Next", dialog));
         AuthoringUiFixture.Click(fixture.Control<Button>("Cancel", dialog));
@@ -155,7 +156,8 @@ public sealed class AuthoringPlanInitializationTests
         using var fixture = Loaded();
         fixture.Window!.KeyPress(Key.P, RawInputModifiers.Control | RawInputModifiers.Shift, PhysicalKey.P, null); AuthoringUiFixture.Drain();
         var palette = Assert.Single(fixture.Window!.OwnedWindows);
-        AuthoringUiFixture.Click(fixture.Control<Button>("New test plan command", palette));
+        fixture.Control<TextBox>("Search commands", palette).Text = "New test plan"; AuthoringUiFixture.Drain();
+        AuthoringUiFixture.Click(palette.GetVisualDescendants().OfType<Button>().Single(button => Equals(button.Content, "Run command")));
         var dialog = Assert.IsType<PlanInitializationWindow>(Assert.Single(fixture.Window.OwnedWindows));
         Type(fixture, dialog, "Stable plan ID", "optional-task"); Next(fixture, dialog, "Starting point");
         fixture.Control<ComboBox>("Starting point", dialog).SelectedIndex = 1;

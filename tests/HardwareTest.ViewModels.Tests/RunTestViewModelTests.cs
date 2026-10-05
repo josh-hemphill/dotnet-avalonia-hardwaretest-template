@@ -410,16 +410,23 @@ public sealed class RunTestViewModelTests
         await vm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
         await ConfirmReadyAsync(vm, "SN-GAUGE");
         await vm.Run.RunCommand.ExecuteAsync();
-        await Task.Delay(80);
-
         var mean = Flatten(vm.StepTree.Hierarchy).First(s =>
             s.Children.Count == 0 && s.Name.Contains("Mean", StringComparison.OrdinalIgnoreCase));
         vm.StepTree.SelectedStep = mean;
+        var readiness = System.Diagnostics.Stopwatch.StartNew();
+        while (!vm.Live.PresentationTiles.Any(tile => tile.Kind == PresentationTileKind.Scalar
+            && tile.MetricKey.Contains("mean", StringComparison.OrdinalIgnoreCase) && tile.Value == 1.25))
+        {
+            Assert.True(readiness.Elapsed < TimeSpan.FromSeconds(5), "Selected mean gauge did not become ready.");
+            await Task.Delay(10);
+        }
+
         Assert.True(vm.Live.HasPresentationTiles);
         Assert.Contains(vm.Live.PresentationTiles, t =>
             t.Kind == PresentationTileKind.Scalar
             && t.MetricKey.Contains("mean", StringComparison.OrdinalIgnoreCase));
         Assert.False(vm.Live.ShowPlotForSelection);
+        Assert.Equal(1.25, Assert.Single(vm.Live.PresentationTiles, tile => tile.MetricKey == "VDC.mean").Value);
     }
 
     [Fact]

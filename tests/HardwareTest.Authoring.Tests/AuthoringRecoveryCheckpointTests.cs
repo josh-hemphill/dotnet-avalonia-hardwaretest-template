@@ -6,6 +6,33 @@ namespace HardwareTest.Authoring.Tests;
 public sealed class AuthoringRecoveryCheckpointTests
 {
     [Fact]
+    public async Task Stop_awaits_cancelled_writer_and_private_file_release_before_root_removal()
+    {
+        using var workspace = new TemporaryWorkspace();
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var release = new ManualResetEventSlim();
+        var notifications = 0;
+        using var recovery = new AuthoringRecoveryCheckpointService(action => action(), _ => notifications++, TimeSpan.Zero,
+            (path, document) =>
+            {
+                using (File.Open(path, FileMode.Create, FileAccess.Write, FileShare.None))
+                {
+                    entered.TrySetResult();
+                    Assert.True(release.Wait(TimeSpan.FromSeconds(5)));
+                }
+                new AuthoringDocumentStore(workspace.Root).SaveAtPath(path, document);
+            });
+        recovery.Schedule(workspace.Root, AuthoringDocumentDto.FromDraft(Draft(), 1));
+        await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        var stopped = recovery.StopAsync();
+        Assert.False(stopped.IsCompleted);
+        release.Set(); await stopped;
+        Assert.Equal(0, notifications);
+        Assert.Empty(Directory.EnumerateFiles(workspace.Root, "*.tmp", SearchOption.AllDirectories));
+        Assert.Empty(Directory.EnumerateDirectories(workspace.Root, ".checkpoint-*", SearchOption.AllDirectories));
+    }
+
+    [Fact]
     public async Task DebounceCapturesLatestIsolatedContentAndNeverMarksSessionSaved()
     {
         using var workspace = new TemporaryWorkspace();

@@ -7,6 +7,24 @@ namespace HardwareTest.Authoring;
 public sealed class AuthoringChildProcessRunner
 {
     private readonly string executable;
+    private readonly object reapGate = new();
+    private readonly List<(AuthoringProcessOwnership Ownership, Process Process)> retained = [];
+    internal Action? BeforeExitVerification { get; init; }
+    public bool HasPendingReap { get { lock (reapGate) return retained.Count > 0; } }
+    public async Task ReapPendingAsync()
+    {
+        (AuthoringProcessOwnership Ownership, Process Process)[] pending;
+        lock (reapGate) pending = retained.ToArray();
+        foreach (var scope in pending)
+        {
+            scope.Process.StandardInput.Close();
+            scope.Ownership.Terminate();
+            BeforeExitVerification?.Invoke();
+            await scope.Ownership.WaitForExitAsync(scope.Process).ConfigureAwait(false);
+            lock (reapGate) retained.Remove(scope);
+            scope.Ownership.Dispose(); scope.Process.Dispose();
+        }
+    }
     private readonly IReadOnlyList<string> prefix;
     public AuthoringChildProcessRunner(string executable, IReadOnlyList<string>? arguments = null)
     { this.executable = executable; prefix = arguments?.ToArray() ?? []; }
@@ -35,24 +53,27 @@ public sealed class AuthoringChildProcessRunner
         foreach (var argument in prefix) start.ArgumentList.Add(argument);
         start.ArgumentList.Add(AuthoringOperationHost.Switch);
         start.ArgumentList.Add(requestPath);
-        using var ownership = new AuthoringProcessOwnership(start.WorkingDirectory);
-        using var process = new Process { StartInfo = start };
-        if (!process.Start()) throw new IOException("Could not start the authoring child.");
+        var ownership = new AuthoringProcessOwnership(start.WorkingDirectory);
+        var process = new Process { StartInfo = start };
+        try { if (!process.Start()) throw new IOException("Could not start the authoring child."); }
+        catch { ownership.Dispose(); process.Dispose(); throw; }
         try { ownership.Attach(process); }
         catch
         {
             // The host cannot spawn work until the parent's gate opens.
             process.Kill();
             await process.WaitForExitAsync().ConfigureAwait(false);
+            ownership.Dispose(); process.Dispose();
             throw;
         }
         using var cancellation = cancellationToken.Register(() => _ = Task.Run(() =>
         {
-            try { ownership.Terminate(); }
+            try { process.StandardInput.Close(); ownership.Terminate(); }
             catch (ObjectDisposedException) { }
             catch (IOException) { }
             catch (System.ComponentModel.Win32Exception) { }
         }));
+        var reaped = false;
         using var reading = new CancellationTokenSource();
         var stdout = DrainAsync(process.StandardOutput, "stdout", log, reading.Token);
         var stderr = DrainAsync(process.StandardError, "stderr", log, reading.Token);
@@ -67,7 +88,9 @@ public sealed class AuthoringChildProcessRunner
                 AuthoringOperationJsonContext.Default.AuthoringChildExit) ?? throw new InvalidDataException("Empty child exit status.");
             progress(new("Reaping operation processes"));
             cancellationToken.ThrowIfCancellationRequested();
+            process.StandardInput.Close();
             ownership.Terminate();
+            BeforeExitVerification?.Invoke();
             await ownership.WaitForExitAsync(process).ConfigureAwait(false);
             await Task.WhenAll(stdout, stderr).WaitAsync(TimeSpan.FromSeconds(2), cancellationToken).ConfigureAwait(false);
             cancellationToken.ThrowIfCancellationRequested();
@@ -77,9 +100,17 @@ public sealed class AuthoringChildProcessRunner
         {
             try
             {
+                process.StandardInput.Close();
                 ownership.Terminate();
                 // Reap the owned process before staging cleanup. Cancellation never waits on the UI thread.
+                BeforeExitVerification?.Invoke();
                 await ownership.WaitForExitAsync(process).ConfigureAwait(false);
+                reaped = true;
+            }
+            catch
+            {
+                lock (reapGate) retained.Add((ownership, process));
+                throw;
             }
             finally
             {
@@ -87,6 +118,7 @@ public sealed class AuthoringChildProcessRunner
                 try { await Task.WhenAll(stdout, stderr, stages).WaitAsync(TimeSpan.FromSeconds(2)).ConfigureAwait(false); }
                 catch (OperationCanceledException) { }
                 catch (TimeoutException) { }
+                finally { if (reaped) { ownership.Dispose(); process.Dispose(); } }
             }
         }
         async Task WaitForHostFile(string name)

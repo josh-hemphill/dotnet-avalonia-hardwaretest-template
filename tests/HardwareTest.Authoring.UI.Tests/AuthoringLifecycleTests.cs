@@ -76,7 +76,7 @@ public sealed class AuthoringLifecycleTests
     [AvaloniaTheory]
     [InlineData(UnsavedChangesChoice.SaveAll)]
     [InlineData(UnsavedChangesChoice.Discard)]
-    public void Completed_close_choice_posts_one_close_after_initial_event(UnsavedChangesChoice choice)
+    public async Task Completed_close_choice_posts_one_close_after_initial_event(UnsavedChangesChoice choice)
     {
         using var fixture = Loaded();
         PendingChannel(fixture, "pending-close-edit");
@@ -87,7 +87,7 @@ public sealed class AuthoringLifecycleTests
         Assert.True(fixture.Window.IsVisible);
         Assert.Equal("pending-close-edit", fixture.ViewModel.ChannelKey);
         Assert.Equal(1, fixture.Interaction.Calls);
-        AuthoringUiFixture.Drain();
+        await WaitForCloseAsync(fixture.Window);
         Assert.False(fixture.Window.IsVisible);
         Assert.Equal(1, closed);
         if (choice == UnsavedChangesChoice.SaveAll)
@@ -97,7 +97,15 @@ public sealed class AuthoringLifecycleTests
             loaded.SelectMeasure(0);
             Assert.Equal("pending-close-edit", loaded.ChannelKey);
             Assert.False(fixture.ViewModel.HasUnsavedChanges);
+            await loaded.StopRecoveryAsync();
         }
+    }
+
+    private static async Task WaitForCloseAsync(MainWindow window)
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        AuthoringUiFixture.Drain();
+        while (window.IsVisible) { await Task.Delay(1, timeout.Token); AuthoringUiFixture.Drain(); }
     }
 
     [AvaloniaFact]
@@ -115,7 +123,7 @@ public sealed class AuthoringLifecycleTests
         Assert.Equal(1, fixture.Interaction.Calls);
         Assert.True(fixture.Window.IsVisible);
         pending.SetResult(UnsavedChangesChoice.Discard);
-        AuthoringUiFixture.Drain();
+        await WaitForCloseAsync(fixture.Window);
         Assert.Equal(1, closed);
         Assert.False(fixture.Window.IsVisible);
         fixture.Interaction.Pending = null;
@@ -234,7 +242,7 @@ public sealed class AuthoringLifecycleTests
     [AvaloniaTheory]
     [InlineData("Save all")]
     [InlineData("Discard")]
-    public void Real_modal_acceptance_closes_owner_once(string action)
+    public async Task Real_modal_acceptance_closes_owner_once(string action)
     {
         using var fixture = Loaded(realInteraction: true);
         fixture.ViewModel.DisplayName = "modal acceptance edit";
@@ -244,6 +252,8 @@ public sealed class AuthoringLifecycleTests
         AuthoringUiFixture.Drain();
         var dialog = Assert.Single(fixture.Window.OwnedWindows);
         AuthoringUiFixture.Click(Assert.Single(dialog.GetVisualDescendants().OfType<Button>(), button => Equals(button.Content, action)));
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        while (fixture.Window.IsVisible) { await Task.Delay(1, timeout.Token); AuthoringUiFixture.Drain(); }
         Assert.False(fixture.Window.IsVisible);
         Assert.Equal(1, closed);
         if (action == "Save all") Assert.True(fixture.ViewModel.LastSaveAllResult!.Succeeded);

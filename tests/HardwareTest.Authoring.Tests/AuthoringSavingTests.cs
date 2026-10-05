@@ -318,15 +318,23 @@ public sealed class AuthoringSavingTests : IDisposable
         Assert.Throws<AuthoringWorkspaceException>(() => vm.SaveProgram("unknown"));
     }
 
+    private readonly List<AuthoringWorkspaceViewModel> _owned = [];
+
     private AuthoringWorkspaceViewModel Open(IPlanCompiler? compiler = null)
     {
         var vm = new AuthoringWorkspaceViewModel(compiler);
+        _owned.Add(vm);
         vm.Open(_root);
         vm.SelectProgram("sample");
         return vm;
     }
 
-    public void Dispose() => Directory.Delete(_root, recursive: true);
+    public void Dispose()
+    {
+        foreach (var vm in _owned) vm.StopRecovery();
+        Task.WhenAll(_owned.Select(vm => vm.StopRecoveryAsync())).GetAwaiter().GetResult();
+        Directory.Delete(_root, recursive: true);
+    }
 
     private sealed class RecordingCompiler : IPlanCompiler
     {

@@ -30,6 +30,7 @@
     <PackageVersion Include="OpenTAP" Version="$(OpenTapVersion)" />
     <PackageVersion Include="Parlot" Version="1.5.9" />
     <PackageVersion Include="PCSC" Version="7.0.1" />
+    <PackageVersion Include="SkiaSharp.NativeAssets.Linux" Version="4.150.1" />
     <PackageVersion Include="PDFtoImage" Version="5.4.0" />
     <PackageVersion Include="Pkcs11Interop.X509Store" Version="1.1.0" />
     <PackageVersion Include="ReactiveUI" Version="24.2.0" />

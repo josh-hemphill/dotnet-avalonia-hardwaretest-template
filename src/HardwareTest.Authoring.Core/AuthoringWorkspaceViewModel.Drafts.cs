@@ -7,6 +7,7 @@ public sealed partial class AuthoringWorkspaceViewModel
     private readonly HashSet<string> _compiledConflicts = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> _uncompiledDocuments = new(StringComparer.OrdinalIgnoreCase);
     private AuthoringRecoveryCheckpointService? _recovery;
+    private readonly List<AuthoringRecoveryCheckpointService> _retiredRecovery = [];
     private long _recoveryGeneration;
     private Action<Action> _recoveryDispatch = action => action();
     public string? SelectedRecoveryPlanId { get; set; }
@@ -20,7 +21,23 @@ public sealed partial class AuthoringWorkspaceViewModel
         .Concat(HasUncompiledSources ? ["Saved drafts require compilation before validation or packing."] : []));
 
     public void ConfigureRecoveryDispatch(Action<Action> dispatch) => _recoveryDispatch = dispatch;
-    public void StopRecovery() { _recoveryGeneration++; _recovery?.Dispose(); _recovery = null; }
+    public void StopRecovery()
+    {
+        _recoveryGeneration++;
+        if (_recovery is not { } service) return;
+        service.Dispose();
+        lock (_retiredRecovery) _retiredRecovery.Add(service);
+        _recovery = null;
+    }
+    public async Task StopRecoveryAsync()
+    {
+        StopRecovery();
+        AuthoringRecoveryCheckpointService[] owned;
+        lock (_retiredRecovery) owned = _retiredRecovery.ToArray();
+        await Task.WhenAll(owned.Select(service => service.StopAsync())).ConfigureAwait(false);
+        lock (_retiredRecovery)
+            foreach (var service in owned) _retiredRecovery.Remove(service);
+    }
 
     private DraftWorkspace LoadWithSources(string root) => AuthoringSourceWorkspaceLoader.Load(root, _compiler);
 

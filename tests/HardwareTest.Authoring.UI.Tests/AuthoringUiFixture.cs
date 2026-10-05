@@ -127,18 +127,11 @@ internal sealed class AuthoringUiFixture : IDisposable
 
     private async Task RemoveFixtureAsync()
     {
-        var elapsed = System.Diagnostics.Stopwatch.StartNew();
-        while (true)
-        {
-            try { Directory.Delete(_root, recursive: true); return; }
-            catch (DirectoryNotFoundException) { return; }
-            catch (Exception error) when (error is IOException or UnauthorizedAccessException)
-            {
-                if (elapsed.Elapsed >= TimeSpan.FromSeconds(5)) throw;
-                await Task.Delay(20).ConfigureAwait(false);
-            }
-        }
+        await ViewModel.StopRecoveryAsync().ConfigureAwait(false);
+        try { Directory.Delete(_root, recursive: true); }
+        catch (DirectoryNotFoundException) { }
     }
+
     private async Task CloseWindowAsync()
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));

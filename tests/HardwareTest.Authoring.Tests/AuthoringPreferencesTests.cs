@@ -6,6 +6,18 @@ namespace HardwareTest.Authoring.Tests;
 public sealed class AuthoringPreferencesTests
 {
     [Fact]
+    public void Version_one_layout_migrates_defaults_and_round_trips_local_preferences()
+    {
+        var path = Path.Combine(NewTempDir(), AuthoringPreferencesStore.FileName);
+        File.WriteAllText(path, "{\"schemaVersion\":1,\"skipGuidance\":true}");
+        var store = new AuthoringPreferencesStore(path); store.Load();
+        Assert.True(store.Current.DockPreview); Assert.False(store.Current.ProgramsRailCollapsed); Assert.False(store.Current.IssuesDrawerOpen);
+        store.Current.ProgramsRailCollapsed = true; store.Current.IssuesDrawerOpen = true; store.Current.DockPreview = false; store.Save();
+        store.Load(); Assert.Equal(2, store.Current.SchemaVersion); Assert.True(store.Current.ProgramsRailCollapsed);
+        Assert.True(store.Current.IssuesDrawerOpen); Assert.False(store.Current.DockPreview); Assert.True(store.Current.SkipGuidance);
+    }
+
+    [Fact]
     public void Load_missing_file_uses_defaults()
     {
         var path = Path.Combine(NewTempDir(), AuthoringPreferencesStore.FileName);

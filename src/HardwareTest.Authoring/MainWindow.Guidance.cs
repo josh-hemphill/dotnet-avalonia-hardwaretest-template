@@ -138,7 +138,7 @@ public partial class MainWindow
         try
         {
             var created = await dialog.ShowDialog<bool>(this);
-            if (_ownerClosed || _guidedSession != _viewModel.WorkspaceSessionId) return;
+            if (_ownerClosed || !IsVisible || !ReferenceEquals(DataContext, _viewModel) || _guidedSession != _viewModel.WorkspaceSessionId) return;
             _guidedForm = created ? null : dialog.CaptureGuidedForm();
             if (dialog.SkipGuidanceRequested) _explicitGuidanceSession = null;
             if (created)

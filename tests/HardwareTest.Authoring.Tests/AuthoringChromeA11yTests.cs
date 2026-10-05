@@ -17,7 +17,7 @@ public sealed class AuthoringChromeA11yTests
         // Inspect the actual composed surface, including the single preview constructed and moved by the shell.
         var xaml = string.Join(Environment.NewLine, new[] { shell }.Concat(views.Values));
         var shellDocument = XDocument.Parse(shell);
-        foreach (var view in viewNames.Where(name => name is not "WorkspacePreviewView" and not "HardwareView"))
+        foreach (var view in viewNames.Where(name => name is not "WorkspacePreviewView" and not "WorkspaceIssuesView" and not "HardwareView"))
             Assert.Single(shellDocument.Descendants(), element => element.Name.LocalName == view);
         Assert.Single(shellDocument.Descendants(), element => element.Name.LocalName == "ProgramSettingsView");
         Assert.Single(XDocument.Parse(views["WorkspacePreviewView"]).Descendants(), element => element.Name.LocalName == "OperatorPreviewPane");
@@ -26,6 +26,9 @@ public sealed class AuthoringChromeA11yTests
             shellDocument.Descendants().Where(element => element.Name.LocalName == "TabItem").Select(element => (string?)element.Attribute("Header")));
         var shellCode = File.ReadAllText(Path.Combine(sourceRoot, "MainWindow.Shell.cs"));
         Assert.Equal(1, CountOccurrences(shellCode, "WorkspacePreviewView _previewView = new()"));
+        Assert.Equal(1, CountOccurrences(shellCode, "WorkspaceIssuesView _issuesView = new()"));
+        Assert.Contains("previousIssues.Content = null", shellCode, StringComparison.Ordinal);
+        Assert.Contains("issuesDestination.Content = _issuesView", shellCode, StringComparison.Ordinal);
         Assert.Contains("_previewView.DataContext = _viewModel", shellCode, StringComparison.Ordinal);
         Assert.Contains("previous.Content = null", shellCode, StringComparison.Ordinal);
         Assert.Contains("destination.Content = _previewView", shellCode, StringComparison.Ordinal);

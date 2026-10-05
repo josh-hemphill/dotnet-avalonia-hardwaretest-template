@@ -1,0 +1,100 @@
+{
+  "schemaVersion": 1,
+  "planId": "board",
+  "requiresCompilation": false,
+  "revision": 0,
+  "savedAtUtc": "2026-10-04T22:30:36.1699217+00:00",
+  "sidecar": {
+    "displayName": "Board"
+  },
+  "instruments": [
+    {
+      "slotName": "DMM",
+      "typeId": "HardwareTest.OpenTap.Plugins.Basic.MockDmmInstrument",
+      "visaAddress": "MOCK::INSTR0",
+      "settings": {}
+    }
+  ],
+  "setup": [],
+  "measure": [
+    {
+      "kind": "repeat",
+      "nodeId": "787e5bd9-3bce-44ca-a4b4-b46daa810616",
+      "count": 2,
+      "children": [
+        {
+          "kind": "repeat",
+          "nodeId": "8af40f98-2fe6-44a9-bcd3-74040a65a14c",
+          "count": 2,
+          "children": [
+            {
+              "kind": "raw",
+              "nodeId": "407eddf4-0b69-4769-8fb0-6764450242c6",
+              "typeName": "HardwareTest.OpenTap.Plugins.Basic.PublishTimedSampleStep",
+              "xmlFragment": "\u003CTestStep type=\u0022HardwareTest.OpenTap.Plugins.Basic.PublishTimedSampleStep\u0022 Id=\u0022407eddf4-0b69-4769-8fb0-6764450242c6\u0022\u003E\u003CChannel\u003Einput\u003C/Channel\u003E\u003CValue\u003E1\u003C/Value\u003E\u003CIndex\u003E0\u003C/Index\u003E\u003CLimitLow /\u003E\u003CLimitHigh /\u003E\u003CElapsedMs type=\u0022System.Double\u0022\u003E0\u003C/ElapsedMs\u003E\u003CEventName\u003Ecfg\u003C/EventName\u003E\u003CEventLabel\u003Esample\u003C/EventLabel\u003E\u003CEventValue /\u003E\u003CName Metadata=\u0022Step Name\u0022\u003EPublish Timed Sample\u003C/Name\u003E\u003CChildTestSteps /\u003E\u003C/TestStep\u003E"
+            },
+            {
+              "kind": "raw",
+              "nodeId": "767524c1-4481-4c7c-a735-4157c35e1367",
+              "typeName": "HardwareTest.OpenTap.Plugins.Basic.PublishTimedSampleStep",
+              "xmlFragment": "\u003CTestStep type=\u0022HardwareTest.OpenTap.Plugins.Basic.PublishTimedSampleStep\u0022 Id=\u0022767524c1-4481-4c7c-a735-4157c35e1367\u0022\u003E\u003CChannel\u003Einput\u003C/Channel\u003E\u003CValue\u003E3\u003C/Value\u003E\u003CIndex\u003E0\u003C/Index\u003E\u003CLimitLow /\u003E\u003CLimitHigh /\u003E\u003CElapsedMs type=\u0022System.Double\u0022\u003E5\u003C/ElapsedMs\u003E\u003CEventName\u003Ecfg\u003C/EventName\u003E\u003CEventLabel\u003Esample\u003C/EventLabel\u003E\u003CEventValue /\u003E\u003CName Metadata=\u0022Step Name\u0022\u003EPublish Timed Sample\u003C/Name\u003E\u003CChildTestSteps /\u003E\u003C/TestStep\u003E"
+            },
+            {
+              "kind": "metric",
+              "nodeId": "168bcfaf-36f7-4563-8a88-b14634b32b0d",
+              "name": "filtered",
+              "channelKey": "filtered",
+              "displayRole": "timeseries",
+              "yUnit": "V",
+              "source": {
+                "kind": "transferFunction",
+                "settingsIgnoreCase": false,
+                "inputChannelKey": "input",
+                "numerator": [
+                  0.5,
+                  0.5
+                ],
+                "denominator": [
+                  1
+                ],
+                "tsSeconds": 0.005,
+                "method": "filter"
+              }
+            },
+            {
+              "kind": "metric",
+              "nodeId": "e7f1d9e5-d16d-48ac-98a8-5ff6dbb92deb",
+              "name": "Average",
+              "channelKey": "mean",
+              "displayRole": "scalar",
+              "yUnit": "V",
+              "limits": {
+                "threshold": 0
+              },
+              "source": {
+                "kind": "expression",
+                "settingsIgnoreCase": false,
+                "inputChannelKeys": [
+                  "filtered"
+                ],
+                "expression": "mean(filtered)"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "cleanup": {
+    "nodeId": "774ed29f-347d-444b-80f9-de9865d071d4",
+    "includeSafeShutdown": false,
+    "instrumentSlots": [
+      "DMM"
+    ],
+    "includeMeasureSlots": false
+  },
+  "state": {
+    "incompleteNumericText": {},
+    "formulaIntent": {}
+  }
+}

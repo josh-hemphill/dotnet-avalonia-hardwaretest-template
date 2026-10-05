@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="utf-8"?>
+<TestPlan type="OpenTap.TestPlan">
+  <Steps>
+    <TestStep type="HardwareTest.OpenTap.Plugins.Basic.TestGroupStep" Id="42f1d99d-1298-45f8-8909-5160670c9980">
+      <Name Metadata="Step Name">Board</Name>
+      <ChildTestSteps>
+        <TestStep type="HardwareTest.OpenTap.Plugins.Basic.RepeatLoopStep" Id="787e5bd9-3bce-44ca-a4b4-b46daa810616">
+          <Count>2</Count>
+          <Name Metadata="Step Name">Repeat</Name>
+          <ChildTestSteps>
+            <TestStep type="HardwareTest.OpenTap.Plugins.Basic.RepeatLoopStep" Id="8af40f98-2fe6-44a9-bcd3-74040a65a14c">
+              <Count>2</Count>
+              <Name Metadata="Step Name">Repeat</Name>
+              <ChildTestSteps>
+                <TestStep type="HardwareTest.OpenTap.Plugins.Basic.PublishTimedSampleStep" Id="407eddf4-0b69-4769-8fb0-6764450242c6">
+                  <Channel>input</Channel>
+                  <Value>1</Value>
+                  <Index>0</Index>
+                  <LimitLow />
+                  <LimitHigh />
+                  <ElapsedMs type="System.Double">0</ElapsedMs>
+                  <EventName>cfg</EventName>
+                  <EventLabel>sample</EventLabel>
+                  <EventValue />
+                  <Name Metadata="Step Name">Publish Timed Sample</Name>
+                  <ChildTestSteps />
+                </TestStep>
+                <TestStep type="HardwareTest.OpenTap.Plugins.Basic.PublishTimedSampleStep" Id="767524c1-4481-4c7c-a735-4157c35e1367">
+                  <Channel>input</Channel>
+                  <Value>3</Value>
+                  <Index>0</Index>
+                  <LimitLow />
+                  <LimitHigh />
+                  <ElapsedMs type="System.Double">5</ElapsedMs>
+                  <EventName>cfg</EventName>
+                  <EventLabel>sample</EventLabel>
+                  <EventValue />
+                  <Name Metadata="Step Name">Publish Timed Sample</Name>
+                  <ChildTestSteps />
+                </TestStep>
+                <TestStep type="emb:HardwareTest.OpenTap.Plugins.Basic.ApplyTransferFunctionStep" Id="168bcfaf-36f7-4563-8a88-b14634b32b0d">
+                  <OpenTap.Mixins>
+                    <HardwareTest.Presentation type="HardwareTest.OpenTap.Plugins.Mixins.PresentationMixinBuilder">
+                      <MemberName>Presentation</MemberName>
+                    </HardwareTest.Presentation>
+                  </OpenTap.Mixins>
+                  <InputChannel>input</InputChannel>
+                  <Channel>filtered</Channel>
+                  <Numerator>0.5, 0.5</Numerator>
+                  <Denominator>1</Denominator>
+                  <TsSeconds>0.005</TsSeconds>
+                  <Method>filter</Method>
+                  <Name Metadata="Step Name">filtered</Name>
+                  <ChildTestSteps />
+                  <HardwareTest.Presentation.ChannelKey>filtered</HardwareTest.Presentation.ChannelKey>
+                  <HardwareTest.Presentation.DisplayRole>timeseries</HardwareTest.Presentation.DisplayRole>
+                  <HardwareTest.Presentation.YUnit>V</HardwareTest.Presentation.YUnit>
+                  <HardwareTest.Presentation.HistoryEnabled>true</HardwareTest.Presentation.HistoryEnabled>
+                  <HardwareTest.Presentation.HistoryWatchPercent />
+                  <HardwareTest.Presentation.HistoryAlertPercent />
+                </TestStep>
+                <TestStep type="emb:HardwareTest.OpenTap.Plugins.Basic.ChannelAverageStep" Id="e7f1d9e5-d16d-48ac-98a8-5ff6dbb92deb">
+                  <OpenTap.Mixins>
+                    <HardwareTest.Presentation type="HardwareTest.OpenTap.Plugins.Mixins.PresentationMixinBuilder">
+                      <MemberName>Presentation</MemberName>
+                    </HardwareTest.Presentation>
+                  </OpenTap.Mixins>
+                  <InputChannel>filtered</InputChannel>
+                  <ProducerStepId>168bcfaf-36f7-4563-8a88-b14634b32b0d</ProducerStepId>
+                  <Channel>mean</Channel>
+                  <Unit>V</Unit>
+                  <Threshold>0</Threshold>
+                  <Name Metadata="Step Name">Average</Name>
+                  <ChildTestSteps />
+                  <HardwareTest.Presentation.ChannelKey>mean</HardwareTest.Presentation.ChannelKey>
+                  <HardwareTest.Presentation.DisplayRole>scalar</HardwareTest.Presentation.DisplayRole>
+                  <HardwareTest.Presentation.YUnit>V</HardwareTest.Presentation.YUnit>
+                  <HardwareTest.Presentation.HistoryEnabled>true</HardwareTest.Presentation.HistoryEnabled>
+                  <HardwareTest.Presentation.HistoryWatchPercent />
+                  <HardwareTest.Presentation.HistoryAlertPercent />
+                </TestStep>
+              </ChildTestSteps>
+            </TestStep>
+          </ChildTestSteps>
+        </TestStep>
+      </ChildTestSteps>
+    </TestStep>
+  </Steps>
+  <Package.Dependencies>
+    <Package Name="OpenTAP" Version="^9.35.0+a6e39207" />
+  </Package.Dependencies>
+</TestPlan>

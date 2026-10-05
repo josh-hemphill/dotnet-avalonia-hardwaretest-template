@@ -58,8 +58,9 @@ public partial class WorkspacePreviewView : UserControl
         if (DataContext is not AuthoringWorkspaceViewModel vm || !vm.CanImportRecording || TopLevel.GetTopLevel(this) is not { IsVisible: true } owner) return false;
         var workspace = vm.Workspace;
         var program = vm.SelectedProgram;
+        var session = vm.WorkspaceSessionId;
         bool CurrentSession() => owner.IsVisible && ReferenceEquals(DataContext, vm) && ReferenceEquals(workspace, vm.Workspace)
-            && ReferenceEquals(program, vm.SelectedProgram) && vm.CanImportRecording;
+            && ReferenceEquals(program, vm.SelectedProgram) && session == vm.WorkspaceSessionId && vm.CanImportRecording;
         try
         {
             var path = await _recordingPicker.PickAsync(owner);
@@ -77,14 +78,17 @@ public partial class WorkspacePreviewView : UserControl
     private async void OnOpenRecordingFolder(object? sender, RoutedEventArgs e)
     {
         if (DataContext is not AuthoringWorkspaceViewModel { Workspace: { } workspace } vm || TopLevel.GetTopLevel(this) is not { } owner) return;
+        var session = vm.WorkspaceSessionId;
+        bool Current() => owner.IsVisible && ReferenceEquals(workspace, vm.Workspace) && ReferenceEquals(DataContext, vm) && session == vm.WorkspaceSessionId;
         try
         {
             var path = RunDatasetCatalog.ResolveRecordingsRoot(workspace);
             if (!Directory.Exists(path)) { vm.ReportError("No recordings folder yet. Import a recording to create it."); return; }
             if (!owner.IsVisible || !ReferenceEquals(workspace, vm.Workspace) || !ReferenceEquals(DataContext, vm)) return;
-            if (!await owner.Launcher.LaunchDirectoryInfoAsync(new DirectoryInfo(path))) vm.ReportError("Could not open the recordings folder.");
+            var opened = await owner.Launcher.LaunchDirectoryInfoAsync(new DirectoryInfo(path));
+            if (Current() && !opened) vm.ReportError("Could not open the recordings folder.");
         }
-        catch (Exception error) when (error is AuthoringWorkspaceException or IOException or UnauthorizedAccessException) { vm.ReportError(error.Message); }
+        catch (Exception error) when (error is AuthoringWorkspaceException or IOException or UnauthorizedAccessException) { if (Current()) vm.ReportError(error.Message); }
     }
 }
 

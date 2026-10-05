@@ -17,7 +17,7 @@ public sealed class AuthoringOperationCoordinator(AuthoringChildProcessRunner ru
     private long nextLogNotification;
     public event Action? LogsChanged;
     public bool IsBusy { get { lock (gate) return active is not null; } }
-    public bool HasPendingCleanup { get { lock (gate) return pendingCleanup is not null; } }
+    public bool HasPendingCleanup { get { lock (gate) return pendingCleanup is not null || runner.HasPendingReap; } }
     internal Func<string, Task> CancelledCleanup { get; init; } = owned => CleanupCancelledOperationAsync(owned);
     public IReadOnlyList<AuthoringOperationLog> Logs { get { lock (gate) return logs.ToArray(); } }
     public void Cancel() { lock (gate) active?.Cancel(); }
@@ -35,6 +35,7 @@ public sealed class AuthoringOperationCoordinator(AuthoringChildProcessRunner ru
                 try { await pending.ConfigureAwait(false); }
                 catch (OperationCanceledException) { }
             }
+            await Task.Run(runner.ReapPendingAsync).ConfigureAwait(false);
             string? owned;
             lock (gate) owned = pendingCleanup;
             if (owned is null) return;
@@ -56,7 +57,7 @@ public sealed class AuthoringOperationCoordinator(AuthoringChildProcessRunner ru
         {
             ObjectDisposedException.ThrowIf(disposed, this);
             if (active is not null) throw new InvalidOperationException("An authoring operation is already running.");
-            if (pendingCleanup is not null) throw new InvalidOperationException("Authoring operation cleanup must finish before starting another operation.");
+            if (pendingCleanup is not null || runner.HasPendingReap) throw new InvalidOperationException("Authoring operation cleanup must finish before starting another operation.");
             if (kind == AuthoringOperationKind.Pack) ArgumentException.ThrowIfNullOrWhiteSpace(outputDirectory);
             if (offlinePackagePath is not null && kind != AuthoringOperationKind.Bootstrap)
                 throw new ArgumentException("Offline import requires environment preparation.", nameof(offlinePackagePath));
