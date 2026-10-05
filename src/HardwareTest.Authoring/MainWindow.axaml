@@ -102,26 +102,30 @@
           AutomationProperties.LiveSetting="Assertive" AutomationProperties.Name="Authoring error"/>
     </ScrollViewer>
     <Panel>
-      <Border x:Name="WelcomeSurface" IsVisible="{Binding !HasWorkspace}" Margin="24" Padding="40" HorizontalAlignment="Center"
-          VerticalAlignment="Center" MaxWidth="600" Classes="surface">
-        <StackPanel Spacing="18">
-          <TextBlock Text="TEST PLAN AUTHORING" Classes="eyebrow" HorizontalAlignment="Center"/>
-          <TextBlock Text="Create your test workspace" FontSize="30" FontWeight="SemiBold" TextAlignment="Center" TextWrapping="Wrap"
-              AutomationProperties.HeadingLevel="1"/>
-          <TextBlock
-              Text="Create a workspace to organize your test plans, hardware and recordings. Open an existing workspace to continue editing." TextAlignment="Center" Foreground="{DynamicResource AuthoringMuted}"
-              TextWrapping="Wrap"/>
-          <StackPanel Spacing="8">
-            <Button Content="Create workspace" MinHeight="52" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Click="OnCreateWorkspace"
-                AutomationProperties.Name="Create workspace from welcome" Classes="accent authoringAction"/>
-            <Button Content="Open workspace…" Click="OnOpenWorkspace"
-                AutomationProperties.Name="Open workspace from welcome" HorizontalAlignment="Center" Classes="authoringAction"/>
-            <Button Content="{Binding LastWorkspaceOffer}" Click="OnOpenLastWorkspace"
-                IsVisible="{Binding CanOfferLastWorkspace}" ToolTip.Tip="{Binding LastWorkspacePath}"
-                AutomationProperties.Name="Open last workspace from welcome" HorizontalAlignment="Center" Classes="authoringAction"/>
+      <ScrollViewer x:Name="WelcomeViewport" IsVisible="{Binding !HasWorkspace}" Margin="24"
+          HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto" ClipToBounds="True"
+          AutomationProperties.Name="Workspace welcome viewport">
+        <Border x:Name="WelcomeSurface" Padding="40" HorizontalAlignment="Center"
+            VerticalAlignment="Center" MaxWidth="600" Classes="surface">
+          <StackPanel Spacing="18">
+            <TextBlock Text="TEST PLAN AUTHORING" Classes="eyebrow" HorizontalAlignment="Center"/>
+            <TextBlock Text="Create your test workspace" FontSize="30" FontWeight="SemiBold" TextAlignment="Center" TextWrapping="Wrap"
+                AutomationProperties.HeadingLevel="1"/>
+            <TextBlock
+                Text="Create a workspace to organize your test plans, hardware and recordings. Open an existing workspace to continue editing." TextAlignment="Center" Foreground="{DynamicResource AuthoringMuted}"
+                TextWrapping="Wrap"/>
+            <StackPanel Spacing="8">
+              <Button Content="Create workspace" MinHeight="52" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Click="OnCreateWorkspace"
+                  AutomationProperties.Name="Create workspace from welcome" Classes="accent authoringAction"/>
+              <Button Content="Open workspace…" Click="OnOpenWorkspace"
+                  AutomationProperties.Name="Open workspace from welcome" HorizontalAlignment="Center" Classes="authoringAction"/>
+              <Button Content="{Binding LastWorkspaceOffer}" Click="OnOpenLastWorkspace"
+                  IsVisible="{Binding CanOfferLastWorkspace}" ToolTip.Tip="{Binding LastWorkspacePath}"
+                  AutomationProperties.Name="Open last workspace from welcome" HorizontalAlignment="Center" Classes="authoringAction"/>
+            </StackPanel>
           </StackPanel>
-        </StackPanel>
-      </Border>
+        </Border>
+      </ScrollViewer>
       <Grid x:Name="WorkspaceLayout" ColumnDefinitions="196,*" ColumnSpacing="16" Margin="24,8,24,12" IsVisible="{Binding HasWorkspace}">
         <DockPanel x:Name="ProgramsRail" Grid.Column="0" Margin="0,48,0,0" ZIndex="1">
           <ScrollViewer MaxHeight="140" DockPanel.Dock="Top" Margin="0,0,0,12"

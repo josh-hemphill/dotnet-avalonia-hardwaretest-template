@@ -16,9 +16,14 @@ public partial class SequenceEditorView : UserControl
         SequenceList.SelectionChanged += (_, _) => RevealSelection();
         SequenceList.SizeChanged += (_, _) => RevealSelection();
         var actions = (Flyout)SequenceActionsButton.Flyout!;
-        ((Control)actions.Content!).AddHandler(Button.ClickEvent, (_, _) => actions.Hide());
+        actions.Opened += (_, _) => ((ScrollViewer)actions.Content!).FontSize = FontSize;
+        ((Control)actions.Content!).AddHandler(Button.ClickEvent, (_, e) =>
+        {
+            if (e.Source is Button button && button.Classes.Contains("sequenceAction")) actions.Hide();
+        });
         ((Control)actions.Content!).AddHandler(KeyDownEvent, (_, e) =>
         {
+            if (e.Handled) return;
             (TopLevel.GetTopLevel(this) as MainWindow)?.OnExpertKeyDown(this, e);
             if (e.Handled) actions.Hide();
         });

@@ -14,9 +14,11 @@ public partial class MainWindow
     private void InitializeShell()
     {
         var workspaceMenu = (Flyout)this.FindControl<Button>("LifecycleFocusTarget")!.Flyout!;
+        workspaceMenu.Opened += (_, _) => ((ScrollViewer)workspaceMenu.Content!).FontSize = FontSize;
         ((Control)workspaceMenu.Content!).AddHandler(Button.ClickEvent, (_, _) => workspaceMenu.Hide());
         ((Control)workspaceMenu.Content!).AddHandler(KeyDownEvent, (_, e) =>
         {
+            if (e.Handled) return;
             OnExpertKeyDown(this, e);
             if (e.Handled) workspaceMenu.Hide();
         });

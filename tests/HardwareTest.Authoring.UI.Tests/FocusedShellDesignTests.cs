@@ -49,7 +49,12 @@ public sealed class FocusedShellDesignTests
         var last = results.Items.Cast<object>().Last();
         results.ScrollIntoView(last);
         AuthoringUiFixture.Drain();
-        ResponsiveShellTests.Inside((Control)results.ContainerFromIndex(results.ItemCount - 1)!, palette);
+        Assert.Single(results.GetVisualDescendants().OfType<ScrollViewer>()).ScrollToEnd();
+        AuthoringUiFixture.Drain();
+        var lastRow = (Control)results.ContainerFromIndex(results.ItemCount - 1)!;
+        ResponsiveShellTests.Inside(lastRow, palette);
+        var lastBottom = lastRow.TranslatePoint(new Point(0, lastRow.Bounds.Height), results)!.Value.Y;
+        Assert.True(results.Bounds.Height - lastBottom >= 15.25, $"Last row gap {results.Bounds.Height - lastBottom}; padding {results.Padding}");
         search.Text = "Open saved plan";
         AuthoringUiFixture.Drain();
         Assert.Single(results.Items.Cast<object>());

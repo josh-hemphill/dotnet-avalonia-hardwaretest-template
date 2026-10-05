@@ -93,6 +93,7 @@ public partial class MainWindow
         var search = new TextBox { PlaceholderText = "Search commands", MinHeight = 42 };
         AutomationProperties.SetName(search, "Search commands");
         var list = new ListBox { Classes = { "authoringList" }, Margin = new Thickness(8, 8, 8, 24), Padding = new Thickness(0), BorderThickness = new Thickness(0) };
+        list.ItemsPanel = new Avalonia.Controls.Templates.FuncTemplate<Panel?>(() => new StackPanel { Margin = new Thickness(0, 0, 0, 16) });
         list.ItemTemplate = new Avalonia.Controls.Templates.FuncDataTemplate<EditorCommand>((command, _) =>
         {
             if (command is null) return new TextBlock();
@@ -120,12 +121,13 @@ public partial class MainWindow
             run.IsEnabled = selected is not null && selected.Blocker() is null;
         };
         search.TextChanged += (_, _) => Filter(); Filter();
-        var dialog = new Window { Title = "Commands", Width = 560, Height = 540, MinWidth = 420, MinHeight = 380, WindowStartupLocation = WindowStartupLocation.CenterOwner };
+        var dialog = new Window { Title = "Commands", Width = 560, Height = 540, FontSize = FontSize, MinWidth = 420, MinHeight = 380, WindowStartupLocation = WindowStartupLocation.CenterOwner };
         dialog.Classes.Add("authoringPalette");
         var panel = new DockPanel();
         var header = new Border
         {
-            Padding = new Thickness(24, 20), BorderThickness = new Thickness(0, 0, 0, 1),
+            Padding = new Thickness(24, 20),
+            BorderThickness = new Thickness(0, 0, 0, 1),
             Classes = { "paletteSection" },
             Child = new StackPanel
             {
@@ -138,12 +140,14 @@ public partial class MainWindow
         {
             Orientation = Avalonia.Layout.Orientation.Horizontal,
             HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right,
-            Spacing = 8, Children = { cancel, run }
+            Spacing = 8,
+            Children = { cancel, run }
         };
         var footer = new Border
         {
             Name = "CommandFooter",
-            Padding = new Thickness(24, 16), BorderThickness = new Thickness(0, 1, 0, 0),
+            Padding = new Thickness(24, 16),
+            BorderThickness = new Thickness(0, 1, 0, 0),
             Classes = { "paletteSection" },
             Child = new StackPanel { Spacing = 12, Children = { hint, actions } }
         };
