@@ -42,10 +42,9 @@ public partial class MainWindow
     private Func<bool> OwnerContext()
     {
         var vm = _viewModel;
-        var workspace = vm.Workspace;
         var session = vm.WorkspaceSessionId;
         return () => !_ownerClosed && IsVisible && ReferenceEquals(DataContext, vm)
-            && ReferenceEquals(workspace, vm.Workspace) && session == vm.WorkspaceSessionId;
+            && session == vm.WorkspaceSessionId;
     }
 
     public async Task<bool> OpenWorkspaceAsync(string? path = null)

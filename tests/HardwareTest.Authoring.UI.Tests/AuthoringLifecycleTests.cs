@@ -101,6 +101,64 @@ public sealed class AuthoringLifecycleTests
         }
     }
 
+    [AvaloniaTheory]
+    [InlineData("new", false)]
+    [InlineData("source-only", false)]
+    [InlineData("compiled", false)]
+    [InlineData("new", true)]
+    [InlineData("source-only", true)]
+    [InlineData("compiled", true)]
+    public async Task Save_all_first_compilation_allows_requested_workspace_transition(string origin, bool close)
+    {
+        using var fixture = Loaded();
+        using var replacement = new AuthoringUiFixture();
+        var vm = fixture.ViewModel;
+        if (origin != "compiled")
+        {
+            vm.CreateProgram("first-compiled");
+            if (origin == "source-only")
+            {
+                var document = AuthoringDocumentDto.FromDraft(vm.SelectedProgram!);
+                document.RequiresCompilation = true;
+                new AuthoringDocumentStore(fixture.WorkspaceRoot).Save(document);
+                await vm.StopRecoveryAsync();
+                vm.CommitOpen(vm.PrepareOpen(fixture.WorkspaceRoot), discardUnsavedChanges: true);
+                vm.SelectProgram("first-compiled");
+            }
+        }
+        var planId = vm.SelectedProgram!.PlanId;
+        var oldWorkspace = vm.Workspace;
+        var oldSession = vm.WorkspaceSessionId;
+        vm.DisplayName = "saved before transition";
+        Assert.True(vm.HasUnsavedChanges);
+        Assert.Equal(origin == "compiled", File.Exists(Path.Combine(fixture.WorkspaceRoot, planId + ".TapPlan")));
+        fixture.Interaction.Choice = UnsavedChangesChoice.SaveAll;
+        var closed = 0;
+        fixture.Window!.Closed += (_, _) => closed++;
+        if (close)
+        {
+            fixture.Window.Close();
+            await WaitForCloseAsync(fixture.Window);
+            Assert.Equal(1, closed);
+            Assert.Equal(oldSession, vm.WorkspaceSessionId);
+            if (origin != "compiled") Assert.NotSame(oldWorkspace, vm.Workspace);
+        }
+        else
+        {
+            Assert.True(await fixture.Window.OpenWorkspaceAsync(replacement.WorkspaceRoot));
+            Assert.Equal(replacement.WorkspaceRoot, vm.Workspace!.Root);
+            Assert.NotEqual(oldSession, vm.WorkspaceSessionId);
+            Assert.True(fixture.Window.IsVisible);
+            Assert.Equal(0, closed);
+        }
+        if (close) Assert.True(vm.LastSaveAllResult!.Succeeded);
+        Assert.False(vm.HasUnsavedChanges);
+        var saved = new AuthoringDocumentStore(fixture.WorkspaceRoot).Load(planId).Document!;
+        Assert.False(saved.RequiresCompilation);
+        Assert.Equal("saved before transition", saved.ToDraft().Sidecar.DisplayName);
+        Assert.Equal("saved before transition", new PlanCompiler().Load(Path.Combine(fixture.WorkspaceRoot, planId + ".TapPlan")).Sidecar.DisplayName);
+    }
+
     private static async Task WaitForCloseAsync(MainWindow window)
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
