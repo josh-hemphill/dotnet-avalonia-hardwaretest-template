@@ -50,11 +50,13 @@ public sealed partial class AuthoringWorkspaceViewModel
         if (Workspace is null) throw new AuthoringWorkspaceException("Open a workspace before creating a test plan.");
         if (request.WorkspaceRoot is not null && Path.GetFullPath(request.WorkspaceRoot) != Path.GetFullPath(Workspace.Root))
             throw new AuthoringWorkspaceException("The workspace changed; reopen New test plan.");
+        var inspection = HardwareInspection;
         return request with
         {
             WorkspaceRoot = Workspace.Root,
             ExistingPlanIds = Programs.Select(program => program.PlanId).ToArray(),
-            Home = HardwareInspectionHome
+            Home = inspection.Home,
+            HomeResolutionError = inspection.Error
         };
     }
 

@@ -176,13 +176,14 @@ public sealed class PlanInitializationWindow : Window
         try
         {
             var review = _vm.ReviewPlanInitialization(Request());
-            _readiness.Text = resources.Count == 0 ? "Choose hardware later; missing bindings remain draft issues."
+            _readiness.Text = (resources.Count == 0 ? "Choose hardware later; missing bindings remain draft issues."
                 : string.Join("\n", resources.Select(resource =>
                 {
                     var adapter = AuthoringInstrumentCatalog.All.Single(candidate => candidate.TypeId == resource.TypeId);
                     var declared = _workspace.Manifest.Dependencies.Any(dependency => string.Equals(dependency.Package, adapter.RequiredPackage, StringComparison.OrdinalIgnoreCase));
                     return $"{adapter.DisplayName} · {adapter.RequiredPackage} · {(declared ? "dependency declared" : "dependency missing — preserve as draft")}\nCompatible functions: {string.Join(", ", adapter.CompatibleFunctions)}";
-                })) + "\n" + string.Join("\n", review.Issues.Where(issue => issue.Code.StartsWith("INSTRUMENT_", StringComparison.Ordinal)).Select(issue => issue.Message));
+                }))) + "\n" + string.Join("\n", review.Issues.Where(issue => issue.Code.StartsWith("INSTRUMENT_", StringComparison.Ordinal)
+                    || issue.Code == "INVALID_OPENTAP_HOME").Select(issue => issue.Message));
             _coverage.Text = "Shutdown coverage: " + (_shutdown.IsChecked == true ? string.Join(", ", review.Draft.Cleanup.InstrumentSlots) : "disabled");
         }
         catch (Exception error) { _readiness.Text = error.Message; }

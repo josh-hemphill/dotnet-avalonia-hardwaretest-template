@@ -127,6 +127,39 @@ public sealed class AuthoringPlanInitializationTests : IDisposable
         Assert.Contains(vm.EditingIssues, issue => issue.PlanId == "new-plan" && issue.Code == "INSTRUMENT_UNAVAILABLE");
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Invalid_home_remains_actionable_without_blocking_empty_or_typed_draft_lifecycle(bool hardware)
+    {
+        Workspace();
+        var workspace = AuthoringWorkspaceLoader.Load(_root);
+        workspace.Manifest.Dependencies.Add(new AuthoringPackageDependency { Package = OpenTapHomeBootstrapper.VisaPackageName, Version = "^0.1.0" });
+        AuthoringWorkspaceLoader.SaveManifest(_root, workspace.Manifest);
+        var vm = new AuthoringWorkspaceViewModel(); vm.Open(_root); vm.StopRecovery();
+        vm.OpenTapHomeOverride = "invalid\0home";
+        var type = AuthoringInstrumentCatalog.All.Single(adapter => adapter.DisplayName == "VISA DMM").TypeId;
+        var request = Request() with { Instruments = hardware ? [new("BENCH", type, "TCPIP::192.0.2.1::INSTR")] : [] };
+        var review = vm.ReviewPlanInitialization(request);
+        Assert.Contains(review.Issues, issue => issue.Code == "INVALID_OPENTAP_HOME" && issue.Message == vm.EnvironmentPathError);
+        var result = vm.InitializePlan(request);
+        Assert.Contains(result.Issues, issue => issue.Code == "INVALID_OPENTAP_HOME");
+        Assert.Contains(vm.EditingIssues, issue => issue.PlanId == "new-plan" && issue.Code == "INVALID_OPENTAP_HOME");
+        Assert.NotEmpty(vm.IssuesSummary); Assert.False(vm.HasUnsavedChanges);
+        if (hardware) Assert.Contains(vm.EnvironmentPathError!, Assert.Single(vm.HardwareRows).PackageStatus);
+        else Assert.Empty(vm.SelectedProgram!.Instruments);
+        vm.SaveProgram("new-plan"); Assert.False(vm.HasUnsavedChanges);
+        vm.Open(_root); vm.StopRecovery(); vm.SelectProgram("new-plan");
+        Assert.Contains(vm.EditingIssues, issue => issue.PlanId == "new-plan" && issue.Code == "INVALID_OPENTAP_HOME");
+        vm.CreateProgram("unsaved"); Assert.True(vm.HasUnsavedChanges); Assert.Empty(vm.SelectedProgram!.Instruments);
+        Assert.False(new AuthoringDocumentStore(_root).Load("unsaved").Exists);
+        Assert.Contains(vm.EditingIssues, issue => issue.PlanId == "unsaved" && issue.Code == "INVALID_OPENTAP_HOME");
+        vm.OpenTapHomeOverride = "";
+        Assert.DoesNotContain(vm.EditingIssues, issue => issue.Code == "INVALID_OPENTAP_HOME");
+        if (hardware) Assert.Contains(vm.EditingIssues, issue => issue.PlanId == "new-plan" && issue.Code == "INSTRUMENT_UNAVAILABLE");
+        Assert.NotEmpty(vm.IssuesSummary);
+    }
+
     [Fact]
     public void Default_home_readiness_matches_review_saved_reopened_issues_and_changed_home()
     {

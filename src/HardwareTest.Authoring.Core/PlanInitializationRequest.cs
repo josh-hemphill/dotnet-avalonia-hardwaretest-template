@@ -24,6 +24,7 @@ public sealed record PlanInitializationRequest(string PlanId)
     public bool IncludeSafeShutdown { get; init; } = true;
     public PlanInitialMeasurement? Measurement { get; init; }
     public OpenTapHome? Home { get; init; }
+    public string? HomeResolutionError { get; init; }
 }
 
 public sealed record PlanInitialMeasurement(string RecipeId, string InstrumentSlot)

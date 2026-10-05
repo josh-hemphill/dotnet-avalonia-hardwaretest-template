@@ -15,10 +15,12 @@ public static class AuthoringIssueService
 {
     public static IReadOnlyList<AuthoringEditingIssue> GetIssues(ProgramDraft draft) => GetIssues(draft, null);
 
-    public static IReadOnlyList<AuthoringEditingIssue> GetIssues(ProgramDraft draft, OpenTapHome? home)
+    public static IReadOnlyList<AuthoringEditingIssue> GetIssues(ProgramDraft draft, OpenTapHome? home, string? homeResolutionError = null)
     {
         var index = AuthoringDependencyIndex.Build(draft);
         var issues = new List<AuthoringEditingIssue>();
+        if (homeResolutionError is not null)
+            issues.Add(new("INVALID_OPENTAP_HOME", homeResolutionError, draft.PlanId, Guid.Empty));
         if (!AuthoringSequence.HasMeasurement(draft.Measure))
             issues.Add(new("EMPTY_MEASURE", "Add a measurement and choose its hardware before deployment.", draft.PlanId, Guid.Empty));
         if (RequiredFieldIds.Contains(RequiredFieldIds.FromSidecar(draft.Sidecar), RequiredFieldIds.Serial)
@@ -101,7 +103,7 @@ public static class AuthoringIssueService
         {
             if (!AuthoringInstrumentCatalog.TryGet(instrument.TypeId, out var adapter))
                 issues.Add(new("INSTRUMENT_UNAVAILABLE", $"Instrument '{instrument.SlotName}' type '{instrument.TypeId}' has no authoring adapter; imported source is preserved.", draft.PlanId, Guid.Empty));
-            else if (adapter.Availability(home) is { Available: false } unavailable)
+            else if (homeResolutionError is null && adapter.Availability(home) is { Available: false } unavailable)
                 issues.Add(new("INSTRUMENT_UNAVAILABLE", unavailable.Reason!, draft.PlanId, Guid.Empty));
         }
         foreach (var instrument in draft.Instruments)

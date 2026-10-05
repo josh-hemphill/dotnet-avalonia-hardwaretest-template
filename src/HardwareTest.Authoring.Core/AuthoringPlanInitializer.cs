@@ -96,7 +96,7 @@ public sealed class AuthoringPlanInitializer
         // Snapshot isolates caller-owned lists/settings and uses the existing DTO identity validator.
         draft = AuthoringDocumentDto.FromDraft(draft).ToDraft();
         AuthoringCleanup.SyncSidecar(draft.Sidecar, draft.Cleanup);
-        var issues = AuthoringIssueService.GetIssues(draft, request.Home);
+        var issues = AuthoringIssueService.GetIssues(draft, request.Home, request.HomeResolutionError);
         var shutdown = draft.Cleanup.IncludeSafeShutdown
             ? $"enabled; coverage: {string.Join(", ", AuthoringCleanup.ResolveSlots(draft))}"
             : "disabled; no shutdown steps";

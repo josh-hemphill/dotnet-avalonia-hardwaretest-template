@@ -178,6 +178,31 @@ public sealed class AuthoringPlanInitializationTests
     }
 
     [AvaloniaFact]
+    public void Invalid_home_is_visible_in_shown_review_and_does_not_block_empty_creation_save_or_reopen()
+    {
+        using var fixture = Loaded(); var vm = fixture.ViewModel;
+        vm.OpenTapHomeOverride = "invalid\0home"; AuthoringUiFixture.Drain();
+        AuthoringUiFixture.Click(fixture.Control<Button>("New test plan"));
+        var dialog = Assert.IsType<PlanInitializationWindow>(Assert.Single(fixture.Window!.OwnedWindows));
+        Type(fixture, dialog, "Stable plan ID", "invalid-home-empty");
+        Next(fixture, dialog, "Starting point"); Next(fixture, dialog, "Hardware");
+        Assert.Contains(vm.EnvironmentPathError!, fixture.Control<TextBlock>("Hardware readiness", dialog).Text);
+        Next(fixture, dialog, "Setup and cleanup"); Next(fixture, dialog, "First measurement and criterion"); Next(fixture, dialog, "Review and create");
+        Assert.Contains(vm.EnvironmentPathError!, fixture.Control<TextBlock>("Initialization review", dialog).Text);
+        AuthoringUiFixture.Click(fixture.Control<Button>("Create test plan", dialog));
+        Assert.Empty(fixture.Window.OwnedWindows); Assert.False(vm.HasUnsavedChanges);
+        Assert.Empty(vm.SelectedProgram!.Instruments); Assert.Empty(vm.SelectedProgram.Measure);
+        Assert.Contains(vm.EditingIssues, issue => issue.PlanId == "invalid-home-empty" && issue.Code == "INVALID_OPENTAP_HOME");
+        Assert.NotEmpty(vm.IssuesSummary);
+        vm.SaveProgram("invalid-home-empty"); vm.Open(fixture.WorkspaceRoot); vm.SelectProgram("invalid-home-empty"); AuthoringUiFixture.Drain();
+        Assert.Contains(vm.EditingIssues, issue => issue.PlanId == "invalid-home-empty" && issue.Code == "INVALID_OPENTAP_HOME");
+        vm.CreateProgram("invalid-home-unsaved"); AuthoringUiFixture.Drain();
+        Assert.True(vm.HasUnsavedChanges); Assert.Contains(vm.EditingIssues, issue => issue.PlanId == "invalid-home-unsaved" && issue.Code == "INVALID_OPENTAP_HOME");
+        vm.OpenTapHomeOverride = ""; AuthoringUiFixture.Drain();
+        Assert.DoesNotContain(vm.EditingIssues, issue => issue.Code == "INVALID_OPENTAP_HOME");
+    }
+
+    [AvaloniaFact]
     public void Default_home_declared_VISA_payload_is_visible_in_hardware_review_and_saved_reopened_issues()
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
