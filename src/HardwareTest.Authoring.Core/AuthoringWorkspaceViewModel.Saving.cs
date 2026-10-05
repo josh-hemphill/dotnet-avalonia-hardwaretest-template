@@ -46,6 +46,17 @@ public sealed partial class AuthoringWorkspaceViewModel
         .Select(p => $"Program '{p.PlanId}' ({(p.PlanDirty ? "plan and sidecar" : "sidecar")})")
         .Concat(WorkspaceCatalogDirty ? ["Workspace catalog changes (Save All required)"] : []).ToArray();
     private string? _savePreviewWarning;
+    private string? _saveCompilationWarning;
+    private string? _saveEnvironmentPreviewWarning;
+    private void UpdateSavePreviewWarning()
+    {
+        var warnings = new[] { _saveCompilationWarning, _saveEnvironmentPreviewWarning }.OfType<string>().Distinct().ToArray();
+        SavePreviewWarning = warnings.Length == 0 ? null : string.Join(Environment.NewLine, warnings);
+    }
+    private void ResetSavePreviewWarnings()
+    {
+        _saveCompilationWarning = null; _saveEnvironmentPreviewWarning = null; SavePreviewWarning = null;
+    }
     public string? SavePreviewWarning
     {
         get => _savePreviewWarning;
@@ -152,13 +163,14 @@ public sealed partial class AuthoringWorkspaceViewModel
         try
         {
             RefreshPackPreview();
-            if (EnvironmentPathError is { } pathError) SavePreviewWarning = $"Packaging preview could not refresh because the OpenTAP home setting is invalid: {pathError}";
-            else if (!HasUncompiledSources) SavePreviewWarning = null;
+            _saveEnvironmentPreviewWarning = EnvironmentPathError is { } pathError ? $"Packaging preview could not refresh because the OpenTAP home setting is invalid: {pathError}" : null;
+            if (!HasUncompiledSources) _saveCompilationWarning = null;
         }
         catch (Exception ex)
         {
-            SavePreviewWarning = $"Packaging preview could not refresh. Check the OpenTAP home setting and workspace paths, then retry: {ex.Message}";
+            _saveEnvironmentPreviewWarning = $"Packaging preview could not refresh. Check the OpenTAP home setting and workspace paths, then retry: {ex.Message}";
         }
+        UpdateSavePreviewWarning();
     }
 
     private string? SaveProgramCore(string planId, bool forcePlan, bool sidecarOnly)
@@ -238,7 +250,8 @@ public sealed partial class AuthoringWorkspaceViewModel
         RaiseDraftState();
         RecomputeDocumentDirty();
         Status = compilationFailure is null ? $"Saved {Path.GetFileName(savePlan ? path : PlanCompiler.SidecarPath(path))} and authoring source" : $"Saved authoring draft {planId}; compilation requires attention";
-        SavePreviewWarning = compilationFailure;
+        _saveCompilationWarning = compilationFailure;
+        UpdateSavePreviewWarning();
         Error = compilationFailure;
     }
 }

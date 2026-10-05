@@ -79,17 +79,12 @@ public static class AuthoringOperationChild
             if (request.OfflinePackageSha256 is not null && (request.Kind != AuthoringOperationKind.Bootstrap
                 || AuthoringBuildService.Hash(File.ReadAllBytes(importPath)) != request.OfflinePackageSha256))
                 throw new InvalidDataException("Offline import identity differs from captured request.");
-            var home = new OpenTapHomeBootstrapper().Bootstrap(workspace, new BootstrapOptions
+            var home = new OpenTapHomeBootstrapper().BootstrapOwned(workspace, new BootstrapOptions
             {
                 HomeDirectory = isolatedHome,
                 Offline = request.Offline,
                 OfflinePackagePath = request.OfflinePackageSha256 is null ? null : importPath
             });
-            if (request.Kind == AuthoringOperationKind.Bootstrap)
-            {
-                var missing = AuthoringEnvironmentAssessment.Packages(workspace.Manifest, home).Where(p => !p.Optional && !p.Satisfied).ToArray();
-                if (missing.Length != 0) throw new AuthoringWorkspaceException(string.Join("; ", missing.Select(p => p.DisplayText)));
-            }
             AuthoringOperationResult result;
             AuthoringSnapshot? snapshot = null;
             string? receiptHash = null;

@@ -17,8 +17,8 @@ public sealed partial class AuthoringWorkspaceViewModel
                 .Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.OrdinalIgnoreCase).ToArray();
         }
     }
-    public bool CanPack => !OperationBusy && Workspace is not null && WorkspacePacker.IsWritableWorkspace(Workspace) && !HasUnsavedChanges && !HasKnownSavedBuildBlockers && EnvironmentPathError is null;
-    public string PackGuardText => EnvironmentPathError ?? (HasKnownSavedBuildBlockers ? "Repair incomplete saved deployment input or reconcile source conflicts before building." : HasUnsavedChanges
+    public bool CanPack => !OperationBusy && Workspace is not null && WorkspacePacker.IsWritableWorkspace(Workspace) && !HasUnsavedChanges && !HasKnownSavedBuildBlockers && EnvironmentPathError is null && !HasKnownEnvironmentBlockers;
+    public string PackGuardText => EnvironmentPathError ?? (HasKnownSavedBuildBlockers ? "Repair incomplete saved deployment input or reconcile source conflicts before building." : HasKnownEnvironmentBlockers ? "Prepare or import missing required authoring packages before building." : HasUnsavedChanges
         ? WorkspaceCatalogDirty ? "Use Save All to save workspace catalog changes and edited programs before packing." : $"Save edited programs before packing: {string.Join(", ", DirtyProgramIds)}"
         : "Pack checks saved plans, required packages, plugin catalogs and in-process load/save round trips.");
 
@@ -51,6 +51,8 @@ public sealed partial class AuthoringWorkspaceViewModel
                     .Concat(WorkspaceCatalogDirty ? [new PackPreflightFinding("PACK_CATALOG_DIRTY", "Use Save All to save workspace catalog changes before packing.", true)] : []).ToArray()
                 : HasKnownSavedBuildBlockers
                     ? [new PackPreflightFinding("PACK_SAVED_INPUT", "Repair incomplete deployment input or reconcile source conflicts before building.", true)]
+                    : HasKnownEnvironmentBlockers
+                        ? EnvironmentPackages.Where(package => !package.Optional && !package.Satisfied).Select(package => new PackPreflightFinding("PACK_PACKAGE_MISSING", package.DisplayText, true)).ToArray()
                     : [new PackPreflightFinding("PACK_WORKSPACE", "Open a writable workspace before packing.", true)]);
             RetainPackPreflight(report);
             throw new PackPreflightException(report);

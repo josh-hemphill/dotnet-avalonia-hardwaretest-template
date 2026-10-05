@@ -243,7 +243,7 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
             OnPropertyChanged(nameof(PackPreflightHomeText));
             OnPropertyChanged(nameof(PackPreflightFindings));
             LastSaveAllResult = null;
-            SavePreviewWarning = null;
+            ResetSavePreviewWarnings();
             OnPropertyChanged(nameof(LastSaveAllResult));
             OnPropertyChanged(nameof(SaveAllResults));
             Error = null;

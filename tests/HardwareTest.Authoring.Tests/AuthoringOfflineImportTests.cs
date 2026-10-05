@@ -36,9 +36,10 @@ public sealed class AuthoringOfflineImportTests : IDisposable
     public async Task Failed_import_preserves_every_selected_home_byte_and_cannot_escape(string invalid)
     {
         var root = AuthoringBuildSnapshotTests.Workspace(); var workspace = AuthoringWorkspaceLoader.Load(root);
+        var home = AuthoringBuildSnapshotTests.Home(workspace);
         workspace.Manifest.Dependencies.Add(new() { Package = "Offline Fixture", Version = "^1.2.0" });
         AuthoringWorkspaceLoader.SaveManifest(root, workspace.Manifest);
-        var home = AuthoringBuildSnapshotTests.Home(workspace); var before = Snapshot(home.Root);
+        var before = Snapshot(home.Root);
         var archive = Path.Combine(root, "offline.TapPackage");
         WriteArchive(archive, invalid == "package-name-escape" ? "../escaped" : "Offline Fixture",
             invalid == "wrong-version" ? "2.0.0" : "1.3.0", invalid == "entry-escape" ? "../escaped.txt" : invalid == "missing-payload" ? "other.txt" : "payload.txt");

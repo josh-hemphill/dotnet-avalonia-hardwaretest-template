@@ -47,6 +47,7 @@ public static class AuthoringEnvironmentAssessment
                 var relative = (string?)file.Attribute("Path");
                 if (string.IsNullOrWhiteSpace(relative) || Path.IsPathRooted(relative)
                     || relative.Replace('\\', '/').Split('/').Contains("..")) return false;
+                relative = relative.Replace('\\', Path.DirectorySeparatorChar).Replace('/', Path.DirectorySeparatorChar);
                 var path = Path.GetFullPath(Path.Combine(package.Path, relative));
                 AuthoringBuildService.EnsureContained(home.Root, path);
                 if (!File.Exists(path))
