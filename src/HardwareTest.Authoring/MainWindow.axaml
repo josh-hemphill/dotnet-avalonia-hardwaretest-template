@@ -90,12 +90,14 @@
       <Border IsVisible="{Binding !HasWorkspace}" Margin="12,0,12,12" Padding="24" HorizontalAlignment="Center"
           VerticalAlignment="Center" MaxWidth="520">
         <StackPanel Spacing="12">
-          <TextBlock Text="Open a workspace to begin" FontSize="22" FontWeight="SemiBold"
+          <TextBlock Text="Create or open a workspace to begin" FontSize="22" FontWeight="SemiBold"
               AutomationProperties.HeadingLevel="1"/>
           <TextBlock
               Text="Choose a folder containing authoring.json to edit programs, preview measurements, and validate saved plans."
               TextWrapping="Wrap"/>
-          <StackPanel Orientation="Horizontal" Spacing="8">
+          <StackPanel Spacing="8">
+            <Button Content="Create workspace from template…" Click="OnCreateWorkspace"
+                AutomationProperties.Name="Create workspace from welcome" Classes="authoringAction"/>
             <Button Content="Open workspace…" Click="OnOpenWorkspace"
                 AutomationProperties.Name="Open workspace from welcome" Classes="authoringAction"/>
             <Button Content="{Binding LastWorkspaceOffer}" Click="OnOpenLastWorkspace"

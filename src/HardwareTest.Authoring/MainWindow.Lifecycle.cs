@@ -60,10 +60,14 @@ public partial class MainWindow
 
     public Task<bool> ReopenWorkspaceAsync() => OpenWorkspaceAsync(_viewModel.Workspace?.Root);
 
-    private async Task<UnsavedChangesChoice> ChooseTransitionAsync()
+    private async Task<UnsavedChangesChoice> ChooseTransitionAsync(CancellationToken cancellationToken = default, Func<bool>? contextIsCurrent = null)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         if (!_viewModel.HasUnsavedChanges) return UnsavedChangesChoice.Discard;
         var choice = await _lifecycleInteraction.ChooseAsync(_viewModel.DirtyPrograms, _viewModel.WorkspaceCatalogDirty);
+        // A closed initiating form must not apply a late choice, including Save all.
+        cancellationToken.ThrowIfCancellationRequested();
+        if (contextIsCurrent is not null && !contextIsCurrent()) return UnsavedChangesChoice.Cancel;
         if (choice == UnsavedChangesChoice.SaveAll && !_viewModel.SaveAll().Succeeded)
             return UnsavedChangesChoice.Cancel;
         return choice is UnsavedChangesChoice.SaveAll or UnsavedChangesChoice.Discard ? choice : UnsavedChangesChoice.Cancel;
