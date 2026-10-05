@@ -35,6 +35,24 @@ if (args.Length == 2 && args[0] == "--partial-marker")
     Publish(path, "complete\nowned-root");
     return 0;
 }
+// Windows console-launch probe captures literal paths and holds the actual owned child.
+if (args.Length == 2 && args[0] == "tui")
+{
+    using var bytes = new MemoryStream();
+    using (var json = new Utf8JsonWriter(bytes))
+    {
+        json.WriteStartObject();
+        json.WriteString("assembly", Assembly.GetExecutingAssembly().Location);
+        json.WriteString("workingDirectory", Environment.CurrentDirectory);
+        json.WriteNumber("pid", Environment.ProcessId);
+        json.WriteStartArray("arguments");
+        foreach (var argument in args) json.WriteStringValue(argument);
+        json.WriteEndArray(); json.WriteEndObject();
+    }
+    Publish(args[1] + ".argv.json", System.Text.Encoding.UTF8.GetString(bytes.ToArray()));
+    while (!File.Exists(args[1] + ".release")) await Task.Delay(20);
+    return 0;
+}
 // Exit the session anchor first, then let tests independently release its root and leaf.
 if (args.Length == 2 && args[0].StartsWith("--scope-", StringComparison.Ordinal))
 {

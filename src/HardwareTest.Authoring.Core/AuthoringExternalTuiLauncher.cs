@@ -30,6 +30,21 @@ public sealed class AuthoringExternalTuiLauncher
         return null;
     }
 
+    internal static ProcessStartInfo WindowsStartInfo(string executable, string home, string plan)
+    {
+        // ShellExecute the console executable itself: argv uses Windows process quoting,
+        // with no cmd parser to expand percent names or interpret ampersands in paths.
+        var start = new ProcessStartInfo(executable) { WorkingDirectory = home, UseShellExecute = true };
+        AddCliArguments(start, home, plan);
+        return start;
+    }
+
+    private static void AddCliArguments(ProcessStartInfo start, string home, string plan)
+    {
+        start.ArgumentList.Add("--roll-forward"); start.ArgumentList.Add("Major");
+        start.ArgumentList.Add(Path.Combine(home, "tap.dll")); start.ArgumentList.Add("tui"); start.ArgumentList.Add(plan);
+    }
+
     public async Task<int> LaunchAsync(string home, string plan, CancellationToken cancellationToken = default)
     {
         if (Prerequisite(home, plan) is { } reason) throw new AuthoringWorkspaceException(reason);
@@ -45,13 +60,10 @@ public sealed class AuthoringExternalTuiLauncher
         }
         else if (OperatingSystem.IsWindows())
         {
-            start.FileName = "cmd.exe";
-            start.ArgumentList.Add("/c"); start.ArgumentList.Add("start"); start.ArgumentList.Add("/wait");
-            start.ArgumentList.Add("HardwareTest TUI"); start.ArgumentList.Add(dotnet);
+            start = WindowsStartInfo(dotnet, home, plan);
         }
         else throw new PlatformNotSupportedException("Launch the installed TUI from a terminal on this platform, then refresh external changes.");
-        start.ArgumentList.Add("--roll-forward"); start.ArgumentList.Add("Major");
-        start.ArgumentList.Add(Path.Combine(home, "tap.dll")); start.ArgumentList.Add("tui"); start.ArgumentList.Add(plan);
+        if (!OperatingSystem.IsWindows()) AddCliArguments(start, home, plan);
         using var process = Process.Start(start) ?? throw new IOException("Could not start the external TUI terminal.");
         try
         {

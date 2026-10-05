@@ -14,6 +14,7 @@ public sealed class AuthoringOperationCoordinator(AuthoringChildProcessRunner ru
     private string? pendingCleanup;
     private long generation;
     private bool disposed;
+    private bool stopping;
     private long nextLogNotification;
     public event Action? LogsChanged;
     public bool IsBusy { get { lock (gate) return active is not null; } }
@@ -23,13 +24,15 @@ public sealed class AuthoringOperationCoordinator(AuthoringChildProcessRunner ru
     public void Cancel() { lock (gate) active?.Cancel(); }
     public void ReplaceWorkspace() { lock (gate) { generation++; active?.Cancel(); logs.Clear(); } }
     public void Dispose() { lock (gate) { disposed = true; generation++; active?.Cancel(); } }
+    // Drain the owned operation without ending coordinator lifetime: an initiating close
+    // can become stale while cleanup is awaited. Dispose remains the permanent boundary.
     public async Task StopAsync()
     {
         await stopGate.WaitAsync().ConfigureAwait(false);
         try
         {
             Task<AuthoringOperationResult>? pending;
-            lock (gate) { disposed = true; generation++; active?.Cancel(); pending = active is null ? null : running; }
+            lock (gate) { stopping = true; generation++; active?.Cancel(); pending = active is null ? null : running; }
             if (pending is not null)
             {
                 try { await pending.ConfigureAwait(false); }
@@ -44,7 +47,11 @@ public sealed class AuthoringOperationCoordinator(AuthoringChildProcessRunner ru
             await Task.Run(() => CancelledCleanup(owned)).ConfigureAwait(false);
             lock (gate) pendingCleanup = null;
         }
-        finally { stopGate.Release(); }
+        finally
+        {
+            lock (gate) stopping = false;
+            stopGate.Release();
+        }
     }
 
     public Task<AuthoringOperationResult> RunAsync(AuthoringOperationKind kind, string workspaceRoot,
@@ -56,6 +63,7 @@ public sealed class AuthoringOperationCoordinator(AuthoringChildProcessRunner ru
         lock (gate)
         {
             ObjectDisposedException.ThrowIf(disposed, this);
+            if (stopping) throw new InvalidOperationException("Authoring operation cleanup must finish before starting another operation.");
             if (active is not null) throw new InvalidOperationException("An authoring operation is already running.");
             if (pendingCleanup is not null || runner.HasPendingReap) throw new InvalidOperationException("Authoring operation cleanup must finish before starting another operation.");
             if (kind == AuthoringOperationKind.Pack) ArgumentException.ThrowIfNullOrWhiteSpace(outputDirectory);

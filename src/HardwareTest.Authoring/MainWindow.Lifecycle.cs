@@ -104,6 +104,7 @@ public partial class MainWindow
             var decision = await ChooseTransitionAsync(contextIsCurrent: current);
             if (decision == UnsavedChangesChoice.Cancel) { _transitionInFlight = false; return; }
             await _viewModel.StopOperationsAsync();
+            if (!current()) { _transitionInFlight = false; return; }
             await _viewModel.StopRecoveryAsync();
             if (!current()) { _transitionInFlight = false; return; }
             // Even completed injected choices must unwind the first Closing event.

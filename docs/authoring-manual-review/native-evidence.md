@@ -16,7 +16,7 @@ Remaining review includes normal window-manager focus restoration, native Window
 
 ## Repeated checks after the review fixes
 
-Observed on clean local build checkpoint `d5297f96bdb4b92ead357731c560a743a7952dd7`, tree `9bc88a61886ac1af08995cf09d7a3d5988b4fec7`. Later changes to this checkpoint are test corrections and documentation only; retain that distinction when reading the final PR head. Actual rebuilt authoring executable, corrected fixture copies, private writable preferences/cache and the same 1280×800 dummy Xorg display were used.
+Observed on clean local build checkpoint `d5297f96bdb4b92ead357731c560a743a7952dd7`, tree `9bc88a61886ac1af08995cf09d7a3d5988b4fec7`. The first follow-up checkpoint changed only tests and documentation. Subsequent review fixes add an owner/session recheck after operation cleanup, retain operation reuse after a stale close is cancelled, and replace Windows command-interpreter launching with direct console-executable launching. These observations describe the d529 build; they do not establish native Windows behavior at the later head. Actual rebuilt authoring executable, corrected fixture copies, private writable preferences/cache and the same 1280×800 dummy Xorg display were used.
 
 - Ctrl+O opened the actual GTK workspace picker; Escape cancelled it. Explicit application focus was used because the display has no window manager; automatic desktop focus restoration remains unverified.
 - Ctrl+Shift+P opened Commands, and searching Toggle Programs rail then pressing Enter collapsed the entire rail. The local layout persisted across reopening.
