@@ -97,7 +97,10 @@ public sealed class AuthoringPlanInitializer
         draft = AuthoringDocumentDto.FromDraft(draft).ToDraft();
         AuthoringCleanup.SyncSidecar(draft.Sidecar, draft.Cleanup);
         var issues = AuthoringIssueService.GetIssues(draft, request.Home);
-        var review = $"{name} ({id}) · {draft.Sidecar.DutFamily}\n{draft.Setup.Count} setup actions, {draft.Measure.Count} measurements; shutdown: {string.Join(", ", draft.Cleanup.InstrumentSlots)}\n"
+        var shutdown = draft.Cleanup.IncludeSafeShutdown
+            ? $"enabled; coverage: {string.Join(", ", AuthoringCleanup.ResolveSlots(draft))}"
+            : "disabled; no shutdown steps";
+        var review = $"{name} ({id}) · {draft.Sidecar.DutFamily}\n{draft.Setup.Count} setup actions, {draft.Measure.Count} measurements; shutdown: {shutdown}\n"
             + $"Starting point: {request.StartingPoint}\nResources: {string.Join(", ", instruments.Select(instrument => instrument.SlotName + " — " + AuthoringInstrumentCatalog.All.Single(adapter => adapter.TypeId == instrument.TypeId).DisplayName))}\n"
             + $"Measurements: {string.Join("; ", AuthoringRecipeCatalog.EnumerateMetrics(draft.Measure).Select(metric => metric.Name + " → " + metric.ChannelKey + " [" + metric.YUnit + "]; threshold " + (metric.Limits?.Threshold?.ToString(CultureInfo.InvariantCulture) ?? "none")))}\n"
             + $"Requirements: serial {sidecar.RequireSerial}; fields {string.Join(", ", sidecar.RequiredFields!)}\nDestination: {destination ?? "Unsaved draft"}\n{issues.Count} outstanding issues. Compiled TapPlan and sidecar are generated only by explicit compile/check.";

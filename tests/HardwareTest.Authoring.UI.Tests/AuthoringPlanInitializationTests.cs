@@ -1,3 +1,4 @@
+using System.Xml.Linq;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
@@ -77,6 +78,31 @@ public sealed class AuthoringPlanInitializationTests
         AuthoringUiFixture.Click(fixture.Control<Button>("Cancel", dialog));
         Assert.Empty(fixture.Window.OwnedWindows); Assert.Equal(before, fixture.ViewModel.Programs);
         Assert.Empty(new AuthoringDocumentStore(fixture.WorkspaceRoot).ListDocumentIds());
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Shutdown_checkbox_review_and_created_compiled_plan_keep_the_same_policy(bool enabled)
+    {
+        using var fixture = Loaded(); AuthoringUiFixture.Click(fixture.Control<Button>("New test plan"));
+        var dialog = Assert.IsType<PlanInitializationWindow>(Assert.Single(fixture.Window!.OwnedWindows));
+        Type(fixture, dialog, "Stable plan ID", "shutdown-choice"); Next(fixture, dialog, "Starting point");
+        fixture.Control<ComboBox>("Starting point", dialog).SelectedIndex = 2; Next(fixture, dialog, "Hardware");
+        Next(fixture, dialog, "Setup and cleanup"); fixture.Control<CheckBox>("Check instrument identity", dialog).IsChecked = true;
+        fixture.Control<CheckBox>("Safe shutdown selected resources", dialog).IsChecked = enabled;
+        Assert.Equal(enabled ? "Shutdown coverage: DMM" : "Shutdown coverage: disabled", fixture.Control<TextBlock>("Shutdown coverage", dialog).Text);
+        Next(fixture, dialog, "First measurement and criterion"); Next(fixture, dialog, "Review and create");
+        var shutdown = fixture.Control<TextBlock>("Initialization review", dialog).Text!.Split('\n').Single(line => line.Contains("shutdown:", StringComparison.Ordinal));
+        AuthoringUiFixture.Click(fixture.Control<Button>("Create test plan", dialog));
+        var vm = fixture.ViewModel; Assert.Equal(enabled, vm.SelectedProgram!.Cleanup.IncludeSafeShutdown);
+        Assert.Equal(["DMM"], vm.SelectedProgram.Cleanup.InstrumentSlots); Assert.Equal(enabled ? true : (bool?)null, vm.SelectedProgram.Sidecar.IncludeSafeShutdown);
+        vm.Apply(); var path = vm.Workspace!.TapPlanPaths.Single(path => Path.GetFileNameWithoutExtension(path) == "shutdown-choice");
+        Assert.Equal(enabled, XDocument.Load(path).Descendants("TestStep").Any(step => ((string?)step.Attribute("type"))?.Contains("SafeShutdownStep", StringComparison.Ordinal) == true));
+        vm.Open(fixture.WorkspaceRoot); vm.SelectProgram("shutdown-choice"); Assert.Equal(enabled, vm.SelectedProgram!.Cleanup.IncludeSafeShutdown);
+        Assert.Equal(["DMM"], vm.SelectedProgram.Cleanup.InstrumentSlots);
+        if (enabled) Assert.Contains("DMM", shutdown);
+        else { Assert.Contains("shutdown: disabled", shutdown); Assert.DoesNotContain("DMM", shutdown); }
     }
 
     [AvaloniaFact]

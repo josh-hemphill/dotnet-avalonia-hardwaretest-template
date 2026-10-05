@@ -1,3 +1,4 @@
+using System.Xml.Linq;
 using HardwareTest.OpenTap.Host;
 using Xunit;
 
@@ -159,6 +160,29 @@ public sealed class AuthoringPlanInitializationTests : IDisposable
         if (timing == "interrupted") Assert.Throws<IOException>(() => initializer.Create(Request(), cancellation.Token));
         else Assert.Throws<OperationCanceledException>(() => initializer.Create(Request(), cancellation.Token));
         Assert.Empty(Directory.GetFiles(_root, "*", SearchOption.AllDirectories));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Shutdown_review_matches_selected_policy_and_compiled_cleanup(bool enabled)
+    {
+        var result = new AuthoringPlanInitializer().Create(Request() with
+        {
+            StartingPoint = PlanStartingPoint.DemoVoltageTask,
+            IdentityInstrumentSlot = "DMM",
+            IncludeSafeShutdown = enabled
+        });
+        Assert.Equal(enabled, result.Draft.Cleanup.IncludeSafeShutdown); Assert.Equal(["DMM"], result.Draft.Cleanup.InstrumentSlots);
+        Assert.Equal(enabled ? true : (bool?)null, result.Draft.Sidecar.IncludeSafeShutdown);
+        var stored = new AuthoringDocumentStore(_root).Load("new-plan").Document!.ToDraft();
+        Assert.Equal(enabled, stored.Cleanup.IncludeSafeShutdown); Assert.Equal(["DMM"], stored.Cleanup.InstrumentSlots);
+        var path = Path.Combine(_root, "new-plan.TapPlan"); new PlanCompiler().Save(stored, path);
+        Assert.Equal(enabled, XDocument.Load(path).Descendants("TestStep").Any(step => ((string?)step.Attribute("type"))?.Contains("SafeShutdownStep", StringComparison.Ordinal) == true));
+        Assert.Equal(enabled, new PlanCompiler().Load(path).Cleanup.IncludeSafeShutdown);
+        var shutdown = result.Review.Split('\n').Single(line => line.Contains("shutdown:", StringComparison.Ordinal));
+        if (enabled) Assert.Contains("DMM", shutdown);
+        else { Assert.Contains("shutdown: disabled", shutdown); Assert.DoesNotContain("DMM", shutdown); }
     }
 
     [Fact]
