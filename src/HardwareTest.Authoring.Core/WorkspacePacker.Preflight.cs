@@ -230,11 +230,7 @@ public static partial class WorkspacePacker
         foreach (var file in new[] { "tap.dll", "tap.runtimeconfig.json", "OpenTap.dll", "OpenTap.Package.dll" })
         {
             var path = Path.Combine(home.Root, file);
-            if (!AuthoringEnvironmentAssessment.RuntimeFileAvailable(home, file))
-            {
-                findings.Add(new("PACK_RUNTIME_MISSING", $"Required OpenTAP runtime file '{file}' is missing or resolves outside this home; bootstrap this home.", true, home.Root));
-                continue;
-            }
+            if (!AuthoringEnvironmentAssessment.RuntimeFileAvailable(home, file)) continue;
             try
             {
                 if (file.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
@@ -254,8 +250,7 @@ public static partial class WorkspacePacker
                 findings.Add(new("PACK_RUNTIME_CORRUPT", $"Required OpenTAP runtime file '{file}' is unreadable or invalid; bootstrap this home. {ex.Message}", true, path));
             }
         }
-        foreach (var requirement in AuthoringEnvironmentAssessment.Packages(manifest, home).Where(p => !p.Optional && !p.Satisfied))
-            findings.Add(new("PACK_PACKAGE_MISSING", requirement.DisplayText + "; prepare or import an offline package into this home.", true, home.Root));
+        findings.AddRange(AuthoringEnvironmentAssessment.BuildBlockers(manifest, home));
     }
 
     private static void ValidateRuntimeConfiguration(JsonElement config)

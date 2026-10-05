@@ -19,8 +19,20 @@ public sealed partial class AuthoringWorkspaceViewModel
         : WorkspacePackPlan.TryResolveHomePath(Workspace, Prefs.OpenTapHomeOverride, out var path, out var error)
             ? AuthoringEnvironmentAssessment.RuntimeFiles(new(path!)) : [error!];
     public string EnvironmentRecoveryText => "Prepare the selected isolated authoring home from bundled prerequisites, or import a trusted offline .TapPackage/.zip. Required version mismatches must be repaired before build. These actions do not install a bench.";
-    private bool HasKnownEnvironmentBlockers => Workspace is not null && EnvironmentPathError is null
-        && Directory.Exists(AuthoringHomeText) && EnvironmentPackages.Any(package => !package.Optional && !package.Satisfied);
+    private IReadOnlyList<PackPreflightFinding> KnownEnvironmentBlockers => Workspace is not null && EnvironmentPathError is null
+        && Directory.Exists(AuthoringHomeText)
+        ? AuthoringEnvironmentAssessment.BuildBlockers(Workspace.Manifest, new(AuthoringHomeText)) : [];
+    private bool HasKnownEnvironmentBlockers => KnownEnvironmentBlockers.Count != 0;
+    private string EnvironmentBlockerText
+    {
+        get
+        {
+            var blockers = KnownEnvironmentBlockers;
+            return blockers.Any(f => f.Code is "PACK_RUNTIME_MISSING" or "PACK_HOME_UNSAFE")
+                ? "Repair unsafe or incomplete selected authoring home before building. " + blockers[0].Message
+                : "Prepare or import missing required authoring packages before building.";
+        }
+    }
     private void RaiseEnvironmentProperties()
     {
         OnPropertyChanged(nameof(EnvironmentPathError));

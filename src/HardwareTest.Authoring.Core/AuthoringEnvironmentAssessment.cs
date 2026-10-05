@@ -13,7 +13,13 @@ public sealed record AuthoringPackageRequirement(string Package, string Required
 public static class AuthoringEnvironmentAssessment
 {
     public static IReadOnlyList<AuthoringPackageRequirement> Packages(AuthoringManifest manifest, OpenTapHome home)
+        => Packages(manifest, home, UnsafeInstalledPaths(home).Count != 0);
+
+    private static IReadOnlyList<AuthoringPackageRequirement> Packages(AuthoringManifest manifest, OpenTapHome home, bool unsafeHome)
     {
+        if (unsafeHome)
+            return manifest.Dependencies.Select(d => new AuthoringPackageRequirement(d.Package, d.Version, "unavailable", false, false, "unsafe installed home"))
+                .Concat(manifest.OptionalDependencies.Select(d => new AuthoringPackageRequirement(d.Package, d.Version, "unavailable", true, false, "unsafe installed home"))).ToArray();
         var installed = OpenTapHomeBootstrapper.ListInstalledPackages(home);
         return manifest.Dependencies.Select(d => Assess(d, false)).Concat(manifest.OptionalDependencies.Select(d => Assess(d, true))).ToArray();
         AuthoringPackageRequirement Assess(AuthoringPackageDependency dependency, bool optional)
@@ -46,19 +52,69 @@ public static class AuthoringEnvironmentAssessment
             // Managed identities and runtime configuration are subsequently checked by preflight.
             if (package.Name.Equals("OpenTAP", StringComparison.OrdinalIgnoreCase)
                 && !RuntimeFileNames.All(file => ExistingContainedFile(home.Root, Path.Combine(home.Root, file)) is not null)) return false;
-            foreach (var file in XDocument.Load(metadata).Descendants().Where(e => e.Name.LocalName == "File"))
-            {
-                var relative = (string?)file.Attribute("Path");
-                if (string.IsNullOrWhiteSpace(relative) || Path.IsPathRooted(relative)
-                    || relative.Replace('\\', '/').Split('/').Contains("..")) return false;
-                relative = relative.Replace('\\', Path.DirectorySeparatorChar).Replace('/', Path.DirectorySeparatorChar);
-                var path = Path.GetFullPath(Path.Combine(package.Path, relative));
-                if (ExistingContainedFile(home.Root, path) is null
-                    && ExistingContainedFile(home.Root, Path.GetFullPath(Path.Combine(home.Root, relative))) is null) return false;
-            }
-            return true;
+            return DeclaredPayloadAvailable(package.Path, metadata, home);
         }
         catch (Exception error) when (error is IOException or UnauthorizedAccessException or System.Xml.XmlException or AuthoringWorkspaceException or ArgumentException) { return false; }
+    }
+
+    // Safety is independent of optional availability and version compatibility. Inspect
+    // every installed metadata file before a package consumer can follow its links.
+    internal static IReadOnlyList<string> UnsafeInstalledPaths(OpenTapHome home)
+    {
+        var failures = new List<string>();
+        var packages = Path.Combine(home.Root, "Packages");
+        try
+        {
+            AuthoringBuildService.EnsureContained(home.Root, AuthoringBuildService.ResolvedPath(home.Root, directory: true));
+            AuthoringBuildService.EnsureContained(home.Root, AuthoringBuildService.ResolvedPath(packages, directory: true));
+            if (!Directory.Exists(packages)) return failures;
+            foreach (var package in Directory.EnumerateDirectories(packages))
+            {
+                try
+                {
+                    var metadata = ExistingContainedFile(home.Root, Path.Combine(package, "package.xml"));
+                    if (metadata is not null) _ = DeclaredPayloadAvailable(package, metadata, home);
+                }
+                catch (System.Xml.XmlException) { } // Invalid metadata is an availability issue, not a path escape.
+                catch (Exception error) when (error is IOException or UnauthorizedAccessException or AuthoringWorkspaceException or ArgumentException)
+                { failures.Add(package + ": " + error.Message); }
+            }
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException or AuthoringWorkspaceException or ArgumentException)
+        { failures.Add(packages + ": " + error.Message); }
+        return failures;
+    }
+
+    private static bool DeclaredPayloadAvailable(string package, string metadata, OpenTapHome home)
+    {
+        var available = true;
+        foreach (var file in XDocument.Load(metadata).Descendants().Where(e => e.Name.LocalName == "File"))
+        {
+            var relative = (string?)file.Attribute("Path");
+            if (string.IsNullOrWhiteSpace(relative) || Path.IsPathRooted(relative)
+                || relative.Replace('\\', '/').Split('/').Contains(".."))
+                throw new AuthoringWorkspaceException("Unsafe declared package payload path.");
+            relative = relative.Replace('\\', Path.DirectorySeparatorChar).Replace('/', Path.DirectorySeparatorChar);
+            var path = Path.GetFullPath(Path.Combine(package, relative));
+            // Inspect every declaration even when another payload is missing. An unsafe
+            // package-relative candidate must not borrow a safe home-root fallback.
+            if (ExistingContainedFile(home.Root, path) is null
+                && ExistingContainedFile(home.Root, Path.GetFullPath(Path.Combine(home.Root, relative))) is null) available = false;
+        }
+        return available;
+    }
+
+    internal static IReadOnlyList<PackPreflightFinding> BuildBlockers(AuthoringManifest manifest, OpenTapHome home)
+    {
+        var findings = new List<PackPreflightFinding>();
+        foreach (var file in RuntimeFileNames.Where(file => !RuntimeFileAvailable(home, file)))
+            findings.Add(new("PACK_RUNTIME_MISSING", $"Required OpenTAP runtime file '{file}' is missing or resolves outside this home; bootstrap this home.", true, home.Root));
+        var unsafePaths = UnsafeInstalledPaths(home);
+        foreach (var failure in unsafePaths)
+            findings.Add(new("PACK_HOME_UNSAFE", "Unsafe installed package path: " + failure, true, home.Root));
+        foreach (var requirement in Packages(manifest, home, unsafePaths.Count != 0).Where(p => !p.Optional && !p.Satisfied))
+            findings.Add(new("PACK_PACKAGE_MISSING", requirement.DisplayText + "; prepare or import an offline package into this home.", true, home.Root));
+        return findings;
     }
 
     private static readonly string[] RuntimeFileNames = ["OpenTap.dll", "OpenTap.Package.dll", "tap.dll", "tap.runtimeconfig.json"];
