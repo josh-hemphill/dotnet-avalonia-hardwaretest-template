@@ -7,15 +7,17 @@ namespace HardwareTest.Authoring;
 public partial class WorkspacePreviewView : UserControl
 {
     private readonly IAuthoringRecordingPicker _recordingPicker;
+    private readonly Func<TopLevel, DirectoryInfo, Task<bool>>? _launchRecordingFolder;
     private readonly ScrollViewer _sourceDetailsViewport;
     private readonly Grid _previewLayout;
     private readonly WrapPanel _sourceActions;
     private readonly StackPanel _recordingRows;
     private readonly OperatorPreviewPane _boardPane;
     public WorkspacePreviewView() : this(new AuthoringRecordingPicker()) { }
-    public WorkspacePreviewView(IAuthoringRecordingPicker recordingPicker)
+    public WorkspacePreviewView(IAuthoringRecordingPicker recordingPicker, Func<TopLevel, DirectoryInfo, Task<bool>>? launchRecordingFolder = null)
     {
         _recordingPicker = recordingPicker;
+        _launchRecordingFolder = launchRecordingFolder;
         InitializeComponent();
         _sourceDetailsViewport = this.FindControl<ScrollViewer>("SourceDetailsViewport")!;
         _previewLayout = this.FindControl<Grid>("PreviewLayout")!;
@@ -56,10 +58,13 @@ public partial class WorkspacePreviewView : UserControl
     public async Task<bool> ImportRecordingAsync()
     {
         if (DataContext is not AuthoringWorkspaceViewModel vm || !vm.CanImportRecording || TopLevel.GetTopLevel(this) is not { IsVisible: true } owner) return false;
+        var ownerDataContext = owner.DataContext;
+        if (owner is MainWindow && !ReferenceEquals(ownerDataContext, vm)) return false;
         var workspace = vm.Workspace;
         var program = vm.SelectedProgram;
         var session = vm.WorkspaceSessionId;
-        bool CurrentSession() => owner.IsVisible && ReferenceEquals(DataContext, vm) && ReferenceEquals(workspace, vm.Workspace)
+        bool CurrentSession() => owner.IsVisible && ReferenceEquals(owner.DataContext, ownerDataContext)
+            && ReferenceEquals(TopLevel.GetTopLevel(this), owner) && ReferenceEquals(DataContext, vm) && ReferenceEquals(workspace, vm.Workspace)
             && ReferenceEquals(program, vm.SelectedProgram) && session == vm.WorkspaceSessionId && vm.CanImportRecording;
         try
         {
@@ -75,17 +80,23 @@ public partial class WorkspacePreviewView : UserControl
         }
     }
 
-    private async void OnOpenRecordingFolder(object? sender, RoutedEventArgs e)
+    private async void OnOpenRecordingFolder(object? sender, RoutedEventArgs e) => await OpenRecordingFolderAsync();
+
+    public async Task OpenRecordingFolderAsync()
     {
-        if (DataContext is not AuthoringWorkspaceViewModel { Workspace: { } workspace } vm || TopLevel.GetTopLevel(this) is not { } owner) return;
+        if (DataContext is not AuthoringWorkspaceViewModel { Workspace: { } workspace } vm || TopLevel.GetTopLevel(this) is not { IsVisible: true } owner) return;
+        var ownerDataContext = owner.DataContext;
+        if (owner is MainWindow && !ReferenceEquals(ownerDataContext, vm)) return;
         var session = vm.WorkspaceSessionId;
-        bool Current() => owner.IsVisible && ReferenceEquals(workspace, vm.Workspace) && ReferenceEquals(DataContext, vm) && session == vm.WorkspaceSessionId;
+        bool Current() => owner.IsVisible && ReferenceEquals(owner.DataContext, ownerDataContext)
+            && ReferenceEquals(TopLevel.GetTopLevel(this), owner) && ReferenceEquals(workspace, vm.Workspace) && ReferenceEquals(DataContext, vm) && session == vm.WorkspaceSessionId;
         try
         {
             var path = RunDatasetCatalog.ResolveRecordingsRoot(workspace);
-            if (!Directory.Exists(path)) { vm.ReportError("No recordings folder yet. Import a recording to create it."); return; }
-            if (!owner.IsVisible || !ReferenceEquals(workspace, vm.Workspace) || !ReferenceEquals(DataContext, vm)) return;
-            var opened = await owner.Launcher.LaunchDirectoryInfoAsync(new DirectoryInfo(path));
+            if (!Directory.Exists(path)) { if (Current()) vm.ReportError("No recordings folder yet. Import a recording to create it."); return; }
+            if (!Current()) return;
+            var opened = await (_launchRecordingFolder?.Invoke(owner, new DirectoryInfo(path))
+                ?? owner.Launcher.LaunchDirectoryInfoAsync(new DirectoryInfo(path)));
             if (Current() && !opened) vm.ReportError("Could not open the recordings folder.");
         }
         catch (Exception error) when (error is AuthoringWorkspaceException or IOException or UnauthorizedAccessException) { if (Current()) vm.ReportError(error.Message); }
