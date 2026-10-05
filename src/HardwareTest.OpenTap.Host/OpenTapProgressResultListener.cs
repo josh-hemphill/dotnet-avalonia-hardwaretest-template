@@ -79,17 +79,7 @@ internal sealed partial class ProgressResultListener : ResultListener
         _updateNode(id, stepRun.TestStepName, "Running", "NotSet", null);
 
         var step = OpenTapLoopProgress.FindStepById(_plan, stepRun.TestStepId);
-        if (step is not null && OpenTapLoopProgress.IsLoopStep(step))
-        {
-            _loops.Push(new LoopContext
-            {
-                StepId = step.Id,
-                RunId = stepRun.Id,
-                Total = OpenTapLoopProgress.TryGetLoopTotal(step),
-                Index = 0,
-            });
-        }
-        else if (step is not null && _loops.Count > 0)
+        if (step is not null && _loops.Count > 0)
         {
             var loopStep = OpenTapLoopProgress.FindStepById(_plan, _loops.Peek().StepId);
             if (loopStep is not null && IsFirstEnabledDirectChild(step, loopStep))
@@ -101,6 +91,17 @@ internal sealed partial class ProgressResultListener : ResultListener
                     loop.Index = Math.Min(loop.Index, loop.Total.Value);
                 }
             }
+        }
+
+        if (step is not null && OpenTapLoopProgress.IsLoopStep(step))
+        {
+            _loops.Push(new LoopContext
+            {
+                StepId = step.Id,
+                RunId = stepRun.Id,
+                Total = OpenTapLoopProgress.TryGetLoopTotal(step),
+                Index = 0,
+            });
         }
 
         RememberExecution(stepRun);

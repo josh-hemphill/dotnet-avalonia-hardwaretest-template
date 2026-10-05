@@ -9,6 +9,7 @@ public static partial class BoardPreviewBuilder
     private static void AddRaw(RawStepNode raw, TestRunRecord? recording,
         Dictionary<string, IReadOnlyList<IReadOnlyList<StoredSample>>> available, List<BoardPreviewTile> tiles)
     {
+        string? publisherKey = null;
         try
         {
             if (recording is { IsSchemaReadOnly: true }) throw new AuthoringWorkspaceException($"Unsupported recording schema {recording.StoredSchemaVersion}.");
@@ -18,8 +19,13 @@ public static partial class BoardPreviewBuilder
             var channel = step switch { PublishTimedSampleStep timed => timed.Channel, PublishBandScalarStep scalar => scalar.MetricName, _ => null };
             if (channel is null) throw new AuthoringWorkspaceException("This imported step does not expose a supported preview publisher.");
             var key = string.IsNullOrWhiteSpace(hints?.ChannelKey) ? channel : hints.ChannelKey;
+            publisherKey = key;
             IReadOnlyList<IReadOnlyList<StoredSample>> groups;
-            if (recording is not null) groups = RunDatasetBinder.SeriesForProducer(recording, key, raw.NodeId);
+            if (recording is not null)
+            {
+                groups = RunDatasetBinder.SeriesForProducer(recording, key, raw.NodeId);
+                if (groups.Count == 0) throw new AuthoringWorkspaceException($"Missing recording channel '{key}' for this imported publisher.");
+            }
             else
             {
                 var (value, elapsed, unit) = step switch
@@ -43,7 +49,8 @@ public static partial class BoardPreviewBuilder
         }
         catch (Exception error) when (error is AuthoringWorkspaceException or FormatException or OverflowException or global::OpenTap.TestPlan.PlanLoadException or System.Xml.XmlException)
         {
-            var preview = MetricPreviewBuilder.Empty with { Note = error.Message };
+            if (publisherKey is not null) available[publisherKey] = [];
+            var preview = MetricPreviewBuilder.Empty with { ChannelKey = publisherKey ?? string.Empty, Note = error.Message };
             tiles.Add(new(raw.NodeId, raw.TypeName, recording is null ? "Example" : "Recording", preview, AuthoringPreviewChromeBuilder.From(preview)));
         }
     }

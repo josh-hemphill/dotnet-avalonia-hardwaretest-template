@@ -48,13 +48,22 @@ public static partial class MetricPreviewBuilder
         }
 
         nodeId ??= sourceContext is null ? null : ResolveNodeId(sourceContext.Measure, metric);
-        if (siblings is not null && sourceContext is not null)
+        if (sourceContext is not null)
         {
             var identity = nodeId ?? ResolveNodeId(sourceContext.Measure, metric);
             var tile = BoardPreviewBuilder.Build(sourceContext, recorded is null ? null : new TestRunRecord { Samples = recorded.Values.SelectMany(samples => samples).ToList() })
                 .LastOrDefault(tile => tile.NodeId == identity);
             if (tile is not null) return tile.Preview;
         }
+        return FromMetric(metric, siblings, recorded, sourceContext, nodeId);
+    }
+
+    internal static MetricPreview FromInGraph(MetricDraft metric, ProgramDraft context, Guid nodeId)
+        => FromMetric(metric, null, null, context, nodeId);
+
+    private static MetricPreview FromMetric(MetricDraft metric, IReadOnlyList<MetricDraft>? siblings,
+        IReadOnlyDictionary<string, IReadOnlyList<StoredSample>>? recorded, ProgramDraft? sourceContext, Guid? nodeId)
+    {
         try { metric = EffectiveMetric(metric); }
         catch (Exception error) when (error is AuthoringWorkspaceException or FormatException or OverflowException)
         {

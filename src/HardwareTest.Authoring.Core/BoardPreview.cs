@@ -53,7 +53,7 @@ public static partial class BoardPreviewBuilder
                     {
                         if (recording is null && metric.Source is ExpressionAlgorithm && PlanCompiler.ScalarMeanPreviewExample(FormulaDeploymentClassifier.DeploymentContext(metric, program, node.NodeId), metric.ChannelKey, node.NodeId) is not null)
                         {
-                            Add(metricNode, MetricPreviewBuilder.From(metric, null, null, program, node.NodeId), "Example");
+                            Add(metricNode, MetricPreviewBuilder.FromInGraph(metric, program, node.NodeId), "Example");
                             continue;
                         }
                         // Recordings supply values, never a substitute for compiler publisher capabilities or scope.
@@ -63,7 +63,7 @@ public static partial class BoardPreviewBuilder
                         {
                             if (recording is null)
                             {
-                                var example = MetricPreviewBuilder.From(metric, null, null, program, node.NodeId);
+                                var example = MetricPreviewBuilder.FromInGraph(metric, program, node.NodeId);
                                 if (example.CannedSamples.Count > 0) { Add(metricNode, example, "Example"); continue; }
                             }
                             throw new AuthoringWorkspaceException($"Missing input channel '{key}' for '{metric.ChannelKey}'.");
