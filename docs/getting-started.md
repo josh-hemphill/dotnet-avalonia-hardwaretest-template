@@ -32,7 +32,7 @@ dotnet run --project src/HardwareTest.Authoring -c Debug -r win-x64 -- --help
 
 ## 2. Create a program and add recipes
 
-1. **New program** seeds Identity + Cleanup + Mock DMM (in-repo demos). Product workspaces that declare InstrumentComponents.OpenTap still keep this template’s sample/board-demo on Basic. **Remove program** (or Delete on the programs list) drops the selected plan from the session and deletes its `.TapPlan` + `.program.json` when those files exist.
+1. **New test plan** opens the shared initializer with explicit Empty, Voltage task and Demo voltage task choices. **First voltage test…** offers optional task guidance. Empty plans contain no instruments; only an explicit Demo choice selects a Mock DMM. Choose a physical instrument and its address for product plans, and review instrument identity and safe shutdown before creation. **Remove program** (or Delete on the programs list) drops the selected plan from the session and deletes its `.TapPlan` + `.program.json` when those files exist.
 2. On the **Program** tab, search **Add to sequence** by Measure, Check, Operator action or Flow, choose **Before selected**, **After selected** or **End of section**, review the prerequisites, and **Add recipe**. Rename, Duplicate and Move up/down apply to the selected step; Undo/Redo restore complete program edits. Duplicate allocates fresh IDs and channels while preserving external references. Moves that break dependencies, loop scope or opaque steps are rejected with an explanation. **Remove selected** (or Delete on the sequence list) drops the highlighted Setup, measure, Repeat, or Raw row. **Remove loop, keep steps** unwraps Repeat children. **Disable safe shutdown** turns Cleanup off. The sequence list is Setup / Measure / Cleanup — not a tree. Repeat children are indented under the Repeat row. **Dialog** and **Hang Forever** are not listed.
 3. The **Inspector** edits only the selected sequence row (channel key, display role, unit, limits, formula chips, transfer-function method). **Hardware** holds program sidecar membership (DUT fields, reports) and the instrument table with actual type, address, package availability, affected steps and cleanup coverage. **Definitions** administers workspace catalogs and hardware templates. Mean GTE needs a threshold; band and series need both limits before compilation. Missing criteria and incomplete numeric text can still be saved as authoring drafts. Preview uses canned samples unless a recording is selected.
 4. **Preview** shows canned samples for the selected DisplayRole (not Execute). Select a `recordings/` export to eval formulas and transfer functions on real `elapsedMs` series.
@@ -64,7 +64,7 @@ Recipes appear under **Add to sequence** on the Program tab. Assign the instrume
 
 ### Identity — Identity Check
 
-When the sidecar has `requireSerial: true`, the plan needs an identity step. **New program** already adds one.
+When the sidecar has `requireSerial: true`, the plan needs an identity step. Select **Check instrument identity** with the chosen instrument during initialization, or add it in the normal editor. Guided voltage tasks select the identity check by default; empty plans remain incomplete until their required hardware and identity are configured.
 
 - **In-repo demos:** **Identity Check**. Assign Mock DMM and a **Hardware DUT** so the demo can stamp serial.
 - **Product:** *Identity Query* (Instrument Components). DUT serial is the shell confirm — do not add a `HardwareDut` resource. Use TUI if that library step is not in the recipe palette.
@@ -130,7 +130,7 @@ When every sample must stay in band, or you need config-change marks:
 
 ### Cleanup — Safe Shutdown
 
-**Safe Shutdown** (or library *Safe Shutdown* in TUI). Assign the same instrument. Required when `selectionIncludesCleanup` is true (the default). Set the sidecar false only when shutdown is suite-scoped and Run Selected is software-only. **New program** already adds Cleanup.
+**Safe Shutdown** (or library *Safe Shutdown* in TUI). Assign the same instrument. Required when `selectionIncludesCleanup` is true (the default). Set the sidecar false only when shutdown is suite-scoped and Run Selected is software-only. Initialization offers **Safe shutdown selected resources** and shows its instrument coverage; empty plans have no resources to shut down.
 
 ### Do not add
 
@@ -235,3 +235,15 @@ In TUI: **New** test plan (or open [`plans/opentap/sample.TapPlan`](../plans/ope
 - Tests for a new plan or plugin: [testing.md](testing.md)
 - Bake onto a sealed bench: [appliance-linux.md](appliance-linux.md)
 - Authoring architecture: [authoring-app.md](authoring-app.md)
+
+## Guided first voltage test
+
+Create an Empty, Product voltage or explicit Demo voltage workspace from the welcome screen, then choose **First voltage test…**. Product workspaces declare HardwareTest VISA; optional VISA packages for Empty and Demo workspaces remain off until selected. Guidance uses the normal plan initializer, document, editor and save operations.
+
+The six stages are name/device, instrument, measurement, pass criterion, preview, and save/check. Instrument identity and safe shutdown are shown in the preview. Choose **Empty plan** for a direct route to the normal editor. Demo explicitly selects a Mock DMM; physical instrument selection requires the declared package and its installed payload.
+
+**Leave guidance** retains entered form values, including incomplete numeric text, for **Resume guidance** in the current workspace session. Reusable instrument selection retains its original address and configuration if catalog entries move, change or disappear; changed or removed choices are labelled for review. No source is published until the final Save action. After that action, the normal document owns edits, history, stable IDs and recovery. **Leave saved guidance** hides the help without altering the document. Reopening a saved plan and choosing Resume uses that plan's saved content.
+
+**Skip optional guidance** is a workstation preference (`skipGuidance` in authoring-preferences.json). Future-schema settings remain read-only. A subsequent First voltage test command opens the ordinary initializer; Resume explicitly enables guidance again. If future-schema settings are read-only and skip guidance, Resume enables it for the current workspace session while preserving the exact settings bytes.
+
+Use the existing editor preview with example data or a recording, **Save and check draft** to save/compile, and **Validate saved plans** for the shared validation operation. Missing bindings, incomplete criteria and packages point to Issues and Environment. Build shows deployment requirements. The completion message requires saved, compiled source with matching artifact hashes and no current editing blockers. It does not execute or deploy to a bench.

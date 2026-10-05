@@ -105,6 +105,13 @@ public sealed class AuthoringChromeA11yTests
         Assert.Contains("vm.ImportRecording(path)", previewCode, StringComparison.Ordinal);
         Assert.Contains("owner.Launcher.LaunchDirectoryInfoAsync(new DirectoryInfo(path))", previewCode, StringComparison.Ordinal);
         Assert.Contains("ReferenceEquals(workspace, vm.Workspace)", previewCode, StringComparison.Ordinal);
+        var guidanceCode = File.ReadAllText(Path.Combine(sourceRoot, "MainWindow.Guidance.cs"));
+        Assert.Contains("Click=\"OnGuidedStart\"", shell, StringComparison.Ordinal);
+        Assert.Contains("Click=\"OnResumeGuidance\"", shell, StringComparison.Ordinal);
+        Assert.Contains("await ShowGuidedInitializationAsync()", guidanceCode, StringComparison.Ordinal);
+        Assert.Contains("dialog.CaptureGuidedForm()", guidanceCode, StringComparison.Ordinal);
+        Assert.Contains("TryRun(() => _viewModel.Apply())", guidanceCode, StringComparison.Ordinal);
+        Assert.Contains("_guidedSession == _viewModel.WorkspaceSessionId", guidanceCode, StringComparison.Ordinal);
         var code = string.Join(Environment.NewLine, new[] { "MainWindow.axaml.cs", "MainWindow.BuildEnvironment.cs" }
             .Select(file => File.ReadAllText(Path.Combine(sourceRoot, file))));
         Assert.Contains("ApplyFormulaCompletion", code, StringComparison.Ordinal);

@@ -31,6 +31,7 @@ public sealed class AuthoringPreferencesStore : IAuthoringPreferencesStore
         "lastWorkspace",
         "openTapHomeOverride",
         "showRawStepXml",
+        "skipGuidance",
     };
 
     public AuthoringPreferencesStore(string? filePath = null)
