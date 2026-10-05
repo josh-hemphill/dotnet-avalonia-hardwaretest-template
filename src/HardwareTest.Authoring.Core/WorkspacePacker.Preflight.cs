@@ -230,9 +230,9 @@ public static partial class WorkspacePacker
         foreach (var file in new[] { "tap.dll", "tap.runtimeconfig.json", "OpenTap.dll", "OpenTap.Package.dll" })
         {
             var path = Path.Combine(home.Root, file);
-            if (!File.Exists(path))
+            if (!AuthoringEnvironmentAssessment.RuntimeFileAvailable(home, file))
             {
-                findings.Add(new("PACK_RUNTIME_MISSING", $"Required OpenTAP runtime file '{file}' is missing; bootstrap this home.", true, home.Root));
+                findings.Add(new("PACK_RUNTIME_MISSING", $"Required OpenTAP runtime file '{file}' is missing or resolves outside this home; bootstrap this home.", true, home.Root));
                 continue;
             }
             try

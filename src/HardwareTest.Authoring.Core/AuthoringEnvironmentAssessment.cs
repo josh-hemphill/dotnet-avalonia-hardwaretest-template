@@ -37,32 +37,50 @@ public static class AuthoringEnvironmentAssessment
 
     private static bool HasDeclaredPayload(AuthoringInstalledPackage package, OpenTapHome home)
     {
-        // Runtime configuration and OpenTAP managed identities are checked by preflight.
-        if (package.Name.Equals("OpenTAP", StringComparison.OrdinalIgnoreCase)
-            && !new[] { "OpenTap.dll", "OpenTap.Package.dll", "tap.dll", "tap.runtimeconfig.json" }.All(file => File.Exists(Path.Combine(home.Root, file)))) return false;
         try
         {
-            foreach (var file in XDocument.Load(Path.Combine(package.Path, "package.xml")).Descendants().Where(e => e.Name.LocalName == "File"))
+            // Match capture's selected-root boundary before following metadata or runtime links.
+            AuthoringBuildService.EnsureContained(home.Root, AuthoringBuildService.ResolvedPath(home.Root, directory: true));
+            var metadata = ExistingContainedFile(home.Root, Path.Combine(package.Path, "package.xml"));
+            if (metadata is null) return false;
+            // Managed identities and runtime configuration are subsequently checked by preflight.
+            if (package.Name.Equals("OpenTAP", StringComparison.OrdinalIgnoreCase)
+                && !RuntimeFileNames.All(file => ExistingContainedFile(home.Root, Path.Combine(home.Root, file)) is not null)) return false;
+            foreach (var file in XDocument.Load(metadata).Descendants().Where(e => e.Name.LocalName == "File"))
             {
                 var relative = (string?)file.Attribute("Path");
                 if (string.IsNullOrWhiteSpace(relative) || Path.IsPathRooted(relative)
                     || relative.Replace('\\', '/').Split('/').Contains("..")) return false;
                 relative = relative.Replace('\\', Path.DirectorySeparatorChar).Replace('/', Path.DirectorySeparatorChar);
                 var path = Path.GetFullPath(Path.Combine(package.Path, relative));
-                AuthoringBuildService.EnsureContained(home.Root, path);
-                if (!File.Exists(path))
-                {
-                    path = Path.GetFullPath(Path.Combine(home.Root, relative));
-                    AuthoringBuildService.EnsureContained(home.Root, path);
-                    if (!File.Exists(path)) return false;
-                }
+                if (ExistingContainedFile(home.Root, path) is null
+                    && ExistingContainedFile(home.Root, Path.GetFullPath(Path.Combine(home.Root, relative))) is null) return false;
             }
             return true;
         }
-        catch (Exception error) when (error is IOException or System.Xml.XmlException or AuthoringWorkspaceException or ArgumentException) { return false; }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException or System.Xml.XmlException or AuthoringWorkspaceException or ArgumentException) { return false; }
+    }
+
+    private static readonly string[] RuntimeFileNames = ["OpenTap.dll", "OpenTap.Package.dll", "tap.dll", "tap.runtimeconfig.json"];
+
+    private static string? ExistingContainedFile(string root, string path)
+    {
+        AuthoringBuildService.EnsureContained(root, path);
+        var target = AuthoringBuildService.ResolvedPath(path, directory: false);
+        AuthoringBuildService.EnsureContained(root, target);
+        return File.Exists(target) ? target : null;
     }
 
     public static IReadOnlyList<string> RuntimeFiles(OpenTapHome home)
-        => new[] { "OpenTap.dll", "OpenTap.Package.dll", "tap.dll", "tap.runtimeconfig.json" }
-            .Select(file => $"{file}: {(File.Exists(Path.Combine(home.Root, file)) ? "present (validated during build)" : "missing — prepare environment")}").ToArray();
+        => RuntimeFileNames.Select(file => $"{file}: {(RuntimeFileAvailable(home, file) ? "present (validated during build)" : "missing or unsafe — prepare environment")}").ToArray();
+
+    internal static bool RuntimeFileAvailable(OpenTapHome home, string file)
+    {
+        try
+        {
+            AuthoringBuildService.EnsureContained(home.Root, AuthoringBuildService.ResolvedPath(home.Root, directory: true));
+            return ExistingContainedFile(home.Root, Path.Combine(home.Root, file)) is not null;
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException or AuthoringWorkspaceException or ArgumentException) { return false; }
+    }
 }
