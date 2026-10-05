@@ -58,7 +58,8 @@ public sealed partial class AuthoringWorkspaceViewModel
     private void AcceptFindings(PlanContractBatchReport report, FindingCheck check)
     {
         if (check.Session != _workspaceSession) return;
-        var stale = VerifyFindingInputs(() => check.Generation != _findingRevision || check.Identity != FindingIdentity());
+        var identity = VerifyFindingInputs(FindingIdentity);
+        var stale = check.Generation != _findingRevision || check.Identity != identity;
         _lastFindingCheck = check;
         _lastFindingCheckStale = stale;
         OnPropertyChanged(nameof(IssuesCheckState));

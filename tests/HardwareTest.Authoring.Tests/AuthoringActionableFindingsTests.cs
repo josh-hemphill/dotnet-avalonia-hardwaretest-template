@@ -25,12 +25,18 @@ public sealed partial class AuthoringActionableFindingsTests : IDisposable
     }
 
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task Unreadable_source_at_async_completion_invalidates_the_previous_checked_report(bool empty)
+    [InlineData(false, "program", false)]
+    [InlineData(true, "program", false)]
+    [InlineData(false, "program", true)]
+    [InlineData(true, "program", true)]
+    [InlineData(false, "manifest", true)]
+    [InlineData(true, "manifest", true)]
+    [InlineData(false, "workspace", true)]
+    [InlineData(true, "workspace", true)]
+    public async Task Unreadable_source_at_async_completion_invalidates_the_previous_checked_report(bool empty, string input, bool editAndUndo)
     {
         PrepareCheckedInputs(empty);
-        var sourcePath = new AuthoringDocumentStore(_root).GetDocumentPath("sample");
+        var sourcePath = CheckedInputPath(input);
         var original = File.ReadAllBytes(sourcePath);
         File.WriteAllText(Path.Combine(_root, "fixture-result-wait"), "");
         _vm.ConfigureOperations(AuthoringChildProcessRunner.ForExecutable(
@@ -44,6 +50,12 @@ public sealed partial class AuthoringActionableFindingsTests : IDisposable
                 if (operation.IsCompleted) await operation;
                 Assert.True(DateTime.UtcNow < deadline);
                 await Task.Delay(20);
+            }
+            if (editAndUndo)
+            {
+                _vm.SelectProgram("sample");
+                _vm.DisplayName = "edited while checking";
+                _vm.Undo();
             }
             using (var locked = new FileStream(sourcePath, FileMode.Open, FileAccess.Read, FileShare.None))
             {
