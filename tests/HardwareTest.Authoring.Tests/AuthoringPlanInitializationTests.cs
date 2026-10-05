@@ -26,6 +26,46 @@ public sealed class AuthoringPlanInitializationTests : IDisposable
         Assert.EndsWith("new-plan.authoring.json", result.DestinationPath);
     }
 
+    [Fact]
+    public void Workspace_trailing_separator_supports_actual_creation_save_and_reopen_but_other_root_is_rejected()
+    {
+        Workspace(); var vm = new AuthoringWorkspaceViewModel(); vm.Open(_root); vm.StopRecovery();
+        var request = Request() with { WorkspaceRoot = _root + Path.DirectorySeparatorChar };
+        var review = vm.ReviewPlanInitialization(request);
+        Assert.Equal(new AuthoringDocumentStore(_root).GetDocumentPath("new-plan"), review.DestinationPath);
+        var result = vm.InitializePlan(request);
+        Assert.True(File.Exists(result.DestinationPath)); Assert.False(vm.HasUnsavedChanges);
+        vm.SaveProgram("new-plan"); vm.Open(_root + Path.DirectorySeparatorChar); vm.StopRecovery(); vm.SelectProgram("new-plan");
+        Assert.Equal("new-plan", vm.SelectedProgram!.PlanId); Assert.False(vm.HasUnsavedChanges);
+        var source = new AuthoringDocumentStore(_root).GetDocumentPath("new-plan"); var before = File.ReadAllBytes(source);
+        var other = Path.Combine(_root, "other-workspace"); Directory.CreateDirectory(other);
+        foreach (var file in Directory.GetFiles(_root)) File.Copy(file, Path.Combine(other, Path.GetFileName(file)));
+        Assert.Throws<AuthoringWorkspaceException>(() => vm.InitializePlan(Request("different") with { WorkspaceRoot = other }));
+        Assert.False(new AuthoringDocumentStore(other).Load("different").Exists);
+        if (!OperatingSystem.IsWindows())
+            Assert.Throws<AuthoringWorkspaceException>(() => vm.InitializePlan(Request("case-different") with { WorkspaceRoot = _root.ToUpperInvariant() }));
+        Assert.Equal(before, File.ReadAllBytes(source)); Assert.False(new AuthoringDocumentStore(_root).Load("different").Exists);
+    }
+
+    [Fact]
+    public void Windows_case_alias_workspace_and_destination_support_direct_and_VM_publication()
+    {
+        if (!OperatingSystem.IsWindows()) return; // Actual Windows identity regression runs in Windows CI.
+        Workspace();
+        var alias = SwapDriveCase(_root); Assert.NotEqual(_root, alias);
+        var store = new AuthoringDocumentStore(_root);
+        var direct = new AuthoringPlanInitializer().Create(Request("direct-alias") with
+        { WorkspaceRoot = alias + Path.DirectorySeparatorChar, DestinationPath = SwapDriveCase(store.GetDocumentPath("direct-alias")) });
+        Assert.True(store.Load("direct-alias").Exists); Assert.Equal("direct-alias", direct.Draft.PlanId);
+        var vm = new AuthoringWorkspaceViewModel(); vm.Open(_root); vm.StopRecovery();
+        vm.InitializePlan(Request("vm-alias") with { WorkspaceRoot = alias, DestinationPath = SwapDriveCase(store.GetDocumentPath("vm-alias")) });
+        vm.SaveProgram("vm-alias"); vm.Open(alias); vm.StopRecovery(); vm.SelectProgram("vm-alias");
+        Assert.Equal("vm-alias", vm.SelectedProgram!.PlanId); Assert.False(vm.HasUnsavedChanges);
+        Assert.Equal("direct-alias", store.Load("direct-alias").Document!.PlanId);
+    }
+
+    private static string SwapDriveCase(string path) => (char.IsUpper(path[0]) ? char.ToLowerInvariant(path[0]) : char.ToUpperInvariant(path[0])) + path[1..];
+
     [Theory]
     [InlineData("../escape")]
     [InlineData("CON")]

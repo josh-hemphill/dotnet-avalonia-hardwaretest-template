@@ -29,6 +29,26 @@ public sealed class AuthoringPlanInitializationTests
     }
 
     [AvaloniaFact]
+    public void Windows_case_alias_destination_in_actual_wizard_creates_saves_and_reopens()
+    {
+        if (!OperatingSystem.IsWindows()) return; // Actual Windows filesystem semantics run in Windows CI.
+        using var fixture = Loaded();
+        AuthoringUiFixture.Click(fixture.Control<Button>("New test plan"));
+        var dialog = Assert.IsType<PlanInitializationWindow>(Assert.Single(fixture.Window!.OwnedWindows));
+        Type(fixture, dialog, "Stable plan ID", "case-alias");
+        var path = fixture.Control<TextBox>("Draft destination", dialog).Text!;
+        var alias = (char.IsUpper(path[0]) ? char.ToLowerInvariant(path[0]) : char.ToUpperInvariant(path[0])) + path[1..];
+        Assert.NotEqual(path, alias); Type(fixture, dialog, "Draft destination", alias);
+        Next(fixture, dialog, "Starting point"); Next(fixture, dialog, "Hardware"); Next(fixture, dialog, "Setup and cleanup");
+        Next(fixture, dialog, "First measurement and criterion"); Next(fixture, dialog, "Review and create");
+        AuthoringUiFixture.Click(fixture.Control<Button>("Create test plan", dialog));
+        Assert.Empty(fixture.Window.OwnedWindows); Assert.Equal("case-alias", fixture.ViewModel.SelectedProgram!.PlanId);
+        Assert.True(File.Exists(path)); Assert.False(fixture.ViewModel.HasUnsavedChanges);
+        fixture.ViewModel.SaveProgram("case-alias"); fixture.ViewModel.Open(fixture.WorkspaceRoot); fixture.ViewModel.SelectProgram("case-alias"); AuthoringUiFixture.Drain();
+        Assert.Equal("case-alias", fixture.ViewModel.SelectedProgram!.PlanId); Assert.False(fixture.ViewModel.HasUnsavedChanges);
+    }
+
+    [AvaloniaFact]
     public void Programs_entry_walks_all_six_stages_preserves_incomplete_text_and_opens_normal_document()
     {
         using var fixture = Loaded();

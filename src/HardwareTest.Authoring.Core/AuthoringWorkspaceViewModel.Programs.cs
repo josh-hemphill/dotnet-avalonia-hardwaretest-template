@@ -48,7 +48,7 @@ public sealed partial class AuthoringWorkspaceViewModel
     private PlanInitializationRequest InitializationRequest(PlanInitializationRequest request)
     {
         if (Workspace is null) throw new AuthoringWorkspaceException("Open a workspace before creating a test plan.");
-        if (request.WorkspaceRoot is not null && Path.GetFullPath(request.WorkspaceRoot) != Path.GetFullPath(Workspace.Root))
+        if (request.WorkspaceRoot is not null && !AuthoringDocumentStore.SamePath(request.WorkspaceRoot, Workspace.Root, isDirectory: true))
             throw new AuthoringWorkspaceException("The workspace changed; reopen New test plan.");
         var inspection = HardwareInspection;
         return request with

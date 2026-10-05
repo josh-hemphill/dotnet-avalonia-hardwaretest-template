@@ -211,10 +211,20 @@ public sealed partial class AuthoringDocumentStore
         if (ReservedName().IsMatch(stem)) throw new ArgumentException("Program ID is a reserved device name.", nameof(id));
     }
 
+    internal static StringComparison PathComparison => OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+
+    internal static bool SamePath(string left, string right, bool isDirectory = false)
+    {
+        var first = Path.GetFullPath(left);
+        var second = Path.GetFullPath(right);
+        if (isDirectory) { first = Path.TrimEndingDirectorySeparator(first); second = Path.TrimEndingDirectorySeparator(second); }
+        return string.Equals(first, second, PathComparison);
+    }
+
     public string ValidatePath(string path)
     {
         var full = Path.GetFullPath(path);
-        var comparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+        var comparison = PathComparison;
         if (!full.Equals(_root, comparison) && !full.StartsWith(_root + Path.DirectorySeparatorChar, comparison))
             throw new ArgumentException("Authoring files must remain inside the workspace.", nameof(path));
         // Include existing ancestors of the workspace itself; symlinked roots cannot redirect writes.

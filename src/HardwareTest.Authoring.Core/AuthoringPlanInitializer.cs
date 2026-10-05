@@ -139,7 +139,7 @@ public sealed class AuthoringPlanInitializer
         var store = new AuthoringDocumentStore(request.WorkspaceRoot, _writer);
         ValidateWorkspace(request.WorkspaceRoot, id);
         var path = store.ValidateNewDestination(id);
-        if (request.DestinationPath is not null && store.ValidatePath(request.DestinationPath) != path)
+        if (request.DestinationPath is not null && !AuthoringDocumentStore.SamePath(store.ValidatePath(request.DestinationPath), path))
             throw new ArgumentException("Drafts must use the displayed workspace authoring-drafts filename matching the plan ID.");
         return path;
     }
