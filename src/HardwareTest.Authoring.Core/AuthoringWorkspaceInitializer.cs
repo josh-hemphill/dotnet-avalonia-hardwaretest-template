@@ -239,8 +239,13 @@ public sealed partial class AuthoringWorkspaceInitializer
             for (string? cursor = path; cursor is not null; cursor = Path.GetDirectoryName(cursor))
             {
                 var parent = Path.GetDirectoryName(cursor);
+                // Creation requires the root leaf's existing spelling, even on Windows.
+                // Native ancestor aliases and owned-file identity still use SamePath.
                 if (parent is not null && Directory.Exists(parent) && Directory.EnumerateFileSystemEntries(parent).Any(entry =>
-                    string.Equals(Path.GetFileName(entry), Path.GetFileName(cursor), StringComparison.OrdinalIgnoreCase) && !AuthoringDocumentStore.SamePath(entry, cursor, isDirectory: true)))
+                    string.Equals(Path.GetFileName(entry), Path.GetFileName(cursor), StringComparison.OrdinalIgnoreCase)
+                    && (!AuthoringDocumentStore.SamePath(entry, cursor, isDirectory: true)
+                        || (AuthoringDocumentStore.SamePath(cursor, root, isDirectory: true)
+                            && !string.Equals(Path.GetFileName(entry), Path.GetFileName(cursor), StringComparison.Ordinal)))))
                     throw new IOException($"Case-equivalent destination exists: {cursor}");
             }
             if (AuthoringDocumentStore.SamePath(path, root, isDirectory: true)) { if (File.Exists(root)) throw new IOException("Workspace destination is a file."); continue; }

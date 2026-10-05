@@ -429,5 +429,32 @@ public sealed class AuthoringWorkspaceCreationTests : IDisposable
         }
     }
 
+    [Fact]
+    public void Creation_refuses_case_only_root_leaf_collision_and_accepts_exact_existing_spelling()
+    {
+        var request = Request("actual"); Directory.CreateDirectory(request.Destination);
+        var notes = Path.Combine(request.Destination, "notes.txt"); File.WriteAllText(notes, "retain unrelated bytes");
+        Assert.Throws<IOException>(() => new AuthoringWorkspaceInitializer().Create(Request("ACTUAL")));
+        Assert.Equal([notes], Directory.GetFileSystemEntries(request.Destination));
+        Assert.Equal("retain unrelated bytes", File.ReadAllText(notes));
+        var created = new AuthoringWorkspaceInitializer().Create(request);
+        Assert.True(AuthoringDocumentStore.SamePath(request.Destination, created.Root, isDirectory: true));
+        Assert.Equal("retain unrelated bytes", File.ReadAllText(notes));
+        Assert.Empty(AuthoringSourceWorkspaceLoader.Load(created.Root).Programs);
+    }
+
+    [Fact]
+    public void Creation_accepts_native_parent_aliases_without_changing_the_requested_leaf_spelling()
+    {
+        // Both branches create real workspaces: Windows exercises ancestor case aliases;
+        // Linux exercises dot/redundant separators without pretending to be Windows.
+        var parent = OperatingSystem.IsWindows() ? _parent.ToUpperInvariant() : _parent + "/./";
+        var request = Request() with { Destination = parent + "/created" };
+        var created = new AuthoringWorkspaceInitializer().Create(request);
+        Assert.True(AuthoringDocumentStore.SamePath(Request().Destination, created.Root, isDirectory: true));
+        Assert.Empty(AuthoringSourceWorkspaceLoader.Load(created.Root).Programs);
+        Assert.True(File.Exists(Path.Combine(Request().Destination, "authoring.json")));
+    }
+
     public void Dispose() => Directory.Delete(_parent, recursive: true);
 }
