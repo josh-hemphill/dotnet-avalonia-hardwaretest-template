@@ -82,6 +82,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         sourceStore.DeleteSource(planId);
         _sourceDocuments.Remove(planId); _recoverableDocuments.Remove(planId);
         _compiledConflicts.Remove(planId); _uncompiledDocuments.Remove(planId);
+        _saveCompilationWarnings.Remove(planId); UpdateSavePreviewWarning();
         _documents.Remove(planId);
         RaiseDraftState();
         _workspaceHistory.Clear();
@@ -96,7 +97,7 @@ public sealed partial class AuthoringWorkspaceViewModel
                 : remaining[Math.Min(removedIndex, remaining.Length - 1)]);
         InvalidateContractFindings();
         Status = $"Removed {planId}";
-        Error = null;
+        Error = SavePreviewWarning;
         RefreshDatasets();
         RaiseSidecarProperties();
     }
