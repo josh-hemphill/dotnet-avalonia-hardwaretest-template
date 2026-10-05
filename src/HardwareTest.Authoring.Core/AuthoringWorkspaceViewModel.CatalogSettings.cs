@@ -129,7 +129,7 @@ public sealed partial class AuthoringWorkspaceViewModel
                    ?? $"MOCK::INSTR{SelectedProgram.Instruments.Count}";
         var instrument = new InstrumentRef(slot, typeId, visa);
         // Validate the selected adapter without opening any instrument connection.
-        AuthoringInstrumentCatalog.Create(instrument, InstrumentCreationHome);
+        AuthoringInstrumentCatalog.Create(instrument, InstrumentCreationHomeFor(instrument.TypeId));
         RememberWorkspaceCatalog(catalogs => AuthoringWorkspaceCatalog.Remember(catalogs.InstrumentSlotNames, slot));
         ReplaceSelected(SelectedProgram with
         {

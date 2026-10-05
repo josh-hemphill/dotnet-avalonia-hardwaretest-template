@@ -8,6 +8,7 @@ namespace HardwareTest.Authoring;
 public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
 {
     private readonly IPlanCompiler _compiler;
+    private readonly bool _usesDefaultCompiler;
     private readonly IAuthoringPreferencesStore? _preferences;
     private AuthoringWorkspace? _workspace;
     private IReadOnlyList<ProgramDraft> _programs = [];
@@ -50,7 +51,8 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
 
     public AuthoringWorkspaceViewModel(IPlanCompiler? compiler = null, IAuthoringPreferencesStore? preferences = null)
     {
-        _compiler = compiler ?? new PlanCompiler();
+        _usesDefaultCompiler = compiler is null;
+        _compiler = compiler ?? new PlanCompiler(libraryHomeProvider: () => HardwareInspection.Home);
         _preferences = preferences;
     }
     public event PropertyChangedEventHandler? PropertyChanged;

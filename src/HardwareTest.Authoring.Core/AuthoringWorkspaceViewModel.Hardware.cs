@@ -77,7 +77,7 @@ public sealed partial class AuthoringWorkspaceViewModel
             settings["IoTimeoutMilliseconds"] = timeout.ToString(System.Globalization.CultureInfo.InvariantCulture);
         }
         var binding = new InstrumentRef(name, adapter.TypeId, HardwareEditAddress.Trim()) { Settings = settings.ToFrozenDictionary(StringComparer.Ordinal) };
-        AuthoringInstrumentCatalog.Create(binding, InstrumentCreationHome);
+        AuthoringInstrumentCatalog.Create(binding, InstrumentCreationHomeFor(binding.TypeId));
         return binding;
     }
 
@@ -104,7 +104,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         if (!Same(impact.Replacement.SlotName, impact.SlotName))
             throw new AuthoringWorkspaceException("A binding edit must preserve the logical slot; use explicit removal and replacement to retarget.");
         // Revalidate the reviewed value, never use editor text changed after review.
-        AuthoringInstrumentCatalog.Create(impact.Replacement, InstrumentCreationHome);
+        AuthoringInstrumentCatalog.Create(impact.Replacement, InstrumentCreationHomeFor(impact.Replacement.TypeId));
         if (!AuthoringInstrumentCatalog.CanReplace(SelectedProgram, impact.SlotName, impact.Replacement))
             throw new AuthoringWorkspaceException("The replacement does not support the affected steps.");
         ReplaceSelected(SelectedProgram with { Instruments = SelectedProgram.Instruments.Select(i => Same(i.SlotName, impact.SlotName) ? impact.Replacement : i).ToArray() });
@@ -153,7 +153,7 @@ public sealed partial class AuthoringWorkspaceViewModel
             && !AuthoringInstrumentCatalog.DeclaresVisa(Workspace!))
             throw new AuthoringWorkspaceException("Declare the HardwareTest VISA workspace dependency before including this definition.");
         var binding = new InstrumentRef(definition.Name, definition.TypeId, definition.Address) { Settings = new Dictionary<string, string>(definition.Settings) };
-        AuthoringInstrumentCatalog.Create(binding, InstrumentCreationHome);
+        AuthoringInstrumentCatalog.Create(binding, InstrumentCreationHomeFor(binding.TypeId));
         ReplaceSelected(program with { Instruments = [.. program.Instruments, binding] });
         SelectedInstrumentSlot = binding.SlotName;
     }

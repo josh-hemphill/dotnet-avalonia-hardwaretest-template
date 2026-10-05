@@ -15,7 +15,7 @@ public static class AuthoringIssueService
 {
     public static IReadOnlyList<AuthoringEditingIssue> GetIssues(ProgramDraft draft) => GetIssues(draft, null);
 
-    public static IReadOnlyList<AuthoringEditingIssue> GetIssues(ProgramDraft draft, OpenTapHome? home, string? homeResolutionError = null)
+    public static IReadOnlyList<AuthoringEditingIssue> GetIssues(ProgramDraft draft, OpenTapHome? home, string? homeResolutionError = null, IReadOnlyCollection<string>? declaredPackages = null)
     {
         var index = AuthoringDependencyIndex.Build(draft);
         var issues = new List<AuthoringEditingIssue>();
@@ -101,10 +101,17 @@ public static class AuthoringIssueService
         }
         foreach (var instrument in draft.Instruments)
         {
+            if (AuthoringInstrumentCatalog.IsLibrary(instrument.TypeId) && declaredPackages is not null
+                && !declaredPackages.Contains(AuthoringInstrumentCatalog.LibraryPackage, StringComparer.OrdinalIgnoreCase))
+                issues.Add(new("INSTRUMENT_DEPENDENCY_MISSING", "Declare Instrument Components in Environment, then Save All before preparing/importing the package or building. The exact binding is retained in this draft.", draft.PlanId, Guid.Empty));
             if (!AuthoringInstrumentCatalog.TryGet(instrument.TypeId, out var adapter))
                 issues.Add(new("INSTRUMENT_UNAVAILABLE", $"Instrument '{instrument.SlotName}' type '{instrument.TypeId}' has no authoring adapter; imported source is preserved.", draft.PlanId, Guid.Empty));
             else if (homeResolutionError is null && adapter.Availability(home) is { Available: false } unavailable)
                 issues.Add(new("INSTRUMENT_UNAVAILABLE", unavailable.Reason!, draft.PlanId, Guid.Empty));
+            if (AuthoringInstrumentCatalog.IsLibrary(instrument.TypeId)
+                && instrument.Settings.TryGetValue("IoTimeoutMilliseconds", out var timeout)
+                && (!int.TryParse(timeout, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var value) || value is < 100 or > 120000))
+                issues.Add(new("INSTRUMENT_CONFIGURATION", $"Instrument '{instrument.SlotName}' I/O timeout must be between 100 and 120000 milliseconds. Entered text is retained in the draft.", draft.PlanId, Guid.Empty));
         }
         foreach (var instrument in draft.Instruments)
             if (!AuthoringInstrumentCatalog.CanReplace(draft, instrument.SlotName, instrument))

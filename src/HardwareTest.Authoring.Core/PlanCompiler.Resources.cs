@@ -8,23 +8,30 @@ public sealed partial class PlanCompiler
     /// OpenTAP rejects missing resource types. Read the remaining step structure with
     /// those properties absent, retaining the original resource XML in the source DTO.
     /// No replacement resource is instantiated by this import path.
-    private static TestPlan LoadPlanWithOpaqueResources(string path)
+    private static string ResourceTypeId(string serializedType) => serializedType.StartsWith("emb:", StringComparison.Ordinal) ? serializedType[4..] : serializedType;
+
+    private static TestPlan LoadPlanWithOpaqueResources(string path, IReadOnlySet<string> availableLibraryTypes)
     {
+        var document = XDocument.Load(path);
+        var unavailable = document.Descendants().Where(element => element.Name.LocalName == "Instrument"
+            && element.Attribute("type") is { } type && AuthoringInstrumentCatalog.IsLibrary(ResourceTypeId(type.Value))
+            && !availableLibraryTypes.Contains(ResourceTypeId(type.Value))).ToArray();
+        if (unavailable.Length > 0) return LoadSanitized(unavailable);
         try { return TestPlan.Load(path); }
         catch (TestPlan.PlanLoadException)
         {
-            var document = XDocument.Load(path);
             var opaque = document.Descendants().Where(element => element.Name.LocalName == "Instrument"
                 && element.Attribute("type") is { } type
-                && !AuthoringInstrumentCatalog.TryGet(type.Value, out _)).ToArray();
+                && !AuthoringInstrumentCatalog.TryGet(ResourceTypeId(type.Value), out _)).ToArray();
             if (opaque.Length == 0) throw;
+            return LoadSanitized(opaque);
+        }
+
+        TestPlan LoadSanitized(XElement[] opaque)
+        {
             foreach (var element in opaque) element.Remove();
             var temporary = Path.Combine(Path.GetTempPath(), "ht-resource-import-" + Guid.NewGuid().ToString("N") + ".TapPlan");
-            try
-            {
-                document.Save(temporary);
-                return TestPlan.Load(temporary);
-            }
+            try { document.Save(temporary); return TestPlan.Load(temporary); }
             finally { File.Delete(temporary); }
         }
     }

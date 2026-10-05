@@ -23,6 +23,7 @@ public sealed class AuthoringPlanInitializer
             throw new ArgumentException("Enter a device family without control characters.");
         var destination = ValidateDestination(request, id);
         if (!Enum.IsDefined(request.StartingPoint)) throw new ArgumentException("Choose a supported starting point.");
+        if (request.Home is not null) AuthoringInstrumentCatalog.Discover(request.Home);
         var chosenInstruments = request.UseTemplateHardware && request.StartingPoint == PlanStartingPoint.DemoVoltageTask && request.Instruments.Count == 0
             ? new[] { new InstrumentRef("DMM", AuthoringInstrumentCatalog.All.Single(adapter => adapter.DisplayName == "Mock DMM").TypeId, "MOCK::INSTR0") }
             : request.Instruments;
@@ -96,7 +97,7 @@ public sealed class AuthoringPlanInitializer
         // Snapshot isolates caller-owned lists/settings and uses the existing DTO identity validator.
         draft = AuthoringDocumentDto.FromDraft(draft).ToDraft();
         AuthoringCleanup.SyncSidecar(draft.Sidecar, draft.Cleanup);
-        var issues = AuthoringIssueService.GetIssues(draft, request.Home, request.HomeResolutionError);
+        var issues = AuthoringIssueService.GetIssues(draft, request.Home, request.HomeResolutionError, request.DeclaredPackages);
         var shutdown = draft.Cleanup.IncludeSafeShutdown
             ? $"enabled; coverage: {string.Join(", ", AuthoringCleanup.ResolveSlots(draft))}"
             : "disabled; no shutdown steps";

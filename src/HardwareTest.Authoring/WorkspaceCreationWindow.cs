@@ -19,7 +19,7 @@ public sealed class WorkspaceCreationWindow : Window
     private readonly TextBox _family = Input("Workspace device family", "generic");
     private readonly CheckBox _serial = Named(new CheckBox { Content = "Require device serial", IsChecked = true }, "Require device serial");
     private readonly CheckBox _tui = Named(new CheckBox { Content = "Include terminal app" }, "Include terminal app");
-    private readonly CheckBox _visa = Named(new CheckBox { Content = "Include VISA DMM package for physical hardware" }, "Include VISA DMM package");
+    private readonly CheckBox _visa = Named(new CheckBox { Content = "Include Instrument Components package for physical hardware" }, "Include Instrument Components package");
     private readonly CheckBox _continue = Named(new CheckBox { Content = "Continue to New test plan after creation" }, "Continue to New test plan");
     private readonly ComboBox _template = Named(new ComboBox { ItemsSource = AuthoringWorkspaceTemplates.All.Select(item => item.Name).ToArray(), SelectedIndex = 0 }, "Workspace template");
     private readonly TextBlock _review = Named(new TextBlock { TextWrapping = TextWrapping.Wrap }, "Workspace creation review");
@@ -109,7 +109,7 @@ public sealed class WorkspaceCreationWindow : Window
         DeviceFamily = _family.Text ?? "",
         RequireSerial = _serial.IsChecked == true,
         IncludeTui = _tui.IsChecked == true,
-        IncludeVisaPackage = _visa.IsChecked == true
+        IncludeLibraryPackage = _visa.IsChecked == true
     };
     private static TextBox Input(string name, string value = "") => Named(new TextBox { Text = value }, name);
     private static T Named<T>(T control, string name) where T : Control { AutomationProperties.SetName(control, name); return control; }

@@ -33,7 +33,7 @@ public sealed class AuthoringGuidedOnboardingTests
         Next(fixture, dialog); Assert.Contains("Instrument", fixture.Control<TextBlock>("Initialization stage", dialog).Text);
         if (!demo)
         {
-            fixture.Control<ComboBox>("Hardware choice", dialog).SelectedIndex = 1;
+            fixture.Control<ComboBox>("Hardware choice", dialog).SelectedItem = fixture.Control<ComboBox>("Hardware choice", dialog).Items.Single(item => item!.ToString()!.Contains("Create VISA DMM", StringComparison.Ordinal));
             Set(fixture, dialog, "Instrument address", "TCPIP::192.0.2.1::INSTR");
         }
         Next(fixture, dialog); Set(fixture, dialog, "Sample count", "12"); Set(fixture, dialog, "Output channel", "rail.voltage");
@@ -86,7 +86,7 @@ public sealed class AuthoringGuidedOnboardingTests
     {
         using var fixture = Loaded(); var dialog = Start(fixture);
         Set(fixture, dialog, "Stable plan ID", "retained"); Set(fixture, dialog, "Plan display name", "Retained input");
-        Next(fixture, dialog); fixture.Control<ComboBox>("Hardware choice", dialog).SelectedIndex = 1;
+        Next(fixture, dialog); fixture.Control<ComboBox>("Hardware choice", dialog).SelectedItem = fixture.Control<ComboBox>("Hardware choice", dialog).Items.Single(item => item!.ToString()!.Contains("Create VISA DMM", StringComparison.Ordinal));
         Set(fixture, dialog, "Instrument address", "TCPIP::bench::INSTR"); Next(fixture, dialog);
         Set(fixture, dialog, "Sample count", "pending"); Next(fixture, dialog); Set(fixture, dialog, "Pass threshold", "not yet");
         AuthoringUiFixture.Click(fixture.Control<Button>("Leave guidance", dialog));
@@ -107,7 +107,7 @@ public sealed class AuthoringGuidedOnboardingTests
     public void Missing_hardware_and_package_have_next_actions_and_keep_draft_history_in_normal_editor()
     {
         using var fixture = Loaded(); var dialog = Start(fixture); Set(fixture, dialog, "Stable plan ID", "blocked");
-        Next(fixture, dialog); fixture.Control<ComboBox>("Hardware choice", dialog).SelectedIndex = 1;
+        Next(fixture, dialog); fixture.Control<ComboBox>("Hardware choice", dialog).SelectedItem = fixture.Control<ComboBox>("Hardware choice", dialog).Items.Single(item => item!.ToString()!.Contains("Create VISA DMM", StringComparison.Ordinal));
         Set(fixture, dialog, "Instrument address", "TCPIP::bench::INSTR");
         for (var stage = 0; stage < 4; stage++) Next(fixture, dialog);
         AuthoringUiFixture.Click(fixture.Control<Button>("Create test plan", dialog));

@@ -20,12 +20,15 @@ public sealed partial class PlanCompiler : IPlanCompiler
 
     private readonly string[] _extraPluginDirectories;
     private readonly OpenTapHome? _selectedHome;
+    private readonly Func<OpenTapHome?>? _libraryHomeProvider;
+    private OpenTapHome? LibraryHome => _selectedHome ?? _libraryHomeProvider?.Invoke();
     private readonly Action<string, string> _replaceFile;
 
-    public PlanCompiler(IEnumerable<string>? extraPluginDirectories = null, OpenTapHome? selectedHome = null)
+    public PlanCompiler(IEnumerable<string>? extraPluginDirectories = null, OpenTapHome? selectedHome = null, Func<OpenTapHome?>? libraryHomeProvider = null)
         : this(extraPluginDirectories, (source, destination) => File.Move(source, destination, overwrite: true))
     {
         _selectedHome = selectedHome;
+        _libraryHomeProvider = libraryHomeProvider;
     }
 
     internal PlanCompiler(IEnumerable<string>? extraPluginDirectories, Action<string, string> replaceFile)
@@ -62,7 +65,9 @@ public sealed partial class PlanCompiler : IPlanCompiler
             Directory.CreateDirectory(directory);
         }
 
-        var plan = BuildPlan(draft);
+        var libraryHome = LibraryHome;
+        if (libraryHome is not null) AuthoringInstrumentCatalog.Discover(libraryHome);
+        var plan = BuildPlan(draft, libraryHome);
         AssertNoDialog(plan);
         var sidecar = CloneSidecar(draft.Sidecar);
         AuthoringCleanup.SyncSidecar(sidecar, draft.Cleanup);
@@ -78,10 +83,13 @@ public sealed partial class PlanCompiler : IPlanCompiler
         }
 
         AuthoringPluginSearch.Search(_extraPluginDirectories);
-        var plan = LoadPlanWithOpaqueResources(tapPlanPath);
+        var libraryHome = LibraryHome;
+        var availableLibraryTypes = libraryHome is null ? new HashSet<string>(StringComparer.Ordinal)
+            : AuthoringInstrumentCatalog.Discover(libraryHome).Select(a => a.TypeId).ToHashSet(StringComparer.Ordinal);
+        var plan = LoadPlanWithOpaqueResources(tapPlanPath, availableLibraryTypes);
         var xmlById = IndexStepXml(tapPlanPath);
         var sidecar = ReadSidecar(tapPlanPath);
-        return Decompile(Path.GetFileNameWithoutExtension(tapPlanPath), plan, sidecar, xmlById);
+        return Decompile(Path.GetFileNameWithoutExtension(tapPlanPath), plan, sidecar, xmlById, availableLibraryTypes);
     }
 
     public DraftWorkspace LoadAll(AuthoringWorkspace workspace)

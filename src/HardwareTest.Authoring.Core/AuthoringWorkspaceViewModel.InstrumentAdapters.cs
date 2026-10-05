@@ -8,7 +8,19 @@ public sealed partial class AuthoringWorkspaceViewModel
     // An explicit visible creation choice, independent of imported resource ordering.
     private string _newInstrumentTypeId = typeof(MockDmmInstrument).FullName!;
 
-    public IReadOnlyList<AuthoringInstrumentAdapter> InstrumentTypeChoices => AuthoringInstrumentCatalog.All;
+    private IReadOnlyList<AuthoringInstrumentAdapter> _instrumentTypeChoices = [];
+    public IReadOnlyList<AuthoringInstrumentAdapter> InstrumentTypeChoices
+    {
+        get
+        {
+            var inspection = HardwareInspection;
+            var discovered = inspection.Home is not null && inspection.Error is null
+                ? AuthoringInstrumentCatalog.Discover(inspection.Home) : [];
+            var choices = discovered.Concat(AuthoringInstrumentCatalog.All.Where(a => !AuthoringInstrumentCatalog.IsLibrary(a.TypeId))).ToArray();
+            if (!_instrumentTypeChoices.SequenceEqual(choices)) _instrumentTypeChoices = choices;
+            return _instrumentTypeChoices;
+        }
+    }
 
     public string NewInstrumentTypeId
     {
@@ -33,6 +45,9 @@ public sealed partial class AuthoringWorkspaceViewModel
     private OpenTapHome? InstrumentCreationHome => string.IsNullOrWhiteSpace(Prefs.OpenTapHomeOverride)
         ? null : new OpenTapHome(Prefs.OpenTapHomeOverride);
 
+    private OpenTapHome? InstrumentCreationHomeFor(string typeId)
+        => AuthoringInstrumentCatalog.IsLibrary(typeId) ? HardwareInspection.Home : InstrumentCreationHome;
+
     private string? NewInstrumentCreationIssue()
     {
         if (!AuthoringInstrumentCatalog.TryGet(NewInstrumentTypeId, out var adapter))
@@ -43,7 +58,7 @@ public sealed partial class AuthoringWorkspaceViewModel
                 return "Declare the HardwareTest VISA workspace dependency before adding a VISA DMM.";
             if (string.IsNullOrWhiteSpace(NewInstrumentVisa)) return "Enter the VISA address for the selected VISA DMM.";
         }
-        try { return adapter.Availability(InstrumentCreationHome).Reason; }
+        try { return adapter.Availability(InstrumentCreationHomeFor(adapter.TypeId)).Reason; }
         catch (ArgumentException) { return "Correct the selected OpenTAP home path before adding an instrument."; }
     }
 }

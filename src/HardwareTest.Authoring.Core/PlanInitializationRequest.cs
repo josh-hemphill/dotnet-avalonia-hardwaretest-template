@@ -23,6 +23,7 @@ public sealed record PlanInitializationRequest(string PlanId)
     public string? FixtureInputField { get; init; }
     public bool IncludeSafeShutdown { get; init; } = true;
     public PlanInitialMeasurement? Measurement { get; init; }
+    public IReadOnlyCollection<string>? DeclaredPackages { get; init; }
     public OpenTapHome? Home { get; init; }
     public string? HomeResolutionError { get; init; }
 }

@@ -142,6 +142,7 @@ public partial class MainWindow
             if (!current()) return;
             _guidedForm = created ? null : dialog.CaptureGuidedForm();
             if (dialog.SkipGuidanceRequested) _explicitGuidanceSession = null;
+            if (dialog.EnvironmentRequested) WorkspaceTabs.SelectedIndex = 3;
             if (created)
             {
                 _guidedPlan = _viewModel.SelectedProgram?.PlanId; _guidanceVisible = true;

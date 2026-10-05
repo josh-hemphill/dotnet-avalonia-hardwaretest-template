@@ -49,7 +49,7 @@ public sealed partial class PlanCompiler
         string planId,
         TestPlan plan,
         ProgramSidecar sidecar,
-        IReadOnlyDictionary<string, XElement> xmlById)
+        IReadOnlyDictionary<string, XElement> xmlById, IReadOnlySet<string> availableLibraryTypes)
     {
         var instruments = new Dictionary<string, InstrumentRef>(StringComparer.OrdinalIgnoreCase);
         var setup = new List<SetupAction>();
@@ -65,15 +65,22 @@ public sealed partial class PlanCompiler
         foreach (var pair in xmlById.Where(pair => pair.Key.StartsWith("resource:", StringComparison.Ordinal)))
         {
             var resource = pair.Value;
-            var typeId = (string?)resource.Attribute("type");
-            if (string.IsNullOrWhiteSpace(typeId) || AuthoringInstrumentCatalog.TryGet(typeId, out _)) continue;
+            var serializedType = (string?)resource.Attribute("type");
+            var typeId = serializedType is null ? null : ResourceTypeId(serializedType);
+            if (string.IsNullOrWhiteSpace(typeId) || (AuthoringInstrumentCatalog.TryGet(typeId, out _)
+                && (!AuthoringInstrumentCatalog.IsLibrary(typeId) || availableLibraryTypes.Contains(typeId)))) continue;
             var slot = resource.Elements().FirstOrDefault(e => e.Name.LocalName == "Name")?.Value;
             if (string.IsNullOrWhiteSpace(slot)) continue;
             var address = new[] { "VisaAddress", "ResourceName", "Address" }
                 .Select(name => resource.Elements().FirstOrDefault(e => e.Name.LocalName == name)?.Value)
                 .FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? string.Empty;
             instruments[slot] = new InstrumentRef(slot, typeId, address)
-            { OpaqueResourceXml = resource.ToString(SaveOptions.DisableFormatting) };
+            {
+                OpaqueResourceXml = resource.ToString(SaveOptions.DisableFormatting),
+                Settings = AuthoringInstrumentCatalog.TryGet(typeId, out var adapter)
+                    ? resource.Elements().Where(e => adapter.ConfigurationFields.Contains(e.Name.LocalName, StringComparer.Ordinal))
+                        .ToDictionary(e => e.Name.LocalName, e => e.Value, StringComparer.Ordinal) : new Dictionary<string, string>()
+            };
         }
 
         cleanup = AuthoringCleanup.FromPlan(cleanup, sidecar);
@@ -159,7 +166,7 @@ public sealed partial class PlanCompiler
                 slots.Add(slot);
             }
 
-            cleanup = cleanup with { IncludeSafeShutdown = true, InstrumentSlots = slots };
+            cleanup = cleanup with { IncludeSafeShutdown = true, InstrumentSlots = slots, NodeId = cleanup.IncludeSafeShutdown ? cleanup.NodeId : step.Id };
             return;
         }
 

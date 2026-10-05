@@ -45,6 +45,8 @@ public sealed partial class AuthoringWorkspaceInitializer
         };
         if (request.IncludeVisaPackage && !manifest.Dependencies.Any(package => package.Package == OpenTapHomeBootstrapper.VisaPackageName))
             manifest.Dependencies.Add(new() { Package = OpenTapHomeBootstrapper.VisaPackageName, Version = "^0.1.0" });
+        if (request.IncludeLibraryPackage && !manifest.Dependencies.Any(p => p.Package == AuthoringInstrumentCatalog.LibraryPackage))
+            manifest.Dependencies.Add(new() { Package = AuthoringInstrumentCatalog.LibraryPackage, Version = "^0.1.0" });
         PlanInitializationResult? plan = null;
         if (request.Template != WorkspaceTemplateKind.Empty)
             plan = new AuthoringPlanInitializer().Construct(new(request.PlanId)
@@ -52,8 +54,9 @@ public sealed partial class AuthoringWorkspaceInitializer
                 DisplayName = request.PlanId,
                 DeviceFamily = request.DeviceFamily,
                 RequireSerial = request.RequireSerial,
-                StartingPoint = template.IsDemo ? PlanStartingPoint.DemoVoltageTask : PlanStartingPoint.VoltageTask,
-                UseTemplateHardware = template.IsDemo
+                StartingPoint = template.IsDemo ? PlanStartingPoint.DemoVoltageTask : PlanStartingPoint.Empty,
+                UseTemplateHardware = template.IsDemo,
+                IncludeTemplateMeasurement = template.IsDemo
             });
         List<string> files = ["authoring.schema.json", "authoring-draft.schema.json", ".gitignore", "authoring-drafts/workspace.authoring.json"];
         if (plan is not null) files.Add($"authoring-drafts/{plan.Draft.PlanId}.authoring.json");

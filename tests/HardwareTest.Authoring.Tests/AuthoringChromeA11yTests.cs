@@ -115,7 +115,7 @@ public sealed class AuthoringChromeA11yTests
         Assert.Contains("dialog.CaptureGuidedForm()", guidanceCode, StringComparison.Ordinal);
         Assert.Contains("TryRun(() => _viewModel.Apply())", guidanceCode, StringComparison.Ordinal);
         Assert.Contains("_guidedSession == _viewModel.WorkspaceSessionId", guidanceCode, StringComparison.Ordinal);
-        var code = string.Join(Environment.NewLine, new[] { "MainWindow.axaml.cs", "MainWindow.BuildEnvironment.cs" }
+        var code = string.Join(Environment.NewLine, new[] { "MainWindow.axaml.cs", "MainWindow.BuildEnvironment.cs", "MainWindow.Initialization.cs" }
             .Select(file => File.ReadAllText(Path.Combine(sourceRoot, file))));
         Assert.Contains("ApplyFormulaCompletion", code, StringComparison.Ordinal);
         Assert.Contains("OnOpenSettings", code, StringComparison.Ordinal);
@@ -236,6 +236,13 @@ public sealed class AuthoringChromeA11yTests
                         ["OnMoveSequenceDown"] = "Vm?.MoveSelectedSequence(1)"
                     };
                     Assert.Contains(actions[handler], viewCode, StringComparison.Ordinal);
+                    continue;
+                }
+                if (view == "WorkspaceEnvironmentView" && handler == "OnDeclareLibrary")
+                {
+                    Assert.Contains("DataContext is not AuthoringWorkspaceViewModel vm", viewCode, StringComparison.Ordinal);
+                    Assert.Contains("vm.DeclareLibraryDependency()", viewCode, StringComparison.Ordinal);
+                    Assert.Contains("vm.ReportError(AuthoringWorkspaceViewModel.PersistenceError(error))", viewCode, StringComparison.Ordinal);
                     continue;
                 }
                 if (view == "WorkspaceBuildView" && handler == "OnProgramInclusion")
