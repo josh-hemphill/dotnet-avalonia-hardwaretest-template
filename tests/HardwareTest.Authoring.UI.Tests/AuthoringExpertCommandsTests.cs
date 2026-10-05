@@ -92,6 +92,52 @@ public sealed class AuthoringExpertCommandsTests
     }
 
     [AvaloniaTheory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public async Task Compiled_only_external_return_preserves_dirty_history_and_bytes_until_explicit_choice(bool import, bool refresh)
+    {
+        using var fixture = Loaded();
+        var vm = fixture.ViewModel;
+        Assert.False(new AuthoringDocumentStore(fixture.WorkspaceRoot).Load("sample").Exists);
+        var plan = vm.Workspace!.TapPlanPaths.Single(path => Path.GetFileNameWithoutExtension(path) == "sample");
+        vm.DisplayName = "compiled-only unsaved sentinel";
+        var revision = vm.SelectedDocument!.Revision;
+        async Task ExternalEdit()
+        {
+            var start = new System.Diagnostics.ProcessStartInfo(Path.Combine(AppContext.BaseDirectory, "HardwareTest.Authoring.ProcessFixture")) { UseShellExecute = false };
+            start.ArgumentList.Add("--external-edit"); start.ArgumentList.Add(plan);
+            using var process = System.Diagnostics.Process.Start(start)!;
+            await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(15)); Assert.Equal(0, process.ExitCode);
+        }
+        if (refresh) await fixture.Window!.RefreshAfterExternalTuiAsync(ExternalEdit);
+        else await ExternalEdit();
+        var external = File.ReadAllBytes(plan);
+        var sidecar = File.ReadAllBytes(PlanCompiler.SidecarPath(plan));
+        if (refresh) Assert.Contains("sample", vm.CompiledConflictProgramIds);
+        Assert.Equal("compiled-only unsaved sentinel", vm.DisplayName);
+        Assert.Equal(revision, vm.SelectedDocument.Revision); Assert.True(vm.CanUndo); Assert.False(vm.CanRedo);
+        Assert.True(vm.HasUnsavedChanges);
+        vm.Apply();
+        Assert.Contains("sample", vm.CompiledConflictProgramIds);
+        var error = Assert.Throws<AuthoringWorkspaceException>(() => vm.Validate());
+        Assert.Contains("reconcile", error.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("sample", vm.CompiledConflictProgramIds);
+        Assert.Equal(external, File.ReadAllBytes(plan)); Assert.Equal(sidecar, File.ReadAllBytes(PlanCompiler.SidecarPath(plan)));
+        vm.ReconcileCompiled("sample", import);
+        Assert.Empty(vm.CompiledConflictProgramIds);
+        Assert.Equal(external, File.ReadAllBytes(plan)); Assert.Equal(sidecar, File.ReadAllBytes(PlanCompiler.SidecarPath(plan)));
+        if (import)
+        {
+            Assert.Contains(vm.SelectedProgram!.Setup.OfType<OperatorPromptSetup>(), prompt => prompt.Name == "External TUI return sentinel");
+            Assert.True(vm.SelectedDocument.Revision > revision); Assert.True(vm.CanUndo);
+            vm.Undo(); Assert.Equal("compiled-only unsaved sentinel", vm.DisplayName);
+        }
+        else { Assert.Equal("compiled-only unsaved sentinel", vm.DisplayName); Assert.True(vm.HasUncompiledSources); }
+    }
+
+    [AvaloniaTheory]
     [InlineData(false)]
     [InlineData(true)]
     public async Task Delayed_external_process_failure_does_not_report_into_hidden_or_replaced_owner(bool replace)

@@ -20,6 +20,6 @@ Review the final top branch to interact with the combined experience. Each linke
 | 19 | Plan initialization | [#206](https://github.com/josh-hemphill/dotnet-avalonia-hardwaretest-template/pull/206) | `feat/authoring-plan-initialization` |
 | 20 | Workspace creation and templates | [#207](https://github.com/josh-hemphill/dotnet-avalonia-hardwaretest-template/pull/207) | `feat/authoring-workspace-creation` |
 | 21 | Guided onboarding | [#208](https://github.com/josh-hemphill/dotnet-avalonia-hardwaretest-template/pull/208) | `feat/authoring-guided-onboarding` |
-| 22 | Expert commands, layouts and final reliability | Planned #209; pending publication | `feat/authoring-expert-commands` |
+| 22 | Expert commands, layouts and final reliability | [PR #209](https://github.com/josh-hemphill/dotnet-avalonia-hardwaretest-template/pull/209) | `feat/authoring-expert-commands` |
 
 Prerequisite: document sessions are in [#192](https://github.com/josh-hemphill/dotnet-avalonia-hardwaretest-template/pull/192). The top branch includes the full chain. Native/bench/platform evidence and the portable input bundle are recorded separately in the manual-review checklist.

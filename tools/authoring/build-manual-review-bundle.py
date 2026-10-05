@@ -11,6 +11,7 @@ parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("output", type=Path, help="Destination ZIP (outside the committed source tree recommended)")
 args = parser.parse_args()
 files = sorted(path for path in (review / "fixtures").rglob("*") if path.is_file())
+files += [review / name for name in ("README.md", "checklist.md", "stack.md", "native-evidence.md")]
 entries = []
 for path in files:
     if path.is_symlink():
@@ -24,7 +25,6 @@ manifest = {"status": "prepared-review-inputs-not-completed-manual-validation", 
 args.output.parent.mkdir(parents=True, exist_ok=True)
 with zipfile.ZipFile(args.output, "w", compression=zipfile.ZIP_DEFLATED) as archive:
     payloads = [(path.relative_to(review).as_posix(), path.read_bytes()) for path in files]
-    payloads += [(name, (review / name).read_bytes()) for name in ("README.md", "checklist.md", "stack.md")]
     payloads.append(("manifest.json", (json.dumps(manifest, indent=2) + "\n").encode()))
     for name, data in payloads:
         info = zipfile.ZipInfo(name, date_time=(2026, 10, 5, 0, 0, 0))
@@ -35,4 +35,4 @@ with zipfile.ZipFile(args.output) as archive:
     assert archive.testzip() is None
     for entry in entries:
         assert hashlib.sha256(archive.read(entry["path"])).hexdigest() == entry["sha256"]
-print(json.dumps({"archive": str(args.output), "fixtures": len(entries), "sha256": hashlib.sha256(args.output.read_bytes()).hexdigest(), "status": manifest["status"]}))
+print(json.dumps({"archive": str(args.output), "fixtures": sum(path.is_relative_to(review / "fixtures") for path in files), "manifestEntries": len(entries), "sha256": hashlib.sha256(args.output.read_bytes()).hexdigest(), "status": manifest["status"]}))

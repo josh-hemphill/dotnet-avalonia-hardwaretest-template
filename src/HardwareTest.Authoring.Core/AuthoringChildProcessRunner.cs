@@ -17,7 +17,7 @@ public sealed class AuthoringChildProcessRunner
         lock (reapGate) pending = retained.ToArray();
         foreach (var scope in pending)
         {
-            scope.Process.StandardInput.Close();
+            SignalEndOfInput(scope.Process);
             scope.Ownership.Terminate();
             BeforeExitVerification?.Invoke();
             await scope.Ownership.WaitForExitAsync(scope.Process).ConfigureAwait(false);
@@ -68,7 +68,7 @@ public sealed class AuthoringChildProcessRunner
         }
         using var cancellation = cancellationToken.Register(() => _ = Task.Run(() =>
         {
-            try { process.StandardInput.Close(); ownership.Terminate(); }
+            try { SignalEndOfInput(process); ownership.Terminate(); }
             catch (ObjectDisposedException) { }
             catch (IOException) { }
             catch (System.ComponentModel.Win32Exception) { }
@@ -88,7 +88,7 @@ public sealed class AuthoringChildProcessRunner
                 AuthoringOperationJsonContext.Default.AuthoringChildExit) ?? throw new InvalidDataException("Empty child exit status.");
             progress(new("Reaping operation processes"));
             cancellationToken.ThrowIfCancellationRequested();
-            process.StandardInput.Close();
+            SignalEndOfInput(process);
             ownership.Terminate();
             BeforeExitVerification?.Invoke();
             await ownership.WaitForExitAsync(process).ConfigureAwait(false);
@@ -100,7 +100,7 @@ public sealed class AuthoringChildProcessRunner
         {
             try
             {
-                process.StandardInput.Close();
+                SignalEndOfInput(process);
                 ownership.Terminate();
                 // Reap the owned process before staging cleanup. Cancellation never waits on the UI thread.
                 BeforeExitVerification?.Invoke();
@@ -131,6 +131,15 @@ public sealed class AuthoringChildProcessRunner
                 await Task.Delay(20, cancellationToken).ConfigureAwait(false);
             }
         }
+    }
+
+    private static void SignalEndOfInput(Process process)
+    {
+        // Cancellation, successful completion and retained retries share the same durable EOF signal.
+        // Closing an already closed pipe must not prevent verification of the original owned scope.
+        try { process.StandardInput.Close(); }
+        catch (ObjectDisposedException) { }
+        catch (IOException) { }
     }
 
     private static async Task DrainAsync(StreamReader reader, string stream, Action<AuthoringOperationLog> log, CancellationToken token)

@@ -16,7 +16,7 @@ public partial class MainWindow
         if (_initialization is not null) { _initialization.Activate(); return; }
         var current = OwnerContext();
         CommitFocusedEditor();
-        _initialization = new PlanInitializationWindow(_viewModel);
+        _initialization = new PlanInitializationWindow(_viewModel, ownerIsCurrent: current);
         try
         {
             if (await _initialization.ShowDialog<bool>(this) && current()) WorkspaceTabs.SelectedIndex = 0;

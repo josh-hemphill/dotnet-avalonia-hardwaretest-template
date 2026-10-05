@@ -117,5 +117,7 @@
   "state": {
     "incompleteNumericText": {},
     "formulaIntent": {}
-  }
+  },
+  "compiledPlanHash": "8700B63D0F2B8FB11F56055E43BF76367A1EF2F8A7274DB1EDD198EA736D59F6",
+  "compiledSidecarHash": "C93373EB2C7C7BCE2F8266CD262D6708085A52C319000B2A27F298F41FF61AB9"
 }

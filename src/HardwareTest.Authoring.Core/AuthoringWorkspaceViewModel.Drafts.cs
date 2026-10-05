@@ -2,6 +2,7 @@ namespace HardwareTest.Authoring;
 
 public sealed partial class AuthoringWorkspaceViewModel
 {
+    private readonly Dictionary<string, AuthoringDocumentDto> _compiledOnlyBaselines = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, AuthoringDocumentDto> _sourceDocuments = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, AuthoringDocumentDto> _recoverableDocuments = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> _compiledConflicts = new(StringComparer.OrdinalIgnoreCase);
@@ -69,6 +70,8 @@ public sealed partial class AuthoringWorkspaceViewModel
                 if (CompiledChanged(previous.Value)) conflicts.Add(previous.Key);
             }
         }
+        foreach (var baseline in _compiledOnlyBaselines)
+            if (!documents.ContainsKey(baseline.Key) && _compiledConflicts.Contains(baseline.Key) && CompiledChanged(baseline.Value)) conflicts.Add(baseline.Key);
         _sourceDocuments.Clear();
         foreach (var document in documents) _sourceDocuments.Add(document.Key, document.Value);
         _uncompiledDocuments.Clear(); _uncompiledDocuments.UnionWith(uncompiled);
@@ -79,7 +82,7 @@ public sealed partial class AuthoringWorkspaceViewModel
     private void InitializeSourceState()
     {
         StopRecovery();
-        _sourceDocuments.Clear(); _recoverableDocuments.Clear(); _compiledConflicts.Clear(); _uncompiledDocuments.Clear();
+        _compiledOnlyBaselines.Clear(); _sourceDocuments.Clear(); _recoverableDocuments.Clear(); _compiledConflicts.Clear(); _uncompiledDocuments.Clear();
         _savedCompilationDiagnostics.Clear();
         var store = new AuthoringDocumentStore(Workspace!.Root);
         foreach (var draft in Programs)
@@ -90,6 +93,13 @@ public sealed partial class AuthoringWorkspaceViewModel
                 _sourceDocuments[draft.PlanId] = document;
                 if (CompiledChanged(document)) _compiledConflicts.Add(draft.PlanId);
                 if (document.RequiresCompilation || document.CompiledPlanHash is null) _uncompiledDocuments.Add(draft.PlanId);
+            }
+            else
+            {
+                var path = TryExistingTapPlanPath(draft.PlanId);
+                _compiledOnlyBaselines[draft.PlanId] = AuthoringDocumentDto.FromDraft(draft,
+                    compiledPlanHash: AuthoringDocumentStore.ComputeHash(path),
+                    compiledSidecarHash: AuthoringDocumentStore.ComputeHash(path is null ? null : PlanCompiler.SidecarPath(path)));
             }
             var recovered = store.LoadAtPath(store.GetRecoveryPath(draft.PlanId));
             if (recovered.Document is { } checkpoint && (document is null || checkpoint.SavedAtUtc > document.SavedAtUtc)

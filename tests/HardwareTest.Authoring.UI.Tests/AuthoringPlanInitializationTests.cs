@@ -12,6 +12,47 @@ namespace HardwareTest.Authoring.UI.Tests;
 
 public sealed class AuthoringPlanInitializationTests
 {
+    [AvaloniaTheory]
+    [InlineData("hidden", false, false)]
+    [InlineData("replaced", false, false)]
+    [InlineData("session", false, false)]
+    [InlineData("hidden", true, false)]
+    [InlineData("replaced", true, false)]
+    [InlineData("session", true, false)]
+    [InlineData("hidden", true, true)]
+    [InlineData("replaced", true, true)]
+    [InlineData("session", true, true)]
+    public void Pending_initialization_cannot_publish_or_skip_after_initiating_owner_changes(string boundary, bool guided, bool skip)
+    {
+        using var fixture = Loaded(); var owner = fixture.Window!;
+        AuthoringUiFixture.Click(fixture.Control<Button>(guided ? "Start guided voltage test" : "New test plan"));
+        var dialog = Assert.IsType<PlanInitializationWindow>(Assert.Single(owner.OwnedWindows));
+        fixture.Control<TextBox>("Stable plan ID", dialog).Text = "stale-owner"; AuthoringUiFixture.Drain();
+        if (!skip) for (var stage = 0; stage < 5; stage++)
+        {
+            AuthoringUiFixture.Click(fixture.Control<Button>("Next", dialog));
+            Assert.Equal("", fixture.Control<TextBlock>("Initialization error", dialog).Text);
+        }
+        var button = fixture.Control<Button>(skip ? "Skip optional guidance" : "Create test plan", dialog);
+        Assert.True(button.IsEffectivelyVisible); Assert.True(button.IsEnabled);
+        var bytes = Directory.EnumerateFiles(fixture.WorkspaceRoot, "*", SearchOption.AllDirectories).ToDictionary(path => path, File.ReadAllBytes);
+        var preferences = File.ReadAllBytes(fixture.Preferences.FilePath);
+        var plans = fixture.ViewModel.Programs.Select(program => program.PlanId).ToArray();
+        if (boundary == "hidden") owner.Hide();
+        else if (boundary == "replaced") owner.DataContext = new AuthoringWorkspaceViewModel();
+        else fixture.ViewModel.CommitOpen(fixture.ViewModel.PrepareOpen(fixture.WorkspaceRoot), discardUnsavedChanges: true);
+        // Deliver the pending action from the previously shown form after its owner changes.
+        button.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent)); AuthoringUiFixture.Drain();
+        Assert.Equal(plans, fixture.ViewModel.Programs.Select(program => program.PlanId));
+        Assert.False(new AuthoringDocumentStore(fixture.WorkspaceRoot).Load("stale-owner").Exists);
+        Assert.False(fixture.ViewModel.SkipGuidance); Assert.False(dialog.SkipGuidanceRequested);
+        Assert.Equal(preferences, File.ReadAllBytes(fixture.Preferences.FilePath));
+        Assert.Equal(bytes.Keys.Order(), Directory.EnumerateFiles(fixture.WorkspaceRoot, "*", SearchOption.AllDirectories).Order());
+        foreach (var file in bytes) Assert.Equal(file.Value, File.ReadAllBytes(file.Key));
+        dialog.Close(false); owner.DataContext = fixture.ViewModel;
+        if (boundary == "hidden") owner.Show();
+    }
+
     [AvaloniaFact]
     public void Compact_command_entry_label_fits_and_actual_click_opens_palette_at_large_text_scale()
     {

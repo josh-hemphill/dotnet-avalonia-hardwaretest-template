@@ -31,13 +31,13 @@
               "kind": "raw",
               "nodeId": "407eddf4-0b69-4769-8fb0-6764450242c6",
               "typeName": "HardwareTest.OpenTap.Plugins.Basic.PublishTimedSampleStep",
-              "xmlFragment": "\u003CTestStep type=\u0022HardwareTest.OpenTap.Plugins.Basic.PublishTimedSampleStep\u0022 Id=\u0022407eddf4-0b69-4769-8fb0-6764450242c6\u0022\u003E\u003CChannel\u003Einput\u003C/Channel\u003E\u003CValue\u003E1\u003C/Value\u003E\u003CIndex\u003E0\u003C/Index\u003E\u003CLimitLow /\u003E\u003CLimitHigh /\u003E\u003CElapsedMs type=\u0022System.Double\u0022\u003E0\u003C/ElapsedMs\u003E\u003CEventName\u003Ecfg\u003C/EventName\u003E\u003CEventLabel\u003Esample\u003C/EventLabel\u003E\u003CEventValue /\u003E\u003CName Metadata=\u0022Step Name\u0022\u003EPublish Timed Sample\u003C/Name\u003E\u003CChildTestSteps /\u003E\u003C/TestStep\u003E"
+              "xmlFragment": "<TestStep type=\"HardwareTest.OpenTap.Plugins.Basic.PublishTimedSampleStep\" Id=\"407eddf4-0b69-4769-8fb0-6764450242c6\"><Channel>input</Channel><Value>1</Value><Index>0</Index><LimitLow /><LimitHigh /><ElapsedMs type=\"System.Double\">0</ElapsedMs><EventName>cfg</EventName><EventLabel>sample</EventLabel><EventValue /><Name Metadata=\"Step Name\">Publish Timed Sample</Name><ChildTestSteps /></TestStep>"
             },
             {
               "kind": "raw",
               "nodeId": "767524c1-4481-4c7c-a735-4157c35e1367",
               "typeName": "HardwareTest.OpenTap.Plugins.Basic.PublishTimedSampleStep",
-              "xmlFragment": "\u003CTestStep type=\u0022HardwareTest.OpenTap.Plugins.Basic.PublishTimedSampleStep\u0022 Id=\u0022767524c1-4481-4c7c-a735-4157c35e1367\u0022\u003E\u003CChannel\u003Einput\u003C/Channel\u003E\u003CValue\u003E3\u003C/Value\u003E\u003CIndex\u003E0\u003C/Index\u003E\u003CLimitLow /\u003E\u003CLimitHigh /\u003E\u003CElapsedMs type=\u0022System.Double\u0022\u003E5\u003C/ElapsedMs\u003E\u003CEventName\u003Ecfg\u003C/EventName\u003E\u003CEventLabel\u003Esample\u003C/EventLabel\u003E\u003CEventValue /\u003E\u003CName Metadata=\u0022Step Name\u0022\u003EPublish Timed Sample\u003C/Name\u003E\u003CChildTestSteps /\u003E\u003C/TestStep\u003E"
+              "xmlFragment": "<TestStep type=\"HardwareTest.OpenTap.Plugins.Basic.PublishTimedSampleStep\" Id=\"767524c1-4481-4c7c-a735-4157c35e1367\"><Channel>input</Channel><Value>3</Value><Index>0</Index><LimitLow /><LimitHigh /><ElapsedMs type=\"System.Double\">5</ElapsedMs><EventName>cfg</EventName><EventLabel>sample</EventLabel><EventValue /><Name Metadata=\"Step Name\">Publish Timed Sample</Name><ChildTestSteps /></TestStep>"
             },
             {
               "kind": "metric",
@@ -96,5 +96,7 @@
   "state": {
     "incompleteNumericText": {},
     "formulaIntent": {}
-  }
+  },
+  "compiledPlanHash": "79BD507CB4E9FA7165792255893AC8CE66C92618CF64AB1E53645AC76A4D6E30",
+  "compiledSidecarHash": "C93373EB2C7C7BCE2F8266CD262D6708085A52C319000B2A27F298F41FF61AB9"
 }
