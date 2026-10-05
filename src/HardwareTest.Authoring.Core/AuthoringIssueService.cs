@@ -19,7 +19,7 @@ public static class AuthoringIssueService
     {
         var index = AuthoringDependencyIndex.Build(draft);
         var issues = new List<AuthoringEditingIssue>();
-        if (draft.Measure.Count == 0)
+        if (!AuthoringSequence.HasMeasurement(draft.Measure))
             issues.Add(new("EMPTY_MEASURE", "Add a measurement and choose its hardware before deployment.", draft.PlanId, Guid.Empty));
         if (RequiredFieldIds.Contains(RequiredFieldIds.FromSidecar(draft.Sidecar), RequiredFieldIds.Serial)
             && !draft.Setup.OfType<IdentitySetup>().Any())

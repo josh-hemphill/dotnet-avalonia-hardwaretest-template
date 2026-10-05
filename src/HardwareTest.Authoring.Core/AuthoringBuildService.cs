@@ -97,7 +97,7 @@ public static partial class AuthoringBuildService
                 {
                     sources.Add(new(id!, document.Revision, Hash(File.ReadAllBytes(store.GetDocumentPath(document.PlanId)))));
                     draft = document.ToDraft();
-                    if (draft.Measure.Count == 0)
+                    if (!AuthoringSequence.HasMeasurement(draft.Measure))
                         throw new AuthoringWorkspaceException($"BUILD_INCOMPLETE: Included source '{id}' needs a measurement before deployment.");
                     if (AuthoringFormulaDeployment.Project(draft).AuthoringState.IncompleteNumericText.Count > 0)
                         throw new AuthoringWorkspaceException($"BUILD_INCOMPLETE: Included source '{id}' contains incomplete numeric deployment input.");

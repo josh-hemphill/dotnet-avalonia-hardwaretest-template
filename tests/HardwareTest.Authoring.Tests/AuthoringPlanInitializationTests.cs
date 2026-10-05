@@ -228,11 +228,37 @@ public sealed class AuthoringPlanInitializationTests : IDisposable
         Assert.True(vm.HasUnsavedChanges); Assert.False(new AuthoringDocumentStore(_root).Load("legacy").Exists);
     }
 
-    [Fact]
-    public void Included_empty_draft_requires_a_measurement_before_deployment_even_after_explicit_compile()
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(3)]
+    public void Included_empty_draft_requires_a_measurement_before_deployment_even_after_explicit_compile(int loopDepth)
     {
         Workspace(); var vm = new AuthoringWorkspaceViewModel(); vm.Open(_root); vm.StopRecovery();
-        vm.InitializePlan(Request()); Assert.False(vm.CanPack);
+        vm.InitializePlan(loopDepth == 0 ? Request() : Request() with
+        {
+            StartingPoint = PlanStartingPoint.DemoVoltageTask,
+            IdentityInstrumentSlot = "DMM",
+            Measurement = new(AuthoringRecipeIds.MeanGte, "DMM")
+        });
+        if (loopDepth > 0)
+        {
+            vm.ApplyRecipe(AuthoringRecipeIds.Repeat);
+            for (var level = 1; level < loopDepth; level++)
+                vm.ReplaceSelected(vm.SelectedProgram! with { Measure = [new RepeatNode(2, vm.SelectedProgram!.Measure)] });
+            Assert.True(vm.SaveAll().Succeeded); Assert.True(vm.CanPack);
+            var metricId = AuthoringRecipeCatalog.EnumerateMetrics(vm.SelectedProgram!.Measure).Single().ChannelKey;
+            vm.SelectSequence(vm.SequenceItems.ToList().FindIndex(row => row.Kind == SequenceRowKind.Metric));
+            vm.RemoveSelectedSequence();
+            Assert.Empty(AuthoringRecipeCatalog.EnumerateMetrics(vm.SelectedProgram.Measure));
+            vm.Undo(); Assert.Equal(metricId, AuthoringRecipeCatalog.EnumerateMetrics(vm.SelectedProgram.Measure).Single().ChannelKey);
+            vm.Redo(); Assert.Empty(AuthoringRecipeCatalog.EnumerateMetrics(vm.SelectedProgram.Measure));
+            Assert.True(vm.SaveAll().Succeeded);
+            vm.Open(_root); vm.StopRecovery(); vm.SelectProgram("new-plan");
+            Assert.IsType<RepeatNode>(Assert.Single(vm.SelectedProgram!.Measure));
+        }
+        Assert.False(vm.CanPack);
+        Assert.Contains(vm.EditingIssues, issue => issue.Code == "EMPTY_MEASURE" && issue.PlanId == "new-plan");
         var source = new AuthoringDocumentStore(_root).GetDocumentPath("new-plan"); var before = File.ReadAllBytes(source);
         Assert.Throws<PackPreflightException>(() => vm.Pack(Path.Combine(_root, "output")));
         Assert.Equal(before, File.ReadAllBytes(source)); Assert.False(Directory.Exists(Path.Combine(_root, "output")));
@@ -244,14 +270,40 @@ public sealed class AuthoringPlanInitializationTests : IDisposable
         Assert.Equal(1, AuthoringCli.Run(["--pack", _root, "--out", Path.Combine(_root, "cli-output"), "--opentap-home", home.Root], new StringWriter(), cliError));
         Assert.Contains("BUILD_INCOMPLETE", cliError.ToString()); Assert.False(Directory.Exists(Path.Combine(_root, "cli-output")));
         vm.Apply(); Assert.False(vm.CanPack);
+        vm.Open(_root); vm.StopRecovery(); vm.SelectProgram("new-plan"); Assert.False(vm.CanPack);
         vm.OpenTapHomeOverride = home.Root; vm.SetBuildProgramIncluded("new-plan", false); Assert.True(vm.SaveAll().Succeeded); Assert.True(vm.CanPack);
         vm.Pack(Path.Combine(_root, "excluded-output"), new PackOptions { Home = home, Offline = true });
         Assert.DoesNotContain(vm.LastBuildReceipt!.Sources, source => source.PlanId == "new-plan");
         vm.NewInstrumentSlot = "BENCH"; vm.NewInstrumentTypeId = AuthoringInstrumentCatalog.All.Single(adapter => adapter.DisplayName == "Mock DMM").TypeId;
-        vm.NewInstrumentVisa = "MOCK::BENCH"; vm.AddInstrumentSlot(); vm.ApplyRecipe(AuthoringRecipeIds.Identity); vm.ApplyRecipe(AuthoringRecipeIds.MeanGte); vm.ApplyRecipe(AuthoringRecipeIds.Shutdown);
+        vm.NewInstrumentVisa = "MOCK::BENCH"; vm.AddInstrumentSlot();
+        if (loopDepth == 0) vm.ApplyRecipe(AuthoringRecipeIds.Identity);
+        vm.ApplyRecipe(AuthoringRecipeIds.MeanGte); vm.ApplyRecipe(AuthoringRecipeIds.Shutdown);
+        if (loopDepth > 0)
+        {
+            IReadOnlyList<MeasureNode> corrected = [vm.SelectedProgram!.Measure.OfType<MetricNode>().Single()];
+            for (var level = 0; level < loopDepth; level++) corrected = [new RepeatNode(2, corrected)];
+            vm.ReplaceSelected(vm.SelectedProgram! with { Measure = corrected });
+        }
         vm.SetBuildProgramIncluded("new-plan", true); Assert.True(vm.SaveAll().Succeeded); Assert.True(vm.CanPack);
         vm.Pack(Path.Combine(_root, "corrected-output"), new PackOptions { Home = home, Offline = true });
         Assert.Contains(vm.LastBuildReceipt!.Sources, source => source.PlanId == "new-plan");
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(3)]
+    public void Saved_nested_empty_loops_are_rejected_by_CLI_before_publishing(int loopDepth)
+    {
+        Workspace(); var vm = new AuthoringWorkspaceViewModel(); vm.Open(_root); vm.StopRecovery();
+        vm.InitializePlan(Request() with { StartingPoint = PlanStartingPoint.DemoVoltageTask, IdentityInstrumentSlot = "DMM" });
+        vm.ReplaceSelected(vm.SelectedProgram! with { Measure = [new RepeatNode(2, [])] });
+        for (var level = 1; level < loopDepth; level++)
+            vm.ReplaceSelected(vm.SelectedProgram! with { Measure = [new RepeatNode(2, vm.SelectedProgram!.Measure)] });
+        Assert.True(vm.SaveAll().Succeeded); vm.Apply();
+        var home = new OpenTapHomeBootstrapper().Bootstrap(vm.Workspace!, new BootstrapOptions { HomeDirectory = Path.Combine(_root, "home"), Offline = true });
+        var output = Path.Combine(_root, "cli-nested-output"); var error = new StringWriter();
+        Assert.Equal(1, AuthoringCli.Run(["--pack", _root, "--out", output, "--opentap-home", home.Root], new StringWriter(), error));
+        Assert.Contains("BUILD_INCOMPLETE", error.ToString()); Assert.False(Directory.Exists(output));
     }
 
     [Fact]
@@ -260,7 +312,7 @@ public sealed class AuthoringPlanInitializationTests : IDisposable
         Workspace();
         var path = Path.Combine(_root, "sample.TapPlan");
         var compiler = new PlanCompiler();
-        var draft = compiler.Load(path) with { Measure = [] };
+        var draft = compiler.Load(path) with { Measure = [new RepeatNode(2, [new RepeatNode(2, [])])] };
         Assert.NotEmpty(draft.Setup); Assert.True(draft.Cleanup.IncludeSafeShutdown);
         compiler.Save(draft, path);
         var workspace = AuthoringWorkspaceLoader.Load(_root);

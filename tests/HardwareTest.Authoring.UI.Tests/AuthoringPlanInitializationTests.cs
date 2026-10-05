@@ -1,3 +1,4 @@
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
@@ -9,6 +10,22 @@ namespace HardwareTest.Authoring.UI.Tests;
 
 public sealed class AuthoringPlanInitializationTests
 {
+    [AvaloniaFact]
+    public void Compact_command_entry_label_fits_and_actual_click_opens_palette_at_large_text_scale()
+    {
+        using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
+        var window = fixture.Show(960, 600); window.FontSize = 20; window.SetRenderScaling(1.5);
+        fixture.OpenRememberedWorkspace(); AuthoringUiFixture.Drain();
+        var command = fixture.Control<Button>("Command palette");
+        ResponsiveActionLabelTests.LabelFits(command, window); Assert.True(command.Bounds.Height >= 32);
+        var center = command.TranslatePoint(new Point(command.Bounds.Width / 2, command.Bounds.Height / 2), window)!.Value;
+        window.MouseDown(center, MouseButton.Left); window.MouseUp(center, MouseButton.Left); AuthoringUiFixture.Drain();
+        var palette = Assert.Single(window.OwnedWindows); Assert.True(fixture.Control<Button>("New test plan command", palette).IsEffectivelyEnabled);
+        AuthoringUiFixture.Click(Assert.Single(palette.GetVisualDescendants().OfType<Button>(), button => Equals(button.Content, "Cancel")));
+        Assert.Empty(window.OwnedWindows);
+        Assert.False(fixture.ViewModel.HasUnsavedChanges);
+    }
+
     [AvaloniaFact]
     public void Programs_entry_walks_all_six_stages_preserves_incomplete_text_and_opens_normal_document()
     {
@@ -166,6 +183,45 @@ public sealed class AuthoringPlanInitializationTests
         Assert.Contains("already exists", fixture.Control<TextBlock>("Initialization error", dialog).Text);
         Assert.DoesNotContain(fixture.ViewModel.Programs, draft => draft.PlanId == "collision");
         AuthoringUiFixture.Click(fixture.Control<Button>("Cancel", dialog));
+    }
+
+    [AvaloniaTheory]
+    [InlineData(1)]
+    [InlineData(3)]
+    public void Removing_last_nested_measurement_through_shown_editor_preserves_history_and_blocks_saved_build(int loopDepth)
+    {
+        using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
+        var workspace = AuthoringWorkspaceLoader.Load(fixture.WorkspaceRoot); workspace.Manifest.Package.Name = "Nested source readiness";
+        AuthoringWorkspaceLoader.SaveManifest(fixture.WorkspaceRoot, workspace.Manifest);
+        fixture.Show(960, 600); fixture.OpenRememberedWorkspace(); var vm = fixture.ViewModel;
+        vm.InitializePlan(new PlanInitializationRequest("nested-task")
+        {
+            StartingPoint = PlanStartingPoint.DemoVoltageTask,
+            IdentityInstrumentSlot = "DMM",
+            Measurement = new(AuthoringRecipeIds.MeanGte, "DMM")
+        });
+        vm.ApplyRecipe(AuthoringRecipeIds.Repeat);
+        for (var level = 1; level < loopDepth; level++)
+            vm.ReplaceSelected(vm.SelectedProgram! with { Measure = [new RepeatNode(2, vm.SelectedProgram!.Measure)] });
+        Assert.True(vm.SaveAll().Succeeded); Assert.True(vm.CanPack); AuthoringUiFixture.Drain();
+        var sequence = fixture.Control<ListBox>("Program sequence");
+        sequence.SelectedIndex = vm.SequenceItems.ToList().FindIndex(row => row.Kind == SequenceRowKind.Metric); AuthoringUiFixture.Drain();
+        var id = vm.SelectedSequence!.NodeId;
+        var remove = fixture.Control<Button>("Remove selected"); remove.BringIntoView(); AuthoringUiFixture.Drain(); Assert.True(remove.Focus());
+        AuthoringUiFixture.Click(remove); AuthoringUiFixture.Drain();
+        Assert.Empty(AuthoringRecipeCatalog.EnumerateMetrics(vm.SelectedProgram!.Measure));
+        Assert.Contains(vm.EditingIssues, issue => issue.Code == "EMPTY_MEASURE" && issue.PlanId == "nested-task");
+        AuthoringUiFixture.Click(fixture.Control<Button>("Undo selected program")); AuthoringUiFixture.Drain();
+        Assert.Equal(id, vm.SequenceItems.Single(row => row.Kind == SequenceRowKind.Metric).NodeId);
+        Assert.DoesNotContain(vm.EditingIssues, issue => issue.Code == "EMPTY_MEASURE" && issue.PlanId == "nested-task");
+        AuthoringUiFixture.Click(fixture.Control<Button>("Redo selected program")); AuthoringUiFixture.Drain();
+        AuthoringUiFixture.Click(fixture.Control<Button>("Save all")); Assert.True(vm.LastSaveAllResult!.Succeeded); Assert.False(vm.HasUnsavedChanges); Assert.False(vm.CanPack);
+        vm.Apply(); Assert.False(vm.CanPack);
+        vm.Open(fixture.WorkspaceRoot); vm.SelectProgram("nested-task"); AuthoringUiFixture.Drain();
+        Assert.IsType<RepeatNode>(Assert.Single(vm.SelectedProgram!.Measure)); Assert.False(vm.CanPack);
+        fixture.Window!.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 4; AuthoringUiFixture.Drain();
+        Assert.False(fixture.Control<Button>("Pack workspace").IsEffectivelyEnabled);
+        Assert.Contains(vm.EditingIssues, issue => issue.Code == "EMPTY_MEASURE" && issue.PlanId == "nested-task");
     }
 
     private static AuthoringUiFixture Loaded()
