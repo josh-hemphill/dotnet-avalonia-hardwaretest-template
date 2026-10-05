@@ -38,14 +38,15 @@ public static class AuthoringEnvironmentAssessment
     private static bool HasDeclaredPayload(AuthoringInstalledPackage package, OpenTapHome home)
     {
         // Runtime configuration and OpenTAP managed identities are checked by preflight.
-        if (package.Name.Equals("OpenTAP", StringComparison.OrdinalIgnoreCase))
-            return new[] { "OpenTap.dll", "OpenTap.Package.dll", "tap.dll", "tap.runtimeconfig.json" }.All(file => File.Exists(Path.Combine(home.Root, file)));
+        if (package.Name.Equals("OpenTAP", StringComparison.OrdinalIgnoreCase)
+            && !new[] { "OpenTap.dll", "OpenTap.Package.dll", "tap.dll", "tap.runtimeconfig.json" }.All(file => File.Exists(Path.Combine(home.Root, file)))) return false;
         try
         {
             foreach (var file in XDocument.Load(Path.Combine(package.Path, "package.xml")).Descendants().Where(e => e.Name.LocalName == "File"))
             {
                 var relative = (string?)file.Attribute("Path");
-                if (string.IsNullOrWhiteSpace(relative)) return false;
+                if (string.IsNullOrWhiteSpace(relative) || Path.IsPathRooted(relative)
+                    || relative.Replace('\\', '/').Split('/').Contains("..")) return false;
                 var path = Path.GetFullPath(Path.Combine(package.Path, relative));
                 AuthoringBuildService.EnsureContained(home.Root, path);
                 if (!File.Exists(path))

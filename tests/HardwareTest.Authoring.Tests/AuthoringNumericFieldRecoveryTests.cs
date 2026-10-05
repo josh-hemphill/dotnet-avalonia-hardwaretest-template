@@ -17,7 +17,7 @@ public sealed class AuthoringNumericFieldRecoveryTests
         var reopened = new AuthoringWorkspaceViewModel();
         try
         {
-            vm.Open(root);
+            vm.Open(root); vm.SelectProgram("sample");
             vm.ApplyRecipe(AuthoringRecipeIds.TransferFunction);
             vm.SelectMeasure(vm.SelectedProgram!.Measure.Count - 1);
             vm.StationHealthMaxAgeHours = "24";
@@ -99,7 +99,7 @@ public sealed class AuthoringNumericFieldRecoveryTests
     [InlineData("period", "  ")]
     public void BlankRequiredTfFieldsPersistExactlyAndBlockCompileUntilCorrected(string field, string blank)
     {
-        var root = Workspace(); var vm = new AuthoringWorkspaceViewModel(); vm.Open(root);
+        var root = Workspace(); var vm = new AuthoringWorkspaceViewModel(); vm.Open(root); vm.SelectProgram("sample");
         vm.ApplyRecipe(AuthoringRecipeIds.TransferFunction); vm.SelectMeasure(vm.SelectedProgram!.Measure.Count - 1);
         var id = vm.SelectedProgram.PlanId; var nodeId = vm.SelectedSequence!.NodeId;
         var baseline = TypedValue(vm, field);

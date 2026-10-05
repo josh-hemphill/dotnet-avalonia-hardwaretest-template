@@ -66,6 +66,52 @@ public sealed class AuthoringOfflineImportTests : IDisposable
         Assert.DoesNotContain(OpenTapHomeBootstrapper.ListInstalledPackages(home), p => p.Name == "Offline Fixture");
     }
 
+    [Theory]
+    [InlineData("different-engine")]
+    [InlineData("required-version")]
+    [InlineData("declared-payload")]
+    [InlineData("unsafe-payload")]
+    public async Task Prepare_rejects_incomplete_or_incompatible_engine_without_changing_selected_bytes_and_cleans_owned_staging(string invalid)
+    {
+        var root = AuthoringBuildSnapshotTests.Workspace(); var workspace = AuthoringWorkspaceLoader.Load(root); var home = AuthoringBuildSnapshotTests.Home(workspace);
+        var metadata = Path.Combine(home.Root, "Packages", "OpenTAP", "package.xml");
+        var xml = System.Xml.Linq.XDocument.Load(metadata);
+        if (invalid == "different-engine")
+        {
+            xml.Root!.SetAttributeValue("Version", "8.0.0");
+            File.Delete(Path.Combine(home.Root, "tap.dll"));
+            File.WriteAllText(Path.Combine(home.Root, "OpenTap.dll"), "custom existing engine bytes");
+        }
+        else if (invalid == "required-version")
+        {
+            workspace.Manifest.Dependencies.Single(d => d.Package == "OpenTAP").Version = "99.0.0";
+            AuthoringWorkspaceLoader.SaveManifest(root, workspace.Manifest);
+        }
+        else xml.Root!.Add(new System.Xml.Linq.XElement("Files", new System.Xml.Linq.XElement("File",
+            new System.Xml.Linq.XAttribute("Path", invalid == "unsafe-payload" ? "../escaped.txt" : "missing-required-runtime.bin"))));
+        xml.Save(metadata);
+        File.WriteAllText(Path.Combine(home.Root, "custom.marker"), "selected home sentinel");
+        var before = Snapshot(home.Root);
+        using var coordinator = Coordinator();
+        await Assert.ThrowsAsync<AuthoringWorkspaceException>(() => coordinator.RunAsync(AuthoringOperationKind.Bootstrap, root, home: home.Root));
+        AssertSnapshot(before, home.Root);
+        var owned = File.ReadAllLines(Path.Combine(root, "fixture-child.json"))[1];
+        Assert.False(Directory.Exists(owned)); Assert.False(coordinator.IsBusy);
+    }
+
+    [Fact]
+    public async Task OpenTAP_import_with_missing_declared_payload_cannot_publish_despite_existing_root_runtime()
+    {
+        var root = AuthoringBuildSnapshotTests.Workspace(); var workspace = AuthoringWorkspaceLoader.Load(root); var home = AuthoringBuildSnapshotTests.Home(workspace);
+        var version = OpenTapHomeBootstrapper.ListInstalledPackages(home).Single(p => p.Name == "OpenTAP").Version;
+        var before = Snapshot(home.Root); var archive = Path.Combine(root, "engine.TapPackage");
+        WriteArchive(archive, "OpenTAP", version, "unrelated.txt");
+        using var coordinator = Coordinator();
+        await Assert.ThrowsAsync<AuthoringWorkspaceException>(() => coordinator.RunAsync(AuthoringOperationKind.Bootstrap, root, home: home.Root, offlinePackagePath: archive));
+        AssertSnapshot(before, home.Root);
+        Assert.False(Directory.Exists(File.ReadAllLines(Path.Combine(root, "fixture-child.json"))[1]));
+    }
+
     private static Dictionary<string, byte[]> Snapshot(string root) => Directory.GetFiles(root, "*", SearchOption.AllDirectories).ToDictionary(path => Path.GetRelativePath(root, path), File.ReadAllBytes);
     private static void AssertSnapshot(Dictionary<string, byte[]> expected, string root)
     {

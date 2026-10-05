@@ -119,6 +119,16 @@ public sealed class OpenTapHomeBootstrapper : IOpenTapHomeBootstrapper
             throw new AuthoringWorkspaceException("OpenTAP runtime directory was not found beside OpenTap.dll.");
         }
 
+        var installedMetadata = Path.Combine(homeRoot, "Packages", "OpenTAP", "package.xml");
+        if (File.Exists(installedMetadata))
+        {
+            var bundledMetadata = Path.Combine(sourceDir, "Packages", "OpenTAP", "package.xml");
+            if (!TryReadPackageIdentity(installedMetadata, out var installedName, out var installedVersion)
+                || !TryReadPackageIdentity(bundledMetadata, out var bundledName, out var bundledVersion)
+                || installedName != bundledName || installedVersion != bundledVersion)
+                throw new AuthoringWorkspaceException("The selected incomplete OpenTAP runtime differs from the bundled version. Restore its matching runtime payload or import a complete matching package; preparation preserved the selected home.");
+        }
+
         foreach (var file in OpenTapRuntimeFiles)
         {
             CopyIfExists(Path.Combine(sourceDir, file), Path.Combine(homeRoot, file));

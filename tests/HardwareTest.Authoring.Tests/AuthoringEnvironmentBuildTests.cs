@@ -96,6 +96,53 @@ public sealed class AuthoringEnvironmentBuildTests : IDisposable
         Assert.False(AuthoringEnvironmentAssessment.Packages(workspace.Manifest, home).Single(p => p.Package == "Offline Fixture").Satisfied);
     }
 
+    [Theory]
+    [InlineData("missing")]
+    [InlineData("../escape")]
+    public void OpenTAP_declared_payload_blocks_preflight_before_checker_despite_present_root_runtime(string payload)
+    {
+        var root = AuthoringBuildSnapshotTests.Workspace(); var workspace = AuthoringWorkspaceLoader.Load(root); var home = AuthoringBuildSnapshotTests.Home(workspace);
+        var metadata = Path.Combine(home.Root, "Packages", "OpenTAP", "package.xml");
+        var xml = System.Xml.Linq.XDocument.Load(metadata);
+        xml.Root!.Add(new System.Xml.Linq.XElement("Files", new System.Xml.Linq.XElement("File", new System.Xml.Linq.XAttribute("Path", payload))));
+        xml.Save(metadata);
+        Assert.All(AuthoringEnvironmentAssessment.RuntimeFiles(home), row => Assert.Contains("present", row));
+        Assert.False(AuthoringEnvironmentAssessment.Packages(workspace.Manifest, home).Single(p => p.Package == "OpenTAP").Satisfied);
+        var checker = new UnexpectedChecker();
+        var failure = Assert.Throws<PackPreflightException>(() => WorkspacePacker.Pack(workspace, AuthoringBuildSnapshotTests.Temp(), new PackOptions { Home = home, Compat = checker }));
+        Assert.Contains(failure.Report.Findings, f => f.Code == "PACK_PACKAGE_MISSING");
+        Assert.False(checker.Called);
+    }
+
+    [Fact]
+    public void Supported_excluded_source_remains_authoritative_after_open_save_reopen_and_edit()
+    {
+        var root = AuthoringBuildSnapshotTests.Workspace(); var workspace = AuthoringWorkspaceLoader.Load(root);
+        workspace.Manifest.Package.Name = "Editing source"; workspace.Manifest.ExcludedProgramIds.Add("sample");
+        AuthoringWorkspaceLoader.SaveManifest(root, workspace.Manifest);
+        var draft = new PlanCompiler().Load(Path.Combine(root, "sample.TapPlan"));
+        draft.Sidecar.DisplayName = "Newer authoritative source";
+        var store = new AuthoringDocumentStore(root); store.Save(AuthoringDocumentDto.FromDraft(draft, 41));
+        var before = File.ReadAllBytes(store.GetDocumentPath("sample"));
+        var nodeIds = draft.Measure.Select(node => node.NodeId).ToArray();
+        var vm = new AuthoringWorkspaceViewModel(); vm.Open(root); vm.SelectProgram("sample");
+        Assert.Equal("Newer authoritative source", vm.DisplayName);
+        Assert.True(vm.SaveAll().Succeeded); Assert.Equal(before, File.ReadAllBytes(store.GetDocumentPath("sample")));
+        vm.Open(root); vm.SelectProgram("sample"); Assert.Equal("Newer authoritative source", vm.DisplayName);
+        vm.DisplayName = "Intentional source edit"; Assert.True(vm.SaveAll().Succeeded); vm.Open(root); vm.SelectProgram("sample");
+        Assert.Equal("Intentional source edit", vm.DisplayName);
+        Assert.Equal(nodeIds, vm.SelectedProgram!.Measure.Select(node => node.NodeId));
+        Assert.Equal("sample", vm.SelectedProgram!.PlanId);
+        Assert.Contains("sample", vm.Workspace!.Manifest.ExcludedProgramIds);
+    }
+
+    private sealed class UnexpectedChecker : ITuiCompatChecker
+    {
+        public bool Called { get; private set; }
+        public TuiCompatReport Compare(AuthoringWorkspace workspace, OpenTapHome authoringHome, OpenTapHome tuiHome)
+        { Called = true; throw new InvalidOperationException("Incomplete runtime reached checker."); }
+    }
+
     [Fact]
     public void Injected_checker_receipt_cannot_mark_production_compatibility_pass()
     {

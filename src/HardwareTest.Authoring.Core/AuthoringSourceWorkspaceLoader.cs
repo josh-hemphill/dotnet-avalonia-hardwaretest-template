@@ -8,11 +8,8 @@ public static class AuthoringSourceWorkspaceLoader
         compiler ??= new PlanCompiler();
         var files = AuthoringWorkspaceLoader.Load(root);
         var store = new AuthoringDocumentStore(files.Root);
-        var sourceIds = store.ListDocumentIds().Where(id =>
-        {
-            var source = store.Load(id);
-            return source.Document is not null || source.Error is not null;
-        }).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        // Filenames establish source ownership and inclusion before any source is read.
+        var sourceIds = store.ListDocumentIds().ToHashSet(StringComparer.OrdinalIgnoreCase);
         var imports = files with
         {
             TapPlanPaths = files.TapPlanPaths.Where(path =>
@@ -37,9 +34,16 @@ public static class AuthoringSourceWorkspaceLoader
         }
         foreach (var id in store.ListDocumentIds())
         {
+            var included = AuthoringBuildInclusion.Includes(loaded.Files.Manifest, id);
             var result = store.Load(id);
-            if (result.Error is { } error) throw new AuthoringWorkspaceException(error);
-            if (result.IsReadOnly) { readOnly = true; continue; }
+            // Supported excluded sources remain authoritative for editing. Unsupported
+            // excluded sources are unavailable individually, never a compiled fallback.
+            if (result.Error is { } error)
+            {
+                if (included) throw new AuthoringWorkspaceException(error);
+                continue;
+            }
+            if (result.IsReadOnly) { if (included) readOnly = true; continue; }
             if (result.Document is { } document) programs[id] = document.ToDraft();
         }
         return loaded with { Files = loaded.Files with { IsReadOnly = readOnly }, Programs = programs.Values.OrderBy(program => program.PlanId, StringComparer.OrdinalIgnoreCase).ToArray() };

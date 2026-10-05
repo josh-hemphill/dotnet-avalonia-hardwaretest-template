@@ -55,7 +55,7 @@ public sealed class AuthoringDeletionAndValidationGuardTests
     [InlineData(true)]
     public void GuiValidationRechecksExternalCompiledEditsAndExposesReconciliation(bool sidecar)
     {
-        var root = Workspace(); var vm = new AuthoringWorkspaceViewModel(); vm.Open(root); vm.Apply();
+        var root = Workspace(); var vm = new AuthoringWorkspaceViewModel(); vm.Open(root); vm.SelectProgram("sample"); vm.Apply();
         var id = vm.SelectedProgram!.PlanId;
         var path = vm.Workspace!.TapPlanPaths.Single(p => Path.GetFileNameWithoutExtension(p) == id);
         if (sidecar) File.AppendAllText(PlanCompiler.SidecarPath(path), "\n "); else File.AppendAllText(path, "\n<!-- external -->");
@@ -116,7 +116,7 @@ public sealed class AuthoringDeletionAndValidationGuardTests
     [InlineData(true)]
     public void GuiReadinessRefreshPreservesDurableRetainedSourceCompilationRequirement(bool deleteSource)
     {
-        var root = Workspace(); var vm = new AuthoringWorkspaceViewModel(); vm.Open(root); vm.Apply();
+        var root = Workspace(); var vm = new AuthoringWorkspaceViewModel(); vm.Open(root); vm.SelectProgram("sample"); vm.Apply();
         var id = vm.SelectedProgram!.PlanId;
         var path = vm.Workspace!.TapPlanPaths.Single(p => Path.GetFileNameWithoutExtension(p) == id);
         File.AppendAllText(path, "\n<!-- external -->");
@@ -131,7 +131,7 @@ public sealed class AuthoringDeletionAndValidationGuardTests
     [Fact]
     public void GuiReadinessRefreshRetainsKnownSourceWithoutCompiledBaselineAfterDeletion()
     {
-        var root = Workspace(); var initial = new AuthoringWorkspaceViewModel(); initial.Open(root); initial.Apply();
+        var root = Workspace(); var initial = new AuthoringWorkspaceViewModel(); initial.Open(root); initial.SelectProgram("sample"); initial.Apply();
         var id = initial.SelectedProgram!.PlanId; initial.StopRecovery();
         var store = new AuthoringDocumentStore(root); var source = store.Load(id).Document!;
         source.RequiresCompilation = false; source.CompiledPlanHash = null; source.CompiledSidecarHash = null;

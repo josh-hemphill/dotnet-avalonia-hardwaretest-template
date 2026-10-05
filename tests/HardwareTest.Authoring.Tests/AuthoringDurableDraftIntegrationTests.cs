@@ -115,6 +115,9 @@ public sealed class AuthoringDurableDraftIntegrationTests
     public void FutureSourceOpensReadOnlyAndCannotBeReplaced()
     {
         var root = Workspace();
+        var workspace = AuthoringWorkspaceLoader.Load(root);
+        workspace.Manifest.Package.Name = "All durable programs";
+        AuthoringWorkspaceLoader.SaveManifest(root, workspace.Manifest);
         var store = new AuthoringDocumentStore(root);
         var path = store.GetDocumentPath("future"); Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         var bytes = System.Text.Encoding.UTF8.GetBytes("{\"schemaVersion\":999,\"futureValue\":true}");

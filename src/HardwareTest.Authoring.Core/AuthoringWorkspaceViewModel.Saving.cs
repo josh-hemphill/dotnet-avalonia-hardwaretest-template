@@ -152,7 +152,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         try
         {
             RefreshPackPreview();
-            if (EnvironmentPathError is { } pathError) SavePreviewWarning = $"Packaging preview has an invalid OpenTAP home setting: {pathError}";
+            if (EnvironmentPathError is { } pathError) SavePreviewWarning = $"Packaging preview could not refresh because the OpenTAP home setting is invalid: {pathError}";
             else if (!HasUncompiledSources) SavePreviewWarning = null;
         }
         catch (Exception ex)

@@ -30,7 +30,7 @@ public sealed partial class AuthoringWorkspaceViewModel
     public IReadOnlyList<string> CheckedOutputs => LastBuildReceipt?.Outputs.Select(o => $"{o.Path}: SHA256 {o.Sha256}").ToArray() ?? [];
     public IReadOnlyList<AuthoringBuildProgramLine> BuildPrograms => Workspace is null ? [] : AuthoringBuildInclusion.ProgramIds(Workspace)
         .Select(id => new AuthoringBuildProgramLine(id, AuthoringBuildInclusion.Includes(Workspace.Manifest, id),
-            _sourceDocuments.GetValueOrDefault(id)?.Revision, _uncompiledDocuments.Contains(id) ? "Saved source requires compilation" : _compiledConflicts.Contains(id) ? "Source conflict" : "Saved compiled input", !Workspace.IsReadOnly && AuthoringBuildInclusion.AllowsProgram(Workspace.Manifest, id))).ToArray();
+            _sourceDocuments.GetValueOrDefault(id)?.Revision, _uncompiledDocuments.Contains(id) ? _sourceDocuments.ContainsKey(id) ? "Saved source requires compilation" : "Saved source unavailable or unsupported" : _compiledConflicts.Contains(id) ? "Source conflict" : "Saved compiled input", !Workspace.IsReadOnly && AuthoringBuildInclusion.AllowsProgram(Workspace.Manifest, id))).ToArray();
 
     public void SetBuildProgramIncluded(string planId, bool included)
     {

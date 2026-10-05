@@ -10,8 +10,11 @@ namespace HardwareTest.Authoring.UI.Tests;
 
 public sealed class AuthoringEnvironmentBuildWindowTests
 {
-    [AvaloniaFact]
-    public async Task Real_GUI_import_and_pack_use_rendered_home_exclude_invalid_source_and_retain_checked_receipt_after_edit_failure_cancel_and_prepare()
+    [AvaloniaTheory]
+    [InlineData("formula")]
+    [InlineData("corrupt")]
+    [InlineData("future")]
+    public async Task Real_GUI_import_and_pack_use_rendered_home_exclude_invalid_source_and_retain_checked_receipt_after_edit_failure_cancel_and_prepare(string sourceKind)
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
         var workspace = AuthoringWorkspaceLoader.Load(fixture.WorkspaceRoot);
@@ -28,12 +31,23 @@ public sealed class AuthoringEnvironmentBuildWindowTests
             Measure = [new MetricNode(new MetricDraft("Unsupported deployment", "result", "scalar", "V", new LimitSpec(null, null, 0), null, new ExpressionAlgorithm([], "std(input)")))]
         };
         store.Save(AuthoringDocumentDto.FromDraft(blocked, 7));
+        var blockedPath = store.GetDocumentPath("blocked");
+        if (sourceKind != "formula") File.WriteAllText(blockedPath, sourceKind == "corrupt" ? "{" : "{\"schemaVersion\":999,\"planId\":\"blocked\"}");
+        var excludedBytes = File.ReadAllBytes(blockedPath);
         var selectedHome = Path.Combine(fixture.WorkspaceRoot, "selected-home"); Directory.CreateDirectory(selectedHome);
         File.WriteAllText(Path.Combine(selectedHome, "selected-home.marker"), "distinct rendered home");
         fixture.ViewModel.OpenTapHomeOverride = selectedHome;
         var offlinePicker = new TestWorkspacePicker(); var outputPicker = new TestWorkspacePicker();
         var window = fixture.Show(packOutputPicker: outputPicker, offlinePackagePicker: offlinePicker); fixture.OpenRememberedWorkspace();
         fixture.ViewModel.ConfigureOperations(AuthoringChildProcessRunner.ForExecutable(Path.Combine(AppContext.BaseDirectory, "HardwareTest.Authoring.ProcessFixture.dll")), action => Dispatcher.UIThread.Post(action));
+        Assert.False(fixture.ViewModel.Workspace!.IsReadOnly);
+        fixture.ViewModel.SetBuildProgramIncluded("blocked", true);
+        Assert.False(fixture.ViewModel.CanPack);
+        Assert.Contains("Repair incomplete", fixture.ViewModel.PackGuardText);
+        fixture.ViewModel.SetBuildProgramIncluded("blocked", false);
+        Assert.True(fixture.ViewModel.SaveAll().Succeeded);
+        fixture.ViewModel.Open(fixture.WorkspaceRoot);
+        Assert.Equal(excludedBytes, File.ReadAllBytes(blockedPath));
         SelectTab(window, 3);
         Assert.Equal(selectedHome, fixture.Control<TextBlock>("Selected authoring home").Text);
         Assert.Contains(fixture.ViewModel.EnvironmentPackages, p => p.Package == "Offline Fixture" && !p.Satisfied);
@@ -107,6 +121,7 @@ public sealed class AuthoringEnvironmentBuildWindowTests
         File.Delete(Path.Combine(fixture.WorkspaceRoot, "fixture-result-wait"));
         fixture.ViewModel.Open(fixture.WorkspaceRoot);
         Assert.Null(fixture.ViewModel.LastBuildReceipt); Assert.Empty(fixture.ViewModel.BuildHistory);
+        Assert.Equal(excludedBytes, File.ReadAllBytes(blockedPath));
     }
 
     [AvaloniaTheory]

@@ -61,7 +61,8 @@ public static partial class WorkspacePacker
         }
 
         findings.AddRange(AuthoringSourceExportGuard.GetIssues(workspace,
-            includedPaths.Select(Path.GetFileNameWithoutExtension).Select(id => id!).ToHashSet(StringComparer.OrdinalIgnoreCase)));
+            AuthoringBuildInclusion.ProgramIds(workspace).Where(id => AuthoringBuildInclusion.Includes(workspace.Manifest, id))
+                .ToHashSet(StringComparer.OrdinalIgnoreCase)));
         if (findings.Any(f => f.IsError)) return Complete();
 
         foreach (var entry in workspace.Manifest.PluginProjects.Where(e => !string.IsNullOrWhiteSpace(e)))

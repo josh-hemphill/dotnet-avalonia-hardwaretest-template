@@ -87,6 +87,9 @@ public sealed partial class AuthoringWorkspaceViewModel
             if (recovered.Document is { } checkpoint) _recoverableDocuments[id] = checkpoint;
             else if (recovered.Error is { } error) Error = $"Recovery could not load: {error}";
         }
+        // Unread excluded sources retain their bytes and become blockers immediately on inclusion.
+        foreach (var id in store.ListDocumentIds())
+            if (!AuthoringBuildInclusion.Includes(Workspace.Manifest, id) && !_sourceDocuments.ContainsKey(id)) _uncompiledDocuments.Add(id);
         var generation = _recoveryGeneration;
         if (!Workspace.IsReadOnly) _recovery = new AuthoringRecoveryCheckpointService(action => _recoveryDispatch(action), result =>
         {

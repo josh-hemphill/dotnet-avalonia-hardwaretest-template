@@ -85,7 +85,7 @@ public static class AuthoringOperationChild
                 Offline = request.Offline,
                 OfflinePackagePath = request.OfflinePackageSha256 is null ? null : importPath
             });
-            if (request.OfflinePackageSha256 is not null)
+            if (request.Kind == AuthoringOperationKind.Bootstrap)
             {
                 var missing = AuthoringEnvironmentAssessment.Packages(workspace.Manifest, home).Where(p => !p.Optional && !p.Satisfied).ToArray();
                 if (missing.Length != 0) throw new AuthoringWorkspaceException(string.Join("; ", missing.Select(p => p.DisplayText)));

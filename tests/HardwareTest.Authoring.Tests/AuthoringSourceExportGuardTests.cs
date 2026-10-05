@@ -40,9 +40,34 @@ public sealed class AuthoringSourceExportGuardTests : IDisposable
     [Fact]
     public void Source_without_a_compiled_plan_cannot_be_silently_omitted_from_export()
     {
+        var workspace = AuthoringWorkspaceLoader.Load(_root);
+        workspace.Manifest.Package.Name = "All saved drafts";
+        AuthoringWorkspaceLoader.SaveManifest(_root, workspace.Manifest);
         new AuthoringDocumentStore(_root).Save(AuthoringDocumentDto.FromDraft(AuthoringRecipeCatalog.CreateProgram("new-plan")));
         var result = WorkspacePacker.Preflight(AuthoringWorkspaceLoader.Load(_root), new PackOptions());
         Assert.Contains(result.Findings, finding => finding.Code == "SOURCE_COMPILE_REQUIRED");
+    }
+
+    [Fact]
+    public void Excluded_corrupt_source_only_ID_is_filtered_before_preflight_reads_its_document()
+    {
+        var path = new AuthoringDocumentStore(_root).GetDocumentPath("excluded");
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!); File.WriteAllText(path, "{broken");
+        var workspace = AuthoringWorkspaceLoader.Load(_root);
+        workspace.Manifest.Package.Name = "Explicit inclusion"; workspace.Manifest.ExcludedProgramIds.Add("excluded");
+        AuthoringWorkspaceLoader.SaveManifest(_root, workspace.Manifest);
+        var result = WorkspacePacker.Preflight(workspace, new PackOptions());
+        Assert.DoesNotContain(result.Findings, finding => finding.Code.StartsWith("SOURCE_", StringComparison.Ordinal));
+        Assert.Equal("{broken", File.ReadAllText(path));
+    }
+
+    [Fact]
+    public void Explicit_source_guard_subset_does_not_add_other_source_only_programs()
+    {
+        var workspace = AuthoringWorkspaceLoader.Load(_root); workspace.Manifest.Package.Name = "All saved drafts";
+        new AuthoringDocumentStore(_root).Save(AuthoringDocumentDto.FromDraft(AuthoringRecipeCatalog.CreateProgram("other-source")));
+        Assert.Contains(AuthoringSourceExportGuard.GetIssues(workspace), f => f.Code == "SOURCE_COMPILE_REQUIRED");
+        Assert.Empty(AuthoringSourceExportGuard.GetIssues(workspace, new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "selected" }));
     }
 
     [Fact]
