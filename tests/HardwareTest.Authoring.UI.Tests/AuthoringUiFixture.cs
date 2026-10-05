@@ -40,9 +40,9 @@ internal sealed class AuthoringUiFixture : IDisposable
     public TestLifecycleInteraction Interaction { get; } = new();
     public TestWorkspacePicker Picker { get; } = new();
 
-    public MainWindow Show(double width = 1280, double height = 800, bool realInteraction = false)
+    public MainWindow Show(double width = 1280, double height = 800, bool realInteraction = false, IAuthoringWorkspacePicker? packOutputPicker = null, IAuthoringWorkspacePicker? offlinePackagePicker = null)
     {
-        Window = new MainWindow(ViewModel, realInteraction ? null : Interaction, Picker) { Width = width, Height = height };
+        Window = new MainWindow(ViewModel, realInteraction ? null : Interaction, Picker, packOutputPicker, offlinePackagePicker) { Width = width, Height = height };
         Window.Show();
         Drain();
         return Window;

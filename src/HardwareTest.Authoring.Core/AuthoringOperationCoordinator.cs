@@ -48,7 +48,7 @@ public sealed class AuthoringOperationCoordinator(AuthoringChildProcessRunner ru
 
     public Task<AuthoringOperationResult> RunAsync(AuthoringOperationKind kind, string workspaceRoot,
         string? outputDirectory = null, string? home = null, bool offline = true,
-        Action<AuthoringOperationProgress>? progress = null, CancellationToken cancellationToken = default)
+        Action<AuthoringOperationProgress>? progress = null, CancellationToken cancellationToken = default, string? offlinePackagePath = null)
     {
         CancellationTokenSource operation;
         long capturedGeneration;
@@ -58,19 +58,21 @@ public sealed class AuthoringOperationCoordinator(AuthoringChildProcessRunner ru
             if (active is not null) throw new InvalidOperationException("An authoring operation is already running.");
             if (pendingCleanup is not null) throw new InvalidOperationException("Authoring operation cleanup must finish before starting another operation.");
             if (kind == AuthoringOperationKind.Pack) ArgumentException.ThrowIfNullOrWhiteSpace(outputDirectory);
+            if (offlinePackagePath is not null && kind != AuthoringOperationKind.Bootstrap)
+                throw new ArgumentException("Offline import requires environment preparation.", nameof(offlinePackagePath));
             active = operation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             capturedGeneration = generation;
             logs.Clear();
             nextLogNotification = 0;
             // Reserve and retain the task together so accepted owner close can await all cleanup.
-            running = Task.Run(() => RunOwnedAsync(kind, workspaceRoot, outputDirectory, home, offline, progress, operation, capturedGeneration));
+            running = Task.Run(() => RunOwnedAsync(kind, workspaceRoot, outputDirectory, home, offline, progress, operation, capturedGeneration, offlinePackagePath));
             return running;
         }
     }
 
     private async Task<AuthoringOperationResult> RunOwnedAsync(AuthoringOperationKind kind, string workspaceRoot,
         string? outputDirectory, string? home, bool offline, Action<AuthoringOperationProgress>? progress,
-        CancellationTokenSource operation, long capturedGeneration)
+        CancellationTokenSource operation, long capturedGeneration, string? offlinePackagePath)
     {
         var owned = Path.Combine(Path.GetTempPath(), "authoring-operation-" + Guid.NewGuid().ToString("N"));
         var id = Guid.NewGuid().ToString("N");
@@ -85,6 +87,14 @@ public sealed class AuthoringOperationCoordinator(AuthoringChildProcessRunner ru
             var request = new AuthoringChildRequest(1, id, kind, Path.GetFullPath(workspaceRoot), owned, string.IsNullOrWhiteSpace(home) ? null : Path.GetFullPath(home), offline);
             if (OperatingSystem.IsWindows()) Directory.CreateDirectory(owned);
             else Directory.CreateDirectory(owned, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+            if (offlinePackagePath is not null)
+            {
+                if (!offlinePackagePath.EndsWith(".TapPackage", StringComparison.OrdinalIgnoreCase) && !offlinePackagePath.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
+                    throw new AuthoringWorkspaceException("Choose a .TapPackage or .zip offline package.");
+                var bytes = await File.ReadAllBytesAsync(offlinePackagePath, token).ConfigureAwait(false);
+                await File.WriteAllBytesAsync(Path.Combine(owned, "import.TapPackage"), bytes, token).ConfigureAwait(false);
+                request = request with { OfflinePackageSha256 = AuthoringBuildService.Hash(bytes) };
+            }
             var requestPath = Path.Combine(owned, "request.json");
             await File.WriteAllBytesAsync(requestPath, JsonSerializer.SerializeToUtf8Bytes(request,
                 AuthoringOperationJsonContext.Default.AuthoringChildRequest), token).ConfigureAwait(false);

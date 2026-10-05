@@ -14,13 +14,15 @@ public partial class MainWindow
         return AuthoringChildProcessRunner.ForExecutable(File.Exists(appHost) ? appHost : assembly);
     }
 
-    private async Task RunOperationAsync(AuthoringOperationKind kind, string? outputDirectory = null)
+    private async Task RunOperationAsync(AuthoringOperationKind kind, string? outputDirectory = null, string? offlinePackagePath = null)
     {
-        if (_viewModel.OperationBusy) return;
+        if (_viewModel.OperationBusy || _ownerClosed || !IsVisible || !ReferenceEquals(DataContext, _viewModel)) return;
         var workspace = _viewModel.Workspace;
-        try { await _viewModel.RunOperationAsync(kind, outputDirectory); }
+        var session = _viewModel.WorkspaceSessionId;
+        var home = _viewModel.AuthoringHomeText;
+        try { await _viewModel.RunOperationAsync(kind, outputDirectory, offlinePackagePath); }
         catch (OperationCanceledException) { }
-        catch (Exception error) { if (ReferenceEquals(workspace, _viewModel.Workspace)) _viewModel.ReportError(error.Message); }
+        catch (Exception error) { if (ReferenceEquals(workspace, _viewModel.Workspace) && session == _viewModel.WorkspaceSessionId && home == _viewModel.AuthoringHomeText && !_ownerClosed && IsVisible) _viewModel.ReportError(error.Message); }
     }
     private void OnCancelOperation(object? sender, RoutedEventArgs e) => _viewModel.CancelOperation();
 }

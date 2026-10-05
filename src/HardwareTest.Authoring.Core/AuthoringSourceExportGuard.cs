@@ -20,7 +20,7 @@ public static class AuthoringSourceExportGuard
         {
             var path = workspace.TapPlanPaths.FirstOrDefault(p =>
                 string.Equals(Path.GetFileNameWithoutExtension(p), id, StringComparison.OrdinalIgnoreCase));
-            if (path is not null && includedProgramIds is not null && !includedProgramIds.Contains(id)) continue;
+            if (includedProgramIds is not null && !includedProgramIds.Contains(id)) continue;
             var result = store.Load(id);
             if (result.IsReadOnly || result.Error is not null || result.Document is null)
             {

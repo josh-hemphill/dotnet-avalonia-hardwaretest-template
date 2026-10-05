@@ -10,7 +10,7 @@ public sealed record AuthoringOperationProgress(string Stage, string? Message = 
 public sealed record AuthoringOperationLog(string Stream, string Text);
 public sealed record AuthoringOperationResult(string? Home, PlanContractBatchReport? Validation, AuthoringBuildResult? Build);
 internal sealed record AuthoringChildRequest(int Version, string Id, AuthoringOperationKind Kind, string WorkspaceRoot,
-    string OwnedRoot, string? Home, bool Offline);
+    string OwnedRoot, string? Home, bool Offline, string? OfflinePackageSha256 = null);
 internal sealed record AuthoringSnapshot(string Root, string Home, string TuiHome, string DotNetExecutable, bool Offline,
     IReadOnlyList<BuildInputTree> Trees, IReadOnlyList<AuthoringBuildEnvironmentIdentity> Environment)
 {
@@ -60,7 +60,7 @@ public static class AuthoringOperationChild
         {
             manifestIdentity = AuthoringBuildService.CaptureTree(request.WorkspaceRoot, "workspace", false,
                 path => Path.GetFileName(path) == AuthoringWorkspaceLoader.ManifestFileName);
-            Stage("Bootstrap");
+            Stage("Prepare authoring environment");
             var workspace = AuthoringWorkspaceLoader.Load(request.WorkspaceRoot);
             var selectedRoot = Path.GetFullPath(string.IsNullOrWhiteSpace(request.Home)
                 ? Path.Combine(workspace.Root, OpenTapHomeBootstrapper.DefaultHomeRelativePath) : request.Home);
@@ -75,14 +75,28 @@ public static class AuthoringOperationChild
                 Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
                 AuthoringBuildService.Materialize(file, destination);
             }
-            var home = new OpenTapHomeBootstrapper().Bootstrap(workspace, new BootstrapOptions { HomeDirectory = isolatedHome, Offline = request.Offline });
+            var importPath = Path.Combine(request.OwnedRoot, "import.TapPackage");
+            if (request.OfflinePackageSha256 is not null && (request.Kind != AuthoringOperationKind.Bootstrap
+                || AuthoringBuildService.Hash(File.ReadAllBytes(importPath)) != request.OfflinePackageSha256))
+                throw new InvalidDataException("Offline import identity differs from captured request.");
+            var home = new OpenTapHomeBootstrapper().Bootstrap(workspace, new BootstrapOptions
+            {
+                HomeDirectory = isolatedHome,
+                Offline = request.Offline,
+                OfflinePackagePath = request.OfflinePackageSha256 is null ? null : importPath
+            });
+            if (request.OfflinePackageSha256 is not null)
+            {
+                var missing = AuthoringEnvironmentAssessment.Packages(workspace.Manifest, home).Where(p => !p.Optional && !p.Satisfied).ToArray();
+                if (missing.Length != 0) throw new AuthoringWorkspaceException(string.Join("; ", missing.Select(p => p.DisplayText)));
+            }
             AuthoringOperationResult result;
             AuthoringSnapshot? snapshot = null;
             string? receiptHash = null;
             if (request.Kind == AuthoringOperationKind.Pack)
             {
                 Stage("Capture saved bytes");
-                var captured = AuthoringBuildService.CaptureSaved(workspace, new PackOptions { Home = home, Offline = request.Offline });
+                var captured = AuthoringBuildService.CaptureSaved(workspace, new PackOptions { Home = home, Offline = request.Offline, Progress = Stage });
                 captured = new AuthoringBuildRequest(captured.WorkspaceRoot, captured.Options,
                     captured.Trees.Append(selectedHome).ToArray(), captured.EnvironmentValues);
                 // Parent owns this tree and is responsible for disposal after the child exits.

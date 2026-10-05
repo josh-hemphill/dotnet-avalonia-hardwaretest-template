@@ -37,6 +37,7 @@ public sealed class OpenTapHomeBootstrapper : IOpenTapHomeBootstrapper
         Directory.CreateDirectory(homeRoot);
         Directory.CreateDirectory(Path.Combine(homeRoot, "Packages"));
 
+        InstallOptionalFilePackage(options.OfflinePackagePath, homeRoot);
         CopyOpenTapRuntime(homeRoot);
         InstallInTreePack(homeRoot, "HardwareTest Basic", typeof(MockDmmInstrument));
         InstallInTreePack(homeRoot, "HardwareTest Mixins", typeof(AnnotationMixinBuilder));
@@ -110,6 +111,8 @@ public sealed class OpenTapHomeBootstrapper : IOpenTapHomeBootstrapper
 
     private static void CopyOpenTapRuntime(string homeRoot)
     {
+        if (OpenTapRuntimeFiles.All(file => File.Exists(Path.Combine(homeRoot, file)))
+            && File.Exists(Path.Combine(homeRoot, "Packages", "OpenTAP", "package.xml"))) return;
         var sourceDir = ResolveOpenTapRuntimeDirectory();
         if (string.IsNullOrWhiteSpace(sourceDir) || !Directory.Exists(sourceDir))
         {
@@ -147,6 +150,7 @@ public sealed class OpenTapHomeBootstrapper : IOpenTapHomeBootstrapper
 
         var packageXml = FindPackageXml(packageName);
         var dest = Path.Combine(homeRoot, "Packages", packageName);
+        if (File.Exists(Path.Combine(dest, "package.xml"))) return;
         Directory.CreateDirectory(dest);
         File.Copy(packageXml, Path.Combine(dest, "package.xml"), overwrite: true);
         foreach (var fileName in ReadPackageFileNames(packageXml))
@@ -177,6 +181,8 @@ public sealed class OpenTapHomeBootstrapper : IOpenTapHomeBootstrapper
         {
             return;
         }
+
+        if (ListInstalledPackages(new(homeRoot)).Any(p => p.Name == InstrumentComponentsPackageName)) return;
 
         var path = FirstNonEmpty(
             options.InstrumentComponentsPackagePath,
@@ -223,7 +229,10 @@ public sealed class OpenTapHomeBootstrapper : IOpenTapHomeBootstrapper
                 throw new AuthoringWorkspaceException($"Directory '{path}' is not an unpacked OpenTAP package.");
             }
 
-            CopyDirectory(path, Path.Combine(homeRoot, "Packages", dirName));
+            var destination = Path.Combine(homeRoot, "Packages", dirName);
+            ValidatePackageName(dirName);
+            AuthoringBuildService.EnsureContained(Path.Combine(homeRoot, "Packages"), destination);
+            CopyDirectory(path, destination);
             return;
         }
 
@@ -245,7 +254,12 @@ public sealed class OpenTapHomeBootstrapper : IOpenTapHomeBootstrapper
             }
 
             var sourceDir = Path.GetDirectoryName(xml)!;
-            CopyDirectory(sourceDir, Path.Combine(homeRoot, "Packages", name));
+            var destination = Path.Combine(homeRoot, "Packages", name);
+            ValidatePackageName(name);
+            AuthoringBuildService.EnsureContained(Path.Combine(homeRoot, "Packages"), destination);
+            if (string.IsNullOrWhiteSpace(name) || destination == Path.Combine(homeRoot, "Packages"))
+                throw new AuthoringWorkspaceException("Invalid offline package identity.");
+            CopyDirectory(sourceDir, destination);
         }
         finally
         {
@@ -258,6 +272,12 @@ public sealed class OpenTapHomeBootstrapper : IOpenTapHomeBootstrapper
                 // Best-effort cleanup of extract scratch.
             }
         }
+    }
+
+    private static void ValidatePackageName(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name) || name is "." or ".." || name.IndexOfAny(['/', '\\', ':']) >= 0)
+            throw new AuthoringWorkspaceException("Invalid offline package identity.");
     }
 
     private static void AssertNoVisa(string homeRoot)

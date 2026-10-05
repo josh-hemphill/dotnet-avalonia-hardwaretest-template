@@ -84,6 +84,7 @@ public static partial class WorkspacePacker
 
         try
         {
+            options.Progress?.Invoke("Strict validation of included plans");
             contract = PlanContractValidator.Validate(packingWorkspace.TapPlanPaths,
                 new PlanContractOptions { Strict = true, ExcludeVisaAdapter = !AuthoringInstrumentCatalog.DeclaresVisa(workspace) });
             foreach (var plan in contract.Plans)
@@ -102,9 +103,10 @@ public static partial class WorkspacePacker
             home ??= new OpenTapHomeBootstrapper().Bootstrap(workspace,
                 new BootstrapOptions { Offline = options.Offline, HomeDirectory = options.BootstrapHomeDirectory });
             tuiHome ??= home;
-            InspectHome(home, workspace.Manifest.Dependencies.Select(d => d.Package), findings);
+            options.Progress?.Invoke("Check required packages and versions");
+            InspectHome(home, workspace.Manifest, findings);
             if (!string.Equals(home.Root, tuiHome.Root, StringComparison.OrdinalIgnoreCase))
-                InspectHome(tuiHome, workspace.Manifest.Dependencies.Select(d => d.Package), findings);
+                InspectHome(tuiHome, workspace.Manifest, findings);
             if (workspace.Manifest.IncludeTui && !HasUsableTuiPackage(tuiHome, out var tuiDetails))
                 findings.Add(new("PACK_TUI_MISSING", $"includeTui=true requires an installed TUI-named package with a declared, readable managed TUI DLL; install it or set includeTui=false. {tuiDetails}", true, tuiHome.Root));
         }
@@ -116,6 +118,8 @@ public static partial class WorkspacePacker
 
         try
         {
+            if (findings.Any(f => f.IsError)) return Complete();
+            options.Progress?.Invoke("Check compatibility with production catalogs and round trips");
             compatibility = (options.Compat ?? new TuiCompatChecker()).Compare(packingWorkspace, home, tuiHome);
             foreach (var delta in compatibility.Catalog)
             {
@@ -220,7 +224,7 @@ public static partial class WorkspacePacker
     private static string ResolveEntry(AuthoringWorkspace workspace, string entry)
         => Path.GetFullPath(Path.IsPathRooted(entry) ? entry : Path.Combine(workspace.Root, entry));
 
-    private static void InspectHome(OpenTapHome home, IEnumerable<string> dependencies, List<PackPreflightFinding> findings)
+    private static void InspectHome(OpenTapHome home, AuthoringManifest manifest, List<PackPreflightFinding> findings)
     {
         foreach (var file in new[] { "tap.dll", "tap.runtimeconfig.json", "OpenTap.dll", "OpenTap.Package.dll" })
         {
@@ -249,10 +253,8 @@ public static partial class WorkspacePacker
                 findings.Add(new("PACK_RUNTIME_CORRUPT", $"Required OpenTAP runtime file '{file}' is unreadable or invalid; bootstrap this home. {ex.Message}", true, path));
             }
         }
-        var packages = OpenTapHomeBootstrapper.ListInstalledPackages(home);
-        foreach (var dependency in dependencies)
-            if (!packages.Any(p => string.Equals(p.Name, dependency, StringComparison.OrdinalIgnoreCase)))
-                findings.Add(new("PACK_PACKAGE_MISSING", $"Required package '{dependency}' is not installed; bootstrap or install it in this home.", true, home.Root));
+        foreach (var requirement in AuthoringEnvironmentAssessment.Packages(manifest, home).Where(p => !p.Optional && !p.Satisfied))
+            findings.Add(new("PACK_PACKAGE_MISSING", requirement.DisplayText + "; prepare or import an offline package into this home.", true, home.Root));
     }
 
     private static void ValidateRuntimeConfiguration(JsonElement config)

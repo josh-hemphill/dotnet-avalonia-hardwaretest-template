@@ -6,9 +6,8 @@ public sealed partial class AuthoringWorkspaceViewModel
 
     public WorkspacePackPreview PackPreview => _packPreview;
 
-    public IReadOnlyList<string> ExcludedPackPlans => Workspace is null ? [] : Workspace.TapPlanPaths
-        .Select(Path.GetFileName).OfType<string>()
-        .Except(_packPreview.ProgramPackContents.Select(f => f.RelativePath), StringComparer.OrdinalIgnoreCase).ToArray();
+    public IReadOnlyList<string> ExcludedPackPlans => Workspace is null ? [] : AuthoringBuildInclusion.ProgramIds(Workspace)
+        .Where(id => !AuthoringBuildInclusion.Includes(Workspace.Manifest, id)).ToArray();
 
     public bool HasExcludedPackPlans => ExcludedPackPlans.Count > 0;
 
@@ -72,11 +71,15 @@ public sealed partial class AuthoringWorkspaceViewModel
         _packPreview = WorkspacePackPlan.Describe(
             Workspace,
             string.IsNullOrWhiteSpace(home) ? null : home);
+        if (LastCompletedBuild is { } completed)
+            _packPreview = WorkspacePackPlan.WithLastPack(_packPreview, completed.Result.Manifest, completed.OutputDirectory);
         RaisePackPreviewProperties();
     }
 
     private void RaisePackPreviewProperties()
     {
+        RaiseBuildResultProperties();
+        RaiseEnvironmentProperties();
         OnPropertyChanged(nameof(PackPreview));
         OnPropertyChanged(nameof(ExcludedPackPlans));
         OnPropertyChanged(nameof(HasExcludedPackPlans));

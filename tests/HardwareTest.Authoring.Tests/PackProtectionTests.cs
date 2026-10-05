@@ -91,7 +91,7 @@ public sealed class PackProtectionTests : IDisposable
         var output = Path.Combine(_root, "dist");
         var error = new StringWriter();
         Assert.Equal(1, AuthoringCli.Run(["--pack", _workspace, "--out", output, "--opentap-home", home.Root], new StringWriter(), error));
-        Assert.Contains("PACK_COMPAT", error.ToString());
+        Assert.Contains("PACK_PACKAGE_MISSING", error.ToString());
         Assert.False(Directory.Exists(output));
     }
 

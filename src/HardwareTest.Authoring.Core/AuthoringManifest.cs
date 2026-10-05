@@ -36,6 +36,8 @@ public sealed class AuthoringManifest
 
     public bool IncludeTui { get; set; }
 
+    public List<string> ExcludedProgramIds { get; set; } = [];
+
     /// Optional operator run.json goldens. Default recordings/. Folder need not exist.
     public string RecordingsDirectory { get; set; } = "recordings";
 

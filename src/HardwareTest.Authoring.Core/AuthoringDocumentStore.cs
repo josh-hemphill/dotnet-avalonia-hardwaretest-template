@@ -41,7 +41,8 @@ public sealed partial class AuthoringDocumentStore
             if (version != AuthoringDocumentDto.CurrentSchemaVersion) throw new InvalidDataException("Unsupported workspace source schema.");
             var document = JsonSerializer.Deserialize(bytes, AuthoringDocumentJsonContext.Default.AuthoringWorkspaceDto)
                 ?? throw new InvalidDataException("Workspace source is empty.");
-            if (document.Manifest is null || document.Revision < 0) throw new InvalidDataException("Workspace source is incomplete.");
+            if (document.Manifest is null || document.Manifest.ExcludedProgramIds is null
+                || document.Manifest.ExcludedProgramIds.Any(string.IsNullOrWhiteSpace) || document.Revision < 0) throw new InvalidDataException("Workspace source is incomplete.");
             if (document.Manifest.SchemaVersion < 1)
                 throw new InvalidDataException("Workspace source has an unsupported manifest schema version.");
             if (document.Manifest.SchemaVersion > AuthoringSchemaVersions.Manifest)

@@ -79,6 +79,7 @@ public static partial class AuthoringBuildService
             DotNetExecutable = executable,
             Offline = options.Offline,
             Compat = options.Compat,
+            Progress = options.Progress,
             PreflightCompleted = options.PreflightCompleted
         }, trees.AsReadOnly(), environment);
         Recheck(request);

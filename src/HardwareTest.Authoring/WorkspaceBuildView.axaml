@@ -4,6 +4,28 @@
   <ScrollViewer>
     <StackPanel Spacing="8" Margin="0,8,16,0">
       <TextBlock TextWrapping="Wrap" Text="{Binding ShipPurpose}"/>
+      <TextBlock Text="{Binding BuildReadinessText}" TextWrapping="Wrap" AutomationProperties.Name="Build readiness"/>
+      <ItemsControl ItemsSource="{Binding BuildPrograms}" IsEnabled="{Binding !OperationBusy}" AutomationProperties.Name="Build program inclusion">
+        <ItemsControl.ItemTemplate><DataTemplate x:DataType="vm:AuthoringBuildProgramLine"><StackPanel>
+          <CheckBox Content="{Binding PlanId}" IsChecked="{Binding Included, Mode=OneWay}" IsEnabled="{Binding CanChangeInclusion}" AutomationProperties.Name="{Binding PlanId, StringFormat='Include {0} in build'}" Click="OnProgramInclusion"/>
+          <TextBlock Text="{Binding SavedRevision, StringFormat='Saved source revision {0}'}"/>
+          <TextBlock Text="{Binding State}"/>
+        </StackPanel></DataTemplate></ItemsControl.ItemTemplate>
+      </ItemsControl>
+      <TextBlock Text="{Binding OperationStage}" AutomationProperties.Name="Build operation stage"/>
+      <TextBlock Text="{Binding OperationLogText}" TextWrapping="Wrap" AutomationProperties.Name="Build operation logs"/>
+      <TextBlock Text="{Binding CompatibilityState}" TextWrapping="Wrap" AutomationProperties.Name="Recorded build compatibility"/>
+      <StackPanel IsVisible="{Binding HasCompletedBuild}">
+        <TextBlock Text="Completed checked receipt" FontWeight="SemiBold"/>
+        <TextBlock Text="{Binding LastCompletedBuild.SelectedHome, StringFormat='Checked selected home: {0}'}" TextWrapping="Wrap"/>
+        <TextBlock Text="{Binding LastCompletedBuild.OutputDirectory}" TextWrapping="Wrap" AutomationProperties.Name="Completed build output"/>
+        <ItemsControl ItemsSource="{Binding CheckedRevisions}" AutomationProperties.Name="Checked saved revisions"/>
+        <ItemsControl ItemsSource="{Binding BuildChecks}" AutomationProperties.Name="Completed build checks"/>
+        <ItemsControl ItemsSource="{Binding CheckedOutputs}" AutomationProperties.Name="Checked build outputs"/>
+        <ItemsControl ItemsSource="{Binding BuildHistory}" AutomationProperties.Name="Completed build history">
+          <ItemsControl.ItemTemplate><DataTemplate x:DataType="vm:AuthoringCompletedBuild"><TextBlock Text="{Binding DisplayText}" TextWrapping="Wrap"/></DataTemplate></ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </StackPanel>
       <TextBlock FontWeight="SemiBold"
           Text="{Binding PackPreview.ProgramPackageName, StringFormat='Program package {0}'}" TextWrapping="Wrap"/>
       <TextBlock Text="{Binding PackPreview.ProgramPackageVersion, StringFormat='Version {0}'}" TextWrapping="Wrap"/>
@@ -35,7 +57,7 @@
       </ItemsControl>
       <TextBlock FontWeight="SemiBold" Text="Authoring OpenTAP home packages" TextWrapping="Wrap"/>
       <TextBlock Opacity="0.8" TextWrapping="Wrap" IsVisible="{Binding !HasAuthoringHomePackages}"
-          Text="Bootstrap to install Editor packs into the isolated OpenTAP home."/>
+          Text="Prepare the environment to install Editor packs into the isolated OpenTAP home."/>
       <ItemsControl ItemsSource="{Binding PackPreview.AuthoringHomePackages}"
           AutomationProperties.Name="Authoring OpenTAP home packages">
         <ItemsControl.ItemTemplate>

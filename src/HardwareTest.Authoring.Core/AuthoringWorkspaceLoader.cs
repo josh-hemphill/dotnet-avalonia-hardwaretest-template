@@ -20,6 +20,7 @@ public static class AuthoringWorkspaceLoader
         "pluginProjects",
         "shellAppProjects",
         "includeTui",
+        "excludedProgramIds",
         "recordingsDirectory",
         "catalogs",
     };
@@ -103,6 +104,8 @@ public static class AuthoringWorkspaceLoader
                 throw new AuthoringWorkspaceException($"Invalid {ManifestFileName}: {ex.Message}", ex);
             }
 
+            if (!isFuture && (manifest.ExcludedProgramIds is null || manifest.ExcludedProgramIds.Any(string.IsNullOrWhiteSpace)))
+                throw new AuthoringWorkspaceException("excludedProgramIds must be an array of nonempty program IDs.");
             manifest.SchemaVersion = schemaVersion;
             var plansDirectory = ResolvePlansDirectory(fullRoot, manifest.PlansDirectory);
             var tapPlans = EnumerateTapPlans(plansDirectory);

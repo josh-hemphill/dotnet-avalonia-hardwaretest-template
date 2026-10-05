@@ -67,7 +67,16 @@ public static partial class AuthoringBuildService
                 request.Trees.Any(t => t.StageRelativePath == "tui-home") ? "tui-home" : "home"));
             var compiler = new PlanCompiler(selectedHome: home);
             // Sources are validated before any compiled import; future/corrupt data never falls back.
-            var sourceDocuments = store.ListDocumentIds().Select(id =>
+            var sourceIds = store.ListDocumentIds();
+            var allPaths = workspace.TapPlanPaths.Concat(sourceIds.Select(id => Path.Combine(root, "plans", id + ".TapPlan")))
+                .Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.Ordinal).ToArray();
+            workspace = workspace with { TapPlanPaths = allPaths };
+            var included = allPaths.Select(Path.GetFileNameWithoutExtension).OfType<string>()
+                .Where(id => AuthoringBuildInclusion.Includes(workspace.Manifest, id)).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var excluded = allPaths.Select(Path.GetFileNameWithoutExtension).OfType<string>()
+                .Where(id => !included.Contains(id)).ToArray();
+            foreach (var id in sourceIds.Where(id => !included.Contains(id))) File.Delete(store.GetDocumentPath(id));
+            var sourceDocuments = sourceIds.Where(included.Contains).Select(id =>
             {
                 var source = store.Load(id);
                 if (!source.IsSuccess || source.IsReadOnly)
@@ -75,15 +84,9 @@ public static partial class AuthoringBuildService
                 ValidateSourceShape(source.OriginalBytes, workspace: false);
                 return source.Document!;
             }).ToArray();
-            var allPaths = workspace.TapPlanPaths.Concat(sourceDocuments.Select(d => Path.Combine(root, "plans", d.PlanId + ".TapPlan")))
-                .Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.Ordinal).ToArray();
-            workspace = workspace with { TapPlanPaths = allPaths };
-            var included = PackageXmlRenderer.EnumeratePackFiles(workspace).Where(p => p.EndsWith(".TapPlan", StringComparison.OrdinalIgnoreCase))
-                .Select(Path.GetFileNameWithoutExtension).ToHashSet(StringComparer.OrdinalIgnoreCase);
-            var excluded = allPaths.Where(p => !included.Contains(Path.GetFileNameWithoutExtension(p)))
-                .Select(Path.GetFileNameWithoutExtension).Select(p => p!).ToArray();
             var results = new List<AuthoringCompileResult>();
             var sources = new List<AuthoringBuildSource>();
+            request.Options.Progress?.Invoke("Compile included saved programs");
             foreach (var id in included.Order(StringComparer.Ordinal))
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -143,6 +146,7 @@ public static partial class AuthoringBuildService
                 BuildEnvironment = request.EnvironmentValues,
                 CancellationToken = cancellationToken,
                 Offline = request.Options.Offline,
+                Progress = request.Options.Progress,
                 PreflightCompleted = report =>
                 {
                     checks = report with { Findings = Array.AsReadOnly(report.Findings.ToArray()) };
@@ -160,9 +164,9 @@ public static partial class AuthoringBuildService
             var requiredChecks = checks!.Findings.Concat([
                 new PackPreflightFinding("BUILD_COMPILE_PASS", $"Compiled or imported {results.Count} included saved programs; excluded programs were not packaged.", false),
                 new PackPreflightFinding("BUILD_STRICT_VALIDATION_PASS", $"Strict contract validation passed for {checks.Contract!.Plans.Count} included plans.", false),
-                new PackPreflightFinding("BUILD_COMPATIBILITY_PASS", "Plugin catalogs and in-process plan load/save checks passed under the recorded compatibility provider.", false),
+                new PackPreflightFinding(request.Options.Compat is null or TuiCompatChecker ? "BUILD_COMPATIBILITY_PASS" : "BUILD_COMPATIBILITY_INJECTED", "Plugin catalogs and in-process plan load/save checks passed under the recorded compatibility provider.", false),
                 new PackPreflightFinding("BUILD_COMPAT_PROVIDER",
-                request.Options.Compat is null ? "Production in-process TuiCompatChecker; external process integration is a separate fixture."
+                request.Options.Compat is null or TuiCompatChecker ? "Production in-process TuiCompatChecker; external process integration is a separate fixture."
                     : $"Injected compatibility checker: {request.Options.Compat.GetType().FullName}; no external process evidence is implied.", false)]);
             var receipt = new AuthoringBuildReceipt(1, Guid.NewGuid().ToString("N"), DateTimeOffset.UtcNow,
                 included.Select(p => p!).Order(StringComparer.Ordinal).ToArray(), excluded, sources.AsReadOnly(), request.Inputs,

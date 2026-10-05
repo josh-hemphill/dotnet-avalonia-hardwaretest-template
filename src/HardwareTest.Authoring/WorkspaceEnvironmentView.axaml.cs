@@ -8,6 +8,12 @@ public partial class WorkspaceEnvironmentView : UserControl
 {
     public WorkspaceEnvironmentView() => InitializeComponent();
 
+    private void OnPrepareEnvironment(object? sender, RoutedEventArgs e)
+        => (TopLevel.GetTopLevel(this) as MainWindow)?.OnPrepareEnvironment(sender, e);
+
+    private void OnImportOfflinePackage(object? sender, RoutedEventArgs e)
+        => (TopLevel.GetTopLevel(this) as MainWindow)?.OnImportOfflinePackage(sender, e);
+
     private void OnAcceptRecovery(object? sender, RoutedEventArgs e)
         => (TopLevel.GetTopLevel(this) as MainWindow)?.OnAcceptRecovery(sender, e);
 

@@ -105,7 +105,8 @@ public sealed class AuthoringChromeA11yTests
         Assert.Contains("vm.ImportRecording(path)", previewCode, StringComparison.Ordinal);
         Assert.Contains("owner.Launcher.LaunchDirectoryInfoAsync(new DirectoryInfo(path))", previewCode, StringComparison.Ordinal);
         Assert.Contains("ReferenceEquals(workspace, vm.Workspace)", previewCode, StringComparison.Ordinal);
-        var code = File.ReadAllText(Path.Combine(FindRepoRoot(), "src", "HardwareTest.Authoring", "MainWindow.axaml.cs"));
+        var code = string.Join(Environment.NewLine, new[] { "MainWindow.axaml.cs", "MainWindow.BuildEnvironment.cs" }
+            .Select(file => File.ReadAllText(Path.Combine(sourceRoot, file))));
         Assert.Contains("ApplyFormulaCompletion", code, StringComparison.Ordinal);
         Assert.Contains("OnOpenSettings", code, StringComparison.Ordinal);
         Assert.Contains("OnRemoveSequence", code, StringComparison.Ordinal);
@@ -225,6 +226,11 @@ public sealed class AuthoringChromeA11yTests
                         ["OnMoveSequenceDown"] = "Vm?.MoveSelectedSequence(1)"
                     };
                     Assert.Contains(actions[handler], viewCode, StringComparison.Ordinal);
+                    continue;
+                }
+                if (view == "WorkspaceBuildView" && handler == "OnProgramInclusion")
+                {
+                    Assert.Contains("vm.SetBuildProgramIncluded(row.PlanId, box.IsChecked == true)", viewCode, StringComparison.Ordinal);
                     continue;
                 }
                 if (view is "HardwareView" or "WorkspaceDefinitionsView")
