@@ -171,7 +171,7 @@ public sealed class AuthoringPlanInitializationTests : IDisposable
         Assert.Empty(vm.OpenTapHomeOverride);
         var adapter = AuthoringInstrumentCatalog.All.Single(item => item.DisplayName == "VISA DMM");
         var request = Request() with { StartingPoint = PlanStartingPoint.VoltageTask, Instruments = [new("BENCH", adapter.TypeId, "TCPIP::192.0.2.1::INSTR")], IdentityInstrumentSlot = "BENCH" };
-        var home = Path.Combine(_root, OpenTapHomeBootstrapper.DefaultHomeRelativePath);
+        var home = Path.GetFullPath(Path.Combine(_root, OpenTapHomeBootstrapper.DefaultHomeRelativePath));
         var review = vm.ReviewPlanInitialization(request);
         Assert.Contains(review.Issues, issue => issue.Code == "INSTRUMENT_UNAVAILABLE" && issue.Message.Contains(home, StringComparison.Ordinal));
         vm.InitializePlan(request);

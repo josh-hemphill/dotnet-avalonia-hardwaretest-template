@@ -212,7 +212,7 @@ public sealed class AuthoringPlanInitializationTests
         fixture.Show(); fixture.OpenRememberedWorkspace();
         var vm = fixture.ViewModel;
         Assert.False(vm.HasUnsavedChanges); Assert.Empty(vm.OpenTapHomeOverride);
-        var home = Path.Combine(fixture.WorkspaceRoot, OpenTapHomeBootstrapper.DefaultHomeRelativePath);
+        var home = Path.GetFullPath(Path.Combine(fixture.WorkspaceRoot, OpenTapHomeBootstrapper.DefaultHomeRelativePath));
         AuthoringUiFixture.Click(fixture.Control<Button>("New test plan"));
         var dialog = Assert.IsType<PlanInitializationWindow>(Assert.Single(fixture.Window!.OwnedWindows));
         Type(fixture, dialog, "Stable plan ID", "default-real"); Next(fixture, dialog, "Starting point");
