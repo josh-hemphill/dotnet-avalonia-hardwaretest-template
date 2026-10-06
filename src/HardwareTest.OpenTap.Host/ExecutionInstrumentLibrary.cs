@@ -26,7 +26,7 @@ internal static class ExecutionInstrumentLibrary
             return OwnedInstrumentLibrary.Directory(loaded);
         }
 
-        var bytes = selected is null ? BundledPayload() : Files.Select(file => File.ReadAllBytes(Path.Combine(selected, file))).ToArray();
+        var bytes = selected is null ? BundledPayload() : Files.Select(file => ExecutionLibraryHome.ReadPayload(selected, file)).ToArray();
         var key = string.Join("", bytes.Select(payload => Convert.ToHexString(SHA256.HashData(payload))));
         if (!Payloads.TryGetValue(key, out var directory))
         {
@@ -60,15 +60,10 @@ internal static class ExecutionInstrumentLibrary
 
     private static string? SelectInstalledRoot(IEnumerable<string> trustedDirectories)
     {
-        foreach (var directory in trustedDirectories)
+        foreach (var candidate in trustedDirectories)
         {
-            if (File.Exists(Path.Combine(directory, "package.xml")) && IsLibraryMetadata(Path.Combine(directory, "package.xml")))
-                throw new InvalidOperationException("Instrument Components execution requires an installed home root with root DLLs and Packages/InstrumentComponents.OpenTap/package.xml. Import package directories before execution.");
+            var directory = ExecutionLibraryHome.Validate(candidate);
             var metadata = Path.Combine(directory, "Packages", PublishedInstrumentComponents.PackageName, "package.xml");
-            var packages = Path.Combine(directory, "Packages");
-            if (Directory.Exists(packages) && Directory.EnumerateFiles(packages, "*", SearchOption.AllDirectories)
-                .Any(file => Files.Contains(Path.GetFileName(file), StringComparer.OrdinalIgnoreCase)))
-                throw new InvalidOperationException("Instrument Components execution cannot use obsolete package-directory library DLLs. Import or repair the selected package to keep library DLLs only in the installed home root.");
             if (!Files.Any(file => File.Exists(Path.Combine(directory, file))) && !File.Exists(metadata)) continue;
             if (!IsLibraryMetadata(metadata, PublishedInstrumentComponents.Version))
                 throw new InvalidOperationException("Instrument Components execution requires installed InstrumentComponents.OpenTap 0.1.1 package metadata in the selected home root.");

@@ -1,3 +1,6 @@
+using System.Reflection.Metadata;
+using System.Reflection.Metadata.Ecma335;
+using System.Reflection.PortableExecutable;
 using HardwareTest.OpenTap.Host;
 using Xunit;
 
@@ -113,6 +116,105 @@ public sealed class StandaloneVisaBootstrapTests : IDisposable
         Assert.Contains("version mismatch", error.Message);
         Assert.Equal(before.Keys.Order(), Directory.GetFiles(home.Root, "*", SearchOption.AllDirectories).Select(path => Path.GetRelativePath(home.Root, path)).Order());
         foreach (var file in before) Assert.Equal(file.Value, File.ReadAllBytes(Path.Combine(home.Root, file.Key)));
+    }
+
+    [Theory]
+    [InlineData("OpenTap.dll", false)]
+    [InlineData("tap.dll", false)]
+    [InlineData("OpenTap.dll", true)]
+    [InlineData("tap.dll", true)]
+    [InlineData("config-json", false)]
+    [InlineData("config-framework", false)]
+    [InlineData("hash-mismatch", false)]
+    [InlineData("hash-malformed", false)]
+    [InlineData("hash-nested", false)]
+    public void Unsupported_or_corrupt_selected_runtime_is_unavailable_and_prepare_preserves_bytes(string invalid, bool olderAssembly)
+    {
+        var home = Prepare(Workspace());
+        var metadata = Path.Combine(home.Root, "Packages", "OpenTAP", "package.xml");
+        var xml = System.Xml.Linq.XDocument.Load(metadata);
+        if (invalid.EndsWith(".dll", StringComparison.Ordinal))
+        {
+            var path = Path.Combine(home.Root, invalid);
+            if (olderAssembly)
+            {
+                var bytes = File.ReadAllBytes(path);
+                using var stream = new MemoryStream(bytes, writable: false);
+                using var pe = new PEReader(stream);
+                var reader = pe.GetMetadataReader();
+                var versionFields = pe.PEHeaders.MetadataStartOffset + reader.GetTableMetadataOffset(TableIndex.Assembly) + 4;
+                var field = Enumerable.Range(0, 4).First(index => System.Buffers.Binary.BinaryPrimitives.ReadUInt16LittleEndian(bytes.AsSpan(versionFields + index * 2, 2)) > 0);
+                var value = System.Buffers.Binary.BinaryPrimitives.ReadUInt16LittleEndian(bytes.AsSpan(versionFields + field * 2, 2));
+                System.Buffers.Binary.BinaryPrimitives.WriteUInt16LittleEndian(bytes.AsSpan(versionFields + field * 2, 2), (ushort)(value - 1));
+                File.WriteAllBytes(path, bytes);
+            }
+            else File.WriteAllText(path, "corrupted runtime assembly");
+            var entry = xml.Descendants().Single(element => element.Name.LocalName == "File" && (string?)element.Attribute("Path") == invalid);
+            entry.Elements().Single(element => element.Name.LocalName == "Hash").Value = Convert.ToHexString(System.Security.Cryptography.SHA1.HashData(File.ReadAllBytes(path)));
+            xml.Save(metadata);
+        }
+        else if (invalid.StartsWith("config-", StringComparison.Ordinal))
+            File.WriteAllText(Path.Combine(home.Root, "tap.runtimeconfig.json"), invalid == "config-json" ? "{" : """{"runtimeOptions":{"framework":{"name":"Unsupported.Framework","version":"99.0.0"}}}""");
+        else
+        {
+            var hash = xml.Descendants().First(element => element.Name.LocalName == "File")
+                .Elements().Single(element => element.Name.LocalName == "Hash");
+            if (invalid == "hash-nested") hash.ReplaceNodes(new System.Xml.Linq.XElement("Wrapper", hash.Value));
+            else hash.Value = invalid == "hash-malformed" ? new string('z', 40) : new string('0', 40);
+            xml.Save(metadata);
+        }
+        var before = Snapshot(home);
+        Assert.False(StandaloneVisaReadiness.Assess(home).Available);
+        Assert.Throws<AuthoringWorkspaceException>(() => Prepare(Workspace()));
+        AssertSnapshot(before, home);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Selected_library_home_checks_manifest_engine_requirement_even_without_library_declaration(bool selectedLibrary)
+    {
+        var home = Prepare(Workspace(library: selectedLibrary));
+        var workspace = Workspace(library: false);
+        workspace.Manifest.Dependencies.Add(new() { Package = "OpenTAP", Version = "99.0.0" });
+        var archive = Path.Combine(_root, "unrelated.TapPackage");
+        using (var zip = System.IO.Compression.ZipFile.Open(archive, System.IO.Compression.ZipArchiveMode.Create))
+        {
+            using var writer = new StreamWriter(zip.CreateEntry("package.xml").Open());
+            writer.Write("""<Package Name="Unrelated" Version="1.0.0"><Files /></Package>""");
+        }
+        var before = Snapshot(home);
+        if (selectedLibrary)
+        {
+            var error = Assert.Throws<AuthoringWorkspaceException>(() => new OpenTapHomeBootstrapper().Bootstrap(workspace,
+                new() { HomeDirectory = home.Root, Offline = true, OfflinePackagePath = archive }));
+            Assert.Contains("version mismatch", error.Message);
+            AssertSnapshot(before, home);
+        }
+        else
+        {
+            new OpenTapHomeBootstrapper().Bootstrap(workspace, new() { HomeDirectory = home.Root, Offline = true, OfflinePackagePath = archive });
+            Assert.Contains(OpenTapHomeBootstrapper.ListInstalledPackages(home), package => package.Name == "Unrelated");
+            Assert.False(StandaloneVisaReadiness.IsLibraryHome(home));
+        }
+    }
+
+    [Fact]
+    public void Fresh_incomplete_runtime_can_be_populated_from_current_bundled_source()
+    {
+        var home = Prepare(Workspace(library: false));
+        File.Delete(Path.Combine(home.Root, "tap.dll"));
+        Prepare(Workspace());
+        Assert.True(StandaloneVisaReadiness.Assess(home).Available);
+    }
+
+    private static Dictionary<string, byte[]> Snapshot(OpenTapHome home) => Directory.GetFiles(home.Root, "*", SearchOption.AllDirectories)
+        .ToDictionary(path => Path.GetRelativePath(home.Root, path), File.ReadAllBytes);
+    private static void AssertSnapshot(Dictionary<string, byte[]> before, OpenTapHome home)
+    {
+        var after = Snapshot(home);
+        Assert.Equal(before.Keys.Order(), after.Keys.Order());
+        foreach (var file in before) Assert.Equal(file.Value, after[file.Key]);
     }
 
     [Fact]

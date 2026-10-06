@@ -15,9 +15,22 @@
     <PackageReference Include="xunit.runner.visualstudio" PrivateAssets="all" />
   </ItemGroup>
   <Target Name="CopyBoundaryFixture" AfterTargets="Build">
-    <ItemGroup><_FixtureFiles Include="../HardwareTest.StandaloneVisa.ProcessFixture/bin/$(Configuration)/$(TargetFramework)/$(RuntimeIdentifier)/**/*" /></ItemGroup>
+    <PropertyGroup>
+      <_BoundaryOutput>../HardwareTest.StandaloneVisa.ProcessFixture/bin/$(Configuration)/$(TargetFramework)/$(RuntimeIdentifier)/</_BoundaryOutput>
+    </PropertyGroup>
+    <ItemGroup>
+      <_FixtureFiles Include="$(_BoundaryOutput)**/*" />
+      <_TestOpenTapRuntime Include="$(_BoundaryOutput)OpenTap.dll;$(_BoundaryOutput)OpenTap.Package.dll;$(_BoundaryOutput)tap.dll;$(_BoundaryOutput)tap.runtimeconfig.json" />
+      <_TestOpenTapPackage Include="$(_BoundaryOutput)Packages/OpenTAP/**/*" />
+      <_TestOpenTapDependencies Include="$(_BoundaryOutput)Dependencies/**/*" />
+    </ItemGroup>
     <Copy SourceFiles="../HardwareTest.StandaloneVisa.RebuiltFixture/bin/$(Configuration)/$(TargetFramework)/$(RuntimeIdentifier)/InstrumentComponents.OpenTap.dll" DestinationFolder="$(TargetDir)RebuiltFixture" />
     <Copy SourceFiles="../HardwareTest.StandaloneVisa.CliFixture/bin/$(Configuration)/$(TargetFramework)/$(RuntimeIdentifier)/HardwareTest.StandaloneVisa.CliFixture.dll" DestinationFolder="$(TargetDir)CliFixture" />
     <Copy SourceFiles="@(_FixtureFiles)" DestinationFiles="@(_FixtureFiles->'$(TargetDir)BoundaryFixture/%(RecursiveDir)%(Filename)%(Extension)')" />
+    <!-- Readiness compares selected homes with the consuming process's genuine runtime.
+         Keep the test process on the same RID payload and metadata as its cold fixture. -->
+    <Copy SourceFiles="@(_TestOpenTapRuntime)" DestinationFolder="$(TargetDir)" />
+    <Copy SourceFiles="@(_TestOpenTapPackage)" DestinationFiles="@(_TestOpenTapPackage->'$(TargetDir)Packages/OpenTAP/%(RecursiveDir)%(Filename)%(Extension)')" />
+    <Copy SourceFiles="@(_TestOpenTapDependencies)" DestinationFiles="@(_TestOpenTapDependencies->'$(TargetDir)Dependencies/%(RecursiveDir)%(Filename)%(Extension)')" />
   </Target>
 </Project>

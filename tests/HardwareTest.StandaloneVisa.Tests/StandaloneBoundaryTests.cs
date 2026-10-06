@@ -182,6 +182,96 @@ public sealed class StandaloneBoundaryTests : IDisposable
     }
 
     [Theory]
+    [InlineData("dll")]
+    [InlineData("metadata")]
+    [InlineData("package-directory")]
+    [InlineData("packages")]
+    public async Task Selected_execution_home_cannot_borrow_payload_or_metadata_through_outside_links(string linked)
+    {
+        if (OperatingSystem.IsWindows()) return; // Windows link creation requires an elevated test process.
+        var home = InstalledHome();
+        var outside = Path.Combine(_root, "outside-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(outside);
+        var metadata = Path.Combine(home, "Packages", PublishedInstrumentComponents.PackageName, "package.xml");
+        if (linked is "dll" or "metadata")
+        {
+            var path = linked == "dll" ? Path.Combine(home, "InstrumentComponents.OpenTap.dll") : metadata;
+            var target = Path.Combine(outside, Path.GetFileName(path));
+            File.Move(path, target);
+            File.CreateSymbolicLink(path, target);
+        }
+        else
+        {
+            var path = linked == "packages" ? Path.Combine(home, "Packages") : Path.GetDirectoryName(metadata)!;
+            var target = Path.Combine(outside, Path.GetFileName(path));
+            Directory.Move(path, target);
+            Directory.CreateSymbolicLink(path, target);
+        }
+        var result = await Run(home, "HardwareTest.StandaloneVisa.ProcessFixture.dll", home, allowFailure: true);
+        Assert.NotEqual(0, result.Code);
+        Assert.Contains("resolves outside its root", result.Output);
+        Assert.DoesNotContain("managed-broker-bound-and-cleaned", result.Output);
+    }
+
+    [Theory]
+    [InlineData(false, "Alias")]
+    [InlineData(true, "Alias")]
+    [InlineData(false, "instrumentcomponents.opentap")]
+    [InlineData(true, "instrumentcomponents.opentap")]
+    public async Task Metadata_only_alias_cannot_grant_bundled_fallback_or_join_canonical_execution_home(bool canonical, string aliasName)
+    {
+        if (OperatingSystem.IsWindows() && aliasName.Equals(PublishedInstrumentComponents.PackageName, StringComparison.OrdinalIgnoreCase)) return;
+        var home = InstalledHome();
+        if (!canonical)
+        {
+            File.Delete(Path.Combine(home, "InstrumentComponents.dll"));
+            File.Delete(Path.Combine(home, "InstrumentComponents.OpenTap.dll"));
+            File.Delete(Path.Combine(home, "Packages", PublishedInstrumentComponents.PackageName, "package.xml"));
+        }
+        var alias = Path.Combine(home, "Packages", aliasName);
+        Directory.CreateDirectory(alias);
+        File.WriteAllText(Path.Combine(alias, "package.xml"), "<Package Name=\" instrumentcomponents.opentap \" Version=\"0.1.1\"/>");
+        var result = await Run(home, "HardwareTest.StandaloneVisa.ProcessFixture.dll", home, allowFailure: true);
+        Assert.NotEqual(0, result.Code);
+        Assert.Contains("noncanonical or duplicate installed package identities", result.Output);
+        Assert.DoesNotContain("managed-broker-bound-and-cleaned", result.Output);
+    }
+
+    [Fact]
+    public async Task Case_variant_home_root_package_metadata_is_rejected()
+    {
+        var home = InstalledHome();
+        File.Copy(Path.Combine(home, "Packages", PublishedInstrumentComponents.PackageName, "package.xml"), Path.Combine(home, "Package.XML"));
+        var result = await Run(home, "HardwareTest.StandaloneVisa.ProcessFixture.dll", home, allowFailure: true);
+        Assert.NotEqual(0, result.Code);
+        Assert.Contains("requires an installed home root", result.Output);
+    }
+
+    [Fact]
+    public async Task Package_directory_cycle_is_rejected_before_plugin_search()
+    {
+        if (OperatingSystem.IsWindows()) return;
+        var home = InstalledHome();
+        Directory.CreateSymbolicLink(Path.Combine(home, "Packages", "Cycle"), Path.Combine(home, "Packages"));
+        var result = await Run(home, "HardwareTest.StandaloneVisa.ProcessFixture.dll", home, allowFailure: true);
+        Assert.NotEqual(0, result.Code);
+        Assert.Contains("link cycle", result.Output);
+        Assert.DoesNotContain("managed-broker-bound-and-cleaned", result.Output);
+    }
+
+    [Fact]
+    public async Task Explicit_home_root_link_keeps_its_own_resolved_boundary()
+    {
+        if (OperatingSystem.IsWindows()) return;
+        var home = InstalledHome();
+        var selected = Path.Combine(_root, "selected-link");
+        Directory.CreateSymbolicLink(selected, home);
+        var result = await Run(home, "HardwareTest.StandaloneVisa.ProcessFixture.dll", selected);
+        Assert.Equal(0, result.Code);
+        Assert.Contains("managed-broker-bound-and-cleaned", result.Output);
+    }
+
+    [Theory]
     [InlineData("no-broker")]
     [InlineData("adapter-disabled")]
     public async Task Metadata_and_explicitly_disabled_adapter_do_not_acquire_execution_library(string gate)

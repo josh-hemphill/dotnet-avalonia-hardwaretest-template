@@ -133,7 +133,7 @@ public sealed class OpenTapHomeBootstrapper : IOpenTapHomeBootstrapper
             .ToArray();
     }
 
-    private static string ResolveOpenTapRuntimeDirectory()
+    internal static string ResolveOpenTapRuntimeDirectory()
     {
         string[] candidates =
         [
@@ -155,6 +155,8 @@ public sealed class OpenTapHomeBootstrapper : IOpenTapHomeBootstrapper
 
     private static void CopyOpenTapRuntime(string homeRoot)
     {
+        if (StandaloneVisaReadiness.OpenTapRuntimeIssue(new(homeRoot), allowMissing: true) is { } issue)
+            throw new AuthoringWorkspaceException("The selected OpenTAP runtime is unsupported or invalid; preparation preserved the selected home. " + issue);
         if (OpenTapRuntimeFiles.All(file => File.Exists(Path.Combine(homeRoot, file)))
             && File.Exists(Path.Combine(homeRoot, "Packages", "OpenTAP", "package.xml"))) return;
         var sourceDir = ResolveOpenTapRuntimeDirectory();
@@ -283,8 +285,9 @@ public sealed class OpenTapHomeBootstrapper : IOpenTapHomeBootstrapper
 
     private static void InstallStandaloneCounterpartForLibrary(AuthoringManifest manifest, string homeRoot, bool explicitPartialImport)
     {
-        if (!manifest.Dependencies.Any(dependency => dependency.Package.Equals(InstrumentComponentsPackageName, StringComparison.OrdinalIgnoreCase))) return;
         var home = new OpenTapHome(homeRoot);
+        if (!StandaloneVisaReadiness.IsLibraryHome(home)
+            && !manifest.Dependencies.Any(dependency => dependency.Package.Equals(InstrumentComponentsPackageName, StringComparison.OrdinalIgnoreCase))) return;
         if (explicitPartialImport && !StandaloneVisaReadiness.IsLibraryHome(home)) return;
         if (StandaloneVisaReadiness.SupportedDependencies(home) is { } reason) throw new AuthoringWorkspaceException(reason);
         var declaredDependencies = new AuthoringManifest
