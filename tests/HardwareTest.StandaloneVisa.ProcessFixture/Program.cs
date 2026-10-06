@@ -18,11 +18,39 @@ if (args is ["--metadata", var gate])
     return 0;
 }
 
+if (args is ["--invalid-selected-metadata", var invalidHome])
+{
+    if (AppDomain.CurrentDomain.GetAssemblies().Any(assembly => assembly.GetName().Name?.StartsWith("InstrumentComponents", StringComparison.Ordinal) == true))
+        throw new InvalidOperationException("Metadata rejection fixture must begin in a cold process.");
+    var broker = new FixtureBroker();
+    var catalog = new OpenTapHostCatalog(new AppSettings { OpenTapPluginDirectories = [invalidHome] },
+        Serilog.Log.Logger, broker, trustConfiguredPluginDirectories: true);
+    try
+    {
+        catalog.EnsurePlugins();
+    }
+    catch (Exception error) when (error is IOException or InvalidOperationException or System.Xml.XmlException)
+    {
+        if (AppDomain.CurrentDomain.GetAssemblies().Any(assembly => assembly.GetName().Name?.StartsWith("InstrumentComponents", StringComparison.Ordinal) == true)
+            || broker.Session is not null)
+            throw new InvalidOperationException("Invalid selected metadata loaded an execution library or acquired its provider.", error);
+        Console.WriteLine("selected-metadata-refused-before-library-load: " + error.Message);
+        return 0;
+    }
+    throw new InvalidOperationException("Invalid selected metadata was accepted or replaced by fallback.");
+}
+
 if (args is ["--selected-update", var home])
 {
     var original = LoadOwnedLibrary(home);
     var originalMvid = original.ManifestModule.ModuleVersionId;
     File.Replace(Path.Combine(home, "replacement.dll"), Path.Combine(home, "InstrumentComponents.OpenTap.dll"), null);
+    // Keep metadata honest: this case tests owned-origin replacement, not a stale declared hash.
+    var metadataPath = Path.Combine(home, "Packages", PublishedInstrumentComponents.PackageName, "package.xml");
+    var metadata = System.Xml.Linq.XDocument.Load(metadataPath);
+    metadata.Descendants().Single(element => element.Name.LocalName == "File" && (string?)element.Attribute("Path") == "InstrumentComponents.OpenTap.dll")
+        .Elements().Single(element => element.Name.LocalName == "Hash").Value = Convert.ToHexString(System.Security.Cryptography.SHA1.HashData(File.ReadAllBytes(Path.Combine(home, "InstrumentComponents.OpenTap.dll"))));
+    metadata.Save(metadataPath);
     var catalog = new OpenTapHostCatalog(new AppSettings { OpenTapPluginDirectories = [home] },
         Serilog.Log.Logger, new FixtureBroker(), trustConfiguredPluginDirectories: true);
     try { catalog.EnsurePlugins(); throw new InvalidOperationException("Changed selected origin was accepted."); }

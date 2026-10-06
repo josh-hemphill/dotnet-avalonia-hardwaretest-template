@@ -9,7 +9,7 @@ namespace HardwareTest.OpenTap.Host;
 internal static class ExecutionInstrumentLibrary
 {
     private static readonly Dictionary<string, string> Payloads = new(StringComparer.Ordinal);
-    private static readonly string[] Files = ["InstrumentComponents.dll", "InstrumentComponents.OpenTap.dll"];
+    private static readonly string[] Files = InstrumentLibraryMetadata.Files;
 
     internal static string EnsureLoaded(IEnumerable<string> trustedDirectories)
     {
@@ -26,7 +26,7 @@ internal static class ExecutionInstrumentLibrary
             return OwnedInstrumentLibrary.Directory(loaded);
         }
 
-        var bytes = selected is null ? BundledPayload() : Files.Select(file => ExecutionLibraryHome.ReadPayload(selected, file)).ToArray();
+        var bytes = selected is null ? BundledPayload() : selected;
         var key = string.Join("", bytes.Select(payload => Convert.ToHexString(SHA256.HashData(payload))));
         if (!Payloads.TryGetValue(key, out var directory))
         {
@@ -58,33 +58,26 @@ internal static class ExecutionInstrumentLibrary
         return directory;
     }
 
-    private static string? SelectInstalledRoot(IEnumerable<string> trustedDirectories)
+    private static byte[][]? SelectInstalledRoot(IEnumerable<string> trustedDirectories)
     {
         foreach (var candidate in trustedDirectories)
         {
             var directory = ExecutionLibraryHome.Validate(candidate);
             var metadata = Path.Combine(directory, "Packages", PublishedInstrumentComponents.PackageName, "package.xml");
             if (!Files.Any(file => File.Exists(Path.Combine(directory, file))) && !File.Exists(metadata)) continue;
-            if (!IsLibraryMetadata(metadata, PublishedInstrumentComponents.Version))
-                throw new InvalidOperationException("Instrument Components execution requires installed InstrumentComponents.OpenTap 0.1.1 package metadata in the selected home root.");
-            if (!Files.All(file => File.Exists(Path.Combine(directory, file))))
-                throw new InvalidOperationException("Instrument Components execution requires both library DLLs in the installed home root. Import or repair the selected package before execution.");
-            return directory;
+            using var metadataStream = new MemoryStream(ExecutionLibraryHome.ReadPayload(directory,
+                "Packages/" + PublishedInstrumentComponents.PackageName + "/package.xml"), writable: false);
+            var document = XDocument.Load(metadataStream);
+            var captured = new Dictionary<string, byte[]>(StringComparer.Ordinal);
+            InstrumentLibraryMetadata.Validate(document.Root ?? throw new IOException("Library package metadata has no root element."), file =>
+            {
+                var payload = ExecutionLibraryHome.ReadPayload(directory, file.Replace('/', Path.DirectorySeparatorChar));
+                captured.Add(file, payload);
+                return payload;
+            });
+            return Files.Select(file => captured[file]).ToArray();
         }
         return null;
-    }
-
-    private static bool IsLibraryMetadata(string metadata, string? version = null)
-    {
-        if (!File.Exists(metadata)) return false;
-        try
-        {
-            var root = XDocument.Load(metadata).Root;
-            return root?.Name.LocalName == "Package"
-                && string.Equals((string?)root.Attribute("Name"), PublishedInstrumentComponents.PackageName, StringComparison.OrdinalIgnoreCase)
-                && (version is null || ((string?)root.Attribute("Version"))?.Split('+')[0] == version);
-        }
-        catch (System.Xml.XmlException) { return false; }
     }
 
     private static Assembly VerifyContract(Assembly assembly)

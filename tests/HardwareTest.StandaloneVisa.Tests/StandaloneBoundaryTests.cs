@@ -87,6 +87,107 @@ public sealed class StandaloneBoundaryTests : IDisposable
     }
 
     [Fact]
+    public async Task Selected_additional_declared_payload_cannot_escape_through_a_link_before_library_loading()
+    {
+        if (OperatingSystem.IsWindows()) return;
+        var home = InstalledHome();
+        var outside = Path.Combine(_root, "outside-payload.txt");
+        File.WriteAllText(outside, "external-library-payload");
+        var linked = Path.Combine(home, "additional.txt");
+        File.CreateSymbolicLink(linked, outside);
+        var metadata = Path.Combine(home, "Packages", PublishedInstrumentComponents.PackageName, "package.xml");
+        var document = XDocument.Load(metadata);
+        document.Root!.Elements().Single(element => element.Name.LocalName == "Files")
+            .Add(new XElement("File", new XAttribute("Path", "additional.txt"),
+                new XElement("Hash", Convert.ToHexString(SHA1.HashData(File.ReadAllBytes(outside))))));
+        document.Save(metadata);
+        var originalMetadata = File.ReadAllBytes(metadata);
+        var result = await Run(home, "HardwareTest.StandaloneVisa.ProcessFixture.dll", home, "--invalid-selected-metadata", allowFailure: true);
+        Assert.Equal(0, result.Code);
+        Assert.Contains("selected-metadata-refused-before-library-load", result.Output);
+        Assert.Contains("resolves outside its root", result.Output);
+        Assert.Equal(outside, new FileInfo(linked).LinkTarget);
+        Assert.Equal(originalMetadata, File.ReadAllBytes(metadata));
+        Assert.Equal("external-library-payload", File.ReadAllText(outside));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Selected_execution_accepts_optional_hashes_and_contained_additional_declared_payload(bool omitHashes)
+    {
+        var home = InstalledHome();
+        var metadata = Path.Combine(home, "Packages", PublishedInstrumentComponents.PackageName, "package.xml");
+        var document = XDocument.Load(metadata);
+        if (omitHashes)
+            document.Descendants().Where(element => element.Name.LocalName == "Hash").Remove();
+        var additional = Path.Combine(home, "Documentation", "library.txt");
+        Directory.CreateDirectory(Path.GetDirectoryName(additional)!);
+        File.WriteAllText(additional, "selected-library-documentation");
+        document.Root!.Elements().Single(element => element.Name.LocalName == "Files")
+            .Add(new XElement("File", new XAttribute("Path", "Documentation/library.txt"),
+                new XElement("Hash", Convert.ToHexString(SHA1.HashData(File.ReadAllBytes(additional))))));
+        document.Save(metadata);
+        var result = await Run(home, "HardwareTest.StandaloneVisa.ProcessFixture.dll", home);
+        Assert.Equal(0, result.Code);
+        Assert.Contains("managed-broker-bound-and-cleaned", result.Output);
+    }
+
+    [Theory]
+    [InlineData("stale-contract")]
+    [InlineData("stale-provider")]
+    [InlineData("malformed-hash")]
+    [InlineData("nested-hash")]
+    [InlineData("nested-hash-content")]
+    [InlineData("duplicate-hash")]
+    [InlineData("missing-contract-declaration")]
+    [InlineData("missing-provider-declaration")]
+    [InlineData("nested-file")]
+    [InlineData("duplicate-file")]
+    [InlineData("missing-extra-payload")]
+    [InlineData("unsafe-extra-payload")]
+    public async Task Invalid_selected_metadata_is_refused_before_either_library_load_without_fallback_or_home_changes(string defect)
+    {
+        var home = InstalledHome();
+        var metadata = Path.Combine(home, "Packages", PublishedInstrumentComponents.PackageName, "package.xml");
+        var document = XDocument.Load(metadata);
+        var files = document.Root!.Elements().Single(element => element.Name.LocalName == "Files");
+        var contract = files.Elements().Single(element => (string?)element.Attribute("Path") == "InstrumentComponents.dll");
+        var provider = files.Elements().Single(element => (string?)element.Attribute("Path") == "InstrumentComponents.OpenTap.dll");
+        var hash = provider.Elements().Single(element => element.Name.LocalName == "Hash");
+        switch (defect)
+        {
+            case "stale-contract":
+            case "stale-provider":
+                var path = Path.Combine(home, defect == "stale-contract" ? "InstrumentComponents.dll" : "InstrumentComponents.OpenTap.dll");
+                File.WriteAllBytes(path, [.. File.ReadAllBytes(path), 1]);
+                break;
+            case "malformed-hash": hash.Value = "not-a-sha1"; break;
+            case "nested-hash": hash.ReplaceWith(new XElement("Nested", new XElement(hash))); break;
+            case "nested-hash-content": hash.Add(new XElement("Value", hash.Value)); break;
+            case "duplicate-hash": provider.Add(new XElement(hash)); break;
+            case "missing-contract-declaration": contract.Remove(); break;
+            case "missing-provider-declaration": provider.Remove(); break;
+            case "nested-file": provider.ReplaceWith(new XElement("Nested", new XElement(provider))); break;
+            case "duplicate-file": files.Add(new XElement(provider)); break;
+            case "missing-extra-payload": files.Add(new XElement("File", new XAttribute("Path", "missing.txt"))); break;
+            case "unsafe-extra-payload": files.Add(new XElement("File", new XAttribute("Path", "../outside.txt"))); break;
+            default: throw new InvalidOperationException(defect);
+        }
+        document.Save(metadata);
+        var before = Directory.EnumerateFiles(home, "*", SearchOption.AllDirectories)
+            .ToDictionary(path => Path.GetRelativePath(home, path), File.ReadAllBytes);
+        var result = await Run(home, "HardwareTest.StandaloneVisa.ProcessFixture.dll", home, "--invalid-selected-metadata", allowFailure: true);
+        Assert.Equal(0, result.Code);
+        Assert.Contains("selected-metadata-refused-before-library-load", result.Output);
+        Assert.DoesNotContain("managed-broker-bound-and-cleaned", result.Output);
+        var after = Directory.EnumerateFiles(home, "*", SearchOption.AllDirectories)
+            .ToDictionary(path => Path.GetRelativePath(home, path), File.ReadAllBytes);
+        Assert.Equal(before.Keys.Order(StringComparer.Ordinal), after.Keys.Order(StringComparer.Ordinal));
+        foreach (var (path, bytes) in before) Assert.Equal(bytes, after[path]);
+    }
+
+    [Fact]
     public async Task Already_loaded_library_without_the_current_provider_contract_is_refused()
     {
         var home = InstalledHome();
@@ -105,6 +206,11 @@ public sealed class StandaloneBoundaryTests : IDisposable
         foreach (var name in new[] { "InstrumentComponents.dll", "InstrumentComponents.OpenTap.dll" })
             File.Copy(Path.Combine(AppContext.BaseDirectory, "BoundaryFixture", name), Path.Combine(custom, name));
         CopyTree(Path.Combine(home, "Packages", PublishedInstrumentComponents.PackageName), Path.Combine(custom, "Packages", PublishedInstrumentComponents.PackageName));
+        var customMetadata = Path.Combine(custom, "Packages", PublishedInstrumentComponents.PackageName, "package.xml");
+        var document = XDocument.Load(customMetadata);
+        foreach (var declaration in document.Descendants().Where(element => element.Name.LocalName == "File"))
+            declaration.Elements().Single(element => element.Name.LocalName == "Hash").Value = Convert.ToHexString(SHA1.HashData(File.ReadAllBytes(Path.Combine(custom, (string)declaration.Attribute("Path")!))));
+        document.Save(customMetadata);
         var result = await Run(home, "HardwareTest.StandaloneVisa.ProcessFixture.dll", custom, "--custom-mismatch", allowFailure: true);
         Assert.NotEqual(0, result.Code);
         Assert.Contains("differs from the loaded execution library", result.Output);
