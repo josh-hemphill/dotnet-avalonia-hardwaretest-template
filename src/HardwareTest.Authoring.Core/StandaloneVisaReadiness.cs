@@ -99,9 +99,12 @@ public static class StandaloneVisaReadiness
                 {
                     using var config = JsonDocument.Parse(File.ReadAllBytes(actual));
                     var framework = config.RootElement.GetProperty("runtimeOptions").GetProperty("framework");
-                    if (framework.GetProperty("name").GetString() != "Microsoft.NETCore.App"
-                        || !Version.TryParse(framework.GetProperty("version").GetString(), out _))
-                        return "OpenTAP runtime configuration is invalid.";
+                    // The genuine Windows engine declares Desktop; its host resolves
+                    // the transitive Core framework. Exact RID-source bytes are checked below.
+                    if (framework.GetProperty("name").GetString() is not ("Microsoft.NETCore.App" or "Microsoft.WindowsDesktop.App")
+                        || !Version.TryParse(framework.GetProperty("version").GetString(), out var frameworkVersion)
+                        || frameworkVersion.Major <= 0 || frameworkVersion.Build < 0 || frameworkVersion.Revision >= 0)
+                        return "OpenTAP runtime configuration must declare Microsoft.NETCore.App or Microsoft.WindowsDesktop.App with a positive major.minor.patch version.";
                 }
                 if (!SHA256.HashData(File.ReadAllBytes(actual)).SequenceEqual(SHA256.HashData(File.ReadAllBytes(expected))))
                     return $"OpenTAP runtime payload '{file}' differs from the supported pinned runtime.";
