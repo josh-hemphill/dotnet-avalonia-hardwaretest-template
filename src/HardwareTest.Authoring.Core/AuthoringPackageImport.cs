@@ -119,9 +119,25 @@ internal static class AuthoringPackageImport
                     throw new AuthoringWorkspaceException("Offline package cannot replace another package's payload.");
                 if (rooted && !engine && parts.Length == 1 && new[] { "OpenTap.dll", "OpenTap.Package.dll", "tap.dll", "tap.runtimeconfig.json", "tap", "tap.exe" }.Contains(parts[0], StringComparer.OrdinalIgnoreCase))
                     throw new AuthoringWorkspaceException("Only an OpenTAP package can replace engine runtime files.");
+                if ((rooted || engine) && parts.Length == 1
+                    && !package.Name.Equals(OpenTapHomeBootstrapper.InstrumentComponentsPackageName, StringComparison.OrdinalIgnoreCase)
+                    && new[] { "InstrumentComponents.dll", "InstrumentComponents.OpenTap.dll" }.Contains(parts[0], StringComparer.OrdinalIgnoreCase))
+                    throw new AuthoringWorkspaceException("Only an InstrumentComponents.OpenTap package can replace its library payload.");
                 Stage(relative, relative);
             }
             copy(filtered, rooted || engine ? home : Path.Combine(home, "Packages", package.Name));
+            // Importing custom bytes invalidates any earlier bundled-source attestation.
+            if (package.Name.Equals(OpenTapHomeBootstrapper.InstrumentComponentsPackageName, StringComparison.OrdinalIgnoreCase))
+            {
+                foreach (var directory in Directory.EnumerateDirectories(Path.Combine(home, "Packages"))
+                    .Where(directory => Path.GetFileName(directory).Equals(package.Name, StringComparison.OrdinalIgnoreCase)))
+                {
+                    var provenance = Path.Combine(directory, "hardwaretest-provenance.json");
+                    // Home publication merges files, so publish invalidation as an
+                    // overwrite rather than leaving a removed file in the selected home.
+                    if (File.Exists(provenance)) File.WriteAllText(provenance, """{"source":"custom"}""");
+                }
+            }
         }
         finally { Directory.Delete(filtered, recursive: true); }
         void Stage(string incoming, string outgoing)

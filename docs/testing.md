@@ -108,3 +108,5 @@ deno run -A tools/ci/main.ts audit
 # Raw dotnet still works:
 dotnet test dirs.proj -r win-x64 -m:1
 ```
+
+Instrument Components catalog, editor, lifecycle serialization, cold-import and wrapped recovery tests run against the bundled published 0.1.1 archive by default, without an upstream build. `HARDWARETEST_LIBRARY_TEST_PACKAGE_ROOT` and `HARDWARETEST_LIBRARY_TEST_ARCHIVE` remain optional fixture overrides for compatibility investigations.

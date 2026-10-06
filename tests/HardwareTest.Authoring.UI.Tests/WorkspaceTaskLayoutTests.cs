@@ -4,6 +4,7 @@ using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.VisualTree;
+using HardwareTest.Authoring.Tests;
 using Xunit;
 
 namespace HardwareTest.Authoring.UI.Tests;
@@ -299,8 +300,7 @@ public sealed class WorkspaceTaskLayoutTests
 
     private static void InstallLibrary(AuthoringUiFixture fixture)
     {
-        var package = Environment.GetEnvironmentVariable("HARDWARETEST_LIBRARY_TEST_PACKAGE_ROOT");
-        if (string.IsNullOrWhiteSpace(package)) Assert.Skip("Actual upstream package output required for library UI integration.");
+        var package = PublishedLibraryFixture.PackageRoot;
         var home = Path.Combine(fixture.WorkspaceRoot, "task-layout-library-home");
         var payload = Path.Combine(home, "Packages", AuthoringInstrumentCatalog.LibraryPackage); Directory.CreateDirectory(payload);
         foreach (var file in new[] { "InstrumentComponents.OpenTap.dll", "InstrumentComponents.dll", "package.xml" })

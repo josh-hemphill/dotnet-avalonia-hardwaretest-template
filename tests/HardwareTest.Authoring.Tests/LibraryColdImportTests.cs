@@ -12,8 +12,7 @@ public sealed class LibraryColdImportTests
     [Fact]
     public async Task Actual_mixed_resource_import_preserves_unknown_configuration_and_cold_library_lifecycle_source()
     {
-        var package = Environment.GetEnvironmentVariable("HARDWARETEST_LIBRARY_TEST_PACKAGE_ROOT");
-        if (string.IsNullOrWhiteSpace(package)) Assert.Skip("Actual upstream package required; cold proof runs in an independent production compiler process.");
+        var package = PublishedLibraryFixture.PackageRoot;
         var root = Path.Combine(Path.GetTempPath(), "ht-library-cold-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
         try

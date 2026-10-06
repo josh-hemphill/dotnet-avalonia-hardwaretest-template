@@ -32,13 +32,11 @@ public sealed class LibraryInstrumentCatalogTests : IDisposable
         Assert.False(AuthoringInstrumentCatalog.TryGet(typeof(CatalogScope).FullName!, out _));
     }
 
-    // Actual upstream binaries, built separately; no copied implementation in the product.
-    // The integration run sets this directory to the upstream package build output.
+    // Exercise exact published payload bytes by default; explicit fixture overrides remain supported.
     [Fact]
     public void Actual_upstream_catalog_and_non_dmm_lifecycle_roundtrip_preserve_exact_bindings()
     {
-        var package = Environment.GetEnvironmentVariable("HARDWARETEST_LIBRARY_TEST_PACKAGE_ROOT");
-        if (string.IsNullOrWhiteSpace(package)) Assert.Skip("Set HARDWARETEST_LIBRARY_TEST_PACKAGE_ROOT to built upstream package payload for actual binary integration.");
+        var package = PublishedLibraryFixture.PackageRoot;
         var home = InstallActualPackage(package!);
         var adapters = AuthoringInstrumentCatalog.Discover(home);
         Assert.Equal(8, adapters.Count);
@@ -131,8 +129,7 @@ public sealed class LibraryInstrumentCatalogTests : IDisposable
     [Fact]
     public void Actual_genuine_archive_import_discovers_home_root_payload_and_roundtrips_library_lifecycle()
     {
-        var archivePath = Environment.GetEnvironmentVariable("HARDWARETEST_LIBRARY_TEST_ARCHIVE");
-        if (string.IsNullOrWhiteSpace(archivePath)) Assert.Skip("Set HARDWARETEST_LIBRARY_TEST_ARCHIVE; run this archive integration in a fresh process.");
+        var archivePath = PublishedLibraryFixture.Archive;
         var home = new OpenTapHome(Path.Combine(_root, "archive-home"));
         var workspace = new AuthoringWorkspace(_root, new AuthoringManifest
         {

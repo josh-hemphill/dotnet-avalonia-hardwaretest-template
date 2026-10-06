@@ -39,7 +39,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         });
         RefreshPackPreview();
         RaiseEnvironmentProperties();
-        Status = "Instrument Components dependency staged. Use Save All before preparing/importing; Undo removes the staged declaration. Import the trusted library package or reuse a compatible installed package.";
+        Status = "Instrument Components dependency staged. Use Save All before preparing/importing; Undo removes the staged declaration. Prepare installs the bundled library or reuses a compatible installed package.";
     }
 
     public string EnvironmentRecoveryText => "Prepare the selected isolated authoring home from bundled prerequisites, or import a trusted offline .TapPackage/.zip. Required version mismatches must be repaired before build. These actions do not install a bench.";

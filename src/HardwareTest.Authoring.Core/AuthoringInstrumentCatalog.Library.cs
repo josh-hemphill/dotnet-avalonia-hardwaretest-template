@@ -41,13 +41,16 @@ public static partial class AuthoringInstrumentCatalog
                 var libraryBeforeLoad = SHA256.HashData(File.ReadAllBytes(assemblyPath));
                 var contractBeforeLoad = SHA256.HashData(File.ReadAllBytes(contractPath));
                 if (AuthoringPluginSearch.DirectoryContainsVisaAdapter(Path.GetDirectoryName(assemblyPath)!)) return Missing("Library payload directory contains the legacy VISA plugin; use an isolated authoring home.");
-                var contract = Assembly.LoadFrom(contractPath);
-                var assembly = Assembly.LoadFrom(assemblyPath);
+                // OpenTAP lazily reloads metadata by Assembly.Location. Keep only the two
+                // validated payloads in a process-owned directory, beyond selected-home lifetime.
+                var metadataDirectory = StableLibraryPayload(assemblyPath, contractPath, libraryBeforeLoad, contractBeforeLoad);
+                var contract = Assembly.LoadFrom(Path.Combine(metadataDirectory, "InstrumentComponents.dll"));
+                var assembly = Assembly.LoadFrom(Path.Combine(metadataDirectory, LibraryAssembly));
                 // OpenTAP may cache an assembly from an earlier home. Match actual bytes,
                 // including the shared contract assembly, before trusting cached types.
                 if (!SamePayload(assemblyPath, assembly, libraryBeforeLoad)) return Missing("Selected Instrument Components binary differs from the loaded library. Restart authoring to use the newly installed library version.");
                 if (!SamePayload(contractPath, contract, contractBeforeLoad)) return Missing("Selected Instrument Components contract binary differs from the loaded library. Restart authoring to use the newly installed library version.");
-                AuthoringPluginSearch.Search([directory]); // Never add the whole home root to plugin search.
+                AuthoringPluginSearch.Search([metadataDirectory]); // Never grant the home root or unrelated package payload.
                 var baseType = assembly.GetType("InstrumentComponents.OpenTap.ScpiInstrument", throwOnError: true)!;
                 var devices = DeviceTypes(assembly.GetTypes(), baseType);
                 var result = new List<AuthoringInstrumentAdapter>();
@@ -89,6 +92,45 @@ public static partial class AuthoringInstrumentCatalog
         {
             if (Discover(home).Count > 0) return new(true, "Ready in selected home — compatible installed Instrument Components package reused.");
             return new(false, DiscoveryIssues.GetValueOrDefault(home.Root) ?? "Instrument Components is unavailable; open Environment.");
+        }
+    }
+
+    private static readonly Dictionary<string, string> MetadataPayloads = new(StringComparer.Ordinal);
+
+    private static string StableLibraryPayload(string library, string contract, byte[] libraryHash, byte[] contractHash)
+    {
+        var key = Convert.ToHexString(libraryHash) + Convert.ToHexString(contractHash);
+        if (MetadataPayloads.TryGetValue(key, out var existing))
+        {
+            Verify(Path.Combine(existing, LibraryAssembly), libraryHash);
+            Verify(Path.Combine(existing, "InstrumentComponents.dll"), contractHash);
+            return existing;
+        }
+        var directory = Path.Combine(Path.GetTempPath(), "ht-library-metadata-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        try
+        {
+            Copy(library, LibraryAssembly, libraryHash);
+            Copy(contract, "InstrumentComponents.dll", contractHash);
+            MetadataPayloads.Add(key, directory);
+            AppDomain.CurrentDomain.ProcessExit += (_, _) =>
+            {
+                try { Directory.Delete(directory, recursive: true); }
+                catch (IOException) { }
+                catch (UnauthorizedAccessException) { }
+            };
+            return directory;
+        }
+        catch { Directory.Delete(directory, recursive: true); throw; }
+        static void Verify(string path, byte[] expected)
+        {
+            if (!SHA256.HashData(File.ReadAllBytes(path)).SequenceEqual(expected)) throw new IOException("Staged library metadata payload changed.");
+        }
+        void Copy(string source, string name, byte[] expected)
+        {
+            var bytes = File.ReadAllBytes(source);
+            if (!SHA256.HashData(bytes).SequenceEqual(expected)) throw new IOException("Library payload changed during discovery.");
+            File.WriteAllBytes(Path.Combine(directory, name), bytes);
         }
     }
 

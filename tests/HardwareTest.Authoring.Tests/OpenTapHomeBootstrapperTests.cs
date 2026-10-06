@@ -7,6 +7,7 @@ using Xunit;
 
 namespace HardwareTest.Authoring.Tests;
 
+[Collection("AuthoringOpenTap")]
 public sealed class OpenTapHomeBootstrapperTests
 {
     [Fact]
@@ -94,6 +95,7 @@ public sealed class OpenTapHomeBootstrapperTests
         Assert.Contains("OpenTAP", names);
         Assert.Contains("HardwareTest Basic", names);
         Assert.Contains("HardwareTest Mixins", names);
+        Assert.DoesNotContain("InstrumentComponents.OpenTap", names);
         Assert.DoesNotContain(
             names,
             n => n.Contains("Visa", StringComparison.OrdinalIgnoreCase));
@@ -105,7 +107,7 @@ public sealed class OpenTapHomeBootstrapperTests
     }
 
     [Fact]
-    public void Bootstrap_fails_when_instrument_components_is_declared_without_a_path()
+    public void Bootstrap_installs_bundled_instrument_components_offline_without_a_path()
     {
         var previous = Environment.GetEnvironmentVariable("HARDWARETEST_INSTRUMENT_COMPONENTS_PACKAGE");
         Environment.SetEnvironmentVariable("HARDWARETEST_INSTRUMENT_COMPONENTS_PACKAGE", null);
@@ -132,11 +134,14 @@ public sealed class OpenTapHomeBootstrapperTests
                 """);
 
             var workspace = AuthoringWorkspaceLoader.Load(dir);
-            var ex = Assert.Throws<AuthoringWorkspaceException>(() =>
-                new OpenTapHomeBootstrapper().Bootstrap(
-                    workspace,
-                    new BootstrapOptions { HomeDirectory = NewTempDir(), Offline = true }));
-            Assert.Contains(AuthoringBootstrapCodes.InstrumentComponentsPackageMissing, ex.Message, StringComparison.Ordinal);
+            var home = new OpenTapHomeBootstrapper().Bootstrap(workspace,
+                new BootstrapOptions { HomeDirectory = NewTempDir(), Offline = true });
+            Assert.Contains(OpenTapHomeBootstrapper.ListInstalledPackages(home),
+                package => package.Name == HardwareTest.OpenTap.Host.PublishedInstrumentComponents.PackageName && package.Version == "0.1.1");
+            Assert.True(File.Exists(Path.Combine(home.Root, "InstrumentComponents.OpenTap.dll")));
+            var provenance = File.ReadAllText(Path.Combine(home.Root, "Packages", "InstrumentComponents.OpenTap", "hardwaretest-provenance.json"));
+            Assert.Contains(HardwareTest.OpenTap.Host.PublishedInstrumentComponents.Origin, provenance);
+            Assert.Contains(HardwareTest.OpenTap.Host.PublishedInstrumentComponents.Sha256, provenance);
         }
         finally
         {
