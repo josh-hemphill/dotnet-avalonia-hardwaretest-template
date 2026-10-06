@@ -10,6 +10,37 @@ namespace HardwareTest.Authoring.UI.Tests;
 
 public sealed class WorkspaceTaskLayoutTests
 {
+    [AvaloniaTheory]
+    [InlineData(14)]
+    [InlineData(20)]
+    public void Actual_checked_findings_remain_usable_with_editing_findings_expanded(int fontSize)
+    {
+        using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
+        var path = Path.Combine(fixture.WorkspaceRoot, "sample.TapPlan");
+        var xml = System.Xml.Linq.XDocument.Load(path);
+        var acquisition = xml.Descendants("TestStep").Single(step => ((string?)step.Attribute("type"))?.EndsWith("AcquireVoltageStep", StringComparison.Ordinal) == true);
+        acquisition.Add(new System.Xml.Linq.XElement("SeriesCompliance", "allSamples")); xml.Save(path);
+        fixture.ViewModel.OpenTapHomeOverride = Path.Combine(fixture.WorkspaceRoot, "unavailable-home");
+        fixture.Show(960, 600); fixture.Window!.FontSize = fontSize; fixture.OpenRememberedWorkspace();
+        fixture.ViewModel.Validate(); AuthoringUiFixture.Drain();
+        Assert.NotEmpty(fixture.ViewModel.EditingIssues); Assert.NotEmpty(fixture.ViewModel.FindingRows);
+        fixture.Window.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 2; AuthoringUiFixture.Drain();
+        fixture.Control<Expander>("Editing findings").IsExpanded = true; AuthoringUiFixture.Drain();
+        var list = fixture.Control<ListBox>("Contract findings");
+        list.BringIntoView(); AuthoringUiFixture.Drain();
+        Assert.True(list.Bounds.Height >= 90); ResponsiveShellTests.Inside(list, fixture.Window);
+        var row = fixture.ViewModel.FindingRows.First();
+        var fields = list.GetVisualDescendants().OfType<TextBlock>().Where(field => Equals(field.DataContext, row));
+        foreach (var field in fields.Where(field => field.IsEffectivelyVisible))
+        {
+            field.BringIntoView(); AuthoringUiFixture.Drain();
+            Assert.True(field.Bounds.Height > 0); ResponsiveShellTests.Inside(field, fixture.Window);
+        }
+        var navigation = Assert.Single(list.GetVisualDescendants().OfType<Button>(), button => Equals(button.DataContext, row));
+        navigation.BringIntoView(); AuthoringUiFixture.Drain(); ResponsiveShellTests.Inside(navigation, fixture.Window);
+        ResponsiveActionLabelTests.LabelFits(navigation, fixture.Window);
+    }
+
     [AvaloniaFact]
     public async Task Actual_workspace_load_check_and_home_changes_refresh_rendered_editing_findings_without_a_draft_edit()
     {
@@ -81,7 +112,11 @@ public sealed class WorkspaceTaskLayoutTests
             InViewport(Assert.Single(rows.GetVisualDescendants().OfType<Button>(), button => Equals(button.DataContext, issue)));
         }
         Assert.True(viewport.Offset.Y > 0);
+        var empty = fixture.Control<TextBlock>("Saved-plan empty state");
+        empty.BringIntoView(); AuthoringUiFixture.Drain();
+        ResponsiveShellTests.Inside(empty, fixture.Window!);
         var open = Assert.Single(rows.GetVisualDescendants().OfType<Button>(), button => Equals(button.DataContext, issues[^1]));
+        InViewport(open);
         AuthoringUiFixture.Click(open);
         Assert.Equal(issues[^1].PlanId, fixture.ViewModel.SelectedProgram!.PlanId);
         Assert.Equal(0, fixture.Window!.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex);
