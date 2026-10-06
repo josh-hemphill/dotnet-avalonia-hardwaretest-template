@@ -2,6 +2,8 @@ using System.Reflection.Metadata;
 using System.Reflection.PortableExecutable;
 using System.Security.Cryptography;
 using System.Xml.Linq;
+using HardwareTest.OpenTap.Host;
+using OpenTap;
 
 namespace HardwareTest.Authoring;
 
@@ -67,6 +69,14 @@ internal static class AuthoringAdapterPayloadInspection
         if (package.Name.LocalName != "Package"
             || !string.Equals((string?)package.Attribute("Name"), AuthoringInstrumentCatalog.LibraryPackage, StringComparison.OrdinalIgnoreCase))
             throw new IOException("Library package metadata is invalid or names another package.");
+        try
+        {
+            var version = SemanticVersion.Parse((string?)package.Attribute("Version") ?? "");
+            if (version.ToString().Split('+')[0] != PublishedInstrumentComponents.Version)
+                throw new IOException($"Library package must use current version {PublishedInstrumentComponents.Version}.");
+        }
+        catch (Exception error) when (error is FormatException or ArgumentException)
+        { throw new IOException("Library package version metadata is invalid.", error); }
         var containers = package.Elements().Where(element => element.Name.LocalName == "Files").ToArray();
         if (containers.Length != 1 || package.Descendants().Any(element =>
             element.Name.LocalName == "Files" && element != containers[0]
@@ -81,6 +91,8 @@ internal static class AuthoringAdapterPayloadInspection
                 || file.Replace('\\', '/').Split('/').Any(part => part is ".." or "." or ""))
                 throw new IOException("Library package metadata declares an invalid payload path.");
             var relative = file.Replace('\\', '/');
+            if (relative.Equals("package.xml", StringComparison.OrdinalIgnoreCase))
+                throw new IOException("Library package cannot declare a home-root package.xml payload; installed metadata belongs in its canonical Packages directory.");
             if (!paths.Add(relative)) throw new IOException("Library package contains duplicate or case-colliding declared paths.");
             if (LibraryFiles.Contains(relative.Split('/')[^1], StringComparer.OrdinalIgnoreCase)
                 && !LibraryFiles.Contains(relative, StringComparer.Ordinal))
@@ -100,16 +112,37 @@ internal static class AuthoringAdapterPayloadInspection
 
     internal static void RejectAlternateLibraryPayloads(string home)
     {
+        if (Directory.Exists(home) && Directory.EnumerateFiles(home)
+            .Any(path => Path.GetFileName(path).Equals("package.xml", StringComparison.OrdinalIgnoreCase) && IsLibraryIdentity(path)))
+            throw new IOException("Instrument Components has a noncanonical home-root package identity. Select a fresh home and Prepare in Environment.");
         var packages = Path.Combine(home, "Packages");
-        if (Directory.Exists(packages) && Directory.EnumerateFiles(packages, "*", SearchOption.AllDirectories)
+        if (!Directory.Exists(packages)) return;
+        if (Directory.EnumerateFiles(packages, "*", SearchOption.AllDirectories)
             .Any(path => LibraryFiles.Contains(Path.GetFileName(path), StringComparer.OrdinalIgnoreCase)))
             throw new IOException("Instrument Components has an unsupported installed payload layout. Select a fresh home and Prepare in Environment.");
+        foreach (var directory in Directory.EnumerateDirectories(packages))
+        {
+            var metadata = Path.Combine(directory, "package.xml");
+            if (IsLibraryIdentity(metadata) && Path.GetFileName(directory) != AuthoringInstrumentCatalog.LibraryPackage)
+                throw new IOException("Instrument Components has a noncanonical or duplicate installed package identity. Select a fresh home and Prepare in Environment.");
+        }
+    }
+
+    private static bool IsLibraryIdentity(string metadata)
+    {
+        if (!File.Exists(metadata)) return false;
+        try
+        {
+            var package = XDocument.Load(metadata).Root;
+            return string.Equals(((string?)package?.Attribute("Name"))?.Trim(), AuthoringInstrumentCatalog.LibraryPackage, StringComparison.OrdinalIgnoreCase);
+        }
+        catch (System.Xml.XmlException) { return false; }
     }
 
     internal static void ValidateLibraryFile(string path, string file, XElement declaration)
     {
         var hashes = declaration.Descendants().Where(element => element.Name.LocalName == "Hash").ToArray();
-        if (hashes.Length > 1 || hashes.Any(element => element.Parent != declaration)) throw new IOException($"Malformed library payload hash for '{file}'.");
+        if (hashes.Length > 1 || hashes.Any(element => element.Parent != declaration || element.HasElements)) throw new IOException($"Malformed library payload hash for '{file}'.");
         if (hashes.Length == 1)
         {
             var hash = hashes[0].Value.Trim();
@@ -128,6 +161,8 @@ internal static class AuthoringAdapterPayloadInspection
             var metadata = pe.GetMetadataReader();
             if (!metadata.IsAssembly || metadata.GetString(metadata.GetAssemblyDefinition().Name) != Path.GetFileNameWithoutExtension(file))
                 throw new BadImageFormatException("Payload assembly identity does not match its required filename.");
+            if (metadata.GetAssemblyDefinition().Version != new Version(PublishedInstrumentComponents.Version + ".0"))
+                throw new BadImageFormatException($"Payload must use current assembly version {PublishedInstrumentComponents.Version}.0.");
         }
         catch (BadImageFormatException error)
         { throw new IOException($"Library payload '{file}' is not the expected managed assembly: {error.Message}", error); }

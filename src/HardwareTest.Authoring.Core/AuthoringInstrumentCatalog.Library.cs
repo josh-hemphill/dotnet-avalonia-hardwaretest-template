@@ -3,6 +3,7 @@ using System.Reflection;
 using System.Reflection.Metadata;
 using System.Reflection.PortableExecutable;
 using System.Security.Cryptography;
+using HardwareTest.OpenTap.Host;
 using OpenTap;
 
 namespace HardwareTest.Authoring;
@@ -31,7 +32,7 @@ public static partial class AuthoringInstrumentCatalog
             if (LibraryPayloadAvailability(home) is { Available: false } unavailable) return Missing(unavailable.Reason!);
             try
             {
-                var manifest = new AuthoringManifest { Dependencies = [new() { Package = LibraryPackage, Version = "^0.1.0" }] };
+                var manifest = new AuthoringManifest { Dependencies = [new() { Package = LibraryPackage, Version = PublishedInstrumentComponents.Version }] };
                 var requirement = AuthoringEnvironmentAssessment.Packages(manifest, home).Single();
                 if (!requirement.Satisfied) return Missing($"Instrument Components {requirement.State}; required {requirement.RequiredVersion}, installed {requirement.InstalledVersion}. Open Environment to prepare/import the compatible package.");
                 if (AuthoringPluginSearch.DirectoryContainsVisaAdapter(directory))
@@ -155,7 +156,7 @@ public static partial class AuthoringInstrumentCatalog
             var assembly = AppDomain.CurrentDomain.GetAssemblies().FirstOrDefault(a => a.GetName().Name == LibraryPackage);
             var contract = AppDomain.CurrentDomain.GetAssemblies().FirstOrDefault(a => a.GetName().Name == "InstrumentComponents");
             if (assembly is null || contract is null) return false;
-            var manifest = new AuthoringManifest { Dependencies = [new() { Package = LibraryPackage, Version = "^0.1.0" }] };
+            var manifest = new AuthoringManifest { Dependencies = [new() { Package = LibraryPackage, Version = PublishedInstrumentComponents.Version }] };
             return AuthoringEnvironmentAssessment.Packages(manifest, home).Single().Satisfied
                 && SamePayload(AuthoringAdapterPayloadInspection.LibraryPayloadPath(home, LibraryAssembly), assembly)
                 && SamePayload(AuthoringAdapterPayloadInspection.LibraryPayloadPath(home, "InstrumentComponents.dll"), contract);

@@ -115,7 +115,7 @@ public sealed class LibraryInstrumentCatalogTests : IDisposable
         metadata.Root!.SetAttributeValue("Version", "2.0.0"); metadata.Save(Path.Combine(payload, "package.xml"));
         Assert.Empty(AuthoringInstrumentCatalog.Discover(home));
         Assert.False(supply.Availability(home).Available);
-        metadata.Root.SetAttributeValue("Version", "0.1.0"); metadata.Save(Path.Combine(payload, "package.xml"));
+        metadata.Root.SetAttributeValue("Version", HardwareTest.OpenTap.Host.PublishedInstrumentComponents.Version); metadata.Save(Path.Combine(payload, "package.xml"));
         // Same assembly name/version in another home cannot borrow cached types if its binary differs.
         using (var stream = new FileStream(Path.Combine(home.Root, "InstrumentComponents.OpenTap.dll"), FileMode.Append)) stream.WriteByte(0);
         Assert.Empty(AuthoringInstrumentCatalog.Discover(home));
