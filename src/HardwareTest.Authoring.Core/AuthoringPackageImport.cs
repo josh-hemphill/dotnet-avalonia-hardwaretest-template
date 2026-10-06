@@ -105,12 +105,14 @@ internal static class AuthoringPackageImport
         if (!rooted && metadata != "package.xml")
             throw new AuthoringWorkspaceException("Offline archive package.xml must be at its root or Packages/<name>/package.xml.");
         var engine = package.Name.Equals("OpenTAP", StringComparison.OrdinalIgnoreCase);
+        var library = package.Name.Equals(OpenTapHomeBootstrapper.InstrumentComponentsPackageName, StringComparison.OrdinalIgnoreCase);
+        var homeLayout = rooted || engine || library;
         // Only declared payload and identity are published. Extra archive entries never overwrite an existing home.
         var filtered = Path.Combine(Path.GetTempPath(), "ht-import-layout-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(filtered);
         try
         {
-            Stage(metadata, rooted || engine ? $"Packages/{package.Name}/package.xml" : "package.xml");
+            Stage(metadata, homeLayout ? $"Packages/{package.Name}/package.xml" : "package.xml");
             foreach (var relative in package.Files)
             {
                 var parts = relative.Replace('\\', '/').Split('/');
@@ -123,11 +125,22 @@ internal static class AuthoringPackageImport
                     && !package.Name.Equals(OpenTapHomeBootstrapper.InstrumentComponentsPackageName, StringComparison.OrdinalIgnoreCase)
                     && new[] { "InstrumentComponents.dll", "InstrumentComponents.OpenTap.dll" }.Contains(parts[0], StringComparer.OrdinalIgnoreCase))
                     throw new AuthoringWorkspaceException("Only an InstrumentComponents.OpenTap package can replace its library payload.");
-                Stage(relative, relative);
+                Stage(relative, library && !rooted ? $"Packages/{package.Name}/{relative}" : relative);
             }
-            copy(filtered, rooted || engine ? home : Path.Combine(home, "Packages", package.Name));
+            if (library)
+            {
+                // Publication merges trees, so overwrite existing owned library aliases rather
+                // than deleting a stale layout that would survive in the selected home.
+                foreach (var file in new[] { "InstrumentComponents.dll", "InstrumentComponents.OpenTap.dll" })
+                {
+                    if (!package.Files.Contains(file, StringComparer.Ordinal)) continue;
+                    ReconcileAlias(file, file);
+                    ReconcileAlias(file, $"Packages/{package.Name}/{file}");
+                }
+            }
+            copy(filtered, homeLayout ? home : Path.Combine(home, "Packages", package.Name));
             // Importing custom bytes invalidates any earlier bundled-source attestation.
-            if (package.Name.Equals(OpenTapHomeBootstrapper.InstrumentComponentsPackageName, StringComparison.OrdinalIgnoreCase))
+            if (library)
             {
                 foreach (var directory in Directory.EnumerateDirectories(Path.Combine(home, "Packages"))
                     .Where(directory => Path.GetFileName(directory).Equals(package.Name, StringComparison.OrdinalIgnoreCase)))
@@ -140,6 +153,18 @@ internal static class AuthoringPackageImport
             }
         }
         finally { Directory.Delete(filtered, recursive: true); }
+        void ReconcileAlias(string incoming, string outgoing)
+        {
+            var destination = Path.Combine(filtered, outgoing.Replace('/', Path.DirectorySeparatorChar));
+            if (File.Exists(destination))
+            {
+                if (!File.ReadAllBytes(destination).SequenceEqual(File.ReadAllBytes(Path.Combine(source, incoming))))
+                    throw new AuthoringWorkspaceException($"Offline library package declares conflicting payload aliases for '{incoming}'.");
+                return;
+            }
+            if (File.Exists(Path.Combine(home, outgoing.Replace('/', Path.DirectorySeparatorChar))))
+                Stage(incoming, outgoing);
+        }
         void Stage(string incoming, string outgoing)
         {
             var destination = Path.Combine(filtered, outgoing.Replace('/', Path.DirectorySeparatorChar));

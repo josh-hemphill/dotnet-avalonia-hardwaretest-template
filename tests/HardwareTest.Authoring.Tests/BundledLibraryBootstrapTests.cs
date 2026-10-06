@@ -62,24 +62,13 @@ public sealed class BundledLibraryBootstrapTests : IDisposable
         Assert.Equal(AuthoringBuildService.Hash(provenance.Bytes), provenance.Hash);
     }
 
-    [Fact]
-    public void Custom_replacement_invalidates_bundled_provenance()
-    {
-        var home = Prepare(Workspace());
-        File.Delete(Path.Combine(home.Root, "InstrumentComponents.dll")); // Force replacement rather than reuse.
-        Prepare(Workspace(), path: PublishedLibraryFixture.Archive);
-        var provenance = File.ReadAllText(Path.Combine(home.Root, "Packages", PublishedInstrumentComponents.PackageName, "hardwaretest-provenance.json"));
-        Assert.Equal("""{"source":"custom"}""", provenance);
-        Assert.DoesNotContain(PublishedInstrumentComponents.Origin, provenance);
-        Assert.DoesNotContain(PublishedInstrumentComponents.Sha256, provenance);
-    }
-
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public void Offline_same_name_replacement_publishes_custom_bytes_and_invalidates_bundled_provenance(bool unpacked)
     {
         var home = Prepare(Workspace());
+        SeedLibraryAliases(home);
         var before = Files(home);
         AssertBundledProvenance(home);
         var (path, replacement) = CustomReplacement(home, unpacked);
@@ -88,30 +77,59 @@ public sealed class BundledLibraryBootstrapTests : IDisposable
             new() { HomeDirectory = home.Root, OfflinePackagePath = path, Offline = true });
 
         Assert.Equal(home.Root, selected.Root);
-        var payload = unpacked
-            ? Path.Combine(selected.Root, "Packages", PublishedInstrumentComponents.PackageName, "InstrumentComponents.dll")
-            : Path.Combine(selected.Root, "InstrumentComponents.dll");
-        Assert.Equal(replacement, File.ReadAllBytes(payload));
-        Assert.NotEqual(before["InstrumentComponents.dll"], File.ReadAllBytes(payload));
+        AssertLibraryReplacement(before, selected, replacement);
         AssertCustomProvenance(selected);
     }
 
-    [Fact]
-    public void Unpacked_library_override_publishes_custom_bytes_and_invalidates_bundled_provenance()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Explicit_library_override_publishes_custom_bytes_and_invalidates_bundled_provenance(bool unpacked)
     {
         var home = Prepare(Workspace());
+        SeedLibraryAliases(home);
         var before = Files(home);
         AssertBundledProvenance(home);
-        var (path, replacement) = CustomReplacement(home, unpacked: true);
-        File.Delete(Path.Combine(home.Root, "InstrumentComponents.dll")); // Force replacement rather than reuse.
+        var (path, replacement) = CustomReplacement(home, unpacked);
+        // Force replacement rather than reuse while retaining both old payload layouts.
+        var metadata = Path.Combine(home.Root, "Packages", PublishedInstrumentComponents.PackageName, "package.xml");
+        var xml = System.Xml.Linq.XDocument.Load(metadata);
+        xml.Root!.SetAttributeValue("Version", "2.0.0");
+        xml.Save(metadata);
 
         var selected = Prepare(Workspace(), path: path);
 
         Assert.Equal(home.Root, selected.Root);
-        var payload = Path.Combine(selected.Root, "Packages", PublishedInstrumentComponents.PackageName, "InstrumentComponents.dll");
-        Assert.Equal(replacement, File.ReadAllBytes(payload));
-        Assert.NotEqual(before["InstrumentComponents.dll"], File.ReadAllBytes(payload));
+        AssertLibraryReplacement(before, selected, replacement);
         AssertCustomProvenance(selected);
+    }
+
+    [Fact]
+    public void Same_name_archive_with_conflicting_declared_library_aliases_preserves_selected_bytes()
+    {
+        var home = Prepare(Workspace());
+        var before = Files(home);
+        var (path, replacement) = CustomReplacement(home, unpacked: false);
+        var alias = $"Packages/{PublishedInstrumentComponents.PackageName}/InstrumentComponents.dll";
+        using (var archive = ZipFile.Open(path, ZipArchiveMode.Update))
+        {
+            var metadata = archive.GetEntry($"Packages/{PublishedInstrumentComponents.PackageName}/package.xml")!;
+            System.Xml.Linq.XDocument xml;
+            using (var input = metadata.Open()) xml = System.Xml.Linq.XDocument.Load(input);
+            metadata.Delete();
+            xml.Root!.Element("Files")!.Add(new System.Xml.Linq.XElement("File", new System.Xml.Linq.XAttribute("Path", alias)));
+            using (var output = archive.CreateEntry($"Packages/{PublishedInstrumentComponents.PackageName}/package.xml").Open()) xml.Save(output);
+            using var incoming = archive.CreateEntry(alias).Open();
+            incoming.Write(replacement);
+            incoming.WriteByte(1);
+        }
+
+        var error = Assert.Throws<AuthoringWorkspaceException>(() => new OpenTapHomeBootstrapper().Bootstrap(Workspace(),
+            new() { HomeDirectory = home.Root, OfflinePackagePath = path, Offline = true }));
+
+        Assert.Contains("conflicting payload aliases", error.Message);
+        AssertFiles(before, home);
+        AssertBundledProvenance(home);
     }
 
     [Theory]
@@ -179,6 +197,25 @@ public sealed class BundledLibraryBootstrapTests : IDisposable
         var archive = Path.Combine(root, "custom-library.TapPackage");
         ZipFile.CreateFromDirectory(folder, archive);
         return (archive, replacement);
+    }
+
+    private static void SeedLibraryAliases(OpenTapHome home)
+    {
+        foreach (var file in new[] { "InstrumentComponents.dll", "InstrumentComponents.OpenTap.dll" })
+            File.Copy(Path.Combine(home.Root, file), Path.Combine(home.Root, "Packages", PublishedInstrumentComponents.PackageName, file), overwrite: true);
+        File.WriteAllText(Path.Combine(home.Root, "unrelated.txt"), "selected home sentinel");
+    }
+    private static void AssertLibraryReplacement(Dictionary<string, byte[]> before, OpenTapHome home, byte[] replacement)
+    {
+        Assert.NotEqual(before["InstrumentComponents.dll"], replacement);
+        foreach (var directory in new[] { home.Root, Path.Combine(home.Root, "Packages", PublishedInstrumentComponents.PackageName) })
+        {
+            Assert.Equal(replacement, File.ReadAllBytes(Path.Combine(directory, "InstrumentComponents.dll")));
+            Assert.Equal(before["InstrumentComponents.OpenTap.dll"], File.ReadAllBytes(Path.Combine(directory, "InstrumentComponents.OpenTap.dll")));
+        }
+        var availability = AuthoringInstrumentCatalog.LibraryPayloadAvailability(home);
+        Assert.True(availability.Available, availability.Reason);
+        Assert.Equal(before["unrelated.txt"], File.ReadAllBytes(Path.Combine(home.Root, "unrelated.txt")));
     }
 
     private static string Provenance(OpenTapHome home) => File.ReadAllText(Path.Combine(home.Root, "Packages", PublishedInstrumentComponents.PackageName, "hardwaretest-provenance.json"));
