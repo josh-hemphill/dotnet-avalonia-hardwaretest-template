@@ -92,21 +92,8 @@ internal static class AuthoringPackageImport
         }
         if (name.Equals(OpenTapHomeBootstrapper.InstrumentComponentsPackageName, StringComparison.OrdinalIgnoreCase))
         {
-            var declarations = xml.Elements().Where(element => element.Name.LocalName == "Files").ToArray();
-            if (declarations.Length != 1 || xml.Descendants().Any(element => element.Name.LocalName == "File" && element.Parent != declarations[0]))
-                throw new AuthoringWorkspaceException("Offline library package must declare payload directly in one Package/Files element.");
-            foreach (var required in AuthoringAdapterPayloadInspection.LibraryFiles)
-                if (!files.Contains(required, StringComparer.Ordinal))
-                    throw new AuthoringWorkspaceException($"Offline library package must declare required payload '{required}'.");
-            foreach (var file in xml.Descendants().Where(element => element.Name.LocalName == "File"))
-            {
-                var relative = SafeRelative((string?)file.Attribute("Path"));
-                if (AuthoringAdapterPayloadInspection.LibraryFiles.Contains(Path.GetFileName(relative), StringComparer.OrdinalIgnoreCase)
-                    && !AuthoringAdapterPayloadInspection.LibraryFiles.Contains(relative, StringComparer.Ordinal))
-                    throw new AuthoringWorkspaceException("Offline library package declares an alternate DLL layout; required DLLs must be at the package input root.");
-                try { AuthoringAdapterPayloadInspection.ValidateLibraryFile(Path.Combine(root, relative), relative, file); }
-                catch (IOException error) { throw new AuthoringWorkspaceException(error.Message, error); }
-            }
+            try { AuthoringAdapterPayloadInspection.ValidateLibraryMetadata(root, xml); }
+            catch (IOException error) { throw new AuthoringWorkspaceException(error.Message, error); }
         }
         if (name.Equals("OpenTAP", StringComparison.OrdinalIgnoreCase))
             foreach (var runtime in new[] { "OpenTap.dll", "OpenTap.Package.dll", "tap.dll", "tap.runtimeconfig.json" })

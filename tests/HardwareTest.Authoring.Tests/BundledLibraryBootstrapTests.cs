@@ -193,6 +193,49 @@ public sealed class BundledLibraryBootstrapTests : IDisposable
     }
 
     [Theory]
+    [InlineData("duplicate-files")]
+    [InlineData("stray-file")]
+    [InlineData("nested-files")]
+    [InlineData("wrapped-hash")]
+    [InlineData("declared-missing")]
+    [InlineData("declared-bad-hash")]
+    public void Invalid_installed_library_metadata_is_unavailable_and_failed_prepare_preserves_bytes(string invalid)
+    {
+        var home = Prepare(Workspace());
+        File.WriteAllText(Path.Combine(home.Root, "unrelated.txt"), "selected home sentinel");
+        var metadata = Path.Combine(home.Root, "Packages", PublishedInstrumentComponents.PackageName, "package.xml");
+        var xml = System.Xml.Linq.XDocument.Load(metadata);
+        var declaration = new System.Xml.Linq.XElement("File", new System.Xml.Linq.XAttribute("Path", "extra.txt"),
+            new System.Xml.Linq.XElement("Hash", "invalid"));
+        if (invalid == "duplicate-files") xml.Root!.Add(new System.Xml.Linq.XElement("Files"));
+        else if (invalid == "stray-file") xml.Root!.Add(new System.Xml.Linq.XElement("Wrapper", declaration));
+        else if (invalid == "nested-files") xml.Root!.Add(new System.Xml.Linq.XElement("Wrapper", new System.Xml.Linq.XElement("Files")));
+        else if (invalid == "wrapped-hash")
+        {
+            var file = xml.Descendants().First(element => element.Name.LocalName == "File");
+            foreach (var hash in file.Elements().Where(element => element.Name.LocalName == "Hash").ToArray()) hash.Remove();
+            file.Add(new System.Xml.Linq.XElement("Wrapper", new System.Xml.Linq.XElement("Hash", "invalid")));
+        }
+        else
+        {
+            xml.Root!.Elements().Single(element => element.Name.LocalName == "Files").Add(declaration);
+            if (invalid == "declared-bad-hash") File.WriteAllText(Path.Combine(home.Root, "extra.txt"), "selected extra payload");
+        }
+        xml.Save(metadata);
+        var before = Files(home);
+
+        Assert.False(AuthoringInstrumentCatalog.LibraryPayloadAvailability(home).Available);
+        Assert.Throws<AuthoringWorkspaceException>(() => Prepare(Workspace(), path: "missing.TapPackage"));
+        AssertFiles(before, home);
+        AssertBundledProvenance(home);
+
+        var repaired = Prepare(Workspace());
+        Assert.True(AuthoringInstrumentCatalog.LibraryPayloadAvailability(repaired).Available);
+        Assert.Equal(before["unrelated.txt"], File.ReadAllBytes(Path.Combine(repaired.Root, "unrelated.txt")));
+        AssertBundledProvenance(repaired);
+    }
+
+    [Theory]
     [InlineData(false, "metadata-only")]
     [InlineData(true, "metadata-only")]
     [InlineData(false, "undeclared")]
