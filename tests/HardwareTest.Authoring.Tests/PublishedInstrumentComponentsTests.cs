@@ -47,9 +47,25 @@ public sealed class PublishedInstrumentComponentsTests
             PublishedInstrumentComponents.MaterializeArchive(path);
             using (var stream = File.OpenRead(path))
                 Assert.Equal(PublishedInstrumentComponents.Sha256, Convert.ToHexStringLower(SHA256.HashData(stream)));
+            var original = File.ReadAllBytes(path);
             Assert.Throws<IOException>(() => PublishedInstrumentComponents.MaterializeArchive(path));
+            Assert.Equal(original, File.ReadAllBytes(path));
         }
         finally { File.Delete(path); }
+    }
+
+    [Fact]
+    public void Archive_streams_are_read_only_and_independently_owned()
+    {
+        using var first = PublishedInstrumentComponents.OpenArchive();
+        using var second = PublishedInstrumentComponents.OpenArchive();
+        Assert.False(first.CanWrite);
+        Assert.False(second.CanWrite);
+        Assert.Throws<NotSupportedException>(() => first.WriteByte(0));
+        first.ReadByte();
+        Assert.Equal(0, second.Position);
+        first.Dispose();
+        Assert.Equal(PublishedInstrumentComponents.Sha256, Convert.ToHexStringLower(SHA256.HashData(second)));
     }
 
     [Fact]
