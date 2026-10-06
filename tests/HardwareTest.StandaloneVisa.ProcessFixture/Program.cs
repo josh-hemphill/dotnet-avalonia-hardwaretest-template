@@ -1,8 +1,6 @@
 using HardwareTest.Core.Hardware;
 using HardwareTest.Core.Settings;
 using HardwareTest.OpenTap.Host;
-using InstrumentComponents.OpenTap;
-using InstrumentComponents.Scpi;
 
 if (args is ["--metadata", var gate])
 {
@@ -22,9 +20,9 @@ if (args is ["--metadata", var gate])
 
 if (args is ["--selected-update", var home])
 {
-    var original = System.Reflection.Assembly.LoadFrom(Path.Combine(home, "InstrumentComponents.OpenTap.dll"));
+    var original = LoadOwnedLibrary(home);
     var originalMvid = original.ManifestModule.ModuleVersionId;
-    File.Replace(Path.Combine(home, "replacement.dll"), original.Location, null);
+    File.Replace(Path.Combine(home, "replacement.dll"), Path.Combine(home, "InstrumentComponents.OpenTap.dll"), null);
     var catalog = new OpenTapHostCatalog(new AppSettings { OpenTapPluginDirectories = [home] },
         Serilog.Log.Logger, new FixtureBroker(), trustConfiguredPluginDirectories: true);
     try { catalog.EnsurePlugins(); throw new InvalidOperationException("Changed selected origin was accepted."); }
@@ -36,17 +34,57 @@ if (args is ["--selected-update", var home])
 
 if (args is [var updateMode, var updatedHome] && updateMode is "--loaded-update" or "--loaded-update-after-reuse")
 {
-    var original = System.Reflection.Assembly.LoadFrom(Path.Combine(updatedHome, "InstrumentComponents.OpenTap.dll"));
+    var original = LoadOwnedLibrary(updatedHome);
     var originalMvid = original.ManifestModule.ModuleVersionId;
     if (updateMode == "--loaded-update-after-reuse")
         new OpenTapHostCatalog(new AppSettings(), Serilog.Log.Logger, new FixtureBroker()).EnsurePlugins();
-    File.Replace(Path.Combine(updatedHome, "replacement.dll"), original.Location, null);
+    File.Replace(Path.Combine(updatedHome, "replacement.dll"), Path.Combine(updatedHome, "InstrumentComponents.OpenTap.dll"), null);
     var catalog = new OpenTapHostCatalog(new AppSettings(), Serilog.Log.Logger, new FixtureBroker());
     try { catalog.EnsurePlugins(); throw new InvalidOperationException("Changed unselected loaded origin was accepted."); }
     catch (InvalidOperationException error) when (error.Message.Contains("no longer matches its source payload", StringComparison.Ordinal)) { }
     if (original.ManifestModule.ModuleVersionId != originalMvid) throw new InvalidOperationException("The original loaded code was replaced.");
     Console.WriteLine("unselected-loaded-origin-replacement-refused");
     return 0;
+}
+
+if (args is ["--external-same-mvid-update", var externalHome])
+{
+    var path = Path.Combine(externalHome, "InstrumentComponents.OpenTap.dll");
+    var original = System.Reflection.Assembly.LoadFrom(path);
+    var mvid = original.ManifestModule.ModuleVersionId;
+    File.WriteAllBytes(Path.Combine(externalHome, "same-mvid.dll"), [.. File.ReadAllBytes(path), 1]);
+    File.Replace(Path.Combine(externalHome, "same-mvid.dll"), path, null);
+    using (var pe = new System.Reflection.PortableExecutable.PEReader(File.OpenRead(path)))
+    {
+        var reader = System.Reflection.Metadata.PEReaderExtensions.GetMetadataReader(pe);
+        if (reader.GetGuid(reader.GetModuleDefinition().Mvid) != mvid) throw new InvalidOperationException("Fixture changed MVID.");
+    }
+    var catalog = new OpenTapHostCatalog(new AppSettings(), Serilog.Log.Logger, new FixtureBroker());
+    try { catalog.EnsurePlugins(); throw new InvalidOperationException("Unverified external assembly was accepted."); }
+    catch (InvalidOperationException error) when (error.Message.Contains("no verified load provenance", StringComparison.Ordinal)) { }
+    Console.WriteLine("unverified-preloaded-library-refused");
+    return 0;
+}
+
+if (args is ["--custom-mismatch", var mismatchedHome])
+{
+    _ = LoadOwnedLibrary(Environment.CurrentDirectory);
+    new OpenTapHostCatalog(new AppSettings { OpenTapPluginDirectories = [mismatchedHome] }, Serilog.Log.Logger,
+        new FixtureBroker(), trustConfiguredPluginDirectories: true).EnsurePlugins();
+    throw new InvalidOperationException("A competing selected custom payload was accepted.");
+}
+
+if (args is ["--managed-custom-reuse", var customHome])
+{
+    var broker = new FixtureBroker();
+    var settings = new AppSettings { OpenTapPluginDirectories = [customHome] };
+    new OpenTapHostCatalog(settings, Serilog.Log.Logger, broker, trustConfiguredPluginDirectories: true).EnsurePlugins();
+    var original = AppDomain.CurrentDomain.GetAssemblies().Single(assembly => assembly.GetName().Name == "InstrumentComponents.OpenTap");
+    new OpenTapHostCatalog(settings, Serilog.Log.Logger, broker, trustConfiguredPluginDirectories: true).EnsurePlugins();
+    if (!ReferenceEquals(original, AppDomain.CurrentDomain.GetAssemblies().Single(assembly => assembly.GetName().Name == "InstrumentComponents.OpenTap")))
+        throw new InvalidOperationException("The owned custom library was not reused.");
+    Console.WriteLine("current-custom-owned-library-reused");
+    return RunPublishedProbe(broker);
 }
 
 if (args is ["--loaded-unsupported", var unsupportedHome])
@@ -63,7 +101,7 @@ if (args is ["--loaded", var loadedHome])
 {
     if (AppDomain.CurrentDomain.GetAssemblies().Any(assembly => assembly.GetName().Name?.StartsWith("InstrumentComponents", StringComparison.Ordinal) == true))
         throw new InvalidOperationException("Loaded-library fixture must begin in a cold process.");
-    var original = System.Reflection.Assembly.LoadFrom(Path.Combine(loadedHome, "InstrumentComponents.OpenTap.dll"));
+    var original = LoadOwnedLibrary(loadedHome);
     var originalLocation = original.Location;
     var broker = new FixtureBroker();
     var catalog = new OpenTapHostCatalog(new AppSettings(), Serilog.Log.Logger, broker);
@@ -72,7 +110,7 @@ if (args is ["--loaded", var loadedHome])
     if (libraries.Length != 1 || !ReferenceEquals(original, libraries[0]) || libraries[0].Location != originalLocation)
         throw new InvalidOperationException("The already-loaded library was not reused.");
     Console.WriteLine("already-loaded-library-reused");
-    return PublishedInterfaceProbe.Run(broker);
+    return RunPublishedProbe(broker);
 }
 
 if (args is ["--managed", var selected])
@@ -84,35 +122,39 @@ if (args is ["--managed", var selected])
     var catalog = new OpenTapHostCatalog(settings, Serilog.Log.Logger, broker, trustConfiguredPluginDirectories: true);
     catalog.EnsurePlugins();
     var loaded = AppDomain.CurrentDomain.GetAssemblies().Single(assembly => assembly.GetName().Name == "InstrumentComponents.OpenTap");
-    if (selected == "fallback" && !loaded.Location.Contains("ht-library-execution-", StringComparison.Ordinal)) throw new InvalidOperationException("Execution library was not privately staged.");
+    var loadedOrigin = OwnedLibraryDirectory(loaded);
+    if (selected == "fallback" && !loadedOrigin.Contains("ht-library-execution-", StringComparison.Ordinal)) throw new InvalidOperationException("Execution library was not privately staged.");
     using (var archive = PublishedInstrumentComponents.OpenArchive())
     using (var zip = new System.IO.Compression.ZipArchive(archive))
     using (var expected = zip.GetEntry("InstrumentComponents.OpenTap.dll")!.Open())
-    using (var actual = File.OpenRead(loaded.Location))
+    using (var actual = File.OpenRead(Path.Combine(loadedOrigin, "InstrumentComponents.OpenTap.dll")))
         if (!System.Security.Cryptography.SHA256.HashData(expected).SequenceEqual(System.Security.Cryptography.SHA256.HashData(actual)))
             throw new InvalidOperationException("Execution did not load the genuine published TAP payload.");
-    return PublishedInterfaceProbe.Run(broker);
+    return RunPublishedProbe(broker);
 }
 return 1;
 
-public static class PublishedInterfaceProbe
+static int RunPublishedProbe(FixtureBroker broker)
 {
-    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
-    internal static int Run(FixtureBroker broker)
-    {
-        using (var io = OpenTapScpiIo.Provider!.Open("MOCK::DMM", TimeSpan.FromMilliseconds(900)))
-        {
-            io.Write("CONF");
-            if (io.Query("*IDN?") != "fixture-id") throw new InvalidOperationException("Broker query was not dispatched.");
-        }
-        if (broker.Session is not { Closed: true, Timeout: 900, Writes: 1, Queries: 1 }) throw new InvalidOperationException("Broker session contract failed.");
-        broker.FailTimeout = true;
-        try { OpenTapScpiIo.Provider!.Open("MOCK::DMM", TimeSpan.FromMilliseconds(900)); throw new InvalidOperationException("Setup should fail."); }
-        catch (IOException error) when (error.Message == "timeout-setup") { }
-        if (broker.Session is not { Closed: true }) throw new InvalidOperationException("Acquired broker lease leaked.");
-        Console.WriteLine("managed-broker-bound-and-cleaned");
-        return 0;
-    }
+    // Resolve the typed probe only after the owned loader has established both bases.
+    // Main must not make a compiled call to a method containing library type tokens.
+    var type = System.Reflection.Assembly.GetExecutingAssembly().GetType("PublishedInterfaceProbe")!;
+    var method = type.GetMethod("Run", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)!;
+    return (int)method.Invoke(null, [broker])!;
+}
+
+static System.Reflection.Assembly LoadOwnedLibrary(string home)
+{
+    var loader = typeof(OpenTapHostCatalog).Assembly.GetType("HardwareTest.OpenTap.Host.OwnedInstrumentLibrary")!;
+    var load = loader.GetMethod("Load", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)!;
+    _ = load.Invoke(null, [Path.Combine(home, "InstrumentComponents.dll")]);
+    return (System.Reflection.Assembly)load.Invoke(null, [Path.Combine(home, "InstrumentComponents.OpenTap.dll")])!;
+}
+
+static string OwnedLibraryDirectory(System.Reflection.Assembly assembly)
+{
+    var loader = typeof(OpenTapHostCatalog).Assembly.GetType("HardwareTest.OpenTap.Host.OwnedInstrumentLibrary")!;
+    return (string)loader.GetMethod("Directory", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)!.Invoke(null, [assembly])!;
 }
 
 internal sealed class FixtureBroker : IVisaBroker

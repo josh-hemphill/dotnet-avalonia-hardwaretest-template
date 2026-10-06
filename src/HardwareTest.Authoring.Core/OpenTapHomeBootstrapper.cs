@@ -287,6 +287,13 @@ public sealed class OpenTapHomeBootstrapper : IOpenTapHomeBootstrapper
         var home = new OpenTapHome(homeRoot);
         if (explicitPartialImport && !StandaloneVisaReadiness.IsLibraryHome(home)) return;
         if (StandaloneVisaReadiness.SupportedDependencies(home) is { } reason) throw new AuthoringWorkspaceException(reason);
+        var declaredDependencies = new AuthoringManifest
+        {
+            Dependencies = manifest.Dependencies.Where(dependency => dependency.Package.Equals(InstrumentComponentsPackageName, StringComparison.OrdinalIgnoreCase)
+                || dependency.Package.Equals("OpenTAP", StringComparison.OrdinalIgnoreCase)).ToList()
+        };
+        var unmet = AuthoringEnvironmentAssessment.Packages(declaredDependencies, home).Where(package => !package.Satisfied).ToArray();
+        if (unmet.Length != 0) throw new AuthoringWorkspaceException(string.Join("; ", unmet.Select(package => package.DisplayText)));
         if (StandaloneVisaReadiness.Assess(home).Available) return;
         var archive = Path.Combine(Path.GetTempPath(), "ht-standalone-visa-" + Guid.NewGuid().ToString("N") + ".TapPackage");
         try

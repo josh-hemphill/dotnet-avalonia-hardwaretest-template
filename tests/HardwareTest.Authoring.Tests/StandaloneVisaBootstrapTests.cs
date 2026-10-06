@@ -91,6 +91,65 @@ public sealed class StandaloneVisaBootstrapTests : IDisposable
         foreach (var file in before) Assert.Equal(file.Value, File.ReadAllBytes(Path.Combine(home.Root, file.Key)));
     }
 
+    [Theory]
+    [InlineData("InstrumentComponents.OpenTap", "99.0.0")]
+    [InlineData("OpenTAP", "9.34.0")]
+    public void Explicit_unrelated_import_respects_declared_selected_library_and_engine_requirements(string package, string version)
+    {
+        var home = Prepare(Workspace());
+        var workspace = Workspace();
+        if (package == PublishedInstrumentComponents.PackageName) workspace.Manifest.Dependencies.Single().Version = version;
+        else workspace.Manifest.Dependencies.Add(new() { Package = package, Version = version });
+        var before = Directory.GetFiles(home.Root, "*", SearchOption.AllDirectories).ToDictionary(path => Path.GetRelativePath(home.Root, path), File.ReadAllBytes);
+        var archive = Path.Combine(_root, "unrelated.TapPackage");
+        using (var zip = System.IO.Compression.ZipFile.Open(archive, System.IO.Compression.ZipArchiveMode.Create))
+        {
+            using (var writer = new StreamWriter(zip.CreateEntry("package.xml").Open()))
+                writer.Write("<Package Name=\"Unrelated\" Version=\"1.0.0\"><Files><File Path=\"payload.txt\"/></Files></Package>");
+            using (var writer = new StreamWriter(zip.CreateEntry("payload.txt").Open())) writer.Write("unrelated payload");
+        }
+        var error = Assert.Throws<AuthoringWorkspaceException>(() => new OpenTapHomeBootstrapper().Bootstrap(workspace,
+            new() { HomeDirectory = home.Root, Offline = true, OfflinePackagePath = archive }));
+        Assert.Contains("version mismatch", error.Message);
+        Assert.Equal(before.Keys.Order(), Directory.GetFiles(home.Root, "*", SearchOption.AllDirectories).Select(path => Path.GetRelativePath(home.Root, path)).Order());
+        foreach (var file in before) Assert.Equal(file.Value, File.ReadAllBytes(Path.Combine(home.Root, file.Key)));
+    }
+
+    [Fact]
+    public void Genuine_catalog_owned_library_is_reused_by_broker_execution_without_a_selected_root()
+    {
+        var home = Prepare(Workspace());
+        Assert.Equal(8, AuthoringInstrumentCatalog.Discover(home).Count);
+        var original = AppDomain.CurrentDomain.GetAssemblies().Single(assembly => assembly.GetName().Name == PublishedInstrumentComponents.PackageName);
+        new OpenTapHostCatalog(new HardwareTest.Core.Settings.AppSettings(), Serilog.Log.Logger, new NeverOpenBroker()).EnsurePlugins();
+        Assert.Same(original, AppDomain.CurrentDomain.GetAssemblies().Single(assembly => assembly.GetName().Name == PublishedInstrumentComponents.PackageName));
+    }
+
+    [Fact]
+    public async Task Cold_owned_catalog_preserves_lazy_lifecycle_serialization_and_execution_reuse()
+    {
+        var home = Prepare(Workspace());
+        var start = new System.Diagnostics.ProcessStartInfo("dotnet")
+        { UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true };
+        start.ArgumentList.Add(Path.Combine(AppContext.BaseDirectory, "HardwareTest.Authoring.ProcessFixture.dll"));
+        start.ArgumentList.Add("--owned-library-lifecycle");
+        start.ArgumentList.Add(home.Root);
+        using var child = System.Diagnostics.Process.Start(start)!;
+        var stdout = child.StandardOutput.ReadToEndAsync();
+        var stderr = child.StandardError.ReadToEndAsync();
+        try { await child.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(60)); }
+        catch { if (!child.HasExited) child.Kill(entireProcessTree: true); throw; }
+        var output = await stdout + await stderr;
+        Assert.True(child.ExitCode == 0, output);
+        Assert.Contains("cold-owned-catalog-lifecycle-and-execution-reused", output);
+    }
+
+    private sealed class NeverOpenBroker : HardwareTest.Core.Hardware.IVisaBroker
+    {
+        public Task<HardwareTest.Core.Hardware.IVisaSession> OpenAsync(string resourceName, CancellationToken cancellationToken = default)
+            => throw new InvalidOperationException("Discovery must not open a broker session.");
+    }
+
     [Fact]
     public void Ordinary_mock_home_does_not_install_the_standalone_counterpart()
     {

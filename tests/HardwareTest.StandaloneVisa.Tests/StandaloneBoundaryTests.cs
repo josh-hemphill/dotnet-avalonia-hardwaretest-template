@@ -57,6 +57,36 @@ public sealed class StandaloneBoundaryTests : IDisposable
     }
 
     [Fact]
+    public async Task Externally_preloaded_library_with_same_mvid_replaced_origin_has_no_verified_provenance()
+    {
+        var home = InstalledHome();
+        var result = await Run(home, "HardwareTest.StandaloneVisa.ProcessFixture.dll", home, "--external-same-mvid-update");
+        Assert.Equal(0, result.Code);
+        Assert.Contains("unverified-preloaded-library-refused", result.Output);
+    }
+
+    [Fact]
+    public async Task Current_custom_selected_owned_payload_is_reused()
+    {
+        var home = InstalledHome();
+        var metadata = Path.Combine(home, "Packages", PublishedInstrumentComponents.PackageName, "package.xml");
+        var document = XDocument.Load(metadata);
+        foreach (var file in new[] { "InstrumentComponents.dll", "InstrumentComponents.OpenTap.dll" })
+        {
+            var path = Path.Combine(home, file);
+            byte[] bytes = [.. File.ReadAllBytes(path), 1];
+            File.WriteAllBytes(path, bytes);
+            document.Descendants().Single(element => element.Name.LocalName == "File" && (string?)element.Attribute("Path") == file)
+                .Elements().Single(element => element.Name.LocalName == "Hash").Value = Convert.ToHexString(SHA1.HashData(bytes));
+        }
+        document.Save(metadata);
+        var result = await Run(home, "HardwareTest.StandaloneVisa.ProcessFixture.dll", home, "--managed-custom-reuse");
+        Assert.Equal(0, result.Code);
+        Assert.Contains("current-custom-owned-library-reused", result.Output);
+        Assert.Contains("managed-broker-bound-and-cleaned", result.Output);
+    }
+
+    [Fact]
     public async Task Already_loaded_library_without_the_current_provider_contract_is_refused()
     {
         var home = InstalledHome();
@@ -75,7 +105,7 @@ public sealed class StandaloneBoundaryTests : IDisposable
         foreach (var name in new[] { "InstrumentComponents.dll", "InstrumentComponents.OpenTap.dll" })
             File.Copy(Path.Combine(AppContext.BaseDirectory, "BoundaryFixture", name), Path.Combine(custom, name));
         CopyTree(Path.Combine(home, "Packages", PublishedInstrumentComponents.PackageName), Path.Combine(custom, "Packages", PublishedInstrumentComponents.PackageName));
-        var result = await Run(home, "HardwareTest.StandaloneVisa.ProcessFixture.dll", custom, allowFailure: true);
+        var result = await Run(home, "HardwareTest.StandaloneVisa.ProcessFixture.dll", custom, "--custom-mismatch", allowFailure: true);
         Assert.NotEqual(0, result.Code);
         Assert.Contains("differs from the loaded execution library", result.Output);
     }
@@ -167,6 +197,13 @@ public sealed class StandaloneBoundaryTests : IDisposable
     {
         File.Delete(Path.Combine(home, "InstrumentComponents.dll"));
         File.Delete(Path.Combine(home, "InstrumentComponents.OpenTap.dll"));
+        RemoveBaseRuntimeBindings(home);
+    }
+
+    private static void RemoveBaseRuntimeBindings(string home)
+    {
+        // The managed Host excludes the library's NuGet runtime assets. Keep typed
+        // compile references in the probe, but give its process the same runtime graph.
         var deps = Path.Combine(home, "HardwareTest.StandaloneVisa.ProcessFixture.deps.json");
         var graph = JsonNode.Parse(File.ReadAllText(deps))!;
         foreach (var target in graph["targets"]!.AsObject())
@@ -290,6 +327,7 @@ public sealed class StandaloneBoundaryTests : IDisposable
         // Only the genuine TAP bytes are present at process startup, never both bases.
         using (var baseArchive = PublishedInstrumentComponents.OpenArchive()) Extract(baseArchive, home);
         using (var counterpart = StandaloneVisaPackage.OpenArchive()) Extract(counterpart, home);
+        if (!minimal) RemoveBaseRuntimeBindings(home);
         return home;
     }
 

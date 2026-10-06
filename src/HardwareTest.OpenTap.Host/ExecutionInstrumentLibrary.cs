@@ -1,7 +1,5 @@
 using System.IO.Compression;
 using System.Reflection;
-using System.Reflection.Metadata;
-using System.Reflection.PortableExecutable;
 using System.Security.Cryptography;
 using System.Xml.Linq;
 
@@ -11,7 +9,6 @@ namespace HardwareTest.OpenTap.Host;
 internal static class ExecutionInstrumentLibrary
 {
     private static readonly Dictionary<string, string> Payloads = new(StringComparer.Ordinal);
-    private static readonly Dictionary<Assembly, byte[]> LoadedHashes = [];
     private static readonly string[] Files = ["InstrumentComponents.dll", "InstrumentComponents.OpenTap.dll"];
 
     internal static string EnsureLoaded(IEnumerable<string> trustedDirectories)
@@ -24,9 +21,9 @@ internal static class ExecutionInstrumentLibrary
             var assemblies = new[] { contract, loaded };
             var bundled = BundledPayload();
             for (var i = 0; i < assemblies.Length; i++)
-                if (!LoadedFingerprint(assemblies[i]).SequenceEqual(SHA256.HashData(bundled[i])))
+                if (!OwnedInstrumentLibrary.Fingerprint(assemblies[i]).SequenceEqual(SHA256.HashData(bundled[i])))
                     throw new InvalidOperationException("An execution library loaded without a selected home must match the bundled 0.1.1 payload. Configure a trusted installed home to use a custom library.");
-            return Path.GetDirectoryName(loaded.Location)!;
+            return OwnedInstrumentLibrary.Directory(loaded);
         }
 
         var bytes = selected is null ? BundledPayload() : Files.Select(file => File.ReadAllBytes(Path.Combine(selected, file))).ToArray();
@@ -53,9 +50,8 @@ internal static class ExecutionInstrumentLibrary
             var identity = AssemblyName.GetAssemblyName(path);
             if (identity.Name != Path.GetFileNameWithoutExtension(Files[i]) || identity.Version != new Version(0, 1, 1, 0))
                 throw new InvalidOperationException("Instrument Components execution requires current 0.1.1 library assemblies.");
-            var assembly = Assembly.LoadFrom(path);
-            if (string.IsNullOrEmpty(assembly.Location) || !File.Exists(assembly.Location)
-                || !LoadedFingerprint(assembly).SequenceEqual(SHA256.HashData(bytes[i])))
+            var assembly = OwnedInstrumentLibrary.Load(path);
+            if (!OwnedInstrumentLibrary.Fingerprint(assembly).SequenceEqual(SHA256.HashData(bytes[i])))
                 throw new InvalidOperationException("The selected Instrument Components payload differs from the loaded execution library. Restart the executing process to use this home.");
             if (i == 1) VerifyContract(assembly);
         }
@@ -94,21 +90,6 @@ internal static class ExecutionInstrumentLibrary
                 && (version is null || ((string?)root.Attribute("Version"))?.Split('+')[0] == version);
         }
         catch (System.Xml.XmlException) { return false; }
-    }
-
-    private static byte[] LoadedFingerprint(Assembly assembly)
-    {
-        var bytes = File.ReadAllBytes(assembly.Location);
-        using var stream = new MemoryStream(bytes, writable: false);
-        using var pe = new PEReader(stream);
-        var metadata = pe.GetMetadataReader();
-        if (metadata.GetGuid(metadata.GetModuleDefinition().Mvid) != assembly.ManifestModule.ModuleVersionId)
-            throw new InvalidOperationException("The loaded execution library no longer matches its source payload. Restart the executing process.");
-        var hash = SHA256.HashData(bytes);
-        if (LoadedHashes.TryGetValue(assembly, out var previous) && !previous.SequenceEqual(hash))
-            throw new InvalidOperationException("The loaded execution library no longer matches its source payload. Restart the executing process.");
-        LoadedHashes[assembly] = hash;
-        return hash;
     }
 
     private static Assembly VerifyContract(Assembly assembly)

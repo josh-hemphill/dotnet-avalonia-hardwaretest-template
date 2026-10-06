@@ -21,6 +21,35 @@ if (args.Length == 2 && args[0] == "--create-held")
     });
     return 0;
 }
+if (args.Length == 2 && args[0] == "--owned-library-lifecycle")
+{
+    if (AppDomain.CurrentDomain.GetAssemblies().Any(assembly => assembly.GetName().Name?.StartsWith("InstrumentComponents", StringComparison.Ordinal) == true))
+        throw new InvalidOperationException("Owned lifecycle fixture must start cold.");
+    var home = new OpenTapHome(args[1]);
+    var adapters = AuthoringInstrumentCatalog.Discover(home);
+    if (adapters.Count != 8) throw new InvalidOperationException("Cold catalog discovery failed.");
+    foreach (var adapter in adapters)
+    {
+        var binding = new InstrumentRef("Device", adapter.TypeId, "TCPIP0::192.0.2.8::inst0::INSTR");
+        var draft = new AuthoringPlanInitializer().Construct(new("lifecycle")
+        { Home = home, Instruments = [binding], IdentityInstrumentSlot = "Device", IncludeSafeShutdown = true }).Draft;
+        var path = Path.Combine(home.Root, "lifecycle.TapPlan");
+        var compiler = new PlanCompiler(selectedHome: home);
+        compiler.Save(draft, path);
+        if (compiler.Load(path).Instruments.Single().TypeId != adapter.TypeId) throw new InvalidOperationException("Owned lifecycle serialization lost the device type.");
+        var xml = File.ReadAllText(path);
+        if (!xml.Contains("InstrumentComponents.OpenTap.IdentityQueryStep", StringComparison.Ordinal)
+            || !xml.Contains("InstrumentComponents.OpenTap.SafeShutdownStep", StringComparison.Ordinal))
+            throw new InvalidOperationException("Owned lifecycle serialization lost the generic steps.");
+    }
+    var original = AppDomain.CurrentDomain.GetAssemblies().Single(assembly => assembly.GetName().Name == "InstrumentComponents.OpenTap");
+    new HardwareTest.OpenTap.Host.OpenTapHostCatalog(new HardwareTest.Core.Settings.AppSettings(), Serilog.Log.Logger, new NeverOpenLifecycleBroker()).EnsurePlugins();
+    if (!ReferenceEquals(original, AppDomain.CurrentDomain.GetAssemblies().Single(assembly => assembly.GetName().Name == "InstrumentComponents.OpenTap")))
+        throw new InvalidOperationException("Execution did not reuse the owned catalog library.");
+    Console.WriteLine("cold-owned-catalog-lifecycle-and-execution-reused");
+    return 0;
+}
+
 if (args.Length == 3 && args[0] == "--cold-library-import")
 {
     bool LibraryResident() => AppDomain.CurrentDomain.GetAssemblies().Any(assembly => assembly.GetName().Name?.StartsWith("InstrumentComponents", StringComparison.Ordinal) == true);
@@ -177,4 +206,10 @@ internal static class ScopeFixture
 {
     [DllImport("libc", SetLastError = true)]
     internal static extern int setsid();
+}
+
+internal sealed class NeverOpenLifecycleBroker : HardwareTest.Core.Hardware.IVisaBroker
+{
+    public Task<HardwareTest.Core.Hardware.IVisaSession> OpenAsync(string resourceName, CancellationToken cancellationToken = default)
+        => throw new InvalidOperationException("Catalog and provider registration must not open a broker session.");
 }
