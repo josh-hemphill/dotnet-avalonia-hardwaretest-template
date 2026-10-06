@@ -12,7 +12,7 @@ using Xunit;
 
 namespace HardwareTest.StandaloneVisa.Tests;
 
-public sealed class StandaloneBoundaryTests : IDisposable
+public sealed partial class StandaloneBoundaryTests : IDisposable
 {
     private readonly string _root = Path.Combine(Path.GetTempPath(), "ht-standalone-test-" + Guid.NewGuid().ToString("N"));
     public StandaloneBoundaryTests() => Directory.CreateDirectory(_root);

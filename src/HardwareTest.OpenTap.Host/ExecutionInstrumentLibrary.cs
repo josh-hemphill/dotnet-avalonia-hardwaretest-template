@@ -1,5 +1,7 @@
 using System.IO.Compression;
 using System.Reflection;
+using System.Reflection.Metadata;
+using System.Reflection.PortableExecutable;
 using System.Security.Cryptography;
 using System.Xml.Linq;
 
@@ -27,6 +29,7 @@ internal static class ExecutionInstrumentLibrary
         }
 
         var bytes = selected is null ? BundledPayload() : selected;
+        ValidateAssemblyIdentities(bytes);
         var key = string.Join("", bytes.Select(payload => Convert.ToHexString(SHA256.HashData(payload))));
         if (!Payloads.TryGetValue(key, out var directory))
         {
@@ -47,15 +50,38 @@ internal static class ExecutionInstrumentLibrary
             var path = Path.Combine(directory, Files[i]);
             if (!SHA256.HashData(File.ReadAllBytes(path)).SequenceEqual(SHA256.HashData(bytes[i])))
                 throw new IOException("The staged execution library changed.");
-            var identity = AssemblyName.GetAssemblyName(path);
-            if (identity.Name != Path.GetFileNameWithoutExtension(Files[i]) || identity.Version != new Version(0, 1, 1, 0))
-                throw new InvalidOperationException("Instrument Components execution requires current 0.1.1 library assemblies.");
             var assembly = OwnedInstrumentLibrary.Load(path);
             if (!OwnedInstrumentLibrary.Fingerprint(assembly).SequenceEqual(SHA256.HashData(bytes[i])))
                 throw new InvalidOperationException("The selected Instrument Components payload differs from the loaded execution library. Restart the executing process to use this home.");
             if (i == 1) VerifyContract(assembly);
         }
         return directory;
+    }
+
+    private static void ValidateAssemblyIdentities(byte[][] payloads)
+    {
+        // Inspect both immutable buffers before either enters the CLR loader.
+        for (var i = 0; i < Files.Length; i++)
+        {
+            try
+            {
+                using var stream = new MemoryStream(payloads[i], writable: false);
+                using var pe = new PEReader(stream);
+                if (!pe.HasMetadata || pe.PEHeaders.CorHeader is null)
+                    throw new BadImageFormatException("Payload has no managed metadata.");
+                var metadata = pe.GetMetadataReader();
+                if (!metadata.IsAssembly)
+                    throw new BadImageFormatException("Payload is not a managed assembly.");
+                var identity = metadata.GetAssemblyDefinition();
+                if (metadata.GetString(identity.Name) != Path.GetFileNameWithoutExtension(Files[i])
+                    || identity.Version != new Version(0, 1, 1, 0))
+                    throw new InvalidOperationException("Instrument Components execution requires current 0.1.1 library assemblies.");
+            }
+            catch (BadImageFormatException error)
+            {
+                throw new InvalidOperationException("Instrument Components execution requires current 0.1.1 library assemblies; malformed payload: " + Files[i], error);
+            }
+        }
     }
 
     private static byte[][]? SelectInstalledRoot(IEnumerable<string> trustedDirectories)

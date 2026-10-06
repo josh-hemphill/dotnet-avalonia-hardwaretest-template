@@ -15,18 +15,20 @@ internal static class ExecutionLibraryHome
         if (!Directory.Exists(root)) return root;
         var visited = 0;
         var active = new HashSet<string>(OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
+        active.Add(root);
         foreach (var entry in Directory.EnumerateFileSystemEntries(root))
         {
+            if (++visited > 100000) throw new IOException("Selected execution home contains too many package paths.");
+            EnsureContained(root, entry);
             var name = Path.GetFileName(entry);
             if (Files.Contains(name, StringComparer.OrdinalIgnoreCase) && !Files.Contains(name, StringComparer.Ordinal))
                 throw new InvalidOperationException("Instrument Components execution requires canonical root DLL filenames.");
             if (name.Equals("package.xml", StringComparison.OrdinalIgnoreCase))
             {
-                EnsureContained(root, entry);
                 if (IsLibraryIdentity(entry))
                     throw new InvalidOperationException("Instrument Components execution requires an installed home root with root DLLs and Packages/InstrumentComponents.OpenTap/package.xml. Import package directories before execution.");
             }
-            if (name.Equals("Packages", StringComparison.OrdinalIgnoreCase)) Scan(entry, 0);
+            if (Directory.Exists(entry)) Scan(entry, 0);
         }
         return root;
 
@@ -76,8 +78,11 @@ internal static class ExecutionLibraryHome
     private static void EnsureContained(string root, string path)
     {
         var comparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
-        var prefix = Path.TrimEndingDirectorySeparator(root) + Path.DirectorySeparatorChar;
-        if (!Path.GetFullPath(path).StartsWith(prefix, comparison) || !ResolvePath(path).StartsWith(prefix, comparison))
+        var boundary = Path.TrimEndingDirectorySeparator(root);
+        var prefix = boundary + Path.DirectorySeparatorChar;
+        var resolved = Path.TrimEndingDirectorySeparator(ResolvePath(path));
+        if (!Path.GetFullPath(path).StartsWith(prefix, comparison)
+            || !(resolved.Equals(boundary, comparison) || resolved.StartsWith(prefix, comparison)))
             throw new IOException("Selected execution home path resolves outside its root: " + path);
     }
 
