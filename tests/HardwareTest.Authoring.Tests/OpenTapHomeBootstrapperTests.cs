@@ -155,12 +155,7 @@ public sealed class OpenTapHomeBootstrapperTests
         var workspaceRoot = NewTempDir();
         Directory.CreateDirectory(Path.Combine(workspaceRoot, "plans"));
         Directory.CreateDirectory(Path.Combine(workspaceRoot, "packs", "ic"));
-        File.WriteAllText(
-            Path.Combine(workspaceRoot, "packs", "ic", "package.xml"),
-            """
-            <?xml version="1.0" encoding="UTF-8"?>
-            <Package Name="InstrumentComponents.OpenTap" xmlns="http://opentap.io/schemas/package" Version="0.1.0" />
-            """);
+        CopyLibraryInput(Path.Combine(workspaceRoot, "packs", "ic"));
         File.WriteAllText(
             Path.Combine(workspaceRoot, "authoring.json"),
             """
@@ -208,12 +203,7 @@ public sealed class OpenTapHomeBootstrapperTests
             """);
         var icDir = Path.Combine(NewTempDir(), "ic");
         Directory.CreateDirectory(icDir);
-        File.WriteAllText(
-            Path.Combine(icDir, "package.xml"),
-            """
-            <?xml version="1.0" encoding="UTF-8"?>
-            <Package Name="InstrumentComponents.OpenTap" xmlns="http://opentap.io/schemas/package" Version="0.1.0" />
-            """);
+        CopyLibraryInput(icDir);
 
         var workspace = AuthoringWorkspaceLoader.Load(workspaceRoot);
         var home = new OpenTapHomeBootstrapper().Bootstrap(
@@ -228,6 +218,12 @@ public sealed class OpenTapHomeBootstrapperTests
         Assert.Contains(
             "InstrumentComponents.OpenTap",
             OpenTapHomeBootstrapper.ListInstalledPackages(home).Select(p => p.Name));
+    }
+
+    private static void CopyLibraryInput(string destination)
+    {
+        foreach (var file in new[] { "package.xml", "InstrumentComponents.dll", "InstrumentComponents.OpenTap.dll" })
+            File.Copy(Path.Combine(PublishedLibraryFixture.PackageRoot, file), Path.Combine(destination, file));
     }
 
     [Fact]

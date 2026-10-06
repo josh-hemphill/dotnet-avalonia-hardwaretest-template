@@ -23,10 +23,8 @@ internal static class PublishedLibraryFixture
         RegisterCleanup(path, directory: true);
         using var archive = ZipFile.OpenRead(Archive);
         archive.ExtractToDirectory(path);
-        // Preserve existing unpacked/hashless-layout compatibility coverage using
-        // the published DLL bytes. Genuine archive tests retain the release metadata.
+        // An external unpacked input keeps the genuine release declarations and hashes.
         var metadata = XDocument.Load(Path.Combine(path, "Packages", PublishedInstrumentComponents.PackageName, "package.xml"));
-        metadata.Descendants().Where(element => element.Name.LocalName == "Hash").Remove();
         metadata.Save(Path.Combine(path, "package.xml"));
         return path;
     });

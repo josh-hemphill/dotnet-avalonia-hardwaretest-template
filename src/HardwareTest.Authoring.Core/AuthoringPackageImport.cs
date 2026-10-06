@@ -90,13 +90,29 @@ internal static class AuthoringPackageImport
             AuthoringBuildService.EnsureContained(root, source);
             if (!File.Exists(source)) throw new AuthoringWorkspaceException($"Offline package declared payload missing: '{relative}'.");
         }
+        if (name.Equals(OpenTapHomeBootstrapper.InstrumentComponentsPackageName, StringComparison.OrdinalIgnoreCase))
+        {
+            foreach (var required in AuthoringAdapterPayloadInspection.LibraryFiles)
+                if (!files.Contains(required, StringComparer.Ordinal))
+                    throw new AuthoringWorkspaceException($"Offline library package must declare required payload '{required}'.");
+            foreach (var file in xml.Descendants().Where(element => element.Name.LocalName == "File"))
+            {
+                var relative = SafeRelative((string?)file.Attribute("Path"));
+                if (AuthoringAdapterPayloadInspection.LibraryFiles.Contains(Path.GetFileName(relative), StringComparer.OrdinalIgnoreCase)
+                    && !AuthoringAdapterPayloadInspection.LibraryFiles.Contains(relative, StringComparer.Ordinal))
+                    throw new AuthoringWorkspaceException("Offline library package declares an alternate DLL layout; required DLLs must be at the package input root.");
+                try { AuthoringAdapterPayloadInspection.ValidateLibraryFile(Path.Combine(root, relative), relative, file); }
+                catch (IOException error) { throw new AuthoringWorkspaceException(error.Message, error); }
+            }
+        }
         if (name.Equals("OpenTAP", StringComparison.OrdinalIgnoreCase))
             foreach (var runtime in new[] { "OpenTap.dll", "OpenTap.Package.dll", "tap.dll", "tap.runtimeconfig.json" })
             {
                 if (!File.Exists(Path.Combine(root, runtime))) throw new AuthoringWorkspaceException($"Offline OpenTAP runtime missing: '{runtime}'.");
                 files.Add(runtime);
             }
-        return new(name, files.ToArray());
+        return new(name.Equals(OpenTapHomeBootstrapper.InstrumentComponentsPackageName, StringComparison.OrdinalIgnoreCase)
+            ? OpenTapHomeBootstrapper.InstrumentComponentsPackageName : name, files.ToArray());
     }
 
     private static void PublishLayout(string source, string metadata, PackageLayout package, string home, Action<string, string> copy)
@@ -116,27 +132,14 @@ internal static class AuthoringPackageImport
             foreach (var relative in package.Files)
             {
                 var parts = relative.Replace('\\', '/').Split('/');
-                if ((rooted || engine) && parts[0].Equals("Packages", StringComparison.OrdinalIgnoreCase)
+                if ((rooted || engine || library) && parts[0].Equals("Packages", StringComparison.OrdinalIgnoreCase)
                     && (parts.Length < 3 || !parts[1].Equals(package.Name, StringComparison.OrdinalIgnoreCase)))
                     throw new AuthoringWorkspaceException("Offline package cannot replace another package's payload.");
-                if (rooted && !engine && parts.Length == 1 && new[] { "OpenTap.dll", "OpenTap.Package.dll", "tap.dll", "tap.runtimeconfig.json", "tap", "tap.exe" }.Contains(parts[0], StringComparer.OrdinalIgnoreCase))
+                if ((rooted || library) && !engine && parts.Length == 1 && new[] { "OpenTap.dll", "OpenTap.Package.dll", "tap.dll", "tap.runtimeconfig.json", "tap", "tap.exe" }.Contains(parts[0], StringComparer.OrdinalIgnoreCase))
                     throw new AuthoringWorkspaceException("Only an OpenTAP package can replace engine runtime files.");
-                if ((rooted || engine) && parts.Length == 1
-                    && !package.Name.Equals(OpenTapHomeBootstrapper.InstrumentComponentsPackageName, StringComparison.OrdinalIgnoreCase)
-                    && new[] { "InstrumentComponents.dll", "InstrumentComponents.OpenTap.dll" }.Contains(parts[0], StringComparer.OrdinalIgnoreCase))
+                if (!library && AuthoringAdapterPayloadInspection.LibraryFiles.Contains(parts[^1], StringComparer.OrdinalIgnoreCase))
                     throw new AuthoringWorkspaceException("Only an InstrumentComponents.OpenTap package can replace its library payload.");
-                Stage(relative, library && !rooted ? $"Packages/{package.Name}/{relative}" : relative);
-            }
-            if (library)
-            {
-                // Publication merges trees, so overwrite existing owned library aliases rather
-                // than deleting a stale layout that would survive in the selected home.
-                foreach (var file in new[] { "InstrumentComponents.dll", "InstrumentComponents.OpenTap.dll" })
-                {
-                    if (!package.Files.Contains(file, StringComparer.Ordinal)) continue;
-                    ReconcileAlias(file, file);
-                    ReconcileAlias(file, $"Packages/{package.Name}/{file}");
-                }
+                Stage(relative, relative);
             }
             copy(filtered, homeLayout ? home : Path.Combine(home, "Packages", package.Name));
             // Importing custom bytes invalidates any earlier bundled-source attestation.
@@ -153,18 +156,6 @@ internal static class AuthoringPackageImport
             }
         }
         finally { Directory.Delete(filtered, recursive: true); }
-        void ReconcileAlias(string incoming, string outgoing)
-        {
-            var destination = Path.Combine(filtered, outgoing.Replace('/', Path.DirectorySeparatorChar));
-            if (File.Exists(destination))
-            {
-                if (!File.ReadAllBytes(destination).SequenceEqual(File.ReadAllBytes(Path.Combine(source, incoming))))
-                    throw new AuthoringWorkspaceException($"Offline library package declares conflicting payload aliases for '{incoming}'.");
-                return;
-            }
-            if (File.Exists(Path.Combine(home, outgoing.Replace('/', Path.DirectorySeparatorChar))))
-                Stage(incoming, outgoing);
-        }
         void Stage(string incoming, string outgoing)
         {
             var destination = Path.Combine(filtered, outgoing.Replace('/', Path.DirectorySeparatorChar));

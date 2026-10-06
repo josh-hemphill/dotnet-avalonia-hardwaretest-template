@@ -68,7 +68,7 @@ public sealed class BundledLibraryBootstrapTests : IDisposable
     public void Offline_same_name_replacement_publishes_custom_bytes_and_invalidates_bundled_provenance(bool unpacked)
     {
         var home = Prepare(Workspace());
-        SeedLibraryAliases(home);
+        File.WriteAllText(Path.Combine(home.Root, "unrelated.txt"), "selected home sentinel");
         var before = Files(home);
         AssertBundledProvenance(home);
         var (path, replacement) = CustomReplacement(home, unpacked);
@@ -87,11 +87,11 @@ public sealed class BundledLibraryBootstrapTests : IDisposable
     public void Explicit_library_override_publishes_custom_bytes_and_invalidates_bundled_provenance(bool unpacked)
     {
         var home = Prepare(Workspace());
-        SeedLibraryAliases(home);
+        File.WriteAllText(Path.Combine(home.Root, "unrelated.txt"), "selected home sentinel");
         var before = Files(home);
         AssertBundledProvenance(home);
         var (path, replacement) = CustomReplacement(home, unpacked);
-        // Force replacement rather than reuse while retaining both old payload layouts.
+        // Force replacement rather than reuse of the installed version.
         var metadata = Path.Combine(home.Root, "Packages", PublishedInstrumentComponents.PackageName, "package.xml");
         var xml = System.Xml.Linq.XDocument.Load(metadata);
         xml.Root!.SetAttributeValue("Version", "2.0.0");
@@ -127,7 +127,7 @@ public sealed class BundledLibraryBootstrapTests : IDisposable
         var error = Assert.Throws<AuthoringWorkspaceException>(() => new OpenTapHomeBootstrapper().Bootstrap(Workspace(),
             new() { HomeDirectory = home.Root, OfflinePackagePath = path, Offline = true }));
 
-        Assert.Contains("conflicting payload aliases", error.Message);
+        Assert.Contains("alternate DLL layout", error.Message);
         AssertFiles(before, home);
         AssertBundledProvenance(home);
     }
@@ -182,6 +182,64 @@ public sealed class BundledLibraryBootstrapTests : IDisposable
         Assert.DoesNotContain(second.Root, global::OpenTap.PluginManager.DirectoriesToSearch);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Installed_duplicate_layout_requires_fresh_home_without_changing_selected_bytes(bool import)
+    {
+        var home = Prepare(Workspace());
+        File.Copy(Path.Combine(home.Root, "InstrumentComponents.dll"), Path.Combine(home.Root, "Packages", PublishedInstrumentComponents.PackageName, "InstrumentComponents.dll"));
+        var before = Files(home);
+        var error = Assert.Throws<AuthoringWorkspaceException>(() => new OpenTapHomeBootstrapper().Bootstrap(Workspace(),
+            new() { HomeDirectory = home.Root, Offline = true, OfflinePackagePath = import ? PublishedLibraryFixture.Archive : null }));
+        Assert.Contains("fresh home", error.Message);
+        AssertFiles(before, home);
+        Assert.False(AuthoringInstrumentCatalog.LibraryPayloadAvailability(home).Available);
+    }
+
+    [Theory]
+    [InlineData(false, "metadata-only")]
+    [InlineData(true, "metadata-only")]
+    [InlineData(false, "undeclared")]
+    [InlineData(true, "undeclared")]
+    [InlineData(false, "missing")]
+    [InlineData(true, "missing")]
+    [InlineData(false, "native")]
+    [InlineData(true, "native")]
+    [InlineData(false, "identity")]
+    [InlineData(true, "identity")]
+    [InlineData(false, "hash-malformed")]
+    [InlineData(true, "hash-malformed")]
+    [InlineData(false, "hash-mismatch")]
+    [InlineData(true, "hash-mismatch")]
+    public void Incomplete_or_invalid_custom_library_preserves_selected_home(bool unpacked, string invalid)
+    {
+        var home = Prepare(Workspace());
+        File.WriteAllText(Path.Combine(home.Root, "unrelated.txt"), "selected home sentinel");
+        var before = Files(home);
+        var (path, _) = CustomReplacement(home, unpacked: true);
+        var metadata = Path.Combine(path, "package.xml");
+        var xml = System.Xml.Linq.XDocument.Load(metadata);
+        if (invalid == "metadata-only") xml.Root!.Element("Files")!.Remove();
+        if (invalid == "undeclared") xml.Descendants("File").First().Remove();
+        if (invalid == "missing") File.Delete(Path.Combine(path, "InstrumentComponents.dll"));
+        if (invalid == "native") File.WriteAllText(Path.Combine(path, "InstrumentComponents.dll"), "not a managed PE image");
+        if (invalid == "identity") File.Copy(Path.Combine(path, "InstrumentComponents.OpenTap.dll"), Path.Combine(path, "InstrumentComponents.dll"), overwrite: true);
+        if (invalid.StartsWith("hash-", StringComparison.Ordinal))
+            xml.Descendants("File").First().Add(new System.Xml.Linq.XElement("Hash", invalid == "hash-malformed" ? new string('z', 40) : new string('0', 40)));
+        xml.Save(metadata);
+        if (!unpacked)
+        {
+            var archive = Path.Combine(root, "invalid-library.TapPackage");
+            ZipFile.CreateFromDirectory(path, archive);
+            path = archive;
+        }
+        Assert.Throws<AuthoringWorkspaceException>(() => new OpenTapHomeBootstrapper().Bootstrap(Workspace(),
+            new() { HomeDirectory = home.Root, Offline = true, OfflinePackagePath = path }));
+        AssertFiles(before, home);
+        AssertBundledProvenance(home);
+    }
+
     private (string Path, byte[] Payload) CustomReplacement(OpenTapHome home, bool unpacked)
     {
         var folder = Path.Combine(root, "custom-library");
@@ -199,20 +257,13 @@ public sealed class BundledLibraryBootstrapTests : IDisposable
         return (archive, replacement);
     }
 
-    private static void SeedLibraryAliases(OpenTapHome home)
-    {
-        foreach (var file in new[] { "InstrumentComponents.dll", "InstrumentComponents.OpenTap.dll" })
-            File.Copy(Path.Combine(home.Root, file), Path.Combine(home.Root, "Packages", PublishedInstrumentComponents.PackageName, file), overwrite: true);
-        File.WriteAllText(Path.Combine(home.Root, "unrelated.txt"), "selected home sentinel");
-    }
     private static void AssertLibraryReplacement(Dictionary<string, byte[]> before, OpenTapHome home, byte[] replacement)
     {
         Assert.NotEqual(before["InstrumentComponents.dll"], replacement);
-        foreach (var directory in new[] { home.Root, Path.Combine(home.Root, "Packages", PublishedInstrumentComponents.PackageName) })
-        {
-            Assert.Equal(replacement, File.ReadAllBytes(Path.Combine(directory, "InstrumentComponents.dll")));
-            Assert.Equal(before["InstrumentComponents.OpenTap.dll"], File.ReadAllBytes(Path.Combine(directory, "InstrumentComponents.OpenTap.dll")));
-        }
+        Assert.Equal(replacement, File.ReadAllBytes(Path.Combine(home.Root, "InstrumentComponents.dll")));
+        Assert.Equal(before["InstrumentComponents.OpenTap.dll"], File.ReadAllBytes(Path.Combine(home.Root, "InstrumentComponents.OpenTap.dll")));
+        foreach (var file in AuthoringAdapterPayloadInspection.LibraryFiles)
+            Assert.False(File.Exists(Path.Combine(home.Root, "Packages", PublishedInstrumentComponents.PackageName, file)));
         var availability = AuthoringInstrumentCatalog.LibraryPayloadAvailability(home);
         Assert.True(availability.Available, availability.Reason);
         Assert.Equal(before["unrelated.txt"], File.ReadAllBytes(Path.Combine(home.Root, "unrelated.txt")));

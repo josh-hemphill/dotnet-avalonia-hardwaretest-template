@@ -1,3 +1,5 @@
+using System.Reflection.Metadata;
+using System.Reflection.PortableExecutable;
 using System.Security.Cryptography;
 using System.Xml.Linq;
 
@@ -50,34 +52,49 @@ internal static class AuthoringAdapterPayloadInspection
         var metadata = XDocument.Load(Path.Combine(directory, "package.xml"));
         var declared = metadata.Descendants().Single(element => element.Name.LocalName == "File"
             && (string?)element.Attribute("Path") == file);
-        var hash = declared.Elements().FirstOrDefault(element => element.Name.LocalName == "Hash")?.Value.Trim();
-        var candidate = Path.Combine(directory, file);
-        var issue = FileIssue(directory, candidate);
-        if (issue is not null && issue != "is missing") throw new IOException($"Library payload '{file}' {issue}.");
-        var rooted = Path.Combine(home.Root, file);
-        // Genuine package hashes identify the declared bytes even when a stale unpacked layout remains.
-        if (!string.IsNullOrEmpty(hash))
+        RejectAlternateLibraryPayloads(home.Root);
+        var path = Path.Combine(home.Root, file);
+        var issue = FileIssue(home.Root, path);
+        if (issue is not null) throw new IOException($"Library payload '{file}' {issue}.");
+        ValidateLibraryFile(path, file, declared);
+        return path;
+    }
+
+    internal static readonly string[] LibraryFiles = ["InstrumentComponents.dll", "InstrumentComponents.OpenTap.dll"];
+
+    internal static void RejectAlternateLibraryPayloads(string home)
+    {
+        var packages = Path.Combine(home, "Packages");
+        if (Directory.Exists(packages) && Directory.EnumerateFiles(packages, "*", SearchOption.AllDirectories)
+            .Any(path => LibraryFiles.Contains(Path.GetFileName(path), StringComparer.OrdinalIgnoreCase)))
+            throw new IOException("Instrument Components has an unsupported installed payload layout. Select a fresh home and Prepare in Environment.");
+    }
+
+    internal static void ValidateLibraryFile(string path, string file, XElement declaration)
+    {
+        var hashes = declaration.Elements().Where(element => element.Name.LocalName == "Hash").ToArray();
+        if (hashes.Length > 1) throw new IOException($"Malformed library payload hash for '{file}'.");
+        if (hashes.Length == 1)
         {
-            if (hash.Length != 40) throw new IOException($"Unsupported library payload hash for '{file}'.");
-            foreach (var path in new[] { rooted, candidate })
-            {
-                var problem = FileIssue(path == candidate ? directory : home.Root, path);
-                if (problem is not null && problem != "is missing") throw new IOException($"Library payload '{file}' {problem}.");
-                if (problem is null && Convert.ToHexString(SHA1.HashData(File.ReadAllBytes(path))).Equals(hash, StringComparison.OrdinalIgnoreCase)) return path;
-            }
-            throw new IOException($"Library payload '{file}' does not match its package metadata hash.");
+            var hash = hashes[0].Value.Trim();
+            if (hash.Length != 40 || hash.Any(character => !Uri.IsHexDigit(character)))
+                throw new IOException($"Malformed library payload hash for '{file}'.");
+            if (!Convert.ToHexString(SHA1.HashData(File.ReadAllBytes(path))).Equals(hash, StringComparison.OrdinalIgnoreCase))
+                throw new IOException($"Library payload '{file}' does not match its package metadata hash.");
         }
-        if (issue is null)
+        if (!LibraryFiles.Contains(file, StringComparer.Ordinal)) return;
+        try
         {
-            var rootIssue = FileIssue(home.Root, rooted);
-            if (rootIssue is not null && rootIssue != "is missing") throw new IOException($"Library payload '{file}' {rootIssue}.");
-            if (rootIssue is null && !File.ReadAllBytes(candidate).SequenceEqual(File.ReadAllBytes(rooted)))
-                throw new IOException($"Conflicting library payload layouts for '{file}'; import a trusted package with hashes in Environment.");
-            return candidate;
+            using var stream = File.OpenRead(path);
+            using var pe = new PEReader(stream);
+            if (!pe.HasMetadata || pe.PEHeaders.CorHeader is null)
+                throw new BadImageFormatException("Payload has no managed metadata.");
+            var metadata = pe.GetMetadataReader();
+            if (!metadata.IsAssembly || metadata.GetString(metadata.GetAssemblyDefinition().Name) != Path.GetFileNameWithoutExtension(file))
+                throw new BadImageFormatException("Payload assembly identity does not match its required filename.");
         }
-        issue = FileIssue(home.Root, rooted);
-        if (issue is null) return rooted;
-        throw new IOException($"Library payload '{file}' {issue}.");
+        catch (BadImageFormatException error)
+        { throw new IOException($"Library payload '{file}' is not the expected managed assembly: {error.Message}", error); }
     }
 
     private static string? FileIssue(string root, string file)

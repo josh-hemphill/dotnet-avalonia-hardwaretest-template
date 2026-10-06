@@ -49,7 +49,7 @@ public sealed class LibraryEnvironmentRecoveryTests
         var home = Path.Combine(fixture.WorkspaceRoot, "library-home");
         var payload = Path.Combine(home, "Packages", AuthoringInstrumentCatalog.LibraryPackage);
         Directory.CreateDirectory(payload);
-        foreach (var file in new[] { "InstrumentComponents.OpenTap.dll", "InstrumentComponents.dll" }) File.Copy(Path.Combine(package!, file), Path.Combine(payload, file));
+        foreach (var file in new[] { "InstrumentComponents.OpenTap.dll", "InstrumentComponents.dll" }) File.Copy(Path.Combine(package!, file), Path.Combine(home, file));
         File.Copy(Path.Combine(package!, "package.xml"), Path.Combine(payload, "package.xml"));
         fixture.ViewModel.OpenTapHomeOverride = home;
         AuthoringUiFixture.Click(fixture.Control<Button>("New test plan"));

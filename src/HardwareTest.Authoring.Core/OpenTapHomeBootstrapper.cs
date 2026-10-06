@@ -67,6 +67,8 @@ public sealed class OpenTapHomeBootstrapper : IOpenTapHomeBootstrapper
     {
         capturedEnvironment ??= AuthoringBuildService.CaptureEnvironment();
         var homeRoot = Path.GetFullPath(options.HomeDirectory!);
+        try { AuthoringAdapterPayloadInspection.RejectAlternateLibraryPayloads(homeRoot); }
+        catch (IOException error) { throw new AuthoringWorkspaceException(error.Message, error); }
         Directory.CreateDirectory(homeRoot);
         Directory.CreateDirectory(Path.Combine(homeRoot, "Packages"));
 
