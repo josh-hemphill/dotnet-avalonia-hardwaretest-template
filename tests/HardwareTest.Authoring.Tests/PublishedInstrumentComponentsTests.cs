@@ -1,9 +1,9 @@
 using System.Diagnostics;
 using System.IO.Compression;
-using HardwareTest.OpenTap.Plugins.Basic;
 using System.Security.Cryptography;
 using System.Xml.Linq;
 using HardwareTest.OpenTap.Host;
+using HardwareTest.OpenTap.Plugins.Basic;
 using Xunit;
 
 namespace HardwareTest.Authoring.Tests;
