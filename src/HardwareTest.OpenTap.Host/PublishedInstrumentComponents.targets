@@ -1,0 +1,29 @@
+<Project>
+  <PropertyGroup>
+    <_InstrumentComponentsReleaseName>InstrumentComponents.OpenTap.0.1.1.TapPackage</_InstrumentComponentsReleaseName>
+    <_InstrumentComponentsReleaseUrl>https://github.com/josh-hemphill/instrument-components/releases/download/v0.1.1/$(_InstrumentComponentsReleaseName)</_InstrumentComponentsReleaseUrl>
+    <_InstrumentComponentsReleaseSha256>779FC31299FA4624F34B0031CE67A3278FF5F895A54EF3CBCC6F64C3A79FF2EE</_InstrumentComponentsReleaseSha256>
+    <_InstrumentComponentsCache>$(MSBuildProjectDirectory)/obj/published-instrument-components/0.1.1</_InstrumentComponentsCache>
+    <!-- An offline build can supply the genuine release archive. It is still verified. -->
+    <InstrumentComponentsReleaseArchive Condition="'$(InstrumentComponentsReleaseArchive)' == ''">$(_InstrumentComponentsCache)/$(_InstrumentComponentsReleaseName)</InstrumentComponentsReleaseArchive>
+  </PropertyGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="$(InstrumentComponentsReleaseArchive)" LogicalName="HardwareTest.OpenTap.Host.InstrumentComponents.OpenTap.TapPackage" />
+    <!-- Ship the archive, not loose plugins: metadata-only authoring must stay isolated. -->
+    <Content Include="$(InstrumentComponentsReleaseArchive)" Link="PublishedArtifacts/$(_InstrumentComponentsReleaseName)" CopyToOutputDirectory="Always" CopyToPublishDirectory="Always" />
+  </ItemGroup>
+  <Target Name="ProvisionPublishedInstrumentComponents"
+          BeforeTargets="PrepareForBuild;AssignTargetPaths;PrepareResources;GetCopyToOutputDirectoryItems"
+          Condition="'$(DesignTimeBuild)' != 'true'">
+    <MakeDir Directories="$(_InstrumentComponentsCache)" />
+    <Error Condition="!Exists('$(InstrumentComponentsReleaseArchive)') And '$(InstrumentComponentsReleaseArchive)' != '$(_InstrumentComponentsCache)/$(_InstrumentComponentsReleaseName)'"
+           Text="The supplied InstrumentComponents release archive does not exist: $(InstrumentComponentsReleaseArchive)" />
+    <DownloadFile SourceUrl="$(_InstrumentComponentsReleaseUrl)" DestinationFolder="$(_InstrumentComponentsCache)" DestinationFileName="$(_InstrumentComponentsReleaseName)"
+                  Condition="!Exists('$(InstrumentComponentsReleaseArchive)')" />
+    <GetFileHash Files="$(InstrumentComponentsReleaseArchive)" Algorithm="SHA256">
+      <Output TaskParameter="Items" ItemName="_InstrumentComponentsArchiveHash" />
+    </GetFileHash>
+    <Error Condition="'%(_InstrumentComponentsArchiveHash.FileHash)' != '$(_InstrumentComponentsReleaseSha256)'"
+           Text="InstrumentComponents release SHA256 mismatch. Expected $(_InstrumentComponentsReleaseSha256); received %(_InstrumentComponentsArchiveHash.FileHash)." />
+  </Target>
+</Project>

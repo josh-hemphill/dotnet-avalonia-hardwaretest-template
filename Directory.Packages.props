@@ -4,6 +4,7 @@
     <AvaloniaVersion>12.1.2</AvaloniaVersion>
     <ITextVersion>9.7.0</ITextVersion>
     <MicrosoftExtensionsVersion>10.0.12</MicrosoftExtensionsVersion>
+    <InstrumentComponentsVersion>0.1.1</InstrumentComponentsVersion>
     <OpenTapVersion>9.35.0</OpenTapVersion>
     <ReactiveUIBindingVersion>7.3.0</ReactiveUIBindingVersion>
     <ScottPlotVersion>5.1.59</ScottPlotVersion>
@@ -19,6 +20,10 @@
     <PackageVersion Include="AvaloniaUI.DiagnosticsSupport" Version="2.2.3" />
     <PackageVersion Include="coverlet.collector" Version="10.0.1" />
     <PackageVersion Include="FluentAvaloniaUI" Version="3.1.0" />
+    <PackageVersion Include="InstrumentComponents" Version="$(InstrumentComponentsVersion)" />
+    <PackageVersion Include="InstrumentComponents.OpenTap" Version="$(InstrumentComponentsVersion)" />
+    <PackageVersion Include="InstrumentComponents.Visa" Version="$(InstrumentComponentsVersion)" />
+    <PackageVersion Include="InstrumentComponents.OpenTap.Visa" Version="$(InstrumentComponentsVersion)" />
     <PackageVersion Include="IviFoundation.Visa" Version="8.0.2" />
     <PackageVersion Include="itext" Version="$(ITextVersion)" />
     <PackageVersion Include="itext.bouncy-castle-adapter" Version="$(ITextVersion)" />
