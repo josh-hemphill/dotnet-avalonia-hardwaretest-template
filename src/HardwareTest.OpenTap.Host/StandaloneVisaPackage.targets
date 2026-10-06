@@ -1,0 +1,9 @@
+<Project>
+  <PropertyGroup>
+    <_StandaloneVisaArchive>$(MSBuildProjectDirectory)/../HardwareTest.OpenTap.StandaloneVisa/obj/$(Configuration)/$(TargetFramework)/$(RuntimeIdentifier)/HardwareTest.Standalone.VISA.0.1.0.TapPackage</_StandaloneVisaArchive>
+  </PropertyGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="$(_StandaloneVisaArchive)" LogicalName="HardwareTest.OpenTap.Host.StandaloneVisa.TapPackage" />
+    <Content Include="$(_StandaloneVisaArchive)" Link="PublishedArtifacts/HardwareTest.Standalone.VISA.0.1.0.TapPackage" CopyToOutputDirectory="Always" CopyToPublishDirectory="Always" />
+  </ItemGroup>
+</Project>

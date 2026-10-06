@@ -13,6 +13,7 @@ public sealed class AuthoringExternalTuiLauncher
             if (!OperatingSystem.IsLinux() && !OperatingSystem.IsWindows()) return "Launch the installed TUI from a terminal on this platform, then reopen or reconcile external changes.";
             if (plan is null || !File.Exists(plan)) return "Save and compile the selected plan first.";
             if (!File.Exists(Path.Combine(home, "tap.dll"))) return "The selected OpenTAP home has no tap.dll CLI. Prepare an installed TUI home.";
+            if (StandaloneVisaReadiness.IsLibraryHome(new(home)) && StandaloneVisaReadiness.Assess(new(home)) is { Available: false } unavailable) return unavailable.Reason;
             if (!Directory.EnumerateFiles(home, "*Tui*.dll", SearchOption.AllDirectories).Any()) return "Install the OpenTAP TUI package into the selected home first.";
             if (OperatingSystem.IsLinux() && LinuxTerminal() is null) return "Install xfce4-terminal or xterm to open the interactive TUI with child-lifetime waiting.";
             return null;
@@ -42,7 +43,7 @@ public sealed class AuthoringExternalTuiLauncher
     private static void AddCliArguments(ProcessStartInfo start, string home, string plan)
     {
         start.ArgumentList.Add("--roll-forward"); start.ArgumentList.Add("Major");
-        start.ArgumentList.Add(Path.Combine(home, "tap.dll")); start.ArgumentList.Add("tui"); start.ArgumentList.Add(plan);
+        start.ArgumentList.Add(Path.Combine(home, StandaloneVisaReadiness.IsLibraryHome(new(home)) ? HardwareTest.OpenTap.Host.StandaloneVisaPackage.WrapperFileName : "tap.dll")); start.ArgumentList.Add("tui"); start.ArgumentList.Add(plan);
     }
 
     public async Task<int> LaunchAsync(string home, string plan, CancellationToken cancellationToken = default)

@@ -27,6 +27,9 @@ public sealed partial class AuthoringWorkspaceViewModel
         }
     }
 
+    public string StandaloneVisaReadinessText => HardwareInspection is { Error: null, Home: { } home }
+        ? StandaloneVisaReadiness.Assess(home).Reason! : "Standalone VISA is optional; mock plans do not need it. Select a prepared library home to assess its provider.";
+
     public bool CanDeclareLibraryDependency => Workspace is { IsReadOnly: false } && !OperationBusy
         && !Workspace.Manifest.Dependencies.Any(d => d.Package.Equals(AuthoringInstrumentCatalog.LibraryPackage, StringComparison.OrdinalIgnoreCase));
 
@@ -59,6 +62,7 @@ public sealed partial class AuthoringWorkspaceViewModel
     private void RaiseEnvironmentProperties()
     {
         OnPropertyChanged(nameof(LibraryEnvironmentReadinessText));
+        OnPropertyChanged(nameof(StandaloneVisaReadinessText));
         OnPropertyChanged(nameof(CanDeclareLibraryDependency));
         OnPropertyChanged(nameof(InstrumentTypeChoices));
         OnPropertyChanged(nameof(EnvironmentPathError));

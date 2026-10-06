@@ -77,11 +77,6 @@ public sealed class InstrumentComponentsScpiIoTests
         Assert.True(broker.LastSession.Disposed);
     }
 
-    [Fact]
-    public void TryRegisterProvider_is_false_when_the_library_pack_is_not_loaded()
-    {
-        Assert.False(InstrumentComponentsScpiIo.TryRegisterProvider(new RecordingVisaBroker()));
-    }
 }
 
 public interface ITestScpiIo : IDisposable

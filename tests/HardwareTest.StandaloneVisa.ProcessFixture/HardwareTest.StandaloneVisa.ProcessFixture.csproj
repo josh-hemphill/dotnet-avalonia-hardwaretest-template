@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <CreateOpenTapPackage>false</CreateOpenTapPackage>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="InstrumentComponents.OpenTap.Visa" PrivateAssets="all" />
+    <PackageReference Include="OpenTAP" PrivateAssets="all" />
+    <ProjectReference Include="../../src/HardwareTest.OpenTap.Host/HardwareTest.OpenTap.Host.csproj" />
+  </ItemGroup>
+</Project>

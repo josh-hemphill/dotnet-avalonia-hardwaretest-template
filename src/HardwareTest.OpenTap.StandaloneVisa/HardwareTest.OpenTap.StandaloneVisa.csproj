@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <UseAppHost>false</UseAppHost>
+    <SelfContained>false</SelfContained>
+    <CreateOpenTapPackage>false</CreateOpenTapPackage>
+    <StandaloneVisaArchive>$(MSBuildProjectDirectory)/obj/$(Configuration)/$(TargetFramework)/$(RuntimeIdentifier)/HardwareTest.Standalone.VISA.0.1.0.TapPackage</StandaloneVisaArchive>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="InstrumentComponents.OpenTap.Visa" PrivateAssets="all" />
+    <PackageReference Include="OpenTAP" PrivateAssets="all" />
+  </ItemGroup>
+  <Import Project="StandaloneVisaPackage.targets" />
+</Project>

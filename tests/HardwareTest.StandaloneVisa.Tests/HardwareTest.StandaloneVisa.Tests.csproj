@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <CreateOpenTapPackage>false</CreateOpenTapPackage>
+    <InstallCreatedOpenTapPackage>false</InstallCreatedOpenTapPackage>
+    <NoWarn>$(NoWarn);xUnit1051</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/HardwareTest.Authoring.Core/HardwareTest.Authoring.Core.csproj" />
+    <ProjectReference Include="../HardwareTest.StandaloneVisa.ProcessFixture/HardwareTest.StandaloneVisa.ProcessFixture.csproj" ReferenceOutputAssembly="false" Private="false" />
+    <ProjectReference Include="../HardwareTest.StandaloneVisa.CliFixture/HardwareTest.StandaloneVisa.CliFixture.csproj" ReferenceOutputAssembly="false" Private="false" />
+    <ProjectReference Include="../HardwareTest.StandaloneVisa.RebuiltFixture/HardwareTest.StandaloneVisa.RebuiltFixture.csproj" ReferenceOutputAssembly="false" Private="false" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="xunit.runner.visualstudio" PrivateAssets="all" />
+  </ItemGroup>
+  <Target Name="CopyBoundaryFixture" AfterTargets="Build">
+    <ItemGroup><_FixtureFiles Include="../HardwareTest.StandaloneVisa.ProcessFixture/bin/$(Configuration)/$(TargetFramework)/$(RuntimeIdentifier)/**/*" /></ItemGroup>
+    <Copy SourceFiles="../HardwareTest.StandaloneVisa.RebuiltFixture/bin/$(Configuration)/$(TargetFramework)/$(RuntimeIdentifier)/InstrumentComponents.OpenTap.dll" DestinationFolder="$(TargetDir)RebuiltFixture" />
+    <Copy SourceFiles="../HardwareTest.StandaloneVisa.CliFixture/bin/$(Configuration)/$(TargetFramework)/$(RuntimeIdentifier)/HardwareTest.StandaloneVisa.CliFixture.dll" DestinationFolder="$(TargetDir)CliFixture" />
+    <Copy SourceFiles="@(_FixtureFiles)" DestinationFiles="@(_FixtureFiles->'$(TargetDir)BoundaryFixture/%(RecursiveDir)%(Filename)%(Extension)')" />
+  </Target>
+</Project>

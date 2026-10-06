@@ -84,6 +84,7 @@ public sealed class OpenTapHomeBootstrapper : IOpenTapHomeBootstrapper
         }
 
         if (string.IsNullOrWhiteSpace(options.OfflinePackagePath)) InstallInstrumentComponentsIfRequired(workspace, options, homeRoot, capturedEnvironment);
+        InstallStandaloneCounterpartForLibrary(workspace.Manifest, homeRoot, explicitPartialImport: !string.IsNullOrWhiteSpace(options.OfflinePackagePath));
         InstallOptionalFilePackage(options.TuiPackagePath, homeRoot, workspace.Manifest);
 
         if (!requiresVisa)
@@ -236,6 +237,11 @@ public sealed class OpenTapHomeBootstrapper : IOpenTapHomeBootstrapper
             return;
         }
 
+        var selectedLibrary = ListInstalledPackages(new(homeRoot)).FirstOrDefault(package =>
+            package.Name.Equals(InstrumentComponentsPackageName, StringComparison.OrdinalIgnoreCase));
+        if (selectedLibrary is not null && selectedLibrary.Version.Split('+')[0] != PublishedInstrumentComponents.Version)
+            throw new AuthoringWorkspaceException("The selected Instrument Components dependency version is unsupported. Preparation requires InstrumentComponents.OpenTap 0.1.1.");
+
         var requirement = AuthoringEnvironmentAssessment.Packages(workspace.Manifest, new(homeRoot))
             .First(package => package.Package.Equals(InstrumentComponentsPackageName, StringComparison.OrdinalIgnoreCase));
         if (requirement.Satisfied && AuthoringInstrumentCatalog.LibraryPayloadAvailability(new(homeRoot)).Available) return;
@@ -273,6 +279,23 @@ public sealed class OpenTapHomeBootstrapper : IOpenTapHomeBootstrapper
         }
 
         InstallFileOrDirectoryPackage(path, homeRoot, workspace.Manifest);
+    }
+
+    private static void InstallStandaloneCounterpartForLibrary(AuthoringManifest manifest, string homeRoot, bool explicitPartialImport)
+    {
+        if (!manifest.Dependencies.Any(dependency => dependency.Package.Equals(InstrumentComponentsPackageName, StringComparison.OrdinalIgnoreCase))) return;
+        var home = new OpenTapHome(homeRoot);
+        if (explicitPartialImport && !StandaloneVisaReadiness.IsLibraryHome(home)) return;
+        if (StandaloneVisaReadiness.SupportedDependencies(home) is { } reason) throw new AuthoringWorkspaceException(reason);
+        if (StandaloneVisaReadiness.Assess(home).Available) return;
+        var archive = Path.Combine(Path.GetTempPath(), "ht-standalone-visa-" + Guid.NewGuid().ToString("N") + ".TapPackage");
+        try
+        {
+            using (var source = StandaloneVisaPackage.OpenArchive())
+            using (var destination = new FileStream(archive, FileMode.CreateNew, FileAccess.Write)) source.CopyTo(destination);
+            InstallFileOrDirectoryPackage(archive, homeRoot, manifest);
+        }
+        finally { if (File.Exists(archive)) File.Delete(archive); }
     }
 
     private static void InstallOptionalFilePackage(string? path, string homeRoot, AuthoringManifest manifest)
