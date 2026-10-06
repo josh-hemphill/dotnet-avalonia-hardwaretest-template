@@ -89,6 +89,12 @@ jobs:
       - name: Build
         run: deno run -A tools/ci/main.ts build --rid win-x64
 
+      - name: "Windows atomic progress replacement"
+        run: >-
+          dotnet test tests/HardwareTest.Authoring.Tests/HardwareTest.Authoring.Tests.csproj
+          -c Release -r win-x64 --no-build --no-restore
+          --filter "FullyQualifiedName~AuthoringProgressFileTests"
+
       - name: Format check
         run: deno run -A tools/ci/main.ts format
 
