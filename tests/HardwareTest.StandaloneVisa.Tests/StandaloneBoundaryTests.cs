@@ -91,6 +91,18 @@ public sealed class StandaloneBoundaryTests : IDisposable
     }
 
     [Theory]
+    [InlineData("--loaded-update")]
+    [InlineData("--loaded-update-after-reuse")]
+    public async Task Unselected_loaded_library_with_atomically_replaced_origin_is_refused(string mode)
+    {
+        var home = InstalledHome();
+        File.Copy(Path.Combine(AppContext.BaseDirectory, "RebuiltFixture", "InstrumentComponents.OpenTap.dll"), Path.Combine(home, "replacement.dll"));
+        var result = await Run(home, "HardwareTest.StandaloneVisa.ProcessFixture.dll", home, mode);
+        Assert.Equal(0, result.Code);
+        Assert.Contains("unselected-loaded-origin-replacement-refused", result.Output);
+    }
+
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public async Task Explicit_package_directory_is_rejected_as_an_installed_execution_home(bool withPayload)
@@ -118,6 +130,21 @@ public sealed class StandaloneBoundaryTests : IDisposable
             File.Copy(Path.Combine(home, file), Path.Combine(package, file));
             if (!retainRootPayload) File.Delete(Path.Combine(home, file));
         }
+        var result = await Run(home, "HardwareTest.StandaloneVisa.ProcessFixture.dll", home, allowFailure: true);
+        Assert.NotEqual(0, result.Code);
+        Assert.Contains("cannot use obsolete package-directory library DLLs", result.Output);
+        Assert.DoesNotContain("managed-broker-bound-and-cleaned", result.Output);
+    }
+
+    [Fact]
+    public async Task Alias_package_directory_payload_without_root_dlls_or_canonical_metadata_is_rejected()
+    {
+        var home = InstalledHome();
+        var alias = Path.Combine(home, "Packages", "Alias");
+        Directory.CreateDirectory(alias);
+        foreach (var file in new[] { "InstrumentComponents.dll", "InstrumentComponents.OpenTap.dll" })
+            File.Move(Path.Combine(home, file), Path.Combine(alias, file));
+        File.Delete(Path.Combine(home, "Packages", PublishedInstrumentComponents.PackageName, "package.xml"));
         var result = await Run(home, "HardwareTest.StandaloneVisa.ProcessFixture.dll", home, allowFailure: true);
         Assert.NotEqual(0, result.Code);
         Assert.Contains("cannot use obsolete package-directory library DLLs", result.Output);

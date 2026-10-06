@@ -20,7 +20,12 @@ internal static class ExecutionInstrumentLibrary
         var loaded = AppDomain.CurrentDomain.GetAssemblies().FirstOrDefault(assembly => assembly.GetName().Name == PublishedInstrumentComponents.PackageName);
         if (loaded is not null && selected is null)
         {
-            VerifyContract(loaded);
+            var contract = VerifyContract(loaded);
+            var assemblies = new[] { contract, loaded };
+            var bundled = BundledPayload();
+            for (var i = 0; i < assemblies.Length; i++)
+                if (!LoadedFingerprint(assemblies[i]).SequenceEqual(SHA256.HashData(bundled[i])))
+                    throw new InvalidOperationException("An execution library loaded without a selected home must match the bundled 0.1.1 payload. Configure a trusted installed home to use a custom library.");
             return Path.GetDirectoryName(loaded.Location)!;
         }
 
@@ -64,11 +69,11 @@ internal static class ExecutionInstrumentLibrary
             if (File.Exists(Path.Combine(directory, "package.xml")) && IsLibraryMetadata(Path.Combine(directory, "package.xml")))
                 throw new InvalidOperationException("Instrument Components execution requires an installed home root with root DLLs and Packages/InstrumentComponents.OpenTap/package.xml. Import package directories before execution.");
             var metadata = Path.Combine(directory, "Packages", PublishedInstrumentComponents.PackageName, "package.xml");
-            if (!Files.Any(file => File.Exists(Path.Combine(directory, file))) && !File.Exists(metadata)) continue;
             var packages = Path.Combine(directory, "Packages");
             if (Directory.Exists(packages) && Directory.EnumerateFiles(packages, "*", SearchOption.AllDirectories)
                 .Any(file => Files.Contains(Path.GetFileName(file), StringComparer.OrdinalIgnoreCase)))
                 throw new InvalidOperationException("Instrument Components execution cannot use obsolete package-directory library DLLs. Import or repair the selected package to keep library DLLs only in the installed home root.");
+            if (!Files.Any(file => File.Exists(Path.Combine(directory, file))) && !File.Exists(metadata)) continue;
             if (!IsLibraryMetadata(metadata, PublishedInstrumentComponents.Version))
                 throw new InvalidOperationException("Instrument Components execution requires installed InstrumentComponents.OpenTap 0.1.1 package metadata in the selected home root.");
             if (!Files.All(file => File.Exists(Path.Combine(directory, file))))
@@ -93,19 +98,20 @@ internal static class ExecutionInstrumentLibrary
 
     private static byte[] LoadedFingerprint(Assembly assembly)
     {
-        if (LoadedHashes.TryGetValue(assembly, out var hash)) return hash;
         var bytes = File.ReadAllBytes(assembly.Location);
         using var stream = new MemoryStream(bytes, writable: false);
         using var pe = new PEReader(stream);
         var metadata = pe.GetMetadataReader();
         if (metadata.GetGuid(metadata.GetModuleDefinition().Mvid) != assembly.ManifestModule.ModuleVersionId)
             throw new InvalidOperationException("The loaded execution library no longer matches its source payload. Restart the executing process.");
-        hash = SHA256.HashData(bytes);
-        LoadedHashes.Add(assembly, hash);
+        var hash = SHA256.HashData(bytes);
+        if (LoadedHashes.TryGetValue(assembly, out var previous) && !previous.SequenceEqual(hash))
+            throw new InvalidOperationException("The loaded execution library no longer matches its source payload. Restart the executing process.");
+        LoadedHashes[assembly] = hash;
         return hash;
     }
 
-    private static void VerifyContract(Assembly assembly)
+    private static Assembly VerifyContract(Assembly assembly)
     {
         var identity = assembly.GetName();
         var provider = assembly.GetType(InstrumentComponentsScpiIo.OpenTapScpiIoTypeName)?.GetProperty("Provider", BindingFlags.Public | BindingFlags.Static);
@@ -118,6 +124,7 @@ internal static class ExecutionInstrumentLibrary
             || open.ReturnType.Assembly.GetName().Name != "InstrumentComponents"
             || open.ReturnType.Assembly.GetName().Version != new Version(0, 1, 1, 0))
             throw new InvalidOperationException("The selected Instrument Components library does not support the current 0.1.1 broker-managed execution contract.");
+        return open.ReturnType.Assembly;
     }
 
     private static byte[][] BundledPayload()

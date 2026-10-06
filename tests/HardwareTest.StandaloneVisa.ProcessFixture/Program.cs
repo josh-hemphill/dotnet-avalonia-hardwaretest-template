@@ -34,6 +34,21 @@ if (args is ["--selected-update", var home])
     return 0;
 }
 
+if (args is [var updateMode, var updatedHome] && updateMode is "--loaded-update" or "--loaded-update-after-reuse")
+{
+    var original = System.Reflection.Assembly.LoadFrom(Path.Combine(updatedHome, "InstrumentComponents.OpenTap.dll"));
+    var originalMvid = original.ManifestModule.ModuleVersionId;
+    if (updateMode == "--loaded-update-after-reuse")
+        new OpenTapHostCatalog(new AppSettings(), Serilog.Log.Logger, new FixtureBroker()).EnsurePlugins();
+    File.Replace(Path.Combine(updatedHome, "replacement.dll"), original.Location, null);
+    var catalog = new OpenTapHostCatalog(new AppSettings(), Serilog.Log.Logger, new FixtureBroker());
+    try { catalog.EnsurePlugins(); throw new InvalidOperationException("Changed unselected loaded origin was accepted."); }
+    catch (InvalidOperationException error) when (error.Message.Contains("no longer matches its source payload", StringComparison.Ordinal)) { }
+    if (original.ManifestModule.ModuleVersionId != originalMvid) throw new InvalidOperationException("The original loaded code was replaced.");
+    Console.WriteLine("unselected-loaded-origin-replacement-refused");
+    return 0;
+}
+
 if (args is ["--loaded-unsupported", var unsupportedHome])
 {
     System.Reflection.Assembly.LoadFrom(Path.Combine(unsupportedHome, "replacement.dll"));
