@@ -5,6 +5,7 @@
     <_InstrumentComponentsReleaseSha256>779FC31299FA4624F34B0031CE67A3278FF5F895A54EF3CBCC6F64C3A79FF2EE</_InstrumentComponentsReleaseSha256>
     <_InstrumentComponentsCache>$(MSBuildProjectDirectory)/obj/published-instrument-components/0.1.1</_InstrumentComponentsCache>
     <!-- An offline build can supply the genuine release archive. It is still verified. -->
+    <_InstrumentComponentsArchiveDefaulted Condition="'$(InstrumentComponentsReleaseArchive)' == ''">true</_InstrumentComponentsArchiveDefaulted>
     <InstrumentComponentsReleaseArchive Condition="'$(InstrumentComponentsReleaseArchive)' == ''">$(_InstrumentComponentsCache)/$(_InstrumentComponentsReleaseName)</InstrumentComponentsReleaseArchive>
   </PropertyGroup>
   <ItemGroup>
@@ -16,10 +17,10 @@
           BeforeTargets="PrepareForBuild;AssignTargetPaths;PrepareResources;GetCopyToOutputDirectoryItems"
           Condition="'$(DesignTimeBuild)' != 'true'">
     <MakeDir Directories="$(_InstrumentComponentsCache)" />
-    <Error Condition="!Exists('$(InstrumentComponentsReleaseArchive)') And '$(InstrumentComponentsReleaseArchive)' != '$(_InstrumentComponentsCache)/$(_InstrumentComponentsReleaseName)'"
+    <Error Condition="!Exists('$(InstrumentComponentsReleaseArchive)') And '$(_InstrumentComponentsArchiveDefaulted)' != 'true'"
            Text="The supplied InstrumentComponents release archive does not exist: $(InstrumentComponentsReleaseArchive)" />
     <DownloadFile SourceUrl="$(_InstrumentComponentsReleaseUrl)" DestinationFolder="$(_InstrumentComponentsCache)" DestinationFileName="$(_InstrumentComponentsReleaseName)"
-                  Condition="!Exists('$(InstrumentComponentsReleaseArchive)')" />
+                  Condition="!Exists('$(InstrumentComponentsReleaseArchive)') And '$(_InstrumentComponentsArchiveDefaulted)' == 'true'" />
     <GetFileHash Files="$(InstrumentComponentsReleaseArchive)" Algorithm="SHA256">
       <Output TaskParameter="Items" ItemName="_InstrumentComponentsArchiveHash" />
     </GetFileHash>

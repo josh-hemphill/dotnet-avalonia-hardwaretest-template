@@ -1,4 +1,5 @@
 import { publishDir } from "./paths.ts";
+import { resolve } from "@std/path";
 import { runCapture } from "./run.ts";
 
 export type ArtifactOptions = {
@@ -12,6 +13,8 @@ const releaseHash =
 const baseNames = new Set([
   "InstrumentComponents",
   "InstrumentComponents.OpenTap",
+  "InstrumentComponents.Visa",
+  "InstrumentComponents.OpenTap.Visa",
 ]);
 
 export function consumerOutputs(
@@ -84,10 +87,36 @@ export async function verifyReleaseProvisioning(
   opts: ArtifactOptions,
 ): Promise<void> {
   const temporary = await Deno.makeTempDir({ prefix: "ht-release-input-" });
-  const cached =
-    `${opts.root}/src/HardwareTest.OpenTap.Host/obj/published-instrument-components/0.1.1/${archiveName}`;
   try {
-    const genuine = await Deno.readFile(cached);
+    const evaluated = await runCapture([
+      "dotnet",
+      "msbuild",
+      "src/HardwareTest.OpenTap.Host/HardwareTest.OpenTap.Host.csproj",
+      `-p:Configuration=${opts.configuration}`,
+      `-p:RuntimeIdentifier=${opts.rid}`,
+      "-getProperty:InstrumentComponentsReleaseArchive,_InstrumentComponentsCache",
+    ], { cwd: opts.root });
+    if (evaluated.code !== 0) {
+      throw new Error(evaluated.stderr || evaluated.stdout);
+    }
+    const properties = JSON.parse(evaluated.stdout).Properties;
+    const projectRoot = resolve(opts.root, "src/HardwareTest.OpenTap.Host");
+    const supplied = resolve(
+      projectRoot,
+      properties.InstrumentComponentsReleaseArchive,
+    );
+    const cached = resolve(
+      projectRoot,
+      properties._InstrumentComponentsCache,
+      archiveName,
+    );
+    let cachedBefore: Uint8Array | undefined;
+    try {
+      cachedBefore = await Deno.readFile(cached);
+    } catch (error) {
+      if (!(error instanceof Deno.errors.NotFound)) throw error;
+    }
+    const genuine = await Deno.readFile(supplied);
     const valid = `${temporary}/valid.TapPackage`;
     const tampered = `${temporary}/tampered.TapPackage`;
     await Deno.writeFile(valid, genuine);
@@ -95,13 +124,19 @@ export async function verifyReleaseProvisioning(
     changed[0] ^= 1;
     await Deno.writeFile(tampered, changed);
     for (
-      const [path, expected] of [
-        [valid, null],
+      const [path, expected, extra] of [
+        [valid, null, []],
         [
           `${temporary}/missing.TapPackage`,
           "The supplied InstrumentComponents release archive does not exist",
+          [],
         ],
-        [tampered, "InstrumentComponents release SHA256 mismatch"],
+        [tampered, "InstrumentComponents release SHA256 mismatch", []],
+        [
+          `${temporary}/empty-cache/${archiveName}`,
+          "The supplied InstrumentComponents release archive does not exist",
+          [`-p:_InstrumentComponentsCache=${temporary}/empty-cache`],
+        ],
       ] as const
     ) {
       const result = await runCapture([
@@ -112,6 +147,7 @@ export async function verifyReleaseProvisioning(
         `-p:Configuration=${opts.configuration}`,
         `-p:RuntimeIdentifier=${opts.rid}`,
         `-p:InstrumentComponentsReleaseArchive=${path}`,
+        ...extra,
       ], { cwd: opts.root });
       const message = `${result.stdout}\n${result.stderr}`;
       if (
@@ -126,7 +162,10 @@ export async function verifyReleaseProvisioning(
     }
     if (
       await sha256(await Deno.readFile(valid)) !== releaseHash ||
-      await sha256(await Deno.readFile(cached)) !== releaseHash ||
+      await sha256(await Deno.readFile(supplied)) !== releaseHash ||
+      (cachedBefore !== undefined &&
+        await sha256(await Deno.readFile(cached)) !==
+          await sha256(cachedBefore)) ||
       await sha256(await Deno.readFile(tampered)) !== await sha256(changed)
     ) {
       throw new Error(
