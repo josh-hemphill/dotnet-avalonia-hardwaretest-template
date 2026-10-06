@@ -1,3 +1,5 @@
+using System.Xml;
+using System.Xml.Linq;
 using OpenTap;
 
 namespace HardwareTest.Authoring;
@@ -11,10 +13,29 @@ internal static class AuthoringLibraryLifecycle
     {
         foreach (var node in nodes)
         {
-            if (node is RawStepNode raw && raw.TypeName is "InstrumentComponents.OpenTap.IdentityQueryStep" or "InstrumentComponents.OpenTap.SafeShutdownStep") yield return raw;
+            if (node is RawStepNode raw && ContainsLifecycle(raw)) yield return raw;
             if (node is RepeatNode repeat)
                 foreach (var child in OpaqueLifecycleNodes(repeat.Children)) yield return child;
         }
+    }
+
+    private static bool ContainsLifecycle(RawStepNode raw)
+    {
+        if (IsLifecycleType(raw.TypeName)) return true;
+        try
+        {
+            // Opaque disabled/groups/repeats retain their children only in original XML.
+            // Detect lifecycle descendants before any raw payload can be emitted into Measure.
+            return XElement.Parse(raw.XmlFragment).DescendantsAndSelf().Any(element =>
+                element.Name.LocalName == "TestStep" && IsLifecycleType((string?)element.Attribute("type")));
+        }
+        catch (XmlException) { return false; } // Malformed raw XML is rejected by compilation itself.
+    }
+
+    private static bool IsLifecycleType(string? type)
+    {
+        if (type?.StartsWith("emb:", StringComparison.Ordinal) == true) type = type[4..];
+        return type is "InstrumentComponents.OpenTap.IdentityQueryStep" or "InstrumentComponents.OpenTap.SafeShutdownStep";
     }
 
     public static Guid CleanupId(Guid policyId, string slot, string firstSlot)

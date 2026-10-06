@@ -1,4 +1,5 @@
 using HardwareTest.OpenTap.Host;
+using HardwareTest.OpenTap.Plugins.Basic;
 
 namespace HardwareTest.Authoring;
 
@@ -126,7 +127,9 @@ public sealed partial class AuthoringWorkspaceViewModel
         if (NewInstrumentCreationIssue() is { } issue) throw new AuthoringWorkspaceException(issue);
         var typeId = NewInstrumentTypeId;
         var visa = AuthoringWorkspaceCatalog.Normalize(NewInstrumentVisa)
-                   ?? $"MOCK::INSTR{SelectedProgram.Instruments.Count}";
+                   ?? (typeId == typeof(MockDmmInstrument).FullName
+                       ? $"MOCK::INSTR{SelectedProgram.Instruments.Count}"
+                       : throw new AuthoringWorkspaceException("Instrument address is required."));
         var instrument = new InstrumentRef(slot, typeId, visa);
         // Validate the selected adapter without opening any instrument connection.
         AuthoringInstrumentCatalog.Create(instrument, InstrumentCreationHomeFor(instrument.TypeId));

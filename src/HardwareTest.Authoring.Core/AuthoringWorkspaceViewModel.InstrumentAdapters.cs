@@ -58,6 +58,8 @@ public sealed partial class AuthoringWorkspaceViewModel
                 return "Declare the HardwareTest VISA workspace dependency before adding a VISA DMM.";
             if (string.IsNullOrWhiteSpace(NewInstrumentVisa)) return "Enter the VISA address for the selected VISA DMM.";
         }
+        if (AuthoringInstrumentCatalog.IsLibrary(adapter.TypeId) && string.IsNullOrWhiteSpace(NewInstrumentVisa))
+            return "Enter the instrument address for the selected library device.";
         try { return adapter.Availability(InstrumentCreationHomeFor(adapter.TypeId)).Reason; }
         catch (ArgumentException) { return "Correct the selected OpenTAP home path before adding an instrument."; }
     }
