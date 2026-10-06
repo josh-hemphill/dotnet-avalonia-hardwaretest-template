@@ -149,6 +149,30 @@ public sealed class AuthoringImportBoundaryTests : IDisposable
         Assert.Equal("preserve unrelated home file", File.ReadAllText(sentinel));
     }
 
+    [Fact]
+    public void Flat_engine_folder_cannot_overwrite_its_validated_metadata()
+    {
+        var root = AuthoringBuildSnapshotTests.Workspace();
+        var workspace = AuthoringWorkspaceLoader.Load(root);
+        var home = AuthoringBuildSnapshotTests.Home(workspace);
+        var engine = OpenTapHomeBootstrapper.ListInstalledPackages(home).Single(package => package.Name == "OpenTAP");
+        var before = Snapshot(home.Root);
+        var folder = Path.Combine(root, "engine-import");
+        Directory.CreateDirectory(Path.Combine(folder, "Packages", "OpenTAP"));
+        var runtime = new[] { "OpenTap.dll", "OpenTap.Package.dll", "tap.dll", "tap.runtimeconfig.json" };
+        foreach (var file in runtime) File.Copy(Path.Combine(home.Root, file), Path.Combine(folder, file));
+        const string nested = "Packages/OpenTAP/package.xml";
+        File.WriteAllText(Path.Combine(folder, nested), """<Package Name="Foreign" Version="99.0.0" />""");
+        File.WriteAllText(Path.Combine(folder, "package.xml"),
+            $"""<Package Name="OpenTAP" Version="{engine.Version}"><Files><File Path="{nested}" /></Files></Package>""");
+
+        var error = Assert.Throws<AuthoringWorkspaceException>(() => new OpenTapHomeBootstrapper().Bootstrap(workspace,
+            new() { HomeDirectory = home.Root, OfflinePackagePath = folder, Offline = true }));
+
+        Assert.Contains("validated package metadata", error.Message);
+        AssertSnapshot(before, home.Root);
+    }
+
     [Theory]
     [InlineData("OpenTap.dll")]
     [InlineData("OpenTap.Package.dll")]

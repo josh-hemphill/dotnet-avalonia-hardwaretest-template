@@ -84,20 +84,15 @@ public sealed class BundledLibraryBootstrapTests : IDisposable
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public void Explicit_library_override_publishes_custom_bytes_and_invalidates_bundled_provenance(bool unpacked)
+    public void Same_name_custom_import_publishes_custom_bytes_and_invalidates_bundled_provenance(bool unpacked)
     {
         var home = Prepare(Workspace());
         File.WriteAllText(Path.Combine(home.Root, "unrelated.txt"), "selected home sentinel");
         var before = Files(home);
         AssertBundledProvenance(home);
         var (path, replacement) = CustomReplacement(home, unpacked);
-        // Force replacement rather than reuse of the installed version.
-        var metadata = Path.Combine(home.Root, "Packages", PublishedInstrumentComponents.PackageName, "package.xml");
-        var xml = System.Xml.Linq.XDocument.Load(metadata);
-        xml.Root!.SetAttributeValue("Version", "2.0.0");
-        xml.Save(metadata);
-
-        var selected = Prepare(Workspace(), path: path);
+        var selected = new OpenTapHomeBootstrapper().Bootstrap(Workspace(),
+            new() { HomeDirectory = home.Root, OfflinePackagePath = path, Offline = true });
 
         Assert.Equal(home.Root, selected.Root);
         AssertLibraryReplacement(before, selected, replacement);
@@ -202,6 +197,12 @@ public sealed class BundledLibraryBootstrapTests : IDisposable
     [InlineData(true, "metadata-only")]
     [InlineData(false, "undeclared")]
     [InlineData(true, "undeclared")]
+    [InlineData(false, "direct-files")]
+    [InlineData(true, "direct-files")]
+    [InlineData(false, "nested-files")]
+    [InlineData(true, "nested-files")]
+    [InlineData(false, "duplicate-files")]
+    [InlineData(true, "duplicate-files")]
     [InlineData(false, "missing")]
     [InlineData(true, "missing")]
     [InlineData(false, "native")]
@@ -222,6 +223,18 @@ public sealed class BundledLibraryBootstrapTests : IDisposable
         var xml = System.Xml.Linq.XDocument.Load(metadata);
         if (invalid == "metadata-only") xml.Root!.Element("Files")!.Remove();
         if (invalid == "undeclared") xml.Descendants("File").First().Remove();
+        if (invalid == "direct-files")
+        {
+            var declarations = xml.Root!.Element("Files")!;
+            declarations.ReplaceWith(declarations.Elements().ToArray());
+        }
+        if (invalid == "nested-files")
+        {
+            var declarations = xml.Root!.Element("Files")!;
+            declarations.Remove();
+            xml.Root.Add(new System.Xml.Linq.XElement("Wrapper", declarations));
+        }
+        if (invalid == "duplicate-files") xml.Root!.Add(new System.Xml.Linq.XElement("Files"));
         if (invalid == "missing") File.Delete(Path.Combine(path, "InstrumentComponents.dll"));
         if (invalid == "native") File.WriteAllText(Path.Combine(path, "InstrumentComponents.dll"), "not a managed PE image");
         if (invalid == "identity") File.Copy(Path.Combine(path, "InstrumentComponents.OpenTap.dll"), Path.Combine(path, "InstrumentComponents.dll"), overwrite: true);
@@ -236,6 +249,35 @@ public sealed class BundledLibraryBootstrapTests : IDisposable
         }
         Assert.Throws<AuthoringWorkspaceException>(() => new OpenTapHomeBootstrapper().Bootstrap(Workspace(),
             new() { HomeDirectory = home.Root, Offline = true, OfflinePackagePath = path }));
+        AssertFiles(before, home);
+        AssertBundledProvenance(home);
+    }
+
+    [Theory]
+    [InlineData("Foreign", "1.0.0", false)]
+    [InlineData("InstrumentComponents.OpenTap", "2.0.0", false)]
+    [InlineData("Foreign", "1.0.0", true)]
+    [InlineData("InstrumentComponents.OpenTap", "2.0.0", true)]
+    public void Flat_folder_payload_cannot_overwrite_validated_library_identity(string name, string version, bool differingCase)
+    {
+        var home = Prepare(Workspace());
+        File.WriteAllText(Path.Combine(home.Root, "unrelated.txt"), "selected home sentinel");
+        var before = Files(home);
+        var (folder, _) = CustomReplacement(home, unpacked: true);
+        var nested = $"Packages/{PublishedInstrumentComponents.PackageName}/package.xml";
+        if (differingCase) nested = nested.ToUpperInvariant();
+        var destination = Path.Combine(folder, nested);
+        Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+        File.WriteAllText(destination, $"""<Package Name="{name}" Version="{version}" />""");
+        var metadata = Path.Combine(folder, "package.xml");
+        var xml = System.Xml.Linq.XDocument.Load(metadata);
+        xml.Root!.Element("Files")!.Add(new System.Xml.Linq.XElement("File", new System.Xml.Linq.XAttribute("Path", nested)));
+        xml.Save(metadata);
+
+        var error = Assert.Throws<AuthoringWorkspaceException>(() => new OpenTapHomeBootstrapper().Bootstrap(Workspace(),
+            new() { HomeDirectory = home.Root, Offline = true, OfflinePackagePath = folder }));
+
+        Assert.Contains("validated package metadata", error.Message);
         AssertFiles(before, home);
         AssertBundledProvenance(home);
     }

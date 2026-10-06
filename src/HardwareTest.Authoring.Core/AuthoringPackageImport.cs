@@ -92,6 +92,9 @@ internal static class AuthoringPackageImport
         }
         if (name.Equals(OpenTapHomeBootstrapper.InstrumentComponentsPackageName, StringComparison.OrdinalIgnoreCase))
         {
+            var declarations = xml.Elements().Where(element => element.Name.LocalName == "Files").ToArray();
+            if (declarations.Length != 1 || xml.Descendants().Any(element => element.Name.LocalName == "File" && element.Parent != declarations[0]))
+                throw new AuthoringWorkspaceException("Offline library package must declare payload directly in one Package/Files element.");
             foreach (var required in AuthoringAdapterPayloadInspection.LibraryFiles)
                 if (!files.Contains(required, StringComparer.Ordinal))
                     throw new AuthoringWorkspaceException($"Offline library package must declare required payload '{required}'.");
@@ -123,12 +126,13 @@ internal static class AuthoringPackageImport
         var engine = package.Name.Equals("OpenTAP", StringComparison.OrdinalIgnoreCase);
         var library = package.Name.Equals(OpenTapHomeBootstrapper.InstrumentComponentsPackageName, StringComparison.OrdinalIgnoreCase);
         var homeLayout = rooted || engine || library;
+        var metadataTarget = homeLayout ? $"Packages/{package.Name}/package.xml" : "package.xml";
         // Only declared payload and identity are published. Extra archive entries never overwrite an existing home.
         var filtered = Path.Combine(Path.GetTempPath(), "ht-import-layout-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(filtered);
         try
         {
-            Stage(metadata, homeLayout ? $"Packages/{package.Name}/package.xml" : "package.xml");
+            Stage(metadata, metadataTarget);
             foreach (var relative in package.Files)
             {
                 var parts = relative.Replace('\\', '/').Split('/');
@@ -158,6 +162,9 @@ internal static class AuthoringPackageImport
         finally { Directory.Delete(filtered, recursive: true); }
         void Stage(string incoming, string outgoing)
         {
+            if (outgoing.Replace('\\', '/').Equals(metadataTarget, StringComparison.OrdinalIgnoreCase)
+                && incoming.Replace('\\', '/') != metadata)
+                throw new AuthoringWorkspaceException("Offline package payload cannot replace its validated package metadata.");
             var destination = Path.Combine(filtered, outgoing.Replace('/', Path.DirectorySeparatorChar));
             AuthoringBuildService.EnsureContained(filtered, destination);
             Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
