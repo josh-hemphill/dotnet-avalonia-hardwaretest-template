@@ -132,7 +132,7 @@
               HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto" ClipToBounds="True"
               AutomationProperties.Name="Guidance rail viewport">
             <StackPanel Spacing="4">
-              <Button Content="First voltage test…" Click="OnGuidedStart" IsEnabled="{Binding CanInitializePlan}"
+              <Button Content="First test plan…" Click="OnGuidedStart" IsEnabled="{Binding CanInitializePlan}"
                   AutomationProperties.Name="Start guided voltage test" Classes="authoringAction"/>
               <Button Content="Resume guidance" Click="OnResumeGuidance"
                   AutomationProperties.Name="Resume guidance" Classes="authoringAction"/>

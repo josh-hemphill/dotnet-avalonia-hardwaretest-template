@@ -8,6 +8,7 @@
           <SolidColorBrush x:Key="AuthoringLine">#DEE4EC</SolidColorBrush>
           <SolidColorBrush x:Key="AuthoringAccent">#245ECA</SolidColorBrush>
           <SolidColorBrush x:Key="AuthoringMuted">#5C697C</SolidColorBrush>
+          <SolidColorBrush x:Key="AuthoringError">#B42318</SolidColorBrush>
         </ResourceDictionary>
         <ResourceDictionary x:Key="Dark">
           <SolidColorBrush x:Key="AuthoringCanvas">#151B25</SolidColorBrush>
@@ -15,6 +16,7 @@
           <SolidColorBrush x:Key="AuthoringLine">#354357</SolidColorBrush>
           <SolidColorBrush x:Key="AuthoringAccent">#7EA8FF</SolidColorBrush>
           <SolidColorBrush x:Key="AuthoringMuted">#AFBDD1</SolidColorBrush>
+          <SolidColorBrush x:Key="AuthoringError">#FFAAA3</SolidColorBrush>
         </ResourceDictionary>
       </ResourceDictionary.ThemeDictionaries>
     </ResourceDictionary>
@@ -50,5 +52,35 @@
   </Style>
   <Style Selector="Window.authoringPalette">
     <Setter Property="Background" Value="{DynamicResource AuthoringSurface}"/>
+  </Style>
+  <Style Selector="StackPanel.routeBody">
+    <Setter Property="Margin" Value="16,16,24,24"/>
+    <Setter Property="MaxWidth" Value="920"/>
+    <Setter Property="HorizontalAlignment" Value="Stretch"/>
+  </Style>
+  <Style Selector="Border.taskSection">
+    <Setter Property="Padding" Value="16"/>
+    <Setter Property="HorizontalAlignment" Value="Stretch"/>
+  </Style>
+  <Style Selector="TextBlock.routeTitle">
+    <Setter Property="FontWeight" Value="Bold"/>
+    <Setter Property="FontSize" Value="22"/>
+  </Style>
+  <Style Selector="TextBlock.sectionTitle">
+    <Setter Property="FontWeight" Value="SemiBold"/>
+  </Style>
+  <Style Selector="TextBlock.purpose">
+    <Setter Property="Foreground" Value="{DynamicResource AuthoringMuted}"/>
+  </Style>
+  <Style Selector="Button.primaryAction">
+    <Setter Property="Background" Value="{DynamicResource AuthoringAccent}"/>
+    <Setter Property="Foreground" Value="{DynamicResource AuthoringSurface}"/>
+    <Setter Property="FontWeight" Value="SemiBold"/>
+  </Style>
+  <Style Selector="Expander.inspectorSection">
+    <Setter Property="Padding" Value="0,4"/>
+  </Style>
+  <Style Selector="Button.authoringAction /template/ ContentPresenter TextBlock">
+    <Setter Property="TextWrapping" Value="Wrap"/>
   </Style>
 </Styles>

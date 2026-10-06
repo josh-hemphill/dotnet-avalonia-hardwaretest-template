@@ -51,6 +51,8 @@ public sealed partial class PlanInitializationWindow : Window
     private int _stage;
     private bool _idEdited;
     private bool _automaticDemoAddress;
+    private bool _automaticSlot = true;
+    private bool _updatingSlot;
 
     public bool SkipGuidanceRequested { get; private set; }
     public bool EnvironmentRequested { get; private set; }
@@ -89,6 +91,10 @@ public sealed partial class PlanInitializationWindow : Window
         };
         _hardware.SelectionChanged += (_, _) => ShowHardware();
         _environment.Click += (_, _) => { try { EnsureSession(); EnvironmentRequested = true; Close(false); } catch (Exception error) { _error.Text = error.Message; } };
+        _slot.PropertyChanged += (_, change) =>
+        {
+            if (change.Property == TextBox.TextProperty && !_updatingSlot) _automaticSlot = false;
+        };
         _slot.TextChanged += (_, _) => ShowHardware();
         _identity.IsCheckedChanged += (_, _) => ShowHardware();
         _shutdown.IsCheckedChanged += (_, _) => ShowHardware();
@@ -105,6 +111,7 @@ public sealed partial class PlanInitializationWindow : Window
             Stage(_review)
         ];
         if (guided) ConfigureGuidedStages();
+        ArrangeStageSections();
         _back.Click += (_, _) => { _stage--; ShowStage(); };
         _next.Click += (_, _) =>
         {
@@ -125,12 +132,8 @@ public sealed partial class PlanInitializationWindow : Window
         KeyDown += (_, e) => { if (e.Key == Key.Escape) { Close(false); e.Handled = true; } };
         var buttons = new WrapPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
         foreach (var button in new[] { cancel, _back, _next, _create }) { button.Margin = new Thickness(4); buttons.Children.Add(button); }
-        var root = new DockPanel { Margin = new Thickness(16) };
-        DockPanel.SetDock(_heading, Dock.Top); root.Children.Add(_heading);
-        DockPanel.SetDock(buttons, Dock.Bottom); root.Children.Add(buttons);
-        DockPanel.SetDock(_error, Dock.Bottom); root.Children.Add(_error);
-        _error.Foreground = Brushes.DarkRed; AutomationProperties.SetLiveSetting(_error, AutomationLiveSetting.Assertive);
-        var content = new StackPanel { Spacing = 10, Margin = new Thickness(0, 12) };
+        _error.Bind(TextBlock.ForegroundProperty, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("AuthoringError")); AutomationProperties.SetLiveSetting(_error, AutomationLiveSetting.Assertive);
+        var content = new StackPanel { Spacing = 20, Margin = new Thickness(0, 16, 0, 16) };
         foreach (var stage in _stages) content.Children.Add(stage);
         if (guided)
         {
@@ -145,8 +148,8 @@ public sealed partial class PlanInitializationWindow : Window
             };
             buttons.Children.Insert(0, leave); buttons.Children.Insert(1, skip);
         }
-        root.Children.Add(new ScrollViewer { Content = content, HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled });
-        Content = root;
+        _next.Classes.Add("primaryAction"); _create.Classes.Add("primaryAction");
+        Content = BuildFormLayout(content, buttons);
         ShowDestination();
         if (retained is not null) RestoreGuidedForm(retained);
         ShowHardware(); ShowStage();
@@ -226,5 +229,5 @@ public sealed partial class PlanInitializationWindow : Window
     private static Button Action(string name) { var button = Named(new Button { Content = name }, name); button.Classes.Add("authoringAction"); return button; }
     private static T Named<T>(T control, string name) where T : Control { AutomationProperties.SetName(control, name); return control; }
     private static StackPanel Stage(params Control[] controls) { var panel = new StackPanel { Spacing = 10 }; foreach (var control in controls) panel.Children.Add(control); return panel; }
-    private static StackPanel Label(string text, Control input) => Stage(new TextBlock { Text = text }, input);
+    private static StackPanel Label(string text, Control input) => Stage(new TextBlock { Text = text, TextWrapping = TextWrapping.Wrap }, input);
 }

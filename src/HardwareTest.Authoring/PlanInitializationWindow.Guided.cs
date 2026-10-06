@@ -9,6 +9,7 @@ public sealed record GuidedFormState(int Stage, string?[] Text, int[] Choices, b
     public string? HardwareTypeId { get; init; }
     public string? TimeoutText { get; init; }
     public bool AutomaticDemoAddress { get; init; }
+    public bool AutomaticSlot { get; init; }
 }
 
 public sealed partial class PlanInitializationWindow
@@ -25,7 +26,8 @@ public sealed partial class PlanInitializationWindow
         ReusedInstrument = SelectedHardware?.Resource is { } resource ? CopyResource(resource) : null,
         HardwareTypeId = SelectedHardware?.Adapter?.TypeId,
         TimeoutText = _timeout.Text,
-        AutomaticDemoAddress = _automaticDemoAddress
+        AutomaticDemoAddress = _automaticDemoAddress,
+        AutomaticSlot = _automaticSlot
     };
 
     private static InstrumentRef CopyResource(InstrumentRef resource) => resource with
@@ -57,12 +59,13 @@ public sealed partial class PlanInitializationWindow
         for (var index = 0; index < GuidedText.Length; index++) GuidedText[index].Text = state.Text[index];
         for (var index = 0; index < GuidedToggles.Length; index++) GuidedToggles[index].IsChecked = state.Toggles[index];
         _automaticDemoAddress = state.AutomaticDemoAddress;
+        _automaticSlot = state.AutomaticSlot;
         _stage = state.Stage;
     }
 
     private void ConfigureGuidedStages()
     {
-        Title = "First voltage test";
+        Title = "First test plan";
         _starting.SelectedIndex = 1;
         _identity.IsChecked = true;
         _criterion.IsChecked = true;

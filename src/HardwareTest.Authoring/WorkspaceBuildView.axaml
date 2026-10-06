@@ -1,129 +1,146 @@
-<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:vm="using:HardwareTest.Authoring" xmlns:host="using:HardwareTest.OpenTap.Host"
-    x:Class="HardwareTest.Authoring.WorkspaceBuildView" x:DataType="vm:AuthoringWorkspaceViewModel">
-  <ScrollViewer>
-    <StackPanel Spacing="8" Margin="0,8,16,0">
-      <TextBlock TextWrapping="Wrap" Text="{Binding ShipPurpose}"/>
-      <TextBlock Text="{Binding BuildReadinessText}" TextWrapping="Wrap" AutomationProperties.Name="Build readiness"/>
-      <ItemsControl ItemsSource="{Binding BuildPrograms}" IsEnabled="{Binding !OperationBusy}" AutomationProperties.Name="Build program inclusion">
-        <ItemsControl.ItemTemplate><DataTemplate x:DataType="vm:AuthoringBuildProgramLine"><StackPanel>
-          <CheckBox Content="{Binding PlanId}" IsChecked="{Binding Included, Mode=OneWay}" IsEnabled="{Binding CanChangeInclusion}" AutomationProperties.Name="{Binding PlanId, StringFormat='Include {0} in build'}" Click="OnProgramInclusion"/>
-          <TextBlock Text="{Binding SavedRevision, StringFormat='Saved source revision {0}'}"/>
-          <TextBlock Text="{Binding State}"/>
-        </StackPanel></DataTemplate></ItemsControl.ItemTemplate>
-      </ItemsControl>
-      <TextBlock Text="{Binding OperationStage}" AutomationProperties.Name="Build operation stage"/>
-      <TextBlock Text="{Binding OperationLogText}" TextWrapping="Wrap" AutomationProperties.Name="Build operation logs"/>
-      <TextBlock Text="{Binding CompatibilityState}" TextWrapping="Wrap" AutomationProperties.Name="Recorded build compatibility"/>
-      <StackPanel IsVisible="{Binding HasCompletedBuild}">
-        <TextBlock Text="Completed checked receipt" FontWeight="SemiBold"/>
-        <TextBlock Text="{Binding LastCompletedBuild.SelectedHome, StringFormat='Checked selected home: {0}'}" TextWrapping="Wrap"/>
-        <TextBlock Text="{Binding LastCompletedBuild.OutputDirectory}" TextWrapping="Wrap" AutomationProperties.Name="Completed build output"/>
-        <ItemsControl ItemsSource="{Binding CheckedRevisions}" AutomationProperties.Name="Checked saved revisions"/>
-        <ItemsControl ItemsSource="{Binding BuildChecks}" AutomationProperties.Name="Completed build checks"/>
-        <ItemsControl ItemsSource="{Binding CheckedOutputs}" AutomationProperties.Name="Checked build outputs"/>
-        <ItemsControl ItemsSource="{Binding BuildHistory}" AutomationProperties.Name="Completed build history">
-          <ItemsControl.ItemTemplate><DataTemplate x:DataType="vm:AuthoringCompletedBuild"><TextBlock Text="{Binding DisplayText}" TextWrapping="Wrap"/></DataTemplate></ItemsControl.ItemTemplate>
-        </ItemsControl>
-      </StackPanel>
-      <TextBlock FontWeight="SemiBold"
-          Text="{Binding PackPreview.ProgramPackageName, StringFormat='Program package {0}'}" TextWrapping="Wrap"/>
-      <TextBlock Text="{Binding PackPreview.ProgramPackageVersion, StringFormat='Version {0}'}" TextWrapping="Wrap"/>
-      <TextBlock Text="{Binding OpenTapPinText}" TextWrapping="Wrap"/>
-      <TextBlock Text="{Binding AuthoringHomeText}" TextWrapping="Wrap"/>
-      <TextBlock Opacity="0.8" TextWrapping="Wrap"
-          Text="TUI is not part of a production pack. Shell apps stay bake-time and are not launched from this app."/>
-      <TextBlock Opacity="0.8" TextWrapping="Wrap" IsVisible="{Binding HasInstrumentComponentsPackage}"
-          Text="{Binding InstrumentComponentsText}"/>
-      <TextBlock FontWeight="SemiBold" Text="TapPackage files" TextWrapping="Wrap"/>
-      <ItemsControl ItemsSource="{Binding PackPreview.ProgramPackContents}"
-          AutomationProperties.Name="Program pack files">
-        <ItemsControl.ItemTemplate>
-          <DataTemplate x:DataType="vm:PackFileLine">
-            <TextBlock Text="{Binding RelativePath, StringFormat='{}{0}'}" TextWrapping="Wrap"/>
-          </DataTemplate>
-        </ItemsControl.ItemTemplate>
-      </ItemsControl>
-      <TextBlock FontWeight="SemiBold" Text="Package dependencies" TextWrapping="Wrap"/>
-      <TextBlock Opacity="0.8" TextWrapping="Wrap" IsVisible="{Binding !HasPackageDependencies}"
-          Text="No package dependencies declared in authoring.json."/>
-      <ItemsControl ItemsSource="{Binding PackPreview.PackageDependencies}"
-          AutomationProperties.Name="Package dependencies">
-        <ItemsControl.ItemTemplate>
-          <DataTemplate x:DataType="vm:PackDependencyLine">
-            <TextBlock Text="{Binding DisplayText}" TextWrapping="Wrap"/>
-          </DataTemplate>
-        </ItemsControl.ItemTemplate>
-      </ItemsControl>
-      <TextBlock FontWeight="SemiBold" Text="Authoring OpenTAP home packages" TextWrapping="Wrap"/>
-      <TextBlock Opacity="0.8" TextWrapping="Wrap" IsVisible="{Binding !HasAuthoringHomePackages}"
-          Text="Prepare the environment to install Editor packs into the isolated OpenTAP home."/>
-      <ItemsControl ItemsSource="{Binding PackPreview.AuthoringHomePackages}"
-          AutomationProperties.Name="Authoring OpenTAP home packages">
-        <ItemsControl.ItemTemplate>
-          <DataTemplate x:DataType="vm:OpenTapEnvironmentLine">
-            <TextBlock Text="{Binding DisplayText}" TextWrapping="Wrap"/>
-          </DataTemplate>
-        </ItemsControl.ItemTemplate>
-      </ItemsControl>
-      <TextBlock FontWeight="SemiBold" Text="Extra plugins" TextWrapping="Wrap"/>
-      <TextBlock Opacity="0.8" TextWrapping="Wrap" IsVisible="{Binding !HasDeclaredPlugins}"
-          Text="No extra plugin TapPackages declared."/>
-      <ItemsControl ItemsSource="{Binding PackPreview.PluginProjects}" AutomationProperties.Name="Ship plugin projects">
-        <ItemsControl.ItemTemplate>
-          <DataTemplate x:DataType="vm:PackDeclaredProjectLine">
-            <TextBlock TextWrapping="Wrap" Text="{Binding DisplayText}"/>
-          </DataTemplate>
-        </ItemsControl.ItemTemplate>
-      </ItemsControl>
-      <TextBlock FontWeight="SemiBold" Text="Shell apps (bake-time)" TextWrapping="Wrap"/>
-      <TextBlock Opacity="0.8" TextWrapping="Wrap" IsVisible="{Binding !HasDeclaredShellApps}"
-          Text="No bake-time shell apps declared."/>
-      <ItemsControl ItemsSource="{Binding PackPreview.ShellAppProjects}"
-          AutomationProperties.Name="Ship shell-app projects">
-        <ItemsControl.ItemTemplate>
-          <DataTemplate x:DataType="vm:PackDeclaredProjectLine">
-            <TextBlock TextWrapping="Wrap" Text="{Binding DisplayText}"/>
-          </DataTemplate>
-        </ItemsControl.ItemTemplate>
-      </ItemsControl>
-      <TextBlock FontWeight="SemiBold" IsVisible="{Binding HasLastPack}" Text="Last pack" TextWrapping="Wrap"/>
-      <TextBlock IsVisible="{Binding HasLastPack}" TextWrapping="Wrap" Text="{Binding PackPreview.LastOutputDirectory}"/>
-      <ItemsControl ItemsSource="{Binding LastShippedFiles}" IsVisible="{Binding HasLastPack}"
-          AutomationProperties.Name="Last shipped files">
-        <ItemsControl.ItemTemplate>
-          <DataTemplate>
-            <TextBlock Text="{Binding}" TextWrapping="Wrap"/>
-          </DataTemplate>
-        </ItemsControl.ItemTemplate>
-      </ItemsControl>
-      <TextBlock FontWeight="SemiBold" IsVisible="{Binding HasLastShippedBakeTimeFiles}"
-          Text="Bake-time files in last pack" TextWrapping="Wrap"/>
-      <ItemsControl ItemsSource="{Binding LastShippedBakeTimeFiles}" IsVisible="{Binding HasLastShippedBakeTimeFiles}"
-          AutomationProperties.Name="Last shipped bake-time files">
-        <ItemsControl.ItemTemplate>
-          <DataTemplate>
-            <TextBlock Text="{Binding}" TextWrapping="Wrap"/>
-          </DataTemplate>
-        </ItemsControl.ItemTemplate>
-      </ItemsControl>
-      <TextBlock Text="{Binding PackGuardText}" TextWrapping="Wrap" AutomationProperties.Name="Pack save guard"/>
-      <TextBlock Text="{Binding PackPreflightHomeText}" TextWrapping="Wrap"/>
-      <ItemsControl ItemsSource="{Binding PackPreflightFindings}" AutomationProperties.Name="Pack preflight findings">
-        <ItemsControl.ItemTemplate>
-          <DataTemplate x:DataType="vm:PackPreflightFinding">
-            <TextBlock Text="{Binding DisplayText}" TextWrapping="Wrap"/>
-          </DataTemplate>
-        </ItemsControl.ItemTemplate>
-      </ItemsControl>
-      <TextBlock IsVisible="{Binding HasExcludedPackPlans}" Text="Opened plans excluded from this TapPackage"
-          FontWeight="SemiBold" TextWrapping="Wrap"/>
-      <ItemsControl ItemsSource="{Binding ExcludedPackPlans}" AutomationProperties.Name="Excluded pack plans"/>
-      <TextBlock Text="Exploration formulas excluded from deployment artifacts" TextWrapping="Wrap"/>
-      <ItemsControl ItemsSource="{Binding ExcludedExplorationFormulas}" AutomationProperties.Name="Excluded exploration formulas"/>
-      <Button Content="Pack…" IsEnabled="{Binding CanPack}" Click="OnPack"
-          ToolTip.Tip="Validate, then write package.xml, the program TapPackage, declared plugin copies, bake-time shell apps, and ship-manifest.json"
-          AutomationProperties.Name="Pack workspace" Classes="authoringAction"/>
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:vm="using:HardwareTest.Authoring" xmlns:host="using:HardwareTest.OpenTap.Host" x:Class="HardwareTest.Authoring.WorkspaceBuildView" x:DataType="vm:AuthoringWorkspaceViewModel">
+  <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+    <StackPanel Spacing="12" Classes="routeBody">
+      <TextBlock Text="Build workspace" Classes="routeTitle" TextWrapping="Wrap" AutomationProperties.HeadingLevel="2"/>
+      <TextBlock Text="Choose the saved plans to include, resolve readiness findings, then create a checked deployment package." Classes="purpose" TextWrapping="Wrap"/>
+      <Border Classes="surface taskSection">
+        <StackPanel Spacing="12">
+          <TextBlock Text="Saved plans included in output" Classes="sectionTitle" TextWrapping="Wrap" AutomationProperties.HeadingLevel="3"/>
+          <TextBlock TextWrapping="Wrap" Text="{Binding ShipPurpose}"/>
+          <TextBlock Text="{Binding BuildReadinessText}" TextWrapping="Wrap" AutomationProperties.Name="Build readiness"/>
+          <ItemsControl ItemsSource="{Binding BuildPrograms}" IsEnabled="{Binding !OperationBusy}" AutomationProperties.Name="Build program inclusion">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:AuthoringBuildProgramLine">
+                <StackPanel>
+                  <CheckBox Content="{Binding PlanId}" IsChecked="{Binding Included, Mode=OneWay}" IsEnabled="{Binding CanChangeInclusion}" AutomationProperties.Name="{Binding PlanId, StringFormat='Include {0} in build'}" Click="OnProgramInclusion"/>
+                  <TextBlock Text="{Binding SavedRevision, Converter={x:Static vm:BuildRevisionLabelConverter.Instance}}"/>
+                  <TextBlock Text="{Binding State}"/>
+                </StackPanel>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
+      </Border>
+      <Border Classes="surface taskSection">
+        <StackPanel Spacing="12">
+          <TextBlock Text="Build readiness and package decision" Classes="sectionTitle" TextWrapping="Wrap" AutomationProperties.HeadingLevel="3"/>
+          <TextBlock Text="{Binding PackGuardText}" TextWrapping="Wrap" AutomationProperties.Name="Pack save guard"/>
+          <TextBlock Text="{Binding PackPreflightHomeText}" TextWrapping="Wrap"/>
+          <Button Content="Pack…" IsEnabled="{Binding CanPack}" Click="OnPack" ToolTip.Tip="Validate, then write package.xml, the program TapPackage, declared plugin copies, bake-time shell apps, and ship-manifest.json" AutomationProperties.Name="Pack workspace" Classes="authoringAction primaryAction"/>
+          <ItemsControl ItemsSource="{Binding PackPreflightFindings}" AutomationProperties.Name="Pack preflight findings">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:PackPreflightFinding">
+                <TextBlock Text="{Binding DisplayText}" TextWrapping="Wrap"/>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+          <TextBlock IsVisible="{Binding HasExcludedPackPlans}" Text="Opened plans excluded from this TapPackage" FontWeight="SemiBold" TextWrapping="Wrap"/>
+          <ItemsControl ItemsSource="{Binding ExcludedPackPlans}" AutomationProperties.Name="Excluded pack plans"/>
+          <TextBlock Text="Exploration formulas excluded from deployment artifacts" TextWrapping="Wrap"/>
+          <ItemsControl ItemsSource="{Binding ExcludedExplorationFormulas}" AutomationProperties.Name="Excluded exploration formulas"/>
+        </StackPanel>
+      </Border>
+      <Border Classes="surface taskSection">
+        <StackPanel Spacing="12">
+          <TextBlock Text="Current operation" Classes="sectionTitle" TextWrapping="Wrap" AutomationProperties.HeadingLevel="3"/>
+          <TextBlock Text="{Binding OperationStage}" AutomationProperties.Name="Build operation stage"/>
+          <TextBlock Text="{Binding OperationLogText}" TextWrapping="Wrap" AutomationProperties.Name="Build operation logs"/>
+        </StackPanel>
+      </Border>
+      <Border Classes="surface taskSection">
+        <StackPanel Spacing="12">
+          <TextBlock Text="Previous checked build" Classes="sectionTitle" TextWrapping="Wrap" AutomationProperties.HeadingLevel="3"/>
+          <TextBlock Text="Receipts describe the saved revisions checked at the time of that build. Current draft edits are not part of a previous receipt." Classes="purpose" TextWrapping="Wrap"/>
+          <TextBlock Text="{Binding CompatibilityState}" TextWrapping="Wrap" AutomationProperties.Name="Recorded build compatibility"/>
+          <StackPanel IsVisible="{Binding HasCompletedBuild}">
+            <TextBlock Text="Completed checked receipt" FontWeight="SemiBold"/>
+            <TextBlock Text="{Binding LastCompletedBuild.SelectedHome, StringFormat='Checked selected home: {0}'}" TextWrapping="Wrap"/>
+            <TextBlock Text="{Binding LastCompletedBuild.OutputDirectory}" TextWrapping="Wrap" AutomationProperties.Name="Completed build output"/>
+            <ItemsControl ItemsSource="{Binding CheckedRevisions}" AutomationProperties.Name="Checked saved revisions"/>
+            <ItemsControl ItemsSource="{Binding BuildChecks}" AutomationProperties.Name="Completed build checks"/>
+            <ItemsControl ItemsSource="{Binding CheckedOutputs}" AutomationProperties.Name="Checked build outputs"/>
+            <ItemsControl ItemsSource="{Binding BuildHistory}" AutomationProperties.Name="Completed build history">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:AuthoringCompletedBuild">
+                  <TextBlock Text="{Binding DisplayText}" TextWrapping="Wrap"/>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
+        </StackPanel>
+      </Border>
+      <Border Classes="surface taskSection">
+        <StackPanel Spacing="12">
+          <TextBlock Text="Package contents and declarations" Classes="sectionTitle" TextWrapping="Wrap" AutomationProperties.HeadingLevel="3"/>
+          <TextBlock FontWeight="SemiBold" Text="{Binding PackPreview.ProgramPackageName, StringFormat='Program package {0}'}" TextWrapping="Wrap"/>
+          <TextBlock Text="{Binding PackPreview.ProgramPackageVersion, StringFormat='Version {0}'}" TextWrapping="Wrap"/>
+          <TextBlock Text="{Binding OpenTapPinText}" TextWrapping="Wrap"/>
+          <TextBlock Text="{Binding AuthoringHomeText}" TextWrapping="Wrap"/>
+          <TextBlock Opacity="0.8" TextWrapping="Wrap" Text="TUI is not part of a production pack. Shell apps stay bake-time and are not launched from this app."/>
+          <TextBlock Opacity="0.8" TextWrapping="Wrap" IsVisible="{Binding HasInstrumentComponentsPackage}" Text="{Binding InstrumentComponentsText}"/>
+          <TextBlock FontWeight="SemiBold" Text="TapPackage files" TextWrapping="Wrap"/>
+          <ItemsControl ItemsSource="{Binding PackPreview.ProgramPackContents}" AutomationProperties.Name="Program pack files">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:PackFileLine">
+                <TextBlock Text="{Binding RelativePath, StringFormat='{}{0}'}" TextWrapping="Wrap"/>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+          <TextBlock FontWeight="SemiBold" Text="Package dependencies" TextWrapping="Wrap"/>
+          <TextBlock Opacity="0.8" TextWrapping="Wrap" IsVisible="{Binding !HasPackageDependencies}" Text="No package dependencies declared in authoring.json."/>
+          <ItemsControl ItemsSource="{Binding PackPreview.PackageDependencies}" AutomationProperties.Name="Package dependencies">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:PackDependencyLine">
+                <TextBlock Text="{Binding DisplayText}" TextWrapping="Wrap"/>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+          <TextBlock FontWeight="SemiBold" Text="Authoring OpenTAP home packages" TextWrapping="Wrap"/>
+          <TextBlock Opacity="0.8" TextWrapping="Wrap" IsVisible="{Binding !HasAuthoringHomePackages}" Text="Prepare the environment to install Editor packs into the isolated OpenTAP home."/>
+          <ItemsControl ItemsSource="{Binding PackPreview.AuthoringHomePackages}" AutomationProperties.Name="Authoring OpenTAP home packages">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:OpenTapEnvironmentLine">
+                <TextBlock Text="{Binding DisplayText}" TextWrapping="Wrap"/>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+          <TextBlock FontWeight="SemiBold" Text="Extra plugins" TextWrapping="Wrap"/>
+          <TextBlock Opacity="0.8" TextWrapping="Wrap" IsVisible="{Binding !HasDeclaredPlugins}" Text="No extra plugin TapPackages declared."/>
+          <ItemsControl ItemsSource="{Binding PackPreview.PluginProjects}" AutomationProperties.Name="Ship plugin projects">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:PackDeclaredProjectLine">
+                <TextBlock TextWrapping="Wrap" Text="{Binding DisplayText}"/>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+          <TextBlock FontWeight="SemiBold" Text="Shell apps (bake-time)" TextWrapping="Wrap"/>
+          <TextBlock Opacity="0.8" TextWrapping="Wrap" IsVisible="{Binding !HasDeclaredShellApps}" Text="No bake-time shell apps declared."/>
+          <ItemsControl ItemsSource="{Binding PackPreview.ShellAppProjects}" AutomationProperties.Name="Ship shell-app projects">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:PackDeclaredProjectLine">
+                <TextBlock TextWrapping="Wrap" Text="{Binding DisplayText}"/>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+          <TextBlock FontWeight="SemiBold" IsVisible="{Binding HasLastPack}" Text="Last pack" TextWrapping="Wrap"/>
+          <TextBlock IsVisible="{Binding HasLastPack}" TextWrapping="Wrap" Text="{Binding PackPreview.LastOutputDirectory}"/>
+          <ItemsControl ItemsSource="{Binding LastShippedFiles}" IsVisible="{Binding HasLastPack}" AutomationProperties.Name="Last shipped files">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate>
+                <TextBlock Text="{Binding}" TextWrapping="Wrap"/>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+          <TextBlock FontWeight="SemiBold" IsVisible="{Binding HasLastShippedBakeTimeFiles}" Text="Bake-time files in last pack" TextWrapping="Wrap"/>
+          <ItemsControl ItemsSource="{Binding LastShippedBakeTimeFiles}" IsVisible="{Binding HasLastShippedBakeTimeFiles}" AutomationProperties.Name="Last shipped bake-time files">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate>
+                <TextBlock Text="{Binding}" TextWrapping="Wrap"/>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
+      </Border>
     </StackPanel>
   </ScrollViewer>
 </UserControl>

@@ -1,17 +1,23 @@
-<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:vm="using:HardwareTest.Authoring" xmlns:host="using:HardwareTest.OpenTap.Host"
-    x:Class="HardwareTest.Authoring.WorkspaceIssuesView" x:DataType="vm:AuthoringWorkspaceViewModel">
-  <DockPanel>
-    <TextBlock DockPanel.Dock="Top" Text="{Binding IssuesCheckState}" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite"/>
-    <TextBlock DockPanel.Dock="Top" Text="{Binding IssuesSummary}" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite"/>
-    <Expander DockPanel.Dock="Top" Margin="0,0,0,8" Header="Editing findings" AutomationProperties.Name="Editing findings" IsVisible="{Binding HasWorkspace}">
-      <ScrollViewer MaxHeight="100">
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:vm="using:HardwareTest.Authoring" xmlns:host="using:HardwareTest.OpenTap.Host" x:Class="HardwareTest.Authoring.WorkspaceIssuesView" x:DataType="vm:AuthoringWorkspaceViewModel">
+  <DockPanel Margin="16">
+    <StackPanel Spacing="12" DockPanel.Dock="Top" Margin="0,0,0,16">
+      <TextBlock Text="Workspace issues" Classes="routeTitle" TextWrapping="Wrap" AutomationProperties.HeadingLevel="2"/>
+      <TextBlock DockPanel.Dock="Top" Text="{Binding IssuesCheckState}" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite"/>
+      <TextBlock DockPanel.Dock="Top" Text="{Binding IssuesSummary}" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite"/>
+    </StackPanel>
+    <Expander DockPanel.Dock="Top" Margin="0,0,0,8" Header="Editing findings" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" AutomationProperties.Name="Editing findings" IsVisible="{Binding HasWorkspace}">
+      <ScrollViewer Height="120" Margin="0,0,0,8" HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="Editing findings viewport">
         <ItemsControl ItemsSource="{Binding EditingIssues}" AutomationProperties.Name="Editing findings">
           <ItemsControl.ItemTemplate>
             <DataTemplate x:DataType="vm:AuthoringEditingIssue">
-              <StackPanel>
+              <StackPanel Spacing="8">
+                <TextBlock Text="{Binding Severity}" TextWrapping="Wrap" FontWeight="SemiBold" Foreground="{DynamicResource AuthoringAccent}"/>
+                <TextBlock TextWrapping="Wrap" Text="{Binding Code}" FontWeight="SemiBold"/>
+                <TextBlock TextWrapping="Wrap" Text="{Binding PlanId, StringFormat='Program: {0}'}"/>
+                <TextBlock TextWrapping="Wrap" Text="Editing draft — separate from saved-plan checks" Classes="purpose"/>
+                <TextBlock TextWrapping="Wrap" Text="{Binding Section, StringFormat='Section: {0}'}" IsVisible="{Binding Section, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                <TextBlock TextWrapping="Wrap" Text="{Binding Field, StringFormat='Field: {0}'}" IsVisible="{Binding Field, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
                 <TextBlock Text="{Binding Message}" TextWrapping="Wrap"/>
-                <TextBlock Text="{Binding Severity}" TextWrapping="Wrap"/>
                 <Button Content="{Binding NavigationLabel}" Click="OnOpenFindingProgram" Classes="authoringAction"/>
               </StackPanel>
             </DataTemplate>
@@ -19,24 +25,28 @@
         </ItemsControl>
       </ScrollViewer>
     </Expander>
-    <ListBox ItemsSource="{Binding FindingRows}" KeyboardNavigation.TabNavigation="Once"
-        AutomationProperties.Name="Contract findings">
-      <ListBox.ItemTemplate>
-        <DataTemplate x:DataType="vm:AuthoringFindingRow">
-          <StackPanel>
-            <TextBlock FontWeight="SemiBold" Text="{Binding ProgramId, StringFormat='Program: {0}'}" TextWrapping="Wrap"/>
-            <TextBlock TextWrapping="Wrap" Text="{Binding TapPlanPath}"/>
-            <TextBlock FontWeight="SemiBold" Text="{Binding Code, StringFormat='{}{0}'}" TextWrapping="Wrap"/>
-            <TextBlock TextWrapping="Wrap" Opacity="0.85" Text="{Binding Message}"/>
-            <TextBlock TextWrapping="Wrap" Text="{Binding Location, StringFormat='Location: {0}'}"/>
-            <TextBlock Opacity="0.7" FontSize="11" Text="{Binding Severity}" TextWrapping="Wrap"/>
-            <TextBlock Text="{Binding CheckState}" TextWrapping="Wrap"/>
-            <TextBlock Text="{Binding NavigationReason}" TextWrapping="Wrap"/>
-            <Button Content="{Binding NavigationLabel}" IsEnabled="{Binding CanOpenProgram}" Click="OnOpenFindingProgram"
-                Classes="authoringAction"/>
-          </StackPanel>
-        </DataTemplate>
-      </ListBox.ItemTemplate>
-    </ListBox>
+    <Grid RowDefinitions="Auto,*" RowSpacing="8" Margin="0,8,0,0">
+      <TextBlock Text="Saved-plan check findings" Classes="sectionTitle" TextWrapping="Wrap" AutomationProperties.HeadingLevel="3" Margin="0,0,0,4"/>
+      <ScrollViewer Grid.Row="1" IsVisible="{Binding !FindingRows.Count}" HorizontalScrollBarVisibility="Disabled">
+        <TextBlock Text="No saved-plan findings are displayed. The check state above tells you whether saved plans have been checked and whether that result is current." TextWrapping="Wrap" Classes="purpose" AutomationProperties.Name="Saved-plan empty state"/>
+      </ScrollViewer>
+      <ListBox Grid.Row="1" ItemsSource="{Binding FindingRows}" IsVisible="{Binding FindingRows.Count}" KeyboardNavigation.TabNavigation="Once" AutomationProperties.Name="Contract findings" Classes="authoringList">
+        <ListBox.ItemTemplate>
+          <DataTemplate x:DataType="vm:AuthoringFindingRow">
+            <StackPanel Spacing="8">
+              <TextBlock Text="{Binding Severity}" TextWrapping="Wrap" FontWeight="SemiBold" Foreground="{DynamicResource AuthoringAccent}"/>
+              <TextBlock FontWeight="SemiBold" Text="{Binding ProgramId, StringFormat='Program: {0}'}" TextWrapping="Wrap"/>
+              <TextBlock TextWrapping="Wrap" Text="{Binding TapPlanPath}"/>
+              <TextBlock FontWeight="SemiBold" Text="{Binding Code, StringFormat='{}{0}'}" TextWrapping="Wrap"/>
+              <TextBlock TextWrapping="Wrap" Opacity="0.85" Text="{Binding Message}"/>
+              <TextBlock TextWrapping="Wrap" Text="{Binding Location, StringFormat='Location: {0}'}"/>
+              <TextBlock Text="{Binding CheckState}" TextWrapping="Wrap"/>
+              <TextBlock Text="{Binding NavigationReason}" TextWrapping="Wrap"/>
+              <Button Content="{Binding NavigationLabel}" IsEnabled="{Binding CanOpenProgram}" Click="OnOpenFindingProgram" Classes="authoringAction"/>
+            </StackPanel>
+          </DataTemplate>
+        </ListBox.ItemTemplate>
+      </ListBox>
+    </Grid>
   </DockPanel>
 </UserControl>

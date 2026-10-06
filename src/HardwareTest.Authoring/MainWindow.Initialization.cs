@@ -30,7 +30,7 @@ public partial class MainWindow
         CommitFocusedEditor();
         if (_directInitializationSession != _viewModel.WorkspaceSessionId) _directInitializationForm = null;
         _directInitializationSession = _viewModel.WorkspaceSessionId;
-        _initialization = new PlanInitializationWindow(_viewModel, retained: _directInitializationForm, ownerIsCurrent: current);
+        _initialization = new PlanInitializationWindow(_viewModel, retained: _directInitializationForm, ownerIsCurrent: current) { FontSize = FontSize };
         try
         {
             var created = await _initialization.ShowDialog<bool>(this);
