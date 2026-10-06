@@ -476,6 +476,11 @@ async function verify(opts: Options): Promise<void> {
 
   const exe = publishedExe(expectedRid, opts.root);
   try {
+    for (const output of consumerOutputs(opts)) {
+      await Deno.stat(
+        `${output.path}/PublishedArtifacts/InstrumentComponents.OpenTap.0.1.1.TapPackage`,
+      );
+    }
     await Deno.stat(exe);
     await Deno.stat(
       `${publishDir(expectedRid, opts.root)}/authoring/HardwareTest.Authoring${
