@@ -182,7 +182,7 @@ public partial class ReportPreviewViewModel : ReactiveObject
             return;
         }
 
-        if (!string.Equals(printPath, PdfPath, StringComparison.OrdinalIgnoreCase))
+        if (!ReportAttestationService.PathEquals(printPath, PdfPath))
         {
             await LoadFromPathAsync(printPath).ConfigureAwait(true);
         }
@@ -242,7 +242,7 @@ public partial class ReportPreviewViewModel : ReactiveObject
             kind = ReportKinds.Certification;
         }
 
-        return _attestation.NeedsAttestation(run, kind) && !_attestation.HasValidAttestation(run, kind);
+        return _attestation.NeedsAttestation(run, kind) && !_attestation.HasValidAttestationForPdf(run, kind, path);
     }
 
     private async Task<TestRunRecord?> FindRunForPdfAsync(string pdfPath)

@@ -153,40 +153,37 @@ public partial class ResultsViewModel
         }
     }
 
-    /// Issued PDFs export as `{kind}.pdf`; working copies nest under `working/` when issued exists.
+    /// Latest issued PDFs export as `{kind}.pdf`, working copies under `working/`, and revision evidence under `history/`.
     public static IEnumerable<(string SourcePath, string RelativeName)> CollectExportReportFiles(TestRunRecord run)
     {
         var files = new List<(string SourcePath, string RelativeName)>();
-        foreach (var group in run.Reports
-                     .Where(r => !string.IsNullOrWhiteSpace(r.PdfPath) && File.Exists(r.PdfPath))
-                     .GroupBy(r => r.Kind, StringComparer.OrdinalIgnoreCase))
+        var destinations = new HashSet<string>(StringComparer.Ordinal);
+        void Add(string? source, string destination)
         {
-            var issuedPath = ReportAttestationService.ResolveIssuedPdfPath(run, group.Key);
-            var issued = group.FirstOrDefault(r => string.Equals(r.PdfPath, issuedPath, StringComparison.OrdinalIgnoreCase));
+            if (!string.IsNullOrWhiteSpace(source) && File.Exists(source) && destinations.Add(destination))
+                files.Add((source, destination));
+        }
+        foreach (var group in run.Reports.GroupBy(r => r.Kind, StringComparer.OrdinalIgnoreCase))
+        {
+            var issued = ReportRevisions.Latest(run, group.Key);
             var working = group.FirstOrDefault(r => ReportArtifactRoles.IsWorking(r.Role));
-            var kind = (issued ?? working ?? group.First()).Kind;
+            var kind = Uri.EscapeDataString(group.Key);
             if (issued is not null)
             {
-                files.Add((issued.PdfPath, $"{kind}.pdf"));
-                var attestation = ReportAttestationService.Find(run, kind);
-                var sidecarPath = attestation?.SidecarPath;
-                if (!string.IsNullOrWhiteSpace(sidecarPath) && File.Exists(sidecarPath))
-                {
-                    files.Add((sidecarPath, $"{kind}.attestation.json"));
-                }
-
-                if (working is not null)
-                {
-                    files.Add((working.PdfPath, Path.Combine("working", $"{kind}.pdf")));
-                }
-            }
-            else if (working is not null)
-            {
-                files.Add((working.PdfPath, $"{kind}.pdf"));
+                Add(issued.PdfPath, $"{kind}.pdf");
+                Add(working?.PdfPath, Path.Combine("working", $"{kind}.pdf"));
             }
             else
+                Add(working?.PdfPath, $"{kind}.pdf");
+            foreach (var revision in group.Where(r => ReportArtifactRoles.IsIssued(r.Role)))
             {
-                files.AddRange(group.Select(r => (r.PdfPath, Path.GetFileName(r.PdfPath))));
+                var id = Uri.EscapeDataString(revision.RevisionId ?? Path.GetFileNameWithoutExtension(revision.PdfPath) ?? "unidentified");
+                var history = Path.Combine("history", kind, id);
+                Add(revision.PdfPath, Path.Combine(history, $"{kind}.pdf"));
+                Add(revision.RunSnapshotPath, Path.Combine(history, "run.snapshot.json"));
+                var stamp = ReportAttestationService.FindForArtifact(run, revision);
+                Add(stamp?.SidecarPath, Path.Combine(history, $"{kind}.attestation.json"));
+                if (ReferenceEquals(revision, issued)) Add(stamp?.SidecarPath, $"{kind}.attestation.json");
             }
         }
 

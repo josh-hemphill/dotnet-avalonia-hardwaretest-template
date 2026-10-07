@@ -205,57 +205,6 @@ public sealed class ReportAttestationServiceTests
     }
 
     [Fact]
-    public async Task InvalidateForKinds_drops_stamp_and_sidecar_for_regenerated_kind()
-    {
-        using var temp = new TempDataDirectory();
-        var store = new FileRunStore(temp.RunsDirectory);
-        var run = await SeedCertificationRunAsync(store);
-        var settings = new AppSettings
-        {
-            RequireAttestationBeforeExport = true,
-            AllowPresenceInLieuOfSigning = true,
-        };
-        var service = new ReportAttestationService(
-            new MockOperatorCredentialBroker(canSign: false),
-            store,
-            settings);
-        var attested = await service.AttestAsync(run, ReportKinds.Certification);
-        Assert.True(attested.Succeeded);
-        Assert.True(File.Exists(attested.Attestation!.SidecarPath));
-
-        ReportAttestationService.InvalidateForKinds(
-            run,
-            store.GetRunDirectory(run.RunId),
-            [ReportKinds.Certification]);
-
-        Assert.Empty(run.Attestations);
-        Assert.False(File.Exists(attested.Attestation.SidecarPath));
-        Assert.False(service.HasValidAttestation(run, ReportKinds.Certification));
-    }
-
-    [Fact]
-    public async Task InvalidateForKinds_leaves_other_kinds_in_place()
-    {
-        using var temp = new TempDataDirectory();
-        var store = new FileRunStore(temp.RunsDirectory);
-        var run = await SeedCertificationRunAsync(store);
-        run.Attestations.Add(new ReportAttestation
-        {
-            Kind = AttestationKind.Presence,
-            ReportKind = ReportKinds.Status,
-            DisplayName = "Other",
-            Serial = "KEEP",
-            PdfSha256 = "abc",
-        });
-        ReportAttestationService.InvalidateForKinds(
-            run,
-            store.GetRunDirectory(run.RunId),
-            [ReportKinds.Certification]);
-        Assert.Single(run.Attestations);
-        Assert.Equal(ReportKinds.Status, run.Attestations[0].ReportKind);
-    }
-
-    [Fact]
     public async Task Attest_pin_required_then_signed_with_piv_rsa()
     {
         using var temp = new TempDataDirectory();
@@ -306,7 +255,7 @@ public sealed class ReportAttestationServiceTests
     }
 
     [Fact]
-    public async Task HasValidAttestation_true_when_pades_sidecar_missing()
+    public async Task HasValidAttestation_false_when_new_pades_revision_sidecar_missing()
     {
         using var temp = new TempDataDirectory();
         var store = new FileRunStore(temp.RunsDirectory);
@@ -327,11 +276,11 @@ public sealed class ReportAttestationServiceTests
         Assert.True(signed.Succeeded);
         var path = signed.Attestation!.SidecarPath!;
         File.Delete(path);
-        Assert.True(service.HasValidAttestation(run, ReportKinds.Certification));
+        Assert.False(service.HasValidAttestation(run, ReportKinds.Certification));
     }
 
     [Fact]
-    public async Task HasValidAttestation_true_when_pades_sidecar_tampered()
+    public async Task HasValidAttestation_false_when_new_pades_revision_sidecar_tampered()
     {
         using var temp = new TempDataDirectory();
         var store = new FileRunStore(temp.RunsDirectory);
@@ -358,7 +307,7 @@ public sealed class ReportAttestationServiceTests
             StringComparison.Ordinal);
         Assert.NotEqual(json, bad);
         await File.WriteAllTextAsync(path, bad);
-        Assert.True(service.HasValidAttestation(run, ReportKinds.Certification));
+        Assert.False(service.HasValidAttestation(run, ReportKinds.Certification));
     }
 
     [Fact]
@@ -633,7 +582,7 @@ public sealed class ReportAttestationServiceTests
     [Theory]
     [InlineData(-1)]
     [InlineData(0)]
-    public async Task Attestation_evidence_tracks_selected_issue_after_backwards_or_equal_clock(int secondOffsetDays)
+    public async Task Attestation_evidence_tracks_highest_revision_after_backwards_or_equal_clock(int secondOffsetDays)
     {
         using var temp = new TempDataDirectory();
         var store = new FileRunStore(temp.RunsDirectory);
@@ -655,11 +604,11 @@ public sealed class ReportAttestationServiceTests
 
         Assert.True(second.Succeeded);
         Assert.NotEqual(first.Attestation!.PdfSha256, second.Attestation!.PdfSha256);
-        var selected = secondOffsetDays < 0 ? first.Attestation : second.Attestation;
+        var selected = second.Attestation;
         var evidence = ReportAttestationService.Find(run, ReportKinds.Certification);
         Assert.Equal(selected!.PdfSha256, evidence?.PdfSha256);
         Assert.Equal(selected.SidecarPath, evidence?.SidecarPath);
-        var selectedPath = secondOffsetDays < 0 ? firstPath : run.Reports.Last().PdfPath;
+        var selectedPath = run.Reports.Last().PdfPath;
         Assert.Equal(selectedPath, ReportAttestationService.ResolveIssuedPdfPath(run, ReportKinds.Certification));
         Assert.Equal(selectedPath, ReportAttestationService.ResolvePrintOrExportPdfPath(run, WorkingCertificationPath(run)));
         Assert.True(service.HasValidAttestation(run, ReportKinds.Certification));
@@ -674,7 +623,7 @@ public sealed class ReportAttestationServiceTests
     [InlineData(0, false)]
     [InlineData(-1, true)]
     [InlineData(0, true)]
-    public async Task Identical_pdf_issues_select_matching_identity_and_sidecar(int secondOffsetDays, bool presence)
+    public async Task Identical_pdf_revisions_select_matching_identity_and_sidecar_despite_clock_changes(int secondOffsetDays, bool presence)
     {
         using var temp = new TempDataDirectory();
         var store = new FileRunStore(temp.RunsDirectory);
@@ -711,8 +660,8 @@ public sealed class ReportAttestationServiceTests
         Assert.NotEqual(first.Attestation.SidecarPath, second.Attestation.SidecarPath);
         var secondPath = run.Reports.Last().PdfPath;
         Assert.Equal(firstBytes, await File.ReadAllBytesAsync(secondPath));
-        var expected = secondOffsetDays < 0 ? first.Attestation : second.Attestation;
-        var expectedPath = secondOffsetDays < 0 ? firstPath : secondPath;
+        var expected = second.Attestation;
+        var expectedPath = secondPath;
         var evidence = ReportAttestationService.Find(run, ReportKinds.Certification);
         Assert.NotNull(evidence);
         Assert.Equal(expected.DisplayName, evidence.DisplayName);
@@ -735,13 +684,13 @@ public sealed class ReportAttestationServiceTests
             var payload = Encoding.UTF8.GetBytes($"{expected.PdfSha256}:{expected.RunJsonSha256}");
             Assert.True(MockOperatorCredentialBroker.VerifyMockSignature(payload,
                 Convert.FromBase64String(selectedSidecar.SignatureBase64!)));
-            var other = secondOffsetDays < 0 ? second.Attestation : first.Attestation;
+            var other = first.Attestation;
             var otherSidecar = JsonSerializer.Deserialize(await File.ReadAllBytesAsync(other.SidecarPath!),
                 AppJsonContext.Default.ReportAttestationSidecar)!;
             Assert.NotEqual(otherSidecar.SignatureBase64, selectedSidecar.SignatureBase64);
         }
         // A matching hash from another issuance cannot replace this issue's evidence.
-        evidence.SidecarPath = secondOffsetDays < 0 ? second.Attestation.SidecarPath : first.Attestation.SidecarPath;
+        evidence.SidecarPath = first.Attestation.SidecarPath;
         Assert.Null(ReportAttestationService.Find(run, ReportKinds.Certification));
         Assert.False(service.HasValidAttestation(run, ReportKinds.Certification));
     }
@@ -776,7 +725,8 @@ public sealed class ReportAttestationServiceTests
         Assert.Equal(priorReportMetadata, JsonSerializer.Serialize(historicReport));
         var newestPath = ReportAttestationService.ResolveIssuedPdfPath(run, ReportKinds.Certification)!;
         Assert.Equal(newestPath, ReportAttestationService.ResolvePrintOrExportPdfPath(run, prior.WorkingPath));
-        Assert.Equal(newestPath, ReportAttestationService.ResolvePrintOrExportPdfPath(run, prior.IssuedPath));
+        Assert.Equal(prior.IssuedPath, ReportAttestationService.ResolvePrintOrExportPdfPath(run, prior.IssuedPath));
+        Assert.True(service.HasValidAttestation(run, ReportKinds.Certification, priorReport.RevisionId));
         Assert.True(service.HasValidAttestation(run, ReportKinds.Certification));
     }
 

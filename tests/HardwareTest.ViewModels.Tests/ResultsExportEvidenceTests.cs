@@ -35,7 +35,9 @@ public sealed class ResultsExportEvidenceTests
         var files = ResultsViewModel.CollectExportReportFiles(run).ToList();
         var evidence = Assert.Single(files, f => f.RelativeName == "certification.attestation.json");
         Assert.Equal(current.SidecarPath, evidence.SourcePath);
-        Assert.DoesNotContain(files, f => f.SourcePath == first.SidecarPath || f.SourcePath == stray);
+        Assert.DoesNotContain(files, f => f.SourcePath == stray);
+        Assert.DoesNotContain(files, f => f.SourcePath == first.SidecarPath && f.RelativeName == "certification.attestation.json");
+        Assert.Contains(files, f => f.SourcePath == first.SidecarPath && f.RelativeName.StartsWith("history", StringComparison.Ordinal));
         var export = new CapturingExportTargetService();
         var destination = export.ExportPackage(export.ListTargets()[0], "current-evidence", files);
         try
@@ -84,7 +86,9 @@ public sealed class ResultsExportEvidenceTests
 
         var files = ResultsViewModel.CollectExportReportFiles(run).ToList();
         Assert.Contains(files, f => f.SourcePath == run.Reports[2].PdfPath && f.RelativeName == "certification.pdf");
-        Assert.DoesNotContain(files, f => f.RelativeName.EndsWith(".attestation.json", StringComparison.Ordinal));
+        Assert.DoesNotContain(files, f => f.RelativeName == "certification.attestation.json");
+        Assert.DoesNotContain(files, f => f.SourcePath == current.SidecarPath
+            && f.RelativeName.Contains(run.Reports[2].RevisionId!, StringComparison.Ordinal));
     }
 
     [Fact]

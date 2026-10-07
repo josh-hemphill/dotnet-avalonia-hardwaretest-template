@@ -67,9 +67,14 @@ public sealed class TypstReportService : IReportService, IDisposable
         CancellationToken cancellationToken = default,
         ReportAttestation? compileIdentity = null)
     {
+        ReportAttestationService.RequireReportWritable(run, _runStore.GetRunDirectory(run.RunId));
+        using var operation = await ReportRevisions.LockAsync(_runStore.GetRunDirectory(run.RunId), cancellationToken).ConfigureAwait(false);
+        var candidate = ReportRevisions.Clone(run);
+        await ReportRevisions.RefreshHistoryAsync(candidate, _runStore, cancellationToken).ConfigureAwait(false);
         var normalized = NormalizeKinds(kinds);
-        return await GenerateReportsCoreAsync(run, normalized, history, compileIdentity, cancellationToken)
-            .ConfigureAwait(false);
+        var artifacts = await GenerateReportsCoreAsync(candidate, normalized, history, compileIdentity, cancellationToken).ConfigureAwait(false);
+        ReportRevisions.PublishHistory(run, candidate);
+        return artifacts;
     }
 
     private async Task<IReadOnlyList<RunReportArtifact>> GenerateReportsCoreAsync(
@@ -95,14 +100,6 @@ public sealed class TypstReportService : IReportService, IDisposable
         }
 
         ReportAttestationService.RequireReportWritable(run, dir);
-        var kindsToInvalidate = kinds
-            .Where(kind => ReportAttestationService.ResolveIssuedPdfPath(run, kind) is null)
-            .ToArray();
-        if (kindsToInvalidate.Length > 0)
-        {
-            ReportAttestationService.InvalidateForKinds(run, dir, kindsToInvalidate);
-        }
-
         var artifacts = new List<RunReportArtifact>();
         var now = DateTimeOffset.UtcNow;
         foreach (var item in compiled)

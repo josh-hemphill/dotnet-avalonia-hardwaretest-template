@@ -58,10 +58,16 @@ public sealed class FileRunStore : IRunStore
         }
 
         var dir = GetRunDirectory(run.RunId);
+        DocumentSchemaGate.RequireWritable(SchemaDocumentTypes.TestRunRecord, run.SchemaVersion,
+            SchemaVersions.TestRunRecord, Path.Combine(dir, "run.json"), run.AppVersion);
+        using var write = await ReportRevisions.LockWriteAsync(dir, cancellationToken).ConfigureAwait(false);
+        var candidate = ReportRevisions.Clone(run);
+        await ReportRevisions.RefreshHistoryAsync(candidate, this, cancellationToken).ConfigureAwait(false);
         var path = Path.Combine(dir, "run.json");
-        await CurrentDocumentFile.WriteAsync(path, run, AppJsonContext.Default.TestRunRecord,
+        await CurrentDocumentFile.WriteAsync(path, candidate, AppJsonContext.Default.TestRunRecord,
                 SchemaDocumentTypes.TestRunRecord, run.SchemaVersion, SchemaVersions.TestRunRecord, cancellationToken)
             .ConfigureAwait(false);
+        ReportRevisions.PublishHistory(run, candidate);
     }
 
     public async Task<TestRunRecord?> LoadAsync(string runId, CancellationToken cancellationToken = default)

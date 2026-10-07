@@ -8,7 +8,7 @@ namespace HardwareTest.ViewModels.Tests;
 public sealed class ResultsReportHistoryTests
 {
     [Fact]
-    public void Export_and_print_choose_newest_explicit_issue_and_keep_history()
+    public void Package_exports_latest_and_history_while_print_preserves_explicit_issue()
     {
         var directory = Path.Combine(Path.GetTempPath(), "HardwareTestReportHistory", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(directory);
@@ -35,10 +35,11 @@ public sealed class ResultsReportHistoryTests
             var exports = ResultsViewModel.CollectExportReportFiles(run).ToArray();
 
             Assert.Equal(newest, ReportAttestationService.ResolveIssuedPdfPath(run, ReportKinds.Certification));
-            Assert.Equal(newest, ReportAttestationService.ResolvePrintOrExportPdfPath(run, oldIssue));
+            Assert.Equal(oldIssue, ReportAttestationService.ResolvePrintOrExportPdfPath(run, oldIssue));
+            Assert.Equal(newest, ReportAttestationService.ResolvePrintOrExportPdfPath(run, working));
             Assert.Contains((newest, "certification.pdf"), exports);
             Assert.Contains((working, Path.Combine("working", "certification.pdf")), exports);
-            Assert.DoesNotContain(exports, entry => entry.SourcePath == oldIssue);
+            Assert.Contains((oldIssue, Path.Combine("history", "certification", "old", "certification.pdf")), exports);
             Assert.Equal(3, run.Reports.Count);
             Assert.True(ReportAttestationService.RunOwnsPdf(run, oldIssue));
             Assert.Equal("old immutable issue", File.ReadAllText(oldIssue));

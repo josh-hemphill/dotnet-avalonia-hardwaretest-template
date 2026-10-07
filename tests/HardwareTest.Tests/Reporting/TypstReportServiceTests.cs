@@ -1,3 +1,4 @@
+using System.Text.Json;
 using HardwareTest.Core.Credentials;
 using HardwareTest.Core.Reporting;
 using HardwareTest.Core.Runs;
@@ -132,7 +133,7 @@ public sealed class TypstReportServiceTests
     }
 
     [Fact]
-    public async Task GenerateReportsAsync_clears_prior_certification_attestation()
+    public async Task GenerateReportsAsync_preserves_prior_certification_attestation()
     {
         using var temp = new TempDataDirectory();
         await WriteCertificationTypstAsync(
@@ -167,8 +168,8 @@ public sealed class TypstReportServiceTests
             });
         var artifacts = await CompileOrSkipAsync(() => reports.GenerateReportsAsync(run, [ReportKinds.Certification]));
 
-        Assert.Empty(run.Attestations);
-        Assert.False(File.Exists(sidecar));
+        Assert.Single(run.Attestations);
+        Assert.True(File.Exists(sidecar));
         AssertPdfMagic(await File.ReadAllBytesAsync(artifacts[0].PdfPath));
         var workDir = Path.Combine(Path.GetTempPath(), "HardwareTestTypst", run.RunId, ReportKinds.Certification);
         var json = await File.ReadAllTextAsync(Path.Combine(workDir, "run.json"));
@@ -512,11 +513,11 @@ public sealed class TypstReportServiceTests
         Assert.Single(run.Attestations);
         Assert.Empty(run.Reports);
         if (failure == "future")
-            Assert.Throws<SchemaReadOnlyException>(() => ReportAttestationService.InvalidateForKinds(run, dir, [ReportKinds.Status]));
+            Assert.Throws<SchemaReadOnlyException>(() => ReportAttestationService.RequireReportWritable(run, dir));
         else if (failure == "unsupported")
-            Assert.Throws<UnsupportedDocumentSchemaException>(() => ReportAttestationService.InvalidateForKinds(run, dir, [ReportKinds.Status]));
+            Assert.Throws<UnsupportedDocumentSchemaException>(() => ReportAttestationService.RequireReportWritable(run, dir));
         else
-            Assert.ThrowsAny<System.Text.Json.JsonException>(() => ReportAttestationService.InvalidateForKinds(run, dir, [ReportKinds.Status]));
+            Assert.ThrowsAny<System.Text.Json.JsonException>(() => ReportAttestationService.RequireReportWritable(run, dir));
         Assert.Single(run.Attestations);
         Assert.Equal("frozen stamp", await File.ReadAllTextAsync(sidecar));
     }
@@ -540,7 +541,8 @@ public sealed class TypstReportServiceTests
 
         await CompileOrSkipAsync(() => reports.GeneratePdfAsync(run));
 
-        Assert.Contains(review, run.Reports);
+        var preserved = Assert.Single(run.Reports, r => r.PdfPath == review.PdfPath && r.Role == review.Role);
+        Assert.Equal(JsonSerializer.Serialize(review), JsonSerializer.Serialize(preserved));
         Assert.Single(run.Reports, r => ReportArtifactRoles.IsWorking(r.Role));
         Assert.Equal("review artifact", await File.ReadAllTextAsync(review.PdfPath));
     }

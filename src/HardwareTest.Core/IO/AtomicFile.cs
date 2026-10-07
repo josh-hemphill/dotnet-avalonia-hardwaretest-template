@@ -27,6 +27,7 @@ public static class AtomicFile
         {
             await File.WriteAllBytesAsync(temp, content, cancellationToken).ConfigureAwait(false);
             await FlushToDiskAsync(temp, cancellationToken).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
             ReplaceDestination(temp, destinationPath);
         }
         finally
@@ -80,10 +81,16 @@ public static class AtomicFile
             {
                 throw new UnauthorizedAccessException($"Destination is read-only: {destinationPath}");
             }
+            if (OperatingSystem.IsWindows())
+            {
+                // ReplaceFile supports readers that share deletion; MoveFileEx(overwrite) may reject them.
+                File.Replace(tempPath, destinationPath, destinationBackupFileName: null);
+                return;
+            }
         }
 
         // Same-directory temp + overwrite rename is atomic on Unix (rename) and uses
-        // MoveFileEx(REPLACE_EXISTING) on Windows — avoids delete-then-move data loss.
+        // MoveFileEx for a new Windows destination — avoids delete-then-move data loss.
         File.Move(tempPath, destinationPath, overwrite: true);
     }
 

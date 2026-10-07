@@ -64,6 +64,10 @@ public sealed class RunReportArtifact
     public DateTimeOffset GeneratedAt { get; set; }
     /// Working (regenerable) or issued (frozen attested copy).
     public string Role { get; set; } = ReportArtifactRoles.Working;
+    public string? RevisionId { get; set; }
+    public int RevisionNumber { get; set; }
+    public string? RunSnapshotPath { get; set; }
+    public string? SidecarSha256 { get; set; }
 }
 
 /// Well-known report artifact roles (string constants, not a runtime enum).

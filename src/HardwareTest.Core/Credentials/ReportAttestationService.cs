@@ -19,6 +19,11 @@ public interface IReportAttestationService
     bool NeedsAttestation(TestRunRecord run, string reportKind);
 
     bool HasValidAttestation(TestRunRecord run, string reportKind);
+    bool HasValidAttestation(TestRunRecord run, string reportKind, string? revisionId)
+        => revisionId is null && HasValidAttestation(run, reportKind);
+    bool HasValidAttestationForPdf(TestRunRecord run, string reportKind, string pdfPath)
+        => ReportAttestationService.PathEquals(ReportAttestationService.ResolveIssuedPdfPath(run, reportKind), pdfPath)
+           && HasValidAttestation(run, reportKind);
 
     Task<ReportAttestationResult> AttestAsync(
         TestRunRecord run,
@@ -40,19 +45,22 @@ public sealed class ReportAttestationService : IReportAttestationService
     private readonly AppSettings _settings;
     private readonly IClock _clock;
     private readonly Lazy<IReportService>? _reports;
+    private readonly IReportRevisionStore _revisions;
 
     public ReportAttestationService(
         IOperatorCredentialBroker broker,
         IRunStore runStore,
         AppSettings settings,
         IClock? clock = null,
-        Lazy<IReportService>? reports = null)
+        Lazy<IReportService>? reports = null,
+        IReportRevisionStore? revisions = null)
     {
         _broker = broker;
         _runStore = runStore;
         _settings = settings;
         _clock = clock ?? SystemClock.Instance;
         _reports = reports;
+        _revisions = revisions ?? new FileReportRevisionStore(runStore, _clock);
         PresenceTimeout = DefaultPresenceTimeout;
     }
 
@@ -76,21 +84,47 @@ public sealed class ReportAttestationService : IReportAttestationService
     }
 
     public bool HasValidAttestation(TestRunRecord run, string reportKind)
+        => HasValidAttestation(run, reportKind, null);
+
+    public bool HasValidAttestation(TestRunRecord run, string reportKind, string? revisionId)
     {
         var lookupKind = string.Equals(reportKind, PackageKind, StringComparison.OrdinalIgnoreCase)
             ? ReportKinds.Certification
             : reportKind;
-        var attestation = Find(run, lookupKind);
+        var artifact = revisionId is null ? ReportRevisions.Latest(run, lookupKind) : run.Reports.FirstOrDefault(r =>
+            ReportArtifactRoles.IsIssued(r.Role) && string.Equals(r.Kind, lookupKind, StringComparison.OrdinalIgnoreCase)
+            && r.RevisionId == revisionId);
+        return HasValidArtifact(run, artifact);
+    }
+
+    public bool HasValidAttestationForPdf(TestRunRecord run, string reportKind, string pdfPath)
+    {
+        var kind = string.Equals(reportKind, PackageKind, StringComparison.OrdinalIgnoreCase)
+            ? ReportKinds.Certification : reportKind;
+        var artifact = run.Reports.FirstOrDefault(r => ReportArtifactRoles.IsIssued(r.Role)
+            && string.Equals(r.Kind, kind, StringComparison.OrdinalIgnoreCase)
+            && PathEquals(r.PdfPath, pdfPath));
+        return HasValidArtifact(run, artifact);
+    }
+
+    private bool HasValidArtifact(TestRunRecord run, RunReportArtifact? artifact)
+    {
+        var attestation = artifact is null ? null : FindForArtifact(run, artifact);
         if (attestation is null)
         {
             return false;
         }
 
-        var pdfPath = ResolvePdfPath(run, lookupKind);
+        var pdfPath = artifact?.PdfPath;
         if (string.IsNullOrWhiteSpace(pdfPath) || !File.Exists(pdfPath))
         {
             return false;
         }
+
+        if (artifact!.RevisionId is not null && (string.IsNullOrWhiteSpace(artifact.RunSnapshotPath)
+            || !File.Exists(artifact.RunSnapshotPath)
+            || !string.Equals(HashFile(artifact.RunSnapshotPath), attestation.RunJsonSha256, StringComparison.OrdinalIgnoreCase)
+            || !SidecarMatches(attestation, artifact.SidecarSha256))) return false;
 
         var pdfHash = HashFile(pdfPath);
         if (!string.Equals(pdfHash, attestation.PdfSha256, StringComparison.OrdinalIgnoreCase))
@@ -120,6 +154,19 @@ public sealed class ReportAttestationService : IReportAttestationService
         string? pin = null,
         bool skipSigning = false,
         CancellationToken cancellationToken = default)
+    {
+        RequireReportWritable(run, _runStore.GetRunDirectory(run.RunId));
+        using var operation = await ReportRevisions.LockAsync(_runStore.GetRunDirectory(run.RunId), cancellationToken).ConfigureAwait(false);
+        var candidate = ReportRevisions.Clone(run);
+        await ReportRevisions.RefreshHistoryAsync(candidate, _runStore, cancellationToken).ConfigureAwait(false);
+        var result = await AttestCoreAsync(candidate, reportKind, credential, pin, skipSigning, cancellationToken).ConfigureAwait(false);
+        if (result.Succeeded) ReportRevisions.PublishHistory(run, candidate);
+        return result;
+    }
+
+    private async Task<ReportAttestationResult> AttestCoreAsync(
+        TestRunRecord run, string reportKind, OperatorCredential? credential, string? pin,
+        bool skipSigning, CancellationToken cancellationToken)
     {
         RequireReportWritable(run, _runStore.GetRunDirectory(run.RunId));
         var broker = _broker is SettingsBackedCredentialBroker configured ? configured.Snapshot() : _broker;
@@ -281,10 +328,6 @@ public sealed class ReportAttestationService : IReportAttestationService
         var dir = _runStore.GetRunDirectory(run.RunId);
         RequireReportWritable(run, dir);
         cancellationToken.ThrowIfCancellationRequested();
-        var issueId = Guid.NewGuid().ToString("N");
-        var issuedDir = Path.Combine(dir, ReportArtifactRoles.DirectoryName);
-        var issuedPath = Path.Combine(issuedDir, $"{kind}-{issueId}.pdf");
-        var sidecarPath = Path.Combine(issuedDir, $"{kind}-{issueId}.attestation.json");
         var document = new ReportAttestation
         {
             Kind = attestationKind,
@@ -295,7 +338,6 @@ public sealed class ReportAttestationService : IReportAttestationService
             Thumbprint = sign?.Thumbprint ?? party.Thumbprint,
             PdfSha256 = HashBytes(pdf),
             RunJsonSha256 = runHash,
-            SidecarPath = sidecarPath,
             Algorithm = sign?.Algorithm ?? AttestationAlgorithm.Presence,
             SignatureFormat = sign is null ? null
                 : embedded ? AttestationSignatureFormat.PadesBasic : AttestationSignatureFormat.DetachedSidecar,
@@ -308,52 +350,18 @@ public sealed class ReportAttestationService : IReportAttestationService
             SignatureBase64 = sign?.Signature is { Length: > 0 } signature ? Convert.ToBase64String(signature) : null,
             CertificateBase64 = sign?.CertificateDer is { Length: > 0 } certificate ? Convert.ToBase64String(certificate) : null,
         };
-        // Unique issued paths preserve every previously issued byte. The run's atomic save
-        // is the publication point; neither its in-memory metadata nor its old issue changes first.
-        var candidate = JsonSerializer.Deserialize(
-            JsonSerializer.SerializeToUtf8Bytes(run, AppJsonContext.Default.TestRunRecord),
-            AppJsonContext.Default.TestRunRecord)!;
-        candidate.Attestations.Add(document);
-        candidate.Reports.Add(new RunReportArtifact
-        {
-            Kind = kind,
-            Title = ReportKinds.Title(kind),
-            PdfPath = issuedPath,
-            GeneratedAt = _clock.UtcNow,
-            Role = ReportArtifactRoles.Issued,
-        });
-        if (string.IsNullOrWhiteSpace(candidate.OperatorName))
-        {
-            candidate.OperatorName = party.DisplayName;
-        }
-        var pdfWritten = false;
-        var sidecarWritten = false;
         try
         {
-            await AtomicFile.WriteAllBytesAsync(issuedPath, pdf, cancellationToken).ConfigureAwait(false);
-            pdfWritten = true;
-            await AtomicFile.WriteJsonAsync(sidecarPath, sidecar, AppJsonContext.Default.ReportAttestationSidecar, cancellationToken)
-                .ConfigureAwait(false);
-            sidecarWritten = true;
-            RequireReportWritable(run, dir);
-            await _runStore.SaveAsync(candidate, cancellationToken).ConfigureAwait(false);
+            await _revisions.CommitAsync(run, kind, pdf, sidecar, cancellationToken, operationLockHeld: true).ConfigureAwait(false);
         }
-        catch (Exception ex)
-        {
-            if (sidecarWritten) TryDeleteSidecar(sidecarPath);
-            if (pdfWritten) TryDeleteSidecar(issuedPath);
-            if (ex is OperationCanceledException) throw;
-            return Failure(party, "Could not publish the issued report. " + ex.Message);
-        }
-        run.Reports = candidate.Reports;
-        run.Attestations = candidate.Attestations;
-        run.OperatorName = candidate.OperatorName;
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex) { return Failure(party, "Could not publish the issued report. " + ex.Message); }
         return new ReportAttestationResult
         {
             Succeeded = true,
             Credential = party,
             Message = $"{(embedded || sign is not null ? "Signed" : "Recorded presence")} for {party.DisplayName} ({party.Transport}).",
-            Attestation = document,
+            Attestation = run.Attestations.Last(a => string.Equals(a.ReportKind, kind, StringComparison.OrdinalIgnoreCase)),
         };
     }
 
@@ -404,52 +412,26 @@ public sealed class ReportAttestationService : IReportAttestationService
         }
     }
 
-    /// Drops stamps and sidecars for kinds whose attested PDF is about to change.
-    public static void InvalidateForKinds(TestRunRecord run, string runDirectory, IEnumerable<string> kinds)
-    {
-        RequireReportWritable(run, runDirectory);
-        foreach (var kind in kinds)
-        {
-            var existing = run.Attestations
-                .Where(a => string.Equals(a.ReportKind, kind, StringComparison.OrdinalIgnoreCase))
-                .ToArray();
-            foreach (var attestation in existing)
-            {
-                TryDeleteSidecar(attestation.SidecarPath);
-            }
-
-            run.Attestations.RemoveAll(a =>
-                string.Equals(a.ReportKind, kind, StringComparison.OrdinalIgnoreCase));
-
-            if (!string.IsNullOrWhiteSpace(runDirectory))
-            {
-                TryDeleteSidecar(Path.Combine(runDirectory, $"{kind}.attestation.json"));
-            }
-        }
-    }
-
     public static ReportAttestation? Find(TestRunRecord run, string reportKind)
     {
-        var issuedPath = ResolveIssuedPdfPath(run, reportKind);
-        if (string.IsNullOrWhiteSpace(issuedPath) || !File.Exists(issuedPath))
-        {
-            return null;
-        }
+        var artifact = ReportRevisions.Latest(run, reportKind);
+        return artifact is null ? null : FindForArtifact(run, artifact);
+    }
+
+    public static ReportAttestation? FindForArtifact(TestRunRecord run, RunReportArtifact artifact)
+    {
+        if (string.IsNullOrWhiteSpace(artifact.PdfPath) || !File.Exists(artifact.PdfPath)) return null;
         try
         {
-            var issuedHash = HashFile(issuedPath);
-            var issuedSidecarPath = Path.ChangeExtension(issuedPath, ".attestation.json");
-            // The unique issuance stem binds evidence even when different issues have
-            // identical PDF bytes. Artifact time, not append order, selects the issue.
+            var hash = HashFile(artifact.PdfPath);
+            var sidecarPath = Path.ChangeExtension(artifact.PdfPath, ".attestation.json");
             return run.Attestations.LastOrDefault(a =>
-                string.Equals(a.ReportKind, reportKind, StringComparison.OrdinalIgnoreCase)
-                && string.Equals(a.SidecarPath, issuedSidecarPath, StringComparison.OrdinalIgnoreCase)
-                && string.Equals(a.PdfSha256, issuedHash, StringComparison.OrdinalIgnoreCase));
+                string.Equals(a.ReportKind, artifact.Kind, StringComparison.OrdinalIgnoreCase)
+                && a.RevisionId == artifact.RevisionId
+                && PathEquals(a.SidecarPath, sidecarPath)
+                && string.Equals(a.PdfSha256, hash, StringComparison.OrdinalIgnoreCase));
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            return null;
-        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return null; }
     }
 
     /// Validates the run and its persisted header before touching report files or stamps.
@@ -479,22 +461,13 @@ public sealed class ReportAttestationService : IReportAttestationService
                && !string.IsNullOrWhiteSpace(r.PdfPath))?.PdfPath;
 
     public static string? ResolvePdfPath(TestRunRecord run, string reportKind)
-        => ResolveIssuedPdfPath(run, reportKind) ?? ResolveWorkingPdfPath(run, reportKind);
+    {
+        var issued = ReportRevisions.Latest(run, reportKind);
+        return issued is null ? ResolveWorkingPdfPath(run, reportKind) : issued.PdfPath;
+    }
 
     public static string? ResolveIssuedPdfPath(TestRunRecord run, string reportKind)
-    {
-        var match = run.Reports.Select((artifact, index) => (artifact, index))
-            .Where(item => string.Equals(item.artifact.Kind, reportKind, StringComparison.OrdinalIgnoreCase)
-                && ReportArtifactRoles.IsIssued(item.artifact.Role)
-                && !string.IsNullOrWhiteSpace(item.artifact.PdfPath))
-            .OrderByDescending(item => item.artifact.GeneratedAt)
-            .ThenByDescending(item => item.index)
-            .Select(item => item.artifact)
-            .FirstOrDefault();
-        return match is not null && !string.IsNullOrWhiteSpace(match.PdfPath)
-            ? match.PdfPath
-            : null;
-    }
+        => ReportRevisions.Latest(run, reportKind)?.PdfPath;
 
     public static string? ResolveWorkingPdfPath(TestRunRecord run, string reportKind)
     {
@@ -524,24 +497,26 @@ public sealed class ReportAttestationService : IReportAttestationService
             return null;
         }
 
-        var name = Path.GetFileName(dir);
-        if (string.Equals(name, ReportArtifactRoles.DirectoryName, StringComparison.OrdinalIgnoreCase))
-        {
-            return Path.GetFileName(Path.GetDirectoryName(dir));
-        }
-
-        return name;
+        var current = new DirectoryInfo(dir);
+        for (var depth = 0; current is not null && depth < 4; depth++, current = current.Parent)
+            if (string.Equals(current.Name, ReportArtifactRoles.DirectoryName, StringComparison.OrdinalIgnoreCase))
+                return current.Parent?.Name;
+        return Path.GetFileName(dir);
     }
+
+    /// Report paths follow Windows casing rules only on Windows; distinct Unix files stay distinct.
+    public static bool PathEquals(string? left, string? right)
+        => string.Equals(left, right, OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
 
     public static bool RunOwnsPdf(TestRunRecord run, string pdfPath)
     {
-        return run.Reports.Any(r => string.Equals(r.PdfPath, pdfPath, StringComparison.OrdinalIgnoreCase));
+        return run.Reports.Any(r => PathEquals(r.PdfPath, pdfPath));
     }
 
     public static string KindForPdf(TestRunRecord run, string pdfPath)
     {
         var match = run.Reports.FirstOrDefault(r =>
-            string.Equals(r.PdfPath, pdfPath, StringComparison.OrdinalIgnoreCase));
+            PathEquals(r.PdfPath, pdfPath));
         if (match is not null && !string.IsNullOrWhiteSpace(match.Kind))
         {
             return match.Kind;
@@ -553,8 +528,11 @@ public sealed class ReportAttestationService : IReportAttestationService
     /// Issued PDF when present for this path's kind; otherwise the given path.
     public static string ResolvePrintOrExportPdfPath(TestRunRecord run, string pdfPath)
     {
+        if (run.Reports.Any(r => ReportArtifactRoles.IsIssued(r.Role)
+            && PathEquals(r.PdfPath, pdfPath))) return pdfPath;
         var kind = KindForPdf(run, pdfPath);
-        return ResolveIssuedPdfPath(run, kind) ?? pdfPath;
+        var issued = ReportRevisions.Latest(run, kind);
+        return issued is null ? pdfPath : issued.PdfPath ?? throw new IOException("The issued revision has no PDF path.");
     }
 
     private static string HashBytes(byte[] bytes) => Convert.ToHexString(SHA256.HashData(bytes));
@@ -620,22 +598,20 @@ public sealed class ReportAttestationService : IReportAttestationService
         return false;
     }
 
-    private static void TryDeleteSidecar(string? path)
+    private static bool SidecarMatches(ReportAttestation attestation, string? expectedHash)
     {
-        if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
-        {
-            return;
-        }
-
+        if (string.IsNullOrWhiteSpace(attestation.SidecarPath) || string.IsNullOrWhiteSpace(expectedHash)) return false;
         try
         {
-            File.Delete(path);
+            if (!string.Equals(HashFile(attestation.SidecarPath), expectedHash, StringComparison.OrdinalIgnoreCase)) return false;
+            using var stream = File.OpenRead(attestation.SidecarPath);
+            var sidecar = JsonSerializer.Deserialize(stream, AppJsonContext.Default.ReportAttestationSidecar);
+            return sidecar is not null && JsonSerializer.Serialize(sidecar.Attestation, AppJsonContext.Default.ReportAttestation)
+                == JsonSerializer.Serialize(attestation, AppJsonContext.Default.ReportAttestation);
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            // Reprint must still proceed; a leftover sidecar is dropped from the run record.
-        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException) { return false; }
     }
+
 }
 
 /// Disk sidecar next to the PDF (signature bytes stay off the run JSON).
