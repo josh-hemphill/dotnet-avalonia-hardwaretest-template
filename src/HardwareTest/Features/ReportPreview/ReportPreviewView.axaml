@@ -14,6 +14,7 @@
       <Button Content="Open in PDF viewer" Command="{Binding OpenInViewerCommand}" IsEnabled="{Binding !IsBusy}" />
       <Button Content="Print…" Command="{Binding PrintCommand}"
               IsEnabled="{Binding !IsBusy}" />
+      <Button Content="Cancel print" Command="{Binding CancelPrintCommand}" IsVisible="{Binding IsPrinting}" />
       <TextBlock Text="Loading…"
                  IsVisible="{Binding IsBusy}"
                  VerticalAlignment="Center"
@@ -23,6 +24,9 @@
 
     <StackPanel Grid.Row="1" Spacing="8">
       <TextBlock Text="{Binding ReportSummary}" TextWrapping="Wrap" />
+      <TextBlock Text="Save a copy preserves the original digital signature. Printing to PDF creates a new document. Choose a destination outside the managed run folder."
+                 TextWrapping="Wrap" Opacity="0.8" />
+      <TextBlock Text="{Binding PrintStatus}" TextWrapping="Wrap" />
       <Border IsVisible="{Binding ShowSigningPrompt}" Padding="12" BorderThickness="1"
               BorderBrush="{DynamicResource SystemControlForegroundBaseMediumBrush}">
         <StackPanel Spacing="8">

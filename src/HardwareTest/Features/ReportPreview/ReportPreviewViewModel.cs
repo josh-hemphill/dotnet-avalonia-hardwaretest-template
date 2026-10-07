@@ -8,6 +8,7 @@ using HardwareTest.Core.Runs;
 using HardwareTest.Core.Settings;
 using HardwareTest.OpenTap.Host;
 using HardwareTest.Reporting;
+using HardwareTest.Reporting.NativePrinting;
 using HardwareTest.UiThreading;
 using PDFtoImage;
 using ReactiveUI;
@@ -18,7 +19,6 @@ namespace HardwareTest.Features.ReportPreview;
 
 public partial class ReportPreviewViewModel : ReactiveObject
 {
-    private static readonly object PdfGate = new();
     private readonly IRunStore _runStore;
     private readonly IReportService _reportService;
     private readonly OperatorSession? _operatorSession;
@@ -33,6 +33,7 @@ public partial class ReportPreviewViewModel : ReactiveObject
     private readonly SemaphoreSlim _actionGate = new(1, 1);
     private CancellationTokenSource _selectionCancellation = new();
     private CancellationTokenSource? _signingCancellation;
+    private CancellationTokenSource? _printCancellation;
     private long _selectionVersion;
     private PendingAction? _pending;
     private OperatorCredential? _capturedCredential;
@@ -72,6 +73,7 @@ public partial class ReportPreviewViewModel : ReactiveObject
         SignAndContinueCommand = ReactiveCommand.CreateFromTask(() => CompleteSigningAsync(false));
         UsePresenceCommand = ReactiveCommand.CreateFromTask(() => CompleteSigningAsync(true));
         CancelSigningCommand = ReactiveCommand.Create(CancelPendingAction);
+        CancelPrintCommand = ReactiveCommand.Create(CancelPrint);
         NavigateToResultsCommand = ReactiveCommand.Create(
             () => NavigateToResultsRequested?.Invoke(this, EventArgs.Empty));
     }
@@ -90,6 +92,7 @@ public partial class ReportPreviewViewModel : ReactiveObject
     public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> SignAndContinueCommand { get; }
     public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> UsePresenceCommand { get; }
     public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> CancelSigningCommand { get; }
+    public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> CancelPrintCommand { get; }
     [Reactive] private bool _showSigningPrompt;
     [Reactive] private bool _showSigningPin;
     [Reactive] private string _signingPin = string.Empty;
@@ -101,6 +104,8 @@ public partial class ReportPreviewViewModel : ReactiveObject
     [Reactive] private string? _pdfPath;
     [Reactive] private string _status = string.Empty;
     [Reactive] private bool _isBusy;
+    [Reactive] private bool _isPrinting;
+    [Reactive] private string _printStatus = string.Empty;
 
     public bool ShowEmptyState => Pages.Count == 0 && !IsBusy;
 
@@ -264,14 +269,37 @@ public partial class ReportPreviewViewModel : ReactiveObject
 
     public void CancelPendingAction() => ResetSelection(null);
 
+    private void CancelPrint()
+    {
+        CancellationTokenSource? cancellation;
+        lock (_selectionLock)
+        {
+            cancellation = _printCancellation;
+            cancellation?.Cancel();
+        }
+        if (cancellation is null) return;
+        PostPrintCancellationStatus(cancellation);
+    }
+
+    private void PostPrintCancellationStatus(CancellationTokenSource cancellation)
+    {
+        UiDispatch.Post(() =>
+        {
+            if (ReferenceEquals(_printCancellation, cancellation) && IsPrinting)
+                PrintStatus = "Cancellation requested. Waiting for the printer driver to return.";
+        }, UiScheduler);
+    }
+
     private long? ResetSelection(long? expectedVersion, bool loading = false)
     {
         long version;
+        CancellationTokenSource? printCancellation;
         lock (_selectionLock)
         {
             if (expectedVersion is not null && expectedVersion != _selectionVersion) return null;
             version = ++_selectionVersion;
             _selectionLoading = loading;
+            printCancellation = _printCancellation;
             _selectionCancellation.Cancel();
             _selectionCancellation.Dispose();
             _selectionCancellation = new CancellationTokenSource();
@@ -279,6 +307,7 @@ public partial class ReportPreviewViewModel : ReactiveObject
             _pending = null;
             _capturedCredential = null;
         }
+        if (printCancellation is not null) PostPrintCancellationStatus(printCancellation);
         UiDispatch.Post(() =>
         {
             if (version != _selectionVersion) return;
@@ -297,7 +326,7 @@ public partial class ReportPreviewViewModel : ReactiveObject
         switch (action)
         {
             case ActionKind.Print:
-                message = _printer is null ? "Printing is unavailable." : await _printer.PrintAsync(path, token).ConfigureAwait(false);
+                message = await PrintSelectedAsync(path, token).ConfigureAwait(false);
                 break;
             case ActionKind.Save:
                 var saved = _desktop is null ? throw new InvalidOperationException("Saving is unavailable.")
@@ -315,6 +344,61 @@ public partial class ReportPreviewViewModel : ReactiveObject
         {
             if (!token.IsCancellationRequested) Status = message;
         }).ConfigureAwait(false);
+    }
+
+    private async Task<string> PrintSelectedAsync(string path, CancellationToken selectionToken)
+    {
+        if (_printer is null) return "Printing is unavailable.";
+        CancellationTokenSource cancellation;
+        lock (_selectionLock)
+        {
+            selectionToken.ThrowIfCancellationRequested();
+            if (_printCancellation is not null) return "A print operation is already in progress. Wait for it to finish.";
+            cancellation = CancellationTokenSource.CreateLinkedTokenSource(selectionToken);
+            _printCancellation = cancellation;
+        }
+        var message = "Print cancelled. No submission was confirmed.";
+        try
+        {
+            await RunOnUiAsync(() =>
+            {
+                if (!ReferenceEquals(_printCancellation, cancellation)) return;
+                IsPrinting = true;
+                PrintStatus = cancellation.IsCancellationRequested
+                    ? "Cancellation requested. Waiting for the printer driver to return."
+                    : $"Printing {path}…";
+            }).ConfigureAwait(false);
+            cancellation.Token.ThrowIfCancellationRequested();
+            // Await the actual job: native dialog/driver calls cannot be interrupted safely.
+            message = await _printer.PrintAsync(path, cancellation.Token).ConfigureAwait(false);
+            return message;
+        }
+        catch (OperationCanceledException) { return message; }
+        catch (Exception ex)
+        {
+            message = "Print failed: " + ex.Message + " Retry, save a copy, or open the PDF viewer.";
+            return message;
+        }
+        finally
+        {
+            try
+            {
+                await RunOnUiAsync(() =>
+                {
+                    if (!ReferenceEquals(_printCancellation, cancellation)) return;
+                    IsPrinting = false;
+                    PrintStatus = selectionToken.IsCancellationRequested ? "Previous print job: " + message : message;
+                }).ConfigureAwait(false);
+            }
+            finally
+            {
+                lock (_selectionLock)
+                {
+                    if (ReferenceEquals(_printCancellation, cancellation)) _printCancellation = null;
+                }
+                cancellation.Dispose();
+            }
+        }
     }
 
     public async Task PrintFromPathAsync(string path)
@@ -364,7 +448,7 @@ public partial class ReportPreviewViewModel : ReactiveObject
     [SupportedOSPlatform("macos")]
     private static List<Bitmap> RenderPages(string path)
     {
-        lock (PdfGate)
+        lock (SharedPdfRenderingGate.SyncRoot)
         {
             using var input = File.OpenRead(path);
             var images = Conversion.ToImages(input).Take(10).ToList();

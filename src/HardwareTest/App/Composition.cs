@@ -19,6 +19,7 @@ using HardwareTest.Features.Shell;
 using HardwareTest.OpenTap.Host;
 using HardwareTest.OpenTap.Host.Worker;
 using HardwareTest.Reporting;
+using HardwareTest.Reporting.NativePrinting;
 using HardwareTest.Shell;
 using HardwareTest.ShellApps.Notes;
 using Microsoft.Extensions.DependencyInjection;
@@ -68,10 +69,17 @@ public static class Composition
         services.AddSingleton<RunTestViewModel>();
         services.AddSingleton<InspectViewModel>();
         services.AddSingleton<ResultsViewModel>();
-        services.AddSingleton<IReportPrintService, SystemReportPrintService>();
-        services.AddSingleton<IReportDesktopActions>(_ => new ReportDesktopActions(
+        services.AddSingleton(_ => new NativeDialogOwner(
+            () => (Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.MainWindow));
+        services.AddSingleton<IReportPrintService>(sp => OperatingSystem.IsWindows()
+            ? new WindowsReportPrintService(sp.GetRequiredService<NativeDialogOwner>().GetHandleAsync,
+                new WindowsPrintBackend(), new PdfPrintRenderer(), new StaPrintWorker())
+            : new LpReportPrintService(new SystemLpPrintBackend()));
+        services.AddSingleton<IReportDesktopActions>(sp => new ReportDesktopActions(
             () => (Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.MainWindow,
-            settingsStore.RunsDirectory));
+            settingsStore.RunsDirectory,
+            OperatingSystem.IsWindows() ? new PdfViewerLauncher(sp.GetRequiredService<NativeDialogOwner>().GetHandleAsync,
+                new WindowsPdfViewerBackend(), new StaPrintWorker()) : null));
         services.AddSingleton<ReportPreviewViewModel>();
         services.AddSingleton<InstrumentsViewModel>();
         services.AddSingleton<SettingsViewModel>();
