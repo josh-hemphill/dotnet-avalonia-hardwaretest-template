@@ -6,8 +6,15 @@ public sealed partial class AuthoringWorkspaceViewModel
     public string PackPreflightHomeText => LastPackPreflight?.Home is { } home
         ? $"Checked authoring home: {home.Root}; compatibility home: {LastPackPreflight.TuiHome?.Root}" : string.Empty;
     public IReadOnlyList<PackPreflightFinding> PackPreflightFindings => LastPackPreflight?.Findings ?? [];
-    public IReadOnlyList<string> DirtyProgramIds => _dirtyPlans.Concat(_dirtySidecars)
-        .Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.OrdinalIgnoreCase).ToArray();
+    public IReadOnlyList<string> DirtyProgramIds
+    {
+        get
+        {
+            ObserveContentDirty();
+            return _dirtyPlans.Concat(_dirtySidecars)
+                .Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.OrdinalIgnoreCase).ToArray();
+        }
+    }
     public bool CanPack => Workspace is not null && WorkspacePacker.IsWritableWorkspace(Workspace) && !HasUnsavedChanges;
     public string PackGuardText => HasUnsavedChanges
         ? WorkspaceCatalogDirty ? "Use Save All to save workspace catalog changes and edited programs before packing." : $"Save edited programs before packing: {string.Join(", ", DirtyProgramIds)}"

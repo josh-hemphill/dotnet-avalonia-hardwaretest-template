@@ -187,10 +187,14 @@ public sealed class PlanCompilerPersistenceTests : IDisposable
         var path = PlanPath();
         var draft = Draft();
         var compiler = new PlanCompiler();
+        var originalSidecar = ExpectedSidecar(draft.Sidecar);
 
         compiler.Save(draft, path);
 
-        Assert.Equal(ExpectedSidecar(draft.Sidecar), File.ReadAllBytes(PlanCompiler.SidecarPath(path)));
+        Assert.Equal(originalSidecar, ExpectedSidecar(draft.Sidecar));
+        var persistedSidecar = PlanCompiler.CloneSidecar(draft.Sidecar);
+        AuthoringCleanup.SyncSidecar(persistedSidecar, draft.Cleanup);
+        Assert.Equal(ExpectedSidecar(persistedSidecar), File.ReadAllBytes(PlanCompiler.SidecarPath(path)));
         Assert.Equal("replacement", compiler.Load(path).Sidecar.DisplayName);
         AssertNoTemps(path);
     }

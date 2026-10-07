@@ -39,6 +39,10 @@ dotnet run --project src/HardwareTest.Authoring -c Debug -r win-x64 -- --help
 
 Keep **VISA address** writable on **Program settings** so the operator Instruments page can rebind.
 
+**Undo** and **Redo** apply to the selected program's committed edits, including sequence, instrument and sidecar changes. Each program keeps its own history and selected step when you switch programs. Saving keeps the history: Undo can make a saved program dirty again, while returning to its saved content clears the dirty marker. **Save sidecar** advances only the settings baseline; sequence edits still require **Save plan** or **Save all**.
+
+**Undo catalog** and **Redo catalog** restore a workspace catalog operation together with its affected programs. These controls become unavailable if intervening program edits would be overwritten; undo those edits first. **Remove program** deletes files and cannot be undone. Histories last for the open workspace session; durable draft recovery is a later work package.
+
 Sidecar fields (`displayName`, DUT flags, `reportKinds`) live on **Program settings**. Field reference: [adapting.md](adapting.md#author-a-locked-program). Copy [`plans/opentap/template.program.json`](../plans/opentap/template.program.json) only when you author a sidecar by hand.
 
 ## 3. Add each kind of test

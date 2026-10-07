@@ -16,7 +16,11 @@ public sealed record ProgramDraft(
     IReadOnlyList<MeasureNode> Measure,
     CleanupPolicy Cleanup);
 
-public abstract record MeasureNode;
+public abstract record MeasureNode
+{
+    /// Stable identity retained by edits and mapped to supported OpenTAP step IDs.
+    public Guid NodeId { get; init; } = Guid.NewGuid();
+}
 
 public sealed record MetricNode(MetricDraft Metric) : MeasureNode;
 
@@ -29,7 +33,11 @@ public sealed record InstrumentRef(
     string TypeId,
     string VisaAddress);
 
-public abstract record SetupAction;
+public abstract record SetupAction
+{
+    /// Stable identity retained by edits and mapped to supported OpenTAP step IDs.
+    public Guid NodeId { get; init; } = Guid.NewGuid();
+}
 
 public sealed record IdentitySetup(string InstrumentSlot) : SetupAction;
 
@@ -86,6 +94,9 @@ public sealed record CleanupPolicy(
     IReadOnlyList<string> InstrumentSlots,
     bool IncludeMeasureSlots = false)
 {
+    /// Stable policy-row identity within this document session.
+    public Guid NodeId { get; init; } = Guid.NewGuid();
+
     public CleanupPolicy(bool includeSafeShutdown, string instrumentSlot)
         : this(
             includeSafeShutdown,
@@ -142,7 +153,12 @@ public static class AuthoringCleanup
                 .Select(slot => slot.Trim())
                 .ToArray()
             : compiled.InstrumentSlots;
-        return new CleanupPolicy(include, slots, sidecar.IncludeMeasureSlots == true);
+        return compiled with
+        {
+            IncludeSafeShutdown = include,
+            InstrumentSlots = slots,
+            IncludeMeasureSlots = sidecar.IncludeMeasureSlots == true,
+        };
     }
 
     public static IReadOnlyList<string> MeasureSlots(ProgramDraft draft)

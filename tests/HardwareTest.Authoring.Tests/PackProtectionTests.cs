@@ -155,6 +155,13 @@ public sealed class PackProtectionTests : IDisposable
     [InlineData("tap.runtimeconfig.json", "{\"runtimeOptions\":{\"framework\":{\"name\":\"wrong\",\"version\":\"9.0.0\"}}}")]
     [InlineData("tap.runtimeconfig.json", "{\"runtimeOptions\":{\"framework\":{\"name\":\"Microsoft.NETCore.App\",\"version\":\"invalid\"}}}")]
     [InlineData("tap.runtimeconfig.json", "{\"runtimeOptions\":{\"frameworks\":[]}}")]
+    [InlineData("tap.runtimeconfig.json", "{\"runtimeOptions\":{\"frameworks\":{}}}")]
+    [InlineData("tap.runtimeconfig.json", "{\"runtimeOptions\":{\"frameworks\":[{}]}}")]
+    [InlineData("tap.runtimeconfig.json", "{\"runtimeOptions\":{\"frameworks\":[{\"name\":\"Microsoft.WindowsDesktop.App\",\"version\":false}]}}")]
+    [InlineData("tap.runtimeconfig.json", "{\"runtimeOptions\":{\"frameworks\":[{\"name\":\"wrong\",\"version\":\"9.0.0\"}]}}")]
+    [InlineData("tap.runtimeconfig.json", "{\"runtimeOptions\":{\"frameworks\":[{\"name\":\"Microsoft.WindowsDesktop.App\",\"version\":\"invalid\"}]}}")]
+    [InlineData("tap.runtimeconfig.json", "{\"runtimeOptions\":{\"frameworks\":[{\"name\":\"Microsoft.WindowsDesktop.App\",\"version\":\"9.0.0\"},{\"name\":\"Microsoft.WindowsDesktop.App\",\"version\":\"9.0.0\"}]}}")]
+    [InlineData("tap.runtimeconfig.json", "{\"runtimeOptions\":{\"framework\":{\"name\":\"Microsoft.NETCore.App\",\"version\":\"9.0.0\"},\"frameworks\":[{\"name\":\"Microsoft.WindowsDesktop.App\",\"version\":\"9.0.0\"}]}}")]
     public void Corrupt_runtime_blocks_before_existing_artifacts_are_changed(string file, string contents)
     {
         var workspace = AuthoringWorkspaceLoader.Load(_workspace);
@@ -173,6 +180,10 @@ public sealed class PackProtectionTests : IDisposable
     [Theory]
     [InlineData("framework", "{\"name\":\"Microsoft.NETCore.App\",\"version\":\"9.0.0\"}")]
     [InlineData("frameworks", "[{\"name\":\"Microsoft.NETCore.App\",\"version\":\"9.0.0\"}]")]
+    [InlineData("framework", "{\"name\":\"Microsoft.WindowsDesktop.App\",\"version\":\"9.0.0\"}")]
+    [InlineData("frameworks", "[{\"name\":\"Microsoft.WindowsDesktop.App\",\"version\":\"9.0.0\"}]")]
+    [InlineData("framework", "{\"name\":\"Microsoft.AspNetCore.App\",\"version\":\"9.0.0\"}")]
+    [InlineData("frameworks", "[{\"name\":\"Microsoft.NETCore.App\",\"version\":\"9.0.0\"},{\"name\":\"Microsoft.WindowsDesktop.App\",\"version\":\"9.0.0\"}]")]
     public void Supported_runtime_framework_declaration_forms_pass_prerequisite_validation(string property, string value)
     {
         var workspace = AuthoringWorkspaceLoader.Load(_workspace);

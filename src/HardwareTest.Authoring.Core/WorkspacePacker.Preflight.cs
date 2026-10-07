@@ -280,6 +280,9 @@ public static partial class WorkspacePacker
             throw new InvalidDataException("Declare exactly one of framework or frameworks.");
 
         var names = new HashSet<string>(StringComparer.Ordinal);
+        // Desktop and ASP.NET shared frameworks depend on Microsoft.NETCore.App.
+        // OpenTAP's Windows runtime config declares only Microsoft.WindowsDesktop.App;
+        // the .NET host resolves its transitive framework dependencies.
         foreach (var framework in frameworks)
         {
             if (framework.ValueKind != JsonValueKind.Object
@@ -297,7 +300,5 @@ public static partial class WorkspacePacker
                     || parts[1].Split('.').Any(p => p.Length == 0 || p.Any(c => !char.IsAsciiLetterOrDigit(c) && c != '-')))))
                 throw new InvalidDataException($"Invalid .NET framework version '{frameworkVersion}'; expected major.minor.patch with an optional prerelease suffix.");
         }
-        if (!names.Contains("Microsoft.NETCore.App"))
-            throw new InvalidDataException("The OpenTAP runtime configuration must declare Microsoft.NETCore.App.");
     }
 }

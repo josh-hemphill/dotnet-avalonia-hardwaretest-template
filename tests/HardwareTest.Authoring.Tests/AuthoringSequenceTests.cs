@@ -342,6 +342,7 @@ public sealed class AuthoringSequenceViewModelTests
     {
         var dest = Path.Combine(Path.GetTempPath(), "ht-ro-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(dest);
+        new PlanCompiler().Save(AuthoringRecipeCatalog.CreateProgram("locked"), Path.Combine(dest, "locked.TapPlan"));
         File.WriteAllText(
             Path.Combine(dest, "authoring.json"),
             """
@@ -355,11 +356,12 @@ public sealed class AuthoringSequenceViewModelTests
         var vm = new AuthoringWorkspaceViewModel();
         vm.Open(dest);
         Assert.True(vm.Workspace!.IsReadOnly);
-        vm.CreateProgram("locked");
+        Assert.Throws<AuthoringWorkspaceException>(() => vm.CreateProgram("another"));
         Assert.False(vm.CanRemoveSelectedProgram);
         var ex = Assert.Throws<AuthoringWorkspaceException>(vm.RemoveSelectedProgram);
         Assert.Contains("read-only", ex.Message, StringComparison.Ordinal);
         Assert.Equal("locked", vm.SelectedProgram?.PlanId);
+        Assert.Single(vm.Programs);
     }
 
     [Fact]
