@@ -15,7 +15,7 @@ public sealed class AuthoringGuidedOnboardingTests
     [AvaloniaTheory]
     [InlineData(false)]
     [InlineData(true)]
-    public void First_voltage_task_uses_shared_document_preview_save_reopen_and_completion(bool demo)
+    public void Explicit_mock_voltage_task_uses_shared_document_preview_save_reopen_and_completion(bool demo)
     {
         using var fixture = new AuthoringUiFixture(); fixture.Show();
         var root = Path.Combine(Path.GetDirectoryName(fixture.WorkspaceRoot)!, "first-success");
@@ -25,7 +25,7 @@ public sealed class AuthoringGuidedOnboardingTests
         fixture.Control<ComboBox>("Workspace template", workspace).SelectedIndex = demo ? 2 : 1;
         AuthoringUiFixture.Click(fixture.Control<Button>("Review workspace creation", workspace));
         AuthoringUiFixture.Click(fixture.Control<Button>("Create workspace", workspace));
-        var adapter = AuthoringInstrumentCatalog.All.Single(item => item.DisplayName == "VISA DMM");
+        var adapter = AuthoringInstrumentCatalog.All.Single(item => item.DisplayName == "Mock DMM");
         PreparePackage(fixture, demo ? AuthoringInstrumentCatalog.All.Single(item => item.DisplayName == "Mock DMM") : adapter);
         var dialog = Start(fixture);
         Set(fixture, dialog, "Stable plan ID", "first-voltage"); Set(fixture, dialog, "Plan display name", "First voltage"); Set(fixture, dialog, "Device family", "board-v1");
@@ -33,8 +33,8 @@ public sealed class AuthoringGuidedOnboardingTests
         Next(fixture, dialog); Assert.Contains("Instrument", fixture.Control<TextBlock>("Initialization stage", dialog).Text);
         if (!demo)
         {
-            fixture.Control<ComboBox>("Hardware choice", dialog).SelectedItem = fixture.Control<ComboBox>("Hardware choice", dialog).Items.Single(item => item!.ToString()!.Contains("Create VISA DMM", StringComparison.Ordinal));
-            Set(fixture, dialog, "Instrument address", "TCPIP::192.0.2.1::INSTR");
+            fixture.Control<ComboBox>("Hardware choice", dialog).SelectedItem = fixture.Control<ComboBox>("Hardware choice", dialog).Items.Single(item => item!.ToString()!.Contains("Create Mock DMM", StringComparison.Ordinal));
+            Set(fixture, dialog, "Instrument address", "MOCK::BENCH");
         }
         Next(fixture, dialog); Set(fixture, dialog, "Sample count", "12"); Set(fixture, dialog, "Output channel", "rail.voltage");
         Next(fixture, dialog); Set(fixture, dialog, "Pass threshold", "1.25");
@@ -78,7 +78,7 @@ public sealed class AuthoringGuidedOnboardingTests
         Assert.Equal(metric.NodeId, Assert.IsType<MetricNode>(Assert.Single(fixture.ViewModel.SelectedProgram!.Measure)).NodeId);
         AuthoringUiFixture.Click(fixture.Control<Button>("Resume guidance"));
         Assert.True(fixture.Control<TextBlock>("Guidance feedback").Text!.Contains("First voltage test complete", StringComparison.Ordinal), fixture.Control<TextBlock>("Guidance feedback").Text);
-        Assert.Contains(demo ? "Demo — Mock" : "Product — physical", fixture.Control<TextBlock>("Guidance feedback").Text);
+        Assert.Contains("Demo — Mock", fixture.Control<TextBlock>("Guidance feedback").Text);
     }
 
     [AvaloniaFact]
@@ -86,8 +86,8 @@ public sealed class AuthoringGuidedOnboardingTests
     {
         using var fixture = Loaded(); var dialog = Start(fixture);
         Set(fixture, dialog, "Stable plan ID", "retained"); Set(fixture, dialog, "Plan display name", "Retained input");
-        Next(fixture, dialog); fixture.Control<ComboBox>("Hardware choice", dialog).SelectedItem = fixture.Control<ComboBox>("Hardware choice", dialog).Items.Single(item => item!.ToString()!.Contains("Create VISA DMM", StringComparison.Ordinal));
-        Set(fixture, dialog, "Instrument address", "TCPIP::bench::INSTR"); Next(fixture, dialog);
+        Next(fixture, dialog); fixture.Control<ComboBox>("Hardware choice", dialog).SelectedItem = fixture.Control<ComboBox>("Hardware choice", dialog).Items.Single(item => item!.ToString()!.Contains("Create Mock DMM", StringComparison.Ordinal));
+        Set(fixture, dialog, "Instrument address", "MOCK::bench"); Next(fixture, dialog);
         Set(fixture, dialog, "Sample count", "pending"); Next(fixture, dialog); Set(fixture, dialog, "Pass threshold", "not yet");
         AuthoringUiFixture.Click(fixture.Control<Button>("Leave guidance", dialog));
         Assert.False(new AuthoringDocumentStore(fixture.WorkspaceRoot).Load("retained").Exists);
@@ -95,7 +95,7 @@ public sealed class AuthoringGuidedOnboardingTests
         dialog = Assert.IsType<PlanInitializationWindow>(Assert.Single(fixture.Window!.OwnedWindows));
         Assert.Contains("Pass criterion", fixture.Control<TextBlock>("Initialization stage", dialog).Text);
         Assert.Equal("pending", fixture.Control<TextBox>("Sample count", dialog).Text); Assert.Equal("not yet", fixture.Control<TextBox>("Pass threshold", dialog).Text);
-        Assert.Equal("TCPIP::bench::INSTR", fixture.Control<TextBox>("Instrument address", dialog).Text);
+        Assert.Equal("MOCK::bench", fixture.Control<TextBox>("Instrument address", dialog).Text);
         AuthoringUiFixture.Click(fixture.Control<Button>("Skip optional guidance", dialog));
         var prefs = new AuthoringPreferencesStore(fixture.Preferences.FilePath); prefs.Load(); Assert.True(prefs.Current.SkipGuidance);
         dialog = Start(fixture); Assert.Contains("Name and destination", fixture.Control<TextBlock>("Initialization stage", dialog).Text);
@@ -107,8 +107,8 @@ public sealed class AuthoringGuidedOnboardingTests
     public void Missing_hardware_and_package_have_next_actions_and_keep_draft_history_in_normal_editor()
     {
         using var fixture = Loaded(); var dialog = Start(fixture); Set(fixture, dialog, "Stable plan ID", "blocked");
-        Next(fixture, dialog); fixture.Control<ComboBox>("Hardware choice", dialog).SelectedItem = fixture.Control<ComboBox>("Hardware choice", dialog).Items.Single(item => item!.ToString()!.Contains("Create VISA DMM", StringComparison.Ordinal));
-        Set(fixture, dialog, "Instrument address", "TCPIP::bench::INSTR");
+        Next(fixture, dialog); fixture.Control<ComboBox>("Hardware choice", dialog).SelectedItem = fixture.Control<ComboBox>("Hardware choice", dialog).Items.Single(item => item!.ToString()!.Contains("Create Mock DMM", StringComparison.Ordinal));
+        Set(fixture, dialog, "Instrument address", "MOCK::bench");
         for (var stage = 0; stage < 4; stage++) Next(fixture, dialog);
         AuthoringUiFixture.Click(fixture.Control<Button>("Create test plan", dialog));
         var feedback = fixture.Control<TextBlock>("Guidance feedback").Text!;

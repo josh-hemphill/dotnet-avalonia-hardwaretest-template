@@ -18,8 +18,8 @@ public sealed class AuthoringDestructiveScopeWindowTests
     public void Actual_membership_checkbox_changes_only_selected_program(string target, string group)
     {
         using var fixture = Loaded(); var vm = fixture.ViewModel;
-        vm.CreateProgram("a"); AddCatalog(fixture, target == "fixtureId" ? CatalogDeletionKind.RequiredField : CatalogDeletionKind.ReportKind);
-        vm.CreateProgram("b"); vm.SelectProgram("a"); Assert.True(vm.SaveAll().Succeeded); AuthoringUiFixture.Drain();
+        vm.InitializePlan(new("a") { Instruments = [] }); AddCatalog(fixture, target == "fixtureId" ? CatalogDeletionKind.RequiredField : CatalogDeletionKind.ReportKind);
+        vm.InitializePlan(new("b") { Instruments = [] }); vm.DisplayName += " edited"; vm.SelectProgram("a"); Assert.True(vm.SaveAll().Succeeded); AuthoringUiFixture.Drain();
         var other = vm.Programs.Single(p => p.PlanId == "b"); var otherBytes = File.ReadAllBytes(Sidecar(fixture, "b"));
         var box = fixture.Control<CheckBox>($"Include {target} in selected program", fixture.Control<ItemsControl>(group));
         Assert.True(box.IsChecked); PressSpace(fixture.Window!, box);
@@ -63,8 +63,8 @@ public sealed class AuthoringDestructiveScopeWindowTests
     [InlineData(CatalogDeletionKind.ProgramKind)]
     public void Real_workspace_delete_affirmation_stages_only_affected_programs_until_SaveAll_then_reloads(CatalogDeletionKind kind)
     {
-        using var fixture = Loaded(); var vm = fixture.ViewModel; vm.CreateProgram("a"); var target = AddCatalog(fixture, kind);
-        vm.CreateProgram("b"); if (kind == CatalogDeletionKind.RequiredField) vm.SetRequiredFieldIncluded(target, false);
+        using var fixture = Loaded(); var vm = fixture.ViewModel; vm.InitializePlan(new("a") { Instruments = [] }); var target = AddCatalog(fixture, kind);
+        vm.InitializePlan(new("b") { Instruments = [] }); vm.DisplayName += " edited"; if (kind == CatalogDeletionKind.RequiredField) vm.SetRequiredFieldIncluded(target, false);
         if (kind == CatalogDeletionKind.ReportKind) vm.SetReportKindIncluded(target, false);
         if (kind == CatalogDeletionKind.ProgramKind) vm.ProgramKind = "dut";
         Assert.True(vm.SaveAll().Succeeded); var other = vm.SelectedProgram; vm.SelectProgram("a"); AuthoringUiFixture.Drain(); var files = Snapshot(fixture);
@@ -97,7 +97,7 @@ public sealed class AuthoringDestructiveScopeWindowTests
     [InlineData("session")]
     public void Catalog_confirmation_cannot_apply_to_a_changed_selection_or_reopened_session(string change)
     {
-        using var fixture = Loaded(); var vm = fixture.ViewModel; vm.CreateProgram("a"); var target = AddCatalog(fixture, CatalogDeletionKind.RequiredField); Assert.True(vm.SaveAll().Succeeded);
+        using var fixture = Loaded(); var vm = fixture.ViewModel; vm.InitializePlan(new("a") { Instruments = [] }); var target = AddCatalog(fixture, CatalogDeletionKind.RequiredField); Assert.True(vm.SaveAll().Succeeded);
         OpenCatalogModal(fixture, CatalogDeletionKind.RequiredField, target);
         if (change == "selection") vm.SelectProgram("sample"); else vm.CommitOpen(vm.PrepareOpen(fixture.WorkspaceRoot));
         var before = vm.Programs; var files = Snapshot(fixture); AuthoringUiFixture.Click(fixture.Control<Button>("Remove from workspace", Dialog(fixture)));
@@ -237,7 +237,7 @@ public sealed class AuthoringDestructiveScopeWindowTests
     [InlineData(true)]
     public void Affirmative_whole_program_removal_affects_only_named_program_and_stale_selection_is_rejected(bool stale)
     {
-        using var fixture = Loaded(); var vm = fixture.ViewModel; vm.CreateProgram("other"); Assert.True(vm.SaveAll().Succeeded); vm.SelectProgram("sample"); AuthoringUiFixture.Drain();
+        using var fixture = Loaded(); var vm = fixture.ViewModel; vm.InitializePlan(new("other") { Instruments = [] }); vm.DisplayName += " edited"; Assert.True(vm.SaveAll().Succeeded); vm.SelectProgram("sample"); AuthoringUiFixture.Drain();
         OpenProgramModal(fixture, true); var dialog = Dialog(fixture); var otherBytes = File.ReadAllBytes(Sidecar(fixture, "other")); var files = Snapshot(fixture);
         if (stale) vm.SelectProgram("other"); AuthoringUiFixture.Click(fixture.Control<Button>("Remove program", dialog));
         Assert.Equal(otherBytes, File.ReadAllBytes(Sidecar(fixture, "other")));
@@ -273,7 +273,7 @@ public sealed class AuthoringDestructiveScopeWindowTests
     public void Workspace_impact_many_programs_scrolls_with_cancel_visible_at_supported_sizes(int width, int height)
     {
         using var fixture = Loaded(width, height); var vm = fixture.ViewModel; AddCatalog(fixture, CatalogDeletionKind.RequiredField);
-        for (var i = 0; i < 35; i++) { vm.CreateProgram($"impact-{i:00}-{new string('x', 110)}"); vm.SetRequiredFieldIncluded("fixtureId", true); }
+        for (var i = 0; i < 35; i++) { vm.InitializePlan(new($"impact-{i:00}-{new string('x', 110)}") { Instruments = [] }); vm.SetRequiredFieldIncluded("fixtureId", true); }
         AuthoringUiFixture.Drain(); OpenCatalogModal(fixture, CatalogDeletionKind.RequiredField, "fixtureId"); var dialog = Dialog(fixture);
         var scroll = fixture.Control<ScrollViewer>("Destructive operation scope and impact", dialog); AssertInside(scroll, dialog); Assert.True(scroll.Extent.Height > scroll.Viewport.Height);
         foreach (var button in dialog.GetVisualDescendants().OfType<Button>().Where(b => b.Content is string)) AssertInside(button, dialog);

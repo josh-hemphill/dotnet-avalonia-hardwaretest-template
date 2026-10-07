@@ -137,7 +137,7 @@ public sealed class MetricEditorTests
         var root = EmptyWorkspace();
         var vm = new AuthoringWorkspaceViewModel();
         vm.Open(root);
-        vm.CreateProgram("series");
+        vm.InitializePlan(new("series") { Instruments = [] });
         vm.ApplyRecipe(AuthoringRecipeIds.SeriesCompliance);
         Assert.Equal("1.1", vm.LimitLow);
         Assert.Equal("1.4", vm.LimitHigh);
@@ -163,7 +163,7 @@ public sealed class MetricEditorTests
         var root = EmptyWorkspace();
         var vm = new AuthoringWorkspaceViewModel();
         vm.Open(root);
-        vm.CreateProgram("health");
+        vm.InitializePlan(new("health") { Instruments = [] });
         vm.ApplyRecipe(AuthoringRecipeIds.StationHealth);
         Assert.Equal(PresentationRoles.Scalar, vm.DisplayRole);
         vm.Apply();
@@ -217,7 +217,8 @@ public sealed class MetricEditorTests
         vm.Open(root);
         vm.CreateDemoProgram("saved");
         vm.ApplyRecipe(AuthoringRecipeIds.MeanGte);
-        vm.CreateProgram("pending");
+        vm.InitializePlan(new("pending") { Instruments = [] });
+        vm.DisplayName += " edited";
         vm.SelectProgram("saved");
         vm.Apply();
 
@@ -225,6 +226,8 @@ public sealed class MetricEditorTests
         Assert.Contains(vm.Programs, p => p.PlanId == "pending");
         Assert.Equal("saved", vm.SelectedProgram?.PlanId);
         Assert.False(File.Exists(Path.Combine(root, "pending.TapPlan")));
+        Assert.True(File.Exists(new AuthoringDocumentStore(root).GetDocumentPath("pending")));
+        Assert.Equal("pending", Assert.Single(vm.DirtyPrograms).PlanId);
     }
 
     [Fact]

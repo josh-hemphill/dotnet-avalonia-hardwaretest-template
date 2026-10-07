@@ -82,7 +82,7 @@ public sealed class AuthoringAppSettingsTests
         var store = NewStore();
         var vm = new AuthoringWorkspaceViewModel(preferences: store);
         vm.Open(NewWorkspace());
-        vm.CreateProgram("raw-pref");
+        vm.InitializePlan(new("raw-pref") { Instruments = [] });
         vm.ReplaceSelected(vm.SelectedProgram! with
         {
             Measure = [new RawStepNode("HangForeverStep", "<TestStep />")],
@@ -221,7 +221,7 @@ public sealed class AuthoringAppSettingsTests
     {
         var vm = new AuthoringWorkspaceViewModel();
         vm.Open(NewWorkspace());
-        vm.CreateProgram("prefix");
+        vm.InitializePlan(new("prefix") { Instruments = [] });
         vm.ApplyRecipe(AuthoringRecipeIds.Formula);
         vm.FormulaSource = "me";
         vm.RefreshFormulaCompletions(2);

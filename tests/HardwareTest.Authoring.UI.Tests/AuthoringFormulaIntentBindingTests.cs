@@ -32,7 +32,7 @@ public sealed class AuthoringFormulaIntentBindingTests
         checkbox.IsChecked = true; AuthoringUiFixture.Drain(); Assert.True(vm.FormulaExplorationOnly);
         vm.Undo(); AuthoringUiFixture.Drain(); Assert.False(checkbox.IsChecked); Assert.False(vm.FormulaExplorationOnly);
         vm.Redo(); AuthoringUiFixture.Drain(); Assert.True(checkbox.IsChecked); Assert.True(vm.FormulaExplorationOnly);
-        vm.CreateProgram("intent-other"); vm.ApplyRecipe(AuthoringRecipeIds.Formula);
+        vm.InitializePlan(new("intent-other") { Instruments = [] }); vm.ApplyRecipe(AuthoringRecipeIds.Formula);
         vm.SelectMeasure(vm.SelectedProgram!.Measure.Count - 1); AuthoringUiFixture.Drain(); Assert.False(checkbox.IsChecked);
         vm.SelectProgram(firstId);
         vm.SelectSequence(vm.SequenceItems.ToList().FindIndex(row => row.NodeId == secondNode)); AuthoringUiFixture.Drain();

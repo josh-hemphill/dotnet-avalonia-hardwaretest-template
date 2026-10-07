@@ -21,15 +21,19 @@ public sealed class AuthoringExpertCommandsTests
     {
         using var fixture = Loaded();
         var vm = fixture.ViewModel;
-        var visa = AuthoringInstrumentCatalog.All.Single(adapter => adapter.DisplayName == "VISA DMM");
-        vm.CreateProgram(new PlanInitializationRequest("first-settings") { Instruments = [new InstrumentRef("DMM", visa.TypeId, "TCPIP::127.0.0.1::INSTR") { Settings = new Dictionary<string, string> { ["IoTimeoutMilliseconds"] = "111" } }] });
-        vm.CreateProgram(new PlanInitializationRequest("later-settings") { Instruments = [new InstrumentRef("DMM", visa.TypeId, "TCPIP::127.0.0.1::INSTR") { Settings = new Dictionary<string, string> { ["IoTimeoutMilliseconds"] = "777" } }] });
+        CurrentHardwareUiFixture.Prepare(fixture);
+        var physical = AuthoringInstrumentCatalog.All.Single(adapter => adapter.TypeId == CurrentHardwareUiFixture.TypeId);
+        vm.InitializePlan(new PlanInitializationRequest("first-settings") { Instruments = [new InstrumentRef("DMM", physical.TypeId, "TCPIP::127.0.0.1::INSTR") { Settings = new Dictionary<string, string> { ["IoTimeoutMilliseconds"] = "111" } }] });
+        vm.InitializePlan(new PlanInitializationRequest("later-settings") { Instruments = [new InstrumentRef("DMM", physical.TypeId, "TCPIP::127.0.0.1::INSTR") { Settings = new Dictionary<string, string> { ["IoTimeoutMilliseconds"] = "777" } }] });
+        vm.SaveProgram("first-settings"); vm.SaveProgram("later-settings");
         Assert.True(vm.SaveAll().Succeeded);
-        var donorBytes = new[] { "first-settings", "later-settings" }.SelectMany(id => new[]
+        var donorBytes = new[] { "first-settings", "later-settings" }.SelectMany(id =>
         {
-            new AuthoringDocumentStore(fixture.WorkspaceRoot).GetDocumentPath(id),
-            Path.Combine(vm.Workspace!.Root, vm.Workspace.Manifest.PlansDirectory, id + ".TapPlan")
+            var compiled = vm.Workspace!.TapPlanPaths.Single(path => Path.GetFileNameWithoutExtension(path) == id);
+            return new[] { new AuthoringDocumentStore(fixture.WorkspaceRoot).GetDocumentPath(id), compiled, PlanCompiler.SidecarPath(compiled) };
         }).ToDictionary(path => path, File.ReadAllBytes);
+        var homeBytes = Directory.EnumerateFiles(vm.OpenTapHomeOverride, "*", SearchOption.AllDirectories)
+            .ToDictionary(path => path, File.ReadAllBytes);
         var first = vm.Programs.Single(program => program.PlanId == "first-settings").Instruments[0];
         var later = vm.Programs.Single(program => program.PlanId == "later-settings").Instruments[0];
         fixture.Control<Button>("Save all").Focus();
@@ -42,7 +46,7 @@ public sealed class AuthoringExpertCommandsTests
         var hardware = fixture.Control<ComboBox>("Hardware choice", dialog);
         var labels = hardware.Items.Select(item => item!.ToString()!).ToArray();
         var selected = Array.FindIndex(labels, label => label.Contains("Program later-settings", StringComparison.Ordinal));
-        Assert.True(selected > 3); Assert.Contains("IoTimeoutMilliseconds=777", labels[selected]);
+        Assert.True(selected > 1); Assert.Contains("IoTimeoutMilliseconds=777", labels[selected]);
         Assert.Contains(labels, label => label.Contains("Program first-settings", StringComparison.Ordinal) && label.Contains("IoTimeoutMilliseconds=111", StringComparison.Ordinal));
         hardware.SelectedIndex = selected; AuthoringUiFixture.Drain();
         for (var stage = 3; stage <= 5; stage++)
@@ -61,6 +65,7 @@ public sealed class AuthoringExpertCommandsTests
         Assert.Equal("111", first.Settings["IoTimeoutMilliseconds"]); Assert.Equal("777", later.Settings["IoTimeoutMilliseconds"]);
         Assert.True(vm.SaveAll().Succeeded);
         foreach (var donor in donorBytes) Assert.Equal(donor.Value, File.ReadAllBytes(donor.Key));
+        foreach (var file in homeBytes) Assert.Equal(file.Value, File.ReadAllBytes(file.Key));
         vm.Open(fixture.WorkspaceRoot); vm.SelectProgram("chosen-settings");
         Assert.Equal("777", Assert.Single(vm.SelectedProgram!.Instruments).Settings["IoTimeoutMilliseconds"]);
         Assert.Equal(later.VisaAddress, vm.SelectedProgram.Instruments[0].VisaAddress);

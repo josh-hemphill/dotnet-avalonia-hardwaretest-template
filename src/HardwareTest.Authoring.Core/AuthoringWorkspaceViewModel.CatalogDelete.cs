@@ -92,18 +92,6 @@ public sealed partial class AuthoringWorkspaceViewModel
         Error = null;
     }
 
-    // Legacy entrypoints retain meaningful blank/protected diagnostics but cannot bypass review.
-    public void RemoveRequiredField(string fieldId) => RejectUnreviewedCatalogDeletion(CatalogDeletionKind.RequiredField, fieldId);
-    public void RemoveReportKind(string kind) => RejectUnreviewedCatalogDeletion(CatalogDeletionKind.ReportKind, kind);
-    public void RemoveProgramKindFromCatalog(string kind) => RejectUnreviewedCatalogDeletion(CatalogDeletionKind.ProgramKind, kind);
-    private void RejectUnreviewedCatalogDeletion(CatalogDeletionKind kind, string target)
-    {
-        if (AuthoringWorkspaceCatalog.Normalize(target) is not { } token) return;
-        EnsureWritableWorkspace("remove a workspace catalog entry");
-        GuardProtectedCatalog(kind, token);
-        throw new AuthoringWorkspaceException("Prepare and review the named workspace deletion impact before applying it.");
-    }
-
     public InstrumentRemovalImpact PrepareSelectedInstrumentRemoval()
     {
         EnsureWritableWorkspace("review an instrument slot removal");

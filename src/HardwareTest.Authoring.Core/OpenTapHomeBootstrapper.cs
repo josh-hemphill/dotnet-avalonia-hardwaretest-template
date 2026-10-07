@@ -79,21 +79,11 @@ public sealed class OpenTapHomeBootstrapper : IOpenTapHomeBootstrapper
         CopyOpenTapRuntime(homeRoot);
         InstallInTreePack(homeRoot, "HardwareTest Basic", typeof(MockDmmInstrument));
         InstallInTreePack(homeRoot, "HardwareTest Mixins", typeof(AnnotationMixinBuilder));
-        var requiresVisa = workspace.Manifest.Dependencies.Any(d =>
-            string.Equals(d.Package, VisaPackageName, StringComparison.OrdinalIgnoreCase));
-        if (requiresVisa)
-        {
-            InstallInTreePack(homeRoot, VisaPackageName, AuthoringVisaInstrumentAdapter.InstrumentType);
-        }
-
         if (string.IsNullOrWhiteSpace(options.OfflinePackagePath)) InstallInstrumentComponentsIfRequired(workspace, options, homeRoot, capturedEnvironment);
         InstallStandaloneCounterpartForLibrary(workspace.Manifest, homeRoot, explicitPartialImport: !string.IsNullOrWhiteSpace(options.OfflinePackagePath));
         InstallOptionalFilePackage(options.TuiPackagePath, homeRoot, workspace.Manifest);
 
-        if (!requiresVisa)
-        {
-            AssertNoVisa(homeRoot);
-        }
+        AssertNoVisa(homeRoot);
         var home = new OpenTapHome(homeRoot);
         if (StandaloneVisaReadiness.ExecutionPrerequisite(home, requiresInstrumentLibrary: false) is { } unavailable)
             throw new AuthoringWorkspaceException(unavailable);
@@ -390,7 +380,6 @@ public sealed class OpenTapHomeBootstrapper : IOpenTapHomeBootstrapper
                 [
                     Path.Combine(dir.FullName, "src", "HardwareTest.OpenTap.Plugins.Basic", "package.xml"),
                     Path.Combine(dir.FullName, "src", "HardwareTest.OpenTap.Plugins.Mixins", "package.xml"),
-                    Path.Combine(dir.FullName, "src", "HardwareTest.OpenTap.Plugins.Visa", "package.xml"),
                 ];
                 foreach (var candidate in candidates)
                 {

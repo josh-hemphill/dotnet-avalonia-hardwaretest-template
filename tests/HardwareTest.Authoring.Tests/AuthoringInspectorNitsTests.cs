@@ -45,7 +45,7 @@ public sealed class AuthoringInspectorNitsTests
     public void Input_field_ids_edit_the_selected_operator_input_row()
     {
         var vm = OpenEmpty();
-        vm.CreateProgram("input-ids");
+        vm.InitializePlan(new("input-ids") { Instruments = [] });
         vm.ApplyRecipe(AuthoringRecipeIds.Input);
         var input = vm.SequenceItems.Single(row => row.Label == "Operator Input");
         vm.SelectSequence(vm.SequenceItems.ToList().IndexOf(input));
@@ -61,8 +61,8 @@ public sealed class AuthoringInspectorNitsTests
     public void SelectedProgram_setter_switches_the_session_program()
     {
         var vm = OpenEmpty();
-        vm.CreateProgram("alpha");
-        vm.CreateProgram("beta");
+        vm.InitializePlan(new("alpha") { Instruments = [] });
+        vm.InitializePlan(new("beta") { Instruments = [] });
         vm.SelectedProgram = vm.Programs.Single(p => p.PlanId == "alpha");
         Assert.Equal("alpha", vm.SelectedProgram?.PlanId);
         vm.SelectedProgram = vm.Programs.Single(p => p.PlanId == "beta");

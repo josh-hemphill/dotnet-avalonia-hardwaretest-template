@@ -18,7 +18,7 @@ public sealed class LibraryEditorCreationTests
             var home = new OpenTapHome(Path.Combine(root, "actual-home"));
             vm.Workspace!.Manifest.InstrumentComponentsPackage = package;
             new OpenTapHomeBootstrapper().Bootstrap(vm.Workspace, new() { HomeDirectory = home.Root, Offline = true });
-            vm.OpenTapHomeOverride = home.Root; vm.CreateProgram("editor");
+            vm.OpenTapHomeOverride = home.Root; vm.InitializePlan(new("editor") { Instruments = [] });
             vm.NewInstrumentTypeId = AuthoringInstrumentCatalog.Discover(home).Single(adapter => adapter.DisplayName == "DC Power Supply").TypeId;
             vm.NewInstrumentSlot = "Rail";
             var before = vm.SelectedProgram;

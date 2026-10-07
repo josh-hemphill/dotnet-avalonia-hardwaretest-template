@@ -320,7 +320,7 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
             new PlanContractOptions
             {
                 Strict = strict,
-                ExcludeVisaAdapter = !AuthoringInstrumentCatalog.DeclaresVisa(Workspace),
+                ExcludeVisaAdapter = true,
             });
         AcceptFindings(report, checkedState);
         SetFindingValidationStatus(report);

@@ -17,20 +17,19 @@ public sealed class TuiCompatChecker : ITuiCompatChecker
         ArgumentNullException.ThrowIfNull(authoringHome);
         ArgumentNullException.ThrowIfNull(tuiHome);
 
-        var includeVisa = AuthoringInstrumentCatalog.DeclaresVisa(workspace);
-        var authoringCatalog = ScanCatalog(authoringHome, includeVisa);
-        var tuiCatalog = ScanCatalog(tuiHome, includeVisa);
+        var authoringCatalog = ScanCatalog(authoringHome);
+        var tuiCatalog = ScanCatalog(tuiHome);
         var catalog = DiffCatalog(authoringCatalog, tuiCatalog);
         var roundTrips = new List<RoundTripFinding>();
         foreach (var planPath in workspace.TapPlanPaths)
         {
-            roundTrips.AddRange(InspectPlan(planPath, tuiCatalog, tuiHome, includeVisa));
+            roundTrips.AddRange(InspectPlan(planPath, tuiCatalog, tuiHome));
         }
 
         return new TuiCompatReport(catalog, roundTrips);
     }
 
-    internal static IReadOnlyDictionary<string, string> ScanCatalog(OpenTapHome home, bool includeVisa = false)
+    internal static IReadOnlyDictionary<string, string> ScanCatalog(OpenTapHome home)
     {
         var map = new Dictionary<string, string>(StringComparer.Ordinal);
         var packages = Path.Combine(home.Root, "Packages");
@@ -46,8 +45,7 @@ public sealed class TuiCompatChecker : ITuiCompatChecker
                 if (string.Equals(
                         Path.GetFileName(dll),
                         OpenTapHomeBootstrapper.VisaAssemblyFileName,
-                        StringComparison.OrdinalIgnoreCase)
-                    && (!includeVisa || !AuthoringInstrumentCatalog.IsDeclaredVisaPackage(xmlPath)))
+                        StringComparison.OrdinalIgnoreCase))
                 {
                     continue;
                 }
@@ -92,7 +90,7 @@ public sealed class TuiCompatChecker : ITuiCompatChecker
     private static IReadOnlyList<RoundTripFinding> InspectPlan(
         string planPath,
         IReadOnlyDictionary<string, string> tuiCatalog,
-        OpenTapHome tuiHome, bool includeVisa)
+        OpenTapHome tuiHome)
     {
         var findings = new List<RoundTripFinding>();
         if (!File.Exists(planPath))
@@ -165,7 +163,7 @@ public sealed class TuiCompatChecker : ITuiCompatChecker
             new PlanContractOptions
             {
                 Strict = true,
-                ExcludeVisaAdapter = !includeVisa,
+                ExcludeVisaAdapter = true,
                 TrustConfiguredPluginDirectories = true,
                 Settings = new AppSettings
                 {

@@ -19,7 +19,6 @@ public sealed partial class PlanInitializationWindow
             _hardwareChoices.Add(new($"Create {adapter.DisplayName} — Instrument Components", adapter));
         var demo = AuthoringInstrumentCatalog.All.Single(a => a.DisplayName == "Mock DMM");
         _hardwareChoices.Add(new("Create Mock DMM — demo", demo));
-        _hardwareChoices.Add(new("Create VISA DMM — legacy binding", AuthoringInstrumentCatalog.All.Single(a => a.DisplayName == "VISA DMM")));
         for (var index = 0; index < _reusable.Count; index++)
         {
             var resource = _reusable[index];
@@ -85,7 +84,7 @@ public sealed partial class PlanInitializationWindow
                         return $"{resource.SlotName} · {resource.TypeId}\nThis retained resource type is unavailable. Its original address, configuration and source are preserved; review its package in Environment before creating supported actions.";
                     var declared = _workspace.Manifest.Dependencies.Any(d => d.Package.Equals(adapter.RequiredPackage, StringComparison.OrdinalIgnoreCase));
                     return $"{adapter.DisplayName} · {adapter.Description}\n{adapter.RequiredPackage} · {(declared ? "dependency declared" : "dependency missing — declare in Environment")}\n"
-                        + (AuthoringInstrumentCatalog.IsLibrary(resource.TypeId) ? (_vm.InstrumentTypeChoices.Any(a => a.TypeId == resource.TypeId) ? "Ready in selected home — compatible installed package reused.\n" : "Unavailable in selected home — open Environment.\n") + "Library identity and cleanup steps can be generated; review output-off/reset for your device. Voltage and average-voltage measurements are unavailable for this device in this form. Turn off the first measurement to save a hardware scaffold. Library measurement recipes are not supported by this authoring form." : "Demo or legacy voltage tasks.");
+                        + (AuthoringInstrumentCatalog.IsLibrary(resource.TypeId) ? (_vm.InstrumentTypeChoices.Any(a => a.TypeId == resource.TypeId) ? "Ready in selected home — compatible installed package reused.\n" : "Unavailable in selected home — open Environment.\n") + "Library identity and cleanup steps can be generated; review output-off/reset for your device. Voltage and average-voltage measurements are unavailable for this device in this form. Turn off the first measurement to save a hardware scaffold. Library measurement recipes are not supported by this authoring form." : "Explicit Mock DMM demo voltage tasks.");
                 }));
             _readiness.Text += "\n" + string.Join("\n", result.Issues.Where(i => i.Code.StartsWith("INSTRUMENT_", StringComparison.Ordinal) || i.Code == "INVALID_OPENTAP_HOME").Select(i => i.Message));
             if (choice?.Resource is { } retained && _retainedResourceIndex >= 0 && SameResource(retained, _reusable[_retainedResourceIndex]))

@@ -15,7 +15,7 @@ public static partial class AuthoringInstrumentCatalog
     private static readonly Dictionary<string, string> DiscoveryIssues = new(StringComparer.Ordinal);
     public static IReadOnlyList<AuthoringInstrumentAdapter> All
     {
-        get { lock (LibraryGate) return [.. Legacy, .. Library.Values]; }
+        get { lock (LibraryGate) return [.. Demo, .. Library.Values]; }
     }
     public static bool IsLibrary(string typeId) => typeId.StartsWith("InstrumentComponents.OpenTap.", StringComparison.Ordinal);
 

@@ -213,27 +213,27 @@ public sealed class AuthoringPlanInitializationTests
     }
 
     [AvaloniaFact]
-    public void Missing_VISA_dependency_remains_visible_in_review_and_saved_reopened_draft()
+    public void Missing_mock_package_remains_visible_in_review_and_saved_reopened_draft()
     {
         using var fixture = Loaded();
         fixture.ViewModel.OpenTapHomeOverride = Path.Combine(fixture.WorkspaceRoot, "missing-home");
         AuthoringUiFixture.Click(fixture.Control<Button>("New test plan"));
         var dialog = Assert.IsType<PlanInitializationWindow>(Assert.Single(fixture.Window!.OwnedWindows));
-        Type(fixture, dialog, "Stable plan ID", "real-voltage"); Next(fixture, dialog, "Starting point");
+        Type(fixture, dialog, "Stable plan ID", "mock-voltage"); Next(fixture, dialog, "Starting point");
         fixture.Control<ComboBox>("Starting point", dialog).SelectedIndex = 1;
-        Next(fixture, dialog, "Hardware"); fixture.Control<ComboBox>("Hardware choice", dialog).SelectedItem = fixture.Control<ComboBox>("Hardware choice", dialog).Items.Single(item => item!.ToString()!.Contains("Create VISA DMM", StringComparison.Ordinal));
-        Type(fixture, dialog, "Instrument address", "TCPIP::192.0.2.1::INSTR");
-        Assert.Contains("VISA DMM", fixture.Control<TextBlock>("Hardware readiness", dialog).Text);
+        Next(fixture, dialog, "Hardware"); fixture.Control<ComboBox>("Hardware choice", dialog).SelectedItem = fixture.Control<ComboBox>("Hardware choice", dialog).Items.Single(item => item!.ToString()!.Contains("Create Mock DMM", StringComparison.Ordinal));
+        Type(fixture, dialog, "Instrument address", "MOCK::BENCH");
+        Assert.Contains("Mock DMM", fixture.Control<TextBlock>("Hardware readiness", dialog).Text);
         Next(fixture, dialog, "Setup and cleanup"); fixture.Control<CheckBox>("Check instrument identity", dialog).IsChecked = true;
         Next(fixture, dialog, "First measurement and criterion"); Next(fixture, dialog, "Review and create");
-        Assert.Contains("'HardwareTest VISA' is unavailable", fixture.Control<TextBlock>("Initialization review", dialog).Text);
+        Assert.Contains("'HardwareTest Basic' is unavailable", fixture.Control<TextBlock>("Initialization review", dialog).Text);
         AuthoringUiFixture.Click(fixture.Control<Button>("Create test plan", dialog));
         var instrument = Assert.Single(fixture.ViewModel.SelectedProgram!.Instruments);
-        Assert.Equal("TCPIP::192.0.2.1::INSTR", instrument.VisaAddress);
-        Assert.Equal("VISA DMM", AuthoringInstrumentCatalog.All.Single(adapter => adapter.TypeId == instrument.TypeId).DisplayName);
+        Assert.Equal("MOCK::BENCH", instrument.VisaAddress);
+        Assert.Equal("Mock DMM", AuthoringInstrumentCatalog.All.Single(adapter => adapter.TypeId == instrument.TypeId).DisplayName);
         Assert.Contains(fixture.ViewModel.EditingIssues, issue => issue.Code == "INSTRUMENT_UNAVAILABLE");
         Assert.False(fixture.ViewModel.HasUnsavedChanges);
-        fixture.ViewModel.Open(fixture.WorkspaceRoot); fixture.ViewModel.SelectProgram("real-voltage");
+        fixture.ViewModel.Open(fixture.WorkspaceRoot); fixture.ViewModel.SelectProgram("mock-voltage");
         Assert.Contains(fixture.ViewModel.EditingIssues, issue => issue.Code == "INSTRUMENT_UNAVAILABLE");
         var reopened = Assert.Single(fixture.ViewModel.SelectedProgram!.Instruments);
         Assert.Equal(instrument.TypeId, reopened.TypeId); Assert.Equal(instrument.SlotName, reopened.SlotName);
@@ -259,18 +259,18 @@ public sealed class AuthoringPlanInitializationTests
         Assert.NotEmpty(vm.IssuesSummary);
         vm.SaveProgram("invalid-home-empty"); vm.Open(fixture.WorkspaceRoot); vm.SelectProgram("invalid-home-empty"); AuthoringUiFixture.Drain();
         Assert.Contains(vm.EditingIssues, issue => issue.PlanId == "invalid-home-empty" && issue.Code == "INVALID_OPENTAP_HOME");
-        vm.CreateProgram("invalid-home-unsaved"); AuthoringUiFixture.Drain();
+        vm.InitializePlan(new("invalid-home-unsaved") { Instruments = [] }); vm.DisplayName = "Edited incomplete plan"; AuthoringUiFixture.Drain();
         Assert.True(vm.HasUnsavedChanges); Assert.Contains(vm.EditingIssues, issue => issue.PlanId == "invalid-home-unsaved" && issue.Code == "INVALID_OPENTAP_HOME");
         vm.OpenTapHomeOverride = ""; AuthoringUiFixture.Drain();
         Assert.DoesNotContain(vm.EditingIssues, issue => issue.Code == "INVALID_OPENTAP_HOME");
     }
 
     [AvaloniaFact]
-    public void Default_home_declared_VISA_payload_is_visible_in_hardware_review_and_saved_reopened_issues()
+    public void Default_home_declared_mock_payload_is_visible_in_hardware_review_and_saved_reopened_issues()
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
         var workspace = AuthoringWorkspaceLoader.Load(fixture.WorkspaceRoot);
-        workspace.Manifest.Dependencies.Add(new AuthoringPackageDependency { Package = OpenTapHomeBootstrapper.VisaPackageName, Version = "^0.1.0" });
+        // The fixture already declares the explicit Mock package dependency.
         AuthoringWorkspaceLoader.SaveManifest(fixture.WorkspaceRoot, workspace.Manifest);
         fixture.Show(); fixture.OpenRememberedWorkspace();
         var vm = fixture.ViewModel;
@@ -278,28 +278,28 @@ public sealed class AuthoringPlanInitializationTests
         var home = Path.GetFullPath(Path.Combine(fixture.WorkspaceRoot, OpenTapHomeBootstrapper.DefaultHomeRelativePath));
         AuthoringUiFixture.Click(fixture.Control<Button>("New test plan"));
         var dialog = Assert.IsType<PlanInitializationWindow>(Assert.Single(fixture.Window!.OwnedWindows));
-        Type(fixture, dialog, "Stable plan ID", "default-real"); Next(fixture, dialog, "Starting point");
+        Type(fixture, dialog, "Stable plan ID", "default-mock"); Next(fixture, dialog, "Starting point");
         fixture.Control<ComboBox>("Starting point", dialog).SelectedIndex = 1;
-        Next(fixture, dialog, "Hardware"); fixture.Control<ComboBox>("Hardware choice", dialog).SelectedItem = fixture.Control<ComboBox>("Hardware choice", dialog).Items.Single(item => item!.ToString()!.Contains("Create VISA DMM", StringComparison.Ordinal));
-        Type(fixture, dialog, "Instrument address", "TCPIP::192.0.2.1::INSTR");
+        Next(fixture, dialog, "Hardware"); fixture.Control<ComboBox>("Hardware choice", dialog).SelectedItem = fixture.Control<ComboBox>("Hardware choice", dialog).Items.Single(item => item!.ToString()!.Contains("Create Mock DMM", StringComparison.Ordinal));
+        Type(fixture, dialog, "Instrument address", "MOCK::BENCH");
         var readiness = fixture.Control<TextBlock>("Hardware readiness", dialog).Text!;
-        Assert.Contains("dependency declared", readiness); Assert.Contains("'HardwareTest VISA' is unavailable", readiness); Assert.Contains(home, readiness);
+        Assert.Contains("dependency declared", readiness); Assert.Contains("'HardwareTest Basic' is unavailable", readiness); Assert.Contains(home, readiness);
         Next(fixture, dialog, "Setup and cleanup"); fixture.Control<CheckBox>("Check instrument identity", dialog).IsChecked = true;
         Next(fixture, dialog, "First measurement and criterion"); Next(fixture, dialog, "Review and create");
         Assert.Contains(home, fixture.Control<TextBlock>("Initialization review", dialog).Text);
-        Assert.Contains("'HardwareTest VISA' is unavailable", fixture.Control<TextBlock>("Initialization review", dialog).Text);
+        Assert.Contains("'HardwareTest Basic' is unavailable", fixture.Control<TextBlock>("Initialization review", dialog).Text);
         AuthoringUiFixture.Click(fixture.Control<Button>("Create test plan", dialog));
-        Assert.Contains(vm.EditingIssues, issue => issue.PlanId == "default-real" && issue.Code == "INSTRUMENT_UNAVAILABLE");
+        Assert.Contains(vm.EditingIssues, issue => issue.PlanId == "default-mock" && issue.Code == "INSTRUMENT_UNAVAILABLE");
         Assert.Contains(home, Assert.Single(vm.HardwareRows).PackageStatus);
         Assert.False(vm.HasUnsavedChanges); Assert.Empty(fixture.Window.OwnedWindows);
-        vm.SaveProgram("default-real"); vm.Open(fixture.WorkspaceRoot); vm.SelectProgram("default-real"); AuthoringUiFixture.Drain();
-        Assert.Contains(vm.EditingIssues, issue => issue.PlanId == "default-real" && issue.Code == "INSTRUMENT_UNAVAILABLE");
-        Assert.Equal("TCPIP::192.0.2.1::INSTR", Assert.Single(vm.SelectedProgram!.Instruments).VisaAddress);
+        vm.SaveProgram("default-mock"); vm.Open(fixture.WorkspaceRoot); vm.SelectProgram("default-mock"); AuthoringUiFixture.Drain();
+        Assert.Contains(vm.EditingIssues, issue => issue.PlanId == "default-mock" && issue.Code == "INSTRUMENT_UNAVAILABLE");
+        Assert.Equal("MOCK::BENCH", Assert.Single(vm.SelectedProgram!.Instruments).VisaAddress);
         Assert.False(vm.HasUnsavedChanges);
         vm.OpenTapHomeOverride = Path.Combine(fixture.WorkspaceRoot, "other-missing-home"); AuthoringUiFixture.Drain();
-        Assert.Contains(vm.EditingIssues, issue => issue.PlanId == "default-real" && issue.Code == "INSTRUMENT_UNAVAILABLE" && issue.Message.Contains("other-missing-home", StringComparison.Ordinal));
+        Assert.Contains(vm.EditingIssues, issue => issue.PlanId == "default-mock" && issue.Code == "INSTRUMENT_UNAVAILABLE" && issue.Message.Contains("other-missing-home", StringComparison.Ordinal));
         vm.OpenTapHomeOverride = ""; AuthoringUiFixture.Drain();
-        Assert.Contains(vm.EditingIssues, issue => issue.PlanId == "default-real" && issue.Code == "INSTRUMENT_UNAVAILABLE" && issue.Message.Contains(home, StringComparison.Ordinal));
+        Assert.Contains(vm.EditingIssues, issue => issue.PlanId == "default-mock" && issue.Code == "INSTRUMENT_UNAVAILABLE" && issue.Message.Contains(home, StringComparison.Ordinal));
     }
 
     [AvaloniaFact]

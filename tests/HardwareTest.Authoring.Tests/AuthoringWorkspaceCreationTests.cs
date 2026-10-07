@@ -12,7 +12,7 @@ public sealed class AuthoringWorkspaceCreationTests : IDisposable
 
     [Theory]
     [InlineData(WorkspaceTemplateKind.Empty)]
-    [InlineData(WorkspaceTemplateKind.ProductVoltage)]
+    [InlineData(WorkspaceTemplateKind.HardwareScaffold)]
     [InlineData(WorkspaceTemplateKind.DemoVoltage)]
     public void Templates_create_standard_consistent_sources_and_stable_reopenable_drafts(WorkspaceTemplateKind kind)
     {
@@ -30,8 +30,8 @@ public sealed class AuthoringWorkspaceCreationTests : IDisposable
         var loaded = AuthoringSourceWorkspaceLoader.Load(first.Destination);
         Assert.Equal("Product tests", loaded.Files.Manifest.Package.Name);
         Assert.Equal("Workspace", loaded.Files.Manifest.DisplayName);
-        Assert.False(AuthoringInstrumentCatalog.DeclaresVisa(loaded.Files));
-        if (kind == WorkspaceTemplateKind.ProductVoltage)
+        Assert.DoesNotContain(loaded.Files.Manifest.Dependencies, package => package.Package == OpenTapHomeBootstrapper.VisaPackageName);
+        if (kind == WorkspaceTemplateKind.HardwareScaffold)
             Assert.Equal("^0.1.0", Assert.Single(loaded.Files.Manifest.Dependencies, package => package.Package == AuthoringInstrumentCatalog.LibraryPackage).Version);
         Assert.Equal(loaded.Files.Manifest.DisplayName, new AuthoringDocumentStore(first.Destination).LoadWorkspace().Document!.Manifest.DisplayName);
         if (kind == WorkspaceTemplateKind.Empty) Assert.Empty(loaded.Programs);
@@ -39,9 +39,9 @@ public sealed class AuthoringWorkspaceCreationTests : IDisposable
         {
             var draft = Assert.Single(loaded.Programs);
             Assert.Equal("board-x", draft.Sidecar.DutFamily);
-            if (kind == WorkspaceTemplateKind.ProductVoltage) Assert.Empty(draft.Measure);
+            if (kind == WorkspaceTemplateKind.HardwareScaffold) Assert.Empty(draft.Measure);
             else Assert.Single(draft.Measure);
-            if (kind == WorkspaceTemplateKind.ProductVoltage) Assert.Empty(draft.Instruments);
+            if (kind == WorkspaceTemplateKind.HardwareScaffold) Assert.Empty(draft.Instruments);
             else Assert.Contains("Mock", Assert.Single(draft.Instruments).TypeId);
             if (draft.Measure.Count > 0) Assert.Equal(draft.Measure[0].NodeId, AuthoringSourceWorkspaceLoader.Load(first.Destination).Programs.Single().Measure[0].NodeId);
             Assert.True(new AuthoringDocumentStore(first.Destination).Load(draft.PlanId).Document!.RequiresCompilation);
@@ -67,7 +67,7 @@ public sealed class AuthoringWorkspaceCreationTests : IDisposable
     [InlineData(true)]
     public void Late_failure_or_cancellation_removes_only_owned_publications_and_leaves_no_manifest(bool cancel)
     {
-        var request = Request(template: WorkspaceTemplateKind.ProductVoltage); Directory.CreateDirectory(request.Destination);
+        var request = Request(template: WorkspaceTemplateKind.HardwareScaffold); Directory.CreateDirectory(request.Destination);
         var unrelated = Path.Combine(request.Destination, "notes.txt"); File.WriteAllText(unrelated, "keep");
         using var cancellation = new CancellationTokenSource();
         var initializer = new AuthoringWorkspaceInitializer(path =>
@@ -193,7 +193,7 @@ public sealed class AuthoringWorkspaceCreationTests : IDisposable
     [InlineData(true, true)]
     public void New_root_post_move_load_failure_or_cancellation_rolls_back_only_owned_bytes(bool cancel, bool externalChanges)
     {
-        var request = Request(template: WorkspaceTemplateKind.ProductVoltage);
+        var request = Request(template: WorkspaceTemplateKind.HardwareScaffold);
         using var cancellation = new CancellationTokenSource();
         var reachedMovedRoot = false;
         var initializer = new AuthoringWorkspaceInitializer(_ => { }, afterRootMove: root =>
@@ -256,11 +256,11 @@ public sealed class AuthoringWorkspaceCreationTests : IDisposable
     [InlineData(WorkspaceTemplateKind.DemoVoltage)]
     public void Physical_package_is_an_explicit_setting_and_never_implies_hardware(WorkspaceTemplateKind kind)
     {
-        var request = Request(template: kind) with { IncludeVisaPackage = true };
+        var request = Request(template: kind) with { IncludeLibraryPackage = true };
         new AuthoringWorkspaceInitializer().Create(request);
         var loaded = AuthoringSourceWorkspaceLoader.Load(request.Destination);
-        Assert.True(AuthoringInstrumentCatalog.DeclaresVisa(loaded.Files));
-        Assert.Equal("^0.1.0", Assert.Single(loaded.Files.Manifest.Dependencies, package => package.Package == OpenTapHomeBootstrapper.VisaPackageName).Version);
+        Assert.Contains(loaded.Files.Manifest.Dependencies, package => package.Package == AuthoringInstrumentCatalog.LibraryPackage);
+        Assert.Equal("^0.1.0", Assert.Single(loaded.Files.Manifest.Dependencies, package => package.Package == AuthoringInstrumentCatalog.LibraryPackage).Version);
         if (kind == WorkspaceTemplateKind.Empty) Assert.Empty(loaded.Programs);
         else Assert.Contains("Mock", Assert.Single(Assert.Single(loaded.Programs).Instruments).TypeId);
     }
@@ -271,7 +271,7 @@ public sealed class AuthoringWorkspaceCreationTests : IDisposable
     [InlineData("voltage.authoring.json", false)]
     public void Existing_root_rejects_changed_staged_sources_and_preserves_external_source_bytes(string sourceName, bool validCatalog)
     {
-        var request = Request(template: WorkspaceTemplateKind.ProductVoltage); Directory.CreateDirectory(request.Destination);
+        var request = Request(template: WorkspaceTemplateKind.HardwareScaffold); Directory.CreateDirectory(request.Destination);
         var notes = Path.Combine(request.Destination, "notes.txt"); File.WriteAllText(notes, "keep existing bytes");
         string? stage = null; string? source = null; string? changedBytes = null;
         var initializer = new AuthoringWorkspaceInitializer(_ =>
@@ -302,7 +302,7 @@ public sealed class AuthoringWorkspaceCreationTests : IDisposable
     [InlineData(true, true, true)]
     public void Staging_failure_or_cancellation_preserves_only_foreign_or_changed_bytes(bool existingRoot, bool cancel, bool changeOwnedFile)
     {
-        var request = Request(template: WorkspaceTemplateKind.ProductVoltage);
+        var request = Request(template: WorkspaceTemplateKind.HardwareScaffold);
         if (existingRoot) Directory.CreateDirectory(request.Destination);
         using var cancellation = new CancellationTokenSource();
         string? stage = null; string? external = null;

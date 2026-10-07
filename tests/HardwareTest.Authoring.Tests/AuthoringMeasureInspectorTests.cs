@@ -291,7 +291,7 @@ public sealed class AuthoringMeasureInspectorTests
     [Fact]
     public void Raw_step_keeps_implementation_details_without_metric_fields()
     {
-        var vm = OpenEmpty(); vm.CreateProgram("raw-form");
+        var vm = OpenEmpty(); vm.InitializePlan(new("raw-form") { Instruments = [] });
         vm.ReplaceSelected(vm.SelectedProgram! with { Measure = [new RawStepNode("CustomStep", "<TestStep />")] });
         vm.SelectMeasure(0);
         Assert.True(vm.HasRawStep);

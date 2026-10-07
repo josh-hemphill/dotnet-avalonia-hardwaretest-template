@@ -43,8 +43,6 @@ public sealed partial class AuthoringWorkspaceInitializer
             Dependencies = template.RequiredPackages.Select(package => new AuthoringPackageDependency { Package = package.Package, Version = package.Version }).ToList(),
             IncludeTui = request.IncludeTui
         };
-        if (request.IncludeVisaPackage && !manifest.Dependencies.Any(package => package.Package == OpenTapHomeBootstrapper.VisaPackageName))
-            manifest.Dependencies.Add(new() { Package = OpenTapHomeBootstrapper.VisaPackageName, Version = "^0.1.0" });
         if (request.IncludeLibraryPackage && !manifest.Dependencies.Any(p => p.Package == AuthoringInstrumentCatalog.LibraryPackage))
             manifest.Dependencies.Add(new() { Package = AuthoringInstrumentCatalog.LibraryPackage, Version = "^0.1.0" });
         PlanInitializationResult? plan = null;

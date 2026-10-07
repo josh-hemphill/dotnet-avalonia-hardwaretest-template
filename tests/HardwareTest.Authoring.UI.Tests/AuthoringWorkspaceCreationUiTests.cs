@@ -137,7 +137,7 @@ public sealed class AuthoringWorkspaceCreationUiTests
     }
 
     [AvaloniaFact]
-    public void Product_manifest_supports_actual_guided_physical_selection_creation_save_and_reopen()
+    public void Hardware_scaffold_manifest_supports_explicit_demo_selection_creation_save_and_reopen()
     {
         using var fixture = new AuthoringUiFixture(); fixture.Show();
         var root = Path.Combine(Path.GetDirectoryName(fixture.WorkspaceRoot)!, "physical-product");
@@ -155,14 +155,14 @@ public sealed class AuthoringWorkspaceCreationUiTests
         AuthoringUiFixture.Click(fixture.Control<Button>("Next", plan));
         fixture.Control<ComboBox>("Starting point", plan).SelectedIndex = 1;
         AuthoringUiFixture.Click(fixture.Control<Button>("Next", plan));
-        fixture.Control<ComboBox>("Hardware choice", plan).SelectedItem = fixture.Control<ComboBox>("Hardware choice", plan).Items.Single(item => item!.ToString()!.Contains("Create VISA DMM", StringComparison.Ordinal));
+        fixture.Control<ComboBox>("Hardware choice", plan).SelectedItem = fixture.Control<ComboBox>("Hardware choice", plan).Items.Single(item => item!.ToString()!.Contains("Create Mock DMM", StringComparison.Ordinal));
         Set(fixture, plan, "Instrument address", "TCPIP0::127.0.0.1::inst0::INSTR");
-        Assert.Contains("dependency missing", fixture.Control<TextBlock>("Hardware readiness", plan).Text);
+        Assert.DoesNotContain("VISA DMM", fixture.Control<TextBlock>("Hardware readiness", plan).Text);
         for (var step = 0; step < 3; step++) AuthoringUiFixture.Click(fixture.Control<Button>("Next", plan));
         AuthoringUiFixture.Click(fixture.Control<Button>("Create test plan", plan));
         Assert.Empty(fixture.Window.OwnedWindows);
         var binding = Assert.Single(fixture.ViewModel.SelectedProgram!.Instruments);
-        Assert.Equal(AuthoringInstrumentCatalog.All.Single(adapter => adapter.DisplayName == "VISA DMM").TypeId, binding.TypeId);
+        Assert.Equal(AuthoringInstrumentCatalog.All.Single(adapter => adapter.DisplayName == "Mock DMM").TypeId, binding.TypeId);
         Assert.Equal("TCPIP0::127.0.0.1::inst0::INSTR", binding.VisaAddress);
         fixture.ViewModel.DisplayName = "Saved physical draft";
         Assert.True(fixture.ViewModel.SaveAll().Succeeded);
@@ -174,7 +174,7 @@ public sealed class AuthoringWorkspaceCreationUiTests
         Assert.Equal(binding.VisaAddress, reopened.VisaAddress);
         Assert.Equal(binding.OpaqueResourceXml, reopened.OpaqueResourceXml);
         Assert.Equal(binding.Settings.OrderBy(setting => setting.Key), reopened.Settings.OrderBy(setting => setting.Key));
-        Assert.False(AuthoringInstrumentCatalog.DeclaresVisa(fixture.ViewModel.Workspace!));
+        Assert.DoesNotContain(fixture.ViewModel.Workspace!.Manifest.Dependencies, package => package.Package == OpenTapHomeBootstrapper.VisaPackageName);
         Assert.Equal("^0.1.0", Assert.Single(fixture.ViewModel.Workspace!.Manifest.Dependencies, package => package.Package == AuthoringInstrumentCatalog.LibraryPackage).Version);
         Assert.False(fixture.ViewModel.HasUnsavedChanges);
     }
@@ -190,7 +190,7 @@ public sealed class AuthoringWorkspaceCreationUiTests
         var vm = fixture.ViewModel;
         if (origin != "compiled")
         {
-            vm.CreateProgram("first-compiled");
+            vm.InitializePlan(new("first-compiled") { Instruments = [] });
             if (origin == "source-only")
             {
                 var source = AuthoringDocumentDto.FromDraft(vm.SelectedProgram!);
@@ -247,7 +247,7 @@ public sealed class AuthoringWorkspaceCreationUiTests
         Assert.False(creating.IsCompleted); Assert.Equal(1, fixture.Interaction.Calls);
         if (change == "context") fixture.Window.DataContext = new object();
         if (change == "session") vm.CommitOpen(prepared, discardUnsavedChanges: true);
-        if (change == "selection") vm.CreateProgram("other-selected");
+        if (change == "selection") vm.InitializePlan(new("other-selected") { Instruments = [] });
         if (change == "hide") fixture.Window.Hide();
         await vm.StopRecoveryAsync(); AuthoringUiFixture.Drain();
         var document = vm.SelectedDocument;

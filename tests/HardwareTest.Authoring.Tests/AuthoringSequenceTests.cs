@@ -297,11 +297,15 @@ public sealed class AuthoringSequenceViewModelTests
     public void Remove_selected_program_drops_session_and_saved_files()
     {
         var vm = OpenEmpty();
-        vm.CreateProgram("keep-me");
-        vm.CreateProgram("drop-unsaved");
+        vm.InitializePlan(new("keep-me") { Instruments = [] });
+        vm.InitializePlan(new("drop-source") { Instruments = [] });
+        var store = new AuthoringDocumentStore(vm.Workspace!.Root);
+        var removedSource = store.GetDocumentPath("drop-source");
+        Assert.True(File.Exists(removedSource));
         Assert.True(vm.CanRemoveSelectedProgram);
         vm.RemoveSelectedProgram();
-        Assert.DoesNotContain(vm.Programs, program => program.PlanId == "drop-unsaved");
+        Assert.DoesNotContain(vm.Programs, program => program.PlanId == "drop-source");
+        Assert.False(File.Exists(removedSource));
         Assert.Equal("keep-me", vm.SelectedProgram?.PlanId);
 
         vm.Apply();
@@ -313,6 +317,7 @@ public sealed class AuthoringSequenceViewModelTests
         Assert.Null(vm.SelectedProgram);
         Assert.False(File.Exists(tap));
         Assert.False(File.Exists(sidecar));
+        Assert.False(File.Exists(store.GetDocumentPath("keep-me")));
         Assert.False(vm.CanRemoveSelectedProgram);
     }
 
@@ -320,9 +325,9 @@ public sealed class AuthoringSequenceViewModelTests
     public void Remove_selected_program_keeps_the_neighbor()
     {
         var vm = OpenEmpty();
-        vm.CreateProgram("alpha");
-        vm.CreateProgram("beta");
-        vm.CreateProgram("gamma");
+        vm.InitializePlan(new("alpha") { Instruments = [] });
+        vm.InitializePlan(new("beta") { Instruments = [] });
+        vm.InitializePlan(new("gamma") { Instruments = [] });
 
         vm.SelectProgram("beta");
         vm.RemoveSelectedProgram();
@@ -357,7 +362,7 @@ public sealed class AuthoringSequenceViewModelTests
         var vm = new AuthoringWorkspaceViewModel();
         vm.Open(dest);
         Assert.True(vm.Workspace!.IsReadOnly);
-        Assert.Throws<AuthoringWorkspaceException>(() => vm.CreateProgram("another"));
+        Assert.Throws<AuthoringWorkspaceException>(() => vm.InitializePlan(new("another") { Instruments = [] }));
         Assert.False(vm.CanRemoveSelectedProgram);
         var ex = Assert.Throws<AuthoringWorkspaceException>(vm.RemoveSelectedProgram);
         Assert.Contains("read-only", ex.Message, StringComparison.Ordinal);

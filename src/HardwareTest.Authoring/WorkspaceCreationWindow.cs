@@ -19,7 +19,7 @@ public sealed class WorkspaceCreationWindow : Window
     private readonly TextBox _family = Input("Workspace device family", "generic");
     private readonly CheckBox _serial = Named(new CheckBox { Content = "Require device serial", IsChecked = true }, "Require device serial");
     private readonly CheckBox _tui = Named(new CheckBox { Content = "Include terminal app" }, "Include terminal app");
-    private readonly CheckBox _visa = Named(new CheckBox { Content = "Include Instrument Components package for physical hardware" }, "Include Instrument Components package");
+    private readonly CheckBox _library = Named(new CheckBox { Content = "Include Instrument Components package for physical hardware" }, "Include Instrument Components package");
     private readonly CheckBox _continue = Named(new CheckBox { Content = "Continue to New test plan after creation" }, "Continue to New test plan");
     private readonly ComboBox _template = Named(new ComboBox { ItemsSource = AuthoringWorkspaceTemplates.All.Select(item => item.Name).ToArray(), SelectedIndex = 0 }, "Workspace template");
     private readonly TextBlock _review = Named(new TextBlock { TextWrapping = TextWrapping.Wrap }, "Workspace creation review");
@@ -37,7 +37,7 @@ public sealed class WorkspaceCreationWindow : Window
         FontSize = owner.FontSize; WindowStartupLocation = WindowStartupLocation.CenterOwner;
         Closing += (_, _) => _lifetime.Cancel();
         Closed += (_, _) => _lifetime.Dispose();
-        _template.SelectionChanged += (_, _) => _visa.IsVisible = _template.SelectedIndex != (int)WorkspaceTemplateKind.ProductVoltage;
+        _template.SelectionChanged += (_, _) => _library.IsVisible = _template.SelectedIndex != (int)WorkspaceTemplateKind.HardwareScaffold;
         var browse = Named(new Button { Content = "Choose destination folder…" }, "Choose workspace destination");
         browse.Click += async (_, _) =>
         {
@@ -88,7 +88,7 @@ public sealed class WorkspaceCreationWindow : Window
         _error.Bind(TextBlock.ForegroundProperty, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("AuthoringError"));
         _create.Classes.Add("authoringAction"); _create.Classes.Add("primaryAction");
         review.Classes.Add("authoringAction"); browse.Classes.Add("authoringAction"); cancel.Classes.Add("authoringAction");
-        _visa.Content = new TextBlock { Text = "Include Instrument Components package for physical hardware", TextWrapping = TextWrapping.Wrap };
+        _library.Content = new TextBlock { Text = "Include Instrument Components package for physical hardware", TextWrapping = TextWrapping.Wrap };
         _continue.Content = new TextBlock { Text = "Continue to New test plan after creation", TextWrapping = TextWrapping.Wrap };
         var form = new StackPanel { Spacing = 16 };
         form.Children.Add(AuthoringFormLayout.Section("Workspace location and identity",
@@ -96,7 +96,7 @@ public sealed class WorkspaceCreationWindow : Window
         form.Children.Add(AuthoringFormLayout.Section("Deployment package",
             Label("Package name", _package), Label("Package version", _version), Label("Package platforms (comma separated)", _platforms)));
         form.Children.Add(AuthoringFormLayout.Section("Starting task and hardware",
-            Label("Template", _template), Label("Initial plan ID (task templates)", _plan), Label("Device family (task templates)", _family), _serial, _visa));
+            Label("Template", _template), Label("Initial plan ID (task templates)", _plan), Label("Device family (task templates)", _family), _serial, _library));
         form.Children.Add(AuthoringFormLayout.Section("Optional outputs and next step", _tui, _continue));
         form.Children.Add(AuthoringFormLayout.Section("Review generated files and requirements", review, _review));
         var decisions = new WrapPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
@@ -115,7 +115,7 @@ public sealed class WorkspaceCreationWindow : Window
         DeviceFamily = _family.Text ?? "",
         RequireSerial = _serial.IsChecked == true,
         IncludeTui = _tui.IsChecked == true,
-        IncludeLibraryPackage = _visa.IsChecked == true
+        IncludeLibraryPackage = _library.IsChecked == true
     };
     private static TextBox Input(string name, string value = "") => Named(new TextBox { Text = value }, name);
     private static T Named<T>(T control, string name) where T : Control { AutomationProperties.SetName(control, name); return control; }

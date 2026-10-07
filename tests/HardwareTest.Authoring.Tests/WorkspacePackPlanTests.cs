@@ -57,7 +57,7 @@ public sealed class WorkspacePackPlanTests
         Assert.Contains("Raw", vm.AddRecipeToolTip, StringComparison.Ordinal);
         Assert.DoesNotContain("TUI", vm.AddRecipeToolTip, StringComparison.Ordinal);
         Assert.False(vm.HasRawSteps);
-        vm.CreateProgram("raw-banner");
+        vm.InitializePlan(new("raw-banner") { Instruments = [] });
         vm.ReplaceSelected(vm.SelectedProgram! with
         {
             Measure = [new RawStepNode("HangForeverStep", "<HangForever />")],

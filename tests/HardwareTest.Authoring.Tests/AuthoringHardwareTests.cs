@@ -34,9 +34,9 @@ public sealed class AuthoringHardwareTests : IDisposable
     [Fact]
     public void Adapter_type_and_configuration_rejection_preserves_atomic_manifest_and_membership()
     {
-        _vm.LoadHardwareEditor(); _vm.HardwareEditType = AuthoringInstrumentCatalog.All.Single(a => a.RequiredPackage == "HardwareTest VISA");
+        _vm.LoadHardwareEditor(); _vm.HardwareEditType = null;
         _vm.HardwareEditAddress = "TCPIP::bench";
-        Assert.Contains("dependency", Assert.Throws<AuthoringWorkspaceException>(() => _vm.PrepareHardwareEdit()).Message);
+        Assert.Contains("registered adapter", Assert.Throws<AuthoringWorkspaceException>(() => _vm.PrepareHardwareEdit()).Message);
         _vm.HardwareEditType = AuthoringInstrumentCatalog.All[0]; _vm.HardwareEditTimeout = "12";
         var before = AuthoringWorkspaceState.Capture(_vm.Workspace!.Manifest, _vm.Programs);
         _vm.NewInstrumentSlot = "BAD";

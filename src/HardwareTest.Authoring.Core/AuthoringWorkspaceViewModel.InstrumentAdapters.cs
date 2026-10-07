@@ -52,12 +52,6 @@ public sealed partial class AuthoringWorkspaceViewModel
     {
         if (!AuthoringInstrumentCatalog.TryGet(NewInstrumentTypeId, out var adapter))
             return "Choose a registered instrument type before adding the slot.";
-        if (adapter.TypeId == AuthoringVisaInstrumentAdapter.InstrumentType.FullName)
-        {
-            if (Workspace is not null && !AuthoringInstrumentCatalog.DeclaresVisa(Workspace))
-                return "Declare the HardwareTest VISA workspace dependency before adding a VISA DMM.";
-            if (string.IsNullOrWhiteSpace(NewInstrumentVisa)) return "Enter the VISA address for the selected VISA DMM.";
-        }
         if (AuthoringInstrumentCatalog.IsLibrary(adapter.TypeId) && string.IsNullOrWhiteSpace(NewInstrumentVisa))
             return "Enter the instrument address for the selected library device.";
         try { return adapter.Availability(InstrumentCreationHomeFor(adapter.TypeId)).Reason; }

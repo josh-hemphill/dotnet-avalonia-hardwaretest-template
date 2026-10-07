@@ -36,24 +36,13 @@ public static partial class AuthoringInstrumentCatalog
     private static readonly string[] DmmFunctions =
     [AuthoringFunctionIds.BasicAcquireVoltage, AuthoringFunctionIds.BasicBitSweepAcquire, AuthoringFunctionIds.BasicMeanGte];
 
-    private static IReadOnlyList<AuthoringInstrumentAdapter> Legacy { get; } =
+    private static IReadOnlyList<AuthoringInstrumentAdapter> Demo { get; } =
     [
         new(typeof(MockDmmInstrument).FullName!, "Mock DMM", "HardwareTest Basic", "HardwareTest.OpenTap.Plugins.Basic.dll",
             ["VisaAddress", "ResourceName"], [], DmmFunctions, true, true,
             slot => new MockDmmInstrument { Name = slot.SlotName, VisaAddress = slot.VisaAddress, ResourceName = slot.VisaAddress },
-            resource => new(resource.Name, typeof(MockDmmInstrument).FullName!, ((MockDmmInstrument)resource).VisaAddress)),
-        new(AuthoringVisaInstrumentAdapter.InstrumentType.FullName!, "VISA DMM", "HardwareTest VISA", "HardwareTest.OpenTap.Plugins.Visa.dll",
-            ["VisaAddress"], ["IoTimeoutMilliseconds"], DmmFunctions, true, true,
-            slot => AuthoringVisaInstrumentAdapter.Construct(slot.SlotName, slot.VisaAddress, slot.Settings),
-            resource => new(resource.Name, AuthoringVisaInstrumentAdapter.InstrumentType.FullName!, AuthoringVisaInstrumentAdapter.Address(resource))
-            { Settings = AuthoringVisaInstrumentAdapter.Settings(resource) })
-        { RequiredPayloadFiles = ["HardwareTest.Core.dll", "Ivi.Visa.dll"] }
+            resource => new(resource.Name, typeof(MockDmmInstrument).FullName!, ((MockDmmInstrument)resource).VisaAddress))
     ];
-
-    public static bool DeclaresVisa(AuthoringWorkspace workspace) => workspace.Manifest.Dependencies.Any(dependency =>
-        string.Equals(dependency.Package, OpenTapHomeBootstrapper.VisaPackageName, StringComparison.OrdinalIgnoreCase));
-
-    internal static bool IsDeclaredVisaPackage(string packageXml) => IsPackageNamed(packageXml, OpenTapHomeBootstrapper.VisaPackageName);
 
     internal static bool IsPackageNamed(string packageXml, string expectedName)
     {

@@ -470,9 +470,6 @@ public sealed class AuthoringOperationTests : IDisposable
         var second = Workspace();
         var firstHome = Temp();
         var secondHome = Temp();
-        var firstManifest = AuthoringWorkspaceLoader.Load(first).Manifest;
-        firstManifest.Dependencies.Add(new AuthoringPackageDependency { Package = OpenTapHomeBootstrapper.VisaPackageName, Version = "0.1.0" });
-        AuthoringWorkspaceLoader.SaveManifest(first, firstManifest);
         File.WriteAllText(Path.Combine(firstHome, "plugin-environment"), "one");
         File.WriteAllText(Path.Combine(secondHome, "plugin-environment"), "two");
         foreach (var (home, name) in new[] { (firstHome, "EnvironmentOne"), (secondHome, "EnvironmentTwo") })
@@ -489,7 +486,7 @@ public sealed class AuthoringOperationTests : IDisposable
         Assert.Contains(coordinator.Logs, log => log.Text.Contains("home-package:EnvironmentTwo", StringComparison.Ordinal));
         Assert.DoesNotContain(coordinator.Logs, log => log.Text.Contains("home-package:EnvironmentOne", StringComparison.Ordinal));
         Assert.NotEqual(File.ReadAllLines(Path.Combine(first, "fixture-child.json"))[0], File.ReadAllLines(Path.Combine(second, "fixture-child.json"))[0]);
-        Assert.True(File.Exists(Path.Combine(firstHome, "Packages", OpenTapHomeBootstrapper.VisaPackageName, OpenTapHomeBootstrapper.VisaAssemblyFileName)));
+        Assert.False(Directory.EnumerateFiles(firstHome, OpenTapHomeBootstrapper.VisaAssemblyFileName, SearchOption.AllDirectories).Any());
         Assert.False(Directory.EnumerateFiles(secondHome, OpenTapHomeBootstrapper.VisaAssemblyFileName, SearchOption.AllDirectories).Any());
         Assert.Equal("one", File.ReadAllText(Path.Combine(firstHome, "plugin-environment")));
         Assert.Equal("two", File.ReadAllText(Path.Combine(secondHome, "plugin-environment")));

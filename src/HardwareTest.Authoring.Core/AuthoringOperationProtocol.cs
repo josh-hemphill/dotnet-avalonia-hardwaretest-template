@@ -109,7 +109,7 @@ public static class AuthoringOperationChild
                     new PlanContractOptions
                     {
                         Strict = true,
-                        ExcludeVisaAdapter = !AuthoringInstrumentCatalog.DeclaresVisa(workspace),
+                        ExcludeVisaAdapter = true,
                         Settings = new AppSettings { UseMockVisa = true, OpenTapPluginDirectories = [home.Root] },
                         TrustConfiguredPluginDirectories = true
                     });
