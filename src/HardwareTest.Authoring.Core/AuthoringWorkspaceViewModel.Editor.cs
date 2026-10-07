@@ -69,7 +69,7 @@ public sealed partial class AuthoringWorkspaceViewModel
             var recorded = SelectedDataset is { } dataset
                 ? RunDatasetBinder.SeriesByMetric(dataset.Run)
                 : null;
-            return MetricPreviewBuilder.From(SelectedMetric, siblings, recorded);
+            return MetricPreviewBuilder.From(SelectedMetric, siblings, recorded, SelectedProgram);
         }
     }
 
@@ -439,6 +439,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         OnPropertyChanged(nameof(NeedsMetricInstrument));
         OnPropertyChanged(nameof(SelectedStepErrors));
         InvalidateFormulaSave();
+        RaiseFormulaDeployment();
         OnPropertyChanged(nameof(FormulaIntent));
         OnPropertyChanged(nameof(FormulaExplorationOnly));
         OnPropertyChanged(nameof(SelectedMeasure));

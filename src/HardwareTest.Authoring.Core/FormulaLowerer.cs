@@ -129,10 +129,9 @@ public static class FormulaLowerer
         string channel,
         IReadOnlyDictionary<string, IReadOnlyList<StoredSample>>? series)
     {
-        if (series is null || !TryGetSeries(series, channel, out var input) || input.Count == 0)
-        {
-            return DefaultTsSeconds;
-        }
+        if (series is null) return DefaultTsSeconds;
+        if (!TryGetSeries(series, channel, out var input) || input.Count == 0)
+            throw new AuthoringWorkspaceException($"{AuthoringCompileCodes.FormulaEval}: missing series '{channel}'.");
 
         return TransferFunctionGrid.MedianTsSeconds(TransferFunctionTimeBase.ElapsedMs(input));
     }

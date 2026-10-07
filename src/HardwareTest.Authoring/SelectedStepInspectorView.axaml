@@ -7,7 +7,7 @@
       <TextBlock Text="{Binding InspectorBreadcrumb}" TextWrapping="Wrap"/>
       <TextBlock Text="{Binding SelectedStepErrors}" TextWrapping="Wrap" Foreground="#C62828"
           AutomationProperties.Name="Selected step errors" AutomationProperties.LiveSetting="Polite"/>
-      <Expander Header="Configure" IsExpanded="True" HorizontalContentAlignment="Stretch"
+      <Expander x:Name="ConfigureExpander" Header="Configure" IsExpanded="True" HorizontalContentAlignment="Stretch"
           AutomationProperties.Name="Configure selected step">
         <StackPanel Spacing="8">
           <TextBlock IsVisible="{Binding HasRawStep}" Text="Imported step implementation is preserved. Inspect its details in Advanced."
@@ -76,7 +76,7 @@
             <TextBox Text="{Binding LimitHigh}" IsVisible="{Binding ShowBandLimits}" AutomationProperties.Name="Limit high"
                 AutomationProperties.LabeledBy="{Binding #LimitHighLabel}"/>
             <TextBlock x:Name="ThresholdLabel" Text="Threshold" IsVisible="{Binding ShowThreshold}" TextWrapping="Wrap"/>
-            <TextBox Text="{Binding Threshold}" IsVisible="{Binding ShowThreshold}" AutomationProperties.Name="Threshold"
+            <TextBox x:Name="ThresholdBox" Text="{Binding Threshold}" IsVisible="{Binding ShowThreshold}" AutomationProperties.Name="Threshold"
                 AutomationProperties.LabeledBy="{Binding #ThresholdLabel}"
                 ToolTip.Tip="Mean GTE passes when the mean meets this threshold"/>
             <TextBlock IsVisible="{Binding NeedsMetricInstrument}" x:Name="MetricSlotLabel" Text="Instrument slot" TextWrapping="Wrap"/>
@@ -160,8 +160,41 @@
                 </DataTemplate>
               </ItemsControl.ItemTemplate>
             </ItemsControl>
-            <ItemsControl ItemsSource="{Binding FormulaCompletions}" IsVisible="{Binding ShowCatalogFormulaCompletions}"
-                AutomationProperties.Name="Formula catalog">
+            <TextBlock Text="Deployable checks" FontWeight="SemiBold" IsVisible="{Binding ShowCatalogFormulaCompletions}"/>
+            <ItemsControl ItemsSource="{Binding DeployableFormulaCompletions}" IsVisible="{Binding ShowCatalogFormulaCompletions}"
+                AutomationProperties.Name="Deployable checks">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                  <WrapPanel/>
+                </ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <Button Margin="0,0,6,6" Content="{Binding Name}" Tag="{Binding InsertText}"
+                      ToolTip.Tip="{Binding Description}" Click="OnFormulaChip" AutomationProperties.Name="{Binding Name}"
+                      Classes="authoringAction"/>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <TextBlock Text="Exploration functions" FontWeight="SemiBold" IsVisible="{Binding ShowCatalogFormulaCompletions}"/>
+            <ItemsControl ItemsSource="{Binding ExplorationFormulaCompletions}" IsVisible="{Binding ShowCatalogFormulaCompletions}"
+                AutomationProperties.Name="Exploration functions">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                  <WrapPanel/>
+                </ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <Button Margin="0,0,6,6" Content="{Binding Name}" Tag="{Binding InsertText}"
+                      ToolTip.Tip="{Binding Description}" Click="OnFormulaChip" AutomationProperties.Name="{Binding Name}"
+                      Classes="authoringAction"/>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <TextBlock Text="Input channels" FontWeight="SemiBold" IsVisible="{Binding ShowCatalogFormulaCompletions}"/>
+            <ItemsControl ItemsSource="{Binding FormulaChannelCompletions}" IsVisible="{Binding ShowCatalogFormulaCompletions}"
+                AutomationProperties.Name="Input channels">
               <ItemsControl.ItemsPanel>
                 <ItemsPanelTemplate>
                   <WrapPanel/>
@@ -180,7 +213,16 @@
             <TextBlock Text="{Binding FormulaError}" TextWrapping="Wrap" Foreground="#C62828"
                 IsVisible="{Binding FormulaError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
                 AutomationProperties.LiveSetting="Polite" AutomationProperties.Name="Formula error"/>
-            <TextBlock Text="{Binding FormulaSaveNote}" TextWrapping="Wrap" Opacity="0.85"/>
+            <TextBlock Text="{Binding FormulaDeploymentLabel}" FontWeight="Bold" TextWrapping="Wrap"
+                AutomationProperties.Name="Formula deployment status" AutomationProperties.LiveSetting="Polite"/>
+            <TextBlock Text="{Binding FormulaLoweringTarget}" TextWrapping="Wrap"/>
+            <TextBlock Text="{Binding FormulaDeploymentRequirements}" TextWrapping="Wrap"/>
+            <TextBlock Text="{Binding FormulaDeploymentMessage}" TextWrapping="Wrap"/>
+            <TextBlock Text="{Binding FormulaRecordingEvidence}" TextWrapping="Wrap"
+                AutomationProperties.Name="Selected recording formula evidence" AutomationProperties.LiveSetting="Polite"/>
+            <TextBlock Text="{Binding FormulaDeploymentInclusion}" TextWrapping="Wrap"/>
+            <Button Content="Set deployment threshold" IsVisible="{Binding FormulaNeedsThreshold}"
+                Click="OnFormulaThreshold" AutomationProperties.Name="Set formula deployment threshold" Classes="authoringAction"/>
           </StackPanel>
           <StackPanel Spacing="6" IsVisible="{Binding HasTransferFunction}">
             <TextBlock FontWeight="SemiBold" Text="Transfer function" TextWrapping="Wrap"/>

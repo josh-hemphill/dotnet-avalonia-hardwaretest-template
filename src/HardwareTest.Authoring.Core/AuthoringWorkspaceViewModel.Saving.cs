@@ -167,15 +167,15 @@ public sealed partial class AuthoringWorkspaceViewModel
         store.DeleteRecovery(planId);
         string? compilationFailure = null;
         if (_compiledConflicts.Contains(planId)) compilationFailure = "External compiled edits require reconciliation before export.";
-        else if (draft.AuthoringState.IncompleteNumericText.Count > 0 || draft.AuthoringState.FormulaIntent.Values.Contains(FormulaDeploymentIntent.Explore))
-            compilationFailure = "Incomplete or exploration content was saved as an authoring draft.";
+        else if (AuthoringFormulaDeployment.Project(draft).AuthoringState.IncompleteNumericText.Count > 0)
+            compilationFailure = "Incomplete numeric input was saved as an authoring draft.";
         else
         {
             try
             {
                 if (savePlan)
                 {
-                    AuthoringRecipeCatalog.EnsureScalarLimits(draft);
+                    AuthoringRecipeCatalog.EnsureScalarLimits(AuthoringFormulaDeployment.Project(draft));
                     _compiler.Save(draft, path);
                     if (existing is null) Workspace = workspace with { TapPlanPaths = [.. workspace.TapPlanPaths, path] };
                 }

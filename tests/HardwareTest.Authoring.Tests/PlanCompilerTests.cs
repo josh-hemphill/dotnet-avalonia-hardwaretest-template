@@ -583,7 +583,7 @@ public sealed class PlanCompilerTests
                     null,
                     null,
                     new MeasureSource(
-                        "DMM",
+                        string.Empty,
                         AuthoringFunctionIds.BasicPublishTimedSample,
                         new Dictionary<string, string> { ["Channel"] = "VDC", ["Value"] = "1" }))),
                 new MetricNode(new MetricDraft(
@@ -598,6 +598,7 @@ public sealed class PlanCompilerTests
         var ex = Assert.Throws<AuthoringWorkspaceException>(() => new PlanCompiler().Save(draft, path));
         Assert.Contains(AuthoringCompileCodes.TfMissingElapsed, ex.Message, StringComparison.Ordinal);
         Assert.False(File.Exists(path));
+        Assert.False(File.Exists(PlanCompiler.SidecarPath(path)));
     }
 
     [Fact]
@@ -696,6 +697,8 @@ public sealed class PlanCompilerTests
         var draft = MinimalDraft(
             "tf-nolo",
             [
+                new MetricNode(new MetricDraft("Acquire", "VDC", PresentationDisplayRoles.Timeseries, "V", null, null,
+                    new MeasureSource("DMM", AuthoringFunctionIds.BasicAcquireVoltage, new Dictionary<string, string>()))),
                 new MetricNode(new MetricDraft(
                     "Filter",
                     "VDC.filt",
@@ -708,8 +711,9 @@ public sealed class PlanCompilerTests
         new PlanCompiler().Save(draft, path);
         var xml = File.ReadAllText(path);
         Assert.Contains("ApplyTransferFunctionStep", xml, StringComparison.Ordinal);
-        Assert.DoesNotContain("<LimitLow", xml, StringComparison.Ordinal);
-        Assert.DoesNotContain("<LimitHigh", xml, StringComparison.Ordinal);
+        var filterXml = System.Xml.Linq.XDocument.Parse(xml).Descendants().Single(element =>
+            element.Name.LocalName == "TestStep" && ((string?)element.Attribute("type"))?.Contains("ApplyTransferFunctionStep", StringComparison.Ordinal) == true);
+        Assert.DoesNotContain(filterXml.Descendants(), element => element.Name.LocalName is "LimitLow" or "LimitHigh");
     }
 
     private static void AssertFiltfiltIsSibling(string xml)

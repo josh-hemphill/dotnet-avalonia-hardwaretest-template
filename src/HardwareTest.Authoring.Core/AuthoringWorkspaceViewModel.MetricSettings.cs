@@ -28,7 +28,7 @@ public sealed partial class AuthoringWorkspaceViewModel
            && AuthoringCriteria.Requirements(SelectedMetric!)?.RequiresBand == true;
 
     public string FormulaHelp =>
-        "MATLAB-flavored subset for preview. The save plan line shows what packs into the test plan.";
+        "Choose deployment or exploration. Exploration is saved unchanged and excluded from the built plan.";
 
     public string FormulaSaveNote => CurrentFormulaSaveOutcome.Message;
 

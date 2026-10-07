@@ -210,6 +210,13 @@ public sealed class AuthoringChromeA11yTests
                     Assert.Contains("vm.SetMetricSetting(row.Key, box.Text ?? string.Empty)", viewCode, StringComparison.Ordinal);
                     continue;
                 }
+                if (view == "SelectedStepInspectorView" && handler == "OnFormulaThreshold")
+                {
+                    Assert.Contains("ConfigureExpander.IsExpanded = true", viewCode, StringComparison.Ordinal);
+                    Assert.Contains("ThresholdBox.Focus()", viewCode, StringComparison.Ordinal);
+                    Assert.Contains("ThresholdBox.BringIntoView()", viewCode, StringComparison.Ordinal);
+                    continue;
+                }
                 Assert.Contains("?." + handler + "(sender, e)", viewCode, StringComparison.Ordinal);
                 Assert.Contains(handler, code, StringComparison.Ordinal);
             }

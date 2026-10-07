@@ -40,11 +40,12 @@ public sealed record AuthoringBuildSource(string PlanId, long? SavedRevision, st
 public sealed record AuthoringCompileMapEntry(Guid StepId, Guid? NodeId, string Kind);
 public sealed record AuthoringCompileResult
 {
-    public AuthoringCompileResult(string planId, string planSha256, IReadOnlyList<AuthoringCompileMapEntry> sourceMap)
-    { PlanId = planId; PlanSha256 = planSha256; SourceMap = Array.AsReadOnly(sourceMap.ToArray()); }
+    public AuthoringCompileResult(string planId, string planSha256, IReadOnlyList<AuthoringCompileMapEntry> sourceMap, IReadOnlyList<Guid>? excludedExplorationNodes = null)
+    { PlanId = planId; PlanSha256 = planSha256; SourceMap = Array.AsReadOnly(sourceMap.ToArray()); ExcludedExplorationNodes = Array.AsReadOnly((excludedExplorationNodes ?? []).ToArray()); }
     public string PlanId { get; }
     public string PlanSha256 { get; }
     public IReadOnlyList<AuthoringCompileMapEntry> SourceMap { get; }
+    public IReadOnlyList<Guid> ExcludedExplorationNodes { get; }
 }
 public sealed record AuthoringBuildReceipt
 {
