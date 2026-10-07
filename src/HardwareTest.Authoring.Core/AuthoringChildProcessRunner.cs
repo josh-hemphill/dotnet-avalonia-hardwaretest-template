@@ -162,8 +162,7 @@ public sealed class AuthoringChildProcessRunner
             {
                 if (File.Exists(path))
                 {
-                    var bytes = await File.ReadAllBytesAsync(path, token).ConfigureAwait(false);
-                    if (bytes.Length > 4096) throw new InvalidDataException("Oversized child progress.");
+                    var bytes = await ReadProgressBytesAsync(path, token).ConfigureAwait(false);
                     var next = JsonSerializer.Deserialize(bytes, AuthoringOperationJsonContext.Default.AuthoringOperationProgress);
                     if (next is not null && next.Stage != last) { last = next.Stage; progress(next); }
                 }
@@ -171,5 +170,21 @@ public sealed class AuthoringChildProcessRunner
             catch (IOException) { }
             await Task.Delay(100, token).ConfigureAwait(false);
         }
+    }
+
+    internal static FileStream OpenProgressReadStream(string path)
+        // The child publishes with atomic replacement. Readers must allow the old
+        // file to be deleted on Windows while retaining a coherent handle to its bytes.
+        => new(path, FileMode.Open, FileAccess.Read, FileShare.Read | FileShare.Delete,
+            bufferSize: 4096, FileOptions.Asynchronous | FileOptions.SequentialScan);
+
+    internal static async Task<byte[]> ReadProgressBytesAsync(string path, CancellationToken token)
+    {
+        token.ThrowIfCancellationRequested();
+        using var stream = OpenProgressReadStream(path);
+        if (stream.Length > 4096) throw new InvalidDataException("Oversized child progress.");
+        var bytes = new byte[(int)stream.Length];
+        await stream.ReadExactlyAsync(bytes, token).ConfigureAwait(false);
+        return bytes;
     }
 }

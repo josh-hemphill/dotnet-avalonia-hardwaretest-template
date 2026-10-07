@@ -8,9 +8,11 @@ public sealed class AuthoringHardwareTests : IDisposable
 {
     private readonly string _root = Path.Combine(Path.GetTempPath(), "ht-hardware-" + Guid.NewGuid().ToString("N"));
     private readonly AuthoringWorkspaceViewModel _vm = new();
+    private readonly List<AuthoringWorkspaceViewModel> _owned = [];
 
     public AuthoringHardwareTests()
     {
+        _owned.Add(_vm);
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
         while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "dirs.proj"))) directory = directory.Parent;
         Directory.CreateDirectory(_root);
@@ -90,7 +92,7 @@ public sealed class AuthoringHardwareTests : IDisposable
     {
         var root = Path.Combine(_root, "empty"); Directory.CreateDirectory(root);
         File.Copy(Path.Combine(_root, "authoring.json"), Path.Combine(root, "authoring.json"));
-        var vm = new AuthoringWorkspaceViewModel(); vm.Open(root); Assert.Null(vm.SelectedProgram);
+        var vm = new AuthoringWorkspaceViewModel(); _owned.Add(vm); vm.Open(root); Assert.Null(vm.SelectedProgram);
         vm.NewRequiredField = "fixtureId"; vm.AddWorkspaceRequiredField();
         vm.NewInstrumentSlot = "BENCH"; vm.HardwareEditAddress = "MOCK::EMPTY"; vm.AddHardwareDefinition();
         Assert.Empty(vm.Programs); Assert.Single(vm.HardwareDefinitions);
@@ -165,5 +167,13 @@ public sealed class AuthoringHardwareTests : IDisposable
         }
     }
 
-    public void Dispose() => Directory.Delete(_root, recursive: true);
+    public void Dispose()
+    {
+        foreach (var vm in _owned)
+        {
+            vm.StopOperationsAsync().GetAwaiter().GetResult();
+            vm.StopRecoveryAsync().GetAwaiter().GetResult();
+        }
+        Directory.Delete(_root, recursive: true);
+    }
 }
