@@ -9,9 +9,9 @@ public sealed partial class AuthoringActionableFindingsTests
     [InlineData(true, false)]
     [InlineData(false, true)]
     [InlineData(true, true)]
-    public void Completed_save_retains_a_verification_warning_when_inputs_become_unreadable_after_publication(bool empty, bool all)
+    public async Task Completed_save_retains_a_verification_warning_when_inputs_become_unreadable_after_publication(bool empty, bool all)
     {
-        PrepareCheckedInputs(empty);
+        await PrepareCheckedInputsAsync(empty);
         Assert.Contains("Current", _vm.IssuesCheckState);
         if (all) _vm.DisplayName = "saved with verification warning";
         var sourcePath = CheckedInputPath("program");
@@ -57,7 +57,7 @@ public sealed partial class AuthoringActionableFindingsTests
     public void Unsupported_filter_limits_issue_advertises_and_navigates_to_program_settings()
     {
         _vm.SelectProgram("sample");
-        _vm.ApplyRecipe(AuthoringRecipeIds.Formula);
+        _vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Formula);
         var formula = Assert.IsType<MetricNode>(_vm.SelectedProgram!.Measure.Last());
         _vm.ReplaceSelected(_vm.SelectedProgram with
         {
@@ -72,7 +72,7 @@ public sealed partial class AuthoringActionableFindingsTests
         Assert.Equal("Open program settings", issue.NavigationLabel);
         Assert.Null(issue.Field);
         var program = _vm.SelectedProgram.PlanId;
-        _vm.CreateProgram("other");
+        _vm.InitializePlan(new("other") { Instruments = [] });
         var target = _vm.NavigateEditingIssue(issue);
         Assert.Equal(program, _vm.SelectedProgram!.PlanId);
         Assert.Null(target!.NodeId);

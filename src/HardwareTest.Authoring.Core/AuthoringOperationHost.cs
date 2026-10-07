@@ -22,7 +22,9 @@ public static class AuthoringOperationHost
     private static int RunOwned(string requestPath)
     {
         var directory = Path.GetDirectoryName(Path.GetFullPath(requestPath))!;
-        File.WriteAllText(Path.Combine(directory, "host-ready"), Environment.ProcessId.ToString());
+        var readiness = Path.Combine(directory, "host-ready");
+        File.WriteAllText(readiness + ".tmp", Environment.ProcessId.ToString());
+        File.Move(readiness + ".tmp", readiness);
         // The parent assigns the Windows job or observes the Unix session before releasing this gate.
         // EOF also drains the scope when the owning GUI process disappears without normal disposal.
         var stopping = Task.WhenAny(WaitFor("host-stop"), Task.Run(() => Console.In.ReadToEnd()));

@@ -208,7 +208,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         var existing = TryExistingTapPlanPath(planId);
         var path = existing ?? ResolveTapPlanPath(planId);
         var actualDirty = _documents[planId].GetDirtyState(draft);
-        _sourceDocuments.TryGetValue(planId, out var baseline);
+        var baseline = _sourceDocuments.GetValueOrDefault(planId) ?? _compiledOnlyBaselines.GetValueOrDefault(planId);
         var savePlan = !sidecarOnly && (forcePlan || actualDirty.PlanDirty || existing is null || baseline?.RequiresCompilation == true);
         if (sidecarOnly && existing is null) throw new AuthoringWorkspaceException($"No TapPlan path for '{planId}'.");
         var store = new AuthoringDocumentStore(workspace.Root);

@@ -7,21 +7,29 @@ namespace HardwareTest.Authoring;
 public partial class WorkspacePreviewView : UserControl
 {
     private readonly IAuthoringRecordingPicker _recordingPicker;
+    private readonly Func<TopLevel, DirectoryInfo, Task<bool>>? _launchRecordingFolder;
     private readonly ScrollViewer _sourceDetailsViewport;
     private readonly Grid _previewLayout;
     private readonly WrapPanel _sourceActions;
     private readonly StackPanel _recordingRows;
     private readonly OperatorPreviewPane _boardPane;
+    private readonly Border _sourceFrame;
+    private readonly Grid _boardRegion;
+    private readonly TextBlock _boardHeading;
     public WorkspacePreviewView() : this(new AuthoringRecordingPicker()) { }
-    public WorkspacePreviewView(IAuthoringRecordingPicker recordingPicker)
+    public WorkspacePreviewView(IAuthoringRecordingPicker recordingPicker, Func<TopLevel, DirectoryInfo, Task<bool>>? launchRecordingFolder = null)
     {
         _recordingPicker = recordingPicker;
+        _launchRecordingFolder = launchRecordingFolder;
         InitializeComponent();
         _sourceDetailsViewport = this.FindControl<ScrollViewer>("SourceDetailsViewport")!;
         _previewLayout = this.FindControl<Grid>("PreviewLayout")!;
         _sourceActions = this.FindControl<WrapPanel>("SourceActions")!;
         _recordingRows = this.FindControl<StackPanel>("RecordingRows")!;
         _boardPane = this.FindControl<OperatorPreviewPane>("BoardPane")!;
+        _sourceFrame = this.FindControl<Border>("SourceFrame")!;
+        _boardRegion = this.FindControl<Grid>("BoardRegion")!;
+        _boardHeading = this.FindControl<TextBlock>("BoardHeading")!;
         LayoutUpdated += ConstrainSourceViewport;
         _boardPane.AddHandler(Control.RequestBringIntoViewEvent, (_, e) =>
         {
@@ -37,10 +45,11 @@ public partial class WorkspacePreviewView : UserControl
         // Smaller busy layouts can scroll the frame without shrinking the board's own viewport.
         const double boardMinimum = 180;
         const double rowGaps = 16;
-        var actionsHeight = Math.Max(_sourceActions.Bounds.Height, _sourceActions.DesiredSize.Height);
+        var actionsHeight = Math.Max(_sourceActions.Bounds.Height, _sourceActions.DesiredSize.Height) + _sourceFrame.Padding.Top + _sourceFrame.Padding.Bottom;
+        var boardRegionMinimum = boardMinimum + Math.Max(_boardHeading.Bounds.Height, _boardHeading.DesiredSize.Height) + _boardRegion.RowSpacing;
         var recordingsHeight = Math.Max(_recordingRows.Bounds.Height, _recordingRows.DesiredSize.Height);
-        var contentHeight = Math.Max(Bounds.Height, actionsHeight + recordingsHeight + boardMinimum + rowGaps);
-        var sourceMaximum = Math.Max(actionsHeight, contentHeight - recordingsHeight - boardMinimum - rowGaps);
+        var contentHeight = Math.Max(Bounds.Height, actionsHeight + recordingsHeight + boardRegionMinimum + rowGaps);
+        var sourceMaximum = Math.Max(actionsHeight, contentHeight - recordingsHeight - boardRegionMinimum - rowGaps);
         if (!double.IsFinite(_previewLayout.Height) || Math.Abs(_previewLayout.Height - contentHeight) > 0.5) _previewLayout.Height = contentHeight;
         if (Math.Abs(_boardPane.MinHeight - boardMinimum) > 0.5) _boardPane.MinHeight = boardMinimum;
         if (Math.Abs(_sourceDetailsViewport.MaxHeight - sourceMaximum) > 0.5) _sourceDetailsViewport.MaxHeight = sourceMaximum;
@@ -56,10 +65,14 @@ public partial class WorkspacePreviewView : UserControl
     public async Task<bool> ImportRecordingAsync()
     {
         if (DataContext is not AuthoringWorkspaceViewModel vm || !vm.CanImportRecording || TopLevel.GetTopLevel(this) is not { IsVisible: true } owner) return false;
+        var ownerDataContext = owner.DataContext;
+        if (owner is MainWindow && !ReferenceEquals(ownerDataContext, vm)) return false;
         var workspace = vm.Workspace;
         var program = vm.SelectedProgram;
-        bool CurrentSession() => owner.IsVisible && ReferenceEquals(DataContext, vm) && ReferenceEquals(workspace, vm.Workspace)
-            && ReferenceEquals(program, vm.SelectedProgram) && vm.CanImportRecording;
+        var session = vm.WorkspaceSessionId;
+        bool CurrentSession() => owner.IsVisible && ReferenceEquals(owner.DataContext, ownerDataContext)
+            && ReferenceEquals(TopLevel.GetTopLevel(this), owner) && ReferenceEquals(DataContext, vm) && ReferenceEquals(workspace, vm.Workspace)
+            && ReferenceEquals(program, vm.SelectedProgram) && session == vm.WorkspaceSessionId && vm.CanImportRecording;
         try
         {
             var path = await _recordingPicker.PickAsync(owner);
@@ -74,17 +87,26 @@ public partial class WorkspacePreviewView : UserControl
         }
     }
 
-    private async void OnOpenRecordingFolder(object? sender, RoutedEventArgs e)
+    private async void OnOpenRecordingFolder(object? sender, RoutedEventArgs e) => await OpenRecordingFolderAsync();
+
+    public async Task OpenRecordingFolderAsync()
     {
-        if (DataContext is not AuthoringWorkspaceViewModel { Workspace: { } workspace } vm || TopLevel.GetTopLevel(this) is not { } owner) return;
+        if (DataContext is not AuthoringWorkspaceViewModel { Workspace: { } workspace } vm || TopLevel.GetTopLevel(this) is not { IsVisible: true } owner) return;
+        var ownerDataContext = owner.DataContext;
+        if (owner is MainWindow && !ReferenceEquals(ownerDataContext, vm)) return;
+        var session = vm.WorkspaceSessionId;
+        bool Current() => owner.IsVisible && ReferenceEquals(owner.DataContext, ownerDataContext)
+            && ReferenceEquals(TopLevel.GetTopLevel(this), owner) && ReferenceEquals(workspace, vm.Workspace) && ReferenceEquals(DataContext, vm) && session == vm.WorkspaceSessionId;
         try
         {
             var path = RunDatasetCatalog.ResolveRecordingsRoot(workspace);
-            if (!Directory.Exists(path)) { vm.ReportError("No recordings folder yet. Import a recording to create it."); return; }
-            if (!owner.IsVisible || !ReferenceEquals(workspace, vm.Workspace) || !ReferenceEquals(DataContext, vm)) return;
-            if (!await owner.Launcher.LaunchDirectoryInfoAsync(new DirectoryInfo(path))) vm.ReportError("Could not open the recordings folder.");
+            if (!Directory.Exists(path)) { if (Current()) vm.ReportError("No recordings folder yet. Import a recording to create it."); return; }
+            if (!Current()) return;
+            var opened = await (_launchRecordingFolder?.Invoke(owner, new DirectoryInfo(path))
+                ?? owner.Launcher.LaunchDirectoryInfoAsync(new DirectoryInfo(path)));
+            if (Current() && !opened) vm.ReportError("Could not open the recordings folder.");
         }
-        catch (Exception error) when (error is AuthoringWorkspaceException or IOException or UnauthorizedAccessException) { vm.ReportError(error.Message); }
+        catch (Exception error) when (error is AuthoringWorkspaceException or IOException or UnauthorizedAccessException) { if (Current()) vm.ReportError(error.Message); }
     }
 }
 

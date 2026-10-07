@@ -18,6 +18,16 @@ public sealed class AuthoringRecoveryCheckpointService : IDisposable
     private readonly Action<string, AuthoringDocumentDto>? write;
     private readonly TimeSpan debounce;
     private bool disposed;
+    private readonly HashSet<Task> writers = [];
+
+    public Task StopAsync() => DrainStoppedWritersAsync().WaitAsync(TimeSpan.FromSeconds(5));
+
+    internal Task DrainStoppedWritersAsync()
+    {
+        Task[] owned;
+        lock (gate) { disposed = true; CancelAllCore(); owned = writers.ToArray(); }
+        return Task.WhenAll(owned);
+    }
 
     public AuthoringRecoveryCheckpointService(Action<Action> dispatch,
         Action<AuthoringRecoveryCheckpointResult> completed, TimeSpan? debounce = null)
@@ -50,7 +60,10 @@ public sealed class AuthoringRecoveryCheckpointService : IDisposable
             if (pending.Remove(key, out var previous)) previous.Cancel();
             var checkpoint = new PendingCheckpoint(snapshot);
             pending.Add(key, checkpoint);
-            _ = Task.Run(() => SaveAfterDelayAsync(key, checkpoint));
+            var writer = Task.Run(() => SaveAfterDelayAsync(key, checkpoint));
+            writers.Add(writer);
+            _ = writer.ContinueWith(completedWriter => { lock (gate) writers.Remove(completedWriter); },
+                CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
         }
     }
 

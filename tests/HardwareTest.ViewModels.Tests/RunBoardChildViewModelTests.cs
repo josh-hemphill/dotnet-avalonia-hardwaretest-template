@@ -633,6 +633,7 @@ public sealed class RunBoardChildViewModelTests
             isEngineerDebugMode: () => true,
             getSelectedStep: () => step)
         {
+            DebugSlotName = "DMM",
             DebugSampleCount = 50_000,
             DebugIntervalMs = 0,
         };
@@ -641,6 +642,95 @@ public sealed class RunBoardChildViewModelTests
 
         Assert.Equal(4096, overrides.DebugSampleCount);
         Assert.Equal(1, overrides.DebugIntervalMs);
+    }
+
+    [Theory]
+    [InlineData(null, "MOCK::changed")]
+    [InlineData("unknown", "MOCK::changed")]
+    [InlineData("DMM-B", " ")]
+    public void StationOverrides_debug_patch_rejects_missing_unknown_slot_or_blank_resource_before_mutations(string? slotName, string resource)
+    {
+        var step = Leaf();
+        var openTap = new FakeOpenTapSession();
+        openTap.Slots.Clear();
+        openTap.Slots.Add(new OpenTapInstrumentSlot { Name = "DMM-A", TypeName = "MockDmmInstrument", RoleHint = "dmm", ResourceName = "MOCK::A" });
+        openTap.Slots.Add(new OpenTapInstrumentSlot { Name = "DMM-B", TypeName = "MockDmmInstrument", RoleHint = "dmm", ResourceName = "MOCK::B" });
+        string? status = null;
+        var overrides = new StationOverridesViewModel(openTap, openTap, new AppSettings(), null,
+            setStatus: value => status = value, isEngineerDebugMode: () => true, getSelectedStep: () => step)
+        {
+            DebugSlotName = slotName,
+            DebugResource = resource,
+            DebugStepEnabled = !step.Enabled,
+            DebugSampleCount = 50_000,
+            DebugIntervalMs = 0,
+        };
+        var enabled = step.Enabled;
+        overrides.ApplyDebugPatch();
+        Assert.Equal(enabled, step.Enabled);
+        Assert.Equal(50_000, overrides.DebugSampleCount);
+        Assert.Equal(0, overrides.DebugIntervalMs);
+        Assert.Equal("MOCK::A", openTap.Slots[0].ResourceName);
+        Assert.Equal("MOCK::B", openTap.Slots[1].ResourceName);
+        Assert.Contains("before applying", status);
+    }
+
+    [Fact]
+    public void StationOverrides_debug_patch_requires_user_selection_and_changes_only_that_slot()
+    {
+        var step = Leaf();
+        var openTap = new FakeOpenTapSession();
+        openTap.Slots.Clear();
+        openTap.Slots.Add(new OpenTapInstrumentSlot { Name = "DMM-A", TypeName = "MockDmmInstrument", RoleHint = "dmm", ResourceName = "MOCK::A" });
+        openTap.Slots.Add(new OpenTapInstrumentSlot { Name = "DMM-B", TypeName = "MockDmmInstrument", RoleHint = "dmm", ResourceName = "MOCK::B" });
+        var overrides = new StationOverridesViewModel(openTap, openTap, new AppSettings(), null,
+            setStatus: _ => { }, isEngineerDebugMode: () => true, getSelectedStep: () => step);
+        overrides.RefreshStationSlotSummary();
+        Assert.Equal(new[] { "DMM-A", "DMM-B" }, overrides.DebugSlotNames);
+        Assert.Null(overrides.DebugSlotName);
+        overrides.DebugSlotName = "DMM-B";
+        overrides.RefreshStationSlotSummary();
+        Assert.Equal("DMM-B", overrides.DebugSlotName);
+        overrides.DebugResource = "MOCK::selected";
+        overrides.DebugStepEnabled = false;
+        overrides.ApplyDebugPatch();
+        Assert.False(step.Enabled);
+        Assert.Equal("MOCK::A", openTap.Slots[0].ResourceName);
+        Assert.Equal("MOCK::selected", openTap.Slots[1].ResourceName);
+    }
+
+    [Fact]
+    public void StationOverrides_profile_requires_selected_plan_and_explicit_slot_names()
+    {
+        var openTap = new FakeOpenTapSession();
+        var settings = new AppSettings
+        {
+            PlanSlotOverrides =
+            [
+                new() { PlanId = "fixture", SlotName = "DMM-B", RoleHint = "dmm", Resource = "MOCK::explicit" },
+                new() { PlanId = "fixture", RoleHint = "dmm", Resource = "MOCK::role-only" },
+                new() { PlanId = "fixture", SlotName = "DMM-A", Resource = " " },
+            ],
+        };
+        ProgramItemViewModel? selected = null;
+        var overrides = new StationOverridesViewModel(openTap, openTap, settings, null, _ => { },
+            getSelectedProgram: () => selected);
+        Assert.Empty(overrides.BuildStationProfile().SlotToResource);
+        selected = new ProgramItemViewModel { Id = " ", DisplayName = "Blank", Path = "fixture.TapPlan" };
+        Assert.Empty(overrides.BuildStationProfile().SlotToResource);
+        selected = new ProgramItemViewModel { Id = "other", DisplayName = "Other", Path = "fixture.TapPlan" };
+        Assert.Empty(overrides.BuildStationProfile().SlotToResource);
+        selected = new ProgramItemViewModel { Id = "fixture", DisplayName = "Fixture", Path = "fixture.TapPlan" };
+        var entry = Assert.Single(overrides.BuildStationProfile().SlotToResource);
+        Assert.Equal("DMM-B", entry.Key);
+        Assert.Equal("MOCK::explicit", entry.Value);
+        settings.PlanSlotOverrides.Add(new() { PlanId = "fixture", SlotName = "DMM-A", RoleHint = "dmm", Resource = "MOCK::independent" });
+        var resources = overrides.BuildStationProfile().SlotToResource;
+        Assert.Equal(2, resources.Count);
+        Assert.Equal("MOCK::independent", resources["DMM-A"]);
+        Assert.Equal("MOCK::explicit", resources["DMM-B"]);
+        settings.PlanSlotOverrides.Clear();
+        Assert.Empty(overrides.BuildStationProfile().SlotToResource);
     }
 
     [Fact]
@@ -660,7 +750,7 @@ public sealed class RunBoardChildViewModelTests
         Assert.True(plotted);
         Assert.True(live.HasPlotData);
         Assert.True(live.HasChartData);
-        Assert.False(live.ShowPlotForSelection);
+        Assert.True(live.OfferOpenChart);
         Assert.Equal(1, live.PlotYsLength);
         Assert.True(frames >= 1);
 
@@ -668,7 +758,10 @@ public sealed class RunBoardChildViewModelTests
 
         Assert.False(live.HasPlotData);
         Assert.False(live.HasChartData);
-        Assert.False(live.ShowPlotForSelection);
+        Assert.False(live.OfferOpenChart);
+        Assert.Empty(live.AvailableSeries);
+        Assert.Null(live.SelectedSeries);
+        Assert.Empty(live.FocusTrendTip);
         Assert.Equal(0, live.PlotYsLength);
     }
 

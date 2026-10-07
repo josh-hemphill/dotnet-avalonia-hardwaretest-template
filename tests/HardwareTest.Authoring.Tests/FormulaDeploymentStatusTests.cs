@@ -46,7 +46,7 @@ public sealed class FormulaDeploymentStatusTests : IDisposable
     {
         var metric = Metric("filter([1],[1],input)");
         var input = Metric("std(input)") with { ChannelKey = "input", Limits = new LimitSpec(0, 1, null), Source = new AlgorithmSource(AuthoringFunctionIds.BasicPublishBandScalar, [], new Dictionary<string, string>()) };
-        var draft = AuthoringRecipeCatalog.CreateProgram("untimed") with { Measure = [new MetricNode(input), new MetricNode(metric)] };
+        var draft = MockDmmDraftFixture.Create("untimed") with { Measure = [new MetricNode(input), new MetricNode(metric)] };
         var status = FormulaDeploymentClassifier.Classify(metric, draft);
         var preview = MetricPreviewBuilder.From(metric, [input, metric]);
         var path = Path.Combine(AuthoringBuildSnapshotTests.Temp(), "untimed.TapPlan");
@@ -98,7 +98,7 @@ public sealed class FormulaDeploymentStatusTests : IDisposable
     {
         var input = new MetricNode(Metric("std(input)") with { ChannelKey = "input", Source = new MeasureSource("", AuthoringFunctionIds.BasicAcquireVoltage, new Dictionary<string, string>()) });
         var formula = new MetricNode(Metric("mean(input)") with { Limits = new LimitSpec(null, null, 0) });
-        var draft = AuthoringRecipeCatalog.CreateProgram("mean-exploration") with { Measure = [input, formula] };
+        var draft = MockDmmDraftFixture.Create("mean-exploration") with { Measure = [input, formula] };
         draft.AuthoringState.FormulaIntent[formula.NodeId] = FormulaDeploymentIntent.Explore;
         Assert.Equal(FormulaDeploymentStatusKind.DeployableRecipe, FormulaDeploymentClassifier.Classify(formula.Metric, draft).Kind);
         Assert.Contains(formula.NodeId, AuthoringFormulaDeployment.ExcludedNodes(draft));
@@ -109,7 +109,7 @@ public sealed class FormulaDeploymentStatusTests : IDisposable
     public void Exploration_only_projection_has_no_deployment_measure_and_retains_source_identity()
     {
         var node = new MetricNode(Metric("std(input)"));
-        var draft = AuthoringRecipeCatalog.CreateProgram("exploration-only") with { Measure = [node] };
+        var draft = MockDmmDraftFixture.Create("exploration-only") with { Measure = [node] };
         draft.AuthoringState.FormulaIntent[node.NodeId] = FormulaDeploymentIntent.Explore;
         var original = AuthoringDocumentSnapshot.Capture(draft);
         Assert.Empty(AuthoringFormulaDeployment.Project(draft).Measure);

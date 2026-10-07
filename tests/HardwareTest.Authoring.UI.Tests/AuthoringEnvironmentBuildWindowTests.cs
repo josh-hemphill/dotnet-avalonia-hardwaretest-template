@@ -21,13 +21,16 @@ public sealed class AuthoringEnvironmentBuildWindowTests
         workspace.Manifest.Package.Name = "GUI Checked Program";
         workspace.Manifest.ExcludedProgramIds.Add("blocked");
         workspace.Manifest.Dependencies.Add(new() { Package = "Offline Fixture", Version = "^1.2.0" });
-        workspace.Manifest.Dependencies.Add(new() { Package = OpenTapHomeBootstrapper.InstrumentComponentsPackageName, Version = "^1.0.0" });
+        // These synthetic archives prove generic two-package import and checked receipt behavior.
+        // A supported hardware-library package must carry its actual validated DLL payload.
+        const string secondPackage = "Second Offline Fixture";
+        workspace.Manifest.Dependencies.Add(new() { Package = secondPackage, Version = "^1.0.0" });
         AuthoringWorkspaceLoader.SaveManifest(fixture.WorkspaceRoot, workspace.Manifest);
         var store = new AuthoringDocumentStore(fixture.WorkspaceRoot);
         var sample = new PlanCompiler().Load(Path.Combine(fixture.WorkspaceRoot, "sample.TapPlan"));
         store.Save(AuthoringDocumentDto.FromDraft(sample, 31, compiledPlanHash: AuthoringDocumentStore.ComputeHash(Path.Combine(fixture.WorkspaceRoot, "sample.TapPlan")),
             compiledSidecarHash: AuthoringDocumentStore.ComputeHash(Path.Combine(fixture.WorkspaceRoot, "sample.program.json"))));
-        var blocked = AuthoringRecipeCatalog.CreateProgram("blocked") with
+        var blocked = MockDmmDraftFixture.Create("blocked") with
         {
             Measure = [new MetricNode(new MetricDraft("Unsupported deployment", "result", "scalar", "V", new LimitSpec(null, null, 0), null, new ExpressionAlgorithm([], "std(input)")))]
         };
@@ -60,13 +63,13 @@ public sealed class AuthoringEnvironmentBuildWindowTests
         await Until(() => !fixture.ViewModel.OperationBusy);
         Assert.Null(fixture.ViewModel.Error);
         Assert.Contains(fixture.ViewModel.EnvironmentPackages, p => p.Package == "Offline Fixture" && p.Satisfied && p.InstalledVersion == "1.3.0");
-        Assert.Contains(fixture.ViewModel.EnvironmentPackages, p => p.Package == OpenTapHomeBootstrapper.InstrumentComponentsPackageName && !p.Satisfied);
+        Assert.Contains(fixture.ViewModel.EnvironmentPackages, p => p.Package == secondPackage && !p.Satisfied);
         Assert.False(fixture.ViewModel.CanPack); Assert.Equal("Not checked", fixture.ViewModel.CompatibilityState); Assert.Null(fixture.ViewModel.LastBuildReceipt);
-        var secondArchive = Path.Combine(fixture.WorkspaceRoot, "components.TapPackage");
-        WriteArchive(secondArchive, OpenTapHomeBootstrapper.InstrumentComponentsPackageName, "1.2.0"); offlinePicker.Path = secondArchive;
+        var secondArchive = Path.Combine(fixture.WorkspaceRoot, "second-offline.TapPackage");
+        WriteArchive(secondArchive, secondPackage, "1.2.0"); offlinePicker.Path = secondArchive;
         AuthoringUiFixture.Click(fixture.Control<Button>("Import offline authoring package")); await Until(() => !fixture.ViewModel.OperationBusy);
         Assert.Null(fixture.ViewModel.Error);
-        Assert.Contains(fixture.ViewModel.EnvironmentPackages, p => p.Package == OpenTapHomeBootstrapper.InstrumentComponentsPackageName && p.Satisfied);
+        Assert.Contains(fixture.ViewModel.EnvironmentPackages, p => p.Package == secondPackage && p.Satisfied);
         Assert.True(File.Exists(Path.Combine(selectedHome, "selected-home.marker")));
         Assert.False(Directory.Exists(Path.Combine(fixture.WorkspaceRoot, OpenTapHomeBootstrapper.DefaultHomeRelativePath)));
         var output = Path.Combine(fixture.WorkspaceRoot, "custom-output"); outputPicker.Path = output;

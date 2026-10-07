@@ -2,11 +2,14 @@ namespace HardwareTest.Authoring;
 
 public sealed partial class AuthoringWorkspaceViewModel
 {
+    private readonly Dictionary<string, AuthoringDocumentDto> _compiledOnlyBaselines = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, AuthoringDocumentDto> _sourceDocuments = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, AuthoringDocumentDto> _recoverableDocuments = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> _compiledConflicts = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> _uncompiledDocuments = new(StringComparer.OrdinalIgnoreCase);
     private AuthoringRecoveryCheckpointService? _recovery;
+    private Func<bool>? _resumeRecoveryOwner;
+    private readonly List<AuthoringRecoveryCheckpointService> _retiredRecovery = [];
     private long _recoveryGeneration;
     private Action<Action> _recoveryDispatch = action => action();
     public string? SelectedRecoveryPlanId { get; set; }
@@ -20,9 +23,72 @@ public sealed partial class AuthoringWorkspaceViewModel
         .Concat(HasUncompiledSources ? ["Saved drafts require compilation before validation or packing."] : []));
 
     public void ConfigureRecoveryDispatch(Action<Action> dispatch) => _recoveryDispatch = dispatch;
-    public void StopRecovery() { _recoveryGeneration++; _recovery?.Dispose(); _recovery = null; }
+    public void StopRecovery()
+    {
+        _resumeRecoveryOwner = null;
+        _recoveryGeneration++;
+        if (_recovery is not { } service) return;
+        service.Dispose();
+        lock (_retiredRecovery) _retiredRecovery.Add(service);
+        _recovery = null;
+    }
+    public async Task StopRecoveryAsync()
+    {
+        StopRecovery();
+        AuthoringRecoveryCheckpointService[] owned;
+        lock (_retiredRecovery) owned = _retiredRecovery.ToArray();
+        await Task.WhenAll(owned.Select(service => service.StopAsync())).ConfigureAwait(false);
+        lock (_retiredRecovery)
+            foreach (var service in owned) _retiredRecovery.Remove(service);
+    }
 
-    private DraftWorkspace LoadWithSources(string root) => AuthoringSourceWorkspaceLoader.Load(root, _compiler);
+    public void ResumeRecoveryAfterAbortedClose(Func<bool> ownerRetainsSession)
+    {
+        ArgumentNullException.ThrowIfNull(ownerRetainsSession);
+        if (_recovery is not null || Workspace is not { IsReadOnly: false }) return;
+        _resumeRecoveryOwner = ownerRetainsSession;
+        if (!ownerRetainsSession()) return;
+        var generation = _recoveryGeneration;
+        var session = _workspaceSession;
+        AuthoringRecoveryCheckpointService[] owned;
+        lock (_retiredRecovery) owned = _retiredRecovery.ToArray();
+        _ = ResumeAfterDrainAsync();
+        async Task ResumeAfterDrainAsync()
+        {
+            try
+            {
+                // A timed-out stop retains its writers. Resume only after those exact writers release ownership.
+                await Task.WhenAll(owned.Select(service => service.DrainStoppedWritersAsync())).ConfigureAwait(false);
+                lock (_retiredRecovery) foreach (var service in owned) _retiredRecovery.Remove(service);
+                _recoveryDispatch(() =>
+                {
+                    if (!ownerRetainsSession() || generation != _recoveryGeneration || session != _workspaceSession || _recovery is not null
+                        || Workspace is not { IsReadOnly: false }) return;
+                    StartRecovery();
+                    ScheduleRecovery();
+                });
+            }
+            catch (Exception error)
+            {
+                _recoveryDispatch(() =>
+                {
+                    if (ownerRetainsSession() && generation == _recoveryGeneration && session == _workspaceSession)
+                        ReportError($"Recovery could not resume after closing was cancelled: {error.Message}");
+                });
+            }
+        }
+    }
+
+    private DraftWorkspace LoadWithSources(string root)
+    {
+        var files = AuthoringWorkspaceLoader.Load(root);
+        OpenTapHome? candidateHome = WorkspacePackPlan.TryResolveHomePath(files, Prefs.OpenTapHomeOverride, out var path, out _)
+            ? new(path!) : null;
+        // Snapshot candidate context without mutating the current workspace/home on failed open.
+        var compiler = _usesDefaultCompiler ? new PlanCompiler(libraryHomeProvider: () => candidateHome) : _compiler;
+        if (candidateHome is not null) AuthoringInstrumentCatalog.Discover(candidateHome);
+        return AuthoringSourceWorkspaceLoader.Load(root, compiler);
+    }
 
     private void RefreshSourceReadiness()
     {
@@ -52,6 +118,8 @@ public sealed partial class AuthoringWorkspaceViewModel
                 if (CompiledChanged(previous.Value)) conflicts.Add(previous.Key);
             }
         }
+        foreach (var baseline in _compiledOnlyBaselines)
+            if (!documents.ContainsKey(baseline.Key) && _compiledConflicts.Contains(baseline.Key) && CompiledChanged(baseline.Value)) conflicts.Add(baseline.Key);
         _sourceDocuments.Clear();
         foreach (var document in documents) _sourceDocuments.Add(document.Key, document.Value);
         _uncompiledDocuments.Clear(); _uncompiledDocuments.UnionWith(uncompiled);
@@ -62,7 +130,7 @@ public sealed partial class AuthoringWorkspaceViewModel
     private void InitializeSourceState()
     {
         StopRecovery();
-        _sourceDocuments.Clear(); _recoverableDocuments.Clear(); _compiledConflicts.Clear(); _uncompiledDocuments.Clear();
+        _compiledOnlyBaselines.Clear(); _sourceDocuments.Clear(); _recoverableDocuments.Clear(); _compiledConflicts.Clear(); _uncompiledDocuments.Clear();
         _savedCompilationDiagnostics.Clear();
         var store = new AuthoringDocumentStore(Workspace!.Root);
         foreach (var draft in Programs)
@@ -73,6 +141,13 @@ public sealed partial class AuthoringWorkspaceViewModel
                 _sourceDocuments[draft.PlanId] = document;
                 if (CompiledChanged(document)) _compiledConflicts.Add(draft.PlanId);
                 if (document.RequiresCompilation || document.CompiledPlanHash is null) _uncompiledDocuments.Add(draft.PlanId);
+            }
+            else
+            {
+                var path = TryExistingTapPlanPath(draft.PlanId);
+                _compiledOnlyBaselines[draft.PlanId] = AuthoringDocumentDto.FromDraft(draft,
+                    compiledPlanHash: AuthoringDocumentStore.ComputeHash(path),
+                    compiledSidecarHash: AuthoringDocumentStore.ComputeHash(path is null ? null : PlanCompiler.SidecarPath(path)));
             }
             var recovered = store.LoadAtPath(store.GetRecoveryPath(draft.PlanId));
             if (recovered.Document is { } checkpoint && (document is null || checkpoint.SavedAtUtc > document.SavedAtUtc)
@@ -90,14 +165,20 @@ public sealed partial class AuthoringWorkspaceViewModel
         // Unread excluded sources retain their bytes and become blockers immediately on inclusion.
         foreach (var id in store.ListDocumentIds())
             if (!AuthoringBuildInclusion.Includes(Workspace.Manifest, id) && !_sourceDocuments.ContainsKey(id)) _uncompiledDocuments.Add(id);
+        StartRecovery();
+        RaiseDraftState();
+    }
+
+    private void StartRecovery()
+    {
+        _resumeRecoveryOwner = null;
         var generation = _recoveryGeneration;
-        if (!Workspace.IsReadOnly) _recovery = new AuthoringRecoveryCheckpointService(action => _recoveryDispatch(action), result =>
+        if (Workspace is { IsReadOnly: false }) _recovery = new AuthoringRecoveryCheckpointService(action => _recoveryDispatch(action), result =>
         {
             if (generation != _recoveryGeneration || !_documents.TryGetValue(result.PlanId, out var active) || !active.IsDirty) return;
             if (result.IsSuccess) Status = $"Recovery checkpoint saved for {result.PlanId}; source remains unsaved.";
             else ReportError($"Recovery checkpoint failed; your draft remains open: {result.Error}");
         });
-        RaiseDraftState();
     }
 
     private bool CompiledChanged(AuthoringDocumentDto document)
@@ -109,7 +190,13 @@ public sealed partial class AuthoringWorkspaceViewModel
 
     private void ScheduleRecovery()
     {
-        if (_recovery is null || Workspace is null || Workspace.IsReadOnly) return;
+        if (Workspace is null || Workspace.IsReadOnly) return;
+        if (_recovery is null)
+        {
+            // A temporarily replaced owner may later return to this same editing session.
+            if (_resumeRecoveryOwner is { } owner) ResumeRecoveryAfterAbortedClose(owner);
+            return;
+        }
         foreach (var draft in Programs)
         {
             if (!_documents.TryGetValue(draft.PlanId, out var session)) continue;

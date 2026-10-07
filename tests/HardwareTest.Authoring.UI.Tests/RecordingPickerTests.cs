@@ -94,7 +94,7 @@ public sealed class RecordingPickerTests
             var bytes = File.ReadAllBytes(selected.Path);
             var recordings = Path.Combine(fixture.WorkspaceRoot, "recordings");
             var entries = Directory.GetFileSystemEntries(recordings, "*", SearchOption.AllDirectories);
-            File.WriteAllText(source, "{\"schemaVersion\":1,\"planId\":\"sample\",\"samples\":[null]}");
+            File.WriteAllText(source, "{\"schemaVersion\":4,\"planId\":\"sample\",\"samples\":[null]}");
             picker.Pending = new();
             pending = view.ImportRecordingAsync();
             picker.Pending.SetResult(source);
@@ -105,6 +105,78 @@ public sealed class RecordingPickerTests
             Assert.Equal(entries, Directory.GetFileSystemEntries(recordings, "*", SearchOption.AllDirectories));
         }
         finally { owner.Close(); vm.StopRecovery(); }
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task MainWindow_owner_context_replacement_suppresses_pending_recording_success_and_error(bool fails)
+    {
+        using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
+        using var replacement = new AuthoringUiFixture();
+        fixture.Show(); fixture.OpenRememberedWorkspace();
+        await fixture.ViewModel.StopRecoveryAsync();
+        replacement.ViewModel.Open(replacement.WorkspaceRoot); await replacement.ViewModel.StopRecoveryAsync();
+        var source = Recording(fixture.WorkspaceRoot, fixture.ViewModel.SelectedProgram!.PlanId);
+        var picker = new ControlledRecordingPicker();
+        var preview = new WorkspacePreviewView(picker) { DataContext = fixture.ViewModel };
+        fixture.Window!.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 5;
+        fixture.Window!.FindControl<ContentControl>("SeparatePreview")!.Content = preview;
+        AuthoringUiFixture.Drain();
+        var files = Directory.GetFiles(fixture.WorkspaceRoot, "*", SearchOption.AllDirectories).ToDictionary(path => path, File.ReadAllBytes);
+        var program = fixture.ViewModel.SelectedProgram; var revision = fixture.ViewModel.SelectedDocument!.Revision;
+        var status = fixture.ViewModel.Status;
+        var pending = preview.ImportRecordingAsync();
+        Assert.False(pending.IsCompleted); Assert.Same(fixture.Window, picker.Owner);
+        fixture.Window!.DataContext = replacement.ViewModel;
+        Assert.Same(fixture.ViewModel, preview.DataContext);
+        if (fails) picker.Pending.SetException(new IOException("Late obsolete picker failure")); else picker.Pending.SetResult(source);
+        Assert.False(await pending);
+        Assert.Same(program, fixture.ViewModel.SelectedProgram); Assert.Equal(revision, fixture.ViewModel.SelectedDocument.Revision);
+        Assert.Equal(status, fixture.ViewModel.Status); Assert.Null(fixture.ViewModel.Error); Assert.Null(replacement.ViewModel.Error);
+        Assert.Empty(fixture.ViewModel.Datasets); Assert.Null(fixture.ViewModel.SelectedDataset);
+        Assert.Equal(files.Keys.Order(), Directory.GetFiles(fixture.WorkspaceRoot, "*", SearchOption.AllDirectories).Order());
+        foreach (var (path, bytes) in files) Assert.Equal(bytes, File.ReadAllBytes(path));
+        fixture.Window!.DataContext = fixture.ViewModel;
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public async Task MainWindow_owner_context_replacement_suppresses_pending_folder_failure(bool throws, bool replaceOwner)
+    {
+        using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
+        using var replacement = new AuthoringUiFixture();
+        fixture.Show(); fixture.OpenRememberedWorkspace(); await fixture.ViewModel.StopRecoveryAsync();
+        replacement.ViewModel.Open(replacement.WorkspaceRoot); await replacement.ViewModel.StopRecoveryAsync();
+        Directory.CreateDirectory(Path.Combine(fixture.WorkspaceRoot, "recordings"));
+        var completed = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var requested = false;
+        var preview = new WorkspacePreviewView(new ControlledRecordingPicker(), (owner, directory) =>
+        {
+            Assert.Same(fixture.Window, owner); Assert.Equal(Path.Combine(fixture.WorkspaceRoot, "recordings"), directory.FullName);
+            requested = true; return completed.Task;
+        })
+        { DataContext = fixture.ViewModel };
+        fixture.Window!.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 5;
+        fixture.Window!.FindControl<ContentControl>("SeparatePreview")!.Content = preview; AuthoringUiFixture.Drain();
+        var status = fixture.ViewModel.Status; var revision = fixture.ViewModel.SelectedDocument!.Revision;
+        var pending = preview.OpenRecordingFolderAsync(); Assert.True(requested); Assert.False(pending.IsCompleted);
+        if (replaceOwner) fixture.Window!.DataContext = replacement.ViewModel;
+        Assert.Same(fixture.ViewModel, preview.DataContext);
+        if (throws) completed.SetException(new IOException("Late obsolete folder failure")); else completed.SetResult(false);
+        await pending;
+        Assert.Equal(revision, fixture.ViewModel.SelectedDocument.Revision);
+        if (replaceOwner) { Assert.Equal(status, fixture.ViewModel.Status); Assert.Null(fixture.ViewModel.Error); }
+        else
+        {
+            var error = throws ? "Late obsolete folder failure" : "Could not open the recordings folder.";
+            Assert.Equal(error, fixture.ViewModel.Error); Assert.Equal(error, fixture.ViewModel.Status);
+        }
+        Assert.Null(replacement.ViewModel.Error);
+        fixture.Window!.DataContext = fixture.ViewModel;
     }
 
     private static string Recording(string root, string planId)

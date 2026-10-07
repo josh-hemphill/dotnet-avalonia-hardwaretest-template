@@ -11,7 +11,7 @@ public static class SchemaVersions
     public const int StationHealthRecord = 1;
 }
 
-/// Stable document-type keys for upgrade registration and log messages.
+/// Stable document-type keys for schema validation and diagnostics.
 public static class SchemaDocumentTypes
 {
     public const string AppSettings = "AppSettings";

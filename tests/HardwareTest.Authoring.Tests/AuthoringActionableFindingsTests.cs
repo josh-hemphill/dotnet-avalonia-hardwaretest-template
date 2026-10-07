@@ -21,7 +21,7 @@ public sealed partial class AuthoringActionableFindingsTests : IDisposable
         var plan = Path.Combine(_root, "sample.TapPlan");
         File.WriteAllText(plan, File.ReadAllText(plan).Replace("<HardwareTest.Presentation.DisplayRole>timeseries</HardwareTest.Presentation.DisplayRole>", "<HardwareTest.Presentation.DisplayRole>passband</HardwareTest.Presentation.DisplayRole>", StringComparison.Ordinal));
         _vm.Open(_root);
-        _vm.StopRecovery();
+        _vm.StopRecoveryAsync().GetAwaiter().GetResult();
     }
 
     [Theory]
@@ -35,7 +35,7 @@ public sealed partial class AuthoringActionableFindingsTests : IDisposable
     [InlineData(true, "workspace", true)]
     public async Task Unreadable_source_at_async_completion_invalidates_the_previous_checked_report(bool empty, string input, bool editAndUndo)
     {
-        PrepareCheckedInputs(empty);
+        await PrepareCheckedInputsAsync(empty);
         var sourcePath = CheckedInputPath(input);
         var original = File.ReadAllBytes(sourcePath);
         File.WriteAllText(Path.Combine(_root, "fixture-result-wait"), "");
@@ -263,11 +263,11 @@ public sealed partial class AuthoringActionableFindingsTests : IDisposable
     [InlineData(false, true)]
     [InlineData(true, false)]
     [InlineData(true, true)]
-    public void Saving_without_edits_invalidates_an_empty_checked_report(bool apply, bool existingSource)
+    public async Task Saving_without_edits_invalidates_an_empty_checked_report(bool apply, bool existingSource)
     {
         RestoreCleanSample();
         _vm.Open(_root);
-        _vm.StopRecovery();
+        await _vm.StopRecoveryAsync();
         _vm.SelectProgram("sample");
         if (existingSource) _vm.SaveSidecar();
         Assert.Empty(_vm.Validate().Plans.SelectMany(plan => plan.Findings));
@@ -282,12 +282,12 @@ public sealed partial class AuthoringActionableFindingsTests : IDisposable
     }
 
     [Fact]
-    public void Partially_published_save_keeps_original_failure_and_invalidates_empty_report()
+    public async Task Partially_published_save_keeps_original_failure_and_invalidates_empty_report()
     {
         RestoreCleanSample();
         var vm = new AuthoringWorkspaceViewModel(new FailingSidecarCompiler());
         vm.Open(_root);
-        vm.StopRecovery();
+        await vm.StopRecoveryAsync();
         try
         {
             vm.SelectProgram("sample");
@@ -298,7 +298,7 @@ public sealed partial class AuthoringActionableFindingsTests : IDisposable
             Assert.Empty(vm.FindingRows);
             Assert.Contains("Stale", vm.IssuesCheckState);
         }
-        finally { vm.StopRecovery(); }
+        finally { await vm.StopRecoveryAsync(); }
     }
 
     [Fact]
@@ -378,8 +378,8 @@ public sealed partial class AuthoringActionableFindingsTests : IDisposable
 
     public void Dispose()
     {
-        _vm.StopOperations();
-        _vm.StopRecovery();
+        _vm.StopOperationsAsync().GetAwaiter().GetResult();
+        _vm.StopRecoveryAsync().GetAwaiter().GetResult();
         Directory.Delete(_root, true);
     }
 }

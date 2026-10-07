@@ -39,31 +39,46 @@ public partial class MainWindow
 
     private void CommitFocusedEditor() => this.FindControl<Button>("LifecycleFocusTarget")?.Focus();
 
+    private Func<bool> OwnerContext()
+    {
+        var vm = _viewModel;
+        var session = vm.WorkspaceSessionId;
+        return () => !_ownerClosed && IsVisible && ReferenceEquals(DataContext, vm)
+            && session == vm.WorkspaceSessionId;
+    }
+
     public async Task<bool> OpenWorkspaceAsync(string? path = null)
     {
         if (_transitionInFlight || _destructiveInFlight || _ownerClosed || !IsVisible) return false;
         _transitionInFlight = true;
+        var current = OwnerContext();
         try
         {
             path ??= await _workspacePicker.PickAsync();
-            if (string.IsNullOrWhiteSpace(path)) return false;
+            if (string.IsNullOrWhiteSpace(path) || !current()) return false;
             CommitFocusedEditor();
-            var decision = await ChooseTransitionAsync();
-            if (decision == UnsavedChangesChoice.Cancel) return false;
+            var decision = await ChooseTransitionAsync(contextIsCurrent: current);
+            if (decision == UnsavedChangesChoice.Cancel || !current()) return false;
             var prepared = _viewModel.PrepareOpen(path);
             _viewModel.CommitOpen(prepared, discardUnsavedChanges: decision == UnsavedChangesChoice.Discard);
             return true;
         }
-        catch (Exception ex) { _viewModel.ReportError(ex.Message); return false; }
+        catch (Exception ex) { if (current()) _viewModel.ReportError(ex.Message); return false; }
         finally { _transitionInFlight = false; }
     }
 
     public Task<bool> ReopenWorkspaceAsync() => OpenWorkspaceAsync(_viewModel.Workspace?.Root);
 
-    private async Task<UnsavedChangesChoice> ChooseTransitionAsync()
+    private async Task<UnsavedChangesChoice> ChooseTransitionAsync(CancellationToken cancellationToken = default, Func<bool>? contextIsCurrent = null)
     {
+        contextIsCurrent ??= OwnerContext();
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!contextIsCurrent()) return UnsavedChangesChoice.Cancel;
         if (!_viewModel.HasUnsavedChanges) return UnsavedChangesChoice.Discard;
         var choice = await _lifecycleInteraction.ChooseAsync(_viewModel.DirtyPrograms, _viewModel.WorkspaceCatalogDirty);
+        // A closed initiating form must not apply a late choice, including Save all.
+        cancellationToken.ThrowIfCancellationRequested();
+        if (contextIsCurrent is not null && !contextIsCurrent()) return UnsavedChangesChoice.Cancel;
         if (choice == UnsavedChangesChoice.SaveAll && !_viewModel.SaveAll().Succeeded)
             return UnsavedChangesChoice.Cancel;
         return choice is UnsavedChangesChoice.SaveAll or UnsavedChangesChoice.Discard ? choice : UnsavedChangesChoice.Cancel;
@@ -82,21 +97,35 @@ public partial class MainWindow
 
     private async Task DecideCloseAsync()
     {
+        var current = OwnerContext();
+        var session = _viewModel.WorkspaceSessionId;
+        var closeScheduled = false;
+        bool RetainedSession() => !_ownerClosed && ReferenceEquals(DataContext, _viewModel) && session == _viewModel.WorkspaceSessionId;
+        void ResumeIfRetained()
+        {
+            if (!_ownerClosed && session == _viewModel.WorkspaceSessionId)
+                _viewModel.ResumeRecoveryAfterAbortedClose(RetainedSession);
+        }
         try
         {
-            var decision = await ChooseTransitionAsync();
+            var decision = await ChooseTransitionAsync(contextIsCurrent: current);
             if (decision == UnsavedChangesChoice.Cancel) { _transitionInFlight = false; return; }
             await _viewModel.StopOperationsAsync();
-            if (_ownerClosed) return;
+            if (!current()) { _transitionInFlight = false; return; }
+            await _viewModel.StopRecoveryAsync();
+            if (!current()) { _transitionInFlight = false; return; }
             // Even completed injected choices must unwind the first Closing event.
+            closeScheduled = true;
             Dispatcher.UIThread.Post(() =>
             {
+                if (!current()) { _transitionInFlight = false; ResumeIfRetained(); return; }
                 _closeApproved = true;
                 try { Close(); }
-                finally { _closeApproved = false; _transitionInFlight = false; }
+                finally { _closeApproved = false; _transitionInFlight = false; ResumeIfRetained(); }
             });
         }
-        catch (Exception ex) { _viewModel.ReportError(ex.Message); _transitionInFlight = false; }
+        catch (Exception ex) { if (current()) _viewModel.ReportError(ex.Message); _transitionInFlight = false; }
+        finally { if (!closeScheduled) ResumeIfRetained(); }
     }
 }
 

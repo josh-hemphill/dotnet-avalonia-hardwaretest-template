@@ -5,9 +5,131 @@ using Xunit;
 namespace HardwareTest.Authoring.Tests;
 
 [Collection("AuthoringOpenTap")]
+[Trait("Category", "AuthoringIntegration")]
 public sealed class AuthoringOperationTests : IDisposable
 {
     private readonly List<string> roots = [];
+    [Fact]
+    public async Task Partial_fixture_marker_is_not_visible_until_complete_atomic_publication()
+    {
+        var root = Temp();
+        var start = new ProcessStartInfo(Path.Combine(AppContext.BaseDirectory, "HardwareTest.Authoring.ProcessFixture"))
+        { UseShellExecute = false, RedirectStandardInput = true, RedirectStandardOutput = true };
+        start.ArgumentList.Add("--partial-marker"); start.ArgumentList.Add(root);
+        using var child = Process.Start(start)!;
+        try
+        {
+            Assert.Equal("partial", await child.StandardOutput.ReadLineAsync().WaitAsync(TimeSpan.FromSeconds(5)));
+            Assert.False(File.Exists(Path.Combine(root, "partial-marker")));
+            Assert.Single(Directory.GetFiles(root, "partial-marker.*.tmp"));
+            await child.StandardInput.WriteLineAsync("release"); await child.StandardInput.FlushAsync();
+            await child.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.Equal(0, child.ExitCode);
+            Assert.Equal(["complete", "owned-root"], File.ReadAllLines(Path.Combine(root, "partial-marker")));
+            Assert.Empty(Directory.GetFiles(root, "*.tmp"));
+        }
+        finally { if (!child.HasExited) { child.Kill(); await child.WaitForExitAsync(); } }
+    }
+
+    [Fact]
+    public async Task Query_failure_retains_original_scope_after_staging_removal_until_verified_retry()
+    {
+        var root = Workspace();
+        File.WriteAllText(Path.Combine(root, "fixture-wait"), "");
+        File.WriteAllText(Path.Combine(root, "fixture-spawn"), "");
+        var blocked = true;
+        var observations = 0;
+        var executable = Path.Combine(AppContext.BaseDirectory, "HardwareTest.Authoring.ProcessFixture");
+        var unrelatedStart = new ProcessStartInfo(executable) { UseShellExecute = false };
+        unrelatedStart.ArgumentList.Add("--descendant");
+        using var unrelated = Process.Start(unrelatedStart)!;
+        var runner = new AuthoringChildProcessRunner(executable)
+        {
+            BeforeExitVerification = () => { observations++; if (blocked) throw new IOException("Injected original scope query failure"); }
+        };
+        using var coordinator = new AuthoringOperationCoordinator(runner);
+        try
+        {
+            var running = coordinator.RunAsync(AuthoringOperationKind.Bootstrap, root);
+            await WaitFor(root, "fixture-descendant", operation: running);
+            var child = File.ReadAllLines(Path.Combine(root, "fixture-child.json"));
+            var owned = child[1]; roots.Add(owned);
+            var descendant = int.Parse(File.ReadAllText(Path.Combine(root, "fixture-descendant")));
+            coordinator.Cancel();
+            await Assert.ThrowsAsync<IOException>(() => running);
+            Assert.False(Directory.Exists(owned));
+            Assert.False(coordinator.IsBusy); Assert.True(coordinator.HasPendingCleanup); Assert.True(runner.HasPendingReap);
+            for (var attempt = 0; attempt < 2; attempt++)
+            {
+                await Assert.ThrowsAsync<IOException>(() => coordinator.StopAsync());
+                Assert.True(coordinator.HasPendingCleanup); Assert.False(unrelated.HasExited);
+            }
+            blocked = false;
+            await coordinator.StopAsync();
+            Assert.False(coordinator.HasPendingCleanup); Assert.False(runner.HasPendingReap);
+            Assert.False(IsAlive(int.Parse(child[0]))); Assert.False(IsAlive(descendant)); Assert.False(unrelated.HasExited);
+            Assert.True(observations >= 4);
+            await coordinator.StopAsync();
+        }
+        finally { if (!unrelated.HasExited) unrelated.Kill(); await unrelated.WaitForExitAsync(); blocked = false; await coordinator.StopAsync(); }
+    }
+
+    [Fact]
+    public async Task Unwritable_control_marker_cannot_block_owned_scope_retry_after_staging_removal()
+    {
+        if (OperatingSystem.IsWindows()) Assert.Skip("Unix owned-session EOF/control-path boundary.");
+        var root = Workspace();
+        File.WriteAllText(Path.Combine(root, "fixture-wait"), "");
+        File.WriteAllText(Path.Combine(root, "fixture-spawn"), "");
+        var blocked = true;
+        var observations = 0;
+        var executable = Path.Combine(AppContext.BaseDirectory, "HardwareTest.Authoring.ProcessFixture");
+        var unrelatedStart = new ProcessStartInfo(executable) { UseShellExecute = false };
+        unrelatedStart.ArgumentList.Add("--descendant");
+        using var unrelated = Process.Start(unrelatedStart)!;
+        var runner = new AuthoringChildProcessRunner(executable)
+        {
+            BeforeExitVerification = () => { observations++; if (blocked) throw new IOException("Injected original scope query failure"); }
+        };
+        using var coordinator = new AuthoringOperationCoordinator(runner);
+        string? originalScope = null;
+        try
+        {
+            var running = coordinator.RunAsync(AuthoringOperationKind.Bootstrap, root);
+            await WaitFor(root, "fixture-descendant", operation: running);
+            var child = File.ReadAllLines(Path.Combine(root, "fixture-child.json"));
+            var owned = child[1]; roots.Add(owned); originalScope = owned;
+            // A directory occupying the stop-file path deterministically rejects the control write.
+            Directory.CreateDirectory(Path.Combine(owned, "host-stop"));
+            var descendant = int.Parse(File.ReadAllText(Path.Combine(root, "fixture-descendant")));
+            coordinator.Cancel();
+            var initialFailure = await Record.ExceptionAsync(() => running);
+            Assert.True(initialFailure is IOException or UnauthorizedAccessException);
+            Assert.False(Directory.Exists(owned));
+            Assert.False(coordinator.IsBusy); Assert.True(coordinator.HasPendingCleanup); Assert.True(runner.HasPendingReap);
+            for (var attempt = 0; attempt < 2; attempt++)
+            {
+                var failure = await Assert.ThrowsAnyAsync<IOException>(() => coordinator.StopAsync());
+                Assert.Equal("Injected original scope query failure", failure.Message);
+                Assert.True(coordinator.HasPendingCleanup); Assert.False(unrelated.HasExited);
+            }
+            blocked = false;
+            await coordinator.StopAsync();
+            Assert.False(coordinator.HasPendingCleanup); Assert.False(runner.HasPendingReap);
+            Assert.False(IsAlive(int.Parse(child[0]))); Assert.False(IsAlive(descendant)); Assert.False(unrelated.HasExited);
+            Assert.True(observations >= 4);
+            await coordinator.StopAsync();
+        }
+        finally
+        {
+            if (!unrelated.HasExited) unrelated.Kill();
+            await unrelated.WaitForExitAsync(); blocked = false;
+            // Baseline cleanup can still need its original private control directory after the assertion.
+            if (runner.HasPendingReap && originalScope is not null) Directory.CreateDirectory(originalScope);
+            await coordinator.StopAsync();
+        }
+    }
+
     [Fact]
     public async Task Unix_scope_reaping_waits_for_live_root_and_leaf_after_anchor_exits()
     {
@@ -349,9 +471,6 @@ public sealed class AuthoringOperationTests : IDisposable
         var second = Workspace();
         var firstHome = Temp();
         var secondHome = Temp();
-        var firstManifest = AuthoringWorkspaceLoader.Load(first).Manifest;
-        firstManifest.Dependencies.Add(new AuthoringPackageDependency { Package = OpenTapHomeBootstrapper.VisaPackageName, Version = "0.1.0" });
-        AuthoringWorkspaceLoader.SaveManifest(first, firstManifest);
         File.WriteAllText(Path.Combine(firstHome, "plugin-environment"), "one");
         File.WriteAllText(Path.Combine(secondHome, "plugin-environment"), "two");
         foreach (var (home, name) in new[] { (firstHome, "EnvironmentOne"), (secondHome, "EnvironmentTwo") })
@@ -368,8 +487,6 @@ public sealed class AuthoringOperationTests : IDisposable
         Assert.Contains(coordinator.Logs, log => log.Text.Contains("home-package:EnvironmentTwo", StringComparison.Ordinal));
         Assert.DoesNotContain(coordinator.Logs, log => log.Text.Contains("home-package:EnvironmentOne", StringComparison.Ordinal));
         Assert.NotEqual(File.ReadAllLines(Path.Combine(first, "fixture-child.json"))[0], File.ReadAllLines(Path.Combine(second, "fixture-child.json"))[0]);
-        Assert.True(File.Exists(Path.Combine(firstHome, "Packages", OpenTapHomeBootstrapper.VisaPackageName, OpenTapHomeBootstrapper.VisaAssemblyFileName)));
-        Assert.False(Directory.EnumerateFiles(secondHome, OpenTapHomeBootstrapper.VisaAssemblyFileName, SearchOption.AllDirectories).Any());
         Assert.Equal("one", File.ReadAllText(Path.Combine(firstHome, "plugin-environment")));
         Assert.Equal("two", File.ReadAllText(Path.Combine(secondHome, "plugin-environment")));
         Assert.All(new[] { first, second }, root => Assert.False(Directory.Exists(File.ReadAllLines(Path.Combine(root, "fixture-child.json"))[1])));
@@ -440,6 +557,7 @@ public sealed class AuthoringOperationTests : IDisposable
         File.Copy(Path.Combine(repository, "plans/opentap/sample.program.json"), Path.Combine(plans, "sample.program.json"));
         AuthoringWorkspaceLoader.SaveManifest(root, new AuthoringManifest
         {
+            SchemaVersion = AuthoringSchemaVersions.Manifest,
             PlansDirectory = isolatedPlans ? "plans" : ".",
             Package = new AuthoringPackageSpec { Name = "Operation fixture", Version = "0.1.0" },
             Dependencies = [new AuthoringPackageDependency { Package = "HardwareTest Basic", Version = "0.2.0" }, new AuthoringPackageDependency { Package = "HardwareTest Mixins", Version = "0.1.0" }]

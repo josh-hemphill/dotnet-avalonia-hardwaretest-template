@@ -18,6 +18,45 @@ public sealed partial class AuthoringWorkspaceViewModel
     public IReadOnlyList<string> EnvironmentRuntimeFiles => Workspace is null ? []
         : WorkspacePackPlan.TryResolveHomePath(Workspace, Prefs.OpenTapHomeOverride, out var path, out var error)
             ? AuthoringEnvironmentAssessment.RuntimeFiles(new(path!)) : [error!];
+    public string LibraryEnvironmentReadinessText
+    {
+        get
+        {
+            var inspection = HardwareInspection;
+            return inspection.Error ?? AuthoringInstrumentCatalog.LibraryReadiness(inspection.Home).Reason!;
+        }
+    }
+
+    public bool RequiresInstrumentLibrary => Workspace?.Manifest.Dependencies.Any(dependency =>
+        dependency.Package.Equals(AuthoringInstrumentCatalog.LibraryPackage, StringComparison.OrdinalIgnoreCase)) == true;
+    public string StandaloneVisaReadinessText
+    {
+        get
+        {
+            var inspection = HardwareInspection;
+            if (inspection.Error is not null) return $"Cannot inspect the selected standalone/TUI home: {inspection.Error}";
+            if (inspection.Home is { } home)
+                return StandaloneVisaReadiness.ExecutionPrerequisite(home, RequiresInstrumentLibrary) ?? StandaloneVisaReadiness.Assess(home).Reason!;
+            return RequiresInstrumentLibrary ? "This workspace requires InstrumentComponents.OpenTap. Select a prepared library home to assess its standalone VISA provider."
+                : "Standalone VISA is optional; mock plans do not need it. Select a prepared library home to assess its provider.";
+        }
+    }
+
+    public bool CanDeclareLibraryDependency => Workspace is { IsReadOnly: false } && !OperationBusy
+        && !Workspace.Manifest.Dependencies.Any(d => d.Package.Equals(AuthoringInstrumentCatalog.LibraryPackage, StringComparison.OrdinalIgnoreCase));
+
+    public void DeclareLibraryDependency()
+    {
+        if (!CanDeclareLibraryDependency) throw new AuthoringWorkspaceException("Open a writable workspace without the library declaration and wait for the active operation.");
+        RunCatalogEdit("Declare Instrument Components dependency", () =>
+        {
+            Workspace!.Manifest.Dependencies.Add(new() { Package = AuthoringInstrumentCatalog.LibraryPackage, Version = "^0.1.0" });
+        });
+        RefreshPackPreview();
+        RaiseEnvironmentProperties();
+        Status = "Instrument Components dependency staged. Use Save All before preparing/importing; Undo removes the staged declaration. Prepare installs the bundled library or reuses a compatible installed package.";
+    }
+
     public string EnvironmentRecoveryText => "Prepare the selected isolated authoring home from bundled prerequisites, or import a trusted offline .TapPackage/.zip. Required version mismatches must be repaired before build. These actions do not install a bench.";
     private IReadOnlyList<PackPreflightFinding> KnownEnvironmentBlockers => Workspace is not null && EnvironmentPathError is null
         ? AuthoringEnvironmentAssessment.BuildBlockers(Workspace.Manifest, new(AuthoringHomeText), allowMissingHome: true) : [];
@@ -34,6 +73,11 @@ public sealed partial class AuthoringWorkspaceViewModel
     }
     private void RaiseEnvironmentProperties()
     {
+        OnPropertyChanged(nameof(LibraryEnvironmentReadinessText));
+        OnPropertyChanged(nameof(StandaloneVisaReadinessText));
+        OnPropertyChanged(nameof(RequiresInstrumentLibrary));
+        OnPropertyChanged(nameof(CanDeclareLibraryDependency));
+        OnPropertyChanged(nameof(InstrumentTypeChoices));
         OnPropertyChanged(nameof(EnvironmentPathError));
         OnPropertyChanged(nameof(EnvironmentPackages));
         OnPropertyChanged(nameof(EnvironmentRuntimeFiles));

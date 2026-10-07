@@ -57,7 +57,6 @@ public static class OpenTapPackageCatalog
         }
 
         Add(Path.GetDirectoryName(typeof(MockDmmInstrument).Assembly.Location), "Basic");
-        Add(Path.GetDirectoryName(typeof(VisaDmmInstrument).Assembly.Location), "Visa");
         Add(Path.GetDirectoryName(typeof(AnnotationMixinBuilder).Assembly.Location), "Mixins");
 
         foreach (var dir in settings.OpenTapPluginDirectories)
@@ -65,7 +64,7 @@ public static class OpenTapPackageCatalog
             Add(dir, "Settings");
         }
 
-        var env = Environment.GetEnvironmentVariable("HARDWARETEST_OPENTAP_PLUGIN_DIRS");
+        var env = Environment.GetEnvironmentVariable("HARDWARETEST_OPEN_TAP_PLUGIN_DIRECTORIES");
         if (!string.IsNullOrWhiteSpace(env))
         {
             foreach (var part in env.Split(

@@ -50,10 +50,9 @@ public sealed class BuildInfo
             informational = version;
         }
 
-        ParseInformational(informational, out var commit, out var stampUtc);
-        // Prefer AssemblyMetadata CommitDate (git committer time). InformationalVersion
-        // is {version}+{sha} and no longer embeds a wall-clock stamp.
-        var buildUtc = ReadCommitDate(assembly) ?? stampUtc;
+        ParseInformational(informational, out var commit);
+        // Deterministic version+sha identifies the build; CommitDate supplies its time.
+        var buildUtc = ReadCommitDate(assembly);
 
         return new BuildInfo
         {
@@ -144,37 +143,11 @@ public sealed class BuildInfo
         return null;
     }
 
-    internal static void ParseInformational(string informational, out string commit, out DateTimeOffset? buildUtc)
+    internal static void ParseInformational(string informational, out string commit)
     {
-        commit = "local";
-        buildUtc = null;
-
-        // Current: 0.1.0+abc1234  or  0.1.0+local
-        // Legacy:  0.1.0+abc1234.20260728220000 (wall-clock suffix, no longer stamped)
         var plus = informational.IndexOf('+');
-        if (plus < 0 || plus >= informational.Length - 1)
-        {
-            return;
-        }
-
-        var meta = informational[(plus + 1)..];
-        var dot = meta.IndexOf('.');
-        if (dot <= 0)
-        {
-            commit = meta;
-            return;
-        }
-
-        commit = meta[..dot];
-        var stamp = meta[(dot + 1)..];
-        if (DateTime.TryParseExact(
-                stamp,
-                "yyyyMMddHHmmss",
-                CultureInfo.InvariantCulture,
-                DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal,
-                out var dt))
-        {
-            buildUtc = new DateTimeOffset(dt, TimeSpan.Zero);
-        }
+        commit = plus >= 0 && plus < informational.Length - 1
+            ? informational[(plus + 1)..]
+            : "local";
     }
 }

@@ -7,6 +7,24 @@ namespace HardwareTest.Authoring;
 public sealed class AuthoringChildProcessRunner
 {
     private readonly string executable;
+    private readonly object reapGate = new();
+    private readonly List<(AuthoringProcessOwnership Ownership, Process Process)> retained = [];
+    internal Action? BeforeExitVerification { get; init; }
+    public bool HasPendingReap { get { lock (reapGate) return retained.Count > 0; } }
+    public async Task ReapPendingAsync()
+    {
+        (AuthoringProcessOwnership Ownership, Process Process)[] pending;
+        lock (reapGate) pending = retained.ToArray();
+        foreach (var scope in pending)
+        {
+            SignalEndOfInput(scope.Process);
+            scope.Ownership.Terminate();
+            BeforeExitVerification?.Invoke();
+            await scope.Ownership.WaitForExitAsync(scope.Process).ConfigureAwait(false);
+            lock (reapGate) retained.Remove(scope);
+            scope.Ownership.Dispose(); scope.Process.Dispose();
+        }
+    }
     private readonly IReadOnlyList<string> prefix;
     public AuthoringChildProcessRunner(string executable, IReadOnlyList<string>? arguments = null)
     { this.executable = executable; prefix = arguments?.ToArray() ?? []; }
@@ -35,24 +53,27 @@ public sealed class AuthoringChildProcessRunner
         foreach (var argument in prefix) start.ArgumentList.Add(argument);
         start.ArgumentList.Add(AuthoringOperationHost.Switch);
         start.ArgumentList.Add(requestPath);
-        using var ownership = new AuthoringProcessOwnership(start.WorkingDirectory);
-        using var process = new Process { StartInfo = start };
-        if (!process.Start()) throw new IOException("Could not start the authoring child.");
+        var ownership = new AuthoringProcessOwnership(start.WorkingDirectory);
+        var process = new Process { StartInfo = start };
+        try { if (!process.Start()) throw new IOException("Could not start the authoring child."); }
+        catch { ownership.Dispose(); process.Dispose(); throw; }
         try { ownership.Attach(process); }
         catch
         {
             // The host cannot spawn work until the parent's gate opens.
             process.Kill();
             await process.WaitForExitAsync().ConfigureAwait(false);
+            ownership.Dispose(); process.Dispose();
             throw;
         }
         using var cancellation = cancellationToken.Register(() => _ = Task.Run(() =>
         {
-            try { ownership.Terminate(); }
+            try { SignalEndOfInput(process); ownership.Terminate(); }
             catch (ObjectDisposedException) { }
             catch (IOException) { }
             catch (System.ComponentModel.Win32Exception) { }
         }));
+        var reaped = false;
         using var reading = new CancellationTokenSource();
         var stdout = DrainAsync(process.StandardOutput, "stdout", log, reading.Token);
         var stderr = DrainAsync(process.StandardError, "stderr", log, reading.Token);
@@ -67,7 +88,9 @@ public sealed class AuthoringChildProcessRunner
                 AuthoringOperationJsonContext.Default.AuthoringChildExit) ?? throw new InvalidDataException("Empty child exit status.");
             progress(new("Reaping operation processes"));
             cancellationToken.ThrowIfCancellationRequested();
+            SignalEndOfInput(process);
             ownership.Terminate();
+            BeforeExitVerification?.Invoke();
             await ownership.WaitForExitAsync(process).ConfigureAwait(false);
             await Task.WhenAll(stdout, stderr).WaitAsync(TimeSpan.FromSeconds(2), cancellationToken).ConfigureAwait(false);
             cancellationToken.ThrowIfCancellationRequested();
@@ -77,9 +100,17 @@ public sealed class AuthoringChildProcessRunner
         {
             try
             {
+                SignalEndOfInput(process);
                 ownership.Terminate();
                 // Reap the owned process before staging cleanup. Cancellation never waits on the UI thread.
+                BeforeExitVerification?.Invoke();
                 await ownership.WaitForExitAsync(process).ConfigureAwait(false);
+                reaped = true;
+            }
+            catch
+            {
+                lock (reapGate) retained.Add((ownership, process));
+                throw;
             }
             finally
             {
@@ -87,6 +118,7 @@ public sealed class AuthoringChildProcessRunner
                 try { await Task.WhenAll(stdout, stderr, stages).WaitAsync(TimeSpan.FromSeconds(2)).ConfigureAwait(false); }
                 catch (OperationCanceledException) { }
                 catch (TimeoutException) { }
+                finally { if (reaped) { ownership.Dispose(); process.Dispose(); } }
             }
         }
         async Task WaitForHostFile(string name)
@@ -99,6 +131,15 @@ public sealed class AuthoringChildProcessRunner
                 await Task.Delay(20, cancellationToken).ConfigureAwait(false);
             }
         }
+    }
+
+    private static void SignalEndOfInput(Process process)
+    {
+        // Cancellation, successful completion and retained retries share the same durable EOF signal.
+        // Closing an already closed pipe must not prevent verification of the original owned scope.
+        try { process.StandardInput.Close(); }
+        catch (ObjectDisposedException) { }
+        catch (IOException) { }
     }
 
     private static async Task DrainAsync(StreamReader reader, string stream, Action<AuthoringOperationLog> log, CancellationToken token)
@@ -121,8 +162,7 @@ public sealed class AuthoringChildProcessRunner
             {
                 if (File.Exists(path))
                 {
-                    var bytes = await File.ReadAllBytesAsync(path, token).ConfigureAwait(false);
-                    if (bytes.Length > 4096) throw new InvalidDataException("Oversized child progress.");
+                    var bytes = await ReadProgressBytesAsync(path, token).ConfigureAwait(false);
                     var next = JsonSerializer.Deserialize(bytes, AuthoringOperationJsonContext.Default.AuthoringOperationProgress);
                     if (next is not null && next.Stage != last) { last = next.Stage; progress(next); }
                 }
@@ -130,5 +170,21 @@ public sealed class AuthoringChildProcessRunner
             catch (IOException) { }
             await Task.Delay(100, token).ConfigureAwait(false);
         }
+    }
+
+    internal static FileStream OpenProgressReadStream(string path)
+        // The child publishes with atomic replacement. Readers must allow the old
+        // file to be deleted on Windows while retaining a coherent handle to its bytes.
+        => new(path, FileMode.Open, FileAccess.Read, FileShare.Read | FileShare.Delete,
+            bufferSize: 4096, FileOptions.Asynchronous | FileOptions.SequentialScan);
+
+    internal static async Task<byte[]> ReadProgressBytesAsync(string path, CancellationToken token)
+    {
+        token.ThrowIfCancellationRequested();
+        using var stream = OpenProgressReadStream(path);
+        if (stream.Length > 4096) throw new InvalidDataException("Oversized child progress.");
+        var bytes = new byte[(int)stream.Length];
+        await stream.ReadExactlyAsync(bytes, token).ConfigureAwait(false);
+        return bytes;
     }
 }

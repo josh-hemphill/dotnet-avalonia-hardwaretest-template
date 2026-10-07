@@ -5,7 +5,13 @@ namespace HardwareTest.OpenTap.Host;
 
 public sealed record DutIdentity(string Serial, string? PartNumber = null, string? Revision = null, string Family = "generic");
 
-public sealed record StationProfile(IReadOnlyDictionary<string, string> RoleToResource);
+public sealed record StationProfile
+{
+    public StationProfile(IReadOnlyDictionary<string, string> slotToResource)
+        => SlotToResource = new Dictionary<string, string>(slotToResource, StringComparer.OrdinalIgnoreCase);
+
+    public IReadOnlyDictionary<string, string> SlotToResource { get; }
+}
 
 public sealed class OpenTapInstrumentSlot
 {

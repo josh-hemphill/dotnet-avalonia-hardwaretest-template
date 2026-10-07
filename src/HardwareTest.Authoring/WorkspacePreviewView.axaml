@@ -1,30 +1,28 @@
-<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:vm="using:HardwareTest.Authoring" xmlns:host="using:HardwareTest.OpenTap.Host"
-    x:Class="HardwareTest.Authoring.WorkspacePreviewView" x:DataType="vm:AuthoringWorkspaceViewModel">
-  <ScrollViewer x:Name="WorkspaceViewport" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto" ClipToBounds="True"
-      Focusable="True" AutomationProperties.Name="Workspace preview viewport">
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:vm="using:HardwareTest.Authoring" xmlns:host="using:HardwareTest.OpenTap.Host" x:Class="HardwareTest.Authoring.WorkspacePreviewView" x:DataType="vm:AuthoringWorkspaceViewModel">
+  <ScrollViewer x:Name="WorkspaceViewport" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto" ClipToBounds="True" Focusable="True" AutomationProperties.Name="Workspace preview viewport">
     <Grid x:Name="PreviewLayout" RowDefinitions="Auto,Auto,*" RowSpacing="8" AutomationProperties.Name="Preview content">
-      <ScrollViewer x:Name="SourceDetailsViewport" Grid.Row="0" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto"
-          ClipToBounds="True" AutomationProperties.Name="Data source details viewport">
-        <StackPanel Spacing="8">
-          <WrapPanel x:Name="SourceActions">
-            <TextBlock Text="Data source" Margin="0,0,8,0" VerticalAlignment="Center" FontWeight="SemiBold" AutomationProperties.HeadingLevel="3"/>
-            <Button Content="Example data" Click="OnUseExampleData" AutomationProperties.Name="Use example data"/>
-            <Button Content="Import recording" Click="OnImportRecording" IsEnabled="{Binding CanImportRecording}" AutomationProperties.Name="Import recording"/>
-            <Button Content="Open folder" Click="OnOpenRecordingFolder" IsEnabled="{Binding HasWorkspace}" AutomationProperties.Name="Open recordings folder"/>
-          </WrapPanel>
-          <TextBlock Text="{Binding DataSourceDetails}" TextWrapping="Wrap"/>
-          <TextBlock Text="{Binding RecordingEmptyState}" TextWrapping="Wrap"/>
-        </StackPanel>
+      <ScrollViewer x:Name="SourceDetailsViewport" Grid.Row="0" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto" ClipToBounds="True" AutomationProperties.Name="Data source details viewport">
+        <Border x:Name="SourceFrame" Classes="surface" Padding="8">
+          <StackPanel Spacing="12">
+            <WrapPanel x:Name="SourceActions">
+              <TextBlock Text="Preview data" Margin="0,0,8,0" VerticalAlignment="Center" FontWeight="SemiBold" AutomationProperties.HeadingLevel="3" Classes="sectionTitle"/>
+              <Button Content="Example data" Click="OnUseExampleData" AutomationProperties.Name="Use example data" Classes="authoringAction" Margin="0,0,8,0"/>
+              <Button Content="Import recording" Click="OnImportRecording" IsEnabled="{Binding CanImportRecording}" AutomationProperties.Name="Import recording" Classes="authoringAction primaryAction" Margin="0,0,8,0"/>
+              <Button Content="Open folder" Click="OnOpenRecordingFolder" IsEnabled="{Binding HasWorkspace}" AutomationProperties.Name="Open recordings folder" Classes="authoringAction" Margin="0,0,8,0"/>
+            </WrapPanel>
+            <TextBlock Text="{Binding DataSourceDetails}" TextWrapping="Wrap"/>
+            <TextBlock Text="{Binding RecordingEmptyState}" TextWrapping="Wrap"/>
+          </StackPanel>
+        </Border>
       </ScrollViewer>
-      <StackPanel x:Name="RecordingRows" Grid.Row="1" Spacing="8">
-        <TextBlock x:Name="RecordingsHeading" FontWeight="SemiBold" Text="Recordings"
-            AutomationProperties.HeadingLevel="3" TextWrapping="Wrap"/>
-        <ListBox Height="80" ItemsSource="{Binding DatasetItems}" SelectedIndex="{Binding SelectedDatasetIndex}"
-            KeyboardNavigation.TabNavigation="Once" AutomationProperties.Name="Recordings"
-            AutomationProperties.LabeledBy="{Binding #RecordingsHeading}"/>
+      <StackPanel x:Name="RecordingRows" Grid.Row="1" Spacing="8" Margin="0">
+        <TextBlock x:Name="RecordingsHeading" FontWeight="SemiBold" Text="Recordings" AutomationProperties.HeadingLevel="3" TextWrapping="Wrap" Classes="sectionTitle"/>
+        <ListBox Height="80" ItemsSource="{Binding DatasetItems}" SelectedIndex="{Binding SelectedDatasetIndex}" KeyboardNavigation.TabNavigation="Once" AutomationProperties.Name="Recordings" AutomationProperties.LabeledBy="{Binding #RecordingsHeading}"/>
       </StackPanel>
-      <vm:OperatorPreviewPane x:Name="BoardPane" Grid.Row="2"/>
+      <Grid x:Name="BoardRegion" RowDefinitions="Auto,*" RowSpacing="8" Grid.Row="2">
+        <TextBlock x:Name="BoardHeading" Text="Operator board" Classes="sectionTitle" TextWrapping="Wrap" AutomationProperties.HeadingLevel="3"/>
+        <vm:OperatorPreviewPane x:Name="BoardPane" Grid.Row="1"/>
+      </Grid>
     </Grid>
   </ScrollViewer>
 </UserControl>

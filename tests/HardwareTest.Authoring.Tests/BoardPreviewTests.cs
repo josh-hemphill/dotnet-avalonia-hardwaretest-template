@@ -42,7 +42,7 @@ public sealed class BoardPreviewTests : IDisposable
             File.Copy(PlanCompiler.SidecarPath(path), Path.Combine(exported, "board.program.json"), true);
             File.WriteAllText(Path.Combine(exported, "run.json"), json);
             new AuthoringDocumentStore(exported).Save(AuthoringDocumentDto.FromDraft(draft));
-            File.WriteAllText(Path.Combine(exported, "authoring.json"), "{\"schemaVersion\":1,\"plansDirectory\":\".\"}");
+            File.WriteAllText(Path.Combine(exported, "authoring.json"), "{\"schemaVersion\":2,\"plansDirectory\":\".\"}");
         }
         var board = BoardPreviewBuilder.Build(draft, restored);
         var means = board.Where(tile => tile.NodeId == mean.NodeId).ToArray();
@@ -183,9 +183,9 @@ public sealed class BoardPreviewTests : IDisposable
             Assert.Single(tile.Chrome.Events.Select(mark => (mark.LoopRunId, mark.IterationIndex)).Distinct());
             Assert.All(tile.Chrome.Events, mark => Assert.NotNull(mark.LoopRunId));
         });
-        var legacy = JsonSerializer.Deserialize(json, AppJsonContext.Default.TestRunRecord)!;
-        foreach (var sample in legacy.Samples) sample.LoopRunId = null;
-        if (nested) Assert.Empty(BoardPreviewBuilder.Build(draft, legacy).Single(tile => tile.NodeId == mean.NodeId).Preview.CannedSamples);
+        var missingLoopIdentity = JsonSerializer.Deserialize(json, AppJsonContext.Default.TestRunRecord)!;
+        foreach (var sample in missingLoopIdentity.Samples) sample.LoopRunId = null;
+        if (nested) Assert.Empty(BoardPreviewBuilder.Build(draft, missingLoopIdentity).Single(tile => tile.NodeId == mean.NodeId).Preview.CannedSamples);
         Assert.Equal(nested ? 2 : 1, recording.Samples.Select(sample => sample.LoopRunId).Distinct().Count());
         Assert.All(recording.Samples, sample => Assert.NotNull(sample.LoopRunId));
         Assert.Equal(nested ? 8 : 4, recording.Events.Count);
@@ -216,7 +216,7 @@ public sealed class BoardPreviewTests : IDisposable
             File.Copy(PlanCompiler.SidecarPath(path), Path.Combine(exported, "board.program.json"), true);
             File.WriteAllText(Path.Combine(exported, "run.json"), json);
             new AuthoringDocumentStore(exported).Save(AuthoringDocumentDto.FromDraft(draft));
-            File.WriteAllText(Path.Combine(exported, "authoring.json"), "{\"schemaVersion\":1,\"plansDirectory\":\".\"}");
+            File.WriteAllText(Path.Combine(exported, "authoring.json"), "{\"schemaVersion\":2,\"plansDirectory\":\".\"}");
             OpenTapRunRecordingStore.WriteBeside(Path.Combine(exported, "cassette"), "run", progress.Frames, summary);
         }
         Assert.All(BoardPreviewBuilder.Build(draft), tile => Assert.NotEmpty(tile.Preview.CannedSamples));
@@ -294,7 +294,7 @@ public sealed class BoardPreviewTests : IDisposable
     public void Structurally_invalid_recordings_have_usable_errors_and_preserve_selection_and_bytes(string collection, string value)
     {
         var root = Temp();
-        File.WriteAllText(Path.Combine(root, "authoring.json"), "{\"schemaVersion\":1,\"plansDirectory\":\".\"}");
+        File.WriteAllText(Path.Combine(root, "authoring.json"), "{\"schemaVersion\":2,\"plansDirectory\":\".\"}");
         new PlanCompiler().Save(Draft([Acquisition()]), Path.Combine(root, "board.TapPlan"));
         var vm = new AuthoringWorkspaceViewModel();
         vm.Open(root);
@@ -308,7 +308,7 @@ public sealed class BoardPreviewTests : IDisposable
             var before = File.ReadAllBytes(selected.Path);
             var recordings = Path.Combine(root, "recordings");
             var entries = Directory.GetFileSystemEntries(recordings, "*", SearchOption.AllDirectories);
-            File.WriteAllText(source, $"{{\"schemaVersion\":1,\"planId\":\"board\",\"samples\":[],\"events\":[]}}".Replace($"\"{collection}\":[]", $"\"{collection}\":{value}"));
+            File.WriteAllText(source, $"{{\"schemaVersion\":{SchemaVersions.TestRunRecord},\"planId\":\"board\",\"samples\":[],\"events\":[]}}".Replace($"\"{collection}\":[]", $"\"{collection}\":{value}"));
             var invalidBytes = File.ReadAllBytes(source);
             Assert.Contains(collection, Assert.Throws<AuthoringWorkspaceException>(() => RunDatasetCatalog.Load(source)).Message);
             Assert.Contains(collection, Assert.Throws<AuthoringWorkspaceException>(() => vm.ImportRecording(source, "invalid")).Message);
@@ -340,7 +340,7 @@ public sealed class BoardPreviewTests : IDisposable
     public void Import_is_atomic_contained_and_failure_preserves_selected_dataset()
     {
         var root = Temp();
-        File.WriteAllText(Path.Combine(root, "authoring.json"), "{\"schemaVersion\":1,\"plansDirectory\":\".\"}");
+        File.WriteAllText(Path.Combine(root, "authoring.json"), "{\"schemaVersion\":2,\"plansDirectory\":\".\"}");
         var workspace = AuthoringWorkspaceLoader.Load(root);
         var source = Path.Combine(Temp(), "run.json");
         var run = new TestRunRecord { PlanId = "board", Samples = [new StoredSample { Channel = "VDC", Value = 2, ElapsedMs = 5 }] };
@@ -361,7 +361,7 @@ public sealed class BoardPreviewTests : IDisposable
     public void View_model_refresh_selects_success_and_retains_selection_on_invalid_or_colliding_import()
     {
         var root = Temp();
-        File.WriteAllText(Path.Combine(root, "authoring.json"), "{\"schemaVersion\":1,\"plansDirectory\":\".\"}");
+        File.WriteAllText(Path.Combine(root, "authoring.json"), "{\"schemaVersion\":2,\"plansDirectory\":\".\"}");
         new PlanCompiler().Save(Draft([Acquisition(), Mean("VDC")]), Path.Combine(root, "board.TapPlan"));
         var vm = new AuthoringWorkspaceViewModel();
         vm.Open(root);
@@ -455,7 +455,7 @@ public sealed class BoardPreviewTests : IDisposable
     public void Import_source_replacement_cannot_publish_another_program_or_drop_selection(bool duringCopy)
     {
         var root = Temp();
-        File.WriteAllText(Path.Combine(root, "authoring.json"), "{\"schemaVersion\":1,\"plansDirectory\":\".\"}");
+        File.WriteAllText(Path.Combine(root, "authoring.json"), "{\"schemaVersion\":2,\"plansDirectory\":\".\"}");
         new PlanCompiler().Save(Draft([Acquisition()]), Path.Combine(root, "board.TapPlan"));
         var vm = new AuthoringWorkspaceViewModel();
         vm.Open(root);

@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 3,
+  "runId": "tf-vdc-1",
+  "traceId": "trace-tf-vdc",
+  "planId": "tf",
+  "planName": "Transfer Function",
+  "operatorName": "Tech",
+  "appVersion": "0.1.0+test",
+  "appCommitSha": "testsha",
+  "startedAt": "2026-09-17T12:00:00Z",
+  "completedAt": "2026-09-17T12:00:05Z",
+  "result": "Passed",
+  "steps": [],
+  "samples": [
+    { "channel": "VDC", "metricKey": "VDC", "timestamp": "2026-09-17T12:00:00.000Z", "value": 1.0, "elapsedMs": 0, "displayRole": "timeseries", "unit": "V" },
+    { "channel": "VDC", "metricKey": "VDC", "timestamp": "2026-09-17T12:00:00.005Z", "value": 0.0, "elapsedMs": 5, "displayRole": "timeseries", "unit": "V" },
+    { "channel": "VDC", "metricKey": "VDC", "timestamp": "2026-09-17T12:00:00.010Z", "value": 0.0, "elapsedMs": 10, "displayRole": "timeseries", "unit": "V" },
+    { "channel": "VDC", "metricKey": "VDC", "timestamp": "2026-09-17T12:00:00.015Z", "value": 0.0, "elapsedMs": 15, "displayRole": "timeseries", "unit": "V" },
+    { "channel": "VDC", "metricKey": "VDC", "timestamp": "2026-09-17T12:00:00.020Z", "value": 0.0, "elapsedMs": 20, "displayRole": "timeseries", "unit": "V" },
+    { "channel": "VDC", "metricKey": "VDC", "timestamp": "2026-09-17T12:00:00.025Z", "value": 0.0, "elapsedMs": 25, "displayRole": "timeseries", "unit": "V" },
+    { "channel": "VDC", "metricKey": "VDC", "timestamp": "2026-09-17T12:00:00.030Z", "value": 0.0, "elapsedMs": 30, "displayRole": "timeseries", "unit": "V" },
+    { "channel": "VDC", "metricKey": "VDC", "timestamp": "2026-09-17T12:00:00.035Z", "value": 0.0, "elapsedMs": 35, "displayRole": "timeseries", "unit": "V" }
+  ],
+  "variables": {},
+  "reports": [],
+  "plotImagePaths": []
+}

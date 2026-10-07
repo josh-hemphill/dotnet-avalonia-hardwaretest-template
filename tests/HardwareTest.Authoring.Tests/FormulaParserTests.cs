@@ -185,7 +185,7 @@ public sealed class FormulaParserTests
     public void DescribeSave_nested_filter_is_save_blocked()
     {
         var dotted = FormulaLowerer.DescribeSaveOutcome("mean(VDC.mean)", new LimitSpec(null, null, 1.2));
-        Assert.Equal(FormulaSaveOutcomeKind.PacksMeanGte, dotted.Kind);
+        Assert.Equal(FormulaSaveOutcomeKind.PacksChannelAverage, dotted.Kind);
 
         var nested = FormulaLowerer.DescribeSaveOutcome("mean(filter([0.5],[1],VDC))", null);
         Assert.Equal(FormulaSaveOutcomeKind.SaveBlocked, nested.Kind);

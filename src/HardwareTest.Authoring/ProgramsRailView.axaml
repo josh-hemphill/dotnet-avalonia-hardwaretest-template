@@ -1,20 +1,18 @@
 <UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:vm="using:HardwareTest.Authoring" xmlns:host="using:HardwareTest.OpenTap.Host"
     x:Class="HardwareTest.Authoring.ProgramsRailView" x:DataType="vm:AuthoringWorkspaceViewModel">
-  <DockPanel Margin="0,0,12,0">
-    <TextBlock x:Name="ProgramsHeading" DockPanel.Dock="Top" FontWeight="SemiBold"
+  <DockPanel Margin="0">
+    <TextBlock x:Name="ProgramsHeading" DockPanel.Dock="Top" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,12"
         Text="{Binding ProgramsTitle, FallbackValue=Programs}" AutomationProperties.HeadingLevel="1"
         ToolTip.Tip="{Binding ProgramsPurpose}" TextWrapping="Wrap"/>
     <Button DockPanel.Dock="Top" Margin="0,0,0,8" Content="New test plan" Click="OnCreateProgram"
         IsEnabled="{Binding CanInitializePlan}" ToolTip.Tip="Create an empty draft or explicitly choose a task and hardware" AutomationProperties.Name="New test plan"
         Classes="authoringAction"/>
-    <Button DockPanel.Dock="Top" Margin="0,0,0,8" Content="{Binding RemoveProgramTitle}" Click="OnRemoveProgram"
+    <Button DockPanel.Dock="Bottom" Margin="0,12,0,0" Content="{Binding RemoveProgramTitle}" Click="OnRemoveProgram"
         IsEnabled="{Binding CanRemoveSelectedProgram}" ToolTip.Tip="{Binding RemoveProgramPurpose}"
         AutomationProperties.Name="Remove program" Classes="authoringAction"/>
-    <Button DockPanel.Dock="Top" Margin="0,0,0,8" Content="{Binding LastWorkspaceOffer}" Click="OnOpenLastWorkspace"
-        IsVisible="{Binding CanOfferLastWorkspace}" ToolTip.Tip="{Binding LastWorkspacePath}"
-        AutomationProperties.Name="Open last workspace" Classes="authoringAction"/>
-    <ListBox ItemsSource="{Binding ProgramRows}" SelectedItem="{Binding SelectedProgramRow}"
+
+    <ListBox Classes="authoringList" Background="Transparent" BorderThickness="0" ItemsSource="{Binding ProgramRows}" SelectedItem="{Binding SelectedProgramRow}"
         KeyboardNavigation.TabNavigation="Once" KeyDown="OnProgramsKeyDown" AutomationProperties.Name="Programs"
         AutomationProperties.LabeledBy="{Binding #ProgramsHeading}">
       <ListBox.ItemTemplate>

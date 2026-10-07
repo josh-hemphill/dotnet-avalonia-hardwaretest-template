@@ -6,7 +6,28 @@ namespace HardwareTest.Authoring;
 
 public partial class SequenceEditorView : UserControl
 {
-    public SequenceEditorView() => InitializeComponent();
+    public SequenceEditorView()
+    {
+        InitializeComponent();
+        void RevealSelection() => Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+        {
+            if (SequenceList.IsEffectivelyVisible && SequenceList.SelectedItem is { } selected) SequenceList.ScrollIntoView(selected);
+        });
+        SequenceList.SelectionChanged += (_, _) => RevealSelection();
+        SequenceList.SizeChanged += (_, _) => RevealSelection();
+        var actions = (Flyout)SequenceActionsButton.Flyout!;
+        actions.Opened += (_, _) => ((ScrollViewer)actions.Content!).FontSize = FontSize;
+        ((Control)actions.Content!).AddHandler(Button.ClickEvent, (_, e) =>
+        {
+            if (e.Source is Button button && button.Classes.Contains("sequenceAction")) actions.Hide();
+        });
+        ((Control)actions.Content!).AddHandler(KeyDownEvent, (_, e) =>
+        {
+            if (e.Handled) return;
+            (TopLevel.GetTopLevel(this) as MainWindow)?.OnExpertKeyDown(this, e);
+            if (e.Handled) actions.Hide();
+        });
+    }
 
     private AuthoringWorkspaceViewModel? Vm => DataContext as AuthoringWorkspaceViewModel;
     private void OnRenameSequence(object? sender, RoutedEventArgs e) => Vm?.RenameSelectedSequence();

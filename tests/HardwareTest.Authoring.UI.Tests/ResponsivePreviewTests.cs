@@ -78,6 +78,8 @@ public sealed class ResponsivePreviewTests
         void CheckPreview()
         {
             var scroll = fixture.Control<ScrollViewer>("Workspace preview viewport");
+            // The compact shell can fit this content naturally; explicitly constrain the wheel regression case.
+            if (width == 960 && fontSize == 20 && busy && role == "timeseries") scroll.MaxHeight = 240;
             scroll.Offset = default;
             AuthoringUiFixture.Drain();
             ResponsiveShellTests.Inside(scroll, window);

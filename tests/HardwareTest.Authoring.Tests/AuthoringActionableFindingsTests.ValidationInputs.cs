@@ -20,7 +20,7 @@ public sealed partial class AuthoringActionableFindingsTests
     [InlineData(true, true, "workspace")]
     public async Task Locked_inputs_before_validation_invalidate_previous_rows_or_empty_report(bool async, bool empty, string input)
     {
-        PrepareCheckedInputs(empty);
+        await PrepareCheckedInputsAsync(empty);
         ConfigureValidationChild();
         var path = CheckedInputPath(input);
         var original = File.ReadAllBytes(path);
@@ -47,7 +47,7 @@ public sealed partial class AuthoringActionableFindingsTests
     [InlineData(true, true)]
     public async Task Unsupported_saved_source_invalidates_previous_check_before_validation(bool async, bool empty)
     {
-        PrepareCheckedInputs(empty);
+        await PrepareCheckedInputsAsync(empty);
         ConfigureValidationChild();
         var path = CheckedInputPath("program");
         var json = JsonNode.Parse(File.ReadAllText(path))!;
@@ -71,9 +71,9 @@ public sealed partial class AuthoringActionableFindingsTests
     [InlineData("manifest", true)]
     [InlineData("workspace", false)]
     [InlineData("workspace", true)]
-    public void Catalog_saved_bytes_must_remain_verifiable_before_navigation(string input, bool locked)
+    public async Task Catalog_saved_bytes_must_remain_verifiable_before_navigation(string input, bool locked)
     {
-        PrepareCheckedInputs(false);
+        await PrepareCheckedInputsAsync(false);
         var row = _vm.FindingRows.First();
         var path = CheckedInputPath(input);
         var original = File.ReadAllBytes(path);
@@ -98,7 +98,7 @@ public sealed partial class AuthoringActionableFindingsTests
     [InlineData("workspace", true, true)]
     public async Task Catalog_saved_bytes_changed_during_validation_cannot_become_current(string input, bool locked, bool empty)
     {
-        PrepareCheckedInputs(empty);
+        await PrepareCheckedInputsAsync(empty);
         File.WriteAllText(Path.Combine(_root, "fixture-result-wait"), "");
         ConfigureValidationChild();
         var path = CheckedInputPath(input);
@@ -140,13 +140,13 @@ public sealed partial class AuthoringActionableFindingsTests
         }
     }
 
-    private void PrepareCheckedInputs(bool empty)
+    private async Task PrepareCheckedInputsAsync(bool empty)
     {
         if (empty)
         {
             RestoreCleanSample();
             _vm.Open(_root);
-            _vm.StopRecovery();
+            await _vm.StopRecoveryAsync();
         }
         _vm.SelectProgram("sample");
         _vm.SaveSidecar();

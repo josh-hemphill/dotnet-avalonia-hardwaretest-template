@@ -1,0 +1,56 @@
+<Project>
+  <UsingTask TaskName="BuildStandaloneVisaArchive" TaskFactory="RoslynCodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)/Microsoft.Build.Tasks.Core.dll">
+    <ParameterGroup>
+      <Files ParameterType="Microsoft.Build.Framework.ITaskItem[]" Required="true" />
+      <Archive ParameterType="System.String" Required="true" />
+    </ParameterGroup>
+    <Task>
+      <Using Namespace="System" />
+      <Using Namespace="System.IO" />
+      <Using Namespace="System.IO.Compression" />
+      <Using Namespace="System.Linq" />
+      <Using Namespace="System.Xml.Linq" />
+      <Code Type="Fragment" Language="cs"><![CDATA[
+        var payload = Files.Select(f => f.ItemSpec).Where(File.Exists)
+            .GroupBy(Path.GetFileName, StringComparer.Ordinal).Select(g => g.First())
+            .OrderBy(Path.GetFileName, StringComparer.Ordinal).ToArray();
+        XNamespace ns = "http://opentap.io/schemas/package";
+        var metadata = new XDocument(new XElement(ns + "Package",
+            new XAttribute("Name", "HardwareTest Standalone VISA"), new XAttribute("Version", "0.1.0"),
+            new XAttribute("Architecture", "AnyCPU"), new XAttribute("OS", "Windows,Linux"),
+            new XElement(ns + "Description", "HardwareTest synchronous standalone CLI wrapper for InstrumentComponents.OpenTap.Visa 0.1.1. Vendor VISA is required only for physical execution."),
+            new XElement(ns + "Dependencies",
+                new XElement(ns + "PackageDependency", new XAttribute("Package", "InstrumentComponents.OpenTap"), new XAttribute("Version", "0.1.1")),
+                new XElement(ns + "PackageDependency", new XAttribute("Package", "OpenTAP"), new XAttribute("Version", "9.35.0"))),
+            new XElement(ns + "Files", payload.Select(p => new XElement(ns + "File", new XAttribute("Path", Path.GetFileName(p)))))));
+        Directory.CreateDirectory(Path.GetDirectoryName(Archive));
+        var temporary = Archive + ".new";
+        using (var stream = new FileStream(temporary, FileMode.Create, FileAccess.Write))
+        using (var zip = new ZipArchive(stream, ZipArchiveMode.Create))
+        {
+            var metadataPath = "Packages/HardwareTest Standalone VISA/package.xml";
+            foreach (var name in payload.Select(Path.GetFileName).Append(metadataPath).OrderBy(p => p, StringComparer.Ordinal))
+            {
+                var entry = zip.CreateEntry(name, CompressionLevel.Optimal);
+                entry.LastWriteTime = new DateTimeOffset(2000, 1, 1, 0, 0, 0, TimeSpan.Zero);
+                using (var target = entry.Open())
+                {
+                    if (name == metadataPath) metadata.Save(target);
+                    else using (var source = File.OpenRead(payload.Single(p => Path.GetFileName(p) == name))) source.CopyTo(target);
+                }
+            }
+        }
+        if (File.Exists(Archive)) File.Delete(Archive);
+        File.Move(temporary, Archive);
+      ]]></Code>
+    </Task>
+  </UsingTask>
+  <Target Name="CreateStandaloneVisaArchive" AfterTargets="Build">
+    <ItemGroup>
+      <_StandalonePayload Include="$(TargetPath);$(ProjectDepsFilePath);$(ProjectRuntimeConfigFilePath)" />
+      <!-- The selected home supplies OpenTAP and the genuine TAP base, never NuGet copies. -->
+      <_StandalonePayload Include="@(ReferenceCopyLocalPaths)" Condition="'%(ReferenceCopyLocalPaths.Extension)' == '.dll' And '%(ReferenceCopyLocalPaths.Filename)' != 'InstrumentComponents' And '%(ReferenceCopyLocalPaths.Filename)' != 'InstrumentComponents.OpenTap' And '%(ReferenceCopyLocalPaths.Filename)' != 'OpenTap'" />
+    </ItemGroup>
+    <BuildStandaloneVisaArchive Files="@(_StandalonePayload)" Archive="$(StandaloneVisaArchive)" />
+  </Target>
+</Project>

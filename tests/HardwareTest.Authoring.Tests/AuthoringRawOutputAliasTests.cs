@@ -233,7 +233,7 @@ public sealed class AuthoringRawOutputAliasTests
         return new RawStepNode(step.GetType().FullName!, xml.ToString(SaveOptions.DisableFormatting)) { NodeId = step.Id };
     }
 
-    private static ProgramDraft Program() => AuthoringRecipeCatalog.CreateProgram("aliases") with
+    private static ProgramDraft Program() => MockDmmDraftFixture.Create("aliases") with
     {
         Setup = [],
         Cleanup = new CleanupPolicy(false, [])

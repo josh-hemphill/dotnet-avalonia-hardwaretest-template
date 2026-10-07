@@ -118,7 +118,7 @@ public sealed class BoardPreviewScopeTests : IDisposable
         var first = Mean("first", "result");
         var second = Mean("second", "result");
         var draft = Draft([new RepeatNode(2, [firstInput, first]), new RepeatNode(1, [secondInput, second])]);
-        File.WriteAllText(Path.Combine(_root, "authoring.json"), "{\"schemaVersion\":1,\"plansDirectory\":\".\"}");
+        File.WriteAllText(Path.Combine(_root, "authoring.json"), "{\"schemaVersion\":2,\"plansDirectory\":\".\"}");
         new AuthoringDocumentStore(_root).Save(AuthoringDocumentDto.FromDraft(draft));
         var vm = new AuthoringWorkspaceViewModel();
         vm.Open(_root);

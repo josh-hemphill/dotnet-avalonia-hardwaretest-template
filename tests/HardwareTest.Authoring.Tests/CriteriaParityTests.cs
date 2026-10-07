@@ -63,15 +63,15 @@ public sealed class CriteriaParityTests
             File.Copy(Path.Combine(root!.FullName, "plans", "opentap", "authoring.json"), Path.Combine(directory, "authoring.json"));
             vm.Open(directory);
             vm.CreateDemoProgram("criteria");
-            vm.ApplyRecipe(AuthoringRecipeIds.MeanGte);
+            vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.MeanGte);
             vm.DisplayRole = "timeseries";
             Assert.True(vm.ShowThreshold);
             Assert.DoesNotContain(vm.MetricSettingRows, row => row.Key == "Threshold");
-            vm.ApplyRecipe(AuthoringRecipeIds.BandScalar);
+            vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.BandScalar);
             vm.DisplayRole = "scalar";
             Assert.True(vm.ShowBandLimits);
             Assert.False(vm.ShowThreshold);
-            vm.ApplyRecipe(AuthoringRecipeIds.StationHealth);
+            vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.StationHealth);
             vm.DisplayRole = "timeseries";
             Assert.True(vm.ShowBandLimits);
             Assert.DoesNotContain(vm.MetricSettingRows, row => AuthoringCriteria.IsRuntimeLimit(row.Key));

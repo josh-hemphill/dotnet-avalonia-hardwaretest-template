@@ -15,23 +15,32 @@ public sealed class AuthoringImportBoundaryTests : IDisposable
         var root = AuthoringBuildSnapshotTests.Workspace(); var workspace = AuthoringWorkspaceLoader.Load(root);
         var home = AuthoringBuildSnapshotTests.Home(workspace);
         workspace.Manifest.Dependencies.Add(new() { Package = "First", Version = "^1.0.0" });
-        workspace.Manifest.Dependencies.Add(new() { Package = OpenTapHomeBootstrapper.InstrumentComponentsPackageName, Version = "^1.0.0" });
+        workspace.Manifest.Dependencies.Add(new() { Package = OpenTapHomeBootstrapper.InstrumentComponentsPackageName, Version = "^0.1.0" });
         AuthoringWorkspaceLoader.SaveManifest(root, workspace.Manifest);
         using var coordinator = Coordinator();
         foreach (var name in new[] { "First", OpenTapHomeBootstrapper.InstrumentComponentsPackageName })
         {
-            var archive = Path.Combine(root, name + ".TapPackage"); WriteArchive(archive, name, "1.2.0", "payload.txt", true);
+            var archive = name == OpenTapHomeBootstrapper.InstrumentComponentsPackageName
+                ? PublishedLibraryFixture.Archive : Path.Combine(root, name + ".TapPackage");
+            if (name == "First") WriteArchive(archive, name, "1.2.0", "payload.txt", true);
             await coordinator.RunAsync(AuthoringOperationKind.Bootstrap, root, home: home.Root, offlinePackagePath: archive);
             Assert.True(AuthoringEnvironmentAssessment.Packages(workspace.Manifest, home).Single(p => p.Package == name).Satisfied);
             if (name == "First")
             {
+                Assert.False(StandaloneVisaReadiness.RequiresStandaloneReadiness(home));
+                Assert.False(File.Exists(Path.Combine(home.Root, HardwareTest.OpenTap.Host.StandaloneVisaPackage.WrapperFileName)));
                 Assert.False(AuthoringEnvironmentAssessment.Packages(workspace.Manifest, home).Single(p => p.Package == OpenTapHomeBootstrapper.InstrumentComponentsPackageName).Satisfied);
                 var before = Snapshot(home.Root);
+                workspace.Manifest.InstrumentComponentsPackage = "missing.TapPackage";
+                AuthoringWorkspaceLoader.SaveManifest(root, workspace.Manifest);
                 await Assert.ThrowsAsync<AuthoringWorkspaceException>(() => coordinator.RunAsync(AuthoringOperationKind.Bootstrap, root, home: home.Root));
                 AssertSnapshot(before, home.Root);
+                workspace.Manifest.InstrumentComponentsPackage = null;
+                AuthoringWorkspaceLoader.SaveManifest(root, workspace.Manifest);
             }
         }
         Assert.All(AuthoringEnvironmentAssessment.Packages(workspace.Manifest, home).Where(p => !p.Optional), p => Assert.True(p.Satisfied));
+        Assert.True(StandaloneVisaReadiness.Assess(home).Available);
     }
 
     [Theory]
@@ -143,6 +152,30 @@ public sealed class AuthoringImportBoundaryTests : IDisposable
         Assert.Equal("preserve unrelated home file", File.ReadAllText(sentinel));
     }
 
+    [Fact]
+    public void Flat_engine_folder_cannot_overwrite_its_validated_metadata()
+    {
+        var root = AuthoringBuildSnapshotTests.Workspace();
+        var workspace = AuthoringWorkspaceLoader.Load(root);
+        var home = AuthoringBuildSnapshotTests.Home(workspace);
+        var engine = OpenTapHomeBootstrapper.ListInstalledPackages(home).Single(package => package.Name == "OpenTAP");
+        var before = Snapshot(home.Root);
+        var folder = Path.Combine(root, "engine-import");
+        Directory.CreateDirectory(Path.Combine(folder, "Packages", "OpenTAP"));
+        var runtime = new[] { "OpenTap.dll", "OpenTap.Package.dll", "tap.dll", "tap.runtimeconfig.json" };
+        foreach (var file in runtime) File.Copy(Path.Combine(home.Root, file), Path.Combine(folder, file));
+        const string nested = "Packages/OpenTAP/package.xml";
+        File.WriteAllText(Path.Combine(folder, nested), """<Package Name="Foreign" Version="99.0.0" />""");
+        File.WriteAllText(Path.Combine(folder, "package.xml"),
+            $"""<Package Name="OpenTAP" Version="{engine.Version}"><Files><File Path="{nested}" /></Files></Package>""");
+
+        var error = Assert.Throws<AuthoringWorkspaceException>(() => new OpenTapHomeBootstrapper().Bootstrap(workspace,
+            new() { HomeDirectory = home.Root, OfflinePackagePath = folder, Offline = true }));
+
+        Assert.Contains("validated package metadata", error.Message);
+        AssertSnapshot(before, home.Root);
+    }
+
     [Theory]
     [InlineData("OpenTap.dll")]
     [InlineData("OpenTap.Package.dll")]
@@ -179,7 +212,7 @@ public sealed class AuthoringImportBoundaryTests : IDisposable
     {
         var root = AuthoringBuildSnapshotTests.Workspace(); var workspace = AuthoringWorkspaceLoader.Load(root); var home = AuthoringBuildSnapshotTests.Home(workspace);
         workspace.Manifest.Dependencies.Add(new() { Package = "Unpacked", Version = "^1.0.0" });
-        workspace.Manifest.Dependencies.Add(new() { Package = OpenTapHomeBootstrapper.InstrumentComponentsPackageName, Version = "^1.0.0" });
+        workspace.Manifest.Dependencies.Add(new() { Package = OpenTapHomeBootstrapper.InstrumentComponentsPackageName, Version = "^0.1.0" });
         var folder = Path.Combine(root, "unpacked"); Directory.CreateDirectory(folder);
         File.WriteAllText(Path.Combine(folder, "package.xml"), "<Package Name=\"Unpacked\" Version=\"1.2.0\"><Files><File Path=\"payload.txt\"/></Files></Package>");
         File.WriteAllText(Path.Combine(folder, "payload.txt"), "complete owned package");

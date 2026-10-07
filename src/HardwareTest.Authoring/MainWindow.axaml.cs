@@ -25,6 +25,7 @@ public partial class MainWindow : Window
         DataContext = viewModel;
         InitializeShell();
         InitializePlanCommands();
+        InitializeGuidance();
         InitializeLifecycle(lifecycleInteraction, workspacePicker);
         _viewModel.ConfigureRecoveryDispatch(action => Avalonia.Threading.Dispatcher.UIThread.Post(action));
         _viewModel.ConfigureOperations(CreateOperationRunner(),
@@ -184,6 +185,7 @@ public partial class MainWindow : Window
 
     internal async void OnImportTransferFunction(object? sender, RoutedEventArgs e)
     {
+        var current = OwnerContext();
         var files = await StorageProvider.OpenFilePickerAsync(
             new FilePickerOpenOptions
             {
@@ -198,7 +200,7 @@ public partial class MainWindow : Window
                 ],
             });
         var path = files.FirstOrDefault()?.TryGetLocalPath();
-        if (string.IsNullOrWhiteSpace(path))
+        if (string.IsNullOrWhiteSpace(path) || !current())
         {
             return;
         }
@@ -213,6 +215,7 @@ public partial class MainWindow : Window
 
     internal void OnOpenFindingProgram(object? sender, RoutedEventArgs e)
     {
+        var current = OwnerContext();
         var target = sender is Button { DataContext: AuthoringFindingRow row } ? _viewModel.NavigateFinding(row)
             : sender is Button { DataContext: AuthoringEditingIssue issue } ? _viewModel.NavigateEditingIssue(issue) : null;
         if (target is null) return;
@@ -224,7 +227,7 @@ public partial class MainWindow : Window
         if (target.NodeId is not null && target.Section is null && target.Field is null) return;
         Avalonia.Threading.Dispatcher.UIThread.Post(() =>
         {
-            if (navigation != _findingNavigationGeneration || !ReferenceEquals(workspace, _viewModel.Workspace)
+            if (!current() || navigation != _findingNavigationGeneration || !ReferenceEquals(workspace, _viewModel.Workspace)
                 || !ReferenceEquals(document, _viewModel.SelectedDocument) || revision != document?.Revision
                 || target.ProgramId != _viewModel.SelectedProgram?.PlanId || target.NodeId != _viewModel.SelectedSequence?.NodeId) return;
             var inspector = this.GetVisualDescendants().OfType<SelectedStepInspectorView>().SingleOrDefault();
@@ -244,6 +247,7 @@ public partial class MainWindow : Window
         _settings = new SettingsWindow
         {
             DataContext = _viewModel,
+            FontSize = FontSize,
         };
         _settings.Closed += (_, _) => _settings = null;
         _settings.Show(this);

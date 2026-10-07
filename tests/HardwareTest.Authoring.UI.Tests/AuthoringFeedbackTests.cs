@@ -20,7 +20,11 @@ public sealed class AuthoringFeedbackTests
         var window = fixture.Show(960, 600);
         fixture.OpenRememberedWorkspace();
         fixture.ViewModel.DisplayName = "Edited sample";
-        for (var index = 1; index < 35; index++) fixture.ViewModel.CreateProgram($"feedback-{index:00}");
+        for (var index = 1; index < 35; index++)
+        {
+            fixture.ViewModel.InitializePlan(new($"feedback-{index:00}") { Instruments = [] });
+            fixture.ViewModel.DisplayName += " edited";
+        }
         fixture.ViewModel.SelectProgram("sample");
         fixture.ViewModel.SelectMeasure(0);
         AuthoringUiFixture.Drain();
@@ -61,7 +65,11 @@ public sealed class AuthoringFeedbackTests
         var window = fixture.Show(960, 600, realInteraction: true);
         fixture.OpenRememberedWorkspace();
         fixture.ViewModel.DisplayName = "Unsaved sample";
-        for (var index = 1; index < 35; index++) fixture.ViewModel.CreateProgram($"unsaved-{index:00}-{new string('x', 110)}");
+        for (var index = 1; index < 35; index++)
+        {
+            fixture.ViewModel.InitializePlan(new($"unsaved-{index:00}-{new string('x', 110)}") { Instruments = [] });
+            fixture.ViewModel.DisplayName += " edited";
+        }
         var draft = fixture.ViewModel.SelectedProgram;
         var finalId = fixture.ViewModel.DirtyPrograms[^1].PlanId;
         window.Close();

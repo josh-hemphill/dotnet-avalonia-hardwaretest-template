@@ -33,8 +33,9 @@ public sealed class FormulaCompletionTests
     public void ApplyFormulaCompletion_replaces_the_ident_under_the_caret()
     {
         var vm = OpenEmpty();
-        vm.CreateProgram("complete");
-        vm.ApplyRecipe(AuthoringRecipeIds.Formula);
+        vm.CreateDemoProgram("complete");
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Acquire);
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Formula);
         vm.FormulaSource = "me";
         var caret = vm.ApplyFormulaCompletion("mean(", 2);
         Assert.Equal("mean(", vm.FormulaSource);
@@ -46,8 +47,9 @@ public sealed class FormulaCompletionTests
     public void ApplyFormulaCompletion_replaces_a_partial_ident_inside_a_call()
     {
         var vm = OpenEmpty();
-        vm.CreateProgram("mid-complete");
-        vm.ApplyRecipe(AuthoringRecipeIds.Formula);
+        vm.CreateDemoProgram("mid-complete");
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Acquire);
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Formula);
         vm.FormulaSource = "std(me)";
         var caret = vm.ApplyFormulaCompletion("mean(", 6);
         Assert.Equal("std(mean()", vm.FormulaSource);
@@ -59,7 +61,8 @@ public sealed class FormulaCompletionTests
     {
         var vm = OpenEmpty();
         vm.CreateDemoProgram("no-formula");
-        vm.ApplyRecipe(AuthoringRecipeIds.Formula);
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Acquire);
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Formula);
         var identity = vm.SequenceItems.Single(row => row.Label == "Identity Check");
         vm.SelectSequence(vm.SequenceItems.ToList().IndexOf(identity));
         Assert.Equal(0, vm.ApplyFormulaCompletion("mean(", 0));

@@ -12,6 +12,47 @@ namespace HardwareTest.Authoring.UI.Tests;
 
 public sealed class AuthoringPlanInitializationTests
 {
+    [AvaloniaTheory]
+    [InlineData("hidden", false, false)]
+    [InlineData("replaced", false, false)]
+    [InlineData("session", false, false)]
+    [InlineData("hidden", true, false)]
+    [InlineData("replaced", true, false)]
+    [InlineData("session", true, false)]
+    [InlineData("hidden", true, true)]
+    [InlineData("replaced", true, true)]
+    [InlineData("session", true, true)]
+    public void Pending_initialization_cannot_publish_or_skip_after_initiating_owner_changes(string boundary, bool guided, bool skip)
+    {
+        using var fixture = Loaded(); var owner = fixture.Window!;
+        AuthoringUiFixture.Click(fixture.Control<Button>(guided ? "Start guided voltage test" : "New test plan"));
+        var dialog = Assert.IsType<PlanInitializationWindow>(Assert.Single(owner.OwnedWindows));
+        fixture.Control<TextBox>("Stable plan ID", dialog).Text = "stale-owner"; AuthoringUiFixture.Drain();
+        if (!skip) for (var stage = 0; stage < 5; stage++)
+        {
+            AuthoringUiFixture.Click(fixture.Control<Button>("Next", dialog));
+            Assert.Equal("", fixture.Control<TextBlock>("Initialization error", dialog).Text);
+        }
+        var button = fixture.Control<Button>(skip ? "Skip optional guidance" : "Create test plan", dialog);
+        Assert.True(button.IsEffectivelyVisible); Assert.True(button.IsEnabled);
+        var bytes = Directory.EnumerateFiles(fixture.WorkspaceRoot, "*", SearchOption.AllDirectories).ToDictionary(path => path, File.ReadAllBytes);
+        var preferences = File.ReadAllBytes(fixture.Preferences.FilePath);
+        var plans = fixture.ViewModel.Programs.Select(program => program.PlanId).ToArray();
+        if (boundary == "hidden") owner.Hide();
+        else if (boundary == "replaced") owner.DataContext = new AuthoringWorkspaceViewModel();
+        else fixture.ViewModel.CommitOpen(fixture.ViewModel.PrepareOpen(fixture.WorkspaceRoot), discardUnsavedChanges: true);
+        // Deliver the pending action from the previously shown form after its owner changes.
+        button.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent)); AuthoringUiFixture.Drain();
+        Assert.Equal(plans, fixture.ViewModel.Programs.Select(program => program.PlanId));
+        Assert.False(new AuthoringDocumentStore(fixture.WorkspaceRoot).Load("stale-owner").Exists);
+        Assert.False(fixture.ViewModel.SkipGuidance); Assert.False(dialog.SkipGuidanceRequested);
+        Assert.Equal(preferences, File.ReadAllBytes(fixture.Preferences.FilePath));
+        Assert.Equal(bytes.Keys.Order(), Directory.EnumerateFiles(fixture.WorkspaceRoot, "*", SearchOption.AllDirectories).Order());
+        foreach (var file in bytes) Assert.Equal(file.Value, File.ReadAllBytes(file.Key));
+        dialog.Close(false); owner.DataContext = fixture.ViewModel;
+        if (boundary == "hidden") owner.Show();
+    }
+
     [AvaloniaFact]
     public void Compact_command_entry_label_fits_and_actual_click_opens_palette_at_large_text_scale()
     {
@@ -22,7 +63,7 @@ public sealed class AuthoringPlanInitializationTests
         ResponsiveActionLabelTests.LabelFits(command, window); Assert.True(command.Bounds.Height >= 32);
         var center = command.TranslatePoint(new Point(command.Bounds.Width / 2, command.Bounds.Height / 2), window)!.Value;
         window.MouseDown(center, MouseButton.Left); window.MouseUp(center, MouseButton.Left); AuthoringUiFixture.Drain();
-        var palette = Assert.Single(window.OwnedWindows); Assert.True(fixture.Control<Button>("New test plan command", palette).IsEffectivelyEnabled);
+        var palette = Assert.Single(window.OwnedWindows); Assert.True(fixture.Control<ListBox>("Authoring commands", palette).ItemCount > 0);
         AuthoringUiFixture.Click(Assert.Single(palette.GetVisualDescendants().OfType<Button>(), button => Equals(button.Content, "Cancel")));
         Assert.Empty(window.OwnedWindows);
         Assert.False(fixture.ViewModel.HasUnsavedChanges);
@@ -93,7 +134,8 @@ public sealed class AuthoringPlanInitializationTests
         using var fixture = Loaded(); var before = fixture.ViewModel.Programs.ToArray();
         AuthoringUiFixture.Click(fixture.Control<Button>("Command palette"));
         var palette = Assert.Single(fixture.Window!.OwnedWindows);
-        AuthoringUiFixture.Click(fixture.Control<Button>("New test plan command", palette));
+        fixture.Control<TextBox>("Search commands", palette).Text = "New test plan"; AuthoringUiFixture.Drain();
+        AuthoringUiFixture.Click(palette.GetVisualDescendants().OfType<Button>().Single(button => Equals(button.Content, "Run command")));
         var dialog = Assert.IsType<PlanInitializationWindow>(Assert.Single(fixture.Window.OwnedWindows));
         if (reviewFirst) for (var stage = 0; stage < 5; stage++) AuthoringUiFixture.Click(fixture.Control<Button>("Next", dialog));
         AuthoringUiFixture.Click(fixture.Control<Button>("Cancel", dialog));
@@ -112,7 +154,7 @@ public sealed class AuthoringPlanInitializationTests
         fixture.Control<ComboBox>("Starting point", dialog).SelectedIndex = 2; Next(fixture, dialog, "Hardware");
         Next(fixture, dialog, "Setup and cleanup"); fixture.Control<CheckBox>("Check instrument identity", dialog).IsChecked = true;
         fixture.Control<CheckBox>("Safe shutdown selected resources", dialog).IsChecked = enabled;
-        Assert.Equal(enabled ? "Shutdown coverage: DMM" : "Shutdown coverage: disabled", fixture.Control<TextBlock>("Shutdown coverage", dialog).Text);
+        Assert.StartsWith(enabled ? "Generated cleanup slots: DMM" : "Generated cleanup slots: disabled", fixture.Control<TextBlock>("Shutdown coverage", dialog).Text);
         Next(fixture, dialog, "First measurement and criterion"); Next(fixture, dialog, "Review and create");
         var shutdown = fixture.Control<TextBlock>("Initialization review", dialog).Text!.Split('\n').Single(line => line.Contains("shutdown:", StringComparison.Ordinal));
         AuthoringUiFixture.Click(fixture.Control<Button>("Create test plan", dialog));
@@ -133,7 +175,7 @@ public sealed class AuthoringPlanInitializationTests
         var dialog = Assert.IsType<PlanInitializationWindow>(Assert.Single(fixture.Window!.OwnedWindows));
         Type(fixture, dialog, "Stable plan ID", "demo-task");
         Next(fixture, dialog, "Starting point"); fixture.Control<ComboBox>("Starting point", dialog).SelectedIndex = 2;
-        Next(fixture, dialog, "Hardware"); Assert.Equal(2, fixture.Control<ComboBox>("Hardware choice", dialog).SelectedIndex);
+        Next(fixture, dialog, "Hardware"); Assert.Contains("Mock DMM", fixture.Control<ComboBox>("Hardware choice", dialog).SelectedItem!.ToString());
         Assert.Contains("Mock DMM", fixture.Control<TextBlock>("Hardware readiness", dialog).Text);
         Next(fixture, dialog, "Setup and cleanup"); fixture.Control<CheckBox>("Check instrument identity", dialog).IsChecked = true;
         Assert.Contains("DMM", fixture.Control<TextBlock>("Shutdown coverage", dialog).Text);
@@ -155,7 +197,8 @@ public sealed class AuthoringPlanInitializationTests
         using var fixture = Loaded();
         fixture.Window!.KeyPress(Key.P, RawInputModifiers.Control | RawInputModifiers.Shift, PhysicalKey.P, null); AuthoringUiFixture.Drain();
         var palette = Assert.Single(fixture.Window!.OwnedWindows);
-        AuthoringUiFixture.Click(fixture.Control<Button>("New test plan command", palette));
+        fixture.Control<TextBox>("Search commands", palette).Text = "New test plan"; AuthoringUiFixture.Drain();
+        AuthoringUiFixture.Click(palette.GetVisualDescendants().OfType<Button>().Single(button => Equals(button.Content, "Run command")));
         var dialog = Assert.IsType<PlanInitializationWindow>(Assert.Single(fixture.Window.OwnedWindows));
         Type(fixture, dialog, "Stable plan ID", "optional-task"); Next(fixture, dialog, "Starting point");
         fixture.Control<ComboBox>("Starting point", dialog).SelectedIndex = 1;
@@ -170,27 +213,27 @@ public sealed class AuthoringPlanInitializationTests
     }
 
     [AvaloniaFact]
-    public void Missing_VISA_dependency_remains_visible_in_review_and_saved_reopened_draft()
+    public void Missing_mock_package_remains_visible_in_review_and_saved_reopened_draft()
     {
         using var fixture = Loaded();
         fixture.ViewModel.OpenTapHomeOverride = Path.Combine(fixture.WorkspaceRoot, "missing-home");
         AuthoringUiFixture.Click(fixture.Control<Button>("New test plan"));
         var dialog = Assert.IsType<PlanInitializationWindow>(Assert.Single(fixture.Window!.OwnedWindows));
-        Type(fixture, dialog, "Stable plan ID", "real-voltage"); Next(fixture, dialog, "Starting point");
+        Type(fixture, dialog, "Stable plan ID", "mock-voltage"); Next(fixture, dialog, "Starting point");
         fixture.Control<ComboBox>("Starting point", dialog).SelectedIndex = 1;
-        Next(fixture, dialog, "Hardware"); fixture.Control<ComboBox>("Hardware choice", dialog).SelectedIndex = 1;
-        Type(fixture, dialog, "Instrument address", "TCPIP::192.0.2.1::INSTR");
-        Assert.Contains("VISA DMM", fixture.Control<TextBlock>("Hardware readiness", dialog).Text);
+        Next(fixture, dialog, "Hardware"); fixture.Control<ComboBox>("Hardware choice", dialog).SelectedItem = fixture.Control<ComboBox>("Hardware choice", dialog).Items.Single(item => item!.ToString()!.Contains("Create Mock DMM", StringComparison.Ordinal));
+        Type(fixture, dialog, "Instrument address", "MOCK::BENCH");
+        Assert.Contains("Mock DMM", fixture.Control<TextBlock>("Hardware readiness", dialog).Text);
         Next(fixture, dialog, "Setup and cleanup"); fixture.Control<CheckBox>("Check instrument identity", dialog).IsChecked = true;
         Next(fixture, dialog, "First measurement and criterion"); Next(fixture, dialog, "Review and create");
-        Assert.Contains("Reinstall 'HardwareTest VISA'", fixture.Control<TextBlock>("Initialization review", dialog).Text);
+        Assert.Contains("'HardwareTest Basic' is unavailable", fixture.Control<TextBlock>("Initialization review", dialog).Text);
         AuthoringUiFixture.Click(fixture.Control<Button>("Create test plan", dialog));
         var instrument = Assert.Single(fixture.ViewModel.SelectedProgram!.Instruments);
-        Assert.Equal("TCPIP::192.0.2.1::INSTR", instrument.VisaAddress);
-        Assert.Equal("VISA DMM", AuthoringInstrumentCatalog.All.Single(adapter => adapter.TypeId == instrument.TypeId).DisplayName);
+        Assert.Equal("MOCK::BENCH", instrument.VisaAddress);
+        Assert.Equal("Mock DMM", AuthoringInstrumentCatalog.All.Single(adapter => adapter.TypeId == instrument.TypeId).DisplayName);
         Assert.Contains(fixture.ViewModel.EditingIssues, issue => issue.Code == "INSTRUMENT_UNAVAILABLE");
         Assert.False(fixture.ViewModel.HasUnsavedChanges);
-        fixture.ViewModel.Open(fixture.WorkspaceRoot); fixture.ViewModel.SelectProgram("real-voltage");
+        fixture.ViewModel.Open(fixture.WorkspaceRoot); fixture.ViewModel.SelectProgram("mock-voltage");
         Assert.Contains(fixture.ViewModel.EditingIssues, issue => issue.Code == "INSTRUMENT_UNAVAILABLE");
         var reopened = Assert.Single(fixture.ViewModel.SelectedProgram!.Instruments);
         Assert.Equal(instrument.TypeId, reopened.TypeId); Assert.Equal(instrument.SlotName, reopened.SlotName);
@@ -216,18 +259,18 @@ public sealed class AuthoringPlanInitializationTests
         Assert.NotEmpty(vm.IssuesSummary);
         vm.SaveProgram("invalid-home-empty"); vm.Open(fixture.WorkspaceRoot); vm.SelectProgram("invalid-home-empty"); AuthoringUiFixture.Drain();
         Assert.Contains(vm.EditingIssues, issue => issue.PlanId == "invalid-home-empty" && issue.Code == "INVALID_OPENTAP_HOME");
-        vm.CreateProgram("invalid-home-unsaved"); AuthoringUiFixture.Drain();
+        vm.InitializePlan(new("invalid-home-unsaved") { Instruments = [] }); vm.DisplayName = "Edited incomplete plan"; AuthoringUiFixture.Drain();
         Assert.True(vm.HasUnsavedChanges); Assert.Contains(vm.EditingIssues, issue => issue.PlanId == "invalid-home-unsaved" && issue.Code == "INVALID_OPENTAP_HOME");
         vm.OpenTapHomeOverride = ""; AuthoringUiFixture.Drain();
         Assert.DoesNotContain(vm.EditingIssues, issue => issue.Code == "INVALID_OPENTAP_HOME");
     }
 
     [AvaloniaFact]
-    public void Default_home_declared_VISA_payload_is_visible_in_hardware_review_and_saved_reopened_issues()
+    public void Default_home_declared_mock_payload_is_visible_in_hardware_review_and_saved_reopened_issues()
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
         var workspace = AuthoringWorkspaceLoader.Load(fixture.WorkspaceRoot);
-        workspace.Manifest.Dependencies.Add(new AuthoringPackageDependency { Package = OpenTapHomeBootstrapper.VisaPackageName, Version = "^0.1.0" });
+        // The fixture already declares the explicit Mock package dependency.
         AuthoringWorkspaceLoader.SaveManifest(fixture.WorkspaceRoot, workspace.Manifest);
         fixture.Show(); fixture.OpenRememberedWorkspace();
         var vm = fixture.ViewModel;
@@ -235,28 +278,28 @@ public sealed class AuthoringPlanInitializationTests
         var home = Path.GetFullPath(Path.Combine(fixture.WorkspaceRoot, OpenTapHomeBootstrapper.DefaultHomeRelativePath));
         AuthoringUiFixture.Click(fixture.Control<Button>("New test plan"));
         var dialog = Assert.IsType<PlanInitializationWindow>(Assert.Single(fixture.Window!.OwnedWindows));
-        Type(fixture, dialog, "Stable plan ID", "default-real"); Next(fixture, dialog, "Starting point");
+        Type(fixture, dialog, "Stable plan ID", "default-mock"); Next(fixture, dialog, "Starting point");
         fixture.Control<ComboBox>("Starting point", dialog).SelectedIndex = 1;
-        Next(fixture, dialog, "Hardware"); fixture.Control<ComboBox>("Hardware choice", dialog).SelectedIndex = 1;
-        Type(fixture, dialog, "Instrument address", "TCPIP::192.0.2.1::INSTR");
+        Next(fixture, dialog, "Hardware"); fixture.Control<ComboBox>("Hardware choice", dialog).SelectedItem = fixture.Control<ComboBox>("Hardware choice", dialog).Items.Single(item => item!.ToString()!.Contains("Create Mock DMM", StringComparison.Ordinal));
+        Type(fixture, dialog, "Instrument address", "MOCK::BENCH");
         var readiness = fixture.Control<TextBlock>("Hardware readiness", dialog).Text!;
-        Assert.Contains("dependency declared", readiness); Assert.Contains("Reinstall 'HardwareTest VISA'", readiness); Assert.Contains(home, readiness);
+        Assert.Contains("dependency declared", readiness); Assert.Contains("'HardwareTest Basic' is unavailable", readiness); Assert.Contains(home, readiness);
         Next(fixture, dialog, "Setup and cleanup"); fixture.Control<CheckBox>("Check instrument identity", dialog).IsChecked = true;
         Next(fixture, dialog, "First measurement and criterion"); Next(fixture, dialog, "Review and create");
         Assert.Contains(home, fixture.Control<TextBlock>("Initialization review", dialog).Text);
-        Assert.Contains("Reinstall 'HardwareTest VISA'", fixture.Control<TextBlock>("Initialization review", dialog).Text);
+        Assert.Contains("'HardwareTest Basic' is unavailable", fixture.Control<TextBlock>("Initialization review", dialog).Text);
         AuthoringUiFixture.Click(fixture.Control<Button>("Create test plan", dialog));
-        Assert.Contains(vm.EditingIssues, issue => issue.PlanId == "default-real" && issue.Code == "INSTRUMENT_UNAVAILABLE");
+        Assert.Contains(vm.EditingIssues, issue => issue.PlanId == "default-mock" && issue.Code == "INSTRUMENT_UNAVAILABLE");
         Assert.Contains(home, Assert.Single(vm.HardwareRows).PackageStatus);
         Assert.False(vm.HasUnsavedChanges); Assert.Empty(fixture.Window.OwnedWindows);
-        vm.SaveProgram("default-real"); vm.Open(fixture.WorkspaceRoot); vm.SelectProgram("default-real"); AuthoringUiFixture.Drain();
-        Assert.Contains(vm.EditingIssues, issue => issue.PlanId == "default-real" && issue.Code == "INSTRUMENT_UNAVAILABLE");
-        Assert.Equal("TCPIP::192.0.2.1::INSTR", Assert.Single(vm.SelectedProgram!.Instruments).VisaAddress);
+        vm.SaveProgram("default-mock"); vm.Open(fixture.WorkspaceRoot); vm.SelectProgram("default-mock"); AuthoringUiFixture.Drain();
+        Assert.Contains(vm.EditingIssues, issue => issue.PlanId == "default-mock" && issue.Code == "INSTRUMENT_UNAVAILABLE");
+        Assert.Equal("MOCK::BENCH", Assert.Single(vm.SelectedProgram!.Instruments).VisaAddress);
         Assert.False(vm.HasUnsavedChanges);
         vm.OpenTapHomeOverride = Path.Combine(fixture.WorkspaceRoot, "other-missing-home"); AuthoringUiFixture.Drain();
-        Assert.Contains(vm.EditingIssues, issue => issue.PlanId == "default-real" && issue.Code == "INSTRUMENT_UNAVAILABLE" && issue.Message.Contains("other-missing-home", StringComparison.Ordinal));
+        Assert.Contains(vm.EditingIssues, issue => issue.PlanId == "default-mock" && issue.Code == "INSTRUMENT_UNAVAILABLE" && issue.Message.Contains("other-missing-home", StringComparison.Ordinal));
         vm.OpenTapHomeOverride = ""; AuthoringUiFixture.Drain();
-        Assert.Contains(vm.EditingIssues, issue => issue.PlanId == "default-real" && issue.Code == "INSTRUMENT_UNAVAILABLE" && issue.Message.Contains(home, StringComparison.Ordinal));
+        Assert.Contains(vm.EditingIssues, issue => issue.PlanId == "default-mock" && issue.Code == "INSTRUMENT_UNAVAILABLE" && issue.Message.Contains(home, StringComparison.Ordinal));
     }
 
     [AvaloniaFact]
@@ -309,7 +352,7 @@ public sealed class AuthoringPlanInitializationTests
             IdentityInstrumentSlot = "DMM",
             Measurement = new(AuthoringRecipeIds.MeanGte, "DMM")
         });
-        vm.ApplyRecipe(AuthoringRecipeIds.Repeat);
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Repeat);
         for (var level = 1; level < loopDepth; level++)
             vm.ReplaceSelected(vm.SelectedProgram! with { Measure = [new RepeatNode(2, vm.SelectedProgram!.Measure)] });
         Assert.True(vm.SaveAll().Succeeded); Assert.True(vm.CanPack); AuthoringUiFixture.Drain();

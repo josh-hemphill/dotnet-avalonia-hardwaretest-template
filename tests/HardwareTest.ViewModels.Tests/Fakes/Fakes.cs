@@ -14,6 +14,7 @@ namespace HardwareTest.ViewModels.Tests.Fakes;
 public sealed class FakeOpenTapSession : IOpenTapSession
 {
     private readonly OpenTapRunControlState _runControl = new();
+    private readonly HashSet<string> _simulatedInteractions = [];
     private int _runGate;
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -657,6 +658,13 @@ public sealed class FakeOpenTapSession : IOpenTapSession
         }
 
         LastStation = station;
+        foreach (var slot in Slots)
+        {
+            if (station.SlotToResource.TryGetValue(slot.Name, out var resource))
+            {
+                TryBindSlotResource(slot.Name, resource);
+            }
+        }
         LastDut = dut;
         return Task.CompletedTask;
     }
@@ -1057,21 +1065,22 @@ public sealed class FakeOpenTapSession : IOpenTapSession
 
     public void Resume(OperatorInteractionResponse? response = null)
     {
+        var requestId = _runControl.PendingInteraction?.Id;
         if (response is null && _runControl.PendingInteraction is not null && InteractionResponses.Count > 0)
         {
             response = InteractionResponses.Dequeue();
         }
 
         _runControl.Resume(response);
+        if (response is null || response.RequestId == requestId)
+            ConsumeSimulatedInteraction(requestId);
     }
 
     /// Simulates a step requesting interaction (for ViewModel tests without OpenTAP).
     public void BeginInteraction(OperatorInteractionRequest request)
     {
-        PendingInteraction = request;
-        OperatorPromptMessage = request.Message;
-        IsAwaitingOperator = true;
-        _runControl.ResetInteractionGate();
+        _simulatedInteractions.Add(request.Id);
+        _runControl.BeginPendingInteraction(request);
         if (InteractionResponses.Count > 0)
         {
             Resume(InteractionResponses.Dequeue());
@@ -1083,7 +1092,17 @@ public sealed class FakeOpenTapSession : IOpenTapSession
     public void Abort(bool safetyStop = false)
     {
         AbortCount++;
+        var requestId = _runControl.PendingInteraction?.Id;
         _runControl.Abort();
+        ConsumeSimulatedInteraction(requestId);
+    }
+
+    private void ConsumeSimulatedInteraction(string? requestId)
+    {
+        // Direct UI simulations have no running step to consume the response.
+        // Real fake runs consume it in EmitAndWaitForInteractionAsync instead.
+        if (requestId is not null && _simulatedInteractions.Remove(requestId))
+            _runControl.WaitForInteractionResponse(requestId);
     }
 
     private void EnterRunGate()
@@ -1111,10 +1130,9 @@ public sealed class FakeOpenTapSession : IOpenTapSession
 
     private void ClearInteractionState()
     {
-        IsAwaitingOperator = false;
-        OperatorPromptMessage = null;
-        PendingInteraction = null;
-        _runControl.OpenInteractionGate();
+        var simulated = _simulatedInteractions.ToArray();
+        _runControl.CompleteRun();
+        foreach (var requestId in simulated) ConsumeSimulatedInteraction(requestId);
     }
 
     private async Task EmitAndWaitForInteractionAsync(
@@ -1131,11 +1149,8 @@ public sealed class FakeOpenTapSession : IOpenTapSession
             OverallPercent = 10,
         });
 
-        while (IsAwaitingOperator)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            await Task.Run(() => _runControl.WaitInteractionGate(50), cancellationToken);
-        }
+        await Task.Run(() => _runControl.WaitForInteractionResponse(request.Id));
+        cancellationToken.ThrowIfCancellationRequested();
     }
 
     private async Task DelayWithPauseAsync(CancellationToken cancellationToken)
@@ -1157,9 +1172,32 @@ public sealed class FakeOpenTapSession : IOpenTapSession
         }
     }
 
-    public bool TrySetStepEnabled(string stepPath, bool enabled) => !IsExecuting;
-    public bool TrySetAcquireSettings(string stepPath, int? sampleCount, int? intervalMs) => !IsExecuting;
-    public bool TrySetMeanGteThreshold(string stepPath, double threshold) => !IsExecuting;
+    public (string StepPath, bool Enabled)? LastStepEnabledPatch { get; private set; }
+    public (string StepPath, int? SampleCount, int? IntervalMs)? LastAcquirePatch { get; private set; }
+    public (string StepPath, double Threshold)? LastThresholdPatch { get; private set; }
+
+    public bool TrySetStepEnabled(string stepPath, bool enabled)
+    {
+        if (IsExecuting) return false;
+        LastStepEnabledPatch = (stepPath, enabled);
+        var node = FindNode(Tree, stepPath);
+        if (node is not null) node.Enabled = enabled;
+        return true;
+    }
+
+    public bool TrySetAcquireSettings(string stepPath, int? sampleCount, int? intervalMs)
+    {
+        if (IsExecuting) return false;
+        LastAcquirePatch = (stepPath, sampleCount, intervalMs);
+        return true;
+    }
+
+    public bool TrySetMeanGteThreshold(string stepPath, double threshold)
+    {
+        if (IsExecuting) return false;
+        LastThresholdPatch = (stepPath, threshold);
+        return true;
+    }
 
     public bool TryGetStepConditionSummary(string stepPath, out string? summary)
     {
@@ -1187,10 +1225,9 @@ public sealed class FakeOpenTapSession : IOpenTapSession
         return true;
     }
 
-    public bool TryRebindDmmResource(string resource) => !IsExecuting;
     public bool TryBindSlotResource(string slotName, string resource)
     {
-        if (IsExecuting)
+        if (IsExecuting || string.IsNullOrWhiteSpace(slotName) || string.IsNullOrWhiteSpace(resource))
         {
             return false;
         }
@@ -1200,7 +1237,7 @@ public sealed class FakeOpenTapSession : IOpenTapSession
             return false;
         }
 
-        slot.ResourceName = resource;
+        slot.ResourceName = resource.Trim();
         return true;
     }
 
@@ -1635,28 +1672,25 @@ public sealed class FakeReportService : IReportService
             .Select(k =>
             {
                 var existing = run.Reports.FirstOrDefault(r =>
-                    string.Equals(r.Kind, k, StringComparison.OrdinalIgnoreCase));
+                    string.Equals(r.Kind, k, StringComparison.OrdinalIgnoreCase)
+                    && ReportArtifactRoles.IsWorking(r.Role));
                 return new RunReportArtifact
                 {
                     Kind = k,
                     Title = string.IsNullOrWhiteSpace(existing?.Title) ? k : existing.Title,
                     PdfPath = ResolveArtifactPath(existing, k),
                     GeneratedAt = DateTimeOffset.UtcNow,
+                    Role = ReportArtifactRoles.Working,
                 };
             })
             .ToList();
 
         var merged = run.Reports
-            .Where(existing => artifacts.TrueForAll(a =>
+            .Where(existing => !ReportArtifactRoles.IsWorking(existing.Role) || artifacts.TrueForAll(a =>
                 !string.Equals(a.Kind, existing.Kind, StringComparison.OrdinalIgnoreCase)))
             .ToList();
         merged.AddRange(artifacts);
         run.Reports = merged;
-        run.ReportPdfPath = merged.FirstOrDefault(a =>
-                                string.Equals(a.Kind, ReportKinds.Status, StringComparison.OrdinalIgnoreCase))
-                            ?.PdfPath
-                            ?? merged.FirstOrDefault()?.PdfPath
-                            ?? PdfPath;
         return Task.FromResult((IReadOnlyList<RunReportArtifact>)artifacts);
     }
 
@@ -1698,9 +1732,10 @@ public sealed class FakeReportService : IReportService
     }
 }
 
-public sealed class FakeRunStore : IRunStore
+public sealed class FakeRunStore : IRunStore, IDisposable
 {
     private readonly Dictionary<string, TestRunRecord> _runs = new(StringComparer.Ordinal);
+    private readonly string _root = Path.Combine(Path.GetTempPath(), "fake-runs-" + Guid.NewGuid().ToString("N"));
 
     public void Seed(TestRunRecord run) => _runs[run.RunId] = run;
 
@@ -1716,7 +1751,9 @@ public sealed class FakeRunStore : IRunStore
                     run.AppVersion));
         }
 
-        run.SchemaVersion = HardwareTest.Core.Serialization.SchemaVersions.TestRunRecord;
+        HardwareTest.Core.Serialization.DocumentSchemaGate.RequireWritable(
+            HardwareTest.Core.Serialization.SchemaDocumentTypes.TestRunRecord, run.SchemaVersion,
+            HardwareTest.Core.Serialization.SchemaVersions.TestRunRecord);
         _runs[run.RunId] = run;
         return Task.CompletedTask;
     }
@@ -1739,7 +1776,6 @@ public sealed class FakeRunStore : IRunStore
                 DutPartNumber = r.DutPartNumber,
                 SessionId = r.SessionId,
                 OperatorName = r.OperatorName,
-                IsLegacy = r.IsLegacy,
                 IsSchemaReadOnly = r.IsSchemaReadOnly,
                 SchemaVersion = r.StoredSchemaVersion > 0 ? r.StoredSchemaVersion : r.SchemaVersion,
             })
@@ -1748,7 +1784,15 @@ public sealed class FakeRunStore : IRunStore
     }
 
     public string GetRunDirectory(string runId)
-        => Path.Combine(Path.GetTempPath(), "fake-runs", runId);
+        => Path.Combine(_root, runId);
+
+    public void Dispose()
+    {
+        if (Directory.Exists(_root))
+        {
+            Directory.Delete(_root, recursive: true);
+        }
+    }
 }
 
 public sealed class FakeStationHealthStore : IStationHealthStore
@@ -1770,7 +1814,7 @@ public sealed class FakeSettingsStore : ISettingsStore
 {
     public FakeSettingsStore(string? rootDirectory = null)
     {
-        AppSettings = new AppSettings { UseMockVisa = true, DefaultVisaResource = "MOCK::0" };
+        AppSettings = new AppSettings { UseMockVisa = true };
         UiState = new UiState { SelectedPageId = "Home" };
         RootDirectory = rootDirectory ?? Path.Combine(Path.GetTempPath(), "fake-settings");
         RunsDirectory = Path.Combine(RootDirectory, "runs");

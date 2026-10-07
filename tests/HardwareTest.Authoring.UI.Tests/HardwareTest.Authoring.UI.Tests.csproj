@@ -12,6 +12,8 @@
     <ProjectReference Include="../HardwareTest.Authoring.ProcessFixture/HardwareTest.Authoring.ProcessFixture.csproj" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="../HardwareTest.Authoring.Tests/PublishedLibraryFixture.cs" Link="PublishedLibraryFixture.cs" />
+    <Compile Include="../HardwareTest.Authoring.Tests/CurrentAuthoringFixtures.cs" Link="CurrentAuthoringFixtures.cs" />
     <None Include="..\..\plans\opentap\authoring.json;..\..\plans\opentap\sample.TapPlan;..\..\plans\opentap\sample.program.json" Link="fixtures\workspace\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
   <ItemGroup>

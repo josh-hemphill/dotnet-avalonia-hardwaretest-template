@@ -45,7 +45,10 @@ public sealed class CoreCompositionTests
         Assert.NotNull(sp.GetRequiredService<ISafetyController>());
         Assert.IsType<NoOpSafetyController>(sp.GetRequiredService<ISafetyController>());
         Assert.False(sp.GetRequiredService<ISafetyController>().IsArmed);
-        Assert.NotNull(sp.GetRequiredService<HardwareTest.Core.Credentials.IOperatorCredentialBroker>());
+        Assert.IsType<HardwareTest.Core.Credentials.PcscOperatorCredentialBroker>(
+            sp.GetRequiredService<HardwareTest.Core.Credentials.IOperatorCredentialPresenceBroker>());
+        Assert.IsType<HardwareTest.Core.Credentials.SettingsBackedCredentialBroker>(
+            sp.GetRequiredService<HardwareTest.Core.Credentials.IOperatorCredentialBroker>());
         Assert.NotNull(sp.GetRequiredService<HardwareTest.Core.Credentials.IReportAttestationService>());
     }
 }

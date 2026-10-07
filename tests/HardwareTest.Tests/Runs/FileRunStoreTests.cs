@@ -1,4 +1,5 @@
 using HardwareTest.Core.Runs;
+using HardwareTest.Core.Serialization;
 using HardwareTest.Tests.Fixtures;
 using Xunit;
 
@@ -89,4 +90,26 @@ public sealed class FileRunStoreTests
         Assert.Equal(run.AppVersion, loaded!.AppVersion);
         Assert.Equal(run.AppCommitSha, loaded.AppCommitSha);
     }
+    [Theory]
+    [InlineData(3)]
+    [InlineData(999)]
+    public async Task Fresh_current_run_cannot_create_primary_over_a_sole_noncurrent_backup(int version)
+    {
+        using var temp = new TempDataDirectory();
+        var store = new FileRunStore(temp.RunsDirectory);
+        var path = Path.Combine(store.GetRunDirectory("protected"), "run.json");
+        File.WriteAllText(path + ".bak", $"{{\"schemaVersion\":{version},\"runId\":\"protected\"}}");
+        var backup = File.ReadAllBytes(path + ".bak");
+        for (var attempt = 0; attempt < 2; attempt++)
+        {
+            var candidate = new TestRunRecord { RunId = "protected", PlanName = "new" };
+            if (version > SchemaVersions.TestRunRecord)
+                await Assert.ThrowsAsync<SchemaReadOnlyException>(() => store.SaveAsync(candidate));
+            else
+                await Assert.ThrowsAsync<UnsupportedDocumentSchemaException>(() => store.SaveAsync(candidate));
+            Assert.False(File.Exists(path));
+            Assert.Equal(backup, File.ReadAllBytes(path + ".bak"));
+        }
+    }
+
 }

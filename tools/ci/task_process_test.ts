@@ -61,6 +61,15 @@ Deno.Command = class extends Command {
         "-r",
         "linux-x64",
         "--no-build",
+        "--no-restore",
+        "--logger",
+        "trx;LogFileName=HardwareTest.Authoring.UI.Tests.trx",
+        "--results-directory",
+        path.resolve(
+          path.fromFileUrl(
+            new URL("../../artifacts/test-results/linux-x64", import.meta.url),
+          ),
+        ),
       ],
     );
     assertEquals(output.code, 1);

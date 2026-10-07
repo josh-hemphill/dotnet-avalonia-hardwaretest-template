@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.Json;
 using HardwareTest.Core.IO;
 using HardwareTest.Core.Runs;
@@ -60,8 +61,10 @@ public static class RunDatasetCatalog
         }
 
         TestRunRecord? run;
+        DocumentSchemaStatus status;
         try
         {
+            status = DocumentSchemaGate.ReadHeader(Encoding.UTF8.GetBytes(raw), SchemaDocumentTypes.TestRunRecord, SchemaVersions.TestRunRecord, fullPath);
             run = JsonSerializer.Deserialize(raw, AppJsonContext.Default.TestRunRecord);
         }
         catch (Exception ex)
@@ -78,7 +81,8 @@ public static class RunDatasetCatalog
             throw new AuthoringWorkspaceException($"Invalid run.json at {fullPath}: samples must be an array without null entries.");
         if (run.Events is null || run.Events.Any(mark => mark is null))
             throw new AuthoringWorkspaceException($"Invalid run.json at {fullPath}: events must be an array without null entries.");
-        ApplySchemaGate(run, fullPath);
+        run.StoredSchemaVersion = status.StoredVersion;
+        run.IsSchemaReadOnly = status.IsReadOnly;
         return new RunDataset(fullPath, run);
     }
 
@@ -154,21 +158,4 @@ public static class RunDatasetCatalog
             throw new AuthoringWorkspaceException("Recording plan id does not match the selected program.");
     }
 
-    private static void ApplySchemaGate(TestRunRecord run, string path)
-    {
-        var status = DocumentSchemaGate.Apply(
-            SchemaDocumentTypes.TestRunRecord,
-            run.SchemaVersion,
-            SchemaVersions.TestRunRecord,
-            path,
-            run.AppVersion,
-            run);
-        run.StoredSchemaVersion = status.StoredVersion;
-        run.IsLegacy = status.IsLegacy;
-        run.IsSchemaReadOnly = status.IsReadOnly;
-        if (status.Kind is DocumentSchemaKind.Current or DocumentSchemaKind.UpgradeNeeded)
-        {
-            run.SchemaVersion = SchemaVersions.TestRunRecord;
-        }
-    }
 }

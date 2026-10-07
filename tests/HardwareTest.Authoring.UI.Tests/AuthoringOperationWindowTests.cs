@@ -101,6 +101,79 @@ public sealed class AuthoringOperationWindowTests
         Assert.False(Directory.Exists(Path.Combine(fixture.WorkspaceRoot, OpenTapHomeBootstrapper.DefaultHomeRelativePath)));
     }
 
+    [AvaloniaFact]
+    public async Task Replacement_during_close_cleanup_retains_new_session_recovery()
+    {
+        using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
+        fixture.Show(); fixture.OpenRememberedWorkspace();
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var coordinator = new AuthoringOperationCoordinator(AuthoringChildProcessRunner.ForExecutable(
+            Path.Combine(AppContext.BaseDirectory, "HardwareTest.Authoring.ProcessFixture.dll")))
+        {
+            CancelledCleanup = async owned =>
+            {
+                Assert.False(Dispatcher.UIThread.CheckAccess());
+                entered.TrySetResult();
+                await release.Task.WaitAsync(TimeSpan.FromSeconds(5));
+                await AuthoringOperationCoordinator.CleanupCancelledOperationAsync(owned);
+            }
+        };
+        fixture.ViewModel.ConfigureOperations(coordinator, action => Dispatcher.UIThread.Post(action));
+        File.WriteAllText(Path.Combine(fixture.WorkspaceRoot, "fixture-wait"), "");
+        var running = fixture.ViewModel.RunOperationAsync(AuthoringOperationKind.Bootstrap);
+        try
+        {
+            await Until(() => File.Exists(Path.Combine(fixture.WorkspaceRoot, "fixture-child.json")));
+            fixture.Window!.Close();
+            await Until(() => entered.Task.IsCompleted);
+            Assert.True(fixture.Window.IsVisible);
+            var originalChild = File.ReadAllBytes(Path.Combine(fixture.WorkspaceRoot, "fixture-child.json"));
+            var blocked = await Assert.ThrowsAsync<InvalidOperationException>(() => coordinator.RunAsync(AuthoringOperationKind.Bootstrap, fixture.WorkspaceRoot));
+            Assert.Contains("cleanup", blocked.Message, StringComparison.OrdinalIgnoreCase);
+            Assert.Equal(originalChild, File.ReadAllBytes(Path.Combine(fixture.WorkspaceRoot, "fixture-child.json")));
+            var oldSession = fixture.ViewModel.WorkspaceSessionId;
+            var prepared = fixture.ViewModel.PrepareOpen(fixture.WorkspaceRoot);
+            fixture.ViewModel.CommitOpen(prepared, discardUnsavedChanges: true);
+            Assert.NotEqual(oldSession, fixture.ViewModel.WorkspaceSessionId);
+            release.TrySetResult();
+            await Until(() => running.IsCompleted);
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => running);
+            var transition = typeof(MainWindow).GetField("_transitionInFlight",
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
+            await Until(() => !(bool)transition.GetValue(fixture.Window)!);
+            Assert.True(fixture.Window.IsVisible);
+            Assert.Null(fixture.ViewModel.Error);
+            var sourceFiles = Directory.GetFiles(fixture.WorkspaceRoot, "*", SearchOption.AllDirectories)
+                .Where(path => !path.Contains(".authoring", StringComparison.Ordinal)).ToDictionary(path => path, File.ReadAllBytes);
+            fixture.ViewModel.DisplayName = "Replacement recovery remains enabled";
+            var document = fixture.ViewModel.SelectedDocument!;
+            var recovery = new AuthoringDocumentStore(fixture.WorkspaceRoot).GetRecoveryPath(document.Draft.PlanId);
+            await Until(() => File.Exists(recovery));
+            var checkpoint = new AuthoringDocumentStore(fixture.WorkspaceRoot).LoadAtPath(recovery).Document!;
+            Assert.Equal(document.Revision, checkpoint.Revision);
+            Assert.Equal("Replacement recovery remains enabled", checkpoint.ToDraft().Sidecar.DisplayName);
+            Assert.True(fixture.ViewModel.HasUnsavedChanges);
+            foreach (var (path, bytes) in sourceFiles) Assert.Equal(bytes, File.ReadAllBytes(path));
+            // Reuse the existing coordinator; replacing it would hide a stale-close usability failure.
+            var marker = Path.Combine(fixture.WorkspaceRoot, "fixture-child.json");
+            File.Delete(marker);
+            var replacementOperation = fixture.ViewModel.RunOperationAsync(AuthoringOperationKind.Bootstrap);
+            await Until(() => File.Exists(marker) || replacementOperation.IsCompleted);
+            if (replacementOperation.IsCompleted) await replacementOperation;
+            Assert.True(File.Exists(marker));
+            Assert.False(replacementOperation.IsCompleted);
+            fixture.ViewModel.CancelOperation();
+            await Until(() => replacementOperation.IsCompleted);
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => replacementOperation);
+            Assert.Null(fixture.ViewModel.Error);
+            Assert.True(fixture.Window.IsVisible);
+            coordinator.Dispose();
+            await Assert.ThrowsAsync<ObjectDisposedException>(() => coordinator.RunAsync(AuthoringOperationKind.Bootstrap, fixture.WorkspaceRoot));
+        }
+        finally { release.TrySetResult(); }
+    }
+
     private static bool IsAlive(int id)
     {
         try

@@ -11,14 +11,14 @@ public sealed partial class AuthoringActionableFindingsTests
     public async Task Validation_retains_the_first_program_compile_blocker_after_a_second_program_saves(bool asynchronous)
     {
         _vm.CreateDemoProgram("a-duplicate");
-        _vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
+        _vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Acquire);
         var metric = Assert.IsType<MetricNode>(Assert.Single(_vm.SelectedProgram!.Measure));
         _vm.ReplaceSelected(_vm.SelectedProgram with
         {
             Measure = [metric, new MetricNode(metric.Metric with { Name = "duplicate" })],
         });
         _vm.CreateDemoProgram("z-valid");
-        _vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
+        _vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Acquire);
         var result = _vm.SaveAll();
         Assert.True(result.Succeeded);
         Assert.Equal(["a-duplicate", "z-valid"], result.SavedProgramIds);
@@ -47,10 +47,10 @@ public sealed partial class AuthoringActionableFindingsTests
     [Theory]
     [InlineData("saved-bytes")]
     [InlineData("reopen")]
-    public void Compilation_diagnostic_is_not_reused_after_saved_source_or_workspace_session_changes(string change)
+    public async Task Compilation_diagnostic_is_not_reused_after_saved_source_or_workspace_session_changes(string change)
     {
         _vm.CreateDemoProgram("duplicate");
-        _vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
+        _vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Acquire);
         var metric = Assert.IsType<MetricNode>(Assert.Single(_vm.SelectedProgram!.Measure));
         _vm.ReplaceSelected(_vm.SelectedProgram with
         {
@@ -69,7 +69,7 @@ public sealed partial class AuthoringActionableFindingsTests
         else
         {
             _vm.Open(_root);
-            _vm.StopRecovery();
+            await _vm.StopRecoveryAsync();
         }
         var before = File.ReadAllBytes(store.GetDocumentPath("duplicate"));
         Assert.Throws<AuthoringWorkspaceException>(() => _vm.Validate());

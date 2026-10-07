@@ -27,7 +27,7 @@ public sealed class MockOperatorCredentialBroker : IOperatorCredentialBroker
 
     public bool IsMock => true;
     public bool CanSign { get; set; }
-    public bool ProducesCms => false;
+    public bool CanSignPdf => false;
     public string? SigningAlgorithm => CanSign ? MockAlgorithm : null;
     public string StatusText => CanSign
         ? "Mock badge ready (tap presence and signing)."
@@ -59,14 +59,19 @@ public sealed class MockOperatorCredentialBroker : IOperatorCredentialBroker
     {
         cancellationToken.ThrowIfCancellationRequested();
         _ = pin;
-        if (!CredentialSignBinding.SerialsMatch(MockSerial, credential.Serial))
+        if (!CredentialSignBinding.SerialsMatchMock(MockSerial, credential.Serial))
         {
             return Task.FromResult(CredentialSignResult.Failed(CredentialSignBinding.SameBadgeRequired));
         }
 
-        if (!CanSign || payload.Length == 0)
+        if (!CanSign)
         {
-            return Task.FromResult(CredentialSignResult.Failed("Mock badge cannot sign."));
+            return Task.FromResult(CredentialSignResult.Unavailable("Mock badge cannot sign."));
+        }
+
+        if (payload.Length == 0)
+        {
+            return Task.FromResult(CredentialSignResult.Failed("Nothing to sign."));
         }
 
         return Task.FromResult(CredentialSignResult.Signed(

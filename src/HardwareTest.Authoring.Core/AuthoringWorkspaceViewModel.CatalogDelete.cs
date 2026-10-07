@@ -92,18 +92,6 @@ public sealed partial class AuthoringWorkspaceViewModel
         Error = null;
     }
 
-    // Legacy entrypoints retain meaningful blank/protected diagnostics but cannot bypass review.
-    public void RemoveRequiredField(string fieldId) => RejectUnreviewedCatalogDeletion(CatalogDeletionKind.RequiredField, fieldId);
-    public void RemoveReportKind(string kind) => RejectUnreviewedCatalogDeletion(CatalogDeletionKind.ReportKind, kind);
-    public void RemoveProgramKindFromCatalog(string kind) => RejectUnreviewedCatalogDeletion(CatalogDeletionKind.ProgramKind, kind);
-    private void RejectUnreviewedCatalogDeletion(CatalogDeletionKind kind, string target)
-    {
-        if (AuthoringWorkspaceCatalog.Normalize(target) is not { } token) return;
-        EnsureWritableWorkspace("remove a workspace catalog entry");
-        GuardProtectedCatalog(kind, token);
-        throw new AuthoringWorkspaceException("Prepare and review the named workspace deletion impact before applying it.");
-    }
-
     public InstrumentRemovalImpact PrepareSelectedInstrumentRemoval()
     {
         EnsureWritableWorkspace("review an instrument slot removal");
@@ -114,7 +102,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         var remaining = program.Instruments.Where(i => !Same(i.SlotName, slot)).ToArray();
         if (remaining.Length == 0) throw new AuthoringWorkspaceException("A program must keep at least one instrument slot with a distinct name.");
         if (AuthoringInstrumentUsage.HasOpaqueInstrumentRefs(program))
-            throw new AuthoringWorkspaceException($"Cannot remove instrument slot '{slot}'; raw or unknown steps, unknown algorithms, or legacy instrument-based algorithms have unresolved instrument bindings. Preserve the slot until bindings can be represented explicitly.");
+            throw new AuthoringWorkspaceException($"Cannot remove instrument slot '{slot}'; raw or unknown steps and algorithms have unresolved instrument bindings. Preserve the slot until bindings can be represented explicitly.");
         if (targets.Any(i => !AuthoringInstrumentCatalog.TryGet(i.TypeId, out _)))
             throw new AuthoringWorkspaceException("Cannot prove replacement compatibility for an unknown or unsupported instrument type.");
         var replacements = remaining.GroupBy(i => i.SlotName, StringComparer.OrdinalIgnoreCase)

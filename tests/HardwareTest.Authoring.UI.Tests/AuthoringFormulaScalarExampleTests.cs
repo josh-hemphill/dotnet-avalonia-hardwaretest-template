@@ -40,7 +40,7 @@ public sealed class AuthoringFormulaScalarExampleTests
         AuthoringWorkspaceLoader.SaveManifest(fixture.WorkspaceRoot, workspace.Manifest);
         fixture.Show(); fixture.OpenRememberedWorkspace();
         var vm = fixture.ViewModel; vm.CreateDemoProgram("scalar-example");
-        vm.ApplyRecipe(AuthoringRecipeIds.Acquire); vm.ApplyRecipe(AuthoringRecipeIds.BandScalar); vm.ApplyRecipe(AuthoringRecipeIds.Formula);
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Acquire); vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.BandScalar); vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Formula);
         vm.FormulaSource = "mean(rail.mean)"; AuthoringUiFixture.Drain(); return fixture;
     }
 }

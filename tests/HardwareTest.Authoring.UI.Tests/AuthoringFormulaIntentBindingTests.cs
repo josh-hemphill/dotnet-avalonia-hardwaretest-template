@@ -15,11 +15,11 @@ public sealed class AuthoringFormulaIntentBindingTests
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
         fixture.Show(); fixture.OpenRememberedWorkspace();
         var vm = fixture.ViewModel;
-        vm.ApplyRecipe(AuthoringRecipeIds.Formula);
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Formula);
         vm.SelectMeasure(vm.SelectedProgram!.Measure.Count - 1);
         var firstId = vm.SelectedProgram.PlanId; var firstNode = vm.SelectedSequence!.NodeId;
         vm.FormulaExplorationOnly = true;
-        vm.ApplyRecipe(AuthoringRecipeIds.Formula);
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Formula);
         vm.SelectMeasure(vm.SelectedProgram!.Measure.Count - 1);
         var secondNode = vm.SelectedSequence!.NodeId;
         AuthoringUiFixture.Drain();
@@ -32,7 +32,9 @@ public sealed class AuthoringFormulaIntentBindingTests
         checkbox.IsChecked = true; AuthoringUiFixture.Drain(); Assert.True(vm.FormulaExplorationOnly);
         vm.Undo(); AuthoringUiFixture.Drain(); Assert.False(checkbox.IsChecked); Assert.False(vm.FormulaExplorationOnly);
         vm.Redo(); AuthoringUiFixture.Drain(); Assert.True(checkbox.IsChecked); Assert.True(vm.FormulaExplorationOnly);
-        vm.CreateProgram("intent-other"); vm.ApplyRecipe(AuthoringRecipeIds.Formula);
+        vm.CreateDemoProgram("intent-other");
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Acquire);
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Formula);
         vm.SelectMeasure(vm.SelectedProgram!.Measure.Count - 1); AuthoringUiFixture.Drain(); Assert.False(checkbox.IsChecked);
         vm.SelectProgram(firstId);
         vm.SelectSequence(vm.SequenceItems.ToList().FindIndex(row => row.NodeId == secondNode)); AuthoringUiFixture.Drain();
@@ -45,7 +47,7 @@ public sealed class AuthoringFormulaIntentBindingTests
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
         fixture.Show(); fixture.OpenRememberedWorkspace();
         var vm = fixture.ViewModel;
-        vm.ApplyRecipe(AuthoringRecipeIds.Formula);
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Formula);
         vm.SelectMeasure(vm.SelectedProgram!.Measure.Count - 1);
         vm.FormulaSource = "std(VDC)";
         AuthoringUiFixture.Drain();
@@ -74,7 +76,7 @@ public sealed class AuthoringFormulaIntentBindingTests
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
         fixture.Show(); fixture.OpenRememberedWorkspace();
         var vm = fixture.ViewModel;
-        vm.ApplyRecipe(AuthoringRecipeIds.Formula);
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Formula);
         vm.SelectMeasure(vm.SelectedProgram!.Measure.Count - 1);
         vm.FormulaSource = "std(VDC)";
         vm.FormulaExplorationOnly = true;
@@ -106,7 +108,7 @@ public sealed class AuthoringFormulaIntentBindingTests
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
         fixture.Show(); fixture.OpenRememberedWorkspace();
         var vm = fixture.ViewModel;
-        vm.ApplyRecipe(AuthoringRecipeIds.Formula);
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Formula);
         vm.SelectMeasure(vm.SelectedProgram!.Measure.Count - 1);
         vm.FormulaSource = "filter([1],[1],missing)";
         vm.Apply(); AuthoringUiFixture.Drain();
@@ -139,7 +141,7 @@ public sealed class AuthoringFormulaIntentBindingTests
         vm.SelectDataset(0);
         Assert.NotNull(vm.SelectedDataset);
         Assert.Equal(new double?[] { 0, 5, 15 }, vm.SelectedDataset.Run.Samples.Select(sample => sample.ElapsedMs));
-        vm.ApplyRecipe(AuthoringRecipeIds.Formula);
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Formula);
         vm.SelectMeasure(vm.SelectedProgram!.Measure.Count - 1);
         vm.FormulaSource = "filter([1],[1],VDC)";
         vm.ChannelKey = "VDC.recording-filter";

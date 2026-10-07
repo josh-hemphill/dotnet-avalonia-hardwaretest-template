@@ -13,7 +13,7 @@ public sealed class AuthoringHardwareDefinitionTests
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
         var window = fixture.Show(); fixture.OpenRememberedWorkspace();
         var vm = fixture.ViewModel;
-        vm.CreateDemoProgram("binding"); vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
+        vm.CreateDemoProgram("binding"); vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Acquire);
         var ids = vm.SelectedProgram!.Measure.Select(n => n.NodeId).ToArray();
         window.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 1; AuthoringUiFixture.Drain();
         Click(fixture, "Load selected binding");
@@ -92,18 +92,19 @@ public sealed class AuthoringHardwareDefinitionTests
     }
 
     [AvaloniaFact]
-    public void Changing_visible_adapter_to_visa_roundtrips_actual_type_address_and_configuration()
+    public void Changing_visible_adapter_to_current_library_roundtrips_lifecycle_type_address_and_configuration()
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
         var manifest = AuthoringWorkspaceLoader.Load(fixture.WorkspaceRoot).Manifest;
-        manifest.Dependencies.Add(new AuthoringPackageDependency { Package = "HardwareTest VISA", Version = "0.1.0" });
+        manifest.Dependencies.Add(new AuthoringPackageDependency { Package = AuthoringInstrumentCatalog.LibraryPackage, Version = "0.1.1" });
         File.WriteAllText(Path.Combine(fixture.WorkspaceRoot, "authoring.json"),
             System.Text.Json.JsonSerializer.Serialize(manifest, AuthoringJsonContext.Default.AuthoringManifest));
         var window = fixture.Show(); fixture.OpenRememberedWorkspace(); var vm = fixture.ViewModel;
-        vm.CreateDemoProgram("visa"); vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
+        CurrentHardwareUiFixture.Prepare(fixture);
+        vm.InitializePlan(new("physical") { Instruments = [new("DMM", typeof(HardwareTest.OpenTap.Plugins.Basic.MockDmmInstrument).FullName!, "MOCK::0")], IdentityInstrumentSlot = "DMM" });
         window.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 1; AuthoringUiFixture.Drain();
         Click(fixture, "Load selected binding");
-        var selected = AuthoringInstrumentCatalog.All.Single(a => a.RequiredPackage == "HardwareTest VISA");
+        var selected = AuthoringInstrumentCatalog.All.Single(a => a.TypeId == CurrentHardwareUiFixture.TypeId);
         fixture.Control<ComboBox>("Hardware adapter type").SelectedItem = selected; AuthoringUiFixture.Drain();
         fixture.Type(fixture.Control<TextBox>("Hardware adapter address"), "TCPIP::192.0.2.1::INSTR");
         fixture.Type(fixture.Control<TextBox>("Hardware adapter timeout"), "1234");
@@ -112,7 +113,7 @@ public sealed class AuthoringHardwareDefinitionTests
         Assert.Equal(selected.TypeId, vm.SelectedInstrument!.TypeId);
         Assert.Equal("1234", vm.SelectedInstrument.Settings["IoTimeoutMilliseconds"]);
         Assert.True(vm.SaveAll().Succeeded);
-        var reopened = new AuthoringWorkspaceViewModel(preferences: fixture.Preferences); reopened.Open(fixture.WorkspaceRoot); reopened.SelectProgram("visa");
+        var reopened = new AuthoringWorkspaceViewModel(preferences: fixture.Preferences); reopened.Open(fixture.WorkspaceRoot); reopened.OpenTapHomeOverride = vm.OpenTapHomeOverride; reopened.SelectProgram("physical");
         Assert.Equal(selected.TypeId, reopened.SelectedInstrument!.TypeId);
         Assert.Equal("TCPIP::192.0.2.1::INSTR", reopened.SelectedInstrument.VisaAddress);
         Assert.Equal("1234", reopened.SelectedInstrument.Settings["IoTimeoutMilliseconds"]);
@@ -153,29 +154,30 @@ public sealed class AuthoringHardwareDefinitionTests
     [InlineData("HardwareTest Basic", "missing metadata")]
     [InlineData("HardwareTest Basic", "missing payload")]
     [InlineData("HardwareTest Basic", "valid")]
-    [InlineData("HardwareTest VISA", "missing metadata")]
-    [InlineData("HardwareTest VISA", "missing payload")]
-    [InlineData("HardwareTest VISA", "valid")]
+    [InlineData("InstrumentComponents.OpenTap", "missing metadata")]
+    [InlineData("InstrumentComponents.OpenTap", "missing payload")]
+    [InlineData("InstrumentComponents.OpenTap", "valid")]
     public void Bound_hardware_table_inspects_workspace_default_home_when_override_is_empty(string package, string state)
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
-        var adapter = AuthoringInstrumentCatalog.All.Single(a => a.RequiredPackage == package);
+        if (package == AuthoringInstrumentCatalog.LibraryPackage) CurrentHardwareUiFixture.Discover(fixture);
+        var adapter = AuthoringInstrumentCatalog.All.Single(a => package == AuthoringInstrumentCatalog.LibraryPackage ? a.TypeId == CurrentHardwareUiFixture.TypeId : a.RequiredPackage == package);
         var defaultHome = Path.Combine(fixture.WorkspaceRoot, OpenTapHomeBootstrapper.DefaultHomeRelativePath);
         if (state != "missing metadata") WritePackagePayload(defaultHome, adapter, includePayload: state == "valid");
-        if (package == "HardwareTest VISA")
+        if (package == AuthoringInstrumentCatalog.LibraryPackage)
         {
             var manifest = AuthoringWorkspaceLoader.Load(fixture.WorkspaceRoot).Manifest;
-            manifest.Dependencies.Add(new AuthoringPackageDependency { Package = package, Version = "0.1.0" });
+            manifest.Dependencies.Add(new AuthoringPackageDependency { Package = package, Version = "0.1.1" });
             File.WriteAllText(Path.Combine(fixture.WorkspaceRoot, "authoring.json"),
                 System.Text.Json.JsonSerializer.Serialize(manifest, AuthoringJsonContext.Default.AuthoringManifest));
         }
         var window = fixture.Show(); fixture.OpenRememberedWorkspace();
         var vm = fixture.ViewModel;
-        if (package == "HardwareTest VISA")
+        if (package == AuthoringInstrumentCatalog.LibraryPackage)
         {
-            // Creating a binding remains available from the bundled adapter even when selected-home payloads are absent.
-            vm.NewInstrumentSlot = "VISA"; vm.SelectedNewInstrumentType = adapter; vm.NewInstrumentVisa = "TCPIP::192.0.2.1::INSTR";
-            vm.AddInstrumentSlot();
+            // A discovered library adapter remains visible while this home reports missing payloads.
+            vm.NewInstrumentSlot = "SUPPLY"; vm.SelectedNewInstrumentType = adapter; vm.NewInstrumentVisa = "TCPIP::192.0.2.1::INSTR";
+            vm.ReplaceSelected(vm.SelectedProgram! with { Instruments = [new("SUPPLY", adapter.TypeId, "TCPIP::192.0.2.1::INSTR")] });
         }
         window.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 1; AuthoringUiFixture.Drain();
         Assert.Equal(string.Empty, vm.OpenTapHomeOverride);
@@ -186,7 +188,7 @@ public sealed class AuthoringHardwareDefinitionTests
         else
         {
             Assert.Contains(Path.GetFullPath(defaultHome), status);
-            Assert.Contains(state == "missing metadata" ? "package metadata is missing" : $"payload '{adapter.AssemblyFile}' is missing", status);
+            Assert.Contains(state == "missing metadata" ? "package metadata is missing" : "missing", status);
             Assert.NotEqual(package + ": available", status);
         }
     }
@@ -210,6 +212,11 @@ public sealed class AuthoringHardwareDefinitionTests
 
     private static void WritePackagePayload(string home, AuthoringInstrumentAdapter adapter, bool includePayload)
     {
+        if (AuthoringInstrumentCatalog.IsLibrary(adapter.TypeId))
+        {
+            CurrentHardwareUiFixture.WritePackage(home, includePayload);
+            return;
+        }
         var directory = Path.Combine(home, "Packages", adapter.RequiredPackage);
         Directory.CreateDirectory(directory);
         var files = new[] { adapter.AssemblyFile }.Concat(adapter.RequiredPayloadFiles).Distinct().ToArray();

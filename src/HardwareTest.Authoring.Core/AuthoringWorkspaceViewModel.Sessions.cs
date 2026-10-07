@@ -19,7 +19,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         get
         {
             var inspection = HardwareInspection;
-            return Programs.SelectMany(draft => AuthoringIssueService.GetIssues(draft, inspection.Home, inspection.Error)).ToArray();
+            return Programs.SelectMany(draft => AuthoringIssueService.GetIssues(draft, inspection.Home, inspection.Error, Workspace?.Manifest.Dependencies.Select(d => d.Package).ToArray())).ToArray();
         }
     }
 

@@ -173,11 +173,11 @@ public sealed class AuthoringSequenceOperationsTests
     {
         var vm = new AuthoringWorkspaceViewModel();
         var root = TemporaryDirectory();
-        File.WriteAllText(Path.Combine(root, "authoring.json"), "{\"schemaVersion\":1,\"displayName\":\"Sequence\",\"plansDirectory\":\".\"}");
+        File.WriteAllText(Path.Combine(root, "authoring.json"), "{\"schemaVersion\":2,\"displayName\":\"Sequence\",\"plansDirectory\":\".\"}");
         vm.Open(root);
         vm.CreateDemoProgram("operations");
-        vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
-        vm.ApplyRecipe(AuthoringRecipeIds.Formula);
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Acquire);
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Formula);
         vm.Threshold = "-";
         vm.FormulaExplorationOnly = true;
         var before = AuthoringDocumentSnapshot.Capture(vm.SelectedProgram!);
@@ -212,7 +212,7 @@ public sealed class AuthoringSequenceOperationsTests
     {
         var vm = new AuthoringWorkspaceViewModel();
         var root = TemporaryDirectory();
-        File.WriteAllText(Path.Combine(root, "authoring.json"), "{\"schemaVersion\":1,\"displayName\":\"Sequence\",\"plansDirectory\":\".\"}");
+        File.WriteAllText(Path.Combine(root, "authoring.json"), "{\"schemaVersion\":2,\"displayName\":\"Sequence\",\"plansDirectory\":\".\"}");
         vm.Open(root);
         vm.CreateDemoProgram("operations");
         vm.SelectedRecipeId = AuthoringRecipeIds.Formula;
@@ -318,7 +318,7 @@ public sealed class AuthoringSequenceOperationsTests
     private static SequenceRow Row(ProgramDraft draft, Guid id) => AuthoringSequence.Flatten(draft).Single(row => row.NodeId == id);
     private static ProgramDraft ProgramWith(params string[] recipes)
     {
-        var draft = AuthoringRecipeCatalog.CreateProgram("operations");
+        var draft = MockDmmDraftFixture.Create("operations");
         foreach (var recipe in recipes) draft = AuthoringRecipeCatalog.Apply(draft, recipe);
         return draft;
     }

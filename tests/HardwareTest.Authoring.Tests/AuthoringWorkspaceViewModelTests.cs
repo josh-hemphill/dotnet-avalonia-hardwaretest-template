@@ -68,7 +68,7 @@ public sealed class AuthoringWorkspaceViewModelTests
         var vm = new AuthoringWorkspaceViewModel();
         vm.Open(CopyTemplateWorkspace());
         vm.SelectProgram("sample");
-        vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Acquire);
 
         Assert.True(vm.HasUnsavedChanges);
         vm.SaveSidecar();
@@ -81,7 +81,8 @@ public sealed class AuthoringWorkspaceViewModelTests
     {
         var vm = new AuthoringWorkspaceViewModel();
         vm.Open(CopyTemplateWorkspace());
-        vm.CreateProgram("new-program");
+        vm.InitializePlan(new("new-program") { Instruments = [] });
+        vm.DisplayName += " edited";
         vm.SelectProgram("sample");
         vm.DisplayName = "Edited sample";
         vm.SaveSidecar();
@@ -133,7 +134,7 @@ public sealed class AuthoringWorkspaceViewModelTests
         vm.Undo();
         vm.Validate();
         Assert.NotEmpty(vm.FindingRows);
-        vm.CreateProgram("new-program");
+        vm.InitializePlan(new("new-program") { Instruments = [] });
         Assert.Empty(vm.Findings);
         Assert.NotEmpty(vm.FindingRows);
         Assert.All(vm.FindingRows, row => Assert.True(row.IsStale));

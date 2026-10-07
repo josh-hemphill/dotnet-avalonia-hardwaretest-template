@@ -1,64 +1,96 @@
-<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:vm="using:HardwareTest.Authoring" xmlns:host="using:HardwareTest.OpenTap.Host"
-    x:Class="HardwareTest.Authoring.WorkspaceEnvironmentView" x:DataType="vm:AuthoringWorkspaceViewModel">
-  <ScrollViewer>
-    <StackPanel Spacing="8" Margin="0,8,16,0">
-      <TextBlock Text="{Binding AuthoringHomeText}" TextWrapping="Wrap" AutomationProperties.Name="Selected authoring home"/>
-      <TextBlock Text="{Binding EnvironmentRecoveryText}" TextWrapping="Wrap"/>
-      <WrapPanel>
-        <Button Content="Prepare authoring environment" Click="OnPrepareEnvironment" IsEnabled="{Binding !OperationBusy}" AutomationProperties.Name="Prepare selected authoring environment" Classes="authoringAction"/>
-        <Button Content="Import offline package…" Click="OnImportOfflinePackage" IsEnabled="{Binding !OperationBusy}" AutomationProperties.Name="Import offline authoring package" Classes="authoringAction"/>
-      </WrapPanel>
-      <TextBlock Text="Installed packages in selected home" FontWeight="SemiBold"/>
-      <ItemsControl ItemsSource="{Binding PackPreview.AuthoringHomePackages}" AutomationProperties.Name="Environment installed packages">
-        <ItemsControl.ItemTemplate><DataTemplate x:DataType="vm:OpenTapEnvironmentLine"><TextBlock Text="{Binding DisplayText}" TextWrapping="Wrap"/></DataTemplate></ItemsControl.ItemTemplate>
-      </ItemsControl>
-      <TextBlock Text="Runtime prerequisites" FontWeight="SemiBold"/>
-      <ItemsControl ItemsSource="{Binding EnvironmentRuntimeFiles}" AutomationProperties.Name="Authoring runtime prerequisites"/>
-      <TextBlock Text="Required and installed package versions" FontWeight="SemiBold"/>
-      <ItemsControl ItemsSource="{Binding EnvironmentPackages}" AutomationProperties.Name="Environment package requirements">
-        <ItemsControl.ItemTemplate><DataTemplate x:DataType="vm:AuthoringPackageRequirement"><TextBlock Text="{Binding DisplayText}" TextWrapping="Wrap"/></DataTemplate></ItemsControl.ItemTemplate>
-      </ItemsControl>
-      <Expander Header="Draft recovery and reconciliation" AutomationProperties.Name="Draft recovery">
-        <StackPanel Spacing="4">
-          <TextBlock Text="{Binding DraftStateSummary}" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite"/>
-          <WrapPanel Orientation="Horizontal">
-            <ComboBox ItemsSource="{Binding RecoverableProgramIds}" SelectedItem="{Binding SelectedRecoveryPlanId}"
-                MinWidth="100" AutomationProperties.Name="Recovery program"/>
-            <Button Content="Recover selected draft" Click="OnAcceptRecovery" Classes="authoringAction"/>
-            <Button Content="Discard selected recovery" Click="OnDiscardRecovery" Classes="authoringAction"/>
-            <Button Content="Import external compiled edits" Click="OnImportCompiled" Classes="authoringAction"/>
-            <Button Content="Retain source for export" Click="OnRetainSource" Classes="authoringAction"/>
-          </WrapPanel>
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:vm="using:HardwareTest.Authoring" xmlns:host="using:HardwareTest.OpenTap.Host" x:Class="HardwareTest.Authoring.WorkspaceEnvironmentView" x:DataType="vm:AuthoringWorkspaceViewModel">
+  <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+    <StackPanel Spacing="12" Classes="routeBody">
+      <TextBlock Text="Authoring environment" Classes="routeTitle" TextWrapping="Wrap" AutomationProperties.HeadingLevel="2"/>
+      <TextBlock Text="Prepare the selected OpenTAP home and review the requirements used by this workspace." Classes="purpose" TextWrapping="Wrap"/>
+      <Border Classes="surface taskSection">
+        <StackPanel Spacing="12">
+          <TextBlock Text="Selected home and readiness" Classes="sectionTitle" TextWrapping="Wrap" AutomationProperties.HeadingLevel="3"/>
+          <TextBlock Text="{Binding AuthoringHomeText}" TextWrapping="Wrap" AutomationProperties.Name="Selected authoring home"/>
+          <TextBlock Text="{Binding EnvironmentRecoveryText}" TextWrapping="Wrap"/>
+          <TextBlock Text="{Binding LibraryEnvironmentReadinessText}" TextWrapping="Wrap" AutomationProperties.Name="Instrument Components readiness"/>
+          <TextBlock Text="{Binding StandaloneVisaReadinessText}" TextWrapping="Wrap" AutomationProperties.Name="Standalone VISA readiness"/>
         </StackPanel>
-      </Expander>
-      <TextBlock Text="{Binding Workspace.Root}" TextWrapping="Wrap"/>
-      <TextBlock Text="{Binding Workspace.Manifest.DisplayName}" TextWrapping="Wrap"/>
-      <TextBlock
-          Text="Open a folder containing authoring.json. Save draft preserves incomplete edits; ready plans also export compiled files."
-          TextWrapping="Wrap"/>
-      <TextBlock FontWeight="SemiBold" Text="Declared plugins" TextWrapping="Wrap"/>
-      <TextBlock Opacity="0.8" TextWrapping="Wrap" IsVisible="{Binding !HasDeclaredPlugins}"
-          Text="No pluginProjects in authoring.json. Extra TapPackages would copy into dist on Pack."/>
-      <ItemsControl ItemsSource="{Binding PackPreview.PluginProjects}"
-          AutomationProperties.Name="Declared plugin projects">
-        <ItemsControl.ItemTemplate>
-          <DataTemplate x:DataType="vm:PackDeclaredProjectLine">
-            <TextBlock TextWrapping="Wrap" Text="{Binding DisplayText}"/>
-          </DataTemplate>
-        </ItemsControl.ItemTemplate>
-      </ItemsControl>
-      <TextBlock FontWeight="SemiBold" Text="Declared shell apps (bake-time)" TextWrapping="Wrap"/>
-      <TextBlock Opacity="0.8" TextWrapping="Wrap" IsVisible="{Binding !HasDeclaredShellApps}"
-          Text="No shellAppProjects in authoring.json. Pack would publish each csproj into dist/shell-apps/{id} and label it bake-time."/>
-      <ItemsControl ItemsSource="{Binding PackPreview.ShellAppProjects}"
-          AutomationProperties.Name="Declared shell-app projects">
-        <ItemsControl.ItemTemplate>
-          <DataTemplate x:DataType="vm:PackDeclaredProjectLine">
-            <TextBlock TextWrapping="Wrap" Text="{Binding DisplayText}"/>
-          </DataTemplate>
-        </ItemsControl.ItemTemplate>
-      </ItemsControl>
+      </Border>
+      <Border Classes="surface taskSection">
+        <StackPanel Spacing="12">
+          <TextBlock Text="Package preparation" Classes="sectionTitle" TextWrapping="Wrap" AutomationProperties.HeadingLevel="3"/>
+          <TextBlock Text="Declared requirements and preparation belong to the selected workspace and home." Classes="purpose" TextWrapping="Wrap"/>
+          <TextBlock Text="Physical hardware uses Instrument Components. Declare its dependency, then Save All before preparing or importing. Undo restores a staged declaration. Compatible installed packages are reused." TextWrapping="Wrap"/>
+          <WrapPanel>
+            <Button Content="Declare Instrument Components dependency" Click="OnDeclareLibrary" IsEnabled="{Binding CanDeclareLibraryDependency}" AutomationProperties.Name="Declare Instrument Components dependency" Classes="authoringAction" Margin="0,0,8,8"/>
+            <Button Content="Resume New test plan" Click="OnResumeInitialization" IsEnabled="{Binding CanInitializePlan}" AutomationProperties.Name="Resume New test plan" Classes="authoringAction" Margin="0,0,8,8"/>
+            <Button Content="Prepare authoring environment" Click="OnPrepareEnvironment" IsEnabled="{Binding !OperationBusy}" AutomationProperties.Name="Prepare selected authoring environment" Classes="authoringAction primaryAction" Margin="0,0,8,8"/>
+            <Button Content="Import offline package…" Click="OnImportOfflinePackage" IsEnabled="{Binding !OperationBusy}" AutomationProperties.Name="Import offline authoring package" Classes="authoringAction" Margin="0,0,8,8"/>
+          </WrapPanel>
+          <TextBlock Text="Required and installed package versions" FontWeight="SemiBold"/>
+          <ItemsControl ItemsSource="{Binding EnvironmentPackages}" AutomationProperties.Name="Environment package requirements">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:AuthoringPackageRequirement">
+                <TextBlock Text="{Binding DisplayText}" TextWrapping="Wrap"/>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
+      </Border>
+      <Border Classes="surface taskSection">
+        <StackPanel Spacing="12">
+          <TextBlock Text="Installed packages and runtime" Classes="sectionTitle" TextWrapping="Wrap" AutomationProperties.HeadingLevel="3"/>
+          <TextBlock Text="Installed packages in selected home" FontWeight="SemiBold"/>
+          <ItemsControl ItemsSource="{Binding PackPreview.AuthoringHomePackages}" AutomationProperties.Name="Environment installed packages">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:OpenTapEnvironmentLine">
+                <TextBlock Text="{Binding DisplayText}" TextWrapping="Wrap"/>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+          <TextBlock Text="Runtime prerequisites" FontWeight="SemiBold"/>
+          <ItemsControl ItemsSource="{Binding EnvironmentRuntimeFiles}" AutomationProperties.Name="Authoring runtime prerequisites"/>
+        </StackPanel>
+      </Border>
+      <Border Classes="surface taskSection">
+        <StackPanel Spacing="12">
+          <TextBlock Text="Workspace recovery" Classes="sectionTitle" TextWrapping="Wrap" AutomationProperties.HeadingLevel="3"/>
+          <Expander Header="Draft recovery and reconciliation" AutomationProperties.Name="Draft recovery">
+            <StackPanel Spacing="4">
+              <TextBlock Text="{Binding DraftStateSummary}" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite"/>
+              <WrapPanel Orientation="Horizontal">
+                <ComboBox ItemsSource="{Binding RecoverableProgramIds}" SelectedItem="{Binding SelectedRecoveryPlanId}" MinWidth="100" AutomationProperties.Name="Recovery program"/>
+                <Button Content="Recover selected draft" Click="OnAcceptRecovery" Classes="authoringAction" Margin="0,0,8,8"/>
+                <Button Content="Discard selected recovery" Click="OnDiscardRecovery" Classes="authoringAction" Margin="0,0,8,8"/>
+                <Button Content="Import external compiled edits" Click="OnImportCompiled" Classes="authoringAction" Margin="0,0,8,8"/>
+                <Button Content="Retain source for export" Click="OnRetainSource" Classes="authoringAction" Margin="0,0,8,8"/>
+              </WrapPanel>
+            </StackPanel>
+          </Expander>
+        </StackPanel>
+      </Border>
+      <Border Classes="surface taskSection">
+        <StackPanel Spacing="12">
+          <TextBlock Text="Workspace and build declarations" Classes="sectionTitle" TextWrapping="Wrap" AutomationProperties.HeadingLevel="3"/>
+          <TextBlock Text="{Binding Workspace.Root}" TextWrapping="Wrap"/>
+          <TextBlock Text="{Binding Workspace.Manifest.DisplayName}" TextWrapping="Wrap"/>
+          <TextBlock Text="Open a folder containing authoring.json. Save draft preserves incomplete edits; ready plans also export compiled files." TextWrapping="Wrap"/>
+          <TextBlock FontWeight="SemiBold" Text="Declared plugins" TextWrapping="Wrap"/>
+          <TextBlock Opacity="0.8" TextWrapping="Wrap" IsVisible="{Binding !HasDeclaredPlugins}" Text="No pluginProjects in authoring.json. Extra TapPackages would copy into dist on Pack."/>
+          <ItemsControl ItemsSource="{Binding PackPreview.PluginProjects}" AutomationProperties.Name="Declared plugin projects">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:PackDeclaredProjectLine">
+                <TextBlock TextWrapping="Wrap" Text="{Binding DisplayText}"/>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+          <TextBlock FontWeight="SemiBold" Text="Declared shell apps (bake-time)" TextWrapping="Wrap"/>
+          <TextBlock Opacity="0.8" TextWrapping="Wrap" IsVisible="{Binding !HasDeclaredShellApps}" Text="No shellAppProjects in authoring.json. Pack would publish each csproj into dist/shell-apps/{id} and label it bake-time."/>
+          <ItemsControl ItemsSource="{Binding PackPreview.ShellAppProjects}" AutomationProperties.Name="Declared shell-app projects">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:PackDeclaredProjectLine">
+                <TextBlock TextWrapping="Wrap" Text="{Binding DisplayText}"/>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
+      </Border>
     </StackPanel>
   </ScrollViewer>
 </UserControl>

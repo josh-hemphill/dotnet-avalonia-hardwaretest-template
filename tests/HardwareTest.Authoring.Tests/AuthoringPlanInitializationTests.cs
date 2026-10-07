@@ -136,12 +136,19 @@ public sealed class AuthoringPlanInitializationTests : IDisposable
     }
 
     [Fact]
-    public void Explicit_real_hardware_with_missing_package_persists_without_substituting_demo_resources()
+    public void Explicit_physical_hardware_with_missing_package_persists_without_substituting_demo_resources()
     {
-        var type = AuthoringInstrumentCatalog.All.Single(adapter => adapter.DisplayName == "VISA DMM").TypeId;
+        var knownHome = new OpenTapHome(Path.Combine(_root, "known-library"));
+        var package = Path.Combine(knownHome.Root, "Packages", AuthoringInstrumentCatalog.LibraryPackage);
+        Directory.CreateDirectory(package);
+        foreach (var file in new[] { "InstrumentComponents.OpenTap.dll", "InstrumentComponents.dll" })
+            File.Copy(Path.Combine(PublishedLibraryFixture.PackageRoot, file), Path.Combine(knownHome.Root, file));
+        File.Copy(Path.Combine(PublishedLibraryFixture.PackageRoot, "package.xml"), Path.Combine(package, "package.xml"));
+        var type = AuthoringInstrumentCatalog.Discover(knownHome).Single(adapter => adapter.DisplayName == "DC Power Supply").TypeId;
         var result = new AuthoringPlanInitializer().Create(Request() with
         {
-            StartingPoint = PlanStartingPoint.VoltageTask,
+            StartingPoint = PlanStartingPoint.Empty,
+            IncludeTemplateMeasurement = false,
             Instruments = [new("BENCH", type, "TCPIP::192.0.2.1::INSTR")],
             IdentityInstrumentSlot = "BENCH",
             Home = new OpenTapHome(Path.Combine(_root, "missing-home"))
@@ -155,11 +162,11 @@ public sealed class AuthoringPlanInitializationTests : IDisposable
     }
 
     [Fact]
-    public void VM_opens_missing_dependencies_as_saved_issues_and_reopens_the_chosen_real_resource()
+    public void VM_opens_missing_dependencies_as_saved_issues_and_reopens_the_chosen_explicit_mock_resource()
     {
         Workspace(); var vm = new AuthoringWorkspaceViewModel(); vm.Open(_root); vm.StopRecovery();
         vm.OpenTapHomeOverride = Path.Combine(_root, "missing-home");
-        var type = AuthoringInstrumentCatalog.All.Single(adapter => adapter.DisplayName == "VISA DMM").TypeId;
+        var type = AuthoringInstrumentCatalog.All.Single(adapter => adapter.DisplayName == "Mock DMM").TypeId;
         vm.InitializePlan(Request() with { StartingPoint = PlanStartingPoint.VoltageTask, Instruments = [new("BENCH", type, "TCPIP::192.0.2.1::INSTR")] });
         Assert.False(vm.HasUnsavedChanges); Assert.Contains(vm.EditingIssues, issue => issue.PlanId == "new-plan" && issue.Code == "INSTRUMENT_UNAVAILABLE");
         vm.Open(_root); vm.StopRecovery(); vm.SelectProgram("new-plan");
@@ -173,12 +180,9 @@ public sealed class AuthoringPlanInitializationTests : IDisposable
     public void Invalid_home_remains_actionable_without_blocking_empty_or_typed_draft_lifecycle(bool hardware)
     {
         Workspace();
-        var workspace = AuthoringWorkspaceLoader.Load(_root);
-        workspace.Manifest.Dependencies.Add(new AuthoringPackageDependency { Package = OpenTapHomeBootstrapper.VisaPackageName, Version = "^0.1.0" });
-        AuthoringWorkspaceLoader.SaveManifest(_root, workspace.Manifest);
         var vm = new AuthoringWorkspaceViewModel(); vm.Open(_root); vm.StopRecovery();
         vm.OpenTapHomeOverride = "invalid\0home";
-        var type = AuthoringInstrumentCatalog.All.Single(adapter => adapter.DisplayName == "VISA DMM").TypeId;
+        var type = AuthoringInstrumentCatalog.All.Single(adapter => adapter.DisplayName == "Mock DMM").TypeId;
         var request = Request() with { Instruments = hardware ? [new("BENCH", type, "TCPIP::192.0.2.1::INSTR")] : [] };
         var review = vm.ReviewPlanInitialization(request);
         Assert.Contains(review.Issues, issue => issue.Code == "INVALID_OPENTAP_HOME" && issue.Message == vm.EnvironmentPathError);
@@ -191,8 +195,8 @@ public sealed class AuthoringPlanInitializationTests : IDisposable
         vm.SaveProgram("new-plan"); Assert.False(vm.HasUnsavedChanges);
         vm.Open(_root); vm.StopRecovery(); vm.SelectProgram("new-plan");
         Assert.Contains(vm.EditingIssues, issue => issue.PlanId == "new-plan" && issue.Code == "INVALID_OPENTAP_HOME");
-        vm.CreateProgram("unsaved"); Assert.True(vm.HasUnsavedChanges); Assert.Empty(vm.SelectedProgram!.Instruments);
-        Assert.False(new AuthoringDocumentStore(_root).Load("unsaved").Exists);
+        vm.InitializePlan(new("unsaved") { Instruments = [] }); vm.DisplayName = "Edited unsaved plan"; Assert.True(vm.HasUnsavedChanges); Assert.Empty(vm.SelectedProgram!.Instruments);
+        Assert.True(new AuthoringDocumentStore(_root).Load("unsaved").Exists);
         Assert.Contains(vm.EditingIssues, issue => issue.PlanId == "unsaved" && issue.Code == "INVALID_OPENTAP_HOME");
         vm.OpenTapHomeOverride = "";
         Assert.DoesNotContain(vm.EditingIssues, issue => issue.Code == "INVALID_OPENTAP_HOME");
@@ -204,12 +208,9 @@ public sealed class AuthoringPlanInitializationTests : IDisposable
     public void Default_home_readiness_matches_review_saved_reopened_issues_and_changed_home()
     {
         Workspace();
-        var workspace = AuthoringWorkspaceLoader.Load(_root);
-        workspace.Manifest.Dependencies.Add(new AuthoringPackageDependency { Package = OpenTapHomeBootstrapper.VisaPackageName, Version = "^0.1.0" });
-        AuthoringWorkspaceLoader.SaveManifest(_root, workspace.Manifest);
         var vm = new AuthoringWorkspaceViewModel(); vm.Open(_root); vm.StopRecovery();
         Assert.Empty(vm.OpenTapHomeOverride);
-        var adapter = AuthoringInstrumentCatalog.All.Single(item => item.DisplayName == "VISA DMM");
+        var adapter = AuthoringInstrumentCatalog.All.Single(item => item.DisplayName == "Mock DMM");
         var request = Request() with { StartingPoint = PlanStartingPoint.VoltageTask, Instruments = [new("BENCH", adapter.TypeId, "TCPIP::192.0.2.1::INSTR")], IdentityInstrumentSlot = "BENCH" };
         var home = Path.GetFullPath(Path.Combine(_root, OpenTapHomeBootstrapper.DefaultHomeRelativePath));
         var review = vm.ReviewPlanInitialization(request);
@@ -363,8 +364,8 @@ public sealed class AuthoringPlanInitializationTests : IDisposable
         vm.SetMetricSetting("SampleCount", "8"); Assert.Empty(vm.SelectedProgram.AuthoringState.IncompleteNumericText);
         vm.Undo();
         Assert.False(File.Exists(Path.Combine(_root, "new-plan.TapPlan")));
-        vm.CreateProgram("legacy"); Assert.Empty(vm.SelectedProgram!.Instruments); Assert.Empty(vm.SelectedProgram.Setup);
-        Assert.True(vm.HasUnsavedChanges); Assert.False(new AuthoringDocumentStore(_root).Load("legacy").Exists);
+        vm.InitializePlan(new("empty-edited") { Instruments = [] }); vm.DisplayName = "Edited empty plan"; Assert.Empty(vm.SelectedProgram!.Instruments); Assert.Empty(vm.SelectedProgram.Setup);
+        Assert.True(vm.HasUnsavedChanges); Assert.True(new AuthoringDocumentStore(_root).Load("empty-edited").Exists);
     }
 
     [Theory]
@@ -382,7 +383,7 @@ public sealed class AuthoringPlanInitializationTests : IDisposable
         });
         if (loopDepth > 0)
         {
-            vm.ApplyRecipe(AuthoringRecipeIds.Repeat);
+            vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Repeat);
             for (var level = 1; level < loopDepth; level++)
                 vm.ReplaceSelected(vm.SelectedProgram! with { Measure = [new RepeatNode(2, vm.SelectedProgram!.Measure)] });
             Assert.True(vm.SaveAll().Succeeded); Assert.True(vm.CanPack);
@@ -415,8 +416,8 @@ public sealed class AuthoringPlanInitializationTests : IDisposable
         Assert.DoesNotContain(vm.LastBuildReceipt!.Sources, source => source.PlanId == "new-plan");
         vm.NewInstrumentSlot = "BENCH"; vm.NewInstrumentTypeId = AuthoringInstrumentCatalog.All.Single(adapter => adapter.DisplayName == "Mock DMM").TypeId;
         vm.NewInstrumentVisa = "MOCK::BENCH"; vm.AddInstrumentSlot();
-        if (loopDepth == 0) vm.ApplyRecipe(AuthoringRecipeIds.Identity);
-        vm.ApplyRecipe(AuthoringRecipeIds.MeanGte); vm.ApplyRecipe(AuthoringRecipeIds.Shutdown);
+        if (loopDepth == 0) vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Identity);
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.MeanGte); vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Shutdown);
         if (loopDepth > 0)
         {
             IReadOnlyList<MeasureNode> corrected = [vm.SelectedProgram!.Measure.OfType<MetricNode>().Single()];
@@ -446,7 +447,7 @@ public sealed class AuthoringPlanInitializationTests : IDisposable
     }
 
     [Fact]
-    public void Legacy_compiled_only_setup_and_cleanup_plan_remains_a_supported_build_input()
+    public void Compiled_only_setup_and_cleanup_plan_remains_a_supported_build_input()
     {
         Workspace();
         var path = Path.Combine(_root, "sample.TapPlan");

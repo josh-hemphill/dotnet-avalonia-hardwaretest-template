@@ -17,7 +17,7 @@ public sealed class AuthoringChromeA11yTests
         // Inspect the actual composed surface, including the single preview constructed and moved by the shell.
         var xaml = string.Join(Environment.NewLine, new[] { shell }.Concat(views.Values));
         var shellDocument = XDocument.Parse(shell);
-        foreach (var view in viewNames.Where(name => name is not "WorkspacePreviewView" and not "HardwareView"))
+        foreach (var view in viewNames.Where(name => name is not "WorkspacePreviewView" and not "WorkspaceIssuesView" and not "HardwareView"))
             Assert.Single(shellDocument.Descendants(), element => element.Name.LocalName == view);
         Assert.Single(shellDocument.Descendants(), element => element.Name.LocalName == "ProgramSettingsView");
         Assert.Single(XDocument.Parse(views["WorkspacePreviewView"]).Descendants(), element => element.Name.LocalName == "OperatorPreviewPane");
@@ -26,6 +26,9 @@ public sealed class AuthoringChromeA11yTests
             shellDocument.Descendants().Where(element => element.Name.LocalName == "TabItem").Select(element => (string?)element.Attribute("Header")));
         var shellCode = File.ReadAllText(Path.Combine(sourceRoot, "MainWindow.Shell.cs"));
         Assert.Equal(1, CountOccurrences(shellCode, "WorkspacePreviewView _previewView = new()"));
+        Assert.Equal(1, CountOccurrences(shellCode, "WorkspaceIssuesView _issuesView = new()"));
+        Assert.Contains("previousIssues.Content = null", shellCode, StringComparison.Ordinal);
+        Assert.Contains("issuesDestination.Content = _issuesView", shellCode, StringComparison.Ordinal);
         Assert.Contains("_previewView.DataContext = _viewModel", shellCode, StringComparison.Ordinal);
         Assert.Contains("previous.Content = null", shellCode, StringComparison.Ordinal);
         Assert.Contains("destination.Content = _previewView", shellCode, StringComparison.Ordinal);
@@ -105,7 +108,14 @@ public sealed class AuthoringChromeA11yTests
         Assert.Contains("vm.ImportRecording(path)", previewCode, StringComparison.Ordinal);
         Assert.Contains("owner.Launcher.LaunchDirectoryInfoAsync(new DirectoryInfo(path))", previewCode, StringComparison.Ordinal);
         Assert.Contains("ReferenceEquals(workspace, vm.Workspace)", previewCode, StringComparison.Ordinal);
-        var code = string.Join(Environment.NewLine, new[] { "MainWindow.axaml.cs", "MainWindow.BuildEnvironment.cs" }
+        var guidanceCode = File.ReadAllText(Path.Combine(sourceRoot, "MainWindow.Guidance.cs"));
+        Assert.Contains("Click=\"OnGuidedStart\"", shell, StringComparison.Ordinal);
+        Assert.Contains("Click=\"OnResumeGuidance\"", shell, StringComparison.Ordinal);
+        Assert.Contains("await ShowGuidedInitializationAsync()", guidanceCode, StringComparison.Ordinal);
+        Assert.Contains("dialog.CaptureGuidedForm()", guidanceCode, StringComparison.Ordinal);
+        Assert.Contains("TryRun(() => _viewModel.Apply())", guidanceCode, StringComparison.Ordinal);
+        Assert.Contains("_guidedSession == _viewModel.WorkspaceSessionId", guidanceCode, StringComparison.Ordinal);
+        var code = string.Join(Environment.NewLine, new[] { "MainWindow.axaml.cs", "MainWindow.BuildEnvironment.cs", "MainWindow.Initialization.cs" }
             .Select(file => File.ReadAllText(Path.Combine(sourceRoot, file))));
         Assert.Contains("ApplyFormulaCompletion", code, StringComparison.Ordinal);
         Assert.Contains("OnOpenSettings", code, StringComparison.Ordinal);
@@ -226,6 +236,13 @@ public sealed class AuthoringChromeA11yTests
                         ["OnMoveSequenceDown"] = "Vm?.MoveSelectedSequence(1)"
                     };
                     Assert.Contains(actions[handler], viewCode, StringComparison.Ordinal);
+                    continue;
+                }
+                if (view == "WorkspaceEnvironmentView" && handler == "OnDeclareLibrary")
+                {
+                    Assert.Contains("DataContext is not AuthoringWorkspaceViewModel vm", viewCode, StringComparison.Ordinal);
+                    Assert.Contains("vm.DeclareLibraryDependency()", viewCode, StringComparison.Ordinal);
+                    Assert.Contains("vm.ReportError(AuthoringWorkspaceViewModel.PersistenceError(error))", viewCode, StringComparison.Ordinal);
                     continue;
                 }
                 if (view == "WorkspaceBuildView" && handler == "OnProgramInclusion")

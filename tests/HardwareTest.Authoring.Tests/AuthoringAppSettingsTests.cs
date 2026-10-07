@@ -82,7 +82,7 @@ public sealed class AuthoringAppSettingsTests
         var store = NewStore();
         var vm = new AuthoringWorkspaceViewModel(preferences: store);
         vm.Open(NewWorkspace());
-        vm.CreateProgram("raw-pref");
+        vm.InitializePlan(new("raw-pref") { Instruments = [] });
         vm.ReplaceSelected(vm.SelectedProgram! with
         {
             Measure = [new RawStepNode("HangForeverStep", "<TestStep />")],
@@ -113,8 +113,9 @@ public sealed class AuthoringAppSettingsTests
         Assert.Same(program, vm.SelectedProgram);
         Assert.Same(programs, vm.Programs);
 
-        vm.ApplyRecipe(AuthoringRecipeIds.Formula);
-        var formula = vm.SequenceItems.Single(row => row.Kind == SequenceRowKind.Metric);
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Acquire);
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Formula);
+        var formula = vm.SequenceItems.Single(row => row.NodeId == vm.SelectedSequence!.NodeId);
         vm.SelectSequence(vm.SequenceItems.ToList().IndexOf(formula));
         programs = vm.Programs;
         program = vm.SelectedProgram;
@@ -127,7 +128,7 @@ public sealed class AuthoringAppSettingsTests
         Assert.Same(programs, vm.Programs);
 
         var stale = vm.SelectedProgram;
-        vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Acquire);
         Assert.NotSame(stale, vm.SelectedProgram);
         var kept = vm.SelectedProgram;
         vm.SelectedProgram = stale;
@@ -176,7 +177,7 @@ public sealed class AuthoringAppSettingsTests
 
         vm.SelectMeasure(vm.SelectedProgram!.Measure.Count - 1);
         var acquisitionId = vm.SelectedSequence!.NodeId;
-        vm.ApplyRecipe(AuthoringRecipeIds.Repeat);
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Repeat);
         vm.SelectMeasure(vm.SelectedProgram!.Measure.Count - 1);
         Assert.True(vm.HasRepeatEditor);
         Assert.Equal(acquisitionId, Assert.IsType<RepeatNode>(vm.SelectedProgram!.Measure.Last()).Children.Single().NodeId);
@@ -202,8 +203,9 @@ public sealed class AuthoringAppSettingsTests
         Assert.False(vm.HasTransferFunction);
         Assert.Same(programs, vm.Programs);
 
-        vm.ApplyRecipe(AuthoringRecipeIds.TransferFunction);
-        var tf = vm.SequenceItems.Single(row => row.Kind == SequenceRowKind.Metric);
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Acquire);
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.TransferFunction);
+        var tf = vm.SequenceItems.Single(row => row.NodeId == vm.SelectedSequence!.NodeId);
         vm.SelectSequence(vm.SequenceItems.ToList().IndexOf(tf));
         Assert.True(vm.HasTransferFunction);
         programs = vm.Programs;
@@ -221,8 +223,9 @@ public sealed class AuthoringAppSettingsTests
     {
         var vm = new AuthoringWorkspaceViewModel();
         vm.Open(NewWorkspace());
-        vm.CreateProgram("prefix");
-        vm.ApplyRecipe(AuthoringRecipeIds.Formula);
+        vm.CreateDemoProgram("prefix");
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Acquire);
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Formula);
         vm.FormulaSource = "me";
         vm.RefreshFormulaCompletions(2);
         Assert.True(vm.HasFormulaPrefixCompletions);

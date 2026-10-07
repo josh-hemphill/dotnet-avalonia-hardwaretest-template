@@ -8,9 +8,11 @@ public sealed class AuthoringHardwareTests : IDisposable
 {
     private readonly string _root = Path.Combine(Path.GetTempPath(), "ht-hardware-" + Guid.NewGuid().ToString("N"));
     private readonly AuthoringWorkspaceViewModel _vm = new();
+    private readonly List<AuthoringWorkspaceViewModel> _owned = [];
 
     public AuthoringHardwareTests()
     {
+        _owned.Add(_vm);
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
         while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "dirs.proj"))) directory = directory.Parent;
         Directory.CreateDirectory(_root);
@@ -21,7 +23,7 @@ public sealed class AuthoringHardwareTests : IDisposable
     [Fact]
     public void Reviewed_edit_rejects_changed_document_and_preserves_unknown_usage()
     {
-        _vm.ApplyRecipe(AuthoringRecipeIds.Acquire); _vm.LoadHardwareEditor(); _vm.HardwareEditAddress = "MOCK::UPDATED";
+        _vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Acquire); _vm.LoadHardwareEditor(); _vm.HardwareEditAddress = "MOCK::UPDATED";
         var review = _vm.PrepareHardwareEdit(); _vm.DisplayName = "changed";
         Assert.Contains("changed since review", Assert.Throws<AuthoringWorkspaceException>(() => _vm.ApplyHardwareEdit(review)).Message);
         _vm.ReplaceSelected(_vm.SelectedProgram! with { Measure = [new RawStepNode("unknown", "<step/>")] });
@@ -32,9 +34,9 @@ public sealed class AuthoringHardwareTests : IDisposable
     [Fact]
     public void Adapter_type_and_configuration_rejection_preserves_atomic_manifest_and_membership()
     {
-        _vm.LoadHardwareEditor(); _vm.HardwareEditType = AuthoringInstrumentCatalog.All.Single(a => a.RequiredPackage == "HardwareTest VISA");
+        _vm.LoadHardwareEditor(); _vm.HardwareEditType = null;
         _vm.HardwareEditAddress = "TCPIP::bench";
-        Assert.Contains("dependency", Assert.Throws<AuthoringWorkspaceException>(() => _vm.PrepareHardwareEdit()).Message);
+        Assert.Contains("registered adapter", Assert.Throws<AuthoringWorkspaceException>(() => _vm.PrepareHardwareEdit()).Message);
         _vm.HardwareEditType = AuthoringInstrumentCatalog.All[0]; _vm.HardwareEditTimeout = "12";
         var before = AuthoringWorkspaceState.Capture(_vm.Workspace!.Manifest, _vm.Programs);
         _vm.NewInstrumentSlot = "BAD";
@@ -90,7 +92,7 @@ public sealed class AuthoringHardwareTests : IDisposable
     {
         var root = Path.Combine(_root, "empty"); Directory.CreateDirectory(root);
         File.Copy(Path.Combine(_root, "authoring.json"), Path.Combine(root, "authoring.json"));
-        var vm = new AuthoringWorkspaceViewModel(); vm.Open(root); Assert.Null(vm.SelectedProgram);
+        var vm = new AuthoringWorkspaceViewModel(); _owned.Add(vm); vm.Open(root); Assert.Null(vm.SelectedProgram);
         vm.NewRequiredField = "fixtureId"; vm.AddWorkspaceRequiredField();
         vm.NewInstrumentSlot = "BENCH"; vm.HardwareEditAddress = "MOCK::EMPTY"; vm.AddHardwareDefinition();
         Assert.Empty(vm.Programs); Assert.Single(vm.HardwareDefinitions);
@@ -165,5 +167,13 @@ public sealed class AuthoringHardwareTests : IDisposable
         }
     }
 
-    public void Dispose() => Directory.Delete(_root, recursive: true);
+    public void Dispose()
+    {
+        foreach (var vm in _owned)
+        {
+            vm.StopOperationsAsync().GetAwaiter().GetResult();
+            vm.StopRecoveryAsync().GetAwaiter().GetResult();
+        }
+        Directory.Delete(_root, recursive: true);
+    }
 }

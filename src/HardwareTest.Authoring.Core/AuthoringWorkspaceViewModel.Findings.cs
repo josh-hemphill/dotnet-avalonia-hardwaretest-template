@@ -88,6 +88,7 @@ public sealed partial class AuthoringWorkspaceViewModel
                 NavigationReason = destination?.Reason ?? "No verified source field is available; opens program settings."
             };
         })).ToArray();
+        OnPropertyChanged(nameof(EditingIssues));
         OnPropertyChanged(nameof(IssuesSummary));
     }
 

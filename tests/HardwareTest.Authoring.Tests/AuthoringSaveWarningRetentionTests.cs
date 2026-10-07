@@ -11,7 +11,7 @@ public sealed class AuthoringSaveWarningRetentionTests : IDisposable
     public void Save_all_and_home_correction_preserve_invalid_program_reason_after_later_valid_program_saves()
     {
         var vm = Open();
-        AddInvalid(vm, "a-invalid"); vm.CreateProgram("z-valid");
+        AddInvalid(vm, "a-invalid"); vm.InitializePlan(new("z-valid") { Instruments = [] }); vm.DisplayName += " edited";
         vm.OpenTapHomeOverride = "invalid\0home";
         var result = vm.SaveAll();
         Assert.True(result.Succeeded); Assert.Equal(["a-invalid", "z-valid"], result.SavedProgramIds);
@@ -39,7 +39,7 @@ public sealed class AuthoringSaveWarningRetentionTests : IDisposable
         if (mode != "draft") vm.DisplayName = "unrelated successful save";
         if (mode == "program") vm.SaveProgram("sample");
         else if (mode == "sidecar") vm.SaveSidecar();
-        else { vm.CreateProgram("z-valid"); vm.Apply(); }
+        else { vm.InitializePlan(new("z-valid") { Instruments = [] }); vm.Apply(); }
         Assert.False(vm.HasUnsavedChanges); Assert.Contains(AuthoringCompileCodes.MissingLimits, vm.SavePreviewWarning!);
         Assert.Contains(AuthoringCompileCodes.MissingLimits, vm.Error!); Assert.False(vm.CanPack);
         vm.SelectProgram("a-invalid"); vm.Threshold = "2"; vm.Apply();
@@ -50,7 +50,7 @@ public sealed class AuthoringSaveWarningRetentionTests : IDisposable
     public void Resolving_one_document_retains_another_documents_incomplete_numeric_reason()
     {
         var vm = Open(); AddInvalid(vm, "a-invalid"); vm.Apply();
-        vm.CreateDemoProgram("b-numeric"); vm.ApplyRecipe(AuthoringRecipeIds.MeanGte); vm.Threshold = "1e-"; vm.Apply();
+        vm.CreateDemoProgram("b-numeric"); vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.MeanGte); vm.Threshold = "1e-"; vm.Apply();
         Assert.Contains(AuthoringCompileCodes.MissingLimits, vm.SavePreviewWarning!);
         Assert.Contains("Incomplete numeric input", vm.SavePreviewWarning!);
         vm.SelectProgram("a-invalid"); vm.Threshold = "2"; vm.Apply();
@@ -66,7 +66,7 @@ public sealed class AuthoringSaveWarningRetentionTests : IDisposable
         var vm = Open(); vm.SelectProgram("sample"); vm.Apply();
         File.AppendAllText(Path.Combine(vm.Workspace!.Root, "sample.TapPlan"), "\n<!-- external -->");
         vm.DisplayName = "source edit"; vm.Apply();
-        vm.CreateProgram("z-valid"); vm.Apply();
+        vm.InitializePlan(new("z-valid") { Instruments = [] }); vm.Apply();
         Assert.Contains("External compiled edits require reconciliation", vm.SavePreviewWarning!);
         Assert.Contains("sample", vm.CompiledConflictProgramIds);
         vm.ReconcileCompiled("sample", useCompiledContent: false); vm.SelectProgram("sample"); vm.Apply();
@@ -93,6 +93,6 @@ public sealed class AuthoringSaveWarningRetentionTests : IDisposable
     }
     private static void AddInvalid(AuthoringWorkspaceViewModel vm, string id)
     {
-        vm.CreateDemoProgram(id); vm.ApplyRecipe(AuthoringRecipeIds.MeanGte); vm.Threshold = string.Empty;
+        vm.CreateDemoProgram(id); vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.MeanGte); vm.Threshold = string.Empty;
     }
 }

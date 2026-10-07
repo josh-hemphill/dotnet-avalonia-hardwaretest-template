@@ -1,6 +1,6 @@
 {
   "$schema": "./authoring.schema.json",
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "displayName": "HardwareTest Template Programs",
   "plansDirectory": ".",
   "package": {

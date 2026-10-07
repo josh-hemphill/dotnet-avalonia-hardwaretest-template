@@ -39,14 +39,8 @@ public static class AuthoringSourceExportGuard
 
     internal static bool WorkspaceCatalogMatches(AuthoringManifest left, AuthoringManifest right)
     {
-        static string Normalize(AuthoringManifest manifest)
-        {
-            var json = JsonSerializer.SerializeToNode(manifest, AuthoringJsonContext.Default.AuthoringManifest)!;
-            // Migrating a supported schema changes its version, not the catalog contents.
-            json["schemaVersion"] = AuthoringSchemaVersions.Manifest;
-            return json.ToJsonString();
-        }
-        return Normalize(left) == Normalize(right);
+        return JsonSerializer.Serialize(left, AuthoringJsonContext.Default.AuthoringManifest)
+            == JsonSerializer.Serialize(right, AuthoringJsonContext.Default.AuthoringManifest);
     }
 
     public static void EnsureCurrent(AuthoringWorkspace workspace)

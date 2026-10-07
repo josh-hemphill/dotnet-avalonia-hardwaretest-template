@@ -56,9 +56,29 @@ internal sealed class AuthoringUiFixture : IDisposable
     }
 
     public T Control<T>(string automationName, Avalonia.Controls.Control? root = null) where T : Avalonia.Controls.Control
-        => Assert.Single((root ?? Window ?? throw new InvalidOperationException("Show the window first."))
-            .GetVisualDescendants().OfType<T>(),
-            control => AutomationProperties.GetName(control) == automationName);
+    {
+        var scope = root ?? Window ?? throw new InvalidOperationException("Show the window first.");
+        var matches = scope.GetVisualDescendants().OfType<T>()
+            .Where(control => AutomationProperties.GetName(control) == automationName).ToArray();
+        if (matches.Length == 0 && scope is MainWindow)
+        {
+            var menus = scope.GetVisualDescendants().OfType<Button>()
+                .Where(button => button.Name is "LifecycleFocusTarget" or "SequenceActionsButton").ToArray();
+            foreach (var menu in menus)
+            {
+                var flyout = (Flyout)menu.Flyout!;
+                flyout.ShowAt(menu);
+                Drain();
+                matches = ((Avalonia.Controls.Control)flyout.Content!).GetVisualDescendants().OfType<T>()
+                    .Where(control => AutomationProperties.GetName(control) == automationName).ToArray();
+                if (matches.Length > 0) break;
+                flyout.Hide();
+            }
+        }
+        var result = Assert.Single(matches);
+        Drain();
+        return result;
+    }
 
     public static void Click(Button button)
     {
@@ -70,6 +90,16 @@ internal sealed class AuthoringUiFixture : IDisposable
 
     public void Type(TextBox box, string text)
     {
+        foreach (var menu in Window!.GetVisualDescendants().OfType<Button>().Where(button => button.Flyout is Flyout))
+        {
+            var flyout = (Flyout)menu.Flyout!;
+            if (flyout.Content is Avalonia.Controls.Control content && content.GetVisualDescendants().Contains(box))
+            {
+                if (!flyout.IsOpen) flyout.ShowAt(menu);
+                Drain();
+                break;
+            }
+        }
         box.BringIntoView();
         Drain();
         Assert.True(box.Focus());
@@ -77,7 +107,7 @@ internal sealed class AuthoringUiFixture : IDisposable
         Window!.KeyTextInput(text);
         Drain();
         // Moving focus also commits bindings whose source trigger is LostFocus.
-        Assert.True(Control<Button>("Save sidecar").Focus());
+        Assert.True(Control<Button>("Save all").Focus());
         Drain();
         Assert.Equal(text, box.Text);
     }
@@ -127,18 +157,11 @@ internal sealed class AuthoringUiFixture : IDisposable
 
     private async Task RemoveFixtureAsync()
     {
-        var elapsed = System.Diagnostics.Stopwatch.StartNew();
-        while (true)
-        {
-            try { Directory.Delete(_root, recursive: true); return; }
-            catch (DirectoryNotFoundException) { return; }
-            catch (Exception error) when (error is IOException or UnauthorizedAccessException)
-            {
-                if (elapsed.Elapsed >= TimeSpan.FromSeconds(5)) throw;
-                await Task.Delay(20).ConfigureAwait(false);
-            }
-        }
+        await ViewModel.StopRecoveryAsync().ConfigureAwait(false);
+        try { Directory.Delete(_root, recursive: true); }
+        catch (DirectoryNotFoundException) { }
     }
+
     private async Task CloseWindowAsync()
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));

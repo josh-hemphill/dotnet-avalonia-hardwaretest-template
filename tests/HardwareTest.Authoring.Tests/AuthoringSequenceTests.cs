@@ -9,7 +9,7 @@ public sealed class AuthoringSequenceTests
     [Fact]
     public void Flatten_sections_setup_measure_cleanup_without_a_tree()
     {
-        var draft = AuthoringRecipeCatalog.CreateProgram("seq");
+        var draft = MockDmmDraftFixture.Create("seq");
         draft = AuthoringRecipeCatalog.Apply(draft, AuthoringRecipeIds.Prompt);
         draft = AuthoringRecipeCatalog.Apply(draft, AuthoringRecipeIds.Acquire);
         draft = AuthoringRecipeCatalog.Apply(draft, AuthoringRecipeIds.MeanGte);
@@ -51,7 +51,7 @@ public sealed class AuthoringSequenceTests
     [Fact]
     public void Flatten_cleanup_detail_lists_resolved_union_slots()
     {
-        var created = AuthoringRecipeCatalog.CreateProgram("union-detail");
+        var created = MockDmmDraftFixture.Create("union-detail");
         var typeId = created.Instruments[0].TypeId;
         var applied = AuthoringRecipeCatalog.Apply(created, AuthoringRecipeIds.Acquire);
         var metric = Assert.IsType<MetricNode>(Assert.Single(applied.Measure)).Metric;
@@ -74,7 +74,7 @@ public sealed class AuthoringSequenceTests
     public void MutateMeasure_updates_nested_child_only()
     {
         var acquire = AuthoringRecipeCatalog.Apply(
-            AuthoringRecipeCatalog.CreateProgram("seq"),
+            MockDmmDraftFixture.Create("seq"),
             AuthoringRecipeIds.Acquire);
         var wrapped = AuthoringRecipeCatalog.Apply(acquire, AuthoringRecipeIds.Repeat);
         var mutated = AuthoringSequence.MutateMeasure(
@@ -126,7 +126,7 @@ public sealed class AuthoringSequenceTests
     public void RemoveMeasure_drops_a_leaf_and_unwraps_repeat()
     {
         var acquire = AuthoringRecipeCatalog.Apply(
-            AuthoringRecipeCatalog.CreateProgram("seq"),
+            MockDmmDraftFixture.Create("seq"),
             AuthoringRecipeIds.Acquire);
         var mean = AuthoringRecipeCatalog.Apply(acquire, AuthoringRecipeIds.MeanGte);
         var wrapped = AuthoringRecipeCatalog.Apply(mean, AuthoringRecipeIds.Repeat);
@@ -147,7 +147,7 @@ public sealed class AuthoringSequenceTests
     public void SameKeys_ignores_label_and_detail_changes()
     {
         var draft = AuthoringRecipeCatalog.Apply(
-            AuthoringRecipeCatalog.CreateProgram("keys"),
+            MockDmmDraftFixture.Create("keys"),
             AuthoringRecipeIds.Acquire);
         var left = AuthoringSequence.Flatten(draft);
         var renamed = AuthoringSequence.MutateMeasure(
@@ -188,8 +188,8 @@ public sealed class AuthoringSequenceViewModelTests
     {
         var vm = OpenEmpty();
         vm.CreateDemoProgram("repeat-child");
-        vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
-        vm.ApplyRecipe(AuthoringRecipeIds.MeanGte);
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Acquire);
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.MeanGte);
         var acquire = Assert.IsType<MetricNode>(vm.SelectedProgram!.Measure[0]);
         var mean = Assert.IsType<MetricNode>(vm.SelectedProgram.Measure[1]);
         vm.ReplaceSelected(vm.SelectedProgram with
@@ -239,7 +239,7 @@ public sealed class AuthoringSequenceViewModelTests
         Assert.Equal(shutdown, vm.SelectedSequenceIndex);
         Assert.Equal(SequenceRowKind.Cleanup, vm.SelectedSequence?.Kind);
 
-        vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Acquire);
         cleanupHeader = vm.SequenceItems.ToList().FindIndex(row =>
             row.Kind == SequenceRowKind.Header && row.Section == SequenceSection.Cleanup);
         shutdown = vm.SequenceItems.ToList().FindIndex(row => row.Kind == SequenceRowKind.Cleanup);
@@ -253,10 +253,10 @@ public sealed class AuthoringSequenceViewModelTests
     {
         var vm = OpenEmpty();
         vm.CreateDemoProgram("remove-seq");
-        vm.ApplyRecipe(AuthoringRecipeIds.Prompt);
-        vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
-        vm.ApplyRecipe(AuthoringRecipeIds.MeanGte);
-        vm.ApplyRecipe(AuthoringRecipeIds.Repeat);
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Prompt);
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Acquire);
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.MeanGte);
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Repeat);
 
         var prompt = vm.SequenceItems.Single(row => row.Label == "Operator Prompt");
         vm.SelectSequence(vm.SequenceItems.ToList().IndexOf(prompt));
@@ -297,11 +297,15 @@ public sealed class AuthoringSequenceViewModelTests
     public void Remove_selected_program_drops_session_and_saved_files()
     {
         var vm = OpenEmpty();
-        vm.CreateProgram("keep-me");
-        vm.CreateProgram("drop-unsaved");
+        vm.InitializePlan(new("keep-me") { Instruments = [] });
+        vm.InitializePlan(new("drop-source") { Instruments = [] });
+        var store = new AuthoringDocumentStore(vm.Workspace!.Root);
+        var removedSource = store.GetDocumentPath("drop-source");
+        Assert.True(File.Exists(removedSource));
         Assert.True(vm.CanRemoveSelectedProgram);
         vm.RemoveSelectedProgram();
-        Assert.DoesNotContain(vm.Programs, program => program.PlanId == "drop-unsaved");
+        Assert.DoesNotContain(vm.Programs, program => program.PlanId == "drop-source");
+        Assert.False(File.Exists(removedSource));
         Assert.Equal("keep-me", vm.SelectedProgram?.PlanId);
 
         vm.Apply();
@@ -313,6 +317,7 @@ public sealed class AuthoringSequenceViewModelTests
         Assert.Null(vm.SelectedProgram);
         Assert.False(File.Exists(tap));
         Assert.False(File.Exists(sidecar));
+        Assert.False(File.Exists(store.GetDocumentPath("keep-me")));
         Assert.False(vm.CanRemoveSelectedProgram);
     }
 
@@ -320,9 +325,9 @@ public sealed class AuthoringSequenceViewModelTests
     public void Remove_selected_program_keeps_the_neighbor()
     {
         var vm = OpenEmpty();
-        vm.CreateProgram("alpha");
-        vm.CreateProgram("beta");
-        vm.CreateProgram("gamma");
+        vm.InitializePlan(new("alpha") { Instruments = [] });
+        vm.InitializePlan(new("beta") { Instruments = [] });
+        vm.InitializePlan(new("gamma") { Instruments = [] });
 
         vm.SelectProgram("beta");
         vm.RemoveSelectedProgram();
@@ -343,7 +348,7 @@ public sealed class AuthoringSequenceViewModelTests
     {
         var dest = Path.Combine(Path.GetTempPath(), "ht-ro-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(dest);
-        new PlanCompiler().Save(AuthoringRecipeCatalog.CreateProgram("locked"), Path.Combine(dest, "locked.TapPlan"));
+        new PlanCompiler().Save(MockDmmDraftFixture.Create("locked"), Path.Combine(dest, "locked.TapPlan"));
         File.WriteAllText(
             Path.Combine(dest, "authoring.json"),
             """
@@ -357,7 +362,7 @@ public sealed class AuthoringSequenceViewModelTests
         var vm = new AuthoringWorkspaceViewModel();
         vm.Open(dest);
         Assert.True(vm.Workspace!.IsReadOnly);
-        Assert.Throws<AuthoringWorkspaceException>(() => vm.CreateProgram("another"));
+        Assert.Throws<AuthoringWorkspaceException>(() => vm.InitializePlan(new("another") { Instruments = [] }));
         Assert.False(vm.CanRemoveSelectedProgram);
         var ex = Assert.Throws<AuthoringWorkspaceException>(vm.RemoveSelectedProgram);
         Assert.Contains("read-only", ex.Message, StringComparison.Ordinal);
@@ -370,8 +375,8 @@ public sealed class AuthoringSequenceViewModelTests
     {
         var vm = OpenEmpty();
         vm.CreateDemoProgram("repeat-count");
-        vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
-        vm.ApplyRecipe(AuthoringRecipeIds.Repeat);
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Acquire);
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Repeat);
         var repeatRow = vm.SequenceItems.Single(row => row.Kind == SequenceRowKind.Repeat);
         vm.SelectSequence(vm.SequenceItems.ToList().IndexOf(repeatRow));
         Assert.Equal("2", vm.RepeatCount);

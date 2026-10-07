@@ -19,7 +19,7 @@ public sealed class AuthoringEnvironmentBuildTests : IDisposable
         var workspace = AuthoringWorkspaceLoader.Load(root);
         workspace.Manifest.Package.Name = "Scoped Build";
         AuthoringWorkspaceLoader.SaveManifest(root, workspace.Manifest);
-        var draft = AuthoringRecipeCatalog.CreateProgram("blocked") with
+        var draft = MockDmmDraftFixture.Create("blocked") with
         {
             Measure = [new MetricNode(new MetricDraft("Unsupported", "result", "scalar", "V", new LimitSpec(null, null, 0), null,
                 new ExpressionAlgorithm([], "std(input)")))]

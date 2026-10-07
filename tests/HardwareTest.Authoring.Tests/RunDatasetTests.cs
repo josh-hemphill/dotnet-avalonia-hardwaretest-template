@@ -8,9 +8,9 @@ namespace HardwareTest.Authoring.Tests;
 public sealed class RunDatasetTests
 {
     [Fact]
-    public void Load_v1_fixture_exposes_vdc_series()
+    public void Load_current_fixture_exposes_vdc_series()
     {
-        var dataset = RunDatasetCatalog.Load(Path.Combine(FindRepoRoot(), "tests", "fixtures", "schema", "run-v1.json"));
+        var dataset = RunDatasetCatalog.Load(Path.Combine(FindRepoRoot(), "tests", "fixtures", "schema", "run-v4.json"));
         var series = RunDatasetBinder.SeriesByMetric(dataset.Run);
         Assert.True(series.ContainsKey("VDC"));
         Assert.Equal(10, Assert.Single(series["VDC"]).Value);
@@ -120,6 +120,19 @@ public sealed class RunDatasetTests
         Assert.True(dataset.Run.IsSchemaReadOnly);
         Assert.Equal(999, dataset.Run.StoredSchemaVersion);
         Assert.Equal(before, File.ReadAllText(dest));
+    }
+
+    [Theory]
+    [InlineData("run-v0-legacy.json")]
+    [InlineData("run-v1.json")]
+    public void Unsupported_recording_is_rejected_without_changing_bytes(string fixture)
+    {
+        var path = Path.Combine(NewTempDir(), "run.json");
+        File.Copy(Path.Combine(FindRepoRoot(), "tests", "fixtures", "schema", fixture), path);
+        var before = File.ReadAllBytes(path);
+        var error = Assert.Throws<AuthoringWorkspaceException>(() => RunDatasetCatalog.Load(path));
+        Assert.Contains("Unsupported", error.Message, StringComparison.Ordinal);
+        Assert.Equal(before, File.ReadAllBytes(path));
     }
 
     [Fact]

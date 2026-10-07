@@ -84,7 +84,7 @@ public sealed record AuthoringBuildResult
         Manifest = manifest with
         {
             Files = Array.AsReadOnly(manifest.Files.ToArray()),
-            Dependencies = Array.AsReadOnly(manifest.ResolvedDependencies.ToArray())
+            Dependencies = Array.AsReadOnly(manifest.Dependencies.ToArray())
         };
         Receipt = receipt;
     }

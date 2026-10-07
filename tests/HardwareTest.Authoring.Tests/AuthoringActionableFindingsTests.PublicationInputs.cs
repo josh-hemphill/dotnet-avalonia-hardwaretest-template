@@ -16,7 +16,7 @@ public sealed partial class AuthoringActionableFindingsTests
     [MemberData(nameof(InvalidManifestChecks))]
     public async Task Validation_refuses_actual_saved_manifest_unsupported_or_changed_catalog(bool async, bool empty, string change)
     {
-        PrepareCheckedInputs(empty);
+        await PrepareCheckedInputsAsync(empty);
         ConfigureValidationChild();
         var path = CheckedInputPath("manifest");
         ChangeSavedInput(path, change);
@@ -42,9 +42,9 @@ public sealed partial class AuthoringActionableFindingsTests
 
     [Theory]
     [MemberData(nameof(SaveInputFailures))]
-    public void Save_refuses_unverifiable_checked_inputs_before_any_publication(string operation, string input, string change, bool empty)
+    public async Task Save_refuses_unverifiable_checked_inputs_before_any_publication(string operation, string input, string change, bool empty)
     {
-        PrepareCheckedInputs(empty);
+        await PrepareCheckedInputsAsync(empty);
         var path = CheckedInputPath(input);
         if (change != "lock") ChangeSavedInput(path, change);
         var original = CapturePublishedBytes();
@@ -64,9 +64,9 @@ public sealed partial class AuthoringActionableFindingsTests
 
     [Theory]
     [MemberData(nameof(DirtySaveInputFailures))]
-    public void Save_refusal_keeps_dirty_content_and_prevents_SaveAll_catalog_publication(string operation, string input)
+    public async Task Save_refusal_keeps_dirty_content_and_prevents_SaveAll_catalog_publication(string operation, string input)
     {
-        PrepareCheckedInputs(false);
+        await PrepareCheckedInputsAsync(false);
         _vm.DisplayName = "dirty content must remain";
         if (operation == "all")
         {
@@ -89,9 +89,9 @@ public sealed partial class AuthoringActionableFindingsTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public void Synchronous_validation_byte_change_at_completion_reports_earlier_revision(bool empty)
+    public async Task Synchronous_validation_byte_change_at_completion_reports_earlier_revision(bool empty)
     {
-        PrepareCheckedInputs(empty);
+        await PrepareCheckedInputsAsync(empty);
         var path = CheckedInputPath("manifest");
         _vm.ValidateSavedPlans = (paths, options) =>
         {
@@ -110,7 +110,7 @@ public sealed partial class AuthoringActionableFindingsTests
     {
         var store = new AuthoringDocumentStore(_root);
         var path = store.GetDocumentPath("other");
-        store.Save(AuthoringDocumentDto.FromDraft(AuthoringRecipeCatalog.CreateProgram("other")));
+        store.Save(AuthoringDocumentDto.FromDraft(MockDmmDraftFixture.Create("other")));
         ChangeSavedInput(path, "future");
         var future = File.ReadAllBytes(path);
         _vm.SelectProgram("sample");
@@ -126,7 +126,7 @@ public sealed partial class AuthoringActionableFindingsTests
     [InlineData(true)]
     public async Task Validation_retains_a_saved_drafts_duplicate_channel_compilation_diagnostic(bool async)
     {
-        PrepareCheckedInputs(true);
+        await PrepareCheckedInputsAsync(true);
         var original = _vm.SelectedProgram!.Measure.OfType<MetricNode>().First();
         _vm.ReplaceSelected(_vm.SelectedProgram with { Measure = [original, new MetricNode(original.Metric with { Name = "duplicate" })] });
         _vm.Apply();

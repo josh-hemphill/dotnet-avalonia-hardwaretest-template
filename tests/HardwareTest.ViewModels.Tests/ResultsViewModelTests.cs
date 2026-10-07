@@ -2,6 +2,7 @@ using System.Reactive;
 using HardwareTest.Core.Credentials;
 using HardwareTest.Core.Reporting;
 using HardwareTest.Core.Runs;
+using HardwareTest.Core.Serialization;
 using HardwareTest.Core.Settings;
 using HardwareTest.Features.Results;
 using HardwareTest.ViewModels.Tests.Fakes;
@@ -18,6 +19,7 @@ public sealed class ResultsViewModelTests
         var store = new FakeRunStore();
         store.Seed(new TestRunRecord
         {
+            SchemaVersion = SchemaVersions.TestRunRecord,
             RunId = "r2",
             PlanName = "Sample",
             DutSerial = "SN-R",
@@ -26,16 +28,30 @@ public sealed class ResultsViewModelTests
             OperatorName = "Op",
             StartedAt = DateTimeOffset.UtcNow,
             Result = RunResult.Passed,
-            Steps =
+            StepAttempts =
             [
-                new StepResultRecord
+                new StepAttemptSummary
                 {
-                    StepId = "Identity",
-                    StepType = "IdentityCheckStep",
-                    Passed = true,
-                    Message = "ok",
-                    StartedAt = DateTimeOffset.UtcNow,
-                    CompletedAt = DateTimeOffset.UtcNow,
+                    StepPath = "Identity",
+                    StepName = "Identity",
+                    AttemptCount = 1,
+                    PassedCount = 1,
+                    LatestPassed = true,
+                    LatestMessage = "ok",
+                    Attempts =
+                    [
+                        new StepResultRecord
+                        {
+                            StepPath = "Identity",
+                            AttemptNumber = 1,
+                            StepId = "Identity",
+                            StepType = "IdentityCheckStep",
+                            Passed = true,
+                            Message = "ok",
+                            StartedAt = DateTimeOffset.UtcNow,
+                            CompletedAt = DateTimeOffset.UtcNow,
+                        },
+                    ],
                 },
             ],
             Samples =
@@ -58,15 +74,29 @@ public sealed class ResultsViewModelTests
     public async Task Open_caps_step_and_sample_sidebar_rows()
     {
         var store = new FakeRunStore();
-        var steps = Enumerable.Range(0, 250)
-            .Select(i => new StepResultRecord
+        var stepAttempts = Enumerable.Range(0, 250)
+            .Select(i => new StepAttemptSummary
             {
-                StepId = $"step-{i}",
-                StepType = "Acquire",
-                Passed = true,
-                Message = "ok",
-                StartedAt = DateTimeOffset.UtcNow,
-                CompletedAt = DateTimeOffset.UtcNow,
+                StepPath = $"step-{i}",
+                StepName = $"step-{i}",
+                AttemptCount = 1,
+                PassedCount = 1,
+                LatestPassed = true,
+                LatestMessage = "ok",
+                Attempts =
+                [
+                    new StepResultRecord
+                    {
+                        StepId = $"step-{i}",
+                        StepPath = $"step-{i}",
+                        StepType = "Acquire",
+                        AttemptNumber = 1,
+                        Passed = true,
+                        Message = "ok",
+                        StartedAt = DateTimeOffset.UtcNow,
+                        CompletedAt = DateTimeOffset.UtcNow,
+                    },
+                ],
             })
             .ToList();
         var samples = Enumerable.Range(0, 250)
@@ -79,12 +109,13 @@ public sealed class ResultsViewModelTests
             .ToList();
         store.Seed(new TestRunRecord
         {
+            SchemaVersion = SchemaVersions.TestRunRecord,
             RunId = "big",
             PlanName = "Sample",
             DutSerial = "SN-BIG",
             StartedAt = DateTimeOffset.UtcNow,
             Result = RunResult.Passed,
-            Steps = steps,
+            StepAttempts = stepAttempts,
             Samples = samples,
         });
 
@@ -105,6 +136,7 @@ public sealed class ResultsViewModelTests
         var store = new FakeRunStore();
         store.Seed(new TestRunRecord
         {
+            SchemaVersion = SchemaVersions.TestRunRecord,
             RunId = "prior",
             PlanId = "sample",
             PlanName = "Sample",
@@ -115,6 +147,7 @@ public sealed class ResultsViewModelTests
         });
         store.Seed(new TestRunRecord
         {
+            SchemaVersion = SchemaVersions.TestRunRecord,
             RunId = "current",
             PlanId = "sample",
             PlanName = "Sample",
@@ -152,6 +185,7 @@ public sealed class ResultsViewModelTests
         var store = new FakeRunStore();
         store.Seed(new TestRunRecord
         {
+            SchemaVersion = SchemaVersions.TestRunRecord,
             RunId = "pres-1",
             PlanName = "Sample",
             DutSerial = "SN-P",
@@ -199,6 +233,7 @@ public sealed class ResultsViewModelTests
         var store = new FakeRunStore();
         store.Seed(new TestRunRecord
         {
+            SchemaVersion = SchemaVersions.TestRunRecord,
             RunId = "pres-tiles",
             PlanName = "Sample",
             DutSerial = "SN-T",
@@ -264,6 +299,7 @@ public sealed class ResultsViewModelTests
         var store = new FakeRunStore();
         store.Seed(new TestRunRecord
         {
+            SchemaVersion = SchemaVersions.TestRunRecord,
             RunId = "r1",
             PlanName = "P",
             StartedAt = DateTimeOffset.UtcNow,
@@ -289,6 +325,7 @@ public sealed class ResultsViewModelTests
         var store = new FakeRunStore();
         var run = new TestRunRecord
         {
+            SchemaVersion = SchemaVersions.TestRunRecord,
             RunId = "r1",
             PlanName = "P",
             StartedAt = DateTimeOffset.UtcNow,
@@ -318,6 +355,7 @@ public sealed class ResultsViewModelTests
         await File.WriteAllBytesAsync(pdf, "%PDF-1.4"u8.ToArray());
         var run = new TestRunRecord
         {
+            SchemaVersion = SchemaVersions.TestRunRecord,
             RunId = "cert-view",
             PlanId = "sample",
             PlanName = "Sample",
@@ -327,6 +365,7 @@ public sealed class ResultsViewModelTests
             [
                 new RunReportArtifact
                 {
+                    Role = ReportArtifactRoles.Working,
                     Kind = ReportKinds.Certification,
                     Title = "Certification Report",
                     PdfPath = pdf,
@@ -373,8 +412,27 @@ public sealed class ResultsViewModelTests
         var pdf = Path.Combine(store.GetRunDirectory("cert-shown"), "certification.pdf");
         Directory.CreateDirectory(Path.GetDirectoryName(pdf)!);
         await File.WriteAllBytesAsync(pdf, "%PDF-1.4"u8.ToArray());
+        var issuedPdf = Path.Combine(store.GetRunDirectory("cert-shown"), ReportArtifactRoles.DirectoryName,
+            $"certification-{Guid.NewGuid():N}.pdf");
+        Directory.CreateDirectory(Path.GetDirectoryName(issuedPdf)!);
+        var issuedBytes = "%PDF-1.4 issued certification"u8.ToArray();
+        await File.WriteAllBytesAsync(issuedPdf, issuedBytes);
+        var attestation = new ReportAttestation
+        {
+            Kind = AttestationKind.Signed,
+            ReportKind = ReportKinds.Certification,
+            DisplayName = "Jane Certifier",
+            Serial = "CARD-1",
+            Transport = CredentialTransport.Contact,
+            CapturedAt = new DateTimeOffset(2026, 9, 18, 12, 0, 0, TimeSpan.Zero),
+            SidecarPath = Path.ChangeExtension(issuedPdf, ".attestation.json"),
+            PdfSha256 = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(issuedBytes)),
+        };
+        await File.WriteAllTextAsync(attestation.SidecarPath!, System.Text.Json.JsonSerializer.Serialize(
+            new ReportAttestationSidecar { Attestation = attestation }, AppJsonContext.Default.ReportAttestationSidecar));
         store.Seed(new TestRunRecord
         {
+            SchemaVersion = SchemaVersions.TestRunRecord,
             RunId = "cert-shown",
             PlanName = "Sample",
             OperatorName = "Session Technician",
@@ -384,24 +442,22 @@ public sealed class ResultsViewModelTests
             [
                 new RunReportArtifact
                 {
+                    Role = ReportArtifactRoles.Working,
                     Kind = ReportKinds.Certification,
                     Title = "Certification Report",
                     PdfPath = pdf,
                     GeneratedAt = DateTimeOffset.UtcNow,
                 },
-            ],
-            Attestations =
-            [
-                new ReportAttestation
+                new RunReportArtifact
                 {
-                    Kind = AttestationKind.Signed,
-                    ReportKind = ReportKinds.Certification,
-                    DisplayName = "Jane Certifier",
-                    Serial = "CARD-1",
-                    Transport = CredentialTransport.Contact,
-                    CapturedAt = new DateTimeOffset(2026, 9, 18, 12, 0, 0, TimeSpan.Zero),
+                    Role = ReportArtifactRoles.Issued,
+                    Kind = ReportKinds.Certification,
+                    Title = "Issued Certification Report",
+                    PdfPath = issuedPdf,
+                    GeneratedAt = DateTimeOffset.UtcNow,
                 },
             ],
+            Attestations = [attestation],
         });
         var vm = new ResultsViewModel(store, new FakeReportService());
         await vm.RefreshCommand.ExecuteAsync();
@@ -420,6 +476,7 @@ public sealed class ResultsViewModelTests
         await File.WriteAllBytesAsync(pdf, "%PDF-1.4"u8.ToArray());
         var run = new TestRunRecord
         {
+            SchemaVersion = SchemaVersions.TestRunRecord,
             RunId = "cert-stamp",
             PlanName = "Sample",
             StartedAt = DateTimeOffset.UtcNow,
@@ -428,6 +485,7 @@ public sealed class ResultsViewModelTests
             [
                 new RunReportArtifact
                 {
+                    Role = ReportArtifactRoles.Working,
                     Kind = ReportKinds.Certification,
                     Title = "Certification Report",
                     PdfPath = pdf,
@@ -466,12 +524,14 @@ public sealed class ResultsViewModelTests
     [Fact]
     public async Task Export_and_open_certification_show_attestation_overlay_until_badge()
     {
-        var store = new FakeRunStore();
+        using var store = new FakeRunStore();
         var pdf = Path.Combine(store.GetRunDirectory("cert-1"), "certification.pdf");
         Directory.CreateDirectory(Path.GetDirectoryName(pdf)!);
         await File.WriteAllBytesAsync(pdf, "%PDF-1.4"u8.ToArray());
+        await File.WriteAllTextAsync(Path.Combine(store.GetRunDirectory("cert-1"), "stray.attestation.json"), "unrelated evidence");
         var run = new TestRunRecord
         {
+            SchemaVersion = SchemaVersions.TestRunRecord,
             RunId = "cert-1",
             PlanId = "sample",
             PlanName = "Sample",
@@ -481,6 +541,7 @@ public sealed class ResultsViewModelTests
             [
                 new RunReportArtifact
                 {
+                    Role = ReportArtifactRoles.Working,
                     Kind = ReportKinds.Certification,
                     Title = "Certification Report",
                     PdfPath = pdf,
@@ -530,6 +591,10 @@ public sealed class ResultsViewModelTests
         Assert.Contains("Exported package", vm.Status, StringComparison.OrdinalIgnoreCase);
         Assert.NotNull(export.LastPackageDir);
         Assert.True(File.Exists(Path.Combine(export.LastPackageDir!, "certification.attestation.json")));
+        Assert.False(File.Exists(Path.Combine(export.LastPackageDir!, "stray.attestation.json")));
+        Assert.Equal(
+            await File.ReadAllBytesAsync(run.Attestations[0].SidecarPath!),
+            await File.ReadAllBytesAsync(Path.Combine(export.LastPackageDir!, "certification.attestation.json")));
     }
 
     [Fact]
@@ -541,6 +606,7 @@ public sealed class ResultsViewModelTests
         await File.WriteAllBytesAsync(pdf, "%PDF-1.4"u8.ToArray());
         var run = new TestRunRecord
         {
+            SchemaVersion = SchemaVersions.TestRunRecord,
             RunId = "cert-sign",
             PlanName = "Sample",
             StartedAt = DateTimeOffset.UtcNow,
@@ -549,6 +615,7 @@ public sealed class ResultsViewModelTests
             [
                 new RunReportArtifact
                 {
+                    Role = ReportArtifactRoles.Working,
                     Kind = ReportKinds.Certification,
                     Title = "Certification Report",
                     PdfPath = pdf,
@@ -589,6 +656,7 @@ public sealed class ResultsViewModelTests
         await File.WriteAllBytesAsync(pdf, "%PDF-1.4"u8.ToArray());
         var run = new TestRunRecord
         {
+            SchemaVersion = SchemaVersions.TestRunRecord,
             RunId = "cert-pin",
             PlanName = "Sample",
             StartedAt = DateTimeOffset.UtcNow,
@@ -597,6 +665,7 @@ public sealed class ResultsViewModelTests
             [
                 new RunReportArtifact
                 {
+                    Role = ReportArtifactRoles.Working,
                     Kind = ReportKinds.Certification,
                     Title = "Certification Report",
                     PdfPath = pdf,
@@ -654,6 +723,7 @@ public sealed class ResultsViewModelTests
         await File.WriteAllBytesAsync(pdf, "%PDF-1.4"u8.ToArray());
         var run = new TestRunRecord
         {
+            SchemaVersion = SchemaVersions.TestRunRecord,
             RunId = "cert-print",
             PlanName = "Sample",
             StartedAt = DateTimeOffset.UtcNow,
@@ -662,6 +732,7 @@ public sealed class ResultsViewModelTests
             [
                 new RunReportArtifact
                 {
+                    Role = ReportArtifactRoles.Working,
                     Kind = ReportKinds.Certification,
                     Title = "Certification Report",
                     PdfPath = pdf,
@@ -714,32 +785,47 @@ public sealed class ResultsViewModelTests
         await File.WriteAllTextAsync(pdf, "pdf");
         store.Seed(new TestRunRecord
         {
+            SchemaVersion = SchemaVersions.TestRunRecord,
             RunId = "sel-1",
             PlanId = "sample",
             PlanName = "Sample",
             StartedAt = DateTimeOffset.UtcNow,
             Result = RunResult.Passed,
-            ReportPdfPath = pdf,
             Reports =
             [
                 new RunReportArtifact
                 {
+                    Role = ReportArtifactRoles.Working,
                     Kind = ReportKinds.Status,
                     Title = "Status",
                     PdfPath = pdf,
                     GeneratedAt = DateTimeOffset.UtcNow,
                 },
             ],
-            Steps =
+            StepAttempts =
             [
-                new StepResultRecord
+                new StepAttemptSummary
                 {
-                    StepId = "s1",
-                    StepType = "Acquire",
-                    Passed = true,
-                    Message = "ok",
-                    StartedAt = DateTimeOffset.UtcNow,
-                    CompletedAt = DateTimeOffset.UtcNow,
+                    StepPath = "s1",
+                    StepName = "s1",
+                    AttemptCount = 1,
+                    PassedCount = 1,
+                    LatestPassed = true,
+                    LatestMessage = "ok",
+                    Attempts =
+                    [
+                        new StepResultRecord
+                        {
+                            StepPath = "s1",
+                            AttemptNumber = 1,
+                            StepId = "s1",
+                            StepType = "Acquire",
+                            Passed = true,
+                            Message = "ok",
+                            StartedAt = DateTimeOffset.UtcNow,
+                            CompletedAt = DateTimeOffset.UtcNow,
+                        },
+                    ],
                 },
             ],
         });
@@ -765,6 +851,7 @@ public sealed class ResultsViewModelTests
         await File.WriteAllTextAsync(certPdf, "pdf");
         store.Seed(new TestRunRecord
         {
+            SchemaVersion = SchemaVersions.TestRunRecord,
             RunId = "def-1",
             PlanId = "sample",
             PlanName = "Sample",
@@ -774,6 +861,7 @@ public sealed class ResultsViewModelTests
             [
                 new RunReportArtifact
                 {
+                    Role = ReportArtifactRoles.Working,
                     Kind = ReportKinds.Certification,
                     Title = "Certification",
                     PdfPath = certPdf,
@@ -781,6 +869,7 @@ public sealed class ResultsViewModelTests
                 },
                 new RunReportArtifact
                 {
+                    Role = ReportArtifactRoles.Working,
                     Kind = ReportKinds.Status,
                     Title = "Status",
                     PdfPath = statusPdf,
@@ -805,11 +894,12 @@ public sealed class ResultsViewModelTests
     {
         var run = new TestRunRecord
         {
+            SchemaVersion = SchemaVersions.TestRunRecord,
             PlanId = "sample",
             Reports =
             [
-                new RunReportArtifact { Kind = ReportKinds.Certification, PdfPath = "c.pdf" },
-                new RunReportArtifact { Kind = ReportKinds.Status, PdfPath = "s.pdf" },
+                new RunReportArtifact { Role = ReportArtifactRoles.Working, Kind = ReportKinds.Certification, PdfPath = "c.pdf" },
+                new RunReportArtifact { Role = ReportArtifactRoles.Working, Kind = ReportKinds.Status, PdfPath = "s.pdf" },
             ],
         };
         Assert.Equal("s.pdf", ResultsViewModel.ResolveDefaultReportPath(run));
@@ -820,6 +910,7 @@ public sealed class ResultsViewModelTests
     {
         var run = new TestRunRecord
         {
+            SchemaVersion = SchemaVersions.TestRunRecord,
             PlanId = "sample",
             Reports =
             [
@@ -841,6 +932,38 @@ public sealed class ResultsViewModelTests
     }
 
     [Fact]
+    public void ResolveDefaultReportPath_issued_only_has_no_working_default()
+    {
+        var run = new TestRunRecord
+        {
+            SchemaVersion = SchemaVersions.TestRunRecord,
+            PlanId = "sample",
+            Reports = [new RunReportArtifact { Kind = ReportKinds.Status, Role = ReportArtifactRoles.Issued, PdfPath = "issued/status.pdf" }],
+        };
+
+        Assert.Null(ResultsViewModel.ResolveDefaultReportPath(run));
+        Assert.Equal("issued/status.pdf", ReportAttestationService.ResolvePdfPath(run, ReportKinds.Status));
+    }
+
+    [Fact]
+    public void ResolveDefaultWorkingPdfPath_supports_custom_kind_and_skips_nonworking_artifacts()
+    {
+        var run = new TestRunRecord
+        {
+            SchemaVersion = SchemaVersions.TestRunRecord,
+            Reports =
+            [
+                new RunReportArtifact { Kind = "custom", Role = ReportArtifactRoles.Issued, PdfPath = "issued/custom.pdf" },
+                new RunReportArtifact { Kind = ReportKinds.Status, Role = ReportArtifactRoles.Working, PdfPath = "status.pdf" },
+                new RunReportArtifact { Kind = "custom", Role = ReportArtifactRoles.Working, PdfPath = "custom.pdf" },
+            ],
+        };
+
+        Assert.Equal("custom.pdf", ReportAttestationService.ResolveDefaultWorkingPdfPath(run, "custom"));
+        Assert.Equal("status.pdf", ReportAttestationService.ResolveDefaultWorkingPdfPath(run, "missing"));
+    }
+
+    [Fact]
     public void CollectExportReportFiles_uses_issued_as_canonical_pdf()
     {
         var root = Path.Combine(Path.GetTempPath(), "ht-export-" + Guid.NewGuid().ToString("N"));
@@ -853,6 +976,7 @@ public sealed class ResultsViewModelTests
         {
             var run = new TestRunRecord
             {
+                SchemaVersion = SchemaVersions.TestRunRecord,
                 Reports =
                 [
                     new RunReportArtifact
@@ -899,6 +1023,7 @@ public sealed class ResultsViewModelTests
         await File.WriteAllTextAsync(issued, "issued");
         store.Seed(new TestRunRecord
         {
+            SchemaVersion = SchemaVersions.TestRunRecord,
             RunId = "both-1",
             PlanId = "sample",
             PlanName = "Sample",
@@ -950,6 +1075,7 @@ public sealed class ResultsViewModelTests
         var store = new FakeRunStore();
         store.Seed(new TestRunRecord
         {
+            SchemaVersion = SchemaVersions.TestRunRecord,
             RunId = "a",
             PlanId = "sample",
             PlanName = "Sample Hardware Suite",
@@ -959,6 +1085,7 @@ public sealed class ResultsViewModelTests
         });
         store.Seed(new TestRunRecord
         {
+            SchemaVersion = SchemaVersions.TestRunRecord,
             RunId = "b",
             PlanId = "board-demo",
             PlanName = "Board Demo",
@@ -988,6 +1115,7 @@ public sealed class ResultsViewModelTests
         var store = new FakeRunStore();
         store.Seed(new TestRunRecord
         {
+            SchemaVersion = SchemaVersions.TestRunRecord,
             RunId = "prior",
             PlanId = "sample",
             PlanName = "Sample",
@@ -998,6 +1126,7 @@ public sealed class ResultsViewModelTests
         });
         store.Seed(new TestRunRecord
         {
+            SchemaVersion = SchemaVersions.TestRunRecord,
             RunId = "current",
             PlanId = "sample",
             PlanName = "Sample",
@@ -1009,6 +1138,7 @@ public sealed class ResultsViewModelTests
             [
                 new RunReportArtifact
                 {
+                    Role = ReportArtifactRoles.Working,
                     Kind = ReportKinds.Status,
                     Title = "Status Report",
                     PdfPath = Path.Combine(Path.GetTempPath(), "status.pdf"),
@@ -1035,6 +1165,7 @@ public sealed class ResultsViewModelTests
         var store = new FakeRunStore();
         store.Seed(new TestRunRecord
         {
+            SchemaVersion = SchemaVersions.TestRunRecord,
             RunId = "today-pass",
             PlanName = "Sample",
             OperatorName = "Ada",
@@ -1043,6 +1174,7 @@ public sealed class ResultsViewModelTests
         });
         store.Seed(new TestRunRecord
         {
+            SchemaVersion = SchemaVersions.TestRunRecord,
             RunId = "today-fail",
             PlanName = "Sample",
             OperatorName = "Ada",
@@ -1051,6 +1183,7 @@ public sealed class ResultsViewModelTests
         });
         store.Seed(new TestRunRecord
         {
+            SchemaVersion = SchemaVersions.TestRunRecord,
             RunId = "old-fail",
             PlanName = "Sample",
             OperatorName = "Bob",
@@ -1086,6 +1219,7 @@ public sealed class ResultsViewModelTests
         var store = new FakeRunStore();
         store.Seed(new TestRunRecord
         {
+            SchemaVersion = SchemaVersions.TestRunRecord,
             RunId = "pass",
             PlanName = "Sample",
             StartedAt = DateTimeOffset.UtcNow.AddMinutes(-2),
@@ -1096,6 +1230,7 @@ public sealed class ResultsViewModelTests
         var t2 = new DateTimeOffset(2026, 4, 1, 0, 0, 2, TimeSpan.Zero);
         store.Seed(new TestRunRecord
         {
+            SchemaVersion = SchemaVersions.TestRunRecord,
             RunId = "fail",
             PlanName = "Sample",
             StartedAt = DateTimeOffset.UtcNow.AddMinutes(-1),
@@ -1162,6 +1297,7 @@ public sealed class ResultsViewModelTests
         var t2 = new DateTimeOffset(2026, 4, 2, 0, 0, 2, TimeSpan.Zero);
         store.Seed(new TestRunRecord
         {
+            SchemaVersion = SchemaVersions.TestRunRecord,
             RunId = "retry-fail",
             PlanName = "Sample",
             StartedAt = t2,

@@ -31,7 +31,8 @@ public sealed class PackProtectionTests : IDisposable
     {
         var vm = new AuthoringWorkspaceViewModel();
         vm.Open(_workspace);
-        if (create) vm.CreateProgram("unsaved"); else vm.DisplayName = "edited";
+        if (create) vm.InitializePlan(new("unsaved") { Instruments = [] });
+        vm.DisplayName = "edited";
         var output = Path.Combine(_root, "dist");
         var home = Path.Combine(_root, "home");
         vm.OpenTapHomeOverride = home;

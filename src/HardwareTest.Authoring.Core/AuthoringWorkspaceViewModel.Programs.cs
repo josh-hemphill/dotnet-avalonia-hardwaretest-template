@@ -2,31 +2,6 @@ namespace HardwareTest.Authoring;
 
 public sealed partial class AuthoringWorkspaceViewModel
 {
-    public void CreateProgram(string? planId = null)
-    {
-        if (Workspace is null)
-        {
-            throw new AuthoringWorkspaceException("Open a workspace before creating a program.");
-        }
-
-        EnsureWritableWorkspace("create a program");
-        var id = string.IsNullOrWhiteSpace(planId) ? NextProgramId() : planId.Trim();
-        if (Programs.Any(p => string.Equals(p.PlanId, id, StringComparison.OrdinalIgnoreCase)))
-        {
-            throw new AuthoringWorkspaceException($"Program '{id}' already exists in this session.");
-        }
-
-        CreateProgram(new PlanInitializationRequest(id));
-    }
-
-    /// Legacy convenience remains unsaved, with explicit choices using the same constructor.
-    public void CreateProgram(PlanInitializationRequest request)
-    {
-        EnsureWritableWorkspace("create a program");
-        var result = new AuthoringPlanInitializer().Construct(InitializationRequest(request));
-        OpenInitializedProgram(result, isSaved: false);
-    }
-
     public bool CanInitializePlan => Workspace is { IsReadOnly: false } && !OperationBusy;
     public string SuggestedPlanId => NextProgramId();
 
@@ -55,6 +30,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         {
             WorkspaceRoot = Workspace.Root,
             ExistingPlanIds = Programs.Select(program => program.PlanId).ToArray(),
+            DeclaredPackages = Workspace.Manifest.Dependencies.Select(d => d.Package).ToArray(),
             Home = inspection.Home,
             HomeResolutionError = inspection.Error
         };

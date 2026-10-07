@@ -1,60 +1,76 @@
 <UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:vm="using:HardwareTest.Authoring" x:Class="HardwareTest.Authoring.ProgramSettingsView" x:DataType="vm:AuthoringWorkspaceViewModel">
   <ScrollViewer>
-    <StackPanel Spacing="10" Margin="0,8,16,0" MaxWidth="640">
-      <TextBlock FontWeight="SemiBold" Text="{Binding ProgramSettingsTitle}" AutomationProperties.HeadingLevel="2"/>
-      <TextBlock Opacity="0.8" TextWrapping="Wrap" Text="{Binding ProgramSettingsPurpose}"/>
-      <StackPanel Spacing="8" Margin="0,16,0,0">
-        <TextBlock FontWeight="SemiBold" Text="Identity &amp; DUT" ToolTip.Tip="{Binding SidecarHelp}" AutomationProperties.HelpText="{Binding SidecarHelp}" AutomationProperties.HeadingLevel="3"/>
-        <TextBlock x:Name="DisplayNameLabel" Text="Display name"/>
-        <TextBox Text="{Binding DisplayName}" AutomationProperties.Name="Display name" AutomationProperties.LabeledBy="{Binding #DisplayNameLabel}"/>
-        <TextBlock x:Name="DutFamilyLabel" Text="DUT family"/>
-        <TextBox Text="{Binding DutFamily}" AutomationProperties.Name="DUT family" AutomationProperties.LabeledBy="{Binding #DutFamilyLabel}"/>
-      </StackPanel>
-      <StackPanel Spacing="8" Margin="0,16,0,0">
-        <TextBlock FontWeight="SemiBold" Text="Operator session" AutomationProperties.HeadingLevel="3"/>
-        <TextBlock Opacity="0.8" TextWrapping="Wrap" Text="{Binding RequiredFieldsPurpose}"/>
-        <TextBlock Text="Membership: selected program only. Remove from workspace: catalog and affected programs." TextWrapping="Wrap"/>
-        <ItemsControl ItemsSource="{Binding RequiredFieldChoices}" AutomationProperties.Name="Required DUT fields">
-          <ItemsControl.ItemTemplate>
-            <DataTemplate x:DataType="vm:AuthoringCatalogToggle">
-              <StackPanel Orientation="Horizontal" Spacing="8">
-                <CheckBox Content="{Binding Id}" IsChecked="{Binding Included, Mode=OneWay}" Click="OnToggleRequiredField" ToolTip.Tip="Changes membership only for the selected program. Save this program to persist the edit." AutomationProperties.Name="{Binding Id, StringFormat='Include {0} in selected program'}"/>
-              </StackPanel>
-            </DataTemplate>
-          </ItemsControl.ItemTemplate>
-        </ItemsControl>
-        <CheckBox Content="Selection includes cleanup" IsChecked="{Binding SelectionIncludesCleanup}" Margin="0,8,0,0" ToolTip.Tip="When off, Run Selected skips Safe Shutdown"/>
-      </StackPanel>
-      <StackPanel Spacing="8" Margin="0,16,0,0">
-        <TextBlock FontWeight="SemiBold" Text="Reports" AutomationProperties.HeadingLevel="3"/>
-        <TextBlock Text="Check membership for the selected program; review workspace removal separately." TextWrapping="Wrap"/>
-        <ItemsControl ItemsSource="{Binding ReportKindChoices}" AutomationProperties.Name="Report kinds">
-          <ItemsControl.ItemTemplate>
-            <DataTemplate x:DataType="vm:AuthoringCatalogToggle">
-              <StackPanel Orientation="Horizontal" Spacing="8">
-                <CheckBox Content="{Binding Id}" IsChecked="{Binding Included, Mode=OneWay}" Click="OnToggleReportKind" ToolTip.Tip="Changes membership only for the selected program. Save this program to persist the edit." AutomationProperties.Name="{Binding Id, StringFormat='Include {0} in selected program'}"/>
-              </StackPanel>
-            </DataTemplate>
-          </ItemsControl.ItemTemplate>
-        </ItemsControl>
-        <TextBlock x:Name="DefaultReportLabel" Text="Default report"/>
-        <ComboBox ItemsSource="{Binding IncludedReportKinds}" SelectedItem="{Binding DefaultReportKind}" AutomationProperties.Name="Default report" AutomationProperties.LabeledBy="{Binding #DefaultReportLabel}"/>
-      </StackPanel>
-      <StackPanel Spacing="8" Margin="0,16,0,0">
-        <TextBlock FontWeight="SemiBold" Text="Program type &amp; station health" AutomationProperties.HeadingLevel="3"/>
-        <TextBlock x:Name="ProgramKindLabel" Text="Program kind for selected program"/>
-        <ComboBox ItemsSource="{Binding ProgramKindOptions}" SelectedItem="{Binding ProgramKind}" AutomationProperties.Name="Program kind" AutomationProperties.LabeledBy="{Binding #ProgramKindLabel}"/>
-        <CheckBox Content="Require station health" IsChecked="{Binding RequireStationHealth}" ToolTip.Tip="Evaluate the station-health gate before Run on DUT programs"/>
-        <StackPanel Spacing="8" Margin="16,0,0,0" IsEnabled="{Binding RequireStationHealth}">
-          <TextBlock x:Name="HealthGateLabel" Text="Station health gate"/>
-          <ComboBox ItemsSource="{Binding StationHealthGateOptions}" SelectedItem="{Binding StationHealthGate}" AutomationProperties.Name="Station health gate" AutomationProperties.LabeledBy="{Binding #HealthGateLabel}"/>
-          <TextBlock x:Name="HealthAgeLabel" Text="Station health max age (hours)"/>
-          <TextBox Text="{Binding StationHealthMaxAgeHours}" AutomationProperties.Name="Station health max age hours" AutomationProperties.LabeledBy="{Binding #HealthAgeLabel}"/>
-          <TextBlock x:Name="HealthProfileLabel" Text="Station health profile id"/>
-          <TextBox Text="{Binding StationHealthProfileId}" AutomationProperties.Name="Station health profile id" AutomationProperties.LabeledBy="{Binding #HealthProfileLabel}"/>
-        </StackPanel>
-      </StackPanel>
+    <StackPanel Spacing="20" MaxWidth="920" Classes="routeBody">
+      <TextBlock Text="Hardware — selected program" Classes="routeTitle" TextWrapping="Wrap" AutomationProperties.HeadingLevel="2"/>
+      <TextBlock Text="Review instrument bindings and the configuration used by this program. Program identity, operator requirements and lifecycle settings follow below." Classes="purpose" TextWrapping="Wrap"/>
       <vm:HardwareView/>
+      <TextBlock FontWeight="SemiBold" Text="{Binding ProgramSettingsTitle}" AutomationProperties.HeadingLevel="2" Classes="routeTitle"/>
+      <TextBlock Opacity="0.8" TextWrapping="Wrap" Text="{Binding ProgramSettingsPurpose}" Classes="purpose"/>
+      <Border Classes="surface taskSection">
+        <StackPanel Spacing="10">
+          <TextBlock FontWeight="SemiBold" Text="Identity &amp; DUT" ToolTip.Tip="{Binding SidecarHelp}" AutomationProperties.HelpText="{Binding SidecarHelp}" AutomationProperties.HeadingLevel="3" Classes="sectionTitle"/>
+          <TextBlock x:Name="DisplayNameLabel" Text="Display name"/>
+          <TextBox Text="{Binding DisplayName}" AutomationProperties.Name="Display name" AutomationProperties.LabeledBy="{Binding #DisplayNameLabel}"/>
+          <TextBlock x:Name="DutFamilyLabel" Text="DUT family"/>
+          <TextBox Text="{Binding DutFamily}" AutomationProperties.Name="DUT family" AutomationProperties.LabeledBy="{Binding #DutFamilyLabel}"/>
+        </StackPanel>
+      </Border>
+      <Border Classes="surface taskSection">
+        <StackPanel Spacing="10">
+          <TextBlock FontWeight="SemiBold" Text="Operator session" AutomationProperties.HeadingLevel="3" Classes="sectionTitle"/>
+          <TextBlock Opacity="0.8" TextWrapping="Wrap" Text="{Binding RequiredFieldsPurpose}"/>
+          <TextBlock Text="Membership: selected program only. Remove from workspace: catalog and affected programs." TextWrapping="Wrap"/>
+          <ItemsControl ItemsSource="{Binding RequiredFieldChoices}" AutomationProperties.Name="Required DUT fields">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:AuthoringCatalogToggle">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <CheckBox Content="{Binding Id}" IsChecked="{Binding Included, Mode=OneWay}" Click="OnToggleRequiredField" ToolTip.Tip="Changes membership only for the selected program. Save this program to persist the edit." AutomationProperties.Name="{Binding Id, StringFormat='Include {0} in selected program'}"/>
+                </StackPanel>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
+      </Border>
+      <Border Classes="surface taskSection">
+        <StackPanel Spacing="10">
+          <TextBlock FontWeight="SemiBold" Text="Reports" AutomationProperties.HeadingLevel="3" Classes="sectionTitle"/>
+          <TextBlock Text="Check membership for the selected program; review workspace removal separately." TextWrapping="Wrap"/>
+          <ItemsControl ItemsSource="{Binding ReportKindChoices}" AutomationProperties.Name="Report kinds">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:AuthoringCatalogToggle">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <CheckBox Content="{Binding Id}" IsChecked="{Binding Included, Mode=OneWay}" Click="OnToggleReportKind" ToolTip.Tip="Changes membership only for the selected program. Save this program to persist the edit." AutomationProperties.Name="{Binding Id, StringFormat='Include {0} in selected program'}"/>
+                </StackPanel>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+          <TextBlock x:Name="DefaultReportLabel" Text="Default report"/>
+          <ComboBox ItemsSource="{Binding IncludedReportKinds}" SelectedItem="{Binding DefaultReportKind}" AutomationProperties.Name="Default report" AutomationProperties.LabeledBy="{Binding #DefaultReportLabel}"/>
+        </StackPanel>
+      </Border>
+      <Border Classes="surface taskSection">
+        <StackPanel Spacing="10">
+          <TextBlock FontWeight="SemiBold" Text="Program type &amp; station health" AutomationProperties.HeadingLevel="3" Classes="sectionTitle"/>
+          <TextBlock x:Name="ProgramKindLabel" Text="Program kind for selected program"/>
+          <ComboBox ItemsSource="{Binding ProgramKindOptions}" SelectedItem="{Binding ProgramKind}" AutomationProperties.Name="Program kind" AutomationProperties.LabeledBy="{Binding #ProgramKindLabel}"/>
+          <CheckBox Content="Require station health" IsChecked="{Binding RequireStationHealth}" ToolTip.Tip="Evaluate the station-health gate before Run on DUT programs"/>
+          <StackPanel Spacing="8" Margin="16,0,0,0" IsEnabled="{Binding RequireStationHealth}">
+            <TextBlock x:Name="HealthGateLabel" Text="Station health gate"/>
+            <ComboBox ItemsSource="{Binding StationHealthGateOptions}" SelectedItem="{Binding StationHealthGate}" AutomationProperties.Name="Station health gate" AutomationProperties.LabeledBy="{Binding #HealthGateLabel}"/>
+            <TextBlock x:Name="HealthAgeLabel" Text="Station health max age (hours)"/>
+            <TextBox Text="{Binding StationHealthMaxAgeHours}" AutomationProperties.Name="Station health max age hours" AutomationProperties.LabeledBy="{Binding #HealthAgeLabel}"/>
+            <TextBlock x:Name="HealthProfileLabel" Text="Station health profile id"/>
+            <TextBox Text="{Binding StationHealthProfileId}" AutomationProperties.Name="Station health profile id" AutomationProperties.LabeledBy="{Binding #HealthProfileLabel}"/>
+          </StackPanel>
+        </StackPanel>
+      </Border>
+      <Border Classes="surface taskSection">
+        <StackPanel Spacing="12">
+          <TextBlock Text="Lifecycle decisions" Classes="sectionTitle" TextWrapping="Wrap" AutomationProperties.HeadingLevel="3"/>
+          <TextBlock Text="Run selected can include the program cleanup actions. Configure individual setup and cleanup steps in the sequence." Classes="purpose" TextWrapping="Wrap"/>
+          <CheckBox Content="Selection includes cleanup" IsChecked="{Binding SelectionIncludesCleanup}" Margin="0,8,0,0" ToolTip.Tip="When off, Run Selected skips Safe Shutdown"/>
+        </StackPanel>
+      </Border>
     </StackPanel>
   </ScrollViewer>
 </UserControl>

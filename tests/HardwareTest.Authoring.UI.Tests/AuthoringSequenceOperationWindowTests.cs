@@ -22,7 +22,7 @@ public sealed class AuthoringSequenceOperationWindowTests
         fixture.OpenRememberedWorkspace();
         var vm = fixture.ViewModel;
         vm.CreateDemoProgram("sequence-actions");
-        vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Acquire);
         var selectedId = vm.SelectedSequence!.NodeId;
         var search = fixture.Control<TextBox>("Search sequence palette");
         fixture.Type(search, "band");

@@ -8,6 +8,7 @@ namespace HardwareTest.Authoring;
 public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
 {
     private readonly IPlanCompiler _compiler;
+    private readonly bool _usesDefaultCompiler;
     private readonly IAuthoringPreferencesStore? _preferences;
     private AuthoringWorkspace? _workspace;
     private IReadOnlyList<ProgramDraft> _programs = [];
@@ -50,7 +51,8 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
 
     public AuthoringWorkspaceViewModel(IPlanCompiler? compiler = null, IAuthoringPreferencesStore? preferences = null)
     {
-        _compiler = compiler ?? new PlanCompiler();
+        _usesDefaultCompiler = compiler is null;
+        _compiler = compiler ?? new PlanCompiler(libraryHomeProvider: () => HardwareInspection.Home);
         _preferences = preferences;
     }
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -269,37 +271,6 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
         RaiseHistoryProperties();
     }
 
-    public void ApplyRecipe(string recipeId)
-    {
-        if (SelectedProgram is null)
-        {
-            throw new AuthoringWorkspaceException("Select a program before adding a recipe.");
-        }
-
-        EnsureWritableWorkspace("add a recipe");
-        EnsurePresentedHistoryCurrent();
-        var updated = recipeId == AuthoringRecipeIds.Repeat
-            ? AuthoringSequenceOperations.Repeat(SelectedProgram, SelectedSequence)
-            : AuthoringRecipeCatalog.Apply(SelectedProgram, recipeId, SelectedInstrumentSlot);
-        if (AuthoringDocumentSnapshot.Capture(SelectedProgram).ContentEquals(AuthoringDocumentSnapshot.Capture(updated)))
-        {
-            Status = recipeId == AuthoringRecipeIds.TestGroup ? AuthoringChrome.TestGroupHint : "No change to the sequence.";
-            Error = null;
-            return;
-        }
-        ReplaceSelected(updated);
-        if (updated.Measure.Count > 0 && recipeId != AuthoringRecipeIds.Repeat)
-        {
-            SelectMeasure(updated.Measure.Count - 1);
-        }
-        SelectedDocument?.CompleteEditSelection();
-
-        Status = string.Equals(recipeId, AuthoringRecipeIds.TestGroup, StringComparison.OrdinalIgnoreCase)
-            ? AuthoringChrome.TestGroupHint
-            : $"Added {recipeId}";
-        Error = null;
-    }
-
     public PlanContractBatchReport Validate(bool strict = true)
     {
         if (Workspace is null)
@@ -318,7 +289,7 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
             new PlanContractOptions
             {
                 Strict = strict,
-                ExcludeVisaAdapter = !AuthoringInstrumentCatalog.DeclaresVisa(Workspace),
+                EnablePhysicalExecution = false,
             });
         AcceptFindings(report, checkedState);
         SetFindingValidationStatus(report);

@@ -4,9 +4,8 @@ namespace HardwareTest.Core.Settings;
 public sealed class AppSettings
 {
     /// Persisted document schema version (see SchemaVersions.AppSettings).
-    public int SchemaVersion { get; set; }
+    public int SchemaVersion { get; set; } = HardwareTest.Core.Serialization.SchemaVersions.AppSettings;
     public string DataDirectory { get; set; } = string.Empty;
-    public string DefaultVisaResource { get; set; } = "MOCK::INSTR0";
     public bool UseMockVisa { get; set; } = true;
     public string LogMinimumLevel { get; set; } = "Information";
     public bool EnableOsEventSink { get; set; } = false;
@@ -23,8 +22,6 @@ public sealed class AppSettings
     public bool ShowDutHistoryOnRun { get; set; }
     /// Canonical idle window in minutes before Operator Session becomes Stale (default 240 = 4h).
     public int OperatorSessionIdleMinutes { get; set; } = 240;
-    /// Compatibility alias for idle window in hours (env/CLI / older settings.json). Prefer minutes.
-    public int OperatorSessionIdleHours { get; set; } = 4;
     /// Soft-warn when idle elapsed reaches this percent of the idle window (50–95, default 80).
     public int OperatorSessionIdleWarnPercent { get; set; } = 80;
     /// When true, each terminal run marks the session Stale so the next Run requires Same DUT / Change Session.
@@ -35,9 +32,6 @@ public sealed class AppSettings
     public List<string> OpenTapPluginDirectories { get; set; } = [];
     /// Embedded Typst template file name (override via DataDirectory/reports/{name}).
     public string ReportTemplateName { get; set; } = "test-report.typ";
-    public List<VisaInstrument> Instruments { get; set; } = [];
-    /// Station overlay: logical role → registry instrument Id (bench-specific). Kept for migration; prefer PlanSlotOverrides.
-    public List<StationBinding> StationBindings { get; set; } = [];
     /// Per-plan OpenTAP slot → VISA resource overrides (station overlay).
     public List<PlanSlotOverride> PlanSlotOverrides { get; set; } = [];
     /// Per-plan OpenTAP parameter overrides (station overlay; does not mutate TapPlan files).
@@ -96,23 +90,6 @@ public sealed class AppSettings
     public const int MaxClockSkewWarnThresholdMinutes = 1440;
 }
 
-/// Named VISA instrument entry in the persisted registry (legacy; Instruments UI no longer edits this).
-public sealed class VisaInstrument
-{
-    public string Id { get; set; } = string.Empty;
-    public string DisplayName { get; set; } = string.Empty;
-    public string Resource { get; set; } = string.Empty;
-    public bool Enabled { get; set; } = true;
-    public string? Notes { get; set; }
-}
-
-/// Maps a suite/plan role (e.g. dmm) to a registry instrument Id for this station.
-public sealed class StationBinding
-{
-    public string Role { get; set; } = string.Empty;
-    public string InstrumentId { get; set; } = string.Empty;
-}
-
 /// Overrides an OpenTAP instrument slot resource for a specific plan on this station.
 public sealed class PlanSlotOverride
 {
@@ -134,7 +111,7 @@ public sealed class PlanParameterOverride
 public sealed class UiState
 {
     /// Persisted document schema version (see SchemaVersions.UiState).
-    public int SchemaVersion { get; set; }
+    public int SchemaVersion { get; set; } = HardwareTest.Core.Serialization.SchemaVersions.UiState;
     public double X { get; set; } = 100;
     public double Y { get; set; } = 100;
     public double Width { get; set; } = 1280;

@@ -8,6 +8,16 @@ public partial class WorkspaceEnvironmentView : UserControl
 {
     public WorkspaceEnvironmentView() => InitializeComponent();
 
+    private void OnDeclareLibrary(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not AuthoringWorkspaceViewModel vm) return;
+        try { vm.DeclareLibraryDependency(); }
+        catch (Exception error) { vm.ReportError(AuthoringWorkspaceViewModel.PersistenceError(error)); }
+    }
+
+    private void OnResumeInitialization(object? sender, RoutedEventArgs e)
+        => (TopLevel.GetTopLevel(this) as MainWindow)?.OnResumeInitialization(sender, e);
+
     private void OnPrepareEnvironment(object? sender, RoutedEventArgs e)
         => (TopLevel.GetTopLevel(this) as MainWindow)?.OnPrepareEnvironment(sender, e);
 

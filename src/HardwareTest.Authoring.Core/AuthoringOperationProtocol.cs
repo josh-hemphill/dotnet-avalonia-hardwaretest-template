@@ -109,7 +109,7 @@ public static class AuthoringOperationChild
                     new PlanContractOptions
                     {
                         Strict = true,
-                        ExcludeVisaAdapter = !AuthoringInstrumentCatalog.DeclaresVisa(workspace),
+                        EnablePhysicalExecution = false,
                         Settings = new AppSettings { UseMockVisa = true, OpenTapPluginDirectories = [home.Root] },
                         TrustConfiguredPluginDirectories = true
                     });
@@ -131,8 +131,17 @@ public static class AuthoringOperationChild
         void Stage(string stage)
         {
             var path = Path.Combine(request.OwnedRoot, "progress.json");
-            File.WriteAllBytes(path + ".tmp", JsonSerializer.SerializeToUtf8Bytes(new AuthoringOperationProgress(stage), AuthoringOperationJsonContext.Default.AuthoringOperationProgress));
-            File.Move(path + ".tmp", path, true);
+            PublishProgress(path, JsonSerializer.SerializeToUtf8Bytes(new AuthoringOperationProgress(stage), AuthoringOperationJsonContext.Default.AuthoringOperationProgress));
         }
+    }
+
+    internal static void PublishProgress(string path, byte[] record)
+    {
+        var temporary = path + ".tmp";
+        File.WriteAllBytes(temporary, record);
+        // The protocol has one publisher. ReplaceFile supports replacing an open
+        // destination whose readers share deletion; MoveFileEx overwrite does not.
+        if (File.Exists(path)) File.Replace(temporary, path, null);
+        else File.Move(temporary, path);
     }
 }

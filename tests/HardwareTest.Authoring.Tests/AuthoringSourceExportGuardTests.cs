@@ -20,7 +20,7 @@ public sealed class AuthoringSourceExportGuardTests : IDisposable
         var path = Path.Combine(_root, "sample.TapPlan");
         File.WriteAllText(path, "compiled baseline");
         File.WriteAllText(Path.Combine(_root, "sample.program.json"), "{}");
-        var document = AuthoringDocumentDto.FromDraft(AuthoringRecipeCatalog.CreateProgram("sample"),
+        var document = AuthoringDocumentDto.FromDraft(MockDmmDraftFixture.Create("sample"),
             compiledPlanHash: AuthoringDocumentStore.ComputeHash(path),
             compiledSidecarHash: AuthoringDocumentStore.ComputeHash(PlanCompiler.SidecarPath(path)));
         document.RequiresCompilation = !externalChange;
@@ -43,7 +43,7 @@ public sealed class AuthoringSourceExportGuardTests : IDisposable
         var workspace = AuthoringWorkspaceLoader.Load(_root);
         workspace.Manifest.Package.Name = "All saved drafts";
         AuthoringWorkspaceLoader.SaveManifest(_root, workspace.Manifest);
-        new AuthoringDocumentStore(_root).Save(AuthoringDocumentDto.FromDraft(AuthoringRecipeCatalog.CreateProgram("new-plan")));
+        new AuthoringDocumentStore(_root).Save(AuthoringDocumentDto.FromDraft(MockDmmDraftFixture.Create("new-plan")));
         var result = WorkspacePacker.Preflight(AuthoringWorkspaceLoader.Load(_root), new PackOptions());
         Assert.Contains(result.Findings, finding => finding.Code == "SOURCE_COMPILE_REQUIRED");
     }
@@ -65,7 +65,7 @@ public sealed class AuthoringSourceExportGuardTests : IDisposable
     public void Explicit_source_guard_subset_does_not_add_other_source_only_programs()
     {
         var workspace = AuthoringWorkspaceLoader.Load(_root); workspace.Manifest.Package.Name = "All saved drafts";
-        new AuthoringDocumentStore(_root).Save(AuthoringDocumentDto.FromDraft(AuthoringRecipeCatalog.CreateProgram("other-source")));
+        new AuthoringDocumentStore(_root).Save(AuthoringDocumentDto.FromDraft(MockDmmDraftFixture.Create("other-source")));
         Assert.Contains(AuthoringSourceExportGuard.GetIssues(workspace), f => f.Code == "SOURCE_COMPILE_REQUIRED");
         Assert.Empty(AuthoringSourceExportGuard.GetIssues(workspace, new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "selected" }));
     }
@@ -84,6 +84,23 @@ public sealed class AuthoringSourceExportGuardTests : IDisposable
         var result = WorkspacePacker.Preflight(AuthoringWorkspaceLoader.Load(_root), new PackOptions { Offline = true });
         Assert.Contains(result.Findings, finding => finding.Code == "WORKSPACE_SOURCE_CONFLICT" && finding.IsError);
         Assert.Null(result.Contract);
+    }
+
+    [Fact]
+    public void Older_nested_manifest_blocks_export_without_normalizing_or_replacing_source()
+    {
+        var workspace = AuthoringWorkspaceLoader.Load(_root);
+        var store = new AuthoringDocumentStore(_root);
+        var path = store.GetWorkspacePath();
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        File.WriteAllText(path, """{"schemaVersion":1,"manifest":{"schemaVersion":1,"plansDirectory":"."}}""" + "\r\n");
+        var original = File.ReadAllBytes(path);
+
+        Assert.Contains(AuthoringSourceExportGuard.GetIssues(workspace), finding =>
+            finding.Code == "WORKSPACE_SOURCE_READ_ONLY" && finding.IsError);
+        Assert.Throws<AuthoringWorkspaceException>(() => AuthoringSourceExportGuard.EnsureCurrent(workspace));
+        Assert.Equal(original, File.ReadAllBytes(path));
+        Assert.Equal([path], Directory.GetFiles(Path.GetDirectoryName(path)!));
     }
 
     public void Dispose() => Directory.Delete(_root, recursive: true);
