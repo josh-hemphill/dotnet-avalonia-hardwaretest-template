@@ -8,7 +8,9 @@ internal static class ExecutionLibraryHome
 {
     private static readonly string[] Files = ["InstrumentComponents.dll", "InstrumentComponents.OpenTap.dll"];
 
-    internal static string Validate(string directory, Action<string, string>? containedEntry = null)
+    private static readonly string[] StandaloneFiles = ["InstrumentComponents.OpenTap.Visa.dll", "InstrumentComponents.Visa.dll", StandaloneVisaPackage.WrapperFileName];
+
+    internal static string Validate(string directory, Action<string, string?>? containedEntry = null)
     {
         var root = ResolvePath(Path.GetFullPath(directory));
         foreach (var file in Files) EnsureContained(root, Path.Combine(root, file));
@@ -21,13 +23,15 @@ internal static class ExecutionLibraryHome
         {
             if (++visited > 100000) throw new IOException("Selected execution home contains too many package paths.");
             EnsureContained(root, entry);
-            containedEntry?.Invoke(root, entry);
             var name = Path.GetFileName(entry);
+            var package = name.Equals("package.xml", StringComparison.OrdinalIgnoreCase) ? ReadPackageIdentity(entry) : null;
+            ValidateStandaloneClaim(root, entry, name, package);
+            containedEntry?.Invoke(entry, package);
             if (Files.Contains(name, StringComparer.OrdinalIgnoreCase) && !Files.Contains(name, StringComparer.Ordinal))
                 throw new InvalidOperationException("Instrument Components execution requires canonical root DLL filenames.");
             if (name.Equals("package.xml", StringComparison.OrdinalIgnoreCase))
             {
-                if (IsLibraryIdentity(entry))
+                if (string.Equals(package, PublishedInstrumentComponents.PackageName, StringComparison.OrdinalIgnoreCase))
                     throw new InvalidOperationException("Instrument Components execution requires an installed home root with root DLLs and Packages/InstrumentComponents.OpenTap/package.xml. Import package directories before execution.");
             }
             if (Directory.Exists(entry)) Scan(entry, 0);
@@ -46,11 +50,13 @@ internal static class ExecutionLibraryHome
                 {
                     if (++visited > 100000) throw new IOException("Selected execution home contains too many package paths.");
                     EnsureContained(root, entry);
-                    containedEntry?.Invoke(root, entry);
                     var name = Path.GetFileName(entry);
+                    var package = name.Equals("package.xml", StringComparison.OrdinalIgnoreCase) ? ReadPackageIdentity(entry) : null;
+                    ValidateStandaloneClaim(root, entry, name, package);
+                    containedEntry?.Invoke(entry, package);
                     if (Files.Contains(name, StringComparer.OrdinalIgnoreCase))
                         throw new InvalidOperationException("Instrument Components execution cannot use obsolete package-directory library DLLs. Import or repair the selected package to keep library DLLs only in the installed home root.");
-                    if (name.Equals("package.xml", StringComparison.OrdinalIgnoreCase) && IsLibraryIdentity(entry)
+                    if (string.Equals(package, PublishedInstrumentComponents.PackageName, StringComparison.OrdinalIgnoreCase)
                         && !entry.Equals(Path.Combine(root, "Packages", PublishedInstrumentComponents.PackageName, "package.xml"), StringComparison.Ordinal))
                         throw new InvalidOperationException("Instrument Components execution cannot use noncanonical or duplicate installed package identities.");
                     if (Directory.Exists(entry)) Scan(entry, depth + 1);
@@ -67,9 +73,20 @@ internal static class ExecutionLibraryHome
         return File.ReadAllBytes(ResolvePath(path));
     }
 
-    private static bool IsLibraryIdentity(string path)
+    private static void ValidateStandaloneClaim(string root, string entry, string name, string? package)
     {
-        if (!File.Exists(path)) return false;
+        var standaloneFile = StandaloneFiles.FirstOrDefault(file => name.Equals(file, StringComparison.OrdinalIgnoreCase));
+        if (standaloneFile is not null && !entry.Equals(Path.Combine(root, standaloneFile), StringComparison.Ordinal))
+            throw new IOException($"Standalone VISA payload '{name}' must use its canonical filename in the installed home root.");
+        if (string.Equals(package, StandaloneVisaPackage.PackageName, StringComparison.OrdinalIgnoreCase)
+            && (package != StandaloneVisaPackage.PackageName
+                || !entry.Equals(Path.Combine(root, "Packages", StandaloneVisaPackage.PackageName, "package.xml"), StringComparison.Ordinal)))
+            throw new IOException("Standalone VISA package metadata must use its canonical identity and Packages/HardwareTest Standalone VISA/package.xml location.");
+    }
+
+    private static string? ReadPackageIdentity(string path)
+    {
+        if (!File.Exists(path)) return null;
         try
         {
             using var reader = XmlReader.Create(path, new XmlReaderSettings
@@ -82,7 +99,7 @@ internal static class ExecutionLibraryHome
             var name = ((string?)package?.Attribute("Name"))?.Trim();
             if (package?.Name.LocalName != "Package" || string.IsNullOrWhiteSpace(name))
                 throw new IOException("Selected execution home package metadata has no valid Package identity: " + path);
-            return name.Equals(PublishedInstrumentComponents.PackageName, StringComparison.OrdinalIgnoreCase);
+            return name;
         }
         catch (XmlException error)
         { throw new IOException("Selected execution home package metadata is malformed or exceeds the inspection limit: " + path, error); }

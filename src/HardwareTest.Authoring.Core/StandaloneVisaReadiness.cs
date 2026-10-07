@@ -4,7 +4,6 @@ using System.Reflection.Metadata;
 using System.Reflection.PortableExecutable;
 using System.Security.Cryptography;
 using System.Text.Json;
-using System.Xml;
 using System.Xml.Linq;
 using HardwareTest.OpenTap.Host;
 
@@ -56,36 +55,17 @@ public static class StandaloneVisaReadiness
         try
         {
             if (File.Exists(home.Root) && !Directory.Exists(home.Root)) throw new IOException("The selected home is a file, not a directory.");
-            ExecutionLibraryHome.Validate(home.Root, (root, entry) =>
+            ExecutionLibraryHome.Validate(home.Root, (entry, package) =>
             {
                 var name = Path.GetFileName(entry);
                 if (InstrumentLibraryMetadata.Files.Contains(name, StringComparer.OrdinalIgnoreCase)) claimed = true;
-                var standaloneFile = StandalonePayloadFiles
-                    .FirstOrDefault(file => name.Equals(file, StringComparison.OrdinalIgnoreCase));
-                if (standaloneFile is not null)
-                {
-                    claimed = true;
-                    if (!entry.Equals(Path.Combine(root, standaloneFile), StringComparison.Ordinal))
-                        throw new IOException($"Standalone VISA payload '{name}' must use its canonical filename in the installed home root.");
-                }
-                if (!name.Equals("package.xml", StringComparison.OrdinalIgnoreCase)) return;
-                using var reader = XmlReader.Create(entry, new XmlReaderSettings
-                {
-                    DtdProcessing = DtdProcessing.Prohibit,
-                    XmlResolver = null,
-                    MaxCharactersInDocument = 1_048_576
-                });
-                var package = ((string?)XDocument.Load(reader).Root?.Attribute("Name"))?.Trim();
+                if (StandalonePayloadFiles.Contains(name, StringComparer.OrdinalIgnoreCase)) claimed = true;
                 if (string.Equals(package, PublishedInstrumentComponents.PackageName, StringComparison.OrdinalIgnoreCase)
                     || string.Equals(package, StandaloneVisaPackage.PackageName, StringComparison.OrdinalIgnoreCase)) claimed = true;
-                if (string.Equals(package, StandaloneVisaPackage.PackageName, StringComparison.OrdinalIgnoreCase)
-                    && (package != StandaloneVisaPackage.PackageName
-                        || !entry.Equals(Path.Combine(root, "Packages", StandaloneVisaPackage.PackageName, "package.xml"), StringComparison.Ordinal)))
-                    throw new IOException("Standalone VISA package metadata must use its canonical identity and Packages/HardwareTest Standalone VISA/package.xml location.");
             });
             return (claimed, null);
         }
-        catch (Exception error) when (error is IOException or UnauthorizedAccessException or ArgumentException or InvalidOperationException or XmlException or NotSupportedException)
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException or ArgumentException or InvalidOperationException or NotSupportedException)
         {
             return (claimed, $"Cannot inspect the selected standalone/TUI home: {error.Message} Prepare or repair a supported library home before opening the TUI.");
         }
