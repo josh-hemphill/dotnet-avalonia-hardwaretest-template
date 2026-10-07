@@ -100,6 +100,7 @@ public sealed class AuthoringBuildEnvironmentGuardTests : IDisposable
     }
 
     [Fact]
+    [Trait("Category", "AuthoringIntegration")]
     public void SDK_output_redirect_cannot_touch_previous_outputs_during_capture_or_prepare()
     {
         var projectRoot = AuthoringBuildSnapshotTests.Temp();
@@ -142,6 +143,7 @@ public sealed class AuthoringBuildEnvironmentGuardTests : IDisposable
     [InlineData("ProjectDepsFilePath")]
     [InlineData("ProjectRuntimeConfigFilePath")]
     [InlineData("ProjectRuntimeConfigDevFilePath")]
+    [Trait("Category", "AuthoringIntegration")]
     public void SDK_generated_output_overrides_cannot_touch_external_sentinel(string name)
     {
         var projectRoot = AuthoringBuildSnapshotTests.Temp();

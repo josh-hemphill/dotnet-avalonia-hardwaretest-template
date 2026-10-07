@@ -5,6 +5,7 @@ using Xunit;
 namespace HardwareTest.Authoring.Tests;
 
 [Collection("AuthoringOpenTap")]
+[Trait("Category", "AuthoringIntegration")]
 public sealed class AuthoringOperationTests : IDisposable
 {
     private readonly List<string> roots = [];

@@ -161,6 +161,7 @@ public sealed class WorkspacePackerTests
     }
 
     [Fact]
+    [Trait("Category", "AuthoringIntegration")]
     public void Pack_records_bake_time_shell_apps_on_ship_manifest()
     {
         var workspaceRoot = CopyTemplateWorkspace();

@@ -7,6 +7,7 @@ using Xunit;
 namespace HardwareTest.Authoring.Tests;
 
 [Collection("AuthoringOpenTap")]
+[Trait("Category", "AuthoringIntegration")]
 public sealed class LibraryColdWrapperTests
 {
     [Theory]
