@@ -14,6 +14,11 @@
     </AssemblyAttribute>
   </ItemGroup>
   <ItemGroup>
+    <!-- Restore payload inputs without loading NuGet copies of the TAP release DLLs. -->
+    <PackageReference Include="InstrumentComponents" ExcludeAssets="all" PrivateAssets="all" GeneratePathProperty="true" />
+    <PackageReference Include="InstrumentComponents.OpenTap" ExcludeAssets="all" PrivateAssets="all" GeneratePathProperty="true" />
+    <PackageReference Include="InstrumentComponents.Visa" ExcludeAssets="all" PrivateAssets="all" GeneratePathProperty="true" />
+    <PackageReference Include="InstrumentComponents.OpenTap.Visa" ExcludeAssets="all" PrivateAssets="all" GeneratePathProperty="true" />
     <PackageReference Include="OpenTAP" />
     <PackageReference Include="StreamJsonRpc" />
     <ProjectReference Include="..\HardwareTest.OpenTap.Plugins.Basic\HardwareTest.OpenTap.Plugins.Basic.csproj" />
@@ -25,4 +30,5 @@
     <Content Include="../HardwareTest.OpenTap.Plugins.Visa/package.xml" Link="AuthoringPackages/HardwareTest VISA/package.xml" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <None Include="..\..\plans\opentap\**\*" Link="Programs\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
+  <Import Project="PublishedInstrumentComponents.targets" />
 </Project>

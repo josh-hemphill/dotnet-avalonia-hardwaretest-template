@@ -9,6 +9,11 @@ import {
 } from "./lib/paths.ts";
 import { defaultRid, isNativeRid } from "./lib/rid.ts";
 import { run, runCapture } from "./lib/run.ts";
+import {
+  consumerOutputs,
+  verifyPublishedRelease,
+  verifyReleaseProvisioning,
+} from "./lib/instrument_artifacts.ts";
 
 /** Canonical CI task names — workflow and `list` must stay in sync. */
 export const TASKS = [
@@ -142,6 +147,7 @@ async function build(opts: Options): Promise<void> {
     "-r",
     opts.rid,
   ], { cwd: opts.root });
+  await verifyReleaseProvisioning(opts);
 }
 
 async function testHost(opts: Options): Promise<void> {
@@ -355,6 +361,27 @@ async function publish(opts: Options): Promise<void> {
     "-o",
     authoringOut,
   ], { cwd: opts.root });
+  const projects = {
+    host: "src/HardwareTest.OpenTap.Host",
+    worker: "src/HardwareTest.OpenTap.Worker",
+    validate: "src/HardwareTest.PlanValidate",
+  };
+  for (const output of consumerOutputs(opts).slice(2)) {
+    await run([
+      "dotnet",
+      "publish",
+      projects[output.name as keyof typeof projects],
+      "-c",
+      opts.configuration,
+      "-r",
+      opts.rid,
+      "--self-contained",
+      "false",
+      "-o",
+      output.path,
+    ], { cwd: opts.root });
+  }
+  await verifyPublishedRelease(opts);
 }
 
 /** Exercise the shipped app from a directory with no checkout ancestry. */
@@ -449,6 +476,11 @@ async function verify(opts: Options): Promise<void> {
 
   const exe = publishedExe(expectedRid, opts.root);
   try {
+    for (const output of consumerOutputs(opts)) {
+      await Deno.stat(
+        `${output.path}/PublishedArtifacts/InstrumentComponents.OpenTap.0.1.1.TapPackage`,
+      );
+    }
     await Deno.stat(exe);
     await Deno.stat(
       `${publishDir(expectedRid, opts.root)}/authoring/HardwareTest.Authoring${
@@ -514,6 +546,7 @@ async function verify(opts: Options): Promise<void> {
     }
   }
   await verifyAuthoring(opts);
+  await verifyPublishedRelease(opts);
 }
 
 async function all(opts: Options): Promise<void> {
