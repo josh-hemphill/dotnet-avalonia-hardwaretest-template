@@ -5,28 +5,21 @@ using HardwareTest.Core.Credentials;
 
 namespace HardwareTest.Tests.Credentials;
 
-/// In-memory PIV card that answers SELECT / GET DATA / VERIFY / GENERAL AUTHENTICATE.
+/// In-memory PIV public identity card that answers SELECT and GET DATA.
 internal sealed class FakePivCard : IApduChannel, IDisposable
 {
-    public const string DefaultPin = "123456";
+    public const byte SlotAuthentication = 0x9A;
+    public const byte SlotSignature = 0x9C;
+    public const byte SlotKeyManagement = 0x9D;
+    public const byte SlotCardAuth = 0x9E;
 
-    private readonly RSA? _rsa;
-    private readonly ECDsa? _ecdsa;
-    private readonly byte[] _certDer;
-    private readonly byte _slot;
+    private readonly X509Certificate2 _certificate;
     private readonly byte[] _objectId;
-    private readonly byte _algId;
-    private bool _disposed;
 
-    private FakePivCard(RSA? rsa, ECDsa? ecdsa, byte[] certDer, byte slot, byte[] objectId, byte algId, string pin)
+    private FakePivCard(byte[] certDer, byte[] objectId)
     {
-        _rsa = rsa;
-        _ecdsa = ecdsa;
-        _certDer = certDer;
-        _slot = slot;
+        _certificate = X509CertificateLoader.LoadCertificate(certDer);
         _objectId = objectId;
-        _algId = algId;
-        Pin = pin;
     }
 
     public byte[]? Uid { get; set; }
@@ -34,19 +27,14 @@ internal sealed class FakePivCard : IApduChannel, IDisposable
     public bool OmitCertificate { get; set; }
     public bool GzipCertificate { get; set; }
     public int RemainingCertificateFailures { get; set; }
-    public bool FailSign { get; set; }
-    public string Pin { get; }
-    public int PinRetries { get; set; } = 3;
-    public bool FailVerifyAsSecurityStatus { get; set; }
 
     public static FakePivCard CreateRsa2048(
-        string pin = DefaultPin,
-        byte slot = PivApdu.SlotSignature,
+        byte slot = SlotSignature,
         string subject = "CN=Fake PIV Signature",
         string? emailSan = null,
         string? upnSan = null)
     {
-        var rsa = RSA.Create(2048);
+        using var rsa = RSA.Create(2048);
         var req = new CertificateRequest(
             subject,
             rsa,
@@ -54,27 +42,10 @@ internal sealed class FakePivCard : IApduChannel, IDisposable
             RSASignaturePadding.Pkcs1);
         AddSan(req, emailSan, upnSan);
         using var cert = req.CreateSelfSigned(DateTimeOffset.UtcNow.AddDays(-1), DateTimeOffset.UtcNow.AddYears(2));
-        return new FakePivCard(rsa, null, cert.RawData, slot, ObjectIdFor(slot), PivApdu.AlgRsa2048, pin);
+        return new FakePivCard(cert.RawData, ObjectIdFor(slot));
     }
 
-    public static FakePivCard CreateEccP256(
-        string pin = DefaultPin,
-        byte slot = PivApdu.SlotSignature,
-        string subject = "CN=Fake PIV ECC",
-        string? emailSan = null,
-        string? upnSan = null)
-    {
-        var ecdsa = ECDsa.Create(ECCurve.NamedCurves.nistP256);
-        var req = new CertificateRequest(subject, ecdsa, HashAlgorithmName.SHA256);
-        AddSan(req, emailSan, upnSan);
-        using var cert = req.CreateSelfSigned(DateTimeOffset.UtcNow.AddDays(-1), DateTimeOffset.UtcNow.AddYears(2));
-        return new FakePivCard(null, ecdsa, cert.RawData, slot, ObjectIdFor(slot), PivApdu.AlgEccP256, pin);
-    }
-
-    public static FakePivCard CreateCardAuthRsa()
-        => CreateRsa2048(pin: DefaultPin, slot: PivApdu.SlotCardAuth);
-
-    public byte[] CertDer => _certDer;
+    public byte[] CertDer => _certificate.RawData;
 
     public byte[]? Transmit(byte[] command)
     {
@@ -112,37 +83,17 @@ internal sealed class FakePivCard : IApduChannel, IDisposable
                 : [0x6A, 0x82];
         }
 
-        if (command[1] == 0x20)
-        {
-            return VerifyPin(command);
-        }
-
-        if (command[1] == 0x87)
-        {
-            return Sign(command);
-        }
-
         return [0x6D, 0x00];
     }
 
-    public void Dispose()
-    {
-        if (_disposed)
-        {
-            return;
-        }
-
-        _rsa?.Dispose();
-        _ecdsa?.Dispose();
-        _disposed = true;
-    }
+    public void Dispose() => _certificate.Dispose();
 
     private static byte[] ObjectIdFor(byte slot)
         => slot switch
         {
-            PivApdu.SlotAuthentication => PivApdu.ObjectAuthentication,
-            PivApdu.SlotKeyManagement => PivApdu.ObjectKeyManagement,
-            PivApdu.SlotCardAuth => PivApdu.ObjectCardAuth,
+            SlotAuthentication => PivApdu.ObjectAuthentication,
+            SlotKeyManagement => PivApdu.ObjectKeyManagement,
+            SlotCardAuth => PivApdu.ObjectCardAuth,
             _ => PivApdu.ObjectSignature,
         };
 
@@ -169,7 +120,7 @@ internal sealed class FakePivCard : IApduChannel, IDisposable
 
     private byte[] WrapCertificate()
     {
-        var payload = _certDer;
+        var payload = CertDer;
         byte info = 0x00;
         if (GzipCertificate)
         {
@@ -193,62 +144,9 @@ internal sealed class FakePivCard : IApduChannel, IDisposable
 
         return output.ToArray();
     }
-
-    private byte[] VerifyPin(byte[] command)
-    {
-        if (FailVerifyAsSecurityStatus)
-        {
-            return [0x69, 0x82];
-        }
-
-        if (_slot == PivApdu.SlotCardAuth)
-        {
-            return [0x90, 0x00];
-        }
-
-        var presented = command.Length >= 13 ? command.AsSpan(5, 8) : ReadOnlySpan<byte>.Empty;
-        var expected = PivApdu.PadPin(Pin.AsSpan());
-        if (presented.SequenceEqual(expected))
-        {
-            return [0x90, 0x00];
-        }
-
-        PinRetries = Math.Max(0, PinRetries - 1);
-        return [0x63, (byte)(0xC0 | (PinRetries & 0x0F))];
-    }
-
-    private byte[] Sign(byte[] command)
-    {
-        if (FailSign || command[3] != _slot || command[2] != _algId)
-        {
-            return [0x6A, 0x88];
-        }
-
-        var body = command.AsSpan(5);
-        var wrapped = PivApdu.FindTag(body, 0x7C) ?? body.ToArray();
-        var challenge = PivApdu.FindTag(wrapped, 0x81);
-        if (challenge is not { Length: > 0 })
-        {
-            return [0x6A, 0x80];
-        }
-
-        byte[] signature;
-        if (_rsa is not null)
-        {
-            var hash = challenge.AsSpan(challenge.Length - 32).ToArray();
-            signature = _rsa.SignHash(hash, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
-        }
-        else
-        {
-            signature = _ecdsa!.SignHash(challenge, DSASignatureFormat.IeeeP1363FixedFieldConcatenation);
-        }
-
-        var inner = PivApdu.EncodeTlv(0x82, signature);
-        return PivApdu.Concat(PivApdu.EncodeTlv(0x7C, inner), [0x90, 0x00]);
-    }
 }
 
-/// Routes GET DATA / AUTH to the slot that owns the object or key.
+/// Routes public GET DATA to the slot that owns the certificate object.
 internal sealed class CompositePivCard : IApduChannel, IDisposable
 {
     private readonly FakePivCard[] _slots;
@@ -274,11 +172,6 @@ internal sealed class CompositePivCard : IApduChannel, IDisposable
         if (command.Length >= 2 && command[1] == 0xA4)
         {
             return [0x90, 0x00];
-        }
-
-        if (command.Length >= 2 && command[1] == 0x20)
-        {
-            return _slots[0].Transmit(command);
         }
 
         byte[]? last = null;

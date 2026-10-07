@@ -340,20 +340,27 @@ After implementation: publish ready PR221 targeting PR220 branch with expanded s
 
 ## Area 6: current report signing — PR222
 
-- Goal: one physical signing implementation: PKCS#11 with complete-PDF iText PAdES. PC/SC provides card presence and public identity; Mock credentials retain intentional HMAC sidecars. Presence-only attestation follows the current site policy.
-- Depends on: PR221's canonical report artifacts.
-- Out of scope: instrument VISA, credential features, hardware/card I/O and external OpenTAP interchange.
-- Files: credential brokers/binding APIs, ReportAttestationService, obsolete PIV CMS/APDU signing and custom PdfPadesSignature helpers, credential/report tests and fixtures.
-- Public surface: remove alternative physical APDU signing and non-embedded physical CMS/sidecar fallback. Simplify document-signing APIs after converting callers. Keep CredentialSignBinding.SerialsMatch for Mock identity checks and retain current PC/SC identity capture.
+- Goal: one physical signing implementation: PKCS#11 with complete-PDF iText PAdES. PC/SC provides presence/public identity only. Physical acceptance additionally requires the current certification field/profile, a no-changes DocMDP certification, complete original-file byte coverage, cryptographic integrity, and the captured/persisted signer certificate identity. Mock HMAC and explicit site presence policy remain current.
+- Depends on: reviewed public PR221 canonical report artifacts (`c5793a78566e15605745ba971fdd9960080676f0`). Preserve its schema guards and current working/issued roles.
+- Out of scope: report schema/version/template/catalog changes, instrument VISA, physical hardware verification, public PKI trust/revocation policy, external APIs.
+- Files: credential contracts/brokers, ReportAttestationService, ITextPadesSignature, removed PIV/custom PDF implementations, credential/report tests and test fixtures.
+- Public surface: add a minimal presence-only broker interface for PCSC; retain the current payload contract for mock HMAC and PKCS11 PIN/capability probes. Remove TrySignDocumentAsync and ProducesCms from every implementation and fake. Expose explicit active embedded-PDF capability; SettingsBackedCredentialBroker routes physical signing through PKCS11 and PKCS11 public capture through PCSC. Keep only SerialsMatchMock binding helper. Remove physical APDU signing methods, PivSigner/PivCmsSigner, custom PdfPadesSignature/PreparedPdfSignature/PdfDocumentReader/PdfObject, and physical detached-sidecar acceptance without compatibility aliases or stubs.
 - Pseudocode:
   ```text
-  physical issuance -> match badge identity -> PKCS#11 sign complete PDF
-                   -> verify embedded iText signature -> publish issued artifact
-  Mock issuance -> current HMAC sidecar -> verify current Mock signature
-  presence-only policy -> current presence evidence; no invented signature
-  verify physical PDF -> embedded iText verification only
-  failed/cancelled signing -> preserve working and existing issued artifacts
+  capture current credential -> snapshot configured route
+  intentional skip/cannot-sign/explicit unavailable + site policy -> compile presence candidate
+  mock -> sign current hash payload -> verify current mock HMAC -> issue
+  physical -> PIN/capability probe only -> current working candidate -> PKCS11/iText PDF
+           -> require complete PDF and consistent captured/result/embedded certificate identity
+           -> iText integrity + whole-file ByteRange coverage + current field/CAdES profile
+           -> catalog DocMDP bound to certification signature, P=1 no changes
+           -> publish issued PDF/attestation only after all validation
+  PIN/retry/cancel/mismatch/generic failure/malformed success -> preserve working and prior issue
+  valid physical attestation -> issued hash + strict iText verification with recorded thumbprint
+  detached physical/custom signatures -> invalid, require current attestation
   ```
-- Tests: port meaningful old signer/parser coverage to current PKCS#11/iText. Preserve identity matching, PIN/retry handling, cancellation, signing failures, tampering, issued-artifact protection, Mock verification and presence policy. Use fake brokers or test certificates; never access a physical card.
-- Risks: obsolete physical-sidecar verification still calls PivSigner.Verify; remove that acceptance deliberately before deleting its helper. Move minimal PDF fixture generation into test code instead of keeping the production parser. Retain PC/SC presence, current embedded verification and Mock functionality.
-- Conflicts: follows PR221's report selection/attestation callers; implement sequentially and independently review the whole credential boundary.
+- Verification implementation: iText 9.7 SignatureCoversWholeDocument plus parsed ByteRange ending at supplied byte length; SignerProperties.SetCertificationLevel(AccessPermissions.NO_CHANGES_PERMITTED); GetSigningCertificate().GetEncoded() bound to the existing X509 thumbprint identifier. Require one current HardwareTestCertification signature and ETSI.CAdES.detached profile, the catalog's matching DocMDP signature reference, and integer TransformParams P=1. No custom PDF parsing or fallback verifier. Full details and certificate cases are in the implementation scratch plan.
+- Publication: stage validated bytes before invalidating/updating any current artifacts. Use unique immutable issued PDF/sidecar paths, retain superseded artifact and attestation metadata as history, and resolve the newest issue by explicit kind/role/time (append order breaks equal-time ties). Save the candidate run atomically as the publication point; remove uncommitted files on failure. Preserve prior PDF, sidecar and in-memory run metadata on cancellation/persistence failure; current working bytes are never rewritten by attestation. Keep current schema guard checks before mutation. Explicit availability may authorize presence even after a supplied PIN; generic/PIN/mismatch/malformed failures may not. Replace error-substring downgrade decisions with explicit capability outcomes.
+- Tests: software RSA2048/P256/P384 certificates through production iText; same-name/different-cert and same-key/different-cert identity rejection; wrong result metadata; real content/CMS tamper; appended junk and unsigned incremental revisions; absent/permissive/wrong certification; mock HMAC and presence policy; PIN retries/cancellation/token mismatch; failed issuance preserves prior bytes/metadata; current issued preference/immutability. No physical/vendor I/O. Move only minimal PDF generation to tests; retain public PCSC identity parsing fixtures and prune obsolete APDU signing fixture behavior.
+- Validation/review: root owns every SDK/build/test/restore/format command and publication. One ready stacked PR, followed by independent fork:none whole-area credential review; fix all Must/Should and repeat fresh review until clean. No merges; report remaining nits at stack end.
+- Conflicts: do not edit Area5's ResultsViewModelTests or ResultsUiThreadTests fixture fixes. Rebase later on its published follow-up. Shared attestation/artifact contracts are stable; preserve them while tightening signing.
