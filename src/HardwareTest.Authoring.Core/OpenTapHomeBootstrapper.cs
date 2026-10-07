@@ -53,7 +53,7 @@ public sealed class OpenTapHomeBootstrapper : IOpenTapHomeBootstrapper
                 OfflinePackagePath = options.OfflinePackagePath,
                 InstrumentComponentsPackagePath = options.InstrumentComponentsPackagePath,
                 TuiPackagePath = options.TuiPackagePath
-            });
+            }, identity.EnvironmentValues);
             AuthoringBuildService.Recheck(identity);
             AuthoringBuildService.Publish(owned, homeRoot, CancellationToken.None);
             return new OpenTapHome(homeRoot);
@@ -62,9 +62,13 @@ public sealed class OpenTapHomeBootstrapper : IOpenTapHomeBootstrapper
     }
 
     // The operation child already owns a cloned home and publishes through its coordinator.
-    internal OpenTapHome BootstrapOwned(AuthoringWorkspace workspace, BootstrapOptions options)
+    internal OpenTapHome BootstrapOwned(AuthoringWorkspace workspace, BootstrapOptions options,
+        IReadOnlyDictionary<string, string?>? capturedEnvironment = null)
     {
+        capturedEnvironment ??= AuthoringBuildService.CaptureEnvironment();
         var homeRoot = Path.GetFullPath(options.HomeDirectory!);
+        try { AuthoringAdapterPayloadInspection.RejectAlternateLibraryPayloads(homeRoot); }
+        catch (IOException error) { throw new AuthoringWorkspaceException(error.Message, error); }
         Directory.CreateDirectory(homeRoot);
         Directory.CreateDirectory(Path.Combine(homeRoot, "Packages"));
 
@@ -79,7 +83,7 @@ public sealed class OpenTapHomeBootstrapper : IOpenTapHomeBootstrapper
             InstallInTreePack(homeRoot, VisaPackageName, AuthoringVisaInstrumentAdapter.InstrumentType);
         }
 
-        if (string.IsNullOrWhiteSpace(options.OfflinePackagePath)) InstallInstrumentComponentsIfRequired(workspace, options, homeRoot);
+        if (string.IsNullOrWhiteSpace(options.OfflinePackagePath)) InstallInstrumentComponentsIfRequired(workspace, options, homeRoot, capturedEnvironment);
         InstallOptionalFilePackage(options.TuiPackagePath, homeRoot, workspace.Manifest);
 
         if (!requiresVisa)
@@ -222,7 +226,8 @@ public sealed class OpenTapHomeBootstrapper : IOpenTapHomeBootstrapper
     private static void InstallInstrumentComponentsIfRequired(
         AuthoringWorkspace workspace,
         BootstrapOptions options,
-        string homeRoot)
+        string homeRoot,
+        IReadOnlyDictionary<string, string?> capturedEnvironment)
     {
         var required = workspace.Manifest.Dependencies.Any(d =>
             string.Equals(d.Package, InstrumentComponentsPackageName, StringComparison.OrdinalIgnoreCase));
@@ -238,11 +243,26 @@ public sealed class OpenTapHomeBootstrapper : IOpenTapHomeBootstrapper
         var path = FirstNonEmpty(
             options.InstrumentComponentsPackagePath,
             workspace.Manifest.InstrumentComponentsPackage,
-            Environment.GetEnvironmentVariable("HARDWARETEST_INSTRUMENT_COMPONENTS_PACKAGE"));
+            capturedEnvironment.GetValueOrDefault("HARDWARETEST_INSTRUMENT_COMPONENTS_PACKAGE"));
         if (string.IsNullOrWhiteSpace(path))
         {
-            throw new AuthoringWorkspaceException(
-                $"{AuthoringBootstrapCodes.InstrumentComponentsPackageMissing}: InstrumentComponents.OpenTap is declared but no package path was provided (set BootstrapOptions.InstrumentComponentsPackagePath, authoring.json instrumentComponentsPackage, or HARDWARETEST_INSTRUMENT_COMPONENTS_PACKAGE).");
+            var archive = Path.Combine(Path.GetTempPath(), "ht-bundled-" + Guid.NewGuid().ToString("N") + ".TapPackage");
+            try
+            {
+                PublishedInstrumentComponents.MaterializeArchive(archive);
+                InstallFileOrDirectoryPackage(archive, homeRoot, workspace.Manifest);
+                var provenance = Path.Combine(homeRoot, "Packages", InstrumentComponentsPackageName, "hardwaretest-provenance.json");
+                using var output = File.Create(provenance);
+                using var writer = new System.Text.Json.Utf8JsonWriter(output);
+                writer.WriteStartObject();
+                writer.WriteString("package", PublishedInstrumentComponents.PackageName);
+                writer.WriteString("version", PublishedInstrumentComponents.Version);
+                writer.WriteString("origin", PublishedInstrumentComponents.Origin);
+                writer.WriteString("archiveSha256", PublishedInstrumentComponents.Sha256);
+                writer.WriteEndObject();
+            }
+            finally { if (File.Exists(archive)) File.Delete(archive); }
+            return;
         }
 
         path = ResolveAgainstWorkspace(workspace.Root, path);

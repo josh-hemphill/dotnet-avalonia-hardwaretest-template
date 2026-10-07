@@ -9,8 +9,7 @@ public sealed class LibraryEditorCreationTests
     [Fact]
     public void Ordinary_editor_requires_physical_address_and_only_demo_gets_mock_default()
     {
-        var package = Environment.GetEnvironmentVariable("HARDWARETEST_LIBRARY_TEST_PACKAGE_ROOT");
-        if (string.IsNullOrWhiteSpace(package)) Assert.Skip("Actual upstream package required for editor integration.");
+        var package = PublishedLibraryFixture.PackageRoot;
         var root = Path.Combine(Path.GetTempPath(), "ht-library-editor-" + Guid.NewGuid().ToString("N"));
         try
         {

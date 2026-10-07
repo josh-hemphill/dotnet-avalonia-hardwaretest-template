@@ -101,7 +101,7 @@ Workspace catalog transactions capture the manifest and affected program content
 
 Not the operator publish tree and not a machine-global `tap` install the engineer already uses for other products.
 
-Default: `{workspace}/.authoring/opentap/` (gitignored in product repos) or `--opentap-home`. Bootstrap uses `tap package install` of **file** TapPackages we just built, plus TUI from the OpenTAP feed when network is allowed. CI can pass `--tui-package` / `--instrument-components-package` paths so bootstrap stays offline.
+Default: `{workspace}/.authoring/opentap/` (gitignored in product repos) or `--opentap-home`. Prepare copies bundled authoring prerequisites and installs the pinned Instrument Components release when declared, entirely offline. Compatible installed libraries are reused. Trusted `--tui-package` / `--instrument-components-package` paths provide explicit overrides through the owned package importer; invalid overrides fail without replacing the selected home.
 
 ## Workspace contract
 
@@ -136,7 +136,7 @@ Product-workspace example (this template’s golden `authoring.json` **omits** I
 }
 ```
 
-`instrumentComponentsPackage` is a path or leave null and resolve `HARDWARETEST_INSTRUMENT_COMPONENTS_PACKAGE`. This template workspace omits that dependency so sample/board-demo still validate without the library pack.
+`instrumentComponentsPackage` optionally overrides the bundled release with a trusted package path. Preparation prefers BootstrapOptions, then this manifest path, then `HARDWARETEST_INSTRUMENT_COMPONENTS_PACKAGE`; otherwise it installs the bundled 0.1.1 release offline or reuses a compatible selected home. Invalid explicit paths fail without fallback. This template workspace omits that dependency so sample/board-demo still validate without the library pack.
 
 Directory rules (same as today, plus the manifest):
 

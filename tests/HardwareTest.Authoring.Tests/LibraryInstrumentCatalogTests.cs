@@ -32,13 +32,11 @@ public sealed class LibraryInstrumentCatalogTests : IDisposable
         Assert.False(AuthoringInstrumentCatalog.TryGet(typeof(CatalogScope).FullName!, out _));
     }
 
-    // Actual upstream binaries, built separately; no copied implementation in the product.
-    // The integration run sets this directory to the upstream package build output.
+    // Exercise exact published payload bytes by default; explicit fixture overrides remain supported.
     [Fact]
     public void Actual_upstream_catalog_and_non_dmm_lifecycle_roundtrip_preserve_exact_bindings()
     {
-        var package = Environment.GetEnvironmentVariable("HARDWARETEST_LIBRARY_TEST_PACKAGE_ROOT");
-        if (string.IsNullOrWhiteSpace(package)) Assert.Skip("Set HARDWARETEST_LIBRARY_TEST_PACKAGE_ROOT to built upstream package payload for actual binary integration.");
+        var package = PublishedLibraryFixture.PackageRoot;
         var home = InstallActualPackage(package!);
         var adapters = AuthoringInstrumentCatalog.Discover(home);
         Assert.Equal(8, adapters.Count);
@@ -93,7 +91,7 @@ public sealed class LibraryInstrumentCatalogTests : IDisposable
         Assert.Equal(binding.SlotName, Assert.IsType<IdentitySetup>(Assert.Single(unavailableImport.Setup)).InstrumentSlot);
         Assert.Equal([binding.SlotName], unavailableImport.Cleanup.InstrumentSlots);
         var payload = Path.Combine(home.Root, "Packages", AuthoringInstrumentCatalog.LibraryPackage);
-        var bytes = Directory.GetFiles(payload).ToDictionary(file => file, File.ReadAllBytes);
+        var bytes = Directory.GetFiles(home.Root, "*", SearchOption.AllDirectories).ToDictionary(file => file, File.ReadAllBytes);
         var workspace = new AuthoringWorkspace(_root, new AuthoringManifest
         { Dependencies = [new() { Package = AuthoringInstrumentCatalog.LibraryPackage, Version = "^0.1.0" }] }, []);
         new OpenTapHomeBootstrapper().Bootstrap(workspace, new() { HomeDirectory = home.Root, Offline = true });
@@ -117,13 +115,13 @@ public sealed class LibraryInstrumentCatalogTests : IDisposable
         metadata.Root!.SetAttributeValue("Version", "2.0.0"); metadata.Save(Path.Combine(payload, "package.xml"));
         Assert.Empty(AuthoringInstrumentCatalog.Discover(home));
         Assert.False(supply.Availability(home).Available);
-        metadata.Root.SetAttributeValue("Version", "0.1.0"); metadata.Save(Path.Combine(payload, "package.xml"));
+        metadata.Root.SetAttributeValue("Version", HardwareTest.OpenTap.Host.PublishedInstrumentComponents.Version); metadata.Save(Path.Combine(payload, "package.xml"));
         // Same assembly name/version in another home cannot borrow cached types if its binary differs.
-        using (var stream = new FileStream(Path.Combine(payload, "InstrumentComponents.OpenTap.dll"), FileMode.Append)) stream.WriteByte(0);
+        using (var stream = new FileStream(Path.Combine(home.Root, "InstrumentComponents.OpenTap.dll"), FileMode.Append)) stream.WriteByte(0);
         Assert.Empty(AuthoringInstrumentCatalog.Discover(home));
         Assert.Throws<AuthoringWorkspaceException>(() => AuthoringInstrumentCatalog.Create(binding, home));
-        File.WriteAllBytes(Path.Combine(payload, "InstrumentComponents.OpenTap.dll"), bytes[Path.Combine(payload, "InstrumentComponents.OpenTap.dll")]);
-        File.Delete(Path.Combine(home.Root, "Packages", AuthoringInstrumentCatalog.LibraryPackage, "InstrumentComponents.dll"));
+        File.WriteAllBytes(Path.Combine(home.Root, "InstrumentComponents.OpenTap.dll"), bytes[Path.Combine(home.Root, "InstrumentComponents.OpenTap.dll")]);
+        File.Delete(Path.Combine(home.Root, "InstrumentComponents.dll"));
         Assert.Empty(AuthoringInstrumentCatalog.Discover(home));
         Assert.Contains("payload", supply.Availability(home).Reason);
     }
@@ -131,8 +129,7 @@ public sealed class LibraryInstrumentCatalogTests : IDisposable
     [Fact]
     public void Actual_genuine_archive_import_discovers_home_root_payload_and_roundtrips_library_lifecycle()
     {
-        var archivePath = Environment.GetEnvironmentVariable("HARDWARETEST_LIBRARY_TEST_ARCHIVE");
-        if (string.IsNullOrWhiteSpace(archivePath)) Assert.Skip("Set HARDWARETEST_LIBRARY_TEST_ARCHIVE; run this archive integration in a fresh process.");
+        var archivePath = PublishedLibraryFixture.Archive;
         var home = new OpenTapHome(Path.Combine(_root, "archive-home"));
         var workspace = new AuthoringWorkspace(_root, new AuthoringManifest
         {
@@ -148,9 +145,6 @@ public sealed class LibraryInstrumentCatalogTests : IDisposable
             using var incoming = archive.GetEntry(file)!.Open(); using var bytes = new MemoryStream(); incoming.CopyTo(bytes);
             originals[file] = bytes.ToArray(); Assert.Equal(originals[file], File.ReadAllBytes(Path.Combine(home.Root, file)));
         }
-        // A stale package-relative layout cannot override the root DLLs declared by the genuine archive hashes.
-        var stale = Path.Combine(home.Root, "Packages", AuthoringInstrumentCatalog.LibraryPackage);
-        foreach (var pair in originals) File.WriteAllBytes(Path.Combine(stale, pair.Key), pair.Value.Concat(new byte[] { 0 }).ToArray());
         var adapters = AuthoringInstrumentCatalog.Discover(home);
         Assert.Equal(8, adapters.Count);
         var supply = adapters.Single(adapter => adapter.DisplayName == "DC Power Supply");
@@ -176,12 +170,17 @@ public sealed class LibraryInstrumentCatalogTests : IDisposable
 
     private void VerifyResidentProvenance(OpenTapHome origin, IReadOnlyList<AuthoringInstrumentAdapter> adapters)
     {
-        var original = Path.Combine(origin.Root, "Packages", AuthoringInstrumentCatalog.LibraryPackage);
+        var original = origin.Root;
         var second = new OpenTapHome(Path.Combine(_root, "identical-home"));
-        var copied = Path.Combine(second.Root, "Packages", AuthoringInstrumentCatalog.LibraryPackage);
+        var copied = second.Root;
         Directory.CreateDirectory(copied);
-        var bytes = Directory.GetFiles(original).ToDictionary(file => Path.GetFileName(file)!, File.ReadAllBytes);
-        foreach (var pair in bytes) File.WriteAllBytes(Path.Combine(copied, pair.Key!), pair.Value);
+        var bytes = Directory.GetFiles(original, "*", SearchOption.AllDirectories).ToDictionary(file => Path.GetRelativePath(original, file), File.ReadAllBytes);
+        foreach (var pair in bytes)
+        {
+            var destination = Path.Combine(copied, pair.Key);
+            Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+            File.WriteAllBytes(destination, pair.Value);
+        }
         foreach (var file in new[] { "InstrumentComponents.OpenTap.dll", "InstrumentComponents.dll" })
         {
             File.Delete(Path.Combine(original, file));
@@ -191,12 +190,9 @@ public sealed class LibraryInstrumentCatalogTests : IDisposable
             Assert.Equal(adapters.Count, AuthoringInstrumentCatalog.Discover(second).Count);
             File.WriteAllBytes(Path.Combine(copied, file), changed);
             Assert.Empty(AuthoringInstrumentCatalog.Discover(second));
-            Assert.Contains("Restart authoring", AuthoringInstrumentCatalog.LibraryReadiness(second).Reason);
+            Assert.Contains("hash", AuthoringInstrumentCatalog.LibraryReadiness(second).Reason);
             File.WriteAllBytes(Path.Combine(original, file), bytes[file]);
             File.WriteAllBytes(Path.Combine(copied, file), bytes[file]);
-            File.WriteAllBytes(Path.Combine(second.Root, file), changed);
-            Assert.Empty(AuthoringInstrumentCatalog.Discover(second)); // Hashless conflicting layouts are ambiguous.
-            File.Delete(Path.Combine(second.Root, file));
         }
     }
 
@@ -205,7 +201,7 @@ public sealed class LibraryInstrumentCatalogTests : IDisposable
         var home = new OpenTapHome(Path.Combine(_root, "actual-home"));
         var target = Path.Combine(home.Root, "Packages", AuthoringInstrumentCatalog.LibraryPackage);
         Directory.CreateDirectory(target);
-        foreach (var file in new[] { "InstrumentComponents.OpenTap.dll", "InstrumentComponents.dll" }) File.Copy(Path.Combine(package, file), Path.Combine(target, file));
+        foreach (var file in new[] { "InstrumentComponents.OpenTap.dll", "InstrumentComponents.dll" }) File.Copy(Path.Combine(package, file), Path.Combine(home.Root, file));
         File.Copy(Path.Combine(package, "package.xml"), Path.Combine(target, "package.xml"));
         return home;
     }

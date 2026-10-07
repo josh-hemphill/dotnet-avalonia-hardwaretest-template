@@ -1,6 +1,7 @@
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.VisualTree;
+using HardwareTest.Authoring.Tests;
 using Xunit;
 
 namespace HardwareTest.Authoring.UI.Tests;
@@ -42,14 +43,13 @@ public sealed class LibraryEnvironmentRecoveryTests
     [AvaloniaFact]
     public void Actual_library_choices_and_retained_type_survive_home_change_with_honest_capability_copy()
     {
-        var package = Environment.GetEnvironmentVariable("HARDWARETEST_LIBRARY_TEST_PACKAGE_ROOT");
-        if (string.IsNullOrWhiteSpace(package)) Assert.Skip("Actual upstream package output required for library UI integration.");
+        var package = PublishedLibraryFixture.PackageRoot;
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
         fixture.Show(); fixture.OpenRememberedWorkspace();
         var home = Path.Combine(fixture.WorkspaceRoot, "library-home");
         var payload = Path.Combine(home, "Packages", AuthoringInstrumentCatalog.LibraryPackage);
         Directory.CreateDirectory(payload);
-        foreach (var file in new[] { "InstrumentComponents.OpenTap.dll", "InstrumentComponents.dll" }) File.Copy(Path.Combine(package!, file), Path.Combine(payload, file));
+        foreach (var file in new[] { "InstrumentComponents.OpenTap.dll", "InstrumentComponents.dll" }) File.Copy(Path.Combine(package!, file), Path.Combine(home, file));
         File.Copy(Path.Combine(package!, "package.xml"), Path.Combine(payload, "package.xml"));
         fixture.ViewModel.OpenTapHomeOverride = home;
         AuthoringUiFixture.Click(fixture.Control<Button>("New test plan"));

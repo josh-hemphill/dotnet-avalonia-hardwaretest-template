@@ -18,8 +18,7 @@ public sealed class LibraryColdWrapperTests
     [InlineData("disabled-repeat", false)]
     public async Task Cold_opaque_wrappers_preserve_lifecycle_source_and_refuse_phase_movement_after_preparation(string shape, bool identity)
     {
-        var package = Environment.GetEnvironmentVariable("HARDWARETEST_LIBRARY_TEST_PACKAGE_ROOT");
-        if (string.IsNullOrWhiteSpace(package)) Assert.Skip("Actual upstream package required; each wrapper imports in a fresh library-free process.");
+        var package = PublishedLibraryFixture.PackageRoot;
         var root = Path.Combine(Path.GetTempPath(), "ht-library-wrapper-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
         try

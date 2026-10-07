@@ -90,13 +90,19 @@ internal static class AuthoringPackageImport
             AuthoringBuildService.EnsureContained(root, source);
             if (!File.Exists(source)) throw new AuthoringWorkspaceException($"Offline package declared payload missing: '{relative}'.");
         }
+        if (name.Equals(OpenTapHomeBootstrapper.InstrumentComponentsPackageName, StringComparison.OrdinalIgnoreCase))
+        {
+            try { AuthoringAdapterPayloadInspection.ValidateLibraryMetadata(root, xml); }
+            catch (IOException error) { throw new AuthoringWorkspaceException(error.Message, error); }
+        }
         if (name.Equals("OpenTAP", StringComparison.OrdinalIgnoreCase))
             foreach (var runtime in new[] { "OpenTap.dll", "OpenTap.Package.dll", "tap.dll", "tap.runtimeconfig.json" })
             {
                 if (!File.Exists(Path.Combine(root, runtime))) throw new AuthoringWorkspaceException($"Offline OpenTAP runtime missing: '{runtime}'.");
                 files.Add(runtime);
             }
-        return new(name, files.ToArray());
+        return new(name.Equals(OpenTapHomeBootstrapper.InstrumentComponentsPackageName, StringComparison.OrdinalIgnoreCase)
+            ? OpenTapHomeBootstrapper.InstrumentComponentsPackageName : name, files.ToArray());
     }
 
     private static void PublishLayout(string source, string metadata, PackageLayout package, string home, Action<string, string> copy)
@@ -105,27 +111,47 @@ internal static class AuthoringPackageImport
         if (!rooted && metadata != "package.xml")
             throw new AuthoringWorkspaceException("Offline archive package.xml must be at its root or Packages/<name>/package.xml.");
         var engine = package.Name.Equals("OpenTAP", StringComparison.OrdinalIgnoreCase);
+        var library = package.Name.Equals(OpenTapHomeBootstrapper.InstrumentComponentsPackageName, StringComparison.OrdinalIgnoreCase);
+        var homeLayout = rooted || engine || library;
+        var metadataTarget = homeLayout ? $"Packages/{package.Name}/package.xml" : "package.xml";
         // Only declared payload and identity are published. Extra archive entries never overwrite an existing home.
         var filtered = Path.Combine(Path.GetTempPath(), "ht-import-layout-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(filtered);
         try
         {
-            Stage(metadata, rooted || engine ? $"Packages/{package.Name}/package.xml" : "package.xml");
+            Stage(metadata, metadataTarget);
             foreach (var relative in package.Files)
             {
                 var parts = relative.Replace('\\', '/').Split('/');
-                if ((rooted || engine) && parts[0].Equals("Packages", StringComparison.OrdinalIgnoreCase)
+                if ((rooted || engine || library) && parts[0].Equals("Packages", StringComparison.OrdinalIgnoreCase)
                     && (parts.Length < 3 || !parts[1].Equals(package.Name, StringComparison.OrdinalIgnoreCase)))
                     throw new AuthoringWorkspaceException("Offline package cannot replace another package's payload.");
-                if (rooted && !engine && parts.Length == 1 && new[] { "OpenTap.dll", "OpenTap.Package.dll", "tap.dll", "tap.runtimeconfig.json", "tap", "tap.exe" }.Contains(parts[0], StringComparer.OrdinalIgnoreCase))
+                if ((rooted || library) && !engine && parts.Length == 1 && new[] { "OpenTap.dll", "OpenTap.Package.dll", "tap.dll", "tap.runtimeconfig.json", "tap", "tap.exe" }.Contains(parts[0], StringComparer.OrdinalIgnoreCase))
                     throw new AuthoringWorkspaceException("Only an OpenTAP package can replace engine runtime files.");
+                if (!library && AuthoringAdapterPayloadInspection.LibraryFiles.Contains(parts[^1], StringComparer.OrdinalIgnoreCase))
+                    throw new AuthoringWorkspaceException("Only an InstrumentComponents.OpenTap package can replace its library payload.");
                 Stage(relative, relative);
             }
-            copy(filtered, rooted || engine ? home : Path.Combine(home, "Packages", package.Name));
+            copy(filtered, homeLayout ? home : Path.Combine(home, "Packages", package.Name));
+            // Importing custom bytes invalidates any earlier bundled-source attestation.
+            if (library)
+            {
+                foreach (var directory in Directory.EnumerateDirectories(Path.Combine(home, "Packages"))
+                    .Where(directory => Path.GetFileName(directory).Equals(package.Name, StringComparison.OrdinalIgnoreCase)))
+                {
+                    var provenance = Path.Combine(directory, "hardwaretest-provenance.json");
+                    // Home publication merges files, so publish invalidation as an
+                    // overwrite rather than leaving a removed file in the selected home.
+                    if (File.Exists(provenance)) File.WriteAllText(provenance, """{"source":"custom"}""");
+                }
+            }
         }
         finally { Directory.Delete(filtered, recursive: true); }
         void Stage(string incoming, string outgoing)
         {
+            if (outgoing.Replace('\\', '/').Equals(metadataTarget, StringComparison.OrdinalIgnoreCase)
+                && incoming.Replace('\\', '/') != metadata)
+                throw new AuthoringWorkspaceException("Offline package payload cannot replace its validated package metadata.");
             var destination = Path.Combine(filtered, outgoing.Replace('/', Path.DirectorySeparatorChar));
             AuthoringBuildService.EnsureContained(filtered, destination);
             Directory.CreateDirectory(Path.GetDirectoryName(destination)!);

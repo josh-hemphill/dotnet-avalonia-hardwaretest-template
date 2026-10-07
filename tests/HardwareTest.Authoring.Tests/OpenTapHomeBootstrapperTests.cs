@@ -7,6 +7,7 @@ using Xunit;
 
 namespace HardwareTest.Authoring.Tests;
 
+[Collection("AuthoringOpenTap")]
 public sealed class OpenTapHomeBootstrapperTests
 {
     [Fact]
@@ -94,6 +95,7 @@ public sealed class OpenTapHomeBootstrapperTests
         Assert.Contains("OpenTAP", names);
         Assert.Contains("HardwareTest Basic", names);
         Assert.Contains("HardwareTest Mixins", names);
+        Assert.DoesNotContain("InstrumentComponents.OpenTap", names);
         Assert.DoesNotContain(
             names,
             n => n.Contains("Visa", StringComparison.OrdinalIgnoreCase));
@@ -105,7 +107,7 @@ public sealed class OpenTapHomeBootstrapperTests
     }
 
     [Fact]
-    public void Bootstrap_fails_when_instrument_components_is_declared_without_a_path()
+    public void Bootstrap_installs_bundled_instrument_components_offline_without_a_path()
     {
         var previous = Environment.GetEnvironmentVariable("HARDWARETEST_INSTRUMENT_COMPONENTS_PACKAGE");
         Environment.SetEnvironmentVariable("HARDWARETEST_INSTRUMENT_COMPONENTS_PACKAGE", null);
@@ -132,11 +134,14 @@ public sealed class OpenTapHomeBootstrapperTests
                 """);
 
             var workspace = AuthoringWorkspaceLoader.Load(dir);
-            var ex = Assert.Throws<AuthoringWorkspaceException>(() =>
-                new OpenTapHomeBootstrapper().Bootstrap(
-                    workspace,
-                    new BootstrapOptions { HomeDirectory = NewTempDir(), Offline = true }));
-            Assert.Contains(AuthoringBootstrapCodes.InstrumentComponentsPackageMissing, ex.Message, StringComparison.Ordinal);
+            var home = new OpenTapHomeBootstrapper().Bootstrap(workspace,
+                new BootstrapOptions { HomeDirectory = NewTempDir(), Offline = true });
+            Assert.Contains(OpenTapHomeBootstrapper.ListInstalledPackages(home),
+                package => package.Name == HardwareTest.OpenTap.Host.PublishedInstrumentComponents.PackageName && package.Version == "0.1.1");
+            Assert.True(File.Exists(Path.Combine(home.Root, "InstrumentComponents.OpenTap.dll")));
+            var provenance = File.ReadAllText(Path.Combine(home.Root, "Packages", "InstrumentComponents.OpenTap", "hardwaretest-provenance.json"));
+            Assert.Contains(HardwareTest.OpenTap.Host.PublishedInstrumentComponents.Origin, provenance);
+            Assert.Contains(HardwareTest.OpenTap.Host.PublishedInstrumentComponents.Sha256, provenance);
         }
         finally
         {
@@ -150,12 +155,7 @@ public sealed class OpenTapHomeBootstrapperTests
         var workspaceRoot = NewTempDir();
         Directory.CreateDirectory(Path.Combine(workspaceRoot, "plans"));
         Directory.CreateDirectory(Path.Combine(workspaceRoot, "packs", "ic"));
-        File.WriteAllText(
-            Path.Combine(workspaceRoot, "packs", "ic", "package.xml"),
-            """
-            <?xml version="1.0" encoding="UTF-8"?>
-            <Package Name="InstrumentComponents.OpenTap" xmlns="http://opentap.io/schemas/package" Version="0.1.0" />
-            """);
+        CopyLibraryInput(Path.Combine(workspaceRoot, "packs", "ic"));
         File.WriteAllText(
             Path.Combine(workspaceRoot, "authoring.json"),
             """
@@ -203,12 +203,7 @@ public sealed class OpenTapHomeBootstrapperTests
             """);
         var icDir = Path.Combine(NewTempDir(), "ic");
         Directory.CreateDirectory(icDir);
-        File.WriteAllText(
-            Path.Combine(icDir, "package.xml"),
-            """
-            <?xml version="1.0" encoding="UTF-8"?>
-            <Package Name="InstrumentComponents.OpenTap" xmlns="http://opentap.io/schemas/package" Version="0.1.0" />
-            """);
+        CopyLibraryInput(icDir);
 
         var workspace = AuthoringWorkspaceLoader.Load(workspaceRoot);
         var home = new OpenTapHomeBootstrapper().Bootstrap(
@@ -223,6 +218,12 @@ public sealed class OpenTapHomeBootstrapperTests
         Assert.Contains(
             "InstrumentComponents.OpenTap",
             OpenTapHomeBootstrapper.ListInstalledPackages(home).Select(p => p.Name));
+    }
+
+    private static void CopyLibraryInput(string destination)
+    {
+        foreach (var file in new[] { "package.xml", "InstrumentComponents.dll", "InstrumentComponents.OpenTap.dll" })
+            File.Copy(Path.Combine(PublishedLibraryFixture.PackageRoot, file), Path.Combine(destination, file));
     }
 
     [Fact]
