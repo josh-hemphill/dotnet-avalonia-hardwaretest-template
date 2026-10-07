@@ -22,6 +22,17 @@ public sealed partial class AuthoringWorkspaceViewModel
         }
     }
 
+    public string InstrumentCatalogSummary
+    {
+        get
+        {
+            var physical = InstrumentTypeChoices.Count(adapter => AuthoringInstrumentCatalog.IsLibrary(adapter.TypeId));
+            return physical > 0
+                ? $"{physical} supported physical instrument types in the selected home. Mock DMM is available for demo plans."
+                : "No physical instrument types available in the selected home. Prepare Instrument Components in Environment. Mock DMM is available for demo plans.";
+        }
+    }
+
     public string NewInstrumentTypeId
     {
         get => _newInstrumentTypeId;

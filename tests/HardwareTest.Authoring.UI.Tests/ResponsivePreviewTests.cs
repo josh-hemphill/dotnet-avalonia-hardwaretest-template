@@ -55,13 +55,6 @@ public sealed class ResponsivePreviewTests
             tabs.SelectedIndex = 5;
             AuthoringUiFixture.Drain();
             CheckPreview();
-            // The wide layout also offers the same content in the Program dock.
-            if (width == 1280 && fontSize == 14)
-            {
-                tabs.SelectedIndex = 0;
-                AuthoringUiFixture.Drain();
-                CheckPreview();
-            }
         }
         finally
         {
@@ -77,9 +70,8 @@ public sealed class ResponsivePreviewTests
 
         void CheckPreview()
         {
-            var scroll = fixture.Control<ScrollViewer>("Workspace preview viewport");
-            // The compact shell can fit this content naturally; explicitly constrain the wheel regression case.
-            if (width == 960 && fontSize == 20 && busy && role == "timeseries") scroll.MaxHeight = 240;
+            var scroll = fixture.Control<ScrollViewer>("Operator board viewport");
+            Assert.Empty(scroll.GetVisualAncestors().OfType<ScrollViewer>());
             scroll.Offset = default;
             AuthoringUiFixture.Drain();
             ResponsiveShellTests.Inside(scroll, window);
@@ -110,13 +102,13 @@ public sealed class ResponsivePreviewTests
             {
                 Assert.True(scroll.Extent.Height > scroll.Viewport.Height);
                 Assert.True(scroll.Offset.Y > 0);
-                // Wheel input returns to the data-source controls placed above the board.
-                var center = recordings.TranslatePoint(new Point(8, 8), window);
+                // The board owns its wheel input; the recording picker is a sibling.
+                var center = preview.TranslatePoint(new Point(8, 8), window);
                 Assert.NotNull(center);
                 window.MouseWheel(center.Value, new Vector(0, 1000), RawInputModifiers.None);
                 AuthoringUiFixture.Drain();
                 Assert.Equal(0, scroll.Offset.Y);
-                ResponsiveShellTests.Inside(fixture.Control<Button>("Use example data"), window);
+                ResponsiveShellTests.Inside(recordings, window);
             }
         }
     }

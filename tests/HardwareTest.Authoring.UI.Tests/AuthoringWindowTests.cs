@@ -30,14 +30,16 @@ public sealed class AuthoringWindowTests
         var window = fixture.Show();
         fixture.OpenRememberedWorkspace();
 
-        var programs = fixture.Control<ListBox>("Programs");
+        var programs = fixture.Control<ComboBox>("Selected test plan");
         Assert.Equal("sample", fixture.ViewModel.SelectedProgram!.PlanId);
         Assert.Same(fixture.ViewModel.SelectedProgramRow, programs.SelectedItem);
         Assert.Contains(programs.GetVisualDescendants().OfType<TextBlock>(),
             text => text.Text == "Sample Hardware Suite (Demo)");
         Assert.True(window.FindControl<TabControl>("WorkspaceTabs")!.IsEffectivelyVisible);
         Assert.NotEmpty(fixture.Control<ListBox>("Program sequence").Items);
+        fixture.NavigateTask(5);
         Assert.True(fixture.Control<OperatorPreviewPane>("Operator preview chrome").IsEffectivelyVisible);
+        fixture.NavigateTask(0);
         Assert.False(fixture.Control<Button>("Open workspace from welcome").IsEffectivelyVisible);
 
         var notifications = 0;
@@ -102,7 +104,7 @@ public sealed class AuthoringWindowTests
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
         var window = fixture.Show();
         fixture.OpenRememberedWorkspace();
-        window.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 1;
+        window.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 7;
         AuthoringUiFixture.Drain();
 
         fixture.Type(fixture.Control<TextBox>("Display name"), "UI edited sample");
@@ -164,11 +166,11 @@ public sealed class AuthoringWindowTests
         var window = fixture.Show(width, height);
         fixture.OpenRememberedWorkspace();
         Assert.Equal(new Size(width, height), window.ClientSize);
-        AssertInsideWindow(fixture.Control<Button>("Save plan"), window);
         AssertInsideWindow(fixture.Control<Button>("Save all"), window);
-        AssertInsideWindow(fixture.Control<ListBox>("Programs"), window);
+        AssertInsideWindow(fixture.Control<Button>("Save all"), window);
+        AssertInsideWindow(fixture.Control<ComboBox>("Selected test plan"), window);
 
-        window.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 1;
+        window.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 7;
         AuthoringUiFixture.Drain();
         var displayName = fixture.Control<TextBox>("Display name");
         displayName.BringIntoView();

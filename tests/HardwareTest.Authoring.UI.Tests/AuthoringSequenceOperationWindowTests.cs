@@ -28,7 +28,7 @@ public sealed class AuthoringSequenceOperationWindowTests
         fixture.Type(search, "band");
         Assert.Equal("band", vm.RecipeSearch);
         Assert.All(vm.Recipes, recipe => Assert.Contains("band", $"{recipe.ListLabel} {recipe.Summary}".ToLowerInvariant(), StringComparison.Ordinal));
-        var recipes = fixture.Control<ComboBox>("Recipe");
+        var recipes = fixture.Control<ListBox>("Recipe");
         recipes.BringIntoView();
         AuthoringUiFixture.Drain();
         Assert.True(recipes.Focus());
@@ -54,6 +54,8 @@ public sealed class AuthoringSequenceOperationWindowTests
         Assert.Null(vm.Error);
         var survivingId = vm.SelectedSequence!.NodeId;
         Assert.NotNull(survivingId);
+        search = fixture.Control<TextBox>("Search sequence palette");
+        recipes = fixture.Control<ListBox>("Recipe");
         fixture.Type(search, "mean");
         recipes.SelectedItem = vm.Recipes.Single(recipe => recipe.Id == AuthoringRecipeIds.MeanGte);
         AuthoringUiFixture.Drain();
@@ -83,7 +85,7 @@ public sealed class AuthoringSequenceOperationWindowTests
         var button = fixture.Control<Button>(name);
         button.BringIntoView();
         AuthoringUiFixture.Drain();
-        ResponsiveShellTests.Inside(button, fixture.Window!);
+        ResponsiveShellTests.Inside(button, TopLevel.GetTopLevel(button)!);
         Assert.True(button.Focus());
         AuthoringUiFixture.Click(button);
     }

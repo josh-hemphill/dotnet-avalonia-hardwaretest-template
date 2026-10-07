@@ -9,11 +9,8 @@ public partial class WorkspacePreviewView : UserControl
     private readonly IAuthoringRecordingPicker _recordingPicker;
     private readonly Func<TopLevel, DirectoryInfo, Task<bool>>? _launchRecordingFolder;
     private readonly ScrollViewer _sourceDetailsViewport;
-    private readonly Grid _previewLayout;
-    private readonly WrapPanel _sourceActions;
     private readonly StackPanel _recordingRows;
     private readonly OperatorPreviewPane _boardPane;
-    private readonly Border _sourceFrame;
     private readonly Grid _boardRegion;
     private readonly TextBlock _boardHeading;
     public WorkspacePreviewView() : this(new AuthoringRecordingPicker()) { }
@@ -23,34 +20,22 @@ public partial class WorkspacePreviewView : UserControl
         _launchRecordingFolder = launchRecordingFolder;
         InitializeComponent();
         _sourceDetailsViewport = this.FindControl<ScrollViewer>("SourceDetailsViewport")!;
-        _previewLayout = this.FindControl<Grid>("PreviewLayout")!;
-        _sourceActions = this.FindControl<WrapPanel>("SourceActions")!;
         _recordingRows = this.FindControl<StackPanel>("RecordingRows")!;
         _boardPane = this.FindControl<OperatorPreviewPane>("BoardPane")!;
-        _sourceFrame = this.FindControl<Border>("SourceFrame")!;
         _boardRegion = this.FindControl<Grid>("BoardRegion")!;
         _boardHeading = this.FindControl<TextBlock>("BoardHeading")!;
         LayoutUpdated += ConstrainSourceViewport;
-        _boardPane.AddHandler(Control.RequestBringIntoViewEvent, (_, e) =>
-        {
-            // The board's scroller reveals its widget; the outer frame must reveal the board too.
-            if (!ReferenceEquals(e.TargetObject, _boardPane)) _boardPane.BringIntoView();
-        }, RoutingStrategies.Bubble, handledEventsToo: true);
     }
 
     private void ConstrainSourceViewport(object? sender, EventArgs e)
     {
         if (Bounds.Height <= 0 || !double.IsFinite(Bounds.Height)) return;
-        // Keep recordings outside the provenance scroller and reserve the graphs' usable height.
-        // Smaller busy layouts can scroll the frame without shrinking the board's own viewport.
-        const double boardMinimum = 180;
+        // Source and board are sibling viewports. The board alone owns its scrolling.
+        const double boardMinimum = 80;
         const double rowGaps = 16;
-        var actionsHeight = Math.Max(_sourceActions.Bounds.Height, _sourceActions.DesiredSize.Height) + _sourceFrame.Padding.Top + _sourceFrame.Padding.Bottom;
         var boardRegionMinimum = boardMinimum + Math.Max(_boardHeading.Bounds.Height, _boardHeading.DesiredSize.Height) + _boardRegion.RowSpacing;
         var recordingsHeight = Math.Max(_recordingRows.Bounds.Height, _recordingRows.DesiredSize.Height);
-        var contentHeight = Math.Max(Bounds.Height, actionsHeight + recordingsHeight + boardRegionMinimum + rowGaps);
-        var sourceMaximum = Math.Max(actionsHeight, contentHeight - recordingsHeight - boardRegionMinimum - rowGaps);
-        if (!double.IsFinite(_previewLayout.Height) || Math.Abs(_previewLayout.Height - contentHeight) > 0.5) _previewLayout.Height = contentHeight;
+        var sourceMaximum = Math.Max(48, Math.Min(Bounds.Height * 0.35, Bounds.Height - recordingsHeight - boardRegionMinimum - rowGaps));
         if (Math.Abs(_boardPane.MinHeight - boardMinimum) > 0.5) _boardPane.MinHeight = boardMinimum;
         if (Math.Abs(_sourceDetailsViewport.MaxHeight - sourceMaximum) > 0.5) _sourceDetailsViewport.MaxHeight = sourceMaximum;
     }

@@ -327,14 +327,14 @@ public sealed class AuthoringLifecycleTests
         fixture.ViewModel.DisplayName = "saved from UI despite preview failure";
         fixture.ViewModel.OpenTapHomeOverride = "invalid\0home";
         var selected = fixture.ViewModel.SelectedProgram;
-        var programRow = fixture.Control<ListBox>("Programs").SelectedItem;
+        var programRow = fixture.Control<ComboBox>("Selected test plan").SelectedItem;
         AuthoringUiFixture.Click(fixture.Control<Button>("Save all"));
         Assert.True(fixture.ViewModel.LastSaveAllResult!.Succeeded);
         Assert.Empty(fixture.ViewModel.LastSaveAllResult.Failures);
         Assert.Equal(["sample"], fixture.ViewModel.LastSaveAllResult.SavedProgramIds);
         Assert.False(fixture.ViewModel.HasUnsavedChanges);
         Assert.Same(selected, fixture.ViewModel.SelectedProgram);
-        Assert.Same(programRow, fixture.Control<ListBox>("Programs").SelectedItem);
+        Assert.Same(programRow, fixture.Control<ComboBox>("Selected test plan").SelectedItem);
         Assert.Equal("saved from UI despite preview failure", new PlanCompiler().Load(Path.Combine(fixture.WorkspaceRoot, "sample.TapPlan")).Sidecar.DisplayName);
         Assert.Contains("OpenTAP home setting", fixture.Control<TextBlock>("Authoring error").Text);
         Assert.Contains(fixture.Control<ItemsControl>("Save all results").GetVisualDescendants().OfType<TextBlock>(), text => text.Text == "Saved sample");
@@ -409,7 +409,7 @@ public sealed class AuthoringLifecycleTests
         Assert.Equal("save-all-channel", vm.ChannelKey);
         Assert.Equal(sequenceIndex, vm.SelectedSequenceIndex);
         Assert.Equal("Acquire VDC", vm.SelectedSequence!.Label);
-        Assert.Same(programRow, fixture.Control<ListBox>("Programs").SelectedItem);
+        Assert.Same(programRow, fixture.Control<ComboBox>("Selected test plan").SelectedItem);
         Assert.Same(vm.SelectedSequence, fixture.Control<ListBox>("Program sequence").SelectedItem);
         var saved = new AuthoringWorkspaceViewModel(preferences: fixture.Preferences);
         saved.Open(fixture.WorkspaceRoot);
@@ -422,7 +422,7 @@ public sealed class AuthoringLifecycleTests
     {
         using var fixture = Loaded();
         var vm = fixture.ViewModel;
-        var programs = fixture.Control<ListBox>("Programs");
+        var programs = fixture.Control<ComboBox>("Selected test plan");
         var row = programs.SelectedItem;
         var rows = programs.ItemsSource;
         var sequence = vm.SelectedSequence;
@@ -446,7 +446,7 @@ public sealed class AuthoringLifecycleTests
         var fixture = new AuthoringUiFixture(rememberWorkspace: true, compiler);
         fixture.Show(realInteraction: realInteraction);
         fixture.OpenRememberedWorkspace();
-        fixture.Window!.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 1;
+        fixture.Window!.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 7;
         AuthoringUiFixture.Drain();
         return fixture;
     }

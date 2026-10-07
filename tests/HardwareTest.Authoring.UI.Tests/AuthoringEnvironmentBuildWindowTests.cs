@@ -82,7 +82,7 @@ public sealed class AuthoringEnvironmentBuildWindowTests
         await Until(() => File.Exists(Path.Combine(fixture.WorkspaceRoot, "fixture-child.json")));
         Assert.Null(fixture.ViewModel.LastBuildReceipt);
         Assert.Equal("Not checked", fixture.ViewModel.CompatibilityState);
-        SelectTab(window, 1); fixture.ViewModel.SelectProgram("sample");
+        SelectTab(window, 7); fixture.ViewModel.SelectProgram("sample");
         var displayName = fixture.Control<TextBox>("Display name"); Assert.True(displayName.IsEffectivelyEnabled);
         displayName.Text = "Edited during checked build"; AuthoringUiFixture.Drain();
         Assert.Contains("sample", fixture.ViewModel.DirtyProgramIds);

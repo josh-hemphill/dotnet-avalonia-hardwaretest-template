@@ -31,7 +31,7 @@ public sealed class AuthoringDeclaredLibraryTuiWindowTests
         File.WriteAllText(Path.Combine(home.Root, "FixtureTui.dll"), "TUI prerequisite presence fixture");
         var vm = fixture.ViewModel; vm.OpenTapHomeOverride = home.Root; vm.Open(workspace.Root); vm.SelectProgram("sample");
         Assert.False(vm.HasUncompiledSources); Assert.Empty(vm.CompiledConflictProgramIds); Assert.True(vm.RequiresInstrumentLibrary);
-        var window = fixture.Show(); fixture.Control<TabItem>("Workspace tab").IsSelected = true; AuthoringUiFixture.Drain();
+        var window = fixture.Show(); window.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 3; AuthoringUiFixture.Drain();
         var readiness = fixture.Control<TextBlock>("Standalone VISA readiness");
         Assert.True(readiness.IsEffectivelyVisible);
         Assert.Contains("requires InstrumentComponents.OpenTap", readiness.Text);
@@ -52,7 +52,7 @@ public sealed class AuthoringDeclaredLibraryTuiWindowTests
         palette.Close();
         workspace.Manifest.Dependencies.RemoveAll(dependency => dependency.Package.Equals(AuthoringInstrumentCatalog.LibraryPackage, StringComparison.OrdinalIgnoreCase));
         AuthoringWorkspaceLoader.SaveManifest(workspace.Root, workspace.Manifest);
-        vm.Open(workspace.Root); AuthoringUiFixture.Drain();
+        vm.Open(workspace.Root); window.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 3; AuthoringUiFixture.Drain();
         Assert.False(vm.RequiresInstrumentLibrary);
         Assert.Contains("optional", fixture.Control<TextBlock>("Standalone VISA readiness").Text);
     }
