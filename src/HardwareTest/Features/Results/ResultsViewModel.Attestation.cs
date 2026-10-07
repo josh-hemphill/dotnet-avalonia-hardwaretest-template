@@ -137,8 +137,13 @@ public partial class ResultsViewModel
         }
         try
         {
-            var result = await Task.Run(() => _attestation.AttestAsync(run, kind, credential,
-                pin, skipSigning, token), token).ConfigureAwait(true);
+            ReportAttestationResult result;
+            try
+            {
+                result = await Task.Run(() => _attestation.AttestAsync(run, kind, credential,
+                    pin, skipSigning, token), token).ConfigureAwait(true);
+            }
+            finally { capture.Dispose(); }
             if (version != _pendingAttestationVersion || token.IsCancellationRequested) return;
             LoadAttestation(run);
             if (result.PinRequired && !skipSigning)

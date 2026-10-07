@@ -353,11 +353,12 @@ public partial class ReportPreviewViewModel : ReactiveObject
             var artifact = run?.Reports.FirstOrDefault(r => ReportAttestationService.PathEquals(r.PdfPath, path));
             var kind = run is null ? ReportKinds.Status : ReportAttestationService.KindForPdf(run, path);
             var issued = artifact is not null && ReportArtifactRoles.IsIssued(artifact.Role);
-            var valid = run is not null && issued && _attestation is not null
-                && await Task.Run(() => _attestation.HasValidAttestationForPdf(run, kind, path), token).ConfigureAwait(false);
+            var needsAuthorization = action is ActionKind.Save or ActionKind.Print
+                && run is not null && _attestation?.NeedsAttestation(run, kind) == true;
+            var valid = needsAuthorization && issued
+                && await Task.Run(() => _attestation!.HasValidAttestationForPdf(run!, kind, path), token).ConfigureAwait(false);
             if (version != _selectionVersion || token.IsCancellationRequested) return;
-            var needsSignature = action == ActionKind.Sign || (action is ActionKind.Save or ActionKind.Print
-                && run is not null && _attestation?.NeedsAttestation(run, kind) == true && !valid);
+            var needsSignature = action == ActionKind.Sign || (needsAuthorization && !valid);
             if (needsSignature)
             {
                 if (run is null || _attestation is null || run.IsSchemaReadOnly || issued)
@@ -480,10 +481,14 @@ public partial class ReportPreviewViewModel : ReactiveObject
         var effectVersion = pending.Version;
         try
         {
-            var result = await Task.Run(() => _attestation.AttestAsync(pending.Run, pending.Kind, operation.Credential,
-                operation.Pin, presence, token), token).ConfigureAwait(false);
-            // Badge capture is complete; the per-preview action gate still owns the resumed desktop operation.
-            capture.Dispose();
+            ReportAttestationResult result;
+            try
+            {
+                result = await Task.Run(() => _attestation.AttestAsync(pending.Run, pending.Kind, operation.Credential,
+                    operation.Pin, presence, token), token).ConfigureAwait(false);
+            }
+            // The per-preview action gate still owns the resumed desktop operation.
+            finally { capture.Dispose(); }
             if (!ReferenceEquals(_pending, pending) || pending.Version != _selectionVersion || token.IsCancellationRequested) return;
             if (!result.Succeeded)
             {

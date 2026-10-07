@@ -4,6 +4,7 @@ using HardwareTest.Core.Reporting;
 using HardwareTest.Core.Runs;
 using HardwareTest.Core.Serialization;
 using HardwareTest.Core.Settings;
+using HardwareTest.Core.Storage;
 using HardwareTest.Features.ReportPreview;
 using HardwareTest.Features.Results;
 using HardwareTest.Reporting;
@@ -609,6 +610,57 @@ public sealed class ReportActionTests : IDisposable
         }
         Assert.Equal(2, delayed.Calls);
         Assert.Equal(second.RunId, delayed.CapturedRunId);
+    }
+
+    [Fact]
+    public async Task Results_export_releases_badge_capture_while_package_copy_is_blocked()
+    {
+        var store = new FileRunStore(_root);
+        var exportRun = await SeedAsync(store, "blocked-certified-export");
+        var otherRun = await SeedAsync(store, "capture-during-export");
+        var settings = new AppSettings { RequireAttestationBeforeExport = true };
+        var service = new ReportAttestationService(new MockOperatorCredentialBroker(canSign: true), store, settings);
+        var exports = new HeldExportTargets(_root);
+        var results = new ResultsViewModel(store, new FakeReportService(), attestation: service, settings: settings,
+            exportTargets: exports) { UiScheduler = action => action() };
+        await results.RequestCertifiedPrintAsync(exportRun.Reports[0].PdfPath);
+        await results.ExportPackageCommand.ExecuteAsync();
+        var export = results.CaptureAttestationCommand.ExecuteAsync();
+        try
+        {
+            await exports.Started.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.True(results.IsBusy);
+            var statusWhileExportIsHeld = results.Status;
+            var preview = new ReportPreviewViewModel(store, new FakeReportService(), attestation: service, settings: settings)
+            { UiScheduler = action => action(), PreviewRenderer = _ => [] };
+            await preview.LoadFromPathAsync(otherRun.Reports[0].PdfPath);
+            await preview.SignCommand.ExecuteAsync();
+            await preview.SignAndContinueCommand.ExecuteAsync().WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.True(service.HasValidAttestation((await store.LoadAsync(otherRun.RunId))!, ReportKinds.Certification));
+            Assert.False(preview.ShowSigningPrompt);
+            Assert.Equal(statusWhileExportIsHeld, results.Status);
+            Assert.True(results.IsBusy);
+        }
+        finally { exports.Release.TrySetResult(); }
+        await export.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.False(results.IsBusy);
+        Assert.Contains("Exported package", results.Status, StringComparison.Ordinal);
+    }
+
+    private sealed class HeldExportTargets(string root) : IExportTargetService
+    {
+        public TaskCompletionSource Started { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public IReadOnlyList<ExportTarget> ListTargets() =>
+            [new() { Id = "held-export", DisplayName = "Held export", RootPath = root }];
+        public string WriteAtomic(ExportTarget target, string relativePath, byte[] content, long? minFreeBytes = null)
+            => throw new NotSupportedException();
+        public string ExportPackage(ExportTarget target, string packageFolderName, IEnumerable<(string SourcePath, string RelativeName)> files)
+        {
+            Started.TrySetResult();
+            Release.Task.WaitAsync(TimeSpan.FromSeconds(10)).GetAwaiter().GetResult();
+            return Path.Combine(root, packageFolderName);
+        }
     }
 
     private async Task<(TestRunRecord, ReportPreviewViewModel, Actions, ReportAttestationService)> SetupAsync()

@@ -132,6 +132,51 @@ public sealed class SelectedIssuedEvidenceTests : IDisposable
         Assert.False(preview.ShowSigningPrompt);
     }
 
+    [Theory]
+    [InlineData("Open", false)]
+    [InlineData("Save", false)]
+    [InlineData("Print", false)]
+    [InlineData("Open", true)]
+    [InlineData("Save", true)]
+    [InlineData("Print", true)]
+    public async Task Malformed_current_sidecar_blocks_only_actions_requiring_authorization(string action, bool required)
+    {
+        var (store, run, _, selected, _) = await CreateIssuesAsync(unrevisioned: true);
+        var sidecarPath = ReportAttestationService.FindForArtifact(run, selected)!.SidecarPath!;
+        await File.WriteAllTextAsync(sidecarPath, "{ malformed evidence");
+        var settings = new AppSettings { RequireAttestationBeforeExport = required };
+        var service = new ReportAttestationService(new MockOperatorCredentialBroker(canSign: true), store, settings);
+        Assert.Throws<JsonException>(() => service.HasValidAttestationForPdf(run, ReportKinds.Certification, selected.PdfPath));
+        var actions = new CapturingActions();
+        var preview = new ReportPreviewViewModel(store, new FakeReportService(), attestation: service,
+            desktop: actions, printer: actions, settings: settings)
+        { UiScheduler = callback => callback(), PreviewRenderer = _ => [] };
+        await preview.LoadFromPathAsync(selected.PdfPath);
+        switch (action)
+        {
+            case "Open": await preview.OpenInViewerCommand.ExecuteAsync(); break;
+            case "Save": await preview.SaveCopyCommand.ExecuteAsync(); break;
+            case "Print": await preview.PrintCommand.ExecuteAsync(); break;
+        }
+        var blocked = required && action != "Open";
+        Assert.Equal(blocked ? null : selected.PdfPath, actions.Path);
+        Assert.False(preview.ShowSigningPrompt);
+        Assert.Equal(selected.PdfPath, preview.PdfPath);
+        Assert.False(preview.IsBusy);
+        if (blocked) Assert.Contains("Report action failed", preview.Status, StringComparison.Ordinal);
+    }
+
+    private sealed class CapturingActions : IReportDesktopActions, IReportPrintService
+    {
+        public string? Path { get; private set; }
+        public Task<string?> SaveCopyAsync(string path, CancellationToken cancellationToken = default)
+        { cancellationToken.ThrowIfCancellationRequested(); Path = path; return Task.FromResult<string?>("saved.pdf"); }
+        public Task<string> PrintAsync(string path, CancellationToken cancellationToken = default)
+        { cancellationToken.ThrowIfCancellationRequested(); Path = path; return Task.FromResult("Printed."); }
+        public Task OpenInViewerAsync(string path, CancellationToken cancellationToken = default)
+        { cancellationToken.ThrowIfCancellationRequested(); Path = path; return Task.CompletedTask; }
+    }
+
     private async Task<(FileRunStore, TestRunRecord, ReportAttestationService, RunReportArtifact, RunReportArtifact)> CreateIssuesAsync(bool unrevisioned)
     {
         var store = new FileRunStore(_root);
