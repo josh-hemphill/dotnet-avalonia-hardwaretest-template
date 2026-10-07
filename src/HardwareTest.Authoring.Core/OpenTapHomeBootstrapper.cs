@@ -13,8 +13,6 @@ public sealed class OpenTapHomeBootstrapper : IOpenTapHomeBootstrapper
 {
     public const string DefaultHomeRelativePath = ".authoring/opentap";
     public const string InstrumentComponentsPackageName = "InstrumentComponents.OpenTap";
-    public const string VisaPackageName = "HardwareTest VISA";
-    public const string VisaAssemblyFileName = "HardwareTest.OpenTap.Plugins.Visa.dll";
 
     private static readonly XNamespace PackageNs = "http://opentap.io/schemas/package";
 
@@ -83,7 +81,6 @@ public sealed class OpenTapHomeBootstrapper : IOpenTapHomeBootstrapper
         InstallStandaloneCounterpartForLibrary(workspace.Manifest, homeRoot, explicitPartialImport: !string.IsNullOrWhiteSpace(options.OfflinePackagePath));
         InstallOptionalFilePackage(options.TuiPackagePath, homeRoot, workspace.Manifest);
 
-        AssertNoVisa(homeRoot);
         var home = new OpenTapHome(homeRoot);
         if (StandaloneVisaReadiness.ExecutionPrerequisite(home, requiresInstrumentLibrary: false) is { } unavailable)
             throw new AuthoringWorkspaceException(unavailable);
@@ -353,16 +350,6 @@ public sealed class OpenTapHomeBootstrapper : IOpenTapHomeBootstrapper
     private static void InstallFileOrDirectoryPackage(string path, string homeRoot, AuthoringManifest manifest)
         => AuthoringPackageImport.Install(path, homeRoot, manifest, CopyDirectory);
 
-    private static void AssertNoVisa(string homeRoot)
-    {
-        var visa = Directory.EnumerateFiles(homeRoot, VisaAssemblyFileName, SearchOption.AllDirectories).FirstOrDefault();
-        if (visa is not null)
-        {
-            throw new AuthoringWorkspaceException(
-                $"Authoring OpenTAP home must not contain the VISA adapter ({visa}).");
-        }
-    }
-
     private static string FindPackageXml(string packageName)
     {
         var bundled = Path.Combine(AppContext.BaseDirectory, "AuthoringPackages", packageName, "package.xml");
@@ -439,12 +426,6 @@ public sealed class OpenTapHomeBootstrapper : IOpenTapHomeBootstrapper
         Directory.CreateDirectory(dest);
         foreach (var file in Directory.EnumerateFiles(source))
         {
-            if (string.Equals(Path.GetFileName(file), VisaAssemblyFileName, StringComparison.OrdinalIgnoreCase))
-            {
-                throw new AuthoringWorkspaceException(
-                    $"Authoring OpenTAP home must not copy the VISA adapter ({file}).");
-            }
-
             File.Copy(file, Path.Combine(dest, Path.GetFileName(file)), overwrite: true);
         }
 

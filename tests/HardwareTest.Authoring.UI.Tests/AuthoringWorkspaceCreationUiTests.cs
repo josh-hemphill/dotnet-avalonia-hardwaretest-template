@@ -174,7 +174,6 @@ public sealed class AuthoringWorkspaceCreationUiTests
         Assert.Equal(binding.VisaAddress, reopened.VisaAddress);
         Assert.Equal(binding.OpaqueResourceXml, reopened.OpaqueResourceXml);
         Assert.Equal(binding.Settings.OrderBy(setting => setting.Key), reopened.Settings.OrderBy(setting => setting.Key));
-        Assert.DoesNotContain(fixture.ViewModel.Workspace!.Manifest.Dependencies, package => package.Package == OpenTapHomeBootstrapper.VisaPackageName);
         Assert.Equal("^0.1.0", Assert.Single(fixture.ViewModel.Workspace!.Manifest.Dependencies, package => package.Package == AuthoringInstrumentCatalog.LibraryPackage).Version);
         Assert.False(fixture.ViewModel.HasUnsavedChanges);
     }

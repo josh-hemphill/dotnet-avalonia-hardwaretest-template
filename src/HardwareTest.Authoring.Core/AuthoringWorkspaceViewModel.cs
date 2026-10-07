@@ -320,7 +320,7 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
             new PlanContractOptions
             {
                 Strict = strict,
-                ExcludeVisaAdapter = true,
+                EnablePhysicalExecution = false,
             });
         AcceptFindings(report, checkedState);
         SetFindingValidationStatus(report);

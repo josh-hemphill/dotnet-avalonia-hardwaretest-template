@@ -383,8 +383,8 @@ public sealed partial class StandaloneBoundaryTests : IDisposable
 
     [Theory]
     [InlineData("no-broker")]
-    [InlineData("adapter-disabled")]
-    public async Task Metadata_and_explicitly_disabled_adapter_do_not_acquire_execution_library(string gate)
+    [InlineData("physical-disabled")]
+    public async Task Metadata_and_explicitly_disabled_physical_execution_do_not_acquire_execution_library(string gate)
     {
         var home = InstalledHome();
         RemoveBaseFromFixture(home);

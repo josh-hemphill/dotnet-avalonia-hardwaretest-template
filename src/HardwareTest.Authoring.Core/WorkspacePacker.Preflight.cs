@@ -87,7 +87,7 @@ public static partial class WorkspacePacker
         {
             options.Progress?.Invoke("Strict validation of included plans");
             contract = PlanContractValidator.Validate(packingWorkspace.TapPlanPaths,
-                new PlanContractOptions { Strict = true, ExcludeVisaAdapter = true });
+                new PlanContractOptions { Strict = true, EnablePhysicalExecution = false });
             foreach (var plan in contract.Plans)
                 foreach (var finding in plan.Findings)
                     findings.Add(new(AuthoringPackCodes.ContractFailed + "/" + finding.Code, finding.Message,

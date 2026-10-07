@@ -1,5 +1,4 @@
 using System.IO.Compression;
-using System.Reflection;
 using System.Text;
 using HardwareTest.Authoring;
 using Xunit;
@@ -10,27 +9,27 @@ namespace HardwareTest.Authoring.Tests;
 public sealed class OpenTapHomeBootstrapperTests
 {
     [Fact]
-    public void Bootstrap_legacy_visa_declaration_does_not_install_adapter_and_preserves_selected_home()
+    public void Bootstrap_unknown_package_preserves_selected_home()
     {
         var workspaceRoot = NewTempDir();
         var homeRoot = NewTempDir();
         File.WriteAllText(Path.Combine(homeRoot, "preserved.txt"), "selected home");
         var workspace = new AuthoringWorkspace(workspaceRoot, new AuthoringManifest
         {
-            Dependencies = [new() { Package = OpenTapHomeBootstrapper.VisaPackageName, Version = "^0.1.0" }]
+            Dependencies = [new() { Package = "Unavailable test package", Version = "^0.1.0" }]
         }, []);
 
         var error = Assert.Throws<AuthoringWorkspaceException>(() => new OpenTapHomeBootstrapper().Bootstrap(
             workspace, new BootstrapOptions { HomeDirectory = homeRoot, Offline = true }));
 
-        Assert.Contains(OpenTapHomeBootstrapper.VisaPackageName, error.Message);
+        Assert.Contains("Unavailable test package", error.Message);
         Assert.Equal(["preserved.txt"], Directory.GetFiles(homeRoot, "*", SearchOption.AllDirectories)
             .Select(path => Path.GetRelativePath(homeRoot, path)).ToArray());
         Assert.Equal("selected home", File.ReadAllText(Path.Combine(homeRoot, "preserved.txt")));
     }
 
     [Fact]
-    public void Bootstrap_template_installs_basic_and_mixins_without_visa()
+    public void Bootstrap_template_installs_current_basic_and_mixins()
     {
         var workspace = AuthoringWorkspaceLoader.Load(Path.Combine(FindRepoRoot(), "plans", "opentap"));
         var homeDir = NewTempDir();
@@ -46,13 +45,8 @@ public sealed class OpenTapHomeBootstrapperTests
         Assert.Contains("HardwareTest Basic", names);
         Assert.Contains("HardwareTest Mixins", names);
         Assert.DoesNotContain("InstrumentComponents.OpenTap", names);
-        Assert.DoesNotContain(
-            names,
-            n => n.Contains("Visa", StringComparison.OrdinalIgnoreCase));
         Assert.True(File.Exists(Path.Combine(home.Root, "Packages", "HardwareTest Basic", "HardwareTest.OpenTap.Plugins.Basic.dll")));
         Assert.True(File.Exists(Path.Combine(home.Root, "Packages", "HardwareTest Mixins", "HardwareTest.OpenTap.Plugins.Mixins.dll")));
-        Assert.Empty(Directory.EnumerateFiles(home.Root, OpenTapHomeBootstrapper.VisaAssemblyFileName, SearchOption.AllDirectories));
-        AssertNoVisaAdapterAssemblies(home.Root);
         Assert.True(File.Exists(Path.Combine(home.Root, "OpenTap.dll")));
     }
 
@@ -228,23 +222,4 @@ public sealed class OpenTapHomeBootstrapperTests
             $"Could not locate dirs.proj above '{AppContext.BaseDirectory}'.");
     }
 
-    private static void AssertNoVisaAdapterAssemblies(string homeRoot)
-    {
-        foreach (var dll in Directory.EnumerateFiles(homeRoot, "*.dll", SearchOption.AllDirectories))
-        {
-            AssemblyName name;
-            try
-            {
-                name = AssemblyName.GetAssemblyName(dll);
-            }
-            catch (BadImageFormatException)
-            {
-                continue;
-            }
-
-            Assert.False(
-                string.Equals(name.Name, "HardwareTest.OpenTap.Plugins.Visa", StringComparison.OrdinalIgnoreCase),
-                $"Authoring home contains VISA adapter assembly at '{dll}'.");
-        }
-    }
 }

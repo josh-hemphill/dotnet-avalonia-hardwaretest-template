@@ -415,7 +415,7 @@ public abstract class OpenTapSessionContractTests
 
     protected virtual Task ApplyDefaultStationAsync(IOpenTapSession session)
         => session.ApplyStationAndDutAsync(
-            new StationProfile(new Dictionary<string, string> { ["dmm"] = "MOCK::INSTR0" }),
+            new StationProfile(session.InstrumentSlots.ToDictionary(slot => slot.Name, _ => "MOCK::INSTR0", StringComparer.OrdinalIgnoreCase)),
             new DutIdentity("DUT-CONTRACT", Family: "demo"));
 
     private static bool IsTerminal(RunResult result)

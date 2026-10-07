@@ -115,7 +115,7 @@ public sealed class OpenTapWorkerClient : IOpenTapSession, INotifyPropertyChange
             WorkerProtocol.ApplyStationAndDut,
             new WorkerStationDutRequest
             {
-                RoleToResource = new Dictionary<string, string>(station.RoleToResource, StringComparer.OrdinalIgnoreCase),
+                SlotToResource = new Dictionary<string, string>(station.SlotToResource, StringComparer.OrdinalIgnoreCase),
                 Serial = dut.Serial,
                 PartNumber = dut.PartNumber,
                 Revision = dut.Revision,
@@ -249,12 +249,6 @@ public sealed class OpenTapWorkerClient : IOpenTapSession, INotifyPropertyChange
             WorkerProtocol.TrySetMeanGteThreshold,
             new WorkerMeanGteRequest { StepPath = stepPath, Threshold = threshold },
             WorkerJsonContext.Default.WorkerMeanGteRequest);
-
-    public bool TryRebindDmmResource(string resource)
-        => TryBool(
-            WorkerProtocol.TryRebindDmmResource,
-            new WorkerResourceRequest { Resource = resource },
-            WorkerJsonContext.Default.WorkerResourceRequest);
 
     public bool TryBindSlotResource(string slotName, string resource)
         => TryBool(

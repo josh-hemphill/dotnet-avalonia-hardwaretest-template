@@ -109,7 +109,7 @@ public static class AuthoringOperationChild
                     new PlanContractOptions
                     {
                         Strict = true,
-                        ExcludeVisaAdapter = true,
+                        EnablePhysicalExecution = false,
                         Settings = new AppSettings { UseMockVisa = true, OpenTapPluginDirectories = [home.Root] },
                         TrustConfiguredPluginDirectories = true
                     });

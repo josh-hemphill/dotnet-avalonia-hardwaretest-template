@@ -633,6 +633,7 @@ public sealed class RunBoardChildViewModelTests
             isEngineerDebugMode: () => true,
             getSelectedStep: () => step)
         {
+            DebugSlotName = "DMM",
             DebugSampleCount = 50_000,
             DebugIntervalMs = 0,
         };
@@ -641,6 +642,84 @@ public sealed class RunBoardChildViewModelTests
 
         Assert.Equal(4096, overrides.DebugSampleCount);
         Assert.Equal(1, overrides.DebugIntervalMs);
+    }
+
+    [Theory]
+    [InlineData(null, "MOCK::changed")]
+    [InlineData("unknown", "MOCK::changed")]
+    [InlineData("DMM-B", " ")]
+    public void StationOverrides_debug_patch_rejects_missing_unknown_slot_or_blank_resource_before_mutations(string? slotName, string resource)
+    {
+        var step = Leaf();
+        var openTap = new FakeOpenTapSession();
+        openTap.Slots.Clear();
+        openTap.Slots.Add(new OpenTapInstrumentSlot { Name = "DMM-A", TypeName = "MockDmmInstrument", RoleHint = "dmm", ResourceName = "MOCK::A" });
+        openTap.Slots.Add(new OpenTapInstrumentSlot { Name = "DMM-B", TypeName = "MockDmmInstrument", RoleHint = "dmm", ResourceName = "MOCK::B" });
+        string? status = null;
+        var overrides = new StationOverridesViewModel(openTap, openTap, new AppSettings(), null,
+            setStatus: value => status = value, isEngineerDebugMode: () => true, getSelectedStep: () => step)
+        {
+            DebugSlotName = slotName,
+            DebugResource = resource,
+            DebugStepEnabled = !step.Enabled,
+            DebugSampleCount = 50_000,
+            DebugIntervalMs = 0,
+        };
+        var enabled = step.Enabled;
+        overrides.ApplyDebugPatch();
+        Assert.Equal(enabled, step.Enabled);
+        Assert.Equal(50_000, overrides.DebugSampleCount);
+        Assert.Equal(0, overrides.DebugIntervalMs);
+        Assert.Equal("MOCK::A", openTap.Slots[0].ResourceName);
+        Assert.Equal("MOCK::B", openTap.Slots[1].ResourceName);
+        Assert.Contains("before applying", status);
+    }
+
+    [Fact]
+    public void StationOverrides_debug_patch_requires_user_selection_and_changes_only_that_slot()
+    {
+        var step = Leaf();
+        var openTap = new FakeOpenTapSession();
+        openTap.Slots.Clear();
+        openTap.Slots.Add(new OpenTapInstrumentSlot { Name = "DMM-A", TypeName = "MockDmmInstrument", RoleHint = "dmm", ResourceName = "MOCK::A" });
+        openTap.Slots.Add(new OpenTapInstrumentSlot { Name = "DMM-B", TypeName = "MockDmmInstrument", RoleHint = "dmm", ResourceName = "MOCK::B" });
+        var overrides = new StationOverridesViewModel(openTap, openTap, new AppSettings(), null,
+            setStatus: _ => { }, isEngineerDebugMode: () => true, getSelectedStep: () => step);
+        overrides.RefreshStationSlotSummary();
+        Assert.Equal(new[] { "DMM-A", "DMM-B" }, overrides.DebugSlotNames);
+        Assert.Null(overrides.DebugSlotName);
+        overrides.DebugSlotName = "DMM-B";
+        overrides.RefreshStationSlotSummary();
+        Assert.Equal("DMM-B", overrides.DebugSlotName);
+        overrides.DebugResource = "MOCK::selected";
+        overrides.DebugStepEnabled = false;
+        overrides.ApplyDebugPatch();
+        Assert.False(step.Enabled);
+        Assert.Equal("MOCK::A", openTap.Slots[0].ResourceName);
+        Assert.Equal("MOCK::selected", openTap.Slots[1].ResourceName);
+    }
+
+    [Fact]
+    public void StationOverrides_profile_uses_explicit_slot_names_and_ignores_role_and_registry_guesses()
+    {
+        var openTap = new FakeOpenTapSession();
+        var settings = new AppSettings
+        {
+            PlanSlotOverrides =
+            [
+                new() { PlanId = "fixture", SlotName = "DMM-B", RoleHint = "dmm", Resource = "MOCK::explicit" },
+                new() { PlanId = "fixture", RoleHint = "dmm", Resource = "MOCK::role-only" },
+                new() { PlanId = "fixture", SlotName = "DMM-A", Resource = " " },
+            ],
+            Instruments = [new() { Id = "old", Resource = "MOCK::registry" }],
+            StationBindings = [new() { Role = "dmm", InstrumentId = "old" }],
+        };
+        var overrides = new StationOverridesViewModel(openTap, openTap, settings, null, _ => { });
+        var entry = Assert.Single(overrides.BuildStationProfile().SlotToResource);
+        Assert.Equal("DMM-B", entry.Key);
+        Assert.Equal("MOCK::explicit", entry.Value);
+        settings.PlanSlotOverrides.Clear();
+        Assert.Empty(overrides.BuildStationProfile().SlotToResource);
     }
 
     [Fact]

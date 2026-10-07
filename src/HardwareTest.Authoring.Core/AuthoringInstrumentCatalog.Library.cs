@@ -32,14 +32,11 @@ public static partial class AuthoringInstrumentCatalog
                 var manifest = new AuthoringManifest { Dependencies = [new() { Package = LibraryPackage, Version = PublishedInstrumentComponents.Version }] };
                 var requirement = AuthoringEnvironmentAssessment.Packages(manifest, home).Single();
                 if (!requirement.Satisfied) return Missing($"Instrument Components {requirement.State}; required {requirement.RequiredVersion}, installed {requirement.InstalledVersion}. Open Environment to prepare/import the compatible package.");
-                if (AuthoringPluginSearch.DirectoryContainsVisaAdapter(directory))
-                    return Missing("Instrument Components directory contains the legacy VISA plugin. Prepare an isolated library package in Environment before discovery.");
                 var payloads = AuthoringAdapterPayloadInspection.CaptureLibraryPayload(home);
                 var assemblyPath = Path.Combine(home.Root, LibraryAssembly);
                 var contractPath = Path.Combine(home.Root, "InstrumentComponents.dll");
                 var libraryBytes = payloads[LibraryAssembly];
                 var contractBytes = payloads["InstrumentComponents.dll"];
-                if (AuthoringPluginSearch.DirectoryContainsVisaAdapter(Path.GetDirectoryName(assemblyPath)!)) return Missing("Library payload directory contains the legacy VISA plugin; use an isolated authoring home.");
                 // Keep the two validated payloads for OpenTAP's lazy metadata search,
                 // while the shared loader records the exact bytes supplied to the CLR.
                 var metadataDirectory = StableLibraryPayload(libraryBytes, contractBytes);

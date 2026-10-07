@@ -33,7 +33,7 @@ public sealed partial class StandaloneBoundaryTests
         var result = await Run(home, "HardwareTest.StandaloneVisa.ProcessFixture.dll", home, "--invalid-selected-metadata", allowFailure: true);
         Assert.Equal(0, result.Code);
         Assert.Contains("selected-metadata-refused-before-library-load", result.Output);
-        Assert.Contains("previous-broker-binding-preserved-on-rejection", result.Output);
+        Assert.Contains("broker-binding-absent-on-cold-rejection", result.Output);
         Assert.Contains("package metadata is malformed or exceeds the inspection limit", result.Output);
         var after = Directory.EnumerateFiles(home, "*", SearchOption.AllDirectories)
             .ToDictionary(path => Path.GetRelativePath(home, path), File.ReadAllBytes);

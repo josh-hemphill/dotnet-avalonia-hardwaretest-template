@@ -268,7 +268,7 @@ public static class OpenTapWorkerServer
                               ?? throw new InvalidOperationException("applyStationAndDut requires a payload.");
                     await requireSession()
                         .ApplyStationAndDutAsync(
-                            new StationProfile(req.RoleToResource),
+                            new StationProfile(req.SlotToResource),
                             new DutIdentity(req.Serial, req.PartNumber, req.Revision, req.Family))
                         .ConfigureAwait(false);
                     writeOk(
@@ -297,20 +297,6 @@ public static class OpenTapWorkerServer
                     var req = WorkerProtocol.ReadPayload(envelope, WorkerJsonContext.Default.WorkerMeanGteRequest)
                               ?? throw new InvalidOperationException("trySetMeanGteThreshold requires a payload.");
                     var ok = requireSession().TrySetMeanGteThreshold(req.StepPath, req.Threshold);
-                    writeOk(
-                        envelope.Id,
-                        method,
-                        WorkerProtocol.SerializePayload(
-                            new WorkerBoolResult { Ok = ok, Snapshot = requireSnapshot() },
-                            WorkerJsonContext.Default.WorkerBoolResult));
-                    return;
-                }
-
-            case WorkerProtocol.TryRebindDmmResource:
-                {
-                    var req = WorkerProtocol.ReadPayload(envelope, WorkerJsonContext.Default.WorkerResourceRequest)
-                              ?? throw new InvalidOperationException("tryRebindDmmResource requires a payload.");
-                    var ok = requireSession().TryRebindDmmResource(req.Resource);
                     writeOk(
                         envelope.Id,
                         method,

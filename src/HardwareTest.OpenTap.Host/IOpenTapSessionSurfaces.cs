@@ -58,7 +58,6 @@ public interface IOpenTapStationSession
     bool TrySetAcquireSettings(string stepPath, int? sampleCount, int? intervalMs);
     /// Sample adapter — prefer <see cref="TrySetParameter"/> / TypeData bridge for new code.
     bool TrySetMeanGteThreshold(string stepPath, double threshold);
-    bool TryRebindDmmResource(string resource);
     bool TryBindSlotResource(string slotName, string resource);
 
     IReadOnlyList<OpenTapParameterInfo> EnumerateParameters(
