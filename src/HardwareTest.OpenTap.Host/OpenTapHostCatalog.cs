@@ -99,7 +99,7 @@ public sealed class OpenTapHostCatalog : IOpenTapHostCatalog
 
     private static IEnumerable<string> CollectEnvironmentPluginDirectories()
     {
-        var env = Environment.GetEnvironmentVariable("HARDWARETEST_OPENTAP_PLUGIN_DIRS");
+        var env = Environment.GetEnvironmentVariable("HARDWARETEST_OPEN_TAP_PLUGIN_DIRECTORIES");
         if (string.IsNullOrWhiteSpace(env))
         {
             yield break;

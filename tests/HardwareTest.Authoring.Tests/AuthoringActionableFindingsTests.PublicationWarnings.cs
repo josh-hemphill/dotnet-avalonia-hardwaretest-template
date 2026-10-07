@@ -57,7 +57,7 @@ public sealed partial class AuthoringActionableFindingsTests
     public void Unsupported_filter_limits_issue_advertises_and_navigates_to_program_settings()
     {
         _vm.SelectProgram("sample");
-        _vm.ApplyRecipe(AuthoringRecipeIds.Formula);
+        _vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Formula);
         var formula = Assert.IsType<MetricNode>(_vm.SelectedProgram!.Measure.Last());
         _vm.ReplaceSelected(_vm.SelectedProgram with
         {

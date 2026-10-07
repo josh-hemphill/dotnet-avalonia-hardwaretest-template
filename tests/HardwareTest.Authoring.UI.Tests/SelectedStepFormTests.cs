@@ -16,7 +16,7 @@ public sealed class SelectedStepFormTests
         vm.CreateDemoProgram("forms");
         vm.NewInstrumentSlot = "SECOND";
         vm.AddInstrumentSlot();
-        vm.ApplyRecipe(AuthoringRecipeIds.MeanGte);
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.MeanGte);
         vm.SelectMeasure(vm.SelectedProgram!.Measure.Count - 1);
         AuthoringUiFixture.Drain();
         var limits = vm.SelectedMetric!.Limits;
@@ -41,7 +41,7 @@ public sealed class SelectedStepFormTests
         using var fixture = Open();
         var vm = fixture.ViewModel;
         vm.CreateDemoProgram("numbers");
-        vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Acquire);
         vm.SelectMeasure(0);
         var id = vm.SelectedSequence!.NodeId;
         AuthoringUiFixture.Drain();
@@ -78,7 +78,7 @@ public sealed class SelectedStepFormTests
         var vm = fixture.ViewModel;
         vm.CreateDemoProgram("node-forms");
         foreach (var recipe in new[] { AuthoringRecipeIds.Prompt, AuthoringRecipeIds.Input, AuthoringRecipeIds.Acquire, AuthoringRecipeIds.Repeat })
-            vm.ApplyRecipe(recipe);
+            vm.InsertRecipeAtSectionEnd(recipe);
         foreach (var (label, field) in new[] { ("Identity Check", "Setup instrument slot"), ("Operator Prompt", "Prompt message"), ("Operator Input", "Input title"), ("Safe Shutdown", "Include Safe Shutdown") })
         {
             vm.SelectSequence(vm.SequenceItems.ToList().FindIndex(row => row.Label == label));
@@ -104,7 +104,7 @@ public sealed class SelectedStepFormTests
     public void Forms_follow_consumed_recipe_inputs_and_instrument_requirements()
     {
         using var fixture = Open(); var vm = fixture.ViewModel;
-        vm.CreateDemoProgram("recipe-requirements"); vm.ApplyRecipe(AuthoringRecipeIds.Acquire); vm.ApplyRecipe(AuthoringRecipeIds.MeanGte);
+        vm.CreateDemoProgram("recipe-requirements"); vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Acquire); vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.MeanGte);
         vm.SelectMeasure(1); AuthoringUiFixture.Drain();
         Assert.False(fixture.Control<TextBox>("Metric input channels").IsEffectivelyVisible);
         vm.MetricFunctionId = AuthoringFunctionIds.BasicChannelAverage; AuthoringUiFixture.Drain();

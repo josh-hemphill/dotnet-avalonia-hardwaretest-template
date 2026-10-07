@@ -241,7 +241,7 @@ public sealed class AuthoringDestructiveScopeTests : IDisposable
     [InlineData("workspace")]
     public void Catalog_impact_rejects_changed_recursive_content_or_session_before_mutation(string change)
     {
-        var vm = Open(); vm.CreateDemoProgram("a"); AddField(vm); vm.ApplyRecipe(AuthoringRecipeIds.Acquire); vm.ApplyRecipe(AuthoringRecipeIds.Repeat);
+        var vm = Open(); vm.CreateDemoProgram("a"); AddField(vm); vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Acquire); vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Repeat);
         var settings = new Dictionary<string, string> { ["samples"] = "2" };
         var nested = Assert.IsType<RepeatNode>(Assert.Single(vm.SelectedProgram!.Measure)); var metric = Assert.IsType<MetricNode>(Assert.Single(nested.Children));
         vm.ReplaceSelected(vm.SelectedProgram with
@@ -276,7 +276,7 @@ public sealed class AuthoringDestructiveScopeTests : IDisposable
     public void Readonly_membership_and_prepare_operations_fail_in_Core_without_mutation()
     {
         File.WriteAllText(ManifestPath, File.ReadAllText(ManifestPath).Replace("\"schemaVersion\": 2", "\"schemaVersion\": 999", StringComparison.Ordinal));
-        var compiler = new FailingCompiler { InitialProgram = AuthoringRecipeCatalog.CreateProgram("a") }; var vm = Open(compiler); var original = vm.SelectedProgram;
+        var compiler = new FailingCompiler { InitialProgram = MockDmmDraftFixture.Create("a") }; var vm = Open(compiler); var original = vm.SelectedProgram;
         Assert.True(vm.Workspace!.IsReadOnly); Assert.Throws<AuthoringWorkspaceException>(() => vm.SetRequiredFieldIncluded("fixtureId", true));
         Assert.Throws<AuthoringWorkspaceException>(() => vm.SetReportKindIncluded("custom", true)); Assert.Throws<AuthoringWorkspaceException>(() => vm.PrepareRequiredFieldDeletion("fixtureId"));
         Assert.Throws<AuthoringWorkspaceException>(vm.PrepareSelectedInstrumentRemoval); Assert.Same(original, vm.SelectedProgram); Assert.False(vm.HasUnsavedChanges);
@@ -290,7 +290,7 @@ public sealed class AuthoringDestructiveScopeTests : IDisposable
     [Fact]
     public void Explicit_chosen_replacement_retargets_all_known_references_and_preserves_original_and_null_policies()
     {
-        var vm = Open(); vm.CreateDemoProgram("a"); AddSlots(vm); vm.ApplyRecipe(AuthoringRecipeIds.Acquire); vm.ApplyRecipe(AuthoringRecipeIds.Repeat);
+        var vm = Open(); vm.CreateDemoProgram("a"); AddSlots(vm); vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Acquire); vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Repeat);
         var sidecar = PlanCompiler.CloneSidecar(vm.SelectedProgram!.Sidecar); sidecar.CleanupInstrumentSlots = ["DMM", "C"]; sidecar.IncludeMeasureSlots = true;
         vm.ReplaceSelected(vm.SelectedProgram with { Sidecar = sidecar, Cleanup = new CleanupPolicy(true, ["DMM", "C"], true) });
         var original = vm.SelectedProgram; var impact = vm.PrepareSelectedInstrumentRemoval(); Assert.Equal(["B", "C"], impact.CompatibleReplacementSlots);
@@ -312,7 +312,7 @@ public sealed class AuthoringDestructiveScopeTests : IDisposable
     [InlineData("different-replacement")]
     [InlineData("unknown-replacement")]
     [InlineData("unknown-algorithm")]
-    [InlineData("legacy-algorithm")]
+    [InlineData("unresolved-algorithm")]
     [InlineData("raw")]
     [InlineData("case-duplicate-last")]
     public void Instrument_removal_fails_closed_without_mutation_for_unprovable_usage_or_compatibility(string scenario)
@@ -329,11 +329,11 @@ public sealed class AuthoringDestructiveScopeTests : IDisposable
             _ => p with
             {
                 Measure = [new MetricNode(new MetricDraft("algo", "channel", "scalar", "V", new LimitSpec(0, 1, null), null,
-                new AlgorithmSource(scenario == "legacy-algorithm" ? AuthoringFunctionIds.BasicMeanGte : "Unknown.Algorithm", [], new Dictionary<string, string>())))]
+                new AlgorithmSource(scenario == "unresolved-algorithm" ? AuthoringFunctionIds.BasicMeanGte : "Unknown.Algorithm", [], new Dictionary<string, string>())))]
             },
         };
         vm.ReplaceSelected(p);
-        if (scenario == "legacy-algorithm") vm.SelectedInstrumentSlot = "B"; // Binding is unresolved regardless of which slot was chosen.
+        if (scenario == "unresolved-algorithm") vm.SelectedInstrumentSlot = "B"; // Binding is unresolved regardless of which slot was chosen.
         var original = vm.SelectedProgram; Assert.False(vm.CanRemoveSelectedInstrumentSlot); Assert.Throws<AuthoringWorkspaceException>(vm.PrepareSelectedInstrumentRemoval);
         Assert.Same(original, vm.SelectedProgram); Assert.Empty(Directory.EnumerateFiles(_root, "*.TapPlan"));
     }
@@ -344,7 +344,7 @@ public sealed class AuthoringDestructiveScopeTests : IDisposable
     [InlineData("nested-setting")]
     public void Instrument_impact_rejects_changed_target_or_content(string change)
     {
-        var vm = Open(); vm.CreateDemoProgram("b"); vm.CreateDemoProgram("a"); AddSlots(vm); vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
+        var vm = Open(); vm.CreateDemoProgram("b"); vm.CreateDemoProgram("a"); AddSlots(vm); vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Acquire);
         var settings = new Dictionary<string, string> { ["samples"] = "2" }; var metric = Assert.IsType<MetricNode>(Assert.Single(vm.SelectedProgram!.Measure));
         vm.ReplaceSelected(vm.SelectedProgram with { Measure = [new RepeatNode(2, [metric with { Metric = metric.Metric with { Source = new MeasureSource("DMM", AuthoringFunctionIds.BasicAcquireVoltage, settings) } }])] });
         var impact = vm.PrepareSelectedInstrumentRemoval();

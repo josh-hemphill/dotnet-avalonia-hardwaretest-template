@@ -277,7 +277,7 @@ public sealed class AuthoringExpertCommandsTests
         Assert.True(vm.CanRedo);
         fixture.Window.KeyPress(Key.Z, RawInputModifiers.Control | RawInputModifiers.Shift, PhysicalKey.None, null); AuthoringUiFixture.Drain();
         Assert.Equal(original + 1, vm.SelectedProgram!.Measure.Count);
-        vm.CreateDemoProgram("issue-navigation"); vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
+        vm.CreateDemoProgram("issue-navigation"); vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Acquire);
         vm.ChannelKey = "";
         var issue = vm.EditingIssues.First();
         vm.SelectProgram(issue.PlanId == "sample" ? "issue-navigation" : "sample");

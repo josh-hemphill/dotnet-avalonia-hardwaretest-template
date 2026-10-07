@@ -76,7 +76,7 @@ public sealed class FormulaScalarExamplePreviewTests : IDisposable
         Assert.Equal(preview.Note, error.Message);
     }
 
-    private static ProgramDraft Draft(IReadOnlyList<MeasureNode> nodes) => AuthoringRecipeCatalog.CreateProgram("scalar-preview") with { Measure = nodes };
+    private static ProgramDraft Draft(IReadOnlyList<MeasureNode> nodes) => MockDmmDraftFixture.Create("scalar-preview") with { Measure = nodes };
     private static MetricNode Scalar() => new(new MetricDraft("Scalar", "input", "passband", "V", new LimitSpec(1, 2, null), null,
         new AlgorithmSource(AuthoringFunctionIds.BasicPublishBandScalar, [], new Dictionary<string, string> { ["MetricName"] = "input", ["Value"] = "1.25" })));
     private static MetricNode Formula() => new(new MetricDraft("Formula", "result", "scalar", "V", new LimitSpec(null, null, 0), null, new ExpressionAlgorithm(["input"], "mean(input)")));

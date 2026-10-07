@@ -105,7 +105,7 @@ public sealed class AuthoringBitSweepOutputTests
         => new(new MetricDraft("Sweep", "sweep", "timeseries", "V", null, null, algorithm
             ? new AlgorithmSource(AuthoringFunctionIds.BasicBitSweepAcquire, [], settings) { InstrumentSlot = "DMM" }
             : new MeasureSource("DMM", AuthoringFunctionIds.BasicBitSweepAcquire, settings)));
-    private static ProgramDraft Program(MetricNode sweep) => AuthoringRecipeCatalog.CreateProgram("sweeps") with
+    private static ProgramDraft Program(MetricNode sweep) => MockDmmDraftFixture.Create("sweeps") with
     { Setup = [], Cleanup = new CleanupPolicy(false, []), Measure = [sweep] };
     private static SequenceRow Row(ProgramDraft draft, Guid id) => AuthoringSequence.Flatten(draft).Single(row => row.NodeId == id);
     private static Outputs Execute(ProgramDraft draft, string directory, bool summaries)

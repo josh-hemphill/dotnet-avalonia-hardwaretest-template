@@ -22,7 +22,7 @@ public sealed class AuthoringProgramRemovalImpactTests : IDisposable
     [InlineData("selection")]
     public void Reviewed_program_removal_rejects_stale_content_session_and_selection_before_deleting_files(string change)
     {
-        var vm = new AuthoringWorkspaceViewModel(); vm.Open(_root); vm.InitializePlan(new("b") { Instruments = [] }); vm.DisplayName += " edited"; vm.CreateDemoProgram("a"); vm.ApplyRecipe(AuthoringRecipeIds.Acquire); Assert.True(vm.SaveAll().Succeeded);
+        var vm = new AuthoringWorkspaceViewModel(); vm.Open(_root); vm.InitializePlan(new("b") { Instruments = [] }); vm.DisplayName += " edited"; vm.CreateDemoProgram("a"); vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Acquire); Assert.True(vm.SaveAll().Succeeded);
         var metric = Assert.IsType<MetricNode>(Assert.Single(vm.SelectedProgram!.Measure)); var settings = new Dictionary<string, string> { ["Samples"] = "2" };
         MeasureNode[] nodes = [new RepeatNode(2, [metric with { Metric = metric.Metric with { Source = new MeasureSource("DMM", AuthoringFunctionIds.BasicAcquireVoltage, settings) } }]), new RawStepNode("Raw", "<a/>")];
         vm.ReplaceSelected(vm.SelectedProgram with { Measure = nodes }); var selected = vm.SelectedProgram; var impact = vm.PrepareSelectedProgramRemoval();

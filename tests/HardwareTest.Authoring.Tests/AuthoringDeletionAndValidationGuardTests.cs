@@ -71,7 +71,7 @@ public sealed class AuthoringDeletionAndValidationGuardTests
     {
         var root = Workspace(); var vm = new AuthoringWorkspaceViewModel(); vm.Open(root); vm.Apply();
         var store = new AuthoringDocumentStore(root);
-        var source = AuthoringDocumentDto.FromDraft(AuthoringRecipeCatalog.CreateProgram("external-draft")); source.RequiresCompilation = true; store.Save(source);
+        var source = AuthoringDocumentDto.FromDraft(MockDmmDraftFixture.Create("external-draft")); source.RequiresCompilation = true; store.Save(source);
         Assert.False(vm.HasUncompiledSources);
         Assert.Throws<AuthoringWorkspaceException>(() => vm.Validate());
         Assert.True(vm.HasUncompiledSources); Assert.True(vm.CanPack); // Build compiles the complete saved source-only program.
@@ -83,7 +83,7 @@ public sealed class AuthoringDeletionAndValidationGuardTests
     {
         var root = Workspace(); var vm = new AuthoringWorkspaceViewModel(); vm.Open(root); vm.Apply();
         var store = new AuthoringDocumentStore(root);
-        var document = AuthoringDocumentDto.FromDraft(AuthoringRecipeCatalog.CreateProgram("external-deleted"));
+        var document = AuthoringDocumentDto.FromDraft(MockDmmDraftFixture.Create("external-deleted"));
         document.RequiresCompilation = true; store.Save(document);
         Assert.Throws<AuthoringWorkspaceException>(() => vm.Validate()); Assert.True(vm.HasUncompiledSources);
         store.DeleteSource(document.PlanId);

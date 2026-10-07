@@ -12,7 +12,7 @@ public sealed class FormulaDeploymentIncompleteInputTests
     public void Selected_formula_and_actual_upstream_numeric_text_block_readiness_without_using_retained_values(string field, bool upstream)
     {
         var input = Input(); var formula = Formula(upstream ? "filter([1],[1],input)" : "mean(input)");
-        var draft = AuthoringRecipeCatalog.CreateProgram("incomplete") with { Measure = [input, formula] };
+        var draft = MockDmmDraftFixture.Create("incomplete") with { Measure = [input, formula] };
         var id = upstream ? input.NodeId : formula.NodeId;
         draft.AuthoringState.IncompleteNumericText[AuthoringDocumentState.FieldKey(id, field)] = "abc";
         AssertIncomplete(draft, formula, field);
@@ -34,7 +34,7 @@ public sealed class FormulaDeploymentIncompleteInputTests
     {
         var input = Input(); var formula = Formula("filter([1],[1],input)");
         var sibling = Input() with { Metric = Input().Metric with { ChannelKey = "unrelated" } };
-        var draft = AuthoringRecipeCatalog.CreateProgram("siblings") with { Measure = siblingFirst ? [sibling, input, formula] : [input, formula, sibling] };
+        var draft = MockDmmDraftFixture.Create("siblings") with { Measure = siblingFirst ? [sibling, input, formula] : [input, formula, sibling] };
         draft.AuthoringState.IncompleteNumericText[AuthoringDocumentState.FieldKey(sibling.NodeId, "MetricSetting:IntervalMs")] = "abc";
         Assert.Equal(FormulaDeploymentStatusKind.DeployableRecipe, FormulaDeploymentClassifier.Classify(formula.Metric, draft).Kind);
         Assert.Null(MetricPreviewBuilder.From(formula.Metric, sourceContext: draft).Note);
@@ -47,7 +47,7 @@ public sealed class FormulaDeploymentIncompleteInputTests
         upstream = upstream with { Metric = upstream.Metric with { ChannelKey = "upstream" } };
         var dependent = Formula("filter([1],[1],upstream)");
         var loop = new RepeatNode(2, [input, upstream, dependent]);
-        var draft = AuthoringRecipeCatalog.CreateProgram("nested") with { Measure = [loop] };
+        var draft = MockDmmDraftFixture.Create("nested") with { Measure = [loop] };
         draft.AuthoringState.IncompleteNumericText[AuthoringDocumentState.FieldKey(input.NodeId, "MetricSetting:SampleCount")] = "abc";
         AssertIncomplete(draft, dependent, "MetricSetting:SampleCount");
         draft.AuthoringState.IncompleteNumericText.Clear();

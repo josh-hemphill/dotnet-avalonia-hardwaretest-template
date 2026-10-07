@@ -141,9 +141,13 @@ public partial class StationOverridesViewModel : ReactiveObject
     {
         var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         var planId = _getSelectedProgram()?.Id ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(planId))
+        {
+            return new StationProfile(map);
+        }
+
         foreach (var ov in _settings.PlanSlotOverrides.Where(o =>
-                     string.Equals(o.PlanId, planId, StringComparison.OrdinalIgnoreCase)
-                     || string.IsNullOrWhiteSpace(planId)))
+                     string.Equals(o.PlanId, planId, StringComparison.OrdinalIgnoreCase)))
         {
             if (string.IsNullOrWhiteSpace(ov.Resource))
             {

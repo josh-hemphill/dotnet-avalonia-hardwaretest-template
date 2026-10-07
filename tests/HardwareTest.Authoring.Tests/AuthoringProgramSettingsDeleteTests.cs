@@ -167,7 +167,7 @@ public sealed class AuthoringProgramSettingsDeleteTests
         vm.NewInstrumentSlot = "SCOPE";
         vm.AddInstrumentSlot();
         vm.SelectedInstrumentSlot = "DMM";
-        vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Acquire);
         var acquire = vm.SequenceItems.Single(row => row.Kind == SequenceRowKind.Metric);
         vm.SelectSequence(vm.SequenceItems.ToList().IndexOf(acquire));
         Assert.Equal("DMM", vm.MetricInstrumentSlot);
@@ -191,8 +191,8 @@ public sealed class AuthoringProgramSettingsDeleteTests
         vm.CreateDemoProgram("slots-nested");
         vm.NewInstrumentSlot = "SCOPE";
         vm.AddInstrumentSlot();
-        vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
-        vm.ApplyRecipe(AuthoringRecipeIds.Repeat);
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Acquire);
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Repeat);
         vm.SelectedInstrumentSlot = "DMM";
         Assert.True(vm.CanRemoveSelectedInstrumentSlot);
         RemoveSelectedSlot(vm);
@@ -263,7 +263,7 @@ public sealed class AuthoringProgramSettingsDeleteTests
     [Fact]
     public void Unknown_measure_nodes_fail_closed()
     {
-        var draft = AuthoringRecipeCatalog.CreateProgram("raw");
+        var draft = MockDmmDraftFixture.Create("raw");
         draft = draft with
         {
             Instruments =
@@ -280,7 +280,7 @@ public sealed class AuthoringProgramSettingsDeleteTests
     [Fact]
     public void Nested_raw_and_unknown_setup_fail_closed()
     {
-        var draft = AuthoringRecipeCatalog.CreateProgram("nested-raw");
+        var draft = MockDmmDraftFixture.Create("nested-raw");
         draft = draft with
         {
             Instruments =
@@ -453,7 +453,7 @@ public sealed class AuthoringProgramSettingsDeleteTests
         vm.CreateDemoProgram("slots-compile-fail");
         vm.NewInstrumentSlot = "SCOPE";
         vm.AddInstrumentSlot();
-        vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Acquire);
         var acquire = vm.SequenceItems.Single(row => row.Kind == SequenceRowKind.Metric);
         vm.SelectSequence(vm.SequenceItems.ToList().IndexOf(acquire));
         vm.MetricInstrumentSlot = "SCOPE";
@@ -560,7 +560,7 @@ public sealed class AuthoringProgramSettingsDeleteTests
         vm.CreateDemoProgram("slots-save");
         vm.NewInstrumentSlot = "SCOPE";
         vm.AddInstrumentSlot();
-        vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Acquire);
         var acquire = vm.SequenceItems.Single(row => row.Kind == SequenceRowKind.Metric);
         vm.SelectSequence(vm.SequenceItems.ToList().IndexOf(acquire));
         vm.MetricInstrumentSlot = "SCOPE";
@@ -584,7 +584,7 @@ public sealed class AuthoringProgramSettingsDeleteTests
     [Fact]
     public void Retarget_slot_rewrites_identity_and_is_a_no_op_for_the_same_name()
     {
-        var draft = AuthoringRecipeCatalog.CreateProgram("retarget");
+        var draft = MockDmmDraftFixture.Create("retarget");
         var typeId = draft.Instruments[0].TypeId;
         draft = draft with
         {

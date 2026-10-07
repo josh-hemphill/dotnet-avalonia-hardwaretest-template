@@ -33,30 +33,29 @@ public sealed class Phase16PresentationChromeTests
             LimitHigh: high);
 
     [Fact]
-    public void Timeseries_selection_does_not_auto_open_Focus_or_Chart()
+    public void Timeseries_selection_preserves_chart_availability_and_selected_buffer()
     {
         var live = new LivePresentationViewModel();
-        Assert.Equal(PresentationChromeMode.Band, live.ChromeMode);
-        Assert.False(live.ShowFocusTrend);
         Assert.False(live.HasChartData);
+        Assert.False(live.OfferOpenChart);
+        Assert.Empty(live.FocusTrendTip);
 
         var step = Leaf();
         live.ApplySample(Timeseries("VDC", 1.0), step.Path, null, selectedStep: null);
 
-        Assert.Equal(PresentationChromeMode.Band, live.ChromeMode);
-        Assert.False(live.ShowFocusTrend);
-        Assert.False(live.ShowPlotForSelection);
         Assert.True(live.HasChartData);
         Assert.True(live.OfferOpenChart);
 
         live.RefreshChrome(step);
-        Assert.Equal(PresentationChromeMode.Band, live.ChromeMode);
-        Assert.False(live.ShowFocusTrend);
+        Assert.Equal(step.Path, live.SelectedSeries?.Key.StepPath);
+        Assert.Equal(1, live.PlotYsLength);
+        Assert.False(live.HasChartAttention);
+        Assert.Contains("Open Chart", live.FocusTrendTip, StringComparison.Ordinal);
         Assert.True(live.HasChartData);
     }
 
     [Fact]
-    public void Out_of_band_sets_attention_without_promoting_Focus()
+    public void Out_of_band_gauge_sets_chart_attention()
     {
         var live = new LivePresentationViewModel();
         var acquire = Leaf("Acquire", "Suite/Acquire");
@@ -78,8 +77,6 @@ public sealed class Phase16PresentationChromeTests
         Assert.Contains(live.PresentationTiles, t => t.IsOutOfBand);
         Assert.True(live.HasChartData);
         Assert.True(live.HasChartAttention);
-        Assert.False(live.ShowFocusTrend);
-        Assert.Equal(PresentationChromeMode.Band, live.ChromeMode);
         Assert.Contains("Out of band", live.FocusTrendTip, StringComparison.OrdinalIgnoreCase);
     }
 
@@ -230,6 +227,12 @@ public sealed class Phase16PresentationChromeTests
         Assert.False(live.HasCursor);
         Assert.True(live.FollowLive);
         Assert.Equal(0, live.PlotYsLength);
+        Assert.False(live.HasChartData);
+        Assert.False(live.HasChartAttention);
+        Assert.False(live.OfferOpenChart);
+        Assert.Empty(live.FocusTrendTip);
+        Assert.Empty(live.AvailableSeries);
+        Assert.Null(live.SelectedSeries);
     }
 
     [Fact]

@@ -424,10 +424,10 @@ public sealed class PlanContractValidatorTests
         var envDir = Path.Combine(dir.Path, "env-plugins");
         Directory.CreateDirectory(cliDir);
         Directory.CreateDirectory(envDir);
-        var previous = Environment.GetEnvironmentVariable("HARDWARETEST_OPENTAP_PLUGIN_DIRS");
+        var previous = Environment.GetEnvironmentVariable("HARDWARETEST_OPEN_TAP_PLUGIN_DIRECTORIES");
         try
         {
-            Environment.SetEnvironmentVariable("HARDWARETEST_OPENTAP_PLUGIN_DIRS", envDir);
+            Environment.SetEnvironmentVariable("HARDWARETEST_OPEN_TAP_PLUGIN_DIRECTORIES", envDir);
             var settings = new AppSettings
             {
                 UseMockVisa = true,
@@ -447,7 +447,7 @@ public sealed class PlanContractValidatorTests
         }
         finally
         {
-            Environment.SetEnvironmentVariable("HARDWARETEST_OPENTAP_PLUGIN_DIRS", previous);
+            Environment.SetEnvironmentVariable("HARDWARETEST_OPEN_TAP_PLUGIN_DIRECTORIES", previous);
         }
     }
 

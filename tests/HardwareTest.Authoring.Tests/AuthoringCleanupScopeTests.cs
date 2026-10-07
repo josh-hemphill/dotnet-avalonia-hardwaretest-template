@@ -65,7 +65,7 @@ public sealed class AuthoringCleanupScopeTests : IDisposable
     public void Dispose() => Directory.Delete(_root, recursive: true);
     private sealed class ReadonlyCompiler : IPlanCompiler
     {
-        public DraftWorkspace LoadAll(AuthoringWorkspace workspace) => new(workspace, [AuthoringRecipeCatalog.CreateProgram("a")]);
+        public DraftWorkspace LoadAll(AuthoringWorkspace workspace) => new(workspace, [MockDmmDraftFixture.Create("a")]);
         public ProgramDraft Load(string path) => throw new NotSupportedException();
         public void Save(ProgramDraft draft, string path) => throw new NotSupportedException();
         public void SaveSidecar(string path, ProgramSidecar sidecar) => throw new NotSupportedException();

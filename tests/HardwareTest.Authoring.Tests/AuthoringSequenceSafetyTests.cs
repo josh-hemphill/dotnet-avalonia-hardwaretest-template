@@ -12,13 +12,13 @@ public sealed class AuthoringSequenceSafetyTests
 {
     [Theory]
     [InlineData(AuthoringRecipeIds.MeanGte, "palette")]
-    [InlineData(AuthoringRecipeIds.MeanGte, "legacy")]
+    [InlineData(AuthoringRecipeIds.MeanGte, "factory")]
     [InlineData(AuthoringRecipeIds.MeanGte, "duplicate")]
     [InlineData(AuthoringRecipeIds.StationHealth, "palette")]
-    [InlineData(AuthoringRecipeIds.StationHealth, "legacy")]
+    [InlineData(AuthoringRecipeIds.StationHealth, "factory")]
     [InlineData(AuthoringRecipeIds.StationHealth, "duplicate")]
     [InlineData(AuthoringRecipeIds.SeriesCompliance, "palette")]
-    [InlineData(AuthoringRecipeIds.SeriesCompliance, "legacy")]
+    [InlineData(AuthoringRecipeIds.SeriesCompliance, "factory")]
     [InlineData(AuthoringRecipeIds.SeriesCompliance, "duplicate")]
     public void Fixed_output_conflicts_reject_new_producers_without_history_mutation(string recipe, string operation)
     {
@@ -30,7 +30,7 @@ public sealed class AuthoringSequenceSafetyTests
         var error = Assert.Throws<AuthoringWorkspaceException>(() => session.ApplyEdit(operation, current => operation switch
         {
             "palette" => AuthoringSequenceOperations.Insert(current, recipe, Row(current, selected.NodeId), false),
-            "legacy" => AuthoringRecipeCatalog.Apply(current, recipe),
+            "factory" => AuthoringRecipeCatalog.Apply(current, recipe),
             _ => AuthoringSequenceOperations.Duplicate(current, Row(current, selected.NodeId))
         }));
         Assert.Contains("runtime output", error.Message, StringComparison.Ordinal);
@@ -266,9 +266,9 @@ public sealed class AuthoringSequenceSafetyTests
             var vm = new AuthoringWorkspaceViewModel();
             vm.Open(root);
             vm.CreateDemoProgram("safety");
-            vm.ApplyRecipe(AuthoringRecipeIds.BandScalar);
-            vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
-            vm.ApplyRecipe(AuthoringRecipeIds.Formula);
+            vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.BandScalar);
+            vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Acquire);
+            vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Formula);
             var draft = vm.SelectedProgram!;
             var scalar = Assert.IsType<MetricNode>(draft.Measure[0]);
             var source = Assert.IsType<AlgorithmSource>(scalar.Metric.Source);
@@ -485,7 +485,7 @@ public sealed class AuthoringSequenceSafetyTests
     }
     private static ProgramDraft Program(params string[] recipes)
     {
-        var draft = AuthoringRecipeCatalog.CreateProgram("safety") with { Setup = [], Cleanup = new CleanupPolicy(false, []) };
+        var draft = MockDmmDraftFixture.Create("safety") with { Setup = [], Cleanup = new CleanupPolicy(false, []) };
         foreach (var recipe in recipes) draft = AuthoringRecipeCatalog.Apply(draft, recipe);
         return draft;
     }

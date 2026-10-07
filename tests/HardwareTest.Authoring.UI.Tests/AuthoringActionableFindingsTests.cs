@@ -16,7 +16,7 @@ public sealed class AuthoringActionableFindingsTests
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
         fixture.Show(); fixture.OpenRememberedWorkspace();
         var vm = fixture.ViewModel;
-        vm.ApplyRecipe(AuthoringRecipeIds.Formula);
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Formula);
         vm.SelectMeasure(vm.SelectedProgram!.Measure.Count - 1);
         vm.FormulaSource = "mean(VDC)";
         vm.Threshold = "";
@@ -42,7 +42,7 @@ public sealed class AuthoringActionableFindingsTests
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
         fixture.Show(); fixture.OpenRememberedWorkspace();
         var vm = fixture.ViewModel;
-        vm.ApplyRecipe(AuthoringRecipeIds.Formula);
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Formula);
         var formula = Assert.IsType<MetricNode>(vm.SelectedProgram!.Measure.Last());
         vm.ReplaceSelected(vm.SelectedProgram with
         {
@@ -110,12 +110,12 @@ public sealed class AuthoringActionableFindingsTests
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
         fixture.Show(); fixture.OpenRememberedWorkspace();
         var vm = fixture.ViewModel;
-        vm.ApplyRecipe(AuthoringRecipeIds.Formula);
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Formula);
         vm.SelectMeasure(vm.SelectedProgram!.Measure.Count - 1);
         vm.FormulaSource = "mean(VDC)";
         vm.Threshold = "";
         var issue = Assert.Single(vm.EditingIssues, item => item.Code == AuthoringCompileCodes.MissingLimits);
-        vm.ApplyRecipe(AuthoringRecipeIds.Formula);
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Formula);
         vm.SelectMeasure(vm.SelectedProgram.Measure.Count - 1);
         var otherNode = vm.SelectedSequence!.NodeId;
         AuthoringUiFixture.Drain();
@@ -166,7 +166,7 @@ public sealed class AuthoringActionableFindingsTests
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
         fixture.Show(); fixture.OpenRememberedWorkspace();
         var vm = fixture.ViewModel;
-        vm.ApplyRecipe(AuthoringRecipeIds.Formula);
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Formula);
         vm.SelectMeasure(vm.SelectedProgram!.Measure.Count - 1);
         vm.FormulaSource = "mean(VDC)";
         AuthoringUiFixture.Drain();

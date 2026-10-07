@@ -16,39 +16,10 @@ public static class OperatorSessionIdle
     public static int ClampWarnPercent(int percent)
         => Math.Clamp(percent, MinWarnPercent, MaxWarnPercent);
 
-    public static int HoursToMinutes(int hours)
-        => ClampMinutes(Math.Clamp(hours, 1, 168) * 60);
-
-    public static int MinutesToHoursDisplay(int minutes)
-        => Math.Max(1, (ClampMinutes(minutes) + 59) / 60);
-
-    /// Syncs hours ↔ minutes. When <paramref name="preferMinutes"/> is false, hours is the source.
-    public static void Normalize(AppSettings settings, bool preferMinutes)
+    /// Normalizes the current minute window and warning threshold.
+    public static void Normalize(AppSettings settings)
     {
-        if (preferMinutes)
-        {
-            settings.OperatorSessionIdleMinutes = ClampMinutes(settings.OperatorSessionIdleMinutes);
-            settings.OperatorSessionIdleHours = MinutesToHoursDisplay(settings.OperatorSessionIdleMinutes);
-        }
-        else
-        {
-            settings.OperatorSessionIdleMinutes = HoursToMinutes(settings.OperatorSessionIdleHours);
-            settings.OperatorSessionIdleHours = MinutesToHoursDisplay(settings.OperatorSessionIdleMinutes);
-        }
-
+        settings.OperatorSessionIdleMinutes = ClampMinutes(settings.OperatorSessionIdleMinutes);
         settings.OperatorSessionIdleWarnPercent = ClampWarnPercent(settings.OperatorSessionIdleWarnPercent);
-    }
-
-    /// After file load: migrate legacy hours-only documents; otherwise minutes is canonical.
-    public static void NormalizeAfterFileLoad(AppSettings settings)
-    {
-        if (settings.OperatorSessionIdleMinutes == DefaultMinutes
-            && settings.OperatorSessionIdleHours != DefaultMinutes / 60)
-        {
-            Normalize(settings, preferMinutes: false);
-            return;
-        }
-
-        Normalize(settings, preferMinutes: true);
     }
 }

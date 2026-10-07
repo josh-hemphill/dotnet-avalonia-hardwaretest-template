@@ -21,7 +21,7 @@ public sealed class AuthoringEnabledOutputTests
         try
         {
             var enabled = mode is "default" or "on" or "off-then-on";
-            var draft = AuthoringRecipeCatalog.Apply(AuthoringRecipeCatalog.CreateProgram("enabled"), AuthoringRecipeIds.Acquire);
+            var draft = AuthoringRecipeCatalog.Apply(MockDmmDraftFixture.Create("enabled"), AuthoringRecipeIds.Acquire);
             draft = AuthoringRecipeCatalog.Apply(draft, recipe == "sweep" ? AuthoringRecipeIds.MeanGte : recipe) with { Setup = [], Cleanup = new CleanupPolicy(false, []) };
             var publisher = Assert.IsType<MetricNode>(draft.Measure[1]);
             if (recipe == "sweep") publisher = publisher with
@@ -86,7 +86,7 @@ public sealed class AuthoringEnabledOutputTests
     [InlineData(true)]
     public void Disabled_output_projection_preserves_unfinished_numeric_settings(bool algorithm)
     {
-        var draft = AuthoringRecipeCatalog.Apply(AuthoringRecipeCatalog.CreateProgram("incomplete"), AuthoringRecipeIds.MeanGte);
+        var draft = AuthoringRecipeCatalog.Apply(MockDmmDraftFixture.Create("incomplete"), AuthoringRecipeIds.MeanGte);
         var node = Assert.IsType<MetricNode>(draft.Measure[0]);
         var source = Assert.IsType<AlgorithmSource>(node.Metric.Source);
         var settings = new Dictionary<string, string>(StringComparer.Ordinal) { ["SampleCount"] = "unfinished", ["eNaBlEd"] = "false" };

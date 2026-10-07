@@ -383,7 +383,7 @@ public sealed class AuthoringPlanInitializationTests : IDisposable
         });
         if (loopDepth > 0)
         {
-            vm.ApplyRecipe(AuthoringRecipeIds.Repeat);
+            vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Repeat);
             for (var level = 1; level < loopDepth; level++)
                 vm.ReplaceSelected(vm.SelectedProgram! with { Measure = [new RepeatNode(2, vm.SelectedProgram!.Measure)] });
             Assert.True(vm.SaveAll().Succeeded); Assert.True(vm.CanPack);
@@ -416,8 +416,8 @@ public sealed class AuthoringPlanInitializationTests : IDisposable
         Assert.DoesNotContain(vm.LastBuildReceipt!.Sources, source => source.PlanId == "new-plan");
         vm.NewInstrumentSlot = "BENCH"; vm.NewInstrumentTypeId = AuthoringInstrumentCatalog.All.Single(adapter => adapter.DisplayName == "Mock DMM").TypeId;
         vm.NewInstrumentVisa = "MOCK::BENCH"; vm.AddInstrumentSlot();
-        if (loopDepth == 0) vm.ApplyRecipe(AuthoringRecipeIds.Identity);
-        vm.ApplyRecipe(AuthoringRecipeIds.MeanGte); vm.ApplyRecipe(AuthoringRecipeIds.Shutdown);
+        if (loopDepth == 0) vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Identity);
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.MeanGte); vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Shutdown);
         if (loopDepth > 0)
         {
             IReadOnlyList<MeasureNode> corrected = [vm.SelectedProgram!.Measure.OfType<MetricNode>().Single()];
@@ -447,7 +447,7 @@ public sealed class AuthoringPlanInitializationTests : IDisposable
     }
 
     [Fact]
-    public void Legacy_compiled_only_setup_and_cleanup_plan_remains_a_supported_build_input()
+    public void Compiled_only_setup_and_cleanup_plan_remains_a_supported_build_input()
     {
         Workspace();
         var path = Path.Combine(_root, "sample.TapPlan");

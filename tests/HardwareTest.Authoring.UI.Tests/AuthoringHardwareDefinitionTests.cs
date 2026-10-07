@@ -13,7 +13,7 @@ public sealed class AuthoringHardwareDefinitionTests
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
         var window = fixture.Show(); fixture.OpenRememberedWorkspace();
         var vm = fixture.ViewModel;
-        vm.CreateDemoProgram("binding"); vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
+        vm.CreateDemoProgram("binding"); vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Acquire);
         var ids = vm.SelectedProgram!.Measure.Select(n => n.NodeId).ToArray();
         window.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 1; AuthoringUiFixture.Drain();
         Click(fixture, "Load selected binding");

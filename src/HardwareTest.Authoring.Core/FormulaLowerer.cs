@@ -7,7 +7,6 @@ public enum FormulaSaveOutcomeKind
 {
     None,
     PacksChannelAverage,
-    PacksMeanGte = PacksChannelAverage,
     PacksTransferFunction,
     PreviewOnly,
     SaveBlocked,
@@ -93,7 +92,7 @@ public static class FormulaLowerer
             return lowered switch
             {
                 AlgorithmSource { AlgorithmId: AuthoringFunctionIds.BasicChannelAverage }
-                    => new FormulaSaveOutcome(FormulaSaveOutcomeKind.PacksMeanGte, "Will save as Channel Average."),
+                    => new FormulaSaveOutcome(FormulaSaveOutcomeKind.PacksChannelAverage, "Will save as Channel Average."),
                 TransferFunctionAlgorithm
                     => new FormulaSaveOutcome(
                         FormulaSaveOutcomeKind.PacksTransferFunction,

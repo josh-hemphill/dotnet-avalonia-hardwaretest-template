@@ -11,7 +11,7 @@ public sealed class StableNodeIdentityTests
     public void Rename_insert_and_repeat_unwrap_keep_existing_node_and_row_identity()
     {
         var draft = AuthoringRecipeCatalog.Apply(
-            AuthoringRecipeCatalog.CreateProgram("identity"), AuthoringRecipeIds.Acquire);
+            MockDmmDraftFixture.Create("identity"), AuthoringRecipeIds.Acquire);
         var original = Assert.IsType<MetricNode>(Assert.Single(draft.Measure));
         var rows = AuthoringSequence.Flatten(draft);
         var renamed = AuthoringSequence.MutateMeasure(draft.Measure, [0], node =>
@@ -45,7 +45,7 @@ public sealed class StableNodeIdentityTests
     [Fact]
     public void Compiler_maps_step_ids_and_preserves_supported_nested_nodes_after_reload()
     {
-        var draft = AuthoringRecipeCatalog.CreateProgram("stable");
+        var draft = MockDmmDraftFixture.Create("stable");
         foreach (var recipe in new[] { AuthoringRecipeIds.Prompt, AuthoringRecipeIds.Acquire, AuthoringRecipeIds.Repeat })
         {
             draft = AuthoringRecipeCatalog.Apply(draft, recipe);

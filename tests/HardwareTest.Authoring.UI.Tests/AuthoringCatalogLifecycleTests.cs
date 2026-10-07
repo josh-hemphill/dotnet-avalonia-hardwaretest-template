@@ -69,7 +69,7 @@ public sealed class AuthoringCatalogLifecycleTests
         var workspace = AuthoringWorkspaceLoader.Load(fixture.WorkspaceRoot); workspace.Manifest.Package.Name = "Warning feedback programs";
         AuthoringWorkspaceLoader.SaveManifest(fixture.WorkspaceRoot, workspace.Manifest);
         fixture.Show(960, 600, realInteraction: true); fixture.OpenRememberedWorkspace(); var vm = fixture.ViewModel;
-        vm.CreateDemoProgram("a-invalid"); vm.ApplyRecipe(AuthoringRecipeIds.MeanGte); vm.Threshold = string.Empty;
+        vm.CreateDemoProgram("a-invalid"); vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.MeanGte); vm.Threshold = string.Empty;
         vm.InitializePlan(new("z-valid") { Instruments = [] }); vm.DisplayName += " edited"; vm.OpenTapHomeOverride = "invalid\0home";
         AuthoringUiFixture.Click(fixture.Control<Button>("Save all"));
         Assert.True(vm.LastSaveAllResult!.Succeeded); Assert.Equal(["a-invalid", "z-valid"], vm.LastSaveAllResult.SavedProgramIds);

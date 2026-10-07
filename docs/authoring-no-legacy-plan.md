@@ -167,26 +167,36 @@ Port old DMM broker query/write, timeout clamping, disposal and invalid-resource
 
 Runtime entrypoints must opt in explicitly so changing defaults does not disable production physical execution. Wire and public mapping names change together with no old aliases. Removing a plugin reference changes affected restore graphs; remove its lockfile and regenerate retained project locks through restore, never by manual fabrication. Settings registry and idle-hour cleanup are out of scope until PR220. Preserve the upstream TUI readiness classifier and owned-load contract unchanged.
 
-## Area 4: current station settings — PR220
+## Area 4: current station settings and authoring surfaces — PR220
 
-- Goal: one per-plan slot override model and one operator idle time setting, expressed in minutes.
-- Depends on: PR219.
-- Out of scope: run/document version gates and external OpenTAP interchange.
-- Files: AppSettings, SettingsStore, settings list/provenance/copy/JSON metadata, StationOverridesViewModel, OperatorSessionIdle, environment binder, Settings and OperatorSession VMs, InstrumentsViewModel aliases.
-- Public surface: remove Instruments/StationBindings/VisaInstrument/StationBinding registry, OperatorSessionIdleHours and old discover aliases. The template name was changed to HardwareScaffold in PR218.
+- Goal: current per-plan slot overrides and idle minutes are the sole station settings model; authoring and bench presentation expose only used current operations.
+- Depends on: reviewed PR219.
+- Out of scope: Area 5 persisted schema gates/run ledgers, Area 6 report signing, external OpenTAP interchange, broker execution.
+- Files: AppSettings, SettingsStore, settings binder/provenance/copy/JSON metadata, station/operator/settings VMs, authoring workspace/catalog/initializer tests, LivePresentationViewModel, OperatorTouchDensity, BuildInfo and corresponding test projects.
+- Public surface: remove Instruments/StationBindings/VisaInstrument/StationBinding, dormant global DefaultVisaResource and OperatorSessionIdleHours; retain PlanSlotOverrides, current minute normalization and editing-time MigrateSettings. Remove unused discovered aliases. Rename OpenTapPluginDirectoriesEnv to match HARDWARETEST_OPEN_TAP_PLUGIN_DIRECTORIES everywhere, with no old-name alias. NormalizeBooleanInput retains supported 1/yes/on syntax.
+- Authoring surface: remove unused VM ApplyRecipe and catalog CreateProgram convenience APIs; keep catalog Apply factory, explicit AuthoringPlanInitializer and durable plan creation. FormulaSaveOutcomeKind exposes PacksChannelAverage only. Preserve direct MeanGte versus ChannelAverage semantics and AlgorithmSource uncertainty protection.
+- Presentation surface: remove PresentationChromeMode, ToggleFocusTrendCommand, UserWantsFocus, ShowFocusTrend, ShowPlotForSelection, OfferShowTrend and old splitter sizing constant. Retain chart buffers, selection/cursor/time windows, HasChartData/HasChartAttention and shell FocusTrendTip. BuildInfo reads deterministic version+sha and CommitDate only.
 - Pseudocode:
   ```text
-  create station profile -> exact plan/slot overrides only
-  no override -> leave resource unchanged
-  idle timeout -> normalize current minutes setting -> apply current overlays
-  removed registry/hours fields -> no migration or fallback
+  BuildStationProfile(selectedPlanId):
+    if selectedPlanId blank -> no overrides
+    choose only exact selected plan entries with nonblank exact SlotName
+    bind resource by slot identity; no role guessing; missing override preserves resource
+  settings load -> current defaults + file + environment + CLI overlays
+    normalize OperatorSessionIdleMinutes; ignore removed fields; no disk upgrade
+  InsertSelectedRecipe:
+    select current recipe; validate insertion context and CanInsert
+    execute current insertion (including EndOfSection semantics)
+    assert inserted behavior; never use factory fallback after insertion rejection
+  test MockDmm draft fixture -> explicit currentAuthoringPlanInitializer
+    malformed/duplicate source tests may explicitly construct drafts
+  RefreshChrome -> update current chart availability/attention only
+  Reset -> clear active chart data/selection/cursor state
+  BuildInfo -> parse sha metadata, read CommitDate; absent/invalid date -> unknown
   ```
-- Tests: current settings round trip and overlays, absent override, two same-role slots retain different resources, minutes normalization/precedence, removed fields do not populate current settings.
-- Use the canonical plugin-directory environment name `HARDWARETEST_OPEN_TAP_PLUGIN_DIRECTORIES` without retaining the former name. Ordinary Boolean input forms remain current supported syntax.
-- Remove dormant Run focus-trend controls and their unused chrome state in LivePresentationViewModel; preserve current chart buffers, selection, time windows, attention and shell tips. Remove OperatorTouchDensity's unused old details-splitter sizing constant. Port former focus/splitter tests to current chart availability, attention, reset and workspace navigation checks.
-- BuildInfo uses deterministic `version+sha` and `CommitDate` only. Remove historical wall-clock stamp parsing/fallback; test missing CommitDate without inferring an old timestamp.
-- Risks: update defaults and persisted JSON metadata together; role guesses must not broaden exact slot binding. User function changes still transfer compatible settings normally.
-- Conflicts: station session changes in PR219 and settings schema protection in PR221; sequential.
+- Tests: settings round trip/file/environment/CLI precedence, current minutes normalization, removed registry/hours ignored; exact plan/slot binding, blank plan/slot yields none, same-role slots retain independent resources. Port meaningful authoring tests to validated selected-recipe insertion with CanInsert assertions; explicit fixture initialization replaces hidden demo defaults. Port chrome tests to chart availability/reset/attention/navigation and density tests to retained sizing. BuildInfo covers current sha/date and missing date without invented timestamps.
+- Risks: validated insertion can expose invalid old test setup; preserve its actual rejection/placement semantics. Defaults, provenance, copy, JSON metadata and all environment capture/host paths must change together. User function changes still transfer compatible settings normally.
+- Conflict map: Area 3 station execution API is stable; Area 5 SettingsStore/schema changes must remain sequential. Authoring and presentation test ports are disjoint from station settings implementation; only this area owner stages/commits. No SDK, Deno, build, restore, test or format commands in child work; root freezes source HEAD and performs checks.
 
 ## Area 5: current application persistence — PR221
 

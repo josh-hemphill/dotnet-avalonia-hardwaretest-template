@@ -80,7 +80,7 @@ public sealed class PlanCompilerTests
     {
         var dir = NewTempDir();
         var path = Path.Combine(dir, "multi-cleanup.TapPlan");
-        var created = AuthoringRecipeCatalog.CreateProgram("multi-cleanup");
+        var created = MockDmmDraftFixture.Create("multi-cleanup");
         var typeId = created.Instruments[0].TypeId;
         var draft = created with
         {
@@ -105,7 +105,7 @@ public sealed class PlanCompilerTests
     {
         var dir = NewTempDir();
         var path = Path.Combine(dir, "measure-cleanup.TapPlan");
-        var created = AuthoringRecipeCatalog.CreateProgram("measure-cleanup");
+        var created = MockDmmDraftFixture.Create("measure-cleanup");
         var typeId = created.Instruments[0].TypeId;
         var applied = AuthoringRecipeCatalog.Apply(created, AuthoringRecipeIds.Acquire);
         var metric = Assert.IsType<MetricNode>(Assert.Single(applied.Measure)).Metric;
@@ -142,7 +142,7 @@ public sealed class PlanCompilerTests
     {
         var dir = NewTempDir();
         var path = Path.Combine(dir, "identity-cleanup.TapPlan");
-        var created = AuthoringRecipeCatalog.CreateProgram("identity-cleanup");
+        var created = MockDmmDraftFixture.Create("identity-cleanup");
         var typeId = created.Instruments[0].TypeId;
         var draft = created with
         {
@@ -171,7 +171,7 @@ public sealed class PlanCompilerTests
     {
         var dir = NewTempDir();
         var path = Path.Combine(dir, "empty-cleanup.TapPlan");
-        var draft = AuthoringRecipeCatalog.CreateProgram("empty-cleanup") with
+        var draft = MockDmmDraftFixture.Create("empty-cleanup") with
         {
             Cleanup = new CleanupPolicy(true, [], false),
         };
@@ -189,7 +189,7 @@ public sealed class PlanCompilerTests
     {
         var dir = NewTempDir();
         var path = Path.Combine(dir, "legacy-cleanup.TapPlan");
-        var created = AuthoringRecipeCatalog.CreateProgram("legacy-cleanup");
+        var created = MockDmmDraftFixture.Create("legacy-cleanup");
         var typeId = created.Instruments[0].TypeId;
         var draft = created with
         {

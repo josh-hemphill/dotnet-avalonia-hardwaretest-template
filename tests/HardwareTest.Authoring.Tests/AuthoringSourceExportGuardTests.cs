@@ -20,7 +20,7 @@ public sealed class AuthoringSourceExportGuardTests : IDisposable
         var path = Path.Combine(_root, "sample.TapPlan");
         File.WriteAllText(path, "compiled baseline");
         File.WriteAllText(Path.Combine(_root, "sample.program.json"), "{}");
-        var document = AuthoringDocumentDto.FromDraft(AuthoringRecipeCatalog.CreateProgram("sample"),
+        var document = AuthoringDocumentDto.FromDraft(MockDmmDraftFixture.Create("sample"),
             compiledPlanHash: AuthoringDocumentStore.ComputeHash(path),
             compiledSidecarHash: AuthoringDocumentStore.ComputeHash(PlanCompiler.SidecarPath(path)));
         document.RequiresCompilation = !externalChange;
@@ -43,7 +43,7 @@ public sealed class AuthoringSourceExportGuardTests : IDisposable
         var workspace = AuthoringWorkspaceLoader.Load(_root);
         workspace.Manifest.Package.Name = "All saved drafts";
         AuthoringWorkspaceLoader.SaveManifest(_root, workspace.Manifest);
-        new AuthoringDocumentStore(_root).Save(AuthoringDocumentDto.FromDraft(AuthoringRecipeCatalog.CreateProgram("new-plan")));
+        new AuthoringDocumentStore(_root).Save(AuthoringDocumentDto.FromDraft(MockDmmDraftFixture.Create("new-plan")));
         var result = WorkspacePacker.Preflight(AuthoringWorkspaceLoader.Load(_root), new PackOptions());
         Assert.Contains(result.Findings, finding => finding.Code == "SOURCE_COMPILE_REQUIRED");
     }
@@ -65,7 +65,7 @@ public sealed class AuthoringSourceExportGuardTests : IDisposable
     public void Explicit_source_guard_subset_does_not_add_other_source_only_programs()
     {
         var workspace = AuthoringWorkspaceLoader.Load(_root); workspace.Manifest.Package.Name = "All saved drafts";
-        new AuthoringDocumentStore(_root).Save(AuthoringDocumentDto.FromDraft(AuthoringRecipeCatalog.CreateProgram("other-source")));
+        new AuthoringDocumentStore(_root).Save(AuthoringDocumentDto.FromDraft(MockDmmDraftFixture.Create("other-source")));
         Assert.Contains(AuthoringSourceExportGuard.GetIssues(workspace), f => f.Code == "SOURCE_COMPILE_REQUIRED");
         Assert.Empty(AuthoringSourceExportGuard.GetIssues(workspace, new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "selected" }));
     }

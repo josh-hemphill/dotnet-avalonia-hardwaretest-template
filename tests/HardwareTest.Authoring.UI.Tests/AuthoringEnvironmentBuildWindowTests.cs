@@ -30,7 +30,7 @@ public sealed class AuthoringEnvironmentBuildWindowTests
         var sample = new PlanCompiler().Load(Path.Combine(fixture.WorkspaceRoot, "sample.TapPlan"));
         store.Save(AuthoringDocumentDto.FromDraft(sample, 31, compiledPlanHash: AuthoringDocumentStore.ComputeHash(Path.Combine(fixture.WorkspaceRoot, "sample.TapPlan")),
             compiledSidecarHash: AuthoringDocumentStore.ComputeHash(Path.Combine(fixture.WorkspaceRoot, "sample.program.json"))));
-        var blocked = AuthoringRecipeCatalog.CreateProgram("blocked") with
+        var blocked = MockDmmDraftFixture.Create("blocked") with
         {
             Measure = [new MetricNode(new MetricDraft("Unsupported deployment", "result", "scalar", "V", new LimitSpec(null, null, 0), null, new ExpressionAlgorithm([], "std(input)")))]
         };

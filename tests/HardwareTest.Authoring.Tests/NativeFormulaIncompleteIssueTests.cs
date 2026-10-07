@@ -51,7 +51,7 @@ public sealed class NativeFormulaIncompleteIssueTests : IDisposable
         Assert.Contains("BUILD_INCOMPLETE", error.Message);
     }
 
-    private static ProgramDraft Draft(IReadOnlyList<MeasureNode> nodes) => AuthoringRecipeCatalog.CreateProgram("native-incomplete") with { Measure = nodes };
+    private static ProgramDraft Draft(IReadOnlyList<MeasureNode> nodes) => MockDmmDraftFixture.Create("native-incomplete") with { Measure = nodes };
     private static MetricNode Input() => new(new MetricDraft("Input", "input", "timeseries", "V", null, null,
         new MeasureSource("DMM", AuthoringFunctionIds.BasicAcquireVoltage, new Dictionary<string, string>() { ["IntervalMs"] = "5", ["SampleCount"] = "8" })));
     private static MetricNode Consumer(bool average) => new(new MetricDraft("Consumer", "result", average ? "scalar" : "timeseries", "V",

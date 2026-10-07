@@ -352,7 +352,7 @@ public sealed class AuthoringPlanInitializationTests
             IdentityInstrumentSlot = "DMM",
             Measurement = new(AuthoringRecipeIds.MeanGte, "DMM")
         });
-        vm.ApplyRecipe(AuthoringRecipeIds.Repeat);
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Repeat);
         for (var level = 1; level < loopDepth; level++)
             vm.ReplaceSelected(vm.SelectedProgram! with { Measure = [new RepeatNode(2, vm.SelectedProgram!.Measure)] });
         Assert.True(vm.SaveAll().Succeeded); Assert.True(vm.CanPack); AuthoringUiFixture.Drain();
