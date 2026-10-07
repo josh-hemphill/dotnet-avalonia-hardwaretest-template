@@ -185,14 +185,15 @@ public sealed class BundledLibraryBootstrapTests : IDisposable
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public void Installed_duplicate_layout_requires_fresh_home_without_changing_selected_bytes(bool import)
+    public void Installed_duplicate_layout_is_rejected_without_changing_selected_bytes(bool import)
     {
         var home = Prepare(Workspace());
         File.Copy(Path.Combine(home.Root, "InstrumentComponents.dll"), Path.Combine(home.Root, "Packages", PublishedInstrumentComponents.PackageName, "InstrumentComponents.dll"));
         var before = Files(home);
         var error = Assert.Throws<AuthoringWorkspaceException>(() => new OpenTapHomeBootstrapper().Bootstrap(Workspace(),
             new() { HomeDirectory = home.Root, Offline = true, OfflinePackagePath = import ? PublishedLibraryFixture.Archive : null }));
-        Assert.Contains("fresh home", error.Message);
+        Assert.StartsWith("Cannot inspect the selected standalone/TUI home: ", error.Message);
+        Assert.Contains("Instrument Components execution cannot use obsolete package-directory library DLLs. Import or repair the selected package to keep library DLLs only in the installed home root.", error.Message);
         AssertFiles(before, home);
         Assert.False(AuthoringInstrumentCatalog.LibraryPayloadAvailability(home).Available);
     }
@@ -221,7 +222,8 @@ public sealed class BundledLibraryBootstrapTests : IDisposable
         Assert.False(AuthoringInstrumentCatalog.LibraryPayloadAvailability(home).Available);
         var error = Assert.Throws<AuthoringWorkspaceException>(() => Prepare(workspace));
 
-        Assert.Contains("fresh home", error.Message);
+        Assert.StartsWith("Cannot inspect the selected standalone/TUI home: ", error.Message);
+        Assert.Contains("Instrument Components execution cannot use noncanonical or duplicate installed package identities.", error.Message);
         AssertFiles(before, home);
         AssertBundledProvenance(home);
     }
@@ -229,7 +231,7 @@ public sealed class BundledLibraryBootstrapTests : IDisposable
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public void Home_root_library_identity_requires_fresh_home_without_changing_selected_bytes(bool declared)
+    public void Home_root_library_identity_is_rejected_without_changing_selected_bytes(bool declared)
     {
         var home = Prepare(Workspace());
         File.WriteAllText(Path.Combine(home.Root, "unrelated.txt"), "selected home sentinel");
@@ -249,7 +251,8 @@ public sealed class BundledLibraryBootstrapTests : IDisposable
         Assert.Throws<IOException>(() => AuthoringAdapterPayloadInspection.LibraryPayloadPath(home, "InstrumentComponents.dll"));
         var error = Assert.Throws<AuthoringWorkspaceException>(() => Prepare(Workspace()));
 
-        Assert.Contains("fresh home", error.Message);
+        Assert.StartsWith("Cannot inspect the selected standalone/TUI home: ", error.Message);
+        Assert.Contains("Instrument Components execution requires an installed home root with root DLLs and Packages/InstrumentComponents.OpenTap/package.xml. Import package directories before execution.", error.Message);
         AssertFiles(before, home);
         AssertBundledProvenance(home);
     }
