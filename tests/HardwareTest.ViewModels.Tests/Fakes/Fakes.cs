@@ -14,6 +14,7 @@ namespace HardwareTest.ViewModels.Tests.Fakes;
 public sealed class FakeOpenTapSession : IOpenTapSession
 {
     private readonly OpenTapRunControlState _runControl = new();
+    private readonly HashSet<string> _simulatedInteractions = [];
     private int _runGate;
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -1064,21 +1065,22 @@ public sealed class FakeOpenTapSession : IOpenTapSession
 
     public void Resume(OperatorInteractionResponse? response = null)
     {
+        var requestId = _runControl.PendingInteraction?.Id;
         if (response is null && _runControl.PendingInteraction is not null && InteractionResponses.Count > 0)
         {
             response = InteractionResponses.Dequeue();
         }
 
         _runControl.Resume(response);
+        if (response is null || response.RequestId == requestId)
+            ConsumeSimulatedInteraction(requestId);
     }
 
     /// Simulates a step requesting interaction (for ViewModel tests without OpenTAP).
     public void BeginInteraction(OperatorInteractionRequest request)
     {
-        PendingInteraction = request;
-        OperatorPromptMessage = request.Message;
-        IsAwaitingOperator = true;
-        _runControl.ResetInteractionGate();
+        _simulatedInteractions.Add(request.Id);
+        _runControl.BeginPendingInteraction(request);
         if (InteractionResponses.Count > 0)
         {
             Resume(InteractionResponses.Dequeue());
@@ -1090,7 +1092,17 @@ public sealed class FakeOpenTapSession : IOpenTapSession
     public void Abort(bool safetyStop = false)
     {
         AbortCount++;
+        var requestId = _runControl.PendingInteraction?.Id;
         _runControl.Abort();
+        ConsumeSimulatedInteraction(requestId);
+    }
+
+    private void ConsumeSimulatedInteraction(string? requestId)
+    {
+        // Direct UI simulations have no running step to consume the response.
+        // Real fake runs consume it in EmitAndWaitForInteractionAsync instead.
+        if (requestId is not null && _simulatedInteractions.Remove(requestId))
+            _runControl.WaitForInteractionResponse(requestId);
     }
 
     private void EnterRunGate()
@@ -1118,10 +1130,9 @@ public sealed class FakeOpenTapSession : IOpenTapSession
 
     private void ClearInteractionState()
     {
-        IsAwaitingOperator = false;
-        OperatorPromptMessage = null;
-        PendingInteraction = null;
-        _runControl.OpenInteractionGate();
+        var simulated = _simulatedInteractions.ToArray();
+        _runControl.CompleteRun();
+        foreach (var requestId in simulated) ConsumeSimulatedInteraction(requestId);
     }
 
     private async Task EmitAndWaitForInteractionAsync(
@@ -1138,11 +1149,8 @@ public sealed class FakeOpenTapSession : IOpenTapSession
             OverallPercent = 10,
         });
 
-        while (IsAwaitingOperator)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            await Task.Run(() => _runControl.WaitInteractionGate(50), cancellationToken);
-        }
+        await Task.Run(() => _runControl.WaitForInteractionResponse(request.Id));
+        cancellationToken.ThrowIfCancellationRequested();
     }
 
     private async Task DelayWithPauseAsync(CancellationToken cancellationToken)
