@@ -1,7 +1,6 @@
 using System.Formats.Asn1;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
-using System.Security.Cryptography.Pkcs;
 using System.Security.Cryptography.X509Certificates;
 using HardwareTest.Core.Reporting;
 using HardwareTest.Core.Time;
@@ -15,20 +14,19 @@ public sealed class WindowsOperatorCredentialBroker : IOperatorCredentialBroker,
     private readonly IWindowsSigningNative _native;
     private readonly IWindowsSigningCertificateSource _certificates;
     private readonly INativeSigningDialogOwner _owner;
-    private readonly IOperatorCredentialBroker _presence;
+    private readonly IOperatorCredentialPresenceBroker _presence;
     private readonly IClock _clock;
     private readonly Func<bool> _isWindows;
     private readonly SemaphoreSlim _gate = new(1, 1);
 
-    public WindowsOperatorCredentialBroker(INativeSigningDialogOwner? owner = null, IClock? clock = null, IOperatorCredentialBroker? presence = null)
+    public WindowsOperatorCredentialBroker(INativeSigningDialogOwner? owner = null, IClock? clock = null, IOperatorCredentialPresenceBroker? presence = null)
         : this(new WindowsSigningNative(), new WindowsSigningCertificateSource(), owner ?? new HeadlessSigningDialogOwner(), clock, presence, OperatingSystem.IsWindows) { }
     internal WindowsOperatorCredentialBroker(IWindowsSigningNative native, IWindowsSigningCertificateSource certificates, INativeSigningDialogOwner owner,
-        IClock? clock = null, IOperatorCredentialBroker? presence = null, Func<bool>? isWindows = null)
+        IClock? clock = null, IOperatorCredentialPresenceBroker? presence = null, Func<bool>? isWindows = null)
     { _native = native; _certificates = certificates; _owner = owner; _clock = clock ?? SystemClock.Instance; _presence = presence ?? new PcscOperatorCredentialBroker(_clock); _isWindows = isWindows ?? OperatingSystem.IsWindows; }
     public bool IsMock => false;
     public bool CanSign => true;
-    public bool ProducesCms => true;
-    public bool RequiresPin => false;
+    public bool CanSignPdf => true;
     public string? SigningAlgorithm => null;
     public string StatusText => "Windows smart-card signing uses middleware PIN dialogs.";
     public async Task<CredentialCaptureResult> WaitForPresenceAsync(TimeSpan timeout, CancellationToken cancellationToken = default)
@@ -128,21 +126,17 @@ public sealed class WindowsOperatorCredentialBroker : IOperatorCredentialBroker,
         };
         return CredentialSignResult.Failure(kind, message, native?.Stage ?? stage, native?.Code);
     }
-    public Task<CredentialSignResult> TrySignPayloadAsync(byte[] payload, OperatorCredential credential, string? pin = null, CancellationToken cancellationToken = default) => SignAsync(payload, credential, null, 0, cancellationToken);
-    public Task<CredentialSignResult> TrySignDocumentAsync(byte[] document, OperatorCredential credential, string? pin = null, DateTimeOffset? signingTime = null, CancellationToken cancellationToken = default) => SignAsync(document, credential, signingTime, 1, cancellationToken);
-    public Task<CredentialSignResult> TrySignPdfAsync(byte[] pdf, OperatorCredential credential, string? pin = null, DateTimeOffset? signingTime = null, CancellationToken cancellationToken = default) => SignAsync(pdf, credential, signingTime, 2, cancellationToken);
-    private async Task<CredentialSignResult> SignAsync(byte[] data, OperatorCredential credential, DateTimeOffset? at, int kind, CancellationToken ct)
+    public Task<CredentialSignResult> TrySignPayloadAsync(byte[] payload, OperatorCredential credential, string? pin = null, CancellationToken cancellationToken = default) => SignAsync(payload, credential, null, false, cancellationToken);
+    public Task<CredentialSignResult> TrySignPdfAsync(byte[] pdf, OperatorCredential credential, string? pin = null, DateTimeOffset? signingTime = null, CancellationToken cancellationToken = default) => SignAsync(pdf, credential, signingTime, true, cancellationToken);
+    private async Task<CredentialSignResult> SignAsync(byte[] data, OperatorCredential credential, DateTimeOffset? at, bool pdf, CancellationToken ct)
     {
         if (data.Length == 0) return CredentialSignResult.Failed("Nothing to sign.");
         var prepared = await PrepareSigningAsync(credential, cancellationToken: ct).ConfigureAwait(false);
         using var session = prepared.Session;
         if (session is null) return prepared.Failure!;
-        return kind switch
-        {
-            0 => await session.TrySignPayloadAsync(data, credential, cancellationToken: ct).ConfigureAwait(false),
-            1 => await session.TrySignDocumentAsync(data, credential, signingTime: at, cancellationToken: ct).ConfigureAwait(false),
-            _ => await ((IEmbeddedPdfSigningBroker)session).TrySignPdfAsync(data, credential, signingTime: at, cancellationToken: ct).ConfigureAwait(false),
-        };
+        return pdf
+            ? await ((IEmbeddedPdfSigningBroker)session).TrySignPdfAsync(data, credential, signingTime: at, cancellationToken: ct).ConfigureAwait(false)
+            : await session.TrySignPayloadAsync(data, credential, cancellationToken: ct).ConfigureAwait(false);
     }
 }
 
@@ -168,8 +162,7 @@ internal sealed class PreparedWindowsSession : IPreparedCredentialSession, IEmbe
     }
     public bool IsMock => false;
     public bool CanSign => true;
-    public bool ProducesCms => true;
-    public bool RequiresPin => false;
+    public bool CanSignPdf => true;
     public string? SigningAlgorithm => _rsa ? AttestationAlgorithm.PivRsaPkcs1Sha256 : _keySize == 384 ? AttestationAlgorithm.PivEcdsaSha384 : AttestationAlgorithm.PivEcdsaSha256;
     public string StatusText => "Windows signing session prepared.";
     public Task<CredentialCaptureResult> WaitForPresenceAsync(TimeSpan timeout, CancellationToken cancellationToken = default) => throw new NotSupportedException();
@@ -201,7 +194,8 @@ internal sealed class PreparedWindowsSession : IPreparedCredentialSession, IEmbe
             return _worker.InvokeAsync(() =>
             {
                 ct.ThrowIfCancellationRequested();
-                if (!string.Equals(expected.Thumbprint, _certificate.Thumbprint, StringComparison.OrdinalIgnoreCase))
+                if (!string.Equals(expected.Thumbprint, _certificate.Thumbprint, StringComparison.OrdinalIgnoreCase)
+                    || !string.Equals(expected.Serial, _credential.Serial, StringComparison.OrdinalIgnoreCase))
                     return CredentialSignResult.Failure(CredentialFailureKind.CertificateMismatch, "Prepared signer does not match the captured certificate.", "signing");
                 try { var result = action(); ct.ThrowIfCancellationRequested(); return result; }
                 catch (OperationCanceledException) { throw; }
@@ -211,16 +205,6 @@ internal sealed class PreparedWindowsSession : IPreparedCredentialSession, IEmbe
     }
     public Task<CredentialSignResult> TrySignPayloadAsync(byte[] payload, OperatorCredential credential, string? pin = null, CancellationToken cancellationToken = default)
         => Execute(credential, cancellationToken, () => CredentialSignResult.Signed(SignMessage(payload, cancellationToken), SigningAlgorithm!, _certificate.RawData, _certificate.Thumbprint, _credential));
-    public Task<CredentialSignResult> TrySignDocumentAsync(byte[] document, OperatorCredential credential, string? pin = null, DateTimeOffset? signingTime = null, CancellationToken cancellationToken = default)
-        => Execute(credential, cancellationToken, () =>
-        {
-            using AsymmetricAlgorithm key = _rsa ? new WindowsCallbackRsa(_certificate, hash => SignHash(hash, cancellationToken)) : new WindowsCallbackEcdsa(_certificate, hash => SignHash(hash, cancellationToken));
-            var cms = new SignedCms(new ContentInfo(document), true);
-            var signer = new CmsSigner(SubjectIdentifierType.IssuerAndSerialNumber, _certificate, key)
-            { DigestAlgorithm = new Oid(_digest == HashAlgorithmName.SHA384 ? "2.16.840.1.101.3.4.2.2" : "2.16.840.1.101.3.4.2.1"), IncludeOption = X509IncludeOption.EndCertOnly };
-            cms.ComputeSignature(signer, true);
-            return CredentialSignResult.Signed(cms.Encode(), SigningAlgorithm!, _certificate.RawData, _certificate.Thumbprint, _credential);
-        });
     public Task<CredentialSignResult> TrySignPdfAsync(byte[] pdf, OperatorCredential credential, string? pin = null, DateTimeOffset? signingTime = null, CancellationToken cancellationToken = default)
         => Execute(credential, cancellationToken, () =>
         {
@@ -253,39 +237,4 @@ internal sealed class WindowsExternalSignature(string algorithm, string digest, 
     public string GetSignatureAlgorithmName() => algorithm;
     public iText.Signatures.ISignatureMechanismParams? GetSignatureMechanismParameters() => null;
     public byte[] Sign(byte[] message) => sign(message);
-}
-
-internal sealed class WindowsCallbackRsa : RSA
-{
-    private readonly X509Certificate2 _certificate;
-    private readonly Func<byte[], byte[]> _sign;
-    public WindowsCallbackRsa(X509Certificate2 certificate, Func<byte[], byte[]> sign) { _certificate = certificate; _sign = sign; using var key = certificate.GetRSAPublicKey()!; KeySizeValue = key.KeySize; }
-    public override RSAParameters ExportParameters(bool includePrivateParameters) { if (includePrivateParameters) throw new NotSupportedException(); using var key = _certificate.GetRSAPublicKey()!; return key.ExportParameters(false); }
-    public override void ImportParameters(RSAParameters parameters) => throw new NotSupportedException();
-    public override byte[] SignHash(byte[] hash, HashAlgorithmName hashAlgorithm, RSASignaturePadding padding)
-    { if (hashAlgorithm != HashAlgorithmName.SHA256 || padding != RSASignaturePadding.Pkcs1) throw new NotSupportedException(); return _sign(hash); }
-    public override bool TrySignHash(ReadOnlySpan<byte> hash, Span<byte> destination, HashAlgorithmName hashAlgorithm, RSASignaturePadding padding, out int bytesWritten)
-    {
-        bytesWritten = 0; if (destination.Length < (KeySize + 7) / 8) return false;
-        var signature = SignHash(hash.ToArray(), hashAlgorithm, padding); signature.CopyTo(destination); bytesWritten = signature.Length; return true;
-    }
-    public override bool VerifyHash(byte[] hash, byte[] signature, HashAlgorithmName hashAlgorithm, RSASignaturePadding padding) { using var key = _certificate.GetRSAPublicKey()!; return key.VerifyHash(hash, signature, hashAlgorithm, padding); }
-    public override byte[] Encrypt(byte[] data, RSAEncryptionPadding padding) => throw new NotSupportedException();
-    public override byte[] Decrypt(byte[] data, RSAEncryptionPadding padding) => throw new NotSupportedException();
-}
-
-internal sealed class WindowsCallbackEcdsa : ECDsa
-{
-    private readonly X509Certificate2 _certificate;
-    private readonly Func<byte[], byte[]> _sign;
-    public WindowsCallbackEcdsa(X509Certificate2 certificate, Func<byte[], byte[]> sign) { _certificate = certificate; _sign = sign; using var key = certificate.GetECDsaPublicKey()!; KeySizeValue = key.KeySize; }
-    public override byte[] SignHash(byte[] hash) => _sign(hash);
-    public override bool TrySignHash(ReadOnlySpan<byte> hash, Span<byte> destination, out int bytesWritten)
-    {
-        bytesWritten = 0; if (destination.Length < 2 * ((KeySize + 7) / 8)) return false;
-        var signature = _sign(hash.ToArray()); signature.CopyTo(destination); bytesWritten = signature.Length; return true;
-    }
-    public override bool VerifyHash(byte[] hash, byte[] signature) { using var key = _certificate.GetECDsaPublicKey()!; return key.VerifyHash(hash, signature); }
-    public override ECParameters ExportParameters(bool includePrivateParameters) { if (includePrivateParameters) throw new NotSupportedException(); using var key = _certificate.GetECDsaPublicKey()!; return key.ExportParameters(false); }
-    public override void ImportParameters(ECParameters parameters) => throw new NotSupportedException();
 }

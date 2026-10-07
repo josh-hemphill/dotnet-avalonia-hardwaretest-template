@@ -10,9 +10,6 @@ public static class OperatorTouchDensity
     /// Compact icon-only nav footer targets (matches FANavigationView CompactPaneLength).
     public const double CompactNavTargetSize = 48;
 
-    /// List↔Details GridSplitter hit area (legacy; Details is now a full workspace).
-    public const double DetailsSplitterMinHeight = 16;
-
     /// Chart workspace plot floor so the trend is readable at 900×600.
     public const double ChartPlotMinHeight = 300;
 

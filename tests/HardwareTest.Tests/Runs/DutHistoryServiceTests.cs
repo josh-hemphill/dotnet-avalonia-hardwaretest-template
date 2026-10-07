@@ -175,8 +175,10 @@ public sealed class DutHistoryServiceTests
         }
     }
 
-    [Fact]
-    public async Task Analyze_skips_metric_when_history_disabled()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(null)]
+    public async Task Analyze_skips_metric_when_history_disabled_or_unknown(bool? enabled)
     {
         var dir = Path.Combine(Path.GetTempPath(), "ht-dut-hist-off-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(dir);
@@ -209,15 +211,23 @@ public sealed class DutHistoryServiceTests
                         Channel = "VDC",
                         MetricKey = "VDC",
                         Value = 1,
-                        HistoryEnabled = false,
+                        HistoryEnabled = enabled,
                         Timestamp = DateTimeOffset.UtcNow,
                     },
                 ],
             };
 
             var report = await new DutHistoryService(store).AnalyzeAsync(current);
+            Assert.Equal(1, report.PriorRunCount);
             Assert.DoesNotContain(report.Metrics, m => m.Channel == "VDC");
-            Assert.Contains("OK", report.OperatorSummary, StringComparison.OrdinalIgnoreCase);
+            if (enabled is null)
+            {
+                Assert.Contains("history policy unknown", report.OperatorSummary, StringComparison.OrdinalIgnoreCase);
+            }
+            else
+            {
+                Assert.Contains("OK", report.OperatorSummary, StringComparison.OrdinalIgnoreCase);
+            }
         }
         finally
         {

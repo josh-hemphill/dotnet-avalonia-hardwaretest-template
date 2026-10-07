@@ -1,3 +1,4 @@
+using System.Threading.Channels;
 using HardwareTest.Core.Engine;
 using HardwareTest.Core.Hardware;
 using HardwareTest.Core.Settings;
@@ -268,7 +269,7 @@ public static class OpenTapWorkerServer
                               ?? throw new InvalidOperationException("applyStationAndDut requires a payload.");
                     await requireSession()
                         .ApplyStationAndDutAsync(
-                            new StationProfile(req.RoleToResource),
+                            new StationProfile(req.SlotToResource),
                             new DutIdentity(req.Serial, req.PartNumber, req.Revision, req.Family))
                         .ConfigureAwait(false);
                     writeOk(
@@ -297,20 +298,6 @@ public static class OpenTapWorkerServer
                     var req = WorkerProtocol.ReadPayload(envelope, WorkerJsonContext.Default.WorkerMeanGteRequest)
                               ?? throw new InvalidOperationException("trySetMeanGteThreshold requires a payload.");
                     var ok = requireSession().TrySetMeanGteThreshold(req.StepPath, req.Threshold);
-                    writeOk(
-                        envelope.Id,
-                        method,
-                        WorkerProtocol.SerializePayload(
-                            new WorkerBoolResult { Ok = ok, Snapshot = requireSnapshot() },
-                            WorkerJsonContext.Default.WorkerBoolResult));
-                    return;
-                }
-
-            case WorkerProtocol.TryRebindDmmResource:
-                {
-                    var req = WorkerProtocol.ReadPayload(envelope, WorkerJsonContext.Default.WorkerResourceRequest)
-                              ?? throw new InvalidOperationException("tryRebindDmmResource requires a payload.");
-                    var ok = requireSession().TryRebindDmmResource(req.Resource);
                     writeOk(
                         envelope.Id,
                         method,
@@ -425,6 +412,9 @@ public static class OpenTapWorkerServer
         public async Task<WorkerEnvelope> InvokeAsync(WorkerEnvelope envelope)
         {
             WorkerEnvelope? response = null;
+            using var progressPump = envelope.Method is WorkerProtocol.Run or WorkerProtocol.RunSelection
+                ? new ProgressPump(rpc)
+                : null;
 
             void WriteOk(long id, string method, System.Text.Json.JsonElement? payload)
                 => response = new WorkerEnvelope
@@ -445,16 +435,8 @@ public static class OpenTapWorkerServer
                 };
 
             void WriteEvent(long id, string method, OpenTapProgress progress)
-            {
-                var notification = new WorkerEnvelope
-                {
-                    Id = id,
-                    Method = method,
-                    Ok = true,
-                    Payload = WorkerProtocol.SerializePayload(progress, WorkerJsonContext.Default.OpenTapProgress),
-                };
-                rpc.NotifyAsync("progress", notification).GetAwaiter().GetResult();
-            }
+                => (progressPump ?? throw new InvalidOperationException("Progress requires a run request."))
+                    .Enqueue(id, method, progress);
 
             try
             {
@@ -473,13 +455,39 @@ public static class OpenTapWorkerServer
                         RequireSession,
                         RequireSnapshot);
 
-                if (envelope.Method is WorkerProtocol.Run or WorkerProtocol.RunSelection)
+                try
                 {
-                    await Task.Run(Dispatch).ConfigureAwait(false);
+                    if (progressPump is not null)
+                    {
+                        var execution = Task.Run(Dispatch);
+                        if (await Task.WhenAny(execution, progressPump.Completion).ConfigureAwait(false) == progressPump.Completion
+                            && (progressPump.Completion.IsFaulted || progressPump.Completion.IsCanceled))
+                        {
+                            // Rejected delivery can strand an operator prompt. Abort outside
+                            // the source callback, then observe execution cleanup even if
+                            // abort's state notifications encounter the closed progress queue.
+                            try
+                            {
+                                RequireSession().Abort();
+                            }
+                            catch (Exception error)
+                            {
+                                _log.Warning(error, "OpenTAP abort after progress delivery failure raised an error");
+                            }
+                        }
+                        await execution.ConfigureAwait(false);
+                    }
+                    else
+                    {
+                        await Dispatch().ConfigureAwait(false);
+                    }
                 }
-                else
+                finally
                 {
-                    await Dispatch().ConfigureAwait(false);
+                    if (progressPump is not null)
+                    {
+                        await progressPump.CompleteAsync().ConfigureAwait(false);
+                    }
                 }
             }
             catch (Exception ex)
@@ -506,6 +514,114 @@ public static class OpenTapWorkerServer
 
     }
 
+    /// Acknowledgements are awaited off the plan thread, which may hold session/control locks.
+    private sealed class ProgressPump : IDisposable
+    {
+        private readonly JsonRpc _rpc;
+        private readonly Channel<WorkerEnvelope> _queue = Channel.CreateBounded<WorkerEnvelope>(new BoundedChannelOptions(4096)
+        {
+            SingleReader = true,
+            FullMode = BoundedChannelFullMode.Wait,
+            AllowSynchronousContinuations = false,
+        });
+        private readonly CancellationTokenSource _disconnected = new();
+        private readonly object _enqueueGate = new();
+        private readonly object _lifetimeGate = new();
+        private bool _disposed;
+        private readonly Task _consumer;
+
+        public Task Completion => _consumer;
+
+        public ProgressPump(JsonRpc rpc)
+        {
+            _rpc = rpc;
+            rpc.Disconnected += OnDisconnected;
+            _consumer = ConsumeAsync();
+        }
+
+        public void Enqueue(long id, string method, OpenTapProgress progress)
+        {
+            lock (_enqueueGate)
+            {
+                var envelope = new WorkerEnvelope
+                {
+                    Id = id,
+                    Method = method,
+                    Ok = true,
+                    Payload = WorkerProtocol.SerializePayload(progress, WorkerJsonContext.Default.OpenTapProgress),
+                };
+                if (!_queue.Writer.TryWrite(envelope))
+                {
+                    var error = new IOException("Worker progress delivery stopped or its pending queue exceeded 4096 events.");
+                    _queue.Writer.TryComplete(error);
+                    throw error;
+                }
+            }
+        }
+
+        public async Task CompleteAsync()
+        {
+            _queue.Writer.TryComplete();
+            await _consumer.ConfigureAwait(false);
+        }
+
+        private async Task ConsumeAsync()
+        {
+            try
+            {
+                await foreach (var envelope in _queue.Reader.ReadAllAsync(_disconnected.Token).ConfigureAwait(false))
+                {
+                    var acknowledgement = await _rpc.InvokeWithCancellationAsync<WorkerEnvelope>("progress", [envelope], _disconnected.Token)
+                        .ConfigureAwait(false);
+                    if (acknowledgement.Id != envelope.Id || acknowledgement.Method != WorkerProtocol.Progress)
+                    {
+                        throw new IOException("Worker progress acknowledgement did not match its request.");
+                    }
+                    if (!acknowledgement.Ok)
+                    {
+                        throw new IOException($"Worker progress was rejected: {acknowledgement.Error}");
+                    }
+                }
+            }
+            catch (Exception error)
+            {
+                _queue.Writer.TryComplete(error);
+                throw;
+            }
+        }
+
+        private void OnDisconnected(object? sender, JsonRpcDisconnectedEventArgs args)
+        {
+            lock (_lifetimeGate)
+            {
+                if (!_disposed)
+                {
+                    _queue.Writer.TryComplete(new IOException("Worker progress connection closed."));
+                    _disconnected.Cancel();
+                }
+            }
+        }
+
+        public void Dispose()
+        {
+            lock (_lifetimeGate)
+            {
+                if (_disposed)
+                {
+                    return;
+                }
+                _disposed = true;
+                _rpc.Disconnected -= OnDisconnected;
+                _queue.Writer.TryComplete();
+                _disconnected.Cancel();
+                while (_queue.Reader.TryRead(out _))
+                {
+                }
+                _disconnected.Dispose();
+            }
+        }
+    }
+
     private sealed class SynchronousProgress<T>(Action<T> report) : IProgress<T>
     {
         public void Report(T value) => report(value);
@@ -515,7 +631,6 @@ public static class OpenTapWorkerServer
     {
         dest.UseMockVisa = src.UseMockVisa;
         dest.DataDirectory = src.DataDirectory;
-        dest.DefaultVisaResource = src.DefaultVisaResource;
         dest.OpenTapPluginDirectories = [.. src.OpenTapPluginDirectories];
         dest.ExportOpenTapResults = src.ExportOpenTapResults;
         dest.IsEngineerDebugMode = src.IsEngineerDebugMode;

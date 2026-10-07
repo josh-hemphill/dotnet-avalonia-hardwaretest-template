@@ -68,7 +68,7 @@ public sealed class AuthoringWorkspaceViewModelTests
         var vm = new AuthoringWorkspaceViewModel();
         vm.Open(CopyTemplateWorkspace());
         vm.SelectProgram("sample");
-        vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Acquire);
 
         Assert.True(vm.HasUnsavedChanges);
         vm.SaveSidecar();
@@ -81,7 +81,8 @@ public sealed class AuthoringWorkspaceViewModelTests
     {
         var vm = new AuthoringWorkspaceViewModel();
         vm.Open(CopyTemplateWorkspace());
-        vm.CreateProgram("new-program");
+        vm.InitializePlan(new("new-program") { Instruments = [] });
+        vm.DisplayName += " edited";
         vm.SelectProgram("sample");
         vm.DisplayName = "Edited sample";
         vm.SaveSidecar();
@@ -106,6 +107,58 @@ public sealed class AuthoringWorkspaceViewModelTests
         Assert.Equal("sample", row.ProgramId);
         Assert.True(row.CanOpenProgram);
         Assert.Equal("Plan-wide", row.Location);
+    }
+
+    [Fact]
+    public void Program_edits_retain_stale_contract_findings()
+    {
+        var root = CopyTemplateWorkspace();
+        File.Delete(Path.Combine(root, "sample.program.json"));
+        var vm = new AuthoringWorkspaceViewModel();
+        vm.Open(root);
+        vm.SelectProgram("sample");
+        vm.Validate();
+        Assert.NotEmpty(vm.FindingRows);
+        vm.SelectMeasure(0);
+        vm.ChannelKey = "edited-channel";
+        Assert.Empty(vm.Findings);
+        Assert.NotEmpty(vm.FindingRows);
+        Assert.All(vm.FindingRows, row => Assert.True(row.IsStale));
+        vm.Undo();
+        vm.Validate();
+        Assert.NotEmpty(vm.FindingRows);
+        vm.DisplayName = "edited sidecar";
+        Assert.Empty(vm.Findings);
+        Assert.NotEmpty(vm.FindingRows);
+        Assert.All(vm.FindingRows, row => Assert.True(row.IsStale));
+        vm.Undo();
+        vm.Validate();
+        Assert.NotEmpty(vm.FindingRows);
+        vm.InitializePlan(new("new-program") { Instruments = [] });
+        Assert.Empty(vm.Findings);
+        Assert.NotEmpty(vm.FindingRows);
+        Assert.All(vm.FindingRows, row => Assert.True(row.IsStale));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Workspace_history_invalidates_previous_contract_findings(bool redo)
+    {
+        var root = CopyTemplateWorkspace();
+        var vm = new AuthoringWorkspaceViewModel();
+        vm.Open(root);
+        vm.NewRequiredField = "HistoryField";
+        vm.AddRequiredField();
+        if (redo) vm.UndoWorkspace();
+        Assert.True(vm.SaveAll().Succeeded);
+        File.Delete(Path.Combine(root, "sample.program.json"));
+        vm.Validate();
+        Assert.NotEmpty(vm.FindingRows);
+        if (redo) vm.RedoWorkspace(); else vm.UndoWorkspace();
+        Assert.Empty(vm.Findings);
+        Assert.NotEmpty(vm.FindingRows);
+        Assert.All(vm.FindingRows, row => Assert.True(row.IsStale));
     }
 
     [Fact]
@@ -151,7 +204,7 @@ public sealed class AuthoringWorkspaceViewModelTests
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
         while (dir is not null)
         {
-            if (dir.EnumerateFiles("HardwareTest.slnx").Any())
+            if (dir.EnumerateFiles("dirs.proj").Any())
             {
                 return dir.FullName;
             }
@@ -160,6 +213,6 @@ public sealed class AuthoringWorkspaceViewModelTests
         }
 
         throw new InvalidOperationException(
-            $"Could not locate HardwareTest.slnx above '{AppContext.BaseDirectory}'.");
+            $"Could not locate dirs.proj above '{AppContext.BaseDirectory}'.");
     }
 }

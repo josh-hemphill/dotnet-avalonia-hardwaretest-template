@@ -657,7 +657,7 @@ public sealed class TransferFunctionTests
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
         while (dir is not null)
         {
-            if (dir.EnumerateFiles("HardwareTest.slnx").Any())
+            if (dir.EnumerateFiles("dirs.proj").Any())
             {
                 return dir.FullName;
             }
@@ -666,6 +666,6 @@ public sealed class TransferFunctionTests
         }
 
         throw new InvalidOperationException(
-            $"Could not locate HardwareTest.slnx above '{AppContext.BaseDirectory}'.");
+            $"Could not locate dirs.proj above '{AppContext.BaseDirectory}'.");
     }
 }

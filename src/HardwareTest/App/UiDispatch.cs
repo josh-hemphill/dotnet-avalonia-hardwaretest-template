@@ -52,8 +52,17 @@ internal static class UiDispatch
         ArgumentNullException.ThrowIfNull(action);
         if (scheduler is not null)
         {
-            scheduler(action);
-            return Task.CompletedTask;
+            var completed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            try
+            {
+                scheduler(() =>
+                {
+                    try { action(); completed.TrySetResult(); }
+                    catch (Exception ex) { completed.TrySetException(ex); }
+                });
+            }
+            catch (Exception ex) { completed.TrySetException(ex); }
+            return completed.Task;
         }
 
         // Unit-test / headless host without a started Avalonia app — run inline so

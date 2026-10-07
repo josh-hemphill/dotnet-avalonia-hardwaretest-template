@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="utf-8"?>
+<TestPlan type="OpenTap.TestPlan">
+  <Steps>
+    <TestStep type="HardwareTest.OpenTap.Plugins.Basic.TestGroupStep" Id="82a6338b-e7e1-465b-8023-01b708548668">
+      <Name Metadata="Step Name">Board</Name>
+      <ChildTestSteps>
+        <TestStep type="HardwareTest.OpenTap.Plugins.Basic.RepeatLoopStep" Id="efd4a7c7-a5b0-42d8-b772-ba43c15aaf0c">
+          <Count>2</Count>
+          <Name Metadata="Step Name">Repeat</Name>
+          <ChildTestSteps>
+            <TestStep type="emb:HardwareTest.OpenTap.Plugins.Basic.AcquireVoltageStep" Id="256f79dc-7c8c-4db2-ac82-b39f1e7aab05">
+              <OpenTap.Mixins>
+                <HardwareTest.Presentation type="HardwareTest.OpenTap.Plugins.Mixins.PresentationMixinBuilder">
+                  <MemberName>Presentation</MemberName>
+                </HardwareTest.Presentation>
+              </OpenTap.Mixins>
+              <Instrument type="HardwareTest.OpenTap.Plugins.Basic.MockDmmInstrument">
+                <VisaAddress>MOCK::INSTR0</VisaAddress>
+                <ResourceName>MOCK::INSTR0</ResourceName>
+                <Name>DMM</Name>
+              </Instrument>
+              <SampleCount>3</SampleCount>
+              <IntervalMs>5</IntervalMs>
+              <Channel>VDC</Channel>
+              <LimitLow />
+              <LimitHigh />
+              <SeriesCompliance>none</SeriesCompliance>
+              <DwellLimitMs />
+              <FailWhenOutOfBand>false</FailWhenOutOfBand>
+              <Name Metadata="Step Name">Acquire</Name>
+              <ChildTestSteps />
+              <HardwareTest.Presentation.ChannelKey>VDC</HardwareTest.Presentation.ChannelKey>
+              <HardwareTest.Presentation.DisplayRole>timeseries</HardwareTest.Presentation.DisplayRole>
+              <HardwareTest.Presentation.YUnit>V</HardwareTest.Presentation.YUnit>
+              <HardwareTest.Presentation.HistoryEnabled>true</HardwareTest.Presentation.HistoryEnabled>
+              <HardwareTest.Presentation.HistoryWatchPercent />
+              <HardwareTest.Presentation.HistoryAlertPercent />
+            </TestStep>
+            <TestStep type="emb:HardwareTest.OpenTap.Plugins.Basic.ApplyTransferFunctionStep" Id="82334508-369b-464c-b63b-229e1b674ee4">
+              <OpenTap.Mixins>
+                <HardwareTest.Presentation type="HardwareTest.OpenTap.Plugins.Mixins.PresentationMixinBuilder">
+                  <MemberName>Presentation</MemberName>
+                </HardwareTest.Presentation>
+              </OpenTap.Mixins>
+              <InputChannel>VDC</InputChannel>
+              <Channel>first</Channel>
+              <Numerator>0.5, 0.5</Numerator>
+              <Denominator>1</Denominator>
+              <TsSeconds>0.005</TsSeconds>
+              <Method>filter</Method>
+              <Name Metadata="Step Name">first</Name>
+              <ChildTestSteps />
+              <HardwareTest.Presentation.ChannelKey>first</HardwareTest.Presentation.ChannelKey>
+              <HardwareTest.Presentation.DisplayRole>timeseries</HardwareTest.Presentation.DisplayRole>
+              <HardwareTest.Presentation.YUnit>V</HardwareTest.Presentation.YUnit>
+              <HardwareTest.Presentation.HistoryEnabled>true</HardwareTest.Presentation.HistoryEnabled>
+              <HardwareTest.Presentation.HistoryWatchPercent />
+              <HardwareTest.Presentation.HistoryAlertPercent />
+            </TestStep>
+            <TestStep type="emb:HardwareTest.OpenTap.Plugins.Basic.ApplyTransferFunctionStep" Id="98bd97c3-9353-45ec-994a-2d2d391ccbb1">
+              <OpenTap.Mixins>
+                <HardwareTest.Presentation type="HardwareTest.OpenTap.Plugins.Mixins.PresentationMixinBuilder">
+                  <MemberName>Presentation</MemberName>
+                </HardwareTest.Presentation>
+              </OpenTap.Mixins>
+              <InputChannel>first</InputChannel>
+              <Channel>second</Channel>
+              <Numerator>0.5, 0.5</Numerator>
+              <Denominator>1</Denominator>
+              <TsSeconds>0.005</TsSeconds>
+              <Method>filter</Method>
+              <Name Metadata="Step Name">second</Name>
+              <ChildTestSteps />
+              <HardwareTest.Presentation.ChannelKey>second</HardwareTest.Presentation.ChannelKey>
+              <HardwareTest.Presentation.DisplayRole>timeseries</HardwareTest.Presentation.DisplayRole>
+              <HardwareTest.Presentation.YUnit>V</HardwareTest.Presentation.YUnit>
+              <HardwareTest.Presentation.HistoryEnabled>true</HardwareTest.Presentation.HistoryEnabled>
+              <HardwareTest.Presentation.HistoryWatchPercent />
+              <HardwareTest.Presentation.HistoryAlertPercent />
+            </TestStep>
+            <TestStep type="emb:HardwareTest.OpenTap.Plugins.Basic.ChannelAverageStep" Id="5bf3f3c3-d979-45ed-8010-48ba21b7897b">
+              <OpenTap.Mixins>
+                <HardwareTest.Presentation type="HardwareTest.OpenTap.Plugins.Mixins.PresentationMixinBuilder">
+                  <MemberName>Presentation</MemberName>
+                </HardwareTest.Presentation>
+              </OpenTap.Mixins>
+              <InputChannel>second</InputChannel>
+              <ProducerStepId>98bd97c3-9353-45ec-994a-2d2d391ccbb1</ProducerStepId>
+              <Channel>mean</Channel>
+              <Unit>V</Unit>
+              <Threshold>0</Threshold>
+              <Name Metadata="Step Name">Average</Name>
+              <ChildTestSteps />
+              <HardwareTest.Presentation.ChannelKey>mean</HardwareTest.Presentation.ChannelKey>
+              <HardwareTest.Presentation.DisplayRole>scalar</HardwareTest.Presentation.DisplayRole>
+              <HardwareTest.Presentation.YUnit>V</HardwareTest.Presentation.YUnit>
+              <HardwareTest.Presentation.HistoryEnabled>true</HardwareTest.Presentation.HistoryEnabled>
+              <HardwareTest.Presentation.HistoryWatchPercent />
+              <HardwareTest.Presentation.HistoryAlertPercent />
+            </TestStep>
+          </ChildTestSteps>
+        </TestStep>
+      </ChildTestSteps>
+    </TestStep>
+  </Steps>
+  <Package.Dependencies>
+    <Package Name="OpenTAP" Version="^9.35.0+a6e39207" />
+  </Package.Dependencies>
+</TestPlan>

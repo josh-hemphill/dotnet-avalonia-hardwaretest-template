@@ -14,7 +14,7 @@ public sealed class InstrumentsE2ETests
         var main = shown.Main;
         main.NavigateToPageId("Instruments");
         var instruments = (InstrumentsViewModel)main.CurrentPage!;
-        await instruments.RefreshDiscoverCommand.ExecuteAsync();
+        await instruments.RefreshVisaDiscoverCommand.ExecuteAsync();
         Assert.True(instruments.DiscoveredVisa.Count >= 1, instruments.Status);
         await instruments.RefreshSlotsCommand.ExecuteAsync();
         Assert.True(instruments.SlotOverrides.Count >= 1 || instruments.Status.Contains("slot", StringComparison.OrdinalIgnoreCase), instruments.Status);

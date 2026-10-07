@@ -361,11 +361,17 @@
         "dependencies": {
           "HardwareTest.Core": "[0.1.0, )",
           "HardwareTest.OpenTap.Host": "[0.1.0, )",
-          "HardwareTest.OpenTap.Plugins.Basic": "[0.1.0, )",
+          "HardwareTest.OpenTap.Plugins.Basic": "[0.2.0, )",
           "HardwareTest.OpenTap.Plugins.Mixins": "[0.1.0, )",
           "OpenTAP": "[9.35.0, )",
           "Parlot": "[1.5.9, )",
           "System.CommandLine": "[2.0.12, )"
+        }
+      },
+      "hardwaretest.authoring.processfixture": {
+        "type": "Project",
+        "dependencies": {
+          "HardwareTest.Authoring.Core": "[0.1.0, )"
         }
       },
       "hardwaretest.core": {
@@ -397,9 +403,8 @@
         "type": "Project",
         "dependencies": {
           "HardwareTest.Core": "[0.1.0, )",
-          "HardwareTest.OpenTap.Plugins.Basic": "[0.1.0, )",
+          "HardwareTest.OpenTap.Plugins.Basic": "[0.2.0, )",
           "HardwareTest.OpenTap.Plugins.Mixins": "[0.1.0, )",
-          "HardwareTest.OpenTap.Plugins.Visa": "[0.1.0, )",
           "OpenTAP": "[9.35.0, )",
           "StreamJsonRpc": "[2.25.29, )"
         }
@@ -413,14 +418,6 @@
       "hardwaretest.opentap.plugins.mixins": {
         "type": "Project",
         "dependencies": {
-          "OpenTAP": "[9.35.0, )"
-        }
-      },
-      "hardwaretest.opentap.plugins.visa": {
-        "type": "Project",
-        "dependencies": {
-          "HardwareTest.Core": "[0.1.0, )",
-          "HardwareTest.OpenTap.Plugins.Basic": "[0.1.0, )",
           "OpenTAP": "[9.35.0, )"
         }
       },

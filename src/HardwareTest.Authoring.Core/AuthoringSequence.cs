@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using HardwareTest.OpenTap.Host;
 
 namespace HardwareTest.Authoring;
@@ -29,7 +30,28 @@ public sealed record SequenceRow(
     int Indent,
     string Label,
     string Detail,
-    IReadOnlyList<int> IndexPath);
+    IReadOnlyList<int> IndexPath) : INotifyPropertyChanged
+{
+    public Guid? NodeId { get; init; }
+
+    public string Label { get; private set; } = Label;
+    public string Detail { get; private set; } = Detail;
+    public event PropertyChangedEventHandler? PropertyChanged;
+
+    internal void RefreshPresentation(SequenceRow next)
+    {
+        if (Label != next.Label)
+        {
+            Label = next.Label;
+            PropertyChanged?.Invoke(this, new(nameof(Label)));
+        }
+        if (Detail != next.Detail)
+        {
+            Detail = next.Detail;
+            PropertyChanged?.Invoke(this, new(nameof(Detail)));
+        }
+    }
+}
 
 /// Column titles and purpose copy for the Program tab (Avalonia-free).
 public static class AuthoringChrome
@@ -55,7 +77,7 @@ public static class AuthoringChrome
     public const string RequiredFieldsPurpose =
         "Require the operator session fields this program needs. serial, partNumber, revision, and operator map to the sidecar flags; add other ids for later operator surfaces.";
     public const string AddRecipeActionSummary =
-        "Append or wrap using the selected recipe. Identity/Prompt go to Setup; metrics to Measure; Repeat wraps the last measure; Safe Shutdown updates Cleanup.";
+        "Insert before or after the selected step, or at the end of its section. Identity/Prompt go to Setup; metrics to Measure; Repeat wraps the selected measurement; Safe Shutdown updates Cleanup.";
     public const string RecipeAddHint =
         "Steps edited outside this app re-open as read-only Raw rows after you save the TapPlan and re-open the workspace.";
     public const string RecipeAdvancedHint =
@@ -92,6 +114,12 @@ public static class AuthoringChrome
 /// Flattens ProgramDraft into a sectioned, indented list (no TreeView).
 public static class AuthoringSequence
 {
+    // Repeats only contain steps; opaque imported steps retain their existing leaf behavior.
+    public static bool HasMeasurement(IReadOnlyList<MeasureNode> nodes)
+        => nodes.Any(node => node is RepeatNode repeat
+            ? HasMeasurement(repeat.Children)
+            : node is MetricNode or RawStepNode);
+
     public const int IndentPerDepth = 16;
 
     public static IReadOnlyList<SequenceRow> Flatten(ProgramDraft? draft)
@@ -292,7 +320,8 @@ public static class AuthoringSequence
         var copy = nodes.ToArray();
         if (depth == path.Count - 1)
         {
-            copy[index] = mutate(copy[index]);
+            var original = copy[index];
+            copy[index] = mutate(original) with { NodeId = original.NodeId };
             return copy;
         }
 
@@ -354,7 +383,7 @@ public static class AuthoringSequence
             _ => (action.GetType().Name, string.Empty),
         };
         return new SequenceRow(
-            $"setup:{index}",
+            $"setup:{action.NodeId:N}",
             SequenceSection.Setup,
             SequenceRowKind.Setup,
             true,
@@ -362,7 +391,8 @@ public static class AuthoringSequence
             0,
             label,
             detail,
-            [index]);
+            [index])
+        { NodeId = action.NodeId };
     }
 
     private static void AppendMeasure(
@@ -379,7 +409,7 @@ public static class AuthoringSequence
             {
                 case MetricNode metric:
                     rows.Add(new SequenceRow(
-                        MeasureKey(path),
+                        MeasureKey(nodes[i].NodeId),
                         SequenceSection.Measure,
                         SequenceRowKind.Metric,
                         true,
@@ -387,11 +417,12 @@ public static class AuthoringSequence
                         indent,
                         metric.Metric.Name,
                         $"{metric.Metric.DisplayRole} · {metric.Metric.ChannelKey}",
-                        path));
+                        path)
+                    { NodeId = nodes[i].NodeId });
                     break;
                 case RepeatNode repeat:
                     rows.Add(new SequenceRow(
-                        MeasureKey(path),
+                        MeasureKey(nodes[i].NodeId),
                         SequenceSection.Measure,
                         SequenceRowKind.Repeat,
                         true,
@@ -399,12 +430,13 @@ public static class AuthoringSequence
                         indent,
                         $"Repeat x{repeat.Count}",
                         $"{repeat.Children.Count} step(s)",
-                        path));
+                        path)
+                    { NodeId = nodes[i].NodeId });
                     AppendMeasure(rows, repeat.Children, path);
                     break;
                 case RawStepNode raw:
                     rows.Add(new SequenceRow(
-                        MeasureKey(path),
+                        MeasureKey(nodes[i].NodeId),
                         SequenceSection.Measure,
                         SequenceRowKind.Raw,
                         true,
@@ -412,11 +444,12 @@ public static class AuthoringSequence
                         indent,
                         raw.TypeName,
                         "Raw step",
-                        path));
+                        path)
+                    { NodeId = nodes[i].NodeId });
                     break;
                 default:
                     rows.Add(new SequenceRow(
-                        MeasureKey(path),
+                        MeasureKey(nodes[i].NodeId),
                         SequenceSection.Measure,
                         SequenceRowKind.Raw,
                         true,
@@ -424,7 +457,8 @@ public static class AuthoringSequence
                         indent,
                         nodes[i].GetType().Name,
                         string.Empty,
-                        path));
+                        path)
+                    { NodeId = nodes[i].NodeId });
                     break;
             }
         }
@@ -434,7 +468,7 @@ public static class AuthoringSequence
     {
         var included = draft.Cleanup.IncludeSafeShutdown;
         return new SequenceRow(
-            "cleanup",
+            $"cleanup:{draft.Cleanup.NodeId:N}",
             SequenceSection.Cleanup,
             SequenceRowKind.Cleanup,
             true,
@@ -442,7 +476,8 @@ public static class AuthoringSequence
             0,
             included ? "Safe Shutdown" : "Cleanup skipped",
             included ? FormatCleanupDetail(draft) : "Sidecar excludes Safe Shutdown from Run Selected",
-            []);
+            [])
+        { NodeId = draft.Cleanup.NodeId };
     }
 
     private static string FormatCleanupDetail(ProgramDraft draft)
@@ -451,6 +486,6 @@ public static class AuthoringSequence
         return parts.Count == 0 ? "no instruments selected" : string.Join(" · ", parts);
     }
 
-    private static string MeasureKey(IReadOnlyList<int> path)
-        => "measure:" + string.Join('.', path);
+    private static string MeasureKey(Guid nodeId)
+        => $"measure:{nodeId:N}";
 }

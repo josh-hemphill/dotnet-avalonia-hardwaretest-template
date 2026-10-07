@@ -8,7 +8,7 @@
   <Owner>HardwareTest</Owner>
   <Dependencies>
     <PackageDependency Package="OpenTAP" Version="^9.32.2" />
-    <PackageDependency Package="HardwareTest Basic" Version="^0.1.0" />
+    <PackageDependency Package="HardwareTest Basic" Version="^0.2.0" />
     <PackageDependency Package="HardwareTest Mixins" Version="^0.1.0" />
     <!-- Product packs that use typed SCPI instruments add:
          <PackageDependency Package="InstrumentComponents.OpenTap" Version="^0.1.0" />

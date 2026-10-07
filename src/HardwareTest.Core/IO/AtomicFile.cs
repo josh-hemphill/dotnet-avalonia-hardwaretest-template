@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization.Metadata;
@@ -8,23 +7,6 @@ namespace HardwareTest.Core.IO;
 /// Temp → flush-to-disk → rename writes so power loss cannot leave truncated destination files.
 public static class AtomicFile
 {
-    private static readonly ConcurrentDictionary<string, object> SnapshotGates = new(StringComparer.OrdinalIgnoreCase);
-    private static object SnapshotGate(string path) => SnapshotGates.GetOrAdd(Path.GetFullPath(path), _ => new object());
-
-    // A reader keeps a stable open-file snapshot while an atomic writer replaces the directory entry.
-    internal static FileStream OpenReadSnapshot(string path)
-    {
-        lock (SnapshotGate(path)) return OpenSnapshot(path);
-    }
-
-    internal static FileStream? TryOpenReadSnapshot(string path)
-    {
-        lock (SnapshotGate(path)) return File.Exists(path) ? OpenSnapshot(path) : null;
-    }
-
-    private static FileStream OpenSnapshot(string path) => new(path, FileMode.Open, FileAccess.Read,
-        FileShare.Read | FileShare.Delete, 4096, FileOptions.Asynchronous | FileOptions.SequentialScan);
-
     /// Writes bytes atomically to <paramref name="destinationPath"/>.
     public static async Task WriteAllBytesAsync(
         string destinationPath,
@@ -46,13 +28,7 @@ public static class AtomicFile
             await File.WriteAllBytesAsync(temp, content, cancellationToken).ConfigureAwait(false);
             await FlushToDiskAsync(temp, cancellationToken).ConfigureAwait(false);
             cancellationToken.ThrowIfCancellationRequested();
-            // Windows replacement can briefly remove the name. Serialize name lookup/open with replacement;
-            // existing open snapshots continue to read the previous file without holding this lock.
-            lock (SnapshotGate(destinationPath))
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                ReplaceDestination(temp, destinationPath);
-            }
+            ReplaceDestination(temp, destinationPath);
         }
         finally
         {

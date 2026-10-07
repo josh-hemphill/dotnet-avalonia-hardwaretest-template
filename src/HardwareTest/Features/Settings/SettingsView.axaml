@@ -155,9 +155,9 @@
                    TextWrapping="Wrap"
                    Opacity="0.8" />
         <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
-          <TextBlock x:Name="SigningProviderLabel" Text="Signing provider" VerticalAlignment="Center" />
-          <ComboBox Grid.Column="1" ItemsSource="{Binding SigningProviderModes}" SelectedItem="{Binding SmartCardSigningProviderMode}"
-                    IsEnabled="{Binding !SmartCardSigningProviderModeReadOnly}" AutomationProperties.LabeledBy="{Binding #SigningProviderLabel}" />
+          <TextBlock x:Name="SigningBackendLabel" Text="Physical signing backend" VerticalAlignment="Center" />
+          <ComboBox Grid.Column="1" ItemsSource="{Binding SigningBackendOptions}" SelectedItem="{Binding PhysicalSigningBackend}"
+                    IsEnabled="{Binding !PhysicalSigningBackendReadOnly}" AutomationProperties.LabeledBy="{Binding #SigningBackendLabel}" />
         </Grid>
         <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
           <TextBlock x:Name="Pkcs11PathLabel" Text="PKCS#11 middleware path" VerticalAlignment="Center" />

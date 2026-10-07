@@ -36,11 +36,23 @@ internal static class ITextPadesSignature
         cms = [];
         try
         {
+            using (var existingInput = new MemoryStream(pdf, writable: false))
+            using (var existingReader = new PdfReader(existingInput))
+            using (var existingDocument = new PdfDocument(existingReader))
+            {
+                if (new SignatureUtil(existingDocument).GetSignatureNames().Count != 0)
+                {
+                    error = "PDF is already signed; certification requires an unsigned working report.";
+                    return false;
+                }
+            }
+
             using var input = new MemoryStream(pdf, writable: false);
             using var reader = new PdfReader(input);
             using var output = new MemoryStream();
             var signerProperties = new SignerProperties()
                 .SetFieldName(FieldName)
+                .SetCertificationLevel(AccessPermissions.NO_CHANGES_PERMITTED)
                 .SetClaimedSignDate(signingTime.UtcDateTime)
                 .SetReason("Hardware test report certification")
                 .SetContact(displayName)
@@ -60,7 +72,7 @@ internal static class ITextPadesSignature
                 return false;
             }
 
-            if (!TryVerify(signedPdf, out error))
+            if (!TryVerify(signedPdf, certificate.Thumbprint, out error))
             {
                 signedPdf = [];
                 cms = [];
@@ -72,13 +84,21 @@ internal static class ITextPadesSignature
         }
         catch (Exception ex)
         {
+            signedPdf = [];
+            cms = [];
             error = "iText PAdES signing failed. " + ex.Message;
             return false;
         }
     }
 
-    public static bool TryVerify(byte[] pdf, out string? error)
+    public static bool TryVerify(byte[] pdf, string? expectedSignerThumbprint, out string? error)
     {
+        if (string.IsNullOrWhiteSpace(expectedSignerThumbprint))
+        {
+            error = "Expected signer certificate thumbprint is required.";
+            return false;
+        }
+
         try
         {
             using var input = new MemoryStream(pdf, writable: false);
@@ -86,22 +106,63 @@ internal static class ITextPadesSignature
             using var document = new PdfDocument(reader);
             var signatures = new SignatureUtil(document);
             var names = signatures.GetSignatureNames();
-            if (names.Count == 0)
+            Require(names.Count == 1 && names[0] == FieldName,
+                "PDF must contain exactly the current certification signature field.");
+            var dictionary = signatures.GetSignatureDictionary(FieldName);
+            Require(dictionary is not null, "PDF certification signature dictionary is missing.");
+            Require(PdfName.ETSI_CAdES_DETACHED.Equals(dictionary.GetAsName(PdfName.SubFilter)),
+                "PDF certification must use the current PAdES profile.");
+            Require(signatures.SignatureCoversWholeDocument(FieldName),
+                "PDF certification signature must cover the whole file.");
+
+            // The reader may ignore trailing bytes. Bind its parsed range to the supplied bytes.
+            var range = dictionary.GetAsArray(PdfName.ByteRange);
+            Require(range is not null && range.Size() == 4, "PDF signature ByteRange must have four values.");
+            var values = new long[4];
+            for (var i = 0; i < values.Length; i++)
             {
-                error = "PDF contains no embedded signature.";
-                return false;
+                values[i] = ReadNonnegativeInteger(range.GetAsNumber(i), pdf.LongLength);
             }
 
-            foreach (var name in names)
+            Require(values[0] == 0 && values[1] > 0 && values[2] > values[1]
+                && values[3] > 0 && values[3] == pdf.LongLength - values[2],
+                "PDF certification signature must cover the whole file, including its final bytes.");
+
+            var certification = document.GetCatalog().GetPdfObject()
+                .GetAsDictionary(PdfName.Perms)?.GetAsDictionary(PdfName.DocMDP);
+            var signatureReference = dictionary.GetIndirectReference();
+            Require(signatureReference is not null && certification?.GetIndirectReference() is { } reference
+                && signatureReference.Equals(reference),
+                "PDF catalog must bind DocMDP to this certification signature.");
+            var references = dictionary.GetAsArray(PdfName.Reference);
+            var docMdpCount = 0;
+            if (references is not null)
             {
-                var signature = signatures.ReadSignatureData(name);
-                if (!signature.VerifySignatureIntegrityAndAuthenticity())
+                for (var i = 0; i < references.Size(); i++)
                 {
-                    error = $"PDF signature '{name}' did not verify.";
-                    return false;
+                    var transform = references.GetAsDictionary(i);
+                    if (!PdfName.DocMDP.Equals(transform?.GetAsName(PdfName.TransformMethod)))
+                    {
+                        continue;
+                    }
+
+                    docMdpCount++;
+                    Require(ReadNonnegativeInteger(transform!.GetAsDictionary(PdfName.TransformParams)
+                        ?.GetAsNumber(PdfName.P), 3) == 1,
+                        "PDF certification must forbid changes (DocMDP P=1).");
                 }
             }
 
+            Require(docMdpCount == 1, "PDF certification must contain exactly one DocMDP transform.");
+            var signature = signatures.ReadSignatureData(FieldName);
+            Require(signature is not null && signature.VerifySignatureIntegrityAndAuthenticity(),
+                "PDF certification signature integrity did not verify.");
+            var signerDer = signature.GetSigningCertificate()?.GetEncoded();
+            Require(signerDer is { Length: > 0 }, "PDF signature has no embedded signer certificate.");
+            // SHA1 computes the existing X509 thumbprint identifier, not the signature digest.
+            var actualThumbprint = Convert.ToHexString(SHA1.HashData(signerDer));
+            Require(string.Equals(actualThumbprint, expectedSignerThumbprint, StringComparison.OrdinalIgnoreCase),
+                "PDF signer certificate thumbprint does not match the expected credential.");
             error = null;
             return true;
         }
@@ -109,6 +170,22 @@ internal static class ITextPadesSignature
         {
             error = "PDF signature verification failed. " + ex.Message;
             return false;
+        }
+    }
+
+    private static long ReadNonnegativeInteger(PdfNumber? number, long maximum)
+    {
+        var value = number?.DoubleValue() ?? double.NaN;
+        Require(double.IsFinite(value) && value >= 0 && value <= maximum && value == Math.Truncate(value),
+            "PDF signature numeric value must be a bounded nonnegative integer.");
+        return number!.LongValue();
+    }
+
+    private static void Require([System.Diagnostics.CodeAnalysis.DoesNotReturnIf(false)] bool condition, string message)
+    {
+        if (!condition)
+        {
+            throw new InvalidDataException(message);
         }
     }
 

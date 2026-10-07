@@ -21,6 +21,9 @@ public interface IReportAttestationService
     bool HasValidAttestation(TestRunRecord run, string reportKind);
     bool HasValidAttestation(TestRunRecord run, string reportKind, string? revisionId)
         => revisionId is null && HasValidAttestation(run, reportKind);
+    bool HasValidAttestationForPdf(TestRunRecord run, string reportKind, string pdfPath)
+        => ReportAttestationService.PathEquals(ReportAttestationService.ResolveIssuedPdfPath(run, reportKind), pdfPath)
+           && HasValidAttestation(run, reportKind);
 
     Task<ReportAttestationResult> AttestAsync(
         TestRunRecord run,
@@ -57,7 +60,7 @@ public sealed class ReportAttestationService : IReportAttestationService
         _settings = settings;
         _clock = clock ?? SystemClock.Instance;
         _reports = reports;
-        _revisions = revisions ?? new FileReportRevisionStore(runStore);
+        _revisions = revisions ?? new FileReportRevisionStore(runStore, _clock);
         PresenceTimeout = DefaultPresenceTimeout;
     }
 
@@ -91,26 +94,37 @@ public sealed class ReportAttestationService : IReportAttestationService
         var artifact = revisionId is null ? ReportRevisions.Latest(run, lookupKind) : run.Reports.FirstOrDefault(r =>
             ReportArtifactRoles.IsIssued(r.Role) && string.Equals(r.Kind, lookupKind, StringComparison.OrdinalIgnoreCase)
             && r.RevisionId == revisionId);
-        var attestation = artifact is null ? (revisionId is null ? Find(run, lookupKind) : null)
-            : run.Attestations.LastOrDefault(a => string.Equals(a.ReportKind, lookupKind, StringComparison.OrdinalIgnoreCase)
-                && a.RevisionId == artifact.RevisionId);
+        return HasValidArtifact(run, artifact);
+    }
+
+    public bool HasValidAttestationForPdf(TestRunRecord run, string reportKind, string pdfPath)
+    {
+        var kind = string.Equals(reportKind, PackageKind, StringComparison.OrdinalIgnoreCase)
+            ? ReportKinds.Certification : reportKind;
+        var artifact = run.Reports.FirstOrDefault(r => ReportArtifactRoles.IsIssued(r.Role)
+            && string.Equals(r.Kind, kind, StringComparison.OrdinalIgnoreCase)
+            && PathEquals(r.PdfPath, pdfPath));
+        return HasValidArtifact(run, artifact);
+    }
+
+    private bool HasValidArtifact(TestRunRecord run, RunReportArtifact? artifact)
+    {
+        var attestation = artifact is null ? null : FindForArtifact(run, artifact);
         if (attestation is null)
         {
             return false;
         }
 
-        var pdfPath = artifact is not null ? artifact.PdfPath : (revisionId is null ? ResolvePdfPath(run, lookupKind) : null);
+        var pdfPath = artifact?.PdfPath;
         if (string.IsNullOrWhiteSpace(pdfPath) || !File.Exists(pdfPath))
         {
             return false;
         }
 
-        if (artifact is not null && !(artifact.RevisionId?.StartsWith("legacy-", StringComparison.Ordinal) ?? false)
-            && (string.IsNullOrWhiteSpace(artifact.RunSnapshotPath) || !SidecarMatches(attestation, artifact.SidecarSha256))) return false;
-
-        if (artifact?.RunSnapshotPath is { Length: > 0 } snapshotPath
-            && (!File.Exists(snapshotPath) || !string.Equals(HashFile(snapshotPath), attestation.RunJsonSha256, StringComparison.OrdinalIgnoreCase)))
-            return false;
+        if (artifact!.RevisionId is not null && (string.IsNullOrWhiteSpace(artifact.RunSnapshotPath)
+            || !File.Exists(artifact.RunSnapshotPath)
+            || !string.Equals(HashFile(artifact.RunSnapshotPath), attestation.RunJsonSha256, StringComparison.OrdinalIgnoreCase)
+            || !SidecarMatches(attestation, artifact.SidecarSha256))) return false;
 
         var pdfHash = HashFile(pdfPath);
         if (!string.Equals(pdfHash, attestation.PdfSha256, StringComparison.OrdinalIgnoreCase))
@@ -141,6 +155,7 @@ public sealed class ReportAttestationService : IReportAttestationService
         bool skipSigning = false,
         CancellationToken cancellationToken = default)
     {
+        RequireReportWritable(run, _runStore.GetRunDirectory(run.RunId));
         using var operation = await ReportRevisions.LockAsync(_runStore.GetRunDirectory(run.RunId), cancellationToken).ConfigureAwait(false);
         var candidate = ReportRevisions.Clone(run);
         await ReportRevisions.RefreshHistoryAsync(candidate, _runStore, cancellationToken).ConfigureAwait(false);
@@ -153,442 +168,205 @@ public sealed class ReportAttestationService : IReportAttestationService
         TestRunRecord run, string reportKind, OperatorCredential? credential, string? pin,
         bool skipSigning, CancellationToken cancellationToken)
     {
+        RequireReportWritable(run, _runStore.GetRunDirectory(run.RunId));
+        var broker = _broker is SettingsBackedCredentialBroker configured ? configured.Snapshot() : _broker;
+        var allowPresence = _settings.AllowPresenceInLieuOfSigning;
         var targetKind = string.Equals(reportKind, PackageKind, StringComparison.OrdinalIgnoreCase)
             ? ReportKinds.Certification
             : reportKind;
         var captured = credential;
         if (captured is null)
         {
-            var capture = await _broker.WaitForPresenceAsync(PresenceTimeout, cancellationToken).ConfigureAwait(false);
+            var capture = await broker.WaitForPresenceAsync(PresenceTimeout, cancellationToken).ConfigureAwait(false);
             if (!capture.Succeeded || capture.Credential is null)
             {
-                return new ReportAttestationResult
-                {
-                    Succeeded = false,
-                    Message = capture.Error ?? "Present a badge to certify this report.",
-                };
+                return Failure(null, capture.Error ?? "Present a badge to certify this report.");
             }
-
             captured = capture.Credential;
         }
 
-        var runJson = JsonSerializer.Serialize(run, AppJsonContext.Default.TestRunRecord);
-        var runHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(runJson)));
-        var preparation = skipSigning ? null : await _broker.PrepareSigningAsync(captured, pin, cancellationToken).ConfigureAwait(false);
-        using var preparedSession = preparation?.Session;
-        var broker = (IOperatorCredentialBroker?)preparedSession ?? _broker;
-        var preparationFailure = preparation?.Failure;
-        if (preparationFailure is not null && preparationFailure.FailureKind != CredentialFailureKind.Unavailable)
+        if (skipSigning || !broker.CanSign)
         {
-            return new ReportAttestationResult
-            {
-                Succeeded = false,
-                PinRequired = preparationFailure.PinRequired,
-                Credential = captured,
-                Message = preparationFailure.Error ?? "Signing preparation failed.",
-            };
+            return await AttestPresenceAsync(run, targetKind, captured, allowPresence, cancellationToken)
+                .ConfigureAwait(false);
+        }
+        if (!broker.IsMock && (!broker.CanSignPdf || broker is not IEmbeddedPdfSigningBroker))
+        {
+            return Failure(captured, "The physical credential does not support embedded PDF signing.");
         }
 
-        var overlayKind = skipSigning || !broker.CanSign || preparationFailure?.FailureKind == CredentialFailureKind.Unavailable
-            ? AttestationKind.Presence
-            : AttestationKind.Signed;
-        var stamped = await TryCompileOverlayAsync(run, targetKind, captured, overlayKind, cancellationToken)
+        var preparation = await broker.PrepareSigningAsync(captured, pin, cancellationToken).ConfigureAwait(false);
+        using var signer = preparation.Session;
+        if (signer is null)
+        {
+            var failure = preparation.Failure;
+            if (failure is null) return Failure(captured, "Signing preparation failed.");
+            if (failure.PinRequired || failure.PinRetriesRemaining is not null)
+                return Failure(captured, failure.Error ?? "Enter badge PIN to sign.", pinRequired: failure.PinRetriesRemaining != 0);
+            return failure.PresenceFallbackAllowed
+                ? await AttestPresenceAsync(run, targetKind, captured, allowPresence, cancellationToken).ConfigureAwait(false)
+                : Failure(captured, failure.Error ?? "Signing preparation failed.");
+        }
+        if (signer.IsMock != broker.IsMock || !signer.CanSign
+            || (!signer.IsMock && (!signer.CanSignPdf || signer is not IEmbeddedPdfSigningBroker)))
+            return Failure(captured, "The prepared signer does not support the selected signing contract.");
+        var runHash = HashBytes(JsonSerializer.SerializeToUtf8Bytes(run, AppJsonContext.Default.TestRunRecord));
+
+        var candidate = await CompileCandidateAsync(run, targetKind, captured, AttestationKind.Signed, cancellationToken)
             .ConfigureAwait(false);
-        if (stamped.Error is not null)
+        if (candidate.Error is not null || candidate.Pdf is not { Length: > 0 })
         {
-            return new ReportAttestationResult
-            {
-                Succeeded = false,
-                Message = stamped.Error,
-                Credential = captured,
-            };
+            return Failure(captured, candidate.Error ?? "Certification PDF is missing. Generate reports first.");
         }
 
-        var stampedPdf = stamped.Pdf;
-        var pdfPath = ResolveWorkingPdfPath(run, targetKind) ?? ResolvePdfPath(run, targetKind);
-        if (stampedPdf is null
-            && (string.IsNullOrWhiteSpace(pdfPath) || !File.Exists(pdfPath)))
+        if (!signer.IsMock)
         {
-            return new ReportAttestationResult
-            {
-                Succeeded = false,
-                Message = "Certification PDF is missing. Generate reports first.",
-                Credential = captured,
-            };
-        }
-
-        if (broker.ProducesCms && !skipSigning && preparationFailure is null)
-        {
-            return await AttestPadesAsync(run, targetKind, captured, pdfPath, stampedPdf, pin, broker, cancellationToken)
+            var embedded = (IEmbeddedPdfSigningBroker)signer;
+            var signingTime = captured.CapturedAt == default ? _clock.UtcNow : captured.CapturedAt;
+            var sign = await embedded.TrySignPdfAsync(candidate.Pdf, captured, pin, signingTime, cancellationToken)
                 .ConfigureAwait(false);
+            if (sign.PinRequired || sign.PinRetriesRemaining is not null)
+            {
+                return Failure(captured, sign.Error ?? "Enter badge PIN to sign.", pinRequired: sign.PinRetriesRemaining != 0);
+            }
+            if (!sign.Succeeded)
+            {
+                return sign.PresenceFallbackAllowed
+                    ? await AttestPresenceAsync(run, targetKind, captured, allowPresence, cancellationToken).ConfigureAwait(false)
+                    : Failure(captured, sign.Error ?? "Signing failed.");
+            }
+            if (!PhysicalResultMatches(sign, captured, out var error))
+            {
+                return Failure(captured, error ?? "Embedded PDF signature did not verify.");
+            }
+            return await PublishAsync(run, targetKind, sign.Credential!, sign.SignedPdf!, runHash,
+                AttestationKind.Signed, sign, embedded: true, cancellationToken).ConfigureAwait(false);
         }
 
-        var pdfHash = stampedPdf is not null ? HashBytes(stampedPdf) : HashFile(pdfPath!);
-        var payload = Encoding.UTF8.GetBytes($"{pdfHash}:{runHash}");
-        CredentialSignResult? sign = null;
-        if (!skipSigning)
+        var payload = Encoding.UTF8.GetBytes($"{HashBytes(candidate.Pdf)}:{runHash}");
+        var mockSign = await signer.TrySignPayloadAsync(payload, captured, pin, cancellationToken).ConfigureAwait(false);
+        if (mockSign.PinRequired || mockSign.PinRetriesRemaining is not null)
         {
-            sign = preparationFailure ?? await broker.TrySignPayloadAsync(payload, captured, pin, cancellationToken)
-                .ConfigureAwait(false);
-            if (sign.PinRequired)
-            {
-                return new ReportAttestationResult
-                {
-                    Succeeded = false,
-                    PinRequired = true,
-                    Credential = captured,
-                    Message = sign.Error ?? "Enter badge PIN to sign.",
-                };
-            }
-
-            if (!sign.Succeeded && sign.PinRetriesRemaining is not null)
-            {
-                return new ReportAttestationResult
-                {
-                    Succeeded = false,
-                    PinRequired = false,
-                    Credential = captured,
-                    Message = sign.Error ?? "Incorrect PIN.",
-                };
-            }
+            return Failure(captured, mockSign.Error ?? "Enter badge PIN to sign.", pinRequired: mockSign.PinRetriesRemaining != 0);
         }
-
-        var signature = sign is { Succeeded: true } ? sign.Signature : null;
-        var kind = signature is { Length: > 0 } ? AttestationKind.Signed : AttestationKind.Presence;
-        if (kind == AttestationKind.Presence)
+        if (!mockSign.Succeeded)
         {
-            if (!CanRecordPresence(skipSigning, pin, sign))
-            {
-                return new ReportAttestationResult
-                {
-                    Succeeded = false,
-                    Credential = captured,
-                    Message = sign?.Error ?? "Signing failed.",
-                };
-            }
-
-            if (!_settings.AllowPresenceInLieuOfSigning)
-            {
-                var detail = string.IsNullOrWhiteSpace(sign?.Error)
-                    ? string.Empty
-                    : " " + sign.Error;
-                return new ReportAttestationResult
-                {
-                    Succeeded = false,
-                    Credential = captured,
-                    Message = "This badge cannot sign, and presence-only attestation is disabled." + detail,
-                };
-            }
-
-            if (_reports is not null && overlayKind != AttestationKind.Presence)
-            {
-                var presence = await TryCompileOverlayAsync(
-                        run,
-                        targetKind,
-                        captured,
-                        AttestationKind.Presence,
-                        cancellationToken)
-                    .ConfigureAwait(false);
-                if (presence.Error is not null)
-                {
-                    return new ReportAttestationResult
-                    {
-                        Succeeded = false,
-                        Message = presence.Error,
-                        Credential = captured,
-                    };
-                }
-
-                if (presence.Pdf is { Length: > 0 })
-                {
-                    stampedPdf = presence.Pdf;
-                    pdfHash = HashBytes(stampedPdf);
-                }
-            }
+            return mockSign.PresenceFallbackAllowed
+                ? await AttestPresenceAsync(run, targetKind, captured, allowPresence, cancellationToken).ConfigureAwait(false)
+                : Failure(captured, mockSign.Error ?? "Signing failed.");
         }
+        if (!string.Equals(mockSign.Algorithm, AttestationAlgorithm.MockHmac, StringComparison.Ordinal)
+            || mockSign.Signature is not { Length: > 0 }
+            || !MockOperatorCredentialBroker.VerifyMockSignature(payload, mockSign.Signature))
+        {
+            return Failure(captured, "The mock report signature did not verify.");
+        }
+        return await PublishAsync(run, targetKind, mockSign.Credential ?? captured, candidate.Pdf, runHash,
+            AttestationKind.Signed, mockSign, embedded: false, cancellationToken).ConfigureAwait(false);
+    }
 
-        var party = sign?.Credential ?? captured;
-        var issuedBytes = stampedPdf ?? await File.ReadAllBytesAsync(pdfPath!, cancellationToken).ConfigureAwait(false);
-        pdfHash = HashBytes(issuedBytes);
+    private async Task<(byte[]? Pdf, string? Error)> CompileCandidateAsync(
+        TestRunRecord run, string kind, OperatorCredential captured, string overlayKind,
+        CancellationToken cancellationToken)
+    {
+        var candidate = await TryCompileOverlayAsync(run, kind, captured, overlayKind, cancellationToken)
+            .ConfigureAwait(false);
+        if (candidate.Error is not null || candidate.Pdf is not null)
+        {
+            return candidate;
+        }
+        var path = ResolveWorkingPdfPath(run, kind);
+        return string.IsNullOrWhiteSpace(path) || !File.Exists(path)
+            ? (null, "Certification PDF is missing. Generate reports first.")
+            : (await File.ReadAllBytesAsync(path, cancellationToken).ConfigureAwait(false), null);
+    }
+
+    private async Task<ReportAttestationResult> AttestPresenceAsync(
+        TestRunRecord run, string kind, OperatorCredential captured, bool allowPresence,
+        CancellationToken cancellationToken)
+    {
+        if (!allowPresence)
+        {
+            return Failure(captured, "This badge cannot sign, and presence-only attestation is disabled.");
+        }
+        var candidate = await CompileCandidateAsync(run, kind, captured, AttestationKind.Presence, cancellationToken)
+            .ConfigureAwait(false);
+        if (candidate.Error is not null || candidate.Pdf is not { Length: > 0 })
+        {
+            return Failure(captured, candidate.Error ?? "Certification PDF is missing. Generate reports first.");
+        }
+        var runHash = HashBytes(JsonSerializer.SerializeToUtf8Bytes(run, AppJsonContext.Default.TestRunRecord));
+        return await PublishAsync(run, kind, captured, candidate.Pdf, runHash,
+            AttestationKind.Presence, null, embedded: false, cancellationToken).ConfigureAwait(false);
+    }
+
+    private static bool PhysicalResultMatches(CredentialSignResult sign, OperatorCredential captured, out string? error)
+    {
+        error = "The signing badge does not match the badge that was captured.";
+        if (sign.SignedPdf is not { Length: > 0 } || sign.Signature is not { Length: > 0 }
+            || sign.CertificateDer is not { Length: > 0 } || sign.Credential is null)
+        {
+            error = "The physical credential did not return a complete signed PDF and certificate identity.";
+            return false;
+        }
+        if (string.IsNullOrWhiteSpace(captured.Serial) || string.IsNullOrWhiteSpace(captured.Thumbprint)
+            || !string.Equals(captured.Serial, sign.Credential.Serial, StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(captured.Thumbprint, sign.Thumbprint, StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(captured.Thumbprint, sign.Credential.Thumbprint, StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(captured.Thumbprint, Convert.ToHexString(SHA1.HashData(sign.CertificateDer)),
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+        return ITextPadesSignature.TryVerify(sign.SignedPdf, captured.Thumbprint, out error);
+    }
+
+    private async Task<ReportAttestationResult> PublishAsync(
+        TestRunRecord run, string kind, OperatorCredential party, byte[] pdf, string runHash,
+        string attestationKind, CredentialSignResult? sign, bool embedded, CancellationToken cancellationToken)
+    {
+        var dir = _runStore.GetRunDirectory(run.RunId);
+        RequireReportWritable(run, dir);
+        cancellationToken.ThrowIfCancellationRequested();
         var document = new ReportAttestation
         {
-            Kind = kind,
-            ReportKind = targetKind,
+            Kind = attestationKind,
+            ReportKind = kind,
             DisplayName = party.DisplayName,
             Serial = party.Serial,
             Transport = party.Transport,
             Thumbprint = sign?.Thumbprint ?? party.Thumbprint,
-            PdfSha256 = pdfHash,
+            PdfSha256 = HashBytes(pdf),
             RunJsonSha256 = runHash,
-
-            Algorithm = signature is { Length: > 0 }
-                ? (sign?.Algorithm ?? broker.SigningAlgorithm ?? AttestationAlgorithm.MockHmac)
-                : AttestationAlgorithm.Presence,
-            SignatureFormat = signature is { Length: > 0 }
-                ? AttestationSignatureFormat.DetachedSidecar
-                : null,
-            EmbeddedInPdf = false,
+            Algorithm = sign?.Algorithm ?? AttestationAlgorithm.Presence,
+            SignatureFormat = sign is null ? null
+                : embedded ? AttestationSignatureFormat.PadesBasic : AttestationSignatureFormat.DetachedSidecar,
+            EmbeddedInPdf = embedded,
             CapturedAt = party.CapturedAt == default ? _clock.UtcNow : party.CapturedAt,
         };
-
         var sidecar = new ReportAttestationSidecar
         {
             Attestation = document,
-            SignatureBase64 = signature is { Length: > 0 } ? Convert.ToBase64String(signature) : null,
-            CertificateBase64 = sign?.CertificateDer is { Length: > 0 }
-                ? Convert.ToBase64String(sign.CertificateDer)
-                : null,
+            SignatureBase64 = sign?.Signature is { Length: > 0 } signature ? Convert.ToBase64String(signature) : null,
+            CertificateBase64 = sign?.CertificateDer is { Length: > 0 } certificate ? Convert.ToBase64String(certificate) : null,
         };
-        await _revisions.CommitAsync(run, targetKind, issuedBytes, sidecar, cancellationToken, operationLockHeld: true).ConfigureAwait(false);
-
-        var verb = kind == AttestationKind.Signed ? "Signed" : "Recorded presence";
+        try
+        {
+            await _revisions.CommitAsync(run, kind, pdf, sidecar, cancellationToken, operationLockHeld: true).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex) { return Failure(party, "Could not publish the issued report. " + ex.Message); }
         return new ReportAttestationResult
         {
             Succeeded = true,
             Credential = party,
-            Message = $"{verb} for {party.DisplayName} ({party.Transport}).",
-            Attestation = Find(run, targetKind),
+            Message = $"{(embedded || sign is not null ? "Signed" : "Recorded presence")} for {party.DisplayName} ({party.Transport}).",
+            Attestation = run.Attestations.Last(a => string.Equals(a.ReportKind, kind, StringComparison.OrdinalIgnoreCase)),
         };
     }
 
-    private async Task<ReportAttestationResult> AttestPadesAsync(
-        TestRunRecord run,
-        string targetKind,
-        OperatorCredential captured,
-        string? pdfPath,
-        byte[]? stampedPdf,
-        string? pin,
-        IOperatorCredentialBroker broker,
-        CancellationToken cancellationToken)
-    {
-        var pdfBytes = stampedPdf ?? await File.ReadAllBytesAsync(pdfPath!, cancellationToken).ConfigureAwait(false);
-        var signingTime = captured.CapturedAt == default ? _clock.UtcNow : captured.CapturedAt;
-        PreparedPdfSignature? prepared = null;
-        CredentialSignResult sign;
-        if (broker is IEmbeddedPdfSigningBroker embedded)
-        {
-            sign = await embedded
-                .TrySignPdfAsync(pdfBytes, captured, pin, signingTime, cancellationToken)
-                .ConfigureAwait(false);
-        }
-        else
-        {
-            if (!PdfPadesSignature.TryPrepare(
-                    pdfBytes,
-                    captured.DisplayName,
-                    signingTime,
-                    out prepared,
-                    out var prepareError))
-            {
-                return new ReportAttestationResult
-                {
-                    Succeeded = false,
-                    Credential = captured,
-                    Message = prepareError ?? "Could not prepare a PDF signature placeholder.",
-                };
-            }
-
-            sign = await broker
-                .TrySignDocumentAsync(prepared.SignedBytes, captured, pin, signingTime, cancellationToken)
-                .ConfigureAwait(false);
-        }
-        if (sign.PinRequired)
-        {
-            return new ReportAttestationResult
-            {
-                Succeeded = false,
-                PinRequired = true,
-                Credential = captured,
-                Message = sign.Error ?? "Enter badge PIN to sign.",
-            };
-        }
-
-        if (!sign.Succeeded && sign.PinRetriesRemaining is not null)
-        {
-            return new ReportAttestationResult
-            {
-                Succeeded = false,
-                PinRequired = false,
-                Credential = captured,
-                Message = sign.Error ?? "Incorrect PIN.",
-            };
-        }
-
-        if (sign is not { Succeeded: true, Signature: { Length: > 0 }, CertificateDer: { Length: > 0 } })
-        {
-            return await PersistPresenceOrFailAsync(
-                    run,
-                    targetKind,
-                    captured,
-                    pdfPath,
-                    stampedPdf,
-                    pin,
-                    sign,
-                    skipSigning: false,
-                    cancellationToken)
-                .ConfigureAwait(false);
-        }
-
-        byte[] signedPdf;
-        string? embedError = null;
-        if (sign.SignedPdf is { Length: > 0 } embeddedPdf)
-        {
-            signedPdf = embeddedPdf;
-        }
-        else if (prepared is not null
-                 && prepared.TryEmbed(sign.Signature, out signedPdf, out embedError))
-        {
-            // Compatibility path for non-iText CMS brokers used by existing deployments/tests.
-        }
-        else
-        {
-            return new ReportAttestationResult
-            {
-                Succeeded = false,
-                Credential = sign.Credential ?? captured,
-                Message = embedError ?? "Could not inject the CMS signature into the PDF.",
-            };
-        }
-
-        var verifies = sign.SignedPdf is { Length: > 0 }
-            ? ITextPadesSignature.TryVerify(signedPdf, out var verifyError)
-            : PdfPadesSignature.TryVerify(signedPdf, out verifyError);
-        if (!verifies)
-        {
-            return new ReportAttestationResult
-            {
-                Succeeded = false,
-                Credential = sign.Credential ?? captured,
-                Message = verifyError ?? "Embedded PDF signature did not verify.",
-            };
-        }
-
-        var runJson = JsonSerializer.Serialize(run, AppJsonContext.Default.TestRunRecord);
-        var runHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(runJson)));
-        var pdfHash = HashBytes(signedPdf);
-        var party = sign.Credential ?? captured;
-        var document = new ReportAttestation
-        {
-            Kind = AttestationKind.Signed,
-            ReportKind = targetKind,
-            DisplayName = party.DisplayName,
-            Serial = party.Serial,
-            Transport = party.Transport,
-            Thumbprint = sign.Thumbprint ?? party.Thumbprint,
-            PdfSha256 = pdfHash,
-            RunJsonSha256 = runHash,
-
-            Algorithm = sign.Algorithm ?? broker.SigningAlgorithm ?? AttestationAlgorithm.PivRsaPkcs1Sha256,
-            SignatureFormat = AttestationSignatureFormat.PadesBasic,
-            EmbeddedInPdf = true,
-            CapturedAt = party.CapturedAt == default ? signingTime : party.CapturedAt,
-        };
-        var sidecar = new ReportAttestationSidecar
-        {
-            Attestation = document,
-            SignatureBase64 = Convert.ToBase64String(sign.Signature),
-            CertificateBase64 = Convert.ToBase64String(sign.CertificateDer),
-        };
-        await _revisions.CommitAsync(run, targetKind, signedPdf, sidecar, cancellationToken, operationLockHeld: true).ConfigureAwait(false);
-        return new ReportAttestationResult
-        {
-            Succeeded = true,
-            Credential = party,
-            Message = $"Signed for {party.DisplayName} ({party.Transport}).",
-            Attestation = Find(run, targetKind),
-        };
-    }
-
-    private async Task<ReportAttestationResult> PersistPresenceOrFailAsync(
-        TestRunRecord run,
-        string targetKind,
-        OperatorCredential captured,
-        string? pdfPath,
-        byte[]? stampedPdf,
-        string? pin,
-        CredentialSignResult? sign,
-        bool skipSigning,
-        CancellationToken cancellationToken)
-    {
-        if (!CanRecordPresence(skipSigning, pin, sign))
-        {
-            return new ReportAttestationResult
-            {
-                Succeeded = false,
-                Credential = captured,
-                Message = sign?.Error ?? "Signing failed.",
-            };
-        }
-
-        if (!_settings.AllowPresenceInLieuOfSigning)
-        {
-            var detail = string.IsNullOrWhiteSpace(sign?.Error)
-                ? string.Empty
-                : " " + sign.Error;
-            return new ReportAttestationResult
-            {
-                Succeeded = false,
-                Credential = captured,
-                Message = "This badge cannot sign, and presence-only attestation is disabled." + detail,
-            };
-        }
-
-        if (_reports is not null && !skipSigning && !string.IsNullOrEmpty(pin))
-        {
-            var presence = await TryCompileOverlayAsync(
-                    run,
-                    targetKind,
-                    captured,
-                    AttestationKind.Presence,
-                    cancellationToken)
-                .ConfigureAwait(false);
-            if (presence.Error is not null)
-            {
-                return new ReportAttestationResult
-                {
-                    Succeeded = false,
-                    Message = presence.Error,
-                    Credential = captured,
-                };
-            }
-
-            if (presence.Pdf is { Length: > 0 })
-            {
-                stampedPdf = presence.Pdf;
-            }
-        }
-
-        var issuedBytes = stampedPdf ?? await File.ReadAllBytesAsync(pdfPath!, cancellationToken).ConfigureAwait(false);
-        var pdfHash = HashBytes(issuedBytes);
-        var runJson = JsonSerializer.Serialize(run, AppJsonContext.Default.TestRunRecord);
-        var runHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(runJson)));
-        var document = new ReportAttestation
-        {
-            Kind = AttestationKind.Presence,
-            ReportKind = targetKind,
-            DisplayName = captured.DisplayName,
-            Serial = captured.Serial,
-            Transport = captured.Transport,
-            Thumbprint = captured.Thumbprint,
-            PdfSha256 = pdfHash,
-            RunJsonSha256 = runHash,
-
-            Algorithm = AttestationAlgorithm.Presence,
-            CapturedAt = captured.CapturedAt == default ? _clock.UtcNow : captured.CapturedAt,
-        };
-        var sidecar = new ReportAttestationSidecar
-        {
-            Attestation = document,
-        };
-        await _revisions.CommitAsync(run, targetKind, issuedBytes, sidecar, cancellationToken, operationLockHeld: true).ConfigureAwait(false);
-        return new ReportAttestationResult
-        {
-            Succeeded = true,
-            Credential = captured,
-            Message = $"Recorded presence for {captured.DisplayName} ({captured.Transport}).",
-            Attestation = Find(run, targetKind),
-        };
-    }
+    private static ReportAttestationResult Failure(OperatorCredential? credential, string message, bool pinRequired = false)
+        => new() { Succeeded = false, Credential = credential, Message = message, PinRequired = pinRequired };
 
     private async Task<(byte[]? Pdf, string? Error)> TryCompileOverlayAsync(
         TestRunRecord run,
@@ -634,24 +412,58 @@ public sealed class ReportAttestationService : IReportAttestationService
         }
     }
 
-    /// Compatibility hook: working regeneration preserves immutable issued history.
-    public static void InvalidateForKinds(TestRunRecord run, string runDirectory, IEnumerable<string> kinds)
-    {
-        // Issued revisions and their attestations are immutable. Working generation needs no invalidation.
-    }
-
     public static ReportAttestation? Find(TestRunRecord run, string reportKind)
     {
-        var latest = ReportRevisions.Latest(run, reportKind);
-        return run.Attestations.LastOrDefault(a =>
-            string.Equals(a.ReportKind, reportKind, StringComparison.OrdinalIgnoreCase)
-            && (latest is null || a.RevisionId == latest.RevisionId));
+        var artifact = ReportRevisions.Latest(run, reportKind);
+        return artifact is null ? null : FindForArtifact(run, artifact);
     }
+
+    public static ReportAttestation? FindForArtifact(TestRunRecord run, RunReportArtifact artifact)
+    {
+        if (string.IsNullOrWhiteSpace(artifact.PdfPath) || !File.Exists(artifact.PdfPath)) return null;
+        try
+        {
+            var hash = HashFile(artifact.PdfPath);
+            var sidecarPath = Path.ChangeExtension(artifact.PdfPath, ".attestation.json");
+            return run.Attestations.LastOrDefault(a =>
+                string.Equals(a.ReportKind, artifact.Kind, StringComparison.OrdinalIgnoreCase)
+                && a.RevisionId == artifact.RevisionId
+                && PathEquals(a.SidecarPath, sidecarPath)
+                && string.Equals(a.PdfSha256, hash, StringComparison.OrdinalIgnoreCase));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return null; }
+    }
+
+    /// Validates the run and its persisted header before touching report files or stamps.
+    public static void RequireReportWritable(TestRunRecord run, string runDirectory)
+    {
+        if (run.IsSchemaReadOnly)
+        {
+            var storedVersion = Math.Max(run.StoredSchemaVersion, run.SchemaVersion);
+            if (storedVersion > SchemaVersions.TestRunRecord)
+            {
+                throw new SchemaReadOnlyException(DocumentSchemaGate.Evaluate(
+                    SchemaDocumentTypes.TestRunRecord, storedVersion, SchemaVersions.TestRunRecord, run.AppVersion));
+            }
+            throw new InvalidOperationException("This run is read-only; reports cannot be changed.");
+        }
+        DocumentSchemaGate.RequireWritable(SchemaDocumentTypes.TestRunRecord, run.SchemaVersion,
+            SchemaVersions.TestRunRecord, Path.Combine(runDirectory, "run.json"), run.AppVersion);
+        CurrentDocumentFile.ValidateWriteDestinationAsync(Path.Combine(runDirectory, "run.json"),
+                AppJsonContext.Default.TestRunRecord, SchemaDocumentTypes.TestRunRecord, SchemaVersions.TestRunRecord)
+            .GetAwaiter().GetResult();
+    }
+
+    public static string? ResolveDefaultWorkingPdfPath(TestRunRecord run, string defaultKind)
+        => ResolveWorkingPdfPath(run, defaultKind)
+           ?? ResolveWorkingPdfPath(run, ReportKinds.Status)
+           ?? run.Reports.FirstOrDefault(r => ReportArtifactRoles.IsWorking(r.Role)
+               && !string.IsNullOrWhiteSpace(r.PdfPath))?.PdfPath;
 
     public static string? ResolvePdfPath(TestRunRecord run, string reportKind)
     {
         var issued = ReportRevisions.Latest(run, reportKind);
-        return issued is not null ? issued.PdfPath : ResolveWorkingPdfPath(run, reportKind);
+        return issued is null ? ResolveWorkingPdfPath(run, reportKind) : issued.PdfPath;
     }
 
     public static string? ResolveIssuedPdfPath(TestRunRecord run, string reportKind)
@@ -661,15 +473,14 @@ public sealed class ReportAttestationService : IReportAttestationService
     {
         var match = run.Reports.FirstOrDefault(r =>
             string.Equals(r.Kind, reportKind, StringComparison.OrdinalIgnoreCase)
-            && ReportArtifactRoles.IsWorking(r.Role));
+            && ReportArtifactRoles.IsWorking(r.Role)
+            && !string.IsNullOrWhiteSpace(r.PdfPath));
         if (match is not null && !string.IsNullOrWhiteSpace(match.PdfPath))
         {
             return match.PdfPath;
         }
 
-        return string.Equals(reportKind, ReportKinds.Certification, StringComparison.OrdinalIgnoreCase)
-            ? null
-            : run.ReportPdfPath;
+        return null;
     }
 
     /// Run folder name for `runs/{id}/{kind}.pdf` or `runs/{id}/issued/{kind}.pdf`.
@@ -688,48 +499,41 @@ public sealed class ReportAttestationService : IReportAttestationService
 
         var current = new DirectoryInfo(dir);
         for (var depth = 0; current is not null && depth < 4; depth++, current = current.Parent)
-        {
             if (string.Equals(current.Name, ReportArtifactRoles.DirectoryName, StringComparison.OrdinalIgnoreCase))
                 return current.Parent?.Name;
-        }
         return Path.GetFileName(dir);
     }
 
+    /// Report paths follow Windows casing rules only on Windows; distinct Unix files stay distinct.
+    public static bool PathEquals(string? left, string? right)
+        => string.Equals(left, right, OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
+
     public static bool RunOwnsPdf(TestRunRecord run, string pdfPath)
     {
-        if (string.Equals(run.ReportPdfPath, pdfPath, StringComparison.OrdinalIgnoreCase))
-        {
-            return true;
-        }
-
-        return run.Reports.Any(r => string.Equals(r.PdfPath, pdfPath, StringComparison.OrdinalIgnoreCase));
+        return run.Reports.Any(r => PathEquals(r.PdfPath, pdfPath));
     }
 
     public static string KindForPdf(TestRunRecord run, string pdfPath)
     {
         var match = run.Reports.FirstOrDefault(r =>
-            string.Equals(r.PdfPath, pdfPath, StringComparison.OrdinalIgnoreCase));
+            PathEquals(r.PdfPath, pdfPath));
         if (match is not null && !string.IsNullOrWhiteSpace(match.Kind))
         {
             return match.Kind;
         }
 
-        var name = Path.GetFileNameWithoutExtension(pdfPath);
-        return string.IsNullOrWhiteSpace(name) ? ReportKinds.Certification : name;
+        throw new InvalidOperationException("The PDF is not a report artifact owned by this run.");
     }
 
     /// Issued PDF when present for this path's kind; otherwise the given path.
     public static string ResolvePrintOrExportPdfPath(TestRunRecord run, string pdfPath)
     {
         if (run.Reports.Any(r => ReportArtifactRoles.IsIssued(r.Role)
-            && string.Equals(r.PdfPath, pdfPath, StringComparison.OrdinalIgnoreCase))) return pdfPath;
+            && PathEquals(r.PdfPath, pdfPath))) return pdfPath;
         var kind = KindForPdf(run, pdfPath);
         var issued = ReportRevisions.Latest(run, kind);
         return issued is null ? pdfPath : issued.PdfPath ?? throw new IOException("The issued revision has no PDF path.");
     }
-
-    private static bool CanRecordPresence(bool skipSigning, string? pin, CredentialSignResult? sign)
-        => skipSigning || sign?.FailureKind == CredentialFailureKind.Unavailable;
 
     private static string HashBytes(byte[] bytes) => Convert.ToHexString(SHA256.HashData(bytes));
 
@@ -737,23 +541,6 @@ public sealed class ReportAttestationService : IReportAttestationService
     {
         using var stream = File.OpenRead(path);
         return Convert.ToHexString(SHA256.HashData(stream));
-    }
-
-    private static bool SidecarMatches(ReportAttestation attestation, string? expectedHash)
-    {
-        if (string.IsNullOrWhiteSpace(attestation.SidecarPath) || string.IsNullOrWhiteSpace(expectedHash)) return false;
-        try
-        {
-            if (!string.Equals(HashFile(attestation.SidecarPath), expectedHash, StringComparison.OrdinalIgnoreCase)) return false;
-            using var stream = File.OpenRead(attestation.SidecarPath);
-            var sidecar = JsonSerializer.Deserialize(stream, AppJsonContext.Default.ReportAttestationSidecar);
-            return sidecar is not null && JsonSerializer.Serialize(sidecar.Attestation, AppJsonContext.Default.ReportAttestation)
-                == JsonSerializer.Serialize(attestation, AppJsonContext.Default.ReportAttestation);
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
-        {
-            return false;
-        }
     }
 
     private static bool EmbeddedSignatureMatches(ReportAttestation attestation, string pdfPath, string pdfHash)
@@ -766,8 +553,8 @@ public sealed class ReportAttestationService : IReportAttestationService
         try
         {
             var pdf = File.ReadAllBytes(pdfPath);
-            return ITextPadesSignature.TryVerify(pdf, out _)
-                   || PdfPadesSignature.TryVerify(pdf, out _);
+            return string.Equals(attestation.SignatureFormat, AttestationSignatureFormat.PadesBasic, StringComparison.Ordinal)
+                && ITextPadesSignature.TryVerify(pdf, attestation.Thumbprint, out _);
         }
         catch (IOException)
         {
@@ -785,6 +572,7 @@ public sealed class ReportAttestationService : IReportAttestationService
         using var stream = File.OpenRead(attestation.SidecarPath);
         var sidecar = JsonSerializer.Deserialize(stream, AppJsonContext.Default.ReportAttestationSidecar);
         if (sidecar?.SignatureBase64 is null
+            || !string.Equals(attestation.SignatureFormat, AttestationSignatureFormat.DetachedSidecar, StringComparison.Ordinal)
             || !string.Equals(pdfHash, attestation.PdfSha256, StringComparison.OrdinalIgnoreCase))
         {
             return false;
@@ -801,30 +589,28 @@ public sealed class ReportAttestationService : IReportAttestationService
         }
 
         var payload = Encoding.UTF8.GetBytes($"{attestation.PdfSha256}:{attestation.RunJsonSha256}");
-        var algorithm = attestation.Algorithm ?? sidecar.Attestation.Algorithm;
+        var algorithm = attestation.Algorithm;
         if (string.Equals(algorithm, AttestationAlgorithm.MockHmac, StringComparison.Ordinal))
         {
             return MockOperatorCredentialBroker.VerifyMockSignature(payload, signature);
         }
 
-        if (string.IsNullOrWhiteSpace(sidecar.CertificateBase64))
-        {
-            return false;
-        }
-
-        byte[] cert;
-        try
-        {
-            cert = Convert.FromBase64String(sidecar.CertificateBase64);
-        }
-        catch (FormatException)
-        {
-            return false;
-        }
-
-        return PivSigner.Verify(payload, signature, cert, algorithm ?? string.Empty);
+        return false;
     }
 
+    private static bool SidecarMatches(ReportAttestation attestation, string? expectedHash)
+    {
+        if (string.IsNullOrWhiteSpace(attestation.SidecarPath) || string.IsNullOrWhiteSpace(expectedHash)) return false;
+        try
+        {
+            if (!string.Equals(HashFile(attestation.SidecarPath), expectedHash, StringComparison.OrdinalIgnoreCase)) return false;
+            using var stream = File.OpenRead(attestation.SidecarPath);
+            var sidecar = JsonSerializer.Deserialize(stream, AppJsonContext.Default.ReportAttestationSidecar);
+            return sidecar is not null && JsonSerializer.Serialize(sidecar.Attestation, AppJsonContext.Default.ReportAttestation)
+                == JsonSerializer.Serialize(attestation, AppJsonContext.Default.ReportAttestation);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException) { return false; }
+    }
 
 }
 

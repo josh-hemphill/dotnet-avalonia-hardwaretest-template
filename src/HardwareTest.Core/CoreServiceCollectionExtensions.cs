@@ -9,7 +9,6 @@ using HardwareTest.Core.StationHealth;
 using HardwareTest.Core.Storage;
 using HardwareTest.Core.Time;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.DependencyInjection.Extensions;
 using Serilog;
 
 namespace HardwareTest.Core;
@@ -67,15 +66,17 @@ public static class CoreServiceCollectionExtensions
         services.AddSingleton<IVisaSessionFactory>(sp => sp.GetRequiredService<VisaModeController>());
         services.AddSingleton<IVisaBroker>(sp => sp.GetRequiredService<VisaModeController>());
         services.AddSingleton<IVisaResourceDiscovery>(sp => sp.GetRequiredService<VisaModeController>());
-        services.TryAddSingleton<INativeSigningDialogOwner, HeadlessSigningDialogOwner>();
+        services.AddSingleton<IOperatorCredentialPresenceBroker>(sp =>
+            new PcscOperatorCredentialBroker(sp.GetRequiredService<IClock>()));
         services.AddSingleton<IOperatorCredentialBroker>(sp =>
             new SettingsBackedCredentialBroker(
                 settingsStore.AppSettings,
                 new MockOperatorCredentialBroker(sp.GetRequiredService<IClock>()),
                 new SmartCardSigningRouter(
                     settingsStore.AppSettings,
-                    sp.GetRequiredService<INativeSigningDialogOwner>(),
-                    sp.GetRequiredService<IClock>())));
+                    sp.GetService<INativeSigningDialogOwner>(),
+                    sp.GetRequiredService<IClock>(),
+                    sp.GetRequiredService<IOperatorCredentialPresenceBroker>())));
         services.AddSingleton<IReportService>(sp =>
             new TypstReportService(
                 sp.GetRequiredService<IRunStore>(),

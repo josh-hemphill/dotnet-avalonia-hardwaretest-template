@@ -1,10 +1,12 @@
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
-using System.Security.Cryptography.Pkcs;
 using System.Security.Cryptography.X509Certificates;
 using HardwareTest.Core.Credentials;
 using HardwareTest.Core.Reporting;
+using HardwareTest.Core.Runs;
 using HardwareTest.Core.Settings;
+using HardwareTest.Tests.Fixtures;
+using HardwareTest.Tests.Reporting;
 using Xunit;
 
 namespace HardwareTest.Tests.Credentials;
@@ -15,24 +17,47 @@ public sealed class WindowsSigningTests
     [InlineData(0)]
     [InlineData(1)]
     [InlineData(2)]
-    public async Task Real_signature_CMS_and_PDF_verify_once_on_retained_apartment(int algorithm)
+    public async Task Real_pdf_signature_verifies_once_on_retained_apartment(int algorithm)
     {
         using var fixture = new Fixture(algorithm);
         var prepared = await fixture.Broker.PrepareSigningAsync(fixture.Credential, "must-never-be-forwarded");
         using var session = prepared.Session;
-        Assert.NotNull(session); Assert.False(session.RequiresPin); Assert.Equal(0, fixture.Native.SignCount);
+        Assert.NotNull(session); Assert.True(session.CanSignPdf); Assert.Equal(0, fixture.Native.SignCount);
         Assert.Equal(WindowsOperatorCredentialBroker.AcquisitionFlags, fixture.Native.Flags);
         Assert.Equal((nint)1234, fixture.Native.Owner); Assert.Equal(fixture.Source.LastContext, fixture.Native.Context);
-        var document = "synthetic document"u8.ToArray();
-        var cmsResult = await session.TrySignDocumentAsync(document, fixture.Credential);
-        Assert.True(cmsResult.Succeeded, cmsResult.Error); Assert.Equal(1, fixture.Native.SignCount);
-        var cms = new SignedCms(new ContentInfo(document), true); cms.Decode(cmsResult.Signature!); cms.CheckSignature(true);
-        var pdfResult = await ((IEmbeddedPdfSigningBroker)session).TrySignPdfAsync(PdfPadesSignature.CreateMinimalPdf(), fixture.Credential);
-        Assert.True(pdfResult.Succeeded, pdfResult.Error); Assert.Equal(2, fixture.Native.SignCount);
-        Assert.True(ITextPadesSignature.TryVerify(pdfResult.SignedPdf!, out var error), error);
+        var pdfResult = await ((IEmbeddedPdfSigningBroker)session).TrySignPdfAsync(PdfTestFixture.CreateMinimalPdf(), fixture.Credential);
+        Assert.True(pdfResult.Succeeded, pdfResult.Error); Assert.Equal(1, fixture.Native.SignCount);
+        Assert.True(ITextPadesSignature.TryVerify(pdfResult.SignedPdf!, fixture.Credential.Thumbprint, out var error), error);
         session.Dispose(); Assert.Equal(1, fixture.Native.ReleaseCount); Assert.Equal(1, fixture.Native.UninitializeCount);
         Assert.Single(fixture.Native.ThreadIds.Distinct());
     }
+    [Fact]
+    public async Task Windows_prepared_pdf_issuance_uses_current_evidence_and_exact_crypto_validation()
+    {
+        using var fixture = new Fixture();
+        using var temp = new TempDataDirectory();
+        var store = new FileRunStore(temp.RunsDirectory);
+        var run = new TestRunRecord { RunId = "windows-current-issuance" };
+        var working = Path.Combine(store.GetRunDirectory(run.RunId), "certification.pdf");
+        var original = PdfTestFixture.CreateMinimalPdf("Windows current contract");
+        await File.WriteAllBytesAsync(working, original);
+        run.Reports = [new() { Kind = ReportKinds.Certification, PdfPath = working }];
+        await store.SaveAsync(run);
+        var service = new ReportAttestationService(fixture.Broker, store,
+            new AppSettings { RequireAttestationBeforeExport = true, AllowPresenceInLieuOfSigning = true });
+        var result = await service.AttestAsync(run, ReportKinds.Certification, fixture.Credential);
+        Assert.True(result.Succeeded, result.Message);
+        Assert.Equal(1, fixture.Native.SignCount);
+        Assert.Equal(1, fixture.Native.ReleaseCount);
+        Assert.Equal(original, await File.ReadAllBytesAsync(working));
+        var revision = Assert.Single(run.Reports, r => ReportArtifactRoles.IsIssued(r.Role));
+        Assert.Equal(result.Attestation!.RevisionId, revision.RevisionId);
+        Assert.True(service.HasValidAttestationForPdf(run, ReportKinds.Certification, revision.PdfPath));
+        Assert.True(ITextPadesSignature.TryVerify(await File.ReadAllBytesAsync(revision.PdfPath), fixture.Credential.Thumbprint, out var error), error);
+        await File.AppendAllTextAsync(revision.PdfPath, "unsigned trailing bytes");
+        Assert.False(service.HasValidAttestationForPdf(run, ReportKinds.Certification, revision.PdfPath));
+    }
+
     [Fact]
     public async Task Missing_and_ambiguous_certificates_never_acquire_another_private_key()
     {
@@ -81,7 +106,7 @@ public sealed class WindowsSigningTests
     public async Task RSA_respects_returned_CSP_or_KSP_specification(uint spec)
     {
         using var fixture = new Fixture(); fixture.Native.KeySpec = spec;
-        var result = await fixture.Broker.TrySignDocumentAsync("document"u8.ToArray(), fixture.Credential);
+        var result = await fixture.Broker.TrySignPdfAsync(PdfTestFixture.CreateMinimalPdf(), fixture.Credential);
         Assert.True(result.Succeeded, result.Error); Assert.Equal(spec, fixture.Native.SignedSpec);
     }
     [Theory]
@@ -93,15 +118,14 @@ public sealed class WindowsSigningTests
         using var fixture = new Fixture(algorithm); fixture.Native.Malformed = true;
         var prepared = await fixture.Broker.PrepareSigningAsync(fixture.Credential); using var session = prepared.Session!;
         var payload = await session.TrySignPayloadAsync("document"u8.ToArray(), fixture.Credential);
-        var cms = await session.TrySignDocumentAsync("document"u8.ToArray(), fixture.Credential);
-        var pdf = await ((IEmbeddedPdfSigningBroker)session).TrySignPdfAsync(PdfPadesSignature.CreateMinimalPdf(), fixture.Credential);
-        Assert.All(new[] { payload, cms, pdf }, result => { Assert.Equal(CredentialFailureKind.SigningFailed, result.FailureKind); Assert.False(result.Succeeded); Assert.False(result.PresenceFallbackAllowed); });
+        var pdf = await ((IEmbeddedPdfSigningBroker)session).TrySignPdfAsync(PdfTestFixture.CreateMinimalPdf(), fixture.Credential);
+        Assert.All(new[] { payload, pdf }, result => { Assert.Equal(CredentialFailureKind.SigningFailed, result.FailureKind); Assert.False(result.Succeeded); Assert.False(result.PresenceFallbackAllowed); });
     }
     [Fact]
     public async Task PDF_callback_preserves_wrong_PIN_failure()
     {
         using var fixture = new Fixture(); fixture.Native.SignFailure = 0x8010006b;
-        var result = await fixture.Broker.TrySignPdfAsync(PdfPadesSignature.CreateMinimalPdf(), fixture.Credential);
+        var result = await fixture.Broker.TrySignPdfAsync(PdfTestFixture.CreateMinimalPdf(), fixture.Credential);
         Assert.Equal(CredentialFailureKind.WrongPin, result.FailureKind); Assert.Equal(1, fixture.Native.SignCount); Assert.Equal(1, fixture.Native.ReleaseCount);
     }
     [Fact]
@@ -183,7 +207,7 @@ public sealed class WindowsSigningTests
         public Source Source { get; }
         public Native Native { get; }
         public WindowsOperatorCredentialBroker Broker { get; }
-        public OperatorCredential Credential => new() { Thumbprint = _certificate.Thumbprint, ReaderName = "synthetic reader", DisplayName = "Synthetic" };
+        public OperatorCredential Credential => new() { Thumbprint = _certificate.Thumbprint, ReaderName = "synthetic reader", Serial = "windows-fixture", DisplayName = "Synthetic" };
         public void Dispose() { _certificate.Dispose(); _rsa?.Dispose(); _ec?.Dispose(); }
     }
     internal sealed class Native(RSA? rsa, ECDsa? ec) : IWindowsSigningNative

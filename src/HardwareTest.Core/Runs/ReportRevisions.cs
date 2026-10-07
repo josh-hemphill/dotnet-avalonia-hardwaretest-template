@@ -1,10 +1,10 @@
 using System.Collections.Concurrent;
 using System.Security.Cryptography;
-using System.Text;
 using System.Text.Json;
 using HardwareTest.Core.Credentials;
 using HardwareTest.Core.IO;
 using HardwareTest.Core.Serialization;
+using HardwareTest.Core.Time;
 
 namespace HardwareTest.Core.Runs;
 
@@ -63,39 +63,24 @@ public static class ReportRevisions
             AppJsonContext.Default.TestRunRecord)!;
         copy.IsSchemaReadOnly = run.IsSchemaReadOnly;
         copy.StoredSchemaVersion = run.StoredSchemaVersion;
-        copy.IsLegacy = run.IsLegacy;
         return copy;
-    }
-
-    public static void MigrateLegacy(TestRunRecord run)
-    {
-        foreach (var artifact in run.Reports.Where(r => ReportArtifactRoles.IsIssued(r.Role) && string.IsNullOrEmpty(r.RevisionId)))
-        {
-            artifact.RevisionId = "legacy-" + Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(
-                $"{run.RunId}:{artifact.Kind.ToLowerInvariant()}:{artifact.PdfPath}"))).ToLowerInvariant()[..24];
-            artifact.RevisionNumber = 1;
-            foreach (var attestation in run.Attestations.Where(a => string.Equals(a.ReportKind, artifact.Kind,
-                         StringComparison.OrdinalIgnoreCase) && string.IsNullOrEmpty(a.RevisionId)))
-                attestation.RevisionId = artifact.RevisionId;
-        }
     }
 
     public static async Task RefreshHistoryAsync(TestRunRecord run, IRunStore store, CancellationToken cancellationToken)
     {
         var committed = await store.LoadAsync(run.RunId, cancellationToken).ConfigureAwait(false);
-        MigrateLegacy(run);
         if (committed is null) return;
         MergeHistory(run, committed);
     }
 
     internal static void MergeHistory(TestRunRecord run, TestRunRecord committed)
     {
-        MigrateLegacy(run);
         if (committed.IsSchemaReadOnly) throw new SchemaReadOnlyException(DocumentSchemaGate.Evaluate(
             SchemaDocumentTypes.TestRunRecord, committed.StoredSchemaVersion, SchemaVersions.TestRunRecord, committed.AppVersion));
         var issued = committed.Reports.Where(r => ReportArtifactRoles.IsIssued(r.Role)).ToList();
         issued.AddRange(run.Reports.Where(r => ReportArtifactRoles.IsIssued(r.Role)
-            && !issued.Any(c => c.RevisionId == r.RevisionId && string.Equals(c.Kind, r.Kind, StringComparison.OrdinalIgnoreCase))));
+            && !issued.Any(c => c.RevisionId == r.RevisionId && (r.RevisionId is not null || c.PdfPath == r.PdfPath)
+                && string.Equals(c.Kind, r.Kind, StringComparison.OrdinalIgnoreCase))));
         run.Reports = run.Reports.Where(r => !ReportArtifactRoles.IsIssued(r.Role)).Concat(issued).ToList();
         var stamps = committed.Attestations.ToList();
         stamps.AddRange(run.Attestations.Where(a => !stamps.Any(c => c.RevisionId == a.RevisionId
@@ -113,8 +98,14 @@ public static class ReportRevisions
     }
 
     public static RunReportArtifact? Latest(TestRunRecord run, string kind) => run.Reports
-        .Where(r => ReportArtifactRoles.IsIssued(r.Role) && string.Equals(r.Kind, kind, StringComparison.OrdinalIgnoreCase))
-        .OrderByDescending(r => r.RevisionNumber).FirstOrDefault();
+        .Select((artifact, index) => (artifact, index))
+        .Where(item => ReportArtifactRoles.IsIssued(item.artifact.Role)
+            && string.Equals(item.artifact.Kind, kind, StringComparison.OrdinalIgnoreCase))
+        .OrderByDescending(item => item.artifact.RevisionNumber)
+        .ThenByDescending(item => item.artifact.GeneratedAt)
+        .ThenByDescending(item => item.index)
+        .Select(item => item.artifact).FirstOrDefault();
+
 }
 
 public interface IReportRevisionStore
@@ -126,7 +117,7 @@ public interface IReportRevisionStore
 /// Publishes a revision by saving its files first and the authoritative run record last.
 /// Signing callers hold the shared per-run lock across compile/sign/commit and pass operationLockHeld.
 /// Direct commit callers acquire that lock here.
-public sealed class FileReportRevisionStore(IRunStore runs) : IReportRevisionStore
+public sealed class FileReportRevisionStore(IRunStore runs, IClock? clock = null) : IReportRevisionStore
 {
     public async Task CommitAsync(TestRunRecord run, string kind, byte[] pdf, ReportAttestationSidecar sidecar,
         CancellationToken cancellationToken = default, bool operationLockHeld = false)
@@ -134,6 +125,7 @@ public sealed class FileReportRevisionStore(IRunStore runs) : IReportRevisionSto
         using var operation = operationLockHeld ? null : await ReportRevisions.LockAsync(runs.GetRunDirectory(run.RunId), cancellationToken).ConfigureAwait(false);
         if (PortableFileNames.Sanitize(kind) != kind || kind is "." or "..")
             throw new ArgumentException("Report kind must be a portable filename.", nameof(kind));
+        ReportAttestationService.RequireReportWritable(run, runs.GetRunDirectory(run.RunId));
         var candidate = ReportRevisions.Clone(run);
         await ReportRevisions.RefreshHistoryAsync(candidate, runs, cancellationToken).ConfigureAwait(false);
         var snapshot = JsonSerializer.Serialize(run, AppJsonContext.Default.TestRunRecord);
@@ -145,16 +137,17 @@ public sealed class FileReportRevisionStore(IRunStore runs) : IReportRevisionSto
             AppJsonContext.Default.ReportAttestationSidecar)!;
         var document = sidecar.Attestation;
         document.RevisionId = id;
-        document.SidecarPath = Path.Combine(destination, kind + ".attestation.json");
+        document.SidecarPath = Path.Combine(destination, kind + "-" + id + ".attestation.json");
         var artifact = new RunReportArtifact
         {
             Kind = kind,
             Title = ReportKinds.Title(kind),
             Role = ReportArtifactRoles.Issued,
             RevisionId = id,
-            RevisionNumber = (ReportRevisions.Latest(candidate, kind)?.RevisionNumber ?? 0) + 1,
-            PdfPath = Path.Combine(destination, kind + ".pdf"),
-            GeneratedAt = document.CapturedAt,
+            RevisionNumber = candidate.Reports.Where(r => ReportArtifactRoles.IsIssued(r.Role)
+                && string.Equals(r.Kind, kind, StringComparison.OrdinalIgnoreCase)).Select(r => r.RevisionNumber).DefaultIfEmpty().Max() + 1,
+            PdfPath = Path.Combine(destination, kind + "-" + id + ".pdf"),
+            GeneratedAt = (clock ?? SystemClock.Instance).UtcNow,
             RunSnapshotPath = Path.Combine(destination, "run.snapshot.json"),
         };
         candidate.Reports.Add(artifact);
@@ -163,12 +156,12 @@ public sealed class FileReportRevisionStore(IRunStore runs) : IReportRevisionSto
         Directory.CreateDirectory(stage);
         try
         {
-            await AtomicFile.WriteAllBytesAsync(Path.Combine(stage, kind + ".pdf"), pdf, cancellationToken).ConfigureAwait(false);
+            await AtomicFile.WriteAllBytesAsync(Path.Combine(stage, kind + "-" + id + ".pdf"), pdf, cancellationToken).ConfigureAwait(false);
             await AtomicFile.WriteAllTextAsync(Path.Combine(stage, "run.snapshot.json"), snapshot, cancellationToken).ConfigureAwait(false);
-            await AtomicFile.WriteJsonAsync(Path.Combine(stage, kind + ".attestation.json"), sidecar,
+            await AtomicFile.WriteJsonAsync(Path.Combine(stage, kind + "-" + id + ".attestation.json"), sidecar,
                 AppJsonContext.Default.ReportAttestationSidecar, cancellationToken).ConfigureAwait(false);
             artifact.SidecarSha256 = Convert.ToHexString(SHA256.HashData(
-                await File.ReadAllBytesAsync(Path.Combine(stage, kind + ".attestation.json"), cancellationToken).ConfigureAwait(false)));
+                await File.ReadAllBytesAsync(Path.Combine(stage, kind + "-" + id + ".attestation.json"), cancellationToken).ConfigureAwait(false)));
             cancellationToken.ThrowIfCancellationRequested();
             Directory.Move(stage, destination);
             await runs.SaveAsync(candidate, cancellationToken).ConfigureAwait(false);
@@ -177,9 +170,14 @@ public sealed class FileReportRevisionStore(IRunStore runs) : IReportRevisionSto
             run.OperatorName = candidate.OperatorName;
             run.SchemaVersion = candidate.SchemaVersion;
         }
+        catch
+        {
+            if (Directory.Exists(destination)) Directory.Delete(destination, recursive: true);
+            throw;
+        }
         finally
         {
-            // A renamed directory is harmless if the record save failed: only referenced revisions are visible.
+            // Staging files never become visible before the authoritative run record references them.
             if (Directory.Exists(stage)) Directory.Delete(stage, recursive: true);
         }
     }

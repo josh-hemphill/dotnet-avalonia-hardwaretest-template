@@ -1,4 +1,3 @@
-using System.Globalization;
 using HardwareTest.Core.Runs;
 using HardwareTest.OpenTap.Plugins.Basic;
 
@@ -7,7 +6,7 @@ namespace HardwareTest.Authoring;
 public enum FormulaSaveOutcomeKind
 {
     None,
-    PacksMeanGte,
+    PacksChannelAverage,
     PacksTransferFunction,
     PreviewOnly,
     SaveBlocked,
@@ -20,7 +19,7 @@ public static class FormulaLowerer
 {
     public const double DefaultTsSeconds = 0.005;
 
-    /// mean(x) + threshold → MeanGte. Top-level filter/filtfilt → TransferFunctionAlgorithm.
+    /// mean(x) + threshold → ChannelAverage. Top-level filter/filtfilt → TransferFunctionAlgorithm.
     public static MetricSource Lower(
         ExpressionAlgorithm expr,
         LimitSpec? limits,
@@ -62,13 +61,14 @@ public static class FormulaLowerer
             var threshold = limits?.Threshold
                             ?? throw new AuthoringWorkspaceException(
                                 $"{AuthoringCompileCodes.MissingLimits}: mean() requires a scalar LimitSpec threshold.");
+            if (!double.IsFinite(threshold))
+                throw new AuthoringWorkspaceException($"{AuthoringCompileCodes.MissingLimits}: threshold must be finite.");
             return new AlgorithmSource(
-                AuthoringFunctionIds.BasicMeanGte,
+                AuthoringFunctionIds.BasicChannelAverage,
                 [ident.Name],
                 new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
                 {
-                    ["SampleCount"] = "8",
-                    ["Threshold"] = threshold.ToString(CultureInfo.InvariantCulture),
+                    ["InputChannel"] = ident.Name,
                 });
         }
 
@@ -91,8 +91,8 @@ public static class FormulaLowerer
             var lowered = Lower(new ExpressionAlgorithm([], source), limits);
             return lowered switch
             {
-                AlgorithmSource { AlgorithmId: AuthoringFunctionIds.BasicMeanGte }
-                    => new FormulaSaveOutcome(FormulaSaveOutcomeKind.PacksMeanGte, "Will save as Mean GTE."),
+                AlgorithmSource { AlgorithmId: AuthoringFunctionIds.BasicChannelAverage }
+                    => new FormulaSaveOutcome(FormulaSaveOutcomeKind.PacksChannelAverage, "Will save as Channel Average."),
                 TransferFunctionAlgorithm
                     => new FormulaSaveOutcome(
                         FormulaSaveOutcomeKind.PacksTransferFunction,
@@ -113,7 +113,7 @@ public static class FormulaLowerer
     private static FormulaSaveOutcome PreviewOnlyOutcome()
         => new(
             FormulaSaveOutcomeKind.PreviewOnly,
-            "Preview only — at save, only mean(channel) with a threshold (Mean GTE) or a top-level filter/filtfilt packs into the plan.");
+            "Preview only — at save, only mean(channel) with a threshold (Channel Average) or a top-level filter/filtfilt packs into the plan.");
 
     public const string NestedFilterMessage =
         $"{AuthoringCompileCodes.FormulaNoLower}: nested filter/filtfilt is not allowed.";
@@ -128,10 +128,9 @@ public static class FormulaLowerer
         string channel,
         IReadOnlyDictionary<string, IReadOnlyList<StoredSample>>? series)
     {
-        if (series is null || !TryGetSeries(series, channel, out var input) || input.Count == 0)
-        {
-            return DefaultTsSeconds;
-        }
+        if (series is null) return DefaultTsSeconds;
+        if (!TryGetSeries(series, channel, out var input) || input.Count == 0)
+            throw new AuthoringWorkspaceException($"{AuthoringCompileCodes.FormulaEval}: missing series '{channel}'.");
 
         return TransferFunctionGrid.MedianTsSeconds(TransferFunctionTimeBase.ElapsedMs(input));
     }

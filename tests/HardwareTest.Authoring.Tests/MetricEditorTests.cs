@@ -13,7 +13,7 @@ public sealed class MetricEditorTests
     public void Palette_matches_getting_started_types_and_omits_dialog()
     {
         var ids = AuthoringRecipeCatalog.Palette.Select(r => r.Id).ToArray();
-        Assert.Contains(AuthoringRecipeIds.TestGroup, ids);
+        Assert.DoesNotContain(AuthoringRecipeIds.TestGroup, ids);
         Assert.Contains(AuthoringRecipeIds.Identity, ids);
         Assert.Contains(AuthoringRecipeIds.Prompt, ids);
         Assert.Contains(AuthoringRecipeIds.Input, ids);
@@ -41,10 +41,10 @@ public sealed class MetricEditorTests
         var root = EmptyWorkspace();
         var vm = new AuthoringWorkspaceViewModel();
         vm.Open(root);
-        vm.CreateProgram("metric-ui");
+        vm.CreateDemoProgram("metric-ui");
         Assert.Equal(AuthoringChrome.EmptyMeasureHint, vm.MeasureHint);
 
-        vm.ApplyRecipe(AuthoringRecipeIds.MeanGte);
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.MeanGte);
         Assert.Equal("VDC.mean", vm.ChannelKey);
         Assert.Equal(PresentationRoles.Scalar, vm.DisplayRole);
         Assert.Equal(PresentationTileKind.Scalar, vm.Preview.TileKind);
@@ -73,18 +73,34 @@ public sealed class MetricEditorTests
     }
 
     [Fact]
-    public void Scalar_without_limits_refuses_apply()
+    public void Scalar_without_limits_saves_source_and_blocks_compiled_operations()
     {
         var root = EmptyWorkspace();
+        var workspace = AuthoringWorkspaceLoader.Load(root);
+        workspace.Manifest.Package.Name = "Scalar source fixture";
+        AuthoringWorkspaceLoader.SaveManifest(root, workspace.Manifest);
         var vm = new AuthoringWorkspaceViewModel();
         vm.Open(root);
-        vm.CreateProgram("no-limits");
-        vm.ApplyRecipe(AuthoringRecipeIds.MeanGte);
+        vm.CreateDemoProgram("no-limits");
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.MeanGte);
         vm.Threshold = string.Empty;
 
-        var ex = Assert.Throws<AuthoringWorkspaceException>(() => vm.Apply());
-        Assert.Contains(AuthoringCompileCodes.MissingLimits, ex.Message, StringComparison.Ordinal);
+        vm.Apply();
+        Assert.Contains(AuthoringCompileCodes.MissingLimits, vm.Error, StringComparison.Ordinal);
+        Assert.False(vm.HasUnsavedChanges);
+        Assert.True(vm.HasUncompiledSources);
+        Assert.False(vm.CanPack);
+        Assert.Throws<PackPreflightException>(() => vm.Pack(Path.Combine(root, "dist")));
+        Assert.Throws<AuthoringWorkspaceException>(() => vm.Validate());
         Assert.False(File.Exists(Path.Combine(root, "no-limits.TapPlan")));
+        var document = new AuthoringDocumentStore(root).Load("no-limits").Document!;
+        Assert.True(document.RequiresCompilation);
+        Assert.Null(Assert.IsType<MetricNode>(Assert.Single(document.ToDraft().Measure)).Metric.Limits);
+        var reopened = new AuthoringWorkspaceViewModel();
+        reopened.Open(root);
+        Assert.Null(Assert.IsType<MetricNode>(Assert.Single(reopened.SelectedProgram!.Measure)).Metric.Limits);
+        Assert.True(reopened.HasUncompiledSources);
+        reopened.StopRecovery(); vm.StopRecovery();
     }
 
     [Fact]
@@ -93,7 +109,7 @@ public sealed class MetricEditorTests
         var root = EmptyWorkspace();
         var vm = new AuthoringWorkspaceViewModel();
         vm.Open(root);
-        vm.CreateProgram("visa");
+        vm.CreateDemoProgram("visa");
         Assert.Equal("MOCK::INSTR0", vm.VisaAddress);
         vm.VisaAddress = "TCPIP0::1.2.3.4::INSTR";
         Assert.Equal("TCPIP0::1.2.3.4::INSTR", vm.VisaAddress);
@@ -106,9 +122,9 @@ public sealed class MetricEditorTests
         var root = EmptyWorkspace();
         var vm = new AuthoringWorkspaceViewModel();
         vm.Open(root);
-        vm.CreateProgram("repeat");
-        vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
-        vm.ApplyRecipe(AuthoringRecipeIds.Repeat);
+        vm.CreateDemoProgram("repeat");
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Acquire);
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Repeat);
         var repeat = Assert.IsType<RepeatNode>(Assert.Single(vm.SelectedProgram!.Measure));
         Assert.Equal(2, repeat.Count);
         Assert.Equal("VDC", Assert.IsType<MetricNode>(Assert.Single(repeat.Children)).Metric.ChannelKey);
@@ -121,8 +137,8 @@ public sealed class MetricEditorTests
         var root = EmptyWorkspace();
         var vm = new AuthoringWorkspaceViewModel();
         vm.Open(root);
-        vm.CreateProgram("series");
-        vm.ApplyRecipe(AuthoringRecipeIds.SeriesCompliance);
+        vm.InitializePlan(new("series") { Instruments = [] });
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.SeriesCompliance);
         Assert.Equal("1.1", vm.LimitLow);
         Assert.Equal("1.4", vm.LimitHigh);
         vm.Apply();
@@ -147,8 +163,8 @@ public sealed class MetricEditorTests
         var root = EmptyWorkspace();
         var vm = new AuthoringWorkspaceViewModel();
         vm.Open(root);
-        vm.CreateProgram("health");
-        vm.ApplyRecipe(AuthoringRecipeIds.StationHealth);
+        vm.InitializePlan(new("health") { Instruments = [] });
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.StationHealth);
         Assert.Equal(PresentationRoles.Scalar, vm.DisplayRole);
         vm.Apply();
 
@@ -169,7 +185,7 @@ public sealed class MetricEditorTests
     {
         var root = EmptyWorkspace();
         var xml = HangForeverXml();
-        var draft = AuthoringRecipeCatalog.CreateProgram("raw");
+        var draft = MockDmmDraftFixture.Create("raw");
         draft = draft with { Measure = [new RawStepNode(typeof(HangForeverStep).FullName!, xml)] };
         draft = AuthoringRecipeCatalog.Apply(draft, AuthoringRecipeIds.Repeat);
         new PlanCompiler().Save(draft, Path.Combine(root, "raw.TapPlan"));
@@ -199,9 +215,10 @@ public sealed class MetricEditorTests
         var root = EmptyWorkspace();
         var vm = new AuthoringWorkspaceViewModel();
         vm.Open(root);
-        vm.CreateProgram("saved");
-        vm.ApplyRecipe(AuthoringRecipeIds.MeanGte);
-        vm.CreateProgram("pending");
+        vm.CreateDemoProgram("saved");
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.MeanGte);
+        vm.InitializePlan(new("pending") { Instruments = [] });
+        vm.DisplayName += " edited";
         vm.SelectProgram("saved");
         vm.Apply();
 
@@ -209,6 +226,8 @@ public sealed class MetricEditorTests
         Assert.Contains(vm.Programs, p => p.PlanId == "pending");
         Assert.Equal("saved", vm.SelectedProgram?.PlanId);
         Assert.False(File.Exists(Path.Combine(root, "pending.TapPlan")));
+        Assert.True(File.Exists(new AuthoringDocumentStore(root).GetDocumentPath("pending")));
+        Assert.Equal("pending", Assert.Single(vm.DirtyPrograms).PlanId);
     }
 
     [Fact]
@@ -217,16 +236,16 @@ public sealed class MetricEditorTests
         var root = EmptyWorkspace();
         var vm = new AuthoringWorkspaceViewModel();
         vm.Open(root);
-        vm.CreateProgram("alpha");
-        vm.ApplyRecipe(AuthoringRecipeIds.MeanGte);
+        vm.CreateDemoProgram("alpha");
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.MeanGte);
         vm.Apply();
-        vm.CreateProgram("beta");
-        vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
+        vm.CreateDemoProgram("beta");
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Acquire);
         vm.Apply();
 
         vm.SelectProgram("alpha");
         vm.DisplayName = "dirty-alpha";
-        vm.ApplyRecipe(AuthoringRecipeIds.BandScalar);
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.BandScalar);
         vm.SelectProgram("beta");
         vm.Apply();
 
@@ -245,19 +264,19 @@ public sealed class MetricEditorTests
         var root = EmptyWorkspace();
         var vm = new AuthoringWorkspaceViewModel();
         vm.Open(root);
-        vm.CreateProgram("formula");
-        vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
-        vm.ApplyRecipe(AuthoringRecipeIds.Formula);
+        vm.CreateDemoProgram("formula");
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Acquire);
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Formula);
         Assert.Equal("mean(VDC)", vm.FormulaSource);
         Assert.True(string.IsNullOrWhiteSpace(vm.FormulaError), vm.FormulaError);
-        Assert.Equal("Will save as Mean GTE.", vm.FormulaSaveNote);
+        Assert.Equal("Will save as Channel Average.", vm.FormulaSaveNote);
         Assert.Equal(PresentationTileKind.Scalar, vm.Preview.TileKind);
         vm.FormulaSource = "fft(VDC)";
         Assert.Contains(AuthoringCompileCodes.FormulaParse, vm.FormulaError, StringComparison.Ordinal);
         Assert.True(string.IsNullOrWhiteSpace(vm.FormulaSaveNote), vm.FormulaSaveNote);
         vm.FormulaSource = "mean(VDC)";
         Assert.True(string.IsNullOrWhiteSpace(vm.FormulaError), vm.FormulaError);
-        Assert.Equal("Will save as Mean GTE.", vm.FormulaSaveNote);
+        Assert.Equal("Will save as Channel Average.", vm.FormulaSaveNote);
         vm.Apply();
         var reloaded = new AuthoringWorkspaceViewModel();
         reloaded.Open(root);
@@ -265,8 +284,13 @@ public sealed class MetricEditorTests
         Assert.Contains(
             AuthoringRecipeCatalog.EnumerateMetrics(reloaded.SelectedProgram!.Measure),
             metric => metric.ChannelKey == "VDC.mean"
-                      && metric.Source is AlgorithmSource algorithm
-                      && algorithm.AlgorithmId == AuthoringFunctionIds.BasicMeanGte);
+                      && metric.Source is ExpressionAlgorithm expression
+                      && expression.Source == "mean(VDC)");
+        Assert.False(reloaded.HasUncompiledSources);
+        var compiled = new PlanCompiler().Load(Path.Combine(root, "formula.TapPlan"));
+        Assert.Contains(AuthoringRecipeCatalog.EnumerateMetrics(compiled.Measure),
+            metric => metric.Source is AlgorithmSource algorithm && algorithm.AlgorithmId == AuthoringFunctionIds.BasicChannelAverage);
+        reloaded.StopRecovery(); vm.StopRecovery();
     }
 
     [Fact]
@@ -275,8 +299,8 @@ public sealed class MetricEditorTests
         var root = EmptyWorkspace();
         var vm = new AuthoringWorkspaceViewModel();
         vm.Open(root);
-        vm.CreateProgram("acquire");
-        vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
+        vm.CreateDemoProgram("acquire");
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Acquire);
         Assert.IsType<MeasureSource>(Assert.IsType<MetricNode>(Assert.Single(vm.SelectedProgram!.Measure)).Metric.Source);
         Assert.True(vm.PreviewChrome.IsChart);
         Assert.False(vm.PreviewChrome.IsGauge);
@@ -296,10 +320,10 @@ public sealed class MetricEditorTests
         var root = EmptyWorkspace();
         var vm = new AuthoringWorkspaceViewModel();
         vm.Open(root);
-        vm.CreateProgram("formula-ident");
-        vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
-        vm.ApplyRecipe(AuthoringRecipeIds.BandScalar);
-        vm.ApplyRecipe(AuthoringRecipeIds.Formula);
+        vm.CreateDemoProgram("formula-ident");
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Acquire);
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.BandScalar);
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Formula);
         Assert.Equal("mean(VDC)", vm.FormulaSource);
         Assert.NotEmpty(vm.Preview.CannedSamples);
 
@@ -316,22 +340,41 @@ public sealed class MetricEditorTests
     public void Selecting_recording_drives_formula_preview_from_samples()
     {
         var root = EmptyWorkspace();
-        var dest = Path.Combine(root, "recordings", "sample", "mean-vdc");
-        Directory.CreateDirectory(dest);
-        File.Copy(
-            Path.Combine(FindRepoRoot(), "tests", "fixtures", "authoring", "recordings", "sample", "mean-vdc", "run.json"),
-            Path.Combine(dest, "run.json"));
-
         var vm = new AuthoringWorkspaceViewModel();
-        vm.Open(root);
-        vm.CreateProgram("sample");
-        vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
-        vm.ApplyRecipe(AuthoringRecipeIds.Formula);
-        Assert.Contains("mean-vdc-1", vm.DatasetItems);
-        Assert.NotNull(vm.SelectedDataset);
-        Assert.Equal(2, vm.Preview.CannedValue);
-        Assert.Contains("Recording", vm.PreviewNote, StringComparison.Ordinal);
-        Assert.DoesNotContain("needs Area 11 filter", vm.PreviewNote, StringComparison.Ordinal);
+        try
+        {
+            var dest = Path.Combine(root, "recordings", "sample", "mean-vdc");
+            Directory.CreateDirectory(dest);
+            File.Copy(
+                Path.Combine(FindRepoRoot(), "tests", "fixtures", "authoring", "recordings", "sample", "mean-vdc", "run.json"),
+                Path.Combine(dest, "run.json"));
+
+            vm.Open(root);
+            vm.StopRecovery();
+            vm.CreateDemoProgram("sample");
+            vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Acquire);
+            vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Formula);
+            Assert.Contains("mean-vdc-1", vm.DatasetItems);
+            Assert.Null(vm.SelectedDataset);
+            Assert.StartsWith("Example data", vm.DataSourceDetails);
+            var exampleValue = vm.Preview.CannedValue;
+
+            vm.SelectDataset(0);
+
+            Assert.NotNull(vm.SelectedDataset);
+            Assert.Equal(new[] { 1d, 3d }, vm.SelectedDataset.Run.Samples.Select(sample => sample.Value));
+            Assert.Equal(2, vm.Preview.CannedValue);
+            Assert.Equal(vm.SelectedDataset.Run.Samples.Average(sample => sample.Value), vm.Preview.CannedValue);
+            Assert.NotEqual(exampleValue, vm.Preview.CannedValue);
+            Assert.StartsWith("Recording", vm.DataSourceDetails);
+            Assert.Contains("Recording", vm.PreviewNote, StringComparison.Ordinal);
+            Assert.DoesNotContain("needs Area 11 filter", vm.PreviewNote, StringComparison.Ordinal);
+        }
+        finally
+        {
+            vm.StopRecovery();
+            Directory.Delete(root, recursive: true);
+        }
     }
 
     [Fact]
@@ -340,9 +383,9 @@ public sealed class MetricEditorTests
         var root = EmptyWorkspace();
         var vm = new AuthoringWorkspaceViewModel();
         vm.Open(root);
-        vm.CreateProgram("tf-ui");
-        vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
-        vm.ApplyRecipe(AuthoringRecipeIds.TransferFunction);
+        vm.CreateDemoProgram("tf-ui");
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Acquire);
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.TransferFunction);
         Assert.Equal("VDC.filt", vm.ChannelKey);
         Assert.Equal("0.5 0.5", vm.TfNumerator);
         Assert.Equal("filter", vm.TfMethod);
@@ -356,7 +399,7 @@ public sealed class MetricEditorTests
         var root = EmptyWorkspace();
         var vm = new AuthoringWorkspaceViewModel();
         vm.Open(root);
-        vm.CreateProgram("tf-import");
+        vm.CreateDemoProgram("tf-import");
         vm.ImportTransferFunction(
             Path.Combine(FindRepoRoot(), "tests", "fixtures", "authoring", "tf", "model.valid.json"));
         Assert.Equal("VDC.filt", vm.ChannelKey);
@@ -414,7 +457,7 @@ public sealed class MetricEditorTests
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
         while (dir is not null)
         {
-            if (dir.EnumerateFiles("HardwareTest.slnx").Any())
+            if (dir.EnumerateFiles("dirs.proj").Any())
             {
                 return dir.FullName;
             }
@@ -423,6 +466,6 @@ public sealed class MetricEditorTests
         }
 
         throw new InvalidOperationException(
-            $"Could not locate HardwareTest.slnx above '{AppContext.BaseDirectory}'.");
+            $"Could not locate dirs.proj above '{AppContext.BaseDirectory}'.");
     }
 }

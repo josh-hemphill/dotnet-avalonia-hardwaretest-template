@@ -16,20 +16,21 @@ public sealed class SettingsViewModelTests
     {
         var store = new FakeSettingsStore();
         var vm = new SettingsViewModel(store, new FakeOpenTapSession())
-        { SmartCardSigningProviderMode = SmartCardSigningProviderMode.Pkcs11, Pkcs11LibraryPath = "explicit-module" };
+        { PhysicalSigningBackend = PhysicalSigningBackend.Windows, Pkcs11LibraryPath = "explicit-module" };
         await vm.SaveCommand.ExecuteAsync();
-        Assert.Equal(SmartCardSigningProviderMode.Pkcs11, store.AppSettings.SmartCardSigningProviderMode);
+        Assert.Equal(PhysicalSigningBackend.Windows, store.AppSettings.PhysicalSigningBackend);
         Assert.Equal("explicit-module", store.AppSettings.Pkcs11LibraryPath);
         store.Provenance =
         [
-            new SettingProvenance { Key = nameof(AppSettings.SmartCardSigningProviderMode), EffectiveValue = "Pkcs11", Source = SettingSource.Environment },
+            new SettingProvenance { Key = nameof(AppSettings.PhysicalSigningBackend), EffectiveValue = "Windows", Source = SettingSource.Environment },
             new SettingProvenance { Key = nameof(AppSettings.Pkcs11LibraryPath), EffectiveValue = "explicit-module", Source = SettingSource.CommandLine },
         ];
         var locked = new SettingsViewModel(store, new FakeOpenTapSession())
-        { SmartCardSigningProviderMode = SmartCardSigningProviderMode.Windows, Pkcs11LibraryPath = "changed-module" };
-        Assert.True(locked.SmartCardSigningProviderModeReadOnly); Assert.True(locked.Pkcs11LibraryPathReadOnly);
+        { PhysicalSigningBackend = PhysicalSigningBackend.Pkcs11, Pkcs11LibraryPath = "changed-module" };
+        Assert.True(locked.PhysicalSigningBackendReadOnly);
+        Assert.True(locked.Pkcs11LibraryPathReadOnly);
         await locked.SaveCommand.ExecuteAsync();
-        Assert.Equal(SmartCardSigningProviderMode.Pkcs11, store.AppSettings.SmartCardSigningProviderMode);
+        Assert.Equal(PhysicalSigningBackend.Windows, store.AppSettings.PhysicalSigningBackend);
         Assert.Equal("explicit-module", store.AppSettings.Pkcs11LibraryPath);
     }
 
@@ -37,10 +38,10 @@ public sealed class SettingsViewModelTests
     public async Task Signing_setup_check_reports_configuration_without_card_authentication()
     {
         var vm = new SettingsViewModel(new FakeSettingsStore(), new FakeOpenTapSession())
-        { SmartCardSigningProviderMode = SmartCardSigningProviderMode.Windows };
+        { Pkcs11LibraryPath = "missing-module-for-diagnostics" };
         await vm.CheckSigningSetupCommand.ExecuteAsync();
-        Assert.Contains("windows-store", vm.SigningSetupStatus);
-        Assert.Contains("Windows", vm.SigningSetupStatus);
+        Assert.Contains("module-load", vm.SigningSetupStatus);
+        Assert.Contains("Pkcs11", vm.SigningSetupStatus);
         Assert.DoesNotContain("serial", vm.SigningSetupStatus, StringComparison.OrdinalIgnoreCase);
     }
 

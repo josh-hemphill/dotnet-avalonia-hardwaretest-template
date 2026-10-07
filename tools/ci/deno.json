@@ -9,6 +9,7 @@
     "test:e2e": "deno run -A main.ts test:e2e",
     "test:arch": "deno run -A main.ts test:arch",
     "test:authoring-compat": "deno run -A main.ts test:authoring-compat",
+    "test:authoring-ui": "deno run -A main.ts test:authoring-ui",
     "coverage": "deno run -A main.ts coverage",
     "publish": "deno run -A main.ts publish",
     "verify": "deno run -A main.ts verify",
