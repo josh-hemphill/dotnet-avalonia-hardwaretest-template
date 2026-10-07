@@ -100,14 +100,6 @@ public sealed class TypstReportService : IReportService, IDisposable
         }
 
         ReportAttestationService.RequireReportWritable(run, dir);
-        var kindsToInvalidate = kinds
-            .Where(kind => ReportAttestationService.ResolveIssuedPdfPath(run, kind) is null)
-            .ToArray();
-        if (kindsToInvalidate.Length > 0)
-        {
-            ReportAttestationService.InvalidateForKinds(run, dir, kindsToInvalidate);
-        }
-
         var artifacts = new List<RunReportArtifact>();
         var now = DateTimeOffset.UtcNow;
         foreach (var item in compiled)

@@ -412,10 +412,6 @@ public sealed class ReportAttestationService : IReportAttestationService
         }
     }
 
-    /// Working regeneration preserves immutable issued reports and their evidence.
-    public static void InvalidateForKinds(TestRunRecord run, string runDirectory, IEnumerable<string> kinds)
-        => RequireReportWritable(run, runDirectory);
-
     public static ReportAttestation? Find(TestRunRecord run, string reportKind)
     {
         var artifact = ReportRevisions.Latest(run, reportKind);

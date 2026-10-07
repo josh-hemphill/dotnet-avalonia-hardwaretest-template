@@ -205,57 +205,6 @@ public sealed class ReportAttestationServiceTests
     }
 
     [Fact]
-    public async Task InvalidateForKinds_preserves_issued_history_for_regenerated_kind()
-    {
-        using var temp = new TempDataDirectory();
-        var store = new FileRunStore(temp.RunsDirectory);
-        var run = await SeedCertificationRunAsync(store);
-        var settings = new AppSettings
-        {
-            RequireAttestationBeforeExport = true,
-            AllowPresenceInLieuOfSigning = true,
-        };
-        var service = new ReportAttestationService(
-            new MockOperatorCredentialBroker(canSign: false),
-            store,
-            settings);
-        var attested = await service.AttestAsync(run, ReportKinds.Certification);
-        Assert.True(attested.Succeeded);
-        Assert.True(File.Exists(attested.Attestation!.SidecarPath));
-
-        ReportAttestationService.InvalidateForKinds(
-            run,
-            store.GetRunDirectory(run.RunId),
-            [ReportKinds.Certification]);
-
-        Assert.Single(run.Attestations);
-        Assert.True(File.Exists(attested.Attestation.SidecarPath));
-        Assert.True(service.HasValidAttestation(run, ReportKinds.Certification));
-    }
-
-    [Fact]
-    public async Task InvalidateForKinds_leaves_other_kinds_in_place()
-    {
-        using var temp = new TempDataDirectory();
-        var store = new FileRunStore(temp.RunsDirectory);
-        var run = await SeedCertificationRunAsync(store);
-        run.Attestations.Add(new ReportAttestation
-        {
-            Kind = AttestationKind.Presence,
-            ReportKind = ReportKinds.Status,
-            DisplayName = "Other",
-            Serial = "KEEP",
-            PdfSha256 = "abc",
-        });
-        ReportAttestationService.InvalidateForKinds(
-            run,
-            store.GetRunDirectory(run.RunId),
-            [ReportKinds.Certification]);
-        Assert.Single(run.Attestations);
-        Assert.Equal(ReportKinds.Status, run.Attestations[0].ReportKind);
-    }
-
-    [Fact]
     public async Task Attest_pin_required_then_signed_with_piv_rsa()
     {
         using var temp = new TempDataDirectory();

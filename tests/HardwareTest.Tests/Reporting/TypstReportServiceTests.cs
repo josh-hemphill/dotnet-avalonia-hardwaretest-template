@@ -513,11 +513,11 @@ public sealed class TypstReportServiceTests
         Assert.Single(run.Attestations);
         Assert.Empty(run.Reports);
         if (failure == "future")
-            Assert.Throws<SchemaReadOnlyException>(() => ReportAttestationService.InvalidateForKinds(run, dir, [ReportKinds.Status]));
+            Assert.Throws<SchemaReadOnlyException>(() => ReportAttestationService.RequireReportWritable(run, dir));
         else if (failure == "unsupported")
-            Assert.Throws<UnsupportedDocumentSchemaException>(() => ReportAttestationService.InvalidateForKinds(run, dir, [ReportKinds.Status]));
+            Assert.Throws<UnsupportedDocumentSchemaException>(() => ReportAttestationService.RequireReportWritable(run, dir));
         else
-            Assert.ThrowsAny<System.Text.Json.JsonException>(() => ReportAttestationService.InvalidateForKinds(run, dir, [ReportKinds.Status]));
+            Assert.ThrowsAny<System.Text.Json.JsonException>(() => ReportAttestationService.RequireReportWritable(run, dir));
         Assert.Single(run.Attestations);
         Assert.Equal("frozen stamp", await File.ReadAllTextAsync(sidecar));
     }

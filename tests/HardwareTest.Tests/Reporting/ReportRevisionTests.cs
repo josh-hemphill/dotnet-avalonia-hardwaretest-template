@@ -448,7 +448,8 @@ public sealed class ReportRevisionTests : IDisposable
         var run = await SeedAsync(store);
         var path = Path.Combine(store.GetRunDirectory(run.RunId), "run.json");
         var before = await File.ReadAllTextAsync(path);
-        await using var snapshot = AtomicFile.OpenReadSnapshot(path);
+        await using var snapshot = new FileStream(path, FileMode.Open, FileAccess.Read,
+            FileShare.Read | FileShare.Delete, 4096, FileOptions.Asynchronous);
         run.ErrorMessage = "new metadata";
         await store.SaveAsync(run);
         using var reader = new StreamReader(snapshot);
