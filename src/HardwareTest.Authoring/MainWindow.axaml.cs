@@ -2,6 +2,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
+using Avalonia.VisualTree;
 
 namespace HardwareTest.Authoring;
 
@@ -20,6 +21,7 @@ public partial class MainWindow : Window
         _viewModel = viewModel;
         InitializeComponent();
         DataContext = viewModel;
+        InitializeShell();
         InitializeLifecycle(lifecycleInteraction, workspacePicker);
         _viewModel.ConfigureRecoveryDispatch(action => Avalonia.Threading.Dispatcher.UIThread.Post(action));
         _viewModel.ConfigureOperations(CreateOperationRunner(),
@@ -27,13 +29,13 @@ public partial class MainWindow : Window
         Closed += (_, _) => { _viewModel.StopRecovery(); _viewModel.StopOperations(); };
     }
 
-    private void OnAcceptRecovery(object? sender, RoutedEventArgs e)
+    internal void OnAcceptRecovery(object? sender, RoutedEventArgs e)
         => TryRun(() => { if (_viewModel.SelectedRecoveryPlanId is { } id) _viewModel.AcceptRecovery(id); });
-    private void OnDiscardRecovery(object? sender, RoutedEventArgs e)
+    internal void OnDiscardRecovery(object? sender, RoutedEventArgs e)
         => TryRun(() => { if (_viewModel.SelectedRecoveryPlanId is { } id) _viewModel.DiscardRecovery(id); });
-    private void OnImportCompiled(object? sender, RoutedEventArgs e)
+    internal void OnImportCompiled(object? sender, RoutedEventArgs e)
         => TryRun(() => { if (_viewModel.SelectedProgram is { } p) _viewModel.ReconcileCompiled(p.PlanId, true); });
-    private void OnRetainSource(object? sender, RoutedEventArgs e)
+    internal void OnRetainSource(object? sender, RoutedEventArgs e)
         => TryRun(() => { if (_viewModel.SelectedProgram is { } p) _viewModel.ReconcileCompiled(p.PlanId, false); });
 
     private async void OnOpenWorkspace(object? sender, RoutedEventArgs e)
@@ -85,16 +87,16 @@ public partial class MainWindow : Window
         TryRun(() => _viewModel.Apply());
     }
 
-    private void OnCreateProgram(object? sender, RoutedEventArgs e)
+    internal void OnCreateProgram(object? sender, RoutedEventArgs e)
         => TryRun(() => _viewModel.CreateProgram());
 
-    private async void OnRemoveProgram(object? sender, RoutedEventArgs e)
+    internal async void OnRemoveProgram(object? sender, RoutedEventArgs e)
         => await ConfirmRemoveProgramAsync();
 
-    private void OnAddRecipe(object? sender, RoutedEventArgs e)
+    internal void OnAddRecipe(object? sender, RoutedEventArgs e)
         => TryRun(() => _viewModel.ApplySelectedRecipe());
 
-    private void OnToggleCleanupSlot(object? sender, RoutedEventArgs e)
+    internal void OnToggleCleanupSlot(object? sender, RoutedEventArgs e)
     {
         if (sender is not CheckBox { DataContext: AuthoringCatalogToggle row } box)
         {
@@ -104,7 +106,7 @@ public partial class MainWindow : Window
         TryRun(() => _viewModel.SetCleanupSlotIncluded(row.Id, box.IsChecked == true));
     }
 
-    private void OnMetricSettingLostFocus(object? sender, RoutedEventArgs e)
+    internal void OnMetricSettingLostFocus(object? sender, RoutedEventArgs e)
     {
         if (sender is TextBox { DataContext: AuthoringSettingRow row } box)
         {
@@ -124,7 +126,7 @@ public partial class MainWindow : Window
         }
     }
 
-    private void OnMetricSettingBoolChanged(object? sender, RoutedEventArgs e)
+    internal void OnMetricSettingBoolChanged(object? sender, RoutedEventArgs e)
     {
         if (sender is not CheckBox { DataContext: AuthoringSettingRow row } box)
         {
@@ -134,7 +136,7 @@ public partial class MainWindow : Window
         TryRun(() => _viewModel.SetMetricSettingBool(row.Key, box.IsChecked == true));
     }
 
-    private void OnMetricSettingChoiceChanged(object? sender, SelectionChangedEventArgs e)
+    internal void OnMetricSettingChoiceChanged(object? sender, SelectionChangedEventArgs e)
     {
         if (sender is ComboBox { DataContext: AuthoringSettingRow row } box
             && box.SelectedItem is string selected)
@@ -143,7 +145,7 @@ public partial class MainWindow : Window
         }
     }
 
-    private void OnMetricSettingNumberChanged(object? sender, NumericUpDownValueChangedEventArgs e)
+    internal void OnMetricSettingNumberChanged(object? sender, NumericUpDownValueChangedEventArgs e)
     {
         if (sender is NumericUpDown { DataContext: AuthoringSettingRow row })
         {
@@ -151,10 +153,10 @@ public partial class MainWindow : Window
         }
     }
 
-    private void OnRemoveSequence(object? sender, RoutedEventArgs e)
+    internal void OnRemoveSequence(object? sender, RoutedEventArgs e)
         => TryRun(_viewModel.RemoveSelectedSequence);
 
-    private void OnSequenceKeyDown(object? sender, KeyEventArgs e)
+    internal void OnSequenceKeyDown(object? sender, KeyEventArgs e)
     {
         if (e.Key != Key.Delete || !_viewModel.CanRemoveSelectedSequence)
         {
@@ -165,7 +167,7 @@ public partial class MainWindow : Window
         e.Handled = true;
     }
 
-    private async void OnProgramsKeyDown(object? sender, KeyEventArgs e)
+    internal async void OnProgramsKeyDown(object? sender, KeyEventArgs e)
     {
         if (e.Key != Key.Delete || !_viewModel.CanRemoveSelectedProgram)
         {
@@ -176,7 +178,7 @@ public partial class MainWindow : Window
         await ConfirmRemoveProgramAsync();
     }
 
-    private async void OnImportTransferFunction(object? sender, RoutedEventArgs e)
+    internal async void OnImportTransferFunction(object? sender, RoutedEventArgs e)
     {
         var files = await StorageProvider.OpenFilePickerAsync(
             new FilePickerOpenOptions
@@ -200,10 +202,10 @@ public partial class MainWindow : Window
         TryRun(() => _viewModel.ImportTransferFunction(path));
     }
 
-    private async void OnOpenLastWorkspace(object? sender, RoutedEventArgs e)
+    internal async void OnOpenLastWorkspace(object? sender, RoutedEventArgs e)
         => await OpenWorkspaceAsync(_viewModel.LastWorkspacePath);
 
-    private void OnOpenFindingProgram(object? sender, RoutedEventArgs e)
+    internal void OnOpenFindingProgram(object? sender, RoutedEventArgs e)
     {
         if (sender is not Button { DataContext: AuthoringFindingRow { CanOpenProgram: true } row })
         {
@@ -233,24 +235,24 @@ public partial class MainWindow : Window
         _settings.Show(this);
     }
 
-    private void OnFormulaCaretChanged(object? sender, RoutedEventArgs e) => SyncFormulaCaret();
+    internal void OnFormulaCaretChanged(object? sender, RoutedEventArgs e) => SyncFormulaCaret();
 
     private void SyncFormulaCaret()
     {
-        if (this.FindControl<TextBox>("FormulaBox") is { } box)
+        if (this.GetVisualDescendants().OfType<TextBox>().FirstOrDefault(box => box.Name == "FormulaBox") is { } box)
         {
             _viewModel.RefreshFormulaCompletions(box.CaretIndex);
         }
     }
 
-    private void OnFormulaChip(object? sender, RoutedEventArgs e)
+    internal void OnFormulaChip(object? sender, RoutedEventArgs e)
     {
         if (sender is not Button { Tag: string token } || string.IsNullOrWhiteSpace(token))
         {
             return;
         }
 
-        var box = this.FindControl<TextBox>("FormulaBox");
+        var box = this.GetVisualDescendants().OfType<TextBox>().FirstOrDefault(box => box.Name == "FormulaBox");
         var caret = box?.CaretIndex ?? _viewModel.FormulaSource.Length;
         var next = _viewModel.ApplyFormulaCompletion(token, caret);
         if (box is not null)
@@ -262,7 +264,7 @@ public partial class MainWindow : Window
         _viewModel.RefreshFormulaCompletions(next);
     }
 
-    private async void OnPack(object? sender, RoutedEventArgs e)
+    internal async void OnPack(object? sender, RoutedEventArgs e)
     {
         var folders = await StorageProvider.OpenFolderPickerAsync(
             new FolderPickerOpenOptions

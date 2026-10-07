@@ -1,3 +1,4 @@
+using System.Xml.Linq;
 using HardwareTest.Authoring;
 using Xunit;
 
@@ -8,14 +9,35 @@ public sealed class AuthoringChromeA11yTests
     [Fact]
     public void Program_window_has_sequence_inspector_preview_and_list_tab_once()
     {
-        var xaml = File.ReadAllText(Path.Combine(FindRepoRoot(), "src", "HardwareTest.Authoring", "MainWindow.axaml"));
+        var sourceRoot = Path.Combine(FindRepoRoot(), "src", "HardwareTest.Authoring");
+        var shell = File.ReadAllText(Path.Combine(sourceRoot, "MainWindow.axaml"));
+        string[] viewNames = ["ProgramsRailView", "SequenceEditorView", "SelectedStepInspectorView",
+            "WorkspaceIssuesView", "WorkspaceEnvironmentView", "WorkspaceBuildView", "WorkspacePreviewView"];
+        var views = viewNames.ToDictionary(name => name, name => File.ReadAllText(Path.Combine(sourceRoot, name + ".axaml")));
+        // Inspect the actual composed surface, including the single preview constructed and moved by the shell.
+        var xaml = string.Join(Environment.NewLine, new[] { shell }.Concat(views.Values));
+        var shellDocument = XDocument.Parse(shell);
+        foreach (var view in viewNames.Where(name => name != "WorkspacePreviewView"))
+            Assert.Single(shellDocument.Descendants(), element => element.Name.LocalName == view);
+        Assert.Single(shellDocument.Descendants(), element => element.Name.LocalName == "ProgramSettingsView");
+        Assert.Single(XDocument.Parse(views["WorkspacePreviewView"]).Descendants(), element => element.Name.LocalName == "OperatorPreviewPane");
+        Assert.DoesNotContain(shellDocument.Descendants(), element => element.Name.LocalName == "OperatorPreviewPane");
+        Assert.Equal(new[] { "Program", "Hardware", "Issues", "Environment", "Build", "Preview" },
+            shellDocument.Descendants().Where(element => element.Name.LocalName == "TabItem").Select(element => (string?)element.Attribute("Header")));
+        var shellCode = File.ReadAllText(Path.Combine(sourceRoot, "MainWindow.Shell.cs"));
+        Assert.Equal(1, CountOccurrences(shellCode, "WorkspacePreviewView _previewView = new()"));
+        Assert.Contains("_previewView.DataContext = _viewModel", shellCode, StringComparison.Ordinal);
+        Assert.Contains("previous.Content = null", shellCode, StringComparison.Ordinal);
+        Assert.Contains("destination.Content = _previewView", shellCode, StringComparison.Ordinal);
+        Assert.Contains("AutomationProperties.SetName(this, \"Operator preview chrome\")",
+            File.ReadAllText(Path.Combine(sourceRoot, "OperatorPreviewPane.cs")), StringComparison.Ordinal);
         Assert.DoesNotContain("TreeView", xaml, StringComparison.Ordinal);
         Assert.Contains("Text=\"{Binding SequenceTitle}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Text=\"{Binding InspectorTitle}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Text=\"{Binding PreviewTitle}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("<vm:OperatorPreviewPane", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("AutomationProperties.Name=\"Preview samples\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("Header=\"{Binding ProgramSettingsTitle}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Header=\"Hardware\" AutomationProperties.Name=\"Program settings tab\"", shell, StringComparison.Ordinal);
         Assert.Contains("<vm:ProgramSettingsView", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("AutomationProperties.Name=\"Settings tab\"", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("<vm:SettingsView", xaml, StringComparison.Ordinal);
@@ -24,6 +46,9 @@ public sealed class AuthoringChromeA11yTests
         Assert.Contains("IsVisible=\"{Binding ShowCatalogFormulaCompletions}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("SelectedItem=\"{Binding SelectedProgramRow}\"", xaml, StringComparison.Ordinal);
         var programSettings = File.ReadAllText(Path.Combine(FindRepoRoot(), "src", "HardwareTest.Authoring", "ProgramSettingsView.axaml"));
+        var hardwareHeading = Assert.Single(XDocument.Parse(programSettings).Descendants(),
+            element => element.Name.LocalName == "TextBlock" && (string?)element.Attribute("Text") == "{Binding ProgramSettingsTitle}");
+        Assert.Equal("2", (string?)hardwareHeading.Attribute("AutomationProperties.HeadingLevel"));
         Assert.Contains("SelectedItem=\"{Binding SelectedInstrument}\"", programSettings, StringComparison.Ordinal);
         Assert.Contains("Identity &amp; DUT", programSettings, StringComparison.Ordinal);
         Assert.Contains("Operator session", programSettings, StringComparison.Ordinal);
@@ -100,7 +125,11 @@ public sealed class AuthoringChromeA11yTests
         Assert.Contains("AuthoringInspectorCopy.HistoryWatchPlaceholder", xaml, StringComparison.Ordinal);
         Assert.Contains("ItemsSource=\"{Binding MetricSettingRows}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Text=\"{Binding Label}\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("Grid.Column=\"0\" Text=\"{Binding Label}\"", xaml, StringComparison.Ordinal);
+        var settingLabel = Assert.Single(XDocument.Parse(views["SelectedStepInspectorView"]).Descendants(),
+            element => element.Name.LocalName == "TextBlock" && (string?)element.Attribute("Text") == "{Binding Label}");
+        Assert.Equal("0", (string?)settingLabel.Attribute("Grid.Row"));
+        Assert.Equal("Auto,Auto", (string?)settingLabel.Parent!.Attribute("RowDefinitions"));
+        Assert.Single(settingLabel.Parent.Elements(), element => (string?)element.Attribute("Grid.Row") == "1");
         Assert.Contains("Text=\"{Binding Summary}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Text=\"{Binding Value, Mode=OneWay}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("IsVisible=\"{Binding IsBoolean}\"", xaml, StringComparison.Ordinal);
@@ -137,14 +166,40 @@ public sealed class AuthoringChromeA11yTests
             "ItemsSource=\"{Binding SequenceItems}\"",
             xaml,
             StringComparison.Ordinal);
-        var sequenceBlock = SliceAfter(xaml, "ItemsSource=\"{Binding SequenceItems}\"");
-        Assert.Contains("KeyboardNavigation.TabNavigation=\"Once\"", sequenceBlock, StringComparison.Ordinal);
-        var instrumentsBlock = SliceAfter(programSettings, "ItemsSource=\"{Binding Instruments}\"");
-        Assert.Contains("KeyboardNavigation.TabNavigation=\"Once\"", instrumentsBlock, StringComparison.Ordinal);
-        Assert.Equal(
-            5,
-            CountOccurrences(xaml, "KeyboardNavigation.TabNavigation=\"Once\"")
-            + CountOccurrences(programSettings, "KeyboardNavigation.TabNavigation=\"Once\""));
+        var documents = new[] { shell, programSettings }.Concat(views.Values).Select(XDocument.Parse).ToArray();
+        var lists = documents.SelectMany(document => document.Descendants()).Where(element => element.Name.LocalName == "ListBox").ToArray();
+        string[] listSources = ["{Binding ProgramRows}", "{Binding SequenceItems}", "{Binding FindingRows}",
+            "{Binding DatasetItems}", "{Binding Instruments}"];
+        Assert.Equal(listSources.Length, lists.Length);
+        foreach (var source in listSources)
+        {
+            var list = Assert.Single(lists, element => (string?)element.Attribute("ItemsSource") == source);
+            Assert.Equal("Once", (string?)list.Attribute("KeyboardNavigation.TabNavigation"));
+            Assert.False(string.IsNullOrWhiteSpace((string?)list.Attribute("AutomationProperties.Name")));
+        }
+        Assert.Equal(lists.Length, lists.Select(element => (string?)element.Attribute("AutomationProperties.Name")).Distinct().Count());
+        foreach (var document in documents)
+        {
+            var names = document.Descendants().Attributes(XName.Get("Name", "http://schemas.microsoft.com/winfx/2006/xaml")).Select(attribute => attribute.Value).ToArray();
+            foreach (var label in document.Descendants().Attributes("AutomationProperties.LabeledBy"))
+            {
+                Assert.StartsWith("{Binding #", label.Value, StringComparison.Ordinal);
+                var name = label.Value["{Binding #".Length..^1];
+                Assert.Single(names, candidate => candidate == name);
+            }
+        }
+        foreach (var view in viewNames.Where(name => name != "WorkspacePreviewView"))
+        {
+            var viewCode = File.ReadAllText(Path.Combine(sourceRoot, view + ".axaml.cs"));
+            foreach (var handler in XDocument.Parse(views[view]).Descendants().Attributes()
+                .Where(attribute => attribute.Name.LocalName is "Click" or "KeyDown" or "LostFocus" or "SelectionChanged" or "ValueChanged" or "TextChanged" or "KeyUp" or "PointerReleased" or "GotFocus")
+                .Select(attribute => attribute.Value).Distinct())
+            {
+                Assert.Contains("private void " + handler, viewCode, StringComparison.Ordinal);
+                Assert.Contains("?." + handler + "(sender, e)", viewCode, StringComparison.Ordinal);
+                Assert.Contains(handler, code, StringComparison.Ordinal);
+            }
+        }
     }
 
     [Fact]
@@ -187,13 +242,6 @@ public sealed class AuthoringChromeA11yTests
         Assert.DoesNotContain("ISettingsStore", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("HardwareTest.Core.Settings", csproj, StringComparison.Ordinal);
         Assert.DoesNotContain("HardwareTest\\\\HardwareTest.csproj", csproj, StringComparison.Ordinal);
-    }
-
-    private static string SliceAfter(string text, string marker)
-    {
-        var index = text.IndexOf(marker, StringComparison.Ordinal);
-        Assert.True(index >= 0, marker);
-        return text[index..Math.Min(text.Length, index + 600)];
     }
 
     private static int CountOccurrences(string text, string token)

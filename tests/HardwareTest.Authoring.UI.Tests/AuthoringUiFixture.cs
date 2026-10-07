@@ -112,7 +112,32 @@ internal sealed class AuthoringUiFixture : IDisposable
             Assert.False(Window.IsVisible);
         }
 
-        Directory.Delete(_root, recursive: true);
+        // Closing invalidates recovery writes, but an obsolete writer can still be releasing
+        // its private temporary file. Wait for actual fixture removal without blocking UI jobs.
+        var cleanupFrame = new DispatcherFrame();
+        async Task RemoveAndStopFrameAsync()
+        {
+            try { await Task.Run(RemoveFixtureAsync); }
+            finally { cleanupFrame.Continue = false; }
+        }
+        var cleanup = RemoveAndStopFrameAsync();
+        if (!cleanup.IsCompleted) Dispatcher.UIThread.PushFrame(cleanupFrame);
+        cleanup.GetAwaiter().GetResult();
+    }
+
+    private async Task RemoveFixtureAsync()
+    {
+        var elapsed = System.Diagnostics.Stopwatch.StartNew();
+        while (true)
+        {
+            try { Directory.Delete(_root, recursive: true); return; }
+            catch (DirectoryNotFoundException) { return; }
+            catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+            {
+                if (elapsed.Elapsed >= TimeSpan.FromSeconds(5)) throw;
+                await Task.Delay(20).ConfigureAwait(false);
+            }
+        }
     }
     private async Task CloseWindowAsync()
     {

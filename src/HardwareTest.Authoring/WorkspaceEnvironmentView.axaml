@@ -1,0 +1,48 @@
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:HardwareTest.Authoring" xmlns:host="using:HardwareTest.OpenTap.Host"
+    x:Class="HardwareTest.Authoring.WorkspaceEnvironmentView" x:DataType="vm:AuthoringWorkspaceViewModel">
+  <ScrollViewer>
+    <StackPanel Spacing="8" Margin="0,8,16,0">
+      <Expander Header="Draft recovery and reconciliation" AutomationProperties.Name="Draft recovery">
+        <StackPanel Spacing="4">
+          <TextBlock Text="{Binding DraftStateSummary}" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite"/>
+          <WrapPanel Orientation="Horizontal">
+            <ComboBox ItemsSource="{Binding RecoverableProgramIds}" SelectedItem="{Binding SelectedRecoveryPlanId}"
+                MinWidth="100" AutomationProperties.Name="Recovery program"/>
+            <Button Content="Recover selected draft" Click="OnAcceptRecovery" Classes="authoringAction"/>
+            <Button Content="Discard selected recovery" Click="OnDiscardRecovery" Classes="authoringAction"/>
+            <Button Content="Import external compiled edits" Click="OnImportCompiled" Classes="authoringAction"/>
+            <Button Content="Retain source for export" Click="OnRetainSource" Classes="authoringAction"/>
+          </WrapPanel>
+        </StackPanel>
+      </Expander>
+      <TextBlock Text="{Binding Workspace.Root}" TextWrapping="Wrap"/>
+      <TextBlock Text="{Binding Workspace.Manifest.DisplayName}" TextWrapping="Wrap"/>
+      <TextBlock
+          Text="Open a folder containing authoring.json. Save draft preserves incomplete edits; ready plans also export compiled files."
+          TextWrapping="Wrap"/>
+      <TextBlock FontWeight="SemiBold" Text="Declared plugins" TextWrapping="Wrap"/>
+      <TextBlock Opacity="0.8" TextWrapping="Wrap" IsVisible="{Binding !HasDeclaredPlugins}"
+          Text="No pluginProjects in authoring.json. Extra TapPackages would copy into dist on Pack."/>
+      <ItemsControl ItemsSource="{Binding PackPreview.PluginProjects}"
+          AutomationProperties.Name="Declared plugin projects">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="vm:PackDeclaredProjectLine">
+            <TextBlock TextWrapping="Wrap" Text="{Binding DisplayText}"/>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+      <TextBlock FontWeight="SemiBold" Text="Declared shell apps (bake-time)" TextWrapping="Wrap"/>
+      <TextBlock Opacity="0.8" TextWrapping="Wrap" IsVisible="{Binding !HasDeclaredShellApps}"
+          Text="No shellAppProjects in authoring.json. Pack would publish each csproj into dist/shell-apps/{id} and label it bake-time."/>
+      <ItemsControl ItemsSource="{Binding PackPreview.ShellAppProjects}"
+          AutomationProperties.Name="Declared shell-app projects">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="vm:PackDeclaredProjectLine">
+            <TextBlock TextWrapping="Wrap" Text="{Binding DisplayText}"/>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

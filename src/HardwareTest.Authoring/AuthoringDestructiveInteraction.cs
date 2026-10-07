@@ -64,6 +64,7 @@ public sealed class AuthoringDestructiveInteraction(Window owner)
             Title = operation,
             Width = Math.Min(560, Math.Max(360, owner.ClientSize.Width - 80)),
             Height = Math.Min(480, Math.Max(240, owner.ClientSize.Height - 80)),
+            FontSize = owner.FontSize,
             CanResize = false,
             WindowStartupLocation = WindowStartupLocation.CenterOwner,
         };
@@ -82,7 +83,7 @@ public sealed class AuthoringDestructiveInteraction(Window owner)
         AutomationProperties.SetName(scroll, "Destructive operation scope and impact");
         var heading = new TextBlock { Text = operation, TextWrapping = TextWrapping.Wrap, MaxHeight = 64, TextTrimming = TextTrimming.CharacterEllipsis, FontWeight = FontWeight.SemiBold };
         AutomationProperties.SetHeadingLevel(heading, 2);
-        var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, HorizontalAlignment = HorizontalAlignment.Right, Children = { cancel, confirm } };
+        var buttons = AuthoringProtectionLayout.Decisions(cancel, confirm);
         var layout = new Grid { RowDefinitions = new RowDefinitions("Auto,*,Auto"), Margin = new Thickness(20) };
         Grid.SetRow(scroll, 1); Grid.SetRow(buttons, 2);
         layout.Children.Add(heading); layout.Children.Add(scroll); layout.Children.Add(buttons);
