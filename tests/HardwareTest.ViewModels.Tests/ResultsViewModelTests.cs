@@ -412,6 +412,24 @@ public sealed class ResultsViewModelTests
         var pdf = Path.Combine(store.GetRunDirectory("cert-shown"), "certification.pdf");
         Directory.CreateDirectory(Path.GetDirectoryName(pdf)!);
         await File.WriteAllBytesAsync(pdf, "%PDF-1.4"u8.ToArray());
+        var issuedPdf = Path.Combine(store.GetRunDirectory("cert-shown"), ReportArtifactRoles.DirectoryName,
+            $"certification-{Guid.NewGuid():N}.pdf");
+        Directory.CreateDirectory(Path.GetDirectoryName(issuedPdf)!);
+        var issuedBytes = "%PDF-1.4 issued certification"u8.ToArray();
+        await File.WriteAllBytesAsync(issuedPdf, issuedBytes);
+        var attestation = new ReportAttestation
+        {
+            Kind = AttestationKind.Signed,
+            ReportKind = ReportKinds.Certification,
+            DisplayName = "Jane Certifier",
+            Serial = "CARD-1",
+            Transport = CredentialTransport.Contact,
+            CapturedAt = new DateTimeOffset(2026, 9, 18, 12, 0, 0, TimeSpan.Zero),
+            SidecarPath = Path.ChangeExtension(issuedPdf, ".attestation.json"),
+            PdfSha256 = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(issuedBytes)),
+        };
+        await File.WriteAllTextAsync(attestation.SidecarPath!, System.Text.Json.JsonSerializer.Serialize(
+            new ReportAttestationSidecar { Attestation = attestation }, AppJsonContext.Default.ReportAttestationSidecar));
         store.Seed(new TestRunRecord
         {
             SchemaVersion = SchemaVersions.TestRunRecord,
@@ -430,19 +448,16 @@ public sealed class ResultsViewModelTests
                     PdfPath = pdf,
                     GeneratedAt = DateTimeOffset.UtcNow,
                 },
-            ],
-            Attestations =
-            [
-                new ReportAttestation
+                new RunReportArtifact
                 {
-                    Kind = AttestationKind.Signed,
-                    ReportKind = ReportKinds.Certification,
-                    DisplayName = "Jane Certifier",
-                    Serial = "CARD-1",
-                    Transport = CredentialTransport.Contact,
-                    CapturedAt = new DateTimeOffset(2026, 9, 18, 12, 0, 0, TimeSpan.Zero),
+                    Role = ReportArtifactRoles.Issued,
+                    Kind = ReportKinds.Certification,
+                    Title = "Issued Certification Report",
+                    PdfPath = issuedPdf,
+                    GeneratedAt = DateTimeOffset.UtcNow,
                 },
             ],
+            Attestations = [attestation],
         });
         var vm = new ResultsViewModel(store, new FakeReportService());
         await vm.RefreshCommand.ExecuteAsync();

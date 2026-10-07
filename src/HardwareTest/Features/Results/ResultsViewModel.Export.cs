@@ -169,7 +169,8 @@ public partial class ResultsViewModel
                      .Where(r => !string.IsNullOrWhiteSpace(r.PdfPath) && File.Exists(r.PdfPath))
                      .GroupBy(r => r.Kind, StringComparer.OrdinalIgnoreCase))
         {
-            var issued = group.FirstOrDefault(r => ReportArtifactRoles.IsIssued(r.Role));
+            var issuedPath = ReportAttestationService.ResolveIssuedPdfPath(run, group.Key);
+            var issued = group.FirstOrDefault(r => string.Equals(r.PdfPath, issuedPath, StringComparison.OrdinalIgnoreCase));
             var working = group.FirstOrDefault(r => ReportArtifactRoles.IsWorking(r.Role));
             var kind = (issued ?? working ?? group.First()).Kind;
             if (issued is not null)

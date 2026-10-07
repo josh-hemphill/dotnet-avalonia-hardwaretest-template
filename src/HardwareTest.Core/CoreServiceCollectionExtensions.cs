@@ -66,13 +66,16 @@ public static class CoreServiceCollectionExtensions
         services.AddSingleton<IVisaSessionFactory>(sp => sp.GetRequiredService<VisaModeController>());
         services.AddSingleton<IVisaBroker>(sp => sp.GetRequiredService<VisaModeController>());
         services.AddSingleton<IVisaResourceDiscovery>(sp => sp.GetRequiredService<VisaModeController>());
+        services.AddSingleton<IOperatorCredentialPresenceBroker>(sp =>
+            new PcscOperatorCredentialBroker(sp.GetRequiredService<IClock>()));
         services.AddSingleton<IOperatorCredentialBroker>(sp =>
             new SettingsBackedCredentialBroker(
                 settingsStore.AppSettings,
                 new MockOperatorCredentialBroker(sp.GetRequiredService<IClock>()),
                 new Pkcs11OperatorCredentialBroker(
                     settingsStore.AppSettings,
-                    sp.GetRequiredService<IClock>())));
+                    sp.GetRequiredService<IClock>(),
+                    sp.GetRequiredService<IOperatorCredentialPresenceBroker>())));
         services.AddSingleton<IReportService>(sp =>
             new TypstReportService(
                 sp.GetRequiredService<IRunStore>(),
