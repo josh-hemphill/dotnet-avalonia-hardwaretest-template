@@ -15,6 +15,7 @@ public sealed class MockVisaSession : IVisaSession
         _responses = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
             ["*IDN?"] = "MOCK,HardwareTestDemo,SN-0001,1.0",
+            ["*OPC?"] = "1",
             ["SYST:ERR?"] = "0,\"No error\"",
         };
 

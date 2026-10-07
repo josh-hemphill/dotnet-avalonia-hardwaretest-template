@@ -1,7 +1,19 @@
 namespace HardwareTest.Core.Credentials;
 
-/// Cross-platform chip (contact) and tap (contactless) credential capture.
-public interface IOperatorCredentialBroker
+/// Public chip/tap identity capture, with no private-key operations.
+public interface IOperatorCredentialPresenceBroker
+{
+    /// Operator-facing reader status (no reader, waiting, mock, …).
+    string StatusText { get; }
+
+    /// Waits for a chip insert or contactless tap and reads identity.
+    Task<CredentialCaptureResult> WaitForPresenceAsync(
+        TimeSpan timeout,
+        CancellationToken cancellationToken = default);
+}
+
+/// Current mock payload signing or physical PKCS11 probe and embedded-PDF signing.
+public interface IOperatorCredentialBroker : IOperatorCredentialPresenceBroker
 {
     /// True when this broker is the in-process mock (CI / no reader).
     bool IsMock { get; }
@@ -12,32 +24,16 @@ public interface IOperatorCredentialBroker
     /// Algorithm id written on signed sidecars when the broker uses a fixed algorithm.
     string? SigningAlgorithm { get; }
 
-    /// True when TrySignDocumentAsync returns a CMS/PKCS#7 (PAdES) rather than a raw payload MAC.
-    bool ProducesCms => false;
+    /// True when the active physical broker signs complete PDFs through iText.
+    bool CanSignPdf => false;
 
-    /// Operator-facing reader status (no reader, waiting, mock, …).
-    string StatusText { get; }
-
-    /// Waits for a chip insert or contactless tap and reads identity.
-    Task<CredentialCaptureResult> WaitForPresenceAsync(
-        TimeSpan timeout,
-        CancellationToken cancellationToken = default);
-
-    /// Signs payload with the presented credential. PIN is used only for this call and is not stored.
+    /// Mock HMAC signing or a physical PIN/capability probe; never a detached physical report signature.
+    /// PIN is used only for this call and is not stored.
     Task<CredentialSignResult> TrySignPayloadAsync(
         byte[] payload,
         OperatorCredential credential,
         string? pin = null,
         CancellationToken cancellationToken = default);
-
-    /// CMS/PKCS#7 detached signature over document bytes (PAdES ByteRange). PIN is not stored.
-    Task<CredentialSignResult> TrySignDocumentAsync(
-        byte[] document,
-        OperatorCredential credential,
-        string? pin = null,
-        DateTimeOffset? signingTime = null,
-        CancellationToken cancellationToken = default)
-        => TrySignPayloadAsync(document, credential, pin, cancellationToken);
 }
 
 /// Hardware-backed broker that lets the PDF library construct and embed a complete PAdES signature.

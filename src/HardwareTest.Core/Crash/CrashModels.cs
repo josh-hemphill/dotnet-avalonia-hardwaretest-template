@@ -1,3 +1,5 @@
+using HardwareTest.Core.Serialization;
+
 namespace HardwareTest.Core.Crash;
 
 public enum SafeStopOutcome
@@ -19,7 +21,7 @@ public sealed class CrashExceptionFrame
 /// Primary crash.json document (schema-versioned, offline).
 public sealed class CrashReportDocument
 {
-    public int SchemaVersion { get; set; } = 1;
+    public int SchemaVersion { get; set; } = SchemaVersions.CrashReport;
     public string DossierId { get; set; } = string.Empty;
     public DateTimeOffset CapturedAtUtc { get; set; }
     public bool IsFatal { get; set; }

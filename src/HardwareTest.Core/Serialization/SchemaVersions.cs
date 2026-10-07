@@ -5,13 +5,13 @@ public static class SchemaVersions
 {
     public const int AppSettings = 1;
     public const int UiState = 1;
-    public const int TestRunRecord = 5;
+    public const int TestRunRecord = 4;
     public const int SuiteRunRecord = 1;
     public const int CrashReport = 1;
     public const int StationHealthRecord = 1;
 }
 
-/// Stable document-type keys for upgrade registration and log messages.
+/// Stable document-type keys for schema validation and diagnostics.
 public static class SchemaDocumentTypes
 {
     public const string AppSettings = "AppSettings";

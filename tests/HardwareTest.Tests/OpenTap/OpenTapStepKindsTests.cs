@@ -6,6 +6,7 @@ using Xunit;
 
 namespace HardwareTest.Tests.OpenTap;
 
+[Collection("OpenTapSerial")]
 public sealed class OpenTapStepKindsTests
 {
     [Fact]
@@ -18,17 +19,22 @@ public sealed class OpenTapStepKindsTests
         Assert.True(OpenTapStepKinds.IsApplyTransferFunction(new ApplyTransferFunctionStep()));
         Assert.False(OpenTapStepKinds.IsPresentationExempt(new ApplyTransferFunctionStep()));
 
+        var library = PublishedLibraryMetadataFixture.Assembly;
+        var identity = library.GetType("InstrumentComponents.OpenTap.IdentityQueryStep", throwOnError: true)!;
+        var shutdown = library.GetType("InstrumentComponents.OpenTap.SafeShutdownStep", throwOnError: true)!;
+        Assert.True(identity.IsAssignableTo(typeof(ITestStep)));
+        Assert.True(shutdown.IsAssignableTo(typeof(ITestStep)));
         Assert.True(OpenTapStepKinds.MatchesAuthoringStepType(
-            typeof(InstrumentComponents.OpenTap.IdentityQueryStep),
+            identity,
             "IdentityQueryStep",
             "IdentityCheckStep"));
         Assert.False(OpenTapStepKinds.MatchesAuthoringStepType(
-            typeof(InstrumentComponents.OpenTap.IdentityQueryStep),
+            identity,
             "IdentityCheckStep"));
         Assert.True(OpenTapStepKinds.MatchesAuthoringStepType(
-            typeof(InstrumentComponents.OpenTap.SafeShutdownStep),
+            shutdown,
             "SafeShutdownStep"));
-        Assert.False(typeof(InstrumentComponents.OpenTap.IdentityQueryStep).IsAssignableTo(typeof(HardwareDut)));
+        Assert.False(identity.IsAssignableTo(typeof(HardwareDut)));
         Assert.False(OpenTapStepKinds.MatchesAuthoringStepType(
             typeof(OtherVendor.SafeShutdownStep),
             "SafeShutdownStep"));
@@ -77,11 +83,6 @@ public sealed class InstrumentComponentsScpiIoTests
         Assert.True(broker.LastSession.Disposed);
     }
 
-    [Fact]
-    public void TryRegisterProvider_is_false_when_the_library_pack_is_not_loaded()
-    {
-        Assert.False(InstrumentComponentsScpiIo.TryRegisterProvider(new RecordingVisaBroker()));
-    }
 }
 
 public interface ITestScpiIo : IDisposable

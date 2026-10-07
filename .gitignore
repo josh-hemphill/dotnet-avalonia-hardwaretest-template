@@ -30,6 +30,9 @@ publish/
 coverage*/
 
 ## IDE
+# Solutions are local conveniences; dirs.proj is the supported build entry point.
+*.sln
+*.slnx
 .idea/
 *.swp
 *~

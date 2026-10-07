@@ -57,9 +57,7 @@ public sealed class TypstReportService : IReportService, IDisposable
     {
         var artifacts = await GenerateReportsAsync(run, [ReportKinds.Status], history: null, cancellationToken)
             .ConfigureAwait(false);
-        return artifacts.FirstOrDefault()?.PdfPath
-               ?? run.ReportPdfPath
-               ?? string.Empty;
+        return artifacts.Single(a => string.Equals(a.Kind, ReportKinds.Status, StringComparison.OrdinalIgnoreCase)).PdfPath;
     }
 
     public async Task<IReadOnlyList<RunReportArtifact>> GenerateReportsAsync(
@@ -69,13 +67,13 @@ public sealed class TypstReportService : IReportService, IDisposable
         CancellationToken cancellationToken = default,
         ReportAttestation? compileIdentity = null)
     {
+        ReportAttestationService.RequireReportWritable(run, _runStore.GetRunDirectory(run.RunId));
         using var operation = await ReportRevisions.LockAsync(_runStore.GetRunDirectory(run.RunId), cancellationToken).ConfigureAwait(false);
         var candidate = ReportRevisions.Clone(run);
         await ReportRevisions.RefreshHistoryAsync(candidate, _runStore, cancellationToken).ConfigureAwait(false);
         var normalized = NormalizeKinds(kinds);
         var artifacts = await GenerateReportsCoreAsync(candidate, normalized, history, compileIdentity, cancellationToken).ConfigureAwait(false);
         ReportRevisions.PublishHistory(run, candidate);
-        run.ReportPdfPath = candidate.ReportPdfPath;
         return artifacts;
     }
 
@@ -88,6 +86,7 @@ public sealed class TypstReportService : IReportService, IDisposable
     {
         cancellationToken.ThrowIfCancellationRequested();
         var dir = _runStore.GetRunDirectory(run.RunId);
+        ReportAttestationService.RequireReportWritable(run, dir);
         var compiled = new List<(string Kind, string Title, byte[] Pdf)>();
         foreach (var kind in kinds)
         {
@@ -98,6 +97,15 @@ public sealed class TypstReportService : IReportService, IDisposable
                     cancellationToken)
                 .ConfigureAwait(false);
             compiled.Add((kind, title, pdfBytes));
+        }
+
+        ReportAttestationService.RequireReportWritable(run, dir);
+        var kindsToInvalidate = kinds
+            .Where(kind => ReportAttestationService.ResolveIssuedPdfPath(run, kind) is null)
+            .ToArray();
+        if (kindsToInvalidate.Length > 0)
+        {
+            ReportAttestationService.InvalidateForKinds(run, dir, kindsToInvalidate);
         }
 
         var artifacts = new List<RunReportArtifact>();
@@ -124,8 +132,33 @@ public sealed class TypstReportService : IReportService, IDisposable
 
     public async Task<string> GenerateSuitePdfAsync(SuiteRunRecord suiteRun, CancellationToken cancellationToken = default)
     {
+        foreach (var child in suiteRun.PlanRuns)
+        {
+            ReportAttestationService.RequireReportWritable(child, _runStore.GetRunDirectory(child.RunId));
+        }
+        if (suiteRun.IsSchemaReadOnly)
+        {
+            var storedVersion = Math.Max(suiteRun.StoredSchemaVersion, suiteRun.SchemaVersion);
+            if (storedVersion > SchemaVersions.SuiteRunRecord)
+            {
+                throw new SchemaReadOnlyException(DocumentSchemaGate.Evaluate(
+                    SchemaDocumentTypes.SuiteRunRecord, storedVersion, SchemaVersions.SuiteRunRecord));
+            }
+            throw new InvalidOperationException("This suite run is read-only; reports cannot be regenerated.");
+        }
+        DocumentSchemaGate.RequireWritable(SchemaDocumentTypes.SuiteRunRecord, suiteRun.SchemaVersion,
+            SchemaVersions.SuiteRunRecord,
+            _suiteRunStore is null ? null : Path.Combine(_suiteRunStore.GetSuiteRunDirectory(suiteRun.SuiteRunId), "suite-run.json"));
+        if (_suiteRunStore is not null)
+        {
+            await CurrentDocumentFile.ValidateWriteDestinationAsync(
+                Path.Combine(_suiteRunStore.GetSuiteRunDirectory(suiteRun.SuiteRunId), "suite-run.json"),
+                AppJsonContext.Default.SuiteRunRecord, SchemaDocumentTypes.SuiteRunRecord, SchemaVersions.SuiteRunRecord,
+                cancellationToken).ConfigureAwait(false);
+        }
         var aggregate = new TestRunRecord
         {
+            SchemaVersion = SchemaVersions.TestRunRecord,
             RunId = suiteRun.SuiteRunId,
             PlanId = suiteRun.SuiteId,
             PlanName = suiteRun.SuiteName,
@@ -186,17 +219,11 @@ public sealed class TypstReportService : IReportService, IDisposable
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
         var merged = run.Reports
             .Where(existing =>
-                ReportArtifactRoles.IsIssued(existing.Role)
+                !ReportArtifactRoles.IsWorking(existing.Role)
                 || !generatedKinds.Contains(existing.Kind))
             .ToList();
         merged.AddRange(artifacts);
         run.Reports = merged;
-        run.ReportPdfPath = merged.FirstOrDefault(a =>
-                                string.Equals(a.Kind, ReportKinds.Status, StringComparison.OrdinalIgnoreCase)
-                                && ReportArtifactRoles.IsWorking(a.Role))
-                            ?.PdfPath
-                            ?? merged.FirstOrDefault(a => ReportArtifactRoles.IsWorking(a.Role))?.PdfPath
-                            ?? merged.FirstOrDefault()?.PdfPath;
     }
 
     private static IReadOnlyList<string> NormalizeKinds(IReadOnlyList<string> kinds)
@@ -232,8 +259,7 @@ public sealed class TypstReportService : IReportService, IDisposable
         }
 
         // Honor ReportTemplateName including the default (test-report.typ) so a
-        // {DataDirectory}/reports/ override of that filename wins. status-report.typ
-        // remains an alias resolved in CompileTemplateCore when needed.
+        // {DataDirectory}/reports/ override of that filename wins.
         if (!string.IsNullOrWhiteSpace(_settings.ReportTemplateName))
         {
             return _settings.ReportTemplateName.Trim();
@@ -254,15 +280,7 @@ public sealed class TypstReportService : IReportService, IDisposable
         ReportAttestation? compileIdentity = null)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        string template;
-        try
-        {
-            template = LoadReportFile(templateName);
-        }
-        catch (InvalidOperationException) when (TryStatusTemplateAlias(templateName, out var alias))
-        {
-            template = LoadReportFile(alias);
-        }
+        var template = LoadReportFile(templateName);
 
         var chartLib = LoadReportFile("sample-chart.typ", preferLibSubfolder: true);
         var snapshot = JsonSerializer.Deserialize(
@@ -400,24 +418,6 @@ public sealed class TypstReportService : IReportService, IDisposable
         }
 
         _disposed = true;
-    }
-
-    private static bool TryStatusTemplateAlias(string templateName, out string alias)
-    {
-        if (string.Equals(templateName, "test-report.typ", StringComparison.OrdinalIgnoreCase))
-        {
-            alias = "status-report.typ";
-            return true;
-        }
-
-        if (string.Equals(templateName, "status-report.typ", StringComparison.OrdinalIgnoreCase))
-        {
-            alias = "test-report.typ";
-            return true;
-        }
-
-        alias = string.Empty;
-        return false;
     }
 
     private string LoadReportFile(string fileName, bool preferLibSubfolder = false)

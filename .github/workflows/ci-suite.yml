@@ -1,0 +1,140 @@
+name: CI suite
+
+on:
+  workflow_call:
+    inputs:
+      rid:
+        required: true
+        type: string
+      suite:
+        required: true
+        type: string
+      profile:
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  suite:
+    runs-on: ${{ inputs.rid == 'win-x64' && 'windows-latest' || 'ubuntu-latest' }}
+    timeout-minutes: 75
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+      DOTNET_NOLOGO: "1"
+      CI_RID: ${{ inputs.rid }}
+      CI_SUITE: ${{ inputs.suite }}
+      CI_PROFILE: ${{ inputs.profile }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        # Build snapshots hash the full declared SDK home; exclude unrelated runner SDKs.
+        env:
+          DOTNET_INSTALL_DIR: ${{ runner.temp }}/hardwaretest-dotnet
+        with:
+          dotnet-version: "10.0.302"
+          cache: true
+          cache-dependency-path: |
+            **/*.csproj
+            **/packages.lock.json
+            Directory.Build.props
+            dirs.proj
+
+      - name: Record isolated .NET SDK identity
+        shell: pwsh
+        run: |
+          $expectedRoot = [IO.Path]::GetFullPath((Join-Path $env:RUNNER_TEMP 'hardwaretest-dotnet'))
+          if ([IO.Path]::GetFullPath($env:DOTNET_ROOT) -ne $expectedRoot) { throw 'SDK root must be the isolated runner temporary installation.' }
+          if ([IO.Path]::GetDirectoryName((Get-Command dotnet).Source) -ne $expectedRoot) { throw 'PATH must resolve dotnet from the isolated SDK root.' }
+          # setup-dotnet exports DOTNET_ROOT; apphosts prefer the architecture-specific binding.
+          $env:DOTNET_ROOT_X64 = $env:DOTNET_ROOT
+          "DOTNET_ROOT_X64=$env:DOTNET_ROOT" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          $expectedVersion = (Get-Content -LiteralPath global.json -Raw | ConvertFrom-Json).sdk.version
+          $actualVersion = dotnet --version
+          if ($LASTEXITCODE -ne 0 -or $actualVersion -ne $expectedVersion) { throw 'The isolated SDK must match global.json.' }
+          foreach ($argument in @('--info', '--list-sdks', '--list-runtimes')) {
+            dotnet $argument
+            if ($LASTEXITCODE -ne 0) { throw "SDK inventory failed: $argument" }
+          }
+          $sdkFiles = Get-ChildItem -LiteralPath $env:DOTNET_ROOT -Recurse -File | Measure-Object -Property Length -Sum
+          Write-Host "SDK identity root=$env:DOTNET_ROOT files=$($sdkFiles.Count) bytes=$($sdkFiles.Sum)"
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
+        with:
+          deno-version: v2.7.7
+
+      - name: Install Avalonia headless dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libfontconfig1 libfreetype6 libice6 libsm6 \
+            libx11-6 libxcursor1 libxext6 libxi6 libxrandr2 libxrender1
+
+      - name: Build and verify real package provisioning
+        run: deno run -A tools/ci/main.ts build --rid ${{ inputs.rid }}
+
+      - name: Run selected suite
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$CI_SUITE" in
+            host)
+              deno run -A tools/ci/main.ts test:host --rid "$CI_RID" --profile "$CI_PROFILE"
+              deno run -A tools/ci/main.ts test:arch --rid "$CI_RID"
+              deno run -A tools/ci/main.ts test:e2e --rid "$CI_RID" --advisory-e2e
+              ;;
+            ui)
+              deno run -A tools/ci/main.ts test:authoring-ui --rid "$CI_RID"
+              ;;
+            vm)
+              deno run -A tools/ci/main.ts test:vm --rid "$CI_RID"
+              ;;
+            quality)
+              deno run -A tools/ci/main.ts format
+              deno run -A tools/ci/main.ts audit
+              deno run -A tools/ci/main.ts coverage --rid "$CI_RID"
+              deno task --cwd tools/ci test
+              ;;
+            windows)
+              profile=windows-smoke
+              if [[ "$CI_PROFILE" == full ]]; then profile=full; fi
+              deno run -A tools/ci/main.ts test:host --rid "$CI_RID" --profile "$profile"
+              deno run -A tools/ci/main.ts test:authoring-ui --rid "$CI_RID" --profile "$profile"
+              deno run -A tools/ci/main.ts test:arch --rid "$CI_RID"
+              deno run -A tools/ci/main.ts test:e2e --rid "$CI_RID"
+              if [[ "$CI_PROFILE" == full ]]; then
+                deno run -A tools/ci/main.ts test:vm --rid "$CI_RID"
+              fi
+              ;;
+            publish)
+              deno run -A tools/ci/main.ts publish --rid "$CI_RID"
+              deno run -A tools/ci/main.ts verify --rid "$CI_RID"
+              ;;
+            *) echo "Unknown suite: $CI_SUITE" >&2; exit 1 ;;
+          esac
+
+      - name: Upload test diagnostics
+        if: always() && inputs.suite != 'publish'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: diagnostics-${{ inputs.rid }}-${{ inputs.suite }}
+          path: |
+            artifacts/test-results
+            artifacts/coverage
+            tests/**/bin/**/SessionLogs/**
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Upload verified publish
+        if: inputs.suite == 'publish'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: hardwaretest-${{ inputs.rid }}
+          path: artifacts/publish/${{ inputs.rid }}
+          if-no-files-found: error
+          retention-days: 14

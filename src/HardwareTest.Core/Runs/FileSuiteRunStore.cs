@@ -32,27 +32,30 @@ public sealed class FileSuiteRunStore : ISuiteRunStore
 
     public async Task SaveAsync(SuiteRunRecord suiteRun, CancellationToken cancellationToken = default)
     {
-        if (suiteRun.IsSchemaReadOnly || suiteRun.SchemaVersion > SchemaVersions.SuiteRunRecord)
+        if (suiteRun.IsSchemaReadOnly)
         {
-            throw new SchemaReadOnlyException(
-                DocumentSchemaGate.Evaluate(
-                    SchemaDocumentTypes.SuiteRunRecord,
-                    suiteRun.StoredSchemaVersion > 0 ? suiteRun.StoredSchemaVersion : suiteRun.SchemaVersion,
-                    SchemaVersions.SuiteRunRecord));
+            var futureChild = suiteRun.PlanRuns.FirstOrDefault(child => child.IsSchemaReadOnly);
+            throw new SchemaReadOnlyException(futureChild is null
+                ? DocumentSchemaGate.Evaluate(SchemaDocumentTypes.SuiteRunRecord,
+                    suiteRun.StoredSchemaVersion > 0 ? suiteRun.StoredSchemaVersion : suiteRun.SchemaVersion, SchemaVersions.SuiteRunRecord)
+                : DocumentSchemaGate.Evaluate(SchemaDocumentTypes.TestRunRecord,
+                    futureChild.StoredSchemaVersion > 0 ? futureChild.StoredSchemaVersion : futureChild.SchemaVersion,
+                    SchemaVersions.TestRunRecord, futureChild.AppVersion));
         }
 
         var dir = GetSuiteRunDirectory(suiteRun.SuiteRunId);
         using var write = await ReportRevisions.LockWriteAsync(dir, cancellationToken).ConfigureAwait(false);
         var committed = await LoadAsync(suiteRun.SuiteRunId, cancellationToken).ConfigureAwait(false);
-        if (committed?.IsSchemaReadOnly == true) throw new SchemaReadOnlyException(DocumentSchemaGate.Evaluate(
-            SchemaDocumentTypes.SuiteRunRecord, committed.StoredSchemaVersion, SchemaVersions.SuiteRunRecord));
-        // Check every persisted member before saving any standalone run, even when the caller is stale.
-        var futureMember = committed?.PlanRuns.FirstOrDefault(r => r.IsSchemaReadOnly);
-        if (futureMember is not null) throw new SchemaReadOnlyException(DocumentSchemaGate.Evaluate(
-            SchemaDocumentTypes.TestRunRecord, futureMember.StoredSchemaVersion, SchemaVersions.TestRunRecord));
+        if (committed?.IsSchemaReadOnly == true)
+        {
+            var future = committed.PlanRuns.FirstOrDefault(r => r.IsSchemaReadOnly);
+            throw new SchemaReadOnlyException(DocumentSchemaGate.Evaluate(
+                future is null ? SchemaDocumentTypes.SuiteRunRecord : SchemaDocumentTypes.TestRunRecord,
+                future?.StoredSchemaVersion ?? committed.StoredSchemaVersion,
+                future is null ? SchemaVersions.SuiteRunRecord : SchemaVersions.TestRunRecord));
+        }
         var candidate = JsonSerializer.Deserialize(JsonSerializer.Serialize(suiteRun, AppJsonContext.Default.SuiteRunRecord),
             AppJsonContext.Default.SuiteRunRecord)!;
-        candidate.SchemaVersion = SchemaVersions.SuiteRunRecord;
         candidate.PlanRuns = suiteRun.PlanRuns.Select(ReportRevisions.Clone).ToList();
         if (committed is not null)
         {
@@ -63,68 +66,53 @@ public sealed class FileSuiteRunStore : ISuiteRunStore
                 else ReportRevisions.MergeHistory(incoming, member);
             }
         }
-        // Issuance shares these gates. Keep them through suite publication, in stable order.
         using var members = await ReportRevisions.LockAllAsync(candidate.PlanRuns.Select(r => _runStore.GetRunDirectory(r.RunId)),
             cancellationToken).ConfigureAwait(false);
-        foreach (var planRun in candidate.PlanRuns)
+        var path = Path.Combine(dir, "suite-run.json");
+        DocumentSchemaGate.RequireWritable(SchemaDocumentTypes.SuiteRunRecord, suiteRun.SchemaVersion, SchemaVersions.SuiteRunRecord, path);
+        await CurrentDocumentFile.ValidateWriteDestinationAsync(path, AppJsonContext.Default.SuiteRunRecord,
+            SchemaDocumentTypes.SuiteRunRecord, SchemaVersions.SuiteRunRecord, cancellationToken).ConfigureAwait(false);
+        // Validate the whole batch before saving any child.
+        foreach (var child in candidate.PlanRuns)
         {
-            if (planRun.IsSchemaReadOnly || planRun.SchemaVersion > SchemaVersions.TestRunRecord)
-                throw new SchemaReadOnlyException(DocumentSchemaGate.Evaluate(
-                    SchemaDocumentTypes.TestRunRecord,
-                    planRun.StoredSchemaVersion > 0 ? planRun.StoredSchemaVersion : planRun.SchemaVersion,
-                    SchemaVersions.TestRunRecord));
-            await ReportRevisions.RefreshHistoryAsync(planRun, _runStore, cancellationToken).ConfigureAwait(false);
+            if (child.IsSchemaReadOnly) throw new SchemaReadOnlyException(DocumentSchemaGate.Evaluate(
+                SchemaDocumentTypes.TestRunRecord, child.StoredSchemaVersion, SchemaVersions.TestRunRecord, child.AppVersion));
+            DocumentSchemaGate.RequireWritable(SchemaDocumentTypes.TestRunRecord, child.SchemaVersion, SchemaVersions.TestRunRecord,
+                Path.Combine(_runStore.GetRunDirectory(child.RunId), "run.json"), child.AppVersion);
+            await CurrentDocumentFile.ValidateWriteDestinationAsync(Path.Combine(_runStore.GetRunDirectory(child.RunId), "run.json"),
+                AppJsonContext.Default.TestRunRecord, SchemaDocumentTypes.TestRunRecord, SchemaVersions.TestRunRecord,
+                cancellationToken).ConfigureAwait(false);
+            await ReportRevisions.RefreshHistoryAsync(child, _runStore, cancellationToken).ConfigureAwait(false);
         }
-
         foreach (var planRun in candidate.PlanRuns)
         {
             await _runStore.SaveAsync(planRun, cancellationToken).ConfigureAwait(false);
         }
 
-        var path = Path.Combine(dir, "suite-run.json");
-        await AtomicFile.WriteJsonAsync(
+        await CurrentDocumentFile.WriteAsync(
                 path,
                 candidate,
                 AppJsonContext.Default.SuiteRunRecord,
-                cancellationToken)
+                SchemaDocumentTypes.SuiteRunRecord, suiteRun.SchemaVersion, SchemaVersions.SuiteRunRecord, cancellationToken)
             .ConfigureAwait(false);
-        suiteRun.SchemaVersion = candidate.SchemaVersion;
-        for (var index = 0; index < suiteRun.PlanRuns.Count; index++)
-            ReportRevisions.PublishHistory(suiteRun.PlanRuns[index], candidate.PlanRuns[index]);
+        foreach (var member in suiteRun.PlanRuns)
+            ReportRevisions.PublishHistory(member, candidate.PlanRuns.First(r => r.RunId == member.RunId));
     }
 
     public async Task<SuiteRunRecord?> LoadAsync(string suiteRunId, CancellationToken cancellationToken = default)
     {
         var path = Path.Combine(GetSuiteRunDirectory(suiteRunId), "suite-run.json");
-        await using var stream = AtomicFile.TryOpenReadSnapshot(path);
-        if (stream is null)
-        {
-            return null;
-        }
-
-        var suite = await JsonSerializer.DeserializeAsync(stream, AppJsonContext.Default.SuiteRunRecord, cancellationToken)
-            .ConfigureAwait(false);
-        if (suite is null)
-        {
-            return null;
-        }
-
-        var status = DocumentSchemaGate.Apply(
-            SchemaDocumentTypes.SuiteRunRecord,
-            suite.SchemaVersion,
-            SchemaVersions.SuiteRunRecord,
-            path,
-            document: suite);
+        var (suite, status) = await CurrentDocumentFile.ReadAsync(path, AppJsonContext.Default.SuiteRunRecord,
+            SchemaDocumentTypes.SuiteRunRecord, SchemaVersions.SuiteRunRecord, cancellationToken).ConfigureAwait(false);
+        if (suite is null) return null;
         suite.StoredSchemaVersion = status.StoredVersion;
-        suite.IsLegacy = status.IsLegacy;
         suite.IsSchemaReadOnly = status.IsReadOnly;
-        if (status.Kind is DocumentSchemaKind.Current or DocumentSchemaKind.UpgradeNeeded)
+        foreach (var child in suite.PlanRuns)
         {
-            suite.SchemaVersion = SchemaVersions.SuiteRunRecord;
+            child.StoredSchemaVersion = child.SchemaVersion;
+            child.IsSchemaReadOnly = child.SchemaVersion > SchemaVersions.TestRunRecord;
+            suite.IsSchemaReadOnly |= child.IsSchemaReadOnly;
         }
-
-        foreach (var planRun in suite.PlanRuns)
-            FileRunStore.ApplySchemaGate(planRun, path + "#PlanRuns/" + planRun.RunId);
 
         return suite;
     }

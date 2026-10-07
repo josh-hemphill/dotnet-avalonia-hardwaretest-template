@@ -17,12 +17,37 @@ public sealed record AuthoringSettingRow(
     string? ValueTooltip = null,
     string? ValuePlaceholder = null,
     double? Minimum = null,
-    bool ChoiceIsEditable = false)
+    bool ChoiceIsEditable = false) : System.ComponentModel.INotifyPropertyChanged
 {
     public AuthoringSettingRow(string key, string value)
         : this(AuthoringMetricSettingCatalog.CreateRow("*", key, value, []))
     {
     }
+
+    public string Value { get; private set; } = Value;
+
+    public Guid? NodeId { get; init; }
+
+    public string Error { get; private set; } = string.Empty;
+
+    public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
+
+    internal void Refresh(string value, string error)
+    {
+        if (!string.Equals(Value, value, StringComparison.Ordinal))
+        {
+            Value = value;
+            foreach (var property in new[] { nameof(Value), nameof(BoolValue), nameof(NumberValue) })
+                PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(property));
+        }
+        if (!string.Equals(Error, error, StringComparison.Ordinal))
+        {
+            Error = error;
+            PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(Error)));
+        }
+    }
+
+    public bool UsesTextInput => IsText || IsNumber;
 
     public bool IsText => Kind == AuthoringSettingKind.Text;
 

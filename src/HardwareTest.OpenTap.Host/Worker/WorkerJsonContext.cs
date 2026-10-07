@@ -24,7 +24,6 @@ namespace HardwareTest.OpenTap.Host.Worker;
 [JsonSerializable(typeof(WorkerSetEnabledRequest))]
 [JsonSerializable(typeof(WorkerAcquireSettingsRequest))]
 [JsonSerializable(typeof(WorkerMeanGteRequest))]
-[JsonSerializable(typeof(WorkerResourceRequest))]
 [JsonSerializable(typeof(WorkerBindSlotRequest))]
 [JsonSerializable(typeof(WorkerEnumerateParametersRequest))]
 [JsonSerializable(typeof(WorkerMemberKeyRequest))]

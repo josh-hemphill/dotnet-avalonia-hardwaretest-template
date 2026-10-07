@@ -79,15 +79,6 @@ public partial class ResultsViewModel
 
                 files.AddRange(CollectExportReportFiles(OpenedRun));
 
-                if (!string.IsNullOrWhiteSpace(OpenedRun.ReportPdfPath)
-                    && File.Exists(OpenedRun.ReportPdfPath)
-                    && !OpenedRun.Reports.Any(r => ReportArtifactRoles.IsIssued(r.Role)
-                        && string.Equals(r.Kind, ReportAttestationService.KindForPdf(OpenedRun, OpenedRun.ReportPdfPath), StringComparison.OrdinalIgnoreCase))
-                    && files.All(f => !string.Equals(f.SourcePath, OpenedRun.ReportPdfPath, StringComparison.OrdinalIgnoreCase)))
-                {
-                    files.Add((OpenedRun.ReportPdfPath!, Path.GetFileName(OpenedRun.ReportPdfPath)));
-                }
-
                 var csvDir = Path.Combine(runDir, "opentap-results");
                 if (Directory.Exists(csvDir))
                 {
@@ -186,12 +177,11 @@ public partial class ResultsViewModel
                 Add(working?.PdfPath, $"{kind}.pdf");
             foreach (var revision in group.Where(r => ReportArtifactRoles.IsIssued(r.Role)))
             {
-                var id = Uri.EscapeDataString(revision.RevisionId ?? "legacy");
+                var id = Uri.EscapeDataString(revision.RevisionId ?? Path.GetFileNameWithoutExtension(revision.PdfPath) ?? "unidentified");
                 var history = Path.Combine("history", kind, id);
                 Add(revision.PdfPath, Path.Combine(history, $"{kind}.pdf"));
                 Add(revision.RunSnapshotPath, Path.Combine(history, "run.snapshot.json"));
-                var stamp = run.Attestations.LastOrDefault(a => string.Equals(a.ReportKind, group.Key, StringComparison.OrdinalIgnoreCase)
-                    && a.RevisionId == revision.RevisionId);
+                var stamp = ReportAttestationService.FindForArtifact(run, revision);
                 Add(stamp?.SidecarPath, Path.Combine(history, $"{kind}.attestation.json"));
                 if (ReferenceEquals(revision, issued)) Add(stamp?.SidecarPath, $"{kind}.attestation.json");
             }

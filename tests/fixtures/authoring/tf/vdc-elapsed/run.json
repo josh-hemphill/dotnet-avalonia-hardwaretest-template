@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 3,
+  "schemaVersion": 4,
   "runId": "tf-vdc-1",
   "traceId": "trace-tf-vdc",
   "planId": "tf",
@@ -11,6 +11,8 @@
   "completedAt": "2026-09-17T12:00:05Z",
   "result": "Passed",
   "steps": [],
+  "stepAttempts": [],
+  "events": [],
   "samples": [
     { "channel": "VDC", "metricKey": "VDC", "timestamp": "2026-09-17T12:00:00.000Z", "value": 1.0, "elapsedMs": 0, "displayRole": "timeseries", "unit": "V" },
     { "channel": "VDC", "metricKey": "VDC", "timestamp": "2026-09-17T12:00:00.005Z", "value": 0.0, "elapsedMs": 5, "displayRole": "timeseries", "unit": "V" },

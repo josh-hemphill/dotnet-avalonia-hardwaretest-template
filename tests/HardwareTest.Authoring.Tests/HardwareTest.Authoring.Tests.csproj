@@ -11,6 +11,9 @@
     <ProjectReference Include="..\..\src\HardwareTest.Authoring.Core\HardwareTest.Authoring.Core.csproj" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="../HardwareTest.Authoring.ProcessFixture/HardwareTest.Authoring.ProcessFixture.csproj" />
+  </ItemGroup>
+  <ItemGroup>
     <PackageReference Include="OpenTAP" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="xunit.v3" />

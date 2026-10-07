@@ -75,7 +75,7 @@ public sealed class SeriesTimingChromeTests
     }
 
     [Fact]
-    public void Focus_stays_earned_when_events_arrive()
+    public void Timing_events_preserve_chart_availability_without_attention()
     {
         var live = new LivePresentationViewModel();
         var step = new HierarchyStepViewModel(new OpenTapStepNode
@@ -91,8 +91,10 @@ public sealed class SeriesTimingChromeTests
             step);
         live.ApplyEvent(new MeasurementEventMark("cfg", 0, "bit0", 1, step.Path));
         live.RefreshChrome(step);
-        Assert.Equal(PresentationChromeMode.Band, live.ChromeMode);
-        Assert.False(live.ShowFocusTrend);
+        Assert.True(live.HasTimingStrip);
+        Assert.Single(live.Events);
+        Assert.Equal(1, live.PlotYsLength);
+        Assert.False(live.HasChartAttention);
         Assert.True(live.HasChartData);
         Assert.True(live.OfferOpenChart);
     }

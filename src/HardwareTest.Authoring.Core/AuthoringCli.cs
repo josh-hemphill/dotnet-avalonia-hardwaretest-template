@@ -135,6 +135,7 @@ public static class AuthoringCli
     private static int RunValidate(string workspaceRoot, bool strict, PlanContractFormat format, TextWriter output)
     {
         var workspace = AuthoringWorkspaceLoader.Load(workspaceRoot);
+        AuthoringSourceExportGuard.EnsureCurrent(workspace);
         return PlanContractCli.Run(
             workspace.TapPlanPaths,
             output,
@@ -142,7 +143,7 @@ public static class AuthoringCli
             {
                 Strict = strict,
                 Format = format,
-                ExcludeVisaAdapter = true,
+                EnablePhysicalExecution = false,
             });
     }
 
@@ -176,7 +177,14 @@ public static class AuthoringCli
                 Home = home,
                 TuiHome = home,
                 Offline = offline,
-                Compat = new TuiCompatChecker(),
+                PreflightCompleted = report =>
+                {
+                    output.WriteLine($"Authoring home: {report.Home?.Root ?? "not prepared"}");
+                    output.WriteLine($"Compatibility home: {report.TuiHome?.Root ?? "not prepared"}");
+                    foreach (var finding in report.Findings.Where(f => !f.IsError)) output.WriteLine(finding.DisplayText);
+                    foreach (var file in report.IncludedFiles) output.WriteLine($"include {file}");
+                    foreach (var file in report.ExcludedPlans) output.WriteLine($"exclude {file}");
+                },
             });
         output.WriteLine($"{manifest.PackageName} {manifest.Version}");
         foreach (var file in manifest.Files)
@@ -195,6 +203,7 @@ public static class AuthoringCli
         TextWriter error)
     {
         var workspace = AuthoringWorkspaceLoader.Load(workspaceRoot);
+        AuthoringSourceExportGuard.EnsureCurrent(workspace);
         var home = new OpenTapHomeBootstrapper().Bootstrap(
             workspace,
             new BootstrapOptions
@@ -219,15 +228,15 @@ public static class AuthoringCli
             return 1;
         }
 
-        output.WriteLine("TUI compatibility ok.");
+        output.WriteLine("Plugin catalog and in-process load/save compatibility ok (no external TUI process).");
         return 0;
     }
 
     private static int RunEvalFormulas(string workspaceRoot, TextWriter output, TextWriter error)
     {
-        var workspace = AuthoringWorkspaceLoader.Load(workspaceRoot);
-        var draft = new PlanCompiler().LoadAll(workspace);
-        var datasets = RunDatasetCatalog.List(workspace);
+        var draft = AuthoringSourceWorkspaceLoader.Load(workspaceRoot);
+        if (draft.Files.IsReadOnly) throw new AuthoringWorkspaceException("Formula evaluation requires supported authoring sources and manifest schemas; future source bytes are preserved.");
+        var datasets = RunDatasetCatalog.List(draft.Files);
         var failed = false;
         foreach (var dataset in datasets)
         {

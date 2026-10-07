@@ -24,7 +24,6 @@ public sealed class TestRunSummary
     public string? DutPartNumber { get; init; }
     public string? SessionId { get; init; }
     public string? OperatorName { get; init; }
-    public bool IsLegacy { get; init; }
     public bool IsSchemaReadOnly { get; init; }
     public int SchemaVersion { get; init; }
 }
@@ -48,7 +47,7 @@ public sealed class FileRunStore : IRunStore
 
     public async Task SaveAsync(TestRunRecord run, CancellationToken cancellationToken = default)
     {
-        if (run.IsSchemaReadOnly || run.SchemaVersion > SchemaVersions.TestRunRecord)
+        if (run.IsSchemaReadOnly)
         {
             throw new SchemaReadOnlyException(
                 DocumentSchemaGate.Evaluate(
@@ -59,12 +58,14 @@ public sealed class FileRunStore : IRunStore
         }
 
         var dir = GetRunDirectory(run.RunId);
+        DocumentSchemaGate.RequireWritable(SchemaDocumentTypes.TestRunRecord, run.SchemaVersion,
+            SchemaVersions.TestRunRecord, Path.Combine(dir, "run.json"), run.AppVersion);
         using var write = await ReportRevisions.LockWriteAsync(dir, cancellationToken).ConfigureAwait(false);
         var candidate = ReportRevisions.Clone(run);
         await ReportRevisions.RefreshHistoryAsync(candidate, this, cancellationToken).ConfigureAwait(false);
-        candidate.SchemaVersion = SchemaVersions.TestRunRecord;
         var path = Path.Combine(dir, "run.json");
-        await AtomicFile.WriteJsonAsync(path, candidate, AppJsonContext.Default.TestRunRecord, cancellationToken)
+        await CurrentDocumentFile.WriteAsync(path, candidate, AppJsonContext.Default.TestRunRecord,
+                SchemaDocumentTypes.TestRunRecord, run.SchemaVersion, SchemaVersions.TestRunRecord, cancellationToken)
             .ConfigureAwait(false);
         ReportRevisions.PublishHistory(run, candidate);
     }
@@ -72,20 +73,10 @@ public sealed class FileRunStore : IRunStore
     public async Task<TestRunRecord?> LoadAsync(string runId, CancellationToken cancellationToken = default)
     {
         var path = Path.Combine(GetRunDirectory(runId), "run.json");
-        await using var stream = AtomicFile.TryOpenReadSnapshot(path);
-        if (stream is null)
-        {
-            return null;
-        }
-
-        var run = await JsonSerializer.DeserializeAsync(stream, AppJsonContext.Default.TestRunRecord, cancellationToken)
-            .ConfigureAwait(false);
-        if (run is null)
-        {
-            return null;
-        }
-
-        ApplySchemaGate(run, path);
+        var (run, status) = await CurrentDocumentFile.ReadAsync(path, AppJsonContext.Default.TestRunRecord,
+            SchemaDocumentTypes.TestRunRecord, SchemaVersions.TestRunRecord, cancellationToken).ConfigureAwait(false);
+        if (run is null) return null;
+        ApplySchemaStatus(run, status);
         return run;
     }
 
@@ -97,18 +88,20 @@ public sealed class FileRunStore : IRunStore
         {
             cancellationToken.ThrowIfCancellationRequested();
             var path = Path.Combine(dir, "run.json");
+            if (!File.Exists(path) && !File.Exists(path + ".bak"))
+            {
+                continue;
+            }
+
             TestRunRecord? run;
             try
             {
-                await using var stream = AtomicFile.TryOpenReadSnapshot(path);
-                if (stream is null) continue;
-                run = await JsonSerializer.DeserializeAsync(
-                        stream,
-                        AppJsonContext.Default.TestRunRecord,
-                        cancellationToken)
-                    .ConfigureAwait(false);
+                var loaded = await CurrentDocumentFile.ReadAsync(path, AppJsonContext.Default.TestRunRecord,
+                    SchemaDocumentTypes.TestRunRecord, SchemaVersions.TestRunRecord, cancellationToken).ConfigureAwait(false);
+                run = loaded.Document;
+                if (run is not null) ApplySchemaStatus(run, loaded.Status);
             }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or UnsupportedDocumentSchemaException or SchemaReadOnlyException)
             {
                 Log.Warning(ex, "Skipping unreadable run record at {Path}", path);
                 continue;
@@ -119,7 +112,6 @@ public sealed class FileRunStore : IRunStore
                 continue;
             }
 
-            ApplySchemaGate(run, path);
             results.Add(new TestRunSummary
             {
                 RunId = run.RunId,
@@ -131,7 +123,6 @@ public sealed class FileRunStore : IRunStore
                 DutPartNumber = run.DutPartNumber,
                 SessionId = run.SessionId,
                 OperatorName = run.OperatorName,
-                IsLegacy = run.IsLegacy,
                 IsSchemaReadOnly = run.IsSchemaReadOnly,
                 SchemaVersion = run.StoredSchemaVersion,
             });
@@ -142,23 +133,10 @@ public sealed class FileRunStore : IRunStore
             .ToArray();
     }
 
-    internal static void ApplySchemaGate(TestRunRecord run, string path)
+    private static void ApplySchemaStatus(TestRunRecord run, DocumentSchemaStatus status)
     {
-        var status = DocumentSchemaGate.Apply(
-            SchemaDocumentTypes.TestRunRecord,
-            run.SchemaVersion,
-            SchemaVersions.TestRunRecord,
-            path,
-            run.AppVersion,
-            run);
         run.StoredSchemaVersion = status.StoredVersion;
-        run.IsLegacy = status.IsLegacy;
         run.IsSchemaReadOnly = status.IsReadOnly;
-        if (status.Kind is DocumentSchemaKind.Current or DocumentSchemaKind.UpgradeNeeded)
-        {
-            run.SchemaVersion = SchemaVersions.TestRunRecord;
-        }
-        if (!run.IsSchemaReadOnly) ReportRevisions.MigrateLegacy(run);
     }
 
     private static string Sanitize(string runId) => HardwareTest.Core.IO.PortableFileNames.Sanitize(runId);

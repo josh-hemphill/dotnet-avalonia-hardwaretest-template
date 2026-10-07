@@ -1,6 +1,6 @@
 {
   "$schema": "./authoring.schema.json",
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "displayName": "HardwareTest Template Programs",
   "plansDirectory": ".",
   "package": {
@@ -10,7 +10,7 @@
   },
   "dependencies": [
     { "package": "OpenTAP", "version": "^9.32.2" },
-    { "package": "HardwareTest Basic", "version": "^0.1.0" },
+    { "package": "HardwareTest Basic", "version": "^0.2.0" },
     { "package": "HardwareTest Mixins", "version": "^0.1.0" }
   ],
   "optionalDependencies": [],

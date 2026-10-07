@@ -17,17 +17,6 @@ public partial class ProgramSettingsView : UserControl
         }
     }
 
-    private void OnAddRequiredField(object? sender, RoutedEventArgs e)
-        => TryRun(() => Vm?.AddRequiredField());
-
-    private void OnRemoveRequiredField(object? sender, RoutedEventArgs e)
-    {
-        if (sender is Button { DataContext: AuthoringCatalogToggle row })
-        {
-            TryRun(() => Vm?.RemoveRequiredField(row.Id));
-        }
-    }
-
     private void OnToggleReportKind(object? sender, RoutedEventArgs e)
     {
         if (sender is CheckBox { DataContext: AuthoringCatalogToggle row } box)
@@ -35,34 +24,6 @@ public partial class ProgramSettingsView : UserControl
             TryRun(() => Vm?.SetReportKindIncluded(row.Id, box.IsChecked == true));
         }
     }
-
-    private void OnAddReportKind(object? sender, RoutedEventArgs e)
-        => TryRun(() => Vm?.AddReportKind());
-
-    private void OnRemoveReportKind(object? sender, RoutedEventArgs e)
-    {
-        if (sender is Button { DataContext: AuthoringCatalogToggle row })
-        {
-            TryRun(() => Vm?.RemoveReportKind(row.Id));
-        }
-    }
-
-    private void OnAddProgramKind(object? sender, RoutedEventArgs e)
-        => TryRun(() => Vm?.AddProgramKind());
-
-    private void OnRemoveProgramKind(object? sender, RoutedEventArgs e)
-    {
-        if (sender is Button { DataContext: AuthoringCatalogToggle row })
-        {
-            TryRun(() => Vm?.RemoveProgramKindFromCatalog(row.Id));
-        }
-    }
-
-    private void OnAddInstrumentSlot(object? sender, RoutedEventArgs e)
-        => TryRun(() => Vm?.AddInstrumentSlot());
-
-    private void OnRemoveInstrumentSlot(object? sender, RoutedEventArgs e)
-        => TryRun(() => Vm?.RemoveSelectedInstrumentSlot());
 
     private void TryRun(Action action)
     {

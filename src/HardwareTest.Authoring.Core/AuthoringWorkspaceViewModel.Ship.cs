@@ -6,6 +6,11 @@ public sealed partial class AuthoringWorkspaceViewModel
 
     public WorkspacePackPreview PackPreview => _packPreview;
 
+    public IReadOnlyList<string> ExcludedPackPlans => Workspace is null ? [] : AuthoringBuildInclusion.ProgramIds(Workspace)
+        .Where(id => !AuthoringBuildInclusion.Includes(Workspace.Manifest, id)).ToArray();
+
+    public bool HasExcludedPackPlans => ExcludedPackPlans.Count > 0;
+
     public string ShipPurpose => AuthoringChrome.ShipPurpose;
 
     public bool HasRawSteps => RawStepCount > 0;
@@ -66,12 +71,19 @@ public sealed partial class AuthoringWorkspaceViewModel
         _packPreview = WorkspacePackPlan.Describe(
             Workspace,
             string.IsNullOrWhiteSpace(home) ? null : home);
+        if (LastCompletedBuild is { } completed)
+            _packPreview = WorkspacePackPlan.WithLastPack(_packPreview, completed.Result.Manifest, completed.OutputDirectory);
+        ClearResolvedHomePreviewWarning();
         RaisePackPreviewProperties();
     }
 
     private void RaisePackPreviewProperties()
     {
+        RaiseBuildResultProperties();
+        RaiseEnvironmentProperties();
         OnPropertyChanged(nameof(PackPreview));
+        OnPropertyChanged(nameof(ExcludedPackPlans));
+        OnPropertyChanged(nameof(HasExcludedPackPlans));
         OnPropertyChanged(nameof(HasLastPack));
         OnPropertyChanged(nameof(HasDeclaredPlugins));
         OnPropertyChanged(nameof(HasDeclaredShellApps));
@@ -84,6 +96,8 @@ public sealed partial class AuthoringWorkspaceViewModel
         OnPropertyChanged(nameof(LastShippedBakeTimeFiles));
         OnPropertyChanged(nameof(OpenTapPinText));
         OnPropertyChanged(nameof(AuthoringHomeText));
+        OnPropertyChanged(nameof(EditingIssues));
+        OnPropertyChanged(nameof(IssuesSummary));
     }
 
     internal void RaiseRawStepProperties()

@@ -70,9 +70,10 @@ public static class WorkspacePackPlan
     {
         ArgumentNullException.ThrowIfNull(workspace);
         var manifest = workspace.Manifest;
-        var homePath = ResolveHomePath(workspace, homeOverride);
-        var homePackages = Directory.Exists(homePath)
-            ? OpenTapHomeBootstrapper.ListInstalledPackages(new OpenTapHome(homePath))
+        var homeValid = TryResolveHomePath(workspace, homeOverride, out var resolvedHome, out var homeError);
+        var homePath = resolvedHome ?? homeError;
+        var homePackages = homeValid && Directory.Exists(homePath)
+            ? OpenTapHomeBootstrapper.ListInstalledPackages(new OpenTapHome(homePath!))
                 .Select(package => new OpenTapEnvironmentLine(package.Name, package.Version, "installed in home"))
                 .ToArray()
             : [];
@@ -81,7 +82,11 @@ public static class WorkspacePackPlan
         return new WorkspacePackPreview(
             manifest.Package.Name,
             manifest.Package.Version,
-            PackageXmlRenderer.EnumeratePackFiles(workspace)
+            PackageXmlRenderer.EnumeratePackFiles(workspace with
+            {
+                TapPlanPaths = workspace.TapPlanPaths.Concat(
+                new AuthoringDocumentStore(workspace.Root).ListDocumentIds().Select(id => Path.Combine(workspace.Root, manifest.PlansDirectory, id + ".TapPlan"))).Distinct(StringComparer.OrdinalIgnoreCase).ToArray()
+            })
                 .Select(file => new PackFileLine(file, "in TapPackage"))
                 .ToArray(),
             EnumerateDependencies(manifest),
@@ -89,7 +94,7 @@ public static class WorkspacePackPlan
             DescribeDeclared(workspace.Root, manifest.PluginProjects, "TapPackage"),
             DescribeDeclared(workspace.Root, manifest.ShellAppProjects, "csproj"),
             homePackages,
-            Directory.Exists(homePath) ? homePath : null,
+            homePath,
             manifest.IncludeTui,
             manifest.InstrumentComponentsPackage,
             lastManifest,
@@ -127,9 +132,15 @@ public static class WorkspacePackPlan
         try
         {
             var raw = File.ReadAllText(path);
-            return string.IsNullOrWhiteSpace(raw)
-                ? null
-                : System.Text.Json.JsonSerializer.Deserialize(raw, AuthoringJsonContext.Default.ShipManifest);
+            using var document = System.Text.Json.JsonDocument.Parse(raw);
+            if (document.RootElement.ValueKind != System.Text.Json.JsonValueKind.Object
+                || !document.RootElement.TryGetProperty("dependencies", out var dependencies)
+                || dependencies.ValueKind != System.Text.Json.JsonValueKind.Array)
+            {
+                return null;
+            }
+
+            return System.Text.Json.JsonSerializer.Deserialize(raw, AuthoringJsonContext.Default.ShipManifest);
         }
         catch (System.Text.Json.JsonException)
         {
@@ -142,6 +153,28 @@ public static class WorkspacePackPlan
         catch (UnauthorizedAccessException)
         {
             return null;
+        }
+    }
+
+    public static bool TryResolveHomePath(AuthoringWorkspace workspace, string? homeOverride, out string? path, out string? error)
+    {
+        try
+        {
+            var resolved = ResolveHomePath(workspace, homeOverride);
+            for (var candidate = resolved; !string.IsNullOrEmpty(candidate); candidate = Path.GetDirectoryName(candidate))
+                if (File.Exists(candidate))
+                {
+                    path = null;
+                    error = $"Unavailable OpenTAP home setting: {resolved}. '{candidate}' is a file; select a directory path.";
+                    return false;
+                }
+            path = resolved; error = null; return true;
+        }
+        catch (Exception exception) when (exception is ArgumentException or NotSupportedException or PathTooLongException)
+        {
+            path = null;
+            error = $"Invalid OpenTAP home setting: {(homeOverride ?? string.Empty).Replace("\0", "\\0", StringComparison.Ordinal)}. {exception.Message}";
+            return false;
         }
     }
 

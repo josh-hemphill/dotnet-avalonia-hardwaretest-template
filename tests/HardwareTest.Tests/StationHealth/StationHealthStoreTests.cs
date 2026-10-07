@@ -77,6 +77,81 @@ public sealed class StationHealthStoreTests
         Assert.Equal(24, loaded.MaxAgeHours);
     }
 
+    [Theory]
+    [InlineData("{}")]
+    [InlineData("{\"schemaVersion\":0}")]
+    [InlineData("{\"SchemaVersion\":1}")]
+    public async Task Unsupported_header_is_rejected_and_cannot_be_overwritten(string json)
+    {
+        using var temp = new TempDataDirectory();
+        var store = new FileStationHealthStore(temp.Path);
+        var path = store.PathFor("default");
+        File.WriteAllText(path, json);
+        File.WriteAllText(path + ".bak", "{\"schemaVersion\":1}");
+        Assert.Null(store.TryRead("default"));
+        await Assert.ThrowsAsync<UnsupportedDocumentSchemaException>(
+            () => store.WriteAsync(new StationHealthRecord()));
+        Assert.Equal(json, File.ReadAllText(path));
+        Assert.Equal("{\"schemaVersion\":1}", File.ReadAllText(path + ".bak"));
+    }
+
+    [Fact]
+    public async Task Future_record_is_visible_but_fresh_current_record_cannot_overwrite_it()
+    {
+        using var temp = new TempDataDirectory();
+        var store = new FileStationHealthStore(temp.Path);
+        var path = store.PathFor("default");
+        const string json = "{\"schemaVersion\":99,\"profileId\":\"default\"}";
+        File.WriteAllText(path, json);
+        Assert.Equal(99, store.TryRead("default")!.SchemaVersion);
+        await Assert.ThrowsAsync<SchemaReadOnlyException>(() => store.WriteAsync(new StationHealthRecord()));
+        Assert.Equal(json, File.ReadAllText(path));
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(99)]
+    public async Task Writer_does_not_stamp_rejected_candidate(int version)
+    {
+        using var temp = new TempDataDirectory();
+        var store = new FileStationHealthStore(temp.Path);
+        var record = new StationHealthRecord { SchemaVersion = version };
+        await Assert.ThrowsAnyAsync<InvalidOperationException>(() => store.WriteAsync(record));
+        Assert.Equal(version, record.SchemaVersion);
+        Assert.False(File.Exists(store.PathFor("default")));
+    }
+
+    [Fact]
+    public async Task Corrupt_primary_recovers_current_backup()
+    {
+        using var temp = new TempDataDirectory();
+        var store = new FileStationHealthStore(temp.Path);
+        await store.WriteAsync(new StationHealthRecord { RunId = "first" });
+        await store.WriteAsync(new StationHealthRecord { RunId = "second" });
+        var path = store.PathFor("default");
+        var backup = File.ReadAllBytes(path + ".bak");
+        File.WriteAllText(path, "{broken");
+        Assert.Equal("first", store.TryRead("default")!.RunId);
+        Assert.Equal(backup, File.ReadAllBytes(path));
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(99)]
+    public void Corrupt_primary_does_not_recover_noncurrent_backup(int version)
+    {
+        using var temp = new TempDataDirectory();
+        var store = new FileStationHealthStore(temp.Path);
+        var path = store.PathFor("default");
+        const string primary = "{broken";
+        var backup = $"{{\"schemaVersion\":{version}}}";
+        File.WriteAllText(path, primary);
+        File.WriteAllText(path + ".bak", backup);
+        Assert.Null(store.TryRead("default"));
+        Assert.Equal(primary, File.ReadAllText(path));
+        Assert.Equal(backup, File.ReadAllText(path + ".bak"));
+    }
+
     [Fact]
     public void Recorder_uses_clock_and_result_source()
     {

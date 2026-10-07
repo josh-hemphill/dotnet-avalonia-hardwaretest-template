@@ -66,6 +66,79 @@ public sealed class CrashDossierWriterTests
         Assert.Equal("run1", loaded.ActiveRunId);
     }
 
+    [Theory]
+    [InlineData("{}")]
+    [InlineData("{\"schemaVersion\":0}")]
+    [InlineData("{\"schemaVersion\":99}")]
+    public void Unsupported_or_future_dossier_is_not_listed_overwritten_or_pruned(string json)
+    {
+        using var temp = new TempDataDirectory();
+        var writer = new CrashDossierWriter(Path.Combine(temp.Path, "crashes"), retentionCount: 1);
+        var captured = new DateTimeOffset(2020, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        var dir = Path.Combine(writer.CrashRoot, "20200101T000000Z-fixed");
+        Directory.CreateDirectory(dir);
+        var path = Path.Combine(dir, "crash.json");
+        File.WriteAllText(path, json);
+        File.WriteAllText(Path.Combine(dir, "log-tail.txt"), "original");
+        Assert.Empty(writer.ListUnreviewed());
+        Assert.Null(writer.TryWrite(new CrashCaptureContext
+        {
+            Report = new CrashReportDocument { DossierId = "fixed", CapturedAtUtc = captured },
+            LogTail = "replacement",
+        }));
+        Assert.Equal(json, File.ReadAllText(path));
+        Assert.Equal("original", File.ReadAllText(Path.Combine(dir, "log-tail.txt")));
+        for (var i = 0; i < 2; i++)
+        {
+            Assert.NotNull(writer.TryWrite(new CrashCaptureContext
+            {
+                Report = new CrashReportDocument
+                {
+                    DossierId = $"new-{i}",
+                    CapturedAtUtc = captured.AddYears(1).AddSeconds(i),
+                },
+            }));
+        }
+
+        Assert.True(Directory.Exists(dir));
+        Assert.Equal(json, File.ReadAllText(path));
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(99)]
+    public void Rejected_candidate_is_not_stamped_current(int version)
+    {
+        using var temp = new TempDataDirectory();
+        var writer = new CrashDossierWriter(Path.Combine(temp.Path, "crashes"));
+        var report = new CrashReportDocument { SchemaVersion = version };
+        Assert.Null(writer.TryWrite(new CrashCaptureContext { Report = report }));
+        Assert.Equal(version, report.SchemaVersion);
+        Assert.False(Directory.Exists(writer.CrashRoot));
+    }
+
+    [Fact]
+    public void Rewriting_current_dossier_preserves_backup_and_list_recovers_corruption()
+    {
+        using var temp = new TempDataDirectory();
+        var writer = new CrashDossierWriter(Path.Combine(temp.Path, "crashes"));
+        var report = new CrashReportDocument
+        {
+            DossierId = "same",
+            CapturedAtUtc = DateTimeOffset.UtcNow,
+            Exceptions = [new CrashExceptionFrame { Message = "first" }],
+        };
+        var dir = writer.TryWrite(new CrashCaptureContext { Report = report })!;
+        var path = Path.Combine(dir, "crash.json");
+        var first = File.ReadAllBytes(path);
+        report.Exceptions[0].Message = "second";
+        Assert.Equal(dir, writer.TryWrite(new CrashCaptureContext { Report = report }));
+        Assert.Equal(first, File.ReadAllBytes(path + ".bak"));
+        File.WriteAllText(path, "{broken");
+        Assert.Equal("first", Assert.Single(writer.ListUnreviewed()).ExceptionMessage);
+        Assert.Equal(first, File.ReadAllBytes(path));
+    }
+
     [Fact]
     public void Reentrancy_second_write_while_busy_returns_null()
     {

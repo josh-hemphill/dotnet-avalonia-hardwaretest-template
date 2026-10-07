@@ -64,7 +64,8 @@ internal static class PlanContractPlanChecks
                     PlanContractSeverity.Warning,
                     PlanContractValidator.Codes.ComplianceWithoutLimits,
                     "SeriesCompliance is on but the step has no LimitLow/LimitHigh. allSamples/dwell need a band.",
-                    leaf.Path));
+                    leaf.Path)
+                { Target = new(CompiledStepId: step.Id, Section: "Configure") });
             }
 
             var hints = OpenTapPresentation.TryReadMixin(step);
@@ -74,7 +75,8 @@ internal static class PlanContractPlanChecks
                     PlanContractSeverity.Warning,
                     PlanContractValidator.Codes.MissingPresentation,
                     "Measure/analyze leaf has no Presentation mixin. Attach Presentation (ChannelKey + DisplayRole) so Band/Typst can map this step.",
-                    leaf.Path));
+                    leaf.Path)
+                { Target = new(CompiledStepId: step.Id, Section: "Configure") });
                 continue;
             }
 
@@ -84,7 +86,8 @@ internal static class PlanContractPlanChecks
                     PlanContractSeverity.Error,
                     PlanContractValidator.Codes.EmptyChannelKey,
                     "Presentation mixin has an empty ChannelKey. ChannelKey must be unique and non-empty.",
-                    leaf.Path));
+                    leaf.Path)
+                { Target = new(CompiledStepId: step.Id, Section: "Advanced", Field: "ChannelKey") });
             }
             else if (keys.TryGetValue(hints.ChannelKey, out var existing))
             {
@@ -92,7 +95,8 @@ internal static class PlanContractPlanChecks
                     PlanContractSeverity.Error,
                     PlanContractValidator.Codes.DuplicateChannelKey,
                     $"Presentation ChannelKey '{hints.ChannelKey}' is already used by '{existing}'. ChannelKey must stay unique.",
-                    leaf.Path));
+                    leaf.Path)
+                { Target = new(CompiledStepId: step.Id, Section: "Advanced", Field: "ChannelKey") });
             }
             else
             {
@@ -105,7 +109,12 @@ internal static class PlanContractPlanChecks
                     PlanContractSeverity.Warning,
                     PlanContractValidator.Codes.MissingLimits,
                     $"DisplayRole '{hints.DisplayRole}' has no LimitLow, LimitHigh, or Threshold on the step. Band/Typst pass criteria need limits.",
-                    leaf.Path));
+                    leaf.Path)
+                {
+                    Target = new(CompiledStepId: step.Id, Section: "Configure",
+                        Field: step.GetType().GetProperty("Threshold") is not null ? "Threshold"
+                            : step.GetType().GetProperty("LimitLow") is not null ? "LimitLow" : null)
+                });
             }
         }
     }
