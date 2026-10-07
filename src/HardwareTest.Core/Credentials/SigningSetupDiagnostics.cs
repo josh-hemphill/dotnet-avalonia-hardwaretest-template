@@ -1,35 +1,56 @@
 using System.Reflection.PortableExecutable;
 using System.Runtime.InteropServices;
+using System.Security.Cryptography;
+using System.Security.Cryptography.X509Certificates;
 using HardwareTest.Core.Settings;
 
 namespace HardwareTest.Core.Credentials;
 
-public sealed record SigningSetupDiagnostics(string? ResolvedModule,
+public sealed record SigningSetupDiagnostics(PhysicalSigningBackend Backend, string? ResolvedModule,
     string Architecture, bool Available, string Stage, ulong? NativeCode, string Message)
 {
-    /// Checks configuration and native loading only. Never enumerates cards or authenticates.
+    /// Checks configuration and module loading or Windows Personal-store access. Never enumerates cards or authenticates.
     public static SigningSetupDiagnostics Check(AppSettings settings)
+        => Check(settings, OperatingSystem.IsWindows, () =>
+        {
+            using var store = new X509Store(StoreName.My, StoreLocation.CurrentUser);
+            store.Open(OpenFlags.ReadOnly | OpenFlags.OpenExistingOnly);
+        });
+
+    internal static SigningSetupDiagnostics Check(AppSettings settings, Func<bool> isWindows, Action checkWindowsStore)
     {
         var architecture = RuntimeInformation.ProcessArchitecture.ToString();
         string? module = null;
         var stage = "configuration";
         try
         {
+            if (!Enum.IsDefined(settings.PhysicalSigningBackend))
+                return new(settings.PhysicalSigningBackend, null, architecture, false, stage, null, "Unknown physical signing backend.");
+            if (settings.PhysicalSigningBackend == PhysicalSigningBackend.Windows)
+            {
+                stage = "windows-store";
+                if (!isWindows()) return new(settings.PhysicalSigningBackend, null, architecture, false, stage, null, "Windows smart-card signing requires Windows.");
+                checkWindowsStore();
+                return new(settings.PhysicalSigningBackend, null, architecture, true, stage, null,
+                    "Windows personal certificate store is accessible. Card key acquisition, native PIN dialogs, and signing have not been tested.");
+            }
             stage = "module-discovery";
             module = Pkcs11ModuleResolver.Resolve(settings.Pkcs11LibraryPath);
-            if (module is null) return new(null, architecture, false, stage, null, "Compatible PKCS#11 middleware was not found.");
+            if (module is null) return new(settings.PhysicalSigningBackend, null, architecture, false, stage, null, "Compatible PKCS#11 middleware was not found.");
             stage = "architecture";
             if (!Pkcs11ModuleResolver.IsCompatibleArchitecture(module))
-                return new(module, architecture, false, stage, null, "Middleware architecture must match the application process.");
+                return new(settings.PhysicalSigningBackend, module, architecture, false, stage, null, "Middleware architecture must match the application process.");
             stage = "module-load";
             if (NativeLibrary.TryLoad(module, out var handle))
             {
                 NativeLibrary.Free(handle);
-                return new(module, architecture, true, stage, null, "Middleware loaded. Card authentication and signing have not been tested.");
+                return new(settings.PhysicalSigningBackend, module, architecture, true, stage, null, "Middleware loaded. Card authentication and signing have not been tested.");
             }
         }
-        catch (Exception ex) when (ex is DllNotFoundException or BadImageFormatException or IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException) { }
-        return new(module, architecture, false, stage, null, "Middleware could not be loaded. Check its path, dependencies, and architecture.");
+        catch (Exception ex) when (ex is DllNotFoundException or BadImageFormatException or IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException or CryptographicException) { }
+        if (stage == "windows-store") return new(settings.PhysicalSigningBackend, null, architecture, false, stage, null,
+            "Windows personal certificate store could not be opened. Card key acquisition and authentication have not been attempted.");
+        return new(settings.PhysicalSigningBackend, module, architecture, false, stage, null, "Middleware could not be loaded. Check its path, dependencies, and architecture.");
     }
 
 }

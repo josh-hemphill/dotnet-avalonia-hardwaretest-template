@@ -399,6 +399,10 @@ public static class AppSettingsEnvironmentBinder
                 (s, v) => s.UseMockOperatorCredential = v,
                 env: ["HARDWARETEST_USE_MOCK_OPERATOR_CREDENTIAL"],
                 cli: ["--mock-operator-credential"]),
+            SettingBinding.PhysicalBackend(
+                "PhysicalSigningBackend",
+                env: ["HARDWARETEST_PHYSICAL_SIGNING_BACKEND"],
+                cli: ["--physical-signing-backend"]),
             SettingBinding.String(
                 "Pkcs11LibraryPath",
                 s => s.Pkcs11LibraryPath,
@@ -601,6 +605,17 @@ public sealed class SettingBinding
         string[] env,
         string[] cli)
         => Scalar(key, get, set, env, cli);
+
+    public static SettingBinding PhysicalBackend(string key, string[] env, string[] cli)
+        => new(key, env, cli, s => s.PhysicalSigningBackend.ToString(), (s, raw) =>
+        {
+            var text = raw.Trim();
+            if (!Enum.GetNames<PhysicalSigningBackend>().Any(name => string.Equals(name, text, StringComparison.OrdinalIgnoreCase))
+                || !Enum.TryParse<PhysicalSigningBackend>(text, true, out var backend))
+                return (false, s.PhysicalSigningBackend.ToString(), "expected Pkcs11 or Windows");
+            s.PhysicalSigningBackend = backend;
+            return (true, backend.ToString(), (string?)null);
+        });
 
     public static SettingBinding Bool(
         string key,

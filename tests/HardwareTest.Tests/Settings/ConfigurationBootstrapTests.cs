@@ -7,6 +7,45 @@ namespace HardwareTest.Tests.Settings;
 
 public sealed class ConfigurationBootstrapTests
 {
+    [Theory]
+    [InlineData("Pkcs11", PhysicalSigningBackend.Pkcs11)]
+    [InlineData("windows", PhysicalSigningBackend.Windows)]
+    [InlineData("PKCS11", PhysicalSigningBackend.Pkcs11)]
+    public async Task Signing_provider_environment_and_cli_precedence(string text, PhysicalSigningBackend expected)
+    {
+        using var temp = new TempDataDirectory();
+        var env = new Hashtable { ["HARDWARETEST_PHYSICAL_SIGNING_BACKEND"] = "Windows" };
+        var result = await ConfigurationBootstrap.ResolveAsync(ConfigurationArgs.Parse(["--physical-signing-backend", text]), env, defaultRoot: temp.Path);
+        Assert.Equal(expected, result.Store.AppSettings.PhysicalSigningBackend);
+        Assert.Equal(SettingSource.CommandLine, result.Store.Provenance.Single(p => p.Key == nameof(AppSettings.PhysicalSigningBackend)).Source);
+    }
+
+    [Theory]
+    [InlineData("1")]
+    [InlineData("Unknown")]
+    [InlineData("Auto,Windows")]
+    public void Signing_provider_rejects_numbers_and_unknown_names(string text)
+    {
+        var binding = AppSettingsEnvironmentBinder.Bindings.Single(b => b.Key == nameof(AppSettings.PhysicalSigningBackend));
+        var settings = new AppSettings();
+        Assert.False(binding.TryApply(settings, text, out _, out var error));
+        Assert.Equal(PhysicalSigningBackend.Pkcs11, settings.PhysicalSigningBackend);
+        Assert.NotNull(error);
+    }
+
+    [Fact]
+    public async Task Signing_provider_and_explicit_module_persist_in_settings_file()
+    {
+        using var temp = new TempDataDirectory();
+        var store = new SettingsStore(temp.Path); await store.LoadAsync();
+        store.AppSettings.PhysicalSigningBackend = PhysicalSigningBackend.Windows;
+        store.AppSettings.Pkcs11LibraryPath = "configured-module";
+        await store.SaveAppSettingsAsync();
+        var reloaded = new SettingsStore(temp.Path); await reloaded.LoadAsync();
+        Assert.Equal(PhysicalSigningBackend.Windows, reloaded.AppSettings.PhysicalSigningBackend);
+        Assert.Equal("configured-module", reloaded.AppSettings.Pkcs11LibraryPath);
+    }
+
     [Fact]
     public async Task Precedence_file_beaten_by_env_beaten_by_command_line()
     {

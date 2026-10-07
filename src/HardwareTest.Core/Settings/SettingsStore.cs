@@ -444,6 +444,7 @@ public sealed class SettingsStore : ISettingsStore
         target.StationHealthGateOverride = source.StationHealthGateOverride;
         target.UseMockOperatorCredential = source.UseMockOperatorCredential;
         target.Pkcs11LibraryPath = source.Pkcs11LibraryPath;
+        target.PhysicalSigningBackend = source.PhysicalSigningBackend;
         target.RequireCredentialForOperator = source.RequireCredentialForOperator;
         target.RequireAttestationBeforeExport = source.RequireAttestationBeforeExport;
         target.AllowPresenceInLieuOfSigning = source.AllowPresenceInLieuOfSigning;

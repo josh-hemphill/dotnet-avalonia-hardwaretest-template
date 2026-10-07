@@ -72,8 +72,9 @@ public static class CoreServiceCollectionExtensions
             new SettingsBackedCredentialBroker(
                 settingsStore.AppSettings,
                 new MockOperatorCredentialBroker(sp.GetRequiredService<IClock>()),
-                new Pkcs11OperatorCredentialBroker(
+                new SmartCardSigningRouter(
                     settingsStore.AppSettings,
+                    sp.GetService<INativeSigningDialogOwner>(),
                     sp.GetRequiredService<IClock>(),
                     sp.GetRequiredService<IOperatorCredentialPresenceBroker>())));
         services.AddSingleton<IReportService>(sp =>

@@ -8,6 +8,9 @@ namespace HardwareTest.Features.Settings;
 
 public partial class SettingsViewModel
 {
+    [Reactive] private PhysicalSigningBackend _physicalSigningBackend;
+    [Reactive] private bool _physicalSigningBackendReadOnly;
+    public IReadOnlyList<PhysicalSigningBackend> SigningBackendOptions { get; } = Enum.GetValues<PhysicalSigningBackend>();
     [Reactive] private string _pkcs11LibraryPath = string.Empty;
     [Reactive] private bool _pkcs11LibraryPathReadOnly;
     [Reactive] private string _signingSetupStatus = string.Empty;
@@ -27,16 +30,19 @@ public partial class SettingsViewModel
     private void InitCredentialSettings(ISettingsStore settingsStore)
     {
         var s = settingsStore.AppSettings;
+        PhysicalSigningBackend = s.PhysicalSigningBackend;
+        PhysicalSigningBackendReadOnly = settingsStore.IsOverridden(nameof(AppSettings.PhysicalSigningBackend));
         Pkcs11LibraryPath = s.Pkcs11LibraryPath;
         Pkcs11LibraryPathReadOnly = settingsStore.IsOverridden(nameof(AppSettings.Pkcs11LibraryPath));
         CheckSigningSetupCommand = ReactiveCommand.CreateFromTask(async () =>
         {
             var snapshot = new AppSettings
             {
+                PhysicalSigningBackend = PhysicalSigningBackendReadOnly ? settingsStore.AppSettings.PhysicalSigningBackend : PhysicalSigningBackend,
                 Pkcs11LibraryPath = Pkcs11LibraryPathReadOnly ? settingsStore.AppSettings.Pkcs11LibraryPath : Pkcs11LibraryPath,
             };
             var result = await Task.Run(() => SigningSetupDiagnostics.Check(snapshot));
-            SigningSetupStatus = $"PKCS#11; {result.Architecture}; module: {result.ResolvedModule ?? "none"}; stage: {result.Stage}; available: {result.Available}; code: {result.NativeCode?.ToString() ?? "none"}. {result.Message}";
+            SigningSetupStatus = $"{result.Backend}; {result.Architecture}; module: {result.ResolvedModule ?? "none"}; stage: {result.Stage}; available: {result.Available}; code: {result.NativeCode?.ToString() ?? "none"}. {result.Message}";
         });
         UseMockOperatorCredential = s.UseMockOperatorCredential;
         RequireCredentialForOperator = s.RequireCredentialForOperator;
@@ -53,6 +59,7 @@ public partial class SettingsViewModel
     /// Writes writable credential flags onto AppSettings before persist.
     private void ApplyCredentialSettings(AppSettings settings)
     {
+        if (!PhysicalSigningBackendReadOnly) settings.PhysicalSigningBackend = PhysicalSigningBackend;
         if (!Pkcs11LibraryPathReadOnly) settings.Pkcs11LibraryPath = Pkcs11LibraryPath;
         if (!UseMockOperatorCredentialReadOnly)
         {
@@ -83,6 +90,7 @@ public partial class SettingsViewModel
     private bool IsCredentialPropertyOverridden(string? propertyName)
         => propertyName switch
         {
+            nameof(PhysicalSigningBackend) => PhysicalSigningBackendReadOnly,
             nameof(Pkcs11LibraryPath) => Pkcs11LibraryPathReadOnly,
             nameof(UseMockOperatorCredential) => UseMockOperatorCredentialReadOnly,
             nameof(RequireCredentialForOperator) => RequireCredentialForOperatorReadOnly,

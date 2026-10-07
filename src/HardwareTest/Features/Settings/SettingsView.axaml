@@ -155,6 +155,11 @@
                    TextWrapping="Wrap"
                    Opacity="0.8" />
         <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
+          <TextBlock x:Name="SigningBackendLabel" Text="Physical signing backend" VerticalAlignment="Center" />
+          <ComboBox Grid.Column="1" ItemsSource="{Binding SigningBackendOptions}" SelectedItem="{Binding PhysicalSigningBackend}"
+                    IsEnabled="{Binding !PhysicalSigningBackendReadOnly}" AutomationProperties.LabeledBy="{Binding #SigningBackendLabel}" />
+        </Grid>
+        <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
           <TextBlock x:Name="Pkcs11PathLabel" Text="PKCS#11 middleware path" VerticalAlignment="Center" />
           <TextBox Grid.Column="1" Text="{Binding Pkcs11LibraryPath}" IsReadOnly="{Binding Pkcs11LibraryPathReadOnly}"
                    AutomationProperties.LabeledBy="{Binding #Pkcs11PathLabel}" PlaceholderText="Automatic discovery when empty" />

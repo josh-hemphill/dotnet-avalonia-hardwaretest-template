@@ -16,17 +16,21 @@ public sealed class SettingsViewModelTests
     {
         var store = new FakeSettingsStore();
         var vm = new SettingsViewModel(store, new FakeOpenTapSession())
-        { Pkcs11LibraryPath = "explicit-module" };
+        { PhysicalSigningBackend = PhysicalSigningBackend.Windows, Pkcs11LibraryPath = "explicit-module" };
         await vm.SaveCommand.ExecuteAsync();
+        Assert.Equal(PhysicalSigningBackend.Windows, store.AppSettings.PhysicalSigningBackend);
         Assert.Equal("explicit-module", store.AppSettings.Pkcs11LibraryPath);
         store.Provenance =
         [
+            new SettingProvenance { Key = nameof(AppSettings.PhysicalSigningBackend), EffectiveValue = "Windows", Source = SettingSource.Environment },
             new SettingProvenance { Key = nameof(AppSettings.Pkcs11LibraryPath), EffectiveValue = "explicit-module", Source = SettingSource.CommandLine },
         ];
         var locked = new SettingsViewModel(store, new FakeOpenTapSession())
-        { Pkcs11LibraryPath = "changed-module" };
+        { PhysicalSigningBackend = PhysicalSigningBackend.Pkcs11, Pkcs11LibraryPath = "changed-module" };
+        Assert.True(locked.PhysicalSigningBackendReadOnly);
         Assert.True(locked.Pkcs11LibraryPathReadOnly);
         await locked.SaveCommand.ExecuteAsync();
+        Assert.Equal(PhysicalSigningBackend.Windows, store.AppSettings.PhysicalSigningBackend);
         Assert.Equal("explicit-module", store.AppSettings.Pkcs11LibraryPath);
     }
 
@@ -37,7 +41,7 @@ public sealed class SettingsViewModelTests
         { Pkcs11LibraryPath = "missing-module-for-diagnostics" };
         await vm.CheckSigningSetupCommand.ExecuteAsync();
         Assert.Contains("module-load", vm.SigningSetupStatus);
-        Assert.Contains("PKCS#11", vm.SigningSetupStatus);
+        Assert.Contains("Pkcs11", vm.SigningSetupStatus);
         Assert.DoesNotContain("serial", vm.SigningSetupStatus, StringComparison.OrdinalIgnoreCase);
     }
 
