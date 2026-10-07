@@ -184,6 +184,19 @@
                  PlaceholderText="SCOPE"
                  AutomationProperties.Name="Add instrument slot"
                  AutomationProperties.LabeledBy="{Binding #NewSlotLabel}" />
+        <TextBlock x:Name="NewInstrumentTypeLabel" Text="New instrument type" />
+        <ComboBox ItemsSource="{Binding InstrumentTypeChoices}"
+                  SelectedItem="{Binding SelectedNewInstrumentType}"
+                  AutomationProperties.Name="New instrument type"
+                  AutomationProperties.LabeledBy="{Binding #NewInstrumentTypeLabel}">
+          <ComboBox.ItemTemplate>
+            <DataTemplate x:DataType="vm:AuthoringInstrumentAdapter">
+              <TextBlock Text="{Binding DisplayName}" />
+            </DataTemplate>
+          </ComboBox.ItemTemplate>
+        </ComboBox>
+        <TextBlock Text="{Binding NewInstrumentAvailabilityText}" TextWrapping="Wrap"
+                   AutomationProperties.Name="New instrument availability" />
         <TextBlock x:Name="NewVisaLabel" Text="New slot VISA" />
         <TextBox Text="{Binding NewInstrumentVisa}"
                  PlaceholderText="MOCK::INSTR1"

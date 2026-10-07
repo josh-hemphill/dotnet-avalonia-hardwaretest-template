@@ -71,7 +71,7 @@ public static class AuthoringRecipeCatalog
             new CleanupPolicy(true, "DMM"));
     }
 
-    public static ProgramDraft Apply(ProgramDraft draft, string recipeId)
+    public static ProgramDraft Apply(ProgramDraft draft, string recipeId, string? instrumentSlot = null)
     {
         ArgumentNullException.ThrowIfNull(draft);
         ArgumentException.ThrowIfNullOrWhiteSpace(recipeId);
@@ -84,7 +84,7 @@ public static class AuthoringRecipeCatalog
         return recipeId.Trim().ToLowerInvariant() switch
         {
             AuthoringRecipeIds.TestGroup => draft,
-            AuthoringRecipeIds.Identity => WithSetup(draft, new IdentitySetup(DefaultSlot(draft))),
+            AuthoringRecipeIds.Identity => WithSetup(draft, new IdentitySetup(instrumentSlot ?? DefaultSlot(draft))),
             AuthoringRecipeIds.Prompt => WithSetup(
                 draft,
                 new OperatorPromptSetup("Operator Prompt", "Confirm the fixture is seated, then Continue.")),
@@ -96,8 +96,8 @@ public static class AuthoringRecipeCatalog
                     "Enter the fixture id, then Continue.",
                     "fixtureId",
                     null)),
-            AuthoringRecipeIds.Acquire => WithMeasure(draft, AcquireMetric()),
-            AuthoringRecipeIds.MeanGte => WithMeasure(draft, MeanGteMetric()),
+            AuthoringRecipeIds.Acquire => WithMeasure(draft, AcquireMetric(instrumentSlot ?? DefaultSlot(draft))),
+            AuthoringRecipeIds.MeanGte => WithMeasure(draft, MeanGteMetric(instrumentSlot ?? DefaultSlot(draft))),
             AuthoringRecipeIds.BandScalar => WithMeasure(draft, BandScalarMetric()),
             AuthoringRecipeIds.SeriesCompliance => WithMeasure(draft, SeriesComplianceMetric()),
             AuthoringRecipeIds.Repeat => WrapLastInRepeat(draft),
@@ -204,7 +204,7 @@ public static class AuthoringRecipeCatalog
     private static string DefaultSlot(ProgramDraft draft)
         => draft.Instruments.FirstOrDefault()?.SlotName ?? "DMM";
 
-    private static MetricDraft AcquireMetric()
+    private static MetricDraft AcquireMetric(string instrumentSlot)
         => new(
             "Acquire VDC",
             "VDC",
@@ -213,7 +213,7 @@ public static class AuthoringRecipeCatalog
             null,
             null,
             new MeasureSource(
-                "DMM",
+                instrumentSlot,
                 AuthoringFunctionIds.BasicAcquireVoltage,
                 new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
                 {
@@ -222,7 +222,7 @@ public static class AuthoringRecipeCatalog
                     ["Channel"] = "VDC",
                 }));
 
-    private static MetricDraft MeanGteMetric()
+    private static MetricDraft MeanGteMetric(string instrumentSlot)
         => new(
             "Mean GTE",
             "VDC.mean",
@@ -236,7 +236,8 @@ public static class AuthoringRecipeCatalog
                 new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
                 {
                     ["SampleCount"] = "8",
-                }));
+                })
+            { InstrumentSlot = instrumentSlot });
 
     private static MetricDraft BandScalarMetric()
         => new(
@@ -326,7 +327,7 @@ public static class AuthoringRecipeCatalog
             new LimitSpec(-0.01, 0.01, null),
             null,
             new MeasureSource(
-                "DMM",
+                string.Empty,
                 AuthoringFunctionIds.BasicReportStationHealth,
                 new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
                 {

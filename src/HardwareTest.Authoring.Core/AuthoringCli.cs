@@ -158,7 +158,7 @@ public static class AuthoringCli
             {
                 Strict = strict,
                 Format = format,
-                ExcludeVisaAdapter = true,
+                ExcludeVisaAdapter = !AuthoringInstrumentCatalog.DeclaresVisa(workspace),
             });
     }
 

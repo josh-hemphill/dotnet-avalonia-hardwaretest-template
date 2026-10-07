@@ -115,11 +115,12 @@ public sealed partial class AuthoringWorkspaceViewModel
         if (remaining.Length == 0) throw new AuthoringWorkspaceException("A program must keep at least one instrument slot with a distinct name.");
         if (AuthoringInstrumentUsage.HasOpaqueInstrumentRefs(program))
             throw new AuthoringWorkspaceException($"Cannot remove instrument slot '{slot}'; raw or unknown steps, unknown algorithms, or legacy instrument-based algorithms have unresolved instrument bindings. Preserve the slot until bindings can be represented explicitly.");
-        var knownType = typeof(HardwareTest.OpenTap.Plugins.Basic.MockDmmInstrument).FullName!;
-        if (targets.Any(i => i.TypeId != knownType)) throw new AuthoringWorkspaceException("Cannot prove replacement compatibility for an unknown or unsupported instrument type.");
+        if (targets.Any(i => !AuthoringInstrumentCatalog.TryGet(i.TypeId, out _)))
+            throw new AuthoringWorkspaceException("Cannot prove replacement compatibility for an unknown or unsupported instrument type.");
         var replacements = remaining.GroupBy(i => i.SlotName, StringComparer.OrdinalIgnoreCase)
-            .Where(g => g.All(i => i.TypeId == knownType)).Select(g => g.First().SlotName).ToArray();
-        if (replacements.Length == 0) throw new AuthoringWorkspaceException("Choose a distinct remaining slot of the same supported instrument type (MockDmm).");
+            .Where(g => g.Count() == 1 && AuthoringInstrumentCatalog.CanReplace(program, slot, g.First()))
+            .Select(g => g.First().SlotName).ToArray();
+        if (replacements.Length == 0) throw new AuthoringWorkspaceException("Choose a distinct remaining slot with compatible registered instrument capabilities.");
         return new(_workspaceSession, Workspace!.Root, program.PlanId, slot, ContentFingerprint(), replacements,
             AuthoringInstrumentUsage.DescribeSlotUsage(program, slot));
     }

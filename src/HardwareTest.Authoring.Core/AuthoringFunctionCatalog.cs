@@ -43,13 +43,15 @@ public static class AuthoringFunctionCatalog
         new(AuthoringFunctionIds.BasicPublishTimedSample, "HardwareTest Basic", nameof(PublishTimedSampleStep), false, false),
         new(AuthoringFunctionIds.BasicPublishSeriesCompliance, "HardwareTest Basic", nameof(PublishSeriesComplianceStep), false, true),
         new(AuthoringFunctionIds.BasicApplyTransferFunction, "HardwareTest Basic", nameof(ApplyTransferFunctionStep), false, true),
-        new(AuthoringFunctionIds.BasicIdentityCheck, "HardwareTest Basic", nameof(IdentityCheckStep), false, false),
+        new(AuthoringFunctionIds.BasicIdentityCheck, "HardwareTest Basic", nameof(IdentityCheckStep), true, false),
         new(AuthoringFunctionIds.BasicReportStationHealth, "HardwareTest Basic", nameof(ReportStationHealthStep), false, false),
         new(AuthoringFunctionIds.IcIdentityQuery, "InstrumentComponents.OpenTap", "IdentityQueryStep", true, false),
         new(AuthoringFunctionIds.IcSafeShutdown, "InstrumentComponents.OpenTap", "SafeShutdownStep", true, false),
     ];
 
     public static IReadOnlyList<AuthoringFunctionSpec> All { get; } = Specs;
+
+    public static bool HasInstrumentDependency(string functionId) => !TryGet(functionId, out var spec) || spec.NeedsInstrument;
 
     public static bool TryGet(string id, out AuthoringFunctionSpec spec)
     {

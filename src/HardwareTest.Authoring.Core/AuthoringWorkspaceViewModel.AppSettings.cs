@@ -53,6 +53,8 @@ public sealed partial class AuthoringWorkspaceViewModel
             Prefs.OpenTapHomeOverride = trimmed;
             PersistPreferences();
             OnPropertyChanged();
+            OnPropertyChanged(nameof(NewInstrumentAvailabilityText));
+            OnPropertyChanged(nameof(CanAddInstrumentSlot));
         }
     }
 

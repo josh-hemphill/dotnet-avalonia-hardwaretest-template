@@ -8,7 +8,7 @@ namespace HardwareTest.Authoring;
 
 public sealed partial class PlanCompiler
 {
-    private static TestPlan BuildPlan(ProgramDraft draft)
+    private TestPlan BuildPlan(ProgramDraft draft)
     {
         var instruments = CreateInstruments(draft.Instruments);
         var dut = new HardwareDut
@@ -40,7 +40,7 @@ public sealed partial class PlanCompiler
             {
                 var name = slots.Count == 1 ? "Safe Shutdown" : $"Safe Shutdown · {slot}";
                 var shutdown = new SafeShutdownStep { Name = name };
-                AssignInstrument(shutdown, ResolveInstrument(instruments, slot));
+                AssignInstrument(shutdown, ResolveInstrument(instruments, slot), AuthoringFunctionIds.BasicSafeShutdown);
                 cleanupGroup.ChildTestSteps.Add(shutdown);
             }
         }
@@ -65,40 +65,22 @@ public sealed partial class PlanCompiler
         return plan;
     }
 
-    private static Dictionary<string, HardwareDmm> CreateInstruments(IReadOnlyList<InstrumentRef> refs)
+    private Dictionary<string, Instrument> CreateInstruments(IReadOnlyList<InstrumentRef> refs)
     {
-        var map = new Dictionary<string, HardwareDmm>(StringComparer.OrdinalIgnoreCase);
+        var map = new Dictionary<string, Instrument>(StringComparer.OrdinalIgnoreCase);
+        var home = _selectedHome;
         foreach (var slot in refs)
         {
-            map[slot.SlotName] = CreateInstrument(slot);
+            if (!map.TryAdd(slot.SlotName, AuthoringInstrumentCatalog.Create(slot, home)))
+                throw new AuthoringWorkspaceException($"Duplicate instrument slot '{slot.SlotName}'.");
         }
 
         return map;
     }
 
-    private static HardwareDmm CreateInstrument(InstrumentRef slot)
-    {
-        if (IsMockDmm(slot.TypeId))
-        {
-            return new MockDmmInstrument
-            {
-                Name = slot.SlotName,
-                VisaAddress = slot.VisaAddress,
-                ResourceName = slot.VisaAddress,
-            };
-        }
-
-        throw new AuthoringWorkspaceException(
-            $"{AuthoringCompileCodes.UnknownFunction}: instrument type '{slot.TypeId}' is not supported in this compile.");
-    }
-
-    private static bool IsMockDmm(string typeId)
-        => typeId.Contains("MockDmm", StringComparison.OrdinalIgnoreCase)
-           || string.Equals(typeId, typeof(MockDmmInstrument).FullName, StringComparison.Ordinal);
-
     private static ITestStep CreateSetupStep(
         SetupAction action,
-        IReadOnlyDictionary<string, HardwareDmm> instruments,
+        IReadOnlyDictionary<string, Instrument> instruments,
         HardwareDut dut)
     {
         switch (action)
@@ -106,7 +88,7 @@ public sealed partial class PlanCompiler
             case IdentitySetup identity:
                 {
                     var step = new IdentityCheckStep { Id = action.NodeId, Name = "Identity Check", Dut = dut };
-                    AssignInstrument(step, ResolveInstrument(instruments, identity.InstrumentSlot));
+                    AssignInstrument(step, ResolveInstrument(instruments, identity.InstrumentSlot), AuthoringFunctionIds.BasicIdentityCheck);
                     OpenTapMixinAttach.AttachAnnotation(step);
                     return step;
                 }
@@ -129,7 +111,7 @@ public sealed partial class PlanCompiler
 
     private static ITestStep CreateMeasureStep(
         MeasureNode node,
-        IReadOnlyDictionary<string, HardwareDmm> instruments)
+        IReadOnlyDictionary<string, Instrument> instruments)
     {
         switch (node)
         {
@@ -156,7 +138,7 @@ public sealed partial class PlanCompiler
 
     private static ITestStep CreateMetricStep(
         MetricDraft metric,
-        IReadOnlyDictionary<string, HardwareDmm> instruments)
+        IReadOnlyDictionary<string, Instrument> instruments)
     {
         var source = ResolveSource(metric);
         if (source is TransferFunctionAlgorithm tf)
@@ -209,15 +191,17 @@ public sealed partial class PlanCompiler
     private static void ApplySource(
         ITestStep step,
         MetricSource source,
-        IReadOnlyDictionary<string, HardwareDmm> instruments)
+        IReadOnlyDictionary<string, Instrument> instruments)
     {
         switch (source)
         {
             case MeasureSource measure:
                 ApplySettings(step, measure.Settings);
+                if (AuthoringFunctionCatalog.TryGet(measure.FunctionId, out var measureSpec) && measureSpec.NeedsInstrument && string.IsNullOrWhiteSpace(measure.InstrumentSlot))
+                    throw new AuthoringWorkspaceException($"Function '{measure.FunctionId}' needs an explicit instrument slot.");
                 if (!string.IsNullOrWhiteSpace(measure.InstrumentSlot))
                 {
-                    AssignInstrument(step, ResolveInstrument(instruments, measure.InstrumentSlot));
+                    AssignInstrument(step, ResolveInstrument(instruments, measure.InstrumentSlot), measure.FunctionId);
                 }
 
                 break;
@@ -227,18 +211,18 @@ public sealed partial class PlanCompiler
                     average.InputChannel = algorithm.InputChannelKeys[0];
                 if (AuthoringFunctionCatalog.TryGet(algorithm.AlgorithmId, out var spec) && spec.NeedsInstrument)
                 {
-                    var slot = instruments.Keys.FirstOrDefault()
+                    var slot = algorithm.InstrumentSlot
                                ?? throw new AuthoringWorkspaceException(
                                    $"Algorithm '{algorithm.AlgorithmId}' needs an instrument slot.");
-                    AssignInstrument(step, ResolveInstrument(instruments, slot));
+                    AssignInstrument(step, ResolveInstrument(instruments, slot), algorithm.AlgorithmId);
                 }
 
                 break;
         }
     }
 
-    private static HardwareDmm ResolveInstrument(
-        IReadOnlyDictionary<string, HardwareDmm> instruments,
+    private static Instrument ResolveInstrument(
+        IReadOnlyDictionary<string, Instrument> instruments,
         string slotName)
     {
         if (instruments.TryGetValue(slotName, out var found))
@@ -296,18 +280,20 @@ public sealed partial class PlanCompiler
         }
     }
 
-    private static void AssignInstrument(ITestStep step, HardwareDmm instrument)
+    private static void AssignInstrument(ITestStep step, Instrument instrument, string functionId)
     {
+        AuthoringInstrumentCatalog.EnsureCompatible(instrument.GetType().FullName!, functionId);
         var prop = step.GetType().GetProperty("Instrument", BindingFlags.Instance | BindingFlags.Public);
         if (prop is null || !prop.CanWrite)
         {
-            return;
+            throw new AuthoringWorkspaceException($"INSTRUMENT_INCOMPATIBLE: step '{step.Name}' has no writable instrument binding.");
         }
 
         if (prop.PropertyType.IsInstanceOfType(instrument))
         {
             prop.SetValue(step, instrument);
         }
+        else throw new AuthoringWorkspaceException($"INSTRUMENT_INCOMPATIBLE: '{instrument.GetType().FullName}' cannot bind to '{step.GetType().FullName}'.");
     }
 
     private static void ApplySettings(ITestStep step, IReadOnlyDictionary<string, string> settings)

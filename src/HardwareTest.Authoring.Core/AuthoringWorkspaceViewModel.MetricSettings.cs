@@ -285,9 +285,12 @@ public sealed partial class AuthoringWorkspaceViewModel
 
     public string MetricInstrumentSlot
     {
-        get => HasMetricPresentation && SelectedMetric?.Source is MeasureSource measure
-            ? measure.InstrumentSlot
-            : string.Empty;
+        get => HasMetricPresentation ? SelectedMetric?.Source switch
+        {
+            MeasureSource measure => measure.InstrumentSlot,
+            AlgorithmSource algorithm => algorithm.InstrumentSlot ?? string.Empty,
+            _ => string.Empty
+        } : string.Empty;
         set
         {
             if (!HasMetricPresentation)
@@ -302,9 +305,12 @@ public sealed partial class AuthoringWorkspaceViewModel
                 return;
             }
 
-            UpdateSelectedMetric(metric => metric.Source is MeasureSource measure
-                ? metric with { Source = measure with { InstrumentSlot = slot } }
-                : metric);
+            UpdateSelectedMetric(metric => metric.Source switch
+            {
+                MeasureSource measure => metric with { Source = measure with { InstrumentSlot = slot } },
+                AlgorithmSource algorithm => metric with { Source = algorithm with { InstrumentSlot = slot } },
+                _ => metric
+            });
         }
     }
 

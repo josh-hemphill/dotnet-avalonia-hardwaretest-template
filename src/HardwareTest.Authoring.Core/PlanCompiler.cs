@@ -19,11 +19,13 @@ public sealed partial class PlanCompiler : IPlanCompiler
     public const string CleanupGroupName = "Cleanup";
 
     private readonly string[] _extraPluginDirectories;
+    private readonly OpenTapHome? _selectedHome;
     private readonly Action<string, string> _replaceFile;
 
-    public PlanCompiler(IEnumerable<string>? extraPluginDirectories = null)
+    public PlanCompiler(IEnumerable<string>? extraPluginDirectories = null, OpenTapHome? selectedHome = null)
         : this(extraPluginDirectories, (source, destination) => File.Move(source, destination, overwrite: true))
     {
+        _selectedHome = selectedHome;
     }
 
     internal PlanCompiler(IEnumerable<string>? extraPluginDirectories, Action<string, string> replaceFile)
@@ -74,7 +76,7 @@ public sealed partial class PlanCompiler : IPlanCompiler
         }
 
         AuthoringPluginSearch.Search(_extraPluginDirectories);
-        var plan = TestPlan.Load(tapPlanPath);
+        var plan = LoadPlanWithOpaqueResources(tapPlanPath);
         var xmlById = IndexStepXml(tapPlanPath);
         var sidecar = ReadSidecar(tapPlanPath);
         return Decompile(Path.GetFileNameWithoutExtension(tapPlanPath), plan, sidecar, xmlById);

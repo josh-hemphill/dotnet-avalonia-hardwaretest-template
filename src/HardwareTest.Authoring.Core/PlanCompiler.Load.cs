@@ -53,6 +53,21 @@ public sealed partial class PlanCompiler
             Walk(step, instruments, setup, measure, ref cleanup, xmlById);
         }
 
+        // Resources which OpenTAP cannot materialize still belong to the source document.
+        foreach (var pair in xmlById.Where(pair => pair.Key.StartsWith("resource:", StringComparison.Ordinal)))
+        {
+            var resource = pair.Value;
+            var typeId = (string?)resource.Attribute("type");
+            if (string.IsNullOrWhiteSpace(typeId) || AuthoringInstrumentCatalog.TryGet(typeId, out _)) continue;
+            var slot = resource.Elements().FirstOrDefault(e => e.Name.LocalName == "Name")?.Value;
+            if (string.IsNullOrWhiteSpace(slot)) continue;
+            var address = new[] { "VisaAddress", "ResourceName", "Address" }
+                .Select(name => resource.Elements().FirstOrDefault(e => e.Name.LocalName == name)?.Value)
+                .FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? string.Empty;
+            instruments[slot] = new InstrumentRef(slot, typeId, address)
+            { OpaqueResourceXml = resource.ToString(SaveOptions.DisableFormatting) };
+        }
+
         cleanup = AuthoringCleanup.FromPlan(cleanup, sidecar);
 
         return new ProgramDraft(
@@ -98,7 +113,7 @@ public sealed partial class PlanCompiler
 
         if (OpenTapStepKinds.IsIdentity(step))
         {
-            setup.Add(new IdentitySetup(InstrumentSlotName(step)) { NodeId = step.Id });
+            setup.Add(new IdentitySetup(ImportedInstrumentSlot(step, xmlById)) { NodeId = step.Id });
             return;
         }
 
@@ -123,7 +138,7 @@ public sealed partial class PlanCompiler
         if (OpenTapStepKinds.IsSafeShutdown(step))
         {
             var slots = cleanup.InstrumentSlots.ToList();
-            var slot = InstrumentSlotName(step);
+            var slot = ImportedInstrumentSlot(step, xmlById);
             if (!string.IsNullOrWhiteSpace(slot)
                 && !slots.Any(existing => string.Equals(existing, slot, StringComparison.OrdinalIgnoreCase)))
             {
@@ -168,25 +183,34 @@ public sealed partial class PlanCompiler
 
         if (AuthoringFunctionCatalog.TryGetByStep(step, out var spec))
         {
-            return new MetricNode(ToMetricDraft(step, spec)) { NodeId = step.Id };
+            return new MetricNode(ToMetricDraft(step, spec, xmlById)) { NodeId = step.Id };
         }
 
         return ToRaw(step, xmlById);
     }
 
-    private static MetricDraft ToMetricDraft(ITestStep step, AuthoringFunctionSpec spec)
+    private static MetricDraft ToMetricDraft(ITestStep step, AuthoringFunctionSpec spec, IReadOnlyDictionary<string, XElement> xmlById)
     {
         var hints = OpenTapPresentation.TryReadMixin(step);
         var settings = ReadSettings(step);
+        var slot = ImportedInstrumentSlot(step, xmlById);
+        if (string.IsNullOrWhiteSpace(slot) && xmlById.TryGetValue(step.Id.ToString(), out var stepXml))
+        {
+            slot = stepXml.Elements().FirstOrDefault(e => e.Name.LocalName == "Instrument")?.Elements()
+                .FirstOrDefault(e => e.Name.LocalName == "Name")?.Value ?? string.Empty;
+        }
         MetricSource source;
         if (spec.IsAlgorithm)
         {
             var inputs = step is ChannelAverageStep average ? new[] { average.InputChannel } : Array.Empty<string>();
-            source = new AlgorithmSource(spec.Id, inputs, settings);
+            source = new AlgorithmSource(spec.Id, inputs, settings)
+            {
+                InstrumentSlot = spec.NeedsInstrument ? slot : null,
+            };
         }
         else
         {
-            source = new MeasureSource(InstrumentSlotName(step), spec.Id, settings);
+            source = new MeasureSource(slot, spec.Id, settings);
         }
 
         return new MetricDraft(
@@ -324,7 +348,8 @@ public sealed partial class PlanCompiler
 
         var visa = ReadInstrumentAddress(instrument);
         var typeId = instrument.GetType().FullName ?? instrument.GetType().Name;
-        instruments[name] = new InstrumentRef(name, typeId, visa);
+        instruments[name] = AuthoringInstrumentCatalog.TryGet(typeId, out var adapter)
+            ? adapter.Serialize(instrument) : new InstrumentRef(name, typeId, visa);
     }
 
     private static string InstrumentSlotName(ITestStep step)
@@ -375,6 +400,12 @@ public sealed partial class PlanCompiler
             }
 
             map[id] = element;
+        }
+
+        var resourceIndex = 0;
+        foreach (var element in document.Descendants().Where(e => e.Name.LocalName == "Instrument" && e.Attribute("type") is not null))
+        {
+            map[$"resource:{resourceIndex++}"] = element;
         }
 
         return map;

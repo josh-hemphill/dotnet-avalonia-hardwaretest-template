@@ -310,7 +310,7 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
             throw new AuthoringWorkspaceException("Select a program before adding a recipe.");
         }
 
-        var updated = AuthoringRecipeCatalog.Apply(SelectedProgram, recipeId);
+        var updated = AuthoringRecipeCatalog.Apply(SelectedProgram, recipeId, SelectedInstrumentSlot);
         ReplaceSelected(updated);
         if (updated.Measure.Count > 0)
         {
@@ -346,7 +346,7 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
             new PlanContractOptions
             {
                 Strict = strict,
-                ExcludeVisaAdapter = true,
+                ExcludeVisaAdapter = !AuthoringInstrumentCatalog.DeclaresVisa(Workspace),
             });
         Findings = report.Plans.SelectMany(p => p.Findings).ToArray();
         FindingRows = report.Plans.SelectMany(plan => plan.Findings.Select(finding =>

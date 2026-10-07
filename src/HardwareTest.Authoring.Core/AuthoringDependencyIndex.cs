@@ -44,8 +44,9 @@ public sealed class AuthoringDependencyIndex
                 case MetricNode metric:
                     var (inputs, instruments) = metric.Metric.Source switch
                     {
-                        MeasureSource source => (Array.Empty<string>(), new[] { source.InstrumentSlot }),
-                        AlgorithmSource source => (source.InputChannelKeys.ToArray(), Array.Empty<string>()),
+                        MeasureSource source => (Array.Empty<string>(), new[] { source.InstrumentSlot! }),
+                        AlgorithmSource source => (source.InputChannelKeys.ToArray(),
+                            !AuthoringFunctionCatalog.HasInstrumentDependency(source.AlgorithmId) || string.IsNullOrWhiteSpace(source.InstrumentSlot) ? Array.Empty<string>() : new[] { source.InstrumentSlot! }),
                         ExpressionAlgorithm source => (source.InputChannelKeys.ToArray(), Array.Empty<string>()),
                         TransferFunctionAlgorithm source => (new[] { source.InputChannelKey }, Array.Empty<string>()),
                         _ => throw Unsupported(metric.Metric.Source)
@@ -53,7 +54,7 @@ public sealed class AuthoringDependencyIndex
                     var opaque = metric.Metric.Source switch
                     {
                         AlgorithmSource source => !AuthoringFunctionCatalog.TryGet(source.AlgorithmId, out var spec)
-                            || !spec.IsAlgorithm || spec.NeedsInstrument,
+                            || !spec.IsAlgorithm || (spec.NeedsInstrument && string.IsNullOrWhiteSpace(source.InstrumentSlot)),
                         MeasureSource source => !AuthoringFunctionCatalog.TryGet(source.FunctionId, out var spec)
                             || spec.IsAlgorithm,
                         _ => false

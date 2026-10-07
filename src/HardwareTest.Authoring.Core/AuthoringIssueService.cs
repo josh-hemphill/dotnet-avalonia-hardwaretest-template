@@ -5,7 +5,9 @@ public sealed record AuthoringEditingIssue(string Code, string Message, string P
 /// Editing findings supplement compiler findings without blocking persistence.
 public static class AuthoringIssueService
 {
-    public static IReadOnlyList<AuthoringEditingIssue> GetIssues(ProgramDraft draft)
+    public static IReadOnlyList<AuthoringEditingIssue> GetIssues(ProgramDraft draft) => GetIssues(draft, null);
+
+    public static IReadOnlyList<AuthoringEditingIssue> GetIssues(ProgramDraft draft, OpenTapHome? home)
     {
         var index = AuthoringDependencyIndex.Build(draft);
         var issues = new List<AuthoringEditingIssue>();
@@ -34,9 +36,39 @@ public static class AuthoringIssueService
             }
             if (node.IsOpaque) Add("OPAQUE_REFERENCES", "Raw steps may contain references that cannot be indexed.", node);
         }
+        foreach (var metricNode in EnumerateMetricNodes(draft.Measure))
+        {
+            var required = metricNode.Metric.Source switch
+            {
+                MeasureSource m when AuthoringFunctionCatalog.TryGet(m.FunctionId, out var spec) && spec.NeedsInstrument => m.InstrumentSlot,
+                AlgorithmSource a when AuthoringFunctionCatalog.TryGet(a.AlgorithmId, out var spec) && spec.NeedsInstrument => a.InstrumentSlot,
+                _ => "unused"
+            };
+            if (string.IsNullOrWhiteSpace(required))
+                issues.Add(new("MISSING_INSTRUMENT_BINDING", "Select an instrument slot for this function before compiling.", draft.PlanId, metricNode.NodeId));
+        }
+        foreach (var instrument in draft.Instruments)
+        {
+            if (!AuthoringInstrumentCatalog.TryGet(instrument.TypeId, out var adapter))
+                issues.Add(new("INSTRUMENT_UNAVAILABLE", $"Instrument '{instrument.SlotName}' type '{instrument.TypeId}' has no authoring adapter; imported source is preserved.", draft.PlanId, Guid.Empty));
+            else if (adapter.Availability(home) is { Available: false } unavailable)
+                issues.Add(new("INSTRUMENT_UNAVAILABLE", unavailable.Reason!, draft.PlanId, Guid.Empty));
+        }
+        foreach (var instrument in draft.Instruments)
+            if (!AuthoringInstrumentCatalog.CanReplace(draft, instrument.SlotName, instrument))
+                issues.Add(new("INSTRUMENT_INCOMPATIBLE", $"Instrument '{instrument.SlotName}' lacks capabilities required by its bindings. Choose a compatible instrument or function.", draft.PlanId, Guid.Empty));
         return issues.ToArray();
 
         void Add(string code, string message, AuthoringNodeDependency node)
             => issues.Add(new(code, message, draft.PlanId, node.NodeId));
+    }
+    private static IEnumerable<MetricNode> EnumerateMetricNodes(IEnumerable<MeasureNode> nodes)
+    {
+        foreach (var node in nodes)
+        {
+            if (node is MetricNode metric) yield return metric;
+            if (node is RepeatNode repeat)
+                foreach (var child in EnumerateMetricNodes(repeat.Children)) yield return child;
+        }
     }
 }

@@ -34,7 +34,13 @@ public sealed record RawStepNode(string TypeName, string XmlFragment) : MeasureN
 public sealed record InstrumentRef(
     string SlotName,
     string TypeId,
-    string VisaAddress);
+    string VisaAddress)
+{
+    /// Original resource payload retained for imports outside the supported adapter catalog.
+    public string? OpaqueResourceXml { get; init; }
+
+    public IReadOnlyDictionary<string, string> Settings { get; init; } = new Dictionary<string, string>();
+}
 
 public abstract record SetupAction
 {
@@ -72,7 +78,11 @@ public sealed record MeasureSource(
 public sealed record AlgorithmSource(
     string AlgorithmId,
     IReadOnlyList<string> InputChannelKeys,
-    IReadOnlyDictionary<string, string> Settings) : MetricSource;
+    IReadOnlyDictionary<string, string> Settings) : MetricSource
+{
+    /// Explicit resource binding for algorithms that acquire through an instrument.
+    public string? InstrumentSlot { get; init; }
+}
 
 /// MATLAB-flavored subset; not MATLAB. Lowers to a closed analyze step or fails FORMULA_NO_LOWER.
 public sealed record ExpressionAlgorithm(
@@ -182,6 +192,12 @@ public static class AuthoringCleanup
             if (metric.Source is MeasureSource measure)
             {
                 Add(slots, seen, measure.InstrumentSlot);
+            }
+            else if (metric.Source is AlgorithmSource algorithm
+                && AuthoringFunctionCatalog.TryGet(algorithm.AlgorithmId, out var spec)
+                && spec.NeedsInstrument)
+            {
+                Add(slots, seen, algorithm.InstrumentSlot);
             }
         }
 

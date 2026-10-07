@@ -1,16 +1,18 @@
 using System.IO.Compression;
 using System.Xml.Linq;
+using HardwareTest.OpenTap.Host;
 using HardwareTest.OpenTap.Plugins.Basic;
 using HardwareTest.OpenTap.Plugins.Mixins;
 using OpenTap;
 
 namespace HardwareTest.Authoring;
 
-/// Builds an isolated OpenTAP tree with Editor packs (Basic, Mixins, optional IC/TUI). Never the Visa adapter.
+/// Builds an isolated OpenTAP tree with Editor packs and explicitly declared instrument adapters.
 public sealed class OpenTapHomeBootstrapper : IOpenTapHomeBootstrapper
 {
     public const string DefaultHomeRelativePath = ".authoring/opentap";
     public const string InstrumentComponentsPackageName = "InstrumentComponents.OpenTap";
+    public const string VisaPackageName = "HardwareTest VISA";
     public const string VisaAssemblyFileName = "HardwareTest.OpenTap.Plugins.Visa.dll";
 
     private static readonly XNamespace PackageNs = "http://opentap.io/schemas/package";
@@ -38,10 +40,20 @@ public sealed class OpenTapHomeBootstrapper : IOpenTapHomeBootstrapper
         CopyOpenTapRuntime(homeRoot);
         InstallInTreePack(homeRoot, "HardwareTest Basic", typeof(MockDmmInstrument));
         InstallInTreePack(homeRoot, "HardwareTest Mixins", typeof(AnnotationMixinBuilder));
+        var requiresVisa = workspace.Manifest.Dependencies.Any(d =>
+            string.Equals(d.Package, VisaPackageName, StringComparison.OrdinalIgnoreCase));
+        if (requiresVisa)
+        {
+            InstallInTreePack(homeRoot, VisaPackageName, AuthoringVisaInstrumentAdapter.InstrumentType);
+        }
+
         InstallInstrumentComponentsIfRequired(workspace, options, homeRoot);
         InstallOptionalFilePackage(options.TuiPackagePath, homeRoot);
 
-        AssertNoVisa(homeRoot);
+        if (!requiresVisa)
+        {
+            AssertNoVisa(homeRoot);
+        }
         return new OpenTapHome(homeRoot);
     }
 
@@ -275,6 +287,7 @@ public sealed class OpenTapHomeBootstrapper : IOpenTapHomeBootstrapper
                 [
                     Path.Combine(dir.FullName, "src", "HardwareTest.OpenTap.Plugins.Basic", "package.xml"),
                     Path.Combine(dir.FullName, "src", "HardwareTest.OpenTap.Plugins.Mixins", "package.xml"),
+                    Path.Combine(dir.FullName, "src", "HardwareTest.OpenTap.Plugins.Visa", "package.xml"),
                 ];
                 foreach (var candidate in candidates)
                 {

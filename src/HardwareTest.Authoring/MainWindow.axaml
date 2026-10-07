@@ -393,7 +393,7 @@
                             SelectedItem="{Binding MetricInstrumentSlot}"
                             AutomationProperties.Name="Metric instrument slot"
                             AutomationProperties.LabeledBy="{Binding #MetricSlotLabel}"
-                            ToolTip.Tip="Measure steps bind this slot. Algorithms may leave it empty." />
+                            ToolTip.Tip="Select the instrument for measure and instrument-based algorithm steps. Channel-only algorithms leave it empty." />
                   <StackPanel Spacing="6" IsVisible="{Binding HasStepSettings}">
                     <TextBlock x:Name="FunctionIdLabel" Text="{x:Static vm:AuthoringInspectorCopy.MeasureRecipeLabel}" />
                     <ComboBox ItemsSource="{Binding MetricFunctionChoices}"

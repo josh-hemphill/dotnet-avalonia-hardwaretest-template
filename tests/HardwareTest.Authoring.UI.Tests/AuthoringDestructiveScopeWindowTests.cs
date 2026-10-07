@@ -172,8 +172,11 @@ public sealed class AuthoringDestructiveScopeWindowTests
     [InlineData("legacy")]
     public void Disabled_instrument_removal_explains_the_specific_blocker(string scenario)
     {
-        using var fixture = Loaded(); var vm = fixture.ViewModel;
-        if (scenario == "legacy") { vm.NewInstrumentSlot = "B"; vm.AddInstrumentSlot(); }
+        using var fixture = scenario == "legacy"
+            ? new AuthoringUiFixture(rememberWorkspace: true, compiler: new BlockerCompiler("legacy"))
+            : Loaded();
+        var vm = fixture.ViewModel;
+        if (scenario == "legacy") { fixture.Show(); fixture.OpenRememberedWorkspace(); Settings(fixture); }
         else if (scenario == "last") vm.CreateProgram("last");
         AuthoringUiFixture.Drain();
         Assert.False(fixture.Control<Button>("Remove instrument slot from selected program").IsEnabled);
@@ -184,7 +187,7 @@ public sealed class AuthoringDestructiveScopeWindowTests
 
     [AvaloniaTheory]
     [InlineData("unsupported", "unknown or unsupported instrument type")]
-    [InlineData("different", "same supported instrument type")]
+    [InlineData("different", "compatible registered instrument capabilities")]
     [InlineData("raw", "raw or unknown steps")]
     public void Conservative_instrument_compatibility_blockers_are_visible_and_accessible(string scenario, string message)
     {
@@ -293,7 +296,7 @@ public sealed class AuthoringDestructiveScopeWindowTests
     }
     private static void PrepareSlots(AuthoringUiFixture fixture)
     {
-        var vm = fixture.ViewModel; vm.CreateProgram("slots"); vm.NewInstrumentSlot = "B"; vm.AddInstrumentSlot(); vm.ApplyRecipe(AuthoringRecipeIds.Acquire); vm.ApplyRecipe(AuthoringRecipeIds.Repeat);
+        var vm = fixture.ViewModel; vm.CreateProgram("slots"); vm.NewInstrumentSlot = "B"; vm.AddInstrumentSlot(); vm.SelectedInstrumentSlot = "DMM"; vm.ApplyRecipe(AuthoringRecipeIds.Acquire); vm.ApplyRecipe(AuthoringRecipeIds.Repeat);
         vm.SelectedInstrumentSlot = "DMM"; Assert.True(vm.SaveAll().Succeeded); Settings(fixture); fixture.Control<Button>("Remove instrument slot from selected program").BringIntoView(); AuthoringUiFixture.Drain();
     }
     private static Window Dialog(AuthoringUiFixture fixture) => Assert.Single(fixture.Window!.OwnedWindows);
@@ -345,7 +348,13 @@ public sealed class AuthoringDestructiveScopeWindowTests
             draft = draft with
             {
                 Instruments = [draft.Instruments[0] with { TypeId = scenario == "unsupported" ? "Unknown.Adapter" : known }, new InstrumentRef("B", scenario == "different" ? "Different.Adapter" : known, "MOCK::B")],
-                Measure = scenario == "raw" ? [new RawStepNode("Unknown.Step", "<step/>")] : [],
+                Measure = scenario switch
+                {
+                    "raw" => [new RawStepNode("Unknown.Step", "<step/>")],
+                    "legacy" => [new MetricNode(new MetricDraft("Legacy mean", "VDC.mean", "scalar", "V", new LimitSpec(null, null, 1.2), null,
+                        new AlgorithmSource(AuthoringFunctionIds.BasicMeanGte, [], new Dictionary<string, string>())))],
+                    _ => []
+                },
             };
             return new(workspace, [draft]);
         }
