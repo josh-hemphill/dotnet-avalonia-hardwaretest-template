@@ -231,7 +231,9 @@ public sealed class OpenTapHomeBootstrapper : IOpenTapHomeBootstrapper
             return;
         }
 
-        if (ListInstalledPackages(new(homeRoot)).Any(p => p.Name == InstrumentComponentsPackageName)) return;
+        var requirement = AuthoringEnvironmentAssessment.Packages(workspace.Manifest, new(homeRoot))
+            .First(package => package.Package.Equals(InstrumentComponentsPackageName, StringComparison.OrdinalIgnoreCase));
+        if (requirement.Satisfied && AuthoringInstrumentCatalog.LibraryPayloadAvailability(new(homeRoot)).Available) return;
 
         var path = FirstNonEmpty(
             options.InstrumentComponentsPackagePath,

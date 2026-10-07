@@ -49,7 +49,7 @@ public sealed partial class PlanCompiler
         string planId,
         TestPlan plan,
         ProgramSidecar sidecar,
-        IReadOnlyDictionary<string, XElement> xmlById)
+        IReadOnlyDictionary<string, XElement> xmlById, IReadOnlySet<string> availableLibraryTypes)
     {
         var instruments = new Dictionary<string, InstrumentRef>(StringComparer.OrdinalIgnoreCase);
         var setup = new List<SetupAction>();
@@ -65,15 +65,24 @@ public sealed partial class PlanCompiler
         foreach (var pair in xmlById.Where(pair => pair.Key.StartsWith("resource:", StringComparison.Ordinal)))
         {
             var resource = pair.Value;
-            var typeId = (string?)resource.Attribute("type");
-            if (string.IsNullOrWhiteSpace(typeId) || AuthoringInstrumentCatalog.TryGet(typeId, out _)) continue;
+            var serializedType = (string?)resource.Attribute("type");
+            var typeId = serializedType is null ? null : ResourceTypeId(serializedType);
+            if (string.IsNullOrWhiteSpace(typeId) || (AuthoringInstrumentCatalog.TryGet(typeId, out _)
+                && (!AuthoringInstrumentCatalog.IsLibrary(typeId) || availableLibraryTypes.Contains(typeId)))) continue;
             var slot = resource.Elements().FirstOrDefault(e => e.Name.LocalName == "Name")?.Value;
             if (string.IsNullOrWhiteSpace(slot)) continue;
             var address = new[] { "VisaAddress", "ResourceName", "Address" }
                 .Select(name => resource.Elements().FirstOrDefault(e => e.Name.LocalName == name)?.Value)
                 .FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? string.Empty;
             instruments[slot] = new InstrumentRef(slot, typeId, address)
-            { OpaqueResourceXml = resource.ToString(SaveOptions.DisableFormatting) };
+            {
+                OpaqueResourceXml = resource.ToString(SaveOptions.DisableFormatting),
+                Settings = resource.Elements().Where(e => AuthoringInstrumentCatalog.TryGet(typeId, out var adapter)
+                    ? adapter.ConfigurationFields.Contains(e.Name.LocalName, StringComparer.Ordinal)
+                    : AuthoringInstrumentCatalog.IsLibrary(typeId) ? e.Name.LocalName == "IoTimeoutMilliseconds"
+                    : !e.HasElements && e.Name.LocalName is not ("Name" or "VisaAddress" or "ResourceName" or "Address"))
+                    .GroupBy(e => e.Name.LocalName, StringComparer.Ordinal).ToDictionary(group => group.Key, group => group.First().Value, StringComparer.Ordinal)
+            };
         }
 
         cleanup = AuthoringCleanup.FromPlan(cleanup, sidecar);
@@ -95,6 +104,11 @@ public sealed partial class PlanCompiler
         ref CleanupPolicy cleanup,
         IReadOnlyDictionary<string, XElement> xmlById)
     {
+        if (IsColdLibraryCarrier(step, xmlById))
+        {
+            measure.Add(ToRaw(step, xmlById));
+            return;
+        }
         CollectInstrument(step, instruments);
 
         if (!step.Enabled)
@@ -159,7 +173,7 @@ public sealed partial class PlanCompiler
                 slots.Add(slot);
             }
 
-            cleanup = cleanup with { IncludeSafeShutdown = true, InstrumentSlots = slots };
+            cleanup = cleanup with { IncludeSafeShutdown = true, InstrumentSlots = slots, NodeId = cleanup.IncludeSafeShutdown ? cleanup.NodeId : step.Id };
             return;
         }
 
@@ -171,6 +185,7 @@ public sealed partial class PlanCompiler
         Dictionary<string, InstrumentRef> instruments,
         IReadOnlyDictionary<string, XElement> xmlById)
     {
+        if (IsColdLibraryCarrier(step, xmlById)) return ToRaw(step, xmlById);
         CollectInstrument(step, instruments);
 
         // Typed authoring nodes cannot represent Enabled=false; keep the entire inactive payload.
@@ -254,7 +269,7 @@ public sealed partial class PlanCompiler
             return new RawStepNode(typeName, string.Empty) { NodeId = step.Id };
         }
 
-        return new RawStepNode(typeName, element.ToString(SaveOptions.DisableFormatting)) { NodeId = step.Id };
+        return new RawStepNode(ResourceTypeId((string?)element.Attribute("type") ?? typeName), element.ToString(SaveOptions.DisableFormatting)) { NodeId = step.Id };
     }
 
     private static IReadOnlyDictionary<string, string> ReadSettings(ITestStep step, bool includeEmpty = false)

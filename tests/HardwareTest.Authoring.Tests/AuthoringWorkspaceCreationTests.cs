@@ -30,19 +30,20 @@ public sealed class AuthoringWorkspaceCreationTests : IDisposable
         var loaded = AuthoringSourceWorkspaceLoader.Load(first.Destination);
         Assert.Equal("Product tests", loaded.Files.Manifest.Package.Name);
         Assert.Equal("Workspace", loaded.Files.Manifest.DisplayName);
-        Assert.Equal(kind == WorkspaceTemplateKind.ProductVoltage, AuthoringInstrumentCatalog.DeclaresVisa(loaded.Files));
+        Assert.False(AuthoringInstrumentCatalog.DeclaresVisa(loaded.Files));
         if (kind == WorkspaceTemplateKind.ProductVoltage)
-            Assert.Equal("^0.1.0", Assert.Single(loaded.Files.Manifest.Dependencies, package => package.Package == OpenTapHomeBootstrapper.VisaPackageName).Version);
+            Assert.Equal("^0.1.0", Assert.Single(loaded.Files.Manifest.Dependencies, package => package.Package == AuthoringInstrumentCatalog.LibraryPackage).Version);
         Assert.Equal(loaded.Files.Manifest.DisplayName, new AuthoringDocumentStore(first.Destination).LoadWorkspace().Document!.Manifest.DisplayName);
         if (kind == WorkspaceTemplateKind.Empty) Assert.Empty(loaded.Programs);
         else
         {
             var draft = Assert.Single(loaded.Programs);
             Assert.Equal("board-x", draft.Sidecar.DutFamily);
-            Assert.Single(draft.Measure);
+            if (kind == WorkspaceTemplateKind.ProductVoltage) Assert.Empty(draft.Measure);
+            else Assert.Single(draft.Measure);
             if (kind == WorkspaceTemplateKind.ProductVoltage) Assert.Empty(draft.Instruments);
             else Assert.Contains("Mock", Assert.Single(draft.Instruments).TypeId);
-            Assert.Equal(draft.Measure[0].NodeId, AuthoringSourceWorkspaceLoader.Load(first.Destination).Programs.Single().Measure[0].NodeId);
+            if (draft.Measure.Count > 0) Assert.Equal(draft.Measure[0].NodeId, AuthoringSourceWorkspaceLoader.Load(first.Destination).Programs.Single().Measure[0].NodeId);
             Assert.True(new AuthoringDocumentStore(first.Destination).Load(draft.PlanId).Document!.RequiresCompilation);
         }
     }

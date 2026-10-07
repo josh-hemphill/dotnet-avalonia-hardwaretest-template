@@ -410,7 +410,7 @@ public sealed class TypedInstrumentAdapterTests : IDisposable
         }
         var unavailable = adapter.Availability(home);
         Assert.False(unavailable.Available);
-        Assert.Contains("Reinstall", unavailable.Reason!);
+        Assert.Contains("Open Environment", unavailable.Reason!);
     }
 
     [Fact]

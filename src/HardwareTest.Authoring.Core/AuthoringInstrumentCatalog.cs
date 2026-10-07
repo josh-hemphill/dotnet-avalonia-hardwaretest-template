@@ -15,20 +15,28 @@ public sealed record AuthoringInstrumentAdapter(
     Func<Instrument, InstrumentRef> Serialize)
 {
     public IReadOnlyList<string> RequiredPayloadFiles { get; init; } = [];
+    public string Description { get; init; } = string.Empty;
 
     public AuthoringInstrumentAvailability Availability(OpenTapHome? home = null)
     {
-        if (home is null) return new(true, null);
-        return AuthoringAdapterPayloadInspection.Inspect(this, home);
+        if (home is null) return AuthoringInstrumentCatalog.IsLibrary(TypeId)
+            ? new(false, "Select an authoring home and prepare Instrument Components in Environment.") : new(true, null);
+        var availability = AuthoringAdapterPayloadInspection.Inspect(this, home);
+        if (availability.Available && AuthoringInstrumentCatalog.IsLibrary(TypeId) && !AuthoringInstrumentCatalog.LibraryPayloadMatches(home))
+        {
+            var readiness = AuthoringInstrumentCatalog.LibraryReadiness(home);
+            return readiness.Available ? new(true, null) : readiness;
+        }
+        return availability;
     }
 }
 
-public static class AuthoringInstrumentCatalog
+public static partial class AuthoringInstrumentCatalog
 {
     private static readonly string[] DmmFunctions =
     [AuthoringFunctionIds.BasicAcquireVoltage, AuthoringFunctionIds.BasicBitSweepAcquire, AuthoringFunctionIds.BasicMeanGte];
 
-    public static IReadOnlyList<AuthoringInstrumentAdapter> All { get; } =
+    private static IReadOnlyList<AuthoringInstrumentAdapter> Legacy { get; } =
     [
         new(typeof(MockDmmInstrument).FullName!, "Mock DMM", "HardwareTest Basic", "HardwareTest.OpenTap.Plugins.Basic.dll",
             ["VisaAddress", "ResourceName"], [], DmmFunctions, true, true,
@@ -65,6 +73,8 @@ public static class AuthoringInstrumentCatalog
 
     public static Instrument Create(InstrumentRef slot, OpenTapHome? home = null)
     {
+        if (home is not null && IsLibrary(slot.TypeId) && !Discover(home).Any(a => a.TypeId == slot.TypeId))
+            throw new AuthoringWorkspaceException($"INSTRUMENT_UNAVAILABLE: '{slot.TypeId}' is not provided by a compatible validated library package in selected home '{home.Root}'. Open Environment to prepare/import it.");
         if (!TryGet(slot.TypeId, out var adapter))
             throw new AuthoringWorkspaceException($"INSTRUMENT_UNAVAILABLE: '{slot.TypeId}' has no registered authoring adapter. Preserve imported source or explicitly choose a supported type.");
         var availability = adapter.Availability(home);

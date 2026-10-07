@@ -19,7 +19,9 @@ public sealed partial class PlanInitializationWindow : Window
     private readonly TextBox _family = Input("Device family", "generic");
     private readonly TextBox _destination = Input("Draft destination");
     private readonly ComboBox _starting = Choice("Starting point", ["Empty plan", "Voltage task", "Demo voltage task — Mock DMM"]);
-    private readonly ComboBox _hardware = Choice("Hardware choice", ["No hardware yet", "Create VISA DMM", "Create Mock DMM — demo"]);
+    private readonly ComboBox _hardware = Choice("Hardware choice", []);
+    private readonly TextBox _timeout = Input("Instrument I/O timeout ms", "5000");
+    private readonly Button _environment = Action("Open Environment — retain inputs");
     private readonly TextBox _slot = Input("Instrument slot", "DMM");
     private readonly TextBox _address = Input("Instrument address");
     private readonly TextBlock _readiness = Text("Hardware readiness");
@@ -48,8 +50,10 @@ public sealed partial class PlanInitializationWindow : Window
     private readonly List<string> _resourceOrigins = [];
     private int _stage;
     private bool _idEdited;
+    private bool _automaticDemoAddress;
 
     public bool SkipGuidanceRequested { get; private set; }
+    public bool EnvironmentRequested { get; private set; }
 
     public PlanInitializationWindow(AuthoringWorkspaceViewModel vm, bool guided = false, GuidedFormState? retained = null, Func<bool>? ownerIsCurrent = null)
     {
@@ -60,6 +64,7 @@ public sealed partial class PlanInitializationWindow : Window
         _workspace = vm.Workspace ?? throw new AuthoringWorkspaceException("Open a workspace first.");
         Title = "New test plan"; Width = 650; Height = 680; MinWidth = 480; MinHeight = 460;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
+        _ = vm.InstrumentTypeChoices; // Discover only validated devices in this selected home.
         var candidates = vm.HardwareDefinitions.Select(definition => (Resource: new InstrumentRef(definition.Name, definition.TypeId, definition.Address)
         { Settings = new Dictionary<string, string>(definition.Settings) }, Origin: "Workspace definition " + definition.Name))
             .Concat(vm.Programs.SelectMany(program => program.Instruments.Select(resource => (Resource: CopyResource(resource), Origin: "Program " + program.PlanId))))
@@ -76,12 +81,14 @@ public sealed partial class PlanInitializationWindow : Window
             var token = string.Concat((_name.Text ?? "").Trim().Select(character => char.IsAsciiLetterOrDigit(character) || character is '-' or '_' or '.' ? character : '-'));
             _id.Text = token; _idEdited = false;
         };
+        _address.PropertyChanged += (_, change) => { if (change.Property == TextBox.TextProperty) _automaticDemoAddress = false; };
         _starting.SelectionChanged += (_, _) =>
         {
             _measurement.IsChecked = _starting.SelectedIndex != 0;
-            if (_starting.SelectedIndex == 2) { _hardware.SelectedIndex = 2; _address.Text = "MOCK::INSTR0"; }
+            if (_starting.SelectedIndex == 2) { SelectHardwareType(AuthoringInstrumentCatalog.All.Single(a => a.DisplayName == "Mock DMM").TypeId); _address.Text = "MOCK::INSTR0"; _automaticDemoAddress = true; }
         };
         _hardware.SelectionChanged += (_, _) => ShowHardware();
+        _environment.Click += (_, _) => { try { EnsureSession(); EnvironmentRequested = true; Close(false); } catch (Exception error) { _error.Text = error.Message; } };
         _slot.TextChanged += (_, _) => ShowHardware();
         _identity.IsCheckedChanged += (_, _) => ShowHardware();
         _shutdown.IsCheckedChanged += (_, _) => ShowHardware();
@@ -90,9 +97,9 @@ public sealed partial class PlanInitializationWindow : Window
             Stage(Label("Display name", _name), Label("Editable stable plan ID", _id), Label("Device family", _family),
                 new TextBlock { Text = "Workspace: " + _workspace.Root, TextWrapping = TextWrapping.Wrap }, Label("Draft filename", _destination)),
             Stage(_starting, new TextBlock { Text = "Empty plans contain no instruments. Voltage tasks can remain incomplete. Demo tasks explicitly select a Mock DMM.", TextWrapping = TextWrapping.Wrap }),
-            Stage(_hardware, Label("Logical slot", _slot), Label("Address", _address), _readiness),
-            Stage(_serial, _identity, Label("Required operator fields (comma separated)", _fields), Label("Fixture confirmation (optional)", _confirmation),
-                Label("Fixture input field (optional)", _fixture), _shutdown, _coverage),
+            Stage(_hardware, Label("Logical slot", _slot), Label("Address", _address), Label("I/O timeout (ms)", _timeout), _readiness, _environment),
+            Stage(new TextBlock { Text = "Before measurements · DUT/operator requirements and instrument checks", TextWrapping = TextWrapping.Wrap }, _serial, _identity, Label("Required operator fields (comma separated)", _fields), Label("Fixture confirmation (optional)", _confirmation),
+                Label("Fixture input field (optional)", _fixture), new TextBlock { Text = "After measurements · output off, then reset each selected instrument", TextWrapping = TextWrapping.Wrap }, _shutdown, _coverage),
             Stage(_measurement, Label("Output channel", _channel), Label("Unit", _unit), Label("Samples", _samples), Label("Interval (ms)", _interval),
                 _criterion, Label("Threshold", _threshold)),
             Stage(_review)
@@ -187,41 +194,6 @@ public sealed partial class PlanInitializationWindow : Window
         };
     }
 
-    private IReadOnlyList<InstrumentRef> SelectedResources()
-    {
-        if (_hardware.SelectedIndex >= 3)
-        {
-            var reused = _reusable[_hardware.SelectedIndex - 3];
-            return [reused with { SlotName = _slot.Text ?? "" }];
-        }
-        if (_hardware.SelectedIndex == 0) return [];
-        var type = AuthoringInstrumentCatalog.All.Single(adapter => adapter.DisplayName == (_hardware.SelectedIndex == 1 ? "VISA DMM" : "Mock DMM"));
-        return [new InstrumentRef(_slot.Text ?? "", type.TypeId, _address.Text ?? "")];
-    }
-
-    private void ShowHardware()
-    {
-        var resources = SelectedResources();
-        if (_hardware.SelectedIndex >= 3) { _address.Text = resources[0].VisaAddress; _address.IsReadOnly = true; }
-        else _address.IsReadOnly = false;
-        try
-        {
-            var review = _vm.ReviewPlanInitialization(Request());
-            _readiness.Text = (resources.Count == 0 ? "Choose hardware later; missing bindings remain draft issues."
-                : string.Join("\n", resources.Select(resource =>
-                {
-                    var adapter = AuthoringInstrumentCatalog.All.Single(candidate => candidate.TypeId == resource.TypeId);
-                    var declared = _workspace.Manifest.Dependencies.Any(dependency => string.Equals(dependency.Package, adapter.RequiredPackage, StringComparison.OrdinalIgnoreCase));
-                    return $"{adapter.DisplayName} · {adapter.RequiredPackage} · {(declared ? "dependency declared" : "dependency missing — preserve as draft")}\nCompatible functions: {string.Join(", ", adapter.CompatibleFunctions)}";
-                }))) + "\n" + string.Join("\n", review.Issues.Where(issue => issue.Code.StartsWith("INSTRUMENT_", StringComparison.Ordinal)
-                    || issue.Code == "INVALID_OPENTAP_HOME").Select(issue => issue.Message));
-            if (_hardware.SelectedIndex >= 3 && _hardware.SelectedIndex - 3 == _retainedResourceIndex)
-                _readiness.Text += "\nPreviously selected reusable instrument changed or was removed. Its original address and configuration are retained; review this retained choice or explicitly choose another instrument.";
-            _coverage.Text = "Shutdown coverage: " + (_shutdown.IsChecked == true ? string.Join(", ", review.Draft.Cleanup.InstrumentSlots) : "disabled");
-        }
-        catch (Exception error) { _readiness.Text = error.Message; }
-    }
-
     private void ShowDestination()
     {
         try { _destination.Text = new AuthoringDocumentStore(_workspace.Root).GetDocumentPath(_id.Text ?? ""); }
@@ -251,7 +223,7 @@ public sealed partial class PlanInitializationWindow : Window
     private static ComboBox Choice(string name, string[] items) => Named(new ComboBox { ItemsSource = items, SelectedIndex = 0, HorizontalAlignment = HorizontalAlignment.Stretch }, name);
     private static TextBlock Text(string name) => Named(new TextBlock { TextWrapping = TextWrapping.Wrap }, name);
     private static CheckBox Toggle(string name, bool value) => Named(new CheckBox { Content = name, IsChecked = value }, name);
-    private static Button Action(string name) => Named(new Button { Content = name }, name);
+    private static Button Action(string name) { var button = Named(new Button { Content = name }, name); button.Classes.Add("authoringAction"); return button; }
     private static T Named<T>(T control, string name) where T : Control { AutomationProperties.SetName(control, name); return control; }
     private static StackPanel Stage(params Control[] controls) { var panel = new StackPanel { Spacing = 10 }; foreach (var control in controls) panel.Children.Add(control); return panel; }
     private static StackPanel Label(string text, Control input) => Stage(new TextBlock { Text = text }, input);

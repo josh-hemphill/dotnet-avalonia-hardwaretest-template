@@ -21,6 +21,23 @@ if (args.Length == 2 && args[0] == "--create-held")
     });
     return 0;
 }
+if (args.Length == 3 && args[0] == "--cold-library-import")
+{
+    bool LibraryResident() => AppDomain.CurrentDomain.GetAssemblies().Any(assembly => assembly.GetName().Name?.StartsWith("InstrumentComponents", StringComparison.Ordinal) == true);
+    if (LibraryResident()) throw new InvalidOperationException("Cold fixture started with a resident library.");
+    var compiler = new PlanCompiler(selectedHome: new(Path.Combine(Path.GetDirectoryName(args[2])!, "missing-library-home")));
+    var original = File.ReadAllBytes(args[1]);
+    var draft = compiler.Load(args[1]);
+    new AuthoringDocumentStore(Path.GetDirectoryName(args[2])!).SaveAtPath(args[2], AuthoringDocumentDto.FromDraft(draft));
+    var source = File.ReadAllBytes(args[2]);
+    try { compiler.Save(draft, args[1]); throw new InvalidOperationException("Unavailable resources were compiled."); }
+    catch (AuthoringWorkspaceException error) when (error.Message.Contains("INSTRUMENT_UNAVAILABLE", StringComparison.Ordinal)) { }
+    if (!original.SequenceEqual(File.ReadAllBytes(args[1])) || !source.SequenceEqual(File.ReadAllBytes(args[2])))
+        throw new InvalidOperationException("Refused compilation changed original/source bytes.");
+    if (LibraryResident()) throw new InvalidOperationException("Cold import unexpectedly loaded the library.");
+    Console.WriteLine("cold-library-source-preserved");
+    return 0;
+}
 if (args.Length == 2 && args[0] == "--external-edit")
 {
     var compiler = new PlanCompiler();

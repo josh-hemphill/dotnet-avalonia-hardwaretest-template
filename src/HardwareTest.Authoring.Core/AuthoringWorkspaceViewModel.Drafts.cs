@@ -79,7 +79,16 @@ public sealed partial class AuthoringWorkspaceViewModel
         }
     }
 
-    private DraftWorkspace LoadWithSources(string root) => AuthoringSourceWorkspaceLoader.Load(root, _compiler);
+    private DraftWorkspace LoadWithSources(string root)
+    {
+        var files = AuthoringWorkspaceLoader.Load(root);
+        OpenTapHome? candidateHome = WorkspacePackPlan.TryResolveHomePath(files, Prefs.OpenTapHomeOverride, out var path, out _)
+            ? new(path!) : null;
+        // Snapshot candidate context without mutating the current workspace/home on failed open.
+        var compiler = _usesDefaultCompiler ? new PlanCompiler(libraryHomeProvider: () => candidateHome) : _compiler;
+        if (candidateHome is not null) AuthoringInstrumentCatalog.Discover(candidateHome);
+        return AuthoringSourceWorkspaceLoader.Load(root, compiler);
+    }
 
     private void RefreshSourceReadiness()
     {

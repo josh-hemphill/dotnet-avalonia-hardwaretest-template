@@ -55,6 +55,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         {
             WorkspaceRoot = Workspace.Root,
             ExistingPlanIds = Programs.Select(program => program.PlanId).ToArray(),
+            DeclaredPackages = Workspace.Manifest.Dependencies.Select(d => d.Package).ToArray(),
             Home = inspection.Home,
             HomeResolutionError = inspection.Error
         };

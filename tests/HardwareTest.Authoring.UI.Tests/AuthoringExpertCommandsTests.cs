@@ -40,7 +40,7 @@ public sealed class AuthoringExpertCommandsTests
         AuthoringUiFixture.Click(fixture.Control<Button>("Next", dialog));
         AuthoringUiFixture.Click(fixture.Control<Button>("Next", dialog));
         var hardware = fixture.Control<ComboBox>("Hardware choice", dialog);
-        var labels = hardware.Items.Cast<string>().ToArray();
+        var labels = hardware.Items.Select(item => item!.ToString()!).ToArray();
         var selected = Array.FindIndex(labels, label => label.Contains("Program later-settings", StringComparison.Ordinal));
         Assert.True(selected > 3); Assert.Contains("IoTimeoutMilliseconds=777", labels[selected]);
         Assert.Contains(labels, label => label.Contains("Program first-settings", StringComparison.Ordinal) && label.Contains("IoTimeoutMilliseconds=111", StringComparison.Ordinal));

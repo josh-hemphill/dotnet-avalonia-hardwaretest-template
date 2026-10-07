@@ -8,9 +8,11 @@ namespace HardwareTest.Authoring;
 
 public sealed partial class PlanCompiler
 {
-    private TestPlan BuildPlan(ProgramDraft draft)
+    private TestPlan BuildPlan(ProgramDraft draft, OpenTapHome? libraryHome)
     {
-        var instruments = CreateInstruments(draft.Instruments);
+        var instruments = CreateInstruments(draft.Instruments, libraryHome);
+        if (AuthoringLibraryLifecycle.OpaqueLifecycleNodes(draft.Measure).Any())
+            throw new AuthoringWorkspaceException(AuthoringLibraryLifecycle.ReimportMessage);
         var dut = new HardwareDut
         {
             Name = "DUT",
@@ -39,8 +41,12 @@ public sealed partial class PlanCompiler
             foreach (var slot in slots)
             {
                 var name = slots.Count == 1 ? "Safe Shutdown" : $"Safe Shutdown · {slot}";
-                var shutdown = new SafeShutdownStep { Name = name };
-                AssignInstrument(shutdown, ResolveInstrument(instruments, slot), AuthoringFunctionIds.BasicSafeShutdown);
+                var resource = ResolveInstrument(instruments, slot);
+                var shutdown = AuthoringInstrumentCatalog.IsLibrary(resource.GetType().FullName!)
+                    ? AuthoringLibraryLifecycle.Create(resource, false) : new SafeShutdownStep();
+                shutdown.Name = name;
+                shutdown.Id = AuthoringLibraryLifecycle.CleanupId(draft.Cleanup.NodeId, slot, slots[0]);
+                AssignInstrument(shutdown, resource, AuthoringFunctionIds.BasicSafeShutdown);
                 cleanupGroup.ChildTestSteps.Add(shutdown);
             }
         }
@@ -65,13 +71,13 @@ public sealed partial class PlanCompiler
         return plan;
     }
 
-    private Dictionary<string, Instrument> CreateInstruments(IReadOnlyList<InstrumentRef> refs)
+    private Dictionary<string, Instrument> CreateInstruments(IReadOnlyList<InstrumentRef> refs, OpenTapHome? libraryHome)
     {
         var map = new Dictionary<string, Instrument>(StringComparer.OrdinalIgnoreCase);
         var home = _selectedHome;
         foreach (var slot in refs)
         {
-            if (!map.TryAdd(slot.SlotName, AuthoringInstrumentCatalog.Create(slot, home)))
+            if (!map.TryAdd(slot.SlotName, AuthoringInstrumentCatalog.Create(slot, AuthoringInstrumentCatalog.IsLibrary(slot.TypeId) ? libraryHome : home)))
                 throw new AuthoringWorkspaceException($"Duplicate instrument slot '{slot.SlotName}'.");
         }
 
@@ -87,8 +93,11 @@ public sealed partial class PlanCompiler
         {
             case IdentitySetup identity:
                 {
-                    var step = new IdentityCheckStep { Id = action.NodeId, Name = "Identity Check", Dut = dut };
-                    AssignInstrument(step, ResolveInstrument(instruments, identity.InstrumentSlot), AuthoringFunctionIds.BasicIdentityCheck);
+                    var resource = ResolveInstrument(instruments, identity.InstrumentSlot);
+                    var step = AuthoringInstrumentCatalog.IsLibrary(resource.GetType().FullName!)
+                        ? AuthoringLibraryLifecycle.Create(resource, true) : new IdentityCheckStep { Dut = dut };
+                    step.Id = action.NodeId; step.Name = "Identity Check";
+                    AssignInstrument(step, resource, AuthoringFunctionIds.BasicIdentityCheck);
                     OpenTapMixinAttach.AttachAnnotation(step);
                     return step;
                 }

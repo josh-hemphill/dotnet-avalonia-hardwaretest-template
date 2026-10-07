@@ -19,7 +19,7 @@ public sealed class AuthoringGuidedRecoveryTests
         AddDefinition(vm, adapter, "B", "TCPIP::original::INSTR", "2222");
         AddDefinition(vm, adapter, "C", "TCPIP::different::INSTR", "3333");
         var dialog = Start(fixture); Set(fixture, dialog, "Stable plan ID", "retained-binding");
-        Next(fixture, dialog); fixture.Control<ComboBox>("Hardware choice", dialog).SelectedIndex = 4;
+        Next(fixture, dialog); fixture.Control<ComboBox>("Hardware choice", dialog).SelectedItem = fixture.Control<ComboBox>("Hardware choice", dialog).Items.Single(item => item!.ToString()!.StartsWith("Reuse B —", StringComparison.Ordinal));
         Set(fixture, dialog, "Instrument slot", "My bench");
         Assert.Equal("TCPIP::original::INSTR", fixture.Control<TextBox>("Instrument address", dialog).Text);
         AuthoringUiFixture.Click(fixture.Control<Button>("Leave guidance", dialog));

@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using System.Xml.Linq;
 
 namespace HardwareTest.Authoring;
@@ -28,18 +29,55 @@ internal static class AuthoringAdapterPayloadInspection
             foreach (var file in files)
             {
                 if (string.IsNullOrWhiteSpace(file) || Path.IsPathRooted(file)) return Unavailable("package metadata declares an invalid payload path");
+                if (AuthoringInstrumentCatalog.IsLibrary(adapter.TypeId)) { _ = LibraryPayloadPath(home, file); continue; }
                 issue = FileIssue(packageDirectory, Path.Combine(packageDirectory, file));
                 if (issue is not null) return Unavailable($"payload '{file}' {issue}");
             }
             return new(true, null);
         }
-        catch (Exception error) when (error is IOException or UnauthorizedAccessException or ArgumentException or System.Xml.XmlException)
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException or ArgumentException or InvalidOperationException or System.Xml.XmlException)
         {
             return Unavailable($"package payload cannot be read: {error.Message}");
         }
 
         AuthoringInstrumentAvailability Unavailable(string reason) => new(false,
-            $"Reinstall '{adapter.RequiredPackage}' in selected OpenTAP home '{home.Root}'; {reason}.");
+            $"'{adapter.RequiredPackage}' is unavailable in selected OpenTAP home '{home.Root}': {reason}. Open Environment to prepare or import the declared package; compatible installed packages are reused.");
+    }
+
+    internal static string LibraryPayloadPath(OpenTapHome home, string file)
+    {
+        var directory = Path.Combine(home.Root, "Packages", AuthoringInstrumentCatalog.LibraryPackage);
+        var metadata = XDocument.Load(Path.Combine(directory, "package.xml"));
+        var declared = metadata.Descendants().Single(element => element.Name.LocalName == "File"
+            && (string?)element.Attribute("Path") == file);
+        var hash = declared.Elements().FirstOrDefault(element => element.Name.LocalName == "Hash")?.Value.Trim();
+        var candidate = Path.Combine(directory, file);
+        var issue = FileIssue(directory, candidate);
+        if (issue is not null && issue != "is missing") throw new IOException($"Library payload '{file}' {issue}.");
+        var rooted = Path.Combine(home.Root, file);
+        // Genuine package hashes identify the declared bytes even when a stale unpacked layout remains.
+        if (!string.IsNullOrEmpty(hash))
+        {
+            if (hash.Length != 40) throw new IOException($"Unsupported library payload hash for '{file}'.");
+            foreach (var path in new[] { rooted, candidate })
+            {
+                var problem = FileIssue(path == candidate ? directory : home.Root, path);
+                if (problem is not null && problem != "is missing") throw new IOException($"Library payload '{file}' {problem}.");
+                if (problem is null && Convert.ToHexString(SHA1.HashData(File.ReadAllBytes(path))).Equals(hash, StringComparison.OrdinalIgnoreCase)) return path;
+            }
+            throw new IOException($"Library payload '{file}' does not match its package metadata hash.");
+        }
+        if (issue is null)
+        {
+            var rootIssue = FileIssue(home.Root, rooted);
+            if (rootIssue is not null && rootIssue != "is missing") throw new IOException($"Library payload '{file}' {rootIssue}.");
+            if (rootIssue is null && !File.ReadAllBytes(candidate).SequenceEqual(File.ReadAllBytes(rooted)))
+                throw new IOException($"Conflicting library payload layouts for '{file}'; import a trusted package with hashes in Environment.");
+            return candidate;
+        }
+        issue = FileIssue(home.Root, rooted);
+        if (issue is null) return rooted;
+        throw new IOException($"Library payload '{file}' {issue}.");
     }
 
     private static string? FileIssue(string root, string file)

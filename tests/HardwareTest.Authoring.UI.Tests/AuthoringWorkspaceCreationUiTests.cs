@@ -20,7 +20,7 @@ public sealed class AuthoringWorkspaceCreationUiTests
         Set(fixture, dialog, "Workspace destination", root); Set(fixture, dialog, "Workspace display name", "New board");
         Set(fixture, dialog, "Package name", "Board product"); Set(fixture, dialog, "Package version", "1.2.3");
         fixture.Control<ComboBox>("Workspace template", dialog).SelectedIndex = template;
-        Assert.False(fixture.Control<CheckBox>("Include VISA DMM package", dialog).IsChecked == true);
+        Assert.False(fixture.Control<CheckBox>("Include Instrument Components package", dialog).IsChecked == true);
         Assert.False(fixture.Control<Button>("Create workspace", dialog).IsEnabled);
         AuthoringUiFixture.Click(fixture.Control<Button>("Review workspace creation", dialog));
         var review = fixture.Control<TextBlock>("Workspace creation review", dialog).Text;
@@ -147,7 +147,7 @@ public sealed class AuthoringWorkspaceCreationUiTests
         fixture.Control<ComboBox>("Workspace template", creation).SelectedIndex = 1;
         fixture.Control<CheckBox>("Continue to New test plan", creation).IsChecked = true;
         AuthoringUiFixture.Click(fixture.Control<Button>("Review workspace creation", creation));
-        Assert.Contains("HardwareTest VISA ^0.1.0", fixture.Control<TextBlock>("Workspace creation review", creation).Text);
+        Assert.Contains("InstrumentComponents.OpenTap ^0.1.0", fixture.Control<TextBlock>("Workspace creation review", creation).Text);
         Assert.Contains("Classification: Product", fixture.Control<TextBlock>("Workspace creation review", creation).Text);
         AuthoringUiFixture.Click(fixture.Control<Button>("Create workspace", creation));
         var plan = Assert.IsType<PlanInitializationWindow>(Assert.Single(fixture.Window.OwnedWindows));
@@ -155,9 +155,9 @@ public sealed class AuthoringWorkspaceCreationUiTests
         AuthoringUiFixture.Click(fixture.Control<Button>("Next", plan));
         fixture.Control<ComboBox>("Starting point", plan).SelectedIndex = 1;
         AuthoringUiFixture.Click(fixture.Control<Button>("Next", plan));
-        fixture.Control<ComboBox>("Hardware choice", plan).SelectedIndex = 1;
+        fixture.Control<ComboBox>("Hardware choice", plan).SelectedItem = fixture.Control<ComboBox>("Hardware choice", plan).Items.Single(item => item!.ToString()!.Contains("Create VISA DMM", StringComparison.Ordinal));
         Set(fixture, plan, "Instrument address", "TCPIP0::127.0.0.1::inst0::INSTR");
-        Assert.Contains("dependency declared", fixture.Control<TextBlock>("Hardware readiness", plan).Text);
+        Assert.Contains("dependency missing", fixture.Control<TextBlock>("Hardware readiness", plan).Text);
         for (var step = 0; step < 3; step++) AuthoringUiFixture.Click(fixture.Control<Button>("Next", plan));
         AuthoringUiFixture.Click(fixture.Control<Button>("Create test plan", plan));
         Assert.Empty(fixture.Window.OwnedWindows);
@@ -174,8 +174,8 @@ public sealed class AuthoringWorkspaceCreationUiTests
         Assert.Equal(binding.VisaAddress, reopened.VisaAddress);
         Assert.Equal(binding.OpaqueResourceXml, reopened.OpaqueResourceXml);
         Assert.Equal(binding.Settings.OrderBy(setting => setting.Key), reopened.Settings.OrderBy(setting => setting.Key));
-        Assert.True(AuthoringInstrumentCatalog.DeclaresVisa(fixture.ViewModel.Workspace!));
-        Assert.Equal("^0.1.0", Assert.Single(fixture.ViewModel.Workspace!.Manifest.Dependencies, package => package.Package == OpenTapHomeBootstrapper.VisaPackageName).Version);
+        Assert.False(AuthoringInstrumentCatalog.DeclaresVisa(fixture.ViewModel.Workspace!));
+        Assert.Equal("^0.1.0", Assert.Single(fixture.ViewModel.Workspace!.Manifest.Dependencies, package => package.Package == AuthoringInstrumentCatalog.LibraryPackage).Version);
         Assert.False(fixture.ViewModel.HasUnsavedChanges);
     }
 

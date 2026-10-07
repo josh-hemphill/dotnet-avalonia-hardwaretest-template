@@ -5,7 +5,11 @@
     <StackPanel Spacing="8" Margin="0,8,16,0">
       <TextBlock Text="{Binding AuthoringHomeText}" TextWrapping="Wrap" AutomationProperties.Name="Selected authoring home"/>
       <TextBlock Text="{Binding EnvironmentRecoveryText}" TextWrapping="Wrap"/>
+      <TextBlock Text="{Binding LibraryEnvironmentReadinessText}" TextWrapping="Wrap" AutomationProperties.Name="Instrument Components readiness"/>
+      <TextBlock Text="Physical hardware uses Instrument Components. Declare its dependency, then Save All before preparing or importing. Undo restores a staged declaration. Compatible installed packages are reused." TextWrapping="Wrap"/>
       <WrapPanel>
+        <Button Content="Declare Instrument Components dependency" Click="OnDeclareLibrary" IsEnabled="{Binding CanDeclareLibraryDependency}" AutomationProperties.Name="Declare Instrument Components dependency" Classes="authoringAction"/>
+        <Button Content="Resume New test plan" Click="OnResumeInitialization" IsEnabled="{Binding CanInitializePlan}" AutomationProperties.Name="Resume New test plan" Classes="authoringAction"/>
         <Button Content="Prepare authoring environment" Click="OnPrepareEnvironment" IsEnabled="{Binding !OperationBusy}" AutomationProperties.Name="Prepare selected authoring environment" Classes="authoringAction"/>
         <Button Content="Import offline package…" Click="OnImportOfflinePackage" IsEnabled="{Binding !OperationBusy}" AutomationProperties.Name="Import offline authoring package" Classes="authoringAction"/>
       </WrapPanel>
