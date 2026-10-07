@@ -137,13 +137,16 @@ public partial class ResultsViewModel
         }
         try
         {
-            ReportAttestationResult result;
-            try
+            var result = await Task.Run(async () =>
             {
-                result = await Task.Run(() => _attestation.AttestAsync(run, kind, credential,
-                    pin, skipSigning, token), token).ConfigureAwait(true);
-            }
-            finally { capture.Dispose(); }
+                try
+                {
+                    token.ThrowIfCancellationRequested();
+                    return await _attestation.AttestAsync(run, kind, credential,
+                        pin, skipSigning, token).ConfigureAwait(false);
+                }
+                finally { capture.Dispose(); }
+            }).ConfigureAwait(true);
             if (version != _pendingAttestationVersion || token.IsCancellationRequested) return;
             LoadAttestation(run);
             if (result.PinRequired && !skipSigning)
