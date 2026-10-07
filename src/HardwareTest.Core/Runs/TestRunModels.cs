@@ -2,6 +2,7 @@ using System.Text;
 using System.Text.Json.Serialization;
 using HardwareTest.Core.Credentials;
 using HardwareTest.Core.Hardware;
+using HardwareTest.Core.Serialization;
 
 namespace HardwareTest.Core.Runs;
 
@@ -17,7 +18,7 @@ public enum RunResult
 public sealed class TestRunRecord
 {
     /// Persisted document schema version (see SchemaVersions.TestRunRecord).
-    public int SchemaVersion { get; set; }
+    public int SchemaVersion { get; set; } = SchemaVersions.TestRunRecord;
     public string RunId { get; set; } = string.Empty;
     public string TraceId { get; set; } = string.Empty;
     public string PlanId { get; set; } = string.Empty;
@@ -42,20 +43,14 @@ public sealed class TestRunRecord
     public List<StoredSample> Samples { get; set; } = [];
     public List<StoredEvent> Events { get; set; } = [];
     public Dictionary<string, string> Variables { get; set; } = new(StringComparer.OrdinalIgnoreCase);
-    /// Primary/status PDF path (first status artifact, else first Reports entry) for back compat.
-    public string? ReportPdfPath { get; set; }
     public List<RunReportArtifact> Reports { get; set; } = [];
     public List<string> PlotImagePaths { get; set; } = [];
-
-    /// Runtime: loaded without SchemaVersion (absent/0).
-    [JsonIgnore]
-    public bool IsLegacy { get; set; }
 
     /// Runtime: stored schema newer than this app — do not overwrite.
     [JsonIgnore]
     public bool IsSchemaReadOnly { get; set; }
 
-    /// Runtime: version found on disk before upgrades.
+    /// Runtime: version found on disk.
     [JsonIgnore]
     public int StoredSchemaVersion { get; set; }
 }
@@ -67,7 +62,7 @@ public sealed class RunReportArtifact
     public string Title { get; set; } = string.Empty;
     public string PdfPath { get; set; } = string.Empty;
     public DateTimeOffset GeneratedAt { get; set; }
-    /// Working (regenerable) or issued (frozen attested copy). Missing JSON defaults to working.
+    /// Working (regenerable) or issued (frozen attested copy).
     public string Role { get; set; } = ReportArtifactRoles.Working;
 }
 
@@ -79,8 +74,7 @@ public static class ReportArtifactRoles
     public const string DirectoryName = "issued";
 
     public static bool IsWorking(string? role)
-        => string.IsNullOrWhiteSpace(role)
-           || string.Equals(role, Working, StringComparison.OrdinalIgnoreCase);
+        => string.Equals(role, Working, StringComparison.OrdinalIgnoreCase);
 
     public static bool IsIssued(string? role)
         => string.Equals(role, Issued, StringComparison.OrdinalIgnoreCase);
@@ -132,7 +126,7 @@ public static class ReportKinds
 public sealed class SuiteRunRecord
 {
     /// Persisted document schema version (see SchemaVersions.SuiteRunRecord).
-    public int SchemaVersion { get; set; }
+    public int SchemaVersion { get; set; } = SchemaVersions.SuiteRunRecord;
     public string SuiteRunId { get; set; } = string.Empty;
     public string SuiteId { get; set; } = string.Empty;
     public string SuiteName { get; set; } = string.Empty;
@@ -142,9 +136,6 @@ public sealed class SuiteRunRecord
     public string? ErrorMessage { get; set; }
     public List<TestRunRecord> PlanRuns { get; set; } = [];
     public string? ReportPdfPath { get; set; }
-
-    [JsonIgnore]
-    public bool IsLegacy { get; set; }
 
     [JsonIgnore]
     public bool IsSchemaReadOnly { get; set; }
@@ -184,10 +175,10 @@ public sealed class StepAttemptSummary
 
 public sealed class StoredSample
 {
-    /// Concrete publisher and execution identity; absent on legacy recordings.
+    /// Concrete publisher and execution identity; optional when execution identity was not supplied.
     public Guid? ProducerStepId { get; set; }
     public Guid? StepRunId { get; set; }
-    /// Actual innermost loop invocation, unique across enclosing repeat executions; absent on legacy recordings.
+    /// Actual innermost loop invocation, unique across enclosing repeat executions; optional when execution identity was not supplied.
     public Guid? LoopRunId { get; set; }
     public string Channel { get; set; } = string.Empty;
     public string StepPath { get; set; } = string.Empty;
@@ -207,11 +198,11 @@ public sealed class StoredSample
     public double? LimitLow { get; set; }
     /// Optional upper passband bound from Scalar LimitHigh.
     public double? LimitHigh { get; set; }
-    /// Plan-owned elapsed time from step start (ms). Null = host ingest time only (legacy).
+    /// Plan-owned elapsed time from step start (ms). Null = host ingest time only.
     public double? ElapsedMs { get; set; }
-    /// measured | cached. Null = unknown / legacy.
+    /// measured | cached. Null = unknown.
     public string? ResultSource { get; set; }
-    /// When false, DutHistoryService skips this metric. Null means unknown (legacy / absent).
+    /// When false, DutHistoryService skips this metric. Null means the producer did not declare a history policy.
     public bool? HistoryEnabled { get; set; }
     /// Per-metric watch threshold (%); null uses DutHistoryService default.
     public double? HistoryWatchPercent { get; set; }

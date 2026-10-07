@@ -1664,28 +1664,25 @@ public sealed class FakeReportService : IReportService
             .Select(k =>
             {
                 var existing = run.Reports.FirstOrDefault(r =>
-                    string.Equals(r.Kind, k, StringComparison.OrdinalIgnoreCase));
+                    string.Equals(r.Kind, k, StringComparison.OrdinalIgnoreCase)
+                    && ReportArtifactRoles.IsWorking(r.Role));
                 return new RunReportArtifact
                 {
                     Kind = k,
                     Title = string.IsNullOrWhiteSpace(existing?.Title) ? k : existing.Title,
                     PdfPath = ResolveArtifactPath(existing, k),
                     GeneratedAt = DateTimeOffset.UtcNow,
+                    Role = ReportArtifactRoles.Working,
                 };
             })
             .ToList();
 
         var merged = run.Reports
-            .Where(existing => artifacts.TrueForAll(a =>
+            .Where(existing => !ReportArtifactRoles.IsWorking(existing.Role) || artifacts.TrueForAll(a =>
                 !string.Equals(a.Kind, existing.Kind, StringComparison.OrdinalIgnoreCase)))
             .ToList();
         merged.AddRange(artifacts);
         run.Reports = merged;
-        run.ReportPdfPath = merged.FirstOrDefault(a =>
-                                string.Equals(a.Kind, ReportKinds.Status, StringComparison.OrdinalIgnoreCase))
-                            ?.PdfPath
-                            ?? merged.FirstOrDefault()?.PdfPath
-                            ?? PdfPath;
         return Task.FromResult((IReadOnlyList<RunReportArtifact>)artifacts);
     }
 
@@ -1745,7 +1742,9 @@ public sealed class FakeRunStore : IRunStore
                     run.AppVersion));
         }
 
-        run.SchemaVersion = HardwareTest.Core.Serialization.SchemaVersions.TestRunRecord;
+        HardwareTest.Core.Serialization.DocumentSchemaGate.RequireWritable(
+            HardwareTest.Core.Serialization.SchemaDocumentTypes.TestRunRecord, run.SchemaVersion,
+            HardwareTest.Core.Serialization.SchemaVersions.TestRunRecord);
         _runs[run.RunId] = run;
         return Task.CompletedTask;
     }
@@ -1768,7 +1767,6 @@ public sealed class FakeRunStore : IRunStore
                 DutPartNumber = r.DutPartNumber,
                 SessionId = r.SessionId,
                 OperatorName = r.OperatorName,
-                IsLegacy = r.IsLegacy,
                 IsSchemaReadOnly = r.IsSchemaReadOnly,
                 SchemaVersion = r.StoredSchemaVersion > 0 ? r.StoredSchemaVersion : r.SchemaVersion,
             })

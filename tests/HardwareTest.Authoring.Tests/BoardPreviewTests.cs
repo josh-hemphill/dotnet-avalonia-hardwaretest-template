@@ -183,9 +183,9 @@ public sealed class BoardPreviewTests : IDisposable
             Assert.Single(tile.Chrome.Events.Select(mark => (mark.LoopRunId, mark.IterationIndex)).Distinct());
             Assert.All(tile.Chrome.Events, mark => Assert.NotNull(mark.LoopRunId));
         });
-        var legacy = JsonSerializer.Deserialize(json, AppJsonContext.Default.TestRunRecord)!;
-        foreach (var sample in legacy.Samples) sample.LoopRunId = null;
-        if (nested) Assert.Empty(BoardPreviewBuilder.Build(draft, legacy).Single(tile => tile.NodeId == mean.NodeId).Preview.CannedSamples);
+        var missingLoopIdentity = JsonSerializer.Deserialize(json, AppJsonContext.Default.TestRunRecord)!;
+        foreach (var sample in missingLoopIdentity.Samples) sample.LoopRunId = null;
+        if (nested) Assert.Empty(BoardPreviewBuilder.Build(draft, missingLoopIdentity).Single(tile => tile.NodeId == mean.NodeId).Preview.CannedSamples);
         Assert.Equal(nested ? 2 : 1, recording.Samples.Select(sample => sample.LoopRunId).Distinct().Count());
         Assert.All(recording.Samples, sample => Assert.NotNull(sample.LoopRunId));
         Assert.Equal(nested ? 8 : 4, recording.Events.Count);
@@ -308,7 +308,7 @@ public sealed class BoardPreviewTests : IDisposable
             var before = File.ReadAllBytes(selected.Path);
             var recordings = Path.Combine(root, "recordings");
             var entries = Directory.GetFileSystemEntries(recordings, "*", SearchOption.AllDirectories);
-            File.WriteAllText(source, $"{{\"schemaVersion\":1,\"planId\":\"board\",\"samples\":[],\"events\":[]}}".Replace($"\"{collection}\":[]", $"\"{collection}\":{value}"));
+            File.WriteAllText(source, $"{{\"schemaVersion\":{SchemaVersions.TestRunRecord},\"planId\":\"board\",\"samples\":[],\"events\":[]}}".Replace($"\"{collection}\":[]", $"\"{collection}\":{value}"));
             var invalidBytes = File.ReadAllBytes(source);
             Assert.Contains(collection, Assert.Throws<AuthoringWorkspaceException>(() => RunDatasetCatalog.Load(source)).Message);
             Assert.Contains(collection, Assert.Throws<AuthoringWorkspaceException>(() => vm.ImportRecording(source, "invalid")).Message);

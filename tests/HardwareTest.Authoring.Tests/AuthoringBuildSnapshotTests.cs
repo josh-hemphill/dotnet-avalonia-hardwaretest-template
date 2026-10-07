@@ -307,6 +307,24 @@ public sealed class AuthoringBuildSnapshotTests : IDisposable
     }
 
     [Fact]
+    public void Build_result_and_receipt_copy_manifest_dependency_and_file_lists()
+    {
+        var dependencies = new List<ShipDependency> { new("OpenTAP", "^9.32.2") };
+        var files = new List<string> { "Demo.TapPackage" };
+        var manifest = new ShipManifest("Demo", "1.0.0", files, dependencies);
+        var receipt = new AuthoringBuildReceipt(1, "id", DateTimeOffset.UtcNow, [], [], [], [], dependencies, [], [], []);
+        var result = new AuthoringBuildResult(manifest, receipt);
+        dependencies.Clear();
+        files.Clear();
+
+        Assert.Equal("OpenTAP", Assert.Single(result.Manifest.Dependencies).Package);
+        Assert.Equal("OpenTAP", Assert.Single(receipt.Dependencies).Package);
+        Assert.Equal("Demo.TapPackage", Assert.Single(result.Manifest.Files));
+        Assert.Throws<NotSupportedException>(() => ((IList<ShipDependency>)result.Manifest.Dependencies).Clear());
+        Assert.Throws<NotSupportedException>(() => ((IList<ShipDependency>)receipt.Dependencies).Clear());
+    }
+
+    [Fact]
     public void Environment_change_after_capture_rejects_the_build()
     {
         var root = Workspace(); var workspace = AuthoringWorkspaceLoader.Load(root);

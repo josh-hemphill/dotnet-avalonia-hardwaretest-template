@@ -1,1 +1,1 @@
-{"schemaVersion":1,"planId":"board","samples":[{"channel":"VDC","value":"invalid-number"}]}
+{"schemaVersion":4,"planId":"board","samples":[{"channel":"VDC","value":"invalid-number"}]}

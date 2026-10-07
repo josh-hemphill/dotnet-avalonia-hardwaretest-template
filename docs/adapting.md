@@ -237,7 +237,7 @@ Import `models/*.tf.json` in Authoring (output channel key becomes the metric Ch
 
 ### Typst PDFs
 
-Default embedded templates: `test-report.typ` (status; `status-report.typ` is an alias) + `certification-report.typ` + `lib/sample-chart.typ`.
+Default embedded templates: `test-report.typ` (status) + `certification-report.typ` + `lib/sample-chart.typ`.
 
 Override without recompiling:
 
@@ -251,7 +251,7 @@ Chip/tap signing captures the badge, **recompiles** the certification PDF in mem
 
 Results **Regenerate reports** recompiles those Typst templates to **working** PDFs from the persisted `run.json` (full PDF generation, not a lighter intermediate-only refresh). Captured samples/events in `run.json` are the durable record. Regenerating working does not delete issued PDFs or invalidate an attestation whose hash is bound to issued bytes. When no issued copy exists (legacy in-place attestation), regenerate still drops that kind's attestation because the working PDF bytes change. Storage pressure is handled by run retention / free-space gates, not by skipping PDF compile.
 
-Programs declare `reportKinds` in `{planId}.program.json` (default `["status"]`). Optional `defaultReportKind` chooses which PDF Results opens on double-click (default `status`). Sample and Board demos generate **status** (includes DUT history when available) and **certification** (pass/fail + measurements only). Working PDFs land as `runs/{runId}/status.pdf` and `certification.pdf`; issued copies land under `runs/{runId}/issued/`. `ReportPdfPath` points at the working status PDF for back compat. Results: click a run for detail, double-click for the default (working) report, or Open a specific artifact.
+Programs declare `reportKinds` in `{planId}.program.json` (default `["status"]`). Optional `defaultReportKind` chooses which PDF Results opens on double-click (default `status`). Sample and Board demos generate **status** (includes DUT history when available) and **certification** (pass/fail + measurements only). Working PDFs land as `runs/{runId}/status.pdf` and `certification.pdf`; issued copies land under `runs/{runId}/issued/`. `Reports` records each test-run artifact by kind and role. Results: click a run for detail, double-click for the default (working) report, or Open a specific artifact.
 
 Loop samples stamp `IterationIndex` / `LoopPath` on `StoredSample` for report charts (last value per iteration); live Run plot stays chronological.
 

@@ -1,3 +1,4 @@
+using System.Text.Json;
 using HardwareTest.Core.Serialization;
 using HardwareTest.Core.Settings;
 using HardwareTest.Tests.Fixtures;
@@ -127,4 +128,118 @@ public sealed class SettingsStoreTests
         Assert.Equal(expectedMinutes.ToString(), store.Provenance.Single(
             row => row.Key == nameof(AppSettings.OperatorSessionIdleMinutes)).EffectiveValue);
     }
+    [Theory]
+    [InlineData("{}")]
+    [InlineData("{\"schemaVersion\":0,\"operatorSessionIdleMinutes\":1}")]
+    [InlineData("{\"schemaVersion\":-1}")]
+    [InlineData("{\"schemaVersion\":999,\"themePreference\":\"Light\"}")]
+    public async Task Unsupported_or_future_settings_preserve_primary_and_block_autosave(string json)
+    {
+        using var temp = new TempDataDirectory();
+        var store = new SettingsStore(temp.Path);
+        var identity = store.AppSettings;
+        await File.WriteAllTextAsync(store.SettingsPath, json);
+        await File.WriteAllTextAsync(store.SettingsPath + ".bak",
+            JsonSerializer.Serialize(new AppSettings { ThemePreference = "Dark" }, AppJsonContext.Default.AppSettings));
+        var before = await File.ReadAllBytesAsync(store.SettingsPath);
+        var backup = await File.ReadAllBytesAsync(store.SettingsPath + ".bak");
+        var warnings = new List<string>();
+        await store.LoadAsync(null, new Dictionary<string, string> { [nameof(AppSettings.PlotRefreshHz)] = "30" }, warnings.Add);
+        Assert.Same(identity, store.AppSettings);
+        Assert.False(store.IsSettingsWritable);
+        Assert.NotEmpty(warnings);
+        Assert.NotNull(store.SettingsSchemaWarning);
+        Assert.Equal(30, store.AppSettings.PlotRefreshHz);
+        store.AppSettings.ThemePreference = "Dark";
+        await store.SaveAppSettingsAsync();
+        Assert.NotNull(store.LastPersistenceError);
+        Assert.Equal(before, await File.ReadAllBytesAsync(store.SettingsPath));
+        Assert.Equal(backup, await File.ReadAllBytesAsync(store.SettingsPath + ".bak"));
+        Assert.DoesNotContain(store.Provenance, row => row.Source == SettingSource.SettingsFile && row.Key == nameof(AppSettings.PlotRefreshHz));
+    }
+
+    [Fact]
+    public async Task Current_reload_clears_blocked_state_and_keeps_injected_identity()
+    {
+        using var temp = new TempDataDirectory();
+        var store = new SettingsStore(temp.Path);
+        var identity = store.AppSettings;
+        await File.WriteAllTextAsync(store.SettingsPath, "{}");
+        await store.LoadAsync();
+        Assert.False(store.IsSettingsWritable);
+        await File.WriteAllTextAsync(store.SettingsPath, JsonSerializer.Serialize(
+            new AppSettings { ThemePreference = "Dark", OperatorSessionIdleMinutes = 0 }, AppJsonContext.Default.AppSettings));
+        await store.LoadAsync();
+        Assert.Same(identity, store.AppSettings);
+        Assert.True(store.IsSettingsWritable);
+        Assert.Null(store.LastPersistenceError);
+        Assert.Null(store.SettingsSchemaWarning);
+        Assert.Equal(OperatorSessionIdle.MinMinutes, store.AppSettings.OperatorSessionIdleMinutes);
+        await store.SaveAppSettingsAsync();
+        Assert.True(store.IsSettingsWritable);
+    }
+
+    [Theory]
+    [InlineData("{}")]
+    [InlineData("{\"schemaVersion\":0}")]
+    [InlineData("{\"schemaVersion\":999}")]
+    public async Task Ui_state_unsupported_and_future_bytes_are_preserved(string json)
+    {
+        using var temp = new TempDataDirectory();
+        var path = Path.Combine(temp.Path, "ui-state.json");
+        await File.WriteAllTextAsync(path, json);
+        var before = await File.ReadAllBytesAsync(path);
+        var store = new SettingsStore(temp.Path);
+        await store.LoadAsync();
+        Assert.NotNull(store.UiStateSchemaWarning);
+        store.UiState.SelectedPageId = "Results";
+        await store.SaveUiStateAsync();
+        Assert.NotNull(store.LastPersistenceError);
+        Assert.Equal(before, await File.ReadAllBytesAsync(path));
+        await File.WriteAllTextAsync(path, JsonSerializer.Serialize(new UiState(), AppJsonContext.Default.UiState));
+        await store.LoadAsync();
+        Assert.Null(store.UiStateSchemaWarning);
+        Assert.Null(store.LastPersistenceError);
+        store.UiState.SelectedPageId = "Results";
+        await store.SaveUiStateAsync();
+        Assert.Contains("Results", await File.ReadAllTextAsync(path), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Corrupt_settings_recovers_only_current_backup_then_reapplies_overlays()
+    {
+        using var temp = new TempDataDirectory();
+        var store = new SettingsStore(temp.Path);
+        store.AppSettings.ThemePreference = "Light";
+        await store.SaveAppSettingsAsync();
+        store.AppSettings.ThemePreference = "Dark";
+        await store.SaveAppSettingsAsync();
+        var backup = await File.ReadAllBytesAsync(store.SettingsPath + ".bak");
+        await File.WriteAllTextAsync(store.SettingsPath, "{");
+        await store.LoadAsync(new Dictionary<string, string> { [nameof(AppSettings.PlotRefreshHz)] = "30" }, null);
+        Assert.True(store.IsSettingsWritable);
+        Assert.Equal("Light", store.AppSettings.ThemePreference);
+        Assert.Equal(30, store.AppSettings.PlotRefreshHz);
+        Assert.Equal(backup, await File.ReadAllBytesAsync(store.SettingsPath));
+        await store.SaveAppSettingsAsync();
+        var loaded = JsonSerializer.Deserialize(await File.ReadAllTextAsync(store.SettingsPath), AppJsonContext.Default.AppSettings)!;
+        Assert.Equal(20, loaded.PlotRefreshHz);
+    }
+
+    [Fact]
+    public async Task Save_rechecks_destination_and_candidate_versions_without_a_load()
+    {
+        using var temp = new TempDataDirectory();
+        var store = new SettingsStore(temp.Path);
+        await File.WriteAllTextAsync(store.SettingsPath, "{}");
+        await store.SaveAppSettingsAsync();
+        Assert.False(store.IsSettingsWritable);
+        Assert.Equal("{}", await File.ReadAllTextAsync(store.SettingsPath));
+        File.Delete(store.SettingsPath);
+        store.AppSettings.SchemaVersion = 0;
+        await store.SaveAppSettingsAsync();
+        Assert.False(store.IsSettingsWritable);
+        Assert.False(File.Exists(store.SettingsPath));
+    }
+
 }

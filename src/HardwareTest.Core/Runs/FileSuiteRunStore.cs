@@ -1,4 +1,3 @@
-using System.Text.Json;
 using HardwareTest.Core.IO;
 using HardwareTest.Core.Serialization;
 
@@ -34,57 +33,57 @@ public sealed class FileSuiteRunStore : ISuiteRunStore
     {
         if (suiteRun.IsSchemaReadOnly)
         {
-            throw new SchemaReadOnlyException(
-                DocumentSchemaGate.Evaluate(
-                    SchemaDocumentTypes.SuiteRunRecord,
-                    suiteRun.StoredSchemaVersion > 0 ? suiteRun.StoredSchemaVersion : suiteRun.SchemaVersion,
-                    SchemaVersions.SuiteRunRecord));
+            var futureChild = suiteRun.PlanRuns.FirstOrDefault(child => child.IsSchemaReadOnly);
+            throw new SchemaReadOnlyException(futureChild is null
+                ? DocumentSchemaGate.Evaluate(SchemaDocumentTypes.SuiteRunRecord,
+                    suiteRun.StoredSchemaVersion > 0 ? suiteRun.StoredSchemaVersion : suiteRun.SchemaVersion, SchemaVersions.SuiteRunRecord)
+                : DocumentSchemaGate.Evaluate(SchemaDocumentTypes.TestRunRecord,
+                    futureChild.StoredSchemaVersion > 0 ? futureChild.StoredSchemaVersion : futureChild.SchemaVersion,
+                    SchemaVersions.TestRunRecord, futureChild.AppVersion));
         }
 
-        suiteRun.SchemaVersion = SchemaVersions.SuiteRunRecord;
         var dir = GetSuiteRunDirectory(suiteRun.SuiteRunId);
+        var path = Path.Combine(dir, "suite-run.json");
+        DocumentSchemaGate.RequireWritable(SchemaDocumentTypes.SuiteRunRecord, suiteRun.SchemaVersion, SchemaVersions.SuiteRunRecord, path);
+        await CurrentDocumentFile.ValidateWriteDestinationAsync(path, AppJsonContext.Default.SuiteRunRecord,
+            SchemaDocumentTypes.SuiteRunRecord, SchemaVersions.SuiteRunRecord, cancellationToken).ConfigureAwait(false);
+        // Validate the whole batch before saving any child.
+        foreach (var child in suiteRun.PlanRuns)
+        {
+            if (child.IsSchemaReadOnly) throw new SchemaReadOnlyException(DocumentSchemaGate.Evaluate(
+                SchemaDocumentTypes.TestRunRecord, child.StoredSchemaVersion, SchemaVersions.TestRunRecord, child.AppVersion));
+            DocumentSchemaGate.RequireWritable(SchemaDocumentTypes.TestRunRecord, child.SchemaVersion, SchemaVersions.TestRunRecord,
+                Path.Combine(_runStore.GetRunDirectory(child.RunId), "run.json"), child.AppVersion);
+            await CurrentDocumentFile.ValidateWriteDestinationAsync(Path.Combine(_runStore.GetRunDirectory(child.RunId), "run.json"),
+                AppJsonContext.Default.TestRunRecord, SchemaDocumentTypes.TestRunRecord, SchemaVersions.TestRunRecord,
+                cancellationToken).ConfigureAwait(false);
+        }
         foreach (var planRun in suiteRun.PlanRuns)
         {
             await _runStore.SaveAsync(planRun, cancellationToken).ConfigureAwait(false);
         }
 
-        var path = Path.Combine(dir, "suite-run.json");
-        await AtomicFile.WriteJsonAsync(
+        await CurrentDocumentFile.WriteAsync(
                 path,
                 suiteRun,
                 AppJsonContext.Default.SuiteRunRecord,
-                cancellationToken)
+                SchemaDocumentTypes.SuiteRunRecord, suiteRun.SchemaVersion, SchemaVersions.SuiteRunRecord, cancellationToken)
             .ConfigureAwait(false);
     }
 
     public async Task<SuiteRunRecord?> LoadAsync(string suiteRunId, CancellationToken cancellationToken = default)
     {
         var path = Path.Combine(GetSuiteRunDirectory(suiteRunId), "suite-run.json");
-        if (!File.Exists(path))
-        {
-            return null;
-        }
-
-        await using var stream = File.OpenRead(path);
-        var suite = await JsonSerializer.DeserializeAsync(stream, AppJsonContext.Default.SuiteRunRecord, cancellationToken)
-            .ConfigureAwait(false);
-        if (suite is null)
-        {
-            return null;
-        }
-
-        var status = DocumentSchemaGate.Apply(
-            SchemaDocumentTypes.SuiteRunRecord,
-            suite.SchemaVersion,
-            SchemaVersions.SuiteRunRecord,
-            path,
-            document: suite);
+        var (suite, status) = await CurrentDocumentFile.ReadAsync(path, AppJsonContext.Default.SuiteRunRecord,
+            SchemaDocumentTypes.SuiteRunRecord, SchemaVersions.SuiteRunRecord, cancellationToken).ConfigureAwait(false);
+        if (suite is null) return null;
         suite.StoredSchemaVersion = status.StoredVersion;
-        suite.IsLegacy = status.IsLegacy;
         suite.IsSchemaReadOnly = status.IsReadOnly;
-        if (status.Kind is DocumentSchemaKind.Current or DocumentSchemaKind.UpgradeNeeded)
+        foreach (var child in suite.PlanRuns)
         {
-            suite.SchemaVersion = SchemaVersions.SuiteRunRecord;
+            child.StoredSchemaVersion = child.SchemaVersion;
+            child.IsSchemaReadOnly = child.SchemaVersion > SchemaVersions.TestRunRecord;
+            suite.IsSchemaReadOnly |= child.IsSchemaReadOnly;
         }
 
         return suite;

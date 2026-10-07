@@ -4,7 +4,7 @@ namespace HardwareTest.Core.Settings;
 public sealed class AppSettings
 {
     /// Persisted document schema version (see SchemaVersions.AppSettings).
-    public int SchemaVersion { get; set; }
+    public int SchemaVersion { get; set; } = HardwareTest.Core.Serialization.SchemaVersions.AppSettings;
     public string DataDirectory { get; set; } = string.Empty;
     public bool UseMockVisa { get; set; } = true;
     public string LogMinimumLevel { get; set; } = "Information";
@@ -111,7 +111,7 @@ public sealed class PlanParameterOverride
 public sealed class UiState
 {
     /// Persisted document schema version (see SchemaVersions.UiState).
-    public int SchemaVersion { get; set; }
+    public int SchemaVersion { get; set; } = HardwareTest.Core.Serialization.SchemaVersions.UiState;
     public double X { get; set; } = 100;
     public double Y { get; set; } = 100;
     public double Width { get; set; } = 1280;

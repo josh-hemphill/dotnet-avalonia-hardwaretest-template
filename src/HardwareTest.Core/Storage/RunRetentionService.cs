@@ -144,19 +144,28 @@ public sealed class RunRetentionService : IRunRetentionService
         }
     }
 
-    private static RunFolderInfo? Analyze(string directoryPath)
+    private RunFolderInfo? Analyze(string directoryPath)
     {
         var runJson = Path.Combine(directoryPath, "run.json");
         var suiteJson = Path.Combine(directoryPath, "suite-run.json");
+        if (!File.Exists(runJson) && File.Exists(runJson + ".bak")) runJson += ".bak";
+        if (!File.Exists(suiteJson) && File.Exists(suiteJson + ".bak")) suiteJson += ".bak";
         try
         {
             if (File.Exists(runJson))
             {
-                using var stream = File.OpenRead(runJson);
-                var run = JsonSerializer.Deserialize(stream, AppJsonContext.Default.TestRunRecord);
+                var bytes = File.ReadAllBytes(runJson);
+                if (DocumentSchemaGate.ReadHeader(bytes, "TestRunRecord", SchemaVersions.TestRunRecord, runJson).Kind
+                    != DocumentSchemaKind.Current)
+                {
+                    _log?.Warning("Run retention protected unsupported or future record at {Path}", runJson);
+                    return null;
+                }
+
+                var run = JsonSerializer.Deserialize(bytes, AppJsonContext.Default.TestRunRecord);
                 if (run is null)
                 {
-                    return FromDirectoryTimes(directoryPath);
+                    return null;
                 }
 
                 return new RunFolderInfo
@@ -169,11 +178,21 @@ public sealed class RunRetentionService : IRunRetentionService
 
             if (File.Exists(suiteJson))
             {
-                using var stream = File.OpenRead(suiteJson);
-                var suite = JsonSerializer.Deserialize(stream, AppJsonContext.Default.SuiteRunRecord);
+                var bytes = File.ReadAllBytes(suiteJson);
+                if (DocumentSchemaGate.ReadHeader(bytes, "SuiteRunRecord", SchemaVersions.SuiteRunRecord, suiteJson).Kind
+                    != DocumentSchemaKind.Current)
+                {
+                    _log?.Warning("Run retention protected unsupported or future record at {Path}", suiteJson);
+                    return null;
+                }
+
+                DocumentSchemaGate.RequireCurrentHeader(
+                    bytes, "SuiteRunRecord", SchemaVersions.SuiteRunRecord, suiteJson);
+
+                var suite = JsonSerializer.Deserialize(bytes, AppJsonContext.Default.SuiteRunRecord);
                 if (suite is null)
                 {
-                    return FromDirectoryTimes(directoryPath);
+                    return null;
                 }
 
                 return new RunFolderInfo
@@ -184,9 +203,11 @@ public sealed class RunRetentionService : IRunRetentionService
                 };
             }
         }
-        catch
+        catch (Exception ex)
         {
-            // fall through to directory times
+            // A document that cannot be classified must not become a deletion candidate.
+            _log?.Warning(ex, "Run retention protected unreadable record in {Path}", directoryPath);
+            return null;
         }
 
         return FromDirectoryTimes(directoryPath);

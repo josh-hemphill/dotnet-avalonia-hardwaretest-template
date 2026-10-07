@@ -1,4 +1,6 @@
+using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using HardwareTest.Core.Runs;
 using HardwareTest.Core.Serialization;
 using HardwareTest.Core.Settings;
@@ -12,205 +14,148 @@ public sealed class SchemaVersioningTests
     private static string FixturePath(string name)
         => Path.Combine(AppContext.BaseDirectory, "fixtures", "schema", name);
 
-    [Fact]
-    public async Task Legacy_run_fixture_loads_as_legacy()
+    [Theory]
+    [InlineData("run-v0-legacy.json", "legacy-run-1")]
+    [InlineData("run-v1.json", "current-run-1")]
+    public async Task Unsupported_run_fixture_rejects_load_and_overwrite_preserving_bytes(string fixture, string runId)
     {
         using var temp = new TempDataDirectory();
         var store = new FileRunStore(temp.RunsDirectory);
-        var dest = Path.Combine(store.GetRunDirectory("legacy-run-1"), "run.json");
-        File.Copy(FixturePath("run-v0-legacy.json"), dest, overwrite: true);
+        var dest = Path.Combine(store.GetRunDirectory(runId), "run.json");
+        File.Copy(FixturePath(fixture), dest);
+        var before = File.ReadAllBytes(dest);
 
-        var run = await store.LoadAsync("legacy-run-1");
-        Assert.NotNull(run);
-        Assert.True(run!.IsLegacy);
-        Assert.False(run.IsSchemaReadOnly);
-        Assert.Equal(0, run.StoredSchemaVersion);
-        Assert.Null(run.Samples[0].HistoryEnabled);
+        var error = await Assert.ThrowsAsync<UnsupportedDocumentSchemaException>(() => store.LoadAsync(runId));
+        Assert.Contains("requires schema 4", error.Message);
+        Assert.Contains(dest, error.Message);
+        await Assert.ThrowsAsync<UnsupportedDocumentSchemaException>(() => store.SaveAsync(new TestRunRecord { RunId = runId }));
+        Assert.Equal(before, File.ReadAllBytes(dest));
+        Assert.Empty(await store.ListAsync());
+        Assert.False(File.Exists(dest + ".bak"));
     }
 
     [Fact]
-    public async Task Future_run_fixture_loads_read_only_and_save_is_rejected()
+    public async Task Future_run_fixture_loads_read_only_and_loaded_or_fresh_save_is_rejected()
     {
         using var temp = new TempDataDirectory();
         var store = new FileRunStore(temp.RunsDirectory);
         var dest = Path.Combine(store.GetRunDirectory("future-run-1"), "run.json");
-        File.Copy(FixturePath("run-v999-future.json"), dest, overwrite: true);
+        File.Copy(FixturePath("run-v999-future.json"), dest);
+        var before = File.ReadAllBytes(dest);
 
         var run = await store.LoadAsync("future-run-1");
         Assert.NotNull(run);
-        Assert.True(run!.IsSchemaReadOnly);
+        Assert.True(run.IsSchemaReadOnly);
         Assert.Equal(999, run.StoredSchemaVersion);
         Assert.Equal("9.9.9+ffff.20990101000000", run.AppVersion);
-
-        var before = await File.ReadAllTextAsync(dest);
         await Assert.ThrowsAsync<SchemaReadOnlyException>(() => store.SaveAsync(run));
-        var after = await File.ReadAllTextAsync(dest);
-        Assert.Equal(before, after);
+        await Assert.ThrowsAsync<SchemaReadOnlyException>(() => store.SaveAsync(new TestRunRecord { RunId = run.RunId }));
+        Assert.Equal(before, File.ReadAllBytes(dest));
+        Assert.True(Assert.Single(await store.ListAsync()).IsSchemaReadOnly);
     }
 
     [Fact]
-    public async Task Round_trip_stamps_current_schema_version()
+    public async Task Current_run_round_trip_preserves_explicit_schema_and_current_data()
     {
         using var temp = new TempDataDirectory();
         var store = new FileRunStore(temp.RunsDirectory);
-        var run = new TestRunRecord
-        {
-            RunId = "stamp-1",
-            PlanName = "Plan",
-            StartedAt = DateTimeOffset.UtcNow,
-            Result = RunResult.Passed,
-        };
-
-        await store.SaveAsync(run);
-        var loaded = await store.LoadAsync("stamp-1");
-        Assert.NotNull(loaded);
-        Assert.Equal(SchemaVersions.TestRunRecord, loaded!.SchemaVersion);
-        Assert.False(loaded.IsLegacy);
-        Assert.False(loaded.IsSchemaReadOnly);
-
-        var json = await File.ReadAllTextAsync(Path.Combine(store.GetRunDirectory("stamp-1"), "run.json"));
-        using var doc = JsonDocument.Parse(json);
-        Assert.Equal(SchemaVersions.TestRunRecord, doc.RootElement.GetProperty("schemaVersion").GetInt32());
-    }
-
-    [Fact]
-    public async Task V1_run_fixture_loads_as_current()
-    {
-        using var temp = new TempDataDirectory();
-        var store = new FileRunStore(temp.RunsDirectory);
+        var current = JsonNode.Parse(File.ReadAllBytes(FixturePath("run-v1.json")))!;
+        current["schemaVersion"] = SchemaVersions.TestRunRecord;
         var dest = Path.Combine(store.GetRunDirectory("current-run-1"), "run.json");
-        File.Copy(FixturePath("run-v1.json"), dest, overwrite: true);
+        File.WriteAllText(dest, current.ToJsonString());
 
-        var run = await store.LoadAsync("current-run-1");
-        Assert.NotNull(run);
-        Assert.False(run!.IsLegacy);
-        Assert.False(run.IsSchemaReadOnly);
-        Assert.Equal(1, run.StoredSchemaVersion);
-        Assert.Equal(SchemaVersions.TestRunRecord, run.SchemaVersion);
-        Assert.True(run.Samples[0].HistoryEnabled);
-        Assert.Empty(run.Events);
-        Assert.All(run.Samples, s => Assert.Null(s.ElapsedMs));
+        var loaded = await store.LoadAsync("current-run-1");
+        Assert.NotNull(loaded);
+        Assert.Equal(SchemaVersions.TestRunRecord, loaded.SchemaVersion);
+        Assert.Equal(SchemaVersions.TestRunRecord, loaded.StoredSchemaVersion);
+        Assert.False(loaded.IsSchemaReadOnly);
+        Assert.True(loaded.Samples[0].HistoryEnabled);
+        Assert.Empty(loaded.Events);
+        Assert.All(loaded.Samples, s => Assert.Null(s.ElapsedMs));
+        await store.SaveAsync(loaded);
+        using var document = JsonDocument.Parse(File.ReadAllBytes(dest));
+        Assert.Equal(SchemaVersions.TestRunRecord, document.RootElement.GetProperty("schemaVersion").GetInt32());
     }
 
-    [Fact]
-    public async Task Legacy_settings_fixture_loads_and_future_refuses_save()
-    {
-        using var temp = new TempDataDirectory();
-        File.Copy(
-            FixturePath("settings-v0-legacy.json"),
-            Path.Combine(temp.Path, "settings.json"),
-            overwrite: true);
-
-        var legacyStore = new SettingsStore(temp.Path);
-        await legacyStore.LoadAsync();
-        Assert.Null(legacyStore.SettingsSchemaWarning);
-        Assert.True(legacyStore.IsSettingsWritable);
-
-        using var futureTemp = new TempDataDirectory();
-        File.Copy(
-            FixturePath("settings-v999-future.json"),
-            Path.Combine(futureTemp.Path, "settings.json"),
-            overwrite: true);
-        var warnings = new List<string>();
-        var futureStore = new SettingsStore(futureTemp.Path);
-        await futureStore.LoadAsync(null, null, warnings.Add);
-        Assert.False(futureStore.IsSettingsWritable);
-        Assert.False(string.IsNullOrWhiteSpace(futureStore.SettingsSchemaWarning));
-        Assert.Contains(warnings, w => w.Contains("Read-only", StringComparison.OrdinalIgnoreCase));
-
-        futureStore.AppSettings.ThemePreference = "Dark";
-        await futureStore.SaveAppSettingsAsync();
-        var disk = await File.ReadAllTextAsync(futureStore.SettingsPath);
-        Assert.Contains("\"schemaVersion\": 999", disk, StringComparison.Ordinal);
-        Assert.DoesNotContain("\"themePreference\": \"Dark\"", disk, StringComparison.OrdinalIgnoreCase);
-    }
-
-    [Fact]
-    public void Upgrade_registry_includes_noop_and_applies_identity()
-    {
-        Assert.Contains(
-            SchemaUpgradeRegistry.RegisteredSteps,
-            s => s.DocumentType == SchemaDocumentTypes.TestRunRecord
-                 && s.FromVersion == 1
-                 && s.ToVersion == 2
-                 && s.Transform is null);
-
-        var reached = SchemaUpgradeRegistry.Apply(SchemaDocumentTypes.TestRunRecord, fromVersion: 1, targetVersion: 2);
-        Assert.Equal(2, reached);
-        Assert.Contains(
-            SchemaUpgradeRegistry.RegisteredSteps,
-            s => s.DocumentType == SchemaDocumentTypes.TestRunRecord
-                 && s.FromVersion == 2
-                 && s.ToVersion == 3
-                 && s.Transform is null);
-        Assert.Equal(3, SchemaUpgradeRegistry.Apply(SchemaDocumentTypes.TestRunRecord, fromVersion: 2, targetVersion: 3));
-        Assert.Equal(3, SchemaUpgradeRegistry.Apply(SchemaDocumentTypes.TestRunRecord, fromVersion: 1, targetVersion: 3));
-        Assert.Contains(
-            SchemaUpgradeRegistry.RegisteredSteps,
-            s => s.DocumentType == SchemaDocumentTypes.TestRunRecord
-                 && s.FromVersion == 3
-                 && s.ToVersion == 4
-                 && s.Transform is null);
-        Assert.Equal(4, SchemaUpgradeRegistry.Apply(SchemaDocumentTypes.TestRunRecord, fromVersion: 3, targetVersion: 4));
-        Assert.Equal(4, SchemaUpgradeRegistry.Apply(SchemaDocumentTypes.TestRunRecord, fromVersion: 1, targetVersion: 4));
-    }
-
-    [Fact]
-    public void Missing_report_role_deserializes_as_working()
-    {
-        const string json = """
-            {
-              "kind": "certification",
-              "title": "Certification Report",
-              "pdfPath": "certification.pdf",
-              "generatedAt": "2026-09-18T00:00:00+00:00"
-            }
-            """;
-        var artifact = JsonSerializer.Deserialize(json, AppJsonContext.Default.RunReportArtifact);
-        Assert.NotNull(artifact);
-        Assert.Equal(ReportArtifactRoles.Working, artifact!.Role);
-        Assert.True(ReportArtifactRoles.IsWorking(artifact.Role));
-        Assert.False(ReportArtifactRoles.IsIssued(null));
-        Assert.True(ReportArtifactRoles.IsWorking(null));
-    }
-
-    [Fact]
-    public async Task Dut_history_on_legacy_record_reports_no_comparison()
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
+    [InlineData(-1)]
+    public async Task Run_writer_rejects_old_objects_without_stamping_or_creating_a_document(int version)
     {
         using var temp = new TempDataDirectory();
         var store = new FileRunStore(temp.RunsDirectory);
-        await store.SaveAsync(new TestRunRecord
+        var run = new TestRunRecord { RunId = "unsupported", SchemaVersion = version };
+        await Assert.ThrowsAsync<UnsupportedDocumentSchemaException>(() => store.SaveAsync(run));
+        Assert.Equal(version, run.SchemaVersion);
+        Assert.False(File.Exists(Path.Combine(store.GetRunDirectory(run.RunId), "run.json")));
+    }
+
+    [Theory]
+    [InlineData(SchemaDocumentTypes.AppSettings, SchemaVersions.AppSettings)]
+    [InlineData(SchemaDocumentTypes.UiState, SchemaVersions.UiState)]
+    [InlineData(SchemaDocumentTypes.TestRunRecord, SchemaVersions.TestRunRecord)]
+    [InlineData(SchemaDocumentTypes.SuiteRunRecord, SchemaVersions.SuiteRunRecord)]
+    [InlineData(SchemaDocumentTypes.CrashReport, SchemaVersions.CrashReport)]
+    [InlineData(SchemaDocumentTypes.StationHealthRecord, SchemaVersions.StationHealthRecord)]
+    public void Header_requires_explicit_current_version_for_each_document_family(string kind, int current)
+    {
+        var status = DocumentSchemaGate.ReadHeader(Encoding.UTF8.GetBytes($"{{\"schemaVersion\":{current}}}"), kind, current);
+        Assert.Equal(DocumentSchemaKind.Current, status.Kind);
+        foreach (var json in new[] { "{}", "{\"schemaVersion\":0}", "{\"schemaVersion\":-1}", $"{{\"schemaVersion\":{current - 1}}}", $"{{\"SchemaVersion\":{current}}}" })
         {
-            RunId = "prior",
-            PlanId = "sample",
-            PlanName = "Sample Hardware Suite",
-            DutSerial = "SN-LEGACY",
-            StartedAt = DateTimeOffset.UtcNow.AddHours(-1),
-            Result = RunResult.Passed,
-            Samples =
-            [
-                new StoredSample
-                {
-                    Channel = "VDC",
-                    MetricKey = "VDC",
-                    Value = 10,
-                    HistoryEnabled = true,
-                    Timestamp = DateTimeOffset.UtcNow.AddHours(-1),
-                },
-            ],
-        });
+            var error = Assert.Throws<UnsupportedDocumentSchemaException>(() => DocumentSchemaGate.ReadHeader(Encoding.UTF8.GetBytes(json), kind, current));
+            Assert.Equal(current, error.Status.CurrentVersion);
+            Assert.Equal(DocumentSchemaKind.Unsupported, error.Status.Kind);
+        }
+        var future = DocumentSchemaGate.ReadHeader(Encoding.UTF8.GetBytes("{\"schemaVersion\":999,\"appVersion\":\"newer-app\"}"), kind, current);
+        Assert.Equal(DocumentSchemaKind.FutureReadOnly, future.Kind);
+        Assert.Contains("newer-app", future.FormatOperatorWarning());
+    }
 
-        var dest = Path.Combine(store.GetRunDirectory("legacy-run-1"), "run.json");
-        File.Copy(FixturePath("run-v0-legacy.json"), dest, overwrite: true);
-        var legacy = await store.LoadAsync("legacy-run-1");
-        Assert.NotNull(legacy);
-        Assert.True(legacy!.IsLegacy);
+    [Theory]
+    [InlineData("{\"schemaVersion\":null}")]
+    [InlineData("{\"schemaVersion\":\"4\"}")]
+    [InlineData("{\"schemaVersion\":4.5}")]
+    [InlineData("{\"schemaVersion\":2147483648}")]
+    [InlineData("null")]
+    [InlineData("[]")]
+    [InlineData("{invalid")]
+    public void Malformed_headers_are_errors_before_deserialization(string json)
+    {
+        Assert.ThrowsAny<JsonException>(() => DocumentSchemaGate.ReadHeader(Encoding.UTF8.GetBytes(json), SchemaDocumentTypes.TestRunRecord, SchemaVersions.TestRunRecord));
+    }
 
-        // Shift value so a default-threshold path would have flagged Watch.
-        legacy.Samples[0].Value = 9.0;
-        var report = await new DutHistoryService(store).AnalyzeAsync(legacy);
-        Assert.Contains("No comparison available", report.OperatorSummary, StringComparison.OrdinalIgnoreCase);
-        Assert.Empty(report.Metrics);
-        Assert.Equal(DutHistorySeverity.Normal, report.OverallSeverity);
+    [Theory]
+    [InlineData("settings-v0-legacy.json", false)]
+    [InlineData("settings-v999-future.json", true)]
+    public async Task Unsupported_and_future_settings_fixtures_preserve_bytes_and_refuse_save(string fixture, bool future)
+    {
+        using var temp = new TempDataDirectory();
+        var path = Path.Combine(temp.Path, "settings.json");
+        File.Copy(FixturePath(fixture), path);
+        var before = File.ReadAllBytes(path);
+        var warnings = new List<string>();
+        var store = new SettingsStore(temp.Path);
+        await store.LoadAsync(null, null, warnings.Add);
+        Assert.False(store.IsSettingsWritable);
+        Assert.False(string.IsNullOrWhiteSpace(store.SettingsSchemaWarning));
+        Assert.Contains(warnings, w => w.Contains(future ? "Read-only" : "Unsupported", StringComparison.OrdinalIgnoreCase));
+        store.AppSettings.ThemePreference = "Dark";
+        await store.SaveAppSettingsAsync();
+        Assert.Equal(before, File.ReadAllBytes(path));
+    }
+
+    [Fact]
+    public void Report_roles_require_explicit_working_or_issued_values()
+    {
+        Assert.True(ReportArtifactRoles.IsWorking(ReportArtifactRoles.Working));
+        Assert.True(ReportArtifactRoles.IsIssued(ReportArtifactRoles.Issued));
+        Assert.False(ReportArtifactRoles.IsWorking(null));
+        Assert.False(ReportArtifactRoles.IsWorking(""));
+        Assert.False(ReportArtifactRoles.IsWorking("custom-role"));
+        Assert.False(ReportArtifactRoles.IsIssued(null));
     }
 }

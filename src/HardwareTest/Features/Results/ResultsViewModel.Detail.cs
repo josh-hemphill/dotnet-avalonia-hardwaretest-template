@@ -272,11 +272,7 @@ public partial class ResultsViewModel
                 + $"Written by {OpenedRun.AppVersion ?? "unknown"}.";
             HasSchemaWarning = true;
         }
-        else if (OpenedRun.IsLegacy)
-        {
-            SchemaBadge = "Legacy";
-            HasSchemaBadge = true;
-        }
+
 
         ShowFailedStepsOnly = OpenedRun.Result == RunResult.Failed;
         RebuildStepDetails();
@@ -376,27 +372,15 @@ public partial class ResultsViewModel
                     Title = string.IsNullOrWhiteSpace(artifact.Title) ? artifact.Kind : artifact.Title,
                     PdfPath = artifact.PdfPath,
                     GeneratedAtText = artifact.GeneratedAt.ToString("u", CultureInfo.InvariantCulture),
-                    Role = issued ? ReportArtifactRoles.Issued : ReportArtifactRoles.Working,
-                    RoleLabel = issued ? "Issued" : "Working",
+                    Role = artifact.Role,
+                    RoleLabel = issued ? "Issued" : ReportArtifactRoles.IsWorking(artifact.Role) ? "Working" : artifact.Role,
                     IsIssued = issued,
-                    IsDefault = !issued
+                    IsDefault = ReportArtifactRoles.IsWorking(artifact.Role)
                                 && string.Equals(artifact.Kind, defaultKind, StringComparison.OrdinalIgnoreCase),
                 });
             }
         }
-        else if (!string.IsNullOrWhiteSpace(run.ReportPdfPath))
-        {
-            ReportItems.Add(new RunReportItemViewModel
-            {
-                Kind = ReportKinds.Status,
-                Title = "Status Report",
-                PdfPath = run.ReportPdfPath!,
-                GeneratedAtText = string.Empty,
-                Role = ReportArtifactRoles.Working,
-                RoleLabel = "Working",
-                IsDefault = true,
-            });
-        }
+
 
         HasReports = ReportItems.Count > 0;
     }
@@ -433,30 +417,10 @@ public partial class ResultsViewModel
         Status = $"Opened default report ({ProgramCatalog.ResolveDefaultReportKind(run.PlanId)}).";
     }
 
-    /// Picks the catalog default kind's working PDF, else status, else ReportPdfPath, else first working artifact.
+    /// Picks the catalog default working PDF, then status, then the first working artifact.
     public static string? ResolveDefaultReportPath(TestRunRecord run)
-    {
-        var defaultKind = ProgramCatalog.ResolveDefaultReportKind(run.PlanId);
-        var byKind = ReportAttestationService.ResolveWorkingPdfPath(run, defaultKind);
-        if (!string.IsNullOrWhiteSpace(byKind))
-        {
-            return byKind;
-        }
-
-        var status = ReportAttestationService.ResolveWorkingPdfPath(run, ReportKinds.Status);
-        if (!string.IsNullOrWhiteSpace(status))
-        {
-            return status;
-        }
-
-        if (!string.IsNullOrWhiteSpace(run.ReportPdfPath))
-        {
-            return run.ReportPdfPath;
-        }
-
-        return run.Reports.FirstOrDefault(r => ReportArtifactRoles.IsWorking(r.Role))?.PdfPath
-               ?? run.Reports.FirstOrDefault()?.PdfPath;
-    }
+        => ReportAttestationService.ResolveDefaultWorkingPdfPath(run,
+            ProgramCatalog.ResolveDefaultReportKind(run.PlanId));
 
     private Task OpenReportAsync(RunReportItemViewModel? item)
     {
@@ -505,16 +469,14 @@ public partial class ResultsViewModel
                     .ToArray();
                 if (kinds.Count == 0)
                 {
-                    kinds = run.Reports.Count > 0
-                        ? run.Reports.Select(r => r.Kind).Distinct(StringComparer.OrdinalIgnoreCase).ToArray()
-                        : ProgramCatalog.ResolveReportKinds(run.PlanId);
+                    kinds = ProgramCatalog.ResolveReportKinds(run.PlanId);
                 }
                 var artifacts = await _reportService.GenerateReportsAsync(run, kinds, history);
                 OpenedRun = run;
                 LoadReportItems(run);
                 LoadAttestation(run);
                 Status = $"Regenerated {artifacts.Count} report(s).";
-                var primary = run.ReportPdfPath ?? artifacts.FirstOrDefault()?.PdfPath;
+                var primary = ResolveDefaultReportPath(run);
                 if (primary is not null)
                 {
                     ReportOpened?.Invoke(this, primary);
