@@ -113,6 +113,70 @@ public sealed class BoardPreviewIdentityTests : IDisposable
         finally { vm.StopRecovery(); }
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Recording_events_are_isolated_by_execution_or_loop_iteration(bool loop)
+    {
+        var publisher = Publisher("publisher", "V", 0, 4);
+        var draft = Draft(loop ? [new RepeatNode(2, [publisher])] : [publisher]);
+        var firstExecution = Guid.NewGuid();
+        var secondExecution = Guid.NewGuid();
+        Guid? loopExecution = loop ? Guid.NewGuid() : null;
+        var recording = new TestRunRecord
+        {
+            PlanId = "board",
+            SchemaVersion = SchemaVersions.TestRunRecord,
+            Samples =
+            [
+                new StoredSample { Channel = "same", MetricKey = "same", ProducerStepId = publisher.NodeId,
+                    StepRunId = firstExecution, LoopRunId = loopExecution, IterationIndex = loop ? 1 : null,
+                    Value = 1, ElapsedMs = 0, Unit = "V" },
+                new StoredSample { Channel = "same", MetricKey = "same", ProducerStepId = publisher.NodeId,
+                    StepRunId = secondExecution, LoopRunId = loopExecution, IterationIndex = loop ? 2 : null,
+                    Value = 3, ElapsedMs = 0, Unit = "V" },
+            ],
+            Events =
+            [
+                new StoredEvent { Name = "first", StepRunId = firstExecution, LoopRunId = loopExecution, IterationIndex = loop ? 1 : null },
+                new StoredEvent { Name = "second", StepRunId = secondExecution, LoopRunId = loopExecution, IterationIndex = loop ? 2 : null },
+                new StoredEvent { Name = "global" },
+                new StoredEvent { Name = "unrelated", StepRunId = Guid.NewGuid(), LoopRunId = loop ? Guid.NewGuid() : null, IterationIndex = loop ? 1 : null },
+            ],
+        };
+        var restored = JsonSerializer.Deserialize(JsonSerializer.Serialize(recording, AppJsonContext.Default.TestRunRecord), AppJsonContext.Default.TestRunRecord)!;
+        var board = BoardPreviewBuilder.Build(draft, restored);
+        Assert.Equal(2, board.Count);
+        Assert.Equal("first", Assert.Single(board[0].Chrome.Events).Name);
+        Assert.Equal("second", Assert.Single(board[1].Chrome.Events).Name);
+        Assert.Equal(new double[] { 1, 3 }, board.Select(tile => tile.Preview.CannedValue));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Unscoped_events_stay_global_and_do_not_become_per_execution_overlays(bool sampleHasIdentity)
+    {
+        var publisher = Publisher("publisher", "V", 0, 4);
+        var recording = new TestRunRecord
+        {
+            PlanId = "board",
+            SchemaVersion = SchemaVersions.TestRunRecord,
+            Samples = [new StoredSample { Channel = "same", MetricKey = "same", ProducerStepId = publisher.NodeId,
+                StepRunId = sampleHasIdentity ? Guid.NewGuid() : null, Value = 2, ElapsedMs = 0, Unit = "V" }],
+            Events = [new StoredEvent { Name = "global", ElapsedMs = 5000 }],
+        };
+        var tile = Assert.Single(BoardPreviewBuilder.Build(Draft([publisher]), recording));
+        Assert.Equal(2, tile.Preview.CannedValue);
+        Assert.Empty(tile.Chrome.Events);
+        Assert.Equal(0, tile.Chrome.DurationSec);
+        Assert.Equal("global", Assert.Single(recording.Events).Name);
+        // A caller explicitly displaying global recording marks still receives them.
+        var globalChrome = AuthoringPreviewChromeBuilder.From(tile.Preview, recording.Events);
+        Assert.Equal("global", Assert.Single(globalChrome.Events).Name);
+        Assert.Equal(5, globalChrome.DurationSec);
+    }
+
     private static void AssertPreview(MetricPreview expected, MetricPreview actual)
     {
         Assert.Equal(expected.YUnit, actual.YUnit);

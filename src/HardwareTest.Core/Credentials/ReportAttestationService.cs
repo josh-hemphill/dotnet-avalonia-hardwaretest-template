@@ -121,6 +121,7 @@ public sealed class ReportAttestationService : IReportAttestationService
         bool skipSigning = false,
         CancellationToken cancellationToken = default)
     {
+        RequireReportWritable(run, _runStore.GetRunDirectory(run.RunId));
         var targetKind = string.Equals(reportKind, PackageKind, StringComparison.OrdinalIgnoreCase)
             ? ReportKinds.Certification
             : reportKind;
@@ -283,6 +284,7 @@ public sealed class ReportAttestationService : IReportAttestationService
 
         var party = sign?.Credential ?? captured;
         var dir = _runStore.GetRunDirectory(run.RunId);
+        RequireReportWritable(run, dir);
         ReportAttestationService.InvalidateForKinds(run, dir, [targetKind]);
         var issuedBytes = stampedPdf ?? await File.ReadAllBytesAsync(pdfPath!, cancellationToken).ConfigureAwait(false);
         await WriteIssuedPdfAsync(run, dir, targetKind, issuedBytes, cancellationToken).ConfigureAwait(false);
@@ -457,6 +459,7 @@ public sealed class ReportAttestationService : IReportAttestationService
         var pdfHash = HashBytes(signedPdf);
         var party = sign.Credential ?? captured;
         var dir = _runStore.GetRunDirectory(run.RunId);
+        RequireReportWritable(run, dir);
         ReportAttestationService.InvalidateForKinds(run, dir, [targetKind]);
         await WriteIssuedPdfAsync(run, dir, targetKind, signedPdf, cancellationToken).ConfigureAwait(false);
 
@@ -563,6 +566,7 @@ public sealed class ReportAttestationService : IReportAttestationService
         }
 
         var dir = _runStore.GetRunDirectory(run.RunId);
+        RequireReportWritable(run, dir);
         ReportAttestationService.InvalidateForKinds(run, dir, [targetKind]);
         var issuedBytes = stampedPdf ?? await File.ReadAllBytesAsync(pdfPath!, cancellationToken).ConfigureAwait(false);
         await WriteIssuedPdfAsync(run, dir, targetKind, issuedBytes, cancellationToken).ConfigureAwait(false);
@@ -654,6 +658,7 @@ public sealed class ReportAttestationService : IReportAttestationService
     /// Drops stamps and sidecars for kinds whose attested PDF is about to change.
     public static void InvalidateForKinds(TestRunRecord run, string runDirectory, IEnumerable<string> kinds)
     {
+        RequireReportWritable(run, runDirectory);
         foreach (var kind in kinds)
         {
             var existing = run.Attestations
@@ -678,6 +683,32 @@ public sealed class ReportAttestationService : IReportAttestationService
         => run.Attestations.LastOrDefault(a =>
             string.Equals(a.ReportKind, reportKind, StringComparison.OrdinalIgnoreCase));
 
+    /// Validates the run and its persisted header before touching report files or stamps.
+    public static void RequireReportWritable(TestRunRecord run, string runDirectory)
+    {
+        if (run.IsSchemaReadOnly)
+        {
+            var storedVersion = Math.Max(run.StoredSchemaVersion, run.SchemaVersion);
+            if (storedVersion > SchemaVersions.TestRunRecord)
+            {
+                throw new SchemaReadOnlyException(DocumentSchemaGate.Evaluate(
+                    SchemaDocumentTypes.TestRunRecord, storedVersion, SchemaVersions.TestRunRecord, run.AppVersion));
+            }
+            throw new InvalidOperationException("This run is read-only; reports cannot be changed.");
+        }
+        DocumentSchemaGate.RequireWritable(SchemaDocumentTypes.TestRunRecord, run.SchemaVersion,
+            SchemaVersions.TestRunRecord, Path.Combine(runDirectory, "run.json"), run.AppVersion);
+        CurrentDocumentFile.ValidateWriteDestinationAsync(Path.Combine(runDirectory, "run.json"),
+                AppJsonContext.Default.TestRunRecord, SchemaDocumentTypes.TestRunRecord, SchemaVersions.TestRunRecord)
+            .GetAwaiter().GetResult();
+    }
+
+    public static string? ResolveDefaultWorkingPdfPath(TestRunRecord run, string defaultKind)
+        => ResolveWorkingPdfPath(run, defaultKind)
+           ?? ResolveWorkingPdfPath(run, ReportKinds.Status)
+           ?? run.Reports.FirstOrDefault(r => ReportArtifactRoles.IsWorking(r.Role)
+               && !string.IsNullOrWhiteSpace(r.PdfPath))?.PdfPath;
+
     public static string? ResolvePdfPath(TestRunRecord run, string reportKind)
         => ResolveIssuedPdfPath(run, reportKind) ?? ResolveWorkingPdfPath(run, reportKind);
 
@@ -685,7 +716,8 @@ public sealed class ReportAttestationService : IReportAttestationService
     {
         var match = run.Reports.FirstOrDefault(r =>
             string.Equals(r.Kind, reportKind, StringComparison.OrdinalIgnoreCase)
-            && ReportArtifactRoles.IsIssued(r.Role));
+            && ReportArtifactRoles.IsIssued(r.Role)
+            && !string.IsNullOrWhiteSpace(r.PdfPath));
         return match is not null && !string.IsNullOrWhiteSpace(match.PdfPath)
             ? match.PdfPath
             : null;
@@ -695,15 +727,14 @@ public sealed class ReportAttestationService : IReportAttestationService
     {
         var match = run.Reports.FirstOrDefault(r =>
             string.Equals(r.Kind, reportKind, StringComparison.OrdinalIgnoreCase)
-            && ReportArtifactRoles.IsWorking(r.Role));
+            && ReportArtifactRoles.IsWorking(r.Role)
+            && !string.IsNullOrWhiteSpace(r.PdfPath));
         if (match is not null && !string.IsNullOrWhiteSpace(match.PdfPath))
         {
             return match.PdfPath;
         }
 
-        return string.Equals(reportKind, ReportKinds.Certification, StringComparison.OrdinalIgnoreCase)
-            ? null
-            : run.ReportPdfPath;
+        return null;
     }
 
     /// Run folder name for `runs/{id}/{kind}.pdf` or `runs/{id}/issued/{kind}.pdf`.
@@ -731,11 +762,6 @@ public sealed class ReportAttestationService : IReportAttestationService
 
     public static bool RunOwnsPdf(TestRunRecord run, string pdfPath)
     {
-        if (string.Equals(run.ReportPdfPath, pdfPath, StringComparison.OrdinalIgnoreCase))
-        {
-            return true;
-        }
-
         return run.Reports.Any(r => string.Equals(r.PdfPath, pdfPath, StringComparison.OrdinalIgnoreCase));
     }
 
@@ -748,8 +774,7 @@ public sealed class ReportAttestationService : IReportAttestationService
             return match.Kind;
         }
 
-        var name = Path.GetFileNameWithoutExtension(pdfPath);
-        return string.IsNullOrWhiteSpace(name) ? ReportKinds.Certification : name;
+        throw new InvalidOperationException("The PDF is not a report artifact owned by this run.");
     }
 
     /// Issued PDF when present for this path's kind; otherwise the given path.

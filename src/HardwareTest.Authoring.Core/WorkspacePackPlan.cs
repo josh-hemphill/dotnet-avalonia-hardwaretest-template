@@ -132,9 +132,15 @@ public static class WorkspacePackPlan
         try
         {
             var raw = File.ReadAllText(path);
-            return string.IsNullOrWhiteSpace(raw)
-                ? null
-                : System.Text.Json.JsonSerializer.Deserialize(raw, AuthoringJsonContext.Default.ShipManifest);
+            using var document = System.Text.Json.JsonDocument.Parse(raw);
+            if (document.RootElement.ValueKind != System.Text.Json.JsonValueKind.Object
+                || !document.RootElement.TryGetProperty("dependencies", out var dependencies)
+                || dependencies.ValueKind != System.Text.Json.JsonValueKind.Array)
+            {
+                return null;
+            }
+
+            return System.Text.Json.JsonSerializer.Deserialize(raw, AuthoringJsonContext.Default.ShipManifest);
         }
         catch (System.Text.Json.JsonException)
         {

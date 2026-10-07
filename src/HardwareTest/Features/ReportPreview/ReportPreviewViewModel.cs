@@ -142,12 +142,23 @@ public partial class ReportPreviewViewModel : ReactiveObject
             return;
         }
 
-        var path = run.ReportPdfPath;
+        var path = ReportAttestationService.ResolveDefaultWorkingPdfPath(run, ProgramCatalog.ResolveDefaultReportKind(run.PlanId));
         if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
         {
-            path = await _reportService.GeneratePdfAsync(run).ConfigureAwait(false);
+            if (run.IsSchemaReadOnly)
+            {
+                await RunOnUiAsync(() => Status = "This run is read-only; its working report is unavailable.").ConfigureAwait(false);
+                return;
+            }
+            await _reportService.GenerateReportsAsync(run, ProgramCatalog.ResolveReportKinds(run.PlanId)).ConfigureAwait(false);
+            path = ReportAttestationService.ResolveDefaultWorkingPdfPath(run, ProgramCatalog.ResolveDefaultReportKind(run.PlanId));
         }
 
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            await RunOnUiAsync(() => Status = "No working report available.").ConfigureAwait(false);
+            return;
+        }
         await LoadFromPathAsync(path).ConfigureAwait(false);
     }
 

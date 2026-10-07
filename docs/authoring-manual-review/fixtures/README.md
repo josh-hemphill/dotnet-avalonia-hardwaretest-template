@@ -2,7 +2,7 @@
 
 These files are preparation for the complete stack, not evidence of a completed manual review.
 
-`legacy-recordings/mean-vdc/run.json` and `legacy-recordings/vdc-elapsed/run.json` are unchanged copies of existing authoring fixtures. They exercise legacy recording import, missing provenance and elapsed-time handling. They do not provide producer GUID/step-run evidence.
+`legacy-recordings/mean-vdc/run.json` and `legacy-recordings/vdc-elapsed/run.json` are unchanged copies of existing authoring fixtures. They exercise rejection of unsupported schema-3 recordings, with the original bytes preserved. They do not provide producer GUID/step-run evidence. Current functional imports use the schema-4 recordings in `package17-compiled/`.
 
 The compiled fixtures below provide matching source and recorded execution for scoped board review. Final handoff must identify the exact top-stack branch/commit, launch/build commands and which assets were exercised.
 

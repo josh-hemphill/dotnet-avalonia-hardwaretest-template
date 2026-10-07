@@ -94,7 +94,7 @@ public sealed class RecordingPickerTests
             var bytes = File.ReadAllBytes(selected.Path);
             var recordings = Path.Combine(fixture.WorkspaceRoot, "recordings");
             var entries = Directory.GetFileSystemEntries(recordings, "*", SearchOption.AllDirectories);
-            File.WriteAllText(source, "{\"schemaVersion\":1,\"planId\":\"sample\",\"samples\":[null]}");
+            File.WriteAllText(source, "{\"schemaVersion\":4,\"planId\":\"sample\",\"samples\":[null]}");
             picker.Pending = new();
             pending = view.ImportRecordingAsync();
             picker.Pending.SetResult(source);

@@ -87,18 +87,61 @@ public sealed class WorkspacePackPlanTests
         var loaded = WorkspacePackPlan.TryReadShipManifest(dist);
         Assert.NotNull(loaded);
         Assert.Equal("Demo", loaded.PackageName);
-        Assert.Contains(loaded.ResolvedDependencies, dep => dep.Package == "OpenTAP");
-        Assert.Contains(loaded.ResolvedDependencies, dep => dep.Optional && dep.Package == "Extra");
+        Assert.Contains(loaded.Dependencies, dep => dep.Package == "OpenTAP");
+        Assert.Contains(loaded.Dependencies, dep => dep.Optional && dep.Package == "Extra");
 
         File.WriteAllText(
             Path.Combine(dist, WorkspacePacker.ShipManifestFileName),
             """{"packageName":"Legacy","version":"1.0.0","files":[]}""");
-        var legacy = WorkspacePackPlan.TryReadShipManifest(dist);
-        Assert.NotNull(legacy);
-        Assert.Empty(legacy.ResolvedDependencies);
+        Assert.Null(WorkspacePackPlan.TryReadShipManifest(dist));
 
         File.WriteAllText(Path.Combine(dist, WorkspacePacker.ShipManifestFileName), "{not-json");
         Assert.Null(WorkspacePackPlan.TryReadShipManifest(dist));
+    }
+
+    [Fact]
+    public void Ship_manifest_empty_dependencies_are_explicit_and_round_trip()
+    {
+        var manifest = new ShipManifest("Demo", "1.0.0", [], []);
+        var json = System.Text.Json.JsonSerializer.Serialize(manifest, AuthoringJsonContext.Default.ShipManifest);
+        using var document = System.Text.Json.JsonDocument.Parse(json);
+        Assert.Equal(0, document.RootElement.GetProperty("dependencies").GetArrayLength());
+        var loaded = System.Text.Json.JsonSerializer.Deserialize(json, AuthoringJsonContext.Default.ShipManifest);
+        Assert.NotNull(loaded);
+        Assert.Empty(loaded.Dependencies);
+    }
+
+    [Theory]
+    [InlineData("{\"packageName\":\"Demo\",\"version\":\"1.0.0\",\"files\":[]}")]
+    [InlineData("{\"packageName\":\"Demo\",\"version\":\"1.0.0\",\"files\":[],\"dependencies\":null}")]
+    [InlineData("{\"packageName\":\"Demo\",\"version\":\"1.0.0\",\"files\":[],\"dependencies\":{}}")]
+    [InlineData("{\"packageName\":\"Demo\",\"version\":\"1.0.0\",\"files\":[],\"resolvedDependencies\":[]}")]
+    public void Ship_manifest_invalid_dependencies_reject_deserialization_and_fail_soft_without_rewriting(string json)
+    {
+        Assert.Throws<System.Text.Json.JsonException>(() =>
+            System.Text.Json.JsonSerializer.Deserialize(json, AuthoringJsonContext.Default.ShipManifest));
+        var dist = Path.Combine(Path.GetTempPath(), "ht-ship-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dist);
+        try
+        {
+            var path = Path.Combine(dist, WorkspacePacker.ShipManifestFileName);
+            File.WriteAllText(path, json);
+            var bytes = File.ReadAllBytes(path);
+            Assert.Null(WorkspacePackPlan.TryReadShipManifest(dist));
+            Assert.Equal(bytes, File.ReadAllBytes(path));
+        }
+        finally
+        {
+            Directory.Delete(dist, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void Ship_manifest_cannot_construct_or_replace_dependencies_with_null()
+    {
+        Assert.Throws<System.Text.Json.JsonException>(() => new ShipManifest("Demo", "1.0.0", [], null!));
+        var manifest = new ShipManifest("Demo", "1.0.0", [], []);
+        Assert.Throws<System.Text.Json.JsonException>(() => manifest with { Dependencies = null! });
     }
 
     [Fact]
@@ -121,7 +164,7 @@ public sealed class WorkspacePackPlanTests
         Assert.True(vm.HasLastPack);
         Assert.True(vm.HasLastShippedBakeTimeFiles);
         Assert.True(vm.HasPackageDependencies);
-        Assert.Contains("OpenTAP", vm.PackPreview.LastShipManifest!.ResolvedDependencies.Select(d => d.Package));
+        Assert.Contains("OpenTAP", vm.PackPreview.LastShipManifest!.Dependencies.Select(d => d.Package));
     }
 
     [Fact]

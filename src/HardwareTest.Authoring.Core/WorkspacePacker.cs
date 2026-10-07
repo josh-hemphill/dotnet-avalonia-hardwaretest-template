@@ -39,10 +39,18 @@ public sealed record ShipManifest(
     string PackageName,
     string Version,
     IReadOnlyList<string> Files,
-    IReadOnlyList<ShipDependency>? Dependencies = null)
+    IReadOnlyList<ShipDependency> Dependencies)
 {
-    [JsonIgnore]
-    public IReadOnlyList<ShipDependency> ResolvedDependencies => Dependencies ?? [];
+    private IReadOnlyList<ShipDependency> _dependencies = Dependencies
+        ?? throw new JsonException("Ship manifest dependencies must be an explicit non-null list.");
+
+    [JsonRequired]
+    public IReadOnlyList<ShipDependency> Dependencies
+    {
+        get => _dependencies;
+        init => _dependencies = value
+            ?? throw new JsonException("Ship manifest dependencies must be an explicit non-null list.");
+    }
 }
 
 /// Validates a workspace, writes package.xml, creates the program TapPackage, and writes ship-manifest.json.

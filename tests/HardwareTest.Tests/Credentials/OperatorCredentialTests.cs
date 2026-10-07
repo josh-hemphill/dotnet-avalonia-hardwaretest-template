@@ -2,6 +2,7 @@ using System.Text;
 using HardwareTest.Core.Credentials;
 using HardwareTest.Core.Reporting;
 using HardwareTest.Core.Runs;
+using HardwareTest.Core.Serialization;
 using HardwareTest.Core.Settings;
 using HardwareTest.Core.Time;
 using HardwareTest.Tests.Fixtures;
@@ -158,8 +159,9 @@ public sealed class ReportAttestationServiceTests
             settings);
         var run = new TestRunRecord
         {
+            SchemaVersion = SchemaVersions.TestRunRecord,
             RunId = "s",
-            Reports = [new RunReportArtifact { Kind = ReportKinds.Status, PdfPath = "s.pdf" }],
+            Reports = [new RunReportArtifact { Role = ReportArtifactRoles.Working, Kind = ReportKinds.Status, PdfPath = "s.pdf" }],
         };
         Assert.False(service.NeedsAttestation(run, ReportKinds.Status));
         Assert.False(service.NeedsAttestation(run, ReportKinds.Certification));
@@ -554,6 +556,33 @@ public sealed class ReportAttestationServiceTests
         Assert.True(File.Exists(Path.Combine(store.GetRunDirectory(run.RunId), ReportArtifactRoles.DirectoryName, "certification.pdf")));
     }
 
+    [Theory]
+    [InlineData(3, false)]
+    [InlineData(5, false)]
+    [InlineData(4, true)]
+    public async Task AttestAsync_rejected_run_preserves_working_pdf_and_stamps(int version, bool readOnly)
+    {
+        using var temp = new TempDataDirectory();
+        var store = new FileRunStore(temp.RunsDirectory);
+        var run = await SeedCertificationRunAsync(store);
+        var pdfPath = WorkingCertificationPath(run);
+        var priorPdf = await File.ReadAllBytesAsync(pdfPath);
+        var dir = store.GetRunDirectory(run.RunId);
+        var sidecar = Path.Combine(dir, "certification.attestation.json");
+        await File.WriteAllTextAsync(sidecar, "frozen stamp");
+        run.Attestations.Add(new ReportAttestation { ReportKind = ReportKinds.Certification, SidecarPath = sidecar });
+        run.SchemaVersion = version;
+        run.IsSchemaReadOnly = readOnly;
+        var service = new ReportAttestationService(new MockOperatorCredentialBroker(), store, new AppSettings());
+
+        await Assert.ThrowsAnyAsync<InvalidOperationException>(() => service.AttestAsync(run, ReportKinds.Certification));
+
+        Assert.Equal(priorPdf, await File.ReadAllBytesAsync(pdfPath));
+        Assert.Equal("frozen stamp", await File.ReadAllTextAsync(sidecar));
+        Assert.Null(ReportAttestationService.ResolveIssuedPdfPath(run, ReportKinds.Certification));
+        Assert.Single(run.Attestations);
+    }
+
     private static string WorkingCertificationPath(TestRunRecord run)
     {
         var path = ReportAttestationService.ResolveWorkingPdfPath(run, ReportKinds.Certification);
@@ -567,6 +596,7 @@ public sealed class ReportAttestationServiceTests
     {
         var run = new TestRunRecord
         {
+            SchemaVersion = SchemaVersions.TestRunRecord,
             RunId = "attest-" + Guid.NewGuid().ToString("N")[..8],
             PlanName = "Cert",
             StartedAt = DateTimeOffset.UtcNow,
@@ -580,17 +610,18 @@ public sealed class ReportAttestationServiceTests
             await File.WriteAllBytesAsync(statusPdf, "%PDF-1.4 status"u8.ToArray());
             run.Reports.Add(new RunReportArtifact
             {
+                Role = ReportArtifactRoles.Working,
                 Kind = ReportKinds.Status,
                 Title = "Status Report",
                 PdfPath = statusPdf,
                 GeneratedAt = DateTimeOffset.UtcNow,
             });
-            run.ReportPdfPath = statusPdf;
         }
         var pdf = Path.Combine(dir, "certification.pdf");
         await File.WriteAllBytesAsync(pdf, PdfPadesSignature.CreateMinimalPdf());
         run.Reports.Add(new RunReportArtifact
         {
+            Role = ReportArtifactRoles.Working,
             Kind = ReportKinds.Certification,
             Title = "Certification Report",
             PdfPath = pdf,

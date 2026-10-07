@@ -79,13 +79,6 @@ public partial class ResultsViewModel
 
                 files.AddRange(CollectExportReportFiles(OpenedRun));
 
-                if (!string.IsNullOrWhiteSpace(OpenedRun.ReportPdfPath)
-                    && File.Exists(OpenedRun.ReportPdfPath)
-                    && files.All(f => !string.Equals(f.SourcePath, OpenedRun.ReportPdfPath, StringComparison.OrdinalIgnoreCase)))
-                {
-                    files.Add((OpenedRun.ReportPdfPath!, Path.GetFileName(OpenedRun.ReportPdfPath)));
-                }
-
                 if (Directory.Exists(runDir))
                 {
                     foreach (var sidecar in Directory.EnumerateFiles(runDir, "*.attestation.json"))

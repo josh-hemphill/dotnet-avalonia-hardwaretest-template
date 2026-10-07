@@ -97,6 +97,37 @@ public sealed class RunRetentionServiceTests
         }
     }
 
+    [Theory]
+    [InlineData("run.json", "{}")]
+    [InlineData("run.json", "{\"schemaVersion\":0}")]
+    [InlineData("run.json", "{\"schemaVersion\":1}")]
+    [InlineData("run.json", "{\"schemaVersion\":2}")]
+    [InlineData("run.json", "{\"schemaVersion\":3}")]
+    [InlineData("run.json", "{\"schemaVersion\":99}")]
+    [InlineData("suite-run.json", "{}")]
+    [InlineData("suite-run.json", "{\"schemaVersion\":0}")]
+    [InlineData("suite-run.json", "{\"schemaVersion\":99}")]
+    [InlineData("suite-run.json", "{\"schemaVersion\":1,\"planRuns\":[{}]}")]
+    [InlineData("suite-run.json", "{\"schemaVersion\":1,\"planRuns\":[{\"schemaVersion\":99}]}")]
+    public void Prune_protects_unsupported_and_future_documents(string fileName, string json)
+    {
+        using var temp = new HardwareTest.Tests.Fixtures.TempDataDirectory();
+        var root = temp.RunsDirectory;
+        var dir = fileName == "run.json" ? Path.Combine(root, "protected") : Path.Combine(root, "suites", "protected");
+        Directory.CreateDirectory(dir);
+        var path = Path.Combine(dir, fileName);
+        File.WriteAllText(path, json);
+        Directory.SetCreationTimeUtc(dir, new DateTime(2020, 1, 1));
+        WriteRun(Path.Combine(root, "eligible"), new DateTimeOffset(2020, 1, 1, 0, 0, 0, TimeSpan.Zero), RunResult.Passed);
+        var settings = new AppSettings { RunRetentionDays = 1, RunRetentionMaxRuns = 1 };
+        var clock = new HardwareTest.Tests.Time.FakeClock(new DateTimeOffset(2026, 4, 1, 0, 0, 0, TimeSpan.Zero));
+        var result = new RunRetentionService(settings, root, clock: clock).Prune();
+        Assert.DoesNotContain(dir, result.DeletedPaths);
+        Assert.True(Directory.Exists(dir));
+        Assert.Equal(json, File.ReadAllText(path));
+        Assert.Single(result.DeletedPaths);
+    }
+
     private static void WriteRun(string dir, DateTimeOffset started, RunResult result)
     {
         Directory.CreateDirectory(dir);
@@ -107,7 +138,7 @@ public sealed class RunRetentionServiceTests
             StartedAt = started,
             CompletedAt = started.AddMinutes(1),
             Result = result,
-            SchemaVersion = 1,
+            SchemaVersion = HardwareTest.Core.Serialization.SchemaVersions.TestRunRecord,
         };
         var json = System.Text.Json.JsonSerializer.Serialize(
             record,

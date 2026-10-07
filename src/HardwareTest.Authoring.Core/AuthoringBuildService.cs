@@ -172,7 +172,7 @@ public static partial class AuthoringBuildService
                     : $"Injected compatibility checker: {request.Options.Compat.GetType().FullName}; no external process evidence is implied.", false)]);
             var receipt = new AuthoringBuildReceipt(1, Guid.NewGuid().ToString("N"), DateTimeOffset.UtcNow,
                 included.Select(p => p!).Order(StringComparer.Ordinal).ToArray(), excluded, sources.AsReadOnly(), request.Inputs,
-                manifest.ResolvedDependencies, requiredChecks.ToArray(), results.AsReadOnly(), Array.AsReadOnly(outputs), workspaceSource.Document?.Revision, request.Environment);
+                manifest.Dependencies, requiredChecks.ToArray(), results.AsReadOnly(), Array.AsReadOnly(outputs), workspaceSource.Document?.Revision, request.Environment);
             File.WriteAllText(Path.Combine(stageOutput, ReceiptFileName), JsonSerializer.Serialize(receipt, AuthoringBuildJsonContext.Default.AuthoringBuildReceipt));
             cancellationToken.ThrowIfCancellationRequested();
             return new AuthoringPreparedBuild(request, staging, new(manifest, receipt));

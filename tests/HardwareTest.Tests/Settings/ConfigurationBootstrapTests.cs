@@ -239,7 +239,7 @@ public sealed class ConfigurationBootstrapTests
         using var temp = new TempDataDirectory();
         File.WriteAllText(
             Path.Combine(temp.Path, "settings.json"),
-            """{"logMinimumLevel":"Warning","useMockVisa":true,"dataDirectory":""}""");
+            """{"schemaVersion":1,"logMinimumLevel":"Warning","useMockVisa":true,"dataDirectory":""}""");
 
         var env = new Hashtable { ["HARDWARETEST_LOG_MINIMUM_LEVEL"] = "Debug" };
         var args = ConfigurationArgs.Parse([]);

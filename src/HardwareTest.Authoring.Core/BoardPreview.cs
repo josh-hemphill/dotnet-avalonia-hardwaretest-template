@@ -128,8 +128,7 @@ public static partial class BoardPreviewBuilder
     {
         if (recording is null) return null;
         if (group is null || group.Count == 0) return [];
-        // Legacy marks have no execution identity; do not infer it from names or paths.
-        if (!recording.Events.Any(mark => mark.StepRunId is not null || mark.LoopRunId is not null)) return recording.Events;
+        // Per-execution overlays require recorded identity; unscoped marks remain global.
         var first = group[0];
         if (first.LoopRunId is not null)
             return recording.Events.Where(mark => mark.LoopRunId == first.LoopRunId && mark.IterationIndex == first.IterationIndex).ToArray();
