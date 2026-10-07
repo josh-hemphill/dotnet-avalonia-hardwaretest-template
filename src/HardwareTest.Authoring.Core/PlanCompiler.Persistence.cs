@@ -13,28 +13,56 @@ public sealed partial class PlanCompiler
         var sidecarFull = SidecarPath(tapFull);
         var tapTemp = tapFull + ".saving";
         var sidecarTemp = sidecarFull + ".saving";
+        var tapTempOwned = false;
+        var sidecarTempOwned = false;
         try
         {
-            plan.Save(tapTemp);
-            File.WriteAllText(
-                sidecarTemp,
-                JsonSerializer.Serialize(sidecar, ProgramCatalogJsonContext.Default.ProgramSidecar));
-            var tapBackup = File.Exists(tapFull) ? File.ReadAllBytes(tapFull) : null;
-            _replaceFile(tapTemp, tapFull);
+            using (var stream = new FileStream(tapTemp, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+            {
+                tapTempOwned = true;
+                plan.Save(stream);
+                stream.Flush(flushToDisk: true);
+            }
+            using (var stream = new FileStream(sidecarTemp, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+            {
+                sidecarTempOwned = true;
+                JsonSerializer.Serialize(stream, sidecar, ProgramCatalogJsonContext.Default.ProgramSidecar);
+                stream.Flush(flushToDisk: true);
+            }
+            var tapBackup = CreatePreimageBackup(tapFull);
+            var sidecarBackup = CreatePreimageBackup(sidecarFull);
             try
             {
+                _replaceFile(tapTemp, tapFull);
                 _replaceFile(sidecarTemp, sidecarFull);
             }
-            catch
+            catch (Exception originalError)
             {
-                RestoreFile(tapFull, tapBackup);
+                var rollbackErrors = new List<Exception>();
+                TryRestoreFile(tapFull, tapBackup, rollbackErrors);
+                TryRestoreFile(sidecarFull, sidecarBackup, rollbackErrors);
+                if (rollbackErrors.Count > 0)
+                {
+                    originalError.Data["AuthoringRecoveryBackups"] = new[] { tapBackup, sidecarBackup }
+                        .Where(path => path is not null).ToArray();
+                    originalError.Data["AuthoringRecoveryAction"] =
+                        "Restore the retained .preimage files to their original paths before exporting again.";
+                    originalError.Data["AuthoringRollbackErrors"] = rollbackErrors.ToArray();
+                }
+                else
+                {
+                    if (tapBackup is not null) TryDeleteFile(tapBackup);
+                    if (sidecarBackup is not null) TryDeleteFile(sidecarBackup);
+                }
                 throw;
             }
+            if (tapBackup is not null) TryDeleteFile(tapBackup);
+            if (sidecarBackup is not null) TryDeleteFile(sidecarBackup);
         }
         finally
         {
-            TryDeleteFile(tapTemp);
-            TryDeleteFile(sidecarTemp);
+            if (tapTempOwned) TryDeleteFile(tapTemp);
+            if (sidecarTempOwned) TryDeleteFile(sidecarTemp);
         }
     }
 
@@ -42,27 +70,61 @@ public sealed partial class PlanCompiler
     {
         var sidecarFull = SidecarPath(Path.GetFullPath(tapPlanPath));
         var sidecarTemp = sidecarFull + ".saving";
+        var sidecarTempOwned = false;
         try
         {
-            var json = JsonSerializer.Serialize(sidecar, ProgramCatalogJsonContext.Default.ProgramSidecar);
-            File.WriteAllText(sidecarTemp, json);
+            using (var stream = new FileStream(sidecarTemp, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+            {
+                sidecarTempOwned = true;
+                JsonSerializer.Serialize(stream, sidecar, ProgramCatalogJsonContext.Default.ProgramSidecar);
+                stream.Flush(flushToDisk: true);
+            }
             _replaceFile(sidecarTemp, sidecarFull);
         }
         finally
         {
-            TryDeleteFile(sidecarTemp);
+            if (sidecarTempOwned) TryDeleteFile(sidecarTemp);
         }
     }
 
-    private static void RestoreFile(string path, byte[]? backup)
+    private static string? CreatePreimageBackup(string path)
     {
-        if (backup is null)
-        {
-            File.Delete(path);
-            return;
-        }
+        if (!File.Exists(path)) return null;
+        var backup = path + "." + Guid.NewGuid().ToString("N") + ".preimage";
+        using var original = File.OpenRead(path);
+        using var durable = new FileStream(backup, FileMode.CreateNew, FileAccess.Write, FileShare.None);
+        original.CopyTo(durable);
+        durable.Flush(flushToDisk: true);
+        return backup;
+    }
 
-        File.WriteAllBytes(path, backup);
+    private static void TryRestoreFile(string path, string? backup, List<Exception> errors)
+    {
+        var temporary = path + "." + Guid.NewGuid().ToString("N") + ".restoring";
+        try
+        {
+            if (backup is null)
+            {
+                File.Delete(path);
+                return;
+            }
+
+            using (var original = File.OpenRead(backup))
+            using (var restored = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+            {
+                original.CopyTo(restored);
+                restored.Flush(flushToDisk: true);
+            }
+            File.Move(temporary, path, overwrite: true);
+        }
+        catch (Exception error)
+        {
+            errors.Add(error);
+        }
+        finally
+        {
+            TryDeleteFile(temporary);
+        }
     }
 
     private static void TryDeleteFile(string path)

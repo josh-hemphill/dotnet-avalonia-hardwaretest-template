@@ -66,7 +66,7 @@ public sealed class AuthoringCatalogLifecycleTests
     public void Catalog_and_many_program_changes_scroll_in_lifecycle_modal_with_all_choices_inside_minimum_window()
     {
         using var fixture = Loaded(); StageGlobalOnly(fixture);
-        for (var i = 0; i < 35; i++) fixture.ViewModel.CreateProgram($"global-{i:00}-{new string('x', 160)}");
+        for (var i = 0; i < 35; i++) fixture.ViewModel.CreateProgram($"global-{i:00}-{new string('x', 110)}");
         fixture.Window!.Close(); AuthoringUiFixture.Drain(); var dialog = Assert.Single(fixture.Window!.OwnedWindows);
         var scroll = fixture.Control<ScrollViewer>("Unsaved program list", dialog); AssertInside(scroll, dialog); Assert.True(scroll.Extent.Height > scroll.Viewport.Height);
         foreach (var button in dialog.GetVisualDescendants().OfType<Button>().Where(b => b.Content is string)) AssertInside(button, dialog);

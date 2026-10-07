@@ -36,16 +36,16 @@
         <Button Content="Save sidecar"
                 Click="OnSaveSidecar"
                 IsEnabled="{Binding HasWorkspace}"
-                ToolTip.Tip="Write only {planId}.program.json (session/DUT/Typst). Does not compile the TapPlan."
+                ToolTip.Tip="Save sidecar settings and authoring source without compiling the TapPlan."
                 AutomationProperties.Name="Save sidecar" />
-        <Button Content="Save plan + sidecar" Classes="accent"
+        <Button Content="Save draft / compile" Classes="accent"
                 Click="OnApply"
                 IsEnabled="{Binding HasWorkspace}"
-                ToolTip.Tip="Compile metrics to TapPlan + sidecar (Setup / measure / Cleanup groups)"
+                ToolTip.Tip="Save authoring source, including incomplete values; export compiled files when ready"
                 AutomationProperties.Name="Save plan" />
           </StackPanel>
           <TextBlock FontSize="11" MaxWidth="290" TextWrapping="Wrap"
-                     Text="Sidecar: settings only. Plan: sequence and settings." />
+                     Text="Draft saves preserve incomplete content. Ready plans also export compiled files." />
         </StackPanel>
         <StackPanel Spacing="4">
           <TextBlock FontWeight="SemiBold" Text="Edit, check and configure" />
@@ -525,6 +525,7 @@
                       </DataTemplate>
                     </ItemsControl.ItemTemplate>
                   </ItemsControl>
+                  <CheckBox Content="Exploration only" AutomationProperties.Name="Formula exploration only" IsChecked="{Binding FormulaExplorationOnly}" IsVisible="{Binding HasFormula}" />
                   <TextBlock Text="{Binding FormulaError}"
                              TextWrapping="Wrap"
                              Foreground="#C62828"
@@ -634,9 +635,21 @@
         <TabItem Header="Workspace" AutomationProperties.Name="Workspace tab">
           <ScrollViewer>
             <StackPanel Spacing="8" Margin="0,8,16,0">
+              <Expander Header="Draft recovery and reconciliation" AutomationProperties.Name="Draft recovery">
+            <StackPanel Spacing="4">
+              <TextBlock Text="{Binding DraftStateSummary}" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
+              <WrapPanel Orientation="Horizontal">
+                <ComboBox ItemsSource="{Binding RecoverableProgramIds}" SelectedItem="{Binding SelectedRecoveryPlanId}" MinWidth="100" AutomationProperties.Name="Recovery program" />
+                <Button Content="Recover selected draft" Click="OnAcceptRecovery" />
+                <Button Content="Discard selected recovery" Click="OnDiscardRecovery" />
+                <Button Content="Import external compiled edits" Click="OnImportCompiled" />
+                <Button Content="Retain source for export" Click="OnRetainSource" />
+              </WrapPanel>
+            </StackPanel>
+              </Expander>
               <TextBlock Text="{Binding Workspace.Root}" TextWrapping="Wrap" />
               <TextBlock Text="{Binding Workspace.Manifest.DisplayName}" />
-              <TextBlock Text="Open a folder that contains authoring.json. Save plan writes TapPlan + sidecar via IPlanCompiler.Save."
+              <TextBlock Text="Open a folder containing authoring.json. Save draft preserves incomplete edits; ready plans also export compiled files."
                          TextWrapping="Wrap" />
               <TextBlock FontWeight="SemiBold" Text="Declared plugins" />
               <TextBlock Opacity="0.8"

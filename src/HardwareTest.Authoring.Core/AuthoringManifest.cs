@@ -5,7 +5,7 @@ namespace HardwareTest.Authoring;
 /// Current schema version for authoring.json (bump deliberately).
 public static class AuthoringSchemaVersions
 {
-    public const int Manifest = 1;
+    public const int Manifest = 2;
 
     public const int Preferences = 1;
 }

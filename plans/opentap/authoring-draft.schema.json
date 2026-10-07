@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Authoring source document",
+  "type": "object",
+  "required": ["schemaVersion", "planId", "revision", "sidecar", "instruments", "setup", "measure", "cleanup"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "planId": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$" },
+    "revision": { "type": "integer", "minimum": 0 },
+    "requiresCompilation": { "type": "boolean" },
+    "compiledPlanHash": { "type": ["string", "null"] },
+    "compiledSidecarHash": { "type": ["string", "null"] },
+    "setup": { "type": "array", "items": { "type": "object", "required": ["kind", "nodeId"] } },
+    "measure": { "type": "array", "items": { "type": "object", "required": ["kind", "nodeId"] } },
+    "state": {
+      "type": "object",
+      "properties": {
+        "incompleteNumericText": { "type": "object", "additionalProperties": { "type": "string" } },
+        "formulaIntent": { "type": "object", "additionalProperties": { "enum": ["Deploy", "Explore"] } }
+      }
+    }
+  }
+}

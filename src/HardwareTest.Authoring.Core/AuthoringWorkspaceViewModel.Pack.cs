@@ -15,8 +15,8 @@ public sealed partial class AuthoringWorkspaceViewModel
                 .Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.OrdinalIgnoreCase).ToArray();
         }
     }
-    public bool CanPack => Workspace is not null && WorkspacePacker.IsWritableWorkspace(Workspace) && !HasUnsavedChanges;
-    public string PackGuardText => HasUnsavedChanges
+    public bool CanPack => Workspace is not null && WorkspacePacker.IsWritableWorkspace(Workspace) && !HasUnsavedChanges && !HasUncompiledSources && _compiledConflicts.Count == 0;
+    public string PackGuardText => HasUncompiledSources || _compiledConflicts.Count > 0 ? "Compile saved drafts and reconcile external edits before packing." : HasUnsavedChanges
         ? WorkspaceCatalogDirty ? "Use Save All to save workspace catalog changes and edited programs before packing." : $"Save edited programs before packing: {string.Join(", ", DirtyProgramIds)}"
         : "Pack checks saved plans, required packages, plugin catalogs and in-process load/save round trips.";
 

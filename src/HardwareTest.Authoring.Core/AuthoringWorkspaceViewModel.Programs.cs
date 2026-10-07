@@ -16,6 +16,8 @@ public sealed partial class AuthoringWorkspaceViewModel
             throw new AuthoringWorkspaceException($"Program '{id}' already exists in this session.");
         }
 
+        var store = new AuthoringDocumentStore(Workspace.Root);
+        if (store.Load(id).Exists) throw new AuthoringWorkspaceException($"Authoring source for '{id}' already exists; reopen or reconcile it before creating this program.");
         var created = WithCatalogSlots(AuthoringRecipeCatalog.CreateProgram(id), Workspace.Manifest);
         RememberNodeSelection();
         _workspaceHistory.Clear();
@@ -50,6 +52,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         var tapPlanPath = string.IsNullOrWhiteSpace(existingTapPlan)
             ? ResolveTapPlanPath(planId)
             : existingTapPlan;
+        var sourceStore = ValidateProgramDeletion(planId, tapPlanPath);
         TryDeleteFile(tapPlanPath);
         TryDeleteFile(PlanCompiler.SidecarPath(tapPlanPath));
         if (!string.IsNullOrWhiteSpace(existingTapPlan))
@@ -74,7 +77,13 @@ public sealed partial class AuthoringWorkspaceViewModel
         var remaining = Programs
             .Where(program => !string.Equals(program.PlanId, planId, StringComparison.OrdinalIgnoreCase))
             .ToArray();
+        _recovery?.Cancel(Workspace.Root, planId);
+        sourceStore.DeleteRecovery(planId);
+        sourceStore.DeleteSource(planId);
+        _sourceDocuments.Remove(planId); _recoverableDocuments.Remove(planId);
+        _compiledConflicts.Remove(planId); _uncompiledDocuments.Remove(planId);
         _documents.Remove(planId);
+        RaiseDraftState();
         _workspaceHistory.Clear();
         Programs = remaining;
         _dirtyPlans.Remove(planId);
@@ -91,6 +100,24 @@ public sealed partial class AuthoringWorkspaceViewModel
         Error = null;
         RefreshDatasets();
         RaiseSidecarProperties();
+    }
+
+    private AuthoringDocumentStore ValidateProgramDeletion(string planId, string tapPlanPath)
+    {
+        var store = new AuthoringDocumentStore(Workspace!.Root);
+        foreach (var path in new[] { tapPlanPath, PlanCompiler.SidecarPath(tapPlanPath), store.GetDocumentPath(planId), store.GetRecoveryPath(planId) })
+        {
+            store.ValidatePath(path);
+            if (Directory.Exists(path)) throw new IOException($"Refusing to delete a directory as a program file: {path}");
+            if (File.Exists(path) && new FileInfo(path).IsReadOnly) throw new IOException($"Program file is read-only: {path}");
+        }
+        var source = store.Load(planId);
+        if (source.IsReadOnly || source.Error is not null)
+            throw new AuthoringWorkspaceException(source.Error ?? $"Authoring source '{planId}' uses a future schema; its bytes must be preserved.");
+        var recovery = store.LoadAtPath(store.GetRecoveryPath(planId));
+        if (recovery.IsReadOnly || recovery.Error is not null)
+            throw new AuthoringWorkspaceException(recovery.Error ?? $"Recovery source '{planId}' uses a future schema; its bytes must be preserved.");
+        return store;
     }
 
     public (string PlanId, string TapPlanPath, string SidecarPath) DescribeSelectedProgramRemoval()

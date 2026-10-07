@@ -145,6 +145,27 @@ public sealed class AuthoringMeasureInspectorTests
     }
 
     [Fact]
+    public void Clearing_incomplete_history_text_preserves_omitted_history_and_undo_restores_text()
+    {
+        var vm = OpenEmpty();
+        vm.CreateProgram("history-incomplete");
+        vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
+        SelectMetric(vm, "VDC");
+        vm.Apply();
+        vm.HistoryWatchPercent = "1e-";
+        Assert.Equal("1e-", vm.HistoryWatchPercent);
+        Assert.Null(vm.SelectedMetric!.History);
+        Assert.True(vm.HasUnsavedChanges);
+        vm.HistoryWatchPercent = string.Empty;
+        Assert.Null(vm.SelectedMetric.History);
+        Assert.False(vm.HasUnsavedChanges);
+        vm.Undo();
+        Assert.Equal("1e-", vm.HistoryWatchPercent);
+        Assert.Null(vm.SelectedMetric.History);
+        vm.StopRecovery();
+    }
+
+    [Fact]
     public void History_defaults_to_mixin_enabled_and_empty_watch_does_not_disable()
     {
         var vm = OpenEmpty();

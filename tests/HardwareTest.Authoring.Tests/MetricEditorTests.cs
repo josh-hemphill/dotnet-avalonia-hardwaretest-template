@@ -73,7 +73,7 @@ public sealed class MetricEditorTests
     }
 
     [Fact]
-    public void Scalar_without_limits_refuses_apply()
+    public void Scalar_without_limits_saves_source_and_blocks_compiled_operations()
     {
         var root = EmptyWorkspace();
         var vm = new AuthoringWorkspaceViewModel();
@@ -82,9 +82,21 @@ public sealed class MetricEditorTests
         vm.ApplyRecipe(AuthoringRecipeIds.MeanGte);
         vm.Threshold = string.Empty;
 
-        var ex = Assert.Throws<AuthoringWorkspaceException>(() => vm.Apply());
-        Assert.Contains(AuthoringCompileCodes.MissingLimits, ex.Message, StringComparison.Ordinal);
+        vm.Apply();
+        Assert.Contains(AuthoringCompileCodes.MissingLimits, vm.Error, StringComparison.Ordinal);
+        Assert.False(vm.HasUnsavedChanges);
+        Assert.True(vm.HasUncompiledSources);
+        Assert.False(vm.CanPack);
+        Assert.Throws<AuthoringWorkspaceException>(() => vm.Validate());
         Assert.False(File.Exists(Path.Combine(root, "no-limits.TapPlan")));
+        var document = new AuthoringDocumentStore(root).Load("no-limits").Document!;
+        Assert.True(document.RequiresCompilation);
+        Assert.Null(Assert.IsType<MetricNode>(Assert.Single(document.ToDraft().Measure)).Metric.Limits);
+        var reopened = new AuthoringWorkspaceViewModel();
+        reopened.Open(root);
+        Assert.Null(Assert.IsType<MetricNode>(Assert.Single(reopened.SelectedProgram!.Measure)).Metric.Limits);
+        Assert.True(reopened.HasUncompiledSources);
+        reopened.StopRecovery(); vm.StopRecovery();
     }
 
     [Fact]
@@ -265,8 +277,13 @@ public sealed class MetricEditorTests
         Assert.Contains(
             AuthoringRecipeCatalog.EnumerateMetrics(reloaded.SelectedProgram!.Measure),
             metric => metric.ChannelKey == "VDC.mean"
-                      && metric.Source is AlgorithmSource algorithm
-                      && algorithm.AlgorithmId == AuthoringFunctionIds.BasicMeanGte);
+                      && metric.Source is ExpressionAlgorithm expression
+                      && expression.Source == "mean(VDC)");
+        Assert.False(reloaded.HasUncompiledSources);
+        var compiled = new PlanCompiler().Load(Path.Combine(root, "formula.TapPlan"));
+        Assert.Contains(AuthoringRecipeCatalog.EnumerateMetrics(compiled.Measure),
+            metric => metric.Source is AlgorithmSource algorithm && algorithm.AlgorithmId == AuthoringFunctionIds.BasicMeanGte);
+        reloaded.StopRecovery(); vm.StopRecovery();
     }
 
     [Fact]

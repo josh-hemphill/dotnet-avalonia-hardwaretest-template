@@ -264,7 +264,7 @@ public sealed class AuthoringDestructiveScopeWindowTests
     public void Workspace_impact_many_programs_scrolls_with_cancel_visible_at_supported_sizes(int width, int height)
     {
         using var fixture = Loaded(width, height); var vm = fixture.ViewModel; AddCatalog(fixture, CatalogDeletionKind.RequiredField);
-        for (var i = 0; i < 35; i++) { vm.CreateProgram($"impact-{i:00}-{new string('x', 160)}"); vm.SetRequiredFieldIncluded("fixtureId", true); }
+        for (var i = 0; i < 35; i++) { vm.CreateProgram($"impact-{i:00}-{new string('x', 110)}"); vm.SetRequiredFieldIncluded("fixtureId", true); }
         AuthoringUiFixture.Drain(); OpenCatalogModal(fixture, CatalogDeletionKind.RequiredField, "fixtureId"); var dialog = Dialog(fixture);
         var scroll = fixture.Control<ScrollViewer>("Destructive operation scope and impact", dialog); AssertInside(scroll, dialog); Assert.True(scroll.Extent.Height > scroll.Viewport.Height);
         foreach (var button in dialog.GetVisualDescendants().OfType<Button>().Where(b => b.Content is string)) AssertInside(button, dialog);

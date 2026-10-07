@@ -61,7 +61,7 @@ public sealed class AuthoringFeedbackTests
         var window = fixture.Show(960, 600, realInteraction: true);
         fixture.OpenRememberedWorkspace();
         fixture.ViewModel.DisplayName = "Unsaved sample";
-        for (var index = 1; index < 35; index++) fixture.ViewModel.CreateProgram($"unsaved-{index:00}-{new string('x', 160)}");
+        for (var index = 1; index < 35; index++) fixture.ViewModel.CreateProgram($"unsaved-{index:00}-{new string('x', 110)}");
         var draft = fixture.ViewModel.SelectedProgram;
         var finalId = fixture.ViewModel.DirtyPrograms[^1].PlanId;
         window.Close();
@@ -138,7 +138,8 @@ public sealed class AuthoringFeedbackTests
     private static void AssertInsideWindow(Control control, Window window)
     {
         Assert.True(control.IsEffectivelyVisible);
-        Assert.True(control.Bounds.Width > 0 && control.Bounds.Height > 0);
+        Assert.True(control.Bounds.Width > 0 && control.Bounds.Height > 0,
+            $"{control.GetType().Name} must have visible bounds: {control.Bounds}.");
         var origin = control.TranslatePoint(default, window);
         Assert.NotNull(origin);
         Assert.True(new Rect(window.ClientSize).Contains(new Rect(origin.Value, control.Bounds.Size)),

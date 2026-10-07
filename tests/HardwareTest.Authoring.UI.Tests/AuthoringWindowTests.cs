@@ -117,7 +117,7 @@ public sealed class AuthoringWindowTests
         Assert.False(fixture.ViewModel.HasUnsavedChanges);
         Assert.False(fixture.Control<TextBlock>("Unsaved changes").IsEffectivelyVisible);
         var status = fixture.Control<TextBlock>("Authoring status");
-        Assert.Equal("Saved sample.program.json", status.Text);
+        Assert.Equal("Saved sample.program.json and authoring source", status.Text);
         AssertInsideWindow(status, window);
         Assert.Null(fixture.ViewModel.Error);
         var reloaded = new AuthoringWorkspaceViewModel(preferences: fixture.Preferences);

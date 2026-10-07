@@ -50,6 +50,41 @@ public sealed class PlanCompilerPersistenceTests : IDisposable
     }
 
     [Fact]
+    public void Save_retains_durable_preimages_and_original_error_when_restoration_fails()
+    {
+        var path = PlanPath();
+        var sidecarPath = PlanCompiler.SidecarPath(path);
+        var tapBytes = Encoding.UTF8.GetBytes("recoverable original plan\r\n");
+        var sidecarBytes = Encoding.UTF8.GetBytes("recoverable original sidecar\r\n");
+        File.WriteAllBytes(path, tapBytes);
+        File.WriteAllBytes(sidecarPath, sidecarBytes);
+        var failure = new IOException("Original sidecar replacement failure.");
+        var compiler = new PlanCompiler(null, (source, destination) =>
+        {
+            if (destination == sidecarPath)
+            {
+                File.Delete(path);
+                Directory.CreateDirectory(path);
+                File.WriteAllText(sidecarPath, "partial replacement");
+                throw failure;
+            }
+            File.Move(source, destination, overwrite: true);
+        });
+
+        Assert.Same(failure, Assert.Throws<IOException>(() => compiler.Save(Draft(), path)));
+
+        var backups = Assert.IsType<string[]>(failure.Data["AuthoringRecoveryBackups"]);
+        Assert.Equal(2, backups.Length);
+        Assert.Equal(tapBytes, File.ReadAllBytes(backups.Single(p => p.StartsWith(path + ".", StringComparison.Ordinal))));
+        Assert.Equal(sidecarBytes, File.ReadAllBytes(backups.Single(p => p.StartsWith(sidecarPath + ".", StringComparison.Ordinal))));
+        Assert.Equal(sidecarBytes, File.ReadAllBytes(sidecarPath));
+        Assert.NotEmpty(Assert.IsType<Exception[]>(failure.Data["AuthoringRollbackErrors"]));
+        Assert.Contains("Restore", Assert.IsType<string>(failure.Data["AuthoringRecoveryAction"]), StringComparison.Ordinal);
+        Assert.Empty(Directory.GetFiles(_directory, "*.restoring"));
+        AssertNoTemps(path);
+    }
+
+    [Fact]
     public void Save_removes_new_plan_when_final_sidecar_replacement_fails()
     {
         var path = PlanPath();
@@ -140,6 +175,44 @@ public sealed class PlanCompilerPersistenceTests : IDisposable
         Assert.False(File.Exists(path));
         Assert.False(File.Exists(sidecarPath + ".saving"));
         Assert.True(Directory.Exists(sidecarPath + ".saving"));
+    }
+
+    [Theory]
+    [InlineData(false, false, false)]
+    [InlineData(false, true, false)]
+    [InlineData(true, true, false)]
+    [InlineData(false, false, true)]
+    [InlineData(false, true, true)]
+    [InlineData(true, true, true)]
+    public void Save_refuses_existing_temporary_symlinks_without_modifying_their_targets(
+        bool sidecarOnly, bool sidecarTemporary, bool dangling)
+    {
+        if (OperatingSystem.IsWindows()) return; // Creating links requires privileges on Windows.
+        var path = PlanPath();
+        var sidecarPath = PlanCompiler.SidecarPath(path);
+        File.WriteAllText(path, "original plan");
+        File.WriteAllText(sidecarPath, "original sidecar");
+        var target = Path.Combine(_directory, "protected-file");
+        if (!dangling) File.WriteAllText(target, "protected bytes");
+        var temporary = (sidecarTemporary ? sidecarPath : path) + ".saving";
+        File.CreateSymbolicLink(temporary, target);
+        var replacementRan = false;
+        var compiler = new PlanCompiler(null, (_, _) => replacementRan = true);
+
+        Assert.Throws<IOException>(() =>
+        {
+            if (sidecarOnly) compiler.SaveSidecar(path, Draft().Sidecar);
+            else compiler.Save(Draft(), path);
+        });
+
+        Assert.False(replacementRan);
+        Assert.Equal("original plan", File.ReadAllText(path));
+        Assert.Equal("original sidecar", File.ReadAllText(sidecarPath));
+        Assert.Equal(target, new FileInfo(temporary).LinkTarget);
+        if (dangling) Assert.False(File.Exists(target));
+        else Assert.Equal("protected bytes", File.ReadAllText(target));
+        File.Delete(temporary);
+        AssertNoTemps(path);
     }
 
     [Theory]

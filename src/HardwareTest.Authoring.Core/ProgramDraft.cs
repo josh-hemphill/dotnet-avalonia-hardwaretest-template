@@ -14,7 +14,10 @@ public sealed record ProgramDraft(
     IReadOnlyList<InstrumentRef> Instruments,
     IReadOnlyList<SetupAction> Setup,
     IReadOnlyList<MeasureNode> Measure,
-    CleanupPolicy Cleanup);
+    CleanupPolicy Cleanup)
+{
+    public AuthoringDocumentState AuthoringState { get; init; } = new();
+}
 
 public abstract record MeasureNode
 {
