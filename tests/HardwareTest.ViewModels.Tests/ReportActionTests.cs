@@ -139,7 +139,8 @@ public sealed class ReportActionTests : IDisposable
         var service = new NotifyingAttestation(real);
         var actions = new Actions(Path.Combine(_root, "should-not-save.pdf"));
         var vm = new ReportPreviewViewModel(store, new FakeReportService(), attestation: service, desktop: actions,
-            printer: actions, settings: settings) { UiScheduler = action => action(), PreviewRenderer = _ => [] };
+            printer: actions, settings: settings)
+        { UiScheduler = action => action(), PreviewRenderer = _ => [] };
         await vm.LoadFromPathAsync(run.Reports[0].PdfPath);
         await vm.SaveCopyCommand.ExecuteAsync();
         var queuedReset = new TaskCompletionSource<Action>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -167,7 +168,8 @@ public sealed class ReportActionTests : IDisposable
             new MockOperatorCredentialBroker(canSign: true), store, settings));
         var actions = new Actions(Path.Combine(_root, "should-not-save.pdf"));
         var vm = new ReportPreviewViewModel(store, new FakeReportService(), attestation: service,
-            desktop: actions, settings: settings) { UiScheduler = action => action(), PreviewRenderer = _ => [] };
+            desktop: actions, settings: settings)
+        { UiScheduler = action => action(), PreviewRenderer = _ => [] };
         await vm.LoadFromPathAsync(run.Reports[0].PdfPath);
         await vm.SaveCopyCommand.ExecuteAsync();
         var queuedCapture = new TaskCompletionSource<Action>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -622,7 +624,8 @@ public sealed class ReportActionTests : IDisposable
         var service = new ReportAttestationService(new MockOperatorCredentialBroker(canSign: true), store, settings);
         var exports = new HeldExportTargets(_root);
         var results = new ResultsViewModel(store, new FakeReportService(), attestation: service, settings: settings,
-            exportTargets: exports) { UiScheduler = action => action() };
+            exportTargets: exports)
+        { UiScheduler = action => action() };
         await results.RequestCertifiedPrintAsync(exportRun.Reports[0].PdfPath);
         await results.ExportPackageCommand.ExecuteAsync();
         var export = results.CaptureAttestationCommand.ExecuteAsync();
