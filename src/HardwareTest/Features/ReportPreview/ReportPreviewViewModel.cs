@@ -453,6 +453,8 @@ public partial class ReportPreviewViewModel : ReactiveObject
         {
             var result = await Task.Run(() => _attestation.AttestAsync(pending.Run, pending.Kind, operation.Credential,
                 operation.Pin, presence, token), token).ConfigureAwait(false);
+            // Badge capture is complete; the per-preview action gate still owns the resumed desktop operation.
+            capture.Dispose();
             if (!ReferenceEquals(_pending, pending) || pending.Version != _selectionVersion || token.IsCancellationRequested) return;
             if (!result.Succeeded)
             {

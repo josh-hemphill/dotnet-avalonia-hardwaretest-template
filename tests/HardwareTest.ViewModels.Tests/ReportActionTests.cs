@@ -212,6 +212,19 @@ public sealed class ReportActionTests : IDisposable
         Assert.Equal(0, desktop.PrintCalls);
         Assert.Equal(0, desktop.OpenCalls);
         Assert.True(vm.IsBusy);
+        var statusWhilePickerIsHeld = vm.Status;
+        var otherRun = await SeedAsync(store, "independent-capture-during-save");
+        var otherPreview = new ReportPreviewViewModel(store, new FakeReportService(), attestation: service, settings: settings)
+        { UiScheduler = action => action(), PreviewRenderer = _ => [] };
+        await otherPreview.LoadFromPathAsync(otherRun.Reports[0].PdfPath);
+        await otherPreview.SignCommand.ExecuteAsync();
+        await otherPreview.SignAndContinueCommand.ExecuteAsync().WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.True(service.HasValidAttestation((await store.LoadAsync(otherRun.RunId))!, ReportKinds.Certification));
+        Assert.False(otherPreview.IsBusy);
+        Assert.False(otherPreview.ShowSigningPrompt);
+        Assert.Equal(statusWhilePickerIsHeld, vm.Status);
+        Assert.True(vm.IsBusy);
+        Assert.Equal(1, desktop.SaveCalls);
         vm.CancelPendingAction();
         Assert.True(vm.IsBusy);
         desktop.Release.TrySetResult();
