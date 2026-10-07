@@ -51,7 +51,7 @@ The original `overview.png`, `sequence.png`, `sequence-small.png` and `environme
 
 - Release authoring/UI build: zero warnings or errors.
 - Targeted library catalog, resource round-trip and editor-creation tests: 6 passed.
-- UI suite covers task navigation, draft/file preservation, palette ownership, catalog scope, reviewed deletion, environment/build operations, recordings and responsive layouts at 960 × 600 and 1280 × 800, including font size 20 and 1.5 scaling.
+- Full authoring UI suite: **407 passed**, including task navigation, draft/file preservation, palette ownership, catalog scope, reviewed deletion, environment/build operations, recordings and responsive layouts at 960 × 600 and 1280 × 800, with font size 20 and 1.5 scaling.
 - Actual Skia frames inspected in light/dark themes and at the minimum size; `git diff --check` passed.
 
 Native Windows rendering, screen-reader behavior and physical hardware operation need platform review. No hardware I/O was performed during this implementation.
