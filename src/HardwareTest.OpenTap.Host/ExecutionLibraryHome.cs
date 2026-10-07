@@ -31,7 +31,7 @@ internal static class ExecutionLibraryHome
                 throw new InvalidOperationException("Instrument Components execution requires canonical root DLL filenames.");
             if (name.Equals("package.xml", StringComparison.OrdinalIgnoreCase))
             {
-                if (string.Equals(package, PublishedInstrumentComponents.PackageName, StringComparison.OrdinalIgnoreCase))
+                if (string.Equals(package?.Trim(), PublishedInstrumentComponents.PackageName, StringComparison.OrdinalIgnoreCase))
                     throw new InvalidOperationException("Instrument Components execution requires an installed home root with root DLLs and Packages/InstrumentComponents.OpenTap/package.xml. Import package directories before execution.");
             }
             if (Directory.Exists(entry)) Scan(entry, 0);
@@ -56,7 +56,7 @@ internal static class ExecutionLibraryHome
                     containedEntry?.Invoke(entry, package);
                     if (Files.Contains(name, StringComparer.OrdinalIgnoreCase))
                         throw new InvalidOperationException("Instrument Components execution cannot use obsolete package-directory library DLLs. Import or repair the selected package to keep library DLLs only in the installed home root.");
-                    if (string.Equals(package, PublishedInstrumentComponents.PackageName, StringComparison.OrdinalIgnoreCase)
+                    if (string.Equals(package?.Trim(), PublishedInstrumentComponents.PackageName, StringComparison.OrdinalIgnoreCase)
                         && !entry.Equals(Path.Combine(root, "Packages", PublishedInstrumentComponents.PackageName, "package.xml"), StringComparison.Ordinal))
                         throw new InvalidOperationException("Instrument Components execution cannot use noncanonical or duplicate installed package identities.");
                     if (Directory.Exists(entry)) Scan(entry, depth + 1);
@@ -78,7 +78,7 @@ internal static class ExecutionLibraryHome
         var standaloneFile = StandaloneFiles.FirstOrDefault(file => name.Equals(file, StringComparison.OrdinalIgnoreCase));
         if (standaloneFile is not null && !entry.Equals(Path.Combine(root, standaloneFile), StringComparison.Ordinal))
             throw new IOException($"Standalone VISA payload '{name}' must use its canonical filename in the installed home root.");
-        if (string.Equals(package, StandaloneVisaPackage.PackageName, StringComparison.OrdinalIgnoreCase)
+        if (string.Equals(package?.Trim(), StandaloneVisaPackage.PackageName, StringComparison.OrdinalIgnoreCase)
             && (package != StandaloneVisaPackage.PackageName
                 || !entry.Equals(Path.Combine(root, "Packages", StandaloneVisaPackage.PackageName, "package.xml"), StringComparison.Ordinal)))
             throw new IOException("Standalone VISA package metadata must use its canonical identity and Packages/HardwareTest Standalone VISA/package.xml location.");
@@ -96,7 +96,7 @@ internal static class ExecutionLibraryHome
                 MaxCharactersInDocument = 1_048_576
             });
             var package = XDocument.Load(reader).Root;
-            var name = ((string?)package?.Attribute("Name"))?.Trim();
+            var name = (string?)package?.Attribute("Name");
             if (package?.Name.LocalName != "Package" || string.IsNullOrWhiteSpace(name))
                 throw new IOException("Selected execution home package metadata has no valid Package identity: " + path);
             return name;

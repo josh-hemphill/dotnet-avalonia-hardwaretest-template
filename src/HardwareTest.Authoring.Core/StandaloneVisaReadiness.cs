@@ -60,8 +60,8 @@ public static class StandaloneVisaReadiness
                 var name = Path.GetFileName(entry);
                 if (InstrumentLibraryMetadata.Files.Contains(name, StringComparer.OrdinalIgnoreCase)) claimed = true;
                 if (StandalonePayloadFiles.Contains(name, StringComparer.OrdinalIgnoreCase)) claimed = true;
-                if (string.Equals(package, PublishedInstrumentComponents.PackageName, StringComparison.OrdinalIgnoreCase)
-                    || string.Equals(package, StandaloneVisaPackage.PackageName, StringComparison.OrdinalIgnoreCase)) claimed = true;
+                if (string.Equals(package?.Trim(), PublishedInstrumentComponents.PackageName, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(package?.Trim(), StandaloneVisaPackage.PackageName, StringComparison.OrdinalIgnoreCase)) claimed = true;
             });
             return (claimed, null);
         }

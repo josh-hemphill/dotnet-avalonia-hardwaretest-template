@@ -29,6 +29,8 @@ public sealed partial class StandaloneBoundaryTests
     [InlineData("metadata-directory-case", true)]
     [InlineData("metadata-name-case", false)]
     [InlineData("metadata-name-case", true)]
+    [InlineData("metadata-name-padded", false)]
+    [InlineData("metadata-name-padded", true)]
     public async Task Every_managed_root_rejects_noncanonical_standalone_claims_before_any_library_or_provider_load(string alias, bool reverseOrder)
     {
         if (OperatingSystem.IsWindows() && (alias.StartsWith("case-", StringComparison.Ordinal) || alias is "metadata-file-case" or "metadata-directory-case"))
@@ -45,10 +47,11 @@ public sealed partial class StandaloneBoundaryTests
             File.Copy(Path.Combine(second, file), alias.StartsWith("nested-", StringComparison.Ordinal)
                 ? Path.Combine(custom, file) : Path.Combine(second, file.ToLowerInvariant()));
         }
-        else if (alias == "metadata-name-case")
+        else if (alias is "metadata-name-case" or "metadata-name-padded")
         {
             var document = XDocument.Load(metadata);
-            document.Root!.SetAttributeValue("Name", StandaloneVisaPackage.PackageName.ToLowerInvariant());
+            document.Root!.SetAttributeValue("Name", alias == "metadata-name-padded"
+                ? " " + StandaloneVisaPackage.PackageName + " " : StandaloneVisaPackage.PackageName.ToLowerInvariant());
             document.Save(metadata);
         }
         else
