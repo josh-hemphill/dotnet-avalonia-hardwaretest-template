@@ -1,9 +1,27 @@
+import { join } from "@std/path";
+import { formatSolution } from "./lib/format.ts";
+import {
+  AUTHORING_FAST_FILTER,
+  AUTHORING_UI_WINDOWS_FILTER,
+  AUTHORING_WINDOWS_FILTER,
+} from "./lib/profile.ts";
 import { parseArgs } from "@std/cli/parse-args";
 import { formatAuditFailure, hasVulnerablePackages } from "./lib/audit.ts";
 import { evaluateCobertura, findCobertura } from "./lib/coverage.ts";
-import { coverageDir, publishedExe, publishDir, repoRoot } from "./lib/paths.ts";
+import {
+  coverageDir,
+  publishDir,
+  publishedExe,
+  repoRoot,
+} from "./lib/paths.ts";
 import { defaultRid, isNativeRid } from "./lib/rid.ts";
 import { run, runCapture } from "./lib/run.ts";
+import { verifyStandaloneVisaArtifacts } from "./lib/standalone_visa.ts";
+import {
+  consumerOutputs,
+  verifyPublishedRelease,
+  verifyReleaseProvisioning,
+} from "./lib/instrument_artifacts.ts";
 
 /** Canonical CI task names — workflow and `list` must stay in sync. */
 export const TASKS = [
@@ -16,6 +34,7 @@ export const TASKS = [
   "publish",
   "test:arch",
   "test:authoring-compat",
+  "test:authoring-ui",
   "test:e2e",
   "test:host",
   "test:vm",
@@ -23,10 +42,13 @@ export const TASKS = [
 ] as const;
 
 /** OpenTAP host tests must not load Coverlet (process-global TapThread flakes). */
-export const CORE_COVERAGE_FILTER = "FullyQualifiedName!~HardwareTest.Tests.OpenTap";
+export const CORE_COVERAGE_FILTER =
+  "FullyQualifiedName!~HardwareTest.Tests.OpenTap";
 
 /** Linux E2E and an explicit --advisory-e2e flag stay non-fatal. */
-export function e2eIsAdvisory(opts: { advisoryE2e: boolean; rid: string }): boolean {
+export function e2eIsAdvisory(
+  opts: { advisoryE2e: boolean; rid: string },
+): boolean {
   return opts.advisoryE2e || opts.rid.startsWith("linux-");
 }
 
@@ -37,6 +59,7 @@ type Options = {
   configuration: string;
   root: string;
   advisoryE2e: boolean;
+  profile: "full" | "fast" | "windows-smoke";
 };
 
 function usage(): string {
@@ -49,6 +72,7 @@ Tasks:
   ${TASKS.join(", ")}
 
 RID defaults to the host platform (${defaultRidSafe()}).
+  --profile full|fast|windows-smoke  authoring host/UI selection (default full)
   --advisory-e2e   treat test:e2e (and e2e inside all) as non-fatal
 `;
 }
@@ -63,7 +87,7 @@ function defaultRidSafe(): string {
 
 function parseOptions(args: string[]): Options {
   const parsed = parseArgs(args, {
-    string: ["rid", "configuration"],
+    string: ["rid", "configuration", "profile"],
     boolean: ["advisory-e2e", "help"],
     alias: { h: "help", c: "configuration" },
     default: {
@@ -81,7 +105,15 @@ function parseOptions(args: string[]): Options {
     ? parsed.rid
     : defaultRid();
 
+  const profile = String(parsed.profile ?? "full");
+  if (!["full", "fast", "windows-smoke"].includes(profile)) {
+    throw new Error(`Unknown test profile: ${profile}`);
+  }
+  if (profile === "windows-smoke" && !rid.startsWith("win-")) {
+    throw new Error("windows-smoke requires a Windows RID");
+  }
   return {
+    profile: profile as Options["profile"],
     rid,
     configuration: String(parsed.configuration ?? "Release"),
     root: repoRoot(),
@@ -89,76 +121,106 @@ function parseOptions(args: string[]): Options {
   };
 }
 
-async function formatCheck(opts: Options): Promise<void> {
-  await run([
+/** Use evaluated traversal references so CI and the root build stay in sync. */
+async function projectPaths(opts: Options): Promise<string[]> {
+  const result = await runCapture([
     "dotnet",
-    "format",
-    "HardwareTest.slnx",
-    "--verify-no-changes",
-    "--no-restore",
+    "msbuild",
+    "dirs.proj",
+    "-getItem:ProjectReference",
   ], { cwd: opts.root });
+  if (result.code !== 0) {
+    throw new Error(
+      `Cannot evaluate dirs.proj: ${result.stderr || result.stdout}`,
+    );
+  }
+  const evaluated = JSON.parse(result.stdout) as {
+    Items: { ProjectReference: { FullPath: string }[] };
+  };
+  const projects = evaluated.Items.ProjectReference.map((item) =>
+    item.FullPath
+  );
+  if (projects.length === 0) throw new Error("dirs.proj contains no projects");
+  return projects;
+}
+
+async function formatCheck(opts: Options): Promise<void> {
+  const workspace = join(opts.root, ".ci-format.slnx");
+  try {
+    await Deno.writeTextFile(
+      workspace,
+      formatSolution(opts.root, await projectPaths(opts)),
+    );
+    await run([
+      "dotnet",
+      "format",
+      workspace,
+      "--verify-no-changes",
+      "--no-restore",
+    ], { cwd: opts.root });
+  } finally {
+    try {
+      await Deno.remove(workspace);
+    } catch (error) {
+      if (!(error instanceof Deno.errors.NotFound)) throw error;
+    }
+  }
+}
+
+async function testProject(
+  opts: Options,
+  project: string,
+  filter?: string,
+): Promise<void> {
+  const args = [
+    "dotnet",
+    "test",
+    `tests/${project}/${project}.csproj`,
+    "-c",
+    opts.configuration,
+    "-r",
+    opts.rid,
+    "--no-build",
+    "--no-restore",
+    "--logger",
+    `trx;LogFileName=${project}.trx`,
+    "--results-directory",
+    join(opts.root, "artifacts", "test-results", opts.rid),
+  ];
+  if (filter) args.push("--filter", filter);
+  await run(args, { cwd: opts.root });
 }
 
 async function build(opts: Options): Promise<void> {
   await run([
     "dotnet",
     "build",
-    "dirs.proj",
     "-c",
     opts.configuration,
     "-r",
     opts.rid,
   ], { cwd: opts.root });
+  await verifyReleaseProvisioning(opts);
 }
 
 async function testHost(opts: Options): Promise<void> {
-  await run([
-    "dotnet",
-    "test",
-    "tests/HardwareTest.Tests/HardwareTest.Tests.csproj",
-    "-c",
-    opts.configuration,
-    "-r",
-    opts.rid,
-    "--no-build",
-  ], { cwd: opts.root });
-  await run([
-    "dotnet",
-    "test",
-    "tests/HardwareTest.Authoring.Tests/HardwareTest.Authoring.Tests.csproj",
-    "-c",
-    opts.configuration,
-    "-r",
-    opts.rid,
-    "--no-build",
-  ], { cwd: opts.root });
+  await testProject(opts, "HardwareTest.StandaloneVisa.Tests");
+  await testProject(opts, "HardwareTest.Tests");
+  const filter = opts.profile === "fast"
+    ? AUTHORING_FAST_FILTER
+    : opts.profile === "windows-smoke"
+    ? AUTHORING_WINDOWS_FILTER
+    : undefined;
+  await testProject(opts, "HardwareTest.Authoring.Tests", filter);
 }
 
 async function testVm(opts: Options): Promise<void> {
-  await run([
-    "dotnet",
-    "test",
-    "tests/HardwareTest.ViewModels.Tests/HardwareTest.ViewModels.Tests.csproj",
-    "-c",
-    opts.configuration,
-    "-r",
-    opts.rid,
-    "--no-build",
-  ], { cwd: opts.root });
+  await testProject(opts, "HardwareTest.ViewModels.Tests");
 }
 
 async function testE2e(opts: Options): Promise<void> {
   try {
-    await run([
-      "dotnet",
-      "test",
-      "tests/HardwareTest.E2E.Tests/HardwareTest.E2E.Tests.csproj",
-      "-c",
-      opts.configuration,
-      "-r",
-      opts.rid,
-      "--no-build",
-    ], { cwd: opts.root });
+    await testProject(opts, "HardwareTest.E2E.Tests");
   } catch (err) {
     if (!opts.advisoryE2e) throw err;
     console.warn(`advisory: test:e2e failed on ${opts.rid}: ${err}`);
@@ -180,17 +242,16 @@ async function testAuthoringCompat(opts: Options): Promise<void> {
   ], { cwd: opts.root });
 }
 
+async function testAuthoringUi(opts: Options): Promise<void> {
+  await testProject(
+    opts,
+    "HardwareTest.Authoring.UI.Tests",
+    opts.profile === "windows-smoke" ? AUTHORING_UI_WINDOWS_FILTER : undefined,
+  );
+}
+
 async function testArch(opts: Options): Promise<void> {
-  await run([
-    "dotnet",
-    "test",
-    "tests/HardwareTest.Architecture.Tests/HardwareTest.Architecture.Tests.csproj",
-    "-c",
-    opts.configuration,
-    "-r",
-    opts.rid,
-    "--no-build",
-  ], { cwd: opts.root });
+  await testProject(opts, "HardwareTest.Architecture.Tests");
 }
 
 async function collectCoreCoverage(opts: Options): Promise<void> {
@@ -212,6 +273,8 @@ async function collectCoreCoverage(opts: Options): Promise<void> {
     "--no-build",
     "--filter",
     CORE_COVERAGE_FILTER,
+    "--logger",
+    "trx;LogFileName=coverage.trx",
     "--collect:XPlat Code Coverage",
     "--settings",
     "tests/coverage.runsettings",
@@ -224,7 +287,9 @@ async function coverage(opts: Options): Promise<void> {
   await collectCoreCoverage(opts);
   const cobertura = await findCobertura(coverageDir(opts.root));
   if (!cobertura) {
-    throw new Error("coverage.cobertura.xml not found under artifacts/coverage");
+    throw new Error(
+      "coverage.cobertura.xml not found under artifacts/coverage",
+    );
   }
 
   const xml = await Deno.readTextFile(cobertura);
@@ -239,28 +304,40 @@ async function coverage(opts: Options): Promise<void> {
 }
 
 async function audit(opts: Options): Promise<void> {
-  const result = await runCapture([
+  // Match the build's dependency graph. SDK 10 package listing otherwise restores
+  // Debug, whose propagated diagnostics dependency differs from the Release lock.
+  await run([
     "dotnet",
-    "list",
-    "HardwareTest.slnx",
-    "package",
-    "--vulnerable",
-    "--include-transitive",
+    "restore",
+    "dirs.proj",
+    "-p:Configuration=" + opts.configuration,
+    "-p:RuntimeIdentifier=" + opts.rid,
   ], { cwd: opts.root });
-  const combined = `${result.stdout}\n${result.stderr}`;
-  if (result.stdout.trim().length > 0) {
-    console.log(result.stdout.trimEnd());
-  }
-  if (result.stderr.trim().length > 0) {
-    console.error(result.stderr.trimEnd());
-  }
-  if (hasVulnerablePackages(combined)) {
-    throw new Error(formatAuditFailure(combined));
-  }
-  if (result.code !== 0) {
-    throw new Error(
-      `dotnet list package --vulnerable failed (exit ${result.code})`,
-    );
+  for (const project of await projectPaths(opts)) {
+    const result = await runCapture([
+      "dotnet",
+      "list",
+      project,
+      "package",
+      "--vulnerable",
+      "--include-transitive",
+      "--no-restore",
+    ], { cwd: opts.root });
+    const combined = `${result.stdout}\n${result.stderr}`;
+    if (result.stdout.trim().length > 0) {
+      console.log(result.stdout.trimEnd());
+    }
+    if (result.stderr.trim().length > 0) {
+      console.error(result.stderr.trimEnd());
+    }
+    if (hasVulnerablePackages(combined)) {
+      throw new Error(formatAuditFailure(combined));
+    }
+    if (result.code !== 0) {
+      throw new Error(
+        `dotnet list package --vulnerable failed (exit ${result.code})`,
+      );
+    }
   }
   console.log("audit ok: no known vulnerable packages");
 }
@@ -281,6 +358,122 @@ async function publish(opts: Options): Promise<void> {
     "-o",
     out,
   ], { cwd: opts.root });
+  const authoringOut = `${out}/authoring`;
+  await run([
+    "dotnet",
+    "publish",
+    "src/HardwareTest.Authoring",
+    "-c",
+    opts.configuration,
+    "-r",
+    opts.rid,
+    "--self-contained",
+    "-p:PublishAot=false",
+    "-o",
+    authoringOut,
+  ], { cwd: opts.root });
+  const projects = {
+    host: "src/HardwareTest.OpenTap.Host",
+    worker: "src/HardwareTest.OpenTap.Worker",
+    validate: "src/HardwareTest.PlanValidate",
+  };
+  for (const output of consumerOutputs(opts).slice(2)) {
+    await run([
+      "dotnet",
+      "publish",
+      projects[output.name as keyof typeof projects],
+      "-c",
+      opts.configuration,
+      "-r",
+      opts.rid,
+      "--self-contained",
+      "false",
+      "-o",
+      output.path,
+    ], { cwd: opts.root });
+  }
+  await verifyPublishedRelease(opts);
+}
+
+/** Exercise the shipped app from a directory with no checkout ancestry. */
+async function verifyAuthoring(opts: Options): Promise<void> {
+  const smoke = await Deno.makeTempDir({ prefix: "ht-authoring-published-" });
+  try {
+    const bundle = `${smoke}/app`;
+    const workspace = `${smoke}/workspace`;
+    await copyTree(`${publishDir(opts.rid, opts.root)}/authoring`, bundle);
+    await copyTree(`${opts.root}/plans/opentap`, workspace);
+    const exe = `${bundle}/HardwareTest.Authoring${
+      opts.rid.startsWith("win-") ? ".exe" : ""
+    }`;
+    const help = await runCapture([exe, "--help"], { cwd: smoke });
+    if (help.code !== 2 || !help.stdout.includes("--bootstrap")) {
+      throw new Error(
+        `published authoring --help failed: ${help.stderr || help.stdout}`,
+      );
+    }
+    for (
+      const args of [
+        ["--validate", workspace, "--strict"],
+        [
+          "--bootstrap",
+          workspace,
+          "--offline",
+          "--opentap-home",
+          `${smoke}/home`,
+        ],
+      ]
+    ) {
+      const result = await runCapture([exe, ...args], { cwd: smoke });
+      if (result.code !== 0) {
+        throw new Error(
+          `published authoring ${args[0]} failed: ${
+            result.stderr || result.stdout
+          }`,
+        );
+      }
+    }
+    for (
+      const name of ["OpenTAP", "HardwareTest Basic", "HardwareTest Mixins"]
+    ) {
+      await Deno.stat(`${smoke}/home/Packages/${name}/package.xml`);
+    }
+    for (
+      const file of [
+        "tap.dll",
+        "tap.runtimeconfig.json",
+        "OpenTap.dll",
+        "OpenTap.Package.dll",
+      ]
+    ) {
+      await Deno.stat(`${smoke}/home/${file}`);
+    }
+    console.log(
+      "verify authoring ok: isolated published startup, strict validate, offline bootstrap",
+    );
+  } finally {
+    await Deno.remove(smoke, { recursive: true });
+  }
+}
+
+async function copyTree(source: string, destination: string): Promise<void> {
+  await Deno.mkdir(destination, { recursive: true });
+  for await (const entry of Deno.readDir(source)) {
+    if (entry.isDirectory) {
+      await copyTree(`${source}/${entry.name}`, `${destination}/${entry.name}`);
+    } else if (entry.isFile) {
+      await Deno.copyFile(
+        `${source}/${entry.name}`,
+        `${destination}/${entry.name}`,
+      );
+      if (Deno.build.os !== "windows") {
+        const info = await Deno.stat(`${source}/${entry.name}`);
+        if (info.mode !== null) {
+          await Deno.chmod(`${destination}/${entry.name}`, info.mode);
+        }
+      }
+    }
+  }
 }
 
 async function verify(opts: Options): Promise<void> {
@@ -294,7 +487,17 @@ async function verify(opts: Options): Promise<void> {
 
   const exe = publishedExe(expectedRid, opts.root);
   try {
+    for (const output of consumerOutputs(opts)) {
+      await Deno.stat(
+        `${output.path}/PublishedArtifacts/InstrumentComponents.OpenTap.0.1.1.TapPackage`,
+      );
+    }
     await Deno.stat(exe);
+    await Deno.stat(
+      `${publishDir(expectedRid, opts.root)}/authoring/HardwareTest.Authoring${
+        expectedRid.startsWith("win-") ? ".exe" : ""
+      }`,
+    );
   } catch {
     console.log("publish output missing; running publish first");
     await publish(opts);
@@ -319,7 +522,9 @@ async function verify(opts: Options): Promise<void> {
       },
     );
     if (config.code !== 0) {
-      throw new Error(`--print-config failed: ${config.stderr || config.stdout}`);
+      throw new Error(
+        `--print-config failed: ${config.stderr || config.stdout}`,
+      );
     }
 
     const lines = config.stdout.split(/\r?\n/);
@@ -351,15 +556,20 @@ async function verify(opts: Options): Promise<void> {
       // best-effort cleanup
     }
   }
+  await verifyAuthoring(opts);
+  await verifyPublishedRelease(opts);
+  await verifyStandaloneVisaArtifacts(opts);
 }
 
 async function all(opts: Options): Promise<void> {
+  opts = { ...opts, profile: "full" };
   await build(opts);
   await formatCheck(opts);
   await audit(opts);
   await testArch(opts);
   await testHost(opts);
   await testAuthoringCompat(opts);
+  await testAuthoringUi(opts);
   await testVm(opts);
 
   // Linux Avalonia headless E2E starts advisory; Windows keeps it required.
@@ -396,7 +606,9 @@ export async function main(argv = Deno.args): Promise<void> {
   }
 
   const opts = parseOptions(rest);
-  console.log(`task=${task} rid=${opts.rid} configuration=${opts.configuration}`);
+  console.log(
+    `task=${task} rid=${opts.rid} configuration=${opts.configuration} profile=${opts.profile}`,
+  );
 
   switch (task as TaskName) {
     case "build":
@@ -422,6 +634,9 @@ export async function main(argv = Deno.args): Promise<void> {
       break;
     case "test:authoring-compat":
       await testAuthoringCompat(opts);
+      break;
+    case "test:authoring-ui":
+      await testAuthoringUi(opts);
       break;
     case "coverage":
       await coverage(opts);

@@ -16,7 +16,14 @@ public sealed record PlanContractFinding(
     PlanContractSeverity Severity,
     string Code,
     string Message,
-    string? Path = null);
+    string? Path = null)
+{
+    public PlanContractTarget? Target { get; init; }
+}
+
+/// Explicit producer metadata; display paths and messages are never navigation identities.
+public sealed record PlanContractTarget(string? ProgramId = null, Guid? NodeId = null, Guid? CompiledStepId = null,
+    string? Section = null, string? Field = null);
 
 public sealed class PlanContractReport
 {
@@ -170,7 +177,7 @@ public static class PlanContractValidator
                 Serilog.Log.Logger.ForContext(typeof(PlanContractValidator)),
                 visaBroker: null,
                 trustConfiguredPluginDirectories: options.TrustConfiguredPluginDirectories,
-                includeVisaAdapter: !options.ExcludeVisaAdapter);
+                enablePhysicalExecution: options.EnablePhysicalExecution);
             catalog.EnsurePlugins();
             var plan = TestPlan.Load(tapPlanPath);
             AnalyzePlan(plan, includeCleanup, sidecar, findings);

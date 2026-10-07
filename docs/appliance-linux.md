@@ -23,7 +23,7 @@ appliance/
 
 There is **no** on-disk `session/` resume file — operator session / DUT confirmation is in-process only (sticky strip + idle timeout). Restarts require re-confirming the DUT.
 
-Set `HARDWARETEST_DATA_DIRECTORY` (or `--data-directory`) to the writable root so `runs/`, `logs/`, `reports/`, and station overlays live outside the read-only app tree. `settings.json` is optional — environment variables cover every `AppSettings` member (see [adapting.md](adapting.md#configuration-reference)). Register extra OpenTAP plugin folders via `OpenTapPluginDirectories` or `HARDWARETEST_OPENTAP_PLUGIN_DIRS`. Dump effective config without UI: `HardwareTest --print-config`. Productization steps: [adapting.md](adapting.md).
+Set `HARDWARETEST_DATA_DIRECTORY` (or `--data-directory`) to the writable root so `runs/`, `logs/`, `reports/`, and station overlays live outside the read-only app tree. `settings.json` is optional — environment variables cover every `AppSettings` member (see [adapting.md](adapting.md#configuration-reference)). Register extra OpenTAP plugin folders via `OpenTapPluginDirectories` or `HARDWARETEST_OPEN_TAP_PLUGIN_DIRECTORIES`. Dump effective config without UI: `HardwareTest --print-config`. Productization steps: [adapting.md](adapting.md).
 
 ## Offline OpenTAP packages
 

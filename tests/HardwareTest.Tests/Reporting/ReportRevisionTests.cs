@@ -18,31 +18,34 @@ public sealed class ReportRevisionTests : IDisposable
 
     [Theory]
     [InlineData(0)]
-    [InlineData(4)]
-    public async Task Legacy_migration_is_deterministic_and_preserves_files(int schema)
+    [InlineData(3)]
+    public async Task Unsupported_run_schema_is_rejected_without_changing_evidence(int schema)
     {
         var store = new FileRunStore(_root);
-        var run = new TestRunRecord { RunId = "legacy", SchemaVersion = schema };
+        var run = new TestRunRecord { RunId = "unsupported", SchemaVersion = schema };
         var dir = store.GetRunDirectory(run.RunId);
-        var pdf = Path.Combine(dir, "issued", "certification.pdf");
-        Directory.CreateDirectory(Path.GetDirectoryName(pdf)!);
-        await File.WriteAllTextAsync(pdf, "old pdf");
-        var sidecar = Path.Combine(dir, "certification.attestation.json");
-        await File.WriteAllTextAsync(sidecar, "old signature");
-        run.Reports.Add(new RunReportArtifact { Kind = ReportKinds.Certification, Role = ReportArtifactRoles.Issued, PdfPath = pdf });
-        run.Attestations.Add(new ReportAttestation { ReportKind = ReportKinds.Certification, SidecarPath = sidecar });
+        var pdf = Path.Combine(dir, "certification.pdf");
+        await File.WriteAllTextAsync(pdf, "unchanged pdf");
         var original = JsonSerializer.Serialize(run, AppJsonContext.Default.TestRunRecord);
         await File.WriteAllTextAsync(Path.Combine(dir, "run.json"), original);
-        var loaded = (await store.LoadAsync(run.RunId))!;
-        var again = (await store.LoadAsync(run.RunId))!;
-        Assert.Equal(1, loaded.Reports[0].RevisionNumber);
-        Assert.StartsWith("legacy-", loaded.Reports[0].RevisionId);
-        Assert.Equal(loaded.Reports[0].RevisionId, again.Reports[0].RevisionId);
-        Assert.Equal(loaded.Reports[0].RevisionId, loaded.Attestations[0].RevisionId);
-        Assert.Equal(pdf, loaded.Reports[0].PdfPath);
-        Assert.Equal(sidecar, loaded.Attestations[0].SidecarPath);
-        Assert.Equal("old signature", await File.ReadAllTextAsync(sidecar));
+        await Assert.ThrowsAsync<UnsupportedDocumentSchemaException>(() => store.LoadAsync(run.RunId));
+        await Assert.ThrowsAsync<UnsupportedDocumentSchemaException>(() => store.SaveAsync(run));
         Assert.Equal(original, await File.ReadAllTextAsync(Path.Combine(dir, "run.json")));
+        Assert.Equal("unchanged pdf", await File.ReadAllTextAsync(pdf));
+    }
+
+    [Fact]
+    public void Latest_uses_creation_number_then_timestamp_for_unrevisioned_artifacts()
+    {
+        var run = new TestRunRecord();
+        var first = new RunReportArtifact { Role = ReportArtifactRoles.Issued, RevisionId = "first", RevisionNumber = 1, GeneratedAt = DateTimeOffset.UnixEpoch.AddDays(1) };
+        var second = new RunReportArtifact { Role = ReportArtifactRoles.Issued, RevisionId = "second", RevisionNumber = 2, GeneratedAt = DateTimeOffset.UnixEpoch };
+        run.Reports = [second, first];
+        Assert.Same(second, ReportRevisions.Latest(run, ReportKinds.Status));
+        first.RevisionNumber = second.RevisionNumber = 0;
+        Assert.Same(first, ReportRevisions.Latest(run, ReportKinds.Status));
+        second.GeneratedAt = first.GeneratedAt;
+        Assert.Same(first, ReportRevisions.Latest(run, ReportKinds.Status));
     }
 
     [Fact]
@@ -90,7 +93,7 @@ public sealed class ReportRevisionTests : IDisposable
         var failing = new FailingStore(store, cancel);
         var failingService = new ReportAttestationService(new MockOperatorCredentialBroker(canSign: true), failing, new AppSettings());
         if (cancel) await Assert.ThrowsAsync<OperationCanceledException>(() => failingService.AttestAsync(run, ReportKinds.Certification));
-        else await Assert.ThrowsAsync<IOException>(() => failingService.AttestAsync(run, ReportKinds.Certification));
+        else Assert.False((await failingService.AttestAsync(run, ReportKinds.Certification)).Succeeded);
         Assert.Equal(original, JsonSerializer.Serialize(run, AppJsonContext.Default.TestRunRecord));
         Assert.Equal(disk, await File.ReadAllTextAsync(Path.Combine(store.GetRunDirectory(run.RunId), "run.json")));
         Assert.Equal(priorSidecar, await File.ReadAllBytesAsync(run.Attestations[0].SidecarPath!));
@@ -151,7 +154,9 @@ public sealed class ReportRevisionTests : IDisposable
         await File.WriteAllTextAsync(Path.Combine(store.GetRunDirectory(run.RunId), "issued"), "blocks directory");
         var before = JsonSerializer.Serialize(run, AppJsonContext.Default.TestRunRecord);
         var service = new ReportAttestationService(new MockOperatorCredentialBroker(canSign: true), store, new AppSettings());
-        await Assert.ThrowsAnyAsync<IOException>(() => service.AttestAsync(run, ReportKinds.Certification));
+        var failure = await service.AttestAsync(run, ReportKinds.Certification);
+        Assert.False(failure.Succeeded);
+        Assert.False(string.IsNullOrWhiteSpace(failure.Message));
         Assert.Equal(before, JsonSerializer.Serialize(run, AppJsonContext.Default.TestRunRecord));
         Assert.Empty((await store.LoadAsync(run.RunId))!.Attestations);
     }
@@ -191,7 +196,7 @@ public sealed class ReportRevisionTests : IDisposable
     }
 
     [Fact]
-    public async Task New_revision_without_snapshot_is_invalid_and_legacy_revision_without_snapshot_remains_valid()
+    public async Task Revision_without_snapshot_is_invalid_regardless_of_revision_name()
     {
         var store = new FileRunStore(_root);
         var run = await SeedAsync(store);
@@ -202,7 +207,7 @@ public sealed class ReportRevisionTests : IDisposable
         Assert.False(service.HasValidAttestation(run, ReportKinds.Certification));
         artifact.RevisionId = "legacy-example";
         run.Attestations[0].RevisionId = artifact.RevisionId;
-        Assert.True(service.HasValidAttestation(run, ReportKinds.Certification));
+        Assert.False(service.HasValidAttestation(run, ReportKinds.Certification));
     }
 
     [Fact]
@@ -227,57 +232,34 @@ public sealed class ReportRevisionTests : IDisposable
         var store = new FileRunStore(_root);
         var run = await SeedAsync(store);
         var path = Path.Combine(store.GetRunDirectory(run.RunId), "run.json");
-        run.SchemaVersion = 0;
         File.SetAttributes(path, FileAttributes.ReadOnly);
         try
         {
             await Assert.ThrowsAsync<UnauthorizedAccessException>(() => store.SaveAsync(run));
-            Assert.Equal(0, run.SchemaVersion);
+            Assert.Equal(SchemaVersions.TestRunRecord, run.SchemaVersion);
         }
         finally { File.SetAttributes(path, FileAttributes.Normal); }
         var future = ReportRevisions.Clone(run);
         future.SchemaVersion = SchemaVersions.TestRunRecord + 1;
         await File.WriteAllTextAsync(path, JsonSerializer.Serialize(future, AppJsonContext.Default.TestRunRecord));
         await Assert.ThrowsAsync<SchemaReadOnlyException>(() => store.SaveAsync(run));
-        Assert.Equal(0, run.SchemaVersion);
+        Assert.Equal(SchemaVersions.TestRunRecord, run.SchemaVersion);
     }
 
     [Theory]
     [InlineData(0)]
-    [InlineData(4)]
-    public async Task Suite_embedded_legacy_reports_migrate_in_memory_and_keep_valid_signatures(int schema)
+    [InlineData(3)]
+    public async Task Suite_unsupported_member_schema_is_rejected_without_changing_metadata(int schema)
     {
         var runs = new FileRunStore(_root);
         var suites = new FileSuiteRunStore(runs, _root);
-        var run = await SeedAsync(runs);
-        var service = new ReportAttestationService(new MockOperatorCredentialBroker(canSign: true), runs, new AppSettings());
-        Assert.True((await service.AttestAsync(run, ReportKinds.Certification)).Succeeded);
-        var artifact = ReportRevisions.Latest(run, ReportKinds.Certification)!;
-        var stamp = run.Attestations[0];
-        var pdfBytes = await File.ReadAllBytesAsync(artifact.PdfPath);
-        var sidecarBytes = await File.ReadAllBytesAsync(stamp.SidecarPath!);
-        artifact.RevisionId = null;
-        artifact.RevisionNumber = 0;
-        artifact.RunSnapshotPath = null;
-        stamp.RevisionId = null;
-        run.SchemaVersion = schema;
-        var suite = new SuiteRunRecord { SuiteRunId = "legacy-suite", PlanRuns = [run] };
+        var suite = new SuiteRunRecord { SuiteRunId = "unsupported-suite", PlanRuns = [new() { RunId = "member", SchemaVersion = schema }] };
         var path = Path.Combine(suites.GetSuiteRunDirectory(suite.SuiteRunId), "suite-run.json");
         var original = JsonSerializer.Serialize(suite, AppJsonContext.Default.SuiteRunRecord);
         await File.WriteAllTextAsync(path, original);
-        var loaded = (await suites.LoadAsync(suite.SuiteRunId))!;
-        var member = Assert.Single(loaded.PlanRuns);
-        Assert.Equal(schema, member.StoredSchemaVersion);
-        Assert.Equal(schema == 0, member.IsLegacy);
-        Assert.False(member.IsSchemaReadOnly);
-        var issued = ReportRevisions.Latest(member, ReportKinds.Certification)!;
-        Assert.StartsWith("legacy-", issued.RevisionId);
-        Assert.Equal(1, issued.RevisionNumber);
-        Assert.Equal(issued.RevisionId, member.Attestations[0].RevisionId);
-        Assert.True(service.HasValidAttestation(member, ReportKinds.Certification));
+        await Assert.ThrowsAsync<UnsupportedDocumentSchemaException>(() => suites.LoadAsync(suite.SuiteRunId));
+        await Assert.ThrowsAsync<UnsupportedDocumentSchemaException>(() => suites.SaveAsync(suite));
         Assert.Equal(original, await File.ReadAllTextAsync(path));
-        Assert.Equal(pdfBytes, await File.ReadAllBytesAsync(issued.PdfPath));
-        Assert.Equal(sidecarBytes, await File.ReadAllBytesAsync(member.Attestations[0].SidecarPath!));
     }
 
     [Fact]
@@ -390,8 +372,8 @@ public sealed class ReportRevisionTests : IDisposable
     {
         var runs = new FileRunStore(_root);
         var run = await SeedAsync(runs);
-        using var card = FakePivCard.CreateRsa2048();
-        IOperatorCredentialBroker broker = pades ? new ScriptedPivBroker(card) : new MockOperatorCredentialBroker(canSign: false);
+        using var physical = new RevisionPdfBroker();
+        IOperatorCredentialBroker broker = pades ? physical : new MockOperatorCredentialBroker(canSign: false);
         var reports = new RecordingReportService();
         var service = new ReportAttestationService(broker, runs,
             new AppSettings { AllowPresenceInLieuOfSigning = true }, reports: new Lazy<IReportService>(() => reports));
@@ -466,7 +448,8 @@ public sealed class ReportRevisionTests : IDisposable
         var run = await SeedAsync(store);
         var path = Path.Combine(store.GetRunDirectory(run.RunId), "run.json");
         var before = await File.ReadAllTextAsync(path);
-        await using var snapshot = AtomicFile.OpenReadSnapshot(path);
+        await using var snapshot = new FileStream(path, FileMode.Open, FileAccess.Read,
+            FileShare.Read | FileShare.Delete, 4096, FileOptions.Asynchronous);
         run.ErrorMessage = "new metadata";
         await store.SaveAsync(run);
         using var reader = new StreamReader(snapshot);
@@ -525,4 +508,37 @@ public sealed class ReportRevisionTests : IDisposable
     {
         if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
     }
+}
+
+file sealed class RevisionPdfBroker : IOperatorCredentialBroker, IEmbeddedPdfSigningBroker, IDisposable
+{
+    private readonly SoftwareSigningCertificate _signer = SoftwareSigningCertificate.CreateRsa();
+    private OperatorCredential Credential => new()
+    {
+        DisplayName = "Revision Signer",
+        Serial = "revision-fixture",
+        Thumbprint = _signer.Certificate.Thumbprint,
+        Transport = CredentialTransport.Contact,
+    };
+    public bool IsMock => false;
+    public bool CanSign => true;
+    public bool CanSignPdf => true;
+    public string? SigningAlgorithm => AttestationAlgorithm.PivRsaPkcs1Sha256;
+    public string StatusText => "Software embedded signing fixture";
+    public Task<CredentialCaptureResult> WaitForPresenceAsync(TimeSpan timeout, CancellationToken cancellationToken = default)
+        => Task.FromResult(new CredentialCaptureResult { Credential = Credential });
+    public Task<CredentialSignResult> TrySignPayloadAsync(byte[] payload, OperatorCredential credential,
+        string? pin = null, CancellationToken cancellationToken = default)
+        => Task.FromResult(CredentialSignResult.NeedPin("Enter PIN."));
+    public Task<CredentialSignResult> TrySignPdfAsync(byte[] pdf, OperatorCredential credential,
+        string? pin = null, DateTimeOffset? signingTime = null, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        Assert.True(ITextPadesSignature.TrySign(pdf, _signer.Certificate, _signer.PrivateKey,
+            credential.DisplayName, signingTime ?? DateTimeOffset.UtcNow,
+            out var signed, out var cms, out var error), error);
+        return Task.FromResult(CredentialSignResult.SignedPdfDocument(signed, cms, SigningAlgorithm!,
+            _signer.Certificate.RawData, _signer.Certificate.Thumbprint, credential));
+    }
+    public void Dispose() => _signer.Dispose();
 }

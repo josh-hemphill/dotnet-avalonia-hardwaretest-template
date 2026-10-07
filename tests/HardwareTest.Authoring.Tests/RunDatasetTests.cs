@@ -8,9 +8,9 @@ namespace HardwareTest.Authoring.Tests;
 public sealed class RunDatasetTests
 {
     [Fact]
-    public void Load_v1_fixture_exposes_vdc_series()
+    public void Load_current_fixture_exposes_vdc_series()
     {
-        var dataset = RunDatasetCatalog.Load(Path.Combine(FindRepoRoot(), "tests", "fixtures", "schema", "run-v1.json"));
+        var dataset = RunDatasetCatalog.Load(Path.Combine(FindRepoRoot(), "tests", "fixtures", "schema", "run-v4.json"));
         var series = RunDatasetBinder.SeriesByMetric(dataset.Run);
         Assert.True(series.ContainsKey("VDC"));
         Assert.Equal(10, Assert.Single(series["VDC"]).Value);
@@ -122,6 +122,19 @@ public sealed class RunDatasetTests
         Assert.Equal(before, File.ReadAllText(dest));
     }
 
+    [Theory]
+    [InlineData("run-v0-legacy.json")]
+    [InlineData("run-v1.json")]
+    public void Unsupported_recording_is_rejected_without_changing_bytes(string fixture)
+    {
+        var path = Path.Combine(NewTempDir(), "run.json");
+        File.Copy(Path.Combine(FindRepoRoot(), "tests", "fixtures", "schema", fixture), path);
+        var before = File.ReadAllBytes(path);
+        var error = Assert.Throws<AuthoringWorkspaceException>(() => RunDatasetCatalog.Load(path));
+        Assert.Contains("Unsupported", error.Message, StringComparison.Ordinal);
+        Assert.Equal(before, File.ReadAllBytes(path));
+    }
+
     [Fact]
     public void Template_workspace_lists_no_recordings()
     {
@@ -204,7 +217,7 @@ public sealed class RunDatasetTests
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
         while (dir is not null)
         {
-            if (dir.EnumerateFiles("HardwareTest.slnx").Any())
+            if (dir.EnumerateFiles("dirs.proj").Any())
             {
                 return dir.FullName;
             }
@@ -213,6 +226,6 @@ public sealed class RunDatasetTests
         }
 
         throw new InvalidOperationException(
-            $"Could not locate HardwareTest.slnx above '{AppContext.BaseDirectory}'.");
+            $"Could not locate dirs.proj above '{AppContext.BaseDirectory}'.");
     }
 }

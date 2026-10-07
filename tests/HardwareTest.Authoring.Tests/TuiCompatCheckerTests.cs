@@ -73,7 +73,7 @@ public sealed class TuiCompatCheckerTests
                  && d.TypeName.Contains("PresentationMixinBuilder", StringComparison.Ordinal));
         Assert.True(report.BlocksPack());
 
-        var ex = Assert.Throws<AuthoringWorkspaceException>(() =>
+        var ex = Assert.Throws<PackPreflightException>(() =>
             WorkspacePacker.Pack(
                 workspace,
                 NewTempDir(),
@@ -84,7 +84,8 @@ public sealed class TuiCompatCheckerTests
                     Offline = true,
                     Compat = new TuiCompatChecker(),
                 }));
-        Assert.Contains(AuthoringPackCodes.CompatBlocked, ex.Message, StringComparison.Ordinal);
+        Assert.Contains(ex.Report.Findings, finding => finding.Code == "PACK_PACKAGE_MISSING" && finding.Message.Contains("HardwareTest Mixins", StringComparison.Ordinal));
+        Assert.Null(ex.Report.Compatibility);
     }
 
     [Fact]
@@ -157,7 +158,7 @@ public sealed class TuiCompatCheckerTests
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
         while (dir is not null)
         {
-            if (dir.EnumerateFiles("HardwareTest.slnx").Any())
+            if (dir.EnumerateFiles("dirs.proj").Any())
             {
                 return dir.FullName;
             }
@@ -166,6 +167,6 @@ public sealed class TuiCompatCheckerTests
         }
 
         throw new InvalidOperationException(
-            $"Could not locate HardwareTest.slnx above '{AppContext.BaseDirectory}'.");
+            $"Could not locate dirs.proj above '{AppContext.BaseDirectory}'.");
     }
 }

@@ -32,6 +32,30 @@ public sealed class ReportActionTests : IDisposable
         Assert.Empty(actions.Saves);
     }
 
+    [Fact]
+    public async Task Signed_save_resumes_the_returned_revision_when_another_issue_is_already_newer()
+    {
+        var store = new FileRunStore(_root);
+        var run = await SeedAsync(store, "exact-issued-result");
+        var settings = new AppSettings { RequireAttestationBeforeExport = true };
+        var service = new ReportAttestationService(new MockOperatorCredentialBroker(canSign: true), store, settings);
+        var interleaved = new InterleavedIssuance(service);
+        var actions = new Actions(Path.Combine(_root, "saved-exact.pdf"));
+        var vm = new ReportPreviewViewModel(store, new FakeReportService(), attestation: interleaved,
+            desktop: actions, settings: settings)
+        { UiScheduler = action => action(), PreviewRenderer = _ => [] };
+        await vm.LoadFromPathAsync(run.Reports[0].PdfPath);
+        await vm.SaveCopyCommand.ExecuteAsync();
+        await vm.SignAndContinueCommand.ExecuteAsync();
+        var loaded = (await store.LoadAsync(run.RunId))!;
+        Assert.Equal(2, loaded.Reports.Count(r => ReportArtifactRoles.IsIssued(r.Role)));
+        var returned = loaded.Reports.Single(r => r.RevisionId == interleaved.ReturnedRevisionId);
+        Assert.NotEqual(returned.RevisionId, ReportRevisions.Latest(loaded, ReportKinds.Certification)!.RevisionId);
+        Assert.Equal(returned.PdfPath, vm.PdfPath);
+        Assert.Equal(returned.PdfPath, Assert.Single(actions.Saves));
+        Assert.True(service.HasValidAttestation(loaded, ReportKinds.Certification, returned.RevisionId));
+    }
+
     [Theory]
     [InlineData(true)]
     [InlineData(false)]
@@ -49,6 +73,118 @@ public sealed class ReportActionTests : IDisposable
         var issued = ReportRevisions.Latest((await new FileRunStore(_root).LoadAsync(run.RunId))!, ReportKinds.Certification)!;
         Assert.Equal(issued.PdfPath, Assert.Single(save ? actions.Saves : actions.Prints));
         if (save) Assert.Equal(await File.ReadAllBytesAsync(issued.PdfPath), await File.ReadAllBytesAsync(actions.Destination));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Printing_working_copy_uses_existing_latest_issue_without_creating_another(bool tamperLatest)
+    {
+        var (run, vm, actions, service) = await SetupAsync();
+        vm.PreviewRenderer = _ => [];
+        var working = run.Reports[0].PdfPath;
+        Assert.True((await service.AttestAsync(run, ReportKinds.Certification)).Succeeded);
+        var issued = ReportRevisions.Latest(run, ReportKinds.Certification)!;
+        var issuedBytes = await File.ReadAllBytesAsync(issued.PdfPath);
+        await File.WriteAllTextAsync(working, "changed unsigned working bytes");
+        if (tamperLatest) await File.AppendAllTextAsync(issued.PdfPath, "tampered latest");
+
+        await vm.PrintCommand.ExecuteAsync();
+
+        Assert.False(vm.ShowSigningPrompt);
+        if (tamperLatest)
+        {
+            Assert.Empty(actions.Prints);
+            Assert.Equal(working, vm.PdfPath);
+            Assert.Contains("issued revision remains unchanged", vm.Status, StringComparison.Ordinal);
+        }
+        else
+        {
+            Assert.Equal(issued.PdfPath, Assert.Single(actions.Prints));
+            Assert.Equal(issued.PdfPath, vm.PdfPath);
+            Assert.Equal(issuedBytes, await File.ReadAllBytesAsync(actions.Prints[0]));
+        }
+        var persisted = (await new FileRunStore(_root).LoadAsync(run.RunId))!;
+        Assert.Single(persisted.Reports, r => ReportArtifactRoles.IsIssued(r.Role));
+        Assert.Equal("changed unsigned working bytes", await File.ReadAllTextAsync(working));
+    }
+
+    [Fact]
+    public async Task Saving_copy_to_distinct_case_name_on_linux_preserves_source_and_exact_bytes()
+    {
+        if (!OperatingSystem.IsLinux()) return;
+        Directory.CreateDirectory(_root);
+        var source = Path.Combine(_root, "report.pdf");
+        var destination = Path.Combine(_root, "REPORT.pdf");
+        var bytes = "original report bytes"u8.ToArray();
+        await File.WriteAllBytesAsync(source, bytes);
+        await File.WriteAllTextAsync(destination, "old destination");
+        await ReportDesktopActions.CopyToLocalPathAsync(source, destination);
+        Assert.Equal(bytes, await File.ReadAllBytesAsync(source));
+        Assert.Equal(bytes, await File.ReadAllBytesAsync(destination));
+        await Assert.ThrowsAsync<IOException>(() => ReportDesktopActions.CopyToLocalPathAsync(source, source));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Queued_signed_selection_reset_cannot_resume_after_user_replaces_or_cancels_selection(bool cancelOnly)
+    {
+        var store = new FileRunStore(_root);
+        var run = await SeedAsync(store, "queued-signed-reset");
+        var other = await SeedAsync(store, "replacement-selection");
+        var settings = new AppSettings { RequireAttestationBeforeExport = true };
+        var real = new ReportAttestationService(new MockOperatorCredentialBroker(canSign: true), store, settings);
+        var service = new NotifyingAttestation(real);
+        var actions = new Actions(Path.Combine(_root, "should-not-save.pdf"));
+        var vm = new ReportPreviewViewModel(store, new FakeReportService(), attestation: service, desktop: actions,
+            printer: actions, settings: settings) { UiScheduler = action => action(), PreviewRenderer = _ => [] };
+        await vm.LoadFromPathAsync(run.Reports[0].PdfPath);
+        await vm.SaveCopyCommand.ExecuteAsync();
+        var queuedReset = new TaskCompletionSource<Action>(TaskCreationOptions.RunContinuationsAsynchronously);
+        service.AfterSigning = () => vm.UiScheduler = action => queuedReset.TrySetResult(action);
+        var signing = vm.SignAndContinueCommand.ExecuteAsync();
+        var oldReset = await queuedReset.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        vm.UiScheduler = action => action();
+        if (cancelOnly) vm.CancelPendingAction();
+        else await vm.LoadFromPathAsync(other.Reports[0].PdfPath);
+        oldReset();
+        await signing;
+        Assert.Empty(actions.Saves);
+        Assert.Empty(actions.Prints);
+        Assert.Equal(cancelOnly ? run.Reports[0].PdfPath : other.Reports[0].PdfPath, vm.PdfPath);
+        Assert.Single((await store.LoadAsync(run.RunId))!.Reports, r => ReportArtifactRoles.IsIssued(r.Role));
+    }
+
+    [Fact]
+    public async Task Signed_save_keeps_action_gate_and_busy_state_until_picker_returns()
+    {
+        var store = new FileRunStore(_root);
+        var run = await SeedAsync(store, "held-save-picker");
+        var settings = new AppSettings { RequireAttestationBeforeExport = true };
+        var service = new ReportAttestationService(new MockOperatorCredentialBroker(canSign: true), store, settings);
+        var desktop = new HeldDesktopActions();
+        var vm = new ReportPreviewViewModel(store, new FakeReportService(), attestation: service,
+            desktop: desktop, printer: desktop, settings: settings)
+        { UiScheduler = action => action(), PreviewRenderer = _ => [] };
+        await vm.LoadFromPathAsync(run.Reports[0].PdfPath);
+        await vm.SaveCopyCommand.ExecuteAsync();
+        var signing = vm.SignAndContinueCommand.ExecuteAsync();
+        await desktop.Started.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.True(vm.IsBusy);
+        await vm.SaveCopyCommand.ExecuteAsync();
+        await vm.PrintCommand.ExecuteAsync();
+        await vm.OpenInViewerCommand.ExecuteAsync();
+        Assert.Equal(1, desktop.SaveCalls);
+        Assert.Equal(0, desktop.PrintCalls);
+        Assert.Equal(0, desktop.OpenCalls);
+        Assert.True(vm.IsBusy);
+        vm.CancelPendingAction();
+        Assert.True(vm.IsBusy);
+        desktop.Release.TrySetResult();
+        await signing;
+        Assert.False(vm.IsBusy);
+        Assert.Equal(1, desktop.SaveCalls);
     }
 
     [Fact]
@@ -380,6 +516,7 @@ public sealed class ReportActionTests : IDisposable
         Assert.Contains("still finishing", vm.SigningPromptStatus);
         delayed.Release.TrySetResult();
         await oldAttempt;
+        await vm.SignCommand.ExecuteAsync();
         await vm.SignAndContinueCommand.ExecuteAsync();
         Assert.Equal(2, delayed.Calls);
         Assert.Equal(second.RunId, delayed.CapturedRunId);
@@ -476,6 +613,62 @@ public sealed class ReportActionTests : IDisposable
             Opens.Add(pdfPath);
             return Task.CompletedTask;
         }
+    }
+
+    private sealed class InterleavedIssuance(IReportAttestationService inner) : IReportAttestationService
+    {
+        public string? ReturnedRevisionId { get; private set; }
+        public TimeSpan PresenceTimeout => inner.PresenceTimeout;
+        public bool NeedsAttestation(TestRunRecord run, string kind) => inner.NeedsAttestation(run, kind);
+        public bool HasValidAttestation(TestRunRecord run, string kind) => inner.HasValidAttestation(run, kind);
+        public bool HasValidAttestation(TestRunRecord run, string kind, string? revisionId) => inner.HasValidAttestation(run, kind, revisionId);
+        public bool HasValidAttestationForPdf(TestRunRecord run, string kind, string path) => inner.HasValidAttestationForPdf(run, kind, path);
+        public async Task<ReportAttestationResult> AttestAsync(TestRunRecord run, string kind,
+            OperatorCredential? credential = null, string? pin = null, bool skipSigning = false,
+            CancellationToken cancellationToken = default)
+        {
+            var result = await inner.AttestAsync(run, kind, credential, pin, skipSigning, cancellationToken);
+            ReturnedRevisionId = result.Attestation!.RevisionId;
+            Assert.True((await inner.AttestAsync(run, kind, credential, pin, skipSigning, cancellationToken)).Succeeded);
+            return result;
+        }
+    }
+
+    private sealed class NotifyingAttestation(IReportAttestationService inner) : IReportAttestationService
+    {
+        public Action? AfterSigning { get; set; }
+        public TimeSpan PresenceTimeout => inner.PresenceTimeout;
+        public bool NeedsAttestation(TestRunRecord run, string kind) => inner.NeedsAttestation(run, kind);
+        public bool HasValidAttestation(TestRunRecord run, string kind) => inner.HasValidAttestation(run, kind);
+        public bool HasValidAttestationForPdf(TestRunRecord run, string kind, string path) => inner.HasValidAttestationForPdf(run, kind, path);
+        public async Task<ReportAttestationResult> AttestAsync(TestRunRecord run, string kind,
+            OperatorCredential? credential = null, string? pin = null, bool skipSigning = false, CancellationToken cancellationToken = default)
+        {
+            var result = await inner.AttestAsync(run, kind, credential, pin, skipSigning, cancellationToken);
+            AfterSigning?.Invoke();
+            return result;
+        }
+    }
+
+    private sealed class HeldDesktopActions : IReportDesktopActions, IReportPrintService
+    {
+        public TaskCompletionSource Started { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public int SaveCalls { get; private set; }
+        public int PrintCalls { get; private set; }
+        public int OpenCalls { get; private set; }
+        public async Task<string?> SaveCopyAsync(string path, CancellationToken cancellationToken = default)
+        {
+            SaveCalls++;
+            Started.TrySetResult();
+            await Release.Task;
+            cancellationToken.ThrowIfCancellationRequested();
+            return "saved.pdf";
+        }
+        public Task<string> PrintAsync(string path, CancellationToken cancellationToken = default)
+        { PrintCalls++; return Task.FromResult("Submitted."); }
+        public Task OpenInViewerAsync(string path, CancellationToken cancellationToken = default)
+        { OpenCalls++; return Task.CompletedTask; }
     }
 
     private sealed class DelayedAttestation : IReportAttestationService

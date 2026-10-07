@@ -5,7 +5,13 @@ namespace HardwareTest.OpenTap.Host;
 
 public sealed record DutIdentity(string Serial, string? PartNumber = null, string? Revision = null, string Family = "generic");
 
-public sealed record StationProfile(IReadOnlyDictionary<string, string> RoleToResource);
+public sealed record StationProfile
+{
+    public StationProfile(IReadOnlyDictionary<string, string> slotToResource)
+        => SlotToResource = new Dictionary<string, string>(slotToResource, StringComparer.OrdinalIgnoreCase);
+
+    public IReadOnlyDictionary<string, string> SlotToResource { get; }
+}
 
 public sealed class OpenTapInstrumentSlot
 {
@@ -49,7 +55,13 @@ public sealed record MeasurementSampleEvent(
     string? Unit = null,
     double? LimitLow = null,
     double? LimitHigh = null,
-    double? ElapsedMs = null)
+    double? ElapsedMs = null,
+    Guid? ProducerStepId = null,
+    Guid? StepRunId = null,
+    string? StepPath = null,
+    string? LoopPath = null,
+    int? IterationIndex = null,
+    Guid? LoopRunId = null)
 {
     /// Builds a live event from a normalized stored sample.
     public static MeasurementSampleEvent FromStored(StoredSample sample, int index = 0) => new(
@@ -62,7 +74,13 @@ public sealed record MeasurementSampleEvent(
         sample.Unit,
         sample.LimitLow,
         sample.LimitHigh,
-        sample.ElapsedMs);
+        sample.ElapsedMs,
+        sample.ProducerStepId,
+        sample.StepRunId,
+        sample.StepPath,
+        sample.LoopPath,
+        sample.IterationIndex,
+        sample.LoopRunId);
 
     /// Metric grouping key for tiles/charts.
     public string EffectiveMetricKey
@@ -75,7 +93,12 @@ public sealed record MeasurementEventMark(
     double ElapsedMs,
     string? Label,
     double? Value,
-    string? StepPath);
+    string? StepPath,
+    Guid? ProducerStepId = null,
+    Guid? StepRunId = null,
+    Guid? LoopRunId = null,
+    string? LoopPath = null,
+    int? IterationIndex = null);
 
 public sealed class OpenTapRunSummary
 {

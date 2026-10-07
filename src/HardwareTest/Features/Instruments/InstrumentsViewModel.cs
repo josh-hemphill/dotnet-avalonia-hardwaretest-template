@@ -115,13 +115,8 @@ public partial class InstrumentsViewModel : ReactiveObject
     public ObservableCollection<SlotOverrideItemViewModel> VisibleSlots { get; }
     public ObservableCollection<string> PlanFilterOptions { get; }
 
-    /// Backward-compatible alias used by older tests/callers.
-    public ObservableCollection<DiscoveredResourceItem> Discovered => DiscoveredVisa;
-
     public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> RefreshVisaDiscoverCommand { get; }
     public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> RefreshOpenTapDiscoverCommand { get; }
-    /// Alias for VISA discover (toolbar / existing tests).
-    public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> RefreshDiscoverCommand => RefreshVisaDiscoverCommand;
     public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> RefreshSlotsCommand { get; }
     public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> ApplySelectedResourceCommand { get; }
     public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> ClearOverrideCommand { get; }
@@ -141,13 +136,6 @@ public partial class InstrumentsViewModel : ReactiveObject
     public bool ShowDiscoverEmpty => !HasDiscoveredVisa && !HasDiscoveredOpenTap && !IsBusy;
 
     public event EventHandler? NavigateToRunRequested;
-
-    /// Backward-compatible alias for SelectedVisa.
-    public DiscoveredResourceItem? SelectedDiscovered
-    {
-        get => SelectedVisa;
-        set => SelectedVisa = value;
-    }
 
     private void OnVisaModeApplied(object? sender, EventArgs e)
     {
@@ -250,6 +238,7 @@ public partial class InstrumentsViewModel : ReactiveObject
             var saved = _settingsStore.AppSettings.PlanSlotOverrides;
             var useMockVisa = _visaModeController?.EffectiveUseMockVisa ?? _settingsStore.AppSettings.UseMockVisa;
             var failures = 0;
+            string? firstFailure = null;
             try
             {
                 foreach (var entry in ProgramCatalog.Enumerate())
@@ -262,14 +251,16 @@ public partial class InstrumentsViewModel : ReactiveObject
                     catch (Exception ex)
                     {
                         failures++;
-                        Status = $"Plan '{entry.DisplayName}' slots skipped: {ex.Message}";
+                        var cause = ex.GetBaseException();
+                        firstFailure ??= $"Plan '{entry.DisplayName}': {cause.GetType().Name}: {cause.Message}";
+                        System.Diagnostics.Trace.TraceError($"Plan '{entry.Id}' slots skipped: {ex}");
                     }
                 }
 
                 if (SlotOverrides.Count == 0)
                 {
                     Status = failures > 0
-                        ? $"No OpenTAP instrument slots found ({failures} plan load error(s))."
+                        ? $"No OpenTAP instrument slots found ({failures} plan load error(s)). {firstFailure}"
                         : "No OpenTAP instrument slots found in available plans.";
                 }
                 else if (failures == 0)
@@ -278,7 +269,7 @@ public partial class InstrumentsViewModel : ReactiveObject
                 }
                 else
                 {
-                    Status = $"Loaded {SlotOverrides.Count} slot(s); {failures} plan(s) failed.";
+                    Status = $"Loaded {SlotOverrides.Count} slot(s); {failures} plan(s) failed. {firstFailure}";
                 }
             }
             catch (Exception ex)

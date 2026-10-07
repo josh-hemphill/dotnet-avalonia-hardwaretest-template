@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <AssemblyName>InstrumentComponents.OpenTap</AssemblyName>
+    <PackageId>HardwareTest.StandaloneVisa.RebuiltFixture</PackageId>
+    <AssemblyVersion>0.1.1.0</AssemblyVersion>
+  </PropertyGroup>
+</Project>

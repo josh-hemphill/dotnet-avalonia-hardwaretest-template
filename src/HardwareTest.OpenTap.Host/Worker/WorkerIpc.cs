@@ -33,7 +33,6 @@ public static class WorkerProtocol
     public const string ApplyStationAndDut = "applyStationAndDut";
     public const string TrySetAcquireSettings = "trySetAcquireSettings";
     public const string TrySetMeanGteThreshold = "trySetMeanGteThreshold";
-    public const string TryRebindDmmResource = "tryRebindDmmResource";
     public const string TryBindSlotResource = "tryBindSlotResource";
     public const string EnumerateParameters = "enumerateParameters";
     public const string TryGetParameter = "tryGetParameter";
@@ -165,7 +164,7 @@ public sealed class WorkerAbortRequest
 
 public sealed class WorkerStationDutRequest
 {
-    public Dictionary<string, string> RoleToResource { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+    public Dictionary<string, string> SlotToResource { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     public string Serial { get; set; } = string.Empty;
     public string? PartNumber { get; set; }
     public string? Revision { get; set; }
@@ -189,11 +188,6 @@ public sealed class WorkerMeanGteRequest
 {
     public string StepPath { get; set; } = string.Empty;
     public double Threshold { get; set; }
-}
-
-public sealed class WorkerResourceRequest
-{
-    public string Resource { get; set; } = string.Empty;
 }
 
 public sealed class WorkerBindSlotRequest

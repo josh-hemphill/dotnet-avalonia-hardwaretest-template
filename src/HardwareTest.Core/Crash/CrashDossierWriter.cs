@@ -1,6 +1,7 @@
 using System.Text;
 using System.Text.Json;
 using HardwareTest.Core.Diagnostics;
+using HardwareTest.Core.IO;
 using HardwareTest.Core.Logging;
 using HardwareTest.Core.Serialization;
 using HardwareTest.Core.Settings;
@@ -76,6 +77,8 @@ public sealed class CrashDossierWriter
 
     private string? WriteCore(CrashCaptureContext context)
     {
+        DocumentSchemaGate.RequireWritable(
+            "CrashReport", context.Report.SchemaVersion, SchemaVersions.CrashReport);
         CrashRedaction.EnsureSalt(Path.GetDirectoryName(CrashRoot));
         Directory.CreateDirectory(CrashRoot);
 
@@ -90,14 +93,16 @@ public sealed class CrashDossierWriter
             report.CapturedAtUtc = DateTimeOffset.UtcNow;
         }
 
-        report.SchemaVersion = SchemaVersions.CrashReport;
         TruncateExceptions(report);
 
         var stamp = report.CapturedAtUtc.UtcDateTime.ToString("yyyyMMddTHHmmssZ");
         var dir = Path.Combine(CrashRoot, $"{stamp}-{report.DossierId}");
         Directory.CreateDirectory(dir);
 
-        TryWriteJson(Path.Combine(dir, "crash.json"), report, AppJsonContext.Default.CrashReportDocument);
+        CurrentDocumentFile.WriteAsync(
+                Path.Combine(dir, "crash.json"), report, AppJsonContext.Default.CrashReportDocument,
+                "CrashReport", report.SchemaVersion, SchemaVersions.CrashReport, CancellationToken.None)
+            .GetAwaiter().GetResult();
         var logTail = context.LogTail ?? string.Empty;
         if (RedactIdentifiers && context.IdentifiersToRedact.Count > 0)
         {
@@ -129,6 +134,7 @@ public sealed class CrashDossierWriter
             }
 
             var dirs = Directory.GetDirectories(CrashRoot)
+                .Where(IsCurrentDossier)
                 .Select(d => new DirectoryInfo(d))
                 .OrderByDescending(d => d.Name, StringComparer.Ordinal)
                 .ToArray();
@@ -147,6 +153,22 @@ public sealed class CrashDossierWriter
         catch
         {
             // ignore
+        }
+    }
+
+    private static bool IsCurrentDossier(string directory)
+    {
+        try
+        {
+            var path = Path.Combine(directory, "crash.json");
+            return DocumentSchemaGate.ReadHeader(
+                File.ReadAllBytes(path), "CrashReport", SchemaVersions.CrashReport, path).Kind
+                == DocumentSchemaKind.Current;
+        }
+        catch
+        {
+            // An unreadable dossier cannot safely be classified for deletion.
+            return false;
         }
     }
 
@@ -170,13 +192,18 @@ public sealed class CrashDossierWriter
                     }
 
                     var crashPath = Path.Combine(dir, "crash.json");
-                    if (!File.Exists(crashPath))
+                    if (!File.Exists(crashPath) && !File.Exists(crashPath + ".bak"))
                     {
                         continue;
                     }
 
-                    using var stream = File.OpenRead(crashPath);
-                    var report = JsonSerializer.Deserialize(stream, AppJsonContext.Default.CrashReportDocument);
+                    var (report, status) = CurrentDocumentFile.Read(
+                        crashPath, AppJsonContext.Default.CrashReportDocument,
+                        "CrashReport", SchemaVersions.CrashReport);
+                    if (status.Kind != DocumentSchemaKind.Current)
+                    {
+                        continue;
+                    }
                     if (report is null)
                     {
                         continue;

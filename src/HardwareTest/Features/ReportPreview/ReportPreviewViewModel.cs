@@ -28,6 +28,7 @@ public partial class ReportPreviewViewModel : ReactiveObject
     private readonly AppSettings? _settings;
     private readonly object _selectionLock = new();
     private bool _selectionLoading;
+    private bool _actionInProgress;
     internal Func<string, List<Bitmap>>? PreviewRenderer { get; set; }
     private readonly SemaphoreSlim _actionGate = new(1, 1);
     private CancellationTokenSource _selectionCancellation = new();
@@ -38,6 +39,7 @@ public partial class ReportPreviewViewModel : ReactiveObject
     private OperatorCredential? _capturedCredential;
     private enum ActionKind { Sign, Save, Print, Open }
     private sealed record PendingAction(TestRunRecord Run, string Kind, ActionKind Action, long Version);
+    private sealed record LoadedSelection(long Version, CancellationToken Token);
 
 
     /// Test seam: routes UI work synchronously instead of through the Avalonia dispatcher.
@@ -110,15 +112,18 @@ public partial class ReportPreviewViewModel : ReactiveObject
 
     public Task LoadFromPathAsync(string path) => LoadFromPathCoreAsync(path, null);
 
-    private async Task LoadFromPathCoreAsync(string path, long? expectedVersion)
+    private async Task<LoadedSelection?> LoadFromPathCoreAsync(string path, long? expectedVersion)
     {
-        var resetVersion = ResetSelection(expectedVersion, loading: true);
-        if (resetVersion is null) return;
-        var version = resetVersion.Value;
-        _operatorSession?.TouchActivity();
+        LoadedSelection? selection = null;
         await RunOnUiAsync(() =>
         {
-            if (version != _selectionVersion) return;
+            var resetVersion = ResetSelection(expectedVersion, loading: true);
+            if (resetVersion is null) return;
+            lock (_selectionLock)
+            {
+                if (resetVersion != _selectionVersion) return;
+                selection = new LoadedSelection(resetVersion.Value, _selectionCancellation.Token);
+            }
             IsBusy = true;
             PdfPath = path;
             ReportSummary = "Loading report…";
@@ -132,6 +137,9 @@ public partial class ReportPreviewViewModel : ReactiveObject
             Pages.Clear();
             this.RaisePropertyChanged(nameof(ShowEmptyState));
         }).ConfigureAwait(false);
+        if (selection is null) return null;
+        var version = selection.Version;
+        _operatorSession?.TouchActivity();
         try
         {
             string summary;
@@ -144,7 +152,7 @@ public partial class ReportPreviewViewModel : ReactiveObject
             {
                 summary = "Verification failed: " + ex.Message;
             }
-            if (version != _selectionVersion) return;
+            if (version != _selectionVersion) return null;
             await RunOnUiAsync(() =>
             {
                 if (version == _selectionVersion) ReportSummary = summary;
@@ -155,7 +163,7 @@ public partial class ReportPreviewViewModel : ReactiveObject
                 {
                     if (version == _selectionVersion) Status = $"File not found: {path}";
                 }).ConfigureAwait(false);
-                return;
+                return null;
             }
 
             try
@@ -195,10 +203,13 @@ public partial class ReportPreviewViewModel : ReactiveObject
             }
             await RunOnUiAsync(() =>
             {
-                if (version == _selectionVersion) IsBusy = false;
+                if (version == _selectionVersion) IsBusy = _actionInProgress;
                 this.RaisePropertyChanged(nameof(ShowEmptyState));
             }).ConfigureAwait(false);
         }
+        lock (_selectionLock)
+            return selection.Version == _selectionVersion && selection.Token == _selectionCancellation.Token
+                && !selection.Token.IsCancellationRequested ? selection : null;
     }
 
     private async Task LoadLatestAsync()
@@ -222,9 +233,22 @@ public partial class ReportPreviewViewModel : ReactiveObject
             }
             if (version != _selectionVersion) return;
 
-            var path = run.ReportPdfPath;
+            var path = ReportAttestationService.ResolveDefaultWorkingPdfPath(run, ProgramCatalog.ResolveDefaultReportKind(run.PlanId));
             if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
-                path = await _reportService.GeneratePdfAsync(run).ConfigureAwait(false);
+            {
+                if (run.IsSchemaReadOnly)
+                {
+                    await RunOnUiAsync(() => { if (version == _selectionVersion) Status = "This run is read-only; its working report is unavailable."; }).ConfigureAwait(false);
+                    return;
+                }
+                await _reportService.GenerateReportsAsync(run, ProgramCatalog.ResolveReportKinds(run.PlanId)).ConfigureAwait(false);
+                path = ReportAttestationService.ResolveDefaultWorkingPdfPath(run, ProgramCatalog.ResolveDefaultReportKind(run.PlanId));
+            }
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                await RunOnUiAsync(() => { if (version == _selectionVersion) Status = "No working report available."; }).ConfigureAwait(false);
+                return;
+            }
 
             await LoadFromPathCoreAsync(path, version).ConfigureAwait(false);
         }
@@ -238,7 +262,7 @@ public partial class ReportPreviewViewModel : ReactiveObject
             {
                 if (version == _selectionVersion) _selectionLoading = false;
             }
-            await RunOnUiAsync(() => { if (version == _selectionVersion) IsBusy = false; }).ConfigureAwait(false);
+            await RunOnUiAsync(() => { if (version == _selectionVersion) IsBusy = _actionInProgress; }).ConfigureAwait(false);
         }
     }
 
@@ -286,7 +310,7 @@ public partial class ReportPreviewViewModel : ReactiveObject
         UiDispatch.Post(() =>
         {
             if (version != _selectionVersion) return;
-            IsBusy = loading;
+            IsBusy = loading || _actionInProgress;
             ShowSigningPrompt = false;
             ShowSigningPin = false;
             SigningPin = string.Empty;
@@ -294,21 +318,28 @@ public partial class ReportPreviewViewModel : ReactiveObject
         return version;
     }
 
-    private async Task RequestActionAsync(ActionKind action, long? expectedVersion = null)
+    private async Task RequestActionAsync(ActionKind action, long? expectedVersion = null, CancellationToken? expectedToken = null)
     {
-        if (!await _actionGate.WaitAsync(0).ConfigureAwait(false)) return;
+        if (!await _actionGate.WaitAsync(0).ConfigureAwait(false))
+        {
+            await RunOnUiAsync(() => { Status = ReportCaptureGate.WaitingMessage; SigningPromptStatus = Status; }).ConfigureAwait(false);
+            return;
+        }
         long version;
         CancellationToken token;
         string? path;
         lock (_selectionLock)
         {
-            if (_selectionLoading || (expectedVersion is not null && expectedVersion != _selectionVersion)) { _actionGate.Release(); return; }
+            if (_selectionLoading || (expectedVersion is not null && expectedVersion != _selectionVersion)
+                || (expectedToken is not null && expectedToken != _selectionCancellation.Token)) { _actionGate.Release(); return; }
             version = _selectionVersion;
             token = _selectionCancellation.Token;
             path = PdfPath;
         }
+        var selectedPath = path;
         try
         {
+            await BeginActionAsync().ConfigureAwait(false);
             if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
             {
                 await RunOnUiAsync(() => { if (version == _selectionVersion) Status = "No PDF selected."; }).ConfigureAwait(false);
@@ -316,11 +347,13 @@ public partial class ReportPreviewViewModel : ReactiveObject
             }
             var run = await Task.Run(() => FindRunForPdfAsync(path)).ConfigureAwait(false);
             if (version != _selectionVersion || token.IsCancellationRequested) return;
-            var artifact = run?.Reports.FirstOrDefault(r => string.Equals(r.PdfPath, path, StringComparison.OrdinalIgnoreCase));
+            if (action == ActionKind.Print && run is not null)
+                path = ReportAttestationService.ResolvePrintOrExportPdfPath(run, path);
+            var artifact = run?.Reports.FirstOrDefault(r => ReportAttestationService.PathEquals(r.PdfPath, path));
             var kind = run is null ? ReportKinds.Status : ReportAttestationService.KindForPdf(run, path);
             var issued = artifact is not null && ReportArtifactRoles.IsIssued(artifact.Role);
             var valid = run is not null && issued && _attestation is not null
-                && await Task.Run(() => _attestation.HasValidAttestation(run, kind, artifact!.RevisionId), token).ConfigureAwait(false);
+                && await Task.Run(() => _attestation.HasValidAttestationForPdf(run, kind, path), token).ConfigureAwait(false);
             if (version != _selectionVersion || token.IsCancellationRequested) return;
             var needsSignature = action == ActionKind.Sign || (action is ActionKind.Save or ActionKind.Print
                 && run is not null && _attestation?.NeedsAttestation(run, kind) == true && !valid);
@@ -358,6 +391,13 @@ public partial class ReportPreviewViewModel : ReactiveObject
                 }).ConfigureAwait(false);
                 return;
             }
+            if (action == ActionKind.Print && !ReportAttestationService.PathEquals(selectedPath, path))
+            {
+                var selection = await LoadFromPathCoreAsync(path, version).ConfigureAwait(false);
+                if (selection is null) return;
+                version = selection.Version;
+                token = selection.Token;
+            }
             await PerformActionAsync(action, path, token).ConfigureAwait(false);
         }
         catch (OperationCanceledException) { }
@@ -368,10 +408,45 @@ public partial class ReportPreviewViewModel : ReactiveObject
                 if (version == _selectionVersion && !token.IsCancellationRequested) Status = "Report action failed: " + ex.Message;
             }).ConfigureAwait(false);
         }
-        finally { _actionGate.Release(); }
+        finally
+        {
+            try { await EndActionAsync().ConfigureAwait(false); }
+            finally { _actionGate.Release(); }
+        }
     }
 
+    private Task BeginActionAsync() => RunOnUiAsync(() =>
+    {
+        _actionInProgress = true;
+        IsBusy = true;
+    });
+
+    private Task EndActionAsync() => RunOnUiAsync(() =>
+    {
+        _actionInProgress = false;
+        IsBusy = _selectionLoading;
+    });
+
     private async Task CompleteSigningAsync(bool presence)
+    {
+        if (!await _actionGate.WaitAsync(0).ConfigureAwait(false))
+        {
+            await RunOnUiAsync(() => { Status = ReportCaptureGate.WaitingMessage; SigningPromptStatus = Status; }).ConfigureAwait(false);
+            return;
+        }
+        try
+        {
+            await BeginActionAsync().ConfigureAwait(false);
+            await CompleteSigningCoreAsync(presence).ConfigureAwait(false);
+        }
+        finally
+        {
+            try { await EndActionAsync().ConfigureAwait(false); }
+            finally { _actionGate.Release(); }
+        }
+    }
+
+    private async Task CompleteSigningCoreAsync(bool presence)
     {
         var pending = _pending;
         var cancellation = _signingCancellation;
@@ -407,21 +482,18 @@ public partial class ReportPreviewViewModel : ReactiveObject
                 }).ConfigureAwait(false);
                 return;
             }
-            var revision = ReportRevisions.Latest(pending.Run, pending.Kind);
+            var revision = result.Attestation?.RevisionId is { } revisionId
+                ? pending.Run.Reports.FirstOrDefault(r => r.RevisionId == revisionId
+                    && ReportArtifactRoles.IsIssued(r.Role) && string.Equals(r.Kind, pending.Kind, StringComparison.OrdinalIgnoreCase))
+                : null;
             if (revision is null) throw new InvalidOperationException("Signing did not commit a report revision.");
             // Consume the pending action before previewing or invoking any external operation.
             _pending = null;
-            var nextVersion = pending.Version + 1;
-            effectVersion = nextVersion;
-            await LoadFromPathCoreAsync(revision.PdfPath, pending.Version).ConfigureAwait(false);
-            CancellationToken resumeToken;
-            lock (_selectionLock)
-            {
-                if (nextVersion != _selectionVersion) return;
-                resumeToken = _selectionCancellation.Token;
-            }
+            var selection = await LoadFromPathCoreAsync(revision.PdfPath, pending.Version).ConfigureAwait(false);
+            if (selection is null) return;
+            effectVersion = selection.Version;
             if (pending.Action != ActionKind.Sign)
-                await PerformActionAsync(pending.Action, revision.PdfPath, resumeToken).ConfigureAwait(false);
+                await PerformActionAsync(pending.Action, revision.PdfPath, selection.Token).ConfigureAwait(false);
         }
         catch (OperationCanceledException) { }
         catch (Exception ex)
@@ -525,19 +597,17 @@ public partial class ReportPreviewViewModel : ReactiveObject
 
     public async Task PrintFromPathAsync(string path)
     {
-        var currentVersion = _selectionVersion;
-        var expectedVersion = currentVersion + 1;
-        await LoadFromPathCoreAsync(path, currentVersion).ConfigureAwait(false);
-        if (_selectionVersion == expectedVersion) await RequestActionAsync(ActionKind.Print, expectedVersion).ConfigureAwait(false);
+        var selection = await LoadFromPathCoreAsync(path, _selectionVersion).ConfigureAwait(false);
+        if (selection is not null)
+            await RequestActionAsync(ActionKind.Print, selection.Version, selection.Token).ConfigureAwait(false);
     }
 
     private string DescribeReport(TestRunRecord? run, string path)
     {
-        var artifact = run?.Reports.FirstOrDefault(r => string.Equals(r.PdfPath, path, StringComparison.OrdinalIgnoreCase));
+        var artifact = run?.Reports.FirstOrDefault(r => ReportAttestationService.PathEquals(r.PdfPath, path));
         if (run is null || artifact is null || !ReportArtifactRoles.IsIssued(artifact.Role)) return "Unsigned · working copy";
-        var stamp = run.Attestations.LastOrDefault(a => a.RevisionId == artifact.RevisionId
-            && string.Equals(a.ReportKind, artifact.Kind, StringComparison.OrdinalIgnoreCase));
-        var label = _attestation?.HasValidAttestation(run, artifact.Kind, artifact.RevisionId) == true
+        var stamp = ReportAttestationService.FindForArtifact(run, artifact);
+        var label = _attestation?.HasValidAttestationForPdf(run, artifact.Kind, path) == true
             ? stamp?.Kind == AttestationKind.Signed ? stamp.Algorithm == AttestationAlgorithm.MockHmac ? "Digitally signed (mock)" : "Digitally signed" : "Presence attested"
             : "Verification failed";
         return $"{label} · {stamp?.DisplayName ?? "Unknown signer"} · {stamp?.CapturedAt:u} · revision {artifact.RevisionNumber}";

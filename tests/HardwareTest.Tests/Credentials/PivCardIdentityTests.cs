@@ -7,9 +7,55 @@ namespace HardwareTest.Tests.Credentials;
 public sealed class PivCardIdentityTests
 {
     [Fact]
+    public void GetData_is_case4_with_le()
+    {
+        var apdu = PivApdu.GetData(PivApdu.ObjectSignature);
+        Assert.Equal(0xCB, apdu[1]);
+        Assert.Equal(0x05, apdu[4]);
+        Assert.Equal(0x5C, apdu[5]);
+        Assert.Equal(0x03, apdu[6]);
+        Assert.Equal(0x00, apdu[^1]);
+        Assert.Equal(11, apdu.Length);
+    }
+
+    [Fact]
+    public void ApplyLe_appends_on_case3_and_replaces_on_case2()
+    {
+        var case3 = PivApdu.Command(0x00, 0xCB, 0x3F, 0xFF, [0x5C, 0x03, .. PivApdu.ObjectSignature]);
+        var withLe = PcscApduChannel.ApplyLe(case3, 0x40);
+        Assert.Equal(case3.Length + 1, withLe.Length);
+        Assert.Equal(0x40, withLe[^1]);
+
+        var case2 = new byte[] { 0x00, 0xC0, 0x00, 0x00, 0x00 };
+        var replaced = PcscApduChannel.ApplyLe(case2, 0x20);
+        Assert.Equal(5, replaced.Length);
+        Assert.Equal(0x20, replaced[4]);
+    }
+
+    [Fact]
+    public void Command_uses_extended_length_when_data_exceeds_255()
+    {
+        var data = new byte[300];
+        var apdu = PivApdu.Command(0x00, 0xCB, 0x3F, 0xFF, data);
+        Assert.Equal(0x00, apdu[4]);
+        Assert.Equal(0x01, apdu[5]);
+        Assert.Equal(0x2C, apdu[6]);
+        Assert.Equal(307, apdu.Length);
+    }
+
+    [Fact]
+    public void TryExtractCertificateDer_unwraps_piv_53_70_object()
+    {
+        var der = new byte[] { 0x30, 0x03, 0x02, 0x01, 0x00 };
+        var inner = PivApdu.Concat(PivApdu.EncodeTlv(0x70, der), PivApdu.EncodeTlv(0x71, [0x00]));
+        var body = PivApdu.EncodeTlv(0x53, inner);
+        Assert.Equal(der, PivApdu.TryExtractCertificateDer(body));
+    }
+
+    [Fact]
     public void TryReadSignatureCertificateThumbprint_reads_only_9c()
     {
-        using var card = FakePivCard.CreateRsa2048(slot: PivApdu.SlotSignature);
+        using var card = FakePivCard.CreateRsa2048(slot: FakePivCard.SlotSignature);
         using var certificate = X509CertificateLoader.LoadCertificate(card.CertDer);
 
         var thumbprint = PivCardIdentity.TryReadSignatureCertificateThumbprint(card);
@@ -20,7 +66,7 @@ public sealed class PivCardIdentityTests
     [Fact]
     public void TryReadSignatureCertificateThumbprint_rejects_non_9c_slot()
     {
-        using var card = FakePivCard.CreateRsa2048(slot: PivApdu.SlotAuthentication);
+        using var card = FakePivCard.CreateRsa2048(slot: FakePivCard.SlotAuthentication);
 
         Assert.Null(PivCardIdentity.TryReadSignatureCertificateThumbprint(card));
     }
@@ -29,7 +75,7 @@ public sealed class PivCardIdentityTests
     public void TryRead_uses_certificate_subject_not_uid()
     {
         using var card = FakePivCard.CreateRsa2048(
-            slot: PivApdu.SlotAuthentication,
+            slot: FakePivCard.SlotAuthentication,
             subject: "CN=Jane Doe");
         card.Uid = [0xAA, 0xBB, 0xCC, 0xDD];
 
@@ -43,7 +89,7 @@ public sealed class PivCardIdentityTests
     public void TryRead_uses_san_email_when_subject_is_generic()
     {
         using var card = FakePivCard.CreateRsa2048(
-            slot: PivApdu.SlotAuthentication,
+            slot: FakePivCard.SlotAuthentication,
             subject: "CN=Card Authentication",
             emailSan: "jane.doe@agency.gov");
         card.Uid = [0x01, 0x02, 0x03, 0x04];
@@ -57,7 +103,7 @@ public sealed class PivCardIdentityTests
     public void TryRead_prefers_subject_over_san_email()
     {
         using var card = FakePivCard.CreateRsa2048(
-            slot: PivApdu.SlotAuthentication,
+            slot: FakePivCard.SlotAuthentication,
             subject: "CN=Jane Doe",
             emailSan: "jane.doe@agency.gov");
 
@@ -70,7 +116,7 @@ public sealed class PivCardIdentityTests
     public void TryRead_uses_san_email_when_subject_is_hex_id()
     {
         using var card = FakePivCard.CreateRsa2048(
-            slot: PivApdu.SlotSignature,
+            slot: FakePivCard.SlotSignature,
             subject: "CN=AABBCCDD",
             emailSan: "operator@bench.example");
 
@@ -83,7 +129,7 @@ public sealed class PivCardIdentityTests
     public void TryRead_keeps_cac_style_subject()
     {
         using var card = FakePivCard.CreateRsa2048(
-            slot: PivApdu.SlotAuthentication,
+            slot: FakePivCard.SlotAuthentication,
             subject: "CN=SMITH.JANE.Q.1234567890");
 
         var (_, name) = PivCardIdentity.TryRead(card);
@@ -95,7 +141,7 @@ public sealed class PivCardIdentityTests
     public void TryRead_uses_printed_name_when_certificates_are_generic()
     {
         using var card = FakePivCard.CreateRsa2048(
-            slot: PivApdu.SlotCardAuth,
+            slot: FakePivCard.SlotCardAuth,
             subject: "CN=Card Authentication");
         card.PrintedInformation = PivApdu.Concat(
             PivApdu.EncodeTlv(PivApdu.PrintedNameTag, "DOE, JANE"u8.ToArray()),
@@ -109,7 +155,7 @@ public sealed class PivCardIdentityTests
     [Fact]
     public void TryRead_does_not_treat_printed_agency_serial_as_name()
     {
-        using var card = FakePivCard.CreateRsa2048(slot: PivApdu.SlotCardAuth);
+        using var card = FakePivCard.CreateRsa2048(slot: FakePivCard.SlotCardAuth);
         card.OmitCertificate = true;
         card.PrintedInformation = PivApdu.EncodeTlv(0x05, "AGENCY-9999"u8.ToArray());
         card.Uid = [0xDE, 0xAD, 0xBE, 0xEF];
@@ -124,7 +170,7 @@ public sealed class PivCardIdentityTests
     public void TryRead_uses_dod_upn_without_dotted_host()
     {
         using var card = FakePivCard.CreateRsa2048(
-            slot: PivApdu.SlotAuthentication,
+            slot: FakePivCard.SlotAuthentication,
             subject: "CN=Card Authentication",
             upnSan: "1234567890@mil");
 
@@ -137,7 +183,7 @@ public sealed class PivCardIdentityTests
     public void TryRead_uses_upn_when_subject_is_generic_and_rfc822_is_absent()
     {
         using var card = FakePivCard.CreateRsa2048(
-            slot: PivApdu.SlotAuthentication,
+            slot: FakePivCard.SlotAuthentication,
             subject: "CN=PIV Authentication",
             upnSan: "jane.doe@agency.gov");
 
@@ -150,10 +196,10 @@ public sealed class PivCardIdentityTests
     public void TryRead_prefers_piv_auth_subject_over_card_auth()
     {
         using var auth = FakePivCard.CreateRsa2048(
-            slot: PivApdu.SlotAuthentication,
+            slot: FakePivCard.SlotAuthentication,
             subject: "CN=Jane Doe");
         using var cardAuth = FakePivCard.CreateRsa2048(
-            slot: PivApdu.SlotCardAuth,
+            slot: FakePivCard.SlotCardAuth,
             subject: "CN=Other Person");
         using var card = new CompositePivCard(cardAuth, auth);
 
@@ -166,11 +212,11 @@ public sealed class PivCardIdentityTests
     public void TryRead_prefers_person_name_on_later_slot_over_digit_upn()
     {
         using var auth = FakePivCard.CreateRsa2048(
-            slot: PivApdu.SlotAuthentication,
+            slot: FakePivCard.SlotAuthentication,
             subject: "CN=Card Authentication",
             upnSan: "1234567890@mil");
         using var signature = FakePivCard.CreateRsa2048(
-            slot: PivApdu.SlotSignature,
+            slot: FakePivCard.SlotSignature,
             subject: "CN=Jane Doe");
         using var card = new CompositePivCard(auth, signature);
 
@@ -183,10 +229,10 @@ public sealed class PivCardIdentityTests
     public void TryRead_uses_key_management_subject_when_auth_is_generic()
     {
         using var auth = FakePivCard.CreateRsa2048(
-            slot: PivApdu.SlotAuthentication,
+            slot: FakePivCard.SlotAuthentication,
             subject: "CN=PIV Authentication");
         using var key = FakePivCard.CreateRsa2048(
-            slot: PivApdu.SlotKeyManagement,
+            slot: FakePivCard.SlotKeyManagement,
             subject: "CN=Jane Doe");
         using var card = new CompositePivCard(auth, key);
 
@@ -199,7 +245,7 @@ public sealed class PivCardIdentityTests
     public void TryRead_prefers_printed_name_over_digit_upn()
     {
         using var card = FakePivCard.CreateRsa2048(
-            slot: PivApdu.SlotAuthentication,
+            slot: FakePivCard.SlotAuthentication,
             subject: "CN=Card Authentication",
             upnSan: "1234567890@mil");
         card.PrintedInformation = PivApdu.EncodeTlv(PivApdu.PrintedNameTag, "DOE, JANE"u8.ToArray());
@@ -213,7 +259,7 @@ public sealed class PivCardIdentityTests
     public void TryRead_uses_given_name_and_surname_when_cn_is_generic()
     {
         using var card = FakePivCard.CreateRsa2048(
-            slot: PivApdu.SlotAuthentication,
+            slot: FakePivCard.SlotAuthentication,
             subject: "G=Jane, SN=Doe, CN=Card Authentication");
 
         var (_, name) = PivCardIdentity.TryRead(card);
@@ -225,7 +271,7 @@ public sealed class PivCardIdentityTests
     public void TryRead_unwraps_gzip_certificate_object()
     {
         using var card = FakePivCard.CreateRsa2048(
-            slot: PivApdu.SlotAuthentication,
+            slot: FakePivCard.SlotAuthentication,
             subject: "CN=Jane Doe");
         card.GzipCertificate = true;
 
@@ -238,7 +284,7 @@ public sealed class PivCardIdentityTests
     public void TryRead_retries_certificate_reads_after_transient_failures()
     {
         using var card = FakePivCard.CreateRsa2048(
-            slot: PivApdu.SlotAuthentication,
+            slot: FakePivCard.SlotAuthentication,
             subject: "CN=Jane Doe");
         card.Uid = [0xAA, 0xBB, 0xCC, 0xDD];
         card.RemainingCertificateFailures = 2;

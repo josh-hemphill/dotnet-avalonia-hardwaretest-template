@@ -170,7 +170,7 @@ public sealed class AuthoringCliOpenTapTests
             error);
         Assert.Equal(0, code);
         Assert.True(string.IsNullOrWhiteSpace(error.ToString()), error.ToString());
-        Assert.Contains("TUI compatibility ok", output.ToString(), StringComparison.Ordinal);
+        Assert.Contains("Plugin catalog and in-process load/save compatibility ok", output.ToString(), StringComparison.Ordinal);
     }
 
     [Fact]
@@ -208,7 +208,7 @@ public sealed class AuthoringCliOpenTapTests
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
         while (dir is not null)
         {
-            if (dir.EnumerateFiles("HardwareTest.slnx").Any())
+            if (dir.EnumerateFiles("dirs.proj").Any())
             {
                 return dir.FullName;
             }
@@ -217,6 +217,6 @@ public sealed class AuthoringCliOpenTapTests
         }
 
         throw new InvalidOperationException(
-            $"Could not locate HardwareTest.slnx above '{AppContext.BaseDirectory}'.");
+            $"Could not locate dirs.proj above '{AppContext.BaseDirectory}'.");
     }
 }

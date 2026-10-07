@@ -5,7 +5,7 @@ using PCSC.Exceptions;
 namespace HardwareTest.Core.Credentials;
 
 /// <summary>PC/SC contact and contactless credential capture backed by pcsc-sharp.</summary>
-public sealed class PcscOperatorCredentialBroker : IOperatorCredentialBroker
+public sealed class PcscOperatorCredentialBroker : IOperatorCredentialPresenceBroker
 {
     private readonly IClock _clock;
     private readonly TimeSpan _pollInterval;
@@ -16,10 +16,6 @@ public sealed class PcscOperatorCredentialBroker : IOperatorCredentialBroker
         _pollInterval = pollInterval ?? TimeSpan.FromMilliseconds(250);
     }
 
-    public bool IsMock => false;
-    public bool CanSign => true;
-    public bool ProducesCms => true;
-    public string? SigningAlgorithm => AttestationAlgorithm.PivRsaPkcs1Sha256;
     public string StatusText { get; private set; } = "PC/SC not queried yet.";
 
     public async Task<CredentialCaptureResult> WaitForPresenceAsync(
@@ -64,117 +60,6 @@ public sealed class PcscOperatorCredentialBroker : IOperatorCredentialBroker
 
             StatusText = "No chip or tap detected before timeout.";
             return new CredentialCaptureResult { Error = StatusText };
-        }
-        finally
-        {
-            DisposeBestEffort(context);
-        }
-    }
-
-    public Task<CredentialSignResult> TrySignPayloadAsync(
-        byte[] payload,
-        OperatorCredential credential,
-        string? pin = null,
-        CancellationToken cancellationToken = default)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        if (payload.Length == 0)
-        {
-            return Task.FromResult(CredentialSignResult.Failed("Nothing to sign."));
-        }
-
-        return Task.FromResult(WithPresentedCard(
-            credential,
-            (channel, serial, printedName) => CredentialSignBinding.SignMatching(
-                channel,
-                payload,
-                pin,
-                credential,
-                serial,
-                printedName)));
-    }
-
-    public Task<CredentialSignResult> TrySignDocumentAsync(
-        byte[] document,
-        OperatorCredential credential,
-        string? pin = null,
-        DateTimeOffset? signingTime = null,
-        CancellationToken cancellationToken = default)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        if (document.Length == 0)
-        {
-            return Task.FromResult(CredentialSignResult.Failed("Nothing to sign."));
-        }
-
-        return Task.FromResult(WithPresentedCard(
-            credential,
-            (channel, serial, printedName) => CredentialSignBinding.SignDocumentMatching(
-                channel,
-                document,
-                pin,
-                credential,
-                serial,
-                printedName,
-                signingTime ?? _clock.UtcNow)));
-    }
-
-    private CredentialSignResult WithPresentedCard(
-        OperatorCredential credential,
-        Func<IApduChannel, string?, string?, CredentialSignResult> sign)
-    {
-        if (!TryEstablishContext(out var context, out var contextError))
-        {
-            return CredentialSignResult.Failed(contextError);
-        }
-
-        try
-        {
-            var readers = GetReaders(context);
-            var ordered = string.IsNullOrWhiteSpace(credential.ReaderName)
-                ? readers
-                : readers.OrderBy(reader =>
-                    string.Equals(reader, credential.ReaderName, StringComparison.Ordinal) ? 0 : 1).ToArray();
-            CredentialSignResult? last = null;
-            var sawMatchingSerial = false;
-            foreach (var readerName in ordered)
-            {
-                var reader = TryConnect(context, readerName);
-                if (reader is null)
-                {
-                    continue;
-                }
-
-                try
-                {
-                    var channel = new PcscApduChannel(reader);
-                    var (serial, printedName) = ReadIdentity(channel, reader);
-                    if (!CredentialSignBinding.SerialsMatch(credential.Serial, serial))
-                    {
-                        continue;
-                    }
-
-                    sawMatchingSerial = true;
-                    var result = sign(channel, serial, printedName);
-                    if (result.Succeeded || result.PinRequired || result.PinRetriesRemaining is not null)
-                    {
-                        StatusText = result.Succeeded
-                            ? $"Signed with {result.Credential?.DisplayName ?? credential.DisplayName}."
-                            : (result.Error ?? StatusText);
-                        return result;
-                    }
-
-                    last = result;
-                }
-                finally
-                {
-                    DisposeBestEffort(reader);
-                }
-            }
-
-            return sawMatchingSerial
-                ? last ?? CredentialSignResult.Failed(CredentialSignBinding.SameBadgeRequired)
-                : CredentialSignResult.Failed(CredentialSignBinding.SameBadgeRequired);
         }
         finally
         {

@@ -15,7 +15,13 @@ export async function run(
     stdout: "inherit",
     stderr: "inherit",
   });
+  const started = performance.now();
   const status = await proc.output();
+  console.log(
+    `duration=${
+      ((performance.now() - started) / 1000).toFixed(1)
+    }s exit=${status.code} command=${cmd.join(" ")}`,
+  );
   if (!status.success) {
     throw new Error(`Command failed (exit ${status.code}): ${cmd.join(" ")}`);
   }

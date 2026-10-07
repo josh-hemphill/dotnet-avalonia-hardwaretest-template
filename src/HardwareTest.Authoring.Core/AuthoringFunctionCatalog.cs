@@ -7,6 +7,7 @@ namespace HardwareTest.Authoring;
 public static class AuthoringFunctionIds
 {
     public const string BasicAcquireVoltage = "Basic.AcquireVoltage";
+    public const string BasicChannelAverage = "Basic.ChannelAverage";
     public const string BasicMeanGte = "Basic.MeanGte";
     public const string BasicPublishBandScalar = "Basic.PublishBandScalar";
     public const string BasicBitSweepAcquire = "Basic.BitSweepAcquire";
@@ -35,19 +36,28 @@ public static class AuthoringFunctionCatalog
     private static readonly AuthoringFunctionSpec[] Specs =
     [
         new(AuthoringFunctionIds.BasicAcquireVoltage, "HardwareTest Basic", nameof(AcquireVoltageStep), true, false),
+        new(AuthoringFunctionIds.BasicChannelAverage, "HardwareTest Basic", nameof(ChannelAverageStep), false, true),
         new(AuthoringFunctionIds.BasicMeanGte, "HardwareTest Basic", nameof(MeanGteStep), true, true),
         new(AuthoringFunctionIds.BasicPublishBandScalar, "HardwareTest Basic", nameof(PublishBandScalarStep), false, true),
         new(AuthoringFunctionIds.BasicBitSweepAcquire, "HardwareTest Basic", nameof(BitSweepAcquireStep), true, false),
         new(AuthoringFunctionIds.BasicPublishTimedSample, "HardwareTest Basic", nameof(PublishTimedSampleStep), false, false),
         new(AuthoringFunctionIds.BasicPublishSeriesCompliance, "HardwareTest Basic", nameof(PublishSeriesComplianceStep), false, true),
         new(AuthoringFunctionIds.BasicApplyTransferFunction, "HardwareTest Basic", nameof(ApplyTransferFunctionStep), false, true),
-        new(AuthoringFunctionIds.BasicIdentityCheck, "HardwareTest Basic", nameof(IdentityCheckStep), false, false),
+        new(AuthoringFunctionIds.BasicIdentityCheck, "HardwareTest Basic", nameof(IdentityCheckStep), true, false),
         new(AuthoringFunctionIds.BasicReportStationHealth, "HardwareTest Basic", nameof(ReportStationHealthStep), false, false),
         new(AuthoringFunctionIds.IcIdentityQuery, "InstrumentComponents.OpenTap", "IdentityQueryStep", true, false),
         new(AuthoringFunctionIds.IcSafeShutdown, "InstrumentComponents.OpenTap", "SafeShutdownStep", true, false),
     ];
 
     public static IReadOnlyList<AuthoringFunctionSpec> All { get; } = Specs;
+
+    public static bool ConsumesInputChannels(string functionId) => functionId == AuthoringFunctionIds.BasicChannelAverage;
+
+    public static string? InputChannelIssue(string functionId, IReadOnlyList<string> channels)
+        => ConsumesInputChannels(functionId) && (channels.Count != 1 || string.IsNullOrWhiteSpace(channels[0]))
+            ? "Channel Average requires exactly one non-empty input channel." : null;
+
+    public static bool HasInstrumentDependency(string functionId) => !TryGet(functionId, out var spec) || spec.NeedsInstrument;
 
     public static bool TryGet(string id, out AuthoringFunctionSpec spec)
     {
@@ -100,6 +110,7 @@ public static class AuthoringFunctionCatalog
         ITestStep? created = spec.Id switch
         {
             AuthoringFunctionIds.BasicAcquireVoltage => new AcquireVoltageStep(),
+            AuthoringFunctionIds.BasicChannelAverage => new ChannelAverageStep(),
             AuthoringFunctionIds.BasicMeanGte => new MeanGteStep(),
             AuthoringFunctionIds.BasicPublishBandScalar => new PublishBandScalarStep(),
             AuthoringFunctionIds.BasicBitSweepAcquire => new BitSweepAcquireStep(),

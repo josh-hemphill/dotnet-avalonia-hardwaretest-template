@@ -1,20 +1,14 @@
-using Serilog;
+using System.Text.Json;
 
 namespace HardwareTest.Core.Serialization;
 
 public enum DocumentSchemaKind
 {
-    /// Stored version matches the app's current schema.
     Current = 0,
-    /// Absent or 0 — pre-versioning document.
-    Legacy = 1,
-    /// Stored &lt; current; upgrade steps apply (may be identity).
-    UpgradeNeeded = 2,
-    /// Stored &gt; current — load read-only; never overwrite.
-    FutureReadOnly = 3,
+    Unsupported = 1,
+    FutureReadOnly = 2,
 }
 
-/// Result of evaluating a document's SchemaVersion against the app's current version.
 public sealed class DocumentSchemaStatus
 {
     public required string DocumentType { get; init; }
@@ -22,112 +16,100 @@ public sealed class DocumentSchemaStatus
     public required int CurrentVersion { get; init; }
     public required DocumentSchemaKind Kind { get; init; }
     public string? WriterAppVersion { get; init; }
-
-    public bool IsLegacy => Kind == DocumentSchemaKind.Legacy;
     public bool IsReadOnly => Kind == DocumentSchemaKind.FutureReadOnly;
 
     public string FormatOperatorWarning()
     {
-        if (Kind != DocumentSchemaKind.FutureReadOnly)
+        if (Kind == DocumentSchemaKind.Unsupported)
         {
-            return string.Empty;
+            return $"Unsupported {DocumentType} schema {StoredVersion}; this app requires schema {CurrentVersion}. "
+                   + "Use a current document. The original file has been preserved.";
         }
 
+        if (!IsReadOnly) return string.Empty;
         var writer = string.IsNullOrWhiteSpace(WriterAppVersion) ? "unknown" : WriterAppVersion;
         return $"Read-only: {DocumentType} schema {StoredVersion} is newer than this app ({CurrentVersion}). "
                + $"Written by app version {writer}. Do not overwrite.";
     }
 }
 
-/// Shared read-path gate for settings and run stores.
+/// Checks the persisted header before model defaults can hide a missing version.
 public static class DocumentSchemaGate
 {
-    public static DocumentSchemaStatus Evaluate(
-        string documentType,
-        int storedVersion,
-        int currentVersion,
-        string? writerAppVersion = null)
-    {
-        DocumentSchemaKind kind;
-        if (storedVersion <= 0)
-        {
-            kind = DocumentSchemaKind.Legacy;
-        }
-        else if (storedVersion == currentVersion)
-        {
-            kind = DocumentSchemaKind.Current;
-        }
-        else if (storedVersion < currentVersion)
-        {
-            kind = DocumentSchemaKind.UpgradeNeeded;
-        }
-        else
-        {
-            kind = DocumentSchemaKind.FutureReadOnly;
-        }
-
-        return new DocumentSchemaStatus
+    public static DocumentSchemaStatus Evaluate(string documentType, int storedVersion, int currentVersion, string? writerAppVersion = null)
+        => new()
         {
             DocumentType = documentType,
             StoredVersion = storedVersion,
             CurrentVersion = currentVersion,
-            Kind = kind,
+            Kind = storedVersion == currentVersion ? DocumentSchemaKind.Current
+                : storedVersion > currentVersion ? DocumentSchemaKind.FutureReadOnly : DocumentSchemaKind.Unsupported,
             WriterAppVersion = writerAppVersion,
         };
+
+    public static DocumentSchemaStatus ReadHeader(ReadOnlyMemory<byte> json, string documentType, int currentVersion, string? path = null)
+    {
+        using var document = JsonDocument.Parse(json);
+        var status = ReadElementHeader(document.RootElement, documentType, currentVersion, path);
+        if (documentType == SchemaDocumentTypes.SuiteRunRecord
+            && document.RootElement.TryGetProperty("planRuns", out var children))
+        {
+            if (children.ValueKind != JsonValueKind.Array) throw new JsonException("planRuns must be an array.");
+            foreach (var child in children.EnumerateArray())
+                ReadElementHeader(child, SchemaDocumentTypes.TestRunRecord, SchemaVersions.TestRunRecord, path);
+        }
+        return status;
     }
 
-    /// Applies upgrade steps when needed; logs once for legacy / upgrade / future.
-    public static DocumentSchemaStatus Apply(
-        string documentType,
-        int storedVersion,
-        int currentVersion,
-        string? path = null,
-        string? writerAppVersion = null,
-        object? document = null)
+    private static DocumentSchemaStatus ReadElementHeader(JsonElement root, string documentType, int currentVersion, string? path)
     {
-        var status = Evaluate(documentType, storedVersion, currentVersion, writerAppVersion);
-        var location = string.IsNullOrWhiteSpace(path) ? documentType : path;
-
-        switch (status.Kind)
-        {
-            case DocumentSchemaKind.Legacy:
-                Log.Information(
-                    "Loaded legacy {DocumentType} (no SchemaVersion) from {Path}",
-                    documentType,
-                    location);
-                break;
-            case DocumentSchemaKind.UpgradeNeeded:
-                SchemaUpgradeRegistry.Apply(documentType, storedVersion, currentVersion, document);
-                Log.Information(
-                    "Upgraded {DocumentType} schema {From} → {To} (identity or registered steps) from {Path}",
-                    documentType,
-                    storedVersion,
-                    currentVersion,
-                    location);
-                break;
-            case DocumentSchemaKind.FutureReadOnly:
-                Log.Warning(
-                    "Loaded future {DocumentType} schema {Stored} (app supports {Current}) from {Path}; read-only. WriterAppVersion={Writer}",
-                    documentType,
-                    storedVersion,
-                    currentVersion,
-                    location,
-                    writerAppVersion ?? "unknown");
-                break;
-        }
-
+        if (root.ValueKind != JsonValueKind.Object) throw new JsonException($"{documentType} must be a JSON object.");
+        var version = 0;
+        if (root.TryGetProperty("schemaVersion", out var header)
+            && (header.ValueKind != JsonValueKind.Number || !header.TryGetInt32(out version)))
+            throw new JsonException($"{documentType} schemaVersion must be an integer.");
+        var writer = root.TryGetProperty("appVersion", out var appVersion) && appVersion.ValueKind == JsonValueKind.String
+            ? appVersion.GetString() : null;
+        var status = Evaluate(documentType, version, currentVersion, writer);
+        if (status.Kind == DocumentSchemaKind.Unsupported) throw new UnsupportedDocumentSchemaException(status, path);
         return status;
+    }
+
+    public static void RequireWritable(string documentType, int storedVersion, int currentVersion, string? path = null, string? writerAppVersion = null)
+    {
+        RequireCurrent(Evaluate(documentType, storedVersion, currentVersion, writerAppVersion), path);
+        if (path is null) return;
+        var destination = File.Exists(path) ? path : path + ".bak";
+        if (File.Exists(destination))
+            RequireCurrentHeader(File.ReadAllBytes(destination), documentType, currentVersion, destination);
+    }
+
+    public static void RequireCurrentHeader(ReadOnlyMemory<byte> json, string documentType, int currentVersion, string? path = null)
+    {
+        RequireCurrent(ReadHeader(json, documentType, currentVersion, path), path);
+        if (documentType != SchemaDocumentTypes.SuiteRunRecord) return;
+        using var document = JsonDocument.Parse(json);
+        if (!document.RootElement.TryGetProperty("planRuns", out var children)) return;
+        foreach (var child in children.EnumerateArray())
+            RequireCurrent(ReadElementHeader(child, SchemaDocumentTypes.TestRunRecord, SchemaVersions.TestRunRecord, path), path);
+    }
+
+    private static void RequireCurrent(DocumentSchemaStatus status, string? path)
+    {
+        if (status.Kind == DocumentSchemaKind.Unsupported) throw new UnsupportedDocumentSchemaException(status, path);
+        if (status.IsReadOnly) throw new SchemaReadOnlyException(status);
     }
 }
 
-/// Thrown when a write would overwrite a newer-schema document.
+public sealed class UnsupportedDocumentSchemaException : InvalidOperationException
+{
+    public UnsupportedDocumentSchemaException(DocumentSchemaStatus status, string? path = null)
+        : base(status.FormatOperatorWarning() + (path is null ? string.Empty : $" File: {path}")) => Status = status;
+    public DocumentSchemaStatus Status { get; }
+}
+
 public sealed class SchemaReadOnlyException : InvalidOperationException
 {
-    public SchemaReadOnlyException(DocumentSchemaStatus status)
-        : base(status.FormatOperatorWarning())
-    {
-        Status = status;
-    }
-
+    public SchemaReadOnlyException(DocumentSchemaStatus status) : base(status.FormatOperatorWarning()) => Status = status;
     public DocumentSchemaStatus Status { get; }
 }

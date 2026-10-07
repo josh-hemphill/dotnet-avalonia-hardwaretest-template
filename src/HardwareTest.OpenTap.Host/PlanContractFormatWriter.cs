@@ -103,6 +103,12 @@ internal static class PlanContractFormatWriter
                     writer.WriteEndObject();
                     writer.WriteEndObject();
                     writer.WriteEndArray();
+                    if (finding.Target is not null)
+                    {
+                        writer.WriteStartObject("properties");
+                        WriteTarget(writer, finding.Target);
+                        writer.WriteEndObject();
+                    }
                     writer.WriteEndObject();
                 }
             }
@@ -127,6 +133,18 @@ internal static class PlanContractFormatWriter
             writer.WriteString("path", finding.Path);
         }
 
+        if (finding.Target is not null) WriteTarget(writer, finding.Target);
+        writer.WriteEndObject();
+    }
+
+    private static void WriteTarget(Utf8JsonWriter writer, PlanContractTarget target)
+    {
+        writer.WriteStartObject("target");
+        if (target.ProgramId is not null) writer.WriteString("programId", target.ProgramId);
+        if (target.NodeId is { } node) writer.WriteString("nodeId", node);
+        if (target.CompiledStepId is { } step) writer.WriteString("compiledStepId", step);
+        if (target.Section is not null) writer.WriteString("section", target.Section);
+        if (target.Field is not null) writer.WriteString("field", target.Field);
         writer.WriteEndObject();
     }
 

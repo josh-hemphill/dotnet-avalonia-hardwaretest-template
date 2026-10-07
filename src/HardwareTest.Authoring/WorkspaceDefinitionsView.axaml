@@ -1,0 +1,124 @@
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:vm="using:HardwareTest.Authoring" x:Class="HardwareTest.Authoring.WorkspaceDefinitionsView" x:DataType="vm:AuthoringWorkspaceViewModel">
+  <StackPanel Spacing="20" Classes="routeBody">
+    <TextBlock Text="Workspace definitions" FontWeight="SemiBold" AutomationProperties.HeadingLevel="2" Classes="routeTitle"/>
+    <TextBlock Text="Workspace definitions are independent of program membership. Hardware definitions are templates: including one copies its binding into the selected program. Existing program bindings change only through Hardware review." TextWrapping="Wrap"/>
+    <Border Classes="surface taskSection">
+      <StackPanel Spacing="12">
+        <TextBlock Text="Required DUT field catalog" Classes="sectionTitle" TextWrapping="Wrap" AutomationProperties.HeadingLevel="3"/>
+        <TextBlock Text="Workspace definitions. Select a program’s required-field membership in Hardware settings." Classes="purpose" TextWrapping="Wrap"/>
+        <ItemsControl ItemsSource="{Binding RequiredFieldChoices}" AutomationProperties.Name="Workspace Required DUT fields">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:AuthoringCatalogToggle">
+              <StackPanel Orientation="Vertical" Spacing="8">
+                <TextBlock Text="{Binding Id}" TextWrapping="Wrap" FontWeight="SemiBold"/>
+                <Button Classes="authoringAction" Content="Remove from workspace" IsVisible="{Binding CanRemove}" Click="OnRemoveRequiredField" AutomationProperties.Name="{Binding Id, StringFormat='Remove required field {0} from workspace'}"/>
+              </StackPanel>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+        <TextBlock x:Name="NewRequiredFieldLabel" Text="Add required field"/>
+        <TextBox Text="{Binding NewRequiredField}" PlaceholderText="fixtureId" AutomationProperties.Name="New required field" AutomationProperties.LabeledBy="{Binding #NewRequiredFieldLabel}"/>
+        <Button Classes="authoringAction" Content="Add required field" Click="OnAddRequiredField" ToolTip.Tip="Adds a workspace definition only. Select program membership separately. Save All to persist." AutomationProperties.Name="Add required field"/>
+      </StackPanel>
+    </Border>
+    <Border Classes="surface taskSection">
+      <StackPanel Spacing="12">
+        <TextBlock Text="Report kind catalog" Classes="sectionTitle" TextWrapping="Wrap" AutomationProperties.HeadingLevel="3"/>
+        <ItemsControl ItemsSource="{Binding ReportKindChoices}" AutomationProperties.Name="Workspace Report kinds">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:AuthoringCatalogToggle">
+              <StackPanel Orientation="Vertical" Spacing="8">
+                <TextBlock Text="{Binding Id}" TextWrapping="Wrap" FontWeight="SemiBold"/>
+                <Button Classes="authoringAction" Content="Remove from workspace" IsVisible="{Binding CanRemove}" Click="OnRemoveReportKind" AutomationProperties.Name="{Binding Id, StringFormat='Remove report kind {0} from workspace'}"/>
+              </StackPanel>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+        <TextBlock x:Name="NewReportKindLabel" Text="Add report kind"/>
+        <TextBox Text="{Binding NewReportKind}" PlaceholderText="traceability" AutomationProperties.Name="New report kind" AutomationProperties.LabeledBy="{Binding #NewReportKindLabel}"/>
+        <Button Classes="authoringAction" Content="Add report kind" Click="OnAddReportKind" ToolTip.Tip="Adds a workspace definition only. Select program membership separately. Save All to persist." AutomationProperties.Name="Add report kind"/>
+      </StackPanel>
+    </Border>
+    <Border Classes="surface taskSection">
+      <StackPanel Spacing="12">
+        <TextBlock Text="Program kind catalog" Classes="sectionTitle" TextWrapping="Wrap" AutomationProperties.HeadingLevel="3"/>
+        <ItemsControl ItemsSource="{Binding ProgramKindChoices}" AutomationProperties.Name="Workspace Program kinds">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:AuthoringCatalogToggle">
+              <StackPanel Orientation="Vertical" Spacing="8">
+                <TextBlock Text="{Binding Id}" TextWrapping="Wrap" FontWeight="SemiBold"/>
+                <Button Classes="authoringAction" Content="Remove from workspace" IsVisible="{Binding CanRemove}" Click="OnRemoveProgramKind" AutomationProperties.Name="{Binding Id, StringFormat='Remove program kind {0} from workspace'}"/>
+              </StackPanel>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+        <TextBlock x:Name="NewProgramKindLabel" Text="Add program kind"/>
+        <TextBox Text="{Binding NewProgramKind}" PlaceholderText="incomingInspect" AutomationProperties.Name="New program kind" AutomationProperties.LabeledBy="{Binding #NewProgramKindLabel}"/>
+        <Button Classes="authoringAction" Content="Add program kind" Click="OnAddProgramKind" ToolTip.Tip="Adds a workspace definition only. Select program membership separately. Save All to persist." AutomationProperties.Name="Add program kind"/>
+      </StackPanel>
+    </Border>
+    <Border Classes="surface taskSection">
+      <StackPanel Spacing="12">
+        <TextBlock Text="Hardware template catalog" Classes="sectionTitle" TextWrapping="Wrap" AutomationProperties.HeadingLevel="3"/>
+        <vm:ResponsiveTaskGrid>
+          <StackPanel Spacing="12">
+            <ListBox ItemsSource="{Binding HardwareDefinitions}" SelectedItem="{Binding SelectedHardwareDefinition}" KeyboardNavigation.TabNavigation="Once" AutomationProperties.Name="Workspace hardware definitions" Classes="authoringList" MinHeight="100" MaxHeight="220">
+              <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="vm:AuthoringHardwareDefinition">
+                  <StackPanel Spacing="2">
+                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold"/>
+                    <TextBlock Text="{Binding TypeId}" TextWrapping="Wrap"/>
+                    <TextBlock Text="{Binding Address}" TextWrapping="Wrap"/>
+                  </StackPanel>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+            <Button Content="Load workspace hardware definition" Click="OnLoadDefinition" AutomationProperties.Name="Load workspace hardware definition" Classes="authoringAction"/>
+          </StackPanel>
+          <StackPanel Spacing="12">
+            <Border Classes="surface taskSection">
+              <StackPanel Spacing="12">
+                <TextBlock Text="Selected definition configuration" Classes="sectionTitle" TextWrapping="Wrap" AutomationProperties.HeadingLevel="3"/>
+                <TextBlock x:Name="BindingTypeLabel" Text="Adapter type"/>
+                <ComboBox ItemsSource="{Binding InstrumentTypeChoices}" SelectedItem="{Binding HardwareEditType}" AutomationProperties.Name="Hardware adapter type" AutomationProperties.LabeledBy="{Binding #BindingTypeLabel}">
+                  <ComboBox.ItemTemplate>
+                    <DataTemplate x:DataType="vm:AuthoringInstrumentAdapter">
+                      <TextBlock Text="{Binding DisplayName}"/>
+                    </DataTemplate>
+                  </ComboBox.ItemTemplate>
+                </ComboBox>
+                <TextBlock x:Name="BindingAddressLabel" Text="Address"/>
+                <TextBox Text="{Binding HardwareEditAddress}" AutomationProperties.Name="Hardware adapter address" AutomationProperties.LabeledBy="{Binding #BindingAddressLabel}"/>
+                <TextBlock x:Name="BindingTimeoutLabel" Text="{Binding HardwareEditType, Converter={x:Static vm:InstrumentTimeoutLabelConverter.Instance}}" TextWrapping="Wrap"/>
+                <TextBox Text="{Binding HardwareEditTimeout}" AutomationProperties.Name="Hardware adapter timeout" AutomationProperties.LabeledBy="{Binding #BindingTimeoutLabel}"/>
+                <Button Content="Update workspace hardware definition" Click="OnUpdateDefinition" AutomationProperties.Name="Update workspace hardware definition" Classes="authoringAction primaryAction"/>
+              </StackPanel>
+            </Border>
+            <Border Classes="surface taskSection">
+              <StackPanel Spacing="12">
+                <TextBlock Text="Selected-program membership" Classes="sectionTitle" TextWrapping="Wrap" AutomationProperties.HeadingLevel="3"/>
+                <TextBlock Text="Including a definition copies its binding into the selected program. Existing bindings change only through Hardware review." Classes="purpose" TextWrapping="Wrap"/>
+                <Button Content="Include definition in selected program" Click="OnIncludeDefinition" AutomationProperties.Name="Include definition in selected program" Classes="authoringAction primaryAction"/>
+              </StackPanel>
+            </Border>
+            <Border Classes="surface taskSection">
+              <StackPanel Spacing="12">
+                <TextBlock Text="Workspace removal" Classes="sectionTitle" TextWrapping="Wrap" AutomationProperties.HeadingLevel="3"/>
+                <TextBlock Text="Review affected programs before removing a workspace template." Classes="purpose" TextWrapping="Wrap"/>
+                <Button Content="Review definition removal" Click="OnRemoveDefinition" AutomationProperties.Name="Review definition removal" Classes="authoringAction"/>
+              </StackPanel>
+            </Border>
+          </StackPanel>
+        </vm:ResponsiveTaskGrid>
+      </StackPanel>
+    </Border>
+    <Border Classes="surface taskSection">
+      <StackPanel Spacing="12">
+        <TextBlock Text="New hardware definition" Classes="sectionTitle" TextWrapping="Wrap" AutomationProperties.HeadingLevel="3"/>
+        <TextBlock Text="New hardware definition name"/>
+        <TextBox Text="{Binding NewInstrumentSlot}" AutomationProperties.Name="New hardware definition name"/>
+        <Button Content="Add workspace hardware definition" Click="OnAddDefinition" AutomationProperties.Name="Add workspace hardware definition" Classes="authoringAction primaryAction"/>
+      </StackPanel>
+    </Border>
+  </StackPanel>
+</UserControl>

@@ -81,15 +81,6 @@ public partial class ResultsViewModel
 
                 files.AddRange(CollectExportReportFiles(run));
 
-                if (!string.IsNullOrWhiteSpace(run.ReportPdfPath)
-                    && File.Exists(run.ReportPdfPath)
-                    && !run.Reports.Any(r => ReportArtifactRoles.IsIssued(r.Role)
-                        && string.Equals(r.Kind, ReportAttestationService.KindForPdf(run, run.ReportPdfPath), StringComparison.OrdinalIgnoreCase))
-                    && files.All(f => !string.Equals(f.SourcePath, run.ReportPdfPath, StringComparison.OrdinalIgnoreCase)))
-                {
-                    files.Add((run.ReportPdfPath!, Path.GetFileName(run.ReportPdfPath)));
-                }
-
                 var csvDir = Path.Combine(runDir, "opentap-results");
                 if (Directory.Exists(csvDir))
                 {
@@ -101,7 +92,7 @@ public partial class ResultsViewModel
                 var diagnosticsPath = Path.Combine(Path.GetTempPath(), $"hwtest-diag-{run.RunId}.txt");
                 try
                 {
-                    File.WriteAllText(diagnosticsPath, BuildExportDiagnostics());
+                    File.WriteAllText(diagnosticsPath, BuildExportDiagnostics(run));
                     files.Add((diagnosticsPath, "diagnostics.txt"));
 
                     if (files.Count == 0)
@@ -131,8 +122,9 @@ public partial class ResultsViewModel
         }
     }
 
-    private string BuildExportDiagnostics()
+    private string BuildExportDiagnostics(TestRunRecord? requestedRun = null)
     {
+        var run = requestedRun ?? OpenedRun;
         var block = _buildInfo?.FormatSupportBlock() ?? "HardwareTest diagnostics";
         var catalog = ProgramCatalog.SelfCheck();
         var catalogBlock = catalog.Count == 0
@@ -141,11 +133,11 @@ public partial class ResultsViewModel
         return string.Join(
             Environment.NewLine,
             block,
-            $"RunId: {OpenedRun?.RunId}",
-            $"PlanId: {OpenedRun?.PlanId}",
-            $"Result: {OpenedRun?.Result}",
-            $"SchemaVersion: {OpenedRun?.StoredSchemaVersion}",
-            $"AppVersion: {OpenedRun?.AppVersion ?? "unknown"}",
+            $"RunId: {run?.RunId}",
+            $"PlanId: {run?.PlanId}",
+            $"Result: {run?.Result}",
+            $"SchemaVersion: {run?.StoredSchemaVersion}",
+            $"AppVersion: {run?.AppVersion ?? "unknown"}",
             catalogBlock);
     }
 
@@ -168,7 +160,7 @@ public partial class ResultsViewModel
     public static IEnumerable<(string SourcePath, string RelativeName)> CollectExportReportFiles(TestRunRecord run)
     {
         var files = new List<(string SourcePath, string RelativeName)>();
-        var destinations = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var destinations = new HashSet<string>(StringComparer.Ordinal);
         void Add(string? source, string destination)
         {
             if (!string.IsNullOrWhiteSpace(source) && File.Exists(source) && destinations.Add(destination))
@@ -188,12 +180,11 @@ public partial class ResultsViewModel
                 Add(working?.PdfPath, $"{kind}.pdf");
             foreach (var revision in group.Where(r => ReportArtifactRoles.IsIssued(r.Role)))
             {
-                var id = Uri.EscapeDataString(revision.RevisionId ?? "legacy");
+                var id = Uri.EscapeDataString(revision.RevisionId ?? Path.GetFileNameWithoutExtension(revision.PdfPath) ?? "unidentified");
                 var history = Path.Combine("history", kind, id);
                 Add(revision.PdfPath, Path.Combine(history, $"{kind}.pdf"));
                 Add(revision.RunSnapshotPath, Path.Combine(history, "run.snapshot.json"));
-                var stamp = run.Attestations.LastOrDefault(a => string.Equals(a.ReportKind, group.Key, StringComparison.OrdinalIgnoreCase)
-                    && a.RevisionId == revision.RevisionId);
+                var stamp = ReportAttestationService.FindForArtifact(run, revision);
                 Add(stamp?.SidecarPath, Path.Combine(history, $"{kind}.attestation.json"));
                 if (ReferenceEquals(revision, issued)) Add(stamp?.SidecarPath, $"{kind}.attestation.json");
             }

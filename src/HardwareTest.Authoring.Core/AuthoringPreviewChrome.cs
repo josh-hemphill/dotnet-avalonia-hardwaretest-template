@@ -131,7 +131,7 @@ public static class AuthoringPreviewChromeBuilder
     private static IReadOnlyList<MeasurementEventMark> ToMarks(IReadOnlyList<StoredEvent>? events)
         => events is null
             ? []
-            : events.Select(e => new MeasurementEventMark(e.Name, e.ElapsedMs, e.Label, e.Value, e.StepPath)).ToArray();
+            : events.Select(e => new MeasurementEventMark(e.Name, e.ElapsedMs, e.Label, e.Value, e.StepPath, e.ProducerStepId, e.StepRunId, e.LoopRunId, e.LoopPath, e.IterationIndex)).ToArray();
 
     private static IReadOnlyList<(double T0, double T1)> OutOfBandSpans(
         IReadOnlyList<double> xs,

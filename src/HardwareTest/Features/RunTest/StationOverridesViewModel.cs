@@ -61,6 +61,7 @@ public partial class StationOverridesViewModel : ReactiveObject
     public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> ApplyParametersCommand { get; }
 
     [Reactive] private bool _hasParameterFields;
+    [Reactive] private string? _debugSlotName;
     [Reactive] private string _debugResource = "MOCK::INSTR0";
     [Reactive] private int _debugSampleCount = 32;
     [Reactive] private int _debugIntervalMs = 5;
@@ -68,10 +69,21 @@ public partial class StationOverridesViewModel : ReactiveObject
     [Reactive] private bool _debugStepEnabled = true;
     [Reactive] private string _stationSlotSummary = "Station: (load program)";
 
+    public ObservableCollection<string> DebugSlotNames { get; } = [];
+
     public void RefreshStationSlotSummary()
-        => StationSlotSummary = _station.InstrumentSlots.Count == 0
+    {
+        var selectedSlot = DebugSlotName;
+        DebugSlotNames.Clear();
+        foreach (var slot in _station.InstrumentSlots)
+        {
+            DebugSlotNames.Add(slot.Name);
+        }
+        DebugSlotName = DebugSlotNames.FirstOrDefault(name => string.Equals(name, selectedSlot, StringComparison.OrdinalIgnoreCase));
+        StationSlotSummary = _station.InstrumentSlots.Count == 0
             ? "Station: (no OpenTAP instruments)"
             : "Station: " + string.Join(", ", _station.InstrumentSlots.Select(s => $"{s.Name}→{s.ResourceName}"));
+    }
 
     public void RefreshParameterFields()
     {
@@ -124,23 +136,22 @@ public partial class StationOverridesViewModel : ReactiveObject
         }
     }
 
-    /// Resolves the role/slot → resource map for this station, falling back to legacy bindings.
+    /// Resolves explicit per-plan slot resources for this station.
     public StationProfile BuildStationProfile()
     {
         var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         var planId = _getSelectedProgram()?.Id ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(planId))
+        {
+            return new StationProfile(map);
+        }
+
         foreach (var ov in _settings.PlanSlotOverrides.Where(o =>
-                     string.Equals(o.PlanId, planId, StringComparison.OrdinalIgnoreCase)
-                     || string.IsNullOrWhiteSpace(planId)))
+                     string.Equals(o.PlanId, planId, StringComparison.OrdinalIgnoreCase)))
         {
             if (string.IsNullOrWhiteSpace(ov.Resource))
             {
                 continue;
-            }
-
-            if (!string.IsNullOrWhiteSpace(ov.RoleHint))
-            {
-                map[ov.RoleHint] = ov.Resource;
             }
 
             if (!string.IsNullOrWhiteSpace(ov.SlotName))
@@ -149,30 +160,39 @@ public partial class StationOverridesViewModel : ReactiveObject
             }
         }
 
-        // Legacy fallback: station bindings → instrument registry resources.
-        if (map.Count == 0)
-        {
-            foreach (var b in _settings.StationBindings)
-            {
-                var instr = _settings.Instruments.FirstOrDefault(i =>
-                    string.Equals(i.Id, b.InstrumentId, StringComparison.OrdinalIgnoreCase));
-                if (instr is not null && !string.IsNullOrWhiteSpace(b.Role))
-                {
-                    map[b.Role] = instr.Resource;
-                }
-            }
-        }
-
         return new StationProfile(map);
     }
 
-    public void ApplyDebugPatch()
+    public void ApplyDebugPatch() => ApplyDebugPatchCore(preparingRun: false);
+
+    internal bool TryApplyDebugPatchForRunPreparation() => ApplyDebugPatchCore(preparingRun: true);
+
+    private bool ApplyDebugPatchCore(bool preparingRun)
     {
         var step = _getSelectedStep();
         if (!_isEngineerDebugMode() || step is null)
         {
             _setStatus("Select a step in Engineer/Debug mode.");
-            return;
+            return false;
+        }
+
+        if (_isRunning() && !preparingRun)
+        {
+            _setStatus("Stop the run before applying the debug overlay.");
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(DebugSlotName)
+            || !_station.InstrumentSlots.Any(slot => string.Equals(slot.Name, DebugSlotName, StringComparison.OrdinalIgnoreCase)))
+        {
+            _setStatus("Select an existing instrument slot beside Resource before applying the debug overlay.");
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(DebugResource) || !_station.TryBindSlotResource(DebugSlotName, DebugResource))
+        {
+            _setStatus("Enter a resource for the selected instrument slot before applying the debug overlay.");
+            return false;
         }
 
         ClampDebugKnobs();
@@ -180,9 +200,9 @@ public partial class StationOverridesViewModel : ReactiveObject
         step.Enabled = DebugStepEnabled;
         _station.TrySetAcquireSettings(step.Path, DebugSampleCount, DebugIntervalMs);
         _station.TrySetMeanGteThreshold(step.Path, DebugThreshold);
-        _station.TryRebindDmmResource(DebugResource);
         RefreshParameterFields();
         _setStatus($"Applied debug overlay to {step.Name} (not saved to golden plan).");
+        return true;
     }
 
     private async Task ApplyParametersAsync()

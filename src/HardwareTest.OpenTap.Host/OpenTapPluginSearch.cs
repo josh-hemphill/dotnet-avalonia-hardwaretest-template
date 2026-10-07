@@ -5,7 +5,7 @@ using OpenTap;
 
 namespace HardwareTest.OpenTap.Host;
 
-/// Registers Basic + Mixins plugin directories (Visa adapter optional) for PluginManager.Search.
+/// Registers Basic + Mixins plugin directories for PluginManager.Search.
 internal static class OpenTapPluginSearch
 {
     private static readonly object SearchGate = new();
@@ -14,40 +14,37 @@ internal static class OpenTapPluginSearch
     public static void SearchSerialized(
         IEnumerable<string>? extraDirectories = null,
         IVisaBroker? visaBroker = null,
-        bool includeVisaAdapter = true)
+        bool enablePhysicalExecution = false)
     {
         lock (SearchGate)
         {
-            if (includeVisaAdapter && visaBroker is not null)
+            var extras = extraDirectories?.ToArray() ?? [];
+            if (enablePhysicalExecution && visaBroker is not null)
             {
-                VisaBrokerHost.Register(visaBroker);
+                var executionDirectory = ExecutionInstrumentLibrary.EnsureLoaded(extras);
+                AddDirectory(executionDirectory);
             }
 
-            EnsureCorePluginDirectories(includeVisaAdapter);
+            EnsureCorePluginDirectories();
             if (extraDirectories is not null)
             {
-                foreach (var dir in extraDirectories)
+                foreach (var dir in extras)
                 {
                     AddDirectory(dir);
                 }
             }
 
             PluginManager.Search();
-            if (includeVisaAdapter && visaBroker is not null && !InstrumentComponentsScpiIo.TryRegisterProvider(visaBroker))
+            if (enablePhysicalExecution && visaBroker is not null && !InstrumentComponentsScpiIo.TryRegisterProvider(visaBroker))
             {
-                Serilog.Log.Debug(
-                    "InstrumentComponents.OpenTap is not loaded; SCPI provider was not registered. Product plans that use that pack need it on the plugin search path.");
+                throw new InvalidOperationException("Instrument Components broker provider could not be bound. Repair the selected execution library before running the plan.");
             }
         }
     }
 
-    private static void EnsureCorePluginDirectories(bool includeVisaAdapter)
+    private static void EnsureCorePluginDirectories()
     {
         AddAssemblyDirectory(typeof(MockDmmInstrument).Assembly.Location);
-        if (includeVisaAdapter)
-        {
-            AddVisaAdapterDirectory();
-        }
 
         AddAssemblyDirectory(typeof(AnnotationMixinBuilder).Assembly.Location);
 
@@ -61,9 +58,6 @@ internal static class OpenTapPluginSearch
         AddAssemblyDirectory(Path.Combine(openTapDir, "Packages", "OpenTAP", "OpenTap.Plugins.BasicSteps.dll"));
         AddDirectory(Path.Combine(openTapDir, "Packages", "OpenTAP"));
     }
-
-    private static void AddVisaAdapterDirectory()
-        => AddAssemblyDirectory(typeof(VisaDmmInstrument).Assembly.Location);
 
     private static void AddAssemblyDirectory(string? assemblyLocation)
     {

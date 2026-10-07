@@ -47,6 +47,12 @@ public sealed class OpenTapProgressFrameDto
             ? null
             : new StoredSample
             {
+                ProducerStepId = p.Sample.ProducerStepId,
+                StepRunId = p.Sample.StepRunId,
+                LoopRunId = p.Sample.LoopRunId,
+                StepPath = p.Sample.StepPath ?? string.Empty,
+                LoopPath = p.Sample.LoopPath,
+                IterationIndex = p.Sample.IterationIndex,
                 Channel = p.Sample.Channel,
                 Timestamp = p.Sample.Timestamp,
                 Value = p.Sample.Value,

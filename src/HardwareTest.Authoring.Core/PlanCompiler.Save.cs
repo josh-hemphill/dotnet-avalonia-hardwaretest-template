@@ -8,9 +8,11 @@ namespace HardwareTest.Authoring;
 
 public sealed partial class PlanCompiler
 {
-    private static TestPlan BuildPlan(ProgramDraft draft)
+    private TestPlan BuildPlan(ProgramDraft draft, OpenTapHome? libraryHome)
     {
-        var instruments = CreateInstruments(draft.Instruments);
+        var instruments = CreateInstruments(draft.Instruments, libraryHome);
+        if (AuthoringLibraryLifecycle.OpaqueLifecycleNodes(draft.Measure).Any())
+            throw new AuthoringWorkspaceException(AuthoringLibraryLifecycle.ReimportMessage);
         var dut = new HardwareDut
         {
             Name = "DUT",
@@ -39,8 +41,12 @@ public sealed partial class PlanCompiler
             foreach (var slot in slots)
             {
                 var name = slots.Count == 1 ? "Safe Shutdown" : $"Safe Shutdown · {slot}";
-                var shutdown = new SafeShutdownStep { Name = name };
-                AssignInstrument(shutdown, ResolveInstrument(instruments, slot));
+                var resource = ResolveInstrument(instruments, slot);
+                var shutdown = AuthoringInstrumentCatalog.IsLibrary(resource.GetType().FullName!)
+                    ? AuthoringLibraryLifecycle.Create(resource, false) : new SafeShutdownStep();
+                shutdown.Name = name;
+                shutdown.Id = AuthoringLibraryLifecycle.CleanupId(draft.Cleanup.NodeId, slot, slots[0]);
+                AssignInstrument(shutdown, resource, AuthoringFunctionIds.BasicSafeShutdown);
                 cleanupGroup.ChildTestSteps.Add(shutdown);
             }
         }
@@ -61,59 +67,46 @@ public sealed partial class PlanCompiler
             plan.ChildTestSteps.Add(cleanupGroup);
         }
 
+        BindChannelProducers(plan);
         return plan;
     }
 
-    private static Dictionary<string, HardwareDmm> CreateInstruments(IReadOnlyList<InstrumentRef> refs)
+    private Dictionary<string, Instrument> CreateInstruments(IReadOnlyList<InstrumentRef> refs, OpenTapHome? libraryHome)
     {
-        var map = new Dictionary<string, HardwareDmm>(StringComparer.OrdinalIgnoreCase);
+        var map = new Dictionary<string, Instrument>(StringComparer.OrdinalIgnoreCase);
+        var home = _selectedHome;
         foreach (var slot in refs)
         {
-            map[slot.SlotName] = CreateInstrument(slot);
+            if (!map.TryAdd(slot.SlotName, AuthoringInstrumentCatalog.Create(slot, AuthoringInstrumentCatalog.IsLibrary(slot.TypeId) ? libraryHome : home)))
+                throw new AuthoringWorkspaceException($"Duplicate instrument slot '{slot.SlotName}'.");
         }
 
         return map;
     }
 
-    private static HardwareDmm CreateInstrument(InstrumentRef slot)
-    {
-        if (IsMockDmm(slot.TypeId))
-        {
-            return new MockDmmInstrument
-            {
-                Name = slot.SlotName,
-                VisaAddress = slot.VisaAddress,
-                ResourceName = slot.VisaAddress,
-            };
-        }
-
-        throw new AuthoringWorkspaceException(
-            $"{AuthoringCompileCodes.UnknownFunction}: instrument type '{slot.TypeId}' is not supported in this compile.");
-    }
-
-    private static bool IsMockDmm(string typeId)
-        => typeId.Contains("MockDmm", StringComparison.OrdinalIgnoreCase)
-           || string.Equals(typeId, typeof(MockDmmInstrument).FullName, StringComparison.Ordinal);
-
     private static ITestStep CreateSetupStep(
         SetupAction action,
-        IReadOnlyDictionary<string, HardwareDmm> instruments,
+        IReadOnlyDictionary<string, Instrument> instruments,
         HardwareDut dut)
     {
         switch (action)
         {
             case IdentitySetup identity:
                 {
-                    var step = new IdentityCheckStep { Name = "Identity Check", Dut = dut };
-                    AssignInstrument(step, ResolveInstrument(instruments, identity.InstrumentSlot));
+                    var resource = ResolveInstrument(instruments, identity.InstrumentSlot);
+                    var step = AuthoringInstrumentCatalog.IsLibrary(resource.GetType().FullName!)
+                        ? AuthoringLibraryLifecycle.Create(resource, true) : new IdentityCheckStep { Dut = dut };
+                    step.Id = action.NodeId; step.Name = "Identity Check";
+                    AssignInstrument(step, resource, AuthoringFunctionIds.BasicIdentityCheck);
                     OpenTapMixinAttach.AttachAnnotation(step);
                     return step;
                 }
             case OperatorPromptSetup prompt:
-                return new OperatorPromptStep { Name = prompt.Name, Message = prompt.Message };
+                return new OperatorPromptStep { Id = action.NodeId, Name = prompt.Name, Message = prompt.Message };
             case OperatorInputSetup input:
                 return new OperatorInputStep
                 {
+                    Id = action.NodeId,
                     Name = input.Name,
                     Title = input.Title,
                     Message = input.Message,
@@ -127,15 +120,17 @@ public sealed partial class PlanCompiler
 
     private static ITestStep CreateMeasureStep(
         MeasureNode node,
-        IReadOnlyDictionary<string, HardwareDmm> instruments)
+        IReadOnlyDictionary<string, Instrument> instruments)
     {
         switch (node)
         {
             case MetricNode metric:
-                return CreateMetricStep(metric.Metric, instruments);
+                var step = CreateMetricStep(metric.Metric, instruments);
+                step.Id = metric.NodeId;
+                return step;
             case RepeatNode repeat:
                 {
-                    var loop = new RepeatLoopStep { Name = "Repeat", Count = Math.Max(1, repeat.Count) };
+                    var loop = new RepeatLoopStep { Id = repeat.NodeId, Name = "Repeat", Count = Math.Max(1, repeat.Count) };
                     foreach (var child in repeat.Children)
                     {
                         loop.ChildTestSteps.Add(CreateMeasureStep(child, instruments));
@@ -152,7 +147,7 @@ public sealed partial class PlanCompiler
 
     private static ITestStep CreateMetricStep(
         MetricDraft metric,
-        IReadOnlyDictionary<string, HardwareDmm> instruments)
+        IReadOnlyDictionary<string, Instrument> instruments)
     {
         var source = ResolveSource(metric);
         if (source is TransferFunctionAlgorithm tf)
@@ -187,6 +182,9 @@ public sealed partial class PlanCompiler
         var step = AuthoringFunctionCatalog.CreateStep(functionId);
         step.Name = metric.Name;
         ApplySource(step, source, instruments);
+        var channelProperty = step.GetType().GetProperty("Channel");
+        if (channelProperty?.CanWrite == true && channelProperty.PropertyType == typeof(string))
+            channelProperty.SetValue(step, metric.ChannelKey);
         PresentationAttach.Apply(step, metric);
         return step;
     }
@@ -202,34 +200,40 @@ public sealed partial class PlanCompiler
     private static void ApplySource(
         ITestStep step,
         MetricSource source,
-        IReadOnlyDictionary<string, HardwareDmm> instruments)
+        IReadOnlyDictionary<string, Instrument> instruments)
     {
         switch (source)
         {
             case MeasureSource measure:
                 ApplySettings(step, measure.Settings);
+                if (AuthoringFunctionCatalog.TryGet(measure.FunctionId, out var measureSpec) && measureSpec.NeedsInstrument && string.IsNullOrWhiteSpace(measure.InstrumentSlot))
+                    throw new AuthoringWorkspaceException($"Function '{measure.FunctionId}' needs an explicit instrument slot.");
                 if (!string.IsNullOrWhiteSpace(measure.InstrumentSlot))
                 {
-                    AssignInstrument(step, ResolveInstrument(instruments, measure.InstrumentSlot));
+                    AssignInstrument(step, ResolveInstrument(instruments, measure.InstrumentSlot), measure.FunctionId);
                 }
 
                 break;
             case AlgorithmSource algorithm:
+                if (AuthoringFunctionCatalog.InputChannelIssue(algorithm.AlgorithmId, algorithm.InputChannelKeys) is { } inputIssue)
+                    throw new AuthoringWorkspaceException(inputIssue);
                 ApplySettings(step, algorithm.Settings);
+                if (step is ChannelAverageStep average && algorithm.InputChannelKeys.Count == 1)
+                    average.InputChannel = algorithm.InputChannelKeys[0];
                 if (AuthoringFunctionCatalog.TryGet(algorithm.AlgorithmId, out var spec) && spec.NeedsInstrument)
                 {
-                    var slot = instruments.Keys.FirstOrDefault()
+                    var slot = algorithm.InstrumentSlot
                                ?? throw new AuthoringWorkspaceException(
                                    $"Algorithm '{algorithm.AlgorithmId}' needs an instrument slot.");
-                    AssignInstrument(step, ResolveInstrument(instruments, slot));
+                    AssignInstrument(step, ResolveInstrument(instruments, slot), algorithm.AlgorithmId);
                 }
 
                 break;
         }
     }
 
-    private static HardwareDmm ResolveInstrument(
-        IReadOnlyDictionary<string, HardwareDmm> instruments,
+    private static Instrument ResolveInstrument(
+        IReadOnlyDictionary<string, Instrument> instruments,
         string slotName)
     {
         if (instruments.TryGetValue(slotName, out var found))
@@ -240,65 +244,20 @@ public sealed partial class PlanCompiler
         throw new AuthoringWorkspaceException($"Unknown instrument slot '{slotName}'.");
     }
 
-    private static void EnsureTransferFunctionElapsed(ProgramDraft draft, TransferFunctionAlgorithm tf)
+    private static void AssignInstrument(ITestStep step, Instrument instrument, string functionId)
     {
-        var sibling = AuthoringRecipeCatalog.EnumerateMetrics(draft.Measure)
-            .FirstOrDefault(metric =>
-                string.Equals(metric.ChannelKey, tf.InputChannelKey, StringComparison.OrdinalIgnoreCase));
-        if (sibling is null || CanPublishElapsed(sibling.Source))
-        {
-            return;
-        }
-
-        throw new AuthoringWorkspaceException(
-            $"{AuthoringCompileCodes.TfMissingElapsed}: '{tf.InputChannelKey}' does not publish ElapsedMs.");
-    }
-
-    private static bool CanPublishElapsed(MetricSource source)
-        => ResolveElapsedSource(source) switch
-        {
-            TransferFunctionAlgorithm => true,
-            MeasureSource measure when
-                string.Equals(measure.FunctionId, AuthoringFunctionIds.BasicAcquireVoltage, StringComparison.Ordinal)
-                || string.Equals(measure.FunctionId, AuthoringFunctionIds.BasicBitSweepAcquire, StringComparison.Ordinal)
-                => true,
-            MeasureSource measure when
-                string.Equals(measure.FunctionId, AuthoringFunctionIds.BasicPublishTimedSample, StringComparison.Ordinal)
-                => measure.Settings.TryGetValue("ElapsedMs", out var elapsed) && !string.IsNullOrWhiteSpace(elapsed),
-            MeasureSource measure
-                => measure.Settings.TryGetValue("ElapsedMs", out var elapsed) && !string.IsNullOrWhiteSpace(elapsed),
-            _ => false,
-        };
-
-    private static MetricSource ResolveElapsedSource(MetricSource source)
-    {
-        if (source is not ExpressionAlgorithm expr)
-        {
-            return source;
-        }
-
-        try
-        {
-            return FormulaLowerer.Lower(expr, null);
-        }
-        catch (AuthoringWorkspaceException)
-        {
-            return source;
-        }
-    }
-
-    private static void AssignInstrument(ITestStep step, HardwareDmm instrument)
-    {
+        AuthoringInstrumentCatalog.EnsureCompatible(instrument.GetType().FullName!, functionId);
         var prop = step.GetType().GetProperty("Instrument", BindingFlags.Instance | BindingFlags.Public);
         if (prop is null || !prop.CanWrite)
         {
-            return;
+            throw new AuthoringWorkspaceException($"INSTRUMENT_INCOMPATIBLE: step '{step.Name}' has no writable instrument binding.");
         }
 
         if (prop.PropertyType.IsInstanceOfType(instrument))
         {
             prop.SetValue(step, instrument);
         }
+        else throw new AuthoringWorkspaceException($"INSTRUMENT_INCOMPATIBLE: '{instrument.GetType().FullName}' cannot bind to '{step.GetType().FullName}'.");
     }
 
     private static void ApplySettings(ITestStep step, IReadOnlyDictionary<string, string> settings)
@@ -311,6 +270,7 @@ public sealed partial class PlanCompiler
                 continue;
             }
 
+            if (AuthoringCriteria.IsRuntimeLimit(key)) continue;
             prop.SetValue(step, ConvertSetting(prop.PropertyType, value));
         }
     }
@@ -327,6 +287,8 @@ public sealed partial class PlanCompiler
         {
             return null;
         }
+
+        if (target == typeof(Guid)) return Guid.Parse(value);
 
         if (target == typeof(bool))
         {
@@ -390,6 +352,11 @@ public sealed partial class PlanCompiler
             }
 
             return plan.ChildTestSteps[0];
+        }
+        catch (Exception error) when (error is TestPlan.PlanLoadException or System.Xml.XmlException)
+        {
+            throw new AuthoringWorkspaceException(
+                $"RAW_STEP_UNAVAILABLE: Imported raw step '{raw.TypeName}' ({raw.NodeId:D}) could not load: {error.Message}", error);
         }
         finally
         {

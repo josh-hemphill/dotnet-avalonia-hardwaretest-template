@@ -41,8 +41,8 @@ public sealed class SettingsStore : ISettingsStore
         new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
     private IReadOnlyDictionary<string, string> _commandLineOverlays =
         new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-    private bool _settingsSchemaReadOnly;
-    private bool _uiStateSchemaReadOnly;
+    private bool _settingsWriteBlocked;
+    private bool _uiStateWriteBlocked;
     private string? _settingsSchemaWarning;
     private string? _uiStateSchemaWarning;
 
@@ -72,9 +72,9 @@ public sealed class SettingsStore : ISettingsStore
     public IReadOnlyList<SettingProvenance> Provenance => _provenance;
     public bool IsSettingsWritable { get; private set; }
     public string? LastPersistenceError { get; private set; }
-    /// In-panel warning when settings.json schema is newer than this app.
+    /// In-panel warning when settings.json cannot be written.
     public string? SettingsSchemaWarning => _settingsSchemaWarning;
-    /// In-panel warning when ui-state.json schema is newer than this app.
+    /// In-panel warning when ui-state.json cannot be written.
     public string? UiStateSchemaWarning => _uiStateSchemaWarning;
 
     public bool IsOverridden(string key)
@@ -97,54 +97,47 @@ public sealed class SettingsStore : ISettingsStore
 
         Directory.CreateDirectory(RunsDirectory);
 
+        _settingsWriteBlocked = false;
+        _uiStateWriteBlocked = false;
+        _settingsSchemaWarning = null;
+        _uiStateSchemaWarning = null;
+        CopyOnto(new UiState(), UiState);
+        LastPersistenceError = null;
+        IsSettingsWritable = true;
         _fileBaseline = CreateDefaultAppSettings(_rootDirectory);
         var provenance = new List<SettingProvenance>();
         SeedDefaultProvenance(provenance, _fileBaseline);
 
-        if (File.Exists(_settingsPath))
+        try
         {
-            try
+            var (loaded, status) = await CurrentDocumentFile.ReadAsync(_settingsPath, AppJsonContext.Default.AppSettings,
+                SchemaDocumentTypes.AppSettings, SchemaVersions.AppSettings, cancellationToken).ConfigureAwait(false);
+            if (loaded is not null)
             {
-                await using var stream = File.OpenRead(_settingsPath);
-                var loaded = await JsonSerializer.DeserializeAsync(
-                    stream,
-                    AppJsonContext.Default.AppSettings,
-                    cancellationToken).ConfigureAwait(false);
-                if (loaded is not null)
+                _settingsWriteBlocked = status.IsReadOnly;
+                _settingsSchemaWarning = status.IsReadOnly ? status.FormatOperatorWarning() : null;
+                if (status.IsReadOnly)
                 {
-                    if (string.IsNullOrWhiteSpace(loaded.DataDirectory))
-                    {
-                        loaded.DataDirectory = _rootDirectory;
-                    }
-
-                    var status = DocumentSchemaGate.Apply(
-                        SchemaDocumentTypes.AppSettings,
-                        loaded.SchemaVersion,
-                        SchemaVersions.AppSettings,
-                        _settingsPath,
-                        document: loaded);
-                    _settingsSchemaReadOnly = status.IsReadOnly;
-                    _settingsSchemaWarning = status.IsReadOnly ? status.FormatOperatorWarning() : null;
-                    if (status.IsReadOnly)
-                    {
-                        IsSettingsWritable = false;
-                        warn?.Invoke(status.FormatOperatorWarning());
-                    }
-                    else if (status.Kind is DocumentSchemaKind.Current or DocumentSchemaKind.UpgradeNeeded)
-                    {
-                        loaded.SchemaVersion = SchemaVersions.AppSettings;
-                    }
-
-                    _fileBaseline = loaded;
-                    OperatorSessionIdle.NormalizeAfterFileLoad(_fileBaseline);
-                    MarkFileProvenance(provenance, _fileBaseline);
+                    IsSettingsWritable = false;
+                    warn?.Invoke(_settingsSchemaWarning!);
                 }
+                else
+                {
+                    if (string.IsNullOrWhiteSpace(loaded.DataDirectory)) loaded.DataDirectory = _rootDirectory;
+                    OperatorSessionIdle.Normalize(loaded);
+                }
+                _fileBaseline = loaded;
+                MarkFileProvenance(provenance, _fileBaseline);
             }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
-            {
-                warn?.Invoke($"Failed to read settings.json ({ex.Message}); using defaults.");
-                LastPersistenceError = ex.Message;
-            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException
+                                   or UnsupportedDocumentSchemaException or SchemaReadOnlyException)
+        {
+            _settingsWriteBlocked = true;
+            IsSettingsWritable = false;
+            _settingsSchemaWarning = ex.Message;
+            LastPersistenceError = ex.Message;
+            warn?.Invoke($"Failed to read settings.json ({ex.Message}); using defaults. Saving is blocked.");
         }
 
         // Rebuild effective settings into a temp instance, then copy onto the stable identity
@@ -162,45 +155,29 @@ public sealed class SettingsStore : ISettingsStore
             SettingSource.CommandLine,
             _commandLineOverlays,
             warn);
-        NormalizeIdle(next, provenance);
+        OperatorSessionIdle.Normalize(next);
         CopyOnto(next, AppSettings);
         _provenance = provenance;
 
-        if (File.Exists(_uiStatePath))
+        try
         {
-            try
+            var (loaded, status) = await CurrentDocumentFile.ReadAsync(_uiStatePath, AppJsonContext.Default.UiState,
+                SchemaDocumentTypes.UiState, SchemaVersions.UiState, cancellationToken).ConfigureAwait(false);
+            if (loaded is not null)
             {
-                await using var stream = File.OpenRead(_uiStatePath);
-                var loaded = await JsonSerializer.DeserializeAsync(
-                    stream,
-                    AppJsonContext.Default.UiState,
-                    cancellationToken).ConfigureAwait(false);
-                if (loaded is not null)
-                {
-                    var status = DocumentSchemaGate.Apply(
-                        SchemaDocumentTypes.UiState,
-                        loaded.SchemaVersion,
-                        SchemaVersions.UiState,
-                        _uiStatePath,
-                        document: loaded);
-                    _uiStateSchemaReadOnly = status.IsReadOnly;
-                    _uiStateSchemaWarning = status.IsReadOnly ? status.FormatOperatorWarning() : null;
-                    if (status.IsReadOnly)
-                    {
-                        warn?.Invoke(status.FormatOperatorWarning());
-                    }
-                    else if (status.Kind is DocumentSchemaKind.Current or DocumentSchemaKind.UpgradeNeeded)
-                    {
-                        loaded.SchemaVersion = SchemaVersions.UiState;
-                    }
-
-                    CopyOnto(loaded, UiState);
-                }
+                _uiStateWriteBlocked = status.IsReadOnly;
+                _uiStateSchemaWarning = status.IsReadOnly ? status.FormatOperatorWarning() : null;
+                if (status.IsReadOnly) warn?.Invoke(_uiStateSchemaWarning!);
+                CopyOnto(loaded, UiState);
             }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
-            {
-                warn?.Invoke($"Failed to read ui-state.json ({ex.Message}); using defaults.");
-            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException
+                                   or UnsupportedDocumentSchemaException or SchemaReadOnlyException)
+        {
+            _uiStateWriteBlocked = true;
+            _uiStateSchemaWarning = ex.Message;
+            LastPersistenceError = ex.Message;
+            warn?.Invoke($"Failed to read ui-state.json ({ex.Message}); saving is blocked.");
         }
     }
 
@@ -208,16 +185,16 @@ public sealed class SettingsStore : ISettingsStore
 
     public async Task SaveAppSettingsAsync(CancellationToken cancellationToken = default)
     {
-        if (_settingsSchemaReadOnly)
+        if (_settingsWriteBlocked)
         {
             IsSettingsWritable = false;
             LastPersistenceError = _settingsSchemaWarning
-                ?? "settings.json schema is newer than this app; refusing to overwrite.";
+                ?? "settings.json document cannot be written; refusing to overwrite.";
             return;
         }
 
         // Write-back: persist only keys not overridden by env/CLI.
-        OperatorSessionIdle.Normalize(AppSettings, preferMinutes: true);
+        OperatorSessionIdle.Normalize(AppSettings);
         var toWrite = CloneSettings(_fileBaseline);
         CopyNonOverridden(AppSettings, toWrite);
         // DataDirectory in the file should stay the root we manage unless overridden.
@@ -226,21 +203,18 @@ public sealed class SettingsStore : ISettingsStore
             toWrite.DataDirectory = AppSettings.DataDirectory;
         }
 
-        toWrite.SchemaVersion = SchemaVersions.AppSettings;
-
         try
         {
+            DocumentSchemaGate.RequireWritable(SchemaDocumentTypes.AppSettings, AppSettings.SchemaVersion, SchemaVersions.AppSettings, _settingsPath);
             var directory = Path.GetDirectoryName(_settingsPath);
             if (!string.IsNullOrWhiteSpace(directory))
             {
                 Directory.CreateDirectory(directory);
             }
 
-            await AtomicFile.WriteJsonAsync(
-                    _settingsPath,
-                    toWrite,
-                    AppJsonContext.Default.AppSettings,
-                    cancellationToken)
+            await CurrentDocumentFile.WriteAsync(
+                    _settingsPath, toWrite, AppJsonContext.Default.AppSettings,
+                    SchemaDocumentTypes.AppSettings, toWrite.SchemaVersion, SchemaVersions.AppSettings, cancellationToken)
                 .ConfigureAwait(false);
             _fileBaseline = CloneSettings(toWrite);
             IsSettingsWritable = true;
@@ -248,7 +222,8 @@ public sealed class SettingsStore : ISettingsStore
             ReapplyOverlays();
             AppSettingsSaved?.Invoke(this, EventArgs.Empty);
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException
+                                   or UnsupportedDocumentSchemaException or SchemaReadOnlyException)
         {
             IsSettingsWritable = false;
             LastPersistenceError = ex.Message;
@@ -257,24 +232,22 @@ public sealed class SettingsStore : ISettingsStore
 
     public async Task SaveUiStateAsync(CancellationToken cancellationToken = default)
     {
-        if (_uiStateSchemaReadOnly)
+        if (_uiStateWriteBlocked)
         {
             LastPersistenceError = _uiStateSchemaWarning
-                ?? "ui-state.json schema is newer than this app; refusing to overwrite.";
+                ?? "ui-state.json document cannot be written; refusing to overwrite.";
             return;
         }
 
         try
         {
-            UiState.SchemaVersion = SchemaVersions.UiState;
-            await AtomicFile.WriteJsonAsync(
-                    _uiStatePath,
-                    UiState,
-                    AppJsonContext.Default.UiState,
-                    cancellationToken)
+            await CurrentDocumentFile.WriteAsync(
+                    _uiStatePath, UiState, AppJsonContext.Default.UiState,
+                    SchemaDocumentTypes.UiState, UiState.SchemaVersion, SchemaVersions.UiState, cancellationToken)
                 .ConfigureAwait(false);
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException
+                                   or UnsupportedDocumentSchemaException or SchemaReadOnlyException)
         {
             LastPersistenceError = ex.Message;
         }
@@ -298,36 +271,10 @@ public sealed class SettingsStore : ISettingsStore
             provenance,
             SettingSource.CommandLine,
             _commandLineOverlays);
-        NormalizeIdle(next, provenance);
+        OperatorSessionIdle.Normalize(next);
         CopyOnto(next, AppSettings);
         _provenance = provenance;
     }
-
-    private static void NormalizeIdle(AppSettings settings, List<SettingProvenance> provenance)
-    {
-        var minutesFromOverlay = provenance.Any(p =>
-            string.Equals(p.Key, nameof(AppSettings.OperatorSessionIdleMinutes), StringComparison.OrdinalIgnoreCase)
-            && p.Source is SettingSource.Environment or SettingSource.CommandLine);
-        var hoursFromOverlay = provenance.Any(p =>
-            string.Equals(p.Key, nameof(AppSettings.OperatorSessionIdleHours), StringComparison.OrdinalIgnoreCase)
-            && p.Source is SettingSource.Environment or SettingSource.CommandLine);
-
-        if (minutesFromOverlay)
-        {
-            OperatorSessionIdle.Normalize(settings, preferMinutes: true);
-        }
-        else if (hoursFromOverlay)
-        {
-            OperatorSessionIdle.Normalize(settings, preferMinutes: false);
-        }
-        else
-        {
-            OperatorSessionIdle.Normalize(settings, preferMinutes: true);
-        }
-    }
-
-    private void NormalizeIdleAfterOverlays(List<SettingProvenance> provenance)
-        => NormalizeIdle(AppSettings, provenance);
 
     private void CopyNonOverridden(AppSettings from, AppSettings to)
     {
@@ -340,28 +287,6 @@ public sealed class SettingsStore : ISettingsStore
 
             // Re-apply formatted value through the binder for a consistent copy.
             binding.TryApply(to, binding.Format(from), out _, out _);
-        }
-
-        if (!IsOverridden("Instruments") && !AppSettingsEnvironmentBinder.IsListOverridden(_provenance, "Instruments"))
-        {
-            to.Instruments = CloneList(from.Instruments, static i => new VisaInstrument
-            {
-                Id = i.Id,
-                DisplayName = i.DisplayName,
-                Resource = i.Resource,
-                Enabled = i.Enabled,
-                Notes = i.Notes,
-            });
-        }
-
-        if (!IsOverridden("StationBindings")
-            && !AppSettingsEnvironmentBinder.IsListOverridden(_provenance, "StationBindings"))
-        {
-            to.StationBindings = CloneList(from.StationBindings, static b => new StationBinding
-            {
-                Role = b.Role,
-                InstrumentId = b.InstrumentId,
-            });
         }
 
         if (!IsOverridden("PlanSlotOverrides")
@@ -452,24 +377,9 @@ public sealed class SettingsStore : ISettingsStore
         {
             SchemaVersion = SchemaVersions.AppSettings,
             DataDirectory = root,
-            DefaultVisaResource = "MOCK::INSTR0",
             UseMockVisa = true,
             ThemePreference = "System",
             EmbedPlotsInReport = true,
-            Instruments =
-            [
-                new VisaInstrument
-                {
-                    Id = "instr0",
-                    DisplayName = "Mock DMM",
-                    Resource = "MOCK::INSTR0",
-                    Enabled = true,
-                },
-            ],
-            StationBindings =
-            [
-                new StationBinding { Role = "dmm", InstrumentId = "instr0" },
-            ],
         };
     }
 
@@ -486,7 +396,6 @@ public sealed class SettingsStore : ISettingsStore
     {
         target.SchemaVersion = source.SchemaVersion;
         target.DataDirectory = source.DataDirectory;
-        target.DefaultVisaResource = source.DefaultVisaResource;
         target.UseMockVisa = source.UseMockVisa;
         target.LogMinimumLevel = source.LogMinimumLevel;
         target.EnableOsEventSink = source.EnableOsEventSink;
@@ -499,25 +408,11 @@ public sealed class SettingsStore : ISettingsStore
         target.ExportOpenTapResults = source.ExportOpenTapResults;
         target.ShowDutHistoryOnRun = source.ShowDutHistoryOnRun;
         target.OperatorSessionIdleMinutes = source.OperatorSessionIdleMinutes;
-        target.OperatorSessionIdleHours = source.OperatorSessionIdleHours;
         target.OperatorSessionIdleWarnPercent = source.OperatorSessionIdleWarnPercent;
         target.RequireDutConfirmEveryRun = source.RequireDutConfirmEveryRun;
         target.IsEngineerDebugMode = source.IsEngineerDebugMode;
         target.OpenTapPluginDirectories = CloneList(source.OpenTapPluginDirectories, static s => s);
         target.ReportTemplateName = source.ReportTemplateName;
-        target.Instruments = CloneList(source.Instruments, static i => new VisaInstrument
-        {
-            Id = i.Id,
-            DisplayName = i.DisplayName,
-            Resource = i.Resource,
-            Enabled = i.Enabled,
-            Notes = i.Notes,
-        });
-        target.StationBindings = CloneList(source.StationBindings, static b => new StationBinding
-        {
-            Role = b.Role,
-            InstrumentId = b.InstrumentId,
-        });
         target.PlanSlotOverrides = CloneList(source.PlanSlotOverrides, static o => new PlanSlotOverride
         {
             PlanId = o.PlanId,

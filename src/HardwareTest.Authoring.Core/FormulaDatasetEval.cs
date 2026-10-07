@@ -1,4 +1,5 @@
 using HardwareTest.Core.Runs;
+using HardwareTest.OpenTap.Plugins.Basic;
 
 namespace HardwareTest.Authoring;
 
@@ -31,7 +32,10 @@ public static class FormulaDatasetEval
 
                         EnsureSeriesPresent(expr, ast, series);
                         EnsureMeanThreshold(ast, metric);
-                        var value = FormulaEvaluator.Evaluate(ast, series);
+                        AuthoringCriteria.Validate(metric);
+                        var value = ast.Root is CallExpr { Name: "mean", Args: [IdentExpr meanInput] }
+                            ? EvaluateMean(metric, series[meanInput.Name])
+                            : FormulaEvaluator.Evaluate(ast, series);
                         EnsureWithinLimits(metric, value, series, expr);
                         results.Add(new StoredSample
                         {
@@ -50,6 +54,12 @@ public static class FormulaDatasetEval
         }
 
         return results;
+    }
+
+    private static double EvaluateMean(MetricDraft metric, IReadOnlyList<StoredSample> samples)
+    {
+        try { return ChannelAverageEvaluator.Evaluate(samples.Select(s => s.Value).ToArray(), metric.Limits!.Threshold!.Value).Average; }
+        catch (InvalidOperationException ex) { throw new AuthoringWorkspaceException($"{AuthoringCompileCodes.FormulaEval}: {ex.Message}", ex); }
     }
 
     private static void EnsureSeriesPresent(

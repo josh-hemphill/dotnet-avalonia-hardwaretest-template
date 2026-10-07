@@ -48,7 +48,7 @@ public sealed class ApplyTransferFunctionStep : RuntimeAwareTestStep
         PlanRun?.WaitForResults();
         try
         {
-            var rows = _capture.RowsFor(InputChannel);
+            var rows = _capture.RowsFor(InputChannel, StepRun, this);
             var values = rows.Select(r => r.Value).ToArray();
             var elapsed = rows.Select(r => r.ElapsedMs).ToArray();
             var filtered = ApplyToSeries(values, elapsed);

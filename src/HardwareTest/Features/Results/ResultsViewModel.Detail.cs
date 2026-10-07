@@ -273,11 +273,7 @@ public partial class ResultsViewModel
                 + $"Written by {OpenedRun.AppVersion ?? "unknown"}.";
             HasSchemaWarning = true;
         }
-        else if (OpenedRun.IsLegacy)
-        {
-            SchemaBadge = "Legacy";
-            HasSchemaBadge = true;
-        }
+
 
         ShowFailedStepsOnly = OpenedRun.Result == RunResult.Failed;
         RebuildStepDetails();
@@ -372,42 +368,31 @@ public partial class ResultsViewModel
                          .ThenBy(a => ReportArtifactRoles.IsIssued(a.Role) ? 1 : 0))
             {
                 var issued = ReportArtifactRoles.IsIssued(artifact.Role);
-                var stamp = run.Attestations.LastOrDefault(a => a.RevisionId == artifact.RevisionId
-                    && string.Equals(a.ReportKind, artifact.Kind, StringComparison.OrdinalIgnoreCase));
+                var stamp = issued ? run.Attestations.LastOrDefault(a => a.RevisionId == artifact.RevisionId
+                    && string.Equals(a.ReportKind, artifact.Kind, StringComparison.OrdinalIgnoreCase)
+                    && ReportAttestationService.PathEquals(a.SidecarPath, Path.ChangeExtension(artifact.PdfPath, ".attestation.json"))) : null;
                 ReportItems.Add(new RunReportItemViewModel
                 {
                     Kind = artifact.Kind,
                     Title = string.IsNullOrWhiteSpace(artifact.Title) ? artifact.Kind : artifact.Title,
                     PdfPath = artifact.PdfPath,
                     GeneratedAtText = artifact.GeneratedAt.ToString("u", CultureInfo.InvariantCulture),
-                    Role = issued ? ReportArtifactRoles.Issued : ReportArtifactRoles.Working,
-                    RoleLabel = issued ? "Issued" : "Working",
+                    Role = artifact.Role,
+                    RoleLabel = issued ? "Issued" : ReportArtifactRoles.IsWorking(artifact.Role) ? "Working" : artifact.Role,
                     IsIssued = issued,
                     RevisionId = artifact.RevisionId,
                     RevisionNumber = artifact.RevisionNumber,
                     VerificationText = issued
                         ? $"Verifying · {stamp?.DisplayName ?? "Unknown signer"} · {stamp?.CapturedAt:u} · revision {artifact.RevisionNumber}"
                         : "Unsigned · working copy",
-                    IsDefault = !issued
+                    IsDefault = ReportArtifactRoles.IsWorking(artifact.Role)
                                 && string.Equals(artifact.Kind, defaultKind, StringComparison.OrdinalIgnoreCase),
                 });
             }
         }
-        else if (!string.IsNullOrWhiteSpace(run.ReportPdfPath))
-        {
-            ReportItems.Add(new RunReportItemViewModel
-            {
-                Kind = ReportKinds.Status,
-                Title = "Status Report",
-                PdfPath = run.ReportPdfPath!,
-                GeneratedAtText = string.Empty,
-                Role = ReportArtifactRoles.Working,
-                RoleLabel = "Working",
-                IsDefault = true,
-            });
-        }
 
-        SelectedReportItem = ReportItems.FirstOrDefault(r => r.PdfPath == selectedPath) ?? ReportItems.FirstOrDefault(r => r.IsDefault) ?? ReportItems.FirstOrDefault();
+
+        SelectedReportItem = ReportItems.FirstOrDefault(r => ReportAttestationService.PathEquals(r.PdfPath, selectedPath)) ?? ReportItems.FirstOrDefault(r => r.IsDefault) ?? ReportItems.FirstOrDefault();
         HasReports = ReportItems.Count > 0;
         _ = VerifyReportItemsAsync(run, ReportItems.Where(r => r.IsIssued).ToArray());
     }
@@ -416,12 +401,13 @@ public partial class ResultsViewModel
     {
         var labels = await Task.Run(() => items.Select(item =>
         {
-            var stamp = run.Attestations.LastOrDefault(a => a.RevisionId == item.RevisionId
-                && string.Equals(a.ReportKind, item.Kind, StringComparison.OrdinalIgnoreCase));
+            var artifact = run.Reports.FirstOrDefault(a => a.RevisionId == item.RevisionId
+                && ReportAttestationService.PathEquals(a.PdfPath, item.PdfPath) && string.Equals(a.Kind, item.Kind, StringComparison.OrdinalIgnoreCase));
+            var stamp = artifact is null ? null : ReportAttestationService.FindForArtifact(run, artifact);
             var label = "Verification failed";
             try
             {
-                if (_attestation?.HasValidAttestation(run, item.Kind, item.RevisionId) == true)
+                if (_attestation?.HasValidAttestationForPdf(run, item.Kind, item.PdfPath) == true)
                     label = stamp?.Kind == AttestationKind.Signed ? stamp.Algorithm == AttestationAlgorithm.MockHmac ? "Digitally signed (mock)" : "Digitally signed" : "Presence attested";
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Text.Json.JsonException) { }
@@ -466,30 +452,10 @@ public partial class ResultsViewModel
         Status = $"Opened default report ({ProgramCatalog.ResolveDefaultReportKind(run.PlanId)}).";
     }
 
-    /// Picks the catalog default kind's working PDF, else status, else ReportPdfPath, else first working artifact.
+    /// Picks the catalog default working PDF, then status, then the first working artifact.
     public static string? ResolveDefaultReportPath(TestRunRecord run)
-    {
-        var defaultKind = ProgramCatalog.ResolveDefaultReportKind(run.PlanId);
-        var byKind = ReportAttestationService.ResolveWorkingPdfPath(run, defaultKind);
-        if (!string.IsNullOrWhiteSpace(byKind))
-        {
-            return byKind;
-        }
-
-        var status = ReportAttestationService.ResolveWorkingPdfPath(run, ReportKinds.Status);
-        if (!string.IsNullOrWhiteSpace(status))
-        {
-            return status;
-        }
-
-        if (!string.IsNullOrWhiteSpace(run.ReportPdfPath))
-        {
-            return run.ReportPdfPath;
-        }
-
-        return run.Reports.FirstOrDefault(r => ReportArtifactRoles.IsWorking(r.Role))?.PdfPath
-               ?? run.Reports.FirstOrDefault()?.PdfPath;
-    }
+        => ReportAttestationService.ResolveDefaultWorkingPdfPath(run,
+            ProgramCatalog.ResolveDefaultReportKind(run.PlanId));
 
     private Task OpenReportAsync(RunReportItemViewModel? item)
     {
@@ -538,16 +504,14 @@ public partial class ResultsViewModel
                     .ToArray();
                 if (kinds.Count == 0)
                 {
-                    kinds = run.Reports.Count > 0
-                        ? run.Reports.Select(r => r.Kind).Distinct(StringComparer.OrdinalIgnoreCase).ToArray()
-                        : ProgramCatalog.ResolveReportKinds(run.PlanId);
+                    kinds = ProgramCatalog.ResolveReportKinds(run.PlanId);
                 }
                 var artifacts = await _reportService.GenerateReportsAsync(run, kinds, history);
                 OpenedRun = run;
                 LoadReportItems(run);
                 LoadAttestation(run);
                 Status = $"Regenerated {artifacts.Count} report(s).";
-                var primary = run.ReportPdfPath ?? artifacts.FirstOrDefault()?.PdfPath;
+                var primary = ResolveDefaultReportPath(run);
                 if (primary is not null)
                 {
                     ReportOpened?.Invoke(this, primary);

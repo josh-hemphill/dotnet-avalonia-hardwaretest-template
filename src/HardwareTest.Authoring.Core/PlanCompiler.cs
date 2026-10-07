@@ -19,9 +19,22 @@ public sealed partial class PlanCompiler : IPlanCompiler
     public const string CleanupGroupName = "Cleanup";
 
     private readonly string[] _extraPluginDirectories;
+    private readonly OpenTapHome? _selectedHome;
+    private readonly Func<OpenTapHome?>? _libraryHomeProvider;
+    private OpenTapHome? LibraryHome => _selectedHome ?? _libraryHomeProvider?.Invoke();
+    private readonly Action<string, string> _replaceFile;
 
-    public PlanCompiler(IEnumerable<string>? extraPluginDirectories = null)
+    public PlanCompiler(IEnumerable<string>? extraPluginDirectories = null, OpenTapHome? selectedHome = null, Func<OpenTapHome?>? libraryHomeProvider = null)
+        : this(extraPluginDirectories, (source, destination) => File.Move(source, destination, overwrite: true))
     {
+        _selectedHome = selectedHome;
+        _libraryHomeProvider = libraryHomeProvider;
+    }
+
+    internal PlanCompiler(IEnumerable<string>? extraPluginDirectories, Action<string, string> replaceFile)
+    {
+        ArgumentNullException.ThrowIfNull(replaceFile);
+        _replaceFile = replaceFile;
         _extraPluginDirectories = extraPluginDirectories is null
             ? []
             : extraPluginDirectories.Where(dir => !string.IsNullOrWhiteSpace(dir)).ToArray();
@@ -39,8 +52,11 @@ public sealed partial class PlanCompiler : IPlanCompiler
                 $"{AuthoringCompileCodes.PlanIdMismatch}: draft '{draft.PlanId}' does not match '{planId}'.");
         }
 
+        draft = AuthoringFormulaDeployment.Project(draft);
+        if (draft.AuthoringState.IncompleteNumericText.Count != 0)
+            throw new AuthoringWorkspaceException("BUILD_INCOMPLETE: Deployment source contains incomplete numeric input.");
         EnsureUniqueChannelKeys(draft.Measure);
-        EnsureTransferFunctionClocks(draft);
+        AuthoringRecipeCatalog.EnsureScalarLimits(draft);
         AuthoringPluginSearch.Search(_extraPluginDirectories);
 
         var directory = Path.GetDirectoryName(Path.GetFullPath(tapPlanPath));
@@ -49,10 +65,13 @@ public sealed partial class PlanCompiler : IPlanCompiler
             Directory.CreateDirectory(directory);
         }
 
-        var plan = BuildPlan(draft);
+        var libraryHome = LibraryHome;
+        if (libraryHome is not null) AuthoringInstrumentCatalog.Discover(libraryHome);
+        var plan = BuildPlan(draft, libraryHome);
         AssertNoDialog(plan);
-        AuthoringCleanup.SyncSidecar(draft.Sidecar, draft.Cleanup);
-        WritePlanAndSidecar(plan, tapPlanPath, draft.Sidecar);
+        var sidecar = CloneSidecar(draft.Sidecar);
+        AuthoringCleanup.SyncSidecar(sidecar, draft.Cleanup);
+        WritePlanAndSidecar(plan, tapPlanPath, sidecar);
     }
 
     public ProgramDraft Load(string tapPlanPath)
@@ -64,10 +83,13 @@ public sealed partial class PlanCompiler : IPlanCompiler
         }
 
         AuthoringPluginSearch.Search(_extraPluginDirectories);
-        var plan = TestPlan.Load(tapPlanPath);
+        var libraryHome = LibraryHome;
+        var availableLibraryTypes = libraryHome is null ? new HashSet<string>(StringComparer.Ordinal)
+            : AuthoringInstrumentCatalog.Discover(libraryHome).Select(a => a.TypeId).ToHashSet(StringComparer.Ordinal);
+        var plan = LoadPlanWithOpaqueResources(tapPlanPath, availableLibraryTypes);
         var xmlById = IndexStepXml(tapPlanPath);
         var sidecar = ReadSidecar(tapPlanPath);
-        return Decompile(Path.GetFileNameWithoutExtension(tapPlanPath), plan, sidecar, xmlById);
+        return Decompile(Path.GetFileNameWithoutExtension(tapPlanPath), plan, sidecar, xmlById, availableLibraryTypes);
     }
 
     public DraftWorkspace LoadAll(AuthoringWorkspace workspace)
@@ -102,76 +124,6 @@ public sealed partial class PlanCompiler : IPlanCompiler
         var json = JsonSerializer.Serialize(sidecar, ProgramCatalogJsonContext.Default.ProgramSidecar);
         return JsonSerializer.Deserialize(json, ProgramCatalogJsonContext.Default.ProgramSidecar)
                ?? throw new AuthoringWorkspaceException("Failed to clone program sidecar.");
-    }
-
-    private static void WritePlanAndSidecar(TestPlan plan, string tapPlanPath, ProgramSidecar sidecar)
-    {
-        var tapFull = Path.GetFullPath(tapPlanPath);
-        var sidecarFull = SidecarPath(tapFull);
-        var tapTemp = tapFull + ".saving";
-        var sidecarTemp = sidecarFull + ".saving";
-        try
-        {
-            plan.Save(tapTemp);
-            File.WriteAllText(
-                sidecarTemp,
-                JsonSerializer.Serialize(sidecar, ProgramCatalogJsonContext.Default.ProgramSidecar));
-            var tapBackup = TryReadAllBytes(tapFull);
-            File.Move(tapTemp, tapFull, overwrite: true);
-            try
-            {
-                File.Move(sidecarTemp, sidecarFull, overwrite: true);
-            }
-            catch
-            {
-                RestoreFile(tapFull, tapBackup);
-                throw;
-            }
-        }
-        finally
-        {
-            TryDeleteFile(tapTemp);
-            TryDeleteFile(sidecarTemp);
-        }
-    }
-
-    private static byte[]? TryReadAllBytes(string path)
-        => File.Exists(path) ? File.ReadAllBytes(path) : null;
-
-    private static void RestoreFile(string path, byte[]? backup)
-    {
-        if (backup is null)
-        {
-            TryDeleteFile(path);
-            return;
-        }
-
-        File.WriteAllBytes(path, backup);
-    }
-
-    private static void TryDeleteFile(string path)
-    {
-        if (!File.Exists(path))
-        {
-            return;
-        }
-
-        try
-        {
-            File.Delete(path);
-        }
-        catch (IOException)
-        {
-        }
-        catch (UnauthorizedAccessException)
-        {
-        }
-    }
-
-    private static void WriteSidecar(string tapPlanPath, ProgramSidecar sidecar)
-    {
-        var json = JsonSerializer.Serialize(sidecar, ProgramCatalogJsonContext.Default.ProgramSidecar);
-        File.WriteAllText(SidecarPath(tapPlanPath), json);
     }
 
     private static ProgramSidecar ReadSidecar(string tapPlanPath)
@@ -236,29 +188,6 @@ public sealed partial class PlanCompiler : IPlanCompiler
 
             throw new AuthoringWorkspaceException(
                 $"{AuthoringCompileCodes.DialogStep}: step '{step.Name}' looks like an OpenTAP/OS dialog.");
-        }
-    }
-
-    private static void EnsureTransferFunctionClocks(ProgramDraft draft)
-    {
-        foreach (var metric in AuthoringRecipeCatalog.EnumerateMetrics(draft.Measure))
-        {
-            MetricSource source;
-            try
-            {
-                source = metric.Source is ExpressionAlgorithm expr
-                    ? FormulaLowerer.Lower(expr, metric.Limits)
-                    : metric.Source;
-            }
-            catch (AuthoringWorkspaceException)
-            {
-                source = metric.Source;
-            }
-
-            if (source is TransferFunctionAlgorithm tf)
-            {
-                EnsureTransferFunctionElapsed(draft, tf);
-            }
         }
     }
 

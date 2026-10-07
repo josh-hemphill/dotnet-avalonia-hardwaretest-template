@@ -2,6 +2,7 @@ using System.Diagnostics;
 using Avalonia.Controls;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
+using HardwareTest.Core.Credentials;
 using HardwareTest.Core.IO;
 using HardwareTest.Reporting.NativePrinting;
 
@@ -40,7 +41,7 @@ public sealed class ReportDesktopActions(Func<Window?> window, string managedRun
         using (destination)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (string.Equals(destination.TryGetLocalPath(), Path.GetFullPath(pdfPath), StringComparison.OrdinalIgnoreCase))
+            if (ReportAttestationService.PathEquals(destination.TryGetLocalPath(), Path.GetFullPath(pdfPath)))
                 throw new IOException("Choose a different file to preserve this report.");
             var localPath = destination.TryGetLocalPath()
                 ?? throw new IOException("Choose a local folder to save a report copy safely.");
@@ -52,7 +53,7 @@ public sealed class ReportDesktopActions(Func<Window?> window, string managedRun
     public static async Task CopyToLocalPathAsync(string sourcePath, string destinationPath, CancellationToken cancellationToken = default,
         string? managedRunsDirectory = null)
     {
-        if (string.Equals(Path.GetFullPath(sourcePath), Path.GetFullPath(destinationPath), StringComparison.OrdinalIgnoreCase))
+        if (ReportAttestationService.PathEquals(Path.GetFullPath(sourcePath), Path.GetFullPath(destinationPath)))
             throw new IOException("Choose a different file to preserve this report.");
         if (managedRunsDirectory is not null && PathContainment.IsUnderRoot(ResolveDirectory(managedRunsDirectory),
                 Path.Combine(ResolveDirectory(Path.GetDirectoryName(Path.GetFullPath(destinationPath))!), Path.GetFileName(destinationPath))))

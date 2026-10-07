@@ -1,0 +1,58 @@
+{
+  "version": 2,
+  "dependencies": {
+    "net10.0": {
+      "InstrumentComponents.OpenTap.Visa": {
+        "type": "Direct",
+        "requested": "[0.1.1, )",
+        "resolved": "0.1.1",
+        "contentHash": "PsTkbnLrs3WVEldeKr1kKlP9XWKBBN4N/d2zoWmMxgVSMo6UbnLdrGSUTi8iAOELOC2l6ktgDB3atG1rnJyrkg==",
+        "dependencies": {
+          "InstrumentComponents.OpenTap": "0.1.1",
+          "InstrumentComponents.Visa": "0.1.1"
+        }
+      },
+      "OpenTAP": {
+        "type": "Direct",
+        "requested": "[9.35.0, )",
+        "resolved": "9.35.0",
+        "contentHash": "StPb1oAhEzSLKKTUXUtKwS+R8IYOYecRZvZjUpMVZEpllOgAPDlWvq62yd52w6k5chyW6UTQm3+FTP2COtPjfg=="
+      },
+      "InstrumentComponents": {
+        "type": "CentralTransitive",
+        "requested": "[0.1.1, )",
+        "resolved": "0.1.1",
+        "contentHash": "vTwLwxkoVmONdm4+X0Oqr9Yn6jasQncHfy5NuEai0zzSZiTxsv4ax9NU6cwJVRo4RcVzz1lqjeC9VEwLX5wOKg=="
+      },
+      "InstrumentComponents.OpenTap": {
+        "type": "CentralTransitive",
+        "requested": "[0.1.1, )",
+        "resolved": "0.1.1",
+        "contentHash": "xokHGtex/x5M1Ap4hKahmxuigIWwVq0uNEdh2wGmUK1+HImrqWFDz6+kPDYJezi9/h5RmMt4XbCf3oSi+3RFhQ==",
+        "dependencies": {
+          "InstrumentComponents": "0.1.1",
+          "OpenTAP": "9.32.2"
+        }
+      },
+      "InstrumentComponents.Visa": {
+        "type": "CentralTransitive",
+        "requested": "[0.1.1, )",
+        "resolved": "0.1.1",
+        "contentHash": "tprYhde6Tj1pdvPr4O796NmsI1ZvmajgFWIENmvm9hSUXUNPw7S1uZywgENX1iZ0HkfVesvxW7wTOhubjFUljA==",
+        "dependencies": {
+          "InstrumentComponents": "0.1.1",
+          "IviFoundation.Visa": "8.0.2"
+        }
+      },
+      "IviFoundation.Visa": {
+        "type": "CentralTransitive",
+        "requested": "[8.0.2, )",
+        "resolved": "8.0.2",
+        "contentHash": "M7gBB5H9WyPwF5MKK0Q5+I9sYaKH1GMHdezjwsmtYwH7t0oy5nSK7B9ooGnX043eoDkY7o/5DvNy8DEzKHqW3Q=="
+      }
+    },
+    "net10.0/linux-x64": {},
+    "net10.0/osx-arm64": {},
+    "net10.0/win-x64": {}
+  }
+}
