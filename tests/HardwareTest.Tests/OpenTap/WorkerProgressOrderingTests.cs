@@ -170,6 +170,103 @@ public sealed class WorkerProgressOrderingTests
     }
 
     [Fact]
+    public async Task Client_clears_operator_state_after_rejected_prompt_and_can_run_again()
+    {
+        using var temp = new TempDataDirectory();
+        using var client = new OpenTapWorkerClient(
+            new AppSettings { UseMockVisa = true, CrashEnabled = false, DataDirectory = temp.Path });
+        OpenTapPluginSearch.SearchSerialized();
+        var plan = new TestPlan();
+        plan.ChildTestSteps.Add(new OperatorPromptStep { Message = "Client prompt", Name = "Operator prompt" });
+        var planPath = Path.Combine(temp.Path, "client-operator-rejection.TapPlan");
+        plan.Save(planPath);
+        await client.LoadPlanAsync(planPath);
+        var rejected = false;
+        var progress = new CallbackProgress(value =>
+        {
+            if (value.AwaitingOperator)
+            {
+                Assert.True(client.IsAwaitingOperator);
+                Assert.NotNull(client.OperatorPromptMessage);
+                Assert.NotNull(client.PendingInteraction);
+                rejected = true;
+                throw new InvalidOperationException("client prompt delivery rejected");
+            }
+        });
+
+        var error = await Record.ExceptionAsync(() => client.RunAsync(progress).WaitAsync(TimeSpan.FromSeconds(60)));
+
+        Assert.True(rejected);
+        Assert.IsType<InvalidOperationException>(error);
+        Assert.Contains("client prompt delivery rejected", error.Message, StringComparison.Ordinal);
+        Assert.False(client.IsExecuting);
+        Assert.False(client.IsAwaitingOperator);
+        Assert.Null(client.OperatorPromptMessage);
+        Assert.Null(client.PendingInteraction);
+        Assert.Equal(planPath, client.LoadedPlanPath);
+        await client.LoadPlanShapeAsync(PlanShapeFixtures.FlatLeavesName);
+        var items = new List<OpenTapProgress>();
+        await client.RunAsync(new CallbackProgress(items.Add)).WaitAsync(TimeSpan.FromSeconds(60));
+        Assert.NotEmpty(items);
+        Assert.True(items[^1].IsCompleted);
+        Assert.False(client.IsExecuting);
+        Assert.False(client.IsAwaitingOperator);
+        Assert.Null(client.OperatorPromptMessage);
+        Assert.Null(client.PendingInteraction);
+    }
+
+    [Fact]
+    public async Task Overlapping_client_run_does_not_clear_active_operator_interaction()
+    {
+        using var temp = new TempDataDirectory();
+        using var client = new OpenTapWorkerClient(
+            new AppSettings { UseMockVisa = true, CrashEnabled = false, DataDirectory = temp.Path });
+        OpenTapPluginSearch.SearchSerialized();
+        var plan = new TestPlan();
+        plan.ChildTestSteps.Add(new OperatorPromptStep { Message = "Keep this prompt", Name = "Operator prompt" });
+        var planPath = Path.Combine(temp.Path, "overlapping-run.TapPlan");
+        plan.Save(planPath);
+        await client.LoadPlanAsync(planPath);
+        var awaiting = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var first = client.RunAsync(new CallbackProgress(value =>
+        {
+            if (value.AwaitingOperator)
+            {
+                awaiting.TrySetResult();
+            }
+        }));
+        try
+        {
+            await awaiting.Task.WaitAsync(TimeSpan.FromSeconds(60));
+            var pending = client.PendingInteraction;
+            Assert.NotNull(pending);
+
+            var secondError = await Record.ExceptionAsync(() => client.RunAsync().WaitAsync(TimeSpan.FromSeconds(10)));
+
+            Assert.IsType<InvalidOperationException>(secondError);
+            Assert.Contains("already in progress", secondError.Message, StringComparison.Ordinal);
+            Assert.True(client.IsExecuting);
+            Assert.True(client.IsAwaitingOperator);
+            Assert.Equal("Keep this prompt", client.OperatorPromptMessage);
+            Assert.Same(pending, client.PendingInteraction);
+            client.Resume();
+            await first.WaitAsync(TimeSpan.FromSeconds(60));
+            Assert.False(client.IsExecuting);
+            Assert.False(client.IsAwaitingOperator);
+            Assert.Null(client.OperatorPromptMessage);
+            Assert.Null(client.PendingInteraction);
+        }
+        finally
+        {
+            if (!first.IsCompleted)
+            {
+                client.Abort();
+                await first.WaitAsync(TimeSpan.FromSeconds(30));
+            }
+        }
+    }
+
+    [Fact]
     public async Task Stopping_connection_releases_pending_run_even_with_blocked_callback()
     {
         using var temp = new TempDataDirectory();
@@ -227,4 +324,9 @@ public sealed class WorkerProgressOrderingTests
     private static Task<WorkerEnvelope> RunAsync(OpenTapWorkerProcess process, Action<WorkerEnvelope> callback)
         => process.Request(WorkerProtocol.Run, new WorkerRunRequest(),
             WorkerJsonContext.Default.WorkerRunRequest, CancellationToken.None, callback);
+
+    private sealed class CallbackProgress(Action<OpenTapProgress> callback) : IProgress<OpenTapProgress>
+    {
+        public void Report(OpenTapProgress value) => callback(value);
+    }
 }
