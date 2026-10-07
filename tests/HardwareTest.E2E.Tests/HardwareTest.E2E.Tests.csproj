@@ -1,5 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
+    <!-- Debug app references include developer diagnostics; Release uses packages.lock.json. -->
+    <NuGetLockFilePath Condition="'$(Configuration)' == 'Debug'">$(MSBuildProjectDirectory)/packages.Debug.lock.json</NuGetLockFilePath>
     <RootNamespace>HardwareTest.E2E.Tests</RootNamespace>
     <IsPackable>false</IsPackable>
     <IsAotCompatible>false</IsAotCompatible>
