@@ -23,7 +23,6 @@ dotnet run --project src/HardwareTest.Authoring -c Debug -r win-x64 -- --bootstr
 dotnet run --project src/HardwareTest.Authoring -c Debug -r win-x64 -- --validate plans/opentap --strict
 dotnet run --project src/HardwareTest.Authoring -c Debug -r win-x64 -- --compat plans/opentap
 dotnet run --project src/HardwareTest.Authoring -c Debug -r win-x64 -- --eval-formulas plans/opentap
-dotnet run --project src/HardwareTest.Authoring -c Debug -r win-x64 -- --migrate plans/opentap
 dotnet run --project src/HardwareTest.Authoring -c Debug -r win-x64 -- --pack plans/opentap --out dist/
 dotnet run --project src/HardwareTest.Authoring -c Debug -r win-x64 -- --help
 ```
@@ -50,7 +49,7 @@ Hardware templates have stable identities in `authoring.json`. **Include definit
 
 Editing creates debounced local checkpoints under `.authoring/recovery/`. A checkpoint does not clear the unsaved marker. On reopening, review the recovery notice and explicitly restore or discard newer content. Recovery failures remain visible while your draft stays open. Saved source documents retain stable row identities, formula intent, and incomplete input; future-schema sources are preserved read-only. Local recovery, builds, and package homes stay out of source control; commit `authoring-drafts/` with the workspace.
 
-If compiled plans change outside the app, review the conflict and choose whether to import those changes or retain your source before exporting again. Saving a draft alone does not make stale compiled artifacts ready for packaging. `--migrate <workspace>` explicitly upgrades older supported manifests, keeps `authoring.json.schema-<version>.bak`, and makes no changes on repeat execution. Future manifests remain untouched.
+If compiled plans change outside the app, review the conflict and choose whether to import those changes or retain your source before exporting again. Saving a draft alone does not make stale compiled artifacts ready for packaging. Workspace manifests must use the current schema version 2. Older manifests are rejected without changes; future manifests remain read-only and untouched.
 
 Sidecar fields (`displayName`, DUT flags, `reportKinds`) live on **Hardware**. Field reference: [adapting.md](adapting.md#author-a-locked-program). Copy [`plans/opentap/template.program.json`](../plans/opentap/template.program.json) only when you author a sidecar by hand.
 

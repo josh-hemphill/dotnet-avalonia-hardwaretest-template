@@ -175,6 +175,7 @@ public sealed class AuthoringDocumentStoreTests : IDisposable
     [InlineData(0)]
     [InlineData(-1)]
     [InlineData(-2147483648)]
+    [InlineData(1)]
     public void UnsupportedNestedManifestVersionsAreRecoverableAndCannotBeSaved(int version)
     {
         var store = new AuthoringDocumentStore(_root);
@@ -200,6 +201,7 @@ public sealed class AuthoringDocumentStoreTests : IDisposable
     [Theory]
     [InlineData(0)]
     [InlineData(-1)]
+    [InlineData(1)]
     [InlineData(3)]
     public void UnsupportedManifestSaveDoesNotCreateWorkspaceSource(int version)
     {
@@ -210,7 +212,6 @@ public sealed class AuthoringDocumentStoreTests : IDisposable
     }
 
     [Theory]
-    [InlineData(1, false)]
     [InlineData(2, false)]
     [InlineData(3, true)]
     public void NestedManifestVersionsKeepSupportedSourcesEditableAndFutureSourcesReadOnly(int version, bool readOnly)
@@ -241,26 +242,25 @@ public sealed class AuthoringDocumentStoreTests : IDisposable
     }
 
     [Fact]
-    public void LegacyManifestCanBeExplicitlyMigratedWithBackupAndPreservedContent()
+    public void Current_workspace_save_keeps_ordinary_backup_and_preserves_catalog_content()
     {
         var store = new AuthoringDocumentStore(_root);
         var manifest = new AuthoringManifest
         {
-            SchemaVersion = 1,
-            DisplayName = "legacy",
+            SchemaVersion = AuthoringSchemaVersions.Manifest,
+            DisplayName = "original",
             Catalogs = new() { RequiredFields = ["serial"] }
         };
         store.SaveWorkspace(manifest);
         var path = store.GetWorkspacePath();
-        var legacyBytes = File.ReadAllBytes(path);
-        var migrated = store.LoadWorkspace().Document!.Manifest;
-        migrated.SchemaVersion = AuthoringSchemaVersions.Manifest;
-        store.SaveWorkspace(migrated);
-        Assert.Equal(legacyBytes, File.ReadAllBytes(path + ".bak"));
+        var original = File.ReadAllBytes(path);
+        manifest.DisplayName = "updated";
+        store.SaveWorkspace(manifest);
+        Assert.Equal(original, File.ReadAllBytes(path + ".bak"));
         var current = store.LoadWorkspace();
         Assert.False(current.IsReadOnly);
         Assert.Equal(AuthoringSchemaVersions.Manifest, current.Document!.Manifest.SchemaVersion);
-        Assert.Equal("legacy", current.Document.Manifest.DisplayName);
+        Assert.Equal("updated", current.Document.Manifest.DisplayName);
         Assert.Equal("serial", current.Document.Manifest.Catalogs!.RequiredFields.Single());
     }
 

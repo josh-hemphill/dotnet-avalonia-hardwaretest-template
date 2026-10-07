@@ -43,7 +43,7 @@ public sealed partial class AuthoringDocumentStore
                 ?? throw new InvalidDataException("Workspace source is empty.");
             if (document.Manifest is null || document.Manifest.ExcludedProgramIds is null
                 || document.Manifest.ExcludedProgramIds.Any(string.IsNullOrWhiteSpace) || document.Revision < 0) throw new InvalidDataException("Workspace source is incomplete.");
-            if (document.Manifest.SchemaVersion < 1)
+            if (document.Manifest.SchemaVersion < AuthoringSchemaVersions.Manifest)
                 throw new InvalidDataException("Workspace source has an unsupported manifest schema version.");
             if (document.Manifest.SchemaVersion > AuthoringSchemaVersions.Manifest)
                 return new(document, true, bytes, null, true);
@@ -58,7 +58,7 @@ public sealed partial class AuthoringDocumentStore
     public void SaveWorkspace(AuthoringManifest manifest, long revision = 0)
     {
         ArgumentNullException.ThrowIfNull(manifest);
-        if (manifest.SchemaVersion < 1 || manifest.SchemaVersion > AuthoringSchemaVersions.Manifest || revision < 0)
+        if (manifest.SchemaVersion != AuthoringSchemaVersions.Manifest || revision < 0)
             throw new InvalidOperationException("Cannot write a future or invalid workspace source.");
         var existing = LoadWorkspace();
         if (existing.IsReadOnly) throw new InvalidOperationException(existing.Error ?? "Future authoring schemas are read-only; original bytes are preserved.");

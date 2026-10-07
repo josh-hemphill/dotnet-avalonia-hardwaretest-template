@@ -71,7 +71,7 @@ public sealed class AuthoringDestructiveReviewRegressionTests
     public void Actual_cleanup_inspector_is_readable_but_disables_all_edit_controls_for_readonly_workspace()
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true, compiler: new MutableProgramCompiler());
-        var manifest = Path.Combine(fixture.WorkspaceRoot, "authoring.json"); File.WriteAllText(manifest, File.ReadAllText(manifest).Replace("\"schemaVersion\": 1", "\"schemaVersion\": 999", StringComparison.Ordinal));
+        var manifest = Path.Combine(fixture.WorkspaceRoot, "authoring.json"); File.WriteAllText(manifest, File.ReadAllText(manifest).Replace("\"schemaVersion\": 2", "\"schemaVersion\": 999", StringComparison.Ordinal));
         fixture.Show(); fixture.OpenRememberedWorkspace(); SelectCleanup(fixture); var selected = fixture.ViewModel.SelectedProgram; var files = Snapshot(fixture);
         var shutdown = fixture.Control<CheckBox>("Include Safe Shutdown"); var measure = fixture.Control<CheckBox>("Include measure slots in cleanup"); var membership = fixture.Control<CheckBox>("DMM", fixture.Control<ItemsControl>("Cleanup instrument slots"));
         foreach (var box in new[] { shutdown, measure, membership })

@@ -76,7 +76,7 @@ public sealed class BoardPreviewIdentityTests : IDisposable
         Assert.Equal("V", direct.YUnit);
         Assert.Equal(4, direct.LimitHigh);
         AssertPreview(expected, MetricPreviewBuilder.From(first.Metric with { }, [first.Metric, second.Metric], sourceContext: draft, nodeId: first.NodeId));
-        File.WriteAllText(Path.Combine(_root, "authoring.json"), "{\"schemaVersion\":1,\"plansDirectory\":\".\"}");
+        File.WriteAllText(Path.Combine(_root, "authoring.json"), "{\"schemaVersion\":2,\"plansDirectory\":\".\"}");
         new AuthoringDocumentStore(_root).Save(AuthoringDocumentDto.FromDraft(draft));
         var vm = new AuthoringWorkspaceViewModel();
         vm.Open(_root);

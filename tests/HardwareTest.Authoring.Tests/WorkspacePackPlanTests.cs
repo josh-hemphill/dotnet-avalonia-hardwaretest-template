@@ -130,7 +130,7 @@ public sealed class WorkspacePackPlanTests
         var root = CopyTemplateWorkspace();
         var manifest = new AuthoringManifest
         {
-            SchemaVersion = 1,
+            SchemaVersion = AuthoringSchemaVersions.Manifest,
             DisplayName = "opt-pin",
             PlansDirectory = ".",
             Package = new AuthoringPackageSpec { Name = "Opt", Version = "0.1.0" },

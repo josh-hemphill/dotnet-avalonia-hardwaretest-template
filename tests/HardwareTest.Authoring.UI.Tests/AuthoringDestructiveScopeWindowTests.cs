@@ -208,7 +208,7 @@ public sealed class AuthoringDestructiveScopeWindowTests
     public void Readonly_membership_controls_preserve_checked_state_and_core_draft()
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
-        var manifest = Path.Combine(fixture.WorkspaceRoot, "authoring.json"); File.WriteAllText(manifest, File.ReadAllText(manifest).Replace("\"schemaVersion\": 1", "\"schemaVersion\": 999", StringComparison.Ordinal));
+        var manifest = Path.Combine(fixture.WorkspaceRoot, "authoring.json"); File.WriteAllText(manifest, File.ReadAllText(manifest).Replace("\"schemaVersion\": 2", "\"schemaVersion\": 999", StringComparison.Ordinal));
         fixture.Show(); fixture.OpenRememberedWorkspace(); Settings(fixture);
         var box = fixture.Control<CheckBox>("Include serial in selected program"); var before = box.IsChecked; var draft = fixture.ViewModel.SelectedProgram;
         Assert.False(box.IsEffectivelyEnabled); box.BringIntoView(); AuthoringUiFixture.Drain();

@@ -411,7 +411,7 @@ public sealed class AuthoringProgramSettingsDeleteTests
             Path.Combine(dest, "authoring.json"),
             """
             {
-              "schemaVersion": 1,
+              "schemaVersion": 2,
               "displayName": "blank-plans",
               "plansDirectory": "  "
             }

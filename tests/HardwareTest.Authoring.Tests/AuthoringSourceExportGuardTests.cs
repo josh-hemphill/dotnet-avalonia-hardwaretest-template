@@ -86,5 +86,22 @@ public sealed class AuthoringSourceExportGuardTests : IDisposable
         Assert.Null(result.Contract);
     }
 
+    [Fact]
+    public void Older_nested_manifest_blocks_export_without_normalizing_or_replacing_source()
+    {
+        var workspace = AuthoringWorkspaceLoader.Load(_root);
+        var store = new AuthoringDocumentStore(_root);
+        var path = store.GetWorkspacePath();
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        File.WriteAllText(path, """{"schemaVersion":1,"manifest":{"schemaVersion":1,"plansDirectory":"."}}""" + "\r\n");
+        var original = File.ReadAllBytes(path);
+
+        Assert.Contains(AuthoringSourceExportGuard.GetIssues(workspace), finding =>
+            finding.Code == "WORKSPACE_SOURCE_READ_ONLY" && finding.IsError);
+        Assert.Throws<AuthoringWorkspaceException>(() => AuthoringSourceExportGuard.EnsureCurrent(workspace));
+        Assert.Equal(original, File.ReadAllBytes(path));
+        Assert.Equal([path], Directory.GetFiles(Path.GetDirectoryName(path)!));
+    }
+
     public void Dispose() => Directory.Delete(_root, recursive: true);
 }

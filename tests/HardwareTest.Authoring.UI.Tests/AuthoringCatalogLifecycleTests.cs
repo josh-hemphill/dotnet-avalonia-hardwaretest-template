@@ -37,7 +37,7 @@ public sealed class AuthoringCatalogLifecycleTests
     {
         using var fixture = Loaded(); StageGlobalOnly(fixture); var session = fixture.ViewModel.Workspace; var draft = fixture.ViewModel.SelectedProgram;
         var manifest = Path.Combine(fixture.WorkspaceRoot, "authoring.json"); var before = File.ReadAllText(manifest);
-        File.WriteAllText(manifest, before.Replace("\"schemaVersion\": 1", "\"schemaVersion\": 999", StringComparison.Ordinal)); var futureBytes = File.ReadAllBytes(manifest);
+        File.WriteAllText(manifest, before.Replace("\"schemaVersion\": 2", "\"schemaVersion\": 999", StringComparison.Ordinal)); var futureBytes = File.ReadAllBytes(manifest);
         Task<bool>? request = null;
         if (navigate) request = fixture.Window!.ReopenWorkspaceAsync(); else fixture.Window!.Close();
         AuthoringUiFixture.Drain(); var dialog = Assert.Single(fixture.Window!.OwnedWindows); Assert.Contains("Workspace catalog changes", Assert.IsType<TextBlock>(fixture.Control<ScrollViewer>("Unsaved program list", dialog).Content).Text);

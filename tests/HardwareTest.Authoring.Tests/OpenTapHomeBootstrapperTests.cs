@@ -18,7 +18,7 @@ public sealed class OpenTapHomeBootstrapperTests
         File.WriteAllText(Path.Combine(workspaceRoot, "authoring.json"),
             """
             {
-              "schemaVersion": 1,
+              "schemaVersion": 2,
               "displayName": "VISA authoring",
               "plansDirectory": "plans",
               "package": { "name": "VISA authoring", "version": "0.1.0" },
@@ -119,7 +119,7 @@ public sealed class OpenTapHomeBootstrapperTests
                 Path.Combine(dir, "authoring.json"),
                 """
                 {
-                  "schemaVersion": 1,
+                  "schemaVersion": 2,
                   "displayName": "Needs IC",
                   "plansDirectory": "plans",
                   "package": { "name": "Needs IC", "version": "0.1.0" },
@@ -160,7 +160,7 @@ public sealed class OpenTapHomeBootstrapperTests
             Path.Combine(workspaceRoot, "authoring.json"),
             """
             {
-              "schemaVersion": 1,
+              "schemaVersion": 2,
               "displayName": "With IC",
               "plansDirectory": "plans",
               "package": { "name": "With IC", "version": "0.1.0" },
@@ -191,7 +191,7 @@ public sealed class OpenTapHomeBootstrapperTests
             Path.Combine(workspaceRoot, "authoring.json"),
             """
             {
-              "schemaVersion": 1,
+              "schemaVersion": 2,
               "displayName": "With IC",
               "plansDirectory": "plans",
               "package": { "name": "With IC", "version": "0.1.0" },

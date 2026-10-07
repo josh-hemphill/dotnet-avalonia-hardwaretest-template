@@ -58,9 +58,17 @@ public sealed class AuthoringDraftReviewRegressionTests
         Assert.True(vm.WorkspaceCatalogDirty);
         Assert.Equal(original, File.ReadAllBytes(sourcePath));
         Assert.Contains("second", AuthoringWorkspaceLoader.Load(root).Manifest.Catalogs!.RequiredFields);
+        var manifestPath = Path.Combine(root, AuthoringWorkspaceLoader.ManifestFileName);
+        var preservedFiles = new[] { manifestPath, sourcePath, manifestPath + ".bak", sourcePath + ".bak" }
+            .Where(File.Exists).ToDictionary(path => path, File.ReadAllBytes);
+        if (backupFailure) Assert.True(Directory.Exists(sourcePath + ".bak"));
+        else Assert.Equal(original, File.ReadAllBytes(sourcePath + ".bak"));
         var ex = Assert.Throws<AuthoringWorkspaceException>(() => new AuthoringWorkspaceViewModel().Open(root));
         Assert.Contains("Workspace catalog conflict", ex.Message, StringComparison.Ordinal);
-        Assert.Contains("backup", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("requires recovery", ex.Message, StringComparison.Ordinal);
+        Assert.Contains("available .bak files", ex.Message, StringComparison.Ordinal);
+        foreach (var (path, bytes) in preservedFiles) Assert.Equal(bytes, File.ReadAllBytes(path));
+        if (backupFailure) Assert.True(Directory.Exists(sourcePath + ".bak"));
         vm.StopRecovery();
     }
 
