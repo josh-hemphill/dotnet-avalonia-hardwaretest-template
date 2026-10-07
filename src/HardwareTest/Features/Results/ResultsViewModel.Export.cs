@@ -157,7 +157,7 @@ public partial class ResultsViewModel
     public static IEnumerable<(string SourcePath, string RelativeName)> CollectExportReportFiles(TestRunRecord run)
     {
         var files = new List<(string SourcePath, string RelativeName)>();
-        var destinations = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var destinations = new HashSet<string>(StringComparer.Ordinal);
         void Add(string? source, string destination)
         {
             if (!string.IsNullOrWhiteSpace(source) && File.Exists(source) && destinations.Add(destination))

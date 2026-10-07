@@ -36,9 +36,9 @@ public partial class ResultsViewModel
 
         var selected = pendingAction == PendingPrint ? run.Reports.FirstOrDefault(r => ReportArtifactRoles.IsIssued(r.Role)
             && string.Equals(r.Kind, reportKind, StringComparison.OrdinalIgnoreCase)
-            && string.Equals(r.PdfPath, _pendingPrintPath, StringComparison.OrdinalIgnoreCase)) : null;
+            && ReportAttestationService.PathEquals(r.PdfPath, _pendingPrintPath)) : null;
         if (selected is not null
-            ? _attestation.HasValidAttestationForPdf(run, reportKind, selected.PdfPath)
+            ? _attestation.HasValidAttestationForPdf(run, reportKind, _pendingPrintPath!)
             : _attestation.HasValidAttestation(run, reportKind))
         {
             return true;

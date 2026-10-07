@@ -22,7 +22,7 @@ public interface IReportAttestationService
     bool HasValidAttestation(TestRunRecord run, string reportKind, string? revisionId)
         => revisionId is null && HasValidAttestation(run, reportKind);
     bool HasValidAttestationForPdf(TestRunRecord run, string reportKind, string pdfPath)
-        => string.Equals(ReportAttestationService.ResolveIssuedPdfPath(run, reportKind), pdfPath, StringComparison.OrdinalIgnoreCase)
+        => ReportAttestationService.PathEquals(ReportAttestationService.ResolveIssuedPdfPath(run, reportKind), pdfPath)
            && HasValidAttestation(run, reportKind);
 
     Task<ReportAttestationResult> AttestAsync(
@@ -103,7 +103,7 @@ public sealed class ReportAttestationService : IReportAttestationService
             ? ReportKinds.Certification : reportKind;
         var artifact = run.Reports.FirstOrDefault(r => ReportArtifactRoles.IsIssued(r.Role)
             && string.Equals(r.Kind, kind, StringComparison.OrdinalIgnoreCase)
-            && string.Equals(r.PdfPath, pdfPath, StringComparison.OrdinalIgnoreCase));
+            && PathEquals(r.PdfPath, pdfPath));
         return HasValidArtifact(run, artifact);
     }
 
@@ -432,7 +432,7 @@ public sealed class ReportAttestationService : IReportAttestationService
             return run.Attestations.LastOrDefault(a =>
                 string.Equals(a.ReportKind, artifact.Kind, StringComparison.OrdinalIgnoreCase)
                 && a.RevisionId == artifact.RevisionId
-                && string.Equals(a.SidecarPath, sidecarPath, StringComparison.OrdinalIgnoreCase)
+                && PathEquals(a.SidecarPath, sidecarPath)
                 && string.Equals(a.PdfSha256, hash, StringComparison.OrdinalIgnoreCase));
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return null; }
@@ -508,15 +508,19 @@ public sealed class ReportAttestationService : IReportAttestationService
         return Path.GetFileName(dir);
     }
 
+    /// Report paths follow Windows casing rules only on Windows; distinct Unix files stay distinct.
+    public static bool PathEquals(string? left, string? right)
+        => string.Equals(left, right, OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
+
     public static bool RunOwnsPdf(TestRunRecord run, string pdfPath)
     {
-        return run.Reports.Any(r => string.Equals(r.PdfPath, pdfPath, StringComparison.OrdinalIgnoreCase));
+        return run.Reports.Any(r => PathEquals(r.PdfPath, pdfPath));
     }
 
     public static string KindForPdf(TestRunRecord run, string pdfPath)
     {
         var match = run.Reports.FirstOrDefault(r =>
-            string.Equals(r.PdfPath, pdfPath, StringComparison.OrdinalIgnoreCase));
+            PathEquals(r.PdfPath, pdfPath));
         if (match is not null && !string.IsNullOrWhiteSpace(match.Kind))
         {
             return match.Kind;
@@ -529,7 +533,7 @@ public sealed class ReportAttestationService : IReportAttestationService
     public static string ResolvePrintOrExportPdfPath(TestRunRecord run, string pdfPath)
     {
         if (run.Reports.Any(r => ReportArtifactRoles.IsIssued(r.Role)
-            && string.Equals(r.PdfPath, pdfPath, StringComparison.OrdinalIgnoreCase))) return pdfPath;
+            && PathEquals(r.PdfPath, pdfPath))) return pdfPath;
         var kind = KindForPdf(run, pdfPath);
         var issued = ReportRevisions.Latest(run, kind);
         return issued is null ? pdfPath : issued.PdfPath ?? throw new IOException("The issued revision has no PDF path.");

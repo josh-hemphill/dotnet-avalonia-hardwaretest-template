@@ -63,6 +63,53 @@ public sealed class SelectedIssuedEvidenceTests : IDisposable
         Assert.Equal(old.PdfPath, vm.PdfPath);
     }
 
+    [Fact]
+    public async Task Case_distinct_unix_issue_does_not_borrow_valid_counterpart_evidence()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            Assert.True(ReportAttestationService.PathEquals("issued/report.pdf", "ISSUED/REPORT.PDF"));
+            return;
+        }
+        if (!OperatingSystem.IsLinux()) return;
+        var (store, run, service, old, _) = await CreateIssuesAsync(unrevisioned: true);
+        var upper = Path.Combine(Path.GetDirectoryName(old.PdfPath)!, Path.GetFileNameWithoutExtension(old.PdfPath).ToUpperInvariant() + ".pdf");
+        var upperSidecar = Path.ChangeExtension(upper, ".attestation.json");
+        Assert.False(ReportAttestationService.PathEquals(old.PdfPath, upper));
+        File.Copy(old.PdfPath, upper);
+        var original = ReportAttestationService.FindForArtifact(run, old)!;
+        var sidecar = JsonSerializer.Deserialize(await File.ReadAllBytesAsync(original.SidecarPath!), AppJsonContext.Default.ReportAttestationSidecar)!;
+        sidecar.Attestation.SidecarPath = upperSidecar;
+        await File.WriteAllTextAsync(upperSidecar, JsonSerializer.Serialize(sidecar, AppJsonContext.Default.ReportAttestationSidecar));
+        run.Reports.Add(new() { Kind = old.Kind, Role = ReportArtifactRoles.Issued, PdfPath = upper, GeneratedAt = old.GeneratedAt });
+        run.Attestations.Add(sidecar.Attestation);
+        await File.WriteAllTextAsync(Path.Combine(store.GetRunDirectory(run.RunId), "run.json"), JsonSerializer.Serialize(run, AppJsonContext.Default.TestRunRecord));
+        Assert.True(service.HasValidAttestationForPdf(run, ReportKinds.Certification, upper));
+        await File.AppendAllTextAsync(upper, "tampered distinct file");
+        Assert.True(service.HasValidAttestationForPdf(run, ReportKinds.Certification, old.PdfPath));
+        Assert.False(service.HasValidAttestationForPdf(run, ReportKinds.Certification, upper));
+        var exports = ResultsViewModel.CollectExportReportFiles(run).ToArray();
+        Assert.Contains(exports, entry => entry.SourcePath == old.PdfPath && entry.RelativeName.StartsWith("history", StringComparison.Ordinal));
+        Assert.Contains(exports, entry => entry.SourcePath == upper && entry.RelativeName.StartsWith("history", StringComparison.Ordinal));
+        Assert.Equal(exports.Length, exports.Select(entry => entry.RelativeName).Distinct(StringComparer.Ordinal).Count());
+        var results = new ResultsViewModel(store, new FakeReportService(), attestation: service);
+        string? printed = null;
+        results.CertifiedPrintReady += (_, path) => printed = path;
+        await results.RequestCertifiedPrintAsync(upper);
+        Assert.Null(printed);
+        Assert.Contains("Verification failed", results.Status, StringComparison.Ordinal);
+        await results.RequestCertifiedPrintAsync(old.PdfPath);
+        Assert.Equal(old.PdfPath, printed);
+        Assert.False(results.ShowAttestationPrompt);
+        var preview = new ReportPreviewViewModel(store, new FakeReportService(), attestation: service) { UiScheduler = action => action() };
+        string? blocked = null;
+        preview.CertificationRequiredForPrint += (_, path) => blocked = path;
+        await preview.LoadFromPathAsync(upper);
+        await preview.PrintCommand.ExecuteAsync();
+        Assert.Equal(upper, blocked);
+        Assert.Equal(upper, preview.PdfPath);
+    }
+
     private async Task<(FileRunStore, TestRunRecord, ReportAttestationService, RunReportArtifact, RunReportArtifact)> CreateIssuesAsync(bool unrevisioned)
     {
         var store = new FileRunStore(_root);
@@ -74,8 +121,9 @@ public sealed class SelectedIssuedEvidenceTests : IDisposable
         var settings = new AppSettings { RequireAttestationBeforeExport = true };
         var service = new ReportAttestationService(new MockOperatorCredentialBroker(canSign: true), store, settings);
         Assert.True((await service.AttestAsync(run, ReportKinds.Certification)).Succeeded);
-        var old = ReportRevisions.Latest(run, ReportKinds.Certification)!;
+        var oldRevisionId = ReportRevisions.Latest(run, ReportKinds.Certification)!.RevisionId;
         Assert.True((await service.AttestAsync(run, ReportKinds.Certification)).Succeeded);
+        var old = run.Reports.Single(r => r.RevisionId == oldRevisionId);
         var latest = ReportRevisions.Latest(run, ReportKinds.Certification)!;
         if (unrevisioned)
         {

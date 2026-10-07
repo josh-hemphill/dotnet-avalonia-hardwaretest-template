@@ -182,7 +182,7 @@ public partial class ReportPreviewViewModel : ReactiveObject
             return;
         }
 
-        if (!string.Equals(printPath, PdfPath, StringComparison.OrdinalIgnoreCase))
+        if (!ReportAttestationService.PathEquals(printPath, PdfPath))
         {
             await LoadFromPathAsync(printPath).ConfigureAwait(true);
         }
