@@ -288,11 +288,14 @@ public sealed class OpenTapWorkerProcess : IDisposable
         }
     }
 
-    private void DispatchProgress(WorkerEnvelope envelope)
+    private WorkerEnvelope DispatchProgress(WorkerEnvelope envelope)
     {
+        var acknowledgement = new WorkerEnvelope { Id = envelope.Id, Method = WorkerProtocol.Progress, Ok = true };
         if (!_eventHandlers.TryGetValue(envelope.Id, out var handler))
         {
-            return;
+            acknowledgement.Ok = false;
+            acknowledgement.Error = "Worker progress request is inactive; no callback can accept this event.";
+            return acknowledgement;
         }
 
         try
@@ -302,7 +305,11 @@ public sealed class OpenTapWorkerProcess : IDisposable
         catch (Exception ex)
         {
             _logger.Warning(ex, "OpenTAP worker event handler failed.");
+            var cause = ex.GetBaseException();
+            acknowledgement.Ok = false;
+            acknowledgement.Error = $"{cause.GetType().Name}: {cause.Message}";
         }
+        return acknowledgement;
     }
 
     private void AppendStderr(string line)
@@ -321,7 +328,7 @@ public sealed class OpenTapWorkerProcess : IDisposable
     private sealed class CallbackTarget(OpenTapWorkerProcess owner)
     {
         [JsonRpcMethod("progress")]
-        public void Progress(WorkerEnvelope envelope)
+        public WorkerEnvelope Progress(WorkerEnvelope envelope)
             => owner.DispatchProgress(envelope);
     }
 }
