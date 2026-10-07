@@ -77,6 +77,7 @@ public sealed class AuthoringBuildShellCopyTests : IDisposable
     [InlineData(true, 1)]
     [InlineData(false, 2)]
     [InlineData(true, 2)]
+    [Trait("Category", "AuthoringIntegration")]
     public void Case_insensitive_reference_hint_metadata_is_captured(bool attribute, int casing)
     {
         var (workspace, project) = Workspace(siblingReference: true);
@@ -103,6 +104,7 @@ public sealed class AuthoringBuildShellCopyTests : IDisposable
     [InlineData(true, 1)]
     [InlineData(false, 2)]
     [InlineData(true, 2)]
+    [Trait("Category", "AuthoringIntegration")]
     public void Literal_contained_copy_metadata_publishes_saved_payload(bool attribute, int casing)
     {
         var (workspace, project) = Workspace();

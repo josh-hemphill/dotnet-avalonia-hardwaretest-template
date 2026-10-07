@@ -69,6 +69,7 @@ public sealed class PublishedInstrumentComponentsTests
     }
 
     [Fact]
+    [Trait("Category", "AuthoringIntegration")]
     public async Task Bundled_archive_keeps_cold_authoring_library_free()
     {
         var root = Path.Combine(Path.GetTempPath(), "ht-published-isolation-" + Guid.NewGuid().ToString("N"));

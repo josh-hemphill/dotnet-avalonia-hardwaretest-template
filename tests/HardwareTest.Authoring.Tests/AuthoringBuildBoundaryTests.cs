@@ -12,6 +12,7 @@ public sealed class AuthoringBuildBoundaryTests : IDisposable
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
+    [Trait("Category", "AuthoringIntegration")]
     public void Custom_MSBuild_environment_property_changed_after_capture_cannot_publish(bool initiallyAbsent)
     {
         var previous = Environment.GetEnvironmentVariable("SNAPSHOT_FLAG");
@@ -41,6 +42,7 @@ public sealed class AuthoringBuildBoundaryTests : IDisposable
     [InlineData("home")]
     [InlineData("home-mode")]
     [InlineData("intermediate")]
+    [Trait("Category", "AuthoringIntegration")]
     public void Compatibility_provider_cannot_change_captured_staged_inputs(string input)
     {
         if (input == "home-mode" && OperatingSystem.IsWindows()) return;

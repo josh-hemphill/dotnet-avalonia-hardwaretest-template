@@ -42,6 +42,7 @@ public sealed class AuthoringBuildShellProfileTests : IDisposable
     [InlineData("'$(SourceRevisionDate)' == '1970-01-01T00:00:00Z'")]
     [InlineData("'$(RestorePackagesWithLockFile)' == 'true'")]
     [InlineData("$([System.String]::Copy('$(MSBuildProjectDirectory)').Contains('authoring-shell-restore-'))")]
+    [Trait("Category", "AuthoringIntegration")]
     public void Conditional_identities_are_checked_on_copied_paths_with_actual_restore_properties(string condition)
         => AssertConditionalBlocked(condition, duringCapture: true);
 
@@ -50,6 +51,7 @@ public sealed class AuthoringBuildShellProfileTests : IDisposable
     [InlineData("'$(_CommandLineDefinedOutputPath)' == 'true'")]
     [InlineData("'$(PublishDir)' != ''")]
     [InlineData("$([System.String]::Copy('$(MSBuildProjectDirectory)').Contains('authoring-build-'))")]
+    [Trait("Category", "AuthoringIntegration")]
     public void Conditional_identities_are_checked_with_actual_staged_publish_properties(string condition)
         => AssertConditionalBlocked(condition, duringCapture: false);
 
@@ -98,6 +100,7 @@ public sealed class AuthoringBuildShellProfileTests : IDisposable
     }
 
     [Fact]
+    [Trait("Category", "AuthoringIntegration")]
     public void Write_profile_evaluation_uses_frozen_environment_and_SDK_host()
     {
         var (_, project) = Workspace();

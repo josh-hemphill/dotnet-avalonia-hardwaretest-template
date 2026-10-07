@@ -110,6 +110,7 @@ public sealed class AuthoringCreationOwnershipTests : IDisposable
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
+    [Trait("Category", "AuthoringIntegration")]
     public async Task Independent_process_ownership_is_exclusive_and_released_after_exit(bool crash)
     {
         var start = new ProcessStartInfo("dotnet") { RedirectStandardInput = true, RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false };

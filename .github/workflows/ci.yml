@@ -1,304 +1,109 @@
 name: CI
 
 on:
-  # Push only on integration branches. Feature-branch CI is pull_request-only so a
-  # push to an open PR does not fire a second identical run for the same commit.
-  # Branches without a PR can still be verified via workflow_dispatch.
   push:
     branches: [latest, main, master]
   pull_request:
+  schedule:
+    - cron: '17 3 * * *'
+  # Manual dispatch always runs full and uploads both publish artifacts.
   workflow_dispatch:
 
-# Least privilege. Jobs that upload artifacts restate contents:read and add actions:write.
 permissions:
   contents: read
 
-# Cancel superseded PR runs only. Integration-branch pushes keep running to completion.
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
-env:
-  DOTNET_CLI_TELEMETRY_OPTOUT: "1"
-  DOTNET_NOLOGO: "1"
-  # GitHub already sets CI=true; RestoreLockedMode in Directory.Build.props keys off it.
-
 jobs:
-  test:
-    runs-on: windows-latest
-    # Allow the complete authoring runtime/UI suite and post-job NuGet cache upload.
-    timeout-minutes: 75
-    permissions:
-      contents: read
+  policy:
+    runs-on: ubuntu-latest
+    outputs:
+      profile: ${{ steps.profile.outputs.profile }}
+      full: ${{ steps.profile.outputs.full }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Setup .NET
-        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
-        # Build snapshots hash the full declared SDK home; exclude unrelated runner SDKs.
-        env:
-          DOTNET_INSTALL_DIR: ${{ runner.temp }}/hardwaretest-dotnet
         with:
-          dotnet-version: "10.0.302"
-          cache: true
-          cache-dependency-path: |
-            **/*.csproj
-            **/packages.lock.json
-            Directory.Build.props
-            dirs.proj
-
-      - name: Record isolated .NET SDK identity
-        shell: pwsh
-        run: |
-          $expectedRoot = [IO.Path]::GetFullPath((Join-Path $env:RUNNER_TEMP 'hardwaretest-dotnet'))
-          if ([IO.Path]::GetFullPath($env:DOTNET_ROOT) -ne $expectedRoot) { throw 'SDK root must be the isolated runner temporary installation.' }
-          if ([IO.Path]::GetDirectoryName((Get-Command dotnet).Source) -ne $expectedRoot) { throw 'PATH must resolve dotnet from the isolated SDK root.' }
-          # setup-dotnet exports DOTNET_ROOT; apphosts prefer the architecture-specific binding.
-          $env:DOTNET_ROOT_X64 = $env:DOTNET_ROOT
-          "DOTNET_ROOT_X64=$env:DOTNET_ROOT" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          $expectedVersion = (Get-Content -LiteralPath global.json -Raw | ConvertFrom-Json).sdk.version
-          $actualVersion = dotnet --version
-          if ($LASTEXITCODE -ne 0 -or $actualVersion -ne $expectedVersion) { throw 'The isolated SDK must match global.json.' }
-          foreach ($argument in @('--info', '--list-sdks', '--list-runtimes')) {
-            dotnet $argument
-            if ($LASTEXITCODE -ne 0) { throw "SDK inventory failed: $argument" }
-          }
-          $sdkFiles = Get-ChildItem -LiteralPath $env:DOTNET_ROOT -Recurse -File | Measure-Object -Property Length -Sum
-          Write-Host "SDK identity root=$env:DOTNET_ROOT files=$($sdkFiles.Count) bytes=$($sdkFiles.Sum)"
-
-      - name: Setup Deno
-        uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
+          fetch-depth: 0
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
         with:
           deno-version: v2.7.7
+      - id: profile
+        name: Classify dependencies (unknown changes require full validation)
+        env:
+          CI_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          CI_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: deno run -A tools/ci/profile.ts
 
-      - name: Assert CI task catalog
-        shell: bash
-        run: |
-          set -euo pipefail
-          expected=$'all\naudit\nbuild\ncoverage\nformat\nlist\npublish\ntest:arch\ntest:authoring-compat\ntest:authoring-ui\ntest:e2e\ntest:host\ntest:vm\nverify'
-          actual=$(deno run -A tools/ci/main.ts list)
-          if [[ "$actual" != "$expected" ]]; then
-            echo "Deno task catalog drift:" >&2
-            echo "expected:" >&2
-            printf '%s\n' "$expected" >&2
-            echo "actual:" >&2
-            printf '%s\n' "$actual" >&2
-            exit 1
-          fi
+  linux:
+    needs: policy
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: [host, ui, vm, quality]
+    uses: ./.github/workflows/ci-suite.yml
+    with:
+      rid: linux-x64
+      suite: ${{ matrix.suite }}
+      profile: ${{ needs.policy.outputs.profile }}
 
-      - name: Build
-        run: deno run -A tools/ci/main.ts build --rid win-x64
-
-      - name: "Windows atomic progress replacement"
-        run: >-
-          dotnet test tests/HardwareTest.Authoring.Tests/HardwareTest.Authoring.Tests.csproj
-          -c Release -r win-x64 --no-build --no-restore
-          --filter "FullyQualifiedName~AuthoringProgressFileTests"
-
-      - name: Format check
-        run: deno run -A tools/ci/main.ts format
-
-      - name: Vulnerability scan
-        run: deno run -A tools/ci/main.ts audit
-
-      - name: "Architecture smoke (layering gates)"
-        run: deno run -A tools/ci/main.ts test:arch --rid win-x64
-
-      - name: "OpenTAP host + fixtures (serial collection, no Coverlet)"
-        run: deno run -A tools/ci/main.ts test:host --rid win-x64
-
-      - name: "Authoring TUI compatibility"
-        run: deno run -A tools/ci/main.ts test:authoring-compat --rid win-x64
-
-      - name: "Authoring UI (required headless inputs and bindings)"
-        run: deno run -A tools/ci/main.ts test:authoring-ui --rid win-x64
-
-      - name: "ViewModels (FakeOpenTap — UI/board)"
-        run: deno run -A tools/ci/main.ts test:vm --rid win-x64
-
-      - name: "E2E smoke (sample + Inspect shell wiring)"
-        run: deno run -A tools/ci/main.ts test:e2e --rid win-x64
-
-      - name: Coverage floors (Core-safe tests only)
-        run: deno run -A tools/ci/main.ts coverage --rid win-x64
-
-      - name: Deno coverage / catalog unit tests
-        run: deno task --cwd tools/ci test
+  windows:
+    needs: policy
+    uses: ./.github/workflows/ci-suite.yml
+    with:
+      rid: win-x64
+      suite: windows
+      profile: ${{ needs.policy.outputs.profile }}
 
   publish-win:
-    runs-on: windows-latest
-    needs: test
-    timeout-minutes: 20
-    permissions:
-      contents: read
-      actions: write
+    needs: policy
+    if: needs.policy.outputs.full == 'true'
+    uses: ./.github/workflows/ci-suite.yml
+    with:
+      rid: win-x64
+      suite: publish
+      profile: full
+
+  publish-linux:
+    needs: policy
+    if: needs.policy.outputs.full == 'true'
+    uses: ./.github/workflows/ci-suite.yml
+    with:
+      rid: linux-x64
+      suite: publish
+      profile: full
+
+  # Preserve required check identities. Never turn a failed/missing required
+  # child into a successful aggregate through GitHub's implicit skip handling.
+  test:
+    if: always()
+    needs: [policy, windows, publish-win]
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Setup .NET
-        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
-        # Build snapshots hash the full declared SDK home; exclude unrelated runner SDKs.
-        env:
-          DOTNET_INSTALL_DIR: ${{ runner.temp }}/hardwaretest-dotnet
-        with:
-          dotnet-version: "10.0.302"
-          cache: true
-          cache-dependency-path: |
-            **/*.csproj
-            **/packages.lock.json
-            Directory.Build.props
-            dirs.proj
-
-      - name: Record isolated .NET SDK identity
-        shell: pwsh
-        run: |
-          $expectedRoot = [IO.Path]::GetFullPath((Join-Path $env:RUNNER_TEMP 'hardwaretest-dotnet'))
-          if ([IO.Path]::GetFullPath($env:DOTNET_ROOT) -ne $expectedRoot) { throw 'SDK root must be the isolated runner temporary installation.' }
-          if ([IO.Path]::GetDirectoryName((Get-Command dotnet).Source) -ne $expectedRoot) { throw 'PATH must resolve dotnet from the isolated SDK root.' }
-          # setup-dotnet exports DOTNET_ROOT; apphosts prefer the architecture-specific binding.
-          $env:DOTNET_ROOT_X64 = $env:DOTNET_ROOT
-          "DOTNET_ROOT_X64=$env:DOTNET_ROOT" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          $expectedVersion = (Get-Content -LiteralPath global.json -Raw | ConvertFrom-Json).sdk.version
-          $actualVersion = dotnet --version
-          if ($LASTEXITCODE -ne 0 -or $actualVersion -ne $expectedVersion) { throw 'The isolated SDK must match global.json.' }
-          foreach ($argument in @('--info', '--list-sdks', '--list-runtimes')) {
-            dotnet $argument
-            if ($LASTEXITCODE -ne 0) { throw "SDK inventory failed: $argument" }
-          }
-          $sdkFiles = Get-ChildItem -LiteralPath $env:DOTNET_ROOT -Recurse -File | Measure-Object -Property Length -Sum
-          Write-Host "SDK identity root=$env:DOTNET_ROOT files=$($sdkFiles.Count) bytes=$($sdkFiles.Sum)"
-
-      - name: Setup Deno
-        uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
         with:
           deno-version: v2.7.7
-
-      - name: Self-contained publish (win-x64, non-AoT)
-        run: deno run -A tools/ci/main.ts publish --rid win-x64
-
-      - name: Verify publish + print-config
-        run: deno run -A tools/ci/main.ts verify --rid win-x64
-
-      - name: Upload win-x64 publish
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: hardwaretest-win-x64
-          path: artifacts/publish/win-x64
-          if-no-files-found: error
-          retention-days: 14
+      - name: Require successful Windows children
+        env:
+          CI_NEEDS: ${{ toJSON(needs) }}
+          CI_REQUIRED: ${{ needs.policy.outputs.full == 'true' && 'policy,windows,publish-win' || 'policy,windows' }}
+          CI_OPTIONAL: ${{ needs.policy.outputs.full != 'true' && 'publish-win' || '' }}
+        run: deno run -A tools/ci/profile.ts aggregate
 
   test-linux:
+    if: always()
+    needs: [policy, linux, publish-linux]
     runs-on: ubuntu-latest
-    timeout-minutes: 45
-    permissions:
-      contents: read
-      actions: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Setup .NET
-        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
-        # Build snapshots hash the full declared SDK home; exclude unrelated runner SDKs.
-        env:
-          DOTNET_INSTALL_DIR: ${{ runner.temp }}/hardwaretest-dotnet
-        with:
-          dotnet-version: "10.0.302"
-          cache: true
-          cache-dependency-path: |
-            **/*.csproj
-            **/packages.lock.json
-            Directory.Build.props
-            dirs.proj
-
-      - name: Record isolated .NET SDK identity
-        shell: pwsh
-        run: |
-          $expectedRoot = [IO.Path]::GetFullPath((Join-Path $env:RUNNER_TEMP 'hardwaretest-dotnet'))
-          if ([IO.Path]::GetFullPath($env:DOTNET_ROOT) -ne $expectedRoot) { throw 'SDK root must be the isolated runner temporary installation.' }
-          if ([IO.Path]::GetDirectoryName((Get-Command dotnet).Source) -ne $expectedRoot) { throw 'PATH must resolve dotnet from the isolated SDK root.' }
-          # setup-dotnet exports DOTNET_ROOT; apphosts prefer the architecture-specific binding.
-          $env:DOTNET_ROOT_X64 = $env:DOTNET_ROOT
-          "DOTNET_ROOT_X64=$env:DOTNET_ROOT" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          $expectedVersion = (Get-Content -LiteralPath global.json -Raw | ConvertFrom-Json).sdk.version
-          $actualVersion = dotnet --version
-          if ($LASTEXITCODE -ne 0 -or $actualVersion -ne $expectedVersion) { throw 'The isolated SDK must match global.json.' }
-          foreach ($argument in @('--info', '--list-sdks', '--list-runtimes')) {
-            dotnet $argument
-            if ($LASTEXITCODE -ne 0) { throw "SDK inventory failed: $argument" }
-          }
-          $sdkFiles = Get-ChildItem -LiteralPath $env:DOTNET_ROOT -Recurse -File | Measure-Object -Property Length -Sum
-          Write-Host "SDK identity root=$env:DOTNET_ROOT files=$($sdkFiles.Count) bytes=$($sdkFiles.Sum)"
-
-      - name: Setup Deno
-        uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
         with:
           deno-version: v2.7.7
-
-      - name: Install Avalonia headless dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            libfontconfig1 libfreetype6 libice6 libsm6 \
-            libx11-6 libxcursor1 libxext6 libxi6 libxrandr2 libxrender1
-
-      - name: Assert CI task catalog
-        run: |
-          set -euo pipefail
-          expected=$'all\naudit\nbuild\ncoverage\nformat\nlist\npublish\ntest:arch\ntest:authoring-compat\ntest:authoring-ui\ntest:e2e\ntest:host\ntest:vm\nverify'
-          actual=$(deno run -A tools/ci/main.ts list)
-          if [[ "$actual" != "$expected" ]]; then
-            echo "Deno task catalog drift:" >&2
-            echo "expected:" >&2
-            printf '%s\n' "$expected" >&2
-            echo "actual:" >&2
-            printf '%s\n' "$actual" >&2
-            exit 1
-          fi
-
-      - name: Build
-        run: deno run -A tools/ci/main.ts build --rid linux-x64
-
-      - name: Format check
-        run: deno run -A tools/ci/main.ts format
-
-      - name: Vulnerability scan
-        run: deno run -A tools/ci/main.ts audit
-
-      - name: Architecture smoke
-        run: deno run -A tools/ci/main.ts test:arch --rid linux-x64
-
-      - name: OpenTAP host + fixtures (no Coverlet)
-        run: deno run -A tools/ci/main.ts test:host --rid linux-x64
-
-      - name: Authoring TUI compatibility
-        run: deno run -A tools/ci/main.ts test:authoring-compat --rid linux-x64
-
-      - name: "Authoring UI (required headless inputs and bindings)"
-        run: deno run -A tools/ci/main.ts test:authoring-ui --rid linux-x64
-
-      - name: ViewModels
-        run: deno run -A tools/ci/main.ts test:vm --rid linux-x64
-
-      - name: E2E smoke (advisory on Linux)
-        continue-on-error: true
-        run: deno run -A tools/ci/main.ts test:e2e --rid linux-x64
-
-      - name: Coverage floors (Core-safe tests only)
-        run: deno run -A tools/ci/main.ts coverage --rid linux-x64
-
-      - name: Deno coverage / catalog unit tests
-        run: deno task --cwd tools/ci test
-
-      - name: Publish linux-x64
-        run: deno run -A tools/ci/main.ts publish --rid linux-x64
-
-      - name: Verify publish + print-config
-        run: deno run -A tools/ci/main.ts verify --rid linux-x64
-
-      - name: Upload linux-x64 publish
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: hardwaretest-linux-x64
-          path: artifacts/publish/linux-x64
-          if-no-files-found: error
-          retention-days: 14
+      - name: Require successful Linux children
+        env:
+          CI_NEEDS: ${{ toJSON(needs) }}
+          CI_REQUIRED: ${{ needs.policy.outputs.full == 'true' && 'policy,linux,publish-linux' || 'policy,linux' }}
+          CI_OPTIONAL: ${{ needs.policy.outputs.full != 'true' && 'publish-linux' || '' }}
+        run: deno run -A tools/ci/profile.ts aggregate

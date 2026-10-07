@@ -9,6 +9,7 @@ public sealed class AuthoringBuildShellGraphTests : IDisposable
 {
     public void Dispose() => AuthoringBuildSnapshotTests.CleanupOwnedFixtures();
     [Fact]
+    [Trait("Category", "AuthoringIntegration")]
     public void Real_external_Notes_graph_publishes_Avalonia_app_from_saved_inputs_without_original_obj_writes()
     {
         var repository = Repository();
@@ -39,6 +40,7 @@ public sealed class AuthoringBuildShellGraphTests : IDisposable
     [InlineData("configuration")]
     [InlineData("lock")]
     [InlineData("package")]
+    [Trait("Category", "AuthoringIntegration")]
     public void Copied_real_Notes_graph_rechecks_projects_configs_locks_and_resolved_payloads(string changed)
     {
         var repository = Repository();

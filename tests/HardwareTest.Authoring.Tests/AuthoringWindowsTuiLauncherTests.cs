@@ -25,6 +25,7 @@ public sealed class AuthoringWindowsTuiLauncherTests : IDisposable
     }
 
     [Fact]
+    [Trait("Category", "AuthoringIntegration")]
     public async Task Prepared_literal_path_protocol_replaces_bundled_CLI_and_reports_actual_arguments()
     {
         var (home, plan) = PrepareLiteralHome();
@@ -61,6 +62,7 @@ public sealed class AuthoringWindowsTuiLauncherTests : IDisposable
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
+    [Trait("Category", "AuthoringIntegration")]
     public async Task Windows_actual_child_receives_literal_home_and_plan_and_owns_completion(bool cancel)
     {
         if (!OperatingSystem.IsWindows()) Assert.Skip("Requires Windows ShellExecute and console process semantics.");
