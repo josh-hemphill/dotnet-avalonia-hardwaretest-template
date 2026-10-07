@@ -14,7 +14,8 @@ import { TASKS } from "./main.ts";
 Deno.test("shared inputs, SDK, tooling, unknown paths and both rename sides require full", () => {
   for (
     const changed of [
-      "src/HardwareTest.Core/Engine/Engine.cs",
+    "src/HardwareTest.Core/Engine/Engine.cs",
+    "src/HardwareTest/Features/Results/Extra.CSPROJ",
       "src/HardwareTest/Composition.cs",
       "src/HardwareTest/DeferredStartup.cs",
       "src/HardwareTest/App.axaml.cs",

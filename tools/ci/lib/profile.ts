@@ -6,7 +6,7 @@ export function classifyPaths(paths: readonly string[]): Profile {
   return paths.every((path) => {
       // Shared build inputs take precedence over otherwise fast directories.
       if (
-        /\.(csproj|props|targets|sln|slnx)$/.test(path) ||
+        /\.(csproj|props|targets|sln|slnx)$/i.test(path) ||
         /(^|\/)(packages\.lock\.json|global\.json|nuget\.config)$/i.test(path)
       ) {
         return false;
