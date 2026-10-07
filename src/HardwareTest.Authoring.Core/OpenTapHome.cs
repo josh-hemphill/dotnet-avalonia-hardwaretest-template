@@ -11,6 +11,8 @@ public sealed class BootstrapOptions
     public string? TuiPackagePath { get; init; }
 
     public bool Offline { get; init; }
+
+    public string? OfflinePackagePath { get; init; }
 }
 
 public static class AuthoringBootstrapCodes

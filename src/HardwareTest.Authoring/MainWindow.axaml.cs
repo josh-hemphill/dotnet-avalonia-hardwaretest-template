@@ -2,6 +2,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
+using Avalonia.VisualTree;
 
 namespace HardwareTest.Authoring;
 
@@ -15,52 +16,91 @@ public partial class MainWindow : Window
     {
     }
 
-    public MainWindow(AuthoringWorkspaceViewModel viewModel)
+    public MainWindow(AuthoringWorkspaceViewModel viewModel, IAuthoringLifecycleInteraction? lifecycleInteraction = null, IAuthoringWorkspacePicker? workspacePicker = null, IAuthoringWorkspacePicker? packOutputPicker = null, IAuthoringWorkspacePicker? offlinePackagePicker = null)
     {
         _viewModel = viewModel;
+        _packOutputPicker = packOutputPicker;
+        _offlinePackagePicker = offlinePackagePicker;
         InitializeComponent();
         DataContext = viewModel;
+        InitializeShell();
+        InitializePlanCommands();
+        InitializeGuidance();
+        InitializeLifecycle(lifecycleInteraction, workspacePicker);
+        _viewModel.ConfigureRecoveryDispatch(action => Avalonia.Threading.Dispatcher.UIThread.Post(action));
+        _viewModel.ConfigureOperations(CreateOperationRunner(),
+            action => Avalonia.Threading.Dispatcher.UIThread.Post(action));
+        Closed += (_, _) => { _viewModel.StopRecovery(); _viewModel.StopOperations(); };
     }
+
+    internal void OnAcceptRecovery(object? sender, RoutedEventArgs e)
+        => TryRun(() => { if (_viewModel.SelectedRecoveryPlanId is { } id) _viewModel.AcceptRecovery(id); });
+    internal void OnDiscardRecovery(object? sender, RoutedEventArgs e)
+        => TryRun(() => { if (_viewModel.SelectedRecoveryPlanId is { } id) _viewModel.DiscardRecovery(id); });
+    internal void OnImportCompiled(object? sender, RoutedEventArgs e)
+        => TryRun(() => { if (_viewModel.SelectedProgram is { } p) _viewModel.ReconcileCompiled(p.PlanId, true); });
+    internal void OnRetainSource(object? sender, RoutedEventArgs e)
+        => TryRun(() => { if (_viewModel.SelectedProgram is { } p) _viewModel.ReconcileCompiled(p.PlanId, false); });
 
     private async void OnOpenWorkspace(object? sender, RoutedEventArgs e)
-    {
-        var folders = await StorageProvider.OpenFolderPickerAsync(
-            new FolderPickerOpenOptions
-            {
-                Title = "Open authoring workspace",
-                AllowMultiple = false,
-            });
-        var path = folders.FirstOrDefault()?.TryGetLocalPath();
-        if (string.IsNullOrWhiteSpace(path))
-        {
-            return;
-        }
+        => await OpenWorkspaceAsync();
 
-        TryRun(() => _viewModel.Open(path));
+    private void OnUndo(object? sender, RoutedEventArgs e)
+    {
+        CommitFocusedEditor();
+        TryRun(() => _viewModel.Undo());
     }
 
-    private void OnBootstrap(object? sender, RoutedEventArgs e)
-        => TryRun(() => _viewModel.Bootstrap(new BootstrapOptions { Offline = true }));
+    private void OnRedo(object? sender, RoutedEventArgs e)
+    {
+        CommitFocusedEditor();
+        TryRun(() => _viewModel.Redo());
+    }
+    private void OnUndoWorkspace(object? sender, RoutedEventArgs e)
+    {
+        CommitFocusedEditor();
+        TryRun(() => _viewModel.UndoWorkspace());
+    }
+    private void OnRedoWorkspace(object? sender, RoutedEventArgs e)
+    {
+        CommitFocusedEditor();
+        TryRun(() => _viewModel.RedoWorkspace());
+    }
 
-    private void OnValidate(object? sender, RoutedEventArgs e)
-        => TryRun(() => _viewModel.Validate(strict: true));
+    private void OnSaveAll(object? sender, RoutedEventArgs e)
+    {
+        CommitFocusedEditor();
+        TryRun(() => _viewModel.SaveAll());
+    }
+
+    private async void OnBootstrap(object? sender, RoutedEventArgs e)
+        => await RunOperationAsync(AuthoringOperationKind.Bootstrap);
+
+    private async void OnValidate(object? sender, RoutedEventArgs e)
+        => await RunOperationAsync(AuthoringOperationKind.Validate);
 
     private void OnSaveSidecar(object? sender, RoutedEventArgs e)
-        => TryRun(() => _viewModel.SaveSidecar());
+    {
+        CommitFocusedEditor();
+        TryRun(() => _viewModel.SaveSidecar());
+    }
 
     private void OnApply(object? sender, RoutedEventArgs e)
-        => TryRun(() => _viewModel.Apply());
+    {
+        CommitFocusedEditor();
+        TryRun(() => _viewModel.Apply());
+    }
 
-    private void OnCreateProgram(object? sender, RoutedEventArgs e)
-        => TryRun(() => _viewModel.CreateProgram());
+    internal async void OnCreateProgram(object? sender, RoutedEventArgs e)
+        => await ShowPlanInitializationAsync();
 
-    private async void OnRemoveProgram(object? sender, RoutedEventArgs e)
+    internal async void OnRemoveProgram(object? sender, RoutedEventArgs e)
         => await ConfirmRemoveProgramAsync();
 
-    private void OnAddRecipe(object? sender, RoutedEventArgs e)
+    internal void OnAddRecipe(object? sender, RoutedEventArgs e)
         => TryRun(() => _viewModel.ApplySelectedRecipe());
 
-    private void OnToggleCleanupSlot(object? sender, RoutedEventArgs e)
+    internal void OnToggleCleanupSlot(object? sender, RoutedEventArgs e)
     {
         if (sender is not CheckBox { DataContext: AuthoringCatalogToggle row } box)
         {
@@ -70,7 +110,7 @@ public partial class MainWindow : Window
         TryRun(() => _viewModel.SetCleanupSlotIncluded(row.Id, box.IsChecked == true));
     }
 
-    private void OnMetricSettingLostFocus(object? sender, RoutedEventArgs e)
+    internal void OnMetricSettingLostFocus(object? sender, RoutedEventArgs e)
     {
         if (sender is TextBox { DataContext: AuthoringSettingRow row } box)
         {
@@ -81,7 +121,7 @@ public partial class MainWindow : Window
         if (sender is ComboBox { DataContext: AuthoringSettingRow comboRow } combo)
         {
             var text = combo.SelectedItem as string ?? combo.Text ?? string.Empty;
-            if (!comboRow.ShouldCommitLostFocusText(text))
+            if (string.Equals(comboRow.Value, text, StringComparison.Ordinal) || !comboRow.ShouldCommitLostFocusText(text))
             {
                 return;
             }
@@ -90,7 +130,7 @@ public partial class MainWindow : Window
         }
     }
 
-    private void OnMetricSettingBoolChanged(object? sender, RoutedEventArgs e)
+    internal void OnMetricSettingBoolChanged(object? sender, RoutedEventArgs e)
     {
         if (sender is not CheckBox { DataContext: AuthoringSettingRow row } box)
         {
@@ -100,16 +140,17 @@ public partial class MainWindow : Window
         TryRun(() => _viewModel.SetMetricSettingBool(row.Key, box.IsChecked == true));
     }
 
-    private void OnMetricSettingChoiceChanged(object? sender, SelectionChangedEventArgs e)
+    internal void OnMetricSettingChoiceChanged(object? sender, SelectionChangedEventArgs e)
     {
         if (sender is ComboBox { DataContext: AuthoringSettingRow row } box
-            && box.SelectedItem is string selected)
+            && box.SelectedItem is string selected
+            && !string.Equals(row.Value, selected, StringComparison.Ordinal))
         {
             TryRun(() => _viewModel.SetMetricSetting(row.Key, selected));
         }
     }
 
-    private void OnMetricSettingNumberChanged(object? sender, NumericUpDownValueChangedEventArgs e)
+    internal void OnMetricSettingNumberChanged(object? sender, NumericUpDownValueChangedEventArgs e)
     {
         if (sender is NumericUpDown { DataContext: AuthoringSettingRow row })
         {
@@ -117,10 +158,10 @@ public partial class MainWindow : Window
         }
     }
 
-    private void OnRemoveSequence(object? sender, RoutedEventArgs e)
+    internal void OnRemoveSequence(object? sender, RoutedEventArgs e)
         => TryRun(_viewModel.RemoveSelectedSequence);
 
-    private void OnSequenceKeyDown(object? sender, KeyEventArgs e)
+    internal void OnSequenceKeyDown(object? sender, KeyEventArgs e)
     {
         if (e.Key != Key.Delete || !_viewModel.CanRemoveSelectedSequence)
         {
@@ -131,7 +172,7 @@ public partial class MainWindow : Window
         e.Handled = true;
     }
 
-    private async void OnProgramsKeyDown(object? sender, KeyEventArgs e)
+    internal async void OnProgramsKeyDown(object? sender, KeyEventArgs e)
     {
         if (e.Key != Key.Delete || !_viewModel.CanRemoveSelectedProgram)
         {
@@ -142,51 +183,9 @@ public partial class MainWindow : Window
         await ConfirmRemoveProgramAsync();
     }
 
-    private async Task ConfirmRemoveProgramAsync()
+    internal async void OnImportTransferFunction(object? sender, RoutedEventArgs e)
     {
-        (string PlanId, string TapPlanPath, string SidecarPath) target;
-        try
-        {
-            target = _viewModel.DescribeSelectedProgramRemoval();
-        }
-        catch (Exception ex)
-        {
-            _viewModel.ReportError(ex.Message);
-            return;
-        }
-
-        var dialog = new Window
-        {
-            Title = "Remove program?",
-            Width = 480,
-            SizeToContent = SizeToContent.Height,
-            CanResize = false,
-            WindowStartupLocation = WindowStartupLocation.CenterOwner,
-        };
-        var cancel = new Button { Content = "Cancel", IsDefault = true };
-        var remove = new Button { Content = "Remove program" };
-        cancel.Click += (_, _) => dialog.Close(false);
-        remove.Click += (_, _) => dialog.Close(true);
-        dialog.Content = new StackPanel
-        {
-            Margin = new Avalonia.Thickness(20),
-            Spacing = 12,
-            Children =
-            {
-                new TextBlock { Text = $"Remove {target.PlanId} from this workspace?", TextWrapping = Avalonia.Media.TextWrapping.Wrap },
-                new TextBlock { Text = $"These files will be deleted if they exist:\n{target.TapPlanPath}\n{target.SidecarPath}", TextWrapping = Avalonia.Media.TextWrapping.Wrap },
-                new StackPanel { Orientation = Avalonia.Layout.Orientation.Horizontal, Spacing = 8, HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right, Children = { cancel, remove } },
-            },
-        };
-
-        if (await dialog.ShowDialog<bool>(this))
-        {
-            TryRun(() => _viewModel.RemoveSelectedProgramIfMatches(target));
-        }
-    }
-
-    private async void OnImportTransferFunction(object? sender, RoutedEventArgs e)
-    {
+        var current = OwnerContext();
         var files = await StorageProvider.OpenFilePickerAsync(
             new FilePickerOpenOptions
             {
@@ -201,7 +200,7 @@ public partial class MainWindow : Window
                 ],
             });
         var path = files.FirstOrDefault()?.TryGetLocalPath();
-        if (string.IsNullOrWhiteSpace(path))
+        if (string.IsNullOrWhiteSpace(path) || !current())
         {
             return;
         }
@@ -209,21 +208,32 @@ public partial class MainWindow : Window
         TryRun(() => _viewModel.ImportTransferFunction(path));
     }
 
-    private void OnOpenLastWorkspace(object? sender, RoutedEventArgs e)
-        => TryRun(_viewModel.OpenLastWorkspace);
+    internal async void OnOpenLastWorkspace(object? sender, RoutedEventArgs e)
+        => await OpenWorkspaceAsync(_viewModel.LastWorkspacePath);
 
-    private void OnOpenFindingProgram(object? sender, RoutedEventArgs e)
+    private long _findingNavigationGeneration;
+
+    internal void OnOpenFindingProgram(object? sender, RoutedEventArgs e)
     {
-        if (sender is not Button { DataContext: AuthoringFindingRow { CanOpenProgram: true } row })
+        var current = OwnerContext();
+        var target = sender is Button { DataContext: AuthoringFindingRow row } ? _viewModel.NavigateFinding(row)
+            : sender is Button { DataContext: AuthoringEditingIssue issue } ? _viewModel.NavigateEditingIssue(issue) : null;
+        if (target is null) return;
+        var navigation = ++_findingNavigationGeneration;
+        var workspace = _viewModel.Workspace;
+        var document = _viewModel.SelectedDocument;
+        var revision = document?.Revision;
+        WorkspaceTabs.SelectedIndex = target.NodeId is null ? 1 : 0;
+        if (target.NodeId is not null && target.Section is null && target.Field is null) return;
+        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
         {
-            return;
-        }
-
-        _viewModel.SelectProgram(row.ProgramId);
-        if (this.FindControl<TabControl>("WorkspaceTabs") is { } tabs)
-        {
-            tabs.SelectedIndex = 0;
-        }
+            if (!current() || navigation != _findingNavigationGeneration || !ReferenceEquals(workspace, _viewModel.Workspace)
+                || !ReferenceEquals(document, _viewModel.SelectedDocument) || revision != document?.Revision
+                || target.ProgramId != _viewModel.SelectedProgram?.PlanId || target.NodeId != _viewModel.SelectedSequence?.NodeId) return;
+            var inspector = this.GetVisualDescendants().OfType<SelectedStepInspectorView>().SingleOrDefault();
+            if (target.NodeId is not null && inspector?.FocusFinding(target) != true)
+                _viewModel.ReportError("The target section is open; no supported precise field control is available.");
+        }, Avalonia.Threading.DispatcherPriority.Loaded);
     }
 
     private void OnOpenSettings(object? sender, RoutedEventArgs e)
@@ -237,29 +247,30 @@ public partial class MainWindow : Window
         _settings = new SettingsWindow
         {
             DataContext = _viewModel,
+            FontSize = FontSize,
         };
         _settings.Closed += (_, _) => _settings = null;
         _settings.Show(this);
     }
 
-    private void OnFormulaCaretChanged(object? sender, RoutedEventArgs e) => SyncFormulaCaret();
+    internal void OnFormulaCaretChanged(object? sender, RoutedEventArgs e) => SyncFormulaCaret();
 
     private void SyncFormulaCaret()
     {
-        if (this.FindControl<TextBox>("FormulaBox") is { } box)
+        if (this.GetVisualDescendants().OfType<TextBox>().FirstOrDefault(box => box.Name == "FormulaBox") is { } box)
         {
             _viewModel.RefreshFormulaCompletions(box.CaretIndex);
         }
     }
 
-    private void OnFormulaChip(object? sender, RoutedEventArgs e)
+    internal void OnFormulaChip(object? sender, RoutedEventArgs e)
     {
         if (sender is not Button { Tag: string token } || string.IsNullOrWhiteSpace(token))
         {
             return;
         }
 
-        var box = this.FindControl<TextBox>("FormulaBox");
+        var box = this.GetVisualDescendants().OfType<TextBox>().FirstOrDefault(box => box.Name == "FormulaBox");
         var caret = box?.CaretIndex ?? _viewModel.FormulaSource.Length;
         var next = _viewModel.ApplyFormulaCompletion(token, caret);
         if (box is not null)
@@ -271,23 +282,6 @@ public partial class MainWindow : Window
         _viewModel.RefreshFormulaCompletions(next);
     }
 
-    private async void OnPack(object? sender, RoutedEventArgs e)
-    {
-        var folders = await StorageProvider.OpenFolderPickerAsync(
-            new FolderPickerOpenOptions
-            {
-                Title = "Pack output directory",
-                AllowMultiple = false,
-            });
-        var path = folders.FirstOrDefault()?.TryGetLocalPath();
-        if (string.IsNullOrWhiteSpace(path))
-        {
-            return;
-        }
-
-        TryRun(() => _viewModel.Pack(path, new PackOptions { Offline = true }));
-    }
-
     private void TryRun(Action action)
     {
         try
@@ -296,7 +290,7 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            _viewModel.ReportError(ex.Message);
+            _viewModel.ReportError(AuthoringWorkspaceViewModel.PersistenceError(ex));
         }
     }
 }

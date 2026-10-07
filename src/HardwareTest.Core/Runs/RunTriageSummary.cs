@@ -7,15 +7,13 @@ public sealed class RunTriageSummary
     public int PathPassCount { get; init; }
     public int PathFailCount { get; init; }
     public int TotalAttempts { get; init; }
-    public bool IsLegacyTriage { get; init; }
     public string OperatorSummary { get; init; } = string.Empty;
     public IReadOnlyList<StepAttemptSummary> Ledgers { get; init; } = [];
 
-    /// Builds triage from <see cref="TestRunRecord.StepAttempts"/> chronology; falls back to <see cref="TestRunRecord.Steps"/>.
+    /// Builds triage from <see cref="TestRunRecord.StepAttempts"/> chronology.
     public static RunTriageSummary FromRecord(TestRunRecord run)
     {
-        var isLegacy = run.StepAttempts.Count == 0;
-        var ledgers = isLegacy ? BuildLegacyLedgers(run.Steps) : run.StepAttempts;
+        var ledgers = run.StepAttempts;
         var chronology = ledgers
             .SelectMany(l => l.Attempts)
             .OrderBy(ChronologyInstant)
@@ -38,9 +36,8 @@ public sealed class RunTriageSummary
             PathPassCount = pathPass,
             PathFailCount = pathFail,
             TotalAttempts = totalAttempts,
-            IsLegacyTriage = isLegacy && run.Steps.Count > 0,
             Ledgers = ledgers,
-            OperatorSummary = FormatSummary(firstFail, pathFail, pathPass, isLegacy && run.Steps.Count > 0),
+            OperatorSummary = FormatSummary(firstFail, pathFail, pathPass),
         };
     }
 
@@ -71,37 +68,7 @@ public sealed class RunTriageSummary
         };
     }
 
-    private static IReadOnlyList<StepAttemptSummary> BuildLegacyLedgers(IReadOnlyList<StepResultRecord> steps)
-    {
-        if (steps.Count == 0)
-        {
-            return [];
-        }
-
-        return steps
-            .GroupBy(
-                s => string.IsNullOrWhiteSpace(s.StepPath) ? s.StepId : s.StepPath,
-                StringComparer.OrdinalIgnoreCase)
-            .Select(g =>
-            {
-                var ordered = g.OrderBy(ChronologyInstant).ThenBy(a => a.AttemptNumber).ToList();
-                var last = ordered[^1];
-                return new StepAttemptSummary
-                {
-                    StepPath = string.IsNullOrWhiteSpace(last.StepPath) ? last.StepId : last.StepPath,
-                    StepName = string.IsNullOrWhiteSpace(last.StepId) ? last.StepPath : last.StepId,
-                    AttemptCount = ordered.Count,
-                    PassedCount = ordered.Count(a => a.Passed),
-                    FailedCount = ordered.Count(a => !a.Passed),
-                    LatestPassed = last.Passed,
-                    LatestMessage = last.Message,
-                    Attempts = ordered,
-                };
-            })
-            .ToList();
-    }
-
-    private static string FormatSummary(StepResultRecord? firstFail, int pathFail, int pathPass, bool legacy)
+    private static string FormatSummary(StepResultRecord? firstFail, int pathFail, int pathPass)
     {
         if (firstFail is null)
         {
@@ -111,7 +78,6 @@ public sealed class RunTriageSummary
         }
 
         var path = string.IsNullOrWhiteSpace(firstFail.StepPath) ? firstFail.StepId : firstFail.StepPath;
-        var legacyMark = legacy ? " (legacy steps)" : string.Empty;
-        return $"First fail: {path} — {firstFail.Message} ({pathFail} failed path(s)){legacyMark}";
+        return $"First fail: {path} — {firstFail.Message} ({pathFail} failed path(s))";
     }
 }

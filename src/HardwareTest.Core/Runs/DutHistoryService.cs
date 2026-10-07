@@ -163,7 +163,7 @@ public sealed class DutHistoryService : IDutHistoryService
         {
             if (!policyByKey.TryGetValue(channel, out var policy) || policy.Enabled is null)
             {
-                // Unknown policy (legacy / absent HistoryEnabled) — do not invent defaults.
+                // Unknown policy (absent HistoryEnabled) — do not invent defaults.
                 skippedUnknownPolicy++;
                 continue;
             }
@@ -216,9 +216,7 @@ public sealed class DutHistoryService : IDutHistoryService
             return new DutHistoryReport
             {
                 PriorRunCount = loadedPriors,
-                OperatorSummary = current.IsLegacy
-                    ? "No comparison available (legacy run record)."
-                    : "No comparison available (history policy unknown for metrics).",
+                OperatorSummary = "No comparison available (history policy unknown for metrics).",
             };
         }
 

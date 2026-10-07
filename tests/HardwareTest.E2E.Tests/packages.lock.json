@@ -308,11 +308,8 @@
       },
       "Microsoft.Extensions.Logging.Abstractions": {
         "type": "Transitive",
-        "resolved": "8.0.0",
-        "contentHash": "arDBqTgFCyS0EvRV7O3MZturChstm50OJ0y9bDJvAcmEPJm0FFpFyjU/JLYyStNGGey081DvnQYlncNX5SJJGA==",
-        "dependencies": {
-          "Microsoft.Extensions.DependencyInjection.Abstractions": "8.0.0"
-        }
+        "resolved": "5.0.0",
+        "contentHash": "NxP6ahFcBnnSfwNBi2KH2Oz8Xl5Sm2krjId/jRR3I7teFphwiUoUeZPwTNA21EX+5PtjqmyAvKaOeBXcJjcH/w=="
       },
       "Microsoft.Extensions.Options": {
         "type": "Transitive",
@@ -327,11 +324,6 @@
         "type": "Transitive",
         "resolved": "10.0.12",
         "contentHash": "dYfCLR52UA+3DL7C4I/pvSaRPkNqxrUAQmbFL2u0zvYKKzqgrFCJl08Df+F1aYc8leu9JvpC9bsURUdpExcBXQ=="
-      },
-      "Microsoft.IO.RecyclableMemoryStream": {
-        "type": "Transitive",
-        "resolved": "3.0.1",
-        "contentHash": "s/s20YTVY9r9TPfTrN5g8zPF1YhwxyqO6PxUkrYTGI2B+OGPe9AdajWZrLhFqXIvqIW23fnUE4+ztrUWNU1+9g=="
       },
       "Microsoft.NET.StringTools": {
         "type": "Transitive",
@@ -502,11 +494,6 @@
           "SkiaSharp": "3.119.0"
         }
       },
-      "SkiaSharp.NativeAssets.Linux": {
-        "type": "Transitive",
-        "resolved": "3.119.4",
-        "contentHash": "UAyVzbqNfZsZbKbzj68zXLyUyF/SbTKmzTfOO6qDu++dtIUMMTzPBe8oOuzU/DiewpfKoUUlOSsJmqWc6blxBw=="
-      },
       "SkiaSharp.NativeAssets.Linux.NoDependencies": {
         "type": "Transitive",
         "resolved": "4.150.1",
@@ -642,7 +629,6 @@
           "Avalonia.Desktop": "[12.1.2, )",
           "Avalonia.Fonts.Inter": "[12.1.2, )",
           "Avalonia.Themes.Fluent": "[12.1.2, )",
-          "AvaloniaUI.DiagnosticsSupport": "[2.2.3, )",
           "FluentAvaloniaUI": "[3.1.0, )",
           "HardwareTest.Core": "[0.1.0, )",
           "HardwareTest.OpenTap.Host": "[0.1.0, )",
@@ -655,6 +641,7 @@
           "ReactiveUI": "[24.2.0, )",
           "ReactiveUI.Avalonia": "[12.1.2, )",
           "ReactiveUI.Binding": "[7.3.0, )",
+          "SkiaSharp.NativeAssets.Linux": "[4.150.1, )",
           "System.Reactive": "[7.0.0, )"
         }
       },
@@ -687,9 +674,8 @@
         "type": "Project",
         "dependencies": {
           "HardwareTest.Core": "[0.1.0, )",
-          "HardwareTest.OpenTap.Plugins.Basic": "[0.1.0, )",
+          "HardwareTest.OpenTap.Plugins.Basic": "[0.2.0, )",
           "HardwareTest.OpenTap.Plugins.Mixins": "[0.1.0, )",
-          "HardwareTest.OpenTap.Plugins.Visa": "[0.1.0, )",
           "OpenTAP": "[9.35.0, )",
           "StreamJsonRpc": "[2.25.29, )"
         }
@@ -703,14 +689,6 @@
       "hardwaretest.opentap.plugins.mixins": {
         "type": "Project",
         "dependencies": {
-          "OpenTAP": "[9.35.0, )"
-        }
-      },
-      "hardwaretest.opentap.plugins.visa": {
-        "type": "Project",
-        "dependencies": {
-          "HardwareTest.Core": "[0.1.0, )",
-          "HardwareTest.OpenTap.Plugins.Basic": "[0.1.0, )",
           "OpenTAP": "[9.35.0, )"
         }
       },
@@ -766,16 +744,6 @@
           "Avalonia.Skia": "12.1.2",
           "Avalonia.Win32": "12.1.2",
           "Avalonia.X11": "12.1.2"
-        }
-      },
-      "AvaloniaUI.DiagnosticsSupport": {
-        "type": "CentralTransitive",
-        "requested": "[2.2.3, )",
-        "resolved": "2.2.3",
-        "contentHash": "kQCInYusi2c9tjd9hV05Lln6Csbo07kiC672M3G7dsalDBe2j+pOk3We2nzdyy5ptQYy/9gQiC8ZaHhb6u/5Kw==",
-        "dependencies": {
-          "Microsoft.Extensions.Logging.Abstractions": "8.0.0",
-          "Microsoft.IO.RecyclableMemoryStream": "3.0.1"
         }
       },
       "FluentAvaloniaUI": {
@@ -1008,6 +976,12 @@
           "Serilog": "4.3.1"
         }
       },
+      "SkiaSharp.NativeAssets.Linux": {
+        "type": "CentralTransitive",
+        "requested": "[4.150.1, )",
+        "resolved": "4.150.1",
+        "contentHash": "7IZtljoTBp0EH7/6K3p3yey44db3W7hkV9UPdCOaQQ2TxFkmFOpXwOPiQ865DrG+szgp0aKpQs8vYrzRdF83Ng=="
+      },
       "StreamJsonRpc": {
         "type": "CentralTransitive",
         "requested": "[2.25.29, )",
@@ -1105,11 +1079,6 @@
         "resolved": "5.0.0",
         "contentHash": "dDoKi0PnDz31yAyETfRntsLArTlVAVzUzCIvvEDsDsucrl33Dl8pIJG06ePTJTI3tGpeyHS9Cq7Foc/s4EeKcg=="
       },
-      "SkiaSharp.NativeAssets.Linux": {
-        "type": "Transitive",
-        "resolved": "3.119.4",
-        "contentHash": "UAyVzbqNfZsZbKbzj68zXLyUyF/SbTKmzTfOO6qDu++dtIUMMTzPBe8oOuzU/DiewpfKoUUlOSsJmqWc6blxBw=="
-      },
       "SkiaSharp.NativeAssets.Linux.NoDependencies": {
         "type": "Transitive",
         "resolved": "4.150.1",
@@ -1134,6 +1103,12 @@
         "type": "Transitive",
         "resolved": "2.1.0",
         "contentHash": "4CbOJXL5iqIoKON09ihXblk4dAz4khJsmK+3hKEgQ6WNea36IN4r6ioRdDAvJp+hoM3+oNHb43lDcl2Lya4JvQ=="
+      },
+      "SkiaSharp.NativeAssets.Linux": {
+        "type": "CentralTransitive",
+        "requested": "[4.150.1, )",
+        "resolved": "4.150.1",
+        "contentHash": "7IZtljoTBp0EH7/6K3p3yey44db3W7hkV9UPdCOaQQ2TxFkmFOpXwOPiQ865DrG+szgp0aKpQs8vYrzRdF83Ng=="
       },
       "System.Security.Cryptography.Pkcs": {
         "type": "CentralTransitive",
@@ -1200,11 +1175,6 @@
         "resolved": "5.0.0",
         "contentHash": "dDoKi0PnDz31yAyETfRntsLArTlVAVzUzCIvvEDsDsucrl33Dl8pIJG06ePTJTI3tGpeyHS9Cq7Foc/s4EeKcg=="
       },
-      "SkiaSharp.NativeAssets.Linux": {
-        "type": "Transitive",
-        "resolved": "3.119.4",
-        "contentHash": "UAyVzbqNfZsZbKbzj68zXLyUyF/SbTKmzTfOO6qDu++dtIUMMTzPBe8oOuzU/DiewpfKoUUlOSsJmqWc6blxBw=="
-      },
       "SkiaSharp.NativeAssets.Linux.NoDependencies": {
         "type": "Transitive",
         "resolved": "4.150.1",
@@ -1229,6 +1199,12 @@
         "type": "Transitive",
         "resolved": "2.1.0",
         "contentHash": "1ypmIDCeGZP8d/YbAkI4Y/zqTU+7NNkrIrd963Sm35oHsDtAjgqJbha+QQKUmSSJyI4TdyFGtyDjKHBNssI1Nw=="
+      },
+      "SkiaSharp.NativeAssets.Linux": {
+        "type": "CentralTransitive",
+        "requested": "[4.150.1, )",
+        "resolved": "4.150.1",
+        "contentHash": "7IZtljoTBp0EH7/6K3p3yey44db3W7hkV9UPdCOaQQ2TxFkmFOpXwOPiQ865DrG+szgp0aKpQs8vYrzRdF83Ng=="
       },
       "System.Security.Cryptography.Pkcs": {
         "type": "CentralTransitive",
@@ -1295,11 +1271,6 @@
         "resolved": "5.0.0",
         "contentHash": "dDoKi0PnDz31yAyETfRntsLArTlVAVzUzCIvvEDsDsucrl33Dl8pIJG06ePTJTI3tGpeyHS9Cq7Foc/s4EeKcg=="
       },
-      "SkiaSharp.NativeAssets.Linux": {
-        "type": "Transitive",
-        "resolved": "3.119.4",
-        "contentHash": "UAyVzbqNfZsZbKbzj68zXLyUyF/SbTKmzTfOO6qDu++dtIUMMTzPBe8oOuzU/DiewpfKoUUlOSsJmqWc6blxBw=="
-      },
       "SkiaSharp.NativeAssets.Linux.NoDependencies": {
         "type": "Transitive",
         "resolved": "4.150.1",
@@ -1324,6 +1295,12 @@
         "type": "Transitive",
         "resolved": "2.1.0",
         "contentHash": "t2naSK+R5B3o7GNzOFBG5+1lV1HDI0IWKPaMLbWD2/7giElA/Px2AcTssYY2Jn89JlMXVshqw+HUd4OO/Yy6kA=="
+      },
+      "SkiaSharp.NativeAssets.Linux": {
+        "type": "CentralTransitive",
+        "requested": "[4.150.1, )",
+        "resolved": "4.150.1",
+        "contentHash": "7IZtljoTBp0EH7/6K3p3yey44db3W7hkV9UPdCOaQQ2TxFkmFOpXwOPiQ865DrG+szgp0aKpQs8vYrzRdF83Ng=="
       },
       "System.Security.Cryptography.Pkcs": {
         "type": "CentralTransitive",

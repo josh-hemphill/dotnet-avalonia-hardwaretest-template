@@ -85,7 +85,7 @@ public sealed class WorkspacePackerTests
         Assert.Equal(manifest.PackageName, shipped.PackageName);
         Assert.Equal(manifest.Version, shipped.Version);
         Assert.Equal(manifest.Files, shipped.Files);
-        Assert.Contains(shipped.ResolvedDependencies, dep => dep.Package == "OpenTAP");
+        Assert.Contains(shipped.Dependencies, dep => dep.Package == "OpenTAP");
         Assert.DoesNotContain(shipped.Files, f => f.Contains("shell-apps", StringComparison.Ordinal));
 
         using var zip = ZipFile.OpenRead(package);
@@ -106,7 +106,7 @@ public sealed class WorkspacePackerTests
             workspace,
             new BootstrapOptions { HomeDirectory = NewTempDir(), Offline = true });
 
-        var ex = Assert.Throws<AuthoringWorkspaceException>(() =>
+        var ex = Assert.Throws<PackPreflightException>(() =>
             WorkspacePacker.Pack(
                 workspace,
                 NewTempDir(),
@@ -155,12 +155,13 @@ public sealed class WorkspacePackerTests
         var home = new OpenTapHomeBootstrapper().Bootstrap(
             workspace,
             new BootstrapOptions { HomeDirectory = NewTempDir(), Offline = true });
-        var ex = Assert.Throws<AuthoringWorkspaceException>(() =>
+        var ex = Assert.Throws<PackPreflightException>(() =>
             WorkspacePacker.Pack(workspace, NewTempDir(), new PackOptions { Home = home, Offline = true }));
         Assert.Contains(AuthoringPackCodes.PluginMissing, ex.Message, StringComparison.Ordinal);
     }
 
     [Fact]
+    [Trait("Category", "AuthoringIntegration")]
     public void Pack_records_bake_time_shell_apps_on_ship_manifest()
     {
         var workspaceRoot = CopyTemplateWorkspace();
@@ -219,7 +220,7 @@ public sealed class WorkspacePackerTests
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
         while (dir is not null)
         {
-            if (dir.EnumerateFiles("HardwareTest.slnx").Any())
+            if (dir.EnumerateFiles("dirs.proj").Any())
             {
                 return dir.FullName;
             }
@@ -228,7 +229,7 @@ public sealed class WorkspacePackerTests
         }
 
         throw new InvalidOperationException(
-            $"Could not locate HardwareTest.slnx above '{AppContext.BaseDirectory}'.");
+            $"Could not locate dirs.proj above '{AppContext.BaseDirectory}'.");
     }
 
     private sealed class BlockingCompat : ITuiCompatChecker

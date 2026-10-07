@@ -217,9 +217,22 @@ public partial class ReportPreviewViewModel : ReactiveObject
             }
             if (version != _selectionVersion) return;
 
-            var path = run.ReportPdfPath;
+            var path = ReportAttestationService.ResolveDefaultWorkingPdfPath(run, ProgramCatalog.ResolveDefaultReportKind(run.PlanId));
             if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
-                path = await _reportService.GeneratePdfAsync(run).ConfigureAwait(false);
+            {
+                if (run.IsSchemaReadOnly)
+                {
+                    await RunOnUiAsync(() => { if (version == _selectionVersion) Status = "This run is read-only; its working report is unavailable."; }).ConfigureAwait(false);
+                    return;
+                }
+                await _reportService.GenerateReportsAsync(run, ProgramCatalog.ResolveReportKinds(run.PlanId)).ConfigureAwait(false);
+                path = ReportAttestationService.ResolveDefaultWorkingPdfPath(run, ProgramCatalog.ResolveDefaultReportKind(run.PlanId));
+            }
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                await RunOnUiAsync(() => { if (version == _selectionVersion) Status = "No working report available."; }).ConfigureAwait(false);
+                return;
+            }
 
             await LoadFromPathCoreAsync(path, version).ConfigureAwait(false);
         }
@@ -287,11 +300,11 @@ public partial class ReportPreviewViewModel : ReactiveObject
             }
             var run = await Task.Run(() => FindRunForPdfAsync(path)).ConfigureAwait(false);
             if (version != _selectionVersion || token.IsCancellationRequested) return;
-            var artifact = run?.Reports.FirstOrDefault(r => string.Equals(r.PdfPath, path, StringComparison.OrdinalIgnoreCase));
+            var artifact = run?.Reports.FirstOrDefault(r => ReportAttestationService.PathEquals(r.PdfPath, path));
             var kind = run is null ? ReportKinds.Status : ReportAttestationService.KindForPdf(run, path);
             var issued = artifact is not null && ReportArtifactRoles.IsIssued(artifact.Role);
             var valid = run is not null && issued && _attestation is not null
-                && await Task.Run(() => _attestation.HasValidAttestation(run, kind, artifact!.RevisionId), token).ConfigureAwait(false);
+                && await Task.Run(() => _attestation.HasValidAttestationForPdf(run, kind, path), token).ConfigureAwait(false);
             if (version != _selectionVersion || token.IsCancellationRequested) return;
             var needsSignature = action == ActionKind.Sign || (action is ActionKind.Save or ActionKind.Print
                 && run is not null && _attestation?.NeedsAttestation(run, kind) == true && !valid);
@@ -378,7 +391,10 @@ public partial class ReportPreviewViewModel : ReactiveObject
                 }).ConfigureAwait(false);
                 return;
             }
-            var revision = ReportRevisions.Latest(pending.Run, pending.Kind);
+            var revision = result.Attestation?.RevisionId is { } revisionId
+                ? pending.Run.Reports.FirstOrDefault(r => r.RevisionId == revisionId
+                    && ReportArtifactRoles.IsIssued(r.Role) && string.Equals(r.Kind, pending.Kind, StringComparison.OrdinalIgnoreCase))
+                : null;
             if (revision is null) throw new InvalidOperationException("Signing did not commit a report revision.");
             // Consume the pending action before previewing or invoking any external operation.
             _pending = null;
@@ -449,11 +465,10 @@ public partial class ReportPreviewViewModel : ReactiveObject
 
     private string DescribeReport(TestRunRecord? run, string path)
     {
-        var artifact = run?.Reports.FirstOrDefault(r => string.Equals(r.PdfPath, path, StringComparison.OrdinalIgnoreCase));
+        var artifact = run?.Reports.FirstOrDefault(r => ReportAttestationService.PathEquals(r.PdfPath, path));
         if (run is null || artifact is null || !ReportArtifactRoles.IsIssued(artifact.Role)) return "Unsigned · working copy";
-        var stamp = run.Attestations.LastOrDefault(a => a.RevisionId == artifact.RevisionId
-            && string.Equals(a.ReportKind, artifact.Kind, StringComparison.OrdinalIgnoreCase));
-        var label = _attestation?.HasValidAttestation(run, artifact.Kind, artifact.RevisionId) == true
+        var stamp = ReportAttestationService.FindForArtifact(run, artifact);
+        var label = _attestation?.HasValidAttestationForPdf(run, artifact.Kind, path) == true
             ? stamp?.Kind == AttestationKind.Signed ? stamp.Algorithm == AttestationAlgorithm.MockHmac ? "Digitally signed (mock)" : "Digitally signed" : "Presence attested"
             : "Verification failed";
         return $"{label} · {stamp?.DisplayName ?? "Unknown signer"} · {stamp?.CapturedAt:u} · revision {artifact.RevisionNumber}";

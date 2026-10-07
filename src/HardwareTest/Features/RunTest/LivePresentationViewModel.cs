@@ -8,13 +8,6 @@ using ReactiveUI.SourceGenerators;
 
 namespace HardwareTest.Features.RunTest;
 
-/// Band (KPI strip) vs Focus (legacy earned trend). Chart now lives in a Run workspace.
-public enum PresentationChromeMode
-{
-    Band,
-    Focus,
-}
-
 /// Live measurement feed: per-metric series buffers and per-step gauge tiles.
 public partial class LivePresentationViewModel : ReactiveObject
 {
@@ -31,7 +24,6 @@ public partial class LivePresentationViewModel : ReactiveObject
 
     public LivePresentationViewModel()
     {
-        ToggleFocusTrendCommand = ReactiveCommand.Create(ToggleFocusTrend);
         ResetViewCommand = ReactiveCommand.Create(ResetView);
         SelectSeriesCommand = ReactiveCommand.Create<LiveSeriesItemViewModel?>(SelectSeries);
         SelectTimeWindowCommand = ReactiveCommand.Create<ChartTimeWindow>(SelectTimeWindow);
@@ -48,7 +40,6 @@ public partial class LivePresentationViewModel : ReactiveObject
 
     public int PlotYsLength { get; private set; }
 
-    public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> ToggleFocusTrendCommand { get; }
     public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> ResetViewCommand { get; }
     public ReactiveCommand<LiveSeriesItemViewModel?, ReactiveUI.Primitives.RxVoid> SelectSeriesCommand { get; }
     public ReactiveCommand<ChartTimeWindow, ReactiveUI.Primitives.RxVoid> SelectTimeWindowCommand { get; }
@@ -58,14 +49,9 @@ public partial class LivePresentationViewModel : ReactiveObject
     [Reactive] private bool _hasPlotData;
     [Reactive] private bool _hasChartData;
     [Reactive] private bool _hasChartAttention;
-    [Reactive] private bool _showPlotForSelection;
-    [Reactive] private bool _showFocusTrend;
-    [Reactive] private bool _offerShowTrend;
     [Reactive] private bool _offerOpenChart;
     [Reactive] private bool _hasPresentationTiles;
-    [Reactive] private bool _userWantsFocus;
     [Reactive] private bool _followLive = true;
-    [Reactive] private PresentationChromeMode _chromeMode = PresentationChromeMode.Band;
     [Reactive] private string _plotLegendText = "Channel";
     [Reactive] private string _plotYLabel = "Value";
     [Reactive] private string _plotTitle = "Live measurements";
@@ -85,13 +71,8 @@ public partial class LivePresentationViewModel : ReactiveObject
         HasPlotData = false;
         HasChartData = false;
         HasChartAttention = false;
-        ShowPlotForSelection = false;
-        ShowFocusTrend = false;
-        OfferShowTrend = false;
         OfferOpenChart = false;
-        UserWantsFocus = false;
         FollowLive = true;
-        ChromeMode = PresentationChromeMode.Band;
         FocusTrendTip = string.Empty;
         ChartValueText = "—";
         ChartBandText = "No limits";
@@ -202,10 +183,6 @@ public partial class LivePresentationViewModel : ReactiveObject
         _lastSelectedStep = selectedStep;
         HasChartData = _series.Values.Any(s => s.Count > 0);
         OfferOpenChart = HasChartData;
-        OfferShowTrend = HasChartData;
-        ChromeMode = PresentationChromeMode.Band;
-        ShowFocusTrend = false;
-        ShowPlotForSelection = false;
         if (HasChartData)
         {
             PublishSelectedSnapshot(selectedStep);
@@ -229,12 +206,6 @@ public partial class LivePresentationViewModel : ReactiveObject
         }
 
         HasChartAttention = attention;
-    }
-
-    private void ToggleFocusTrend()
-    {
-        UserWantsFocus = !UserWantsFocus;
-        RefreshChrome(_lastSelectedStep);
     }
 
     private void SelectSeries(LiveSeriesItemViewModel? item)

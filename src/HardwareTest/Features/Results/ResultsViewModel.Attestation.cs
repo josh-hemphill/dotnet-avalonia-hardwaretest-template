@@ -39,15 +39,17 @@ public partial class ResultsViewModel
             return true;
         }
 
-        var selected = run.Reports.FirstOrDefault(r => string.Equals(r.PdfPath, _pendingPrintPath, StringComparison.OrdinalIgnoreCase));
-        if (selected is not null && ReportArtifactRoles.IsIssued(selected.Role)
-            ? _attestation.HasValidAttestation(run, reportKind, selected.RevisionId)
+        var selected = pendingAction == PendingPrint ? run.Reports.FirstOrDefault(r => ReportArtifactRoles.IsIssued(r.Role)
+            && string.Equals(r.Kind, reportKind, StringComparison.OrdinalIgnoreCase)
+            && ReportAttestationService.PathEquals(r.PdfPath, _pendingPrintPath)) : null;
+        if (selected is not null
+            ? _attestation.HasValidAttestationForPdf(run, reportKind, _pendingPrintPath!)
             : _attestation.HasValidAttestation(run, reportKind))
         {
             return true;
         }
 
-        if (selected is not null && ReportArtifactRoles.IsIssued(selected.Role))
+        if (selected is not null)
         {
             Status = "Verification failed for this issued revision. Select a working report to create a new revision.";
             return false;
@@ -158,7 +160,7 @@ public partial class ResultsViewModel
             Status = result.Message;
             LoadReportItems(run);
             DismissAttestationPrompt();
-            ContinuePendingAction(pending, printPath, kind, run);
+            ContinuePendingAction(pending, printPath, kind, run, result.Attestation?.RevisionId);
         }
         catch (OperationCanceledException)
         {
@@ -174,7 +176,7 @@ public partial class ResultsViewModel
         }
     }
 
-    private void ContinuePendingAction(string? pending, string? printPath, string reportKind, TestRunRecord run)
+    private void ContinuePendingAction(string? pending, string? printPath, string reportKind, TestRunRecord run, string? revisionId)
     {
         if (string.Equals(pending, PendingExport, StringComparison.Ordinal))
         {
@@ -184,8 +186,9 @@ public partial class ResultsViewModel
 
         if (string.Equals(pending, PendingPrint, StringComparison.Ordinal))
         {
-            var path = printPath;
-            path = ReportAttestationService.ResolveIssuedPdfPath(run, reportKind) ?? path;
+            var path = revisionId is null ? null : run.Reports.FirstOrDefault(r =>
+                ReportArtifactRoles.IsIssued(r.Role) && r.RevisionId == revisionId
+                && string.Equals(r.Kind, reportKind, StringComparison.OrdinalIgnoreCase))?.PdfPath;
 
             if (!string.IsNullOrWhiteSpace(path) && File.Exists(path))
             {

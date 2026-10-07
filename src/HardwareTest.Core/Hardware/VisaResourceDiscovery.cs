@@ -1,5 +1,3 @@
-using HardwareTest.Core.Settings;
-
 namespace HardwareTest.Core.Hardware;
 
 public sealed class VisaResourceInfo
@@ -92,47 +90,4 @@ public sealed class ConfigurableVisaResourceDiscovery : IVisaResourceDiscovery
 
     public Task<IReadOnlyList<VisaResourceInfo>> FindAsync(CancellationToken cancellationToken = default)
         => _inner.FindAsync(cancellationToken);
-}
-
-/// Resolves roles / registry ids / display names / literal VISA strings.
-public static class InstrumentResourceResolver
-{
-    public static string Resolve(
-        string? resourceOrId,
-        AppSettings settings,
-        IReadOnlyDictionary<string, string>? roleMap = null)
-    {
-        if (string.IsNullOrWhiteSpace(resourceOrId))
-        {
-            return settings.DefaultVisaResource;
-        }
-
-        var key = resourceOrId.Trim();
-
-        var station = settings.StationBindings.FirstOrDefault(b =>
-            string.Equals(b.Role, key, StringComparison.OrdinalIgnoreCase));
-        if (station is not null && !string.IsNullOrWhiteSpace(station.InstrumentId))
-        {
-            return ResolveRegistryOrLiteral(station.InstrumentId, settings);
-        }
-
-        if (roleMap is not null
-            && roleMap.TryGetValue(key, out var mappedId)
-            && !string.IsNullOrWhiteSpace(mappedId))
-        {
-            return ResolveRegistryOrLiteral(mappedId, settings);
-        }
-
-        return ResolveRegistryOrLiteral(key, settings);
-    }
-
-    private static string ResolveRegistryOrLiteral(string key, AppSettings settings)
-    {
-        var match = settings.Instruments.FirstOrDefault(i =>
-            i.Enabled && (
-                string.Equals(i.Id, key, StringComparison.OrdinalIgnoreCase)
-                || string.Equals(i.DisplayName, key, StringComparison.OrdinalIgnoreCase)
-                || string.Equals(i.Resource, key, StringComparison.OrdinalIgnoreCase)));
-        return match?.Resource ?? key;
-    }
 }

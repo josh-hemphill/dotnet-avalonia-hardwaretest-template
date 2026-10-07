@@ -1,0 +1,321 @@
+using System.Xml.Linq;
+using Xunit;
+
+namespace HardwareTest.Authoring.Tests;
+
+[Collection("AuthoringOpenTap")]
+public sealed class AuthoringEnvironmentPayloadContainmentTests : IDisposable
+{
+    public void Dispose() => AuthoringBuildSnapshotTests.CleanupOwnedFixtures();
+
+    [Theory]
+    [InlineData("file")]
+    [InlineData("ancestor")]
+    [InlineData("fallback-file")]
+    [InlineData("fallback-ancestor")]
+    [InlineData("metadata")]
+    [InlineData("package")]
+    [InlineData("home")]
+    [InlineData("home-ancestor")]
+    [InlineData("OpenTap.dll")]
+    [InlineData("OpenTap.Package.dll")]
+    [InlineData("tap.dll")]
+    [InlineData("tap.runtimeconfig.json")]
+    public void Escaping_installed_payload_is_unavailable_before_public_preflight_checker_and_prepare_preserves_all_inputs(string kind)
+    {
+        if (OperatingSystem.IsWindows()) return;
+        var workspace = AuthoringWorkspaceLoader.Load(AuthoringBuildSnapshotTests.Workspace());
+        var original = AuthoringBuildSnapshotTests.Home(workspace); var home = original;
+        var outside = AuthoringBuildSnapshotTests.Temp(); var package = Path.Combine(home.Root, "Packages", "OpenTAP");
+        var metadata = Path.Combine(package, "package.xml");
+        if (kind is "file" or "ancestor" or "fallback-file" or "fallback-ancestor")
+        {
+            var ancestor = kind.EndsWith("ancestor", StringComparison.Ordinal);
+            var relative = ancestor ? "linked/payload.txt" : "payload.txt";
+            Declare(metadata, relative); File.WriteAllText(Path.Combine(outside, "payload.txt"), "external declared payload");
+            var parent = kind.StartsWith("fallback", StringComparison.Ordinal) ? home.Root : package;
+            if (ancestor) Directory.CreateSymbolicLink(Path.Combine(parent, "linked"), outside);
+            else File.CreateSymbolicLink(Path.Combine(parent, "payload.txt"), Path.Combine(outside, "payload.txt"));
+        }
+        else if (kind == "metadata")
+        {
+            var target = Path.Combine(outside, "package.xml"); File.Move(metadata, target); File.CreateSymbolicLink(metadata, target);
+        }
+        else if (kind == "package")
+        {
+            var target = Path.Combine(outside, "OpenTAP"); Directory.Move(package, target); Directory.CreateSymbolicLink(package, target);
+        }
+        else if (kind is "home" or "home-ancestor")
+        {
+            var link = Path.Combine(outside, "selected");
+            if (kind == "home") { Directory.CreateSymbolicLink(link, original.Root); home = new(link); }
+            else { Directory.CreateSymbolicLink(link, Path.GetDirectoryName(original.Root)!); home = new(Path.Combine(link, Path.GetFileName(original.Root))); }
+        }
+        else
+        {
+            var target = Path.Combine(outside, kind); File.Copy(Path.Combine(home.Root, kind), target);
+            File.Delete(Path.Combine(home.Root, kind)); File.CreateSymbolicLink(Path.Combine(home.Root, kind), target);
+        }
+        var before = Snapshot(original.Root, outside, workspace.Root);
+        var checker = new UnexpectedChecker();
+        var report = WorkspacePacker.Preflight(workspace, new PackOptions { Home = home, Compat = checker, Offline = true });
+        Assert.False(checker.Called); Assert.Null(report.Compatibility);
+        Assert.Contains(report.Findings, finding => finding.Code == "PACK_PACKAGE_MISSING" && finding.IsError && finding.Message.Contains("OpenTAP"));
+        Assert.False(Assert.Single(AuthoringEnvironmentAssessment.Packages(workspace.Manifest, home), p => p.Package == "OpenTAP").Satisfied);
+        var vm = new AuthoringWorkspaceViewModel(); vm.Open(workspace.Root); vm.OpenTapHomeOverride = home.Root;
+        Assert.False(vm.CanPack); Assert.Contains(vm.EnvironmentPackages, p => p.Package == "OpenTAP" && !p.Satisfied); vm.StopRecovery();
+        if (kind is "OpenTap.dll" or "OpenTap.Package.dll" or "tap.dll" or "tap.runtimeconfig.json")
+            Assert.Contains(AuthoringEnvironmentAssessment.RuntimeFiles(home), line => line.StartsWith(kind + ":", StringComparison.Ordinal) && line.Contains("unsafe"));
+        Assert.Throws<AuthoringWorkspaceException>(() => new OpenTapHomeBootstrapper().Bootstrap(workspace, new() { HomeDirectory = home.Root, Offline = true }));
+        Assert.Equal(before, Snapshot(original.Root, outside, workspace.Root));
+    }
+
+    [Theory]
+    [InlineData("regular")]
+    [InlineData("payload-link")]
+    [InlineData("metadata-link")]
+    [InlineData("runtime-link")]
+    [InlineData("parent-payload")]
+    public void Regular_and_contained_file_payloads_reach_real_checker_and_publish_production_receipt(string kind)
+    {
+        if (kind != "regular" && OperatingSystem.IsWindows()) return;
+        var workspace = AuthoringWorkspaceLoader.Load(AuthoringBuildSnapshotTests.Workspace()); var home = AuthoringBuildSnapshotTests.Home(workspace);
+        var package = Path.Combine(home.Root, "Packages", "OpenTAP"); Declare(Path.Combine(package, "package.xml"), "payload.txt");
+        var file = Path.Combine(package, "payload.txt");
+        if (kind == "payload-link")
+        {
+            var target = Path.Combine(home.Root, "contained-payload.txt"); File.WriteAllText(target, "contained declared payload"); File.CreateSymbolicLink(file, target);
+        }
+        else File.WriteAllText(file, "regular declared payload");
+        if (kind is "metadata-link" or "runtime-link")
+        {
+            var link = kind == "metadata-link" ? Path.Combine(package, "package.xml") : Path.Combine(home.Root, "OpenTap.dll");
+            var target = Path.Combine(home.Root, "contained-" + Path.GetFileName(link));
+            File.Move(link, target); File.CreateSymbolicLink(link, target);
+        }
+        if (kind == "parent-payload")
+        {
+            Declare(Path.Combine(package, "package.xml"), "../../Plugins/required-parent.txt");
+            Directory.CreateDirectory(Path.Combine(home.Root, "Plugins")); File.WriteAllText(Path.Combine(home.Root, "Plugins", "required-parent.txt"), "contained required payload");
+        }
+        Assert.True(Assert.Single(AuthoringEnvironmentAssessment.Packages(workspace.Manifest, home), p => p.Package == "OpenTAP").Satisfied);
+        var result = AuthoringBuildService.Execute(AuthoringBuildService.CaptureSaved(workspace, new() { Home = home, Offline = true }), AuthoringBuildSnapshotTests.Temp());
+        Assert.Contains(result.Receipt.RequiredChecks, check => check.Code == "BUILD_COMPATIBILITY_PASS");
+        Assert.Contains(result.Receipt.RequiredChecks, check => check.Code == "BUILD_COMPAT_PROVIDER" && check.Message.Contains("Production in-process TuiCompatChecker"));
+    }
+
+    [Fact]
+    public void Cyclic_payload_links_are_unavailable_without_reaching_checker()
+    {
+        if (OperatingSystem.IsWindows()) return;
+        var workspace = AuthoringWorkspaceLoader.Load(AuthoringBuildSnapshotTests.Workspace()); var home = AuthoringBuildSnapshotTests.Home(workspace);
+        var package = Path.Combine(home.Root, "Packages", "OpenTAP"); Declare(Path.Combine(package, "package.xml"), "cycle.txt");
+        File.CreateSymbolicLink(Path.Combine(package, "cycle.txt"), "cycle.txt"); var checker = new UnexpectedChecker();
+        var report = WorkspacePacker.Preflight(workspace, new() { Home = home, Compat = checker, Offline = true });
+        Assert.False(checker.Called); Assert.Null(report.Compatibility); Assert.True(report.HasErrors);
+        Assert.False(Assert.Single(AuthoringEnvironmentAssessment.Packages(workspace.Manifest, home), p => p.Package == "OpenTAP").Satisfied);
+        Assert.Throws<AuthoringWorkspaceException>(() => new OpenTapHomeBootstrapper().Bootstrap(workspace, new() { HomeDirectory = home.Root, Offline = true }));
+    }
+
+    [Theory]
+    [InlineData(true, "OpenTap.dll")]
+    [InlineData(false, "OpenTap.dll")]
+    [InlineData(true, "OpenTap.Package.dll")]
+    [InlineData(false, "OpenTap.Package.dll")]
+    [InlineData(true, "tap.dll")]
+    [InlineData(false, "tap.dll")]
+    [InlineData(true, "tap.runtimeconfig.json")]
+    [InlineData(false, "tap.runtimeconfig.json")]
+    [InlineData(true, "home")]
+    [InlineData(false, "home")]
+    [InlineData(true, "ancestor")]
+    [InlineData(false, "ancestor")]
+    [InlineData(true, "cycle")]
+    [InlineData(false, "cycle")]
+    [InlineData(true, "cycle-ancestor")]
+    [InlineData(false, "cycle-ancestor")]
+    [InlineData(true, "dangling")]
+    [InlineData(false, "dangling")]
+    [InlineData(true, "dangling-ancestor")]
+    [InlineData(false, "dangling-ancestor")]
+    [InlineData(true, "missing-linked-child")]
+    [InlineData(false, "missing-linked-child")]
+    public void Mandatory_runtime_escape_is_blocked_even_when_engine_dependency_is_optional_or_undeclared(bool optional, string kind)
+    {
+        if (OperatingSystem.IsWindows()) return;
+        var workspace = AuthoringWorkspaceLoader.Load(AuthoringBuildSnapshotTests.Workspace()); var original = AuthoringBuildSnapshotTests.Home(workspace);
+        SelectEngineDeclaration(workspace, optional); var home = original; var outside = AuthoringBuildSnapshotTests.Temp();
+        if (kind == "missing-linked-child")
+        {
+            var link = Path.Combine(outside, "selected"); Directory.CreateSymbolicLink(link, original.Root);
+            home = new(Path.Combine(link, "absent-child")); Assert.False(Directory.Exists(home.Root)); Assert.False(File.Exists(home.Root));
+        }
+        else if (kind is "cycle" or "cycle-ancestor" or "dangling" or "dangling-ancestor")
+        {
+            var link = Path.Combine(outside, "selected"); var ancestor = kind.EndsWith("ancestor", StringComparison.Ordinal);
+            Directory.CreateSymbolicLink(link, kind.StartsWith("cycle", StringComparison.Ordinal) ? link : Path.Combine(original.Root, "absent-target"));
+            home = new(ancestor ? Path.Combine(link, "child") : link);
+            Assert.False(Directory.Exists(home.Root));
+        }
+        else if (kind is "home" or "ancestor")
+        {
+            var link = Path.Combine(outside, "selected");
+            Directory.CreateSymbolicLink(link, kind == "home" ? original.Root : Path.GetDirectoryName(original.Root)!);
+            home = new(kind == "home" ? link : Path.Combine(link, Path.GetFileName(original.Root)));
+        }
+        else
+        {
+            var file = Path.Combine(home.Root, kind); var target = Path.Combine(outside, kind);
+            File.Move(file, target); File.CreateSymbolicLink(file, target);
+        }
+        var vm = new AuthoringWorkspaceViewModel(); vm.Open(workspace.Root); vm.OpenTapHomeOverride = home.Root;
+        Assert.False(vm.CanPack);
+        var refused = Assert.Throws<PackPreflightException>(() => vm.Pack(AuthoringBuildSnapshotTests.Temp(), new() { Home = home, Offline = true }));
+        if (vm.EnvironmentPathError is { } pathError)
+        {
+            Assert.Equal("PACK_HOME_INVALID", Assert.Single(refused.Report.Findings).Code); Assert.True(refused.Report.HasErrors);
+            Assert.Equal(pathError, vm.PackGuardText);
+        }
+        else
+        {
+            var code = kind == "missing-linked-child" ? "PACK_HOME_UNSAFE" : "PACK_RUNTIME_MISSING";
+            Assert.Contains(refused.Report.Findings, finding => finding.Code == code && finding.IsError);
+            Assert.Contains("unsafe", vm.PackGuardText, StringComparison.OrdinalIgnoreCase);
+        }
+        vm.StopRecovery();
+        var before = Snapshot(original.Root, outside, workspace.Root); var checker = new UnexpectedChecker();
+        var report = WorkspacePacker.Preflight(workspace, new() { Home = home, Compat = checker, Offline = true });
+        Assert.False(checker.Called); Assert.Null(report.Compatibility);
+        Assert.Contains(report.Findings, finding => finding.Code == "PACK_RUNTIME_MISSING" && finding.IsError);
+        if (kind is not ("cycle" or "cycle-ancestor" or "dangling" or "dangling-ancestor"))
+            Assert.Throws<AuthoringWorkspaceException>(() => new OpenTapHomeBootstrapper().Bootstrap(workspace, new() { HomeDirectory = home.Root, Offline = true }));
+        Assert.Equal(before, Snapshot(original.Root, outside, workspace.Root));
+    }
+
+    [Theory]
+    [InlineData(true, "runtime")]
+    [InlineData(false, "runtime")]
+    [InlineData(true, "metadata")]
+    [InlineData(false, "metadata")]
+    [InlineData(true, "payload")]
+    [InlineData(false, "payload")]
+    [InlineData(true, "missing-payload")]
+    [InlineData(true, "version")]
+    [InlineData(true, "parent-payload")]
+    [InlineData(false, "parent-payload")]
+    [InlineData(true, "missing-parent-payload")]
+    [InlineData(false, "missing-parent-payload")]
+    public void Contained_runtime_is_supported_with_optional_or_undeclared_engine_and_missing_optional_package(bool optional, string kind)
+    {
+        if (OperatingSystem.IsWindows()) return;
+        var workspace = AuthoringWorkspaceLoader.Load(AuthoringBuildSnapshotTests.Workspace()); var home = AuthoringBuildSnapshotTests.Home(workspace);
+        SelectEngineDeclaration(workspace, optional);
+        if (kind == "version") workspace.Manifest.OptionalDependencies[0].Version = "^99.0.0";
+        workspace.Manifest.OptionalDependencies.Add(new() { Package = "Optional absent fixture", Version = "^1.0.0" });
+        AuthoringWorkspaceLoader.SaveManifest(workspace.Root, workspace.Manifest);
+        var package = Path.Combine(home.Root, "Packages", "OpenTAP"); var metadata = Path.Combine(package, "package.xml");
+        if (kind is "parent-payload" or "missing-parent-payload")
+        {
+            Declare(metadata, "../../Plugins/optional-parent.txt");
+            if (kind == "parent-payload") { Directory.CreateDirectory(Path.Combine(home.Root, "Plugins")); File.WriteAllText(Path.Combine(home.Root, "Plugins", "optional-parent.txt"), "contained parent payload"); }
+        }
+        else if (kind == "missing-payload") Declare(metadata, "optional-unavailable.txt");
+        else if (kind != "version")
+        {
+            var file = kind == "metadata" ? metadata : kind == "runtime" ? Path.Combine(home.Root, "OpenTap.dll") : Path.Combine(package, "contained-payload.txt");
+            var target = Path.Combine(home.Root, "contained-" + Path.GetFileName(file));
+            if (kind == "payload") { Declare(metadata, "contained-payload.txt"); File.WriteAllText(target, "contained optional declared payload"); }
+            else File.Move(file, target);
+            File.CreateSymbolicLink(file, target);
+        }
+        Assert.Contains(AuthoringEnvironmentAssessment.Packages(workspace.Manifest, home), p => p.Package == "Optional absent fixture" && p.Optional && !p.Satisfied);
+        var vm = new AuthoringWorkspaceViewModel(); vm.Open(workspace.Root); vm.OpenTapHomeOverride = home.Root; Assert.True(vm.CanPack); vm.StopRecovery();
+        var result = AuthoringBuildService.Execute(AuthoringBuildService.CaptureSaved(workspace, new() { Home = home, Offline = true }), AuthoringBuildSnapshotTests.Temp());
+        Assert.Contains(result.Receipt.RequiredChecks, check => check.Code == "BUILD_COMPATIBILITY_PASS");
+        Assert.Contains(result.Receipt.RequiredChecks, check => check.Code == "BUILD_COMPAT_PROVIDER" && check.Message.Contains("Production in-process TuiCompatChecker"));
+    }
+
+    [Theory]
+    [InlineData(true, "metadata")]
+    [InlineData(false, "metadata")]
+    [InlineData(true, "package")]
+    [InlineData(false, "package")]
+    [InlineData(true, "payload")]
+    [InlineData(false, "payload")]
+    [InlineData(true, "ancestor")]
+    [InlineData(false, "ancestor")]
+    [InlineData(true, "mismatched-version")]
+    [InlineData(false, "mismatched-version")]
+    [InlineData(true, "cycle")]
+    [InlineData(false, "cycle")]
+    public void Unsafe_installed_optional_or_undeclared_package_never_reaches_checker(bool optional, string kind)
+    {
+        if (OperatingSystem.IsWindows()) return;
+        var workspace = AuthoringWorkspaceLoader.Load(AuthoringBuildSnapshotTests.Workspace()); var home = AuthoringBuildSnapshotTests.Home(workspace);
+        SelectEngineDeclaration(workspace, optional);
+        if (kind == "mismatched-version" && optional) { workspace.Manifest.OptionalDependencies[0].Version = "^99.0.0"; AuthoringWorkspaceLoader.SaveManifest(workspace.Root, workspace.Manifest); }
+        var outside = AuthoringBuildSnapshotTests.Temp(); var package = Path.Combine(home.Root, "Packages", "OpenTAP"); var metadata = Path.Combine(package, "package.xml");
+        if (kind is "metadata" or "mismatched-version")
+        {
+            var target = Path.Combine(outside, "package.xml"); File.Move(metadata, target); File.CreateSymbolicLink(metadata, target);
+        }
+        else if (kind == "package")
+        {
+            var target = Path.Combine(outside, "OpenTAP"); Directory.Move(package, target); Directory.CreateSymbolicLink(package, target);
+        }
+        else
+        {
+            var relative = kind == "ancestor" ? "linked/payload.dll" : "payload.dll"; Declare(metadata, relative);
+            if (kind == "cycle") File.CreateSymbolicLink(Path.Combine(package, relative), relative);
+            else
+            {
+                var target = Path.Combine(outside, "payload.dll"); File.Copy(Path.Combine(home.Root, "OpenTap.dll"), target);
+                if (kind == "ancestor") Directory.CreateSymbolicLink(Path.Combine(package, "linked"), outside);
+                else File.CreateSymbolicLink(Path.Combine(package, relative), target);
+            }
+        }
+        var before = Snapshot(home.Root, outside, workspace.Root); var checker = new UnexpectedChecker();
+        var report = WorkspacePacker.Preflight(workspace, new() { Home = home, Compat = checker, Offline = true });
+        Assert.False(checker.Called); Assert.Null(report.Compatibility); Assert.True(report.HasErrors);
+        Assert.Contains(report.Findings, finding => finding.Code == "PACK_HOME_UNSAFE" && finding.IsError);
+        var vm = new AuthoringWorkspaceViewModel(); vm.Open(workspace.Root); vm.OpenTapHomeOverride = home.Root;
+        Assert.False(vm.CanPack);
+        var refused = Assert.Throws<PackPreflightException>(() => vm.Pack(AuthoringBuildSnapshotTests.Temp(), new() { Home = home, Offline = true }));
+        Assert.True(refused.Report.HasErrors); Assert.NotEmpty(refused.Report.Findings); Assert.Same(refused.Report, vm.LastPackPreflight);
+        Assert.Contains("unsafe", vm.PackGuardText, StringComparison.OrdinalIgnoreCase); vm.StopRecovery();
+        Assert.Throws<AuthoringWorkspaceException>(() => new OpenTapHomeBootstrapper().Bootstrap(workspace, new() { HomeDirectory = home.Root, Offline = true }));
+        Assert.Equal(before, Snapshot(home.Root, outside, workspace.Root));
+    }
+
+    private static void SelectEngineDeclaration(AuthoringWorkspace workspace, bool optional)
+    {
+        workspace.Manifest.Dependencies.Clear(); workspace.Manifest.OptionalDependencies.Clear();
+        if (optional) workspace.Manifest.OptionalDependencies.Add(new() { Package = "OpenTAP", Version = "^9.32.2" });
+        AuthoringWorkspaceLoader.SaveManifest(workspace.Root, workspace.Manifest);
+    }
+
+    private static void Declare(string metadata, string relative)
+    {
+        var document = XDocument.Load(metadata); var root = document.Root!;
+        var files = root.Elements().FirstOrDefault(e => e.Name.LocalName == "Files");
+        if (files is null) { files = new(root.Name.Namespace + "Files"); root.Add(files); }
+        files.Add(new XElement(root.Name.Namespace + "File", new XAttribute("Path", relative))); document.Save(metadata);
+    }
+    private static string[] Snapshot(params string[] roots)
+    {
+        var entries = new List<string>(); foreach (var root in roots) Walk(root); return entries.Order(StringComparer.Ordinal).ToArray();
+        void Walk(string path)
+        {
+            FileSystemInfo entry = Directory.Exists(path) ? new DirectoryInfo(path) : new FileInfo(path);
+            if (entry.LinkTarget is { } link) { entries.Add(path + "=>" + link); return; }
+            if (entry is DirectoryInfo) { entries.Add(path + "=directory"); foreach (var child in Directory.EnumerateFileSystemEntries(path)) Walk(child); }
+            else entries.Add(path + "=" + Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(path))));
+        }
+    }
+    private sealed class UnexpectedChecker : ITuiCompatChecker
+    {
+        public bool Called { get; private set; }
+        public TuiCompatReport Compare(AuthoringWorkspace workspace, OpenTapHome authoringHome, OpenTapHome tuiHome)
+        { Called = true; throw new InvalidOperationException("Unsafe installed payload reached checker."); }
+    }
+}

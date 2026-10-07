@@ -1,6 +1,7 @@
 using HardwareTest.Core.Credentials;
 using HardwareTest.Core.Reporting;
 using HardwareTest.Core.Runs;
+using HardwareTest.Core.Serialization;
 using HardwareTest.Core.Settings;
 using HardwareTest.Features.ReportPreview;
 using HardwareTest.ViewModels.Tests.Fakes;
@@ -77,6 +78,27 @@ public sealed class ReportPreviewUiThreadTests
     }
 
     [Fact]
+    public async Task LoadLatest_readonly_missing_working_report_never_regenerates()
+    {
+        var store = new FakeRunStore();
+        store.Seed(new TestRunRecord
+        {
+            SchemaVersion = SchemaVersions.TestRunRecord,
+            RunId = "readonly-preview",
+            PlanId = "sample",
+            IsSchemaReadOnly = true,
+            Reports = [new RunReportArtifact { Kind = ReportKinds.Status, Role = ReportArtifactRoles.Issued, PdfPath = "issued-only.pdf" }],
+        });
+        var reports = new FakeReportService();
+        var vm = new ReportPreviewViewModel(store, reports) { UiScheduler = action => action() };
+
+        await vm.LoadLatestCommand.ExecuteAsync();
+
+        Assert.Equal(0, reports.GenerateCount);
+        Assert.Contains("read-only", vm.Status, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task Print_unsigned_certification_raises_before_os_print()
     {
         var store = new FakeRunStore();
@@ -85,6 +107,7 @@ public sealed class ReportPreviewUiThreadTests
         await File.WriteAllBytesAsync(pdf, "%PDF-1.4"u8.ToArray());
         var run = new TestRunRecord
         {
+            SchemaVersion = SchemaVersions.TestRunRecord,
             RunId = "cert-preview-print",
             PlanName = "Sample",
             StartedAt = DateTimeOffset.UtcNow,
@@ -93,6 +116,7 @@ public sealed class ReportPreviewUiThreadTests
             [
                 new RunReportArtifact
                 {
+                    Role = ReportArtifactRoles.Working,
                     Kind = ReportKinds.Certification,
                     Title = "Certification Report",
                     PdfPath = pdf,

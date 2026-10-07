@@ -20,6 +20,7 @@ public static class AuthoringWorkspaceLoader
         "pluginProjects",
         "shellAppProjects",
         "includeTui",
+        "excludedProgramIds",
         "recordingsDirectory",
         "catalogs",
     };
@@ -82,6 +83,9 @@ public static class AuthoringWorkspaceLoader
             }
 
             var schemaVersion = ReadSchemaVersion(document.RootElement, manifestPath);
+            if (schemaVersion < AuthoringSchemaVersions.Manifest)
+                throw new AuthoringWorkspaceException(
+                    $"Unsupported {ManifestFileName} schema {schemaVersion}; this app requires schema {AuthoringSchemaVersions.Manifest}.");
             var isFuture = schemaVersion > AuthoringSchemaVersions.Manifest;
             if (!isFuture)
             {
@@ -103,6 +107,8 @@ public static class AuthoringWorkspaceLoader
                 throw new AuthoringWorkspaceException($"Invalid {ManifestFileName}: {ex.Message}", ex);
             }
 
+            if (!isFuture && (manifest.ExcludedProgramIds is null || manifest.ExcludedProgramIds.Any(string.IsNullOrWhiteSpace)))
+                throw new AuthoringWorkspaceException("excludedProgramIds must be an array of nonempty program IDs.");
             manifest.SchemaVersion = schemaVersion;
             var plansDirectory = ResolvePlansDirectory(fullRoot, manifest.PlansDirectory);
             var tapPlans = EnumerateTapPlans(plansDirectory);
@@ -111,13 +117,16 @@ public static class AuthoringWorkspaceLoader
     }
 
     public static void SaveManifest(string root, AuthoringManifest manifest)
+        => SaveManifest(root, manifest, null);
+
+    internal static void SaveManifest(string root, AuthoringManifest manifest, Action<string, string>? replaceFile)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(root);
         ArgumentNullException.ThrowIfNull(manifest);
 
         var fullRoot = Path.GetFullPath(root);
-        Directory.CreateDirectory(fullRoot);
-        var manifestPath = Path.Combine(fullRoot, ManifestFileName);
+        var paths = new AuthoringDocumentStore(fullRoot);
+        var manifestPath = paths.ValidatePath(Path.Combine(fullRoot, ManifestFileName));
         if (File.Exists(manifestPath))
         {
             var existing = Load(fullRoot);
@@ -128,19 +137,32 @@ public static class AuthoringWorkspaceLoader
             }
         }
 
-        if (manifest.SchemaVersion > AuthoringSchemaVersions.Manifest)
-        {
+        if (manifest.SchemaVersion != AuthoringSchemaVersions.Manifest)
             throw new AuthoringWorkspaceException(
-                $"Cannot write {ManifestFileName} schema {manifest.SchemaVersion}; this app supports {AuthoringSchemaVersions.Manifest}.");
-        }
+                $"Cannot write {ManifestFileName} schema {manifest.SchemaVersion}; this app requires schema {AuthoringSchemaVersions.Manifest}.");
 
-        if (manifest.SchemaVersion <= 0)
-        {
-            manifest.SchemaVersion = AuthoringSchemaVersions.Manifest;
-        }
+        Directory.CreateDirectory(fullRoot);
 
         var json = JsonSerializer.Serialize(manifest, AuthoringJsonContext.Default.AuthoringManifest);
-        File.WriteAllText(manifestPath, json + Environment.NewLine);
+        var temporaryPath = paths.ValidatePath(manifestPath + "." + Guid.NewGuid().ToString("N") + ".saving");
+        try
+        {
+            using (var stream = new FileStream(temporaryPath, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+            {
+                using var writer = new StreamWriter(stream, leaveOpen: true);
+                writer.Write(json + Environment.NewLine);
+                writer.Flush();
+                stream.Flush(flushToDisk: true);
+            }
+            if (replaceFile is null) File.Move(temporaryPath, manifestPath, overwrite: true);
+            else replaceFile(temporaryPath, manifestPath);
+        }
+        finally
+        {
+            try { File.Delete(temporaryPath); }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
+        }
     }
 
     private static int ReadSchemaVersion(JsonElement root, string manifestPath)

@@ -1,0 +1,102 @@
+{
+  "schemaVersion": 1,
+  "planId": "board",
+  "requiresCompilation": false,
+  "revision": 0,
+  "savedAtUtc": "2026-10-04T22:30:36.1699217+00:00",
+  "sidecar": {
+    "displayName": "Board"
+  },
+  "instruments": [
+    {
+      "slotName": "DMM",
+      "typeId": "HardwareTest.OpenTap.Plugins.Basic.MockDmmInstrument",
+      "visaAddress": "MOCK::INSTR0",
+      "settings": {}
+    }
+  ],
+  "setup": [],
+  "measure": [
+    {
+      "kind": "repeat",
+      "nodeId": "787e5bd9-3bce-44ca-a4b4-b46daa810616",
+      "count": 2,
+      "children": [
+        {
+          "kind": "repeat",
+          "nodeId": "8af40f98-2fe6-44a9-bcd3-74040a65a14c",
+          "count": 2,
+          "children": [
+            {
+              "kind": "raw",
+              "nodeId": "407eddf4-0b69-4769-8fb0-6764450242c6",
+              "typeName": "HardwareTest.OpenTap.Plugins.Basic.PublishTimedSampleStep",
+              "xmlFragment": "<TestStep type=\"HardwareTest.OpenTap.Plugins.Basic.PublishTimedSampleStep\" Id=\"407eddf4-0b69-4769-8fb0-6764450242c6\"><Channel>input</Channel><Value>1</Value><Index>0</Index><LimitLow /><LimitHigh /><ElapsedMs type=\"System.Double\">0</ElapsedMs><EventName>cfg</EventName><EventLabel>sample</EventLabel><EventValue /><Name Metadata=\"Step Name\">Publish Timed Sample</Name><ChildTestSteps /></TestStep>"
+            },
+            {
+              "kind": "raw",
+              "nodeId": "767524c1-4481-4c7c-a735-4157c35e1367",
+              "typeName": "HardwareTest.OpenTap.Plugins.Basic.PublishTimedSampleStep",
+              "xmlFragment": "<TestStep type=\"HardwareTest.OpenTap.Plugins.Basic.PublishTimedSampleStep\" Id=\"767524c1-4481-4c7c-a735-4157c35e1367\"><Channel>input</Channel><Value>3</Value><Index>0</Index><LimitLow /><LimitHigh /><ElapsedMs type=\"System.Double\">5</ElapsedMs><EventName>cfg</EventName><EventLabel>sample</EventLabel><EventValue /><Name Metadata=\"Step Name\">Publish Timed Sample</Name><ChildTestSteps /></TestStep>"
+            },
+            {
+              "kind": "metric",
+              "nodeId": "168bcfaf-36f7-4563-8a88-b14634b32b0d",
+              "name": "filtered",
+              "channelKey": "filtered",
+              "displayRole": "timeseries",
+              "yUnit": "V",
+              "source": {
+                "kind": "transferFunction",
+                "settingsIgnoreCase": false,
+                "inputChannelKey": "input",
+                "numerator": [
+                  0.5,
+                  0.5
+                ],
+                "denominator": [
+                  1
+                ],
+                "tsSeconds": 0.005,
+                "method": "filter"
+              }
+            },
+            {
+              "kind": "metric",
+              "nodeId": "e7f1d9e5-d16d-48ac-98a8-5ff6dbb92deb",
+              "name": "Average",
+              "channelKey": "mean",
+              "displayRole": "scalar",
+              "yUnit": "V",
+              "limits": {
+                "threshold": 0
+              },
+              "source": {
+                "kind": "expression",
+                "settingsIgnoreCase": false,
+                "inputChannelKeys": [
+                  "filtered"
+                ],
+                "expression": "mean(filtered)"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "cleanup": {
+    "nodeId": "774ed29f-347d-444b-80f9-de9865d071d4",
+    "includeSafeShutdown": false,
+    "instrumentSlots": [
+      "DMM"
+    ],
+    "includeMeasureSlots": false
+  },
+  "state": {
+    "incompleteNumericText": {},
+    "formulaIntent": {}
+  },
+  "compiledPlanHash": "79BD507CB4E9FA7165792255893AC8CE66C92618CF64AB1E53645AC76A4D6E30",
+  "compiledSidecarHash": "C93373EB2C7C7BCE2F8266CD262D6708085A52C319000B2A27F298F41FF61AB9"
+}

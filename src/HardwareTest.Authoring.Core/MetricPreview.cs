@@ -1,5 +1,6 @@
 using HardwareTest.Core.Runs;
 using HardwareTest.OpenTap.Host;
+using HardwareTest.OpenTap.Plugins.Basic;
 
 namespace HardwareTest.Authoring;
 
@@ -15,10 +16,11 @@ public sealed record MetricPreview(
     double? LimitLow,
     double? LimitHigh,
     double? Threshold,
-    string? Note = null);
+    string? Note = null,
+    bool? Passed = null);
 
 /// Builds preview samples from draft limits/role through PresentationRoles.TryMapRole.
-public static class MetricPreviewBuilder
+public static partial class MetricPreviewBuilder
 {
     public static MetricPreview Empty { get; } = new(
         string.Empty,
@@ -36,21 +38,46 @@ public static class MetricPreviewBuilder
     public static MetricPreview From(
         MetricDraft? metric,
         IReadOnlyList<MetricDraft>? siblings = null,
-        IReadOnlyDictionary<string, IReadOnlyList<StoredSample>>? recorded = null)
+        IReadOnlyDictionary<string, IReadOnlyList<StoredSample>>? recorded = null,
+        ProgramDraft? sourceContext = null,
+        Guid? nodeId = null)
     {
         if (metric is null)
         {
             return Empty;
         }
 
+        nodeId ??= sourceContext is null ? null : ResolveNodeId(sourceContext.Measure, metric);
+        if (sourceContext is not null)
+        {
+            var identity = nodeId ?? ResolveNodeId(sourceContext.Measure, metric);
+            var tile = BoardPreviewBuilder.Build(sourceContext, recorded is null ? null : new TestRunRecord { Samples = recorded.Values.SelectMany(samples => samples).ToList() })
+                .LastOrDefault(tile => tile.NodeId == identity);
+            if (tile is not null) return tile.Preview;
+        }
+        return FromMetric(metric, siblings, recorded, sourceContext, nodeId);
+    }
+
+    internal static MetricPreview FromInGraph(MetricDraft metric, ProgramDraft context, Guid nodeId)
+        => FromMetric(metric, null, null, context, nodeId);
+
+    private static MetricPreview FromMetric(MetricDraft metric, IReadOnlyList<MetricDraft>? siblings,
+        IReadOnlyDictionary<string, IReadOnlyList<StoredSample>>? recorded, ProgramDraft? sourceContext, Guid? nodeId)
+    {
+        try { metric = EffectiveMetric(metric); }
+        catch (Exception error) when (error is AuthoringWorkspaceException or FormatException or OverflowException)
+        {
+            return Empty with { ChannelKey = metric.ChannelKey, YUnit = metric.YUnit, Note = error.Message };
+        }
         var kind = PresentationRoles.TryMapRole(metric.DisplayRole);
+        if (TryPreviewAverage(metric, kind, siblings, recorded, sourceContext, nodeId, out var averagePreview)) return averagePreview;
         if (metric.Source is TransferFunctionAlgorithm tf)
         {
-            return PreviewTransferFunction(metric, tf, kind, siblings, recorded);
+            return PreviewTransferFunction(metric, tf, kind, siblings, recorded, sourceContext, nodeId);
         }
 
         if (metric.Source is ExpressionAlgorithm expr
-            && TryPreviewFilterFormula(expr, metric, kind, siblings, recorded, out var filterPreview))
+            && TryPreviewFilterFormula(expr, metric, kind, siblings, recorded, sourceContext, nodeId, out var filterPreview))
         {
             return filterPreview;
         }
@@ -70,6 +97,67 @@ public static class MetricPreviewBuilder
             metric.Limits?.High,
             metric.Limits?.Threshold,
             note);
+    }
+
+    private static bool TryPreviewAverage(MetricDraft metric, PresentationTileKind? kind,
+        IReadOnlyList<MetricDraft>? siblings, IReadOnlyDictionary<string, IReadOnlyList<StoredSample>>? recorded,
+        ProgramDraft? sourceContext,
+        Guid? nodeId,
+        out MetricPreview preview)
+    {
+        preview = Empty;
+        string? channel = metric.Source switch
+        {
+            AlgorithmSource { AlgorithmId: AuthoringFunctionIds.BasicChannelAverage } a
+                => a.InputChannelKeys.FirstOrDefault() ?? a.Settings.GetValueOrDefault("InputChannel"),
+            ExpressionAlgorithm e when FormulaParser.TryParse(e.Source, out var ast, out _)
+                && ast!.Root is CallExpr { Name: "mean", Args: [IdentExpr ident] } => ident.Name,
+            _ => null,
+        };
+        if (channel is null) return false;
+        try
+        {
+            AuthoringCriteria.Validate(metric);
+            IReadOnlyList<double> values;
+            string? note = recorded is null ? null : "Recording samples (not Execute).";
+            if (recorded is not null)
+            {
+                if (!TryGetSeries(recorded, channel, out var samples))
+                    throw new AuthoringWorkspaceException($"{AuthoringCompileCodes.FormulaEval}: missing series '{channel}'.");
+                values = samples.Select(s => s.Value).ToArray();
+            }
+            else
+            {
+                double? scalar = null;
+                if (sourceContext is not null)
+                {
+                    if (metric.Source is ExpressionAlgorithm)
+                        scalar = PlanCompiler.ScalarMeanPreviewExample(FormulaDeploymentClassifier.DeploymentContext(metric, sourceContext, nodeId), metric.ChannelKey, nodeId);
+                    else ValidateSource(metric, siblings, sourceContext, nodeId);
+                }
+                if (scalar is { } value)
+                {
+                    values = [value];
+                    note = "Preview only: mathematical example from a known Scalar publisher. Deployment requires a preceding Sample publisher.";
+                }
+                else
+                {
+                    var sibling = siblings?.FirstOrDefault(m => string.Equals(m.ChannelKey, channel, StringComparison.OrdinalIgnoreCase));
+                    values = sibling is null ? SynthesizeCanned(metric.Limits, kind)
+                        : Synthesize(sibling, PresentationRoles.TryMapRole(sibling.DisplayRole), null, null).Values;
+                }
+            }
+            var result = ChannelAverageEvaluator.Evaluate(values, metric.Limits!.Threshold!.Value);
+            preview = new(metric.ChannelKey, metric.DisplayRole, kind, metric.YUnit, result.Average,
+                [result.Average], [], metric.Limits.Low, metric.Limits.High, metric.Limits.Threshold,
+                note, result.Passed);
+        }
+        catch (Exception ex) when (ex is AuthoringWorkspaceException or InvalidOperationException)
+        {
+            preview = new(metric.ChannelKey, metric.DisplayRole, kind, metric.YUnit, 0, [], [],
+                metric.Limits?.Low, metric.Limits?.High, metric.Limits?.Threshold, ex.Message);
+        }
+        return true;
     }
 
     private readonly record struct PreviewSeries(IReadOnlyList<double> Values, IReadOnlyList<double?> Elapsed);
@@ -93,6 +181,7 @@ public static class MetricPreviewBuilder
             return FromStored(recordedSamples);
         }
 
+        if (recorded is not null) return new PreviewSeries([], []);
         var nominal = Nominal(metric.Limits);
         if (kind is PresentationTileKind.Timeseries or PresentationTileKind.Timing)
         {
@@ -181,6 +270,8 @@ public static class MetricPreviewBuilder
         PresentationTileKind? kind,
         IReadOnlyList<MetricDraft>? siblings,
         IReadOnlyDictionary<string, IReadOnlyList<StoredSample>>? recorded,
+        ProgramDraft? sourceContext,
+        Guid? nodeId,
         out MetricPreview preview)
     {
         preview = Empty;
@@ -197,7 +288,7 @@ public static class MetricPreviewBuilder
                 return false;
             }
 
-            preview = PreviewTransferFunction(metric, tf, kind, siblings, recorded);
+            preview = PreviewTransferFunction(metric, tf, kind, siblings, recorded, sourceContext, nodeId);
             return true;
         }
         catch (AuthoringWorkspaceException ex)
@@ -228,7 +319,8 @@ public static class MetricPreviewBuilder
         TransferFunctionAlgorithm tf,
         PresentationTileKind? kind,
         IReadOnlyList<MetricDraft>? siblings,
-        IReadOnlyDictionary<string, IReadOnlyList<StoredSample>>? recorded)
+        IReadOnlyDictionary<string, IReadOnlyList<StoredSample>>? recorded,
+        ProgramDraft? sourceContext, Guid? nodeId)
     {
         try
         {
@@ -247,6 +339,7 @@ public static class MetricPreviewBuilder
             }
             else
             {
+                ValidateSource(metric, siblings, sourceContext, nodeId);
                 var sibling = siblings?.FirstOrDefault(s =>
                     string.Equals(s.ChannelKey, tf.InputChannelKey, StringComparison.OrdinalIgnoreCase));
                 var canned = sibling is null
@@ -286,6 +379,17 @@ public static class MetricPreviewBuilder
                 metric.Limits?.Threshold,
                 ex.Message);
         }
+    }
+
+    private static void ValidateSource(MetricDraft metric, IReadOnlyList<MetricDraft>? siblings, ProgramDraft? sourceContext, Guid? nodeId)
+    {
+        if (sourceContext is not null)
+        {
+            var deployment = FormulaDeploymentClassifier.DeploymentContext(metric, sourceContext, nodeId);
+            PlanCompiler.ValidateFormulaInput(deployment.Measure, metric.ChannelKey, deployment.AuthoringState, nodeId);
+        }
+        else if (siblings is not null)
+            PlanCompiler.ValidateFormulaInput(siblings.Select(value => (MeasureNode)new MetricNode(value)).ToArray(), metric.ChannelKey);
     }
 
     private static IReadOnlyList<double> SynthesizeCanned(LimitSpec? limits, PresentationTileKind? kind)

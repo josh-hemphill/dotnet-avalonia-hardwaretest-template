@@ -32,6 +32,30 @@ public sealed class ReportActionTests : IDisposable
         Assert.Empty(actions.Saves);
     }
 
+    [Fact]
+    public async Task Signed_save_resumes_the_returned_revision_when_another_issue_is_already_newer()
+    {
+        var store = new FileRunStore(_root);
+        var run = await SeedAsync(store, "exact-issued-result");
+        var settings = new AppSettings { RequireAttestationBeforeExport = true };
+        var service = new ReportAttestationService(new MockOperatorCredentialBroker(canSign: true), store, settings);
+        var interleaved = new InterleavedIssuance(service);
+        var actions = new Actions(Path.Combine(_root, "saved-exact.pdf"));
+        var vm = new ReportPreviewViewModel(store, new FakeReportService(), attestation: interleaved,
+            desktop: actions, settings: settings)
+        { UiScheduler = action => action(), PreviewRenderer = _ => [] };
+        await vm.LoadFromPathAsync(run.Reports[0].PdfPath);
+        await vm.SaveCopyCommand.ExecuteAsync();
+        await vm.SignAndContinueCommand.ExecuteAsync();
+        var loaded = (await store.LoadAsync(run.RunId))!;
+        Assert.Equal(2, loaded.Reports.Count(r => ReportArtifactRoles.IsIssued(r.Role)));
+        var returned = loaded.Reports.Single(r => r.RevisionId == interleaved.ReturnedRevisionId);
+        Assert.NotEqual(returned.RevisionId, ReportRevisions.Latest(loaded, ReportKinds.Certification)!.RevisionId);
+        Assert.Equal(returned.PdfPath, vm.PdfPath);
+        Assert.Equal(returned.PdfPath, Assert.Single(actions.Saves));
+        Assert.True(service.HasValidAttestation(loaded, ReportKinds.Certification, returned.RevisionId));
+    }
+
     [Theory]
     [InlineData(true)]
     [InlineData(false)]
@@ -475,6 +499,25 @@ public sealed class ReportActionTests : IDisposable
             cancellationToken.ThrowIfCancellationRequested();
             Opens.Add(pdfPath);
             return Task.CompletedTask;
+        }
+    }
+
+    private sealed class InterleavedIssuance(IReportAttestationService inner) : IReportAttestationService
+    {
+        public string? ReturnedRevisionId { get; private set; }
+        public TimeSpan PresenceTimeout => inner.PresenceTimeout;
+        public bool NeedsAttestation(TestRunRecord run, string kind) => inner.NeedsAttestation(run, kind);
+        public bool HasValidAttestation(TestRunRecord run, string kind) => inner.HasValidAttestation(run, kind);
+        public bool HasValidAttestation(TestRunRecord run, string kind, string? revisionId) => inner.HasValidAttestation(run, kind, revisionId);
+        public bool HasValidAttestationForPdf(TestRunRecord run, string kind, string path) => inner.HasValidAttestationForPdf(run, kind, path);
+        public async Task<ReportAttestationResult> AttestAsync(TestRunRecord run, string kind,
+            OperatorCredential? credential = null, string? pin = null, bool skipSigning = false,
+            CancellationToken cancellationToken = default)
+        {
+            var result = await inner.AttestAsync(run, kind, credential, pin, skipSigning, cancellationToken);
+            ReturnedRevisionId = result.Attestation!.RevisionId;
+            Assert.True((await inner.AttestAsync(run, kind, credential, pin, skipSigning, cancellationToken)).Succeeded);
+            return result;
         }
     }
 

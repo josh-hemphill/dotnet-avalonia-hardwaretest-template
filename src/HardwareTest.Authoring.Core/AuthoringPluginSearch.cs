@@ -4,10 +4,9 @@ using OpenTap;
 
 namespace HardwareTest.Authoring;
 
-/// Registers in-tree Basic + Mixins + OpenTAP BasicSteps for PluginManager. Never the VISA adapter.
+/// Registers in-tree Basic + Mixins + OpenTAP BasicSteps for PluginManager.
 public static class AuthoringPluginSearch
 {
-    public const string VisaAssemblyFileName = "HardwareTest.OpenTap.Plugins.Visa.dll";
 
     private static readonly object SearchGate = new();
 
@@ -82,16 +81,6 @@ public static class AuthoringPluginSearch
 
         AddAssemblyDirectory(Path.Combine(openTapDir, "Packages", "OpenTAP", "OpenTap.Plugins.BasicSteps.dll"));
         AddDirectory(Path.Combine(openTapDir, "Packages", "OpenTAP"));
-    }
-
-    public static bool DirectoryContainsVisaAdapter(string directory)
-    {
-        if (string.IsNullOrWhiteSpace(directory) || !Directory.Exists(directory))
-        {
-            return false;
-        }
-
-        return File.Exists(Path.Combine(directory, VisaAssemblyFileName));
     }
 
     private static void AddAssemblyDirectory(string? assemblyLocation)

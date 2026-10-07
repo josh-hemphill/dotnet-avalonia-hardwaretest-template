@@ -29,6 +29,7 @@ public sealed class OpenTapWorkerClient : IOpenTapSession, INotifyPropertyChange
     private List<OpenTapStepNode> _stepTree = [];
     private List<OpenTapInstrumentSlot> _slots = [];
     private bool _isExecuting;
+    private int _runGate;
     private bool _awaitingOperator;
     private string? _operatorPrompt;
     private OperatorInteractionRequest? _pendingInteraction;
@@ -115,7 +116,7 @@ public sealed class OpenTapWorkerClient : IOpenTapSession, INotifyPropertyChange
             WorkerProtocol.ApplyStationAndDut,
             new WorkerStationDutRequest
             {
-                RoleToResource = new Dictionary<string, string>(station.RoleToResource, StringComparer.OrdinalIgnoreCase),
+                SlotToResource = new Dictionary<string, string>(station.SlotToResource, StringComparer.OrdinalIgnoreCase),
                 Serial = dut.Serial,
                 PartNumber = dut.PartNumber,
                 Revision = dut.Revision,
@@ -250,12 +251,6 @@ public sealed class OpenTapWorkerClient : IOpenTapSession, INotifyPropertyChange
             new WorkerMeanGteRequest { StepPath = stepPath, Threshold = threshold },
             WorkerJsonContext.Default.WorkerMeanGteRequest);
 
-    public bool TryRebindDmmResource(string resource)
-        => TryBool(
-            WorkerProtocol.TryRebindDmmResource,
-            new WorkerResourceRequest { Resource = resource },
-            WorkerJsonContext.Default.WorkerResourceRequest);
-
     public bool TryBindSlotResource(string slotName, string resource)
         => TryBool(
             WorkerProtocol.TryBindSlotResource,
@@ -374,6 +369,27 @@ public sealed class OpenTapWorkerClient : IOpenTapSession, INotifyPropertyChange
         IProgress<OpenTapProgress>? progress,
         CancellationToken cancellationToken)
     {
+        if (Interlocked.CompareExchange(ref _runGate, 1, 0) != 0)
+        {
+            throw new InvalidOperationException("A run is already in progress.");
+        }
+        try
+        {
+            return await RunAdmittedAsync(method, payload, typeInfo, progress, cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            Interlocked.Exchange(ref _runGate, 0);
+        }
+    }
+
+    private async Task<OpenTapRunSummary> RunAdmittedAsync<T>(
+        string method,
+        T payload,
+        System.Text.Json.Serialization.Metadata.JsonTypeInfo<T> typeInfo,
+        IProgress<OpenTapProgress>? progress,
+        CancellationToken cancellationToken)
+    {
         IDisposable? benchLease = null;
         if (_bench is not null && !_bench.TryEnter(BenchOperation.Run, out benchLease, out var busy))
         {
@@ -426,14 +442,20 @@ public sealed class OpenTapWorkerClient : IOpenTapSession, INotifyPropertyChange
         }
         finally
         {
-            await CompleteRunKillTimerAsync().ConfigureAwait(false);
-            if (_isExecuting)
+            try
             {
-                _isExecuting = false;
-                Raise(nameof(IsExecuting));
+                await CompleteRunKillTimerAsync().ConfigureAwait(false);
+                if (_isExecuting)
+                {
+                    _isExecuting = false;
+                    Raise(nameof(IsExecuting));
+                }
+                ClearInteractionState();
             }
-
-            benchLease?.Dispose();
+            finally
+            {
+                benchLease?.Dispose();
+            }
         }
     }
 
@@ -685,10 +707,15 @@ public sealed class OpenTapWorkerClient : IOpenTapSession, INotifyPropertyChange
     private void ApplyDeadSnapshot()
     {
         _isExecuting = false;
+        Raise(nameof(IsExecuting));
+        ClearInteractionState();
+    }
+
+    private void ClearInteractionState()
+    {
         _awaitingOperator = false;
         _operatorPrompt = null;
         _pendingInteraction = null;
-        Raise(nameof(IsExecuting));
         Raise(nameof(IsAwaitingOperator));
         Raise(nameof(OperatorPromptMessage));
         Raise(nameof(PendingInteraction));
