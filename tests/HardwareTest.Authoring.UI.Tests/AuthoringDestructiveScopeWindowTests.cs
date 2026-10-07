@@ -101,7 +101,8 @@ public sealed class AuthoringDestructiveScopeWindowTests
         OpenCatalogModal(fixture, CatalogDeletionKind.RequiredField, target);
         if (change == "selection") vm.SelectProgram("sample"); else vm.CommitOpen(vm.PrepareOpen(fixture.WorkspaceRoot));
         var before = vm.Programs; var files = Snapshot(fixture); AuthoringUiFixture.Click(fixture.Control<Button>("Remove from workspace", Dialog(fixture)));
-        Assert.Same(before, vm.Programs); AssertFiles(files); Assert.Contains("changed during review", vm.Error);
+        Assert.Same(before, vm.Programs); AssertFiles(files);
+        if (change == "selection") Assert.Contains("changed during review", vm.Error); else Assert.Null(vm.Error);
         Assert.Contains(target, RequiredFieldIds.FromSidecar(vm.Programs.Single(p => p.PlanId == "a").Sidecar));
     }
 
@@ -281,6 +282,73 @@ public sealed class AuthoringDestructiveScopeWindowTests
         var finalText = Assert.Single(Assert.IsType<StackPanel>(scroll.Content).Children.OfType<TextBlock>());
         AssertFinalLineVisible(finalText, scroll); Cancel(dialog, "cancel");
         Definitions(fixture); var remove = fixture.Control<Button>("Remove required field fixtureId from workspace"); remove.BringIntoView(); AuthoringUiFixture.Drain(); AssertInside(remove, fixture.Window!);
+    }
+
+    [AvaloniaTheory]
+    [InlineData("catalog", "hidden")]
+    [InlineData("catalog", "context")]
+    [InlineData("catalog", "session")]
+    [InlineData("instrument", "hidden")]
+    [InlineData("instrument", "context")]
+    [InlineData("instrument", "session")]
+    [InlineData("binding", "hidden")]
+    [InlineData("binding", "context")]
+    [InlineData("binding", "session")]
+    [InlineData("definition", "hidden")]
+    [InlineData("definition", "context")]
+    [InlineData("definition", "session")]
+    [InlineData("program", "hidden")]
+    [InlineData("program", "context")]
+    [InlineData("program", "session")]
+    public async Task Every_modal_rejects_obsolete_owner_without_mutation_or_stale_error(string operation, string transition)
+    {
+        using var fixture = Loaded(); using var replacement = new AuthoringUiFixture(); var vm = fixture.ViewModel;
+        PrepareSlots(fixture); var target = AddCatalog(fixture, CatalogDeletionKind.RequiredField);
+        vm.LoadHardwareEditor(); vm.NewInstrumentSlot = "owner-template"; vm.AddHardwareDefinition();
+        Assert.Null(vm.Error); Assert.True(vm.SaveAll().Succeeded); await vm.StopRecoveryAsync();
+        var prepared = vm.PrepareOpen(fixture.WorkspaceRoot); vm.CommitOpen(prepared); await vm.StopRecoveryAsync();
+        vm.SelectProgram("slots"); vm.SelectedInstrumentSlot = "DMM"; vm.LoadHardwareEditor(); vm.HardwareEditAddress = "MOCK::OWNER-REPLACEMENT";
+        vm.SelectedHardwareDefinition = Assert.Single(vm.HardwareDefinitions);
+        Task<bool> request = operation switch
+        {
+            "catalog" => fixture.Window!.ConfirmCatalogDeletionAsync(CatalogDeletionKind.RequiredField, target),
+            "instrument" => fixture.Window!.ConfirmInstrumentRemovalAsync(),
+            "binding" => fixture.Window!.ConfirmHardwareEditAsync(),
+            "definition" => fixture.Window!.ConfirmHardwareDefinitionRemovalAsync(),
+            _ => (Task<bool>)typeof(MainWindow).GetMethod("ConfirmRemoveProgramAsync",
+                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.Invoke(fixture.Window, null)!
+        };
+        AuthoringUiFixture.Drain(); Assert.False(request.IsCompleted); var dialog = Dialog(fixture);
+        if (operation == "instrument") fixture.Control<ComboBox>("Compatible replacement instrument slot", dialog).SelectedItem = "B";
+        if (transition == "hidden") fixture.Window!.Hide();
+        else if (transition == "context")
+        {
+            replacement.ViewModel.Open(replacement.WorkspaceRoot); await replacement.ViewModel.StopRecoveryAsync();
+            fixture.Window!.DataContext = replacement.ViewModel;
+        }
+        else
+        {
+            var workspace = vm.Workspace; var oldSession = vm.WorkspaceSessionId;
+            vm.CommitOpen(prepared, discardUnsavedChanges: true); await vm.StopRecoveryAsync(); vm.SelectProgram("slots");
+            Assert.Same(workspace, vm.Workspace); Assert.NotEqual(oldSession, vm.WorkspaceSessionId);
+        }
+        var draft = vm.SelectedProgram; var revision = vm.SelectedDocument!.Revision; var status = vm.Status;
+        var files = Directory.GetFiles(fixture.WorkspaceRoot, "*", SearchOption.AllDirectories).ToDictionary(path => path, File.ReadAllBytes);
+        try
+        {
+            if (operation == "instrument") dialog.Close("B"); else dialog.Close(true);
+            Assert.False(await request);
+            Assert.Same(draft, vm.SelectedProgram); Assert.Equal(revision, vm.SelectedDocument.Revision); Assert.Equal(status, vm.Status);
+            Assert.Null(vm.Error); Assert.Null(replacement.ViewModel.Error); Assert.False(vm.HasUnsavedChanges);
+            Assert.Equal(files.Keys.Order(), Directory.GetFiles(fixture.WorkspaceRoot, "*", SearchOption.AllDirectories).Order());
+            foreach (var (path, bytes) in files) Assert.Equal(bytes, File.ReadAllBytes(path));
+        }
+        finally
+        {
+            fixture.Window!.DataContext = vm;
+            if (!fixture.Window.IsVisible) fixture.Window.Show();
+            AuthoringUiFixture.Drain();
+        }
     }
 
     private static AuthoringUiFixture Loaded(double width = 1280, double height = 800, bool realLifecycle = false)

@@ -28,6 +28,7 @@ public sealed class WorkspaceCreationWindow : Window
     private WorkspaceCreationRequest? _reviewed;
     private readonly CancellationTokenSource _lifetime = new();
 
+    public Guid? CreatedWorkspaceSession { get; private set; }
     public bool ContinueToPlan => _continue.IsChecked == true;
 
     public WorkspaceCreationWindow(MainWindow owner)
@@ -40,7 +41,11 @@ public sealed class WorkspaceCreationWindow : Window
         var browse = Named(new Button { Content = "Choose destination folder…" }, "Choose workspace destination");
         browse.Click += async (_, _) =>
         {
+            var vm = owner.DataContext as AuthoringWorkspaceViewModel;
+            var session = vm?.WorkspaceSessionId;
+            var lifetime = _lifetime.Token;
             var folders = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions { Title = "Workspace destination", AllowMultiple = false });
+            if (lifetime.IsCancellationRequested || !IsVisible || !owner.IsVisible || !ReferenceEquals(owner.DataContext, vm) || session != vm?.WorkspaceSessionId) return;
             if (folders.FirstOrDefault()?.TryGetLocalPath() is { } path) _destination.Text = path;
         };
         var review = Named(new Button { Content = "Review files and packages" }, "Review workspace creation");
@@ -65,10 +70,17 @@ public sealed class WorkspaceCreationWindow : Window
             if (!IsVisible || !owner.IsVisible || _lifetime.IsCancellationRequested) return;
             if (_reviewed is null || _reviewed != Request()) { _error.Text = "Review the updated files and settings before creating."; _create.IsEnabled = false; return; }
             var cancellationToken = _lifetime.Token;
+            var vm = owner.DataContext as AuthoringWorkspaceViewModel;
+            var session = vm?.WorkspaceSessionId;
             _create.IsEnabled = false;
             var created = await owner.CreateWorkspaceAsync(_reviewed, cancellationToken);
-            if (cancellationToken.IsCancellationRequested || !IsVisible || !owner.IsVisible) return;
-            if (created) Close(true);
+            if (cancellationToken.IsCancellationRequested || !IsVisible || !owner.IsVisible || !ReferenceEquals(owner.DataContext, vm)
+                || (!created && session != vm?.WorkspaceSessionId)) return;
+            if (created)
+            {
+                CreatedWorkspaceSession = (owner.DataContext as AuthoringWorkspaceViewModel)?.WorkspaceSessionId;
+                Close(true);
+            }
             else { _error.Text = owner.WorkspaceCreationError; _create.IsEnabled = true; }
         };
         var cancel = Named(new Button { Content = "Cancel", IsCancel = true }, "Cancel workspace creation");

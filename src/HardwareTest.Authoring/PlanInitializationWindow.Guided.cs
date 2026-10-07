@@ -36,7 +36,8 @@ public sealed partial class PlanInitializationWindow
         _hardware.ItemsSource = new[] { "No hardware yet", "Create VISA DMM", "Create Mock DMM — demo" }
             .Concat(_reusable.Select((resource, index) =>
                 $"{(index == _retainedResourceIndex ? "Retained original" : "Reuse")} {resource.SlotName} — {AuthoringInstrumentCatalog.All.Single(adapter => adapter.TypeId == resource.TypeId).DisplayName} ({resource.VisaAddress})"
-                + (index == _retainedResourceIndex ? " — changed or removed from catalog" : ""))).ToArray();
+                + (index == _retainedResourceIndex ? " — changed or removed from catalog" : " — " + _resourceOrigins[index])
+                + " — settings: " + (resource.Settings.Count == 0 ? "defaults" : string.Join(", ", resource.Settings.OrderBy(pair => pair.Key, StringComparer.Ordinal).Select(pair => pair.Key + "=" + pair.Value))))).ToArray();
     }
 
     private void RestoreGuidedForm(GuidedFormState state)

@@ -21,6 +21,38 @@ if (args.Length == 2 && args[0] == "--create-held")
     });
     return 0;
 }
+if (args.Length == 2 && args[0] == "--external-edit")
+{
+    var compiler = new PlanCompiler();
+    var draft = compiler.Load(args[1]);
+    var changed = draft with { Setup = [new OperatorPromptSetup("External TUI return sentinel", "Externally changed compiled plan")] };
+    compiler.Save(changed, args[1]);
+    return 0;
+}
+if (args.Length == 2 && args[0] == "--partial-marker")
+{
+    var path = Path.Combine(args[1], "partial-marker");
+    Publish(path, "complete\nowned-root");
+    return 0;
+}
+// Windows console-launch probe captures literal paths and holds the actual owned child.
+if (args.Length == 2 && args[0] == "tui")
+{
+    using var bytes = new MemoryStream();
+    using (var json = new Utf8JsonWriter(bytes))
+    {
+        json.WriteStartObject();
+        json.WriteString("assembly", Assembly.GetExecutingAssembly().Location);
+        json.WriteString("workingDirectory", Environment.CurrentDirectory);
+        json.WriteNumber("pid", Environment.ProcessId);
+        json.WriteStartArray("arguments");
+        foreach (var argument in args) json.WriteStringValue(argument);
+        json.WriteEndArray(); json.WriteEndObject();
+    }
+    Publish(args[1] + ".argv.json", System.Text.Encoding.UTF8.GetString(bytes.ToArray()));
+    while (!File.Exists(args[1] + ".release")) await Task.Delay(20);
+    return 0;
+}
 // Exit the session anchor first, then let tests independently release its root and leaf.
 if (args.Length == 2 && args[0].StartsWith("--scope-", StringComparison.Ordinal))
 {
@@ -35,7 +67,7 @@ if (args.Length == 2 && args[0].StartsWith("--scope-", StringComparison.Ordinal)
         start.ArgumentList.Add(directory);
         using var next = Process.Start(start)!;
     }
-    File.WriteAllText(Path.Combine(directory, role + ".pid"), Environment.ProcessId.ToString());
+    Publish(Path.Combine(directory, role + ".pid"), Environment.ProcessId.ToString());
     if (role == "anchor")
         while (!File.Exists(Path.Combine(directory, "anchor.release"))) await Task.Delay(20);
     else
@@ -53,7 +85,7 @@ if (args.Length == 2 && args[0] == "--operation-owner")
 if (args.Length is 1 or 2 && args[0] == "--descendant")
 {
     using var heldFile = args.Length == 2 ? File.Open(args[1], FileMode.Create, FileAccess.ReadWrite, FileShare.None) : null;
-    if (heldFile is not null) File.WriteAllText(args[1] + ".ready", "");
+    if (heldFile is not null) Publish(args[1] + ".ready", "");
     await Task.Delay(Timeout.Infinite);
     return 0;
 }
@@ -61,7 +93,7 @@ var requestPath = args[^1];
 using var request = JsonDocument.Parse(File.ReadAllBytes(requestPath));
 var root = request.RootElement.GetProperty("workspaceRoot").GetString()!;
 var owned = request.RootElement.GetProperty("ownedRoot").GetString()!;
-File.WriteAllText(Path.Combine(root, "fixture-child.json"), Environment.ProcessId + "\n" + owned);
+Publish(Path.Combine(root, "fixture-child.json"), Environment.ProcessId + "\n" + owned);
 Console.WriteLine("child " + Environment.ProcessId);
 if (File.Exists(Path.Combine(root, "fixture-spawn")))
 {
@@ -72,7 +104,7 @@ if (File.Exists(Path.Combine(root, "fixture-spawn")))
     start.ArgumentList.Add(heldPath);
     using var descendant = Process.Start(start)!;
     while (!File.Exists(heldPath + ".ready")) await Task.Delay(20);
-    File.WriteAllText(Path.Combine(root, "fixture-descendant"), descendant.Id.ToString());
+    Publish(Path.Combine(root, "fixture-descendant"), descendant.Id.ToString());
 }
 if (File.Exists(Path.Combine(root, "fixture-root-exit"))) return 7;
 if (File.Exists(Path.Combine(root, "fixture-flood")))
@@ -98,10 +130,31 @@ foreach (var package in OpenTapHomeBootstrapper.ListInstalledPackages(new OpenTa
     Console.WriteLine("home-package:" + package.Name);
 if (File.Exists(Path.Combine(root, "fixture-result-wait")))
 {
-    File.WriteAllText(Path.Combine(root, "fixture-prepared"), "ready");
+    Publish(Path.Combine(root, "fixture-prepared"), "ready");
     while (!File.Exists(Path.Combine(root, "fixture-release")) && !File.Exists(Path.Combine(owned, "fixture-release"))) await Task.Delay(20);
 }
 return exitCode;
+
+static void Publish(string path, string content)
+{
+    var temporary = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
+    try
+    {
+        if (Path.GetFileName(path) == "partial-marker")
+        {
+            using (var writer = new StreamWriter(temporary))
+            {
+                writer.Write("complete"); writer.Flush();
+                Console.WriteLine("partial"); Console.Out.Flush();
+                if (Console.ReadLine() != "release") throw new IOException("Marker owner disconnected.");
+                writer.Write("\nowned-root");
+            }
+        }
+        else File.WriteAllText(temporary, content);
+        File.Move(temporary, path, true);
+    }
+    finally { if (File.Exists(temporary)) File.Delete(temporary); }
+}
 
 internal static class ScopeFixture
 {

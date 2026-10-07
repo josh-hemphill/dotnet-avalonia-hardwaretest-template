@@ -76,7 +76,7 @@ public sealed class AuthoringLifecycleTests
     [AvaloniaTheory]
     [InlineData(UnsavedChangesChoice.SaveAll)]
     [InlineData(UnsavedChangesChoice.Discard)]
-    public void Completed_close_choice_posts_one_close_after_initial_event(UnsavedChangesChoice choice)
+    public async Task Completed_close_choice_posts_one_close_after_initial_event(UnsavedChangesChoice choice)
     {
         using var fixture = Loaded();
         PendingChannel(fixture, "pending-close-edit");
@@ -87,7 +87,7 @@ public sealed class AuthoringLifecycleTests
         Assert.True(fixture.Window.IsVisible);
         Assert.Equal("pending-close-edit", fixture.ViewModel.ChannelKey);
         Assert.Equal(1, fixture.Interaction.Calls);
-        AuthoringUiFixture.Drain();
+        await WaitForCloseAsync(fixture.Window);
         Assert.False(fixture.Window.IsVisible);
         Assert.Equal(1, closed);
         if (choice == UnsavedChangesChoice.SaveAll)
@@ -97,7 +97,137 @@ public sealed class AuthoringLifecycleTests
             loaded.SelectMeasure(0);
             Assert.Equal("pending-close-edit", loaded.ChannelKey);
             Assert.False(fixture.ViewModel.HasUnsavedChanges);
+            await loaded.StopRecoveryAsync();
         }
+    }
+
+    [AvaloniaTheory]
+    [InlineData("new", false)]
+    [InlineData("source-only", false)]
+    [InlineData("compiled", false)]
+    [InlineData("new", true)]
+    [InlineData("source-only", true)]
+    [InlineData("compiled", true)]
+    public async Task Save_all_first_compilation_allows_requested_workspace_transition(string origin, bool close)
+    {
+        using var fixture = Loaded();
+        using var replacement = new AuthoringUiFixture();
+        var vm = fixture.ViewModel;
+        if (origin != "compiled")
+        {
+            vm.CreateProgram("first-compiled");
+            if (origin == "source-only")
+            {
+                var document = AuthoringDocumentDto.FromDraft(vm.SelectedProgram!);
+                document.RequiresCompilation = true;
+                new AuthoringDocumentStore(fixture.WorkspaceRoot).Save(document);
+                await vm.StopRecoveryAsync();
+                vm.CommitOpen(vm.PrepareOpen(fixture.WorkspaceRoot), discardUnsavedChanges: true);
+                vm.SelectProgram("first-compiled");
+            }
+        }
+        var planId = vm.SelectedProgram!.PlanId;
+        var oldWorkspace = vm.Workspace;
+        var oldSession = vm.WorkspaceSessionId;
+        vm.DisplayName = "saved before transition";
+        Assert.True(vm.HasUnsavedChanges);
+        Assert.Equal(origin == "compiled", File.Exists(Path.Combine(fixture.WorkspaceRoot, planId + ".TapPlan")));
+        fixture.Interaction.Choice = UnsavedChangesChoice.SaveAll;
+        var closed = 0;
+        fixture.Window!.Closed += (_, _) => closed++;
+        if (close)
+        {
+            fixture.Window.Close();
+            await WaitForCloseAsync(fixture.Window);
+            Assert.Equal(1, closed);
+            Assert.Equal(oldSession, vm.WorkspaceSessionId);
+            if (origin != "compiled") Assert.NotSame(oldWorkspace, vm.Workspace);
+        }
+        else
+        {
+            Assert.True(await fixture.Window.OpenWorkspaceAsync(replacement.WorkspaceRoot));
+            Assert.Equal(replacement.WorkspaceRoot, vm.Workspace!.Root);
+            Assert.NotEqual(oldSession, vm.WorkspaceSessionId);
+            Assert.True(fixture.Window.IsVisible);
+            Assert.Equal(0, closed);
+        }
+        if (close) Assert.True(vm.LastSaveAllResult!.Succeeded);
+        Assert.False(vm.HasUnsavedChanges);
+        var saved = new AuthoringDocumentStore(fixture.WorkspaceRoot).Load(planId).Document!;
+        Assert.False(saved.RequiresCompilation);
+        Assert.Equal("saved before transition", saved.ToDraft().Sidecar.DisplayName);
+        Assert.Equal("saved before transition", new PlanCompiler().Load(Path.Combine(fixture.WorkspaceRoot, planId + ".TapPlan")).Sidecar.DisplayName);
+    }
+
+    [AvaloniaTheory]
+    [InlineData("timeout")]
+    [InlineData("hide")]
+    [InlineData("context")]
+    public async Task Aborted_close_resumes_recovery_only_after_its_original_writer_drains(string abort)
+    {
+        using var fixture = Loaded();
+        var vm = fixture.ViewModel;
+        await vm.StopRecoveryAsync();
+        var originalSource = File.ReadAllBytes(Path.Combine(fixture.WorkspaceRoot, "sample.TapPlan"));
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var release = new ManualResetEventSlim();
+        var oldNotifications = 0;
+        using var recovery = new AuthoringRecoveryCheckpointService(action => action(), _ => oldNotifications++, TimeSpan.Zero,
+            (path, document) =>
+            {
+                using (File.Open(path, FileMode.Create, FileAccess.Write, FileShare.None))
+                {
+                    entered.TrySetResult();
+                    if (!release.Wait(TimeSpan.FromSeconds(15))) throw new TimeoutException("Fixture writer was not released.");
+                }
+                new AuthoringDocumentStore(fixture.WorkspaceRoot).SaveAtPath(path, document);
+            });
+        var field = typeof(AuthoringWorkspaceViewModel).GetField("_recovery", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
+        field.SetValue(vm, recovery);
+        var transition = typeof(MainWindow).GetField("_transitionInFlight", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
+        var session = vm.WorkspaceSessionId;
+        var store = new AuthoringDocumentStore(fixture.WorkspaceRoot);
+        try
+        {
+            vm.DisplayName = "old held checkpoint";
+            await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            fixture.Interaction.Choice = UnsavedChangesChoice.Discard;
+            fixture.Window!.Close();
+            using var stopTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            while (field.GetValue(vm) is not null) { await Task.Delay(1, stopTimeout.Token); AuthoringUiFixture.Drain(); }
+            Assert.Null(field.GetValue(vm));
+            if (abort == "hide") { fixture.Window.Hide(); release.Set(); }
+            if (abort == "context") { fixture.Window.DataContext = new object(); release.Set(); }
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(7));
+            while ((bool)transition.GetValue(fixture.Window)!) { await Task.Delay(1, timeout.Token); AuthoringUiFixture.Drain(); }
+            if (abort == "hide") fixture.Window.Show();
+            if (abort == "context") { Assert.Null(field.GetValue(vm)); fixture.Window.DataContext = vm; }
+            if (abort == "timeout") Assert.Contains("timed out", vm.Error!, StringComparison.OrdinalIgnoreCase);
+            Assert.True(fixture.Window.IsVisible);
+            Assert.Equal(session, vm.WorkspaceSessionId);
+            Assert.False(File.Exists(store.GetRecoveryPath("sample")));
+            vm.DisplayName = "edited after aborted close";
+            if (abort == "timeout")
+            {
+                Assert.Null(field.GetValue(vm));
+                Assert.False(File.Exists(store.GetRecoveryPath("sample")));
+                release.Set();
+            }
+            using var checkpointTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            while (!File.Exists(store.GetRecoveryPath("sample"))) { await Task.Delay(1, checkpointTimeout.Token); AuthoringUiFixture.Drain(); }
+            Assert.Equal("edited after aborted close", store.LoadAtPath(store.GetRecoveryPath("sample")).Document!.ToDraft().Sidecar.DisplayName);
+            Assert.Equal(0, oldNotifications);
+            Assert.True(vm.HasUnsavedChanges);
+            Assert.Equal(originalSource, File.ReadAllBytes(Path.Combine(fixture.WorkspaceRoot, "sample.TapPlan")));
+        }
+        finally { release.Set(); fixture.Window!.DataContext = vm; if (!fixture.Window.IsVisible) fixture.Window.Show(); await vm.StopRecoveryAsync(); }
+    }
+
+    private static async Task WaitForCloseAsync(MainWindow window)
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        AuthoringUiFixture.Drain();
+        while (window.IsVisible) { await Task.Delay(1, timeout.Token); AuthoringUiFixture.Drain(); }
     }
 
     [AvaloniaFact]
@@ -115,7 +245,7 @@ public sealed class AuthoringLifecycleTests
         Assert.Equal(1, fixture.Interaction.Calls);
         Assert.True(fixture.Window.IsVisible);
         pending.SetResult(UnsavedChangesChoice.Discard);
-        AuthoringUiFixture.Drain();
+        await WaitForCloseAsync(fixture.Window);
         Assert.Equal(1, closed);
         Assert.False(fixture.Window.IsVisible);
         fixture.Interaction.Pending = null;
@@ -234,7 +364,7 @@ public sealed class AuthoringLifecycleTests
     [AvaloniaTheory]
     [InlineData("Save all")]
     [InlineData("Discard")]
-    public void Real_modal_acceptance_closes_owner_once(string action)
+    public async Task Real_modal_acceptance_closes_owner_once(string action)
     {
         using var fixture = Loaded(realInteraction: true);
         fixture.ViewModel.DisplayName = "modal acceptance edit";
@@ -244,6 +374,8 @@ public sealed class AuthoringLifecycleTests
         AuthoringUiFixture.Drain();
         var dialog = Assert.Single(fixture.Window.OwnedWindows);
         AuthoringUiFixture.Click(Assert.Single(dialog.GetVisualDescendants().OfType<Button>(), button => Equals(button.Content, action)));
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        while (fixture.Window.IsVisible) { await Task.Delay(1, timeout.Token); AuthoringUiFixture.Drain(); }
         Assert.False(fixture.Window.IsVisible);
         Assert.Equal(1, closed);
         if (action == "Save all") Assert.True(fixture.ViewModel.LastSaveAllResult!.Succeeded);

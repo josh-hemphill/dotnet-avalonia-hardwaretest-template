@@ -9,9 +9,9 @@ public sealed partial class AuthoringActionableFindingsTests
     [InlineData(true, false)]
     [InlineData(false, true)]
     [InlineData(true, true)]
-    public void Completed_save_retains_a_verification_warning_when_inputs_become_unreadable_after_publication(bool empty, bool all)
+    public async Task Completed_save_retains_a_verification_warning_when_inputs_become_unreadable_after_publication(bool empty, bool all)
     {
-        PrepareCheckedInputs(empty);
+        await PrepareCheckedInputsAsync(empty);
         Assert.Contains("Current", _vm.IssuesCheckState);
         if (all) _vm.DisplayName = "saved with verification warning";
         var sourcePath = CheckedInputPath("program");

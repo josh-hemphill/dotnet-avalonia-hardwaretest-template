@@ -32,6 +32,12 @@ public sealed class AuthoringPreferences
 
     public string? OpenTapHomeOverride { get; set; }
 
+    public bool ProgramsRailCollapsed { get; set; }
+
+    public bool DockPreview { get; set; } = true;
+
+    public bool IssuesDrawerOpen { get; set; }
+
     public bool SkipGuidance { get; set; }
 
     public bool ShowRawStepXml { get; set; } = true;

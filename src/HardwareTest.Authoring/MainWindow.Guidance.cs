@@ -133,12 +133,13 @@ public partial class MainWindow
         if (_guidedSession != _viewModel.WorkspaceSessionId) _guidedForm = null;
         _guidedSession = _viewModel.WorkspaceSessionId;
         CommitFocusedEditor();
-        var dialog = new PlanInitializationWindow(_viewModel, guided: true, retained: _guidedForm);
+        var current = OwnerContext();
+        var dialog = new PlanInitializationWindow(_viewModel, guided: true, retained: _guidedForm, ownerIsCurrent: current);
         _initialization = dialog;
         try
         {
             var created = await dialog.ShowDialog<bool>(this);
-            if (_ownerClosed || _guidedSession != _viewModel.WorkspaceSessionId) return;
+            if (!current()) return;
             _guidedForm = created ? null : dialog.CaptureGuidedForm();
             if (dialog.SkipGuidanceRequested) _explicitGuidanceSession = null;
             if (created)

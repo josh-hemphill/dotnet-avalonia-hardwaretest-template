@@ -19,21 +19,19 @@ public partial class MainWindow
         bool created;
         try { created = await dialog.ShowDialog<bool>(this); }
         finally { _workspaceCreation = null; }
-        if (created && dialog.ContinueToPlan) await ShowPlanInitializationAsync();
+        if (created && !_ownerClosed && IsVisible && ReferenceEquals(DataContext, _viewModel) && dialog.CreatedWorkspaceSession == _viewModel.WorkspaceSessionId && dialog.ContinueToPlan) await ShowPlanInitializationAsync();
     }
 
     public async Task<bool> CreateWorkspaceAsync(WorkspaceCreationRequest request, CancellationToken cancellationToken = default)
     {
         if (_transitionInFlight || _destructiveInFlight || _ownerClosed || !IsVisible || _viewModel.OperationBusy || _viewModel.OperationCleanupPending) return false;
         _transitionInFlight = true;
+        var current = OwnerContext();
         try
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var originalWorkspace = _viewModel.Workspace;
             var originalDocument = _viewModel.SelectedDocument;
-            bool ContextIsCurrent() => !_ownerClosed && IsVisible
-                && ReferenceEquals(originalWorkspace, _viewModel.Workspace)
-                && ReferenceEquals(originalDocument, _viewModel.SelectedDocument);
+            bool ContextIsCurrent() => current() && ReferenceEquals(originalDocument, _viewModel.SelectedDocument);
             // Validate and review conflicts before asking to leave the current document.
             var initializer = new AuthoringWorkspaceInitializer();
             _ = initializer.Preview(request);
@@ -49,7 +47,7 @@ public partial class MainWindow
             return true;
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { return false; }
-        catch (Exception ex) { _viewModel.ReportError(ex.Message); return false; }
+        catch (Exception ex) { if (current()) _viewModel.ReportError(ex.Message); return false; }
         finally { _transitionInFlight = false; }
     }
 }

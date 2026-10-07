@@ -7,7 +7,7 @@ public static class AuthoringSchemaVersions
 {
     public const int Manifest = 2;
 
-    public const int Preferences = 1;
+    public const int Preferences = 2;
 }
 
 /// Versioned workspace manifest beside TapPlans. Session/DUT/Typst stay in program sidecars.

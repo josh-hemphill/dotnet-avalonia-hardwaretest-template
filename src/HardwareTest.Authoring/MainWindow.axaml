@@ -8,6 +8,7 @@
     </Style>
   </Window.Styles>
   <DockPanel>
+    <ContentControl x:Name="IssuesDrawer" DockPanel.Dock="Bottom" MaxHeight="180" IsVisible="False" Margin="12"/>
     <StackPanel DockPanel.Dock="Top" Spacing="8" Margin="12">
       <WrapPanel Orientation="Horizontal">
         <Button x:Name="LifecycleFocusTarget" Content="Open workspace…" Click="OnOpenWorkspace"
@@ -61,8 +62,8 @@
         <TextBlock Text="Unsaved changes" IsVisible="{Binding HasUnsavedChanges}" VerticalAlignment="Center"
             FontWeight="SemiBold" AutomationProperties.Name="Unsaved changes" Grid.Column="1" Margin="0,0,8,0"
             TextTrimming="CharacterEllipsis"/>
-        <Button Content="Commands" Click="OnOpenCommandPalette" AutomationProperties.Name="Command palette"
-            ToolTip.Tip="Ctrl+Shift+P" Grid.Column="2" Padding="8,0" MinHeight="32" Classes="authoringAction"/>
+        <Button x:Name="CommandPaletteButton" Content="Commands" Click="OnOpenCommandPalette" AutomationProperties.Name="Command palette"
+            Grid.Column="2" Padding="8,0" MinHeight="32" Classes="authoringAction"/>
       </Grid>
     </StackPanel>
     <ScrollViewer DockPanel.Dock="Top" Margin="12,0,12,8" MaxHeight="40" HorizontalScrollBarVisibility="Disabled"
@@ -106,8 +107,8 @@
           </StackPanel>
         </StackPanel>
       </Border>
-      <Grid ColumnDefinitions="180,*" Margin="12,0,12,12" IsVisible="{Binding HasWorkspace}">
-        <DockPanel Grid.Column="0">
+      <Grid x:Name="WorkspaceLayout" ColumnDefinitions="180,*" Margin="12,0,12,12" IsVisible="{Binding HasWorkspace}">
+        <DockPanel x:Name="ProgramsRail" Grid.Column="0">
           <ScrollViewer MaxHeight="140" DockPanel.Dock="Top" Margin="0,0,12,8"
               HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto" ClipToBounds="True"
               AutomationProperties.Name="Guidance rail viewport">
@@ -128,7 +129,8 @@
             </Style>
           </TabControl.Styles>
           <TabItem Header="Program" AutomationProperties.Name="Program tab">
-            <Grid RowDefinitions="Auto,*" x:Name="ProgramLayout">
+            <Grid RowDefinitions="Auto,Auto,*" x:Name="ProgramLayout">
+              <TextBlock x:Name="DependencySummary" Grid.Row="1" Grid.ColumnSpan="5" TextWrapping="Wrap" Margin="0,0,0,6" AutomationProperties.Name="Selected step dependencies"/>
               <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="180" MinWidth="150"/>
                 <ColumnDefinition Width="5"/>
@@ -148,16 +150,16 @@
                 <TextBlock x:Name="PreviewHeading" FontWeight="SemiBold" Text="{Binding PreviewTitle}"
                     AutomationProperties.HeadingLevel="2" TextWrapping="Wrap" ToolTip.Tip="{Binding PreviewPurpose}"/>
               </StackPanel>
-              <vm:SequenceEditorView Grid.Row="1" Grid.Column="0"/>
-              <vm:SelectedStepInspectorView Grid.Row="1" Grid.Column="2"/>
-              <ContentControl Grid.Row="1" Grid.Column="4" x:Name="DockedPreview" Margin="8,0,0,0"/>
+              <vm:SequenceEditorView Grid.Row="2" Grid.Column="0"/>
+              <vm:SelectedStepInspectorView Grid.Row="2" Grid.Column="2"/>
+              <ContentControl Grid.Row="2" Grid.Column="4" x:Name="DockedPreview" Margin="8,0,0,0"/>
             </Grid>
           </TabItem>
           <TabItem Header="Hardware" AutomationProperties.Name="Program settings tab">
             <vm:ProgramSettingsView IsEnabled="{Binding CanEditProgramSettings}"/>
           </TabItem>
           <TabItem Header="Issues" AutomationProperties.Name="Findings tab">
-            <vm:WorkspaceIssuesView/>
+            <ContentControl x:Name="IssuesRoute"/>
           </TabItem>
           <TabItem Header="Environment" AutomationProperties.Name="Workspace tab">
             <vm:WorkspaceEnvironmentView/>

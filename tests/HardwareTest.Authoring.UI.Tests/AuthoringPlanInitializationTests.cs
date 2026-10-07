@@ -12,6 +12,47 @@ namespace HardwareTest.Authoring.UI.Tests;
 
 public sealed class AuthoringPlanInitializationTests
 {
+    [AvaloniaTheory]
+    [InlineData("hidden", false, false)]
+    [InlineData("replaced", false, false)]
+    [InlineData("session", false, false)]
+    [InlineData("hidden", true, false)]
+    [InlineData("replaced", true, false)]
+    [InlineData("session", true, false)]
+    [InlineData("hidden", true, true)]
+    [InlineData("replaced", true, true)]
+    [InlineData("session", true, true)]
+    public void Pending_initialization_cannot_publish_or_skip_after_initiating_owner_changes(string boundary, bool guided, bool skip)
+    {
+        using var fixture = Loaded(); var owner = fixture.Window!;
+        AuthoringUiFixture.Click(fixture.Control<Button>(guided ? "Start guided voltage test" : "New test plan"));
+        var dialog = Assert.IsType<PlanInitializationWindow>(Assert.Single(owner.OwnedWindows));
+        fixture.Control<TextBox>("Stable plan ID", dialog).Text = "stale-owner"; AuthoringUiFixture.Drain();
+        if (!skip) for (var stage = 0; stage < 5; stage++)
+        {
+            AuthoringUiFixture.Click(fixture.Control<Button>("Next", dialog));
+            Assert.Equal("", fixture.Control<TextBlock>("Initialization error", dialog).Text);
+        }
+        var button = fixture.Control<Button>(skip ? "Skip optional guidance" : "Create test plan", dialog);
+        Assert.True(button.IsEffectivelyVisible); Assert.True(button.IsEnabled);
+        var bytes = Directory.EnumerateFiles(fixture.WorkspaceRoot, "*", SearchOption.AllDirectories).ToDictionary(path => path, File.ReadAllBytes);
+        var preferences = File.ReadAllBytes(fixture.Preferences.FilePath);
+        var plans = fixture.ViewModel.Programs.Select(program => program.PlanId).ToArray();
+        if (boundary == "hidden") owner.Hide();
+        else if (boundary == "replaced") owner.DataContext = new AuthoringWorkspaceViewModel();
+        else fixture.ViewModel.CommitOpen(fixture.ViewModel.PrepareOpen(fixture.WorkspaceRoot), discardUnsavedChanges: true);
+        // Deliver the pending action from the previously shown form after its owner changes.
+        button.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent)); AuthoringUiFixture.Drain();
+        Assert.Equal(plans, fixture.ViewModel.Programs.Select(program => program.PlanId));
+        Assert.False(new AuthoringDocumentStore(fixture.WorkspaceRoot).Load("stale-owner").Exists);
+        Assert.False(fixture.ViewModel.SkipGuidance); Assert.False(dialog.SkipGuidanceRequested);
+        Assert.Equal(preferences, File.ReadAllBytes(fixture.Preferences.FilePath));
+        Assert.Equal(bytes.Keys.Order(), Directory.EnumerateFiles(fixture.WorkspaceRoot, "*", SearchOption.AllDirectories).Order());
+        foreach (var file in bytes) Assert.Equal(file.Value, File.ReadAllBytes(file.Key));
+        dialog.Close(false); owner.DataContext = fixture.ViewModel;
+        if (boundary == "hidden") owner.Show();
+    }
+
     [AvaloniaFact]
     public void Compact_command_entry_label_fits_and_actual_click_opens_palette_at_large_text_scale()
     {
@@ -22,7 +63,7 @@ public sealed class AuthoringPlanInitializationTests
         ResponsiveActionLabelTests.LabelFits(command, window); Assert.True(command.Bounds.Height >= 32);
         var center = command.TranslatePoint(new Point(command.Bounds.Width / 2, command.Bounds.Height / 2), window)!.Value;
         window.MouseDown(center, MouseButton.Left); window.MouseUp(center, MouseButton.Left); AuthoringUiFixture.Drain();
-        var palette = Assert.Single(window.OwnedWindows); Assert.True(fixture.Control<Button>("New test plan command", palette).IsEffectivelyEnabled);
+        var palette = Assert.Single(window.OwnedWindows); Assert.True(fixture.Control<ListBox>("Authoring commands", palette).ItemCount > 0);
         AuthoringUiFixture.Click(Assert.Single(palette.GetVisualDescendants().OfType<Button>(), button => Equals(button.Content, "Cancel")));
         Assert.Empty(window.OwnedWindows);
         Assert.False(fixture.ViewModel.HasUnsavedChanges);
@@ -93,7 +134,8 @@ public sealed class AuthoringPlanInitializationTests
         using var fixture = Loaded(); var before = fixture.ViewModel.Programs.ToArray();
         AuthoringUiFixture.Click(fixture.Control<Button>("Command palette"));
         var palette = Assert.Single(fixture.Window!.OwnedWindows);
-        AuthoringUiFixture.Click(fixture.Control<Button>("New test plan command", palette));
+        fixture.Control<TextBox>("Search commands", palette).Text = "New test plan"; AuthoringUiFixture.Drain();
+        AuthoringUiFixture.Click(palette.GetVisualDescendants().OfType<Button>().Single(button => Equals(button.Content, "Run command")));
         var dialog = Assert.IsType<PlanInitializationWindow>(Assert.Single(fixture.Window.OwnedWindows));
         if (reviewFirst) for (var stage = 0; stage < 5; stage++) AuthoringUiFixture.Click(fixture.Control<Button>("Next", dialog));
         AuthoringUiFixture.Click(fixture.Control<Button>("Cancel", dialog));
@@ -155,7 +197,8 @@ public sealed class AuthoringPlanInitializationTests
         using var fixture = Loaded();
         fixture.Window!.KeyPress(Key.P, RawInputModifiers.Control | RawInputModifiers.Shift, PhysicalKey.P, null); AuthoringUiFixture.Drain();
         var palette = Assert.Single(fixture.Window!.OwnedWindows);
-        AuthoringUiFixture.Click(fixture.Control<Button>("New test plan command", palette));
+        fixture.Control<TextBox>("Search commands", palette).Text = "New test plan"; AuthoringUiFixture.Drain();
+        AuthoringUiFixture.Click(palette.GetVisualDescendants().OfType<Button>().Single(button => Equals(button.Content, "Run command")));
         var dialog = Assert.IsType<PlanInitializationWindow>(Assert.Single(fixture.Window.OwnedWindows));
         Type(fixture, dialog, "Stable plan ID", "optional-task"); Next(fixture, dialog, "Starting point");
         fixture.Control<ComboBox>("Starting point", dialog).SelectedIndex = 1;

@@ -27,7 +27,7 @@ jobs:
   test:
     runs-on: windows-latest
     # Allow the complete authoring runtime/UI suite and post-job NuGet cache upload.
-    timeout-minutes: 45
+    timeout-minutes: 75
     permissions:
       contents: read
     steps:

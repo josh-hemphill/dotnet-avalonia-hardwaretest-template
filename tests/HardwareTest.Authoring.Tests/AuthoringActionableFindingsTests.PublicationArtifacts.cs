@@ -7,9 +7,9 @@ public sealed partial class AuthoringActionableFindingsTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public void SaveAll_preflights_second_dirty_program_artifacts_before_publishing_first(bool sidecar)
+    public async Task SaveAll_preflights_second_dirty_program_artifacts_before_publishing_first(bool sidecar)
     {
-        PrepareCheckedInputs(false);
+        await PrepareCheckedInputsAsync(false);
         _vm.SelectProgram("board-demo");
         _vm.SaveSidecar();
         _vm.DisplayName = "first dirty program";
@@ -38,9 +38,9 @@ public sealed partial class AuthoringActionableFindingsTests
     [InlineData(false, true)]
     [InlineData(true, false)]
     [InlineData(true, true)]
-    public void Single_save_preserves_source_and_dirty_content_when_target_artifact_is_locked(bool apply, bool sidecar)
+    public async Task Single_save_preserves_source_and_dirty_content_when_target_artifact_is_locked(bool apply, bool sidecar)
     {
-        PrepareCheckedInputs(false);
+        await PrepareCheckedInputsAsync(false);
         _vm.DisplayName = "dirty source must remain unsaved";
         var original = CapturePublishedBytes();
         var path = Path.Combine(_root, sidecar ? "sample.program.json" : "sample.TapPlan");

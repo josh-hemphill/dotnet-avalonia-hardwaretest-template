@@ -11,6 +11,8 @@ namespace HardwareTest.Authoring;
 public sealed partial class PlanInitializationWindow : Window
 {
     private readonly AuthoringWorkspaceViewModel _vm;
+    private readonly Func<bool>? _ownerIsCurrent;
+    private readonly Guid _workspaceSession;
     private readonly AuthoringWorkspace _workspace;
     private readonly TextBox _name = Input("Plan display name");
     private readonly TextBox _id = Input("Stable plan ID");
@@ -43,22 +45,27 @@ public sealed partial class PlanInitializationWindow : Window
     private readonly Button _create = Action("Create test plan");
     private readonly StackPanel[] _stages;
     private readonly List<InstrumentRef> _reusable;
+    private readonly List<string> _resourceOrigins = [];
     private int _stage;
     private bool _idEdited;
 
     public bool SkipGuidanceRequested { get; private set; }
 
-    public PlanInitializationWindow(AuthoringWorkspaceViewModel vm, bool guided = false, GuidedFormState? retained = null)
+    public PlanInitializationWindow(AuthoringWorkspaceViewModel vm, bool guided = false, GuidedFormState? retained = null, Func<bool>? ownerIsCurrent = null)
     {
         _guided = guided;
         _vm = vm;
+        _ownerIsCurrent = ownerIsCurrent;
+        _workspaceSession = vm.WorkspaceSessionId;
         _workspace = vm.Workspace ?? throw new AuthoringWorkspaceException("Open a workspace first.");
         Title = "New test plan"; Width = 650; Height = 680; MinWidth = 480; MinHeight = 460;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
-        _reusable = vm.HardwareDefinitions.Select(definition => new InstrumentRef(definition.Name, definition.TypeId, definition.Address)
-        { Settings = definition.Settings }).Concat(vm.Programs.SelectMany(program => program.Instruments))
-            .Where(resource => AuthoringInstrumentCatalog.TryGet(resource.TypeId, out _))
-            .DistinctBy(resource => (resource.SlotName, resource.TypeId, resource.VisaAddress)).ToList();
+        var candidates = vm.HardwareDefinitions.Select(definition => (Resource: new InstrumentRef(definition.Name, definition.TypeId, definition.Address)
+        { Settings = new Dictionary<string, string>(definition.Settings) }, Origin: "Workspace definition " + definition.Name))
+            .Concat(vm.Programs.SelectMany(program => program.Instruments.Select(resource => (Resource: CopyResource(resource), Origin: "Program " + program.PlanId))))
+            .Where(candidate => AuthoringInstrumentCatalog.TryGet(candidate.Resource.TypeId, out _)).ToList();
+        _reusable = candidates.Select(candidate => candidate.Resource).ToList();
+        _resourceOrigins.AddRange(candidates.Select(candidate => candidate.Origin));
         ShowHardwareChoices();
         _destination.IsReadOnly = false;
         _name.Text = vm.SuggestedPlanId; _id.Text = vm.SuggestedPlanId;
@@ -124,7 +131,11 @@ public sealed partial class PlanInitializationWindow : Window
             leave.Click += (_, _) => Close(false);
             var skip = Action("Skip optional guidance");
             skip.IsEnabled = vm.PreferencesEditable;
-            skip.Click += (_, _) => { SkipGuidanceRequested = true; vm.SkipGuidance = true; Close(false); };
+            skip.Click += (_, _) =>
+            {
+                try { EnsureSession(); SkipGuidanceRequested = true; vm.SkipGuidance = true; Close(false); }
+                catch (Exception error) { _error.Text = AuthoringWorkspaceViewModel.PersistenceError(error); }
+            };
             buttons.Children.Insert(0, leave); buttons.Children.Insert(1, skip);
         }
         root.Children.Add(new ScrollViewer { Content = content, HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled });
@@ -141,7 +152,7 @@ public sealed partial class PlanInitializationWindow : Window
 
     private void EnsureSession()
     {
-        if (!ReferenceEquals(_workspace, _vm.Workspace)) throw new AuthoringWorkspaceException("The workspace changed; reopen New test plan.");
+        if (_ownerIsCurrent?.Invoke() == false || _workspaceSession != _vm.WorkspaceSessionId || !ReferenceEquals(_workspace, _vm.Workspace)) throw new AuthoringWorkspaceException("The workspace changed; reopen New test plan.");
         if (!_vm.CanInitializePlan) throw new AuthoringWorkspaceException("Open a writable workspace and wait for the active operation.");
     }
 

@@ -341,11 +341,6 @@
           "SkiaSharp": "3.119.0"
         }
       },
-      "SkiaSharp.NativeAssets.Linux": {
-        "type": "Transitive",
-        "resolved": "3.119.4",
-        "contentHash": "UAyVzbqNfZsZbKbzj68zXLyUyF/SbTKmzTfOO6qDu++dtIUMMTzPBe8oOuzU/DiewpfKoUUlOSsJmqWc6blxBw=="
-      },
       "SkiaSharp.NativeAssets.Linux.NoDependencies": {
         "type": "Transitive",
         "resolved": "3.119.0",
@@ -639,6 +634,12 @@
           "Serilog": "4.3.1"
         }
       },
+      "SkiaSharp.NativeAssets.Linux": {
+        "type": "CentralTransitive",
+        "requested": "[4.150.1, )",
+        "resolved": "3.119.4",
+        "contentHash": "UAyVzbqNfZsZbKbzj68zXLyUyF/SbTKmzTfOO6qDu++dtIUMMTzPBe8oOuzU/DiewpfKoUUlOSsJmqWc6blxBw=="
+      },
       "StreamJsonRpc": {
         "type": "CentralTransitive",
         "requested": "[2.25.29, )",
@@ -701,11 +702,6 @@
         "resolved": "8.3.1.3",
         "contentHash": "bx8CE8Js+XGX8PUxAHCBDEORt5aaBYtMN4Hr9QFs57Xithh6yjUyYqksizH6eRDhJkwsGI+SXWmPmMm8lZC9Pw=="
       },
-      "SkiaSharp.NativeAssets.Linux": {
-        "type": "Transitive",
-        "resolved": "3.119.4",
-        "contentHash": "UAyVzbqNfZsZbKbzj68zXLyUyF/SbTKmzTfOO6qDu++dtIUMMTzPBe8oOuzU/DiewpfKoUUlOSsJmqWc6blxBw=="
-      },
       "SkiaSharp.NativeAssets.Linux.NoDependencies": {
         "type": "Transitive",
         "resolved": "3.119.0",
@@ -730,6 +726,12 @@
         "type": "Transitive",
         "resolved": "2.1.0",
         "contentHash": "4CbOJXL5iqIoKON09ihXblk4dAz4khJsmK+3hKEgQ6WNea36IN4r6ioRdDAvJp+hoM3+oNHb43lDcl2Lya4JvQ=="
+      },
+      "SkiaSharp.NativeAssets.Linux": {
+        "type": "CentralTransitive",
+        "requested": "[4.150.1, )",
+        "resolved": "3.119.4",
+        "contentHash": "UAyVzbqNfZsZbKbzj68zXLyUyF/SbTKmzTfOO6qDu++dtIUMMTzPBe8oOuzU/DiewpfKoUUlOSsJmqWc6blxBw=="
       },
       "System.Security.Cryptography.Pkcs": {
         "type": "CentralTransitive",
@@ -776,11 +778,6 @@
         "resolved": "8.3.1.3",
         "contentHash": "bx8CE8Js+XGX8PUxAHCBDEORt5aaBYtMN4Hr9QFs57Xithh6yjUyYqksizH6eRDhJkwsGI+SXWmPmMm8lZC9Pw=="
       },
-      "SkiaSharp.NativeAssets.Linux": {
-        "type": "Transitive",
-        "resolved": "3.119.4",
-        "contentHash": "UAyVzbqNfZsZbKbzj68zXLyUyF/SbTKmzTfOO6qDu++dtIUMMTzPBe8oOuzU/DiewpfKoUUlOSsJmqWc6blxBw=="
-      },
       "SkiaSharp.NativeAssets.Linux.NoDependencies": {
         "type": "Transitive",
         "resolved": "3.119.0",
@@ -805,6 +802,12 @@
         "type": "Transitive",
         "resolved": "2.1.0",
         "contentHash": "1ypmIDCeGZP8d/YbAkI4Y/zqTU+7NNkrIrd963Sm35oHsDtAjgqJbha+QQKUmSSJyI4TdyFGtyDjKHBNssI1Nw=="
+      },
+      "SkiaSharp.NativeAssets.Linux": {
+        "type": "CentralTransitive",
+        "requested": "[4.150.1, )",
+        "resolved": "3.119.4",
+        "contentHash": "UAyVzbqNfZsZbKbzj68zXLyUyF/SbTKmzTfOO6qDu++dtIUMMTzPBe8oOuzU/DiewpfKoUUlOSsJmqWc6blxBw=="
       },
       "System.Security.Cryptography.Pkcs": {
         "type": "CentralTransitive",
@@ -851,11 +854,6 @@
         "resolved": "8.3.1.3",
         "contentHash": "bx8CE8Js+XGX8PUxAHCBDEORt5aaBYtMN4Hr9QFs57Xithh6yjUyYqksizH6eRDhJkwsGI+SXWmPmMm8lZC9Pw=="
       },
-      "SkiaSharp.NativeAssets.Linux": {
-        "type": "Transitive",
-        "resolved": "3.119.4",
-        "contentHash": "UAyVzbqNfZsZbKbzj68zXLyUyF/SbTKmzTfOO6qDu++dtIUMMTzPBe8oOuzU/DiewpfKoUUlOSsJmqWc6blxBw=="
-      },
       "SkiaSharp.NativeAssets.Linux.NoDependencies": {
         "type": "Transitive",
         "resolved": "3.119.0",
@@ -880,6 +878,12 @@
         "type": "Transitive",
         "resolved": "2.1.0",
         "contentHash": "t2naSK+R5B3o7GNzOFBG5+1lV1HDI0IWKPaMLbWD2/7giElA/Px2AcTssYY2Jn89JlMXVshqw+HUd4OO/Yy6kA=="
+      },
+      "SkiaSharp.NativeAssets.Linux": {
+        "type": "CentralTransitive",
+        "requested": "[4.150.1, )",
+        "resolved": "3.119.4",
+        "contentHash": "UAyVzbqNfZsZbKbzj68zXLyUyF/SbTKmzTfOO6qDu++dtIUMMTzPBe8oOuzU/DiewpfKoUUlOSsJmqWc6blxBw=="
       },
       "System.Security.Cryptography.Pkcs": {
         "type": "CentralTransitive",

@@ -44,7 +44,14 @@ internal sealed class AuthoringProcessOwnership : IDisposable
             {
                 if (!TerminateJobObject(job, 1)) throw new Win32Exception(Marshal.GetLastPInvokeError());
             }
-            else File.WriteAllText(Path.Combine(directory, "host-stop"), "");
+            else
+            {
+                // The runner closes the retained anchor's stdin before every termination attempt.
+                // This optional marker must not prevent observing that durable owned EOF after staging removal.
+                try { File.WriteAllText(Path.Combine(directory, "host-stop"), ""); }
+                catch (IOException) { }
+                catch (UnauthorizedAccessException) { }
+            }
             terminationRequested = true;
         }
     }

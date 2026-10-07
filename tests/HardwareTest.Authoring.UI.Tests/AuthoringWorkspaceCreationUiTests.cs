@@ -179,11 +179,102 @@ public sealed class AuthoringWorkspaceCreationUiTests
         Assert.False(fixture.ViewModel.HasUnsavedChanges);
     }
 
+    [AvaloniaTheory]
+    [InlineData("new")]
+    [InlineData("source-only")]
+    [InlineData("compiled")]
+    public async Task Real_creation_Save_all_first_compilation_completes_requested_workspace_creation(string origin)
+    {
+        using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
+        fixture.Show(realInteraction: true); fixture.OpenRememberedWorkspace();
+        var vm = fixture.ViewModel;
+        if (origin != "compiled")
+        {
+            vm.CreateProgram("first-compiled");
+            if (origin == "source-only")
+            {
+                var source = AuthoringDocumentDto.FromDraft(vm.SelectedProgram!);
+                source.RequiresCompilation = true;
+                new AuthoringDocumentStore(fixture.WorkspaceRoot).Save(source);
+                await vm.StopRecoveryAsync();
+                vm.CommitOpen(vm.PrepareOpen(fixture.WorkspaceRoot), discardUnsavedChanges: true);
+                vm.SelectProgram("first-compiled");
+            }
+        }
+        var planId = vm.SelectedProgram!.PlanId;
+        vm.DisplayName = "saved before creation";
+        Assert.True(vm.HasUnsavedChanges);
+        Assert.Equal(origin == "compiled", File.Exists(Path.Combine(fixture.WorkspaceRoot, planId + ".TapPlan")));
+        var originalSession = vm.WorkspaceSessionId;
+        var root = Path.Combine(Path.GetDirectoryName(fixture.WorkspaceRoot)!, "created-after-save");
+        OpenCommand(fixture);
+        var creation = Assert.IsType<WorkspaceCreationWindow>(Assert.Single(fixture.Window!.OwnedWindows));
+        Set(fixture, creation, "Workspace destination", root); Set(fixture, creation, "Workspace display name", "After save"); Set(fixture, creation, "Package name", "Created package");
+        AuthoringUiFixture.Click(fixture.Control<Button>("Review workspace creation", creation));
+        AuthoringUiFixture.Click(fixture.Control<Button>("Create workspace", creation));
+        var chooser = Assert.Single(fixture.Window.OwnedWindows, window => window != creation);
+        Assert.True(chooser.IsVisible); Assert.False(Directory.Exists(root));
+        AuthoringUiFixture.Click(Assert.Single(chooser.GetVisualDescendants().OfType<Button>(), button => Equals(button.Content, "Save all")));
+        AuthoringUiFixture.Drain();
+        var saved = new AuthoringDocumentStore(fixture.WorkspaceRoot).Load(planId).Document!;
+        Assert.False(saved.RequiresCompilation);
+        Assert.Equal("saved before creation", saved.ToDraft().Sidecar.DisplayName);
+        Assert.Equal("saved before creation", new PlanCompiler().Load(Path.Combine(fixture.WorkspaceRoot, planId + ".TapPlan")).Sidecar.DisplayName);
+        Assert.Equal(root, vm.Workspace!.Root);
+        Assert.NotEqual(originalSession, vm.WorkspaceSessionId);
+        Assert.True(Directory.Exists(root)); Assert.Empty(fixture.Window.OwnedWindows);
+        Assert.True(fixture.Window.IsVisible); Assert.False(vm.HasUnsavedChanges);
+        Assert.Equal(root, fixture.Preferences.Current.LastWorkspace);
+    }
+
+    [AvaloniaTheory]
+    [InlineData("context")]
+    [InlineData("session")]
+    [InlineData("selection")]
+    [InlineData("hide")]
+    public async Task Late_creation_Save_all_choice_cannot_mutate_replaced_owner_session_or_selection(string change)
+    {
+        using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
+        fixture.Show(); fixture.OpenRememberedWorkspace();
+        var vm = fixture.ViewModel;
+        await vm.StopRecoveryAsync();
+        vm.DisplayName = "original unsaved creation draft";
+        var prepared = vm.PrepareOpen(fixture.WorkspaceRoot);
+        var pending = new TaskCompletionSource<UnsavedChangesChoice>(TaskCreationOptions.RunContinuationsAsynchronously);
+        fixture.Interaction.Pending = pending;
+        var root = Path.Combine(Path.GetDirectoryName(fixture.WorkspaceRoot)!, "obsolete-creation");
+        var creating = fixture.Window!.CreateWorkspaceAsync(new(root, "Workspace", "Package"));
+        Assert.False(creating.IsCompleted); Assert.Equal(1, fixture.Interaction.Calls);
+        if (change == "context") fixture.Window.DataContext = new object();
+        if (change == "session") vm.CommitOpen(prepared, discardUnsavedChanges: true);
+        if (change == "selection") vm.CreateProgram("other-selected");
+        if (change == "hide") fixture.Window.Hide();
+        await vm.StopRecoveryAsync(); AuthoringUiFixture.Drain();
+        var document = vm.SelectedDocument;
+        var revision = document!.Revision;
+        var session = vm.WorkspaceSessionId;
+        var status = vm.Status; var error = vm.Error;
+        var files = Directory.GetFiles(fixture.WorkspaceRoot, "*", SearchOption.AllDirectories).ToDictionary(path => path, File.ReadAllBytes);
+        try
+        {
+            pending.SetResult(UnsavedChangesChoice.SaveAll);
+            Assert.False(await creating);
+            Assert.False(Directory.Exists(root));
+            Assert.Same(document, vm.SelectedDocument); Assert.Equal(revision, document.Revision);
+            Assert.Equal(session, vm.WorkspaceSessionId); Assert.Equal(status, vm.Status); Assert.Equal(error, vm.Error);
+            Assert.Null(vm.LastSaveAllResult);
+            Assert.Equal(files.Keys.Order(), Directory.GetFiles(fixture.WorkspaceRoot, "*", SearchOption.AllDirectories).Order());
+            foreach (var (path, bytes) in files) Assert.Equal(bytes, File.ReadAllBytes(path));
+        }
+        finally { fixture.Interaction.Pending = null; fixture.Window.DataContext = vm; if (!fixture.Window.IsVisible) fixture.Window.Show(); }
+    }
+
     private static void OpenCommand(AuthoringUiFixture fixture)
     {
         AuthoringUiFixture.Click(fixture.Control<Button>("Command palette"));
         var palette = Assert.Single(fixture.Window!.OwnedWindows);
-        AuthoringUiFixture.Click(fixture.Control<Button>("Create workspace command", palette));
+        fixture.Control<TextBox>("Search commands", palette).Text = "Create workspace"; AuthoringUiFixture.Drain();
+        AuthoringUiFixture.Click(palette.GetVisualDescendants().OfType<Button>().Single(button => Equals(button.Content, "Run command")));
     }
 
     private static void Set(AuthoringUiFixture fixture, Window dialog, string name, string value)
