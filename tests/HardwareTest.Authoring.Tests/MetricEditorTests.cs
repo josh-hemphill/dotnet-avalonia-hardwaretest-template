@@ -13,7 +13,7 @@ public sealed class MetricEditorTests
     public void Palette_matches_getting_started_types_and_omits_dialog()
     {
         var ids = AuthoringRecipeCatalog.Palette.Select(r => r.Id).ToArray();
-        Assert.Contains(AuthoringRecipeIds.TestGroup, ids);
+        Assert.DoesNotContain(AuthoringRecipeIds.TestGroup, ids);
         Assert.Contains(AuthoringRecipeIds.Identity, ids);
         Assert.Contains(AuthoringRecipeIds.Prompt, ids);
         Assert.Contains(AuthoringRecipeIds.Input, ids);

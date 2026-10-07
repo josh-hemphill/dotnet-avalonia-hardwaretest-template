@@ -102,6 +102,7 @@ public sealed class AuthoringAppSettingsTests
     {
         var vm = new AuthoringWorkspaceViewModel();
         vm.Open(NewWorkspace());
+        vm.StopRecovery();
         vm.CreateProgram("slot-loop");
         var identity = vm.SequenceItems.Single(row => row.Label == "Identity Check");
         vm.SelectSequence(vm.SequenceItems.ToList().IndexOf(identity));
@@ -173,8 +174,12 @@ public sealed class AuthoringAppSettingsTests
         Assert.Same(program, vm.SelectedProgram);
         Assert.Same(programs, vm.Programs);
 
+        vm.SelectMeasure(vm.SelectedProgram!.Measure.Count - 1);
+        var acquisitionId = vm.SelectedSequence!.NodeId;
         vm.ApplyRecipe(AuthoringRecipeIds.Repeat);
+        vm.SelectMeasure(vm.SelectedProgram!.Measure.Count - 1);
         Assert.True(vm.HasRepeatEditor);
+        Assert.Equal(acquisitionId, Assert.IsType<RepeatNode>(vm.SelectedProgram!.Measure.Last()).Children.Single().NodeId);
         slots = vm.InstrumentSlots;
         programs = vm.Programs;
         program = vm.SelectedProgram;

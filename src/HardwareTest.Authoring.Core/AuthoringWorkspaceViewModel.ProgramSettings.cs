@@ -95,6 +95,7 @@ public sealed partial class AuthoringWorkspaceViewModel
             if (SetField(ref _selectedInstrumentSlot, slot))
             {
                 RaiseHardwareProperties();
+                RaiseSequenceOperations();
                 OnPropertyChanged(nameof(SelectedInstrumentVisa));
                 OnPropertyChanged(nameof(SelectedInstrument));
                 OnPropertyChanged(nameof(CanRemoveSelectedInstrumentSlot));

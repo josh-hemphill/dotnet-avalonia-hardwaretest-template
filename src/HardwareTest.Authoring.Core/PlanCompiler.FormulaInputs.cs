@@ -11,17 +11,65 @@ public sealed partial class PlanCompiler
         => BindSequence(RequirementSteps(draft.Measure), bindProducer: false, incompleteFields: draft.AuthoringState.IncompleteNumericText);
 
     internal static void ValidateFormulaInput(IReadOnlyList<MeasureNode> nodes, string outputChannel, AuthoringDocumentState? state = null)
-        => BindSequence(RequirementSteps(nodes), bindProducer: false, onlyOutput: outputChannel, incompleteFields: state?.IncompleteNumericText);
+        => BindSequence(RequirementSteps(nodes, RelevantInputNodes(nodes, outputChannel)), bindProducer: false, onlyOutput: outputChannel, incompleteFields: state?.IncompleteNumericText);
+
+    // Authoring edits need the real dependency validator, but unrelated unfinished numeric
+    // fields must not be parsed while checking one consumer's preceding input closure.
+    internal static void ValidateAuthoringSequenceInput(IReadOnlyList<MeasureNode> nodes, string outputChannel, AuthoringDocumentState state)
+        => BindSequence(RequirementSteps(nodes, RelevantInputNodes(nodes, outputChannel), structural: true),
+            bindProducer: false, onlyOutput: outputChannel, incompleteFields: state.IncompleteNumericText);
+
+    private static HashSet<Guid> RelevantInputNodes(IReadOnlyList<MeasureNode> nodes, string outputChannel)
+    {
+        var relevant = new HashSet<Guid>();
+        void Scope(IReadOnlyList<MeasureNode> siblings)
+        {
+            void Include(int index)
+            {
+                if (!relevant.Add(siblings[index].NodeId)) return;
+                var inputs = siblings[index] switch
+                {
+                    MetricNode metric => AuthoringInputChannels(metric.Metric.Source),
+                    RawStepNode raw => LoadRawStep(raw) switch
+                    {
+                        ChannelAverageStep average when average.Enabled => new[] { average.InputChannel },
+                        ApplyTransferFunctionStep filter when filter.Enabled => new[] { filter.InputChannel },
+                        _ => Array.Empty<string>()
+                    },
+                    _ => Array.Empty<string>()
+                };
+                foreach (var input in inputs)
+                    for (var previous = 0; previous < index; previous++)
+                    {
+                        var channel = siblings[previous] switch
+                        {
+                            MetricNode producer => producer.Metric.ChannelKey,
+                            RawStepNode raw => DeclaredChannel(LoadRawStep(raw)),
+                            _ => null
+                        };
+                        if (string.Equals(channel, input, StringComparison.OrdinalIgnoreCase)) Include(previous);
+                    }
+            }
+            for (var index = 0; index < siblings.Count; index++)
+            {
+                if (siblings[index] is RepeatNode repeat) Scope(repeat.Children);
+                if (siblings[index] is MetricNode metric &&
+                    string.Equals(metric.Metric.ChannelKey, outputChannel, StringComparison.OrdinalIgnoreCase)) Include(index);
+            }
+        }
+        Scope(nodes);
+        return relevant;
+    }
 
     internal static double? ScalarMeanPreviewExample(ProgramDraft draft, string outputChannel)
     {
         double? example = null;
-        BindSequence(RequirementSteps(draft.Measure), bindProducer: false, onlyOutput: outputChannel,
+        BindSequence(RequirementSteps(draft.Measure, RelevantInputNodes(draft.Measure, outputChannel)), bindProducer: false, onlyOutput: outputChannel,
             incompleteFields: draft.AuthoringState.IncompleteNumericText, scalarExample: value => example = value);
         return example;
     }
 
-    private static IEnumerable<ITestStep> RequirementSteps(IEnumerable<MeasureNode> nodes)
+    private static IEnumerable<ITestStep> RequirementSteps(IEnumerable<MeasureNode> nodes, ISet<Guid>? relevant = null, bool structural = false)
     {
         foreach (var node in nodes)
         {
@@ -30,13 +78,22 @@ public sealed partial class PlanCompiler
             else if (node is RepeatNode repeat)
             {
                 var loop = new RepeatLoopStep();
-                foreach (var child in RequirementSteps(repeat.Children)) loop.ChildTestSteps.Add(child);
+                foreach (var child in RequirementSteps(repeat.Children, relevant, structural)) loop.ChildTestSteps.Add(child);
                 step = loop;
             }
             else if (node is MetricNode metric)
             {
                 MetricSource source;
                 try { source = ResolveSource(metric.Metric); }
+                catch (AuthoringWorkspaceException error) when (structural &&
+                    error.Message.StartsWith(AuthoringCompileCodes.MissingLimits, StringComparison.Ordinal) &&
+                    metric.Metric.Source is ExpressionAlgorithm expression && FormulaParser.TryParse(expression.Source, out var ast, out _) &&
+                    ast!.Root is CallExpr { Name: "mean", Args: [IdentExpr] })
+                {
+                    // Sequence edits validate the input shape of an incomplete mean, never its
+                    // criterion. Strict status, preview and compilation retain the real limits.
+                    source = ResolveSource(metric.Metric with { Limits = new LimitSpec(null, null, 0) });
+                }
                 catch (AuthoringWorkspaceException) { continue; } // Lowering itself owns unsupported expression errors.
                 if (source is TransferFunctionAlgorithm tf)
                     step = new ApplyTransferFunctionStep { InputChannel = tf.InputChannelKey, Channel = metric.Metric.ChannelKey, TsSeconds = tf.TsSeconds };
@@ -45,7 +102,16 @@ public sealed partial class PlanCompiler
                     var id = source switch { MeasureSource m => m.FunctionId, AlgorithmSource a => a.AlgorithmId, _ => string.Empty };
                     if (!AuthoringFunctionCatalog.TryGet(id, out _)) continue;
                     step = AuthoringFunctionCatalog.CreateStep(id);
-                    ApplySettings(step, source switch { MeasureSource m => m.Settings, AlgorithmSource a => a.Settings, _ => new Dictionary<string, string>() });
+                    var settings = source switch { MeasureSource m => m.Settings, AlgorithmSource a => a.Settings, _ => new Dictionary<string, string>() };
+                    try
+                    {
+                        if (relevant is null || relevant.Contains(node.NodeId)) ApplySettings(step, settings);
+                        else ApplyAuthoringStringSettings(step, settings);
+                    }
+                    catch (Exception error) when (relevant is not null && error is FormatException or OverflowException)
+                    {
+                        throw new AuthoringWorkspaceException($"BUILD_INCOMPLETE: Deployment settings on step '{node.NodeId:D}' contain incomplete numeric text.", error);
+                    }
                     step.GetType().GetProperty("Channel")?.SetValue(step, metric.Metric.ChannelKey);
                     if (step is ChannelAverageStep average && source is AlgorithmSource algorithm)
                         average.InputChannel = AuthoringFunctionCatalog.InputChannelIssue(id, algorithm.InputChannelKeys) is null

@@ -108,7 +108,7 @@ public sealed class AuthoringSequenceTests
             "Bit sweep, timed sample, and InstrumentComponents steps are not recipes yet.",
             AuthoringChrome.RecipeAdvancedHint);
         Assert.Equal(
-            "Append or wrap using the selected recipe. Identity/Prompt go to Setup; metrics to Measure; Repeat wraps the last measure; Safe Shutdown updates Cleanup.",
+            "Insert before or after the selected step, or at the end of its section. Identity/Prompt go to Setup; metrics to Measure; Repeat wraps the selected measurement; Safe Shutdown updates Cleanup.",
             AuthoringChrome.AddRecipeActionSummary);
         Assert.Equal(
             AuthoringChrome.AddRecipeActionSummary + "\n\n" + AuthoringChrome.RecipeAddHint + " " + AuthoringChrome.RecipeAdvancedHint,

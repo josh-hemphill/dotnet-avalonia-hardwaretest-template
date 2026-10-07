@@ -44,19 +44,21 @@ public sealed class AuthoringDependencyIndex
                 case MetricNode metric:
                     var (inputs, instruments) = metric.Metric.Source switch
                     {
-                        MeasureSource source => (Array.Empty<string>(), new[] { source.InstrumentSlot! }),
-                        AlgorithmSource source => (source.InputChannelKeys.ToArray(),
+                        MeasureSource source => (PlanCompiler.AuthoringInputChannels(source).ToArray(),
+                            string.IsNullOrWhiteSpace(source.InstrumentSlot) ? Array.Empty<string>() : new[] { source.InstrumentSlot! }),
+                        AlgorithmSource source => (PlanCompiler.AuthoringInputChannels(source).ToArray(),
                             !AuthoringFunctionCatalog.HasInstrumentDependency(source.AlgorithmId) || string.IsNullOrWhiteSpace(source.InstrumentSlot) ? Array.Empty<string>() : new[] { source.InstrumentSlot! }),
-                        ExpressionAlgorithm source => (source.InputChannelKeys.ToArray(), Array.Empty<string>()),
+                        ExpressionAlgorithm source => (PlanCompiler.AuthoringInputChannels(source).ToArray(), Array.Empty<string>()),
                         TransferFunctionAlgorithm source => (new[] { source.InputChannelKey }, Array.Empty<string>()),
                         _ => throw Unsupported(metric.Metric.Source)
                     };
                     var opaque = metric.Metric.Source switch
                     {
                         AlgorithmSource source => !AuthoringFunctionCatalog.TryGet(source.AlgorithmId, out var spec)
-                            || !spec.IsAlgorithm || (spec.NeedsInstrument && string.IsNullOrWhiteSpace(source.InstrumentSlot)),
+                            || (spec.NeedsInstrument && string.IsNullOrWhiteSpace(source.InstrumentSlot)),
                         MeasureSource source => !AuthoringFunctionCatalog.TryGet(source.FunctionId, out var spec)
-                            || spec.IsAlgorithm,
+                            || (spec.NeedsInstrument && string.IsNullOrWhiteSpace(source.InstrumentSlot)),
+                        ExpressionAlgorithm source => !FormulaParser.TryParse(source.Source, out _, out _),
                         _ => false
                     };
                     nodes.Add(new(metric.NodeId, metric.Metric.ChannelKey, inputs, instruments, opaque));

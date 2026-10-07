@@ -239,6 +239,10 @@ public sealed partial class AuthoringWorkspaceViewModel
         var structureChanged = !AuthoringSequence.SameKeys(_sequenceItems, next);
         if (structureChanged)
         {
+            // Let the binding observe selection restoration even when the surviving row
+            // retains its numeric index; replacing ItemsSource clears the ListBox selection.
+            _selectedSequenceIndex = -1;
+            OnPropertyChanged(nameof(SelectedSequenceIndex));
             _sequenceItems = next;
             OnPropertyChanged(nameof(SequenceItems));
         }
@@ -272,7 +276,7 @@ public sealed partial class AuthoringWorkspaceViewModel
             SyncMeasureIndexFromSequence(_sequenceItems[restored]);
         }
 
-        if (indexChanged)
+        if (indexChanged || structureChanged)
         {
             OnPropertyChanged(nameof(SelectedSequenceIndex));
         }
