@@ -1,6 +1,7 @@
 using HardwareTest.Core.Credentials;
 using HardwareTest.Core.Settings;
 using HardwareTest.Tests.Reporting;
+using Net.Pkcs11Interop.Common;
 using Xunit;
 
 namespace HardwareTest.Tests.Credentials;
@@ -10,14 +11,15 @@ public sealed class Pkcs11OperatorCredentialBrokerTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task Signing_without_pin_requests_pin_before_loading_native_module(bool pdf)
+    public async Task Missing_module_reports_configuration_before_requesting_token_pin(bool pdf)
     {
         var result = await SignAsync(CreateBroker(), pdf, CapturedBadge());
 
-        Assert.True(result.PinRequired);
+        Assert.False(result.PinRequired);
         Assert.False(result.Succeeded);
         Assert.False(result.PresenceFallbackAllowed);
-        Assert.Contains("PIN", result.Error, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(CredentialFailureKind.ConfigurationError, result.FailureKind);
+        Assert.Equal("module-load", result.Stage);
     }
 
     [Fact]
@@ -110,37 +112,27 @@ public sealed class Pkcs11OperatorCredentialBrokerTests
     }
 
     [Theory]
-    [InlineData("CKR_PIN_INCORRECT")]
-    [InlineData("ckr_user_not_logged_in")]
-    public void Nested_retryable_pin_failure_requests_pin_without_presence_fallback(string message)
+    [InlineData(CKR.CKR_PIN_INCORRECT, CredentialFailureKind.WrongPin)]
+    [InlineData(CKR.CKR_PIN_LOCKED, CredentialFailureKind.PinLocked)]
+    [InlineData(CKR.CKR_USER_NOT_LOGGED_IN, CredentialFailureKind.SigningFailed)]
+    public void Native_pin_errors_are_terminal_and_never_allow_presence_fallback(CKR code, CredentialFailureKind expected)
     {
-        var result = Pkcs11OperatorCredentialBroker.ClassifyPinFailure(
-            new InvalidOperationException("Provider failed.", new Exception(message)));
-
-        Assert.NotNull(result);
-        Assert.True(result.PinRequired);
-        Assert.False(result.PresenceFallbackAllowed);
-        Assert.Null(result.PinRetriesRemaining);
-    }
-
-    [Fact]
-    public void Nested_locked_pin_overrides_retryable_outer_error()
-    {
-        var result = Pkcs11OperatorCredentialBroker.ClassifyPinFailure(
-            new InvalidOperationException("CKR_PIN_INCORRECT", new Exception("CKR_PIN_LOCKED")));
-
-        Assert.NotNull(result);
-        Assert.False(result.Succeeded);
+        var result = Pkcs11OperatorCredentialBroker.MapFailure(
+            new InvalidOperationException("Provider failed.", new Pkcs11Exception("C_Login", code)), "authentication");
+        Assert.Equal(expected, result.FailureKind);
         Assert.False(result.PinRequired);
         Assert.False(result.PresenceFallbackAllowed);
-        Assert.Equal(0, result.PinRetriesRemaining);
-        Assert.Equal("Badge PIN is locked.", result.Error);
+        Assert.Equal((ulong)code, result.NativeCode);
     }
 
     [Fact]
-    public void Generic_provider_failure_is_not_classified_as_pin_failure()
-        => Assert.Null(Pkcs11OperatorCredentialBroker.ClassifyPinFailure(
-            new InvalidOperationException("Provider failed.", new Exception("CKR_DEVICE_ERROR"))));
+    public void Generic_provider_message_cannot_be_classified_as_a_native_pin_request()
+    {
+        var result = Pkcs11OperatorCredentialBroker.MapFailure(new Exception("CKR_PIN_INCORRECT"), "signing");
+        Assert.Equal(CredentialFailureKind.SigningFailed, result.FailureKind);
+        Assert.False(result.PinRequired);
+        Assert.False(result.PresenceFallbackAllowed);
+    }
 
     [Theory]
     [InlineData(false)]
@@ -177,6 +169,34 @@ public sealed class Pkcs11OperatorCredentialBrokerTests
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(
             () => SignAsync(CreateBroker(), pdf, CapturedBadge(), cancellationToken: cts.Token));
+    }
+
+    [Fact]
+    public void Setup_diagnostics_handles_invalid_explicit_path_without_identity_or_pin()
+    {
+        var result = SigningSetupDiagnostics.Check(new AppSettings { Pkcs11LibraryPath = "invalid\0module" });
+        Assert.False(result.Available); Assert.Equal("module-discovery", result.Stage);
+        Assert.DoesNotContain("invalid", result.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Theory]
+    [InlineData(System.Runtime.InteropServices.Architecture.X86, (ushort)0x14c)]
+    [InlineData(System.Runtime.InteropServices.Architecture.X64, (ushort)0x8664)]
+    [InlineData(System.Runtime.InteropServices.Architecture.Arm64, (ushort)0xaa64)]
+    public void Module_pe_machine_must_match_process_architecture(System.Runtime.InteropServices.Architecture architecture, ushort machine)
+    {
+        var path = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + ".dll");
+        try
+        {
+            var image = File.ReadAllBytes(typeof(Pkcs11OperatorCredentialBroker).Assembly.Location);
+            var peOffset = BitConverter.ToInt32(image, 0x3c);
+            BitConverter.GetBytes(machine).CopyTo(image, peOffset + 4);
+            File.WriteAllBytes(path, image);
+            Assert.True(Pkcs11ModuleResolver.IsCompatibleArchitecture(path, architecture));
+            var wrong = architecture == System.Runtime.InteropServices.Architecture.X86 ? System.Runtime.InteropServices.Architecture.X64 : System.Runtime.InteropServices.Architecture.X86;
+            Assert.False(Pkcs11ModuleResolver.IsCompatibleArchitecture(path, wrong));
+        }
+        finally { File.Delete(path); }
     }
 
     private static Pkcs11OperatorCredentialBroker CreateBroker(IOperatorCredentialPresenceBroker? presence = null)

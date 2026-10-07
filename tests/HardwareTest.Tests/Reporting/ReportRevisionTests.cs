@@ -520,6 +520,27 @@ file sealed class RevisionPdfBroker : IOperatorCredentialBroker, IEmbeddedPdfSig
         Thumbprint = _signer.Certificate.Thumbprint,
         Transport = CredentialTransport.Contact,
     };
+    public Task<CredentialPreparationResult> PrepareSigningAsync(OperatorCredential credential, string? pin = null, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.FromResult(string.IsNullOrEmpty(pin)
+            ? CredentialPreparationResult.Failed(CredentialSignResult.NeedPin("Enter PIN."))
+            : CredentialPreparationResult.Ready(new PreparedRevisionSession(this)));
+    }
+    private sealed class PreparedRevisionSession(RevisionPdfBroker broker) : IPreparedCredentialSession, IEmbeddedPdfSigningBroker
+    {
+        public bool IsMock => false;
+        public bool CanSign => true;
+        public bool CanSignPdf => true;
+        public string? SigningAlgorithm => broker.SigningAlgorithm;
+        public string StatusText => broker.StatusText;
+        public Task<CredentialCaptureResult> WaitForPresenceAsync(TimeSpan timeout, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<CredentialSignResult> TrySignPayloadAsync(byte[] payload, OperatorCredential credential, string? pin = null, CancellationToken cancellationToken = default)
+            => broker.TrySignPayloadAsync(payload, credential, pin, cancellationToken);
+        public Task<CredentialSignResult> TrySignPdfAsync(byte[] pdf, OperatorCredential credential, string? pin = null, DateTimeOffset? signingTime = null, CancellationToken cancellationToken = default)
+            => broker.TrySignPdfAsync(pdf, credential, pin, signingTime, cancellationToken);
+        public void Dispose() { }
+    }
     public bool IsMock => false;
     public bool CanSign => true;
     public bool CanSignPdf => true;

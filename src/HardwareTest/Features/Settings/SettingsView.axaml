@@ -154,6 +154,13 @@
         <TextBlock Text="Chip (insert) and tap (contactless) fill the technician field from the badge certificate subject (or SAN email) and sign a certification report before export or print. Presence-only is a site-policy fallback when the organization cannot use on-card signatures — it is not a substitute for signing."
                    TextWrapping="Wrap"
                    Opacity="0.8" />
+        <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
+          <TextBlock x:Name="Pkcs11PathLabel" Text="PKCS#11 middleware path" VerticalAlignment="Center" />
+          <TextBox Grid.Column="1" Text="{Binding Pkcs11LibraryPath}" IsReadOnly="{Binding Pkcs11LibraryPathReadOnly}"
+                   AutomationProperties.LabeledBy="{Binding #Pkcs11PathLabel}" PlaceholderText="Automatic discovery when empty" />
+        </Grid>
+        <Button Content="Check signing setup" Command="{Binding CheckSigningSetupCommand}" />
+        <TextBlock Text="{Binding SigningSetupStatus}" TextWrapping="Wrap" />
         <CheckBox Content="Use mock badge"
                   IsChecked="{Binding UseMockOperatorCredential}"
                   IsEnabled="{Binding !UseMockOperatorCredentialReadOnly}"

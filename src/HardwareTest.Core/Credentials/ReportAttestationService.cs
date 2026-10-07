@@ -195,22 +195,22 @@ public sealed class ReportAttestationService : IReportAttestationService
             return Failure(captured, "The physical credential does not support embedded PDF signing.");
         }
 
-        var runHash = HashBytes(JsonSerializer.SerializeToUtf8Bytes(run, AppJsonContext.Default.TestRunRecord));
-        if (string.IsNullOrEmpty(pin))
+        var preparation = await broker.PrepareSigningAsync(captured, pin, cancellationToken).ConfigureAwait(false);
+        using var signer = preparation.Session;
+        if (signer is null)
         {
-            var probe = await broker.TrySignPayloadAsync(
-                Encoding.UTF8.GetBytes($"pin-probe:{runHash}"), captured, pin, cancellationToken).ConfigureAwait(false);
-            if (probe.PinRequired || probe.PinRetriesRemaining is not null)
-            {
-                return Failure(captured, probe.Error ?? "Enter badge PIN to sign.", pinRequired: probe.PinRetriesRemaining != 0);
-            }
-            if (!probe.Succeeded)
-            {
-                return probe.PresenceFallbackAllowed
-                    ? await AttestPresenceAsync(run, targetKind, captured, allowPresence, cancellationToken).ConfigureAwait(false)
-                    : Failure(captured, probe.Error ?? "Signing failed.");
-            }
+            var failure = preparation.Failure;
+            if (failure is null) return Failure(captured, "Signing preparation failed.");
+            if (failure.PinRequired || failure.PinRetriesRemaining is not null)
+                return Failure(captured, failure.Error ?? "Enter badge PIN to sign.", pinRequired: failure.PinRetriesRemaining != 0);
+            return failure.PresenceFallbackAllowed
+                ? await AttestPresenceAsync(run, targetKind, captured, allowPresence, cancellationToken).ConfigureAwait(false)
+                : Failure(captured, failure.Error ?? "Signing preparation failed.");
         }
+        if (signer.IsMock != broker.IsMock || !signer.CanSign
+            || (!signer.IsMock && (!signer.CanSignPdf || signer is not IEmbeddedPdfSigningBroker)))
+            return Failure(captured, "The prepared signer does not support the selected signing contract.");
+        var runHash = HashBytes(JsonSerializer.SerializeToUtf8Bytes(run, AppJsonContext.Default.TestRunRecord));
 
         var candidate = await CompileCandidateAsync(run, targetKind, captured, AttestationKind.Signed, cancellationToken)
             .ConfigureAwait(false);
@@ -219,9 +219,9 @@ public sealed class ReportAttestationService : IReportAttestationService
             return Failure(captured, candidate.Error ?? "Certification PDF is missing. Generate reports first.");
         }
 
-        if (!broker.IsMock)
+        if (!signer.IsMock)
         {
-            var embedded = (IEmbeddedPdfSigningBroker)broker;
+            var embedded = (IEmbeddedPdfSigningBroker)signer;
             var signingTime = captured.CapturedAt == default ? _clock.UtcNow : captured.CapturedAt;
             var sign = await embedded.TrySignPdfAsync(candidate.Pdf, captured, pin, signingTime, cancellationToken)
                 .ConfigureAwait(false);
@@ -244,7 +244,7 @@ public sealed class ReportAttestationService : IReportAttestationService
         }
 
         var payload = Encoding.UTF8.GetBytes($"{HashBytes(candidate.Pdf)}:{runHash}");
-        var mockSign = await broker.TrySignPayloadAsync(payload, captured, pin, cancellationToken).ConfigureAwait(false);
+        var mockSign = await signer.TrySignPayloadAsync(payload, captured, pin, cancellationToken).ConfigureAwait(false);
         if (mockSign.PinRequired || mockSign.PinRetriesRemaining is not null)
         {
             return Failure(captured, mockSign.Error ?? "Enter badge PIN to sign.", pinRequired: mockSign.PinRetriesRemaining != 0);

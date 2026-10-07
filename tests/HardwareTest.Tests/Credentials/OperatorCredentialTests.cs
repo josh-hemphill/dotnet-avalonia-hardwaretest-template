@@ -861,6 +861,111 @@ public sealed class ReportAttestationServiceTests
         Assert.Single(run.Attestations);
     }
 
+    [Fact]
+    public async Task Prepared_session_survives_compile_and_settings_changes_until_commit()
+    {
+        using var temp = new TempDataDirectory();
+        var store = new FileRunStore(temp.RunsDirectory); var run = await SeedCertificationRunAsync(store);
+        using var token = new PreparedPkcs11Tests.TestToken();
+        var backend = new PreparedPkcs11Tests.TestBackend(token);
+        var settings = new AppSettings { UseMockOperatorCredential = false, Pkcs11LibraryPath = "injected" };
+        var pkcs11 = new Pkcs11OperatorCredentialBroker(settings, _ => backend);
+        var router = new SettingsBackedCredentialBroker(settings, new MockOperatorCredentialBroker(), pkcs11);
+        var reports = new RecordingReportService
+        {
+            BeforeCompile = () => { Assert.False(token.Closed); Assert.Equal(0, token.SignCount); settings.UseMockOperatorCredential = true; },
+        };
+        var service = new ReportAttestationService(router, store, settings, reports: new Lazy<IReportService>(() => reports));
+        var result = await service.AttestAsync(run, ReportKinds.Certification, token.Credential, "1234");
+        Assert.True(result.Succeeded, result.Message); Assert.Equal(1, token.SignCount); Assert.True(token.Closed); Assert.True(backend.Closed);
+        Assert.Equal(AttestationAlgorithm.PivRsaPkcs1Sha256, result.Attestation!.Algorithm);
+        Assert.True(service.HasValidAttestation(run, ReportKinds.Certification));
+    }
+
+    [Fact]
+    public async Task Empty_compile_disposes_prepared_session_without_signing_or_issuing()
+    {
+        using var temp = new TempDataDirectory();
+        var store = new FileRunStore(temp.RunsDirectory);
+        var run = await SeedCertificationRunAsync(store);
+        using var token = new PreparedPkcs11Tests.TestToken();
+        var backend = new PreparedPkcs11Tests.TestBackend(token);
+        var settings = new AppSettings { Pkcs11LibraryPath = "injected" };
+        var reports = new RecordingReportService
+        {
+            ReturnEmptyPdf = true,
+            BeforeCompile = () => { Assert.True(token.Bound); Assert.False(token.Closed); }
+        };
+        var service = new ReportAttestationService(new Pkcs11OperatorCredentialBroker(settings, _ => backend),
+            store, settings, reports: new Lazy<IReportService>(() => reports));
+        var result = await service.AttestAsync(run, ReportKinds.Certification, token.Credential, "1234");
+        Assert.False(result.Succeeded);
+        Assert.Empty(run.Attestations);
+        Assert.Equal(0, token.SignCount);
+        Assert.True(token.Closed);
+        Assert.True(backend.Closed);
+    }
+
+    [Fact]
+    public async Task Cancellation_during_compile_disposes_prepared_session_and_issues_nothing()
+    {
+        using var temp = new TempDataDirectory();
+        var store = new FileRunStore(temp.RunsDirectory); var run = await SeedCertificationRunAsync(store);
+        using var token = new PreparedPkcs11Tests.TestToken(); using var cancellation = new CancellationTokenSource();
+        var backend = new PreparedPkcs11Tests.TestBackend(token);
+        var settings = new AppSettings { Pkcs11LibraryPath = "injected" };
+        var broker = new Pkcs11OperatorCredentialBroker(settings, _ => backend);
+        var reports = new RecordingReportService { BeforeCompile = () => cancellation.Cancel() };
+        var service = new ReportAttestationService(broker, store, settings, reports: new Lazy<IReportService>(() => reports));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => service.AttestAsync(run, ReportKinds.Certification, token.Credential, "1234", cancellationToken: cancellation.Token));
+        Assert.Empty(run.Attestations); Assert.Null(ReportAttestationService.ResolveIssuedPdfPath(run, ReportKinds.Certification));
+        Assert.Equal(0, token.SignCount); Assert.True(token.Closed); Assert.True(backend.Closed);
+    }
+
+    [Fact]
+    public async Task Cancellation_after_native_signature_issues_nothing_and_disposes_session()
+    {
+        using var temp = new TempDataDirectory();
+        var store = new FileRunStore(temp.RunsDirectory); var run = await SeedCertificationRunAsync(store);
+        using var token = new PreparedPkcs11Tests.TestToken(); using var cancellation = new CancellationTokenSource();
+        token.BeforeSign = () => cancellation.Cancel();
+        var backend = new PreparedPkcs11Tests.TestBackend(token);
+        var settings = new AppSettings { Pkcs11LibraryPath = "injected" };
+        var service = new ReportAttestationService(new Pkcs11OperatorCredentialBroker(settings, _ => backend), store, settings);
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => service.AttestAsync(run, ReportKinds.Certification, token.Credential, "1234", cancellationToken: cancellation.Token));
+        Assert.Empty(run.Attestations); Assert.Null(ReportAttestationService.ResolveIssuedPdfPath(run, ReportKinds.Certification));
+        Assert.Equal(1, token.SignCount); Assert.True(token.Closed); Assert.True(backend.Closed);
+    }
+
+    [Theory]
+    [InlineData(Net.Pkcs11Interop.Common.CKR.CKR_PIN_INCORRECT)]
+    [InlineData(Net.Pkcs11Interop.Common.CKR.CKR_PIN_LOCKED)]
+    [InlineData(Net.Pkcs11Interop.Common.CKR.CKR_DEVICE_REMOVED)]
+    public async Task Native_signing_failure_cannot_issue_presence_revision(Net.Pkcs11Interop.Common.CKR failure)
+    {
+        using var temp = new TempDataDirectory();
+        var store = new FileRunStore(temp.RunsDirectory); var run = await SeedCertificationRunAsync(store);
+        using var token = new PreparedPkcs11Tests.TestToken { SignFailure = failure };
+        var backend = new PreparedPkcs11Tests.TestBackend(token);
+        var settings = new AppSettings { Pkcs11LibraryPath = "injected", AllowPresenceInLieuOfSigning = true };
+        var service = new ReportAttestationService(new Pkcs11OperatorCredentialBroker(settings, _ => backend), store, settings);
+        var result = await service.AttestAsync(run, ReportKinds.Certification, token.Credential, "1234");
+        Assert.False(result.Succeeded); Assert.False(result.PinRequired); Assert.Empty(run.Attestations);
+        Assert.Null(ReportAttestationService.ResolveIssuedPdfPath(run, ReportKinds.Certification));
+        Assert.Equal(1, token.SignCount); Assert.True(token.Closed); Assert.True(backend.Closed);
+    }
+
+    [Fact]
+    public async Task Generic_signing_failure_cannot_downgrade_by_error_message()
+    {
+        using var temp = new TempDataDirectory();
+        var store = new FileRunStore(temp.RunsDirectory); var run = await SeedCertificationRunAsync(store);
+        var service = new ReportAttestationService(new TerminalFailureBroker(), store, new AppSettings { AllowPresenceInLieuOfSigning = true });
+        var result = await service.AttestAsync(run, ReportKinds.Certification);
+        Assert.False(result.Succeeded); Assert.Empty(run.Attestations);
+        Assert.Null(ReportAttestationService.ResolveIssuedPdfPath(run, ReportKinds.Certification));
+    }
+
     private static string WorkingCertificationPath(TestRunRecord run)
     {
         var path = ReportAttestationService.ResolveWorkingPdfPath(run, ReportKinds.Certification);
@@ -924,6 +1029,7 @@ file sealed class ThrowingPcscDisposable : IDisposable
 /// Rewrites the certification PDF with the overlay identity so Attest can hash stamped bytes.
 internal sealed class RecordingReportService : IReportService
 {
+    public Action? BeforeCompile { get; init; }
     public int GenerateCount { get; private set; }
     public ReportAttestation? LastIdentity { get; private set; }
     public bool ReturnEmptyPdf { get; set; }
@@ -971,6 +1077,8 @@ internal sealed class RecordingReportService : IReportService
         CancellationToken cancellationToken = default,
         ReportAttestation? compileIdentity = null)
     {
+        BeforeCompile?.Invoke();
+        cancellationToken.ThrowIfCancellationRequested();
         GenerateCount++;
         LastIdentity = compileIdentity;
         _ = run;
@@ -990,6 +1098,12 @@ internal sealed class UnavailableEmbeddedBroker : IOperatorCredentialBroker, IEm
         Thumbprint = "001122",
         CapturedAt = DateTimeOffset.UtcNow,
     };
+
+    public Task<CredentialPreparationResult> PrepareSigningAsync(OperatorCredential credential, string? pin = null, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.FromResult(CredentialPreparationResult.Failed(CredentialSignResult.Unavailable("No PIV signing certificate is available.")));
+    }
 
     public bool IsMock => false;
     public bool CanSign => true;
@@ -1071,6 +1185,29 @@ file sealed class SoftwarePdfBroker : IOperatorCredentialBroker, IEmbeddedPdfSig
         Thumbprint = thumbprint,
         CapturedAt = new DateTimeOffset(2026, 8, 28, 12, 0, 0, TimeSpan.Zero),
     };
+
+    public Task<CredentialPreparationResult> PrepareSigningAsync(OperatorCredential credential, string? pin = null, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.FromResult(string.IsNullOrEmpty(pin)
+            ? CredentialPreparationResult.Failed(CredentialSignResult.NeedPin("Enter badge PIN to sign."))
+            : CredentialPreparationResult.Ready(new PreparedSoftwareSession(this)));
+    }
+
+    private sealed class PreparedSoftwareSession(SoftwarePdfBroker broker) : IPreparedCredentialSession, IEmbeddedPdfSigningBroker
+    {
+        public bool IsMock => false;
+        public bool CanSign => true;
+        public bool CanSignPdf => true;
+        public string? SigningAlgorithm => broker.SigningAlgorithm;
+        public string StatusText => broker.StatusText;
+        public Task<CredentialCaptureResult> WaitForPresenceAsync(TimeSpan timeout, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<CredentialSignResult> TrySignPayloadAsync(byte[] payload, OperatorCredential credential, string? pin = null, CancellationToken cancellationToken = default)
+            => broker.TrySignPayloadAsync(payload, credential, pin, cancellationToken);
+        public Task<CredentialSignResult> TrySignPdfAsync(byte[] pdf, OperatorCredential credential, string? pin = null, DateTimeOffset? signingTime = null, CancellationToken cancellationToken = default)
+            => broker.TrySignPdfAsync(pdf, credential, pin, signingTime, cancellationToken);
+        public void Dispose() { }
+    }
 
     public bool IsMock => false;
     public bool CanSign => true;
@@ -1199,4 +1336,17 @@ file sealed class FaultingRunStore(FileRunStore inner) : IRunStore
     public Task<IReadOnlyList<TestRunSummary>> ListAsync(CancellationToken cancellationToken = default)
         => inner.ListAsync(cancellationToken);
     public string GetRunDirectory(string runId) => inner.GetRunDirectory(runId);
+}
+
+internal sealed class TerminalFailureBroker : IOperatorCredentialBroker
+{
+    private readonly MockOperatorCredentialBroker _inner = new();
+    public bool IsMock => true;
+    public bool CanSign => true;
+    public string? SigningAlgorithm => null;
+    public string StatusText => "Test";
+    public Task<CredentialCaptureResult> WaitForPresenceAsync(TimeSpan timeout, CancellationToken cancellationToken = default)
+        => _inner.WaitForPresenceAsync(timeout, cancellationToken);
+    public Task<CredentialSignResult> TrySignPayloadAsync(byte[] payload, OperatorCredential credential, string? pin = null, CancellationToken cancellationToken = default)
+        => Task.FromResult(CredentialSignResult.Failed("Badge cannot sign. No PIV signing certificate."));
 }

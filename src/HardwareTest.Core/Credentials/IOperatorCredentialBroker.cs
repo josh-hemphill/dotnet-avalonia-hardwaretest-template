@@ -27,6 +27,11 @@ public interface IOperatorCredentialBroker : IOperatorCredentialPresenceBroker
     /// True when the active physical broker signs complete PDFs through iText.
     bool CanSignPdf => false;
 
+    /// Selects and authenticates a signer retained through report compilation and issuance.
+    Task<CredentialPreparationResult> PrepareSigningAsync(
+        OperatorCredential credential, string? pin = null, CancellationToken cancellationToken = default)
+        => CredentialPreparationResult.PrepareMockAsync(this, credential, pin, cancellationToken);
+
     /// Mock HMAC signing or a physical PIN/capability probe; never a detached physical report signature.
     /// PIN is used only for this call and is not stored.
     Task<CredentialSignResult> TrySignPayloadAsync(

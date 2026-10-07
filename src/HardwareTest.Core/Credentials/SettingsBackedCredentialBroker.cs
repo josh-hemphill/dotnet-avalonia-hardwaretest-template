@@ -25,6 +25,13 @@ public sealed class SettingsBackedCredentialBroker : IOperatorCredentialBroker, 
     public string? SigningAlgorithm => Active.SigningAlgorithm;
     public string StatusText => Active.StatusText;
 
+    public Task<CredentialPreparationResult> PrepareSigningAsync(
+        OperatorCredential credential, string? pin = null, CancellationToken cancellationToken = default)
+    {
+        var selected = Active;
+        return selected.PrepareSigningAsync(credential, pin, cancellationToken);
+    }
+
     public Task<CredentialCaptureResult> WaitForPresenceAsync(
         TimeSpan timeout,
         CancellationToken cancellationToken = default)

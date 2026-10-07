@@ -201,6 +201,7 @@ public partial class SettingsViewModel : ReactiveObject
                 or nameof(ExportDirectoryReadOnly)
                 or nameof(PreferRemovableExportReadOnly)
                 or nameof(DataFreeSpaceWarnGbReadOnly) or nameof(DataFreeSpaceCriticalGbReadOnly)
+                or nameof(SigningSetupStatus) or nameof(Pkcs11LibraryPathReadOnly)
                 or nameof(UseMockOperatorCredentialReadOnly)
                 or nameof(RequireCredentialForOperatorReadOnly)
                 or nameof(RequireAttestationBeforeExportReadOnly)
