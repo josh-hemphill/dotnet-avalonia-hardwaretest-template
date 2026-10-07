@@ -25,6 +25,7 @@ public partial class MainWindow : Window
         DataContext = viewModel;
         InitializeShell();
         InitializePlanCommands();
+        InitializeGuidance();
         InitializeLifecycle(lifecycleInteraction, workspacePicker);
         _viewModel.ConfigureRecoveryDispatch(action => Avalonia.Threading.Dispatcher.UIThread.Post(action));
         _viewModel.ConfigureOperations(CreateOperationRunner(),

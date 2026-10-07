@@ -107,7 +107,20 @@
         </StackPanel>
       </Border>
       <Grid ColumnDefinitions="180,*" Margin="12,0,12,12" IsVisible="{Binding HasWorkspace}">
-        <vm:ProgramsRailView Grid.Column="0"/>
+        <DockPanel Grid.Column="0">
+          <ScrollViewer MaxHeight="140" DockPanel.Dock="Top" Margin="0,0,12,8"
+              HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto" ClipToBounds="True"
+              AutomationProperties.Name="Guidance rail viewport">
+            <StackPanel Spacing="4">
+              <Button Content="First voltage test…" Click="OnGuidedStart" IsEnabled="{Binding CanInitializePlan}"
+                  AutomationProperties.Name="Start guided voltage test" Classes="authoringAction"/>
+              <Button Content="Resume guidance" Click="OnResumeGuidance"
+                  AutomationProperties.Name="Resume guidance" Classes="authoringAction"/>
+              <Border x:Name="GuidanceHost" IsVisible="False"/>
+            </StackPanel>
+          </ScrollViewer>
+          <vm:ProgramsRailView/>
+        </DockPanel>
         <TabControl x:Name="WorkspaceTabs" Grid.Column="1">
           <TabControl.Styles>
             <Style Selector="TabControl#WorkspaceTabs &gt; TabItem">

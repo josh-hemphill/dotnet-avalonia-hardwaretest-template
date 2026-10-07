@@ -19,6 +19,7 @@ public sealed class AuthoringPreferencesTests
         Assert.Null(store.Current.LastWorkspace);
         Assert.Null(store.Current.OpenTapHomeOverride);
         Assert.True(store.Current.ShowRawStepXml);
+        Assert.False(store.Current.SkipGuidance);
         Assert.False(File.Exists(path));
     }
 
@@ -31,6 +32,7 @@ public sealed class AuthoringPreferencesTests
         store.Current.LastWorkspace = "/tmp/ws";
         store.Current.OpenTapHomeOverride = "/opt/opentap";
         store.Current.ShowRawStepXml = false;
+        store.Current.SkipGuidance = true;
         store.Save();
 
         var reload = new AuthoringPreferencesStore(path);
@@ -39,6 +41,7 @@ public sealed class AuthoringPreferencesTests
         Assert.Equal("/tmp/ws", reload.Current.LastWorkspace);
         Assert.Equal("/opt/opentap", reload.Current.OpenTapHomeOverride);
         Assert.False(reload.Current.ShowRawStepXml);
+        Assert.True(reload.Current.SkipGuidance);
         Assert.Equal(AuthoringSchemaVersions.Preferences, reload.Current.SchemaVersion);
         Assert.False(reload.IsReadOnly);
     }
@@ -157,6 +160,20 @@ public sealed class AuthoringPreferencesTests
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             path,
             StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Expert_guidance_preference_cannot_overwrite_loaded_or_externally_replaced_future_bytes()
+    {
+        var path = Path.Combine(NewTempDir(), AuthoringPreferencesStore.FileName);
+        var store = new AuthoringPreferencesStore(path); store.Load(); store.Save();
+        var vm = new AuthoringWorkspaceViewModel(preferences: store);
+        const string future = """{ "schemaVersion": 999, "skipGuidance": false, "futureOnly": "preserve" }""";
+        File.WriteAllText(path, future);
+        vm.SkipGuidance = true;
+        Assert.Equal(future, File.ReadAllText(path)); Assert.True(store.IsReadOnly); Assert.NotNull(vm.Error);
+        store.Load(); vm.SkipGuidance = true;
+        Assert.False(vm.SkipGuidance); Assert.Equal(future, File.ReadAllText(path));
     }
 
     private static string NewTempDir()

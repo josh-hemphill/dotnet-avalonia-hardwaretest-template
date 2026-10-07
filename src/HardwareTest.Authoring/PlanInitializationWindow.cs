@@ -8,7 +8,7 @@ using Avalonia.Media;
 namespace HardwareTest.Authoring;
 
 /// A local six-stage form. Only the final Create action publishes source bytes.
-public sealed class PlanInitializationWindow : Window
+public sealed partial class PlanInitializationWindow : Window
 {
     private readonly AuthoringWorkspaceViewModel _vm;
     private readonly AuthoringWorkspace _workspace;
@@ -46,8 +46,11 @@ public sealed class PlanInitializationWindow : Window
     private int _stage;
     private bool _idEdited;
 
-    public PlanInitializationWindow(AuthoringWorkspaceViewModel vm)
+    public bool SkipGuidanceRequested { get; private set; }
+
+    public PlanInitializationWindow(AuthoringWorkspaceViewModel vm, bool guided = false, GuidedFormState? retained = null)
     {
+        _guided = guided;
         _vm = vm;
         _workspace = vm.Workspace ?? throw new AuthoringWorkspaceException("Open a workspace first.");
         Title = "New test plan"; Width = 650; Height = 680; MinWidth = 480; MinHeight = 460;
@@ -56,8 +59,7 @@ public sealed class PlanInitializationWindow : Window
         { Settings = definition.Settings }).Concat(vm.Programs.SelectMany(program => program.Instruments))
             .Where(resource => AuthoringInstrumentCatalog.TryGet(resource.TypeId, out _))
             .DistinctBy(resource => (resource.SlotName, resource.TypeId, resource.VisaAddress)).ToList();
-        _hardware.ItemsSource = new[] { "No hardware yet", "Create VISA DMM", "Create Mock DMM — demo" }
-            .Concat(_reusable.Select(resource => $"Reuse {resource.SlotName} — {AuthoringInstrumentCatalog.All.Single(adapter => adapter.TypeId == resource.TypeId).DisplayName} ({resource.VisaAddress})")).ToArray();
+        ShowHardwareChoices();
         _destination.IsReadOnly = false;
         _name.Text = vm.SuggestedPlanId; _id.Text = vm.SuggestedPlanId;
         _id.TextChanged += (_, _) => { _idEdited = true; ShowDestination(); };
@@ -88,6 +90,7 @@ public sealed class PlanInitializationWindow : Window
                 _criterion, Label("Threshold", _threshold)),
             Stage(_review)
         ];
+        if (guided) ConfigureGuidedStages();
         _back.Click += (_, _) => { _stage--; ShowStage(); };
         _next.Click += (_, _) =>
         {
@@ -115,9 +118,25 @@ public sealed class PlanInitializationWindow : Window
         _error.Foreground = Brushes.DarkRed; AutomationProperties.SetLiveSetting(_error, AutomationLiveSetting.Assertive);
         var content = new StackPanel { Spacing = 10, Margin = new Thickness(0, 12) };
         foreach (var stage in _stages) content.Children.Add(stage);
+        if (guided)
+        {
+            var leave = Action("Leave guidance");
+            leave.Click += (_, _) => Close(false);
+            var skip = Action("Skip optional guidance");
+            skip.IsEnabled = vm.PreferencesEditable;
+            skip.Click += (_, _) => { SkipGuidanceRequested = true; vm.SkipGuidance = true; Close(false); };
+            buttons.Children.Insert(0, leave); buttons.Children.Insert(1, skip);
+        }
         root.Children.Add(new ScrollViewer { Content = content, HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled });
         Content = root;
-        ShowDestination(); ShowHardware(); ShowStage();
+        ShowDestination();
+        if (retained is not null) RestoreGuidedForm(retained);
+        ShowHardware(); ShowStage();
+        if (guided && retained is not null && _stage >= 4)
+        {
+            try { Review(); }
+            catch (Exception error) { _error.Text = AuthoringWorkspaceViewModel.PersistenceError(error); }
+        }
     }
 
     private void EnsureSession()
@@ -128,6 +147,7 @@ public sealed class PlanInitializationWindow : Window
 
     private PlanInitializationRequest Request()
     {
+        EnsureGuidedIntervalApplicable();
         var resources = SelectedResources();
         return new PlanInitializationRequest(_id.Text ?? "")
         {
@@ -184,6 +204,8 @@ public sealed class PlanInitializationWindow : Window
                     return $"{adapter.DisplayName} · {adapter.RequiredPackage} · {(declared ? "dependency declared" : "dependency missing — preserve as draft")}\nCompatible functions: {string.Join(", ", adapter.CompatibleFunctions)}";
                 }))) + "\n" + string.Join("\n", review.Issues.Where(issue => issue.Code.StartsWith("INSTRUMENT_", StringComparison.Ordinal)
                     || issue.Code == "INVALID_OPENTAP_HOME").Select(issue => issue.Message));
+            if (_hardware.SelectedIndex >= 3 && _hardware.SelectedIndex - 3 == _retainedResourceIndex)
+                _readiness.Text += "\nPreviously selected reusable instrument changed or was removed. Its original address and configuration are retained; review this retained choice or explicitly choose another instrument.";
             _coverage.Text = "Shutdown coverage: " + (_shutdown.IsChecked == true ? string.Join(", ", review.Draft.Cleanup.InstrumentSlots) : "disabled");
         }
         catch (Exception error) { _readiness.Text = error.Message; }
@@ -199,13 +221,16 @@ public sealed class PlanInitializationWindow : Window
     {
         EnsureSession();
         var result = _vm.ReviewPlanInitialization(Request());
-        _review.Text = result.Review + "\n" + string.Join("\n", result.Issues.Select(issue => issue.Message)) + "\n" + result.NextAction;
+        _review.Text = (_guided ? "Preview the generated instrument identity and safe shutdown below. Save creates an editable draft; use the editor preview and Save/check guidance to finish.\n" : "") + result.Review + "\n" + string.Join("\n", result.Issues.Select(issue => issue.Message)) + "\n" + result.NextAction;
+        if (_guided) _review.Text += "\nInstrument identity: " + string.Join(", ", result.Draft.Setup.OfType<IdentitySetup>().Select(check => check.InstrumentSlot))
+            + "\nSafe shutdown: " + (result.Draft.Cleanup.IncludeSafeShutdown ? string.Join(", ", result.Draft.Cleanup.InstrumentSlots) : "disabled");
         _error.Text = "";
     }
 
     private void ShowStage()
     {
-        string[] titles = ["Name and destination", "Starting point", "Hardware", "Setup and cleanup", "First measurement and criterion", "Review and create"];
+        string[] titles = _guided ? ["Name and device", "Instrument", "Measurement", "Pass criterion", "Preview", "Save and check"]
+            : ["Name and destination", "Starting point", "Hardware", "Setup and cleanup", "First measurement and criterion", "Review and create"];
         _heading.Text = $"{_stage + 1} of 6 · {titles[_stage]}";
         for (var index = 0; index < _stages.Length; index++) _stages[index].IsVisible = index == _stage;
         _back.IsVisible = _stage > 0; _next.IsVisible = _stage < 5; _create.IsVisible = _stage == 5;

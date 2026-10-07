@@ -32,6 +32,8 @@ public sealed class AuthoringPreferences
 
     public string? OpenTapHomeOverride { get; set; }
 
+    public bool SkipGuidance { get; set; }
+
     public bool ShowRawStepXml { get; set; } = true;
 }
 
