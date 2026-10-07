@@ -17,7 +17,11 @@ public sealed class PackProtectionWindowTests
 
         window.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 1;
         AuthoringUiFixture.Drain();
-        if (create) fixture.ViewModel.CreateProgram("new-dirty");
+        if (create)
+        {
+            fixture.ViewModel.InitializePlan(new("new-dirty") { Instruments = [] });
+            fixture.ViewModel.DisplayName += " edited";
+        }
         else fixture.Type(fixture.Control<TextBox>("Display name"), "dirty GUI edit");
         window.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 4;
         AuthoringUiFixture.Drain();

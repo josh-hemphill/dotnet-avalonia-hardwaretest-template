@@ -72,7 +72,7 @@ public sealed partial class AuthoringActionableFindingsTests
         Assert.Equal("Open program settings", issue.NavigationLabel);
         Assert.Null(issue.Field);
         var program = _vm.SelectedProgram.PlanId;
-        _vm.CreateProgram("other");
+        _vm.InitializePlan(new("other") { Instruments = [] });
         var target = _vm.NavigateEditingIssue(issue);
         Assert.Equal(program, _vm.SelectedProgram!.PlanId);
         Assert.Null(target!.NodeId);

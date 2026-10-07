@@ -140,7 +140,7 @@ public sealed class AuthoringProgramSettingsViewModelTests
     public void Sidecar_report_kinds_and_dut_flags_round_trip_on_the_session()
     {
         var vm = OpenEmpty();
-        vm.CreateProgram("sidecar");
+        vm.InitializePlan(new("sidecar") { Instruments = [] });
         vm.DisplayName = "Board A";
         vm.RequirePartNumber = true;
         vm.ReportCertification = true;
@@ -163,7 +163,7 @@ public sealed class AuthoringProgramSettingsViewModelTests
     public void Required_fields_sync_known_flags_and_persist_extra_ids()
     {
         var vm = OpenEmpty();
-        vm.CreateProgram("required-fields");
+        vm.InitializePlan(new("required-fields") { Instruments = [] });
         Assert.True(vm.RequireSerial);
         Assert.False(vm.RequirePartNumber);
         vm.RequirePartNumber = true;
@@ -186,7 +186,7 @@ public sealed class AuthoringProgramSettingsViewModelTests
     public void Formula_insert_and_visibility_follow_the_selected_source()
     {
         var vm = OpenEmpty();
-        vm.CreateProgram("formula-ui");
+        vm.CreateDemoProgram("formula-ui");
         vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
         Assert.False(vm.HasFormula);
         Assert.True(vm.HasMetricPresentation);
@@ -222,7 +222,7 @@ public sealed class AuthoringProgramSettingsViewModelTests
     public void Formula_save_note_tracks_threshold_through_the_cache()
     {
         var vm = OpenEmpty();
-        vm.CreateProgram("formula-cache");
+        vm.CreateDemoProgram("formula-cache");
         vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
         vm.ApplyRecipe(AuthoringRecipeIds.Formula);
         Assert.Equal(FormulaSaveOutcomeKind.PacksMeanGte, vm.FormulaSaveOutcomeKind);
@@ -250,7 +250,7 @@ public sealed class AuthoringProgramSettingsViewModelTests
     public void Add_report_kind_and_program_kind_are_session_and_workspace_catalogs()
     {
         var vm = OpenEmpty();
-        vm.CreateProgram("catalogs");
+        vm.InitializePlan(new("catalogs") { Instruments = [] });
         Assert.Equal(["status", "certification"], vm.ReportKindOptions);
         vm.NewReportKind = "traceability";
         vm.AddReportKind();
@@ -279,7 +279,7 @@ public sealed class AuthoringProgramSettingsViewModelTests
     public void Program_kind_and_default_report_ignore_empty_or_unlisted_values()
     {
         var vm = OpenEmpty();
-        vm.CreateProgram("guard-kinds");
+        vm.InitializePlan(new("guard-kinds") { Instruments = [] });
         vm.ProgramKind = "stationHealth";
         vm.ProgramKind = null!;
         vm.ProgramKind = "   ";
@@ -352,7 +352,7 @@ public sealed class AuthoringProgramSettingsViewModelTests
     public void Prompt_message_edits_the_selected_setup_row()
     {
         var vm = OpenEmpty();
-        vm.CreateProgram("prompt-ui");
+        vm.InitializePlan(new("prompt-ui") { Instruments = [] });
         vm.ApplyRecipe(AuthoringRecipeIds.Prompt);
         var prompt = vm.SequenceItems.Single(row => row.Label == "Operator Prompt");
         vm.SelectSequence(vm.SequenceItems.ToList().IndexOf(prompt));

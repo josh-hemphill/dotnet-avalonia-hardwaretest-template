@@ -33,7 +33,7 @@ public sealed class FormulaCompletionTests
     public void ApplyFormulaCompletion_replaces_the_ident_under_the_caret()
     {
         var vm = OpenEmpty();
-        vm.CreateProgram("complete");
+        vm.InitializePlan(new("complete") { Instruments = [] });
         vm.ApplyRecipe(AuthoringRecipeIds.Formula);
         vm.FormulaSource = "me";
         var caret = vm.ApplyFormulaCompletion("mean(", 2);
@@ -46,7 +46,7 @@ public sealed class FormulaCompletionTests
     public void ApplyFormulaCompletion_replaces_a_partial_ident_inside_a_call()
     {
         var vm = OpenEmpty();
-        vm.CreateProgram("mid-complete");
+        vm.InitializePlan(new("mid-complete") { Instruments = [] });
         vm.ApplyRecipe(AuthoringRecipeIds.Formula);
         vm.FormulaSource = "std(me)";
         var caret = vm.ApplyFormulaCompletion("mean(", 6);

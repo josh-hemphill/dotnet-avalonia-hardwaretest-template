@@ -27,8 +27,6 @@ public sealed partial class AuthoringWorkspaceViewModel
                 : "Unregistered adapter; preserve imported binding";
         }
         catch (ArgumentException) { package = "Invalid OpenTAP home path"; }
-        if (registered && adapter.RequiredPackage == "HardwareTest VISA" && Workspace is { } workspace && !AuthoringInstrumentCatalog.DeclaresVisa(workspace))
-            package = "HardwareTest VISA: workspace dependency not declared";
         var usage = SelectedProgram is null ? [] : AuthoringInstrumentUsage.DescribeSlotUsage(SelectedProgram, instrument.SlotName)
             .Where(node => node.StartsWith("Setup", StringComparison.Ordinal) || node.StartsWith("Measure", StringComparison.Ordinal)).ToArray();
         var opaque = AuthoringInstrumentUsage.HasOpaqueInstrumentRefs(SelectedProgram);
@@ -65,8 +63,6 @@ public sealed partial class AuthoringWorkspaceViewModel
     {
         var adapter = HardwareEditType ?? throw new AuthoringWorkspaceException("Choose a registered adapter.");
         if (string.IsNullOrWhiteSpace(HardwareEditAddress)) throw new AuthoringWorkspaceException("Enter the instrument address.");
-        if (adapter.RequiredPackage == "HardwareTest VISA" && Workspace is { } workspace && !AuthoringInstrumentCatalog.DeclaresVisa(workspace))
-            throw new AuthoringWorkspaceException("Declare the HardwareTest VISA workspace dependency first.");
         var settings = new Dictionary<string, string>(StringComparer.Ordinal);
         if (!string.IsNullOrWhiteSpace(HardwareEditTimeout))
         {
@@ -149,9 +145,6 @@ public sealed partial class AuthoringWorkspaceViewModel
         var program = SelectedProgram ?? throw new AuthoringWorkspaceException("Select a program.");
         if (program.Instruments.Any(i => Same(i.SlotName, definition.Name)))
             throw new AuthoringWorkspaceException("This program already has that logical slot; review its binding separately.");
-        if (definition.TypeId == HardwareTest.OpenTap.Host.AuthoringVisaInstrumentAdapter.InstrumentType.FullName
-            && !AuthoringInstrumentCatalog.DeclaresVisa(Workspace!))
-            throw new AuthoringWorkspaceException("Declare the HardwareTest VISA workspace dependency before including this definition.");
         var binding = new InstrumentRef(definition.Name, definition.TypeId, definition.Address) { Settings = new Dictionary<string, string>(definition.Settings) };
         AuthoringInstrumentCatalog.Create(binding, InstrumentCreationHomeFor(binding.TypeId));
         ReplaceSelected(program with { Instruments = [.. program.Instruments, binding] });

@@ -143,7 +143,7 @@ public static class AuthoringCli
             {
                 Strict = strict,
                 Format = format,
-                ExcludeVisaAdapter = !AuthoringInstrumentCatalog.DeclaresVisa(workspace),
+                ExcludeVisaAdapter = true,
             });
     }
 

@@ -22,7 +22,7 @@ public sealed class AuthoringActionableFindingsTests
         vm.Threshold = "";
         var issue = Assert.Single(vm.EditingIssues, item => item.Code == AuthoringCompileCodes.MissingLimits);
         var program = vm.SelectedProgram.PlanId;
-        vm.CreateProgram("other");
+        vm.InitializePlan(new("other") { Instruments = [] });
         var tabs = fixture.Window!.FindControl<TabControl>("WorkspaceTabs")!;
         tabs.SelectedIndex = 2;
         AuthoringUiFixture.Drain();
@@ -56,7 +56,7 @@ public sealed class AuthoringActionableFindingsTests
         var issue = Assert.Single(vm.EditingIssues, item => item.Code == AuthoringCompileCodes.MissingLimits);
         Assert.Equal("Open program settings", issue.NavigationLabel);
         var program = vm.SelectedProgram.PlanId;
-        vm.CreateProgram("other");
+        vm.InitializePlan(new("other") { Instruments = [] });
         var tabs = fixture.Window!.FindControl<TabControl>("WorkspaceTabs")!;
         tabs.SelectedIndex = 2;
         AuthoringUiFixture.Drain();
@@ -87,7 +87,7 @@ public sealed class AuthoringActionableFindingsTests
         Assert.Null(issue.Field);
         Assert.Equal("Open location", issue.NavigationLabel);
         var program = vm.SelectedProgram!.PlanId;
-        vm.CreateProgram("other");
+        vm.InitializePlan(new("other") { Instruments = [] });
         var tabs = fixture.Window!.FindControl<TabControl>("WorkspaceTabs")!;
         tabs.SelectedIndex = 2;
         AuthoringUiFixture.Drain();

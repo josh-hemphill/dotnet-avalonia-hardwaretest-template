@@ -13,8 +13,9 @@ public sealed class AuthoringGuidedRecoveryTests
     [InlineData(2)]
     public void Resume_preserves_reused_resource_content_after_catalog_reorder_removal_or_edit(int mutation)
     {
-        using var fixture = Loaded(visa: true); var vm = fixture.ViewModel;
-        var adapter = AuthoringInstrumentCatalog.All.Single(item => item.DisplayName == "VISA DMM"); PreparePackage(fixture, adapter);
+        using var fixture = Loaded(library: true); var vm = fixture.ViewModel;
+        CurrentHardwareUiFixture.Prepare(fixture);
+        var adapter = AuthoringInstrumentCatalog.All.Single(item => item.TypeId == CurrentHardwareUiFixture.TypeId);
         AddDefinition(vm, adapter, "A", "TCPIP::first::INSTR", "1111");
         AddDefinition(vm, adapter, "B", "TCPIP::original::INSTR", "2222");
         AddDefinition(vm, adapter, "C", "TCPIP::different::INSTR", "3333");
@@ -34,7 +35,8 @@ public sealed class AuthoringGuidedRecoveryTests
         Assert.Equal("My bench", fixture.Control<TextBox>("Instrument slot", dialog).Text);
         Assert.Equal("TCPIP::original::INSTR", fixture.Control<TextBox>("Instrument address", dialog).Text);
         if (mutation != 0) Assert.Contains("retained", fixture.Control<TextBlock>("Hardware readiness", dialog).Text, StringComparison.OrdinalIgnoreCase);
-        for (var stage = 0; stage < 4; stage++) Next(fixture, dialog);
+        Next(fixture, dialog); fixture.Control<CheckBox>("Include first measurement", dialog).IsChecked = false;
+        for (var stage = 0; stage < 3; stage++) Next(fixture, dialog);
         AuthoringUiFixture.Click(fixture.Control<Button>("Create test plan", dialog));
         var resource = Assert.Single(vm.SelectedProgram!.Instruments);
         Assert.Equal("My bench", resource.SlotName); Assert.Equal(adapter.TypeId, resource.TypeId);
@@ -198,13 +200,13 @@ public sealed class AuthoringGuidedRecoveryTests
         finally { other.Close(); external.StopRecovery(); external.StopOperations(); AuthoringUiFixture.Drain(); }
     }
 
-    private static AuthoringUiFixture Loaded(bool visa = false)
+    private static AuthoringUiFixture Loaded(bool library = false)
     {
         var fixture = new AuthoringUiFixture(rememberWorkspace: true);
-        if (visa)
+        if (library)
         {
             var workspace = AuthoringWorkspaceLoader.Load(fixture.WorkspaceRoot);
-            workspace.Manifest.Dependencies.Add(new AuthoringPackageDependency { Package = OpenTapHomeBootstrapper.VisaPackageName, Version = "^0.1.0" });
+            workspace.Manifest.Dependencies.Add(new AuthoringPackageDependency { Package = AuthoringInstrumentCatalog.LibraryPackage, Version = "0.1.1" });
             AuthoringWorkspaceLoader.SaveManifest(fixture.WorkspaceRoot, workspace.Manifest);
         }
         fixture.Show(); fixture.OpenRememberedWorkspace(); return fixture;

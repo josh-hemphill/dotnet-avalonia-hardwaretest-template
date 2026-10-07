@@ -115,7 +115,7 @@ public sealed class AuthoringLifecycleTests
         var vm = fixture.ViewModel;
         if (origin != "compiled")
         {
-            vm.CreateProgram("first-compiled");
+            vm.InitializePlan(new("first-compiled") { Instruments = [] });
             if (origin == "source-only")
             {
                 var document = AuthoringDocumentDto.FromDraft(vm.SelectedProgram!);

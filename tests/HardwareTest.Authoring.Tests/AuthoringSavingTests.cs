@@ -105,7 +105,8 @@ public sealed class AuthoringSavingTests : IDisposable
     {
         var vm = Open();
         vm.DisplayName = "saved sample with preview warning";
-        vm.CreateProgram("new-preview-program");
+        vm.InitializePlan(new("new-preview-program") { Instruments = [] });
+        vm.DisplayName += " edited";
         var draft = vm.SelectedProgram;
         vm.OpenTapHomeOverride = "invalid\0home";
         var result = vm.SaveAll();
@@ -133,7 +134,8 @@ public sealed class AuthoringSavingTests : IDisposable
     {
         var vm = Open(new RecordingCompiler { FailId = "failed-program" });
         vm.DisplayName = "success alongside failures";
-        vm.CreateProgram("failed-program");
+        vm.InitializePlan(new("failed-program") { Instruments = [] });
+        vm.DisplayName += " edited";
         var selected = vm.SelectedProgram;
         vm.OpenTapHomeOverride = "invalid\0home";
         var result = vm.SaveAll();
@@ -179,7 +181,7 @@ public sealed class AuthoringSavingTests : IDisposable
         Assert.True(result.HasUnsavedChanges);
         Assert.Equal(["sample"], result.SavedProgramIds);
         Assert.Equal("new-program", Assert.Single(result.Failures).PlanId);
-        Assert.Equal(new DirtyProgramSummary("new-program", true, true), Assert.Single(vm.DirtyPrograms));
+        Assert.Equal(new DirtyProgramSummary("new-program", false, true), Assert.Single(vm.DirtyPrograms));
         Assert.Same(selected, vm.SelectedProgram);
         Assert.DoesNotContain(vm.Workspace!.TapPlanPaths, path => Path.GetFileName(path) == "new-program.TapPlan");
         Assert.Contains("new-program", vm.Error);
@@ -229,14 +231,16 @@ public sealed class AuthoringSavingTests : IDisposable
             File.Move(source, destination, overwrite: true);
         });
         var vm = Open(compiler);
-        vm.CreateProgram("failed-new");
+        vm.InitializePlan(new("failed-new") { Instruments = [] });
+        vm.DisplayName += " edited";
         var draft = vm.SelectedProgram;
         Assert.False(vm.SaveAll().Succeeded);
         Assert.Same(draft, vm.SelectedProgram);
-        Assert.Equal(new DirtyProgramSummary("failed-new", true, true), Assert.Single(vm.DirtyPrograms));
+        Assert.Equal(new DirtyProgramSummary("failed-new", false, true), Assert.Single(vm.DirtyPrograms));
         Assert.DoesNotContain(path, vm.Workspace!.TapPlanPaths);
         Assert.False(File.Exists(path));
         Assert.False(File.Exists(sidecar));
+        Assert.True(File.Exists(new AuthoringDocumentStore(_root).GetDocumentPath("failed-new")));
     }
 
     [Fact]

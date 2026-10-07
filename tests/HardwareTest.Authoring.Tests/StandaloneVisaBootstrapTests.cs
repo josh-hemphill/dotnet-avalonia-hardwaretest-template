@@ -199,13 +199,30 @@ public sealed class StandaloneVisaBootstrapTests : IDisposable
         }
     }
 
-    [Fact]
-    public void Fresh_incomplete_runtime_can_be_populated_from_current_bundled_source()
+    [Theory]
+    [InlineData("tap.dll", false)]
+    [InlineData("tap.dll", true)]
+    [InlineData("launcher", false)]
+    [InlineData("launcher", true)]
+    [InlineData("Dependencies/Newtonsoft.Json.13.0.0.0/Newtonsoft.Json.dll", false)]
+    [InlineData("Dependencies/Newtonsoft.Json.13.0.0.0/Newtonsoft.Json.dll", true)]
+    public void Missing_declared_runtime_payload_is_repaired_before_home_is_considered_complete(string relative, bool library)
     {
-        var home = Prepare(Workspace(library: false));
-        File.Delete(Path.Combine(home.Root, "tap.dll"));
-        Prepare(Workspace());
-        Assert.True(StandaloneVisaReadiness.Assess(home).Available);
+        var workspace = Workspace(library);
+        var home = Prepare(workspace);
+        if (relative == "launcher") relative = OperatingSystem.IsWindows() ? "tap.exe" : "tap";
+        var missing = Path.Combine(home.Root, relative.Replace('/', Path.DirectorySeparatorChar));
+        Assert.True(File.Exists(missing));
+        var expected = File.ReadAllBytes(missing);
+        File.Delete(missing);
+        Assert.NotNull(StandaloneVisaReadiness.OpenTapRuntimeIssue(home));
+        if (library) Assert.False(StandaloneVisaReadiness.Assess(home).Available);
+
+        Prepare(workspace);
+
+        Assert.Equal(expected, File.ReadAllBytes(missing));
+        Assert.Null(StandaloneVisaReadiness.OpenTapRuntimeIssue(home));
+        if (library) Assert.True(StandaloneVisaReadiness.Assess(home).Available);
     }
 
     [Theory]

@@ -72,11 +72,15 @@ The shared `plans/opentap/authoring.json` fixture is copied by many core and UI 
 
 ### Specification
 
-Remove old VISA DMM from the authoring catalog, New test plan hardware choices, binding creation, and old-VISA-specific authoring validation. Remove `WorkspaceCreationRequest.IncludeVisaPackage` and the host's authoring construct/serialize adapter helper. Retain modern Instrument Components adapters and explicit Mock DMM demo support.
+Remove old VISA DMM from the authoring catalog, New test plan hardware choices, binding creation, and old-VISA-specific authoring validation. Remove `WorkspaceCreationRequest.IncludeVisaPackage` and the host's authoring construct/serialize adapter helper. Rename the remaining built-in adapter collection to Demo, and rename `ProductVoltage` to `HardwareScaffold` without an alias. Physical library adapters expose generic identity and safe shutdown; voltage/mean recipes remain explicit Mock DMM demonstrations. Retain modern Instrument Components adapters and explicit Mock DMM demo support.
 
 Remove unused VM `CreateProgram` convenience overloads. Production UI already uses durable `InitializePlan`; migrate test setup to that path with explicit instruments. Tests requiring unsaved changes should make a real edit after durable initialization.
 
 Retain required runtime broker infrastructure. Remove authoring bootstrap's old VISA package installation route alongside its authoring adapter. The following runtime area removes the obsolete plugin; the modern bridge uses IVisaBroker directly and does not require VisaBrokerHost.
+
+Remove the three unreviewed catalog deletion wrappers and their rejection helper. All deletion requests use Prepare/Review/Apply; retain blank-target diagnostics, protected catalog entries, durable source and stale-review guards.
+
+Runtime bootstrap may return early only when the full declared OpenTAP runtime payload validates. Continue rejecting present invalid files before copying, allow missing declared files to be repaired, and permit unrelated partial external imports without a current-library requirement.
 
 ### Pseudocode
 
@@ -91,9 +95,14 @@ create plan:
     initialize durable current authoring source
     present its normal document session
 
-bootstrap runtime VISA package, if still supported:
-    resolve assembly marker through host runtime package boundary
-    do not depend on authoring construction/serialization helper
+bootstrap authoring runtime:
+    reject present invalid runtime payload
+    return early only when full declared payload validates
+    otherwise copy missing current runtime files
+    install explicit Mock/current library packages; exclude old VISA authoring package
+
+delete catalog entry:
+    prepare current request -> review -> apply with source/staleness/protected guards
 ```
 
 ### Tests
@@ -102,7 +111,7 @@ Convert old-VISA authoring acceptance to unavailable-adapter coverage. Retain ac
 
 Port payload completeness, symlink containment, cyclic-link, and ancestor-resolution coverage to current adapter/package fixtures instead of deleting those regressions. Keep runtime `VisaDmmInstrumentTests`, plan validation, and broker coverage until the separate runtime scope assessment establishes their replacement.
 
-Update hardware UI fixtures in `AuthoringHardwareDefinitionTests`, `AuthoringGuidedRecoveryTests`, `AuthoringWorkspaceCreationUiTests`, `AuthoringPlanInitializationTests`, `AuthoringGuidedOnboardingTests`, and `AuthoringExpertCommandsTests`. Use Mock DMM for demo voltage/mean behavior and library hardware scaffolds for physical-device lifecycle behavior. Update both test projects' initialization helpers and direct callers of the removed VM conveniences.
+Update hardware UI fixtures in `AuthoringHardwareDefinitionTests`, `AuthoringGuidedRecoveryTests`, `AuthoringWorkspaceCreationUiTests`, `AuthoringPlanInitializationTests`, `AuthoringGuidedOnboardingTests`, and `AuthoringExpertCommandsTests`. Use Mock DMM for demo voltage/mean behavior and library hardware scaffolds for physical-device lifecycle behavior. Update both test projects' initialization helpers and direct callers of the removed VM conveniences. Preserve unsaved test semantics by making real edits after initialization. Port catalog deletion wrapper tests to reviewed requests. Add regression coverage that prepares a current Mock home, deletes a genuine declared runtime dependency, and verifies a second prepare repairs its bytes; retain unrelated no-library partial-import acceptance.
 
 ### Risks and conflicts
 
@@ -136,7 +145,7 @@ PR218 must build on PR217's schema-2 fixtures. Keep shared initialization test-h
 - Depends on: PR219.
 - Out of scope: run/document version gates and external OpenTAP interchange.
 - Files: AppSettings, SettingsStore, settings list/provenance/copy/JSON metadata, StationOverridesViewModel, OperatorSessionIdle, environment binder, Settings and OperatorSession VMs, InstrumentsViewModel aliases.
-- Public surface: remove Instruments/StationBindings/VisaInstrument/StationBinding registry, OperatorSessionIdleHours and old discover aliases. Rename ProductVoltage template to its actual hardware scaffold behavior.
+- Public surface: remove Instruments/StationBindings/VisaInstrument/StationBinding registry, OperatorSessionIdleHours and old discover aliases. The template name was changed to HardwareScaffold in PR218.
 - Pseudocode:
   ```text
   create station profile -> exact plan/slot overrides only

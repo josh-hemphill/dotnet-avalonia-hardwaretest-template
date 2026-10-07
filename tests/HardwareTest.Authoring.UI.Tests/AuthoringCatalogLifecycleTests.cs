@@ -70,7 +70,7 @@ public sealed class AuthoringCatalogLifecycleTests
         AuthoringWorkspaceLoader.SaveManifest(fixture.WorkspaceRoot, workspace.Manifest);
         fixture.Show(960, 600, realInteraction: true); fixture.OpenRememberedWorkspace(); var vm = fixture.ViewModel;
         vm.CreateDemoProgram("a-invalid"); vm.ApplyRecipe(AuthoringRecipeIds.MeanGte); vm.Threshold = string.Empty;
-        vm.CreateProgram("z-valid"); vm.OpenTapHomeOverride = "invalid\0home";
+        vm.InitializePlan(new("z-valid") { Instruments = [] }); vm.DisplayName += " edited"; vm.OpenTapHomeOverride = "invalid\0home";
         AuthoringUiFixture.Click(fixture.Control<Button>("Save all"));
         Assert.True(vm.LastSaveAllResult!.Succeeded); Assert.Equal(["a-invalid", "z-valid"], vm.LastSaveAllResult.SavedProgramIds);
         Assert.False(vm.HasUnsavedChanges); Assert.Contains(AuthoringCompileCodes.MissingLimits, fixture.Control<TextBlock>("Authoring error").Text);
@@ -90,7 +90,11 @@ public sealed class AuthoringCatalogLifecycleTests
     public void Catalog_and_many_program_changes_scroll_in_lifecycle_modal_with_all_choices_inside_minimum_window()
     {
         using var fixture = Loaded(); StageGlobalOnly(fixture);
-        for (var i = 0; i < 35; i++) fixture.ViewModel.CreateProgram($"global-{i:00}-{new string('x', 110)}");
+        for (var i = 0; i < 35; i++)
+        {
+            fixture.ViewModel.InitializePlan(new($"global-{i:00}-{new string('x', 110)}") { Instruments = [] });
+            fixture.ViewModel.DisplayName += " edited";
+        }
         fixture.Window!.Close(); AuthoringUiFixture.Drain(); var dialog = Assert.Single(fixture.Window!.OwnedWindows);
         var scroll = fixture.Control<ScrollViewer>("Unsaved program list", dialog); AssertInside(scroll, dialog); Assert.True(scroll.Extent.Height > scroll.Viewport.Height);
         foreach (var button in dialog.GetVisualDescendants().OfType<Button>().Where(b => b.Content is string)) AssertInside(button, dialog);
