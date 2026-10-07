@@ -121,6 +121,7 @@ public partial class ResultsViewModel
         var pending = _pendingAttestationAction;
         var printPath = _pendingPrintPath;
         var pin = ShowAttestationPin ? AttestationPin : null;
+        var credential = _capturedAttestationCredential;
         IsCapturingAttestation = true;
         if (skipSigning)
         {
@@ -136,7 +137,7 @@ public partial class ResultsViewModel
         }
         try
         {
-            var result = await Task.Run(() => _attestation.AttestAsync(run, kind, _capturedAttestationCredential,
+            var result = await Task.Run(() => _attestation.AttestAsync(run, kind, credential,
                 pin, skipSigning, token), token).ConfigureAwait(true);
             if (version != _pendingAttestationVersion || token.IsCancellationRequested) return;
             LoadAttestation(run);

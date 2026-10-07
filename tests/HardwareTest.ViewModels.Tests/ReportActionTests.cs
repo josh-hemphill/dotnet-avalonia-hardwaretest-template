@@ -75,6 +75,56 @@ public sealed class ReportActionTests : IDisposable
         if (save) Assert.Equal(await File.ReadAllBytesAsync(issued.PdfPath), await File.ReadAllBytesAsync(actions.Destination));
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Printing_working_copy_uses_existing_latest_issue_without_creating_another(bool tamperLatest)
+    {
+        var (run, vm, actions, service) = await SetupAsync();
+        vm.PreviewRenderer = _ => [];
+        var working = run.Reports[0].PdfPath;
+        Assert.True((await service.AttestAsync(run, ReportKinds.Certification)).Succeeded);
+        var issued = ReportRevisions.Latest(run, ReportKinds.Certification)!;
+        var issuedBytes = await File.ReadAllBytesAsync(issued.PdfPath);
+        await File.WriteAllTextAsync(working, "changed unsigned working bytes");
+        if (tamperLatest) await File.AppendAllTextAsync(issued.PdfPath, "tampered latest");
+
+        await vm.PrintCommand.ExecuteAsync();
+
+        Assert.False(vm.ShowSigningPrompt);
+        if (tamperLatest)
+        {
+            Assert.Empty(actions.Prints);
+            Assert.Equal(working, vm.PdfPath);
+            Assert.Contains("issued revision remains unchanged", vm.Status, StringComparison.Ordinal);
+        }
+        else
+        {
+            Assert.Equal(issued.PdfPath, Assert.Single(actions.Prints));
+            Assert.Equal(issued.PdfPath, vm.PdfPath);
+            Assert.Equal(issuedBytes, await File.ReadAllBytesAsync(actions.Prints[0]));
+        }
+        var persisted = (await new FileRunStore(_root).LoadAsync(run.RunId))!;
+        Assert.Single(persisted.Reports.Where(r => ReportArtifactRoles.IsIssued(r.Role)));
+        Assert.Equal("changed unsigned working bytes", await File.ReadAllTextAsync(working));
+    }
+
+    [Fact]
+    public async Task Saving_copy_to_distinct_case_name_on_linux_preserves_source_and_exact_bytes()
+    {
+        if (!OperatingSystem.IsLinux()) return;
+        Directory.CreateDirectory(_root);
+        var source = Path.Combine(_root, "report.pdf");
+        var destination = Path.Combine(_root, "REPORT.pdf");
+        var bytes = "original report bytes"u8.ToArray();
+        await File.WriteAllBytesAsync(source, bytes);
+        await File.WriteAllTextAsync(destination, "old destination");
+        await ReportDesktopActions.CopyToLocalPathAsync(source, destination);
+        Assert.Equal(bytes, await File.ReadAllBytesAsync(source));
+        Assert.Equal(bytes, await File.ReadAllBytesAsync(destination));
+        await Assert.ThrowsAsync<IOException>(() => ReportDesktopActions.CopyToLocalPathAsync(source, source));
+    }
+
     [Fact]
     public async Task Selecting_older_revision_keeps_exact_bytes_for_save_print_and_viewer()
     {

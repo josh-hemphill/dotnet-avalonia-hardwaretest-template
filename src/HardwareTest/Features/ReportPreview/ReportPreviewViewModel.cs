@@ -291,6 +291,7 @@ public partial class ReportPreviewViewModel : ReactiveObject
             token = _selectionCancellation.Token;
             path = PdfPath;
         }
+        var selectedPath = path;
         try
         {
             if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
@@ -300,6 +301,8 @@ public partial class ReportPreviewViewModel : ReactiveObject
             }
             var run = await Task.Run(() => FindRunForPdfAsync(path)).ConfigureAwait(false);
             if (version != _selectionVersion || token.IsCancellationRequested) return;
+            if (action == ActionKind.Print && run is not null)
+                path = ReportAttestationService.ResolvePrintOrExportPdfPath(run, path);
             var artifact = run?.Reports.FirstOrDefault(r => ReportAttestationService.PathEquals(r.PdfPath, path));
             var kind = run is null ? ReportKinds.Status : ReportAttestationService.KindForPdf(run, path);
             var issued = artifact is not null && ReportArtifactRoles.IsIssued(artifact.Role);
@@ -341,6 +344,17 @@ public partial class ReportPreviewViewModel : ReactiveObject
                     Status = action == ActionKind.Sign ? "Sign this working report." : "Sign this report to continue the requested action.";
                 }).ConfigureAwait(false);
                 return;
+            }
+            if (action == ActionKind.Print && !ReportAttestationService.PathEquals(selectedPath, path))
+            {
+                var nextVersion = version + 1;
+                await LoadFromPathCoreAsync(path, version).ConfigureAwait(false);
+                lock (_selectionLock)
+                {
+                    if (nextVersion != _selectionVersion) return;
+                    version = nextVersion;
+                    token = _selectionCancellation.Token;
+                }
             }
             await PerformActionAsync(action, path, token).ConfigureAwait(false);
         }
