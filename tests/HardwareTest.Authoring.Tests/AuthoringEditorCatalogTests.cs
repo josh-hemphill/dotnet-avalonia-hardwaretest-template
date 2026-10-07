@@ -25,7 +25,7 @@ public sealed class AuthoringEditorCatalogTests
     public void DescribeSave_distinguishes_pack_from_preview_only()
     {
         var mean = FormulaLowerer.DescribeSaveOutcome("mean(VDC)", new LimitSpec(null, null, 1.2));
-        Assert.Equal(FormulaSaveOutcomeKind.PacksMeanGte, mean.Kind);
+        Assert.Equal(FormulaSaveOutcomeKind.PacksChannelAverage, mean.Kind);
         Assert.Equal("Will save as Channel Average.", mean.Message);
 
         var filter = FormulaLowerer.DescribeSaveOutcome("filter([0.5 0.5],[1],VDC)", null);
@@ -79,11 +79,11 @@ public sealed class AuthoringWorkspaceCatalogTests
                 ProgramKinds = ["incomingInspect"],
             },
         };
-        var selected = AuthoringRecipeCatalog.CreateProgram("union");
+        var selected = MockDmmDraftFixture.Create("union");
         selected.Sidecar.ReportKinds = ["status", "mes"];
         selected.Sidecar.DefaultReportKind = "mes";
         selected.Sidecar.ProgramKind = "incomingInspect";
-        var other = AuthoringRecipeCatalog.CreateProgram("other");
+        var other = MockDmmDraftFixture.Create("other");
         other.Sidecar.ReportKinds = ["certification"];
         other.Sidecar.ProgramKind = "stationHealth";
 
@@ -98,7 +98,7 @@ public sealed class AuthoringWorkspaceCatalogTests
                 [],
                 null));
 
-        var orphan = AuthoringRecipeCatalog.CreateProgram("orphan-default");
+        var orphan = MockDmmDraftFixture.Create("orphan-default");
         orphan.Sidecar.ReportKinds = ["status"];
         orphan.Sidecar.DefaultReportKind = "lab";
         Assert.Contains(
@@ -125,7 +125,7 @@ public sealed class AuthoringWorkspaceCatalogTests
     public void Y_unit_options_include_metric_units()
     {
         var acquire = AuthoringRecipeCatalog.Apply(
-            AuthoringRecipeCatalog.CreateProgram("units"),
+            MockDmmDraftFixture.Create("units"),
             AuthoringRecipeIds.Acquire);
         var metric = Assert.IsType<MetricNode>(Assert.Single(acquire.Measure));
         var draft = acquire with { Measure = [new MetricNode(metric.Metric with { YUnit = "A" })] };
@@ -133,13 +133,14 @@ public sealed class AuthoringWorkspaceCatalogTests
     }
 }
 
+[Collection("AuthoringOpenTap")]
 public sealed class AuthoringProgramSettingsViewModelTests
 {
     [Fact]
     public void Sidecar_report_kinds_and_dut_flags_round_trip_on_the_session()
     {
         var vm = OpenEmpty();
-        vm.CreateProgram("sidecar");
+        vm.InitializePlan(new("sidecar") { Instruments = [] });
         vm.DisplayName = "Board A";
         vm.RequirePartNumber = true;
         vm.ReportCertification = true;
@@ -162,7 +163,7 @@ public sealed class AuthoringProgramSettingsViewModelTests
     public void Required_fields_sync_known_flags_and_persist_extra_ids()
     {
         var vm = OpenEmpty();
-        vm.CreateProgram("required-fields");
+        vm.InitializePlan(new("required-fields") { Instruments = [] });
         Assert.True(vm.RequireSerial);
         Assert.False(vm.RequirePartNumber);
         vm.RequirePartNumber = true;
@@ -185,15 +186,15 @@ public sealed class AuthoringProgramSettingsViewModelTests
     public void Formula_insert_and_visibility_follow_the_selected_source()
     {
         var vm = OpenEmpty();
-        vm.CreateProgram("formula-ui");
-        vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
+        vm.CreateDemoProgram("formula-ui");
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Acquire);
         Assert.False(vm.HasFormula);
         Assert.True(vm.HasMetricPresentation);
-        vm.ApplyRecipe(AuthoringRecipeIds.Formula);
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Formula);
         Assert.True(vm.HasFormula);
         Assert.False(vm.HasTransferFunction);
         Assert.Equal("Will save as Channel Average.", vm.FormulaSaveNote);
-        Assert.Equal(FormulaSaveOutcomeKind.PacksMeanGte, vm.FormulaSaveOutcomeKind);
+        Assert.Equal(FormulaSaveOutcomeKind.PacksChannelAverage, vm.FormulaSaveOutcomeKind);
         vm.InsertFormulaToken("+std(");
         Assert.Contains("+std(", vm.FormulaSource, StringComparison.Ordinal);
         Assert.Contains(AuthoringCompileCodes.FormulaParse, vm.FormulaError, StringComparison.Ordinal);
@@ -208,7 +209,7 @@ public sealed class AuthoringProgramSettingsViewModelTests
         Assert.Equal(FormulaSaveOutcomeKind.PreviewOnly, vm.FormulaSaveOutcomeKind);
         Assert.Contains("VDC", vm.ChannelKeys);
         Assert.Contains(vm.FormulaCompletions, item => item.Name == "mean" && item.Packs);
-        vm.ApplyRecipe(AuthoringRecipeIds.Repeat);
+        SelectMeasureLoop(vm);
         Assert.True(vm.HasRepeatEditor);
         Assert.False(vm.HasFormula);
         Assert.False(vm.HasTransferFunction);
@@ -221,16 +222,16 @@ public sealed class AuthoringProgramSettingsViewModelTests
     public void Formula_save_note_tracks_threshold_through_the_cache()
     {
         var vm = OpenEmpty();
-        vm.CreateProgram("formula-cache");
-        vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
-        vm.ApplyRecipe(AuthoringRecipeIds.Formula);
-        Assert.Equal(FormulaSaveOutcomeKind.PacksMeanGte, vm.FormulaSaveOutcomeKind);
+        vm.CreateDemoProgram("formula-cache");
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Acquire);
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Formula);
+        Assert.Equal(FormulaSaveOutcomeKind.PacksChannelAverage, vm.FormulaSaveOutcomeKind);
         Assert.Equal("Will save as Channel Average.", vm.FormulaSaveNote);
         vm.Threshold = string.Empty;
         Assert.Equal(FormulaSaveOutcomeKind.SaveBlocked, vm.FormulaSaveOutcomeKind);
         Assert.Contains(AuthoringCompileCodes.MissingLimits, vm.FormulaSaveNote, StringComparison.Ordinal);
         vm.Threshold = "1.2";
-        Assert.Equal(FormulaSaveOutcomeKind.PacksMeanGte, vm.FormulaSaveOutcomeKind);
+        Assert.Equal(FormulaSaveOutcomeKind.PacksChannelAverage, vm.FormulaSaveOutcomeKind);
         Assert.Equal("Will save as Channel Average.", vm.FormulaSaveNote);
     }
 
@@ -238,7 +239,7 @@ public sealed class AuthoringProgramSettingsViewModelTests
     public void Instrument_visa_updates_the_named_slot()
     {
         var vm = OpenEmpty();
-        vm.CreateProgram("visa-slot");
+        vm.CreateDemoProgram("visa-slot");
         Assert.Equal(["DMM"], vm.InstrumentSlots);
         vm.SetInstrumentVisa("DMM", "TCPIP0::10.0.0.5::INSTR");
         Assert.Equal("TCPIP0::10.0.0.5::INSTR", vm.VisaAddress);
@@ -249,7 +250,7 @@ public sealed class AuthoringProgramSettingsViewModelTests
     public void Add_report_kind_and_program_kind_are_session_and_workspace_catalogs()
     {
         var vm = OpenEmpty();
-        vm.CreateProgram("catalogs");
+        vm.InitializePlan(new("catalogs") { Instruments = [] });
         Assert.Equal(["status", "certification"], vm.ReportKindOptions);
         vm.NewReportKind = "traceability";
         vm.AddReportKind();
@@ -278,7 +279,7 @@ public sealed class AuthoringProgramSettingsViewModelTests
     public void Program_kind_and_default_report_ignore_empty_or_unlisted_values()
     {
         var vm = OpenEmpty();
-        vm.CreateProgram("guard-kinds");
+        vm.InitializePlan(new("guard-kinds") { Instruments = [] });
         vm.ProgramKind = "stationHealth";
         vm.ProgramKind = null!;
         vm.ProgramKind = "   ";
@@ -296,7 +297,7 @@ public sealed class AuthoringProgramSettingsViewModelTests
     public void Add_instrument_slot_is_selectable_and_rejects_duplicates()
     {
         var vm = OpenEmpty();
-        vm.CreateProgram("slots-add");
+        vm.CreateDemoProgram("slots-add");
         Assert.Equal(["DMM"], vm.InstrumentSlots);
         vm.NewInstrumentSlot = "SCOPE";
         vm.NewInstrumentVisa = "MOCK::SCOPE0";
@@ -315,14 +316,14 @@ public sealed class AuthoringProgramSettingsViewModelTests
     }
 
     [Fact]
-    public void CreateProgram_seeds_workspace_catalog_slots()
+    public void Plan_initialization_seeds_workspace_catalog_slots()
     {
         var vm = OpenEmpty();
         vm.Workspace!.Manifest.Catalogs = new AuthoringWorkspaceCatalogs
         {
             InstrumentSlotNames = ["DMM", "PSU"],
         };
-        vm.CreateProgram("seeded-slots");
+        vm.CreateDemoProgram("seeded-slots", "PSU");
         Assert.Contains("DMM", vm.InstrumentSlots);
         Assert.Contains("PSU", vm.InstrumentSlots);
     }
@@ -331,9 +332,9 @@ public sealed class AuthoringProgramSettingsViewModelTests
     public void Transfer_function_method_is_a_closed_choice()
     {
         var vm = OpenEmpty();
-        vm.CreateProgram("tf-ui");
-        vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
-        vm.ApplyRecipe(AuthoringRecipeIds.TransferFunction);
+        vm.CreateDemoProgram("tf-ui");
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Acquire);
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.TransferFunction);
         Assert.True(vm.HasTransferFunction);
         Assert.Contains("filter", vm.TfMethodOptions);
         vm.TfMethod = "filtfilt";
@@ -341,7 +342,7 @@ public sealed class AuthoringProgramSettingsViewModelTests
         vm.TfMethod = "fft";
         Assert.Equal("filtfilt", vm.TfMethod);
         Assert.Contains("VDC", vm.ChannelKeys);
-        vm.ApplyRecipe(AuthoringRecipeIds.Repeat);
+        SelectMeasureLoop(vm);
         Assert.True(vm.HasRepeatEditor);
         Assert.False(vm.HasTransferFunction);
         Assert.True(string.IsNullOrEmpty(vm.MetricInstrumentSlot));
@@ -351,8 +352,8 @@ public sealed class AuthoringProgramSettingsViewModelTests
     public void Prompt_message_edits_the_selected_setup_row()
     {
         var vm = OpenEmpty();
-        vm.CreateProgram("prompt-ui");
-        vm.ApplyRecipe(AuthoringRecipeIds.Prompt);
+        vm.InitializePlan(new("prompt-ui") { Instruments = [] });
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Prompt);
         var prompt = vm.SequenceItems.Single(row => row.Label == "Operator Prompt");
         vm.SelectSequence(vm.SequenceItems.ToList().IndexOf(prompt));
         Assert.True(vm.HasSetupEditor);
@@ -365,7 +366,7 @@ public sealed class AuthoringProgramSettingsViewModelTests
     public void Identity_and_cleanup_slots_edit_the_selected_row()
     {
         var vm = OpenEmpty();
-        vm.CreateProgram("slots");
+        vm.CreateDemoProgram("slots");
         var identity = vm.SequenceItems.Single(row => row.Label == "Identity Check");
         vm.SelectSequence(vm.SequenceItems.ToList().IndexOf(identity));
         Assert.Equal("DMM", vm.SetupInstrumentSlot);
@@ -386,10 +387,10 @@ public sealed class AuthoringProgramSettingsViewModelTests
     public void Cleanup_can_include_multiple_slots_and_measure_slots()
     {
         var vm = OpenEmpty();
-        vm.CreateProgram("multi-cleanup");
+        vm.CreateDemoProgram("multi-cleanup");
         vm.NewInstrumentSlot = "SCOPE";
         vm.AddInstrumentSlot();
-        vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Acquire);
         vm.MetricInstrumentSlot = "SCOPE";
         Assert.Equal("SCOPE", Assert.IsType<MeasureSource>(vm.SelectedMetric!.Source).InstrumentSlot);
         var cleanup = vm.SequenceItems.Single(row => row.Kind == SequenceRowKind.Cleanup);
@@ -416,9 +417,19 @@ public sealed class AuthoringProgramSettingsViewModelTests
         vm.IncludeMeasureSlots = true;
         vm.SetCleanupSlotIncluded("DMM", true);
         vm.SetCleanupSlotIncluded("SCOPE", true);
-        vm.ApplyRecipe(AuthoringRecipeIds.Shutdown);
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Shutdown);
         Assert.Equal(["DMM", "SCOPE"], vm.SelectedProgram.Cleanup.InstrumentSlots);
         Assert.True(vm.SelectedProgram.Cleanup.IncludeMeasureSlots);
+    }
+
+    private static void SelectMeasureLoop(AuthoringWorkspaceViewModel vm)
+    {
+        var program = vm.SelectedProgram!;
+        var loop = new RepeatNode(3, program.Measure);
+        vm.ReplaceSelected(program with { Measure = [loop] });
+        vm.SelectSequence(vm.SequenceItems.ToList().FindIndex(row => row.NodeId == loop.NodeId));
+        Assert.Equal(program.Measure.Select(node => node.NodeId), loop.Children.Select(node => node.NodeId));
+        Assert.Equal(2, loop.Children.Count);
     }
 
     private static AuthoringWorkspaceViewModel OpenEmpty()
@@ -435,6 +446,7 @@ public sealed class AuthoringProgramSettingsViewModelTests
 
         var vm = new AuthoringWorkspaceViewModel();
         vm.Open(dest);
+        vm.StopRecovery();
         return vm;
     }
 

@@ -77,7 +77,7 @@ public static class AuthoringChrome
     public const string RequiredFieldsPurpose =
         "Require the operator session fields this program needs. serial, partNumber, revision, and operator map to the sidecar flags; add other ids for later operator surfaces.";
     public const string AddRecipeActionSummary =
-        "Append or wrap using the selected recipe. Identity/Prompt go to Setup; metrics to Measure; Repeat wraps the last measure; Safe Shutdown updates Cleanup.";
+        "Insert before or after the selected step, or at the end of its section. Identity/Prompt go to Setup; metrics to Measure; Repeat wraps the selected measurement; Safe Shutdown updates Cleanup.";
     public const string RecipeAddHint =
         "Steps edited outside this app re-open as read-only Raw rows after you save the TapPlan and re-open the workspace.";
     public const string RecipeAdvancedHint =
@@ -114,6 +114,12 @@ public static class AuthoringChrome
 /// Flattens ProgramDraft into a sectioned, indented list (no TreeView).
 public static class AuthoringSequence
 {
+    // Repeats only contain steps; opaque imported steps retain their existing leaf behavior.
+    public static bool HasMeasurement(IReadOnlyList<MeasureNode> nodes)
+        => nodes.Any(node => node is RepeatNode repeat
+            ? HasMeasurement(repeat.Children)
+            : node is MetricNode or RawStepNode);
+
     public const int IndentPerDepth = 16;
 
     public static IReadOnlyList<SequenceRow> Flatten(ProgramDraft? draft)

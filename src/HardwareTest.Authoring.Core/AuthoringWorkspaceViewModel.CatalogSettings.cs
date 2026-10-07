@@ -1,4 +1,5 @@
 using HardwareTest.OpenTap.Host;
+using HardwareTest.OpenTap.Plugins.Basic;
 
 namespace HardwareTest.Authoring;
 
@@ -126,10 +127,12 @@ public sealed partial class AuthoringWorkspaceViewModel
         if (NewInstrumentCreationIssue() is { } issue) throw new AuthoringWorkspaceException(issue);
         var typeId = NewInstrumentTypeId;
         var visa = AuthoringWorkspaceCatalog.Normalize(NewInstrumentVisa)
-                   ?? $"MOCK::INSTR{SelectedProgram.Instruments.Count}";
+                   ?? (typeId == typeof(MockDmmInstrument).FullName
+                       ? $"MOCK::INSTR{SelectedProgram.Instruments.Count}"
+                       : throw new AuthoringWorkspaceException("Instrument address is required."));
         var instrument = new InstrumentRef(slot, typeId, visa);
         // Validate the selected adapter without opening any instrument connection.
-        AuthoringInstrumentCatalog.Create(instrument, InstrumentCreationHome);
+        AuthoringInstrumentCatalog.Create(instrument, InstrumentCreationHomeFor(instrument.TypeId));
         RememberWorkspaceCatalog(catalogs => AuthoringWorkspaceCatalog.Remember(catalogs.InstrumentSlotNames, slot));
         ReplaceSelected(SelectedProgram with
         {
@@ -351,12 +354,14 @@ public sealed partial class AuthoringWorkspaceViewModel
             ProgramKinds = [.. original.ProgramKinds],
             RequiredFields = [.. original.RequiredFields],
             InstrumentSlotNames = [.. original.InstrumentSlotNames],
+            Hardware = [.. original.Hardware],
         };
         mutate(catalogs);
         if ((original?.ReportKinds ?? []).SequenceEqual(catalogs.ReportKinds)
             && (original?.ProgramKinds ?? []).SequenceEqual(catalogs.ProgramKinds)
             && (original?.RequiredFields ?? []).SequenceEqual(catalogs.RequiredFields)
-            && (original?.InstrumentSlotNames ?? []).SequenceEqual(catalogs.InstrumentSlotNames)) return;
+            && (original?.InstrumentSlotNames ?? []).SequenceEqual(catalogs.InstrumentSlotNames)
+            && (original?.Hardware ?? []).SequenceEqual(catalogs.Hardware)) return;
         var manifest = System.Text.Json.JsonSerializer.Deserialize(
             System.Text.Json.JsonSerializer.Serialize(Workspace.Manifest, AuthoringJsonContext.Default.AuthoringManifest),
             AuthoringJsonContext.Default.AuthoringManifest)!;
@@ -364,9 +369,9 @@ public sealed partial class AuthoringWorkspaceViewModel
         Workspace = Workspace with { Manifest = manifest };
         WorkspaceCatalogDirty = true;
         WorkspaceCatalogSaveFailure = null;
-        Findings = [];
-        FindingRows = [];
+        InvalidateContractFindings();
         RefreshDirtyState();
+        RaiseHardwareProperties();
         OnPropertyChanged(nameof(ReportKindOptions));
         OnPropertyChanged(nameof(ReportKindChoices));
         OnPropertyChanged(nameof(IncludedReportKinds));

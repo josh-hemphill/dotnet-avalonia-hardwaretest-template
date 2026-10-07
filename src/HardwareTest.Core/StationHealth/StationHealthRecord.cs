@@ -1,3 +1,5 @@
+using HardwareTest.Core.Serialization;
+
 namespace HardwareTest.Core.StationHealth;
 
 /// Well-known sidecar / catalog programKind values.
@@ -55,7 +57,7 @@ public sealed class StationHealthMetric
 /// Station-scoped cal / health snapshot under `{DataDirectory}/station-health/{profileId}.json`.
 public sealed class StationHealthRecord
 {
-    public int SchemaVersion { get; set; }
+    public int SchemaVersion { get; set; } = SchemaVersions.StationHealthRecord;
     public string ProfileId { get; set; } = "default";
     public DateTimeOffset MeasuredAt { get; set; }
     public string Source { get; set; } = StationHealthSources.Queried;

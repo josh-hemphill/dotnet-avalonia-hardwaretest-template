@@ -37,7 +37,7 @@ public sealed class AuthoringCatalogLifecycleTests
     {
         using var fixture = Loaded(); StageGlobalOnly(fixture); var session = fixture.ViewModel.Workspace; var draft = fixture.ViewModel.SelectedProgram;
         var manifest = Path.Combine(fixture.WorkspaceRoot, "authoring.json"); var before = File.ReadAllText(manifest);
-        File.WriteAllText(manifest, before.Replace("\"schemaVersion\": 1", "\"schemaVersion\": 999", StringComparison.Ordinal)); var futureBytes = File.ReadAllBytes(manifest);
+        File.WriteAllText(manifest, before.Replace("\"schemaVersion\": 2", "\"schemaVersion\": 999", StringComparison.Ordinal)); var futureBytes = File.ReadAllBytes(manifest);
         Task<bool>? request = null;
         if (navigate) request = fixture.Window!.ReopenWorkspaceAsync(); else fixture.Window!.Close();
         AuthoringUiFixture.Drain(); var dialog = Assert.Single(fixture.Window!.OwnedWindows); Assert.Contains("Workspace catalog changes", Assert.IsType<TextBlock>(fixture.Control<ScrollViewer>("Unsaved program list", dialog).Content).Text);
@@ -63,10 +63,38 @@ public sealed class AuthoringCatalogLifecycleTests
     }
 
     [AvaloniaFact]
+    public void Shown_SaveAll_preserves_invalid_document_feedback_after_valid_save_and_home_correction()
+    {
+        using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
+        var workspace = AuthoringWorkspaceLoader.Load(fixture.WorkspaceRoot); workspace.Manifest.Package.Name = "Warning feedback programs";
+        AuthoringWorkspaceLoader.SaveManifest(fixture.WorkspaceRoot, workspace.Manifest);
+        fixture.Show(960, 600, realInteraction: true); fixture.OpenRememberedWorkspace(); var vm = fixture.ViewModel;
+        vm.CreateDemoProgram("a-invalid"); vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.MeanGte); vm.Threshold = string.Empty;
+        vm.InitializePlan(new("z-valid") { Instruments = [] }); vm.DisplayName += " edited"; vm.OpenTapHomeOverride = "invalid\0home";
+        AuthoringUiFixture.Click(fixture.Control<Button>("Save all"));
+        Assert.True(vm.LastSaveAllResult!.Succeeded); Assert.Equal(["a-invalid", "z-valid"], vm.LastSaveAllResult.SavedProgramIds);
+        Assert.False(vm.HasUnsavedChanges); Assert.Contains(AuthoringCompileCodes.MissingLimits, fixture.Control<TextBlock>("Authoring error").Text);
+        var saved = File.ReadAllBytes(new AuthoringDocumentStore(fixture.WorkspaceRoot).GetDocumentPath("a-invalid"));
+        vm.OpenTapHomeOverride = Path.Combine(fixture.WorkspaceRoot, "valid-missing-home"); AuthoringUiFixture.Drain();
+        Assert.Contains(AuthoringCompileCodes.MissingLimits, fixture.Control<TextBlock>("Authoring error").Text);
+        Assert.DoesNotContain("OpenTAP home setting", fixture.Control<TextBlock>("Authoring error").Text);
+        Assert.Contains(AuthoringCompileCodes.MissingLimits, vm.SavePreviewWarning!);
+        fixture.Window!.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 4; AuthoringUiFixture.Drain();
+        Assert.False(fixture.Control<Button>("Pack workspace").IsEffectivelyEnabled);
+        Assert.Equal(saved, File.ReadAllBytes(new AuthoringDocumentStore(fixture.WorkspaceRoot).GetDocumentPath("a-invalid")));
+        vm.SelectProgram("a-invalid"); vm.Threshold = "2"; vm.Apply(); AuthoringUiFixture.Drain();
+        Assert.Null(vm.SavePreviewWarning); Assert.Null(vm.Error); Assert.False(fixture.Control<TextBlock>("Authoring error").IsVisible);
+    }
+
+    [AvaloniaFact]
     public void Catalog_and_many_program_changes_scroll_in_lifecycle_modal_with_all_choices_inside_minimum_window()
     {
         using var fixture = Loaded(); StageGlobalOnly(fixture);
-        for (var i = 0; i < 35; i++) fixture.ViewModel.CreateProgram($"global-{i:00}-{new string('x', 110)}");
+        for (var i = 0; i < 35; i++)
+        {
+            fixture.ViewModel.InitializePlan(new($"global-{i:00}-{new string('x', 110)}") { Instruments = [] });
+            fixture.ViewModel.DisplayName += " edited";
+        }
         fixture.Window!.Close(); AuthoringUiFixture.Drain(); var dialog = Assert.Single(fixture.Window!.OwnedWindows);
         var scroll = fixture.Control<ScrollViewer>("Unsaved program list", dialog); AssertInside(scroll, dialog); Assert.True(scroll.Extent.Height > scroll.Viewport.Height);
         foreach (var button in dialog.GetVisualDescendants().OfType<Button>().Where(b => b.Content is string)) AssertInside(button, dialog);

@@ -1,3 +1,10 @@
+import { join } from "@std/path";
+import { formatSolution } from "./lib/format.ts";
+import {
+  AUTHORING_FAST_FILTER,
+  AUTHORING_UI_WINDOWS_FILTER,
+  AUTHORING_WINDOWS_FILTER,
+} from "./lib/profile.ts";
 import { parseArgs } from "@std/cli/parse-args";
 import { formatAuditFailure, hasVulnerablePackages } from "./lib/audit.ts";
 import { evaluateCobertura, findCobertura } from "./lib/coverage.ts";
@@ -9,6 +16,12 @@ import {
 } from "./lib/paths.ts";
 import { defaultRid, isNativeRid } from "./lib/rid.ts";
 import { run, runCapture } from "./lib/run.ts";
+import { verifyStandaloneVisaArtifacts } from "./lib/standalone_visa.ts";
+import {
+  consumerOutputs,
+  verifyPublishedRelease,
+  verifyReleaseProvisioning,
+} from "./lib/instrument_artifacts.ts";
 
 /** Canonical CI task names — workflow and `list` must stay in sync. */
 export const TASKS = [
@@ -46,6 +59,7 @@ type Options = {
   configuration: string;
   root: string;
   advisoryE2e: boolean;
+  profile: "full" | "fast" | "windows-smoke";
 };
 
 function usage(): string {
@@ -58,6 +72,7 @@ Tasks:
   ${TASKS.join(", ")}
 
 RID defaults to the host platform (${defaultRidSafe()}).
+  --profile full|fast|windows-smoke  authoring host/UI selection (default full)
   --advisory-e2e   treat test:e2e (and e2e inside all) as non-fatal
 `;
 }
@@ -72,7 +87,7 @@ function defaultRidSafe(): string {
 
 function parseOptions(args: string[]): Options {
   const parsed = parseArgs(args, {
-    string: ["rid", "configuration"],
+    string: ["rid", "configuration", "profile"],
     boolean: ["advisory-e2e", "help"],
     alias: { h: "help", c: "configuration" },
     default: {
@@ -90,7 +105,15 @@ function parseOptions(args: string[]): Options {
     ? parsed.rid
     : defaultRid();
 
+  const profile = String(parsed.profile ?? "full");
+  if (!["full", "fast", "windows-smoke"].includes(profile)) {
+    throw new Error(`Unknown test profile: ${profile}`);
+  }
+  if (profile === "windows-smoke" && !rid.startsWith("win-")) {
+    throw new Error("windows-smoke requires a Windows RID");
+  }
   return {
+    profile: profile as Options["profile"],
     rid,
     configuration: String(parsed.configuration ?? "Release"),
     root: repoRoot(),
@@ -122,15 +145,50 @@ async function projectPaths(opts: Options): Promise<string[]> {
 }
 
 async function formatCheck(opts: Options): Promise<void> {
-  for (const project of await projectPaths(opts)) {
+  const workspace = join(opts.root, ".ci-format.slnx");
+  try {
+    await Deno.writeTextFile(
+      workspace,
+      formatSolution(opts.root, await projectPaths(opts)),
+    );
     await run([
       "dotnet",
       "format",
-      project,
+      workspace,
       "--verify-no-changes",
       "--no-restore",
     ], { cwd: opts.root });
+  } finally {
+    try {
+      await Deno.remove(workspace);
+    } catch (error) {
+      if (!(error instanceof Deno.errors.NotFound)) throw error;
+    }
   }
+}
+
+async function testProject(
+  opts: Options,
+  project: string,
+  filter?: string,
+): Promise<void> {
+  const args = [
+    "dotnet",
+    "test",
+    `tests/${project}/${project}.csproj`,
+    "-c",
+    opts.configuration,
+    "-r",
+    opts.rid,
+    "--no-build",
+    "--no-restore",
+    "--logger",
+    `trx;LogFileName=${project}.trx`,
+    "--results-directory",
+    join(opts.root, "artifacts", "test-results", opts.rid),
+  ];
+  if (filter) args.push("--filter", filter);
+  await run(args, { cwd: opts.root });
 }
 
 async function build(opts: Options): Promise<void> {
@@ -142,56 +200,27 @@ async function build(opts: Options): Promise<void> {
     "-r",
     opts.rid,
   ], { cwd: opts.root });
+  await verifyReleaseProvisioning(opts);
 }
 
 async function testHost(opts: Options): Promise<void> {
-  await run([
-    "dotnet",
-    "test",
-    "tests/HardwareTest.Tests/HardwareTest.Tests.csproj",
-    "-c",
-    opts.configuration,
-    "-r",
-    opts.rid,
-    "--no-build",
-  ], { cwd: opts.root });
-  await run([
-    "dotnet",
-    "test",
-    "tests/HardwareTest.Authoring.Tests/HardwareTest.Authoring.Tests.csproj",
-    "-c",
-    opts.configuration,
-    "-r",
-    opts.rid,
-    "--no-build",
-  ], { cwd: opts.root });
+  await testProject(opts, "HardwareTest.StandaloneVisa.Tests");
+  await testProject(opts, "HardwareTest.Tests");
+  const filter = opts.profile === "fast"
+    ? AUTHORING_FAST_FILTER
+    : opts.profile === "windows-smoke"
+    ? AUTHORING_WINDOWS_FILTER
+    : undefined;
+  await testProject(opts, "HardwareTest.Authoring.Tests", filter);
 }
 
 async function testVm(opts: Options): Promise<void> {
-  await run([
-    "dotnet",
-    "test",
-    "tests/HardwareTest.ViewModels.Tests/HardwareTest.ViewModels.Tests.csproj",
-    "-c",
-    opts.configuration,
-    "-r",
-    opts.rid,
-    "--no-build",
-  ], { cwd: opts.root });
+  await testProject(opts, "HardwareTest.ViewModels.Tests");
 }
 
 async function testE2e(opts: Options): Promise<void> {
   try {
-    await run([
-      "dotnet",
-      "test",
-      "tests/HardwareTest.E2E.Tests/HardwareTest.E2E.Tests.csproj",
-      "-c",
-      opts.configuration,
-      "-r",
-      opts.rid,
-      "--no-build",
-    ], { cwd: opts.root });
+    await testProject(opts, "HardwareTest.E2E.Tests");
   } catch (err) {
     if (!opts.advisoryE2e) throw err;
     console.warn(`advisory: test:e2e failed on ${opts.rid}: ${err}`);
@@ -214,29 +243,15 @@ async function testAuthoringCompat(opts: Options): Promise<void> {
 }
 
 async function testAuthoringUi(opts: Options): Promise<void> {
-  await run([
-    "dotnet",
-    "test",
-    "tests/HardwareTest.Authoring.UI.Tests/HardwareTest.Authoring.UI.Tests.csproj",
-    "-c",
-    opts.configuration,
-    "-r",
-    opts.rid,
-    "--no-build",
-  ], { cwd: opts.root });
+  await testProject(
+    opts,
+    "HardwareTest.Authoring.UI.Tests",
+    opts.profile === "windows-smoke" ? AUTHORING_UI_WINDOWS_FILTER : undefined,
+  );
 }
 
 async function testArch(opts: Options): Promise<void> {
-  await run([
-    "dotnet",
-    "test",
-    "tests/HardwareTest.Architecture.Tests/HardwareTest.Architecture.Tests.csproj",
-    "-c",
-    opts.configuration,
-    "-r",
-    opts.rid,
-    "--no-build",
-  ], { cwd: opts.root });
+  await testProject(opts, "HardwareTest.Architecture.Tests");
 }
 
 async function collectCoreCoverage(opts: Options): Promise<void> {
@@ -258,6 +273,8 @@ async function collectCoreCoverage(opts: Options): Promise<void> {
     "--no-build",
     "--filter",
     CORE_COVERAGE_FILTER,
+    "--logger",
+    "trx;LogFileName=coverage.trx",
     "--collect:XPlat Code Coverage",
     "--settings",
     "tests/coverage.runsettings",
@@ -355,6 +372,27 @@ async function publish(opts: Options): Promise<void> {
     "-o",
     authoringOut,
   ], { cwd: opts.root });
+  const projects = {
+    host: "src/HardwareTest.OpenTap.Host",
+    worker: "src/HardwareTest.OpenTap.Worker",
+    validate: "src/HardwareTest.PlanValidate",
+  };
+  for (const output of consumerOutputs(opts).slice(2)) {
+    await run([
+      "dotnet",
+      "publish",
+      projects[output.name as keyof typeof projects],
+      "-c",
+      opts.configuration,
+      "-r",
+      opts.rid,
+      "--self-contained",
+      "false",
+      "-o",
+      output.path,
+    ], { cwd: opts.root });
+  }
+  await verifyPublishedRelease(opts);
 }
 
 /** Exercise the shipped app from a directory with no checkout ancestry. */
@@ -449,6 +487,11 @@ async function verify(opts: Options): Promise<void> {
 
   const exe = publishedExe(expectedRid, opts.root);
   try {
+    for (const output of consumerOutputs(opts)) {
+      await Deno.stat(
+        `${output.path}/PublishedArtifacts/InstrumentComponents.OpenTap.0.1.1.TapPackage`,
+      );
+    }
     await Deno.stat(exe);
     await Deno.stat(
       `${publishDir(expectedRid, opts.root)}/authoring/HardwareTest.Authoring${
@@ -514,9 +557,12 @@ async function verify(opts: Options): Promise<void> {
     }
   }
   await verifyAuthoring(opts);
+  await verifyPublishedRelease(opts);
+  await verifyStandaloneVisaArtifacts(opts);
 }
 
 async function all(opts: Options): Promise<void> {
+  opts = { ...opts, profile: "full" };
   await build(opts);
   await formatCheck(opts);
   await audit(opts);
@@ -561,7 +607,7 @@ export async function main(argv = Deno.args): Promise<void> {
 
   const opts = parseOptions(rest);
   console.log(
-    `task=${task} rid=${opts.rid} configuration=${opts.configuration}`,
+    `task=${task} rid=${opts.rid} configuration=${opts.configuration} profile=${opts.profile}`,
   );
 
   switch (task as TaskName) {

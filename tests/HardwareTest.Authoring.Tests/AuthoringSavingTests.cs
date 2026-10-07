@@ -27,8 +27,8 @@ public sealed class AuthoringSavingTests : IDisposable
         vm.DisplayName = "sidecar edit";
         var sample = vm.SelectedProgram;
         var row = vm.SelectedProgramRow;
-        vm.CreateProgram("new-program");
-        vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
+        vm.CreateDemoProgram("new-program");
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Acquire);
         var selected = vm.SelectedProgram;
         var sequence = vm.SelectedSequence;
         var measureIndex = vm.SelectedMeasureIndex;
@@ -105,7 +105,8 @@ public sealed class AuthoringSavingTests : IDisposable
     {
         var vm = Open();
         vm.DisplayName = "saved sample with preview warning";
-        vm.CreateProgram("new-preview-program");
+        vm.InitializePlan(new("new-preview-program") { Instruments = [] });
+        vm.DisplayName += " edited";
         var draft = vm.SelectedProgram;
         vm.OpenTapHomeOverride = "invalid\0home";
         var result = vm.SaveAll();
@@ -133,7 +134,8 @@ public sealed class AuthoringSavingTests : IDisposable
     {
         var vm = Open(new RecordingCompiler { FailId = "failed-program" });
         vm.DisplayName = "success alongside failures";
-        vm.CreateProgram("failed-program");
+        vm.InitializePlan(new("failed-program") { Instruments = [] });
+        vm.DisplayName += " edited";
         var selected = vm.SelectedProgram;
         vm.OpenTapHomeOverride = "invalid\0home";
         var result = vm.SaveAll();
@@ -172,14 +174,14 @@ public sealed class AuthoringSavingTests : IDisposable
         var compiler = new RecordingCompiler { FailId = "new-program" };
         var vm = Open(compiler);
         vm.DisplayName = "saved other";
-        vm.CreateProgram("new-program");
+        vm.CreateDemoProgram("new-program");
         var selected = vm.SelectedProgram;
         var result = vm.SaveAll();
         Assert.False(result.Succeeded);
         Assert.True(result.HasUnsavedChanges);
         Assert.Equal(["sample"], result.SavedProgramIds);
         Assert.Equal("new-program", Assert.Single(result.Failures).PlanId);
-        Assert.Equal(new DirtyProgramSummary("new-program", true, true), Assert.Single(vm.DirtyPrograms));
+        Assert.Equal(new DirtyProgramSummary("new-program", false, true), Assert.Single(vm.DirtyPrograms));
         Assert.Same(selected, vm.SelectedProgram);
         Assert.DoesNotContain(vm.Workspace!.TapPlanPaths, path => Path.GetFileName(path) == "new-program.TapPlan");
         Assert.Contains("new-program", vm.Error);
@@ -229,14 +231,16 @@ public sealed class AuthoringSavingTests : IDisposable
             File.Move(source, destination, overwrite: true);
         });
         var vm = Open(compiler);
-        vm.CreateProgram("failed-new");
+        vm.InitializePlan(new("failed-new") { Instruments = [] });
+        vm.DisplayName += " edited";
         var draft = vm.SelectedProgram;
         Assert.False(vm.SaveAll().Succeeded);
         Assert.Same(draft, vm.SelectedProgram);
-        Assert.Equal(new DirtyProgramSummary("failed-new", true, true), Assert.Single(vm.DirtyPrograms));
+        Assert.Equal(new DirtyProgramSummary("failed-new", false, true), Assert.Single(vm.DirtyPrograms));
         Assert.DoesNotContain(path, vm.Workspace!.TapPlanPaths);
         Assert.False(File.Exists(path));
         Assert.False(File.Exists(sidecar));
+        Assert.True(File.Exists(new AuthoringDocumentStore(_root).GetDocumentPath("failed-new")));
     }
 
     [Fact]
@@ -307,7 +311,7 @@ public sealed class AuthoringSavingTests : IDisposable
     public void Read_only_workspace_rejects_edits_and_saves_without_dirtying_content()
     {
         var manifest = Path.Combine(_root, "authoring.json");
-        File.WriteAllText(manifest, File.ReadAllText(manifest).Replace("\"schemaVersion\": 1", "\"schemaVersion\": 999", StringComparison.Ordinal));
+        File.WriteAllText(manifest, File.ReadAllText(manifest).Replace("\"schemaVersion\": 2", "\"schemaVersion\": 999", StringComparison.Ordinal));
         var vm = Open();
         Assert.True(vm.Workspace!.IsReadOnly);
         Assert.Throws<AuthoringWorkspaceException>(() => vm.DisplayName = "read only edit");
@@ -318,15 +322,23 @@ public sealed class AuthoringSavingTests : IDisposable
         Assert.Throws<AuthoringWorkspaceException>(() => vm.SaveProgram("unknown"));
     }
 
+    private readonly List<AuthoringWorkspaceViewModel> _owned = [];
+
     private AuthoringWorkspaceViewModel Open(IPlanCompiler? compiler = null)
     {
         var vm = new AuthoringWorkspaceViewModel(compiler);
+        _owned.Add(vm);
         vm.Open(_root);
         vm.SelectProgram("sample");
         return vm;
     }
 
-    public void Dispose() => Directory.Delete(_root, recursive: true);
+    public void Dispose()
+    {
+        foreach (var vm in _owned) vm.StopRecovery();
+        Task.WhenAll(_owned.Select(vm => vm.StopRecoveryAsync())).GetAwaiter().GetResult();
+        Directory.Delete(_root, recursive: true);
+    }
 
     private sealed class RecordingCompiler : IPlanCompiler
     {

@@ -23,7 +23,6 @@ dotnet run --project src/HardwareTest.Authoring -c Debug -r win-x64 -- --bootstr
 dotnet run --project src/HardwareTest.Authoring -c Debug -r win-x64 -- --validate plans/opentap --strict
 dotnet run --project src/HardwareTest.Authoring -c Debug -r win-x64 -- --compat plans/opentap
 dotnet run --project src/HardwareTest.Authoring -c Debug -r win-x64 -- --eval-formulas plans/opentap
-dotnet run --project src/HardwareTest.Authoring -c Debug -r win-x64 -- --migrate plans/opentap
 dotnet run --project src/HardwareTest.Authoring -c Debug -r win-x64 -- --pack plans/opentap --out dist/
 dotnet run --project src/HardwareTest.Authoring -c Debug -r win-x64 -- --help
 ```
@@ -32,13 +31,17 @@ dotnet run --project src/HardwareTest.Authoring -c Debug -r win-x64 -- --help
 
 ## 2. Create a program and add recipes
 
-1. **New program** seeds Identity + Cleanup + Mock DMM (in-repo demos). Product workspaces that declare InstrumentComponents.OpenTap still keep this template’s sample/board-demo on Basic. **Remove program** (or Delete on the programs list) drops the selected plan from the session and deletes its `.TapPlan` + `.program.json` when those files exist.
-2. On the **Program** tab, pick a recipe from **Add to sequence** (grouped by category) and **Add recipe**. **Remove selected** (or Delete on the sequence list) drops the highlighted Setup, measure, Repeat, or Raw row. Repeat unwraps its children. Safe Shutdown turns Cleanup off. The sequence list is Setup / Measure / Cleanup — not a tree. Repeat children are indented under the Repeat row. **Dialog** and **Hang Forever** are not listed.
-3. The **Inspector** edits only the selected sequence row (channel key, display role, unit, limits, formula chips, transfer-function method). **Program settings** holds sidecar (DUT flags, reports) and instrument VISA slots. Mean GTE needs a threshold; band and series need both limits before compilation. Missing criteria and incomplete numeric text can still be saved as authoring drafts. Preview uses canned samples unless a recording is selected.
+1. **New test plan** opens the shared initializer with explicit Empty, Voltage task and Demo voltage task choices. **First voltage test…** offers optional task guidance. Empty plans contain no instruments; only an explicit Demo choice selects a Mock DMM. Choose a physical instrument and its address for product plans, and review instrument identity and safe shutdown before creation. **Remove program** (or Delete on the programs list) drops the selected plan from the session and deletes its `.TapPlan` + `.program.json` when those files exist.
+2. On the **Program** tab, search **Add to sequence** by Measure, Check, Operator action or Flow, choose **Before selected**, **After selected** or **End of section**, review the prerequisites, and **Add recipe**. Rename, Duplicate and Move up/down apply to the selected step; Undo/Redo restore complete program edits. Duplicate allocates fresh IDs and channels while preserving external references. Moves that break dependencies, loop scope or opaque steps are rejected with an explanation. **Remove selected** (or Delete on the sequence list) drops the highlighted Setup, measure, Repeat, or Raw row. **Remove loop, keep steps** unwraps Repeat children. **Disable safe shutdown** turns Cleanup off. The sequence list is Setup / Measure / Cleanup — not a tree. Repeat children are indented under the Repeat row. **Dialog** and **Hang Forever** are not listed.
+3. The **Inspector** edits only the selected sequence row (channel key, display role, unit, limits, formula chips, transfer-function method). **Hardware** holds program sidecar membership (DUT fields, reports) and the instrument table with actual type, address, package availability, affected steps and cleanup coverage. **Definitions** administers workspace catalogs and hardware templates. Mean GTE needs a threshold; band and series need both limits before compilation. Missing criteria and incomplete numeric text can still be saved as authoring drafts. Preview uses canned samples unless a recording is selected.
 4. **Preview** shows canned samples for the selected DisplayRole (not Execute). Select a `recordings/` export to eval formulas and transfer functions on real `elapsedMs` series.
 5. **Save plan** writes the durable source in `authoring-drafts/{planId}.authoring.json`, then compiles deployable content to `{planId}.TapPlan` + `{planId}.program.json`. Incomplete content remains saved with an explanation of what prevents compilation. **Save sidecar** persists the authoring source and exports only the program settings; changed sequence content still requires compilation before checked packaging.
 
-Keep **VISA address** writable on **Program settings** so the operator Instruments page can rebind.
+To change a program binding, select its slot in **Hardware**, click **Load selected binding**, choose a registered adapter and its address/configuration, then **Review binding change**. The dialog names the affected steps. Applying preserves logical slot and step identities; **Undo**/**Redo** restores the program edit. Removal explicitly chooses a compatible remaining slot and reviews every known reference. Imported opaque bindings stay protected.
+
+**Definitions** creates report kinds, program kinds and required fields without changing any program membership. Choose membership in **Hardware**. Workspace removal reviews each affected program, including its default-report fallback or reset to `dut`, and **Undo catalog**/**Redo catalog** restores the transaction. Use **Save All** to persist workspace changes.
+
+Hardware templates have stable identities in `authoring.json`. **Include definition in selected program** copies the visible type/address/configuration only into that program. Updating or removing a template leaves existing program bindings independent; update those through Hardware review. The operator Instruments page can still rebind its bench runtime resource.
 
 **Undo** and **Redo** apply to the selected program's committed edits, including sequence, instrument and sidecar changes. Each program keeps its own history and selected step when you switch programs. Saving keeps the history: Undo can make a saved program dirty again, while returning to its saved content clears the dirty marker. **Save sidecar** advances only the settings baseline; sequence edits still require **Save plan** or **Save all**.
 
@@ -46,9 +49,9 @@ Keep **VISA address** writable on **Program settings** so the operator Instrumen
 
 Editing creates debounced local checkpoints under `.authoring/recovery/`. A checkpoint does not clear the unsaved marker. On reopening, review the recovery notice and explicitly restore or discard newer content. Recovery failures remain visible while your draft stays open. Saved source documents retain stable row identities, formula intent, and incomplete input; future-schema sources are preserved read-only. Local recovery, builds, and package homes stay out of source control; commit `authoring-drafts/` with the workspace.
 
-If compiled plans change outside the app, review the conflict and choose whether to import those changes or retain your source before exporting again. Saving a draft alone does not make stale compiled artifacts ready for packaging. `--migrate <workspace>` explicitly upgrades older supported manifests, keeps `authoring.json.schema-<version>.bak`, and makes no changes on repeat execution. Future manifests remain untouched.
+If compiled plans change outside the app, review the conflict and choose whether to import those changes or retain your source before exporting again. Saving a draft alone does not make stale compiled artifacts ready for packaging. Workspace manifests must use the current schema version 2. Older manifests are rejected without changes; future manifests remain read-only and untouched.
 
-Sidecar fields (`displayName`, DUT flags, `reportKinds`) live on **Program settings**. Field reference: [adapting.md](adapting.md#author-a-locked-program). Copy [`plans/opentap/template.program.json`](../plans/opentap/template.program.json) only when you author a sidecar by hand.
+Sidecar fields (`displayName`, DUT flags, `reportKinds`) live on **Hardware**. Field reference: [adapting.md](adapting.md#author-a-locked-program). Copy [`plans/opentap/template.program.json`](../plans/opentap/template.program.json) only when you author a sidecar by hand.
 
 ## 3. Add each kind of test
 
@@ -56,11 +59,11 @@ Recipes appear under **Add to sequence** on the Program tab. Assign the instrume
 
 ### Structure — Test Group
 
-**Test Group.** Setup / measure / Cleanup groups are written on Save. The group itself does not publish results. Keep nest depth at three levels. Give every leaf a unique name — duplicate sibling names force path-qualified selection on the Run board.
+**Test Group.** Setup / measure / Cleanup groups are generated on Save and are absent from the insertion palette. The group itself does not publish results. Keep nest depth at three levels. Give every leaf a unique name — duplicate sibling names force path-qualified selection on the Run board.
 
 ### Identity — Identity Check
 
-When the sidecar has `requireSerial: true`, the plan needs an identity step. **New program** already adds one.
+When the sidecar has `requireSerial: true`, the plan needs an identity step. Select **Check instrument identity** with the chosen instrument during initialization, or add it in the normal editor. Guided voltage tasks select the identity check by default; empty plans remain incomplete until their required hardware and identity are configured.
 
 - **In-repo demos:** **Identity Check**. Assign Mock DMM and a **Hardware DUT** so the demo can stamp serial.
 - **Product:** *Identity Query* (Instrument Components). DUT serial is the shell confirm — do not add a `HardwareDut` resource. Use TUI if that library step is not in the recipe palette.
@@ -118,7 +121,7 @@ When every sample must stay in band, or you need config-change marks:
 
 ### Repeat / sweep
 
-**Repeat Loop** wraps the last measure node. OpenTAP Sweep/Repeat steps also work in TUI. The Run hero shows innermost `iter i/N`. Edit bounds here or in Engineer **Station overrides** — not as operator prompts.
+**Repeat Loop** wraps the selected eligible measurement or loop; its prerequisite text names the target. OpenTAP Sweep/Repeat steps also work in TUI. The Run hero shows innermost `iter i/N`. Edit bounds here or in Engineer **Station overrides** — not as operator prompts.
 
 ### Station health
 
@@ -126,7 +129,7 @@ When every sample must stay in band, or you need config-change marks:
 
 ### Cleanup — Safe Shutdown
 
-**Safe Shutdown** (or library *Safe Shutdown* in TUI). Assign the same instrument. Required when `selectionIncludesCleanup` is true (the default). Set the sidecar false only when shutdown is suite-scoped and Run Selected is software-only. **New program** already adds Cleanup.
+**Safe Shutdown** (or library *Safe Shutdown* in TUI). Assign the same instrument. Required when `selectionIncludesCleanup` is true (the default). Set the sidecar false only when shutdown is suite-scoped and Run Selected is software-only. Initialization offers **Safe shutdown selected resources** and shows its instrument coverage; empty plans have no resources to shut down.
 
 ### Do not add
 
@@ -231,3 +234,15 @@ In TUI: **New** test plan (or open [`plans/opentap/sample.TapPlan`](../plans/ope
 - Tests for a new plan or plugin: [testing.md](testing.md)
 - Bake onto a sealed bench: [appliance-linux.md](appliance-linux.md)
 - Authoring architecture: [authoring-app.md](authoring-app.md)
+
+## Guided first voltage test
+
+Create an Empty, Product hardware scaffold or explicit Demo voltage workspace from the welcome screen, then choose **First voltage test…**. Physical workspaces declare Instrument Components; Demo voltage uses explicit Mock hardware. Guidance uses the normal plan initializer, document, editor and save operations.
+
+The six stages are name/device, instrument, measurement, pass criterion, preview, and save/check. Instrument identity and safe shutdown are shown in the preview. Choose **Empty plan** for a direct route to the normal editor. Demo explicitly selects a Mock DMM; physical instrument selection requires the declared package and its installed payload.
+
+**Leave guidance** retains entered form values, including incomplete numeric text, for **Resume guidance** in the current workspace session. Reusable instrument selection retains its original address and configuration if catalog entries move, change or disappear; changed or removed choices are labelled for review. No source is published until the final Save action. After that action, the normal document owns edits, history, stable IDs and recovery. **Leave saved guidance** hides the help without altering the document. Reopening a saved plan and choosing Resume uses that plan's saved content.
+
+**Skip optional guidance** is a workstation preference (`skipGuidance` in authoring-preferences.json). Future-schema settings remain read-only. A subsequent First voltage test command opens the ordinary initializer; Resume explicitly enables guidance again. If future-schema settings are read-only and skip guidance, Resume enables it for the current workspace session while preserving the exact settings bytes.
+
+Use the existing editor preview with example data or a recording, **Save and check draft** to save/compile, and **Validate saved plans** for the shared validation operation. Missing bindings, incomplete criteria and packages point to Issues and Environment. Build shows deployment requirements. The completion message requires saved, compiled source with matching artifact hashes and no current editing blockers. It does not execute or deploy to a bench.

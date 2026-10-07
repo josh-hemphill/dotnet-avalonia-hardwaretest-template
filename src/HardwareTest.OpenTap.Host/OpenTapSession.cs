@@ -55,7 +55,7 @@ public sealed partial class OpenTapSession : IOpenTapSession, INotifyPropertyCha
         _bench = bench;
         _cancelExecuteWithToken = cancelExecuteWithToken;
         _clock = clock ?? SystemClock.Instance;
-        _catalog = new OpenTapHostCatalog(_settings, _logger, visaBroker);
+        _catalog = new OpenTapHostCatalog(_settings, _logger, visaBroker, enablePhysicalExecution: true);
     }
 
     public string? LoadedPlanPath { get; private set; }
@@ -195,20 +195,11 @@ public sealed partial class OpenTapSession : IOpenTapSession, INotifyPropertyCha
 
             foreach (var slot in _slots)
             {
-                if ((station.RoleToResource.TryGetValue(slot.RoleHint, out var resource)
-                     || station.RoleToResource.TryGetValue(slot.Name, out resource))
+                if (station.SlotToResource.TryGetValue(slot.Name, out var resource)
                     && !string.IsNullOrWhiteSpace(resource))
                 {
                     TryBindSlotResource_NoLock(slot.Name, resource);
                 }
-            }
-
-            // Legacy: any "dmm" binding applies to first instrument if role hint missed.
-            if (station.RoleToResource.TryGetValue("dmm", out var dmm)
-                && !string.IsNullOrWhiteSpace(dmm)
-                && _instruments.Count > 0)
-            {
-                TryBindSlotResource_NoLock(_slots.FirstOrDefault()?.Name ?? _instruments[0].Name, dmm);
             }
         }
 

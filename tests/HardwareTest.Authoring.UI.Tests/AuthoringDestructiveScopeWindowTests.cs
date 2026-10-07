@@ -18,8 +18,8 @@ public sealed class AuthoringDestructiveScopeWindowTests
     public void Actual_membership_checkbox_changes_only_selected_program(string target, string group)
     {
         using var fixture = Loaded(); var vm = fixture.ViewModel;
-        vm.CreateProgram("a"); AddCatalog(fixture, target == "fixtureId" ? CatalogDeletionKind.RequiredField : CatalogDeletionKind.ReportKind);
-        vm.CreateProgram("b"); vm.SelectProgram("a"); Assert.True(vm.SaveAll().Succeeded); AuthoringUiFixture.Drain();
+        vm.InitializePlan(new("a") { Instruments = [] }); AddCatalog(fixture, target == "fixtureId" ? CatalogDeletionKind.RequiredField : CatalogDeletionKind.ReportKind);
+        vm.InitializePlan(new("b") { Instruments = [] }); vm.DisplayName += " edited"; vm.SelectProgram("a"); Assert.True(vm.SaveAll().Succeeded); AuthoringUiFixture.Drain();
         var other = vm.Programs.Single(p => p.PlanId == "b"); var otherBytes = File.ReadAllBytes(Sidecar(fixture, "b"));
         var box = fixture.Control<CheckBox>($"Include {target} in selected program", fixture.Control<ItemsControl>(group));
         Assert.True(box.IsChecked); PressSpace(fixture.Window!, box);
@@ -46,7 +46,12 @@ public sealed class AuthoringDestructiveScopeWindowTests
         using var fixture = Loaded(960, 600); var target = AddCatalog(fixture, kind); Assert.True(fixture.ViewModel.SaveAll().Succeeded);
         var draft = fixture.ViewModel.SelectedProgram; var files = Snapshot(fixture);
         OpenCatalogModal(fixture, kind, target); var dialog = Dialog(fixture);
-        var text = ModalText(dialog); Assert.Contains(target, text); Assert.Contains("Workspace catalog", text); Assert.Contains("sample", text); Assert.Contains(kind.ToString(), text);
+        var text = ModalText(dialog); Assert.Contains(target, text); Assert.Contains("Workspace catalog", text); Assert.Contains("sample", text); Assert.Contains(kind switch
+        {
+            CatalogDeletionKind.RequiredField => "removed from program membership",
+            CatalogDeletionKind.ReportKind => "Default report:",
+            _ => "resets to dut",
+        }, text);
         AssertInside(fixture.Control<Button>("Cancel destructive operation", dialog), dialog); AssertCancel(dialog);
         Cancel(dialog, route); Assert.Empty(fixture.Window!.OwnedWindows); Assert.True(fixture.Window!.IsVisible);
         Assert.Same(draft, fixture.ViewModel.SelectedProgram); Assert.False(fixture.ViewModel.HasUnsavedChanges); AssertFiles(files);
@@ -58,8 +63,8 @@ public sealed class AuthoringDestructiveScopeWindowTests
     [InlineData(CatalogDeletionKind.ProgramKind)]
     public void Real_workspace_delete_affirmation_stages_only_affected_programs_until_SaveAll_then_reloads(CatalogDeletionKind kind)
     {
-        using var fixture = Loaded(); var vm = fixture.ViewModel; vm.CreateProgram("a"); var target = AddCatalog(fixture, kind);
-        vm.CreateProgram("b"); if (kind == CatalogDeletionKind.RequiredField) vm.SetRequiredFieldIncluded(target, false);
+        using var fixture = Loaded(); var vm = fixture.ViewModel; vm.InitializePlan(new("a") { Instruments = [] }); var target = AddCatalog(fixture, kind);
+        vm.InitializePlan(new("b") { Instruments = [] }); vm.DisplayName += " edited"; if (kind == CatalogDeletionKind.RequiredField) vm.SetRequiredFieldIncluded(target, false);
         if (kind == CatalogDeletionKind.ReportKind) vm.SetReportKindIncluded(target, false);
         if (kind == CatalogDeletionKind.ProgramKind) vm.ProgramKind = "dut";
         Assert.True(vm.SaveAll().Succeeded); var other = vm.SelectedProgram; vm.SelectProgram("a"); AuthoringUiFixture.Drain(); var files = Snapshot(fixture);
@@ -77,8 +82,8 @@ public sealed class AuthoringDestructiveScopeWindowTests
     [AvaloniaFact]
     public void Nested_settings_changed_during_real_confirmation_reject_stale_impact_without_writes()
     {
-        using var fixture = Loaded(); var vm = fixture.ViewModel; vm.CreateProgram("nested"); var target = AddCatalog(fixture, CatalogDeletionKind.RequiredField);
-        vm.ApplyRecipe(AuthoringRecipeIds.Acquire); vm.ApplyRecipe(AuthoringRecipeIds.Repeat); Assert.True(vm.SaveAll().Succeeded); AuthoringUiFixture.Drain();
+        using var fixture = Loaded(); var vm = fixture.ViewModel; vm.CreateDemoProgram("nested"); var target = AddCatalog(fixture, CatalogDeletionKind.RequiredField);
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Acquire); vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Repeat); Assert.True(vm.SaveAll().Succeeded); AuthoringUiFixture.Drain();
         OpenCatalogModal(fixture, CatalogDeletionKind.RequiredField, target);
         var nested = Assert.IsType<RepeatNode>(Assert.Single(vm.SelectedProgram!.Measure)); var metric = Assert.IsType<MetricNode>(Assert.Single(nested.Children));
         var settings = Assert.IsAssignableFrom<IDictionary<string, string>>(Assert.IsType<MeasureSource>(metric.Metric.Source).Settings); settings["Samples"] = "999";
@@ -92,11 +97,12 @@ public sealed class AuthoringDestructiveScopeWindowTests
     [InlineData("session")]
     public void Catalog_confirmation_cannot_apply_to_a_changed_selection_or_reopened_session(string change)
     {
-        using var fixture = Loaded(); var vm = fixture.ViewModel; vm.CreateProgram("a"); var target = AddCatalog(fixture, CatalogDeletionKind.RequiredField); Assert.True(vm.SaveAll().Succeeded);
+        using var fixture = Loaded(); var vm = fixture.ViewModel; vm.InitializePlan(new("a") { Instruments = [] }); var target = AddCatalog(fixture, CatalogDeletionKind.RequiredField); Assert.True(vm.SaveAll().Succeeded);
         OpenCatalogModal(fixture, CatalogDeletionKind.RequiredField, target);
         if (change == "selection") vm.SelectProgram("sample"); else vm.CommitOpen(vm.PrepareOpen(fixture.WorkspaceRoot));
         var before = vm.Programs; var files = Snapshot(fixture); AuthoringUiFixture.Click(fixture.Control<Button>("Remove from workspace", Dialog(fixture)));
-        Assert.Same(before, vm.Programs); AssertFiles(files); Assert.Contains("changed during review", vm.Error);
+        Assert.Same(before, vm.Programs); AssertFiles(files);
+        if (change == "selection") Assert.Contains("changed during review", vm.Error); else Assert.Null(vm.Error);
         Assert.Contains(target, RequiredFieldIds.FromSidecar(vm.Programs.Single(p => p.PlanId == "a").Sidecar));
     }
 
@@ -169,19 +175,19 @@ public sealed class AuthoringDestructiveScopeWindowTests
 
     [AvaloniaTheory]
     [InlineData("last")]
-    [InlineData("legacy")]
+    [InlineData("unresolved")]
     public void Disabled_instrument_removal_explains_the_specific_blocker(string scenario)
     {
-        using var fixture = scenario == "legacy"
-            ? new AuthoringUiFixture(rememberWorkspace: true, compiler: new BlockerCompiler("legacy"))
+        using var fixture = scenario == "unresolved"
+            ? new AuthoringUiFixture(rememberWorkspace: true, compiler: new BlockerCompiler("unresolved"))
             : Loaded();
         var vm = fixture.ViewModel;
-        if (scenario == "legacy") { fixture.Show(); fixture.OpenRememberedWorkspace(); Settings(fixture); }
-        else if (scenario == "last") vm.CreateProgram("last");
+        if (scenario == "unresolved") { fixture.Show(); fixture.OpenRememberedWorkspace(); Settings(fixture); }
+        else if (scenario == "last") vm.CreateDemoProgram("last");
         AuthoringUiFixture.Drain();
         Assert.False(fixture.Control<Button>("Remove instrument slot from selected program").IsEnabled);
         var text = fixture.Control<TextBlock>("Instrument removal guidance").Text;
-        Assert.Contains(scenario == "last" ? "at least one instrument" : "legacy instrument-based", text);
+        Assert.Contains(scenario == "last" ? "at least one instrument" : "unresolved instrument bindings", text);
         Assert.Equal(text, AutomationProperties.GetHelpText(fixture.Control<Button>("Remove instrument slot from selected program")));
     }
 
@@ -202,7 +208,7 @@ public sealed class AuthoringDestructiveScopeWindowTests
     public void Readonly_membership_controls_preserve_checked_state_and_core_draft()
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
-        var manifest = Path.Combine(fixture.WorkspaceRoot, "authoring.json"); File.WriteAllText(manifest, File.ReadAllText(manifest).Replace("\"schemaVersion\": 1", "\"schemaVersion\": 999", StringComparison.Ordinal));
+        var manifest = Path.Combine(fixture.WorkspaceRoot, "authoring.json"); File.WriteAllText(manifest, File.ReadAllText(manifest).Replace("\"schemaVersion\": 2", "\"schemaVersion\": 999", StringComparison.Ordinal));
         fixture.Show(); fixture.OpenRememberedWorkspace(); Settings(fixture);
         var box = fixture.Control<CheckBox>("Include serial in selected program"); var before = box.IsChecked; var draft = fixture.ViewModel.SelectedProgram;
         Assert.False(box.IsEffectivelyEnabled); box.BringIntoView(); AuthoringUiFixture.Drain();
@@ -231,7 +237,7 @@ public sealed class AuthoringDestructiveScopeWindowTests
     [InlineData(true)]
     public void Affirmative_whole_program_removal_affects_only_named_program_and_stale_selection_is_rejected(bool stale)
     {
-        using var fixture = Loaded(); var vm = fixture.ViewModel; vm.CreateProgram("other"); Assert.True(vm.SaveAll().Succeeded); vm.SelectProgram("sample"); AuthoringUiFixture.Drain();
+        using var fixture = Loaded(); var vm = fixture.ViewModel; vm.InitializePlan(new("other") { Instruments = [] }); vm.DisplayName += " edited"; Assert.True(vm.SaveAll().Succeeded); vm.SelectProgram("sample"); AuthoringUiFixture.Drain();
         OpenProgramModal(fixture, true); var dialog = Dialog(fixture); var otherBytes = File.ReadAllBytes(Sidecar(fixture, "other")); var files = Snapshot(fixture);
         if (stale) vm.SelectProgram("other"); AuthoringUiFixture.Click(fixture.Control<Button>("Remove program", dialog));
         Assert.Equal(otherBytes, File.ReadAllBytes(Sidecar(fixture, "other")));
@@ -267,7 +273,7 @@ public sealed class AuthoringDestructiveScopeWindowTests
     public void Workspace_impact_many_programs_scrolls_with_cancel_visible_at_supported_sizes(int width, int height)
     {
         using var fixture = Loaded(width, height); var vm = fixture.ViewModel; AddCatalog(fixture, CatalogDeletionKind.RequiredField);
-        for (var i = 0; i < 35; i++) { vm.CreateProgram($"impact-{i:00}-{new string('x', 110)}"); vm.SetRequiredFieldIncluded("fixtureId", true); }
+        for (var i = 0; i < 35; i++) { vm.InitializePlan(new($"impact-{i:00}-{new string('x', 110)}") { Instruments = [] }); vm.SetRequiredFieldIncluded("fixtureId", true); }
         AuthoringUiFixture.Drain(); OpenCatalogModal(fixture, CatalogDeletionKind.RequiredField, "fixtureId"); var dialog = Dialog(fixture);
         var scroll = fixture.Control<ScrollViewer>("Destructive operation scope and impact", dialog); AssertInside(scroll, dialog); Assert.True(scroll.Extent.Height > scroll.Viewport.Height);
         foreach (var button in dialog.GetVisualDescendants().OfType<Button>().Where(b => b.Content is string)) AssertInside(button, dialog);
@@ -275,7 +281,74 @@ public sealed class AuthoringDestructiveScopeWindowTests
         Assert.Contains(vm.Programs[^1].PlanId, ModalText(dialog));
         var finalText = Assert.Single(Assert.IsType<StackPanel>(scroll.Content).Children.OfType<TextBlock>());
         AssertFinalLineVisible(finalText, scroll); Cancel(dialog, "cancel");
-        Settings(fixture); var remove = fixture.Control<Button>("Remove required field fixtureId from workspace"); remove.BringIntoView(); AuthoringUiFixture.Drain(); AssertInside(remove, fixture.Window!);
+        Definitions(fixture); var remove = fixture.Control<Button>("Remove required field fixtureId from workspace"); remove.BringIntoView(); AuthoringUiFixture.Drain(); AssertInside(remove, fixture.Window!);
+    }
+
+    [AvaloniaTheory]
+    [InlineData("catalog", "hidden")]
+    [InlineData("catalog", "context")]
+    [InlineData("catalog", "session")]
+    [InlineData("instrument", "hidden")]
+    [InlineData("instrument", "context")]
+    [InlineData("instrument", "session")]
+    [InlineData("binding", "hidden")]
+    [InlineData("binding", "context")]
+    [InlineData("binding", "session")]
+    [InlineData("definition", "hidden")]
+    [InlineData("definition", "context")]
+    [InlineData("definition", "session")]
+    [InlineData("program", "hidden")]
+    [InlineData("program", "context")]
+    [InlineData("program", "session")]
+    public async Task Every_modal_rejects_obsolete_owner_without_mutation_or_stale_error(string operation, string transition)
+    {
+        using var fixture = Loaded(); using var replacement = new AuthoringUiFixture(); var vm = fixture.ViewModel;
+        PrepareSlots(fixture); var target = AddCatalog(fixture, CatalogDeletionKind.RequiredField);
+        vm.LoadHardwareEditor(); vm.NewInstrumentSlot = "owner-template"; vm.AddHardwareDefinition();
+        Assert.Null(vm.Error); Assert.True(vm.SaveAll().Succeeded); await vm.StopRecoveryAsync();
+        var prepared = vm.PrepareOpen(fixture.WorkspaceRoot); vm.CommitOpen(prepared); await vm.StopRecoveryAsync();
+        vm.SelectProgram("slots"); vm.SelectedInstrumentSlot = "DMM"; vm.LoadHardwareEditor(); vm.HardwareEditAddress = "MOCK::OWNER-REPLACEMENT";
+        vm.SelectedHardwareDefinition = Assert.Single(vm.HardwareDefinitions);
+        Task<bool> request = operation switch
+        {
+            "catalog" => fixture.Window!.ConfirmCatalogDeletionAsync(CatalogDeletionKind.RequiredField, target),
+            "instrument" => fixture.Window!.ConfirmInstrumentRemovalAsync(),
+            "binding" => fixture.Window!.ConfirmHardwareEditAsync(),
+            "definition" => fixture.Window!.ConfirmHardwareDefinitionRemovalAsync(),
+            _ => (Task<bool>)typeof(MainWindow).GetMethod("ConfirmRemoveProgramAsync",
+                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.Invoke(fixture.Window, null)!
+        };
+        AuthoringUiFixture.Drain(); Assert.False(request.IsCompleted); var dialog = Dialog(fixture);
+        if (operation == "instrument") fixture.Control<ComboBox>("Compatible replacement instrument slot", dialog).SelectedItem = "B";
+        if (transition == "hidden") fixture.Window!.Hide();
+        else if (transition == "context")
+        {
+            replacement.ViewModel.Open(replacement.WorkspaceRoot); await replacement.ViewModel.StopRecoveryAsync();
+            fixture.Window!.DataContext = replacement.ViewModel;
+        }
+        else
+        {
+            var workspace = vm.Workspace; var oldSession = vm.WorkspaceSessionId;
+            vm.CommitOpen(prepared, discardUnsavedChanges: true); await vm.StopRecoveryAsync(); vm.SelectProgram("slots");
+            Assert.Same(workspace, vm.Workspace); Assert.NotEqual(oldSession, vm.WorkspaceSessionId);
+        }
+        var draft = vm.SelectedProgram; var revision = vm.SelectedDocument!.Revision; var status = vm.Status;
+        var files = Directory.GetFiles(fixture.WorkspaceRoot, "*", SearchOption.AllDirectories).ToDictionary(path => path, File.ReadAllBytes);
+        try
+        {
+            if (operation == "instrument") dialog.Close("B"); else dialog.Close(true);
+            Assert.False(await request);
+            Assert.Same(draft, vm.SelectedProgram); Assert.Equal(revision, vm.SelectedDocument.Revision); Assert.Equal(status, vm.Status);
+            Assert.Null(vm.Error); Assert.Null(replacement.ViewModel.Error); Assert.False(vm.HasUnsavedChanges);
+            Assert.Equal(files.Keys.Order(), Directory.GetFiles(fixture.WorkspaceRoot, "*", SearchOption.AllDirectories).Order());
+            foreach (var (path, bytes) in files) Assert.Equal(bytes, File.ReadAllBytes(path));
+        }
+        finally
+        {
+            fixture.Window!.DataContext = vm;
+            if (!fixture.Window.IsVisible) fixture.Window.Show();
+            AuthoringUiFixture.Drain();
+        }
     }
 
     private static AuthoringUiFixture Loaded(double width = 1280, double height = 800, bool realLifecycle = false)
@@ -283,20 +356,26 @@ public sealed class AuthoringDestructiveScopeWindowTests
         var fixture = new AuthoringUiFixture(rememberWorkspace: true); fixture.Show(width, height, realLifecycle); fixture.OpenRememberedWorkspace(); Settings(fixture); return fixture;
     }
     private static void Settings(AuthoringUiFixture fixture) { fixture.Window!.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 1; AuthoringUiFixture.Drain(); }
+    private static void Definitions(AuthoringUiFixture fixture) { fixture.Window!.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 6; AuthoringUiFixture.Drain(); }
     private static string AddCatalog(AuthoringUiFixture fixture, CatalogDeletionKind kind)
     {
-        Settings(fixture); var target = kind == CatalogDeletionKind.RequiredField ? "fixtureId" : "custom";
+        Definitions(fixture); var target = kind == CatalogDeletionKind.RequiredField ? "fixtureId" : "custom";
         var type = kind switch { CatalogDeletionKind.RequiredField => "required field", CatalogDeletionKind.ReportKind => "report kind", _ => "program kind" };
-        fixture.Type(fixture.Control<TextBox>($"New {type}"), target); AuthoringUiFixture.Click(fixture.Control<Button>($"Add {type}")); return target;
+        fixture.Type(fixture.Control<TextBox>($"New {type}"), target); AuthoringUiFixture.Click(fixture.Control<Button>($"Add {type}"));
+        if (kind == CatalogDeletionKind.RequiredField) fixture.ViewModel.SetRequiredFieldIncluded(target, true);
+        else if (kind == CatalogDeletionKind.ReportKind) fixture.ViewModel.SetReportKindIncluded(target, true);
+        else fixture.ViewModel.ProgramKind = target;
+        Settings(fixture);
+        return target;
     }
     private static void OpenCatalogModal(AuthoringUiFixture fixture, CatalogDeletionKind kind, string target)
     {
-        Settings(fixture); var type = kind switch { CatalogDeletionKind.RequiredField => "required field", CatalogDeletionKind.ReportKind => "report kind", _ => "program kind" };
+        Definitions(fixture); var type = kind switch { CatalogDeletionKind.RequiredField => "required field", CatalogDeletionKind.ReportKind => "report kind", _ => "program kind" };
         var button = fixture.Control<Button>($"Remove {type} {target} from workspace"); button.BringIntoView(); AuthoringUiFixture.Drain(); AuthoringUiFixture.Click(button);
     }
     private static void PrepareSlots(AuthoringUiFixture fixture)
     {
-        var vm = fixture.ViewModel; vm.CreateProgram("slots"); vm.NewInstrumentSlot = "B"; vm.AddInstrumentSlot(); vm.SelectedInstrumentSlot = "DMM"; vm.ApplyRecipe(AuthoringRecipeIds.Acquire); vm.ApplyRecipe(AuthoringRecipeIds.Repeat);
+        var vm = fixture.ViewModel; vm.CreateDemoProgram("slots"); vm.NewInstrumentSlot = "B"; vm.AddInstrumentSlot(); vm.SelectedInstrumentSlot = "DMM"; vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Acquire); vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Repeat);
         vm.SelectedInstrumentSlot = "DMM"; Assert.True(vm.SaveAll().Succeeded); Settings(fixture); fixture.Control<Button>("Remove instrument slot from selected program").BringIntoView(); AuthoringUiFixture.Drain();
     }
     private static Window Dialog(AuthoringUiFixture fixture) => Assert.Single(fixture.Window!.OwnedWindows);
@@ -344,14 +423,14 @@ public sealed class AuthoringDestructiveScopeWindowTests
     {
         public DraftWorkspace LoadAll(AuthoringWorkspace workspace)
         {
-            var draft = AuthoringRecipeCatalog.CreateProgram("blocked"); var known = draft.Instruments[0].TypeId;
+            var draft = MockDmmDraftFixture.Create("blocked"); var known = draft.Instruments[0].TypeId;
             draft = draft with
             {
                 Instruments = [draft.Instruments[0] with { TypeId = scenario == "unsupported" ? "Unknown.Adapter" : known }, new InstrumentRef("B", scenario == "different" ? "Different.Adapter" : known, "MOCK::B")],
                 Measure = scenario switch
                 {
                     "raw" => [new RawStepNode("Unknown.Step", "<step/>")],
-                    "legacy" => [new MetricNode(new MetricDraft("Legacy mean", "VDC.mean", "scalar", "V", new LimitSpec(null, null, 1.2), null,
+                    "unresolved" => [new MetricNode(new MetricDraft("Unresolved mean", "VDC.mean", "scalar", "V", new LimitSpec(null, null, 1.2), null,
                         new AlgorithmSource(AuthoringFunctionIds.BasicMeanGte, [], new Dictionary<string, string>())))],
                     _ => []
                 },

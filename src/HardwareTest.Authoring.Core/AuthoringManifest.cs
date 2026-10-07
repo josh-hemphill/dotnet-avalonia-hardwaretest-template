@@ -7,7 +7,7 @@ public static class AuthoringSchemaVersions
 {
     public const int Manifest = 2;
 
-    public const int Preferences = 1;
+    public const int Preferences = 2;
 }
 
 /// Versioned workspace manifest beside TapPlans. Session/DUT/Typst stay in program sidecars.
@@ -36,6 +36,8 @@ public sealed class AuthoringManifest
 
     public bool IncludeTui { get; set; }
 
+    public List<string> ExcludedProgramIds { get; set; } = [];
+
     /// Optional operator run.json goldens. Default recordings/. Folder need not exist.
     public string RecordingsDirectory { get; set; } = "recordings";
 
@@ -58,6 +60,8 @@ public sealed class AuthoringWorkspaceCatalogs
     public List<string> InstrumentSlotNames { get; set; } = [];
 
     public List<string> RequiredFields { get; set; } = [];
+
+    public List<AuthoringHardwareDefinition> Hardware { get; set; } = [];
 }
 
 public sealed class AuthoringPackageSpec

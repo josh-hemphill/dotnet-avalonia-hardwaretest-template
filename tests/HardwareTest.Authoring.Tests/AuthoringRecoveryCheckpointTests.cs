@@ -6,6 +6,33 @@ namespace HardwareTest.Authoring.Tests;
 public sealed class AuthoringRecoveryCheckpointTests
 {
     [Fact]
+    public async Task Stop_awaits_cancelled_writer_and_private_file_release_before_root_removal()
+    {
+        using var workspace = new TemporaryWorkspace();
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var release = new ManualResetEventSlim();
+        var notifications = 0;
+        using var recovery = new AuthoringRecoveryCheckpointService(action => action(), _ => notifications++, TimeSpan.Zero,
+            (path, document) =>
+            {
+                using (File.Open(path, FileMode.Create, FileAccess.Write, FileShare.None))
+                {
+                    entered.TrySetResult();
+                    Assert.True(release.Wait(TimeSpan.FromSeconds(5)));
+                }
+                new AuthoringDocumentStore(workspace.Root).SaveAtPath(path, document);
+            });
+        recovery.Schedule(workspace.Root, AuthoringDocumentDto.FromDraft(Draft(), 1));
+        await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        var stopped = recovery.StopAsync();
+        Assert.False(stopped.IsCompleted);
+        release.Set(); await stopped;
+        Assert.Equal(0, notifications);
+        Assert.Empty(Directory.EnumerateFiles(workspace.Root, "*.tmp", SearchOption.AllDirectories));
+        Assert.Empty(Directory.EnumerateDirectories(workspace.Root, ".checkpoint-*", SearchOption.AllDirectories));
+    }
+
+    [Fact]
     public async Task DebounceCapturesLatestIsolatedContentAndNeverMarksSessionSaved()
     {
         using var workspace = new TemporaryWorkspace();
@@ -120,6 +147,99 @@ public sealed class AuthoringRecoveryCheckpointTests
         document.SchemaVersion++;
         Assert.Throws<InvalidDataException>(() => recovery.Schedule(workspace.Root, document));
         Assert.False(Directory.Exists(Path.Combine(workspace.Root, ".authoring")));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Slow_candidate_write_does_not_block_cancel_or_dispose_and_never_commits_late(bool dispose)
+    {
+        using var workspace = new TemporaryWorkspace();
+        var started = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var finished = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var release = new ManualResetEventSlim();
+        var callbacks = 0;
+        using var recovery = new AuthoringRecoveryCheckpointService(action => action(), _ => callbacks++, TimeSpan.Zero,
+            (path, document) =>
+            {
+                started.SetResult(Path.GetDirectoryName(path)!);
+                release.Wait();
+                try { new AuthoringDocumentStore(workspace.Root).SaveAtPath(path, document); }
+                finally { finished.SetResult(); }
+            });
+        recovery.Schedule(workspace.Root, AuthoringDocumentDto.FromDraft(Draft(), 1));
+        try
+        {
+            await started.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            var clock = System.Diagnostics.Stopwatch.StartNew();
+            if (dispose) recovery.Dispose(); else recovery.Cancel(workspace.Root, "test");
+            Assert.True(clock.Elapsed < TimeSpan.FromMilliseconds(200));
+            release.Set();
+            await WaitForObsoleteWriterCleanup(started.Task, finished.Task);
+            Assert.Equal(0, callbacks);
+            Assert.False(File.Exists(new AuthoringDocumentStore(workspace.Root).GetRecoveryPath("test")));
+        }
+        finally
+        {
+            recovery.Dispose();
+            release.Set();
+            await WaitForObsoleteWriterCleanup(started.Task, finished.Task);
+        }
+    }
+
+    [Fact]
+    public async Task Replacement_checkpoint_commits_without_waiting_for_obsolete_slow_write()
+    {
+        using var workspace = new TemporaryWorkspace();
+        var started = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var finished = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var latest = Completion();
+        var callbacks = 0;
+        using var release = new ManualResetEventSlim();
+        using var recovery = new AuthoringRecoveryCheckpointService(action => action(), value =>
+        {
+            Interlocked.Increment(ref callbacks);
+            latest.TrySetResult(value);
+        }, TimeSpan.Zero,
+            (path, document) =>
+            {
+                if (document.Revision == 1) { started.SetResult(Path.GetDirectoryName(path)!); release.Wait(); }
+                try { new AuthoringDocumentStore(workspace.Root).SaveAtPath(path, document); }
+                finally { if (document.Revision == 1) finished.SetResult(); }
+            });
+        recovery.Schedule(workspace.Root, AuthoringDocumentDto.FromDraft(Draft(), 1));
+        try
+        {
+            await started.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            recovery.Cancel(workspace.Root, "test");
+            recovery.Schedule(workspace.Root, AuthoringDocumentDto.FromDraft(Draft(), 2));
+            Assert.Equal(2, (await latest.Task.WaitAsync(TimeSpan.FromSeconds(5))).Revision);
+            Assert.False(finished.Task.IsCompleted);
+            release.Set();
+            await WaitForObsoleteWriterCleanup(started.Task, finished.Task);
+            var store = new AuthoringDocumentStore(workspace.Root);
+            Assert.Equal(2, store.LoadAtPath(store.GetRecoveryPath("test")).Document!.Revision);
+            Assert.Equal(1, callbacks);
+        }
+        finally
+        {
+            recovery.Dispose();
+            release.Set();
+            await WaitForObsoleteWriterCleanup(started.Task, finished.Task);
+        }
+    }
+
+    private static async Task WaitForObsoleteWriterCleanup(Task<string> started, Task finished)
+    {
+        var stagingDirectory = await started.WaitAsync(TimeSpan.FromSeconds(5));
+        await finished.WaitAsync(TimeSpan.FromSeconds(5));
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        while (Directory.Exists(stagingDirectory))
+        {
+            if (clock.Elapsed >= TimeSpan.FromSeconds(5)) throw new TimeoutException("Obsolete checkpoint staging was not removed.");
+            await Task.Delay(10);
+        }
+        Assert.False(Directory.Exists(stagingDirectory));
     }
 
     private static TaskCompletionSource<AuthoringRecoveryCheckpointResult> Completion()

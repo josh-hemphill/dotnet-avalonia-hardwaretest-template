@@ -121,11 +121,6 @@
               <StackPanel>
                 <StackPanel Orientation="Horizontal" Spacing="6">
                   <TextBlock Text="{Binding PlanName}" FontWeight="SemiBold" />
-                  <TextBlock Text="Legacy"
-                             FontSize="10"
-                             Opacity="0.7"
-                             VerticalAlignment="Center"
-                             IsVisible="{Binding IsLegacy}" />
                   <TextBlock Text="Read-only"
                              FontSize="10"
                              Opacity="0.7"

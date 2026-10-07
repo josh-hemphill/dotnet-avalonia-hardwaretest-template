@@ -36,11 +36,31 @@ public sealed partial class AuthoringWorkspaceViewModel
     private IReadOnlyList<AuthoringSettingRow> ToSettingRows(
         IReadOnlyDictionary<string, string> settings,
         string functionId)
-        => settings
-            .Where(pair => !AuthoringCriteria.IsRuntimeLimit(pair.Key))
+    {
+        var projected = new Dictionary<string, string>(settings, StringComparer.OrdinalIgnoreCase);
+        if (AuthoringFunctionCatalog.TryGet(functionId, out _))
+        {
+            try
+            {
+                foreach (var (key, value) in PlanCompiler.FunctionSettings(functionId))
+                    projected.TryAdd(key, value);
+            }
+            catch (AuthoringWorkspaceException)
+            {
+                // Imported plugin settings remain editable even if the plugin is unavailable.
+            }
+        }
+        var rows = projected.Where(pair => !AuthoringCriteria.IsRuntimeLimit(pair.Key)
+                && !pair.Key.Equals("Channel", StringComparison.OrdinalIgnoreCase)
+                && !(AuthoringFunctionCatalog.ConsumesInputChannels(functionId)
+                     && new[] { "InputChannel", "ProducerStepId", "Unit" }.Contains(pair.Key, StringComparer.OrdinalIgnoreCase)))
             .OrderBy(pair => pair.Key, StringComparer.OrdinalIgnoreCase)
-            .Select(pair => AuthoringMetricSettingCatalog.CreateRow(functionId, pair.Key, pair.Value, ChannelKeys))
+            .Select(pair => CreateSelectedSettingRow(functionId, pair.Key, pair.Value))
             .ToArray();
+        if (rows.Length != _currentSettingRows.Count || rows.Where((row, index) => !ReferenceEquals(row, _currentSettingRows[index])).Any())
+            _currentSettingRows = rows;
+        return _currentSettingRows;
+    }
 
     private static IReadOnlyDictionary<string, string> WithSetting(
         IReadOnlyDictionary<string, string> settings,

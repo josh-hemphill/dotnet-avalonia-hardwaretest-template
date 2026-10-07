@@ -24,7 +24,7 @@ public sealed class AuthoringCleanupScopeTests : IDisposable
     [InlineData("membership")]
     public void Cleanup_edits_clone_selected_sidecar_preserve_prior_draft_and_other_program_and_stage_files(string operation)
     {
-        var vm = new AuthoringWorkspaceViewModel(); vm.Open(_root); vm.CreateProgram("a"); vm.NewInstrumentSlot = "OTHER"; vm.AddInstrumentSlot(); vm.CreateProgram("b"); Assert.True(vm.SaveAll().Succeeded);
+        var vm = new AuthoringWorkspaceViewModel(); vm.Open(_root); vm.CreateDemoProgram("a"); vm.NewInstrumentSlot = "OTHER"; vm.AddInstrumentSlot(); vm.CreateDemoProgram("b"); Assert.True(vm.SaveAll().Succeeded);
         var other = vm.SelectedProgram; vm.SelectProgram("a"); SelectCleanup(vm); var prior = vm.SelectedProgram!;
         var priorSidecar = JsonSerializer.Serialize(prior.Sidecar, ProgramCatalogJsonContext.Default.ProgramSidecar); var priorCleanup = prior.Cleanup;
         var bytes = Directory.EnumerateFiles(_root).ToDictionary(p => p, File.ReadAllBytes);
@@ -50,7 +50,7 @@ public sealed class AuthoringCleanupScopeTests : IDisposable
     [InlineData("membership")]
     public void All_cleanup_entrypoints_reject_readonly_workspaces_without_mutation_or_files(string operation)
     {
-        var manifest = Path.Combine(_root, "authoring.json"); File.WriteAllText(manifest, File.ReadAllText(manifest).Replace("\"schemaVersion\": 1", "\"schemaVersion\": 999", StringComparison.Ordinal));
+        var manifest = Path.Combine(_root, "authoring.json"); File.WriteAllText(manifest, File.ReadAllText(manifest).Replace("\"schemaVersion\": 2", "\"schemaVersion\": 999", StringComparison.Ordinal));
         var vm = new AuthoringWorkspaceViewModel(new ReadonlyCompiler()); vm.Open(_root); SelectCleanup(vm); var prior = vm.SelectedProgram!;
         var sidecar = JsonSerializer.Serialize(prior.Sidecar, ProgramCatalogJsonContext.Default.ProgramSidecar); var before = File.ReadAllBytes(manifest);
         Assert.True(vm.Workspace!.IsReadOnly); Assert.Contains("read-only", Assert.Throws<AuthoringWorkspaceException>(() => Edit(vm, operation)).Message);
@@ -65,7 +65,7 @@ public sealed class AuthoringCleanupScopeTests : IDisposable
     public void Dispose() => Directory.Delete(_root, recursive: true);
     private sealed class ReadonlyCompiler : IPlanCompiler
     {
-        public DraftWorkspace LoadAll(AuthoringWorkspace workspace) => new(workspace, [AuthoringRecipeCatalog.CreateProgram("a")]);
+        public DraftWorkspace LoadAll(AuthoringWorkspace workspace) => new(workspace, [MockDmmDraftFixture.Create("a")]);
         public ProgramDraft Load(string path) => throw new NotSupportedException();
         public void Save(ProgramDraft draft, string path) => throw new NotSupportedException();
         public void SaveSidecar(string path, ProgramSidecar sidecar) => throw new NotSupportedException();

@@ -19,6 +19,7 @@ public sealed partial class AuthoringWorkspaceViewModel
             if (SetField(ref _selectedRecipeId, value))
             {
                 OnPropertyChanged(nameof(SelectedRecipe));
+                RaiseSequenceOperations();
             }
         }
     }
@@ -63,15 +64,29 @@ public sealed partial class AuthoringWorkspaceViewModel
     {
         get
         {
+            if (SelectedProgram is not null && SelectedMetric is { } selected)
+            {
+                var identity = SelectedPreviewNodeId;
+                var tile = BoardTiles.LastOrDefault(tile => tile.NodeId == identity);
+                if (tile is not null) return tile.Preview;
+            }
             var siblings = SelectedProgram is null
                 ? []
                 : AuthoringRecipeCatalog.EnumerateMetrics(SelectedProgram.Measure).ToArray();
             var recorded = SelectedDataset is { } dataset
                 ? RunDatasetBinder.SeriesByMetric(dataset.Run)
                 : null;
-            return MetricPreviewBuilder.From(SelectedMetric, siblings, recorded);
+            return MetricPreviewBuilder.From(SelectedMetric, siblings, recorded, SelectedProgram,
+                SelectedPreviewNodeId);
         }
     }
+
+    private Guid? SelectedPreviewNodeId => SelectedMeasure switch
+    {
+        MetricNode node => node.NodeId,
+        RepeatNode repeat => repeat.Children.OfType<MetricNode>().FirstOrDefault()?.NodeId,
+        _ => null,
+    };
 
     public string PreviewKind => Preview.TileKind?.ToString() ?? "Text";
 
@@ -330,7 +345,7 @@ public sealed partial class AuthoringWorkspaceViewModel
             throw new AuthoringWorkspaceException("Select a recipe before adding it.");
         }
 
-        ApplyRecipe(SelectedRecipeId);
+        InsertSelectedRecipe();
     }
 
     private void RefreshMeasurePresentation()
@@ -432,7 +447,16 @@ public sealed partial class AuthoringWorkspaceViewModel
 
     private void RaiseEditorProperties()
     {
+        RaiseBoardProperties();
+        RaiseSequenceOperations();
+        OnPropertyChanged(nameof(MetricName));
+        OnPropertyChanged(nameof(HasMetricInputs));
+        OnPropertyChanged(nameof(MetricInputChannels));
+        OnPropertyChanged(nameof(SelectedNodeIdentity));
+        OnPropertyChanged(nameof(NeedsMetricInstrument));
+        OnPropertyChanged(nameof(SelectedStepErrors));
         InvalidateFormulaSave();
+        RaiseFormulaDeployment();
         OnPropertyChanged(nameof(FormulaIntent));
         OnPropertyChanged(nameof(FormulaExplorationOnly));
         OnPropertyChanged(nameof(SelectedMeasure));

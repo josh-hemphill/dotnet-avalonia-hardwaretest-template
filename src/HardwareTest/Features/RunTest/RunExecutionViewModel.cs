@@ -288,26 +288,25 @@ public sealed class RunExecutionViewModel
     {
         await _host.LoadSelectedProgramAsync(stagePath, selectionPath);
         _stationOverrides.ApplySavedParameterOverrides();
+        var station = _stationOverrides.BuildStationProfile();
         if (_host.IsEngineerDebugMode && !string.IsNullOrWhiteSpace(selectionPath))
         {
             _stepTree.SelectedStep = _stepTree.FindByPath(selectionPath) ?? _stepTree.SelectedStep;
-            if (_stepTree.SelectedStep is not null)
+            if (_stepTree.SelectedStep is not null && _stationOverrides.TryApplyDebugPatchForRunPreparation())
             {
-                _stationOverrides.ApplyDebugPatch();
+                var resources = new Dictionary<string, string>(station.SlotToResource, StringComparer.OrdinalIgnoreCase)
+                {
+                    [_stationOverrides.DebugSlotName!] = _stationOverrides.DebugResource.Trim(),
+                };
+                station = new StationProfile(resources);
             }
         }
 
-        var station = _stationOverrides.BuildStationProfile();
         var snapshots = _station.InstrumentSlots.Select(s =>
         {
             var resource = s.ResourceName?.Trim() ?? string.Empty;
-            if (station.RoleToResource.TryGetValue(s.RoleHint, out var byRole)
-                && !string.IsNullOrWhiteSpace(byRole))
-            {
-                resource = byRole.Trim();
-            }
-            else if (station.RoleToResource.TryGetValue(s.Name, out var byName)
-                     && !string.IsNullOrWhiteSpace(byName))
+            if (station.SlotToResource.TryGetValue(s.Name, out var byName)
+                && !string.IsNullOrWhiteSpace(byName))
             {
                 resource = byName.Trim();
             }

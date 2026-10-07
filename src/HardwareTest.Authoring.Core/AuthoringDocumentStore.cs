@@ -41,8 +41,9 @@ public sealed partial class AuthoringDocumentStore
             if (version != AuthoringDocumentDto.CurrentSchemaVersion) throw new InvalidDataException("Unsupported workspace source schema.");
             var document = JsonSerializer.Deserialize(bytes, AuthoringDocumentJsonContext.Default.AuthoringWorkspaceDto)
                 ?? throw new InvalidDataException("Workspace source is empty.");
-            if (document.Manifest is null || document.Revision < 0) throw new InvalidDataException("Workspace source is incomplete.");
-            if (document.Manifest.SchemaVersion < 1)
+            if (document.Manifest is null || document.Manifest.ExcludedProgramIds is null
+                || document.Manifest.ExcludedProgramIds.Any(string.IsNullOrWhiteSpace) || document.Revision < 0) throw new InvalidDataException("Workspace source is incomplete.");
+            if (document.Manifest.SchemaVersion < AuthoringSchemaVersions.Manifest)
                 throw new InvalidDataException("Workspace source has an unsupported manifest schema version.");
             if (document.Manifest.SchemaVersion > AuthoringSchemaVersions.Manifest)
                 return new(document, true, bytes, null, true);
@@ -57,7 +58,7 @@ public sealed partial class AuthoringDocumentStore
     public void SaveWorkspace(AuthoringManifest manifest, long revision = 0)
     {
         ArgumentNullException.ThrowIfNull(manifest);
-        if (manifest.SchemaVersion < 1 || manifest.SchemaVersion > AuthoringSchemaVersions.Manifest || revision < 0)
+        if (manifest.SchemaVersion != AuthoringSchemaVersions.Manifest || revision < 0)
             throw new InvalidOperationException("Cannot write a future or invalid workspace source.");
         var existing = LoadWorkspace();
         if (existing.IsReadOnly) throw new InvalidOperationException(existing.Error ?? "Future authoring schemas are read-only; original bytes are preserved.");
@@ -151,6 +152,38 @@ public sealed partial class AuthoringDocumentStore
         _writer.Write(path, bytes);
     }
 
+    /// Initialization alone uses create-new publication. Ordinary save keeps replacement semantics.
+    public void CreateNew(AuthoringDocumentDto document, CancellationToken cancellationToken = default, Action? validateWorkspace = null)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+        _ = document.ToDraft();
+        var id = document.PlanId;
+        var path = GetDocumentPath(id);
+        var bytes = JsonSerializer.SerializeToUtf8Bytes(document, AuthoringDocumentJsonContext.Default.AuthoringDocumentDto);
+        _writer.WriteNew(path, bytes, () =>
+        {
+            ValidateNewDestination(id);
+            validateWorkspace?.Invoke();
+        }, cancellationToken);
+    }
+
+    public string ValidateNewDestination(string id)
+    {
+        var path = GetDocumentPath(id);
+        var directory = Path.GetDirectoryName(path)!;
+        // Check directory names too, including case equivalents on case-sensitive hosts.
+        var parent = Path.GetDirectoryName(directory)!;
+        if (Directory.Exists(parent) && Directory.EnumerateFileSystemEntries(parent).Any(entry =>
+            string.Equals(Path.GetFileName(entry), Path.GetFileName(directory), StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(entry, directory, StringComparison.Ordinal)))
+            throw new IOException("A case-equivalent authoring draft directory already exists.");
+        if (File.Exists(directory)) throw new IOException("The authoring draft destination is a file.");
+        if (Directory.Exists(directory) && Directory.EnumerateFileSystemEntries(directory).Any(entry =>
+            string.Equals(Path.GetFileName(entry), Path.GetFileName(path), StringComparison.OrdinalIgnoreCase)))
+            throw new IOException($"Authoring destination '{id}' already exists; choose a different ID.");
+        return ValidatePath(path);
+    }
+
     public void DeleteSource(string id)
     {
         var path = GetDocumentPath(id);
@@ -178,10 +211,20 @@ public sealed partial class AuthoringDocumentStore
         if (ReservedName().IsMatch(stem)) throw new ArgumentException("Program ID is a reserved device name.", nameof(id));
     }
 
+    internal static StringComparison PathComparison => OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+
+    internal static bool SamePath(string left, string right, bool isDirectory = false)
+    {
+        var first = Path.GetFullPath(left);
+        var second = Path.GetFullPath(right);
+        if (isDirectory) { first = Path.TrimEndingDirectorySeparator(first); second = Path.TrimEndingDirectorySeparator(second); }
+        return string.Equals(first, second, PathComparison);
+    }
+
     public string ValidatePath(string path)
     {
         var full = Path.GetFullPath(path);
-        var comparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+        var comparison = PathComparison;
         if (!full.Equals(_root, comparison) && !full.StartsWith(_root + Path.DirectorySeparatorChar, comparison))
             throw new ArgumentException("Authoring files must remain inside the workspace.", nameof(path));
         // Include existing ancestors of the workspace itself; symlinked roots cannot redirect writes.

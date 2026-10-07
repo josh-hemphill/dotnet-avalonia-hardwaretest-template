@@ -14,39 +14,50 @@ public sealed class TypedInstrumentAdapterTests : IDisposable
 {
     private readonly string _root = Path.Combine(Path.GetTempPath(), "ht-typed-adapters-" + Guid.NewGuid().ToString("N"));
     private static string MockType => typeof(MockDmmInstrument).FullName!;
-    private static string VisaType => typeof(VisaDmmInstrument).FullName!;
+    private const string PhysicalType = "InstrumentComponents.OpenTap.DcPowerSupplyInstrument";
+    private const string LegacyVisaType = "HardwareTest.OpenTap.Plugins.Basic.VisaDmmInstrument";
 
     public TypedInstrumentAdapterTests() => Directory.CreateDirectory(_root);
 
     [Fact]
-    public void Catalog_constructs_exact_mock_and_real_visa_types_with_the_requested_address()
+    public void Catalog_constructs_exact_mock_and_current_physical_types_without_io()
     {
+        var home = LibraryHome();
         var mock = Assert.IsType<MockDmmInstrument>(AuthoringInstrumentCatalog.Create(new("MOCK", MockType, "MOCK::7")));
-        var visa = Assert.IsType<VisaDmmInstrument>(AuthoringInstrumentCatalog.Create(new("REAL", VisaType, "TCPIP::192.0.2.1::INSTR")));
+        var physical = AuthoringInstrumentCatalog.Create(new("REAL", PhysicalType, "TCPIP::192.0.2.1::INSTR"), home);
         Assert.Equal("MOCK", mock.Name);
         Assert.Equal("MOCK::7", mock.VisaAddress);
         Assert.Equal("MOCK::7", mock.ResourceName);
-        Assert.Equal("REAL", visa.Name);
-        Assert.Equal("TCPIP::192.0.2.1::INSTR", visa.VisaAddress);
-        // Construction must not open a broker session or contact hardware.
-        Assert.Throws<InvalidOperationException>(() => visa.ReadVoltage());
-        Assert.True(AuthoringInstrumentCatalog.TryGet(VisaType, out var adapter));
-        Assert.Contains(AuthoringFunctionIds.BasicMeanGte, adapter.CompatibleFunctions);
+        Assert.Equal(PhysicalType, physical.GetType().FullName);
+        Assert.Equal("REAL", physical.Name);
+        Assert.Equal("TCPIP::192.0.2.1::INSTR", physical.GetType().GetProperty("VisaAddress")!.GetValue(physical));
+        Assert.True(AuthoringInstrumentCatalog.TryGet(PhysicalType, out var adapter));
+        Assert.Empty(adapter.CompatibleFunctions);
         Assert.True(adapter.SupportsIdentity);
+        Assert.True(adapter.SupportsShutdown);
         Assert.True(AuthoringFunctionCatalog.TryGet(AuthoringFunctionIds.BasicIdentityCheck, out var identity));
         Assert.True(identity.NeedsInstrument);
-        Assert.True(adapter.SupportsShutdown);
     }
 
     [Theory]
     [InlineData("invalid")]
     [InlineData("9999999999999999999")]
-    public void Real_visa_invalid_timeout_is_reported_at_the_authoring_boundary(string timeout)
+    public void Current_physical_invalid_timeout_is_reported_at_the_authoring_boundary(string timeout)
     {
-        var slot = new InstrumentRef("REAL", VisaType, "TCPIP::192.0.2.1::INSTR")
+        var home = LibraryHome();
+        var slot = new InstrumentRef("REAL", PhysicalType, "TCPIP::192.0.2.1::INSTR")
         { Settings = new Dictionary<string, string> { ["IoTimeoutMilliseconds"] = timeout } };
-        var error = Assert.Throws<AuthoringWorkspaceException>(() => AuthoringInstrumentCatalog.Create(slot));
+        var error = Assert.Throws<AuthoringWorkspaceException>(() => AuthoringInstrumentCatalog.Create(slot, home));
         Assert.Contains("INSTRUMENT_CONFIGURATION", error.Message);
+    }
+
+    [Fact]
+    public void Legacy_visa_dmm_is_unavailable_and_never_substituted()
+    {
+        Assert.False(AuthoringInstrumentCatalog.TryGet(LegacyVisaType, out _));
+        var error = Assert.Throws<AuthoringWorkspaceException>(() => AuthoringInstrumentCatalog.Create(new("DMM", LegacyVisaType, "TCPIP::192.0.2.1::INSTR")));
+        Assert.Contains("INSTRUMENT_UNAVAILABLE", error.Message);
+        Assert.Contains(LegacyVisaType, error.Message);
     }
 
     [Theory]
@@ -66,22 +77,20 @@ public sealed class TypedInstrumentAdapterTests : IDisposable
     [InlineData(true)]
     public void Selected_home_missing_package_or_assembly_blocks_save_and_preserves_existing_files(bool packagePresent)
     {
-        Assert.True(AuthoringInstrumentCatalog.TryGet(VisaType, out var adapter));
+        Assert.True(AuthoringInstrumentCatalog.TryGet(MockType, out var adapter));
         var home = new OpenTapHome(Path.Combine(_root, "home"));
         var packageDirectory = Path.Combine(home.Root, "Packages", adapter.RequiredPackage);
         Directory.CreateDirectory(packageDirectory);
-        if (packagePresent) File.WriteAllText(Path.Combine(packageDirectory, "package.xml"), $"<Package Name=\"{adapter.RequiredPackage}\"/>");
+        if (packagePresent) File.WriteAllText(Path.Combine(packageDirectory, "package.xml"), $"<Package Name=\"{adapter.RequiredPackage}\"><Files><File Path=\"{adapter.AssemblyFile}\"/></Files></Package>");
         var availability = adapter.Availability(home);
         Assert.False(availability.Available);
         Assert.Contains(packagePresent ? adapter.AssemblyFile : "metadata", availability.Reason!);
-        Assert.Contains(AuthoringIssueService.GetIssues(VisaDraft(), home), issue => issue.Code == "INSTRUMENT_UNAVAILABLE");
+        Assert.Contains(AuthoringIssueService.GetIssues(MockDraft(), home), issue => issue.Code == "INSTRUMENT_UNAVAILABLE");
         var path = Path.Combine(_root, "typed.TapPlan");
         var sidecar = PlanCompiler.SidecarPath(path);
         File.WriteAllText(path, "existing plan");
         File.WriteAllText(sidecar, "existing sidecar");
-
-        var error = Assert.Throws<AuthoringWorkspaceException>(() => new PlanCompiler(selectedHome: home).Save(VisaDraft(), path));
-
+        var error = Assert.Throws<AuthoringWorkspaceException>(() => new PlanCompiler(selectedHome: home).Save(MockDraft(), path));
         Assert.Contains("INSTRUMENT_UNAVAILABLE", error.Message);
         Assert.Equal("existing plan", File.ReadAllText(path));
         Assert.Equal("existing sidecar", File.ReadAllText(sidecar));
@@ -90,23 +99,28 @@ public sealed class TypedInstrumentAdapterTests : IDisposable
     }
 
     [Fact]
-    public void Real_visa_save_load_preserves_type_address_and_runtime_binding_without_io()
+    public void Current_physical_save_load_preserves_type_address_settings_and_lifecycle_binding_without_io()
     {
+        var home = LibraryHome();
         var path = Path.Combine(_root, "typed.TapPlan");
-        var compiler = new PlanCompiler();
-        compiler.Save(VisaDraft(), path);
+        var compiler = new PlanCompiler(selectedHome: home);
+        var draft = new ProgramDraft("typed", new ProgramSidecar { DisplayName = "Typed" },
+            [new InstrumentRef("SUPPLY", PhysicalType, "TCPIP::192.0.2.1::INSTR") { Settings = new Dictionary<string, string> { ["IoTimeoutMilliseconds"] = "1234" } }],
+            [new IdentitySetup("SUPPLY")], [], new CleanupPolicy(true, "SUPPLY"));
+        compiler.Save(draft, path);
         var loaded = compiler.Load(path);
         var slot = Assert.Single(loaded.Instruments);
-        Assert.Equal(VisaType, slot.TypeId);
+        Assert.Equal(PhysicalType, slot.TypeId);
         Assert.Equal("TCPIP::192.0.2.1::INSTR", slot.VisaAddress);
-        var plan = TestPlan.Load(path);
-        var acquire = Assert.Single(PlanCompiler.FlattenSteps(plan).OfType<AcquireVoltageStep>());
-        var visa = Assert.IsType<VisaDmmInstrument>(acquire.Instrument);
-        Assert.Equal(slot.SlotName, visa.Name);
-        Assert.Equal(slot.VisaAddress, visa.VisaAddress);
-        Assert.Equal(1234, visa.IoTimeoutMilliseconds);
         Assert.Equal("1234", slot.Settings["IoTimeoutMilliseconds"]);
-        Assert.Throws<InvalidOperationException>(() => visa.ReadVoltage());
+        Assert.Equal(Assert.Single(draft.Setup).NodeId, Assert.Single(loaded.Setup).NodeId);
+        Assert.Equal(draft.Cleanup.NodeId, loaded.Cleanup.NodeId);
+        var identity = Assert.Single(PlanCompiler.FlattenSteps(TestPlan.Load(path)), step => step.GetType().FullName == "InstrumentComponents.OpenTap.IdentityQueryStep");
+        var resource = Assert.IsAssignableFrom<Instrument>(identity.GetType().GetProperty("Instrument")!.GetValue(identity));
+        Assert.Equal(PhysicalType, resource.GetType().FullName);
+        Assert.Equal(slot.SlotName, resource.Name);
+        Assert.Equal(slot.VisaAddress, resource.GetType().GetProperty("VisaAddress")!.GetValue(resource));
+        Assert.Equal(1234, resource.GetType().GetProperty("IoTimeoutMilliseconds")!.GetValue(resource));
         Assert.DoesNotContain("MockDmmInstrument", File.ReadAllText(path));
     }
 
@@ -157,7 +171,7 @@ public sealed class TypedInstrumentAdapterTests : IDisposable
     {
         var path = Path.Combine(_root, "typed.TapPlan");
         var compiler = new PlanCompiler();
-        compiler.Save(VisaDraft() with { Instruments = [new InstrumentRef("DMM", MockType, "MOCK::0")] }, path);
+        compiler.Save(MockDraft() with { Instruments = [new InstrumentRef("DMM", MockType, "MOCK::0")] }, path);
         var xml = XDocument.Load(path);
         foreach (var resource in xml.Descendants().Where(element => element.Name.LocalName == "Instrument" && element.Attribute("type") is not null))
         {
@@ -185,7 +199,7 @@ public sealed class TypedInstrumentAdapterTests : IDisposable
     [Fact]
     public void Instrument_bound_wrong_function_fails_compile_with_no_output()
     {
-        var draft = VisaDraft();
+        var draft = MockDraft();
         var metric = Assert.IsType<MetricNode>(Assert.Single(draft.Measure));
         draft = draft with { Measure = [metric with { Metric = metric.Metric with { Limits = new LimitSpec(null, null, 1.2), Source = new MeasureSource("DMM", AuthoringFunctionIds.BasicChannelAverage, new Dictionary<string, string>()) } }] };
         var path = Path.Combine(_root, "typed.TapPlan");
@@ -196,12 +210,12 @@ public sealed class TypedInstrumentAdapterTests : IDisposable
     }
 
     [Fact]
-    public void Capability_compatible_visa_replacement_retargets_mean_identity_and_cleanup()
+    public void Capability_compatible_mock_replacement_retargets_mean_identity_and_cleanup()
     {
         var draft = MeanDraft() with { Setup = [new IdentitySetup("FIRST")], Cleanup = new CleanupPolicy(true, ["FIRST"], true) };
         var metric = Assert.IsType<MetricNode>(Assert.Single(draft.Measure));
         draft = draft with { Measure = [metric with { Metric = metric.Metric with { Source = Assert.IsType<AlgorithmSource>(metric.Metric.Source) with { InstrumentSlot = "FIRST" } } }] };
-        var replacement = new InstrumentRef("REAL", VisaType, "TCPIP::192.0.2.2::INSTR");
+        var replacement = new InstrumentRef("REAL", MockType, "MOCK::replacement");
         Assert.True(AuthoringInstrumentCatalog.CanReplace(draft, "FIRST", replacement));
         Assert.False(AuthoringInstrumentCatalog.CanReplace(draft, "FIRST", replacement with { TypeId = "Unknown.Dmm" }));
         var next = AuthoringInstrumentUsage.RetargetSlot(draft, "FIRST", "REAL");
@@ -215,7 +229,7 @@ public sealed class TypedInstrumentAdapterTests : IDisposable
         new PlanCompiler().Save(next, path);
         var runtime = Assert.Single(PlanCompiler.FlattenSteps(TestPlan.Load(path)).OfType<MeanGteStep>());
         Assert.Equal("REAL", runtime.Instrument.Name);
-        Assert.Equal(replacement.VisaAddress, Assert.IsType<VisaDmmInstrument>(runtime.Instrument).VisaAddress);
+        Assert.Equal(replacement.VisaAddress, Assert.IsType<MockDmmInstrument>(runtime.Instrument).VisaAddress);
     }
 
     [Theory]
@@ -234,7 +248,7 @@ public sealed class TypedInstrumentAdapterTests : IDisposable
         File.Copy(Path.Combine(repo!.FullName, "plans", "opentap", "authoring.json"), Path.Combine(_root, "authoring.json"));
         var vm = new AuthoringWorkspaceViewModel();
         vm.Open(_root);
-        vm.CreateProgram("typed");
+        vm.InitializePlan(new("typed") { Instruments = [] });
         vm.ReplaceSelected(MeanDraft());
         vm.SelectedInstrumentSlot = "FIRST";
         var impact = vm.PrepareSelectedInstrumentRemoval();
@@ -243,7 +257,7 @@ public sealed class TypedInstrumentAdapterTests : IDisposable
         var changed = field switch
         {
             "algorithm-binding" => current with { Measure = [metric with { Metric = metric.Metric with { Source = Assert.IsType<AlgorithmSource>(metric.Metric.Source) with { InstrumentSlot = "FIRST" } } }] },
-            "instrument-type" => current with { Instruments = [current.Instruments[0] with { TypeId = VisaType }, current.Instruments[1]] },
+            "instrument-type" => current with { Instruments = [current.Instruments[0] with { TypeId = PhysicalType }, current.Instruments[1]] },
             "instrument-address" => current with { Instruments = [current.Instruments[0] with { VisaAddress = "MOCK::changed" }, current.Instruments[1]] },
             "instrument-slot" => current with { Instruments = [current.Instruments[0] with { SlotName = "RENAMED" }, current.Instruments[1]] },
             "opaque-resource" => current with { Instruments = [current.Instruments[0] with { OpaqueResourceXml = "<Resource><Changed/></Resource>" }, current.Instruments[1]] },
@@ -253,12 +267,14 @@ public sealed class TypedInstrumentAdapterTests : IDisposable
         };
         vm.ReplaceSelected(changed);
         var programs = vm.Programs;
+        var files = Directory.EnumerateFiles(_root, "*.TapPlan").ToDictionary(path => path, File.ReadAllBytes);
 
         Assert.Throws<AuthoringWorkspaceException>(() => vm.ApplyInstrumentRemoval(impact, "SECOND"));
 
         Assert.Same(programs, vm.Programs);
         Assert.Same(changed, vm.SelectedProgram);
-        Assert.Empty(Directory.EnumerateFiles(_root, "*.TapPlan"));
+        Assert.Equal(files.Keys.Order(), Directory.EnumerateFiles(_root, "*.TapPlan").Order());
+        foreach (var file in files) Assert.Equal(file.Value, File.ReadAllBytes(file.Key));
     }
 
     [Fact]
@@ -273,7 +289,7 @@ public sealed class TypedInstrumentAdapterTests : IDisposable
     }
 
     [Fact]
-    public void Unbound_legacy_algorithm_exposes_actionable_issue_and_refuses_compilation()
+    public void Unbound_instrument_algorithm_exposes_actionable_issue_and_refuses_compilation()
     {
         var draft = MeanDraft();
         var node = Assert.IsType<MetricNode>(Assert.Single(draft.Measure));
@@ -285,35 +301,14 @@ public sealed class TypedInstrumentAdapterTests : IDisposable
     }
 
     [Fact]
-    public void Declared_real_adapter_home_round_trips_and_default_catalog_keeps_visa_excluded()
+    public void Current_physical_adapter_cannot_replace_mock_voltage_or_mean_dependencies()
     {
-        File.WriteAllText(Path.Combine(_root, "authoring.json"), """
-            { "schemaVersion": 2, "displayName": "Typed", "plansDirectory": ".",
-              "package": { "name": "Typed", "version": "0.1.0" },
-              "dependencies": [{ "package": "HardwareTest VISA", "version": "^0.1.0" }],
-              "includeTui": false }
-            """);
-        var workspace = AuthoringWorkspaceLoader.Load(_root);
-        var home = new OpenTapHomeBootstrapper().Bootstrap(workspace,
-            new BootstrapOptions { HomeDirectory = Path.Combine(_root, "home"), Offline = true });
-        var path = Path.Combine(_root, "typed.TapPlan");
-        new PlanCompiler(selectedHome: home).Save(VisaDraft(), path);
-        workspace = AuthoringWorkspaceLoader.Load(_root);
-
-        Assert.True(AuthoringInstrumentCatalog.DeclaresVisa(workspace));
-        Assert.DoesNotContain(VisaType, TuiCompatChecker.ScanCatalog(home).Keys);
-        Assert.Contains(VisaType, TuiCompatChecker.ScanCatalog(home, includeVisa: true).Keys);
-        var report = new TuiCompatChecker().Compare(workspace, home, home);
-        Assert.False(report.BlocksPack(), string.Join("; ", report.RoundTrips.Select(finding => finding.Message)));
-        workspace.Manifest.Dependencies.Clear();
-        Assert.False(AuthoringInstrumentCatalog.DeclaresVisa(workspace));
-        Assert.Contains(new TuiCompatChecker().Compare(workspace, home, home).RoundTrips,
-            finding => finding.Code == TuiCompatCodes.TypeUnknown && finding.Message.Contains(VisaType, StringComparison.Ordinal));
-        var metadata = Path.Combine(home.Root, "Packages", OpenTapHomeBootstrapper.VisaPackageName, "package.xml");
-        File.WriteAllText(metadata, File.ReadAllText(metadata).Replace("HardwareTest VISA", "Unregistered VISA", StringComparison.Ordinal));
-        Assert.DoesNotContain(VisaType, TuiCompatChecker.ScanCatalog(home, includeVisa: true).Keys);
-        Assert.True(AuthoringInstrumentCatalog.TryGet(VisaType, out var adapter));
-        Assert.False(adapter.Availability(home).Available);
+        LibraryHome();
+        var replacement = new InstrumentRef("REAL", PhysicalType, "TCPIP::192.0.2.2::INSTR");
+        Assert.False(AuthoringInstrumentCatalog.CanReplace(MeanDraft(), "SECOND", replacement));
+        Assert.False(AuthoringInstrumentCatalog.CanReplace(MockDraft(), "DMM", replacement));
+        var error = Assert.Throws<AuthoringWorkspaceException>(() => AuthoringInstrumentCatalog.EnsureCompatible(PhysicalType, AuthoringFunctionIds.BasicAcquireVoltage));
+        Assert.Contains("INSTRUMENT_INCOMPATIBLE", error.Message);
     }
 
     [Theory]
@@ -331,19 +326,19 @@ public sealed class TypedInstrumentAdapterTests : IDisposable
     }
 
     [Fact]
-    public void Explicit_visa_creation_requires_an_address_and_unknown_types_are_unavailable()
+    public void Explicit_current_physical_creation_requires_an_address_and_unknown_types_are_unavailable()
     {
         var vm = CreationWorkspace();
-        vm.Workspace!.Manifest.Dependencies.Add(new AuthoringPackageDependency { Package = OpenTapHomeBootstrapper.VisaPackageName, Version = "^0.1.0" });
+        vm.OpenTapHomeOverride = LibraryHome().Root;
         vm.NewInstrumentSlot = "REAL";
-        vm.NewInstrumentTypeId = VisaType;
+        vm.NewInstrumentTypeId = PhysicalType;
         Assert.False(vm.CanAddInstrumentSlot);
-        Assert.Contains("VISA address", vm.NewInstrumentAvailabilityText);
+        Assert.Contains("instrument address", vm.NewInstrumentAvailabilityText);
         vm.NewInstrumentVisa = "TCPIP::192.0.2.2::INSTR";
         Assert.True(vm.CanAddInstrumentSlot);
         vm.AddInstrumentSlot();
         var added = vm.SelectedProgram!.Instruments.Single(slot => slot.SlotName == "REAL");
-        Assert.Equal(VisaType, added.TypeId);
+        Assert.Equal(PhysicalType, added.TypeId);
         Assert.Equal("TCPIP::192.0.2.2::INSTR", added.VisaAddress);
         vm.NewInstrumentSlot = "UNKNOWN";
         vm.NewInstrumentTypeId = "Vendor.ScopeInstrument";
@@ -356,42 +351,41 @@ public sealed class TypedInstrumentAdapterTests : IDisposable
 
     [Theory]
     [InlineData("HardwareTest.Core.dll")]
-    [InlineData("Ivi.Visa.dll")]
-    [InlineData("HardwareTest.OpenTap.Plugins.Visa.dll")]
-    public void Selected_visa_home_requires_every_declared_payload_even_when_process_dependencies_are_loaded(string missing)
+    [InlineData("HardwareTest.OpenTap.Plugins.Basic.dll")]
+    public void Selected_mock_home_requires_every_declared_payload_even_when_process_dependencies_are_loaded(string missing)
     {
-        var home = VisaPayloadHome();
-        Assert.True(AuthoringInstrumentCatalog.TryGet(VisaType, out var adapter));
+        var home = MockPayloadHome();
+        Assert.True(AuthoringInstrumentCatalog.TryGet(MockType, out var adapter));
         Assert.True(adapter.Availability(home).Available);
         File.Delete(Path.Combine(home.Root, "Packages", adapter.RequiredPackage, missing));
         var unavailable = adapter.Availability(home);
         Assert.False(unavailable.Available);
         Assert.Contains(missing, unavailable.Reason!);
         Assert.Contains("missing", unavailable.Reason!);
-        Assert.Throws<AuthoringWorkspaceException>(() => AuthoringInstrumentCatalog.Create(new("REAL", VisaType, "TCPIP::192.0.2.1::INSTR"), home));
+        Assert.Throws<AuthoringWorkspaceException>(() => AuthoringInstrumentCatalog.Create(new("MOCK", MockType, "MOCK::0"), home));
     }
 
     [Theory]
     [InlineData("name-only")]
-    [InlineData("undeclared-dependency")]
+    [InlineData("undeclared-required-payload")]
     [InlineData("empty")]
     [InlineData("traversal")]
     [InlineData("linked-payload")]
     [InlineData("linked-package")]
     public void Selected_home_rejects_incomplete_or_uncontained_declared_payloads(string defect)
     {
-        var home = VisaPayloadHome();
-        Assert.True(AuthoringInstrumentCatalog.TryGet(VisaType, out var adapter));
+        var home = MockPayloadHome();
+        Assert.True(AuthoringInstrumentCatalog.TryGet(MockType, out var adapter));
         var directory = Path.Combine(home.Root, "Packages", adapter.RequiredPackage);
         var metadata = Path.Combine(directory, "package.xml");
-        var dependency = Path.Combine(directory, "Ivi.Visa.dll");
+        var dependency = Path.Combine(directory, "HardwareTest.Core.dll");
         var external = Path.Combine(_root, "external.dll");
         File.WriteAllText(external, "readable external file");
         if (defect == "name-only") File.WriteAllText(metadata, $"<Package Name=\"{adapter.RequiredPackage}\"/>");
-        else if (defect == "undeclared-dependency")
+        else if (defect == "undeclared-required-payload")
         {
             var xml = XDocument.Load(metadata);
-            xml.Descendants().Single(element => (string?)element.Attribute("Path") == "Ivi.Visa.dll").Remove();
+            xml.Descendants().Single(element => (string?)element.Attribute("Path") == adapter.AssemblyFile).Remove();
             xml.Save(metadata);
         }
         else if (defect == "empty") File.WriteAllBytes(dependency, []);
@@ -410,7 +404,7 @@ public sealed class TypedInstrumentAdapterTests : IDisposable
         }
         var unavailable = adapter.Availability(home);
         Assert.False(unavailable.Available);
-        Assert.Contains("Reinstall", unavailable.Reason!);
+        Assert.Contains("Open Environment", unavailable.Reason!);
     }
 
     [Fact]
@@ -426,9 +420,11 @@ public sealed class TypedInstrumentAdapterTests : IDisposable
         vm.SelectSequence(vm.SequenceItems.ToList().FindIndex(row => row.NodeId == mean.NodeId));
         Assert.Equal(AuthoringFunctionIds.BasicMeanGte, vm.MetricFunctionId);
         vm.MetricFunctionId = AuthoringFunctionIds.BasicChannelAverage;
+        Assert.Empty(vm.MetricInputChannels);
+        vm.MetricInputChannels = "VDC";
         var switched = vm.SelectedProgram!;
         var source = Assert.IsType<AlgorithmSource>(AuthoringRecipeCatalog.EnumerateMetrics(switched.Measure).Last().Source);
-        Assert.Equal("FIRST", source.InstrumentSlot);
+        Assert.Null(source.InstrumentSlot);
         Assert.Empty(AuthoringDependencyIndex.Build(switched).Nodes.Single(node => node.NodeId == mean.NodeId).InstrumentSlots);
         Assert.Equal(["SECOND"], AuthoringCleanup.ResolveSlots(switched));
         Assert.DoesNotContain(AuthoringInstrumentUsage.DescribeSlotUsage(switched, "FIRST"), usage => usage.Contains("Mean", StringComparison.Ordinal));
@@ -463,8 +459,8 @@ public sealed class TypedInstrumentAdapterTests : IDisposable
     [InlineData(true)]
     public void Payload_link_targets_resolve_their_ancestor_links_before_containment_checks(bool escape)
     {
-        var home = VisaPayloadHome();
-        Assert.True(AuthoringInstrumentCatalog.TryGet(VisaType, out var adapter));
+        var home = MockPayloadHome();
+        Assert.True(AuthoringInstrumentCatalog.TryGet(MockType, out var adapter));
         var package = Path.Combine(home.Root, "Packages", adapter.RequiredPackage);
         var payload = Path.Combine(package, adapter.AssemblyFile);
         var actualDirectory = escape ? Path.Combine(_root, "external-payloads") : Path.Combine(package, "contained-payloads");
@@ -479,16 +475,16 @@ public sealed class TypedInstrumentAdapterTests : IDisposable
         if (escape)
         {
             Assert.Contains("outside", availability.Reason!);
-            Assert.Throws<AuthoringWorkspaceException>(() => AuthoringInstrumentCatalog.Create(new("REAL", VisaType, "TCPIP::192.0.2.1::INSTR"), home));
+            Assert.Throws<AuthoringWorkspaceException>(() => AuthoringInstrumentCatalog.Create(new("MOCK", MockType, "MOCK::0"), home));
         }
-        else Assert.IsType<VisaDmmInstrument>(AuthoringInstrumentCatalog.Create(new("REAL", VisaType, "TCPIP::192.0.2.1::INSTR"), home));
+        else Assert.IsType<MockDmmInstrument>(AuthoringInstrumentCatalog.Create(new("MOCK", MockType, "MOCK::0"), home));
     }
 
     [Fact]
     public void Cyclic_payload_link_chain_is_unavailable_instead_of_recursing_indefinitely()
     {
-        var home = VisaPayloadHome();
-        Assert.True(AuthoringInstrumentCatalog.TryGet(VisaType, out var adapter));
+        var home = MockPayloadHome();
+        Assert.True(AuthoringInstrumentCatalog.TryGet(MockType, out var adapter));
         var package = Path.Combine(home.Root, "Packages", adapter.RequiredPackage);
         var payload = Path.Combine(package, adapter.AssemblyFile);
         File.Delete(payload);
@@ -502,8 +498,8 @@ public sealed class TypedInstrumentAdapterTests : IDisposable
     [Fact]
     public void Payload_link_parent_navigation_applies_after_target_ancestor_resolution()
     {
-        var home = VisaPayloadHome();
-        Assert.True(AuthoringInstrumentCatalog.TryGet(VisaType, out var adapter));
+        var home = MockPayloadHome();
+        Assert.True(AuthoringInstrumentCatalog.TryGet(MockType, out var adapter));
         var package = Path.Combine(home.Root, "Packages", adapter.RequiredPackage);
         var payload = Path.Combine(package, adapter.AssemblyFile);
         var external = Path.Combine(_root, "external");
@@ -517,16 +513,28 @@ public sealed class TypedInstrumentAdapterTests : IDisposable
         Assert.Contains("outside", availability.Reason!);
     }
 
-    private OpenTapHome VisaPayloadHome()
+    private OpenTapHome LibraryHome()
+    {
+        var home = new OpenTapHome(Path.Combine(_root, "library-home"));
+        var directory = Path.Combine(home.Root, "Packages", AuthoringInstrumentCatalog.LibraryPackage);
+        Directory.CreateDirectory(directory);
+        foreach (var file in new[] { "InstrumentComponents.OpenTap.dll", "InstrumentComponents.dll" })
+            File.Copy(Path.Combine(PublishedLibraryFixture.PackageRoot, file), Path.Combine(home.Root, file), overwrite: true);
+        File.Copy(Path.Combine(PublishedLibraryFixture.PackageRoot, "package.xml"), Path.Combine(directory, "package.xml"), overwrite: true);
+        Assert.Contains(AuthoringInstrumentCatalog.Discover(home), adapter => adapter.TypeId == PhysicalType);
+        return home;
+    }
+
+    private OpenTapHome MockPayloadHome()
     {
         var home = new OpenTapHome(Path.Combine(_root, "home"));
-        var directory = Path.Combine(home.Root, "Packages", OpenTapHomeBootstrapper.VisaPackageName);
+        var directory = Path.Combine(home.Root, "Packages", "HardwareTest Basic");
         Directory.CreateDirectory(directory);
-        var repo = new DirectoryInfo(AppContext.BaseDirectory);
-        while (repo is not null && !File.Exists(Path.Combine(repo.FullName, "dirs.proj"))) repo = repo.Parent;
-        File.Copy(Path.Combine(repo!.FullName, "src", "HardwareTest.OpenTap.Plugins.Visa", "package.xml"), Path.Combine(directory, "package.xml"));
-        foreach (var file in new[] { "HardwareTest.OpenTap.Plugins.Visa.dll", "HardwareTest.Core.dll", "Ivi.Visa.dll" })
-            File.Copy(Path.Combine(AppContext.BaseDirectory, file), Path.Combine(directory, file));
+        var files = new[] { "HardwareTest.OpenTap.Plugins.Basic.dll", "HardwareTest.Core.dll" };
+        new XElement("Package", new XAttribute("Name", "HardwareTest Basic"),
+            new XElement("Files", files.Select(file => new XElement("File", new XAttribute("Path", file)))))
+            .Save(Path.Combine(directory, "package.xml"));
+        foreach (var file in files) File.Copy(Path.Combine(AppContext.BaseDirectory, file), Path.Combine(directory, file));
         return home;
     }
 
@@ -537,12 +545,12 @@ public sealed class TypedInstrumentAdapterTests : IDisposable
         File.Copy(Path.Combine(repo!.FullName, "plans", "opentap", "authoring.json"), Path.Combine(_root, "authoring.json"));
         var vm = new AuthoringWorkspaceViewModel();
         vm.Open(_root);
-        vm.CreateProgram("typed");
+        vm.InitializePlan(new("typed") { Instruments = [] });
         return vm;
     }
 
-    private static ProgramDraft VisaDraft() => new("typed", new ProgramSidecar { DisplayName = "Typed" },
-        [new InstrumentRef("DMM", VisaType, "TCPIP::192.0.2.1::INSTR") { Settings = new Dictionary<string, string> { ["IoTimeoutMilliseconds"] = "1234" } }],
+    private static ProgramDraft MockDraft() => new("typed", new ProgramSidecar { DisplayName = "Typed" },
+        [new InstrumentRef("DMM", MockType, "MOCK::0")],
         [new IdentitySetup("DMM")],
         [new MetricNode(new("Acquire", "VDC", PresentationDisplayRoles.Timeseries, "V", null, null,
             new MeasureSource("DMM", AuthoringFunctionIds.BasicAcquireVoltage, new Dictionary<string, string>())))],

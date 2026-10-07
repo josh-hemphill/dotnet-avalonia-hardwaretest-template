@@ -41,7 +41,7 @@ public sealed class AuthoringDestructiveReviewRegressionTests
     [AvaloniaFact]
     public void Actual_instrument_dialog_rejects_nested_settings_changed_during_review()
     {
-        using var fixture = Loaded(); var vm = fixture.ViewModel; vm.CreateProgram("slots"); vm.NewInstrumentSlot = "B"; vm.AddInstrumentSlot(); vm.ApplyRecipe(AuthoringRecipeIds.Acquire); vm.ApplyRecipe(AuthoringRecipeIds.Repeat); vm.SelectedInstrumentSlot = "DMM"; Assert.True(vm.SaveAll().Succeeded);
+        using var fixture = Loaded(); var vm = fixture.ViewModel; vm.CreateDemoProgram("slots"); vm.NewInstrumentSlot = "B"; vm.AddInstrumentSlot(); vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Acquire); vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Repeat); vm.SelectedInstrumentSlot = "DMM"; Assert.True(vm.SaveAll().Succeeded);
         fixture.Window!.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 1; AuthoringUiFixture.Drain();
         var remove = fixture.Control<Button>("Remove instrument slot from selected program"); remove.BringIntoView(); AuthoringUiFixture.Drain(); AuthoringUiFixture.Click(remove);
         var dialog = Assert.Single(fixture.Window!.OwnedWindows); var selected = vm.SelectedProgram; var files = Snapshot(fixture);
@@ -57,7 +57,7 @@ public sealed class AuthoringDestructiveReviewRegressionTests
     [InlineData("membership")]
     public void Actual_cleanup_checkboxes_clone_selected_sidecar_preserve_prior_draft_and_stage_files(string operation)
     {
-        using var fixture = Loaded(); var vm = fixture.ViewModel; vm.CreateProgram("a"); vm.CreateProgram("b"); Assert.True(vm.SaveAll().Succeeded);
+        using var fixture = Loaded(); var vm = fixture.ViewModel; vm.CreateDemoProgram("a"); vm.CreateDemoProgram("b"); Assert.True(vm.SaveAll().Succeeded);
         var other = vm.SelectedProgram; vm.SelectProgram("a"); SelectCleanup(fixture); var prior = vm.SelectedProgram!;
         var before = JsonSerializer.Serialize(prior.Sidecar, ProgramCatalogJsonContext.Default.ProgramSidecar); var files = Snapshot(fixture);
         var box = operation == "measure" ? fixture.Control<CheckBox>("Include measure slots in cleanup") : fixture.Control<CheckBox>("DMM", fixture.Control<ItemsControl>("Cleanup instrument slots"));
@@ -71,7 +71,7 @@ public sealed class AuthoringDestructiveReviewRegressionTests
     public void Actual_cleanup_inspector_is_readable_but_disables_all_edit_controls_for_readonly_workspace()
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true, compiler: new MutableProgramCompiler());
-        var manifest = Path.Combine(fixture.WorkspaceRoot, "authoring.json"); File.WriteAllText(manifest, File.ReadAllText(manifest).Replace("\"schemaVersion\": 1", "\"schemaVersion\": 999", StringComparison.Ordinal));
+        var manifest = Path.Combine(fixture.WorkspaceRoot, "authoring.json"); File.WriteAllText(manifest, File.ReadAllText(manifest).Replace("\"schemaVersion\": 2", "\"schemaVersion\": 999", StringComparison.Ordinal));
         fixture.Show(); fixture.OpenRememberedWorkspace(); SelectCleanup(fixture); var selected = fixture.ViewModel.SelectedProgram; var files = Snapshot(fixture);
         var shutdown = fixture.Control<CheckBox>("Include Safe Shutdown"); var measure = fixture.Control<CheckBox>("Include measure slots in cleanup"); var membership = fixture.Control<CheckBox>("DMM", fixture.Control<ItemsControl>("Cleanup instrument slots"));
         foreach (var box in new[] { shutdown, measure, membership })
@@ -103,7 +103,7 @@ public sealed class AuthoringDestructiveReviewRegressionTests
             Nodes = [new RepeatNode(2, [new MetricNode(new MetricDraft("acquire", "channel", "timeseries", "V", null, null,
                 new MeasureSource("DMM", AuthoringFunctionIds.BasicAcquireVoltage, Settings)))]), new RawStepNode("Raw", "<original/>")];
         }
-        public DraftWorkspace LoadAll(AuthoringWorkspace workspace) => new(workspace, [AuthoringRecipeCatalog.CreateProgram("sample") with { Measure = Nodes }]);
+        public DraftWorkspace LoadAll(AuthoringWorkspace workspace) => new(workspace, [MockDmmDraftFixture.Create("sample") with { Measure = Nodes }]);
         public ProgramDraft Load(string path) => throw new NotSupportedException();
         public void Save(ProgramDraft draft, string path) => throw new NotSupportedException();
         public void SaveSidecar(string path, ProgramSidecar sidecar) => throw new NotSupportedException();

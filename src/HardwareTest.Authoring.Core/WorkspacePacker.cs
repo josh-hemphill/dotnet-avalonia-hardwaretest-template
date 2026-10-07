@@ -16,6 +16,9 @@ public static class AuthoringPackCodes
 
 public sealed class PackOptions
 {
+    public CancellationToken CancellationToken { get; init; }
+    internal string? DotNetExecutable { get; init; }
+    internal IReadOnlyDictionary<string, string?>? BuildEnvironment { get; init; }
     public OpenTapHome? Home { get; init; }
 
     public OpenTapHome? TuiHome { get; init; }
@@ -27,6 +30,7 @@ public sealed class PackOptions
     public string? BootstrapHomeDirectory { get; init; }
 
     public Action<PackPreflightReport>? PreflightCompleted { get; init; }
+    internal Action<string>? Progress { get; init; }
 }
 
 public sealed record ShipDependency(string Package, string Version, bool Optional = false, string? When = null);
@@ -35,10 +39,18 @@ public sealed record ShipManifest(
     string PackageName,
     string Version,
     IReadOnlyList<string> Files,
-    IReadOnlyList<ShipDependency>? Dependencies = null)
+    IReadOnlyList<ShipDependency> Dependencies)
 {
-    [JsonIgnore]
-    public IReadOnlyList<ShipDependency> ResolvedDependencies => Dependencies ?? [];
+    private IReadOnlyList<ShipDependency> _dependencies = Dependencies
+        ?? throw new JsonException("Ship manifest dependencies must be an explicit non-null list.");
+
+    [JsonRequired]
+    public IReadOnlyList<ShipDependency> Dependencies
+    {
+        get => _dependencies;
+        init => _dependencies = value
+            ?? throw new JsonException("Ship manifest dependencies must be an explicit non-null list.");
+    }
 }
 
 /// Validates a workspace, writes package.xml, creates the program TapPackage, and writes ship-manifest.json.
@@ -53,6 +65,9 @@ public static partial class WorkspacePacker
     internal static string ShellAppBakeTimeEntry(string id) => ShellAppDirectoryEntry(id) + BakeTimeSuffix;
 
     public static ShipManifest Pack(AuthoringWorkspace workspace, string outputDirectory, PackOptions options)
+        => AuthoringBuildService.Execute(AuthoringBuildService.CaptureSaved(workspace, options), outputDirectory, options.CancellationToken).Manifest;
+
+    internal static ShipManifest PackStaged(AuthoringWorkspace workspace, string outputDirectory, PackOptions options)
     {
         ArgumentNullException.ThrowIfNull(workspace);
         ArgumentException.ThrowIfNullOrWhiteSpace(outputDirectory);
@@ -65,16 +80,17 @@ public static partial class WorkspacePacker
         }
 
         var home = preflight.Home!;
+        options.Progress?.Invoke("Create package artifacts");
         Directory.CreateDirectory(outputDirectory);
 
         var plansDir = ResolvePlansDirectory(workspace);
         var packageXml = Path.Combine(plansDir, PackageXmlFileName);
         File.WriteAllText(packageXml, PackageXmlRenderer.Render(workspace));
 
-        var tapPackage = CreateTapPackage(home, plansDir, workspace.Manifest.Package, outputDirectory);
+        var tapPackage = CreateTapPackage(home, plansDir, workspace.Manifest.Package, outputDirectory, options);
         var shipped = new List<string> { Path.GetFileName(tapPackage) };
         shipped.AddRange(CopyPluginPackages(workspace, outputDirectory));
-        shipped.AddRange(PublishShellApps(workspace, outputDirectory));
+        shipped.AddRange(PublishShellApps(workspace, outputDirectory, options));
 
         var deps = WorkspacePackPlan.ShipDependencies(workspace.Manifest);
         var manifest = new ShipManifest(
@@ -100,7 +116,7 @@ public static partial class WorkspacePacker
         OpenTapHome home,
         string plansDir,
         AuthoringPackageSpec spec,
-        string outputDirectory)
+        string outputDirectory, PackOptions options)
     {
         var tapDll = Path.Combine(home.Root, "tap.dll");
         if (!File.Exists(tapDll))
@@ -115,7 +131,7 @@ public static partial class WorkspacePacker
 
         var psi = new ProcessStartInfo
         {
-            FileName = "dotnet",
+            FileName = options.DotNetExecutable ?? "dotnet",
             Arguments = $"\"{tapDll}\" package create \"{PackageXmlFileName}\"",
             WorkingDirectory = plansDir,
             RedirectStandardOutput = true,
@@ -123,6 +139,7 @@ public static partial class WorkspacePacker
             UseShellExecute = false,
             CreateNoWindow = true,
         };
+        FreezeProcessEnvironment(psi, options);
         psi.Environment["DOTNET_CLI_TELEMETRY_OPTOUT"] = "1";
 
         using var process = Process.Start(psi)
@@ -130,7 +147,7 @@ public static partial class WorkspacePacker
                 $"{AuthoringPackCodes.TapCreateFailed}: failed to start tap package create.");
         var stdoutTask = process.StandardOutput.ReadToEndAsync();
         var stderrTask = process.StandardError.ReadToEndAsync();
-        if (!process.WaitForExit(120_000))
+        if (!WaitForProcess(process, 120_000, options.CancellationToken))
         {
             TryKill(process);
             throw new AuthoringWorkspaceException(
@@ -192,6 +209,30 @@ public static partial class WorkspacePacker
             Path.GetFileName(path).StartsWith(packageName, StringComparison.OrdinalIgnoreCase));
     }
 
+    private static void FreezeProcessEnvironment(ProcessStartInfo process, PackOptions options)
+    {
+        if (options.BuildEnvironment is null) return;
+        process.Environment.Clear();
+        foreach (var entry in options.BuildEnvironment)
+            if (entry.Value is not null) process.Environment[entry.Key] = entry.Value;
+    }
+
+    private static bool WaitForProcess(Process process, int timeout, CancellationToken cancellationToken)
+    {
+        var elapsed = Stopwatch.StartNew();
+        while (!process.WaitForExit(100))
+        {
+            if (cancellationToken.IsCancellationRequested)
+            {
+                TryKill(process);
+                cancellationToken.ThrowIfCancellationRequested();
+            }
+            if (elapsed.ElapsedMilliseconds >= timeout) return false;
+        }
+        cancellationToken.ThrowIfCancellationRequested();
+        return true;
+    }
+
     private static void TryKill(Process process)
     {
         try
@@ -242,7 +283,7 @@ public static partial class WorkspacePacker
         => path.EndsWith(".TapPackage", StringComparison.OrdinalIgnoreCase)
            || path.EndsWith(".zip", StringComparison.OrdinalIgnoreCase);
 
-    private static IReadOnlyList<string> PublishShellApps(AuthoringWorkspace workspace, string outputDirectory)
+    private static IReadOnlyList<string> PublishShellApps(AuthoringWorkspace workspace, string outputDirectory, PackOptions options)
     {
         var entries = new List<string>();
         foreach (var project in workspace.Manifest.ShellAppProjects)
@@ -264,34 +305,40 @@ public static partial class WorkspacePacker
             var id = Path.GetFileNameWithoutExtension(csproj);
             var dest = Path.Combine(outputDirectory, "shell-apps", id);
             Directory.CreateDirectory(dest);
-            var psi = new ProcessStartInfo
+            var profile = AuthoringBuildService.ShellWriteProfile(
+                Path.GetFullPath(Path.Combine(workspace.Root, "..", "shell-packages")),
+                Path.GetFullPath(Path.Combine(workspace.Root, "..", "shell", "authoring-build-nuget.config")), publishDirectory: dest);
+            foreach (var target in new[] { "Restore", "Publish" })
             {
-                FileName = "dotnet",
-                Arguments = $"publish \"{csproj}\" -o \"{dest}\" --nologo",
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true,
-            };
-            psi.Environment["DOTNET_CLI_TELEMETRY_OPTOUT"] = "1";
-            using var process = Process.Start(psi)
-                ?? throw new AuthoringWorkspaceException(
-                    $"{AuthoringPackCodes.ShellAppFailed}: failed to start dotnet publish for '{id}'.");
-            var stdoutTask = process.StandardOutput.ReadToEndAsync();
-            var stderrTask = process.StandardError.ReadToEndAsync();
-            if (!process.WaitForExit(180_000))
-            {
-                TryKill(process);
-                throw new AuthoringWorkspaceException(
-                    $"{AuthoringPackCodes.ShellAppFailed}: dotnet publish '{id}' timed out.");
-            }
-
-            var stdout = stdoutTask.GetAwaiter().GetResult();
-            var stderr = stderrTask.GetAwaiter().GetResult();
-            if (process.ExitCode != 0)
-            {
-                throw new AuthoringWorkspaceException(
-                    $"{AuthoringPackCodes.ShellAppFailed}: dotnet publish '{id}' failed. {stderr} {stdout}");
+                var psi = new ProcessStartInfo
+                {
+                    FileName = options.DotNetExecutable ?? "dotnet",
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    WorkingDirectory = Path.GetDirectoryName(csproj)!,
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                };
+                foreach (var argument in AuthoringBuildService.ShellOperationArguments(csproj, profile, target)) psi.ArgumentList.Add(argument);
+                FreezeProcessEnvironment(psi, options);
+                psi.Environment["DOTNET_CLI_TELEMETRY_OPTOUT"] = "1";
+                psi.Environment["NUGET_PACKAGES"] = profile["RestorePackagesPath"];
+                psi.Environment.Remove("NUGET_FALLBACK_PACKAGES");
+                AuthoringBuildService.ValidateShellWriteProfile(csproj, Path.GetFullPath(Path.Combine(workspace.Root, "..", "shell")),
+                    profile, psi.Environment.ToDictionary(p => p.Key, p => p.Value, StringComparer.Ordinal));
+                options.CancellationToken.ThrowIfCancellationRequested();
+                using var process = Process.Start(psi)
+                    ?? throw new AuthoringWorkspaceException($"{AuthoringPackCodes.ShellAppFailed}: failed to start SDK {target} for '{id}'.");
+                var stdoutTask = process.StandardOutput.ReadToEndAsync();
+                var stderrTask = process.StandardError.ReadToEndAsync();
+                if (!WaitForProcess(process, 180_000, options.CancellationToken))
+                {
+                    TryKill(process);
+                    throw new AuthoringWorkspaceException($"{AuthoringPackCodes.ShellAppFailed}: SDK {target} '{id}' timed out.");
+                }
+                var stdout = stdoutTask.GetAwaiter().GetResult(); var stderr = stderrTask.GetAwaiter().GetResult();
+                if (process.ExitCode != 0)
+                    throw new AuthoringWorkspaceException($"{AuthoringPackCodes.ShellAppFailed}: SDK {target} '{id}' failed. {stderr} {stdout}");
             }
 
             entries.Add(ShellAppDirectoryEntry(id));

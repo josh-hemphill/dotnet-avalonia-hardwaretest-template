@@ -14,19 +14,11 @@ public sealed class AuthoringOpenTapCollection;
 public sealed class PlanCompilerTests
 {
     [Fact]
-    public void Plugin_search_does_not_add_the_visa_project_directory()
+    public void Plugin_search_adds_current_basic_and_mixin_directories()
     {
         AuthoringPluginSearch.Search();
-
-        Assert.DoesNotContain(
-            PluginManager.DirectoriesToSearch,
-            dir => dir.Contains(
-                       $"{Path.DirectorySeparatorChar}HardwareTest.OpenTap.Plugins.Visa{Path.DirectorySeparatorChar}",
-                       StringComparison.OrdinalIgnoreCase)
-                   || dir.EndsWith(
-                       $"{Path.DirectorySeparatorChar}HardwareTest.OpenTap.Plugins.Visa",
-                       StringComparison.OrdinalIgnoreCase));
-        Assert.False(AuthoringFunctionCatalog.TryGet("Visa.Dmm", out _));
+        Assert.Contains(Path.GetDirectoryName(typeof(MockDmmInstrument).Assembly.Location), PluginManager.DirectoriesToSearch);
+        Assert.Contains(Path.GetDirectoryName(typeof(AnnotationMixinBuilder).Assembly.Location), PluginManager.DirectoriesToSearch);
     }
 
     [Fact]
@@ -38,11 +30,10 @@ public sealed class PlanCompilerTests
 
         var report = PlanContractValidator.ValidateFile(
             path,
-            new PlanContractOptions { ExcludeVisaAdapter = true });
+            new PlanContractOptions { EnablePhysicalExecution = false });
         Assert.False(report.HasErrors, string.Join("; ", report.Findings.Select(f => $"{f.Code}: {f.Message}")));
         Assert.DoesNotContain(report.Findings, f => f.Code == PlanContractValidator.Codes.MissingLimits);
         Assert.DoesNotContain(File.ReadAllText(path), "DialogStep", StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain(File.ReadAllText(path), "VisaDmmInstrument", StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -89,7 +80,7 @@ public sealed class PlanCompilerTests
     {
         var dir = NewTempDir();
         var path = Path.Combine(dir, "multi-cleanup.TapPlan");
-        var created = AuthoringRecipeCatalog.CreateProgram("multi-cleanup");
+        var created = MockDmmDraftFixture.Create("multi-cleanup");
         var typeId = created.Instruments[0].TypeId;
         var draft = created with
         {
@@ -114,7 +105,7 @@ public sealed class PlanCompilerTests
     {
         var dir = NewTempDir();
         var path = Path.Combine(dir, "measure-cleanup.TapPlan");
-        var created = AuthoringRecipeCatalog.CreateProgram("measure-cleanup");
+        var created = MockDmmDraftFixture.Create("measure-cleanup");
         var typeId = created.Instruments[0].TypeId;
         var applied = AuthoringRecipeCatalog.Apply(created, AuthoringRecipeIds.Acquire);
         var metric = Assert.IsType<MetricNode>(Assert.Single(applied.Measure)).Metric;
@@ -151,7 +142,7 @@ public sealed class PlanCompilerTests
     {
         var dir = NewTempDir();
         var path = Path.Combine(dir, "identity-cleanup.TapPlan");
-        var created = AuthoringRecipeCatalog.CreateProgram("identity-cleanup");
+        var created = MockDmmDraftFixture.Create("identity-cleanup");
         var typeId = created.Instruments[0].TypeId;
         var draft = created with
         {
@@ -180,7 +171,7 @@ public sealed class PlanCompilerTests
     {
         var dir = NewTempDir();
         var path = Path.Combine(dir, "empty-cleanup.TapPlan");
-        var draft = AuthoringRecipeCatalog.CreateProgram("empty-cleanup") with
+        var draft = MockDmmDraftFixture.Create("empty-cleanup") with
         {
             Cleanup = new CleanupPolicy(true, [], false),
         };
@@ -198,7 +189,7 @@ public sealed class PlanCompilerTests
     {
         var dir = NewTempDir();
         var path = Path.Combine(dir, "legacy-cleanup.TapPlan");
-        var created = AuthoringRecipeCatalog.CreateProgram("legacy-cleanup");
+        var created = MockDmmDraftFixture.Create("legacy-cleanup");
         var typeId = created.Instruments[0].TypeId;
         var draft = created with
         {
@@ -282,7 +273,7 @@ public sealed class PlanCompilerTests
 
         var report = PlanContractValidator.ValidateFile(
             path,
-            new PlanContractOptions { ExcludeVisaAdapter = true });
+            new PlanContractOptions { EnablePhysicalExecution = false });
         Assert.DoesNotContain(report.Findings, f => f.Code == PlanContractValidator.Codes.MissingLimits);
         Assert.False(report.HasErrors, string.Join("; ", report.Findings.Select(f => $"{f.Code}: {f.Message}")));
     }
@@ -583,7 +574,7 @@ public sealed class PlanCompilerTests
                     null,
                     null,
                     new MeasureSource(
-                        "DMM",
+                        string.Empty,
                         AuthoringFunctionIds.BasicPublishTimedSample,
                         new Dictionary<string, string> { ["Channel"] = "VDC", ["Value"] = "1" }))),
                 new MetricNode(new MetricDraft(
@@ -598,6 +589,7 @@ public sealed class PlanCompilerTests
         var ex = Assert.Throws<AuthoringWorkspaceException>(() => new PlanCompiler().Save(draft, path));
         Assert.Contains(AuthoringCompileCodes.TfMissingElapsed, ex.Message, StringComparison.Ordinal);
         Assert.False(File.Exists(path));
+        Assert.False(File.Exists(PlanCompiler.SidecarPath(path)));
     }
 
     [Fact]
@@ -696,6 +688,8 @@ public sealed class PlanCompilerTests
         var draft = MinimalDraft(
             "tf-nolo",
             [
+                new MetricNode(new MetricDraft("Acquire", "VDC", PresentationDisplayRoles.Timeseries, "V", null, null,
+                    new MeasureSource("DMM", AuthoringFunctionIds.BasicAcquireVoltage, new Dictionary<string, string>()))),
                 new MetricNode(new MetricDraft(
                     "Filter",
                     "VDC.filt",
@@ -708,8 +702,9 @@ public sealed class PlanCompilerTests
         new PlanCompiler().Save(draft, path);
         var xml = File.ReadAllText(path);
         Assert.Contains("ApplyTransferFunctionStep", xml, StringComparison.Ordinal);
-        Assert.DoesNotContain("<LimitLow", xml, StringComparison.Ordinal);
-        Assert.DoesNotContain("<LimitHigh", xml, StringComparison.Ordinal);
+        var filterXml = System.Xml.Linq.XDocument.Parse(xml).Descendants().Single(element =>
+            element.Name.LocalName == "TestStep" && ((string?)element.Attribute("type"))?.Contains("ApplyTransferFunctionStep", StringComparison.Ordinal) == true);
+        Assert.DoesNotContain(filterXml.Descendants(), element => element.Name.LocalName is "LimitLow" or "LimitHigh");
     }
 
     private static void AssertFiltfiltIsSibling(string xml)

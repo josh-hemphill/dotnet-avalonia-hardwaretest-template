@@ -8,9 +8,11 @@ namespace HardwareTest.Authoring;
 
 public sealed partial class PlanCompiler
 {
-    private TestPlan BuildPlan(ProgramDraft draft)
+    private TestPlan BuildPlan(ProgramDraft draft, OpenTapHome? libraryHome)
     {
-        var instruments = CreateInstruments(draft.Instruments);
+        var instruments = CreateInstruments(draft.Instruments, libraryHome);
+        if (AuthoringLibraryLifecycle.OpaqueLifecycleNodes(draft.Measure).Any())
+            throw new AuthoringWorkspaceException(AuthoringLibraryLifecycle.ReimportMessage);
         var dut = new HardwareDut
         {
             Name = "DUT",
@@ -39,8 +41,12 @@ public sealed partial class PlanCompiler
             foreach (var slot in slots)
             {
                 var name = slots.Count == 1 ? "Safe Shutdown" : $"Safe Shutdown · {slot}";
-                var shutdown = new SafeShutdownStep { Name = name };
-                AssignInstrument(shutdown, ResolveInstrument(instruments, slot), AuthoringFunctionIds.BasicSafeShutdown);
+                var resource = ResolveInstrument(instruments, slot);
+                var shutdown = AuthoringInstrumentCatalog.IsLibrary(resource.GetType().FullName!)
+                    ? AuthoringLibraryLifecycle.Create(resource, false) : new SafeShutdownStep();
+                shutdown.Name = name;
+                shutdown.Id = AuthoringLibraryLifecycle.CleanupId(draft.Cleanup.NodeId, slot, slots[0]);
+                AssignInstrument(shutdown, resource, AuthoringFunctionIds.BasicSafeShutdown);
                 cleanupGroup.ChildTestSteps.Add(shutdown);
             }
         }
@@ -65,13 +71,13 @@ public sealed partial class PlanCompiler
         return plan;
     }
 
-    private Dictionary<string, Instrument> CreateInstruments(IReadOnlyList<InstrumentRef> refs)
+    private Dictionary<string, Instrument> CreateInstruments(IReadOnlyList<InstrumentRef> refs, OpenTapHome? libraryHome)
     {
         var map = new Dictionary<string, Instrument>(StringComparer.OrdinalIgnoreCase);
         var home = _selectedHome;
         foreach (var slot in refs)
         {
-            if (!map.TryAdd(slot.SlotName, AuthoringInstrumentCatalog.Create(slot, home)))
+            if (!map.TryAdd(slot.SlotName, AuthoringInstrumentCatalog.Create(slot, AuthoringInstrumentCatalog.IsLibrary(slot.TypeId) ? libraryHome : home)))
                 throw new AuthoringWorkspaceException($"Duplicate instrument slot '{slot.SlotName}'.");
         }
 
@@ -87,8 +93,11 @@ public sealed partial class PlanCompiler
         {
             case IdentitySetup identity:
                 {
-                    var step = new IdentityCheckStep { Id = action.NodeId, Name = "Identity Check", Dut = dut };
-                    AssignInstrument(step, ResolveInstrument(instruments, identity.InstrumentSlot), AuthoringFunctionIds.BasicIdentityCheck);
+                    var resource = ResolveInstrument(instruments, identity.InstrumentSlot);
+                    var step = AuthoringInstrumentCatalog.IsLibrary(resource.GetType().FullName!)
+                        ? AuthoringLibraryLifecycle.Create(resource, true) : new IdentityCheckStep { Dut = dut };
+                    step.Id = action.NodeId; step.Name = "Identity Check";
+                    AssignInstrument(step, resource, AuthoringFunctionIds.BasicIdentityCheck);
                     OpenTapMixinAttach.AttachAnnotation(step);
                     return step;
                 }
@@ -206,6 +215,8 @@ public sealed partial class PlanCompiler
 
                 break;
             case AlgorithmSource algorithm:
+                if (AuthoringFunctionCatalog.InputChannelIssue(algorithm.AlgorithmId, algorithm.InputChannelKeys) is { } inputIssue)
+                    throw new AuthoringWorkspaceException(inputIssue);
                 ApplySettings(step, algorithm.Settings);
                 if (step is ChannelAverageStep average && algorithm.InputChannelKeys.Count == 1)
                     average.InputChannel = algorithm.InputChannelKeys[0];
@@ -231,53 +242,6 @@ public sealed partial class PlanCompiler
         }
 
         throw new AuthoringWorkspaceException($"Unknown instrument slot '{slotName}'.");
-    }
-
-    private static void EnsureTransferFunctionElapsed(ProgramDraft draft, TransferFunctionAlgorithm tf)
-    {
-        var sibling = AuthoringRecipeCatalog.EnumerateMetrics(draft.Measure)
-            .FirstOrDefault(metric =>
-                string.Equals(metric.ChannelKey, tf.InputChannelKey, StringComparison.OrdinalIgnoreCase));
-        if (sibling is null || CanPublishElapsed(sibling.Source))
-        {
-            return;
-        }
-
-        throw new AuthoringWorkspaceException(
-            $"{AuthoringCompileCodes.TfMissingElapsed}: '{tf.InputChannelKey}' does not publish ElapsedMs.");
-    }
-
-    private static bool CanPublishElapsed(MetricSource source)
-        => ResolveElapsedSource(source) switch
-        {
-            TransferFunctionAlgorithm => true,
-            MeasureSource measure when
-                string.Equals(measure.FunctionId, AuthoringFunctionIds.BasicAcquireVoltage, StringComparison.Ordinal)
-                || string.Equals(measure.FunctionId, AuthoringFunctionIds.BasicBitSweepAcquire, StringComparison.Ordinal)
-                => true,
-            MeasureSource measure when
-                string.Equals(measure.FunctionId, AuthoringFunctionIds.BasicPublishTimedSample, StringComparison.Ordinal)
-                => measure.Settings.TryGetValue("ElapsedMs", out var elapsed) && !string.IsNullOrWhiteSpace(elapsed),
-            MeasureSource measure
-                => measure.Settings.TryGetValue("ElapsedMs", out var elapsed) && !string.IsNullOrWhiteSpace(elapsed),
-            _ => false,
-        };
-
-    private static MetricSource ResolveElapsedSource(MetricSource source)
-    {
-        if (source is not ExpressionAlgorithm expr)
-        {
-            return source;
-        }
-
-        try
-        {
-            return FormulaLowerer.Lower(expr, null);
-        }
-        catch (AuthoringWorkspaceException)
-        {
-            return source;
-        }
     }
 
     private static void AssignInstrument(ITestStep step, Instrument instrument, string functionId)
@@ -388,6 +352,11 @@ public sealed partial class PlanCompiler
             }
 
             return plan.ChildTestSteps[0];
+        }
+        catch (Exception error) when (error is TestPlan.PlanLoadException or System.Xml.XmlException)
+        {
+            throw new AuthoringWorkspaceException(
+                $"RAW_STEP_UNAVAILABLE: Imported raw step '{raw.TypeName}' ({raw.NodeId:D}) could not load: {error.Message}", error);
         }
         finally
         {

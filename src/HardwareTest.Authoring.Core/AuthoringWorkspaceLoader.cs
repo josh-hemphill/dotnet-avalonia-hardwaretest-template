@@ -20,6 +20,7 @@ public static class AuthoringWorkspaceLoader
         "pluginProjects",
         "shellAppProjects",
         "includeTui",
+        "excludedProgramIds",
         "recordingsDirectory",
         "catalogs",
     };
@@ -82,6 +83,9 @@ public static class AuthoringWorkspaceLoader
             }
 
             var schemaVersion = ReadSchemaVersion(document.RootElement, manifestPath);
+            if (schemaVersion < AuthoringSchemaVersions.Manifest)
+                throw new AuthoringWorkspaceException(
+                    $"Unsupported {ManifestFileName} schema {schemaVersion}; this app requires schema {AuthoringSchemaVersions.Manifest}.");
             var isFuture = schemaVersion > AuthoringSchemaVersions.Manifest;
             if (!isFuture)
             {
@@ -103,6 +107,8 @@ public static class AuthoringWorkspaceLoader
                 throw new AuthoringWorkspaceException($"Invalid {ManifestFileName}: {ex.Message}", ex);
             }
 
+            if (!isFuture && (manifest.ExcludedProgramIds is null || manifest.ExcludedProgramIds.Any(string.IsNullOrWhiteSpace)))
+                throw new AuthoringWorkspaceException("excludedProgramIds must be an array of nonempty program IDs.");
             manifest.SchemaVersion = schemaVersion;
             var plansDirectory = ResolvePlansDirectory(fullRoot, manifest.PlansDirectory);
             var tapPlans = EnumerateTapPlans(plansDirectory);
@@ -121,7 +127,6 @@ public static class AuthoringWorkspaceLoader
         var fullRoot = Path.GetFullPath(root);
         var paths = new AuthoringDocumentStore(fullRoot);
         var manifestPath = paths.ValidatePath(Path.Combine(fullRoot, ManifestFileName));
-        Directory.CreateDirectory(fullRoot);
         if (File.Exists(manifestPath))
         {
             var existing = Load(fullRoot);
@@ -130,19 +135,13 @@ public static class AuthoringWorkspaceLoader
                 throw new AuthoringWorkspaceException(
                     $"Refusing to overwrite future-schema {ManifestFileName} (schema {existing.Manifest.SchemaVersion} > {AuthoringSchemaVersions.Manifest}).");
             }
-            if (existing.Manifest.SchemaVersion < AuthoringSchemaVersions.Manifest)
-            {
-                AuthoringManifestMigration.EnsureBackup(manifestPath, existing.Manifest.SchemaVersion);
-            }
         }
 
-        if (manifest.SchemaVersion > AuthoringSchemaVersions.Manifest)
-        {
+        if (manifest.SchemaVersion != AuthoringSchemaVersions.Manifest)
             throw new AuthoringWorkspaceException(
-                $"Cannot write {ManifestFileName} schema {manifest.SchemaVersion}; this app supports {AuthoringSchemaVersions.Manifest}.");
-        }
+                $"Cannot write {ManifestFileName} schema {manifest.SchemaVersion}; this app requires schema {AuthoringSchemaVersions.Manifest}.");
 
-        manifest.SchemaVersion = AuthoringSchemaVersions.Manifest;
+        Directory.CreateDirectory(fullRoot);
 
         var json = JsonSerializer.Serialize(manifest, AuthoringJsonContext.Default.AuthoringManifest);
         var temporaryPath = paths.ValidatePath(manifestPath + "." + Guid.NewGuid().ToString("N") + ".saving");

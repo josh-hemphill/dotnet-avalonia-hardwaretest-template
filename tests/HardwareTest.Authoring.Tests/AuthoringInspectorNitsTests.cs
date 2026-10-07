@@ -10,8 +10,9 @@ public sealed class AuthoringInspectorNitsTests
     public void Cleanup_and_formula_editors_no_op_when_identity_is_selected()
     {
         var vm = OpenEmpty();
-        vm.CreateProgram("gate");
-        vm.ApplyRecipe(AuthoringRecipeIds.Formula);
+        vm.CreateDemoProgram("gate");
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Acquire);
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Formula);
         var identity = vm.SequenceItems.Single(row => row.Label == "Identity Check");
         vm.SelectSequence(vm.SequenceItems.ToList().IndexOf(identity));
         Assert.False(vm.HasFormula);
@@ -30,9 +31,9 @@ public sealed class AuthoringInspectorNitsTests
     public void Import_tf_json_applies_to_the_selected_transfer_function_row()
     {
         var vm = OpenEmpty();
-        vm.CreateProgram("tf-apply");
-        vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
-        vm.ApplyRecipe(AuthoringRecipeIds.TransferFunction);
+        vm.CreateDemoProgram("tf-apply");
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Acquire);
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.TransferFunction);
         var count = vm.SelectedProgram!.Measure.Count;
         vm.ImportTransferFunction(
             Path.Combine(FindRepoRoot(), "tests", "fixtures", "authoring", "tf", "model.valid.json"));
@@ -45,8 +46,8 @@ public sealed class AuthoringInspectorNitsTests
     public void Input_field_ids_edit_the_selected_operator_input_row()
     {
         var vm = OpenEmpty();
-        vm.CreateProgram("input-ids");
-        vm.ApplyRecipe(AuthoringRecipeIds.Input);
+        vm.InitializePlan(new("input-ids") { Instruments = [] });
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Input);
         var input = vm.SequenceItems.Single(row => row.Label == "Operator Input");
         vm.SelectSequence(vm.SequenceItems.ToList().IndexOf(input));
         Assert.True(vm.HasInputSetup);
@@ -61,8 +62,8 @@ public sealed class AuthoringInspectorNitsTests
     public void SelectedProgram_setter_switches_the_session_program()
     {
         var vm = OpenEmpty();
-        vm.CreateProgram("alpha");
-        vm.CreateProgram("beta");
+        vm.InitializePlan(new("alpha") { Instruments = [] });
+        vm.InitializePlan(new("beta") { Instruments = [] });
         vm.SelectedProgram = vm.Programs.Single(p => p.PlanId == "alpha");
         Assert.Equal("alpha", vm.SelectedProgram?.PlanId);
         vm.SelectedProgram = vm.Programs.Single(p => p.PlanId == "beta");
@@ -73,8 +74,8 @@ public sealed class AuthoringInspectorNitsTests
     public void Inspector_sample_count_keeps_the_selected_sequence_row()
     {
         var vm = OpenEmpty();
-        vm.CreateProgram("keep-settings");
-        vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
+        vm.CreateDemoProgram("keep-settings");
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Acquire);
         var acquire = vm.SequenceItems.Single(row => row.Kind == SequenceRowKind.Metric);
         vm.SelectSequence(vm.SequenceItems.ToList().IndexOf(acquire));
         var index = vm.SelectedSequenceIndex;
@@ -99,8 +100,8 @@ public sealed class AuthoringInspectorNitsTests
     public void Integer_settings_truncate_and_clamp_to_the_catalog_minimum()
     {
         var vm = OpenEmpty();
-        vm.CreateProgram("clamp-int");
-        vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
+        vm.CreateDemoProgram("clamp-int");
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Acquire);
         var acquire = vm.SequenceItems.Single(row => row.Kind == SequenceRowKind.Metric);
         vm.SelectSequence(vm.SequenceItems.ToList().IndexOf(acquire));
         vm.SetMetricSettingNumber("SampleCount", 3.9m);
@@ -114,9 +115,9 @@ public sealed class AuthoringInspectorNitsTests
     public void Inspector_channel_key_keeps_the_selected_sequence_row()
     {
         var vm = OpenEmpty();
-        vm.CreateProgram("keep-key");
-        vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
-        vm.ApplyRecipe(AuthoringRecipeIds.MeanGte);
+        vm.CreateDemoProgram("keep-key");
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Acquire);
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.MeanGte);
         var mean = vm.SequenceItems.Single(row =>
             row.Kind == SequenceRowKind.Metric && row.Detail.Contains("VDC.mean", StringComparison.Ordinal));
         vm.SelectSequence(vm.SequenceItems.ToList().IndexOf(mean));
@@ -142,7 +143,7 @@ public sealed class AuthoringInspectorNitsTests
     public void Inspector_cleanup_slot_keeps_the_selected_cleanup_row()
     {
         var vm = OpenEmpty();
-        vm.CreateProgram("keep-cleanup");
+        vm.CreateDemoProgram("keep-cleanup");
         var shutdown = vm.SequenceItems.Single(row => row.Kind == SequenceRowKind.Cleanup);
         vm.SelectSequence(vm.SequenceItems.ToList().IndexOf(shutdown));
         var notified = new HashSet<string>(StringComparer.Ordinal);
@@ -165,8 +166,8 @@ public sealed class AuthoringInspectorNitsTests
     public void SelectSequence_ignores_cleared_index_and_keeps_the_current_row()
     {
         var vm = OpenEmpty();
-        vm.CreateProgram("keep-index");
-        vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
+        vm.CreateDemoProgram("keep-index");
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Acquire);
         var acquire = vm.SequenceItems.Single(row => row.Kind == SequenceRowKind.Metric);
         vm.SelectSequence(vm.SequenceItems.ToList().IndexOf(acquire));
         var index = vm.SelectedSequenceIndex;
@@ -191,7 +192,7 @@ public sealed class AuthoringInspectorNitsTests
     public void Raw_xml_is_empty_until_a_raw_row_is_selected()
     {
         var vm = OpenEmpty();
-        vm.CreateProgram("raw-gate");
+        vm.CreateDemoProgram("raw-gate");
         vm.ReplaceSelected(vm.SelectedProgram! with
         {
             Measure = [new RawStepNode("HangForeverStep", "<TestStep />")],

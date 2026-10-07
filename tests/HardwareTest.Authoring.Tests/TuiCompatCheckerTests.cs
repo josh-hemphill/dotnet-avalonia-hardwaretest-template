@@ -84,7 +84,8 @@ public sealed class TuiCompatCheckerTests
                     Offline = true,
                     Compat = new TuiCompatChecker(),
                 }));
-        Assert.Contains(AuthoringPackCodes.CompatBlocked, ex.Message, StringComparison.Ordinal);
+        Assert.Contains(ex.Report.Findings, finding => finding.Code == "PACK_PACKAGE_MISSING" && finding.Message.Contains("HardwareTest Mixins", StringComparison.Ordinal));
+        Assert.Null(ex.Report.Compatibility);
     }
 
     [Fact]

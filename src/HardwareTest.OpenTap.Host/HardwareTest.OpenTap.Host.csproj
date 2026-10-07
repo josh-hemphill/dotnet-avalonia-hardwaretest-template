@@ -14,15 +14,23 @@
     </AssemblyAttribute>
   </ItemGroup>
   <ItemGroup>
+    <!-- Restore payload inputs without loading NuGet copies of the TAP release DLLs. -->
+    <PackageReference Include="InstrumentComponents" ExcludeAssets="all" PrivateAssets="all" GeneratePathProperty="true" />
+    <PackageReference Include="InstrumentComponents.OpenTap" ExcludeAssets="all" PrivateAssets="all" GeneratePathProperty="true" />
+    <PackageReference Include="InstrumentComponents.Visa" ExcludeAssets="all" PrivateAssets="all" GeneratePathProperty="true" />
+    <PackageReference Include="InstrumentComponents.OpenTap.Visa" ExcludeAssets="all" PrivateAssets="all" GeneratePathProperty="true" />
     <PackageReference Include="OpenTAP" />
     <PackageReference Include="StreamJsonRpc" />
     <ProjectReference Include="..\HardwareTest.OpenTap.Plugins.Basic\HardwareTest.OpenTap.Plugins.Basic.csproj" />
-    <ProjectReference Include="..\HardwareTest.OpenTap.Plugins.Visa\HardwareTest.OpenTap.Plugins.Visa.csproj" />
     <ProjectReference Include="..\HardwareTest.OpenTap.Plugins.Mixins\HardwareTest.OpenTap.Plugins.Mixins.csproj" />
     <ProjectReference Include="..\HardwareTest.Core\HardwareTest.Core.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <Content Include="../HardwareTest.OpenTap.Plugins.Visa/package.xml" Link="AuthoringPackages/HardwareTest VISA/package.xml" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <None Include="..\..\plans\opentap\**\*" Link="Programs\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../HardwareTest.OpenTap.StandaloneVisa/HardwareTest.OpenTap.StandaloneVisa.csproj" ReferenceOutputAssembly="false" Private="false" GlobalPropertiesToRemove="SelfContained;PublishSingleFile;PublishTrimmed;PublishReadyToRun;PublishAot" />
+  </ItemGroup>
+  <Import Project="PublishedInstrumentComponents.targets" />
+  <Import Project="StandaloneVisaPackage.targets" />
 </Project>

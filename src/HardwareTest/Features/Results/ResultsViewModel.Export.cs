@@ -79,21 +79,6 @@ public partial class ResultsViewModel
 
                 files.AddRange(CollectExportReportFiles(OpenedRun));
 
-                if (!string.IsNullOrWhiteSpace(OpenedRun.ReportPdfPath)
-                    && File.Exists(OpenedRun.ReportPdfPath)
-                    && files.All(f => !string.Equals(f.SourcePath, OpenedRun.ReportPdfPath, StringComparison.OrdinalIgnoreCase)))
-                {
-                    files.Add((OpenedRun.ReportPdfPath!, Path.GetFileName(OpenedRun.ReportPdfPath)));
-                }
-
-                if (Directory.Exists(runDir))
-                {
-                    foreach (var sidecar in Directory.EnumerateFiles(runDir, "*.attestation.json"))
-                    {
-                        files.Add((sidecar, Path.GetFileName(sidecar)));
-                    }
-                }
-
                 var csvDir = Path.Combine(runDir, "opentap-results");
                 if (Directory.Exists(csvDir))
                 {
@@ -176,12 +161,20 @@ public partial class ResultsViewModel
                      .Where(r => !string.IsNullOrWhiteSpace(r.PdfPath) && File.Exists(r.PdfPath))
                      .GroupBy(r => r.Kind, StringComparer.OrdinalIgnoreCase))
         {
-            var issued = group.FirstOrDefault(r => ReportArtifactRoles.IsIssued(r.Role));
+            var issuedPath = ReportAttestationService.ResolveIssuedPdfPath(run, group.Key);
+            var issued = group.FirstOrDefault(r => string.Equals(r.PdfPath, issuedPath, StringComparison.OrdinalIgnoreCase));
             var working = group.FirstOrDefault(r => ReportArtifactRoles.IsWorking(r.Role));
             var kind = (issued ?? working ?? group.First()).Kind;
             if (issued is not null)
             {
                 files.Add((issued.PdfPath, $"{kind}.pdf"));
+                var attestation = ReportAttestationService.Find(run, kind);
+                var sidecarPath = attestation?.SidecarPath;
+                if (!string.IsNullOrWhiteSpace(sidecarPath) && File.Exists(sidecarPath))
+                {
+                    files.Add((sidecarPath, $"{kind}.attestation.json"));
+                }
+
                 if (working is not null)
                 {
                     files.Add((working.PdfPath, Path.Combine("working", $"{kind}.pdf")));

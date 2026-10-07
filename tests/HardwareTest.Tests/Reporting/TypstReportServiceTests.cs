@@ -1,6 +1,7 @@
 using HardwareTest.Core.Credentials;
 using HardwareTest.Core.Reporting;
 using HardwareTest.Core.Runs;
+using HardwareTest.Core.Serialization;
 using HardwareTest.Core.Settings;
 using HardwareTest.Tests.Fixtures;
 using Xunit;
@@ -24,7 +25,7 @@ public sealed class TypstReportServiceTests
         AssertPdfMagic(await File.ReadAllBytesAsync(path));
 
         var reloaded = await runStore.LoadAsync(run.RunId);
-        Assert.Equal(path, reloaded!.ReportPdfPath);
+        Assert.Equal(path, ReportAttestationService.ResolveWorkingPdfPath(reloaded!, ReportKinds.Status));
     }
 
     [Fact]
@@ -67,14 +68,17 @@ public sealed class TypstReportServiceTests
         Assert.All(paths, p => Assert.True(File.Exists(p) && new FileInfo(p).Length > 0));
     }
 
-    [Fact]
-    public async Task CompileTemplateAsync_uses_DataDirectory_reports_override()
+    [Theory]
+    [InlineData("test-report.typ")]
+    [InlineData("custom-report.typ")]
+    [InlineData("status-report.typ")]
+    public async Task CompileTemplateAsync_uses_explicit_DataDirectory_template(string templateName)
     {
         using var temp = new TempDataDirectory();
         var reportsDir = Path.Combine(temp.Path, "reports");
         Directory.CreateDirectory(reportsDir);
         File.WriteAllText(
-            Path.Combine(reportsDir, "test-report.typ"),
+            Path.Combine(reportsDir, templateName),
             """
             #set page(width: 100mm, height: 50mm)
             = Override template
@@ -91,7 +95,7 @@ public sealed class TypstReportServiceTests
             {
                 DataDirectory = temp.Path,
                 EmbedPlotsInReport = false,
-                ReportTemplateName = "test-report.typ",
+                ReportTemplateName = templateName,
             });
         var pdf = await CompileOrSkipAsync(() => reports.CompileTemplateAsync(run));
         AssertPdfMagic(pdf);
@@ -119,7 +123,7 @@ public sealed class TypstReportServiceTests
         Assert.All(artifacts, a => Assert.True(File.Exists(a.PdfPath)));
         Assert.Contains(artifacts, a => a.Kind == ReportKinds.Status);
         Assert.Contains(artifacts, a => a.Kind == ReportKinds.Certification);
-        Assert.Equal(artifacts.First(a => a.Kind == ReportKinds.Status).PdfPath, run.ReportPdfPath);
+        Assert.Equal(artifacts.First(a => a.Kind == ReportKinds.Status).PdfPath, ReportAttestationService.ResolveWorkingPdfPath(run, ReportKinds.Status));
         Assert.All(artifacts, a => Assert.Equal(ReportArtifactRoles.Working, a.Role));
 
         var reloaded = await runStore.LoadAsync(run.RunId);
@@ -191,7 +195,7 @@ public sealed class TypstReportServiceTests
         Assert.Equal(2, run.Reports.Count);
         Assert.Contains(run.Reports, r => r.Kind == ReportKinds.Status && r.PdfPath == statusPath);
         Assert.Contains(run.Reports, r => r.Kind == ReportKinds.Certification);
-        Assert.Equal(statusPath, run.ReportPdfPath);
+        Assert.Equal(statusPath, ReportAttestationService.ResolveWorkingPdfPath(run, ReportKinds.Status));
     }
 
     [Fact]
@@ -405,6 +409,199 @@ public sealed class TypstReportServiceTests
         Assert.DoesNotContain("Previous Certifier", json, StringComparison.Ordinal);
     }
 
+    [Theory]
+    [InlineData("missing-report.typ")]
+    [InlineData("status-report.typ")]
+    public async Task CompileTemplateAsync_missing_requested_template_fails_without_alias(string templateName)
+    {
+        using var temp = new TempDataDirectory();
+        using var reports = new TypstReportService(new FileRunStore(temp.RunsDirectory),
+            new AppSettings { ReportTemplateName = templateName });
+
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() => reports.CompileTemplateAsync(CreateRun()));
+
+        Assert.Contains(templateName, error.Message, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(0, false)]
+    [InlineData(3, false)]
+    [InlineData(5, false)]
+    [InlineData(4, true)]
+    public async Task GenerateReportsAsync_rejected_run_preserves_pdf_and_attestation(int version, bool readOnly)
+    {
+        using var temp = new TempDataDirectory();
+        var store = new FileRunStore(temp.RunsDirectory);
+        var run = CreateRun();
+        await store.SaveAsync(run);
+        var dir = store.GetRunDirectory(run.RunId);
+        var pdfPath = Path.Combine(dir, "status.pdf");
+        var sidecarPath = Path.Combine(dir, "status.attestation.json");
+        var priorPdf = "%PDF-1.4 frozen"u8.ToArray();
+        await File.WriteAllBytesAsync(pdfPath, priorPdf);
+        await File.WriteAllTextAsync(sidecarPath, "frozen attestation");
+        run.Attestations.Add(new ReportAttestation { ReportKind = ReportKinds.Status, SidecarPath = sidecarPath });
+        var priorJson = await File.ReadAllBytesAsync(Path.Combine(dir, "run.json"));
+        run.SchemaVersion = version;
+        run.IsSchemaReadOnly = readOnly;
+        using var reports = new TypstReportService(store, new AppSettings());
+
+        await Assert.ThrowsAnyAsync<InvalidOperationException>(() => reports.GenerateReportsAsync(run, [ReportKinds.Status]));
+
+        Assert.Equal(priorPdf, await File.ReadAllBytesAsync(pdfPath));
+        Assert.Equal("frozen attestation", await File.ReadAllTextAsync(sidecarPath));
+        Assert.Equal(priorJson, await File.ReadAllBytesAsync(Path.Combine(dir, "run.json")));
+        Assert.Single(run.Attestations);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(3)]
+    [InlineData(5)]
+    public async Task GenerateReportsAsync_current_candidate_cannot_mutate_blocked_destination(int storedVersion)
+    {
+        using var temp = new TempDataDirectory();
+        var store = new FileRunStore(temp.RunsDirectory);
+        var run = CreateRun();
+        var dir = store.GetRunDirectory(run.RunId);
+        Directory.CreateDirectory(dir);
+        var json = "{\"schemaVersion\":" + storedVersion + "}";
+        await File.WriteAllTextAsync(Path.Combine(dir, "run.json"), json);
+        var pdfPath = Path.Combine(dir, "status.pdf");
+        await File.WriteAllTextAsync(pdfPath, "frozen PDF");
+        using var reports = new TypstReportService(store, new AppSettings());
+
+        await Assert.ThrowsAnyAsync<InvalidOperationException>(() => reports.GeneratePdfAsync(run));
+
+        Assert.Equal(json, await File.ReadAllTextAsync(Path.Combine(dir, "run.json")));
+        Assert.Equal("frozen PDF", await File.ReadAllTextAsync(pdfPath));
+        Assert.Empty(run.Reports);
+    }
+
+
+    [Theory]
+    [InlineData("{\"schemaVersion\":3}", "unsupported")]
+    [InlineData("{\"schemaVersion\":999}", "future")]
+    [InlineData("{invalid", "corrupt")]
+    [InlineData("{\"schemaVersion\":4,\"samples\":{}}", "corrupt")]
+    public async Task Sole_blocked_backup_prevents_report_and_attestation_mutation(string backup, string failure)
+    {
+        using var temp = new TempDataDirectory();
+        var store = new FileRunStore(temp.RunsDirectory);
+        var run = CreateRun();
+        var dir = store.GetRunDirectory(run.RunId);
+        var path = Path.Combine(dir, "run.json");
+        await File.WriteAllTextAsync(path + ".bak", backup);
+        var before = await File.ReadAllBytesAsync(path + ".bak");
+        var pdf = Path.Combine(dir, "status.pdf");
+        var sidecar = Path.Combine(dir, "status.attestation.json");
+        await File.WriteAllTextAsync(pdf, "frozen PDF");
+        await File.WriteAllTextAsync(sidecar, "frozen stamp");
+        run.Attestations.Add(new ReportAttestation { ReportKind = ReportKinds.Status, SidecarPath = sidecar });
+        using var reports = new TypstReportService(store, new AppSettings());
+        if (failure == "future")
+            await Assert.ThrowsAsync<SchemaReadOnlyException>(() => reports.GeneratePdfAsync(run));
+        else if (failure == "unsupported")
+            await Assert.ThrowsAsync<UnsupportedDocumentSchemaException>(() => reports.GeneratePdfAsync(run));
+        else
+            await Assert.ThrowsAnyAsync<System.Text.Json.JsonException>(() => reports.GeneratePdfAsync(run));
+        Assert.False(File.Exists(path));
+        Assert.Equal(before, await File.ReadAllBytesAsync(path + ".bak"));
+        Assert.Equal("frozen PDF", await File.ReadAllTextAsync(pdf));
+        Assert.Equal("frozen stamp", await File.ReadAllTextAsync(sidecar));
+        Assert.Single(run.Attestations);
+        Assert.Empty(run.Reports);
+        if (failure == "future")
+            Assert.Throws<SchemaReadOnlyException>(() => ReportAttestationService.InvalidateForKinds(run, dir, [ReportKinds.Status]));
+        else if (failure == "unsupported")
+            Assert.Throws<UnsupportedDocumentSchemaException>(() => ReportAttestationService.InvalidateForKinds(run, dir, [ReportKinds.Status]));
+        else
+            Assert.ThrowsAny<System.Text.Json.JsonException>(() => ReportAttestationService.InvalidateForKinds(run, dir, [ReportKinds.Status]));
+        Assert.Single(run.Attestations);
+        Assert.Equal("frozen stamp", await File.ReadAllTextAsync(sidecar));
+    }
+
+    [Fact]
+    public async Task GenerateReportsAsync_preserves_nonworking_roles_for_generated_kind()
+    {
+        using var temp = new TempDataDirectory();
+        var store = new FileRunStore(temp.RunsDirectory);
+        var run = CreateRun();
+        var review = new RunReportArtifact
+        {
+            Kind = ReportKinds.Status,
+            Role = "review",
+            PdfPath = Path.Combine(temp.Path, "review.pdf"),
+        };
+        await File.WriteAllTextAsync(review.PdfPath, "review artifact");
+        run.Reports.Add(review);
+        await store.SaveAsync(run);
+        using var reports = new TypstReportService(store, new AppSettings { EmbedPlotsInReport = false });
+
+        await CompileOrSkipAsync(() => reports.GeneratePdfAsync(run));
+
+        Assert.Contains(review, run.Reports);
+        Assert.Single(run.Reports, r => ReportArtifactRoles.IsWorking(r.Role));
+        Assert.Equal("review artifact", await File.ReadAllTextAsync(review.PdfPath));
+    }
+
+    [Fact]
+    public async Task GenerateSuitePdfAsync_readonly_future_child_reports_child_schema_and_preserves_pdf()
+    {
+        using var temp = new TempDataDirectory();
+        var store = new FileRunStore(temp.RunsDirectory);
+        var suite = new SuiteRunRecord
+        {
+            SchemaVersion = SchemaVersions.SuiteRunRecord,
+            SuiteRunId = "blocked-suite",
+            IsSchemaReadOnly = true,
+            PlanRuns =
+            [
+                new TestRunRecord
+                {
+                    SchemaVersion = SchemaVersions.TestRunRecord + 1,
+                    StoredSchemaVersion = SchemaVersions.TestRunRecord + 1,
+                    RunId = "future-child",
+                    IsSchemaReadOnly = true,
+                    AppVersion = "future-writer",
+                },
+            ],
+        };
+        var dir = store.GetRunDirectory(suite.SuiteRunId);
+        Directory.CreateDirectory(dir);
+        var pdf = Path.Combine(dir, "status.pdf");
+        await File.WriteAllTextAsync(pdf, "frozen suite PDF");
+        using var reports = new TypstReportService(store, new AppSettings());
+
+        var error = await Assert.ThrowsAsync<SchemaReadOnlyException>(() => reports.GenerateSuitePdfAsync(suite));
+
+        Assert.Equal(SchemaDocumentTypes.TestRunRecord, error.Status.DocumentType);
+        Assert.Equal(SchemaVersions.TestRunRecord + 1, error.Status.StoredVersion);
+        Assert.Contains("future-writer", error.Message, StringComparison.Ordinal);
+        Assert.Equal("frozen suite PDF", await File.ReadAllTextAsync(pdf));
+        Assert.Null(suite.ReportPdfPath);
+        Assert.False(File.Exists(Path.Combine(dir, "run.json")));
+    }
+
+    [Fact]
+    public void Artifact_paths_require_matching_kind_and_role_and_ownership()
+    {
+        var run = CreateRun();
+        run.Reports =
+        [
+            new RunReportArtifact { Kind = ReportKinds.Status, Role = ReportArtifactRoles.Working, PdfPath = "status.pdf" },
+            new RunReportArtifact { Kind = ReportKinds.Status, Role = ReportArtifactRoles.Issued, PdfPath = "issued/status.pdf" },
+        ];
+
+        Assert.Null(ReportAttestationService.ResolveWorkingPdfPath(run, ReportKinds.Certification));
+        Assert.Null(ReportAttestationService.ResolveWorkingPdfPath(run, "custom"));
+        Assert.True(ReportAttestationService.RunOwnsPdf(run, "status.pdf"));
+        Assert.True(ReportAttestationService.RunOwnsPdf(run, "issued/status.pdf"));
+        Assert.False(ReportAttestationService.RunOwnsPdf(run, "unlisted.pdf"));
+        Assert.Throws<InvalidOperationException>(() => ReportAttestationService.KindForPdf(run, "unlisted.pdf"));
+        Assert.Equal("issued/status.pdf", ReportAttestationService.ResolvePrintOrExportPdfPath(run, "status.pdf"));
+    }
+
     private static Task WriteCertificationTypstAsync(string dataDirectory, string body)
     {
         var reportsDir = Path.Combine(dataDirectory, "reports");
@@ -426,6 +623,7 @@ public sealed class TypstReportServiceTests
 
         return new TestRunRecord
         {
+            SchemaVersion = SchemaVersions.TestRunRecord,
             RunId = Guid.NewGuid().ToString("N"),
             PlanId = "sample",
             PlanName = "Sample",

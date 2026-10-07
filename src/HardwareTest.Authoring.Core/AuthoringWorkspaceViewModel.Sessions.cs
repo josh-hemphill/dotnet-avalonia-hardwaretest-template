@@ -14,7 +14,14 @@ public sealed partial class AuthoringWorkspaceViewModel
     public bool CanUndoWorkspace => Workspace is { IsReadOnly: false } && _workspaceHistory.CanUndo(CaptureWorkspace());
     public bool CanRedoWorkspace => Workspace is { IsReadOnly: false } && _workspaceHistory.CanRedo(CaptureWorkspace());
     public string WorkspaceHistoryHint => "Workspace Undo/Redo restores a catalog operation and its affected programs together. Intervening edits must be undone first.";
-    public IReadOnlyList<AuthoringEditingIssue> EditingIssues => Programs.SelectMany(AuthoringIssueService.GetIssues).ToArray();
+    public IReadOnlyList<AuthoringEditingIssue> EditingIssues
+    {
+        get
+        {
+            var inspection = HardwareInspection;
+            return Programs.SelectMany(draft => AuthoringIssueService.GetIssues(draft, inspection.Home, inspection.Error, Workspace?.Manifest.Dependencies.Select(d => d.Package).ToArray())).ToArray();
+        }
+    }
 
     public void Undo()
     {
@@ -67,8 +74,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         RestoreNodeSelection(session.SelectedNodeId);
         RaiseSidecarProperties();
         RecomputeDocumentDirty();
-        Findings = [];
-        FindingRows = [];
+        InvalidateContractFindings();
     }
 
     private void RestoreNodeSelection(Guid? nodeId)
@@ -85,6 +91,9 @@ public sealed partial class AuthoringWorkspaceViewModel
 
     private void InitializeDocuments(IReadOnlyList<ProgramDraft> drafts)
     {
+        _importedPlanHashes.Clear();
+        foreach (var path in Workspace!.TapPlanPaths)
+            _importedPlanHashes[Path.GetFileNameWithoutExtension(path)] = AuthoringDocumentStore.ComputeHash(path);
         _documents.Clear();
         _workspaceHistory.Clear();
         foreach (var draft in drafts)
@@ -112,8 +121,12 @@ public sealed partial class AuthoringWorkspaceViewModel
 
     private void InvalidateContractFindings()
     {
+        _findingRevision++;
+        _lastFindingCheckStale = true;
+        OnPropertyChanged(nameof(IssuesCheckState));
         Findings = [];
-        FindingRows = [];
+        FindingRows = FindingRows.Select(row => row with { IsStale = true }).ToArray();
+        OnPropertyChanged(nameof(IssuesSummary));
     }
 
     private void RecomputeDocumentDirty()
@@ -123,6 +136,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         RefreshDirtyState();
         RaiseHistoryProperties();
         OnPropertyChanged(nameof(EditingIssues));
+        OnPropertyChanged(nameof(IssuesSummary));
         ScheduleRecovery();
     }
 
@@ -170,6 +184,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         RestoreNodeSelection(SelectedDocument?.SelectedNodeId);
         RaiseSidecarProperties();
         RecomputeDocumentDirty();
+        RefreshPackPreview();
     }
 
     private void RunCatalogEdit(string description, Action edit)

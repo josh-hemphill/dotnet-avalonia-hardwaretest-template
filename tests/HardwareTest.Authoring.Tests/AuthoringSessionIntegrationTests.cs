@@ -30,17 +30,18 @@ public sealed class AuthoringSessionIntegrationTests : IDisposable
     public void Recipe_history_restores_final_added_and_wrapped_node_selection()
     {
         var vm = Open();
-        vm.CreateProgram("selection");
-        vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
+        vm.CreateDemoProgram("selection");
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Acquire);
         var first = vm.SelectedSequence!.NodeId;
-        vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Acquire);
         var added = vm.SelectedSequence!.NodeId;
+        Assert.Equal(["VDC", "VDC_2"], vm.SelectedProgram!.Measure.Cast<MetricNode>().Select(node => node.Metric.ChannelKey));
         Assert.NotEqual(first, added);
         vm.Undo();
         Assert.Equal(first, vm.SelectedSequence!.NodeId);
         vm.Redo();
         Assert.Equal(added, vm.SelectedSequence!.NodeId);
-        vm.ApplyRecipe(AuthoringRecipeIds.Repeat);
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Repeat);
         var wrapped = vm.SelectedSequence!.NodeId;
         vm.Undo();
         Assert.Equal(added, vm.SelectedSequence!.NodeId);
@@ -58,10 +59,10 @@ public sealed class AuthoringSessionIntegrationTests : IDisposable
         vm.DisplayName = "renamed";
         Assert.True(vm.CanUndo);
         Assert.True(vm.HasUnsavedChanges);
-        vm.CreateProgram("other");
-        vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
+        vm.CreateDemoProgram("other");
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Acquire);
         var otherNode = vm.SelectedSequence!.NodeId;
-        vm.DisplayName = "other edited";
+        vm.DisplayName = "other renamed";
         vm.SelectProgram("sample");
         Assert.Equal(selectedNode, vm.SelectedSequence!.NodeId);
         vm.Undo();
@@ -69,10 +70,10 @@ public sealed class AuthoringSessionIntegrationTests : IDisposable
         Assert.DoesNotContain(vm.DirtyPrograms, p => p.PlanId == "sample");
         vm.SelectProgram("other");
         Assert.Equal(otherNode, vm.SelectedSequence!.NodeId);
-        Assert.Equal("other edited", vm.DisplayName);
+        Assert.Equal("other renamed", vm.DisplayName);
         vm.Undo();
-        Assert.Equal("other", vm.DisplayName);
-        Assert.True(vm.HasUnsavedChanges); // creation is unsaved even when all edits are undone
+        Assert.Equal("other edited", vm.DisplayName);
+        Assert.True(vm.HasUnsavedChanges); // The earlier measurement edit remains dirty after undoing the title edit.
         vm.SelectProgram("sample");
         vm.Redo();
         Assert.Equal("renamed", vm.DisplayName);
@@ -158,8 +159,11 @@ public sealed class AuthoringSessionIntegrationTests : IDisposable
         var vm = Open(new RecordingCompiler { ReadOnly = true });
         var before = vm.DisplayName;
         Assert.Throws<AuthoringWorkspaceException>(() => vm.DisplayName = "edit");
-        Assert.Throws<AuthoringWorkspaceException>(() => vm.ApplyRecipe(AuthoringRecipeIds.Acquire));
-        Assert.Throws<AuthoringWorkspaceException>(() => vm.CreateProgram("new"));
+        vm.SelectedRecipeId = AuthoringRecipeIds.Acquire;
+        vm.InsertionPosition = "End of section";
+        Assert.False(vm.CanInsertRecipe);
+        Assert.Throws<AuthoringWorkspaceException>(() => vm.InsertSelectedRecipe());
+        Assert.Throws<AuthoringWorkspaceException>(() => vm.InitializePlan(new("new") { Instruments = [] }));
         Assert.Equal(before, vm.DisplayName);
         Assert.False(vm.CanUndo);
         Assert.False(vm.CanUndoWorkspace);

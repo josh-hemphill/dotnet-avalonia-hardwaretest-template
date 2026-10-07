@@ -18,6 +18,16 @@ public sealed class AuthoringRecoveryCheckpointService : IDisposable
     private readonly Action<string, AuthoringDocumentDto>? write;
     private readonly TimeSpan debounce;
     private bool disposed;
+    private readonly HashSet<Task> writers = [];
+
+    public Task StopAsync() => DrainStoppedWritersAsync().WaitAsync(TimeSpan.FromSeconds(5));
+
+    internal Task DrainStoppedWritersAsync()
+    {
+        Task[] owned;
+        lock (gate) { disposed = true; CancelAllCore(); owned = writers.ToArray(); }
+        return Task.WhenAll(owned);
+    }
 
     public AuthoringRecoveryCheckpointService(Action<Action> dispatch,
         Action<AuthoringRecoveryCheckpointResult> completed, TimeSpan? debounce = null)
@@ -50,7 +60,10 @@ public sealed class AuthoringRecoveryCheckpointService : IDisposable
             if (pending.Remove(key, out var previous)) previous.Cancel();
             var checkpoint = new PendingCheckpoint(snapshot);
             pending.Add(key, checkpoint);
-            _ = Task.Run(() => SaveAfterDelayAsync(key, checkpoint));
+            var writer = Task.Run(() => SaveAfterDelayAsync(key, checkpoint));
+            writers.Add(writer);
+            _ = writer.ContinueWith(completedWriter => { lock (gate) writers.Remove(completedWriter); },
+                CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
         }
     }
 
@@ -88,22 +101,66 @@ public sealed class AuthoringRecoveryCheckpointService : IDisposable
         {
             await Task.Delay(debounce, checkpoint.Cancellation.Token).ConfigureAwait(false);
             AuthoringRecoveryCheckpointResult result;
-            lock (gate)
+            string? path = null;
+            string? stagingDirectory = null;
+            var candidateWritten = false;
+            try
             {
-                if (!IsCurrent(key, checkpoint)) return;
-                string? path = null;
-                try
+                var store = new AuthoringDocumentStore(key.Root);
+                path = store.GetRecoveryPath(key.PlanId);
+                lock (gate) if (!IsCurrent(key, checkpoint)) return;
+                // Slow durable writes use a private candidate. Only the final rename holds the session gate.
+                stagingDirectory = Path.Combine(Path.GetDirectoryName(path)!, ".checkpoint-" + Guid.NewGuid().ToString("N"));
+                Directory.CreateDirectory(stagingDirectory);
+                var candidate = Path.Combine(stagingDirectory, Path.GetFileName(path));
+                if (write is null) store.SaveAtPath(candidate, checkpoint.Document);
+                else write(candidate, checkpoint.Document);
+                candidateWritten = true;
+                // Reads and schema/path checks remain outside the session gate. The gate protects
+                // service generations; as with durable source saves, it cannot lock out external editors.
+                store.ValidatePath(path);
+                var backupPath = store.ValidatePath(path + ".bak");
+                var existing = store.LoadAtPath(path);
+                if (existing.IsReadOnly) throw new InvalidOperationException(existing.Error);
+                var hadPrevious = File.Exists(path);
+                lock (gate)
                 {
-                    var store = new AuthoringDocumentStore(key.Root);
-                    path = store.GetRecoveryPath(key.PlanId);
-                    if (write is null) store.SaveAtPath(path, checkpoint.Document);
-                    else write(path, checkpoint.Document);
-                    result = new(key.Root, key.PlanId, checkpoint.Document.Revision, path, null);
+                    if (!IsCurrent(key, checkpoint)) return;
+                    if (hadPrevious) File.Move(path, backupPath, true);
+                    try { File.Move(candidate, path, true); }
+                    catch
+                    {
+                        if (hadPrevious) File.Move(backupPath, path, true);
+                        throw;
+                    }
                 }
-                catch (Exception error)
+                result = new(key.Root, key.PlanId, checkpoint.Document.Revision, path, null);
+            }
+            catch (Exception error)
+            {
+                // A failed durable candidate retains a backup of the current previous checkpoint.
+                // Prepare that backup outside the gate too; cancellation can discard it at any point.
+                if (!candidateWritten && stagingDirectory is not null && path is not null)
                 {
-                    result = new(key.Root, key.PlanId, checkpoint.Document.Revision, path, error);
+                    try
+                    {
+                        var store = new AuthoringDocumentStore(key.Root);
+                        var backupPath = store.ValidatePath(path + ".bak");
+                        if (!store.LoadAtPath(path).IsReadOnly && File.Exists(path))
+                        {
+                            var previous = Path.Combine(stagingDirectory, "previous");
+                            File.Copy(store.ValidatePath(path), previous);
+                            lock (gate)
+                                if (IsCurrent(key, checkpoint)) File.Move(previous, backupPath, true);
+                        }
+                    }
+                    catch (Exception backupError) when (backupError is IOException or UnauthorizedAccessException or InvalidOperationException) { }
                 }
+                result = new(key.Root, key.PlanId, checkpoint.Document.Revision, path, error);
+            }
+            finally
+            {
+                if (stagingDirectory is not null) AuthoringBuildService.CleanupStaging(stagingDirectory);
             }
             dispatch(() =>
             {

@@ -9,6 +9,12 @@
     <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
       <_Parameter1>HardwareTest.Authoring.Tests</_Parameter1>
     </AssemblyAttribute>
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
+      <_Parameter1>HardwareTest.Authoring.UI.Tests</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo"><_Parameter1>HardwareTest.StandaloneVisa.Tests</_Parameter1></AssemblyAttribute>
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="OpenTAP" />
@@ -23,4 +29,17 @@
     <Content Include="../HardwareTest.OpenTap.Plugins.Basic/package.xml" Link="AuthoringPackages/HardwareTest Basic/package.xml" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <Content Include="../HardwareTest.OpenTap.Plugins.Mixins/package.xml" Link="AuthoringPackages/HardwareTest Mixins/package.xml" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="../../plans/opentap/authoring.schema.json" LogicalName="HardwareTest.Authoring.authoring.schema.json" />
+    <EmbeddedResource Include="../../plans/opentap/authoring-draft.schema.json" LogicalName="HardwareTest.Authoring.authoring-draft.schema.json" />
+  </ItemGroup>
+  <!-- OpenTAP exposes this as runtime payload. Resolve after its imported target metadata. -->
+  <Target Name="ReferenceOpenTapPackage" BeforeTargets="ResolveAssemblyReferences">
+    <ItemGroup>
+      <Reference Include="OpenTap.Package">
+        <HintPath>$([System.String]::Copy('$(OpenTapRuntimeDir)').Replace('osx-', 'macos-'))/OpenTap.Package.dll</HintPath>
+        <Private>false</Private>
+      </Reference>
+    </ItemGroup>
+  </Target>
 </Project>

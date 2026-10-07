@@ -4,5 +4,6 @@
              RequestedThemeVariant="Default">
   <Application.Styles>
     <FluentTheme />
+    <StyleInclude Source="/AuthoringStyles.axaml"/>
   </Application.Styles>
 </Application>

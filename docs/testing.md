@@ -11,9 +11,15 @@ UI/board tests stay separate from OpenTAP plan-behavior tests. Both share the Op
 | Avalonia E2E | Shell wiring only (DUT → Run → Results/Inspect) | Worker-backed session (`OpenTapWorkerClient`) | MockDmm + `UseMockVisa` |
 | Authoring UI | Real authoring window inputs, bindings, welcome state, preferences isolation, and layout/focus at 960×600 and 1280×800 | Offline sample workspace load/save | Temporary workspace + explicit preferences path |
 
-CI runs Deno tasks from [`tools/ci/`](../tools/ci/) on **windows-latest** (required E2E) and **ubuntu-latest** (`linux-x64`; E2E advisory — the step is named **E2E smoke (advisory on Linux)**). Host tests run **without Coverlet**; `coverage` collects Core-safe tests only. See [containers.md](containers.md).
+CI preserves the required `test` (Windows) and `test-linux` checks as aggregates. Linux runs host/authoring, full headless UI, ViewModels and quality checks in independent jobs. Windows always runs the complete Core/host and StandaloneVisa suites, native process ownership/cancellation, launcher/literal-path handling, atomic progress replacement, filesystem identity and authoring window/lifecycle smoke. Windows E2E is blocking; Linux E2E remains advisory. Host tests run without Coverlet; Linux collects Core-safe coverage and checks its floors once.
 
-`test:authoring-ui` is required on both platforms, including inside `all`; the operator E2E advisory policy does not apply to it. Its dedicated `HardwareTest.Authoring.UI.Tests` assembly owns a serial Avalonia Headless lifecycle with a Fluent/Inter test application, constructs `MainWindow(viewModel)` directly, and never starts the production authoring `App`. Each fixture copies the sample workspace and supplies its own preferences file, then closes windows, drains the dispatcher, and deletes temporary files. Keep CLI-before-Avalonia coverage in the existing CLI tests.
+The PR policy allows fast validation for documentation, operator ViewModel tests and the existing operator feature directories `Home`, `Inspect`, `Instruments`, `Presentation`, `ReportPreview`, `Results`, `RunTest` and `Settings` under `src/HardwareTest/Features`. Startup/composition, shell infrastructure and newly introduced feature directories remain full. Shared Core/OpenTAP/authoring dependencies, plans, linked fixtures, shell apps, project or lock files, SDK/build configuration, CI tooling and unfamiliar paths require full validation. Missing or invalid PR diffs also require full. Renames include both old and new paths. Integration-branch pushes, the nightly run and manual dispatch always run full on both platforms and verify/upload both self-contained publishes. Superseded PR runs cancel; full integration runs finish.
+
+`test:host --profile fast` retains logical authoring tests and safety guards, excluding tests explicitly tagged `Category=AuthoringIntegration`. The tagged SDK snapshot and real child-process cases still run on relevant PRs and every full run. `test:host --profile windows-smoke` selects the essential Windows authoring cases; `test:authoring-ui --profile windows-smoke` selects window, lifecycle and process-close smoke. Defaults remain full, and `all` always selects full. The standalone `test:authoring-compat` command remains available; CI avoids repeating compatibility and progress tests already selected by its suites.
+
+`test:authoring-ui` is a required full Linux task and runs full on Windows in full validation. Its dedicated assembly owns a serial Avalonia Headless lifecycle with a Fluent/Inter test application, constructs `MainWindow(viewModel)` directly, and never starts the production authoring `App`. Each fixture copies the sample workspace and supplies its own preferences file, then closes windows, drains the dispatcher, and deletes temporary files. Keep CLI-before-Avalonia coverage in the existing CLI tests. Jobs isolate process-global OpenTAP state; the existing serial test collections remain intact.
+
+Formatting uses one temporary solution generated from evaluated `dirs.proj` references. Every traversal project is represented once; the SDK loads a single formatting workspace. Formatting, vulnerability audit, coverage floors and Deno policy/catalog tests run once on Linux. Each suite logs command durations and uploads TRX, coverage and OpenTAP SessionLogs even after failure. Full/manual runs also provide verified publish artifacts. The required aggregates reject failed, cancelled or missing children; publishing can skip only when the policy selected fast.
 
 Where coverage lives:
 
@@ -36,7 +42,7 @@ Put an assertion in `OpenTapSessionContractTests` only when it must hold for **b
 
 Put a rule here only when it is a short, stable layering claim already written in README / adapting.md (e.g. "Core must not reference Avalonia"). Failure messages must name the rule and the doc. Behavioral coverage stays in the suites below.
 
-- Plugin VISA must go through Core `IVisaBroker` — `ArchitectureRulesTests.Plugin_source_must_not_use_Ivi_Visa` scans `Plugins.Basic` / `Plugins.Visa` / `Plugins.Mixins`.
+- Physical execution uses the Host SCPI bridge over Core `IVisaBroker`; Basic and Mixins must not access vendor VISA APIs directly — `ArchitectureRulesTests.Plugin_source_must_not_use_Ivi_Visa` scans `Plugins.Basic` / `Plugins.Mixins`.
 - Pause/interaction must not be process-global statics — `ArchitectureRulesTests.StepRuntime_must_not_expose_static_pause_or_interaction`.
 - Idle/retention/run-complete must not call `DateTime.UtcNow` / `DateTimeOffset.UtcNow`; Safety Stop / worker kill must not wait on NTP.
 
@@ -108,3 +114,5 @@ deno run -A tools/ci/main.ts audit
 # Raw dotnet still works:
 dotnet test dirs.proj -r win-x64 -m:1
 ```
+
+Instrument Components catalog, editor, lifecycle serialization, cold-import and wrapped recovery tests run against the bundled published 0.1.1 archive by default, without an upstream build. `HARDWARETEST_LIBRARY_TEST_PACKAGE_ROOT` and `HARDWARETEST_LIBRARY_TEST_ARCHIVE` remain optional fixture overrides for compatibility investigations.

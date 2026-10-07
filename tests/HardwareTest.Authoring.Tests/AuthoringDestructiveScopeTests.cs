@@ -28,7 +28,7 @@ public sealed class AuthoringDestructiveScopeTests : IDisposable
     [Fact]
     public void Membership_clones_only_selected_sidecar_and_leaves_catalog_and_other_program_unchanged()
     {
-        var vm = Open(); vm.CreateProgram("a"); vm.CreateProgram("b"); Assert.True(vm.SaveAll().Succeeded);
+        var vm = Open(); vm.InitializePlan(new("a") { Instruments = [] }); vm.DisplayName += " edited"; vm.InitializePlan(new("b") { Instruments = [] }); vm.DisplayName += " edited"; Assert.True(vm.SaveAll().Succeeded);
         var b = vm.SelectedProgram!; vm.SelectProgram("a"); var a = vm.SelectedProgram!;
         var manifest = File.ReadAllBytes(ManifestPath);
         vm.SetRequiredFieldIncluded("fixtureId", true); vm.SetReportKindIncluded("custom", true);
@@ -46,14 +46,14 @@ public sealed class AuthoringDestructiveScopeTests : IDisposable
     [InlineData(CatalogDeletionKind.ProgramKind)]
     public void Preparing_named_impact_without_applying_changes_nothing_and_only_names_users(CatalogDeletionKind kind)
     {
-        var vm = Open(); vm.CreateProgram("a");
+        var vm = Open(); vm.InitializePlan(new("a") { Instruments = [] });
         switch (kind)
         {
             case CatalogDeletionKind.RequiredField: AddField(vm); break;
             case CatalogDeletionKind.ReportKind: vm.NewReportKind = "custom"; vm.AddReportKind(); break;
             case CatalogDeletionKind.ProgramKind: vm.NewProgramKind = "custom"; vm.AddProgramKind(); break;
         }
-        vm.CreateProgram("b");
+        vm.InitializePlan(new("b") { Instruments = [] }); vm.DisplayName += " edited";
         // Program creation may inherit catalog suggestions; explicitly remove membership for the unaffected program.
         switch (kind)
         {
@@ -85,7 +85,7 @@ public sealed class AuthoringDestructiveScopeTests : IDisposable
     [InlineData("sidecar")]
     public void Selected_save_cannot_persist_catalog_and_global_only_state_blocks_pack_and_validation(string save)
     {
-        var vm = Open(); vm.CreateProgram("a"); Assert.True(vm.SaveAll().Succeeded); var before = File.ReadAllBytes(ManifestPath);
+        var vm = Open(); vm.InitializePlan(new("a") { Instruments = [] }); vm.DisplayName += " edited"; Assert.True(vm.SaveAll().Succeeded); var before = File.ReadAllBytes(ManifestPath);
         AddField(vm);
         switch (save) { case "program": vm.SaveProgram("a"); break; case "apply": vm.Apply(); break; default: vm.SaveSidecar(); break; }
         Assert.Empty(vm.DirtyProgramIds); Assert.True(vm.HasUnsavedChanges); Assert.True(vm.WorkspaceCatalogDirty);
@@ -102,7 +102,7 @@ public sealed class AuthoringDestructiveScopeTests : IDisposable
     [Fact]
     public void Saving_unaffected_selected_program_cannot_commit_workspace_deletion_or_affected_sidecar()
     {
-        var vm = Open(); vm.CreateProgram("a"); AddField(vm); vm.CreateProgram("b"); vm.SetRequiredFieldIncluded("fixtureId", false);
+        var vm = Open(); vm.InitializePlan(new("a") { Instruments = [] }); AddField(vm); vm.InitializePlan(new("b") { Instruments = [] }); vm.DisplayName += " edited"; vm.SetRequiredFieldIncluded("fixtureId", false);
         Assert.True(vm.SaveAll().Succeeded); var manifest = File.ReadAllBytes(ManifestPath);
         var sidecarPath = PlanCompiler.SidecarPath(Path.Combine(_root, "a.TapPlan")); var sidecar = File.ReadAllBytes(sidecarPath);
         vm.ApplyCatalogDeletion(vm.PrepareRequiredFieldDeletion("fixtureId")); vm.SaveProgram("b");
@@ -114,7 +114,7 @@ public sealed class AuthoringDestructiveScopeTests : IDisposable
     [Fact]
     public void Partial_program_failure_keeps_global_dirty_and_manifest_bytes_until_retry()
     {
-        var compiler = new FailingCompiler(); var vm = Open(compiler); vm.CreateProgram("a"); vm.CreateProgram("b"); Assert.True(vm.SaveAll().Succeeded);
+        var compiler = new FailingCompiler(); var vm = Open(compiler); vm.InitializePlan(new("a") { Instruments = [] }); vm.DisplayName += " edited"; vm.InitializePlan(new("b") { Instruments = [] }); vm.DisplayName += " edited"; Assert.True(vm.SaveAll().Succeeded);
         vm.SelectProgram("a"); AddField(vm); vm.SelectProgram("b"); vm.SetRequiredFieldIncluded("fixtureId", true); Assert.True(vm.SaveAll().Succeeded);
         var before = File.ReadAllBytes(ManifestPath); var bPath = PlanCompiler.SidecarPath(Path.Combine(_root, "b.TapPlan")); var bBefore = File.ReadAllBytes(bPath);
         vm.ApplyCatalogDeletion(vm.PrepareRequiredFieldDeletion("fixtureId")); compiler.FailId = "b";
@@ -128,20 +128,30 @@ public sealed class AuthoringDestructiveScopeTests : IDisposable
     [Fact]
     public void Manifest_failure_retains_catalog_failure_and_global_dirty_even_after_all_program_saves()
     {
-        var vm = Open(); vm.CreateProgram("a"); Assert.True(vm.SaveAll().Succeeded); AddField(vm);
-        File.Move(ManifestPath, ManifestPath + ".backup"); Directory.CreateDirectory(ManifestPath);
+        var vm = Open(); vm.StopRecovery(); vm.InitializePlan(new("a") { Instruments = [] }); vm.DisplayName += " edited"; Assert.True(vm.SaveAll().Succeeded);
+        var manifestBefore = File.ReadAllBytes(ManifestPath);
+        var workspaceSourcePath = new AuthoringDocumentStore(_root).GetWorkspacePath(); Assert.False(File.Exists(workspaceSourcePath));
+        var sidecarPath = PlanCompiler.SidecarPath(Path.Combine(_root, "a.TapPlan")); AddField(vm);
+        var reachedCatalogPublication = false;
+        vm.WorkspaceManifestReplacement = (_, _) =>
+        {
+            Assert.Contains("fixtureId", File.ReadAllText(sidecarPath));
+            reachedCatalogPublication = true; throw new IOException("manifest replacement failure");
+        };
         var result = vm.SaveAll(); Assert.False(result.Succeeded); Assert.Empty(result.Failures); Assert.Empty(vm.DirtyProgramIds);
+        Assert.True(reachedCatalogPublication); Assert.Equal(["a"], result.SavedProgramIds);
+        Assert.Equal(manifestBefore, File.ReadAllBytes(ManifestPath)); Assert.False(File.Exists(workspaceSourcePath));
         Assert.True(result.HasUnsavedChanges); Assert.True(vm.WorkspaceCatalogDirty); Assert.Equal(result.WorkspaceCatalogFailure, vm.WorkspaceCatalogSaveFailure);
         Assert.Contains("retry Save All", vm.WorkspaceCatalogSaveFailure); Assert.Contains(vm.WorkspaceCatalogSaveFailure!, vm.Error);
         Assert.Contains(vm.SaveAllResults, s => s.StartsWith("Workspace catalog:"));
-        Directory.Delete(ManifestPath); File.Move(ManifestPath + ".backup", ManifestPath);
+        vm.WorkspaceManifestReplacement = null;
         Assert.True(vm.SaveAll().Succeeded); Assert.Null(vm.WorkspaceCatalogSaveFailure); Assert.False(vm.HasUnsavedChanges);
     }
 
     [Fact]
     public void Catalog_final_manifest_replacement_failure_preserves_bytes_and_cleans_complete_temp_then_retries()
     {
-        var vm = Open(); vm.CreateProgram("a"); Assert.True(vm.SaveAll().Succeeded);
+        var vm = Open(); vm.InitializePlan(new("a") { Instruments = [] }); vm.DisplayName += " edited"; Assert.True(vm.SaveAll().Succeeded);
         var before = File.ReadAllBytes(ManifestPath); AddField(vm); vm.SaveProgram("a");
         var sawCompleteTemp = false;
         vm.WorkspaceManifestReplacement = (source, destination) =>
@@ -165,7 +175,7 @@ public sealed class AuthoringDestructiveScopeTests : IDisposable
     [Fact]
     public void Global_only_dirtiness_resets_only_after_successful_session_replacement()
     {
-        var vm = Open(); vm.CreateProgram("a"); Assert.True(vm.SaveAll().Succeeded); var prepared = vm.PrepareOpen(_root); AddField(vm); vm.SaveProgram("a");
+        var vm = Open(); vm.InitializePlan(new("a") { Instruments = [] }); vm.DisplayName += " edited"; Assert.True(vm.SaveAll().Succeeded); var prepared = vm.PrepareOpen(_root); AddField(vm); vm.SaveProgram("a");
         var session = vm.Workspace; var selected = vm.SelectedProgram;
         var openGuard = Assert.Throws<AuthoringWorkspaceException>(() => vm.Open(_root));
         Assert.Contains("workspace catalog changes", openGuard.Message); Assert.Contains("Save All", openGuard.Message);
@@ -179,18 +189,45 @@ public sealed class AuthoringDestructiveScopeTests : IDisposable
     [Fact]
     public void Default_and_existing_catalog_additions_do_not_mark_global_dirty()
     {
-        var vm = Open(); vm.CreateProgram("a"); AddField(vm); Assert.True(vm.SaveAll().Succeeded);
+        var vm = Open(); vm.InitializePlan(new("a") { Instruments = [] }); AddField(vm); Assert.True(vm.SaveAll().Succeeded);
         vm.NewRequiredField = "fixtureId"; vm.AddRequiredField(); vm.NewRequiredField = "serial"; vm.AddRequiredField();
         vm.NewReportKind = "status"; vm.AddReportKind(); vm.NewProgramKind = "dut"; vm.AddProgramKind();
         Assert.False(vm.WorkspaceCatalogDirty);
     }
 
     [Fact]
-    public void Unreviewed_legacy_apis_reject_destructive_changes()
+    public void Preparing_catalog_deletions_preserves_content_until_reviewed_impact_is_applied()
     {
-        var vm = Open(); vm.CreateProgram("a"); AddField(vm); vm.NewReportKind = "custom"; vm.AddReportKind(); vm.NewProgramKind = "custom"; vm.AddProgramKind();
-        Assert.Throws<AuthoringWorkspaceException>(() => vm.RemoveRequiredField("fixtureId")); Assert.Throws<AuthoringWorkspaceException>(() => vm.RemoveReportKind("custom"));
-        Assert.Throws<AuthoringWorkspaceException>(() => vm.RemoveProgramKindFromCatalog("custom"));
+        var vm = Open(); vm.InitializePlan(new("a") { Instruments = [] }); AddField(vm); vm.NewReportKind = "custom"; vm.AddReportKind(); vm.NewProgramKind = "custom"; vm.AddProgramKind();
+        var before = vm.Programs; var manifest = File.ReadAllBytes(ManifestPath);
+        var field = vm.PrepareRequiredFieldDeletion("fixtureId");
+        var report = vm.PrepareReportKindDeletion("custom");
+        var kind = vm.PrepareProgramKindDeletion("custom");
+        Assert.Equal("fixtureId", field.Target); Assert.Equal(CatalogDeletionKind.RequiredField, field.Kind);
+        Assert.Contains("removed from program membership", Assert.Single(Assert.Single(field.AffectedPrograms).Nodes));
+        Assert.Equal("custom", report.Target); Assert.Equal(CatalogDeletionKind.ReportKind, report.Kind);
+        Assert.Contains(Assert.Single(report.AffectedPrograms).Nodes, node => node.Contains("Default report:", StringComparison.Ordinal));
+        Assert.Equal("custom", kind.Target); Assert.Equal(CatalogDeletionKind.ProgramKind, kind.Kind);
+        Assert.Contains("resets to dut", Assert.Single(Assert.Single(kind.AffectedPrograms).Nodes));
+        Assert.Same(before, vm.Programs); Assert.Equal(manifest, File.ReadAllBytes(ManifestPath));
+        Assert.Contains("fixtureId", RequiredFieldIds.FromSidecar(vm.SelectedProgram!.Sidecar));
+        Assert.Contains("custom", vm.SelectedProgram.Sidecar.ReportKinds!); Assert.Equal("custom", vm.ProgramKind);
+        vm.ApplyCatalogDeletion(field);
+        Assert.DoesNotContain("fixtureId", RequiredFieldIds.FromSidecar(vm.SelectedProgram.Sidecar));
+        Assert.Contains("custom", vm.SelectedProgram.Sidecar.ReportKinds!); Assert.Equal("custom", vm.ProgramKind);
+        var afterField = vm.Programs;
+        Assert.Throws<AuthoringWorkspaceException>(() => vm.ApplyCatalogDeletion(report));
+        Assert.Throws<AuthoringWorkspaceException>(() => vm.ApplyCatalogDeletion(kind));
+        Assert.Same(afterField, vm.Programs); Assert.Equal(manifest, File.ReadAllBytes(ManifestPath));
+        var currentReport = vm.PrepareReportKindDeletion("custom");
+        Assert.Equal("a", Assert.Single(currentReport.AffectedPrograms).PlanId);
+        vm.ApplyCatalogDeletion(currentReport);
+        Assert.DoesNotContain("custom", vm.ReportKindOptions); Assert.Equal("custom", vm.ProgramKind);
+        var currentKind = vm.PrepareProgramKindDeletion("custom");
+        Assert.Contains("resets to dut", Assert.Single(Assert.Single(currentKind.AffectedPrograms).Nodes));
+        vm.ApplyCatalogDeletion(currentKind);
+        Assert.DoesNotContain("custom", vm.ProgramKindOptions); Assert.Equal("dut", vm.ProgramKind);
+        Assert.Equal(manifest, File.ReadAllBytes(ManifestPath));
         vm.NewInstrumentSlot = "OTHER"; vm.AddInstrumentSlot();
         Assert.Throws<AuthoringWorkspaceException>(vm.RemoveSelectedInstrumentSlot); Assert.Contains("OTHER", vm.InstrumentSlots);
     }
@@ -204,7 +241,7 @@ public sealed class AuthoringDestructiveScopeTests : IDisposable
     [InlineData("workspace")]
     public void Catalog_impact_rejects_changed_recursive_content_or_session_before_mutation(string change)
     {
-        var vm = Open(); vm.CreateProgram("a"); AddField(vm); vm.ApplyRecipe(AuthoringRecipeIds.Acquire); vm.ApplyRecipe(AuthoringRecipeIds.Repeat);
+        var vm = Open(); vm.CreateDemoProgram("a"); AddField(vm); vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Acquire); vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Repeat);
         var settings = new Dictionary<string, string> { ["samples"] = "2" };
         var nested = Assert.IsType<RepeatNode>(Assert.Single(vm.SelectedProgram!.Measure)); var metric = Assert.IsType<MetricNode>(Assert.Single(nested.Children));
         vm.ReplaceSelected(vm.SelectedProgram with
@@ -238,8 +275,8 @@ public sealed class AuthoringDestructiveScopeTests : IDisposable
     [Fact]
     public void Readonly_membership_and_prepare_operations_fail_in_Core_without_mutation()
     {
-        File.WriteAllText(ManifestPath, File.ReadAllText(ManifestPath).Replace("\"schemaVersion\": 1", "\"schemaVersion\": 999", StringComparison.Ordinal));
-        var compiler = new FailingCompiler { InitialProgram = AuthoringRecipeCatalog.CreateProgram("a") }; var vm = Open(compiler); var original = vm.SelectedProgram;
+        File.WriteAllText(ManifestPath, File.ReadAllText(ManifestPath).Replace("\"schemaVersion\": 2", "\"schemaVersion\": 999", StringComparison.Ordinal));
+        var compiler = new FailingCompiler { InitialProgram = MockDmmDraftFixture.Create("a") }; var vm = Open(compiler); var original = vm.SelectedProgram;
         Assert.True(vm.Workspace!.IsReadOnly); Assert.Throws<AuthoringWorkspaceException>(() => vm.SetRequiredFieldIncluded("fixtureId", true));
         Assert.Throws<AuthoringWorkspaceException>(() => vm.SetReportKindIncluded("custom", true)); Assert.Throws<AuthoringWorkspaceException>(() => vm.PrepareRequiredFieldDeletion("fixtureId"));
         Assert.Throws<AuthoringWorkspaceException>(vm.PrepareSelectedInstrumentRemoval); Assert.Same(original, vm.SelectedProgram); Assert.False(vm.HasUnsavedChanges);
@@ -253,7 +290,7 @@ public sealed class AuthoringDestructiveScopeTests : IDisposable
     [Fact]
     public void Explicit_chosen_replacement_retargets_all_known_references_and_preserves_original_and_null_policies()
     {
-        var vm = Open(); vm.CreateProgram("a"); AddSlots(vm); vm.ApplyRecipe(AuthoringRecipeIds.Acquire); vm.ApplyRecipe(AuthoringRecipeIds.Repeat);
+        var vm = Open(); vm.CreateDemoProgram("a"); AddSlots(vm); vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Acquire); vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Repeat);
         var sidecar = PlanCompiler.CloneSidecar(vm.SelectedProgram!.Sidecar); sidecar.CleanupInstrumentSlots = ["DMM", "C"]; sidecar.IncludeMeasureSlots = true;
         vm.ReplaceSelected(vm.SelectedProgram with { Sidecar = sidecar, Cleanup = new CleanupPolicy(true, ["DMM", "C"], true) });
         var original = vm.SelectedProgram; var impact = vm.PrepareSelectedInstrumentRemoval(); Assert.Equal(["B", "C"], impact.CompatibleReplacementSlots);
@@ -275,12 +312,12 @@ public sealed class AuthoringDestructiveScopeTests : IDisposable
     [InlineData("different-replacement")]
     [InlineData("unknown-replacement")]
     [InlineData("unknown-algorithm")]
-    [InlineData("legacy-algorithm")]
+    [InlineData("unresolved-algorithm")]
     [InlineData("raw")]
     [InlineData("case-duplicate-last")]
     public void Instrument_removal_fails_closed_without_mutation_for_unprovable_usage_or_compatibility(string scenario)
     {
-        var vm = Open(); vm.CreateProgram("a"); vm.NewInstrumentSlot = "B"; vm.AddInstrumentSlot(); vm.SelectedInstrumentSlot = "DMM";
+        var vm = Open(); vm.CreateDemoProgram("a"); vm.NewInstrumentSlot = "B"; vm.AddInstrumentSlot(); vm.SelectedInstrumentSlot = "DMM";
         var p = vm.SelectedProgram!; var known = p.Instruments[0].TypeId;
         p = scenario switch
         {
@@ -292,11 +329,11 @@ public sealed class AuthoringDestructiveScopeTests : IDisposable
             _ => p with
             {
                 Measure = [new MetricNode(new MetricDraft("algo", "channel", "scalar", "V", new LimitSpec(0, 1, null), null,
-                new AlgorithmSource(scenario == "legacy-algorithm" ? AuthoringFunctionIds.BasicMeanGte : "Unknown.Algorithm", [], new Dictionary<string, string>())))]
+                new AlgorithmSource(scenario == "unresolved-algorithm" ? AuthoringFunctionIds.BasicMeanGte : "Unknown.Algorithm", [], new Dictionary<string, string>())))]
             },
         };
         vm.ReplaceSelected(p);
-        if (scenario == "legacy-algorithm") vm.SelectedInstrumentSlot = "B"; // Binding is unresolved regardless of which slot was chosen.
+        if (scenario == "unresolved-algorithm") vm.SelectedInstrumentSlot = "B"; // Binding is unresolved regardless of which slot was chosen.
         var original = vm.SelectedProgram; Assert.False(vm.CanRemoveSelectedInstrumentSlot); Assert.Throws<AuthoringWorkspaceException>(vm.PrepareSelectedInstrumentRemoval);
         Assert.Same(original, vm.SelectedProgram); Assert.Empty(Directory.EnumerateFiles(_root, "*.TapPlan"));
     }
@@ -307,7 +344,7 @@ public sealed class AuthoringDestructiveScopeTests : IDisposable
     [InlineData("nested-setting")]
     public void Instrument_impact_rejects_changed_target_or_content(string change)
     {
-        var vm = Open(); vm.CreateProgram("b"); vm.CreateProgram("a"); AddSlots(vm); vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
+        var vm = Open(); vm.CreateDemoProgram("b"); vm.CreateDemoProgram("a"); AddSlots(vm); vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Acquire);
         var settings = new Dictionary<string, string> { ["samples"] = "2" }; var metric = Assert.IsType<MetricNode>(Assert.Single(vm.SelectedProgram!.Measure));
         vm.ReplaceSelected(vm.SelectedProgram with { Measure = [new RepeatNode(2, [metric with { Metric = metric.Metric with { Source = new MeasureSource("DMM", AuthoringFunctionIds.BasicAcquireVoltage, settings) } }])] });
         var impact = vm.PrepareSelectedInstrumentRemoval();

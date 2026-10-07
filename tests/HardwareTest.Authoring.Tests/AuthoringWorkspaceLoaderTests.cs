@@ -12,7 +12,7 @@ public sealed class AuthoringWorkspaceLoaderTests
         var workspace = AuthoringWorkspaceLoader.Load(root);
 
         Assert.False(workspace.IsReadOnly);
-        Assert.Equal(1, workspace.Manifest.SchemaVersion);
+        Assert.Equal(AuthoringSchemaVersions.Manifest, workspace.Manifest.SchemaVersion);
         Assert.Equal("HardwareTest Template Program", workspace.Manifest.Package.Name);
         Assert.Equal(".", workspace.Manifest.PlansDirectory);
         Assert.Equal(
@@ -57,7 +57,7 @@ public sealed class AuthoringWorkspaceLoaderTests
             dir,
             """
             {
-              "schemaVersion": 1,
+              "schemaVersion": 2,
               "displayName": "x",
               "plansDirectory": ".",
               "extraField": true
@@ -108,11 +108,12 @@ public sealed class AuthoringWorkspaceLoaderTests
     }
 
     [Fact]
-    public void Save_stamps_current_schema_and_round_trips()
+    public void Save_current_schema_round_trips()
     {
         var dir = NewTempDir();
         var manifest = new AuthoringManifest
         {
+            SchemaVersion = AuthoringSchemaVersions.Manifest,
             DisplayName = "Round trip",
             PlansDirectory = ".",
             Package = new AuthoringPackageSpec
@@ -147,6 +148,7 @@ public sealed class AuthoringWorkspaceLoaderTests
             dir,
             new AuthoringManifest
             {
+                SchemaVersion = AuthoringSchemaVersions.Manifest,
                 DisplayName = "Catalogs",
                 PlansDirectory = ".",
                 Catalogs = new AuthoringWorkspaceCatalogs
@@ -176,69 +178,74 @@ public sealed class AuthoringWorkspaceLoaderTests
     }
 
     [Fact]
-    public void Migration_retains_exact_original_and_is_idempotent()
+    public void Older_manifest_load_and_save_are_rejected_without_changing_bytes()
     {
         var dir = NewTempDir();
         var path = Path.Combine(dir, AuthoringWorkspaceLoader.ManifestFileName);
-        var original = System.Text.Encoding.UTF8.GetBytes("{ \"schemaVersion\": 1, \"displayName\": \"legacy\", \"plansDirectory\": \".\" }\r\n");
-        File.WriteAllBytes(path, original);
-
-        Assert.True(AuthoringManifestMigration.Migrate(dir));
-        var migrated = File.ReadAllBytes(path);
-        Assert.Equal(original, File.ReadAllBytes(path + ".schema-1.bak"));
-        Assert.Equal(AuthoringSchemaVersions.Manifest, AuthoringWorkspaceLoader.Load(dir).Manifest.SchemaVersion);
-        Assert.False(AuthoringManifestMigration.Migrate(dir));
-        Assert.Equal(migrated, File.ReadAllBytes(path));
-        Assert.Equal(original, File.ReadAllBytes(path + ".schema-1.bak"));
-    }
-
-    [Fact]
-    public void Saving_legacy_manifest_stamps_current_and_keeps_original_backup()
-    {
-        var dir = NewTempDir();
-        var path = Path.Combine(dir, AuthoringWorkspaceLoader.ManifestFileName);
-        WriteManifest(dir, "{ \"schemaVersion\": 1, \"plansDirectory\": \".\" }\r\n");
+        WriteManifest(dir, """{ "schemaVersion": 1, "displayName": "older", "plansDirectory": "." }""" + "\r\n");
         var original = File.ReadAllBytes(path);
-        var manifest = AuthoringWorkspaceLoader.Load(dir).Manifest;
-        manifest.DisplayName = "updated";
 
-        AuthoringWorkspaceLoader.SaveManifest(dir, manifest);
-
-        Assert.Equal(AuthoringSchemaVersions.Manifest, AuthoringWorkspaceLoader.Load(dir).Manifest.SchemaVersion);
-        Assert.Equal(original, File.ReadAllBytes(path + ".schema-1.bak"));
-        AuthoringWorkspaceLoader.SaveManifest(dir, manifest);
-        Assert.Equal(original, File.ReadAllBytes(path + ".schema-1.bak"));
-    }
-
-    [Fact]
-    public void Migration_failure_preserves_original_and_backup()
-    {
-        var dir = NewTempDir();
-        var path = Path.Combine(dir, AuthoringWorkspaceLoader.ManifestFileName);
-        WriteManifest(dir, "{ \"schemaVersion\": 1, \"plansDirectory\": \".\" }");
-        var original = File.ReadAllBytes(path);
-        var failure = new IOException("Injected migration replacement failure.");
-
-        Assert.Same(failure, Assert.Throws<IOException>(() =>
-            AuthoringManifestMigration.Migrate(dir, (_, _) => throw failure)));
-
+        var error = Assert.Throws<AuthoringWorkspaceException>(() => AuthoringWorkspaceLoader.Load(dir));
+        Assert.Contains("requires schema 2", error.Message, StringComparison.Ordinal);
+        Assert.Throws<AuthoringWorkspaceException>(() =>
+            AuthoringWorkspaceLoader.SaveManifest(dir, new AuthoringManifest { SchemaVersion = AuthoringSchemaVersions.Manifest, DisplayName = "replacement" }));
         Assert.Equal(original, File.ReadAllBytes(path));
-        Assert.Equal(original, File.ReadAllBytes(path + ".schema-1.bak"));
-        Assert.Empty(Directory.GetFiles(dir, "*.saving"));
+        Assert.Equal([path], Directory.GetFiles(dir));
     }
 
     [Fact]
-    public void Migration_and_load_leave_future_schema_bytes_unchanged()
+    public void Older_manifest_save_never_creates_a_destination()
+    {
+        var parent = NewTempDir();
+        var destination = Path.Combine(parent, "new-workspace");
+        Assert.Throws<AuthoringWorkspaceException>(() => AuthoringWorkspaceLoader.SaveManifest(
+            destination, new AuthoringManifest { SchemaVersion = 1 }));
+        Assert.False(Directory.Exists(destination));
+        Assert.Empty(Directory.GetFileSystemEntries(parent));
+    }
+
+    [Fact]
+    public void Older_manifest_request_cannot_replace_current_manifest_or_create_backups()
     {
         var dir = NewTempDir();
         var path = Path.Combine(dir, AuthoringWorkspaceLoader.ManifestFileName);
-        WriteManifest(dir, "{ \"schemaVersion\": 999, \"plansDirectory\": \".\", \"unknownFuture\": [3, 2, 1] }\r\n");
+        WriteManifest(dir, """{ "schemaVersion": 2, "displayName": "current", "plansDirectory": "." }""" + "\r\n");
         var original = File.ReadAllBytes(path);
 
-        Assert.False(AuthoringManifestMigration.Migrate(dir));
+        Assert.Throws<AuthoringWorkspaceException>(() => AuthoringWorkspaceLoader.SaveManifest(
+            dir, new AuthoringManifest { SchemaVersion = 1, DisplayName = "older request" }));
+        Assert.Equal(original, File.ReadAllBytes(path));
+        Assert.Equal([path], Directory.GetFiles(dir));
+    }
+
+    [Fact]
+    public void Current_manifest_failed_replacement_preserves_original_and_cleans_temporary_file()
+    {
+        var dir = NewTempDir();
+        var path = Path.Combine(dir, AuthoringWorkspaceLoader.ManifestFileName);
+        WriteManifest(dir, """{ "schemaVersion": 2, "plansDirectory": "." }""");
+        var original = File.ReadAllBytes(path);
+        var failure = new IOException("Injected manifest replacement failure.");
+
+        Assert.Same(failure, Assert.Throws<IOException>(() => AuthoringWorkspaceLoader.SaveManifest(
+            dir, new AuthoringManifest { SchemaVersion = AuthoringSchemaVersions.Manifest, DisplayName = "replacement" }, (_, _) => throw failure)));
+        Assert.Equal(original, File.ReadAllBytes(path));
+        Assert.Equal([path], Directory.GetFiles(dir));
+    }
+
+    [Fact]
+    public void Load_and_save_leave_future_schema_bytes_unchanged()
+    {
+        var dir = NewTempDir();
+        var path = Path.Combine(dir, AuthoringWorkspaceLoader.ManifestFileName);
+        WriteManifest(dir, """{ "schemaVersion": 999, "plansDirectory": ".", "unknownFuture": [3, 2, 1] }""" + "\r\n");
+        var original = File.ReadAllBytes(path);
+
         Assert.True(AuthoringWorkspaceLoader.Load(dir).IsReadOnly);
+        Assert.Throws<AuthoringWorkspaceException>(() =>
+            AuthoringWorkspaceLoader.SaveManifest(dir, new AuthoringManifest { SchemaVersion = AuthoringSchemaVersions.Manifest }));
         Assert.Equal(original, File.ReadAllBytes(path));
-        Assert.Single(Directory.GetFiles(dir));
+        Assert.Equal([path], Directory.GetFiles(dir));
     }
 
     private static void WriteManifest(string dir, string json)

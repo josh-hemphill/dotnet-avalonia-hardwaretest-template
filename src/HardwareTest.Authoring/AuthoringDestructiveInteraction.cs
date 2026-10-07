@@ -47,6 +47,23 @@ public sealed class AuthoringDestructiveInteraction(Window owner)
         return dialog.ShowDialog<string?>(owner);
     }
 
+    public Task<bool> ConfirmHardwareEditAsync(AuthoringHardwareEditImpact impact)
+        => ConfirmHardwareAsync("Review hardware binding change",
+            $"Selected program: {impact.PlanId}\nLogical slot: {impact.SlotName}\nNew type: {impact.Replacement.TypeId}\nNew address: {impact.Replacement.VisaAddress}\nConfiguration: {string.Join(", ", impact.Replacement.Settings.Select(p => $"{p.Key}={p.Value}"))}\nAffected references:\n{string.Join(Environment.NewLine, impact.AffectedNodes)}\nOther program bindings stay unchanged. Save this program to persist.", "Apply reviewed binding");
+
+    public Task<bool> ConfirmHardwareDefinitionRemovalAsync(AuthoringHardwareDefinitionImpact impact)
+        => ConfirmHardwareAsync("Remove workspace hardware definition",
+            $"Definition: {impact.Name}\nRemove the workspace template; existing program bindings remain independent.\n{string.Join(Environment.NewLine, impact.ProgramConsequences)}\nSave All to persist the workspace catalog.", "Remove hardware definition");
+
+    private Task<bool> ConfirmHardwareAsync(string title, string details, string action)
+    {
+        var (dialog, _, cancel, confirm) = Build(title, details, action);
+        cancel.Click += (_, _) => dialog.Close(false);
+        confirm.Click += (_, _) => dialog.Close(true);
+        dialog.KeyDown += (_, e) => { if (e.Key == Key.Escape) { dialog.Close(false); e.Handled = true; } };
+        return dialog.ShowDialog<bool>(owner);
+    }
+
     public Task<bool> ConfirmProgramRemovalAsync(ProgramRemovalImpact target)
     {
         var (dialog, _, cancel, confirm) = Build(target.OperationName,
@@ -64,6 +81,7 @@ public sealed class AuthoringDestructiveInteraction(Window owner)
             Title = operation,
             Width = Math.Min(560, Math.Max(360, owner.ClientSize.Width - 80)),
             Height = Math.Min(480, Math.Max(240, owner.ClientSize.Height - 80)),
+            FontSize = owner.FontSize,
             CanResize = false,
             WindowStartupLocation = WindowStartupLocation.CenterOwner,
         };
@@ -82,7 +100,7 @@ public sealed class AuthoringDestructiveInteraction(Window owner)
         AutomationProperties.SetName(scroll, "Destructive operation scope and impact");
         var heading = new TextBlock { Text = operation, TextWrapping = TextWrapping.Wrap, MaxHeight = 64, TextTrimming = TextTrimming.CharacterEllipsis, FontWeight = FontWeight.SemiBold };
         AutomationProperties.SetHeadingLevel(heading, 2);
-        var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, HorizontalAlignment = HorizontalAlignment.Right, Children = { cancel, confirm } };
+        var buttons = AuthoringProtectionLayout.Decisions(cancel, confirm);
         var layout = new Grid { RowDefinitions = new RowDefinitions("Auto,*,Auto"), Margin = new Thickness(20) };
         Grid.SetRow(scroll, 1); Grid.SetRow(buttons, 2);
         layout.Children.Add(heading); layout.Children.Add(scroll); layout.Children.Add(buttons);

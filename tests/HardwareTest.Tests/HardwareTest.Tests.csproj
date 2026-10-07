@@ -3,7 +3,8 @@
     <RootNamespace>HardwareTest.Tests</RootNamespace>
     <IsPackable>false</IsPackable>
     <IsAotCompatible>false</IsAotCompatible>
-    <JsonSerializerIsReflectionEnabledByDefault>false</JsonSerializerIsReflectionEnabledByDefault>
+    <!-- Executes the same published library registry as the production OpenTAP worker. -->
+    <JsonSerializerIsReflectionEnabledByDefault>true</JsonSerializerIsReflectionEnabledByDefault>
     <NoWarn>$(NoWarn);xUnit1051</NoWarn>
   </PropertyGroup>
 

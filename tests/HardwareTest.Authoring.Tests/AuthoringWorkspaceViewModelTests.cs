@@ -68,7 +68,7 @@ public sealed class AuthoringWorkspaceViewModelTests
         var vm = new AuthoringWorkspaceViewModel();
         vm.Open(CopyTemplateWorkspace());
         vm.SelectProgram("sample");
-        vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Acquire);
 
         Assert.True(vm.HasUnsavedChanges);
         vm.SaveSidecar();
@@ -81,7 +81,8 @@ public sealed class AuthoringWorkspaceViewModelTests
     {
         var vm = new AuthoringWorkspaceViewModel();
         vm.Open(CopyTemplateWorkspace());
-        vm.CreateProgram("new-program");
+        vm.InitializePlan(new("new-program") { Instruments = [] });
+        vm.DisplayName += " edited";
         vm.SelectProgram("sample");
         vm.DisplayName = "Edited sample";
         vm.SaveSidecar();
@@ -109,7 +110,7 @@ public sealed class AuthoringWorkspaceViewModelTests
     }
 
     [Fact]
-    public void Program_edits_clear_previous_contract_findings()
+    public void Program_edits_retain_stale_contract_findings()
     {
         var root = CopyTemplateWorkspace();
         File.Delete(Path.Combine(root, "sample.program.json"));
@@ -121,25 +122,28 @@ public sealed class AuthoringWorkspaceViewModelTests
         vm.SelectMeasure(0);
         vm.ChannelKey = "edited-channel";
         Assert.Empty(vm.Findings);
-        Assert.Empty(vm.FindingRows);
+        Assert.NotEmpty(vm.FindingRows);
+        Assert.All(vm.FindingRows, row => Assert.True(row.IsStale));
         vm.Undo();
         vm.Validate();
         Assert.NotEmpty(vm.FindingRows);
         vm.DisplayName = "edited sidecar";
         Assert.Empty(vm.Findings);
-        Assert.Empty(vm.FindingRows);
+        Assert.NotEmpty(vm.FindingRows);
+        Assert.All(vm.FindingRows, row => Assert.True(row.IsStale));
         vm.Undo();
         vm.Validate();
         Assert.NotEmpty(vm.FindingRows);
-        vm.CreateProgram("new-program");
+        vm.InitializePlan(new("new-program") { Instruments = [] });
         Assert.Empty(vm.Findings);
-        Assert.Empty(vm.FindingRows);
+        Assert.NotEmpty(vm.FindingRows);
+        Assert.All(vm.FindingRows, row => Assert.True(row.IsStale));
     }
 
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public void Workspace_history_clears_previous_contract_findings(bool redo)
+    public void Workspace_history_invalidates_previous_contract_findings(bool redo)
     {
         var root = CopyTemplateWorkspace();
         var vm = new AuthoringWorkspaceViewModel();
@@ -153,7 +157,8 @@ public sealed class AuthoringWorkspaceViewModelTests
         Assert.NotEmpty(vm.FindingRows);
         if (redo) vm.RedoWorkspace(); else vm.UndoWorkspace();
         Assert.Empty(vm.Findings);
-        Assert.Empty(vm.FindingRows);
+        Assert.NotEmpty(vm.FindingRows);
+        Assert.All(vm.FindingRows, row => Assert.True(row.IsStale));
     }
 
     [Fact]

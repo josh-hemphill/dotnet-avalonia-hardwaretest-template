@@ -94,6 +94,8 @@ public sealed partial class AuthoringWorkspaceViewModel
 
             if (SetField(ref _selectedInstrumentSlot, slot))
             {
+                RaiseHardwareProperties();
+                RaiseSequenceOperations();
                 OnPropertyChanged(nameof(SelectedInstrumentVisa));
                 OnPropertyChanged(nameof(SelectedInstrument));
                 OnPropertyChanged(nameof(CanRemoveSelectedInstrumentSlot));
@@ -189,5 +191,41 @@ public sealed partial class AuthoringWorkspaceViewModel
     public bool HasRawStep
         => SelectedSequence?.Kind == SequenceRowKind.Raw
            && SelectedMeasure is RawStepNode;
+
+    private void RaiseSidecarProperties()
+    {
+        RaiseHardwareProperties();
+        OnPropertyChanged(nameof(DisplayName));
+        OnPropertyChanged(nameof(DutFamily));
+        OnPropertyChanged(nameof(RequireSerial));
+        OnPropertyChanged(nameof(RequirePartNumber));
+        OnPropertyChanged(nameof(RequireRevision));
+        OnPropertyChanged(nameof(RequireOperator));
+        OnPropertyChanged(nameof(RequiredFieldOptions));
+        OnPropertyChanged(nameof(RequiredFieldChoices));
+        OnPropertyChanged(nameof(SelectionIncludesCleanup));
+        OnPropertyChanged(nameof(ReportStatus));
+        OnPropertyChanged(nameof(ReportCertification));
+        OnPropertyChanged(nameof(ReportKindOptions));
+        OnPropertyChanged(nameof(ReportKindChoices));
+        OnPropertyChanged(nameof(IncludedReportKinds));
+        OnPropertyChanged(nameof(DefaultReportKind));
+        OnPropertyChanged(nameof(ProgramKind));
+        OnPropertyChanged(nameof(ProgramKindOptions));
+        OnPropertyChanged(nameof(ProgramKindChoices));
+        OnPropertyChanged(nameof(RequireStationHealth));
+        OnPropertyChanged(nameof(StationHealthGate));
+        OnPropertyChanged(nameof(StationHealthMaxAgeHours));
+        OnPropertyChanged(nameof(StationHealthProfileId));
+        OnPropertyChanged(nameof(Instruments));
+        RefreshInstrumentSlots();
+        OnPropertyChanged(nameof(SelectedInstrumentSlot));
+        OnPropertyChanged(nameof(SelectedInstrumentVisa));
+        OnPropertyChanged(nameof(SelectedInstrument));
+        OnPropertyChanged(nameof(CanRemoveSelectedInstrumentSlot));
+        OnPropertyChanged(nameof(InstrumentRemovalGuardText));
+        OnPropertyChanged(nameof(CanEditProgramSettings));
+        RaiseEditorProperties();
+    }
 
 }

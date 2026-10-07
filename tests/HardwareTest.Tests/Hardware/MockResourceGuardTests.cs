@@ -16,7 +16,7 @@ public sealed class MockResourceGuardTests
 
     [Theory]
     [InlineData("MockDmmInstrument", true)]
-    [InlineData("VisaDmmInstrument", false)]
+    [InlineData("ScpiInstrument", false)]
     [InlineData(null, false)]
     public void IsMockInstrumentType_matches_name(string? typeName, bool expected)
         => Assert.Equal(expected, MockResourceGuard.IsMockInstrumentType(typeName));

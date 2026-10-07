@@ -1,6 +1,5 @@
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
-using System.Security.Cryptography.Pkcs;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using HardwareTest.Core.Reporting;
@@ -16,14 +15,14 @@ public sealed class Pkcs11OperatorCredentialBroker : IOperatorCredentialBroker, 
 {
     private const string PivDigitalSignatureId = "02";
     private readonly AppSettings _settings;
-    private readonly IOperatorCredentialBroker _presence;
+    private readonly IOperatorCredentialPresenceBroker _presence;
     private readonly IClock _clock;
     private readonly SemaphoreSlim _cardOperationGate = new(1, 1);
 
     public Pkcs11OperatorCredentialBroker(
         AppSettings settings,
         IClock? clock = null,
-        IOperatorCredentialBroker? presence = null)
+        IOperatorCredentialPresenceBroker? presence = null)
     {
         _settings = settings;
         _clock = clock ?? SystemClock.Instance;
@@ -32,7 +31,7 @@ public sealed class Pkcs11OperatorCredentialBroker : IOperatorCredentialBroker, 
 
     public bool IsMock => false;
     public bool CanSign => true;
-    public bool ProducesCms => true;
+    public bool CanSignPdf => true;
     public string? SigningAlgorithm => null;
     public string StatusText { get; private set; } = "PKCS#11 not queried yet.";
 
@@ -85,56 +84,6 @@ public sealed class Pkcs11OperatorCredentialBroker : IOperatorCredentialBroker, 
                 return CredentialSignResult.Signed(
                     signature,
                     algorithm,
-                    certificate.RawData,
-                    certificate.Thumbprint,
-                    party);
-            });
-        }
-        finally
-        {
-            _cardOperationGate.Release();
-        }
-    }
-
-    public async Task<CredentialSignResult> TrySignDocumentAsync(
-        byte[] document,
-        OperatorCredential credential,
-        string? pin = null,
-        DateTimeOffset? signingTime = null,
-        CancellationToken cancellationToken = default)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        if (document.Length == 0)
-        {
-            return CredentialSignResult.Failed("Nothing to sign.");
-        }
-
-        var unavailable = CheckSigningPrerequisites(credential);
-        if (unavailable is not null)
-        {
-            return unavailable;
-        }
-
-        if (string.IsNullOrEmpty(pin))
-        {
-            return CredentialSignResult.NeedPin("Enter badge PIN to sign.");
-        }
-
-        await _cardOperationGate.WaitAsync(cancellationToken).ConfigureAwait(false);
-        try
-        {
-            return WithSigningCertificate(pin, credential, (certificate, key, party) =>
-            {
-                var cms = new SignedCms(new ContentInfo(document), detached: true);
-                var signer = new CmsSigner(SubjectIdentifierType.IssuerAndSerialNumber, certificate, key)
-                {
-                    DigestAlgorithm = DigestOid(key),
-                    IncludeOption = X509IncludeOption.EndCertOnly,
-                };
-                cms.ComputeSignature(signer, silent: true);
-                return CredentialSignResult.Signed(
-                    cms.Encode(),
-                    AlgorithmName(key),
                     certificate.RawData,
                     certificate.Thumbprint,
                     party);
@@ -222,38 +171,22 @@ public sealed class Pkcs11OperatorCredentialBroker : IOperatorCredentialBroker, 
             using var store = new Pkcs11X509Store(module, pinProvider);
             var candidates = store.Slots
                 .Where(slot => slot.Token is { Info.Initialized: true })
-                .Where(slot => !string.IsNullOrWhiteSpace(expected.Thumbprint)
-                               || ReaderMatches(expected.ReaderName, slot.Info.Description)
-                               || string.IsNullOrWhiteSpace(expected.ReaderName))
-                .SelectMany(slot => slot.Token!.Certificates.Select(certificate => (slot, certificate)))
-                .Where(item => item.certificate.HasPrivateKeyObject)
-                .Where(item => IsDigitalSignatureCertificate(item.certificate))
-                .OrderByDescending(item => IsPivDigitalSignatureId(item.certificate.Info.Id))
-                .ThenByDescending(item => IsSignatureLabel(item.certificate.Info.Label))
+                .SelectMany(slot => slot.Token!.Certificates)
+                .Where(certificate => certificate.HasPrivateKeyObject)
+                .Where(IsDigitalSignatureCertificate)
                 .ToList();
 
-            var selected = SelectUnambiguous(candidates, expected);
-            if (selected is null)
+            var selection = SelectCapturedCertificate(
+                candidates.Select(certificate => certificate.Info.ParsedCertificate.Thumbprint).ToArray(),
+                expected.Thumbprint);
+            if (selection.Failure is not null)
             {
-                if (candidates.Count == 0)
-                {
-                    return CredentialSignResult.Unavailable(
-                        "No PIV signing certificate (9C) with a private key was found.");
-                }
-
-                var capturedCertificateMissing = !string.IsNullOrWhiteSpace(expected.Thumbprint)
-                    && candidates.All(item => !string.Equals(
-                        item.certificate.Info.ParsedCertificate.Thumbprint,
-                        expected.Thumbprint,
-                        StringComparison.OrdinalIgnoreCase));
-                return CredentialSignResult.Failed(
-                    capturedCertificateMissing
-                        ? "The available signing badge does not match the badge that was captured."
-                        : "More than one signing badge is present. Leave only the certifier badge inserted.");
+                return selection.Failure;
             }
 
-            var parsed = selected.Value.certificate.Info.ParsedCertificate;
-            using var key = selected.Value.certificate.GetPrivateKey();
+            var selected = candidates[selection.Index!.Value];
+            var parsed = selected.Info.ParsedCertificate;
+            using var key = selected.GetPrivateKey();
             var party = new OperatorCredential
             {
                 DisplayName = PivCertificateName.TryDisplayName(parsed.RawData) ?? expected.DisplayName,
@@ -269,13 +202,15 @@ public sealed class Pkcs11OperatorCredentialBroker : IOperatorCredentialBroker, 
                 : result.Error ?? "PKCS#11 signing failed.";
             return result;
         }
-        catch (Exception ex) when (IsPinFailure(ex))
-        {
-            StatusText = "Badge PIN was not accepted.";
-            return CredentialSignResult.NeedPin(StatusText);
-        }
         catch (Exception ex)
         {
+            var pinFailure = ClassifyPinFailure(ex);
+            if (pinFailure is not null)
+            {
+                StatusText = pinFailure.Error!;
+                return pinFailure;
+            }
+
             StatusText = "PKCS#11 signing failed. " + ex.Message;
             return CredentialSignResult.Failed(StatusText);
         }
@@ -295,44 +230,35 @@ public sealed class Pkcs11OperatorCredentialBroker : IOperatorCredentialBroker, 
             : null;
     }
 
-    private static (Pkcs11Slot slot, Pkcs11X509Certificate certificate)? SelectUnambiguous(
-        List<(Pkcs11Slot slot, Pkcs11X509Certificate certificate)> candidates,
-        OperatorCredential expected)
+    internal static (int? Index, CredentialSignResult? Failure) SelectCapturedCertificate(
+        IReadOnlyList<string> candidateThumbprints,
+        string? capturedThumbprint)
     {
-        if (!string.IsNullOrWhiteSpace(expected.Thumbprint))
+        if (string.IsNullOrWhiteSpace(capturedThumbprint))
         {
-            var matching = candidates.Where(item => string.Equals(
-                    item.certificate.Info.ParsedCertificate.Thumbprint,
-                    expected.Thumbprint,
-                    StringComparison.OrdinalIgnoreCase))
-                .ToList();
-            return matching.Count == 1 ? matching[0] : null;
+            return (null, CredentialSignResult.Unavailable(
+                "No PIV signing certificate (9C) was captured from this badge; signing cannot be bound safely."));
         }
 
-        var piv9c = candidates.Where(item => IsPivDigitalSignatureId(item.certificate.Info.Id)).ToList();
-        if (piv9c.Count == 1)
+        if (candidateThumbprints.Count == 0)
         {
-            return piv9c[0];
+            return (null, CredentialSignResult.Unavailable(
+                "No PIV signing certificate (9C) with a private key was found."));
         }
 
-        return candidates.Count == 1 ? candidates[0] : null;
+        var matching = Enumerable.Range(0, candidateThumbprints.Count)
+            .Where(index => string.Equals(candidateThumbprints[index], capturedThumbprint,
+                StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+        return matching.Length switch
+        {
+            1 => (matching[0], null),
+            0 => (null, CredentialSignResult.Failed(
+                "The available signing badge does not match the badge that was captured.")),
+            _ => (null, CredentialSignResult.Failed(
+                "More than one signing badge is present. Leave only the certifier badge inserted.")),
+        };
     }
-
-    private static bool ReaderMatches(string? expected, string actual)
-    {
-        if (string.IsNullOrWhiteSpace(expected))
-        {
-            return true;
-        }
-
-        var left = NormalizeReader(expected);
-        var right = NormalizeReader(actual);
-        return left.Contains(right, StringComparison.OrdinalIgnoreCase)
-               || right.Contains(left, StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static string NormalizeReader(string value)
-        => string.Concat(value.Where(char.IsLetterOrDigit));
 
     private static bool IsDigitalSignatureCertificate(Pkcs11X509Certificate certificate)
     {
@@ -370,9 +296,6 @@ public sealed class Pkcs11OperatorCredentialBroker : IOperatorCredentialBroker, 
             _ => throw new CryptographicException("The PIV signing key is not RSA or ECDSA."),
         };
 
-    private static Oid DigestOid(AsymmetricAlgorithm key)
-        => new(key is ECDsa { KeySize: >= 384 } ? "2.16.840.1.101.3.4.2.2" : "2.16.840.1.101.3.4.2.1");
-
     private static string AlgorithmName(AsymmetricAlgorithm key)
         => key switch
         {
@@ -382,20 +305,22 @@ public sealed class Pkcs11OperatorCredentialBroker : IOperatorCredentialBroker, 
             _ => throw new CryptographicException("The PIV signing key is not RSA or ECDSA."),
         };
 
-    private static bool IsPinFailure(Exception exception)
+    internal static CredentialSignResult? ClassifyPinFailure(Exception exception)
     {
+        var retryable = false;
         for (Exception? current = exception; current is not null; current = current.InnerException)
         {
             var text = current.Message;
-            if (text.Contains("PIN_INCORRECT", StringComparison.OrdinalIgnoreCase)
-                || text.Contains("PIN_LOCKED", StringComparison.OrdinalIgnoreCase)
-                || text.Contains("USER_NOT_LOGGED_IN", StringComparison.OrdinalIgnoreCase))
+            if (text.Contains("PIN_LOCKED", StringComparison.OrdinalIgnoreCase))
             {
-                return true;
+                return CredentialSignResult.Failed("Badge PIN is locked.", pinRetriesRemaining: 0);
             }
+
+            retryable |= text.Contains("PIN_INCORRECT", StringComparison.OrdinalIgnoreCase)
+                         || text.Contains("USER_NOT_LOGGED_IN", StringComparison.OrdinalIgnoreCase);
         }
 
-        return false;
+        return retryable ? CredentialSignResult.NeedPin("Badge PIN was not accepted.") : null;
     }
 
     private sealed class FixedPinProvider(string pin) : IPinProvider, IDisposable

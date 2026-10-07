@@ -18,6 +18,16 @@ public sealed class MockVisaSessionTests
     }
 
     [Fact]
+    public async Task Reset_completion_is_immediate_and_scripted_replies_can_override_it()
+    {
+        var session = new MockVisaSession("MOCK::1");
+        await session.WriteAsync("*RST");
+        Assert.Equal("1", await session.QueryAsync(" *opc? "));
+        var scripted = new MockVisaSession("MOCK::1", new Dictionary<string, string> { ["*OPC?"] = "0" });
+        Assert.Equal("0", await scripted.QueryAsync("*OPC?"));
+    }
+
+    [Fact]
     public async Task Read_returns_parseable_double()
     {
         var session = new MockVisaSession("MOCK::1");
@@ -34,6 +44,7 @@ public sealed class MockVisaSessionTests
         cts.Cancel();
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => session.WriteAsync("*RST", cts.Token));
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => session.QueryAsync("*IDN?", cts.Token));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => session.QueryAsync("*OPC?", cts.Token));
     }
 
     [Fact]

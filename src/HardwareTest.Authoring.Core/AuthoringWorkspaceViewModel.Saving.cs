@@ -46,6 +46,33 @@ public sealed partial class AuthoringWorkspaceViewModel
         .Select(p => $"Program '{p.PlanId}' ({(p.PlanDirty ? "plan and sidecar" : "sidecar")})")
         .Concat(WorkspaceCatalogDirty ? ["Workspace catalog changes (Save All required)"] : []).ToArray();
     private string? _savePreviewWarning;
+    private readonly Dictionary<string, string> _saveCompilationWarnings = new(StringComparer.OrdinalIgnoreCase);
+    private string? _saveEnvironmentPreviewWarning;
+    private bool _savePreviewHasHomePathWarning;
+    private void ClearResolvedHomePreviewWarning()
+    {
+        if (!_savePreviewHasHomePathWarning || EnvironmentPathError is not null) return;
+        var previous = _saveEnvironmentPreviewWarning;
+        _saveEnvironmentPreviewWarning = null; _savePreviewHasHomePathWarning = false;
+        UpdateSavePreviewWarning();
+        if (previous is not null && Error is { } error)
+            Error = error == previous ? null : error.Replace(Environment.NewLine + previous, string.Empty, StringComparison.Ordinal)
+                .Replace(previous + Environment.NewLine, string.Empty, StringComparison.Ordinal);
+    }
+    private void UpdateSavePreviewWarning()
+    {
+        foreach (var id in _saveCompilationWarnings.Keys.ToArray())
+            if (!_sourceDocuments.TryGetValue(id, out var source) || !source.RequiresCompilation)
+                _saveCompilationWarnings.Remove(id);
+        var warnings = _saveCompilationWarnings.OrderBy(pair => pair.Key, StringComparer.OrdinalIgnoreCase)
+            .Select(pair => $"{pair.Key}: {pair.Value}")
+            .Concat(_saveEnvironmentPreviewWarning is { } environmentWarning ? [environmentWarning] : []).Distinct().ToArray();
+        SavePreviewWarning = warnings.Length == 0 ? null : string.Join(Environment.NewLine, warnings);
+    }
+    private void ResetSavePreviewWarnings()
+    {
+        _saveCompilationWarnings.Clear(); _saveEnvironmentPreviewWarning = null; _savePreviewHasHomePathWarning = false; SavePreviewWarning = null;
+    }
     public string? SavePreviewWarning
     {
         get => _savePreviewWarning;
@@ -72,14 +99,33 @@ public sealed partial class AuthoringWorkspaceViewModel
     {
         var saved = new List<string>();
         var failures = new List<ProgramSaveFailure>();
-        foreach (var id in DirtyProgramIds)
+        var verificationWarnings = new List<string>();
+        var dirtyPrograms = DirtyProgramIds.ToArray();
+        var canPublish = true;
+        WorkspaceCatalogSaveFailure = null;
+        if (dirtyPrograms.Length > 0 || WorkspaceCatalogDirty || HasCurrentFindingCheck)
         {
-            try { SaveProgramCore(id, forcePlan: false, sidecarOnly: false); saved.Add(id); }
+            try { VerifySavedInputsForSave(dirtyPrograms); }
+            catch (Exception ex)
+            {
+                canPublish = false;
+                foreach (var id in dirtyPrograms) failures.Add(new(id, PersistenceError(ex)));
+                if (WorkspaceCatalogDirty) WorkspaceCatalogSaveFailure = $"Workspace catalog could not be saved; retry Save All: {PersistenceError(ex)}";
+                else if (dirtyPrograms.Length == 0) failures.Add(new("Workspace", PersistenceError(ex)));
+            }
+        }
+        foreach (var id in canPublish ? dirtyPrograms : [])
+        {
+            try
+            {
+                var verificationWarning = SaveProgramCore(id, forcePlan: false, sidecarOnly: false);
+                saved.Add(id);
+                if (verificationWarning is not null) verificationWarnings.Add($"{id}: {verificationWarning}");
+            }
             catch (Exception ex) { failures.Add(new(id, PersistenceError(ex))); }
         }
         var catalogSaved = false;
-        WorkspaceCatalogSaveFailure = null;
-        if (WorkspaceCatalogDirty && failures.Count == 0 && DirtyProgramIds.Count == 0)
+        if (canPublish && WorkspaceCatalogDirty && failures.Count == 0 && DirtyProgramIds.Count == 0)
         {
             try
             {
@@ -108,7 +154,8 @@ public sealed partial class AuthoringWorkspaceViewModel
         Status = $"Saved {saved.Count} program(s){(catalogSaved ? " and workspace catalog" : "")}; {failures.Count + (WorkspaceCatalogSaveFailure is null ? 0 : 1)} failure(s)";
         var messages = failures.Select(f => $"{f.PlanId}: {f.Message}")
             .Concat(WorkspaceCatalogSaveFailure is { } catalogFailure ? [catalogFailure] : [])
-            .Concat(SavePreviewWarning is { } warning ? [warning] : []).ToArray();
+            .Concat(SavePreviewWarning is { } warning ? [warning] : [])
+            .Concat(verificationWarnings).ToArray();
         Error = messages.Length == 0 ? null : string.Join(Environment.NewLine, messages);
         return result;
     }
@@ -121,9 +168,10 @@ public sealed partial class AuthoringWorkspaceViewModel
 
     private void SaveProgramWithPreview(string planId, bool forcePlan, bool sidecarOnly)
     {
-        SaveProgramCore(planId, forcePlan, sidecarOnly);
+        var verificationWarning = SaveProgramCore(planId, forcePlan, sidecarOnly);
         RefreshSavePreview();
-        Error = SavePreviewWarning;
+        var warnings = new[] { SavePreviewWarning, verificationWarning }.OfType<string>().ToArray();
+        Error = warnings.Length == 0 ? null : string.Join(Environment.NewLine, warnings);
     }
 
     private void RefreshSavePreview()
@@ -131,15 +179,27 @@ public sealed partial class AuthoringWorkspaceViewModel
         try
         {
             RefreshPackPreview();
-            if (!HasUncompiledSources) SavePreviewWarning = null;
+            _savePreviewHasHomePathWarning = EnvironmentPathError is not null;
+            _saveEnvironmentPreviewWarning = EnvironmentPathError is { } pathError ? $"Packaging preview could not refresh because the OpenTAP home setting is invalid: {pathError}" : null;
         }
         catch (Exception ex)
         {
-            SavePreviewWarning = $"Packaging preview could not refresh. Check the OpenTAP home setting and workspace paths, then retry: {ex.Message}";
+            _savePreviewHasHomePathWarning = false;
+            _saveEnvironmentPreviewWarning = $"Packaging preview could not refresh. Check the OpenTAP home setting and workspace paths, then retry: {ex.Message}";
         }
+        UpdateSavePreviewWarning();
     }
 
-    private void SaveProgramCore(string planId, bool forcePlan, bool sidecarOnly)
+    private string? SaveProgramCore(string planId, bool forcePlan, bool sidecarOnly)
+    {
+        VerifySavedInputsForSave([planId]);
+        string? verificationWarning = null;
+        try { PublishProgramCore(planId, forcePlan, sidecarOnly); }
+        finally { verificationWarning = InvalidateFindingsAfterSave(); }
+        return verificationWarning;
+    }
+
+    private void PublishProgramCore(string planId, bool forcePlan, bool sidecarOnly)
     {
         var workspace = Workspace ?? throw new AuthoringWorkspaceException("Open a workspace before saving.");
         if (workspace.IsReadOnly) throw new AuthoringWorkspaceException("Workspace is read-only; cannot save.");
@@ -148,7 +208,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         var existing = TryExistingTapPlanPath(planId);
         var path = existing ?? ResolveTapPlanPath(planId);
         var actualDirty = _documents[planId].GetDirtyState(draft);
-        _sourceDocuments.TryGetValue(planId, out var baseline);
+        var baseline = _sourceDocuments.GetValueOrDefault(planId) ?? _compiledOnlyBaselines.GetValueOrDefault(planId);
         var savePlan = !sidecarOnly && (forcePlan || actualDirty.PlanDirty || existing is null || baseline?.RequiresCompilation == true);
         if (sidecarOnly && existing is null) throw new AuthoringWorkspaceException($"No TapPlan path for '{planId}'.");
         var store = new AuthoringDocumentStore(workspace.Root);
@@ -166,16 +226,17 @@ public sealed partial class AuthoringWorkspaceViewModel
         _recovery?.Cancel(workspace.Root, planId);
         store.DeleteRecovery(planId);
         string? compilationFailure = null;
+        string? savedCompilationDiagnostic = null;
         if (_compiledConflicts.Contains(planId)) compilationFailure = "External compiled edits require reconciliation before export.";
-        else if (draft.AuthoringState.IncompleteNumericText.Count > 0 || draft.AuthoringState.FormulaIntent.Values.Contains(FormulaDeploymentIntent.Explore))
-            compilationFailure = "Incomplete or exploration content was saved as an authoring draft.";
+        else if (AuthoringFormulaDeployment.Project(draft).AuthoringState.IncompleteNumericText.Count > 0)
+            compilationFailure = "Incomplete numeric input was saved as an authoring draft.";
         else
         {
             try
             {
                 if (savePlan)
                 {
-                    AuthoringRecipeCatalog.EnsureScalarLimits(draft);
+                    AuthoringRecipeCatalog.EnsureScalarLimits(AuthoringFormulaDeployment.Project(draft));
                     _compiler.Save(draft, path);
                     if (existing is null) Workspace = workspace with { TapPlanPaths = [.. workspace.TapPlanPaths, path] };
                 }
@@ -192,6 +253,7 @@ public sealed partial class AuthoringWorkspaceViewModel
             catch (Exception ex) when (ex is not IOException && ex is not UnauthorizedAccessException)
             {
                 compilationFailure = PersistenceError(ex);
+                savedCompilationDiagnostic = compilationFailure;
             }
         }
         if (compilationFailure is not null)
@@ -200,11 +262,14 @@ public sealed partial class AuthoringWorkspaceViewModel
             store.Save(document);
             _uncompiledDocuments.Add(planId);
         }
+        RecordSavedCompilationDiagnostic(planId, savedCompilationDiagnostic, store);
         _documents[planId].AcceptSavedContent(draft, plan: !sidecarOnly, sidecar: true);
         RaiseDraftState();
         RecomputeDocumentDirty();
         Status = compilationFailure is null ? $"Saved {Path.GetFileName(savePlan ? path : PlanCompiler.SidecarPath(path))} and authoring source" : $"Saved authoring draft {planId}; compilation requires attention";
-        SavePreviewWarning = compilationFailure;
+        if (compilationFailure is not null) _saveCompilationWarnings[planId] = compilationFailure;
+        else if (!document.RequiresCompilation) _saveCompilationWarnings.Remove(planId);
+        UpdateSavePreviewWarning();
         Error = compilationFailure;
     }
 }

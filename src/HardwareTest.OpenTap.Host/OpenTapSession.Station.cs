@@ -206,9 +206,6 @@ public sealed partial class OpenTapSession
         return true;
     }
 
-    public bool TryRebindDmmResource(string resource)
-        => TryBindSlotResource(_slots.FirstOrDefault()?.Name ?? "DMM", resource);
-
     public bool TryBindSlotResource(string slotName, string resource)
     {
         if (IsExecuting)
@@ -218,22 +215,26 @@ public sealed partial class OpenTapSession
 
         lock (_sync)
         {
+            if (IsExecuting)
+            {
+                return false;
+            }
+
             return TryBindSlotResource_NoLock(slotName, resource);
         }
     }
 
     private bool TryBindSlotResource_NoLock(string slotName, string resource)
     {
-        if (string.IsNullOrWhiteSpace(resource))
+        if (string.IsNullOrWhiteSpace(slotName) || string.IsNullOrWhiteSpace(resource))
         {
             return false;
         }
 
         var slot = _slots.FirstOrDefault(s => string.Equals(s.Name, slotName, StringComparison.OrdinalIgnoreCase));
         var instr = _instruments.FirstOrDefault(i =>
-                        string.Equals(i.Name, slotName, StringComparison.OrdinalIgnoreCase))
-                    ?? _instruments.FirstOrDefault();
-        if (instr is null)
+                        string.Equals(string.IsNullOrWhiteSpace(i.Name) ? i.GetType().Name : i.Name, slotName, StringComparison.OrdinalIgnoreCase));
+        if (slot is null || instr is null)
         {
             return false;
         }
@@ -244,10 +245,7 @@ public sealed partial class OpenTapSession
             return false;
         }
 
-        if (slot is not null)
-        {
-            slot.ResourceName = trimmed;
-        }
+        slot.ResourceName = trimmed;
 
         return true;
     }

@@ -12,7 +12,7 @@ public sealed class AuthoringRemovedDraftStateTests
     {
         var root = Workspace();
         var vm = new AuthoringWorkspaceViewModel(); vm.Open(root);
-        vm.CreateProgram("removed-state"); vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
+        vm.CreateDemoProgram("removed-state"); vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Acquire);
         var acquire = Assert.IsType<MetricNode>(vm.SelectedProgram!.Measure[0]);
         var temporary = new MetricNode(new MetricDraft("temporary", "temporary", "scalar", "V", new LimitSpec(null, null, 2), null,
             new ExpressionAlgorithm([acquire.Metric.ChannelKey], $"mean({acquire.Metric.ChannelKey})")));
@@ -44,7 +44,7 @@ public sealed class AuthoringRemovedDraftStateTests
     public void UnwrappingIncompleteRepeatPrunesOnlyRepeatStateAndRetainsChildState()
     {
         var root = Workspace(); var vm = new AuthoringWorkspaceViewModel(); vm.Open(root);
-        vm.CreateProgram("unwrap-state"); vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
+        vm.CreateDemoProgram("unwrap-state"); vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Acquire);
         var metric = Assert.IsType<MetricNode>(vm.SelectedProgram!.Measure[0]);
         var repeat = new RepeatNode(2, [metric]);
         var state = vm.SelectedProgram.AuthoringState.Clone();

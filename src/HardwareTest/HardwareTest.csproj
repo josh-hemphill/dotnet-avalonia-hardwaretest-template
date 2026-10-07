@@ -53,6 +53,8 @@
     <PackageReference Include="FluentAvaloniaUI" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
     <PackageReference Include="PDFtoImage" />
+    <!-- PDFtoImage uses managed Skia 4.150; scope matching native assets to the operator. -->
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux" />
     <PackageReference Include="System.Reactive" />
     <PackageReference Include="AvaloniaUI.DiagnosticsSupport">
       <IncludeAssets Condition="'$(Configuration)' != 'Debug'">None</IncludeAssets>

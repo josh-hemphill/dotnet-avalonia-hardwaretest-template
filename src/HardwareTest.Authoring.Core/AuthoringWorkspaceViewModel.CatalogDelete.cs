@@ -46,7 +46,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         if (!options.Contains(token, StringComparer.OrdinalIgnoreCase)) throw new AuthoringWorkspaceException($"Catalog entry '{token}' no longer exists.");
         var affected = Programs.Where(p => CatalogUses(p.Sidecar, kind, token))
             .Select(p => new DestructiveProgramImpact(p.PlanId, p.Sidecar.DisplayName ?? p.PlanId,
-                Array.AsReadOnly(new[] { kind.ToString() }))).ToArray();
+                Array.AsReadOnly(DescribeCatalogConsequences(p.Sidecar, kind, token)))).ToArray();
         return new(_workspaceSession, Workspace!.Root, kind, token, ContentFingerprint(), affected);
     }
 
@@ -92,18 +92,6 @@ public sealed partial class AuthoringWorkspaceViewModel
         Error = null;
     }
 
-    // Legacy entrypoints retain meaningful blank/protected diagnostics but cannot bypass review.
-    public void RemoveRequiredField(string fieldId) => RejectUnreviewedCatalogDeletion(CatalogDeletionKind.RequiredField, fieldId);
-    public void RemoveReportKind(string kind) => RejectUnreviewedCatalogDeletion(CatalogDeletionKind.ReportKind, kind);
-    public void RemoveProgramKindFromCatalog(string kind) => RejectUnreviewedCatalogDeletion(CatalogDeletionKind.ProgramKind, kind);
-    private void RejectUnreviewedCatalogDeletion(CatalogDeletionKind kind, string target)
-    {
-        if (AuthoringWorkspaceCatalog.Normalize(target) is not { } token) return;
-        EnsureWritableWorkspace("remove a workspace catalog entry");
-        GuardProtectedCatalog(kind, token);
-        throw new AuthoringWorkspaceException("Prepare and review the named workspace deletion impact before applying it.");
-    }
-
     public InstrumentRemovalImpact PrepareSelectedInstrumentRemoval()
     {
         EnsureWritableWorkspace("review an instrument slot removal");
@@ -114,7 +102,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         var remaining = program.Instruments.Where(i => !Same(i.SlotName, slot)).ToArray();
         if (remaining.Length == 0) throw new AuthoringWorkspaceException("A program must keep at least one instrument slot with a distinct name.");
         if (AuthoringInstrumentUsage.HasOpaqueInstrumentRefs(program))
-            throw new AuthoringWorkspaceException($"Cannot remove instrument slot '{slot}'; raw or unknown steps, unknown algorithms, or legacy instrument-based algorithms have unresolved instrument bindings. Preserve the slot until bindings can be represented explicitly.");
+            throw new AuthoringWorkspaceException($"Cannot remove instrument slot '{slot}'; raw or unknown steps and algorithms have unresolved instrument bindings. Preserve the slot until bindings can be represented explicitly.");
         if (targets.Any(i => !AuthoringInstrumentCatalog.TryGet(i.TypeId, out _)))
             throw new AuthoringWorkspaceException("Cannot prove replacement compatibility for an unknown or unsupported instrument type.");
         var replacements = remaining.GroupBy(i => i.SlotName, StringComparer.OrdinalIgnoreCase)
@@ -156,6 +144,18 @@ public sealed partial class AuthoringWorkspaceViewModel
             throw new AuthoringWorkspaceException("Workspace, target or content changed since review; prepare and review a new impact.");
     }
     private static bool Same(string? a, string? b) => string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
+    private static string[] DescribeCatalogConsequences(ProgramSidecar sidecar, CatalogDeletionKind kind, string target)
+    {
+        if (kind == CatalogDeletionKind.RequiredField) return [$"Required field '{target}' removed from program membership"];
+        if (kind == CatalogDeletionKind.ProgramKind) return [$"Program kind '{target}' resets to dut"];
+        var remaining = (sidecar.ReportKinds ?? ["status"]).Where(k => !Same(k, target)).ToArray();
+        if (remaining.Length == 0) remaining = ["status"];
+        var previous = sidecar.DefaultReportKind ?? "status";
+        var fallback = remaining.Contains(previous, StringComparer.OrdinalIgnoreCase) ? previous : remaining[0];
+        return [$"Report kind '{target}' removed from program membership",
+            $"Default report: {previous} → {fallback}; remaining reports: {string.Join(", ", remaining)}"];
+    }
+
     private static bool CatalogUses(ProgramSidecar s, CatalogDeletionKind kind, string target) => kind switch
     {
         CatalogDeletionKind.RequiredField => RequiredFieldIds.FromSidecar(s).Any(f => Same(f, target)),

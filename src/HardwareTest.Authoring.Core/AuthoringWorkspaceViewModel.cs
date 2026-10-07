@@ -8,6 +8,7 @@ namespace HardwareTest.Authoring;
 public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
 {
     private readonly IPlanCompiler _compiler;
+    private readonly bool _usesDefaultCompiler;
     private readonly IAuthoringPreferencesStore? _preferences;
     private AuthoringWorkspace? _workspace;
     private IReadOnlyList<ProgramDraft> _programs = [];
@@ -50,11 +51,14 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
 
     public AuthoringWorkspaceViewModel(IPlanCompiler? compiler = null, IAuthoringPreferencesStore? preferences = null)
     {
-        _compiler = compiler ?? new PlanCompiler();
+        _usesDefaultCompiler = compiler is null;
+        _compiler = compiler ?? new PlanCompiler(libraryHomeProvider: () => HardwareInspection.Home);
         _preferences = preferences;
     }
     public event PropertyChangedEventHandler? PropertyChanged;
-    public IReadOnlyList<AuthoringRecipe> Recipes => AuthoringRecipeCatalog.Palette;
+    public IReadOnlyList<AuthoringRecipe> Recipes => AuthoringRecipeCatalog.Palette
+        .Where(recipe => string.IsNullOrWhiteSpace(RecipeSearch) || $"{recipe.ListLabel} {recipe.Summary}".Contains(RecipeSearch, StringComparison.OrdinalIgnoreCase))
+        .OrderBy(recipe => recipe.Category switch { "Measure" => 0, "Check" => 1, "Operator action" => 2, _ => 3 }).ToArray();
     public bool HasWorkspace => Workspace is not null;
 
     public AuthoringWorkspace? Workspace
@@ -118,7 +122,7 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
     public IReadOnlyList<AuthoringFindingRow> FindingRows
     {
         get => _findingRows;
-        private set => SetField(ref _findingRows, value);
+        private set { if (SetField(ref _findingRows, value)) OnPropertyChanged(nameof(IssuesSummary)); }
     }
 
     public IReadOnlyList<RunDataset> Datasets => _datasets;
@@ -133,6 +137,7 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
 
     public RunDataset? SelectedDataset
         => _selectedDatasetIndex < 0 || _selectedDatasetIndex >= _datasets.Count
+            || !MatchesRecordingChoice(_datasets[_selectedDatasetIndex])
             ? null
             : _datasets[_selectedDatasetIndex];
 
@@ -155,6 +160,13 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
 
     public void ReportError(string message)
     {
+        if (HasWorkspace && HasUnsavedChanges && message == ValidationScope)
+        {
+            Error = null;
+            Status = null;
+            OnPropertyChanged(nameof(ValidationScope));
+            return;
+        }
         Error = message;
         Status = message;
     }
@@ -218,7 +230,7 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
         {
             _dirtyPlans.Clear();
             _dirtySidecars.Clear();
-            _workspaceSession = Guid.NewGuid();
+            ReplaceOperationWorkspace();
             WorkspaceCatalogDirty = false;
             WorkspaceCatalogSaveFailure = null;
             Workspace = files;
@@ -233,7 +245,7 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
             OnPropertyChanged(nameof(PackPreflightHomeText));
             OnPropertyChanged(nameof(PackPreflightFindings));
             LastSaveAllResult = null;
-            SavePreviewWarning = null;
+            ResetSavePreviewWarnings();
             OnPropertyChanged(nameof(LastSaveAllResult));
             OnPropertyChanged(nameof(SaveAllResults));
             Error = null;
@@ -259,71 +271,6 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
         RaiseHistoryProperties();
     }
 
-    public void SelectDataset(int index)
-    {
-        var count = _datasets.Count;
-        var clamped = count == 0 ? -1 : Math.Clamp(index, 0, count - 1);
-        if (!SetField(ref _selectedDatasetIndex, clamped, nameof(SelectedDatasetIndex)))
-        {
-            OnPropertyChanged(nameof(SelectedDataset));
-            RaiseEditorProperties();
-            return;
-        }
-
-        OnPropertyChanged(nameof(SelectedDataset));
-        RaiseEditorProperties();
-    }
-
-    private void RefreshDatasets()
-    {
-        var all = _openingDatasets ?? (Workspace is null ? [] : RunDatasetCatalog.List(Workspace));
-        var planId = SelectedProgram?.PlanId;
-        _datasets = string.IsNullOrWhiteSpace(planId)
-            ? []
-            : all.Where(dataset =>
-                    string.Equals(dataset.Run.PlanId, planId, StringComparison.OrdinalIgnoreCase))
-                .ToArray();
-        _datasetItems = _datasets.Select(FormatDataset).ToArray();
-        _selectedDatasetIndex = _datasets.Count == 0
-            ? -1
-            : Math.Clamp(_selectedDatasetIndex < 0 ? 0 : _selectedDatasetIndex, 0, _datasets.Count - 1);
-        OnPropertyChanged(nameof(Datasets));
-        OnPropertyChanged(nameof(DatasetItems));
-        OnPropertyChanged(nameof(SelectedDatasetIndex));
-        OnPropertyChanged(nameof(SelectedDataset));
-    }
-
-    private static string FormatDataset(RunDataset dataset)
-    {
-        var id = string.IsNullOrWhiteSpace(dataset.Run.RunId)
-            ? Path.GetFileName(Path.GetDirectoryName(dataset.Path)) ?? "run"
-            : dataset.Run.RunId;
-        return string.IsNullOrWhiteSpace(dataset.Run.DutSerial)
-            ? id
-            : $"{id} ({dataset.Run.DutSerial})";
-    }
-
-    public void ApplyRecipe(string recipeId)
-    {
-        if (SelectedProgram is null)
-        {
-            throw new AuthoringWorkspaceException("Select a program before adding a recipe.");
-        }
-
-        var updated = AuthoringRecipeCatalog.Apply(SelectedProgram, recipeId, SelectedInstrumentSlot);
-        ReplaceSelected(updated);
-        if (updated.Measure.Count > 0)
-        {
-            SelectMeasure(updated.Measure.Count - 1);
-        }
-        SelectedDocument?.CompleteEditSelection();
-
-        Status = string.Equals(recipeId, AuthoringRecipeIds.TestGroup, StringComparison.OrdinalIgnoreCase)
-            ? AuthoringChrome.TestGroupHint
-            : $"Added {recipeId}";
-        Error = null;
-    }
-
     public PlanContractBatchReport Validate(bool strict = true)
     {
         if (Workspace is null)
@@ -336,29 +283,16 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
             throw new AuthoringWorkspaceException(ValidationScope);
         }
 
-        RefreshSourceReadiness();
-        AuthoringSourceExportGuard.EnsureCurrent(Workspace);
-        if (HasUncompiledSources || _compiledConflicts.Count > 0)
-            throw new AuthoringWorkspaceException("Compile saved drafts and reconcile external edits before validating compiled plans.");
-
-        var report = PlanContractValidator.Validate(
+        var checkedState = PrepareFindingCheck();
+        var report = ValidateSavedPlans(
             Workspace.TapPlanPaths,
             new PlanContractOptions
             {
                 Strict = strict,
-                ExcludeVisaAdapter = !AuthoringInstrumentCatalog.DeclaresVisa(Workspace),
+                EnablePhysicalExecution = false,
             });
-        Findings = report.Plans.SelectMany(p => p.Findings).ToArray();
-        FindingRows = report.Plans.SelectMany(plan => plan.Findings.Select(finding =>
-        {
-            var planId = Path.GetFileNameWithoutExtension(plan.TargetPath);
-            return new AuthoringFindingRow(planId, plan.TargetPath, finding,
-                Programs.Any(program => string.Equals(program.PlanId, planId, StringComparison.OrdinalIgnoreCase)));
-        })).ToArray();
-        Status = report.HasErrors
-            ? $"{report.ErrorCount} contract error(s)"
-            : $"{report.WarningCount} contract warning(s)";
-        Error = report.HasErrors ? Status : null;
+        AcceptFindings(report, checkedState);
+        SetFindingValidationStatus(report);
         return report;
     }
 
@@ -486,33 +420,6 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
         return "program-" + Guid.NewGuid().ToString("N")[..8];
     }
 
-    private static ProgramDraft WithCatalogSlots(ProgramDraft draft, AuthoringManifest manifest)
-    {
-        var extra = manifest.Catalogs?.InstrumentSlotNames;
-        if (extra is null || extra.Count == 0)
-        {
-            return draft;
-        }
-
-        var instruments = draft.Instruments.ToList();
-        var typeId = instruments.FirstOrDefault()?.TypeId
-                     ?? typeof(HardwareTest.OpenTap.Plugins.Basic.MockDmmInstrument).FullName!;
-        foreach (var raw in extra)
-        {
-            var slot = AuthoringWorkspaceCatalog.Normalize(raw);
-            if (slot is null
-                || instruments.Any(instrument =>
-                    string.Equals(instrument.SlotName, slot, StringComparison.OrdinalIgnoreCase)))
-            {
-                continue;
-            }
-
-            instruments.Add(new InstrumentRef(slot, typeId, $"MOCK::INSTR{instruments.Count}"));
-        }
-
-        return draft with { Instruments = instruments };
-    }
-
     private void AssignSelectedProgram(ProgramDraft? draft)
     {
         if (SetField(ref _selectedProgram, draft, nameof(SelectedProgram)))
@@ -521,41 +428,6 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
             _selectedMeasureIndex = -1;
             RefreshMeasurePresentation();
         }
-    }
-
-    private void RaiseSidecarProperties()
-    {
-        OnPropertyChanged(nameof(DisplayName));
-        OnPropertyChanged(nameof(DutFamily));
-        OnPropertyChanged(nameof(RequireSerial));
-        OnPropertyChanged(nameof(RequirePartNumber));
-        OnPropertyChanged(nameof(RequireRevision));
-        OnPropertyChanged(nameof(RequireOperator));
-        OnPropertyChanged(nameof(RequiredFieldOptions));
-        OnPropertyChanged(nameof(RequiredFieldChoices));
-        OnPropertyChanged(nameof(SelectionIncludesCleanup));
-        OnPropertyChanged(nameof(ReportStatus));
-        OnPropertyChanged(nameof(ReportCertification));
-        OnPropertyChanged(nameof(ReportKindOptions));
-        OnPropertyChanged(nameof(ReportKindChoices));
-        OnPropertyChanged(nameof(IncludedReportKinds));
-        OnPropertyChanged(nameof(DefaultReportKind));
-        OnPropertyChanged(nameof(ProgramKind));
-        OnPropertyChanged(nameof(ProgramKindOptions));
-        OnPropertyChanged(nameof(ProgramKindChoices));
-        OnPropertyChanged(nameof(RequireStationHealth));
-        OnPropertyChanged(nameof(StationHealthGate));
-        OnPropertyChanged(nameof(StationHealthMaxAgeHours));
-        OnPropertyChanged(nameof(StationHealthProfileId));
-        OnPropertyChanged(nameof(Instruments));
-        RefreshInstrumentSlots();
-        OnPropertyChanged(nameof(SelectedInstrumentSlot));
-        OnPropertyChanged(nameof(SelectedInstrumentVisa));
-        OnPropertyChanged(nameof(SelectedInstrument));
-        OnPropertyChanged(nameof(CanRemoveSelectedInstrumentSlot));
-        OnPropertyChanged(nameof(InstrumentRemovalGuardText));
-        OnPropertyChanged(nameof(CanEditProgramSettings));
-        RaiseEditorProperties();
     }
 
     private bool SetField<T>(ref T field, T value, [CallerMemberName] string? name = null)

@@ -55,7 +55,7 @@ public sealed class AuthoringDeletionAndValidationGuardTests
     [InlineData(true)]
     public void GuiValidationRechecksExternalCompiledEditsAndExposesReconciliation(bool sidecar)
     {
-        var root = Workspace(); var vm = new AuthoringWorkspaceViewModel(); vm.Open(root); vm.Apply();
+        var root = Workspace(); var vm = new AuthoringWorkspaceViewModel(); vm.Open(root); vm.SelectProgram("sample"); vm.Apply();
         var id = vm.SelectedProgram!.PlanId;
         var path = vm.Workspace!.TapPlanPaths.Single(p => Path.GetFileNameWithoutExtension(p) == id);
         if (sidecar) File.AppendAllText(PlanCompiler.SidecarPath(path), "\n "); else File.AppendAllText(path, "\n<!-- external -->");
@@ -71,10 +71,10 @@ public sealed class AuthoringDeletionAndValidationGuardTests
     {
         var root = Workspace(); var vm = new AuthoringWorkspaceViewModel(); vm.Open(root); vm.Apply();
         var store = new AuthoringDocumentStore(root);
-        var source = AuthoringDocumentDto.FromDraft(AuthoringRecipeCatalog.CreateProgram("external-draft")); source.RequiresCompilation = true; store.Save(source);
+        var source = AuthoringDocumentDto.FromDraft(MockDmmDraftFixture.Create("external-draft")); source.RequiresCompilation = true; store.Save(source);
         Assert.False(vm.HasUncompiledSources);
         Assert.Throws<AuthoringWorkspaceException>(() => vm.Validate());
-        Assert.True(vm.HasUncompiledSources); Assert.False(vm.CanPack);
+        Assert.True(vm.HasUncompiledSources); Assert.True(vm.CanPack); // Build compiles the complete saved source-only program.
         Assert.Throws<AuthoringWorkspaceException>(() => AuthoringSourceExportGuard.EnsureCurrent(vm.Workspace!)); vm.StopRecovery();
     }
 
@@ -83,7 +83,7 @@ public sealed class AuthoringDeletionAndValidationGuardTests
     {
         var root = Workspace(); var vm = new AuthoringWorkspaceViewModel(); vm.Open(root); vm.Apply();
         var store = new AuthoringDocumentStore(root);
-        var document = AuthoringDocumentDto.FromDraft(AuthoringRecipeCatalog.CreateProgram("external-deleted"));
+        var document = AuthoringDocumentDto.FromDraft(MockDmmDraftFixture.Create("external-deleted"));
         document.RequiresCompilation = true; store.Save(document);
         Assert.Throws<AuthoringWorkspaceException>(() => vm.Validate()); Assert.True(vm.HasUncompiledSources);
         store.DeleteSource(document.PlanId);
@@ -116,7 +116,7 @@ public sealed class AuthoringDeletionAndValidationGuardTests
     [InlineData(true)]
     public void GuiReadinessRefreshPreservesDurableRetainedSourceCompilationRequirement(bool deleteSource)
     {
-        var root = Workspace(); var vm = new AuthoringWorkspaceViewModel(); vm.Open(root); vm.Apply();
+        var root = Workspace(); var vm = new AuthoringWorkspaceViewModel(); vm.Open(root); vm.SelectProgram("sample"); vm.Apply();
         var id = vm.SelectedProgram!.PlanId;
         var path = vm.Workspace!.TapPlanPaths.Single(p => Path.GetFileNameWithoutExtension(p) == id);
         File.AppendAllText(path, "\n<!-- external -->");
@@ -124,14 +124,14 @@ public sealed class AuthoringDeletionAndValidationGuardTests
         vm.ReconcileCompiled(id, useCompiledContent: false);
         if (deleteSource) new AuthoringDocumentStore(root).DeleteSource(id);
         Assert.Throws<AuthoringWorkspaceException>(() => vm.Validate());
-        Assert.True(vm.HasUncompiledSources); Assert.Empty(vm.CompiledConflictProgramIds); Assert.False(vm.CanPack);
+        Assert.True(vm.HasUncompiledSources); Assert.Empty(vm.CompiledConflictProgramIds); Assert.Equal(!deleteSource, vm.CanPack);
         vm.SaveProgram(id); vm.Validate(); Assert.False(vm.HasUncompiledSources); vm.StopRecovery();
     }
 
     [Fact]
     public void GuiReadinessRefreshRetainsKnownSourceWithoutCompiledBaselineAfterDeletion()
     {
-        var root = Workspace(); var initial = new AuthoringWorkspaceViewModel(); initial.Open(root); initial.Apply();
+        var root = Workspace(); var initial = new AuthoringWorkspaceViewModel(); initial.Open(root); initial.SelectProgram("sample"); initial.Apply();
         var id = initial.SelectedProgram!.PlanId; initial.StopRecovery();
         var store = new AuthoringDocumentStore(root); var source = store.Load(id).Document!;
         source.RequiresCompilation = false; source.CompiledPlanHash = null; source.CompiledSidecarHash = null;
