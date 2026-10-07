@@ -34,6 +34,7 @@ public partial class ResultsViewModel
             return Task.CompletedTask;
         }
 
+        _pendingPrintPath = null;
         if (!TryBeginCertifiedAction(OpenedRun, ReportAttestationService.PackageKind, PendingExport))
         {
             return Task.CompletedTask;
@@ -43,9 +44,10 @@ public partial class ResultsViewModel
         return Task.CompletedTask;
     }
 
-    private void ExportPackageCore()
+    private void ExportPackageCore(TestRunRecord? requestedRun = null)
     {
-        if (OpenedRun is null)
+        var run = requestedRun ?? OpenedRun;
+        if (run is null)
         {
             Status = "Open a run first.";
             return;
@@ -69,7 +71,7 @@ public partial class ResultsViewModel
 
             try
             {
-                var runDir = _runStore.GetRunDirectory(OpenedRun.RunId);
+                var runDir = _runStore.GetRunDirectory(run.RunId);
                 var files = new List<(string SourcePath, string RelativeName)>();
                 var runJson = Path.Combine(runDir, "run.json");
                 if (File.Exists(runJson))
@@ -77,7 +79,7 @@ public partial class ResultsViewModel
                     files.Add((runJson, "run.json"));
                 }
 
-                files.AddRange(CollectExportReportFiles(OpenedRun));
+                files.AddRange(CollectExportReportFiles(run));
 
                 var csvDir = Path.Combine(runDir, "opentap-results");
                 if (Directory.Exists(csvDir))
@@ -87,10 +89,10 @@ public partial class ResultsViewModel
                             .Select(csv => (csv, Path.Combine("opentap-results", Path.GetFileName(csv)))));
                 }
 
-                var diagnosticsPath = Path.Combine(Path.GetTempPath(), $"hwtest-diag-{OpenedRun.RunId}.txt");
+                var diagnosticsPath = Path.Combine(Path.GetTempPath(), $"hwtest-diag-{run.RunId}.txt");
                 try
                 {
-                    File.WriteAllText(diagnosticsPath, BuildExportDiagnostics());
+                    File.WriteAllText(diagnosticsPath, BuildExportDiagnostics(run));
                     files.Add((diagnosticsPath, "diagnostics.txt"));
 
                     if (files.Count == 0)
@@ -99,7 +101,7 @@ public partial class ResultsViewModel
                         return;
                     }
 
-                    var packageName = $"run-{OpenedRun.RunId}";
+                    var packageName = $"run-{run.RunId}";
                     var dest = _exportTargets.ExportPackage(target, packageName, files);
                     Status = $"Exported package to {dest}";
                 }
@@ -120,8 +122,9 @@ public partial class ResultsViewModel
         }
     }
 
-    private string BuildExportDiagnostics()
+    private string BuildExportDiagnostics(TestRunRecord? requestedRun = null)
     {
+        var run = requestedRun ?? OpenedRun;
         var block = _buildInfo?.FormatSupportBlock() ?? "HardwareTest diagnostics";
         var catalog = ProgramCatalog.SelfCheck();
         var catalogBlock = catalog.Count == 0
@@ -130,11 +133,11 @@ public partial class ResultsViewModel
         return string.Join(
             Environment.NewLine,
             block,
-            $"RunId: {OpenedRun?.RunId}",
-            $"PlanId: {OpenedRun?.PlanId}",
-            $"Result: {OpenedRun?.Result}",
-            $"SchemaVersion: {OpenedRun?.StoredSchemaVersion}",
-            $"AppVersion: {OpenedRun?.AppVersion ?? "unknown"}",
+            $"RunId: {run?.RunId}",
+            $"PlanId: {run?.PlanId}",
+            $"Result: {run?.Result}",
+            $"SchemaVersion: {run?.StoredSchemaVersion}",
+            $"AppVersion: {run?.AppVersion ?? "unknown"}",
             catalogBlock);
     }
 

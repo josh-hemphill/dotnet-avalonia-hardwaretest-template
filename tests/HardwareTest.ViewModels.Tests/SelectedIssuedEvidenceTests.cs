@@ -5,6 +5,7 @@ using HardwareTest.Core.Serialization;
 using HardwareTest.Core.Settings;
 using HardwareTest.Features.ReportPreview;
 using HardwareTest.Features.Results;
+using HardwareTest.Reporting;
 using HardwareTest.ViewModels.Tests.Fakes;
 using Xunit;
 
@@ -44,23 +45,38 @@ public sealed class SelectedIssuedEvidenceTests : IDisposable
     }
 
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task Preview_blocks_a_tampered_selected_issue_even_when_latest_verifies(bool unrevisioned)
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public async Task Preview_print_validates_exact_selected_issue_without_signing_or_redirecting(bool unrevisioned, bool tamperOld)
     {
-        var (store, run, service, old, _) = await CreateIssuesAsync(unrevisioned);
-        await File.AppendAllTextAsync(old.PdfPath, "tampered");
-        Assert.True(service.HasValidAttestation(run, ReportKinds.Certification));
-        var vm = new ReportPreviewViewModel(store, new FakeReportService(), attestation: service)
-        { UiScheduler = action => action() };
-        string? blocked = null;
-        vm.CertificationRequiredForPrint += (_, path) => blocked = path;
+        var (store, run, service, old, latest) = await CreateIssuesAsync(unrevisioned);
+        await File.AppendAllTextAsync(tamperOld ? old.PdfPath : latest.PdfPath, "tampered");
+        Assert.Equal(tamperOld, service.HasValidAttestation(run, ReportKinds.Certification));
+        var printer = new CapturingPrinter();
+        var vm = new ReportPreviewViewModel(store, new FakeReportService(), attestation: service, printer: printer)
+        { UiScheduler = action => action(), PreviewRenderer = _ => [] };
         await vm.LoadFromPathAsync(old.PdfPath);
 
         await vm.PrintCommand.ExecuteAsync();
 
-        Assert.Equal(old.PdfPath, blocked);
+        Assert.Equal(tamperOld ? null : old.PdfPath, printer.PrintedPath);
+        Assert.False(vm.ShowSigningPrompt);
         Assert.Equal(old.PdfPath, vm.PdfPath);
+        if (tamperOld) Assert.Contains("issued revision remains unchanged", vm.Status, StringComparison.Ordinal);
+        else Assert.Contains("Submitted", vm.Status, StringComparison.Ordinal);
+    }
+
+    private sealed class CapturingPrinter : IReportPrintService
+    {
+        public string? PrintedPath { get; private set; }
+        public Task<string> PrintAsync(string pdfPath, CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            PrintedPath = pdfPath;
+            return Task.FromResult("Submitted to printer.");
+        }
     }
 
     [Fact]
@@ -101,13 +117,64 @@ public sealed class SelectedIssuedEvidenceTests : IDisposable
         await results.RequestCertifiedPrintAsync(old.PdfPath);
         Assert.Equal(old.PdfPath, printed);
         Assert.False(results.ShowAttestationPrompt);
-        var preview = new ReportPreviewViewModel(store, new FakeReportService(), attestation: service) { UiScheduler = action => action() };
-        string? blocked = null;
-        preview.CertificationRequiredForPrint += (_, path) => blocked = path;
+        var printer = new CapturingPrinter();
+        var preview = new ReportPreviewViewModel(store, new FakeReportService(), attestation: service, printer: printer)
+        { UiScheduler = action => action(), PreviewRenderer = _ => [] };
         await preview.LoadFromPathAsync(upper);
         await preview.PrintCommand.ExecuteAsync();
-        Assert.Equal(upper, blocked);
+        Assert.Null(printer.PrintedPath);
+        Assert.False(preview.ShowSigningPrompt);
         Assert.Equal(upper, preview.PdfPath);
+        Assert.Contains("issued revision remains unchanged", preview.Status, StringComparison.Ordinal);
+        await preview.LoadFromPathAsync(old.PdfPath);
+        await preview.PrintCommand.ExecuteAsync();
+        Assert.Equal(old.PdfPath, printer.PrintedPath);
+        Assert.False(preview.ShowSigningPrompt);
+    }
+
+    [Theory]
+    [InlineData("Open", false)]
+    [InlineData("Save", false)]
+    [InlineData("Print", false)]
+    [InlineData("Open", true)]
+    [InlineData("Save", true)]
+    [InlineData("Print", true)]
+    public async Task Malformed_current_sidecar_blocks_only_actions_requiring_authorization(string action, bool required)
+    {
+        var (store, run, _, selected, _) = await CreateIssuesAsync(unrevisioned: true);
+        var sidecarPath = ReportAttestationService.FindForArtifact(run, selected)!.SidecarPath!;
+        await File.WriteAllTextAsync(sidecarPath, "{ malformed evidence");
+        var settings = new AppSettings { RequireAttestationBeforeExport = required };
+        var service = new ReportAttestationService(new MockOperatorCredentialBroker(canSign: true), store, settings);
+        Assert.Throws<JsonException>(() => service.HasValidAttestationForPdf(run, ReportKinds.Certification, selected.PdfPath));
+        var actions = new CapturingActions();
+        var preview = new ReportPreviewViewModel(store, new FakeReportService(), attestation: service,
+            desktop: actions, printer: actions, settings: settings)
+        { UiScheduler = callback => callback(), PreviewRenderer = _ => [] };
+        await preview.LoadFromPathAsync(selected.PdfPath);
+        switch (action)
+        {
+            case "Open": await preview.OpenInViewerCommand.ExecuteAsync(); break;
+            case "Save": await preview.SaveCopyCommand.ExecuteAsync(); break;
+            case "Print": await preview.PrintCommand.ExecuteAsync(); break;
+        }
+        var blocked = required && action != "Open";
+        Assert.Equal(blocked ? null : selected.PdfPath, actions.Path);
+        Assert.False(preview.ShowSigningPrompt);
+        Assert.Equal(selected.PdfPath, preview.PdfPath);
+        Assert.False(preview.IsBusy);
+        if (blocked) Assert.Contains("Report action failed", preview.Status, StringComparison.Ordinal);
+    }
+
+    private sealed class CapturingActions : IReportDesktopActions, IReportPrintService
+    {
+        public string? Path { get; private set; }
+        public Task<string?> SaveCopyAsync(string path, CancellationToken cancellationToken = default)
+        { cancellationToken.ThrowIfCancellationRequested(); Path = path; return Task.FromResult<string?>("saved.pdf"); }
+        public Task<string> PrintAsync(string path, CancellationToken cancellationToken = default)
+        { cancellationToken.ThrowIfCancellationRequested(); Path = path; return Task.FromResult("Printed."); }
+        public Task OpenInViewerAsync(string path, CancellationToken cancellationToken = default)
+        { cancellationToken.ThrowIfCancellationRequested(); Path = path; return Task.CompletedTask; }
     }
 
     private async Task<(FileRunStore, TestRunRecord, ReportAttestationService, RunReportArtifact, RunReportArtifact)> CreateIssuesAsync(bool unrevisioned)

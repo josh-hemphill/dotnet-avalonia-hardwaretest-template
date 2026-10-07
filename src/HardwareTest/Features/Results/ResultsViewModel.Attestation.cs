@@ -2,6 +2,7 @@ using HardwareTest.Core.Credentials;
 using HardwareTest.Core.Reporting;
 using HardwareTest.Core.Runs;
 using HardwareTest.OpenTap.Host;
+using HardwareTest.Reporting;
 using ReactiveUI.SourceGenerators;
 
 namespace HardwareTest.Features.Results;
@@ -15,6 +16,10 @@ public partial class ResultsViewModel
     private string? _pendingAttestationKind;
     private string? _pendingPrintPath;
     private OperatorCredential? _capturedAttestationCredential;
+    private TestRunRecord? _pendingAttestationRun;
+    private CancellationTokenSource? _pendingAttestationCancellation;
+    private long _pendingAttestationVersion;
+    public void CancelPendingReportAction() => DismissAttestationPrompt();
 
     [Reactive] private bool _showAttestationPrompt;
     [Reactive] private bool _showAttestationPin;
@@ -49,7 +54,16 @@ public partial class ResultsViewModel
             Status = "Verification failed for this issued revision. Select a working report to create a new revision.";
             return false;
         }
-
+        if (run.IsSchemaReadOnly)
+        {
+            Status = "This run uses a newer schema and cannot be signed.";
+            return false;
+        }
+        _pendingAttestationCancellation?.Cancel();
+        _pendingAttestationCancellation?.Dispose();
+        _pendingAttestationCancellation = new CancellationTokenSource();
+        _pendingAttestationVersion++;
+        _pendingAttestationRun = run;
         _pendingAttestationAction = pendingAction;
         _pendingAttestationKind = reportKind;
         _capturedAttestationCredential = null;
@@ -66,6 +80,9 @@ public partial class ResultsViewModel
 
     private void DismissAttestationPrompt()
     {
+        _pendingAttestationVersion++;
+        _pendingAttestationCancellation?.Cancel();
+        _pendingAttestationRun = null;
         ShowAttestationPrompt = false;
         ShowAttestationPin = false;
         IsCapturingAttestation = false;
@@ -83,16 +100,28 @@ public partial class ResultsViewModel
 
     private async Task CompleteAttestationAsync(bool skipSigning)
     {
-        if (_attestation is null || OpenedRun is null)
+        if (_attestation is null || _pendingAttestationRun is null)
         {
             DismissAttestationPrompt();
             return;
         }
 
+        using var capture = ReportCaptureGate.TryEnter(_attestation);
+        if (capture is null)
+        {
+            AttestationPromptStatus = ReportCaptureGate.WaitingMessage;
+            Status = AttestationPromptStatus;
+            return;
+        }
+
+        var run = _pendingAttestationRun;
+        var version = _pendingAttestationVersion;
+        var token = _pendingAttestationCancellation!.Token;
         var kind = _pendingAttestationKind ?? ReportKinds.Certification;
         var pending = _pendingAttestationAction;
         var printPath = _pendingPrintPath;
         var pin = ShowAttestationPin ? AttestationPin : null;
+        var credential = _capturedAttestationCredential;
         IsCapturingAttestation = true;
         if (skipSigning)
         {
@@ -108,10 +137,18 @@ public partial class ResultsViewModel
         }
         try
         {
-            var result = await _attestation
-                .AttestAsync(OpenedRun, kind, _capturedAttestationCredential, pin, skipSigning)
-                .ConfigureAwait(true);
-            LoadAttestation(OpenedRun);
+            var result = await Task.Run(async () =>
+            {
+                try
+                {
+                    token.ThrowIfCancellationRequested();
+                    return await _attestation.AttestAsync(run, kind, credential,
+                        pin, skipSigning, token).ConfigureAwait(false);
+                }
+                finally { capture.Dispose(); }
+            }).ConfigureAwait(true);
+            if (version != _pendingAttestationVersion || token.IsCancellationRequested) return;
+            LoadAttestation(run);
             if (result.PinRequired && !skipSigning)
             {
                 _capturedAttestationCredential = result.Credential;
@@ -130,36 +167,37 @@ public partial class ResultsViewModel
             }
 
             Status = result.Message;
-            LoadReportItems(OpenedRun);
+            LoadReportItems(run);
             DismissAttestationPrompt();
-            ContinuePendingAction(pending, printPath, kind);
+            ContinuePendingAction(pending, printPath, kind, run, result.Attestation?.RevisionId);
         }
         catch (OperationCanceledException)
         {
-            AttestationPromptStatus = "Badge capture cancelled.";
+            if (version == _pendingAttestationVersion) AttestationPromptStatus = "Badge capture cancelled.";
         }
         finally
         {
-            IsCapturingAttestation = false;
-            AttestationPin = string.Empty;
+            if (version == _pendingAttestationVersion)
+            {
+                IsCapturingAttestation = false;
+                AttestationPin = string.Empty;
+            }
         }
     }
 
-    private void ContinuePendingAction(string? pending, string? printPath, string reportKind)
+    private void ContinuePendingAction(string? pending, string? printPath, string reportKind, TestRunRecord run, string? revisionId)
     {
         if (string.Equals(pending, PendingExport, StringComparison.Ordinal))
         {
-            ExportPackageCore();
+            ExportPackageCore(run);
             return;
         }
 
         if (string.Equals(pending, PendingPrint, StringComparison.Ordinal))
         {
-            var path = printPath;
-            if (OpenedRun is not null)
-            {
-                path = ReportAttestationService.ResolveIssuedPdfPath(OpenedRun, reportKind) ?? path;
-            }
+            var path = revisionId is null ? null : run.Reports.FirstOrDefault(r =>
+                ReportArtifactRoles.IsIssued(r.Role) && r.RevisionId == revisionId
+                && string.Equals(r.Kind, reportKind, StringComparison.OrdinalIgnoreCase))?.PdfPath;
 
             if (!string.IsNullOrWhiteSpace(path) && File.Exists(path))
             {
@@ -171,6 +209,8 @@ public partial class ResultsViewModel
     /// Shows the badge overlay for a certification PDF print. Preview itself is not gated.
     public async Task RequestCertifiedPrintAsync(string pdfPath)
     {
+        DismissAttestationPrompt();
+        var requestVersion = _pendingAttestationVersion;
         if (string.IsNullOrWhiteSpace(pdfPath) || !File.Exists(pdfPath))
         {
             Status = "Report PDF not found.";
@@ -189,6 +229,7 @@ public partial class ResultsViewModel
             return;
         }
 
+        if (requestVersion != _pendingAttestationVersion) return;
         OpenedRun = run;
         LoadReportItems(run);
         var kind = ReportAttestationService.KindForPdf(run, pdfPath);

@@ -513,6 +513,7 @@ public sealed class ResultsViewModelTests
         vm.SelectedRun = vm.Runs[0];
         await vm.OpenCommand.ExecuteAsync();
         vm.OpenReportCommand.Execute(vm.ReportItems[0]).Subscribe();
+        await vm.ExportPackageCommand.ExecuteAsync();
         await vm.CaptureAttestationCommand.ExecuteAsync();
         Assert.False(vm.ShowAttestationPrompt);
         Assert.Equal(1, reports.GenerateCount);

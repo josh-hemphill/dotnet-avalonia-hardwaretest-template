@@ -22,7 +22,7 @@ public sealed class DutHistoryMetricRow
     public required string Severity { get; init; }
 }
 
-public sealed class RunReportItemViewModel
+public sealed partial class RunReportItemViewModel : ReactiveObject
 {
     public required string Kind { get; init; }
     public required string Title { get; init; }
@@ -31,6 +31,9 @@ public sealed class RunReportItemViewModel
     public string Role { get; init; } = ReportArtifactRoles.Working;
     public string RoleLabel { get; init; } = "Working";
     public bool IsIssued { get; init; }
+    [Reactive] private string _verificationText = "Unsigned";
+    public string? RevisionId { get; init; }
+    public int RevisionNumber { get; init; }
     public bool IsDefault { get; init; }
 }
 
@@ -137,6 +140,7 @@ public partial class ResultsViewModel : ReactiveObject
 
         PropertyChanged += (_, args) =>
         {
+            if (args.PropertyName == nameof(OpenedRun) && !ReferenceEquals(OpenedRun, _pendingAttestationRun)) DismissAttestationPrompt();
             if (args.PropertyName is nameof(SearchText) or nameof(ResultFilter)
                 or nameof(PlanFilter) or nameof(DutFilter)
                 or nameof(OperatorFilter) or nameof(DateFilter))
