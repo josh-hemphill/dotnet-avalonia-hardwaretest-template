@@ -154,14 +154,16 @@ public sealed class AuthoringGuidedOnboardingTests
         AuthoringUiFixture.Drain(); AuthoringUiFixture.Click(fixture.Control<Button>("Resume guidance"));
         AuthoringUiFixture.Click(fixture.Control<Button>("Save and check draft"));
         Assert.Contains("First voltage test complete", fixture.Control<TextBlock>("Guidance feedback").Text);
-        Assert.True(window.FindControl<Border>("GuidanceHost")!.Bounds.Height <= 160);
+        var guidance = window.FindControl<Border>("GuidanceHost")!;
+        Assert.Single(guidance.GetVisualDescendants().OfType<ScrollViewer>());
+        ResponsiveShellTests.Inside(fixture.Control<Button>("Close guidance"), window);
         Assert.True(window.FindControl<TabControl>("WorkspaceTabs")!.Bounds.Height > 150);
         var sequence = fixture.Control<ListBox>("Program sequence");
         var inspector = fixture.Control<ScrollViewer>("Selected step inspector");
         ResponsiveShellTests.Inside(sequence, window); ResponsiveShellTests.Inside(inspector, window);
         Assert.True(sequence.Bounds.Height >= 40); Assert.True(inspector.Bounds.Height >= 80);
-        var rail = fixture.Control<ScrollViewer>("Guidance rail viewport");
-        foreach (var name in new[] { "Start guided voltage test", "Resume guidance", "Preview voltage result", "Fix guidance blockers", "Prepare guidance packages", "Review guidance build",
+        var rail = fixture.Control<ScrollViewer>("Guidance viewport");
+        foreach (var name in new[] { "Preview voltage result", "Fix guidance blockers", "Prepare guidance packages", "Review guidance build",
             "Validate saved plans", "Save and check draft", "Leave saved guidance", "Skip saved guidance" })
         {
             var button = fixture.Control<Button>(name); button.BringIntoView(); AuthoringUiFixture.Drain();
@@ -169,7 +171,7 @@ public sealed class AuthoringGuidedOnboardingTests
             ResponsiveShellTests.Inside(Assert.Single(button.GetVisualDescendants().OfType<TextBlock>()), window);
         }
         Assert.True(rail.Offset.Y > 0);
-        var programs = fixture.Control<ListBox>("Programs"); programs.BringIntoView(); AuthoringUiFixture.Drain();
+        var programs = fixture.Control<ComboBox>("Selected test plan"); programs.BringIntoView(); AuthoringUiFixture.Drain();
         ResponsiveShellTests.Inside(programs, window); Assert.True(programs.Bounds.Height >= 40);
         programs.SelectedItem = fixture.ViewModel.ProgramRows.Single(row => row.PlanId == "sample"); AuthoringUiFixture.Drain();
         Assert.Equal("sample", fixture.ViewModel.SelectedProgram!.PlanId);

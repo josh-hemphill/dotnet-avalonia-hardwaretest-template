@@ -158,12 +158,13 @@ public sealed class AuthoringGuidedRecoveryTests
             external.OpenTapHomeOverride = vm.OpenTapHomeOverride; external.StopRecovery();
             if (changed == "threshold")
             {
+                other.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 0;
                 external.SelectMeasure(0); AuthoringUiFixture.Drain(); fixture.Control<TextBox>("Threshold", other).Text = "2.75";
             }
             else if (changed == "binding") external.VisaAddress = "MOCK::SECOND";
             else
             {
-                other.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 1; AuthoringUiFixture.Drain();
+                other.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 7; AuthoringUiFixture.Drain();
                 fixture.Control<TextBox>("Display name", other).Text = "Saved by the second instance";
             }
             AuthoringUiFixture.Drain(); Assert.True(external.HasUnsavedChanges);

@@ -1,6 +1,8 @@
 using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using Avalonia.Input;
+using Avalonia.VisualTree;
 using Avalonia.Media;
 using Avalonia.Threading;
 
@@ -14,6 +16,9 @@ public partial class MainWindow
     private bool _guidanceVisible;
     private Guid? _explicitGuidanceSession;
     private bool _guidanceRefreshQueued;
+    private Control? _guidanceReturnFocus;
+    private Control? _guidanceClose;
+    private bool _guidanceWasVisible;
     private bool GuidanceAllowed => !_viewModel.SkipGuidance || _explicitGuidanceSession == _viewModel.WorkspaceSessionId;
     private readonly TextBlock _guidanceFeedback = new() { TextWrapping = TextWrapping.Wrap };
 
@@ -39,17 +44,26 @@ public partial class MainWindow
         Action("Leave saved guidance", () => _guidanceVisible = false);
         Action("Skip saved guidance", () => { _explicitGuidanceSession = null; _viewModel.SkipGuidance = true; _guidanceVisible = false; });
         var host = this.FindControl<Border>("GuidanceHost")!;
-        host.Child = new ScrollViewer
+        var close = new Button { Content = "Close guidance", HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right };
+        AutomationProperties.SetName(close, "Close guidance");
+        _guidanceClose = close;
+        KeyboardNavigation.SetTabNavigation(host, KeyboardNavigationMode.Cycle);
+        host.KeyDown += (_, args) =>
         {
-            MaxHeight = 100,
+            if (args.Key == Key.Escape) { _guidanceVisible = false; RefreshGuidance(); args.Handled = true; }
+        };
+        close.Click += (_, _) => { _guidanceVisible = false; RefreshGuidance(); };
+        var viewport = new ScrollViewer
+        {
             HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
             Content = new StackPanel { Spacing = 4, Children = { _guidanceFeedback, actions } }
         };
-        host.AddHandler(Control.RequestBringIntoViewEvent, (_, e) =>
-        {
-            // Reveal the whole help viewport when its inner scroller reveals an action.
-            if (!ReferenceEquals(e.TargetObject, host)) host.BringIntoView();
-        }, RoutingStrategies.Bubble, handledEventsToo: true);
+        AutomationProperties.SetName(viewport, "Guidance viewport");
+        var drawer = new DockPanel();
+        DockPanel.SetDock(close, Dock.Top);
+        drawer.Children.Add(close);
+        drawer.Children.Add(viewport);
+        host.Child = drawer;
         _viewModel.PropertyChanged += (_, _) => QueueGuidanceRefresh();
     }
 
@@ -68,6 +82,22 @@ public partial class MainWindow
     {
         var host = this.FindControl<Border>("GuidanceHost")!;
         host.IsVisible = _guidanceVisible && GuidanceAllowed && GuidanceTargetCurrent();
+        if (host.IsVisible != _guidanceWasVisible)
+        {
+            _guidanceWasVisible = host.IsVisible;
+            if (host.IsVisible)
+            {
+                _guidanceReturnFocus = FocusManager?.GetFocusedElement() as Control;
+                Dispatcher.UIThread.Post(() => { if (host.IsEffectivelyVisible) _guidanceClose?.Focus(); });
+            }
+            else if (IsVisible && !_ownerClosed)
+            {
+                var target = _guidanceReturnFocus is { IsEffectivelyVisible: true } previous ? previous
+                    : this.GetVisualDescendants().OfType<Button>().SingleOrDefault(button => AutomationProperties.GetName(button) == "Resume guidance");
+                target?.Focus();
+                _guidanceReturnFocus = null;
+            }
+        }
         if (!host.IsVisible || _viewModel.SelectedProgram is not { } draft) return;
         try
         {

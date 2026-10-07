@@ -13,6 +13,11 @@ public sealed class BoardPreviewTileView : UserControl
 
     public BoardPreviewTileView(BoardPreviewTile tile)
     {
+        // Let the board scroll over a chart until the engineer explicitly enables plot input.
+        _plot.IsHitTestVisible = false;
+        var chartInput = new CheckBox { Content = "Interact with chart", IsVisible = tile.Chrome.IsChart };
+        Avalonia.Automation.AutomationProperties.SetName(chartInput, $"Interact with chart {tile.Preview.ChannelKey}");
+        chartInput.IsCheckedChanged += (_, _) => _plot.IsHitTestVisible = chartInput.IsChecked == true;
         var panel = new StackPanel { Spacing = 8 };
         panel.Children.Add(new TextBlock { Text = $"{tile.Title} · {tile.Preview.ChannelKey}", FontWeight = Avalonia.Media.FontWeight.SemiBold, TextWrapping = Avalonia.Media.TextWrapping.Wrap });
         panel.Children.Add(new TextBlock { Text = tile.Scope, TextWrapping = Avalonia.Media.TextWrapping.Wrap });
@@ -21,6 +26,7 @@ public sealed class BoardPreviewTileView : UserControl
         if (tile.Preview.Threshold is { } threshold)
             panel.Children.Add(new TextBlock { Text = $"Criterion: ≥ {threshold.ToString("G6", System.Globalization.CultureInfo.InvariantCulture)} {tile.Preview.YUnit}", TextWrapping = Avalonia.Media.TextWrapping.Wrap });
         panel.Children.Add(_gauge);
+        panel.Children.Add(chartInput);
         panel.Children.Add(_plot);
         panel.Children.Add(_strip);
         Content = new Border { Padding = new Avalonia.Thickness(8), Child = panel };
@@ -74,6 +80,19 @@ public sealed class BoardPreviewTileView : UserControl
             _strip.Spans = chrome.UsesTimeAxis ? chrome.Spans : [];
             _strip.DurationSec = chrome.DurationSec;
         }
+    }
+
+    internal void SetChartViewportHeight(double viewportHeight)
+    {
+        if (viewportHeight <= 0 || !double.IsFinite(viewportHeight)) return;
+        // Reserve the measured title, provenance, criterion and chart-input controls too.
+        // A tile revealed as a whole should not clip the bottom of its chart.
+        var chrome = Bounds.Height > 0 && _plot.Bounds.Height > 0
+            ? Math.Max(0, Bounds.Height - _plot.Bounds.Height) : 160;
+        var height = Math.Clamp(viewportHeight - chrome - 16, 64, 180);
+        if (Math.Abs(_plot.Height - height) <= 0.5) return;
+        _plot.MinHeight = height;
+        _plot.Height = height;
     }
 
 }

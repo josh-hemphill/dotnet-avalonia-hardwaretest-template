@@ -1,8 +1,26 @@
 <UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:vm="using:HardwareTest.Authoring" xmlns:host="using:HardwareTest.OpenTap.Host" x:Class="HardwareTest.Authoring.SelectedStepInspectorView" x:DataType="vm:AuthoringWorkspaceViewModel">
   <ScrollViewer Margin="0" AutomationProperties.Name="Selected step inspector" HorizontalScrollBarVisibility="Disabled">
     <StackPanel Spacing="16">
+      <StackPanel Spacing="8">
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+          <TextBlock Text="Selected step name" VerticalAlignment="Center"/>
+          <Button Grid.Column="1" x:Name="InspectorActionsButton" Content="Step actions ▾" Classes="authoringAction" AutomationProperties.Name="Selected step actions">
+            <Button.Flyout><Flyout><ScrollViewer Width="300" MaxHeight="360" HorizontalScrollBarVisibility="Disabled"><StackPanel Spacing="8" Classes="workspaceMenu">
+              <TextBlock Text="{Binding SequenceOperationTarget}" TextWrapping="Wrap" Classes="purpose"/>
+              <Button Content="Duplicate" Click="OnDuplicateSequence" IsEnabled="{Binding CanDuplicateSequence}" Classes="authoringAction" AutomationProperties.Name="Duplicate selected step"/>
+              <Button Content="Move up" Click="OnMoveSequenceUp" IsEnabled="{Binding CanMoveSequence}" Classes="authoringAction" AutomationProperties.Name="Move selected step up"/>
+              <Button Content="Move down" Click="OnMoveSequenceDown" IsEnabled="{Binding CanMoveSequence}" Classes="authoringAction" AutomationProperties.Name="Move selected step down"/>
+              <Button Content="{Binding RemoveSequenceActionTitle}" Click="OnRemoveSequence" IsEnabled="{Binding CanRemoveSelectedSequence}" Classes="authoringAction" ToolTip.Tip="{Binding RemoveSelectedPurpose}" AutomationProperties.Name="Remove selected"/>
+            </StackPanel></ScrollViewer></Flyout></Button.Flyout>
+          </Button>
+        </Grid>
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+          <TextBox x:Name="StepNameBox" Text="{Binding SelectedSequence.Label, Mode=OneWay}" IsEnabled="{Binding CanRenameSequence}" AutomationProperties.Name="Selected step name"/>
+          <Button Grid.Column="1" Content="Rename" Click="OnRenameSequence" IsEnabled="{Binding CanRenameSequence}" Classes="authoringAction" AutomationProperties.Name="Rename selected step"/>
+        </Grid>
+      </StackPanel>
       <TextBlock Text="{Binding InspectorBreadcrumb}" TextWrapping="Wrap"/>
-      <TextBlock Text="{Binding SelectedStepErrors}" TextWrapping="Wrap" Foreground="{DynamicResource AuthoringError}" AutomationProperties.Name="Selected step errors" AutomationProperties.LiveSetting="Polite"/>
+      <TextBlock Text="{Binding SelectedStepErrors}" IsVisible="{Binding SelectedStepErrors, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" TextWrapping="Wrap" Foreground="{DynamicResource AuthoringError}" AutomationProperties.Name="Selected step errors" AutomationProperties.LiveSetting="Polite"/>
       <Expander x:Name="ConfigureExpander" Header="Configure" IsExpanded="True" HorizontalContentAlignment="Stretch" AutomationProperties.Name="Configure selected step" Classes="inspectorSection">
         <StackPanel Spacing="16">
           <TextBlock IsVisible="{Binding HasRawStep}" Text="Imported step implementation is preserved. Inspect its details in Advanced." TextWrapping="Wrap"/>
@@ -190,6 +208,9 @@
           <ComboBox ItemsSource="{Binding YUnitOptions}" SelectedItem="{Binding YUnit}" IsEditable="True" AutomationProperties.Name="{x:Static vm:AuthoringInspectorCopy.OperatorYUnitLabel}" AutomationProperties.LabeledBy="{Binding #YUnitLabel}" ToolTip.Tip="{x:Static vm:AuthoringInspectorCopy.OperatorYUnitTooltip}"/>
           <TextBlock Text="{Binding PreviewNote}" TextWrapping="Wrap" AutomationProperties.Name="Operator preview note"/>
         </StackPanel>
+      </Expander>
+      <Expander Header="Dependencies" HorizontalContentAlignment="Stretch" Classes="inspectorSection">
+        <StackPanel><TextBlock Text="{Binding SelectedDependencySummary}" TextWrapping="Wrap" AutomationProperties.Name="Selected step dependencies"/></StackPanel>
       </Expander>
       <Expander x:Name="AdvancedExpander" Header="Advanced" IsExpanded="True" HorizontalContentAlignment="Stretch" AutomationProperties.Name="Advanced selected step" Classes="inspectorSection">
         <StackPanel Spacing="16">

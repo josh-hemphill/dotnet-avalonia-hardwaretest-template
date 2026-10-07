@@ -53,6 +53,20 @@ internal sealed class AuthoringUiFixture : IDisposable
         Click(Control<Button>("Open last workspace from welcome"));
         Assert.True(ViewModel.HasWorkspace);
         Assert.Null(ViewModel.Error);
+        // Legacy workflow fixtures begin in the sequence. Overview navigation has dedicated tests.
+        Window!.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 0;
+        Drain();
+    }
+
+    public void NavigateTask(int route)
+    {
+        if (route == 8) { Click(Control<Button>("Workspace overview")); return; }
+        var trigger = Window!.FindControl<Button>("TaskMenuButton")!;
+        var menu = (Flyout)trigger.Flyout!;
+        menu.ShowAt(trigger); Drain();
+        var action = ((Avalonia.Controls.Control)menu.Content!).GetVisualDescendants().OfType<Button>()
+            .Single(button => Equals(button.Tag, route.ToString()));
+        Click(action);
     }
 
     public T Control<T>(string automationName, Avalonia.Controls.Control? root = null) where T : Avalonia.Controls.Control
@@ -60,10 +74,21 @@ internal sealed class AuthoringUiFixture : IDisposable
         var scope = root ?? Window ?? throw new InvalidOperationException("Show the window first.");
         var matches = scope.GetVisualDescendants().OfType<T>()
             .Where(control => AutomationProperties.GetName(control) == automationName).ToArray();
+        if (matches.Length == 0 && scope is MainWindow owner)
+        {
+            var palette = owner.OwnedWindows.SingleOrDefault(child => child.Title == "Add a step");
+            if (palette is null && automationName is "Recipe" or "Search sequence palette" or "Insertion point" or "Add recipe")
+            {
+                Click(Control<Button>("Add step"));
+                palette = owner.OwnedWindows.Single(child => child.Title == "Add a step");
+            }
+            if (palette is not null)
+                matches = palette.GetVisualDescendants().OfType<T>().Where(control => AutomationProperties.GetName(control) == automationName).ToArray();
+        }
         if (matches.Length == 0 && scope is MainWindow)
         {
             var menus = scope.GetVisualDescendants().OfType<Button>()
-                .Where(button => button.Name is "LifecycleFocusTarget" or "SequenceActionsButton").ToArray();
+                .Where(button => button.Name is "LifecycleFocusTarget" or "PlanActionsButton" or "TaskMenuButton" or "InspectorActionsButton").ToArray();
             foreach (var menu in menus)
             {
                 var flyout = (Flyout)menu.Flyout!;
@@ -104,10 +129,13 @@ internal sealed class AuthoringUiFixture : IDisposable
         Drain();
         Assert.True(box.Focus());
         box.SelectAll();
-        Window!.KeyTextInput(text);
+        TopLevel.GetTopLevel(box)!.KeyTextInput(text);
         Drain();
         // Moving focus also commits bindings whose source trigger is LostFocus.
-        Assert.True(Control<Button>("Save all").Focus());
+        var focusTarget = TopLevel.GetTopLevel(box) is Window { Title: "Add a step" } palette
+            ? palette.GetVisualDescendants().OfType<Button>().Single(button => AutomationProperties.GetName(button) == "Cancel add step")
+            : Control<Button>("Save all");
+        Assert.True(focusTarget.Focus());
         Drain();
         Assert.Equal(text, box.Text);
     }

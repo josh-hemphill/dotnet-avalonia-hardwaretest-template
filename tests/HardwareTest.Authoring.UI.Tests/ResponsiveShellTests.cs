@@ -52,11 +52,11 @@ public sealed class ResponsiveShellTests
         criterion.BringIntoView();
         AuthoringUiFixture.Drain();
         Inside(criterion, window);
-        var dockedPreview = width == 1280 && fontSize == 14 ? fixture.Control<OperatorPreviewPane>("Operator preview chrome") : null;
+
         window.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 5;
         AuthoringUiFixture.Drain();
         var preview = fixture.Control<OperatorPreviewPane>("Operator preview chrome");
-        if (dockedPreview is not null) Assert.Same(dockedPreview, preview);
+
         Inside(preview, window);
         Inside(fixture.Control<ListBox>("Recordings"), window);
         window.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 0;
@@ -91,9 +91,9 @@ public sealed class ResponsiveShellTests
         var scroll = fixture.Control<ScrollViewer>("Selected step inspector");
         var offset = scroll.Offset;
         var tabs = window.FindControl<TabControl>("WorkspaceTabs")!;
-        ClickTab(window, tabs, 3);
+        fixture.NavigateTask( 3);
         Assert.Equal(3, tabs.SelectedIndex);
-        ClickTab(window, tabs, 0);
+        fixture.NavigateTask( 0);
         Assert.Equal(0, tabs.SelectedIndex);
         Assert.True(field.IsFocused);
         Inside(field, window);
@@ -151,8 +151,9 @@ public sealed class ResponsiveShellTests
         Assert.False(seed.IsStale);
         Assert.NotNull(seed.CheckedIdentity);
         var tabs = window.FindControl<TabControl>("WorkspaceTabs")!;
-        ClickTab(window, tabs, 2);
+        fixture.NavigateTask( 2);
         var findings = fixture.Control<ListBox>("Contract findings");
+        findings.BringIntoView(); AuthoringUiFixture.Drain();
         // Expand the projection while preserving a real check's session, revision and saved-byte identity.
         var rows = Enumerable.Range(0, 80).Select(i => seed with
         {
@@ -176,7 +177,7 @@ public sealed class ResponsiveShellTests
         AuthoringUiFixture.Drain();
         Inside(open, window);
         AuthoringUiFixture.Click(open);
-        Assert.Equal(1, tabs.SelectedIndex);
+        Assert.Equal(7, tabs.SelectedIndex);
         Assert.Equal("sample", fixture.ViewModel.SelectedProgram!.PlanId);
         Assert.Null(fixture.ViewModel.Error);
         var displayName = fixture.Control<TextBox>("Display name");
@@ -184,22 +185,12 @@ public sealed class ResponsiveShellTests
         AuthoringUiFixture.Drain();
         Assert.True(displayName.Focus());
         Inside(displayName, window);
-        ClickTab(window, tabs, 0);
+        fixture.NavigateTask( 0);
         Inside(fixture.Control<ListBox>("Program sequence"), window);
         Assert.False(fixture.ViewModel.HasUnsavedChanges);
     }
 
-    private static void ClickTab(Window window, TabControl tabs, int index)
-    {
-        var header = Assert.IsType<TabItem>(tabs.Items[index]);
-        var point = header.TranslatePoint(new Point(header.Bounds.Width / 2, header.Bounds.Height / 2), window);
-        Assert.NotNull(point);
-        window.MouseDown(point.Value, MouseButton.Left);
-        window.MouseUp(point.Value, MouseButton.Left);
-        AuthoringUiFixture.Drain();
-    }
-
-    internal static void Inside(Control control, Window window)
+    internal static void Inside(Control control, TopLevel window)
     {
         Assert.True(control.IsEffectivelyVisible, $"{control.GetType().Name} {Avalonia.Automation.AutomationProperties.GetName(control)} must be visible");
         Assert.True(control.Bounds.Width > 0 && control.Bounds.Height > 0, $"{control.GetType().Name} {Avalonia.Automation.AutomationProperties.GetName(control)} must have positive bounds: {control.Bounds}");

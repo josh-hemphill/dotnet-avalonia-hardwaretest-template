@@ -15,7 +15,7 @@ public sealed class PackProtectionWindowTests
         var window = fixture.Show();
         fixture.OpenRememberedWorkspace();
 
-        window.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 1;
+        window.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 7;
         AuthoringUiFixture.Drain();
         if (create)
         {

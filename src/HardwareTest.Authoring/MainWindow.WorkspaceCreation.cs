@@ -43,7 +43,7 @@ public partial class MainWindow
             var prepared = _viewModel.PrepareOpen(created.Root);
             _viewModel.CommitOpen(prepared, discardUnsavedChanges: decision == UnsavedChangesChoice.Discard);
             if (_viewModel.Programs.FirstOrDefault() is { } program) _viewModel.SelectProgram(program.PlanId);
-            WorkspaceTabs.SelectedIndex = 0;
+            WorkspaceTabs.SelectedIndex = 8;
             return true;
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { return false; }

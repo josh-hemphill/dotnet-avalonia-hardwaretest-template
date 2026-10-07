@@ -1,22 +1,32 @@
 <UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:vm="using:HardwareTest.Authoring" xmlns:host="using:HardwareTest.OpenTap.Host" x:Class="HardwareTest.Authoring.WorkspaceEnvironmentView" x:DataType="vm:AuthoringWorkspaceViewModel">
   <ScrollViewer HorizontalScrollBarVisibility="Disabled">
     <StackPanel Spacing="12" Classes="routeBody">
-      <TextBlock Text="Authoring environment" Classes="routeTitle" TextWrapping="Wrap" AutomationProperties.HeadingLevel="2"/>
-      <TextBlock Text="Prepare the selected OpenTAP home and review the requirements used by this workspace." Classes="purpose" TextWrapping="Wrap"/>
+      <TextBlock Text="Prepare your authoring environment" Classes="routeTitle" TextWrapping="Wrap" AutomationProperties.HeadingLevel="2"/>
+      <TextBlock Text="Check readiness, prepare packages, then return to your test plan." Classes="purpose" TextWrapping="Wrap"/>
       <Border Classes="surface taskSection">
         <StackPanel Spacing="12">
           <TextBlock Text="Selected home and readiness" Classes="sectionTitle" TextWrapping="Wrap" AutomationProperties.HeadingLevel="3"/>
           <TextBlock Text="{Binding AuthoringHomeText}" TextWrapping="Wrap" AutomationProperties.Name="Selected authoring home"/>
-          <TextBlock Text="{Binding EnvironmentRecoveryText}" TextWrapping="Wrap"/>
-          <TextBlock Text="{Binding LibraryEnvironmentReadinessText}" TextWrapping="Wrap" AutomationProperties.Name="Instrument Components readiness"/>
-          <TextBlock Text="{Binding StandaloneVisaReadinessText}" TextWrapping="Wrap" AutomationProperties.Name="Standalone VISA readiness"/>
+
+          <vm:ResponsiveTaskGrid>
+            <StackPanel Spacing="6">
+              <TextBlock Text="Physical instruments" FontWeight="SemiBold"/>
+              <TextBlock Text="{Binding LibraryEnvironmentReadinessText}" TextWrapping="Wrap" AutomationProperties.Name="Instrument Components readiness"/>
+            </StackPanel>
+            <StackPanel Spacing="6">
+              <TextBlock Text="Hardware execution" FontWeight="SemiBold"/>
+              <TextBlock Text="{Binding StandaloneVisaReadinessText}" TextWrapping="Wrap" AutomationProperties.Name="Standalone VISA readiness"/>
+            </StackPanel>
+          </vm:ResponsiveTaskGrid>
         </StackPanel>
       </Border>
       <Border Classes="surface taskSection">
         <StackPanel Spacing="12">
-          <TextBlock Text="Package preparation" Classes="sectionTitle" TextWrapping="Wrap" AutomationProperties.HeadingLevel="3"/>
-          <TextBlock Text="Declared requirements and preparation belong to the selected workspace and home." Classes="purpose" TextWrapping="Wrap"/>
-          <TextBlock Text="Physical hardware uses Instrument Components. Declare its dependency, then Save All before preparing or importing. Undo restores a staged declaration. Compatible installed packages are reused." TextWrapping="Wrap"/>
+          <TextBlock Text="Prepare in three steps" Classes="sectionTitle" TextWrapping="Wrap" AutomationProperties.HeadingLevel="3"/>
+          <TextBlock Text="1. Declare the instrument library if this plan uses physical hardware." TextWrapping="Wrap"/>
+          <TextBlock Text="2. Save All to persist the requirements." TextWrapping="Wrap"/>
+          <TextBlock Text="3. Prepare bundled packages or import an offline package. Compatible installed packages are reused." TextWrapping="Wrap"/>
+          <TextBlock Text="{Binding EnvironmentRecoveryText}" Classes="purpose" TextWrapping="Wrap"/>
           <WrapPanel>
             <Button Content="Declare Instrument Components dependency" Click="OnDeclareLibrary" IsEnabled="{Binding CanDeclareLibraryDependency}" AutomationProperties.Name="Declare Instrument Components dependency" Classes="authoringAction" Margin="0,0,8,8"/>
             <Button Content="Resume New test plan" Click="OnResumeInitialization" IsEnabled="{Binding CanInitializePlan}" AutomationProperties.Name="Resume New test plan" Classes="authoringAction" Margin="0,0,8,8"/>
@@ -27,13 +37,25 @@
           <ItemsControl ItemsSource="{Binding EnvironmentPackages}" AutomationProperties.Name="Environment package requirements">
             <ItemsControl.ItemTemplate>
               <DataTemplate x:DataType="vm:AuthoringPackageRequirement">
-                <TextBlock Text="{Binding DisplayText}" TextWrapping="Wrap"/>
+                <Border BorderBrush="{DynamicResource AuthoringLine}" BorderThickness="0,0,0,1" Padding="0,10">
+                  <StackPanel Spacing="4">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                      <TextBlock Text="{Binding Package}" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                      <TextBlock Grid.Column="1" Text="{Binding State}" FontWeight="SemiBold"/>
+                    </Grid>
+                    <WrapPanel>
+                      <TextBlock Text="{Binding RequiredVersion, StringFormat='Required: {0}'}" Margin="0,0,16,0"/>
+                      <TextBlock Text="{Binding InstalledVersion, StringFormat='Installed: {0}'}" TextWrapping="Wrap"/>
+                      <TextBlock Text="Optional" IsVisible="{Binding Optional}" Margin="16,0,0,0"/>
+                    </WrapPanel>
+                  </StackPanel>
+                </Border>
               </DataTemplate>
             </ItemsControl.ItemTemplate>
           </ItemsControl>
         </StackPanel>
       </Border>
-      <Border Classes="surface taskSection">
+      <Expander Header="Installed packages and runtime details" HorizontalContentAlignment="Stretch" Classes="inspectorSection">
         <StackPanel Spacing="12">
           <TextBlock Text="Installed packages and runtime" Classes="sectionTitle" TextWrapping="Wrap" AutomationProperties.HeadingLevel="3"/>
           <TextBlock Text="Installed packages in selected home" FontWeight="SemiBold"/>
@@ -47,7 +69,7 @@
           <TextBlock Text="Runtime prerequisites" FontWeight="SemiBold"/>
           <ItemsControl ItemsSource="{Binding EnvironmentRuntimeFiles}" AutomationProperties.Name="Authoring runtime prerequisites"/>
         </StackPanel>
-      </Border>
+      </Expander>
       <Border Classes="surface taskSection">
         <StackPanel Spacing="12">
           <TextBlock Text="Workspace recovery" Classes="sectionTitle" TextWrapping="Wrap" AutomationProperties.HeadingLevel="3"/>
@@ -65,7 +87,7 @@
           </Expander>
         </StackPanel>
       </Border>
-      <Border Classes="surface taskSection">
+      <Expander Header="Workspace and build declarations" HorizontalContentAlignment="Stretch" Classes="inspectorSection">
         <StackPanel Spacing="12">
           <TextBlock Text="Workspace and build declarations" Classes="sectionTitle" TextWrapping="Wrap" AutomationProperties.HeadingLevel="3"/>
           <TextBlock Text="{Binding Workspace.Root}" TextWrapping="Wrap"/>
@@ -90,7 +112,7 @@
             </ItemsControl.ItemTemplate>
           </ItemsControl>
         </StackPanel>
-      </Border>
+      </Expander>
     </StackPanel>
   </ScrollViewer>
 </UserControl>

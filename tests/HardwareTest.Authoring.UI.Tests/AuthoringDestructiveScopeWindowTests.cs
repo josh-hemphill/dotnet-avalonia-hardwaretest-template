@@ -21,6 +21,7 @@ public sealed class AuthoringDestructiveScopeWindowTests
         vm.InitializePlan(new("a") { Instruments = [] }); AddCatalog(fixture, target == "fixtureId" ? CatalogDeletionKind.RequiredField : CatalogDeletionKind.ReportKind);
         vm.InitializePlan(new("b") { Instruments = [] }); vm.DisplayName += " edited"; vm.SelectProgram("a"); Assert.True(vm.SaveAll().Succeeded); AuthoringUiFixture.Drain();
         var other = vm.Programs.Single(p => p.PlanId == "b"); var otherBytes = File.ReadAllBytes(Sidecar(fixture, "b"));
+        fixture.NavigateTask(7);
         var box = fixture.Control<CheckBox>($"Include {target} in selected program", fixture.Control<ItemsControl>(group));
         Assert.True(box.IsChecked); PressSpace(fixture.Window!, box);
         Assert.False(fixture.Control<CheckBox>($"Include {target} in selected program", fixture.Control<ItemsControl>(group)).IsChecked);
@@ -209,7 +210,7 @@ public sealed class AuthoringDestructiveScopeWindowTests
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
         var manifest = Path.Combine(fixture.WorkspaceRoot, "authoring.json"); File.WriteAllText(manifest, File.ReadAllText(manifest).Replace("\"schemaVersion\": 2", "\"schemaVersion\": 999", StringComparison.Ordinal));
-        fixture.Show(); fixture.OpenRememberedWorkspace(); Settings(fixture);
+        fixture.Show(); fixture.OpenRememberedWorkspace(); fixture.NavigateTask(7);
         var box = fixture.Control<CheckBox>("Include serial in selected program"); var before = box.IsChecked; var draft = fixture.ViewModel.SelectedProgram;
         Assert.False(box.IsEffectivelyEnabled); box.BringIntoView(); AuthoringUiFixture.Drain();
         var point = box.TranslatePoint(new Point(10, 10), fixture.Window!); Assert.NotNull(point); fixture.Window!.MouseDown(point.Value, MouseButton.Left); fixture.Window!.MouseUp(point.Value, MouseButton.Left); AuthoringUiFixture.Drain();
@@ -400,7 +401,7 @@ public sealed class AuthoringDestructiveScopeWindowTests
         if (!keyboard) AuthoringUiFixture.Click(fixture.Control<Button>("Remove program"));
         else
         {
-            var item = Assert.Single(fixture.Control<ListBox>("Programs").GetVisualDescendants().OfType<ListBoxItem>(), row => row.IsSelected);
+            var item = fixture.Control<ComboBox>("Selected test plan");
             item.BringIntoView(); AuthoringUiFixture.Drain(); Assert.True(item.Focus());
             fixture.Window!.KeyPress(Key.Delete, RawInputModifiers.None, PhysicalKey.Delete, null); AuthoringUiFixture.Drain();
         }
