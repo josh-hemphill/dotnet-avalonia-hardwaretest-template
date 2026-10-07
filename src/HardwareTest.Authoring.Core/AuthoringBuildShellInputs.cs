@@ -128,7 +128,7 @@ public static partial class AuthoringBuildService
             foreach (var file in tree.Files)
             {
                 var target = Path.Combine(root, file.RelativePath);
-                if (copied.Add(file.RelativePath) && !File.Exists(target)) File.WriteAllBytes(target, file.Bytes);
+                if (copied.Add(file.RelativePath) && !File.Exists(target)) Materialize(file, target);
             }
     }
 

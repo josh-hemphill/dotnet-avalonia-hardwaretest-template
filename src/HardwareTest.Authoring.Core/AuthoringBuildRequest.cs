@@ -21,7 +21,7 @@ public sealed class AuthoringBuildRequest
         };
         Trees = trees;
         Inputs = new ReadOnlyCollection<AuthoringBuildInput>(trees.SelectMany(t => t.Files.Select(f =>
-            new AuthoringBuildInput(f.Path, f.Hash, f.Target))).ToArray());
+            new AuthoringBuildInput(f.Path, f.Hash, f.Target) { UnixMode = f.UnixMode })).ToArray());
     }
     public string WorkspaceRoot { get; }
     public IReadOnlyList<AuthoringBuildInput> Inputs { get; }
@@ -31,7 +31,10 @@ public sealed class AuthoringBuildRequest
     internal IReadOnlyList<BuildInputTree> Trees { get; }
 }
 
-public sealed record AuthoringBuildInput(string Path, string Sha256, string ResolvedPath);
+public sealed record AuthoringBuildInput(string Path, string Sha256, string ResolvedPath)
+{
+    public int? UnixMode { get; init; }
+}
 public sealed record AuthoringBuildOutput(string Path, string Sha256);
 public sealed record AuthoringBuildSource(string PlanId, long? SavedRevision, string? SourceSha256);
 public sealed record AuthoringCompileMapEntry(Guid StepId, Guid? NodeId, string Kind);
@@ -86,7 +89,7 @@ public sealed record AuthoringBuildResult
     public ShipManifest Manifest { get; }
     public AuthoringBuildReceipt Receipt { get; }
 }
-internal sealed record BuildInputFile(string Path, string RelativePath, string Target, string Hash, byte[] Bytes);
+internal sealed record BuildInputFile(string Path, string RelativePath, string Target, string Hash, byte[] Bytes, int? UnixMode = null);
 internal sealed record BuildInputTree(string Root, string StageRelativePath, bool Recursive,
     IReadOnlyList<BuildInputFile> Files, IReadOnlyList<string> Links, bool Materialize = true);
 

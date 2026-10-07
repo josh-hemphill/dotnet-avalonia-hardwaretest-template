@@ -9,6 +9,7 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\HardwareTest.Authoring\HardwareTest.Authoring.csproj" />
+    <ProjectReference Include="../HardwareTest.Authoring.ProcessFixture/HardwareTest.Authoring.ProcessFixture.csproj" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\plans\opentap\authoring.json;..\..\plans\opentap\sample.TapPlan;..\..\plans\opentap\sample.program.json" Link="fixtures\workspace\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />

@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <CreateOpenTapPackage>false</CreateOpenTapPackage>
+    <InstallCreatedOpenTapPackage>false</InstallCreatedOpenTapPackage>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/HardwareTest.Authoring.Core/HardwareTest.Authoring.Core.csproj" />
+  </ItemGroup>
+</Project>

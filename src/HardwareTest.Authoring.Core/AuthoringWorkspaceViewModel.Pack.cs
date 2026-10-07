@@ -2,9 +2,11 @@ namespace HardwareTest.Authoring;
 
 public sealed partial class AuthoringWorkspaceViewModel
 {
+    private bool _packCheckedClone;
     public PackPreflightReport? LastPackPreflight { get; private set; }
     public string PackPreflightHomeText => LastPackPreflight?.Home is { } home
-        ? $"Checked authoring home: {home.Root}; compatibility home: {LastPackPreflight.TuiHome?.Root}" : string.Empty;
+        ? _packCheckedClone ? $"Checked isolated home cloned from selected path: {home.Root}"
+            : $"Checked authoring home: {home.Root}; compatibility home: {LastPackPreflight.TuiHome?.Root}" : string.Empty;
     public IReadOnlyList<PackPreflightFinding> PackPreflightFindings => LastPackPreflight?.Findings ?? [];
     public IReadOnlyList<string> DirtyProgramIds
     {
@@ -15,7 +17,7 @@ public sealed partial class AuthoringWorkspaceViewModel
                 .Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.OrdinalIgnoreCase).ToArray();
         }
     }
-    public bool CanPack => Workspace is not null && WorkspacePacker.IsWritableWorkspace(Workspace) && !HasUnsavedChanges && !HasKnownSavedBuildBlockers;
+    public bool CanPack => !OperationBusy && Workspace is not null && WorkspacePacker.IsWritableWorkspace(Workspace) && !HasUnsavedChanges && !HasKnownSavedBuildBlockers;
     public string PackGuardText => HasKnownSavedBuildBlockers ? "Repair incomplete saved deployment input or reconcile source conflicts before building." : HasUnsavedChanges
         ? WorkspaceCatalogDirty ? "Use Save All to save workspace catalog changes and edited programs before packing." : $"Save edited programs before packing: {string.Join(", ", DirtyProgramIds)}"
         : "Pack checks saved plans, required packages, plugin catalogs and in-process load/save round trips.";
@@ -29,6 +31,7 @@ public sealed partial class AuthoringWorkspaceViewModel
 
     private void RetainPackPreflight(PackPreflightReport report)
     {
+        _packCheckedClone = false;
         LastPackPreflight = report;
         OnPropertyChanged(nameof(LastPackPreflight));
         OnPropertyChanged(nameof(PackPreflightHomeText));

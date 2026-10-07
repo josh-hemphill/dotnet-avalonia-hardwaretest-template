@@ -22,7 +22,9 @@ public partial class MainWindow : Window
         DataContext = viewModel;
         InitializeLifecycle(lifecycleInteraction, workspacePicker);
         _viewModel.ConfigureRecoveryDispatch(action => Avalonia.Threading.Dispatcher.UIThread.Post(action));
-        Closed += (_, _) => _viewModel.StopRecovery();
+        _viewModel.ConfigureOperations(CreateOperationRunner(),
+            action => Avalonia.Threading.Dispatcher.UIThread.Post(action));
+        Closed += (_, _) => { _viewModel.StopRecovery(); _viewModel.StopOperations(); };
     }
 
     private void OnAcceptRecovery(object? sender, RoutedEventArgs e)
@@ -65,11 +67,11 @@ public partial class MainWindow : Window
         TryRun(() => _viewModel.SaveAll());
     }
 
-    private void OnBootstrap(object? sender, RoutedEventArgs e)
-        => TryRun(() => _viewModel.Bootstrap(new BootstrapOptions { Offline = true }));
+    private async void OnBootstrap(object? sender, RoutedEventArgs e)
+        => await RunOperationAsync(AuthoringOperationKind.Bootstrap);
 
-    private void OnValidate(object? sender, RoutedEventArgs e)
-        => TryRun(() => _viewModel.Validate(strict: true));
+    private async void OnValidate(object? sender, RoutedEventArgs e)
+        => await RunOperationAsync(AuthoringOperationKind.Validate);
 
     private void OnSaveSidecar(object? sender, RoutedEventArgs e)
     {
@@ -274,7 +276,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        TryRun(() => _viewModel.Pack(path, new PackOptions { Offline = true }));
+        await RunOperationAsync(AuthoringOperationKind.Pack, path);
     }
 
     private void TryRun(Action action)

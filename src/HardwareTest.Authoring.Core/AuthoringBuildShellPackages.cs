@@ -71,7 +71,7 @@ public static partial class AuthoringBuildService
             {
                 var destination = Path.Combine(temporary, file.RelativePath);
                 Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
-                File.WriteAllBytes(destination, file.Bytes);
+                Materialize(file, destination);
             }
             CopyShellAncestors(temporary, ancestors);
             // This boundary affects only restore-time analyzers/config discovery in the disposable tree.

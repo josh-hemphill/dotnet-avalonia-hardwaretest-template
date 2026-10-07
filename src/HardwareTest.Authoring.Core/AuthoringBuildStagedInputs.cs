@@ -2,9 +2,9 @@ namespace HardwareTest.Authoring;
 
 public static partial class AuthoringBuildService
 {
-    private static IReadOnlyList<(string Path, string Target, string Hash)> CaptureStagedInputs(string staging, IReadOnlySet<string>? generatedDirectories = null)
+    private static IReadOnlyList<(string Path, string Target, string Hash, int? UnixMode)> CaptureStagedInputs(string staging, IReadOnlySet<string>? generatedDirectories = null)
     {
-        var files = new List<(string, string, string)>();
+        var files = new List<(string, string, string, int?)>();
         Walk(staging);
         return files.AsReadOnly();
 
@@ -19,7 +19,8 @@ public static partial class AuthoringBuildService
                 if (relative == "workspace/plans/package.xml") continue;
                 var target = ResolvedPath(path, false);
                 EnsureContained(staging, target);
-                files.Add((relative, Path.GetRelativePath(staging, target), Hash(File.ReadAllBytes(path))));
+                files.Add((relative, Path.GetRelativePath(staging, target), Hash(File.ReadAllBytes(path)),
+                    OperatingSystem.IsWindows() ? null : (int)File.GetUnixFileMode(path)));
             }
             foreach (var path in Directory.EnumerateDirectories(directory).Order(StringComparer.Ordinal))
             {
@@ -36,7 +37,7 @@ public static partial class AuthoringBuildService
         }
     }
 
-    private static void VerifyStagedInputs(string staging, IReadOnlyList<(string Path, string Target, string Hash)> expected, bool afterPacking)
+    private static void VerifyStagedInputs(string staging, IReadOnlyList<(string Path, string Target, string Hash, int? UnixMode)> expected, bool afterPacking)
     {
         var generated = afterPacking ? expected.Where(f => f.Path.StartsWith("shell/", StringComparison.Ordinal)
             && f.Path.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase))

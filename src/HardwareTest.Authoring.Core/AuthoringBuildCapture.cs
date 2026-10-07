@@ -103,7 +103,8 @@ public static partial class AuthoringBuildService
                 var target = CapturedFileTarget(path, resolvedDirectory);
                 EnsureContained(root, target);
                 var content = ReadCapturedFile(path, materialize);
-                files.Add(new(path, Path.GetRelativePath(root, path), target, content.Hash, content.Bytes));
+                var mode = OperatingSystem.IsWindows() ? (int?)null : (int)File.GetUnixFileMode(path);
+                files.Add(new(path, Path.GetRelativePath(root, path), target, content.Hash, content.Bytes, mode));
             }
             if (recursive)
                 foreach (var sub in Directory.EnumerateDirectories(directory).Order(StringComparer.Ordinal))
@@ -138,7 +139,7 @@ public static partial class AuthoringBuildService
                         ? p => selected.Contains(p) : tree.StageRelativePath == "shell" ? ShellInput
                         : tree.StageRelativePath is "home" or "tui-home" ? EnvironmentInput : null;
             var current = CaptureTree(tree.Root, tree.StageRelativePath, tree.Recursive, filter, materialize: false);
-            if (!tree.Files.Select(f => (f.Path, f.Target, f.Hash)).SequenceEqual(current.Files.Select(f => (f.Path, f.Target, f.Hash)))
+            if (!tree.Files.Select(f => (f.Path, f.Target, f.Hash, f.UnixMode)).SequenceEqual(current.Files.Select(f => (f.Path, f.Target, f.Hash, f.UnixMode)))
                 || !tree.Links.SequenceEqual(current.Links))
                 throw new AuthoringWorkspaceException($"BUILD_INPUT_CHANGED: Saved input or dependency changed: '{tree.Root}'. Capture a new build.");
         }
