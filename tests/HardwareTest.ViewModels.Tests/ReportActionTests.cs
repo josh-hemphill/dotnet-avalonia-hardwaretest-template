@@ -157,6 +157,39 @@ public sealed class ReportActionTests : IDisposable
     }
 
     [Fact]
+    public async Task Cancellation_before_queued_signing_capture_does_not_call_provider()
+    {
+        var store = new FileRunStore(_root);
+        var run = await SeedAsync(store, "cancel-before-signing-capture");
+        var settings = new AppSettings { RequireAttestationBeforeExport = true };
+        var service = new NotifyingAttestation(new ReportAttestationService(
+            new MockOperatorCredentialBroker(canSign: true), store, settings));
+        var actions = new Actions(Path.Combine(_root, "should-not-save.pdf"));
+        var vm = new ReportPreviewViewModel(store, new FakeReportService(), attestation: service,
+            desktop: actions, settings: settings) { UiScheduler = action => action(), PreviewRenderer = _ => [] };
+        await vm.LoadFromPathAsync(run.Reports[0].PdfPath);
+        await vm.SaveCopyCommand.ExecuteAsync();
+        var queuedCapture = new TaskCompletionSource<Action>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var scheduled = 0;
+        vm.UiScheduler = action =>
+        {
+            if (Interlocked.Increment(ref scheduled) == 1) action(); // BeginAction owns the shared gate.
+            else queuedCapture.TrySetResult(action);
+        };
+        var signing = vm.SignAndContinueCommand.ExecuteAsync();
+        var capture = await queuedCapture.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        vm.UiScheduler = action => action();
+        vm.CancelPendingAction();
+        capture();
+        await signing.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.Equal(0, service.Calls);
+        Assert.Empty(actions.Saves);
+        Assert.DoesNotContain((await store.LoadAsync(run.RunId))!.Reports, r => ReportArtifactRoles.IsIssued(r.Role));
+        Assert.False(vm.ShowSigningPrompt);
+        Assert.False(vm.IsBusy);
+    }
+
+    [Fact]
     public async Task Signed_save_keeps_action_gate_and_busy_state_until_picker_returns()
     {
         var store = new FileRunStore(_root);
@@ -179,6 +212,19 @@ public sealed class ReportActionTests : IDisposable
         Assert.Equal(0, desktop.PrintCalls);
         Assert.Equal(0, desktop.OpenCalls);
         Assert.True(vm.IsBusy);
+        var statusWhilePickerIsHeld = vm.Status;
+        var otherRun = await SeedAsync(store, "independent-capture-during-save");
+        var otherPreview = new ReportPreviewViewModel(store, new FakeReportService(), attestation: service, settings: settings)
+        { UiScheduler = action => action(), PreviewRenderer = _ => [] };
+        await otherPreview.LoadFromPathAsync(otherRun.Reports[0].PdfPath);
+        await otherPreview.SignCommand.ExecuteAsync();
+        await otherPreview.SignAndContinueCommand.ExecuteAsync().WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.True(service.HasValidAttestation((await store.LoadAsync(otherRun.RunId))!, ReportKinds.Certification));
+        Assert.False(otherPreview.IsBusy);
+        Assert.False(otherPreview.ShowSigningPrompt);
+        Assert.Equal(statusWhilePickerIsHeld, vm.Status);
+        Assert.True(vm.IsBusy);
+        Assert.Equal(1, desktop.SaveCalls);
         vm.CancelPendingAction();
         Assert.True(vm.IsBusy);
         desktop.Release.TrySetResult();
@@ -637,6 +683,7 @@ public sealed class ReportActionTests : IDisposable
     private sealed class NotifyingAttestation(IReportAttestationService inner) : IReportAttestationService
     {
         public Action? AfterSigning { get; set; }
+        public int Calls { get; private set; }
         public TimeSpan PresenceTimeout => inner.PresenceTimeout;
         public bool NeedsAttestation(TestRunRecord run, string kind) => inner.NeedsAttestation(run, kind);
         public bool HasValidAttestation(TestRunRecord run, string kind) => inner.HasValidAttestation(run, kind);
@@ -644,6 +691,7 @@ public sealed class ReportActionTests : IDisposable
         public async Task<ReportAttestationResult> AttestAsync(TestRunRecord run, string kind,
             OperatorCredential? credential = null, string? pin = null, bool skipSigning = false, CancellationToken cancellationToken = default)
         {
+            Calls++;
             var result = await inner.AttestAsync(run, kind, credential, pin, skipSigning, cancellationToken);
             AfterSigning?.Invoke();
             return result;
