@@ -34,9 +34,20 @@ public partial class ResultsViewModel
             return true;
         }
 
-        if (_attestation.HasValidAttestation(run, reportKind))
+        var selected = pendingAction == PendingPrint ? run.Reports.FirstOrDefault(r => ReportArtifactRoles.IsIssued(r.Role)
+            && string.Equals(r.Kind, reportKind, StringComparison.OrdinalIgnoreCase)
+            && string.Equals(r.PdfPath, _pendingPrintPath, StringComparison.OrdinalIgnoreCase)) : null;
+        if (selected is not null
+            ? _attestation.HasValidAttestationForPdf(run, reportKind, selected.PdfPath)
+            : _attestation.HasValidAttestation(run, reportKind))
         {
             return true;
+        }
+
+        if (selected is not null)
+        {
+            Status = "Verification failed for this issued revision. Select a working report to create a new revision.";
+            return false;
         }
 
         _pendingAttestationAction = pendingAction;

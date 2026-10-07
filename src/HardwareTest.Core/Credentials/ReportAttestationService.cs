@@ -21,6 +21,9 @@ public interface IReportAttestationService
     bool HasValidAttestation(TestRunRecord run, string reportKind);
     bool HasValidAttestation(TestRunRecord run, string reportKind, string? revisionId)
         => revisionId is null && HasValidAttestation(run, reportKind);
+    bool HasValidAttestationForPdf(TestRunRecord run, string reportKind, string pdfPath)
+        => string.Equals(ReportAttestationService.ResolveIssuedPdfPath(run, reportKind), pdfPath, StringComparison.OrdinalIgnoreCase)
+           && HasValidAttestation(run, reportKind);
 
     Task<ReportAttestationResult> AttestAsync(
         TestRunRecord run,
@@ -91,6 +94,21 @@ public sealed class ReportAttestationService : IReportAttestationService
         var artifact = revisionId is null ? ReportRevisions.Latest(run, lookupKind) : run.Reports.FirstOrDefault(r =>
             ReportArtifactRoles.IsIssued(r.Role) && string.Equals(r.Kind, lookupKind, StringComparison.OrdinalIgnoreCase)
             && r.RevisionId == revisionId);
+        return HasValidArtifact(run, artifact);
+    }
+
+    public bool HasValidAttestationForPdf(TestRunRecord run, string reportKind, string pdfPath)
+    {
+        var kind = string.Equals(reportKind, PackageKind, StringComparison.OrdinalIgnoreCase)
+            ? ReportKinds.Certification : reportKind;
+        var artifact = run.Reports.FirstOrDefault(r => ReportArtifactRoles.IsIssued(r.Role)
+            && string.Equals(r.Kind, kind, StringComparison.OrdinalIgnoreCase)
+            && string.Equals(r.PdfPath, pdfPath, StringComparison.OrdinalIgnoreCase));
+        return HasValidArtifact(run, artifact);
+    }
+
+    private bool HasValidArtifact(TestRunRecord run, RunReportArtifact? artifact)
+    {
         var attestation = artifact is null ? null : FindForArtifact(run, artifact);
         if (attestation is null)
         {
