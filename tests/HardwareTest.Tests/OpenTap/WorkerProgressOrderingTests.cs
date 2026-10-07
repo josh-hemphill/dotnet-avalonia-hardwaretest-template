@@ -1,7 +1,9 @@
 using HardwareTest.Core.Settings;
 using HardwareTest.OpenTap.Host;
 using HardwareTest.OpenTap.Host.Worker;
+using HardwareTest.OpenTap.Plugins.Basic;
 using HardwareTest.Tests.Fixtures;
+using OpenTap;
 using Xunit;
 
 namespace HardwareTest.Tests.OpenTap;
@@ -111,6 +113,57 @@ public sealed class WorkerProgressOrderingTests
             items.Add(progress);
         }).WaitAsync(TimeSpan.FromSeconds(60));
 
+        Assert.True(next.Ok, next.Error);
+        Assert.NotEmpty(items);
+        Assert.True(items[^1].IsCompleted);
+    }
+
+    [Fact]
+    public async Task Rejected_operator_prompt_aborts_execution_before_error_response_and_worker_reuse()
+    {
+        using var temp = new TempDataDirectory();
+        using var process = StartWorker(temp.Path);
+        OpenTapPluginSearch.SearchSerialized();
+        var plan = new TestPlan();
+        plan.ChildTestSteps.Add(new OperatorPromptStep { Message = "Await rejection", Name = "Operator prompt" });
+        var planPath = Path.Combine(temp.Path, "operator-rejection.TapPlan");
+        plan.Save(planPath);
+        var loaded = await process.Request(WorkerProtocol.LoadPlan,
+            new WorkerPathRequest { Path = planPath }, WorkerJsonContext.Default.WorkerPathRequest, CancellationToken.None);
+        Assert.True(loaded.Ok, loaded.Error);
+        var rejectedPrompt = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        var response = await RunAsync(process, envelope =>
+        {
+            var progress = WorkerProtocol.ReadPayload(envelope, WorkerJsonContext.Default.OpenTapProgress);
+            Assert.NotNull(progress);
+            if (progress.AwaitingOperator)
+            {
+                rejectedPrompt.TrySetResult();
+                throw new InvalidOperationException("operator prompt delivery rejected");
+            }
+        }).WaitAsync(TimeSpan.FromSeconds(60));
+
+        Assert.True(rejectedPrompt.Task.IsCompleted);
+        Assert.False(response.Ok);
+        Assert.Contains("operator prompt delivery rejected", response.Error, StringComparison.Ordinal);
+        var control = await process.Request(WorkerProtocol.TryGetStepConditionSummary,
+            new WorkerPathRequest { Path = "missing" }, WorkerJsonContext.Default.WorkerPathRequest,
+            CancellationToken.None);
+        Assert.True(control.Ok, control.Error);
+        var snapshot = WorkerProtocol.ReadPayload(control, WorkerJsonContext.Default.WorkerBoolResult)?.Snapshot;
+        Assert.NotNull(snapshot);
+        Assert.False(snapshot.IsExecuting);
+        Assert.False(snapshot.IsAwaitingOperator);
+        Assert.True(process.IsAlive);
+        await LoadFlatLeavesAsync(process);
+        var items = new List<OpenTapProgress>();
+        var next = await RunAsync(process, envelope =>
+        {
+            var progress = WorkerProtocol.ReadPayload(envelope, WorkerJsonContext.Default.OpenTapProgress);
+            Assert.NotNull(progress);
+            items.Add(progress);
+        }).WaitAsync(TimeSpan.FromSeconds(60));
         Assert.True(next.Ok, next.Error);
         Assert.NotEmpty(items);
         Assert.True(items[^1].IsCompleted);

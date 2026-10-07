@@ -459,7 +459,23 @@ public static class OpenTapWorkerServer
                 {
                     if (progressPump is not null)
                     {
-                        await Task.Run(Dispatch).ConfigureAwait(false);
+                        var execution = Task.Run(Dispatch);
+                        if (await Task.WhenAny(execution, progressPump.Completion).ConfigureAwait(false) == progressPump.Completion
+                            && (progressPump.Completion.IsFaulted || progressPump.Completion.IsCanceled))
+                        {
+                            // Rejected delivery can strand an operator prompt. Abort outside
+                            // the source callback, then observe execution cleanup even if
+                            // abort's state notifications encounter the closed progress queue.
+                            try
+                            {
+                                RequireSession().Abort();
+                            }
+                            catch (Exception error)
+                            {
+                                _log.Warning(error, "OpenTAP abort after progress delivery failure raised an error");
+                            }
+                        }
+                        await execution.ConfigureAwait(false);
                     }
                     else
                     {
@@ -513,6 +529,8 @@ public static class OpenTapWorkerServer
         private readonly object _lifetimeGate = new();
         private bool _disposed;
         private readonly Task _consumer;
+
+        public Task Completion => _consumer;
 
         public ProgressPump(JsonRpc rpc)
         {
