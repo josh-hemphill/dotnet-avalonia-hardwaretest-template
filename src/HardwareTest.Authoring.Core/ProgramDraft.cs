@@ -14,9 +14,16 @@ public sealed record ProgramDraft(
     IReadOnlyList<InstrumentRef> Instruments,
     IReadOnlyList<SetupAction> Setup,
     IReadOnlyList<MeasureNode> Measure,
-    CleanupPolicy Cleanup);
+    CleanupPolicy Cleanup)
+{
+    public AuthoringDocumentState AuthoringState { get; init; } = new();
+}
 
-public abstract record MeasureNode;
+public abstract record MeasureNode
+{
+    /// Stable identity retained by edits and mapped to supported OpenTAP step IDs.
+    public Guid NodeId { get; init; } = Guid.NewGuid();
+}
 
 public sealed record MetricNode(MetricDraft Metric) : MeasureNode;
 
@@ -27,9 +34,19 @@ public sealed record RawStepNode(string TypeName, string XmlFragment) : MeasureN
 public sealed record InstrumentRef(
     string SlotName,
     string TypeId,
-    string VisaAddress);
+    string VisaAddress)
+{
+    /// Original resource payload retained for imports outside the supported adapter catalog.
+    public string? OpaqueResourceXml { get; init; }
 
-public abstract record SetupAction;
+    public IReadOnlyDictionary<string, string> Settings { get; init; } = new Dictionary<string, string>();
+}
+
+public abstract record SetupAction
+{
+    /// Stable identity retained by edits and mapped to supported OpenTAP step IDs.
+    public Guid NodeId { get; init; } = Guid.NewGuid();
+}
 
 public sealed record IdentitySetup(string InstrumentSlot) : SetupAction;
 
@@ -61,7 +78,11 @@ public sealed record MeasureSource(
 public sealed record AlgorithmSource(
     string AlgorithmId,
     IReadOnlyList<string> InputChannelKeys,
-    IReadOnlyDictionary<string, string> Settings) : MetricSource;
+    IReadOnlyDictionary<string, string> Settings) : MetricSource
+{
+    /// Explicit resource binding for algorithms that acquire through an instrument.
+    public string? InstrumentSlot { get; init; }
+}
 
 /// MATLAB-flavored subset; not MATLAB. Lowers to a closed analyze step or fails FORMULA_NO_LOWER.
 public sealed record ExpressionAlgorithm(
@@ -86,6 +107,9 @@ public sealed record CleanupPolicy(
     IReadOnlyList<string> InstrumentSlots,
     bool IncludeMeasureSlots = false)
 {
+    /// Stable policy-row identity within this document session.
+    public Guid NodeId { get; init; } = Guid.NewGuid();
+
     public CleanupPolicy(bool includeSafeShutdown, string instrumentSlot)
         : this(
             includeSafeShutdown,
@@ -142,7 +166,12 @@ public static class AuthoringCleanup
                 .Select(slot => slot.Trim())
                 .ToArray()
             : compiled.InstrumentSlots;
-        return new CleanupPolicy(include, slots, sidecar.IncludeMeasureSlots == true);
+        return compiled with
+        {
+            IncludeSafeShutdown = include,
+            InstrumentSlots = slots,
+            IncludeMeasureSlots = sidecar.IncludeMeasureSlots == true,
+        };
     }
 
     public static IReadOnlyList<string> MeasureSlots(ProgramDraft draft)
@@ -163,6 +192,12 @@ public static class AuthoringCleanup
             if (metric.Source is MeasureSource measure)
             {
                 Add(slots, seen, measure.InstrumentSlot);
+            }
+            else if (metric.Source is AlgorithmSource algorithm
+                && AuthoringFunctionCatalog.TryGet(algorithm.AlgorithmId, out var spec)
+                && spec.NeedsInstrument)
+            {
+                Add(slots, seen, algorithm.InstrumentSlot);
             }
         }
 

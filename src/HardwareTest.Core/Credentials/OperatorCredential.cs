@@ -27,10 +27,10 @@ public static class AttestationAlgorithm
 /// How the signature is bound to the report PDF.
 public static class AttestationSignatureFormat
 {
-    /// ISO 32000 incremental PAdES-B-B (`adbe.pkcs7.detached` CMS in the PDF).
+    /// ISO 32000 incremental PAdES-B-B (`ETSI.CAdES.detached` CMS in the PDF).
     public const string PadesBasic = "PAdES-B-B";
 
-    /// Detached sidecar over SHA-256(PDF) (mock HMAC / legacy).
+    /// Detached sidecar over SHA-256(PDF) (current mock HMAC).
     public const string DetachedSidecar = "detached-sidecar";
 }
 

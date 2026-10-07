@@ -19,6 +19,7 @@ public sealed partial class AuthoringWorkspaceViewModel
             if (SetField(ref _selectedRecipeId, value))
             {
                 OnPropertyChanged(nameof(SelectedRecipe));
+                RaiseSequenceOperations();
             }
         }
     }
@@ -63,15 +64,29 @@ public sealed partial class AuthoringWorkspaceViewModel
     {
         get
         {
+            if (SelectedProgram is not null && SelectedMetric is { } selected)
+            {
+                var identity = SelectedPreviewNodeId;
+                var tile = BoardTiles.LastOrDefault(tile => tile.NodeId == identity);
+                if (tile is not null) return tile.Preview;
+            }
             var siblings = SelectedProgram is null
                 ? []
                 : AuthoringRecipeCatalog.EnumerateMetrics(SelectedProgram.Measure).ToArray();
             var recorded = SelectedDataset is { } dataset
                 ? RunDatasetBinder.SeriesByMetric(dataset.Run)
                 : null;
-            return MetricPreviewBuilder.From(SelectedMetric, siblings, recorded);
+            return MetricPreviewBuilder.From(SelectedMetric, siblings, recorded, SelectedProgram,
+                SelectedPreviewNodeId);
         }
     }
+
+    private Guid? SelectedPreviewNodeId => SelectedMeasure switch
+    {
+        MetricNode node => node.NodeId,
+        RepeatNode repeat => repeat.Children.OfType<MetricNode>().FirstOrDefault()?.NodeId,
+        _ => null,
+    };
 
     public string PreviewKind => Preview.TileKind?.ToString() ?? "Text";
 
@@ -137,20 +152,20 @@ public sealed partial class AuthoringWorkspaceViewModel
 
     public string LimitLow
     {
-        get => FormatLimit(SelectedMetric?.Limits?.Low);
-        set => UpdateLimits(ParseLimit(value), SelectedMetric?.Limits?.High, SelectedMetric?.Limits?.Threshold);
+        get => NumericText(nameof(LimitLow), SelectedMetric?.Limits?.Low);
+        set => SetNumericText(nameof(LimitLow), value, parsed => UpdateLimits(parsed, SelectedMetric?.Limits?.High, SelectedMetric?.Limits?.Threshold));
     }
 
     public string LimitHigh
     {
-        get => FormatLimit(SelectedMetric?.Limits?.High);
-        set => UpdateLimits(SelectedMetric?.Limits?.Low, ParseLimit(value), SelectedMetric?.Limits?.Threshold);
+        get => NumericText(nameof(LimitHigh), SelectedMetric?.Limits?.High);
+        set => SetNumericText(nameof(LimitHigh), value, parsed => UpdateLimits(SelectedMetric?.Limits?.Low, parsed, SelectedMetric?.Limits?.Threshold));
     }
 
     public string Threshold
     {
-        get => FormatLimit(SelectedMetric?.Limits?.Threshold);
-        set => UpdateLimits(SelectedMetric?.Limits?.Low, SelectedMetric?.Limits?.High, ParseLimit(value));
+        get => NumericText(nameof(Threshold), SelectedMetric?.Limits?.Threshold);
+        set => SetNumericText(nameof(Threshold), value, parsed => UpdateLimits(SelectedMetric?.Limits?.Low, SelectedMetric?.Limits?.High, parsed));
     }
 
     public string FormulaSource
@@ -205,28 +220,21 @@ public sealed partial class AuthoringWorkspaceViewModel
 
     public string TfNumerator
     {
-        get => FormatVector(SelectedTf?.Numerator);
-        set => UpdateSelectedTf(tf => tf with { Numerator = ParseVector(value, tf.Numerator) });
+        get => SelectedFieldText(nameof(TfNumerator), FormatVector(SelectedTf?.Numerator));
+        set => SetTfVectorText(nameof(TfNumerator), value, (tf, vector) => tf with { Numerator = vector });
     }
 
     public string TfDenominator
     {
-        get => FormatVector(SelectedTf?.Denominator);
-        set => UpdateSelectedTf(tf => tf with { Denominator = ParseVector(value, tf.Denominator) });
+        get => SelectedFieldText(nameof(TfDenominator), FormatVector(SelectedTf?.Denominator));
+        set => SetTfVectorText(nameof(TfDenominator), value, (tf, vector) => tf with { Denominator = vector });
     }
 
     public string TfTsSeconds
     {
-        get => SelectedTf is { } tf ? tf.TsSeconds.ToString(CultureInfo.InvariantCulture) : string.Empty;
-        set
-        {
-            if (!double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var ts) || ts <= 0)
-            {
-                return;
-            }
-
-            UpdateSelectedTf(tf => tf with { TsSeconds = ts });
-        }
+        get => SelectedFieldText(nameof(TfTsSeconds), SelectedTf is { } tf
+            ? tf.TsSeconds.ToString(CultureInfo.InvariantCulture) : string.Empty);
+        set => SetTfSamplePeriodText(value);
     }
 
     public string TfMethod
@@ -288,6 +296,7 @@ public sealed partial class AuthoringWorkspaceViewModel
             imported.Algorithm);
         ReplaceSelected(SelectedProgram with { Measure = [.. SelectedProgram.Measure, new MetricNode(created)] });
         SelectedMeasureIndex = SelectedProgram.Measure.Count - 1;
+        SelectedDocument?.CompleteEditSelection();
     }
 
     private TransferFunctionAlgorithm? SelectedTf
@@ -336,7 +345,7 @@ public sealed partial class AuthoringWorkspaceViewModel
             throw new AuthoringWorkspaceException("Select a recipe before adding it.");
         }
 
-        ApplyRecipe(SelectedRecipeId);
+        InsertSelectedRecipe();
     }
 
     private void RefreshMeasurePresentation()
@@ -378,7 +387,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         }
 
         var next = mutate(SelectedMetric);
-        if (Equals(next, SelectedMetric))
+        if (Equals(next, SelectedMetric) && _pendingNumericState is null)
         {
             return;
         }
@@ -388,11 +397,11 @@ public sealed partial class AuthoringWorkspaceViewModel
             path,
             node => node switch
             {
-                MetricNode metric => new MetricNode(mutate(metric.Metric)),
+                MetricNode metric => metric with { Metric = mutate(metric.Metric) },
                 RepeatNode repeat => repeat with { Children = MutateFirstMetric(repeat.Children, mutate) },
                 var other => other,
             });
-        ReplaceSelected(SelectedProgram with { Measure = measure }, rebuildLists: false);
+        ReplaceSelected(SelectedProgram with { Measure = measure, AuthoringState = _pendingNumericState ?? SelectedProgram.AuthoringState }, rebuildLists: false);
     }
 
     private IReadOnlyList<int> MeasureMutationPath()
@@ -417,7 +426,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         {
             if (copy[i] is MetricNode metric)
             {
-                copy[i] = new MetricNode(mutate(metric.Metric));
+                copy[i] = metric with { Metric = mutate(metric.Metric) };
                 break;
             }
         }
@@ -438,7 +447,18 @@ public sealed partial class AuthoringWorkspaceViewModel
 
     private void RaiseEditorProperties()
     {
+        RaiseBoardProperties();
+        RaiseSequenceOperations();
+        OnPropertyChanged(nameof(MetricName));
+        OnPropertyChanged(nameof(HasMetricInputs));
+        OnPropertyChanged(nameof(MetricInputChannels));
+        OnPropertyChanged(nameof(SelectedNodeIdentity));
+        OnPropertyChanged(nameof(NeedsMetricInstrument));
+        OnPropertyChanged(nameof(SelectedStepErrors));
         InvalidateFormulaSave();
+        RaiseFormulaDeployment();
+        OnPropertyChanged(nameof(FormulaIntent));
+        OnPropertyChanged(nameof(FormulaExplorationOnly));
         OnPropertyChanged(nameof(SelectedMeasure));
         OnPropertyChanged(nameof(SelectedMetric));
         OnPropertyChanged(nameof(Preview));
@@ -528,7 +548,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         }
 
         var next = mutate(current);
-        if (TfUnchanged(current, next))
+        if (TfUnchanged(current, next) && _pendingNumericState is null)
         {
             return;
         }
@@ -555,22 +575,6 @@ public sealed partial class AuthoringWorkspaceViewModel
         => values is null || values.Count == 0
             ? string.Empty
             : string.Join(" ", values.Select(v => v.ToString(CultureInfo.InvariantCulture)));
-
-    private static IReadOnlyList<double> ParseVector(string? value, IReadOnlyList<double> fallback)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return fallback;
-        }
-
-        var parts = value.Split([',', ' ', '\t'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-        if (parts.Length == 0)
-        {
-            return fallback;
-        }
-
-        return parts.Select(part => double.Parse(part, CultureInfo.InvariantCulture)).ToArray();
-    }
 
     private static string FormatLimit(double? value)
         => value is { } number ? number.ToString(CultureInfo.InvariantCulture) : string.Empty;

@@ -31,14 +31,16 @@ public sealed class AppJsonContextTests
     [Fact]
     public void AppSettings_and_UiState_round_trip()
     {
-        var settings = new AppSettings { DefaultVisaResource = "X", PlotRefreshHz = 12 };
+        var settings = new AppSettings { ReportTemplateName = "custom-report.typ", PlotRefreshHz = 12 };
         var ui = new UiState { SelectedPageId = "Home", Width = 800 };
 
         var sJson = JsonSerializer.Serialize(settings, AppJsonContext.Default.AppSettings);
         var uJson = JsonSerializer.Serialize(ui, AppJsonContext.Default.UiState);
         var s2 = JsonSerializer.Deserialize(sJson, AppJsonContext.Default.AppSettings);
         var u2 = JsonSerializer.Deserialize(uJson, AppJsonContext.Default.UiState);
-        Assert.Equal("X", s2!.DefaultVisaResource);
+        Assert.Equal("custom-report.typ", s2!.ReportTemplateName);
+        Assert.Equal(12, s2.PlotRefreshHz);
+        Assert.DoesNotContain("defaultVisaResource", sJson, StringComparison.OrdinalIgnoreCase);
         Assert.Equal("Home", u2!.SelectedPageId);
     }
 }

@@ -9,6 +9,14 @@ public sealed record AuthoringFindingRow(
     PlanContractFinding Finding,
     bool CanOpenProgram)
 {
+    public long? CheckedRevision { get; init; }
+    public bool IsStale { get; init; }
+    public Guid? NodeId { get; init; }
+    public Guid SessionId { get; init; }
+    public string? CheckedIdentity { get; init; }
+    public string CheckState => $"Checked revision {CheckedRevision?.ToString() ?? "unavailable"} · {(IsStale ? "Stale — validate again" : "Current")}";
+    public string NavigationLabel { get; init; } = "Open program settings";
+    public string NavigationReason { get; init; } = "No precise field target was provided; opens program settings.";
     public string Severity => Finding.Severity.ToString();
     public string Code => Finding.Code;
     public string Message => Finding.Message;

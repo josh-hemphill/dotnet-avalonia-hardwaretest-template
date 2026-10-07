@@ -33,45 +33,24 @@ public static class AuthoringRecipeCatalog
 {
     public static IReadOnlyList<AuthoringRecipe> Palette { get; } =
     [
-        new(AuthoringRecipeIds.TestGroup, "Test Group", "Structure", "Setup / measure / Cleanup groups are written on Save."),
-        new(AuthoringRecipeIds.Identity, "Identity Check", "Identity", "Confirm DUT serial against the instrument."),
-        new(AuthoringRecipeIds.Prompt, "Operator Prompt", "Operator", "In-panel confirm. Never OpenTAP Dialog."),
-        new(AuthoringRecipeIds.Input, "Operator Input", "Operator", "Typed fixture / operator fields."),
+        new(AuthoringRecipeIds.Identity, "Identity Check", "Check", "Confirm DUT serial against the instrument."),
+        new(AuthoringRecipeIds.Prompt, "Operator Prompt", "Operator action", "In-panel confirm. Never OpenTAP Dialog."),
+        new(AuthoringRecipeIds.Input, "Operator Input", "Operator action", "Typed fixture / operator fields."),
         new(AuthoringRecipeIds.Acquire, "Acquire Voltage", "Measure", "Waveform timeseries (ChannelKey VDC)."),
-        new(AuthoringRecipeIds.MeanGte, "Mean GTE", "Analyze", "Scalar threshold on VDC.mean. Requires LimitSpec."),
-        new(AuthoringRecipeIds.BandScalar, "Publish Band Scalar", "Analyze", "Passband with Limit low / Limit high."),
-        new(AuthoringRecipeIds.SeriesCompliance, "Publish Series Compliance", "Analyze", "In-band percent passband."),
-        new(AuthoringRecipeIds.Repeat, "Repeat Loop", "Flow", "Wraps the last measure node in RepeatNode."),
-        new(AuthoringRecipeIds.Formula, "Formula…", "Analyze", "MATLAB-flavored subset. mean(x) lowers to Mean GTE. filter(b,a,x) lowers to IIR."),
-        new(AuthoringRecipeIds.TransferFunction, "Transfer function…", "Analyze", "Discrete SISO IIR from numerator/denominator/Ts."),
-        new(AuthoringRecipeIds.StationHealth, "Report Station Health", "Station", "cal.dc.offset scalar with limits."),
-        new(AuthoringRecipeIds.Shutdown, "Safe Shutdown", "Safety", "Cleanup Safe Shutdown on selected instrument slots."),
+        new(AuthoringRecipeIds.MeanGte, "Mean GTE", "Check", "Scalar threshold on VDC.mean. Requires LimitSpec."),
+        new(AuthoringRecipeIds.BandScalar, "Publish Band Scalar", "Check", "Passband with Limit low / Limit high."),
+        new(AuthoringRecipeIds.SeriesCompliance, "Publish Series Compliance", "Check", "In-band percent passband."),
+        new(AuthoringRecipeIds.Repeat, "Repeat Loop", "Flow", "Wraps the selected supported measurement or loop."),
+        new(AuthoringRecipeIds.Formula, "Formula…", "Check", "Deployment checks: mean(x) with threshold and top-level filter/filtfilt. Other expressions are saved for exploration and excluded from deployment."),
+        new(AuthoringRecipeIds.TransferFunction, "Transfer function…", "Check", "Discrete SISO IIR from numerator/denominator/Ts."),
+        new(AuthoringRecipeIds.StationHealth, "Report Station Health", "Check", "cal.dc.offset scalar with limits."),
+        new(AuthoringRecipeIds.Shutdown, "Safe Shutdown", "Flow", "Cleanup Safe Shutdown on selected instrument slots."),
     ];
 
     public static bool PaletteContainsDialog()
         => Palette.Any(LooksLikeDialog);
 
-    public static ProgramDraft CreateProgram(string planId)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(planId);
-        return new ProgramDraft(
-            planId.Trim(),
-            new ProgramSidecar
-            {
-                DisplayName = planId.Trim(),
-                DutFamily = "generic",
-                RequireSerial = true,
-                ReportKinds = ["status"],
-                DefaultReportKind = "status",
-                SelectionIncludesCleanup = true,
-            },
-            [new InstrumentRef("DMM", typeof(MockDmmInstrument).FullName!, "MOCK::INSTR0")],
-            [new IdentitySetup("DMM")],
-            [],
-            new CleanupPolicy(true, "DMM"));
-    }
-
-    public static ProgramDraft Apply(ProgramDraft draft, string recipeId)
+    public static ProgramDraft Apply(ProgramDraft draft, string recipeId, string? instrumentSlot = null)
     {
         ArgumentNullException.ThrowIfNull(draft);
         ArgumentException.ThrowIfNullOrWhiteSpace(recipeId);
@@ -84,7 +63,7 @@ public static class AuthoringRecipeCatalog
         return recipeId.Trim().ToLowerInvariant() switch
         {
             AuthoringRecipeIds.TestGroup => draft,
-            AuthoringRecipeIds.Identity => WithSetup(draft, new IdentitySetup(DefaultSlot(draft))),
+            AuthoringRecipeIds.Identity => WithSetup(draft, new IdentitySetup(instrumentSlot ?? DefaultSlot(draft))),
             AuthoringRecipeIds.Prompt => WithSetup(
                 draft,
                 new OperatorPromptSetup("Operator Prompt", "Confirm the fixture is seated, then Continue.")),
@@ -96,8 +75,8 @@ public static class AuthoringRecipeCatalog
                     "Enter the fixture id, then Continue.",
                     "fixtureId",
                     null)),
-            AuthoringRecipeIds.Acquire => WithMeasure(draft, AcquireMetric()),
-            AuthoringRecipeIds.MeanGte => WithMeasure(draft, MeanGteMetric()),
+            AuthoringRecipeIds.Acquire => WithMeasure(draft, AcquireMetric(instrumentSlot ?? DefaultSlot(draft))),
+            AuthoringRecipeIds.MeanGte => WithMeasure(draft, MeanGteMetric(instrumentSlot ?? DefaultSlot(draft))),
             AuthoringRecipeIds.BandScalar => WithMeasure(draft, BandScalarMetric()),
             AuthoringRecipeIds.SeriesCompliance => WithMeasure(draft, SeriesComplianceMetric()),
             AuthoringRecipeIds.Repeat => WrapLastInRepeat(draft),
@@ -115,16 +94,7 @@ public static class AuthoringRecipeCatalog
         ArgumentNullException.ThrowIfNull(draft);
         foreach (var metric in EnumerateMetrics(draft.Measure))
         {
-            if (!IsBandRole(metric.DisplayRole))
-            {
-                continue;
-            }
-
-            if (!HasLimit(metric.Limits))
-            {
-                throw new AuthoringWorkspaceException(
-                    $"{AuthoringCompileCodes.MissingLimits}: '{metric.ChannelKey}' ({metric.DisplayRole}) requires LimitSpec.");
-            }
+            AuthoringCriteria.Validate(metric);
         }
     }
 
@@ -169,7 +139,14 @@ public static class AuthoringRecipeCatalog
     }
 
     private static ProgramDraft WithMeasure(ProgramDraft draft, MetricDraft metric)
-        => draft with { Measure = [.. draft.Measure, new MetricNode(metric)] };
+    {
+        var used = PlanCompiler.AuthoringOutputChannels(draft.Measure).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var channel = AuthoringSequenceOperations.UniqueChannel(metric.ChannelKey, used);
+        metric = AuthoringSequenceOperations.WithOutputChannel(metric, channel);
+        var updated = draft with { Measure = [.. draft.Measure, new MetricNode(metric)] };
+        PlanCompiler.RequireUniqueNewOutputs(draft, updated);
+        return updated;
+    }
 
     private static ProgramDraft WrapLastInRepeat(ProgramDraft draft)
     {
@@ -206,14 +183,14 @@ public static class AuthoringRecipeCatalog
 
         return draft with
         {
-            Cleanup = new CleanupPolicy(true, slots, draft.Cleanup.IncludeMeasureSlots),
+            Cleanup = draft.Cleanup with { IncludeSafeShutdown = true, InstrumentSlots = slots },
         };
     }
 
     private static string DefaultSlot(ProgramDraft draft)
         => draft.Instruments.FirstOrDefault()?.SlotName ?? "DMM";
 
-    private static MetricDraft AcquireMetric()
+    private static MetricDraft AcquireMetric(string instrumentSlot)
         => new(
             "Acquire VDC",
             "VDC",
@@ -222,7 +199,7 @@ public static class AuthoringRecipeCatalog
             null,
             null,
             new MeasureSource(
-                "DMM",
+                instrumentSlot,
                 AuthoringFunctionIds.BasicAcquireVoltage,
                 new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
                 {
@@ -231,7 +208,7 @@ public static class AuthoringRecipeCatalog
                     ["Channel"] = "VDC",
                 }));
 
-    private static MetricDraft MeanGteMetric()
+    private static MetricDraft MeanGteMetric(string instrumentSlot)
         => new(
             "Mean GTE",
             "VDC.mean",
@@ -241,12 +218,12 @@ public static class AuthoringRecipeCatalog
             null,
             new AlgorithmSource(
                 AuthoringFunctionIds.BasicMeanGte,
-                ["VDC"],
+                [],
                 new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
                 {
                     ["SampleCount"] = "8",
-                    ["Threshold"] = "1.2",
-                }));
+                })
+            { InstrumentSlot = instrumentSlot });
 
     private static MetricDraft BandScalarMetric()
         => new(
@@ -280,14 +257,11 @@ public static class AuthoringRecipeCatalog
                 new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
                 {
                     ["Values"] = "1.20,1.22,1.21",
-                    ["LimitLow"] = "1.1",
-                    ["LimitHigh"] = "1.4",
                 }));
 
     private static MetricDraft FormulaMetric(ProgramDraft draft)
     {
-        var keys = EnumerateMetrics(draft.Measure)
-            .Select(m => m.ChannelKey)
+        var keys = PlanCompiler.AuthoringOutputChannels(draft.Measure)
             .Where(key => !string.IsNullOrWhiteSpace(key))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
@@ -306,8 +280,7 @@ public static class AuthoringRecipeCatalog
 
     private static MetricDraft TransferFunctionMetric(ProgramDraft draft)
     {
-        var keys = EnumerateMetrics(draft.Measure)
-            .Select(m => m.ChannelKey)
+        var keys = PlanCompiler.AuthoringOutputChannels(draft.Measure)
             .Where(key => !string.IsNullOrWhiteSpace(key))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
@@ -338,12 +311,10 @@ public static class AuthoringRecipeCatalog
             new LimitSpec(-0.01, 0.01, null),
             null,
             new MeasureSource(
-                "DMM",
+                string.Empty,
                 AuthoringFunctionIds.BasicReportStationHealth,
                 new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
                 {
-                    ["OffsetLimitLow"] = "-0.01",
-                    ["OffsetLimitHigh"] = "0.01",
                 }));
 
     private static bool IsBandRole(string displayRole)

@@ -1,5 +1,6 @@
 using System.Collections.Specialized;
 using HardwareTest.Core.Runs;
+using HardwareTest.Core.Serialization;
 using HardwareTest.Features.Results;
 using HardwareTest.ViewModels.Tests.Fakes;
 using Xunit;
@@ -53,20 +54,35 @@ public sealed class ResultsUiThreadTests
         var store = new YieldingRunStore();
         store.Seed(new TestRunRecord
         {
+            SchemaVersion = SchemaVersions.TestRunRecord,
             RunId = "r1",
             PlanName = "Sample",
             StartedAt = DateTimeOffset.UtcNow,
             Result = RunResult.Passed,
-            Steps =
+            StepAttempts =
             [
-                new StepResultRecord
+                new StepAttemptSummary
                 {
-                    StepId = "s",
-                    StepType = "AcquireVoltageStep",
-                    Passed = true,
-                    Message = "ok",
-                    StartedAt = DateTimeOffset.UtcNow,
-                    CompletedAt = DateTimeOffset.UtcNow,
+                    StepPath = "s",
+                    StepName = "s",
+                    AttemptCount = 1,
+                    PassedCount = 1,
+                    LatestPassed = true,
+                    LatestMessage = "ok",
+                    Attempts =
+                    [
+                        new StepResultRecord
+                        {
+                            StepPath = "s",
+                            AttemptNumber = 1,
+                            StepId = "s",
+                            StepType = "AcquireVoltageStep",
+                            Passed = true,
+                            Message = "ok",
+                            StartedAt = DateTimeOffset.UtcNow,
+                            CompletedAt = DateTimeOffset.UtcNow,
+                        },
+                    ],
                 },
             ],
             Samples = [new StoredSample { Channel = "VDC", Timestamp = DateTimeOffset.UtcNow, Value = 1.0 }],

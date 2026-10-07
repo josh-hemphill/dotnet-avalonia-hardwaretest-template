@@ -116,7 +116,6 @@ public partial class SettingsViewModel
         if (!OperatorSessionIdleMinutesReadOnly)
         {
             s.OperatorSessionIdleMinutes = OperatorSessionIdle.ClampMinutes(OperatorSessionIdleMinutes);
-            s.OperatorSessionIdleHours = OperatorSessionIdle.MinutesToHoursDisplay(s.OperatorSessionIdleMinutes);
         }
 
         if (!OperatorSessionIdleWarnPercentReadOnly)

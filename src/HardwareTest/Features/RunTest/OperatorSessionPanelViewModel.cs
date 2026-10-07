@@ -192,11 +192,6 @@ public partial class OperatorSessionPanelViewModel : ReactiveObject
             return;
         }
         var minutes = OperatorSessionIdle.ClampMinutes(_settings.OperatorSessionIdleMinutes);
-        if (minutes <= 0 && _settings.OperatorSessionIdleHours > 0)
-        {
-            minutes = OperatorSessionIdle.HoursToMinutes(_settings.OperatorSessionIdleHours);
-        }
-
         var warn = OperatorSessionIdle.ClampWarnPercent(_settings.OperatorSessionIdleWarnPercent);
         _session.EvaluateIdle(TimeSpan.FromMinutes(minutes), warn);
     }
@@ -311,10 +306,7 @@ public partial class OperatorSessionPanelViewModel : ReactiveObject
 
     private void UpdateIdleTimer()
     {
-        var minutes = OperatorSessionIdle.ClampMinutes(
-            _settings.OperatorSessionIdleMinutes > 0
-                ? _settings.OperatorSessionIdleMinutes
-                : OperatorSessionIdle.HoursToMinutes(_settings.OperatorSessionIdleHours));
+        var minutes = OperatorSessionIdle.ClampMinutes(_settings.OperatorSessionIdleMinutes);
         // Poll every 15–60s, or ≤10% of idle window.
         var intervalMs = Math.Clamp(minutes * 60_000 / 10, 15_000, 60_000);
         _idleTimer.Interval = intervalMs;

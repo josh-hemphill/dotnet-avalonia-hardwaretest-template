@@ -47,7 +47,7 @@ Typed SCPI lives in **InstrumentComponents.OpenTap** ([user guide](https://josh-
 
    Ad-hoc (missing sidecar = warning): `HardwareTest --validate-plan path/to/plan.TapPlan`. Then bake packs onto the appliance and mock-run (`UseMockVisa`).
 
-CLI notes: exit `1` on errors, `0` if only warnings; bare `--validate-plan` prints usage and exits `2` (no UI). `HardwareTest.PlanValidate --opentap-plugin-dirs` trusts those CLI dirs; `HARDWARETEST_OPENTAP_PLUGIN_DIRS` still needs appliance `PluginDirectoryTrust`. `--format json|sarif` is for CI. Authoring `--pack` bootstraps the isolated home; a machine-global `tap package create` still needs the declared authoring packs already installed.
+CLI notes: exit `1` on errors, `0` if only warnings; bare `--validate-plan` prints usage and exits `2` (no UI). `HardwareTest.PlanValidate --opentap-plugin-dirs` trusts those CLI dirs; `HARDWARETEST_OPEN_TAP_PLUGIN_DIRECTORIES` still needs appliance `PluginDirectoryTrust`. `--format json|sarif` is for CI. Authoring `--pack` bootstraps the isolated home; a machine-global `tap package create` still needs the declared authoring packs already installed.
 
 `plans/opentap/fixtures/` are shape examples, not product plans. Top-level `*.TapPlan` are the pack set. Full **Run** always executes the authored plan. Disabled siblings outside a Run Selected mask may show NotExecuted/Invalidated — that is not “cleanup skipped.”
 
@@ -83,9 +83,9 @@ Do not reimplement evaluation in Avalonia. If the plan uses expression steps, in
 
 ## Plugins
 
-1. Add an OpenTAP plugin project (see [`HardwareTest.OpenTap.Plugins.Basic`](../src/HardwareTest.OpenTap.Plugins.Basic/) and mixins in [`HardwareTest.OpenTap.Plugins.Mixins`](../src/HardwareTest.OpenTap.Plugins.Mixins/)). The VISA broker adapter lives in [`HardwareTest.OpenTap.Plugins.Visa`](../src/HardwareTest.OpenTap.Plugins.Visa/) (bench only; not the Editor authoring pack).
-2. The host always searches the Basic, Visa, and Mixins plugin assembly directories.
-3. Extra search paths: `AppSettings.OpenTapPluginDirectories` and `HARDWARETEST_OPENTAP_PLUGIN_DIRS` (`;` or `Path.PathSeparator` separated).
+1. Add an OpenTAP plugin project (see [`HardwareTest.OpenTap.Plugins.Basic`](../src/HardwareTest.OpenTap.Plugins.Basic/) and mixins in [`HardwareTest.OpenTap.Plugins.Mixins`](../src/HardwareTest.OpenTap.Plugins.Mixins/)). Physical execution binds the owned Instrument Components library to Core `IVisaBroker` through the Host SCPI bridge.
+2. The host searches Basic and Mixins plugin assembly directories. Physical execution with an explicit broker also loads the owned current Instrument Components library.
+3. Extra search paths: `AppSettings.OpenTapPluginDirectories` and `HARDWARETEST_OPEN_TAP_PLUGIN_DIRECTORIES` (`;` or `Path.PathSeparator` separated).
 4. On an appliance, drop third-party plugin DLLs under a writable/plugin folder and list that path in settings (see [appliance-linux.md](appliance-linux.md)).
 5. Verify installed packages and plugin dirs in **Settings → OpenTAP packages & plugins** (offline list only; install via `tap package install` / bake).
 
@@ -152,7 +152,7 @@ Repeat/Sweep loops show innermost `iter i/N` on the Run hero; edit bounds in Aut
 - Confirm DUT (and operator when `requireOperator` is true) once per session; sticky strip on Run shows last activity and time remaining to soft-warn / Stale.
 - Idle uses **last operator activity** (`LastActivityAt`), not confirm time — reviewing Results / reports / navigating between pages refreshes activity.
 - Soft-warn (default 80% of idle window) then hard Stale; resolutions are **Same DUT** / **Change Session** (in-panel only). Idle is checked on an interval, not only at Run.
-- Canonical idle setting: **`OperatorSessionIdleMinutes`** (default 240). Hours env/CLI (`OperatorSessionIdleHours` / `HARDWARETEST_OPERATOR_SESSION_IDLE_HOURS` / `--session-idle-hours`) remain aliases; minutes wins when both are set.
+- Idle setting: **`OperatorSessionIdleMinutes`** (default 240), with file, environment and CLI precedence.
 - Optional station policy **`RequireDutConfirmEveryRun`**: after each terminal run, session goes Stale until Same DUT / Change Session.
 - Technician required indicator and Same DUT validation follow program `requireOperator`.
 - The shell is a single operator session (one DUT confirm at a time).
@@ -237,7 +237,7 @@ Import `models/*.tf.json` in Authoring (output channel key becomes the metric Ch
 
 ### Typst PDFs
 
-Default embedded templates: `test-report.typ` (status; `status-report.typ` is an alias) + `certification-report.typ` + `lib/sample-chart.typ`.
+Default embedded templates: `test-report.typ` (status) + `certification-report.typ` + `lib/sample-chart.typ`.
 
 Override without recompiling:
 
@@ -247,11 +247,11 @@ Override without recompiling:
 
 Compile inputs: `run.json` (camelCase `TestRunRecord`), Typst inputs (`title`, `runId`, `planName`, `dutSerial`, `operatorName`, `attestationKind`, `attestationDetail`, `attestationAt`, `result`, …), and optional sample-driven charts via `sample-chart.typ`. `EmbedPlotsInReport` toggles chart notes. Certification **export and print** can require a badge attestation when `RequireAttestationBeforeExport` is on; opening and preview stay available so the operator can review the unsigned PDF first.
 
-Chip/tap signing captures the badge, **recompiles** the certification PDF in memory with that party's name/serial/transport (so example reports show who certified), then freezes that attested document as `runs/{runId}/issued/{kind}/{revisionId}/{kind}.pdf` (`RunReportArtifact.Role` = `issued`). The regenerable working copy at `runs/{runId}/{kind}.pdf` (`Role` = `working`) is left unchanged. For real credentials, OpenSC/vendor PKCS#11 middleware performs the on-card PIV 9C operation and AGPL iText creates an ISO 32000 **PAdES Baseline-B** embedded signature (`ETSI.CAdES.detached`) over the PDF `ByteRange`; no application-built raw APDU signature is used. The signer binds to the 9C certificate thumbprint captured with the badge, and the private key never leaves the card. A detached sidecar remains available when site policy allows presence-only attestation. Every issuance appends a revision to report history. A `{kind}.attestation.json` sidecar in that revision directory stores the attestation metadata; for PAdES it also carries the same CMS plus certificate metadata. PIN prompts, failed signs, and Cancel leave both PDFs and the previous attestation in place. Results detail shows the same Certification summary from `run.Attestations`.
+Chip/tap signing captures the badge, **recompiles** the certification PDF in memory with that party's name/serial/transport (so example reports show who certified), then freezes that attested document as `runs/{runId}/issued/{kind}/{revisionId}/{kind}-{revisionId}.pdf` (`RunReportArtifact.Role` = `issued`). The regenerable working copy at `runs/{runId}/{kind}.pdf` (`Role` = `working`) is left unchanged. For real credentials, OpenSC/vendor PKCS#11 middleware performs the on-card PIV 9C operation and AGPL iText creates an ISO 32000 **PAdES Baseline-B** embedded signature (`ETSI.CAdES.detached`) over the PDF `ByteRange`; no application-built raw APDU signature is used. The signer binds to the 9C certificate thumbprint captured with the badge, and the private key never leaves the card. A detached sidecar remains available when site policy allows presence-only attestation. A same-stem `{kind}-{revisionId}.attestation.json` sidecar beside the issued PDF stores the attestation metadata; for PAdES it also carries the same CMS plus certificate metadata. PIN prompts, failed signs, and Cancel leave both PDFs and the previous attestation in place. Results detail shows the same Certification summary from `run.Attestations`.
 
-Results **Regenerate reports** recompiles those Typst templates to **working** PDFs from the persisted `run.json` (full PDF generation, not a lighter intermediate-only refresh). Captured samples/events in `run.json` are the durable record. Regenerating working does not delete issued PDFs or invalidate an attestation whose hash is bound to issued bytes. When no issued copy exists (legacy in-place attestation), regenerate still drops that kind's attestation because the working PDF bytes change. Storage pressure is handled by run retention / free-space gates, not by skipping PDF compile.
+Results **Regenerate reports** recompiles those Typst templates to **working** PDFs from the persisted `run.json` (full PDF generation, not a lighter intermediate-only refresh). Captured samples/events in `run.json` are the durable record. Regenerating working does not delete issued PDFs or invalidate an attestation whose hash is bound to issued bytes. Immutable issued revisions retain their exact pre-issuance run snapshot and evidence; regeneration preserves their history. Storage pressure is handled by run retention / free-space gates, not by skipping PDF compile.
 
-Programs declare `reportKinds` in `{planId}.program.json` (default `["status"]`). Optional `defaultReportKind` chooses which PDF Results opens on double-click (default `status`). Sample and Board demos generate **status** (includes DUT history when available) and **certification** (pass/fail + measurements only). Working PDFs land as `runs/{runId}/status.pdf` and `certification.pdf`; issued copies land under `runs/{runId}/issued/`. `ReportPdfPath` points at the working status PDF for back compat. Results: click a run for detail, double-click for the default (working) report, or Open a specific artifact.
+Programs declare `reportKinds` in `{planId}.program.json` (default `["status"]`). Optional `defaultReportKind` chooses which PDF Results opens on double-click (default `status`). Sample and Board demos generate **status** (includes DUT history when available) and **certification** (pass/fail + measurements only). Working PDFs land as `runs/{runId}/status.pdf` and `certification.pdf`; issued copies land under `runs/{runId}/issued/`. `Reports` records each test-run artifact by kind and role. Results: click a run for detail, double-click for the default (working) report, or Open a specific artifact.
 
 Loop samples stamp `IterationIndex` / `LoopPath` on `StoredSample` for report charts (last value per iteration); live Run plot stays chronological.
 
@@ -292,7 +292,7 @@ The in-repo Notes app is engineer-only so operator nav stays Home / Run / Result
 1. Rename solution/projects/namespaces from `HardwareTest` to your product id.
 2. Update OpenTAP `[Display(..., Groups: ["HardwareTest"])]` on plugins.
 3. Update CI paths, `dirs.proj`, publish output names, and Typst “Generated by …” strings.
-4. Update env var prefix if desired (`HARDWARETEST_*` including `HARDWARETEST_OPENTAP_PLUGIN_DIRS`).
+4. Update env var prefix if desired (`HARDWARETEST_*` including `HARDWARETEST_OPEN_TAP_PLUGIN_DIRECTORIES`).
 5. Re-run ViewModels, OpenTAP host, and E2E smoke tests with `-r win-x64`.
 
 ## Configuration reference
@@ -304,7 +304,6 @@ Env alone is enough for a sealed install. Missing or read-only `settings.json` i
 | Setting | Environment | CLI |
 | --- | --- | --- |
 | `DataDirectory` | `HARDWARETEST_DATA_DIRECTORY` | `--data-directory` |
-| `DefaultVisaResource` | `HARDWARETEST_DEFAULT_VISA_RESOURCE` | `--default-visa-resource` |
 | `UseMockVisa` | `HARDWARETEST_USE_MOCK_VISA` | `--mock-visa` |
 | `LogMinimumLevel` | `HARDWARETEST_LOG_MINIMUM_LEVEL` | `--log-level` |
 | `EnableOsEventSink` | `HARDWARETEST_ENABLE_OS_EVENT_SINK` | `--enable-os-event-sink` |
@@ -317,11 +316,10 @@ Env alone is enough for a sealed install. Missing or read-only `settings.json` i
 | `ExportOpenTapResults` | `HARDWARETEST_EXPORT_OPENTAP_RESULTS` | `--export-opentap-results` |
 | `ShowDutHistoryOnRun` | `HARDWARETEST_SHOW_DUT_HISTORY_ON_RUN` | `--show-dut-history-on-run` |
 | `OperatorSessionIdleMinutes` | `HARDWARETEST_OPERATOR_SESSION_IDLE_MINUTES` | `--session-idle-minutes` |
-| `OperatorSessionIdleHours` *(alias)* | `HARDWARETEST_OPERATOR_SESSION_IDLE_HOURS` | `--session-idle-hours` |
 | `OperatorSessionIdleWarnPercent` | `HARDWARETEST_OPERATOR_SESSION_IDLE_WARN_PERCENT` | `--session-idle-warn-percent` |
 | `RequireDutConfirmEveryRun` | `HARDWARETEST_REQUIRE_DUT_CONFIRM_EVERY_RUN` | `--require-dut-confirm-every-run` |
 | `IsEngineerDebugMode` | `HARDWARETEST_ENGINEER_DEBUG` | `--engineer-debug` |
-| `OpenTapPluginDirectories` | `HARDWARETEST_OPENTAP_PLUGIN_DIRS` *(legacy name; `;` / `Path.PathSeparator`)* | `--opentap-plugin-dirs` |
+| `OpenTapPluginDirectories` | `HARDWARETEST_OPEN_TAP_PLUGIN_DIRECTORIES` *(`;` / `Path.PathSeparator`)* | `--opentap-plugin-dirs` |
 | `ReportTemplateName` | `HARDWARETEST_REPORT_TEMPLATE_NAME` | `--report-template` |
 | `CrashEnabled` | `HARDWARETEST_CRASH_ENABLED` | `--crash-enabled` |
 | `CrashDirectory` | `HARDWARETEST_CRASH_DIRECTORY` | `--crash-directory` |
@@ -337,14 +335,13 @@ Env alone is enough for a sealed install. Missing or read-only `settings.json` i
 | `ClockSkewWarnThresholdMinutes` | `HARDWARETEST_CLOCK_SKEW_WARN_THRESHOLD_MINUTES` | `--clock-skew-warn-threshold-minutes` |
 | `NtpHost` | `HARDWARETEST_NTP_HOST` | `--ntp-host` |
 | `UseMockOperatorCredential` | `HARDWARETEST_USE_MOCK_OPERATOR_CREDENTIAL` | `--mock-operator-credential` |
-| `SmartCardSigningProviderMode` | `HARDWARETEST_SMART_CARD_SIGNING_PROVIDER` | `--smart-card-signing-provider` |
 | `Pkcs11LibraryPath` | `HARDWARETEST_PKCS11_LIBRARY` | `--pkcs11-library` |
 | `RequireCredentialForOperator` | `HARDWARETEST_REQUIRE_CREDENTIAL_FOR_OPERATOR` | `--require-credential-for-operator` |
 | `RequireAttestationBeforeExport` | `HARDWARETEST_REQUIRE_ATTESTATION_BEFORE_EXPORT` | `--require-attestation-before-export` |
 | `AllowPresenceInLieuOfSigning` | `HARDWARETEST_ALLOW_PRESENCE_IN_LIEU_OF_SIGNING` | `--allow-presence-in-lieu-of-signing` |
 | `ProbeBadgeWhenTechnicianFocused` | `HARDWARETEST_PROBE_BADGE_WHEN_TECHNICIAN_FOCUSED` | `--probe-badge-when-technician-focused` |
 
-Also: `--settings <path>`, `--print-config` (dump effective config + provenance and exit 0), `--validate-plan <path>` (validate and exit; `1` on errors, `0` if only warnings; bare path exits `2` with usage and does not start the UI), `--version` / `-v`. Avalonia-free equivalent: `HardwareTest.PlanValidate <path> [...] [--strict] [--format text|json|sarif] [--opentap-plugin-dirs <dir>]` (explicit plugin dirs are trusted for that process; `--strict` fails a missing sidecar). Debug builds: `--simulate-crash {fatal|recoverable|command}`. Nested lists use `HARDWARETEST_<LIST>__{n}__<PROP>` (e.g. `HARDWARETEST_INSTRUMENTS__0__RESOURCE`).
+Also: `--settings <path>`, `--print-config` (dump effective config + provenance and exit 0), `--validate-plan <path>` (validate and exit; `1` on errors, `0` if only warnings; bare path exits `2` with usage and does not start the UI), `--version` / `-v`. Avalonia-free equivalent: `HardwareTest.PlanValidate <path> [...] [--strict] [--format text|json|sarif] [--opentap-plugin-dirs <dir>]` (explicit plugin dirs are trusted for that process; `--strict` fails a missing sidecar). Debug builds: `--simulate-crash {fatal|recoverable|command}`. Nested lists use `HARDWARETEST_<LIST>__{n}__<PROP>` (e.g. `HARDWARETEST_PLAN_SLOT_OVERRIDES__0__RESOURCE`).
 
 Bootstrap is two-stage: stage 1 resolves `DataDirectory` + `LogMinimumLevel` from env/CLI before logging; stage 2 loads `settings.json` then re-applies overlays.
 
@@ -366,7 +363,7 @@ Every persisted JSON document carries an integer `schemaVersion`. Bumps are deli
 | --- | --- | --- |
 | `AppSettings` (`settings.json`) | 1 | Initial stamped shape. |
 | `UiState` (`ui-state.json`) | 1 | Initial stamped shape. |
-| `TestRunRecord` (`runs/{id}/run.json`) | 5 | Immutable issued revisions carry revision ID/number, snapshot path, and sidecar hash. Upgrades 1→2→3→4 retain their shape; 4→5 binds legacy issued artifacts to deterministic revision IDs without moving or rewriting evidence. |
+| `TestRunRecord` (`runs/{id}/run.json`) | 4 | Working/issued artifact roles with optional immutable revision ID/number, snapshot path, and sidecar hash. Only the current schema is supported; older documents require an external conversion. |
 | `SuiteRunRecord` (`runs/suites/{id}/suite-run.json`) | 1 | Initial stamped shape. |
 | `CrashReport` (`crashes/{id}/crash.json`) | 1 | Initial crash dossier. |
 | `StationHealthRecord` (`station-health/{profileId}.json`) | 1 | Station-scoped cal / health snapshot. |
@@ -387,11 +384,11 @@ Use mixins for product-specific step settings without forking every step type.
 
 ### Smart-card signing provider setup
 
-`SmartCardSigningProviderMode` accepts `Auto` (default), `Pkcs11`, or `Windows`. Environment/CLI values are case insensitive names; numbers and unknown names are rejected. `Auto` currently uses PKCS#11. Explicit `Windows` reports capability unavailability until the Windows CSP/KSP provider is implemented. A configured `Pkcs11LibraryPath` is authoritative: missing, unloadable, or mismatched-architecture modules fail with a configuration error rather than selecting another module.
+A configured `Pkcs11LibraryPath` is authoritative: missing, unloadable, or mismatched-architecture modules fail with a configuration error rather than selecting another module. Leave it empty to discover installed PKCS#11 middleware. Configure it in Settings, `HARDWARETEST_PKCS11_LIBRARY`, or `--pkcs11-library`.
 
 On Windows, discovery checks exact ActivClient and OpenSC installation paths and compares PE machine architecture with the running process (x86, x64, or ARM64). HID documents the default ActivClient directory as `%ProgramFiles%\HID Global\ActivClient` and its PKCS#11 library as `acpkcs211.dll`: [ActivClient files and processes](https://docs.hidglobal.com/activid-activclient-v8.2/activid-activclient/getting-started/activclient-files-and-processes.htm). The historical `ActivIdentity\ActivClient` directory is also recognized. For a custom installation, configure the exact DLL path. Existing standard Linux and macOS OpenSC paths remain supported.
 
-Settings > Operator credential > **Check signing setup** reports provider mode, resolved module, process architecture, availability, stage, and native code when available. It performs a module loading check only: it does not enumerate cards, authenticate, sign a probe, or include PINs, card serials, or certificate subjects. Environment and command-line overrides lock the corresponding provider/path fields.
+Settings > Operator credential > **Check signing setup** reports resolved module, process architecture, availability, stage, and native code when available. It performs a module loading check only: it does not enumerate cards, authenticate, sign a probe, or include PINs, card serials, or certificate subjects. Environment and command-line overrides lock the middleware path field.
 
 Signing preparation reads public certificate objects across tokens without login, requires exactly one certificate matching the captured 9C thumbprint, then authenticates only that selected token. Private keys may remain hidden until login; binding uses the selected certificate's `CKA_ID` after authentication. For ActivClient or another token declaring a protected authentication path, middleware owns the authentication UI and receives a NULL PIN; the application does not request an app PIN. Ordinary tokens request an app PIN after selection. Keys declaring `CKA_ALWAYS_AUTHENTICATE` authenticate again in the context-specific signing operation after `SignInit`. UTF-8 PIN buffers are cleared after use. A selected authenticated session stays open through report compilation, one PDF signing operation, and revision commit; settings changes do not retarget it.
 

@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><CreateOpenTapPackage>false</CreateOpenTapPackage></PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="InstrumentComponents.OpenTap.Visa" PrivateAssets="all" />
+    <PackageReference Include="OpenTAP" PrivateAssets="all" />
+  </ItemGroup>
+</Project>

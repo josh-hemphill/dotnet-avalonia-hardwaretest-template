@@ -81,8 +81,17 @@ internal static class InstrumentComponentsScpiIo
                 var timeout = args[1] is TimeSpan span ? span : TimeSpan.FromMilliseconds(5000);
                 using var cts = new CancellationTokenSource(ClampTimeout(timeout));
                 var session = _broker.OpenAsync(address, cts.Token).GetAwaiter().GetResult();
-                session.IoTimeoutMilliseconds = ClampTimeout(timeout);
-                return VisaBrokerScpiIoProxy.Create(targetMethod.ReturnType, session, timeout);
+                try
+                {
+                    return VisaBrokerScpiIoProxy.Create(targetMethod.ReturnType, session, timeout);
+                }
+                catch
+                {
+                    // Cleanup failure must not replace the original setup failure.
+                    try { session.DisposeAsync().AsTask().GetAwaiter().GetResult(); }
+                    catch (Exception) { }
+                    throw;
+                }
             }
 
             throw new NotImplementedException(

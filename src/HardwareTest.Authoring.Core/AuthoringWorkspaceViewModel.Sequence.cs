@@ -49,7 +49,7 @@ public sealed partial class AuthoringWorkspaceViewModel
     public string RemoveProgramPurpose => AuthoringChrome.RemoveProgramPurpose;
 
     public bool CanRemoveSelectedSequence
-        => AuthoringSequence.CanRemove(SelectedSequence, SelectedProgram);
+        => Workspace is { IsReadOnly: false } && AuthoringSequence.CanRemove(SelectedSequence, SelectedProgram);
 
     public bool CanRemoveSelectedProgram
         => Workspace is not null && SelectedProgram is not null && !Workspace.IsReadOnly;
@@ -80,23 +80,25 @@ public sealed partial class AuthoringWorkspaceViewModel
 
     public string RepeatCount
     {
-        get => SelectedRepeat is { } repeat ? repeat.Count.ToString(System.Globalization.CultureInfo.InvariantCulture) : string.Empty;
+        get => NumericText(nameof(RepeatCount), SelectedRepeat?.Count);
         set
         {
-            if (!int.TryParse(value, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var count)
-                || count < 1
-                || SelectedSequence is not { Kind: SequenceRowKind.Repeat } row
-                || SelectedProgram is null
-                || SelectedRepeat is { Count: var current } && current == count)
+            if (SelectedProgram is null || SelectedSequence is not { Kind: SequenceRowKind.Repeat } row) return;
+            var state = SelectedProgram.AuthoringState.Clone();
+            var key = $"{row.NodeId:D}/{nameof(RepeatCount)}";
+            if (!int.TryParse(value, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var count) || count < 1)
             {
-                return;
+                state.IncompleteNumericText[key] = value;
+                ReplaceSelected(SelectedProgram with { AuthoringState = state }, rebuildLists: false);
             }
-
-            var measure = AuthoringSequence.MutateMeasure(
-                SelectedProgram.Measure,
-                row.IndexPath,
-                node => node is RepeatNode repeat ? repeat with { Count = count } : node);
-            ReplaceSelected(SelectedProgram with { Measure = measure }, rebuildLists: false);
+            else
+            {
+                state.IncompleteNumericText.Remove(key);
+                var measure = AuthoringSequence.MutateMeasure(SelectedProgram.Measure, row.IndexPath,
+                    node => node is RepeatNode repeat ? repeat with { Count = count } : node);
+                ReplaceSelected(SelectedProgram with { Measure = measure, AuthoringState = state }, rebuildLists: false);
+            }
+            OnPropertyChanged();
         }
     }
 
@@ -131,24 +133,24 @@ public sealed partial class AuthoringWorkspaceViewModel
                 return;
             }
 
-            ReplaceSelected(SelectedProgram with
+            ReplaceSelected(PruneRemovedNodeState(SelectedProgram with
             {
                 Setup = [.. SelectedProgram.Setup.Where((_, i) => i != index)],
-            });
+            }));
         }
         else if (row.Kind is SequenceRowKind.Metric or SequenceRowKind.Repeat or SequenceRowKind.Raw)
         {
-            ReplaceSelected(SelectedProgram with
+            ReplaceSelected(PruneRemovedNodeState(SelectedProgram with
             {
                 Measure = AuthoringSequence.RemoveMeasure(SelectedProgram.Measure, row.IndexPath),
-            });
+            }));
         }
         else if (row.Kind == SequenceRowKind.Cleanup)
         {
-            ReplaceSelected(SelectedProgram with
+            ReplaceSelected(PruneRemovedNodeState(SelectedProgram with
             {
                 Cleanup = SelectedProgram.Cleanup with { IncludeSafeShutdown = false },
-            });
+            }));
         }
         else
         {
@@ -157,6 +159,22 @@ public sealed partial class AuthoringWorkspaceViewModel
 
         Status = $"Removed {label}";
         Error = null;
+    }
+
+    private ProgramDraft PruneRemovedNodeState(ProgramDraft updated)
+    {
+        var before = AuthoringDependencyIndex.Build(SelectedProgram!).Nodes.Select(node => node.NodeId).ToHashSet();
+        before.ExceptWith(AuthoringDependencyIndex.Build(updated).Nodes.Select(node => node.NodeId));
+        if (before.Count == 0) return updated;
+        var state = updated.AuthoringState.Clone();
+        foreach (var key in state.IncompleteNumericText.Keys.ToArray())
+        {
+            var separator = key.IndexOf('/');
+            if (separator > 0 && Guid.TryParse(key.AsSpan(0, separator), out var id) && before.Contains(id))
+                state.IncompleteNumericText.Remove(key);
+        }
+        foreach (var id in before) state.FormulaIntent.Remove(id);
+        return updated with { AuthoringState = state };
     }
 
     public void SelectSequence(int index)
@@ -208,6 +226,7 @@ public sealed partial class AuthoringWorkspaceViewModel
 
         _selectedSequenceIndex = clamped;
         _selectedSequenceKey = _sequenceItems[clamped].Key;
+        RememberNodeSelection();
         SyncMeasureIndexFromSequence(_sequenceItems[clamped]);
         OnPropertyChanged(nameof(SelectedSequenceIndex));
         OnPropertyChanged(nameof(SelectedSequence));
@@ -218,15 +237,27 @@ public sealed partial class AuthoringWorkspaceViewModel
     {
         var next = AuthoringSequence.Flatten(SelectedProgram);
         var structureChanged = !AuthoringSequence.SameKeys(_sequenceItems, next);
-        _sequenceItems = next;
         if (structureChanged)
         {
+            // Let the binding observe selection restoration even when the surviving row
+            // retains its numeric index; replacing ItemsSource clears the ListBox selection.
+            _selectedSequenceIndex = -1;
+            OnPropertyChanged(nameof(SelectedSequenceIndex));
+            _sequenceItems = next;
             OnPropertyChanged(nameof(SequenceItems));
+        }
+        else
+        {
+            // Keep the list and selected row objects bound by the UI when only text changes.
+            for (var i = 0; i < next.Count; i++) _sequenceItems[i].RefreshPresentation(next[i]);
         }
 
         RaiseRawStepProperties();
 
-        var restored = AuthoringSequence.IndexOfKey(_sequenceItems, _selectedSequenceKey);
+        var selectedNodeId = SelectedDocument?.SelectedNodeId;
+        var restored = selectedNodeId is { } stableId
+            ? _sequenceItems.ToList().FindIndex(row => row.NodeId == stableId)
+            : AuthoringSequence.IndexOfKey(_sequenceItems, _selectedSequenceKey);
         if (restored < 0)
         {
             restored = AuthoringSequence.IndexOfTopLevelMeasure(_sequenceItems, _selectedMeasureIndex);
@@ -245,7 +276,7 @@ public sealed partial class AuthoringWorkspaceViewModel
             SyncMeasureIndexFromSequence(_sequenceItems[restored]);
         }
 
-        if (indexChanged)
+        if (indexChanged || structureChanged)
         {
             OnPropertyChanged(nameof(SelectedSequenceIndex));
         }

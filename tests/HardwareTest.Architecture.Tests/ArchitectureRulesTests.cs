@@ -123,23 +123,6 @@ public sealed class ArchitectureRulesTests
     }
 
     [Fact]
-    public void AuthoringCore_must_not_reference_Visa_adapter()
-    {
-        var csproj = Path.Combine(
-            FindRepoRoot(),
-            "src",
-            "HardwareTest.Authoring.Core",
-            "HardwareTest.Authoring.Core.csproj");
-        Assert.True(File.Exists(csproj), csproj);
-        var xml = File.ReadAllText(csproj);
-        Assert.DoesNotContain("HardwareTest.OpenTap.Plugins.Visa", xml, StringComparison.Ordinal);
-        AssertNoForbiddenDirectReference(
-            typeof(global::HardwareTest.Authoring.AuthoringWorkspace).Assembly,
-            name => name is "HardwareTest.OpenTap.Plugins.Visa",
-            AuthoringCoreAvaloniaFree);
-    }
-
-    [Fact]
     public void Authoring_exe_must_not_reference_Worker()
     {
         var csproj = Path.Combine(FindRepoRoot(), "src", "HardwareTest.Authoring", "HardwareTest.Authoring.csproj");
@@ -301,17 +284,36 @@ public sealed class ArchitectureRulesTests
     }
 
     [Fact]
-    public void Slnx_project_set_matches_dirs_proj_src_and_tests_globs()
+    public void Traversal_project_covers_all_source_and_test_projects()
     {
         var repo = FindRepoRoot();
-        var slnx = XDocument.Load(Path.Combine(repo, "HardwareTest.slnx"));
-        var slnxProjects = slnx.Descendants("Project")
-            .Select(e => (e.Attribute("Path")?.Value ?? string.Empty).Replace('\\', '/'))
-            .Where(p => p.Length > 0)
+        var traversal = XDocument.Load(Path.Combine(repo, "dirs.proj"));
+        Assert.Equal("Microsoft.Build.Traversal", traversal.Root?.Attribute("Sdk")?.Value);
+        var references = traversal.Descendants("ProjectReference")
+            .Select(e => (e.Attribute("Include")?.Value ?? string.Empty).Replace('\\', '/'))
             .OrderBy(p => p, StringComparer.OrdinalIgnoreCase)
             .ToArray();
+        Assert.Equal(["src/**/*.csproj", "tests/**/*.csproj"], references);
 
-        Assert.Equal(ProjectsFromDirsProj(repo), slnxProjects);
+        var projects = new[] { "src", "tests" }
+            .SelectMany(directory => Directory.EnumerateFiles(
+                Path.Combine(repo, directory), "*.csproj", SearchOption.AllDirectories))
+            .Where(path => !IsBuildArtifact(path, repo))
+            .Select(path => Path.GetRelativePath(repo, path).Replace('\\', '/'))
+            .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        Assert.NotEmpty(projects);
+        Assert.Equal(projects, ProjectsFromDirsProj(repo));
+    }
+
+    [Fact]
+    public void Traversal_serializes_projects_and_leaves_package_locking_to_children()
+    {
+        var traversal = XDocument.Load(Path.Combine(FindRepoRoot(), "dirs.proj"));
+        foreach (var property in new[] { "BuildInParallel", "RestorePackagesWithLockFile", "RestoreLockedMode" })
+        {
+            Assert.Equal("false", Assert.Single(traversal.Descendants(property)).Value);
+        }
     }
 
     [Fact]
@@ -480,7 +482,7 @@ public sealed class ArchitectureRulesTests
         AssertNoForbiddenDirectReference(
             typeof(AcquireVoltageStep).Assembly,
             name => string.Equals(name, "HardwareTest.Core", StringComparison.Ordinal),
-            "docs/adapting.md — HardwareTest Basic is the Editor authoring pack and must not pull Core (VISA broker stays in Plugins.Visa).");
+            "docs/adapting.md — HardwareTest Basic is the Editor authoring pack and must not pull Core (physical execution uses the Host broker bridge).");
     }
 
     [Theory]
@@ -489,7 +491,6 @@ public sealed class ArchitectureRulesTests
     [InlineData(typeof(global::HardwareTest.ShellApps.Notes.NotesApplication))]
     [InlineData(typeof(OpenTapSession))]
     [InlineData(typeof(AcquireVoltageStep))]
-    [InlineData(typeof(VisaDmmInstrument))]
     [InlineData(typeof(AnnotationMixin))]
     [InlineData(typeof(global::HardwareTest.MainWindow))]
     [InlineData(typeof(global::HardwareTest.OpenTap.Worker.Program))]
@@ -632,7 +633,6 @@ public sealed class ArchitectureRulesTests
         string[] pluginRoots =
         [
             Path.Combine(srcRoot, "HardwareTest.OpenTap.Plugins.Basic"),
-            Path.Combine(srcRoot, "HardwareTest.OpenTap.Plugins.Visa"),
             Path.Combine(srcRoot, "HardwareTest.OpenTap.Plugins.Mixins"),
         ];
 
@@ -758,7 +758,7 @@ public sealed class ArchitectureRulesTests
         Assert.True(File.Exists(path), path);
         using var doc = JsonDocument.Parse(File.ReadAllText(path));
         var root = doc.RootElement;
-        Assert.Equal(1, root.GetProperty("schemaVersion").GetInt32());
+        Assert.Equal(2, root.GetProperty("schemaVersion").GetInt32());
         Assert.Equal("HardwareTest Template Program", root.GetProperty("package").GetProperty("name").GetString());
         Assert.Equal(".", root.GetProperty("plansDirectory").GetString());
         var deps = root.GetProperty("dependencies")
@@ -849,13 +849,13 @@ public sealed class ArchitectureRulesTests
         return propsXml[(valueStart + 1)..valueEnd].Trim();
     }
 
-    /// Walks up from the test output directory to the folder holding the solution file.
+    /// Walks up from the test output directory to the folder holding the traversal project.
     private static string FindRepoRoot()
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
         while (dir is not null)
         {
-            if (dir.EnumerateFiles("HardwareTest.slnx").Any())
+            if (dir.EnumerateFiles("dirs.proj").Any())
             {
                 return dir.FullName;
             }
@@ -864,7 +864,7 @@ public sealed class ArchitectureRulesTests
         }
 
         throw new InvalidOperationException(
-            $"Could not locate HardwareTest.slnx above '{AppContext.BaseDirectory}'.");
+            $"Could not locate dirs.proj above '{AppContext.BaseDirectory}'.");
     }
 
     private static bool IsAvaloniaOrScottPlot(string name)
@@ -884,7 +884,7 @@ public sealed class ArchitectureRulesTests
             $"{rule} Assembly '{assembly.GetName().Name}' references forbidden: [{string.Join(", ", hits)}].");
     }
 
-    /// Direct references only — Plugins.Visa may ProjectReference Core for IVisaBroker; Core's ScottPlot must not count as a plugin UI reference.
+    /// Direct references only; transitive Core dependencies must not count as plugin UI references.
     private static void AssertNoForbiddenDirectReference(Assembly assembly, Func<string, bool> isForbidden, string rule)
     {
         var hits = assembly.GetReferencedAssemblies()

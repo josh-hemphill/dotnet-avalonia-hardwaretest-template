@@ -5,18 +5,6 @@ namespace HardwareTest.Core.Credentials;
 /// PIV APDU builders and BER-TLV helpers (NIST SP 800-73).
 internal static class PivApdu
 {
-    public const byte SlotAuthentication = 0x9A;
-    public const byte SlotSignature = 0x9C;
-    public const byte SlotKeyManagement = 0x9D;
-    public const byte SlotCardAuth = 0x9E;
-
-    public const byte AlgRsa1024 = 0x06;
-    public const byte AlgRsa2048 = 0x07;
-    public const byte AlgEccP256 = 0x11;
-    public const byte AlgEccP384 = 0x14;
-    public const byte AlgRsa3072 = 0x27;
-    public const byte AlgRsa4096 = 0x28;
-
     public static readonly byte[] SelectPiv =
         [0x00, 0xA4, 0x04, 0x00, 0x0B, 0xA0, 0x00, 0x00, 0x03, 0x08, 0x00, 0x00, 0x10, 0x00, 0x01, 0x00];
 
@@ -31,10 +19,6 @@ internal static class PivApdu
 
     public const byte PrintedNameTag = 0x01;
 
-    /// SHA-256 DigestInfo prefix (RFC 8017).
-    public static ReadOnlySpan<byte> Sha256DigestInfoPrefix
-        => [0x30, 0x31, 0x30, 0x0D, 0x06, 0x09, 0x60, 0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x02, 0x01, 0x05, 0x00, 0x04, 0x20];
-
     public static byte[] GetData(ReadOnlySpan<byte> objectId)
     {
         var data = new byte[2 + objectId.Length];
@@ -42,29 +26,6 @@ internal static class PivApdu
         data[1] = (byte)objectId.Length;
         objectId.CopyTo(data.AsSpan(2));
         return Command(0x00, 0xCB, 0x3F, 0xFF, data, le: 0x00);
-    }
-
-    public static byte[] VerifyPin(ReadOnlySpan<char> pin)
-        => Command(0x00, 0x20, 0x00, 0x80, PadPin(pin));
-
-    public static byte[] PadPin(ReadOnlySpan<char> pin)
-    {
-        var padded = new byte[8];
-        Array.Fill(padded, (byte)0xFF);
-        var n = Math.Min(pin.Length, 8);
-        for (var i = 0; i < n; i++)
-        {
-            padded[i] = (byte)pin[i];
-        }
-
-        return padded;
-    }
-
-    public static byte[] GeneralAuthenticate(byte algorithm, byte slot, ReadOnlySpan<byte> challenge)
-    {
-        var inner = Concat(EncodeTlv(0x82, []), EncodeTlv(0x81, challenge));
-        var body = EncodeTlv(0x7C, inner);
-        return Command(0x00, 0x87, algorithm, slot, body);
     }
 
     /// Builds a Case-3/4 APDU; uses extended length when data is longer than 255 bytes.
@@ -87,29 +48,8 @@ internal static class PivApdu
     public static bool TrySelect(IApduChannel channel)
         => IsSuccess(channel.Transmit(SelectPiv)) || IsSuccess(channel.Transmit(SelectPivRid));
 
-    public static byte[] Sha256DigestInfo(ReadOnlySpan<byte> sha256)
-    {
-        var info = new byte[Sha256DigestInfoPrefix.Length + 32];
-        Sha256DigestInfoPrefix.CopyTo(info);
-        sha256[..32].CopyTo(info.AsSpan(Sha256DigestInfoPrefix.Length));
-        return info;
-    }
-
     public static bool IsSuccess(byte[]? response)
         => response is { Length: >= 2 } && response[^2] == 0x90 && response[^1] == 0x00;
-
-    public static bool IsPinRequired(byte[]? response)
-        => response is { Length: >= 2 } && response[^2] == 0x69 && response[^1] is 0x82 or 0x83;
-
-    public static int? PinRetriesRemaining(byte[]? response)
-    {
-        if (response is not { Length: >= 2 } || response[^2] != 0x63)
-        {
-            return null;
-        }
-
-        return response[^1] & 0x0F;
-    }
 
     public static ReadOnlySpan<byte> Body(byte[] response)
         => response.AsSpan(0, response.Length - 2);

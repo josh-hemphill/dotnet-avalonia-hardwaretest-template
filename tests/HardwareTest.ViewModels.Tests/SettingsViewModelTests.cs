@@ -16,20 +16,17 @@ public sealed class SettingsViewModelTests
     {
         var store = new FakeSettingsStore();
         var vm = new SettingsViewModel(store, new FakeOpenTapSession())
-        { SmartCardSigningProviderMode = SmartCardSigningProviderMode.Pkcs11, Pkcs11LibraryPath = "explicit-module" };
+        { Pkcs11LibraryPath = "explicit-module" };
         await vm.SaveCommand.ExecuteAsync();
-        Assert.Equal(SmartCardSigningProviderMode.Pkcs11, store.AppSettings.SmartCardSigningProviderMode);
         Assert.Equal("explicit-module", store.AppSettings.Pkcs11LibraryPath);
         store.Provenance =
         [
-            new SettingProvenance { Key = nameof(AppSettings.SmartCardSigningProviderMode), EffectiveValue = "Pkcs11", Source = SettingSource.Environment },
             new SettingProvenance { Key = nameof(AppSettings.Pkcs11LibraryPath), EffectiveValue = "explicit-module", Source = SettingSource.CommandLine },
         ];
         var locked = new SettingsViewModel(store, new FakeOpenTapSession())
-        { SmartCardSigningProviderMode = SmartCardSigningProviderMode.Windows, Pkcs11LibraryPath = "changed-module" };
-        Assert.True(locked.SmartCardSigningProviderModeReadOnly); Assert.True(locked.Pkcs11LibraryPathReadOnly);
+        { Pkcs11LibraryPath = "changed-module" };
+        Assert.True(locked.Pkcs11LibraryPathReadOnly);
         await locked.SaveCommand.ExecuteAsync();
-        Assert.Equal(SmartCardSigningProviderMode.Pkcs11, store.AppSettings.SmartCardSigningProviderMode);
         Assert.Equal("explicit-module", store.AppSettings.Pkcs11LibraryPath);
     }
 
@@ -37,10 +34,10 @@ public sealed class SettingsViewModelTests
     public async Task Signing_setup_check_reports_configuration_without_card_authentication()
     {
         var vm = new SettingsViewModel(new FakeSettingsStore(), new FakeOpenTapSession())
-        { SmartCardSigningProviderMode = SmartCardSigningProviderMode.Windows };
+        { Pkcs11LibraryPath = "missing-module-for-diagnostics" };
         await vm.CheckSigningSetupCommand.ExecuteAsync();
-        Assert.Contains("configuration", vm.SigningSetupStatus);
-        Assert.Contains("Windows", vm.SigningSetupStatus);
+        Assert.Contains("module-load", vm.SigningSetupStatus);
+        Assert.Contains("PKCS#11", vm.SigningSetupStatus);
         Assert.DoesNotContain("serial", vm.SigningSetupStatus, StringComparison.OrdinalIgnoreCase);
     }
 

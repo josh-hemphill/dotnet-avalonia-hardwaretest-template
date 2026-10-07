@@ -13,8 +13,8 @@
     },
     "schemaVersion": {
       "type": "integer",
-      "minimum": 1,
-      "description": "Persisted document schema. Greater than the app current version loads read-only."
+      "minimum": 2,
+      "description": "Current workspace manifest schema is 2. Greater versions load read-only."
     },
     "displayName": { "type": "string" },
     "plansDirectory": {
@@ -65,6 +65,7 @@
       "type": "array",
       "items": { "type": "string" }
     },
+    "excludedProgramIds": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
     "includeTui": { "type": "boolean" },
     "recordingsDirectory": {
       "type": "string",
@@ -73,7 +74,7 @@
     "catalogs": {
       "type": "object",
       "additionalProperties": false,
-      "description": "Suggested report kinds, program kinds, required DUT field ids, and instrument slot names for this workspace. Not a closed demo-program list.",
+      "description": "Workspace report kinds, program kinds, required DUT field ids, instrument slot suggestions, and independent hardware templates. Program membership and runtime bindings remain separate.",
       "properties": {
         "reportKinds": {
           "type": "array",
@@ -90,6 +91,25 @@
         "requiredFields": {
           "type": "array",
           "items": { "type": "string", "minLength": 1 }
+        },
+        "hardware": {
+          "type": "array",
+          "description": "Optional hardware templates with stable identities. Explicit inclusion copies a template into one program; edits do not retarget existing program bindings.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "name", "typeId", "address", "settings"],
+            "properties": {
+              "id": { "type": "string", "format": "uuid" },
+              "name": { "type": "string" },
+              "typeId": { "type": "string" },
+              "address": { "type": "string" },
+              "settings": {
+                "type": "object",
+                "additionalProperties": { "type": "string" }
+              }
+            }
+          }
         }
       }
     }

@@ -1,5 +1,4 @@
 using HardwareTest.Core.Hardware;
-using HardwareTest.Core.Settings;
 using Xunit;
 
 namespace HardwareTest.Tests.Hardware;
@@ -16,19 +15,28 @@ public sealed class VisaDiscoveryTests
     }
 
     [Fact]
-    public void Instrument_resolver_maps_id_and_falls_back_to_literal()
+    public async Task Configurable_mock_discovery_preserves_resource_metadata()
     {
-        var settings = new AppSettings
-        {
-            DefaultVisaResource = "MOCK::INSTR0",
-            Instruments =
-            [
-                new VisaInstrument { Id = "instr0", DisplayName = "Mock DMM", Resource = "MOCK::INSTR0", Enabled = true },
-            ],
-        };
+        var discovery = new ConfigurableVisaResourceDiscovery(useMockVisa: true);
 
-        Assert.Equal("MOCK::INSTR0", InstrumentResourceResolver.Resolve("instr0", settings));
-        Assert.Equal("MOCK::SCOPE1", InstrumentResourceResolver.Resolve("MOCK::SCOPE1", settings));
-        Assert.Equal("MOCK::INSTR0", InstrumentResourceResolver.Resolve(null, settings));
+        var found = await discovery.FindAsync();
+
+        Assert.Equal(MockVisaResourceDiscovery.Catalog, found);
+        Assert.All(found, resource =>
+        {
+            Assert.Equal("MOCK", resource.Interface);
+            Assert.True(resource.SupportsMessageQuery);
+            Assert.False(resource.LooksLikeAlias);
+        });
+    }
+
+    [Fact]
+    public async Task Mock_discovery_honors_cancellation()
+    {
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            () => new MockVisaResourceDiscovery().FindAsync(cancellation.Token));
     }
 }

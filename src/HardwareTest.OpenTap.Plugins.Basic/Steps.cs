@@ -414,6 +414,12 @@ public sealed class RepeatLoopStep : RuntimeAwareTestStep
         {
             TapThread.ThrowIfAborted();
             WaitIfPaused();
+            PlanRun?.WaitForResults();
+            if (PlanRun is not null)
+            {
+                SampleTableCapture.BeginIteration(PlanRun, this);
+            }
+
             RunChildSteps();
         }
 

@@ -7,6 +7,16 @@ namespace HardwareTest.OpenTap.Host;
 /// Reads Presentation mixin hints (flattened EmbedProperties) and normalizes Sample/Scalar rows.
 internal static class OpenTapPresentation
 {
+    private static readonly string[] HintSuffixes =
+    [
+        nameof(PresentationMixin.ChannelKey),
+        nameof(PresentationMixin.DisplayRole),
+        nameof(PresentationMixin.YUnit),
+        nameof(PresentationMixin.HistoryEnabled),
+        nameof(PresentationMixin.HistoryWatchPercent),
+        nameof(PresentationMixin.HistoryAlertPercent),
+    ];
+
     public sealed record MixinHints(
         string ChannelKey,
         string DisplayRole,
@@ -35,7 +45,9 @@ internal static class OpenTapPresentation
 
             foreach (var member in typeData.GetMembers())
             {
-                if (!member.Readable)
+                if (!member.Readable
+                    || (member.TypeDescriptor.Name != typeof(PresentationMixin).FullName
+                        && !HintSuffixes.Any(suffix => member.Name.EndsWith(suffix, StringComparison.OrdinalIgnoreCase))))
                 {
                     continue;
                 }

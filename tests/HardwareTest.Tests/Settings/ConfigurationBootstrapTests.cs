@@ -7,45 +7,6 @@ namespace HardwareTest.Tests.Settings;
 
 public sealed class ConfigurationBootstrapTests
 {
-    [Theory]
-    [InlineData("Auto", SmartCardSigningProviderMode.Auto)]
-    [InlineData("windows", SmartCardSigningProviderMode.Windows)]
-    [InlineData("PKCS11", SmartCardSigningProviderMode.Pkcs11)]
-    public async Task Signing_provider_environment_and_cli_precedence(string text, SmartCardSigningProviderMode expected)
-    {
-        using var temp = new TempDataDirectory();
-        var env = new Hashtable { ["HARDWARETEST_SMART_CARD_SIGNING_PROVIDER"] = "Windows" };
-        var result = await ConfigurationBootstrap.ResolveAsync(ConfigurationArgs.Parse(["--smart-card-signing-provider", text]), env, defaultRoot: temp.Path);
-        Assert.Equal(expected, result.Store.AppSettings.SmartCardSigningProviderMode);
-        Assert.Equal(SettingSource.CommandLine, result.Store.Provenance.Single(p => p.Key == nameof(AppSettings.SmartCardSigningProviderMode)).Source);
-    }
-
-    [Theory]
-    [InlineData("1")]
-    [InlineData("Unknown")]
-    [InlineData("Auto,Windows")]
-    public void Signing_provider_rejects_numbers_and_unknown_names(string text)
-    {
-        var binding = AppSettingsEnvironmentBinder.Bindings.Single(b => b.Key == nameof(AppSettings.SmartCardSigningProviderMode));
-        var settings = new AppSettings();
-        Assert.False(binding.TryApply(settings, text, out _, out var error));
-        Assert.Equal(SmartCardSigningProviderMode.Auto, settings.SmartCardSigningProviderMode);
-        Assert.NotNull(error);
-    }
-
-    [Fact]
-    public async Task Signing_provider_and_explicit_module_persist_in_settings_file()
-    {
-        using var temp = new TempDataDirectory();
-        var store = new SettingsStore(temp.Path); await store.LoadAsync();
-        store.AppSettings.SmartCardSigningProviderMode = SmartCardSigningProviderMode.Pkcs11;
-        store.AppSettings.Pkcs11LibraryPath = "configured-module";
-        await store.SaveAppSettingsAsync();
-        var reloaded = new SettingsStore(temp.Path); await reloaded.LoadAsync();
-        Assert.Equal(SmartCardSigningProviderMode.Pkcs11, reloaded.AppSettings.SmartCardSigningProviderMode);
-        Assert.Equal("configured-module", reloaded.AppSettings.Pkcs11LibraryPath);
-    }
-
     [Fact]
     public async Task Precedence_file_beaten_by_env_beaten_by_command_line()
     {
@@ -55,6 +16,7 @@ public sealed class ConfigurationBootstrapTests
         store.AppSettings.UseMockVisa = false;
         store.AppSettings.PlotRefreshHz = 11;
         store.AppSettings.OpenTapPluginDirectories = ["from-file"];
+        store.AppSettings.ReportTemplateName = "file-report.typ";
         await store.SaveAppSettingsAsync();
 
         var env = new Hashtable
@@ -62,7 +24,8 @@ public sealed class ConfigurationBootstrapTests
             ["HARDWARETEST_LOG_MINIMUM_LEVEL"] = "Debug",
             ["HARDWARETEST_USE_MOCK_VISA"] = "true",
             ["HARDWARETEST_PLOT_REFRESH_HZ"] = "22",
-            ["HARDWARETEST_OPENTAP_PLUGIN_DIRS"] = "from-env",
+            ["HARDWARETEST_OPEN_TAP_PLUGIN_DIRECTORIES"] = "from-env",
+            ["HARDWARETEST_REPORT_TEMPLATE_NAME"] = "env-report.typ",
         };
         var args = ConfigurationArgs.Parse(
         [
@@ -70,6 +33,7 @@ public sealed class ConfigurationBootstrapTests
             "--mock-visa=false",
             "--plot-refresh-hz", "33",
             "--opentap-plugin-dirs", "from-cli",
+            "--report-template", "cli-report.typ",
         ]);
 
         var result = await ConfigurationBootstrap.ResolveAsync(args, env, defaultRoot: temp.Path);
@@ -77,6 +41,15 @@ public sealed class ConfigurationBootstrapTests
         Assert.False(result.Store.AppSettings.UseMockVisa);
         Assert.Equal(33, result.Store.AppSettings.PlotRefreshHz);
         Assert.Equal(["from-cli"], result.Store.AppSettings.OpenTapPluginDirectories);
+        Assert.Equal("cli-report.typ", result.Store.AppSettings.ReportTemplateName);
+        var reportRow = Assert.Single(result.Store.Provenance, row => row.Key == nameof(AppSettings.ReportTemplateName));
+        Assert.Equal(SettingSource.CommandLine, reportRow.Source);
+        Assert.Equal("cli-report.typ", reportRow.EffectiveValue);
+        await result.Store.SaveAppSettingsAsync();
+        Assert.Equal("cli-report.typ", result.Store.AppSettings.ReportTemplateName);
+        var reload = new SettingsStore(temp.Path);
+        await reload.LoadAsync();
+        Assert.Equal("file-report.typ", reload.AppSettings.ReportTemplateName);
         Assert.Equal(SettingSource.CommandLine, result.Store.Provenance.Single(p => p.Key == "LogMinimumLevel").Source);
         Assert.Equal(SettingSource.CommandLine, result.Store.Provenance.Single(p => p.Key == "UseMockVisa").Source);
         Assert.Equal(SettingSource.CommandLine, result.Store.Provenance.Single(p => p.Key == "PlotRefreshHz").Source);
@@ -111,7 +84,7 @@ public sealed class ConfigurationBootstrapTests
     [InlineData("no", false)]
     [InlineData("off", false)]
     [InlineData("0", false)]
-    public async Task Legacy_boolean_spellings_remain_supported(string raw, bool expected)
+    public async Task Boolean_input_spellings_are_supported(string raw, bool expected)
     {
         using var temp = new TempDataDirectory();
         var store = new SettingsStore(temp.Path);
@@ -129,8 +102,12 @@ public sealed class ConfigurationBootstrapTests
         using var temp = new TempDataDirectory();
         var env = new Hashtable
         {
-            ["HARDWARETEST_INSTRUMENTS__0__DISPLAY_NAME"] = "Bench DMM",
-            ["HARDWARETEST_INSTRUMENTS__0__ENABLED"] = "off",
+            ["HARDWARETEST_PLAN_SLOT_OVERRIDES__0__PLAN_ID"] = "sample",
+            ["HARDWARETEST_PLAN_SLOT_OVERRIDES__0__SLOT_NAME"] = "Meter",
+            ["HARDWARETEST_PLAN_SLOT_OVERRIDES__0__RESOURCE"] = "MOCK::BENCH",
+            ["HARDWARETEST_PLAN_PARAMETER_OVERRIDES__0__PLAN_ID"] = "sample",
+            ["HARDWARETEST_PLAN_PARAMETER_OVERRIDES__0__MEMBER_KEY"] = "acq/SampleCount",
+            ["HARDWARETEST_PLAN_PARAMETER_OVERRIDES__0__VALUE"] = "32",
             ["HARDWARETEST_OPEN_TAP_PLUGIN_DIRECTORIES__0"] = "plugins/site",
         };
 
@@ -138,11 +115,17 @@ public sealed class ConfigurationBootstrapTests
         var store = new SettingsStore(temp.Path);
         await store.LoadAsync(overlays, commandLineOverlays: null);
 
-        Assert.Equal("instr0", store.AppSettings.Instruments[0].Id);
-        Assert.Equal("Bench DMM", store.AppSettings.Instruments[0].DisplayName);
-        Assert.False(store.AppSettings.Instruments[0].Enabled);
+        var slot = Assert.Single(store.AppSettings.PlanSlotOverrides);
+        Assert.Equal("sample", slot.PlanId);
+        Assert.Equal("Meter", slot.SlotName);
+        Assert.Equal("MOCK::BENCH", slot.Resource);
+        var parameter = Assert.Single(store.AppSettings.PlanParameterOverrides);
+        Assert.Equal("sample", parameter.PlanId);
+        Assert.Equal("acq/SampleCount", parameter.MemberKey);
+        Assert.Equal("32", parameter.Value);
         Assert.Equal(["plugins/site"], store.AppSettings.OpenTapPluginDirectories);
-        Assert.True(store.IsOverridden("Instruments"));
+        Assert.True(store.IsOverridden("PlanSlotOverrides"));
+        Assert.True(store.IsOverridden("PlanParameterOverrides"));
         Assert.True(store.IsOverridden("OpenTapPluginDirectories"));
     }
 
@@ -157,19 +140,19 @@ public sealed class ConfigurationBootstrapTests
             new Dictionary<string, string>
             {
                 ["OpenTapPluginDirectories[-1]"] = "negative",
-                ["Instruments[100000].Id"] = "too-large",
+                ["PlanSlotOverrides[100000].PlanId"] = "too-large",
             },
             commandLineOverlays: null,
             warn: warnings.Add);
 
         Assert.Empty(store.AppSettings.OpenTapPluginDirectories);
-        Assert.Single(store.AppSettings.Instruments);
+        Assert.Empty(store.AppSettings.PlanSlotOverrides);
         Assert.Equal(2, warnings.Count);
         Assert.All(warnings, warning => Assert.Contains("out of range", warning, StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
-    public async Task Scalar_compatibility_normalizers_run_after_binding()
+    public async Task Scalar_inputs_are_normalized_after_binding()
     {
         using var temp = new TempDataDirectory();
         var store = new SettingsStore(temp.Path);
@@ -256,7 +239,7 @@ public sealed class ConfigurationBootstrapTests
         using var temp = new TempDataDirectory();
         File.WriteAllText(
             Path.Combine(temp.Path, "settings.json"),
-            """{"logMinimumLevel":"Warning","useMockVisa":true,"dataDirectory":""}""");
+            """{"schemaVersion":1,"logMinimumLevel":"Warning","useMockVisa":true,"dataDirectory":""}""");
 
         var env = new Hashtable { ["HARDWARETEST_LOG_MINIMUM_LEVEL"] = "Debug" };
         var args = ConfigurationArgs.Parse([]);
@@ -396,5 +379,125 @@ public sealed class ConfigurationBootstrapTests
         await reload.LoadAsync();
         Assert.True(reload.AppSettings.UseMockVisa); // file kept default true
         Assert.Equal("Dark", reload.AppSettings.ThemePreference);
+    }
+
+    [Fact]
+    public async Task Removed_environment_registry_and_hours_inputs_are_ignored()
+    {
+        using var temp = new TempDataDirectory();
+        var env = new Hashtable
+        {
+            ["HARDWARETEST_INSTRUMENTS__0__RESOURCE"] = "MOCK::OLD",
+            ["HARDWARETEST_STATION_BINDINGS__0__ROLE"] = "dmm",
+            ["HARDWARETEST_OPERATOR_SESSION_IDLE_HOURS"] = "12",
+            ["HARDWARETEST_OPENTAP_PLUGIN_DIRS"] = "old-plugins",
+            ["HARDWARETEST_DEFAULT_VISA_RESOURCE"] = "MOCK::OLD",
+        };
+        var overlays = AppSettingsEnvironmentBinder.ReadEnvironment(env);
+        Assert.Empty(overlays);
+        var store = new SettingsStore(temp.Path);
+
+        await store.LoadAsync(overlays, commandLineOverlays: null);
+
+        Assert.Empty(store.AppSettings.PlanSlotOverrides);
+        Assert.Empty(store.AppSettings.PlanParameterOverrides);
+        Assert.Empty(store.AppSettings.OpenTapPluginDirectories);
+        Assert.Equal(OperatorSessionIdle.DefaultMinutes, store.AppSettings.OperatorSessionIdleMinutes);
+        Assert.DoesNotContain(store.Provenance, row => row.Key.Contains("Hours", StringComparison.Ordinal));
+    }
+
+    [Theory]
+    [InlineData("75", "19", 19)]
+    [InlineData("75", "0", OperatorSessionIdle.MinMinutes)]
+    [InlineData("75", "20000", OperatorSessionIdle.MaxMinutes)]
+    [InlineData("75", "invalid", 75)]
+    public async Task Minute_overlays_follow_file_environment_command_line_precedence_and_normalize(
+        string environmentMinutes, string commandLineMinutes, int expectedMinutes)
+    {
+        using var temp = new TempDataDirectory();
+        var baseline = new SettingsStore(temp.Path);
+        baseline.AppSettings.OperatorSessionIdleMinutes = 31;
+        await baseline.SaveAppSettingsAsync();
+        var env = new Hashtable
+        {
+            ["HARDWARETEST_OPERATOR_SESSION_IDLE_MINUTES"] = environmentMinutes,
+        };
+        var result = await ConfigurationBootstrap.ResolveAsync(
+            ConfigurationArgs.Parse(["--session-idle-minutes", commandLineMinutes]),
+            env,
+            defaultRoot: temp.Path);
+
+        Assert.Equal(expectedMinutes, result.Store.AppSettings.OperatorSessionIdleMinutes);
+        var row = Assert.Single(result.Store.Provenance,
+            row => row.Key == nameof(AppSettings.OperatorSessionIdleMinutes));
+        Assert.Equal(commandLineMinutes == "invalid" ? SettingSource.Environment : SettingSource.CommandLine, row.Source);
+        Assert.Equal(expectedMinutes.ToString(), row.EffectiveValue);
+        await result.Store.SaveAppSettingsAsync();
+        Assert.Equal(expectedMinutes, result.Store.AppSettings.OperatorSessionIdleMinutes);
+        var reload = new SettingsStore(temp.Path);
+        await reload.LoadAsync();
+        Assert.Equal(31, reload.AppSettings.OperatorSessionIdleMinutes);
+    }
+
+    [Fact]
+    public async Task Indexed_station_overlays_preserve_file_baseline_on_save()
+    {
+        using var temp = new TempDataDirectory();
+        var store = new SettingsStore(temp.Path);
+        store.AppSettings.PlanSlotOverrides =
+        [
+            new PlanSlotOverride { PlanId = "sample", SlotName = "Meter", Resource = "MOCK::FILE" },
+        ];
+        store.AppSettings.PlanParameterOverrides =
+        [
+            new PlanParameterOverride { PlanId = "sample", MemberKey = "acq/SampleCount", Value = "16" },
+        ];
+        await store.SaveAppSettingsAsync();
+        await store.LoadAsync(
+            new Dictionary<string, string>
+            {
+                ["PlanSlotOverrides[0].Resource"] = "MOCK::ENV",
+                ["PlanParameterOverrides[0].Value"] = "32",
+            },
+            new Dictionary<string, string>
+            {
+                ["PlanSlotOverrides[0].Resource"] = "MOCK::CLI",
+            });
+
+        Assert.Equal("MOCK::CLI", Assert.Single(store.AppSettings.PlanSlotOverrides).Resource);
+        Assert.Equal("32", Assert.Single(store.AppSettings.PlanParameterOverrides).Value);
+        store.AppSettings.ThemePreference = "Dark";
+        await store.SaveAppSettingsAsync();
+        Assert.Equal("MOCK::CLI", Assert.Single(store.AppSettings.PlanSlotOverrides).Resource);
+        var reload = new SettingsStore(temp.Path);
+        await reload.LoadAsync();
+        Assert.Equal("MOCK::FILE", Assert.Single(reload.AppSettings.PlanSlotOverrides).Resource);
+        Assert.Equal("16", Assert.Single(reload.AppSettings.PlanParameterOverrides).Value);
+        Assert.Equal("Dark", reload.AppSettings.ThemePreference);
+    }
+
+    [Fact]
+    public async Task Canonical_environment_minutes_and_plugin_directories_override_file_values()
+    {
+        using var temp = new TempDataDirectory();
+        var store = new SettingsStore(temp.Path);
+        store.AppSettings.OperatorSessionIdleMinutes = 31;
+        store.AppSettings.OpenTapPluginDirectories = ["file-plugins"];
+        await store.SaveAppSettingsAsync();
+        var env = new Hashtable
+        {
+            ["HARDWARETEST_OPERATOR_SESSION_IDLE_MINUTES"] = "75",
+            [AppSettingsEnvironmentBinder.OpenTapPluginDirectoriesEnv] = "env-plugins",
+        };
+
+        var result = await ConfigurationBootstrap.ResolveAsync(
+            ConfigurationArgs.Parse([]), env, defaultRoot: temp.Path);
+
+        Assert.Equal(75, result.Store.AppSettings.OperatorSessionIdleMinutes);
+        Assert.Equal(["env-plugins"], result.Store.AppSettings.OpenTapPluginDirectories);
+        Assert.Equal(SettingSource.Environment, result.Store.Provenance.Single(
+            row => row.Key == nameof(AppSettings.OperatorSessionIdleMinutes)).Source);
+        Assert.Equal(SettingSource.Environment, result.Store.Provenance.Single(
+            row => row.Key == nameof(AppSettings.OpenTapPluginDirectories)).Source);
     }
 }

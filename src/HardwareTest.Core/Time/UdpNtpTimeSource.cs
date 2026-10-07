@@ -16,15 +16,17 @@ public sealed class UdpNtpTimeSource : INtpTimeSource
     internal delegate bool NtpResolve(string host, TimeSpan timeout, out IPAddress address, out string? error);
 
     private readonly NtpResolve _resolve;
+    private readonly Func<Stopwatch, TimeSpan> _elapsed;
 
     public UdpNtpTimeSource()
         : this(TryResolve)
     {
     }
 
-    internal UdpNtpTimeSource(NtpResolve resolve)
+    internal UdpNtpTimeSource(NtpResolve resolve, Func<Stopwatch, TimeSpan>? elapsed = null)
     {
         _resolve = resolve;
+        _elapsed = elapsed ?? (clock => clock.Elapsed);
     }
 
     public bool TryGetUtcNow(string host, TimeSpan timeout, out DateTimeOffset utc, out string? error)
@@ -41,7 +43,7 @@ public sealed class UdpNtpTimeSource : INtpTimeSource
         var clock = Stopwatch.StartNew();
         try
         {
-            if (!TryRemaining(clock, budget, out var remaining))
+            if (!TryRemaining(_elapsed(clock), budget, out var remaining))
             {
                 error = "NTP lookup timed out.";
                 return false;
@@ -52,7 +54,7 @@ public sealed class UdpNtpTimeSource : INtpTimeSource
                 return false;
             }
 
-            if (!TryRemaining(clock, budget, out remaining))
+            if (!TryRemaining(_elapsed(clock), budget, out remaining))
             {
                 error = "NTP lookup timed out.";
                 return false;
@@ -65,7 +67,7 @@ public sealed class UdpNtpTimeSource : INtpTimeSource
             socket.SendTimeout = SocketTimeoutMs(remaining);
             socket.SendTo(request, endpoint);
 
-            if (!TryRemaining(clock, budget, out remaining))
+            if (!TryRemaining(_elapsed(clock), budget, out remaining))
             {
                 error = "NTP lookup timed out.";
                 return false;
@@ -123,7 +125,12 @@ public sealed class UdpNtpTimeSource : INtpTimeSource
 
     internal static bool TryRemaining(Stopwatch clock, TimeSpan budget, out TimeSpan remaining)
     {
-        remaining = budget - clock.Elapsed;
+        return TryRemaining(clock.Elapsed, budget, out remaining);
+    }
+
+    private static bool TryRemaining(TimeSpan elapsed, TimeSpan budget, out TimeSpan remaining)
+    {
+        remaining = budget - elapsed;
         if (remaining <= TimeSpan.Zero)
         {
             remaining = TimeSpan.Zero;

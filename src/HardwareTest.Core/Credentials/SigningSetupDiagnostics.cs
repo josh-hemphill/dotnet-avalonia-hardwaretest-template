@@ -4,7 +4,7 @@ using HardwareTest.Core.Settings;
 
 namespace HardwareTest.Core.Credentials;
 
-public sealed record SigningSetupDiagnostics(SmartCardSigningProviderMode Mode, string? ResolvedModule,
+public sealed record SigningSetupDiagnostics(string? ResolvedModule,
     string Architecture, bool Available, string Stage, ulong? NativeCode, string Message)
 {
     /// Checks configuration and native loading only. Never enumerates cards or authenticates.
@@ -15,25 +15,21 @@ public sealed record SigningSetupDiagnostics(SmartCardSigningProviderMode Mode, 
         var stage = "configuration";
         try
         {
-            if (!Enum.IsDefined(settings.SmartCardSigningProviderMode))
-                return new(settings.SmartCardSigningProviderMode, null, architecture, false, stage, null, "Unknown smart-card signing provider mode.");
-            if (settings.SmartCardSigningProviderMode == SmartCardSigningProviderMode.Windows)
-                return new(settings.SmartCardSigningProviderMode, null, architecture, false, stage, null, "Windows signing is not supported by this provider yet.");
             stage = "module-discovery";
             module = Pkcs11ModuleResolver.Resolve(settings.Pkcs11LibraryPath);
-            if (module is null) return new(settings.SmartCardSigningProviderMode, null, architecture, false, stage, null, "Compatible PKCS#11 middleware was not found.");
+            if (module is null) return new(null, architecture, false, stage, null, "Compatible PKCS#11 middleware was not found.");
             stage = "architecture";
             if (!Pkcs11ModuleResolver.IsCompatibleArchitecture(module))
-                return new(settings.SmartCardSigningProviderMode, module, architecture, false, stage, null, "Middleware architecture must match the application process.");
+                return new(module, architecture, false, stage, null, "Middleware architecture must match the application process.");
             stage = "module-load";
             if (NativeLibrary.TryLoad(module, out var handle))
             {
                 NativeLibrary.Free(handle);
-                return new(settings.SmartCardSigningProviderMode, module, architecture, true, stage, null, "Middleware loaded. Card authentication and signing have not been tested.");
+                return new(module, architecture, true, stage, null, "Middleware loaded. Card authentication and signing have not been tested.");
             }
         }
         catch (Exception ex) when (ex is DllNotFoundException or BadImageFormatException or IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException) { }
-        return new(settings.SmartCardSigningProviderMode, module, architecture, false, stage, null, "Middleware could not be loaded. Check its path, dependencies, and architecture.");
+        return new(module, architecture, false, stage, null, "Middleware could not be loaded. Check its path, dependencies, and architecture.");
     }
 
 }

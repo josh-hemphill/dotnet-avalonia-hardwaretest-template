@@ -1,9 +1,9 @@
 using System.Security.Cryptography;
-using System.Security.Cryptography.Pkcs;
 using System.Security.Cryptography.X509Certificates;
 using HardwareTest.Core.Credentials;
 using HardwareTest.Core.Reporting;
 using HardwareTest.Core.Settings;
+using HardwareTest.Tests.Reporting;
 using Net.Pkcs11Interop.Common;
 using Xunit;
 
@@ -90,6 +90,19 @@ public sealed class PreparedPkcs11Tests
         session.Dispose(); Assert.True(selected.Closed); Assert.True(backend.Closed); Assert.True((await pending).Succeeded);
     }
 
+    [Fact]
+    public async Task Prepared_signer_rejects_changed_captured_identity_without_using_key()
+    {
+        using var selected = new TestToken();
+        var prepared = await Broker(new TestBackend(selected)).PrepareSigningAsync(selected.Credential, "1234");
+        using var session = prepared.Session!;
+        var changedIdentity = new OperatorCredential { Thumbprint = selected.Credential.Thumbprint, Serial = "different" };
+        var result = await ((IEmbeddedPdfSigningBroker)session).TrySignPdfAsync(PdfTestFixture.CreateMinimalPdf(), changedIdentity);
+        Assert.Equal(CredentialFailureKind.CertificateMismatch, result.FailureKind);
+        Assert.Equal(0, selected.SignCount);
+        Assert.Null(result.SignedPdf);
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
@@ -98,28 +111,16 @@ public sealed class PreparedPkcs11Tests
         using var selected = new TestToken(ecc); var broker = Broker(new TestBackend(selected));
         var prepared = await broker.PrepareSigningAsync(selected.Credential, "1234");
         using var session = prepared.Session;
-        var result = await ((IEmbeddedPdfSigningBroker)session!).TrySignPdfAsync(PdfPadesSignature.CreateMinimalPdf(), selected.Credential, "1234");
+        var result = await ((IEmbeddedPdfSigningBroker)session!).TrySignPdfAsync(PdfTestFixture.CreateMinimalPdf(), selected.Credential, "1234");
         Assert.True(result.Succeeded, result.Error); Assert.Equal(1, selected.SignCount);
-        Assert.True(ITextPadesSignature.TryVerify(result.SignedPdf!, out var error), error);
-    }
-
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task Document_api_preserves_detached_cms(bool ecc)
-    {
-        using var selected = new TestToken(ecc); var broker = Broker(new TestBackend(selected));
-        var data = "document"u8.ToArray();
-        var result = await broker.TrySignDocumentAsync(data, selected.Credential, "1234");
-        Assert.True(result.Succeeded, result.Error); Assert.Equal(1, selected.SignCount);
-        var cms = new SignedCms(new ContentInfo(data), true); cms.Decode(result.Signature!); cms.CheckSignature(true);
+        Assert.True(ITextPadesSignature.TryVerify(result.SignedPdf!, selected.Credential.Thumbprint, out var error), error);
     }
 
     [Fact]
     public async Task Pdf_callback_preserves_locked_pin_native_failure()
     {
         using var selected = new TestToken { SignFailure = CKR.CKR_PIN_LOCKED };
-        var result = await Broker(new TestBackend(selected)).TrySignPdfAsync(PdfPadesSignature.CreateMinimalPdf(), selected.Credential, "1234");
+        var result = await Broker(new TestBackend(selected)).TrySignPdfAsync(PdfTestFixture.CreateMinimalPdf(), selected.Credential, "1234");
         Assert.Equal(CredentialFailureKind.PinLocked, result.FailureKind); Assert.Equal((ulong)CKR.CKR_PIN_LOCKED, result.NativeCode);
         Assert.False(result.PresenceFallbackAllowed); Assert.True(selected.Closed); Assert.Equal(1, selected.SignCount);
     }
@@ -187,32 +188,27 @@ public sealed class PreparedPkcs11Tests
         using var session = prepared.Session!;
         var data = "document"u8.ToArray();
         Assert.False((await session.TrySignPayloadAsync(data, selected.Credential)).Succeeded);
-        Assert.False((await session.TrySignDocumentAsync(data, selected.Credential)).Succeeded);
-        Assert.False((await ((IEmbeddedPdfSigningBroker)session).TrySignPdfAsync(PdfPadesSignature.CreateMinimalPdf(), selected.Credential)).Succeeded);
+        Assert.False((await ((IEmbeddedPdfSigningBroker)session).TrySignPdfAsync(PdfTestFixture.CreateMinimalPdf(), selected.Credential)).Succeeded);
     }
 
     [Fact]
-    public async Task P256_pdf_and_detached_cms_use_sha256_and_verify_with_one_sign_each()
+    public async Task P256_pdf_uses_sha256_and_verifies_with_one_signature()
     {
         using var selected = new TestToken(true, 256);
         var broker = Broker(new TestBackend(selected));
         var prepared = await broker.PrepareSigningAsync(selected.Credential, "1234");
         using var session = prepared.Session!;
-        var pdf = await ((IEmbeddedPdfSigningBroker)session).TrySignPdfAsync(PdfPadesSignature.CreateMinimalPdf(), selected.Credential);
+        var pdf = await ((IEmbeddedPdfSigningBroker)session).TrySignPdfAsync(PdfTestFixture.CreateMinimalPdf(), selected.Credential);
         Assert.True(pdf.Succeeded, pdf.Error); Assert.Equal(1, selected.SignCount);
         Assert.Equal(AttestationAlgorithm.PivEcdsaSha256, pdf.Algorithm);
-        Assert.True(ITextPadesSignature.TryVerify(pdf.SignedPdf!, out var error), error);
-        var data = "document"u8.ToArray();
-        var document = await session.TrySignDocumentAsync(data, selected.Credential);
-        Assert.True(document.Succeeded, document.Error); Assert.Equal(2, selected.SignCount);
-        var cms = new SignedCms(new ContentInfo(data), true); cms.Decode(document.Signature!); cms.CheckSignature(true);
+        Assert.True(ITextPadesSignature.TryVerify(pdf.SignedPdf!, selected.Credential.Thumbprint, out var error), error);
     }
 
     [Fact]
-    public async Task Native_der_ecdsa_is_rejected_before_cms_encoding()
+    public async Task Native_der_ecdsa_is_rejected_before_pdf_encoding()
     {
         using var selected = new TestToken(true) { ReturnDerSignature = true };
-        var result = await Broker(new TestBackend(selected)).TrySignDocumentAsync("document"u8.ToArray(), selected.Credential, "1234");
+        var result = await Broker(new TestBackend(selected)).TrySignPdfAsync(PdfTestFixture.CreateMinimalPdf(), selected.Credential, "1234");
         Assert.False(result.Succeeded); Assert.Null(result.Signature); Assert.Equal(1, selected.SignCount);
     }
 

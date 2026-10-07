@@ -14,37 +14,37 @@ public sealed record CredentialPreparationResult(IPreparedCredentialSession? Ses
     public static CredentialPreparationResult Ready(IPreparedCredentialSession session) => new(session, null);
     public static CredentialPreparationResult Failed(CredentialSignResult failure) => new(null, failure);
 
-    internal static Task<CredentialPreparationResult> PrepareLegacyAsync(
+    internal static async Task<CredentialPreparationResult> PrepareMockAsync(
         IOperatorCredentialBroker broker, OperatorCredential credential, string? pin, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        if (!broker.CanSign) return Task.FromResult(Failed(CredentialSignResult.Unavailable("This credential cannot sign.")));
-        if (broker.RequiresPin && string.IsNullOrEmpty(pin))
-            return Task.FromResult(Failed(CredentialSignResult.NeedPin("Enter badge PIN to sign.")));
-        IPreparedCredentialSession session = broker is IEmbeddedPdfSigningBroker embedded
-            ? new LegacyEmbeddedSession(broker, embedded) : new LegacySession(broker);
-        return Task.FromResult(Ready(session));
+        if (!broker.IsMock || !broker.CanSign)
+            return Failed(CredentialSignResult.Failure(CredentialFailureKind.ConfigurationError,
+                "This broker does not support prepared signing.", "preparation"));
+        var probe = await broker.TrySignPayloadAsync("mock-preparation"u8.ToArray(), credential, pin, cancellationToken).ConfigureAwait(false);
+        if (!probe.Succeeded) return Failed(probe);
+        return Ready(new MockSession(broker, credential));
     }
 
-    private class LegacySession(IOperatorCredentialBroker broker) : IPreparedCredentialSession
+    private sealed class MockSession(IOperatorCredentialBroker broker, OperatorCredential selected) : IPreparedCredentialSession
     {
-        public bool IsMock => broker.IsMock;
-        public bool CanSign => broker.CanSign;
-        public bool ProducesCms => broker.ProducesCms;
+        private bool _disposed;
+        public bool IsMock => true;
+        public bool CanSign => true;
         public string? SigningAlgorithm => broker.SigningAlgorithm;
-        public string StatusText => broker.StatusText;
+        public string StatusText => "Mock signing session prepared.";
         public Task<CredentialCaptureResult> WaitForPresenceAsync(TimeSpan timeout, CancellationToken cancellationToken = default)
             => throw new NotSupportedException("A prepared signer cannot capture another card.");
         public Task<CredentialSignResult> TrySignPayloadAsync(byte[] payload, OperatorCredential credential, string? pin = null, CancellationToken cancellationToken = default)
-            => broker.TrySignPayloadAsync(payload, credential, pin, cancellationToken);
-        public Task<CredentialSignResult> TrySignDocumentAsync(byte[] document, OperatorCredential credential, string? pin = null, DateTimeOffset? signingTime = null, CancellationToken cancellationToken = default)
-            => broker.TrySignDocumentAsync(document, credential, pin, signingTime, cancellationToken);
-        public void Dispose() { }
-    }
-    private sealed class LegacyEmbeddedSession(IOperatorCredentialBroker broker, IEmbeddedPdfSigningBroker embedded)
-        : LegacySession(broker), IEmbeddedPdfSigningBroker
-    {
-        public Task<CredentialSignResult> TrySignPdfAsync(byte[] pdf, OperatorCredential credential, string? pin = null, DateTimeOffset? signingTime = null, CancellationToken cancellationToken = default)
-            => embedded.TrySignPdfAsync(pdf, credential, pin, signingTime, cancellationToken);
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!string.Equals(selected.Serial, credential.Serial, StringComparison.Ordinal)
+                || !string.Equals(selected.Thumbprint, credential.Thumbprint, StringComparison.OrdinalIgnoreCase))
+                return Task.FromResult(CredentialSignResult.Failure(CredentialFailureKind.CertificateMismatch,
+                    "Mock signing session does not match the captured identity.", "signing"));
+            return broker.TrySignPayloadAsync(payload, selected, pin, cancellationToken);
+        }
+        public void Dispose() => _disposed = true;
     }
 }

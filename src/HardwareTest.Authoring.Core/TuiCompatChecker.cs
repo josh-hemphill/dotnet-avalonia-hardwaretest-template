@@ -42,14 +42,6 @@ public sealed class TuiCompatChecker : ITuiCompatChecker
         {
             foreach (var dll in EnumeratePackageDlls(xmlPath))
             {
-                if (string.Equals(
-                        Path.GetFileName(dll),
-                        OpenTapHomeBootstrapper.VisaAssemblyFileName,
-                        StringComparison.OrdinalIgnoreCase))
-                {
-                    continue;
-                }
-
                 AddPluginTypes(dll, map);
             }
         }
@@ -163,7 +155,7 @@ public sealed class TuiCompatChecker : ITuiCompatChecker
             new PlanContractOptions
             {
                 Strict = true,
-                ExcludeVisaAdapter = true,
+                EnablePhysicalExecution = false,
                 TrustConfiguredPluginDirectories = true,
                 Settings = new AppSettings
                 {
@@ -257,7 +249,7 @@ public sealed class TuiCompatChecker : ITuiCompatChecker
 
     private static bool IsPluginType(Type type)
         => typeof(ITestStep).IsAssignableFrom(type)
-           || typeof(Instrument).IsAssignableFrom(type)
+           || typeof(IResource).IsAssignableFrom(type)
            || typeof(IMixinBuilder).IsAssignableFrom(type);
 
     private static string DisplayNameOf(Type type)

@@ -87,22 +87,32 @@ HardwareTest (operator)  ──x──  does not reference Authoring*
 
 Headless flags on the same exe (`--pack`, `--bootstrap`, `--compat`) exit before Avalonia, matching `HardwareTest --validate-plan`. Keep `HardwareTest.PlanValidate` as the pack-gate CLI for appliance CI; Authoring CLI is for workspace bootstrap/pack/compat.
 
+### Document sessions and editing
+
+`AuthoringDocumentSession` owns a program's isolated snapshots, revision, saved plan/sidecar baselines, stable selected node and `AuthoringHistory`. `AuthoringEditService` commits explicit edits; no-op and failed edits preserve Redo. Snapshots deep-copy mutable sidecars and nested collections. Setup and measure nodes carry stable IDs, imported from OpenTAP step IDs and retained by record updates and supported-step compilation.
+
+The workspace view model coordinates these services with the existing editors and save commands. Dirty state compares current content with the last successful save, independently for plan and sidecar. Full Save advances both baselines, sidecar-only Save advances one, and failures advance neither. New programs remain unsaved until their first full Save.
+
+Workspace catalog transactions capture the manifest and affected program content together. Undo/Redo checks the current content before restoring a transaction, protecting newer edits. Program file deletion clears related history. Selection changes and presentation refreshes do not count as edits; opening another workspace creates fresh sessions.
+
+`AuthoringDependencyIndex` projects nested channel/instrument references with stable node targets and preserves uncertainty for raw content and unresolved legacy bindings. `AuthoringIssueService` supplies editing findings separately from saved-plan contract findings. This package does not change legacy algorithm execution, the compiled-save format, or the build pipeline; durable authoring JSON and recovery remain package 06.
+
 ### Isolated OpenTAP home
 
 Not the operator publish tree and not a machine-global `tap` install the engineer already uses for other products.
 
-Default: `{workspace}/.authoring/opentap/` (gitignored in product repos) or `--opentap-home`. Bootstrap uses `tap package install` of **file** TapPackages we just built, plus TUI from the OpenTAP feed when network is allowed. CI can pass `--tui-package` / `--instrument-components-package` paths so bootstrap stays offline.
+Default: `{workspace}/.authoring/opentap/` (gitignored in product repos) or `--opentap-home`. Prepare copies bundled authoring prerequisites and installs the pinned Instrument Components release when declared, entirely offline. Compatible installed libraries are reused. Trusted `--tui-package` / `--instrument-components-package` paths provide explicit overrides through the owned package importer; invalid overrides fail without replacing the selected home.
 
 ## Workspace contract
 
-`authoring.json` is schemaVersion 1, `additionalProperties: false`. Persist with `AuthoringJsonContext` in Authoring.Core — do not register these types on Core’s `AppJsonContext` (architecture tests only walk Core roots).
+`authoring.json` requires the current schemaVersion 2; older manifests are rejected without changes and future manifests load read-only. It uses `additionalProperties: false`. Persist with `AuthoringJsonContext` in Authoring.Core — do not register these types on Core’s `AppJsonContext` (architecture tests only walk Core roots).
 
 Product-workspace example (this template’s golden `authoring.json` **omits** InstrumentComponents.OpenTap so sample/board-demo stay Basic):
 
 ```json
 {
   "$schema": "./authoring.schema.json",
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "displayName": "Power Board Test Set",
   "plansDirectory": "plans",
   "package": {
@@ -112,7 +122,7 @@ Product-workspace example (this template’s golden `authoring.json` **omits** I
   },
   "dependencies": [
     { "package": "OpenTAP", "version": "^9.32.2" },
-    { "package": "HardwareTest Basic", "version": "^0.1.0" },
+    { "package": "HardwareTest Basic", "version": "^0.2.0" },
     { "package": "HardwareTest Mixins", "version": "^0.1.0" },
     { "package": "InstrumentComponents.OpenTap", "version": "^0.1.0" }
   ],
@@ -126,7 +136,7 @@ Product-workspace example (this template’s golden `authoring.json` **omits** I
 }
 ```
 
-`instrumentComponentsPackage` is a path or leave null and resolve `HARDWARETEST_INSTRUMENT_COMPONENTS_PACKAGE`. This template workspace omits that dependency so sample/board-demo still validate without the library pack.
+`instrumentComponentsPackage` optionally overrides the bundled release with a trusted package path. Preparation prefers BootstrapOptions, then this manifest path, then `HARDWARETEST_INSTRUMENT_COMPONENTS_PACKAGE`; otherwise it installs the bundled 0.1.1 release offline or reuses a compatible selected home. Invalid explicit paths fail without fallback. This template workspace omits that dependency so sample/board-demo still validate without the library pack.
 
 Directory rules (same as today, plus the manifest):
 
@@ -320,7 +330,7 @@ Area 8 may proceed in parallel with Areas 5–7 once Area 3’s IR and Area 2’
 | `src/HardwareTest.Authoring/` exe | 6 | only; Area 4 tests pack via Core API |
 | `PresentationRoleMap.TryMapRole` | 5, 7 | Area 5 moves the map; 7 binds preview |
 | Operator `HardwareTest.csproj` | 5 | usings only — no Authoring reference |
-| `dirs.proj` / `HardwareTest.slnx` | 1, 6 | Area 1 adds Core + tests; Area 6 adds the exe |
+| `dirs.proj` | 1, 6 | Area 1 adds Core + tests; Area 6 adds the exe |
 | `tools/ci` TASKS | 6, 8 | Area 6 may add `pack:template` (exe exists); Area 8 adds `test:authoring-compat`. Never both rewrite the catalog in the same PR. |
 | `docs/getting-started.md` | 9 | only; earlier areas may add a one-line pointer |
 
@@ -331,7 +341,7 @@ Area 8 may proceed in parallel with Areas 5–7 once Area 3’s IR and Area 2’
 - Goal: Load/save a planning directory against a versioned `authoring.json`; fail closed on unknown schemaVersion; architecture gates exist so later UI cannot leak into Core.
 - Depends on: nothing (base `latest`)
 - Out of scope: OpenTAP install, compile, UI, pack, TUI
-- Likely files / crates: `src/HardwareTest.Authoring.Core/`, `plans/opentap/authoring.json` + `authoring.schema.json`, `tests/HardwareTest.Authoring.Tests/`, `dirs.proj`, `HardwareTest.slnx`, `ArchitectureRulesTests.cs`
+- Likely files / crates: `src/HardwareTest.Authoring.Core/`, `plans/opentap/authoring.json` + `authoring.schema.json`, `tests/HardwareTest.Authoring.Tests/`, `dirs.proj`, `ArchitectureRulesTests.cs`
 - Public surface:
 
 ```csharp
@@ -459,7 +469,7 @@ public static class WorkspacePacker
 ### Area 5: Extract shared presentation map
 
 - Goal: Operator and Authoring share one Avalonia-free DisplayRole → tile-kind function. Operator Run/Results behavior unchanged.
-- Depends on: **Recommended base: Area 4** so Core/slnx churn from Areas 1–4 is done. No Authoring UI.
+- Depends on: **Recommended base: Area 4** so Core/build churn from Areas 1–4 is done. No Authoring UI.
 - Out of scope: Authoring UI, new roles, moving ViewModels
 - Likely files: move `TryMapRole` + role constants next to Mixins `PresentationDisplayRoles` (or Host); operator `PresentationRoleMap` becomes a thin wrapper for `IsRunGaugeSample` / `BuildFromStoredSamples` which stay in the operator assembly.
 - Public surface: `TryMapRole(string? displayRole)` + `timeseries` / `scalar` / `passband` / `timing` constants. Namespace may change — update operator wrappers in this PR.
@@ -600,3 +610,17 @@ This template does not create those product repos. Pack’s `ship-manifest.json`
 ### Authoring app settings
 
 Workstation preferences for the engineer exe live in `%AppData%/HardwareTest/authoring-preferences.json` (Linux `~/.config/HardwareTest/authoring-preferences.json`). **Do not** reuse operator `settings.json` / `ISettingsStore`. Core `AuthoringPreferencesStore` is Avalonia-free; `AuthoringThemeApplier` maps System/Light/Dark onto `RequestedThemeVariant` in the exe. The toolbar **Settings** button opens a dedicated window (not a Program tab) so workstation prefs stay out of test-planning context. Last workspace is offered on the Programs rail and is never auto-opened.
+
+### Durable authoring sources and recovery
+
+Authoring saves versioned source documents in `authoring-drafts/<programId>.authoring.json` and the workspace catalog in `authoring-drafts/workspace.authoring.json`. Commit these files with the workspace. Source documents preserve stable node identities, raw imported XML, settings, formula deployment intent and incomplete numeric input. Incomplete drafts can be saved and reopened without producing compiled files; validation and packing remain blocked until the saved content compiles successfully.
+
+Edits also produce debounced local checkpoints under `.authoring/recovery`, which is ignored by Git. A checkpoint never clears unsaved changes. The **Draft recovery and reconciliation** section in the Workspace tab offers explicit recover/discard actions; recovery restores editable content against the saved source baseline. Checkpoint failures appear in the status/error area and retain the open draft. Opening another workspace or closing the editor cancels pending checkpoint work.
+
+When compiled plan or sidecar hashes differ from the source baseline, export pauses until an engineer explicitly imports external compiled changes or retains the authoring source for export. Future source schemas open the workspace read-only and preserve their bytes. Corrupt known source documents report an error with a repair/backup path instead of silently importing compiled content over them. Atomic source replacement keeps a `.bak` of the last committed document; abandoned temporary files never supersede the committed source.
+
+If Save All publishes the compiled workspace manifest but cannot publish its matching workspace source, the editor reports the original catalog save failure and retains both files. Reopening detects their differing catalogs before overlaying the source and reports a workspace catalog conflict. Review `authoring.json`, `authoring-drafts/workspace.authoring.json` and their retained backups, restore the intended catalog consistently, then reopen and retry Save All. This prevents a failed second replacement from silently restoring an older catalog.
+
+`--eval-formulas` evaluates the current saved authoring source against recordings, including exploration-only formulas and programs that have no compiled artifact. It does not substitute an older compiled formula. Unsupported future schemas and corrupt source documents report an error and preserve their bytes. Validation, compatibility and packing continue to require compiled artifacts matching the saved authoring content.
+
+Channel-average checks and transfer-function sample capture support plan-root siblings and Basic Test Group/Repeat Loop execution boundaries. Other composite steps fail with `SAMPLE_SCOPE` because their hidden iteration boundaries cannot establish sample freshness. Keep each producer and its derived check in the same supported sequence. Legacy Mean GTE continues to read the instrument directly.
