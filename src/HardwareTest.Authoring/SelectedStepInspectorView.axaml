@@ -70,7 +70,7 @@
           </StackPanel>
           <StackPanel Spacing="6" IsVisible="{Binding HasMetricPresentation}">
             <TextBlock x:Name="LimitLowLabel" Text="Limit low" IsVisible="{Binding ShowBandLimits}" TextWrapping="Wrap"/>
-            <TextBox Text="{Binding LimitLow}" IsVisible="{Binding ShowBandLimits}" AutomationProperties.Name="Limit low"
+            <TextBox x:Name="LimitLowBox" Text="{Binding LimitLow}" IsVisible="{Binding ShowBandLimits}" AutomationProperties.Name="Limit low"
                 AutomationProperties.LabeledBy="{Binding #LimitLowLabel}"/>
             <TextBlock x:Name="LimitHighLabel" Text="Limit high" IsVisible="{Binding ShowBandLimits}" TextWrapping="Wrap"/>
             <TextBox Text="{Binding LimitHigh}" IsVisible="{Binding ShowBandLimits}" AutomationProperties.Name="Limit high"
@@ -270,13 +270,13 @@
           <TextBlock Text="{Binding PreviewNote}" TextWrapping="Wrap" AutomationProperties.Name="Operator preview note"/>
         </StackPanel>
       </Expander>
-      <Expander Header="Advanced" IsExpanded="True" HorizontalContentAlignment="Stretch"
+      <Expander x:Name="AdvancedExpander" Header="Advanced" IsExpanded="True" HorizontalContentAlignment="Stretch"
           AutomationProperties.Name="Advanced selected step">
         <StackPanel Spacing="6">
           <TextBlock Text="{Binding SelectedNodeIdentity}" TextWrapping="Wrap" AutomationProperties.Name="Stable step identity"/>
           <StackPanel Spacing="6" IsVisible="{Binding HasMetricPresentation}">
             <TextBlock x:Name="ChannelKeyLabel" Text="Channel key" TextWrapping="Wrap"/>
-            <AutoCompleteBox ItemsSource="{Binding ChannelKeys}" Text="{Binding ChannelKey, UpdateSourceTrigger=LostFocus}"
+            <AutoCompleteBox x:Name="ChannelKeyBox" ItemsSource="{Binding ChannelKeys}" Text="{Binding ChannelKey, UpdateSourceTrigger=LostFocus}"
                 FilterMode="Contains" AutomationProperties.Name="Channel key"
                 AutomationProperties.LabeledBy="{Binding #ChannelKeyLabel}"
                 ToolTip.Tip="Must be unique in the plan. Operators and history use this id."/>

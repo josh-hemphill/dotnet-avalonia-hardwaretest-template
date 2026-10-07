@@ -205,18 +205,28 @@ public partial class MainWindow : Window
     internal async void OnOpenLastWorkspace(object? sender, RoutedEventArgs e)
         => await OpenWorkspaceAsync(_viewModel.LastWorkspacePath);
 
+    private long _findingNavigationGeneration;
+
     internal void OnOpenFindingProgram(object? sender, RoutedEventArgs e)
     {
-        if (sender is not Button { DataContext: AuthoringFindingRow { CanOpenProgram: true } row })
+        var target = sender is Button { DataContext: AuthoringFindingRow row } ? _viewModel.NavigateFinding(row)
+            : sender is Button { DataContext: AuthoringEditingIssue issue } ? _viewModel.NavigateEditingIssue(issue) : null;
+        if (target is null) return;
+        var navigation = ++_findingNavigationGeneration;
+        var workspace = _viewModel.Workspace;
+        var document = _viewModel.SelectedDocument;
+        var revision = document?.Revision;
+        WorkspaceTabs.SelectedIndex = target.NodeId is null ? 1 : 0;
+        if (target.NodeId is not null && target.Section is null && target.Field is null) return;
+        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
         {
-            return;
-        }
-
-        _viewModel.SelectProgram(row.ProgramId);
-        if (this.FindControl<TabControl>("WorkspaceTabs") is { } tabs)
-        {
-            tabs.SelectedIndex = 0;
-        }
+            if (navigation != _findingNavigationGeneration || !ReferenceEquals(workspace, _viewModel.Workspace)
+                || !ReferenceEquals(document, _viewModel.SelectedDocument) || revision != document?.Revision
+                || target.ProgramId != _viewModel.SelectedProgram?.PlanId || target.NodeId != _viewModel.SelectedSequence?.NodeId) return;
+            var inspector = this.GetVisualDescendants().OfType<SelectedStepInspectorView>().SingleOrDefault();
+            if (target.NodeId is not null && inspector?.FocusFinding(target) != true)
+                _viewModel.ReportError("The target section is open; no supported precise field control is available.");
+        }, Avalonia.Threading.DispatcherPriority.Loaded);
     }
 
     private void OnOpenSettings(object? sender, RoutedEventArgs e)

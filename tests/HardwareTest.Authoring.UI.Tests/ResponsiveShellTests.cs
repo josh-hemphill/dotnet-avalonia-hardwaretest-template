@@ -1,3 +1,4 @@
+using System.Xml.Linq;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Presenters;
@@ -136,19 +137,33 @@ public sealed class ResponsiveShellTests
     public void Many_long_finding_rows_scroll_and_open_the_real_program_from_issues()
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
+        var path = Path.Combine(fixture.WorkspaceRoot, "sample.TapPlan");
+        var xml = XDocument.Load(path);
+        var acquisition = xml.Descendants("TestStep").Single(step => ((string?)step.Attribute("type"))?.EndsWith("AcquireVoltageStep", StringComparison.Ordinal) == true);
+        acquisition.Add(new XElement("SeriesCompliance", "allSamples"));
+        xml.Save(path);
         var window = fixture.Show(960, 600);
         window.FontSize = 20;
         window.SetRenderScaling(1.5);
         fixture.OpenRememberedWorkspace();
+        fixture.ViewModel.Validate();
+        var seed = Assert.Single(fixture.ViewModel.FindingRows, item => item.Code == PlanContractValidator.Codes.ComplianceWithoutLimits);
+        Assert.False(seed.IsStale);
+        Assert.NotNull(seed.CheckedIdentity);
         var tabs = window.FindControl<TabControl>("WorkspaceTabs")!;
         ClickTab(window, tabs, 2);
         var findings = fixture.Control<ListBox>("Contract findings");
-        // Exercise the existing finding projection independently of validation subprocess output.
-        var rows = Enumerable.Range(0, 80).Select(i => new AuthoringFindingRow("sample",
-            Path.Combine(fixture.WorkspaceRoot, "sample.TapPlan"),
-            new PlanContractFinding(PlanContractSeverity.Warning, $"W{i}",
-                "A longer translated finding message that remains readable in the constrained Issues viewport", "Measure"), true)).ToArray();
-        findings.ItemsSource = rows;
+        // Expand the projection while preserving a real check's session, revision and saved-byte identity.
+        var rows = Enumerable.Range(0, 80).Select(i => seed with
+        {
+            Finding = new PlanContractFinding(PlanContractSeverity.Warning, $"W{i}",
+                "A longer translated finding message that remains readable in the constrained Issues viewport", "Measure"),
+            NodeId = null,
+            NavigationLabel = "Open program settings",
+            NavigationReason = "No verified source field is available; opens program settings."
+        }).ToArray();
+        typeof(AuthoringWorkspaceViewModel).GetProperty(nameof(AuthoringWorkspaceViewModel.FindingRows))!
+            .SetValue(fixture.ViewModel, rows);
         AuthoringUiFixture.Drain();
         Inside(findings, window);
         findings.ScrollIntoView(rows[^1]);
@@ -156,13 +171,20 @@ public sealed class ResponsiveShellTests
         var scroll = Assert.Single(findings.GetVisualDescendants().OfType<ScrollViewer>());
         Assert.True(scroll.Offset.Y > 0);
         var row = Assert.IsAssignableFrom<Control>(findings.ContainerFromIndex(rows.Length - 1));
-        var open = Assert.Single(row.GetVisualDescendants().OfType<Button>(), button => Equals(button.Content, "Open program"));
+        var open = Assert.Single(row.GetVisualDescendants().OfType<Button>(), button => Equals(button.Content, "Open program settings"));
         open.BringIntoView();
         AuthoringUiFixture.Drain();
         Inside(open, window);
         AuthoringUiFixture.Click(open);
-        Assert.Equal(0, tabs.SelectedIndex);
+        Assert.Equal(1, tabs.SelectedIndex);
         Assert.Equal("sample", fixture.ViewModel.SelectedProgram!.PlanId);
+        Assert.Null(fixture.ViewModel.Error);
+        var displayName = fixture.Control<TextBox>("Display name");
+        displayName.BringIntoView();
+        AuthoringUiFixture.Drain();
+        Assert.True(displayName.Focus());
+        Inside(displayName, window);
+        ClickTab(window, tabs, 0);
         Inside(fixture.Control<ListBox>("Program sequence"), window);
         Assert.False(fixture.ViewModel.HasUnsavedChanges);
     }

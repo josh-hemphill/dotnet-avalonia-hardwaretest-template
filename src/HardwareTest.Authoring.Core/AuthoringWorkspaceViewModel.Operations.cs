@@ -47,6 +47,8 @@ public sealed partial class AuthoringWorkspaceViewModel
     private void ReplaceOperationWorkspace()
     {
         _workspaceSession = Guid.NewGuid();
+        _lastFindingCheck = null;
+        OnPropertyChanged(nameof(IssuesCheckState));
         _operationGeneration++;
         _operations?.ReplaceWorkspace();
         OperationStage = null;
@@ -59,18 +61,13 @@ public sealed partial class AuthoringWorkspaceViewModel
         var workspace = Workspace ?? throw new AuthoringWorkspaceException("Open a workspace first.");
         if (OperationBusy) throw new InvalidOperationException("An authoring operation is already running.");
         if (kind == AuthoringOperationKind.Pack && !CanPack) throw new AuthoringWorkspaceException(PackGuardText);
-        if (kind == AuthoringOperationKind.Validate)
-        {
-            if (HasUnsavedChanges) throw new AuthoringWorkspaceException(ValidationScope);
-            RefreshSourceReadiness();
-            if (HasUncompiledSources || _compiledConflicts.Count > 0)
-                throw new AuthoringWorkspaceException("Compile saved drafts and reconcile external edits before validating compiled plans.");
-        }
+        if (kind == AuthoringOperationKind.Validate && HasUnsavedChanges) throw new AuthoringWorkspaceException(ValidationScope);
         var generation = _operationGeneration;
         OperationBusy = true;
         Error = null;
         try
         {
+            var checkedState = kind == AuthoringOperationKind.Validate ? PrepareFindingCheck() : null;
             var result = await coordinator.RunAsync(kind, workspace.Root, outputDirectory, Prefs.OpenTapHomeOverride,
                 progress: update => _operationDispatch!(() =>
                 {
@@ -81,12 +78,8 @@ public sealed partial class AuthoringWorkspaceViewModel
                 if (_operationGeneration != generation) return;
                 if (result.Validation is { } report)
                 {
-                    Findings = report.Plans.SelectMany(p => p.Findings).ToArray();
-                    FindingRows = report.Plans.SelectMany(plan => plan.Findings.Select(finding => new AuthoringFindingRow(
-                        Path.GetFileNameWithoutExtension(plan.TargetPath), plan.TargetPath, finding,
-                        Programs.Any(program => string.Equals(program.PlanId, Path.GetFileNameWithoutExtension(plan.TargetPath), StringComparison.OrdinalIgnoreCase))))).ToArray();
-                    Status = report.HasErrors ? $"{report.ErrorCount} contract error(s)" : $"{report.WarningCount} contract warning(s)";
-                    Error = report.HasErrors ? Status : null;
+                    AcceptFindings(report, checkedState!);
+                    SetFindingValidationStatus(report);
                 }
                 else if (result.Build is { } build)
                 {

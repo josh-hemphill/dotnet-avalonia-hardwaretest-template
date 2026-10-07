@@ -1,12 +1,49 @@
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.VisualTree;
 
 namespace HardwareTest.Authoring;
 
 public partial class SelectedStepInspectorView : UserControl
 {
     public SelectedStepInspectorView() => InitializeComponent();
+
+    public bool FocusFinding(HardwareTest.OpenTap.Host.PlanContractTarget target)
+    {
+        if (DataContext is not AuthoringWorkspaceViewModel vm || vm.SelectedProgram?.PlanId != target.ProgramId
+            || vm.SelectedSequence?.NodeId != target.NodeId) return false;
+        var section = target.Section switch
+        {
+            "Advanced" => AdvancedExpander,
+            "Configure" => ConfigureExpander,
+            _ => null,
+        };
+        if (section is null) return false;
+        section.IsExpanded = true;
+        if (target.Field is null)
+        {
+            section.BringIntoView();
+            return true;
+        }
+        if (target.Field == "Threshold" && vm.ShowThreshold)
+        {
+            ThresholdBox.BringIntoView();
+            return ThresholdBox.Focus();
+        }
+        if (target.Field == "LimitLow" && vm.ShowBandLimits)
+        {
+            LimitLowBox.BringIntoView();
+            return LimitLowBox.Focus();
+        }
+        if (target.Field == "ChannelKey" && vm.HasMetricPresentation)
+        {
+            ChannelKeyBox.BringIntoView();
+            var editors = ChannelKeyBox.GetVisualDescendants().OfType<TextBox>().Where(editor => editor.IsEffectivelyVisible).ToArray();
+            return editors.Length == 1 && editors[0].Focus();
+        }
+        return false;
+    }
 
     private void OnToggleCleanupSlot(object? sender, RoutedEventArgs e)
         => (TopLevel.GetTopLevel(this) as MainWindow)?.OnToggleCleanupSlot(sender, e);

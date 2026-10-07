@@ -1,6 +1,12 @@
 namespace HardwareTest.Authoring;
 
-public sealed record AuthoringEditingIssue(string Code, string Message, string PlanId, Guid NodeId);
+public sealed record AuthoringEditingIssue(string Code, string Message, string PlanId, Guid NodeId)
+{
+    public HardwareTest.OpenTap.Host.PlanContractSeverity Severity { get; init; } = HardwareTest.OpenTap.Host.PlanContractSeverity.Error;
+    public string? Section { get; init; }
+    public string? Field { get; init; }
+    public string NavigationLabel => Section == "ProgramSettings" ? "Open program settings" : Field is null ? "Open location" : "Go to field";
+}
 
 /// Editing findings supplement compiler findings without blocking persistence.
 public static class AuthoringIssueService
@@ -81,7 +87,17 @@ public static class AuthoringIssueService
         foreach (var instrument in draft.Instruments)
             if (!AuthoringInstrumentCatalog.CanReplace(draft, instrument.SlotName, instrument))
                 issues.Add(new("INSTRUMENT_INCOMPATIBLE", $"Instrument '{instrument.SlotName}' lacks capabilities required by its bindings. Choose a compatible instrument or function.", draft.PlanId, Guid.Empty));
-        return issues.ToArray();
+        return issues.Select(issue =>
+        {
+            if (issue.Code == AuthoringCompileCodes.MissingLimits)
+            {
+                var destination = AuthoringFindingNavigation.Resolve(draft, issue.NodeId,
+                    new(ProgramId: draft.PlanId, NodeId: issue.NodeId, Section: "Configure", Field: "Threshold"));
+                return issue with { Section = destination.Target.Section, Field = destination.Target.Field };
+            }
+            return issue.Code is "OPAQUE_REFERENCES" or "FORMULA_EXCLUDED"
+                ? issue with { Severity = HardwareTest.OpenTap.Host.PlanContractSeverity.Warning } : issue;
+        }).ToArray();
 
         void Add(string code, string message, AuthoringNodeDependency node)
             => issues.Add(new(code, message, draft.PlanId, node.NodeId));

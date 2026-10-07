@@ -120,7 +120,7 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
     public IReadOnlyList<AuthoringFindingRow> FindingRows
     {
         get => _findingRows;
-        private set => SetField(ref _findingRows, value);
+        private set { if (SetField(ref _findingRows, value)) OnPropertyChanged(nameof(IssuesSummary)); }
     }
 
     public IReadOnlyList<RunDataset> Datasets => _datasets;
@@ -157,6 +157,13 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
 
     public void ReportError(string message)
     {
+        if (HasWorkspace && HasUnsavedChanges && message == ValidationScope)
+        {
+            Error = null;
+            Status = null;
+            OnPropertyChanged(nameof(ValidationScope));
+            return;
+        }
         Error = message;
         Status = message;
     }
@@ -348,29 +355,16 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
             throw new AuthoringWorkspaceException(ValidationScope);
         }
 
-        RefreshSourceReadiness();
-        AuthoringSourceExportGuard.EnsureCurrent(Workspace);
-        if (HasUncompiledSources || _compiledConflicts.Count > 0)
-            throw new AuthoringWorkspaceException("Compile saved drafts and reconcile external edits before validating compiled plans.");
-
-        var report = PlanContractValidator.Validate(
+        var checkedState = PrepareFindingCheck();
+        var report = ValidateSavedPlans(
             Workspace.TapPlanPaths,
             new PlanContractOptions
             {
                 Strict = strict,
                 ExcludeVisaAdapter = !AuthoringInstrumentCatalog.DeclaresVisa(Workspace),
             });
-        Findings = report.Plans.SelectMany(p => p.Findings).ToArray();
-        FindingRows = report.Plans.SelectMany(plan => plan.Findings.Select(finding =>
-        {
-            var planId = Path.GetFileNameWithoutExtension(plan.TargetPath);
-            return new AuthoringFindingRow(planId, plan.TargetPath, finding,
-                Programs.Any(program => string.Equals(program.PlanId, planId, StringComparison.OrdinalIgnoreCase)));
-        })).ToArray();
-        Status = report.HasErrors
-            ? $"{report.ErrorCount} contract error(s)"
-            : $"{report.WarningCount} contract warning(s)";
-        Error = report.HasErrors ? Status : null;
+        AcceptFindings(report, checkedState);
+        SetFindingValidationStatus(report);
         return report;
     }
 

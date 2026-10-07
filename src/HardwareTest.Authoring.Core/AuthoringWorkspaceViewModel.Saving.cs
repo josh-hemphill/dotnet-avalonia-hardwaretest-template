@@ -72,14 +72,33 @@ public sealed partial class AuthoringWorkspaceViewModel
     {
         var saved = new List<string>();
         var failures = new List<ProgramSaveFailure>();
-        foreach (var id in DirtyProgramIds)
+        var verificationWarnings = new List<string>();
+        var dirtyPrograms = DirtyProgramIds.ToArray();
+        var canPublish = true;
+        WorkspaceCatalogSaveFailure = null;
+        if (dirtyPrograms.Length > 0 || WorkspaceCatalogDirty || HasCurrentFindingCheck)
         {
-            try { SaveProgramCore(id, forcePlan: false, sidecarOnly: false); saved.Add(id); }
+            try { VerifySavedInputsForSave(dirtyPrograms); }
+            catch (Exception ex)
+            {
+                canPublish = false;
+                foreach (var id in dirtyPrograms) failures.Add(new(id, PersistenceError(ex)));
+                if (WorkspaceCatalogDirty) WorkspaceCatalogSaveFailure = $"Workspace catalog could not be saved; retry Save All: {PersistenceError(ex)}";
+                else if (dirtyPrograms.Length == 0) failures.Add(new("Workspace", PersistenceError(ex)));
+            }
+        }
+        foreach (var id in canPublish ? dirtyPrograms : [])
+        {
+            try
+            {
+                var verificationWarning = SaveProgramCore(id, forcePlan: false, sidecarOnly: false);
+                saved.Add(id);
+                if (verificationWarning is not null) verificationWarnings.Add($"{id}: {verificationWarning}");
+            }
             catch (Exception ex) { failures.Add(new(id, PersistenceError(ex))); }
         }
         var catalogSaved = false;
-        WorkspaceCatalogSaveFailure = null;
-        if (WorkspaceCatalogDirty && failures.Count == 0 && DirtyProgramIds.Count == 0)
+        if (canPublish && WorkspaceCatalogDirty && failures.Count == 0 && DirtyProgramIds.Count == 0)
         {
             try
             {
@@ -108,7 +127,8 @@ public sealed partial class AuthoringWorkspaceViewModel
         Status = $"Saved {saved.Count} program(s){(catalogSaved ? " and workspace catalog" : "")}; {failures.Count + (WorkspaceCatalogSaveFailure is null ? 0 : 1)} failure(s)";
         var messages = failures.Select(f => $"{f.PlanId}: {f.Message}")
             .Concat(WorkspaceCatalogSaveFailure is { } catalogFailure ? [catalogFailure] : [])
-            .Concat(SavePreviewWarning is { } warning ? [warning] : []).ToArray();
+            .Concat(SavePreviewWarning is { } warning ? [warning] : [])
+            .Concat(verificationWarnings).ToArray();
         Error = messages.Length == 0 ? null : string.Join(Environment.NewLine, messages);
         return result;
     }
@@ -121,9 +141,10 @@ public sealed partial class AuthoringWorkspaceViewModel
 
     private void SaveProgramWithPreview(string planId, bool forcePlan, bool sidecarOnly)
     {
-        SaveProgramCore(planId, forcePlan, sidecarOnly);
+        var verificationWarning = SaveProgramCore(planId, forcePlan, sidecarOnly);
         RefreshSavePreview();
-        Error = SavePreviewWarning;
+        var warnings = new[] { SavePreviewWarning, verificationWarning }.OfType<string>().ToArray();
+        Error = warnings.Length == 0 ? null : string.Join(Environment.NewLine, warnings);
     }
 
     private void RefreshSavePreview()
@@ -139,7 +160,16 @@ public sealed partial class AuthoringWorkspaceViewModel
         }
     }
 
-    private void SaveProgramCore(string planId, bool forcePlan, bool sidecarOnly)
+    private string? SaveProgramCore(string planId, bool forcePlan, bool sidecarOnly)
+    {
+        VerifySavedInputsForSave([planId]);
+        string? verificationWarning = null;
+        try { PublishProgramCore(planId, forcePlan, sidecarOnly); }
+        finally { verificationWarning = InvalidateFindingsAfterSave(); }
+        return verificationWarning;
+    }
+
+    private void PublishProgramCore(string planId, bool forcePlan, bool sidecarOnly)
     {
         var workspace = Workspace ?? throw new AuthoringWorkspaceException("Open a workspace before saving.");
         if (workspace.IsReadOnly) throw new AuthoringWorkspaceException("Workspace is read-only; cannot save.");
@@ -166,6 +196,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         _recovery?.Cancel(workspace.Root, planId);
         store.DeleteRecovery(planId);
         string? compilationFailure = null;
+        string? savedCompilationDiagnostic = null;
         if (_compiledConflicts.Contains(planId)) compilationFailure = "External compiled edits require reconciliation before export.";
         else if (AuthoringFormulaDeployment.Project(draft).AuthoringState.IncompleteNumericText.Count > 0)
             compilationFailure = "Incomplete numeric input was saved as an authoring draft.";
@@ -192,6 +223,7 @@ public sealed partial class AuthoringWorkspaceViewModel
             catch (Exception ex) when (ex is not IOException && ex is not UnauthorizedAccessException)
             {
                 compilationFailure = PersistenceError(ex);
+                savedCompilationDiagnostic = compilationFailure;
             }
         }
         if (compilationFailure is not null)
@@ -200,6 +232,7 @@ public sealed partial class AuthoringWorkspaceViewModel
             store.Save(document);
             _uncompiledDocuments.Add(planId);
         }
+        RecordSavedCompilationDiagnostic(planId, savedCompilationDiagnostic, store);
         _documents[planId].AcceptSavedContent(draft, plan: !sidecarOnly, sidecar: true);
         RaiseDraftState();
         RecomputeDocumentDirty();
