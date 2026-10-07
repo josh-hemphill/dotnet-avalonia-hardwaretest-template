@@ -13,7 +13,7 @@ public sealed class SelectedStepFormTests
     {
         using var fixture = Open();
         var vm = fixture.ViewModel;
-        vm.CreateProgram("forms");
+        vm.CreateDemoProgram("forms");
         vm.NewInstrumentSlot = "SECOND";
         vm.AddInstrumentSlot();
         vm.ApplyRecipe(AuthoringRecipeIds.MeanGte);
@@ -40,7 +40,7 @@ public sealed class SelectedStepFormTests
     {
         using var fixture = Open();
         var vm = fixture.ViewModel;
-        vm.CreateProgram("numbers");
+        vm.CreateDemoProgram("numbers");
         vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
         vm.SelectMeasure(0);
         var id = vm.SelectedSequence!.NodeId;
@@ -76,7 +76,7 @@ public sealed class SelectedStepFormTests
     {
         using var fixture = Open();
         var vm = fixture.ViewModel;
-        vm.CreateProgram("node-forms");
+        vm.CreateDemoProgram("node-forms");
         foreach (var recipe in new[] { AuthoringRecipeIds.Prompt, AuthoringRecipeIds.Input, AuthoringRecipeIds.Acquire, AuthoringRecipeIds.Repeat })
             vm.ApplyRecipe(recipe);
         foreach (var (label, field) in new[] { ("Identity Check", "Setup instrument slot"), ("Operator Prompt", "Prompt message"), ("Operator Input", "Input title"), ("Safe Shutdown", "Include Safe Shutdown") })
@@ -104,7 +104,7 @@ public sealed class SelectedStepFormTests
     public void Forms_follow_consumed_recipe_inputs_and_instrument_requirements()
     {
         using var fixture = Open(); var vm = fixture.ViewModel;
-        vm.CreateProgram("recipe-requirements"); vm.ApplyRecipe(AuthoringRecipeIds.Acquire); vm.ApplyRecipe(AuthoringRecipeIds.MeanGte);
+        vm.CreateDemoProgram("recipe-requirements"); vm.ApplyRecipe(AuthoringRecipeIds.Acquire); vm.ApplyRecipe(AuthoringRecipeIds.MeanGte);
         vm.SelectMeasure(1); AuthoringUiFixture.Drain();
         Assert.False(fixture.Control<TextBox>("Metric input channels").IsEffectivelyVisible);
         vm.MetricFunctionId = AuthoringFunctionIds.BasicChannelAverage; AuthoringUiFixture.Drain();

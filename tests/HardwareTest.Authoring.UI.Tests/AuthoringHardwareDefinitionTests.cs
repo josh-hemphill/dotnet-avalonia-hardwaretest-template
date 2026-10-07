@@ -13,7 +13,7 @@ public sealed class AuthoringHardwareDefinitionTests
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
         var window = fixture.Show(); fixture.OpenRememberedWorkspace();
         var vm = fixture.ViewModel;
-        vm.CreateProgram("binding"); vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
+        vm.CreateDemoProgram("binding"); vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
         var ids = vm.SelectedProgram!.Measure.Select(n => n.NodeId).ToArray();
         window.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 1; AuthoringUiFixture.Drain();
         Click(fixture, "Load selected binding");
@@ -46,7 +46,7 @@ public sealed class AuthoringHardwareDefinitionTests
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
         var window = fixture.Show(); fixture.OpenRememberedWorkspace(); var vm = fixture.ViewModel;
-        vm.CreateProgram("one"); vm.CreateProgram("two"); vm.SelectProgram("one");
+        vm.CreateDemoProgram("one"); vm.CreateDemoProgram("two"); vm.SelectProgram("one");
         window.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 6; AuthoringUiFixture.Drain();
         fixture.Type(fixture.Control<TextBox>("New hardware definition name"), "BENCH");
         fixture.Type(fixture.Control<TextBox>("Hardware adapter address"), "MOCK::GLOBAL");
@@ -100,7 +100,7 @@ public sealed class AuthoringHardwareDefinitionTests
         File.WriteAllText(Path.Combine(fixture.WorkspaceRoot, "authoring.json"),
             System.Text.Json.JsonSerializer.Serialize(manifest, AuthoringJsonContext.Default.AuthoringManifest));
         var window = fixture.Show(); fixture.OpenRememberedWorkspace(); var vm = fixture.ViewModel;
-        vm.CreateProgram("visa"); vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
+        vm.CreateDemoProgram("visa"); vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
         window.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 1; AuthoringUiFixture.Drain();
         Click(fixture, "Load selected binding");
         var selected = AuthoringInstrumentCatalog.All.Single(a => a.RequiredPackage == "HardwareTest VISA");

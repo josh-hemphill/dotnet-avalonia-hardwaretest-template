@@ -449,33 +449,6 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
         return "program-" + Guid.NewGuid().ToString("N")[..8];
     }
 
-    private static ProgramDraft WithCatalogSlots(ProgramDraft draft, AuthoringManifest manifest)
-    {
-        var extra = manifest.Catalogs?.InstrumentSlotNames;
-        if (extra is null || extra.Count == 0)
-        {
-            return draft;
-        }
-
-        var instruments = draft.Instruments.ToList();
-        var typeId = instruments.FirstOrDefault()?.TypeId
-                     ?? typeof(HardwareTest.OpenTap.Plugins.Basic.MockDmmInstrument).FullName!;
-        foreach (var raw in extra)
-        {
-            var slot = AuthoringWorkspaceCatalog.Normalize(raw);
-            if (slot is null
-                || instruments.Any(instrument =>
-                    string.Equals(instrument.SlotName, slot, StringComparison.OrdinalIgnoreCase)))
-            {
-                continue;
-            }
-
-            instruments.Add(new InstrumentRef(slot, typeId, $"MOCK::INSTR{instruments.Count}"));
-        }
-
-        return draft with { Instruments = instruments };
-    }
-
     private void AssignSelectedProgram(ProgramDraft? draft)
     {
         if (SetField(ref _selectedProgram, draft, nameof(SelectedProgram)))

@@ -62,7 +62,7 @@ public sealed class CriteriaParityTests
             while (root is not null && !File.Exists(Path.Combine(root.FullName, "dirs.proj"))) root = root.Parent;
             File.Copy(Path.Combine(root!.FullName, "plans", "opentap", "authoring.json"), Path.Combine(directory, "authoring.json"));
             vm.Open(directory);
-            vm.CreateProgram("criteria");
+            vm.CreateDemoProgram("criteria");
             vm.ApplyRecipe(AuthoringRecipeIds.MeanGte);
             vm.DisplayRole = "timeseries";
             Assert.True(vm.ShowThreshold);

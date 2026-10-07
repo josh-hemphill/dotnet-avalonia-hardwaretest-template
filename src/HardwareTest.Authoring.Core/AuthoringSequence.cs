@@ -114,6 +114,12 @@ public static class AuthoringChrome
 /// Flattens ProgramDraft into a sectioned, indented list (no TreeView).
 public static class AuthoringSequence
 {
+    // Repeats only contain steps; opaque imported steps retain their existing leaf behavior.
+    public static bool HasMeasurement(IReadOnlyList<MeasureNode> nodes)
+        => nodes.Any(node => node is RepeatNode repeat
+            ? HasMeasurement(repeat.Children)
+            : node is MetricNode or RawStepNode);
+
     public const int IndentPerDepth = 16;
 
     public static IReadOnlyList<SequenceRow> Flatten(ProgramDraft? draft)

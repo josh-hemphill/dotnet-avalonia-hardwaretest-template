@@ -15,7 +15,7 @@ public sealed class AuthoringHardwareTests : IDisposable
         while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "dirs.proj"))) directory = directory.Parent;
         Directory.CreateDirectory(_root);
         File.Copy(Path.Combine(directory!.FullName, "plans", "opentap", "authoring.json"), Path.Combine(_root, "authoring.json"));
-        _vm.Open(_root); _vm.CreateProgram("one"); _vm.CreateProgram("two"); _vm.SelectProgram("one");
+        _vm.Open(_root); _vm.CreateDemoProgram("one"); _vm.CreateDemoProgram("two"); _vm.SelectProgram("one");
     }
 
     [Fact]

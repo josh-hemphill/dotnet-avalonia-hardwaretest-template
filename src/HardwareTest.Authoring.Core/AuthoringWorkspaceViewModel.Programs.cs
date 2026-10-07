@@ -16,20 +16,76 @@ public sealed partial class AuthoringWorkspaceViewModel
             throw new AuthoringWorkspaceException($"Program '{id}' already exists in this session.");
         }
 
-        var store = new AuthoringDocumentStore(Workspace.Root);
-        if (store.Load(id).Exists) throw new AuthoringWorkspaceException($"Authoring source for '{id}' already exists; reopen or reconcile it before creating this program.");
-        var created = WithCatalogSlots(AuthoringRecipeCatalog.CreateProgram(id), Workspace.Manifest);
+        CreateProgram(new PlanInitializationRequest(id));
+    }
+
+    /// Legacy convenience remains unsaved, with explicit choices using the same constructor.
+    public void CreateProgram(PlanInitializationRequest request)
+    {
+        EnsureWritableWorkspace("create a program");
+        var result = new AuthoringPlanInitializer().Construct(InitializationRequest(request));
+        OpenInitializedProgram(result, isSaved: false);
+    }
+
+    public bool CanInitializePlan => Workspace is { IsReadOnly: false } && !OperationBusy;
+    public string SuggestedPlanId => NextProgramId();
+
+    public PlanInitializationResult ReviewPlanInitialization(PlanInitializationRequest request)
+    {
+        EnsureWritableWorkspace("review a new test plan");
+        return new AuthoringPlanInitializer().Construct(InitializationRequest(request));
+    }
+
+    public PlanInitializationResult InitializePlan(PlanInitializationRequest request, CancellationToken cancellationToken = default)
+    {
+        EnsureWritableWorkspace("create a test plan");
+        if (OperationBusy) throw new AuthoringWorkspaceException("Wait for the active operation before creating a test plan.");
+        var result = new AuthoringPlanInitializer().Create(InitializationRequest(request), cancellationToken);
+        OpenInitializedProgram(result, isSaved: true);
+        return result;
+    }
+
+    private PlanInitializationRequest InitializationRequest(PlanInitializationRequest request)
+    {
+        if (Workspace is null) throw new AuthoringWorkspaceException("Open a workspace before creating a test plan.");
+        if (request.WorkspaceRoot is not null && !AuthoringDocumentStore.SamePath(request.WorkspaceRoot, Workspace.Root, isDirectory: true))
+            throw new AuthoringWorkspaceException("The workspace changed; reopen New test plan.");
+        var inspection = HardwareInspection;
+        return request with
+        {
+            WorkspaceRoot = Workspace.Root,
+            ExistingPlanIds = Programs.Select(program => program.PlanId).ToArray(),
+            Home = inspection.Home,
+            HomeResolutionError = inspection.Error
+        };
+    }
+
+    private void OpenInitializedProgram(PlanInitializationResult result, bool isSaved)
+    {
+        var created = result.Draft;
         RememberNodeSelection();
         _workspaceHistory.Clear();
-        _documents.Add(id, new AuthoringDocumentSession(created, isSaved: false));
+        var session = new AuthoringDocumentSession(created, isSaved: isSaved);
+        _documents.Add(created.PlanId, session);
+        created = session.Draft;
         Programs = [.. Programs, created];
+        if (isSaved)
+        {
+            var source = AuthoringDocumentDto.FromDraft(created);
+            source.RequiresCompilation = true;
+            _sourceDocuments.Add(created.PlanId, source);
+            _uncompiledDocuments.Add(created.PlanId);
+            RaiseDraftState();
+        }
         _selectedInstrumentSlot = null;
         AssignSelectedProgram(created);
+        var preferred = SequenceItems.ToList().FindIndex(row => row.IsSelectable && row.Section == SequenceSection.Measure);
+        if (preferred < 0) preferred = SequenceItems.ToList().FindIndex(row => row.IsSelectable);
+        if (preferred >= 0) SelectSequence(preferred);
+        RememberNodeSelection();
         InvalidateContractFindings();
         RecomputeDocumentDirty();
-        Status = created.Measure.Count == 0
-            ? AuthoringChrome.EmptyMeasureHint
-            : $"Created {id}";
+        Status = result.NextAction;
         Error = null;
         RefreshDatasets();
         RaiseSidecarProperties();

@@ -41,7 +41,7 @@ public sealed class MetricEditorTests
         var root = EmptyWorkspace();
         var vm = new AuthoringWorkspaceViewModel();
         vm.Open(root);
-        vm.CreateProgram("metric-ui");
+        vm.CreateDemoProgram("metric-ui");
         Assert.Equal(AuthoringChrome.EmptyMeasureHint, vm.MeasureHint);
 
         vm.ApplyRecipe(AuthoringRecipeIds.MeanGte);
@@ -81,7 +81,7 @@ public sealed class MetricEditorTests
         AuthoringWorkspaceLoader.SaveManifest(root, workspace.Manifest);
         var vm = new AuthoringWorkspaceViewModel();
         vm.Open(root);
-        vm.CreateProgram("no-limits");
+        vm.CreateDemoProgram("no-limits");
         vm.ApplyRecipe(AuthoringRecipeIds.MeanGte);
         vm.Threshold = string.Empty;
 
@@ -109,7 +109,7 @@ public sealed class MetricEditorTests
         var root = EmptyWorkspace();
         var vm = new AuthoringWorkspaceViewModel();
         vm.Open(root);
-        vm.CreateProgram("visa");
+        vm.CreateDemoProgram("visa");
         Assert.Equal("MOCK::INSTR0", vm.VisaAddress);
         vm.VisaAddress = "TCPIP0::1.2.3.4::INSTR";
         Assert.Equal("TCPIP0::1.2.3.4::INSTR", vm.VisaAddress);
@@ -122,7 +122,7 @@ public sealed class MetricEditorTests
         var root = EmptyWorkspace();
         var vm = new AuthoringWorkspaceViewModel();
         vm.Open(root);
-        vm.CreateProgram("repeat");
+        vm.CreateDemoProgram("repeat");
         vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
         vm.ApplyRecipe(AuthoringRecipeIds.Repeat);
         var repeat = Assert.IsType<RepeatNode>(Assert.Single(vm.SelectedProgram!.Measure));
@@ -215,7 +215,7 @@ public sealed class MetricEditorTests
         var root = EmptyWorkspace();
         var vm = new AuthoringWorkspaceViewModel();
         vm.Open(root);
-        vm.CreateProgram("saved");
+        vm.CreateDemoProgram("saved");
         vm.ApplyRecipe(AuthoringRecipeIds.MeanGte);
         vm.CreateProgram("pending");
         vm.SelectProgram("saved");
@@ -233,10 +233,10 @@ public sealed class MetricEditorTests
         var root = EmptyWorkspace();
         var vm = new AuthoringWorkspaceViewModel();
         vm.Open(root);
-        vm.CreateProgram("alpha");
+        vm.CreateDemoProgram("alpha");
         vm.ApplyRecipe(AuthoringRecipeIds.MeanGte);
         vm.Apply();
-        vm.CreateProgram("beta");
+        vm.CreateDemoProgram("beta");
         vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
         vm.Apply();
 
@@ -261,7 +261,7 @@ public sealed class MetricEditorTests
         var root = EmptyWorkspace();
         var vm = new AuthoringWorkspaceViewModel();
         vm.Open(root);
-        vm.CreateProgram("formula");
+        vm.CreateDemoProgram("formula");
         vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
         vm.ApplyRecipe(AuthoringRecipeIds.Formula);
         Assert.Equal("mean(VDC)", vm.FormulaSource);
@@ -296,7 +296,7 @@ public sealed class MetricEditorTests
         var root = EmptyWorkspace();
         var vm = new AuthoringWorkspaceViewModel();
         vm.Open(root);
-        vm.CreateProgram("acquire");
+        vm.CreateDemoProgram("acquire");
         vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
         Assert.IsType<MeasureSource>(Assert.IsType<MetricNode>(Assert.Single(vm.SelectedProgram!.Measure)).Metric.Source);
         Assert.True(vm.PreviewChrome.IsChart);
@@ -317,7 +317,7 @@ public sealed class MetricEditorTests
         var root = EmptyWorkspace();
         var vm = new AuthoringWorkspaceViewModel();
         vm.Open(root);
-        vm.CreateProgram("formula-ident");
+        vm.CreateDemoProgram("formula-ident");
         vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
         vm.ApplyRecipe(AuthoringRecipeIds.BandScalar);
         vm.ApplyRecipe(AuthoringRecipeIds.Formula);
@@ -348,7 +348,7 @@ public sealed class MetricEditorTests
 
             vm.Open(root);
             vm.StopRecovery();
-            vm.CreateProgram("sample");
+            vm.CreateDemoProgram("sample");
             vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
             vm.ApplyRecipe(AuthoringRecipeIds.Formula);
             Assert.Contains("mean-vdc-1", vm.DatasetItems);
@@ -380,7 +380,7 @@ public sealed class MetricEditorTests
         var root = EmptyWorkspace();
         var vm = new AuthoringWorkspaceViewModel();
         vm.Open(root);
-        vm.CreateProgram("tf-ui");
+        vm.CreateDemoProgram("tf-ui");
         vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
         vm.ApplyRecipe(AuthoringRecipeIds.TransferFunction);
         Assert.Equal("VDC.filt", vm.ChannelKey);
@@ -396,7 +396,7 @@ public sealed class MetricEditorTests
         var root = EmptyWorkspace();
         var vm = new AuthoringWorkspaceViewModel();
         vm.Open(root);
-        vm.CreateProgram("tf-import");
+        vm.CreateDemoProgram("tf-import");
         vm.ImportTransferFunction(
             Path.Combine(FindRepoRoot(), "tests", "fixtures", "authoring", "tf", "model.valid.json"));
         Assert.Equal("VDC.filt", vm.ChannelKey);

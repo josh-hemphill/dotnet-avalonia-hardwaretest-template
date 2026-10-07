@@ -24,7 +24,7 @@ public sealed class AuthoringCleanupScopeTests : IDisposable
     [InlineData("membership")]
     public void Cleanup_edits_clone_selected_sidecar_preserve_prior_draft_and_other_program_and_stage_files(string operation)
     {
-        var vm = new AuthoringWorkspaceViewModel(); vm.Open(_root); vm.CreateProgram("a"); vm.NewInstrumentSlot = "OTHER"; vm.AddInstrumentSlot(); vm.CreateProgram("b"); Assert.True(vm.SaveAll().Succeeded);
+        var vm = new AuthoringWorkspaceViewModel(); vm.Open(_root); vm.CreateDemoProgram("a"); vm.NewInstrumentSlot = "OTHER"; vm.AddInstrumentSlot(); vm.CreateDemoProgram("b"); Assert.True(vm.SaveAll().Succeeded);
         var other = vm.SelectedProgram; vm.SelectProgram("a"); SelectCleanup(vm); var prior = vm.SelectedProgram!;
         var priorSidecar = JsonSerializer.Serialize(prior.Sidecar, ProgramCatalogJsonContext.Default.ProgramSidecar); var priorCleanup = prior.Cleanup;
         var bytes = Directory.EnumerateFiles(_root).ToDictionary(p => p, File.ReadAllBytes);

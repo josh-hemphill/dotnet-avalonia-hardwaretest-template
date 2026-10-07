@@ -265,7 +265,7 @@ public sealed class AuthoringSequenceSafetyTests
             File.WriteAllText(Path.Combine(root, "authoring.json"), "{\"schemaVersion\":1,\"displayName\":\"Safety\",\"plansDirectory\":\".\"}");
             var vm = new AuthoringWorkspaceViewModel();
             vm.Open(root);
-            vm.CreateProgram("safety");
+            vm.CreateDemoProgram("safety");
             vm.ApplyRecipe(AuthoringRecipeIds.BandScalar);
             vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
             vm.ApplyRecipe(AuthoringRecipeIds.Formula);

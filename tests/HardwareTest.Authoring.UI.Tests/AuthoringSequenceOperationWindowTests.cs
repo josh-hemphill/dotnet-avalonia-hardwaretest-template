@@ -21,7 +21,7 @@ public sealed class AuthoringSequenceOperationWindowTests
         window.SetRenderScaling(scale);
         fixture.OpenRememberedWorkspace();
         var vm = fixture.ViewModel;
-        vm.CreateProgram("sequence-actions");
+        vm.CreateDemoProgram("sequence-actions");
         vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
         var selectedId = vm.SelectedSequence!.NodeId;
         var search = fixture.Control<TextBox>("Search sequence palette");

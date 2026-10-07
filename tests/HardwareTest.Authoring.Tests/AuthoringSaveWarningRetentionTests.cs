@@ -50,7 +50,7 @@ public sealed class AuthoringSaveWarningRetentionTests : IDisposable
     public void Resolving_one_document_retains_another_documents_incomplete_numeric_reason()
     {
         var vm = Open(); AddInvalid(vm, "a-invalid"); vm.Apply();
-        vm.CreateProgram("b-numeric"); vm.ApplyRecipe(AuthoringRecipeIds.MeanGte); vm.Threshold = "1e-"; vm.Apply();
+        vm.CreateDemoProgram("b-numeric"); vm.ApplyRecipe(AuthoringRecipeIds.MeanGte); vm.Threshold = "1e-"; vm.Apply();
         Assert.Contains(AuthoringCompileCodes.MissingLimits, vm.SavePreviewWarning!);
         Assert.Contains("Incomplete numeric input", vm.SavePreviewWarning!);
         vm.SelectProgram("a-invalid"); vm.Threshold = "2"; vm.Apply();
@@ -93,6 +93,6 @@ public sealed class AuthoringSaveWarningRetentionTests : IDisposable
     }
     private static void AddInvalid(AuthoringWorkspaceViewModel vm, string id)
     {
-        vm.CreateProgram(id); vm.ApplyRecipe(AuthoringRecipeIds.MeanGte); vm.Threshold = string.Empty;
+        vm.CreateDemoProgram(id); vm.ApplyRecipe(AuthoringRecipeIds.MeanGte); vm.Threshold = string.Empty;
     }
 }

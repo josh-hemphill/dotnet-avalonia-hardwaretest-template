@@ -12,7 +12,7 @@ public sealed class AuthoringHomeReadinessTests : IDisposable
     {
         var root = AuthoringBuildSnapshotTests.Workspace(); var workspace = AuthoringWorkspaceLoader.Load(root);
         workspace.Manifest.Package.Name = "Compilation diagnostics"; AuthoringWorkspaceLoader.SaveManifest(root, workspace.Manifest);
-        var vm = new AuthoringWorkspaceViewModel(); vm.Open(root); vm.CreateProgram("no-limits"); vm.ApplyRecipe(AuthoringRecipeIds.MeanGte); vm.Threshold = string.Empty;
+        var vm = new AuthoringWorkspaceViewModel(); vm.Open(root); vm.CreateDemoProgram("no-limits"); vm.ApplyRecipe(AuthoringRecipeIds.MeanGte); vm.Threshold = string.Empty;
         vm.OpenTapHomeOverride = "invalid\0home"; vm.Apply();
         Assert.Contains(AuthoringCompileCodes.MissingLimits, vm.SavePreviewWarning!);
         Assert.Contains("OpenTAP home setting is invalid", vm.SavePreviewWarning!);

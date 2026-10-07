@@ -8,6 +8,19 @@ using HardwareTest.Authoring;
 // Release files let tests stop at deterministic boundaries without production delay flags.
 if (args.Length == 2 && args[0] == AuthoringOperationHost.Switch)
     return AuthoringOperationHost.Run(args[1]);
+if (args.Length == 2 && args[0] == "--create-held")
+{
+    var document = AuthoringDocumentDto.FromDraft(new AuthoringPlanInitializer().Construct(
+        new PlanInitializationRequest("rail") { WorkspaceRoot = args[1] }).Draft);
+    var validations = 0;
+    new AuthoringDocumentStore(args[1]).CreateNew(document, validateWorkspace: () =>
+    {
+        if (++validations != 2) return;
+        Console.WriteLine("validated"); Console.Out.Flush();
+        if (Console.ReadLine() != "release") throw new IOException("Creation owner disconnected.");
+    });
+    return 0;
+}
 // Exit the session anchor first, then let tests independently release its root and leaf.
 if (args.Length == 2 && args[0].StartsWith("--scope-", StringComparison.Ordinal))
 {

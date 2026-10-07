@@ -41,7 +41,7 @@ public sealed class AuthoringDestructiveReviewRegressionTests
     [AvaloniaFact]
     public void Actual_instrument_dialog_rejects_nested_settings_changed_during_review()
     {
-        using var fixture = Loaded(); var vm = fixture.ViewModel; vm.CreateProgram("slots"); vm.NewInstrumentSlot = "B"; vm.AddInstrumentSlot(); vm.ApplyRecipe(AuthoringRecipeIds.Acquire); vm.ApplyRecipe(AuthoringRecipeIds.Repeat); vm.SelectedInstrumentSlot = "DMM"; Assert.True(vm.SaveAll().Succeeded);
+        using var fixture = Loaded(); var vm = fixture.ViewModel; vm.CreateDemoProgram("slots"); vm.NewInstrumentSlot = "B"; vm.AddInstrumentSlot(); vm.ApplyRecipe(AuthoringRecipeIds.Acquire); vm.ApplyRecipe(AuthoringRecipeIds.Repeat); vm.SelectedInstrumentSlot = "DMM"; Assert.True(vm.SaveAll().Succeeded);
         fixture.Window!.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 1; AuthoringUiFixture.Drain();
         var remove = fixture.Control<Button>("Remove instrument slot from selected program"); remove.BringIntoView(); AuthoringUiFixture.Drain(); AuthoringUiFixture.Click(remove);
         var dialog = Assert.Single(fixture.Window!.OwnedWindows); var selected = vm.SelectedProgram; var files = Snapshot(fixture);
@@ -57,7 +57,7 @@ public sealed class AuthoringDestructiveReviewRegressionTests
     [InlineData("membership")]
     public void Actual_cleanup_checkboxes_clone_selected_sidecar_preserve_prior_draft_and_stage_files(string operation)
     {
-        using var fixture = Loaded(); var vm = fixture.ViewModel; vm.CreateProgram("a"); vm.CreateProgram("b"); Assert.True(vm.SaveAll().Succeeded);
+        using var fixture = Loaded(); var vm = fixture.ViewModel; vm.CreateDemoProgram("a"); vm.CreateDemoProgram("b"); Assert.True(vm.SaveAll().Succeeded);
         var other = vm.SelectedProgram; vm.SelectProgram("a"); SelectCleanup(fixture); var prior = vm.SelectedProgram!;
         var before = JsonSerializer.Serialize(prior.Sidecar, ProgramCatalogJsonContext.Default.ProgramSidecar); var files = Snapshot(fixture);
         var box = operation == "measure" ? fixture.Control<CheckBox>("Include measure slots in cleanup") : fixture.Control<CheckBox>("DMM", fixture.Control<ItemsControl>("Cleanup instrument slots"));

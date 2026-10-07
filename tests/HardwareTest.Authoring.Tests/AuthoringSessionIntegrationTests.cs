@@ -30,7 +30,7 @@ public sealed class AuthoringSessionIntegrationTests : IDisposable
     public void Recipe_history_restores_final_added_and_wrapped_node_selection()
     {
         var vm = Open();
-        vm.CreateProgram("selection");
+        vm.CreateDemoProgram("selection");
         vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
         var first = vm.SelectedSequence!.NodeId;
         vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
@@ -58,7 +58,7 @@ public sealed class AuthoringSessionIntegrationTests : IDisposable
         vm.DisplayName = "renamed";
         Assert.True(vm.CanUndo);
         Assert.True(vm.HasUnsavedChanges);
-        vm.CreateProgram("other");
+        vm.CreateDemoProgram("other");
         vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
         var otherNode = vm.SelectedSequence!.NodeId;
         vm.DisplayName = "other edited";

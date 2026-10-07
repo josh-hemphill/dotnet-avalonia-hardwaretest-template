@@ -173,7 +173,7 @@ public sealed class AuthoringSequenceViewModelTests
     public void New_program_sequence_shows_identity_and_cleanup_while_measure_is_empty()
     {
         var vm = OpenEmpty();
-        vm.CreateProgram("empty-measure");
+        vm.CreateDemoProgram("empty-measure");
         Assert.Equal(AuthoringChrome.EmptyMeasureHint, vm.MeasureHint);
         Assert.Contains(vm.SequenceItems, row => row.Label == "Identity Check");
         Assert.Contains(vm.SequenceItems, row => row.Label == AuthoringChrome.MeasureHeader);
@@ -187,7 +187,7 @@ public sealed class AuthoringSequenceViewModelTests
     public void Selecting_repeat_child_edits_that_metric_not_the_parent_row()
     {
         var vm = OpenEmpty();
-        vm.CreateProgram("repeat-child");
+        vm.CreateDemoProgram("repeat-child");
         vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
         vm.ApplyRecipe(AuthoringRecipeIds.MeanGte);
         var acquire = Assert.IsType<MetricNode>(vm.SelectedProgram!.Measure[0]);
@@ -222,7 +222,7 @@ public sealed class AuthoringSequenceViewModelTests
     public void SelectSequence_on_a_header_snaps_to_the_nearest_selectable_row()
     {
         var vm = OpenEmpty();
-        vm.CreateProgram("header-snap");
+        vm.CreateDemoProgram("header-snap");
         var setupHeader = vm.SequenceItems.ToList().FindIndex(row =>
             row.Kind == SequenceRowKind.Header && row.Section == SequenceSection.Setup);
         var identity = vm.SequenceItems.ToList().FindIndex(row => row.Label == "Identity Check");
@@ -252,7 +252,7 @@ public sealed class AuthoringSequenceViewModelTests
     public void Remove_selected_sequence_inverts_add_recipe()
     {
         var vm = OpenEmpty();
-        vm.CreateProgram("remove-seq");
+        vm.CreateDemoProgram("remove-seq");
         vm.ApplyRecipe(AuthoringRecipeIds.Prompt);
         vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
         vm.ApplyRecipe(AuthoringRecipeIds.MeanGte);
@@ -369,7 +369,7 @@ public sealed class AuthoringSequenceViewModelTests
     public void Repeat_count_edits_the_selected_repeat_row()
     {
         var vm = OpenEmpty();
-        vm.CreateProgram("repeat-count");
+        vm.CreateDemoProgram("repeat-count");
         vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
         vm.ApplyRecipe(AuthoringRecipeIds.Repeat);
         var repeatRow = vm.SequenceItems.Single(row => row.Kind == SequenceRowKind.Repeat);

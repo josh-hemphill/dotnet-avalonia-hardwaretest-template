@@ -175,7 +175,7 @@ public sealed class AuthoringSequenceOperationsTests
         var root = TemporaryDirectory();
         File.WriteAllText(Path.Combine(root, "authoring.json"), "{\"schemaVersion\":1,\"displayName\":\"Sequence\",\"plansDirectory\":\".\"}");
         vm.Open(root);
-        vm.CreateProgram("operations");
+        vm.CreateDemoProgram("operations");
         vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
         vm.ApplyRecipe(AuthoringRecipeIds.Formula);
         vm.Threshold = "-";
@@ -214,7 +214,7 @@ public sealed class AuthoringSequenceOperationsTests
         var root = TemporaryDirectory();
         File.WriteAllText(Path.Combine(root, "authoring.json"), "{\"schemaVersion\":1,\"displayName\":\"Sequence\",\"plansDirectory\":\".\"}");
         vm.Open(root);
-        vm.CreateProgram("operations");
+        vm.CreateDemoProgram("operations");
         vm.SelectedRecipeId = AuthoringRecipeIds.Formula;
         Assert.False(vm.CanInsertRecipe);
         Assert.Contains("Measure", vm.SelectedRecipePrerequisites, StringComparison.Ordinal);

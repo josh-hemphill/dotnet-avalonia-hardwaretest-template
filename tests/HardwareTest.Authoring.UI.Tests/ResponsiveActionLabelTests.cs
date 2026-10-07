@@ -130,7 +130,7 @@ public sealed class ResponsiveActionLabelTests
         Assert.True(Assert.Single(window.GetVisualDescendants().OfType<WorkspaceDefinitionsView>()).IsEffectivelyVisible);
     }
 
-    private static void LabelFits(Button button, Window window)
+    internal static void LabelFits(Button button, Window window)
     {
         ResponsiveShellTests.Inside(button, window);
         var label = Assert.Single(button.GetVisualDescendants().OfType<TextBlock>(), text => Equals(text.Text, button.Content));
