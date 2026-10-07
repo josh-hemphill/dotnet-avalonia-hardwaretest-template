@@ -79,6 +79,7 @@ public static partial class AuthoringBuildService
             DotNetExecutable = executable,
             Offline = options.Offline,
             Compat = options.Compat,
+            Progress = options.Progress,
             PreflightCompleted = options.PreflightCompleted
         }, trees.AsReadOnly(), environment);
         Recheck(request);
@@ -88,6 +89,7 @@ public static partial class AuthoringBuildService
     internal static BuildInputTree CaptureTree(string root, string stage, bool recursive, Func<string, bool>? select = null, bool materialize = true)
     {
         root = Path.GetFullPath(root);
+        EnsureContained(root, ResolvedPath(root, directory: true));
         var files = new List<BuildInputFile>();
         var links = new List<string>();
         if (Directory.Exists(root)) Walk(root);

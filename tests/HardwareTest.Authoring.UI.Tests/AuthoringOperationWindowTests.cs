@@ -72,7 +72,7 @@ public sealed class AuthoringOperationWindowTests
             action => Dispatcher.UIThread.Post(action));
         File.WriteAllText(Path.Combine(fixture.WorkspaceRoot, "fixture-wait"), "");
         File.WriteAllText(Path.Combine(fixture.WorkspaceRoot, "fixture-spawn"), "");
-        AuthoringUiFixture.Click(fixture.Control<Button>("Bootstrap OpenTAP home"));
+        AuthoringUiFixture.Click(fixture.Control<Button>("Prepare authoring environment"));
         await Until(() => File.Exists(Path.Combine(fixture.WorkspaceRoot, "fixture-descendant")));
         var child = File.ReadAllLines(Path.Combine(fixture.WorkspaceRoot, "fixture-child.json"));
         var childId = int.Parse(child[0]);
@@ -126,7 +126,7 @@ public sealed class AuthoringOperationWindowTests
         File.WriteAllText(Path.Combine(fixture.WorkspaceRoot, "fixture-wait"), "");
         var updatesOnUI = true;
         fixture.ViewModel.PropertyChanged += (_, _) => updatesOnUI &= Dispatcher.UIThread.CheckAccess();
-        AuthoringUiFixture.Click(fixture.Control<Button>("Bootstrap OpenTAP home"));
+        AuthoringUiFixture.Click(fixture.Control<Button>("Prepare authoring environment"));
         Assert.True(fixture.ViewModel.OperationBusy);
         await Until(() => File.Exists(Path.Combine(fixture.WorkspaceRoot, "fixture-child.json")));
         var heartbeat = false;

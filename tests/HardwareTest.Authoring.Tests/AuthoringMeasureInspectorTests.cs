@@ -258,6 +258,9 @@ public sealed class AuthoringMeasureInspectorTests
     public void Incomplete_setting_text_saves_reopens_and_corrects_in_one_edit(string text)
     {
         var root = EmptyWorkspace();
+        var workspace = AuthoringWorkspaceLoader.Load(root);
+        workspace.Manifest.Package.Name = "Durable setting fixture";
+        AuthoringWorkspaceLoader.SaveManifest(root, workspace.Manifest);
         var vm = new AuthoringWorkspaceViewModel();
         var reopened = new AuthoringWorkspaceViewModel();
         try

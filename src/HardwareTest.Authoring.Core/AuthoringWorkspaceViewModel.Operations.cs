@@ -47,6 +47,7 @@ public sealed partial class AuthoringWorkspaceViewModel
     private void ReplaceOperationWorkspace()
     {
         _workspaceSession = Guid.NewGuid();
+        ClearCompletedBuilds();
         _lastFindingCheck = null;
         OnPropertyChanged(nameof(IssuesCheckState));
         _operationGeneration++;
@@ -55,7 +56,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         RaiseOperationLogs();
     }
 
-    public async Task<AuthoringOperationResult> RunOperationAsync(AuthoringOperationKind kind, string? outputDirectory = null)
+    public async Task<AuthoringOperationResult> RunOperationAsync(AuthoringOperationKind kind, string? outputDirectory = null, string? offlinePackagePath = null)
     {
         var coordinator = _operations ?? throw new InvalidOperationException("Configure authoring child operations first.");
         var workspace = Workspace ?? throw new AuthoringWorkspaceException("Open a workspace first.");
@@ -63,6 +64,8 @@ public sealed partial class AuthoringWorkspaceViewModel
         if (kind == AuthoringOperationKind.Pack && !CanPack) throw new AuthoringWorkspaceException(PackGuardText);
         if (kind == AuthoringOperationKind.Validate && HasUnsavedChanges) throw new AuthoringWorkspaceException(ValidationScope);
         var generation = _operationGeneration;
+        var operationHome = AuthoringHomeText;
+        var checkedBuildIdentity = kind == AuthoringOperationKind.Pack ? CurrentBuildIdentity() : null;
         OperationBusy = true;
         Error = null;
         try
@@ -71,8 +74,8 @@ public sealed partial class AuthoringWorkspaceViewModel
             var result = await coordinator.RunAsync(kind, workspace.Root, outputDirectory, Prefs.OpenTapHomeOverride,
                 progress: update => _operationDispatch!(() =>
                 {
-                    if (_operationGeneration == generation) { OperationStage = update.Stage; RaiseOperationLogs(); }
-                })).ConfigureAwait(false);
+                    if (_operationGeneration == generation) { OperationStage = update.Stage; OnPropertyChanged(nameof(BuildReadinessText)); RaiseOperationLogs(); }
+                }), offlinePackagePath: offlinePackagePath).ConfigureAwait(false);
             await DispatchAsync(() =>
             {
                 if (_operationGeneration != generation) return;
@@ -87,11 +90,12 @@ public sealed partial class AuthoringWorkspaceViewModel
                     { IncludedFiles = build.Manifest.Files, ExcludedPlans = build.Receipt.ExcludedPlans });
                     _packCheckedClone = true;
                     OnPropertyChanged(nameof(PackPreflightHomeText));
-                    _packPreview = WorkspacePackPlan.WithLastPack(WorkspacePackPlan.Describe(workspace, result.Home), build.Manifest, outputDirectory!);
+                    _packPreview = WorkspacePackPlan.WithLastPack(WorkspacePackPlan.Describe(workspace, Prefs.OpenTapHomeOverride), build.Manifest, outputDirectory!);
+                    RetainCompletedBuild(build, outputDirectory!, result.Home!, checkedBuildIdentity);
                     RaisePackPreviewProperties();
-                    Status = $"Packed {build.Manifest.PackageName} {build.Manifest.Version}";
+                    if (AuthoringHomeText == operationHome) Status = $"Packed {build.Manifest.PackageName} {build.Manifest.Version}";
                 }
-                else { Status = $"OpenTAP home {result.Home}"; RefreshPackPreview(); }
+                else { if (AuthoringHomeText == operationHome) Status = $"OpenTAP home {result.Home}"; RefreshPackPreview(); }
             }).ConfigureAwait(false);
             return result;
         }
@@ -99,7 +103,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         {
             await DispatchAsync(() =>
             {
-                if (_operationGeneration == generation)
+                if (_operationGeneration == generation && AuthoringHomeText == operationHome)
                 {
                     Status = error is OperationCanceledException ? "Authoring operation cancelled" : "Authoring operation failed";
                     Error = error is OperationCanceledException ? null : error.Message;

@@ -30,6 +30,7 @@ public sealed class PackOptions
     public string? BootstrapHomeDirectory { get; init; }
 
     public Action<PackPreflightReport>? PreflightCompleted { get; init; }
+    internal Action<string>? Progress { get; init; }
 }
 
 public sealed record ShipDependency(string Package, string Version, bool Optional = false, string? When = null);
@@ -71,6 +72,7 @@ public static partial class WorkspacePacker
         }
 
         var home = preflight.Home!;
+        options.Progress?.Invoke("Create package artifacts");
         Directory.CreateDirectory(outputDirectory);
 
         var plansDir = ResolvePlansDirectory(workspace);

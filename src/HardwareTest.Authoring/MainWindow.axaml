@@ -13,9 +13,9 @@
         <Button x:Name="LifecycleFocusTarget" Content="Open workspace…" Click="OnOpenWorkspace"
             ToolTip.Tip="Open a folder that contains authoring.json" AutomationProperties.Name="Open workspace"
             Margin="0,0,6,4" Classes="authoringAction"/>
-        <Button Content="Bootstrap" Click="OnBootstrap" IsEnabled="{Binding HasWorkspace}"
+        <Button Content="Prepare authoring environment" Click="OnBootstrap" IsEnabled="{Binding HasWorkspace}"
             ToolTip.Tip="Install Editor packs into this workspace’s isolated OpenTAP home (offline)"
-            AutomationProperties.Name="Bootstrap OpenTAP home" Margin="0,0,6,4" Classes="authoringAction"/>
+            AutomationProperties.Name="Prepare authoring environment" Margin="0,0,6,4" Classes="authoringAction"/>
         <Button Content="Undo catalog" Click="OnUndoWorkspace" IsEnabled="{Binding CanUndoWorkspace}"
             AutomationProperties.Name="Undo workspace catalog" ToolTip.Tip="{Binding WorkspaceHistoryHint}"
             Margin="0,0,6,4" Classes="authoringAction"/>

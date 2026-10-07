@@ -34,9 +34,41 @@ public sealed class OpenTapHomeBootstrapper : IOpenTapHomeBootstrapper
             string.IsNullOrWhiteSpace(options.HomeDirectory)
                 ? Path.Combine(workspace.Root, DefaultHomeRelativePath)
                 : options.HomeDirectory);
+        var owned = Path.Combine(Path.GetTempPath(), "ht-bootstrap-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            var selected = AuthoringBuildService.CaptureTree(homeRoot, "operation-home", true);
+            var identity = new AuthoringBuildRequest(workspace.Root, new PackOptions(), [selected], AuthoringBuildService.CaptureEnvironment());
+            Directory.CreateDirectory(owned);
+            foreach (var file in selected.Files)
+            {
+                var destination = Path.Combine(owned, file.RelativePath);
+                Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+                AuthoringBuildService.Materialize(file, destination);
+            }
+            BootstrapOwned(workspace, new BootstrapOptions
+            {
+                HomeDirectory = owned,
+                Offline = options.Offline,
+                OfflinePackagePath = options.OfflinePackagePath,
+                InstrumentComponentsPackagePath = options.InstrumentComponentsPackagePath,
+                TuiPackagePath = options.TuiPackagePath
+            });
+            AuthoringBuildService.Recheck(identity);
+            AuthoringBuildService.Publish(owned, homeRoot, CancellationToken.None);
+            return new OpenTapHome(homeRoot);
+        }
+        finally { if (Directory.Exists(owned)) Directory.Delete(owned, recursive: true); }
+    }
+
+    // The operation child already owns a cloned home and publishes through its coordinator.
+    internal OpenTapHome BootstrapOwned(AuthoringWorkspace workspace, BootstrapOptions options)
+    {
+        var homeRoot = Path.GetFullPath(options.HomeDirectory!);
         Directory.CreateDirectory(homeRoot);
         Directory.CreateDirectory(Path.Combine(homeRoot, "Packages"));
 
+        InstallOptionalFilePackage(options.OfflinePackagePath, homeRoot, workspace.Manifest);
         CopyOpenTapRuntime(homeRoot);
         InstallInTreePack(homeRoot, "HardwareTest Basic", typeof(MockDmmInstrument));
         InstallInTreePack(homeRoot, "HardwareTest Mixins", typeof(AnnotationMixinBuilder));
@@ -47,14 +79,22 @@ public sealed class OpenTapHomeBootstrapper : IOpenTapHomeBootstrapper
             InstallInTreePack(homeRoot, VisaPackageName, AuthoringVisaInstrumentAdapter.InstrumentType);
         }
 
-        InstallInstrumentComponentsIfRequired(workspace, options, homeRoot);
-        InstallOptionalFilePackage(options.TuiPackagePath, homeRoot);
+        if (string.IsNullOrWhiteSpace(options.OfflinePackagePath)) InstallInstrumentComponentsIfRequired(workspace, options, homeRoot);
+        InstallOptionalFilePackage(options.TuiPackagePath, homeRoot, workspace.Manifest);
 
         if (!requiresVisa)
         {
             AssertNoVisa(homeRoot);
         }
-        return new OpenTapHome(homeRoot);
+        var home = new OpenTapHome(homeRoot);
+        var unsafePaths = AuthoringEnvironmentAssessment.UnsafeInstalledPaths(home);
+        if (unsafePaths.Count != 0) throw new AuthoringWorkspaceException(string.Join("; ", unsafePaths));
+        if (string.IsNullOrWhiteSpace(options.OfflinePackagePath))
+        {
+            var missing = AuthoringEnvironmentAssessment.Packages(workspace.Manifest, home).Where(p => !p.Optional && !p.Satisfied).ToArray();
+            if (missing.Length != 0) throw new AuthoringWorkspaceException(string.Join("; ", missing.Select(p => p.DisplayText)));
+        }
+        return home;
     }
 
     public static IReadOnlyList<AuthoringInstalledPackage> ListInstalledPackages(OpenTapHome home)
@@ -110,10 +150,22 @@ public sealed class OpenTapHomeBootstrapper : IOpenTapHomeBootstrapper
 
     private static void CopyOpenTapRuntime(string homeRoot)
     {
+        if (OpenTapRuntimeFiles.All(file => File.Exists(Path.Combine(homeRoot, file)))
+            && File.Exists(Path.Combine(homeRoot, "Packages", "OpenTAP", "package.xml"))) return;
         var sourceDir = ResolveOpenTapRuntimeDirectory();
         if (string.IsNullOrWhiteSpace(sourceDir) || !Directory.Exists(sourceDir))
         {
             throw new AuthoringWorkspaceException("OpenTAP runtime directory was not found beside OpenTap.dll.");
+        }
+
+        var installedMetadata = Path.Combine(homeRoot, "Packages", "OpenTAP", "package.xml");
+        if (File.Exists(installedMetadata))
+        {
+            var bundledMetadata = Path.Combine(sourceDir, "Packages", "OpenTAP", "package.xml");
+            if (!TryReadPackageIdentity(installedMetadata, out var installedName, out var installedVersion)
+                || !TryReadPackageIdentity(bundledMetadata, out var bundledName, out var bundledVersion)
+                || installedName != bundledName || installedVersion != bundledVersion)
+                throw new AuthoringWorkspaceException("The selected incomplete OpenTAP runtime differs from the bundled version. Restore its matching runtime payload or import a complete matching package; preparation preserved the selected home.");
         }
 
         foreach (var file in OpenTapRuntimeFiles)
@@ -147,6 +199,7 @@ public sealed class OpenTapHomeBootstrapper : IOpenTapHomeBootstrapper
 
         var packageXml = FindPackageXml(packageName);
         var dest = Path.Combine(homeRoot, "Packages", packageName);
+        if (File.Exists(Path.Combine(dest, "package.xml"))) return;
         Directory.CreateDirectory(dest);
         File.Copy(packageXml, Path.Combine(dest, "package.xml"), overwrite: true);
         foreach (var fileName in ReadPackageFileNames(packageXml))
@@ -178,6 +231,8 @@ public sealed class OpenTapHomeBootstrapper : IOpenTapHomeBootstrapper
             return;
         }
 
+        if (ListInstalledPackages(new(homeRoot)).Any(p => p.Name == InstrumentComponentsPackageName)) return;
+
         var path = FirstNonEmpty(
             options.InstrumentComponentsPackagePath,
             workspace.Manifest.InstrumentComponentsPackage,
@@ -195,10 +250,10 @@ public sealed class OpenTapHomeBootstrapper : IOpenTapHomeBootstrapper
                 $"{AuthoringBootstrapCodes.InstrumentComponentsPackageMissing}: InstrumentComponents package not found at '{path}'.");
         }
 
-        InstallFileOrDirectoryPackage(path, homeRoot);
+        InstallFileOrDirectoryPackage(path, homeRoot, workspace.Manifest);
     }
 
-    private static void InstallOptionalFilePackage(string? path, string homeRoot)
+    private static void InstallOptionalFilePackage(string? path, string homeRoot, AuthoringManifest manifest)
     {
         if (string.IsNullOrWhiteSpace(path))
         {
@@ -210,55 +265,11 @@ public sealed class OpenTapHomeBootstrapper : IOpenTapHomeBootstrapper
             throw new AuthoringWorkspaceException($"Optional OpenTAP package not found at '{path}'.");
         }
 
-        InstallFileOrDirectoryPackage(path, homeRoot);
+        InstallFileOrDirectoryPackage(path, homeRoot, manifest);
     }
 
-    private static void InstallFileOrDirectoryPackage(string path, string homeRoot)
-    {
-        if (Directory.Exists(path))
-        {
-            var xml = Path.Combine(path, "package.xml");
-            if (!File.Exists(xml) || !TryReadPackageIdentity(xml, out var dirName, out _))
-            {
-                throw new AuthoringWorkspaceException($"Directory '{path}' is not an unpacked OpenTAP package.");
-            }
-
-            CopyDirectory(path, Path.Combine(homeRoot, "Packages", dirName));
-            return;
-        }
-
-        if (!path.EndsWith(".TapPackage", StringComparison.OrdinalIgnoreCase)
-            && !path.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
-        {
-            throw new AuthoringWorkspaceException($"Unsupported package file '{path}'. Use a .TapPackage or an unpacked folder.");
-        }
-
-        var temp = Path.Combine(Path.GetTempPath(), "ht-tap-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(temp);
-        try
-        {
-            ZipFile.ExtractToDirectory(path, temp);
-            var xml = Directory.EnumerateFiles(temp, "package.xml", SearchOption.AllDirectories).FirstOrDefault();
-            if (xml is null || !TryReadPackageIdentity(xml, out var name, out _))
-            {
-                throw new AuthoringWorkspaceException($"TapPackage '{path}' has no package.xml identity.");
-            }
-
-            var sourceDir = Path.GetDirectoryName(xml)!;
-            CopyDirectory(sourceDir, Path.Combine(homeRoot, "Packages", name));
-        }
-        finally
-        {
-            try
-            {
-                Directory.Delete(temp, recursive: true);
-            }
-            catch
-            {
-                // Best-effort cleanup of extract scratch.
-            }
-        }
-    }
+    private static void InstallFileOrDirectoryPackage(string path, string homeRoot, AuthoringManifest manifest)
+        => AuthoringPackageImport.Install(path, homeRoot, manifest, CopyDirectory);
 
     private static void AssertNoVisa(string homeRoot)
     {

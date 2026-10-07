@@ -17,6 +17,7 @@ public sealed class AuthoringBuildRequest
             Compat = options.Compat,
             DotNetExecutable = options.DotNetExecutable,
             Offline = options.Offline,
+            Progress = options.Progress,
             PreflightCompleted = options.PreflightCompleted
         };
         Trees = trees;

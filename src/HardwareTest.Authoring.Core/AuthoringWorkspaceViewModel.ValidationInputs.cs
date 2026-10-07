@@ -45,7 +45,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         var saved = ReadSupportedSavedWorkspace();
         var store = new AuthoringDocumentStore(saved.Root);
         var targets = planIds.Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
-        var ids = HasCurrentFindingCheck ? targets.Concat(store.ListDocumentIds()) : targets;
+        var ids = HasCurrentFindingCheck ? targets.Concat(store.ListDocumentIds().Where(id => AuthoringBuildInclusion.Includes(saved.Manifest, id))) : targets;
         foreach (var id in ids.Distinct(StringComparer.OrdinalIgnoreCase))
         {
             var source = store.Load(id);

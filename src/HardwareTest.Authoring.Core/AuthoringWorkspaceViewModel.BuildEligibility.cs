@@ -7,8 +7,9 @@ public sealed partial class AuthoringWorkspaceViewModel
     {
         get
         {
-            if (_compiledConflicts.Count != 0) return true;
-            foreach (var id in _uncompiledDocuments)
+            if (Workspace is null) return true;
+            if (_compiledConflicts.Any(id => AuthoringBuildInclusion.Includes(Workspace.Manifest, id))) return true;
+            foreach (var id in _uncompiledDocuments.Where(id => AuthoringBuildInclusion.Includes(Workspace.Manifest, id)))
             {
                 if (!_sourceDocuments.TryGetValue(id, out var source) || Workspace is null
                     || !File.Exists(new AuthoringDocumentStore(Workspace.Root).GetDocumentPath(id))) return true;

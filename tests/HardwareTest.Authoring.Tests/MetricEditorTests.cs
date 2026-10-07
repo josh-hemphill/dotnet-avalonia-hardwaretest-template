@@ -76,6 +76,9 @@ public sealed class MetricEditorTests
     public void Scalar_without_limits_saves_source_and_blocks_compiled_operations()
     {
         var root = EmptyWorkspace();
+        var workspace = AuthoringWorkspaceLoader.Load(root);
+        workspace.Manifest.Package.Name = "Scalar source fixture";
+        AuthoringWorkspaceLoader.SaveManifest(root, workspace.Manifest);
         var vm = new AuthoringWorkspaceViewModel();
         vm.Open(root);
         vm.CreateProgram("no-limits");

@@ -15,6 +15,7 @@
     <None Include="..\..\plans\opentap\authoring.json;..\..\plans\opentap\sample.TapPlan;..\..\plans\opentap\sample.program.json" Link="fixtures\workspace\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="OpenTAP" />
     <PackageReference Include="Avalonia.Headless.XUnit" />
     <PackageReference Include="Avalonia.Themes.Fluent" />
     <PackageReference Include="Avalonia.Fonts.Inter" />

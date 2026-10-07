@@ -166,6 +166,7 @@ public sealed class AuthoringSequenceTests
     }
 }
 
+[Collection("AuthoringOpenTap")]
 public sealed class AuthoringSequenceViewModelTests
 {
     [Fact]

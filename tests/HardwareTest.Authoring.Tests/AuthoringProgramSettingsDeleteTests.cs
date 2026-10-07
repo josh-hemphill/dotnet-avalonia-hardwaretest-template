@@ -434,6 +434,8 @@ public sealed class AuthoringProgramSettingsDeleteTests
     public void Remove_instrument_slot_saves_source_when_duplicate_channels_block_compilation()
     {
         var vm = OpenEmpty();
+        vm.Workspace!.Manifest.Package.Name = "Duplicate channel fixture";
+        Assert.True(vm.SaveAll().Succeeded);
         vm.CreateProgram("slots-compile-fail");
         vm.NewInstrumentSlot = "SCOPE";
         vm.AddInstrumentSlot();

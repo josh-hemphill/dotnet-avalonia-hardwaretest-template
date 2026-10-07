@@ -177,6 +177,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         RestoreNodeSelection(SelectedDocument?.SelectedNodeId);
         RaiseSidecarProperties();
         RecomputeDocumentDirty();
+        RefreshPackPreview();
     }
 
     private void RunCatalogEdit(string description, Action edit)

@@ -51,6 +51,7 @@ public sealed partial class AuthoringWorkspaceViewModel
             }
 
             Prefs.OpenTapHomeOverride = trimmed;
+            RefreshPackPreview();
             PersistPreferences();
             OnPropertyChanged();
             OnPropertyChanged(nameof(NewInstrumentAvailabilityText));
@@ -153,6 +154,7 @@ public sealed partial class AuthoringWorkspaceViewModel
             HomeDirectory = string.IsNullOrWhiteSpace(home) ? null : home,
             InstrumentComponentsPackagePath = options?.InstrumentComponentsPackagePath,
             TuiPackagePath = options?.TuiPackagePath,
+            OfflinePackagePath = options?.OfflinePackagePath,
             Offline = options?.Offline ?? true,
         };
     }

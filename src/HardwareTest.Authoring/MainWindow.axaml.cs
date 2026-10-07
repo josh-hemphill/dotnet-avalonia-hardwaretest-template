@@ -16,9 +16,11 @@ public partial class MainWindow : Window
     {
     }
 
-    public MainWindow(AuthoringWorkspaceViewModel viewModel, IAuthoringLifecycleInteraction? lifecycleInteraction = null, IAuthoringWorkspacePicker? workspacePicker = null)
+    public MainWindow(AuthoringWorkspaceViewModel viewModel, IAuthoringLifecycleInteraction? lifecycleInteraction = null, IAuthoringWorkspacePicker? workspacePicker = null, IAuthoringWorkspacePicker? packOutputPicker = null, IAuthoringWorkspacePicker? offlinePackagePicker = null)
     {
         _viewModel = viewModel;
+        _packOutputPicker = packOutputPicker;
+        _offlinePackagePicker = offlinePackagePicker;
         InitializeComponent();
         DataContext = viewModel;
         InitializeShell();
@@ -272,23 +274,6 @@ public partial class MainWindow : Window
         }
 
         _viewModel.RefreshFormulaCompletions(next);
-    }
-
-    internal async void OnPack(object? sender, RoutedEventArgs e)
-    {
-        var folders = await StorageProvider.OpenFolderPickerAsync(
-            new FolderPickerOpenOptions
-            {
-                Title = "Pack output directory",
-                AllowMultiple = false,
-            });
-        var path = folders.FirstOrDefault()?.TryGetLocalPath();
-        if (string.IsNullOrWhiteSpace(path))
-        {
-            return;
-        }
-
-        await RunOperationAsync(AuthoringOperationKind.Pack, path);
     }
 
     private void TryRun(Action action)

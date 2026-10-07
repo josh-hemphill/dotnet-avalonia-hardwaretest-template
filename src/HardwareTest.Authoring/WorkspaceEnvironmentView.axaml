@@ -3,6 +3,22 @@
     x:Class="HardwareTest.Authoring.WorkspaceEnvironmentView" x:DataType="vm:AuthoringWorkspaceViewModel">
   <ScrollViewer>
     <StackPanel Spacing="8" Margin="0,8,16,0">
+      <TextBlock Text="{Binding AuthoringHomeText}" TextWrapping="Wrap" AutomationProperties.Name="Selected authoring home"/>
+      <TextBlock Text="{Binding EnvironmentRecoveryText}" TextWrapping="Wrap"/>
+      <WrapPanel>
+        <Button Content="Prepare authoring environment" Click="OnPrepareEnvironment" IsEnabled="{Binding !OperationBusy}" AutomationProperties.Name="Prepare selected authoring environment" Classes="authoringAction"/>
+        <Button Content="Import offline package…" Click="OnImportOfflinePackage" IsEnabled="{Binding !OperationBusy}" AutomationProperties.Name="Import offline authoring package" Classes="authoringAction"/>
+      </WrapPanel>
+      <TextBlock Text="Installed packages in selected home" FontWeight="SemiBold"/>
+      <ItemsControl ItemsSource="{Binding PackPreview.AuthoringHomePackages}" AutomationProperties.Name="Environment installed packages">
+        <ItemsControl.ItemTemplate><DataTemplate x:DataType="vm:OpenTapEnvironmentLine"><TextBlock Text="{Binding DisplayText}" TextWrapping="Wrap"/></DataTemplate></ItemsControl.ItemTemplate>
+      </ItemsControl>
+      <TextBlock Text="Runtime prerequisites" FontWeight="SemiBold"/>
+      <ItemsControl ItemsSource="{Binding EnvironmentRuntimeFiles}" AutomationProperties.Name="Authoring runtime prerequisites"/>
+      <TextBlock Text="Required and installed package versions" FontWeight="SemiBold"/>
+      <ItemsControl ItemsSource="{Binding EnvironmentPackages}" AutomationProperties.Name="Environment package requirements">
+        <ItemsControl.ItemTemplate><DataTemplate x:DataType="vm:AuthoringPackageRequirement"><TextBlock Text="{Binding DisplayText}" TextWrapping="Wrap"/></DataTemplate></ItemsControl.ItemTemplate>
+      </ItemsControl>
       <Expander Header="Draft recovery and reconciliation" AutomationProperties.Name="Draft recovery">
         <StackPanel Spacing="4">
           <TextBlock Text="{Binding DraftStateSummary}" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite"/>
