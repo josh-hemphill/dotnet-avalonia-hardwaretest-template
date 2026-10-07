@@ -43,7 +43,7 @@ public sealed class AuthoringExternalTuiLauncher
     private static void AddCliArguments(ProcessStartInfo start, string home, string plan, bool requiresInstrumentLibrary)
     {
         start.ArgumentList.Add("--roll-forward"); start.ArgumentList.Add("Major");
-        start.ArgumentList.Add(Path.Combine(home, requiresInstrumentLibrary || StandaloneVisaReadiness.IsLibraryHome(new(home)) ? HardwareTest.OpenTap.Host.StandaloneVisaPackage.WrapperFileName : "tap.dll")); start.ArgumentList.Add("tui"); start.ArgumentList.Add(plan);
+        start.ArgumentList.Add(Path.Combine(home, requiresInstrumentLibrary || StandaloneVisaReadiness.RequiresStandaloneReadiness(new(home)) ? HardwareTest.OpenTap.Host.StandaloneVisaPackage.WrapperFileName : "tap.dll")); start.ArgumentList.Add("tui"); start.ArgumentList.Add(plan);
     }
 
     public async Task<int> LaunchAsync(string home, string plan, bool requiresInstrumentLibrary, CancellationToken cancellationToken = default)

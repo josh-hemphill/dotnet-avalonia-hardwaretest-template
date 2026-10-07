@@ -27,18 +27,20 @@ public sealed class AuthoringDeclaredLibraryTuiWindowTests
         }
         new OpenTapHomeBootstrapper().Bootstrap(workspace, new() { HomeDirectory = home.Root, Offline = true, OfflinePackagePath = archive });
         Assert.Contains(OpenTapHomeBootstrapper.ListInstalledPackages(home), package => package.Name == "Unrelated");
-        Assert.False(StandaloneVisaReadiness.IsLibraryHome(home));
+        Assert.False(StandaloneVisaReadiness.RequiresStandaloneReadiness(home));
         File.WriteAllText(Path.Combine(home.Root, "FixtureTui.dll"), "TUI prerequisite presence fixture");
         var vm = fixture.ViewModel; vm.OpenTapHomeOverride = home.Root; vm.Open(workspace.Root); vm.SelectProgram("sample");
         Assert.False(vm.HasUncompiledSources); Assert.Empty(vm.CompiledConflictProgramIds); Assert.True(vm.RequiresInstrumentLibrary);
-        var window = fixture.Show(); window.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 4; AuthoringUiFixture.Drain();
-        Assert.Contains("requires InstrumentComponents.OpenTap", fixture.Control<TextBlock>("Standalone VISA readiness").Text);
+        var window = fixture.Show(); fixture.Control<TabItem>("Workspace tab").IsSelected = true; AuthoringUiFixture.Drain();
+        var readiness = fixture.Control<TextBlock>("Standalone VISA readiness");
+        Assert.True(readiness.IsEffectivelyVisible);
+        Assert.Contains("requires InstrumentComponents.OpenTap", readiness.Text);
         var before = Directory.EnumerateFiles(home.Root, "*", SearchOption.AllDirectories)
             .ToDictionary(path => Path.GetRelativePath(home.Root, path), File.ReadAllBytes);
         AuthoringUiFixture.Click(window.FindControl<Button>("CommandPaletteButton")!);
         var palette = Assert.Single(window.OwnedWindows);
         fixture.Control<TextBox>("Search commands", palette).Text = "external TUI"; AuthoringUiFixture.Drain();
-        var run = Assert.Single(palette.GetVisualDescendants().OfType<Button>(), button => (string?)button.Content == "Run command");
+        var run = Assert.Single(palette.GetVisualDescendants().OfType<Button>(), button => button.Content is string content && content == "Run command");
         Assert.False(run.IsEnabled);
         Assert.Contains(palette.GetVisualDescendants().OfType<TextBlock>(), text => text.Text?.Contains("requires InstrumentComponents.OpenTap", StringComparison.Ordinal) == true);
         Assert.False(await window.ExecuteCommandAsync("tui"));

@@ -195,7 +195,7 @@ public sealed class StandaloneVisaBootstrapTests : IDisposable
         {
             new OpenTapHomeBootstrapper().Bootstrap(workspace, new() { HomeDirectory = home.Root, Offline = true, OfflinePackagePath = archive });
             Assert.Contains(OpenTapHomeBootstrapper.ListInstalledPackages(home), package => package.Name == "Unrelated");
-            Assert.False(StandaloneVisaReadiness.IsLibraryHome(home));
+            Assert.False(StandaloneVisaReadiness.RequiresStandaloneReadiness(home));
         }
     }
 

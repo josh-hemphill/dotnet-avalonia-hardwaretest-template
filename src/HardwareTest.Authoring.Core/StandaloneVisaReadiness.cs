@@ -4,6 +4,7 @@ using System.Reflection.Metadata;
 using System.Reflection.PortableExecutable;
 using System.Security.Cryptography;
 using System.Text.Json;
+using System.Xml;
 using System.Xml.Linq;
 using HardwareTest.OpenTap.Host;
 
@@ -12,37 +13,69 @@ namespace HardwareTest.Authoring;
 /// Assesses installed bytes and versions only; never loads a provider or probes vendor VISA.
 public static class StandaloneVisaReadiness
 {
-    public static bool IsLibraryHome(OpenTapHome home) => OpenTapHomeBootstrapper.ListInstalledPackages(home)
-        .Any(package => package.Name.Equals(StandaloneVisaPackage.PackageName, StringComparison.OrdinalIgnoreCase)
-            || package.Name.Equals(PublishedInstrumentComponents.PackageName, StringComparison.OrdinalIgnoreCase))
-        || new[] { "InstrumentComponents.dll", "InstrumentComponents.OpenTap.dll", "InstrumentComponents.OpenTap.Visa.dll", StandaloneVisaPackage.WrapperFileName }
-            .Any(file => File.Exists(Path.Combine(home.Root, file)))
-        || HasPackageDirectoryLibraryPayload(home);
+    public static bool RequiresStandaloneReadiness(OpenTapHome home)
+    {
+        var inspection = InspectClaims(home);
+        return inspection.HasClaims || inspection.Issue is not null;
+    }
 
     internal static string? ExecutionPrerequisite(OpenTapHome home, bool requiresInstrumentLibrary)
     {
-        var selectedLibrary = IsLibraryHome(home);
-        if (requiresInstrumentLibrary && !selectedLibrary)
+        var inspection = InspectClaims(home);
+        if (inspection.Issue is not null) return inspection.Issue;
+        if (requiresInstrumentLibrary && !inspection.HasClaims)
             return "This workspace requires InstrumentComponents.OpenTap, but the selected home has no installed library. Prepare or import the library and standalone VISA counterpart before opening the TUI.";
-        return selectedLibrary && Assess(home) is { Available: false } unavailable ? unavailable.Reason : null;
-    }
-
-    private static bool HasPackageDirectoryLibraryPayload(OpenTapHome home)
-    {
-        var packages = Path.Combine(home.Root, "Packages");
-        return Directory.Exists(packages) && Directory.EnumerateFiles(packages, "*", SearchOption.AllDirectories)
-            .Any(file => Path.GetFileName(file) is "InstrumentComponents.dll" or "InstrumentComponents.OpenTap.dll");
+        return inspection.HasClaims && AssessClaimedHome(home) is { Available: false } unavailable ? unavailable.Reason : null;
     }
 
     public static AuthoringInstrumentAvailability Assess(OpenTapHome home)
     {
-        if (!IsLibraryHome(home)) return new(false, "Standalone VISA is optional; ordinary mock plans do not need it.");
+        var inspection = InspectClaims(home);
+        if (inspection.Issue is not null) return new(false, inspection.Issue);
+        if (!inspection.HasClaims) return new(false, "Standalone VISA is optional; ordinary mock plans do not need it.");
+        return AssessClaimedHome(home);
+    }
+
+    private static AuthoringInstrumentAvailability AssessClaimedHome(OpenTapHome home)
+    {
         if (SupportedDependencies(home) is { } reason) return new(false, reason);
         var manifest = new AuthoringManifest { Dependencies = [new() { Package = StandaloneVisaPackage.PackageName, Version = StandaloneVisaPackage.Version }] };
         var counterpart = AuthoringEnvironmentAssessment.Packages(manifest, home).Single();
         if (!counterpart.Satisfied || !AuthoringEnvironmentAssessment.RuntimeFileAvailable(home, StandaloneVisaPackage.WrapperFileName) || !OwnedPayloadMatches(home))
             return new(false, "Standalone VISA counterpart is missing, incompatible, or incomplete. Prepare the selected home before standalone/TUI execution.");
         return new(true, "Standalone VISA provider ready. Physical execution also requires a vendor VISA runtime; preparation does not probe or install it.");
+    }
+
+    private static (bool HasClaims, string? Issue) InspectClaims(OpenTapHome home)
+    {
+        var claimed = false;
+        try
+        {
+            if (File.Exists(home.Root) && !Directory.Exists(home.Root)) throw new IOException("The selected home is a file, not a directory.");
+            ExecutionLibraryHome.Validate(home.Root, entry =>
+            {
+                var name = Path.GetFileName(entry);
+                if (InstrumentLibraryMetadata.Files.Contains(name, StringComparer.OrdinalIgnoreCase)
+                    || name.Equals("InstrumentComponents.OpenTap.Visa.dll", StringComparison.OrdinalIgnoreCase)
+                    || name.Equals("InstrumentComponents.Visa.dll", StringComparison.OrdinalIgnoreCase)
+                    || name.Equals(StandaloneVisaPackage.WrapperFileName, StringComparison.OrdinalIgnoreCase)) claimed = true;
+                if (!name.Equals("package.xml", StringComparison.OrdinalIgnoreCase)) return;
+                using var reader = XmlReader.Create(entry, new XmlReaderSettings
+                {
+                    DtdProcessing = DtdProcessing.Prohibit,
+                    XmlResolver = null,
+                    MaxCharactersInDocument = 1_048_576
+                });
+                var package = ((string?)XDocument.Load(reader).Root?.Attribute("Name"))?.Trim();
+                if (string.Equals(package, PublishedInstrumentComponents.PackageName, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(package, StandaloneVisaPackage.PackageName, StringComparison.OrdinalIgnoreCase)) claimed = true;
+            });
+            return (claimed, null);
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException or ArgumentException or InvalidOperationException or XmlException or NotSupportedException)
+        {
+            return (claimed, $"Cannot inspect the selected standalone/TUI home: {error.Message} Prepare or repair a supported library home before opening the TUI.");
+        }
     }
 
     private static bool OwnedPayloadMatches(OpenTapHome home)

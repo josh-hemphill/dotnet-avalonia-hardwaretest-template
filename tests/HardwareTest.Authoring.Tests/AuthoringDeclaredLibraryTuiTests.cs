@@ -31,7 +31,7 @@ public sealed class AuthoringDeclaredLibraryTuiTests : IDisposable
         }
         new OpenTapHomeBootstrapper().Bootstrap(workspace, new() { HomeDirectory = home.Root, Offline = true, OfflinePackagePath = archive });
         Assert.Contains(OpenTapHomeBootstrapper.ListInstalledPackages(home), package => package.Name == "Unrelated");
-        Assert.False(StandaloneVisaReadiness.IsLibraryHome(home));
+        Assert.False(StandaloneVisaReadiness.RequiresStandaloneReadiness(home));
         // Presence fixture only: refusal must precede launching or loading this payload.
         File.WriteAllText(Path.Combine(home.Root, "FixtureTui.dll"), "TUI prerequisite presence fixture");
         var plan = Path.Combine(root, "sample.TapPlan");
@@ -72,6 +72,6 @@ public sealed class AuthoringDeclaredLibraryTuiTests : IDisposable
         else Assert.Null(blocker);
         var start = AuthoringExternalTuiLauncher.WindowsStartInfo("dotnet", home.Root, plan, requiresInstrumentLibrary: false);
         Assert.Equal(["--roll-forward", "Major", Path.Combine(home.Root, "tap.dll"), "tui", plan], start.ArgumentList);
-        Assert.False(StandaloneVisaReadiness.IsLibraryHome(home));
+        Assert.False(StandaloneVisaReadiness.RequiresStandaloneReadiness(home));
     }
 }

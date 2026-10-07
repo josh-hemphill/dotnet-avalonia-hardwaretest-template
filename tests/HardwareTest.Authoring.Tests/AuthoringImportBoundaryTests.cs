@@ -27,7 +27,7 @@ public sealed class AuthoringImportBoundaryTests : IDisposable
             Assert.True(AuthoringEnvironmentAssessment.Packages(workspace.Manifest, home).Single(p => p.Package == name).Satisfied);
             if (name == "First")
             {
-                Assert.False(StandaloneVisaReadiness.IsLibraryHome(home));
+                Assert.False(StandaloneVisaReadiness.RequiresStandaloneReadiness(home));
                 Assert.False(File.Exists(Path.Combine(home.Root, HardwareTest.OpenTap.Host.StandaloneVisaPackage.WrapperFileName)));
                 Assert.False(AuthoringEnvironmentAssessment.Packages(workspace.Manifest, home).Single(p => p.Package == OpenTapHomeBootstrapper.InstrumentComponentsPackageName).Satisfied);
                 var before = Snapshot(home.Root);

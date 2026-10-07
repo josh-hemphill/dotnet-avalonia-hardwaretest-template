@@ -319,9 +319,9 @@ public sealed class OpenTapHomeBootstrapper : IOpenTapHomeBootstrapper
     private static void InstallStandaloneCounterpartForLibrary(AuthoringManifest manifest, string homeRoot, bool explicitPartialImport)
     {
         var home = new OpenTapHome(homeRoot);
-        if (!StandaloneVisaReadiness.IsLibraryHome(home)
+        if (!StandaloneVisaReadiness.RequiresStandaloneReadiness(home)
             && !manifest.Dependencies.Any(dependency => dependency.Package.Equals(InstrumentComponentsPackageName, StringComparison.OrdinalIgnoreCase))) return;
-        if (explicitPartialImport && !StandaloneVisaReadiness.IsLibraryHome(home)) return;
+        if (explicitPartialImport && !StandaloneVisaReadiness.RequiresStandaloneReadiness(home)) return;
         if (StandaloneVisaReadiness.SupportedDependencies(home) is { } reason) throw new AuthoringWorkspaceException(reason);
         var declaredDependencies = new AuthoringManifest
         {
