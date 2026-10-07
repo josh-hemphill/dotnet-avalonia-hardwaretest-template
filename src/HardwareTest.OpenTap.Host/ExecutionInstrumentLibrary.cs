@@ -29,7 +29,7 @@ internal static class ExecutionInstrumentLibrary
         }
 
         var bytes = selected is null ? BundledPayload() : selected;
-        ValidateAssemblyIdentities(bytes);
+        if (selected is null) ValidateAssemblyIdentities(bytes);
         var key = string.Join("", bytes.Select(payload => Convert.ToHexString(SHA256.HashData(payload))));
         if (!Payloads.TryGetValue(key, out var directory))
         {
@@ -86,6 +86,7 @@ internal static class ExecutionInstrumentLibrary
 
     private static byte[][]? SelectInstalledRoot(IEnumerable<string> trustedDirectories)
     {
+        var claims = new List<byte[][]>();
         foreach (var candidate in trustedDirectories)
         {
             var directory = ExecutionLibraryHome.Validate(candidate);
@@ -101,9 +102,15 @@ internal static class ExecutionInstrumentLibrary
                 captured.Add(file, payload);
                 return payload;
             });
-            return Files.Select(file => captured[file]).ToArray();
+            var payloads = Files.Select(file => captured[file]).ToArray();
+            ValidateAssemblyIdentities(payloads);
+            claims.Add(payloads);
         }
-        return null;
+        if (claims.Count == 0) return null;
+        var selected = claims[0];
+        if (claims.Skip(1).Any(payloads => Enumerable.Range(0, Files.Length).Any(index => !payloads[index].SequenceEqual(selected[index]))))
+            throw new InvalidOperationException("Configured execution roots contain different Instrument Components payloads. Select one library home or configure identical current library payloads before execution.");
+        return selected;
     }
 
     private static Assembly VerifyContract(Assembly assembly)

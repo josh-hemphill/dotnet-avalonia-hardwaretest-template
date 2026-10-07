@@ -18,12 +18,19 @@ if (args is ["--metadata", var gate])
     return 0;
 }
 
-if (args is ["--invalid-selected-metadata", var invalidHome])
+if (args is [var invalidMode, var invalidHome] && invalidMode is "--invalid-selected-metadata" or "--invalid-multiple-roots")
 {
     if (AppDomain.CurrentDomain.GetAssemblies().Any(assembly => assembly.GetName().Name?.StartsWith("InstrumentComponents", StringComparison.Ordinal) == true))
         throw new InvalidOperationException("Metadata rejection fixture must begin in a cold process.");
+    string[] directories = invalidMode == "--invalid-multiple-roots"
+        ? ParseRoots(invalidHome)
+        : [invalidHome];
+    // Default logging uses the engine installation directory, not cwd; the test
+    // runner isolates both this runtime and cwd from the selected roots.
+    OpenTap.SessionLogs.Initialize(Path.Combine(Environment.CurrentDirectory, "rejection.log"));
+    var pluginDirectories = OpenTap.PluginManager.DirectoriesToSearch.ToArray();
     var broker = new FixtureBroker();
-    var catalog = new OpenTapHostCatalog(new AppSettings { OpenTapPluginDirectories = [invalidHome] },
+    var catalog = new OpenTapHostCatalog(new AppSettings { OpenTapPluginDirectories = [.. directories] },
         Serilog.Log.Logger, broker, trustConfiguredPluginDirectories: true);
     try
     {
@@ -34,6 +41,8 @@ if (args is ["--invalid-selected-metadata", var invalidHome])
         if (AppDomain.CurrentDomain.GetAssemblies().Any(assembly => assembly.GetName().Name?.StartsWith("InstrumentComponents", StringComparison.Ordinal) == true)
             || broker.Session is not null)
             throw new InvalidOperationException("Invalid selected metadata loaded an execution library or acquired its provider.", error);
+        if (!pluginDirectories.SequenceEqual(OpenTap.PluginManager.DirectoriesToSearch))
+            throw new InvalidOperationException("Rejected execution roots mutated plugin search directories.", error);
         Console.WriteLine("selected-metadata-refused-before-library-load: " + error.Message);
         return 0;
     }
@@ -141,12 +150,15 @@ if (args is ["--loaded", var loadedHome])
     return RunPublishedProbe(broker);
 }
 
-if (args is ["--managed", var selected])
+if (args is [var managedMode, var selected] && managedMode is "--managed" or "--managed-multiple-roots")
 {
     if (AppDomain.CurrentDomain.GetAssemblies().Any(assembly => assembly.GetName().Name?.StartsWith("InstrumentComponents", StringComparison.Ordinal) == true))
         throw new InvalidOperationException("Managed boundary must begin without a loaded library.");
     var broker = new FixtureBroker();
-    var settings = new AppSettings { OpenTapPluginDirectories = selected == "fallback" ? [] : [selected] };
+    string[] directories = managedMode == "--managed-multiple-roots"
+        ? ParseRoots(selected)
+        : selected == "fallback" ? [] : [selected];
+    var settings = new AppSettings { OpenTapPluginDirectories = [.. directories] };
     var catalog = new OpenTapHostCatalog(settings, Serilog.Log.Logger, broker, trustConfiguredPluginDirectories: true);
     catalog.EnsurePlugins();
     var loaded = AppDomain.CurrentDomain.GetAssemblies().Single(assembly => assembly.GetName().Name == "InstrumentComponents.OpenTap");
@@ -161,6 +173,13 @@ if (args is ["--managed", var selected])
     return RunPublishedProbe(broker);
 }
 return 1;
+
+static string[] ParseRoots(string json)
+{
+    using var document = System.Text.Json.JsonDocument.Parse(json);
+    return document.RootElement.EnumerateArray().Select(element =>
+        element.GetString() ?? throw new InvalidOperationException("Execution root must be a string.")).ToArray();
+}
 
 static int RunPublishedProbe(FixtureBroker broker)
 {

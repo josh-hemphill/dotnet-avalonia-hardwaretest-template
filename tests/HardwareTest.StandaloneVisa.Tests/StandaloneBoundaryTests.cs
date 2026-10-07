@@ -552,16 +552,30 @@ public sealed partial class StandaloneBoundaryTests : IDisposable
 
     private static async Task<(int Code, string Output)> Run(string home, string assembly, string argument, string mode = "--managed", bool allowFailure = false)
     {
+        using var rejectionDirectory = mode is "--invalid-selected-metadata" or "--invalid-multiple-roots"
+            ? new RejectionWorkingDirectory() : null;
         var start = new ProcessStartInfo(Path.Combine(Environment.GetEnvironmentVariable("DOTNET_ROOT")!, OperatingSystem.IsWindows() ? "dotnet.exe" : "dotnet"))
-        { WorkingDirectory = home, RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false };
-        start.ArgumentList.Add(Path.Combine(home, assembly));
+        {
+            // OpenTAP initialization logs must stay outside every selected root and
+            // fixture tree captured by the rejection tests, including their parents.
+            WorkingDirectory = rejectionDirectory?.DirectoryPath ?? home,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false
+        };
+        start.ArgumentList.Add(Path.Combine(rejectionDirectory?.DirectoryPath ?? home, assembly));
         if (assembly != StandaloneVisaPackage.WrapperFileName) start.ArgumentList.Add(mode);
         start.ArgumentList.Add(argument);
         using var child = Process.Start(start)!;
         var stdout = child.StandardOutput.ReadToEndAsync();
         var stderr = child.StandardError.ReadToEndAsync();
         try { await child.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(30)); }
-        catch { if (!child.HasExited) child.Kill(entireProcessTree: true); throw; }
+        catch
+        {
+            if (!child.HasExited) child.Kill(entireProcessTree: true);
+            await child.WaitForExitAsync();
+            throw;
+        }
         var output = await stdout + await stderr;
         if (!allowFailure) Assert.True(child.ExitCode is 0 or 17, output);
         return (child.ExitCode, output);
