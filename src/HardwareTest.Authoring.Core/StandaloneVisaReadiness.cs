@@ -48,6 +48,8 @@ public static class StandaloneVisaReadiness
         return new(true, "Standalone VISA provider ready. Physical execution also requires a vendor VISA runtime; preparation does not probe or install it.");
     }
 
+    internal static string? InstalledClaimIssue(OpenTapHome home) => InspectClaims(home).Issue;
+
     private static (bool HasClaims, string? Issue) InspectClaims(OpenTapHome home)
     {
         var claimed = false;

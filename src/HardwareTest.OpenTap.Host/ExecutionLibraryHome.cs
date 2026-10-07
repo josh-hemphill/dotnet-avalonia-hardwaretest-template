@@ -1,3 +1,4 @@
+using System.Xml;
 using System.Xml.Linq;
 
 namespace HardwareTest.OpenTap.Host;
@@ -71,10 +72,20 @@ internal static class ExecutionLibraryHome
         if (!File.Exists(path)) return false;
         try
         {
-            return string.Equals(((string?)XDocument.Load(path).Root?.Attribute("Name"))?.Trim(),
-                PublishedInstrumentComponents.PackageName, StringComparison.OrdinalIgnoreCase);
+            using var reader = XmlReader.Create(path, new XmlReaderSettings
+            {
+                DtdProcessing = DtdProcessing.Prohibit,
+                XmlResolver = null,
+                MaxCharactersInDocument = 1_048_576
+            });
+            var package = XDocument.Load(reader).Root;
+            var name = ((string?)package?.Attribute("Name"))?.Trim();
+            if (package?.Name.LocalName != "Package" || string.IsNullOrWhiteSpace(name))
+                throw new IOException("Selected execution home package metadata has no valid Package identity: " + path);
+            return name.Equals(PublishedInstrumentComponents.PackageName, StringComparison.OrdinalIgnoreCase);
         }
-        catch (System.Xml.XmlException) { return false; }
+        catch (XmlException error)
+        { throw new IOException("Selected execution home package metadata is malformed or exceeds the inspection limit: " + path, error); }
     }
 
     private static void EnsureContained(string root, string path)

@@ -68,6 +68,8 @@ public sealed class OpenTapHomeBootstrapper : IOpenTapHomeBootstrapper
     {
         capturedEnvironment ??= AuthoringBuildService.CaptureEnvironment();
         var homeRoot = Path.GetFullPath(options.HomeDirectory!);
+        if (StandaloneVisaReadiness.InstalledClaimIssue(new(homeRoot)) is { } claimIssue)
+            throw new AuthoringWorkspaceException(claimIssue);
         try { AuthoringAdapterPayloadInspection.RejectAlternateLibraryPayloads(homeRoot); }
         catch (IOException error) { throw new AuthoringWorkspaceException(error.Message, error); }
         Directory.CreateDirectory(homeRoot);
@@ -93,6 +95,8 @@ public sealed class OpenTapHomeBootstrapper : IOpenTapHomeBootstrapper
             AssertNoVisa(homeRoot);
         }
         var home = new OpenTapHome(homeRoot);
+        if (StandaloneVisaReadiness.ExecutionPrerequisite(home, requiresInstrumentLibrary: false) is { } unavailable)
+            throw new AuthoringWorkspaceException(unavailable);
         var unsafePaths = AuthoringEnvironmentAssessment.UnsafeInstalledPaths(home);
         if (unsafePaths.Count != 0) throw new AuthoringWorkspaceException(string.Join("; ", unsafePaths));
         if (string.IsNullOrWhiteSpace(options.OfflinePackagePath))
