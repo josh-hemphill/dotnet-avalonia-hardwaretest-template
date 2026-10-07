@@ -3,10 +3,23 @@ namespace HardwareTest.Authoring;
 public sealed partial class AuthoringWorkspaceViewModel
 {
     public FormulaDeploymentStatus? FormulaDeploymentStatus => HasFormula && SelectedMetric is { } metric
-        ? FormulaDeploymentClassifier.Classify(metric, SelectedProgram) : null;
-    public string FormulaRecordingEvidence => HasFormula && SelectedMetric is { } metric
-        ? FormulaDeploymentClassifier.DescribeRecording(metric, SelectedDataset is { } dataset
-            ? RunDatasetBinder.SeriesByMetric(dataset.Run) : null) : string.Empty;
+        ? FormulaDeploymentClassifier.Classify(metric, SelectedProgram, nodeId: SelectedPreviewNodeId) : null;
+    public string FormulaRecordingEvidence
+    {
+        get
+        {
+            if (!HasFormula || SelectedMetric is not { } metric) return string.Empty;
+            if (SelectedDataset is not { } dataset) return FormulaDeploymentClassifier.DescribeRecording(metric, null);
+            if (dataset.Run.Samples.Any(sample => sample.StepRunId is not null || sample.IterationIndex is not null))
+            {
+                var tiles = BoardTiles.Where(tile => tile.NodeId == SelectedPreviewNodeId).ToArray();
+                var available = tiles.Count(tile => tile.Preview.CannedSamples.Count > 0);
+                var issues = tiles.Where(tile => tile.Preview.CannedSamples.Count == 0).Select(tile => tile.Preview.Note).Distinct();
+                return $"Recording evidence: {available} source execution(s) evaluated separately. {string.Join(" ", issues)} Deployment requirements remain separate.";
+            }
+            return FormulaDeploymentClassifier.DescribeRecording(metric, RunDatasetBinder.SeriesByMetric(dataset.Run));
+        }
+    }
     public string FormulaDeploymentLabel => FormulaDeploymentStatus?.Label ?? string.Empty;
     public string FormulaLoweringTarget => $"Lowering target: {FormulaDeploymentStatus?.Target ?? "None"}";
     public string FormulaDeploymentRequirements => FormulaDeploymentStatus?.Requirements ?? string.Empty;

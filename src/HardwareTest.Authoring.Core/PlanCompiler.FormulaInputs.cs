@@ -10,8 +10,8 @@ public sealed partial class PlanCompiler
     internal static void ValidateFormulaInputs(ProgramDraft draft)
         => BindSequence(RequirementSteps(draft.Measure), bindProducer: false, incompleteFields: draft.AuthoringState.IncompleteNumericText);
 
-    internal static void ValidateFormulaInput(IReadOnlyList<MeasureNode> nodes, string outputChannel, AuthoringDocumentState? state = null)
-        => BindSequence(RequirementSteps(nodes, RelevantInputNodes(nodes, outputChannel)), bindProducer: false, onlyOutput: outputChannel, incompleteFields: state?.IncompleteNumericText);
+    internal static void ValidateFormulaInput(IReadOnlyList<MeasureNode> nodes, string outputChannel, AuthoringDocumentState? state = null, Guid? targetNodeId = null)
+        => BindSequence(RequirementSteps(nodes, RelevantInputNodes(nodes, outputChannel, targetNodeId)), bindProducer: false, onlyOutput: outputChannel, incompleteFields: state?.IncompleteNumericText, onlyNodeId: targetNodeId);
 
     // Authoring edits need the real dependency validator, but unrelated unfinished numeric
     // fields must not be parsed while checking one consumer's preceding input closure.
@@ -19,7 +19,7 @@ public sealed partial class PlanCompiler
         => BindSequence(RequirementSteps(nodes, RelevantInputNodes(nodes, outputChannel), structural: true),
             bindProducer: false, onlyOutput: outputChannel, incompleteFields: state.IncompleteNumericText);
 
-    private static HashSet<Guid> RelevantInputNodes(IReadOnlyList<MeasureNode> nodes, string outputChannel)
+    private static HashSet<Guid> RelevantInputNodes(IReadOnlyList<MeasureNode> nodes, string outputChannel, Guid? targetNodeId = null)
     {
         var relevant = new HashSet<Guid>();
         void Scope(IReadOnlyList<MeasureNode> siblings)
@@ -54,18 +54,18 @@ public sealed partial class PlanCompiler
             {
                 if (siblings[index] is RepeatNode repeat) Scope(repeat.Children);
                 if (siblings[index] is MetricNode metric &&
-                    string.Equals(metric.Metric.ChannelKey, outputChannel, StringComparison.OrdinalIgnoreCase)) Include(index);
+                    (targetNodeId is { } id ? metric.NodeId == id : string.Equals(metric.Metric.ChannelKey, outputChannel, StringComparison.OrdinalIgnoreCase))) Include(index);
             }
         }
         Scope(nodes);
         return relevant;
     }
 
-    internal static double? ScalarMeanPreviewExample(ProgramDraft draft, string outputChannel)
+    internal static double? ScalarMeanPreviewExample(ProgramDraft draft, string outputChannel, Guid? targetNodeId = null)
     {
         double? example = null;
-        BindSequence(RequirementSteps(draft.Measure, RelevantInputNodes(draft.Measure, outputChannel)), bindProducer: false, onlyOutput: outputChannel,
-            incompleteFields: draft.AuthoringState.IncompleteNumericText, scalarExample: value => example = value);
+        BindSequence(RequirementSteps(draft.Measure, RelevantInputNodes(draft.Measure, outputChannel, targetNodeId)), bindProducer: false, onlyOutput: outputChannel,
+            incompleteFields: draft.AuthoringState.IncompleteNumericText, scalarExample: value => example = value, onlyNodeId: targetNodeId);
         return example;
     }
 

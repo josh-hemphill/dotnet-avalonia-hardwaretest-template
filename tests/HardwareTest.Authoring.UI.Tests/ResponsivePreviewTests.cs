@@ -32,6 +32,7 @@ public sealed class ResponsivePreviewTests
         window.FontSize = fontSize;
         window.SetRenderScaling(scaling);
         fixture.OpenRememberedWorkspace();
+        fixture.ViewModel.StopRecovery();
         Assert.Equal(new Size(width, height), window.ClientSize);
         Assert.Equal(scaling, window.RenderScaling);
         fixture.ViewModel.SelectSequence(fixture.ViewModel.SequenceItems.ToList().FindIndex(row => row.Label == "Acquire VDC"));
@@ -87,11 +88,12 @@ public sealed class ResponsivePreviewTests
             Assert.True(scroll.ClipToBounds);
             Assert.Equal(Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled, scroll.HorizontalScrollBarVisibility);
             var preview = fixture.Control<OperatorPreviewPane>("Operator preview chrome");
+            var selectedTile = preview.GetVisualDescendants().OfType<BoardPreviewTileView>().First(tile => Avalonia.Automation.AutomationProperties.GetName(tile) == "Board tile VDC");
             Control tile = role switch
             {
-                "timeseries" => Assert.Single(preview.GetVisualDescendants().OfType<MeasurementPlotView>()),
-                "scalar" => Assert.Single(preview.GetVisualDescendants().OfType<MetricGaugeView>()),
-                _ => Assert.Single(preview.GetVisualDescendants().OfType<TimingStripView>()),
+                "timeseries" => Assert.Single(selectedTile.GetVisualDescendants().OfType<MeasurementPlotView>()),
+                "scalar" => Assert.Single(selectedTile.GetVisualDescendants().OfType<MetricGaugeView>()),
+                _ => Assert.Single(selectedTile.GetVisualDescendants().OfType<TimingStripView>()),
             };
             tile.BringIntoView();
             AuthoringUiFixture.Drain();
@@ -106,13 +108,13 @@ public sealed class ResponsivePreviewTests
             {
                 Assert.True(scroll.Extent.Height > scroll.Viewport.Height);
                 Assert.True(scroll.Offset.Y > 0);
-                // Wheel input over the recordings area brings the chart back through the clipping viewport.
+                // Wheel input returns to the data-source controls placed above the board.
                 var center = recordings.TranslatePoint(new Point(8, 8), window);
                 Assert.NotNull(center);
                 window.MouseWheel(center.Value, new Vector(0, 1000), RawInputModifiers.None);
                 AuthoringUiFixture.Drain();
                 Assert.Equal(0, scroll.Offset.Y);
-                ResponsiveShellTests.Inside(tile, window);
+                ResponsiveShellTests.Inside(fixture.Control<Button>("Use example data"), window);
             }
         }
     }

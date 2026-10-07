@@ -11,7 +11,7 @@ public sealed partial class PlanCompiler
     // Capture requires a preceding Sample publisher in the same actual execution scope.
     private static void BindSequence(IEnumerable<ITestStep> steps, bool bindProducer = true, string? onlyOutput = null, bool safeScope = true,
         IReadOnlyDictionary<string, string>? incompleteFields = null, IReadOnlyList<Guid>? scopeNodes = null,
-        Action<double>? scalarExample = null)
+        Action<double>? scalarExample = null, Guid? onlyNodeId = null)
     {
         var producers = new Dictionary<string, List<ITestStep>>(StringComparer.OrdinalIgnoreCase);
         var validations = new Dictionary<ITestStep, Action>(ReferenceEqualityComparer.Instance);
@@ -34,7 +34,7 @@ public sealed partial class PlanCompiler
                     RequireKnownScope(safeScope);
                     if (string.IsNullOrWhiteSpace(average.InputChannel))
                         throw new AuthoringWorkspaceException(AuthoringFunctionCatalog.InputChannelIssue(AuthoringFunctionIds.BasicChannelAverage, [])!);
-                    if (scalarExample is not null && string.Equals(output, onlyOutput, StringComparison.OrdinalIgnoreCase)
+                    if (scalarExample is not null && (onlyNodeId is { } scalarTarget ? step.Id == scalarTarget : string.Equals(output, onlyOutput, StringComparison.OrdinalIgnoreCase))
                         && preceding.TryGetValue(average.InputChannel, out var scalarMatches)
                         && scalarMatches is [PublishBandScalarStep scalar])
                     {
@@ -74,10 +74,10 @@ public sealed partial class PlanCompiler
             if (validate is not null)
             {
                 validations[step] = validate;
-                if (onlyOutput is null || string.Equals(output, onlyOutput, StringComparison.OrdinalIgnoreCase)) validate();
+                if (onlyNodeId is { } validationTarget ? step.Id == validationTarget : onlyOutput is null || string.Equals(output, onlyOutput, StringComparison.OrdinalIgnoreCase)) validate();
             }
             if (step.ChildTestSteps.Count > 0) BindSequence(step.ChildTestSteps, bindProducer, onlyOutput,
-                safeScope && (step is TestGroupStep or RepeatLoopStep), incompleteFields, [.. (scopeNodes ?? []), step.Id], scalarExample);
+                safeScope && (step is TestGroupStep or RepeatLoopStep), incompleteFields, [.. (scopeNodes ?? []), step.Id], scalarExample, onlyNodeId);
             var channel = DeclaredChannel(step);
             if (!string.IsNullOrWhiteSpace(channel))
             {
@@ -100,7 +100,7 @@ public sealed partial class PlanCompiler
         }
     }
 
-    private static void RequireCompleteInput(Guid nodeId, IReadOnlyDictionary<string, string>? incompleteFields)
+    internal static void RequireCompleteInput(Guid nodeId, IReadOnlyDictionary<string, string>? incompleteFields)
     {
         var key = incompleteFields?.Keys.Order(StringComparer.Ordinal).FirstOrDefault(key => key.StartsWith($"{nodeId:D}/", StringComparison.Ordinal));
         if (key is not null)

@@ -97,6 +97,14 @@ public sealed class AuthoringChromeA11yTests
         Assert.Contains("AutomationProperties.Name=\"Ship shell-app projects\"", xaml, StringComparison.Ordinal);
         Assert.Contains("AutomationProperties.Name=\"Authoring OpenTAP home packages\"", xaml, StringComparison.Ordinal);
         Assert.Contains("OnOpenLastWorkspace", xaml, StringComparison.Ordinal);
+        var previewCode = File.ReadAllText(Path.Combine(sourceRoot, "WorkspacePreviewView.axaml.cs"));
+        Assert.Contains("Click=\"OnUseExampleData\"", views["WorkspacePreviewView"], StringComparison.Ordinal);
+        Assert.Contains("Click=\"OnImportRecording\"", views["WorkspacePreviewView"], StringComparison.Ordinal);
+        Assert.Contains("Click=\"OnOpenRecordingFolder\"", views["WorkspacePreviewView"], StringComparison.Ordinal);
+        Assert.Contains("vm.UseExampleData()", previewCode, StringComparison.Ordinal);
+        Assert.Contains("vm.ImportRecording(path)", previewCode, StringComparison.Ordinal);
+        Assert.Contains("owner.Launcher.LaunchDirectoryInfoAsync(new DirectoryInfo(path))", previewCode, StringComparison.Ordinal);
+        Assert.Contains("ReferenceEquals(workspace, vm.Workspace)", previewCode, StringComparison.Ordinal);
         var code = File.ReadAllText(Path.Combine(FindRepoRoot(), "src", "HardwareTest.Authoring", "MainWindow.axaml.cs"));
         Assert.Contains("ApplyFormulaCompletion", code, StringComparison.Ordinal);
         Assert.Contains("OnOpenSettings", code, StringComparison.Ordinal);

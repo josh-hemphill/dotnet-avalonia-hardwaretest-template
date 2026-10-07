@@ -14,7 +14,7 @@ public sealed record FormulaDeploymentStatus(FormulaDeploymentStatusKind Kind, s
 public static class FormulaDeploymentClassifier
 {
     public static FormulaDeploymentStatus Classify(MetricDraft metric, ProgramDraft? draft = null,
-        IReadOnlyDictionary<string, IReadOnlyList<StoredSample>>? series = null)
+        IReadOnlyDictionary<string, IReadOnlyList<StoredSample>>? series = null, Guid? nodeId = null)
     {
         if (metric.Source is not ExpressionAlgorithm expression)
             throw new ArgumentException("An expression metric is required.", nameof(metric));
@@ -36,8 +36,9 @@ public static class FormulaDeploymentClassifier
             AuthoringCriteria.Validate(metric);
             if (draft is not null)
             {
-                var deployment = DeploymentContext(metric, draft);
-                PlanCompiler.ValidateFormulaInput(deployment.Measure, metric.ChannelKey, deployment.AuthoringState);
+                var identity = nodeId ?? MetricPreviewBuilder.ResolveNodeId(draft.Measure, metric);
+                var deployment = DeploymentContext(metric, draft, identity);
+                PlanCompiler.ValidateFormulaInput(deployment.Measure, metric.ChannelKey, deployment.AuthoringState, identity);
             }
             return new(FormulaDeploymentStatusKind.DeployableRecipe, "Deployable recipe", target, requirements, $"Deploys as {target}.")
             { RecordingEvidence = DescribeRecording(metric, series) };
@@ -50,12 +51,13 @@ public static class FormulaDeploymentClassifier
         }
     }
 
-    internal static ProgramDraft DeploymentContext(MetricDraft metric, ProgramDraft draft)
+    internal static ProgramDraft DeploymentContext(MetricDraft metric, ProgramDraft draft, Guid? nodeId = null)
     {
         // Assess the selected expression even when it is exploration, preserving all other exclusions.
+        var identity = nodeId ?? MetricPreviewBuilder.ResolveNodeId(draft.Measure, metric);
         var state = draft.AuthoringState.Clone();
         foreach (var node in AuthoringDependencyIndex.Build(draft).Nodes.Where(node =>
-            string.Equals(node.ProducedChannel, metric.ChannelKey, StringComparison.OrdinalIgnoreCase)))
+            identity is { } id ? node.NodeId == id : string.Equals(node.ProducedChannel, metric.ChannelKey, StringComparison.OrdinalIgnoreCase)))
             state.FormulaIntent.Remove(node.NodeId);
         return AuthoringFormulaDeployment.Project(draft with { AuthoringState = state });
     }

@@ -344,6 +344,11 @@ public sealed partial class PlanCompiler
 
             return plan.ChildTestSteps[0];
         }
+        catch (Exception error) when (error is TestPlan.PlanLoadException or System.Xml.XmlException)
+        {
+            throw new AuthoringWorkspaceException(
+                $"RAW_STEP_UNAVAILABLE: Imported raw step '{raw.TypeName}' ({raw.NodeId:D}) could not load: {error.Message}", error);
+        }
         finally
         {
             File.Delete(tmp);
