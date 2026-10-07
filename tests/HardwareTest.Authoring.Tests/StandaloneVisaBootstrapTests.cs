@@ -208,6 +208,64 @@ public sealed class StandaloneVisaBootstrapTests : IDisposable
         Assert.True(StandaloneVisaReadiness.Assess(home).Available);
     }
 
+    [Theory]
+    [InlineData("Packages/OpenTAP/OpenTap.Plugins.BasicSteps.dll")]
+    [InlineData("Dependencies/Newtonsoft.Json.13.0.0.0/Newtonsoft.Json.dll")]
+    public void Current_library_preparation_repairs_declared_runtime_payload_without_rewriting_metadata(string relative)
+    {
+        var workspace = Workspace();
+        var home = Prepare(workspace);
+        var metadata = Path.Combine(home.Root, "Packages", "OpenTAP", "package.xml");
+        var xml = System.Xml.Linq.XDocument.Load(metadata);
+        xml.Root!.Add(new System.Xml.Linq.XComment("Preserve installed runtime metadata during repair."));
+        xml.Save(metadata);
+        var metadataBytes = File.ReadAllBytes(metadata);
+        var missing = Path.Combine(home.Root, relative.Replace('/', Path.DirectorySeparatorChar));
+        var expected = File.ReadAllBytes(missing);
+        File.Delete(missing);
+        Assert.NotNull(StandaloneVisaReadiness.OpenTapRuntimeIssue(home));
+
+        Prepare(workspace);
+
+        Assert.Equal(expected, File.ReadAllBytes(missing));
+        Assert.Equal(metadataBytes, File.ReadAllBytes(metadata));
+        Assert.Null(StandaloneVisaReadiness.OpenTapRuntimeIssue(home));
+        Assert.True(StandaloneVisaReadiness.Assess(home).Available);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Direct_bootstrap_rejects_unrepairable_missing_declarations_before_copying_runtime(bool wrongHash)
+    {
+        var workspace = Workspace();
+        var home = Prepare(workspace);
+        const string relative = "Dependencies/Newtonsoft.Json.13.0.0.0/Newtonsoft.Json.dll";
+        var metadata = Path.Combine(home.Root, "Packages", "OpenTAP", "package.xml");
+        var xml = System.Xml.Linq.XDocument.Load(metadata);
+        if (wrongHash)
+        {
+            var declaration = xml.Descendants().Single(element => element.Name.LocalName == "File" && (string?)element.Attribute("Path") == relative);
+            foreach (var hash in declaration.Elements().Where(element => element.Name.LocalName == "Hash").ToArray()) hash.Remove();
+            declaration.Add(new System.Xml.Linq.XElement(declaration.Name.Namespace + "Hash", new string('0', 40)));
+        }
+        else xml.Root!.Add(new System.Xml.Linq.XElement("Files", new System.Xml.Linq.XElement("File",
+            new System.Xml.Linq.XAttribute("Path", "missing-required-runtime.bin"))));
+        xml.Save(metadata);
+        File.Delete(Path.Combine(home.Root, relative.Replace('/', Path.DirectorySeparatorChar)));
+        var before = Snapshot(home);
+
+        var error = Assert.Throws<AuthoringWorkspaceException>(() => new OpenTapHomeBootstrapper().Bootstrap(workspace,
+            new() { HomeDirectory = home.Root, Offline = true }));
+
+        Assert.Contains("cannot be repaired", error.Message);
+        AssertSnapshot(before, home);
+        // The same preflight also protects direct owned preparation before any runtime copy.
+        Assert.Throws<AuthoringWorkspaceException>(() => new OpenTapHomeBootstrapper().BootstrapOwned(workspace,
+            new() { HomeDirectory = home.Root, Offline = true }));
+        AssertSnapshot(before, home);
+    }
+
     private static Dictionary<string, byte[]> Snapshot(OpenTapHome home) => Directory.GetFiles(home.Root, "*", SearchOption.AllDirectories)
         .ToDictionary(path => Path.GetRelativePath(home.Root, path), File.ReadAllBytes);
     private static void AssertSnapshot(Dictionary<string, byte[]> before, OpenTapHome home)

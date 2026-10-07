@@ -1,4 +1,6 @@
 using System.Reflection;
+using System.Reflection.Metadata;
+using System.Reflection.PortableExecutable;
 using System.Runtime.Loader;
 using System.Security.Cryptography;
 
@@ -12,14 +14,22 @@ internal static class OwnedInstrumentLibrary
     private static readonly object Gate = new();
     private static readonly Dictionary<Assembly, Payload> Loaded = [];
 
-    internal static Assembly Load(string path)
+    internal static Assembly Load(byte[] approvedBytes, string path)
     {
         lock (Gate)
         {
-            var bytes = File.ReadAllBytes(path);
-            var identity = AssemblyName.GetAssemblyName(path);
+            // Retain one private immutable copy from the caller's approved capture.
+            // Origin bytes authorize provenance, never supply bytes to the CLR loader.
+            var bytes = approvedBytes.ToArray();
             var hash = SHA256.HashData(bytes);
-            var existing = AppDomain.CurrentDomain.GetAssemblies().FirstOrDefault(assembly => assembly.GetName().Name == identity.Name);
+            var origin = Path.GetFullPath(path);
+            if (!SHA256.HashData(File.ReadAllBytes(origin)).SequenceEqual(hash))
+                throw new InvalidOperationException("The approved Instrument Components library no longer matches its source payload. Repair the source before loading.");
+            using var identityStream = new MemoryStream(bytes, writable: false);
+            using var pe = new PEReader(identityStream);
+            var metadata = pe.GetMetadataReader();
+            var name = metadata.GetString(metadata.GetAssemblyDefinition().Name);
+            var existing = AppDomain.CurrentDomain.GetAssemblies().FirstOrDefault(assembly => assembly.GetName().Name == name);
             if (existing is not null)
             {
                 if (!Fingerprint(existing).SequenceEqual(hash))
@@ -30,7 +40,7 @@ internal static class OwnedInstrumentLibrary
             var assembly = AssemblyLoadContext.Default.LoadFromStream(stream);
             if (!string.IsNullOrEmpty(assembly.Location))
                 throw new InvalidOperationException("The loaded execution library has no verified load provenance. Restart the process before loading the selected library.");
-            Loaded.Add(assembly, new(hash, Path.GetFullPath(path)));
+            Loaded.Add(assembly, new(hash, origin));
             return assembly;
         }
     }

@@ -29,6 +29,8 @@ if (args is [var invalidMode, var invalidHome] && invalidMode is "--invalid-sele
     // runner isolates both this runtime and cwd from the selected roots.
     OpenTap.SessionLogs.Initialize(Path.Combine(Environment.CurrentDirectory, "rejection.log"));
     var pluginDirectories = OpenTap.PluginManager.DirectoriesToSearch.ToArray();
+    var originalBroker = new FixtureBroker();
+    HardwareTest.OpenTap.Plugins.Basic.VisaBrokerHost.Register(originalBroker);
     var broker = new FixtureBroker();
     var catalog = new OpenTapHostCatalog(new AppSettings { OpenTapPluginDirectories = [.. directories] },
         Serilog.Log.Logger, broker, trustConfiguredPluginDirectories: true);
@@ -43,10 +45,48 @@ if (args is [var invalidMode, var invalidHome] && invalidMode is "--invalid-sele
             throw new InvalidOperationException("Invalid selected metadata loaded an execution library or acquired its provider.", error);
         if (!pluginDirectories.SequenceEqual(OpenTap.PluginManager.DirectoriesToSearch))
             throw new InvalidOperationException("Rejected execution roots mutated plugin search directories.", error);
+        if (!ReferenceEquals(originalBroker, HardwareTest.OpenTap.Plugins.Basic.VisaBrokerHost.Require()) || originalBroker.Session is not null)
+            throw new InvalidOperationException("Rejected execution roots replaced or used the previously registered broker.", error);
+        Console.WriteLine("previous-broker-binding-preserved-on-rejection");
         Console.WriteLine("selected-metadata-refused-before-library-load: " + error.Message);
         return 0;
     }
     throw new InvalidOperationException("Invalid selected metadata was accepted or replaced by fallback.");
+}
+
+if (args is [var replacementMode, var selectedHome] && replacementMode is "--replace-approved-contract" or "--replace-approved-provider")
+{
+    if (AppDomain.CurrentDomain.GetAssemblies().Any(assembly => assembly.GetName().Name?.StartsWith("InstrumentComponents", StringComparison.Ordinal) == true))
+        throw new InvalidOperationException("Approved-buffer replacement fixture must begin in a cold process.");
+    var host = typeof(OpenTapHostCatalog).Assembly;
+    var selector = host.GetType("HardwareTest.OpenTap.Host.ExecutionInstrumentLibrary")!
+        .GetMethod("SelectInstalledRoot", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)!;
+    // Genuine production metadata/SHA1/PE checks approve these immutable buffers.
+    var approved = (byte[][])selector.Invoke(null, [new[] { selectedHome }])!;
+    var index = replacementMode == "--replace-approved-contract" ? 0 : 1;
+    var file = index == 0 ? "InstrumentComponents.dll" : "InstrumentComponents.OpenTap.dll";
+    var origin = Path.Combine(Environment.CurrentDirectory, file);
+    File.WriteAllBytes(origin, approved[index]);
+    if (!System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(origin)).SequenceEqual(System.Security.Cryptography.SHA256.HashData(approved[index])))
+        throw new InvalidOperationException("Approved staging fixture did not retain exact captured bytes.");
+    // Replace the approved stage with another genuine managed DLL before load.
+    // The old loader would read this unauthorized image and enter it into the CLR.
+    File.WriteAllBytes(origin, approved[1 - index]);
+    var loader = host.GetType("HardwareTest.OpenTap.Host.OwnedInstrumentLibrary")!
+        .GetMethod("Load", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)!;
+    try
+    {
+        loader.Invoke(null, [approved[index], origin]);
+    }
+    catch (System.Reflection.TargetInvocationException error) when (error.InnerException is InvalidOperationException rejected
+        && rejected.Message.Contains("no longer matches its source payload", StringComparison.Ordinal))
+    {
+        if (AppDomain.CurrentDomain.GetAssemblies().Any(assembly => assembly.GetName().Name?.StartsWith("InstrumentComponents", StringComparison.Ordinal) == true))
+            throw new InvalidOperationException("An unauthorized replacement entered the CLR before rejection.", error);
+        Console.WriteLine("approved-buffer-stage-replacement-refused-before-clr-load");
+        return 0;
+    }
+    throw new InvalidOperationException("A replacement stage was loaded despite differing from approved bytes.");
 }
 
 if (args is ["--selected-update", var home])
@@ -194,8 +234,12 @@ static System.Reflection.Assembly LoadOwnedLibrary(string home)
 {
     var loader = typeof(OpenTapHostCatalog).Assembly.GetType("HardwareTest.OpenTap.Host.OwnedInstrumentLibrary")!;
     var load = loader.GetMethod("Load", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)!;
-    _ = load.Invoke(null, [Path.Combine(home, "InstrumentComponents.dll")]);
-    return (System.Reflection.Assembly)load.Invoke(null, [Path.Combine(home, "InstrumentComponents.OpenTap.dll")])!;
+    var contract = Path.Combine(home, "InstrumentComponents.dll");
+    var library = Path.Combine(home, "InstrumentComponents.OpenTap.dll");
+    var contractBytes = File.ReadAllBytes(contract);
+    var libraryBytes = File.ReadAllBytes(library);
+    _ = load.Invoke(null, [contractBytes, contract]);
+    return (System.Reflection.Assembly)load.Invoke(null, [libraryBytes, library])!;
 }
 
 static string OwnedLibraryDirectory(System.Reflection.Assembly assembly)

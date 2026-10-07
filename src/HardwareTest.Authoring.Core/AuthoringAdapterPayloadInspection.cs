@@ -63,19 +63,36 @@ internal static class AuthoringAdapterPayloadInspection
     }
 
     internal static XElement[] ValidateLibraryMetadata(string root, XElement package)
+        => CaptureLibraryMetadata(root, package, out _);
+
+    internal static IReadOnlyDictionary<string, byte[]> CaptureLibraryPayload(OpenTapHome home)
     {
+        var metadata = Path.Combine(home.Root, "Packages", AuthoringInstrumentCatalog.LibraryPackage, "package.xml");
+        var issue = FileIssue(home.Root, metadata);
+        if (issue is not null) throw new IOException($"Library package metadata {issue}.");
+        RejectAlternateLibraryPayloads(home.Root);
+        CaptureLibraryMetadata(home.Root, XDocument.Load(metadata).Root ?? throw new IOException("Library package metadata has no root element."), out var payloads);
+        return payloads;
+    }
+
+    private static XElement[] CaptureLibraryMetadata(string root, XElement package, out IReadOnlyDictionary<string, byte[]> payloads)
+    {
+        var captured = new Dictionary<string, byte[]>(StringComparer.Ordinal);
         var declarations = InstrumentLibraryMetadata.Validate(package, file =>
         {
             var path = Path.Combine(root, file.Replace('/', Path.DirectorySeparatorChar));
             var issue = FileIssue(root, path);
             if (issue is not null) throw new IOException($"Library payload '{file}' {issue}.");
-            return File.ReadAllBytes(path);
+            var bytes = File.ReadAllBytes(path);
+            captured.Add(file, bytes);
+            return bytes;
         });
         foreach (var declaration in declarations)
         {
             var file = ((string)declaration.Attribute("Path")!).Replace('\\', '/');
-            ValidateLibraryFile(Path.Combine(root, file.Replace('/', Path.DirectorySeparatorChar)), file);
+            ValidateLibraryFile(captured[file], file);
         }
+        payloads = captured;
         return declarations;
     }
 
@@ -110,12 +127,12 @@ internal static class AuthoringAdapterPayloadInspection
         catch (System.Xml.XmlException) { return false; }
     }
 
-    private static void ValidateLibraryFile(string path, string file)
+    private static void ValidateLibraryFile(byte[] bytes, string file)
     {
         if (!LibraryFiles.Contains(file, StringComparer.Ordinal)) return;
         try
         {
-            using var stream = File.OpenRead(path);
+            using var stream = new MemoryStream(bytes, writable: false);
             using var pe = new PEReader(stream);
             if (!pe.HasMetadata || pe.PEHeaders.CorHeader is null)
                 throw new BadImageFormatException("Payload has no managed metadata.");

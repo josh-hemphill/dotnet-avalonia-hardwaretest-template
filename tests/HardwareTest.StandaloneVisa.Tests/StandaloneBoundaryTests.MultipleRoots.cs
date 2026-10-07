@@ -78,6 +78,7 @@ public sealed partial class StandaloneBoundaryTests
         var result = await Run(first, "HardwareTest.StandaloneVisa.ProcessFixture.dll", SerializeRoots(roots), "--invalid-multiple-roots", allowFailure: true);
         Assert.Equal(0, result.Code);
         Assert.Contains("selected-metadata-refused-before-library-load", result.Output);
+        Assert.Contains("previous-broker-binding-preserved-on-rejection", result.Output);
         Assert.Contains(defect switch
         {
             "outside-link" => "resolves outside its root",
@@ -117,6 +118,7 @@ public sealed partial class StandaloneBoundaryTests
         var result = await Run(processHome, "HardwareTest.StandaloneVisa.ProcessFixture.dll", SerializeRoots(roots), "--invalid-multiple-roots", allowFailure: true);
         Assert.Equal(0, result.Code);
         Assert.Contains("selected-metadata-refused-before-library-load", result.Output);
+        Assert.Contains("previous-broker-binding-preserved-on-rejection", result.Output);
         Assert.Contains("noncanonical or duplicate installed package identities", result.Output);
         Assert.Equal(original, File.ReadAllBytes(metadata));
         Assert.Equal("contained-plugin-data", File.ReadAllText(Path.Combine(first, "notes.txt")));

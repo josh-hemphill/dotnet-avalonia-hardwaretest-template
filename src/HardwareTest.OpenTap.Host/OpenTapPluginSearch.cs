@@ -18,14 +18,13 @@ internal static class OpenTapPluginSearch
     {
         lock (SearchGate)
         {
-            if (includeVisaAdapter && visaBroker is not null)
-            {
-                VisaBrokerHost.Register(visaBroker);
-            }
-
             var extras = extraDirectories?.ToArray() ?? [];
             if (includeVisaAdapter && visaBroker is not null)
-                AddDirectory(ExecutionInstrumentLibrary.EnsureLoaded(extras));
+            {
+                var executionDirectory = ExecutionInstrumentLibrary.EnsureLoaded(extras);
+                VisaBrokerHost.Register(visaBroker);
+                AddDirectory(executionDirectory);
+            }
 
             EnsureCorePluginDirectories(includeVisaAdapter);
             if (extraDirectories is not null)

@@ -50,7 +50,7 @@ internal static class ExecutionInstrumentLibrary
             var path = Path.Combine(directory, Files[i]);
             if (!SHA256.HashData(File.ReadAllBytes(path)).SequenceEqual(SHA256.HashData(bytes[i])))
                 throw new IOException("The staged execution library changed.");
-            var assembly = OwnedInstrumentLibrary.Load(path);
+            var assembly = OwnedInstrumentLibrary.Load(bytes[i], path);
             if (!OwnedInstrumentLibrary.Fingerprint(assembly).SequenceEqual(SHA256.HashData(bytes[i])))
                 throw new InvalidOperationException("The selected Instrument Components payload differs from the loaded execution library. Restart the executing process to use this home.");
             if (i == 1) VerifyContract(assembly);

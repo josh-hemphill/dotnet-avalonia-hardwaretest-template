@@ -552,7 +552,7 @@ public sealed partial class StandaloneBoundaryTests : IDisposable
 
     private static async Task<(int Code, string Output)> Run(string home, string assembly, string argument, string mode = "--managed", bool allowFailure = false)
     {
-        using var rejectionDirectory = mode is "--invalid-selected-metadata" or "--invalid-multiple-roots"
+        using var rejectionDirectory = mode is "--invalid-selected-metadata" or "--invalid-multiple-roots" or "--replace-approved-contract" or "--replace-approved-provider"
             ? new RejectionWorkingDirectory() : null;
         var start = new ProcessStartInfo(Path.Combine(Environment.GetEnvironmentVariable("DOTNET_ROOT")!, OperatingSystem.IsWindows() ? "dotnet.exe" : "dotnet"))
         {
