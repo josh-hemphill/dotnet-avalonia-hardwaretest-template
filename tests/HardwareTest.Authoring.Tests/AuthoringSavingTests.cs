@@ -307,7 +307,7 @@ public sealed class AuthoringSavingTests : IDisposable
     public void Read_only_workspace_rejects_edits_and_saves_without_dirtying_content()
     {
         var manifest = Path.Combine(_root, "authoring.json");
-        File.WriteAllText(manifest, File.ReadAllText(manifest).Replace("\"schemaVersion\": 1", "\"schemaVersion\": 999", StringComparison.Ordinal));
+        File.WriteAllText(manifest, File.ReadAllText(manifest).Replace("\"schemaVersion\": 2", "\"schemaVersion\": 999", StringComparison.Ordinal));
         var vm = Open();
         Assert.True(vm.Workspace!.IsReadOnly);
         Assert.Throws<AuthoringWorkspaceException>(() => vm.DisplayName = "read only edit");

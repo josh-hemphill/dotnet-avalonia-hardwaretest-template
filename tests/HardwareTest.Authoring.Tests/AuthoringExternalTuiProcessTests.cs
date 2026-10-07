@@ -53,7 +53,7 @@ public sealed class AuthoringExternalTuiProcessTests : IDisposable
         documents.Save(AuthoringDocumentDto.FromDraft(saved, revision: 9,
             compiledPlanHash: AuthoringDocumentStore.ComputeHash(plan),
             compiledSidecarHash: AuthoringDocumentStore.ComputeHash(PlanCompiler.SidecarPath(plan))));
-        AuthoringWorkspaceLoader.SaveManifest(root, new AuthoringManifest { PlansDirectory = "." });
+        AuthoringWorkspaceLoader.SaveManifest(root, new AuthoringManifest { SchemaVersion = 2, PlansDirectory = "." });
         var editor = new AuthoringWorkspaceViewModel();
         using var recoveryOwner = new RecoveryOwner(editor);
         editor.Open(root); editor.SelectProgram("safe");

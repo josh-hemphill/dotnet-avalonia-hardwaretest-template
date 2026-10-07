@@ -777,7 +777,7 @@ public sealed class ArchitectureRulesTests
         Assert.True(File.Exists(path), path);
         using var doc = JsonDocument.Parse(File.ReadAllText(path));
         var root = doc.RootElement;
-        Assert.Equal(1, root.GetProperty("schemaVersion").GetInt32());
+        Assert.Equal(2, root.GetProperty("schemaVersion").GetInt32());
         Assert.Equal("HardwareTest Template Program", root.GetProperty("package").GetProperty("name").GetString());
         Assert.Equal(".", root.GetProperty("plansDirectory").GetString());
         var deps = root.GetProperty("dependencies")

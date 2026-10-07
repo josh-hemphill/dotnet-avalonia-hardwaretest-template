@@ -29,7 +29,7 @@ public static class AuthoringSourceWorkspaceLoader
         if (workspaceSource.Document is { } workspaceDocument)
         {
             if (!readOnly && !AuthoringSourceExportGuard.WorkspaceCatalogMatches(loaded.Files.Manifest, workspaceDocument.Manifest))
-                throw new AuthoringWorkspaceException($"Workspace catalog conflict: authoring.json and {store.GetWorkspacePath()} differ. A partial Save All or external edit requires recovery. Review both files and their .bak/schema backup files, restore the intended catalog consistently, then reopen; neither file was overwritten.");
+                throw new AuthoringWorkspaceException($"Workspace catalog conflict: authoring.json and {store.GetWorkspacePath()} differ. A partial Save All or external edit requires recovery. Review both files and any available .bak files, restore the intended catalog consistently, then reopen; neither file was overwritten.");
             loaded = loaded with { Files = loaded.Files with { Manifest = workspaceDocument.Manifest } };
         }
         foreach (var id in store.ListDocumentIds())

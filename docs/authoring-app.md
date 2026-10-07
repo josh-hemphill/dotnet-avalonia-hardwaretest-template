@@ -105,14 +105,14 @@ Default: `{workspace}/.authoring/opentap/` (gitignored in product repos) or `--o
 
 ## Workspace contract
 
-`authoring.json` is schemaVersion 1, `additionalProperties: false`. Persist with `AuthoringJsonContext` in Authoring.Core — do not register these types on Core’s `AppJsonContext` (architecture tests only walk Core roots).
+`authoring.json` requires the current schemaVersion 2; older manifests are rejected without changes and future manifests load read-only. It uses `additionalProperties: false`. Persist with `AuthoringJsonContext` in Authoring.Core — do not register these types on Core’s `AppJsonContext` (architecture tests only walk Core roots).
 
 Product-workspace example (this template’s golden `authoring.json` **omits** InstrumentComponents.OpenTap so sample/board-demo stay Basic):
 
 ```json
 {
   "$schema": "./authoring.schema.json",
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "displayName": "Power Board Test Set",
   "plansDirectory": "plans",
   "package": {

@@ -561,6 +561,7 @@ public sealed class AuthoringOperationTests : IDisposable
         File.Copy(Path.Combine(repository, "plans/opentap/sample.program.json"), Path.Combine(plans, "sample.program.json"));
         AuthoringWorkspaceLoader.SaveManifest(root, new AuthoringManifest
         {
+            SchemaVersion = AuthoringSchemaVersions.Manifest,
             PlansDirectory = isolatedPlans ? "plans" : ".",
             Package = new AuthoringPackageSpec { Name = "Operation fixture", Version = "0.1.0" },
             Dependencies = [new AuthoringPackageDependency { Package = "HardwareTest Basic", Version = "0.2.0" }, new AuthoringPackageDependency { Package = "HardwareTest Mixins", Version = "0.1.0" }]

@@ -248,7 +248,7 @@ public sealed class AuthoringDestructiveScopeTests : IDisposable
     [Fact]
     public void Readonly_membership_and_prepare_operations_fail_in_Core_without_mutation()
     {
-        File.WriteAllText(ManifestPath, File.ReadAllText(ManifestPath).Replace("\"schemaVersion\": 1", "\"schemaVersion\": 999", StringComparison.Ordinal));
+        File.WriteAllText(ManifestPath, File.ReadAllText(ManifestPath).Replace("\"schemaVersion\": 2", "\"schemaVersion\": 999", StringComparison.Ordinal));
         var compiler = new FailingCompiler { InitialProgram = AuthoringRecipeCatalog.CreateProgram("a") }; var vm = Open(compiler); var original = vm.SelectedProgram;
         Assert.True(vm.Workspace!.IsReadOnly); Assert.Throws<AuthoringWorkspaceException>(() => vm.SetRequiredFieldIncluded("fixtureId", true));
         Assert.Throws<AuthoringWorkspaceException>(() => vm.SetReportKindIncluded("custom", true)); Assert.Throws<AuthoringWorkspaceException>(() => vm.PrepareRequiredFieldDeletion("fixtureId"));

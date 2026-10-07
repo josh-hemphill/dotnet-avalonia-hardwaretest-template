@@ -13,8 +13,8 @@
     },
     "schemaVersion": {
       "type": "integer",
-      "minimum": 1,
-      "description": "Persisted document schema. Greater than the app current version loads read-only."
+      "minimum": 2,
+      "description": "Current workspace manifest schema is 2. Greater versions load read-only."
     },
     "displayName": { "type": "string" },
     "plansDirectory": {

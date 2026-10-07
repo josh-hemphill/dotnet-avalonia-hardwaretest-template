@@ -173,7 +173,7 @@ public sealed class AuthoringSequenceOperationsTests
     {
         var vm = new AuthoringWorkspaceViewModel();
         var root = TemporaryDirectory();
-        File.WriteAllText(Path.Combine(root, "authoring.json"), "{\"schemaVersion\":1,\"displayName\":\"Sequence\",\"plansDirectory\":\".\"}");
+        File.WriteAllText(Path.Combine(root, "authoring.json"), "{\"schemaVersion\":2,\"displayName\":\"Sequence\",\"plansDirectory\":\".\"}");
         vm.Open(root);
         vm.CreateDemoProgram("operations");
         vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
@@ -212,7 +212,7 @@ public sealed class AuthoringSequenceOperationsTests
     {
         var vm = new AuthoringWorkspaceViewModel();
         var root = TemporaryDirectory();
-        File.WriteAllText(Path.Combine(root, "authoring.json"), "{\"schemaVersion\":1,\"displayName\":\"Sequence\",\"plansDirectory\":\".\"}");
+        File.WriteAllText(Path.Combine(root, "authoring.json"), "{\"schemaVersion\":2,\"displayName\":\"Sequence\",\"plansDirectory\":\".\"}");
         vm.Open(root);
         vm.CreateDemoProgram("operations");
         vm.SelectedRecipeId = AuthoringRecipeIds.Formula;

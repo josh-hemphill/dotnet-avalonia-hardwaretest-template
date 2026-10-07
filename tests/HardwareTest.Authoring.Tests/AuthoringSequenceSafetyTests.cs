@@ -262,7 +262,7 @@ public sealed class AuthoringSequenceSafetyTests
         var root = TemporaryDirectory();
         try
         {
-            File.WriteAllText(Path.Combine(root, "authoring.json"), "{\"schemaVersion\":1,\"displayName\":\"Safety\",\"plansDirectory\":\".\"}");
+            File.WriteAllText(Path.Combine(root, "authoring.json"), "{\"schemaVersion\":2,\"displayName\":\"Safety\",\"plansDirectory\":\".\"}");
             var vm = new AuthoringWorkspaceViewModel();
             vm.Open(root);
             vm.CreateDemoProgram("safety");

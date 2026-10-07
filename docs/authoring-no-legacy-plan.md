@@ -1,0 +1,193 @@
+# Authoring without legacy application paths
+
+## Goal
+
+The application has not been deployed or used. Keep one current authoring design and current persisted manifest contract. Remove application backward-compatibility paths instead of maintaining old application data or parallel hardware creation designs. Preserve useful OpenTAP import, external package, runtime broker, containment, corruption, and save-failure behavior where it serves the current product.
+
+The stack is:
+
+```mermaid
+graph LR
+    PR216["PR216: current library installation contract"] --> PR217["PR217: current manifest contract"]
+    PR217 --> PR218["PR218: current hardware authoring"]
+    PR218 --> PR219["PR219: explicit runtime hardware binding"]
+    PR219 --> PR220["PR220: current station settings"]
+    PR220 --> PR221["PR221: current application persistence"]
+    PR221 --> PR222["PR222: current report signing"]
+```
+
+## Area 1: current manifest contract — PR217
+
+### Specification
+
+`authoring.json` must use current manifest schema 2 for editing or saving. A lower version is rejected before creating a directory, temporary file, backup, package, or replacement. A future manifest can still load read-only; saving over its existing bytes is rejected. Saving a current request over an existing older manifest is also rejected.
+
+The manifest nested inside `authoring-drafts/workspace.authoring.json` follows the same version contract. Unsupported older nested manifests are reported as recoverable, read-only source corruption; their bytes cannot be silently replaced. Future nested manifests remain read-only. Remove manifest migration, the `--migrate` command, schema-specific migration backups, and migration-based catalog comparison normalization.
+
+The shared workspace, its manifest schema, manual compiled-workspace fixtures, and current test manifests use schema 2. Other document formats have independent current versions; run records currently use version 4. Do not renumber those formats as part of this area. Ordinary atomic-save backups remain.
+
+### Pseudocode
+
+```text
+load manifest:
+    parse required positive integer version
+    if version < current: reject without writes
+    if version > current: load read-only
+    otherwise: validate current fields and load
+
+save manifest:
+    validate destination containment
+    if destination exists:
+        load existing manifest
+        reject older or read-only future manifest
+    require request.version == current
+    create destination and atomically write current content
+
+load nested workspace manifest:
+    reject version < current as recoverable read-only source
+    treat version > current as read-only
+    otherwise permit current source edits
+
+save nested workspace manifest:
+    require request.version == current
+    reject an existing read-only source
+    use ordinary atomic writer and backup
+```
+
+### Tests
+
+Replace migration-success cases with actual byte-preservation checks for older manifest load/save, saving over older existing bytes, and an invalid old request targeting an absent directory. Keep current-schema round trips, atomic replacement failure cleanup, future existing-manifest protection, nested-source recovery, and normal backup preservation.
+
+Exercise removed `--migrate` as an invalid command for older/current/future files, preserving the files and creating no artifacts. Verify bootstrap, validation, pack, and compatibility commands reject an old manifest before writing. Verify an older nested manifest blocks export without being normalized into a current catalog.
+
+Update current inline manifest fixtures and shared-template callers. Future-schema tests that replace the shared template's version literal must now replace 2 with 999 so they still exercise their intended protection.
+
+### Risks and conflicts
+
+Old developer fixtures will stop opening. Update maintained fixtures explicitly; do not add an automatic upgrade path. Do not blanket-replace schema 1 in unrelated documents. Version rejection must precede directory creation. Keep future existing-file protection even when the incoming request uses schema 2.
+
+The shared `plans/opentap/authoring.json` fixture is copied by many core and UI tests; its version change affects future-schema replacement tests and manual review data. Run those tests alongside manifest tests. PR216 changes bootstrap tests and package handling, so keep this area based on the completed PR216 stack and limit bootstrap test changes to manifest literals.
+
+## Area 2: current hardware authoring — PR218
+
+### Specification
+
+Remove old VISA DMM from the authoring catalog, New test plan hardware choices, binding creation, and old-VISA-specific authoring validation. Remove `WorkspaceCreationRequest.IncludeVisaPackage` and the host's authoring construct/serialize adapter helper. Retain modern Instrument Components adapters and explicit Mock DMM demo support.
+
+Remove unused VM `CreateProgram` convenience overloads. Production UI already uses durable `InitializePlan`; migrate test setup to that path with explicit instruments. Tests requiring unsaved changes should make a real edit after durable initialization.
+
+Retain required runtime broker infrastructure. Remove authoring bootstrap's old VISA package installation route alongside its authoring adapter. The following runtime area removes the obsolete plugin; the modern bridge uses IVisaBroker directly and does not require VisaBrokerHost.
+
+### Pseudocode
+
+```text
+hardware choices:
+    discover validated current library adapters
+    append explicit Mock DMM demo choice
+    offer no old VISA DMM creation route
+
+create plan:
+    review explicit request
+    initialize durable current authoring source
+    present its normal document session
+
+bootstrap runtime VISA package, if still supported:
+    resolve assembly marker through host runtime package boundary
+    do not depend on authoring construction/serialization helper
+```
+
+### Tests
+
+Convert old-VISA authoring acceptance to unavailable-adapter coverage. Retain actual slot binding, no substitution, stable node identity, opaque source preservation, stale destructive-review detection, and cleanup retargeting tests using explicit Mock slots or modern library devices as appropriate.
+
+Port payload completeness, symlink containment, cyclic-link, and ancestor-resolution coverage to current adapter/package fixtures instead of deleting those regressions. Keep runtime `VisaDmmInstrumentTests`, plan validation, and broker coverage until the separate runtime scope assessment establishes their replacement.
+
+Update hardware UI fixtures in `AuthoringHardwareDefinitionTests`, `AuthoringGuidedRecoveryTests`, `AuthoringWorkspaceCreationUiTests`, `AuthoringPlanInitializationTests`, `AuthoringGuidedOnboardingTests`, and `AuthoringExpertCommandsTests`. Use Mock DMM for demo voltage/mean behavior and library hardware scaffolds for physical-device lifecycle behavior. Update both test projects' initialization helpers and direct callers of the removed VM conveniences.
+
+### Risks and conflicts
+
+Modern library devices currently do not support the old authoring voltage/mean recipes. Removing the old physical DMM authoring path does not make the library equivalent; preserve explicit demo measurement coverage and accurately describe physical scaffold limitations.
+
+Removing the authoring helper without addressing bootstrap's Type marker breaks compilation. Removing the entire VISA plugin at the same time would broaden this area into runtime behavior; assess that independently. Do not delete document/session dirty tracking merely because a comment describes compatibility: current saving, recovery, and history still use it.
+
+PR218 must build on PR217's schema-2 fixtures. Keep shared initialization test-helper updates coordinated so current hardware regression coverage survives the removal of old convenience APIs.
+
+## Area 3: explicit runtime hardware binding — PR219
+
+- Goal: remove the old VISA DMM plugin and implicit first-instrument binding. Preserve current Instrument Components execution, IVisaBroker and worker broker ownership.
+- Depends on: PR218.
+- Out of scope: settings storage and document schemas.
+- Files: Host plugin search/package catalog/session; old VISA plugin project and build registrations; station session contract, worker protocol and debug UI caller; runtime tests.
+- Public surface: remove TryRebindDmmResource and the old adapter switch; use TryBindSlotResource with an explicit slot. Initialize the modern provider through a physical-execution option independent of obsolete plugin inclusion.
+- Pseudocode:
+  ```text
+  initialize physical execution -> owned current library -> bind IVisaBroker provider
+  bind requested slot -> exact instrument lookup -> absent: false without mutation
+  apply overrides -> only explicitly selected slots; no dmm/first fallback
+  enumerate packages -> current library/broker runtime; no old VISA plugin
+  ```
+- Tests: selected slot changes only that instrument; unknown slot changes nothing; broad dmm binding cannot overwrite an explicit resource. Port meaningful old DMM broker/timeout/disposal tests to the modern bridge. Preserve published-library execution, worker boundary and standalone wrapper tests.
+- Risks: worker wire contract, plugin registration and package references must change together. Do not remove IVisaBroker or vendor VISA access. Keep supported OpenTAP resource-property reflection and explicit Mock demo instruments.
+- Conflicts: follows PR218; station debug caller overlaps PR220, so those areas are sequential.
+
+## Area 4: current station settings — PR220
+
+- Goal: one per-plan slot override model and one operator idle time setting, expressed in minutes.
+- Depends on: PR219.
+- Out of scope: run/document version gates and external OpenTAP interchange.
+- Files: AppSettings, SettingsStore, settings list/provenance/copy/JSON metadata, StationOverridesViewModel, OperatorSessionIdle, environment binder, Settings and OperatorSession VMs, InstrumentsViewModel aliases.
+- Public surface: remove Instruments/StationBindings/VisaInstrument/StationBinding registry, OperatorSessionIdleHours and old discover aliases. Rename ProductVoltage template to its actual hardware scaffold behavior.
+- Pseudocode:
+  ```text
+  create station profile -> exact plan/slot overrides only
+  no override -> leave resource unchanged
+  idle timeout -> normalize current minutes setting -> apply current overlays
+  removed registry/hours fields -> no migration or fallback
+  ```
+- Tests: current settings round trip and overlays, absent override, two same-role slots retain different resources, minutes normalization/precedence, removed fields do not populate current settings.
+- Use the canonical plugin-directory environment name `HARDWARETEST_OPEN_TAP_PLUGIN_DIRECTORIES` without retaining the former name. Ordinary Boolean input forms remain current supported syntax.
+- Remove dormant Run focus-trend controls and their unused chrome state in LivePresentationViewModel; preserve current chart buffers, selection, time windows, attention and shell tips. Remove OperatorTouchDensity's unused old details-splitter sizing constant. Port former focus/splitter tests to current chart availability, attention, reset and workspace navigation checks.
+- BuildInfo uses deterministic `version+sha` and `CommitDate` only. Remove historical wall-clock stamp parsing/fallback; test missing CommitDate without inferring an old timestamp.
+- Risks: update defaults and persisted JSON metadata together; role guesses must not broaden exact slot binding. User function changes still transfer compatible settings normally.
+- Conflicts: station session changes in PR219 and settings schema protection in PR221; sequential.
+
+## Area 5: current application persistence — PR221
+
+- Goal: current schemas only, with no identity upgrades or reconstructed legacy ledgers.
+- Depends on: PR220.
+- Out of scope: external OpenTAP data with optional execution identity; ordinary recovery, containment and atomic-save backups.
+- Files: DocumentSchemaGate, SchemaUpgradeRegistry, SettingsStore, FileRunStore, FileSuiteRunStore, RunDatasetCatalog, RunTriageSummary, legacy badges and maintained fixtures/tests.
+- Public surface: reject missing/zero/older application document versions; preserve current version numbers, including run schema 4, and future read-only/overwrite protection.
+- Test-run PDFs use `Reports` with explicit kind and working/issued role. Remove `TestRunRecord.ReportPdfPath` and artifact reconstruction/fallbacks; retain `SuiteRunRecord.ReportPdfPath`, the sole current suite representation. Convert generation, Results, preview, export, regeneration, attestation and maintained fixtures together. Preserve empty reports before generation, custom kinds and issued-artifact protection.
+- Keep one built-in status template filename; remove alternate-filename fallback and the duplicate built-in. Preserve explicitly selected custom filenames and data-directory overrides; report a missing requested template as its own error.
+- Pseudocode:
+  ```text
+  load app document -> require current positive schema
+  older/missing -> actionable unsupported error, preserve bytes
+  future -> existing read-only protection, never overwrite
+  run history -> stored StepAttempts only; empty ledger is valid
+  ```
+- Tests: settings/UI/run/suite old and absent versions cannot load as current or rewrite bytes; current round trips; future protection; current attempt histories including zero executed steps. Convert maintained fixtures to current attempts instead of adding adapters.
+- Verify canonical report selection for empty, custom-kind, working and issued cases and certification safeguards. Unsupported existing settings must block saving defaults over their bytes. Verify missing named templates do not silently select another filename.
+- Risks: distinguish third-party publisher uncertainty from old application data. Keep board preview's refusal to infer missing execution identity, generic resource-property reflection, raw OpenTAP step preservation and current editing operations.
+- Conflicts: depends on current settings model from PR220; no overlap with its implementation.
+
+## Area 6: current report signing — PR222
+
+- Goal: one physical signing implementation: PKCS#11 with complete-PDF iText PAdES. PC/SC provides card presence and public identity; Mock credentials retain intentional HMAC sidecars. Presence-only attestation follows the current site policy.
+- Depends on: PR221's canonical report artifacts.
+- Out of scope: instrument VISA, credential features, hardware/card I/O and external OpenTAP interchange.
+- Files: credential brokers/binding APIs, ReportAttestationService, obsolete PIV CMS/APDU signing and custom PdfPadesSignature helpers, credential/report tests and fixtures.
+- Public surface: remove alternative physical APDU signing and non-embedded physical CMS/sidecar fallback. Simplify document-signing APIs after converting callers. Keep CredentialSignBinding.SerialsMatch for Mock identity checks and retain current PC/SC identity capture.
+- Pseudocode:
+  ```text
+  physical issuance -> match badge identity -> PKCS#11 sign complete PDF
+                   -> verify embedded iText signature -> publish issued artifact
+  Mock issuance -> current HMAC sidecar -> verify current Mock signature
+  presence-only policy -> current presence evidence; no invented signature
+  verify physical PDF -> embedded iText verification only
+  failed/cancelled signing -> preserve working and existing issued artifacts
+  ```
+- Tests: port meaningful old signer/parser coverage to current PKCS#11/iText. Preserve identity matching, PIN/retry handling, cancellation, signing failures, tampering, issued-artifact protection, Mock verification and presence policy. Use fake brokers or test certificates; never access a physical card.
+- Risks: obsolete physical-sidecar verification still calls PivSigner.Verify; remove that acceptance deliberately before deleting its helper. Move minimal PDF fixture generation into test code instead of keeping the production parser. Retain PC/SC presence, current embedded verification and Mock functionality.
+- Conflicts: follows PR221's report selection/attestation callers; implement sequentially and independently review the whole credential boundary.
