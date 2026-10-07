@@ -47,6 +47,23 @@ public sealed class AuthoringDestructiveInteraction(Window owner)
         return dialog.ShowDialog<string?>(owner);
     }
 
+    public Task<bool> ConfirmHardwareEditAsync(AuthoringHardwareEditImpact impact)
+        => ConfirmHardwareAsync("Review hardware binding change",
+            $"Selected program: {impact.PlanId}\nLogical slot: {impact.SlotName}\nNew type: {impact.Replacement.TypeId}\nNew address: {impact.Replacement.VisaAddress}\nConfiguration: {string.Join(", ", impact.Replacement.Settings.Select(p => $"{p.Key}={p.Value}"))}\nAffected references:\n{string.Join(Environment.NewLine, impact.AffectedNodes)}\nOther program bindings stay unchanged. Save this program to persist.", "Apply reviewed binding");
+
+    public Task<bool> ConfirmHardwareDefinitionRemovalAsync(AuthoringHardwareDefinitionImpact impact)
+        => ConfirmHardwareAsync("Remove workspace hardware definition",
+            $"Definition: {impact.Name}\nRemove the workspace template; existing program bindings remain independent.\n{string.Join(Environment.NewLine, impact.ProgramConsequences)}\nSave All to persist the workspace catalog.", "Remove hardware definition");
+
+    private Task<bool> ConfirmHardwareAsync(string title, string details, string action)
+    {
+        var (dialog, _, cancel, confirm) = Build(title, details, action);
+        cancel.Click += (_, _) => dialog.Close(false);
+        confirm.Click += (_, _) => dialog.Close(true);
+        dialog.KeyDown += (_, e) => { if (e.Key == Key.Escape) { dialog.Close(false); e.Handled = true; } };
+        return dialog.ShowDialog<bool>(owner);
+    }
+
     public Task<bool> ConfirmProgramRemovalAsync(ProgramRemovalImpact target)
     {
         var (dialog, _, cancel, confirm) = Build(target.OperationName,

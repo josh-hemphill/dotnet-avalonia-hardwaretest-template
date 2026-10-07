@@ -58,6 +58,8 @@ public sealed class AuthoringWorkspaceCatalogs
     public List<string> InstrumentSlotNames { get; set; } = [];
 
     public List<string> RequiredFields { get; set; } = [];
+
+    public List<AuthoringHardwareDefinition> Hardware { get; set; } = [];
 }
 
 public sealed class AuthoringPackageSpec

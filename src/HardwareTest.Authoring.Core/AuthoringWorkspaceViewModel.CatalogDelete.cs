@@ -46,7 +46,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         if (!options.Contains(token, StringComparer.OrdinalIgnoreCase)) throw new AuthoringWorkspaceException($"Catalog entry '{token}' no longer exists.");
         var affected = Programs.Where(p => CatalogUses(p.Sidecar, kind, token))
             .Select(p => new DestructiveProgramImpact(p.PlanId, p.Sidecar.DisplayName ?? p.PlanId,
-                Array.AsReadOnly(new[] { kind.ToString() }))).ToArray();
+                Array.AsReadOnly(DescribeCatalogConsequences(p.Sidecar, kind, token)))).ToArray();
         return new(_workspaceSession, Workspace!.Root, kind, token, ContentFingerprint(), affected);
     }
 
@@ -156,6 +156,18 @@ public sealed partial class AuthoringWorkspaceViewModel
             throw new AuthoringWorkspaceException("Workspace, target or content changed since review; prepare and review a new impact.");
     }
     private static bool Same(string? a, string? b) => string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
+    private static string[] DescribeCatalogConsequences(ProgramSidecar sidecar, CatalogDeletionKind kind, string target)
+    {
+        if (kind == CatalogDeletionKind.RequiredField) return [$"Required field '{target}' removed from program membership"];
+        if (kind == CatalogDeletionKind.ProgramKind) return [$"Program kind '{target}' resets to dut"];
+        var remaining = (sidecar.ReportKinds ?? ["status"]).Where(k => !Same(k, target)).ToArray();
+        if (remaining.Length == 0) remaining = ["status"];
+        var previous = sidecar.DefaultReportKind ?? "status";
+        var fallback = remaining.Contains(previous, StringComparer.OrdinalIgnoreCase) ? previous : remaining[0];
+        return [$"Report kind '{target}' removed from program membership",
+            $"Default report: {previous} → {fallback}; remaining reports: {string.Join(", ", remaining)}"];
+    }
+
     private static bool CatalogUses(ProgramSidecar s, CatalogDeletionKind kind, string target) => kind switch
     {
         CatalogDeletionKind.RequiredField => RequiredFieldIds.FromSidecar(s).Any(f => Same(f, target)),

@@ -116,7 +116,16 @@ internal static class AuthoringContentFingerprint
             }
         }
         Add(workspace.Root); Add(workspace.IsReadOnly);
-        Add(JsonSerializer.Serialize(workspace.Manifest, AuthoringJsonContext.Default.AuthoringManifest));
+        var manifest = JsonSerializer.Deserialize(
+            JsonSerializer.Serialize(workspace.Manifest, AuthoringJsonContext.Default.AuthoringManifest),
+            AuthoringJsonContext.Default.AuthoringManifest)!;
+        if (manifest.Catalogs is { } catalogs)
+            catalogs.Hardware = catalogs.Hardware.Select(definition => definition with
+            {
+                Settings = definition.Settings.OrderBy(p => p.Key, StringComparer.Ordinal)
+                    .ToDictionary(p => p.Key, p => p.Value, StringComparer.Ordinal),
+            }).ToList();
+        Add(JsonSerializer.Serialize(manifest, AuthoringJsonContext.Default.AuthoringManifest));
         Strings(workspace.TapPlanPaths); Add(programs.Count);
         foreach (var program in programs)
         {

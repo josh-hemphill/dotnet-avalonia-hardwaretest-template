@@ -523,41 +523,6 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
         }
     }
 
-    private void RaiseSidecarProperties()
-    {
-        OnPropertyChanged(nameof(DisplayName));
-        OnPropertyChanged(nameof(DutFamily));
-        OnPropertyChanged(nameof(RequireSerial));
-        OnPropertyChanged(nameof(RequirePartNumber));
-        OnPropertyChanged(nameof(RequireRevision));
-        OnPropertyChanged(nameof(RequireOperator));
-        OnPropertyChanged(nameof(RequiredFieldOptions));
-        OnPropertyChanged(nameof(RequiredFieldChoices));
-        OnPropertyChanged(nameof(SelectionIncludesCleanup));
-        OnPropertyChanged(nameof(ReportStatus));
-        OnPropertyChanged(nameof(ReportCertification));
-        OnPropertyChanged(nameof(ReportKindOptions));
-        OnPropertyChanged(nameof(ReportKindChoices));
-        OnPropertyChanged(nameof(IncludedReportKinds));
-        OnPropertyChanged(nameof(DefaultReportKind));
-        OnPropertyChanged(nameof(ProgramKind));
-        OnPropertyChanged(nameof(ProgramKindOptions));
-        OnPropertyChanged(nameof(ProgramKindChoices));
-        OnPropertyChanged(nameof(RequireStationHealth));
-        OnPropertyChanged(nameof(StationHealthGate));
-        OnPropertyChanged(nameof(StationHealthMaxAgeHours));
-        OnPropertyChanged(nameof(StationHealthProfileId));
-        OnPropertyChanged(nameof(Instruments));
-        RefreshInstrumentSlots();
-        OnPropertyChanged(nameof(SelectedInstrumentSlot));
-        OnPropertyChanged(nameof(SelectedInstrumentVisa));
-        OnPropertyChanged(nameof(SelectedInstrument));
-        OnPropertyChanged(nameof(CanRemoveSelectedInstrumentSlot));
-        OnPropertyChanged(nameof(InstrumentRemovalGuardText));
-        OnPropertyChanged(nameof(CanEditProgramSettings));
-        RaiseEditorProperties();
-    }
-
     private bool SetField<T>(ref T field, T value, [CallerMemberName] string? name = null)
     {
         if (EqualityComparer<T>.Default.Equals(field, value))
