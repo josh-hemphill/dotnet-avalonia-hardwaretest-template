@@ -79,14 +79,6 @@ public partial class ResultsViewModel
 
                 files.AddRange(CollectExportReportFiles(OpenedRun));
 
-                if (Directory.Exists(runDir))
-                {
-                    foreach (var sidecar in Directory.EnumerateFiles(runDir, "*.attestation.json"))
-                    {
-                        files.Add((sidecar, Path.GetFileName(sidecar)));
-                    }
-                }
-
                 var csvDir = Path.Combine(runDir, "opentap-results");
                 if (Directory.Exists(csvDir))
                 {
@@ -176,6 +168,13 @@ public partial class ResultsViewModel
             if (issued is not null)
             {
                 files.Add((issued.PdfPath, $"{kind}.pdf"));
+                var attestation = ReportAttestationService.Find(run, kind);
+                var sidecarPath = attestation?.SidecarPath;
+                if (!string.IsNullOrWhiteSpace(sidecarPath) && File.Exists(sidecarPath))
+                {
+                    files.Add((sidecarPath, $"{kind}.attestation.json"));
+                }
+
                 if (working is not null)
                 {
                     files.Add((working.PdfPath, Path.Combine("working", $"{kind}.pdf")));

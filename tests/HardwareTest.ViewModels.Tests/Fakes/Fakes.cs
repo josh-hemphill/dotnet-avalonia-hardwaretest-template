@@ -1732,9 +1732,10 @@ public sealed class FakeReportService : IReportService
     }
 }
 
-public sealed class FakeRunStore : IRunStore
+public sealed class FakeRunStore : IRunStore, IDisposable
 {
     private readonly Dictionary<string, TestRunRecord> _runs = new(StringComparer.Ordinal);
+    private readonly string _root = Path.Combine(Path.GetTempPath(), "fake-runs-" + Guid.NewGuid().ToString("N"));
 
     public void Seed(TestRunRecord run) => _runs[run.RunId] = run;
 
@@ -1783,7 +1784,15 @@ public sealed class FakeRunStore : IRunStore
     }
 
     public string GetRunDirectory(string runId)
-        => Path.Combine(Path.GetTempPath(), "fake-runs", runId);
+        => Path.Combine(_root, runId);
+
+    public void Dispose()
+    {
+        if (Directory.Exists(_root))
+        {
+            Directory.Delete(_root, recursive: true);
+        }
+    }
 }
 
 public sealed class FakeStationHealthStore : IStationHealthStore

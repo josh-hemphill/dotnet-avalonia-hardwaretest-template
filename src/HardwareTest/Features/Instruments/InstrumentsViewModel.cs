@@ -238,6 +238,7 @@ public partial class InstrumentsViewModel : ReactiveObject
             var saved = _settingsStore.AppSettings.PlanSlotOverrides;
             var useMockVisa = _visaModeController?.EffectiveUseMockVisa ?? _settingsStore.AppSettings.UseMockVisa;
             var failures = 0;
+            string? firstFailure = null;
             try
             {
                 foreach (var entry in ProgramCatalog.Enumerate())
@@ -250,14 +251,16 @@ public partial class InstrumentsViewModel : ReactiveObject
                     catch (Exception ex)
                     {
                         failures++;
-                        Status = $"Plan '{entry.DisplayName}' slots skipped: {ex.Message}";
+                        var cause = ex.GetBaseException();
+                        firstFailure ??= $"Plan '{entry.DisplayName}': {cause.GetType().Name}: {cause.Message}";
+                        System.Diagnostics.Trace.TraceError($"Plan '{entry.Id}' slots skipped: {ex}");
                     }
                 }
 
                 if (SlotOverrides.Count == 0)
                 {
                     Status = failures > 0
-                        ? $"No OpenTAP instrument slots found ({failures} plan load error(s))."
+                        ? $"No OpenTAP instrument slots found ({failures} plan load error(s)). {firstFailure}"
                         : "No OpenTAP instrument slots found in available plans.";
                 }
                 else if (failures == 0)
@@ -266,7 +269,7 @@ public partial class InstrumentsViewModel : ReactiveObject
                 }
                 else
                 {
-                    Status = $"Loaded {SlotOverrides.Count} slot(s); {failures} plan(s) failed.";
+                    Status = $"Loaded {SlotOverrides.Count} slot(s); {failures} plan(s) failed. {firstFailure}";
                 }
             }
             catch (Exception ex)
