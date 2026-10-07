@@ -176,8 +176,8 @@ public sealed class AuthoringSequenceOperationsTests
         File.WriteAllText(Path.Combine(root, "authoring.json"), "{\"schemaVersion\":2,\"displayName\":\"Sequence\",\"plansDirectory\":\".\"}");
         vm.Open(root);
         vm.CreateDemoProgram("operations");
-        vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
-        vm.ApplyRecipe(AuthoringRecipeIds.Formula);
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Acquire);
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Formula);
         vm.Threshold = "-";
         vm.FormulaExplorationOnly = true;
         var before = AuthoringDocumentSnapshot.Capture(vm.SelectedProgram!);
@@ -318,7 +318,7 @@ public sealed class AuthoringSequenceOperationsTests
     private static SequenceRow Row(ProgramDraft draft, Guid id) => AuthoringSequence.Flatten(draft).Single(row => row.NodeId == id);
     private static ProgramDraft ProgramWith(params string[] recipes)
     {
-        var draft = AuthoringRecipeCatalog.CreateProgram("operations");
+        var draft = MockDmmDraftFixture.Create("operations");
         foreach (var recipe in recipes) draft = AuthoringRecipeCatalog.Apply(draft, recipe);
         return draft;
     }

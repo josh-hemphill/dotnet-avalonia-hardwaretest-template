@@ -41,7 +41,7 @@ public sealed class AuthoringDestructiveReviewRegressionTests
     [AvaloniaFact]
     public void Actual_instrument_dialog_rejects_nested_settings_changed_during_review()
     {
-        using var fixture = Loaded(); var vm = fixture.ViewModel; vm.CreateDemoProgram("slots"); vm.NewInstrumentSlot = "B"; vm.AddInstrumentSlot(); vm.ApplyRecipe(AuthoringRecipeIds.Acquire); vm.ApplyRecipe(AuthoringRecipeIds.Repeat); vm.SelectedInstrumentSlot = "DMM"; Assert.True(vm.SaveAll().Succeeded);
+        using var fixture = Loaded(); var vm = fixture.ViewModel; vm.CreateDemoProgram("slots"); vm.NewInstrumentSlot = "B"; vm.AddInstrumentSlot(); vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Acquire); vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Repeat); vm.SelectedInstrumentSlot = "DMM"; Assert.True(vm.SaveAll().Succeeded);
         fixture.Window!.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 1; AuthoringUiFixture.Drain();
         var remove = fixture.Control<Button>("Remove instrument slot from selected program"); remove.BringIntoView(); AuthoringUiFixture.Drain(); AuthoringUiFixture.Click(remove);
         var dialog = Assert.Single(fixture.Window!.OwnedWindows); var selected = vm.SelectedProgram; var files = Snapshot(fixture);
@@ -103,7 +103,7 @@ public sealed class AuthoringDestructiveReviewRegressionTests
             Nodes = [new RepeatNode(2, [new MetricNode(new MetricDraft("acquire", "channel", "timeseries", "V", null, null,
                 new MeasureSource("DMM", AuthoringFunctionIds.BasicAcquireVoltage, Settings)))]), new RawStepNode("Raw", "<original/>")];
         }
-        public DraftWorkspace LoadAll(AuthoringWorkspace workspace) => new(workspace, [AuthoringRecipeCatalog.CreateProgram("sample") with { Measure = Nodes }]);
+        public DraftWorkspace LoadAll(AuthoringWorkspace workspace) => new(workspace, [MockDmmDraftFixture.Create("sample") with { Measure = Nodes }]);
         public ProgramDraft Load(string path) => throw new NotSupportedException();
         public void Save(ProgramDraft draft, string path) => throw new NotSupportedException();
         public void SaveSidecar(string path, ProgramSidecar sidecar) => throw new NotSupportedException();

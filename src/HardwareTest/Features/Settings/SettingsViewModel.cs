@@ -72,10 +72,7 @@ public partial class SettingsViewModel : ReactiveObject
         ExportOpenTapResults = s.ExportOpenTapResults;
         ShowDutHistoryOnRun = s.ShowDutHistoryOnRun;
         IsEngineerDebugMode = s.IsEngineerDebugMode;
-        OperatorSessionIdleMinutes = OperatorSessionIdle.ClampMinutes(
-            s.OperatorSessionIdleMinutes > 0
-                ? s.OperatorSessionIdleMinutes
-                : OperatorSessionIdle.HoursToMinutes(s.OperatorSessionIdleHours));
+        OperatorSessionIdleMinutes = OperatorSessionIdle.ClampMinutes(s.OperatorSessionIdleMinutes);
         OperatorSessionIdleWarnPercent = OperatorSessionIdle.ClampWarnPercent(s.OperatorSessionIdleWarnPercent);
         RequireDutConfirmEveryRun = s.RequireDutConfirmEveryRun;
         RunRetentionDays = s.RunRetentionDays;
@@ -123,8 +120,7 @@ public partial class SettingsViewModel : ReactiveObject
         ShowDutHistoryOnRunReadOnly = settingsStore.IsOverridden(nameof(AppSettings.ShowDutHistoryOnRun));
         IsEngineerDebugModeReadOnly = settingsStore.IsOverridden(nameof(AppSettings.IsEngineerDebugMode));
         OperatorSessionIdleMinutesReadOnly =
-            settingsStore.IsOverridden(nameof(AppSettings.OperatorSessionIdleMinutes))
-            || settingsStore.IsOverridden(nameof(AppSettings.OperatorSessionIdleHours));
+            settingsStore.IsOverridden(nameof(AppSettings.OperatorSessionIdleMinutes));
         OperatorSessionIdleWarnPercentReadOnly =
             settingsStore.IsOverridden(nameof(AppSettings.OperatorSessionIdleWarnPercent));
         RequireDutConfirmEveryRunReadOnly =

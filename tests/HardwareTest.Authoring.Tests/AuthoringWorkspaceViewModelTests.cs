@@ -68,7 +68,7 @@ public sealed class AuthoringWorkspaceViewModelTests
         var vm = new AuthoringWorkspaceViewModel();
         vm.Open(CopyTemplateWorkspace());
         vm.SelectProgram("sample");
-        vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Acquire);
 
         Assert.True(vm.HasUnsavedChanges);
         vm.SaveSidecar();

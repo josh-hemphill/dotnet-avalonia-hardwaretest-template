@@ -27,7 +27,7 @@ public sealed class FormulaDeploymentInputRegressionTests : IDisposable
             "other-scope" => [new RepeatNode(2, [input]), formula],
             _ => [input with { Metric = input.Metric with { Source = new ExpressionAlgorithm(["other"], "std(other)") } }, formula]
         };
-        var draft = AuthoringRecipeCatalog.CreateProgram("scope-filter") with { Measure = nodes };
+        var draft = MockDmmDraftFixture.Create("scope-filter") with { Measure = nodes };
         if (source == "excluded") draft.AuthoringState.FormulaIntent[input.NodeId] = FormulaDeploymentIntent.Explore;
         var status = FormulaDeploymentClassifier.Classify(formula.Metric, draft);
         Assert.Equal(FormulaDeploymentStatusKind.MissingRequirements, status.Kind);
@@ -44,7 +44,7 @@ public sealed class FormulaDeploymentInputRegressionTests : IDisposable
     {
         var input = Input(intervalMs, count);
         var formula = Formula();
-        var draft = AuthoringRecipeCatalog.CreateProgram("grid-filter") with { Measure = [input, formula] };
+        var draft = MockDmmDraftFixture.Create("grid-filter") with { Measure = [input, formula] };
         var status = FormulaDeploymentClassifier.Classify(formula.Metric, draft);
         var error = Assert.Throws<AuthoringWorkspaceException>(() => new PlanCompiler().Save(draft, Path.Combine(AuthoringBuildSnapshotTests.Temp(), draft.PlanId + ".TapPlan")));
         Assert.Equal(FormulaDeploymentStatusKind.MissingRequirements, status.Kind);
@@ -60,7 +60,7 @@ public sealed class FormulaDeploymentInputRegressionTests : IDisposable
         var first = Raw(new PublishTimedSampleStep { Channel = "input", ElapsedMs = 0, Value = 1 });
         var second = Raw(new PublishTimedSampleStep { Channel = "input", ElapsedMs = 5, Value = 2 });
         var formula = Formula();
-        var draft = AuthoringRecipeCatalog.CreateProgram("raw-filter") with { Measure = [first, second, formula] };
+        var draft = MockDmmDraftFixture.Create("raw-filter") with { Measure = [first, second, formula] };
         Assert.Equal(FormulaDeploymentStatusKind.DeployableRecipe, FormulaDeploymentClassifier.Classify(formula.Metric, draft).Kind);
         Assert.DoesNotContain(AuthoringIssueService.GetIssues(draft), issue => issue.NodeId == formula.NodeId && issue.Code is "MISSING_CHANNEL" or "FORMULA_DEPLOYMENT");
         var path = Path.Combine(AuthoringBuildSnapshotTests.Temp(), draft.PlanId + ".TapPlan");
@@ -79,7 +79,7 @@ public sealed class FormulaDeploymentInputRegressionTests : IDisposable
     {
         var raw = Raw(new PublishTimedSampleStep { Channel = "input", Value = 1 });
         var formula = Formula() with { Metric = Formula().Metric with { Limits = new LimitSpec(null, null, 0), Source = new ExpressionAlgorithm(["input"], "mean(input)") } };
-        var draft = AuthoringRecipeCatalog.CreateProgram("raw-mean") with { Measure = [raw, formula] };
+        var draft = MockDmmDraftFixture.Create("raw-mean") with { Measure = [raw, formula] };
         Assert.Equal(FormulaDeploymentStatusKind.DeployableRecipe, FormulaDeploymentClassifier.Classify(formula.Metric, draft).Kind);
         Assert.DoesNotContain(AuthoringIssueService.GetIssues(draft), issue => issue.NodeId == formula.NodeId && issue.Code is "MISSING_CHANNEL" or "FORMULA_DEPLOYMENT");
         var path = Path.Combine(AuthoringBuildSnapshotTests.Temp(), draft.PlanId + ".TapPlan");

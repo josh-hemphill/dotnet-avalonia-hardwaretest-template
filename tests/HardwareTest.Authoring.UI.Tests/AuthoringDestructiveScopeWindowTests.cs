@@ -83,7 +83,7 @@ public sealed class AuthoringDestructiveScopeWindowTests
     public void Nested_settings_changed_during_real_confirmation_reject_stale_impact_without_writes()
     {
         using var fixture = Loaded(); var vm = fixture.ViewModel; vm.CreateDemoProgram("nested"); var target = AddCatalog(fixture, CatalogDeletionKind.RequiredField);
-        vm.ApplyRecipe(AuthoringRecipeIds.Acquire); vm.ApplyRecipe(AuthoringRecipeIds.Repeat); Assert.True(vm.SaveAll().Succeeded); AuthoringUiFixture.Drain();
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Acquire); vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Repeat); Assert.True(vm.SaveAll().Succeeded); AuthoringUiFixture.Drain();
         OpenCatalogModal(fixture, CatalogDeletionKind.RequiredField, target);
         var nested = Assert.IsType<RepeatNode>(Assert.Single(vm.SelectedProgram!.Measure)); var metric = Assert.IsType<MetricNode>(Assert.Single(nested.Children));
         var settings = Assert.IsAssignableFrom<IDictionary<string, string>>(Assert.IsType<MeasureSource>(metric.Metric.Source).Settings); settings["Samples"] = "999";
@@ -175,19 +175,19 @@ public sealed class AuthoringDestructiveScopeWindowTests
 
     [AvaloniaTheory]
     [InlineData("last")]
-    [InlineData("legacy")]
+    [InlineData("unresolved")]
     public void Disabled_instrument_removal_explains_the_specific_blocker(string scenario)
     {
-        using var fixture = scenario == "legacy"
-            ? new AuthoringUiFixture(rememberWorkspace: true, compiler: new BlockerCompiler("legacy"))
+        using var fixture = scenario == "unresolved"
+            ? new AuthoringUiFixture(rememberWorkspace: true, compiler: new BlockerCompiler("unresolved"))
             : Loaded();
         var vm = fixture.ViewModel;
-        if (scenario == "legacy") { fixture.Show(); fixture.OpenRememberedWorkspace(); Settings(fixture); }
+        if (scenario == "unresolved") { fixture.Show(); fixture.OpenRememberedWorkspace(); Settings(fixture); }
         else if (scenario == "last") vm.CreateDemoProgram("last");
         AuthoringUiFixture.Drain();
         Assert.False(fixture.Control<Button>("Remove instrument slot from selected program").IsEnabled);
         var text = fixture.Control<TextBlock>("Instrument removal guidance").Text;
-        Assert.Contains(scenario == "last" ? "at least one instrument" : "legacy instrument-based", text);
+        Assert.Contains(scenario == "last" ? "at least one instrument" : "unresolved instrument bindings", text);
         Assert.Equal(text, AutomationProperties.GetHelpText(fixture.Control<Button>("Remove instrument slot from selected program")));
     }
 
@@ -375,7 +375,7 @@ public sealed class AuthoringDestructiveScopeWindowTests
     }
     private static void PrepareSlots(AuthoringUiFixture fixture)
     {
-        var vm = fixture.ViewModel; vm.CreateDemoProgram("slots"); vm.NewInstrumentSlot = "B"; vm.AddInstrumentSlot(); vm.SelectedInstrumentSlot = "DMM"; vm.ApplyRecipe(AuthoringRecipeIds.Acquire); vm.ApplyRecipe(AuthoringRecipeIds.Repeat);
+        var vm = fixture.ViewModel; vm.CreateDemoProgram("slots"); vm.NewInstrumentSlot = "B"; vm.AddInstrumentSlot(); vm.SelectedInstrumentSlot = "DMM"; vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Acquire); vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Repeat);
         vm.SelectedInstrumentSlot = "DMM"; Assert.True(vm.SaveAll().Succeeded); Settings(fixture); fixture.Control<Button>("Remove instrument slot from selected program").BringIntoView(); AuthoringUiFixture.Drain();
     }
     private static Window Dialog(AuthoringUiFixture fixture) => Assert.Single(fixture.Window!.OwnedWindows);
@@ -423,14 +423,14 @@ public sealed class AuthoringDestructiveScopeWindowTests
     {
         public DraftWorkspace LoadAll(AuthoringWorkspace workspace)
         {
-            var draft = AuthoringRecipeCatalog.CreateProgram("blocked"); var known = draft.Instruments[0].TypeId;
+            var draft = MockDmmDraftFixture.Create("blocked"); var known = draft.Instruments[0].TypeId;
             draft = draft with
             {
                 Instruments = [draft.Instruments[0] with { TypeId = scenario == "unsupported" ? "Unknown.Adapter" : known }, new InstrumentRef("B", scenario == "different" ? "Different.Adapter" : known, "MOCK::B")],
                 Measure = scenario switch
                 {
                     "raw" => [new RawStepNode("Unknown.Step", "<step/>")],
-                    "legacy" => [new MetricNode(new MetricDraft("Legacy mean", "VDC.mean", "scalar", "V", new LimitSpec(null, null, 1.2), null,
+                    "unresolved" => [new MetricNode(new MetricDraft("Unresolved mean", "VDC.mean", "scalar", "V", new LimitSpec(null, null, 1.2), null,
                         new AlgorithmSource(AuthoringFunctionIds.BasicMeanGte, [], new Dictionary<string, string>())))],
                     _ => []
                 },

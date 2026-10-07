@@ -29,7 +29,7 @@ public sealed class RawFormulaUnavailableTests
             _ => new ExpressionAlgorithm(["missing"], "mean(missing)")
         };
         var derived = new MetricNode(new MetricDraft("Derived", "result", kind.Contains("filter") ? "timeseries" : "scalar", "V", new LimitSpec(null, null, 0), null, source));
-        var draft = AuthoringRecipeCatalog.CreateProgram("opaque-formula") with { Measure = [raw, healthy, derived] };
+        var draft = MockDmmDraftFixture.Create("opaque-formula") with { Measure = [raw, healthy, derived] };
         if (source is ExpressionAlgorithm)
         {
             var status = FormulaDeploymentClassifier.Classify(derived.Metric, draft, nodeId: derived.NodeId);

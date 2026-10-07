@@ -84,11 +84,12 @@ public sealed class WorkspaceTaskLayoutTests
     public void Expanded_editing_findings_show_provenance_and_scroll_to_each_real_navigation_action(int fontSize)
     {
         using var fixture = Loaded();
-        fixture.ViewModel.ApplyRecipe(AuthoringRecipeIds.Formula);
+        fixture.ViewModel.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Formula);
         fixture.ViewModel.FormulaSource = "mean(VDC)";
         fixture.ViewModel.Threshold = "";
         fixture.ViewModel.CreateDemoProgram("second-findings-program");
-        fixture.ViewModel.ApplyRecipe(AuthoringRecipeIds.Formula);
+        fixture.ViewModel.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Acquire);
+        fixture.ViewModel.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Formula);
         fixture.ViewModel.FormulaSource = "mean(VDC)";
         fixture.ViewModel.Threshold = "";
         var issues = fixture.ViewModel.EditingIssues.Where(item => item.Code == AuthoringCompileCodes.MissingLimits).ToArray();

@@ -115,13 +115,8 @@ public partial class InstrumentsViewModel : ReactiveObject
     public ObservableCollection<SlotOverrideItemViewModel> VisibleSlots { get; }
     public ObservableCollection<string> PlanFilterOptions { get; }
 
-    /// Backward-compatible alias used by older tests/callers.
-    public ObservableCollection<DiscoveredResourceItem> Discovered => DiscoveredVisa;
-
     public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> RefreshVisaDiscoverCommand { get; }
     public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> RefreshOpenTapDiscoverCommand { get; }
-    /// Alias for VISA discover (toolbar / existing tests).
-    public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> RefreshDiscoverCommand => RefreshVisaDiscoverCommand;
     public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> RefreshSlotsCommand { get; }
     public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> ApplySelectedResourceCommand { get; }
     public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> ClearOverrideCommand { get; }
@@ -141,13 +136,6 @@ public partial class InstrumentsViewModel : ReactiveObject
     public bool ShowDiscoverEmpty => !HasDiscoveredVisa && !HasDiscoveredOpenTap && !IsBusy;
 
     public event EventHandler? NavigateToRunRequested;
-
-    /// Backward-compatible alias for SelectedVisa.
-    public DiscoveredResourceItem? SelectedDiscovered
-    {
-        get => SelectedVisa;
-        set => SelectedVisa = value;
-    }
 
     private void OnVisaModeApplied(object? sender, EventArgs e)
     {

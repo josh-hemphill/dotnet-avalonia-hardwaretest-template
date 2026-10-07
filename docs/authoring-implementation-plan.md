@@ -329,7 +329,7 @@ The flow creates a durable authoring draft; compilation and deployment artifact 
 
 6. **Review and create:** Summarize sequence, instruments, requirements and destination files. Save the draft and open it with useful selection, outstanding issues and the next action. Generate TapPlan/sidecar through explicit compile/check operations.
 
-**Implementation:** Add `AuthoringPlanInitializer`, `PlanInitializationRequest`, and `PlanInitializationResult` in Core. Reuse the document store, instrument adapters, recipe definitions, criteria and dependency services. Route existing `CreateProgram()` through this service.
+**Implementation:** Add `AuthoringPlanInitializer`, `PlanInitializationRequest`, and `PlanInitializationResult` in Core. Reuse the document store, instrument adapters, recipe definitions, criteria and dependency services. Create drafts through explicit initialization requests and durable plan creation through this service.
 
 Validate destinations before writing. Publish the created draft atomically, allocate unique identity safely, and detect external file changes/collisions again at commit. Cancellation before completion leaves no initialized plan files. If no hardware/measurement is chosen, persist an empty draft with requirements to complete before deployment.
 

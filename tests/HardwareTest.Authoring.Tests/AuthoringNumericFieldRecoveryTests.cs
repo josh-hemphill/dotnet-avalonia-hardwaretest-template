@@ -18,7 +18,7 @@ public sealed class AuthoringNumericFieldRecoveryTests
         try
         {
             vm.Open(root); vm.SelectProgram("sample");
-            vm.ApplyRecipe(AuthoringRecipeIds.TransferFunction);
+            vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.TransferFunction);
             vm.SelectMeasure(vm.SelectedProgram!.Measure.Count - 1);
             vm.StationHealthMaxAgeHours = "24";
             var id = vm.SelectedProgram.PlanId;
@@ -69,7 +69,9 @@ public sealed class AuthoringNumericFieldRecoveryTests
         try
         {
             vm.Open(root);
-            vm.ApplyRecipe(AuthoringRecipeIds.TransferFunction);
+            // The sample plan publishes VDC on a 5 ms grid, matching the TF recipe period.
+            vm.SelectProgram("sample");
+            vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.TransferFunction);
             vm.SelectMeasure(vm.SelectedProgram!.Measure.Count - 1);
             vm.StationHealthMaxAgeHours = "24";
             var baseline = TypedValue(vm, field);
@@ -100,7 +102,7 @@ public sealed class AuthoringNumericFieldRecoveryTests
     public void BlankRequiredTfFieldsPersistExactlyAndBlockCompileUntilCorrected(string field, string blank)
     {
         var root = Workspace(); var vm = new AuthoringWorkspaceViewModel(); vm.Open(root); vm.SelectProgram("sample");
-        vm.ApplyRecipe(AuthoringRecipeIds.TransferFunction); vm.SelectMeasure(vm.SelectedProgram!.Measure.Count - 1);
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.TransferFunction); vm.SelectMeasure(vm.SelectedProgram!.Measure.Count - 1);
         var id = vm.SelectedProgram.PlanId; var nodeId = vm.SelectedSequence!.NodeId;
         var baseline = TypedValue(vm, field);
         var path = vm.Workspace!.TapPlanPaths.Single(p => Path.GetFileNameWithoutExtension(p) == id);
@@ -132,7 +134,9 @@ public sealed class AuthoringNumericFieldRecoveryTests
         try
         {
             vm.Open(root);
-            vm.ApplyRecipe(AuthoringRecipeIds.TransferFunction);
+            // The sample plan publishes VDC on a 5 ms grid, matching the TF recipe period.
+            vm.SelectProgram("sample");
+            vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.TransferFunction);
             vm.SelectMeasure(vm.SelectedProgram!.Measure.Count - 1);
             var period = TypedValue(vm, "period");
             vm.TfTsSeconds = text;

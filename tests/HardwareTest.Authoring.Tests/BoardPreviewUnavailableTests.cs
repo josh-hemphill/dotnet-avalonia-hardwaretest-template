@@ -14,7 +14,7 @@ public sealed class BoardPreviewUnavailableTests
         var raw = new RawStepNode("Missing.Plugin.Step", xml);
         var input = new MetricNode(new MetricDraft("Known input", "known", "timeseries", "V", null, null,
             new MeasureSource("DMM", AuthoringFunctionIds.BasicAcquireVoltage, new Dictionary<string, string>())));
-        var draft = AuthoringRecipeCatalog.CreateProgram("opaque-preview") with { Measure = [raw, input] };
+        var draft = MockDmmDraftFixture.Create("opaque-preview") with { Measure = [raw, input] };
         var before = raw.XmlFragment;
         var board = BoardPreviewBuilder.Build(draft);
         var unavailable = Assert.Single(board, tile => tile.NodeId == raw.NodeId);

@@ -110,7 +110,7 @@ public sealed partial class AuthoringActionableFindingsTests
     {
         var store = new AuthoringDocumentStore(_root);
         var path = store.GetDocumentPath("other");
-        store.Save(AuthoringDocumentDto.FromDraft(AuthoringRecipeCatalog.CreateProgram("other")));
+        store.Save(AuthoringDocumentDto.FromDraft(MockDmmDraftFixture.Create("other")));
         ChangeSavedInput(path, "future");
         var future = File.ReadAllBytes(path);
         _vm.SelectProgram("sample");

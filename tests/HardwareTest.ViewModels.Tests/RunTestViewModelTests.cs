@@ -465,7 +465,7 @@ public sealed class RunTestViewModelTests
         Assert.Contains(vm.Live.PresentationTiles, t =>
             t.Kind == PresentationTileKind.Scalar
             && t.MetricKey.Contains("mean", StringComparison.OrdinalIgnoreCase));
-        Assert.False(vm.Live.ShowPlotForSelection);
+        Assert.Equal(RunWorkspace.Steps, vm.Workspace.Selected);
         Assert.Equal(1.25, Assert.Single(vm.Live.PresentationTiles, tile => tile.MetricKey == "VDC.mean").Value);
     }
 
@@ -491,7 +491,7 @@ public sealed class RunTestViewModelTests
     }
 
     [Fact]
-    public async Task Plot_visibility_is_exact_step_path_only()
+    public async Task Step_selection_preserves_chart_availability_without_opening_chart()
     {
         var vm = CreateVm(settings: new AppSettings { PlotRefreshHz = 60 });
         vm.UiScheduler = action => action();
@@ -517,18 +517,17 @@ public sealed class RunTestViewModelTests
         Assert.Equal(RunWorkspace.Steps, vm.Workspace.Selected);
 
         vm.StepTree.SelectedStep = vm.StepTree.Hierarchy[0];
-        Assert.False(vm.Live.ShowPlotForSelection);
         Assert.Equal(RunWorkspace.Steps, vm.Workspace.Selected);
 
         var identity = Flatten(vm.StepTree.Hierarchy).First(s =>
             s.Children.Count == 0 && s.Path.Contains("Identity", StringComparison.OrdinalIgnoreCase));
         vm.StepTree.SelectedStep = identity;
-        Assert.False(vm.Live.ShowPlotForSelection);
+        Assert.Equal(RunWorkspace.Steps, vm.Workspace.Selected);
 
         var acquire = Flatten(vm.StepTree.Hierarchy).First(s =>
             string.Equals(s.Path, acquirePath, StringComparison.OrdinalIgnoreCase));
         vm.StepTree.SelectedStep = acquire;
-        Assert.False(vm.Live.ShowPlotForSelection);
+        Assert.Equal(RunWorkspace.Steps, vm.Workspace.Selected);
         Assert.True(vm.Live.HasChartData);
         vm.Workspace.OpenChart();
         Assert.True(vm.Workspace.ShowChart);

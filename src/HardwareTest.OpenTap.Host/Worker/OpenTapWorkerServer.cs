@@ -501,7 +501,6 @@ public static class OpenTapWorkerServer
     {
         dest.UseMockVisa = src.UseMockVisa;
         dest.DataDirectory = src.DataDirectory;
-        dest.DefaultVisaResource = src.DefaultVisaResource;
         dest.OpenTapPluginDirectories = [.. src.OpenTapPluginDirectories];
         dest.ExportOpenTapResults = src.ExportOpenTapResults;
         dest.IsEngineerDebugMode = src.IsEngineerDebugMode;

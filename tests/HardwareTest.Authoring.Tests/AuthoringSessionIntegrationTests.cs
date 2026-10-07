@@ -31,16 +31,17 @@ public sealed class AuthoringSessionIntegrationTests : IDisposable
     {
         var vm = Open();
         vm.CreateDemoProgram("selection");
-        vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Acquire);
         var first = vm.SelectedSequence!.NodeId;
-        vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Acquire);
         var added = vm.SelectedSequence!.NodeId;
+        Assert.Equal(["VDC", "VDC_2"], vm.SelectedProgram!.Measure.Cast<MetricNode>().Select(node => node.Metric.ChannelKey));
         Assert.NotEqual(first, added);
         vm.Undo();
         Assert.Equal(first, vm.SelectedSequence!.NodeId);
         vm.Redo();
         Assert.Equal(added, vm.SelectedSequence!.NodeId);
-        vm.ApplyRecipe(AuthoringRecipeIds.Repeat);
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Repeat);
         var wrapped = vm.SelectedSequence!.NodeId;
         vm.Undo();
         Assert.Equal(added, vm.SelectedSequence!.NodeId);
@@ -59,7 +60,7 @@ public sealed class AuthoringSessionIntegrationTests : IDisposable
         Assert.True(vm.CanUndo);
         Assert.True(vm.HasUnsavedChanges);
         vm.CreateDemoProgram("other");
-        vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Acquire);
         var otherNode = vm.SelectedSequence!.NodeId;
         vm.DisplayName = "other renamed";
         vm.SelectProgram("sample");
@@ -158,7 +159,10 @@ public sealed class AuthoringSessionIntegrationTests : IDisposable
         var vm = Open(new RecordingCompiler { ReadOnly = true });
         var before = vm.DisplayName;
         Assert.Throws<AuthoringWorkspaceException>(() => vm.DisplayName = "edit");
-        Assert.Throws<AuthoringWorkspaceException>(() => vm.ApplyRecipe(AuthoringRecipeIds.Acquire));
+        vm.SelectedRecipeId = AuthoringRecipeIds.Acquire;
+        vm.InsertionPosition = "End of section";
+        Assert.False(vm.CanInsertRecipe);
+        Assert.Throws<AuthoringWorkspaceException>(() => vm.InsertSelectedRecipe());
         Assert.Throws<AuthoringWorkspaceException>(() => vm.InitializePlan(new("new") { Instruments = [] }));
         Assert.Equal(before, vm.DisplayName);
         Assert.False(vm.CanUndo);

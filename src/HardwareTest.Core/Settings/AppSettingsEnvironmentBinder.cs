@@ -12,8 +12,7 @@ public static class AppSettingsEnvironmentBinder
 {
     private const int MaxIndexedListEntries = 1024;
     public const string EnvPrefix = "HARDWARETEST_";
-    /// Preserved legacy name (not HARDWARETEST_OPEN_TAP_PLUGIN_DIRECTORIES).
-    public const string OpenTapPluginDirsEnv = "HARDWARETEST_OPENTAP_PLUGIN_DIRS";
+    public const string OpenTapPluginDirectoriesEnv = "HARDWARETEST_OPEN_TAP_PLUGIN_DIRECTORIES";
 
     public static IReadOnlyList<SettingBinding> Bindings { get; } = BuildBindings();
 
@@ -41,7 +40,7 @@ public static class AppSettingsEnvironmentBinder
             }
         }
 
-        // Indexed list overrides (Instruments__0__Id, …).
+        // Indexed current station-overlay and plugin-directory overrides.
         foreach (System.Collections.DictionaryEntry entry in env)
         {
             var name = entry.Key?.ToString();
@@ -175,7 +174,7 @@ public static class AppSettingsEnvironmentBinder
     private static bool TryMapIndexedEnv(string envName, out string key)
     {
         key = string.Empty;
-        // HARDWARETEST_INSTRUMENTS__0__ID → Instruments[0].Id
+        // HARDWARETEST_PLAN_SLOT_OVERRIDES__0__SLOT_NAME → PlanSlotOverrides[0].SlotName
         var body = envName[EnvPrefix.Length..];
         var parts = body.Split("__", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         if (parts.Length < 2 || !int.TryParse(parts[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out _))
@@ -184,7 +183,7 @@ public static class AppSettingsEnvironmentBinder
         }
 
         var list = SnakeToPascal(parts[0]);
-        if (list is not ("Instruments" or "StationBindings" or "PlanSlotOverrides" or "PlanParameterOverrides"
+        if (list is not ("PlanSlotOverrides" or "PlanParameterOverrides"
             or "OpenTapPluginDirectories"))
         {
             return false;
@@ -310,12 +309,6 @@ public static class AppSettingsEnvironmentBinder
                 (s, v) => s.DataDirectory = v,
                 env: ["HARDWARETEST_DATA_DIRECTORY"],
                 cli: ["--data-directory"]),
-            SettingBinding.String(
-                "DefaultVisaResource",
-                s => s.DefaultVisaResource,
-                (s, v) => s.DefaultVisaResource = v,
-                env: ["HARDWARETEST_DEFAULT_VISA_RESOURCE"],
-                cli: ["--default-visa-resource"]),
             SettingBinding.Bool(
                 "UseMockVisa",
                 s => s.UseMockVisa,
@@ -383,21 +376,15 @@ public static class AppSettingsEnvironmentBinder
                 env: ["HARDWARETEST_SHOW_DUT_HISTORY_ON_RUN"],
                 cli: ["--show-dut-history-on-run"]),
             SettingBinding.Int(
-                "OperatorSessionIdleHours",
-                s => s.OperatorSessionIdleHours,
-                (s, v) => s.OperatorSessionIdleHours = v,
-                env: ["HARDWARETEST_OPERATOR_SESSION_IDLE_HOURS"],
-                cli: ["--session-idle-hours"]),
-            SettingBinding.Int(
                 "OperatorSessionIdleMinutes",
                 s => s.OperatorSessionIdleMinutes,
-                (s, v) => s.OperatorSessionIdleMinutes = v,
+                (s, v) => s.OperatorSessionIdleMinutes = OperatorSessionIdle.ClampMinutes(v),
                 env: ["HARDWARETEST_OPERATOR_SESSION_IDLE_MINUTES"],
                 cli: ["--session-idle-minutes"]),
             SettingBinding.Int(
                 "OperatorSessionIdleWarnPercent",
                 s => s.OperatorSessionIdleWarnPercent,
-                (s, v) => s.OperatorSessionIdleWarnPercent = v,
+                (s, v) => s.OperatorSessionIdleWarnPercent = OperatorSessionIdle.ClampWarnPercent(v),
                 env: ["HARDWARETEST_OPERATOR_SESSION_IDLE_WARN_PERCENT"],
                 cli: ["--session-idle-warn-percent"]),
             SettingBinding.Bool(
@@ -452,7 +439,7 @@ public static class AppSettingsEnvironmentBinder
                 "OpenTapPluginDirectories",
                 s => s.OpenTapPluginDirectories,
                 (s, v) => s.OpenTapPluginDirectories = v,
-                env: [OpenTapPluginDirsEnv],
+                env: [OpenTapPluginDirectoriesEnv],
                 cli: ["--opentap-plugin-dirs"]),
             SettingBinding.String(
                 "ReportTemplateName",
@@ -621,7 +608,7 @@ public sealed class SettingBinding
         Action<AppSettings, bool> set,
         string[] env,
         string[] cli)
-        => Scalar(key, get, set, env, cli, NormalizeLegacyBool);
+        => Scalar(key, get, set, env, cli, NormalizeBooleanInput);
 
     public static SettingBinding Int(
         string key,
@@ -663,7 +650,7 @@ public sealed class SettingBinding
     {
         if (type == typeof(bool))
         {
-            raw = NormalizeLegacyBool(raw);
+            raw = NormalizeBooleanInput(raw);
         }
 
         var configuration = new ConfigurationBuilder()
@@ -703,7 +690,7 @@ public sealed class SettingBinding
                 }
             });
 
-    private static string NormalizeLegacyBool(string raw)
+    private static string NormalizeBooleanInput(string raw)
         => raw.Trim().ToLowerInvariant() switch
         {
             "1" or "yes" or "on" => bool.TrueString,

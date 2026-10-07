@@ -298,7 +298,7 @@ public sealed class PlanCompilerPersistenceTests : IDisposable
     private static ProgramDraft Draft()
     {
         var draft = AuthoringRecipeCatalog.Apply(
-            AuthoringRecipeCatalog.CreateProgram("atomic"), AuthoringRecipeIds.Acquire);
+            MockDmmDraftFixture.Create("atomic"), AuthoringRecipeIds.Acquire);
         draft.Sidecar.DisplayName = "replacement";
         return draft;
     }

@@ -28,7 +28,7 @@ public sealed class AuthoringSavingTests : IDisposable
         var sample = vm.SelectedProgram;
         var row = vm.SelectedProgramRow;
         vm.CreateDemoProgram("new-program");
-        vm.ApplyRecipe(AuthoringRecipeIds.Acquire);
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Acquire);
         var selected = vm.SelectedProgram;
         var sequence = vm.SelectedSequence;
         var measureIndex = vm.SelectedMeasureIndex;

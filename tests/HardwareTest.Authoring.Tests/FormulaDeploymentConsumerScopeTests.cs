@@ -52,7 +52,7 @@ public sealed class FormulaDeploymentConsumerScopeTests : IDisposable
     {
         var upstream = Formula("upstream.result", "filter([1],[1],missing)");
         var dependent = Formula("dependent.result", expression);
-        var draft = AuthoringRecipeCatalog.CreateProgram("dependency") with { Measure = [Input(), upstream, dependent] };
+        var draft = MockDmmDraftFixture.Create("dependency") with { Measure = [Input(), upstream, dependent] };
         var status = FormulaDeploymentClassifier.Classify(dependent.Metric, draft);
         Assert.Equal(FormulaDeploymentStatusKind.MissingRequirements, status.Kind);
         Assert.Contains("missing", status.Message);
@@ -69,7 +69,7 @@ public sealed class FormulaDeploymentConsumerScopeTests : IDisposable
         var invalid = new MetricNode(new MetricDraft("Invalid mean", "invalid.result", "scalar", "V", new LimitSpec(null, null, 0), null,
             new AlgorithmSource(AuthoringFunctionIds.BasicChannelAverage, [], new Dictionary<string, string>())));
         var valid = Formula("valid.result", "filter([1],[1],input)");
-        var draft = AuthoringRecipeCatalog.CreateProgram("unrelated-mean") with { Measure = [Input(), invalid, valid] };
+        var draft = MockDmmDraftFixture.Create("unrelated-mean") with { Measure = [Input(), invalid, valid] };
         Assert.Equal(FormulaDeploymentStatusKind.DeployableRecipe, FormulaDeploymentClassifier.Classify(valid.Metric, draft).Kind);
         var error = Assert.Throws<AuthoringWorkspaceException>(() => new PlanCompiler().Save(draft, Path.Combine(AuthoringBuildSnapshotTests.Temp(), "unrelated-mean.TapPlan")));
         Assert.Contains("requires exactly one", error.Message);

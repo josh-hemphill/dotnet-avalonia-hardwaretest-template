@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Reflection.Emit;
 using System.Text.RegularExpressions;
 using HardwareTest.Core.Diagnostics;
 using Xunit;
@@ -26,13 +27,12 @@ public sealed class BuildInfoTests
     public void InformationalVersion_is_deterministic_commit_metadata_without_wall_clock()
     {
         var info = BuildInfo.FromAssembly(typeof(BuildInfo).Assembly);
-        Assert.False(
-            Regex.IsMatch(info.InformationalVersion, @"\.\d{14}$"),
-            $"InformationalVersion must not embed yyyyMMddHHmmss: {info.InformationalVersion}");
+        Assert.True(
+            Regex.IsMatch(info.InformationalVersion, @"^0\.1\.0\+(?:[0-9a-f]+|local)$"),
+            $"InformationalVersion must contain only version+commit: {info.InformationalVersion}");
 
-        BuildInfo.ParseInformational(info.InformationalVersion, out var parsedCommit, out var stampUtc);
+        BuildInfo.ParseInformational(info.InformationalVersion, out var parsedCommit);
         Assert.Equal(info.CommitSha, parsedCommit);
-        Assert.Null(stampUtc);
 
         var commitDate = typeof(BuildInfo).Assembly
             .GetCustomAttributes<AssemblyMetadataAttribute>()
@@ -49,21 +49,70 @@ public sealed class BuildInfoTests
     }
 
     [Theory]
-    [InlineData("0.1.0+abc1234", "abc1234", false)]
-    [InlineData("0.1.0+local", "local", false)]
-    [InlineData("0.1.0+abc1234.20260728220000", "abc1234", true)]
-    public void ParseInformational_accepts_current_and_legacy_stamps(
-        string informational, string commit, bool hasStamp)
+    [InlineData("0.1.0+abc1234", "abc1234")]
+    [InlineData("0.1.0+local", "local")]
+    [InlineData("0.1.0", "local")]
+    [InlineData("0.1.0+", "local")]
+    public void ParseInformational_reads_deterministic_commit_metadata(
+        string informational, string commit)
     {
-        BuildInfo.ParseInformational(informational, out var parsed, out var stamp);
+        BuildInfo.ParseInformational(informational, out var parsed);
         Assert.Equal(commit, parsed);
-        Assert.Equal(hasStamp, stamp.HasValue);
-        if (hasStamp)
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("unknown")]
+    [InlineData("invalid-date")]
+    public void Missing_or_invalid_CommitDate_leaves_build_timestamp_unknown(string? commitDate)
+    {
+        var assembly = BuildAssembly("0.1.0+abc1234", commitDate);
+
+        var info = BuildInfo.FromAssembly(assembly);
+
+        Assert.Equal("abc1234", info.CommitSha);
+        Assert.Null(info.BuildTimestampUtc);
+        Assert.Contains("BuildTimestampUtc: unknown", info.FormatSupportBlock(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Unsupported_informational_date_suffix_cannot_supply_a_build_timestamp()
+    {
+        var assembly = BuildAssembly("0.1.0+abc1234.20260728220000", commitDate: null);
+
+        var info = BuildInfo.FromAssembly(assembly);
+
+        Assert.Null(info.BuildTimestampUtc);
+        Assert.Contains("BuildTimestampUtc: unknown", info.FormatSupportBlock(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void CommitDate_is_the_build_timestamp_and_is_normalized_to_utc()
+    {
+        var assembly = BuildAssembly("0.1.0+abc1234", "2026-09-10T12:00:00+02:00");
+
+        var info = BuildInfo.FromAssembly(assembly);
+
+        Assert.Equal(new DateTimeOffset(2026, 9, 10, 10, 0, 0, TimeSpan.Zero), info.BuildTimestampUtc);
+        Assert.Equal(TimeSpan.Zero, info.BuildTimestampUtc!.Value.Offset);
+    }
+
+    private static Assembly BuildAssembly(string informational, string? commitDate)
+    {
+        var assembly = AssemblyBuilder.DefineDynamicAssembly(
+            new AssemblyName($"BuildInfoFixture_{Guid.NewGuid():N}"), AssemblyBuilderAccess.Run);
+        assembly.SetCustomAttribute(new CustomAttributeBuilder(
+            typeof(AssemblyInformationalVersionAttribute).GetConstructor([typeof(string)])!,
+            [informational]));
+        if (commitDate is not null)
         {
-            Assert.Equal(2026, stamp!.Value.UtcDateTime.Year);
-            Assert.Equal(7, stamp.Value.UtcDateTime.Month);
-            Assert.Equal(28, stamp.Value.UtcDateTime.Day);
+            assembly.SetCustomAttribute(new CustomAttributeBuilder(
+                typeof(AssemblyMetadataAttribute).GetConstructor([typeof(string), typeof(string)])!,
+                ["CommitDate", commitDate]));
         }
+
+        return assembly;
     }
 
     [Fact]
@@ -86,6 +135,7 @@ public sealed class BuildInfoTests
 
         Assert.Equal(original.InformationalVersion, attached.InformationalVersion);
         Assert.Equal(original.CommitSha, attached.CommitSha);
+        Assert.Equal(original.BuildTimestampUtc, attached.BuildTimestampUtc);
         Assert.Equal("opentap-test", attached.OpenTapEngineVersion);
     }
 }

@@ -1799,7 +1799,7 @@ public sealed class FakeSettingsStore : ISettingsStore
 {
     public FakeSettingsStore(string? rootDirectory = null)
     {
-        AppSettings = new AppSettings { UseMockVisa = true, DefaultVisaResource = "MOCK::0" };
+        AppSettings = new AppSettings { UseMockVisa = true };
         UiState = new UiState { SelectedPageId = "Home" };
         RootDirectory = rootDirectory ?? Path.Combine(Path.GetTempPath(), "fake-settings");
         RunsDirectory = Path.Combine(RootDirectory, "runs");

@@ -136,7 +136,7 @@ public sealed class SettingsStore : ISettingsStore
                     }
 
                     _fileBaseline = loaded;
-                    OperatorSessionIdle.NormalizeAfterFileLoad(_fileBaseline);
+                    OperatorSessionIdle.Normalize(_fileBaseline);
                     MarkFileProvenance(provenance, _fileBaseline);
                 }
             }
@@ -162,7 +162,7 @@ public sealed class SettingsStore : ISettingsStore
             SettingSource.CommandLine,
             _commandLineOverlays,
             warn);
-        NormalizeIdle(next, provenance);
+        OperatorSessionIdle.Normalize(next);
         CopyOnto(next, AppSettings);
         _provenance = provenance;
 
@@ -217,7 +217,7 @@ public sealed class SettingsStore : ISettingsStore
         }
 
         // Write-back: persist only keys not overridden by env/CLI.
-        OperatorSessionIdle.Normalize(AppSettings, preferMinutes: true);
+        OperatorSessionIdle.Normalize(AppSettings);
         var toWrite = CloneSettings(_fileBaseline);
         CopyNonOverridden(AppSettings, toWrite);
         // DataDirectory in the file should stay the root we manage unless overridden.
@@ -298,36 +298,10 @@ public sealed class SettingsStore : ISettingsStore
             provenance,
             SettingSource.CommandLine,
             _commandLineOverlays);
-        NormalizeIdle(next, provenance);
+        OperatorSessionIdle.Normalize(next);
         CopyOnto(next, AppSettings);
         _provenance = provenance;
     }
-
-    private static void NormalizeIdle(AppSettings settings, List<SettingProvenance> provenance)
-    {
-        var minutesFromOverlay = provenance.Any(p =>
-            string.Equals(p.Key, nameof(AppSettings.OperatorSessionIdleMinutes), StringComparison.OrdinalIgnoreCase)
-            && p.Source is SettingSource.Environment or SettingSource.CommandLine);
-        var hoursFromOverlay = provenance.Any(p =>
-            string.Equals(p.Key, nameof(AppSettings.OperatorSessionIdleHours), StringComparison.OrdinalIgnoreCase)
-            && p.Source is SettingSource.Environment or SettingSource.CommandLine);
-
-        if (minutesFromOverlay)
-        {
-            OperatorSessionIdle.Normalize(settings, preferMinutes: true);
-        }
-        else if (hoursFromOverlay)
-        {
-            OperatorSessionIdle.Normalize(settings, preferMinutes: false);
-        }
-        else
-        {
-            OperatorSessionIdle.Normalize(settings, preferMinutes: true);
-        }
-    }
-
-    private void NormalizeIdleAfterOverlays(List<SettingProvenance> provenance)
-        => NormalizeIdle(AppSettings, provenance);
 
     private void CopyNonOverridden(AppSettings from, AppSettings to)
     {
@@ -340,28 +314,6 @@ public sealed class SettingsStore : ISettingsStore
 
             // Re-apply formatted value through the binder for a consistent copy.
             binding.TryApply(to, binding.Format(from), out _, out _);
-        }
-
-        if (!IsOverridden("Instruments") && !AppSettingsEnvironmentBinder.IsListOverridden(_provenance, "Instruments"))
-        {
-            to.Instruments = CloneList(from.Instruments, static i => new VisaInstrument
-            {
-                Id = i.Id,
-                DisplayName = i.DisplayName,
-                Resource = i.Resource,
-                Enabled = i.Enabled,
-                Notes = i.Notes,
-            });
-        }
-
-        if (!IsOverridden("StationBindings")
-            && !AppSettingsEnvironmentBinder.IsListOverridden(_provenance, "StationBindings"))
-        {
-            to.StationBindings = CloneList(from.StationBindings, static b => new StationBinding
-            {
-                Role = b.Role,
-                InstrumentId = b.InstrumentId,
-            });
         }
 
         if (!IsOverridden("PlanSlotOverrides")
@@ -452,24 +404,9 @@ public sealed class SettingsStore : ISettingsStore
         {
             SchemaVersion = SchemaVersions.AppSettings,
             DataDirectory = root,
-            DefaultVisaResource = "MOCK::INSTR0",
             UseMockVisa = true,
             ThemePreference = "System",
             EmbedPlotsInReport = true,
-            Instruments =
-            [
-                new VisaInstrument
-                {
-                    Id = "instr0",
-                    DisplayName = "Mock DMM",
-                    Resource = "MOCK::INSTR0",
-                    Enabled = true,
-                },
-            ],
-            StationBindings =
-            [
-                new StationBinding { Role = "dmm", InstrumentId = "instr0" },
-            ],
         };
     }
 
@@ -486,7 +423,6 @@ public sealed class SettingsStore : ISettingsStore
     {
         target.SchemaVersion = source.SchemaVersion;
         target.DataDirectory = source.DataDirectory;
-        target.DefaultVisaResource = source.DefaultVisaResource;
         target.UseMockVisa = source.UseMockVisa;
         target.LogMinimumLevel = source.LogMinimumLevel;
         target.EnableOsEventSink = source.EnableOsEventSink;
@@ -499,25 +435,11 @@ public sealed class SettingsStore : ISettingsStore
         target.ExportOpenTapResults = source.ExportOpenTapResults;
         target.ShowDutHistoryOnRun = source.ShowDutHistoryOnRun;
         target.OperatorSessionIdleMinutes = source.OperatorSessionIdleMinutes;
-        target.OperatorSessionIdleHours = source.OperatorSessionIdleHours;
         target.OperatorSessionIdleWarnPercent = source.OperatorSessionIdleWarnPercent;
         target.RequireDutConfirmEveryRun = source.RequireDutConfirmEveryRun;
         target.IsEngineerDebugMode = source.IsEngineerDebugMode;
         target.OpenTapPluginDirectories = CloneList(source.OpenTapPluginDirectories, static s => s);
         target.ReportTemplateName = source.ReportTemplateName;
-        target.Instruments = CloneList(source.Instruments, static i => new VisaInstrument
-        {
-            Id = i.Id,
-            DisplayName = i.DisplayName,
-            Resource = i.Resource,
-            Enabled = i.Enabled,
-            Notes = i.Notes,
-        });
-        target.StationBindings = CloneList(source.StationBindings, static b => new StationBinding
-        {
-            Role = b.Role,
-            InstrumentId = b.InstrumentId,
-        });
         target.PlanSlotOverrides = CloneList(source.PlanSlotOverrides, static o => new PlanSlotOverride
         {
             PlanId = o.PlanId,

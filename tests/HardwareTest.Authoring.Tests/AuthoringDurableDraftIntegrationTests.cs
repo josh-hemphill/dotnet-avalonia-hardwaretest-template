@@ -63,7 +63,7 @@ public sealed class AuthoringDurableDraftIntegrationTests
     [Fact]
     public void NumericDraftHistoryRetainsTypedValueAndUndoRestoresSavedBaseline()
     {
-        var draft = AuthoringRecipeCatalog.CreateProgram("draft");
+        var draft = MockDmmDraftFixture.Create("draft");
         var session = new AuthoringDocumentSession(draft);
         var state = draft.AuthoringState.Clone();
         state.IncompleteNumericText[AuthoringDocumentState.FieldKey(draft.Cleanup.NodeId, "Count")] = "-";
@@ -80,7 +80,7 @@ public sealed class AuthoringDurableDraftIntegrationTests
     {
         var root = Workspace();
         var vm = new AuthoringWorkspaceViewModel(); vm.Open(root); vm.StopRecovery();
-        vm.ApplyRecipe(AuthoringRecipeIds.Formula);
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Formula);
         vm.SelectMeasure(vm.SelectedProgram!.Measure.Count - 1);
         vm.FormulaSource = "input + 1";
         vm.FormulaExplorationOnly = true;
@@ -98,7 +98,7 @@ public sealed class AuthoringDurableDraftIntegrationTests
     public void RecoveryOnlyNewProgramRequiresExplicitAcceptanceAndRemainsUnsaved()
     {
         var root = Workspace();
-        var draft = AuthoringRecipeCatalog.CreateProgram("unsaved-new");
+        var draft = MockDmmDraftFixture.Create("unsaved-new");
         var store = new AuthoringDocumentStore(root);
         store.SaveAtPath(store.GetRecoveryPath(draft.PlanId), AuthoringDocumentDto.FromDraft(draft, 9));
         var vm = new AuthoringWorkspaceViewModel(); vm.Open(root);

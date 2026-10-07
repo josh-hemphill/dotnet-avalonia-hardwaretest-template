@@ -50,26 +50,6 @@ public static class AuthoringRecipeCatalog
     public static bool PaletteContainsDialog()
         => Palette.Any(LooksLikeDialog);
 
-    public static ProgramDraft CreateProgram(string planId)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(planId);
-        return new ProgramDraft(
-            planId.Trim(),
-            new ProgramSidecar
-            {
-                DisplayName = planId.Trim(),
-                DutFamily = "generic",
-                RequireSerial = true,
-                ReportKinds = ["status"],
-                DefaultReportKind = "status",
-                SelectionIncludesCleanup = true,
-            },
-            [new InstrumentRef("DMM", typeof(MockDmmInstrument).FullName!, "MOCK::INSTR0")],
-            [new IdentitySetup("DMM")],
-            [],
-            new CleanupPolicy(true, "DMM"));
-    }
-
     public static ProgramDraft Apply(ProgramDraft draft, string recipeId, string? instrumentSlot = null)
     {
         ArgumentNullException.ThrowIfNull(draft);

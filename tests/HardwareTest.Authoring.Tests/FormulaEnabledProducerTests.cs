@@ -143,7 +143,7 @@ public sealed class FormulaEnabledProducerTests : IDisposable
     {
         var path = Path.Combine(AuthoringBuildSnapshotTests.Temp(), draft.PlanId + ".TapPlan"); new PlanCompiler().Save(draft, path); return path;
     }
-    private static ProgramDraft Draft(IReadOnlyList<MeasureNode> nodes) => AuthoringRecipeCatalog.CreateProgram("enabled-inputs") with
+    private static ProgramDraft Draft(IReadOnlyList<MeasureNode> nodes) => MockDmmDraftFixture.Create("enabled-inputs") with
     { Measure = nodes, Setup = [], Instruments = [], Cleanup = new CleanupPolicy(false, []) };
     private static PublishTimedSampleStep Timed(double elapsed, bool enabled) => new() { Channel = "input", ElapsedMs = elapsed, Value = 2, Enabled = enabled };
     private static MetricNode Consumer(bool native, bool average) => new(new MetricDraft("Consumer", "result", average ? "scalar" : "timeseries", "V",

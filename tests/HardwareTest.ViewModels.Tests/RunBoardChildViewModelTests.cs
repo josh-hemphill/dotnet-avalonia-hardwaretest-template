@@ -700,7 +700,7 @@ public sealed class RunBoardChildViewModelTests
     }
 
     [Fact]
-    public void StationOverrides_profile_uses_explicit_slot_names_and_ignores_role_and_registry_guesses()
+    public void StationOverrides_profile_requires_selected_plan_and_explicit_slot_names()
     {
         var openTap = new FakeOpenTapSession();
         var settings = new AppSettings
@@ -711,13 +711,24 @@ public sealed class RunBoardChildViewModelTests
                 new() { PlanId = "fixture", RoleHint = "dmm", Resource = "MOCK::role-only" },
                 new() { PlanId = "fixture", SlotName = "DMM-A", Resource = " " },
             ],
-            Instruments = [new() { Id = "old", Resource = "MOCK::registry" }],
-            StationBindings = [new() { Role = "dmm", InstrumentId = "old" }],
         };
-        var overrides = new StationOverridesViewModel(openTap, openTap, settings, null, _ => { });
+        ProgramItemViewModel? selected = null;
+        var overrides = new StationOverridesViewModel(openTap, openTap, settings, null, _ => { },
+            getSelectedProgram: () => selected);
+        Assert.Empty(overrides.BuildStationProfile().SlotToResource);
+        selected = new ProgramItemViewModel { Id = " ", DisplayName = "Blank", Path = "fixture.TapPlan" };
+        Assert.Empty(overrides.BuildStationProfile().SlotToResource);
+        selected = new ProgramItemViewModel { Id = "other", DisplayName = "Other", Path = "fixture.TapPlan" };
+        Assert.Empty(overrides.BuildStationProfile().SlotToResource);
+        selected = new ProgramItemViewModel { Id = "fixture", DisplayName = "Fixture", Path = "fixture.TapPlan" };
         var entry = Assert.Single(overrides.BuildStationProfile().SlotToResource);
         Assert.Equal("DMM-B", entry.Key);
         Assert.Equal("MOCK::explicit", entry.Value);
+        settings.PlanSlotOverrides.Add(new() { PlanId = "fixture", SlotName = "DMM-A", RoleHint = "dmm", Resource = "MOCK::independent" });
+        var resources = overrides.BuildStationProfile().SlotToResource;
+        Assert.Equal(2, resources.Count);
+        Assert.Equal("MOCK::independent", resources["DMM-A"]);
+        Assert.Equal("MOCK::explicit", resources["DMM-B"]);
         settings.PlanSlotOverrides.Clear();
         Assert.Empty(overrides.BuildStationProfile().SlotToResource);
     }
@@ -739,7 +750,7 @@ public sealed class RunBoardChildViewModelTests
         Assert.True(plotted);
         Assert.True(live.HasPlotData);
         Assert.True(live.HasChartData);
-        Assert.False(live.ShowPlotForSelection);
+        Assert.True(live.OfferOpenChart);
         Assert.Equal(1, live.PlotYsLength);
         Assert.True(frames >= 1);
 
@@ -747,7 +758,10 @@ public sealed class RunBoardChildViewModelTests
 
         Assert.False(live.HasPlotData);
         Assert.False(live.HasChartData);
-        Assert.False(live.ShowPlotForSelection);
+        Assert.False(live.OfferOpenChart);
+        Assert.Empty(live.AvailableSeries);
+        Assert.Null(live.SelectedSeries);
+        Assert.Empty(live.FocusTrendTip);
         Assert.Equal(0, live.PlotYsLength);
     }
 

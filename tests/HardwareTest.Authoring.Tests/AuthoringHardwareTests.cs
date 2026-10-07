@@ -23,7 +23,7 @@ public sealed class AuthoringHardwareTests : IDisposable
     [Fact]
     public void Reviewed_edit_rejects_changed_document_and_preserves_unknown_usage()
     {
-        _vm.ApplyRecipe(AuthoringRecipeIds.Acquire); _vm.LoadHardwareEditor(); _vm.HardwareEditAddress = "MOCK::UPDATED";
+        _vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Acquire); _vm.LoadHardwareEditor(); _vm.HardwareEditAddress = "MOCK::UPDATED";
         var review = _vm.PrepareHardwareEdit(); _vm.DisplayName = "changed";
         Assert.Contains("changed since review", Assert.Throws<AuthoringWorkspaceException>(() => _vm.ApplyHardwareEdit(review)).Message);
         _vm.ReplaceSelected(_vm.SelectedProgram! with { Measure = [new RawStepNode("unknown", "<step/>")] });

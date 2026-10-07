@@ -56,7 +56,7 @@ public sealed class AuthoringFormulaIncompleteInputTests
     {
         using var fixture = Open(); var vm = fixture.ViewModel;
         vm.FormulaSource = "filter([1],[1],VDC)"; var formula = vm.SelectedSequence!.NodeId;
-        vm.ApplyRecipe(AuthoringRecipeIds.Acquire); vm.SelectMeasure(vm.SelectedProgram!.Measure.Count - 1);
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Acquire); vm.SelectMeasure(vm.SelectedProgram!.Measure.Count - 1);
         vm.ChannelKey = "unrelated"; vm.SetMetricSetting("IntervalMs", "abc");
         vm.SelectSequence(vm.SequenceItems.ToList().FindIndex(row => row.NodeId == formula)); AuthoringUiFixture.Drain();
         Assert.Equal("Deployable recipe", vm.FormulaDeploymentLabel); Assert.Null(vm.Preview.Note);
@@ -72,7 +72,7 @@ public sealed class AuthoringFormulaIncompleteInputTests
     private static AuthoringUiFixture Open()
     {
         var fixture = new AuthoringUiFixture(rememberWorkspace: true); fixture.Show(); fixture.OpenRememberedWorkspace();
-        fixture.ViewModel.ApplyRecipe(AuthoringRecipeIds.Formula);
+        fixture.ViewModel.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Formula);
         fixture.ViewModel.SelectMeasure(fixture.ViewModel.SelectedProgram!.Measure.Count - 1);
         fixture.ViewModel.ChannelKey = "VDC.incomplete-formula"; AuthoringUiFixture.Drain();
         return fixture;

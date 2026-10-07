@@ -271,37 +271,6 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
         RaiseHistoryProperties();
     }
 
-    public void ApplyRecipe(string recipeId)
-    {
-        if (SelectedProgram is null)
-        {
-            throw new AuthoringWorkspaceException("Select a program before adding a recipe.");
-        }
-
-        EnsureWritableWorkspace("add a recipe");
-        EnsurePresentedHistoryCurrent();
-        var updated = recipeId == AuthoringRecipeIds.Repeat
-            ? AuthoringSequenceOperations.Repeat(SelectedProgram, SelectedSequence)
-            : AuthoringRecipeCatalog.Apply(SelectedProgram, recipeId, SelectedInstrumentSlot);
-        if (AuthoringDocumentSnapshot.Capture(SelectedProgram).ContentEquals(AuthoringDocumentSnapshot.Capture(updated)))
-        {
-            Status = recipeId == AuthoringRecipeIds.TestGroup ? AuthoringChrome.TestGroupHint : "No change to the sequence.";
-            Error = null;
-            return;
-        }
-        ReplaceSelected(updated);
-        if (updated.Measure.Count > 0 && recipeId != AuthoringRecipeIds.Repeat)
-        {
-            SelectMeasure(updated.Measure.Count - 1);
-        }
-        SelectedDocument?.CompleteEditSelection();
-
-        Status = string.Equals(recipeId, AuthoringRecipeIds.TestGroup, StringComparison.OrdinalIgnoreCase)
-            ? AuthoringChrome.TestGroupHint
-            : $"Added {recipeId}";
-        Error = null;
-    }
-
     public PlanContractBatchReport Validate(bool strict = true)
     {
         if (Workspace is null)
