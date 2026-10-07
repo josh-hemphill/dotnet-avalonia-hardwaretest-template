@@ -30,6 +30,7 @@ public sealed partial class PlanCompiler
         "OffsetLimitLow",
         "OffsetLimitHigh",
         "InputChannel",
+        "ProducerStepId",
         "Numerator",
         "Denominator",
         "TsSeconds",
@@ -180,7 +181,8 @@ public sealed partial class PlanCompiler
         MetricSource source;
         if (spec.IsAlgorithm)
         {
-            source = new AlgorithmSource(spec.Id, [], settings);
+            var inputs = step is ChannelAverageStep average ? new[] { average.InputChannel } : Array.Empty<string>();
+            source = new AlgorithmSource(spec.Id, inputs, settings);
         }
         else
         {
@@ -189,9 +191,9 @@ public sealed partial class PlanCompiler
 
         return new MetricDraft(
             step.Name,
-            hints?.ChannelKey ?? string.Empty,
+            hints?.ChannelKey ?? settings.GetValueOrDefault("Channel", string.Empty),
             hints?.DisplayRole ?? string.Empty,
-            hints?.YUnit ?? string.Empty,
+            hints?.YUnit ?? settings.GetValueOrDefault("Unit", string.Empty),
             ReadLimits(step),
             hints is null
                 ? null
@@ -234,6 +236,7 @@ public sealed partial class PlanCompiler
                 continue;
             }
 
+            if (AuthoringCriteria.IsRuntimeLimit(name)) continue;
             map[name] = Convert.ToString(raw, CultureInfo.InvariantCulture) ?? string.Empty;
         }
 

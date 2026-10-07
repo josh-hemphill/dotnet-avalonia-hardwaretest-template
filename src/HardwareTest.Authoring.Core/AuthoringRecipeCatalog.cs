@@ -42,7 +42,7 @@ public static class AuthoringRecipeCatalog
         new(AuthoringRecipeIds.BandScalar, "Publish Band Scalar", "Analyze", "Passband with Limit low / Limit high."),
         new(AuthoringRecipeIds.SeriesCompliance, "Publish Series Compliance", "Analyze", "In-band percent passband."),
         new(AuthoringRecipeIds.Repeat, "Repeat Loop", "Flow", "Wraps the last measure node in RepeatNode."),
-        new(AuthoringRecipeIds.Formula, "Formula…", "Analyze", "MATLAB-flavored subset. mean(x) lowers to Mean GTE. filter(b,a,x) lowers to IIR."),
+        new(AuthoringRecipeIds.Formula, "Formula…", "Analyze", "MATLAB-flavored subset. mean(x) lowers to Channel Average. filter(b,a,x) lowers to IIR."),
         new(AuthoringRecipeIds.TransferFunction, "Transfer function…", "Analyze", "Discrete SISO IIR from numerator/denominator/Ts."),
         new(AuthoringRecipeIds.StationHealth, "Report Station Health", "Station", "cal.dc.offset scalar with limits."),
         new(AuthoringRecipeIds.Shutdown, "Safe Shutdown", "Safety", "Cleanup Safe Shutdown on selected instrument slots."),
@@ -115,16 +115,7 @@ public static class AuthoringRecipeCatalog
         ArgumentNullException.ThrowIfNull(draft);
         foreach (var metric in EnumerateMetrics(draft.Measure))
         {
-            if (!IsBandRole(metric.DisplayRole))
-            {
-                continue;
-            }
-
-            if (!HasLimit(metric.Limits))
-            {
-                throw new AuthoringWorkspaceException(
-                    $"{AuthoringCompileCodes.MissingLimits}: '{metric.ChannelKey}' ({metric.DisplayRole}) requires LimitSpec.");
-            }
+            AuthoringCriteria.Validate(metric);
         }
     }
 
@@ -245,7 +236,6 @@ public static class AuthoringRecipeCatalog
                 new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
                 {
                     ["SampleCount"] = "8",
-                    ["Threshold"] = "1.2",
                 }));
 
     private static MetricDraft BandScalarMetric()
@@ -280,8 +270,6 @@ public static class AuthoringRecipeCatalog
                 new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
                 {
                     ["Values"] = "1.20,1.22,1.21",
-                    ["LimitLow"] = "1.1",
-                    ["LimitHigh"] = "1.4",
                 }));
 
     private static MetricDraft FormulaMetric(ProgramDraft draft)
@@ -342,8 +330,6 @@ public static class AuthoringRecipeCatalog
                 AuthoringFunctionIds.BasicReportStationHealth,
                 new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
                 {
-                    ["OffsetLimitLow"] = "-0.01",
-                    ["OffsetLimitHigh"] = "0.01",
                 }));
 
     private static bool IsBandRole(string displayRole)

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<Package Name="HardwareTest Basic" xmlns="http://opentap.io/schemas/package" Version="0.1.0" OS="Windows,Linux,MacOS">
+<Package Name="HardwareTest Basic" xmlns="http://opentap.io/schemas/package" Version="0.2.0" OS="Windows,Linux,MacOS">
   <Description>HardwareTest operator, safety, identity, and demo measure steps. Does not include the VISA broker adapter.</Description>
   <Owner>HardwareTest</Owner>
   <Dependencies>

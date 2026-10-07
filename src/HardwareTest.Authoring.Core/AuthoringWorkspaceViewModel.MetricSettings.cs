@@ -21,11 +21,11 @@ public sealed partial class AuthoringWorkspaceViewModel
 
     public bool ShowThreshold
         => HasMetricPresentation
-           && string.Equals(DisplayRole, PresentationRoles.Scalar, StringComparison.OrdinalIgnoreCase);
+           && AuthoringCriteria.Requirements(SelectedMetric!)?.RequiresThreshold == true;
 
     public bool ShowBandLimits
         => HasMetricPresentation
-           && string.Equals(DisplayRole, PresentationRoles.Passband, StringComparison.OrdinalIgnoreCase);
+           && AuthoringCriteria.Requirements(SelectedMetric!)?.RequiresBand == true;
 
     public string FormulaHelp =>
         "MATLAB-flavored subset for preview. The save plan line shows what packs into the test plan.";

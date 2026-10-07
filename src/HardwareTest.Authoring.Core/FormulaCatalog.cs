@@ -124,7 +124,7 @@ public static class FormulaCatalog
     private static string Describe(string name)
         => name switch
         {
-            "mean" => "mean(x) — last-sample scalar. Save lowers mean(ident)+threshold → Mean GTE.",
+            "mean" => "mean(x) — series average. Save lowers mean(ident)+threshold → Channel Average.",
             "filter" => "filter(b, a, channel) — causal IIR. Save lowers top-level filter → Apply Transfer Function.",
             "filtfilt" => "filtfilt(b, a, channel) — zero-phase IIR. Save lowers top-level filtfilt → Apply Transfer Function.",
             "abs" => "abs(x) — preview/eval only (does not pack).",
