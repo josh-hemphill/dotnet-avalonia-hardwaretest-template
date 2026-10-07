@@ -524,10 +524,11 @@ public sealed class ResultsViewModelTests
     [Fact]
     public async Task Export_and_open_certification_show_attestation_overlay_until_badge()
     {
-        var store = new FakeRunStore();
+        using var store = new FakeRunStore();
         var pdf = Path.Combine(store.GetRunDirectory("cert-1"), "certification.pdf");
         Directory.CreateDirectory(Path.GetDirectoryName(pdf)!);
         await File.WriteAllBytesAsync(pdf, "%PDF-1.4"u8.ToArray());
+        await File.WriteAllTextAsync(Path.Combine(store.GetRunDirectory("cert-1"), "stray.attestation.json"), "unrelated evidence");
         var run = new TestRunRecord
         {
             SchemaVersion = SchemaVersions.TestRunRecord,
@@ -590,6 +591,10 @@ public sealed class ResultsViewModelTests
         Assert.Contains("Exported package", vm.Status, StringComparison.OrdinalIgnoreCase);
         Assert.NotNull(export.LastPackageDir);
         Assert.True(File.Exists(Path.Combine(export.LastPackageDir!, "certification.attestation.json")));
+        Assert.False(File.Exists(Path.Combine(export.LastPackageDir!, "stray.attestation.json")));
+        Assert.Equal(
+            await File.ReadAllBytesAsync(run.Attestations[0].SidecarPath!),
+            await File.ReadAllBytesAsync(Path.Combine(export.LastPackageDir!, "certification.attestation.json")));
     }
 
     [Fact]
