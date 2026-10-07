@@ -1,6 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
+    <!-- The published Instrument Components embedded model registry uses reflection JSON.
+         This execution process remains untrimmed; application persistence uses generated contexts. -->
+    <JsonSerializerIsReflectionEnabledByDefault>true</JsonSerializerIsReflectionEnabledByDefault>
     <UseAppHost>false</UseAppHost>
     <SelfContained>false</SelfContained>
     <CreateOpenTapPackage>false</CreateOpenTapPackage>

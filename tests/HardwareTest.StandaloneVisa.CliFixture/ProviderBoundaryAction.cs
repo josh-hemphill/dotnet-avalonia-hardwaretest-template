@@ -26,6 +26,14 @@ public sealed class ProviderBoundaryAction : ICliAction
         OpenTapScpiIo.Provider = preserved;
         OpenTapVisa.Register();
         if (!ReferenceEquals(preserved, OpenTapScpiIo.Provider)) throw new InvalidOperationException("Existing provider was replaced.");
+        var instrument = new DmmInstrument { VisaAddress = "mock://wrapper-fixture" };
+        instrument.Open();
+        if (instrument.QueryIdn().FormatResponse() != "FAKE,DMM,SN-1,0") throw new InvalidOperationException("Published instrument identity failed.");
+        if (instrument.Dmm.MeasureVoltageDc() != 1.25) throw new InvalidOperationException("Published instrument measurement failed.");
+        instrument.Reset();
+        instrument.Close();
+        if (preserved.Session is not { Closed: true }) throw new InvalidOperationException("Published instrument lease leaked.");
+        Console.WriteLine("standalone-published-instrument-opened-with-embedded-registry-and-closed");
         Console.WriteLine("standalone-registered-before-dispatch-existing-provider-preserved");
         return 17;
     }
@@ -33,6 +41,20 @@ public sealed class ProviderBoundaryAction : ICliAction
 
 public sealed class PreservedProvider : IOpenTapScpiIoProvider
 {
-    public IScpiIo Open(string visaAddress, TimeSpan ioTimeout) => throw new InvalidOperationException("No physical I/O in this fixture.");
+    public PreservedIo? Session { get; private set; }
+    public IScpiIo Open(string visaAddress, TimeSpan ioTimeout) => Session = new PreservedIo { IoTimeout = ioTimeout };
 }
 
+public sealed class PreservedIo : IScpiIo
+{
+    public TimeSpan IoTimeout { get; set; }
+    public bool Closed { get; private set; }
+    public void Write(string command) { }
+    public string Query(string command) => command.Trim().ToUpperInvariant() switch
+    {
+        "*IDN?" => "FAKE,DMM,SN-1,0",
+        "*OPC?" => "1",
+        _ => "1.25",
+    };
+    public void Dispose() => Closed = true;
+}

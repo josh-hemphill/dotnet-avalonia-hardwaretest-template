@@ -25,6 +25,7 @@ public sealed partial class StandaloneBoundaryTests : IDisposable
         var result = await Run(home, StandaloneVisaPackage.WrapperFileName, "visa-boundary");
         Assert.Equal(17, result.Code);
         Assert.Contains("standalone-registered-before-dispatch-existing-provider-preserved", result.Output);
+        Assert.Contains("standalone-published-instrument-opened-with-embedded-registry-and-closed", result.Output);
     }
 
     [Fact]
@@ -34,6 +35,7 @@ public sealed partial class StandaloneBoundaryTests : IDisposable
         var result = await Run(home, "HardwareTest.StandaloneVisa.ProcessFixture.dll", home);
         Assert.Equal(0, result.Code);
         Assert.Contains("managed-broker-bound-and-cleaned", result.Output);
+        Assert.Contains("published-instrument-opened-with-embedded-registry-and-closed", result.Output);
     }
 
     [Fact]
@@ -435,6 +437,7 @@ public sealed partial class StandaloneBoundaryTests : IDisposable
             var options = JsonNode.Parse(runtime)!["runtimeOptions"]!;
             Assert.Equal("Microsoft.NETCore.App", (string?)options["framework"]?["name"]);
             Assert.Null(options["includedFrameworks"]);
+            Assert.True((bool?)options["configProperties"]?["System.Text.Json.JsonSerializer.IsReflectionEnabledByDefault"]);
         }
         using var metadata = zip.GetEntry("Packages/HardwareTest Standalone VISA/package.xml")!.Open();
         var document = XDocument.Load(metadata);

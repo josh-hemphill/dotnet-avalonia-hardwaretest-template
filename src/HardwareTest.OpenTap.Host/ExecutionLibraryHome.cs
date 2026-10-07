@@ -7,7 +7,7 @@ internal static class ExecutionLibraryHome
 {
     private static readonly string[] Files = ["InstrumentComponents.dll", "InstrumentComponents.OpenTap.dll"];
 
-    internal static string Validate(string directory, Action<string>? containedEntry = null)
+    internal static string Validate(string directory, Action<string, string>? containedEntry = null)
     {
         var root = ResolvePath(Path.GetFullPath(directory));
         foreach (var file in Files) EnsureContained(root, Path.Combine(root, file));
@@ -20,7 +20,7 @@ internal static class ExecutionLibraryHome
         {
             if (++visited > 100000) throw new IOException("Selected execution home contains too many package paths.");
             EnsureContained(root, entry);
-            containedEntry?.Invoke(entry);
+            containedEntry?.Invoke(root, entry);
             var name = Path.GetFileName(entry);
             if (Files.Contains(name, StringComparer.OrdinalIgnoreCase) && !Files.Contains(name, StringComparer.Ordinal))
                 throw new InvalidOperationException("Instrument Components execution requires canonical root DLL filenames.");
@@ -45,7 +45,7 @@ internal static class ExecutionLibraryHome
                 {
                     if (++visited > 100000) throw new IOException("Selected execution home contains too many package paths.");
                     EnsureContained(root, entry);
-                    containedEntry?.Invoke(entry);
+                    containedEntry?.Invoke(root, entry);
                     var name = Path.GetFileName(entry);
                     if (Files.Contains(name, StringComparer.OrdinalIgnoreCase))
                         throw new InvalidOperationException("Instrument Components execution cannot use obsolete package-directory library DLLs. Import or repair the selected package to keep library DLLs only in the installed home root.");

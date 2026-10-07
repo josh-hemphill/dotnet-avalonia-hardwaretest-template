@@ -38,6 +38,50 @@ public sealed class AuthoringStandaloneClaimTests : IDisposable
     }
 
     [Theory]
+    [InlineData("nested", "HardwareTest.OpenTap.StandaloneVisa.dll")]
+    [InlineData("nested", "InstrumentComponents.OpenTap.Visa.dll")]
+    [InlineData("nested", "InstrumentComponents.Visa.dll")]
+    [InlineData("case", "HardwareTest.OpenTap.StandaloneVisa.dll")]
+    [InlineData("case", "InstrumentComponents.OpenTap.Visa.dll")]
+    [InlineData("case", "InstrumentComponents.Visa.dll")]
+    [InlineData("metadata-nested", "")]
+    [InlineData("metadata-file-case", "")]
+    [InlineData("metadata-directory-case", "")]
+    [InlineData("metadata-name-case", "")]
+    public async Task Complete_prepared_home_rejects_standalone_payload_and_metadata_aliases_before_TUI_spawn(string alias, string file)
+    {
+        if (!OperatingSystem.IsLinux() && !OperatingSystem.IsWindows()) Assert.Skip("Production launcher supports Linux and Windows.");
+        if (OperatingSystem.IsWindows() && (alias is "case" or "metadata-file-case" or "metadata-directory-case"))
+            Assert.Skip("Distinct case-alias entries require a case-sensitive filesystem.");
+        var (workspace, home, plan) = PrepareMockHome();
+        workspace.Manifest.Dependencies.Add(new() { Package = PublishedInstrumentComponents.PackageName, Version = PublishedInstrumentComponents.Version });
+        new OpenTapHomeBootstrapper().Bootstrap(workspace, new() { HomeDirectory = home.Root, Offline = true });
+        Assert.True(StandaloneVisaReadiness.Assess(home).Available);
+        workspace.Manifest.Dependencies.RemoveAll(dependency => dependency.Package.Equals(PublishedInstrumentComponents.PackageName, StringComparison.OrdinalIgnoreCase));
+        AuthoringWorkspaceLoader.SaveManifest(workspace.Root, workspace.Manifest);
+        var custom = Path.Combine(home.Root, "Plugins", "Custom"); Directory.CreateDirectory(custom);
+        var metadata = Path.Combine(home.Root, "Packages", StandaloneVisaPackage.PackageName, "package.xml");
+        if (alias is "nested" or "case")
+            File.Copy(Path.Combine(home.Root, file), alias == "nested" ? Path.Combine(custom, file) : Path.Combine(home.Root, file.ToLowerInvariant()));
+        else if (alias == "metadata-name-case")
+        {
+            var package = System.Xml.Linq.XDocument.Load(metadata);
+            package.Root!.SetAttributeValue("Name", StandaloneVisaPackage.PackageName.ToLowerInvariant());
+            package.Save(metadata);
+        }
+        else
+        {
+            var target = alias == "metadata-nested" ? Path.Combine(custom, "package.xml")
+                : alias == "metadata-file-case" ? Path.Combine(Path.GetDirectoryName(metadata)!, "PACKAGE.XML")
+                : Path.Combine(home.Root, "Packages", StandaloneVisaPackage.PackageName.ToLowerInvariant(), "package.xml");
+            Directory.CreateDirectory(Path.GetDirectoryName(target)!); File.Copy(metadata, target);
+        }
+        var before = Snapshot(home);
+        await AssertBlocked(workspace, home, plan);
+        AssertSnapshot(before, home);
+    }
+
+    [Theory]
     [InlineData("outside-link")]
     [InlineData("cycle")]
     public async Task Unsafe_claim_inspection_returns_actionable_readiness_without_following_links_or_changing_bytes(string kind)
