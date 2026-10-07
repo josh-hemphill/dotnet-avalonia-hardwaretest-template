@@ -36,7 +36,7 @@ Put an assertion in `OpenTapSessionContractTests` only when it must hold for **b
 
 Put a rule here only when it is a short, stable layering claim already written in README / adapting.md (e.g. "Core must not reference Avalonia"). Failure messages must name the rule and the doc. Behavioral coverage stays in the suites below.
 
-- Plugin VISA must go through Core `IVisaBroker` — `ArchitectureRulesTests.Plugin_source_must_not_use_Ivi_Visa` scans `Plugins.Basic` / `Plugins.Visa` / `Plugins.Mixins`.
+- Physical execution uses the Host SCPI bridge over Core `IVisaBroker`; Basic and Mixins must not access vendor VISA APIs directly — `ArchitectureRulesTests.Plugin_source_must_not_use_Ivi_Visa` scans `Plugins.Basic` / `Plugins.Mixins`.
 - Pause/interaction must not be process-global statics — `ArchitectureRulesTests.StepRuntime_must_not_expose_static_pause_or_interaction`.
 - Idle/retention/run-complete must not call `DateTime.UtcNow` / `DateTimeOffset.UtcNow`; Safety Stop / worker kill must not wait on NTP.
 

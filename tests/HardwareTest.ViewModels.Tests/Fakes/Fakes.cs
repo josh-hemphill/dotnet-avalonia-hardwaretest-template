@@ -657,6 +657,13 @@ public sealed class FakeOpenTapSession : IOpenTapSession
         }
 
         LastStation = station;
+        foreach (var slot in Slots)
+        {
+            if (station.SlotToResource.TryGetValue(slot.Name, out var resource))
+            {
+                TryBindSlotResource(slot.Name, resource);
+            }
+        }
         LastDut = dut;
         return Task.CompletedTask;
     }
@@ -1157,9 +1164,32 @@ public sealed class FakeOpenTapSession : IOpenTapSession
         }
     }
 
-    public bool TrySetStepEnabled(string stepPath, bool enabled) => !IsExecuting;
-    public bool TrySetAcquireSettings(string stepPath, int? sampleCount, int? intervalMs) => !IsExecuting;
-    public bool TrySetMeanGteThreshold(string stepPath, double threshold) => !IsExecuting;
+    public (string StepPath, bool Enabled)? LastStepEnabledPatch { get; private set; }
+    public (string StepPath, int? SampleCount, int? IntervalMs)? LastAcquirePatch { get; private set; }
+    public (string StepPath, double Threshold)? LastThresholdPatch { get; private set; }
+
+    public bool TrySetStepEnabled(string stepPath, bool enabled)
+    {
+        if (IsExecuting) return false;
+        LastStepEnabledPatch = (stepPath, enabled);
+        var node = FindNode(Tree, stepPath);
+        if (node is not null) node.Enabled = enabled;
+        return true;
+    }
+
+    public bool TrySetAcquireSettings(string stepPath, int? sampleCount, int? intervalMs)
+    {
+        if (IsExecuting) return false;
+        LastAcquirePatch = (stepPath, sampleCount, intervalMs);
+        return true;
+    }
+
+    public bool TrySetMeanGteThreshold(string stepPath, double threshold)
+    {
+        if (IsExecuting) return false;
+        LastThresholdPatch = (stepPath, threshold);
+        return true;
+    }
 
     public bool TryGetStepConditionSummary(string stepPath, out string? summary)
     {
@@ -1187,10 +1217,9 @@ public sealed class FakeOpenTapSession : IOpenTapSession
         return true;
     }
 
-    public bool TryRebindDmmResource(string resource) => !IsExecuting;
     public bool TryBindSlotResource(string slotName, string resource)
     {
-        if (IsExecuting)
+        if (IsExecuting || string.IsNullOrWhiteSpace(slotName) || string.IsNullOrWhiteSpace(resource))
         {
             return false;
         }
@@ -1200,7 +1229,7 @@ public sealed class FakeOpenTapSession : IOpenTapSession
             return false;
         }
 
-        slot.ResourceName = resource;
+        slot.ResourceName = resource.Trim();
         return true;
     }
 

@@ -67,7 +67,7 @@ public sealed partial class StandaloneBoundaryTests
         var result = await Run(first, "HardwareTest.StandaloneVisa.ProcessFixture.dll", SerializeRoots(roots), "--invalid-multiple-roots", allowFailure: true);
         Assert.Equal(0, result.Code);
         Assert.Contains("selected-metadata-refused-before-library-load", result.Output);
-        Assert.Contains("previous-broker-binding-preserved-on-rejection", result.Output);
+        Assert.Contains("broker-binding-absent-on-cold-rejection", result.Output);
         Assert.Contains("canonical", result.Output);
         var after = new[] { first, second }.SelectMany(root => Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories))
             .ToDictionary(path => path, File.ReadAllBytes);

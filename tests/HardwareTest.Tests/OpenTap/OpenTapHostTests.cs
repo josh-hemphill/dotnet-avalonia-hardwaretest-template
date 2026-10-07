@@ -166,7 +166,7 @@ public sealed class OpenTapSessionTests
         var session = new OpenTapSession();
         await session.LoadSampleProgramAsync();
         await session.ApplyStationAndDutAsync(
-            new StationProfile(new Dictionary<string, string> { ["dmm"] = "MOCK::INSTR0" }),
+            new StationProfile(new Dictionary<string, string> { [session.InstrumentSlots[0].Name] = "MOCK::INSTR0" }),
             new DutIdentity("DUT-SEL", Family: "demo"));
 
         var identity = session.StepTree.SelectMany(Flatten)
@@ -198,7 +198,7 @@ public sealed class OpenTapSessionTests
         var session = new OpenTapSession();
         await session.LoadSampleProgramAsync();
         await session.ApplyStationAndDutAsync(
-            new StationProfile(new Dictionary<string, string> { ["dmm"] = "MOCK::INSTR0" }),
+            new StationProfile(new Dictionary<string, string> { [session.InstrumentSlots[0].Name] = "MOCK::INSTR0" }),
             new DutIdentity("DUT-SEL-NOCLEAN", Family: "demo"));
 
         var identity = session.StepTree.SelectMany(Flatten)
@@ -223,7 +223,7 @@ public sealed class OpenTapSessionTests
         var session = new OpenTapSession();
         await session.LoadBoardDemoProgramAsync();
         await session.ApplyStationAndDutAsync(
-            new StationProfile(new Dictionary<string, string> { ["dmm"] = "MOCK::INSTR0" }),
+            new StationProfile(new Dictionary<string, string> { [session.InstrumentSlots[0].Name] = "MOCK::INSTR0" }),
             new DutIdentity("DUT-PRESERVE", Family: "demo"));
 
         using var resume = new CancellationTokenSource();
@@ -289,7 +289,7 @@ public sealed class OpenTapSessionTests
         Assert.NotEmpty(session.StepTree);
 
         await session.ApplyStationAndDutAsync(
-            new StationProfile(new Dictionary<string, string> { ["dmm"] = "MOCK::INSTR0" }),
+            new StationProfile(new Dictionary<string, string> { [session.InstrumentSlots[0].Name] = "MOCK::INSTR0" }),
             new DutIdentity("DUT-42", Family: "demo"));
 
         using var resume = new CancellationTokenSource();
@@ -323,7 +323,7 @@ public sealed class OpenTapSessionTests
         var session = new OpenTapSession();
         await session.LoadSampleProgramAsync();
         await session.ApplyStationAndDutAsync(
-            new StationProfile(new Dictionary<string, string> { ["dmm"] = "MOCK::INSTR0" }),
+            new StationProfile(new Dictionary<string, string> { [session.InstrumentSlots[0].Name] = "MOCK::INSTR0" }),
             new DutIdentity("DUT-PROMPT", Family: "demo"));
 
         var progress = new Progress<OpenTapProgress>();
@@ -407,7 +407,7 @@ public sealed class OpenTapSessionTests
         var session = new OpenTapSession();
         await session.LoadSampleProgramAsync();
         await session.ApplyStationAndDutAsync(
-            new StationProfile(new Dictionary<string, string> { ["dmm"] = "MOCK::INSTR0" }),
+            new StationProfile(new Dictionary<string, string> { [session.InstrumentSlots[0].Name] = "MOCK::INSTR0" }),
             new DutIdentity("DUT-PROMPT", Family: "demo"));
 
         var progress = new Progress<OpenTapProgress>();
@@ -474,7 +474,7 @@ public sealed class OpenTapSessionTests
         var path = session.StepTree.SelectMany(Flatten).First(n => n.Name.Contains("Acquire", StringComparison.OrdinalIgnoreCase)).Path;
         Assert.True(session.TrySetStepEnabled(path, false));
         Assert.True(session.TrySetAcquireSettings(path, 8, 1));
-        Assert.True(session.TryRebindDmmResource("MOCK::INSTR1"));
+        Assert.True(session.TryBindSlotResource(session.InstrumentSlots[0].Name, "MOCK::INSTR1"));
     }
 
     [Fact]
@@ -597,7 +597,7 @@ public sealed class OpenTapSessionTests
         var slot = session.InstrumentSlots[0];
         var station = new StationProfile(new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
-            [slot.RoleHint] = "MOCK::INSTR7",
+            [slot.Name] = "MOCK::INSTR7",
         });
 
         await session.ApplyStationAndDutAsync(station, new DutIdentity("DUT-F", Family: "demo"));
@@ -611,7 +611,7 @@ public sealed class OpenTapSessionTests
         var session = new OpenTapSession();
         await session.LoadPlanShapeAsync(PlanShapeFixtures.SweepRepeatName);
         await session.ApplyStationAndDutAsync(
-            new StationProfile(new Dictionary<string, string> { ["dmm"] = "MOCK::INSTR0" }),
+            new StationProfile(new Dictionary<string, string> { [session.InstrumentSlots[0].Name] = "MOCK::INSTR0" }),
             new DutIdentity("DUT-SWEEP", Family: "demo"));
 
         var frames = new List<OpenTapProgress>();
@@ -795,7 +795,7 @@ public sealed class OpenTapSessionTests
         var session = new OpenTapSession();
         await session.LoadSampleProgramAsync();
         await session.ApplyStationAndDutAsync(
-            new StationProfile(new Dictionary<string, string> { ["dmm"] = "MOCK::INSTR0" }),
+            new StationProfile(new Dictionary<string, string> { [session.InstrumentSlots[0].Name] = "MOCK::INSTR0" }),
             new DutIdentity("DUT-PRES", Family: "demo"));
 
         var summary = await RunSampleWithAutoResumeAsync(session);
@@ -819,7 +819,7 @@ public sealed class OpenTapSessionTests
         var session = new OpenTapSession();
         await session.LoadSampleProgramAsync();
         await session.ApplyStationAndDutAsync(
-            new StationProfile(new Dictionary<string, string> { ["dmm"] = "MOCK::INSTR0" }),
+            new StationProfile(new Dictionary<string, string> { [session.InstrumentSlots[0].Name] = "MOCK::INSTR0" }),
             new DutIdentity("DUT-LIM", Family: "demo"));
 
         var mean = session.StepTree.SelectMany(Flatten)
@@ -864,7 +864,7 @@ public sealed class OpenTapSessionTests
         var session = new OpenTapSession();
         await session.LoadSweepDemoProgramAsync();
         await session.ApplyStationAndDutAsync(
-            new StationProfile(new Dictionary<string, string> { ["dmm"] = "MOCK::INSTR0" }),
+            new StationProfile(new Dictionary<string, string> { [session.InstrumentSlots[0].Name] = "MOCK::INSTR0" }),
             new DutIdentity("DUT-SWEEP-PRES", Family: "demo"));
 
         var summary = await session.RunAsync();
@@ -880,7 +880,7 @@ public sealed class OpenTapSessionTests
         var session = new OpenTapSession();
         await session.LoadTimingDemoProgramAsync();
         await session.ApplyStationAndDutAsync(
-            new StationProfile(new Dictionary<string, string> { ["dmm"] = "MOCK::INSTR0" }),
+            new StationProfile(new Dictionary<string, string> { [session.InstrumentSlots[0].Name] = "MOCK::INSTR0" }),
             new DutIdentity("DUT-TIMING-PRES", Family: "demo"));
 
         var rise = session.StepTree.SelectMany(Flatten)
@@ -936,7 +936,7 @@ public sealed class OpenTapSessionTests
             var session = new OpenTapSession(settings);
             await session.LoadSampleProgramAsync();
             await session.ApplyStationAndDutAsync(
-                new StationProfile(new Dictionary<string, string> { ["dmm"] = "MOCK::INSTR0" }),
+                new StationProfile(new Dictionary<string, string> { [session.InstrumentSlots[0].Name] = "MOCK::INSTR0" }),
                 new DutIdentity("DUT-EXPORT-ON", Family: "demo"));
 
             var summary = await RunSampleWithAutoResumeAsync(session);
@@ -981,7 +981,7 @@ public sealed class OpenTapSessionTests
             var session = new OpenTapSession(settings);
             await session.LoadSampleProgramAsync();
             await session.ApplyStationAndDutAsync(
-                new StationProfile(new Dictionary<string, string> { ["dmm"] = "MOCK::INSTR0" }),
+                new StationProfile(new Dictionary<string, string> { [session.InstrumentSlots[0].Name] = "MOCK::INSTR0" }),
                 new DutIdentity("DUT-EXPORT-OFF", Family: "demo"));
 
             var summary = await RunSampleWithAutoResumeAsync(session);
@@ -1070,7 +1070,7 @@ public sealed class OpenTapSessionTests
             var session = new OpenTapSession();
             await session.LoadPlanAsync(path);
             await session.ApplyStationAndDutAsync(
-                new StationProfile(new Dictionary<string, string> { ["dmm"] = "MOCK::INSTR0" }),
+                new StationProfile(new Dictionary<string, string> { [session.InstrumentSlots[0].Name] = "MOCK::INSTR0" }),
                 new DutIdentity("DUT-TIMED", Family: "demo"));
 
             var recorder = new OpenTapRunRecorder();
@@ -1120,7 +1120,7 @@ public sealed class OpenTapSessionTests
         var session = new OpenTapSession();
         await session.LoadSampleProgramAsync();
         await session.ApplyStationAndDutAsync(
-            new StationProfile(new Dictionary<string, string> { ["dmm"] = "MOCK::INSTR0" }),
+            new StationProfile(new Dictionary<string, string> { [session.InstrumentSlots[0].Name] = "MOCK::INSTR0" }),
             new DutIdentity("DUT-LEGACY-SAMPLE", Family: "demo"));
 
         OpenTapRunSummary? summary = null;

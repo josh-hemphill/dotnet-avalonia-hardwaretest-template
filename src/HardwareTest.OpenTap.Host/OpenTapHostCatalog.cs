@@ -13,7 +13,7 @@ public sealed class OpenTapHostCatalog : IOpenTapHostCatalog
     private readonly ILogger _logger;
     private readonly IVisaBroker? _visaBroker;
     private readonly bool _trustConfiguredPluginDirectories;
-    private readonly bool _includeVisaAdapter;
+    private readonly bool _enablePhysicalExecution;
     private bool _pluginSearchDone;
 
     public OpenTapHostCatalog(
@@ -21,13 +21,13 @@ public sealed class OpenTapHostCatalog : IOpenTapHostCatalog
         ILogger logger,
         IVisaBroker? visaBroker = null,
         bool trustConfiguredPluginDirectories = false,
-        bool includeVisaAdapter = true)
+        bool enablePhysicalExecution = false)
     {
         _settings = settings;
         _logger = logger;
         _visaBroker = visaBroker;
         _trustConfiguredPluginDirectories = trustConfiguredPluginDirectories;
-        _includeVisaAdapter = includeVisaAdapter;
+        _enablePhysicalExecution = enablePhysicalExecution;
     }
 
     public void EnsurePlugins()
@@ -67,7 +67,7 @@ public sealed class OpenTapHostCatalog : IOpenTapHostCatalog
         }
 
         // Directory list mutations + Search share one gate (OpenTapPluginSearch.SearchSerialized).
-        OpenTapPluginSearch.SearchSerialized(extras, _visaBroker, _includeVisaAdapter);
+        OpenTapPluginSearch.SearchSerialized(extras, _visaBroker, _enablePhysicalExecution);
         _pluginSearchDone = true;
     }
 

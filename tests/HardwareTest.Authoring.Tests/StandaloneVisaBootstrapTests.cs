@@ -341,7 +341,7 @@ public sealed class StandaloneVisaBootstrapTests : IDisposable
         var home = Prepare(Workspace());
         Assert.Equal(8, AuthoringInstrumentCatalog.Discover(home).Count);
         var original = AppDomain.CurrentDomain.GetAssemblies().Single(assembly => assembly.GetName().Name == PublishedInstrumentComponents.PackageName);
-        new OpenTapHostCatalog(new HardwareTest.Core.Settings.AppSettings(), Serilog.Log.Logger, new NeverOpenBroker()).EnsurePlugins();
+        new OpenTapHostCatalog(new HardwareTest.Core.Settings.AppSettings(), Serilog.Log.Logger, new NeverOpenBroker(), enablePhysicalExecution: true).EnsurePlugins();
         Assert.Same(original, AppDomain.CurrentDomain.GetAssemblies().Single(assembly => assembly.GetName().Name == PublishedInstrumentComponents.PackageName));
     }
 

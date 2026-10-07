@@ -14,19 +14,11 @@ public sealed class AuthoringOpenTapCollection;
 public sealed class PlanCompilerTests
 {
     [Fact]
-    public void Plugin_search_does_not_add_the_visa_project_directory()
+    public void Plugin_search_adds_current_basic_and_mixin_directories()
     {
         AuthoringPluginSearch.Search();
-
-        Assert.DoesNotContain(
-            PluginManager.DirectoriesToSearch,
-            dir => dir.Contains(
-                       $"{Path.DirectorySeparatorChar}HardwareTest.OpenTap.Plugins.Visa{Path.DirectorySeparatorChar}",
-                       StringComparison.OrdinalIgnoreCase)
-                   || dir.EndsWith(
-                       $"{Path.DirectorySeparatorChar}HardwareTest.OpenTap.Plugins.Visa",
-                       StringComparison.OrdinalIgnoreCase));
-        Assert.False(AuthoringFunctionCatalog.TryGet("Visa.Dmm", out _));
+        Assert.Contains(Path.GetDirectoryName(typeof(MockDmmInstrument).Assembly.Location), PluginManager.DirectoriesToSearch);
+        Assert.Contains(Path.GetDirectoryName(typeof(AnnotationMixinBuilder).Assembly.Location), PluginManager.DirectoriesToSearch);
     }
 
     [Fact]
@@ -38,11 +30,10 @@ public sealed class PlanCompilerTests
 
         var report = PlanContractValidator.ValidateFile(
             path,
-            new PlanContractOptions { ExcludeVisaAdapter = true });
+            new PlanContractOptions { EnablePhysicalExecution = false });
         Assert.False(report.HasErrors, string.Join("; ", report.Findings.Select(f => $"{f.Code}: {f.Message}")));
         Assert.DoesNotContain(report.Findings, f => f.Code == PlanContractValidator.Codes.MissingLimits);
         Assert.DoesNotContain(File.ReadAllText(path), "DialogStep", StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain(File.ReadAllText(path), "VisaDmmInstrument", StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -282,7 +273,7 @@ public sealed class PlanCompilerTests
 
         var report = PlanContractValidator.ValidateFile(
             path,
-            new PlanContractOptions { ExcludeVisaAdapter = true });
+            new PlanContractOptions { EnablePhysicalExecution = false });
         Assert.DoesNotContain(report.Findings, f => f.Code == PlanContractValidator.Codes.MissingLimits);
         Assert.False(report.HasErrors, string.Join("; ", report.Findings.Select(f => $"{f.Code}: {f.Message}")));
     }

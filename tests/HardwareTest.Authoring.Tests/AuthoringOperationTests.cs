@@ -486,8 +486,6 @@ public sealed class AuthoringOperationTests : IDisposable
         Assert.Contains(coordinator.Logs, log => log.Text.Contains("home-package:EnvironmentTwo", StringComparison.Ordinal));
         Assert.DoesNotContain(coordinator.Logs, log => log.Text.Contains("home-package:EnvironmentOne", StringComparison.Ordinal));
         Assert.NotEqual(File.ReadAllLines(Path.Combine(first, "fixture-child.json"))[0], File.ReadAllLines(Path.Combine(second, "fixture-child.json"))[0]);
-        Assert.False(Directory.EnumerateFiles(firstHome, OpenTapHomeBootstrapper.VisaAssemblyFileName, SearchOption.AllDirectories).Any());
-        Assert.False(Directory.EnumerateFiles(secondHome, OpenTapHomeBootstrapper.VisaAssemblyFileName, SearchOption.AllDirectories).Any());
         Assert.Equal("one", File.ReadAllText(Path.Combine(firstHome, "plugin-environment")));
         Assert.Equal("two", File.ReadAllText(Path.Combine(secondHome, "plugin-environment")));
         Assert.All(new[] { first, second }, root => Assert.False(Directory.Exists(File.ReadAllLines(Path.Combine(root, "fixture-child.json"))[1])));

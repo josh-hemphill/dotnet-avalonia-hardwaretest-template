@@ -123,21 +123,49 @@ PR218 must build on PR217's schema-2 fixtures. Keep shared initialization test-h
 
 ## Area 3: explicit runtime hardware binding — PR219
 
-- Goal: remove the old VISA DMM plugin and implicit first-instrument binding. Preserve current Instrument Components execution, IVisaBroker and worker broker ownership.
-- Depends on: PR218.
-- Out of scope: settings storage and document schemas.
-- Files: Host plugin search/package catalog/session; old VISA plugin project and build registrations; station session contract, worker protocol and debug UI caller; runtime tests.
-- Public surface: remove TryRebindDmmResource and the old adapter switch; use TryBindSlotResource with an explicit slot. Initialize the modern provider through a physical-execution option independent of obsolete plugin inclusion.
-- Pseudocode:
-  ```text
-  initialize physical execution -> owned current library -> bind IVisaBroker provider
-  bind requested slot -> exact instrument lookup -> absent: false without mutation
-  apply overrides -> only explicitly selected slots; no dmm/first fallback
-  enumerate packages -> current library/broker runtime; no old VISA plugin
-  ```
-- Tests: selected slot changes only that instrument; unknown slot changes nothing; broad dmm binding cannot overwrite an explicit resource. Port meaningful old DMM broker/timeout/disposal tests to the modern bridge. Preserve published-library execution, worker boundary and standalone wrapper tests.
-- Risks: worker wire contract, plugin registration and package references must change together. Do not remove IVisaBroker or vendor VISA access. Keep supported OpenTAP resource-property reflection and explicit Mock demo instruments.
-- Conflicts: follows PR218; station debug caller overlaps PR220, so those areas are sequential.
+### Specification and public surface
+
+Remove the entire obsolete HardwareTest.OpenTap.Plugins.Visa project, VisaDmmInstrument, VisaBrokerHost, package metadata, project registrations and lockfile. Retain IVisaBroker, worker hardware ownership, the owned current Instrument Components execution library and InstrumentComponentsScpiIo provider, and the owned StandaloneVisa distribution boundary. Authoring searches use Basic and Mixins without obsolete DLL filters or no-Visa guards.
+
+Replace includeVisaAdapter and ExcludeVisaAdapter with EnablePhysicalExecution (false by default), independent of plugin inclusion. Production OpenTapSession and worker execution explicitly enable it. Catalog, authoring, validation and demo searches default to false. Only enabled execution with a broker loads the owned execution library and registers its current provider; no broker means no execution-library/provider loading. Preserve approved-byte loading, provenance, all-root prevalidation and rejection before provider mutation. The published library parses its embedded model registry with reflection JSON; explicitly enable that runtime capability in the untrimmed worker and owned standalone execution processes and their execution fixtures. Application persistence retains source-generated contexts. Authoring and validation processes do not execute physical instruments.
+
+Remove TryRebindDmmResource from station/session APIs, worker messages, implementations, fakes and approved public surfaces. TryBindSlotResource requires an existing named slot and its exact instrument; blank slot/resource or unknown slot returns false without mutation. Rename StationProfile.RoleToResource and its worker DTO to SlotToResource without an API or wire alias. ApplyStationAndDut and run snapshots match only exact current slot names (ordinal case-insensitive), never RoleHint, dmm or first instrument.
+
+BuildStationProfile emits only explicit PlanSlotOverrides.SlotName entries. Existing registry storage removal belongs to PR220, but runtime cannot consult it. RoleHint remains display metadata. The debug overlay requires an explicitly selected existing slot beside the Resource input. Missing or unknown selection and blank resources produce actionable status before any step/resource mutation; preserve threshold, acquisition and enabled patch features.
+
+### Pseudocode
+
+```text
+search(enablePhysicalExecution = false, broker):
+    if enablePhysicalExecution and broker exists:
+        prevalidate and load owned current library
+    search Basic, Mixins and configured roots
+    if enablePhysicalExecution and broker exists: bind current SCPI provider
+
+bind(slotName, resource):
+    reject blank name/resource
+    find exact known slot and exact corresponding instrument
+    reject absent slot/instrument without mutation
+    set supported resource property and update only that slot
+
+apply station:
+    for each known slot:
+        apply only SlotToResource[slot.Name]
+
+debug patch:
+    require selected existing slot and nonblank resource before mutations
+    bind selected slot; apply existing enabled/acquire/threshold controls
+```
+
+### Tests
+
+Use an actual two-Mock-instrument plan to verify a selected slot changes only its instrument, unknown/blank requests change neither, and a broad DMM role cannot override explicit resources. Verify worker DTO and dispatch parity and current protocol approvals. Cover debug selection errors before mutations and retained patch controls, and exact profile/snapshot behavior.
+
+Port old DMM broker query/write, timeout clamping, disposal and invalid-resource coverage onto the genuine published library and current SCPI bridge. Physical plan validation uses a genuine current library instrument; retain Mock measurement validation. Keep cold owned execution loading, invalid root/prevalidation, worker broker ownership and StandaloneVisa boundaries. Use fake brokers only; never perform hardware I/O.
+
+### Risks and conflicts
+
+Runtime entrypoints must opt in explicitly so changing defaults does not disable production physical execution. Wire and public mapping names change together with no old aliases. Removing a plugin reference changes affected restore graphs; remove its lockfile and regenerate retained project locks through restore, never by manual fabrication. Settings registry and idle-hour cleanup are out of scope until PR220. Preserve the upstream TUI readiness classifier and owned-load contract unchanged.
 
 ## Area 4: current station settings — PR220
 

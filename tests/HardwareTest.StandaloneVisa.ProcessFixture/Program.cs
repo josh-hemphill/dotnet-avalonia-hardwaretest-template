@@ -5,7 +5,7 @@ using HardwareTest.OpenTap.Host;
 if (args is ["--metadata", var gate])
 {
     var catalog = new OpenTapHostCatalog(new AppSettings(), Serilog.Log.Logger,
-        gate == "no-broker" ? null : new FixtureBroker(), includeVisaAdapter: gate == "no-broker");
+        gate == "no-broker" ? null : new FixtureBroker(), enablePhysicalExecution: gate == "no-broker");
     catalog.EnsurePlugins();
     if (AppDomain.CurrentDomain.GetAssemblies().Any(assembly => assembly.GetName().Name?.StartsWith("InstrumentComponents", StringComparison.Ordinal) == true))
         throw new InvalidOperationException("Metadata boundary acquired an execution library.");
@@ -29,11 +29,9 @@ if (args is [var invalidMode, var invalidHome] && invalidMode is "--invalid-sele
     // runner isolates both this runtime and cwd from the selected roots.
     OpenTap.SessionLogs.Initialize(Path.Combine(Environment.CurrentDirectory, "rejection.log"));
     var pluginDirectories = OpenTap.PluginManager.DirectoriesToSearch.ToArray();
-    var originalBroker = new FixtureBroker();
-    HardwareTest.OpenTap.Plugins.Basic.VisaBrokerHost.Register(originalBroker);
     var broker = new FixtureBroker();
     var catalog = new OpenTapHostCatalog(new AppSettings { OpenTapPluginDirectories = [.. directories] },
-        Serilog.Log.Logger, broker, trustConfiguredPluginDirectories: true);
+        Serilog.Log.Logger, broker, trustConfiguredPluginDirectories: true, enablePhysicalExecution: true);
     try
     {
         catalog.EnsurePlugins();
@@ -45,9 +43,7 @@ if (args is [var invalidMode, var invalidHome] && invalidMode is "--invalid-sele
             throw new InvalidOperationException("Invalid selected metadata loaded an execution library or acquired its provider.", error);
         if (!pluginDirectories.SequenceEqual(OpenTap.PluginManager.DirectoriesToSearch))
             throw new InvalidOperationException("Rejected execution roots mutated plugin search directories.", error);
-        if (!ReferenceEquals(originalBroker, HardwareTest.OpenTap.Plugins.Basic.VisaBrokerHost.Require()) || originalBroker.Session is not null)
-            throw new InvalidOperationException("Rejected execution roots replaced or used the previously registered broker.", error);
-        Console.WriteLine("previous-broker-binding-preserved-on-rejection");
+        Console.WriteLine("broker-binding-absent-on-cold-rejection");
         Console.WriteLine("selected-metadata-refused-before-library-load: " + error.Message);
         return 0;
     }
@@ -101,7 +97,7 @@ if (args is ["--selected-update", var home])
         .Elements().Single(element => element.Name.LocalName == "Hash").Value = Convert.ToHexString(System.Security.Cryptography.SHA1.HashData(File.ReadAllBytes(Path.Combine(home, "InstrumentComponents.OpenTap.dll"))));
     metadata.Save(metadataPath);
     var catalog = new OpenTapHostCatalog(new AppSettings { OpenTapPluginDirectories = [home] },
-        Serilog.Log.Logger, new FixtureBroker(), trustConfiguredPluginDirectories: true);
+        Serilog.Log.Logger, new FixtureBroker(), trustConfiguredPluginDirectories: true, enablePhysicalExecution: true);
     try { catalog.EnsurePlugins(); throw new InvalidOperationException("Changed selected origin was accepted."); }
     catch (InvalidOperationException error) when (error.Message.Contains("no longer matches its source payload", StringComparison.Ordinal)) { }
     if (original.ManifestModule.ModuleVersionId != originalMvid) throw new InvalidOperationException("The original loaded code was replaced.");
@@ -114,9 +110,9 @@ if (args is [var updateMode, var updatedHome] && updateMode is "--loaded-update"
     var original = LoadOwnedLibrary(updatedHome);
     var originalMvid = original.ManifestModule.ModuleVersionId;
     if (updateMode == "--loaded-update-after-reuse")
-        new OpenTapHostCatalog(new AppSettings(), Serilog.Log.Logger, new FixtureBroker()).EnsurePlugins();
+        new OpenTapHostCatalog(new AppSettings(), Serilog.Log.Logger, new FixtureBroker(), enablePhysicalExecution: true).EnsurePlugins();
     File.Replace(Path.Combine(updatedHome, "replacement.dll"), Path.Combine(updatedHome, "InstrumentComponents.OpenTap.dll"), null);
-    var catalog = new OpenTapHostCatalog(new AppSettings(), Serilog.Log.Logger, new FixtureBroker());
+    var catalog = new OpenTapHostCatalog(new AppSettings(), Serilog.Log.Logger, new FixtureBroker(), enablePhysicalExecution: true);
     try { catalog.EnsurePlugins(); throw new InvalidOperationException("Changed unselected loaded origin was accepted."); }
     catch (InvalidOperationException error) when (error.Message.Contains("no longer matches its source payload", StringComparison.Ordinal)) { }
     if (original.ManifestModule.ModuleVersionId != originalMvid) throw new InvalidOperationException("The original loaded code was replaced.");
@@ -136,7 +132,7 @@ if (args is ["--external-same-mvid-update", var externalHome])
         var reader = System.Reflection.Metadata.PEReaderExtensions.GetMetadataReader(pe);
         if (reader.GetGuid(reader.GetModuleDefinition().Mvid) != mvid) throw new InvalidOperationException("Fixture changed MVID.");
     }
-    var catalog = new OpenTapHostCatalog(new AppSettings(), Serilog.Log.Logger, new FixtureBroker());
+    var catalog = new OpenTapHostCatalog(new AppSettings(), Serilog.Log.Logger, new FixtureBroker(), enablePhysicalExecution: true);
     try { catalog.EnsurePlugins(); throw new InvalidOperationException("Unverified external assembly was accepted."); }
     catch (InvalidOperationException error) when (error.Message.Contains("no verified load provenance", StringComparison.Ordinal)) { }
     Console.WriteLine("unverified-preloaded-library-refused");
@@ -147,7 +143,7 @@ if (args is ["--custom-mismatch", var mismatchedHome])
 {
     _ = LoadOwnedLibrary(Environment.CurrentDirectory);
     new OpenTapHostCatalog(new AppSettings { OpenTapPluginDirectories = [mismatchedHome] }, Serilog.Log.Logger,
-        new FixtureBroker(), trustConfiguredPluginDirectories: true).EnsurePlugins();
+        new FixtureBroker(), trustConfiguredPluginDirectories: true, enablePhysicalExecution: true).EnsurePlugins();
     throw new InvalidOperationException("A competing selected custom payload was accepted.");
 }
 
@@ -155,9 +151,9 @@ if (args is ["--managed-custom-reuse", var customHome])
 {
     var broker = new FixtureBroker();
     var settings = new AppSettings { OpenTapPluginDirectories = [customHome] };
-    new OpenTapHostCatalog(settings, Serilog.Log.Logger, broker, trustConfiguredPluginDirectories: true).EnsurePlugins();
+    new OpenTapHostCatalog(settings, Serilog.Log.Logger, broker, trustConfiguredPluginDirectories: true, enablePhysicalExecution: true).EnsurePlugins();
     var original = AppDomain.CurrentDomain.GetAssemblies().Single(assembly => assembly.GetName().Name == "InstrumentComponents.OpenTap");
-    new OpenTapHostCatalog(settings, Serilog.Log.Logger, broker, trustConfiguredPluginDirectories: true).EnsurePlugins();
+    new OpenTapHostCatalog(settings, Serilog.Log.Logger, broker, trustConfiguredPluginDirectories: true, enablePhysicalExecution: true).EnsurePlugins();
     if (!ReferenceEquals(original, AppDomain.CurrentDomain.GetAssemblies().Single(assembly => assembly.GetName().Name == "InstrumentComponents.OpenTap")))
         throw new InvalidOperationException("The owned custom library was not reused.");
     Console.WriteLine("current-custom-owned-library-reused");
@@ -167,7 +163,7 @@ if (args is ["--managed-custom-reuse", var customHome])
 if (args is ["--loaded-unsupported", var unsupportedHome])
 {
     System.Reflection.Assembly.LoadFrom(Path.Combine(unsupportedHome, "replacement.dll"));
-    var catalog = new OpenTapHostCatalog(new AppSettings(), Serilog.Log.Logger, new FixtureBroker());
+    var catalog = new OpenTapHostCatalog(new AppSettings(), Serilog.Log.Logger, new FixtureBroker(), enablePhysicalExecution: true);
     try { catalog.EnsurePlugins(); throw new InvalidOperationException("Unsupported loaded library was accepted."); }
     catch (InvalidOperationException error) when (error.Message.Contains("current 0.1.1 broker-managed execution contract", StringComparison.Ordinal)) { }
     Console.WriteLine("unsupported-loaded-library-refused");
@@ -181,7 +177,7 @@ if (args is ["--loaded", var loadedHome])
     var original = LoadOwnedLibrary(loadedHome);
     var originalLocation = original.Location;
     var broker = new FixtureBroker();
-    var catalog = new OpenTapHostCatalog(new AppSettings(), Serilog.Log.Logger, broker);
+    var catalog = new OpenTapHostCatalog(new AppSettings(), Serilog.Log.Logger, broker, enablePhysicalExecution: true);
     catalog.EnsurePlugins();
     var libraries = AppDomain.CurrentDomain.GetAssemblies().Where(assembly => assembly.GetName().Name == "InstrumentComponents.OpenTap").ToArray();
     if (libraries.Length != 1 || !ReferenceEquals(original, libraries[0]) || libraries[0].Location != originalLocation)
@@ -199,7 +195,7 @@ if (args is [var managedMode, var selected] && managedMode is "--managed" or "--
         ? ParseRoots(selected)
         : selected == "fallback" ? [] : [selected];
     var settings = new AppSettings { OpenTapPluginDirectories = [.. directories] };
-    var catalog = new OpenTapHostCatalog(settings, Serilog.Log.Logger, broker, trustConfiguredPluginDirectories: true);
+    var catalog = new OpenTapHostCatalog(settings, Serilog.Log.Logger, broker, trustConfiguredPluginDirectories: true, enablePhysicalExecution: true);
     catalog.EnsurePlugins();
     var loaded = AppDomain.CurrentDomain.GetAssemblies().Single(assembly => assembly.GetName().Name == "InstrumentComponents.OpenTap");
     var loadedOrigin = OwnedLibraryDirectory(loaded);

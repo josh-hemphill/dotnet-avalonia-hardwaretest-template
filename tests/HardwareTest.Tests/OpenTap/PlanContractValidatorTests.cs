@@ -60,9 +60,41 @@ public sealed class PlanContractValidatorTests
         var report = PlanContractValidator.ValidateFile(Path.Combine(dir.Path, SampleProgramFactory.EmbeddedName));
         Assert.False(report.HasErrors);
 
-        var dmm = new VisaDmmInstrument { VisaAddress = "MOCK::INSTR0" };
-        var ex = Assert.Throws<InvalidOperationException>(dmm.Open);
-        Assert.Contains("IVisaBroker", ex.Message, StringComparison.Ordinal);
+        var dmm = PublishedLibraryFixture.CreateDmm();
+        var providerProperty = PublishedLibraryFixture.ProviderProperty;
+        var previous = providerProperty.GetValue(null);
+        try
+        {
+            providerProperty.SetValue(null, null);
+            var secondReport = PlanContractValidator.ValidateFile(Path.Combine(dir.Path, SampleProgramFactory.EmbeddedName));
+            Assert.False(secondReport.HasErrors);
+            Assert.Null(providerProperty.GetValue(null));
+            var error = Assert.Throws<InvalidOperationException>(dmm.Open);
+            Assert.Contains("Provider", error.Message, StringComparison.Ordinal);
+        }
+        finally { providerProperty.SetValue(null, previous); }
+
+    }
+
+    [Fact]
+    public void Validate_genuine_published_physical_plan_without_opening_hardware()
+    {
+        using var dir = new TempPlanDir();
+        var assembly = PublishedLibraryFixture.Assembly;
+        var instrument = PublishedLibraryFixture.CreateDmm();
+        var identity = (TestStep)Activator.CreateInstance(assembly.GetType("InstrumentComponents.OpenTap.IdentityQueryStep", true)!)!;
+        identity.GetType().GetProperty("Instrument")!.SetValue(identity, instrument);
+        var shutdown = (TestStep)Activator.CreateInstance(assembly.GetType("InstrumentComponents.OpenTap.SafeShutdownStep", true)!)!;
+        shutdown.GetType().GetProperty("Instrument")!.SetValue(shutdown, instrument);
+        var plan = new TestPlan();
+        plan.ChildTestSteps.Add(identity);
+        plan.ChildTestSteps.Add(shutdown);
+        var path = Path.Combine(dir.Path, "physical.TapPlan");
+        plan.Save(path);
+        WriteSidecar(dir.Path, "physical", selectionIncludesCleanup: true);
+        var report = PlanContractValidator.ValidateFile(path);
+        Assert.DoesNotContain(report.Findings, finding => finding.Code is PlanContractValidator.Codes.PlanLoadFailed or PlanContractValidator.Codes.NoRebindableSlot or PlanContractValidator.Codes.MissingSafeShutdown);
+        Assert.False(instrument.IsConnected);
     }
 
     [Fact]

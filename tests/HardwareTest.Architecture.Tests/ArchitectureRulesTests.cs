@@ -123,23 +123,6 @@ public sealed class ArchitectureRulesTests
     }
 
     [Fact]
-    public void AuthoringCore_must_not_reference_Visa_adapter()
-    {
-        var csproj = Path.Combine(
-            FindRepoRoot(),
-            "src",
-            "HardwareTest.Authoring.Core",
-            "HardwareTest.Authoring.Core.csproj");
-        Assert.True(File.Exists(csproj), csproj);
-        var xml = File.ReadAllText(csproj);
-        Assert.DoesNotContain("HardwareTest.OpenTap.Plugins.Visa", xml, StringComparison.Ordinal);
-        AssertNoForbiddenDirectReference(
-            typeof(global::HardwareTest.Authoring.AuthoringWorkspace).Assembly,
-            name => name is "HardwareTest.OpenTap.Plugins.Visa",
-            AuthoringCoreAvaloniaFree);
-    }
-
-    [Fact]
     public void Authoring_exe_must_not_reference_Worker()
     {
         var csproj = Path.Combine(FindRepoRoot(), "src", "HardwareTest.Authoring", "HardwareTest.Authoring.csproj");
@@ -499,7 +482,7 @@ public sealed class ArchitectureRulesTests
         AssertNoForbiddenDirectReference(
             typeof(AcquireVoltageStep).Assembly,
             name => string.Equals(name, "HardwareTest.Core", StringComparison.Ordinal),
-            "docs/adapting.md — HardwareTest Basic is the Editor authoring pack and must not pull Core (VISA broker stays in Plugins.Visa).");
+            "docs/adapting.md — HardwareTest Basic is the Editor authoring pack and must not pull Core (physical execution uses the Host broker bridge).");
     }
 
     [Theory]
@@ -508,7 +491,6 @@ public sealed class ArchitectureRulesTests
     [InlineData(typeof(global::HardwareTest.ShellApps.Notes.NotesApplication))]
     [InlineData(typeof(OpenTapSession))]
     [InlineData(typeof(AcquireVoltageStep))]
-    [InlineData(typeof(VisaDmmInstrument))]
     [InlineData(typeof(AnnotationMixin))]
     [InlineData(typeof(global::HardwareTest.MainWindow))]
     [InlineData(typeof(global::HardwareTest.OpenTap.Worker.Program))]
@@ -651,7 +633,6 @@ public sealed class ArchitectureRulesTests
         string[] pluginRoots =
         [
             Path.Combine(srcRoot, "HardwareTest.OpenTap.Plugins.Basic"),
-            Path.Combine(srcRoot, "HardwareTest.OpenTap.Plugins.Visa"),
             Path.Combine(srcRoot, "HardwareTest.OpenTap.Plugins.Mixins"),
         ];
 
@@ -903,7 +884,7 @@ public sealed class ArchitectureRulesTests
             $"{rule} Assembly '{assembly.GetName().Name}' references forbidden: [{string.Join(", ", hits)}].");
     }
 
-    /// Direct references only — Plugins.Visa may ProjectReference Core for IVisaBroker; Core's ScottPlot must not count as a plugin UI reference.
+    /// Direct references only; transitive Core dependencies must not count as plugin UI references.
     private static void AssertNoForbiddenDirectReference(Assembly assembly, Func<string, bool> isForbidden, string rule)
     {
         var hits = assembly.GetReferencedAssemblies()

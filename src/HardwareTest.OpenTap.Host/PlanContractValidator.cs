@@ -177,7 +177,7 @@ public static class PlanContractValidator
                 Serilog.Log.Logger.ForContext(typeof(PlanContractValidator)),
                 visaBroker: null,
                 trustConfiguredPluginDirectories: options.TrustConfiguredPluginDirectories,
-                includeVisaAdapter: !options.ExcludeVisaAdapter);
+                enablePhysicalExecution: options.EnablePhysicalExecution);
             catalog.EnsurePlugins();
             var plan = TestPlan.Load(tapPlanPath);
             AnalyzePlan(plan, includeCleanup, sidecar, findings);

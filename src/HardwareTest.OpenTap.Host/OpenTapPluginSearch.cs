@@ -5,7 +5,7 @@ using OpenTap;
 
 namespace HardwareTest.OpenTap.Host;
 
-/// Registers Basic + Mixins plugin directories (Visa adapter optional) for PluginManager.Search.
+/// Registers Basic + Mixins plugin directories for PluginManager.Search.
 internal static class OpenTapPluginSearch
 {
     private static readonly object SearchGate = new();
@@ -14,19 +14,18 @@ internal static class OpenTapPluginSearch
     public static void SearchSerialized(
         IEnumerable<string>? extraDirectories = null,
         IVisaBroker? visaBroker = null,
-        bool includeVisaAdapter = true)
+        bool enablePhysicalExecution = false)
     {
         lock (SearchGate)
         {
             var extras = extraDirectories?.ToArray() ?? [];
-            if (includeVisaAdapter && visaBroker is not null)
+            if (enablePhysicalExecution && visaBroker is not null)
             {
                 var executionDirectory = ExecutionInstrumentLibrary.EnsureLoaded(extras);
-                VisaBrokerHost.Register(visaBroker);
                 AddDirectory(executionDirectory);
             }
 
-            EnsureCorePluginDirectories(includeVisaAdapter);
+            EnsureCorePluginDirectories();
             if (extraDirectories is not null)
             {
                 foreach (var dir in extras)
@@ -36,20 +35,16 @@ internal static class OpenTapPluginSearch
             }
 
             PluginManager.Search();
-            if (includeVisaAdapter && visaBroker is not null && !InstrumentComponentsScpiIo.TryRegisterProvider(visaBroker))
+            if (enablePhysicalExecution && visaBroker is not null && !InstrumentComponentsScpiIo.TryRegisterProvider(visaBroker))
             {
                 throw new InvalidOperationException("Instrument Components broker provider could not be bound. Repair the selected execution library before running the plan.");
             }
         }
     }
 
-    private static void EnsureCorePluginDirectories(bool includeVisaAdapter)
+    private static void EnsureCorePluginDirectories()
     {
         AddAssemblyDirectory(typeof(MockDmmInstrument).Assembly.Location);
-        if (includeVisaAdapter)
-        {
-            AddVisaAdapterDirectory();
-        }
 
         AddAssemblyDirectory(typeof(AnnotationMixinBuilder).Assembly.Location);
 
@@ -63,9 +58,6 @@ internal static class OpenTapPluginSearch
         AddAssemblyDirectory(Path.Combine(openTapDir, "Packages", "OpenTAP", "OpenTap.Plugins.BasicSteps.dll"));
         AddDirectory(Path.Combine(openTapDir, "Packages", "OpenTAP"));
     }
-
-    private static void AddVisaAdapterDirectory()
-        => AddAssemblyDirectory(typeof(VisaDmmInstrument).Assembly.Location);
 
     private static void AddAssemblyDirectory(string? assemblyLocation)
     {

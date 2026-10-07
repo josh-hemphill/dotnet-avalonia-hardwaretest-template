@@ -237,7 +237,7 @@ In TUI: **New** test plan (or open [`plans/opentap/sample.TapPlan`](../plans/ope
 
 ## Guided first voltage test
 
-Create an Empty, Product voltage or explicit Demo voltage workspace from the welcome screen, then choose **First voltage test…**. Product workspaces declare HardwareTest VISA; optional VISA packages for Empty and Demo workspaces remain off until selected. Guidance uses the normal plan initializer, document, editor and save operations.
+Create an Empty, Product hardware scaffold or explicit Demo voltage workspace from the welcome screen, then choose **First voltage test…**. Physical workspaces declare Instrument Components; Demo voltage uses explicit Mock hardware. Guidance uses the normal plan initializer, document, editor and save operations.
 
 The six stages are name/device, instrument, measurement, pass criterion, preview, and save/check. Instrument identity and safe shutdown are shown in the preview. Choose **Empty plan** for a direct route to the normal editor. Demo explicitly selects a Mock DMM; physical instrument selection requires the declared package and its installed payload.
 

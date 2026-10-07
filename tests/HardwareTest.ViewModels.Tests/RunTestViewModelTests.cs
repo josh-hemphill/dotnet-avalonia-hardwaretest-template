@@ -70,6 +70,46 @@ public sealed class RunTestViewModelTests
         Assert.Contains("Results", vm.Status, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Theory]
+    [InlineData(true, "MockDmmInstrument", "TCPIP0::192.0.2.2::INSTR", "MOCK::selected-debug", "MOCK::saved-A")]
+    [InlineData(false, "ScpiInstrument", "MOCK::saved-conflict", "TCPIP0::192.0.2.2::INSTR", "TCPIP0::192.0.2.1::INSTR")]
+    public async Task Engineer_debug_selected_run_prepares_all_overlay_controls_and_only_explicit_slot(
+        bool useMockVisa, string typeName, string savedSelectedResource, string debugResource, string savedOtherResource)
+    {
+        var openTap = new FakeOpenTapSession();
+        var settings = new AppSettings { IsEngineerDebugMode = true, UseMockVisa = useMockVisa };
+        var vm = CreateVm(openTap, settings: settings);
+        vm.IsEngineerDebugMode = true;
+        await vm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
+        await ConfirmReadyAsync(vm, "SN-DEBUG-SELECTED");
+        openTap.Slots.Clear();
+        openTap.Slots.Add(new OpenTapInstrumentSlot { Name = "DMM-A", TypeName = typeName, RoleHint = "dmm", ResourceName = "MOCK::A" });
+        openTap.Slots.Add(new OpenTapInstrumentSlot { Name = "DMM-B", TypeName = typeName, RoleHint = "dmm", ResourceName = "MOCK::B" });
+        var leaf = Flatten(vm.StepTree.Hierarchy).First(node => node.Name.Contains("Acquire", StringComparison.OrdinalIgnoreCase));
+        vm.StepTree.SelectedStep = leaf;
+        vm.StationOverrides.DebugSlotName = "DMM-B";
+        vm.StationOverrides.DebugResource = debugResource;
+        var planId = vm.ProgramSelection.SelectedProgram!.Id;
+        settings.PlanSlotOverrides.Add(new PlanSlotOverride { PlanId = planId, SlotName = "DMM-B", Resource = savedSelectedResource });
+        settings.PlanSlotOverrides.Add(new PlanSlotOverride { PlanId = planId, SlotName = "DMM-A", Resource = savedOtherResource });
+        vm.StationOverrides.DebugStepEnabled = false;
+        vm.StationOverrides.DebugSampleCount = 7;
+        vm.StationOverrides.DebugIntervalMs = 3;
+        vm.StationOverrides.DebugThreshold = 1.5;
+
+        await vm.Run.RunSelectedCommand.ExecuteAsync();
+
+        Assert.Equal(1, openTap.SelectionRunCount);
+        Assert.Equal((leaf.Path, false), openTap.LastStepEnabledPatch);
+        Assert.Equal((leaf.Path, (int?)7, (int?)3), openTap.LastAcquirePatch);
+        Assert.Equal((leaf.Path, 1.5), openTap.LastThresholdPatch);
+        Assert.Equal(savedOtherResource, openTap.Slots.Single(slot => slot.Name == "DMM-A").ResourceName);
+        Assert.Equal(debugResource, openTap.Slots.Single(slot => slot.Name == "DMM-B").ResourceName);
+        Assert.Equal(savedOtherResource, openTap.LastStation!.SlotToResource["DMM-A"]);
+        Assert.Equal(debugResource, openTap.LastStation.SlotToResource["DMM-B"]);
+        Assert.Equal(savedSelectedResource, settings.PlanSlotOverrides.Single(slot => slot.SlotName == "DMM-B").Resource);
+    }
+
     [Fact]
     public async Task Run_selected_refuses_entire_program_root()
     {
@@ -994,6 +1034,7 @@ public sealed class RunTestViewModelTests
             Assert.Fail("Expected hierarchy after loading sample program.");
         }
 
+        vm.StationOverrides.DebugSlotName = openTap.InstrumentSlots[0].Name;
         vm.StationOverrides.DebugSampleCount = 50_000;
         vm.StationOverrides.DebugIntervalMs = 0;
         await vm.StationOverrides.ApplyDebugPatchCommand.ExecuteAsync();

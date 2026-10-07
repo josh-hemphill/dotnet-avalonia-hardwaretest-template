@@ -110,7 +110,6 @@ public sealed class LibraryInstrumentCatalogTests : IDisposable
         { Dependencies = [new() { Package = AuthoringInstrumentCatalog.LibraryPackage, Version = "^0.1.0" }] }, []);
         new OpenTapHomeBootstrapper().Bootstrap(workspace, new() { HomeDirectory = home.Root, Offline = true });
         foreach (var pair in bytes) Assert.Equal(pair.Value, File.ReadAllBytes(pair.Key));
-        Assert.False(File.Exists(Path.Combine(home.Root, "Packages", "HardwareTest VISA", AuthoringPluginSearch.VisaAssemblyFileName)));
         var vmRoot = Path.Combine(_root, "workspace");
         new AuthoringWorkspaceInitializer().Create(new(vmRoot, "Actual library workspace", "Actual library workspace") { IncludeLibraryPackage = true });
         var vm = new AuthoringWorkspaceViewModel(); vm.Open(vmRoot); vm.OpenTapHomeOverride = home.Root;
@@ -179,7 +178,6 @@ public sealed class LibraryInstrumentCatalogTests : IDisposable
         bootstrap.Bootstrap(workspace, new() { HomeDirectory = home.Root, Offline = true });
         Assert.Equal(8, AuthoringInstrumentCatalog.Discover(home).Count);
         foreach (var pair in originals) Assert.Equal(pair.Value, File.ReadAllBytes(Path.Combine(home.Root, pair.Key)));
-        Assert.Empty(Directory.GetFiles(home.Root, AuthoringPluginSearch.VisaAssemblyFileName, SearchOption.AllDirectories));
     }
 
     private void VerifyResidentProvenance(OpenTapHome origin, IReadOnlyList<AuthoringInstrumentAdapter> adapters)
