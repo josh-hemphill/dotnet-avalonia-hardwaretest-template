@@ -16,9 +16,11 @@ public static class PublishedInterfaceProbe
         var instrument = new DmmInstrument { VisaAddress = "MOCK::DMM", IoTimeoutMilliseconds = 900 };
         instrument.Open();
         if (instrument.QueryIdn().FormatResponse() != "fixture-id,,,") throw new InvalidOperationException("Published instrument identity was not dispatched.");
+        if (instrument.Dmm.MeasureVoltageDc() != 1.25) throw new InvalidOperationException("Published instrument measurement was not dispatched.");
         instrument.Reset();
         instrument.Close();
         if (broker.Session is not { Closed: true, Timeout: 900 }) throw new InvalidOperationException("Published instrument lease was not closed.");
+        Console.WriteLine("published-instrument-broker-measured-voltage-dc-1.25");
         Console.WriteLine("published-instrument-opened-with-embedded-registry-and-closed");
         broker.FailTimeout = true;
         try { OpenTapScpiIo.Provider!.Open("MOCK::DMM", TimeSpan.FromMilliseconds(900)); throw new InvalidOperationException("Setup should fail."); }

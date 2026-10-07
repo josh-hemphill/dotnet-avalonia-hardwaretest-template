@@ -35,6 +35,7 @@ public sealed partial class StandaloneBoundaryTests : IDisposable
         var result = await Run(home, "HardwareTest.StandaloneVisa.ProcessFixture.dll", home);
         Assert.Equal(0, result.Code);
         Assert.Contains("managed-broker-bound-and-cleaned", result.Output);
+        Assert.Contains("published-instrument-broker-measured-voltage-dc-1.25", result.Output);
         Assert.Contains("published-instrument-opened-with-embedded-registry-and-closed", result.Output);
     }
 
@@ -46,6 +47,7 @@ public sealed partial class StandaloneBoundaryTests : IDisposable
         var result = await Run(home, "HardwareTest.StandaloneVisa.ProcessFixture.dll", "fallback");
         Assert.Equal(0, result.Code);
         Assert.Contains("managed-broker-bound-and-cleaned", result.Output);
+        Assert.Contains("published-instrument-broker-measured-voltage-dc-1.25", result.Output);
     }
 
     [Fact]

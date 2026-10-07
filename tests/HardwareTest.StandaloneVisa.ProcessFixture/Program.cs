@@ -269,6 +269,16 @@ internal sealed class FixtureSession(string address, bool failTimeout) : IVisaSe
     public int Queries { get; private set; }
     public bool Closed { get; private set; }
     public Task WriteAsync(string command, CancellationToken cancellationToken = default) { cancellationToken.ThrowIfCancellationRequested(); Writes++; return Task.CompletedTask; }
-    public Task<string> QueryAsync(string command, CancellationToken cancellationToken = default) { cancellationToken.ThrowIfCancellationRequested(); Queries++; return Task.FromResult(command.Trim().Equals("*OPC?", StringComparison.OrdinalIgnoreCase) ? "1" : "fixture-id"); }
+    public Task<string> QueryAsync(string command, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        Queries++;
+        return Task.FromResult(command.Trim().ToUpperInvariant() switch
+        {
+            "*IDN?" => "fixture-id",
+            "*OPC?" => "1",
+            _ => "1.25",
+        });
+    }
     public ValueTask DisposeAsync() { Closed = true; return ValueTask.CompletedTask; }
 }
