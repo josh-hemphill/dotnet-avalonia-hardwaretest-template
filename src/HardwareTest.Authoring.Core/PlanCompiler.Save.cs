@@ -206,6 +206,8 @@ public sealed partial class PlanCompiler
 
                 break;
             case AlgorithmSource algorithm:
+                if (AuthoringFunctionCatalog.InputChannelIssue(algorithm.AlgorithmId, algorithm.InputChannelKeys) is { } inputIssue)
+                    throw new AuthoringWorkspaceException(inputIssue);
                 ApplySettings(step, algorithm.Settings);
                 if (step is ChannelAverageStep average && algorithm.InputChannelKeys.Count == 1)
                     average.InputChannel = algorithm.InputChannelKeys[0];

@@ -432,6 +432,12 @@ public sealed partial class AuthoringWorkspaceViewModel
 
     private void RaiseEditorProperties()
     {
+        OnPropertyChanged(nameof(MetricName));
+        OnPropertyChanged(nameof(HasMetricInputs));
+        OnPropertyChanged(nameof(MetricInputChannels));
+        OnPropertyChanged(nameof(SelectedNodeIdentity));
+        OnPropertyChanged(nameof(NeedsMetricInstrument));
+        OnPropertyChanged(nameof(SelectedStepErrors));
         InvalidateFormulaSave();
         OnPropertyChanged(nameof(FormulaIntent));
         OnPropertyChanged(nameof(FormulaExplorationOnly));

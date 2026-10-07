@@ -221,6 +221,8 @@ public sealed partial class AuthoringWorkspaceViewModel
                 return;
             }
 
+            if (InstrumentBindingIssue(slot, AuthoringFunctionIds.BasicIdentityCheck) is { } issue) { Error = issue; return; }
+
             UpdateSelectedSetup(action => action is IdentitySetup identity
                 ? identity with { InstrumentSlot = slot }
                 : action);
@@ -293,7 +295,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         } : string.Empty;
         set
         {
-            if (!HasMetricPresentation)
+            if (!NeedsMetricInstrument)
             {
                 return;
             }
@@ -304,6 +306,8 @@ public sealed partial class AuthoringWorkspaceViewModel
             {
                 return;
             }
+
+            if (NeedsMetricInstrument && InstrumentBindingIssue(slot, MetricFunctionId) is { } issue) { Error = issue; return; }
 
             UpdateSelectedMetric(metric => metric.Source switch
             {
@@ -395,12 +399,7 @@ public sealed partial class AuthoringWorkspaceViewModel
                 return;
             }
 
-            UpdateSelectedMetric(metric => metric.Source switch
-            {
-                MeasureSource measure => metric with { Source = measure with { FunctionId = id } },
-                AlgorithmSource algorithm => metric with { Source = algorithm with { AlgorithmId = id } },
-                _ => metric,
-            });
+            ChangeMetricFunction(id);
         }
     }
 
@@ -450,6 +449,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         }
 
         var nextValue = value ?? string.Empty;
+        if (TrySetNumericSetting(key, nextValue)) return;
         var current = SelectedMetric?.Source switch
         {
             MeasureSource measure when measure.Settings.TryGetValue(key, out var existing) => existing,

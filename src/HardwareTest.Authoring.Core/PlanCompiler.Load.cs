@@ -13,6 +13,14 @@ public sealed partial class PlanCompiler
     [
         "SampleCount",
         "IntervalMs",
+        "DwellLimitMs",
+        "ScriptedValues",
+        "PublishSummaries",
+        "OffsetVolts",
+        "AgeHours",
+        "MaxAgeHours",
+        "ResultSource",
+        "MockCalPath",
         "Channel",
         "Threshold",
         "Value",
@@ -236,7 +244,7 @@ public sealed partial class PlanCompiler
         return new RawStepNode(typeName, element.ToString(SaveOptions.DisableFormatting)) { NodeId = step.Id };
     }
 
-    private static IReadOnlyDictionary<string, string> ReadSettings(ITestStep step)
+    private static IReadOnlyDictionary<string, string> ReadSettings(ITestStep step, bool includeEmpty = false)
     {
         var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         var type = step.GetType();
@@ -249,7 +257,7 @@ public sealed partial class PlanCompiler
             }
 
             var raw = prop.GetValue(step);
-            if (raw is null)
+            if (raw is null && !includeEmpty)
             {
                 continue;
             }
