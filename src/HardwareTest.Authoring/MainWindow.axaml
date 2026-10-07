@@ -1,7 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:vm="using:HardwareTest.Authoring" xmlns:host="using:HardwareTest.OpenTap.Host"
     x:Class="HardwareTest.Authoring.MainWindow" x:DataType="vm:AuthoringWorkspaceViewModel"
-    Title="HardwareTest Authoring" Width="1280" Height="800" MinWidth="960" MinHeight="600">
+    Background="{DynamicResource AuthoringCanvas}" Title="HardwareTest Authoring" Width="1280" Height="800" MinWidth="960" MinHeight="600">
   <Window.Styles>
     <Style Selector="Button.authoringAction">
       <Setter Property="ContentTemplate" Value="{x:Static vm:AuthoringActionLabels.WrappedText}"/>
@@ -9,64 +9,79 @@
   </Window.Styles>
   <DockPanel>
     <ContentControl x:Name="IssuesDrawer" DockPanel.Dock="Bottom" MaxHeight="180" IsVisible="False" Margin="12"/>
-    <StackPanel DockPanel.Dock="Top" Spacing="8" Margin="12">
-      <WrapPanel Orientation="Horizontal">
-        <Button x:Name="LifecycleFocusTarget" Content="Open workspace…" Click="OnOpenWorkspace"
+    <Border DockPanel.Dock="Top" Background="{DynamicResource AuthoringSurface}" BorderBrush="{DynamicResource AuthoringLine}" BorderThickness="0,0,0,1" Padding="24,14">
+      <Grid ColumnDefinitions="*,Auto" ColumnSpacing="20">
+        <StackPanel Orientation="Horizontal" Spacing="14" VerticalAlignment="Center">
+          <Border Background="#245ECA" CornerRadius="8" Padding="9,6">
+            <TextBlock Text="HT" Foreground="White" FontWeight="Bold" FontSize="16"/>
+          </Border>
+          <StackPanel VerticalAlignment="Center">
+            <TextBlock Text="Authoring" FontSize="18" FontWeight="SemiBold"/>
+            <TextBlock Text="{Binding Workspace.Root, FallbackValue=Test plans &amp; workspaces}" MaxWidth="250" TextTrimming="CharacterEllipsis" FontSize="12" Foreground="{DynamicResource AuthoringMuted}"/>
+          </StackPanel>
+        </StackPanel>
+        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+          <Button x:Name="LifecycleFocusTarget" Content="Workspace ▾" AutomationProperties.Name="Workspace actions" Classes="authoringAction">
+            <Button.Flyout>
+              <Flyout Placement="BottomEdgeAlignedRight">
+                <ScrollViewer MaxHeight="430" Width="280" HorizontalScrollBarVisibility="Disabled">
+                  <StackPanel Spacing="6" Classes="workspaceMenu">
+                    <TextBlock Text="WORKSPACE" Classes="eyebrow" Margin="4,4,0,8"/>
+                    <Button Content="Create workspace…" Click="OnCreateWorkspace" AutomationProperties.Name="Create workspace from menu" Classes="authoringAction"/>
+                    <Button Content="Open workspace…" Click="OnOpenWorkspace"
             ToolTip.Tip="Open a folder that contains authoring.json" AutomationProperties.Name="Open workspace"
-            Margin="0,0,6,4" Classes="authoringAction"/>
-        <Button Content="Prepare authoring environment" Click="OnBootstrap" IsEnabled="{Binding HasWorkspace}"
+            Classes="authoringAction"/>
+<Button Content="Prepare authoring environment" Click="OnBootstrap" IsEnabled="{Binding HasWorkspace}"
             ToolTip.Tip="Install Editor packs into this workspace’s isolated OpenTAP home (offline)"
-            AutomationProperties.Name="Prepare authoring environment" Margin="0,0,6,4" Classes="authoringAction"/>
-        <Button Content="Undo catalog" Click="OnUndoWorkspace" IsEnabled="{Binding CanUndoWorkspace}"
+            AutomationProperties.Name="Prepare authoring environment" Classes="authoringAction"/>
+<Button Content="Undo catalog" Click="OnUndoWorkspace" IsEnabled="{Binding CanUndoWorkspace}"
             AutomationProperties.Name="Undo workspace catalog" ToolTip.Tip="{Binding WorkspaceHistoryHint}"
-            Margin="0,0,6,4" Classes="authoringAction"/>
-        <Button Content="Redo catalog" Click="OnRedoWorkspace" IsEnabled="{Binding CanRedoWorkspace}"
+            Classes="authoringAction"/>
+<Button Content="Redo catalog" Click="OnRedoWorkspace" IsEnabled="{Binding CanRedoWorkspace}"
             AutomationProperties.Name="Redo workspace catalog" ToolTip.Tip="{Binding WorkspaceHistoryHint}"
-            Margin="0,0,6,4" Classes="authoringAction"/>
-        <Button Content="Save sidecar" Click="OnSaveSidecar" IsEnabled="{Binding HasWorkspace}"
+            Classes="authoringAction"/>
+<Button Content="Save sidecar" Click="OnSaveSidecar" IsEnabled="{Binding HasWorkspace}"
             ToolTip.Tip="Save sidecar settings and authoring source without compiling the TapPlan."
-            AutomationProperties.Name="Save sidecar" Margin="0,0,6,4" Classes="authoringAction"/>
-        <Button Content="Save draft / compile" Classes="accent authoringAction" Click="OnApply"
+            AutomationProperties.Name="Save sidecar" Classes="authoringAction"/>
+<Button Content="Save draft / compile" Classes="accent authoringAction" Click="OnApply"
             IsEnabled="{Binding HasWorkspace}"
             ToolTip.Tip="Save authoring source, including incomplete values; export compiled files when ready"
-            AutomationProperties.Name="Save plan" Margin="0,0,6,4"/>
-        <Button Content="Undo" Click="OnUndo" IsEnabled="{Binding CanUndo}"
-            AutomationProperties.Name="Undo selected program" ToolTip.Tip="Undo the selected program's last edit"
-            Margin="0,0,6,4" Classes="authoringAction"/>
-        <Button Content="Redo" Click="OnRedo" IsEnabled="{Binding CanRedo}"
-            AutomationProperties.Name="Redo selected program" ToolTip.Tip="Redo the selected program's last edit"
-            Margin="0,0,6,4" Classes="authoringAction"/>
-        <Button Content="Save all" Click="OnSaveAll" IsEnabled="{Binding HasWorkspace}"
-            AutomationProperties.Name="Save all" Margin="0,0,6,4" Classes="authoringAction"/>
-        <Button Content="Validate" Click="OnValidate" IsEnabled="{Binding HasWorkspace}"
-            ToolTip.Tip="Run PlanContractValidator --strict on TapPlans in this workspace"
-            AutomationProperties.Name="Validate workspace" Margin="0,0,6,4" Classes="authoringAction"/>
-        <Button Content="{Binding SettingsTitle}" Click="OnOpenSettings" ToolTip.Tip="{Binding SettingsPurpose}"
-            AutomationProperties.Name="Open settings" Margin="0,0,6,4" Classes="authoringAction"/>
-      </WrapPanel>
-      <Grid IsVisible="{Binding OperationBusy}" ColumnDefinitions="Auto,*,Auto">
-        <Button Content="Cancel operation" Click="OnCancelOperation" IsEnabled="{Binding OperationBusy}"
-            AutomationProperties.Name="Cancel authoring operation" Grid.Column="0" Margin="0,0,8,0"
-            Classes="authoringAction"/>
-        <TextBlock Text="{Binding OperationStage}" VerticalAlignment="Center" MaxWidth="520"
-            TextTrimming="CharacterEllipsis" Grid.Column="1" Margin="0,0,8,0"/>
-        <TextBlock Text="Operation logs" VerticalAlignment="Center" ToolTip.Tip="{Binding OperationLogText}"
-            AutomationProperties.Name="Authoring operation logs" Grid.Column="2" Margin="0,0,8,0"
-            TextTrimming="CharacterEllipsis"/>
+            AutomationProperties.Name="Save plan"/>
+<Button Content="{Binding SettingsTitle}" Click="OnOpenSettings" ToolTip.Tip="{Binding SettingsPurpose}"
+            AutomationProperties.Name="Open settings" Classes="authoringAction"/>
+                  </StackPanel>
+                </ScrollViewer>
+              </Flyout>
+            </Button.Flyout>
+          </Button>
+          <Button Content="Save all" Click="OnSaveAll" IsEnabled="{Binding HasWorkspace}" IsVisible="{Binding HasWorkspace}"
+              AutomationProperties.Name="Save all" Classes="accent authoringAction"/>
+          <Button Content="Check" Click="OnValidate" IsEnabled="{Binding HasWorkspace}" IsVisible="{Binding HasWorkspace}"
+              ToolTip.Tip="Check saved TapPlans in this workspace" AutomationProperties.Name="Validate workspace" Classes="authoringAction"/>
+          <Button x:Name="CommandPaletteButton" Content="Commands" Click="OnOpenCommandPalette"
+              AutomationProperties.Name="Command palette" VerticalContentAlignment="Center" Classes="authoringAction"/>
+        </StackPanel>
       </Grid>
-      <Grid ColumnDefinitions="*,Auto,Auto">
-        <TextBlock x:Name="StatusLabel" VerticalAlignment="Center" Text="{Binding Status}"
-            ToolTip.Tip="{Binding OperationLogText}" AutomationProperties.LiveSetting="Polite"
-            AutomationProperties.Name="Authoring status" Grid.Column="0" Margin="0,0,8,0"
-            TextTrimming="CharacterEllipsis"/>
-        <TextBlock Text="Unsaved changes" IsVisible="{Binding HasUnsavedChanges}" VerticalAlignment="Center"
-            FontWeight="SemiBold" AutomationProperties.Name="Unsaved changes" Grid.Column="1" Margin="0,0,8,0"
-            TextTrimming="CharacterEllipsis"/>
-        <Button x:Name="CommandPaletteButton" Content="Commands" Click="OnOpenCommandPalette" AutomationProperties.Name="Command palette"
-            Grid.Column="2" Padding="8,0" MinHeight="32" Classes="authoringAction"/>
-      </Grid>
-    </StackPanel>
-    <ScrollViewer DockPanel.Dock="Top" Margin="12,0,12,8" MaxHeight="40" HorizontalScrollBarVisibility="Disabled"
+    </Border>
+    <Border DockPanel.Dock="Bottom" Background="{DynamicResource AuthoringSurface}" BorderBrush="{DynamicResource AuthoringLine}" BorderThickness="0,1,0,0" Padding="24,10">
+      <StackPanel Spacing="6">
+        <Grid ColumnDefinitions="*,Auto">
+          <TextBlock x:Name="StatusLabel" Text="{Binding Status}" TextTrimming="CharacterEllipsis"
+              ToolTip.Tip="{Binding OperationLogText}" AutomationProperties.LiveSetting="Polite" AutomationProperties.Name="Authoring status"/>
+          <TextBlock Grid.Column="1" Text="● Unsaved changes" IsVisible="{Binding HasUnsavedChanges}" Margin="12,0,0,0"
+              Foreground="{DynamicResource AuthoringAccent}" AutomationProperties.Name="Unsaved changes"/>
+        </Grid>
+        <TextBlock FontSize="12" Foreground="{DynamicResource AuthoringMuted}" Text="{Binding ValidationScope}" AutomationProperties.Name="Validation scope"
+            AutomationProperties.LiveSetting="Polite" IsVisible="{Binding HasWorkspace}" TextWrapping="Wrap"/>
+        <Grid IsVisible="{Binding OperationBusy}" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+          <Button Content="Cancel operation" Click="OnCancelOperation" IsEnabled="{Binding OperationBusy}"
+              AutomationProperties.Name="Cancel authoring operation" Classes="authoringAction"/>
+          <TextBlock Grid.Column="1" Text="{Binding OperationStage}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+          <TextBlock Grid.Column="2" Text="Operation logs" VerticalAlignment="Center" ToolTip.Tip="{Binding OperationLogText}" AutomationProperties.Name="Authoring operation logs"/>
+        </Grid>
+      </StackPanel>
+    </Border>
+    <ScrollViewer x:Name="SaveAllFeedback" DockPanel.Dock="Top" Margin="24,8,24,0" MaxHeight="40" HorizontalScrollBarVisibility="Disabled"
         VerticalScrollBarVisibility="Auto" AutomationProperties.Name="Save all result feedback">
       <ItemsControl ItemsSource="{Binding SaveAllResults}" AutomationProperties.Name="Save all results">
         <ItemsControl.Styles>
@@ -76,8 +91,7 @@
         </ItemsControl.Styles>
       </ItemsControl>
     </ScrollViewer>
-    <TextBlock DockPanel.Dock="Top" Margin="12,0,12,8" Text="{Binding ValidationScope}" AutomationProperties.Name="Validation scope"
-        AutomationProperties.LiveSetting="Polite" IsVisible="{Binding HasWorkspace}" TextWrapping="Wrap"/>
+
     <ScrollViewer DockPanel.Dock="Bottom" Margin="12,0,12,12" MaxHeight="32" HorizontalScrollBarVisibility="Disabled"
         VerticalScrollBarVisibility="Auto"
         IsVisible="{Binding Error, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
@@ -88,28 +102,33 @@
           AutomationProperties.LiveSetting="Assertive" AutomationProperties.Name="Authoring error"/>
     </ScrollViewer>
     <Panel>
-      <Border IsVisible="{Binding !HasWorkspace}" Margin="12,0,12,12" Padding="24" HorizontalAlignment="Center"
-          VerticalAlignment="Center" MaxWidth="520">
-        <StackPanel Spacing="12">
-          <TextBlock Text="Create or open a workspace to begin" FontSize="22" FontWeight="SemiBold"
-              AutomationProperties.HeadingLevel="1"/>
-          <TextBlock
-              Text="Choose a folder containing authoring.json to edit programs, preview measurements, and validate saved plans."
-              TextWrapping="Wrap"/>
-          <StackPanel Spacing="8">
-            <Button Content="Create workspace from template…" Click="OnCreateWorkspace"
-                AutomationProperties.Name="Create workspace from welcome" Classes="authoringAction"/>
-            <Button Content="Open workspace…" Click="OnOpenWorkspace"
-                AutomationProperties.Name="Open workspace from welcome" Classes="authoringAction"/>
-            <Button Content="{Binding LastWorkspaceOffer}" Click="OnOpenLastWorkspace"
-                IsVisible="{Binding CanOfferLastWorkspace}" ToolTip.Tip="{Binding LastWorkspacePath}"
-                AutomationProperties.Name="Open last workspace from welcome" Classes="authoringAction"/>
+      <ScrollViewer x:Name="WelcomeViewport" IsVisible="{Binding !HasWorkspace}" Margin="24"
+          HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto" ClipToBounds="True"
+          AutomationProperties.Name="Workspace welcome viewport">
+        <Border x:Name="WelcomeSurface" Padding="40" HorizontalAlignment="Center"
+            VerticalAlignment="Center" MaxWidth="600" Classes="surface">
+          <StackPanel Spacing="18">
+            <TextBlock Text="TEST PLAN AUTHORING" Classes="eyebrow" HorizontalAlignment="Center"/>
+            <TextBlock Text="Create your test workspace" FontSize="30" FontWeight="SemiBold" TextAlignment="Center" TextWrapping="Wrap"
+                AutomationProperties.HeadingLevel="1"/>
+            <TextBlock
+                Text="Create a workspace to organize your test plans, hardware and recordings. Open an existing workspace to continue editing." TextAlignment="Center" Foreground="{DynamicResource AuthoringMuted}"
+                TextWrapping="Wrap"/>
+            <StackPanel Spacing="8">
+              <Button Content="Create workspace" MinHeight="52" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Click="OnCreateWorkspace"
+                  AutomationProperties.Name="Create workspace from welcome" Classes="accent authoringAction"/>
+              <Button Content="Open workspace…" Click="OnOpenWorkspace"
+                  AutomationProperties.Name="Open workspace from welcome" HorizontalAlignment="Center" Classes="authoringAction"/>
+              <Button Content="{Binding LastWorkspaceOffer}" Click="OnOpenLastWorkspace"
+                  IsVisible="{Binding CanOfferLastWorkspace}" ToolTip.Tip="{Binding LastWorkspacePath}"
+                  AutomationProperties.Name="Open last workspace from welcome" HorizontalAlignment="Center" Classes="authoringAction"/>
+            </StackPanel>
           </StackPanel>
-        </StackPanel>
-      </Border>
-      <Grid x:Name="WorkspaceLayout" ColumnDefinitions="180,*" Margin="12,0,12,12" IsVisible="{Binding HasWorkspace}">
-        <DockPanel x:Name="ProgramsRail" Grid.Column="0">
-          <ScrollViewer MaxHeight="140" DockPanel.Dock="Top" Margin="0,0,12,8"
+        </Border>
+      </ScrollViewer>
+      <Grid x:Name="WorkspaceLayout" ColumnDefinitions="196,*" ColumnSpacing="16" Margin="24,8,24,12" IsVisible="{Binding HasWorkspace}">
+        <DockPanel x:Name="ProgramsRail" Grid.Column="0" Margin="0,48,0,0" ZIndex="1">
+          <ScrollViewer MaxHeight="140" DockPanel.Dock="Top" Margin="0,0,0,12"
               HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto" ClipToBounds="True"
               AutomationProperties.Name="Guidance rail viewport">
             <StackPanel Spacing="4">
@@ -122,37 +141,44 @@
           </ScrollViewer>
           <vm:ProgramsRailView/>
         </DockPanel>
-        <TabControl x:Name="WorkspaceTabs" Grid.Column="1">
+        <TabControl x:Name="WorkspaceTabs" Grid.Column="0" Grid.ColumnSpan="2" Padding="212,0,0,0">
           <TabControl.Styles>
-            <Style Selector="TabControl#WorkspaceTabs &gt; TabItem">
-              <Setter Property="Padding" Value="4,0"/>
+            <Style Selector="TabControl#WorkspaceTabs TabItem">
+              <Setter Property="Padding" Value="5,0"/>
+              <Setter Property="MinHeight" Value="40"/>
+              <Setter Property="FontSize" Value="{Binding $parent[Window].FontSize}"/>
+              <Setter Property="FontWeight" Value="SemiBold"/>
             </Style>
           </TabControl.Styles>
           <TabItem Header="Program" AutomationProperties.Name="Program tab">
-            <Grid RowDefinitions="Auto,Auto,*" x:Name="ProgramLayout">
+            <Grid RowDefinitions="Auto,Auto,*" x:Name="ProgramLayout" Margin="0,8,0,0">
               <TextBlock x:Name="DependencySummary" Grid.Row="1" Grid.ColumnSpan="5" TextWrapping="Wrap" Margin="0,0,0,6" AutomationProperties.Name="Selected step dependencies"/>
               <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="180" MinWidth="150"/>
-                <ColumnDefinition Width="5"/>
+                <ColumnDefinition Width="250" MinWidth="210"/>
+                <ColumnDefinition Width="16"/>
                 <ColumnDefinition Width="*" MinWidth="0"/>
-                <ColumnDefinition Width="5"/>
+                <ColumnDefinition Width="16"/>
                 <ColumnDefinition Width="300" MinWidth="0"/>
               </Grid.ColumnDefinitions>
-              <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,12,8">
-                <TextBlock x:Name="SequenceHeading" FontWeight="SemiBold" Text="{Binding SequenceTitle}"
+              <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,0,12">
+                <TextBlock x:Name="SequenceHeading" FontSize="18" FontWeight="SemiBold" Text="{Binding SequenceTitle}"
                     AutomationProperties.HeadingLevel="2" TextWrapping="Wrap" ToolTip.Tip="{Binding SequencePurpose}"/>
               </StackPanel>
-              <StackPanel Grid.Row="0" Grid.Column="2" Margin="0,0,12,8">
-                <TextBlock x:Name="InspectorHeading" FontWeight="SemiBold" Text="{Binding InspectorTitle}"
-                    AutomationProperties.HeadingLevel="2" TextWrapping="Wrap" ToolTip.Tip="{Binding InspectorPurpose}"/>
+              <DockPanel Grid.Row="0" Grid.Column="2" Margin="0,0,0,8" LastChildFill="True">
+              <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="6">
+                <Button Content="Undo" Click="OnUndo" IsEnabled="{Binding CanUndo}" AutomationProperties.Name="Undo selected program" Classes="authoringAction"/>
+                <Button Content="Redo" Click="OnRedo" IsEnabled="{Binding CanRedo}" AutomationProperties.Name="Redo selected program" Classes="authoringAction"/>
               </StackPanel>
+                <TextBlock x:Name="InspectorHeading" FontSize="18" FontWeight="SemiBold" Text="{Binding InspectorTitle}"
+                    VerticalAlignment="Center" AutomationProperties.HeadingLevel="2" TextWrapping="Wrap" ToolTip.Tip="{Binding InspectorPurpose}"/>
+              </DockPanel>
               <StackPanel Grid.Row="0" Grid.Column="4" Margin="0,0,0,8" x:Name="DockedPreviewHeading">
                 <TextBlock x:Name="PreviewHeading" FontWeight="SemiBold" Text="{Binding PreviewTitle}"
                     AutomationProperties.HeadingLevel="2" TextWrapping="Wrap" ToolTip.Tip="{Binding PreviewPurpose}"/>
               </StackPanel>
-              <vm:SequenceEditorView Grid.Row="2" Grid.Column="0"/>
-              <vm:SelectedStepInspectorView Grid.Row="2" Grid.Column="2"/>
-              <ContentControl Grid.Row="2" Grid.Column="4" x:Name="DockedPreview" Margin="8,0,0,0"/>
+              <Border Grid.Row="2" Grid.Column="0" Classes="surface" Padding="12"><vm:SequenceEditorView/></Border>
+              <Border Grid.Row="2" Grid.Column="2" Classes="surface" Padding="18"><vm:SelectedStepInspectorView/></Border>
+              <ContentControl Grid.Row="2" Grid.Column="4" x:Name="DockedPreview"/>
             </Grid>
           </TabItem>
           <TabItem Header="Hardware" AutomationProperties.Name="Program settings tab">

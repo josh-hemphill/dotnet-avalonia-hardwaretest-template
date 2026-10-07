@@ -10,7 +10,10 @@ namespace HardwareTest.Authoring;
 public partial class MainWindow
 {
     private Window? _commandPalette;
-    private sealed record EditorCommand(string Id, string Title, string Shortcut, Func<string?> Blocker, Func<Task> Run);
+    private sealed record EditorCommand(string Id, string Title, string Shortcut, Func<string?> Blocker, Func<Task> Run)
+    {
+        public override string ToString() => Title;
+    }
     private KeyModifiers PrimaryModifier => OperatingSystem.IsMacOS() ? KeyModifiers.Meta : KeyModifiers.Control;
     private string PrimaryName => OperatingSystem.IsMacOS() ? "⌘" : "Ctrl";
     private string? WorkspaceBlocker() => _viewModel.Workspace is null ? "Open a workspace first."
@@ -43,7 +46,7 @@ public partial class MainWindow
         AddHandler(KeyDownEvent, OnExpertKeyDown, RoutingStrategies.Bubble);
         ToolTip.SetTip(this.FindControl<Button>("CommandPaletteButton")!, $"{PrimaryName}+Shift+P");
     }
-    private void OnExpertKeyDown(object? sender, KeyEventArgs e)
+    internal void OnExpertKeyDown(object? sender, KeyEventArgs e)
     {
         if (e.Handled) return;
         var modifiers = e.KeyModifiers;
@@ -87,19 +90,29 @@ public partial class MainWindow
     {
         if (_commandPalette is not null) { _commandPalette.Activate(); return; }
         var current = OwnerContext();
-        var search = new TextBox { PlaceholderText = "Search commands" };
+        var search = new TextBox { PlaceholderText = "Search commands", MinHeight = 42 };
         AutomationProperties.SetName(search, "Search commands");
-        var list = new ListBox();
+        var list = new ListBox { Classes = { "authoringList" }, Margin = new Thickness(8, 8, 8, 24), Padding = new Thickness(0), BorderThickness = new Thickness(0) };
+        list.ItemsPanel = new Avalonia.Controls.Templates.FuncTemplate<Panel?>(() => new StackPanel { Margin = new Thickness(0, 0, 0, 16) });
+        list.ItemTemplate = new Avalonia.Controls.Templates.FuncDataTemplate<EditorCommand>((command, _) =>
+        {
+            if (command is null) return new TextBlock();
+            var row = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), ColumnSpacing = 16 };
+            row.Children.Add(new TextBlock { Text = command.Title, TextWrapping = Avalonia.Media.TextWrapping.Wrap });
+            var shortcut = new TextBlock { Text = command.Shortcut, Opacity = 0.65, VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center };
+            Grid.SetColumn(shortcut, 1); row.Children.Add(shortcut);
+            return row;
+        });
         AutomationProperties.SetName(list, "Authoring commands");
         var hint = new TextBlock { TextWrapping = Avalonia.Media.TextWrapping.Wrap };
-        var run = new Button { Content = "Run command", IsDefault = true };
-        var cancel = new Button { Content = "Cancel", IsCancel = true };
+        var run = new Button { Content = "Run command", IsDefault = true, Classes = { "accent", "authoringAction" } };
+        var cancel = new Button { Content = "Cancel", IsCancel = true, Classes = { "authoringAction" } };
         var commands = Commands();
         IReadOnlyList<EditorCommand> visible = [];
         void Filter()
         {
             visible = commands.Where(command => $"{command.Title} {command.Shortcut}".Contains(search.Text ?? "", StringComparison.OrdinalIgnoreCase)).ToArray();
-            list.ItemsSource = visible.Select(command => $"{command.Title}  {command.Shortcut}").ToArray(); list.SelectedIndex = visible.Count > 0 ? 0 : -1;
+            list.ItemsSource = visible; list.SelectedIndex = visible.Count > 0 ? 0 : -1;
         }
         list.SelectionChanged += (_, _) =>
         {
@@ -108,11 +121,38 @@ public partial class MainWindow
             run.IsEnabled = selected is not null && selected.Blocker() is null;
         };
         search.TextChanged += (_, _) => Filter(); Filter();
-        var dialog = new Window { Title = "Commands", Width = 500, Height = 480, WindowStartupLocation = WindowStartupLocation.CenterOwner };
-        var panel = new DockPanel { Margin = new Thickness(16) };
-        DockPanel.SetDock(search, Dock.Top); panel.Children.Add(search);
-        var footer = new StackPanel { Spacing = 8, Children = { hint, run, cancel } };
-        DockPanel.SetDock(footer, Dock.Bottom); panel.Children.Add(footer); panel.Children.Add(list); dialog.Content = panel;
+        var dialog = new Window { Title = "Commands", Width = 560, Height = 540, FontSize = FontSize, MinWidth = 420, MinHeight = 380, WindowStartupLocation = WindowStartupLocation.CenterOwner };
+        dialog.Classes.Add("authoringPalette");
+        var panel = new DockPanel();
+        var header = new Border
+        {
+            Padding = new Thickness(24, 20),
+            BorderThickness = new Thickness(0, 0, 0, 1),
+            Classes = { "paletteSection" },
+            Child = new StackPanel
+            {
+                Spacing = 12,
+                Children = { new TextBlock { Text = "Commands", FontSize = 22, FontWeight = Avalonia.Media.FontWeight.SemiBold }, search }
+            }
+        };
+        DockPanel.SetDock(header, Dock.Top); panel.Children.Add(header);
+        var actions = new StackPanel
+        {
+            Orientation = Avalonia.Layout.Orientation.Horizontal,
+            HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right,
+            Spacing = 8,
+            Children = { cancel, run }
+        };
+        var footer = new Border
+        {
+            Name = "CommandFooter",
+            Padding = new Thickness(24, 16),
+            BorderThickness = new Thickness(0, 1, 0, 0),
+            Classes = { "paletteSection" },
+            Child = new StackPanel { Spacing = 12, Children = { hint, actions } }
+        };
+        DockPanel.SetDock(footer, Dock.Bottom); panel.Children.Add(footer);
+        panel.Children.Add(list); dialog.Content = panel;
         run.Click += (_, _) => { if (run.IsEnabled) dialog.Close(visible[list.SelectedIndex].Id); };
         cancel.Click += (_, _) => dialog.Close(null);
         dialog.Opened += (_, _) => search.Focus();

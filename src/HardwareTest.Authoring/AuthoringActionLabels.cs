@@ -10,6 +10,7 @@ public static class AuthoringActionLabels
     public static IDataTemplate WrappedText { get; } = new FuncDataTemplate<string>((label, _) => new TextBlock
     {
         Text = label,
+        VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
         TextWrapping = TextWrapping.Wrap,
     });
 }

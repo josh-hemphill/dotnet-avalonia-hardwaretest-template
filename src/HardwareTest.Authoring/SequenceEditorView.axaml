@@ -1,8 +1,10 @@
 <UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:vm="using:HardwareTest.Authoring" xmlns:host="using:HardwareTest.OpenTap.Host"
     x:Class="HardwareTest.Authoring.SequenceEditorView" x:DataType="vm:AuthoringWorkspaceViewModel">
-  <Grid RowDefinitions="*,Auto,2*" Margin="0,0,12,0" AutomationProperties.Name="Sequence editor" ToolTip.Tip="{Binding MeasureHint}">
-    <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+  <Grid RowDefinitions="Auto,Auto,*" Margin="0" AutomationProperties.Name="Sequence editor" ToolTip.Tip="{Binding MeasureHint}">
+    <Button Grid.Row="0" x:Name="SequenceActionsButton" Content="Add &amp; edit steps ▾" HorizontalAlignment="Stretch" Classes="authoringAction" Margin="0,0,0,4">
+      <Button.Flyout><Flyout Placement="Bottom">
+    <ScrollViewer Width="290" MaxHeight="320" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
         AutomationProperties.Name="Sequence actions">
     <StackPanel Spacing="6" Margin="0,0,0,8">
       <TextBlock x:Name="RecipeLabel" Text="Add to sequence" TextWrapping="Wrap"/>
@@ -25,23 +27,25 @@
       <TextBlock Text="{Binding SequenceOperationTarget}" TextWrapping="Wrap"/>
       <TextBlock Text="{Binding SelectedRecipePrerequisites}" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite"/>
       <Button Content="Add recipe" IsEnabled="{Binding CanInsertRecipe}" Click="OnAddRecipe" ToolTip.Tip="{Binding AddRecipeToolTip}"
-          AutomationProperties.Name="Add recipe" Classes="authoringAction"/>
+          AutomationProperties.Name="Add recipe" Classes="authoringAction sequenceAction"/>
       <TextBlock x:Name="RenameLabel" Text="Selected step name"/>
       <TextBox Text="{Binding SequenceRename}" AutomationProperties.Name="Selected step name"
           AutomationProperties.LabeledBy="{Binding #RenameLabel}" IsEnabled="{Binding CanRenameSequence}"/>
-      <WrapPanel>
-        <Button Content="Rename" Click="OnRenameSequence" IsEnabled="{Binding CanRenameSequence}" AutomationProperties.Name="Rename selected step"/>
-        <Button Content="Duplicate" Click="OnDuplicateSequence" IsEnabled="{Binding CanDuplicateSequence}" AutomationProperties.Name="Duplicate selected step"/>
-        <Button Content="Move up" Click="OnMoveSequenceUp" IsEnabled="{Binding CanMoveSequence}" AutomationProperties.Name="Move selected step up"/>
-        <Button Content="Move down" Click="OnMoveSequenceDown" IsEnabled="{Binding CanMoveSequence}" AutomationProperties.Name="Move selected step down"/>
+      <WrapPanel Orientation="Horizontal">
+        <Button Classes="authoringAction sequenceAction" Content="Rename" Click="OnRenameSequence" IsEnabled="{Binding CanRenameSequence}" AutomationProperties.Name="Rename selected step"/>
+        <Button Classes="authoringAction sequenceAction" Content="Duplicate" Click="OnDuplicateSequence" IsEnabled="{Binding CanDuplicateSequence}" AutomationProperties.Name="Duplicate selected step"/>
+        <Button Classes="authoringAction sequenceAction" Content="Move up" Click="OnMoveSequenceUp" IsEnabled="{Binding CanMoveSequence}" AutomationProperties.Name="Move selected step up"/>
+        <Button Classes="authoringAction sequenceAction" Content="Move down" Click="OnMoveSequenceDown" IsEnabled="{Binding CanMoveSequence}" AutomationProperties.Name="Move selected step down"/>
       </WrapPanel>
       <TextBlock Opacity="0.9" TextWrapping="Wrap" IsVisible="{Binding HasRawSteps}" Text="{Binding RawStepsBanner}"/>
     </StackPanel>
     </ScrollViewer>
-      <Button Grid.Row="1" Margin="0,6,0,6" Content="{Binding RemoveSequenceActionTitle}" Click="OnRemoveSequence"
+      </Flyout></Button.Flyout>
+    </Button>
+      <Button Grid.Row="1" Margin="0,0,0,4" Content="{Binding RemoveSequenceActionTitle}" Click="OnRemoveSequence"
           IsEnabled="{Binding CanRemoveSelectedSequence}" ToolTip.Tip="{Binding RemoveSelectedPurpose}"
           AutomationProperties.Name="Remove selected" Classes="authoringAction"/>
-    <ListBox Grid.Row="2" MinHeight="80" ItemsSource="{Binding SequenceItems}" SelectedIndex="{Binding SelectedSequenceIndex}"
+    <ListBox x:Name="SequenceList" Classes="authoringList" Grid.Row="2" MinHeight="80" ItemsSource="{Binding SequenceItems}" SelectedIndex="{Binding SelectedSequenceIndex}"
         KeyboardNavigation.TabNavigation="Once" KeyDown="OnSequenceKeyDown" AutomationProperties.Name="Program sequence">
       <ListBox.Styles>
         <Style Selector="ListBoxItem" x:DataType="vm:SequenceRow">

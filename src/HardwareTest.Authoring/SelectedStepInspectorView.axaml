@@ -1,9 +1,9 @@
 <UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:vm="using:HardwareTest.Authoring" xmlns:host="using:HardwareTest.OpenTap.Host"
     x:Class="HardwareTest.Authoring.SelectedStepInspectorView" x:DataType="vm:AuthoringWorkspaceViewModel">
-  <ScrollViewer Margin="0,0,12,0" AutomationProperties.Name="Selected step inspector"
+  <ScrollViewer Margin="0" AutomationProperties.Name="Selected step inspector"
       HorizontalScrollBarVisibility="Disabled">
-    <StackPanel Spacing="8">
+    <StackPanel Spacing="12">
       <TextBlock Text="{Binding InspectorBreadcrumb}" TextWrapping="Wrap"/>
       <TextBlock Text="{Binding SelectedStepErrors}" TextWrapping="Wrap" Foreground="#C62828"
           AutomationProperties.Name="Selected step errors" AutomationProperties.LiveSetting="Polite"/>

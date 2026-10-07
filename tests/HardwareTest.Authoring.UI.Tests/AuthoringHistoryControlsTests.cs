@@ -66,7 +66,9 @@ public sealed class AuthoringHistoryControlsTests
         Assert.True(editor.Focus());
         editor.Text = "7";
         AuthoringUiFixture.Drain();
-        AuthoringUiFixture.Click(fixture.Control<Button>(control));
+        var action = fixture.Control<Button>(control);
+        if (control == "Redo selected program") AuthoringUiFixture.Click(action);
+        else Assert.False(action.IsEnabled); // Opening the menu commits the intervening edit before offering catalog history.
         Assert.Equal("7", fixture.ViewModel.MetricSettingRows.Single(setting => setting.Key == row.Key).Value);
         if (control == "Undo workspace catalog") Assert.Contains("fixtureId", fixture.ViewModel.RequiredFieldOptions);
         if (control == "Redo workspace catalog") Assert.DoesNotContain("fixtureId", fixture.ViewModel.RequiredFieldOptions);

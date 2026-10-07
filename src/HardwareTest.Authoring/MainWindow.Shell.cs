@@ -13,6 +13,15 @@ public partial class MainWindow
 
     private void InitializeShell()
     {
+        var workspaceMenu = (Flyout)this.FindControl<Button>("LifecycleFocusTarget")!.Flyout!;
+        workspaceMenu.Opened += (_, _) => ((ScrollViewer)workspaceMenu.Content!).FontSize = FontSize;
+        ((Control)workspaceMenu.Content!).AddHandler(Button.ClickEvent, (_, _) => workspaceMenu.Hide());
+        ((Control)workspaceMenu.Content!).AddHandler(KeyDownEvent, (_, e) =>
+        {
+            if (e.Handled) return;
+            OnExpertKeyDown(this, e);
+            if (e.Handled) workspaceMenu.Hide();
+        });
         _previewView.DataContext = _viewModel;
         _issuesView.DataContext = _viewModel;
         SizeChanged += (_, _) => ArrangeShell();
@@ -44,8 +53,10 @@ public partial class MainWindow
     private void ArrangeShell()
     {
         // Reserve editor width before offering the optional dock. Larger type uses the separate route.
+        SaveAllFeedback.IsVisible = _viewModel.SaveAllResults.Count > 0;
         ProgramsRail.IsVisible = !_viewModel.ProgramsRailCollapsed;
-        WorkspaceLayout.ColumnDefinitions[0].Width = new GridLength(_viewModel.ProgramsRailCollapsed ? 0 : 180);
+        WorkspaceLayout.ColumnDefinitions[0].Width = new GridLength(_viewModel.ProgramsRailCollapsed ? 0 : 196);
+        WorkspaceTabs.Padding = new Avalonia.Thickness(_viewModel.ProgramsRailCollapsed ? 0 : 212, 0, 0, 0);
         var drawer = _viewModel.IssuesDrawerOpen && WorkspaceTabs.SelectedIndex != 2;
         var issuesDestination = drawer ? IssuesDrawer : IssuesRoute;
         var previousIssues = drawer ? IssuesRoute : IssuesDrawer;
@@ -53,7 +64,7 @@ public partial class MainWindow
         { previousIssues.Content = null; issuesDestination.Content = _issuesView; }
         IssuesDrawer.IsVisible = drawer;
         DependencySummary.Text = _viewModel.SelectedDependencySummary;
-        var dock = _viewModel.DockPreview && ClientSize.Width >= 1180 && FontSize <= 16;
+        var dock = _viewModel.DockPreview && ClientSize.Width >= 1280 && FontSize <= 16;
         var destination = dock && WorkspaceTabs.SelectedIndex != PreviewRouteIndex ? DockedPreview : SeparatePreview;
         var previous = ReferenceEquals(destination, DockedPreview) ? SeparatePreview : DockedPreview;
         if (!ReferenceEquals(destination.Content, _previewView))
@@ -62,7 +73,7 @@ public partial class MainWindow
             destination.Content = _previewView;
         }
         ProgramLayout.ColumnDefinitions[4].Width = new GridLength(dock ? 300 : 0);
-        ProgramLayout.ColumnDefinitions[3].Width = new GridLength(0);
+        ProgramLayout.ColumnDefinitions[3].Width = new GridLength(dock ? 16 : 0);
         DockedPreviewHeading.IsVisible = dock;
         DockedPreview.IsVisible = dock;
     }

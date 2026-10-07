@@ -1,0 +1,54 @@
+<Styles xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Styles.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.ThemeDictionaries>
+        <ResourceDictionary x:Key="Light">
+          <SolidColorBrush x:Key="AuthoringCanvas">#F3F5F8</SolidColorBrush>
+          <SolidColorBrush x:Key="AuthoringSurface">#FFFFFF</SolidColorBrush>
+          <SolidColorBrush x:Key="AuthoringLine">#DEE4EC</SolidColorBrush>
+          <SolidColorBrush x:Key="AuthoringAccent">#245ECA</SolidColorBrush>
+          <SolidColorBrush x:Key="AuthoringMuted">#5C697C</SolidColorBrush>
+        </ResourceDictionary>
+        <ResourceDictionary x:Key="Dark">
+          <SolidColorBrush x:Key="AuthoringCanvas">#151B25</SolidColorBrush>
+          <SolidColorBrush x:Key="AuthoringSurface">#202938</SolidColorBrush>
+          <SolidColorBrush x:Key="AuthoringLine">#354357</SolidColorBrush>
+          <SolidColorBrush x:Key="AuthoringAccent">#7EA8FF</SolidColorBrush>
+          <SolidColorBrush x:Key="AuthoringMuted">#AFBDD1</SolidColorBrush>
+        </ResourceDictionary>
+      </ResourceDictionary.ThemeDictionaries>
+    </ResourceDictionary>
+  </Styles.Resources>
+  <Style Selector="Border.surface">
+    <Setter Property="Background" Value="{DynamicResource AuthoringSurface}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource AuthoringLine}"/>
+    <Setter Property="BorderThickness" Value="1"/>
+    <Setter Property="CornerRadius" Value="12"/>
+  </Style>
+  <Style Selector="TextBlock.eyebrow">
+    <Setter Property="FontSize" Value="11"/>
+    <Setter Property="FontWeight" Value="SemiBold"/>
+    <Setter Property="Foreground" Value="{DynamicResource AuthoringMuted}"/>
+  </Style>
+  <Style Selector="Button.authoringAction">
+    <Setter Property="MinHeight" Value="36"/>
+    <Setter Property="Padding" Value="12,7"/>
+    <Setter Property="CornerRadius" Value="7"/>
+    <Setter Property="VerticalContentAlignment" Value="Center"/>
+  </Style>
+  <Style Selector="StackPanel.workspaceMenu Button">
+    <Setter Property="HorizontalAlignment" Value="Stretch"/>
+    <Setter Property="HorizontalContentAlignment" Value="Left"/>
+  </Style>
+  <Style Selector="ListBox.authoringList ListBoxItem">
+    <Setter Property="Padding" Value="10,10"/>
+    <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+  </Style>
+  <Style Selector="Border.paletteSection">
+    <Setter Property="Background" Value="{DynamicResource AuthoringSurface}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource AuthoringLine}"/>
+  </Style>
+  <Style Selector="Window.authoringPalette">
+    <Setter Property="Background" Value="{DynamicResource AuthoringSurface}"/>
+  </Style>
+</Styles>
