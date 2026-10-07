@@ -30,5 +30,9 @@
     <Content Include="../HardwareTest.OpenTap.Plugins.Visa/package.xml" Link="AuthoringPackages/HardwareTest VISA/package.xml" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <None Include="..\..\plans\opentap\**\*" Link="Programs\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../HardwareTest.OpenTap.StandaloneVisa/HardwareTest.OpenTap.StandaloneVisa.csproj" ReferenceOutputAssembly="false" Private="false" GlobalPropertiesToRemove="SelfContained;PublishSingleFile;PublishTrimmed;PublishReadyToRun;PublishAot" />
+  </ItemGroup>
   <Import Project="PublishedInstrumentComponents.targets" />
+  <Import Project="StandaloneVisaPackage.targets" />
 </Project>

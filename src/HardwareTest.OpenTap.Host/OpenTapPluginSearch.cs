@@ -18,15 +18,18 @@ internal static class OpenTapPluginSearch
     {
         lock (SearchGate)
         {
+            var extras = extraDirectories?.ToArray() ?? [];
             if (includeVisaAdapter && visaBroker is not null)
             {
+                var executionDirectory = ExecutionInstrumentLibrary.EnsureLoaded(extras);
                 VisaBrokerHost.Register(visaBroker);
+                AddDirectory(executionDirectory);
             }
 
             EnsureCorePluginDirectories(includeVisaAdapter);
             if (extraDirectories is not null)
             {
-                foreach (var dir in extraDirectories)
+                foreach (var dir in extras)
                 {
                     AddDirectory(dir);
                 }
@@ -35,8 +38,7 @@ internal static class OpenTapPluginSearch
             PluginManager.Search();
             if (includeVisaAdapter && visaBroker is not null && !InstrumentComponentsScpiIo.TryRegisterProvider(visaBroker))
             {
-                Serilog.Log.Debug(
-                    "InstrumentComponents.OpenTap is not loaded; SCPI provider was not registered. Product plans that use that pack need it on the plugin search path.");
+                throw new InvalidOperationException("Instrument Components broker provider could not be bound. Repair the selected execution library before running the plan.");
             }
         }
     }

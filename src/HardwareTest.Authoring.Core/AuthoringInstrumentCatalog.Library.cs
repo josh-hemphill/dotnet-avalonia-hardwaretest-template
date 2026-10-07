@@ -1,7 +1,5 @@
 using System.Globalization;
 using System.Reflection;
-using System.Reflection.Metadata;
-using System.Reflection.PortableExecutable;
 using System.Security.Cryptography;
 using HardwareTest.OpenTap.Host;
 using OpenTap;
@@ -14,7 +12,6 @@ public static partial class AuthoringInstrumentCatalog
     private const string LibraryAssembly = "InstrumentComponents.OpenTap.dll";
     private static readonly Dictionary<string, AuthoringInstrumentAdapter> Library = new(StringComparer.Ordinal);
     private static readonly object LibraryGate = new();
-    private static readonly Dictionary<Assembly, byte[]> LoadedFingerprints = [];
     private static readonly Dictionary<string, string> DiscoveryIssues = new(StringComparer.Ordinal);
     public static IReadOnlyList<AuthoringInstrumentAdapter> All
     {
@@ -37,20 +34,21 @@ public static partial class AuthoringInstrumentCatalog
                 if (!requirement.Satisfied) return Missing($"Instrument Components {requirement.State}; required {requirement.RequiredVersion}, installed {requirement.InstalledVersion}. Open Environment to prepare/import the compatible package.");
                 if (AuthoringPluginSearch.DirectoryContainsVisaAdapter(directory))
                     return Missing("Instrument Components directory contains the legacy VISA plugin. Prepare an isolated library package in Environment before discovery.");
-                var assemblyPath = AuthoringAdapterPayloadInspection.LibraryPayloadPath(home, LibraryAssembly);
-                var contractPath = AuthoringAdapterPayloadInspection.LibraryPayloadPath(home, "InstrumentComponents.dll");
-                var libraryBeforeLoad = SHA256.HashData(File.ReadAllBytes(assemblyPath));
-                var contractBeforeLoad = SHA256.HashData(File.ReadAllBytes(contractPath));
+                var payloads = AuthoringAdapterPayloadInspection.CaptureLibraryPayload(home);
+                var assemblyPath = Path.Combine(home.Root, LibraryAssembly);
+                var contractPath = Path.Combine(home.Root, "InstrumentComponents.dll");
+                var libraryBytes = payloads[LibraryAssembly];
+                var contractBytes = payloads["InstrumentComponents.dll"];
                 if (AuthoringPluginSearch.DirectoryContainsVisaAdapter(Path.GetDirectoryName(assemblyPath)!)) return Missing("Library payload directory contains the legacy VISA plugin; use an isolated authoring home.");
-                // OpenTAP lazily reloads metadata by Assembly.Location. Keep only the two
-                // validated payloads in a process-owned directory, beyond selected-home lifetime.
-                var metadataDirectory = StableLibraryPayload(assemblyPath, contractPath, libraryBeforeLoad, contractBeforeLoad);
-                var contract = Assembly.LoadFrom(Path.Combine(metadataDirectory, "InstrumentComponents.dll"));
-                var assembly = Assembly.LoadFrom(Path.Combine(metadataDirectory, LibraryAssembly));
+                // Keep the two validated payloads for OpenTAP's lazy metadata search,
+                // while the shared loader records the exact bytes supplied to the CLR.
+                var metadataDirectory = StableLibraryPayload(libraryBytes, contractBytes);
+                var contract = OwnedInstrumentLibrary.Load(contractBytes, Path.Combine(metadataDirectory, "InstrumentComponents.dll"));
+                var assembly = OwnedInstrumentLibrary.Load(libraryBytes, Path.Combine(metadataDirectory, LibraryAssembly));
                 // OpenTAP may cache an assembly from an earlier home. Match actual bytes,
                 // including the shared contract assembly, before trusting cached types.
-                if (!SamePayload(assemblyPath, assembly, libraryBeforeLoad)) return Missing("Selected Instrument Components binary differs from the loaded library. Restart authoring to use the newly installed library version.");
-                if (!SamePayload(contractPath, contract, contractBeforeLoad)) return Missing("Selected Instrument Components contract binary differs from the loaded library. Restart authoring to use the newly installed library version.");
+                if (!SamePayload(assemblyPath, assembly)) return Missing("Selected Instrument Components binary differs from the loaded library. Restart authoring to use the newly installed library version.");
+                if (!SamePayload(contractPath, contract)) return Missing("Selected Instrument Components contract binary differs from the loaded library. Restart authoring to use the newly installed library version.");
                 AuthoringPluginSearch.Search([metadataDirectory]); // Never grant the home root or unrelated package payload.
                 var baseType = assembly.GetType("InstrumentComponents.OpenTap.ScpiInstrument", throwOnError: true)!;
                 var devices = DeviceTypes(assembly.GetTypes(), baseType);
@@ -74,7 +72,7 @@ public static partial class AuthoringInstrumentCatalog
                 return result;
             }
             catch (Exception error) when (error is IOException or UnauthorizedAccessException or BadImageFormatException
-                or ReflectionTypeLoadException or TypeLoadException or FileLoadException or ArgumentException)
+                or ReflectionTypeLoadException or TypeLoadException or FileLoadException or ArgumentException or InvalidOperationException)
             { return Missing($"Instrument Components payload cannot be loaded: {error.Message}. Open Environment to import a valid compatible package."); }
 
             IReadOnlyList<AuthoringInstrumentAdapter> Missing(string reason) { DiscoveryIssues[home.Root] = reason; return []; }
@@ -98,8 +96,10 @@ public static partial class AuthoringInstrumentCatalog
 
     private static readonly Dictionary<string, string> MetadataPayloads = new(StringComparer.Ordinal);
 
-    private static string StableLibraryPayload(string library, string contract, byte[] libraryHash, byte[] contractHash)
+    private static string StableLibraryPayload(byte[] library, byte[] contract)
     {
+        var libraryHash = SHA256.HashData(library);
+        var contractHash = SHA256.HashData(contract);
         var key = Convert.ToHexString(libraryHash) + Convert.ToHexString(contractHash);
         if (MetadataPayloads.TryGetValue(key, out var existing))
         {
@@ -111,8 +111,8 @@ public static partial class AuthoringInstrumentCatalog
         Directory.CreateDirectory(directory);
         try
         {
-            Copy(library, LibraryAssembly, libraryHash);
-            Copy(contract, "InstrumentComponents.dll", contractHash);
+            File.WriteAllBytes(Path.Combine(directory, LibraryAssembly), library);
+            File.WriteAllBytes(Path.Combine(directory, "InstrumentComponents.dll"), contract);
             MetadataPayloads.Add(key, directory);
             AppDomain.CurrentDomain.ProcessExit += (_, _) =>
             {
@@ -126,12 +126,6 @@ public static partial class AuthoringInstrumentCatalog
         static void Verify(string path, byte[] expected)
         {
             if (!SHA256.HashData(File.ReadAllBytes(path)).SequenceEqual(expected)) throw new IOException("Staged library metadata payload changed.");
-        }
-        void Copy(string source, string name, byte[] expected)
-        {
-            var bytes = File.ReadAllBytes(source);
-            if (!SHA256.HashData(bytes).SequenceEqual(expected)) throw new IOException("Library payload changed during discovery.");
-            File.WriteAllBytes(Path.Combine(directory, name), bytes);
         }
     }
 
@@ -161,30 +155,11 @@ public static partial class AuthoringInstrumentCatalog
                 && SamePayload(AuthoringAdapterPayloadInspection.LibraryPayloadPath(home, LibraryAssembly), assembly)
                 && SamePayload(AuthoringAdapterPayloadInspection.LibraryPayloadPath(home, "InstrumentComponents.dll"), contract);
         }
-        catch (Exception error) when (error is IOException or UnauthorizedAccessException or ArgumentException or BadImageFormatException) { return false; }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException or ArgumentException or BadImageFormatException or InvalidOperationException) { return false; }
     }
 
-    private static bool SamePayload(string selected, Assembly loaded, byte[]? beforeLoad = null)
-    {
-        lock (LibraryGate)
-        {
-            if (!LoadedFingerprints.TryGetValue(loaded, out var fingerprint))
-            {
-                if (!File.Exists(loaded.Location)) return false;
-                var bytes = File.ReadAllBytes(loaded.Location);
-                using var stream = new MemoryStream(bytes, writable: false);
-                using var pe = new PEReader(stream);
-                var metadata = pe.GetMetadataReader();
-                if (metadata.GetGuid(metadata.GetModuleDefinition().Mvid) != loaded.ManifestModule.ModuleVersionId) return false;
-                fingerprint = SHA256.HashData(bytes);
-                // Establish immutable provenance once; later origin edits/deletion cannot change it.
-                if (beforeLoad is not null && Path.GetFullPath(selected) == Path.GetFullPath(loaded.Location)
-                    && !beforeLoad.SequenceEqual(fingerprint)) return false;
-                LoadedFingerprints.Add(loaded, fingerprint);
-            }
-            return SHA256.HashData(File.ReadAllBytes(selected)).SequenceEqual(fingerprint);
-        }
-    }
+    private static bool SamePayload(string selected, Assembly loaded)
+        => SHA256.HashData(File.ReadAllBytes(selected)).SequenceEqual(OwnedInstrumentLibrary.Fingerprint(loaded));
 
     private static Instrument ConstructLibrary(Type type, InstrumentRef slot)
     {

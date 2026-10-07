@@ -16,7 +16,7 @@ public sealed class AuthoringWindowsTuiLauncherTests : IDisposable
         const string dotnet = @"C:\Program Files\R&D\%TUI_PATH%\dotnet.exe";
         const string home = @"C:\Installed homes\R&D\%TUI_PATH%";
         const string plan = @"C:\Plans\R&D\%TUI_PATH%\selected plan.TapPlan";
-        var start = AuthoringExternalTuiLauncher.WindowsStartInfo(dotnet, home, plan);
+        var start = AuthoringExternalTuiLauncher.WindowsStartInfo(dotnet, home, plan, requiresInstrumentLibrary: false);
         Assert.Equal(dotnet, start.FileName);
         Assert.True(start.UseShellExecute);
         Assert.Equal(home, start.WorkingDirectory);
@@ -30,7 +30,7 @@ public sealed class AuthoringWindowsTuiLauncherTests : IDisposable
         var (home, plan) = PrepareLiteralHome();
         var dotnet = Environment.GetEnvironmentVariable("DOTNET_ROOT") is { Length: > 0 } root
             ? Path.Combine(root, OperatingSystem.IsWindows() ? "dotnet.exe" : "dotnet") : "dotnet";
-        using var child = Process.Start(AuthoringExternalTuiLauncher.WindowsStartInfo(dotnet, home, plan))!;
+        using var child = Process.Start(AuthoringExternalTuiLauncher.WindowsStartInfo(dotnet, home, plan, requiresInstrumentLibrary: false))!;
         try
         {
             var marker = plan + ".argv.json";
@@ -65,11 +65,11 @@ public sealed class AuthoringWindowsTuiLauncherTests : IDisposable
     {
         if (!OperatingSystem.IsWindows()) Assert.Skip("Requires Windows ShellExecute and console process semantics.");
         var (home, plan) = PrepareLiteralHome();
-        Assert.Null(AuthoringExternalTuiLauncher.Prerequisite(home, plan));
+        Assert.Null(AuthoringExternalTuiLauncher.Prerequisite(home, plan, requiresInstrumentLibrary: false));
         Process? owned = null;
         var launcher = new AuthoringExternalTuiLauncher { TerminalStarted = child => owned = child };
         using var cancellation = new CancellationTokenSource();
-        var launching = launcher.LaunchAsync(home, plan, cancellation.Token);
+        var launching = launcher.LaunchAsync(home, plan, requiresInstrumentLibrary: false, cancellationToken: cancellation.Token);
         try
         {
             var marker = plan + ".argv.json";

@@ -32,6 +32,20 @@ public sealed class LibraryInstrumentCatalogTests : IDisposable
         Assert.False(AuthoringInstrumentCatalog.TryGet(typeof(CatalogScope).FullName!, out _));
     }
 
+    [Fact]
+    public void Library_metadata_capture_retains_validated_bytes_after_selected_source_replacement()
+    {
+        var home = InstallActualPackage(PublishedLibraryFixture.PackageRoot);
+        var captured = AuthoringAdapterPayloadInspection.CaptureLibraryPayload(home);
+        var path = Path.Combine(home.Root, "InstrumentComponents.OpenTap.dll");
+        var original = File.ReadAllBytes(path);
+        File.WriteAllText(path, "replaced after metadata and managed identity validation");
+
+        Assert.Equal(original, captured["InstrumentComponents.OpenTap.dll"]);
+        Assert.False(AuthoringInstrumentCatalog.LibraryPayloadAvailability(home).Available);
+        Assert.Throws<IOException>(() => AuthoringAdapterPayloadInspection.CaptureLibraryPayload(home));
+    }
+
     // Exercise exact published payload bytes by default; explicit fixture overrides remain supported.
     [Fact]
     public void Actual_upstream_catalog_and_non_dmm_lifecycle_roundtrip_preserve_exact_bindings()

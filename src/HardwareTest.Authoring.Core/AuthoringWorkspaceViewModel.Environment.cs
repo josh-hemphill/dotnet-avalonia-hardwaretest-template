@@ -27,6 +27,21 @@ public sealed partial class AuthoringWorkspaceViewModel
         }
     }
 
+    public bool RequiresInstrumentLibrary => Workspace?.Manifest.Dependencies.Any(dependency =>
+        dependency.Package.Equals(AuthoringInstrumentCatalog.LibraryPackage, StringComparison.OrdinalIgnoreCase)) == true;
+    public string StandaloneVisaReadinessText
+    {
+        get
+        {
+            var inspection = HardwareInspection;
+            if (inspection.Error is not null) return $"Cannot inspect the selected standalone/TUI home: {inspection.Error}";
+            if (inspection.Home is { } home)
+                return StandaloneVisaReadiness.ExecutionPrerequisite(home, RequiresInstrumentLibrary) ?? StandaloneVisaReadiness.Assess(home).Reason!;
+            return RequiresInstrumentLibrary ? "This workspace requires InstrumentComponents.OpenTap. Select a prepared library home to assess its standalone VISA provider."
+                : "Standalone VISA is optional; mock plans do not need it. Select a prepared library home to assess its provider.";
+        }
+    }
+
     public bool CanDeclareLibraryDependency => Workspace is { IsReadOnly: false } && !OperationBusy
         && !Workspace.Manifest.Dependencies.Any(d => d.Package.Equals(AuthoringInstrumentCatalog.LibraryPackage, StringComparison.OrdinalIgnoreCase));
 
@@ -59,6 +74,8 @@ public sealed partial class AuthoringWorkspaceViewModel
     private void RaiseEnvironmentProperties()
     {
         OnPropertyChanged(nameof(LibraryEnvironmentReadinessText));
+        OnPropertyChanged(nameof(StandaloneVisaReadinessText));
+        OnPropertyChanged(nameof(RequiresInstrumentLibrary));
         OnPropertyChanged(nameof(CanDeclareLibraryDependency));
         OnPropertyChanged(nameof(InstrumentTypeChoices));
         OnPropertyChanged(nameof(EnvironmentPathError));

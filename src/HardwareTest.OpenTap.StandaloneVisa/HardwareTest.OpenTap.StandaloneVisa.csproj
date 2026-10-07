@@ -4,15 +4,14 @@
     <!-- The published Instrument Components embedded model registry uses reflection JSON.
          This execution process remains untrimmed; application persistence uses generated contexts. -->
     <JsonSerializerIsReflectionEnabledByDefault>true</JsonSerializerIsReflectionEnabledByDefault>
-    <RootNamespace>HardwareTest.OpenTap.Worker</RootNamespace>
-    <Description>Killable OpenTAP worker process for HardwareTest</Description>
+    <UseAppHost>false</UseAppHost>
+    <SelfContained>false</SelfContained>
     <CreateOpenTapPackage>false</CreateOpenTapPackage>
-    <IsAotCompatible>false</IsAotCompatible>
+    <StandaloneVisaArchive>$(MSBuildProjectDirectory)/obj/$(Configuration)/$(TargetFramework)/$(RuntimeIdentifier)/HardwareTest.Standalone.VISA.0.1.0.TapPackage</StandaloneVisaArchive>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="..\HardwareTest.OpenTap.Host\HardwareTest.OpenTap.Host.csproj" />
+    <PackageReference Include="InstrumentComponents.OpenTap.Visa" PrivateAssets="all" />
+    <PackageReference Include="OpenTAP" PrivateAssets="all" />
   </ItemGroup>
-  <ItemGroup>
-    <PackageReference Include="StreamJsonRpc" />
-  </ItemGroup>
+  <Import Project="StandaloneVisaPackage.targets" />
 </Project>

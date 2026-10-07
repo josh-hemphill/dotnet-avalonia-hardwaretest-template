@@ -6,13 +6,14 @@ namespace HardwareTest.Authoring;
 public sealed class AuthoringExternalTuiLauncher
 {
     internal Action<Process>? TerminalStarted { get; init; }
-    public static string? Prerequisite(string home, string? plan)
+    public static string? Prerequisite(string home, string? plan, bool requiresInstrumentLibrary)
     {
         try
         {
             if (!OperatingSystem.IsLinux() && !OperatingSystem.IsWindows()) return "Launch the installed TUI from a terminal on this platform, then reopen or reconcile external changes.";
             if (plan is null || !File.Exists(plan)) return "Save and compile the selected plan first.";
             if (!File.Exists(Path.Combine(home, "tap.dll"))) return "The selected OpenTAP home has no tap.dll CLI. Prepare an installed TUI home.";
+            if (StandaloneVisaReadiness.ExecutionPrerequisite(new(home), requiresInstrumentLibrary) is { } unavailable) return unavailable;
             if (!Directory.EnumerateFiles(home, "*Tui*.dll", SearchOption.AllDirectories).Any()) return "Install the OpenTAP TUI package into the selected home first.";
             if (OperatingSystem.IsLinux() && LinuxTerminal() is null) return "Install xfce4-terminal or xterm to open the interactive TUI with child-lifetime waiting.";
             return null;
@@ -30,24 +31,24 @@ public sealed class AuthoringExternalTuiLauncher
         return null;
     }
 
-    internal static ProcessStartInfo WindowsStartInfo(string executable, string home, string plan)
+    internal static ProcessStartInfo WindowsStartInfo(string executable, string home, string plan, bool requiresInstrumentLibrary)
     {
         // ShellExecute the console executable itself: argv uses Windows process quoting,
         // with no cmd parser to expand percent names or interpret ampersands in paths.
         var start = new ProcessStartInfo(executable) { WorkingDirectory = home, UseShellExecute = true };
-        AddCliArguments(start, home, plan);
+        AddCliArguments(start, home, plan, requiresInstrumentLibrary);
         return start;
     }
 
-    private static void AddCliArguments(ProcessStartInfo start, string home, string plan)
+    private static void AddCliArguments(ProcessStartInfo start, string home, string plan, bool requiresInstrumentLibrary)
     {
         start.ArgumentList.Add("--roll-forward"); start.ArgumentList.Add("Major");
-        start.ArgumentList.Add(Path.Combine(home, "tap.dll")); start.ArgumentList.Add("tui"); start.ArgumentList.Add(plan);
+        start.ArgumentList.Add(Path.Combine(home, requiresInstrumentLibrary || StandaloneVisaReadiness.RequiresStandaloneReadiness(new(home)) ? HardwareTest.OpenTap.Host.StandaloneVisaPackage.WrapperFileName : "tap.dll")); start.ArgumentList.Add("tui"); start.ArgumentList.Add(plan);
     }
 
-    public async Task<int> LaunchAsync(string home, string plan, CancellationToken cancellationToken = default)
+    public async Task<int> LaunchAsync(string home, string plan, bool requiresInstrumentLibrary, CancellationToken cancellationToken = default)
     {
-        if (Prerequisite(home, plan) is { } reason) throw new AuthoringWorkspaceException(reason);
+        if (Prerequisite(home, plan, requiresInstrumentLibrary) is { } reason) throw new AuthoringWorkspaceException(reason);
         var dotnet = Environment.GetEnvironmentVariable("DOTNET_ROOT") is { Length: > 0 } root
             ? Path.Combine(root, OperatingSystem.IsWindows() ? "dotnet.exe" : "dotnet") : "dotnet";
         var start = new ProcessStartInfo { WorkingDirectory = home, UseShellExecute = false };
@@ -60,10 +61,10 @@ public sealed class AuthoringExternalTuiLauncher
         }
         else if (OperatingSystem.IsWindows())
         {
-            start = WindowsStartInfo(dotnet, home, plan);
+            start = WindowsStartInfo(dotnet, home, plan, requiresInstrumentLibrary);
         }
         else throw new PlatformNotSupportedException("Launch the installed TUI from a terminal on this platform, then refresh external changes.");
-        if (!OperatingSystem.IsWindows()) AddCliArguments(start, home, plan);
+        if (!OperatingSystem.IsWindows()) AddCliArguments(start, home, plan, requiresInstrumentLibrary);
         using var process = Process.Start(start) ?? throw new IOException("Could not start the external TUI terminal.");
         try
         {

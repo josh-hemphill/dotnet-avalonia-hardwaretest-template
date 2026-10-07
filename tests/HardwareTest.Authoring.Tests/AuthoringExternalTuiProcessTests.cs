@@ -131,9 +131,9 @@ public sealed class AuthoringExternalTuiProcessTests : IDisposable
         compiler.Save(draft with { PlanId = "production-lifetime", Setup = [new OperatorPromptSetup("Production terminal lifetime sentinel", "Never execute this probe")] }, plan);
         Process? terminal = null;
         var launcher = new AuthoringExternalTuiLauncher { TerminalStarted = process => terminal = process };
-        Assert.Null(AuthoringExternalTuiLauncher.Prerequisite(home, plan));
+        Assert.Null(AuthoringExternalTuiLauncher.Prerequisite(home, plan, requiresInstrumentLibrary: false));
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-        var launch = launcher.LaunchAsync(home, plan, timeout.Token);
+        var launch = launcher.LaunchAsync(home, plan, requiresInstrumentLibrary: false, cancellationToken: timeout.Token);
         Process? child = null;
         try
         {

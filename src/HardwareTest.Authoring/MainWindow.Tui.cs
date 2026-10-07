@@ -10,7 +10,7 @@ public partial class MainWindow
         if (_tuiInFlight) return "The external TUI is already open.";
         if (WorkspaceBlocker() is { } workspace) return workspace;
         if (_viewModel.CompiledConflictProgramIds.Count > 0 || _viewModel.HasUncompiledSources) return "Reconcile external edits and compile the saved source before opening the TUI. Unsaved drafts will remain in the editor.";
-        return AuthoringExternalTuiLauncher.Prerequisite(_viewModel.AuthoringHomeText, SelectedTuiPlan);
+        return AuthoringExternalTuiLauncher.Prerequisite(_viewModel.AuthoringHomeText, SelectedTuiPlan, _viewModel.RequiresInstrumentLibrary);
     }
     public async Task RefreshAfterExternalTuiAsync(Func<Task> externalProcess)
     {
@@ -26,12 +26,14 @@ public partial class MainWindow
     {
         var current = OwnerContext();
         var plan = SelectedTuiPlan ?? throw new AuthoringWorkspaceException("Select a compiled plan.");
+        var home = _viewModel.AuthoringHomeText;
+        var requiresInstrumentLibrary = _viewModel.RequiresInstrumentLibrary;
         _tuiInFlight = true;
         try
         {
             await RefreshAfterExternalTuiAsync(async () =>
             {
-                var exit = await new AuthoringExternalTuiLauncher().LaunchAsync(_viewModel.AuthoringHomeText, plan);
+                var exit = await new AuthoringExternalTuiLauncher().LaunchAsync(home, plan, requiresInstrumentLibrary);
                 if (exit != 0 && current()) _viewModel.ReportError($"External TUI exited with code {exit}; inspect its terminal output.");
             });
         }

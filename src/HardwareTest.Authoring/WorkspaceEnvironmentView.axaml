@@ -9,6 +9,7 @@
           <TextBlock Text="{Binding AuthoringHomeText}" TextWrapping="Wrap" AutomationProperties.Name="Selected authoring home"/>
           <TextBlock Text="{Binding EnvironmentRecoveryText}" TextWrapping="Wrap"/>
           <TextBlock Text="{Binding LibraryEnvironmentReadinessText}" TextWrapping="Wrap" AutomationProperties.Name="Instrument Components readiness"/>
+          <TextBlock Text="{Binding StandaloneVisaReadinessText}" TextWrapping="Wrap" AutomationProperties.Name="Standalone VISA readiness"/>
         </StackPanel>
       </Border>
       <Border Classes="surface taskSection">

@@ -27,6 +27,8 @@ public sealed class AuthoringImportBoundaryTests : IDisposable
             Assert.True(AuthoringEnvironmentAssessment.Packages(workspace.Manifest, home).Single(p => p.Package == name).Satisfied);
             if (name == "First")
             {
+                Assert.False(StandaloneVisaReadiness.RequiresStandaloneReadiness(home));
+                Assert.False(File.Exists(Path.Combine(home.Root, HardwareTest.OpenTap.Host.StandaloneVisaPackage.WrapperFileName)));
                 Assert.False(AuthoringEnvironmentAssessment.Packages(workspace.Manifest, home).Single(p => p.Package == OpenTapHomeBootstrapper.InstrumentComponentsPackageName).Satisfied);
                 var before = Snapshot(home.Root);
                 workspace.Manifest.InstrumentComponentsPackage = "missing.TapPackage";
@@ -38,6 +40,7 @@ public sealed class AuthoringImportBoundaryTests : IDisposable
             }
         }
         Assert.All(AuthoringEnvironmentAssessment.Packages(workspace.Manifest, home).Where(p => !p.Optional), p => Assert.True(p.Satisfied));
+        Assert.True(StandaloneVisaReadiness.Assess(home).Available);
     }
 
     [Theory]

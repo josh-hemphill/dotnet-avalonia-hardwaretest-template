@@ -9,6 +9,7 @@ import {
 } from "./lib/paths.ts";
 import { defaultRid, isNativeRid } from "./lib/rid.ts";
 import { run, runCapture } from "./lib/run.ts";
+import { verifyStandaloneVisaArtifacts } from "./lib/standalone_visa.ts";
 import {
   consumerOutputs,
   verifyPublishedRelease,
@@ -151,6 +152,16 @@ async function build(opts: Options): Promise<void> {
 }
 
 async function testHost(opts: Options): Promise<void> {
+  await run([
+    "dotnet",
+    "test",
+    "tests/HardwareTest.StandaloneVisa.Tests/HardwareTest.StandaloneVisa.Tests.csproj",
+    "-c",
+    opts.configuration,
+    "-r",
+    opts.rid,
+    "--no-build",
+  ], { cwd: opts.root });
   await run([
     "dotnet",
     "test",
@@ -547,6 +558,7 @@ async function verify(opts: Options): Promise<void> {
   }
   await verifyAuthoring(opts);
   await verifyPublishedRelease(opts);
+  await verifyStandaloneVisaArtifacts(opts);
 }
 
 async function all(opts: Options): Promise<void> {
