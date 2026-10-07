@@ -247,6 +247,7 @@ public partial class MainWindow : Window
         _settings = new SettingsWindow
         {
             DataContext = _viewModel,
+            FontSize = FontSize,
         };
         _settings.Closed += (_, _) => _settings = null;
         _settings.Show(this);

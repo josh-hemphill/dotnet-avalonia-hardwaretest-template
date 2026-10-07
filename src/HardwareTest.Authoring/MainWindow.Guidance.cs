@@ -134,7 +134,7 @@ public partial class MainWindow
         _guidedSession = _viewModel.WorkspaceSessionId;
         CommitFocusedEditor();
         var current = OwnerContext();
-        var dialog = new PlanInitializationWindow(_viewModel, guided: true, retained: _guidedForm, ownerIsCurrent: current);
+        var dialog = new PlanInitializationWindow(_viewModel, guided: true, retained: _guidedForm, ownerIsCurrent: current) { FontSize = FontSize };
         _initialization = dialog;
         try
         {

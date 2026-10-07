@@ -33,7 +33,7 @@ public sealed class WorkspaceCreationWindow : Window
 
     public WorkspaceCreationWindow(MainWindow owner)
     {
-        Title = "Create workspace from template"; Width = 680; Height = 680; MinWidth = 400;
+        Title = "Create workspace from template"; Width = 680; Height = 680; MinWidth = 400; MinHeight = 460;
         FontSize = owner.FontSize; WindowStartupLocation = WindowStartupLocation.CenterOwner;
         Closing += (_, _) => _lifetime.Cancel();
         Closed += (_, _) => _lifetime.Dispose();
@@ -85,19 +85,25 @@ public sealed class WorkspaceCreationWindow : Window
         };
         var cancel = Named(new Button { Content = "Cancel", IsCancel = true }, "Cancel workspace creation");
         cancel.Click += (_, _) => Close(false);
-        var form = new StackPanel { Spacing = 10 };
-        foreach (var control in new Control[]
-        {
-            Label("Destination (new folder, or a folder without any generated paths)", _destination), browse,
-            Label("Workspace display name", _name), Label("Package name", _package),
-            Label("Package version", _version), Label("Package platforms (comma separated)", _platforms),
-            Label("Template", _template), Label("Initial plan ID (task templates)", _plan),
-            Label("Device family (task templates)", _family), _serial, _tui, _visa, _continue, review, _review, _error
-        }) form.Children.Add(control);
-        var layout = new Grid { RowDefinitions = new RowDefinitions("*,Auto"), Margin = new Thickness(16) };
-        layout.Children.Add(new ScrollViewer { Content = form, HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled });
-        var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12, Margin = new Thickness(0, 12, 0, 0), Children = { cancel, _create } };
-        Grid.SetRow(buttons, 1); layout.Children.Add(buttons); Content = layout;
+        _error.Bind(TextBlock.ForegroundProperty, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("AuthoringError"));
+        _create.Classes.Add("authoringAction"); _create.Classes.Add("primaryAction");
+        review.Classes.Add("authoringAction"); browse.Classes.Add("authoringAction"); cancel.Classes.Add("authoringAction");
+        _visa.Content = new TextBlock { Text = "Include Instrument Components package for physical hardware", TextWrapping = TextWrapping.Wrap };
+        _continue.Content = new TextBlock { Text = "Continue to New test plan after creation", TextWrapping = TextWrapping.Wrap };
+        var form = new StackPanel { Spacing = 16 };
+        form.Children.Add(AuthoringFormLayout.Section("Workspace location and identity",
+            Label("Destination (new folder, or a folder without generated paths)", _destination), browse, Label("Workspace display name", _name)));
+        form.Children.Add(AuthoringFormLayout.Section("Deployment package",
+            Label("Package name", _package), Label("Package version", _version), Label("Package platforms (comma separated)", _platforms)));
+        form.Children.Add(AuthoringFormLayout.Section("Starting task and hardware",
+            Label("Template", _template), Label("Initial plan ID (task templates)", _plan), Label("Device family (task templates)", _family), _serial, _visa));
+        form.Children.Add(AuthoringFormLayout.Section("Optional outputs and next step", _tui, _continue));
+        form.Children.Add(AuthoringFormLayout.Section("Review generated files and requirements", review, _review));
+        var decisions = new WrapPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
+        foreach (var button in new[] { cancel, _create }) { button.Margin = new Thickness(4); decisions.Children.Add(button); }
+        var footer = new StackPanel { Spacing = 8, Children = { new ScrollViewer { Content = _error, MaxHeight = 80 }, decisions } };
+        Content = AuthoringFormLayout.Frame("Create workspace", "Choose a destination and template, then review exactly what will be created.", form, footer);
+
     }
 
     private WorkspaceCreationRequest Request() => new(_destination.Text ?? "", _name.Text ?? "", _package.Text ?? "")

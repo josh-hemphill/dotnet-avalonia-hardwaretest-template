@@ -55,12 +55,13 @@ public sealed partial class PlanInitializationWindow
     private void ShowHardware()
     {
         var choice = SelectedHardware;
+        SuggestSlot(choice);
         var library = choice?.Adapter is { } selectedAdapter && AuthoringInstrumentCatalog.IsLibrary(selectedAdapter.TypeId);
         if (library && choice?.Resource is null && _automaticDemoAddress) { _address.Text = ""; _automaticDemoAddress = false; }
         _address.PlaceholderText = library ? "For example TCPIP0::192.0.2.1::inst0::INSTR" : "Instrument resource address";
         var resources = SelectedResources();
         if (choice?.Resource is { } reused) { _address.Text = reused.VisaAddress; _timeout.Text = reused.Settings.GetValueOrDefault("IoTimeoutMilliseconds") ?? "5000"; }
-        if (_guided) Title = library ? "First test plan — library lifecycle" : "First voltage test";
+        if (_guided) Title = library ? "First test plan — library lifecycle" : "First test plan";
         _measurement.Content = new TextBlock { Text = library ? "Voltage measurement unavailable for this device — turn off to save a hardware scaffold" : "Include first measurement", TextWrapping = Avalonia.Media.TextWrapping.Wrap };
         _criterion.Content = new TextBlock { Text = library ? "Average-voltage criterion unavailable for this device" : _guided ? "Pass when average voltage reaches the threshold" : "Mean greater than or equal criterion", TextWrapping = Avalonia.Media.TextWrapping.Wrap };
         _address.IsReadOnly = choice?.Resource is not null;

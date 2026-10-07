@@ -112,13 +112,13 @@ public sealed class AuthoringGuidedRecoveryTests
         if (empty)
         {
             var guided = Assert.IsType<PlanInitializationWindow>(Assert.Single(window.OwnedWindows));
-            Assert.Equal("First voltage test", guided.Title); Assert.False(fixture.Control<Button>("Skip optional guidance", guided).IsEnabled);
+            Assert.Equal("First test plan", guided.Title); Assert.False(fixture.Control<Button>("Skip optional guidance", guided).IsEnabled);
             AuthoringUiFixture.Click(fixture.Control<Button>("Leave guidance", guided));
         }
         else
         {
             Assert.True(window.FindControl<Border>("GuidanceHost")!.IsVisible);
-            var guided = Start(fixture); Assert.Equal("First voltage test", guided.Title);
+            var guided = Start(fixture); Assert.Equal("First test plan", guided.Title);
             AuthoringUiFixture.Click(fixture.Control<Button>("Leave guidance", guided));
         }
         Assert.True(fixture.Preferences.IsReadOnly); Assert.True(fixture.ViewModel.SkipGuidance);

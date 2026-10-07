@@ -13,6 +13,9 @@ public partial class WorkspacePreviewView : UserControl
     private readonly WrapPanel _sourceActions;
     private readonly StackPanel _recordingRows;
     private readonly OperatorPreviewPane _boardPane;
+    private readonly Border _sourceFrame;
+    private readonly Grid _boardRegion;
+    private readonly TextBlock _boardHeading;
     public WorkspacePreviewView() : this(new AuthoringRecordingPicker()) { }
     public WorkspacePreviewView(IAuthoringRecordingPicker recordingPicker, Func<TopLevel, DirectoryInfo, Task<bool>>? launchRecordingFolder = null)
     {
@@ -24,6 +27,9 @@ public partial class WorkspacePreviewView : UserControl
         _sourceActions = this.FindControl<WrapPanel>("SourceActions")!;
         _recordingRows = this.FindControl<StackPanel>("RecordingRows")!;
         _boardPane = this.FindControl<OperatorPreviewPane>("BoardPane")!;
+        _sourceFrame = this.FindControl<Border>("SourceFrame")!;
+        _boardRegion = this.FindControl<Grid>("BoardRegion")!;
+        _boardHeading = this.FindControl<TextBlock>("BoardHeading")!;
         LayoutUpdated += ConstrainSourceViewport;
         _boardPane.AddHandler(Control.RequestBringIntoViewEvent, (_, e) =>
         {
@@ -39,10 +45,11 @@ public partial class WorkspacePreviewView : UserControl
         // Smaller busy layouts can scroll the frame without shrinking the board's own viewport.
         const double boardMinimum = 180;
         const double rowGaps = 16;
-        var actionsHeight = Math.Max(_sourceActions.Bounds.Height, _sourceActions.DesiredSize.Height);
+        var actionsHeight = Math.Max(_sourceActions.Bounds.Height, _sourceActions.DesiredSize.Height) + _sourceFrame.Padding.Top + _sourceFrame.Padding.Bottom;
+        var boardRegionMinimum = boardMinimum + Math.Max(_boardHeading.Bounds.Height, _boardHeading.DesiredSize.Height) + _boardRegion.RowSpacing;
         var recordingsHeight = Math.Max(_recordingRows.Bounds.Height, _recordingRows.DesiredSize.Height);
-        var contentHeight = Math.Max(Bounds.Height, actionsHeight + recordingsHeight + boardMinimum + rowGaps);
-        var sourceMaximum = Math.Max(actionsHeight, contentHeight - recordingsHeight - boardMinimum - rowGaps);
+        var contentHeight = Math.Max(Bounds.Height, actionsHeight + recordingsHeight + boardRegionMinimum + rowGaps);
+        var sourceMaximum = Math.Max(actionsHeight, contentHeight - recordingsHeight - boardRegionMinimum - rowGaps);
         if (!double.IsFinite(_previewLayout.Height) || Math.Abs(_previewLayout.Height - contentHeight) > 0.5) _previewLayout.Height = contentHeight;
         if (Math.Abs(_boardPane.MinHeight - boardMinimum) > 0.5) _boardPane.MinHeight = boardMinimum;
         if (Math.Abs(_sourceDetailsViewport.MaxHeight - sourceMaximum) > 0.5) _sourceDetailsViewport.MaxHeight = sourceMaximum;

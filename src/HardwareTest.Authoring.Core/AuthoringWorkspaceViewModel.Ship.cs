@@ -96,6 +96,8 @@ public sealed partial class AuthoringWorkspaceViewModel
         OnPropertyChanged(nameof(LastShippedBakeTimeFiles));
         OnPropertyChanged(nameof(OpenTapPinText));
         OnPropertyChanged(nameof(AuthoringHomeText));
+        OnPropertyChanged(nameof(EditingIssues));
+        OnPropertyChanged(nameof(IssuesSummary));
     }
 
     internal void RaiseRawStepProperties()
