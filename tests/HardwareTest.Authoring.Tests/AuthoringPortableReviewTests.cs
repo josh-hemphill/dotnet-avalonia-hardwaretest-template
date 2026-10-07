@@ -104,7 +104,7 @@ public sealed class AuthoringPortableReviewTests : IDisposable
         var plan = Path.Combine(root, "safe.TapPlan"); File.WriteAllText(plan, "fixture");
         var blocked = Path.Combine(root, "unreadable"); Directory.CreateDirectory(blocked);
         File.SetUnixFileMode(blocked, UnixFileMode.None);
-        try { Assert.Contains("Cannot inspect", AuthoringExternalTuiLauncher.Prerequisite(root, plan)); }
+        try { Assert.Contains("Cannot inspect", AuthoringExternalTuiLauncher.Prerequisite(root, plan, requiresInstrumentLibrary: false)); }
         finally { File.SetUnixFileMode(blocked, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute); }
     }
 }

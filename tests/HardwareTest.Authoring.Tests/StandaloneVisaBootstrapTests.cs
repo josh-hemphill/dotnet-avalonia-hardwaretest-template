@@ -266,6 +266,49 @@ public sealed class StandaloneVisaBootstrapTests : IDisposable
         AssertSnapshot(before, home);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Missing_only_runtime_repair_preserves_valid_present_payloads_with_optional_or_updated_hash(bool updateHash)
+    {
+        var workspace = Workspace();
+        workspace.Manifest.SchemaVersion = 2;
+        var home = Prepare(workspace);
+        const string customRelative = "Packages/OpenTAP/OpenTap.Plugins.BasicSteps.dll";
+        const string missingRelative = "Dependencies/Newtonsoft.Json.13.0.0.0/Newtonsoft.Json.dll";
+        var custom = Path.Combine(home.Root, customRelative.Replace('/', Path.DirectorySeparatorChar));
+        var missing = Path.Combine(home.Root, missingRelative.Replace('/', Path.DirectorySeparatorChar));
+        var expectedMissing = File.ReadAllBytes(missing);
+        var missingKey = Path.GetRelativePath(home.Root, missing);
+        var customBytes = File.ReadAllBytes(custom).Concat(new byte[] { 0 }).ToArray();
+        File.WriteAllBytes(custom, customBytes);
+        var metadata = Path.Combine(home.Root, "Packages", "OpenTAP", "package.xml");
+        var xml = System.Xml.Linq.XDocument.Load(metadata);
+        var declaration = xml.Descendants().Single(element => element.Name.LocalName == "File" && (string?)element.Attribute("Path") == customRelative);
+        foreach (var hash in declaration.Elements().Where(element => element.Name.LocalName == "Hash").ToArray()) hash.Remove();
+        if (updateHash) declaration.Add(new System.Xml.Linq.XElement(declaration.Name.Namespace + "Hash",
+            Convert.ToHexString(System.Security.Cryptography.SHA1.HashData(customBytes))));
+        xml.Save(metadata);
+        Assert.Null(StandaloneVisaReadiness.OpenTapRuntimeIssue(home));
+
+        foreach (var owned in new[] { true, false })
+        {
+            File.Delete(missing);
+            var before = Snapshot(home);
+            var bootstrap = new OpenTapHomeBootstrapper();
+            var options = new BootstrapOptions { HomeDirectory = home.Root, Offline = true };
+            if (owned) bootstrap.BootstrapOwned(workspace, options);
+            else bootstrap.Bootstrap(workspace, options);
+
+            var after = Snapshot(home);
+            Assert.Equal(before.Keys.Append(missingKey).Order(), after.Keys.Order());
+            foreach (var file in before) Assert.Equal(file.Value, after[file.Key]);
+            Assert.Equal(expectedMissing, after[missingKey]);
+            Assert.Null(StandaloneVisaReadiness.OpenTapRuntimeIssue(home));
+            Assert.True(StandaloneVisaReadiness.Assess(home).Available);
+        }
+    }
+
     private static Dictionary<string, byte[]> Snapshot(OpenTapHome home) => Directory.GetFiles(home.Root, "*", SearchOption.AllDirectories)
         .ToDictionary(path => Path.GetRelativePath(home.Root, path), File.ReadAllBytes);
     private static void AssertSnapshot(Dictionary<string, byte[]> before, OpenTapHome home)

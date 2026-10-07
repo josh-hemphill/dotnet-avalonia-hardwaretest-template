@@ -494,17 +494,19 @@ public sealed partial class StandaloneBoundaryTests : IDisposable
         Assert.Contains("requires current 0.1.1 library assemblies", result.Output);
     }
 
-    [Fact]
-    public void Launcher_selects_wrapper_for_library_home_and_retains_literal_arguments()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Launcher_selects_wrapper_for_library_home_and_retains_literal_arguments(bool declaredLibrary)
     {
         var home = InstalledHome();
         var plan = Path.Combine(_root, "R&D %PATH% plan.TapPlan");
         File.WriteAllText(plan, "fixture");
-        var start = AuthoringExternalTuiLauncher.WindowsStartInfo("dotnet", home, plan);
+        var start = AuthoringExternalTuiLauncher.WindowsStartInfo("dotnet", home, plan, requiresInstrumentLibrary: declaredLibrary);
         Assert.True(start.UseShellExecute);
         Assert.Equal(["--roll-forward", "Major", Path.Combine(home, StandaloneVisaPackage.WrapperFileName), "tui", plan], start.ArgumentList);
         File.Delete(Path.Combine(home, "InstrumentComponents.OpenTap.Visa.dll"));
-        Assert.Contains("counterpart", AuthoringExternalTuiLauncher.Prerequisite(home, plan));
+        Assert.Contains("counterpart", AuthoringExternalTuiLauncher.Prerequisite(home, plan, requiresInstrumentLibrary: declaredLibrary));
     }
 
     private string InstalledHome(bool minimal = false)

@@ -172,7 +172,6 @@ public sealed class OpenTapHomeBootstrapper : IOpenTapHomeBootstrapper
             .Where(element => element.Name.LocalName == "File")
             .ToDictionary(element => ((string)element.Attribute("Path")!).Replace('\\', '/'), StringComparer.OrdinalIgnoreCase);
         var installedMetadata = Path.Combine(homeRoot, "Packages", "OpenTAP", "package.xml");
-        var preserveMetadata = File.Exists(installedMetadata);
         if (File.Exists(installedMetadata))
         {
             if (!TryReadPackageIdentity(installedMetadata, out var installedName, out var installedVersion)
@@ -193,42 +192,41 @@ public sealed class OpenTapHomeBootstrapper : IOpenTapHomeBootstrapper
             }
         }
 
-        foreach (var file in OpenTapRuntimeFiles)
+        var runtimeFiles = new HashSet<string>(OpenTapRuntimeFiles, StringComparer.OrdinalIgnoreCase);
+        runtimeFiles.UnionWith(bundledDeclarations.Keys);
+        runtimeFiles.Add(OperatingSystem.IsWindows() ? "tap.exe" : "tap");
+        AddDirectory("Dependencies");
+        AddDirectory("Packages/OpenTAP");
+        var missingFiles = runtimeFiles.Where(relative => !File.Exists(Destination(relative))).ToArray();
+        foreach (var relative in missingFiles)
         {
-            CopyIfExists(Path.Combine(sourceDir, file), Path.Combine(homeRoot, file));
-        }
-
-        foreach (var relative in bundledDeclarations.Keys)
-        {
-            if (preserveMetadata && relative.Equals("Packages/OpenTAP/package.xml", StringComparison.OrdinalIgnoreCase)) continue;
-            var path = relative.Replace('/', Path.DirectorySeparatorChar);
-            CopyIfExists(Path.Combine(sourceDir, path), Path.Combine(homeRoot, path));
-        }
-
-        var tapExe = Path.Combine(sourceDir, OperatingSystem.IsWindows() ? "tap.exe" : "tap");
-        CopyIfExists(tapExe, Path.Combine(homeRoot, Path.GetFileName(tapExe)));
-
-        var deps = Path.Combine(sourceDir, "Dependencies");
-        if (Directory.Exists(deps))
-        {
-            CopyDirectory(deps, Path.Combine(homeRoot, "Dependencies"));
-        }
-
-        var openTapPack = Path.Combine(sourceDir, "Packages", "OpenTAP");
-        if (Directory.Exists(openTapPack))
-        {
-            var destination = Path.Combine(homeRoot, "Packages", "OpenTAP");
-            Directory.CreateDirectory(destination);
-            foreach (var file in Directory.EnumerateFiles(openTapPack))
+            var destination = Destination(relative);
+            AuthoringBuildService.EnsureContained(homeRoot, AuthoringBuildService.ResolvedPath(destination, directory: false));
+            for (var parent = Path.GetDirectoryName(destination); parent is not null; parent = Path.GetDirectoryName(parent))
             {
-                if (preserveMetadata && Path.GetFileName(file).Equals("package.xml", StringComparison.OrdinalIgnoreCase)) continue;
-                CopyIfExists(file, Path.Combine(destination, Path.GetFileName(file)));
+                if (File.Exists(parent)) throw new AuthoringWorkspaceException($"OpenTAP runtime destination '{relative}' has a file in its directory path; preparation preserved the selected home.");
+                if (Path.GetRelativePath(homeRoot, parent) == ".") break;
             }
-            foreach (var child in Directory.EnumerateDirectories(openTapPack))
-                CopyDirectory(child, Path.Combine(destination, Path.GetFileName(child)));
+            if (Directory.Exists(destination) || !AuthoringEnvironmentAssessment.RuntimeFileAvailable(new(sourceDir), relative))
+                throw new AuthoringWorkspaceException($"OpenTAP runtime payload '{relative}' cannot be safely repaired; preparation preserved the selected home.");
+        }
+        foreach (var relative in missingFiles)
+        {
+            var destination = Destination(relative);
+            Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+            File.Copy(Path.Combine(sourceDir, relative.Replace('/', Path.DirectorySeparatorChar)), destination, overwrite: false);
         }
         if (StandaloneVisaReadiness.OpenTapRuntimeIssue(new(homeRoot)) is { } repairedIssue)
             throw new AuthoringWorkspaceException("The bundled OpenTAP runtime could not completely repair the selected home; preparation preserved the selected home. " + repairedIssue);
+
+        string Destination(string relative) => Path.Combine(homeRoot, relative.Replace('/', Path.DirectorySeparatorChar));
+        void AddDirectory(string relative)
+        {
+            var source = Path.Combine(sourceDir, relative.Replace('/', Path.DirectorySeparatorChar));
+            if (!Directory.Exists(source)) return;
+            foreach (var file in Directory.EnumerateFiles(source, "*", SearchOption.AllDirectories))
+                runtimeFiles.Add(Path.GetRelativePath(sourceDir, file).Replace('\\', '/'));
+        }
     }
 
     private static void InstallInTreePack(string homeRoot, string packageName, Type marker)

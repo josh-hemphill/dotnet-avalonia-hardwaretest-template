@@ -19,6 +19,14 @@ public static class StandaloneVisaReadiness
             .Any(file => File.Exists(Path.Combine(home.Root, file)))
         || HasPackageDirectoryLibraryPayload(home);
 
+    internal static string? ExecutionPrerequisite(OpenTapHome home, bool requiresInstrumentLibrary)
+    {
+        var selectedLibrary = IsLibraryHome(home);
+        if (requiresInstrumentLibrary && !selectedLibrary)
+            return "This workspace requires InstrumentComponents.OpenTap, but the selected home has no installed library. Prepare or import the library and standalone VISA counterpart before opening the TUI.";
+        return selectedLibrary && Assess(home) is { Available: false } unavailable ? unavailable.Reason : null;
+    }
+
     private static bool HasPackageDirectoryLibraryPayload(OpenTapHome home)
     {
         var packages = Path.Combine(home.Root, "Packages");
