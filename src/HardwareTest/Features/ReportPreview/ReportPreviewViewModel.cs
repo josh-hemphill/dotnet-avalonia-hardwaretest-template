@@ -39,6 +39,7 @@ public partial class ReportPreviewViewModel : ReactiveObject
     private enum ActionKind { Sign, Save, Print, Open }
     private sealed record PendingAction(TestRunRecord Run, string Kind, ActionKind Action, long Version);
     private sealed record LoadedSelection(long Version, CancellationToken Token);
+    private sealed record SigningOperation(PendingAction Pending, CancellationToken Token, string? Pin, OperatorCredential? Credential);
 
 
     /// Test seam: routes UI work synchronously instead of through the Avalonia dispatcher.
@@ -419,33 +420,45 @@ public partial class ReportPreviewViewModel : ReactiveObject
 
     private async Task CompleteSigningCoreAsync(bool presence)
     {
-        var pending = _pending;
-        var cancellation = _signingCancellation;
-        if (pending is null || cancellation is null || _attestation is null || pending.Version != _selectionVersion) return;
+        if (_attestation is null) return;
+        SigningOperation? operation = null;
+        await RunOnUiAsync(() =>
+        {
+            lock (_selectionLock)
+            {
+                var pendingAction = _pending;
+                var cancellation = _signingCancellation;
+                if (pendingAction is null || cancellation is null || pendingAction.Version != _selectionVersion
+                    || cancellation.IsCancellationRequested) return;
+                operation = new SigningOperation(pendingAction, cancellation.Token,
+                    ShowSigningPin ? SigningPin : null, _capturedCredential);
+            }
+        }).ConfigureAwait(false);
+        if (operation is null) return;
+        var pending = operation.Pending;
+        var token = operation.Token;
         using var capture = ReportCaptureGate.TryEnter(_attestation);
         if (capture is null)
         {
             await RunOnUiAsync(() =>
             {
-                if (!ReferenceEquals(_pending, pending) || pending.Version != _selectionVersion || cancellation.IsCancellationRequested) return;
+                if (!ReferenceEquals(_pending, pending) || pending.Version != _selectionVersion || token.IsCancellationRequested) return;
                 SigningPromptStatus = ReportCaptureGate.WaitingMessage;
                 Status = SigningPromptStatus;
             }).ConfigureAwait(false);
             return;
         }
-        var pin = ShowSigningPin ? SigningPin : null;
-        var credential = _capturedCredential;
         var effectVersion = pending.Version;
         try
         {
-            var result = await Task.Run(() => _attestation.AttestAsync(pending.Run, pending.Kind, credential,
-                pin, presence, cancellation.Token), cancellation.Token).ConfigureAwait(false);
-            if (!ReferenceEquals(_pending, pending) || pending.Version != _selectionVersion || cancellation.IsCancellationRequested) return;
+            var result = await Task.Run(() => _attestation.AttestAsync(pending.Run, pending.Kind, operation.Credential,
+                operation.Pin, presence, token), token).ConfigureAwait(false);
+            if (!ReferenceEquals(_pending, pending) || pending.Version != _selectionVersion || token.IsCancellationRequested) return;
             if (!result.Succeeded)
             {
                 await RunOnUiAsync(() =>
                 {
-                    if (!ReferenceEquals(_pending, pending) || pending.Version != _selectionVersion || cancellation.IsCancellationRequested) return;
+                    if (!ReferenceEquals(_pending, pending) || pending.Version != _selectionVersion || token.IsCancellationRequested) return;
                     SigningPromptStatus = result.Message;
                     Status = result.Message;
                     if (result.PinRequired) { _capturedCredential = result.Credential; ShowSigningPin = true; }
@@ -459,7 +472,11 @@ public partial class ReportPreviewViewModel : ReactiveObject
                 : null;
             if (revision is null) throw new InvalidOperationException("Signing did not commit a report revision.");
             // Consume the pending action before previewing or invoking any external operation.
-            _pending = null;
+            lock (_selectionLock)
+            {
+                if (!ReferenceEquals(_pending, pending) || pending.Version != _selectionVersion || token.IsCancellationRequested) return;
+                _pending = null;
+            }
             var selection = await LoadFromPathCoreAsync(revision.PdfPath, pending.Version).ConfigureAwait(false);
             if (selection is null) return;
             effectVersion = selection.Version;
@@ -471,7 +488,7 @@ public partial class ReportPreviewViewModel : ReactiveObject
         {
             await RunOnUiAsync(() =>
             {
-                if (effectVersion == _selectionVersion && (effectVersion != pending.Version || !cancellation.IsCancellationRequested))
+                if (effectVersion == _selectionVersion && (effectVersion != pending.Version || !token.IsCancellationRequested))
                     Status = "Signing failed: " + ex.Message;
             }).ConfigureAwait(false);
         }
