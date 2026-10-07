@@ -129,9 +129,22 @@ async function verifyRelocatedConsumer(opts: ArtifactOptions): Promise<void> {
     consumer.name === "authoring"
   );
   if (!authoring) throw new Error("Published authoring consumer missing");
+  const fixtureProject =
+    "tests/HardwareTest.StandaloneVisa.CliFixture/HardwareTest.StandaloneVisa.CliFixture.csproj";
+  // Publish jobs do not build tests or restore their assets. Prepare the real
+  // dispatcher fixture for this configuration/RID before creating a smoke home.
+  await run([
+    "dotnet",
+    "build",
+    fixtureProject,
+    "-c",
+    opts.configuration,
+    "-r",
+    opts.rid,
+  ], { cwd: opts.root });
   const fixture = await evaluatedProperty(
     opts,
-    "tests/HardwareTest.StandaloneVisa.CliFixture/HardwareTest.StandaloneVisa.CliFixture.csproj",
+    fixtureProject,
     "TargetPath",
   );
   const smoke = await Deno.makeTempDir({ prefix: "ht-standalone-published-" });
