@@ -44,6 +44,38 @@ public sealed class SequenceNavigationFeedbackTests
     }
 
     [AvaloniaFact]
+    public void Clicking_a_section_transfers_keyboard_focus_for_collapse_and_expand()
+    {
+        using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
+        var window = fixture.Show(1280, 800);
+        fixture.OpenRememberedWorkspace();
+        var vm = fixture.ViewModel;
+        vm.NewSectionName = "Power rails";
+        vm.AddSection();
+        vm.SelectedRecipeId = AuthoringRecipeIds.Acquire;
+        vm.InsertSelectedRecipe();
+        var childId = vm.SelectedSequence!.NodeId;
+        var section = vm.SequenceItems.Single(row => row.IsSection);
+        var list = fixture.Control<ListBox>("Program sequence");
+        list.ScrollIntoView(section);
+        AuthoringUiFixture.Drain();
+        Assert.True(fixture.Control<Button>("Save all").Focus());
+        var item = Assert.IsType<ListBoxItem>(list.ContainerFromItem(section));
+        var point = item.TranslatePoint(new Point(item.Bounds.Width / 2, item.Bounds.Height / 2), window)!.Value;
+        window.MouseDown(point, MouseButton.Left);
+        window.MouseUp(point, MouseButton.Left);
+        AuthoringUiFixture.Drain();
+        Assert.True(item.IsFocused);
+        window.KeyPress(Key.Left, RawInputModifiers.None, PhysicalKey.ArrowLeft, null);
+        AuthoringUiFixture.Drain();
+        Assert.DoesNotContain(vm.SequenceItems, row => row.NodeId == childId);
+        window.KeyPress(Key.Right, RawInputModifiers.None, PhysicalKey.ArrowRight, null);
+        AuthoringUiFixture.Drain();
+        Assert.Contains(vm.SequenceItems, row => row.NodeId == childId);
+        Assert.Null(vm.Error);
+    }
+
+    [AvaloniaFact]
     public void Back_returns_through_sections_and_section_buttons_prepare_insertion()
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);

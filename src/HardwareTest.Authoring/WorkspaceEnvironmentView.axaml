@@ -10,13 +10,25 @@
           <TextBlock Text="{Binding AuthoringHomeText}" TextWrapping="Wrap" AutomationProperties.Name="Selected authoring home"/>
 
           <vm:ResponsiveTaskGrid>
-            <StackPanel Spacing="6">
-              <TextBlock Text="Physical instruments" FontWeight="SemiBold"/>
-              <TextBlock Text="{Binding LibraryEnvironmentReadinessText}" TextWrapping="Wrap" AutomationProperties.Name="Instrument Components readiness"/>
+            <StackPanel Spacing="8">
+              <TextBlock Text="Physical instruments" Classes="sectionTitle"/>
+              <TextBlock Text="{Binding EnvironmentLibraryReadiness.State}" FontWeight="SemiBold" AutomationProperties.Name="Instrument Components readiness"/>
+              <TextBlock Text="{Binding EnvironmentLibraryReadiness.Summary}" TextWrapping="Wrap" AutomationProperties.Name="Instrument Components readiness reason"/>
+              <TextBlock Text="Next action" FontWeight="SemiBold"/>
+              <TextBlock Text="{Binding EnvironmentLibraryReadiness.NextStep}" TextWrapping="Wrap" AutomationProperties.Name="Instrument Components next action"/>
+              <Expander Header="Diagnostic details" HorizontalContentAlignment="Stretch" Classes="inspectorSection" AutomationProperties.Name="Instrument Components diagnostic details">
+                <TextBlock Text="{Binding EnvironmentLibraryReadiness.Details}" TextWrapping="Wrap"/>
+              </Expander>
             </StackPanel>
-            <StackPanel Spacing="6">
-              <TextBlock Text="Hardware execution" FontWeight="SemiBold"/>
-              <TextBlock Text="{Binding StandaloneVisaReadinessText}" TextWrapping="Wrap" AutomationProperties.Name="Standalone VISA readiness"/>
+            <StackPanel Spacing="8">
+              <TextBlock Text="Hardware execution" Classes="sectionTitle"/>
+              <TextBlock Text="{Binding EnvironmentExecutionReadiness.State}" FontWeight="SemiBold" AutomationProperties.Name="Standalone VISA readiness"/>
+              <TextBlock Text="{Binding EnvironmentExecutionReadiness.Summary}" TextWrapping="Wrap" AutomationProperties.Name="Standalone VISA readiness reason"/>
+              <TextBlock Text="Next action" FontWeight="SemiBold"/>
+              <TextBlock Text="{Binding EnvironmentExecutionReadiness.NextStep}" TextWrapping="Wrap" AutomationProperties.Name="Standalone VISA next action"/>
+              <Expander Header="Diagnostic details" HorizontalContentAlignment="Stretch" Classes="inspectorSection" AutomationProperties.Name="Standalone VISA diagnostic details">
+                <TextBlock Text="{Binding EnvironmentExecutionReadiness.Details}" TextWrapping="Wrap"/>
+              </Expander>
             </StackPanel>
           </vm:ResponsiveTaskGrid>
         </StackPanel>
@@ -31,7 +43,12 @@
           <StackPanel Spacing="8" AutomationProperties.Name="Package sourcing guidance">
             <TextBlock Text="Where to get packages" FontWeight="SemiBold"/>
             <TextBlock Text="Prepare authoring environment installs the bundled compatible Instrument Components release offline. For another package or version, obtain its .TapPackage or .zip from the publisher or your team’s release artifacts, match the required version below, then choose Import offline package." TextWrapping="Wrap"/>
-            <TextBlock Text="Instrument Components source and release documentation: github.com/josh-hemphill/instrument-components. Vendor drivers come from their publisher. Preparation does not search online feeds; import targets only the selected home." Classes="purpose" TextWrapping="Wrap"/>
+            <WrapPanel>
+              <Button Content="Open Instrument Components releases" Click="OnOpenLibraryReleases" Classes="authoringAction" AutomationProperties.Name="Open Instrument Components releases" Margin="0,0,8,8"/>
+              <Button Content="Copy package requirements" Click="OnCopyPackageRequirements" Classes="authoringAction" AutomationProperties.Name="Copy package requirements" Margin="0,0,8,8"/>
+            </WrapPanel>
+            <TextBlock Text="Copy requirements when requesting archives from your team or a vendor. The release link opens your browser; it does not download or install a package. Preparation uses bundled packages, and imports target only the selected home." Classes="purpose" TextWrapping="Wrap"/>
+            <TextBlock x:Name="PackageSourceFeedback" TextWrapping="Wrap" AutomationProperties.Name="Package sourcing result" AutomationProperties.LiveSetting="Polite"/>
           </StackPanel>
           <WrapPanel>
             <Button Content="Declare Instrument Components dependency" Click="OnDeclareLibrary" IsEnabled="{Binding CanDeclareLibraryDependency}" AutomationProperties.Name="Declare Instrument Components dependency" Classes="authoringAction" Margin="0,0,8,8"/>
@@ -54,6 +71,7 @@
                       <TextBlock Text="{Binding InstalledVersion, StringFormat='Installed: {0}'}" TextWrapping="Wrap"/>
                       <TextBlock Text="Optional" IsVisible="{Binding Optional}" Margin="16,0,0,0"/>
                     </WrapPanel>
+                    <TextBlock Text="{Binding Resolution}" TextWrapping="Wrap" Classes="purpose"/>
                   </StackPanel>
                 </Border>
               </DataTemplate>

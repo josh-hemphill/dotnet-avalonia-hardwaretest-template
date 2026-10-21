@@ -90,16 +90,28 @@
     <Setter Property="BorderBrush" Value="{DynamicResource AuthoringLine}"/>
     <Setter Property="Background" Value="{DynamicResource AuthoringSurface}"/>
   </Style>
-  <Style Selector="Expander /template/ ToggleButton#PART_HeaderSite">
+  <Style Selector="Expander /template/ ToggleButton#ExpanderHeader">
     <Setter Property="Padding" Value="12,10"/>
     <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
     <Setter Property="Background" Value="{DynamicResource AuthoringSurface}"/>
     <Setter Property="BorderBrush" Value="{DynamicResource AuthoringLine}"/>
   </Style>
-  <Style Selector="Expander /template/ ToggleButton#PART_HeaderSite /template/ ContentPresenter">
+  <Style Selector="Expander /template/ ToggleButton#ExpanderHeader /template/ ContentPresenter">
     <Setter Property="TextWrapping" Value="Wrap"/>
+  </Style>
+  <!-- Fluent's painted header is a Border inside ExpanderHeader, not PART_HeaderSite. -->
+  <Style Selector="Expander /template/ ToggleButton#ExpanderHeader /template/ Border#ToggleButtonBackground">
     <Setter Property="Background" Value="{DynamicResource AuthoringSurface}"/>
     <Setter Property="BorderBrush" Value="{DynamicResource AuthoringLine}"/>
+  </Style>
+  <Style Selector="Expander /template/ ToggleButton#ExpanderHeader:pointerover /template/ Border#ToggleButtonBackground">
+    <Setter Property="Background" Value="{DynamicResource AuthoringCanvas}"/>
+  </Style>
+  <Style Selector="Expander /template/ ToggleButton#ExpanderHeader:pressed /template/ Border#ToggleButtonBackground">
+    <Setter Property="Background" Value="{DynamicResource AuthoringLine}"/>
+  </Style>
+  <Style Selector="Expander /template/ ToggleButton#ExpanderHeader:focus-visible /template/ Border#ToggleButtonBackground">
+    <Setter Property="BorderBrush" Value="{DynamicResource AuthoringAccent}"/>
   </Style>
   <Style Selector="ComboBox">
     <Setter Property="HorizontalAlignment" Value="Stretch"/>

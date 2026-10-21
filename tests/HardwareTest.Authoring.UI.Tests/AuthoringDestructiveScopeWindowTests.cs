@@ -356,7 +356,7 @@ public sealed class AuthoringDestructiveScopeWindowTests
     {
         var fixture = new AuthoringUiFixture(rememberWorkspace: true); fixture.Show(width, height, realLifecycle); fixture.OpenRememberedWorkspace(); Settings(fixture); return fixture;
     }
-    private static void Settings(AuthoringUiFixture fixture) { fixture.Window!.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 1; AuthoringUiFixture.Drain(); }
+    private static void Settings(AuthoringUiFixture fixture) { fixture.Window!.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 1; AuthoringUiFixture.Drain(); fixture.Control<Expander>("Remove instrument section").IsExpanded = true; AuthoringUiFixture.Drain(); }
     private static void Definitions(AuthoringUiFixture fixture) { fixture.Window!.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 6; AuthoringUiFixture.Drain(); }
     private static string AddCatalog(AuthoringUiFixture fixture, CatalogDeletionKind kind)
     {

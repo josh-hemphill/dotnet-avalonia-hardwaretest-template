@@ -21,6 +21,26 @@ public sealed class AuthoringHardwareTests : IDisposable
     }
 
     [Fact]
+    public void Loading_a_template_or_reopening_workspace_invalidates_loaded_program_binding()
+    {
+        _vm.LoadHardwareEditor();
+        _vm.NewInstrumentSlot = "Template";
+        _vm.HardwareEditAddress = "MOCK::TEMPLATE";
+        _vm.AddHardwareDefinition();
+        Assert.True(_vm.CanReviewLoadedHardwareBinding);
+        _vm.LoadHardwareDefinitionEditor();
+        Assert.False(_vm.CanReviewLoadedHardwareBinding);
+        Assert.Contains("Loaded workspace template: Template", _vm.HardwareEditorContext);
+        Assert.Contains("Load the selected binding", Assert.Throws<AuthoringWorkspaceException>(() => _vm.PrepareHardwareEdit()).Message);
+        _vm.LoadHardwareEditor();
+        Assert.True(_vm.CanReviewLoadedHardwareBinding);
+        Assert.True(_vm.SaveAll().Succeeded);
+        _vm.Open(_root); _vm.SelectProgram("one");
+        Assert.False(_vm.CanReviewLoadedHardwareBinding);
+        Assert.Contains("Load the selected binding", Assert.Throws<AuthoringWorkspaceException>(() => _vm.PrepareHardwareEdit()).Message);
+    }
+
+    [Fact]
     public void Reviewed_edit_rejects_changed_document_and_preserves_unknown_usage()
     {
         _vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Acquire); _vm.LoadHardwareEditor(); _vm.HardwareEditAddress = "MOCK::UPDATED";

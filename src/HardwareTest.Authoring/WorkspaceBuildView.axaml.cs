@@ -15,6 +15,12 @@ public partial class WorkspaceBuildView : UserControl
             vm.SetBuildProgramIncluded(row.PlanId, box.IsChecked == true);
     }
 
+    private void OnReviewEnvironment(object? sender, RoutedEventArgs e)
+    {
+        if (TopLevel.GetTopLevel(this) is MainWindow owner)
+            owner.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 3;
+    }
+
     private void OnPack(object? sender, RoutedEventArgs e)
         => (TopLevel.GetTopLevel(this) as MainWindow)?.OnPack(sender, e);
 }

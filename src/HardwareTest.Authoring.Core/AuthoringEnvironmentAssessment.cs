@@ -6,6 +6,14 @@ namespace HardwareTest.Authoring;
 
 public sealed record AuthoringPackageRequirement(string Package, string RequiredVersion, string InstalledVersion, bool Optional, bool Satisfied, string State)
 {
+    public string Resolution => Satisfied ? "Installed version satisfies this requirement."
+        : State is "unsafe installed home" ? "Repair the selected home before importing packages."
+        : State is "invalid version metadata" ? "Correct the version declaration or package metadata, then check again."
+        : Package is "OpenTAP" or "HardwareTest Basic" or "HardwareTest Mixins" or "HardwareTest Standalone VISA"
+            ? "Prepare bundled packages in the selected home; check that the required version matches the bundled release."
+        : Package.Equals(AuthoringInstrumentCatalog.LibraryPackage, StringComparison.OrdinalIgnoreCase)
+            ? "Prepare the bundled library, or import a publisher release matching the required version."
+            : "Request this package and required version from its publisher or your team's release artifacts, then import the archive.";
     public string DisplayText => $"{Package}: required {RequiredVersion}; installed {InstalledVersion}; {State}{(Optional ? " (optional)" : "")}";
 }
 

@@ -43,6 +43,7 @@ public sealed class AuthoringDestructiveReviewRegressionTests
     {
         using var fixture = Loaded(); var vm = fixture.ViewModel; vm.CreateDemoProgram("slots"); vm.NewInstrumentSlot = "B"; vm.AddInstrumentSlot(); vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Acquire); vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Repeat); vm.SelectedInstrumentSlot = "DMM"; Assert.True(vm.SaveAll().Succeeded);
         fixture.Window!.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 1; AuthoringUiFixture.Drain();
+        fixture.Control<Expander>("Remove instrument section").IsExpanded = true; AuthoringUiFixture.Drain();
         var remove = fixture.Control<Button>("Remove instrument slot from selected program"); remove.BringIntoView(); AuthoringUiFixture.Drain(); AuthoringUiFixture.Click(remove);
         var dialog = Assert.Single(fixture.Window!.OwnedWindows); var selected = vm.SelectedProgram; var files = Snapshot(fixture);
         var metric = Assert.IsType<MetricNode>(Assert.Single(Assert.IsType<RepeatNode>(Assert.Single(selected!.Measure)).Children));

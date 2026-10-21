@@ -199,10 +199,10 @@ rather than reinstating the earlier rail/tab shell.
 | Navigation | Keep Overview and Switch task; add Back/Alt+Left history, reset on workspace replacement, preserve task focus and drafts. |
 | Manage large test plans | Sections menu beside the dedicated Add step palette; shared name editor and Item actions manage sections. Named groups, identity, undo, dependencies and fixed lifecycle anchors remain supported. |
 | Drag and context actions | Card canvas retains guarded sibling drag; context actions focus the existing editor or section destination instead of opening an obsolete all-purpose flyout. |
-| Guidance readability | Structured next steps/preferences remain in the redesigned scrollable guidance sheet with its fixed close action and focus restoration. |
-| Hardware density, type resolution, Slot vs Binding, deferred addresses | Preserve dedicated Instruments task and progressive disclosure; retain vocabulary, compatibility, missing-package recovery and hardware-free drafting guidance. |
+| Guidance readability | Initial integration retained the redesigned guidance sheet and close/focus behavior. The later residual-feedback audit below replaces its remaining paragraph and flat actions. |
+| Hardware density, type resolution, Slot vs Binding, deferred addresses | Initial integration preserved the Instruments task and existing guidance. The later audit below adds selected-binding hierarchy, distinct adapter recovery, editor ownership and an actionable deferral path. |
 | Hardware templates | Preserve named Definitions anchors and explicit copy semantics; instructions point back to Instruments. |
-| Readiness and package sources | Keep separate library/execution readiness, three preparation steps and structured package rows; locate bundled/offline sourcing help beside preparation. |
+| Readiness and package sources | Initial integration retained readiness and preparation routes. The later audit below adds short states, separate diagnostics, version-mismatch handling and actual sourcing actions. |
 | Dropdowns/expanders | Retain themed stretching/padding and inspector interior spacing; inspect Light/Dark and minimum-size task layouts. |
 | Save layout stability | Fixed status feedback lane remains; verify Sequence, Overview and Environment bounds after success/error feedback. |
 | Workspace/program loading | Overlay covers the task shell. Replace the new selector's synchronous two-way binding with guarded async selection and restore the picker after rejected/failed transitions. |
@@ -227,3 +227,90 @@ Final corrected-baseline validation: **423/423 Authoring UI tests passed**,
 **8 Operator Clear run checks passed**. Release builds completed with no warnings
 or errors. Native Windows/screen-reader and physical-hardware review remain
 outside this Linux headless validation.
+
+## Residual-feedback audit after baseline integration
+
+The corrected-baseline merge and its **423-test** UI run above established that
+sections and earlier fixes worked with the task workspace. They did **not** by
+themselves demonstrate that the original readability feedback was resolved.
+A subsequent review inspected the actual guidance, Instruments and Environment
+surfaces and found substantive gaps: guidance still combined several concerns in
+one paragraph, hardware repeated every binding's details, and readiness/package
+help exposed diagnostic prose without a clear recovery action. The changes below
+are the result of that audit, not merely adaptations to PR #233.
+
+| Finding | Actual follow-up change | Regression evidence |
+| --- | --- | --- |
+| Guidance remained a wall of text with eight equally prominent actions | Separate plan/hardware/identity/shutdown summary, one-line live status, next-step instruction and primary action. Individual blocker items and save warnings are separate; draft checks, preview/deployment and preferences are grouped secondary actions. | Guidance hierarchy and missing-source recovery tests; completion/external-source safeguards retained. |
+| Ordinary local edits misleadingly recommended reopening or reviewing nonexistent issues | Compare saved authoring source with the session's saved baseline. Local unsaved changes offer Save/check when no blockers exist; externally changed source retains reconcile/reopen guidance. | Local sidecar edit is saved through the primary action; existing external-edit scenarios assert recovery rather than a save primary. |
+| Hardware repeated long details for every slot and mixed selection, editing and creation | Show details for the selected binding, concise package status, expandable diagnostics and usage, explicit loaded-editor context, and separate add-slot/type-catalog disclosure. | Selected-binding visibility and layout checks; reviewed edit/context tests. |
+| Unsupported imported types looked like a package-install problem | Explain that a missing authoring adapter differs from a missing package, preserve imported source, and describe deliberate supported replacement or original-editor recovery. Registered adapters state Basic voltage compatibility. | Unsupported-type guidance, imported-source preservation and compatibility tests. |
+| Retained hardware editor values could be reviewed against a newly selected binding | Track loaded workspace session, plan and slot. Require an explicit load before reviewing a different context; retain typed values and explain their owner. Template editor values cannot be reviewed as a program binding. | Selection/workspace/template context regression tests; existing destructive-review tests updated to load explicitly. |
+| Address deferral was only a paragraph | Add **Continue authoring; bind later**, returning to Sequence without creating placeholder hardware. Explain what can be authored now and that a physical slot still requires a valid address. | Deferral navigation preserves the draft and creates no instrument binding. |
+| Readiness headings still contained verbose diagnostics | Present library and execution readiness as state, short reason and next step, with diagnostic details collapsed separately. A loadable library no longer masks a declared version mismatch. | Readiness/version mismatch/invalid-home tests; separate state and diagnostic controls. |
+| Package sourcing did not help obtain the actual requirement | Add per-package resolution guidance, a publisher release link and **Copy package requirements** with exact names, versions and installed states. Build links directly to Environment. | Clipboard contents include arbitrary declared package requirements and the publisher URL; Build navigation test. |
+| Pointer selection could leave subsequent keyboard actions on the wrong row | Restore focus to the selected sequence row after pointer selection and phase shortcuts. | Pointer-selection/keyboard regression coverage. |
+| Dark-mode collapsed headers remained black despite surface styles | Target the actual Fluent `ExpanderHeader` and its painted border; apply theme colors for rest, hover, press and keyboard focus. | Actual template brush, padding, keyboard activation and stable-width checks in Light and Dark themes. |
+
+The guidance changes preserve the saved-source/compiled-plan/sidecar hash checks,
+workspace and plan ownership guards, single scroll viewport, fixed close action,
+Escape behavior and focus restoration. Hardware changes preserve opaque-source
+and reviewed-edit guards. No missing-package or unsupported-adapter guard was
+relaxed to make a screen appear ready.
+
+### New rendered review evidence
+
+These are actual Avalonia captures from the residual-feedback audit:
+
+- [Guidance after completion](feedback-review/guidance-complete.png): summary,
+  concise completion state and preview next action.
+- [Guidance at the minimum viewport](feedback-review/guidance-draft-small.png):
+  separate status/next action and grouped secondary actions in the existing drawer.
+- [Imported instrument type](feedback-review/hardware-imported-type.png): selected
+  binding context and adapter-resolution guidance rather than generic install help.
+- [Environment readiness, Dark](feedback-review/environment-readiness-dark.png):
+  short readiness states and separately disclosed diagnostics.
+- [Package sourcing](feedback-review/package-sourcing.png): release source,
+  copyable requirements and per-package resolution.
+
+The earlier section captures remain evidence for sequence integration. These
+new images cover the previously under-reviewed surfaces. Automated assertions
+cover state transitions and ownership; screenshots alone do not establish safe
+hardware operation or native accessibility behavior.
+
+### Residual-feedback validation
+
+- Release Core and UI builds: no warnings or errors.
+- Focused Core checks: **207 passed**, covering hardware editing ownership,
+  environment preparation and containment, build guards, instrument catalogs,
+  typed adapters and authoring chrome accessibility.
+- Architecture checks: **45 passed**; Operator Clear run checks: **8 passed**.
+- Actual Expander header rendering, hover, keyboard focus/activation, padding and
+  width checks passed in Light and Dark; refreshed screenshots were inspected.
+- Final full Authoring UI suite: **437 passed**, no failures or skips. Temporary
+  capture and template-inspection harnesses were removed before that build.
+
+### Remaining decisions and limits
+
+- **First-class unbound physical slots remain a model change.** The current
+  deferral action lets engineers organize sections and non-hardware steps before
+  adding an addressed binding. It does not create a named physical slot without
+  an address or let instrument recipes target such a placeholder. Supporting that
+  workflow requires an explicit unresolved-binding state in persistence, editing,
+  recipe prerequisites, compile/build readiness and runtime validation. Product
+  agreement on that contract may require reworking the instrument editor.
+- **Arbitrary package feeds are not implemented.** The app can prepare bundled
+  packages, open the known Instrument Components publisher release page, copy
+  exact requirements and import supplied archives. Other packages must be sourced
+  from their publisher or team release artifacts. Authenticated feed discovery,
+  package search and automatic resolution across user-selected feeds need a
+  separate source/credential/trust design; a release link is not that feature.
+- **OpenTAP import cancellation remains limited.** Loading is visible and runs off
+  the UI thread, with stale-result ownership guards. An active import does not
+  expose safe internal cancellation; closing waits for it. Cancellable imports
+  require worker/process ownership and cleanup design rather than only a Cancel
+  button. No percentage progress is invented.
+- **Platform and hardware review remains necessary.** Linux headless rendering
+  and tests do not validate Windows native screen readers, vendor VISA runtimes,
+  actual device addresses or physical instrument execution. Execution-readiness
+  copy explicitly separates package availability from vendor/runtime probing.

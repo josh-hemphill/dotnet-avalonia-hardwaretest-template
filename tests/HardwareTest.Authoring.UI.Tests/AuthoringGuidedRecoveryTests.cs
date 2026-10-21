@@ -1,5 +1,7 @@
 using System.Xml.Linq;
 using Avalonia.Controls;
+using Avalonia.Automation;
+using Avalonia.VisualTree;
 using Avalonia.Headless.XUnit;
 using Xunit;
 
@@ -53,7 +55,7 @@ public sealed class AuthoringGuidedRecoveryTests
         PreparePackage(fixture, AuthoringInstrumentCatalog.All.Single(item => item.DisplayName == "Mock DMM"));
         vm.InitializePlan(new PlanInitializationRequest("locked-guide") { StartingPoint = PlanStartingPoint.DemoVoltageTask, IdentityInstrumentSlot = "DMM" });
         AuthoringUiFixture.Drain(); AuthoringUiFixture.Click(fixture.Control<Button>("Resume guidance"));
-        AuthoringUiFixture.Click(fixture.Control<Button>("Save and check draft"));
+        AuthoringUiFixture.Click(GuidanceUiActions.Action(fixture, "Save and check draft"));
         Assert.Contains("First voltage test complete", fixture.Control<TextBlock>("Guidance feedback").Text);
         var path = compiled ? vm.Workspace!.TapPlanPaths.Single(file => Path.GetFileNameWithoutExtension(file) == "locked-guide")
             : new AuthoringDocumentStore(fixture.WorkspaceRoot).GetDocumentPath("locked-guide");
@@ -61,7 +63,7 @@ public sealed class AuthoringGuidedRecoveryTests
         {
             Assert.Null(Record.Exception(() => AuthoringUiFixture.Click(fixture.Control<Button>("Resume guidance"))));
             Assert.Contains("unavailable", fixture.Control<TextBlock>("Guidance feedback").Text, StringComparison.OrdinalIgnoreCase);
-            Assert.Contains("Restore", fixture.Control<TextBlock>("Guidance feedback").Text);
+            Assert.Contains("Restore", fixture.Control<TextBlock>("Guidance next step").Text);
             Assert.DoesNotContain("First voltage test complete", fixture.Control<TextBlock>("Guidance feedback").Text);
             Assert.Null(Record.Exception(() => vm.DisplayName = "Edit survives unavailable input"));
             Assert.Null(Record.Exception(AuthoringUiFixture.Drain));
@@ -89,7 +91,7 @@ public sealed class AuthoringGuidedRecoveryTests
             File.CreateSymbolicLink(source, backup);
             Assert.Null(Record.Exception(() => AuthoringUiFixture.Click(fixture.Control<Button>("Resume guidance"))));
             Assert.Contains("unsafe", fixture.Control<TextBlock>("Guidance feedback").Text, StringComparison.OrdinalIgnoreCase);
-            Assert.Contains("Restore", fixture.Control<TextBlock>("Guidance feedback").Text);
+            Assert.Contains("Restore", fixture.Control<TextBlock>("Guidance next step").Text);
             Assert.Equal(bytes, File.ReadAllBytes(backup));
         }
         finally { File.Delete(source); File.Move(backup, source); }
@@ -146,7 +148,7 @@ public sealed class AuthoringGuidedRecoveryTests
             Measurement = new(AuthoringRecipeIds.MeanGte, "DMM") { ThresholdText = "1.2" }
         });
         AuthoringUiFixture.Drain(); AuthoringUiFixture.Click(fixture.Control<Button>("Resume guidance"));
-        AuthoringUiFixture.Click(fixture.Control<Button>("Save and check draft"));
+        AuthoringUiFixture.Click(GuidanceUiActions.Action(fixture, "Save and check draft"));
         Assert.Contains("First voltage test complete", fixture.Control<TextBlock>("Guidance feedback").Text);
         var original = AuthoringDocumentSnapshot.Capture(vm.SelectedProgram!); var originalSession = vm.SelectedDocument;
         vm.StopRecovery();
@@ -184,8 +186,9 @@ public sealed class AuthoringGuidedRecoveryTests
             Assert.True(original.ContentEquals(AuthoringDocumentSnapshot.Capture(vm.SelectedProgram!)));
             AuthoringUiFixture.Click(fixture.Control<Button>("Resume guidance"));
             Assert.DoesNotContain("First voltage test complete", fixture.Control<TextBlock>("Guidance feedback").Text);
-            Assert.Contains("Reopen", fixture.Control<TextBlock>("Guidance feedback").Text);
+            Assert.Contains("Reopen", fixture.Control<TextBlock>("Guidance next step").Text);
             Assert.Contains("differs", fixture.Control<TextBlock>("Guidance feedback").Text);
+            Assert.Equal("Review issues", fixture.Control<Button>("Guidance next action").Content);
             Assert.True(original.ContentEquals(AuthoringDocumentSnapshot.Capture(vm.SelectedProgram!)));
             vm.DisplayName = "Local unsaved input"; AuthoringUiFixture.Drain();
             Assert.True(vm.HasUnsavedChanges); Assert.True(vm.CanUndo); Assert.Same(originalSession, vm.SelectedDocument);
@@ -199,6 +202,57 @@ public sealed class AuthoringGuidedRecoveryTests
             Assert.Contains("First voltage test complete", fixture.Control<TextBlock>("Guidance feedback").Text);
         }
         finally { other.Close(); external.StopRecovery(); external.StopOperations(); AuthoringUiFixture.Drain(); }
+    }
+
+    [AvaloniaFact]
+    public void Local_unsaved_sidecar_edit_offers_save_without_external_source_recovery()
+    {
+        using var fixture = Loaded();
+        var vm = fixture.ViewModel;
+        PreparePackage(fixture, AuthoringInstrumentCatalog.All.Single(item => item.DisplayName == "Mock DMM"));
+        vm.InitializePlan(new PlanInitializationRequest("local-guide")
+            { StartingPoint = PlanStartingPoint.DemoVoltageTask, IdentityInstrumentSlot = "DMM" });
+        vm.Apply();
+        vm.DisplayName = "My updated voltage plan";
+        AuthoringUiFixture.Drain();
+        AuthoringUiFixture.Click(fixture.Control<Button>("Resume guidance"));
+        Assert.Equal("Unsaved draft changes", fixture.Control<TextBlock>("Guidance feedback").Text);
+        Assert.DoesNotContain("Reopen", fixture.Control<TextBlock>("Guidance next step").Text);
+        Assert.Equal("Save and check draft", fixture.Control<Button>("Guidance next action").Content);
+        AuthoringUiFixture.Click(fixture.Control<Button>("Guidance next action"));
+        Assert.Null(vm.Error);
+        Assert.False(vm.HasUnsavedChanges);
+        Assert.Equal("My updated voltage plan", new AuthoringDocumentStore(fixture.WorkspaceRoot).Load("local-guide").Document!.Sidecar.DisplayName);
+        Assert.Equal("First voltage test complete", fixture.Control<TextBlock>("Guidance feedback").Text);
+    }
+
+    [AvaloniaFact]
+    public void Missing_source_guidance_separates_plan_status_next_action_and_recovery_details()
+    {
+        using var fixture = Loaded();
+        var vm = fixture.ViewModel;
+        vm.InitializePlan(new PlanInitializationRequest("missing-source-guide"));
+        var before = AuthoringDocumentSnapshot.Capture(vm.SelectedProgram!);
+        File.Delete(new AuthoringDocumentStore(fixture.WorkspaceRoot).GetDocumentPath("missing-source-guide"));
+        AuthoringUiFixture.Drain();
+        AuthoringUiFixture.Click(fixture.Control<Button>("Resume guidance"));
+        Assert.Equal(vm.SelectedProgram!.Sidecar.DisplayName, fixture.Control<TextBlock>("Guidance plan name").Text);
+        var status = fixture.Control<TextBlock>("Guidance feedback");
+        Assert.Equal("Saved input is unavailable or unsafe", status.Text);
+        Assert.Equal(AutomationLiveSetting.Polite, AutomationProperties.GetLiveSetting(status));
+        Assert.Contains("Restore readable authoring source", fixture.Control<TextBlock>("Guidance next step").Text);
+        Assert.Equal("Review recovery issues", fixture.Control<Button>("Guidance next action").Content);
+        var details = fixture.Control<Expander>("Guidance recovery details");
+        Assert.True(details.IsExpanded);
+        Assert.NotEmpty(fixture.Control<StackPanel>("Guidance blocker items").Children);
+        foreach (var group in new[] { "Draft checks", "Preview and deployment", "Guidance preferences" })
+            Assert.False(fixture.Control<Expander>(group).IsExpanded);
+        var headings = fixture.Control<ScrollViewer>("Guidance viewport").GetVisualDescendants().OfType<TextBlock>()
+            .Where(text => text.Text is "First test plan" or "Status" or "Next action").Select(text => text.Text).ToArray();
+        Assert.Equal(new[] { "First test plan", "Status", "Next action" }, headings);
+        AuthoringUiFixture.Click(fixture.Control<Button>("Guidance next action"));
+        Assert.Equal(2, fixture.Window!.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex);
+        Assert.True(before.ContentEquals(AuthoringDocumentSnapshot.Capture(vm.SelectedProgram!)));
     }
 
     private static AuthoringUiFixture Loaded(bool library = false)

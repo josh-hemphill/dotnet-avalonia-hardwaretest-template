@@ -7,7 +7,11 @@ public sealed record AuthoringHardwareDefinition(Guid Id, string Name, string Ty
     IReadOnlyDictionary<string, string> Settings);
 
 public sealed record AuthoringHardwareRow(string SlotName, string TypeId, string Address,
-    string PackageStatus, string Usage, string Cleanup);
+    string PackageStatus, string Usage, string Cleanup)
+{
+    public string PackageSummary { get; init; } = PackageStatus;
+    public bool HasPackageDetails => PackageSummary != PackageStatus;
+}
 
 public sealed class AuthoringHardwareEditImpact
 {

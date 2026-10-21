@@ -5,6 +5,11 @@ namespace HardwareTest.Authoring;
 public sealed partial class AuthoringWorkspaceViewModel
 {
     private AuthoringInstrumentAdapter? _hardwareEditType = AuthoringInstrumentCatalog.All[0];
+    private string? _hardwareEditorSourceType;
+    private Guid? _hardwareEditorSession;
+    private string? _hardwareEditorPlanId;
+    private string? _hardwareEditorSlot;
+    private string? _hardwareEditorTemplate;
     private string _hardwareEditAddress = string.Empty;
     private string _hardwareEditTimeout = string.Empty;
     private AuthoringHardwareDefinition? _selectedHardwareDefinition;
@@ -20,13 +25,19 @@ public sealed partial class AuthoringWorkspaceViewModel
     {
         var registered = AuthoringInstrumentCatalog.TryGet(instrument.TypeId, out var adapter);
         string package;
+        string summary;
         try
         {
             var inspection = HardwareInspection;
-            package = registered ? $"{adapter.RequiredPackage}: {inspection.Error ?? adapter.Availability(inspection.Home).Reason ?? "available"}"
+            var availability = registered ? adapter.Availability(inspection.Home) : null;
+            summary = !registered ? "Unsupported authoring adapter"
+                : inspection.Error is not null ? "Correct the authoring home"
+                : availability!.Available ? $"{adapter.RequiredPackage}: available"
+                : $"{adapter.RequiredPackage}: needs preparation";
+            package = registered ? $"{adapter.RequiredPackage}: {inspection.Error ?? availability!.Reason ?? "available"}"
                 : "Unregistered adapter; preserve imported binding";
         }
-        catch (ArgumentException) { package = "Invalid OpenTAP home path"; }
+        catch (ArgumentException) { package = summary = "Invalid OpenTAP home path"; }
         var usage = SelectedProgram is null ? [] : AuthoringInstrumentUsage.DescribeSlotUsage(SelectedProgram, instrument.SlotName)
             .Where(node => node.StartsWith("Setup", StringComparison.Ordinal) || node.StartsWith("Measure", StringComparison.Ordinal)).ToArray();
         var opaque = AuthoringInstrumentUsage.HasOpaqueInstrumentRefs(SelectedProgram);
@@ -34,8 +45,11 @@ public sealed partial class AuthoringWorkspaceViewModel
             && AuthoringCleanup.ResolveSlots(program).Contains(instrument.SlotName, StringComparer.OrdinalIgnoreCase)
             ? "Safe shutdown covers this slot" : "No safe shutdown coverage";
         return new AuthoringHardwareRow(instrument.SlotName, instrument.TypeId, instrument.VisaAddress, package,
-            string.Join("; ", usage) + (opaque ? "; unresolved imported usage" : usage.Length == 0 ? "Unused by steps" : ""), cleanup);
+            string.Join("; ", usage) + (opaque ? "; unresolved imported usage" : usage.Length == 0 ? "Unused by steps" : ""), cleanup) { PackageSummary = summary };
     }).ToArray();
+
+    public IReadOnlyList<AuthoringHardwareRow> SelectedHardwareRows
+        => HardwareRows.Where(row => Same(row.SlotName, SelectedInstrumentSlot)).ToArray();
 
     private (OpenTapHome? Home, string? Error) HardwareInspection
     {
@@ -55,27 +69,65 @@ public sealed partial class AuthoringWorkspaceViewModel
             if (SetField(ref _hardwareEditType, value)) OnPropertyChanged(nameof(HardwareEditTypeGuidance));
         }
     }
-    public string HardwareEditTypeGuidance => InstrumentTypeGuidance(HardwareEditType);
+    public string HardwareEditTypeGuidance => HardwareEditType is null && _hardwareEditorSourceType is { } type
+        && !AuthoringInstrumentCatalog.TryGet(type, out _)
+        ? $"Imported type '{type}' has no registered authoring adapter. Its source is preserved. Installing a package alone does not add editor support. Use the original editor, or deliberately choose a supported replacement and review compatibility; opaque bindings remain protected."
+        : InstrumentTypeGuidance(HardwareEditType);
     public string NewInstrumentTypeGuidance => InstrumentTypeGuidance(SelectedNewInstrumentType);
 
     private string InstrumentTypeGuidance(AuthoringInstrumentAdapter? adapter)
     {
         if (adapter is null)
-            return "No supported adapter selected. Imported types are preserved. Open Environment to prepare or import its package. If still unavailable, keep the imported source; this editor supports registered adapters only.";
+            return "Choose a supported adapter. Imported types are preserved. Open Environment when a registered type requires package preparation.";
         var capability = AuthoringInstrumentCatalog.IsLibrary(adapter.TypeId)
             ? "Physical instrument. Enter the resource address supplied by your instrument or VISA discovery."
             : "Demo instrument. Uses mock data; it does not connect to physical hardware.";
-        return $"{capability} Required package: {adapter.RequiredPackage}.";
+        var compatibility = adapter.CompatibleFunctions.Contains(AuthoringFunctionIds.BasicAcquireVoltage, StringComparer.Ordinal)
+            ? "Supports Basic voltage recipes."
+            : "Does not support Basic voltage recipes; choose a DMM adapter for those steps.";
+        string recovery;
+        try
+        {
+            var inspection = HardwareInspection;
+            recovery = inspection.Error is not null ? " Correct the authoring home in Environment."
+                : !adapter.Availability(inspection.Home).Available ? $" Open Environment to prepare or import {adapter.RequiredPackage} into the selected home." : string.Empty;
+        }
+        catch (ArgumentException) { recovery = " Correct the authoring home in Environment."; }
+        return $"{capability} {compatibility} Required package: {adapter.RequiredPackage}.{recovery}";
     }
     public string HardwareEditAddress { get => _hardwareEditAddress; set => SetField(ref _hardwareEditAddress, value ?? string.Empty); }
     public string HardwareEditTimeout { get => _hardwareEditTimeout; set => SetField(ref _hardwareEditTimeout, value ?? string.Empty); }
 
+    public bool CanReviewLoadedHardwareBinding => _hardwareEditorSession == _workspaceSession
+        && SelectedInstrument is not null && SelectedProgram?.PlanId == _hardwareEditorPlanId
+        && Same(SelectedInstrumentSlot, _hardwareEditorSlot);
+
+    public string HardwareEditorContext => _hardwareEditorTemplate is { } template
+        ? $"Loaded workspace template: {template}. Load the selected program binding before reviewing a program change."
+        : _hardwareEditorSlot is { } slot
+            ? $"Editing loaded binding: {slot} · {_hardwareEditorPlanId}."
+                + (CanReviewLoadedHardwareBinding ? string.Empty : " Selection or workspace changed. Load the selected binding to review it; your typed values remain below.")
+            : "Load a program binding to start. Changes remain unapplied until you review and confirm them.";
+
+    private void RaiseHardwareEditorContext()
+    {
+        OnPropertyChanged(nameof(CanReviewLoadedHardwareBinding));
+        OnPropertyChanged(nameof(HardwareEditorContext));
+    }
+
     public void LoadHardwareEditor()
     {
         var instrument = SelectedInstrument ?? throw new AuthoringWorkspaceException("Select an instrument before editing.");
+        _hardwareEditorSession = _workspaceSession;
+        _hardwareEditorPlanId = SelectedProgram!.PlanId;
+        _hardwareEditorSlot = instrument.SlotName;
+        _hardwareEditorTemplate = null;
+        _hardwareEditorSourceType = instrument.TypeId;
         HardwareEditType = AuthoringInstrumentCatalog.TryGet(instrument.TypeId, out var adapter) ? adapter : null;
         HardwareEditAddress = instrument.VisaAddress;
         HardwareEditTimeout = instrument.Settings.GetValueOrDefault("IoTimeoutMilliseconds") ?? string.Empty;
+        OnPropertyChanged(nameof(HardwareEditTypeGuidance));
+        RaiseHardwareEditorContext();
     }
 
     private InstrumentRef HardwareEditorBinding(string name)
@@ -101,6 +153,8 @@ public sealed partial class AuthoringWorkspaceViewModel
         EnsureWritableWorkspace("review a hardware binding edit");
         var program = SelectedProgram ?? throw new AuthoringWorkspaceException("Select a program.");
         var current = SelectedInstrument ?? throw new AuthoringWorkspaceException("Select an instrument.");
+        if (!CanReviewLoadedHardwareBinding)
+            throw new AuthoringWorkspaceException("Load the selected binding before reviewing a hardware edit; the retained editor values belong to another context.");
         if (current.OpaqueResourceXml is not null || AuthoringInstrumentUsage.HasOpaqueInstrumentRefs(program))
             throw new AuthoringWorkspaceException("Imported or unresolved hardware usage must be preserved until bindings are represented explicitly.");
         var replacement = HardwareEditorBinding(current.SlotName);
@@ -140,9 +194,16 @@ public sealed partial class AuthoringWorkspaceViewModel
     public void LoadHardwareDefinitionEditor()
     {
         var definition = SelectedHardwareDefinition ?? throw new AuthoringWorkspaceException("Select a workspace hardware definition.");
+        _hardwareEditorSession = null;
+        _hardwareEditorPlanId = null;
+        _hardwareEditorSlot = null;
+        _hardwareEditorTemplate = definition.Name;
+        _hardwareEditorSourceType = definition.TypeId;
         HardwareEditType = AuthoringInstrumentCatalog.TryGet(definition.TypeId, out var adapter) ? adapter : null;
         HardwareEditAddress = definition.Address;
         HardwareEditTimeout = definition.Settings.GetValueOrDefault("IoTimeoutMilliseconds") ?? string.Empty;
+        OnPropertyChanged(nameof(HardwareEditTypeGuidance));
+        RaiseHardwareEditorContext();
     }
 
     public void UpdateHardwareDefinition() => RunCatalogEdit("Edit workspace hardware definition", () =>
@@ -206,7 +267,9 @@ public sealed partial class AuthoringWorkspaceViewModel
     private void RaiseHardwareProperties()
     {
         var selected = _selectedHardwareDefinition;
+        RaiseHardwareEditorContext();
         OnPropertyChanged(nameof(HardwareRows));
+        OnPropertyChanged(nameof(SelectedHardwareRows));
         OnPropertyChanged(nameof(HardwareEditTypeGuidance));
         OnPropertyChanged(nameof(NewInstrumentTypeGuidance));
         OnPropertyChanged(nameof(HardwareDefinitions));

@@ -68,17 +68,17 @@ public sealed class AuthoringGuidedOnboardingTests
         };
         Assert.Equal(AuthoringDocumentSnapshot.Capture(draft).PlanIdentity, AuthoringDocumentSnapshot.Capture(direct).PlanIdentity);
         Assert.Equal(AuthoringDocumentSnapshot.Capture(draft).SidecarIdentity, AuthoringDocumentSnapshot.Capture(direct).SidecarIdentity);
-        AuthoringUiFixture.Click(fixture.Control<Button>("Preview voltage result"));
+        AuthoringUiFixture.Click(GuidanceUiActions.Action(fixture, "Preview voltage result"));
         Assert.Equal(5, fixture.Window!.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex);
-        AuthoringUiFixture.Click(fixture.Control<Button>("Save and check draft"));
+        AuthoringUiFixture.Click(GuidanceUiActions.Action(fixture, "Save and check draft"));
         Assert.True(fixture.Control<TextBlock>("Guidance feedback").Text!.Contains("First voltage test complete", StringComparison.Ordinal), fixture.Control<TextBlock>("Guidance feedback").Text);
         var source = new AuthoringDocumentStore(root).Load("first-voltage").Document!; Assert.False(source.RequiresCompilation);
-        AuthoringUiFixture.Click(fixture.Control<Button>("Leave saved guidance"));
+        AuthoringUiFixture.Click(GuidanceUiActions.Action(fixture, "Leave saved guidance"));
         fixture.ViewModel.Open(root); fixture.ViewModel.SelectProgram("first-voltage"); AuthoringUiFixture.Drain();
         Assert.Equal(metric.NodeId, Assert.IsType<MetricNode>(Assert.Single(fixture.ViewModel.SelectedProgram!.Measure)).NodeId);
         AuthoringUiFixture.Click(fixture.Control<Button>("Resume guidance"));
         Assert.True(fixture.Control<TextBlock>("Guidance feedback").Text!.Contains("First voltage test complete", StringComparison.Ordinal), fixture.Control<TextBlock>("Guidance feedback").Text);
-        Assert.Contains("Demo — Mock", fixture.Control<TextBlock>("Guidance feedback").Text);
+        Assert.Contains("Demo — Mock", fixture.Control<TextBlock>("Guidance hardware mode").Text);
     }
 
     [AvaloniaFact]
@@ -112,15 +112,20 @@ public sealed class AuthoringGuidedOnboardingTests
         for (var stage = 0; stage < 4; stage++) Next(fixture, dialog);
         AuthoringUiFixture.Click(fixture.Control<Button>("Create test plan", dialog));
         var feedback = fixture.Control<TextBlock>("Guidance feedback").Text!;
-        Assert.Contains("missing", feedback, StringComparison.OrdinalIgnoreCase); Assert.Contains("Environment", feedback); Assert.Contains("Issues", feedback); Assert.Contains("Build", feedback);
+        Assert.Contains("need attention", feedback, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal("Review issues", fixture.Control<Button>("Guidance next action").Content);
+        Assert.Contains("Resolve", fixture.Control<TextBlock>("Guidance next step").Text);
+        var blockers = fixture.Control<StackPanel>("Guidance blocker items").Children.OfType<TextBlock>().Select(item => item.Text).ToArray();
+        Assert.Contains(blockers, text => text!.Contains("missing", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain('\n', feedback);
         Assert.DoesNotContain("First voltage test complete", feedback);
         var session = fixture.ViewModel.SelectedDocument; fixture.ViewModel.DisplayName = "Edited after leaving";
-        AuthoringUiFixture.Click(fixture.Control<Button>("Leave saved guidance"));
+        AuthoringUiFixture.Click(GuidanceUiActions.Action(fixture, "Leave saved guidance"));
         Assert.Same(session, fixture.ViewModel.SelectedDocument); Assert.True(fixture.ViewModel.CanUndo); fixture.ViewModel.Undo();
-        AuthoringUiFixture.Click(fixture.Control<Button>("Resume guidance")); AuthoringUiFixture.Click(fixture.Control<Button>("Fix guidance blockers"));
+        AuthoringUiFixture.Click(fixture.Control<Button>("Resume guidance")); AuthoringUiFixture.Click(GuidanceUiActions.Action(fixture, "Fix guidance blockers"));
         Assert.Equal(2, fixture.Window!.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex);
-        AuthoringUiFixture.Click(fixture.Control<Button>("Prepare guidance packages")); Assert.Equal(3, fixture.Window!.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex);
-        AuthoringUiFixture.Click(fixture.Control<Button>("Review guidance build")); Assert.Equal(4, fixture.Window!.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex);
+        AuthoringUiFixture.Click(GuidanceUiActions.Action(fixture, "Prepare guidance packages")); Assert.Equal(3, fixture.Window!.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex);
+        AuthoringUiFixture.Click(GuidanceUiActions.Action(fixture, "Review guidance build")); Assert.Equal(4, fixture.Window!.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex);
     }
 
     [AvaloniaFact]
@@ -152,7 +157,7 @@ public sealed class AuthoringGuidedOnboardingTests
         PreparePackage(fixture, AuthoringInstrumentCatalog.All.Single(item => item.DisplayName == "Mock DMM"));
         fixture.ViewModel.InitializePlan(new PlanInitializationRequest("viewport-demo") { StartingPoint = PlanStartingPoint.DemoVoltageTask, IdentityInstrumentSlot = "DMM" });
         AuthoringUiFixture.Drain(); AuthoringUiFixture.Click(fixture.Control<Button>("Resume guidance"));
-        AuthoringUiFixture.Click(fixture.Control<Button>("Save and check draft"));
+        AuthoringUiFixture.Click(GuidanceUiActions.Action(fixture, "Save and check draft"));
         Assert.Contains("First voltage test complete", fixture.Control<TextBlock>("Guidance feedback").Text);
         var guidance = window.FindControl<Border>("GuidanceHost")!;
         Assert.Single(guidance.GetVisualDescendants().OfType<ScrollViewer>());
@@ -166,7 +171,7 @@ public sealed class AuthoringGuidedOnboardingTests
         foreach (var name in new[] { "Preview voltage result", "Fix guidance blockers", "Prepare guidance packages", "Review guidance build",
             "Validate saved plans", "Save and check draft", "Leave saved guidance", "Skip saved guidance" })
         {
-            var button = fixture.Control<Button>(name); button.BringIntoView(); AuthoringUiFixture.Drain();
+            var button = GuidanceUiActions.Action(fixture, name); button.BringIntoView(); AuthoringUiFixture.Drain();
             Assert.True(button.Focus()); ResponsiveShellTests.Inside(button, window);
             ResponsiveShellTests.Inside(Assert.Single(button.GetVisualDescendants().OfType<TextBlock>()), window);
         }
@@ -189,7 +194,7 @@ public sealed class AuthoringGuidedOnboardingTests
         var recordingPath = Path.Combine(fixture.WorkspaceRoot, "guided-long-provenance.json");
         File.WriteAllText(recordingPath, JsonSerializer.Serialize(recording, AppJsonContext.Default.TestRunRecord));
         fixture.ViewModel.ImportRecording(recordingPath, "guided-long-provenance");
-        var previewAction = fixture.Control<Button>("Preview voltage result"); previewAction.BringIntoView(); AuthoringUiFixture.Drain(); AuthoringUiFixture.Click(previewAction);
+        var previewAction = GuidanceUiActions.Action(fixture, "Preview voltage result"); previewAction.BringIntoView(); AuthoringUiFixture.Drain(); AuthoringUiFixture.Click(previewAction);
         var board = fixture.Control<OperatorPreviewPane>("Operator preview chrome");
         ResponsiveShellTests.Inside(board, window); Assert.True(board.Bounds.Height >= 80);
         var sourceViewport = fixture.Control<ScrollViewer>("Data source details viewport"); Assert.True(sourceViewport.Extent.Height > sourceViewport.Viewport.Height);

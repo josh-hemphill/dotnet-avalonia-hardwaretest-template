@@ -60,7 +60,7 @@ public partial class SequenceEditorView
         else if (properties.IsLeftButtonPressed && vm.CanEditSequence && row.Section != SequenceSection.Cleanup)
         {
             vm.SelectSequence(vm.SequenceItems.ToList().IndexOf(row));
-            SequenceList.Focus();
+            FocusSelectedRow();
             e.Pointer.Capture(SequenceList);
             _dragStart = e.GetPosition(this);
             _dragNode = row.NodeId;
@@ -113,6 +113,6 @@ public partial class SequenceEditorView
             _ => AuthoringRecipeIds.Acquire
         };
         vm.SelectedRecipe = vm.Recipes.FirstOrDefault(item => item.Id == recipe);
-        SequenceList.Focus();
+        FocusSelectedRow();
     }
 }

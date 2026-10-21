@@ -1,66 +1,17 @@
 <UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:vm="using:HardwareTest.Authoring" x:Class="HardwareTest.Authoring.HardwareView" x:DataType="vm:AuthoringWorkspaceViewModel">
   <StackPanel Spacing="20">
+    <TextBlock Text="A slot is the name steps use, such as DMM. Its binding connects that name to an instrument type and resource address." TextWrapping="Wrap" Classes="purpose"/>
+    <TextBlock Text="No slots yet. You can organize sections and operator steps now, then add hardware when its address is known." TextWrapping="Wrap" IsVisible="{Binding !Instruments.Count}"/>
+    <WrapPanel>
+      <Button Content="Add instrument…" Click="OnShowAddInstrument" Classes="authoringAction" Margin="0,0,8,8" AutomationProperties.Name="Open add instrument"/>
+      <Button Content="Reusable templates…" Click="OnOpenDefinitions" Classes="authoringAction" Margin="0,0,8,8" AutomationProperties.Name="Manage reusable hardware templates"/>
+      <Button Content="Resolve types / packages…" Click="OnOpenEnvironment" Classes="authoringAction" Margin="0,0,8,8" AutomationProperties.Name="Open hardware environment"/>
+    </WrapPanel>
     <Border Classes="surface taskSection">
       <StackPanel Spacing="12">
-        <TextBlock Text="Program hardware bindings" Classes="sectionTitle" TextWrapping="Wrap" AutomationProperties.HeadingLevel="3"/>
-        <TextBlock Text="A slot is the name steps use, such as DMM. Its binding selects the instrument type and address." Classes="purpose" TextWrapping="Wrap"/>
-        <TextBlock Text="Use Select a program slot below to review or change a binding. Package and cleanup status are listed for each slot." Classes="purpose" TextWrapping="Wrap"/>
-        <TextBlock Text="No instrument slots yet. Add a slot below when its instrument type and address are known." IsVisible="{Binding !Instruments.Count}" TextWrapping="Wrap"/>
-        <ItemsControl ItemsSource="{Binding HardwareRows}" AutomationProperties.Name="Hardware binding table">
-          <ItemsControl.ItemTemplate>
-            <DataTemplate x:DataType="vm:AuthoringHardwareRow">
-              <Border BorderBrush="{DynamicResource AuthoringLine}" BorderThickness="0,0,0,1" Padding="0,8">
-                <StackPanel Spacing="6">
-                  <TextBlock Text="{Binding SlotName, StringFormat='Slot: {0}'}" TextWrapping="Wrap" FontWeight="SemiBold"/>
-                  <TextBlock Text="{Binding TypeId, StringFormat='Instrument type: {0}'}" TextWrapping="Wrap"/>
-                  <TextBlock Text="{Binding Address, StringFormat='Resource address: {0}'}" TextWrapping="Wrap"/>
-                  <TextBlock Text="Package readiness" FontWeight="SemiBold" Classes="purpose"/>
-                  <TextBlock Text="{Binding PackageStatus}" TextWrapping="Wrap"/>
-                  <Expander Header="Used by steps and cleanup" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
-                    <StackPanel Spacing="8" Margin="0,8,0,0">
-                      <TextBlock Text="{Binding Usage}" TextWrapping="Wrap"/>
-                      <TextBlock Text="{Binding Cleanup}" TextWrapping="Wrap"/>
-                    </StackPanel>
-                  </Expander>
-                </StackPanel>
-              </Border>
-            </DataTemplate>
-          </ItemsControl.ItemTemplate>
-        </ItemsControl>
-      </StackPanel>
-    </Border>
-    <Border Classes="surface taskSection">
-      <StackPanel Spacing="10">
-        <TextBlock Text="Supported instrument types" Classes="sectionTitle" AutomationProperties.HeadingLevel="3"/>
-        <TextBlock Text="{Binding InstrumentCatalogSummary}" TextWrapping="Wrap" AutomationProperties.Name="Supported instrument types summary"/>
-        <TextBlock Text="{Binding LibraryEnvironmentReadinessText}" TextWrapping="Wrap" AutomationProperties.Name="Hardware library readiness"/>
-        <WrapPanel>
-          <Button Content="Prepare / import instrument library" Click="OnOpenEnvironment" Classes="authoringAction" Margin="0,0,8,8" AutomationProperties.Name="Open hardware environment"/>
-          <Button Content="Manage reusable hardware templates" Click="OnOpenDefinitions" Classes="authoringAction" Margin="0,0,8,8" AutomationProperties.Name="Manage reusable hardware templates"/>
-        </WrapPanel>
-        <Expander Header="Browse available types" HorizontalContentAlignment="Stretch" Classes="inspectorSection">
-          <StackPanel>
-            <ItemsControl ItemsSource="{Binding InstrumentTypeChoices}" AutomationProperties.Name="Supported instrument types">
-              <ItemsControl.ItemTemplate>
-                <DataTemplate x:DataType="vm:AuthoringInstrumentAdapter">
-                  <StackPanel Spacing="4" Margin="0,0,0,12">
-                    <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" TextWrapping="Wrap"/>
-                    <TextBlock Text="{Binding Description}" TextWrapping="Wrap"/>
-                    <TextBlock Text="{Binding TypeId}" Classes="purpose" TextWrapping="Wrap"/>
-                    <TextBlock Text="{Binding RequiredPackage}" Classes="purpose" TextWrapping="Wrap"/>
-                  </StackPanel>
-                </DataTemplate>
-              </ItemsControl.ItemTemplate>
-            </ItemsControl>
-          </StackPanel>
-        </Expander>
-      </StackPanel>
-    </Border>
-    <Border Classes="surface taskSection">
-      <StackPanel Spacing="12">
-        <TextBlock Text="Select a program slot" Classes="sectionTitle" TextWrapping="Wrap" AutomationProperties.HeadingLevel="3"/>
         <vm:ResponsiveTaskGrid>
           <StackPanel Spacing="12">
+            <TextBlock Text="Slots used by this plan" FontWeight="SemiBold"/>
             <ListBox ItemsSource="{Binding Instruments}" SelectedItem="{Binding SelectedInstrument}" KeyboardNavigation.TabNavigation="Once" AutomationProperties.Name="Instruments" Classes="authoringList" MaxHeight="200" MinHeight="80">
               <ListBox.ItemTemplate>
                 <DataTemplate x:DataType="vm:InstrumentRef">
@@ -72,47 +23,66 @@
                 </DataTemplate>
               </ListBox.ItemTemplate>
             </ListBox>
-            <TextBlock x:Name="InstrumentSlotEditLabel" Text="Selected slot name"/>
-            <ComboBox ItemsSource="{Binding InstrumentSlots}" SelectedItem="{Binding SelectedInstrumentSlot}" AutomationProperties.Name="Instrument slot" AutomationProperties.LabeledBy="{Binding #InstrumentSlotEditLabel}"/>
-            <TextBlock x:Name="VisaLabel" Text="Current resource address"/>
-            <TextBox Text="{Binding SelectedInstrumentVisa, Mode=OneWay}" IsReadOnly="True" AutomationProperties.Name="VISA address" AutomationProperties.LabeledBy="{Binding #VisaLabel}" ToolTip.Tip="Load this binding below, then review an adapter-based edit"/>
             <Button Content="Load selected binding" Click="OnLoadBinding" AutomationProperties.Name="Load selected binding" Classes="authoringAction"/>
+            <ItemsControl ItemsSource="{Binding SelectedHardwareRows}" AutomationProperties.Name="Hardware binding table">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:AuthoringHardwareRow">
+                  <Border BorderBrush="{DynamicResource AuthoringLine}" BorderThickness="0,0,0,1" Padding="0,8">
+                    <StackPanel Spacing="6">
+                      <TextBlock Text="Package readiness" FontWeight="SemiBold" Classes="purpose"/>
+                      <TextBlock Text="{Binding PackageSummary}" TextWrapping="Wrap"/>
+                      <Expander Header="Package details" IsVisible="{Binding HasPackageDetails}" HorizontalContentAlignment="Stretch" AutomationProperties.Name="Selected binding package details">
+                        <TextBlock Text="{Binding PackageStatus}" TextWrapping="Wrap"/>
+                      </Expander>
+                      <Expander Header="Current type, usage and cleanup" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+                        <StackPanel Spacing="8" Margin="0,8,0,0">
+                          <TextBlock Text="{Binding TypeId}" TextWrapping="Wrap"/>
+                          <TextBlock Text="{Binding Usage}" TextWrapping="Wrap"/>
+                          <TextBlock Text="{Binding Cleanup}" TextWrapping="Wrap"/>
+                        </StackPanel>
+                      </Expander>
+                    </StackPanel>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <TextBlock Text="{Binding SelectedInstrumentSlot, StringFormat='Selected slot: {0}'}" FontWeight="SemiBold" AutomationProperties.Name="Instrument slot"/>
+            <TextBlock x:Name="VisaLabel" Text="Current resource address"/>
+            <TextBox Text="{Binding SelectedInstrumentVisa, Mode=OneWay}" IsReadOnly="True" AutomationProperties.Name="VISA address" AutomationProperties.LabeledBy="{Binding #VisaLabel}" ToolTip.Tip="Load this binding into the editor, then review the change"/>
           </StackPanel>
           <StackPanel Spacing="12">
-            <Border Classes="surface taskSection">
-              <StackPanel Spacing="12">
-                <TextBlock Text="Edit selected binding" Classes="sectionTitle" TextWrapping="Wrap" AutomationProperties.HeadingLevel="3"/>
-                <TextBlock Text="Load the selected slot, choose a supported type, then review the affected steps before applying." Classes="purpose" TextWrapping="Wrap"/>
-                <TextBlock x:Name="BindingTypeLabel" Text="Adapter type"/>
-                <ComboBox ItemsSource="{Binding InstrumentTypeChoices}" SelectedItem="{Binding HardwareEditType}" AutomationProperties.Name="Hardware adapter type" AutomationProperties.LabeledBy="{Binding #BindingTypeLabel}">
-                  <ComboBox.ItemTemplate>
-                    <DataTemplate x:DataType="vm:AuthoringInstrumentAdapter">
-                      <TextBlock Text="{Binding DisplayName}"/>
-                    </DataTemplate>
-                  </ComboBox.ItemTemplate>
-                </ComboBox>
-                <TextBlock Text="{Binding HardwareEditTypeGuidance}" TextWrapping="Wrap" Classes="purpose" AutomationProperties.Name="Selected adapter guidance"/>
-                <Button Content="Resolve types and packages in Environment" Click="OnOpenEnvironment" Classes="authoringAction"/>
-                <TextBlock x:Name="BindingAddressLabel" Text="Address"/>
-                <TextBox Text="{Binding HardwareEditAddress}" AutomationProperties.Name="Hardware adapter address" AutomationProperties.LabeledBy="{Binding #BindingAddressLabel}"/>
-                <TextBlock x:Name="BindingTimeoutLabel" Text="{Binding HardwareEditType, Converter={x:Static vm:InstrumentTimeoutLabelConverter.Instance}}" TextWrapping="Wrap"/>
-                <TextBox Text="{Binding HardwareEditTimeout}" AutomationProperties.Name="Hardware adapter timeout" AutomationProperties.LabeledBy="{Binding #BindingTimeoutLabel}"/>
-                <Button Content="Review binding change" Click="OnReviewBinding" AutomationProperties.Name="Review binding change" Classes="authoringAction primaryAction"/>
-              </StackPanel>
-            </Border>
-            <Border Classes="surface taskSection">
+            <StackPanel Spacing="12">
+              <TextBlock Text="Binding editor" Classes="sectionTitle" TextWrapping="Wrap" AutomationProperties.HeadingLevel="3"/>
+              <TextBlock Text="{Binding HardwareEditorContext}" AutomationProperties.Name="Loaded binding context" Classes="purpose" TextWrapping="Wrap"/>
+              <TextBlock x:Name="BindingTypeLabel" Text="Adapter type"/>
+              <ComboBox ItemsSource="{Binding InstrumentTypeChoices}" SelectedItem="{Binding HardwareEditType}" AutomationProperties.Name="Hardware adapter type" AutomationProperties.LabeledBy="{Binding #BindingTypeLabel}">
+                <ComboBox.ItemTemplate>
+                  <DataTemplate x:DataType="vm:AuthoringInstrumentAdapter">
+                    <TextBlock Text="{Binding DisplayName}"/>
+                  </DataTemplate>
+                </ComboBox.ItemTemplate>
+              </ComboBox>
+              <TextBlock Text="{Binding HardwareEditTypeGuidance}" TextWrapping="Wrap" Classes="purpose" AutomationProperties.Name="Selected adapter guidance"/>
+              <Button Content="Resolve types and packages in Environment" Click="OnOpenEnvironment" Classes="authoringAction"/>
+              <TextBlock x:Name="BindingAddressLabel" Text="Address"/>
+              <TextBox Text="{Binding HardwareEditAddress}" AutomationProperties.Name="Hardware adapter address" AutomationProperties.LabeledBy="{Binding #BindingAddressLabel}"/>
+              <TextBlock x:Name="BindingTimeoutLabel" Text="{Binding HardwareEditType, Converter={x:Static vm:InstrumentTimeoutLabelConverter.Instance}}" TextWrapping="Wrap"/>
+              <TextBox Text="{Binding HardwareEditTimeout}" AutomationProperties.Name="Hardware adapter timeout" AutomationProperties.LabeledBy="{Binding #BindingTimeoutLabel}"/>
+              <Button Content="Review binding change" Click="OnReviewBinding" IsEnabled="{Binding CanReviewLoadedHardwareBinding}" AutomationProperties.Name="Review binding change" Classes="authoringAction primaryAction"/>
+            </StackPanel>
+            <Expander Header="Remove selected slot" AutomationProperties.Name="Remove instrument section" HorizontalContentAlignment="Stretch" Classes="inspectorSection">
               <StackPanel Spacing="12">
                 <TextBlock Text="Program slot membership" Classes="sectionTitle" TextWrapping="Wrap" AutomationProperties.HeadingLevel="3"/>
                 <TextBlock Text="Removal affects only the selected program and remains subject to binding-use guards." Classes="purpose" TextWrapping="Wrap"/>
                 <Button Classes="authoringAction" Content="Remove slot from selected program" Click="OnRemoveInstrumentSlot" IsEnabled="{Binding CanRemoveSelectedInstrumentSlot}" ToolTip.Tip="{Binding InstrumentRemovalGuardText}" AutomationProperties.HelpText="{Binding InstrumentRemovalGuardText}" AutomationProperties.Name="Remove instrument slot from selected program"/>
                 <TextBlock Text="{Binding InstrumentRemovalGuardText}" TextWrapping="Wrap" AutomationProperties.Name="Instrument removal guidance"/>
               </StackPanel>
-            </Border>
+            </Expander>
           </StackPanel>
         </vm:ResponsiveTaskGrid>
       </StackPanel>
     </Border>
-    <Border Classes="surface taskSection">
+    <Expander Header="Add an instrument slot" HorizontalContentAlignment="Stretch" Classes="inspectorSection" x:Name="AddInstrumentSection" AutomationProperties.Name="Add instrument section">
       <StackPanel Spacing="12">
         <TextBlock Text="Add a program slot" Classes="sectionTitle" TextWrapping="Wrap" AutomationProperties.HeadingLevel="3"/>
         <TextBlock Text="Name the slot, choose an instrument type, then enter its real resource address." Classes="purpose" TextWrapping="Wrap"/>
@@ -120,6 +90,7 @@
           <StackPanel Spacing="8" Margin="0,8,0,0">
             <TextBlock Text="Keep authoring without adding this slot. Save all preserves your draft; add the slot here when the address is known." TextWrapping="Wrap"/>
             <TextBlock Text="In New test plan, choose to save without hardware. Add instrument-dependent steps after binding the slot. Mock DMM is for demo plans, not a placeholder for physical hardware." TextWrapping="Wrap" Classes="purpose"/>
+            <Button Content="Continue authoring; bind later" Click="OnDeferBinding" Classes="authoringAction" AutomationProperties.Name="Defer instrument binding"/>
             <TextBlock Text="Existing physical bindings need a valid address. This form does not create unresolved hardware slots." TextWrapping="Wrap" Classes="purpose"/>
           </StackPanel>
         </Expander>
@@ -140,6 +111,25 @@
         <TextBox Text="{Binding NewInstrumentVisa}" PlaceholderText="Resource address for the selected instrument" AutomationProperties.Name="New slot VISA" AutomationProperties.LabeledBy="{Binding #NewVisaLabel}"/>
         <Button Classes="authoringAction primaryAction" Content="Add instrument slot" Click="OnAddInstrumentSlot" IsEnabled="{Binding CanAddInstrumentSlot}" ToolTip.Tip="Appends a slot to this program and stages a workspace slot suggestion. Use Save All for catalog changes." AutomationProperties.Name="Add instrument slot"/>
       </StackPanel>
-    </Border>
+    </Expander>
+    <StackPanel Spacing="10">
+      <TextBlock Text="{Binding InstrumentCatalogSummary}" TextWrapping="Wrap" AutomationProperties.Name="Supported instrument types summary"/>
+      <Expander Header="Browse available types" HorizontalContentAlignment="Stretch" Classes="inspectorSection">
+        <StackPanel>
+          <ItemsControl ItemsSource="{Binding InstrumentTypeChoices}" AutomationProperties.Name="Supported instrument types">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:AuthoringInstrumentAdapter">
+                <StackPanel Spacing="4" Margin="0,0,0,12">
+                  <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                  <TextBlock Text="{Binding Description}" TextWrapping="Wrap"/>
+                  <TextBlock Text="{Binding TypeId}" Classes="purpose" TextWrapping="Wrap"/>
+                  <TextBlock Text="{Binding RequiredPackage}" Classes="purpose" TextWrapping="Wrap"/>
+                </StackPanel>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
+      </Expander>
+    </StackPanel>
   </StackPanel>
 </UserControl>

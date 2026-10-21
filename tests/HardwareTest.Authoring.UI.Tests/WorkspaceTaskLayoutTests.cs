@@ -243,6 +243,11 @@ public sealed class WorkspaceTaskLayoutTests
         fixture.ViewModel.DisplayName = "Selected program with a deliberately long descriptive title for task scope and wrapping";
         owner.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = route;
         AuthoringUiFixture.Drain();
+        if (action == "Add instrument slot")
+        {
+            AuthoringUiFixture.Click(fixture.Control<Button>("Open add instrument"));
+            AuthoringUiFixture.Drain();
+        }
         Control control = action == "Saved-plan empty state" ? fixture.Control<TextBlock>(action) : fixture.Control<Button>(action); control.BringIntoView(); AuthoringUiFixture.Drain();
         ResponsiveShellTests.Inside(control, owner);
         if (control is Button button) ResponsiveActionLabelTests.LabelFits(button, owner);

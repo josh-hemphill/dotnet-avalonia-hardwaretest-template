@@ -57,6 +57,9 @@ public sealed partial class AuthoringWorkspaceViewModel
             OnPropertyChanged(nameof(NewInstrumentAvailabilityText));
             OnPropertyChanged(nameof(CanAddInstrumentSlot));
             OnPropertyChanged(nameof(HardwareRows));
+            OnPropertyChanged(nameof(SelectedHardwareRows));
+            OnPropertyChanged(nameof(HardwareEditTypeGuidance));
+            OnPropertyChanged(nameof(NewInstrumentTypeGuidance));
         }
     }
 

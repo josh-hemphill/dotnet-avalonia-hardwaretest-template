@@ -73,6 +73,9 @@ public sealed partial class AuthoringWorkspaceViewModel
     }
     private void RaiseEnvironmentProperties()
     {
+        OnPropertyChanged(nameof(EnvironmentLibraryReadiness));
+        OnPropertyChanged(nameof(EnvironmentExecutionReadiness));
+        OnPropertyChanged(nameof(PackageRequirementsText));
         OnPropertyChanged(nameof(LibraryEnvironmentReadinessText));
         OnPropertyChanged(nameof(StandaloneVisaReadinessText));
         OnPropertyChanged(nameof(RequiresInstrumentLibrary));
