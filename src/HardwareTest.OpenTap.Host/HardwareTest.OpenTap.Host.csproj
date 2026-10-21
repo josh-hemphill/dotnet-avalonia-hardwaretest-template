@@ -21,6 +21,8 @@
     <PackageReference Include="InstrumentComponents.OpenTap.Visa" ExcludeAssets="all" PrivateAssets="all" GeneratePathProperty="true" />
     <PackageReference Include="OpenTAP" />
     <PackageReference Include="StreamJsonRpc" />
+    <!-- Override StreamJsonRpc's vulnerable transitive minimum (GHSA-qhrr-8q5h-9q3h). -->
+    <PackageReference Include="MessagePack" />
     <ProjectReference Include="..\HardwareTest.OpenTap.Plugins.Basic\HardwareTest.OpenTap.Plugins.Basic.csproj" />
     <ProjectReference Include="..\HardwareTest.OpenTap.Plugins.Mixins\HardwareTest.OpenTap.Plugins.Mixins.csproj" />
     <ProjectReference Include="..\HardwareTest.Core\HardwareTest.Core.csproj" />

@@ -32,6 +32,7 @@
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="$(MicrosoftExtensionsVersion)" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="$(MicrosoftExtensionsVersion)" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageVersion Include="MessagePack" Version="2.5.303" />
     <PackageVersion Include="OpenTAP" Version="$(OpenTapVersion)" />
     <PackageVersion Include="Parlot" Version="1.5.9" />
     <PackageVersion Include="PCSC" Version="7.0.1" />
@@ -57,7 +58,7 @@
     <PackageVersion Include="StreamJsonRpc" Version="2.25.29" />
     <PackageVersion Include="System.CommandLine" Version="2.0.12" />
     <PackageVersion Include="System.Reactive" Version="7.0.0" />
-    <PackageVersion Include="System.Security.Cryptography.Pkcs" Version="$(MicrosoftExtensionsVersion)" />
+    <PackageVersion Include="System.Security.Cryptography.Pkcs" Version="10.0.13" />
     <PackageVersion Include="TypstInterop" Version="2.1.0" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" />
     <PackageVersion Include="xunit.v3" Version="$(XunitVersion)" />
