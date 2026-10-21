@@ -6,6 +6,23 @@
       <Expander x:Name="ConfigureExpander" Header="Configure" IsExpanded="True" HorizontalContentAlignment="Stretch" AutomationProperties.Name="Configure selected step" Classes="inspectorSection">
         <StackPanel Spacing="16">
           <TextBlock IsVisible="{Binding HasRawStep}" Text="Imported step implementation is preserved. Inspect its details in Advanced." TextWrapping="Wrap"/>
+          <StackPanel Spacing="10" IsVisible="{Binding HasSectionEditor}">
+            <TextBlock Text="Device test section" Classes="sectionTitle" AutomationProperties.HeadingLevel="3"/>
+            <TextBlock Text="Keep tests for one device system together. Add recipes to this selected section from Sections &amp; steps." Classes="purpose" TextWrapping="Wrap"/>
+            <TextBlock x:Name="SectionNameLabel" Text="Section name"/>
+            <TextBox Text="{Binding SequenceRename}" AutomationProperties.Name="Section name" AutomationProperties.LabeledBy="{Binding #SectionNameLabel}"/>
+            <WrapPanel>
+              <Button Content="Rename section" Click="OnRenameSection" IsEnabled="{Binding CanRenameSequence}"
+                  AutomationProperties.Name="Rename section" Classes="authoringAction" Margin="0,0,6,6"/>
+              <Button Content="{Binding SelectedSectionToggleLabel}" Click="OnToggleSection" IsEnabled="{Binding CanToggleSelectedSection}"
+                  AutomationProperties.Name="Toggle selected section" Classes="authoringAction" Margin="0,0,6,6"/>
+              <Button Content="Move up" Click="OnMoveSectionUp" IsEnabled="{Binding CanMoveSequence}"
+                  AutomationProperties.Name="Move section up" Classes="authoringAction" Margin="0,0,6,6"/>
+              <Button Content="Move down" Click="OnMoveSectionDown" IsEnabled="{Binding CanMoveSequence}"
+                  AutomationProperties.Name="Move section down" Classes="authoringAction" Margin="0,0,6,6"/>
+            </WrapPanel>
+            <TextBlock Text="Removing a section keeps its tests in the parent sequence. Setup and Cleanup cannot be moved into a section." Classes="purpose" TextWrapping="Wrap"/>
+          </StackPanel>
           <StackPanel Spacing="10" IsVisible="{Binding HasRepeatEditor}">
             <TextBlock Text="Repetition" Classes="sectionTitle" TextWrapping="Wrap" AutomationProperties.HeadingLevel="3"/>
             <TextBlock x:Name="RepeatCountLabel" Text="Repeat count" TextWrapping="Wrap"/>

@@ -27,6 +27,8 @@ public abstract record MeasureNode
 
 public sealed record MetricNode(MetricDraft Metric) : MeasureNode;
 
+public sealed record SectionNode(string Name, IReadOnlyList<MeasureNode> Children) : MeasureNode;
+
 public sealed record RepeatNode(int Count, IReadOnlyList<MeasureNode> Children) : MeasureNode;
 
 public sealed record RawStepNode(string TypeName, string XmlFragment) : MeasureNode;

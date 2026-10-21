@@ -16,6 +16,7 @@ public enum SequenceRowKind
     Setup,
     Metric,
     Repeat,
+    Section,
     Raw,
     Cleanup,
 }
@@ -33,6 +34,9 @@ public sealed record SequenceRow(
     IReadOnlyList<int> IndexPath) : INotifyPropertyChanged
 {
     public Guid? NodeId { get; init; }
+    public bool IsSection => Kind == SequenceRowKind.Section;
+    public bool IsExpanded { get; internal set; } = true;
+    public string SectionToggleLabel => IsExpanded ? $"Collapse {Label}" : $"Expand {Label}";
 
     public string Label { get; private set; } = Label;
     public string Detail { get; private set; } = Detail;
@@ -40,10 +44,17 @@ public sealed record SequenceRow(
 
     internal void RefreshPresentation(SequenceRow next)
     {
+        if (IsExpanded != next.IsExpanded)
+        {
+            IsExpanded = next.IsExpanded;
+            PropertyChanged?.Invoke(this, new(nameof(IsExpanded)));
+            PropertyChanged?.Invoke(this, new(nameof(SectionToggleLabel)));
+        }
         if (Label != next.Label)
         {
             Label = next.Label;
             PropertyChanged?.Invoke(this, new(nameof(Label)));
+            PropertyChanged?.Invoke(this, new(nameof(SectionToggleLabel)));
         }
         if (Detail != next.Detail)
         {
@@ -60,7 +71,7 @@ public static class AuthoringChrome
     public const string ProgramsPurpose = "Pick which locked plan you are editing.";
     public const string SequenceTitle = "Sequence";
     public const string SequencePurpose =
-        "Run order the compiler writes as Setup, the measure suite, and Cleanup.";
+        "Organize measurements into named device-system sections between fixed Setup and Cleanup phases.";
     public const string InspectorTitle = "Inspector";
     public const string InspectorPurpose =
         "Edit this step’s metric, algorithm, or prompt — not the whole program.";
@@ -94,21 +105,21 @@ public static class AuthoringChrome
     public const string LastWorkspaceOffer = "Open last workspace";
     public const string RemoveSelectedTitle = "Remove selected";
     public const string RemoveSelectedPurpose =
-        "Remove the selected Setup, measure, Repeat, or Raw row. Repeat unwraps its children. Safe Shutdown turns Cleanup off.";
+        "Remove the selected step. Removing a section or Repeat keeps its steps in run order. Safe Shutdown turns Cleanup off.";
     public const string RemoveProgramTitle = "Remove program";
     public const string RemoveProgramPurpose =
         "Drop this program from the session. Deletes its TapPlan and sidecar when those files exist.";
     public const string SetupHeader = "Setup";
     public const string SetupPurpose = "Identity and operator prompts before measurements.";
     public const string MeasureHeader = "Measure";
-    public const string MeasurePurpose = "Metrics and repeats the operator will see.";
+    public const string MeasurePurpose = "Named sections, measurements, and repeats in execution order. Setup and Cleanup remain at the boundaries.";
     public const string CleanupHeader = "Cleanup";
     public const string CleanupPurpose =
         "Safe Shutdown after the suite for each selected instrument (unless sidecar excludes it).";
     public const string EmptyMeasureHint =
         "Measure is empty. Add a recipe to the sequence (Acquire, Mean GTE, Formula).";
     public const string TestGroupHint =
-        "Setup, measure, and Cleanup groups are written when you save the plan.";
+        "Add named sections to organize device systems. Setup and Cleanup stay at the start and end.";
 }
 
 /// Flattens ProgramDraft into a sectioned, indented list (no TreeView).
@@ -118,7 +129,7 @@ public static class AuthoringSequence
     public static bool HasMeasurement(IReadOnlyList<MeasureNode> nodes)
         => nodes.Any(node => node is RepeatNode repeat
             ? HasMeasurement(repeat.Children)
-            : node is MetricNode or RawStepNode);
+            : node is SectionNode section ? HasMeasurement(section.Children) : node is MetricNode or RawStepNode);
 
     public const int IndentPerDepth = 16;
 
@@ -239,7 +250,7 @@ public static class AuthoringSequence
             }
 
             current = nodes[index];
-            nodes = current is RepeatNode repeat ? repeat.Children : [];
+            nodes = current switch { RepeatNode repeat => repeat.Children, SectionNode section => section.Children, _ => [] };
         }
 
         return current;
@@ -280,9 +291,7 @@ public static class AuthoringSequence
 
         var parent = path.Take(path.Count - 1).ToArray();
         var child = path[^1];
-        return MutateMeasure(nodes, parent, node => node is RepeatNode repeat
-            ? repeat with { Children = RemoveAt(repeat.Children, child) }
-            : node);
+        return MutateMeasure(nodes, parent, node => node switch { RepeatNode repeat => repeat with { Children = RemoveAt(repeat.Children, child) }, SectionNode section => section with { Children = RemoveAt(section.Children, child) }, _ => node });
     }
 
     public static bool CanRemove(SequenceRow? row, ProgramDraft? draft)
@@ -294,7 +303,7 @@ public static class AuthoringSequence
 
         return row.Kind switch
         {
-            SequenceRowKind.Setup or SequenceRowKind.Metric or SequenceRowKind.Repeat or SequenceRowKind.Raw => true,
+            SequenceRowKind.Setup or SequenceRowKind.Metric or SequenceRowKind.Repeat or SequenceRowKind.Section or SequenceRowKind.Raw => true,
             SequenceRowKind.Cleanup => draft.Cleanup.IncludeSafeShutdown,
             _ => false,
         };
@@ -333,6 +342,8 @@ public static class AuthoringSequence
             };
         }
 
+        if (copy[index] is SectionNode section)
+            copy[index] = section with { Children = MutateMeasure(section.Children, path, mutate, depth + 1) };
         return copy;
     }
 
@@ -356,6 +367,7 @@ public static class AuthoringSequence
             {
                 result.AddRange(repeat.Children);
             }
+            else if (nodes[i] is SectionNode section) result.AddRange(section.Children);
         }
 
         return result;
@@ -419,6 +431,12 @@ public static class AuthoringSequence
                         $"{metric.Metric.DisplayRole} · {metric.Metric.ChannelKey}",
                         path)
                     { NodeId = nodes[i].NodeId });
+                    break;
+                case SectionNode section:
+                    rows.Add(new SequenceRow(MeasureKey(section.NodeId), SequenceSection.Measure,
+                        SequenceRowKind.Section, true, depth, indent, section.Name,
+                        $"{section.Children.Count} item(s) · section", path) { NodeId = section.NodeId });
+                    AppendMeasure(rows, section.Children, path);
                     break;
                 case RepeatNode repeat:
                     rows.Add(new SequenceRow(

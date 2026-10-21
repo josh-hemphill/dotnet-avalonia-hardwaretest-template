@@ -34,6 +34,10 @@ public sealed class AuthoringDependencyIndex
         {
             switch (node)
             {
+                case SectionNode section:
+                    nodes.Add(new(section.NodeId, null, [], [], false));
+                    AddMeasure(nodes, section.Children);
+                    break;
                 case RepeatNode repeat:
                     nodes.Add(new(repeat.NodeId, null, [], [], false));
                     AddMeasure(nodes, repeat.Children);

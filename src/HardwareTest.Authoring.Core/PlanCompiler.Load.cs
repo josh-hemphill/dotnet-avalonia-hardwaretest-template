@@ -117,6 +117,12 @@ public sealed partial class PlanCompiler
             return;
         }
 
+        if (step is TestGroupStep { AuthoringSection: true })
+        {
+            measure.Add(DecompileMeasure(step, instruments, xmlById));
+            return;
+        }
+
         if (step is TestGroupStep)
         {
             foreach (var child in step.ChildTestSteps)
@@ -213,7 +219,9 @@ public sealed partial class PlanCompiler
 
         if (step is TestGroupStep)
         {
-            // Nested groups inside Repeat become a raw wrapper so children are not stripped.
+            if (step is TestGroupStep { AuthoringSection: true })
+                return new SectionNode(step.Name, step.ChildTestSteps.Select(child => DecompileMeasure(child, instruments, xmlById)).ToArray()) { NodeId = step.Id };
+            // Imported groups retain their opaque wrapper unless explicitly authored as sections.
             return ToRaw(step, xmlById);
         }
 

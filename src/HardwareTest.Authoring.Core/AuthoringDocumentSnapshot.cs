@@ -71,6 +71,7 @@ public sealed class AuthoringDocumentSnapshot
                 Source = CloneSource(value.Metric.Source)
             }
         },
+        SectionNode value => value with { Children = value.Children.Select(CloneNode).ToArray() },
         RepeatNode value => value with { Children = value.Children.Select(CloneNode).ToArray() },
         RawStepNode value => value with { },
         _ => throw Unsupported(node)
@@ -120,6 +121,7 @@ public sealed class AuthoringDocumentSnapshot
                 Source = new { Type = value.Metric.Source.GetType().Name, Value = (object)value.Metric.Source }
             }
         },
+        SectionNode value => new { Type = nameof(SectionNode), value.NodeId, value.Name, Children = value.Children.Select(NodeValue).ToArray() },
         RepeatNode value => new { Type = nameof(RepeatNode), value.NodeId, value.Count, Children = value.Children.Select(NodeValue).ToArray() },
         RawStepNode value => new { Type = nameof(RawStepNode), value.NodeId, value.TypeName, value.XmlFragment },
         _ => throw Unsupported(node)

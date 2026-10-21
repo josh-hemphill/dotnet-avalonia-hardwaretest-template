@@ -26,11 +26,12 @@ public partial class SequenceEditorView
         SequenceList.AddHandler(PointerReleasedEvent, (_, e) =>
         {
             var source = _dragNode;
+            if (source is null) return;
             var wasDragging = _dragging;
             _dragNode = null;
             Cursor = null;
             e.Pointer.Capture(null);
-            if (!wasDragging || source is null) return;
+            if (!wasDragging) return;
             _dragging = false;
             var target = RowAt(e.GetPosition(SequenceList));
             if (target?.NodeId is { } targetId) Vm?.ReorderSequence(source.Value, targetId);
@@ -47,6 +48,7 @@ public partial class SequenceEditorView
 
     private void OnSequencePointerPressed(object? sender, PointerPressedEventArgs e)
     {
+        if (e.Source is Control source && (source is Button || source.GetVisualAncestors().OfType<Button>().Any())) return;
         if (Vm is not { } vm || RowAt(e.GetPosition(SequenceList)) is not { IsSelectable: true } row) return;
         var properties = e.GetCurrentPoint(this).Properties;
         if (properties.IsRightButtonPressed)
@@ -76,8 +78,18 @@ public partial class SequenceEditorView
             item.Click += (_, _) => action();
             return item;
         }
-        menu.Items.Add(Action("Edit step name…", vm.CanRenameSequence, () => SequenceActionsButton.Flyout!.ShowAt(SequenceActionsButton)));
-        menu.Items.Add(Action("Duplicate step", vm.CanDuplicateSequence, vm.DuplicateSelectedSequence));
+        menu.Items.Add(Action(vm.HasSectionEditor ? "Edit section name…" : "Edit step name…", vm.CanRenameSequence,
+            () => SequenceActionsButton.Flyout!.ShowAt(SequenceActionsButton)));
+        if (vm.CanToggleSelectedSection)
+            menu.Items.Add(Action(vm.SelectedSectionToggleLabel, true, vm.ToggleSelectedSection));
+        menu.Items.Add(Action("Move to section…", vm.CanEditSequence && vm.SelectedSequence?.Section == SequenceSection.Measure,
+            () =>
+            {
+                SequenceActionsButton.Flyout!.ShowAt(SequenceActionsButton);
+                SectionDestinationBox.BringIntoView();
+                SectionDestinationBox.Focus();
+            }));
+        menu.Items.Add(Action(vm.HasSectionEditor ? "Duplicate section" : "Duplicate step", vm.CanDuplicateSequence, vm.DuplicateSelectedSequence));
         menu.Items.Add(Action("Move up", vm.CanMoveSequence, () => vm.MoveSelectedSequence(-1)));
         menu.Items.Add(Action("Move down", vm.CanMoveSequence, () => vm.MoveSelectedSequence(1)));
         menu.Items.Add(new Separator());
@@ -95,7 +107,7 @@ public partial class SequenceEditorView
         var header = vm.SequenceItems.FirstOrDefault(row => row.Section == section);
         if (header is not null) SequenceList.ScrollIntoView(header);
         vm.RecipeSearch = string.Empty;
-        vm.InsertionPosition = "End of section";
+        vm.InsertionPosition = section == SequenceSection.Measure ? "End of Measure" : "End of section";
         var recipe = section switch
         {
             SequenceSection.Setup => AuthoringRecipeIds.Prompt,

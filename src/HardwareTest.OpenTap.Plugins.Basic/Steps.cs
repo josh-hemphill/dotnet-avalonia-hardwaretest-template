@@ -391,6 +391,10 @@ public sealed class PublishBandScalarStep : RuntimeAwareTestStep
 [AllowAnyChild]
 public sealed class TestGroupStep : RuntimeAwareTestStep
 {
+    /// Authoring sections organize steps without introducing a sample-data boundary.
+    [System.ComponentModel.Browsable(false)]
+    public bool AuthoringSection { get; set; }
+
     public override void Run()
     {
         WaitIfPaused();

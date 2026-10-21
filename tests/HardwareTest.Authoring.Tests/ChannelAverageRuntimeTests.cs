@@ -127,6 +127,100 @@ public sealed class ChannelAverageRuntimeTests
     }
 
     [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public void Authoring_sections_share_samples_with_siblings_and_root(bool producerInSection, bool consumerInSection)
+    {
+        var producer = new SampleProducer { Values = [2, 4] };
+        var average = AverageFor(producer);
+        ITestStep first = producerInSection ? Section(Section(producer)) : producer;
+        ITestStep second = consumerInSection ? Section(average) : average;
+        var results = new ScalarListener();
+        Assert.Equal(Verdict.Pass, PlanWith(first, second).Execute([results], []).Verdict);
+        Assert.Equal(3, Assert.Single(results.Values));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Section_samples_stay_within_the_current_repeat_iteration(bool skipLaterProducer)
+    {
+        var producer = new SampleProducer { Values = [2], LaterValues = [4], DisableAfterRun = skipLaterProducer };
+        var average = AverageFor(producer);
+        var loop = new RepeatLoopStep { Count = 2 };
+        loop.ChildTestSteps.Add(Section(producer));
+        loop.ChildTestSteps.Add(Section(average));
+        var results = new ScalarListener();
+        var run = PlanWith(loop).Execute([results], []);
+        Assert.Equal(skipLaterProducer ? Verdict.Fail : Verdict.Pass, run.Verdict);
+        Assert.Equal(skipLaterProducer ? [2d] : new[] { 2d, 4d }, results.Values);
+    }
+
+    [Theory]
+    [InlineData(2)]
+    [InlineData(20)]
+    public void Repeated_sections_keep_only_current_iteration_execution_metadata(int iterations)
+    {
+        var producer = new SampleProducer { Values = [2] };
+        var average = AverageFor(producer);
+        var loop = new RepeatLoopStep { Count = iterations };
+        loop.ChildTestSteps.Add(Section(producer));
+        loop.ChildTestSteps.Add(Section(average));
+        var results = new ScalarListener();
+        Assert.Equal(Verdict.Pass, PlanWith(loop).Execute([results], []).Verdict);
+        Assert.Equal(iterations, results.Values.Count);
+
+        // Check retention directly: all iterations succeeding alone would miss
+        // an ever-growing ancestry index on long production test plans.
+        var capture = average.SampleCapture;
+        var runs = Assert.IsAssignableFrom<System.Collections.IDictionary>(capture.GetType()
+            .GetField("_runs", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!
+            .GetValue(capture));
+        Assert.InRange(runs.Count, 1, 5); // loop, two sections, producer and consumer
+    }
+
+    [Fact]
+    public void Sections_do_not_allow_samples_to_escape_repeat_boundaries()
+    {
+        var producer = new SampleProducer { Values = [2] };
+        var average = AverageFor(producer);
+        var loop = new RepeatLoopStep { Count = 1 };
+        loop.ChildTestSteps.Add(Section(producer));
+        var results = new ScalarListener();
+        Assert.Equal(Verdict.Fail, PlanWith(loop, Section(average)).Execute([results], []).Verdict);
+        Assert.Empty(results.Values);
+    }
+
+    [Fact]
+    public void Unmarked_imported_groups_keep_their_sample_boundary()
+    {
+        var producer = new SampleProducer { Values = [2] };
+        var group = new TestGroupStep();
+        group.ChildTestSteps.Add(producer);
+        var results = new ScalarListener();
+        Assert.Equal(Verdict.Fail, PlanWith(group, Section(AverageFor(producer))).Execute([results], []).Verdict);
+        Assert.Empty(results.Values);
+    }
+
+    [Fact]
+    public void Transfer_function_reads_samples_from_another_section()
+    {
+        var producer = new SampleProducer { Values = [1, 2, 3] };
+        var filter = new ApplyTransferFunctionStep { InputChannel = "VDC", Channel = "filtered", TsSeconds = 0.005 };
+        Assert.Equal(Verdict.Pass, PlanWith(Section(producer), Section(filter)).Execute().Verdict);
+        Assert.Equal(Verdict.Pass, filter.Verdict);
+    }
+
+    private static TestGroupStep Section(params ITestStep[] children)
+    {
+        var section = new TestGroupStep { AuthoringSection = true };
+        foreach (var child in children) section.ChildTestSteps.Add(child);
+        return section;
+    }
+
+    [Theory]
     [InlineData(double.NaN)]
     [InlineData(double.PositiveInfinity)]
     public void Runtime_invalid_samples_fail(double invalid)

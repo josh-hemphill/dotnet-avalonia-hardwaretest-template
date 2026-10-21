@@ -230,9 +230,18 @@ public static partial class AuthoringBuildService
             .Select(e => Guid.TryParse((string?)e.Attribute("Id"), out var id) ? id : Guid.Empty)
             .Where(id => id != Guid.Empty).Select(id => new AuthoringCompileMapEntry(id,
                 supported.Contains(id) && !opaque.Contains(id) ? id : null, opaque.Contains(id) ? "opaque" : supported.Contains(id) ? "authoring" : "generated")).ToArray());
-        static IEnumerable<Guid> Nodes(IEnumerable<MeasureNode> nodes) => nodes.SelectMany(n => n is RepeatNode r
-            ? new[] { n.NodeId }.Concat(Nodes(r.Children)) : new[] { n.NodeId });
-        static IEnumerable<Guid> RawNodes(IEnumerable<MeasureNode> nodes) => nodes.SelectMany(n => n is RepeatNode r
-            ? RawNodes(r.Children) : n is RawStepNode ? new[] { n.NodeId } : []);
+        static IEnumerable<Guid> Nodes(IEnumerable<MeasureNode> nodes) => nodes.SelectMany(n => n switch
+        {
+            RepeatNode r => new[] { n.NodeId }.Concat(Nodes(r.Children)),
+            SectionNode s => new[] { n.NodeId }.Concat(Nodes(s.Children)),
+            _ => new[] { n.NodeId },
+        });
+        static IEnumerable<Guid> RawNodes(IEnumerable<MeasureNode> nodes) => nodes.SelectMany(n => n switch
+        {
+            RepeatNode r => RawNodes(r.Children),
+            SectionNode s => RawNodes(s.Children),
+            RawStepNode => new[] { n.NodeId },
+            _ => [],
+        });
     }
 }

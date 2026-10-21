@@ -10,6 +10,7 @@ public static partial class MetricPreviewBuilder
             {
                 MetricNode item => new[] { item },
                 RepeatNode repeat => Metrics(repeat.Children),
+                SectionNode section => Metrics(section.Children),
                 _ => [],
             });
         var candidates = Metrics(nodes).ToArray();

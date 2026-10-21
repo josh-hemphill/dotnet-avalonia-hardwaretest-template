@@ -11,6 +11,7 @@ internal sealed class SampleTableCapture : IResultSink
     // is skipped. Unknown composite execution boundaries are rejected during retrieval.
     private static readonly ConditionalWeakTable<TestPlanRun, List<SampleTableCapture>> Captures = new();
     private readonly List<(TestStepRun Run, string Channel, double Value, double ElapsedMs)> _rows = [];
+    private readonly Dictionary<Guid, (Guid TestStepId, Guid Parent)> _runs = [];
 
     // RepeatLoop drains queued results before clearing its descendants. Clearing even when a
     // producer is skipped prevents a later iteration from consuming that producer's old rows.
@@ -29,6 +30,11 @@ internal sealed class SampleTableCapture : IResultSink
                 lock (capture._sync)
                 {
                     capture._rows.RemoveAll(row => ids.Contains(row.Run.TestStepId));
+                    // Results have drained and descendant rows are gone. Their old
+                    // execution ancestry is no longer needed by any live sample.
+                    foreach (var runId in capture._runs.Where(pair => ids.Contains(pair.Value.TestStepId))
+                                 .Select(pair => pair.Key).ToArray())
+                        capture._runs.Remove(runId);
                 }
             }
         }
@@ -51,6 +57,7 @@ internal sealed class SampleTableCapture : IResultSink
         lock (_sync)
         {
             _rows.Clear();
+            _runs.Clear();
         }
 
         var captures = Captures.GetOrCreateValue(planRun);
@@ -72,6 +79,7 @@ internal sealed class SampleTableCapture : IResultSink
         lock (_sync)
         {
             _rows.RemoveAll(row => row.Run.TestStepId == stepRun.TestStepId);
+            _runs[stepRun.Id] = (stepRun.TestStepId, stepRun.Parent);
         }
     }
 
@@ -112,19 +120,20 @@ internal sealed class SampleTableCapture : IResultSink
 
     public IReadOnlyList<(string Channel, double Value, double ElapsedMs)> RowsFor(string channel, TestStepRun consumer, ITestStep consumerStep, Guid? producerStepId = null)
     {
-        RequireKnownExecutionBoundary(consumerStep);
+        var plan = RequireKnownExecutionBoundary(consumerStep);
+        var sectionIds = SectionIds(plan).ToHashSet();
         lock (_sync)
         {
             return _rows
                 .Where(row => string.Equals(row.Channel, channel, StringComparison.OrdinalIgnoreCase)
                     && (producerStepId is null || row.Run.TestStepId == producerStepId)
-                    && SameExecutionScope(row.Run, consumer))
+                    && SameExecutionScope(row.Run, consumer, sectionIds))
                 .Select(row => (row.Channel, row.Value, row.ElapsedMs))
                 .ToArray();
         }
     }
 
-    private static void RequireKnownExecutionBoundary(ITestStep consumer)
+    private static TestPlan RequireKnownExecutionBoundary(ITestStep consumer)
     {
         var parent = consumer.Parent;
         while (parent is ITestStep step)
@@ -134,15 +143,31 @@ internal sealed class SampleTableCapture : IResultSink
                     "SAMPLE_SCOPE: unsupported execution boundary; place the producer and check in a Basic Test Group or Repeat Loop.");
             parent = step.Parent;
         }
-        if (parent is not TestPlan)
+        if (parent is not TestPlan plan)
             throw new InvalidOperationException("SAMPLE_SCOPE: capture requires an attached TestPlan execution boundary.");
+        return plan;
     }
 
-    private static bool SameExecutionScope(TestStepRun producer, TestStepRun consumer)
+    private static IEnumerable<Guid> SectionIds(ITestStepParent parent)
     {
-        // Require the same parent execution, not merely the same plan definition. This
-        // also excludes old rows when a group containing the producer runs again.
-        return producer.Parent == consumer.Parent;
+        foreach (var child in parent.ChildTestSteps)
+        {
+            if (child is TestGroupStep { AuthoringSection: true }) yield return child.Id;
+            foreach (var id in SectionIds(child)) yield return id;
+        }
+    }
+
+    private bool SameExecutionScope(TestStepRun producer, TestStepRun consumer, HashSet<Guid> sectionIds)
+        => ExecutionScope(producer, sectionIds) == ExecutionScope(consumer, sectionIds);
+
+    private Guid ExecutionScope(TestStepRun run, HashSet<Guid> sectionIds)
+    {
+        // Only named authoring sections are transparent. Keep the actual enclosing
+        // execution identity, so repeats and imported groups remain isolated.
+        var parent = run.Parent;
+        while (_runs.TryGetValue(parent, out var group) && sectionIds.Contains(group.TestStepId))
+            parent = group.Parent;
+        return parent;
     }
 
     private static double ToElapsed(object? raw)

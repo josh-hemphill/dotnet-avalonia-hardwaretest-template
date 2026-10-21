@@ -153,6 +153,8 @@ public static class AuthoringIssueService
         foreach (var node in nodes)
         {
             if (node is MetricNode metric) yield return metric;
+            if (node is SectionNode section)
+                foreach (var child in EnumerateMetricNodes(section.Children)) yield return child;
             if (node is RepeatNode repeat)
                 foreach (var child in EnumerateMetricNodes(repeat.Children)) yield return child;
         }

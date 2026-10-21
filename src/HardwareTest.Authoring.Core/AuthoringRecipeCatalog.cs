@@ -107,6 +107,9 @@ public static class AuthoringRecipeCatalog
                 case MetricNode metric:
                     yield return metric.Metric;
                     break;
+                case SectionNode section:
+                    foreach (var nested in EnumerateMetrics(section.Children)) yield return nested;
+                    break;
                 case RepeatNode repeat:
                     foreach (var nested in EnumerateMetrics(repeat.Children))
                     {

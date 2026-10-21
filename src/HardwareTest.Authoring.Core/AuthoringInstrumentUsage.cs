@@ -66,6 +66,7 @@ public static class AuthoringInstrumentUsage
             {
                 if (children[i] is MetricNode { Metric.Source: MeasureSource source } metric && string.Equals(source.InstrumentSlot, slot, StringComparison.OrdinalIgnoreCase)) nodes.Add($"{path}[{i}] {metric.Metric.Name}");
                 if (children[i] is MetricNode { Metric.Source: AlgorithmSource algorithm } algorithmMetric && AuthoringFunctionCatalog.HasInstrumentDependency(algorithm.AlgorithmId) && string.Equals(algorithm.InstrumentSlot, slot, StringComparison.OrdinalIgnoreCase)) nodes.Add($"{path}[{i}] {algorithmMetric.Metric.Name}");
+                if (children[i] is SectionNode section) Walk(section.Children, $"{path}[{i}].Children");
                 if (children[i] is RepeatNode repeat) Walk(repeat.Children, $"{path}[{i}].Children");
             }
         }
@@ -104,6 +105,9 @@ public static class AuthoringInstrumentUsage
                 case MetricNode { Metric.Source: ExpressionAlgorithm }:
                 case MetricNode { Metric.Source: TransferFunctionAlgorithm }:
                     break;
+                case SectionNode section:
+                    if (WalkOpaque(section.Children)) return true;
+                    break;
                 case RepeatNode repeat:
                     if (WalkOpaque(repeat.Children))
                     {
@@ -137,6 +141,7 @@ public static class AuthoringInstrumentUsage
                 {
                     Metric = metric.Metric with { Source = algorithm with { InstrumentSlot = to } },
                 },
+            SectionNode section => section with { Children = RetargetMeasure(section.Children, from, to) },
             RepeatNode repeat => repeat with { Children = RetargetMeasure(repeat.Children, from, to) },
             _ => node,
         }).ToArray();

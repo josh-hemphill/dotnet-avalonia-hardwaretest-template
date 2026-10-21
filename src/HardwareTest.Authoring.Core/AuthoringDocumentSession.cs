@@ -142,5 +142,5 @@ public sealed class AuthoringDocumentSession
         => draft.Setup.Any(action => action.NodeId == id) || ContainsNode(draft.Measure, id) || draft.Cleanup.NodeId == id;
 
     private static bool ContainsNode(IEnumerable<MeasureNode> nodes, Guid id)
-        => nodes.Any(node => node.NodeId == id || node is RepeatNode repeat && ContainsNode(repeat.Children, id));
+        => nodes.Any(node => node.NodeId == id || node is RepeatNode repeat && ContainsNode(repeat.Children, id) || node is SectionNode section && ContainsNode(section.Children, id));
 }

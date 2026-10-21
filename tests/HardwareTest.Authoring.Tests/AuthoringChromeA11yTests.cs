@@ -184,7 +184,8 @@ public sealed class AuthoringChromeA11yTests
         Assert.Contains("OnFormulaChip", xaml, StringComparison.Ordinal);
         Assert.Contains("OnRemoveSequence", xaml, StringComparison.Ordinal);
         Assert.Contains("OnRemoveProgram", xaml, StringComparison.Ordinal);
-        Assert.Contains("OnSequenceKeyDown", xaml, StringComparison.Ordinal);
+        Assert.Contains("SequenceList.AddHandler(KeyDownEvent, OnSequenceKeyDown, RoutingStrategies.Tunnel)",
+            File.ReadAllText(Path.Combine(sourceRoot, "SequenceEditorView.axaml.cs")), StringComparison.Ordinal);
         Assert.Contains("OnProgramsKeyDown", xaml, StringComparison.Ordinal);
         Assert.Contains("IsEnabled=\"{Binding CanRemoveSelectedSequence}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("IsEnabled=\"{Binding CanRemoveSelectedProgram}\"", xaml, StringComparison.Ordinal);
@@ -241,10 +242,26 @@ public sealed class AuthoringChromeA11yTests
                     Assert.Contains("list.SelectedItem = vm.SelectedProgramRow", viewCode, StringComparison.Ordinal);
                     continue;
                 }
+                var sectionActions = new Dictionary<(string View, string Handler), string>
+                {
+                    [("SequenceEditorView", "OnAddSection")] = "Vm?.AddSection()",
+                    [("SequenceEditorView", "OnExpandAllSections")] = "Vm?.ExpandAllSections()",
+                    [("SequenceEditorView", "OnMoveToSection")] = "Vm?.MoveSelectedToSection()",
+                    [("SequenceEditorView", "OnToggleSection")] = "vm.ToggleSelectedSection()",
+                    [("SelectedStepInspectorView", "OnRenameSection")] = "?.RenameSelectedSequence()",
+                    [("SelectedStepInspectorView", "OnToggleSection")] = "?.ToggleSelectedSection()",
+                    [("SelectedStepInspectorView", "OnMoveSectionUp")] = "?.MoveSelectedSequence(-1)",
+                    [("SelectedStepInspectorView", "OnMoveSectionDown")] = "?.MoveSelectedSequence(1)",
+                };
+                if (sectionActions.TryGetValue((view, handler), out var sectionAction))
+                {
+                    Assert.Contains(sectionAction, viewCode, StringComparison.Ordinal);
+                    continue;
+                }
                 if (view == "SequenceEditorView" && handler == "OnJumpSection")
                 {
                     Assert.Contains("SequenceList.ScrollIntoView(header)", viewCode, StringComparison.Ordinal);
-                    Assert.Contains("vm.InsertionPosition = \"End of section\"", viewCode, StringComparison.Ordinal);
+                    Assert.Contains("vm.InsertionPosition = section == SequenceSection.Measure", viewCode, StringComparison.Ordinal);
                     continue;
                 }
                 if (view == "SequenceEditorView" && handler is "OnRenameSequence" or "OnDuplicateSequence" or "OnMoveSequenceUp" or "OnMoveSequenceDown")

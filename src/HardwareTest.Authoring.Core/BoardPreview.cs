@@ -9,6 +9,18 @@ public sealed record BoardPreviewTile(Guid NodeId, string Title, string Scope, M
 /// Evaluates preceding dependency chains; each producer execution owns its own sample input.
 public static partial class BoardPreviewBuilder
 {
+    private static IEnumerable<MeasureNode> FlattenSections(IEnumerable<MeasureNode> nodes)
+    {
+        foreach (var node in nodes)
+        {
+            if (node is SectionNode section)
+            {
+                foreach (var child in FlattenSections(section.Children)) yield return child;
+            }
+            else yield return node;
+        }
+    }
+
     public static IReadOnlyList<BoardPreviewTile> Build(ProgramDraft? program, TestRunRecord? recording = null)
     {
         if (program is null) return [];
@@ -16,8 +28,10 @@ public static partial class BoardPreviewBuilder
         void Scope(IReadOnlyList<MeasureNode> nodes)
         {
             var available = new Dictionary<string, IReadOnlyList<IReadOnlyList<StoredSample>>>(StringComparer.OrdinalIgnoreCase);
-            var metrics = nodes.OfType<MetricNode>().Select(node => node.Metric).ToArray();
-            foreach (var node in nodes)
+            // Sections organize the sequence without introducing a new dataflow scope.
+            var sequence = FlattenSections(nodes).ToArray();
+            var metrics = sequence.OfType<MetricNode>().Select(node => node.Metric).ToArray();
+            foreach (var node in sequence)
             {
                 if (node is RepeatNode repeat) { Scope(repeat.Children); continue; }
                 if (node is RawStepNode raw)

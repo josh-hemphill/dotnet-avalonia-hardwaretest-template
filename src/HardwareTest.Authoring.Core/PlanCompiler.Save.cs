@@ -128,6 +128,10 @@ public sealed partial class PlanCompiler
                 var step = CreateMetricStep(metric.Metric, instruments);
                 step.Id = metric.NodeId;
                 return step;
+            case SectionNode section:
+                var group = new TestGroupStep { Id = section.NodeId, Name = section.Name, AuthoringSection = true };
+                foreach (var child in section.Children) group.ChildTestSteps.Add(CreateMeasureStep(child, instruments));
+                return group;
             case RepeatNode repeat:
                 {
                     var loop = new RepeatLoopStep { Id = repeat.NodeId, Name = "Repeat", Count = Math.Max(1, repeat.Count) };

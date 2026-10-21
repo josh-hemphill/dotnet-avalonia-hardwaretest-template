@@ -45,6 +45,18 @@ public partial class SelectedStepInspectorView : UserControl
         return false;
     }
 
+    private void OnRenameSection(object? sender, RoutedEventArgs e)
+        => (DataContext as AuthoringWorkspaceViewModel)?.RenameSelectedSequence();
+
+    private void OnToggleSection(object? sender, RoutedEventArgs e)
+        => (DataContext as AuthoringWorkspaceViewModel)?.ToggleSelectedSection();
+
+    private void OnMoveSectionUp(object? sender, RoutedEventArgs e)
+        => (DataContext as AuthoringWorkspaceViewModel)?.MoveSelectedSequence(-1);
+
+    private void OnMoveSectionDown(object? sender, RoutedEventArgs e)
+        => (DataContext as AuthoringWorkspaceViewModel)?.MoveSelectedSequence(1);
+
     private void OnToggleCleanupSlot(object? sender, RoutedEventArgs e)
         => (TopLevel.GetTopLevel(this) as MainWindow)?.OnToggleCleanupSlot(sender, e);
 
