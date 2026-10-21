@@ -4,7 +4,7 @@
       <StackPanel Spacing="12">
         <TextBlock Text="Program hardware bindings" Classes="sectionTitle" TextWrapping="Wrap" AutomationProperties.HeadingLevel="3"/>
         <TextBlock Text="A slot is the name steps use, such as DMM. Its binding selects the instrument type and address." Classes="purpose" TextWrapping="Wrap"/>
-        <TextBlock Text="Select a slot below to review or change its binding. Package and cleanup status are listed for each slot." Classes="purpose" TextWrapping="Wrap"/>
+        <TextBlock Text="Use Select a program slot below to review or change a binding. Package and cleanup status are listed for each slot." Classes="purpose" TextWrapping="Wrap"/>
         <TextBlock Text="No instrument slots yet. Add a slot below when its instrument type and address are known." IsVisible="{Binding !Instruments.Count}" TextWrapping="Wrap"/>
         <ItemsControl ItemsSource="{Binding HardwareRows}" AutomationProperties.Name="Hardware binding table">
           <ItemsControl.ItemTemplate>
@@ -27,6 +27,33 @@
             </DataTemplate>
           </ItemsControl.ItemTemplate>
         </ItemsControl>
+      </StackPanel>
+    </Border>
+    <Border Classes="surface taskSection">
+      <StackPanel Spacing="10">
+        <TextBlock Text="Supported instrument types" Classes="sectionTitle" AutomationProperties.HeadingLevel="3"/>
+        <TextBlock Text="{Binding InstrumentCatalogSummary}" TextWrapping="Wrap" AutomationProperties.Name="Supported instrument types summary"/>
+        <TextBlock Text="{Binding LibraryEnvironmentReadinessText}" TextWrapping="Wrap" AutomationProperties.Name="Hardware library readiness"/>
+        <WrapPanel>
+          <Button Content="Prepare / import instrument library" Click="OnOpenEnvironment" Classes="authoringAction" Margin="0,0,8,8" AutomationProperties.Name="Open hardware environment"/>
+          <Button Content="Manage reusable hardware templates" Click="OnOpenDefinitions" Classes="authoringAction" Margin="0,0,8,8" AutomationProperties.Name="Manage reusable hardware templates"/>
+        </WrapPanel>
+        <Expander Header="Browse available types" HorizontalContentAlignment="Stretch" Classes="inspectorSection">
+          <StackPanel>
+            <ItemsControl ItemsSource="{Binding InstrumentTypeChoices}" AutomationProperties.Name="Supported instrument types">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:AuthoringInstrumentAdapter">
+                  <StackPanel Spacing="4" Margin="0,0,0,12">
+                    <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                    <TextBlock Text="{Binding Description}" TextWrapping="Wrap"/>
+                    <TextBlock Text="{Binding TypeId}" Classes="purpose" TextWrapping="Wrap"/>
+                    <TextBlock Text="{Binding RequiredPackage}" Classes="purpose" TextWrapping="Wrap"/>
+                  </StackPanel>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
+        </Expander>
       </StackPanel>
     </Border>
     <Border Classes="surface taskSection">

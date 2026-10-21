@@ -1,26 +1,38 @@
 <UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:vm="using:HardwareTest.Authoring" xmlns:host="using:HardwareTest.OpenTap.Host" x:Class="HardwareTest.Authoring.SelectedStepInspectorView" x:DataType="vm:AuthoringWorkspaceViewModel">
   <ScrollViewer Margin="0" AutomationProperties.Name="Selected step inspector" HorizontalScrollBarVisibility="Disabled">
     <StackPanel Spacing="16">
+      <StackPanel Spacing="8">
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+          <TextBlock Text="Name" VerticalAlignment="Center"/>
+          <Button Grid.Column="1" x:Name="InspectorActionsButton" Content="Item actions ▾" Classes="authoringAction" AutomationProperties.Name="Selected step actions">
+            <Button.Flyout><Flyout><ScrollViewer Width="300" MaxHeight="360" HorizontalScrollBarVisibility="Disabled"><StackPanel Spacing="8" Classes="workspaceMenu">
+              <TextBlock Text="{Binding SequenceOperationTarget}" TextWrapping="Wrap" Classes="purpose"/>
+              <Button Content="Duplicate" Click="OnDuplicateSequence" IsEnabled="{Binding CanDuplicateSequence}" Classes="authoringAction" AutomationProperties.Name="Duplicate selected step"/>
+              <Button Content="Move up" Click="OnMoveSequenceUp" IsEnabled="{Binding CanMoveSequence}" Classes="authoringAction" AutomationProperties.Name="Move selected step up"/>
+              <Button Content="Move down" Click="OnMoveSequenceDown" IsEnabled="{Binding CanMoveSequence}" Classes="authoringAction" AutomationProperties.Name="Move selected step down"/>
+              <TextBlock x:Name="SectionDestinationLabel" Text="Move to section"/>
+              <ComboBox x:Name="SectionDestinationBox" ItemsSource="{Binding SectionDestinations}" SelectedItem="{Binding SelectedSectionDestination}" AutomationProperties.Name="Destination section" AutomationProperties.LabeledBy="{Binding #SectionDestinationLabel}">
+                <ComboBox.ItemTemplate><DataTemplate x:DataType="vm:AuthoringSectionDestination"><TextBlock Text="{Binding Name}" TextWrapping="Wrap"/></DataTemplate></ComboBox.ItemTemplate>
+              </ComboBox>
+              <Button Content="Move to section" Click="OnMoveToSection" IsEnabled="{Binding CanMoveToSection}" AutomationProperties.Name="Move selected item to section" Classes="authoringAction"/>
+              <Button Content="{Binding RemoveSequenceActionTitle}" Click="OnRemoveSequence" IsEnabled="{Binding CanRemoveSelectedSequence}" Classes="authoringAction" ToolTip.Tip="{Binding RemoveSelectedPurpose}" AutomationProperties.Name="Remove selected"/>
+            </StackPanel></ScrollViewer></Flyout></Button.Flyout>
+          </Button>
+        </Grid>
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+          <TextBox x:Name="StepNameBox" Text="{Binding SequenceRename}" IsEnabled="{Binding CanRenameSequence}" AutomationProperties.Name="Selected step name"/>
+          <Button Grid.Column="1" Content="Rename" Click="OnRenameSequence" IsEnabled="{Binding CanRenameSequence}" Classes="authoringAction" AutomationProperties.Name="Rename selected step"/>
+        </Grid>
+      </StackPanel>
       <TextBlock Text="{Binding InspectorBreadcrumb}" TextWrapping="Wrap"/>
-      <TextBlock Text="{Binding SelectedStepErrors}" TextWrapping="Wrap" Foreground="{DynamicResource AuthoringError}" AutomationProperties.Name="Selected step errors" AutomationProperties.LiveSetting="Polite"/>
+      <TextBlock Text="{Binding SelectedStepErrors}" IsVisible="{Binding SelectedStepErrors, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" TextWrapping="Wrap" Foreground="{DynamicResource AuthoringError}" AutomationProperties.Name="Selected step errors" AutomationProperties.LiveSetting="Polite"/>
       <Expander x:Name="ConfigureExpander" Header="Configure" IsExpanded="True" HorizontalContentAlignment="Stretch" AutomationProperties.Name="Configure selected step" Classes="inspectorSection">
         <StackPanel Spacing="16">
           <TextBlock IsVisible="{Binding HasRawStep}" Text="Imported step implementation is preserved. Inspect its details in Advanced." TextWrapping="Wrap"/>
           <StackPanel Spacing="10" IsVisible="{Binding HasSectionEditor}">
             <TextBlock Text="Device test section" Classes="sectionTitle" AutomationProperties.HeadingLevel="3"/>
-            <TextBlock Text="Keep tests for one device system together. Add recipes to this selected section from Sections &amp; steps." Classes="purpose" TextWrapping="Wrap"/>
-            <TextBlock x:Name="SectionNameLabel" Text="Section name"/>
-            <TextBox Text="{Binding SequenceRename}" AutomationProperties.Name="Section name" AutomationProperties.LabeledBy="{Binding #SectionNameLabel}"/>
-            <WrapPanel>
-              <Button Content="Rename section" Click="OnRenameSection" IsEnabled="{Binding CanRenameSequence}"
-                  AutomationProperties.Name="Rename section" Classes="authoringAction" Margin="0,0,6,6"/>
-              <Button Content="{Binding SelectedSectionToggleLabel}" Click="OnToggleSection" IsEnabled="{Binding CanToggleSelectedSection}"
-                  AutomationProperties.Name="Toggle selected section" Classes="authoringAction" Margin="0,0,6,6"/>
-              <Button Content="Move up" Click="OnMoveSectionUp" IsEnabled="{Binding CanMoveSequence}"
-                  AutomationProperties.Name="Move section up" Classes="authoringAction" Margin="0,0,6,6"/>
-              <Button Content="Move down" Click="OnMoveSectionDown" IsEnabled="{Binding CanMoveSequence}"
-                  AutomationProperties.Name="Move section down" Classes="authoringAction" Margin="0,0,6,6"/>
-            </WrapPanel>
+            <TextBlock Text="Keep tests for one device system together. Use Add step to add tests to this selected section. Rename above; use Item actions to reorder or move it." Classes="purpose" TextWrapping="Wrap"/>
+            <Button Content="{Binding SelectedSectionToggleLabel}" Click="OnToggleSection" IsEnabled="{Binding CanToggleSelectedSection}" AutomationProperties.Name="Toggle selected section" Classes="authoringAction" HorizontalAlignment="Left"/>
             <TextBlock Text="Removing a section keeps its tests in the parent sequence. Setup and Cleanup cannot be moved into a section." Classes="purpose" TextWrapping="Wrap"/>
           </StackPanel>
           <StackPanel Spacing="10" IsVisible="{Binding HasRepeatEditor}">
@@ -207,6 +219,9 @@
           <ComboBox ItemsSource="{Binding YUnitOptions}" SelectedItem="{Binding YUnit}" IsEditable="True" AutomationProperties.Name="{x:Static vm:AuthoringInspectorCopy.OperatorYUnitLabel}" AutomationProperties.LabeledBy="{Binding #YUnitLabel}" ToolTip.Tip="{x:Static vm:AuthoringInspectorCopy.OperatorYUnitTooltip}"/>
           <TextBlock Text="{Binding PreviewNote}" TextWrapping="Wrap" AutomationProperties.Name="Operator preview note"/>
         </StackPanel>
+      </Expander>
+      <Expander Header="Dependencies" HorizontalContentAlignment="Stretch" Classes="inspectorSection">
+        <StackPanel><TextBlock Text="{Binding SelectedDependencySummary}" TextWrapping="Wrap" AutomationProperties.Name="Selected step dependencies"/></StackPanel>
       </Expander>
       <Expander x:Name="AdvancedExpander" Header="Advanced" IsExpanded="True" HorizontalContentAlignment="Stretch" AutomationProperties.Name="Advanced selected step" Classes="inspectorSection">
         <StackPanel Spacing="16">

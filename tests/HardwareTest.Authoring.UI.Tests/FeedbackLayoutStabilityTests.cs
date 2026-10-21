@@ -30,6 +30,7 @@ public sealed class FeedbackLayoutStabilityTests
         Assert.Equal(sequenceBounds, BoundsInWindow(sequence, window));
         Assert.Equal(inspectorBounds, BoundsInWindow(inspector, window));
         fixture.ViewModel.Open(fixture.WorkspaceRoot);
+        fixture.NavigateTask(0);
         fixture.ViewModel.SelectMeasure(0);
         Assert.Empty(fixture.ViewModel.SaveAllResults);
         AuthoringUiFixture.Drain();
@@ -68,6 +69,28 @@ public sealed class FeedbackLayoutStabilityTests
         Assert.Equal(inspectorBounds, BoundsInWindow(inspector, window));
         Assert.True(field.Bounds.Width <= configure.Bounds.Width);
         Assert.False(fixture.ViewModel.HasUnsavedChanges);
+    }
+
+    [AvaloniaTheory]
+    [InlineData(8)]
+    [InlineData(3)]
+    public void Saving_from_overview_and_environment_preserves_task_workspace_bounds(int route)
+    {
+        using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
+        var window = fixture.Show(960, 600);
+        fixture.OpenRememberedWorkspace();
+        fixture.NavigateTask(route);
+        fixture.ViewModel.DisplayName += " edited";
+        AuthoringUiFixture.Drain();
+        var workspace = window.FindControl<TabControl>("WorkspaceTabs")!;
+        var selector = fixture.Control<ComboBox>("Selected test plan");
+        var workspaceBounds = BoundsInWindow(workspace, window);
+        var selectorBounds = BoundsInWindow(selector, window);
+        AuthoringUiFixture.Click(fixture.Control<Button>("Save all"));
+        Assert.NotEmpty(fixture.ViewModel.SaveAllResults);
+        Assert.Equal(route, workspace.SelectedIndex);
+        Assert.Equal(workspaceBounds, BoundsInWindow(workspace, window));
+        Assert.Equal(selectorBounds, BoundsInWindow(selector, window));
     }
 
     private static Rect BoundsInWindow(Control control, Window window)

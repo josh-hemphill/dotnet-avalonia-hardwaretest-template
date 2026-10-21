@@ -7,7 +7,35 @@ namespace HardwareTest.Authoring;
 
 public partial class SelectedStepInspectorView : UserControl
 {
-    public SelectedStepInspectorView() => InitializeComponent();
+    public SelectedStepInspectorView()
+    {
+        InitializeComponent();
+        var menu = (Flyout)InspectorActionsButton.Flyout!;
+        menu.Opened += (_, _) => ((ScrollViewer)menu.Content!).FontSize = FontSize;
+        ((Control)menu.Content!).AddHandler(Button.ClickEvent, (_, e) =>
+        {
+            if (e.Source is Button button && button.Classes.Contains("authoringAction")) menu.Hide();
+        });
+        ((Control)menu.Content!).AddHandler(KeyDownEvent, (_, e) =>
+        {
+            if (e.Handled) return;
+            (TopLevel.GetTopLevel(this) as MainWindow)?.OnExpertKeyDown(this, e);
+            if (e.Handled) menu.Hide();
+        });
+    }
+
+    private AuthoringWorkspaceViewModel? Vm => DataContext as AuthoringWorkspaceViewModel;
+    private void OnRenameSequence(object? sender, RoutedEventArgs e)
+    {
+        if (Vm is not { } vm) return;
+        vm.SequenceRename = StepNameBox.Text ?? "";
+        vm.RenameSelectedSequence();
+    }
+    private void OnDuplicateSequence(object? sender, RoutedEventArgs e) => Vm?.DuplicateSelectedSequence();
+    private void OnMoveSequenceUp(object? sender, RoutedEventArgs e) => Vm?.MoveSelectedSequence(-1);
+    private void OnMoveSequenceDown(object? sender, RoutedEventArgs e) => Vm?.MoveSelectedSequence(1);
+    private void OnRemoveSequence(object? sender, RoutedEventArgs e)
+        => (TopLevel.GetTopLevel(this) as MainWindow)?.OnRemoveSequence(sender, e);
 
     public bool FocusFinding(HardwareTest.OpenTap.Host.PlanContractTarget target)
     {
@@ -45,17 +73,15 @@ public partial class SelectedStepInspectorView : UserControl
         return false;
     }
 
-    private void OnRenameSection(object? sender, RoutedEventArgs e)
-        => (DataContext as AuthoringWorkspaceViewModel)?.RenameSelectedSequence();
-
-    private void OnToggleSection(object? sender, RoutedEventArgs e)
-        => (DataContext as AuthoringWorkspaceViewModel)?.ToggleSelectedSection();
-
-    private void OnMoveSectionUp(object? sender, RoutedEventArgs e)
-        => (DataContext as AuthoringWorkspaceViewModel)?.MoveSelectedSequence(-1);
-
-    private void OnMoveSectionDown(object? sender, RoutedEventArgs e)
-        => (DataContext as AuthoringWorkspaceViewModel)?.MoveSelectedSequence(1);
+    private void OnToggleSection(object? sender, RoutedEventArgs e) => Vm?.ToggleSelectedSection();
+    private void OnMoveToSection(object? sender, RoutedEventArgs e) => Vm?.MoveSelectedToSection();
+    internal void FocusName() { StepNameBox.BringIntoView(); StepNameBox.Focus(); }
+    internal void FocusSectionDestination()
+    {
+        InspectorActionsButton.Flyout!.ShowAt(InspectorActionsButton);
+        SectionDestinationBox.BringIntoView();
+        SectionDestinationBox.Focus();
+    }
 
     private void OnToggleCleanupSlot(object? sender, RoutedEventArgs e)
         => (TopLevel.GetTopLevel(this) as MainWindow)?.OnToggleCleanupSlot(sender, e);

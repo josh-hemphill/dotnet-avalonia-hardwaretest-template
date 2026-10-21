@@ -23,9 +23,9 @@ public sealed class AuthoringSectionUiTests
         var section = Assert.IsType<SectionNode>(vm.SelectedProgram!.Measure.Last());
         Assert.Equal("Power supply", section.Name);
         Assert.True(vm.HasSectionEditor);
-        Assert.Equal("Power supply", fixture.Control<TextBox>("Section name").Text);
-        fixture.Type(fixture.Control<TextBox>("Section name"), "Power rails");
-        AuthoringUiFixture.Click(fixture.Control<Button>("Rename section"));
+        Assert.Equal("Power supply", fixture.Control<TextBox>("Selected step name").Text);
+        fixture.Type(fixture.Control<TextBox>("Selected step name"), "Power rails");
+        AuthoringUiFixture.Click(fixture.Control<Button>("Rename selected step"));
         Assert.Equal("Power rails", Assert.IsType<SectionNode>(vm.SelectedProgram.Measure.Last()).Name);
         vm.SelectedRecipe = vm.Recipes.Single(recipe => recipe.Id == AuthoringRecipeIds.Acquire);
         AuthoringUiFixture.Click(fixture.Control<Button>("Add recipe"));
@@ -34,10 +34,10 @@ public sealed class AuthoringSectionUiTests
         vm.NewSectionName = "Display";
         vm.AddSection();
         AuthoringUiFixture.Drain();
-        Assert.Equal("Display", fixture.Control<TextBox>("Section name").Text);
+        Assert.Equal("Display", fixture.Control<TextBox>("Selected step name").Text);
         vm.SelectSequence(vm.SequenceItems.ToList().FindIndex(row => row.NodeId == section.NodeId));
         AuthoringUiFixture.Drain();
-        Assert.Equal("Power rails", fixture.Control<TextBox>("Section name").Text);
+        Assert.Equal("Power rails", fixture.Control<TextBox>("Selected step name").Text);
         Assert.Null(vm.Error);
     }
 
@@ -71,6 +71,8 @@ public sealed class AuthoringSectionUiTests
         window.KeyPress(Key.Left, RawInputModifiers.Alt, PhysicalKey.None, null);
         AuthoringUiFixture.Drain();
         Assert.Contains(vm.SequenceItems, row => row.NodeId == stepId);
+        fixture.NavigateTask(0);
+        AuthoringUiFixture.Drain();
         Assert.True(sectionRow.Focus());
         window.KeyPress(Key.Left, RawInputModifiers.None, PhysicalKey.None, null);
         AuthoringUiFixture.Drain();

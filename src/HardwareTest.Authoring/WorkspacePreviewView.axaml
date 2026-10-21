@@ -1,14 +1,13 @@
 <UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:vm="using:HardwareTest.Authoring" xmlns:host="using:HardwareTest.OpenTap.Host" x:Class="HardwareTest.Authoring.WorkspacePreviewView" x:DataType="vm:AuthoringWorkspaceViewModel">
-  <ScrollViewer x:Name="WorkspaceViewport" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto" ClipToBounds="True" Focusable="True" AutomationProperties.Name="Workspace preview viewport">
     <Grid x:Name="PreviewLayout" RowDefinitions="Auto,Auto,*" RowSpacing="8" AutomationProperties.Name="Preview content">
       <ScrollViewer x:Name="SourceDetailsViewport" Grid.Row="0" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto" ClipToBounds="True" AutomationProperties.Name="Data source details viewport">
         <Border x:Name="SourceFrame" Classes="surface" Padding="8">
           <StackPanel Spacing="12">
             <WrapPanel x:Name="SourceActions">
               <TextBlock Text="Preview data" Margin="0,0,8,0" VerticalAlignment="Center" FontWeight="SemiBold" AutomationProperties.HeadingLevel="3" Classes="sectionTitle"/>
-              <Button Content="Example data" Click="OnUseExampleData" AutomationProperties.Name="Use example data" Classes="authoringAction" Margin="0,0,8,0"/>
-              <Button Content="Import recording" Click="OnImportRecording" IsEnabled="{Binding CanImportRecording}" AutomationProperties.Name="Import recording" Classes="authoringAction primaryAction" Margin="0,0,8,0"/>
-              <Button Content="Open folder" Click="OnOpenRecordingFolder" IsEnabled="{Binding HasWorkspace}" AutomationProperties.Name="Open recordings folder" Classes="authoringAction" Margin="0,0,8,0"/>
+              <Button Content="Example" Click="OnUseExampleData" ToolTip.Tip="Use example data" AutomationProperties.Name="Use example data" Classes="authoringAction" Margin="0,0,8,0"/>
+              <Button Content="Import" Click="OnImportRecording" ToolTip.Tip="Import recording" IsEnabled="{Binding CanImportRecording}" AutomationProperties.Name="Import recording" Classes="authoringAction primaryAction" Margin="0,0,8,0"/>
+              <Button Content="Folder" Click="OnOpenRecordingFolder" ToolTip.Tip="Open recordings folder" IsEnabled="{Binding HasWorkspace}" AutomationProperties.Name="Open recordings folder" Classes="authoringAction" Margin="0,0,8,0"/>
             </WrapPanel>
             <TextBlock Text="{Binding DataSourceDetails}" TextWrapping="Wrap"/>
             <TextBlock Text="{Binding RecordingEmptyState}" TextWrapping="Wrap"/>
@@ -24,5 +23,4 @@
         <vm:OperatorPreviewPane x:Name="BoardPane" Grid.Row="1"/>
       </Grid>
     </Grid>
-  </ScrollViewer>
 </UserControl>

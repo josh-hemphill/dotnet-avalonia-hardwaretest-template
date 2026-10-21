@@ -223,7 +223,7 @@ public partial class MainWindow : Window
         var workspace = _viewModel.Workspace;
         var document = _viewModel.SelectedDocument;
         var revision = document?.Revision;
-        WorkspaceTabs.SelectedIndex = target.NodeId is null ? 1 : 0;
+        WorkspaceTabs.SelectedIndex = target.NodeId is null ? 7 : 0;
         if (target.NodeId is not null && target.Section is null && target.Field is null) return;
         Avalonia.Threading.Dispatcher.UIThread.Post(() =>
         {

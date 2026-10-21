@@ -18,6 +18,8 @@ public partial class HardwareView : UserControl
             owner.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 3;
     }
     private void OnAddInstrumentSlot(object? sender, RoutedEventArgs e) => TryRun(() => Vm?.AddInstrumentSlot());
+    private void OnOpenDefinitions(object? sender, RoutedEventArgs e)
+        => (TopLevel.GetTopLevel(this) as MainWindow)?.OpenDefinitions("HardwareTemplateSection");
     private async void OnRemoveInstrumentSlot(object? sender, RoutedEventArgs e)
     {
         if (TopLevel.GetTopLevel(this) is MainWindow owner) await owner.ConfirmInstrumentRemovalAsync();

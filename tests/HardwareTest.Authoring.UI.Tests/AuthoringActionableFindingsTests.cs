@@ -66,7 +66,7 @@ public sealed class AuthoringActionableFindingsTests
             button => Equals(button.DataContext, issue) && Equals(button.Content, "Open program settings"));
         AuthoringUiFixture.Click(button);
         Assert.Equal(program, vm.SelectedProgram!.PlanId);
-        Assert.Equal(1, tabs.SelectedIndex);
+        Assert.Equal(7, tabs.SelectedIndex);
         Assert.Null(vm.Error);
         Assert.False(vm.ShowThreshold);
     }

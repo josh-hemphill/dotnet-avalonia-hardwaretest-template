@@ -16,15 +16,20 @@ public sealed class OperatorPreviewPane : UserControl
 
     public OperatorPreviewPane()
     {
-        Content = new ScrollViewer
+        var viewport = new ScrollViewer
         {
             Content = _board,
+            Focusable = true,
             ClipToBounds = true,
             HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
             VerticalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto,
         };
+        AutomationProperties.SetName(viewport, "Operator board viewport");
+        Content = viewport;
         AutomationProperties.SetName(this, "Operator preview chrome");
         DataContextChanged += (_, _) => HookSession();
+        SizeChanged += (_, _) => ConstrainCharts();
+        LayoutUpdated += (_, _) => ConstrainCharts();
     }
 
     protected override void OnAttachedToVisualTree(Avalonia.VisualTreeAttachmentEventArgs e)
@@ -81,5 +86,12 @@ public sealed class OperatorPreviewPane : UserControl
             return;
         }
         foreach (var tile in tiles) _board.Children.Add(new BoardPreviewTileView(tile));
+        ConstrainCharts();
+    }
+
+    private void ConstrainCharts()
+    {
+        foreach (var tile in _board.Children.OfType<BoardPreviewTileView>())
+            tile.SetChartViewportHeight(Bounds.Height);
     }
 }

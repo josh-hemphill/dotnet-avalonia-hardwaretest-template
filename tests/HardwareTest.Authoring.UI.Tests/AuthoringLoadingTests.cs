@@ -21,7 +21,7 @@ public sealed class AuthoringLoadingTests
         {
             if (e.PropertyName == nameof(vm.LoadingStage)) stages.Add(vm.LoadingStage);
         };
-        fixture.Control<ListBox>("Programs").SelectedItem = vm.ProgramRows.Single(row => row.PlanId == "sample");
+        fixture.Control<ComboBox>("Selected test plan").SelectedItem = vm.ProgramRows.Single(row => row.PlanId == "sample");
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
         while (vm.LoadingBusy) await Task.Delay(1, timeout.Token);
         Assert.Equal("sample", vm.SelectedProgram!.PlanId);
@@ -45,6 +45,10 @@ public sealed class AuthoringLoadingTests
             Assert.Contains("programs", fixture.ViewModel.LoadingStage);
             Assert.False(loading.IsCompleted);
             Assert.False(fixture.ViewModel.HasWorkspace);
+            AuthoringUiFixture.Drain();
+            Assert.True(fixture.Window.FindControl<Border>("LoadingOverlay")!.IsEffectivelyVisible);
+            Assert.True(fixture.Control<ProgressBar>("Loading progress").IsIndeterminate);
+            Assert.False(fixture.Window.FindControl<Button>("LifecycleFocusTarget")!.IsEffectivelyEnabled);
             Assert.False(await fixture.Window.ExecuteCommandAsync("save-all"));
             Assert.Null(fixture.ViewModel.Error);
             await compiler.Entered.Task.WaitAsync(TimeSpan.FromSeconds(10));
@@ -56,6 +60,9 @@ public sealed class AuthoringLoadingTests
         Assert.True(fixture.ViewModel.HasWorkspace);
         Assert.False(fixture.ViewModel.LoadingBusy);
         Assert.Null(fixture.ViewModel.LoadingStage);
+        AuthoringUiFixture.Drain();
+        Assert.False(fixture.Window.FindControl<Border>("LoadingOverlay")!.IsVisible);
+        Assert.Equal(8, fixture.Window.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex);
     }
 
     [AvaloniaFact]

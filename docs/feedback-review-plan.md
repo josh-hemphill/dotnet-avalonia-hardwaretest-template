@@ -2,6 +2,12 @@
 
 Review branch: `fix/authoring-operator-feedback`.
 
+Baseline correction: the first two feedback commits started at `08a80bf`, before
+PR #233. This branch now integrates `46106df` (the merged task-based authoring
+redesign) and reassesses the feedback against that implementation. The task
+workspace is authoritative: Overview, Switch task, compact plan selector, separate
+Add step palette, full-page preview and Operator & reports remain intact.
+
 ## Implementation plan and ownership
 
 | Area | Owner | Scope |
@@ -48,16 +54,15 @@ action. Retain native keyboard focus and theme behavior.
 
 ```text
 Back    Workspace                         Save all / Check
-Programs | Program / Hardware / Issues / Environment / Build
-         | Section heading
-         | Short explanation
-         | Labeled controls and relevant actions
+Overview | Plan selector / Plan actions | Switch task / Guidance
+         | Focused task workspace
+Sequence | Sections / Add step palette | Resizable step editor
 Status   | Fixed save-result and error lane
 ```
 
 Review against the brief: avoid a general dashboard redesign. Keep the existing
-tabs and program rail. Use hierarchy within the hardware workflow to resolve its
-density, and a fixed feedback lane in the existing status area to prevent save-induced editor movement.
+task workspace, compact plan selector and dedicated step palette. Use hierarchy
+within the hardware workflow to resolve its density, and a fixed feedback lane in the existing status area to prevent save-induced editor movement.
 Expanders and dropdowns stretch within their parent width and use consistent
 padding. A loading state communicates work without invented percentage progress.
 
@@ -86,12 +91,12 @@ padding. A loading state communicates work without invented percentage progress.
 
 ## Implemented behavior
 
-- Existing tabs retain their focus and selection behavior; Back and Alt+Left
-  return through section history.
-- Sections & steps offers named section creation and Setup, Measure and Cleanup
-  targeting. Selected sections expose rename, collapse and reorder actions; a
-  destination picker moves existing tests into or between sections. Empty sections
-  accept new recipes. Right-click or Shift+F10 opens step actions. Dragging
+- Overview and Switch task retain page controls and draft/focus state; Back and
+  Alt+Left return through task history, which resets on workspace replacement.
+- The Sequence task's Sections menu offers named section creation and fixed phase
+  shortcuts. The separate Add step palette populates empty or selected sections.
+  The step editor exposes rename, collapse, reorder and a destination picker for
+  moving existing tests into or between sections. Right-click or Shift+F10 opens step actions. Dragging
   reorders siblings through the same dependency, opaque-node and loop-scope guards
   as keyboard movement, with one Undo.
 - Hardware views distinguish the slot name from its binding, label type/address
@@ -148,10 +153,10 @@ uses a Formula consuming the Acquire output. No product guard was relaxed.
 
 ## Named-section review walkthrough
 
-1. Open a program and choose **Sections & steps**. Enter a system name such as
+1. Open a program and choose **Sections**. Enter a system name such as
    Power supply, then choose **Add section**. Setup and Cleanup stay at the ends.
-2. Select the empty section and add an Acquire recipe. Add a second section, then
-   select an existing test and use **Destination section / Move to section**.
+2. Select the empty section and use **Add step** to add an Acquire recipe. Add a second section, then
+   select an existing test and use **Item actions / Destination section / Move to section**.
 3. Rename a section in its inspector; reorder it with Move up/down or sibling drag.
    Dependency checks prevent a consumer from moving before its producer.
 4. Collapse a section with its arrow or Left; expand with Right or Expand all
@@ -182,3 +187,43 @@ Named-section follow-up validation:
 - Architecture suite: **45 passed**; Release builds have no warnings or errors.
 - Light/Dark section layouts and a 960×600 viewport were rendered and inspected.
   The temporary screenshot harness was removed before final builds.
+
+## Reassessment on the merged task-based implementation
+
+The corrected review baseline is `46106df` (PR #233), now an ancestor of this
+branch. The original feedback was revisited with the task-based implementation
+rather than reinstating the earlier rail/tab shell.
+
+| Feedback | Task-based implementation and verification |
+| --- | --- |
+| Navigation | Keep Overview and Switch task; add Back/Alt+Left history, reset on workspace replacement, preserve task focus and drafts. |
+| Manage large test plans | Sections menu beside the dedicated Add step palette; shared name editor and Item actions manage sections. Named groups, identity, undo, dependencies and fixed lifecycle anchors remain supported. |
+| Drag and context actions | Card canvas retains guarded sibling drag; context actions focus the existing editor or section destination instead of opening an obsolete all-purpose flyout. |
+| Guidance readability | Structured next steps/preferences remain in the redesigned scrollable guidance sheet with its fixed close action and focus restoration. |
+| Hardware density, type resolution, Slot vs Binding, deferred addresses | Preserve dedicated Instruments task and progressive disclosure; retain vocabulary, compatibility, missing-package recovery and hardware-free drafting guidance. |
+| Hardware templates | Preserve named Definitions anchors and explicit copy semantics; instructions point back to Instruments. |
+| Readiness and package sources | Keep separate library/execution readiness, three preparation steps and structured package rows; locate bundled/offline sourcing help beside preparation. |
+| Dropdowns/expanders | Retain themed stretching/padding and inspector interior spacing; inspect Light/Dark and minimum-size task layouts. |
+| Save layout stability | Fixed status feedback lane remains; verify Sequence, Overview and Environment bounds after success/error feedback. |
+| Workspace/program loading | Overlay covers the task shell. Replace the new selector's synchronous two-way binding with guarded async selection and restore the picker after rejected/failed transitions. |
+| Operator clear | Existing idle-only Clear run is unchanged by the authoring redesign; its eight focused checks pass again. |
+
+Integration fixes included removing a duplicate Environment handler introduced by
+merge, preserving the separate recipe palette and its keyboard navigation,
+initializing the shared item name field, and adapting async draft-retention tests.
+The first corrected-baseline checks passed: **29 focused UI**, **118 core/section/
+runtime/accessibility**, and **8 Operator Clear run** tests.
+
+Actual updated Avalonia screenshots:
+
+- [Sequence with named sections, Light](feedback-review/task-sections-light.png)
+- [Sequence with named sections, Dark](feedback-review/task-sections-dark.png)
+- [960×600 with enlarged text](feedback-review/task-sections-small.png)
+
+The temporary Skia capture test was removed before the final test build.
+
+Final corrected-baseline validation: **423/423 Authoring UI tests passed**,
+**118 focused core checks passed**, **45 architecture checks passed**, and
+**8 Operator Clear run checks passed**. Release builds completed with no warnings
+or errors. Native Windows/screen-reader and physical-hardware review remain
+outside this Linux headless validation.

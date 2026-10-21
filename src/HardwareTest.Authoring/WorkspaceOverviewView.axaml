@@ -1,0 +1,35 @@
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:vm="using:HardwareTest.Authoring" x:Class="HardwareTest.Authoring.WorkspaceOverviewView" x:DataType="vm:AuthoringWorkspaceViewModel">
+  <ScrollViewer HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="Workspace overview viewport">
+    <StackPanel Spacing="24" Margin="0,8,0,24">
+      <StackPanel Spacing="8">
+        <TextBlock Text="YOUR WORKSPACE" Classes="eyebrow"/>
+        <TextBlock Text="What would you like to work on?" FontSize="30" FontWeight="Bold" TextWrapping="Wrap" AutomationProperties.HeadingLevel="1"/>
+        <TextBlock Text="Choose a task for the selected plan. Switch plans above whenever you need to." Classes="purpose" TextWrapping="Wrap"/>
+      </StackPanel>
+      <vm:WorkspaceTaskCards>
+        <Button Tag="0" Click="OnNavigate" Classes="taskCard" AutomationProperties.Name="Open Sequence task">
+          <StackPanel Spacing="10"><TextBlock Text="01 / AUTHOR" Classes="eyebrow"/><TextBlock Text="Sequence" FontSize="22" FontWeight="SemiBold"/><TextBlock Text="Arrange setup, measurements, checks and cleanup. Select a step to edit its details." TextWrapping="Wrap" Classes="purpose"/><TextBlock Text="Edit the sequence →" Foreground="{DynamicResource AuthoringAccent}" FontWeight="SemiBold"/></StackPanel>
+        </Button>
+        <Button Tag="1" Click="OnNavigate" Classes="taskCard" AutomationProperties.Name="Open Instruments task">
+          <StackPanel Spacing="10"><TextBlock Text="02 / CONNECT" Classes="eyebrow"/><TextBlock Text="Instruments" FontSize="22" FontWeight="SemiBold"/><TextBlock Text="Add instrument slots, choose supported types, and manage reusable hardware templates." TextWrapping="Wrap" Classes="purpose"/><TextBlock Text="Configure instruments →" Foreground="{DynamicResource AuthoringAccent}" FontWeight="SemiBold"/></StackPanel>
+        </Button>
+        <Button Tag="7" Click="OnNavigate" Classes="taskCard" AutomationProperties.Name="Open Operator and reports task">
+          <StackPanel Spacing="10"><TextBlock Text="03 / CONFIGURE" Classes="eyebrow"/><TextBlock Text="Operator &amp; reports" FontSize="22" FontWeight="SemiBold" TextWrapping="Wrap"/><TextBlock Text="Set plan identity, create operator fields and report kinds, and choose what this plan uses." TextWrapping="Wrap" Classes="purpose"/><TextBlock Text="Configure the session →" Foreground="{DynamicResource AuthoringAccent}" FontWeight="SemiBold"/></StackPanel>
+        </Button>
+        <Button Tag="5" Click="OnNavigate" Classes="taskCard" AutomationProperties.Name="Open Operator preview task">
+          <StackPanel Spacing="10"><TextBlock Text="04 / PREVIEW" Classes="eyebrow"/><TextBlock Text="Operator preview" FontSize="22" FontWeight="SemiBold" TextWrapping="Wrap"/><TextBlock Text="Review the operator board at full size, with example data or a recording." TextWrapping="Wrap" Classes="purpose"/><TextBlock Text="Preview the board →" Foreground="{DynamicResource AuthoringAccent}" FontWeight="SemiBold"/></StackPanel>
+        </Button>
+        <Button Tag="3" Click="OnNavigate" Classes="taskCard" AutomationProperties.Name="Open Environment task">
+          <StackPanel Spacing="10"><TextBlock Text="05 / PREPARE" Classes="eyebrow"/><TextBlock Text="Environment" FontSize="22" FontWeight="SemiBold"/><TextBlock Text="Check library and runtime readiness. Prepare or import the packages this workspace needs." TextWrapping="Wrap" Classes="purpose"/><TextBlock Text="Review readiness →" Foreground="{DynamicResource AuthoringAccent}" FontWeight="SemiBold"/></StackPanel>
+        </Button>
+        <Button Tag="4" Click="OnNavigate" Classes="taskCard" AutomationProperties.Name="Open Build and package task">
+          <StackPanel Spacing="10"><TextBlock Text="06 / DELIVER" Classes="eyebrow"/><TextBlock Text="Build &amp; package" FontSize="22" FontWeight="SemiBold" TextWrapping="Wrap"/><TextBlock Text="Review deployment inputs, validate saved plans and produce a package." TextWrapping="Wrap" Classes="purpose"/><TextBlock Text="Review the build →" Foreground="{DynamicResource AuthoringAccent}" FontWeight="SemiBold"/></StackPanel>
+        </Button>
+      </vm:WorkspaceTaskCards>
+      <Border Classes="surface taskSection"><Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
+        <StackPanel Spacing="6"><TextBlock Text="Workspace tools" FontWeight="SemiBold"/><TextBlock Text="Inspect findings or manage definitions shared by multiple plans." TextWrapping="Wrap" Classes="purpose"/></StackPanel>
+        <WrapPanel Grid.Column="1" VerticalAlignment="Center"><Button Content="Issues" Tag="2" Click="OnNavigate" Classes="authoringAction" Margin="0,0,8,0" AutomationProperties.Name="Open Issues task"/><Button Content="Definitions" Tag="6" Click="OnNavigate" Classes="authoringAction" AutomationProperties.Name="Open Workspace definitions task"/></WrapPanel>
+      </Grid></Border>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

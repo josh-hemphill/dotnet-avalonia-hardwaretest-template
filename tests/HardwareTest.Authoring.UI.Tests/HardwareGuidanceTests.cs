@@ -31,7 +31,12 @@ public sealed class HardwareGuidanceTests
         AuthoringUiFixture.Drain();
         AuthoringUiFixture.Click(environment);
         Assert.Equal(3, tabs.SelectedIndex);
-        Assert.NotNull(fixture.Control<StackPanel>("Package sourcing guidance"));
+        var sourcing = fixture.Control<StackPanel>("Package sourcing guidance");
+        var packageHelp = string.Join(" ", sourcing.GetVisualDescendants().OfType<TextBlock>().Select(block => block.Text));
+        Assert.Contains(".TapPackage or .zip", packageHelp);
+        Assert.Contains("match the required version", packageHelp);
+        Assert.Contains("github.com/josh-hemphill/instrument-components", packageHelp);
+        Assert.NotNull(fixture.Control<ItemsControl>("Environment package requirements"));
     }
 
     [AvaloniaFact]

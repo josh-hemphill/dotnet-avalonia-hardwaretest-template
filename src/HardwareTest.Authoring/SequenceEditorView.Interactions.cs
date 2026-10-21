@@ -79,16 +79,11 @@ public partial class SequenceEditorView
             return item;
         }
         menu.Items.Add(Action(vm.HasSectionEditor ? "Edit section name…" : "Edit step name…", vm.CanRenameSequence,
-            () => SequenceActionsButton.Flyout!.ShowAt(SequenceActionsButton)));
+            () => Inspector()?.FocusName()));
         if (vm.CanToggleSelectedSection)
             menu.Items.Add(Action(vm.SelectedSectionToggleLabel, true, vm.ToggleSelectedSection));
         menu.Items.Add(Action("Move to section…", vm.CanEditSequence && vm.SelectedSequence?.Section == SequenceSection.Measure,
-            () =>
-            {
-                SequenceActionsButton.Flyout!.ShowAt(SequenceActionsButton);
-                SectionDestinationBox.BringIntoView();
-                SectionDestinationBox.Focus();
-            }));
+            () => Inspector()?.FocusSectionDestination()));
         menu.Items.Add(Action(vm.HasSectionEditor ? "Duplicate section" : "Duplicate step", vm.CanDuplicateSequence, vm.DuplicateSelectedSequence));
         menu.Items.Add(Action("Move up", vm.CanMoveSequence, () => vm.MoveSelectedSequence(-1)));
         menu.Items.Add(Action("Move down", vm.CanMoveSequence, () => vm.MoveSelectedSequence(1)));
@@ -97,6 +92,9 @@ public partial class SequenceEditorView
             () => OnRemoveSequence(this, new RoutedEventArgs())));
         menu.Open(SequenceList);
     }
+
+    private SelectedStepInspectorView? Inspector() => (TopLevel.GetTopLevel(this) as MainWindow)?
+        .GetVisualDescendants().OfType<SelectedStepInspectorView>().SingleOrDefault();
 
     private void OnJumpSection(object? sender, RoutedEventArgs e)
     {

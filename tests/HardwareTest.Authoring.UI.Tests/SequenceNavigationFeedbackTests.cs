@@ -51,7 +51,7 @@ public sealed class SequenceNavigationFeedbackTests
         fixture.OpenRememberedWorkspace();
         var tabs = window.FindControl<TabControl>("WorkspaceTabs")!;
         var back = fixture.Control<Button>("Back to previous section");
-        Assert.False(back.IsEnabled);
+        Assert.True(back.IsEnabled);
         tabs.SelectedIndex = 1;
         tabs.SelectedIndex = 3;
         AuthoringUiFixture.Drain();
@@ -62,7 +62,11 @@ public sealed class SequenceNavigationFeedbackTests
         Assert.True(back.Focus());
         window.KeyPress(Key.Left, RawInputModifiers.Alt, PhysicalKey.None, null);
         Assert.Equal(0, tabs.SelectedIndex);
+        Assert.True(back.IsEnabled);
+        back.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        Assert.Equal(8, tabs.SelectedIndex);
         Assert.False(back.IsEnabled);
+        fixture.NavigateTask(0);
         fixture.ViewModel.CreateDemoProgram("section-controls");
         fixture.Control<Button>("Manage Cleanup section").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
         Assert.Equal(SequenceSection.Cleanup, fixture.ViewModel.SelectedSequence!.Section);

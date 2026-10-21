@@ -61,17 +61,14 @@ public sealed class ResponsiveActionLabelTests
             var selected = Assert.IsAssignableFrom<Control>(sequence.ContainerFromIndex(sequence.SelectedIndex));
             ResponsiveShellTests.Inside(selected, window);
 
-            var program = fixture.Control<Button>("Remove program");
             var step = fixture.Control<Button>("Remove selected");
-            Assert.Equal(fixture.ViewModel.RemoveProgramTitle, program.Content);
+            step.BringIntoView(); AuthoringUiFixture.Drain();
             Assert.Equal(fixture.ViewModel.RemoveSelectedTitle, step.Content);
-            // Simulate translated string labels without changing model or action identity.
-            program.Content = "Delete selected program";
             step.Content = "Delete selected sequence";
             AuthoringUiFixture.Drain();
-            LabelFits(program, window);
-            LabelFits(step, window);
-            Assert.Equal("Remove program", AutomationProperties.GetName(program));
+            step.BringIntoView(); AuthoringUiFixture.Drain();
+            LabelFits(step, TopLevel.GetTopLevel(step)!);
+            ((Flyout)window.GetVisualDescendants().OfType<Button>().Single(button => button.Name == "InspectorActionsButton").Flyout!).Hide();
             Assert.Equal("Remove selected", AutomationProperties.GetName(step));
             ResponsiveShellTests.Inside(sequence, window);
             Assert.True(sequence.Bounds.Height >= 80);
@@ -96,7 +93,7 @@ public sealed class ResponsiveActionLabelTests
     [InlineData(960, 600, 20, 1.5)]
     [InlineData(1280, 800, 14, 1)]
     [InlineData(1280, 800, 20, 1.5)]
-    public void Seven_workspace_route_headers_fit_one_row_and_remain_readable_and_reachable(
+    public void Task_switcher_reaches_every_destination_without_a_tab_strip(
         int width, int height, int fontSize, double scaling)
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
@@ -104,33 +101,17 @@ public sealed class ResponsiveActionLabelTests
         window.FontSize = fontSize;
         window.SetRenderScaling(scaling);
         fixture.OpenRememberedWorkspace();
-        AuthoringUiFixture.Drain();
-        var tabs = window.FindControl<TabControl>("WorkspaceTabs")!;
-        var headers = tabs.Items.Cast<TabItem>().ToArray();
-        Assert.Equal(new[] { "Program", "Hardware", "Issues", "Environment", "Build", "Preview", "Definitions" },
-            headers.Select(header => header.Header));
-        var first = headers[0].TranslatePoint(default, window)!.Value;
-        foreach (var header in headers)
+        foreach (var route in new[] { 0, 1, 7, 5, 3, 4, 2, 6, 8 })
         {
-            ResponsiveShellTests.Inside(header, window);
-            var origin = header.TranslatePoint(default, window)!.Value;
-            Assert.Equal(first.Y, origin.Y, precision: 3);
-            Assert.True(header.Bounds.Height >= 40, $"Route {header.Header} retains its vertical hit target.");
-            var label = Assert.Single(header.GetVisualDescendants().OfType<TextBlock>(), text => Equals(text.Text, header.Header));
-            ResponsiveShellTests.Inside(label, window);
-            Assert.DoesNotContain(label.TextLayout.TextLines, line => line.HasCollapsed);
-            Assert.True(label.TextLayout.Width <= label.Bounds.Width + 0.75);
-            Assert.True(label.TextLayout.Height <= label.Bounds.Height + 0.75);
-            var center = header.TranslatePoint(new Point(header.Bounds.Width / 2, header.Bounds.Height / 2), window)!.Value;
-            window.MouseDown(center, MouseButton.Left);
-            window.MouseUp(center, MouseButton.Left);
-            AuthoringUiFixture.Drain();
-            Assert.Same(header, tabs.SelectedItem);
+            fixture.NavigateTask(route);
+            Assert.Equal(route, window.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex);
+            LabelFits(fixture.Control<Button>("Switch task"), window);
+            ResponsiveShellTests.Inside(fixture.Control<ComboBox>("Selected test plan"), window);
+            Assert.Empty(window.GetVisualDescendants().OfType<TabItem>());
         }
-        Assert.True(Assert.Single(window.GetVisualDescendants().OfType<WorkspaceDefinitionsView>()).IsEffectivelyVisible);
     }
 
-    internal static void LabelFits(Button button, Window window)
+    internal static void LabelFits(Button button, TopLevel window)
     {
         ResponsiveShellTests.Inside(button, window);
         var label = Assert.Single(button.GetVisualDescendants().OfType<TextBlock>(), text => Equals(text.Text, button.Content));

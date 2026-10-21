@@ -88,7 +88,7 @@ public sealed class AuthoringSequenceTests
     }
 
     [Fact]
-    public void Chrome_copy_names_the_three_program_columns()
+    public void Chrome_copy_describes_sequence_inspector_and_full_preview_tasks()
     {
         Assert.Equal("Sequence", AuthoringChrome.SequenceTitle);
         Assert.Contains("Setup", AuthoringChrome.SequencePurpose, StringComparison.Ordinal);
