@@ -71,14 +71,49 @@
   </Style>
   <Style Selector="TextBlock.purpose">
     <Setter Property="Foreground" Value="{DynamicResource AuthoringMuted}"/>
+    <Setter Property="MaxWidth" Value="680"/>
+    <Setter Property="HorizontalAlignment" Value="Left"/>
+    <Setter Property="TextWrapping" Value="Wrap"/>
   </Style>
   <Style Selector="Button.primaryAction">
     <Setter Property="Background" Value="{DynamicResource AuthoringAccent}"/>
     <Setter Property="Foreground" Value="{DynamicResource AuthoringSurface}"/>
     <Setter Property="FontWeight" Value="SemiBold"/>
   </Style>
-  <Style Selector="Expander.inspectorSection">
-    <Setter Property="Padding" Value="0,4"/>
+  <!-- Stretch to the available route width even when collapsed. Content must wrap
+       inside that width instead of resizing the editor when a section opens. -->
+  <Style Selector="Expander">
+    <Setter Property="HorizontalAlignment" Value="Stretch"/>
+    <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+    <Setter Property="MinWidth" Value="0"/>
+    <Setter Property="Padding" Value="12,10"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource AuthoringLine}"/>
+    <Setter Property="Background" Value="{DynamicResource AuthoringSurface}"/>
+  </Style>
+  <Style Selector="Expander /template/ ToggleButton#PART_HeaderSite">
+    <Setter Property="Padding" Value="12,10"/>
+    <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+    <Setter Property="Background" Value="{DynamicResource AuthoringSurface}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource AuthoringLine}"/>
+  </Style>
+  <Style Selector="Expander /template/ ToggleButton#PART_HeaderSite /template/ ContentPresenter">
+    <Setter Property="TextWrapping" Value="Wrap"/>
+    <Setter Property="Background" Value="{DynamicResource AuthoringSurface}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource AuthoringLine}"/>
+  </Style>
+  <Style Selector="ComboBox">
+    <Setter Property="HorizontalAlignment" Value="Stretch"/>
+    <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+    <Setter Property="MinWidth" Value="0"/>
+    <Setter Property="MinHeight" Value="36"/>
+    <Setter Property="Padding" Value="12,8"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource AuthoringLine}"/>
+    <Setter Property="Background" Value="{DynamicResource AuthoringSurface}"/>
+  </Style>
+  <Style Selector="ComboBoxItem">
+    <Setter Property="Padding" Value="12,8"/>
+    <Setter Property="MinHeight" Value="36"/>
+    <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
   </Style>
   <Style Selector="Button.authoringAction /template/ ContentPresenter TextBlock">
     <Setter Property="TextWrapping" Value="Wrap"/>

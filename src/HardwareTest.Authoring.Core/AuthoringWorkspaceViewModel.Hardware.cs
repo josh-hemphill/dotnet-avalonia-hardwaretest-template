@@ -47,7 +47,26 @@ public sealed partial class AuthoringWorkspaceViewModel
         }
     }
 
-    public AuthoringInstrumentAdapter? HardwareEditType { get => _hardwareEditType; set => SetField(ref _hardwareEditType, value); }
+    public AuthoringInstrumentAdapter? HardwareEditType
+    {
+        get => _hardwareEditType;
+        set
+        {
+            if (SetField(ref _hardwareEditType, value)) OnPropertyChanged(nameof(HardwareEditTypeGuidance));
+        }
+    }
+    public string HardwareEditTypeGuidance => InstrumentTypeGuidance(HardwareEditType);
+    public string NewInstrumentTypeGuidance => InstrumentTypeGuidance(SelectedNewInstrumentType);
+
+    private string InstrumentTypeGuidance(AuthoringInstrumentAdapter? adapter)
+    {
+        if (adapter is null)
+            return "No supported adapter selected. Imported types are preserved. Open Environment to prepare or import its package. If still unavailable, keep the imported source; this editor supports registered adapters only.";
+        var capability = AuthoringInstrumentCatalog.IsLibrary(adapter.TypeId)
+            ? "Physical instrument. Enter the resource address supplied by your instrument or VISA discovery."
+            : "Demo instrument. Uses mock data; it does not connect to physical hardware.";
+        return $"{capability} Required package: {adapter.RequiredPackage}.";
+    }
     public string HardwareEditAddress { get => _hardwareEditAddress; set => SetField(ref _hardwareEditAddress, value ?? string.Empty); }
     public string HardwareEditTimeout { get => _hardwareEditTimeout; set => SetField(ref _hardwareEditTimeout, value ?? string.Empty); }
 
@@ -188,6 +207,8 @@ public sealed partial class AuthoringWorkspaceViewModel
     {
         var selected = _selectedHardwareDefinition;
         OnPropertyChanged(nameof(HardwareRows));
+        OnPropertyChanged(nameof(HardwareEditTypeGuidance));
+        OnPropertyChanged(nameof(NewInstrumentTypeGuidance));
         OnPropertyChanged(nameof(HardwareDefinitions));
         _selectedHardwareDefinition = selected;
         OnPropertyChanged(nameof(SelectedHardwareDefinition));

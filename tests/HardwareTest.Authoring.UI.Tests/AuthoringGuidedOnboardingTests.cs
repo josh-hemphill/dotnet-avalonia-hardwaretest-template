@@ -172,8 +172,10 @@ public sealed class AuthoringGuidedOnboardingTests
         var programs = fixture.Control<ListBox>("Programs"); programs.BringIntoView(); AuthoringUiFixture.Drain();
         ResponsiveShellTests.Inside(programs, window); Assert.True(programs.Bounds.Height >= 40);
         programs.SelectedItem = fixture.ViewModel.ProgramRows.Single(row => row.PlanId == "sample"); AuthoringUiFixture.Drain();
+        fixture.WaitForLoading();
         Assert.Equal("sample", fixture.ViewModel.SelectedProgram!.PlanId);
         programs.SelectedItem = fixture.ViewModel.ProgramRows.Single(row => row.PlanId == "viewport-demo"); AuthoringUiFixture.Drain();
+        fixture.WaitForLoading();
         Assert.Equal("viewport-demo", fixture.ViewModel.SelectedProgram!.PlanId);
         Assert.True(window.FindControl<Border>("GuidanceHost")!.IsVisible);
         var recording = new TestRunRecord

@@ -179,6 +179,23 @@ public static class AuthoringSequenceOperations
         return updated;
     }
 
+    /// Reorder siblings without changing their section or loop scope.
+    public static ProgramDraft Reorder(ProgramDraft draft, SequenceRow source, SequenceRow destination)
+    {
+        source = CurrentTarget(draft, source);
+        destination = CurrentTarget(draft, destination);
+        if (source.Section != destination.Section || source.IndexPath.Count == 0
+            || !source.IndexPath.SkipLast(1).SequenceEqual(destination.IndexPath.SkipLast(1)))
+            throw Fail("Move steps within the same section and loop. Use a recipe to add steps to another section.");
+        var current = source.IndexPath[^1];
+        var target = destination.IndexPath[^1];
+        if (current == target) return draft;
+        var updated = draft;
+        for (var index = current; index != target; index += Math.Sign(target - current))
+            updated = Move(updated, AuthoringSequence.Flatten(updated).Single(row => row.NodeId == source.NodeId), Math.Sign(target - current));
+        return updated;
+    }
+
     public static ProgramDraft Duplicate(ProgramDraft draft, SequenceRow target)
     {
         target = CurrentTarget(draft, target);

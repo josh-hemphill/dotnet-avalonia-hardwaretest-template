@@ -47,7 +47,12 @@ public sealed class AuthoringChromeA11yTests
         Assert.Contains("Click=\"OnOpenSettings\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Content=\"{Binding SettingsTitle}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("IsVisible=\"{Binding ShowCatalogFormulaCompletions}\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("SelectedItem=\"{Binding SelectedProgramRow}\"", xaml, StringComparison.Ordinal);
+        var programList = Assert.Single(XDocument.Parse(views["ProgramsRailView"]).Descendants(),
+            element => element.Name.LocalName == "ListBox" && (string?)element.Attribute("AutomationProperties.Name") == "Programs");
+        // The model publishes selection after asynchronous preparation. Sending the
+        // selected row straight back to the model would bypass loading feedback.
+        Assert.Equal("{Binding SelectedProgramRow, Mode=OneWay}", (string?)programList.Attribute("SelectedItem"));
+        Assert.Equal("OnProgramSelectionChanged", (string?)programList.Attribute("SelectionChanged"));
         var programSettingsSource = File.ReadAllText(Path.Combine(sourceRoot, "ProgramSettingsView.axaml"));
         Assert.Single(XDocument.Parse(programSettingsSource).Descendants(), element => element.Name.LocalName == "HardwareView");
         var programSettings = programSettingsSource.Replace("<vm:HardwareView/>", views["HardwareView"])
@@ -60,7 +65,10 @@ public sealed class AuthoringChromeA11yTests
         Assert.Contains("Operator session", programSettings, StringComparison.Ordinal);
         Assert.Contains("Text=\"Reports\"", programSettings, StringComparison.Ordinal);
         Assert.Contains("Program type &amp; station health", programSettings, StringComparison.Ordinal);
-        Assert.Contains("Text=\"Instruments\"", programSettings, StringComparison.Ordinal);
+        var slotHeading = Assert.Single(XDocument.Parse(views["HardwareView"]).Descendants(),
+            element => element.Name.LocalName == "TextBlock" && (string?)element.Attribute("Text") == "Select a program slot");
+        Assert.Equal("3", (string?)slotHeading.Attribute("AutomationProperties.HeadingLevel"));
+        Assert.Contains("AutomationProperties.Name=\"Instruments\"", programSettings, StringComparison.Ordinal);
         Assert.Contains("IsEnabled=\"{Binding RequireStationHealth}\"", programSettings, StringComparison.Ordinal);
         Assert.Contains("PlaceholderText=\"fixtureId\"", programSettings, StringComparison.Ordinal);
         Assert.Contains("PlaceholderText=\"traceability\"", programSettings, StringComparison.Ordinal);
@@ -219,13 +227,26 @@ public sealed class AuthoringChromeA11yTests
         }
         foreach (var view in viewNames.Where(name => name != "WorkspacePreviewView"))
         {
-            var viewCode = File.ReadAllText(Path.Combine(sourceRoot, view + ".axaml.cs"));
+            var viewCode = string.Join(Environment.NewLine, Directory.EnumerateFiles(sourceRoot, view + ".*.cs")
+                .Select(File.ReadAllText));
             foreach (var handler in XDocument.Parse(views[view]).Descendants().Attributes()
                 .Where(attribute => attribute.Name.LocalName is "Click" or "KeyDown" or "LostFocus" or "SelectionChanged" or "ValueChanged" or "TextChanged" or "KeyUp" or "PointerReleased" or "GotFocus")
                 .Select(attribute => attribute.Value).Distinct())
             {
                 Assert.True(viewCode.Contains("private void " + handler, StringComparison.Ordinal)
                     || viewCode.Contains("private async void " + handler, StringComparison.Ordinal));
+                if (view == "ProgramsRailView" && handler == "OnProgramSelectionChanged")
+                {
+                    Assert.Contains("await window.SelectProgramAsync(row.PlanId)", viewCode, StringComparison.Ordinal);
+                    Assert.Contains("list.SelectedItem = vm.SelectedProgramRow", viewCode, StringComparison.Ordinal);
+                    continue;
+                }
+                if (view == "SequenceEditorView" && handler == "OnJumpSection")
+                {
+                    Assert.Contains("SequenceList.ScrollIntoView(header)", viewCode, StringComparison.Ordinal);
+                    Assert.Contains("vm.InsertionPosition = \"End of section\"", viewCode, StringComparison.Ordinal);
+                    continue;
+                }
                 if (view == "SequenceEditorView" && handler is "OnRenameSequence" or "OnDuplicateSequence" or "OnMoveSequenceUp" or "OnMoveSequenceDown")
                 {
                     var actions = new Dictionary<string, string>
@@ -254,6 +275,7 @@ public sealed class AuthoringChromeA11yTests
                 {
                     var localActions = new Dictionary<string, string>
                     {
+                        ["OnOpenEnvironment"] = "owner.FindControl<TabControl>(\"WorkspaceTabs\")!.SelectedIndex = 3",
                         ["OnLoadBinding"] = "Vm?.LoadHardwareEditor()",
                         ["OnReviewBinding"] = "owner.ConfirmHardwareEditAsync()",
                         ["OnAddInstrumentSlot"] = "Vm?.AddInstrumentSlot()",

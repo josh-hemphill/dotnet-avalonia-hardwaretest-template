@@ -1,6 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:vm="using:HardwareTest.Authoring" xmlns:host="using:HardwareTest.OpenTap.Host" x:Class="HardwareTest.Authoring.WorkspaceIssuesView" x:DataType="vm:AuthoringWorkspaceViewModel">
   <ScrollViewer x:Name="TaskViewport" Margin="16" HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="Issues task viewport">
-    <StackPanel Spacing="12">
+    <StackPanel Spacing="12" MaxWidth="920" HorizontalAlignment="Stretch">
       <StackPanel Spacing="12" Margin="0,0,0,16">
         <TextBlock Text="Workspace issues" Classes="routeTitle" TextWrapping="Wrap" AutomationProperties.HeadingLevel="2"/>
         <TextBlock Text="{Binding IssuesCheckState}" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite"/>

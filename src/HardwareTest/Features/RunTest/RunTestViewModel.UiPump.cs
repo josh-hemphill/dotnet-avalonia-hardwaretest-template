@@ -123,7 +123,16 @@ public partial class RunTestViewModel
             _pendingDetails.Clear();
             _pendingEvents.Clear();
             _pendingSample = null;
+            _pendingSampleStepPath = null;
             _pendingStatus = null;
+            _pendingPercent = 0;
+            _pendingStepId = null;
+            _pendingStepPath = null;
+            _pendingStepName = null;
+            _pendingStatusText = null;
+            _pendingVerdict = null;
+            _pendingKeyValue = null;
+            _pendingIterationText = null;
             _pendingForceFlush = false;
             _pendingAwaitingOperator = false;
             _pendingOperatorPrompt = null;

@@ -51,8 +51,30 @@ internal sealed class AuthoringUiFixture : IDisposable
     public void OpenRememberedWorkspace()
     {
         Click(Control<Button>("Open last workspace from welcome"));
+        WaitForLoading();
         Assert.True(ViewModel.HasWorkspace);
         Assert.Null(ViewModel.Error);
+    }
+
+    public void WaitForLoading()
+    {
+        if (ViewModel.LoadingBusy)
+        {
+            var frame = new DispatcherFrame();
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+            async Task WaitForLoadAsync()
+            {
+                try
+                {
+                    while (ViewModel.LoadingBusy) await Task.Delay(1, timeout.Token);
+                }
+                finally { frame.Continue = false; }
+            }
+            var loading = WaitForLoadAsync();
+            if (!loading.IsCompleted) Dispatcher.UIThread.PushFrame(frame);
+            loading.GetAwaiter().GetResult();
+            Drain();
+        }
     }
 
     public T Control<T>(string automationName, Avalonia.Controls.Control? root = null) where T : Avalonia.Controls.Control

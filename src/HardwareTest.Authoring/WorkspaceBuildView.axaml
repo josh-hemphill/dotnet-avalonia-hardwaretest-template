@@ -30,7 +30,15 @@
           <ItemsControl ItemsSource="{Binding PackPreflightFindings}" AutomationProperties.Name="Pack preflight findings">
             <ItemsControl.ItemTemplate>
               <DataTemplate x:DataType="vm:PackPreflightFinding">
-                <TextBlock Text="{Binding DisplayText}" TextWrapping="Wrap"/>
+                <Border BorderBrush="{DynamicResource AuthoringLine}" BorderThickness="0,0,0,1" Padding="0,12">
+                  <StackPanel Spacing="8">
+                    <TextBlock Text="Must resolve before packing" IsVisible="{Binding IsError}" FontWeight="SemiBold" Foreground="{DynamicResource AuthoringError}"/>
+                    <TextBlock Text="Advisory" IsVisible="{Binding !IsError}" FontWeight="SemiBold"/>
+                    <TextBlock Text="{Binding Message}" TextWrapping="Wrap"/>
+                    <TextBlock Text="{Binding Path}" IsVisible="{Binding Path, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" TextWrapping="Wrap" Classes="purpose"/>
+                    <TextBlock Text="{Binding Code}" TextWrapping="Wrap" Classes="purpose"/>
+                  </StackPanel>
+                </Border>
               </DataTemplate>
             </ItemsControl.ItemTemplate>
           </ItemsControl>

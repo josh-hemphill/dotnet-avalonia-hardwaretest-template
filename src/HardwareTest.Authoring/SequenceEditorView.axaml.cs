@@ -9,6 +9,7 @@ public partial class SequenceEditorView : UserControl
     public SequenceEditorView()
     {
         InitializeComponent();
+        InitializeSequenceInteractions();
         void RevealSelection() => Avalonia.Threading.Dispatcher.UIThread.Post(() =>
         {
             if (SequenceList.IsEffectivelyVisible && SequenceList.SelectedItem is { } selected) SequenceList.ScrollIntoView(selected);
@@ -42,5 +43,14 @@ public partial class SequenceEditorView : UserControl
         => (TopLevel.GetTopLevel(this) as MainWindow)?.OnRemoveSequence(sender, e);
 
     private void OnSequenceKeyDown(object? sender, KeyEventArgs e)
-        => (TopLevel.GetTopLevel(this) as MainWindow)?.OnSequenceKeyDown(sender, e);
+    {
+        if ((e.Key == Key.Apps || e.Key == Key.F10 && e.KeyModifiers == KeyModifiers.Shift)
+            && Vm is { SelectedSequence.IsSelectable: true } vm)
+        {
+            ShowSequenceMenu(vm);
+            e.Handled = true;
+            return;
+        }
+        (TopLevel.GetTopLevel(this) as MainWindow)?.OnSequenceKeyDown(sender, e);
+    }
 }

@@ -75,6 +75,16 @@ public sealed partial class AuthoringWorkspaceViewModel
     public void MoveSelectedSequence(int direction) => SequenceTransaction(draft => AuthoringSequenceOperations.Move(draft,
         SelectedSequence ?? throw new AuthoringWorkspaceException("Select a step."), direction), "Step moved");
 
+    public void ReorderSequence(Guid sourceId, Guid destinationId)
+    {
+        if (!CanEditSequence) return;
+        var source = SequenceItems.FirstOrDefault(row => row.NodeId == sourceId);
+        var destination = SequenceItems.FirstOrDefault(row => row.NodeId == destinationId);
+        if (source is null || destination is null) return;
+        SelectSequence(SequenceItems.ToList().IndexOf(source));
+        SequenceTransaction(draft => AuthoringSequenceOperations.Reorder(draft, source, destination), "Step moved");
+    }
+
     private void SequenceTransaction(Func<ProgramDraft, ProgramDraft> mutate, string status)
     {
         EnsureWritableWorkspace("edit the sequence");

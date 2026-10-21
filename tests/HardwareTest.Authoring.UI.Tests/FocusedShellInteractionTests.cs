@@ -165,6 +165,7 @@ public sealed class FocusedShellInteractionTests
             ResponsiveActionLabelTests.LabelFits(action, window);
         }
         Click(fixture.Control<Button>("Open last workspace from welcome"));
+        fixture.WaitForLoading();
         Assert.True(fixture.ViewModel.HasWorkspace);
         Assert.Null(fixture.ViewModel.Error);
     }

@@ -1,12 +1,18 @@
 <UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:vm="using:HardwareTest.Authoring" xmlns:host="using:HardwareTest.OpenTap.Host"
     x:Class="HardwareTest.Authoring.SequenceEditorView" x:DataType="vm:AuthoringWorkspaceViewModel">
-  <Grid RowDefinitions="Auto,Auto,*" Margin="0" AutomationProperties.Name="Sequence editor" ToolTip.Tip="{Binding MeasureHint}">
-    <Button Grid.Row="0" x:Name="SequenceActionsButton" Content="Add &amp; edit steps ▾" HorizontalAlignment="Stretch" Classes="authoringAction" Margin="0,0,0,4">
+  <Grid RowDefinitions="Auto,Auto,*" Margin="0" AutomationProperties.Name="Sequence editor" ToolTip.Tip="Drag steps within a section or loop to reorder. Right-click a step for actions.">
+    <Button Grid.Row="0" x:Name="SequenceActionsButton" Content="Add &amp; edit steps ▾" ToolTip.Tip="Manage Setup, Measure and Cleanup sections; add or edit steps." HorizontalAlignment="Stretch" Classes="authoringAction" Margin="0,0,0,4">
       <Button.Flyout><Flyout Placement="Bottom">
     <ScrollViewer Width="290" MaxHeight="320" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
         AutomationProperties.Name="Sequence actions">
     <StackPanel Spacing="6" Margin="0,0,0,8">
+      <TextBlock Text="Sections" Classes="sectionTitle"/>
+    <WrapPanel Margin="0,0,0,6">
+      <Button Content="Setup" Click="OnJumpSection" Tag="Setup" ToolTip.Tip="Jump to Setup and prepare an operator prompt at the end of the section." Classes="authoringAction" AutomationProperties.Name="Manage Setup section"/>
+      <Button Content="Measure" Click="OnJumpSection" Tag="Measure" ToolTip.Tip="Jump to Measure and prepare an Acquire recipe at the end of the section." Classes="authoringAction" AutomationProperties.Name="Manage Measure section"/>
+      <Button Content="Cleanup" Click="OnJumpSection" Tag="Cleanup" ToolTip.Tip="Jump to Cleanup and prepare Safe Shutdown. Use Add recipe to enable it." Classes="authoringAction" AutomationProperties.Name="Manage Cleanup section"/>
+    </WrapPanel>
       <TextBlock x:Name="RecipeLabel" Text="Add to sequence" TextWrapping="Wrap"/>
       <TextBlock x:Name="RecipeSearchLabel" Text="Search Measure, Check, Operator action or Flow" TextWrapping="Wrap"/>
       <TextBox Text="{Binding RecipeSearch}" PlaceholderText="Search sequence palette"

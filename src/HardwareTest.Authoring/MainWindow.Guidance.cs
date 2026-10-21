@@ -21,14 +21,16 @@ public partial class MainWindow
     {
         AutomationProperties.SetName(_guidanceFeedback, "Guidance feedback");
         AutomationProperties.SetLiveSetting(_guidanceFeedback, AutomationLiveSetting.Polite);
-        var actions = new WrapPanel();
+        var actions = new StackPanel { Spacing = 6 };
+        var preferences = new StackPanel { Spacing = 6 };
         void Action(string name, System.Action action)
         {
-            var button = new Button { Content = name, ContentTemplate = AuthoringActionLabels.WrappedText, Margin = new Avalonia.Thickness(4) };
+            var button = new Button { Content = name, ContentTemplate = AuthoringActionLabels.WrappedText, HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch, HorizontalContentAlignment = Avalonia.Layout.HorizontalAlignment.Left };
+            button.Classes.Add("authoringAction");
             AutomationProperties.SetName(button, name);
             if (name == "Skip saved guidance") button.IsEnabled = _viewModel.PreferencesEditable;
             button.Click += (_, _) => { if (GuidanceTargetCurrent()) action(); RefreshGuidance(); };
-            actions.Children.Add(button);
+            (name is "Leave saved guidance" or "Skip saved guidance" ? preferences : actions).Children.Add(button);
         }
         Action("Preview voltage result", () => WorkspaceTabs.SelectedIndex = 5);
         Action("Fix guidance blockers", () => WorkspaceTabs.SelectedIndex = 2);
@@ -43,7 +45,12 @@ public partial class MainWindow
         {
             MaxHeight = 100,
             HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
-            Content = new StackPanel { Spacing = 4, Children = { _guidanceFeedback, actions } }
+            Content = new StackPanel { Spacing = 12, Children =
+            {
+                AuthoringFormLayout.Heading("First test plan", 3), _guidanceFeedback,
+                AuthoringFormLayout.Heading("Next steps", 3), actions,
+                AuthoringFormLayout.Heading("Guidance preferences", 3), preferences
+            } }
         };
         host.AddHandler(Control.RequestBringIntoViewEvent, (_, e) =>
         {
@@ -86,11 +93,11 @@ public partial class MainWindow
                 complete = sourceMatches && !_viewModel.HasUnsavedChanges && blockers.Length == 0 && planHash is not null && sidecarHash is not null
                     && source.CompiledPlanHash == planHash && source.CompiledSidecarHash == sidecarHash;
             }
-            _guidanceFeedback.Text = $"{draft.Sidecar.DisplayName} · {(draft.Instruments.Any(instrument => instrument.TypeId.Contains("Mock", StringComparison.OrdinalIgnoreCase)) ? "Demo — Mock instrument" : "Product — physical instrument selection")}\n"
-                + $"Generated identity checks: {draft.Setup.OfType<IdentitySetup>().Count()} · Safe shutdown: {(draft.Cleanup.IncludeSafeShutdown ? string.Join(", ", draft.Cleanup.InstrumentSlots) : "disabled")}\n"
-                + (complete ? "First voltage test complete: saved source and compiled plan are ready. Preview with example data or an imported recording; review Build for deployment requirements."
+            _guidanceFeedback.Text = $"{draft.Sidecar.DisplayName}\n{(draft.Instruments.Any(instrument => instrument.TypeId.Contains("Mock", StringComparison.OrdinalIgnoreCase)) ? "Demo — Mock instrument" : "Product — physical instrument selection")}\n"
+                + $"Identity checks: {draft.Setup.OfType<IdentitySetup>().Count()}\nSafe shutdown: {(draft.Cleanup.IncludeSafeShutdown ? string.Join(", ", draft.Cleanup.InstrumentSlots) : "disabled")}\n"
+                + (complete ? "First voltage test complete: saved source and compiled plan are ready.\nPreview with example data or an imported recording.\nReview Build for deployment requirements."
                     : !sourceMatches ? "Guidance is incomplete: saved authoring source differs from the displayed draft. Reopen the workspace to load the saved version, or reconcile your current edits before Save/check."
-                    : "Next: preview the voltage result, then Save and check draft. Fix guidance blockers in Issues; prepare missing packages in Environment; review deployment requirements in Build.")
+                    : "Preview the voltage result, then Save and check draft.\nIssues: fix draft blockers.\nEnvironment: prepare missing packages.\nBuild: review deployment requirements.")
                 + (blockers.Length == 0 ? "" : "\n" + string.Join("\n", blockers.Select(issue => issue.Message)))
                 + (_viewModel.SavePreviewWarning is { } warning ? "\n" + warning : "");
         }

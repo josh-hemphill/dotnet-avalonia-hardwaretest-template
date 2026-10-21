@@ -315,6 +315,31 @@ public sealed class AuthoringSequenceOperationsTests
         Assert.True(snapshot.ContentEquals(AuthoringDocumentSnapshot.Capture(draft)));
     }
 
+    [Fact]
+    public void Drag_reorder_moves_independent_siblings_and_preserves_node_ids()
+    {
+        var draft = ProgramWith(AuthoringRecipeIds.Acquire, AuthoringRecipeIds.BandScalar, AuthoringRecipeIds.StationHealth);
+        var ids = draft.Measure.Select(node => node.NodeId).ToArray();
+        var reordered = AuthoringSequenceOperations.Reorder(draft, Row(draft, ids[2]), Row(draft, ids[0]));
+        Assert.Equal(new[] { ids[2], ids[0], ids[1] }, reordered.Measure.Select(node => node.NodeId));
+        Assert.Equal(ids, draft.Measure.Select(node => node.NodeId));
+    }
+
+    [Fact]
+    public void Drag_reorder_rejects_cross_section_loop_scope_and_dependency_changes()
+    {
+        // Mean GTE acquires its own samples; Formula explicitly consumes the Acquire output.
+        var draft = ProgramWith(AuthoringRecipeIds.Prompt, AuthoringRecipeIds.Acquire, AuthoringRecipeIds.Formula);
+        var acquire = Row(draft, draft.Measure[0].NodeId);
+        var consumer = Row(draft, draft.Measure[1].NodeId);
+        Assert.Throws<AuthoringWorkspaceException>(() => AuthoringSequenceOperations.Reorder(draft, acquire, consumer));
+        Assert.Throws<AuthoringWorkspaceException>(() => AuthoringSequenceOperations.Reorder(draft, acquire, Row(draft, draft.Setup[0].NodeId)));
+        var independent = ProgramWith(AuthoringRecipeIds.Acquire, AuthoringRecipeIds.BandScalar);
+        var loop = AuthoringSequenceOperations.Repeat(independent, Row(independent, independent.Measure[1].NodeId));
+        var child = Assert.Single(Assert.IsType<RepeatNode>(loop.Measure[1]).Children);
+        Assert.Throws<AuthoringWorkspaceException>(() => AuthoringSequenceOperations.Reorder(loop, Row(loop, child.NodeId), Row(loop, loop.Measure[0].NodeId)));
+    }
+
     private static SequenceRow Row(ProgramDraft draft, Guid id) => AuthoringSequence.Flatten(draft).Single(row => row.NodeId == id);
     private static ProgramDraft ProgramWith(params string[] recipes)
     {

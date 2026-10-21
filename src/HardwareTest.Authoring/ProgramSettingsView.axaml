@@ -1,8 +1,8 @@
 <UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:vm="using:HardwareTest.Authoring" x:Class="HardwareTest.Authoring.ProgramSettingsView" x:DataType="vm:AuthoringWorkspaceViewModel">
-  <ScrollViewer>
+  <ScrollViewer HorizontalScrollBarVisibility="Disabled">
     <StackPanel Spacing="20" MaxWidth="920" Classes="routeBody">
       <TextBlock Text="Hardware — selected program" Classes="routeTitle" TextWrapping="Wrap" AutomationProperties.HeadingLevel="2"/>
-      <TextBlock Text="Review instrument bindings and the configuration used by this program. Program identity, operator requirements and lifecycle settings follow below." Classes="purpose" TextWrapping="Wrap"/>
+      <TextBlock Text="Bind the names used by sequence steps to instruments. Program identity and operator requirements follow below." Classes="purpose" TextWrapping="Wrap"/>
       <vm:HardwareView/>
       <TextBlock FontWeight="SemiBold" Text="{Binding ProgramSettingsTitle}" AutomationProperties.HeadingLevel="2" Classes="routeTitle"/>
       <TextBlock Opacity="0.8" TextWrapping="Wrap" Text="{Binding ProgramSettingsPurpose}" Classes="purpose"/>

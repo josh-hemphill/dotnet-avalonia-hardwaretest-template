@@ -6,9 +6,12 @@
       <Border Classes="surface taskSection">
         <StackPanel Spacing="12">
           <TextBlock Text="Selected home and readiness" Classes="sectionTitle" TextWrapping="Wrap" AutomationProperties.HeadingLevel="3"/>
+          <TextBlock Text="OpenTAP home" FontWeight="SemiBold"/>
           <TextBlock Text="{Binding AuthoringHomeText}" TextWrapping="Wrap" AutomationProperties.Name="Selected authoring home"/>
           <TextBlock Text="{Binding EnvironmentRecoveryText}" TextWrapping="Wrap"/>
+          <TextBlock Text="Physical instrument adapters" FontWeight="SemiBold"/>
           <TextBlock Text="{Binding LibraryEnvironmentReadinessText}" TextWrapping="Wrap" AutomationProperties.Name="Instrument Components readiness"/>
+          <TextBlock Text="Standalone VISA provider" FontWeight="SemiBold"/>
           <TextBlock Text="{Binding StandaloneVisaReadinessText}" TextWrapping="Wrap" AutomationProperties.Name="Standalone VISA readiness"/>
         </StackPanel>
       </Border>
@@ -16,7 +19,13 @@
         <StackPanel Spacing="12">
           <TextBlock Text="Package preparation" Classes="sectionTitle" TextWrapping="Wrap" AutomationProperties.HeadingLevel="3"/>
           <TextBlock Text="Declared requirements and preparation belong to the selected workspace and home." Classes="purpose" TextWrapping="Wrap"/>
-          <TextBlock Text="Physical hardware uses Instrument Components. Declare its dependency, then Save All before preparing or importing. Undo restores a staged declaration. Compatible installed packages are reused." TextWrapping="Wrap"/>
+          <StackPanel Spacing="8" AutomationProperties.Name="Package sourcing guidance">
+            <TextBlock Text="Use bundled packages" FontWeight="SemiBold"/>
+            <TextBlock Text="For physical hardware, declare Instrument Components and Save all. Prepare authoring environment installs the bundled compatible release offline, or reuses a compatible installed version." TextWrapping="Wrap"/>
+            <TextBlock Text="Bring an additional or different package" FontWeight="SemiBold"/>
+            <TextBlock Text="Obtain the required .TapPackage or .zip from the package publisher or your team’s release artifacts. Match the required version below, then choose Import offline package. Import targets only this selected home." TextWrapping="Wrap"/>
+            <TextBlock Text="Missing Instrument Components release? Its source and release documentation are at github.com/josh-hemphill/instrument-components. Vendor-specific drivers come from their publisher. Preparation does not search online package feeds." TextWrapping="Wrap" Classes="purpose"/>
+          </StackPanel>
           <WrapPanel>
             <Button Content="Declare Instrument Components dependency" Click="OnDeclareLibrary" IsEnabled="{Binding CanDeclareLibraryDependency}" AutomationProperties.Name="Declare Instrument Components dependency" Classes="authoringAction" Margin="0,0,8,8"/>
             <Button Content="Resume New test plan" Click="OnResumeInitialization" IsEnabled="{Binding CanInitializePlan}" AutomationProperties.Name="Resume New test plan" Classes="authoringAction" Margin="0,0,8,8"/>
@@ -27,7 +36,15 @@
           <ItemsControl ItemsSource="{Binding EnvironmentPackages}" AutomationProperties.Name="Environment package requirements">
             <ItemsControl.ItemTemplate>
               <DataTemplate x:DataType="vm:AuthoringPackageRequirement">
-                <TextBlock Text="{Binding DisplayText}" TextWrapping="Wrap"/>
+                <Border BorderBrush="{DynamicResource AuthoringLine}" BorderThickness="0,0,0,1" Padding="0,12">
+                  <StackPanel Spacing="6">
+                    <TextBlock Text="{Binding Package}" TextWrapping="Wrap" FontWeight="SemiBold"/>
+                    <TextBlock Text="{Binding RequiredVersion, StringFormat='Required version: {0}'}" TextWrapping="Wrap"/>
+                    <TextBlock Text="{Binding InstalledVersion, StringFormat='Installed version: {0}'}" TextWrapping="Wrap"/>
+                    <TextBlock Text="{Binding State, StringFormat='Status: {0}'}" TextWrapping="Wrap"/>
+                    <TextBlock Text="Optional dependency" IsVisible="{Binding Optional}" Classes="purpose"/>
+                  </StackPanel>
+                </Border>
               </DataTemplate>
             </ItemsControl.ItemTemplate>
           </ItemsControl>

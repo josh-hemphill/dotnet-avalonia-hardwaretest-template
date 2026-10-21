@@ -29,6 +29,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         {
             if (!SetField(ref _newInstrumentTypeId, value ?? string.Empty)) return;
             OnPropertyChanged(nameof(SelectedNewInstrumentType));
+            OnPropertyChanged(nameof(NewInstrumentTypeGuidance));
             OnPropertyChanged(nameof(NewInstrumentAvailabilityText));
             OnPropertyChanged(nameof(CanAddInstrumentSlot));
         }

@@ -7,6 +7,26 @@ namespace HardwareTest.Authoring;
 public partial class MainWindow
 {
     private const int PreviewRouteIndex = 5;
+    private readonly Stack<int> _routeHistory = new();
+    private int _previousRoute;
+    private bool _returningToRoute;
+
+    private void OnNavigateBack(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (_viewModel.LoadingBusy) return;
+        if (!_routeHistory.TryPop(out var route)) return;
+        _returningToRoute = true;
+        try { WorkspaceTabs.SelectedIndex = route; }
+        finally { _returningToRoute = false; }
+        UpdateBackNavigation();
+    }
+
+    private void UpdateBackNavigation()
+    {
+        if (this.FindControl<Button>("RouteBackButton") is { } button)
+            button.IsEnabled = _routeHistory.Count > 0;
+    }
+
     private readonly WorkspacePreviewView _previewView = new();
     private readonly WorkspaceIssuesView _issuesView = new();
     private readonly Dictionary<int, Control> _routeFocus = [];
@@ -22,6 +42,12 @@ public partial class MainWindow
             OnExpertKeyDown(this, e);
             if (e.Handled) workspaceMenu.Hide();
         });
+        AddHandler(KeyDownEvent, (_, e) =>
+        {
+            if (e.Key == Key.Left && e.KeyModifiers == KeyModifiers.Alt && _routeHistory.Count > 0)
+            { OnNavigateBack(this, new Avalonia.Interactivity.RoutedEventArgs()); e.Handled = true; }
+        }, Avalonia.Interactivity.RoutingStrategies.Tunnel);
+        UpdateBackNavigation();
         _previewView.DataContext = _viewModel;
         _issuesView.DataContext = _viewModel;
         SizeChanged += (_, _) => ArrangeShell();
@@ -34,6 +60,10 @@ public partial class MainWindow
         WorkspaceTabs.SelectionChanged += (_, e) =>
         {
             if (!ReferenceEquals(e.Source, WorkspaceTabs)) return;
+            if (!_returningToRoute && _previousRoute != WorkspaceTabs.SelectedIndex)
+                _routeHistory.Push(_previousRoute);
+            _previousRoute = WorkspaceTabs.SelectedIndex;
+            UpdateBackNavigation();
             ArrangeShell();
             var current = OwnerContext();
             var route = WorkspaceTabs.SelectedIndex;
@@ -53,7 +83,6 @@ public partial class MainWindow
     private void ArrangeShell()
     {
         // Reserve editor width before offering the optional dock. Larger type uses the separate route.
-        SaveAllFeedback.IsVisible = _viewModel.SaveAllResults.Count > 0;
         ProgramsRail.IsVisible = !_viewModel.ProgramsRailCollapsed;
         WorkspaceLayout.ColumnDefinitions[0].Width = new GridLength(_viewModel.ProgramsRailCollapsed ? 0 : 196);
         WorkspaceTabs.Padding = new Avalonia.Thickness(_viewModel.ProgramsRailCollapsed ? 0 : 212, 0, 0, 0);

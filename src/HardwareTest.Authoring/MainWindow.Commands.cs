@@ -49,6 +49,7 @@ public partial class MainWindow
     internal void OnExpertKeyDown(object? sender, KeyEventArgs e)
     {
         if (e.Handled) return;
+        if (_viewModel.LoadingBusy) { e.Handled = true; return; }
         var modifiers = e.KeyModifiers;
         if (e.Key == Key.P && modifiers == (PrimaryModifier | KeyModifiers.Shift))
         { OnOpenCommandPalette(this, new RoutedEventArgs()); e.Handled = true; return; }
@@ -78,6 +79,7 @@ public partial class MainWindow
     }
     public async Task<bool> ExecuteCommandAsync(string id)
     {
+        if (_viewModel.LoadingBusy) return false;
         var current = OwnerContext();
         if (!current()) return false;
         var command = Commands().Single(candidate => candidate.Id == id);

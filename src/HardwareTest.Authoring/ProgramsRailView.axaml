@@ -12,7 +12,7 @@
         IsEnabled="{Binding CanRemoveSelectedProgram}" ToolTip.Tip="{Binding RemoveProgramPurpose}"
         AutomationProperties.Name="Remove program" Classes="authoringAction"/>
 
-    <ListBox Classes="authoringList" Background="Transparent" BorderThickness="0" ItemsSource="{Binding ProgramRows}" SelectedItem="{Binding SelectedProgramRow}"
+    <ListBox Classes="authoringList" Background="Transparent" BorderThickness="0" ItemsSource="{Binding ProgramRows}" SelectedItem="{Binding SelectedProgramRow, Mode=OneWay}" SelectionChanged="OnProgramSelectionChanged"
         KeyboardNavigation.TabNavigation="Once" KeyDown="OnProgramsKeyDown" AutomationProperties.Name="Programs"
         AutomationProperties.LabeledBy="{Binding #ProgramsHeading}">
       <ListBox.ItemTemplate>
