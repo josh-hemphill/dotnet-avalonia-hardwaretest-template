@@ -1,8 +1,8 @@
 using Avalonia.Automation;
 using Avalonia.Controls;
+using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media;
-using Avalonia.Interactivity;
 
 namespace HardwareTest.Authoring;
 
@@ -47,7 +47,10 @@ public partial class MainWindow
             AutomationProperties.SetName(expander, title);
             return expander;
         }
-        return new StackPanel { Spacing = 14, Children =
+        return new StackPanel
+        {
+            Spacing = 14,
+            Children =
         {
             AuthoringFormLayout.Heading("First test plan", 3),
             new StackPanel { Spacing = 5, Children = { _guidancePlan, _guidanceHardware, _guidanceIdentity, _guidanceShutdown } },
@@ -55,7 +58,8 @@ public partial class MainWindow
             AuthoringFormLayout.Heading("Next action", 3), _guidanceNext, _guidancePrimary,
             _guidanceWarning, _guidanceDetails,
             Group("Draft checks", checks), Group("Preview and deployment", deployment), Group("Guidance preferences", preferences)
-        } };
+        }
+        };
     }
 
     private void PresentGuidance(string status, string next, string actionLabel, System.Action action, IEnumerable<string> details)

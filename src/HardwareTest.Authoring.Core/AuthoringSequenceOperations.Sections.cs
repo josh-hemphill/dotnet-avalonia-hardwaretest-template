@@ -38,8 +38,11 @@ public static partial class AuthoringSequenceOperations
         else
         {
             var currentDestination = AuthoringSequence.Flatten(updated).Single(row => row.NodeId == destinationId);
-            updated = updated with { Measure = AuthoringSequence.MutateMeasure(updated.Measure, currentDestination.IndexPath,
-                node => ((SectionNode)node) with { Children = [.. ((SectionNode)node).Children, selected] }) };
+            updated = updated with
+            {
+                Measure = AuthoringSequence.MutateMeasure(updated.Measure, currentDestination.IndexPath,
+                node => ((SectionNode)node) with { Children = [.. ((SectionNode)node).Children, selected] })
+            };
         }
         ValidateOrder(draft, updated);
         return updated;

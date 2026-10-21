@@ -435,7 +435,8 @@ public static class AuthoringSequence
                 case SectionNode section:
                     rows.Add(new SequenceRow(MeasureKey(section.NodeId), SequenceSection.Measure,
                         SequenceRowKind.Section, true, depth, indent, section.Name,
-                        $"{section.Children.Count} item(s) · section", path) { NodeId = section.NodeId });
+                        $"{section.Children.Count} item(s) · section", path)
+                    { NodeId = section.NodeId });
                     AppendMeasure(rows, section.Children, path);
                     break;
                 case RepeatNode repeat:

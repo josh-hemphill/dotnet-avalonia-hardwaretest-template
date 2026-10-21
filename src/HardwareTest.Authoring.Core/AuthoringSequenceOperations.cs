@@ -119,8 +119,11 @@ public static partial class AuthoringSequenceOperations
         name = name.Trim();
         if (name.Length == 0) throw Fail("Enter a step name.");
         if (target.Kind == SequenceRowKind.Section)
-            return draft with { Measure = AuthoringSequence.MutateMeasure(draft.Measure, target.IndexPath,
-                node => ((SectionNode)node) with { Name = name }) };
+            return draft with
+            {
+                Measure = AuthoringSequence.MutateMeasure(draft.Measure, target.IndexPath,
+                node => ((SectionNode)node) with { Name = name })
+            };
         if (target.Kind == SequenceRowKind.Metric)
         {
             var updated = draft with

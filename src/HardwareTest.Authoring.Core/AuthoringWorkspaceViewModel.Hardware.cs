@@ -45,7 +45,8 @@ public sealed partial class AuthoringWorkspaceViewModel
             && AuthoringCleanup.ResolveSlots(program).Contains(instrument.SlotName, StringComparer.OrdinalIgnoreCase)
             ? "Safe shutdown covers this slot" : "No safe shutdown coverage";
         return new AuthoringHardwareRow(instrument.SlotName, instrument.TypeId, instrument.VisaAddress, package,
-            string.Join("; ", usage) + (opaque ? "; unresolved imported usage" : usage.Length == 0 ? "Unused by steps" : ""), cleanup) { PackageSummary = summary };
+            string.Join("; ", usage) + (opaque ? "; unresolved imported usage" : usage.Length == 0 ? "Unused by steps" : ""), cleanup)
+        { PackageSummary = summary };
     }).ToArray();
 
     public IReadOnlyList<AuthoringHardwareRow> SelectedHardwareRows

@@ -1,6 +1,6 @@
 using Avalonia.Controls;
-using Avalonia.Input.Platform;
 using Avalonia.Headless.XUnit;
+using Avalonia.Input.Platform;
 using Xunit;
 
 namespace HardwareTest.Authoring.UI.Tests;
@@ -44,7 +44,8 @@ public sealed class EnvironmentPresentationTests
         workspace.Manifest.Dependencies.Add(new() { Package = AuthoringInstrumentCatalog.LibraryPackage, Version = "0.1.1" });
         var home = new OpenTapHomeBootstrapper().Bootstrap(workspace, new()
         {
-            HomeDirectory = Path.Combine(workspace.Root, "prepared-home"), Offline = true
+            HomeDirectory = Path.Combine(workspace.Root, "prepared-home"),
+            Offline = true
         });
         Assert.True(AuthoringInstrumentCatalog.LibraryReadiness(home).Available);
         workspace.Manifest.Dependencies.Single(dependency => dependency.Package == AuthoringInstrumentCatalog.LibraryPackage).Version = "9.9.0";

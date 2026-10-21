@@ -13,7 +13,7 @@ public sealed class AuthoringSectionOperationsTests
         var draft = AuthoringRecipeCatalog.Apply(MockDmmDraftFixture.Create("sections"), AuthoringRecipeIds.Acquire);
         var template = Assert.IsType<MetricNode>(draft.Measure[0]);
         var steps = Enumerable.Range(0, 120).Select(i => (MeasureNode)new MetricNode(template.Metric with
-            { Name = $"Check {i}", ChannelKey = $"channel_{i}" })).ToArray();
+        { Name = $"Check {i}", ChannelKey = $"channel_{i}" })).ToArray();
         draft = draft with { Measure = steps };
         draft = AuthoringSequenceOperations.AddSection(draft, "  Power supply  ");
         var group = Assert.IsType<SectionNode>(draft.Measure[^1]);

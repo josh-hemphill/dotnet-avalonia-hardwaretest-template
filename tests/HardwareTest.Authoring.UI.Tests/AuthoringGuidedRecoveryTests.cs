@@ -1,8 +1,8 @@
 using System.Xml.Linq;
-using Avalonia.Controls;
 using Avalonia.Automation;
-using Avalonia.VisualTree;
+using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
+using Avalonia.VisualTree;
 using Xunit;
 
 namespace HardwareTest.Authoring.UI.Tests;
@@ -211,7 +211,7 @@ public sealed class AuthoringGuidedRecoveryTests
         var vm = fixture.ViewModel;
         PreparePackage(fixture, AuthoringInstrumentCatalog.All.Single(item => item.DisplayName == "Mock DMM"));
         vm.InitializePlan(new PlanInitializationRequest("local-guide")
-            { StartingPoint = PlanStartingPoint.DemoVoltageTask, IdentityInstrumentSlot = "DMM" });
+        { StartingPoint = PlanStartingPoint.DemoVoltageTask, IdentityInstrumentSlot = "DMM" });
         vm.Apply();
         vm.DisplayName = "My updated voltage plan";
         AuthoringUiFixture.Drain();

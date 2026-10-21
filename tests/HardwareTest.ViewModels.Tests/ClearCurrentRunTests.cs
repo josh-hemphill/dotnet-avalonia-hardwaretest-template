@@ -17,7 +17,8 @@ public sealed class ClearCurrentRunTests
         using var store = new FakeRunStore();
         var session = new OperatorSession();
         var vm = new RunTestViewModel(host, host, host, session, new FakeRunControl(),
-            new FakeReportService(), store, new AppSettings()) { UiScheduler = action => action() };
+            new FakeReportService(), store, new AppSettings())
+        { UiScheduler = action => action() };
         await vm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
         vm.SessionPanel.DutSerialInput = "SN-CLEAR";
         vm.SessionPanel.OperatorInput = "Tech";

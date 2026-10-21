@@ -91,9 +91,9 @@ public sealed class ResponsiveShellTests
         var scroll = fixture.Control<ScrollViewer>("Selected step inspector");
         var offset = scroll.Offset;
         var tabs = window.FindControl<TabControl>("WorkspaceTabs")!;
-        fixture.NavigateTask( 3);
+        fixture.NavigateTask(3);
         Assert.Equal(3, tabs.SelectedIndex);
-        fixture.NavigateTask( 0);
+        fixture.NavigateTask(0);
         Assert.Equal(0, tabs.SelectedIndex);
         Assert.True(field.IsFocused);
         Inside(field, window);
@@ -151,7 +151,7 @@ public sealed class ResponsiveShellTests
         Assert.False(seed.IsStale);
         Assert.NotNull(seed.CheckedIdentity);
         var tabs = window.FindControl<TabControl>("WorkspaceTabs")!;
-        fixture.NavigateTask( 2);
+        fixture.NavigateTask(2);
         var findings = fixture.Control<ListBox>("Contract findings");
         findings.BringIntoView(); AuthoringUiFixture.Drain();
         // Expand the projection while preserving a real check's session, revision and saved-byte identity.
@@ -185,7 +185,7 @@ public sealed class ResponsiveShellTests
         AuthoringUiFixture.Drain();
         Assert.True(displayName.Focus());
         Inside(displayName, window);
-        fixture.NavigateTask( 0);
+        fixture.NavigateTask(0);
         Inside(fixture.Control<ListBox>("Program sequence"), window);
         Assert.False(fixture.ViewModel.HasUnsavedChanges);
     }

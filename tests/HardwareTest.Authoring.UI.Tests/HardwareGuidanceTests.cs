@@ -1,6 +1,6 @@
 using Avalonia.Controls;
-using Avalonia.Styling;
 using Avalonia.Headless.XUnit;
+using Avalonia.Styling;
 using Avalonia.VisualTree;
 using Xunit;
 
