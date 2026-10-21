@@ -1,3 +1,5 @@
+using System.Formats.Asn1;
+using System.Numerics;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using HardwareTest.Core.Credentials;
@@ -202,6 +204,28 @@ public sealed class PreparedPkcs11Tests
         Assert.True(pdf.Succeeded, pdf.Error); Assert.Equal(1, selected.SignCount);
         Assert.Equal(AttestationAlgorithm.PivEcdsaSha256, pdf.Algorithm);
         Assert.True(ITextPadesSignature.TryVerify(pdf.SignedPdf!, selected.Credential.Thumbprint, out var error), error);
+    }
+
+    [Theory]
+    [InlineData(256)]
+    [InlineData(384)]
+    public async Task Fixed_width_ecdsa_components_with_leading_zeroes_are_encoded_as_unsigned_integers(int bits)
+    {
+        var raw = new byte[bits / 4];
+        raw[raw.Length / 2 - 1] = 1;
+        raw[^1] = 0x80;
+        using var selected = new TestToken(true, bits) { SignatureOverride = raw };
+        var prepared = await Broker(new TestBackend(selected)).PrepareSigningAsync(selected.Credential, "1234");
+        using var session = prepared.Session!;
+        var result = await session.TrySignPayloadAsync("payload"u8.ToArray(), selected.Credential);
+        Assert.True(result.Succeeded, result.Error);
+        var reader = new AsnReader(result.Signature!, AsnEncodingRules.DER);
+        var sequence = reader.ReadSequence();
+        Assert.Equal(BigInteger.One, sequence.ReadInteger());
+        Assert.Equal(new BigInteger(128), sequence.ReadInteger());
+        sequence.ThrowIfNotEmpty();
+        reader.ThrowIfNotEmpty();
+        Assert.Equal(1, selected.SignCount);
     }
 
     [Fact]
