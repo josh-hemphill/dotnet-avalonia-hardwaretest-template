@@ -34,10 +34,10 @@ public partial class MainWindow
         new("up", "Move step up", "Alt+Up", () => _viewModel.CanMoveSequence ? null : "Select an editable setup or measurement step.", Sync(() => _viewModel.MoveSelectedSequence(-1))),
         new("down", "Move step down", "Alt+Down", () => _viewModel.CanMoveSequence ? null : "Select an editable setup or measurement step.", Sync(() => _viewModel.MoveSelectedSequence(1))),
         new("issue", "Next issue", "F8", () => _viewModel.FindingRows.Count + _viewModel.EditingIssues.Count > 0 ? null : "No current editing issues or checked findings.", Sync(NextIssue)),
-        new("rail", "Toggle Programs rail", "", () => _viewModel.PreferencesEditable ? null : "Future preferences are read-only.", Sync(() => _viewModel.ProgramsRailCollapsed = !_viewModel.ProgramsRailCollapsed)),
-        new("preview", "Toggle wide preview dock", "", () => _viewModel.PreferencesEditable ? null : "Future preferences are read-only.", Sync(() => _viewModel.DockPreview = !_viewModel.DockPreview)),
+        new("overview", "Open workspace overview", "", () => _viewModel.HasWorkspace ? null : "Open a workspace first.", Sync(() => WorkspaceTabs.SelectedIndex = 8)),
+        new("preview", "Open operator preview", "", () => _viewModel.HasWorkspace ? null : "Open a workspace first.", Sync(() => WorkspaceTabs.SelectedIndex = PreviewRouteIndex)),
         new("issues", "Toggle Issues drawer", "", () => _viewModel.PreferencesEditable ? null : "Future preferences are read-only.", Sync(() => _viewModel.IssuesDrawerOpen = !_viewModel.IssuesDrawerOpen)),
-        new("reset", "Reset saved layout", "", () => _viewModel.PreferencesEditable ? null : "Future preferences are read-only.", Sync(_viewModel.ResetLayout)),
+        new("reset", "Reset saved layout", "", () => _viewModel.PreferencesEditable ? null : "Future preferences are read-only.", Sync(ResetShellLayout)),
         new("tui", "Open saved plan in external TUI", "", TuiBlocker, LaunchTuiAsync)
     ];
 
@@ -165,7 +165,7 @@ public partial class MainWindow
     private async Task RenameCommandAsync()
     {
         var current = OwnerContext(); var node = _viewModel.SelectedSequence?.NodeId;
-        var name = new TextBox { Text = _viewModel.SequenceRename };
+        var name = new TextBox { Text = _viewModel.SelectedSequence?.Label };
         AutomationProperties.SetName(name, "New step name");
         var accept = new Button { Content = "Rename", IsDefault = true };
         AutomationProperties.SetName(accept, "Rename");

@@ -214,20 +214,22 @@ public sealed class AuthoringExpertCommandsTests
     }
 
     [AvaloniaFact]
-    public async Task Layout_persists_locally_clamps_dock_on_small_viewport_and_resets()
+    public async Task Focused_tasks_and_issue_drawer_remain_reachable_and_reset_restores_inspector_width()
     {
         using var fixture = Loaded();
-        Assert.True(await fixture.Window!.ExecuteCommandAsync("rail"));
+        Assert.True(await fixture.Window!.ExecuteCommandAsync("overview"));
+        Assert.Equal(8, fixture.Window.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex);
+        Assert.True(await fixture.Window.ExecuteCommandAsync("preview"));
+        Assert.Equal(5, fixture.Window.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex);
         Assert.True(await fixture.Window.ExecuteCommandAsync("issues"));
         fixture.Preferences.Load();
-        Assert.True(fixture.Preferences.Current.ProgramsRailCollapsed); Assert.True(fixture.Preferences.Current.IssuesDrawerOpen);
-        fixture.Window.Width = 960; fixture.Window.Height = 600; AuthoringUiFixture.Drain();
-        Assert.False(fixture.Window.FindControl<ContentControl>("DockedPreview")!.IsVisible);
-        Assert.False(fixture.Window.FindControl<Control>("ProgramsRail")!.IsVisible);
+        Assert.True(fixture.Preferences.Current.IssuesDrawerOpen);
+        fixture.NavigateTask(0);
+        var layout = fixture.Window.FindControl<Grid>("ProgramLayout")!;
+        layout.ColumnDefinitions[2].Width = new Avalonia.Controls.GridLength(450);
         Assert.True(await fixture.Window.ExecuteCommandAsync("reset")); AuthoringUiFixture.Drain();
-        Assert.True(fixture.Window.FindControl<Control>("ProgramsRail")!.IsVisible);
+        Assert.Equal(400, layout.ColumnDefinitions[2].Width.Value);
         Assert.False(fixture.Window.FindControl<Control>("IssuesDrawer")!.IsVisible);
-        Assert.True(fixture.ViewModel.DockPreview);
     }
 
     [AvaloniaFact]
@@ -291,7 +293,7 @@ public sealed class AuthoringExpertCommandsTests
         using var fixture = Loaded();
         fixture.ViewModel.SelectMeasure(0); fixture.ViewModel.ChannelKey = "unrelated-history-sentinel";
         var node = fixture.ViewModel.SelectedSequence!.NodeId;
-        fixture.Window!.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 1; AuthoringUiFixture.Drain();
+        fixture.Window!.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 7; AuthoringUiFixture.Drain();
         var box = fixture.Control<TextBox>("Display name");
         box.Focus(); box.SelectAll(); fixture.Window!.KeyTextInput("text undo");
         fixture.Window!.KeyPress(Key.Z, RawInputModifiers.Control, PhysicalKey.None, null); AuthoringUiFixture.Drain();

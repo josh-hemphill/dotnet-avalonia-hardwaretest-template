@@ -1,53 +1,17 @@
 <UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:vm="using:HardwareTest.Authoring" xmlns:host="using:HardwareTest.OpenTap.Host"
     x:Class="HardwareTest.Authoring.SequenceEditorView" x:DataType="vm:AuthoringWorkspaceViewModel">
-  <Grid RowDefinitions="Auto,Auto,*" Margin="0" AutomationProperties.Name="Sequence editor" ToolTip.Tip="{Binding MeasureHint}">
-    <Button Grid.Row="0" x:Name="SequenceActionsButton" Content="Add &amp; edit steps ▾" HorizontalAlignment="Stretch" Classes="authoringAction" Margin="0,0,0,4">
-      <Button.Flyout><Flyout Placement="Bottom">
-    <ScrollViewer Width="290" MaxHeight="320" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
-        AutomationProperties.Name="Sequence actions">
-    <StackPanel Spacing="6" Margin="0,0,0,8">
-      <TextBlock x:Name="RecipeLabel" Text="Add to sequence" TextWrapping="Wrap"/>
-      <TextBlock x:Name="RecipeSearchLabel" Text="Search Measure, Check, Operator action or Flow" TextWrapping="Wrap"/>
-      <TextBox Text="{Binding RecipeSearch}" PlaceholderText="Search sequence palette"
-          AutomationProperties.Name="Search sequence palette" AutomationProperties.LabeledBy="{Binding #RecipeSearchLabel}"/>
-      <ComboBox ItemsSource="{Binding Recipes}" SelectedItem="{Binding SelectedRecipe}"
-          AutomationProperties.Name="Recipe" AutomationProperties.LabeledBy="{Binding #RecipeLabel}">
-        <ComboBox.ItemTemplate>
-          <DataTemplate x:DataType="vm:AuthoringRecipe">
-            <StackPanel>
-              <TextBlock Text="{Binding ListLabel}" TextWrapping="Wrap" ToolTip.Tip="{Binding Summary}"/>
-            </StackPanel>
-          </DataTemplate>
-        </ComboBox.ItemTemplate>
-      </ComboBox>
-      <TextBlock x:Name="InsertionLabel" Text="Insertion point"/>
-      <ComboBox ItemsSource="{Binding InsertionPositions}" SelectedItem="{Binding InsertionPosition}"
-          AutomationProperties.Name="Insertion point" AutomationProperties.LabeledBy="{Binding #InsertionLabel}"/>
-      <TextBlock Text="{Binding SequenceOperationTarget}" TextWrapping="Wrap"/>
-      <TextBlock Text="{Binding SelectedRecipePrerequisites}" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite"/>
-      <Button Content="Add recipe" IsEnabled="{Binding CanInsertRecipe}" Click="OnAddRecipe" ToolTip.Tip="{Binding AddRecipeToolTip}"
-          AutomationProperties.Name="Add recipe" Classes="authoringAction sequenceAction"/>
-      <TextBlock x:Name="RenameLabel" Text="Selected step name"/>
-      <TextBox Text="{Binding SequenceRename}" AutomationProperties.Name="Selected step name"
-          AutomationProperties.LabeledBy="{Binding #RenameLabel}" IsEnabled="{Binding CanRenameSequence}"/>
-      <WrapPanel Orientation="Horizontal">
-        <Button Classes="authoringAction sequenceAction" Content="Rename" Click="OnRenameSequence" IsEnabled="{Binding CanRenameSequence}" AutomationProperties.Name="Rename selected step"/>
-        <Button Classes="authoringAction sequenceAction" Content="Duplicate" Click="OnDuplicateSequence" IsEnabled="{Binding CanDuplicateSequence}" AutomationProperties.Name="Duplicate selected step"/>
-        <Button Classes="authoringAction sequenceAction" Content="Move up" Click="OnMoveSequenceUp" IsEnabled="{Binding CanMoveSequence}" AutomationProperties.Name="Move selected step up"/>
-        <Button Classes="authoringAction sequenceAction" Content="Move down" Click="OnMoveSequenceDown" IsEnabled="{Binding CanMoveSequence}" AutomationProperties.Name="Move selected step down"/>
-      </WrapPanel>
-      <TextBlock Opacity="0.9" TextWrapping="Wrap" IsVisible="{Binding HasRawSteps}" Text="{Binding RawStepsBanner}"/>
-    </StackPanel>
-    </ScrollViewer>
-      </Flyout></Button.Flyout>
-    </Button>
-      <Button Grid.Row="1" Margin="0,0,0,4" Content="{Binding RemoveSequenceActionTitle}" Click="OnRemoveSequence"
-          IsEnabled="{Binding CanRemoveSelectedSequence}" ToolTip.Tip="{Binding RemoveSelectedPurpose}"
-          AutomationProperties.Name="Remove selected" Classes="authoringAction"/>
-    <ListBox x:Name="SequenceList" Classes="authoringList" Grid.Row="2" MinHeight="80" ItemsSource="{Binding SequenceItems}" SelectedIndex="{Binding SelectedSequenceIndex}"
+  <Grid RowDefinitions="Auto,*" RowSpacing="12" AutomationProperties.Name="Sequence editor">
+    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+      <StackPanel Spacing="4" VerticalAlignment="Center"><TextBlock Text="RUN ORDER" Classes="eyebrow"/><TextBlock Text="Select a step to configure it" Classes="purpose" TextWrapping="Wrap"/></StackPanel>
+      <Button Grid.Column="1" x:Name="SequenceActionsButton" Content="+ Add step" Click="OnOpenPalette" Classes="authoringAction primaryAction" AutomationProperties.Name="Add step" IsEnabled="{Binding CanEditProgramSettings}"/>
+    </Grid>
+    <ListBox x:Name="SequenceList" Classes="sequenceCanvas" Background="Transparent" BorderThickness="0" Grid.Row="1" MinHeight="80" ItemsSource="{Binding SequenceItems}" SelectedIndex="{Binding SelectedSequenceIndex}"
         KeyboardNavigation.TabNavigation="Once" KeyDown="OnSequenceKeyDown" AutomationProperties.Name="Program sequence">
       <ListBox.Styles>
+        <Style Selector="ListBoxItem"><Setter Property="Padding" Value="4,4,4,8"/><Setter Property="HorizontalContentAlignment" Value="Stretch"/></Style>
+        <Style Selector="ListBoxItem:selected Border.stepCard"><Setter Property="BorderBrush" Value="{DynamicResource AuthoringAccent}"/><Setter Property="BorderThickness" Value="2"/></Style>
+        <Style Selector="ListBoxItem:disabled Border.stepCard"><Setter Property="Background" Value="Transparent"/><Setter Property="BorderThickness" Value="0"/><Setter Property="Padding" Value="8,12,8,4"/></Style>
         <Style Selector="ListBoxItem" x:DataType="vm:SequenceRow">
           <Setter Property="IsEnabled" Value="{Binding IsSelectable}"/>
           <Setter Property="Focusable" Value="{Binding IsSelectable}"/>
@@ -58,10 +22,10 @@
       </ListBox.Styles>
       <ListBox.ItemTemplate>
         <DataTemplate x:DataType="vm:SequenceRow">
-          <StackPanel Margin="{Binding Indent, Converter={x:Static vm:LeftIndentConverter.Instance}}">
-            <TextBlock Text="{Binding Label}" TextWrapping="Wrap"/>
-            <TextBlock Opacity="0.7" FontSize="11" TextWrapping="Wrap" Text="{Binding Detail}"/>
-          </StackPanel>
+          <Border Classes="surface stepCard" Padding="18,14" Margin="{Binding Indent, Converter={x:Static vm:LeftIndentConverter.Instance}}"><StackPanel Spacing="6">
+            <TextBlock Text="{Binding Label}" TextWrapping="Wrap" FontWeight="SemiBold" FontSize="16"/>
+            <TextBlock Opacity="0.7" FontSize="14" TextWrapping="Wrap" Text="{Binding Detail}"/>
+          </StackPanel></Border>
         </DataTemplate>
       </ListBox.ItemTemplate>
     </ListBox>

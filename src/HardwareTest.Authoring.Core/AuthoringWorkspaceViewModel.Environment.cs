@@ -78,6 +78,10 @@ public sealed partial class AuthoringWorkspaceViewModel
         OnPropertyChanged(nameof(RequiresInstrumentLibrary));
         OnPropertyChanged(nameof(CanDeclareLibraryDependency));
         OnPropertyChanged(nameof(InstrumentTypeChoices));
+        OnPropertyChanged(nameof(InstrumentCatalogSummary));
+        OnPropertyChanged(nameof(SelectedNewInstrumentType));
+        OnPropertyChanged(nameof(NewInstrumentAvailabilityText));
+        OnPropertyChanged(nameof(CanAddInstrumentSlot));
         OnPropertyChanged(nameof(EnvironmentPathError));
         OnPropertyChanged(nameof(EnvironmentPackages));
         OnPropertyChanged(nameof(EnvironmentRuntimeFiles));

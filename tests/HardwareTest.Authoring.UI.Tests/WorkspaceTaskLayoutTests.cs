@@ -154,12 +154,15 @@ public sealed class WorkspaceTaskLayoutTests
     }
 
     [AvaloniaFact]
-    public void Hardware_entry_exposes_bindings_first_and_program_identity_remains_editable_below_the_task()
+    public void Instruments_exposes_bindings_and_operator_task_owns_identity()
     {
         using var fixture = Loaded();
         fixture.Window!.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 1;
         AuthoringUiFixture.Drain();
-        ResponsiveShellTests.Inside(fixture.Control<ItemsControl>("Hardware binding table"), fixture.Window!);
+        var bindings = fixture.Control<ItemsControl>("Hardware binding table");
+        bindings.BringIntoView(); AuthoringUiFixture.Drain();
+        ResponsiveShellTests.Inside(bindings, fixture.Window!);
+        fixture.NavigateTask(7);
         var identity = fixture.Control<TextBox>("Display name");
         identity.BringIntoView(); AuthoringUiFixture.Drain(); ResponsiveShellTests.Inside(identity, fixture.Window!);
         fixture.Type(identity, "Hardware entry retained program title");

@@ -25,7 +25,7 @@ public sealed class AuthoringFormulaIncompleteInputTests
         var id = vm.SelectedSequence!.NodeId; var plan = vm.SelectedProgram!.PlanId;
         vm.FormulaExplorationOnly = true; vm.Apply(); AuthoringUiFixture.Drain();
         Assert.False(vm.HasUncompiledSources, vm.Error ?? vm.SavePreviewWarning ?? vm.Status); Assert.True(vm.CanPack);
-        vm.Open(fixture.WorkspaceRoot); vm.SelectProgram(plan);
+        vm.Open(fixture.WorkspaceRoot); fixture.NavigateTask(0); vm.SelectProgram(plan);
         vm.SelectSequence(vm.SequenceItems.ToList().FindIndex(row => row.NodeId == id)); AuthoringUiFixture.Drain();
         Assert.True(vm.FormulaExplorationOnly); Assert.Equal("abc", vm.Threshold); AssertIncomplete(vm, "Threshold");
         fixture.Type(fixture.Control<TextBox>("Threshold"), "0"); vm.FormulaExplorationOnly = false; AuthoringUiFixture.Drain(); vm.Apply(); AuthoringUiFixture.Drain();

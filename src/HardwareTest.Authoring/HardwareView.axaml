@@ -24,6 +24,33 @@
       </StackPanel>
     </Border>
     <Border Classes="surface taskSection">
+      <StackPanel Spacing="10">
+        <TextBlock Text="Supported instrument types" Classes="sectionTitle" AutomationProperties.HeadingLevel="3"/>
+        <TextBlock Text="{Binding InstrumentCatalogSummary}" TextWrapping="Wrap" AutomationProperties.Name="Supported instrument types summary"/>
+        <TextBlock Text="{Binding LibraryEnvironmentReadinessText}" TextWrapping="Wrap" AutomationProperties.Name="Hardware library readiness"/>
+        <WrapPanel>
+          <Button Content="Prepare / import instrument library" Click="OnOpenEnvironment" Classes="authoringAction" Margin="0,0,8,8" AutomationProperties.Name="Open hardware environment"/>
+          <Button Content="Manage reusable hardware templates" Click="OnOpenDefinitions" Classes="authoringAction" Margin="0,0,8,8" AutomationProperties.Name="Manage reusable hardware templates"/>
+        </WrapPanel>
+        <Expander Header="Browse available types" HorizontalContentAlignment="Stretch" Classes="inspectorSection">
+          <StackPanel>
+            <ItemsControl ItemsSource="{Binding InstrumentTypeChoices}" AutomationProperties.Name="Supported instrument types">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:AuthoringInstrumentAdapter">
+                  <StackPanel Spacing="4" Margin="0,0,0,12">
+                    <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                    <TextBlock Text="{Binding Description}" TextWrapping="Wrap"/>
+                    <TextBlock Text="{Binding TypeId}" Classes="purpose" TextWrapping="Wrap"/>
+                    <TextBlock Text="{Binding RequiredPackage}" Classes="purpose" TextWrapping="Wrap"/>
+                  </StackPanel>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
+        </Expander>
+      </StackPanel>
+    </Border>
+    <Border Classes="surface taskSection">
       <StackPanel Spacing="12">
         <TextBlock Text="Instruments" Classes="sectionTitle" TextWrapping="Wrap" AutomationProperties.HeadingLevel="3"/>
         <vm:ResponsiveTaskGrid>

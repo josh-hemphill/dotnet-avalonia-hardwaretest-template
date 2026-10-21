@@ -1,53 +1,11 @@
 <UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:vm="using:HardwareTest.Authoring" x:Class="HardwareTest.Authoring.ProgramSettingsView" x:DataType="vm:AuthoringWorkspaceViewModel">
   <ScrollViewer>
     <StackPanel Spacing="20" MaxWidth="920" Classes="routeBody">
-      <TextBlock Text="Hardware — selected program" Classes="routeTitle" TextWrapping="Wrap" AutomationProperties.HeadingLevel="2"/>
-      <TextBlock Text="Review instrument bindings and the configuration used by this program. Program identity, operator requirements and lifecycle settings follow below." Classes="purpose" TextWrapping="Wrap"/>
+      <TextBlock Text="Instruments" Classes="routeTitle" TextWrapping="Wrap" AutomationProperties.HeadingLevel="2"/>
+      <TextBlock Text="Bind the instruments this plan uses, or create a reusable hardware template." Classes="purpose" TextWrapping="Wrap"/>
       <vm:HardwareView/>
-      <TextBlock FontWeight="SemiBold" Text="{Binding ProgramSettingsTitle}" AutomationProperties.HeadingLevel="2" Classes="routeTitle"/>
-      <TextBlock Opacity="0.8" TextWrapping="Wrap" Text="{Binding ProgramSettingsPurpose}" Classes="purpose"/>
-      <Border Classes="surface taskSection">
-        <StackPanel Spacing="10">
-          <TextBlock FontWeight="SemiBold" Text="Identity &amp; DUT" ToolTip.Tip="{Binding SidecarHelp}" AutomationProperties.HelpText="{Binding SidecarHelp}" AutomationProperties.HeadingLevel="3" Classes="sectionTitle"/>
-          <TextBlock x:Name="DisplayNameLabel" Text="Display name"/>
-          <TextBox Text="{Binding DisplayName}" AutomationProperties.Name="Display name" AutomationProperties.LabeledBy="{Binding #DisplayNameLabel}"/>
-          <TextBlock x:Name="DutFamilyLabel" Text="DUT family"/>
-          <TextBox Text="{Binding DutFamily}" AutomationProperties.Name="DUT family" AutomationProperties.LabeledBy="{Binding #DutFamilyLabel}"/>
-        </StackPanel>
-      </Border>
-      <Border Classes="surface taskSection">
-        <StackPanel Spacing="10">
-          <TextBlock FontWeight="SemiBold" Text="Operator session" AutomationProperties.HeadingLevel="3" Classes="sectionTitle"/>
-          <TextBlock Opacity="0.8" TextWrapping="Wrap" Text="{Binding RequiredFieldsPurpose}"/>
-          <TextBlock Text="Membership: selected program only. Remove from workspace: catalog and affected programs." TextWrapping="Wrap"/>
-          <ItemsControl ItemsSource="{Binding RequiredFieldChoices}" AutomationProperties.Name="Required DUT fields">
-            <ItemsControl.ItemTemplate>
-              <DataTemplate x:DataType="vm:AuthoringCatalogToggle">
-                <StackPanel Orientation="Horizontal" Spacing="8">
-                  <CheckBox Content="{Binding Id}" IsChecked="{Binding Included, Mode=OneWay}" Click="OnToggleRequiredField" ToolTip.Tip="Changes membership only for the selected program. Save this program to persist the edit." AutomationProperties.Name="{Binding Id, StringFormat='Include {0} in selected program'}"/>
-                </StackPanel>
-              </DataTemplate>
-            </ItemsControl.ItemTemplate>
-          </ItemsControl>
-        </StackPanel>
-      </Border>
-      <Border Classes="surface taskSection">
-        <StackPanel Spacing="10">
-          <TextBlock FontWeight="SemiBold" Text="Reports" AutomationProperties.HeadingLevel="3" Classes="sectionTitle"/>
-          <TextBlock Text="Check membership for the selected program; review workspace removal separately." TextWrapping="Wrap"/>
-          <ItemsControl ItemsSource="{Binding ReportKindChoices}" AutomationProperties.Name="Report kinds">
-            <ItemsControl.ItemTemplate>
-              <DataTemplate x:DataType="vm:AuthoringCatalogToggle">
-                <StackPanel Orientation="Horizontal" Spacing="8">
-                  <CheckBox Content="{Binding Id}" IsChecked="{Binding Included, Mode=OneWay}" Click="OnToggleReportKind" ToolTip.Tip="Changes membership only for the selected program. Save this program to persist the edit." AutomationProperties.Name="{Binding Id, StringFormat='Include {0} in selected program'}"/>
-                </StackPanel>
-              </DataTemplate>
-            </ItemsControl.ItemTemplate>
-          </ItemsControl>
-          <TextBlock x:Name="DefaultReportLabel" Text="Default report"/>
-          <ComboBox ItemsSource="{Binding IncludedReportKinds}" SelectedItem="{Binding DefaultReportKind}" AutomationProperties.Name="Default report" AutomationProperties.LabeledBy="{Binding #DefaultReportLabel}"/>
-        </StackPanel>
-      </Border>
+
+      <Expander Header="Plan classification &amp; lifecycle" HorizontalContentAlignment="Stretch" Classes="inspectorSection"><StackPanel Spacing="16">
       <Border Classes="surface taskSection">
         <StackPanel Spacing="10">
           <TextBlock FontWeight="SemiBold" Text="Program type &amp; station health" AutomationProperties.HeadingLevel="3" Classes="sectionTitle"/>
@@ -71,6 +29,7 @@
           <CheckBox Content="Selection includes cleanup" IsChecked="{Binding SelectionIncludesCleanup}" Margin="0,8,0,0" ToolTip.Tip="When off, Run Selected skips Safe Shutdown"/>
         </StackPanel>
       </Border>
+      </StackPanel></Expander>
     </StackPanel>
   </ScrollViewer>
 </UserControl>

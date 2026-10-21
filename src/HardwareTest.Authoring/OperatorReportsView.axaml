@@ -1,0 +1,57 @@
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:vm="using:HardwareTest.Authoring" x:Class="HardwareTest.Authoring.OperatorReportsView" x:DataType="vm:AuthoringWorkspaceViewModel">
+  <ScrollViewer HorizontalScrollBarVisibility="Disabled"><StackPanel Spacing="20" Classes="routeBody">
+    <TextBlock Text="Operator &amp; reports" Classes="routeTitle" AutomationProperties.HeadingLevel="1"/>
+    <TextBlock Text="Configure plan identity, the fields operators provide, and the reports they can produce." Classes="purpose" TextWrapping="Wrap"/>
+    <WrapPanel>
+      <Button Content="Add operator prompt" Click="OnAddPrompt" Classes="authoringAction" AutomationProperties.Name="Add operator prompt" Margin="0,0,8,8"/>
+      <Button Content="Manage workspace definitions" Click="OnOpenDefinitions" Classes="authoringAction" AutomationProperties.Name="Manage operator definitions" Margin="0,0,8,8"/>
+    </WrapPanel>
+      <Border Classes="surface taskSection">
+        <StackPanel Spacing="10">
+          <TextBlock FontWeight="SemiBold" Text="Identity &amp; DUT" ToolTip.Tip="{Binding SidecarHelp}" AutomationProperties.HelpText="{Binding SidecarHelp}" AutomationProperties.HeadingLevel="3" Classes="sectionTitle"/>
+          <TextBlock x:Name="DisplayNameLabel" Text="Display name"/>
+          <TextBox Text="{Binding DisplayName}" AutomationProperties.Name="Display name" AutomationProperties.LabeledBy="{Binding #DisplayNameLabel}"/>
+          <TextBlock x:Name="DutFamilyLabel" Text="DUT family"/>
+          <TextBox Text="{Binding DutFamily}" AutomationProperties.Name="DUT family" AutomationProperties.LabeledBy="{Binding #DutFamilyLabel}"/>
+        </StackPanel>
+      </Border>
+      <Border Classes="surface taskSection">
+        <StackPanel Spacing="10">
+          <TextBlock FontWeight="SemiBold" Text="Operator session" AutomationProperties.HeadingLevel="3" Classes="sectionTitle"/>
+          <TextBlock Opacity="0.8" TextWrapping="Wrap" Text="{Binding RequiredFieldsPurpose}"/>
+          <TextBlock Text="Checked fields are required by this plan. Reusable definitions can be shared across plans." TextWrapping="Wrap"/>
+          <TextBlock Text="Create a reusable operator field, then check it below to include it in this program." Classes="purpose" TextWrapping="Wrap"/>
+          <TextBox Text="{Binding NewRequiredField}" PlaceholderText="e.g. fixtureId" AutomationProperties.Name="New operator field from operator settings"/>
+          <Button Content="Add workspace operator field" Click="OnAddRequiredField" Classes="authoringAction" AutomationProperties.Name="Add operator field from operator settings"/>
+          <ItemsControl ItemsSource="{Binding RequiredFieldChoices}" AutomationProperties.Name="Required DUT fields">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:AuthoringCatalogToggle">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <CheckBox Content="{Binding Id}" IsChecked="{Binding Included, Mode=OneWay}" Click="OnToggleRequiredField" ToolTip.Tip="Changes membership only for the selected program. Save this program to persist the edit." AutomationProperties.Name="{Binding Id, StringFormat='Include {0} in selected program'}"/>
+                </StackPanel>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
+      </Border>
+      <Border Classes="surface taskSection">
+        <StackPanel Spacing="10">
+          <TextBlock FontWeight="SemiBold" Text="Reports" AutomationProperties.HeadingLevel="3" Classes="sectionTitle"/>
+          <TextBlock Text="Choose which report kinds this plan offers and its default report." TextWrapping="Wrap"/>
+          <TextBox Text="{Binding NewReportKind}" PlaceholderText="New report kind ID" AutomationProperties.Name="New report kind from operator settings"/>
+          <Button Content="Add workspace report kind" Click="OnAddReportKind" Classes="authoringAction" AutomationProperties.Name="Add report kind from operator settings"/>
+          <ItemsControl ItemsSource="{Binding ReportKindChoices}" AutomationProperties.Name="Report kinds">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:AuthoringCatalogToggle">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <CheckBox Content="{Binding Id}" IsChecked="{Binding Included, Mode=OneWay}" Click="OnToggleReportKind" ToolTip.Tip="Changes membership only for the selected program. Save this program to persist the edit." AutomationProperties.Name="{Binding Id, StringFormat='Include {0} in selected program'}"/>
+                </StackPanel>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+          <TextBlock x:Name="DefaultReportLabel" Text="Default report"/>
+          <ComboBox ItemsSource="{Binding IncludedReportKinds}" SelectedItem="{Binding DefaultReportKind}" AutomationProperties.Name="Default report" AutomationProperties.LabeledBy="{Binding #DefaultReportLabel}"/>
+        </StackPanel>
+      </Border>
+  </StackPanel></ScrollViewer>
+</UserControl>

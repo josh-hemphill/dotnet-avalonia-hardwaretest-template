@@ -1,11 +1,11 @@
 <UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:vm="using:HardwareTest.Authoring" x:Class="HardwareTest.Authoring.WorkspaceDefinitionsView" x:DataType="vm:AuthoringWorkspaceViewModel">
   <StackPanel Spacing="20" Classes="routeBody">
     <TextBlock Text="Workspace definitions" FontWeight="SemiBold" AutomationProperties.HeadingLevel="2" Classes="routeTitle"/>
-    <TextBlock Text="Workspace definitions are independent of program membership. Hardware definitions are templates: including one copies its binding into the selected program. Existing program bindings change only through Hardware review." TextWrapping="Wrap"/>
-    <Border Classes="surface taskSection">
+    <TextBlock Text="Workspace definitions are independent of program membership. Hardware definitions are templates: including one copies its binding into the selected program. Existing program bindings change only through Instruments review." TextWrapping="Wrap"/>
+    <Border x:Name="OperatorFieldSection" Classes="surface taskSection">
       <StackPanel Spacing="12">
         <TextBlock Text="Required DUT field catalog" Classes="sectionTitle" TextWrapping="Wrap" AutomationProperties.HeadingLevel="3"/>
-        <TextBlock Text="Workspace definitions. Select a program’s required-field membership in Hardware settings." Classes="purpose" TextWrapping="Wrap"/>
+        <TextBlock Text="Workspace definitions. Select a program’s required-field membership in Operator &amp; reports." Classes="purpose" TextWrapping="Wrap"/>
         <ItemsControl ItemsSource="{Binding RequiredFieldChoices}" AutomationProperties.Name="Workspace Required DUT fields">
           <ItemsControl.ItemTemplate>
             <DataTemplate x:DataType="vm:AuthoringCatalogToggle">
@@ -57,7 +57,7 @@
         <Button Classes="authoringAction" Content="Add program kind" Click="OnAddProgramKind" ToolTip.Tip="Adds a workspace definition only. Select program membership separately. Save All to persist." AutomationProperties.Name="Add program kind"/>
       </StackPanel>
     </Border>
-    <Border Classes="surface taskSection">
+    <Border x:Name="HardwareTemplateSection" Classes="surface taskSection">
       <StackPanel Spacing="12">
         <TextBlock Text="Hardware template catalog" Classes="sectionTitle" TextWrapping="Wrap" AutomationProperties.HeadingLevel="3"/>
         <vm:ResponsiveTaskGrid>
@@ -97,7 +97,7 @@
             <Border Classes="surface taskSection">
               <StackPanel Spacing="12">
                 <TextBlock Text="Selected-program membership" Classes="sectionTitle" TextWrapping="Wrap" AutomationProperties.HeadingLevel="3"/>
-                <TextBlock Text="Including a definition copies its binding into the selected program. Existing bindings change only through Hardware review." Classes="purpose" TextWrapping="Wrap"/>
+                <TextBlock Text="Including a definition copies its binding into the selected program. Existing bindings change only through Instruments review." Classes="purpose" TextWrapping="Wrap"/>
                 <Button Content="Include definition in selected program" Click="OnIncludeDefinition" AutomationProperties.Name="Include definition in selected program" Classes="authoringAction primaryAction"/>
               </StackPanel>
             </Border>

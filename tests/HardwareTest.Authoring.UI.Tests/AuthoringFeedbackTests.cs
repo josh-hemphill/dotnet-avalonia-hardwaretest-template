@@ -98,7 +98,7 @@ public sealed class AuthoringFeedbackTests
 
     private static void AssertUsableEditor(AuthoringUiFixture fixture, Window window)
     {
-        var programs = fixture.Control<ListBox>("Programs");
+        var programs = fixture.Control<ComboBox>("Selected test plan");
         var sequence = fixture.Control<ListBox>("Program sequence");
         AssertInsideWindow(programs, window);
         AssertInsideWindow(sequence, window);
