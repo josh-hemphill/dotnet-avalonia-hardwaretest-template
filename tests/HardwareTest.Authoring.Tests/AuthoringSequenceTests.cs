@@ -25,7 +25,6 @@ public sealed class AuthoringSequenceTests
                 SequenceSection.Measure,
                 SequenceSection.Measure,
                 SequenceSection.Measure,
-                SequenceSection.Measure,
                 SequenceSection.Cleanup,
                 SequenceSection.Cleanup,
             },
@@ -34,8 +33,8 @@ public sealed class AuthoringSequenceTests
         Assert.False(rows[0].IsSelectable);
         Assert.Contains(rows, row => row.Kind == SequenceRowKind.Setup && row.Label == "Identity Check");
         Assert.Contains(rows, row => row.Kind == SequenceRowKind.Setup && row.Label == "Operator Prompt");
-        var measureHeader = Assert.Single(rows, row => row is { Kind: SequenceRowKind.Header, Label: AuthoringChrome.MeasureHeader });
-        Assert.True(rows.ToList().IndexOf(measureHeader) > rows.ToList().FindIndex(row => row.Kind == SequenceRowKind.Setup));
+        Assert.DoesNotContain(rows, row => row.Kind == SequenceRowKind.Header && row.Section == SequenceSection.Measure);
+        Assert.True(rows.ToList().FindIndex(row => row.Kind == SequenceRowKind.Metric) > rows.ToList().FindLastIndex(row => row.Kind == SequenceRowKind.Setup));
         var repeat = Assert.Single(rows, row => row.Kind == SequenceRowKind.Repeat);
         Assert.StartsWith("Repeat x", repeat.Label, StringComparison.Ordinal);
         var child = Assert.Single(rows, row => row.Kind == SequenceRowKind.Metric && row.Label.Contains("Mean GTE", StringComparison.Ordinal));
@@ -108,7 +107,7 @@ public sealed class AuthoringSequenceTests
             "Bit sweep, timed sample, and InstrumentComponents steps are not recipes yet.",
             AuthoringChrome.RecipeAdvancedHint);
         Assert.Equal(
-            "Insert before or after the selected step, or at the end of its section. Identity/Prompt go to Setup; metrics to Measure; Repeat wraps the selected measurement; Safe Shutdown updates Cleanup.",
+            "Insert before or after the selected step, or at the end of its section. Identity/Prompt go to Setup; measurements go to the selected section; Repeat wraps the selected measurement; Safe Shutdown updates Shutdown.",
             AuthoringChrome.AddRecipeActionSummary);
         Assert.Equal(
             AuthoringChrome.AddRecipeActionSummary + "\n\n" + AuthoringChrome.RecipeAddHint + " " + AuthoringChrome.RecipeAdvancedHint,
@@ -176,7 +175,7 @@ public sealed class AuthoringSequenceViewModelTests
         vm.CreateDemoProgram("empty-measure");
         Assert.Equal(AuthoringChrome.EmptyMeasureHint, vm.MeasureHint);
         Assert.Contains(vm.SequenceItems, row => row.Label == "Identity Check");
-        Assert.Contains(vm.SequenceItems, row => row.Label == AuthoringChrome.MeasureHeader);
+        Assert.DoesNotContain(vm.SequenceItems, row => row.Kind == SequenceRowKind.Header && row.Section == SequenceSection.Measure);
         Assert.DoesNotContain(vm.SequenceItems, row => row.Section == SequenceSection.Measure && row.Kind == SequenceRowKind.Metric);
         Assert.Contains(vm.SequenceItems, row => row.Kind == SequenceRowKind.Cleanup);
         Assert.Equal("Identity Check", vm.SelectedSequence?.Label);
@@ -265,9 +264,7 @@ public sealed class AuthoringSequenceViewModelTests
         Assert.DoesNotContain(vm.SequenceItems, row => row.Label == "Operator Prompt");
         Assert.Contains(vm.SequenceItems, row => row.Label == "Identity Check");
 
-        var measureHeader = vm.SequenceItems.Single(row =>
-            row.Kind == SequenceRowKind.Header && row.Section == SequenceSection.Measure);
-        Assert.False(AuthoringSequence.CanRemove(measureHeader, vm.SelectedProgram));
+        Assert.DoesNotContain(vm.SequenceItems, row => row.Kind == SequenceRowKind.Header && row.Section == SequenceSection.Measure);
 
         var nestedMean = vm.SequenceItems.Single(row =>
             row.Kind == SequenceRowKind.Metric && row.Detail.Contains("VDC.mean", StringComparison.Ordinal));

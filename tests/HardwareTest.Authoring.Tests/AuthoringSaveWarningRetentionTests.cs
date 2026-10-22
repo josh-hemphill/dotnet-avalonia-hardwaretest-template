@@ -89,6 +89,14 @@ public sealed class AuthoringSaveWarningRetentionTests : IDisposable
     {
         var root = AuthoringBuildSnapshotTests.Workspace(); var workspace = AuthoringWorkspaceLoader.Load(root);
         workspace.Manifest.Package.Name = "Saved warning retention"; AuthoringWorkspaceLoader.SaveManifest(root, workspace.Manifest);
+        // Warning retention starts from an explicit modern flat baseline; migration
+        // publication is covered independently and must not add unrelated Save All work here.
+        foreach (var path in workspace.TapPlanPaths)
+        {
+            var plan = System.Xml.Linq.XDocument.Load(path);
+            plan.Root!.SetAttributeValue(AuthoringMeasureSections.CompiledLayoutAttribute, "true");
+            plan.Save(path);
+        }
         var vm = new AuthoringWorkspaceViewModel(); vm.Open(root); vm.StopRecovery(); return vm;
     }
     private static void AddInvalid(AuthoringWorkspaceViewModel vm, string id)

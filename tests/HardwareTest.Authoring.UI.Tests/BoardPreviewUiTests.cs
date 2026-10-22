@@ -12,7 +12,7 @@ namespace HardwareTest.Authoring.UI.Tests;
 public sealed class BoardPreviewUiTests
 {
     [AvaloniaFact]
-    public void Selecting_same_channel_nodes_keeps_their_own_units_limits_and_board_tiles()
+    public async Task Selecting_same_channel_nodes_keeps_their_own_units_limits_and_board_tiles()
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
         MetricNode Publisher(string name, string unit, double low, double high) => new(new MetricDraft(name, "same", PresentationRoles.Timeseries, unit,
@@ -32,6 +32,7 @@ public sealed class BoardPreviewUiTests
         foreach (var node in new[] { first, second })
         {
             vm.SelectSequence(vm.SequenceItems.ToList().FindIndex(row => row.NodeId == node.NodeId));
+            await fixture.WaitForPreviewAsync();
             AuthoringUiFixture.Drain();
             Assert.Equal(node.Metric.YUnit, vm.Preview.YUnit);
             Assert.Equal(node.Metric.Limits!.High, vm.Preview.LimitHigh);

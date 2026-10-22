@@ -73,16 +73,17 @@ public partial class MainWindow
 
     private void QueueGuidanceRefresh()
     {
-        if (!_guidanceVisible || _guidanceRefreshQueued || _ownerClosed) return;
+        if (!_guidanceVisible || _ownerClosed) return;
+        if (_guidanceRefreshQueued) return;
         _guidanceRefreshQueued = true;
-        Dispatcher.UIThread.Post(() => { _guidanceRefreshQueued = false; RefreshGuidance(); });
+        Dispatcher.UIThread.Post(() => { _guidanceRefreshQueued = false; RefreshGuidance(forceAssessment: false); });
     }
 
     private bool GuidanceTargetCurrent() => !_ownerClosed && IsVisible && !_transitionInFlight && !_destructiveInFlight
         && !_viewModel.OperationBusy && !_viewModel.OperationCleanupPending && ReferenceEquals(DataContext, _viewModel)
         && _guidedSession == _viewModel.WorkspaceSessionId && _viewModel.SelectedProgram?.PlanId == _guidedPlan;
 
-    private void RefreshGuidance()
+    private void RefreshGuidance(bool forceAssessment = true)
     {
         var host = this.FindControl<Border>("GuidanceHost")!;
         host.IsVisible = _guidanceVisible && GuidanceAllowed && GuidanceTargetCurrent();
@@ -102,54 +103,19 @@ public partial class MainWindow
                 _guidanceReturnFocus = null;
             }
         }
-        if (!host.IsVisible || _viewModel.SelectedProgram is not { } draft) return;
+        if (!host.IsVisible || _viewModel.SelectedProgram is not { } draft)
+        {
+            _guidanceAssessmentGeneration++;
+            _guidanceAssessmentIdentity = null;
+            return;
+        }
         _guidancePlan.Text = draft.Sidecar.DisplayName;
         _guidanceHardware.Text = draft.Instruments.Any(instrument => instrument.TypeId.Contains("Mock", StringComparison.OrdinalIgnoreCase))
             ? "Demo — Mock instrument" : "Product — physical instrument selection";
         _guidanceIdentity.Text = $"Identity checks: {draft.Setup.OfType<IdentitySetup>().Count()}";
         _guidanceShutdown.Text = $"Safe shutdown: {(draft.Cleanup.IncludeSafeShutdown ? string.Join(", ", draft.Cleanup.InstrumentSlots) : "disabled")}";
-        try
-        {
-            var blockers = _viewModel.EditingIssues.Where(issue => issue.PlanId is null || issue.PlanId == draft.PlanId).ToArray();
-            var store = new AuthoringDocumentStore(_viewModel.Workspace!.Root);
-            var loaded = store.Load(draft.PlanId);
-            if (loaded.IsReadOnly || loaded.Document is not { } source)
-                throw new AuthoringWorkspaceException(loaded.Error ?? "Saved authoring source is missing or uses an unsupported schema.");
-            var savedDraft = source.ToDraft();
-            var sourceMatches = AuthoringDocumentSnapshot.Capture(draft).ContentEquals(AuthoringDocumentSnapshot.Capture(savedDraft));
-            var savedState = _viewModel.SelectedDocument?.GetDirtyState(savedDraft);
-            var sourceStillBaseline = savedState is { PlanDirty: false, SidecarDirty: false };
-            var path = _viewModel.Workspace.TapPlanPaths.SingleOrDefault(file => Path.GetFileNameWithoutExtension(file) == draft.PlanId);
-            var complete = false;
-            if (source is { RequiresCompilation: false } && path is not null)
-            {
-                var planHash = AuthoringDocumentStore.ComputeHash(store.ValidatePath(path));
-                var sidecarHash = AuthoringDocumentStore.ComputeHash(store.ValidatePath(Path.ChangeExtension(path, ".program.json")));
-                complete = sourceMatches && !_viewModel.HasUnsavedChanges && blockers.Length == 0 && planHash is not null && sidecarHash is not null
-                    && source.CompiledPlanHash == planHash && source.CompiledSidecarHash == sidecarHash;
-            }
-            if (complete)
-                PresentGuidance("First voltage test complete", "Preview the saved result with example data or an imported recording.",
-                    "Preview result", () => WorkspaceTabs.SelectedIndex = 5, []);
-            else if (!sourceMatches && !sourceStillBaseline)
-                PresentGuidance("Saved source differs from this draft", "Reopen the workspace to load the saved version, or reconcile current edits before Save/check.",
-                    "Review issues", GuidanceIssues, blockers.Select(issue => issue.Message));
-            else if (blockers.Length > 0)
-                PresentGuidance($"{blockers.Length} item(s) need attention", "Resolve the listed issues before saving and checking this plan.",
-                    "Review issues", GuidanceIssues, blockers.Select(issue => issue.Message));
-            else if (!sourceMatches)
-                PresentGuidance("Unsaved draft changes", "Save your current edits and compile the plan to check readiness.",
-                    "Save and check draft", GuidanceSave, []);
-            else
-                PresentGuidance("Draft needs a save and check", "Save the authoring source and compile the plan to check readiness.",
-                    "Save and check draft", GuidanceSave, []);
-        }
-        catch (Exception error)
-        {
-            // Presentation must not fail edits/saves or recursively publish another view-model error.
-            PresentGuidance("Saved input is unavailable or unsafe", "Restore readable authoring source and compiled files inside this workspace, then resume guidance.",
-                "Review recovery issues", GuidanceIssues, [AuthoringWorkspaceViewModel.PersistenceError(error)]);
-        }
+        if (forceAssessment) _guidanceAssessmentIdentity = null;
+        RequestGuidanceAssessment();
     }
 
     private async void OnGuidedStart(object? sender, RoutedEventArgs e)
@@ -168,7 +134,9 @@ public partial class MainWindow
             if (_guidedForm is not null && _guidedSession == _viewModel.WorkspaceSessionId) await ShowGuidedInitializationAsync();
             else if (_viewModel.SelectedProgram is { } selected)
             {
-                _guidedSession = _viewModel.WorkspaceSessionId; _guidedPlan = selected.PlanId; _guidanceVisible = true; RefreshGuidance();
+                _guidedSession = _viewModel.WorkspaceSessionId; _guidedPlan = selected.PlanId; _guidanceVisible = true;
+                _guidanceAssessmentIdentity = null; // Explicit resume also checks external file changes.
+                RefreshGuidance();
             }
             else await ShowGuidedInitializationAsync();
         }

@@ -5,6 +5,11 @@ public sealed partial class AuthoringWorkspaceViewModel
     private sealed record RecordingChoice(Guid Session, string PlanId, string Path, string? RunId);
     private RecordingChoice? _selectedRecordingChoice;
     private bool _refreshingDatasets;
+    private Guid _workspaceDatasetsSession;
+    private IReadOnlyList<RunDataset> _workspaceDatasets = [];
+
+    internal IReadOnlyList<RunDataset> CachedWorkspaceDatasets
+        => _workspaceDatasetsSession == WorkspaceSessionId ? _workspaceDatasets : [];
 
     private bool MatchesRecordingChoice(RunDataset dataset)
         => _selectedRecordingChoice is { } choice && choice.Session == _workspaceSession
@@ -36,7 +41,10 @@ public sealed partial class AuthoringWorkspaceViewModel
         _refreshingDatasets = true;
         try
         {
-            var all = _openingDatasets ?? (Workspace is null ? [] : RunDatasetCatalog.List(Workspace));
+            var all = _openingDatasets ?? (_previewDispatch is not null ? CachedWorkspaceDatasets
+                : Workspace is null ? [] : RunDatasetCatalog.List(Workspace));
+            _workspaceDatasets = all;
+            _workspaceDatasetsSession = WorkspaceSessionId;
             var planId = SelectedProgram?.PlanId;
             _datasets = string.IsNullOrWhiteSpace(planId)
                 ? []
@@ -52,6 +60,44 @@ public sealed partial class AuthoringWorkspaceViewModel
             OnPropertyChanged(nameof(SelectedDataset));
         }
         finally { _refreshingDatasets = false; }
+    }
+
+    /// Explicitly reload external recording changes; ordinary selection and edits use
+    /// the validated workspace cache instead of traversing and parsing every run.json.
+    public async Task<bool> RefreshRecordingsAsync(Func<bool>? ownerIsCurrent = null)
+    {
+        if (LoadingBusy || Workspace is not { } workspace) return false;
+        ownerIsCurrent ??= () => true;
+        if (!ownerIsCurrent()) return false;
+        var session = WorkspaceSessionId;
+        var descriptor = RecordingWorkspaceDescriptor(workspace);
+        LoadingStage = "Refreshing recordings…";
+        LoadingBusy = true;
+        try
+        {
+            var recordings = await Task.Run(() => RunDatasetCatalog.List(descriptor));
+            if (!ownerIsCurrent() || session != WorkspaceSessionId) return false;
+            _openingDatasets = recordings;
+            try { RefreshDatasets(); }
+            finally { _openingDatasets = null; }
+            RaiseEditorProperties();
+            return true;
+        }
+        finally { LoadingBusy = false; LoadingStage = null; }
+    }
+
+    private static AuthoringWorkspace RecordingWorkspaceDescriptor(AuthoringWorkspace workspace)
+        => new(workspace.Root, new AuthoringManifest { RecordingsDirectory = workspace.Manifest.RecordingsDirectory }, []);
+
+    private void AcceptImportedRecording(RunDataset imported)
+    {
+        _workspaceDatasets = CachedWorkspaceDatasets.Append(imported)
+            .OrderBy(dataset => dataset.Path, StringComparer.OrdinalIgnoreCase).ToArray();
+        _workspaceDatasetsSession = WorkspaceSessionId;
+        _openingDatasets = _workspaceDatasets;
+        try { RefreshDatasets(); }
+        finally { _openingDatasets = null; }
+        SelectDataset(_datasets.ToList().FindIndex(dataset => dataset.Path == imported.Path));
     }
 
     private static string FormatDataset(RunDataset dataset)

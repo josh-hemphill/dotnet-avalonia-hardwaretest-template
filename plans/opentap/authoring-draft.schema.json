@@ -4,9 +4,10 @@
   "type": "object",
   "required": ["schemaVersion", "planId", "revision", "sidecar", "instruments", "setup", "measure", "cleanup"],
   "properties": {
-    "schemaVersion": { "const": 1 },
+    "schemaVersion": { "enum": [1, 2] },
     "planId": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$" },
     "revision": { "type": "integer", "minimum": 0 },
+    "hasConfigurableMeasureSections": { "type": "boolean", "description": "True after explicit section layout initialization. Missing or false legacy layouts are migrated once on editor open; true preserves intentionally empty or ungrouped test steps." },
     "requiresCompilation": { "type": "boolean" },
     "compiledPlanHash": { "type": ["string", "null"] },
     "compiledSidecarHash": { "type": ["string", "null"] },

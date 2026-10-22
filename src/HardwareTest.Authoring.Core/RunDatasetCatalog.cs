@@ -7,7 +7,24 @@ using HardwareTest.Core.Serialization;
 namespace HardwareTest.Authoring;
 
 /// Operator run.json golden bound to an on-disk path.
-public sealed record RunDataset(string Path, TestRunRecord Run);
+public sealed record RunDataset(string Path, TestRunRecord Run)
+{
+    // Captured during ingest, before the mutable compatibility Run is exposed. UI
+    // preview workers consume this owned immutable source rather than a live DTO.
+    internal AuthoringRecordingSnapshot? RecordingSnapshot { get; init; }
+}
+
+internal sealed record AuthoringRecordingSnapshot(string Json, int StoredVersion, bool IsReadOnly)
+{
+    internal TestRunRecord Restore()
+    {
+        var run = JsonSerializer.Deserialize(Json, AppJsonContext.Default.TestRunRecord)
+            ?? throw new AuthoringWorkspaceException("Recording snapshot is empty.");
+        run.StoredSchemaVersion = StoredVersion;
+        run.IsSchemaReadOnly = IsReadOnly;
+        return run;
+    }
+}
 
 /// Discovers and loads operator run.json goldens. OpenTAP-free ingest via Core.
 public static class RunDatasetCatalog
@@ -83,7 +100,7 @@ public static class RunDatasetCatalog
             throw new AuthoringWorkspaceException($"Invalid run.json at {fullPath}: events must be an array without null entries.");
         run.StoredSchemaVersion = status.StoredVersion;
         run.IsSchemaReadOnly = status.IsReadOnly;
-        return new RunDataset(fullPath, run);
+        return new RunDataset(fullPath, run) { RecordingSnapshot = new(raw, status.StoredVersion, status.IsReadOnly) };
     }
 
     public static string ResolveRecordingsRoot(AuthoringWorkspace workspace)
@@ -144,7 +161,7 @@ public static class RunDatasetCatalog
             if (validated.Run.PlanId != source.Run.PlanId || validated.Run.IsSchemaReadOnly || validated.Run.Samples.Any(sample => !double.IsFinite(sample.Value) || string.IsNullOrWhiteSpace(sample.EffectiveMetricKey)))
                 throw new AuthoringWorkspaceException("Recording changed during import; retry.");
             Directory.Move(temporary, destination);
-            return new RunDataset(Path.Combine(destination, "run.json"), validated.Run);
+            return validated with { Path = Path.Combine(destination, "run.json") };
         }
         finally
         {

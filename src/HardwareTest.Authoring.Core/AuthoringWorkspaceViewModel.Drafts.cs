@@ -6,6 +6,7 @@ public sealed partial class AuthoringWorkspaceViewModel
     private readonly Dictionary<string, AuthoringDocumentDto> _sourceDocuments = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, AuthoringDocumentDto> _recoverableDocuments = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> _compiledConflicts = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> _measureSectionMigrations = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> _uncompiledDocuments = new(StringComparer.OrdinalIgnoreCase);
     private AuthoringRecoveryCheckpointService? _recovery;
     private Func<bool>? _resumeRecoveryOwner;
@@ -79,10 +80,10 @@ public sealed partial class AuthoringWorkspaceViewModel
         }
     }
 
-    private DraftWorkspace LoadWithSources(string root)
+    private DraftWorkspace LoadWithSources(string root, string? homeOverride)
     {
         var files = AuthoringWorkspaceLoader.Load(root);
-        OpenTapHome? candidateHome = WorkspacePackPlan.TryResolveHomePath(files, Prefs.OpenTapHomeOverride, out var path, out _)
+        OpenTapHome? candidateHome = WorkspacePackPlan.TryResolveHomePath(files, homeOverride, out var path, out _)
             ? new(path!) : null;
         // Snapshot candidate context without mutating the current workspace/home on failed open.
         var compiler = _usesDefaultCompiler ? new PlanCompiler(libraryHomeProvider: () => candidateHome) : _compiler;
@@ -98,7 +99,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         var conflicts = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var id in store.ListDocumentIds())
         {
-            var source = store.Load(id);
+            var source = AuthoringMeasureSections.Normalize(store.Load(id));
             if (source.Document is not { } document)
             {
                 uncompiled.Add(id);
@@ -119,7 +120,10 @@ public sealed partial class AuthoringWorkspaceViewModel
             }
         }
         foreach (var baseline in _compiledOnlyBaselines)
+        {
             if (!documents.ContainsKey(baseline.Key) && _compiledConflicts.Contains(baseline.Key) && CompiledChanged(baseline.Value)) conflicts.Add(baseline.Key);
+            if (!documents.ContainsKey(baseline.Key) && baseline.Value.RequiresCompilation) uncompiled.Add(baseline.Key);
+        }
         _sourceDocuments.Clear();
         foreach (var document in documents) _sourceDocuments.Add(document.Key, document.Value);
         _uncompiledDocuments.Clear(); _uncompiledDocuments.UnionWith(uncompiled);
@@ -127,44 +131,83 @@ public sealed partial class AuthoringWorkspaceViewModel
         RaiseDraftState();
     }
 
-    private void InitializeSourceState()
+    internal sealed record PreparedSourceState(Dictionary<string, AuthoringDocumentDto> Baselines,
+        Dictionary<string, AuthoringDocumentDto> Sources, Dictionary<string, AuthoringDocumentDto> Recoverable,
+        HashSet<string> Conflicts, HashSet<string> Uncompiled, HashSet<string> MeasureSectionMigrations, string? Error);
+
+    internal static PreparedSourceState PrepareSourceState(AuthoringWorkspace workspace, IReadOnlyList<ProgramDraft> programs,
+        IReadOnlySet<string>? measureSectionMigrations = null)
     {
-        StopRecovery();
-        _compiledOnlyBaselines.Clear(); _sourceDocuments.Clear(); _recoverableDocuments.Clear(); _compiledConflicts.Clear(); _uncompiledDocuments.Clear();
-        _savedCompilationDiagnostics.Clear();
-        var store = new AuthoringDocumentStore(Workspace!.Root);
-        foreach (var draft in Programs)
+        var baselines = new Dictionary<string, AuthoringDocumentDto>(StringComparer.OrdinalIgnoreCase);
+        var sources = new Dictionary<string, AuthoringDocumentDto>(StringComparer.OrdinalIgnoreCase);
+        var recoverable = new Dictionary<string, AuthoringDocumentDto>(StringComparer.OrdinalIgnoreCase);
+        var conflicts = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var uncompiled = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var migrations = new HashSet<string>(measureSectionMigrations ?? new HashSet<string>(), StringComparer.OrdinalIgnoreCase);
+        string? errorText = null;
+        string? PathFor(string id) => workspace.TapPlanPaths.FirstOrDefault(path => string.Equals(Path.GetFileNameWithoutExtension(path), id, StringComparison.OrdinalIgnoreCase));
+        bool Changed(AuthoringDocumentDto document)
         {
-            var document = store.Load(draft.PlanId).Document;
+            var path = PathFor(document.PlanId);
+            return document.CompiledPlanHash != AuthoringDocumentStore.ComputeHash(path)
+                || document.CompiledSidecarHash != AuthoringDocumentStore.ComputeHash(path is null ? null : PlanCompiler.SidecarPath(path));
+        }
+        var store = new AuthoringDocumentStore(workspace.Root);
+        foreach (var draft in programs)
+        {
+            var rawSource = store.Load(draft.PlanId);
+            if (rawSource is { IsReadOnly: false, Document: { HasConfigurableMeasureSections: false } legacy }
+                && !legacy.Measure.Any(node => node.Kind == "section")) migrations.Add(draft.PlanId);
+            var document = AuthoringMeasureSections.Normalize(rawSource).Document;
             if (document is not null)
             {
-                _sourceDocuments[draft.PlanId] = document;
-                if (CompiledChanged(document)) _compiledConflicts.Add(draft.PlanId);
-                if (document.RequiresCompilation || document.CompiledPlanHash is null) _uncompiledDocuments.Add(draft.PlanId);
+                sources[draft.PlanId] = document;
+                if (Changed(document)) conflicts.Add(draft.PlanId);
+                if (document.RequiresCompilation || document.CompiledPlanHash is null) uncompiled.Add(draft.PlanId);
             }
             else
             {
-                var path = TryExistingTapPlanPath(draft.PlanId);
-                _compiledOnlyBaselines[draft.PlanId] = AuthoringDocumentDto.FromDraft(draft,
+                var path = PathFor(draft.PlanId);
+                baselines[draft.PlanId] = AuthoringDocumentDto.FromDraft(draft,
                     compiledPlanHash: AuthoringDocumentStore.ComputeHash(path),
                     compiledSidecarHash: AuthoringDocumentStore.ComputeHash(path is null ? null : PlanCompiler.SidecarPath(path)));
+                if (measureSectionMigrations?.Contains(draft.PlanId) == true)
+                {
+                    baselines[draft.PlanId].RequiresCompilation = true;
+                    uncompiled.Add(draft.PlanId);
+                }
             }
-            var recovered = store.LoadAtPath(store.GetRecoveryPath(draft.PlanId));
+            var recovered = AuthoringMeasureSections.Normalize(store.LoadAtPath(store.GetRecoveryPath(draft.PlanId)));
             if (recovered.Document is { } checkpoint && (document is null || checkpoint.SavedAtUtc > document.SavedAtUtc)
                 && !AuthoringDocumentSnapshot.Capture(draft).ContentEquals(AuthoringDocumentSnapshot.Capture(checkpoint.ToDraft())))
-                _recoverableDocuments[draft.PlanId] = checkpoint;
-            if (recovered.Error is { } error) Error = $"Recovery could not load: {error}";
+                recoverable[draft.PlanId] = checkpoint;
+            if (recovered.Error is { } error) errorText = $"Recovery could not load: {error}";
         }
         foreach (var id in store.ListRecoveryIds())
         {
-            if (_documents.ContainsKey(id)) continue;
-            var recovered = store.LoadAtPath(store.GetRecoveryPath(id));
-            if (recovered.Document is { } checkpoint) _recoverableDocuments[id] = checkpoint;
-            else if (recovered.Error is { } error) Error = $"Recovery could not load: {error}";
+            if (programs.Any(program => string.Equals(program.PlanId, id, StringComparison.OrdinalIgnoreCase))) continue;
+            var recovered = AuthoringMeasureSections.Normalize(store.LoadAtPath(store.GetRecoveryPath(id)));
+            if (recovered.Document is { } checkpoint) recoverable[id] = checkpoint;
+            else if (recovered.Error is { } error) errorText = $"Recovery could not load: {error}";
         }
         // Unread excluded sources retain their bytes and become blockers immediately on inclusion.
         foreach (var id in store.ListDocumentIds())
-            if (!AuthoringBuildInclusion.Includes(Workspace.Manifest, id) && !_sourceDocuments.ContainsKey(id)) _uncompiledDocuments.Add(id);
+            if (!AuthoringBuildInclusion.Includes(workspace.Manifest, id) && !sources.ContainsKey(id)) uncompiled.Add(id);
+        return new(baselines, sources, recoverable, conflicts, uncompiled, migrations, errorText);
+    }
+
+    private void InitializeSourceState(PreparedSourceState state)
+    {
+        StopRecovery();
+        _compiledOnlyBaselines.Clear(); _sourceDocuments.Clear(); _recoverableDocuments.Clear();
+        foreach (var pair in state.Baselines) _compiledOnlyBaselines.Add(pair.Key, pair.Value);
+        foreach (var pair in state.Sources) _sourceDocuments.Add(pair.Key, pair.Value);
+        foreach (var pair in state.Recoverable) _recoverableDocuments.Add(pair.Key, pair.Value);
+        _compiledConflicts.Clear(); _compiledConflicts.UnionWith(state.Conflicts);
+        _uncompiledDocuments.Clear(); _uncompiledDocuments.UnionWith(state.Uncompiled);
+        _measureSectionMigrations.Clear(); _measureSectionMigrations.UnionWith(state.MeasureSectionMigrations);
+        _savedCompilationDiagnostics.Clear();
+        if (state.Error is not null) Error = state.Error;
         StartRecovery();
         RaiseDraftState();
     }
@@ -248,17 +291,28 @@ public sealed partial class AuthoringWorkspaceViewModel
         if (!_compiledConflicts.Contains(planId)) return;
         var path = TryExistingTapPlanPath(planId);
         if (useCompiledContent && path is null) throw new AuthoringWorkspaceException("Compiled plan was removed; retain the source to export it again.");
+        var importedNeedsCompilation = false;
         if (useCompiledContent)
         {
-            _documents[planId].ApplyEdit("Import external compiled changes", _ => _compiler.Load(path!));
+            var imported = _compiler.Load(path!);
+            var normalized = AuthoringMeasureSections.HasCompiledLayout(path!) ? imported : AuthoringMeasureSections.Initialize(imported);
+            importedNeedsCompilation = !ReferenceEquals(imported, normalized);
+            _documents[planId].ApplyEdit("Import external compiled changes", _ => normalized);
             PresentSession(_documents[planId]);
         }
         _sourceDocuments[planId] = AuthoringDocumentDto.FromDraft(_documents[planId].Draft, _documents[planId].Revision,
             compiledPlanHash: AuthoringDocumentStore.ComputeHash(path), compiledSidecarHash: AuthoringDocumentStore.ComputeHash(path is null ? null : PlanCompiler.SidecarPath(path)));
+        if (importedNeedsCompilation)
+        {
+            _measureSectionMigrations.Add(planId);
+            _sourceDocuments[planId].RequiresCompilation = true;
+            _uncompiledDocuments.Add(planId);
+        }
         if (!useCompiledContent)
         {
             _sourceDocuments[planId].RequiresCompilation = true;
             new AuthoringDocumentStore(Workspace!.Root).Save(_sourceDocuments[planId]);
+            _measureSectionMigrations.Remove(planId);
             _uncompiledDocuments.Add(planId);
         }
         InvalidateContractFindings();
@@ -268,6 +322,7 @@ public sealed partial class AuthoringWorkspaceViewModel
 
     private void RaiseDraftState()
     {
+        RequestBuildInspection();
         if (SelectedRecoveryPlanId is null || !_recoverableDocuments.ContainsKey(SelectedRecoveryPlanId))
             SelectedRecoveryPlanId = _recoverableDocuments.Keys.FirstOrDefault();
         OnPropertyChanged(nameof(SelectedRecoveryPlanId));

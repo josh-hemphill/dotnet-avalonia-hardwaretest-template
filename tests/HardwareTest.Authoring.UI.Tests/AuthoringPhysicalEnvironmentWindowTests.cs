@@ -26,7 +26,7 @@ public sealed class AuthoringPhysicalEnvironmentWindowTests
     [InlineData(false, "dangling-ancestor")]
     [InlineData(true, "missing-linked-child")]
     [InlineData(false, "missing-linked-child")]
-    public void Rendered_pack_rejects_unsafe_existing_optional_or_undeclared_engine_home(bool optional, string kind)
+    public async Task Rendered_pack_rejects_unsafe_existing_optional_or_undeclared_engine_home(bool optional, string kind)
     {
         if (OperatingSystem.IsWindows()) return;
         using var fixture = new AuthoringUiFixture();
@@ -39,10 +39,13 @@ public sealed class AuthoringPhysicalEnvironmentWindowTests
         AuthoringWorkspaceLoader.SaveManifest(workspace.Root, workspace.Manifest);
         fixture.ViewModel.Open(workspace.Root); fixture.ViewModel.OpenTapHomeOverride = home.Root;
         var window = fixture.Show(); window.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 4; AuthoringUiFixture.Drain();
+        await SettleReadiness(fixture.ViewModel);
         Assert.True(fixture.ViewModel.CanPack); Assert.True(fixture.Control<Button>("Pack workspace").IsEnabled);
         fixture.ViewModel.OpenTapHomeOverride = Path.Combine(workspace.Root, "genuinely-missing-home"); AuthoringUiFixture.Drain();
+        await SettleReadiness(fixture.ViewModel);
         Assert.True(fixture.ViewModel.CanPack); Assert.True(fixture.Control<Button>("Pack workspace").IsEnabled);
         fixture.ViewModel.OpenTapHomeOverride = home.Root; AuthoringUiFixture.Drain();
+        await SettleReadiness(fixture.ViewModel);
         var source = Path.Combine(workspace.Root, "sample.TapPlan"); var sourceBytes = File.ReadAllBytes(source);
         var outside = Path.Combine(workspace.Root, "outside-home"); Directory.CreateDirectory(outside);
         var selected = home.Root;
@@ -75,10 +78,18 @@ public sealed class AuthoringPhysicalEnvironmentWindowTests
             var target = Path.Combine(outside, "escaped.dll"); File.Copy(Path.Combine(home.Root, "OpenTap.dll"), target); File.CreateSymbolicLink(Path.Combine(package, "escaped.dll"), target);
         }
         fixture.ViewModel.OpenTapHomeOverride = selected + Path.DirectorySeparatorChar; AuthoringUiFixture.Drain();
+        await SettleReadiness(fixture.ViewModel);
         Assert.False(fixture.ViewModel.CanPack); Assert.False(fixture.Control<Button>("Pack workspace").IsEnabled);
         if (fixture.ViewModel.EnvironmentPathError is { } pathError) Assert.Equal(pathError, fixture.Control<TextBlock>("Pack save guard").Text);
         else Assert.Contains("unsafe", fixture.Control<TextBlock>("Pack save guard").Text!, StringComparison.OrdinalIgnoreCase);
         Assert.False(fixture.ViewModel.HasUnsavedChanges); Assert.Equal(sourceBytes, File.ReadAllBytes(source));
         Assert.Null(fixture.ViewModel.LastBuildReceipt); Assert.Equal("Not checked", fixture.ViewModel.CompatibilityState);
     }
+    private static async Task SettleReadiness(AuthoringWorkspaceViewModel vm)
+    {
+        await vm.WaitForEnvironmentInspectionAsync();
+        await vm.WaitForBuildInspectionAsync();
+        AuthoringUiFixture.Drain();
+    }
+
 }

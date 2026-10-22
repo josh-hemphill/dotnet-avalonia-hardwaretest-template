@@ -136,6 +136,8 @@ public sealed class AuthoringOperationWindowTests
             var prepared = fixture.ViewModel.PrepareOpen(fixture.WorkspaceRoot);
             fixture.ViewModel.CommitOpen(prepared, discardUnsavedChanges: true);
             Assert.NotEqual(oldSession, fixture.ViewModel.WorkspaceSessionId);
+            Assert.False(fixture.ViewModel.OperationBusy);
+            Assert.Null(fixture.ViewModel.OperationStage);
             release.TrySetResult();
             await Until(() => running.IsCompleted);
             await Assert.ThrowsAnyAsync<OperationCanceledException>(() => running);
@@ -163,6 +165,7 @@ public sealed class AuthoringOperationWindowTests
             if (replacementOperation.IsCompleted) await replacementOperation;
             Assert.True(File.Exists(marker));
             Assert.False(replacementOperation.IsCompleted);
+            Assert.True(fixture.ViewModel.OperationBusy);
             fixture.ViewModel.CancelOperation();
             await Until(() => replacementOperation.IsCompleted);
             await Assert.ThrowsAnyAsync<OperationCanceledException>(() => replacementOperation);

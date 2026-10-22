@@ -25,6 +25,8 @@ public sealed record AuthoringDocumentDto
     public const int CurrentSchemaVersion = 2;
     public int SchemaVersion { get; set; } = CurrentSchemaVersion;
     public required string PlanId { get; set; }
+    /// Missing in legacy source. Once true, intentionally empty or ungrouped layouts stay ungrouped.
+    public bool HasConfigurableMeasureSections { get; set; }
     public bool RequiresCompilation { get; set; }
     public long Revision { get; set; }
     public DateTimeOffset SavedAtUtc { get; set; } = DateTimeOffset.UtcNow;
@@ -44,6 +46,7 @@ public sealed record AuthoringDocumentDto
         return new()
         {
             PlanId = isolated.PlanId,
+            HasConfigurableMeasureSections = true,
             Revision = revision,
             Sidecar = isolated.Sidecar,
             Instruments = isolated.Instruments.ToArray(),

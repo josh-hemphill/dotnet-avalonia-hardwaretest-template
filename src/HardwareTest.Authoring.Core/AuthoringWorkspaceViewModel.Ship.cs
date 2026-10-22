@@ -6,7 +6,7 @@ public sealed partial class AuthoringWorkspaceViewModel
 
     public WorkspacePackPreview PackPreview => _packPreview;
 
-    public IReadOnlyList<string> ExcludedPackPlans => Workspace is null ? [] : AuthoringBuildInclusion.ProgramIds(Workspace)
+    public IReadOnlyList<string> ExcludedPackPlans => _buildInspectionDispatch is not null ? _buildProgramCache.Where(program => !program.Included).Select(program => program.PlanId).ToArray() : Workspace is null ? [] : AuthoringBuildInclusion.ProgramIds(Workspace)
         .Where(id => !AuthoringBuildInclusion.Includes(Workspace.Manifest, id)).ToArray();
 
     public bool HasExcludedPackPlans => ExcludedPackPlans.Count > 0;
@@ -60,6 +60,12 @@ public sealed partial class AuthoringWorkspaceViewModel
 
     public void RefreshPackPreview()
     {
+        RequestEnvironmentInspection();
+        if (_buildInspectionDispatch is not null)
+        {
+            RequestBuildInspection();
+            return;
+        }
         if (Workspace is null)
         {
             _packPreview = WorkspacePackPlan.Empty;

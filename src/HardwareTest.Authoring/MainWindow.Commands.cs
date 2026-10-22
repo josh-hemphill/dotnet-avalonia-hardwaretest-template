@@ -25,7 +25,7 @@ public partial class MainWindow
         new("workspace", "Create workspace", $"{PrimaryName}+Shift+N", () => _viewModel.OperationBusy || _viewModel.OperationCleanupPending ? "Finish the active operation and its cleanup first." : null, ShowWorkspaceCreationAsync),
         new("plan", "New test plan", $"{PrimaryName}+N", () => _viewModel.CanInitializePlan ? null : "Open a writable workspace and finish the active operation.", ShowPlanInitializationAsync),
         new("save", "Save draft / compile", $"{PrimaryName}+S", () => WorkspaceBlocker() ?? (_viewModel.SelectedProgram is null ? "Select a program first." : null), Sync(_viewModel.Apply)),
-        new("save-all", "Save all", $"{PrimaryName}+Shift+S", WorkspaceBlocker, Sync(() => _viewModel.SaveAll())),
+        new("save-all", "Save all", $"{PrimaryName}+Shift+S", WorkspaceBlocker, Sync(() => { _viewModel.SaveAll(); RefreshGuidance(); })),
         new("undo", "Undo program edit", $"{PrimaryName}+Z", () => _viewModel.CanUndo ? null : "No program edit to undo.", Sync(() => _viewModel.Undo())),
         new("redo", "Redo program edit", $"{PrimaryName}+Shift+Z", () => _viewModel.CanRedo ? null : "No program edit to redo.", Sync(() => _viewModel.Redo())),
         new("rename", "Rename selected step", "F2", () => _viewModel.CanRenameSequence ? null : "Select a named editable step.", RenameCommandAsync),

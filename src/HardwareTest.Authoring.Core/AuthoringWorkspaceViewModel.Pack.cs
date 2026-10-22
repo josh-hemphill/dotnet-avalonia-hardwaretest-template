@@ -17,8 +17,10 @@ public sealed partial class AuthoringWorkspaceViewModel
                 .Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.OrdinalIgnoreCase).ToArray();
         }
     }
-    public bool CanPack => !OperationBusy && Workspace is not null && WorkspacePacker.IsWritableWorkspace(Workspace) && !HasUnsavedChanges && !HasKnownSavedBuildBlockers && EnvironmentPathError is null && !HasKnownEnvironmentBlockers;
-    public string PackGuardText => EnvironmentPathError ?? (HasKnownSavedBuildBlockers ? "Repair incomplete saved deployment input or reconcile source conflicts before building." : HasKnownEnvironmentBlockers ? EnvironmentBlockerText : HasUnsavedChanges
+    public bool CanPack => !OperationBusy && Workspace is not null && (_buildInspectionDispatch is not null ? !BuildInspectionBusy && _buildInspectionWritable : WorkspacePacker.IsWritableWorkspace(Workspace)) && !HasUnsavedChanges && !HasKnownSavedBuildBlockers && EnvironmentPathError is null && !HasKnownEnvironmentBlockers;
+    public string PackGuardText => Workspace is { } workspace && _measureSectionMigrations.Any(id => AuthoringBuildInclusion.Includes(workspace.Manifest, id))
+        ? "Use Save All to persist the configurable test sections before building."
+        : BuildInspectionBusy ? "Checking saved build inputs…" : EnvironmentPathError ?? (HasKnownSavedBuildBlockers ? "Repair incomplete saved deployment input or reconcile source conflicts before building." : HasKnownEnvironmentBlockers ? EnvironmentBlockerText : HasUnsavedChanges
         ? WorkspaceCatalogDirty ? "Use Save All to save workspace catalog changes and edited programs before packing." : $"Save edited programs before packing: {string.Join(", ", DirtyProgramIds)}"
         : "Pack checks saved plans, required packages, plugin catalogs and in-process load/save round trips.");
 

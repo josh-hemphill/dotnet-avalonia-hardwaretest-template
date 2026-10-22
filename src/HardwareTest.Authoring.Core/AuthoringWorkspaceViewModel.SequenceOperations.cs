@@ -7,7 +7,7 @@ public sealed partial class AuthoringWorkspaceViewModel
     private Guid? _renameSourceId;
     private string? _renameSourceLabel;
     private string _insertionPosition = "After selected";
-    public IReadOnlyList<string> InsertionPositions { get; } = ["Before selected", "After selected", "End of section", "End of Measure"];
+    public IReadOnlyList<string> InsertionPositions { get; } = ["Before selected", "After selected", "End of section", "End of test steps"];
     public string InsertionPosition
     {
         get => _insertionPosition;
@@ -48,11 +48,15 @@ public sealed partial class AuthoringWorkspaceViewModel
         : RecipePreflight() ?? $"Ready: {SelectedRecipe.Summary} Insertion: {InsertionPosition}. {SequenceOperationTarget}.";
 
     private SequenceRow? InsertionTarget => SelectedRecipe?.Id == AuthoringRecipeIds.Repeat ? SelectedSequence
-        : InsertionPosition == "End of Measure" ? null
-        : InsertionPosition == "End of section" ? EndOfSelectedSection() : SelectedSequence;
+        : InsertionPosition is "End of test steps" or "End of Measure" ? null
+        : InsertionPosition == "End of section"
+            ? SelectedRecipe?.Id is AuthoringRecipeIds.Identity or AuthoringRecipeIds.Prompt or AuthoringRecipeIds.Input
+                ? null : EndOfSelectedSection()
+            : SelectedSequence;
 
     private string? RecipePreflight()
     {
+        if (_recipeAvailabilityDispatch is not null) return CachedRecipeBlocker();
         if (!CanEditSequence) return "Open an editable program before inserting.";
         if (SelectedRecipe is null) return "Choose a recipe.";
         try
@@ -70,6 +74,18 @@ public sealed partial class AuthoringWorkspaceViewModel
 
     public void InsertSelectedRecipe()
     {
+        if (_recipeAvailabilityDispatch is not null)
+        {
+            var blocker = CachedRecipeBlocker();
+            if (blocker is not null || _recipeAvailability.Prepared is not { } prepared)
+            {
+                Error = blocker ?? "Choose a recipe and wait for its prerequisites to be checked.";
+                return;
+            }
+            if (InsertionTarget is { IsSection: true, NodeId: { } sectionId }) _collapsedSectionIds.Remove(sectionId);
+            SequenceTransaction(_ => prepared, "Recipe inserted");
+            return;
+        }
         if (InsertionTarget is { IsSection: true, NodeId: { } id }) _collapsedSectionIds.Remove(id);
         SequenceTransaction(draft => AuthoringSequenceOperations.Insert(draft,
         SelectedRecipe?.Id ?? throw new AuthoringWorkspaceException("Choose a recipe."),
@@ -80,17 +96,88 @@ public sealed partial class AuthoringWorkspaceViewModel
         SelectedSequence ?? throw new AuthoringWorkspaceException("Select a step."), SequenceRename), "Step renamed");
     public void DuplicateSelectedSequence() => SequenceTransaction(draft => AuthoringSequenceOperations.Duplicate(draft,
         SelectedSequence ?? throw new AuthoringWorkspaceException("Select a step.")), "Step duplicated");
-    public void MoveSelectedSequence(int direction) => SequenceTransaction(draft => AuthoringSequenceOperations.Move(draft,
-        SelectedSequence ?? throw new AuthoringWorkspaceException("Select a step."), direction), "Step moved");
-
-    public void ReorderSequence(Guid sourceId, Guid destinationId)
+    public void MoveSelectedSequence(int direction)
     {
-        if (!CanEditSequence) return;
+        if (direction is not (-1 or 1)) throw new ArgumentOutOfRangeException(nameof(direction));
+        ApplyPreparedMove(direction);
+    }
+
+    private long _sequenceDropGeneration;
+    private Func<Func<ProgramDraft>, Task<ProgramDraft>> _evaluateSequenceDrop = evaluate => Task.Run(evaluate);
+    public Task SequenceMoveTask { get; private set; } = Task.CompletedTask;
+    public void ReorderSequence(Guid sourceId, Guid destinationId)
+        => SequenceMoveTask = ReorderSequenceAsync(sourceId, destinationId);
+
+    private async Task ReorderSequenceAsync(Guid sourceId, Guid destinationId)
+    {
+        var generation = ++_sequenceDropGeneration;
+        var movementGeneration = _movementGeneration;
+        if (!CanEditSequence) { ReportSequenceDropFailure("Open an editable plan before moving items."); return; }
         var source = SequenceItems.FirstOrDefault(row => row.NodeId == sourceId);
         var destination = SequenceItems.FirstOrDefault(row => row.NodeId == destinationId);
-        if (source is null || destination is null) return;
+        if (source is null || destination is null) { ReportSequenceDropFailure("The dragged item or destination no longer exists."); return; }
         SelectSequence(SequenceItems.ToList().IndexOf(source));
-        SequenceTransaction(draft => AuthoringSequenceOperations.Reorder(draft, source, destination), "Step moved");
+        var session = SelectedDocument!;
+        var snapshot = session.Snapshot;
+        var revision = session.Revision;
+        var owner = WorkspaceSessionId;
+        bool Current() => !_movementStopped && _movementOwner?.Invoke() != false
+            && movementGeneration == _movementGeneration && generation == _sequenceDropGeneration && owner == WorkspaceSessionId
+            && ReferenceEquals(session, SelectedDocument) && ReferenceEquals(snapshot, session.Snapshot) && revision == session.Revision
+            && SelectedSequence?.NodeId == sourceId;
+        Status = "Checking drop order and dependencies…";
+        var dispatch = _movementDispatch;
+        ProgramDraft? updated = null;
+        Exception? failure = null;
+        try
+        {
+            ProgramDraft Evaluate() => AuthoringSequenceOperations.Reorder(snapshot.Restore(), source, destination);
+            updated = dispatch is null ? Evaluate() : await _evaluateSequenceDrop(Evaluate).ConfigureAwait(false);
+        }
+        catch (Exception error) { failure = error; }
+        void Publish()
+        {
+            if (!Current())
+            {
+                if (!_movementStopped && _movementOwner?.Invoke() != false && owner == WorkspaceSessionId
+                    && movementGeneration == _movementGeneration && generation == _sequenceDropGeneration
+                    && Status == "Checking drop order and dependencies…")
+                    Status = "Drop cancelled because the plan or selection changed.";
+                return;
+            }
+            try
+            {
+                if (failure is not null) ReportSequenceDropFailure(PersistenceError(failure));
+                else SequenceTransaction(_ => updated!, "Item moved");
+            }
+            catch (Exception error)
+            {
+                if (Current()) ReportSequenceDropFailure(PersistenceError(error));
+            }
+        }
+        if (dispatch is null) { Publish(); return; }
+        var published = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        try
+        {
+            dispatch(() =>
+            {
+                try { Publish(); }
+                finally { published.TrySetResult(); }
+            });
+            await published.Task.ConfigureAwait(false);
+        }
+        catch
+        {
+            // A stopped dispatcher cannot accept UI publication. Leave the current owner untouched.
+            published.TrySetResult();
+        }
+    }
+
+    public void ReportSequenceDropFailure(string reason)
+    {
+        _sequenceDropGeneration++;
+        Status = "Drop not applied.";
+        Error = "Cannot drop here: " + reason;
     }
 
     private void SequenceTransaction(Func<ProgramDraft, ProgramDraft> mutate, string status)
@@ -135,6 +222,8 @@ public sealed partial class AuthoringWorkspaceViewModel
     private void RaiseSequenceOperations()
     {
         SynchronizeSequenceRename();
+        RequestMovementAvailability();
+        RequestRecipeAvailability();
         RaiseSectionProperties();
         OnPropertyChanged(nameof(SequenceOperationTarget));
         OnPropertyChanged(nameof(RemoveSequenceActionTitle));

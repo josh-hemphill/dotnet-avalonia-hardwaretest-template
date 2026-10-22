@@ -42,7 +42,7 @@ public sealed class AuthoringFormulaIntentBindingTests
         vm.SelectProgram("intent-other"); AuthoringUiFixture.Drain(); Assert.False(checkbox.IsChecked);
     }
     [AvaloniaFact]
-    public void DeploymentStatusRefreshesPerRevisionAndMissingThresholdNavigatesToField()
+    public async Task DeploymentStatusRefreshesPerRevisionAndMissingThresholdNavigatesToField()
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
         fixture.Show(); fixture.OpenRememberedWorkspace();
@@ -50,10 +50,12 @@ public sealed class AuthoringFormulaIntentBindingTests
         vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Formula);
         vm.SelectMeasure(vm.SelectedProgram!.Measure.Count - 1);
         vm.FormulaSource = "std(VDC)";
+        await fixture.WaitForPreviewAsync();
         AuthoringUiFixture.Drain();
         Assert.Equal("Preview only", fixture.Control<TextBlock>("Formula deployment status").Text);
         vm.FormulaSource = "mean(VDC)";
         vm.Threshold = "";
+        await fixture.WaitForPreviewAsync();
         AuthoringUiFixture.Drain();
         Assert.Equal("Missing deployment requirements", fixture.Control<TextBlock>("Formula deployment status").Text);
         AuthoringUiFixture.Click(fixture.Control<Button>("Set formula deployment threshold"));
@@ -62,16 +64,18 @@ public sealed class AuthoringFormulaIntentBindingTests
         Assert.Contains("preceding Sample producer", vm.FormulaDeploymentRequirements);
         Assert.Contains("same actual execution scope", vm.FormulaDeploymentRequirements);
         vm.Threshold = "0";
+        await fixture.WaitForPreviewAsync();
         AuthoringUiFixture.Drain();
         Assert.Equal("Deployable recipe", fixture.Control<TextBlock>("Formula deployment status").Text);
         vm.FormulaSource = "std(VDC)";
         vm.Undo();
+        await fixture.WaitForPreviewAsync();
         AuthoringUiFixture.Drain();
         Assert.Equal("Deployable recipe", fixture.Control<TextBlock>("Formula deployment status").Text);
     }
 
     [AvaloniaFact]
-    public void ExcludedIncompleteFormulaSavesWithBuildEnabledAndSourceUndoRemainsIntact()
+    public async Task ExcludedIncompleteFormulaSavesWithBuildEnabledAndSourceUndoRemainsIntact()
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
         fixture.Show(); fixture.OpenRememberedWorkspace();
@@ -84,6 +88,8 @@ public sealed class AuthoringFormulaIntentBindingTests
         var nodeId = vm.SelectedSequence!.NodeId!.Value;
         var planId = vm.SelectedProgram.PlanId;
         vm.Apply(); AuthoringUiFixture.Drain();
+        await fixture.WaitForPreviewAsync();
+        await vm.WaitForBuildInspectionAsync();
         Assert.False(vm.HasUncompiledSources, vm.Error ?? vm.SavePreviewWarning ?? vm.Status);
         Assert.True(vm.CanPack);
         Assert.Equal("Preview only", fixture.Control<TextBlock>("Formula deployment status").Text);
@@ -103,7 +109,7 @@ public sealed class AuthoringFormulaIntentBindingTests
     }
 
     [AvaloniaFact]
-    public void MissingFilterProducerStatusAndSavedBuildEligibilityAgree()
+    public async Task MissingFilterProducerStatusAndSavedBuildEligibilityAgree()
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
         fixture.Show(); fixture.OpenRememberedWorkspace();
@@ -112,6 +118,7 @@ public sealed class AuthoringFormulaIntentBindingTests
         vm.SelectMeasure(vm.SelectedProgram!.Measure.Count - 1);
         vm.FormulaSource = "filter([1],[1],missing)";
         vm.Apply(); AuthoringUiFixture.Drain();
+        await fixture.WaitForPreviewAsync();
         Assert.Equal("Missing deployment requirements", fixture.Control<TextBlock>("Formula deployment status").Text);
         Assert.Contains("MISSING_CHANNEL", vm.FormulaDeploymentMessage);
         Assert.True(vm.HasUncompiledSources);
@@ -119,7 +126,7 @@ public sealed class AuthoringFormulaIntentBindingTests
     }
 
     [AvaloniaFact]
-    public void IrregularSelectedRecordingIsVisiblePreviewEvidenceWhileSourceDeploymentBuildStaysReady()
+    public async Task IrregularSelectedRecordingIsVisiblePreviewEvidenceWhileSourceDeploymentBuildStaysReady()
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
         var recording = Path.Combine(fixture.WorkspaceRoot, "recordings", "sample", "irregular");
@@ -146,6 +153,8 @@ public sealed class AuthoringFormulaIntentBindingTests
         vm.FormulaSource = "filter([1],[1],VDC)";
         vm.ChannelKey = "VDC.recording-filter";
         vm.Apply(); AuthoringUiFixture.Drain();
+        await fixture.WaitForPreviewAsync();
+        await vm.WaitForBuildInspectionAsync();
         Assert.Equal("Deployable recipe", fixture.Control<TextBlock>("Formula deployment status").Text);
         Assert.Contains("TF_GRID", fixture.Control<TextBlock>("Selected recording formula evidence").Text);
         Assert.Contains("TF_GRID", vm.Preview.Note);

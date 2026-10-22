@@ -18,6 +18,13 @@ public sealed partial class AuthoringActionableFindingsTests : IDisposable
         while (repo is not null && !File.Exists(Path.Combine(repo.FullName, "dirs.proj"))) repo = repo.Parent;
         foreach (var file in Directory.EnumerateFiles(Path.Combine(repo!.FullName, "plans", "opentap")))
             File.Copy(file, Path.Combine(_root, Path.GetFileName(file)));
+        // Keep finding revisions independent of the legacy section-layout migration.
+        foreach (var path in Directory.EnumerateFiles(_root, "*.TapPlan"))
+        {
+            var xml = XDocument.Load(path);
+            xml.Root!.SetAttributeValue(AuthoringMeasureSections.CompiledLayoutAttribute, "true");
+            xml.Save(path);
+        }
         var plan = Path.Combine(_root, "sample.TapPlan");
         File.WriteAllText(plan, File.ReadAllText(plan).Replace("<HardwareTest.Presentation.DisplayRole>timeseries</HardwareTest.Presentation.DisplayRole>", "<HardwareTest.Presentation.DisplayRole>passband</HardwareTest.Presentation.DisplayRole>", StringComparison.Ordinal));
         _vm.Open(_root);
