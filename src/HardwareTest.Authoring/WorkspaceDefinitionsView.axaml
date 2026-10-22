@@ -60,6 +60,8 @@
     <Border x:Name="HardwareTemplateSection" Classes="surface taskSection">
       <StackPanel Spacing="12">
         <TextBlock Text="Hardware template catalog" Classes="sectionTitle" TextWrapping="Wrap" AutomationProperties.HeadingLevel="3"/>
+        <TextBlock Text="A hardware template stores a reusable slot name, instrument type and address. Use it when several programs share a bench setup." TextWrapping="Wrap" Classes="purpose"/>
+        <TextBlock Text="Include copies the template into one program. Editing the template later does not update existing programs; review those bindings in Instruments." TextWrapping="Wrap"/>
         <vm:ResponsiveTaskGrid>
           <StackPanel Spacing="12">
             <ListBox ItemsSource="{Binding HardwareDefinitions}" SelectedItem="{Binding SelectedHardwareDefinition}" KeyboardNavigation.TabNavigation="Once" AutomationProperties.Name="Workspace hardware definitions" Classes="authoringList" MinHeight="100" MaxHeight="220">
@@ -87,6 +89,7 @@
                     </DataTemplate>
                   </ComboBox.ItemTemplate>
                 </ComboBox>
+                <TextBlock Text="{Binding HardwareEditTypeGuidance}" TextWrapping="Wrap" Classes="purpose"/>
                 <TextBlock x:Name="BindingAddressLabel" Text="Address"/>
                 <TextBox Text="{Binding HardwareEditAddress}" AutomationProperties.Name="Hardware adapter address" AutomationProperties.LabeledBy="{Binding #BindingAddressLabel}"/>
                 <TextBlock x:Name="BindingTimeoutLabel" Text="{Binding HardwareEditType, Converter={x:Static vm:InstrumentTimeoutLabelConverter.Instance}}" TextWrapping="Wrap"/>
@@ -115,6 +118,7 @@
     <Border Classes="surface taskSection">
       <StackPanel Spacing="12">
         <TextBlock Text="New hardware definition" Classes="sectionTitle" TextWrapping="Wrap" AutomationProperties.HeadingLevel="3"/>
+        <TextBlock Text="Choose the adapter type, address and optional timeout in the configuration above, then name and add the template here." TextWrapping="Wrap" Classes="purpose"/>
         <TextBlock Text="New hardware definition name"/>
         <TextBox Text="{Binding NewInstrumentSlot}" AutomationProperties.Name="New hardware definition name"/>
         <Button Content="Add workspace hardware definition" Click="OnAddDefinition" AutomationProperties.Name="Add workspace hardware definition" Classes="authoringAction primaryAction"/>

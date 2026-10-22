@@ -166,6 +166,9 @@ public sealed partial class PlanCompiler : IPlanCompiler
                 case MetricNode metric when !string.IsNullOrWhiteSpace(metric.Metric.ChannelKey):
                     yield return metric.Metric.ChannelKey.Trim();
                     break;
+                case SectionNode section:
+                    foreach (var nested in EnumerateChannelKeys(section.Children)) yield return nested;
+                    break;
                 case RepeatNode repeat:
                     foreach (var nested in EnumerateChannelKeys(repeat.Children))
                     {

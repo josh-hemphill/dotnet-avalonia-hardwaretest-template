@@ -1,4 +1,3 @@
-using System.Formats.Asn1;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
@@ -235,9 +234,7 @@ public sealed class Pkcs11OperatorCredentialBroker : IOperatorCredentialBroker, 
                 ct.ThrowIfCancellationRequested();
                 ValidateSignatureLength(raw);
                 if (Rsa) return raw;
-                var writer = new AsnWriter(AsnEncodingRules.DER); writer.PushSequence();
-                writer.WriteIntegerUnsigned(raw.AsSpan(0, raw.Length / 2)); writer.WriteIntegerUnsigned(raw.AsSpan(raw.Length / 2)); writer.PopSequence();
-                return writer.Encode();
+                return EcdsaSignatureEncoding.ToDer(raw);
             }
             finally { if (keyPin is not null) CryptographicOperations.ZeroMemory(keyPin); }
         }

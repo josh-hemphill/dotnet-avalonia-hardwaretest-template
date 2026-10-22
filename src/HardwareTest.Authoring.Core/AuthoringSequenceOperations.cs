@@ -3,7 +3,7 @@ using System.Text.RegularExpressions;
 namespace HardwareTest.Authoring;
 
 /// Transactions operate on the authoritative draft and preserve identities of surviving nodes.
-public static class AuthoringSequenceOperations
+public static partial class AuthoringSequenceOperations
 {
     public static string UniqueChannel(string channel, ISet<string> used)
     {
@@ -41,7 +41,7 @@ public static class AuthoringSequenceOperations
         bool before, string? instrumentSlot = null)
     {
         if (target is not null) target = CurrentTarget(draft, target);
-        if (recipeId == AuthoringRecipeIds.TestGroup) throw Fail("Test Groups are generated on Save.");
+        if (recipeId == AuthoringRecipeIds.TestGroup) return AddSection(draft, "New section");
         if (recipeId == AuthoringRecipeIds.Repeat) return Repeat(draft, target);
         if (recipeId == AuthoringRecipeIds.Shutdown) return AuthoringRecipeCatalog.Apply(draft, recipeId, instrumentSlot);
         var context = recipeId is AuthoringRecipeIds.Formula or AuthoringRecipeIds.TransferFunction
@@ -83,9 +83,9 @@ public static class AuthoringSequenceOperations
         }
         var updated = draft with
         {
-            Measure = EditSiblings(draft.Measure, target?.IndexPath ?? [], siblings =>
+            Measure = EditSiblings(draft.Measure, target?.Kind == SequenceRowKind.Section ? [.. target.IndexPath, 0] : target?.IndexPath ?? [], siblings =>
         {
-            var at = target is null ? siblings.Count : target.IndexPath[^1] + (before ? 0 : 1);
+            var at = target is null || target.Kind == SequenceRowKind.Section ? siblings.Count : target.IndexPath[^1] + (before ? 0 : 1);
             return [.. siblings.Take(at), node, .. siblings.Skip(at)];
         })
         };
@@ -118,6 +118,12 @@ public static class AuthoringSequenceOperations
         target = CurrentTarget(draft, target);
         name = name.Trim();
         if (name.Length == 0) throw Fail("Enter a step name.");
+        if (target.Kind == SequenceRowKind.Section)
+            return draft with
+            {
+                Measure = AuthoringSequence.MutateMeasure(draft.Measure, target.IndexPath,
+                node => ((SectionNode)node) with { Name = name })
+            };
         if (target.Kind == SequenceRowKind.Metric)
         {
             var updated = draft with
@@ -179,6 +185,23 @@ public static class AuthoringSequenceOperations
         return updated;
     }
 
+    /// Reorder siblings without changing their section or loop scope.
+    public static ProgramDraft Reorder(ProgramDraft draft, SequenceRow source, SequenceRow destination)
+    {
+        source = CurrentTarget(draft, source);
+        destination = CurrentTarget(draft, destination);
+        if (source.Section != destination.Section || source.IndexPath.Count == 0
+            || !source.IndexPath.SkipLast(1).SequenceEqual(destination.IndexPath.SkipLast(1)))
+            throw Fail("Drag steps within the same section and loop. Use Move to section to move existing steps between sections.");
+        var current = source.IndexPath[^1];
+        var target = destination.IndexPath[^1];
+        if (current == target) return draft;
+        var updated = draft;
+        for (var index = current; index != target; index += Math.Sign(target - current))
+            updated = Move(updated, AuthoringSequence.Flatten(updated).Single(row => row.NodeId == source.NodeId), Math.Sign(target - current));
+        return updated;
+    }
+
     public static ProgramDraft Duplicate(ProgramDraft draft, SequenceRow target)
     {
         target = CurrentTarget(draft, target);
@@ -214,6 +237,7 @@ public static class AuthoringSequenceOperations
             return node switch
             {
                 RepeatNode repeat => repeat with { NodeId = id, Children = repeat.Children.Select(Clone).ToArray() },
+                SectionNode section => section with { NodeId = id, Children = section.Children.Select(Clone).ToArray() },
                 MetricNode metric => metric with
                 {
                     NodeId = id,
@@ -271,12 +295,36 @@ public static class AuthoringSequenceOperations
     private static IReadOnlyList<MeasureNode> PrecedingMeasure(ProgramDraft draft, SequenceRow? target, bool before)
     {
         RequireSection(target, SequenceSection.Measure);
-        var siblings = target is { IndexPath.Count: > 1 }
-            ? ((RepeatNode)AuthoringSequence.ResolveMeasure(draft, target.IndexPath.Take(target.IndexPath.Count - 1).ToArray())!).Children
-            : draft.Measure;
-        var at = target is null ? siblings.Count : target.IndexPath[^1] + (before ? 0 : 1);
-        // A completed nested loop is a separate scope, not an input producer for its parent.
-        return siblings.Take(at).Where(node => node is MetricNode or RawStepNode).ToArray();
+        var result = new List<MeasureNode>();
+        bool Visit(IReadOnlyList<MeasureNode> nodes)
+        {
+            foreach (var node in nodes)
+            {
+                if (node.NodeId == target?.NodeId)
+                {
+                    if (node is SectionNode selected) Collect(selected.Children);
+                    else if (!before && node is MetricNode or RawStepNode) result.Add(node);
+                    return true;
+                }
+                if (node is SectionNode section) { if (Visit(section.Children)) return true; }
+                else if (node is RepeatNode repeat)
+                {
+                    if (target is not null && AuthoringSequence.Flatten(draft).Any(row => row.NodeId == repeat.NodeId
+                        && target.IndexPath.Count > row.IndexPath.Count && target.IndexPath.Take(row.IndexPath.Count).SequenceEqual(row.IndexPath)))
+                    { result.Clear(); return Visit(repeat.Children); }
+                }
+                else result.Add(node);
+            }
+            return false;
+        }
+        void Collect(IReadOnlyList<MeasureNode> nodes)
+        {
+            foreach (var node in nodes)
+                if (node is SectionNode section) Collect(section.Children);
+                else if (node is MetricNode or RawStepNode) result.Add(node);
+        }
+        Visit(draft.Measure);
+        return result;
     }
 
     private static SequenceRow CurrentTarget(ProgramDraft draft, SequenceRow target)
@@ -303,7 +351,7 @@ public static class AuthoringSequenceOperations
     {
         if (path.Count <= 1) return edit(nodes);
         return AuthoringSequence.MutateMeasure(nodes, path.Take(path.Count - 1).ToArray(),
-            node => node is RepeatNode repeat ? repeat with { Children = edit(repeat.Children) } : node);
+            node => node switch { RepeatNode repeat => repeat with { Children = edit(repeat.Children) }, SectionNode section => section with { Children = edit(section.Children) }, _ => node });
     }
 
     internal static void ValidateOrder(ProgramDraft before, ProgramDraft after, IReadOnlyDictionary<Guid, Guid>? originals = null)
@@ -326,7 +374,7 @@ public static class AuthoringSequenceOperations
         {
             var preceding = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             var rawPreceding = false;
-            foreach (var node in siblings)
+            foreach (var node in TransparentSections(siblings))
             {
                 if (node is RepeatNode repeat) { Validate(repeat.Children); continue; }
                 if (node is RawStepNode) { rawPreceding = true; continue; }

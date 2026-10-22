@@ -1,5 +1,5 @@
-using Avalonia.Controls;
 using Avalonia.Automation.Peers;
+using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
@@ -18,6 +18,7 @@ public sealed class TaskBasedWorkspaceTests
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
         var window = fixture.Show(width, height); window.FontSize = font;
         AuthoringUiFixture.Click(fixture.Control<Button>("Open last workspace from welcome"));
+        fixture.WaitForLoading();
         var routes = window.FindControl<TabControl>("WorkspaceTabs")!;
         Assert.Equal(8, routes.SelectedIndex);
         Assert.Equal(AutomationControlType.Pane, ControlAutomationPeer.CreatePeerForElement(routes)!.GetAutomationControlType());
@@ -52,10 +53,10 @@ public sealed class TaskBasedWorkspaceTests
         fixture.NavigateTask(7);
         fixture.Type(fixture.Control<TextBox>("Display name"), "Edited sample");
         var selector = fixture.Control<ComboBox>("Selected test plan");
-        selector.SelectedItem = vm.ProgramRows.Single(row => row.PlanId == "other"); AuthoringUiFixture.Drain();
+        selector.SelectedItem = vm.ProgramRows.Single(row => row.PlanId == "other"); fixture.WaitForLoading();
         Assert.Equal("other", vm.SelectedProgram!.PlanId);
         fixture.Type(fixture.Control<TextBox>("DUT family"), "Other family");
-        selector.SelectedItem = vm.ProgramRows.Single(row => row.PlanId == "sample"); AuthoringUiFixture.Drain();
+        selector.SelectedItem = vm.ProgramRows.Single(row => row.PlanId == "sample"); fixture.WaitForLoading();
         Assert.Equal("Edited sample", fixture.Control<TextBox>("Display name").Text);
         fixture.NavigateTask(0);
         vm.SelectSequence(vm.SequenceItems.ToList().FindIndex(row => row.Label == "Mean GTE")); AuthoringUiFixture.Drain();

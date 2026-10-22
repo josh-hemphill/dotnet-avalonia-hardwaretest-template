@@ -36,9 +36,9 @@ public sealed partial class AuthoringDocumentStore
                 throw new InvalidDataException("Authoring source must be a JSON object.");
             if (!json.RootElement.TryGetProperty("schemaVersion", out var schema) || schema.ValueKind != JsonValueKind.Number || !schema.TryGetInt32(out var version))
                 throw new InvalidDataException("Workspace source has no valid schema version.");
-            if (version > AuthoringDocumentDto.CurrentSchemaVersion)
+            if (version > AuthoringWorkspaceDto.CurrentSchemaVersion)
                 return new(null, true, bytes, null, true);
-            if (version != AuthoringDocumentDto.CurrentSchemaVersion) throw new InvalidDataException("Unsupported workspace source schema.");
+            if (version != AuthoringWorkspaceDto.CurrentSchemaVersion) throw new InvalidDataException("Unsupported workspace source schema.");
             var document = JsonSerializer.Deserialize(bytes, AuthoringDocumentJsonContext.Default.AuthoringWorkspaceDto)
                 ?? throw new InvalidDataException("Workspace source is empty.");
             if (document.Manifest is null || document.Manifest.ExcludedProgramIds is null
@@ -118,7 +118,7 @@ public sealed partial class AuthoringDocumentStore
                 throw new InvalidDataException("The draft has no valid schema version.");
             if (version > AuthoringDocumentDto.CurrentSchemaVersion)
                 return new(null, true, bytes, null, true);
-            if (version != AuthoringDocumentDto.CurrentSchemaVersion)
+            if (version is < 1 or > AuthoringDocumentDto.CurrentSchemaVersion)
                 throw new InvalidDataException($"Unsupported draft schema {version}.");
             var document = JsonSerializer.Deserialize(bytes, AuthoringDocumentJsonContext.Default.AuthoringDocumentDto)
                 ?? throw new InvalidDataException("The draft document is empty.");
@@ -126,6 +126,7 @@ public sealed partial class AuthoringDocumentStore
             if (expectedId is not null && document.PlanId != expectedId)
                 throw new InvalidDataException("The draft identity does not match its filename.");
             _ = document.ToDraft();
+            document.SchemaVersion = AuthoringDocumentDto.CurrentSchemaVersion;
             return new(document, false, bytes, null, true);
         }
         catch (Exception ex) when (ex is JsonException or InvalidDataException or ArgumentException or NotSupportedException or NullReferenceException)
@@ -140,6 +141,7 @@ public sealed partial class AuthoringDocumentStore
         ArgumentNullException.ThrowIfNull(document);
         ValidateId(document.PlanId);
         _ = document.ToDraft();
+        document.SchemaVersion = AuthoringDocumentDto.CurrentSchemaVersion;
         path = ValidatePath(path);
         if (!string.Equals(Path.GetFileName(path), document.PlanId + ".authoring.json", StringComparison.Ordinal))
             throw new ArgumentException("The authoring source filename must match its program identity.", nameof(path));
@@ -157,6 +159,7 @@ public sealed partial class AuthoringDocumentStore
     {
         ArgumentNullException.ThrowIfNull(document);
         _ = document.ToDraft();
+        document.SchemaVersion = AuthoringDocumentDto.CurrentSchemaVersion;
         var id = document.PlanId;
         var path = GetDocumentPath(id);
         var bytes = JsonSerializer.SerializeToUtf8Bytes(document, AuthoringDocumentJsonContext.Default.AuthoringDocumentDto);

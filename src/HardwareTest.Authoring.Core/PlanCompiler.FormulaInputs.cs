@@ -24,6 +24,7 @@ public sealed partial class PlanCompiler
         var relevant = new HashSet<Guid>();
         void Scope(IReadOnlyList<MeasureNode> siblings)
         {
+            siblings = FlattenSections(siblings).ToArray();
             void Include(int index)
             {
                 if (!relevant.Add(siblings[index].NodeId)) return;
@@ -69,12 +70,28 @@ public sealed partial class PlanCompiler
         return example;
     }
 
+    private static IEnumerable<MeasureNode> FlattenSections(IEnumerable<MeasureNode> nodes)
+    {
+        foreach (var node in nodes)
+            if (node is SectionNode section)
+            {
+                foreach (var child in FlattenSections(section.Children)) yield return child;
+            }
+            else yield return node;
+    }
+
     private static IEnumerable<ITestStep> RequirementSteps(IEnumerable<MeasureNode> nodes, ISet<Guid>? relevant = null, bool structural = false)
     {
         foreach (var node in nodes)
         {
             ITestStep? step = null;
             if (node is RawStepNode raw) step = LoadRawStep(raw);
+            else if (node is SectionNode section)
+            {
+                var group = new TestGroupStep { Name = section.Name, AuthoringSection = true };
+                foreach (var child in RequirementSteps(section.Children, relevant, structural)) group.ChildTestSteps.Add(child);
+                step = group;
+            }
             else if (node is RepeatNode repeat)
             {
                 var loop = new RepeatLoopStep();

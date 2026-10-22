@@ -1,5 +1,6 @@
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 
 namespace HardwareTest.Authoring;
@@ -7,6 +8,34 @@ namespace HardwareTest.Authoring;
 public partial class WorkspaceEnvironmentView : UserControl
 {
     public WorkspaceEnvironmentView() => InitializeComponent();
+
+    private async void OnOpenLibraryReleases(object? sender, RoutedEventArgs e)
+    {
+        if (TopLevel.GetTopLevel(this) is not { } owner) return;
+        try
+        {
+            var opened = await owner.Launcher.LaunchUriAsync(new Uri("https://github.com/josh-hemphill/instrument-components/releases"));
+            PackageSourceFeedback.Text = opened ? "Release page opened in your browser. Match the required package version before importing."
+                : "Could not open a browser. Copy package requirements to get the release URL.";
+        }
+        catch (Exception) { PackageSourceFeedback.Text = "Could not open a browser. Copy package requirements to get the release URL."; }
+    }
+
+    private async void OnCopyPackageRequirements(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not AuthoringWorkspaceViewModel vm) return;
+        try
+        {
+            if (TopLevel.GetTopLevel(this)?.Clipboard is not { } clipboard)
+            {
+                PackageSourceFeedback.Text = "Clipboard unavailable. Read the required package names and versions below.";
+                return;
+            }
+            await clipboard.SetTextAsync(vm.PackageRequirementsText);
+            PackageSourceFeedback.Text = "Copied required package names, versions, installed states and the library release URL.";
+        }
+        catch (Exception) { PackageSourceFeedback.Text = "Could not copy requirements. Read the required package names and versions below."; }
+    }
 
     private void OnDeclareLibrary(object? sender, RoutedEventArgs e)
     {

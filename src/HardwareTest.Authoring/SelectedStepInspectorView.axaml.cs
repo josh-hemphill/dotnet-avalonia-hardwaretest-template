@@ -12,7 +12,10 @@ public partial class SelectedStepInspectorView : UserControl
         InitializeComponent();
         var menu = (Flyout)InspectorActionsButton.Flyout!;
         menu.Opened += (_, _) => ((ScrollViewer)menu.Content!).FontSize = FontSize;
-        ((Control)menu.Content!).AddHandler(Button.ClickEvent, (_, _) => menu.Hide());
+        ((Control)menu.Content!).AddHandler(Button.ClickEvent, (_, e) =>
+        {
+            if (e.Source is Button button && button.Classes.Contains("authoringAction")) menu.Hide();
+        });
         ((Control)menu.Content!).AddHandler(KeyDownEvent, (_, e) =>
         {
             if (e.Handled) return;
@@ -68,6 +71,16 @@ public partial class SelectedStepInspectorView : UserControl
             return editors.Length == 1 && editors[0].Focus();
         }
         return false;
+    }
+
+    private void OnToggleSection(object? sender, RoutedEventArgs e) => Vm?.ToggleSelectedSection();
+    private void OnMoveToSection(object? sender, RoutedEventArgs e) => Vm?.MoveSelectedToSection();
+    internal void FocusName() { StepNameBox.BringIntoView(); StepNameBox.Focus(); }
+    internal void FocusSectionDestination()
+    {
+        InspectorActionsButton.Flyout!.ShowAt(InspectorActionsButton);
+        SectionDestinationBox.BringIntoView();
+        SectionDestinationBox.Focus();
     }
 
     private void OnToggleCleanupSlot(object? sender, RoutedEventArgs e)

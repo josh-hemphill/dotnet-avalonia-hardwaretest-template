@@ -4,8 +4,10 @@ public sealed partial class AuthoringWorkspaceViewModel
 {
     private string _recipeSearch = string.Empty;
     private string _sequenceRename = string.Empty;
+    private Guid? _renameSourceId;
+    private string? _renameSourceLabel;
     private string _insertionPosition = "After selected";
-    public IReadOnlyList<string> InsertionPositions { get; } = ["Before selected", "After selected", "End of section"];
+    public IReadOnlyList<string> InsertionPositions { get; } = ["Before selected", "After selected", "End of section", "End of Measure"];
     public string InsertionPosition
     {
         get => _insertionPosition;
@@ -31,21 +33,23 @@ public sealed partial class AuthoringWorkspaceViewModel
     public string RemoveSequenceActionTitle => SelectedSequence?.Kind switch
     {
         SequenceRowKind.Repeat => "Remove loop, keep steps",
+        SequenceRowKind.Section => "Remove section, keep steps",
         SequenceRowKind.Cleanup => "Disable safe shutdown",
         _ => RemoveSelectedTitle
     };
     public bool CanEditSequence => Workspace is { IsReadOnly: false } && SelectedProgram is not null;
-    public bool CanRenameSequence => CanEditSequence && (SelectedSequence?.Kind == SequenceRowKind.Metric
+    public bool CanRenameSequence => CanEditSequence && (SelectedSequence?.Kind is SequenceRowKind.Metric or SequenceRowKind.Section
         || SelectedSetup is OperatorPromptSetup or OperatorInputSetup);
-    public bool CanDuplicateSequence => CanEditSequence && (SelectedSequence?.Kind is SequenceRowKind.Metric or SequenceRowKind.Repeat
+    public bool CanDuplicateSequence => CanEditSequence && (SelectedSequence?.Kind is SequenceRowKind.Metric or SequenceRowKind.Repeat or SequenceRowKind.Section
         || SelectedSetup is OperatorPromptSetup or OperatorInputSetup);
     public bool CanMoveSequence => CanEditSequence && SelectedSequence?.Section is SequenceSection.Setup or SequenceSection.Measure;
     public bool CanInsertRecipe => CanEditSequence && SelectedRecipe is not null && RecipePreflight() is null;
     public string SelectedRecipePrerequisites => SelectedRecipe is null ? "Search and choose a recipe."
         : RecipePreflight() ?? $"Ready: {SelectedRecipe.Summary} Insertion: {InsertionPosition}. {SequenceOperationTarget}.";
 
-    private SequenceRow? InsertionTarget => SelectedRecipe?.Id == AuthoringRecipeIds.Repeat || InsertionPosition != "End of section"
-        ? SelectedSequence : null;
+    private SequenceRow? InsertionTarget => SelectedRecipe?.Id == AuthoringRecipeIds.Repeat ? SelectedSequence
+        : InsertionPosition == "End of Measure" ? null
+        : InsertionPosition == "End of section" ? EndOfSelectedSection() : SelectedSequence;
 
     private string? RecipePreflight()
     {
@@ -64,16 +68,30 @@ public sealed partial class AuthoringWorkspaceViewModel
         }
     }
 
-    public void InsertSelectedRecipe() => SequenceTransaction(draft => AuthoringSequenceOperations.Insert(draft,
+    public void InsertSelectedRecipe()
+    {
+        if (InsertionTarget is { IsSection: true, NodeId: { } id }) _collapsedSectionIds.Remove(id);
+        SequenceTransaction(draft => AuthoringSequenceOperations.Insert(draft,
         SelectedRecipe?.Id ?? throw new AuthoringWorkspaceException("Choose a recipe."),
         InsertionTarget,
         InsertionPosition == "Before selected", SelectedInstrumentSlot), "Recipe inserted");
+    }
     public void RenameSelectedSequence() => SequenceTransaction(draft => AuthoringSequenceOperations.Rename(draft,
         SelectedSequence ?? throw new AuthoringWorkspaceException("Select a step."), SequenceRename), "Step renamed");
     public void DuplicateSelectedSequence() => SequenceTransaction(draft => AuthoringSequenceOperations.Duplicate(draft,
         SelectedSequence ?? throw new AuthoringWorkspaceException("Select a step.")), "Step duplicated");
     public void MoveSelectedSequence(int direction) => SequenceTransaction(draft => AuthoringSequenceOperations.Move(draft,
         SelectedSequence ?? throw new AuthoringWorkspaceException("Select a step."), direction), "Step moved");
+
+    public void ReorderSequence(Guid sourceId, Guid destinationId)
+    {
+        if (!CanEditSequence) return;
+        var source = SequenceItems.FirstOrDefault(row => row.NodeId == sourceId);
+        var destination = SequenceItems.FirstOrDefault(row => row.NodeId == destinationId);
+        if (source is null || destination is null) return;
+        SelectSequence(SequenceItems.ToList().IndexOf(source));
+        SequenceTransaction(draft => AuthoringSequenceOperations.Reorder(draft, source, destination), "Step moved");
+    }
 
     private void SequenceTransaction(Func<ProgramDraft, ProgramDraft> mutate, string status)
     {
@@ -103,8 +121,21 @@ public sealed partial class AuthoringWorkspaceViewModel
         }
     }
 
+    private void SynchronizeSequenceRename()
+    {
+        var selected = SelectedSequence;
+        var id = selected?.NodeId;
+        var label = selected?.Label;
+        if (_renameSourceId == id && _renameSourceLabel == label) return;
+        _renameSourceId = id;
+        _renameSourceLabel = label;
+        SetField(ref _sequenceRename, label ?? string.Empty, nameof(SequenceRename));
+    }
+
     private void RaiseSequenceOperations()
     {
+        SynchronizeSequenceRename();
+        RaiseSectionProperties();
         OnPropertyChanged(nameof(SequenceOperationTarget));
         OnPropertyChanged(nameof(RemoveSequenceActionTitle));
         OnPropertyChanged(nameof(CanEditSequence));

@@ -1,5 +1,6 @@
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using Avalonia.VisualTree;
 
 namespace HardwareTest.Authoring;
 
@@ -12,13 +13,31 @@ public partial class HardwareView : UserControl
     {
         if (TopLevel.GetTopLevel(this) is MainWindow owner) await owner.ConfirmHardwareEditAsync();
     }
+    private void OnOpenEnvironment(object? sender, RoutedEventArgs e)
+    {
+        if (TopLevel.GetTopLevel(this) is MainWindow owner)
+            owner.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 3;
+    }
+    private void OnShowAddInstrument(object? sender, RoutedEventArgs e)
+    {
+        var section = this.FindControl<Expander>("AddInstrumentSection")!;
+        section.IsExpanded = true;
+        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+        {
+            var input = this.GetVisualDescendants().OfType<TextBox>().First(control =>
+                Avalonia.Automation.AutomationProperties.GetName(control) == "Add instrument slot");
+            input.BringIntoView();
+            input.Focus();
+        });
+    }
+    private void OnDeferBinding(object? sender, RoutedEventArgs e)
+    {
+        if (TopLevel.GetTopLevel(this) is MainWindow owner)
+            owner.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 0;
+    }
     private void OnAddInstrumentSlot(object? sender, RoutedEventArgs e) => TryRun(() => Vm?.AddInstrumentSlot());
     private void OnOpenDefinitions(object? sender, RoutedEventArgs e)
         => (TopLevel.GetTopLevel(this) as MainWindow)?.OpenDefinitions("HardwareTemplateSection");
-    private void OnOpenEnvironment(object? sender, RoutedEventArgs e)
-    {
-        if (TopLevel.GetTopLevel(this) is MainWindow owner) owner.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 3;
-    }
     private async void OnRemoveInstrumentSlot(object? sender, RoutedEventArgs e)
     {
         if (TopLevel.GetTopLevel(this) is MainWindow owner) await owner.ConfirmInstrumentRemovalAsync();

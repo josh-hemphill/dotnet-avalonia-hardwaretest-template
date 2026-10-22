@@ -100,14 +100,20 @@ public static class AuthoringFormulaDeployment
     }
 
     private static IReadOnlyList<MeasureNode> ProjectNodes(IReadOnlyList<MeasureNode> nodes, HashSet<Guid> excluded)
-        => nodes.Where(node => !excluded.Contains(node.NodeId)).Select(node => node is RepeatNode repeat
-            ? repeat with { Children = ProjectNodes(repeat.Children, excluded) } : node).ToArray();
+        => nodes.Where(node => !excluded.Contains(node.NodeId)).Select(node => node switch
+        {
+            RepeatNode repeat => repeat with { Children = ProjectNodes(repeat.Children, excluded) },
+            SectionNode section => section with { Children = ProjectNodes(section.Children, excluded) },
+            _ => node,
+        }).ToArray();
 
     private static IEnumerable<MetricNode> Nodes(IEnumerable<MeasureNode> nodes)
     {
         foreach (var node in nodes)
         {
             if (node is MetricNode metric) yield return metric;
+            if (node is SectionNode section)
+                foreach (var child in Nodes(section.Children)) yield return child;
             if (node is RepeatNode repeat)
                 foreach (var child in Nodes(repeat.Children)) yield return child;
         }

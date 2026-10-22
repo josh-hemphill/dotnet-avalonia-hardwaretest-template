@@ -138,6 +138,7 @@ public sealed class AuthoringHardwareDefinitionTests
         vm.OpenTapHomeOverride = missingHome; AuthoringUiFixture.Drain();
         var missingRows = table.ItemsSource;
         Assert.NotSame(availableRows, missingRows);
+        ExpandPackageDetails(table);
         Assert.Contains(table.GetVisualDescendants().OfType<TextBlock>(), text => text.Text?.Contains("package metadata", StringComparison.Ordinal) == true);
         Assert.DoesNotContain(table.GetVisualDescendants().OfType<TextBlock>(), text => text.Text == "HardwareTest Basic: available");
 
@@ -182,8 +183,14 @@ public sealed class AuthoringHardwareDefinitionTests
         window.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 1; AuthoringUiFixture.Drain();
         Assert.Equal(string.Empty, vm.OpenTapHomeOverride);
         var table = fixture.Control<ItemsControl>("Hardware binding table");
-        var status = Assert.Single(table.GetVisualDescendants().OfType<TextBlock>(),
-            text => text.Text?.StartsWith(package + ":", StringComparison.Ordinal) == true).Text!;
+        var row = Assert.IsType<AuthoringHardwareRow>(Assert.Single(table.Items));
+        Assert.Contains(table.GetVisualDescendants().OfType<TextBlock>(), text => text.Text == row.PackageSummary);
+        var status = row.PackageStatus;
+        if (row.HasPackageDetails)
+        {
+            ExpandPackageDetails(table);
+            Assert.Contains(table.GetVisualDescendants().OfType<TextBlock>(), text => text.Text == status);
+        }
         if (state == "valid") Assert.Equal(package + ": available", status);
         else
         {
@@ -203,11 +210,20 @@ public sealed class AuthoringHardwareDefinitionTests
         var window = fixture.Show(); fixture.OpenRememberedWorkspace();
         window.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 1; AuthoringUiFixture.Drain();
         var table = fixture.Control<ItemsControl>("Hardware binding table");
+        ExpandPackageDetails(table);
         Assert.Contains(table.GetVisualDescendants().OfType<TextBlock>(), text => text.Text?.Contains("package metadata is missing", StringComparison.Ordinal) == true);
         fixture.ViewModel.OpenTapHomeOverride = overrideHome; AuthoringUiFixture.Drain();
         Assert.Contains(table.GetVisualDescendants().OfType<TextBlock>(), text => text.Text == "HardwareTest Basic: available");
         fixture.ViewModel.OpenTapHomeOverride = string.Empty; AuthoringUiFixture.Drain();
+        ExpandPackageDetails(table);
         Assert.Contains(table.GetVisualDescendants().OfType<TextBlock>(), text => text.Text?.Contains("package metadata is missing", StringComparison.Ordinal) == true);
+    }
+
+    private static void ExpandPackageDetails(ItemsControl table)
+    {
+        var details = Assert.Single(table.GetVisualDescendants().OfType<Expander>(), item => Equals(item.Header, "Package details"));
+        details.IsExpanded = true;
+        AuthoringUiFixture.Drain();
     }
 
     private static void WritePackagePayload(string home, AuthoringInstrumentAdapter adapter, bool includePayload)

@@ -14,6 +14,8 @@ internal static class AuthoringLibraryLifecycle
         foreach (var node in nodes)
         {
             if (node is RawStepNode raw && ContainsLifecycle(raw)) yield return raw;
+            if (node is SectionNode section)
+                foreach (var child in OpaqueLifecycleNodes(section.Children)) yield return child;
             if (node is RepeatNode repeat)
                 foreach (var child in OpaqueLifecycleNodes(repeat.Children)) yield return child;
         }

@@ -82,6 +82,12 @@
         </StackPanel>
       </WrapPanel>
       <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+        <Button Content="Clear run"
+                Command="{Binding ClearRunCommand}"
+                IsEnabled="{Binding CanClearRun}"
+                Classes="operator"
+                ToolTip.Tip="Clear displayed results, iterations and attempts. Keep the DUT, program and saved Results."
+                AutomationProperties.Name="Clear current run and iterations" />
         <Button Content="Run"
                 Command="{Binding Run.RunCommand}"
                 Classes="primary"

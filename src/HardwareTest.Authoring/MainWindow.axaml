@@ -7,11 +7,14 @@
       <Setter Property="ContentTemplate" Value="{x:Static vm:AuthoringActionLabels.WrappedText}"/>
     </Style>
   </Window.Styles>
-  <DockPanel>
+  <Panel>
+  <DockPanel IsEnabled="{Binding !LoadingBusy}">
     <ContentControl x:Name="IssuesDrawer" DockPanel.Dock="Bottom" MaxHeight="180" IsVisible="False" Margin="12"/>
     <Border DockPanel.Dock="Top" Background="{DynamicResource AuthoringSurface}" BorderBrush="{DynamicResource AuthoringLine}" BorderThickness="0,0,0,1" Padding="24,14">
       <Grid ColumnDefinitions="*,Auto" ColumnSpacing="20">
         <StackPanel Orientation="Horizontal" Spacing="14" VerticalAlignment="Center">
+          <Button x:Name="RouteBackButton" Content="Back" Click="OnNavigateBack" IsEnabled="False"
+              AutomationProperties.Name="Back to previous section" ToolTip.Tip="Previous section (Alt+Left)" Classes="authoringAction"/>
           <Border Background="#245ECA" CornerRadius="8" Padding="9,6">
             <TextBlock Text="HT" Foreground="White" FontWeight="Bold" FontSize="16"/>
           </Border>
@@ -65,6 +68,8 @@
     </Border>
     <Border DockPanel.Dock="Bottom" Background="{DynamicResource AuthoringSurface}" BorderBrush="{DynamicResource AuthoringLine}" BorderThickness="0,1,0,0" Padding="24,10">
       <StackPanel Spacing="6">
+        <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+          <StackPanel Spacing="6">
         <Grid ColumnDefinitions="*,Auto">
           <TextBlock x:Name="StatusLabel" Text="{Binding Status}" TextTrimming="CharacterEllipsis"
               ToolTip.Tip="{Binding OperationLogText}" AutomationProperties.LiveSetting="Polite" AutomationProperties.Name="Authoring status"/>
@@ -72,7 +77,31 @@
               Foreground="{DynamicResource AuthoringAccent}" AutomationProperties.Name="Unsaved changes"/>
         </Grid>
         <TextBlock FontSize="12" Foreground="{DynamicResource AuthoringMuted}" Text="{Binding ValidationScope}" AutomationProperties.Name="Validation scope"
-            AutomationProperties.LiveSetting="Polite" IsVisible="{Binding HasWorkspace}" TextWrapping="Wrap"/>
+            AutomationProperties.LiveSetting="Polite" IsVisible="{Binding HasWorkspace}" TextTrimming="CharacterEllipsis"/>
+          </StackPanel>
+          <Grid Grid.Column="1" ColumnDefinitions="*,*" Height="40">
+    <ScrollViewer x:Name="SaveAllFeedback" Grid.Column="0" Height="40" HorizontalScrollBarVisibility="Disabled"
+        VerticalScrollBarVisibility="Auto" AutomationProperties.Name="Save all result feedback">
+      <ItemsControl ItemsSource="{Binding SaveAllResults}" AutomationProperties.Name="Save all results">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate>
+            <TextBlock Text="{Binding}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding}"/>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </ScrollViewer>
+
+    <ScrollViewer Grid.Column="1" Margin="12,0,0,0" Height="40" HorizontalScrollBarVisibility="Disabled"
+        VerticalScrollBarVisibility="Auto"
+        IsVisible="{Binding Error, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+        AutomationProperties.Name="Authoring error feedback">
+      <TextBlock Foreground="{DynamicResource AuthoringError}" TextWrapping="Wrap"
+          IsVisible="{Binding Error, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+          Text="{Binding Error, StringFormat='Error: {0}'}" ToolTip.Tip="{Binding OperationLogText}"
+          AutomationProperties.LiveSetting="Assertive" AutomationProperties.Name="Authoring error"/>
+    </ScrollViewer>
+          </Grid>
+        </Grid>
         <Grid IsVisible="{Binding OperationBusy}" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
           <Button Content="Cancel operation" Click="OnCancelOperation" IsEnabled="{Binding OperationBusy}"
               AutomationProperties.Name="Cancel authoring operation" Classes="authoringAction"/>
@@ -81,26 +110,6 @@
         </Grid>
       </StackPanel>
     </Border>
-    <ScrollViewer x:Name="SaveAllFeedback" DockPanel.Dock="Top" Margin="24,8,24,0" MaxHeight="40" HorizontalScrollBarVisibility="Disabled"
-        VerticalScrollBarVisibility="Auto" AutomationProperties.Name="Save all result feedback">
-      <ItemsControl ItemsSource="{Binding SaveAllResults}" AutomationProperties.Name="Save all results">
-        <ItemsControl.Styles>
-          <Style Selector="TextBlock">
-            <Setter Property="TextWrapping" Value="Wrap"/>
-          </Style>
-        </ItemsControl.Styles>
-      </ItemsControl>
-    </ScrollViewer>
-
-    <ScrollViewer DockPanel.Dock="Bottom" Margin="12,0,12,12" MaxHeight="32" HorizontalScrollBarVisibility="Disabled"
-        VerticalScrollBarVisibility="Auto"
-        IsVisible="{Binding Error, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
-        AutomationProperties.Name="Authoring error feedback">
-      <TextBlock Foreground="#C62828" TextWrapping="Wrap"
-          IsVisible="{Binding Error, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
-          Text="{Binding Error, StringFormat='Error: {0}'}" ToolTip.Tip="{Binding OperationLogText}"
-          AutomationProperties.LiveSetting="Assertive" AutomationProperties.Name="Authoring error"/>
-    </ScrollViewer>
     <Panel>
       <ScrollViewer x:Name="WelcomeViewport" IsVisible="{Binding !HasWorkspace}" Margin="24"
           HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto" ClipToBounds="True"
@@ -130,7 +139,7 @@
         <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12" Margin="0,0,0,16">
           <Button Content="Overview" Click="OnNavigateTask" Tag="8" Classes="authoringAction" AutomationProperties.Name="Workspace overview"/>
           <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
-            <ComboBox x:Name="PlanSelector" KeyDown="OnProgramsKeyDown" MinWidth="180" MaxWidth="220" ItemsSource="{Binding ProgramRows}" SelectedItem="{Binding SelectedProgramRow}" AutomationProperties.Name="Selected test plan" ToolTip.Tip="Switch plans; each plan retains its draft">
+            <ComboBox x:Name="PlanSelector" KeyDown="OnProgramsKeyDown" MinWidth="180" MaxWidth="220" ItemsSource="{Binding ProgramRows}" SelectedItem="{Binding SelectedProgramRow, Mode=OneWay}" SelectionChanged="OnPlanSelectionChanged" AutomationProperties.Name="Selected test plan" ToolTip.Tip="Switch plans; each plan retains its draft">
               <ComboBox.ItemTemplate><DataTemplate x:DataType="vm:AuthoringProgramRow">
                 <StackPanel><TextBlock Text="{Binding DisplayName}" TextTrimming="CharacterEllipsis"/><TextBlock Text="{Binding PlanId}" Classes="eyebrow"/><TextBlock Text="{Binding DirtyMarker}" FontSize="11"/></StackPanel>
               </DataTemplate></ComboBox.ItemTemplate>
@@ -200,4 +209,17 @@
       <Border x:Name="GuidanceHost" IsVisible="False" Classes="surface" Width="380" HorizontalAlignment="Right" Margin="24,8,24,12" Padding="18" BoxShadow="0 4 24 0 #30000000" AutomationProperties.Name="Guidance drawer"/>
     </Panel>
   </DockPanel>
+  <Border x:Name="LoadingOverlay" IsVisible="{Binding LoadingBusy}" Background="{DynamicResource AuthoringCanvas}"
+      AutomationProperties.Name="Loading workspace or program" ZIndex="10">
+    <Border Classes="surface" Padding="28" MaxWidth="480" Margin="24" HorizontalAlignment="Center" VerticalAlignment="Center">
+      <StackPanel Spacing="16">
+        <TextBlock Text="{Binding LoadingStage}" FontSize="18" FontWeight="SemiBold" TextWrapping="Wrap"
+            AutomationProperties.Name="Loading stage" AutomationProperties.LiveSetting="Polite"/>
+        <ProgressBar IsIndeterminate="True" Height="4" AutomationProperties.Name="Loading progress"/>
+        <TextBlock Text="Preparing plans and checking the workspace environment. Large workspaces can take a moment."
+            Classes="purpose" TextWrapping="Wrap"/>
+      </StackPanel>
+    </Border>
+  </Border>
+  </Panel>
 </Window>

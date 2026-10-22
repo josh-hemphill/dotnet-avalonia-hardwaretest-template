@@ -59,9 +59,8 @@ public partial class MainWindow
             CommitFocusedEditor();
             var decision = await ChooseTransitionAsync(contextIsCurrent: current);
             if (decision == UnsavedChangesChoice.Cancel || !current()) return false;
-            var prepared = _viewModel.PrepareOpen(path);
-            _viewModel.CommitOpen(prepared, discardUnsavedChanges: decision == UnsavedChangesChoice.Discard);
-            return true;
+            return await _viewModel.OpenAsync(path,
+                discardUnsavedChanges: decision == UnsavedChangesChoice.Discard, ownerIsCurrent: current);
         }
         catch (Exception ex) { if (current()) _viewModel.ReportError(ex.Message); return false; }
         finally { _transitionInFlight = false; }

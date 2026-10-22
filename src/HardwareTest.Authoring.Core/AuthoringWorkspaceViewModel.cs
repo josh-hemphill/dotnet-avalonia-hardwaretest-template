@@ -154,7 +154,7 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
     }
 
     public string? MeasureHint
-        => SelectedProgram is not null && SelectedProgram.Measure.Count == 0
+        => SelectedProgram is not null && !AuthoringSequence.HasMeasurement(SelectedProgram.Measure)
             ? AuthoringChrome.EmptyMeasureHint
             : null;
 
@@ -321,6 +321,10 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
             {
                 case MetricNode metric:
                     yield return $"{indent}{metric.Metric.Name} [{metric.Metric.DisplayRole}] {metric.Metric.ChannelKey}";
+                    break;
+                case SectionNode section:
+                    yield return $"{indent}{section.Name}";
+                    foreach (var child in DescribeMeasure(section.Children, indent + "  ")) yield return child;
                     break;
                 case RepeatNode repeat:
                     yield return $"{indent}Repeat x{repeat.Count}";

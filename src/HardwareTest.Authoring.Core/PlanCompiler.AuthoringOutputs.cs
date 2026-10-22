@@ -70,6 +70,7 @@ public sealed partial class PlanCompiler
             {
                 switch (node)
                 {
+                    case SectionNode section: Visit(section.Children); break;
                     case RepeatNode repeat: Visit(repeat.Children); break;
                     case RawStepNode raw: RawOutputs(LoadRawStep(raw)); break;
                     case MetricNode metric:

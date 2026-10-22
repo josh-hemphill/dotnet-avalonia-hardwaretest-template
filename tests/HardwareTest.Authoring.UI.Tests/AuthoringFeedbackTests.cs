@@ -28,8 +28,14 @@ public sealed class AuthoringFeedbackTests
         fixture.ViewModel.SelectProgram("sample");
         fixture.ViewModel.SelectMeasure(0);
         AuthoringUiFixture.Drain();
+        var sequence = fixture.Control<ListBox>("Program sequence");
+        var inspector = fixture.Control<ScrollViewer>("Selected step inspector");
+        var sequenceBounds = new Rect(sequence.TranslatePoint(default, window)!.Value, sequence.Bounds.Size);
+        var inspectorBounds = new Rect(inspector.TranslatePoint(default, window)!.Value, inspector.Bounds.Size);
 
         AuthoringUiFixture.Click(fixture.Control<Button>("Save all"));
+        Assert.Equal(sequenceBounds, new Rect(sequence.TranslatePoint(default, window)!.Value, sequence.Bounds.Size));
+        Assert.Equal(inspectorBounds, new Rect(inspector.TranslatePoint(default, window)!.Value, inspector.Bounds.Size));
         var result = fixture.ViewModel.LastSaveAllResult!;
         Assert.Equal(!failSaves, result.Succeeded);
         Assert.Equal(35, failSaves ? result.Failures.Count : result.SavedProgramIds.Count);

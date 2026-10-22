@@ -369,6 +369,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         {
             MetricNode metric => $"{metric.Metric.Name} [{metric.Metric.DisplayRole}] {metric.Metric.ChannelKey}",
             RepeatNode repeat => $"Repeat x{repeat.Count}",
+            SectionNode section => section.Name,
             RawStepNode raw => raw.TypeName,
             _ => node.GetType().Name,
         };

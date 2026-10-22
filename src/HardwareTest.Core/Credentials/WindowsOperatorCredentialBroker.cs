@@ -1,4 +1,3 @@
-using System.Formats.Asn1;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
@@ -175,16 +174,10 @@ internal sealed class PreparedWindowsSession : IPreparedCredentialSession, IEmbe
         if (raw.Length != size) throw new WindowsSigningNativeException(0, "signature-format");
         return raw;
     }
-    internal static byte[] EcdsaDer(byte[] raw)
-    {
-        var writer = new AsnWriter(AsnEncodingRules.DER); writer.PushSequence();
-        writer.WriteIntegerUnsigned(raw.AsSpan(0, raw.Length / 2)); writer.WriteIntegerUnsigned(raw.AsSpan(raw.Length / 2)); writer.PopSequence();
-        return writer.Encode();
-    }
     private byte[] SignMessage(byte[] message, CancellationToken ct)
     {
         var raw = SignHash(_digest == HashAlgorithmName.SHA384 ? SHA384.HashData(message) : SHA256.HashData(message), ct);
-        return _rsa ? raw : EcdsaDer(raw);
+        return _rsa ? raw : EcdsaSignatureEncoding.ToDer(raw);
     }
     private Task<CredentialSignResult> Execute(OperatorCredential expected, CancellationToken ct, Func<CredentialSignResult> action)
     {

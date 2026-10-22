@@ -88,7 +88,7 @@ public sealed class AuthoringSequenceTests
     }
 
     [Fact]
-    public void Chrome_copy_names_the_three_program_columns()
+    public void Chrome_copy_describes_sequence_inspector_and_full_preview_tasks()
     {
         Assert.Equal("Sequence", AuthoringChrome.SequenceTitle);
         Assert.Contains("Setup", AuthoringChrome.SequencePurpose, StringComparison.Ordinal);
@@ -116,7 +116,7 @@ public sealed class AuthoringSequenceTests
         Assert.Equal("{0} Raw step(s) — read-only here. Select a Raw row to see its type.", AuthoringChrome.RawStepsBanner);
         Assert.Contains("bake-time", AuthoringChrome.ShipPurpose, StringComparison.Ordinal);
         Assert.Equal("Remove selected", AuthoringChrome.RemoveSelectedTitle);
-        Assert.Contains("Repeat unwraps its children", AuthoringChrome.RemoveSelectedPurpose, StringComparison.Ordinal);
+        Assert.Contains("Removing a section or Repeat keeps its steps in run order", AuthoringChrome.RemoveSelectedPurpose, StringComparison.Ordinal);
         Assert.Equal("Remove program", AuthoringChrome.RemoveProgramTitle);
         Assert.Contains("Deletes its TapPlan and sidecar", AuthoringChrome.RemoveProgramPurpose, StringComparison.Ordinal);
         Assert.Equal("Measure — Acquire Voltage", new AuthoringRecipe("acquire", "Acquire Voltage", "Measure", "x").ListLabel);

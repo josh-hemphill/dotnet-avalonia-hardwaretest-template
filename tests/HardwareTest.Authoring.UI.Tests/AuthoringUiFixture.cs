@@ -51,6 +51,7 @@ internal sealed class AuthoringUiFixture : IDisposable
     public void OpenRememberedWorkspace()
     {
         Click(Control<Button>("Open last workspace from welcome"));
+        WaitForLoading();
         Assert.True(ViewModel.HasWorkspace);
         Assert.Null(ViewModel.Error);
         // Legacy workflow fixtures begin in the sequence. Overview navigation has dedicated tests.
@@ -67,6 +68,27 @@ internal sealed class AuthoringUiFixture : IDisposable
         var action = ((Avalonia.Controls.Control)menu.Content!).GetVisualDescendants().OfType<Button>()
             .Single(button => Equals(button.Tag, route.ToString()));
         Click(action);
+    }
+
+    public void WaitForLoading()
+    {
+        if (ViewModel.LoadingBusy)
+        {
+            var frame = new DispatcherFrame();
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+            async Task WaitForLoadAsync()
+            {
+                try
+                {
+                    while (ViewModel.LoadingBusy) await Task.Delay(1, timeout.Token);
+                }
+                finally { frame.Continue = false; }
+            }
+            var loading = WaitForLoadAsync();
+            if (!loading.IsCompleted) Dispatcher.UIThread.PushFrame(frame);
+            loading.GetAwaiter().GetResult();
+            Drain();
+        }
     }
 
     public T Control<T>(string automationName, Avalonia.Controls.Control? root = null) where T : Avalonia.Controls.Control
@@ -88,7 +110,7 @@ internal sealed class AuthoringUiFixture : IDisposable
         if (matches.Length == 0 && scope is MainWindow)
         {
             var menus = scope.GetVisualDescendants().OfType<Button>()
-                .Where(button => button.Name is "LifecycleFocusTarget" or "PlanActionsButton" or "TaskMenuButton" or "InspectorActionsButton").ToArray();
+                .Where(button => button.Name is "LifecycleFocusTarget" or "PlanActionsButton" or "TaskMenuButton" or "InspectorActionsButton" or "SectionActionsButton").ToArray();
             foreach (var menu in menus)
             {
                 var flyout = (Flyout)menu.Flyout!;

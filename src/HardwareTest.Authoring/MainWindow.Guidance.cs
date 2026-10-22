@@ -1,10 +1,10 @@
 using Avalonia.Automation;
 using Avalonia.Controls;
-using Avalonia.Interactivity;
 using Avalonia.Input;
-using Avalonia.VisualTree;
+using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 
 namespace HardwareTest.Authoring;
 
@@ -26,21 +26,25 @@ public partial class MainWindow
     {
         AutomationProperties.SetName(_guidanceFeedback, "Guidance feedback");
         AutomationProperties.SetLiveSetting(_guidanceFeedback, AutomationLiveSetting.Polite);
-        var actions = new WrapPanel();
+        var checks = new StackPanel { Spacing = 6 };
+        var deployment = new StackPanel { Spacing = 6 };
+        var preferences = new StackPanel { Spacing = 6 };
         void Action(string name, System.Action action)
         {
-            var button = new Button { Content = name, ContentTemplate = AuthoringActionLabels.WrappedText, Margin = new Avalonia.Thickness(4) };
+            var button = new Button { Content = name, ContentTemplate = AuthoringActionLabels.WrappedText, HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch, HorizontalContentAlignment = Avalonia.Layout.HorizontalAlignment.Left };
+            button.Classes.Add("authoringAction");
             AutomationProperties.SetName(button, name);
             if (name == "Skip saved guidance") button.IsEnabled = _viewModel.PreferencesEditable;
             button.Click += (_, _) => { if (GuidanceTargetCurrent()) action(); RefreshGuidance(); };
-            actions.Children.Add(button);
+            (name is "Leave saved guidance" or "Skip saved guidance" ? preferences
+                : name is "Fix guidance blockers" or "Validate saved plans" or "Save and check draft" ? checks : deployment).Children.Add(button);
         }
         Action("Preview voltage result", () => WorkspaceTabs.SelectedIndex = 5);
         Action("Fix guidance blockers", () => WorkspaceTabs.SelectedIndex = 2);
         Action("Prepare guidance packages", () => WorkspaceTabs.SelectedIndex = 3);
         Action("Review guidance build", () => WorkspaceTabs.SelectedIndex = 4);
         Action("Validate saved plans", () => OnValidate(this, new RoutedEventArgs()));
-        Action("Save and check draft", () => { CommitFocusedEditor(); TryRun(() => _viewModel.Apply()); });
+        Action("Save and check draft", GuidanceSave);
         Action("Leave saved guidance", () => _guidanceVisible = false);
         Action("Skip saved guidance", () => { _explicitGuidanceSession = null; _viewModel.SkipGuidance = true; _guidanceVisible = false; });
         var host = this.FindControl<Border>("GuidanceHost")!;
@@ -56,7 +60,7 @@ public partial class MainWindow
         var viewport = new ScrollViewer
         {
             HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
-            Content = new StackPanel { Spacing = 4, Children = { _guidanceFeedback, actions } }
+            Content = GuidanceContent(checks, deployment, preferences)
         };
         AutomationProperties.SetName(viewport, "Guidance viewport");
         var drawer = new DockPanel();
@@ -99,6 +103,11 @@ public partial class MainWindow
             }
         }
         if (!host.IsVisible || _viewModel.SelectedProgram is not { } draft) return;
+        _guidancePlan.Text = draft.Sidecar.DisplayName;
+        _guidanceHardware.Text = draft.Instruments.Any(instrument => instrument.TypeId.Contains("Mock", StringComparison.OrdinalIgnoreCase))
+            ? "Demo — Mock instrument" : "Product — physical instrument selection";
+        _guidanceIdentity.Text = $"Identity checks: {draft.Setup.OfType<IdentitySetup>().Count()}";
+        _guidanceShutdown.Text = $"Safe shutdown: {(draft.Cleanup.IncludeSafeShutdown ? string.Join(", ", draft.Cleanup.InstrumentSlots) : "disabled")}";
         try
         {
             var blockers = _viewModel.EditingIssues.Where(issue => issue.PlanId is null || issue.PlanId == draft.PlanId).ToArray();
@@ -106,7 +115,10 @@ public partial class MainWindow
             var loaded = store.Load(draft.PlanId);
             if (loaded.IsReadOnly || loaded.Document is not { } source)
                 throw new AuthoringWorkspaceException(loaded.Error ?? "Saved authoring source is missing or uses an unsupported schema.");
-            var sourceMatches = AuthoringDocumentSnapshot.Capture(draft).ContentEquals(AuthoringDocumentSnapshot.Capture(source.ToDraft()));
+            var savedDraft = source.ToDraft();
+            var sourceMatches = AuthoringDocumentSnapshot.Capture(draft).ContentEquals(AuthoringDocumentSnapshot.Capture(savedDraft));
+            var savedState = _viewModel.SelectedDocument?.GetDirtyState(savedDraft);
+            var sourceStillBaseline = savedState is { PlanDirty: false, SidecarDirty: false };
             var path = _viewModel.Workspace.TapPlanPaths.SingleOrDefault(file => Path.GetFileNameWithoutExtension(file) == draft.PlanId);
             var complete = false;
             if (source is { RequiresCompilation: false } && path is not null)
@@ -116,19 +128,27 @@ public partial class MainWindow
                 complete = sourceMatches && !_viewModel.HasUnsavedChanges && blockers.Length == 0 && planHash is not null && sidecarHash is not null
                     && source.CompiledPlanHash == planHash && source.CompiledSidecarHash == sidecarHash;
             }
-            _guidanceFeedback.Text = $"{draft.Sidecar.DisplayName} · {(draft.Instruments.Any(instrument => instrument.TypeId.Contains("Mock", StringComparison.OrdinalIgnoreCase)) ? "Demo — Mock instrument" : "Product — physical instrument selection")}\n"
-                + $"Generated identity checks: {draft.Setup.OfType<IdentitySetup>().Count()} · Safe shutdown: {(draft.Cleanup.IncludeSafeShutdown ? string.Join(", ", draft.Cleanup.InstrumentSlots) : "disabled")}\n"
-                + (complete ? "First voltage test complete: saved source and compiled plan are ready. Preview with example data or an imported recording; review Build for deployment requirements."
-                    : !sourceMatches ? "Guidance is incomplete: saved authoring source differs from the displayed draft. Reopen the workspace to load the saved version, or reconcile your current edits before Save/check."
-                    : "Next: preview the voltage result, then Save and check draft. Fix guidance blockers in Issues; prepare missing packages in Environment; review deployment requirements in Build.")
-                + (blockers.Length == 0 ? "" : "\n" + string.Join("\n", blockers.Select(issue => issue.Message)))
-                + (_viewModel.SavePreviewWarning is { } warning ? "\n" + warning : "");
+            if (complete)
+                PresentGuidance("First voltage test complete", "Preview the saved result with example data or an imported recording.",
+                    "Preview result", () => WorkspaceTabs.SelectedIndex = 5, []);
+            else if (!sourceMatches && !sourceStillBaseline)
+                PresentGuidance("Saved source differs from this draft", "Reopen the workspace to load the saved version, or reconcile current edits before Save/check.",
+                    "Review issues", GuidanceIssues, blockers.Select(issue => issue.Message));
+            else if (blockers.Length > 0)
+                PresentGuidance($"{blockers.Length} item(s) need attention", "Resolve the listed issues before saving and checking this plan.",
+                    "Review issues", GuidanceIssues, blockers.Select(issue => issue.Message));
+            else if (!sourceMatches)
+                PresentGuidance("Unsaved draft changes", "Save your current edits and compile the plan to check readiness.",
+                    "Save and check draft", GuidanceSave, []);
+            else
+                PresentGuidance("Draft needs a save and check", "Save the authoring source and compile the plan to check readiness.",
+                    "Save and check draft", GuidanceSave, []);
         }
         catch (Exception error)
         {
             // Presentation must not fail edits/saves or recursively publish another view-model error.
-            _guidanceFeedback.Text = "Guidance is incomplete: saved input is unavailable or unsafe. Restore readable authoring source and compiled files inside this workspace, then Resume guidance. Use Issues for recovery and Save/check after repair.\n"
-                + AuthoringWorkspaceViewModel.PersistenceError(error);
+            PresentGuidance("Saved input is unavailable or unsafe", "Restore readable authoring source and compiled files inside this workspace, then resume guidance.",
+                "Review recovery issues", GuidanceIssues, [AuthoringWorkspaceViewModel.PersistenceError(error)]);
         }
     }
 

@@ -9,6 +9,22 @@ namespace HardwareTest.Authoring;
 public partial class MainWindow
 {
     private const int PreviewRouteIndex = 5;
+    private readonly Stack<int> _routeHistory = new();
+    private int _previousRoute;
+    private bool _returningToRoute;
+
+    private void OnNavigateBack(object? sender, RoutedEventArgs e)
+    {
+        if (_viewModel.LoadingBusy || !_routeHistory.TryPop(out var route)) return;
+        CommitFocusedEditor();
+        _returningToRoute = true;
+        try { WorkspaceTabs.SelectedIndex = route; }
+        finally { _returningToRoute = false; }
+        UpdateBackNavigation();
+    }
+
+    private void UpdateBackNavigation()
+        => RouteBackButton.IsEnabled = _routeHistory.Count > 0 && !_viewModel.LoadingBusy;
     private readonly WorkspacePreviewView _previewView = new();
     private readonly WorkspaceIssuesView _issuesView = new();
     private readonly Dictionary<int, Control> _routeFocus = [];
@@ -32,6 +48,13 @@ public partial class MainWindow
                 if (e.Handled) menu.Hide();
             });
         }
+        _previousRoute = WorkspaceTabs.SelectedIndex;
+        AddHandler(KeyDownEvent, (_, e) =>
+        {
+            if (e.Key == Key.Left && e.KeyModifiers == KeyModifiers.Alt && _routeHistory.Count > 0)
+            { OnNavigateBack(this, new RoutedEventArgs()); e.Handled = true; }
+        }, RoutingStrategies.Tunnel);
+        UpdateBackNavigation();
         _previewView.DataContext = _viewModel;
         _issuesView.DataContext = _viewModel;
         SeparatePreview.Content = _previewView;
@@ -45,6 +68,10 @@ public partial class MainWindow
         WorkspaceTabs.SelectionChanged += (_, e) =>
         {
             if (!ReferenceEquals(e.Source, WorkspaceTabs)) return;
+            if (!_returningToRoute && _previousRoute != WorkspaceTabs.SelectedIndex)
+                _routeHistory.Push(_previousRoute);
+            _previousRoute = WorkspaceTabs.SelectedIndex;
+            UpdateBackNavigation();
             ArrangeShell();
             var current = OwnerContext();
             var plan = _viewModel.SelectedProgram?.PlanId;
@@ -91,6 +118,9 @@ public partial class MainWindow
                 _shellSession = _viewModel.WorkspaceSessionId;
                 _routeFocus.Clear();
                 WorkspaceTabs.SelectedIndex = 8;
+                _routeHistory.Clear();
+                _previousRoute = 8;
+                UpdateBackNavigation();
             }
             if (_shellPlan != _viewModel.SelectedProgram?.PlanId)
             {

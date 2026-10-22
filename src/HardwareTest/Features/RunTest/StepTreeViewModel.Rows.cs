@@ -343,6 +343,21 @@ public partial class StepTreeViewModel
         }
     }
 
+    /// Clears execution state in the existing tree while preserving selection and plan settings.
+    public void ClearRunState()
+    {
+        foreach (var step in StepHierarchy.Flatten(_fullHierarchy))
+        {
+            step.Node.StatusText = "Pending";
+            step.Node.Verdict = "NotSet";
+            step.Node.KeyValue = null;
+        }
+
+        StepStatusFilter = global::HardwareTest.Features.RunTest.StepStatusFilter.All;
+        SyncFromNodes();
+        _refreshHero();
+    }
+
     public void ClearAttemptTexts()
     {
         foreach (var root in _fullHierarchy)

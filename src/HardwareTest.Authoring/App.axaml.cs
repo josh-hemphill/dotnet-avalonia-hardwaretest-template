@@ -36,18 +36,14 @@ public partial class App : Application
                 vm.ReportError(store.Warning);
             }
 
-            desktop.MainWindow = new MainWindow(vm);
+            var mainWindow = new MainWindow(vm);
+            desktop.MainWindow = mainWindow;
             var workspace = desktop.Args?.FirstOrDefault(arg => !arg.StartsWith('-'));
             if (!string.IsNullOrWhiteSpace(workspace))
             {
-                try
-                {
-                    vm.Open(workspace);
-                }
-                catch (Exception ex)
-                {
-                    vm.ReportError(ex.Message);
-                }
+                // Show the shell before importing OpenTAP programs so first launch has
+                // the same progress feedback and ownership checks as later opens.
+                mainWindow.Opened += async (_, _) => await mainWindow.OpenWorkspaceAsync(workspace);
             }
         }
 

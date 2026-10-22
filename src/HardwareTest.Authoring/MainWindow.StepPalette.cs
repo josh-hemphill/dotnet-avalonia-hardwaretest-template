@@ -21,9 +21,15 @@ public partial class MainWindow
         var content = new StepPaletteView { DataContext = _viewModel };
         var dialog = new Window
         {
-            Title = "Add a step", Width = 620, Height = Math.Min(650, ClientSize.Height - 60),
-            MinWidth = 520, MinHeight = 440, FontSize = FontSize, Content = content,
-            WindowStartupLocation = WindowStartupLocation.CenterOwner, Classes = { "authoringPalette" }
+            Title = "Add a step",
+            Width = 620,
+            Height = Math.Min(650, ClientSize.Height - 60),
+            MinWidth = 520,
+            MinHeight = 440,
+            FontSize = FontSize,
+            Content = content,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            Classes = { "authoringPalette" }
         };
         content.InsertRequested += (_, _) =>
         {

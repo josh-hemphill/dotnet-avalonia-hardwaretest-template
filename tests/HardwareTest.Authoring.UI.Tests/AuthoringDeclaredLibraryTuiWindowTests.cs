@@ -34,7 +34,12 @@ public sealed class AuthoringDeclaredLibraryTuiWindowTests
         var window = fixture.Show(); window.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 3; AuthoringUiFixture.Drain();
         var readiness = fixture.Control<TextBlock>("Standalone VISA readiness");
         Assert.True(readiness.IsEffectivelyVisible);
-        Assert.Contains("requires InstrumentComponents.OpenTap", readiness.Text);
+        Assert.Equal("Needs attention", readiness.Text);
+        var diagnostics = fixture.Control<Expander>("Standalone VISA diagnostic details");
+        Assert.False(diagnostics.IsExpanded);
+        diagnostics.IsExpanded = true;
+        AuthoringUiFixture.Drain();
+        Assert.Contains(diagnostics.GetVisualDescendants().OfType<TextBlock>(), text => text.Text?.Contains("requires InstrumentComponents.OpenTap", StringComparison.Ordinal) == true);
         var before = Directory.EnumerateFiles(home.Root, "*", SearchOption.AllDirectories)
             .ToDictionary(path => Path.GetRelativePath(home.Root, path), File.ReadAllBytes);
         AuthoringUiFixture.Click(window.FindControl<Button>("CommandPaletteButton")!);
@@ -54,6 +59,6 @@ public sealed class AuthoringDeclaredLibraryTuiWindowTests
         AuthoringWorkspaceLoader.SaveManifest(workspace.Root, workspace.Manifest);
         vm.Open(workspace.Root); window.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 3; AuthoringUiFixture.Drain();
         Assert.False(vm.RequiresInstrumentLibrary);
-        Assert.Contains("optional", fixture.Control<TextBlock>("Standalone VISA readiness").Text);
+        Assert.Equal("Optional for mock plans", fixture.Control<TextBlock>("Standalone VISA readiness").Text);
     }
 }

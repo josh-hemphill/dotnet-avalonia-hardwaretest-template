@@ -104,6 +104,7 @@ internal static class AuthoringContentFingerprint
                 Add(node.GetType().FullName); Add(node.NodeId);
                 switch (node)
                 {
+                    case SectionNode section: Add(section.Name); Nodes(section.Children); break;
                     case RepeatNode r: Add(r.Count); Nodes(r.Children); break;
                     case RawStepNode r: Add(r.TypeName); Add(r.XmlFragment); break;
                     case MetricNode m:

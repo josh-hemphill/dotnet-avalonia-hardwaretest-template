@@ -16,7 +16,7 @@ public sealed partial class PlanCompiler
         var producers = new Dictionary<string, List<ITestStep>>(StringComparer.OrdinalIgnoreCase);
         var validations = new Dictionary<ITestStep, Action>(ReferenceEqualityComparer.Instance);
         var completed = new HashSet<ITestStep>(ReferenceEqualityComparer.Instance);
-        foreach (var step in steps)
+        foreach (var step in FlattenSectionSteps(steps))
         {
             // Disabled imported scopes and their descendants never participate in execution.
             if (!step.Enabled) continue;
@@ -85,6 +85,16 @@ public sealed partial class PlanCompiler
                 list.Add(step);
             }
         }
+    }
+
+    private static IEnumerable<ITestStep> FlattenSectionSteps(IEnumerable<ITestStep> steps)
+    {
+        foreach (var step in steps)
+            if (step.Enabled && step is TestGroupStep { AuthoringSection: true })
+            {
+                foreach (var child in FlattenSectionSteps(step.ChildTestSteps)) yield return child;
+            }
+            else yield return step;
     }
 
     private static Dictionary<string, List<ITestStep>> Snapshot(Dictionary<string, List<ITestStep>> producers)

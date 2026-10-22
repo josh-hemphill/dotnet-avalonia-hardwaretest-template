@@ -22,7 +22,7 @@ public sealed class AuthoringDocumentState
 /// Durable source document; deliberately contains no OpenTAP runtime instances.
 public sealed record AuthoringDocumentDto
 {
-    public const int CurrentSchemaVersion = 1;
+    public const int CurrentSchemaVersion = 2;
     public int SchemaVersion { get; set; } = CurrentSchemaVersion;
     public required string PlanId { get; set; }
     public bool RequiresCompilation { get; set; }
@@ -58,7 +58,7 @@ public sealed record AuthoringDocumentDto
 
     public ProgramDraft ToDraft()
     {
-        if (SchemaVersion != CurrentSchemaVersion) throw new InvalidDataException($"Unsupported draft schema {SchemaVersion}.");
+        if (SchemaVersion is < 1 or > CurrentSchemaVersion) throw new InvalidDataException($"Unsupported draft schema {SchemaVersion}.");
         if (Revision < 0 || Sidecar is null || Instruments is null || Setup is null || Measure is null || Cleanup is null || State is null ||
             State.IncompleteNumericText is null || State.FormulaIntent is null)
             throw new InvalidDataException("The authoring source document is incomplete.");
@@ -119,6 +119,7 @@ public sealed class AuthoringMeasureDto
     public AuthoringSourceDto? Source { get; set; }
     internal static AuthoringMeasureDto From(MeasureNode node) => node switch
     {
+        SectionNode n => new() { Kind = "section", NodeId = n.NodeId, Name = n.Name, Children = n.Children.Select(From).ToArray() },
         RepeatNode n => new() { Kind = "repeat", NodeId = n.NodeId, Count = n.Count, Children = n.Children.Select(From).ToArray() },
         RawStepNode n => new() { Kind = "raw", NodeId = n.NodeId, TypeName = n.TypeName, XmlFragment = n.XmlFragment },
         MetricNode n => new() { Kind = "metric", NodeId = n.NodeId, Name = n.Metric.Name, ChannelKey = n.Metric.ChannelKey, DisplayRole = n.Metric.DisplayRole, YUnit = n.Metric.YUnit, Limits = n.Metric.Limits, History = n.Metric.History, Source = AuthoringSourceDto.From(n.Metric.Source) },
@@ -126,6 +127,7 @@ public sealed class AuthoringMeasureDto
     };
     internal MeasureNode ToNode() => (Kind switch
     {
+        "section" => (MeasureNode)new SectionNode(AuthoringSetupDto.Need(Name), AuthoringSetupDto.Need(Children).Select(n => n.ToNode()).ToArray()),
         "repeat" => (MeasureNode)new RepeatNode(Count ?? throw new InvalidDataException("Missing repeat count."), AuthoringSetupDto.Need(Children).Select(n => n.ToNode()).ToArray()),
         "raw" => new RawStepNode(AuthoringSetupDto.Need(TypeName), AuthoringSetupDto.Need(XmlFragment)),
         "metric" => new MetricNode(new(AuthoringSetupDto.Need(Name), AuthoringSetupDto.Need(ChannelKey), AuthoringSetupDto.Need(DisplayRole), AuthoringSetupDto.Need(YUnit), Limits, History, AuthoringSetupDto.Need(Source).ToSource())),
@@ -182,7 +184,8 @@ public partial class AuthoringDocumentJsonContext : JsonSerializerContext;
 
 public sealed record AuthoringWorkspaceDto
 {
-    public int SchemaVersion { get; set; } = AuthoringDocumentDto.CurrentSchemaVersion;
+    public const int CurrentSchemaVersion = 1;
+    public int SchemaVersion { get; set; } = CurrentSchemaVersion;
     public long Revision { get; set; }
     public DateTimeOffset SavedAtUtc { get; set; } = DateTimeOffset.UtcNow;
     public required AuthoringManifest Manifest { get; set; }

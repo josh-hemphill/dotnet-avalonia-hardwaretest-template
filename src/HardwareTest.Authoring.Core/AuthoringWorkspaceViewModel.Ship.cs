@@ -117,6 +117,9 @@ public sealed partial class AuthoringWorkspaceViewModel
                 case RawStepNode:
                     count++;
                     break;
+                case SectionNode section:
+                    count += CountRaw(section.Children);
+                    break;
                 case RepeatNode repeat:
                     count += CountRaw(repeat.Children);
                     break;

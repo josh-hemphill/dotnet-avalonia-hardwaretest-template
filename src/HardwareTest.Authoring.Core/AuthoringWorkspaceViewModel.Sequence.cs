@@ -138,7 +138,7 @@ public sealed partial class AuthoringWorkspaceViewModel
                 Setup = [.. SelectedProgram.Setup.Where((_, i) => i != index)],
             }));
         }
-        else if (row.Kind is SequenceRowKind.Metric or SequenceRowKind.Repeat or SequenceRowKind.Raw)
+        else if (row.Kind is SequenceRowKind.Metric or SequenceRowKind.Repeat or SequenceRowKind.Section or SequenceRowKind.Raw)
         {
             ReplaceSelected(PruneRemovedNodeState(SelectedProgram with
             {
@@ -235,7 +235,13 @@ public sealed partial class AuthoringWorkspaceViewModel
 
     private void RefreshSequencePresentation()
     {
-        var next = AuthoringSequence.Flatten(SelectedProgram);
+        var allRows = AuthoringSequence.Flatten(SelectedProgram);
+        var remembered = allRows.FirstOrDefault(row => row.NodeId == SelectedDocument?.SelectedNodeId);
+        if (remembered is not null)
+            foreach (var parent in allRows.Where(row => row.IsSection && row.IndexPath.Count < remembered.IndexPath.Count &&
+                remembered.IndexPath.Take(row.IndexPath.Count).SequenceEqual(row.IndexPath)))
+                if (parent.NodeId is { } id) _collapsedSectionIds.Remove(id);
+        var next = VisibleSequence(allRows);
         var structureChanged = !AuthoringSequence.SameKeys(_sequenceItems, next);
         if (structureChanged)
         {
