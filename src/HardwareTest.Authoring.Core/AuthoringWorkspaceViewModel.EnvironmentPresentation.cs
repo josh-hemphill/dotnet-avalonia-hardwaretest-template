@@ -8,11 +8,13 @@ public sealed partial class AuthoringWorkspaceViewModel
     {
         get
         {
+            if (EnvironmentInspectionPending)
+                return new("Checking", "Checking the selected authoring environment.", "You can continue editing while packages are inspected.", string.Empty);
             var inspection = HardwareInspection;
             if (inspection.Error is not null || inspection.Home is null)
                 return new("Cannot inspect", "The selected authoring home cannot be inspected.",
                     "Review the selected home in Settings before preparing packages.", inspection.Error ?? LibraryEnvironmentReadinessText);
-            var available = AuthoringInstrumentCatalog.LibraryReadiness(inspection.Home);
+            var available = _environmentInspection.Library;
             var packages = EnvironmentPackages;
             if (packages.Any(package => package.State == "unsafe installed home"))
                 return new("Cannot inspect", "The selected home contains unsafe package paths.",
@@ -42,15 +44,17 @@ public sealed partial class AuthoringWorkspaceViewModel
     {
         get
         {
+            if (EnvironmentInspectionPending)
+                return new("Checking", "Checking the selected authoring environment.", "You can continue editing while packages are inspected.", string.Empty);
             var inspection = HardwareInspection;
             if (inspection.Error is not null || inspection.Home is null)
                 return new("Cannot inspect", "The selected execution home cannot be inspected.",
                     "Review the selected home in Settings.", StandaloneVisaReadinessText);
-            var readiness = StandaloneVisaReadiness.Assess(inspection.Home);
+            var readiness = _environmentInspection.Visa;
             if (readiness.Available)
                 return new("Provider ready", "The standalone VISA package is ready in this home.",
                     "Install the vendor VISA runtime on the execution machine before using physical hardware. It has not been probed here.", StandaloneVisaReadinessText);
-            var required = RequiresInstrumentLibrary || StandaloneVisaReadiness.RequiresStandaloneReadiness(inspection.Home);
+            var required = _environmentInspection.VisaRequired;
             return required
                 ? new("Needs attention", "The standalone VISA provider or its required packages need repair.",
                     "Prepare this home or import supported package versions. Expand diagnostics for the exact prerequisite.", StandaloneVisaReadinessText)

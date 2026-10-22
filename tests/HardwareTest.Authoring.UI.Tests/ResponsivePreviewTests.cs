@@ -54,6 +54,9 @@ public sealed class ResponsivePreviewTests
             var tabs = window.FindControl<TabControl>("WorkspaceTabs")!;
             tabs.SelectedIndex = 5;
             AuthoringUiFixture.Drain();
+            Assert.True(fixture.Control<OperatorPreviewPane>("Operator preview chrome").IsEffectivelyVisible);
+            await fixture.ViewModel.WaitForPreviewAsync().WaitAsync(TimeSpan.FromSeconds(15));
+            AuthoringUiFixture.Drain();
             CheckPreview();
         }
         finally

@@ -13,10 +13,9 @@ public static partial class AuthoringInstrumentCatalog
     private static readonly Dictionary<string, AuthoringInstrumentAdapter> Library = new(StringComparer.Ordinal);
     private static readonly object LibraryGate = new();
     private static readonly Dictionary<string, string> DiscoveryIssues = new(StringComparer.Ordinal);
-    public static IReadOnlyList<AuthoringInstrumentAdapter> All
-    {
-        get { lock (LibraryGate) return [.. Demo, .. Library.Values]; }
-    }
+    private static AuthoringInstrumentAdapter[] _publishedLibrary = [];
+    // Metadata discovery owns LibraryGate while hashing/loading; UI readers must never wait on it.
+    public static IReadOnlyList<AuthoringInstrumentAdapter> All => [.. Demo, .. Volatile.Read(ref _publishedLibrary)];
     public static bool IsLibrary(string typeId) => typeId.StartsWith("InstrumentComponents.OpenTap.", StringComparison.Ordinal);
 
     /// Only the supported package payload in this home grants creation availability.
@@ -61,6 +60,7 @@ public static partial class AuthoringInstrumentCatalog
                             slot => ConstructLibrary(type, slot), resource => SerializeLibrary(resource))
                         { RequiredPayloadFiles = ["InstrumentComponents.dll"], Description = display?.Description ?? "SCPI instrument" };
                         Library.Add(id, adapter);
+                        Volatile.Write(ref _publishedLibrary, Library.Values.ToArray());
                     }
                     result.Add(adapter);
                 }

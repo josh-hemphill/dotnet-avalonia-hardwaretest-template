@@ -32,6 +32,8 @@ public sealed class AuthoringDeclaredLibraryTuiWindowTests
         var vm = fixture.ViewModel; vm.OpenTapHomeOverride = home.Root; vm.Open(workspace.Root); vm.SelectProgram("sample");
         Assert.False(vm.HasUncompiledSources); Assert.Empty(vm.CompiledConflictProgramIds); Assert.True(vm.RequiresInstrumentLibrary);
         var window = fixture.Show(); window.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 3; AuthoringUiFixture.Drain();
+        await vm.WaitForEnvironmentInspectionAsync();
+        AuthoringUiFixture.Drain();
         var readiness = fixture.Control<TextBlock>("Standalone VISA readiness");
         Assert.True(readiness.IsEffectivelyVisible);
         Assert.Equal("Needs attention", readiness.Text);
@@ -58,6 +60,8 @@ public sealed class AuthoringDeclaredLibraryTuiWindowTests
         workspace.Manifest.Dependencies.RemoveAll(dependency => dependency.Package.Equals(AuthoringInstrumentCatalog.LibraryPackage, StringComparison.OrdinalIgnoreCase));
         AuthoringWorkspaceLoader.SaveManifest(workspace.Root, workspace.Manifest);
         vm.Open(workspace.Root); window.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 3; AuthoringUiFixture.Drain();
+        await vm.WaitForEnvironmentInspectionAsync();
+        AuthoringUiFixture.Drain();
         Assert.False(vm.RequiresInstrumentLibrary);
         Assert.Equal("Optional for mock plans", fixture.Control<TextBlock>("Standalone VISA readiness").Text);
     }

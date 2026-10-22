@@ -11,13 +11,14 @@ public sealed partial class AuthoringWorkspaceViewModel
         => SelectedProgram is { } draft && _documents.TryGetValue(draft.PlanId, out var session) ? session : null;
     public bool CanUndo => Workspace is { IsReadOnly: false } && SelectedDocument?.CanUndo == true && PresentedDocumentMatchesSession();
     public bool CanRedo => Workspace is { IsReadOnly: false } && SelectedDocument?.CanRedo == true && PresentedDocumentMatchesSession();
-    public bool CanUndoWorkspace => Workspace is { IsReadOnly: false } && _workspaceHistory.CanUndo(CaptureWorkspace());
-    public bool CanRedoWorkspace => Workspace is { IsReadOnly: false } && _workspaceHistory.CanRedo(CaptureWorkspace());
+    public bool CanUndoWorkspace => Workspace is { IsReadOnly: false } && _workspaceHistory.HasUndo && _workspaceHistory.CanUndo(CaptureWorkspace());
+    public bool CanRedoWorkspace => Workspace is { IsReadOnly: false } && _workspaceHistory.HasRedo && _workspaceHistory.CanRedo(CaptureWorkspace());
     public string WorkspaceHistoryHint => "Workspace Undo/Redo restores a catalog operation and its affected programs together. Intervening edits must be undone first.";
     public IReadOnlyList<AuthoringEditingIssue> EditingIssues
     {
         get
         {
+            if (_editingIssueDispatch is not null) return _editingIssueCache;
             var inspection = HardwareInspection;
             return Programs.SelectMany(draft => AuthoringIssueService.GetIssues(draft, inspection.Home, inspection.Error, Workspace?.Manifest.Dependencies.Select(d => d.Package).ToArray())).ToArray();
         }
@@ -89,16 +90,15 @@ public sealed partial class AuthoringWorkspaceViewModel
         if (SelectedDocument is { } session) session.SelectedNodeId = SelectedSequence?.NodeId;
     }
 
-    private void InitializeDocuments(IReadOnlyList<ProgramDraft> drafts)
+    private void InitializeDocuments(PreparedAuthoringWorkspace prepared)
     {
         _importedPlanHashes.Clear();
-        foreach (var path in Workspace!.TapPlanPaths)
-            _importedPlanHashes[Path.GetFileNameWithoutExtension(path)] = AuthoringDocumentStore.ComputeHash(path);
+        foreach (var pair in prepared.ImportedPlanHashes) _importedPlanHashes[pair.Key] = pair.Value;
         _documents.Clear();
         _workspaceHistory.Clear();
-        foreach (var draft in drafts)
-            _documents.Add(draft.PlanId, new AuthoringDocumentSession(draft, isSaved: true, isReadOnly: Workspace!.IsReadOnly, revision: new AuthoringDocumentStore(Workspace.Root).Load(draft.PlanId).Document?.Revision ?? 0));
-        Programs = drafts.Select(d => _documents[d.PlanId].Draft).ToArray();
+        for (var index = 0; index < prepared.Documents.Count; index++)
+            _documents.Add(prepared.Programs[index].PlanId, prepared.Documents[index]);
+        Programs = prepared.Programs;
         _savedManifestIdentity = ManifestIdentity();
     }
 
@@ -122,6 +122,7 @@ public sealed partial class AuthoringWorkspaceViewModel
     private void InvalidateContractFindings()
     {
         _findingRevision++;
+        RequestBuildInspection();
         _lastFindingCheckStale = true;
         OnPropertyChanged(nameof(IssuesCheckState));
         Findings = [];

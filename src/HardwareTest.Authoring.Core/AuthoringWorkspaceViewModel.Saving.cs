@@ -8,7 +8,32 @@ public sealed class PreparedAuthoringWorkspace
         Draft = draft;
         PackPreview = packPreview;
         Datasets = datasets;
+        ImportedPlanHashes = draft.Files.TapPlanPaths.ToDictionary(path => Path.GetFileNameWithoutExtension(path),
+            path => AuthoringDocumentStore.ComputeHash(path), StringComparer.OrdinalIgnoreCase);
+        SourceState = AuthoringWorkspaceViewModel.PrepareSourceState(draft.Files, draft.Programs);
+        // Loading and metadata assessment are separate file reads. Never publish an
+        // earlier draft paired with a newer source revision or saved baseline.
+        foreach (var program in draft.Programs)
+        {
+            if (SourceState.Sources.TryGetValue(program.PlanId, out var source)
+                && !AuthoringDocumentSnapshot.Capture(program).ContentEquals(AuthoringDocumentSnapshot.Capture(source.ToDraft())))
+                throw new AuthoringWorkspaceException($"Authoring source for '{program.PlanId}' changed while the workspace was loading. Reopen the workspace to load the current source; the existing session is unchanged.");
+        }
+        Documents = draft.Programs.Select(program => new AuthoringDocumentSession(program,
+            isSaved: true, isReadOnly: draft.Files.IsReadOnly,
+            revision: SourceState.Sources.GetValueOrDefault(program.PlanId)?.Revision ?? 0)).ToArray();
+        Programs = Documents.Select(document => document.Draft).ToArray();
     }
+    private int _consumed;
+    internal void Consume()
+    {
+        if (Interlocked.Exchange(ref _consumed, 1) != 0)
+            throw new AuthoringWorkspaceException("This prepared workspace has already been opened. Prepare it again before opening another session.");
+    }
+    internal AuthoringWorkspaceViewModel.PreparedSourceState SourceState { get; }
+    internal IReadOnlyDictionary<string, string?> ImportedPlanHashes { get; }
+    internal IReadOnlyList<AuthoringDocumentSession> Documents { get; }
+    internal IReadOnlyList<ProgramDraft> Programs { get; }
     internal DraftWorkspace Draft { get; }
     internal WorkspacePackPreview PackPreview { get; }
     internal IReadOnlyList<RunDataset> Datasets { get; }
@@ -49,9 +74,25 @@ public sealed partial class AuthoringWorkspaceViewModel
     private readonly Dictionary<string, string> _saveCompilationWarnings = new(StringComparer.OrdinalIgnoreCase);
     private string? _saveEnvironmentPreviewWarning;
     private bool _savePreviewHasHomePathWarning;
+    private bool _savePreviewAwaitingInspection;
+    private void RefreshDeferredSavePreviewWarning()
+    {
+        if (!_savePreviewAwaitingInspection) { ClearResolvedHomePreviewWarning(); return; }
+        _savePreviewAwaitingInspection = false;
+        var previous = _saveEnvironmentPreviewWarning;
+        _savePreviewHasHomePathWarning = EnvironmentPathError is not null;
+        _saveEnvironmentPreviewWarning = EnvironmentPathError is { } pathError
+            ? $"Packaging preview could not refresh because the OpenTAP home setting is invalid: {pathError}" : null;
+        UpdateSavePreviewWarning();
+        if (previous is not null && Error is { } current)
+            Error = current == previous ? null : current.Replace(Environment.NewLine + previous, string.Empty, StringComparison.Ordinal)
+                .Replace(previous + Environment.NewLine, string.Empty, StringComparison.Ordinal);
+        if (_saveEnvironmentPreviewWarning is { } warning && Error?.Contains(warning, StringComparison.Ordinal) != true)
+            Error = string.IsNullOrEmpty(Error) ? warning : Error + Environment.NewLine + warning;
+    }
     private void ClearResolvedHomePreviewWarning()
     {
-        if (!_savePreviewHasHomePathWarning || EnvironmentPathError is not null) return;
+        if (EnvironmentInspectionPending || !_savePreviewHasHomePathWarning || EnvironmentPathError is not null) return;
         var previous = _saveEnvironmentPreviewWarning;
         _saveEnvironmentPreviewWarning = null; _savePreviewHasHomePathWarning = false;
         UpdateSavePreviewWarning();
@@ -71,6 +112,7 @@ public sealed partial class AuthoringWorkspaceViewModel
     }
     private void ResetSavePreviewWarnings()
     {
+        _savePreviewAwaitingInspection = false;
         _saveCompilationWarnings.Clear(); _saveEnvironmentPreviewWarning = null; _savePreviewHasHomePathWarning = false; SavePreviewWarning = null;
     }
     public string? SavePreviewWarning
@@ -179,6 +221,12 @@ public sealed partial class AuthoringWorkspaceViewModel
         try
         {
             RefreshPackPreview();
+            if (EnvironmentInspectionPending)
+            {
+                _savePreviewAwaitingInspection = true;
+                UpdateSavePreviewWarning();
+                return;
+            }
             _savePreviewHasHomePathWarning = EnvironmentPathError is not null;
             _saveEnvironmentPreviewWarning = EnvironmentPathError is { } pathError ? $"Packaging preview could not refresh because the OpenTAP home setting is invalid: {pathError}" : null;
         }

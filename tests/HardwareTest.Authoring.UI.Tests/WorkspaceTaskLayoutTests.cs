@@ -14,7 +14,7 @@ public sealed class WorkspaceTaskLayoutTests
     [AvaloniaTheory]
     [InlineData(14)]
     [InlineData(20)]
-    public void Actual_checked_findings_remain_usable_with_editing_findings_expanded(int fontSize)
+    public async Task Actual_checked_findings_remain_usable_with_editing_findings_expanded(int fontSize)
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
         var path = Path.Combine(fixture.WorkspaceRoot, "sample.TapPlan");
@@ -24,6 +24,7 @@ public sealed class WorkspaceTaskLayoutTests
         fixture.ViewModel.OpenTapHomeOverride = Path.Combine(fixture.WorkspaceRoot, "unavailable-home");
         fixture.Show(960, 600); fixture.Window!.FontSize = fontSize; fixture.OpenRememberedWorkspace();
         fixture.ViewModel.Validate(); AuthoringUiFixture.Drain();
+        await fixture.WaitForReadinessAsync();
         Assert.NotEmpty(fixture.ViewModel.EditingIssues); Assert.NotEmpty(fixture.ViewModel.FindingRows);
         fixture.Window.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 2; AuthoringUiFixture.Drain();
         fixture.Control<Expander>("Editing findings").IsExpanded = true; AuthoringUiFixture.Drain();
@@ -56,6 +57,7 @@ public sealed class WorkspaceTaskLayoutTests
         AuthoringUiFixture.Drain();
         fixture.Control<Expander>("Editing findings").IsExpanded = true; AuthoringUiFixture.Drain();
         var rows = fixture.Control<ItemsControl>("Editing findings");
+        await fixture.WaitForReadinessAsync();
         Assert.NotEmpty(fixture.ViewModel.EditingIssues);
         MatchesCurrentIssues();
         // Real adapter payload appears without changing the selected path or editing the plan.
@@ -66,8 +68,10 @@ public sealed class WorkspaceTaskLayoutTests
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(45));
         while (fixture.ViewModel.OperationBusy) { AuthoringUiFixture.Drain(); await Task.Delay(10, timeout.Token); }
         AuthoringUiFixture.Drain(); Assert.Null(fixture.ViewModel.Error);
+        await fixture.WaitForReadinessAsync();
         Assert.Empty(fixture.ViewModel.EditingIssues); MatchesCurrentIssues();
         fixture.ViewModel.OpenTapHomeOverride = Path.Combine(fixture.WorkspaceRoot, "other-unavailable-home"); AuthoringUiFixture.Drain();
+        await fixture.WaitForReadinessAsync();
         Assert.NotEmpty(fixture.ViewModel.EditingIssues); MatchesCurrentIssues();
         Assert.False(fixture.ViewModel.HasUnsavedChanges);
 
@@ -81,7 +85,7 @@ public sealed class WorkspaceTaskLayoutTests
     [AvaloniaTheory]
     [InlineData(14)]
     [InlineData(20)]
-    public void Expanded_editing_findings_show_provenance_and_scroll_to_each_real_navigation_action(int fontSize)
+    public async Task Expanded_editing_findings_show_provenance_and_scroll_to_each_real_navigation_action(int fontSize)
     {
         using var fixture = Loaded();
         fixture.ViewModel.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Formula);
@@ -92,6 +96,7 @@ public sealed class WorkspaceTaskLayoutTests
         fixture.ViewModel.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Formula);
         fixture.ViewModel.FormulaSource = "mean(VDC)";
         fixture.ViewModel.Threshold = "";
+        await fixture.WaitForReadinessAsync();
         var issues = fixture.ViewModel.EditingIssues.Where(item => item.Code == AuthoringCompileCodes.MissingLimits).ToArray();
         Assert.Equal(2, issues.Length);
         fixture.Window!.FontSize = fontSize;
@@ -137,18 +142,20 @@ public sealed class WorkspaceTaskLayoutTests
     }
 
     [AvaloniaFact]
-    public void Build_distinguishes_compiled_only_input_from_a_saved_editable_revision_and_keeps_pack_near_readiness()
+    public async Task Build_distinguishes_compiled_only_input_from_a_saved_editable_revision_and_keeps_pack_near_readiness()
     {
         using var fixture = Loaded();
         fixture.Window!.Width = 1280; fixture.Window.Height = 800;
         fixture.Window.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 4;
         AuthoringUiFixture.Drain();
+        await fixture.WaitForReadinessAsync();
         var programs = fixture.Control<ItemsControl>("Build program inclusion");
         Assert.Contains(programs.GetVisualDescendants().OfType<TextBlock>(), text => text.Text == "Compiled input only — no editable source revision");
         var pack = fixture.Control<Button>("Pack workspace");
         ResponsiveShellTests.Inside(pack, fixture.Window!);
         fixture.ViewModel.DisplayName = "Saved editable build title";
         Assert.True(fixture.ViewModel.SaveAll().Succeeded); AuthoringUiFixture.Drain();
+        await fixture.WaitForReadinessAsync();
         Assert.Contains(programs.GetVisualDescendants().OfType<TextBlock>(), text => text.Text?.StartsWith("Saved source revision ", StringComparison.Ordinal) == true);
         Assert.DoesNotContain(programs.GetVisualDescendants().OfType<TextBlock>(), text => text.Text == "Saved source revision ");
     }
@@ -257,10 +264,11 @@ public sealed class WorkspaceTaskLayoutTests
     [AvaloniaTheory]
     [InlineData(false)]
     [InlineData(true)]
-    public void Library_slot_suggestion_changes_only_untouched_input_and_retention_preserves_the_name(bool deliberate)
+    public async Task Library_slot_suggestion_changes_only_untouched_input_and_retention_preserves_the_name(bool deliberate)
     {
         using var fixture = Loaded();
         InstallLibrary(fixture);
+        await fixture.WaitForReadinessAsync();
         var dialog = new PlanInitializationWindow(fixture.ViewModel); dialog.Show(fixture.Window!); AuthoringUiFixture.Drain();
         var slot = fixture.Control<TextBox>("Instrument slot", dialog);
         if (deliberate) slot.Text = "Retained bench name";

@@ -71,13 +71,13 @@ public sealed class AuthoringGuidedOnboardingTests
         AuthoringUiFixture.Click(GuidanceUiActions.Action(fixture, "Preview voltage result"));
         Assert.Equal(5, fixture.Window!.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex);
         AuthoringUiFixture.Click(GuidanceUiActions.Action(fixture, "Save and check draft"));
-        Assert.True(fixture.Control<TextBlock>("Guidance feedback").Text!.Contains("First voltage test complete", StringComparison.Ordinal), fixture.Control<TextBlock>("Guidance feedback").Text);
+        Assert.True(GuidanceUiActions.Feedback(fixture).Text!.Contains("First voltage test complete", StringComparison.Ordinal), GuidanceUiActions.Feedback(fixture).Text);
         var source = new AuthoringDocumentStore(root).Load("first-voltage").Document!; Assert.False(source.RequiresCompilation);
         AuthoringUiFixture.Click(GuidanceUiActions.Action(fixture, "Leave saved guidance"));
         fixture.ViewModel.Open(root); fixture.ViewModel.SelectProgram("first-voltage"); AuthoringUiFixture.Drain();
         Assert.Equal(metric.NodeId, Assert.IsType<MetricNode>(Assert.Single(fixture.ViewModel.SelectedProgram!.Measure)).NodeId);
         AuthoringUiFixture.Click(fixture.Control<Button>("Resume guidance"));
-        Assert.True(fixture.Control<TextBlock>("Guidance feedback").Text!.Contains("First voltage test complete", StringComparison.Ordinal), fixture.Control<TextBlock>("Guidance feedback").Text);
+        Assert.True(GuidanceUiActions.Feedback(fixture).Text!.Contains("First voltage test complete", StringComparison.Ordinal), GuidanceUiActions.Feedback(fixture).Text);
         Assert.Contains("Demo — Mock", fixture.Control<TextBlock>("Guidance hardware mode").Text);
     }
 
@@ -111,7 +111,7 @@ public sealed class AuthoringGuidedOnboardingTests
         Set(fixture, dialog, "Instrument address", "MOCK::bench");
         for (var stage = 0; stage < 4; stage++) Next(fixture, dialog);
         AuthoringUiFixture.Click(fixture.Control<Button>("Create test plan", dialog));
-        var feedback = fixture.Control<TextBlock>("Guidance feedback").Text!;
+        var feedback = GuidanceUiActions.Feedback(fixture).Text!;
         Assert.Contains("need attention", feedback, StringComparison.OrdinalIgnoreCase);
         Assert.Equal("Review issues", fixture.Control<Button>("Guidance next action").Content);
         Assert.Contains("Resolve", fixture.Control<TextBlock>("Guidance next step").Text);
@@ -158,7 +158,7 @@ public sealed class AuthoringGuidedOnboardingTests
         fixture.ViewModel.InitializePlan(new PlanInitializationRequest("viewport-demo") { StartingPoint = PlanStartingPoint.DemoVoltageTask, IdentityInstrumentSlot = "DMM" });
         AuthoringUiFixture.Drain(); AuthoringUiFixture.Click(fixture.Control<Button>("Resume guidance"));
         AuthoringUiFixture.Click(GuidanceUiActions.Action(fixture, "Save and check draft"));
-        Assert.Contains("First voltage test complete", fixture.Control<TextBlock>("Guidance feedback").Text);
+        Assert.Contains("First voltage test complete", GuidanceUiActions.Feedback(fixture).Text);
         var guidance = window.FindControl<Border>("GuidanceHost")!;
         Assert.Single(guidance.GetVisualDescendants().OfType<ScrollViewer>());
         ResponsiveShellTests.Inside(fixture.Control<Button>("Close guidance"), window);
@@ -209,13 +209,13 @@ public sealed class AuthoringGuidedOnboardingTests
         var compiled = fixture.ViewModel.Workspace!.TapPlanPaths.Single(path => Path.GetFileNameWithoutExtension(path) == "viewport-demo");
         File.AppendAllText(compiled, "\n<!-- external change -->\n");
         AuthoringUiFixture.Click(fixture.Control<Button>("Resume guidance"));
-        Assert.DoesNotContain("First voltage test complete", fixture.Control<TextBlock>("Guidance feedback").Text);
+        Assert.DoesNotContain("First voltage test complete", GuidanceUiActions.Feedback(fixture).Text);
     }
 
     [AvaloniaTheory]
     [InlineData("1000")]
     [InlineData("pending")]
-    public void Interval_applies_only_to_acquisition_and_survives_leave_resume_save_and_reopen(string entered)
+    public async Task Interval_applies_only_to_acquisition_and_survives_leave_resume_save_and_reopen(string entered)
     {
         using var fixture = Loaded(); var owner = fixture.Window!;
         owner.Width = 960; owner.Height = 600; owner.FontSize = 20; owner.SetRenderScaling(1.5);
@@ -259,6 +259,7 @@ public sealed class AuthoringGuidedOnboardingTests
         fixture.ViewModel.Open(fixture.WorkspaceRoot); fixture.ViewModel.SelectProgram("retained-interval"); AuthoringUiFixture.Drain();
         var reopened = Assert.IsType<MetricNode>(Assert.Single(fixture.ViewModel.SelectedProgram!.Measure));
         Assert.Equal(metric.NodeId, reopened.NodeId); AssertInterval(fixture.ViewModel.SelectedProgram);
+        await fixture.WaitForReadinessAsync();
         if (entered == "pending") Assert.Contains(fixture.ViewModel.EditingIssues, issue => issue.Message.Contains("IntervalMs", StringComparison.Ordinal));
 
         static void Compact(Window window)

@@ -238,6 +238,7 @@ public sealed class AuthoringPlanInitializationTests : IDisposable
         Assert.Contains(vm.EditingIssues, issue => issue.PlanId == "new-plan" && issue.Code == "INSTRUMENT_UNAVAILABLE" && issue.Message.Contains(home, StringComparison.Ordinal));
         vm.OpenTapHomeOverride = available;
         File.Delete(Path.Combine(package, adapter.AssemblyFile));
+        vm.RefreshEnvironmentInspection();
         Assert.Contains(vm.EditingIssues, issue => issue.PlanId == "new-plan" && issue.Code == "INSTRUMENT_UNAVAILABLE" && issue.Message.Contains(adapter.AssemblyFile, StringComparison.Ordinal));
         Assert.Contains(adapter.AssemblyFile, Assert.Single(vm.HardwareRows).PackageStatus);
         vm.SaveProgram("new-plan"); Assert.False(vm.HasUnsavedChanges);

@@ -62,14 +62,23 @@ public partial class WorkspacePreviewView : UserControl
         {
             var path = await _recordingPicker.PickAsync(owner);
             if (string.IsNullOrWhiteSpace(path) || !CurrentSession()) return false;
-            vm.ImportRecording(path);
-            return true;
+            return await vm.ImportRecordingAsync(path, ownerIsCurrent: CurrentSession);
         }
         catch (Exception error) when (error is AuthoringWorkspaceException or IOException or UnauthorizedAccessException)
         {
             if (CurrentSession()) vm.ReportError(error.Message);
             return false;
         }
+    }
+
+    private async void OnRefreshRecordings(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not AuthoringWorkspaceViewModel vm || TopLevel.GetTopLevel(this) is not { IsVisible: true } owner) return;
+        var session = vm.WorkspaceSessionId;
+        bool Current() => owner.IsVisible && ReferenceEquals(DataContext, vm) && session == vm.WorkspaceSessionId;
+        try { await vm.RefreshRecordingsAsync(Current); }
+        catch (Exception error) when (error is AuthoringWorkspaceException or IOException or UnauthorizedAccessException)
+        { if (Current()) vm.ReportError(error.Message); }
     }
 
     private async void OnOpenRecordingFolder(object? sender, RoutedEventArgs e) => await OpenRecordingFolderAsync();
@@ -85,7 +94,7 @@ public partial class WorkspacePreviewView : UserControl
         try
         {
             var path = RunDatasetCatalog.ResolveRecordingsRoot(workspace);
-            if (!Directory.Exists(path)) { if (Current()) vm.ReportError("No recordings folder yet. Import a recording to create it."); return; }
+            if (!await Task.Run(() => Directory.Exists(path))) { if (Current()) vm.ReportError("No recordings folder yet. Import a recording to create it."); return; }
             if (!Current()) return;
             var opened = await (_launchRecordingFolder?.Invoke(owner, new DirectoryInfo(path))
                 ?? owner.Launcher.LaunchDirectoryInfoAsync(new DirectoryInfo(path)));

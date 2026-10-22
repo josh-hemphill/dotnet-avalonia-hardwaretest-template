@@ -153,6 +153,7 @@ public sealed partial class PlanInitializationWindow : Window
         ShowDestination();
         if (retained is not null) RestoreGuidedForm(retained);
         ShowHardware(); ShowStage();
+        ObserveHardwareChoices();
         if (guided && retained is not null && _stage >= 4)
         {
             try { Review(); }

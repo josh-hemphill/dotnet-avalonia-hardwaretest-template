@@ -82,7 +82,7 @@
               <StackPanel Spacing="12">
                 <TextBlock Text="Selected definition configuration" Classes="sectionTitle" TextWrapping="Wrap" AutomationProperties.HeadingLevel="3"/>
                 <TextBlock x:Name="BindingTypeLabel" Text="Adapter type"/>
-                <ComboBox ItemsSource="{Binding InstrumentTypeChoices}" SelectedItem="{Binding HardwareEditType}" AutomationProperties.Name="Hardware adapter type" AutomationProperties.LabeledBy="{Binding #BindingTypeLabel}">
+                <ComboBox ItemsSource="{Binding InstrumentTypeChoices}" SelectedItem="{Binding HardwareEditType, Mode=OneWay}" SelectionChanged="OnHardwareEditTypeChanged" AutomationProperties.Name="Hardware adapter type" AutomationProperties.LabeledBy="{Binding #BindingTypeLabel}">
                   <ComboBox.ItemTemplate>
                     <DataTemplate x:DataType="vm:AuthoringInstrumentAdapter">
                       <TextBlock Text="{Binding DisplayName}"/>

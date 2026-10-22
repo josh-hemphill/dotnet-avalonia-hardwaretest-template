@@ -21,6 +21,8 @@ public sealed class AuthoringDocumentSession
     public AuthoringHistory History { get; } = new();
     public bool IsReadOnly { get; }
     public long Revision { get; private set; }
+    public string? SavedPlanIdentity => _savedPlan;
+    public string? SavedSidecarIdentity => _savedSidecar;
     public bool IsPlanDirty => _savedPlan != _current.PlanIdentity;
     public bool IsSidecarDirty => _savedSidecar != _current.SidecarIdentity;
     public bool IsDirty => IsPlanDirty || IsSidecarDirty;
