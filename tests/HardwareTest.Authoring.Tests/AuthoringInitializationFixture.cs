@@ -11,6 +11,10 @@ internal static class AuthoringInitializationFixture
                 new InstrumentRef(slot, AuthoringInstrumentCatalog.All.Single(adapter => adapter.DisplayName == "Mock DMM").TypeId, slot == "DMM" ? "MOCK::INSTR0" : "MOCK::" + slot)).ToArray(),
             IdentityInstrumentSlot = "DMM"
         });
+        // These shared editor fixtures deliberately use a flat middle sequence.
+        // Production initialization and dedicated section tests retain the ordinary Measure section.
+        var section = (SectionNode)vm.SelectedProgram!.Measure.Single();
+        vm.ReplaceSelected(vm.SelectedProgram with { Measure = section.Children });
         vm.DisplayName += " edited";
     }
 }

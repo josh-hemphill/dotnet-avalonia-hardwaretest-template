@@ -28,7 +28,7 @@ public sealed partial class AuthoringWorkspaceViewModel
             _openingDatasets = datasets;
             try { SelectProgram(planId); }
             finally { _openingDatasets = null; }
-            await WaitForPreviewAsync();
+            await Task.WhenAll(WaitForPreviewAsync(), WaitForMovementAvailabilityAsync(), WaitForRecipeAvailabilityAsync());
             return ownerIsCurrent() && session == WorkspaceSessionId;
         }
         finally
@@ -61,11 +61,13 @@ public sealed partial class AuthoringWorkspaceViewModel
             do
             {
                 await Task.WhenAll(WaitForPreviewAsync(), WaitForEnvironmentInspectionAsync(),
-                    WaitForBuildInspectionAsync(), WaitForEditingIssuesAsync());
+                    WaitForBuildInspectionAsync(), WaitForEditingIssuesAsync(),
+                    WaitForMovementAvailabilityAsync(), WaitForRecipeAvailabilityAsync());
                 if (openedSession != WorkspaceSessionId || _previewOwner?.Invoke() == false) return false;
                 // Environment publication can invalidate preview and issue snapshots after
                 // their previous idle tasks completed. Await the latest generation as well.
-            } while (EnvironmentInspectionPending || BuildInspectionBusy || EditingIssuesBusy || PreviewBusy);
+            } while (EnvironmentInspectionPending || BuildInspectionBusy || EditingIssuesBusy || PreviewBusy
+                || !WaitForMovementAvailabilityAsync().IsCompleted || !WaitForRecipeAvailabilityAsync().IsCompleted);
             // The original owner predicate may intentionally include the previous session.
             // Commit replaced it; desktop pipeline ownership now guards the new session.
             return openedSession == WorkspaceSessionId && _previewOwner?.Invoke() != false;

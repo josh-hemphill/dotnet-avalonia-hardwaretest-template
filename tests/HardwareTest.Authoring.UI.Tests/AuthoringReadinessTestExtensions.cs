@@ -15,12 +15,15 @@ internal static class AuthoringReadinessTestExtensions
             await vm.WaitForBuildInspectionAsync(timeout.Token);
             await vm.WaitForEditingIssuesAsync(timeout.Token);
             await vm.WaitForPreviewAsync(timeout.Token);
+            await vm.WaitForMovementAvailabilityAsync().WaitAsync(timeout.Token);
+            await vm.WaitForRecipeAvailabilityAsync().WaitAsync(timeout.Token);
             AuthoringUiFixture.Drain();
             // Publishing one snapshot can invalidate another. Inspect the latest idle
             // tasks after dispatch rather than retaining a completed earlier generation.
             if (!vm.EnvironmentInspectionPending && !vm.BuildInspectionBusy && !vm.EditingIssuesBusy && !vm.PreviewBusy
                 && vm.WaitForEnvironmentInspectionAsync().IsCompleted && vm.WaitForBuildInspectionAsync().IsCompleted
-                && vm.WaitForEditingIssuesAsync().IsCompleted && vm.WaitForPreviewAsync().IsCompleted) return;
+                && vm.WaitForEditingIssuesAsync().IsCompleted && vm.WaitForPreviewAsync().IsCompleted
+                && vm.WaitForMovementAvailabilityAsync().IsCompleted && vm.WaitForRecipeAvailabilityAsync().IsCompleted) return;
             await Task.Delay(1, timeout.Token);
         }
     }

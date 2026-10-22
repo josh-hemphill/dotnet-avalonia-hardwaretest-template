@@ -51,6 +51,7 @@ public sealed class PackProtectionTests : IDisposable
     {
         var vm = new AuthoringWorkspaceViewModel();
         vm.Open(_workspace);
+        Assert.True(vm.SaveAll().Succeeded); // Persist imported sections so preflight reaches home compatibility checks.
         var configured = Path.Combine(_root, "configured");
         vm.OpenTapHomeOverride = configured;
         var checker = new RecordingBlocker();

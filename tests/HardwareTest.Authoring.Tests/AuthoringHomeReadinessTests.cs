@@ -31,7 +31,9 @@ public sealed class AuthoringHomeReadinessTests : IDisposable
     {
         var root = AuthoringBuildSnapshotTests.Workspace(); var workspace = AuthoringWorkspaceLoader.Load(root);
         var original = AuthoringBuildSnapshotTests.Home(workspace); var replacement = AuthoringBuildSnapshotTests.Home(workspace);
-        var vm = new AuthoringWorkspaceViewModel(); vm.Open(root); vm.OpenTapHomeOverride = original.Root;
+        var vm = new AuthoringWorkspaceViewModel(); vm.Open(root);
+        Assert.True(vm.SaveAll().Succeeded); // Persist imported configurable sections before testing build readiness.
+        vm.OpenTapHomeOverride = original.Root;
         var callbacks = 0;
         vm.Pack(AuthoringBuildSnapshotTests.Temp(), new PackOptions { Home = original, Offline = true, PreflightCompleted = _ => { callbacks++; vm.OpenTapHomeOverride = replacement.Root; } });
         Assert.True(callbacks > 0); Assert.False(vm.HasUnsavedChanges); Assert.Equal(replacement.Root, vm.OpenTapHomeOverride);
@@ -55,7 +57,9 @@ public sealed class AuthoringHomeReadinessTests : IDisposable
         var rendered = AuthoringBuildSnapshotTests.Home(workspace);
         var actual = matching ? rendered : AuthoringBuildSnapshotTests.Home(workspace);
         var compatibility = AuthoringBuildSnapshotTests.Home(workspace);
-        var vm = new AuthoringWorkspaceViewModel(); vm.Open(root); vm.OpenTapHomeOverride = rendered.Root;
+        var vm = new AuthoringWorkspaceViewModel(); vm.Open(root);
+        Assert.True(vm.SaveAll().Succeeded); // Persist imported configurable sections before testing home identity.
+        vm.OpenTapHomeOverride = rendered.Root;
         vm.Pack(AuthoringBuildSnapshotTests.Temp(), new PackOptions
         {
             Home = selection == "home" ? actual : null,
@@ -103,6 +107,7 @@ public sealed class AuthoringHomeReadinessTests : IDisposable
     public void Genuinely_missing_home_directory_stays_eligible_for_preparation_first_build()
     {
         var root = AuthoringBuildSnapshotTests.Workspace(); var vm = new AuthoringWorkspaceViewModel(); vm.Open(root);
+        Assert.True(vm.SaveAll().Succeeded); // The missing home is the only preparation prerequisite under test.
         var path = Path.Combine(root, "missing-parent", "missing-home"); vm.OpenTapHomeOverride = path;
         Assert.True(WorkspacePackPlan.TryResolveHomePath(vm.Workspace!, path, out var resolved, out var error));
         Assert.Equal(path, resolved); Assert.Null(error); Assert.Null(vm.EnvironmentPathError); Assert.Equal(path, vm.AuthoringHomeText); Assert.True(vm.CanPack);

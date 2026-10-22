@@ -20,6 +20,13 @@ internal sealed class AuthoringUiFixture : IDisposable
             File.Copy(file, Path.Combine(WorkspaceRoot, Path.GetFileName(file)));
         }
 
+        // Most existing interaction tests use an explicitly flat modern sequence.
+        // Dedicated legacy migration tests remove this marker before opening the fixture.
+        var samplePath = Path.Combine(WorkspaceRoot, "sample.TapPlan");
+        var sample = System.Xml.Linq.XDocument.Load(samplePath);
+        sample.Root!.SetAttributeValue(AuthoringMeasureSections.CompiledLayoutAttribute, "true");
+        sample.Save(samplePath);
+
         Preferences = new AuthoringPreferencesStore(Path.Combine(_root, "preferences", AuthoringPreferencesStore.FileName));
         Preferences.Load();
         if (rememberWorkspace)

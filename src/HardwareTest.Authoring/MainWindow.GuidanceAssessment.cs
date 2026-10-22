@@ -105,7 +105,7 @@ public partial class MainWindow
             var blockers = AuthoringIssueService.GetIssues(draft, validHome ? new OpenTapHome(homePath!) : null, homeError, request.Packages)
                 .Select(issue => issue.Message).ToArray();
             var store = new AuthoringDocumentStore(request.Root);
-            var loaded = store.Load(draft.PlanId);
+            var loaded = AuthoringMeasureSections.Normalize(store.Load(draft.PlanId));
             if (loaded.IsReadOnly || loaded.Document is not { } source)
                 throw new AuthoringWorkspaceException(loaded.Error ?? "Saved authoring source is missing or uses an unsupported schema.");
             var saved = AuthoringDocumentSnapshot.Capture(source.ToDraft());

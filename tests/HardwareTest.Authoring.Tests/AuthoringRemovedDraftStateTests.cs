@@ -11,7 +11,7 @@ public sealed class AuthoringRemovedDraftStateTests
     public void RemovingNestedIncompleteMetricOrExplorationFormulaPrunesStateAndUndoRestoresIt(bool exploration)
     {
         var root = Workspace();
-        var vm = new AuthoringWorkspaceViewModel(); vm.Open(root);
+        var vm = OpenCompiledWorkspace(root);
         vm.CreateDemoProgram("removed-state"); vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Acquire);
         var acquire = Assert.IsType<MetricNode>(vm.SelectedProgram!.Measure[0]);
         var temporary = new MetricNode(new MetricDraft("temporary", "temporary", "scalar", "V", new LimitSpec(null, null, 2), null,
@@ -43,7 +43,7 @@ public sealed class AuthoringRemovedDraftStateTests
     [Fact]
     public void UnwrappingIncompleteRepeatPrunesOnlyRepeatStateAndRetainsChildState()
     {
-        var root = Workspace(); var vm = new AuthoringWorkspaceViewModel(); vm.Open(root);
+        var root = Workspace(); var vm = OpenCompiledWorkspace(root);
         vm.CreateDemoProgram("unwrap-state"); vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Acquire);
         var metric = Assert.IsType<MetricNode>(vm.SelectedProgram!.Measure[0]);
         var repeat = new RepeatNode(2, [metric]);
@@ -59,6 +59,17 @@ public sealed class AuthoringRemovedDraftStateTests
         vm.Apply(); Assert.False(vm.HasUncompiledSources);
         vm.Undo(); Assert.Equal("-", vm.SelectedProgram!.AuthoringState.IncompleteNumericText[AuthoringDocumentState.FieldKey(repeat.NodeId, nameof(vm.RepeatCount))]);
         vm.StopRecovery();
+    }
+
+    private static AuthoringWorkspaceViewModel OpenCompiledWorkspace(string root)
+    {
+        var vm = new AuthoringWorkspaceViewModel();
+        vm.Open(root);
+        // Legacy fixture plans acquire configurable Measure sections when opened.
+        // Compile that migration before asserting workspace-wide save state below.
+        foreach (var id in vm.Programs.Select(program => program.PlanId).ToArray()) vm.SaveProgram(id);
+        Assert.False(vm.HasUncompiledSources);
+        return vm;
     }
 
     private static string Workspace()

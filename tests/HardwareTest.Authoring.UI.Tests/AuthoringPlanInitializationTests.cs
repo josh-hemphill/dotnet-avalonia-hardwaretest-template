@@ -187,7 +187,9 @@ public sealed class AuthoringPlanInitializationTests
         AuthoringUiFixture.Click(fixture.Control<Button>("Create test plan", dialog));
         var draft = fixture.ViewModel.SelectedProgram!; Assert.Equal("DMM", Assert.Single(draft.Instruments).SlotName);
         Assert.Single(draft.Setup.OfType<IdentitySetup>()); Assert.Equal(["DMM"], draft.Cleanup.InstrumentSlots);
-        var metric = Assert.IsType<MetricNode>(Assert.Single(draft.Measure)); Assert.Equal("rail.mean", metric.Metric.ChannelKey); Assert.Equal(1.25, metric.Metric.Limits!.Threshold);
+        var section = Assert.IsType<SectionNode>(Assert.Single(draft.Measure));
+        Assert.Equal("Measure", section.Name);
+        var metric = Assert.IsType<MetricNode>(Assert.Single(section.Children)); Assert.Equal("rail.mean", metric.Metric.ChannelKey); Assert.Equal(1.25, metric.Metric.Limits!.Threshold);
         Assert.False(File.Exists(Path.Combine(fixture.WorkspaceRoot, "demo-task.TapPlan")));
     }
 
@@ -206,7 +208,9 @@ public sealed class AuthoringPlanInitializationTests
         fixture.Control<CheckBox>("Include first measurement", dialog).IsChecked = false;
         Next(fixture, dialog, "Review and create"); Assert.Contains("VoltageTask", fixture.Control<TextBlock>("Initialization review", dialog).Text);
         AuthoringUiFixture.Click(fixture.Control<Button>("Create test plan", dialog));
-        Assert.Empty(fixture.ViewModel.SelectedProgram!.Measure); Assert.Empty(fixture.ViewModel.SelectedProgram.Instruments); Assert.False(fixture.ViewModel.HasUnsavedChanges);
+        var section = Assert.IsType<SectionNode>(Assert.Single(fixture.ViewModel.SelectedProgram!.Measure));
+        Assert.Equal("Measure", section.Name); Assert.Empty(section.Children);
+        Assert.Empty(fixture.ViewModel.SelectedProgram.Instruments); Assert.False(fixture.ViewModel.HasUnsavedChanges);
         AuthoringUiFixture.Click(fixture.Control<Button>("New test plan")); dialog = Assert.IsType<PlanInitializationWindow>(Assert.Single(fixture.Window.OwnedWindows));
         dialog.KeyPress(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, null); AuthoringUiFixture.Drain();
         Assert.Empty(fixture.Window.OwnedWindows); Assert.Equal(["optional-task"], new AuthoringDocumentStore(fixture.WorkspaceRoot).ListDocumentIds());
@@ -254,7 +258,9 @@ public sealed class AuthoringPlanInitializationTests
         Assert.Contains(vm.EnvironmentPathError!, fixture.Control<TextBlock>("Initialization review", dialog).Text);
         AuthoringUiFixture.Click(fixture.Control<Button>("Create test plan", dialog));
         Assert.Empty(fixture.Window.OwnedWindows); Assert.False(vm.HasUnsavedChanges);
-        Assert.Empty(vm.SelectedProgram!.Instruments); Assert.Empty(vm.SelectedProgram.Measure);
+        Assert.Empty(vm.SelectedProgram!.Instruments);
+        var section = Assert.IsType<SectionNode>(Assert.Single(vm.SelectedProgram.Measure));
+        Assert.Equal("Measure", section.Name); Assert.Empty(section.Children);
         await fixture.WaitForReadinessAsync(); Assert.Contains(vm.EditingIssues, issue => issue.PlanId == "invalid-home-empty" && issue.Code == "INVALID_OPENTAP_HOME");
         Assert.NotEmpty(vm.IssuesSummary);
         vm.SaveProgram("invalid-home-empty"); vm.Open(fixture.WorkspaceRoot); vm.SelectProgram("invalid-home-empty"); AuthoringUiFixture.Drain();
@@ -307,6 +313,8 @@ public sealed class AuthoringPlanInitializationTests
     {
         using var fixture = Loaded();
         fixture.ViewModel.InitializePlan(new PlanInitializationRequest("enum-task") { StartingPoint = PlanStartingPoint.DemoVoltageTask });
+        var sequence = fixture.Control<ListBox>("Program sequence");
+        sequence.SelectedIndex = fixture.ViewModel.SequenceItems.ToList().FindIndex(row => row.Kind == SequenceRowKind.Metric);
         AuthoringUiFixture.Drain();
         Assert.False(fixture.ViewModel.HasUnsavedChanges); Assert.False(fixture.ViewModel.CanUndo);
         var settings = fixture.Control<ItemsControl>("Recipe settings");
@@ -352,11 +360,13 @@ public sealed class AuthoringPlanInitializationTests
             IdentityInstrumentSlot = "DMM",
             Measurement = new(AuthoringRecipeIds.MeanGte, "DMM")
         });
+        var sequence = fixture.Control<ListBox>("Program sequence");
+        sequence.SelectedIndex = vm.SequenceItems.ToList().FindIndex(row => row.Kind == SequenceRowKind.Metric);
+        AuthoringUiFixture.Drain();
         vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Repeat);
         for (var level = 1; level < loopDepth; level++)
             vm.ReplaceSelected(vm.SelectedProgram! with { Measure = [new RepeatNode(2, vm.SelectedProgram!.Measure)] });
         Assert.True(vm.SaveAll().Succeeded); await fixture.WaitForReadinessAsync(); Assert.True(vm.CanPack); AuthoringUiFixture.Drain();
-        var sequence = fixture.Control<ListBox>("Program sequence");
         sequence.SelectedIndex = vm.SequenceItems.ToList().FindIndex(row => row.Kind == SequenceRowKind.Metric); AuthoringUiFixture.Drain();
         var id = vm.SelectedSequence!.NodeId;
         var remove = fixture.Control<Button>("Remove selected"); remove.BringIntoView(); AuthoringUiFixture.Drain(); Assert.True(remove.Focus());
@@ -370,7 +380,7 @@ public sealed class AuthoringPlanInitializationTests
         AuthoringUiFixture.Click(fixture.Control<Button>("Save all")); Assert.True(vm.LastSaveAllResult!.Succeeded); Assert.False(vm.HasUnsavedChanges); Assert.False(vm.CanPack);
         vm.Apply(); Assert.False(vm.CanPack);
         vm.Open(fixture.WorkspaceRoot); vm.SelectProgram("nested-task"); AuthoringUiFixture.Drain();
-        Assert.IsType<RepeatNode>(Assert.Single(vm.SelectedProgram!.Measure)); Assert.False(vm.CanPack);
+        Assert.Equal(loopDepth, vm.SequenceItems.Count(row => row.Kind == SequenceRowKind.Repeat)); Assert.False(vm.CanPack);
         fixture.Window!.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 4; AuthoringUiFixture.Drain();
         Assert.False(fixture.Control<Button>("Pack workspace").IsEffectivelyEnabled);
         await fixture.WaitForReadinessAsync(); Assert.Contains(vm.EditingIssues, issue => issue.Code == "EMPTY_MEASURE" && issue.PlanId == "nested-task");

@@ -164,7 +164,8 @@ public sealed class AuthoringGuidedRecoveryTests
             if (changed == "threshold")
             {
                 other.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 0;
-                external.SelectMeasure(0); AuthoringUiFixture.Drain(); fixture.Control<TextBox>("Threshold", other).Text = "2.75";
+                external.SelectSequence(external.SequenceItems.ToList().FindIndex(row => row.Kind == SequenceRowKind.Metric));
+                AuthoringUiFixture.Drain(); fixture.Control<TextBox>("Threshold", other).Text = "2.75";
             }
             else if (changed == "binding") external.VisaAddress = "MOCK::SECOND";
             else
@@ -177,7 +178,7 @@ public sealed class AuthoringGuidedRecoveryTests
             Assert.False(external.HasUnsavedChanges); Assert.Null(external.Error);
             var saved = new AuthoringDocumentStore(fixture.WorkspaceRoot).Load("external-guide").Document!;
             Assert.False(saved.RequiresCompilation);
-            if (changed == "threshold") Assert.Equal(2.75, Assert.IsType<MetricNode>(Assert.Single(saved.ToDraft().Measure)).Metric.Limits!.Threshold);
+            if (changed == "threshold") Assert.Equal(2.75, Assert.Single(AuthoringRecipeCatalog.EnumerateMetrics(saved.ToDraft().Measure)).Limits!.Threshold);
             else if (changed == "binding") Assert.Equal("MOCK::SECOND", Assert.Single(saved.Instruments).VisaAddress);
             else Assert.Equal("Saved by the second instance", saved.Sidecar.DisplayName);
             var replacement = AuthoringDocumentSnapshot.Capture(saved.ToDraft()); Assert.False(original.ContentEquals(replacement));

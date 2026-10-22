@@ -7,29 +7,40 @@ public sealed partial class AuthoringWorkspaceViewModel
     private readonly HashSet<Guid> _collapsedSectionIds = [];
     private string _newSectionName = string.Empty;
     private AuthoringSectionDestination? _selectedSectionDestination;
+    private IReadOnlyList<SequenceRow> _allSectionRows = [];
+    private IReadOnlyList<SequenceRow>? _destinationSourceRows;
+    private Guid? _destinationSelectedNode;
+    private IReadOnlyList<AuthoringSectionDestination> _sectionDestinationCache = [new(null, "Test steps outside sections")];
     public string NewSectionName { get => _newSectionName; set => SetField(ref _newSectionName, value); }
     public bool HasSectionEditor => SelectedMeasure is SectionNode;
     public bool CanToggleSelectedSection => SelectedSequence?.IsSection == true;
     public string SelectedSectionToggleLabel => SelectedSequence?.SectionToggleLabel ?? "Collapse section";
-    public IReadOnlyList<AuthoringSectionDestination> SectionDestinations =>
-        [new(null, "Measure — outside sections"), .. AuthoringSequence.Flatten(SelectedProgram)
-            .Where(row => row.IsSection && (SelectedSequence is not { } selected ||
-                !row.IndexPath.Take(selected.IndexPath.Count).SequenceEqual(selected.IndexPath)))
-            .Select(row => new AuthoringSectionDestination(row.NodeId, new string(' ', row.Depth * 2) + row.Label))];
+    public IReadOnlyList<AuthoringSectionDestination> SectionDestinations
+    {
+        get
+        {
+            var selected = SelectedSequence;
+            if (ReferenceEquals(_destinationSourceRows, _allSectionRows) && _destinationSelectedNode == selected?.NodeId)
+                return _sectionDestinationCache;
+            // RefreshSequencePresentation already projects all rows, including collapsed
+            // descendants. Reuse it rather than traversing/cloning the plan per binding.
+            _destinationSourceRows = _allSectionRows;
+            _destinationSelectedNode = selected?.NodeId;
+            _sectionDestinationCache = [new(null, "Test steps outside sections"), .. _allSectionRows
+                .Where(row => row.IsSection && (selected is null || selected.Section != SequenceSection.Measure ||
+                    !row.IndexPath.Take(selected.IndexPath.Count).SequenceEqual(selected.IndexPath)))
+                .Select(row => new AuthoringSectionDestination(row.NodeId, new string(' ', row.Depth * 2) + row.Label))];
+            return _sectionDestinationCache;
+        }
+    }
     public AuthoringSectionDestination? SelectedSectionDestination
     {
         get => SectionDestinations.FirstOrDefault(choice => choice.NodeId == _selectedSectionDestination?.NodeId) ?? SectionDestinations[0];
-        set { if (SetField(ref _selectedSectionDestination, value)) OnPropertyChanged(nameof(CanMoveToSection)); }
+        set { if (SetField(ref _selectedSectionDestination, value)) RequestMovementAvailability(); }
     }
-    public bool CanMoveToSection => CanEditSequence && SelectedSequence?.Section == SequenceSection.Measure && SelectedSectionDestination is not null;
+    public bool CanMoveToSection => _movementAvailability.ToSection;
     public void AddSection() => SequenceTransaction(draft => AuthoringSequenceOperations.AddSection(draft, NewSectionName), "Section added");
-    public void MoveSelectedToSection()
-    {
-        var destination = SelectedSectionDestination?.NodeId;
-        if (destination is { } id) _collapsedSectionIds.Remove(id);
-        SequenceTransaction(draft => AuthoringSequenceOperations.MoveToSection(draft,
-            SelectedSequence ?? throw new AuthoringWorkspaceException("Select a step or section."), destination), "Moved to section");
-    }
+    public void MoveSelectedToSection() => ApplyPreparedMove(null);
     public void ToggleSelectedSection()
     {
         if (SelectedSequence is not { IsSection: true, NodeId: { } id }) return;

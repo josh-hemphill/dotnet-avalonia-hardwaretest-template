@@ -104,6 +104,13 @@ public sealed class AuthoringDraftReviewRegressionTests
         Directory.CreateDirectory(root);
         foreach (var file in Directory.EnumerateFiles(Path.Combine(dir!.FullName, "plans", "opentap")))
             File.Copy(file, Path.Combine(root, Path.GetFileName(file)));
+        // Persistence regressions are independent of legacy section-layout migration.
+        foreach (var path in Directory.EnumerateFiles(root, "*.TapPlan"))
+        {
+            var xml = System.Xml.Linq.XDocument.Load(path);
+            xml.Root!.SetAttributeValue(AuthoringMeasureSections.CompiledLayoutAttribute, "true");
+            xml.Save(path);
+        }
         return root;
     }
 }

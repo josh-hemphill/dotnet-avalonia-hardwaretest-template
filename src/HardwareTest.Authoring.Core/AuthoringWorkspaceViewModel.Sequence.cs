@@ -76,7 +76,15 @@ public sealed partial class AuthoringWorkspaceViewModel
     public string InspectorBreadcrumb
         => SelectedSequence is null
             ? AuthoringChrome.InspectorEmptySelectionHint
-            : $"{SelectedSequence.Section} › {SelectedSequence.Label}";
+            : $"{SequenceSectionLabel(SelectedSequence.Section)} › {SelectedSequence.Label}";
+
+    private static string SequenceSectionLabel(SequenceSection section) => section switch
+    {
+        SequenceSection.Setup => AuthoringChrome.SetupHeader,
+        SequenceSection.Measure => AuthoringChrome.MeasureHeader,
+        SequenceSection.Cleanup => AuthoringChrome.CleanupHeader,
+        _ => section.ToString()
+    };
 
     public string RepeatCount
     {
@@ -236,6 +244,7 @@ public sealed partial class AuthoringWorkspaceViewModel
     private void RefreshSequencePresentation()
     {
         var allRows = AuthoringSequence.Flatten(SelectedProgram);
+        _allSectionRows = allRows;
         var remembered = allRows.FirstOrDefault(row => row.NodeId == SelectedDocument?.SelectedNodeId);
         if (remembered is not null)
             foreach (var parent in allRows.Where(row => row.IsSection && row.IndexPath.Count < remembered.IndexPath.Count &&

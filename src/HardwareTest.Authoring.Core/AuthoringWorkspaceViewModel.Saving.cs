@@ -10,7 +10,7 @@ public sealed class PreparedAuthoringWorkspace
         Datasets = datasets;
         ImportedPlanHashes = draft.Files.TapPlanPaths.ToDictionary(path => Path.GetFileNameWithoutExtension(path),
             path => AuthoringDocumentStore.ComputeHash(path), StringComparer.OrdinalIgnoreCase);
-        SourceState = AuthoringWorkspaceViewModel.PrepareSourceState(draft.Files, draft.Programs);
+        SourceState = AuthoringWorkspaceViewModel.PrepareSourceState(draft.Files, draft.Programs, draft.MeasureSectionMigrations);
         // Loading and metadata assessment are separate file reads. Never publish an
         // earlier draft paired with a newer source revision or saved baseline.
         foreach (var program in draft.Programs)
@@ -142,7 +142,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         var saved = new List<string>();
         var failures = new List<ProgramSaveFailure>();
         var verificationWarnings = new List<string>();
-        var dirtyPrograms = DirtyProgramIds.ToArray();
+        var dirtyPrograms = DirtyProgramIds.Concat(_measureSectionMigrations).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
         var canPublish = true;
         WorkspaceCatalogSaveFailure = null;
         if (dirtyPrograms.Length > 0 || WorkspaceCatalogDirty || HasCurrentFindingCheck)
@@ -269,6 +269,7 @@ public sealed partial class AuthoringWorkspaceViewModel
             compiledSidecarHash: baseline?.CompiledSidecarHash ?? AuthoringDocumentStore.ComputeHash(existing is null ? null : PlanCompiler.SidecarPath(existing)));
         document.RequiresCompilation = savePlan || sidecarOnly || actualDirty.PlanDirty || actualDirty.SidecarDirty || baseline?.RequiresCompilation == true;
         store.Save(document);
+        _measureSectionMigrations.Remove(planId);
         if (document.RequiresCompilation) _uncompiledDocuments.Add(planId);
         _sourceDocuments[planId] = document;
         _recovery?.Cancel(workspace.Root, planId);

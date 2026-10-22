@@ -136,6 +136,14 @@ public sealed class AuthoringDurableDraftIntegrationTests
         Directory.CreateDirectory(root);
         foreach (var file in Directory.EnumerateFiles(Path.Combine(dir!.FullName, "plans", "opentap")))
             File.Copy(file, Path.Combine(root, Path.GetFileName(file)));
+        // These tests exercise saved-input guards, not legacy section migration.
+        // Keep the copied flat plans as an intentional current authoring layout.
+        foreach (var path in Directory.EnumerateFiles(root, "*.TapPlan"))
+        {
+            var xml = System.Xml.Linq.XDocument.Load(path);
+            xml.Root!.SetAttributeValue(AuthoringMeasureSections.CompiledLayoutAttribute, "true");
+            xml.Save(path);
+        }
         return root;
     }
 }

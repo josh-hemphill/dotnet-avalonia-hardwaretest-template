@@ -24,7 +24,7 @@ public sealed class AuthoringEnvironmentPayloadContainmentTests : IDisposable
     public void Escaping_installed_payload_is_unavailable_before_public_preflight_checker_and_prepare_preserves_all_inputs(string kind)
     {
         if (OperatingSystem.IsWindows()) return;
-        var workspace = AuthoringWorkspaceLoader.Load(AuthoringBuildSnapshotTests.Workspace());
+        var workspace = AuthoringWorkspaceLoader.Load(Workspace());
         var original = AuthoringBuildSnapshotTests.Home(workspace); var home = original;
         var outside = AuthoringBuildSnapshotTests.Temp(); var package = Path.Combine(home.Root, "Packages", "OpenTAP");
         var metadata = Path.Combine(package, "package.xml");
@@ -79,7 +79,7 @@ public sealed class AuthoringEnvironmentPayloadContainmentTests : IDisposable
     public void Regular_and_contained_file_payloads_reach_real_checker_and_publish_production_receipt(string kind)
     {
         if (kind != "regular" && OperatingSystem.IsWindows()) return;
-        var workspace = AuthoringWorkspaceLoader.Load(AuthoringBuildSnapshotTests.Workspace()); var home = AuthoringBuildSnapshotTests.Home(workspace);
+        var workspace = AuthoringWorkspaceLoader.Load(Workspace()); var home = AuthoringBuildSnapshotTests.Home(workspace);
         var package = Path.Combine(home.Root, "Packages", "OpenTAP"); Declare(Path.Combine(package, "package.xml"), "payload.txt");
         var file = Path.Combine(package, "payload.txt");
         if (kind == "payload-link")
@@ -108,7 +108,7 @@ public sealed class AuthoringEnvironmentPayloadContainmentTests : IDisposable
     public void Cyclic_payload_links_are_unavailable_without_reaching_checker()
     {
         if (OperatingSystem.IsWindows()) return;
-        var workspace = AuthoringWorkspaceLoader.Load(AuthoringBuildSnapshotTests.Workspace()); var home = AuthoringBuildSnapshotTests.Home(workspace);
+        var workspace = AuthoringWorkspaceLoader.Load(Workspace()); var home = AuthoringBuildSnapshotTests.Home(workspace);
         var package = Path.Combine(home.Root, "Packages", "OpenTAP"); Declare(Path.Combine(package, "package.xml"), "cycle.txt");
         File.CreateSymbolicLink(Path.Combine(package, "cycle.txt"), "cycle.txt"); var checker = new UnexpectedChecker();
         var report = WorkspacePacker.Preflight(workspace, new() { Home = home, Compat = checker, Offline = true });
@@ -143,7 +143,7 @@ public sealed class AuthoringEnvironmentPayloadContainmentTests : IDisposable
     public void Mandatory_runtime_escape_is_blocked_even_when_engine_dependency_is_optional_or_undeclared(bool optional, string kind)
     {
         if (OperatingSystem.IsWindows()) return;
-        var workspace = AuthoringWorkspaceLoader.Load(AuthoringBuildSnapshotTests.Workspace()); var original = AuthoringBuildSnapshotTests.Home(workspace);
+        var workspace = AuthoringWorkspaceLoader.Load(Workspace()); var original = AuthoringBuildSnapshotTests.Home(workspace);
         SelectEngineDeclaration(workspace, optional); var home = original; var outside = AuthoringBuildSnapshotTests.Temp();
         if (kind == "missing-linked-child")
         {
@@ -208,7 +208,7 @@ public sealed class AuthoringEnvironmentPayloadContainmentTests : IDisposable
     public void Contained_runtime_is_supported_with_optional_or_undeclared_engine_and_missing_optional_package(bool optional, string kind)
     {
         if (OperatingSystem.IsWindows()) return;
-        var workspace = AuthoringWorkspaceLoader.Load(AuthoringBuildSnapshotTests.Workspace()); var home = AuthoringBuildSnapshotTests.Home(workspace);
+        var workspace = AuthoringWorkspaceLoader.Load(Workspace()); var home = AuthoringBuildSnapshotTests.Home(workspace);
         SelectEngineDeclaration(workspace, optional);
         if (kind == "version") workspace.Manifest.OptionalDependencies[0].Version = "^99.0.0";
         workspace.Manifest.OptionalDependencies.Add(new() { Package = "Optional absent fixture", Version = "^1.0.0" });
@@ -251,7 +251,7 @@ public sealed class AuthoringEnvironmentPayloadContainmentTests : IDisposable
     public void Unsafe_installed_optional_or_undeclared_package_never_reaches_checker(bool optional, string kind)
     {
         if (OperatingSystem.IsWindows()) return;
-        var workspace = AuthoringWorkspaceLoader.Load(AuthoringBuildSnapshotTests.Workspace()); var home = AuthoringBuildSnapshotTests.Home(workspace);
+        var workspace = AuthoringWorkspaceLoader.Load(Workspace()); var home = AuthoringBuildSnapshotTests.Home(workspace);
         SelectEngineDeclaration(workspace, optional);
         if (kind == "mismatched-version" && optional) { workspace.Manifest.OptionalDependencies[0].Version = "^99.0.0"; AuthoringWorkspaceLoader.SaveManifest(workspace.Root, workspace.Manifest); }
         var outside = AuthoringBuildSnapshotTests.Temp(); var package = Path.Combine(home.Root, "Packages", "OpenTAP"); var metadata = Path.Combine(package, "package.xml");
@@ -285,6 +285,19 @@ public sealed class AuthoringEnvironmentPayloadContainmentTests : IDisposable
         Assert.Contains("unsafe", vm.PackGuardText, StringComparison.OrdinalIgnoreCase); vm.StopRecovery();
         Assert.Throws<AuthoringWorkspaceException>(() => new OpenTapHomeBootstrapper().Bootstrap(workspace, new() { HomeDirectory = home.Root, Offline = true }));
         Assert.Equal(before, Snapshot(home.Root, outside, workspace.Root));
+    }
+
+    private static string Workspace()
+    {
+        var root = AuthoringBuildSnapshotTests.Workspace();
+        // Environment containment checks need current saved inputs, independent of migration.
+        foreach (var path in Directory.EnumerateFiles(root, "*.TapPlan"))
+        {
+            var xml = XDocument.Load(path);
+            xml.Root!.SetAttributeValue(AuthoringMeasureSections.CompiledLayoutAttribute, "true");
+            xml.Save(path);
+        }
+        return root;
     }
 
     private static void SelectEngineDeclaration(AuthoringWorkspace workspace, bool optional)

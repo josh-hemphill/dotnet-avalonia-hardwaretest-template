@@ -12,7 +12,7 @@ public sealed class AuthoringSequenceOperationWindowTests
     [InlineData(1280, 800, 14, 1d)]
     [InlineData(960, 600, 20, 1.5d)]
     [InlineData(1280, 800, 20, 1.5d)]
-    public void Search_insertion_and_selected_actions_dispatch_and_keep_the_row_visible(
+    public async Task Search_insertion_and_selected_actions_dispatch_and_keep_the_row_visible(
         int width, int height, int fontSize, double scale)
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
@@ -35,6 +35,7 @@ public sealed class AuthoringSequenceOperationWindowTests
         recipes.SelectedItem = vm.Recipes.Single(recipe => recipe.Id == AuthoringRecipeIds.BandScalar);
         fixture.Control<ComboBox>("Insertion point").SelectedItem = "Before selected";
         AuthoringUiFixture.Drain();
+        await vm.WaitForRecipeAvailabilityAsync().WaitAsync(TimeSpan.FromSeconds(20));
         ClickVisible(fixture, "Add recipe");
         Assert.Equal("Band Scalar", Assert.IsType<MetricNode>(vm.SelectedProgram!.Measure[0]).Metric.Name);
         Assert.Equal(selectedId, vm.SelectedProgram.Measure[1].NodeId);
@@ -46,6 +47,7 @@ public sealed class AuthoringSequenceOperationWindowTests
         ClickVisible(fixture, "Duplicate selected step");
         Assert.Equal(3, vm.SelectedProgram.Measure.Count);
         Assert.Equal("rail.mean_2", vm.SelectedMetric!.ChannelKey);
+        await vm.WaitForMovementAvailabilityAsync().WaitAsync(TimeSpan.FromSeconds(20));
         ClickVisible(fixture, "Move selected step down");
         Assert.Equal(vm.SelectedSequence!.NodeId, vm.SelectedProgram.Measure[2].NodeId);
         ClickVisible(fixture, "Undo selected program");
@@ -59,6 +61,7 @@ public sealed class AuthoringSequenceOperationWindowTests
         fixture.Type(search, "mean");
         recipes.SelectedItem = vm.Recipes.Single(recipe => recipe.Id == AuthoringRecipeIds.MeanGte);
         AuthoringUiFixture.Drain();
+        await vm.WaitForRecipeAvailabilityAsync().WaitAsync(TimeSpan.FromSeconds(20));
         ClickVisible(fixture, "Add recipe");
         var beforeRejectedDuplicate = AuthoringDocumentSnapshot.Capture(vm.SelectedProgram);
         ClickVisible(fixture, "Duplicate selected step");

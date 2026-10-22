@@ -66,7 +66,7 @@ public sealed class TaskBasedWorkspaceTests
     }
 
     [AvaloniaFact]
-    public void Operator_task_exposes_prompt_creation_and_inserts_into_setup_through_the_palette()
+    public async Task Operator_task_exposes_prompt_creation_and_inserts_into_setup_through_the_palette()
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
         var window = fixture.Show(); fixture.OpenRememberedWorkspace(); fixture.NavigateTask(7);
@@ -77,6 +77,7 @@ public sealed class TaskBasedWorkspaceTests
         var palette = Assert.Single(window.OwnedWindows);
         Assert.Equal(AuthoringRecipeIds.Prompt, fixture.ViewModel.SelectedRecipeId);
         Assert.Single(fixture.Control<ListBox>("Recipe", palette).Items);
+        await fixture.ViewModel.WaitForRecipeAvailabilityAsync().WaitAsync(TimeSpan.FromSeconds(20));
         AuthoringUiFixture.Click(fixture.Control<Button>("Add recipe", palette));
         Assert.Empty(window.OwnedWindows);
         Assert.Equal(before + 1, fixture.ViewModel.SelectedProgram.Setup.Count);

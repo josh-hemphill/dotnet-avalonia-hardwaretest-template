@@ -196,6 +196,14 @@ public sealed class AuthoringWorkspaceViewModelTests
             File.Copy(file, Path.Combine(dest, Path.GetFileName(file)));
         }
 
+        // These tests exercise saved-input guards, not legacy section migration.
+        // Keep the copied flat plans as an intentional current authoring layout.
+        foreach (var path in Directory.EnumerateFiles(dest, "*.TapPlan"))
+        {
+            var xml = System.Xml.Linq.XDocument.Load(path);
+            xml.Root!.SetAttributeValue(AuthoringMeasureSections.CompiledLayoutAttribute, "true");
+            xml.Save(path);
+        }
         return dest;
     }
 

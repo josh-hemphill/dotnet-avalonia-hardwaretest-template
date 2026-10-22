@@ -282,7 +282,7 @@ public sealed class AuthoringExpertCommandsTests
         Assert.Equal(original + 1, vm.SelectedProgram!.Measure.Count);
         vm.CreateDemoProgram("issue-navigation"); vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Acquire);
         vm.ChannelKey = "";
-        await vm.WaitForEditingIssuesAsync().WaitAsync(TimeSpan.FromSeconds(15));
+        await fixture.WaitForReadinessAsync();
         var issue = vm.EditingIssues.First();
         vm.SelectProgram(issue.PlanId == "sample" ? "issue-navigation" : "sample");
         Assert.True(await fixture.Window.ExecuteCommandAsync("issue")); AuthoringUiFixture.Drain();
