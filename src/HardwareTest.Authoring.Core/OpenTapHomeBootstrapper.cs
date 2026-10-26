@@ -11,6 +11,7 @@ namespace HardwareTest.Authoring;
 /// Builds an isolated OpenTAP tree with Editor packs and explicitly declared instrument adapters.
 public sealed class OpenTapHomeBootstrapper : IOpenTapHomeBootstrapper
 {
+    internal Action<AuthoringPackageDependency, string, string>? DownloadPackage { get; init; }
     public const string DefaultHomeRelativePath = ".authoring/opentap";
     public const string InstrumentComponentsPackageName = "InstrumentComponents.OpenTap";
 
@@ -49,6 +50,8 @@ public sealed class OpenTapHomeBootstrapper : IOpenTapHomeBootstrapper
             {
                 HomeDirectory = owned,
                 Offline = options.Offline,
+                PackageRepositoryUrl = options.PackageRepositoryUrl,
+                Progress = options.Progress,
                 OfflinePackagePath = options.OfflinePackagePath,
                 InstrumentComponentsPackagePath = options.InstrumentComponentsPackagePath,
                 TuiPackagePath = options.TuiPackagePath
@@ -80,6 +83,9 @@ public sealed class OpenTapHomeBootstrapper : IOpenTapHomeBootstrapper
         if (string.IsNullOrWhiteSpace(options.OfflinePackagePath)) InstallInstrumentComponentsIfRequired(workspace, options, homeRoot, capturedEnvironment);
         InstallStandaloneCounterpartForLibrary(workspace.Manifest, homeRoot, explicitPartialImport: !string.IsNullOrWhiteSpace(options.OfflinePackagePath));
         InstallOptionalFilePackage(options.TuiPackagePath, homeRoot, workspace.Manifest);
+
+        if (string.IsNullOrWhiteSpace(options.OfflinePackagePath) && !options.Offline)
+            AuthoringPackageDownloads.Prepare(workspace.Manifest, homeRoot, options.PackageRepositoryUrl ?? AuthoringPackageDownloads.DefaultRepository, options.Progress, DownloadPackage);
 
         var home = new OpenTapHome(homeRoot);
         if (StandaloneVisaReadiness.ExecutionPrerequisite(home, requiresInstrumentLibrary: false) is { } unavailable)
@@ -347,7 +353,7 @@ public sealed class OpenTapHomeBootstrapper : IOpenTapHomeBootstrapper
         InstallFileOrDirectoryPackage(path, homeRoot, manifest);
     }
 
-    private static void InstallFileOrDirectoryPackage(string path, string homeRoot, AuthoringManifest manifest)
+    internal static void InstallFileOrDirectoryPackage(string path, string homeRoot, AuthoringManifest manifest)
         => AuthoringPackageImport.Install(path, homeRoot, manifest, CopyDirectory);
 
     private static string FindPackageXml(string packageName)

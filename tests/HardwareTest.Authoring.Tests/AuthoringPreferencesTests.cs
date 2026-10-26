@@ -13,7 +13,7 @@ public sealed class AuthoringPreferencesTests
         var store = new AuthoringPreferencesStore(path); store.Load();
         Assert.True(store.Current.DockPreview); Assert.False(store.Current.ProgramsRailCollapsed); Assert.False(store.Current.IssuesDrawerOpen);
         store.Current.ProgramsRailCollapsed = true; store.Current.IssuesDrawerOpen = true; store.Current.DockPreview = false; store.Save();
-        store.Load(); Assert.Equal(2, store.Current.SchemaVersion); Assert.True(store.Current.ProgramsRailCollapsed);
+        store.Load(); Assert.Equal(AuthoringSchemaVersions.Preferences, store.Current.SchemaVersion); Assert.True(store.Current.ProgramsRailCollapsed);
         Assert.True(store.Current.IssuesDrawerOpen); Assert.False(store.Current.DockPreview); Assert.True(store.Current.SkipGuidance);
     }
 
@@ -32,6 +32,8 @@ public sealed class AuthoringPreferencesTests
         Assert.Null(store.Current.OpenTapHomeOverride);
         Assert.True(store.Current.ShowRawStepXml);
         Assert.False(store.Current.SkipGuidance);
+        Assert.False(store.Current.DownloadRequiredPackages);
+        Assert.Equal("https://packages.opentap.io", store.Current.PackageRepositoryUrl);
         Assert.False(File.Exists(path));
     }
 
@@ -45,6 +47,8 @@ public sealed class AuthoringPreferencesTests
         store.Current.OpenTapHomeOverride = "/opt/opentap";
         store.Current.ShowRawStepXml = false;
         store.Current.SkipGuidance = true;
+        store.Current.DownloadRequiredPackages = true;
+        store.Current.PackageRepositoryUrl = "https://packages.example.test";
         store.Save();
 
         var reload = new AuthoringPreferencesStore(path);
@@ -54,6 +58,8 @@ public sealed class AuthoringPreferencesTests
         Assert.Equal("/opt/opentap", reload.Current.OpenTapHomeOverride);
         Assert.False(reload.Current.ShowRawStepXml);
         Assert.True(reload.Current.SkipGuidance);
+        Assert.True(reload.Current.DownloadRequiredPackages);
+        Assert.Equal("https://packages.example.test", reload.Current.PackageRepositoryUrl);
         Assert.Equal(AuthoringSchemaVersions.Preferences, reload.Current.SchemaVersion);
         Assert.False(reload.IsReadOnly);
     }

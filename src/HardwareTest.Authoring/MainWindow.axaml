@@ -139,7 +139,7 @@
         <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12" Margin="0,0,0,16">
           <Button Content="Overview" Click="OnNavigateTask" Tag="8" Classes="authoringAction" AutomationProperties.Name="Workspace overview"/>
           <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
-            <ComboBox x:Name="PlanSelector" KeyDown="OnProgramsKeyDown" MinWidth="180" MaxWidth="220" ItemsSource="{Binding ProgramRows}" SelectedItem="{Binding SelectedProgramRow, Mode=OneWay}" SelectionChanged="OnPlanSelectionChanged" AutomationProperties.Name="Selected test plan" ToolTip.Tip="Switch plans; each plan retains its draft">
+            <ComboBox x:Name="PlanSelector" PlaceholderText="No test plans yet" KeyDown="OnProgramsKeyDown" MinWidth="180" MaxWidth="220" ItemsSource="{Binding ProgramRows}" SelectedItem="{Binding SelectedProgramRow, Mode=OneWay}" SelectionChanged="OnPlanSelectionChanged" AutomationProperties.Name="Selected test plan" ToolTip.Tip="Switch plans; each plan retains its draft">
               <ComboBox.ItemTemplate><DataTemplate x:DataType="vm:AuthoringProgramRow">
                 <StackPanel><TextBlock Text="{Binding DisplayName}" TextTrimming="CharacterEllipsis"/><TextBlock Text="{Binding PlanId}" Classes="eyebrow"/><TextBlock Text="{Binding DirtyMarker}" FontSize="11"/></StackPanel>
               </DataTemplate></ComboBox.ItemTemplate>
@@ -175,7 +175,7 @@
             <ContentPresenter Name="ActiveTaskPresenter" Content="{ReflectionBinding SelectedItem.Content, RelativeSource={RelativeSource TemplatedParent}}" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"/>
           </ControlTemplate></vm:TaskPageHost.Template>
           <TabItem Header="Sequence">
-            <Grid RowDefinitions="Auto,*" RowSpacing="12">
+            <Grid RowDefinitions="Auto,Auto,*" RowSpacing="12">
               <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
                 <StackPanel Spacing="4"><TextBlock Text="Sequence" Classes="routeTitle" AutomationProperties.HeadingLevel="1"/><TextBlock Text="Set up the fixture, measure and check, then shut down safely." Classes="purpose" TextWrapping="Wrap"/></StackPanel>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
@@ -184,13 +184,22 @@
                   <Button Content="Preview" Tag="5" Click="OnNavigateTask" AutomationProperties.Name="Open full preview" Classes="authoringAction"/>
                 </StackPanel>
               </Grid>
-              <Grid x:Name="ProgramLayout" Grid.Row="1" ColumnDefinitions="*,16,400">
+              <Border Grid.Row="1" IsVisible="{Binding HasSelectedPlan}" Classes="surface" Padding="12,8">
+                <Grid ColumnDefinitions="Auto,*,Auto,*" ColumnSpacing="12" IsEnabled="{Binding CanEditProgramSettings}">
+                    <TextBlock x:Name="SequencePlanTitleLabel" Text="Plan title" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                    <TextBox Grid.Column="1" Text="{Binding DisplayName}" PlaceholderText="Give this test plan a title" AutomationProperties.Name="Sequence plan title" AutomationProperties.LabeledBy="{Binding #SequencePlanTitleLabel}"/>
+                    <TextBlock Grid.Column="2" x:Name="SequenceDeviceFamilyLabel" Text="Device family" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                    <TextBox Grid.Column="3" Text="{Binding DutFamily}" PlaceholderText="e.g. Controller board" AutomationProperties.Name="Sequence device family" AutomationProperties.LabeledBy="{Binding #SequenceDeviceFamilyLabel}"/>
+                </Grid>
+              </Border>
+              <Grid x:Name="ProgramLayout" Grid.Row="2" ColumnDefinitions="*,16,400">
                 <vm:SequenceEditorView Grid.Column="0"/>
                 <GridSplitter x:Name="InspectorSplitter" Grid.Column="1" Classes="paneDivider" ResizeDirection="Columns" ResizeBehavior="PreviousAndNext" AutomationProperties.Name="Resize sequence and inspector"/>
                 <Border Grid.Column="2" Classes="surface" Padding="16">
                   <Grid RowDefinitions="Auto,*" RowSpacing="12">
                     <StackPanel Spacing="4"><TextBlock Text="Step editor" FontSize="18" FontWeight="SemiBold" AutomationProperties.HeadingLevel="2" ToolTip.Tip="{Binding SelectedDependencySummary}" AutomationProperties.HelpText="{Binding SelectedDependencySummary}"/></StackPanel>
-                    <vm:SelectedStepInspectorView Grid.Row="1"/>
+                    <TextBlock Grid.Row="1" IsVisible="{Binding EmptyPlanStepHintVisible}" Text="Add your first step to edit its name, message and settings here." Classes="purpose" TextWrapping="Wrap" AutomationProperties.Name="Empty step editor guidance"/>
+                    <vm:SelectedStepInspectorView Grid.Row="1" IsVisible="{Binding !EmptyPlanStepHintVisible}"/>
                   </Grid>
                 </Border>
               </Grid>

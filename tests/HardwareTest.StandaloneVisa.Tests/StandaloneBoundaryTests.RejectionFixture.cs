@@ -17,11 +17,11 @@ public sealed partial class StandaloneBoundaryTests
             }
             catch
             {
-                Directory.Delete(DirectoryPath, recursive: true);
+                RemoveOwnedDirectory(DirectoryPath);
                 throw;
             }
         }
 
-        public void Dispose() => Directory.Delete(DirectoryPath, recursive: true);
+        public void Dispose() => RemoveOwnedDirectory(DirectoryPath);
     }
 }

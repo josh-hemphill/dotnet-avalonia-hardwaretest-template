@@ -16,6 +16,56 @@ public sealed partial class AuthoringWorkspaceViewModel
 
     public bool PreferencesEditable => !PreferencesReadOnly;
 
+    public bool PackageDownloadSettingsEditable => PreferencesEditable && !OperationBusy;
+    private string? _packageRepositoryUrlEdit;
+
+    public bool DownloadRequiredPackages
+    {
+        get => Prefs.DownloadRequiredPackages;
+        set
+        {
+            if (!PackageDownloadSettingsEditable || Prefs.DownloadRequiredPackages == value) return;
+            Prefs.DownloadRequiredPackages = value;
+            PersistPreferences();
+            OnPropertyChanged();
+        }
+    }
+
+    public string PackageRepositoryUrl
+    {
+        get => _packageRepositoryUrlEdit ?? Prefs.PackageRepositoryUrl;
+        set
+        {
+            if (!PackageDownloadSettingsEditable || value == PackageRepositoryUrl) return;
+            var edited = value?.Trim() ?? string.Empty;
+            try
+            {
+                AuthoringPackageDownloads.RepositoryUri(edited);
+                _packageRepositoryUrlEdit = null;
+                Prefs.PackageRepositoryUrl = edited;
+                PersistPreferences();
+            }
+            catch (AuthoringWorkspaceException)
+            {
+                // Retain a rejected edit for correction, but never persist URL credentials
+                // or accidentally use the previously saved source for this operation.
+                _packageRepositoryUrlEdit = edited;
+            }
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(PackageRepositoryError));
+            OnPropertyChanged(nameof(PackageRequirementsText));
+        }
+    }
+
+    public string? PackageRepositoryError
+    {
+        get
+        {
+            try { AuthoringPackageDownloads.RepositoryUri(PackageRepositoryUrl); return null; }
+            catch (AuthoringWorkspaceException error) { return error.Message; }
+        }
+    }
+
     public string ThemePreference
     {
         get => AuthoringThemePreference.Normalize(Prefs.ThemePreference);
@@ -158,7 +208,9 @@ public sealed partial class AuthoringWorkspaceViewModel
             InstrumentComponentsPackagePath = options?.InstrumentComponentsPackagePath,
             TuiPackagePath = options?.TuiPackagePath,
             OfflinePackagePath = options?.OfflinePackagePath,
-            Offline = options?.Offline ?? true,
+            Offline = options?.Offline ?? !DownloadRequiredPackages,
+            PackageRepositoryUrl = options?.PackageRepositoryUrl ?? PackageRepositoryUrl,
+            Progress = options?.Progress,
         };
     }
 

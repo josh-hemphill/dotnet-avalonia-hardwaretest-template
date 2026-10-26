@@ -110,7 +110,8 @@ public partial class MainWindow
             return;
         }
         _guidancePlan.Text = draft.Sidecar.DisplayName;
-        _guidanceHardware.Text = draft.Instruments.Any(instrument => instrument.TypeId.Contains("Mock", StringComparison.OrdinalIgnoreCase))
+        _guidanceHardware.Text = draft.Instruments.Count == 0 ? "No instruments configured"
+            : draft.Instruments.Any(instrument => instrument.TypeId.Contains("Mock", StringComparison.OrdinalIgnoreCase))
             ? "Demo — Mock instrument" : "Product — physical instrument selection";
         _guidanceIdentity.Text = $"Identity checks: {draft.Setup.OfType<IdentitySetup>().Count()}";
         _guidanceShutdown.Text = $"Safe shutdown: {(draft.Cleanup.IncludeSafeShutdown ? string.Join(", ", draft.Cleanup.InstrumentSlots) : "disabled")}";

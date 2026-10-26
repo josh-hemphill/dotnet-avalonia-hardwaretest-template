@@ -56,7 +56,8 @@ public sealed class AuthoringOperationCoordinator(AuthoringChildProcessRunner ru
 
     public Task<AuthoringOperationResult> RunAsync(AuthoringOperationKind kind, string workspaceRoot,
         string? outputDirectory = null, string? home = null, bool offline = true,
-        Action<AuthoringOperationProgress>? progress = null, CancellationToken cancellationToken = default, string? offlinePackagePath = null)
+        Action<AuthoringOperationProgress>? progress = null, CancellationToken cancellationToken = default, string? offlinePackagePath = null,
+        string packageRepositoryUrl = AuthoringPackageDownloads.DefaultRepository)
     {
         CancellationTokenSource operation;
         long capturedGeneration;
@@ -74,14 +75,14 @@ public sealed class AuthoringOperationCoordinator(AuthoringChildProcessRunner ru
             logs.Clear();
             nextLogNotification = 0;
             // Reserve and retain the task together so accepted owner close can await all cleanup.
-            running = Task.Run(() => RunOwnedAsync(kind, workspaceRoot, outputDirectory, home, offline, progress, operation, capturedGeneration, offlinePackagePath));
+            running = Task.Run(() => RunOwnedAsync(kind, workspaceRoot, outputDirectory, home, offline, progress, operation, capturedGeneration, offlinePackagePath, packageRepositoryUrl));
             return running;
         }
     }
 
     private async Task<AuthoringOperationResult> RunOwnedAsync(AuthoringOperationKind kind, string workspaceRoot,
         string? outputDirectory, string? home, bool offline, Action<AuthoringOperationProgress>? progress,
-        CancellationTokenSource operation, long capturedGeneration, string? offlinePackagePath)
+        CancellationTokenSource operation, long capturedGeneration, string? offlinePackagePath, string packageRepositoryUrl)
     {
         var owned = Path.Combine(Path.GetTempPath(), "authoring-operation-" + Guid.NewGuid().ToString("N"));
         var id = Guid.NewGuid().ToString("N");
@@ -93,7 +94,8 @@ public sealed class AuthoringOperationCoordinator(AuthoringChildProcessRunner ru
             await Lane.WaitAsync(token).ConfigureAwait(false);
             entered = true;
             var inheritedEnvironment = AuthoringBuildService.CaptureEnvironment();
-            var request = new AuthoringChildRequest(1, id, kind, Path.GetFullPath(workspaceRoot), owned, string.IsNullOrWhiteSpace(home) ? null : Path.GetFullPath(home), offline);
+            var request = new AuthoringChildRequest(1, id, kind, Path.GetFullPath(workspaceRoot), owned, string.IsNullOrWhiteSpace(home) ? null : Path.GetFullPath(home), offline,
+                PackageRepositoryUrl: packageRepositoryUrl);
             if (OperatingSystem.IsWindows()) Directory.CreateDirectory(owned);
             else Directory.CreateDirectory(owned, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
             if (offlinePackagePath is not null)

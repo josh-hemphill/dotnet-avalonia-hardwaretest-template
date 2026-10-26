@@ -151,7 +151,9 @@ public sealed partial class AuthoringWorkspaceViewModel
         var rows = AuthoringSequence.Flatten(draft);
         var selected = input.SelectedNode is { } nodeId ? rows.FirstOrDefault(row => row.NodeId == nodeId) : null;
         var target = input.RecipeId == AuthoringRecipeIds.Repeat ? selected
-            : input.InsertionPosition is "End of test steps" or "End of Measure" ? null
+            : IsEmptySequence(draft) ? input.RecipeId is AuthoringRecipeIds.Identity or AuthoringRecipeIds.Prompt or AuthoringRecipeIds.Input
+                ? null : rows.FirstOrDefault(row => row.IsSection)
+            : input.InsertionPosition is "End of matching phase" or "End of test steps" or "End of Measure" ? null
             : input.InsertionPosition == "End of section"
                 ? input.RecipeId is AuthoringRecipeIds.Identity or AuthoringRecipeIds.Prompt or AuthoringRecipeIds.Input
                     ? null

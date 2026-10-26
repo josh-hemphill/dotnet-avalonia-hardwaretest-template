@@ -8,6 +8,9 @@ public partial class WorkspaceOverviewView : UserControl
 {
     public WorkspaceOverviewView() => InitializeComponent();
 
+    private void OnCreatePlan(object? sender, RoutedEventArgs e)
+        => (TopLevel.GetTopLevel(this) as MainWindow)?.OnCreateProgram(sender, e);
+
     private void OnNavigate(object? sender, RoutedEventArgs e)
         => (TopLevel.GetTopLevel(this) as MainWindow)?.OnNavigateTask(sender, e);
 }

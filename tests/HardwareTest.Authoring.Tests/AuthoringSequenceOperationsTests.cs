@@ -10,6 +10,33 @@ namespace HardwareTest.Authoring.Tests;
 [Collection("AuthoringOpenTap")]
 public sealed class AuthoringSequenceOperationsTests
 {
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void First_recipe_ignores_the_empty_cleanup_placeholder_and_matching_phase_supports_the_next_recipe(bool flat)
+    {
+        var root = TemporaryDirectory();
+        File.WriteAllText(Path.Combine(root, "authoring.json"), """{"schemaVersion":2,"displayName":"Empty","plansDirectory":"."}""");
+        var vm = new AuthoringWorkspaceViewModel(); vm.Open(root);
+        Assert.True(vm.NeedsFirstPlan);
+        vm.InitializePlan(new("empty"));
+        if (flat) vm.ReplaceSelected(vm.SelectedProgram! with { Measure = [] });
+        Assert.True(vm.IsSequenceEmpty);
+        Assert.Equal(flat ? SequenceRowKind.Cleanup : SequenceRowKind.Section, vm.SelectedSequence!.Kind);
+        vm.SelectedRecipeId = AuthoringRecipeIds.Prompt;
+        Assert.True(vm.CanInsertRecipe, vm.SelectedRecipePrerequisites);
+        vm.InsertSelectedRecipe();
+        Assert.IsType<OperatorPromptSetup>(Assert.Single(vm.SelectedProgram!.Setup));
+        Assert.False(vm.IsSequenceEmpty);
+        vm.SelectedRecipeId = AuthoringRecipeIds.BandScalar;
+        vm.InsertionPosition = "End of matching phase";
+        Assert.True(vm.CanInsertRecipe, vm.SelectedRecipePrerequisites);
+        vm.InsertSelectedRecipe();
+        Assert.Single(AuthoringRecipeCatalog.EnumerateMetrics(vm.SelectedProgram.Measure));
+        Assert.Empty(vm.SelectedProgram.Instruments);
+        Assert.Null(vm.Error);
+    }
+
     [Fact]
     public void Insertion_and_repeat_use_selected_nested_target()
     {
@@ -226,7 +253,7 @@ public sealed class AuthoringSequenceOperationsTests
         vm.InsertSelectedRecipe();
         vm.SelectedRecipeId = AuthoringRecipeIds.Repeat;
         Assert.True(vm.CanInsertRecipe);
-        Assert.Contains("Acquire VDC", vm.SelectedRecipePrerequisites, StringComparison.Ordinal);
+        Assert.Contains("Acquire VDC", vm.SequenceOperationTarget, StringComparison.Ordinal);
         vm.SelectedRecipeId = AuthoringRecipeIds.Acquire;
         vm.ReplaceSelected(vm.SelectedProgram! with { Instruments = [vm.SelectedProgram.Instruments[0] with { TypeId = "Unsupported.Instrument" }] });
         Assert.False(vm.CanInsertRecipe);

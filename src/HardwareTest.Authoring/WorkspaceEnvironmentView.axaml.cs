@@ -9,6 +9,19 @@ public partial class WorkspaceEnvironmentView : UserControl
 {
     public WorkspaceEnvironmentView() => InitializeComponent();
 
+    private async void OnOpenPackageRepository(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not AuthoringWorkspaceViewModel vm || TopLevel.GetTopLevel(this) is not { } owner) return;
+        if (vm.PackageRepositoryError is { } error) { PackageSourceFeedback.Text = error; return; }
+        try
+        {
+            var opened = await owner.Launcher.LaunchUriAsync(new Uri(vm.PackageRepositoryUrl));
+            PackageSourceFeedback.Text = opened ? "Repository opened. Download matching package versions, then import the archives."
+                : "Could not open a browser. Copy package requirements to get the repository URL.";
+        }
+        catch (Exception) { PackageSourceFeedback.Text = "Could not open a browser. Copy package requirements to get the repository URL."; }
+    }
+
     private async void OnOpenLibraryReleases(object? sender, RoutedEventArgs e)
     {
         if (TopLevel.GetTopLevel(this) is not { } owner) return;
@@ -32,7 +45,7 @@ public partial class WorkspaceEnvironmentView : UserControl
                 return;
             }
             await clipboard.SetTextAsync(vm.PackageRequirementsText);
-            PackageSourceFeedback.Text = "Copied required package names, versions, installed states and the library release URL.";
+            PackageSourceFeedback.Text = "Copied package names, versions, installed states, repository URL and library release URL.";
         }
         catch (Exception) { PackageSourceFeedback.Text = "Could not copy requirements. Read the required package names and versions below."; }
     }
@@ -49,6 +62,12 @@ public partial class WorkspaceEnvironmentView : UserControl
 
     private void OnPrepareEnvironment(object? sender, RoutedEventArgs e)
         => (TopLevel.GetTopLevel(this) as MainWindow)?.OnPrepareEnvironment(sender, e);
+
+    private void OnDownloadPackages(object? sender, RoutedEventArgs e)
+        => (TopLevel.GetTopLevel(this) as MainWindow)?.OnDownloadPackages(sender, e);
+
+    private void OnCancelPreparation(object? sender, RoutedEventArgs e)
+        => (DataContext as AuthoringWorkspaceViewModel)?.CancelOperation();
 
     private void OnImportOfflinePackage(object? sender, RoutedEventArgs e)
         => (TopLevel.GetTopLevel(this) as MainWindow)?.OnImportOfflinePackage(sender, e);

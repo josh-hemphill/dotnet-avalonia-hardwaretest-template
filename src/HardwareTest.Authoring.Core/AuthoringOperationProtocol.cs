@@ -10,7 +10,8 @@ public sealed record AuthoringOperationProgress(string Stage, string? Message = 
 public sealed record AuthoringOperationLog(string Stream, string Text);
 public sealed record AuthoringOperationResult(string? Home, PlanContractBatchReport? Validation, AuthoringBuildResult? Build);
 internal sealed record AuthoringChildRequest(int Version, string Id, AuthoringOperationKind Kind, string WorkspaceRoot,
-    string OwnedRoot, string? Home, bool Offline, string? OfflinePackageSha256 = null);
+    string OwnedRoot, string? Home, bool Offline, string? OfflinePackageSha256 = null,
+    string PackageRepositoryUrl = AuthoringPackageDownloads.DefaultRepository);
 internal sealed record AuthoringSnapshot(string Root, string Home, string TuiHome, string DotNetExecutable, bool Offline,
     IReadOnlyList<BuildInputTree> Trees, IReadOnlyList<AuthoringBuildEnvironmentIdentity> Environment)
 {
@@ -83,6 +84,8 @@ public static class AuthoringOperationChild
             {
                 HomeDirectory = isolatedHome,
                 Offline = request.Offline,
+                PackageRepositoryUrl = request.PackageRepositoryUrl,
+                Progress = Stage,
                 OfflinePackagePath = request.OfflinePackageSha256 is null ? null : importPath
             });
             AuthoringOperationResult result;

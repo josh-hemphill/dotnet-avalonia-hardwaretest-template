@@ -7,7 +7,7 @@ public sealed partial class AuthoringWorkspaceViewModel
     private Guid? _renameSourceId;
     private string? _renameSourceLabel;
     private string _insertionPosition = "After selected";
-    public IReadOnlyList<string> InsertionPositions { get; } = ["Before selected", "After selected", "End of section", "End of test steps"];
+    public IReadOnlyList<string> InsertionPositions { get; } = ["End of matching phase", "Before selected", "After selected", "End of section", "End of test steps"];
     public string InsertionPosition
     {
         get => _insertionPosition;
@@ -29,7 +29,8 @@ public sealed partial class AuthoringWorkspaceViewModel
         get => _sequenceRename;
         set => SetField(ref _sequenceRename, value);
     }
-    public string SequenceOperationTarget => SelectedSequence is { } row ? $"Selected: {row.Label}" : "No selected step";
+    public string SequenceOperationTarget => IsSequenceEmpty ? "No steps yet. The first step goes into its matching phase."
+        : SelectedSequence is { } row ? $"Selected: {row.Label}" : "No selected step";
     public string RemoveSequenceActionTitle => SelectedSequence?.Kind switch
     {
         SequenceRowKind.Repeat => "Remove loop, keep steps",
@@ -38,6 +39,13 @@ public sealed partial class AuthoringWorkspaceViewModel
         _ => RemoveSelectedTitle
     };
     public bool CanEditSequence => Workspace is { IsReadOnly: false } && SelectedProgram is not null;
+    public bool HasSelectedPlan => SelectedProgram is not null;
+    public bool NeedsFirstPlan => HasWorkspace && SelectedProgram is null;
+    public bool IsSequenceEmpty => IsEmptySequence(SelectedProgram);
+    private static bool IsEmptySequence(ProgramDraft? draft) => draft is { Setup.Count: 0, Cleanup.IncludeSafeShutdown: false }
+        && (draft.Measure.Count == 0 || draft.Measure is [SectionNode { Name: AuthoringMeasureSections.DefaultSectionName, Children.Count: 0 }]);
+    public bool HasSequenceContent => HasSelectedPlan && !IsSequenceEmpty;
+    public bool EmptyPlanStepHintVisible => IsSequenceEmpty && SelectedSequence?.Kind != SequenceRowKind.Section;
     public bool CanRenameSequence => CanEditSequence && (SelectedSequence?.Kind is SequenceRowKind.Metric or SequenceRowKind.Section
         || SelectedSetup is OperatorPromptSetup or OperatorInputSetup);
     public bool CanDuplicateSequence => CanEditSequence && (SelectedSequence?.Kind is SequenceRowKind.Metric or SequenceRowKind.Repeat or SequenceRowKind.Section
@@ -45,10 +53,12 @@ public sealed partial class AuthoringWorkspaceViewModel
     public bool CanMoveSequence => CanEditSequence && SelectedSequence?.Section is SequenceSection.Setup or SequenceSection.Measure;
     public bool CanInsertRecipe => CanEditSequence && SelectedRecipe is not null && RecipePreflight() is null;
     public string SelectedRecipePrerequisites => SelectedRecipe is null ? "Search and choose a recipe."
-        : RecipePreflight() ?? $"Ready: {SelectedRecipe.Summary} Insertion: {InsertionPosition}. {SequenceOperationTarget}.";
+        : RecipePreflight() ?? $"Ready to add {SelectedRecipe.Title}.";
 
     private SequenceRow? InsertionTarget => SelectedRecipe?.Id == AuthoringRecipeIds.Repeat ? SelectedSequence
-        : InsertionPosition is "End of test steps" or "End of Measure" ? null
+        : IsSequenceEmpty ? SelectedRecipe?.Id is AuthoringRecipeIds.Identity or AuthoringRecipeIds.Prompt or AuthoringRecipeIds.Input
+            ? null : _sequenceItems.FirstOrDefault(row => row.IsSection)
+        : InsertionPosition is "End of matching phase" or "End of test steps" or "End of Measure" ? null
         : InsertionPosition == "End of section"
             ? SelectedRecipe?.Id is AuthoringRecipeIds.Identity or AuthoringRecipeIds.Prompt or AuthoringRecipeIds.Input
                 ? null : EndOfSelectedSection()
@@ -228,6 +238,11 @@ public sealed partial class AuthoringWorkspaceViewModel
         OnPropertyChanged(nameof(SequenceOperationTarget));
         OnPropertyChanged(nameof(RemoveSequenceActionTitle));
         OnPropertyChanged(nameof(CanEditSequence));
+        OnPropertyChanged(nameof(HasSelectedPlan));
+        OnPropertyChanged(nameof(NeedsFirstPlan));
+        OnPropertyChanged(nameof(IsSequenceEmpty));
+        OnPropertyChanged(nameof(HasSequenceContent));
+        OnPropertyChanged(nameof(EmptyPlanStepHintVisible));
         OnPropertyChanged(nameof(CanRenameSequence));
         OnPropertyChanged(nameof(CanDuplicateSequence));
         OnPropertyChanged(nameof(CanMoveSequence));

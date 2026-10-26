@@ -8,7 +8,19 @@ public sealed partial class AuthoringWorkspaceViewModel
     private bool _operationBusy;
     private int _operationLogNotificationPending;
     private string? _operationStage;
-    public bool OperationBusy { get => _operationBusy; private set { if (SetField(ref _operationBusy, value)) RaisePackGuardProperties(); RaiseBoardProperties(); } }
+    public bool OperationBusy
+    {
+        get => _operationBusy;
+        private set
+        {
+            if (SetField(ref _operationBusy, value))
+            {
+                RaisePackGuardProperties();
+                OnPropertyChanged(nameof(PackageDownloadSettingsEditable));
+            }
+            RaiseBoardProperties();
+        }
+    }
     public bool OperationCleanupPending => _operations?.HasPendingCleanup == true;
     public string? OperationStage { get => _operationStage; private set => SetField(ref _operationStage, value); }
     public IReadOnlyList<AuthoringOperationLog> OperationLogs => _operations?.Logs ?? [];
@@ -65,7 +77,8 @@ public sealed partial class AuthoringWorkspaceViewModel
         RaiseOperationLogs();
     }
 
-    public async Task<AuthoringOperationResult> RunOperationAsync(AuthoringOperationKind kind, string? outputDirectory = null, string? offlinePackagePath = null)
+    public async Task<AuthoringOperationResult> RunOperationAsync(AuthoringOperationKind kind, string? outputDirectory = null, string? offlinePackagePath = null,
+        bool downloadRequiredPackages = false)
     {
         var coordinator = _operations ?? throw new InvalidOperationException("Configure authoring child operations first.");
         var workspace = Workspace ?? throw new AuthoringWorkspaceException("Open a workspace first.");
@@ -81,10 +94,11 @@ public sealed partial class AuthoringWorkspaceViewModel
         {
             var checkedState = kind == AuthoringOperationKind.Validate ? PrepareFindingCheck() : null;
             var result = await coordinator.RunAsync(kind, workspace.Root, outputDirectory, operationHomeSetting,
+                offline: kind != AuthoringOperationKind.Bootstrap || offlinePackagePath is not null || !(downloadRequiredPackages || DownloadRequiredPackages),
                 progress: update => _operationDispatch!(() =>
                 {
                     if (_operationGeneration == generation) { OperationStage = update.Stage; OnPropertyChanged(nameof(BuildReadinessText)); RaiseOperationLogs(); }
-                }), offlinePackagePath: offlinePackagePath).ConfigureAwait(false);
+                }), offlinePackagePath: offlinePackagePath, packageRepositoryUrl: PackageRepositoryUrl).ConfigureAwait(false);
             await DispatchAsync(() =>
             {
                 if (_operationGeneration != generation) return;

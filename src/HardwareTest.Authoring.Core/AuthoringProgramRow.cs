@@ -12,9 +12,10 @@ public sealed class AuthoringProgramRow(string planId) : INotifyPropertyChanged
     internal void Update(ProgramDraft draft, bool planDirty, bool sidecarDirty)
     {
         var marker = planDirty ? "Unsaved plan" : sidecarDirty ? "Unsaved settings" : string.Empty;
-        if (DisplayName != draft.Sidecar.DisplayName)
+        var name = string.IsNullOrWhiteSpace(draft.Sidecar.DisplayName) ? draft.PlanId : draft.Sidecar.DisplayName;
+        if (DisplayName != name)
         {
-            DisplayName = draft.Sidecar.DisplayName ?? string.Empty;
+            DisplayName = name;
             PropertyChanged?.Invoke(this, new(nameof(DisplayName)));
         }
         if (DirtyMarker != marker)

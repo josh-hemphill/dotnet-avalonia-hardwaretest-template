@@ -13,7 +13,7 @@ public sealed record AuthoringPackageRequirement(string Package, string Required
             ? "Prepare bundled packages in the selected home; check that the required version matches the bundled release."
         : Package.Equals(AuthoringInstrumentCatalog.LibraryPackage, StringComparison.OrdinalIgnoreCase)
             ? "Prepare the bundled library, or import a publisher release matching the required version."
-            : "Request this package and required version from its publisher or your team's release artifacts, then import the archive.";
+            : "Try Download missing packages now. If unavailable, request this package and required version from its publisher or your team's release artifacts, then import the archive.";
     public string DisplayText => $"{Package}: required {RequiredVersion}; installed {InstalledVersion}; {State}{(Optional ? " (optional)" : "")}";
 }
 

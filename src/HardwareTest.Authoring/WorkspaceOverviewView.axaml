@@ -6,6 +6,13 @@
         <TextBlock Text="What would you like to work on?" FontSize="30" FontWeight="Bold" TextWrapping="Wrap" AutomationProperties.HeadingLevel="1"/>
         <TextBlock Text="Choose a task for the selected plan. Switch plans above whenever you need to." Classes="purpose" TextWrapping="Wrap"/>
       </StackPanel>
+      <Border Classes="surface taskSection" IsVisible="{Binding NeedsFirstPlan}">
+        <StackPanel Spacing="12">
+          <TextBlock Text="Start with your first test plan" Classes="sectionTitle" TextWrapping="Wrap" AutomationProperties.HeadingLevel="2"/>
+          <TextBlock Text="Your workspace is ready. Create a test plan to name the test, add steps and choose its instruments." Classes="purpose" TextWrapping="Wrap"/>
+          <Button Content="Create test plan" Click="OnCreatePlan" IsEnabled="{Binding CanInitializePlan}" Classes="authoringAction primaryAction" HorizontalAlignment="Left" AutomationProperties.Name="Create first test plan from overview"/>
+        </StackPanel>
+      </Border>
       <vm:WorkspaceTaskCards>
         <Button Tag="0" Click="OnNavigate" Classes="taskCard" AutomationProperties.Name="Open Sequence task">
           <StackPanel Spacing="10"><TextBlock Text="01 / AUTHOR" Classes="eyebrow"/><TextBlock Text="Sequence" FontSize="22" FontWeight="SemiBold"/><TextBlock Text="Arrange setup, measurements, checks and cleanup. Select a step to edit its details." TextWrapping="Wrap" Classes="purpose"/><TextBlock Text="Edit the sequence →" Foreground="{DynamicResource AuthoringAccent}" FontWeight="SemiBold"/></StackPanel>
