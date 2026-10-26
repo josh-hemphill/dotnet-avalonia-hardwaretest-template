@@ -19,6 +19,7 @@ public sealed class AuthoringGuidedRecoveryTests
     {
         using var fixture = Loaded(library: true); var vm = fixture.ViewModel;
         CurrentHardwareUiFixture.Prepare(fixture);
+        await fixture.WaitForReadinessAsync();
         var adapter = AuthoringInstrumentCatalog.All.Single(item => item.TypeId == CurrentHardwareUiFixture.TypeId);
         await AddDefinitionAsync(vm, adapter, "A", "TCPIP::first::INSTR", "1111");
         await AddDefinitionAsync(vm, adapter, "B", "TCPIP::original::INSTR", "2222");

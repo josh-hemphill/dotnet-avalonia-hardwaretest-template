@@ -12,6 +12,30 @@ namespace HardwareTest.Tests.OpenTap;
 public sealed class WorkerProgressOrderingTests
 {
     [Fact]
+    public void Late_listener_telemetry_keeps_the_pending_prompt_until_authoritative_completion()
+    {
+        using var temp = new TempDataDirectory();
+        using var client = new OpenTapWorkerClient(new AppSettings { UseMockVisa = true, CrashEnabled = false, DataDirectory = temp.Path });
+        var request = OperatorInteractionRequest.ConfirmOnly("Keep this prompt");
+        client.ApplyFromProgress(new()
+        {
+            Message = request.Message,
+            AwaitingOperator = true,
+            OperatorPromptMessage = request.Message,
+            InteractionRequest = request
+        });
+        client.ApplyFromProgress(new() { Message = "Operator prompt noted", OperatorPromptMessage = request.Message });
+        client.ApplyFromProgress(new() { Message = "Step started", StatusText = "Running" });
+        Assert.True(client.IsAwaitingOperator);
+        Assert.Same(request, client.PendingInteraction);
+        Assert.Equal(request.Message, client.OperatorPromptMessage);
+        client.ApplyFromProgress(new() { Message = "Completed", IsCompleted = true });
+        Assert.False(client.IsAwaitingOperator);
+        Assert.Null(client.PendingInteraction);
+        Assert.Null(client.OperatorPromptMessage);
+    }
+
+    [Fact]
     public async Task Blocked_callback_delays_terminal_response_without_blocking_worker_controls()
     {
         using var temp = new TempDataDirectory();

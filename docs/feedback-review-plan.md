@@ -73,7 +73,7 @@ padding. A loading state communicates work without invented percentage progress.
   rename and reorder them, collapse their contents, and move tests between them.
   Removing a section keeps its tests. Sections organize execution without adding
   a formula scope boundary; repeat loops retain their isolation.
-  Source documents migrate from version 1 to version 2 on save. The independent
+  Source documents migrate from versions 1 and 2 to version 3 on save. The independent
   workspace schema remains version 1. Compiled groups carry an authoring-section
   marker so imported opaque groups retain their existing behavior.
   New sections start at the Measure root; Move to section can nest them. Dragging
@@ -164,7 +164,7 @@ uses a Formula consuming the Acquire output. No product guard was relaxed.
    the grouping and selection.
 5. Save and reopen, then compile the plan. Verify section names/order and tests
    survive, including empty and nested sections. Existing version-1 source documents
-   remain readable; saving produces version 2, which older app builds cannot edit.
+   remain readable; saving produces version 3, which older app builds cannot edit.
 
 No decision about whether to support custom sections remains open. The retained
 lifecycle policy is fixed Setup/Measure/Cleanup ordering with editable steps inside

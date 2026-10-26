@@ -273,7 +273,9 @@ public sealed class PackProtectionTests : IDisposable
         if (!OperatingSystem.IsWindows()) return;
         var vm = new AuthoringWorkspaceViewModel();
         vm.Open(_workspace);
+        Assert.True(vm.SaveAll().Succeeded); // Persist the imported configurable-section migration first.
         var home = Bootstrap(vm.Workspace!);
+        vm.RefreshEnvironmentInspection();
         var attributes = File.GetAttributes(_workspace);
         try
         {

@@ -22,7 +22,7 @@ public sealed class AuthoringDocumentState
 /// Durable source document; deliberately contains no OpenTAP runtime instances.
 public sealed record AuthoringDocumentDto
 {
-    public const int CurrentSchemaVersion = 2;
+    public const int CurrentSchemaVersion = 3;
     public int SchemaVersion { get; set; } = CurrentSchemaVersion;
     public required string PlanId { get; set; }
     /// Missing in legacy source. Once true, intentionally empty or ungrouped layouts stay ungrouped.

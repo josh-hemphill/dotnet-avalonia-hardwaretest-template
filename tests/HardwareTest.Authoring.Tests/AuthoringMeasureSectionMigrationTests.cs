@@ -1,4 +1,5 @@
 using System.Xml.Linq;
+using System.Text.Json;
 using HardwareTest.Authoring;
 using Xunit;
 
@@ -7,6 +8,42 @@ namespace HardwareTest.Authoring.Tests;
 [Collection("AuthoringOpenTap")]
 public sealed class AuthoringMeasureSectionMigrationTests : IDisposable
 {
+    [Fact]
+    public void Layout_intent_uses_a_new_schema_so_older_writers_cannot_silently_drop_it()
+    {
+        var draft = LegacyDraft("layout-version", false);
+        _store.Save(AuthoringDocumentDto.FromDraft(draft));
+        using var saved = JsonDocument.Parse(File.ReadAllBytes(_store.GetDocumentPath(draft.PlanId)));
+        Assert.True(saved.RootElement.GetProperty("schemaVersion").GetInt32() > 2);
+        Assert.Equal(AuthoringDocumentDto.CurrentSchemaVersion, saved.RootElement.GetProperty("schemaVersion").GetInt32());
+        Assert.True(saved.RootElement.GetProperty("hasConfigurableMeasureSections").GetBoolean());
+        var current = Open();
+        Assert.IsNotType<SectionNode>(Assert.Single(current.SelectedProgram!.Measure));
+        Assert.False(current.Workspace!.IsReadOnly);
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    public void Existing_source_versions_remain_readable_and_only_upgrade_on_save(int version)
+    {
+        var draft = LegacyDraft("older-source", false);
+        var source = AuthoringDocumentDto.FromDraft(draft) with { SchemaVersion = version };
+        var json = System.Text.Json.Nodes.JsonNode.Parse(JsonSerializer.Serialize(source, AuthoringDocumentJsonContext.Default.AuthoringDocumentDto))!.AsObject();
+        json.Remove("hasConfigurableMeasureSections");
+        var path = _store.GetDocumentPath(draft.PlanId);
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        File.WriteAllText(path, json.ToJsonString());
+        var before = File.ReadAllBytes(path);
+        var vm = Open();
+        Assert.IsType<SectionNode>(Assert.Single(vm.SelectedProgram!.Measure));
+        Assert.Equal(before, File.ReadAllBytes(path));
+        Assert.True(vm.SaveAll().Succeeded);
+        using var saved = JsonDocument.Parse(File.ReadAllBytes(path));
+        Assert.Equal(AuthoringDocumentDto.CurrentSchemaVersion, saved.RootElement.GetProperty("schemaVersion").GetInt32());
+        Assert.True(saved.RootElement.GetProperty("hasConfigurableMeasureSections").GetBoolean());
+    }
+
     private readonly string _root = Path.Combine(Path.GetTempPath(), "ht-measure-migration-" + Guid.NewGuid().ToString("N"));
     private readonly List<AuthoringWorkspaceViewModel> _models = [];
     private readonly AuthoringDocumentStore _store;
