@@ -68,12 +68,20 @@ internal static class AuthoringPackageDownloads
     private static bool IsBundled(string name) => new[] { "OpenTAP", "HardwareTest Basic", "HardwareTest Mixins",
         "HardwareTest Standalone VISA", OpenTapHomeBootstrapper.InstrumentComponentsPackageName }.Contains(name, StringComparer.OrdinalIgnoreCase);
 
+    private static IPackageRepository CreateRepository(string repositoryUrl)
+    {
+        // A bootstrap child can reach downloads before any plan import initializes
+        // OpenTAP's resolver for SDK assemblies shipped under Dependencies/.
+        AuthoringPluginSearch.Search();
+        return new HttpPackageRepository(repositoryUrl);
+    }
+
     private static void Download(AuthoringPackageDependency requirement, string repositoryUrl, string destination)
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(2));
         try
         {
-            IPackageRepository repository = new HttpPackageRepository(repositoryUrl);
+            var repository = CreateRepository(repositoryUrl);
             var specifier = new PackageSpecifier(requirement.Package, VersionSpecifier.Parse(requirement.Version), ArchitectureHelper.HostArchitecture, HostOS);
             var package = repository.GetPackages(specifier, timeout.Token, [])
                 .Where(p => p.Name.Equals(requirement.Package, StringComparison.OrdinalIgnoreCase)

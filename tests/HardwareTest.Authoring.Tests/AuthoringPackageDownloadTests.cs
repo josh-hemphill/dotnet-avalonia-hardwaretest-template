@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.IO.Compression;
 using System.Xml.Linq;
 using HardwareTest.Authoring;
@@ -11,6 +12,23 @@ public sealed class AuthoringPackageDownloadTests : IDisposable
     private readonly string root = Path.Combine(Path.GetTempPath(), "ht-download-tests-" + Guid.NewGuid().ToString("N"));
     public AuthoringPackageDownloadTests() => Directory.CreateDirectory(root);
     public void Dispose() => Directory.Delete(root, recursive: true);
+
+    [Fact]
+    public async Task Cold_process_can_create_the_real_repository_client_without_a_prior_plan_import()
+    {
+        var start = new ProcessStartInfo("dotnet")
+        { UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true };
+        start.ArgumentList.Add(Path.Combine(AppContext.BaseDirectory, "HardwareTest.Authoring.ProcessFixture.dll"));
+        start.ArgumentList.Add("--cold-package-repository");
+        using var child = Process.Start(start)!;
+        var stdout = child.StandardOutput.ReadToEndAsync();
+        var stderr = child.StandardError.ReadToEndAsync();
+        try { await child.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(30)); }
+        finally { if (!child.HasExited) { child.Kill(entireProcessTree: true); await child.WaitForExitAsync(); } }
+        var output = await stdout + await stderr;
+        Assert.True(child.ExitCode == 0, output);
+        Assert.Contains("cold-repository-client-ready", output);
+    }
 
     [Fact]
     public void Preparation_downloads_required_and_transitive_packages_reuses_installed_and_skips_optional()

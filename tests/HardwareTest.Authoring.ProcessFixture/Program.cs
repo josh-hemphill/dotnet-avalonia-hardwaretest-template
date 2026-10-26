@@ -4,6 +4,19 @@ using System.Runtime.InteropServices;
 using System.Text.Json;
 using HardwareTest.Authoring;
 
+// Exercise the production client factory before any plan import initializes OpenTAP.
+if (args is ["--cold-package-repository"])
+{
+    if (AppDomain.CurrentDomain.GetAssemblies().Any(assembly => assembly.GetName().Name == "OpenTap.Repository.Client"))
+        throw new InvalidOperationException("Repository fixture must start cold.");
+    var downloads = typeof(OpenTapHomeBootstrapper).Assembly.GetType("HardwareTest.Authoring.AuthoringPackageDownloads", throwOnError: true)!;
+    var factory = downloads.GetMethod("CreateRepository", BindingFlags.NonPublic | BindingFlags.Static)!;
+    var repository = factory.Invoke(null, ["https://packages.example.test"]);
+    if (repository?.GetType().Name != "HttpPackageRepository") throw new InvalidOperationException("Repository client was not created.");
+    Console.WriteLine("cold-repository-client-ready");
+    return 0;
+}
+
 // A real process harness delegates all work to the production child protocol.
 // Release files let tests stop at deterministic boundaries without production delay flags.
 if (args.Length == 2 && args[0] == AuthoringOperationHost.Switch)
