@@ -19,7 +19,8 @@ permissions:
 jobs:
   suite:
     runs-on: ${{ inputs.rid == 'win-x64' && 'windows-latest' || 'ubuntu-latest' }}
-    timeout-minutes: 75
+    # Windows runs host, authoring, UI, architecture, E2E and VM validation in one job.
+    timeout-minutes: ${{ inputs.suite == 'windows' && 90 || 75 }}
     env:
       DOTNET_CLI_TELEMETRY_OPTOUT: "1"
       DOTNET_NOLOGO: "1"
