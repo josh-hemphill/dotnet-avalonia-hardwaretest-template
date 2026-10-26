@@ -6,6 +6,26 @@ namespace HardwareTest.Authoring.Tests;
 public sealed class AuthoringAppSettingsTests
 {
     [Fact]
+    public void Rejected_repository_credentials_are_never_saved_or_included_in_manual_download_requests()
+    {
+        var store = NewStore();
+        var vm = new AuthoringWorkspaceViewModel(preferences: store);
+        vm.PackageRepositoryUrl = "https://packages.example.test/feed";
+        const string rejected = "https://user:private-password@packages.example.test/feed?token=private-token";
+        vm.PackageRepositoryUrl = rejected;
+        Assert.Equal(rejected, vm.PackageRepositoryUrl);
+        Assert.NotNull(vm.PackageRepositoryError);
+        Assert.Equal(rejected, vm.ResolveBootstrapOptions(null).PackageRepositoryUrl);
+        Assert.DoesNotContain("private-password", File.ReadAllText(store.FilePath));
+        Assert.DoesNotContain("private-token", vm.PackageRequirementsText);
+        Assert.DoesNotContain("private-password", vm.PackageRequirementsText);
+        Assert.Equal("https://packages.example.test/feed", Reload(store.FilePath).Current.PackageRepositoryUrl);
+        vm.PackageRepositoryUrl = "https://replacement.example.test";
+        Assert.Null(vm.PackageRepositoryError);
+        Assert.Equal(vm.PackageRepositoryUrl, Reload(store.FilePath).Current.PackageRepositoryUrl);
+    }
+
+    [Fact]
     public void Package_download_preferences_persist_and_explicit_offline_preparation_wins()
     {
         var store = NewStore();

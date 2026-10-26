@@ -6,6 +6,23 @@ namespace HardwareTest.Authoring.UI.Tests;
 
 public sealed class EmptyPlanAuthoringTests
 {
+    [AvaloniaFact]
+    public void Empty_flat_plan_does_not_present_the_cleanup_placeholder_as_an_editable_first_step()
+    {
+        using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
+        var window = fixture.Show(); fixture.OpenRememberedWorkspace();
+        fixture.ViewModel.InitializePlan(new("flat-empty"));
+        fixture.ViewModel.ReplaceSelected(fixture.ViewModel.SelectedProgram! with { Measure = [] });
+        AuthoringUiFixture.Drain();
+        Assert.True(fixture.Control<TextBlock>("Empty step editor guidance").IsEffectivelyVisible);
+        Assert.False(fixture.Control<ScrollViewer>("Selected step inspector").IsEffectivelyVisible);
+        AuthoringUiFixture.Click(fixture.Control<Button>("Add first sequence step"));
+        var palette = Assert.Single(window.OwnedWindows);
+        AuthoringUiFixture.Click(fixture.Control<Button>("Add recipe", palette));
+        Assert.False(fixture.Control<TextBlock>("Empty step editor guidance").IsEffectivelyVisible);
+        Assert.True(fixture.Control<ScrollViewer>("Selected step inspector").IsEffectivelyVisible);
+    }
+
     [AvaloniaTheory]
     [InlineData(960, 600, 20)]
     [InlineData(1280, 800, 14)]

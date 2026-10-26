@@ -72,7 +72,7 @@ public sealed class EnvironmentPresentationTests
         Assert.Contains("HTTPS", fixture.Control<TextBlock>("Environment repository validation").Text);
         Assert.True(fixture.Control<Button>("Import offline authoring package").IsEffectivelyEnabled);
         AuthoringUiFixture.Click(fixture.Control<Button>("Copy package requirements"));
-        Assert.Contains("Package repository: http://invalid.example.test", await window.Clipboard!.TryGetTextAsync());
+        Assert.Contains("correct the invalid URL", await window.Clipboard!.TryGetTextAsync());
         Assert.True(fixture.Control<Button>("Open Instrument Components releases").IsEffectivelyEnabled);
     }
 

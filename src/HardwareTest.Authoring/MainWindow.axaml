@@ -184,16 +184,12 @@
                   <Button Content="Preview" Tag="5" Click="OnNavigateTask" AutomationProperties.Name="Open full preview" Classes="authoringAction"/>
                 </StackPanel>
               </Grid>
-              <Border Grid.Row="1" IsVisible="{Binding HasSelectedPlan}" Classes="surface taskSection">
-                <Grid ColumnDefinitions="*,*" ColumnSpacing="16" IsEnabled="{Binding CanEditProgramSettings}">
-                  <StackPanel Spacing="4">
-                    <TextBlock x:Name="SequencePlanTitleLabel" Text="Plan title" FontWeight="SemiBold"/>
-                    <TextBox Text="{Binding DisplayName}" PlaceholderText="Give this test plan a title" AutomationProperties.Name="Sequence plan title" AutomationProperties.LabeledBy="{Binding #SequencePlanTitleLabel}"/>
-                  </StackPanel>
-                  <StackPanel Grid.Column="1" Spacing="4">
-                    <TextBlock x:Name="SequenceDeviceFamilyLabel" Text="Device family" FontWeight="SemiBold"/>
-                    <TextBox Text="{Binding DutFamily}" PlaceholderText="e.g. Controller board" AutomationProperties.Name="Sequence device family" AutomationProperties.LabeledBy="{Binding #SequenceDeviceFamilyLabel}"/>
-                  </StackPanel>
+              <Border Grid.Row="1" IsVisible="{Binding HasSelectedPlan}" Classes="surface" Padding="12,8">
+                <Grid ColumnDefinitions="Auto,*,Auto,*" ColumnSpacing="12" IsEnabled="{Binding CanEditProgramSettings}">
+                    <TextBlock x:Name="SequencePlanTitleLabel" Text="Plan title" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                    <TextBox Grid.Column="1" Text="{Binding DisplayName}" PlaceholderText="Give this test plan a title" AutomationProperties.Name="Sequence plan title" AutomationProperties.LabeledBy="{Binding #SequencePlanTitleLabel}"/>
+                    <TextBlock Grid.Column="2" x:Name="SequenceDeviceFamilyLabel" Text="Device family" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                    <TextBox Grid.Column="3" Text="{Binding DutFamily}" PlaceholderText="e.g. Controller board" AutomationProperties.Name="Sequence device family" AutomationProperties.LabeledBy="{Binding #SequenceDeviceFamilyLabel}"/>
                 </Grid>
               </Border>
               <Grid x:Name="ProgramLayout" Grid.Row="2" ColumnDefinitions="*,16,400">
@@ -202,7 +198,8 @@
                 <Border Grid.Column="2" Classes="surface" Padding="16">
                   <Grid RowDefinitions="Auto,*" RowSpacing="12">
                     <StackPanel Spacing="4"><TextBlock Text="Step editor" FontSize="18" FontWeight="SemiBold" AutomationProperties.HeadingLevel="2" ToolTip.Tip="{Binding SelectedDependencySummary}" AutomationProperties.HelpText="{Binding SelectedDependencySummary}"/></StackPanel>
-                    <vm:SelectedStepInspectorView Grid.Row="1"/>
+                    <TextBlock Grid.Row="1" IsVisible="{Binding EmptyPlanStepHintVisible}" Text="Add your first step to edit its name, message and settings here." Classes="purpose" TextWrapping="Wrap" AutomationProperties.Name="Empty step editor guidance"/>
+                    <vm:SelectedStepInspectorView Grid.Row="1" IsVisible="{Binding !EmptyPlanStepHintVisible}"/>
                   </Grid>
                 </Border>
               </Grid>

@@ -62,6 +62,6 @@ public sealed partial class AuthoringWorkspaceViewModel
     public string PackageRequirementsText => "Required packages for this workspace" + Environment.NewLine
         + string.Join(Environment.NewLine, EnvironmentPackages.Select(package => package.DisplayText))
         + Environment.NewLine + "Request matching .TapPackage or .zip archives from the package publisher or your team's release artifacts."
-        + Environment.NewLine + "Package repository: " + PackageRepositoryUrl
+        + Environment.NewLine + "Package repository: " + (PackageRepositoryError is null ? PackageRepositoryUrl : "correct the invalid URL in Environment.")
         + Environment.NewLine + "Instrument Components releases: https://github.com/josh-hemphill/instrument-components/releases";
 }

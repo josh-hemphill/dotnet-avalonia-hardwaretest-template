@@ -43,6 +43,7 @@ public sealed partial class AuthoringWorkspaceViewModel
     public bool NeedsFirstPlan => HasWorkspace && SelectedProgram is null;
     public bool IsSequenceEmpty => SelectedProgram is { Setup.Count: 0, Measure.Count: 0, Cleanup.IncludeSafeShutdown: false };
     public bool HasSequenceContent => HasSelectedPlan && !IsSequenceEmpty;
+    public bool EmptyPlanStepHintVisible => IsSequenceEmpty && SelectedSequence?.Kind != SequenceRowKind.Section;
     public bool CanRenameSequence => CanEditSequence && (SelectedSequence?.Kind is SequenceRowKind.Metric or SequenceRowKind.Section
         || SelectedSetup is OperatorPromptSetup or OperatorInputSetup);
     public bool CanDuplicateSequence => CanEditSequence && (SelectedSequence?.Kind is SequenceRowKind.Metric or SequenceRowKind.Repeat or SequenceRowKind.Section
@@ -149,6 +150,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         OnPropertyChanged(nameof(NeedsFirstPlan));
         OnPropertyChanged(nameof(IsSequenceEmpty));
         OnPropertyChanged(nameof(HasSequenceContent));
+        OnPropertyChanged(nameof(EmptyPlanStepHintVisible));
         OnPropertyChanged(nameof(CanRenameSequence));
         OnPropertyChanged(nameof(CanDuplicateSequence));
         OnPropertyChanged(nameof(CanMoveSequence));

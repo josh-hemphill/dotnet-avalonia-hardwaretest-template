@@ -3,7 +3,7 @@
     x:Class="HardwareTest.Authoring.SequenceEditorView" x:DataType="vm:AuthoringWorkspaceViewModel">
   <Grid RowDefinitions="Auto,*" RowSpacing="12" AutomationProperties.Name="Sequence editor">
     <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
-      <StackPanel Spacing="4" VerticalAlignment="Center"><TextBlock Text="RUN ORDER" Classes="eyebrow"/><TextBlock Text="Select a step or section to configure it" Classes="purpose" TextWrapping="Wrap"/></StackPanel>
+      <TextBlock Text="Steps" FontWeight="SemiBold" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
       <Button Grid.Column="1" x:Name="SectionActionsButton" Content="Sections ▾" Classes="authoringAction" AutomationProperties.Name="Manage test sections" IsEnabled="{Binding CanEditSequence}">
         <Button.Flyout><Flyout><ScrollViewer Width="300" MaxHeight="360" HorizontalScrollBarVisibility="Disabled"><StackPanel Spacing="8" Classes="workspaceMenu">
           <TextBlock Text="Device test sections" Classes="sectionTitle"/>

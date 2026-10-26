@@ -17,6 +17,7 @@ public sealed partial class AuthoringWorkspaceViewModel
     public bool PreferencesEditable => !PreferencesReadOnly;
 
     public bool PackageDownloadSettingsEditable => PreferencesEditable && !OperationBusy;
+    private string? _packageRepositoryUrlEdit;
 
     public bool DownloadRequiredPackages
     {
@@ -32,13 +33,24 @@ public sealed partial class AuthoringWorkspaceViewModel
 
     public string PackageRepositoryUrl
     {
-        get => Prefs.PackageRepositoryUrl;
+        get => _packageRepositoryUrlEdit ?? Prefs.PackageRepositoryUrl;
         set
         {
-            if (!PackageDownloadSettingsEditable || value == Prefs.PackageRepositoryUrl) return;
-            // Keep an invalid edit visible so it can be corrected without silently using another source.
-            Prefs.PackageRepositoryUrl = value?.Trim() ?? string.Empty;
-            PersistPreferences();
+            if (!PackageDownloadSettingsEditable || value == PackageRepositoryUrl) return;
+            var edited = value?.Trim() ?? string.Empty;
+            try
+            {
+                AuthoringPackageDownloads.RepositoryUri(edited);
+                _packageRepositoryUrlEdit = null;
+                Prefs.PackageRepositoryUrl = edited;
+                PersistPreferences();
+            }
+            catch (AuthoringWorkspaceException)
+            {
+                // Retain a rejected edit for correction, but never persist URL credentials
+                // or accidentally use the previously saved source for this operation.
+                _packageRepositoryUrlEdit = edited;
+            }
             OnPropertyChanged();
             OnPropertyChanged(nameof(PackageRepositoryError));
             OnPropertyChanged(nameof(PackageRequirementsText));

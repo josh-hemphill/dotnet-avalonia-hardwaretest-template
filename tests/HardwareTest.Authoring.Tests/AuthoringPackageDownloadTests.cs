@@ -32,8 +32,13 @@ public sealed class AuthoringPackageDownloadTests : IDisposable
                 WriteArchive(path, requirement.Package, "1.2.0", requirement.Package == "Required fixture" ? "Transitive fixture" : null);
             }
         };
-        var options = new BootstrapOptions { HomeDirectory = Path.Combine(root, "selected"), Offline = false,
-            PackageRepositoryUrl = "https://packages.example.test/feed", Progress = stages.Add };
+        var options = new BootstrapOptions
+        {
+            HomeDirectory = Path.Combine(root, "selected"),
+            Offline = false,
+            PackageRepositoryUrl = "https://packages.example.test/feed",
+            Progress = stages.Add
+        };
         var home = bootstrap.Bootstrap(workspace, options);
         Assert.Equal(["Required fixture", "Transitive fixture"], requested);
         Assert.True(AuthoringEnvironmentAssessment.Packages(manifest, home).Single(p => !p.Optional).Satisfied);
