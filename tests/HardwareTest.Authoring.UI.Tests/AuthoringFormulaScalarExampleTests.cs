@@ -16,7 +16,7 @@ public sealed class AuthoringFormulaScalarExampleTests
         Assert.Contains("Scalar publisher", vm.PreviewNote);
         vm.Apply(); AuthoringUiFixture.Drain(); await vm.WaitForBuildInspectionAsync(); Assert.True(vm.HasUncompiledSources); Assert.False(vm.CanPack);
         vm.FormulaExplorationOnly = true; vm.Apply(); AuthoringUiFixture.Drain();
-        await fixture.WaitForPreviewAsync();
+        await fixture.WaitForReadinessAsync();
         await vm.WaitForBuildInspectionAsync();
         Assert.False(vm.HasUncompiledSources, vm.Error ?? vm.SavePreviewWarning ?? vm.Status); Assert.True(vm.CanPack);
         Assert.NotEmpty(vm.Preview.CannedSamples); Assert.Equal("Missing deployment requirements", vm.FormulaDeploymentLabel);
@@ -31,7 +31,7 @@ public sealed class AuthoringFormulaScalarExampleTests
         vm.SelectSequence(vm.SequenceItems.ToList().FindIndex(row => row.NodeId == scalar.NodeId));
         vm.SetMetricSetting("Value", "abc");
         vm.SelectSequence(vm.SequenceItems.ToList().FindIndex(row => row.NodeId == formula)); AuthoringUiFixture.Drain();
-        await fixture.WaitForPreviewAsync();
+        await fixture.WaitForReadinessAsync();
         Assert.Empty(vm.Preview.CannedSamples); Assert.Contains("BUILD_INCOMPLETE", vm.Preview.Note);
         vm.Apply(); AuthoringUiFixture.Drain(); await vm.WaitForBuildInspectionAsync(); Assert.True(vm.HasUncompiledSources); Assert.False(vm.CanPack);
     }
@@ -44,6 +44,6 @@ public sealed class AuthoringFormulaScalarExampleTests
         fixture.Show(); fixture.OpenRememberedWorkspace();
         var vm = fixture.ViewModel; vm.CreateDemoProgram("scalar-example");
         vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Acquire); vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.BandScalar); vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Formula);
-        vm.FormulaSource = "mean(rail.mean)"; await fixture.WaitForPreviewAsync(); return fixture;
+        vm.FormulaSource = "mean(rail.mean)"; await fixture.WaitForReadinessAsync(); return fixture;
     }
 }
