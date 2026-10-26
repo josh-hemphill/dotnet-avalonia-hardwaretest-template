@@ -11,31 +11,31 @@ public sealed class AuthoringFormulaIncompleteInputTests
     {
         using var fixture = Open(); var vm = fixture.ViewModel;
         vm.FormulaSource = "mean(VDC)"; vm.Threshold = "0";
-        await fixture.WaitForPreviewAsync();
+        await fixture.WaitForReadinessAsync();
         Assert.Equal("Deployable recipe", vm.FormulaDeploymentLabel);
         fixture.Type(fixture.Control<TextBox>("Threshold"), "abc");
-        await fixture.WaitForPreviewAsync();
+        await fixture.WaitForReadinessAsync();
         AssertIncomplete(vm, "Threshold");
         Assert.True(vm.FormulaNeedsThreshold);
         AuthoringUiFixture.Click(fixture.Control<Button>("Set formula deployment threshold"));
         Assert.True(fixture.Control<TextBox>("Threshold").IsFocused);
         vm.Apply(); Assert.True(vm.HasUncompiledSources); Assert.False(vm.CanPack);
         vm.Undo(); AuthoringUiFixture.Drain();
-        await fixture.WaitForPreviewAsync();
+        await fixture.WaitForReadinessAsync();
         Assert.Equal("0", vm.Threshold); Assert.Equal("Deployable recipe", vm.FormulaDeploymentLabel);
         Assert.False(vm.FormulaNeedsThreshold);
-        vm.Redo(); AuthoringUiFixture.Drain(); await fixture.WaitForPreviewAsync(); AssertIncomplete(vm, "Threshold");
+        vm.Redo(); AuthoringUiFixture.Drain(); await fixture.WaitForReadinessAsync(); AssertIncomplete(vm, "Threshold");
         var id = vm.SelectedSequence!.NodeId; var plan = vm.SelectedProgram!.PlanId;
         vm.FormulaExplorationOnly = true; vm.Apply(); AuthoringUiFixture.Drain();
-        await fixture.WaitForPreviewAsync();
+        await fixture.WaitForReadinessAsync();
         await vm.WaitForBuildInspectionAsync();
         Assert.False(vm.HasUncompiledSources, vm.Error ?? vm.SavePreviewWarning ?? vm.Status); Assert.True(vm.CanPack);
         vm.Open(fixture.WorkspaceRoot); fixture.NavigateTask(0); vm.SelectProgram(plan);
         vm.SelectSequence(vm.SequenceItems.ToList().FindIndex(row => row.NodeId == id)); AuthoringUiFixture.Drain();
-        await fixture.WaitForPreviewAsync();
+        await fixture.WaitForReadinessAsync();
         Assert.True(vm.FormulaExplorationOnly); Assert.Equal("abc", vm.Threshold); AssertIncomplete(vm, "Threshold");
         fixture.Type(fixture.Control<TextBox>("Threshold"), "0"); vm.FormulaExplorationOnly = false; AuthoringUiFixture.Drain(); vm.Apply(); AuthoringUiFixture.Drain();
-        await fixture.WaitForPreviewAsync();
+        await fixture.WaitForReadinessAsync();
         await vm.WaitForBuildInspectionAsync();
         Assert.Equal("Deployable recipe", vm.FormulaDeploymentLabel); Assert.False(vm.HasUncompiledSources, vm.Error ?? vm.SavePreviewWarning ?? vm.Status); Assert.True(vm.CanPack);
     }
@@ -52,12 +52,12 @@ public sealed class AuthoringFormulaIncompleteInputTests
         vm.SelectSequence(vm.SequenceItems.ToList().FindIndex(row => row.NodeId == input)); AuthoringUiFixture.Drain();
         fixture.Type(fixture.Control<TextBox>(setting), "abc");
         vm.SelectSequence(vm.SequenceItems.ToList().FindIndex(row => row.NodeId == formula)); AuthoringUiFixture.Drain();
-        await fixture.WaitForPreviewAsync();
+        await fixture.WaitForReadinessAsync();
         AssertIncomplete(vm, "MetricSetting:" + setting);
         Assert.False(vm.FormulaNeedsThreshold);
         vm.Apply(); Assert.True(vm.HasUncompiledSources); Assert.False(vm.CanPack);
-        vm.Undo(); vm.SelectSequence(vm.SequenceItems.ToList().FindIndex(row => row.NodeId == formula)); AuthoringUiFixture.Drain(); await fixture.WaitForPreviewAsync(); Assert.Equal("Deployable recipe", vm.FormulaDeploymentLabel); Assert.Null(vm.Preview.Note);
-        vm.Redo(); vm.SelectSequence(vm.SequenceItems.ToList().FindIndex(row => row.NodeId == formula)); AuthoringUiFixture.Drain(); await fixture.WaitForPreviewAsync(); AssertIncomplete(vm, "MetricSetting:" + setting);
+        vm.Undo(); vm.SelectSequence(vm.SequenceItems.ToList().FindIndex(row => row.NodeId == formula)); AuthoringUiFixture.Drain(); await fixture.WaitForReadinessAsync(); Assert.Equal("Deployable recipe", vm.FormulaDeploymentLabel); Assert.Null(vm.Preview.Note);
+        vm.Redo(); vm.SelectSequence(vm.SequenceItems.ToList().FindIndex(row => row.NodeId == formula)); AuthoringUiFixture.Drain(); await fixture.WaitForReadinessAsync(); AssertIncomplete(vm, "MetricSetting:" + setting);
     }
 
     [AvaloniaFact]
@@ -68,7 +68,7 @@ public sealed class AuthoringFormulaIncompleteInputTests
         vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Acquire); vm.SelectMeasure(vm.SelectedProgram!.Measure.Count - 1);
         vm.ChannelKey = "unrelated"; vm.SetMetricSetting("IntervalMs", "abc");
         vm.SelectSequence(vm.SequenceItems.ToList().FindIndex(row => row.NodeId == formula)); AuthoringUiFixture.Drain();
-        await fixture.WaitForPreviewAsync();
+        await fixture.WaitForReadinessAsync();
         Assert.Equal("Deployable recipe", vm.FormulaDeploymentLabel); Assert.Null(vm.Preview.Note);
         vm.Apply(); Assert.True(vm.HasUncompiledSources); Assert.False(vm.CanPack);
     }
