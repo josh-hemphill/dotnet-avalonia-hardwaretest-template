@@ -16,7 +16,23 @@ public sealed partial class StandaloneBoundaryTests : IDisposable
 {
     private readonly string _root = Path.Combine(Path.GetTempPath(), "ht-standalone-test-" + Guid.NewGuid().ToString("N"));
     public StandaloneBoundaryTests() => Directory.CreateDirectory(_root);
-    public void Dispose() => Directory.Delete(_root, recursive: true);
+    public void Dispose() => RemoveOwnedDirectory(_root);
+
+    private static void RemoveOwnedDirectory(string directory)
+    {
+        // Child exit is awaited before cleanup, but Windows can briefly retain a
+        // mapped DLL handle. Keep persistent access failures visible to the test.
+        var elapsed = Stopwatch.StartNew();
+        while (true)
+        {
+            try { Directory.Delete(directory, recursive: true); return; }
+            catch (DirectoryNotFoundException) { return; }
+            catch (Exception error) when (OperatingSystem.IsWindows()
+                && error is IOException or UnauthorizedAccessException
+                && elapsed.Elapsed < TimeSpan.FromSeconds(10))
+            { Thread.Sleep(25); }
+        }
+    }
 
     [Fact]
     public async Task Genuine_installed_home_actual_wrapper_dispatch_registers_and_preserves_provider_and_exit_code()
